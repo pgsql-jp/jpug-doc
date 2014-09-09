@@ -1,44 +1,55 @@
 <!-- doc/src/sgml/xaggr.sgml -->
 
  <sect1 id="xaggr">
+<!--
   <title>User-defined Aggregates</title>
+-->
+  <title>ユーザ定義の集約</title>
 
   <indexterm zone="xaggr">
+<!--
    <primary>aggregate function</primary>
    <secondary>user-defined</secondary>
+-->
+   <primary>集約関数</primary>
+   <secondary>ユーザ定義</secondary>
   </indexterm>
 
   <para>
-   Aggregate functions in <productname>PostgreSQL</productname>
-   are defined in terms of <firstterm>state values</firstterm>
+<!--
+   Aggregate functions  in <productname>PostgreSQL</productname>
+   are expressed in terms of <firstterm>state values</firstterm>
    and <firstterm>state transition functions</firstterm>.
    That is, an aggregate operates using a state value that is updated
    as each successive input row is processed.
    To define a new aggregate
    function, one selects a data type for the state value,
    an initial value for the state, and a state transition
-   function.  The state transition function takes the previous state
-   value and the aggregate's input value(s) for the current row, and
-   returns a new state value.
-   A <firstterm>final function</firstterm>
+   function.  The state transition function is just an
+   ordinary function that could also be used outside the
+   context of the aggregate.  A <firstterm>final function</firstterm>
    can also be specified, in case the desired result of the aggregate
    is different from the data that needs to be kept in the running
-   state value.  The final function takes the last state value
-   and returns whatever is wanted as the aggregate result.
-   In principle, the transition and final functions are just ordinary
-   functions that could also be used outside the context of the
-   aggregate.  (In practice, it's often helpful for performance reasons
-   to create specialized transition functions that can only work when
-   called as part of an aggregate.)
+   state value.
+-->
+<productname>PostgreSQL</productname>における集約関数は、<firstterm>状態値</firstterm>と<firstterm>状態遷移関数</firstterm>で表現されています。
+つまり、1つの集約は入力行が処理される度に変更される状態値を使用して演算されます。
+新しい集約関数を定義するためには、状態値のデータ型、状態の初期値、そして状態遷移関数を選択します。
+状態遷移関数はただの普通の関数で、集約以外の文脈でも使うことができます。
+求められる集約の結果が遷移する状態値の中に保持しなければならないデータと違う場合は、<firstterm>最終関数</firstterm>も指定することができます。
   </para>
 
   <para>
+<!--
    Thus, in addition to the argument and result data types seen by a user
    of the aggregate, there is an internal state-value data type that
    might be different from both the argument and result types.
+-->
+したがって、集約のユーザに見える引数と結果のデータ型に加え、引数と結果の型のどちらとも違う可能性がある内部状態値のデータ型があります。
   </para>
 
   <para>
+<!--
    If we define an aggregate that does not use a final function,
    we have an aggregate that computes a running function of
    the column values from each row.  <function>sum</>  is  an
@@ -48,60 +59,80 @@
    aggregate to work on a data type for complex numbers,
    we only need the addition function for that data type.
    The aggregate definition would be:
+-->
+もし最終関数を使わない集約を定義したとすると、それぞれの行の列値で変動する関数で計算された結果の集約ができます。
+<function>sum</>はそのような集約の一例です。
+<function>sum</>は0から始まり、常に現在の行の値をその時点までの総和に追加します。
+例えば、もし<function>sum</>集約を複素数のデータ型で動作するようにしたければ、そのデータ型の加算関数だけが必要になります。
+集約定義は以下のようになります。
 
-<programlisting>
+<screen>
 CREATE AGGREGATE sum (complex)
 (
     sfunc = complex_add,
     stype = complex,
     initcond = '(0,0)'
 );
-</programlisting>
 
-   which we might use like this:
-
-<programlisting>
 SELECT sum(a) FROM test_complex;
 
    sum
 -----------
  (34,53.9)
-</programlisting>
+</screen>
 
+<!--
    (Notice that we are relying on function overloading: there is more than
     one aggregate named <function>sum</>, but
    <productname>PostgreSQL</productname> can figure out which kind
    of sum applies to a column of type <type>complex</type>.)
+-->
+（関数のオーバーライド機能に依存していることに注意してください。
+<function>sum</>という名前の集約関数は複数存在しますが、<productname>PostgreSQL</productname>は列の型<type>complex</type>に適用できるsum関数を見つけ出すことができます。）
   </para>
 
   <para>
-   The above definition of <function>sum</function> will return zero
-   (the initial state value) if there are no nonnull input values.
+<!--
+   The above definition of <function>sum</function> will return zero (the initial
+   state condition) if there are no nonnull input values.
    Perhaps we want to return null in that case instead &mdash; the SQL standard
    expects <function>sum</function> to behave that way.  We can do this simply by
    omitting the <literal>initcond</literal> phrase, so that the initial state
-   value is null.  Ordinarily this would mean that the <literal>sfunc</literal>
-   would need to check for a null state-value input.  But for
+   condition is null.  Ordinarily this would mean that the <literal>sfunc</literal>
+   would need to check for a null state-condition input.  But for
    <function>sum</function> and some other simple aggregates like
    <function>max</> and <function>min</>,
    it is sufficient to insert the first nonnull input value into
    the state variable and then start applying the transition function
    at the second nonnull input value.  <productname>PostgreSQL</productname>
-   will do that automatically if the initial state value is null and
+   will do that automatically if the initial condition is null and
    the transition function is marked <quote>strict</> (i.e., not to be called
    for null inputs).
+-->
+上記の<function>sum</function>の定義は、もし非NULLの入力値がなければ0（初期状態）を返します。
+その場合本来は代わりにNULLを返したいのではないかと思いますし、標準SQLでは<function>sum</function>がそのように動作することを期待しています。
+そうするためには単に<literal>initcond</literal>句を省略すれば、初期状態がNULLになります。
+通常はそうすると、<literal>sfunc</literal>がNULL状態の入力をチェックしなければいけないということを意味します。
+しかし<function>sum</function>や、その他<function>max</function>、<function>min</function>のような単純な集約にとっては、最初の非NULL入力値を状態変数に挿入し、2番目の非NULL入力値で状態遷移関数を当てはめ始めれば十分です。
+<productname>PostgreSQL</productname>は、もし初期状態がNULLで状態遷移関数が<quote>厳密（strict）</>と設定されている場合、自動的にそれを実行します（つまりNULL入力では呼び出されないようになります）。
   </para>
 
   <para>
+<!--
    Another bit of default behavior for a <quote>strict</> transition function
    is that the previous state value is retained unchanged whenever a
    null input value is encountered.  Thus, null values are ignored.  If you
    need some other behavior for null inputs, do not declare your
    transition function as strict; instead code it to test for null inputs and
    do whatever is needed.
+-->
+もう1つの<quote>厳密</>な状態遷移関数のデフォルト動作としては、NULL入力値が現れると前の状態値が変わらずに維持されるということがあります。
+したがって、NULL値は無視されます。
+もしNULL入力に対し他の動作が必要な場合は、状態遷移関数を厳密として定義しないで、NULL入力の検査を行うようにコーディングし、必要なことをすればよいのです。
   </para>
 
   <para>
+<!--
    <function>avg</> (average) is a more complex example of an aggregate.
    It requires
    two pieces of running state: the sum of the inputs and the count
@@ -110,6 +141,12 @@ SELECT sum(a) FROM test_complex;
    array as the state value.  For example,
    the built-in implementation of <function>avg(float8)</function>
    looks like:
+-->
+<function>avg</>（平均値計算）はもっと複雑な集約の一例です。
+それには2つの変動する状態が必要になります。入力の合計と入力数のカウントです。
+最終的な結果はこれらの値を割算することによって得られます。
+平均値計算は典型的に配列を状態遷移値として使って実装されます。
+例えば、<function>avg(float8)</function>の組み込みの実装は以下のようになっています。
 
 <programlisting>
 CREATE AGGREGATE avg (float8)
@@ -120,173 +157,19 @@ CREATE AGGREGATE avg (float8)
     initcond = '{0,0,0}'
 );
 </programlisting>
-  </para>
 
-  <note>
-   <para>
-   <function>float8_accum</> requires a three-element array, not just
+<!--
+   (<function>float8_accum</> requires a three-element array, not just
    two elements, because it accumulates the sum of squares as well as
    the sum and count of the inputs.  This is so that it can be used for
-   some other aggregates as well as <function>avg</>.
-   </para>
-  </note>
-
-  <para>
-   Aggregate function calls in SQL allow <literal>DISTINCT</>
-   and <literal>ORDER BY</> options that control which rows are fed
-   to the aggregate's transition function and in what order.  These
-   options are implemented behind the scenes and are not the concern
-   of the aggregate's support functions.
+   some other aggregates besides <function>avg</>.)
+-->
+（<function>float8_accum</>は、入力の総和と個数だけではなく二乗和も蓄積しますので、２要素ではなく、３要素の配列を必要とします。
+<function>avg</>以外の何らかの集約でも使用できるようにするためです。）
   </para>
 
   <para>
-   For further details see the
-   <xref linkend="sql-createaggregate">
-   command.
-  </para>
-
- <sect2 id="xaggr-moving-aggregates">
-  <title>Moving-Aggregate Mode</title>
-
-  <indexterm>
-   <primary>moving-aggregate mode</primary>
-  </indexterm>
-
-  <indexterm>
-   <primary>aggregate function</primary>
-   <secondary>moving aggregate</secondary>
-  </indexterm>
-
-  <para>
-   Aggregate functions can optionally support <firstterm>moving-aggregate
-   mode</>, which allows substantially faster execution of aggregate
-   functions within windows with moving frame starting points.
-   (See <xref linkend="tutorial-window">
-   and <xref linkend="syntax-window-functions"> for information about use of
-   aggregate functions as window functions.)
-   The basic idea is that in addition to a normal <quote>forward</>
-   transition function, the aggregate provides an <firstterm>inverse
-   transition function</>, which allows rows to be removed from the
-   aggregate's running state value when they exit the window frame.
-   For example a <function>sum</> aggregate, which uses addition as the
-   forward transition function, would use subtraction as the inverse
-   transition function.  Without an inverse transition function, the window
-   function mechanism must recalculate the aggregate from scratch each time
-   the frame starting point moves, resulting in run time proportional to the
-   number of input rows times the average frame length.  With an inverse
-   transition function, the run time is only proportional to the number of
-   input rows.
-  </para>
-
-  <para>
-   The inverse transition function is passed the current state value and the
-   aggregate input value(s) for the earliest row included in the current
-   state.  It must reconstruct what the state value would have been if the
-   given input row had never been aggregated, but only the rows following
-   it.  This sometimes requires that the forward transition function keep
-   more state than is needed for plain aggregation mode.  Therefore, the
-   moving-aggregate mode uses a completely separate implementation from the
-   plain mode: it has its own state data type, its own forward transition
-   function, and its own final function if needed.  These can be the same as
-   the plain mode's data type and functions, if there is no need for extra
-   state.
-  </para>
-
-  <para>
-   As an example, we could extend the <function>sum</> aggregate given above
-   to support moving-aggregate mode like this:
-
-<programlisting>
-CREATE AGGREGATE sum (complex)
-(
-    sfunc = complex_add,
-    stype = complex,
-    initcond = '(0,0)',
-    msfunc = complex_add,
-    minvfunc = complex_sub,
-    mstype = complex,
-    minitcond = '(0,0)'
-);
-</programlisting>
-
-   The parameters whose names begin with <literal>m</> define the
-   moving-aggregate implementation.  Except for the inverse transition
-   function <literal>minvfunc</>, they correspond to the plain-aggregate
-   parameters without <literal>m</>.
-  </para>
-
-  <para>
-   The forward transition function for moving-aggregate mode is not allowed
-   to return null as the new state value.  If the inverse transition
-   function returns null, this is taken as an indication that the inverse
-   function cannot reverse the state calculation for this particular input,
-   and so the aggregate calculation will be redone from scratch for the
-   current frame starting position.  This convention allows moving-aggregate
-   mode to be used in situations where there are some infrequent cases that
-   are impractical to reverse out of the running state value.  The inverse
-   transition function can <quote>punt</> on these cases, and yet still come
-   out ahead so long as it can work for most cases.  As an example, an
-   aggregate working with floating-point numbers might choose to punt when
-   a <literal>NaN</> (not a number) input has to be removed from the running
-   state value.
-  </para>
-
-  <para>
-   When writing moving-aggregate support functions, it is important to be
-   sure that the inverse transition function can reconstruct the correct
-   state value exactly.  Otherwise there might be user-visible differences
-   in results depending on whether the moving-aggregate mode is used.
-   An example of an aggregate for which adding an inverse transition
-   function seems easy at first, yet where this requirement cannot be met
-   is <function>sum</> over <type>float4</> or <type>float8</> inputs.  A
-   naive declaration of <function>sum(<type>float8</>)</function> could be
-
-<programlisting>
-CREATE AGGREGATE unsafe_sum (float8)
-(
-    stype = float8,
-    sfunc = float8pl,
-    mstype = float8,
-    msfunc = float8pl,
-    minvfunc = float8mi
-);
-</programlisting>
-
-   This aggregate, however, can give wildly different results than it would
-   have without the inverse transition function. For example, consider
-
-<programlisting>
-SELECT
-  unsafe_sum(x) OVER (ORDER BY n ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING)
-FROM (VALUES (1, 1.0e20::float8),
-             (2, 1.0::float8)) AS v (n,x);
-</programlisting>
-
-   This query returns <literal>0</> as its second result, rather than the
-   expected answer of <literal>1</>.  The cause is the limited precision of
-   floating-point values: adding <literal>1</> to <literal>1e20</> results
-   in <literal>1e20</> again, and so subtracting <literal>1e20</> from that
-   yields <literal>0</>, not <literal>1</>.  Note that this is a limitation
-   of floating-point arithmetic in general, not a limitation
-   of <productname>PostgreSQL</>.
-  </para>
-
- </sect2>
-
- <sect2 id="xaggr-polymorphic-aggregates">
-  <title>Polymorphic and Variadic Aggregates</title>
-
-  <indexterm>
-   <primary>aggregate function</primary>
-   <secondary>polymorphic</secondary>
-  </indexterm>
-
-  <indexterm>
-   <primary>aggregate function</primary>
-   <secondary>variadic</secondary>
-  </indexterm>
-
-  <para>
+<!--
    Aggregate functions can use polymorphic
    state transition functions or final functions, so that the same functions
    can be used to implement multiple aggregates.
@@ -296,6 +179,12 @@ FROM (VALUES (1, 1.0e20::float8),
    with polymorphic input type(s) and state type, allowing a single
    aggregate definition to serve for multiple input data types.
    Here is an example of a polymorphic aggregate:
+-->
+集約関数は多様状態遷移関数や多様最終関数を使用することができます。
+これにより、同じ関数を使用して複数の集約を実装することができます。
+<xref linkend="extend-types-polymorphic">に多様関数の説明があります。
+もう少し細かく言うと、集約関数自身は、単一の集約定義で複数の入力データ型を扱うことができるように、多様入力型と多様状態型を指定することができるということです。
+以下に多様集約の例を示します。
 
 <programlisting>
 CREATE AGGREGATE array_accum (anyelement)
@@ -306,15 +195,23 @@ CREATE AGGREGATE array_accum (anyelement)
 );
 </programlisting>
 
-   Here, the actual state type for any given aggregate call is the array type
+<!--
+   Here, the actual state type for any aggregate call is the array type
    having the actual input type as elements.  The behavior of the aggregate
    is to concatenate all the inputs into an array of that type.
    (Note: the built-in aggregate <function>array_agg</> provides similar
    functionality, with better performance than this definition would have.)
+-->
+ここで、集約を行う呼び出し用の実際の状態型は、その実際の入力型がその要素となる、配列型です。
+集約の動作はその型の配列に全ての入力を連結することです。
+（組み込みの集約関数<function>array_agg</>は、この定義での動作よりもより良い性能で、類似の機能を提供します。）
   </para>
 
   <para>
+<!--
    Here's the output using two different actual data types as arguments:
+-->
+以下に異なる2つの実データ型を引数として使用した出力例を示します。
 
 <programlisting>
 SELECT attrelid::regclass, array_accum(attname)
@@ -340,215 +237,40 @@ SELECT attrelid::regclass, array_accum(atttypid::regtype)
   </para>
 
   <para>
-   Ordinarily, an aggregate function with a polymorphic result type has a
-   polymorphic state type, as in the above example.  This is necessary
-   because otherwise the final function cannot be declared sensibly: it
-   would need to have a polymorphic result type but no polymorphic argument
-   type, which <command>CREATE FUNCTION</> will reject on the grounds that
-   the result type cannot be deduced from a call.  But sometimes it is
-   inconvenient to use a polymorphic state type.  The most common case is
-   where the aggregate support functions are to be written in C and the
-   state type should be declared as <type>internal</> because there is
-   no SQL-level equivalent for it.  To address this case, it is possible to
-   declare the final function as taking extra <quote>dummy</> arguments
-   that match the input arguments of the aggregate.  Such dummy arguments
-   are always passed as null values since no specific value is available when the
-   final function is called.  Their only use is to allow a polymorphic
-   final function's result type to be connected to the aggregate's input
-   type(s).  For example, the definition of the built-in
-   aggregate <function>array_agg</> is equivalent to
-
-<programlisting>
-CREATE FUNCTION array_agg_transfn(internal, anyelement)
-  RETURNS internal ...;
-CREATE FUNCTION array_agg_finalfn(internal, anyelement)
-  RETURNS anyarray ...;
-
-CREATE AGGREGATE array_agg (anyelement)
-(
-    sfunc = array_agg_transfn,
-    stype = internal,
-    finalfunc = array_agg_finalfn,
-    finalfunc_extra
-);
-</programlisting>
-
-   Here, the <literal>finalfunc_extra</> option specifies that the final
-   function receives, in addition to the state value, extra dummy
-   argument(s) corresponding to the aggregate's input argument(s).
-   The extra <type>anyelement</> argument allows the declaration
-   of <function>array_agg_finalfn</> to be valid.
-  </para>
-
-  <para>
-   An aggregate function can be made to accept a varying number of arguments
-   by declaring its last argument as a <literal>VARIADIC</> array, in much
-   the same fashion as for regular functions; see
-   <xref linkend="xfunc-sql-variadic-functions">.  The aggregate's transition
-   function(s) must have the same array type as their last argument.  The
-   transition function(s) typically would also be marked <literal>VARIADIC</>,
-   but this is not strictly required.
-  </para>
-
-  <note>
-   <para>
-    Variadic aggregates are easily misused in connection with
-    the <literal>ORDER BY</> option (see <xref linkend="syntax-aggregates">),
-    since the parser cannot tell whether the wrong number of actual arguments
-    have been given in such a combination.  Keep in mind that everything to
-    the right of <literal>ORDER BY</> is a sort key, not an argument to the
-    aggregate.  For example, in
-<programlisting>
-SELECT myaggregate(a ORDER BY a, b, c) FROM ...
-</programlisting>
-    the parser will see this as a single aggregate function argument and
-    three sort keys.  However, the user might have intended
-<programlisting>
-SELECT myaggregate(a, b, c ORDER BY a) FROM ...
-</programlisting>
-    If <literal>myaggregate</> is variadic, both these calls could be
-    perfectly valid.
-   </para>
-
-   <para>
-    For the same reason, it's wise to think twice before creating aggregate
-    functions with the same names and different numbers of regular arguments.
-   </para>
-  </note>
-
- </sect2>
-
- <sect2 id="xaggr-ordered-set-aggregates">
-  <title>Ordered-Set Aggregates</title>
-
-  <indexterm>
-   <primary>aggregate function</primary>
-   <secondary>ordered set</secondary>
-  </indexterm>
-
-  <para>
-   The aggregates we have been describing so far are <quote>normal</>
-   aggregates.  <productname>PostgreSQL</> also
-   supports <firstterm>ordered-set aggregates</>, which differ from
-   normal aggregates in two key ways.  First, in addition to ordinary
-   aggregated arguments that are evaluated once per input row, an
-   ordered-set aggregate can have <quote>direct</> arguments that are
-   evaluated only once per aggregation operation.  Second, the syntax
-   for the ordinary aggregated arguments specifies a sort ordering
-   for them explicitly.  An ordered-set aggregate is usually
-   used to implement a computation that depends on a specific row
-   ordering, for instance rank or percentile, so that the sort ordering
-   is a required aspect of any call.  For example, the built-in
-   definition of <function>percentile_disc</> is equivalent to:
-
-<programlisting>
-CREATE FUNCTION ordered_set_transition(internal, anyelement)
-  RETURNS internal ...;
-CREATE FUNCTION percentile_disc_final(internal, float8, anyelement)
-  RETURNS anyelement ...;
-
-CREATE AGGREGATE percentile_disc (float8 ORDER BY anyelement)
-(
-    sfunc = ordered_set_transition,
-    stype = internal,
-    finalfunc = percentile_disc_final,
-    finalfunc_extra
-);
-</programlisting>
-
-   This aggregate takes a <type>float8</> direct argument (the percentile
-   fraction) and an aggregated input that can be of any sortable data type.
-   It could be used to obtain a median household income like this:
-
-<programlisting>
-SELECT percentile_disc(0.5) WITHIN GROUP (ORDER BY income) FROM households;
- percentile_disc
------------------
-           50489
-</programlisting>
-
-   Here, <literal>0.5</> is a direct argument; it would make no sense
-   for the percentile fraction to be a value varying across rows.
-  </para>
-
-  <para>
-   Unlike the case for normal aggregates, the sorting of input rows for
-   an ordered-set aggregate is <emphasis>not</> done behind the scenes,
-   but is the responsibility of the aggregate's support functions.
-   The typical implementation approach is to keep a reference to
-   a <quote>tuplesort</> object in the aggregate's state value, feed the
-   incoming rows into that object, and then complete the sorting and
-   read out the data in the final function.  This design allows the
-   final function to perform special operations such as injecting
-   additional <quote>hypothetical</> rows into the data to be sorted.
-   While normal aggregates can often be implemented with support
-   functions written in <application>PL/pgSQL</application> or another
-   PL language, ordered-set aggregates generally have to be written in
-   C, since their state values aren't definable as any SQL data type.
-   (In the above example, notice that the state value is declared as
-   type <type>internal</> &mdash; this is typical.)
-  </para>
-
-  <para>
-   The state transition function for an ordered-set aggregate receives
-   the current state value plus the aggregated input values for
-   each row, and returns the updated state value.  This is the
-   same definition as for normal aggregates, but note that the direct
-   arguments (if any) are not provided.  The final function receives
-   the last state value, the values of the direct arguments if any,
-   and (if <literal>finalfunc_extra</> is specified) null values
-   corresponding to the aggregated input(s).  As with normal
-   aggregates, <literal>finalfunc_extra</> is only really useful if the
-   aggregate is polymorphic; then the extra dummy argument(s) are needed
-   to connect the final function's result type to the aggregate's input
-   type(s).
-  </para>
-
-  <para>
-   Currently, ordered-set aggregates cannot be used as window functions,
-   and therefore there is no need for them to support moving-aggregate mode.
-  </para>
-
- </sect2>
-
- <sect2 id="xaggr-support-functions">
-  <title>Support Functions for Aggregates</title>
-
-  <indexterm>
-   <primary>aggregate function</primary>
-   <secondary>support functions for</secondary>
-  </indexterm>
-
-  <para>
+<!--
    A function written in C can detect that it is being called as an
    aggregate transition or final function by calling
    <function>AggCheckCallContext</>, for example:
+-->
+C言語で作成された関数は、例えば以下のように<function>AggCheckCallContext</>を呼び出して、集約の遷移関数または最終関数が呼び出されたかを検出することができます。
 <programlisting>
 if (AggCheckCallContext(fcinfo, NULL))
 </programlisting>
+<!--
    One reason for checking this is that when it is true for a transition
    function, the first input
-   must be a temporary state value and can therefore safely be modified
+   must be a temporary transition value and can therefore safely be modified
    in-place rather than allocating a new copy.
    See <literal>int8inc()</> for an example.
    (This is the <emphasis>only</>
    case where it is safe for a function to modify a pass-by-reference input.
-   In particular, final functions for normal aggregates must not
-   modify their inputs in any case, because in some cases they will be
-   re-executed on the same final state value.)
+   In particular, aggregate final functions should not modify their inputs in
+   any case, because in some cases they will be re-executed on the same
+   final transition value.)
+-->
+この検査を行う理由の１つとして、遷移関数に対してこれが真の場合、先頭の入力は一時的な遷移中の値であるはずであり、新規に割り当ててコピーを持つことなくそのまま変更しても安全であることが分かることがあります。
+例として<literal>int8inc()</>を参照してください。
+（これは関数内で参照渡しの入力を安全に変更できる<emphasis>唯一の</>場合です。
+特に集約最終関数はいかなる場合でもそれらの入力を変更してはなりません。
+と言うのは、時として、同じ最終遷移値上で再実行されることがあるからです。）
   </para>
 
   <para>
-   Another support routine available to aggregate functions written in C
-   is <function>AggGetAggref</>, which returns the <literal>Aggref</>
-   parse node that defines the aggregate call.  This is mainly useful
-   for ordered-set aggregates, which can inspect the substructure of
-   the <literal>Aggref</> node to find out what sort ordering they are
-   supposed to implement.  Examples can be found
-   in <filename>orderedsetaggs.c</> in the <productname>PostgreSQL</>
-   source code.
+<!--
+   For further details see the
+   <xref linkend="sql-createaggregate">
+   command.
+-->
+さらに詳しい情報は、<xref linkend="sql-createaggregate">コマンドを参照してください。
   </para>
-
- </sect2>
-
  </sect1>
