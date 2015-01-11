@@ -20,7 +20,7 @@
 <productname>PostgreSQL</productname>は、全ての日付/時刻入力のサポートにおいて、内蔵しているヒューリスティックなパーサを使用します。
 日付と時刻は文字列で入力され、そのフィールドにはどのような種類の情報が入るのかが事前に決められている別個のフィールドに分割されます。
 それぞれのフィールドは解釈された後、数値を割り当てられたり、無視されたり、あるいははねられたりします。
-構文解析に際し、月、曜日、および時間帯を含む、全てのテキストフィールドに対する内部参照テーブルがあります。
+構文解析に際し、月、曜日、および時間帯を含む、テキストフィールドすべてに対する内部参照テーブルがあります。
   </para>
 
   <para>
@@ -134,7 +134,7 @@
         month (e.g., <literal>January</literal>),
         or noise word (e.g., <literal>at</literal>, <literal>on</literal>).
 -->
-探索できなかった場合は同様にそのトークンに対し特殊文字（たとえば<literal>today</literal>）、日（たとえば<literal>Thursday</literal>）、月（たとえば<literal>January</literal>）、ノイズ（たとえば<literal>at</literal>、<literal>on</literal>）に一致するかどうか、参照テーブルにバイナリ検索をかけます。
+探索できなかった場合は同様にそのトークンに対し特殊文字（たとえば<literal>today</literal>）、曜日（たとえば<literal>Thursday</literal>）、月（たとえば<literal>January</literal>）、ノイズ（たとえば<literal>at</literal>、<literal>on</literal>）に一致するかどうか、参照テーブルにバイナリ検索をかけます。
        </para>
       </step>
 
@@ -539,8 +539,9 @@ BCが指定されず年フィールドの長さが2桁の場合、年は4桁になるよう調整されます。
 コメント以外は以下の書式を持たなければなりません。
 
 <synopsis>
-<replaceable>time_zone_name</replaceable> <replaceable>offset</replaceable>
-<replaceable>time_zone_name</replaceable> <replaceable>offset</replaceable> D
+<replaceable>zone_abbreviation</replaceable> <replaceable>offset</replaceable>
+<replaceable>zone_abbreviation</replaceable> <replaceable>offset</replaceable> D
+<replaceable>zone_abbreviation</replaceable> <replaceable>time_zone_name</replaceable>
 @INCLUDE <replaceable>file_name</replaceable>
 @OVERRIDE
 </synopsis>
@@ -548,21 +549,29 @@ BCが指定されず年フィールドの長さが2桁の場合、年は4桁になるよう調整されます。
 
    <para>
 <!--
-    A <replaceable>time_zone_name</replaceable> is just the abbreviation
-    being defined.  The <replaceable>offset</replaceable> is the zone's
+    A <replaceable>zone_abbreviation</replaceable> is just the abbreviation
+    being defined.  The <replaceable>offset</replaceable> is the equivalent
     offset in seconds from UTC, positive being east from Greenwich and
     negative being west.  For example, -18000 would be five hours west
     of Greenwich, or North American east coast standard time.  <literal>D</>
-    indicates that the zone name represents local daylight-savings time
-    rather than standard time. Since all known time zone offsets are on
+    indicates that the zone name represents local daylight-savings time rather
+    than standard time.  Alternatively, a <replaceable>time_zone_name</> can
+    be given, in which case that time zone definition is consulted, and the
+    abbreviation's meaning in that zone is used.  This alternative is
+    recommended only for abbreviations whose meaning has historically varied,
+    as looking up the meaning is noticeably more expensive than just using
+    a fixed integer value.
+
+ Since all known time zone offsets are on
     15 minute boundaries, the number of seconds has to be a multiple of 900.
 -->
-<replaceable>time_zone_name</replaceable>は単なる定義された省略形です。
-<replaceable>offset</replaceable>は時間帯のUTCからのオフセットを秒数で表したものです。
+<replaceable>zone_abbreviation</replaceable>は単なる定義された省略形です。
+<replaceable>offset</replaceable>はUTCからの相当するオフセットを秒数で表したものです。
 グリニッジより東にあれば正、西にあれば負の値となります。
 たとえば、-18000はグリニッジより西に5時間、すなわち、北アメリカ東海岸の標準時間を示します。
 <literal>D</>は、時間帯名が標準時間ではなくローカル時間での夏時間を表すことを示します。
-既知のすべての時間帯オフセットは15分刻みですので、秒数は900の倍数となります。
+代わりに<replaceable>time_zone_name</>を指定することもでき、その場合には時間帯の定義が参照され、その時間帯での省略形の意味が使われます。
+意味を調べるのは単に固定の整数値を使うよりかなり高価ですので、もこの代替法はその意味が歴史的に変わる省略形に対してのみ薦められます。
    </para>
 
    <para>
@@ -578,11 +587,11 @@ BCが指定されず年フィールドの長さが2桁の場合、年は4桁になるよう調整されます。
    <para>
 <!--
     The <literal>@OVERRIDE</> syntax indicates that subsequent entries in the
-    file can override previous entries (i.e., entries obtained from included
-    files).  Without this, conflicting definitions of the same timezone
-    abbreviation are considered an error.
+    file can override previous entries (typically, entries obtained from
+    included files).  Without this, conflicting definitions of the same
+    timezone abbreviation are considered an error.
 -->
-<literal>@OVERRIDE</>構文は、ファイル内の続く項目が既存の項目（つまり、インクルードされたファイルから得られた項目）を上書きできることを示します。
+<literal>@OVERRIDE</>構文は、ファイル内の続く項目が既存の項目（典型的には、インクルードされたファイルから得られた項目）を上書きできることを示します。
 これがないと、同一時間帯省略形の定義が競合した場合にエラーとみなされます。
    </para>
 
@@ -592,12 +601,12 @@ BCが指定されず年フィールドの長さが2桁の場合、年は4桁になるよう調整されます。
     all the non-conflicting time zone abbreviations for most of the world.
     Additional files <filename>Australia</> and <filename>India</> are
     provided for those regions: these files first include the
-    <literal>Default</> file and then add or modify timezones as needed.
+    <literal>Default</> file and then add or modify abbreviations as needed.
 -->
 未変更のインストレーションでは、<filename>Default</>ファイルに、ほとんど全世界の競合しない時間帯省略形をすべて記載しています。
 さらに<filename>Australia</>および<filename>India</>ファイルがこれらの地区向けに提供されています。
 これらのファイルは<literal>Default</>ファイルの先頭で含有されています。
-必要に応じて時間帯の追加・変更を行ってください。
+必要に応じて省略形の追加・変更を行ってください。
    </para>
 
    <para>
@@ -605,14 +614,14 @@ BCが指定されず年フィールドの長さが2桁の場合、年は4桁になるよう調整されます。
     For reference purposes, a standard installation also contains files
     <filename>Africa.txt</>, <filename>America.txt</>, etc, containing
     information about every time zone abbreviation known to be in use
-    according to the <literal>zoneinfo</> timezone database.  The zone name
+    according to the IANA timezone database.  The zone name
     definitions found in these files can be copied and pasted into a custom
     configuration file as needed.  Note that these files cannot be directly
     referenced as <varname>timezone_abbreviations</> settings, because of
     the dot embedded in their names.
 -->
 参考のため、標準のインストレーションには<filename>Africa.txt</>、<filename>America.txt</>なども含まれています。
-これらには<literal>zoneinfo</>時間帯データベースに従って使用されている時間帯省略形に関する情報がすべて含まれています。
+これらにはIANA時間帯データベースに従って使用されている時間帯省略形に関する情報がすべて含まれています。
 これらのファイル内にある時間帯定義を必要に応じてコピーペーストして独自の設定ファイルを編集することができます。
 これらのファイル名にドットが入っていますので、<varname>timezone_abbreviations</>設定から直接参照できないことに注意してください。
    </para>
@@ -620,11 +629,11 @@ BCが指定されず年フィールドの長さが2桁の場合、年は4桁になるよう調整されます。
    <note>
     <para>
 <!--
-     If an error occurs while reading the time zone data sets, no new value is
-     applied but the old set is kept. If the error occurs while starting the
-     database, startup fails.
+     If an error occurs while reading the time zone abbreviation set, no new
+     value is applied and the old set is kept. If the error occurs while
+     starting the database, startup fails.
 -->
-時間帯データを読み込む時にエラーが発生した場合、新しい値は適用されず、古い値がそのまま残ります。
+時間帯省略形を読み込む時にエラーが発生した場合、新しい値は適用されず、古い値がそのまま残ります。
 データベースの起動時にエラーが起きた場合は、起動に失敗します。
     </para>
    </note>
