@@ -246,7 +246,10 @@ CREATE LANGUAGE plsample
     or updated a function written in the procedural language.
     The passed-in OID is the OID of the function's <classname>pg_proc</>
     row.  The validator must fetch this row in the usual way, and do
-    whatever checking is appropriate.  Typical checks include verifying
+    whatever checking is appropriate.
+    First, call <function>CheckFunctionValidatorAccess()</> to diagnose
+    explicit calls to the validator that the user could not achieve through
+    <command>CREATE FUNCTION</>.  Typical checks then include verifying
     that the function's argument and result types are supported by the
     language, and that the function's body is syntactically correct
     in the language.  If the validator finds the function to be okay,
@@ -261,7 +264,8 @@ CREATE LANGUAGE plsample
 有効性検証関数はその手続き言語で関数を作成または置換する<command>CREATE FUNCTION</>の最後に呼び出されます。
 渡されるOIDは関数の<classname>pg_proc</>行のOIDです。
 有効性検証関数は通常の方法でこの行を取り出さなければならず、そして適切な検査を実行します。
-典型的な検査として、関数引数および結果の型がその言語でサポートされているかや関数本体がその言語において文法的に正しいかどうかを検証することが挙げられます。
+まずユーザが<command>CREATE FUNCTION</>で到達できない有効性検証関数への明示的な呼び出しを診断するため、<function>CheckFunctionValidatorAccess()</>を呼び出します。
+典型的な検査として、さらに関数引数および結果の型がその言語でサポートされているかや関数本体がその言語において文法的に正しいかどうかを検証することが挙げられます。
 有効性検証関数がその関数に問題がないことを判定したら、単に戻ります。
 エラーがあることを判定したら、通常の<function>ereport()</>エラー報告機構を使用して報告しなければなりません。
 エラーを返すことで、強制的にトランザクションはロールバックされ、不正な関数定義がコミットされることを防ぎます。
@@ -271,11 +275,13 @@ CREATE LANGUAGE plsample
 <!--
     Validator functions should typically honor the <xref
     linkend="guc-check-function-bodies"> parameter: if it is turned off then
-    any expensive or context-sensitive checking should be skipped.
-    In particular, this parameter is turned off by <application>pg_dump</>
-    so that it can load procedural language functions without worrying
-    about possible dependencies of the function bodies on other database
-    objects.  (Because of this requirement, the call handler should avoid
+    any expensive or context-sensitive checking should be skipped.  If the
+    language provides for code execution at compilation time, the validator
+    must suppress checks that would induce such execution.  In particular,
+    this parameter is turned off by <application>pg_dump</> so that it can
+    load procedural language functions without worrying about side effects or
+    dependencies of the function bodies on other database objects.
+    (Because of this requirement, the call handler should avoid
     assuming that the validator has fully checked the function.  The point
     of having a validator is not to let the call handler omit checks, but
     to notify the user immediately if there are obvious errors in a
@@ -289,8 +295,9 @@ CREATE LANGUAGE plsample
     off, to avoid false failures when reloading a dump.
 -->
 有効性検証関数は通常<xref linkend="guc-check-function-bodies">パラメータを遵守しなければなりません。
-これが無効な場合、高価または文脈次第の検査を飛ばさなければなりません。
-具体的にはこのパラメータは、関数本体が他のデータベースオブジェクトに依存している可能性を考慮することなく手続き言語関数をロードできるように、<application>pg_dump</>により無効にされます。
+これが無効な場合、高価な、または文脈次第の検査を飛ばさなければなりません。
+言語がコンパイル時のコード実行を提供するのであれば、有効性検証関数はそのような実行を引き起こす検査を抑制しなければなりません。
+特にこのパラメータは、副作用や関数本体の他のデータベースオブジェクトへの依存を心配することなく手続き言語関数をロードできるように、<application>pg_dump</>により無効にされます。
 (この仕様のため呼び出しハンドラは有効性検証関数が完全にその関数を検査したことを前提としてはいけません。
 有効性検証関数を持つ目的は、呼び出しハンドラが検査を省略できることではなく、明確なエラーが<command>CREATE FUNCTION</>コマンド内に存在する場合、それを即座にユーザに通知することです。)
 厳密に何を検査すべきかの選択は主として有効性検査関数の裁量に委ねられていますが、<varname>check_function_bodies</>が有効な場合には<command>CREATE FUNCTION</>の中心となるコードは関数に関連づけられた<literal>SET</>句を実行するだけですので注意して下さい。
