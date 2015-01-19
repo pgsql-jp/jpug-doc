@@ -1,25 +1,41 @@
 <!-- doc/src/sgml/monitoring.sgml -->
 
 <chapter id="monitoring">
+<!--
  <title>Monitoring Database Activity</title>
+-->
+<title>データベース活動状況の監視</title>
 
  <indexterm zone="monitoring">
+<!--
   <primary>monitoring</primary>
   <secondary>database activity</secondary>
+-->
+  <primary>監視</primary>
+  <secondary>データベース活動情報の</secondary>
  </indexterm>
 
  <indexterm zone="monitoring">
+<!--
   <primary>database activity</primary>
   <secondary>monitoring</secondary>
+-->
+  <primary>データベース活動状況</primary>
+  <secondary>の監視</secondary>
  </indexterm>
 
  <para>
+<!--
   A database administrator frequently wonders, <quote>What is the system
   doing right now?</quote>
   This chapter discusses how to find that out.
+-->
+データベース管理者はよく、<quote>システムは今現在正しく動作しているか</quote>を気にします。
+本章では監視方法について説明します。
  </para>
 
   <para>
+<!--
    Several tools are available for monitoring database activity and
    analyzing performance.  Most of this chapter is devoted to describing
    <productname>PostgreSQL</productname>'s statistics collector,
@@ -31,20 +47,35 @@
    <xref linkend="using-explain"> discusses <command>EXPLAIN</>
    and other methods for understanding the behavior of an individual
    query.
+-->
+データベース活動状況の監視と性能解析用のツールは多く存在します。
+本章の大部分は<productname>PostgreSQL</productname>の統計情報コレクタの説明に費されていますが、<command>ps</>や<command>top</>、<command>iostat</>、<command>vmstat</>などの通常のUnix監視プログラムを無視すべきではありません。
+また、性能が悪い問い合わせであると認知された問い合わせは、その後、<productname>PostgreSQL</productname>の<xref linkend="sql-explain">コマンドを使用して調査を行う必要が発生します。
+<xref linkend="using-explain">では、個々の問い合わせの振舞いを理解するための、<command>EXPLAIN</>やその他の方法について記載しています。
   </para>
 
  <sect1 id="monitoring-ps">
+<!--
   <title>Standard Unix Tools</title>
+-->
+<title>標準的なUnixツール</Title>
 
   <indexterm zone="monitoring-ps">
    <primary>ps</primary>
+<!--
    <secondary>to monitor activity</secondary>
+-->
+   <secondary>活動状況監視用の</secondary>
   </indexterm>
 
   <para>
+<!--
    On most Unix platforms, <productname>PostgreSQL</productname> modifies its
    command title as reported by <command>ps</>, so that individual server
    processes can readily be identified.  A sample display is
+-->
+ほとんどのUNIXプラットホームでは、<productname>PostgreSQL</productname>は、個々のサーバプロセスが容易に識別できるように、<command>ps</>によって報告されるコマンドタイトル部分を変更します。
+以下に表示例を示します。
 
 <screen>
 $ ps auxww | grep ^postgres
@@ -59,6 +90,7 @@ postgres  15606  0.0  0.0  58772  3052 ?        Ss   18:07   0:00 postgres: tgl 
 postgres  15610  0.0  0.0  58772  3056 ?        Ss   18:07   0:00 postgres: tgl regression [local] idle in transaction
 </screen>
 
+<!--
    (The appropriate invocation of <command>ps</> varies across different
    platforms, as do the details of what is shown.  This example is from a
    recent Linux system.)  The first process listed here is the
@@ -71,11 +103,22 @@ postgres  15610  0.0  0.0  58772  3056 ?        Ss   18:07   0:00 postgres: tgl 
    Each of the remaining
    processes is a server process handling one client connection.  Each such
    process sets its command line display in the form
+-->
+（<command>ps</>の適切な呼び出し方はプラットホームによって異なります。
+同様に、何が詳細に表示されるのかも異なります。
+この例は最近のLinuxシステムのものです。）
+この一覧の最初のプロセスはマスタサーバプロセスです。
+表示されているコマンド引数は、起動時に使用されたものと同じものです。
+次の5つのプロセスは、マスタプロセスから自動的に起動されるバックグランドワーカープロセスです。
+（システムを統計情報コレクタが起動しないように設定していた場合は<quote>統計情報コレクタ</>はありません。同様に<quote>自動バキュームランチャ</>を無効にできます。）
+残るプロセスはそれぞれ、1つのクライアント接続を取り扱うサーバプロセスです。
+それぞれのプロセスは、次の形式のコマンドライン表示を設定します。
 
 <screen>
 postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <replaceable>activity</>
 </screen>
 
+<!--
   The user, database, and (client) host items remain the same for
   the life of the client connection, but the activity indicator changes.
   The activity can be <literal>idle</> (i.e., waiting for a client command),
@@ -89,17 +132,30 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
   necessary to look into the
   <link linkend="view-pg-locks"><structname>pg_locks</structname></link>
   system view to determine who is blocking whom.)
+-->
+ユーザ、データベース、(クライアント)ホストという項目はクライアントの存続期間中変更されることはありませんが、活動状況を示す部分は変わります。
+活動状況は、<literal>idle</>（つまり、クライアントからのコマンド待ち状態）、<literal>idle in transaction</>（<command>BEGIN</>ブロックの内側でのクライアントの待ち状態）、または<literal>SELECT</>のようなコマンド種類名のいずれかとなります。
+また、そのサーバプロセスが他のセッションによって保持されたロックを待っている状態の場合は、<literal>waiting</>が追加されます。
+上の例では、プロセス15606はプロセス15610におけるトランザクションの完了とそれに伴うロックの解放を待っていると推測することができます。
+（他に実行中のセッションがありませんので、プロセス15610がブロックしている側であるはずです。
+もっと複雑な場合では<link linkend="view-pg-locks"><structname>pg_locks</structname></link>システムビューを検索し、どのプロセスがどのプロセスをブロックしているか決定しなければなりません。）
   </para>
 
   <para>
+<!--
    If you have turned off <xref linkend="guc-update-process-title"> then the
    activity indicator is not updated; the process title is set only once
    when a new process is launched.  On some platforms this saves a measurable
    amount of per-command overhead;  on others it's insignificant.
+-->
+<xref linkend="guc-update-process-title">を無効にした場合、活動情報を示す部分は更新されません。
+新しいプロセスが起動した時に一度、プロセスの表題は設定されます。
+プラットフォームの中には、これによりコマンドごとのオーバヘッドをかなり抑えられるものもありますし、まったく意味がないものもあります。
   </para>
 
   <tip>
   <para>
+<!--
   <productname>Solaris</productname> requires special handling. You must
   use <command>/usr/ucb/ps</command>, rather than
   <command>/bin/ps</command>. You also must use two <option>w</option>
@@ -109,18 +165,31 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
   server process.  If you fail to do all three things, the <command>ps</>
   output for each server process will be the original <command>postgres</>
   command line.
+-->
+<productname>Solaris</productname>では特別な取り扱いが必要です。
+<command>/bin/ps</command>ではなく、<command>/usr/ucb/ps</command>を使用しなければなりません。
+また、<command>w</command>フラグを1つではなく2つ使用しなければなりません。
+さらに、元の<command>postgres</command>の呼び出しに関する<command>ps</command>のステータス表示は、各サーバプロセスに関するステータス表示よりも短くなければなりません。
+この3条件を全て満たさないと、各サーバプロセスの<command>ps</>の出力は、元の<application>postgres</>のコマンドラインのものになってしまいます。
   </para>
   </tip>
  </sect1>
 
  <sect1 id="monitoring-stats">
+<!--
   <title>The Statistics Collector</title>
+-->
+<title>統計情報コレクタ</Title>
 
   <indexterm zone="monitoring-stats">
+<!--
    <primary>statistics</primary>
+-->
+<primary>統計情報</primary>
   </indexterm>
 
   <para>
+<!--
    <productname>PostgreSQL</productname>'s <firstterm>statistics collector</>
    is a subsystem that supports collection and reporting of information about
    server activity.  Presently, the collector can count accesses to tables
@@ -128,46 +197,76 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
    the total number of rows in each table, and information about vacuum and
    analyze actions for each table.  It can also count calls to user-defined
    functions and the total time spent in each one.
+-->
+<productname>PostgreSQL</productname>の<firstterm>統計情報コレクタ</>はサーバの活動状況に関する情報を収集し、報告するサブシステムです。
+現在、コレクタはテーブルとインデックスへのアクセスをディスクブロックおよび個々の行単位で数えることができます。
+またこれは、各テーブル内の総行数、および、各テーブルでのVACUUMやANALYZEの実施情報を追跡します。
+また、ユーザ定義関数の呼ばれた回数、それぞれの消費した総時間をカウントします。
   </para>
 
   <para>
+<!--
    <productname>PostgreSQL</productname> also supports reporting of the exact
    command currently being executed by other server processes.  This
    facility is independent of the collector process.
+-->
+また、<productname>PostgreSQL</productname>は他のサーバプロセスによって現在実行されている問い合わせを正確に報告する機能を持ちます。
+これはコレクタプロセスから独立している機能です。
   </para>
 
  <sect2 id="monitoring-stats-setup">
+<!--
   <title>Statistics Collection Configuration</title>
+-->
+<title>統計情報収集のための設定</Title>
 
   <para>
+<!--
    Since collection of statistics adds some overhead to query execution,
    the system can be configured to collect or not collect information.
    This is controlled by configuration parameters that are normally set in
    <filename>postgresql.conf</>.  (See <xref linkend="runtime-config"> for
    details about setting configuration parameters.)
+-->
+統計情報の収集によって問い合わせの実行に少しオーバーヘッドが加わりますので、システムは情報を収集するようにもしないようにも設定することができます。
+これは通常は<filename>postgresql.conf</>内で設定される、設定パラメータによって制御されます
+（設定パラメータの設定についての詳細は<xref linkend="runtime-config">を参照してください）。
   </para>
 
   <para>
+<!--
    The parameter <xref linkend="guc-track-activities"> enables monitoring
    of the current command being executed by any server process.
+-->
+<xref linkend="guc-track-activities">パラメータにより、すべてのサーバプロセスで現在実行されているコマンドを監視することができます。
   </para>
 
   <para>
+<!--
    The parameter <xref linkend="guc-track-counts"> controls whether
    statistics are collected about table and index accesses.
+-->
+<xref linkend="guc-track-counts">パラメータは、テーブルおよびインデックスアクセスに関する統計情報を収集するかどうか制御します。
   </para>
 
   <para>
+<!--
    The parameter <xref linkend="guc-track-functions"> enables tracking of
    usage of user-defined functions.
+-->
+<xref linkend="guc-track-functions">パラメータは、ユーザ定義関数の使用状況を追跡するかどうかを指定できます。
   </para>
 
   <para>
+<!--
    The parameter <xref linkend="guc-track-io-timing"> enables monitoring
    of block read and write times.
+-->
+<xref linkend="guc-track-io-timing">パラメータは、ブロック読み取りおよび書き込み回数の監視するかどうかを指定できます。
   </para>
 
   <para>
+<!--
    Normally these parameters are set in <filename>postgresql.conf</> so
    that they apply to all server processes, but it is possible to turn
    them on or off in individual sessions using the <xref
@@ -175,9 +274,14 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
    ordinary users from hiding their activity from the administrator,
    only superusers are allowed to change these parameters with
    <command>SET</>.)
+-->
+通常、これらの変数は全てのサーバプロセスに適用できるように<filename>postgresql.conf</>内で設定されます。 
+しかし、<xref linkend="sql-set">コマンドを使用して、個別のセッションで有効または無効にできます。
+（一般ユーザがその活動を管理者に隠すことを防止するために、スーパーユーザのみが<command>SET</>を使用してこれらのパラメータを変更できます。）
   </para>
 
   <para>
+<!--
    The statistics collector transmits the collected information to other
    <productname>PostgreSQL</productname> processes through temporary files.
    These files are stored in the directory named by the
@@ -190,22 +294,36 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
    statistics can be retained across server restarts.  When recovery is
    performed at server start (e.g. after immediate shutdown, server crash,
    and point-in-time recovery), all statistics counters are reset.
+-->
+統計情報コレクタは収集した情報を他の<productname>PostgreSQL</productname>プロセスに一時ファイルを介して送信します。
+これらのファイルは<xref linkend="guc-stats-temp-directory">で指名されたディレクトリ、デフォルトは<filename>pg_stat_tmp</filename>内に格納されます。
+性能を向上させるために、<varname>stats_temp_directory</>をRAMベースのファイルシステムを指し示すようにして、物理的なI/O要求を減らすことができます。
+サーバが正しくシャットダウンした際は、統計情報がサーバの再起動を跨がって保持されるように、統計情報データの永続的なコピーが<filename>pg_stat</filename>サブディレクトリに格納されます。
+サーバ起動時にリカバリが実施される場合(例えば、即時シャットダウンやサーバクラッシュ、ポイントインタイムリカバリ)、統計カウンタをすべてリセットします。
   </para>
 
  </sect2>
 
  <sect2 id="monitoring-stats-views">
+<!--
   <title>Viewing Collected Statistics</title>
+-->
+<title>収集した統計情報の表示</Title>
 
   <para>
+<!--
    Several predefined views, listed in <xref
    linkend="monitoring-stats-views-table">, are available to show the results
    of statistics collection.  Alternatively, one can
    build custom views using the underlying statistics functions, as discussed
    in <xref linkend="monitoring-stats-functions">.
+-->
+統計情報の収集結果を表示するための、多くの定義済みのビューがあり、<xref linkend="monitoring-stats-views-table">に一覧表示されています。
+他にも、<xref linkend="monitoring-stats-functions">で説明する、基礎的な統計情報関数を使用した独自のビューを構築することもできます。
   </para>
 
   <para>
+<!--
    When using the statistics to monitor current activity, it is important
    to realize that the information does not update instantaneously.
    Each individual server process transmits new statistical counts to
@@ -216,9 +334,17 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
    displayed information lags behind actual activity.  However, current-query
    information collected by <varname>track_activities</varname> is
    always up-to-date.
+-->
+この統計情報を使用して、現在の活動状況を監視する場合、この情報は即座に更新されないことを認識することが重要です。
+個別のサーバプロセスは、待機状態になる直前に、新しい統計情報に関する数をコレクタに送信します。 
+ですので、実行中の問い合わせやトランザクションは表示上の総和には影響を与えません。  
+また、コレクタ自体もおよそ<varname>PGSTAT_STAT_INTERVAL</varname>（サーバ構築時に変更しない限り500 ms）ミリ秒に一度新しい報告を出力します。
+ですので、表示上の情報は実際の活動から遅れて表示されます。
+しかし、<varname>track_activities</varname>で収集される現在の問い合わせの情報は常に最新です。
   </para>
 
   <para>
+<!--
    Another important point is that when a server process is asked to display
    any of these statistics, it first fetches the most recent report emitted by
    the collector process and then continues to use this snapshot for all
@@ -236,25 +362,48 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
    <function>pg_stat_clear_snapshot</function>(), which will discard the
    current transaction's statistics snapshot (if any).  The next use of
    statistical information will cause a new snapshot to be fetched.
+-->
+この他の重要なポイントは、いつサーバプロセスが統計情報を表示するように尋ねられるかです。 
+サーバプロセスは、まずコレクタによって発行された最も最近の報告を取り出します。
+そして、現在のトランザクションが終わるまで、全ての統計情報ビューと関数においてこのスナップショットを使用し続けます。
+ですから、現在のトランザクションを続けている間、統計情報は一定の情報を示します。
+同様に、全セッションの現在の問い合わせに関する情報も、そうした情報がトランザクションで最初に要求された時に収集され、そのトランザクションの間同じ情報が表示されます。
+これはバグではなく、特徴です。 
+なぜなら、これにより、知らない間に値が変更することを考慮することなく、統計情報に対して複数の問い合わせを実行し、その結果を相関することができるからです。
+しかし、各問い合わせで新しい結果を取り出したい場合は、確実にトランザクションブロックの外側でその問い合わせを行ってください。
+他にも<function>pg_stat_clear_snapshot</function>()を呼び出すこともできます。
+これは現在のトランザクションの統計情報スナップショットを（もしあれば）破棄します。
+次に統計情報を使用する場合に新しいスナップショットを取り出すことになります。
   </para>
 
   <para>
+<!--
    A transaction can also see its own statistics (as yet untransmitted to the
    collector) in the views <structname>pg_stat_xact_all_tables</>,
    <structname>pg_stat_xact_sys_tables</>,
    <structname>pg_stat_xact_user_tables</>, and
    <structname>pg_stat_xact_user_functions</>.  These numbers do not act as
    stated above; instead they update continuously throughout the transaction.
+-->
+トランザクションからは、<structname>pg_stat_xact_all_tables</>、<structname>pg_stat_xact_sys_tables</>、<structname>pg_stat_xact_user_tables</>、<structname>pg_stat_xact_user_functions</>、およびこれらのビューの元となっている関数を通じて、自身の統計情報(まだコレクタに送られていない)も参照することができます。
+   これらの数値はトランザクション中に継続的に更新されていくため上記の様な(静的な情報を示す)振る舞いとはなりません。
   </para>
 
   <table id="monitoring-stats-views-table">
+<!--
    <title>Standard Statistics Views</title>
+-->
+<title>標準統計情報ビュー</title>
 
    <tgroup cols="2">
     <thead>
      <row>
+<!--
       <entry>View Name</entry>
       <entry>Description</entry>
+-->
+<entry>ビュー名</entry>
+<entry>説明</entry>
      </row>
     </thead>
 
@@ -265,192 +414,317 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
        <indexterm><primary>pg_stat_activity</primary></indexterm>
       </entry>
       <entry>
+<!--
        One row per server process, showing information related to
        the current activity of that process, such as state and current query.
        See <xref linkend="pg-stat-activity-view"> for details.
+-->
+サーバ当たり１行の形式で、状態や現在の問い合わせ等のプロセスの現在の活動状況に関連した情報を表示します。
+詳細については<xref linkend="pg-stat-activity-view">を参照してください。
       </entry>
      </row>
 
      <row>
       <entry><structname>pg_stat_archiver</><indexterm><primary>pg_stat_archiver</primary></indexterm></entry>
+<!--
       <entry>One row only, showing statistics about the
        WAL archiver process's activity. See
        <xref linkend="pg-stat-archiver-view"> for details.
+-->
+      <entry>
+WALアーカイバプロセスの活動状況に関する統計情報を１行のみで表示します
+詳細については<xref linkend="pg-stat-archiver-view">を参照してください。
       </entry>
      </row>
 
      <row>
       <entry><structname>pg_stat_bgwriter</><indexterm><primary>pg_stat_bgwriter</primary></indexterm></entry>
+<!--
       <entry>One row only, showing statistics about the
        background writer process's activity. See
        <xref linkend="pg-stat-bgwriter-view"> for details.
+-->
+      <entry>
+バックグラウンドライタプロセスの活動状況に関する統計情報を１行のみで表示します。
+詳細については<xref linkend="pg-stat-bgwriter-view">を参照してください。
      </entry>
      </row>
 
      <row>
       <entry><structname>pg_stat_database</><indexterm><primary>pg_stat_database</primary></indexterm></entry>
+<!--
       <entry>One row per database, showing database-wide statistics. See
        <xref linkend="pg-stat-database-view"> for details.
+-->
+      <entry>
+データベース当たり１行の形で、データベース全体の情報を表示します。
+詳細については<xref linkend="pg-stat-database-view">を参照してください。
       </entry>
      </row>
 
      <row>
       <entry><structname>pg_stat_all_tables</><indexterm><primary>pg_stat_all_tables</primary></indexterm></entry>
       <entry>
+<!--
        One row for each table in the current database, showing statistics
        about accesses to that specific table.
        See <xref linkend="pg-stat-all-tables-view"> for details.
+-->
+現在のデータベースの各テーブルごとに１行の形で、特定のテーブルへのアクセスに関する統計情報を示します。
+詳細については<xref linkend="pg-stat-all-tables-view">を参照してください。
       </entry>
      </row>
 
      <row>
       <entry><structname>pg_stat_sys_tables</><indexterm><primary>pg_stat_sys_tables</primary></indexterm></entry>
+<!--
       <entry>Same as <structname>pg_stat_all_tables</>, except that only
       system tables are shown.</entry>
+-->
+      <entry>
+システムテーブルのみが表示される点を除き、<structname>pg_stat_all_tables</>と同じです。
+</entry>
      </row>
 
      <row>
       <entry><structname>pg_stat_user_tables</><indexterm><primary>pg_stat_user_tables</primary></indexterm></entry>
+<!--
       <entry>Same as <structname>pg_stat_all_tables</>, except that only user
       tables are shown.</entry>
+-->
+<entry>
+ユーザテーブルのみが表示される点を除き、<structname>pg_stat_all_tables</>と同じです。
+</entry>
      </row>
 
      <row>
       <entry><structname>pg_stat_xact_all_tables</><indexterm><primary>pg_stat_xact_all_tables</primary></indexterm></entry>
+      <!--
       <entry>Similar to <structname>pg_stat_all_tables</>, but counts actions
       taken so far within the current transaction (which are <emphasis>not</>
       yet included in <structname>pg_stat_all_tables</> and related views).
       The columns for numbers of live and dead rows and vacuum and
       analyze actions are not present in this view.</entry>
+      -->
+     <entry>
+<structname>pg_stat_all_tables</>と似ていますが、現在のトランザクションにて実施された処理結果をカウントします。(数値が見える時点では、これらの数値は<structname>pg_stat_all_tables</>と関連するビューに含まれて<emphasis>いません</>。)
+このビューでは、有効行数、無効行数、およびバキュームやアナライズの活動は表示しません。
+     </entry>
      </row>
 
      <row>
       <entry><structname>pg_stat_xact_sys_tables</><indexterm><primary>pg_stat_xact_sys_tables</primary></indexterm></entry>
+      <!--
       <entry>Same as <structname>pg_stat_xact_all_tables</>, except that only
       system tables are shown.</entry>
+      -->
+      <entry>
+      システムテーブルのみが表示される点を除き、<structname>pg_stat_xact_all_tables</>と同じです。
+      </entry>
      </row>
 
      <row>
       <entry><structname>pg_stat_xact_user_tables</><indexterm><primary>pg_stat_xact_user_tables</primary></indexterm></entry>
+      <!--
       <entry>Same as <structname>pg_stat_xact_all_tables</>, except that only
       user tables are shown.</entry>
+      -->
+      <entry>
+      ユーザテーブルのみが表示される点を除き、<structname>pg_stat_xact_all_tables</>と同じです。
+      </entry>
      </row>
 
      <row>
       <entry><structname>pg_stat_all_indexes</><indexterm><primary>pg_stat_all_indexes</primary></indexterm></entry>
       <entry>
+<!--
        One row for each index in the current database, showing statistics
        about accesses to that specific index.
        See <xref linkend="pg-stat-all-indexes-view"> for details.
+-->
+現在のデータベースのインデックスごとに１行の形で、特定のインデックスへのアクセスに関する統計情報を示します。
+詳細については<xref linkend="pg-stat-all-indexes-view">を参照してください。
       </entry>
      </row>
 
      <row>
       <entry><structname>pg_stat_sys_indexes</><indexterm><primary>pg_stat_sys_indexes</primary></indexterm></entry>
+<!--
       <entry>Same as <structname>pg_stat_all_indexes</>, except that only
       indexes on system tables are shown.</entry>
+-->
+      <entry>
+システムテーブルのインデックスのみが表示される点を除き、<structname>pg_stat_all_indexes</>と同じです。
+</entry>
      </row>
 
      <row>
       <entry><structname>pg_stat_user_indexes</><indexterm><primary>pg_stat_user_indexes</primary></indexterm></entry>
+<!--
       <entry>Same as <structname>pg_stat_all_indexes</>, except that only
       indexes on user tables are shown.</entry>
+-->
+      <entry>
+ユーザテーブルのインデックスのみが表示される点を除き、<structname>pg_stat_all_indexes</>と同じです。
+</entry>
      </row>
 
      <row>
       <entry><structname>pg_statio_all_tables</><indexterm><primary>pg_statio_all_tables</primary></indexterm></entry>
       <entry>
+<!--
        One row for each table in the current database, showing statistics
        about I/O on that specific table.
        See <xref linkend="pg-statio-all-tables-view"> for details.
+-->
+現在のデータベース内のテーブルごとに１行の形で、特定のテーブルに対するI/Oに関する統計情報を示します。
+詳細については<xref linkend="pg-statio-all-tables-view">を参照してください。
       </entry>
      </row>
 
      <row>
       <entry><structname>pg_statio_sys_tables</><indexterm><primary>pg_statio_sys_tables</primary></indexterm></entry>
+<!--
       <entry>Same as <structname>pg_statio_all_tables</>, except that only
       system tables are shown.</entry>
+-->
+      <entry>
+システムテーブルのみが表示される点を除き、<structname>pg_statio_all_tables</>と同じです。
+</entry>
      </row>
 
      <row>
       <entry><structname>pg_statio_user_tables</><indexterm><primary>pg_statio_user_tables</primary></indexterm></entry>
+<!--
       <entry>Same as <structname>pg_statio_all_tables</>, except that only
       user tables are shown.</entry>
+-->
+      <entry>
+ユーザテーブルのみが表示される点を除き、<structname>pg_statio_all_tables</>と同じです。
+</entry>
      </row>
 
      <row>
       <entry><structname>pg_statio_all_indexes</><indexterm><primary>pg_statio_all_indexes</primary></indexterm></entry>
       <entry>
+<!--
        One row for each index in the current database,
        showing statistics about I/O on that specific index.
        See <xref linkend="pg-statio-all-indexes-view"> for details.
+-->
+現在のデータベース内のインデックスごとに１行の形で、特定のインデックスに対するI/Oに関する統計情報を示します。
+詳細については<xref linkend="pg-statio-all-indexes-view">を示します。
       </entry>
      </row>
 
      <row>
       <entry><structname>pg_statio_sys_indexes</><indexterm><primary>pg_statio_sys_indexes</primary></indexterm></entry>
+<!--
       <entry>Same as <structname>pg_statio_all_indexes</>, except that only
       indexes on system tables are shown.</entry>
+-->
+      <entry>
+システムテーブルのインデックスのみが表示される点を除き、<structname>pg_statio_all_indexes</> と同じです。
+</entry>
      </row>
 
      <row>
       <entry><structname>pg_statio_user_indexes</><indexterm><primary>pg_statio_user_indexes</primary></indexterm></entry>
+<!--
       <entry>Same as <structname>pg_statio_all_indexes</>, except that only
       indexes on user tables are shown.</entry>
+-->
+      <entry>
+ユーザテーブルのインデックスのみが表示される点を除き、<structname>pg_statio_all_indexes</>と同じです。
+</entry>
      </row>
 
      <row>
       <entry><structname>pg_statio_all_sequences</><indexterm><primary>pg_statio_all_sequences</primary></indexterm></entry>
      <entry>
+<!--
        One row for each sequence in the current database,
        showing statistics about I/O on that specific sequence.
        See <xref linkend="pg-statio-all-sequences-view"> for details.
+-->
+現在のデータベース内のシーケンスごとに１行の形で、特定のシーケンスに対するI/Oに関する統計情報を示します。
+詳細については<xref linkend="pg-statio-all-sequences-view">を参照してください。
      </entry>
      </row>
 
      <row>
       <entry><structname>pg_statio_sys_sequences</><indexterm><primary>pg_statio_sys_sequences</primary></indexterm></entry>
+<!--
       <entry>Same as <structname>pg_statio_all_sequences</>, except that only
       system sequences are shown.  (Presently, no system sequences are defined,
       so this view is always empty.)</entry>
+-->
+<entry>
+システムシーケンスのみが表示される点を除き、<structname>pg_statio_all_sequences</>と同じです
+（現時点では、システムシーケンスは定義されていませんので、このビューは常に空です）。
+</entry>
      </row>
 
      <row>
       <entry><structname>pg_statio_user_sequences</><indexterm><primary>pg_statio_user_sequences</primary></indexterm></entry>
+<!--
       <entry>Same as <structname>pg_statio_all_sequences</>, except that only
       user sequences are shown.</entry>
+-->
+      <entry>
+ユーザシーケンスのみが表示される点を除き、<structname>pg_statio_all_sequences</>と同じです。
+</entry>
      </row>
 
      <row>
       <entry><structname>pg_stat_user_functions</><indexterm><primary>pg_stat_user_functions</primary></indexterm></entry>
       <entry>
+<!--
        One row for each tracked function, showing statistics
        about executions of that function. See
        <xref linkend="pg-stat-user-functions-view"> for details.
+-->
+追跡された関数ごとに１行の形で、関数の実行に関する統計情報を示します。
+詳細については<xref linkend="pg-stat-user-functions-view">を参照してください。
       </entry>
      </row>
 
      <row>
       <entry><structname>pg_stat_xact_user_functions</><indexterm><primary>pg_stat_xact_user_functions</primary></indexterm></entry>
+      <!--
       <entry>Similar to <structname>pg_stat_user_functions</>, but counts only
       calls during the current transaction (which are <emphasis>not</>
       yet included in <structname>pg_stat_user_functions</>).</entry>
+      -->
+      <entry>
+      <structname>pg_stat_user_functions</>と似ていますが、現在のトランザクション中に呼び出されたものだけをカウントします。
+      (数値が見える時点では、これらの数値は<structname>pg_stat_user_functions</>に含まれて<emphasis>いません</>。)
+      </entry>
      </row>
 
      <row>
       <entry><structname>pg_stat_replication</><indexterm><primary>pg_stat_replication</primary></indexterm></entry>
+<!--
       <entry>One row per WAL sender process, showing statistics about
        replication to that sender's connected standby server.
        See <xref linkend="pg-stat-replication-view"> for details.
+-->
+      <entry>
+WAL送信プロセス毎に１行の形式で、送信サーバが接続したスタンバイサーバへのレプリケーションに関する統計情報を表示します。
+詳細については<xref linkend="pg-stat-replication-view">を参照してください。
       </entry>
      </row>
 
      <row>
       <entry><structname>pg_stat_database_conflicts</><indexterm><primary>pg_stat_database_conflicts</primary></indexterm></entry>
       <entry>
+<!--
        One row per database, showing database-wide statistics about
        query cancels due to conflict with recovery on standby servers.
        See <xref linkend="pg-stat-database-conflicts-view"> for details.
+-->
+データベース毎に１行の形式で、スタンバイサーバにおける復旧との競合のためにキャンセルされた問い合わせについてのデータベース全体の統計情報を表示します。
+詳細については<xref linkend="pg-stat-database-conflicts-view">を参照してください。
       </entry>
      </row>
 
@@ -459,11 +733,15 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
   </table>
 
   <para>
+<!--
    The per-index statistics are particularly useful to determine which
    indexes are being used and how effective they are.
+-->
+インデックス単位の統計情報は、どのインデックスが使用され、どの程度効果があるのかを評価する際に、特に有用です。
   </para>
 
   <para>
+<!--
    The <structname>pg_statio_</> views are primarily useful to
    determine the effectiveness of the buffer cache.  When the number
    of actual disk reads is much smaller than the number of buffer
@@ -478,18 +756,32 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
    advised to use the <productname>PostgreSQL</> statistics collector
    in combination with operating system utilities that allow insight
    into the kernel's handling of I/O.
+-->
+<structname>pg_statio_</>ビューは主に、バッファキャッシュの効率を評価する際に有用です。
+実ディスク読み取りの数がバッファヒットの数よりもかなり少ないのであれば、そのキャッシュはカーネル呼び出しを行うことなく、ほとんどの読み取り要求を満足させています。
+しかし、<productname>PostgreSQL</>バッファキャッシュに存在しないデータはカーネルのI/Oキャッシュにある可能性があり、そのため、物理的な読み取りを行うことなく取り出される可能性があるという<productname>PostgreSQL</>のディスクI/Oの取り扱いのため、これらの統計情報は、完全な論拠を提供しません。
+<productname>PostgreSQL</>のI/O動作に関するより詳細な情報を入手したいのであれば、<productname>PostgreSQL</>統計情報コレクタとカーネルのI/Oの取り扱いの監視を行うオペレーティングシステムユーティリティを組み合わせることを勧めます。
   </para>
 
 
   <table id="pg-stat-activity-view" xreflabel="pg_stat_activity">
+<!--
    <title><structname>pg_stat_activity</structname> View</title>
+-->
+   <title><structname>pg_stat_activity</structname>ビュー</title>
 
    <tgroup cols="3">
     <thead>
+     <row>
+<!--
     <row>
       <entry>Column</entry>
       <entry>Type</entry>
       <entry>Description</entry>
+-->
+      <entry>列</entry>
+      <entry>型</entry>
+<entry>説明</entry>
      </row>
     </thead>
 
@@ -497,132 +789,220 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
     <row>
      <entry><structfield>datid</></entry>
      <entry><type>oid</></entry>
+<!--
      <entry>OID of the database this backend is connected to</entry>
+-->
+     <entry>
+バックエンドが接続するデータベースのOIDです。
+     </entry>
     </row>
     <row>
      <entry><structfield>datname</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of the database this backend is connected to</entry>
+-->
+     <entry>
+バックエンドが接続するデータベースの名前です。
+     </entry>
     </row>
     <row>
      <entry><structfield>pid</></entry>
      <entry><type>integer</></entry>
+<!--
      <entry>Process ID of this backend</entry>
+-->
+     <entry>
+バックエンドのプロセスIDです。
+     </entry>
     </row>
     <row>
      <entry><structfield>usesysid</></entry>
      <entry><type>oid</></entry>
+<!--
      <entry>OID of the user logged into this backend</entry>
+-->
+     <entry>
+バックエンドにログインしたユーザの識別子です。
+     </entry>
     </row>
     <row>
      <entry><structfield>usename</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of the user logged into this backend</entry>
+-->
+     <entry>バックエンドに接続したユーザの名前です。</entry>
     </row>
     <row>
      <entry><structfield>application_name</></entry>
      <entry><type>text</></entry>
+<!--
      <entry>Name of the application that is connected
       to this backend</entry>
+-->
+     <entry>
+バックエンドに接続したアプリケーションの名前です。
+     </entry>
     </row>
     <row>
      <entry><structfield>client_addr</></entry>
      <entry><type>inet</></entry>
+<!--
      <entry>IP address of the client connected to this backend.
       If this field is null, it indicates either that the client is
       connected via a Unix socket on the server machine or that this is an
       internal process such as autovacuum.
+-->
+     <entry>
+バックエンドに接続したクライアントのIPアドレスです。
+このフィールドがNULLである場合、これはクライアントがサーバマシン上のUnixソケット経由で接続されたか、自動バキュームなど内部処理であることを示します。
      </entry>
     </row>
     <row>
      <entry><structfield>client_hostname</></entry>
      <entry><type>text</></entry>
+     <entry>
+<!--
      <entry>Host name of the connected client, as reported by a
       reverse DNS lookup of <structfield>client_addr</>. This field will
       only be non-null for IP connections, and only when <xref
       linkend="guc-log-hostname"> is enabled.
+-->
+<structfield>client_addr</>の逆引き検索により報告された、接続クライアントのホスト名です。
+IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にのみこのフィールドは非NULLになります。
      </entry>
     </row>
     <row>
      <entry><structfield>client_port</></entry>
      <entry><type>integer</></entry>
+<!--
      <entry>TCP port number that the client is using for communication
       with this backend, or <literal>-1</> if a Unix socket is used
+-->
+     <entry>
+クライアントがバックエンドとの通信に使用するTCPポート、もしUnixソケットを使用する場合は<literal>-1</>です。
      </entry>
     </row>
     <row>
      <entry><structfield>backend_start</></entry>
      <entry><type>timestamp with time zone</></entry>
+<!--
      <entry>Time when this process was started, i.e., when the
       client connected to the server
+-->
+     <entry>
+プロセスが開始、つまりクライアントがサーバに接続した時刻です。
      </entry>
     </row>
     <row>
      <entry><structfield>xact_start</></entry>
      <entry><type>timestamp with time zone</></entry>
+<!--
      <entry>Time when this process' current transaction was started, or null
       if no transaction is active. If the current
       query is the first of its transaction, this column is equal to the
       <structfield>query_start</> column.
+-->
+     <entry>
+プロセスの現在のトランザクションが開始した時刻です。
+活動中のトランザクションがない場合はNULLです。
+現在の問い合わせがトランザクションの先頭である場合、この列は<structfield>query_start</>列と同じです。
      </entry>
     </row>
     <row>
      <entry><structfield>query_start</></entry>
      <entry><type>timestamp with time zone</></entry>
+<!--
      <entry>Time when the currently active query was started, or if
       <structfield>state</> is not <literal>active</>, when the last query
       was started
+-->
+     <entry>
+現在有効な問い合わせが開始した時刻です。
+もし<structfield>state</>が<literal>active</>でない場合は直前の問い合わせが開始した時刻です。
      </entry>
     </row>
     <row>
      <entry><structfield>state_change</></entry>
      <entry><type>timestamp with time zone</></entry>
+<!--
      <entry>Time when the <structfield>state</> was last changed</entry>
+-->
+     <entry><structfield>state</>の最終変更時刻です。</entry>
     </row>
     <row>
      <entry><structfield>waiting</></entry>
      <entry><type>boolean</></entry>
+<!--
      <entry>True if this backend is currently waiting on a lock</entry>
+-->
+     <entry>
+バックエンドが現在ロックを待機している場合は真です。
+     </entry>
     </row>
     <row>
      <entry><structfield>state</></entry>
      <entry><type>text</></entry>
+<!--
      <entry>Current overall state of this backend.
        Possible values are:
+-->
+     <entry>
+現在のバックエンドの総体的な状態です。
+以下のいずれかの値を取ることができます。
        <itemizedlist>
          <listitem>
           <para>
+<!--
            <literal>active</>: The backend is executing a query.
+-->
+           <literal>active</>: バックエンドは問い合わせを実行中です。
           </para>
          </listitem>
          <listitem>
           <para>
+<!--
            <literal>idle</>: The backend is waiting for a new client command.
+-->
+           <literal>idle</>: バックエンドは新しいクライアントからのコマンドを待機しています。
           </para>
          </listitem>
          <listitem>
           <para>
+<!--
            <literal>idle in transaction</>: The backend is in a transaction,
            but is not currently executing a query.
+-->
+           <literal>idle in transaction</>: バックエンドはトランザクションの内部にいますが、現在実行中の問い合わせがありません。
           </para>
          </listitem>
          <listitem>
           <para>
+<!--
            <literal>idle in transaction (aborted)</>: This state is similar to
            <literal>idle in transaction</>, except one of the statements in
            the transaction caused an error.
+-->
+           <literal>idle in transaction (aborted)</>: この状態は<literal>idle in transaction</>と似ていますが、トランザクション内のある文がエラーになっている点が異なります。
           </para>
          </listitem>
          <listitem>
           <para>
+<!--
            <literal>fastpath function call</>: The backend is executing a
            fast-path function.
+-->
+           <literal>fastpath function call</>: バックエンドは近道関数を実行中です。
           </para>
          </listitem>
          <listitem>
            <para>
+<!--
            <literal>disabled</>: This state is reported if <xref
            linkend="guc-track-activities"> is disabled in this backend.
+-->
+           <literal>disabled</>: この状態は、このバックエンドで<xref linkend="guc-track-activities">が無効である場合に報告されます。
           </para>
          </listitem>
        </itemizedlist>
@@ -631,20 +1011,36 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
     <row>
      <entry><structfield>backend_xid</structfield></entry>
      <entry><type>xid</type></entry>
+<!--
      <entry>Top-level transaction identifier of this backend, if any.</entry>
+-->
+     <entry>
+もしあれば、このバックエンドの最上位のトランザクション識別子。
+     </entry>
     </row>
     <row>
      <entry><structfield>backend_xmin</structfield></entry>
      <entry><type>xid</type></entry>
+<!--
      <entry>The current backend's <literal>xmin</> horizon.</entry>
+-->
+     <entry>
+現在のバックエンドの<literal>xmin</>。
+     </entry>
     </row>
     <row>
      <entry><structfield>query</></entry>
      <entry><type>text</></entry>
+<!--
      <entry>Text of this backend's most recent query. If
       <structfield>state</> is <literal>active</> this field shows the
       currently executing query. In all other states, it shows the last query
       that was executed.
+-->
+     <entry>
+バックエンドの最も最近の問い合わせテキストです。
+<structfield>state</>が<literal>active</>の場合、現在実行中の問い合わせを意味します。
+その他のすべての状態では、実行済みの最後の問い合わせを示します。
      </entry>
     </row>
    </tbody>
@@ -652,31 +1048,47 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
   </table>
 
   <para>
+<!--
    The <structname>pg_stat_activity</structname> view will have one row
    per server process, showing information related to
    the current activity of that process.
+-->
+<structname>pg_stat_activity</structname>はサーバプロセス毎に、そのプロセスの現在の活動に関連する情報を表示する１行を持ちます。
   </para>
 
   <note>
    <para>
+<!--
     The <structfield>waiting</> and <structfield>state</> columns are
     independent.  If a backend is in the <literal>active</> state,
     it may or may not be <literal>waiting</>.  If the state is
     <literal>active</> and <structfield>waiting</> is true, it means
     that a query is being executed, but is being blocked by a lock
     somewhere in the system.
+-->
+<structfield>waiting</>と<structfield>state</>列は独立しています。
+バックエンドが<literal>active</>状態である場合、<literal>waiting</>かもしれませんし、そうでないかもしれません。
+状態が<literal>active</>であり、<structfield>waiting</>が真である場合、問い合わせは実行中ですが、システム内の何らかのロックによりブロックされていることを意味します。
    </para>
   </note>
 
   <table id="pg-stat-archiver-view" xreflabel="pg_stat_archiver">
+<!--
    <title><structname>pg_stat_archiver</structname> View</title>
+-->
+   <title><structname>pg_stat_archiver</structname>ビュー</title>
 
    <tgroup cols="3">
     <thead>
      <row>
+<!--
       <entry>Column</entry>
       <entry>Type</entry>
       <entry>Description</entry>
+-->
+      <entry>列</entry>
+      <entry>型</entry>
+      <entry>説明</entry>
      </row>
     </thead>
 
@@ -684,142 +1096,239 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
      <row>
       <entry><structfield>archived_count</></entry>
       <entry><type>bigint</type></entry>
+<!--
       <entry>Number of WAL files that have been successfully archived</entry>
+-->
+      <entry>アーカイブに成功したWALファイルの数</entry>
      </row>
      <row>
       <entry><structfield>last_archived_wal</></entry>
       <entry><type>text</type></entry>
+<!--
       <entry>Name of the last WAL file successfully archived</entry>
+-->
+      <entry>アーカイブに成功した最後のWALファイルの名前</entry>
      </row>
      <row>
       <entry><structfield>last_archived_time</></entry>
       <entry><type>timestamp with time zone</type></entry>
+<!--
       <entry>Time of the last successful archive operation</entry>
+-->
+      <entry>最後に成功したアーカイブ操作の時刻</entry>
      </row>
      <row>
       <entry><structfield>failed_count</></entry>
       <entry><type>bigint</type></entry>
+<!--
       <entry>Number of failed attempts for archiving WAL files</entry>
+-->
+      <entry>WALファイルのアーカイブに失敗した回数</entry>
      </row>
      <row>
       <entry><structfield>last_failed_wal</></entry>
       <entry><type>text</type></entry>
+<!--
       <entry>Name of the WAL file of the last failed archival operation</entry>
+-->
+      <entry>最後にアーカイブ操作に失敗したWALファイルの名前</entry>
      </row>
      <row>
       <entry><structfield>last_failed_time</></entry>
       <entry><type>timestamp with time zone</type></entry>
+<!--
       <entry>Time of the last failed archival operation</entry>
+-->
+      <entry>最後にアーカイブ操作に失敗した時刻</entry>
      </row>
      <row>
       <entry><structfield>stats_reset</></entry>
       <entry><type>timestamp with time zone</type></entry>
+<!--
       <entry>Time at which these statistics were last reset</entry>
+-->
+      <entry>この統計が最後にリセットされた時刻</entry>
      </row>
     </tbody>
    </tgroup>
   </table>
 
   <para>
+<!--
    The <structname>pg_stat_archiver</structname> view will always have a
    single row, containing data about the archiver process of the cluster.
+-->
+<structname>pg_stat_archiver</structname>は常に、クラスタのアーカイバプロセスに関するデータを含む１つの行を持ちます。
   </para>
 
   <table id="pg-stat-bgwriter-view" xreflabel="pg_stat_bgwriter">
+<!--
    <title><structname>pg_stat_bgwriter</structname> View</title>
+-->
+   <title><structname>pg_stat_bgwriter</structname>ビュー</title>
 
    <tgroup cols="3">
     <thead>
     <row>
+<!--
       <entry>Column</entry>
       <entry>Type</entry>
       <entry>Description</entry>
+-->
+      <entry>列</entry>
+      <entry>型</entry>
+      <entry>説明</entry>
      </row>
+
     </thead>
 
     <tbody>
      <row>
       <entry><structfield>checkpoints_timed</></entry>
       <entry><type>bigint</type></entry>
+<!--
       <entry>Number of scheduled checkpoints that have been performed</entry>
+-->
+      <entry>
+これまでに実行された、スケジュールされたチェックポイントの個数です。
+      </entry>
      </row>
      <row>
       <entry><structfield>checkpoints_req</></entry>
       <entry><type>bigint</type></entry>
+<!--
       <entry>Number of requested checkpoints that have been performed</entry>
+-->
+      <entry>
+これまでに実行された、要求されたチェックポイントの個数です。
+      </entry>
      </row>
      <row>
       <entry><structfield>checkpoint_write_time</></entry>
       <entry><type>double precision</type></entry>
       <entry>
+<!--
         Total amount of time that has been spent in the portion of
         checkpoint processing where files are written to disk, in milliseconds
+-->
+チェックポイント処理におけるディスクにファイルを書き出す部分に費やされた、ミリ秒単位の総時間です。
       </entry>
      </row>
      <row>
       <entry><structfield>checkpoint_sync_time</></entry>
       <entry><type>double precision</type></entry>
       <entry>
+<!--
         Total amount of time that has been spent in the portion of
         checkpoint processing where files are synchronized to disk, in
         milliseconds
+-->
+チェックポイント処理におけるディスクにファイルを同期する部分に費やされた、ミリ秒単位の総時間です。
       </entry>
      </row>
      <row>
       <entry><structfield>buffers_checkpoint</></entry>
       <entry><type>bigint</type></entry>
+<!--
       <entry>Number of buffers written during checkpoints</entry>
+-->
+      <entry>
+チェックポイント期間に書き出されたバッファ数です。
+      </entry>
      </row>
      <row>
       <entry><structfield>buffers_clean</></entry>
       <entry><type>bigint</type></entry>
+<!--
       <entry>Number of buffers written by the background writer</entry>
+-->
+      <entry>
+バックグラウンドライタにより書き出されたバッファ数です。
+      </entry>
      </row>
      <row>
       <entry><structfield>maxwritten_clean</></entry>
       <entry><type>bigint</type></entry>
+<!--
       <entry>Number of times the background writer stopped a cleaning
        scan because it had written too many buffers</entry>
+-->
+      <entry>
+バックグラウンドライタが書き出したバッファ数が多過ぎたために、整理用スキャンを停止した回数です。
+      </entry>
      </row>
      <row>
       <entry><structfield>buffers_backend</></entry>
       <entry><type>bigint</type></entry>
+<!--
       <entry>Number of buffers written directly by a backend</entry>
+-->
+      <entry>
+バックエンドにより直接書き出されたバッファ数です。
+      </entry>
      </row>
      <row>
       <entry><structfield>buffers_backend_fsync</></entry>
       <entry><type>bigint</type></entry>
+<!--
       <entry>Number of times a backend had to execute its own
        <function>fsync</> call (normally the background writer handles those
        even when the backend does its own write)</entry>
+-->
+      <entry>
+バックエンドが独自に<function>fsync</>呼び出しを実行しなければならなかった回数です。
+（通常は、バックエンドが独自に書き込んだ場合であっても、バックグラウンドライタがこれらを扱います。）
+      </entry>
      </row>
+
      <row>
       <entry><structfield>buffers_alloc</></entry>
       <entry><type>bigint</type></entry>
+<!--
       <entry>Number of buffers allocated</entry>
+-->
+      <entry>
+割当られたバッファ数です。
+      </entry>
      </row>
      <row>
       <entry><structfield>stats_reset</></entry>
       <entry><type>timestamp with time zone</type></entry>
+<!--
       <entry>Time at which these statistics were last reset</entry>
+-->
+      <entry>
+これらの統計情報がリセットされた最終時刻です。
+      </entry>
      </row>
     </tbody>
     </tgroup>
   </table>
 
   <para>
+<!--
    The <structname>pg_stat_bgwriter</structname> view will always have a
    single row, containing global data for the cluster.
+-->
+<structname>pg_stat_bgwriter</structname>ビューは常に、クラスタのグローバルデータに関する１つの行を持ちます。
   </para>
 
   <table id="pg-stat-database-view" xreflabel="pg_stat_database">
+<!--
    <title><structname>pg_stat_database</structname> View</title>
+-->
+   <title><structname>pg_stat_database</structname>ビュー</title>
    <tgroup cols="3">
     <thead>
     <row>
+<!--
       <entry>Column</entry>
       <entry>Type</entry>
       <entry>Description</entry>
+-->
+      <entry>列</entry>
+      <entry>型</entry>
+      <entry>説明</entry>
      </row>
     </thead>
 
@@ -827,136 +1336,241 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
     <row>
      <entry><structfield>datid</></entry>
      <entry><type>oid</></entry>
+<!--
      <entry>OID of a database</entry>
+-->
+     <entry>データベースのOIDです。</entry>
     </row>
     <row>
      <entry><structfield>datname</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of this database</entry>
+-->
+     <entry>データベースの名前です。</entry>
     </row>
     <row>
      <entry><structfield>numbackends</></entry>
      <entry><type>integer</></entry>
+<!--
      <entry>Number of backends currently connected to this database.
      This is the only column in this view that returns a value reflecting
      current state; all other columns return the accumulated values since
      the last reset.</entry>
+-->
+     <entry>
+現在データベースに接続しているバックエンドの個数です。
+これは、このビューの中で、現在の状態を反映した値を返す唯一の列です。
+他の列はすべて、最後にリセットされてから累積された値を返します。
+     </entry>
     </row>
     <row>
      <entry><structfield>xact_commit</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of transactions in this database that have been
       committed</entry>
+-->
+     <entry>
+このデータベースの中でコミットされたトランザクション数です。
+     </entry>
     </row>
     <row>
      <entry><structfield>xact_rollback</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of transactions in this database that have been
       rolled back</entry>
+-->
+     <entry>
+このデータベースの中でロールバックされたトランザクション数です。
+     </entry>
     </row>
     <row>
      <entry><structfield>blks_read</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of disk blocks read in this database</entry>
+-->
+     <entry>
+データベース内で読み取られたディスクブロック数です。
+     </entry>
     </row>
     <row>
      <entry><structfield>blks_hit</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of times disk blocks were found already in the buffer
       cache, so that a read was not necessary (this only includes hits in the
       PostgreSQL buffer cache, not the operating system's file system cache)
+     </entry>
+-->
+     <entry>
+バッファキャッシュに既にあることが分かっているために読み取りが不要だったディスクブロック数です（これにはPostgreSQLのバッファキャッシュにおけるヒットのみが含まれ、オペレーティングシステムのファイルシステムキャッシュは含まれません）。
      </entry>
     </row>
     <row>
      <entry><structfield>tup_returned</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of rows returned by queries in this database</entry>
+-->
+     <entry>
+データベース内の問い合わせで返された行数です。
+     </entry>
     </row>
     <row>
      <entry><structfield>tup_fetched</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of rows fetched by queries in this database</entry>
+-->
+     <entry>
+データベース内の問い合わせで取り出された行数です。
+     </entry>
     </row>
     <row>
      <entry><structfield>tup_inserted</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of rows inserted by queries in this database</entry>
+-->
+     <entry>
+データベース内の問い合わせで挿入された行数です。
+     </entry>
     </row>
     <row>
      <entry><structfield>tup_updated</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of rows updated by queries in this database</entry>
+-->
+     <entry>
+データベース内の問い合わせで更新された行数です。
+     </entry>
     </row>
     <row>
      <entry><structfield>tup_deleted</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of rows deleted by queries in this database</entry>
+-->
+     <entry>
+データベース内の問い合わせで削除された行数です。
+     </entry>
     </row>
     <row>
      <entry><structfield>conflicts</></entry>
      <entry><type>bigint</></entry>
+     <entry>
+<!--
      <entry>Number of queries canceled due to conflicts with recovery
       in this database. (Conflicts occur only on standby servers; see
       <xref linkend="pg-stat-database-conflicts-view"> for details.)
+-->
+データベース内のリカバリで競合したためキャンセルされた問い合わせ数です。
+（競合はスタンバイサーバ上でのみ起こります。詳細については<xref linkend="pg-stat-database-conflicts-view">を参照してください。）
      </entry>
     </row>
     <row>
      <entry><structfield>temp_files</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of temporary files created by queries in this database.
       All temporary files are counted, regardless of why the temporary file
       was created (e.g., sorting or hashing), and regardless of the
       <xref linkend="guc-log-temp-files"> setting.
+-->
+     <entry>
+データベース内の問い合わせによって書き出された一時ファイルの個数です。
+一時ファイルが作成された理由（ソート処理やハッシュ処理）や<xref linkend="guc-log-temp-files">の設定に関わらず、すべての一時ファイルが計上されます。
      </entry>
     </row>
     <row>
      <entry><structfield>temp_bytes</></entry>
      <entry><type>bigint</></entry>
+     <entry>
+<!--
      <entry>Total amount of data written to temporary files by queries in
       this database. All temporary files are counted, regardless of why
       the temporary file was created, and
       regardless of the <xref linkend="guc-log-temp-files"> setting.
+-->
+データベース内の問い合わせによって一時ファイルに書き出されたデータ量です。
+一時ファイルが作成された理由や<xref linkend="guc-log-temp-files">の設定に関わらず、すべての一時ファイルが計上されます。
      </entry>
     </row>
     <row>
      <entry><structfield>deadlocks</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of deadlocks detected in this database</entry>
+-->
+     <entry>
+データベース内で検知されたデッドロック数です。
+     </entry>
     </row>
     <row>
      <entry><structfield>blk_read_time</></entry>
      <entry><type>double precision</></entry>
+<!--
      <entry>Time spent reading data file blocks by backends in this database,
       in milliseconds</entry>
+-->
+     <entry>
+データベース内でバックエンドによりデータファイルブロックの読み取りに費やされた、ミリ秒単位の時間です。
+     </entry>
+
     </row>
     <row>
      <entry><structfield>blk_write_time</></entry>
      <entry><type>double precision</></entry>
+<!--
      <entry>Time spent writing data file blocks by backends in this database,
       in milliseconds</entry>
+-->
+     <entry>
+データベース内でバックエンドによりデータファイルブロックの書き出しに費やされた、ミリ秒単位の時間です。
+     </entry>
     </row>
     <row>
      <entry><structfield>stats_reset</></entry>
      <entry><type>timestamp with time zone</></entry>
+<!--
      <entry>Time at which these statistics were last reset</entry>
+-->
+     <entry>
+統計情報がリセットされた最終時刻です。
+     </entry>
     </row>
    </tbody>
    </tgroup>
   </table>
 
   <para>
+<!--
    The <structname>pg_stat_database</structname> view will contain one row
    for each database in the cluster, showing database-wide statistics.
+-->
+<structname>pg_stat_database</structname>には、クラスタ内のデータベース毎にデータベース全体の統計情報を示す１行が含まれます。
   </para>
 
   <table id="pg-stat-all-tables-view" xreflabel="pg_stat_all_tables">
+<!--
    <title><structname>pg_stat_all_tables</structname> View</title>
+-->
+   <title><structname>pg_stat_all_tables</structname>ビュー</title>
    <tgroup cols="3">
     <thead>
     <row>
+<!--
       <entry>Column</entry>
       <entry>Type</entry>
       <entry>Description</entry>
+-->
+      <entry>列</entry>
+      <entry>型</entry>
+      <entry>説明</entry>
      </row>
     </thead>
 
@@ -964,125 +1578,206 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
     <row>
      <entry><structfield>relid</></entry>
      <entry><type>oid</></entry>
+<!--
      <entry>OID of a table</entry>
+-->
+     <entry>テーブルのOIDです。</entry>
     </row>
     <row>
      <entry><structfield>schemaname</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of the schema that this table is in</entry>
+-->
+     <entry>テーブルが存在するスキーマの名前です。</entry>
     </row>
     <row>
      <entry><structfield>relname</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of this table</entry>
+-->
+     <entry>テーブルの名前です。</entry>
     </row>
     <row>
      <entry><structfield>seq_scan</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of sequential scans initiated on this table</entry>
+-->
+     <entry>
+テーブル上で初期化されたシーケンシャルスキャンの個数です。
+     </entry>
     </row>
     <row>
      <entry><structfield>seq_tup_read</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of live rows fetched by sequential scans</entry>
+-->
+     <entry>
+シーケンシャルスキャンによって取り出された有効行の個数です。
+     </entry>
     </row>
     <row>
      <entry><structfield>idx_scan</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of index scans initiated on this table</entry>
+-->
+     <entry>
+テーブル上で初期化されたインデックススキャンの個数です。
+     </entry>
     </row>
     <row>
      <entry><structfield>idx_tup_fetch</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of live rows fetched by index scans</entry>
+-->
+<entry>インデックススキャンによって取り出された有効行の個数です。</entry>
     </row>
     <row>
      <entry><structfield>n_tup_ins</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of rows inserted</entry>
+-->
+     <entry>挿入された行数です。</entry>
     </row>
     <row>
      <entry><structfield>n_tup_upd</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of rows updated</entry>
+-->
+     <entry>更新された行数です。</entry>
     </row>
     <row>
      <entry><structfield>n_tup_del</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of rows deleted</entry>
+-->
+     <entry>削除された行数です。</entry>
     </row>
     <row>
      <entry><structfield>n_tup_hot_upd</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of rows HOT updated (i.e., with no separate index
       update required)</entry>
+-->
+     <entry>HOT更新（つまりインデックスの更新を別途必要としない）された行数です。</entry>
     </row>
     <row>
      <entry><structfield>n_live_tup</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Estimated number of live rows</entry>
+-->
+     <entry>有効行の推定値です。</entry>
     </row>
     <row>
      <entry><structfield>n_dead_tup</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Estimated number of dead rows</entry>
+-->
+     <entry>不要行の推定値です。</entry>
     </row>
     <row>
      <entry><structfield>n_mod_since_analyze</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Estimated number of rows modified since this table was last analyzed</entry>
+-->
+     <entry>このテーブルが最後に解析されてから変更された行の推定値</entry>
     </row>
     <row>
      <entry><structfield>last_vacuum</></entry>
      <entry><type>timestamp with time zone</></entry>
+<!--
      <entry>Last time at which this table was manually vacuumed
       (not counting <command>VACUUM FULL</>)</entry>
+-->
+     <entry>
+テーブルが手作業でバキュームされた最終時刻です（<command>VACUUM FULL</>は含まれません）。
+     </entry>
     </row>
     <row>
      <entry><structfield>last_autovacuum</></entry>
      <entry><type>timestamp with time zone</></entry>
+<!--
      <entry>Last time at which this table was vacuumed by the autovacuum
       daemon</entry>
+-->
+     <entry>
+自動バキュームデーモンによりテーブルがバキュームされた最終時刻です。
+     </entry>
     </row>
     <row>
      <entry><structfield>last_analyze</></entry>
      <entry><type>timestamp with time zone</></entry>
+<!--
      <entry>Last time at which this table was manually analyzed</entry>
+-->
+     <entry>
+テーブルが手作業で解析された最終時刻です。
+     </entry>
     </row>
     <row>
      <entry><structfield>last_autoanalyze</></entry>
      <entry><type>timestamp with time zone</></entry>
+<!--
      <entry>Last time at which this table was analyzed by the autovacuum
       daemon</entry>
+-->
+     <entry>
+自動バキュームデーモンによってテーブルが手作業で解析された最終時刻です。
+     </entry>
     </row>
     <row>
      <entry><structfield>vacuum_count</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of times this table has been manually vacuumed
       (not counting <command>VACUUM FULL</>)</entry>
+-->
+     <entry>テーブルが手作業でバキュームされた回数です。（<command>VACUUM FULL</>は含まれません）。</entry>
     </row>
     <row>
      <entry><structfield>autovacuum_count</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of times this table has been vacuumed by the autovacuum
       daemon</entry>
+-->
+     <entry>テーブルが自動バキュームデーモンによりバキュームされた回数です。</entry>
     </row>
     <row>
      <entry><structfield>analyze_count</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of times this table has been manually analyzed</entry>
+-->
+     <entry>テーブルが手作業で解析された回数です。</entry>
     </row>
     <row>
      <entry><structfield>autoanalyze_count</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of times this table has been analyzed by the autovacuum
       daemon</entry>
+-->
+     <entry>テーブルが自動バキュームデーモンによって解析された回数です。</entry>
     </row>
    </tbody>
    </tgroup>
   </table>
 
   <para>
+<!--
    The <structname>pg_stat_all_tables</structname> view will contain
    one row for each table in the current database (including TOAST
    tables), showing statistics about accesses to that specific table. The
@@ -1090,16 +1785,27 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
    <structname>pg_stat_sys_tables</structname> views
    contain the same information,
    but filtered to only show user and system tables respectively.
+-->
+<structname>pg_stat_all_tables</structname>ビューは現在のデータベース内のテーブル（TOASTテーブルを含む）毎に１行の形式で、特定のテーブルへのアクセスに関する統計情報を表示します。
+<structname>pg_stat_user_tables</structname>および<structname>pg_stat_sys_tables</structname>ビューにも同じ情報が含まれますが、それぞれユーザテーブルとシステムテーブルのみにフィルタされています。
   </para>
 
   <table id="pg-stat-all-indexes-view" xreflabel="pg_stat_all_indexes">
+<!--
    <title><structname>pg_stat_all_indexes</structname> View</title>
+-->
+   <title><structname>pg_stat_all_indexes</structname>ビュー</title>
    <tgroup cols="3">
     <thead>
     <row>
+<!--
       <entry>Column</entry>
       <entry>Type</entry>
       <entry>Description</entry>
+-->
+      <entry>列</entry>
+      <entry>型</entry>
+      <entry>説明</entry>
      </row>
     </thead>
 
@@ -1107,49 +1813,80 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
     <row>
      <entry><structfield>relid</></entry>
      <entry><type>oid</></entry>
+<!--
      <entry>OID of the table for this index</entry>
+-->
+     <entry>インデックス対象のテーブルのOIDです。</entry>
     </row>
     <row>
      <entry><structfield>indexrelid</></entry>
      <entry><type>oid</></entry>
+<!--
      <entry>OID of this index</entry>
+-->
+     <entry>インデックスのOIDです。</entry>
     </row>
     <row>
      <entry><structfield>schemaname</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of the schema this index is in</entry>
+-->
+     <entry>インデックスが存在するスキーマの名前です。</entry>
     </row>
     <row>
      <entry><structfield>relname</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of the table for this index</entry>
+-->
+     <entry>インデックス対象のテーブルの名前です。</entry>
     </row>
     <row>
      <entry><structfield>indexrelname</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of this index</entry>
+-->
+     <entry>インデックスの名前です。</entry>
     </row>
     <row>
      <entry><structfield>idx_scan</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of index scans initiated on this index</entry>
+-->
+     <entry>
+インデックスに対して初期化されたインデックススキャンの個数です。
+     </entry>
     </row>
     <row>
      <entry><structfield>idx_tup_read</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of index entries returned by scans on this index</entry>
+-->
+     <entry>
+インデックスに対するスキャンにより返されたインデックス項目の個数です。
+     </entry>
     </row>
     <row>
      <entry><structfield>idx_tup_fetch</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of live table rows fetched by simple index scans using this
       index</entry>
+-->
+     <entry>
+インデックスを使用する単純なインデックススキャンによって取り出された有効テーブル行数です。
+     </entry>
     </row>
    </tbody>
    </tgroup>
   </table>
 
   <para>
+<!--
    The <structname>pg_stat_all_indexes</structname> view will contain
    one row for each index in the current database,
    showing statistics about accesses to that specific index. The
@@ -1157,9 +1894,13 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
    <structname>pg_stat_sys_indexes</structname> views
    contain the same information,
    but filtered to only show user and system indexes respectively.
+-->
+<structname>pg_stat_all_indexes</structname>ビューは、現在のデータベース内のインデックス毎に、特定のインデックスへのアクセスに関する統計情報を示す１行を保持します。
+<structname>pg_stat_user_indexes</structname>と<structname>pg_stat_sys_indexes</structname>も同じ情報を保持しますが、ユーザ向けのインデックスとシステム向けのインデックスに対する行のみを保持するようにフィルタ処理されています。
   </para>
 
   <para>
+<!--
    Indexes can be used via either simple index scans or <quote>bitmap</>
    index scans.  In a bitmap scan
    the output of several indexes can be combined via AND or OR rules,
@@ -1171,10 +1912,16 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
    <structname>pg_stat_all_tables</>.<structfield>idx_tup_fetch</>
    count for the table, but it does not affect
    <structname>pg_stat_all_indexes</>.<structfield>idx_tup_fetch</>.
+-->
+単純インデックススキャンまたは<quote>ビットマップ</>インデックススキャンのいずれかを介してインデックスを使用することができます。
+ビットマップスキャンでは、複数のインデックスの出力をANDやOR規則で組み合わせることができます。
+このため、ビットマップスキャンが使用される場合、特定インデックスと個々のヒープ行の取り出しとを関連づけることが困難です。
+したがってビットマップスキャンでは、使用したインデックスの<structname>pg_stat_all_indexes</>.<structfield>idx_tup_read</>個数を増やし、そのテーブルの<structname>pg_stat_all_tables</>.<structfield>idx_tup_fetch</>個数を増やしますが、<structname>pg_stat_all_indexes</>.<structfield>idx_tup_fetch</>を変更しません。
   </para>
 
   <note>
    <para>
+<!--
     The <structfield>idx_tup_read</> and <structfield>idx_tup_fetch</> counts
     can be different even without any use of bitmap scans,
     because <structfield>idx_tup_read</> counts
@@ -1182,17 +1929,29 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
     counts live rows fetched from the table.  The latter will be less if any
     dead or not-yet-committed rows are fetched using the index, or if any
     heap fetches are avoided by means of an index-only scan.
+-->
+<structfield>idx_tup_read</>と<structfield>idx_tup_fetch</>個数は、ビットマップスキャンがまったく使用されていない場合でも異なります。
+<structfield>idx_tup_read</>はインデックスから取り出したインデックス項目を計上し、<structfield>idx_tup_fetch</>はテーブルから取り出した有効行を計上するからです。
+インデックスを用いて不要行やまだコミットされていない行が取り出された場合やインデックスオンリースキャン法によりヒープの取り出しが回避された場合に、後者は減少します。
    </para>
   </note>
 
   <table id="pg-statio-all-tables-view" xreflabel="pg_statio_all_tables">
+<!--
    <title><structname>pg_statio_all_tables</structname> View</title>
+-->
+   <title><structname>pg_statio_all_tables</structname>ビュー</title>
    <tgroup cols="3">
     <thead>
     <row>
+<!--
       <entry>Column</entry>
       <entry>Type</entry>
       <entry>Description</entry>
+-->
+      <entry>列</entry>
+      <entry>型</entry>
+      <entry>説明</entry>
      </row>
     </thead>
 
@@ -1200,63 +1959,97 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
     <row>
      <entry><structfield>relid</></entry>
      <entry><type>oid</></entry>
+<!--
      <entry>OID of a table</entry>
+-->
+     <entry>テーブルのOIDです。</entry>
     </row>
     <row>
      <entry><structfield>schemaname</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of the schema that this table is in</entry>
+-->
+     <entry>テーブルが存在するスキーマの名前です。</entry>
     </row>
     <row>
      <entry><structfield>relname</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of this table</entry>
+-->
+     <entry>テーブルの名前です。</entry>
     </row>
     <row>
      <entry><structfield>heap_blks_read</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of disk blocks read from this table</entry>
+-->
+     <entry>テーブルから読み取られたディスクブロック数です。</entry>
     </row>
     <row>
      <entry><structfield>heap_blks_hit</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of buffer hits in this table</entry>
+-->
+     <entry>テーブル内のバッファヒット数です。</entry>
     </row>
     <row>
      <entry><structfield>idx_blks_read</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of disk blocks read from all indexes on this table</entry>
+-->
+     <entry>テーブル上のすべてのインデックスから読み取られたディスクブロック数です。</entry>
     </row>
     <row>
      <entry><structfield>idx_blks_hit</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of buffer hits in all indexes on this table</entry>
+-->
+     <entry>テーブル上のすべてのインデックス内のバッファヒット数です。</entry>
     </row>
     <row>
      <entry><structfield>toast_blks_read</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of disk blocks read from this table's TOAST table (if any)</entry>
+-->
+     <entry>テーブルのTOASTテーブル（もしあれば）から読み取られたディスクブロック数です。</entry>
     </row>
     <row>
      <entry><structfield>toast_blks_hit</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of buffer hits in this table's TOAST table (if any)</entry>
+-->
+     <entry>テーブルのTOASTテーブル（もしあれば）におけるバッファヒット数です。</entry>
     </row>
     <row>
      <entry><structfield>tidx_blks_read</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of disk blocks read from this table's TOAST table indexes (if any)</entry>
+-->
+     <entry>テーブルのTOASTテーブルのインデックス（もしあれば）から読み取られたディスクブロック数です。</entry>
     </row>
     <row>
      <entry><structfield>tidx_blks_hit</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of buffer hits in this table's TOAST table indexes (if any)</entry>
+-->
+     <entry>テーブルのTOASTテーブルのインデックス（もしあれば）におけるバッファヒット数です。</entry>
     </row>
    </tbody>
    </tgroup>
   </table>
 
   <para>
+<!--
    The <structname>pg_statio_all_tables</structname> view will contain
    one row for each table in the current database (including TOAST
    tables), showing statistics about I/O on that specific table. The
@@ -1264,16 +2057,27 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
    <structname>pg_statio_sys_tables</structname> views
    contain the same information,
    but filtered to only show user and system tables respectively.
+-->
+<structname>pg_statio_all_tables</structname>ビューは現在のデータベース内のテーブル（TOASTテーブルを含む）ごとに、特定のテーブルのI/Oに関する統計情報情報を示す１行を保持します。
+<structname>pg_statio_user_tables</structname>と<structname>pg_statio_sys_tables</structname>には同じ情報が保持されますが、ユーザテーブルとシステムテーブルに関する行のみを持つようにフィルタ処理がなされています。
   </para>
 
   <table id="pg-statio-all-indexes-view" xreflabel="pg_statio_all_indexes">
+<!--
    <title><structname>pg_statio_all_indexes</structname> View</title>
+-->
+   <title><structname>pg_statio_all_indexes</structname>ビュー</title>
    <tgroup cols="3">
     <thead>
     <row>
+<!--
       <entry>Column</entry>
       <entry>Type</entry>
       <entry>Description</entry>
+-->
+      <entry>列</entry>
+      <entry>型</entry>
+      <entry>説明</entry>
      </row>
     </thead>
 
@@ -1281,43 +2085,65 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
     <row>
      <entry><structfield>relid</></entry>
      <entry><type>oid</></entry>
+<!--
      <entry>OID of the table for this index</entry>
+-->
+     <entry>このインデックスに対応するテーブルのOIDです。</entry>
     </row>
     <row>
      <entry><structfield>indexrelid</></entry>
      <entry><type>oid</></entry>
+<!--
      <entry>OID of this index</entry>
+-->
+     <entry>インデックスのOIDです。</entry>
     </row>
     <row>
      <entry><structfield>schemaname</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of the schema this index is in</entry>
+-->
+     <entry>インデックスが存在するスキーマの名前です。</entry>
     </row>
     <row>
      <entry><structfield>relname</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of the table for this index</entry>
+-->
+     <entry>このインデックスに対応するテーブルの名前です。</entry>
     </row>
     <row>
      <entry><structfield>indexrelname</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of this index</entry>
+-->
+     <entry>インデックスの名前です。</entry>
     </row>
     <row>
      <entry><structfield>idx_blks_read</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of disk blocks read from this index</entry>
+-->
+     <entry>インデックスから読み取られたディスクブロック数です。</entry>
     </row>
     <row>
      <entry><structfield>idx_blks_hit</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of buffer hits in this index</entry>
+-->
+     <entry>インデックスにおけるバッファヒット数です。</entry>
     </row>
    </tbody>
    </tgroup>
   </table>
 
   <para>
+<!--
    The <structname>pg_statio_all_indexes</structname> view will contain
    one row for each index in the current database,
    showing statistics about I/O on that specific index. The
@@ -1325,16 +2151,27 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
    <structname>pg_statio_sys_indexes</structname> views
    contain the same information,
    but filtered to only show user and system indexes respectively.
+-->
+<structname>pg_statio_all_indexes</structname>ビューは、現在のデータベース内のインデックス毎に、特定のインデックスへのI/Oに関する統計情報を持つ１行を保持します。
+<structname>pg_statio_user_indexes</structname>と<structname>pg_statio_sys_indexes</structname>も同じ情報を保持しますが、それぞれユーザ向けのインデックスとシステム向けのインデックスに対する行のみを保持するようにフィルタ処理されています。
   </para>
 
   <table id="pg-statio-all-sequences-view" xreflabel="pg_statio_all_sequences">
+<!--
    <title><structname>pg_statio_all_sequences</structname> View</title>
+-->
+   <title><structname>pg_statio_all_sequences</structname>ビュー</title>
    <tgroup cols="3">
     <thead>
     <row>
+<!--
       <entry>Column</entry>
       <entry>Type</entry>
       <entry>Description</entry>
+-->
+      <entry>列</entry>
+      <entry>型</entry>
+      <entry>説明</entry>
      </row>
     </thead>
 
@@ -1342,46 +2179,72 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
     <row>
      <entry><structfield>relid</></entry>
      <entry><type>oid</></entry>
+<!--
      <entry>OID of a sequence</entry>
+-->
+     <entry>シーケンスのOIDです。</entry>
     </row>
     <row>
      <entry><structfield>schemaname</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of the schema this sequence is in</entry>
+-->
+     <entry>シーケンスが存在するスキーマの名前です。</entry>
     </row>
     <row>
      <entry><structfield>relname</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of this sequence</entry>
+-->
+     <entry>シーケンスの名前です。</entry>
     </row>
     <row>
      <entry><structfield>blks_read</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of disk blocks read from this sequence</entry>
+-->
+     <entry>シーケンスから読み取られたディスクブロック数です。</entry>
     </row>
     <row>
      <entry><structfield>blks_hit</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of buffer hits in this sequence</entry>
+-->
+     <entry>シーケンスにおけるバッファヒット数です。</entry>
     </row>
    </tbody>
    </tgroup>
   </table>
 
   <para>
+<!--
    The <structname>pg_statio_all_sequences</structname> view will contain
    one row for each sequence in the current database,
    showing statistics about I/O on that specific sequence.
+-->
+<structname>pg_statio_all_sequences</structname>ビューは現在のデータベース内のシーケンスごとに、特定シーケンスにおけるI/Oに関する統計情報を示す１行を保持します。
   </para>
 
   <table id="pg-stat-user-functions-view" xreflabel="pg_stat_user_functions">
+<!--
    <title><structname>pg_stat_user_functions</structname> View</title>
+-->
+   <title><structname>pg_stat_user_functions</structname>ビュー</title>
    <tgroup cols="3">
     <thead>
     <row>
+<!--
       <entry>Column</entry>
       <entry>Type</entry>
       <entry>Description</entry>
+-->
+      <entry>列</entry>
+      <entry>型</entry>
+      <entry>説明</entry>
      </row>
     </thead>
 
@@ -1389,174 +2252,277 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
     <row>
      <entry><structfield>funcid</></entry>
      <entry><type>oid</></entry>
+<!--
      <entry>OID of a function</entry>
+-->
+     <entry>関数のOIDです。</entry>
     </row>
     <row>
      <entry><structfield>schemaname</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of the schema this function is in</entry>
+-->
+     <entry>関数が存在するスキーマの名前です。</entry>
     </row>
     <row>
      <entry><structfield>funcname</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of this function</entry>
+-->
+     <entry>関数の名前です。</entry>
     </row>
     <row>
      <entry><structfield>calls</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of times this function has been called</entry>
+-->
+     <entry>関数が呼び出された回数です。</entry>
     </row>
     <row>
      <entry><structfield>total_time</></entry>
      <entry><type>double precision</></entry>
+<!--
      <entry>Total time spent in this function and all other functions
      called by it, in milliseconds</entry>
+-->
+     <entry>
+関数とその関数から呼び出されるその他の関数で費やされた、ミリ秒単位の総時間です。
+     </entry>
     </row>
     <row>
      <entry><structfield>self_time</></entry>
      <entry><type>double precision</></entry>
+<!--
      <entry>Total time spent in this function itself, not including
      other functions called by it, in milliseconds</entry>
+-->
+     <entry>
+その関数から呼び出されるその他の関数で費やされた時間を含まない、関数自身で費やされた、ミリ秒単位の総時間です。
+     </entry>
     </row>
    </tbody>
    </tgroup>
   </table>
 
   <para>
+<!--
    The <structname>pg_stat_user_functions</structname> view will contain
    one row for each tracked function, showing statistics about executions of
    that function.  The <xref linkend="guc-track-functions"> parameter
    controls exactly which functions are tracked.
+-->
+<structname>pg_stat_user_functions</structname>ビューは追跡された関数毎に、その関数の実行に関する統計情報を１行保持します。
+<xref linkend="guc-track-functions">パラメータは関数が追跡されるかどうかを正確に制御します。
   </para>
 
   <table id="pg-stat-replication-view" xreflabel="pg_stat_replication">
+<!--
    <title><structname>pg_stat_replication</structname> View</title>
+-->
+   <title><structname>pg_stat_replication</structname>ビュー</title>
    <tgroup cols="3">
     <thead>
     <row>
+<!--
       <entry>Column</entry>
       <entry>Type</entry>
       <entry>Description</entry>
+-->
+      <entry>列</entry>
+      <entry>型</entry>
+      <entry>説明</entry>
      </row>
+
     </thead>
 
    <tbody>
     <row>
      <entry><structfield>pid</></entry>
      <entry><type>integer</></entry>
+<!--
      <entry>Process ID of a WAL sender process</entry>
+-->
+     <entry>WAL送信プロセスのプロセスIDです。</entry>
     </row>
     <row>
      <entry><structfield>usesysid</></entry>
      <entry><type>oid</></entry>
+<!--
      <entry>OID of the user logged into this WAL sender process</entry>
+-->
+     <entry>WAL送信プロセスにログインしたユーザのOIDです。</entry>
     </row>
     <row>
      <entry><structfield>usename</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of the user logged into this WAL sender process</entry>
+-->
+     <entry>WAL送信プロセスにログインしたユーザの名前です。</entry>
     </row>
     <row>
      <entry><structfield>application_name</></entry>
      <entry><type>text</></entry>
+<!--
      <entry>Name of the application that is connected
       to this WAL sender</entry>
+-->
+     <entry>WAL送信処理に接続したアプリケーションの名前です。</entry>
     </row>
     <row>
      <entry><structfield>client_addr</></entry>
      <entry><type>inet</></entry>
+<!--
      <entry>IP address of the client connected to this WAL sender.
       If this field is null, it indicates that the client is
       connected via a Unix socket on the server machine.
+-->
+     <entry>WAL送信処理に接続したクライアントのIPアドレスです。
+このフィールドがNULLの場合、クライアントがサーバマシン上のUnixソケット経由で接続したことを示します。
      </entry>
     </row>
     <row>
      <entry><structfield>client_hostname</></entry>
      <entry><type>text</></entry>
+<!--
      <entry>Host name of the connected client, as reported by a
       reverse DNS lookup of <structfield>client_addr</>. This field will
       only be non-null for IP connections, and only when <xref
       linkend="guc-log-hostname"> is enabled.
+-->
+     <entry>
+<structfield>client_addr</>のDNS逆引き検索により報告された、接続クライアントのホスト名です。
+IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にのみこのフィールドは非NULLになります。
      </entry>
     </row>
     <row>
      <entry><structfield>client_port</></entry>
      <entry><type>integer</></entry>
+<!--
      <entry>TCP port number that the client is using for communication
       with this WAL sender, or <literal>-1</> if a Unix socket is used
+-->
+     <entry>
+クライアントがWAL送信処理との通信に使用するTCPポート、もしUnixソケットを使用する場合は<literal>-1</>です。
      </entry>
     </row>
     <row>
      <entry><structfield>backend_start</></entry>
      <entry><type>timestamp with time zone</></entry>
+<!--
      <entry>Time when this process was started, i.e., when the
       client connected to this WAL sender
+-->
+     <entry>
+プロセスが開始、つまりクライアントがWAL送信処理に接続した時刻です。
      </entry>
     </row>
     <row>
      <entry><structfield>backend_xmin</structfield></entry>
      <entry><type>xid</type></entry>
+<!--
      <entry>This standby's <literal>xmin</> horizon reported
      by <xref linkend="guc-hot-standby-feedback">.</entry>
+-->
+     <entry>
+<xref linkend="guc-hot-standby-feedback">により報告されたこのスタンバイの<literal>xmin</>です。
+     </entry>
     </row>
     <row>
      <entry><structfield>state</></entry>
      <entry><type>text</></entry>
+<!--
      <entry>Current WAL sender state</entry>
+-->
+     <entry>現在のWAL送信処理の状態です。</entry>
     </row>
     <row>
      <entry><structfield>sent_location</></entry>
      <entry><type>pg_lsn</></entry>
+<!--
      <entry>Last transaction log position sent on this connection</entry>
+-->
+     <entry>接続上に送信された最後のトランザクションログ位置です。</entry>
     </row>
     <row>
      <entry><structfield>write_location</></entry>
      <entry><type>pg_lsn</></entry>
+<!--
      <entry>Last transaction log position written to disk by this standby
       server</entry>
+-->
+     <entry>スタンバイサーバによってディスクに書き出された最後のトランザクションログ位置です。</entry>
     </row>
     <row>
      <entry><structfield>flush_location</></entry>
      <entry><type>pg_lsn</></entry>
+<!--
      <entry>Last transaction log position flushed to disk by this standby
       server</entry>
+-->
+     <entry>スタンバイサーバによってディスクに吐き出された最後のトランザクションログ位置です。</entry>
     </row>
     <row>
      <entry><structfield>replay_location</></entry>
      <entry><type>pg_lsn</></entry>
+<!--
      <entry>Last transaction log position replayed into the database on this
       standby server</entry>
+-->
+     <entry>スタンバイサーバ上のデータベースに再生された最後のトランザクションログ位置です。</entry>
     </row>
     <row>
      <entry><structfield>sync_priority</></entry>
      <entry><type>integer</></entry>
+<!--
      <entry>Priority of this standby server for being chosen as the
       synchronous standby</entry>
+-->
+     <entry>このスタンバイサーバが同期スタンバイとして選択される優先度です。</entry>
     </row>
     <row>
      <entry><structfield>sync_state</></entry>
      <entry><type>text</></entry>
+<!--
      <entry>Synchronous state of this standby server</entry>
+-->
+     <entry>スタンバイサーバの同期状態です。</entry>
     </row>
    </tbody>
    </tgroup>
   </table>
 
   <para>
+<!--
    The <structname>pg_stat_replication</structname> view will contain one row
    per WAL sender process, showing statistics about replication to that
    sender's connected standby server.  Only directly connected standbys are
    listed; no information is available about downstream standby servers.
+-->
+<structname>pg_stat_replication</structname>ビューには、WAL送信プロセス毎に、送信処理に接続したスタンバイサーバへのレプリケーションに関する統計情報を示す１行を保持します。
+直接接続されたサーバのみが一覧表示されます。
+下流のスタンバイサーバに関する情報はありません。
   </para>
 
   <table id="pg-stat-database-conflicts-view" xreflabel="pg_stat_database_conflicts">
+<!--
    <title><structname>pg_stat_database_conflicts</structname> View</title>
+-->
+   <title><structname>pg_stat_database_conflicts</structname>ビュー</title>
    <tgroup cols="3">
     <thead>
     <row>
+<!--
       <entry>Column</entry>
       <entry>Type</entry>
       <entry>Description</entry>
+-->
+      <entry>列</entry>
+      <entry>型</entry>
+      <entry>説明</entry>
      </row>
     </thead>
 
@@ -1564,61 +2530,90 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
     <row>
      <entry><structfield>datid</></entry>
      <entry><type>oid</></entry>
+<!--
      <entry>OID of a database</entry>
+-->
+     <entry>データベースのOIDです。</entry>
     </row>
     <row>
      <entry><structfield>datname</></entry>
      <entry><type>name</></entry>
+<!--
      <entry>Name of this database</entry>
+-->
+     <entry>データベースの名前です。</entry>
     </row>
     <row>
      <entry><structfield>confl_tablespace</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of queries in this database that have been canceled due to
       dropped tablespaces</entry>
+-->
+     <entry>データベースにおいて、削除されたテーブル空間のためにキャンセルされた問い合わせの個数です。</entry>
     </row>
     <row>
      <entry><structfield>confl_lock</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of queries in this database that have been canceled due to
       lock timeouts</entry>
+-->
+     <entry>データベースにおいて、ロック時間切れのためにキャンセルされた問い合わせの個数です。</entry>
     </row>
     <row>
      <entry><structfield>confl_snapshot</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of queries in this database that have been canceled due to
       old snapshots</entry>
+-->
+     <entry>データベースにおいて、古いスナップショットのためにキャンセルされた問い合わせの個数です。</entry>
     </row>
     <row>
      <entry><structfield>confl_bufferpin</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of queries in this database that have been canceled due to
       pinned buffers</entry>
+-->
+     <entry>データベースにおいて、ピンが付いたバッファのためにキャンセルされた問い合わせの個数です。</entry>
     </row>
     <row>
      <entry><structfield>confl_deadlock</></entry>
      <entry><type>bigint</></entry>
+<!--
      <entry>Number of queries in this database that have been canceled due to
       deadlocks</entry>
+-->
+     <entry>データベースにおいて、デッドロックのためにキャンセルされた問い合わせの個数です。</entry>
     </row>
    </tbody>
    </tgroup>
   </table>
 
   <para>
+<!--
    The <structname>pg_stat_database_conflicts</structname> view will contain
    one row per database, showing database-wide statistics about
    query cancels occurring due to conflicts with recovery on standby servers.
    This view will only contain information on standby servers, since
    conflicts do not occur on master servers.
+-->
+<structname>pg_stat_database_conflicts</structname>ビューは、データベース毎にスタンバイサーバでのリカバリと競合するためにキャンセルされた問い合わせに関するデータベース全体の統計情報を示す１行を保持します。
+マスタサーバでは競合は発生しませんので、スタンバイサーバ上の情報のみが保持されます。
   </para>
 
  </sect2>
 
  <sect2 id="monitoring-stats-functions">
+<!--
   <title>Statistics Functions</title>
+-->
+  <title>統計情報関数</title>
 
   <para>
+<!--
    Other ways of looking at the statistics can be set up by writing
    queries that use the same underlying statistics access functions used by
    the standard views shown above.  For details such as the functions' names,
@@ -1630,22 +2625,41 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
    The functions for per-function statistics take a function OID.
    Note that only tables, indexes, and functions in the current database
    can be seen with these functions.
+-->
+統計情報を参照する他の方法は、上述の標準ビューによって使用される基礎的な統計情報アクセス関数と同じ関数を使用した問い合わせを作成することで設定することができます。
+こうした関数の名前などに関する詳細については、標準ビューの定義を参照してください。
+（例えば<application>psql</>では<literal>\d+ pg_stat_activity</>を発行してください。）
+データベースごとの統計情報についてのアクセス関数は、どのデータベースに対して報告するのかを識別するためにデータベースのOIDを取ります。
+テーブルごと、インデックスごとの関数はテーブルの、もしくはインデックスのOIDを取ります。
+関数ごとの統計情報の関数は、関数のOIDを取ります。
+これらの関数を使用して参照できるテーブルとインデックス、および関数は現在のデータベース内のものだけであることに注意してください。
   </para>
 
   <para>
+<!--
    Additional functions related to statistics collection are listed in <xref
    linkend="monitoring-stats-funcs-table">.
+-->
+その他の統計情報収集に関連した関数を<xref linkend="monitoring-stats-funcs-table">に示します。
   </para>
 
   <table id="monitoring-stats-funcs-table">
+<!--
    <title>Additional Statistics Functions</title>
+-->
+   <title>その他の統計情報関数</title>
 
    <tgroup cols="3">
     <thead>
      <row>
+<!--
       <entry>Function</entry>
       <entry>Return Type</entry>
       <entry>Description</entry>
+-->
+      <entry>関数</entry>
+      <entry>戻り値の型</entry>
+      <entry>説明</entry>
      </row>
     </thead>
 
@@ -1656,18 +2670,26 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
       <entry><literal><function>pg_backend_pid()</function></literal></entry>
       <entry><type>integer</type></entry>
       <entry>
+<!--
        Process ID of the server process handling the current session
+-->
+現在のセッションを扱うサーバプロセスのプロセスID。
       </entry>
      </row>
 
      <row>
       <entry><literal><function>pg_stat_get_activity</function>(<type>integer</type>)</literal><indexterm><primary>pg_stat_get_activity</primary></indexterm></entry>
       <entry><type>setof record</type></entry>
+<!--
       <entry>
        Returns a record of information about the backend with the specified PID, or
        one record for each active backend in the system if <symbol>NULL</symbol> is
        specified. The fields returned are a subset of those in the
        <structname>pg_stat_activity</structname> view.
+-->
+      <entry>
+PIDが指定された場合、それに該当するバックエンドの情報のレコード、<symbol>NULL</symbol>が指定された場合はシステム上のアクティブな各バックエンドに関するレコードが返されます。
+返される情報内容は<structname>pg_stat_activity</structname>の一部と同じです。
       </entry>
      </row>
 
@@ -1675,7 +2697,10 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
       <entry><literal><function>pg_stat_clear_snapshot()</function></literal><indexterm><primary>pg_stat_clear_snapshot</primary></indexterm></entry>
       <entry><type>void</type></entry>
       <entry>
+<!--
        Discard the current statistics snapshot
+-->
+現在の統計情報スナップショットを破棄します。
       </entry>
      </row>
 
@@ -1683,8 +2708,11 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
       <entry><literal><function>pg_stat_reset()</function></literal><indexterm><primary>pg_stat_reset</primary></indexterm></entry>
       <entry><type>void</type></entry>
       <entry>
+<!--
        Reset all statistics counters for the current database to zero
        (requires superuser privileges)
+-->
+現在のデータベースに関する統計カウンタすべてをゼロにリセットします（スーパーユーザ権限が必要です）。
       </entry>
      </row>
 
@@ -1692,12 +2720,17 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
       <entry><literal><function>pg_stat_reset_shared</function>(text)</literal><indexterm><primary>pg_stat_reset_shared</primary></indexterm></entry>
       <entry><type>void</type></entry>
       <entry>
+<!--
        Reset some cluster-wide statistics counters to zero, depending on the
        argument (requires superuser privileges).
        Calling <literal>pg_stat_reset_shared('bgwriter')</> will zero all the
        counters shown in the <structname>pg_stat_bgwriter</> view.
        Calling <literal>pg_stat_reset_shared('archiver')</> will zero all the
        counters shown in the <structname>pg_stat_archiver</> view.
+-->
+引数に応じて、クラスタ全体の統計情報カウンタの一部をゼロに戻します（スーパーユーザ権限が必要です）。
+<literal>pg_stat_reset_shared('bgwriter')</>を呼び出すと、<structname>pg_stat_bgwriter</>ビューで示される値すべてがゼロになります。
+<literal>pg_stat_reset_shared('archiver')</>を呼び出すと、<structname>pg_stat_archiver</>ビューで示される値すべてがゼロになります。
       </entry>
      </row>
 
@@ -1705,8 +2738,11 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
       <entry><literal><function>pg_stat_reset_single_table_counters</function>(oid)</literal><indexterm><primary>pg_stat_reset_single_table_counters</primary></indexterm></entry>
       <entry><type>void</type></entry>
       <entry>
+<!--
        Reset statistics for a single table or index in the current database to
        zero (requires superuser privileges)
+-->
+現在のデータベース内にある、ひとつのテーブルあるいはインデックスの統計情報をゼロにリセットします（スーパーユーザ権限が必要です）。
       </entry>
      </row>
 
@@ -1714,8 +2750,11 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
       <entry><literal><function>pg_stat_reset_single_function_counters</function>(oid)</literal><indexterm><primary>pg_stat_reset_single_function_counters</primary></indexterm></entry>
       <entry><type>void</type></entry>
       <entry>
+<!--
        Reset statistics for a single function in the current database to
        zero (requires superuser privileges)
+-->
+現在のデータベース内にある、ひとつの関数の統計情報をゼロにリセットします（スーパーユーザ権限が必要です）。
       </entry>
      </row>
     </tbody>
@@ -1723,6 +2762,7 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
   </table>
 
   <para>
+<!--
    <function>pg_stat_get_activity</function>, the underlying function of
    the <structname>pg_stat_activity</> view, returns a set of records
    containing all the available information about each backend process.
@@ -1736,6 +2776,14 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
    convenient way to generate one row for each active backend for
    invoking these functions.  For example, to show the <acronym>PID</>s and
    current queries of all backends:
+-->
+<structname>pg_stat_activity</>ビューの基礎となる<function>pg_stat_get_activity</function>関数は、
+各バックエンドプロセスに関して利用可能な情報をすべて含むレコード集合を返します。
+この情報の一部のみを入手することがより簡便である場合があるかもしれません。
+このような場合、<xref linkend="monitoring-stats-backend-funcs-table">に示す、古めのバックエンド単位の統計情報アクセス関数を使用することができます。
+これらのアクセス関数は、１から現在活動中のバックエンドの個数までの値を取る、バックエンドID番号を使用します。
+<function>pg_stat_get_backend_idset</function>関数は、これらの関数を呼び出すために、活動中のバックエンド毎に１行を生成する簡便な方法を提供します。
+例えば以下はすべてのバックエンドについて<acronym>PID</>と現在の問い合わせを示します。
 
 <programlisting>
 SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
@@ -1745,14 +2793,22 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
   </para>
 
   <table id="monitoring-stats-backend-funcs-table">
+<!--
    <title>Per-Backend Statistics Functions</title>
+-->
+   <title>バックエンド単位の統計情報関数</title>
 
    <tgroup cols="3">
     <thead>
      <row>
+<!--
       <entry>Function</entry>
       <entry>Return Type</entry>
       <entry>Description</entry>
+-->
+      <entry>関数</entry>
+      <entry>戻り値の型</entry>
+      <entry>説明</entry>
      </row>
     </thead>
 
@@ -1761,68 +2817,101 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
      <row>
       <entry><literal><function>pg_stat_get_backend_idset()</function></literal></entry>
       <entry><type>setof integer</type></entry>
+<!--
       <entry>Set of currently active backend ID numbers (from 1 to the
        number of active backends)</entry>
+-->
+      <entry>現在活動中のバックエンドID番号（１から活動中のバックエンドの個数まで）を設定します。</entry>
      </row>
 
      <row>
       <entry><literal><function>pg_stat_get_backend_activity(integer)</function></literal></entry>
       <entry><type>text</type></entry>
+<!--
       <entry>Text of this backend's most recent query</>
+-->
+      <entry>バックエンドが最後に行った問い合わせテキストです。</>
      </row>
 
      <row>
       <entry><literal><function>pg_stat_get_backend_activity_start(integer)</function></literal></entry>
       <entry><type>timestamp with time zone</type></entry>
+<!--
       <entry>Time when the most recent query was started</entry>
+-->
+      <entry>最後の問い合わせが開始された時刻です。</entry>
      </row>
 
      <row>
       <entry><literal><function>pg_stat_get_backend_client_addr(integer)</function></literal></entry>
       <entry><type>inet</type></entry>
+<!--
       <entry>IP address of the client connected to this backend</entry>
+-->
+      <entry>バックエンドに接続したクライアントのIPアドレスです。</entry>
      </row>
 
      <row>
       <entry><literal><function>pg_stat_get_backend_client_port(integer)</function></literal></entry>
       <entry><type>integer</type></entry>
+<!--
       <entry>TCP port number that the client is using for communication</entry>
+-->
+      <entry>クライアントが通信に使用しているTCPポート番号です。</entry>
      </row>
 
      <row>
       <entry><literal><function>pg_stat_get_backend_dbid(integer)</function></literal></entry>
       <entry><type>oid</type></entry>
+<!--
       <entry>OID of the database this backend is connected to</entry>
+-->
+      <entry>バックエンドが接続するデータベースのOIDです。</entry>
      </row>
 
      <row>
       <entry><literal><function>pg_stat_get_backend_pid(integer)</function></literal></entry>
       <entry><type>integer</type></entry>
+<!--
       <entry>Process ID of this backend</entry>
+-->
+      <entry>バックエンドのプロセスIDです。</entry>
      </row>
 
      <row>
       <entry><literal><function>pg_stat_get_backend_start(integer)</function></literal></entry>
       <entry><type>timestamp with time zone</type></entry>
+<!--
       <entry>Time when this process was started</entry>
+-->
+      <entry>プロセスが開始された時刻です。</entry>
      </row>
 
      <row>
       <entry><literal><function>pg_stat_get_backend_userid(integer)</function></literal></entry>
       <entry><type>oid</type></entry>
+<!--
       <entry>OID of the user logged into this backend</entry>
+-->
+      <entry>バックエンドにログインしたユーザのOIDです。</entry>
      </row>
 
      <row>
       <entry><literal><function>pg_stat_get_backend_waiting(integer)</function></literal></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>True if this backend is currently waiting on a lock</entry>
+-->
+      <entry>バックエンドが現在ロックを待機している場合は真です。</entry>
      </row>
 
      <row>
       <entry><literal><function>pg_stat_get_backend_xact_start(integer)</function></literal></entry>
       <entry><type>timestamp with time zone</type></entry>
+<!--
       <entry>Time when the current transaction was started</entry>
+-->
+      <entry>現在のトランザクションが開始された時刻です。</entry>
      </row>
 
     </tbody>
@@ -1833,77 +2922,111 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
  </sect1>
 
  <sect1 id="monitoring-locks">
+<!--
   <title>Viewing Locks</title>
+-->
+<title>ロックの表示</title>
 
   <indexterm zone="monitoring-locks">
+<!--
    <primary>lock</primary>
    <secondary>monitoring</secondary>
+-->
+   <primary>ロック</primary>
+   <secondary>監視</secondary>
   </indexterm>
 
   <para>
+<!--
    Another useful tool for monitoring database activity is the
    <structname>pg_locks</structname> system table.  It allows the
    database administrator to view information about the outstanding
    locks in the lock manager. For example, this capability can be used
    to:
+-->
+この他に、データベース活動状況の監視に役立つツールとして<literal>pg_locks</literal>システムテーブルがあります。これにより、データベース管理者はロックマネージャ内の未解決のロックに関する情報を参照することができます。例えば、この機能を使用すると以下のことができます。
 
    <itemizedlist>
     <listitem>
      <para>
+<!--
       View all the locks currently outstanding, all the locks on
       relations in a particular database, all the locks on a
       particular relation, or all the locks held by a particular
       <productname>PostgreSQL</productname> session.
+-->
+現在未解決のロック、特定データベース内のリレーション上のロック、特定のリレーションのロック、または特定の<productname>PostgreSQL</productname>セッションが保持するロックを全て表示する。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Determine the relation in the current database with the most
       ungranted locks (which might be a source of contention among
       database clients).
+-->
+最も許可されにくいロック（データベースクライアント間で競合の原因になる可能性がある）を持つ、現在のデータベースにおけるリレーションを表示する。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Determine the effect of lock contention on overall database
       performance, as well as the extent to which contention varies
       with overall database traffic.
+-->
+競合によって変動するデータベースの全トラフィックの範囲に加えて、全体的なデータベースの性能に対するロック競合の影響を判断する。
      </para>
     </listitem>
    </itemizedlist>
 
+<!--
    Details of the <structname>pg_locks</structname> view appear in
    <xref linkend="view-pg-locks">.
    For more information on locking and managing concurrency with
    <productname>PostgreSQL</productname>, refer to <xref linkend="mvcc">.
+-->
+<structname>pg_locks</structname>ビューの詳細は、<xref linkend="view-pg-locks">にあります。
+<productname>PostgreSQL</productname>のロックと同時実行性についての詳細は、<xref linkend="mvcc">を参照してください。
   </para>
  </sect1>
 
  <sect1 id="dynamic-trace">
+<!--
   <title>Dynamic Tracing</title>
+-->
+  <title>動的追跡</title>
 
  <indexterm zone="dynamic-trace">
   <primary>DTrace</primary>
  </indexterm>
 
   <para>
+<!--
    <productname>PostgreSQL</productname> provides facilities to support
    dynamic tracing of the database server. This allows an external
    utility to be called at specific points in the code and thereby trace
    execution.
+-->
+<productname>PostgreSQL</productname>は、データベースサーバの動的追跡をサポートする機能を提供します。これにより、外部ユーティリティをコードの特定のポイントで呼び出すことができ、追跡を行うことができるようになります。
   </para>
 
   <para>
+<!--
    A number of probes or trace points are already inserted into the source
    code. These probes are intended to be used by database developers and
    administrators. By default the probes are not compiled into
    <productname>PostgreSQL</productname>; the user needs to explicitly tell
    the configure script to make the probes available.
+
+-->
+多くの追跡やプローブ用のポイントは、すでにソースコード内部に存在します。これらのプローブはデータベースの開発者や管理者が使うことを意図しています。デフォルトでは、これらのプローブは<productname>PostgreSQL</productname>にコンパイルされません。ユーザは明示的にconfigureスクリプトでプローブを有効にするように設定する必要があります。
   </para>
 
   <para>
+<!--
    Currently, the
    <ulink url="https://en.wikipedia.org/wiki/DTrace">DTrace</ulink>
    utility is supported, which, at the time of this writing, is available
@@ -1912,39 +3035,63 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
    for Linux provides a DTrace equivalent and can also be used.  Supporting other dynamic
    tracing utilities is theoretically possible by changing the definitions for
    the macros in <filename>src/include/utils/probes.h</>.
+-->
+現在、これを書いている時点ではSolaris、OS X、FreeBSD、NetBSD、Oracle Linuxで利用可能な<ulink url="http://opensolaris.org/os/community/dtrace/">DTrace</ulink>ユーティリティがサポートされています。
+<ulink url="http://sourceware.org/systemtap/">SystemTap</ulink>プロジェクトではDTrace相当の機能をLinux向けに提供しており、それを使うこともできます。
+他の動的追跡ユーティリティのサポートは、<filename>src/include/utils/probes.h</>内の<literal>PG_TRACE</>マクロ定義を変更することで、理論上は可能です。
   </para>
 
   <sect2 id="compiling-for-trace">
+<!--
    <title>Compiling for Dynamic Tracing</title>
+-->
+   <title>動的追跡のためのコンパイル</title>
 
   <para>
+<!--
    By default, probes are not available, so you will need to
    explicitly tell the configure script to make the probes available
    in <productname>PostgreSQL</productname>. To include DTrace support
-   specify <option>--enable-dtrace</> to configure.  See <xref
+   specify <option>&#045;-enable-dtrace</> to configure.  See <xref
    linkend="install-procedure"> for further information.
+-->
+デフォルトでは、プローブは有効ではありません。そのため、<productname>PostgreSQL</productname>でプローブが利用できるようにするためにconfigureスクリプトで明示的に設定しなければなりません。DTraceサポートを含めるには、configureに<option>--enable-dtrace</>を指定します。詳細は<xref linkend="install-procedure">を参照してください。
   </para>
   </sect2>
 
   <sect2 id="trace-points">
+<!--
    <title>Built-in Probes</title>
+-->
+   <title>組み込み済みのプローブ</title>
 
   <para>
+<!--
    A number of standard probes are provided in the source code,
    as shown in <xref linkend="dtrace-probe-point-table">;
    <xref linkend="typedefs-table">
    shows the types used in the probes.  More probes can certainly be
    added to enhance <productname>PostgreSQL</>'s observability.
+-->
+<xref linkend="dtrace-probe-point-table">で示されるように、多くの標準的なプローブがソースコード内で提供されています。<xref linkend="typedefs-table">はプローブで使用している型を示しています。また、<productname>PostgreSQL</>内の可観測性を強化するためのプローブ追加が可能です。
   </para>
 
  <table id="dtrace-probe-point-table">
+  <!--
   <title>Built-in DTrace Probes</title>
+-->
+  <title>組み込み済みのDTraceプローブ</title>
   <tgroup cols="3">
    <thead>
     <row>
+<!--
      <entry>Name</entry>
      <entry>Parameters</entry>
      <entry>Description</entry>
+-->
+     <entry>名前</entry>
+     <entry>パラメータ</entry>
+     <entry>説明</entry>
     </row>
    </thead>
 
@@ -1953,202 +3100,296 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
     <row>
      <entry>transaction-start</entry>
      <entry>(LocalTransactionId)</entry>
+<!--
      <entry>Probe that fires at the start of a new transaction.
       arg0 is the transaction ID.</entry>
+-->
+     <entry>新しいトランザクションの開始を捕捉するプローブ。arg0はトランザクションIDです。</entry>
     </row>
     <row>
      <entry>transaction-commit</entry>
      <entry>(LocalTransactionId)</entry>
+<!--
      <entry>Probe that fires when a transaction completes successfully.
       arg0 is the transaction ID.</entry>
+-->
+     <entry>トランザクションの正常終了を捕捉するプローブ。arg0はトランザクションIDです。</entry>
     </row>
     <row>
      <entry>transaction-abort</entry>
      <entry>(LocalTransactionId)</entry>
+<!--
      <entry>Probe that fires when a transaction completes unsuccessfully.
       arg0 is the transaction ID.</entry>
+-->
+     <entry>トランザクションの異常終了を捕捉するプローブ。arg0はトランザクションIDです。</entry>
     </row>
     <row>
      <entry>query-start</entry>
      <entry>(const char *)</entry>
+<!--
      <entry>Probe that fires when the processing of a query is started.
       arg0 is the query string.</entry>
+-->
+     <entry>問い合わせ処理の開始を捕捉するプローブ。arg0は問い合わせ文字列です。</entry>
     </row>
     <row>
      <entry>query-done</entry>
      <entry>(const char *)</entry>
+<!--
      <entry>Probe that fires when the processing of a query is complete.
       arg0 is the query string.</entry>
+-->
+     <entry>問い合わせ処理の正常終了を捕捉するプローブ。arg0は問い合わせ文字列です。</entry>
     </row>
     <row>
      <entry>query-parse-start</entry>
      <entry>(const char *)</entry>
+<!--
      <entry>Probe that fires when the parsing of a query is started.
       arg0 is the query string.</entry>
+-->
+     <entry>問い合わせのパース処理の開始を捕捉するプローブ。arg0は問い合わせ文字列です。</entry>
     </row>
     <row>
      <entry>query-parse-done</entry>
      <entry>(const char *)</entry>
+<!--
      <entry>Probe that fires when the parsing of a query is complete.
       arg0 is the query string.</entry>
+-->
+     <entry>問い合わせのパース処理の正常終了を捕捉するプローブ。arg0は問い合わせ文字列です。</entry>
     </row>
     <row>
      <entry>query-rewrite-start</entry>
      <entry>(const char *)</entry>
+<!--
      <entry>Probe that fires when the rewriting of a query is started.
       arg0 is the query string.</entry>
+-->
+     <entry>問い合わせの書き換え処理の開始を捕捉するプローブ。arg0は問い合わせ文字列です。</entry>
     </row>
     <row>
      <entry>query-rewrite-done</entry>
      <entry>(const char *)</entry>
+<!--
      <entry>Probe that fires when the rewriting of a query is complete.
       arg0 is the query string.</entry>
+-->
+     <entry>問い合わせの書き換え処理の正常終了を捕捉するプローブ。arg0は問い合わせ文字列です。</entry>
     </row>
     <row>
      <entry>query-plan-start</entry>
      <entry>()</entry>
+<!--
      <entry>Probe that fires when the planning of a query is started.</entry>
+-->
+     <entry>問い合わせのプランナ処理の開始を捕捉するプローブ。</entry>
     </row>
     <row>
      <entry>query-plan-done</entry>
      <entry>()</entry>
+<!--
      <entry>Probe that fires when the planning of a query is complete.</entry>
+-->
+     <entry>問い合わせのプランナ処理の正常終了を捕捉するプローブ。</entry>
     </row>
     <row>
      <entry>query-execute-start</entry>
      <entry>()</entry>
+<!--
      <entry>Probe that fires when the execution of a query is started.</entry>
+-->
+     <entry>問い合わせの実行(エクゼキュータ)処理の開始を捕捉するプローブ。</entry>
     </row>
     <row>
      <entry>query-execute-done</entry>
      <entry>()</entry>
+<!--
      <entry>Probe that fires when the execution of a query is complete.</entry>
+-->
+     <entry>問い合わせの実行(エクゼキュータ)処理の正常終了を捕捉するプローブ。</entry>
     </row>
     <row>
      <entry>statement-status</entry>
      <entry>(const char *)</entry>
+<!--
      <entry>Probe that fires anytime the server process updates its
       <structname>pg_stat_activity</>.<structfield>status</>.
       arg0 is the new status string.</entry>
+-->
+     <entry>サーバプロセスによる<structname>pg_stat_activity</>.<structfield>status</>の状態の更新を捕捉するプローブ。
+  arg0は新しい状態の文字列です。</entry>
     </row>
     <row>
      <entry>checkpoint-start</entry>
      <entry>(int)</entry>
+<!--
      <entry>Probe that fires when a checkpoint is started.
       arg0 holds the bitwise flags used to distinguish different checkpoint
       types, such as shutdown, immediate or force.</entry>
+-->
+     <entry>チェックポイントの開始を捕捉するプローブです。arg0はチェックポイントの種類の違い(shutdown、immediate、force)を区別するためのビットフラグを持っています。
+</entry>
     </row>
     <row>
      <entry>checkpoint-done</entry>
      <entry>(int, int, int, int, int)</entry>
+<!--
      <entry>Probe that fires when a checkpoint is complete.
       (The probes listed next fire in sequence during checkpoint processing.)
       arg0 is the number of buffers written. arg1 is the total number of
       buffers. arg2, arg3 and arg4 contain the number of xlog file(s) added,
       removed and recycled respectively.</entry>
+-->
+     <entry>チェックポイントの正常終了を捕捉するプローブ(以下に示すプローブはチェックポイント進行に従い順番に捕捉されます）。
+     arg0は書き込まれたバッファ数、arg1はバッファの総数、arg2、3、4はそれぞれ追加、削除、再利用されたxlogの数です。</entry>
     </row>
     <row>
      <entry>clog-checkpoint-start</entry>
      <entry>(bool)</entry>
+<!--
      <entry>Probe that fires when the CLOG portion of a checkpoint is started.
       arg0 is true for normal checkpoint, false for shutdown
       checkpoint.</entry>
+-->
+     <entry>CLOG部分のチェックポイントの開始を捕捉するプローブ。arg0がtrueならば通常のチェックポイントであり、falseならばシャットダウン時のチェックポイントを示します。</entry>
     </row>
     <row>
      <entry>clog-checkpoint-done</entry>
      <entry>(bool)</entry>
+<!--
      <entry>Probe that fires when the CLOG portion of a checkpoint is
       complete. arg0 has the same meaning as for clog-checkpoint-start.</entry>
+-->
+     <entry>CLOG部分のチェックポイントの正常終了を捕捉するプローブ。arg0はclog-checkpoint-startと同じ意味を持ちます。</entry>
     </row>
     <row>
      <entry>subtrans-checkpoint-start</entry>
      <entry>(bool)</entry>
+<!--
      <entry>Probe that fires when the SUBTRANS portion of a checkpoint is
       started.
       arg0 is true for normal checkpoint, false for shutdown
       checkpoint.</entry>
+-->
+     <entry>サブトランザクション部分のチェックポイントの開始を捕捉するプローブ。arg0がtrueならば通常のチェックポイントであり、falseならばシャットダウン時のチェックポイントを示します。</entry>
     </row>
     <row>
      <entry>subtrans-checkpoint-done</entry>
      <entry>(bool)</entry>
+<!--
      <entry>Probe that fires when the SUBTRANS portion of a checkpoint is
       complete. arg0 has the same meaning as for
       subtrans-checkpoint-start.</entry>
+-->
+     <entry>サブトランザクション部分のチェックポイントの正常終了を捕捉するプローブ。arg0はsubtrans-checkpoint-startと同じ意味を持ちます。</entry>
     </row>
     <row>
      <entry>multixact-checkpoint-start</entry>
      <entry>(bool)</entry>
+<!--
      <entry>Probe that fires when the MultiXact portion of a checkpoint is
       started.
       arg0 is true for normal checkpoint, false for shutdown
       checkpoint.</entry>
+-->
+     <entry>マルチトランザクション部分のチェックポイントの開始を捕捉するプローブ。arg0がtrueならば通常のチェックポイントであり、falseならばシャットダウン時のチェックポイントを示します。</entry>
     </row>
     <row>
      <entry>multixact-checkpoint-done</entry>
      <entry>(bool)</entry>
+<!--
      <entry>Probe that fires when the MultiXact portion of a checkpoint is
       complete. arg0 has the same meaning as for
       multixact-checkpoint-start.</entry>
+-->
+     <entry>マルチトランザクション部分のチェックポイントの正常終了を捕捉するプローブ。arg0はmultixact-checkpoint-startと同じ意味を持ちます。</entry>
     </row>
     <row>
      <entry>buffer-checkpoint-start</entry>
      <entry>(int)</entry>
+<!--
      <entry>Probe that fires when the buffer-writing portion of a checkpoint
       is started.
       arg0 holds the bitwise flags used to distinguish different checkpoint
       types, such as shutdown, immediate or force.</entry>
+-->
+     <entry>チェックポイントのバッファ書き込み部分の開始を捕捉するプローブ。arg0はチェックポイントの種類の違い(shutdown、immediate、force)を区別するためのビットフラグを持っています。</entry>
     </row>
     <row>
      <entry>buffer-sync-start</entry>
      <entry>(int, int)</entry>
+<!--
      <entry>Probe that fires when we begin to write dirty buffers during
       checkpoint (after identifying which buffers must be written).
       arg0 is the total number of buffers.
       arg1 is the number that are currently dirty and need to be written.</entry>
+-->
+     <entry>チェックポイント中のダーティバッファの書き出し開始を捕捉するプローブ(どのバッファが書き出す必要があるのかを判定した後です)。arg0はバッファの総数で、arg1は現在ダーティであり、書き出す必要のあるバッファ数です。</entry>
     </row>
     <row>
      <entry>buffer-sync-written</entry>
      <entry>(int)</entry>
+<!--
      <entry>Probe that fires after each buffer is written during checkpoint.
       arg0 is the ID number of the buffer.</entry>
+-->
+     <entry>チェックポイント中のそれぞれのバッファの書き出し後を捕捉するプローブ。arg0はバッファのIDを示します。</entry>
     </row>
     <row>
      <entry>buffer-sync-done</entry>
      <entry>(int, int, int)</entry>
+<!--
      <entry>Probe that fires when all dirty buffers have been written.
       arg0 is the total number of buffers.
       arg1 is the number of buffers actually written by the checkpoint process.
       arg2 is the number that were expected to be written (arg1 of
       buffer-sync-start); any difference reflects other processes flushing
       buffers during the checkpoint.</entry>
+-->
+     <entry>全てのダーティバッファの書き出し後を捕捉するプローブ。arg0はバッファの総数です。arg1はチェックポイント処理により実際に書き出されたバッファ数です。arg2は書き出されるであろうと見積もられたバッファ数(buffer-sync-startのarg1相当)です。この違いはチェックポイント中に他のプロセスにより書き出されたバッファ分です。</entry>
     </row>
     <row>
      <entry>buffer-checkpoint-sync-start</entry>
      <entry>()</entry>
+<!--
      <entry>Probe that fires after dirty buffers have been written to the
       kernel, and before starting to issue fsync requests.</entry>
+-->
+     <entry>カーネルへのダーティバッファの書き出し処理発行の後、そして同期書き出し要求を開始する前を捕捉するプローブ。</entry>
     </row>
     <row>
      <entry>buffer-checkpoint-done</entry>
      <entry>()</entry>
+<!--
      <entry>Probe that fires when syncing of buffers to disk is
       complete.</entry>
+-->
+     <entry>バッファからディスクへの同期書き出し処理の終了を捕捉するプローブ。</entry>
     </row>
     <row>
      <entry>twophase-checkpoint-start</entry>
      <entry>()</entry>
+<!--
      <entry>Probe that fires when the two-phase portion of a checkpoint is
       started.</entry>
+-->
+     <entry>二相コミット部分のチェックポイントの開始を捕捉するプローブ。</entry>
     </row>
     <row>
      <entry>twophase-checkpoint-done</entry>
      <entry>()</entry>
+<!--
      <entry>Probe that fires when the two-phase portion of a checkpoint is
       complete.</entry>
+-->
+     <entry>二相コミット部分のチェックポイントの正常終了を捕捉するプローブ。</entry>
     </row>
     <row>
      <entry>buffer-read-start</entry>
      <entry>(ForkNumber, BlockNumber, Oid, Oid, Oid, int, bool)</entry>
+<!--
      <entry>Probe that fires when a buffer read is started.
       arg0 and arg1 contain the fork and block numbers of the page (but
       arg1 will be -1 if this is a relation extension request).
@@ -2158,10 +3399,17 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
       local buffer, or InvalidBackendId (-1) for a shared buffer.
       arg6 is true for a relation extension request, false for normal
       read.</entry>
+-->
+     <entry>
+  バッファ読み込みの開始を捕捉するプローブ。arg0はとarg1は読み込みページのフォーク番号とブロック番号です(ただし、リレーションの拡張要求があった場合、arg1は-1になるでしょう)。
+  arg2、arg3、arg4は対象のリレーションを識別するテーブル空間、データベース、そしてリレーションのOIDです。
+  arg5は一時テーブルをローカルバッファに作成していればそのバックエンドのIDであり、無効なバックエンドID(-1)であれは共有バッファを指します。
+  arg6はtrueならばリレーションの拡張要求、falseは通常の読み込みを示します。</entry>
     </row>
     <row>
      <entry>buffer-read-done</entry>
      <entry>(ForkNumber, BlockNumber, Oid, Oid, Oid, int, bool, bool)</entry>
+<!--
      <entry>Probe that fires when a buffer read is complete.
       arg0 and arg1 contain the fork and block numbers of the page (if this
       is a relation extension request, arg1 now contains the block number
@@ -2173,27 +3421,38 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
       arg6 is true for a relation extension request, false for normal
       read.
       arg7 is true if the buffer was found in the pool, false if not.</entry>
+-->
+     <entry>バッファ読み込みの終了を捕捉するプローブ。arg0とarg1は読み込みページのフォーク番号とブロック番号です(もしリレーションの拡張要求があった場合、arg1は新たに追加されたブロックの番号を含みます)。
+  arg2、arg3、arg4は対象のテーブルを識別するテーブル空間、データベース、そしてテーブルのOIDです。arg5は一時テーブルをローカルバッファに作成していればそのバックエンドのIDであり、無効なバックエンドID(-1)であれは共有バッファを指します。
+  arg6はtrueならばリレーションの拡張要求、falseは通常の読み込みを示します。arg7はtrueならばバッファがプール内にある、falseはプール内に無かったことを示します。</entry>
     </row>
     <row>
      <entry>buffer-flush-start</entry>
      <entry>(ForkNumber, BlockNumber, Oid, Oid, Oid)</entry>
+<!--
      <entry>Probe that fires before issuing any write request for a shared
       buffer.
       arg0 and arg1 contain the fork and block numbers of the page.
       arg2, arg3, and arg4 contain the tablespace, database, and relation OIDs
       identifying the relation.</entry>
+-->
+     <entry>共有バッファへの書き込み要求開始を捕捉するプローブ。arg0とarg1はそのページのフォーク番号とブロック番号です。arg2、arg3、arg4は対象のリレーションを識別するテーブル空間、データベース、そしてテーブルのOIDです。</entry>
     </row>
     <row>
      <entry>buffer-flush-done</entry>
      <entry>(ForkNumber, BlockNumber, Oid, Oid, Oid)</entry>
+<!--
      <entry>Probe that fires when a write request is complete.  (Note
       that this just reflects the time to pass the data to the kernel;
       it's typically not actually been written to disk yet.)
       The arguments are the same as for buffer-flush-start.</entry>
+-->
+     <entry>書き込み要求の終了を捕捉するプローブ。(これはカーネルへデータを渡したタイミングのみを反映していることに注意してください; 大抵、この時点ではまだ実際にディスクへ書き込まれていません。)引数はbuffer-flush-startと同じです。</entry>
     </row>
     <row>
      <entry>buffer-write-dirty-start</entry>
      <entry>(ForkNumber, BlockNumber, Oid, Oid, Oid)</entry>
+<!--
      <entry>Probe that fires when a server process begins to write a dirty
       buffer.  (If this happens often, it implies that
       <xref linkend="guc-shared-buffers"> is too
@@ -2201,51 +3460,72 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
       arg0 and arg1 contain the fork and block numbers of the page.
       arg2, arg3, and arg4 contain the tablespace, database, and relation OIDs
       identifying the relation.</entry>
+-->
+     <entry>サーバプロセスによるダーティバッファの書き出し開始を捕捉するプローブ。(もしこれが頻発するようでしたら、<xref linkend="guc-shared-buffers">が少な過ぎるか、バックグラウンドライタ制御のパラメータの調節が必要なことを意味します。)arg0とarg1はそのページのフォーク番号とブロック番号です。arg2、arg3、arg4は対象のリレーションを識別するテーブル空間、データベース、そしてリレーションのOIDです。</entry>
     </row>
     <row>
      <entry>buffer-write-dirty-done</entry>
      <entry>(ForkNumber, BlockNumber, Oid, Oid, Oid)</entry>
+<!--
      <entry>Probe that fires when a dirty-buffer write is complete.
       The arguments are the same as for buffer-write-dirty-start.</entry>
+-->
+     <entry>ダーティバッファの書き出しの終了を捕捉するプローブです。引数はbuffer-write-dirty-startと同じです。</entry>
     </row>
     <row>
      <entry>wal-buffer-write-dirty-start</entry>
      <entry>()</entry>
+<!--
      <entry>Probe that fires when a server process begins to write a
       dirty WAL buffer because no more WAL buffer space is available.
       (If this happens often, it implies that
       <xref linkend="guc-wal-buffers"> is too small.)</entry>
+-->
+     <entry>WALバッファ領域の不足によるサーバプロセスのダーティなWALバッファの書き出しを捕捉するプローブ。(もしこれが頻発するようでしたら、<xref linkend="guc-wal-buffers">が小さすぎることを意味します。)</entry>
     </row>
     <row>
      <entry>wal-buffer-write-dirty-done</entry>
      <entry>()</entry>
+<!--
      <entry>Probe that fires when a dirty WAL buffer write is complete.</entry>
+-->
+     <entry>ダーティなWALバッファの書き出し終了を捕捉するプローブ。</entry>
     </row>
     <row>
      <entry>xlog-insert</entry>
      <entry>(unsigned char, unsigned char)</entry>
+<!--
      <entry>Probe that fires when a WAL record is inserted.
       arg0 is the resource manager (rmid) for the record.
       arg1 contains the info flags.</entry>
+-->
+     <entry>WALレコードの挿入を捕捉するプローブ。arg0はレコードのリソースマネージャ(rmid)です。arg1は情報フラグです。</entry>
     </row>
     <row>
      <entry>xlog-switch</entry>
      <entry>()</entry>
+<!--
      <entry>Probe that fires when a WAL segment switch is requested.</entry>
+-->
+     <entry>WALセグメントのスイッチ要求を捕捉するプローブです。</entry>
     </row>
     <row>
      <entry>smgr-md-read-start</entry>
      <entry>(ForkNumber, BlockNumber, Oid, Oid, Oid, int)</entry>
+<!--
      <entry>Probe that fires when beginning to read a block from a relation.
       arg0 and arg1 contain the fork and block numbers of the page.
       arg2, arg3, and arg4 contain the tablespace, database, and relation OIDs
       identifying the relation.
       arg5 is the ID of the backend which created the temporary relation for a
       local buffer, or InvalidBackendId (-1) for a shared buffer.</entry>
+-->
+     <entry>リレーションからのブロック読み込みの開始を捕捉するプローブ。arg0とarg1はそのページのフォーク番号とブロック番号です。arg2、arg3、arg4は対象のリレーションを識別するテーブル空間、データベース、そしてリレーションのOIDです。arg5は一時テーブルをローカルバッファに作成していればそのバックエンドのIDであり、無効なバックエンドID(-1)であれは共有バッファを指します。</entry>
     </row>
     <row>
      <entry>smgr-md-read-done</entry>
      <entry>(ForkNumber, BlockNumber, Oid, Oid, Oid, int, int, int)</entry>
+<!--
      <entry>Probe that fires when a block read is complete.
       arg0 and arg1 contain the fork and block numbers of the page.
       arg2, arg3, and arg4 contain the tablespace, database, and relation OIDs
@@ -2254,20 +3534,26 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
       local buffer, or InvalidBackendId (-1) for a shared buffer.
       arg6 is the number of bytes actually read, while arg7 is the number
       requested (if these are different it indicates trouble).</entry>
+-->
+     <entry>ブロックの読み込み終了を捕捉するプローブ。arg0とarg1はそのページのフォーク番号とブロック番号です。arg2、arg3、arg4は対象のリレーションを識別するテーブル空間、データベース、そしてリレーションのOIDです。arg5は一時テーブルをローカルバッファに作成していればそのバックエンドのIDであり、無効なバックエンドID(-1)であれは共有バッファを指します。arg6は実際に読み込んだバイト数、arg7はリクエストされた読み込みバイト数です(もし、これらに差異があった場合、何らかの問題があることを示します)。</entry>
     </row>
     <row>
      <entry>smgr-md-write-start</entry>
      <entry>(ForkNumber, BlockNumber, Oid, Oid, Oid, int)</entry>
+<!--
      <entry>Probe that fires when beginning to write a block to a relation.
       arg0 and arg1 contain the fork and block numbers of the page.
       arg2, arg3, and arg4 contain the tablespace, database, and relation OIDs
       identifying the relation.
       arg5 is the ID of the backend which created the temporary relation for a
       local buffer, or InvalidBackendId (-1) for a shared buffer.</entry>
+-->
+     <entry>リレーションへのブロック書き出しの開始を捕捉するプローブ。arg0とarg1はそのページのフォーク番号とブロック番号です。arg2、arg3、arg4は対象のリレーションを識別するテーブル空間、データベース、そしてリレーションのOIDです。arg5は一時テーブルをローカルバッファに作成していればそのバックエンドのIDであり、無効なバックエンドID(-1)であれは共有バッファを指します。</entry>
     </row>
     <row>
      <entry>smgr-md-write-done</entry>
      <entry>(ForkNumber, BlockNumber, Oid, Oid, Oid, int, int, int)</entry>
+<!--
      <entry>Probe that fires when a block write is complete.
       arg0 and arg1 contain the fork and block numbers of the page.
       arg2, arg3, and arg4 contain the tablespace, database, and relation OIDs
@@ -2276,98 +3562,134 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
       local buffer, or InvalidBackendId (-1) for a shared buffer.
       arg6 is the number of bytes actually written, while arg7 is the number
       requested (if these are different it indicates trouble).</entry>
+-->
+     <entry>ブロックの書き出し終了を捕捉するプローブ。arg0とarg1はそのページのフォーク番号とブロック番号です。arg2、arg3、arg4は対象のリレーションを識別するテーブル空間、データベース、そしてリレーションのOIDです。arg5は一時テーブルをローカルバッファに作成していればそのバックエンドのIDであり、無効なバックエンドID(-1)であれは共有バッファを指します。arg6は実際に書き出したバイト数、arg7はリクエストされた書き出しバイト数です(もし、これらに差異があった場合、何らかの問題があることを示します)。</entry>
     </row>
     <row>
      <entry>sort-start</entry>
      <entry>(int, bool, int, int, bool)</entry>
+<!--
      <entry>Probe that fires when a sort operation is started.
       arg0 indicates heap, index or datum sort.
       arg1 is true for unique-value enforcement.
       arg2 is the number of key columns.
       arg3 is the number of kilobytes of work memory allowed.
       arg4 is true if random access to the sort result is required.</entry>
+-->
+     <entry>ソート処理の開始を捕捉するプローブ。arg0は対象データがヒープ、インデックス、またはdatumのどれかを示します。arg1はtrueならば一意性を必要としていることを示します。arg2はカラムのキー数です。arg3は許容されている作業メモリ(work_mem)のキロバイト数です。arg4はtrueならばソート結果に対するランダムアクセスが要求されていることを示します。</entry>
     </row>
     <row>
      <entry>sort-done</entry>
      <entry>(bool, long)</entry>
+<!--
      <entry>Probe that fires when a sort is complete.
       arg0 is true for external sort, false for internal sort.
       arg1 is the number of disk blocks used for an external sort,
       or kilobytes of memory used for an internal sort.</entry>
+-->
+     <entry>ソート処理の終了を捕捉するプローブ。arg0はtrueならば外部ソート、falseは内部ソートを示します。arg1は外部ソートで使用されたディスクブロック数、もしくは内部ソートで使用されたメモリーのキロバイト数を示します。</entry>
     </row>
     <row>
      <entry>lwlock-acquire</entry>
      <entry>(char *, int, LWLockMode)</entry>
+<!--
      <entry>Probe that fires when an LWLock has been acquired.
       arg0 is the LWLock's tranche.
       arg1 is the LWLock's offset within its tranche.
       arg2 is the requested lock mode, either exclusive or shared.</entry>
+-->
+     <entry>LWLock(軽量ロック)の取得を捕捉するプローブ。arg0は軽量ロックのtrancheを示します。arg0は軽量ロックのtranche内でのオフセットを示します。arg2は要求されたロックモード(排他、もしくは共有)を示します。</entry>
     </row>
     <row>
      <entry>lwlock-release</entry>
      <entry>(char *, int)</entry>
+<!--
      <entry>Probe that fires when an LWLock has been released (but note
       that any released waiters have not yet been awakened).
       arg0 is the LWLock's tranche.
       arg1 is the LWLock's offset within its tranche.</entry>
+-->
+     <entry>軽量ロックの開放を捕捉するプローブ(ただし、開放待ちのプロセスはまだこのロックを取得できないことに注意して下さい)。arg0は軽量ロックのtrancheを示します。arg1は軽量ロックのtranche内でのオフセットを示します。</entry>
     </row>
     <row>
      <entry>lwlock-wait-start</entry>
      <entry>(char *, int, LWLockMode)</entry>
+<!--
      <entry>Probe that fires when an LWLock was not immediately available and
       a server process has begun to wait for the lock to become available.
       arg0 is the LWLock's tranche.
       arg1 is the LWLock's offset within its tranche.
       arg2 is the requested lock mode, either exclusive or shared.</entry>
+-->
+     <entry>軽量ロックを即座に取得できなかったため、サーバプロセスがロックを利用できるまでロック待機状態になった際の開始を捕捉するプローブ。arg0は軽量ロックのtrancheを示します。arg1は軽量ロックのtranche内でのオフセットを示します。arg2は要求されたロックモード(排他、もしくは共有)を示します。</entry>
     </row>
     <row>
      <entry>lwlock-wait-done</entry>
      <entry>(char *, int, LWLockMode)</entry>
+<!--
      <entry>Probe that fires when a server process has been released from its
       wait for an LWLock (it does not actually have the lock yet).
       arg0 is the LWLock's tranche.
       arg1 is the LWLock's offset within its tranche.
       arg2 is the requested lock mode, either exclusive or shared.</entry>
+-->
+     <entry>サーバプロセスの軽量ロック待機の開放を捕捉するプローブ(実際にはまだロックは取得していません)。arg0は軽量ロックのtrancheを示します。arg1は軽量ロックのtranche内でのオフセットを示します。arg2は要求されたロックモード(排他、もしくは共有)を示します。</entry>
     </row>
     <row>
      <entry>lwlock-condacquire</entry>
      <entry>(char *, int, LWLockMode)</entry>
+<!--
      <entry>Probe that fires when an LWLock was successfully acquired when the
       caller specified no waiting.
       arg0 is the LWLock's tranche.
       arg1 is the LWLock's offset within its tranche.
       arg2 is the requested lock mode, either exclusive or shared.</entry>
+-->
+     <entry>呼び出し元が待機しないことを指定した際の、軽量ロックの獲得成功を捕捉するプローブ。arg0は軽量ロックのtrancheを示します。arg1は軽量ロックのtranche内でのオフセットを示します。arg2は要求されたロックモード(排他、もしくは共有)を示します。</entry>
     </row>
     <row>
      <entry>lwlock-condacquire-fail</entry>
      <entry>(char *, int, LWLockMode)</entry>
+<!--
      <entry>Probe that fires when an LWLock was not successfully acquired when
       the caller specified no waiting.
       arg0 is the LWLock's tranche.
       arg1 is the LWLock's offset within its tranche.
       arg2 is the requested lock mode, either exclusive or shared.</entry>
+-->
+     <entry>呼び出し元が待機しないことを指定した際の、軽量ロックの獲得失敗を捕捉するプローブ。arg0は軽量ロックのtrancheを示します。arg1は軽量ロックのtranche内でのオフセットを示します。arg2は要求されたロックモード(排他、もしくは共有)を示します。</entry>
     </row>
     <row>
      <entry>lock-wait-start</entry>
      <entry>(unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, LOCKMODE)</entry>
+<!--
      <entry>Probe that fires when a request for a heavyweight lock (lmgr lock)
       has begun to wait because the lock is not available.
       arg0 through arg3 are the tag fields identifying the object being
       locked.  arg4 indicates the type of object being locked.
       arg5 indicates the lock type being requested.</entry>
+-->
+     <entry>通常のロック(lmgr lock)を即座に取得できなかったため、サーバプロセスがロックを利用できるまでロック待ち状態になった際の開始を捕捉するプローブ。arg0からarg3はロックされたオブジェクトの識別用タグ領域です。arg4はロックされたオブジェクトのタイプを示します。arg5は要求されたロックの種類を示します。</entry>
     </row>
     <row>
      <entry>lock-wait-done</entry>
      <entry>(unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, LOCKMODE)</entry>
+<!--
      <entry>Probe that fires when a request for a heavyweight lock (lmgr lock)
       has finished waiting (i.e., has acquired the lock).
       The arguments are the same as for lock-wait-start.</entry>
+-->
+     <entry>通常のロック(lmgr lock)要求の待機終了を捕捉するプローブ(つまりロックを取得した)。
+引数はlock-wait-startと同じです。</entry>
     </row>
     <row>
      <entry>deadlock-found</entry>
      <entry>()</entry>
+<!--
      <entry>Probe that fires when a deadlock is found by the deadlock
       detector.</entry>
+-->
+     <entry>デッドロック検知器によるデッドロックの発見を捕捉するプローブ。</entry>
     </row>
 
    </tbody>
@@ -2375,12 +3697,19 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
   </table>
 
  <table id="typedefs-table">
+<!--
   <title>Defined Types Used in Probe Parameters</title>
+-->
+  <title>プローブパラメータで使われる型の定義</title>
   <tgroup cols="2">
    <thead>
     <row>
+<!--
      <entry>Type</entry>
      <entry>Definition</entry>
+-->
+     <entry>型</entry>
+     <entry>定義</entry>
     </row>
    </thead>
 
@@ -2423,12 +3752,18 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
   </sect2>
 
   <sect2 id="using-trace-points">
+<!--
    <title>Using Probes</title>
+-->
+   <title>プローブの利用</title>
 
   <para>
+<!--
    The example below shows a DTrace script for analyzing transaction
    counts in the system, as an alternative to snapshotting
    <structname>pg_stat_database</> before and after a performance test:
+-->
+以下の例では、システムにおけるトランザクション数を解析するDTraceスクリプトを示します。性能試験前後で<structname>pg_stat_database</>のスナップショットを取ることで代替可能です。
 <programlisting>
 #!/usr/sbin/dtrace -qs
 
@@ -2451,7 +3786,10 @@ postgresql$1:::transaction-commit
       self->ts=0;
 }
 </programlisting>
+<!--
    When executed, the example D script gives output such as:
+-->
+実行すると、例のDスクリプトは以下のような出力をします。
 <screen>
 # ./txn_count.d `pgrep -n postgres` or ./txn_count.d &lt;PID&gt;
 ^C
@@ -2464,103 +3802,153 @@ Total time (ns)                        2312105013
 
   <note>
    <para>
+<!--
     SystemTap uses a different notation for trace scripts than DTrace does,
     even though the underlying trace points are compatible.  One point worth
     noting is that at this writing, SystemTap scripts must reference probe
     names using double underscores in place of hyphens.  This is expected to
     be fixed in future SystemTap releases.
+-->
+基本となる追跡ポイントの互換性はありますが、SystemTapはDTraceと異なる追跡スクリプトの表記を用います。
+表記に関して特に注意すべき点として、SystemTapでは参照する追跡ポイント名のハイフンの代わりに二重のアンダースコアを用いる必要があります。
+これは将来的なSystemTapのリリースで修正されることを期待しています。
    </para>
   </note>
 
   <para>
+<!--
    You should remember that DTrace scripts need to be carefully written and
    debugged, otherwise the trace information collected might
    be meaningless. In most cases where problems are found it is the
    instrumentation that is at fault, not the underlying system. When
    discussing information found using dynamic tracing, be sure to enclose
    the script used to allow that too to be checked and discussed.
+-->
+DTraceスクリプトの作成には注意が必要であり、デバッグが必要であることは忘れないでください。さもないと、収集される追跡情報の意味がなくなるかもしれません。ほとんどの場合、見つかる問題はシステムではなく使用方法の間違いです。動的追跡を使用して見つかった情報に関して議論を行う際には、スクリプトの検査や議論もできるようにスクリプトも含めるようにしてください。
   </para>
 
   <para>
+<!--
    More example scripts can be found in the PgFoundry
    <ulink url="http://pgfoundry.org/projects/dtrace/">dtrace project</ulink>.
+-->
+さらに多くのサンプルスクリプトがPgFoundryの<ulink url="http://pgfoundry.org/projects/dtrace/">dtrace project</ulink>にあります。
   </para>
   </sect2>
 
   <sect2 id="defining-trace-points">
+<!--
    <title>Defining New Probes</title>
+-->
+   <title>新規プローブの定義</title>
 
   <para>
+<!--
    New probes can be defined within the code wherever the developer
    desires, though this will require a recompilation. Below are the steps
    for inserting new probes:
+-->
+開発者が望めばコード内に新しくプローブを定義することができます。しかし、これには再コンパイルが必要です。下記は、新規プローブの定義の手順です。
   </para>
 
   <procedure>
    <step>
     <para>
+<!--
      Decide on probe names and data to be made available through the probes
+-->
+プローブの名前とプローブの処理を通じて取得可能とするデータを決めます
     </para>
    </step>
 
    <step>
     <para>
+<!--
      Add the probe definitions to <filename>src/backend/utils/probes.d</>
+-->
+<filename>src/backend/utils/probes.d</>にプローブの定義を追加します
     </para>
    </step>
 
    <step>
     <para>
+<!--
      Include <filename>pg_trace.h</> if it is not already present in the
      module(s) containing the probe points, and insert
      <literal>TRACE_POSTGRESQL</> probe macros at the desired locations
      in the source code
+-->
+もし、プローブポイントを含むモジュールが<filename>pg_trace.h</>をインクルードしてなければそれをインクルードし、ソースコード中のプローブを行いたい場所に<literal>TRACE_POSTGRESQL</>マクロを挿入します
     </para>
    </step>
 
    <step>
     <para>
+<!--
      Recompile and verify that the new probes are available
+-->
+再コンパイルを行い、新規プローブが利用できるか確認します
     </para>
    </step>
   </procedure>
 
   <formalpara>
+<!--
    <title>Example:</title>
+-->
+   <title>例:</title>
    <para>
+<!--
     Here is an example of how you would add a probe to trace all new
     transactions by transaction ID.
+-->
+これはトランザクションIDを用いて新規トランザクションを追跡するプローブ追加の仕方の例です。
    </para>
   </formalpara>
 
   <procedure>
    <step>
     <para>
+<!--
      Decide that the probe will be named <literal>transaction-start</> and
      requires a parameter of type LocalTransactionId
+-->
+プローブ名を<literal>transaction-start</>とし、パラメータとしてLocalTransactionId型を必要とすることを決めます
     </para>
    </step>
 
    <step>
     <para>
+<!--
      Add the probe definition to <filename>src/backend/utils/probes.d</>:
+-->
+<filename>src/backend/utils/probes.d</>にプローブの定義を追加します:
 <programlisting>
 probe transaction__start(LocalTransactionId);
 </programlisting>
+<!--
      Note the use of the double underline in the probe name. In a DTrace
      script using the probe, the double underline needs to be replaced with a
      hyphen, so <literal>transaction-start</> is the name to document for
      users.
+-->
+プローブ名に二重のアンダースコアを使用する場合は注意して下さい。
+DTraceスクリプトでプローブを用いる場合、二重のアンダースコアをハイフンに置き換える必要があります。そのため、<literal>transaction-start</>がユーザ向けの文書に記載される名前となります。
     </para>
    </step>
 
    <step>
     <para>
+<!--
      At compile time, <literal>transaction__start</> is converted to a macro
      called <literal>TRACE_POSTGRESQL_TRANSACTION_START</> (notice the
      underscores are single here), which is available by including
      <filename>pg_trace.h</>.  Add the macro call to the appropriate location
      in the source code.  In this case, it looks like the following:
+-->
+コンパイル時に、<literal>transaction__start</>は<literal>TRACE_POSTGRESQL_TRANSACTION_START</>と呼ばれるマクロに変換されます(ここではアンダースコアはひとつになります)。このマクロは、<filename>pg_trace.h</>をインクルードすることにより使用可能となります。
+このマクロをソースコード中の適切な箇所へ追加していきます。
+この場合、以下の様になります。
 
 <programlisting>
 TRACE_POSTGRESQL_TRANSACTION_START(vxid.localTransactionId);
@@ -2570,9 +3958,12 @@ TRACE_POSTGRESQL_TRANSACTION_START(vxid.localTransactionId);
 
    <step>
     <para>
+<!--
      After recompiling and running the new binary, check that your newly added
      probe is available by executing the following DTrace command.  You
      should see similar output:
+-->
+再コンパイル後に新しいバイナリでサーバを起動し、下記の様なDTraceコマンドの実行により新たに追加したプローブが利用可能なチェックします。下記の様な出力が確認できるはずです:
 <screen>
 # dtrace -ln transaction-start
    ID    PROVIDER          MODULE           FUNCTION NAME
@@ -2587,23 +3978,30 @@ TRACE_POSTGRESQL_TRANSACTION_START(vxid.localTransactionId);
   </procedure>
 
   <para>
+<!--
    There are a few things to be careful about when adding trace macros
    to the C code:
+-->
+Cのソースコードに追跡用のマクロを追加する際、いくつかの注意点があります:
 
    <itemizedlist>
     <listitem>
      <para>
+<!--
       You should take care that the data types specified for a probe's
       parameters match the data types of the variables used in the macro.
       Otherwise, you will get compilation errors.
+-->
+プローブの引数に指定したデータ型がマクロで使用される変数のデータ型と一致するよう注意しなければなりません。でなければ、コンパイル時にエラーとなるでしょう。
      </para>
     </listitem>
 
 
     <listitem>
      <para>
+<!--
       On most platforms, if <productname>PostgreSQL</productname> is
-      built with <option>--enable-dtrace</>, the arguments to a trace
+      built with <option>&#045;-enable-dtrace</>, the arguments to a trace
       macro will be evaluated whenever control passes through the
       macro, <emphasis>even if no tracing is being done</>.  This is
       usually not worth worrying about if you are just reporting the
@@ -2611,13 +4009,21 @@ TRACE_POSTGRESQL_TRANSACTION_START(vxid.localTransactionId);
       function calls into the arguments.  If you need to do that,
       consider protecting the macro with a check to see if the trace
       is actually enabled:
+-->
+ほとんどのプラットホームでは、もし<productname>PostgreSQL</productname>が<option>--enable-dtrace</>付きでビルドされた場合、<emphasis>何の追跡がされなかった</>としても、制御がマクロを通過する際はいつでも追跡用マクロの引数が評価されます。
+ごく少数のローカルな変数を報告するような場合はそれほど心配はいりません。
+ただし、高価な関数呼び出しを引数にする場合は注意して下さい。
+もしそのようにする必要がある場合、追跡が実際に有効かどうかをチェックしてマクロを保護することを考慮してください:
 
 <programlisting>
 if (TRACE_POSTGRESQL_TRANSACTION_START_ENABLED())
     TRACE_POSTGRESQL_TRANSACTION_START(some_function(...));
 </programlisting>
 
+<!--
       Each trace macro has a corresponding <literal>ENABLED</> macro.
+-->
+各追跡マクロは対応する<literal>ENABLED</>マクロを持っています。
      </para>
     </listitem>
    </itemizedlist>
