@@ -58,7 +58,7 @@
 問い合わせの構造と含まれるデータの性質に適した正しい問い合わせ計画を選択することが、良い性能を得るために非常に重要になります。
 ですので、システムには優れた計画の選択を試みる複雑な<firstterm>プランナ</>が存在します。
 <xref linkend="sql-explain">コマンドを使えば、任意の問い合わせに対してプランナがどのような問い合わせ計画を作ったのかわかります。
-問い合わせ計画を読みこなすためには相当な経験が必要な腕が必要です。
+問い合わせ計画を読みこなすことは、習得するにはある程度の経験が必要な技術です。
 本節ではその基本を提供しようと考えます。
    </para>
 
@@ -125,7 +125,7 @@
 これらの操作の実現方法にも通常複数の方法がありますので、異なった種類のノードがここに出現することもあり得ます。
 <command>EXPLAIN</command>には計画ツリー内の各ノードにつき1行の出力があり、基本ノード種類とプランナが生成したその計画ノードの実行に要するコスト推定値を示します。
 さらに、ノードの追加属性を表示するためにノードの要約行からインデント付けされた行が出力される可能性があります。
-最初の1行目（もっとも上位ノード）には、計画全体の実行コスト推定値が含まれます。
+最初の1行目（最上位ノード）には、計画全体の実行コスト推定値が含まれます。
 プランナはこの値が最小になるように動作します。
    </para>
 
@@ -246,7 +246,7 @@ EXPLAIN SELECT * FROM tenk1;
     Ideally the top-level rows estimate will approximate the number of rows
     actually returned, updated, or deleted by the query.
 -->
-<literal>rows</>の値は、計画ノードによって処理あるいはスキャンされた行数を表していず、ノードによって発行された行数を表すので、多少扱いにくくなっています。
+<literal>rows</>の値は、計画ノードによって処理あるいはスキャンされた行数を表しておらず、ノードによって発行された行数を表すので、多少扱いにくくなっています。
 該当ノードに適用されるすべての<literal>WHERE</>句条件によるフィルタ処理の結果、スキャンされる行より少ない行数になることがよくあります。
 理想的には、最上位の行数の推定値は、実際に問い合わせによって返され、更新され、あるいは削除された概算の行数となります。
    </para>
@@ -285,7 +285,7 @@ SELECT relpages, reltuples FROM pg_class WHERE relname = 'tenk1';
     so the estimated cost is (358 * 1.0) + (10000 * 0.01) = 458.
 -->
 を実行すると、<classname>tenk1</classname>には358のディスクページと10000の行があることがわかります。
-推定コストは（ディスクページ読み取り x <xref linkend="guc-seq-page-cost">）+（スキャンした行 x <xref linkend="guc-cpu-tuple-cost">）と計算されます。
+推定コストは（ディスクページ読み取り * <xref linkend="guc-seq-page-cost">）+（スキャンした行 * <xref linkend="guc-cpu-tuple-cost">）と計算されます。
 デフォルトでは、<varname>seq_page_cost</>は1.0、<varname>cpu_tuple_cost</>は0.01です。
 ですから、推定コストは(358 * 1.0) + (10000 * 0.01) = 458となります。
    </para>
@@ -318,11 +318,11 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 7000;
     linkend="guc-cpu-operator-cost">, to be exact) to reflect the extra CPU
     time spent checking the <literal>WHERE</> condition.
 -->
-<command>EXPLAIN</>の出力が適用される<literal>WHERE</>句が、Scan計画ノードに付随する<quote>フィルタ</>条件として表示していることに注意してください。
+<command>EXPLAIN</>の出力が、Seq Scan計画ノードに付随する<quote>フィルタ</>条件として適用される<literal>WHERE</>句を表示していることに注意してください。
 これは、この計画ノードがスキャンした各行に対してその条件を検査することを意味し、その条件を通過したもののみが出力されます。
 <literal>WHERE</>句があるため、推定出力行数が小さくなっています。
 しかし、依然として10000行すべてをスキャンする必要があるため、コストは小さくなっていません。
-実際には、<literal>WHERE</>条件を検査するためにCPU時間が余計にかかることを反映して、ほんの少し（正確には10000 x <xref linkend="guc-cpu-operator-cost">）ですがコストが上昇しています。
+実際には、<literal>WHERE</>条件を検査するためにCPU時間が余計にかかることを反映して、ほんの少し（正確には10000 * <xref linkend="guc-cpu-operator-cost">）ですがコストが上昇しています。
    </para>
 
    <para>
@@ -788,7 +788,7 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2;
     shows.  For example, we might get a result like this:
 -->
 <command>EXPLAIN</>の<literal>ANALYZE</>オプションを使用して、プランナが推定するコストの精度を点検することができます。
-このオプションを付けると<command>EXPLAIN</>実際にその問い合わせを実行し、計画ノードごとに実際の行数と要した実際の実行時間を、普通の<command>EXPLAIN</command>が示すものと同じ推定値と一緒に表示します。
+このオプションを付けると<command>EXPLAIN</>は実際にその問い合わせを実行し、計画ノードごとに実際の行数と要した実際の実行時間を、普通の<command>EXPLAIN</command>が示すものと同じ推定値と一緒に表示します。
 例えば、以下のような結果を得ることができます。
 
 <screen>
@@ -836,7 +836,7 @@ WHERE t1.unique1 &lt; 10 AND t1.unique2 = t2.unique2;
     the node.  In the above example, we spent a total of 0.220 milliseconds
     executing the index scans on <literal>tenk2</>.
 -->
-問い合わせ計画の中には、何回も副計画ノードを実行できるものがあります。
+問い合わせ計画の中には、何回も副計画ノードを実行する可能性のあるものがあります。
 例えば、上述の入れ子状ループの計画では、内部インデックススキャンは外部の行ごとに一度行われます。
 このような場合、<literal>loops</>値はそのノードを実行する総回数を報告し、表示される実際の時間と行数は1実行当たりの平均です。
 これで値を表示された推定コストと比較できるようになります。
@@ -1018,7 +1018,7 @@ EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND unique
     data-modifying query without changing your tables, you can
     roll the command back afterwards, for example:
 -->
-<command>EXPLAIN ANALYZE</command>が実際に問い合わせを実行しますので。<command>EXPLAIN</>のデータを出力することを優先して問い合わせの出力が破棄されたとしても、何らかの副作用が通常とおり発生することに注意してください。
+<command>EXPLAIN ANALYZE</command>が実際に問い合わせを実行しますので、<command>EXPLAIN</>のデータを出力することを優先して問い合わせの出力が破棄されたとしても、何らかの副作用が通常通り発生することに注意してください。
 テーブルを変更すること無くデータ変更問い合わせの解析を行いたければ、以下の例のように、実行後コマンドをロールバックしてください。
 
 <screen>
@@ -1069,7 +1069,7 @@ ROLLBACK;
     ANALYZE</command> is the time it took to generate the query plan from the
     parsed query and optimize it. It does not include parsing or rewriting.
 -->
-<command>EXPLAIN ANALYZE</command>で表示される<literal>Planning time</literal>は解析された問い合わせから問い合わせ計画を生成し最適化するのに掛かった時間です。
+<command>EXPLAIN ANALYZE</command>で表示される<literal>Planning time</literal>は、解析された問い合わせから問い合わせ計画を生成し最適化するのに掛かった時間です。
 解析と書き換えは含みません。
    </para>
 
@@ -1301,7 +1301,7 @@ WHERE relname LIKE 'tenk1%';
 効率を上げるため、<structfield>reltuples</structfield>と<structfield>relpages</structfield>は処理の度には更新されず、したがって通常は多少古い値のみ所有しています。
 これらは<command>VACUUM</>、<command>ANALYZE</>、<command>CREATE INDEX</>などの一部のDDLコマンドによって更新されます。
 テーブル全体をスキャンしない<command>VACUUM</>、<command>ANALYZE</>操作（一般的な状況です）は、スキャンされたテーブルの部分に基づいて<structfield>reltuples</structfield>値を漸次更新し、概算値を生成します。
-いずれの場合でもプランナは、現在の物理的なテーブルサイズに合わせるために<structname>pg_class</structname>から検索した値を調整して、より高精度な近似値を持ちます。
+いずれの場合でもプランナは、現在の物理的なテーブルサイズに合わせるために<structname>pg_class</structname>から検索した値を調整して、より高精度な近似値を得ます。
   </para>
 
   <indexterm>
@@ -1696,7 +1696,7 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
 両者はほとんど同じことを行うため、<xref linkend="guc-from-collapse-limit">と<xref linkend="guc-join-collapse-limit">は似たような名前になっています。
 片方は副問い合わせの<quote>平坦化</>をプランナがいつ行うかを制御し、もう片方は明示的な結合の平坦化をいつ行うかを制御します。
 通常、<varname>join_collapse_limit</>を<varname>from_collapse_limit</>と同じ値に設定する（明示的な結合と副問い合わせの動作を同じにする）か、<varname>join_collapse_limit</>を1に設定する（明示的な結合で結合順を制御したい場合）かのどちらかを行います。
-しかし、計画作成時間と実行時間の間のトレードオフを十分に行う場合は、これらを別の値に設定しても構いません。
+しかし、計画作成時間と実行時間の間のトレードオフを細かく調整するつもりであれば、これらを別の値に設定しても構いません。
   </para>
  </sect1>
 
