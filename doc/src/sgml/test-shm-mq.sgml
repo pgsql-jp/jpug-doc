@@ -8,23 +8,35 @@
  </indexterm>
 
  <para>
+<!--
   <filename>test_shm_mq</> is an example of how to use dynamic shared memory
   and the shared memory message queue facilities to coordinate a user backend
   with the efforts of one or more background workers.  It is not intended to
   do anything useful on its own; rather, it is a demonstration of how these
   facilities can be used, and a unit test of those facilities.
+-->
+<filename>test_shm_mq</>は利用者のバックエンドをバックグラウンドワーカと協調して動作させるための動的共有メモリや共有メモリメッセージキューの機能の使い方の例です。
+これ自身は有用なことは行う意図はありません。機能をどのように使えるのかの実例と機能の単体試験です。
  </para>
 
  <para>
+<!--
   The function is this extension send the same message repeatedly through
   a loop of processes.  The message payload, the size of the message queue
   through which it is sent, and the number of processes in the loop are
   configurable.  At the end, the message may be verified to ensure that it
   has not been corrupted in transmission.
+-->
+この拡張の関数は処理の繰り返しにより同じメッセージを繰り返し送ります。
+メッセージペイロード、送信に使われるメッセージキューの大きさ、繰り返しの中の処理の数は設定可能です。
+最後に、送信時に壊れていないことを確かめるためメッセージを照合します。
  </para>
 
  <sect2>
+<!--
   <title>Functions</title>
+-->
+  <title>関数</title>
 
 <synopsis>
 test_shm_mq(queue_size int8, message text,
@@ -33,6 +45,7 @@ test_shm_mq(queue_size int8, message text,
 </synopsis>
 
   <para>
+<!--
    This function sends and receives messages synchronously.  The user
    backend sends the provided message to the first background worker using
    a message queue of the given size.  The first background worker sends
@@ -44,6 +57,13 @@ test_shm_mq(queue_size int8, message text,
    the coordinating processes a number of times equal to the repeat count,
    the user backend verifies that the message finally received matches the
    one originally sent and throws an error if not.
+-->
+この関数はメッセージを同期的に送信し受信します。
+利用者のバックエンドは、指定されたメッセージを指定された大きさのメッセージキューを使って最初のバックグラウンドワーカに送ります。
+ワーカの数が1より大きければ、最初のバックグラウンドワーカは2番目のバックグラウンドワーカにメッセージを送ります。以下同様です。
+最終的に、最後のバックグラウンドワーカは利用者のバックエンドにメッセージを送ります。
+繰り返し回数が1より大きければ、利用者のバックエンドは最初のワーカにメッセージを送ります。
+メッセージが協調して動作するプロセスすべてで繰り返しの回数と等しい回数送信され受信されれば、利用者のバックエンドは最後に受信したメッセージが最初に送信されたものと一致するか確認し、そうでなければエラーを発生します。
   </para>
 
 <synopsis>
@@ -54,6 +74,7 @@ test_shm_mq_pipelined(queue_size int8, message text,
 </synopsis>
 
   <para>
+<!--
    This function sends the same message multiple times, as specified by the
    repeat count, to the first background worker using a queue of the given
    size.  These messages are then forwarded to each background worker in
@@ -65,6 +86,13 @@ test_shm_mq_pipelined(queue_size int8, message text,
    received copies are checked against the message that was sent.  (This
    takes nontrivial time so it may be useful to disable it for benchmarking
    purposes.)
+-->
+この関数は、繰り返しの回数で指定された回数、指定された大きさのメッセージキューを使って同じメッセージを最初のバックグラウンドワーカへ送ります。
+それからメッセージは指定された大きさのメッセージキューを使って各バックグラウンドワーカへ転送されます。
+最終的に、最後のバックグラウンドワーカはメッセージを利用者のバックエンドに送り返します。
+利用者のバックエンドは非ブロッキング送信、受信を使いますので、メッセージのコピーをすべて送信し終える前にメッセージのコピーを受信し始めるかもしれません。
+<literal>verify</>引数は受信したコピーを送ったメッセージと照合するか制御します。
+(これには無視できない時間が掛かりますので、ベンチマークの目的には無効にしておくのが便利でしょう。)
   </para>
 
  </sect2>
