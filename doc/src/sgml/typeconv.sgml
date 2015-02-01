@@ -284,7 +284,9 @@ calls in the query.
 暗黙的な型変換を必要としない問い合わせの場合、パーサやエクゼキュータに余計なオーバーヘッドがあるべきではありません。
 つまり、問い合わせ文がきちんとまとめられ、型が既に一致するものになっていれば、パーサ内で余計な時間を費やさず、また、問い合わせに不要な暗黙的な型変換関数が使用されないように、問い合わせは処理されるべきです。
 </para>
+</listitem>
 
+<listitem>
 <para>
 <!--
 Additionally, if a query usually requires an implicit conversion for a function, and
@@ -319,7 +321,7 @@ should use this new function and no longer do implicit conversion to use the old
    The specific operator that is referenced by an operator expression
    is determined using the following procedure.
    Note that this procedure is indirectly affected
-   by the precedence of the involved operators, since that will determine
+   by the precedence of the operators involved, since that will determine
    which sub-expressions are taken to be the inputs of which operators.
    See <xref linkend="sql-precedence"> for more information.
 -->
@@ -334,7 +336,7 @@ should use this new function and no longer do implicit conversion to use the old
 -->
 <title>演算子における型の解決</title>
 
-<step performance="required">
+<step id="op-resol-select" performance="required">
 <para>
 <!--
 Select the operators to be considered from the
@@ -367,7 +369,7 @@ search path position.
 </substeps>
 </step>
 
-<step performance="required">
+<step id="op-resol-exact-match" performance="required">
 <para>
 <!--
 Check for an operator accepting exactly the input argument types.
@@ -379,7 +381,7 @@ operators considered), use it.
 </para>
 
 <substeps>
-<step performance="optional">
+<step id="op-resol-exact-unknown" performance="optional">
 <para>
 <!--
 If one argument of a binary operator invocation is of the <type>unknown</type> type,
@@ -391,10 +393,20 @@ with an <type>unknown</type> input, will never find a match at this step.
 2つの<type>unknown</type>入力、もしくは<type>unknown</type>入力を伴う単項演算子が呼び出された場合、この段階では対を見つけることはありません。
 </para>
 </step>
+<step id="op-resol-exact-domain" performance="optional">
+<para>
+<!--
+If one argument of a binary operator invocation is of the <type>unknown</type>
+type and the other is of a domain type, next check to see if there is an
+operator accepting exactly the domain's base type on both sides; if so, use it.
+-->
+二項演算子の1つの引数が<type>unknown</type>型であり、もう1つがドメイン型の場合、次に両側でドメインの基本型を厳密に受け付ける演算子があるかを確認します。
+</para>
+</step>
 </substeps>
 </step>
 
-<step performance="required">
+<step id="op-resol-best-match" performance="required">
 <para>
 <!--
 Look for the best match.
@@ -420,13 +432,22 @@ candidate remains, use it; else continue to the next step.
 <step performance="required">
 <para>
 <!--
+If any input argument is of a domain type, treat it as being of the
+domain's base type for all subsequent steps.  This ensures that domains
+act like their base types for purposes of ambiguous-operator resolution.
+-->
+入力引数のいずれかがドメイン型であれば、以降の段階すべてでドメインの基本型であるかのように扱います。
+これにより、曖昧な演算子を解決するのを目的としてその基本型であるかのようにドメインが振る舞うことが確実になります。
+</para>
+</step>
+<step performance="required">
+<para>
+<!--
 Run through all candidates and keep those with the most exact matches
-on input types.  (Domains are considered the same as their base type
-for this purpose.)  Keep all candidates if none have exact matches.
+on input types.  Keep all candidates if none have exact matches.
 If only one candidate remains, use it; else continue to the next step.
 -->
-全ての候補を検索し、入力型に最も正確に合うものを残します
-（この時、ドメインはその基本型と同一であるとみなします）。
+全ての候補を検索し、入力型に最も正確に合うものを残します。
 正確に合うものが何もなければ全ての候補を残します。
 1つの候補しか残らない場合、それを使います。
 それ以外の場合は次の段階に進みます。
@@ -477,7 +498,7 @@ If only one candidate remains, use it; else continue to the next step.
 それ以外の場合は次の段階に進みます。
 </para>
 </step>
-<step performance="required">
+<step id="op-resol-last-unknown" performance="required">
 <para>
 <!--
 If there are both <type>unknown</type> and known-type arguments, and all
@@ -713,7 +734,8 @@ array inclusion (<type>anyarray</> <literal>&lt;@</> <type>anyarray</>)
 and range inclusion (<type>anyelement</> <literal>&lt;@</> <type>anyrange</>).
 Since none of these polymorphic pseudo-types (see <xref
 linkend="datatype-pseudo">) are considered preferred, the parser cannot
-resolve the ambiguity on that basis.  However, the last resolution rule tells
+resolve the ambiguity on that basis.
+However, <xref linkend="op-resol-last-unknown"> tells
 it to assume that the unknown-type literal is of the same type as the other
 input, that is, integer array.  Now only one of the two operators can match,
 so array inclusion is selected.  (Had range inclusion been selected, we would
@@ -723,8 +745,64 @@ a range literal.)
 <productname>PostgreSQL</productname>の演算子カタログは、<literal>&lt;@</>中置演算子のためのいくつかのエントリを持っていますが、
 数値型配列を左側に受け付けることができるのは配列含有(<type>anyarray</> <literal>&lt;@</> <type>anyarray</>)と範囲含有(<type>anyelement</> <literal>&lt;@</> <type>anyrange</>)の2つのみです。
 これらの多様な擬似データ型<xref linkend="datatype-pseudo">を参照は好ましいと見なされないため、このような方法ではパーサは曖昧さを解決することができません。
-しかし、最後の解決規則では、未知の型のリテラルを別の入力と同じ型であると仮定するために数値配列とみなします。
+しかし、<xref linkend="op-resol-last-unknown">では、未知の型のリテラルを別の入力と同じ型であると仮定するために数値配列とみなします。
 今のところ2つのうち一つの演算子だけがマッチできるため、配列含有が選択されます。(範囲含有が選択された場合、演算子の右側にある文字列は正しい範囲型のリテラルではないため、エラーとなるでしょう。)
+</para>
+</example>
+
+<example>
+<!--
+<title>Custom Operator on a Domain Type</title>
+-->
+<title>ドメイン型の独自の演算子</title>
+
+<para>
+<!--
+Users sometimes try to declare operators applying just to a domain type.
+This is possible but is not nearly as useful as it might seem, because the
+operator resolution rules are designed to select operators applying to the
+domain's base type.  As an example consider
+-->
+利用者は時々ドメイン型にのみ適用される演算子を宣言しようとします。
+これは可能ですが、思ったほど便利ではありません。演算子の解決規則がドメイン基本型に適用される演算子を選ぶように設計されているからです。
+例として、以下を考えてください。
+<screen>
+CREATE DOMAIN mytext AS text CHECK(...);
+CREATE FUNCTION mytext_eq_text (mytext, text) RETURNS boolean AS ...;
+CREATE OPERATOR = (procedure=mytext_eq_text, leftarg=mytext, rightarg=text);
+CREATE TABLE mytable (val mytext);
+
+SELECT * FROM mytable WHERE val = 'foo';
+</screen>
+<!--
+This query will not use the custom operator.  The parser will first see if
+there is a <type>mytext</> <literal>=</> <type>mytext</> operator
+(<xref linkend="op-resol-exact-unknown">), which there is not;
+then it will consider the domain's base type <type>text</>, and see if
+there is a <type>text</> <literal>=</> <type>text</> operator
+(<xref linkend="op-resol-exact-domain">), which there is;
+so it resolves the <type>unknown</>-type literal as <type>text</> and
+uses the <type>text</> <literal>=</> <type>text</> operator.
+The only way to get the custom operator to be used is to explicitly cast
+the literal:
+-->
+この問い合わせは独自の演算子を使いません．
+パーサはまず<type>mytext</> <literal>=</> <type>mytext</>演算子(<xref linkend="op-resol-exact-unknown">)があるか確認しますが、ありません。次にドメイン基本型<type>text</>を考慮して<type>text</> <literal>=</> <type>text</>演算子(<xref linkend="op-resol-exact-domain">)があるか確認すると、あります。そのため<type>unknown</>型は<type>text</>として解決され、<type>text</> <literal>=</> <type>text</>演算子が使われます。
+独自の演算子を使う唯一の方法は、「正確な一致」規則に従って<type>mytext</> <literal>=</> <type>text</>演算子がすぐに見つかるように、リテラルを明示的にキャストすることだけです。
+<screen>
+SELECT * FROM mytable WHERE val = text 'foo';
+</screen>
+<!--
+so that the <type>mytext</> <literal>=</> <type>text</> operator is found
+immediately according to the exact-match rule.  If the best-match rules
+are reached, they actively discriminate against operators on domain types.
+If they did not, such an operator would create too many ambiguous-operator
+failures, because the casting rules always consider a domain as castable
+to or from its base type, and so the domain operator would be considered
+usable in all the same cases as a similarly-named operator on the base type.
+-->
+もし、「最善の一致」規則に達した場合、ドメイン型の演算子を積極的に差別します。
+そうでなければ、そのような演算子は非常に多くの「曖昧な演算子」の失敗を引き起こします。キャストの規則はドメインをその基本型からもしくは基本型へキャスト可能と考え、ドメイン演算子は基本型の似たような名前の演算子とすべて同じ状況で利用できると考えられるからです。
 </para>
 </example>
 
@@ -900,13 +978,22 @@ candidate remains, use it; else continue to the next step.
 <step performance="required">
 <para>
 <!--
+If any input argument is of a domain type, treat it as being of the
+domain's base type for all subsequent steps.  This ensures that domains
+act like their base types for purposes of ambiguous-function resolution.
+-->
+入力引数のいずれかがドメイン型であれば、以降の段階すべてでドメインの基本型であるかのように扱います。
+これにより、曖昧な関数を解決するのを目的としてその基本型であるかのようにドメインが振る舞うことが確実になります。
+</para>
+</step>
+<step performance="required">
+<para>
+<!--
 Run through all candidates and keep those with the most exact matches
-on input types.  (Domains are considered the same as their base type
-for this purpose.)  Keep all candidates if none have exact matches.
+on input types.  Keep all candidates if none have exact matches.
 If only one candidate remains, use it; else continue to the next step.
 -->
-全ての候補を検索し、入力型に最も正確に合うものを残します
-（この時、ドメインはその基本型と同一であるとみなします）。
+全ての候補を検索し、入力型に最も正確に合うものを残します。
 正確に合うものが何もなければ全ての候補を残します。
 1つの候補しか残らない場合、それを使います。
 それ以外の場合は次の段階に進みます。
@@ -1341,11 +1428,32 @@ and Related Constructs</title>
 <para>
 <!--
 If all inputs are of the same type, and it is not <type>unknown</type>,
-resolve as that type.  Otherwise, replace any domain types in the list with
-their underlying base types.
+resolve as that type.
 -->
-もし全ての入力値が同一型だった場合、<type>unknown</type>にはならず、その型として解決されます。
-そうでない場合は、リスト内のドメイン型を背後にある基本型で置換します。
+もし全ての入力値が同一型であり、<type>unknown</type>ではない場合、その型として解決されます。
+</para>
+</step>
+
+<step performance="required">
+<para>
+<!--
+If any input is of a domain type, treat it as being of the
+domain's base type for all subsequent steps.
+-->
+入力のいずれかがドメイン型であれば、以降の段階すべてでドメインの基本型であるかのように扱います。
+  <footnote>
+   <para>
+<!--
+    Somewhat like the treatment of domain inputs for operators and
+    functions, this behavior allows a domain type to be preserved through
+    a <literal>UNION</> or similar construct, so long as the user is
+    careful to ensure that all inputs are implicitly or explicitly of that
+    exact type.  Otherwise the domain's base type will be preferred.
+-->
+演算子や関数に対するドメイン入力の取り扱いとある程度似ていて、この振舞いにより、利用者が注意して入力をすべて厳密な型であると保証する限り、ドメイン型を<literal>UNION</>や類似の構成体に保存できます。
+そうでなければ、ドメインの基本型が選ばれます。
+   </para>
+  </footnote>
 </para>
 </step>
 
