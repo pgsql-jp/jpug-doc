@@ -136,13 +136,13 @@ version.sgml: $(top_srcdir)/configure
 	  echo "<!ENTITY majorversion \"$(MAJORVERSION)\">"; \
 	} > $@
 
-features-supported.sgml: $(top_srcdir)/src/backend/catalog/sql_feature_packages.txt $(top_srcdir)/src/backend/catalog/sql_features.txt
+features-supported.sgml: $(top_srcdir)/src/backend/catalog/sql_feature_packages.txt.ja $(top_srcdir)/src/backend/catalog/sql_features.txt.ja
 	$(PERL) $(srcdir)/mk_feature_tables.pl YES $^ > $@
 
-features-unsupported.sgml: $(top_srcdir)/src/backend/catalog/sql_feature_packages.txt $(top_srcdir)/src/backend/catalog/sql_features.txt
+features-unsupported.sgml: $(top_srcdir)/src/backend/catalog/sql_feature_packages.txt.ja $(top_srcdir)/src/backend/catalog/sql_features.txt.ja
 	$(PERL) $(srcdir)/mk_feature_tables.pl NO $^ > $@
 
-errcodes-table.sgml: $(top_srcdir)/src/backend/utils/errcodes.txt generate-errcodes-table.pl
+errcodes-table.sgml: $(top_srcdir)/src/backend/utils/errcodes.txt.ja generate-errcodes-table.pl
 	$(PERL) $(srcdir)/generate-errcodes-table.pl $< > $@
 
 ##
