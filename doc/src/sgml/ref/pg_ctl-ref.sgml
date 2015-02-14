@@ -11,16 +11,23 @@ PostgreSQL documentation
  <refmeta>
   <refentrytitle><application>pg_ctl</application></refentrytitle>
   <manvolnum>1</manvolnum>
+<!--
   <refmiscinfo>Application</refmiscinfo>
+-->
+<refmiscinfo>アプリケーション</refmiscinfo>
  </refmeta>
 
  <refnamediv>
   <refname>pg_ctl</refname>
+<!--
   <refpurpose>initialize, start, stop, or control a <productname>PostgreSQL</productname> server</refpurpose>
+-->
+<refpurpose><productname>PostgreSQL</productname>サーバを初期化、起動、停止、制御する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
   <cmdsynopsis>
+
    <command>pg_ctl</command>
    <arg choice="plain"><option>init[db]</option></arg>
    <arg choice="opt"><option>-s</option></arg>
@@ -125,13 +132,18 @@ PostgreSQL documentation
    <command>pg_ctl</command>
    <arg choice="plain"><option>unregister</option></arg>
    <arg choice="opt"><option>-N</option> <replaceable>servicename</replaceable></arg>
+
   </cmdsynopsis>
  </refsynopsisdiv>
 
 
  <refsect1 id="app-pg-ctl-description">
+<!--
   <title>Description</title>
+-->
+<title>説明</title>
   <para>
+<!--
    <application>pg_ctl</application> is a utility for initializing a
    <productname>PostgreSQL</productname> database cluster, starting,
    stopping, or restarting the <productname>PostgreSQL</productname>
@@ -141,17 +153,28 @@ PostgreSQL documentation
    as redirecting log output and properly detaching from the terminal
    and process group. It also provides convenient options for
    controlled shutdown.
+-->
+<application>pg_ctl</application>は<productname>PostgreSQL</productname>データベースクラスタの初期化、<productname>PostgreSQL</productname>のデータベースサーバ（<xref linkend="app-postgres">）を起動、停止、再起動する、あるいは稼働中のサーバの状態を表示するためのユーティリティです。
+サーバは手動で起動することも可能ですが、<application>pg_ctl</application>は、ログ出力のリダイレクトや、端末とプロセスグループの適切な分離などの作業を隠蔽してくれます。
+さらにシャットダウン制御のための便利なオプションも提供します。
   </para>
 
   <para>
+<!--
    The <option>init</option> or <option>initdb</option> mode creates a new
    <productname>PostgreSQL</productname> database cluster.  A database
    cluster is a collection of databases that are managed by a single
    server instance.  This mode invokes the <command>initdb</command>
    command.  See <xref linkend="app-initdb"> for details.
+-->
+<option>init</option>または<option>initdb</option>モードは<productname>PostgreSQL</productname>の新しいデータベースクラスタを作成します。
+データベースクラスタとは、単一のサーバインスタンスで管理されるデータベースの集合です。
+このモードは<command>initdb</command>コマンドを呼び出します。
+詳しくは<xref linkend="app-initdb">を参照して下さい。
   </para>
 
   <para>
+<!--
    In <option>start</option> mode, a new server is launched.  The
    server is started in the background, and its standard input is attached
    to <filename>/dev/null</filename> (or <literal>nul</> on Windows).
@@ -167,9 +190,19 @@ PostgreSQL documentation
    are sent to the terminal.  These default behaviors can be changed
    by using <option>-l</option> to append the server's output to a log file.
    Use of either <option>-l</option> or output redirection is recommended.
+-->
+<option>start</option>モードでは、新しいサーバが立ち上がります。
+サーバはバックグラウンドで起動され、その標準入力は<filename>/dev/null</filename>（Windowsの場合は<literal>nul</>）に接続されます。
+Unix系のシステムではデフォルトで、サーバの標準出力と標準エラーは<application>pg_ctl</application>の標準出力に転送されます(標準エラー出力には転送されません）。
+<application>pg_ctl</application>の標準出力はファイルにリダイレクトするか、例えば<application>rotatelogs</>などのログローテーションプログラムのような別プロセスにパイプで渡すべきです。 
+こうしないと、<command>postgres</command>はその出力を（バックグラウンドから）制御端末に書き出しますので、シェルのプロセスグループから切り離すことができません。
+Windowsではデフォルトで、サーバの標準出力と標準エラーは端末に送信されます。
+こうしたデフォルトの動作は<option>-l</option>を用いてサーバの出力をログファイルに追加するように変更することができます。
+<option>-l</option>または出力のリダイレクトのどちらかを使用することを勧めます。
   </para>
 
   <para>
+<!--
    In <option>stop</option> mode, the server that is running in
    the specified data directory is shut down.  Three different
    shutdown methods can be selected with the <option>-m</option>
@@ -183,17 +216,32 @@ PostgreSQL documentation
    server is shut down.  <quote>Immediate</quote> mode will abort
    all server processes immediately, without a clean shutdown.
    This will lead to a crash-recovery run on the next restart.
+-->
+<option>stop</option>モードは、指定されたデータディレクトリで稼働しているサーバを停止（シャットダウン）します。
+<option>-m</option>オプションでは、3つの異なる停止方式を選択できます。
+<quote>smart</quote>モード（デフォルト）は、全てのクライアントが切断し、オンラインバックアップがあればそれが終了するまで待ちます。
+サーバがホットスタンバイ状態の場合、すべてのクライアント接続が切断された後にリカバリとストリーミングレプリケーションは終了します。
+<quote>fast</quote>モードはクライアントが切断するまで待たず、かつ、実行中のオンラインバックアップを終了させます。
+全ての実行中のトランザクションをロールバックし、クライアントとの接続を強制的に切断した後、サーバを停止します。
+<quote>immediate</quote>モードは、クリーンアップ処理なしで、全てのサーバプロセスを即座に中断します。
+これを指定すると、再起動時にクラッシュリカバリ処理が実行されます。
   </para>
 
   <para>
+<!--
    <option>restart</option> mode effectively executes a stop followed
    by a start.  This allows changing the <command>postgres</command>
    command-line options.  <option>restart</option> might fail if
    relative paths specified were specified on the command-line during
    server start.
+-->
+<option>restart</option>モードは、実質的にはstopを実行して、その後、startを実行します。
+この時、<command>postgres</command>コマンドラインオプションを変更することができます。
+指定された相対パスがサーバ起動時にコマンドラインから指定されていた場合に <option>restart</option>が失敗する可能性があります。
   </para>
 
   <para>
+<!--
    <option>reload</option> mode simply sends the
    <command>postgres</command> process a <systemitem>SIGHUP</>
    signal, causing it to reread its configuration files
@@ -201,47 +249,75 @@ PostgreSQL documentation
    <filename>pg_hba.conf</filename>, etc.).  This allows changing of
    configuration-file options that do not require a complete restart
    to take effect.
+-->
+<option>reload</option>モードは、単に<command>postgres</command>に<systemitem>SIGHUP</>シグナルを送り、（<filename>postgresql.conf</filename>、<filename>pg_hba.conf</filename>などの）設定ファイルの再読み込みを実行させます。
+これにより、設定ファイルのオプションで完全な再起動を必要としないものについて、変更を反映させることができます。
   </para>
 
   <para>
+<!--
    <option>status</option> mode checks whether a server is running in
    the specified data directory. If it is, the <acronym>PID</acronym>
    and the command line options that were used to invoke it are
    displayed.  If the server is not running, the process returns an
    exit status of 3.  If an accessible data directory is not specified,
    the process returns an exit status of 4.
+-->
+<option>status</option>モードは指定したデータディレクトリでサーバが稼働しているかどうかを確認します。
+稼働している場合は<acronym>PID</acronym>と、サーバを起動する時に使われたコマンドラインオプションを表示します。
+サーバが稼働していない場合、このプロセスは終了ステータス３を返します。
+アクセス可能なデータディレクトリが指定されていない場合、プロセスは終了ステータス４を返します。
   </para>
 
   <para>
+<!--
    In <option>promote</option> mode, the standby server that is
    running in the specified data directory is commanded to exit
    recovery and begin read-write operations.
+-->
+<option>promote</option>モードでは、指定したデータディレクトリで稼動中のスタンバイサーバにリカバリを終了し読み書き操作を始めるようコマンドを送ります。
   </para>
 
   <para>
+<!--
    <option>kill</option> mode allows you to send a signal to a specified
     process.  This is particularly valuable for <productname>Microsoft Windows</>
     which does not have a <application>kill</> command.  Use
-    <literal>--help</> to see a list of supported signal names.
+    <literal>&#055;&#055;help</> to see a list of supported signal names.
+-->
+<option>kill</option>モードでは指定したプロセスにシグナルを送信することができます。
+これは特に、<application>kill</>コマンドを持たない<productname>Microsoft Windows</>で有用です。
+サポートするシグナル名の一覧は<literal>--help</>を使用して確認してください。
   </para>
 
   <para>
+<!--
    <option>register</option> mode allows you to register a system service
    on <productname>Microsoft Windows</>.  The <option>-S</option> option
    allows selection of service start type, either <quote>auto</quote> (start
    service automatically on system startup) or <quote>demand</quote> (start
    service on demand).
+-->
+<option>register</option>モードにより、<productname>Microsoft Windows</>上でシステムサービスを登録することができます。
+<option>-S</option>オプションによりサービスの起動種類を<quote>auto</quote>（システム起動時に自動的にサービスを起動）か<quote>demand</quote>（要求が合った時にサービスを起動）から選択することができます。
   </para>
 
   <para>
+<!--
    <option>unregister</option> mode allows you to unregister a system service
    on <productname>Microsoft Windows</>.  This undoes the effects of the
    <option>register</option> command.
+-->
+<option>unregister</option>により<productname>Microsoft Windows</>上のシステムサービスを登録解除することができます。
+これは過去に<option>register</option>コマンドによりなされた変更を元に戻します。
   </para>
  </refsect1>
 
  <refsect1 id="app-pg-ctl-options">
+<!--
   <title>Options</title>
+-->
+<title>オプション</title>
 
     <variablelist>
 
@@ -250,11 +326,15 @@ PostgreSQL documentation
       <term><option>--core-file</option></term>
       <listitem>
        <para>
+<!--
         Attempt to allow server crashes to produce core files, on platforms
         where this is possible, by lifting any soft resource limit placed on
         core files.
         This is useful in debugging or diagnosing problems by allowing a
         stack trace to be obtained from a failed server process.
+-->
+実現可能なプラットフォームにおいて、サーバクラッシュ時にcoreファイルを生成できるように関連するソフトリソース制限を上げます。
+障害が起きたサーバプロセスからスタックトレースを取得できますので、問題のデバッグや診断の際に有用です。
        </para>
       </listitem>
      </varlistentry>
@@ -264,9 +344,13 @@ PostgreSQL documentation
       <term><option>--pgdata <replaceable class="parameter">datadir</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Specifies the file system location of the database configuration files.  If
         this is omitted, the environment variable
         <envar>PGDATA</envar> is used.
+-->
+データベース設定ファイルのファイルシステム上の場所を指定します。
+これが省略された場合、環境変数<envar>PGDATA</envar>が使われます。
        </para>
       </listitem>
      </varlistentry>
@@ -276,10 +360,15 @@ PostgreSQL documentation
       <term><option>--log <replaceable class="parameter">filename</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Append the server log output to
         <replaceable>filename</replaceable>.  If the file does not
         exist, it is created.  The <systemitem>umask</> is set to 077,
         so access to the log file is disallowed to other users by default.
+-->
+サーバログ出力を<replaceable>filename</replaceable>に追記します。
+そのファイルが存在しない場合は作成されます。
+<systemitem>umask</>は077に設定されますので、他のユーザからのログファイルへのアクセスはデフォルトでは許可されません。
        </para>
       </listitem>
      </varlistentry>
@@ -289,10 +378,15 @@ PostgreSQL documentation
       <term><option>--mode <replaceable class="parameter">mode</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Specifies the shutdown mode.  <replaceable>mode</replaceable>
         can be <literal>smart</literal>, <literal>fast</literal>, or
         <literal>immediate</literal>, or the first letter of one of
         these three.  If this is omitted, <literal>smart</literal> is used.
+-->
+停止（シャットダウン）モードを指定します。
+<replaceable>mode</replaceable>は<literal>smart</literal>、<literal>fast</literal>、<literal>immediate</literal>、もしくはこの3つのモード名の最初の1文字をとることができます。
+省略時は<literal>smart</literal>が使用されます。
        </para>
       </listitem>
      </varlistentry>
@@ -301,12 +395,18 @@ PostgreSQL documentation
       <term><option>-o <replaceable class="parameter">options</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Specifies options to be passed directly to the
         <command>postgres</command> command.
+-->
+<command>postgres</command>に直接渡されるオプションを指定します。
        </para>
        <para>
+<!--
         The options should usually be surrounded by single or double
         quotes to ensure that they are passed through as a group.
+-->
+このオプションは、確実に1グループとして渡すために、通常は単一引用符または二重引用符で囲まなければなりません。
        </para>
       </listitem>
      </varlistentry>
@@ -315,12 +415,18 @@ PostgreSQL documentation
       <term><option>-o <replaceable class="parameter">initdb-options</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Specifies options to be passed directly to the
         <command>initdb</command> command.
+-->
+<command>initdb</command>コマンドに直接渡すオプションを指定します。
        </para>
        <para>
+<!--
         The options should usually be surrounded by single or double
         quotes to ensure that they are passed through as a group.
+-->
+このオプションは、確実にひとまとめとして渡すために、通常は単一引用符または二重引用符で囲まなければなりません。
        </para>
       </listitem>
      </varlistentry>
@@ -329,18 +435,26 @@ PostgreSQL documentation
       <term><option>-p <replaceable class="parameter">path</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Specifies the location of the <filename>postgres</filename>
         executable.  By default the <filename>postgres</filename> executable is taken from the same
         directory as <command>pg_ctl</command>, or failing that, the hard-wired
         installation directory.  It is not necessary to use this
         option unless you are doing something unusual and get errors
         that the <filename>postgres</filename> executable was not found.
+-->
+<filename>postgres</filename>の実行プログラムの位置を指定します。
+デフォルトでは<filename>postgres</filename>の実行プログラムは<command>pg_ctl</>と同じディレクトリにあるものとみなされます。また、このディレクトリに存在しなければ、構築時に指定したインストールディレクトリが使われます。
+このオプションは、何か異例なことをしていて<filename>postgres</filename>が見つからないというようなエラーが出ない限り、使う必要はありません。
        </para>
 
        <para>
+<!--
         In <literal>init</literal> mode, this option analogously
         specifies the location of the <filename>initdb</filename>
         executable.
+-->
+<literal>init</literal>モードでは、このオプションは同様に<filename>initdb</filename>実行プログラムの場所を指定します。
        </para>
       </listitem>
      </varlistentry>
@@ -350,7 +464,10 @@ PostgreSQL documentation
       <term><option>--silent</option></term>
       <listitem>
        <para>
+<!--
         Print only errors, no informational messages.
+-->
+エラーメッセージのみを表示し、その他の情報を表示しません。
        </para>
       </listitem>
      </varlistentry>
@@ -360,8 +477,12 @@ PostgreSQL documentation
       <term><option>--timeout</option></term>
       <listitem>
        <para>
+<!--
         The maximum number of seconds to wait when waiting for startup or
         shutdown to complete.  The default is 60 seconds.
+-->
+起動または停止の完了まで待機する最大の秒数。
+デフォルトは60秒です。
        </para>
       </listitem>
      </varlistentry>
@@ -371,7 +492,10 @@ PostgreSQL documentation
       <term><option>--version</></term>
        <listitem>
         <para>
+<!--
          Print the <application>pg_ctl</application> version and exit.
+-->
+<application>pg_ctl</application>のバージョンを表示し、終了します。
         </para>
        </listitem>
      </varlistentry>
@@ -380,6 +504,7 @@ PostgreSQL documentation
       <term><option>-w</option></term>
       <listitem>
        <para>
+<!--
         Wait for the startup or shutdown to complete.
         Waiting is the default option for shutdowns, but not startups.
         When waiting for startup, <command>pg_ctl</command> repeatedly
@@ -389,6 +514,13 @@ PostgreSQL documentation
         This option allows the entry of an <acronym>SSL</> passphrase on startup.
         <command>pg_ctl</command> returns an exit code based on the
         success of the startup or shutdown.
+-->
+起動もしくは停止処理が完了するのを待ちます。
+待機は停止処理ではデフォルトのオプションですが、起動処理ではデフォルトではありません。
+起動処理を待機している場合、<command>pg_ctl</command>は繰り返しサーバへの接続を試行します。
+停止処理を待機している場合、<command>pg_ctl</command>はサーバが<acronym>PID</acronym>ファイルを削除するまで待機します。
+このオプションにより起動時に<acronym>SSL</>パスフレーズを入力することができます。
+<command>pg_ctl</command>は、起動もしくは停止が成功したかどうかに基づいて終了コードを返します。
        </para>
       </listitem>
      </varlistentry>
@@ -397,8 +529,12 @@ PostgreSQL documentation
       <term><option>-W</option></term>
       <listitem>
        <para>
+<!--
         Do not wait for startup or shutdown to complete.  This is the
         default for start and restart modes.
+-->
+起動処理もしくは停止処理が完了するのを待ちません。
+起動と再起動モードのデフォルトです。
        </para>
       </listitem>
      </varlistentry>
@@ -408,23 +544,33 @@ PostgreSQL documentation
       <term><option>--help</></term>
       <listitem>
        <para>
+<!--
         Show help about <application>pg_ctl</application> command line
         arguments, and exit.
+-->
+<application>pg_ctl</application>コマンドライン引数の説明を表示し、終了します。
        </para>
       </listitem>
      </varlistentry>
    </variablelist>
 
   <refsect2 id="app-pg-ctl-windows-options">
+<!--
    <title>Options for Windows</title>
+-->
+  <title>Windows用オプション</title>
 
    <variablelist>
     <varlistentry>
      <term><option>-N <replaceable class="parameter">servicename</replaceable></option></term>
      <listitem>
       <para>
+<!--
        Name of the system service to register. The name will be used
        as both the service name and the display name.
+-->
+登録するシステムサービスの名前です。
+この名前は、システム名としても表示名としても使用されます。
       </para>
      </listitem>
     </varlistentry>
@@ -433,7 +579,10 @@ PostgreSQL documentation
      <term><option>-P <replaceable class="parameter">password</replaceable></option></term>
      <listitem>
       <para>
+<!--
        Password for the user to start the service.
+-->
+サービスを開始するユーザ用のパスワードです。
       </para>
      </listitem>
     </varlistentry>
@@ -442,10 +591,15 @@ PostgreSQL documentation
      <term><option>-S <replaceable class="parameter">start-type</replaceable></option></term>
      <listitem>
       <para>
+<!--
        Start type of the system service to register.  start-type can
        be <literal>auto</literal>, or <literal>demand</literal>, or
        the first letter of one of these two. If this is omitted,
        <literal>auto</literal> is used.
+-->
+登録するシステムサービスの起動種類です。
+起動種類は<literal>auto</literal>、<literal>demand</literal>、またはこれら2単語の先頭の文字のいずれかです。
+省略時は<literal>auto</literal>が使用されます。
       </para>
      </listitem>
     </varlistentry>
@@ -454,8 +608,12 @@ PostgreSQL documentation
      <term><option>-U <replaceable class="parameter">username</replaceable></option></term>
      <listitem>
       <para>
+<!--
        User name for the user to start the service. For domain users, use the
        format <literal>DOMAIN\username</literal>.
+-->
+サービスを起動するユーザのユーザ名です。
+ドメインユーザの場合は<literal>DOMAIN\username</literal>書式を使用してください。
       </para>
      </listitem>
     </varlistentry>
@@ -466,7 +624,10 @@ PostgreSQL documentation
 
 
  <refsect1>
+<!--
   <title>Environment</title>
+-->
+<title>環境</title>
 
   <variablelist>
    <varlistentry>
@@ -474,7 +635,10 @@ PostgreSQL documentation
 
     <listitem>
      <para>
+<!--
       Default data directory location.
+-->
+      デフォルトのデータディレクトリの場所です。
      </para>
     </listitem>
    </varlistentry>
@@ -482,17 +646,24 @@ PostgreSQL documentation
   </variablelist>
 
   <para>
+<!--
    <command>pg_ctl</command>, like most other <productname>PostgreSQL</>
    utilities,
    also uses the environment variables supported by <application>libpq</>
    (see <xref linkend="libpq-envars">).
    For additional server variables, see <xref linkend="app-postgres">.
+-->
+また、<command>pg_ctl</command>は、他のほとんどの<productname>PostgreSQL</>ユーティリティと同様、<application>libpq</>でサポートされる環境変数を使用します（<xref linkend="libpq-envars">を参照してください）。
+この他のサーバ変数については<xref linkend="app-postgres">を参照してください。
   </para>
  </refsect1>
 
 
  <refsect1>
+<!--
   <title>Files</title>
+-->
+<title>ファイル</title>
 
   <variablelist>
    <varlistentry>
@@ -500,9 +671,12 @@ PostgreSQL documentation
 
     <listitem>
      <para>
+<!--
       The existence of this file in the data directory is used to help
       <application>pg_ctl</application> determine if the server is
       currently running.
+-->
+データディレクトリにこのファイルがあるかどうかによって、<application>pg_ctl</application>はサーバが現在稼働中かどうかを決定します。
      </para>
     </listitem>
    </varlistentry>
@@ -511,12 +685,17 @@ PostgreSQL documentation
     <term><filename>postmaster.opts</filename></term>
 
     <listitem>
+<!--
      <para>If this file exists in the data directory,
       <application>pg_ctl</application> (in <option>restart</option> mode)
       will pass the contents of the file as options to
       <application>postgres</application>, unless overridden
       by the <option>-o</option> option. The contents of this file
       are also displayed in <option>status</option> mode.
+-->
+<para>
+このファイルがデータディレクトリにあれば、<application>pg_ctl</application>（の<option>restart</option>モード）は、<option>-o</option>で上書きされるものを除き、このファイルの内容をオプションとして<command>postgres</command>に渡します。
+また、このファイルの内容が<option>status</option>モードで表示されます。
      </para>
     </listitem>
    </varlistentry>
@@ -526,83 +705,126 @@ PostgreSQL documentation
 
 
  <refsect1 id="R1-APP-PGCTL-2">
+<!--
   <title>Examples</title>
+-->
+<title>例</title>
 
   <refsect2 id="R2-APP-PGCTL-3">
+<!--
    <title>Starting the Server</title>
+-->
+<title>サーバの起動</title>
 
    <para>
+<!--
     To start the server:
+-->
+サーバを起動します。
 <screen>
 <prompt>$</prompt> <userinput>pg_ctl start</userinput>
 </screen>
    </para>
 
    <para>
+<!--
     To start the server, waiting until the server is
     accepting connections:
+-->
+以下はサーバが接続を植え付けられるようになるまで待機する起動例です。
 <screen>
 <prompt>$</prompt> <userinput>pg_ctl -w start</userinput>
 </screen>
    </para>
 
    <para>
+<!--
     To start the server using port 5433, and
     running without <function>fsync</function>, use:
+-->
+ポート5433を使い<function>fsync</function>なしでサーバを起動します。
 <screen>
 <prompt>$</prompt> <userinput>pg_ctl -o "-F -p 5433" start</userinput>
 </screen></para>
   </refsect2>
 
   <refsect2 id="R2-APP-PGCTL-4">
+<!--
    <title>Stopping the Server</title>
+-->
+   <title>サーバの停止</title>
    <para>
+<!--
     To stop the server, use:
+-->
+サーバを停止するためには以下を使用します。
 <screen>
 <prompt>$</prompt> <userinput>pg_ctl stop</userinput>
 </screen>
+<!--
     The <option>-m</option> option allows control over
     <emphasis>how</emphasis> the server shuts down:
+-->
+<option>-m</option>オプションにより<emphasis>どのように</emphasis>バックエンドを停止させるかを制御できます。
 <screen>
 <prompt>$</prompt> <userinput>pg_ctl stop -m fast</userinput>
 </screen></para>
   </refsect2>
 
   <refsect2 id="R2-APP-PGCTL-5">
+<!--
    <title>Restarting the Server</title>
+-->
+   <title>サーバの再起動</title>
 
    <para>
+<!--
     Restarting the server is almost equivalent to stopping the
     server and starting it again,
     except that <command>pg_ctl</command> saves and reuses the command line options that
     were passed to the previously running instance.  To restart
     the server in the simplest form, use:
+-->
+サーバの再起動は、サーバを停止してもう一度起動するのとほぼ同じですが、違うのは、<command>pg_ctl</command>が以前起動していたインスタンスに渡されていたコマンドラインオプションを保存し再利用することです。
+下記はサーバを再起動する最も簡単な方法です。
 <screen>
 <prompt>$</prompt> <userinput>pg_ctl restart</userinput>
 </screen>
    </para>
 
    <para>
+<!--
     To restart the server,
     waiting for it to shut down and restart:
+-->
+再起動の際にサーバのシャットダウンを待ってから起動を行う方法です。
 <screen>
 <prompt>$</prompt> <userinput>pg_ctl -w restart</userinput>
 </screen>
    </para>
 
    <para>
+<!--
     To restart using port 5433, disabling <function>fsync</> upon restart:
+-->
+以下はポート5433を使って再起動し、再起動後に<function>fsync</>を無効にする方法です。
 <screen>
 <prompt>$</prompt> <userinput>pg_ctl -o "-F -p 5433" restart</userinput>
 </screen></para>
   </refsect2>
 
   <refsect2 id="R2-APP-PGCTL-6">
+<!--
    <title>Showing the Server Status</title>
+-->
+   <title>サーバの状態表示</title>
 
    <para>
+<!--
     Here is sample status output from
     <application>pg_ctl</application>:
+-->
+下記は<application>pg_ctl</application>からの状態の出力の例です。
 <screen>
 <prompt>$</prompt> <userinput>pg_ctl status</userinput>
 <computeroutput>
@@ -610,14 +832,20 @@ pg_ctl: server is running (PID: 13718)
 /usr/local/pgsql/bin/postgres "-D" "/usr/local/pgsql/data" "-p" "5433" "-B" "128"
 </computeroutput>
 </screen>
+<!--
     This is the command line that would be invoked in restart mode.
+-->
+これは再起動（restart）モードで呼び出されるコマンドラインです。
    </para>
   </refsect2>
  </refsect1>
 
 
  <refsect1>
+<!--
   <title>See Also</title>
+-->
+<title>関連項目</title>
 
   <simplelist type="inline">
    <member><xref linkend="app-initdb"></member>
