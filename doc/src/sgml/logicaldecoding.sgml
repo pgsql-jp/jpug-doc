@@ -1,21 +1,35 @@
 <!-- doc/src/sgml/logicaldecoding.sgml -->
  <chapter id="logicaldecoding">
+<!--
   <title>Logical Decoding</title>
+-->
+  <title>ロジカルデコーディング</title>
   <indexterm zone="logicaldecoding">
+<!--
    <primary>Logical Decoding</primary>
+-->
+   <primary>ロジカルデコーディング</primary>
   </indexterm>
   <para>
+<!--
    PostgreSQL provides infrastructure to stream the modifications performed
    via SQL to external consumers.  This functionality can be used to for a
    variety of purposes, including replication solutions and auditing.
+-->
+PostgreSQLは、SQLによって実行された更新結果を外部のコンシューマにストリーミングする基盤を提供しています。
   </para>
 
   <para>
+<!--
    Changes are sent out in streams identified by logical replication slots.
    Each stream outputs each change exactly once.
+-->
+更新結果はロジカルレプリケーションスロット(logical replication slots)で識別され、ストリームに送出されます。
+各々のストリームは、厳密に一度だけそれぞれの更新を送出します。
   </para>
 
   <para>
+<!--
    The format in which those changes are streamed is determined by the output
    plugin used.  An example plugin is provided in the PostgreSQL distribution.
    Additional plugins can be
@@ -26,9 +40,18 @@
    by <command>UPDATE</command>.  Availability of old row versions for
    <command>UPDATE</command> and <command>DELETE</command> depends on
    the configured replica identity (see <xref linkend="SQL-CREATETABLE-REPLICA-IDENTITY">).
+-->
+ストリームに送出される更新データのフォーマットは、使用するプラグインで決まります。
+サンプルプラグインがPostgreSQLの配布物に含まれています。
+追加のプラグインを書くことにより、PostgreSQLのコア部分のコードを一切変更することなく、利用可能なフォーマットの選択肢を増やすことができます。
+すべてのプラグインから、
+<command>INSERT</command>によって成された個々の新しい行と、<command>UPDATE</command>によって作成された新しい個々の行のバージョンにアクセスできます。
+<command>UPDATE</command>と<command>DELETE</command>によって古いバージョンの行へのアクセスが可能かどうかは、
+レプリカエンティティ(replica entity)の設定によって決まります(<xref linkend="SQL-CREATETABLE-REPLICA-IDENTITY">参照)。
   </para>
 
   <para>
+<!--
    Changes can be consumed either using the streaming replication protocol
    (see <xref linkend="protocol-replication"> and
    <xref linkend="logicaldecoding-walsender">), or by calling functions
@@ -36,22 +59,37 @@
    to write additional methods of consuming the output of a replication slot
    without modifying core code
    (see <xref linkend="logicaldecoding-writer">).
+-->
+変更データの消費は、ストリーミングレプリケーションのプロトコル(<xref linkend="protocol-replication">と
+<xref linkend="logicaldecoding-walsender">を参照)を使うか、SQL関数(<xref linkend="logicaldecoding-sql">)を使って行います。
+また、コア部分に手を入れなくても、レプリケーションスロットの出力を消費する別の方法を実装することもできます
+(<xref linkend="logicaldecoding-writer">参照)。
   </para>
 
   <sect1 id="logicaldecoding-example">
+<!--
    <title>Logical Decoding Examples</title>
+-->
+   <title>ロジカルデコーディングの例</title>
 
    <para>
+<!--
     The following example demonstrates controlling logical decoding using the
     SQL interface.
+-->
+以下はロジカルデコーディングをSQLを使って制御する例です。
    </para>
 
    <para>
+<!--
     Before you can use logical decoding, you must set
     <xref linkend="guc-wal-level"> to <literal>logical</literal> and
     <xref linkend="guc-max-replication-slots"> to at least 1.  Then, you
     should connect to the target database (in the example
     below, <literal>postgres</literal>) as a superuser.
+-->
+ロジカルデコーディングを使う前に、<xref linkend="guc-wal-level"> を <literal>logical</literal> に、そして<xref linkend="guc-max-replication-slots">を少なくとも1に設定しなければなりません。
+次に、使用するデータベースにスーパユーザ(以下の例では<literal>postgres</literal>)として接続します。
    </para>
 
 <programlisting>
@@ -145,6 +183,7 @@ postgres=# SELECT pg_drop_replication_slot('regression_slot');
 </programlisting>
 
    <para>
+<!--
     The following example shows how logical decoding is controlled over the
     streaming replication protocol, using the
     program <xref linkend="app-pgrecvlogical"> included in the PostgreSQL
@@ -153,6 +192,10 @@ postgres=# SELECT pg_drop_replication_slot('regression_slot');
     (see <xref linkend="streaming-replication-authentication">) and
     that <varname>max_wal_senders</varname> is set sufficiently high to an
     additional connection.
+-->
+以下はPostgreSQLに付属するプログラム<xref linkend="app-pgrecvlogical">を用いてロジカルデコーディングを
+ストリーミングレプリケーションのプロトコルによって制御する例です。
+この方法を使うには、レプリケーション接続を許すようにクライアント認証を設定し(<xref linkend="streaming-replication-authentication">参照)、<varname>max_wal_senders</varname>を十分に大きくして追加の接続ができるようにしておかければなりません。
    </para>
 <programlisting>
 $ pg_recvlogical -d postgres --slot test --create-slot
@@ -169,96 +212,154 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
   </sect1>
 
   <sect1 id="logicaldecoding-explanation">
+<!--
    <title>Logical Decoding Concepts</title>
+-->
+   <title>ロジカルデコーディングのコンセプト</title>
    <sect2>
+<!--
     <title>Logical Decoding</title>
+-->
+    <title>ロジカルデコーディング</title>
 
     <indexterm>
+<!--
      <primary>Logical Decoding</primary>
+-->
+     <primary>ロジカルデコーディング</primary>
     </indexterm>
 
     <para>
+<!--
      Logical decoding is the process of extracting all persistent changes
      to a database's tables into a coherent, easy to understand format which
      can be interpreted without detailed knowledge of the database's internal
      state.
+-->
+
+ロジカルデコーディングは、データベースのテーブルへの恒久的な更新を、一貫性があって、データベース内部の状態に関する詳細な知識がなくても容易に理解できる形式として取得するプロセスです。
     </para>
 
     <para>
+<!--
      In <productname>PostgreSQL</productname>, logical decoding is implemented
      by decoding the contents of the <link linkend="wal">write-ahead
      log</link>, which describe changes on a storage level, into an
      application-specific form such as a stream of tuples or SQL statements.
+-->
+
+<productname>PostgreSQL</productname>においてロジカルデコーディングは、記憶装置の階層レベルで更新を記述する<link linkend="wal">書き込先行みログ</link>の内容を、タプルやSQL文のストリームといったアプリケーション固有の形式にデコードすることによって実装されています。
     </para>
    </sect2>
 
    <sect2>
+<!--
     <title>Replication Slots</title>
+-->
+    <title>レプリケーションスロット</title>
 
     <indexterm>
+<!--
      <primary>replication slot</primary>
      <secondary>logical replication</secondary>
+-->
+     <primary>レプリケーションスロット</primary>
+     <secondary>ロジカルレプリケーション</secondary>
     </indexterm>
 
     <para>
+<!--
      In the context of logical replication, a slot represents a stream of
      changes that can be replayed to a client in the order they were made on
      the origin server. Each slot streams a sequence of changes from a single
      database, sending each change exactly once (except when peeking forward
      in the stream).
+-->
+ロジカルレプリケーションの文脈ではスロットは、元のサーバで行われた変更と同じ順序でクライアント上でリプレイできるようなストリームを表します。
+それぞれのスロットは、単一のデータベース上の変更操作の連鎖をストリームとして流します。その際、それぞれの変更操作は厳密にに一度だけ送出されます(ストリーム上で前方を覗き見る場合を除きます)。
     </para>
 
     <note>
+<!--
      <para><productname>PostgreSQL</productname> also has streaming replication slots
      (see <xref linkend="streaming-replication">), but they are used somewhat
      differently there.
+-->
+<para>また<productname>PostgreSQL</productname>には、ストリーミングレプリケーションスロットがあります
+(<xref linkend="streaming-replication">参照)。しかし、ここでの説明とは少し違う使い方がされています。
      </para>
     </note>
 
     <para>
+<!--
      A replication slot has an identifier that is unique across all databases
      in a <productname>PostgreSQL</productname> cluster. Slots persist
      independently of the connection using them and are crash-safe.
+-->
+それぞれのレプリケーションスロットは<productname>PostgreSQL</productname>クラスタの中でユニークな識別子を持っています。スロットは、そのために使用される接続とは独立しており、クラッシュセーフです。
     </para>
 
     <para>
+<!--
      Multiple independent slots may exist for a single database. Each slot has
      its own state, allowing different consumers to receive changes from
      different points in the database change stream. For most applications, a
      separate slot will be required for each consumer.
+-->
+単一のデータベース中に、お互いに独立した複数のスロットが存在しても構いません。
+それぞれのスロットは自分自身の状態を持っており、データベース更新のストリーム上の別の場所から変更データを受信する異なる消費者があり得ます。
     </para>
 
     <para>
+<!--
      A logical replication slot knows nothing about the state of the
      receiver(s).  It's even possible to have multiple different receivers using
      the same slot at different times; they'll just get the changes following
      on from when the last receiver stopped consuming them. Only one receiver
      may consume changes from a slot at any given time.
+-->
+ロジカルレプリケーションスロットは、受信者の状態については関知しません。同時にでなければ、同じスロットを使う複数の異なる受信者を持つことさえできます。その場合は、最後の受信者がストリームの消費を終了した時点から更新データを受信するだけです。
     </para>
 
     <note>
      <para>
+<!--
       Replication slots persist across crashes and know nothing about the state
       of their consumer(s). They will prevent removal of required resources
       even when there is no connection using them. This consumes storage
       because neither required WAL nor required rows from the system catalogs
       can be removed by <command>VACUUM</command> as long as they are required by a replication
       slot.  So if a slot is no longer required it should be dropped.
+-->
+レプリケーションスロットは、クラッシュをまたがって永続し、消費者の状態については関知しません。
+それらを使う接続がない場合でも、スロットに必要なリソースを削除されません。
+ですから記憶域が消費されます。関連するWALも、システムカタログの行も、レプリケーションスロットが必要とする限り<command>VACUUM</command>によって削除はされないからです。
+必要でなくなったスロットは削除すべきです。
      </para>
     </note>
    </sect2>
 
    <sect2>
+<!--
     <title>Output Plugins</title>
+-->
+    <title>出力プラグイン</title>
     <para>
+<!--
      Output plugins transform the data from the write-ahead log's internal
      representation into the format the consumer of a replication slot desires.
+-->
+出力プラグインは、書き込み先行ログの内部データ表現を、レプリケーションスロットの消費者が必要とする形式に変換します。
     </para>
    </sect2>
 
    <sect2>
+<!--
     <title>Exported Snapshots</title>
+-->
+    <title>スナップショットのエキスポート</title>
     <para>
+<!--
      When a new replication slot is created using the streaming replication interface,
      a snapshot is exported
      (see <xref linkend="functions-snapshot-synchronization">), which will show
@@ -269,14 +370,24 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
      the slot was created. This transaction can then be used to dump the
      database's state at that point in time, which afterwards can be updated
      using the slot's contents without losing any changes.
+-->
+ストリーミングレプリケーションのインターフェイスを使って新しいスロットを作ると、スナップショットがエキスポートされます(<xref linkend="functions-snapshot-synchronization">参照)。
+このスナップショットは正確なデータベースの状態を示し、以後すべての変更は更新ストリームに含まれるようになります。
+このことを利用して、スロットが作られた祭のデータベースの状態を<link linkend="sql-set-transaction"><literal>SET TRANSACTION SNAPSHOT</literal></link>を使って読み込むことにより、新しいレプリカを作ることができます。
+このトランザクションは、その時点のデータベースの状態をダンプするために使用することができます。
+また、スロットに含まれるデータを使って、ダンプした後で行われた更新を失うことなくデータベースを更新できます。
     </para>
    </sect2>
   </sect1>
 
   <sect1 id="logicaldecoding-walsender">
+<!--
    <title>Streaming Replication Protocol Interface</title>
+-->
+   <title>ストリームレプリケーションプロトコルインターフェイス</title>
 
    <para>
+<!--
     The commands
     <itemizedlist>
      <listitem>
@@ -295,59 +406,105 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
     slot, respectively. These commands are only available over a replication
     connection; they cannot be used via SQL.
     See <xref linkend="protocol-replication"> for details on these commands.
+-->
+コマンド
+    <itemizedlist>
+     <listitem>
+      <para><literal>CREATE_REPLICATION_SLOT <replaceable>slot_name</replaceable> LOGICAL <replaceable>options</replaceable></literal></para>
+     </listitem>
+
+     <listitem>
+      <para><literal>DROP_REPLICATION_SLOT <replaceable>slot_name</replaceable></literal></para>
+     </listitem>
+
+     <listitem>
+      <para><literal>START_REPLICATION SLOT <replaceable>slot_name</replaceable> LOGICAL <replaceable>options</replaceable></literal></para>
+     </listitem>
+    </itemizedlist>
+    は、それぞれレプリケーションスロットに対して更新データを生成、削除、ストリームします。
    </para>
 
    <para>
+<!--
     The command <xref linkend="app-pgrecvlogical"> can be used to control
     logical decoding over a streaming replication connection.  (It is uses
     these commands internally.)
+-->
+コマンド<xref linkend="app-pgrecvlogical">を使ってストリーミングコネクション上のロジカルデコーディングを制御できます(このコマンドは内部で上記のコマンドを使っています)。
    </para>
   </sect1>
 
   <sect1 id="logicaldecoding-sql">
+<!--
    <title>Logical Decoding <acronym>SQL</acronym> Interface</title>
-
+-->
+   <title>ロジカルデコーディング<acronym>SQL</acronym>インタフェース</title>
    <para>
+<!--
      See <xref linkend="functions-replication"> for detailed documentation on
      the SQL-level API for interacting with logical decoding.
+-->
+ロジカルでコーディングのSQLレベルのAPIの詳細については、<xref linkend="functions-replication">を参照してください。
    </para>
 
    <para>
+<!--
     Synchronous replication (see <xref linkend="synchronous-replication">) is
     only supported on replication slots used over the streaming replication interface. The
     function interface and additional, non-core interfaces do not support
     synchronous replication.
+-->
+同期レプリケーション(<xref linkend="synchronous-replication">参照)は、ストリーミングレプリケーションによるレプリケーションスロット上でのみサポートされます。
+関数インタフェースおよびコアに対する追加のインタフェースでは同期レプリケーションをサポートしていません。
    </para>
   </sect1>
 
   <sect1 id="logicaldecoding-catalogs">
+<!--
    <title>System Catalogs Related to Logical Decoding</title>
-
+-->
+   <title>ロジカルデコーディング関連のシステムカタログ</title>
    <para>
+<!--
     The <link linkend="catalog-pg-replication-slots"><structname>pg_replication_slots</structname></link>
     view and the
     <link linkend="monitoring-stats-views-table"><structname>pg_stat_replication</structname></link>
     view provide information about the current state of replication slots and
     streaming replication connections respectively. These views apply to both physical and
     logical replication.
+-->
+<link linkend="catalog-pg-replication-slots"><structname>pg_replication_slots</structname></link>ビューと
+<link linkend="monitoring-stats-views-table"><structname>pg_stat_replication</structname></link>ビューは、レプリケーションスロット、ストリーミングレプリケーションのコネクションのそれぞれの現在の状態に関する情報を提供します。
    </para>
   </sect1>
 
   <sect1 id="logicaldecoding-output-plugin">
+<!--
    <title>Logical Decoding Output Plugins</title>
+-->
+   <title>ロジカルデコーディングの出力プラグイン</title>
    <para>
+<!--
     An example output plugin can be found in the
     <link linkend="test-decoding">
      <filename>contrib/test_decoding</filename>
     </link>
     subdirectory of the PostgreSQL source tree.
+-->
+PostgreSQLのソースコードのサブディレクトリ<link linkend="test-decoding">
+     <filename>contrib/test_decoding</filename>
+    </link>にサンプルサンプル出力プラグインがあります。
    </para>
    <sect2 id="logicaldecoding-output-init">
+<!--
     <title>Initialization Function</title>
+-->
+    <title>初期化関数</title>
     <indexterm zone="logicaldecoding">
      <primary>_PG_output_plugin_init</primary>
     </indexterm>
     <para>
+<!--
      An output plugin is loaded by dynamically loading a shared library with
      the output plugin's name as the library base name. The normal library
      search path is used to locate the library. To provide the required output
@@ -356,6 +513,10 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
      <function>_PG_output_plugin_init</function>. This function is passed a
      struct that needs to be filled with the callback function pointers for
      individual actions.
+-->
+出力プラグインは、出力プラグインの名前をライブラリのベース名として持つ共有ライブラリを動的にロードすることによってロードされます。
+必要な出力プラグインコールバックを提供し、そのライブラリが実際に出力プラグインであることを示すために、<function>_PG_output_plugin_init</function>という名前の関数を作成しなければなりません。
+この関数には、各々のアクションに対応するコールバック関数へのポインタを持つ構造体が渡されます。
 <programlisting>
 typedef struct OutputPluginCallbacks
 {
