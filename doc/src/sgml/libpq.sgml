@@ -2652,7 +2652,10 @@ void *PQgetssl(const PGconn *conn);
     ssl = PQgetssl(dbconn);
     if (ssl)
     {
+]]><!--
         /* use OpenSSL functions to access ssl */
+--><![CDATA[
+        /* sslにアクセスするためOpenSSLの関数を使う */
     }
 ]]></programlisting>
       </para>
@@ -8886,17 +8889,15 @@ void *PQresultInstanceData(const PGresult *res, PGEventProc proc);
 
 <programlisting>
 <![CDATA[
-<!--
+]]><!--
 /* required header for libpq events (note: includes libpq-fe.h) */
--->
+--><![CDATA[
 /* libpqイベントに必要なヘッダ（覚書：libpq-fe.hのインクルード) */
 #include <libpq-events.h>
 
-]]>
-<!--
+]]><!--
 /* The instanceData */
--->
-<![CDATA[
+--><![CDATA[
 /* instanceData */
 typedef struct
 {
@@ -8922,13 +8923,11 @@ main(void)
         return 1;
     }
 
-]]>
-<!--
+]]><!--
     /* called once on any connection that should receive events.
      * Sends a PGEVT_REGISTER to myEventProc.
      */
--->
-<![CDATA[
+--><![CDATA[
     /* イベントを受け取るべきすべての接続で１回呼ばれる
      * myEventProcにPGEVT_REGISTERを送る
      */
@@ -8939,64 +8938,50 @@ main(void)
         return 1;
     }
 
-]]>
-<!--
+]]><!--
     /* conn instanceData is available */
--->
-<![CDATA[
+--><![CDATA[
     /* conn instanceDataが有効 */
     data = PQinstanceData(conn, myEventProc);
 
-]]>
-<!--
+]]><!--
     /* Sends a PGEVT_RESULTCREATE to myEventProc */
--->
-<![CDATA[
+--><![CDATA[
     /* myEventProcにPGEVT_RESULTCREATEを送る */
     res = PQexec(conn, "SELECT 1 + 1");
 
-]]>
-<!--
+]]><!--
     /* result instanceData is available */
--->
-<![CDATA[
+--><![CDATA[
     /* 結果 instanceDataが有効 */
     data = PQresultInstanceData(res, myEventProc);
 
-]]>
-<!--
+]]><!--
     /* If PG_COPYRES_EVENTS is used, sends a PGEVT_RESULTCOPY to myEventProc */
--->
-<![CDATA[
+--><![CDATA[
     /* PG_COPYRES_EVENTSが使われた場合、PGEVT_RESULTCOPYをmyEventProcに送る */
     res_copy = PQcopyResult(res, PG_COPYRES_TUPLES | PG_COPYRES_EVENTS);
 
-]]>
-<!--
+]]><!--
     /* result instanceData is available if PG_COPYRES_EVENTS was
      * used during the PQcopyResult call.
      */
--->
-<![CDATA[
+--><![CDATA[
     /* PQcopyResult呼び出しの過程でPG_COPYRES_EVENTSが使用された場合、
      * 結果 instanceDataが有効
      */
     data = PQresultInstanceData(res_copy, myEventProc);
 
-]]>
-<!--
+]]><!--
     /* Both clears send a PGEVT_RESULTDESTROY to myEventProc */
--->
-<![CDATA[
+--><![CDATA[
     /* 双方のclearがPGEVT_RESULTDESTROYをmyEventProcに送る */
     PQclear(res);
     PQclear(res_copy);
 
-]]>
-<!--
+]]><!--
     /* Sends a PGEVT_CONNDESTROY to myEventProc */
--->
-<![CDATA[
+--><![CDATA[
     /* PGEVT_CONNDESTROYをmyEventProcに送る */
     PQfinish(conn);
 
@@ -9013,11 +8998,9 @@ myEventProc(PGEventId evtId, void *evtInfo, void *passThrough)
             PGEventRegister *e = (PGEventRegister *)evtInfo;
             mydata *data = get_mydata(e->conn);
 
-]]>
-<!--
+]]><!--
             /* associate app specific data with connection */
--->
-<![CDATA[
+--><![CDATA[
             /* アプリ特有のデータを接続に関連付ける */
             PQsetInstanceData(e->conn, myEventProc, data);
             break;
@@ -9038,11 +9021,9 @@ myEventProc(PGEventId evtId, void *evtInfo, void *passThrough)
             PGEventConnDestroy *e = (PGEventConnDestroy *)evtInfo;
             mydata *data = PQinstanceData(e->conn, myEventProc);
 
-]]>
-<!--
+]]><!--
             /* free instance data because the conn is being destroyed */
--->
-<![CDATA[
+--><![CDATA[
             /* connが破棄されたのでインスタンスデータを開放 */
             if (data)
               free_mydata(data);
@@ -9055,11 +9036,9 @@ myEventProc(PGEventId evtId, void *evtInfo, void *passThrough)
             mydata *conn_data = PQinstanceData(e->conn, myEventProc);
             mydata *res_data = dup_mydata(conn_data);
 
-]]>
-<!--
+]]><!--
             /* associate app specific data with result (copy it from conn) */
--->
-<![CDATA[
+--><![CDATA[
             /* アプリ特有のデータを結果と（connから複写して）関連付ける */
             PQsetResultInstanceData(e->result, myEventProc, res_data);
             break;
@@ -9071,11 +9050,9 @@ myEventProc(PGEventId evtId, void *evtInfo, void *passThrough)
             mydata *src_data = PQresultInstanceData(e->src, myEventProc);
             mydata *dest_data = dup_mydata(src_data);
 
-]]>
-<!--
+]]><!--
             /* associate app specific data with result (copy it from a result) */
--->
-<![CDATA[
+--><![CDATA[
             /* アプリ特有のデータを結果と（結果から複写して）関連付ける */
             PQsetResultInstanceData(e->dest, myEventProc, dest_data);
             break;
@@ -9086,32 +9063,26 @@ myEventProc(PGEventId evtId, void *evtInfo, void *passThrough)
             PGEventResultDestroy *e = (PGEventResultDestroy *)evtInfo;
             mydata *data = PQresultInstanceData(e->result, myEventProc);
 
-]]>
-<!--
+]]><!--
             /* free instance data because the result is being destroyed */
--->
-<![CDATA[
+--><![CDATA[
             /* 結果が破棄されたためインスタンスデータを開放 */
             if (data)
               free_mydata(data);
             break;
         }
 
-]]>
-<!--
+]]><!--
         /* unknown event ID, just return TRUE. */
--->
-<![CDATA[
+--><![CDATA[
         /* 未知のイベント識別子。単にTRUEを返す */
         default:
             break;
     }
 
-]]>
-<!--
+]]><!--
     return TRUE; /* event processing succeeded */
--->
-<![CDATA[
+--><![CDATA[
     return TRUE; /* イベント処理成功 */
 }
 ]]>
@@ -10919,11 +10890,9 @@ testlibpq.o(.text+0xa4): undefined reference to `PQerrorMessage'
 /*
  * testlibpq.c
  *
- ]]>
-<!--
+]]><!--
  *      Test the C version of libpq, the PostgreSQL frontend library.
--->
-<![CDATA[
+--><![CDATA[
  *              C言語PostgreSQLフロントエンドライブラリlibpqの試験
  */
 #include <stdio.h>
@@ -10948,13 +10917,11 @@ main(int argc, char **argv)
                 j;
 
     /*
-]]>
-<!--
+]]><!--
      * If the user supplies a parameter on the command line, use it as the
      * conninfo string; otherwise default to setting dbname=postgres and using
      * environment variables or defaults for all other connection parameters.
--->
-<![CDATA[
+--><![CDATA[
      * ユーザがコマンドラインでパラメータを提供した場合、conninfo文字列として使用する。
      * 提供されない場合はデフォルトでdbname=postgresを使用する。
      * その他の接続パラメータについては環境変数やデフォルトを使用する。
@@ -10965,19 +10932,15 @@ main(int argc, char **argv)
     else
         conninfo = "dbname = postgres";
 
-]]>
-<!--
+]]><!--
     /* Make a connection to the database */
--->
-<![CDATA[
+--><![CDATA[
     /* データベースとの接続を確立する */
     conn = PQconnectdb(conninfo);
 
-]]>
-<!--
+]]><!--
     /* Check to see that the backend connection was successfully made */
--->
-<![CDATA[
+--><![CDATA[
     /* バックエンドとの接続確立に成功したかを確認する */
     if (PQstatus(conn) != CONNECTION_OK)
     {
@@ -10987,25 +10950,21 @@ main(int argc, char **argv)
     }
 
     /*
-]]>
-<!--
+]]><!--
      * Our test case here involves using a cursor, for which we must be inside
      * a transaction block.  We could do the whole thing with a single
      * PQexec() of "select * from pg_database", but that's too trivial to make
      * a good example.
--->
-<![CDATA[
+--><![CDATA[
      * この試験ケースではカーソルを使用する。
      * そのため、トランザクションブロック内で実行する必要がある。
      * すべてを単一の"select * from pg_database"というPQexec()で行うこと
      * も可能だが、例としては簡単過ぎる。
      */
 
-]]>
-<!--
+]]><!--
     /* Start a transaction block */
--->
-<![CDATA[
+--><![CDATA[
     /* トランザクションブロックを開始する。 */
     res = PQexec(conn, "BEGIN");
     if (PQresultStatus(res) != PGRES_COMMAND_OK)
@@ -11016,22 +10975,18 @@ main(int argc, char **argv)
     }
 
     /*
-    ]]>
-<!--
+]]><!--
      * Should PQclear PGresult whenever it is no longer needed to avoid memory
      * leaks
--->
-<![CDATA[
+--><![CDATA[
      * 不要になったら、メモリリークを防ぐためにPGresultをPQclearすべき。
      */
     PQclear(res);
 
     /*
-]]>
-<!--
+]]><!--
      * Fetch rows from pg_database, the system catalog of databases
--->
-<![CDATA[
+--><![CDATA[
      * データベースのシステムカタログpg_databaseから行を取り出す。
      */
     res = PQexec(conn, "DECLARE myportal CURSOR FOR select * from pg_database");
@@ -11051,22 +11006,18 @@ main(int argc, char **argv)
         exit_nicely(conn);
     }
 
-]]>
-<!--
+]]><!--
     /* first, print out the attribute names */
--->
-<![CDATA[
+--><![CDATA[
     /* まず属性名を表示する。 */
     nFields = PQnfields(res);
     for (i = 0; i < nFields; i++)
         printf("%-15s", PQfname(res, i));
     printf("\n\n");
 
-]]>
-<!--
+]]><!--
     /* next, print out the rows */
--->
-<![CDATA[
+--><![CDATA[
     /* そして行を表示する。 */
     for (i = 0; i < PQntuples(res); i++)
     {
@@ -11077,29 +11028,23 @@ main(int argc, char **argv)
 
     PQclear(res);
 
-]]>
-<!--
+]]><!--
     /* close the portal ... we don't bother to check for errors ... */
--->
-<![CDATA[
+--><![CDATA[
     /* ポータルを閉ざす。ここではエラーチェックは省略した… */
     res = PQexec(conn, "CLOSE myportal");
     PQclear(res);
 
-]]>
-<!--
+]]><!--
     /* end the transaction */
--->
-<![CDATA[
+--><![CDATA[
     /* トランザクションを終了する */
     res = PQexec(conn, "END");
     PQclear(res);
 
-]]>
-<!--
+]]><!--
     /* close the connection to the database and cleanup */
--->
-<![CDATA[
+--><![CDATA[
     /* データベースとの接続を閉じ、後始末を行う。 */
     PQfinish(conn);
 
@@ -11119,31 +11064,25 @@ main(int argc, char **argv)
 <![CDATA[
 /*
  * testlibpq2.c
- ]]>
-<!--
+]]><!--
  *      Test of the asynchronous notification interface
--->
-<![CDATA[
+--><![CDATA[
  *              非同期通知インタフェースの試験
  *
- ]]>
-<!--
+]]><!--
  * Start this program, then from psql in another window do
  *   NOTIFY TBL2;
  * Repeat four times to get this program to exit.
--->
-<![CDATA[
+--><![CDATA[
  * このプログラムを起動し、別ウィンドウからpsqlを使用して以下を実行してください。
  *   NOTIFY TBL2;
  * 4回繰り返すとこのプログラムは終了します。
  *
- ]]>
-<!--
+]]><!--
  * Or, if you want to get fancy, try this:
  * populate a database with the following commands
  * (provided in src/test/examples/testlibpq2.sql):
--->
-<![CDATA[
+--><![CDATA[
  * もう少し凝りたければ、以下を実施してください。
  * 以下のコマンド(src/test/examples/testlibpq2.sqlで提供)でデータベースを作成します。
  *
@@ -11154,11 +11093,9 @@ main(int argc, char **argv)
  *   CREATE RULE r1 AS ON INSERT TO TBL1 DO
  *     (INSERT INTO TBL2 VALUES (new.i); NOTIFY TBL2);
  *
- ]]>
-<!--
+]]><!--
  * and do this four times:
--->
-<![CDATA[
+--><![CDATA[
  * そして、以下を4回実行してください。
  *
  *   INSERT INTO TBL1 VALUES (10);
@@ -11192,13 +11129,11 @@ main(int argc, char **argv)
     int         nnotifies;
 
     /*
-    ]]>
-<!--
+]]><!--
      * If the user supplies a parameter on the command line, use it as the
      * conninfo string; otherwise default to setting dbname=postgres and using
      * environment variables or defaults for all other connection parameters.
--->
-<![CDATA[
+--><![CDATA[
      * ユーザがコマンドラインでパラメータを提供した場合、conninfo文字列として使用する。
      * 提供されない場合はデフォルトでdbname=postgresを使用する。
      * その他の接続パラメータについては環境変数やデフォルトを使用する。
@@ -11208,19 +11143,15 @@ main(int argc, char **argv)
     else
         conninfo = "dbname = postgres";
 
-]]>
-<!--
+]]><!--
     /* Make a connection to the database */
--->
-<![CDATA[
+--><![CDATA[
     /* データベースとの接続を確立する。 */
     conn = PQconnectdb(conninfo);
 
-]]>
-<!--
+]]><!--
     /* Check to see that the backend connection was successfully made */
--->
-<![CDATA[
+--><![CDATA[
     /* バックエンドとの接続確立に成功したかを確認する */
     if (PQstatus(conn) != CONNECTION_OK)
     {
@@ -11230,11 +11161,9 @@ main(int argc, char **argv)
     }
 
     /*
-]]>
-<!--
+]]><!--
      * Issue LISTEN command to enable notifications from the rule's NOTIFY.
--->
-<![CDATA[
+--><![CDATA[
      * LISTENコマンドを発行して、INSERTルールによる通知を有効にする。
      */
     res = PQexec(conn, "LISTEN TBL2");
@@ -11246,33 +11175,27 @@ main(int argc, char **argv)
     }
 
     /*
-]]>
-<!--
+]]><!--
      * should PQclear PGresult whenever it is no longer needed to avoid memory
      * leaks
--->
-<![CDATA[
+--><![CDATA[
      * 不要になったら、メモリリークを防ぐためにPGresultをPQclearすべき。
      */
     PQclear(res);
 
-]]>
-<!--
+]]><!--
     /* Quit after four notifies are received. */
--->
-<![CDATA[
+--><![CDATA[
     /* 4回通知を受けたら終了する。 */
     nnotifies = 0;
     while (nnotifies < 4)
     {
         /*
-]]>
-<!--
+]]><!--
          * Sleep until something happens on the connection.  We use select(2)
          * to wait for input, but you could also use poll() or similar
          * facilities.
--->
-<![CDATA[
+--><![CDATA[
          * その接続で何かが起こるまで待機する。ここでは入力待ちのために
          * select(2)を使用する。poll()や類似機能を使用することも可能
          * である。
@@ -11283,11 +11206,9 @@ main(int argc, char **argv)
         sock = PQsocket(conn);
 
         if (sock < 0)
-]]>
-<!--
+]]><!--
             break;              /* shouldn't happen */
--->
-<![CDATA[
+--><![CDATA[
             break;              /* 発生してはならない。 */
 
         FD_ZERO(&input_mask);
@@ -11299,11 +11220,9 @@ main(int argc, char **argv)
             exit_nicely(conn);
         }
 
-]]>
-<!--
+]]><!--
         /* Now check for input */
--->
-<![CDATA[
+--><![CDATA[
         /* ここで入力を確認する。 */
         PQconsumeInput(conn);
         while ((notify = PQnotifies(conn)) != NULL)
@@ -11318,11 +11237,9 @@ main(int argc, char **argv)
 
     fprintf(stderr, "Done.\n");
 
-]]>
-<!--
+]]><!--
     /* close the connection to the database and cleanup */
--->
-<![CDATA[
+--><![CDATA[
     /* データベースとの接続を閉じ、後始末を行う。 */
     PQfinish(conn);
 
@@ -11342,19 +11259,15 @@ main(int argc, char **argv)
 <![CDATA[
 /*
  * testlibpq3.c
-]]>
-<!--
+]]><!--
  *      Test out-of-line parameters and binary I/O.
--->
-<![CDATA[
+--><![CDATA[
  *      行以外のパラメータとバイナリI/Oの試験。
  *
- ]]>
-<!--
+]]><!--
  * Before running this, populate a database with the following commands
  * (provided in src/test/examples/testlibpq3.sql):
--->
-<![CDATA[
+--><![CDATA[
  * 実行前に、以下のコマンド(src/test/examples/testlibpq3.sqlで提供)を使用して
  * データベースを作成してください。
  *
@@ -11363,11 +11276,9 @@ main(int argc, char **argv)
  * INSERT INTO test1 values (1, 'joe''s place', '\\000\\001\\002\\003\\004');
  * INSERT INTO test1 values (2, 'ho there', '\\004\\003\\002\\001\\000');
  *
-]]>
-<!--
+]]><!--
  * The expected output is:
--->
-<![CDATA[
+--><![CDATA[
  * 以下の出力が想定されます。
  *
  * tuple 0: got
@@ -11392,11 +11303,9 @@ main(int argc, char **argv)
 #include <sys/types.h>
 #include "libpq-fe.h"
 
-]]>
-<!--
+]]><!--
 /* for ntohl/htonl */
--->
-<![CDATA[
+--><![CDATA[
 /* ntohl/htonl用 */
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -11410,13 +11319,11 @@ exit_nicely(PGconn *conn)
 }
 
 /*
-]]>
-<!--
+]]><!--
  * This function prints a query result that is a binary-format fetch from
  * a table defined as in the comment above.  We split it out because the
  * main() function uses it twice.
--->
-<![CDATA[
+--><![CDATA[
  * この関数は上のコメントで定義したテーブルからバイナリフォーマットでフェッチした
  * クエリ結果を表示します。
  * main() 関数が2度使うので、結果を分割します。
@@ -11430,11 +11337,9 @@ show_binary_results(PGresult *res)
                 t_fnum,
                 b_fnum;
 
-]]>
-<!--
+]]><!--
     /* Use PQfnumber to avoid assumptions about field order in result */
--->
-<![CDATA[
+--><![CDATA[
     /* 結果中の列オーダーの仮定を嫌うので PQfnumber を利用する */
     /* PQfnumber  */
     i_fnum = PQfnumber(res, "i");
@@ -11449,46 +11354,38 @@ show_binary_results(PGresult *res)
         int         blen;
         int         ival;
 
-]]>
-<!--
+]]><!--
         /* Get the field values (we ignore possibility they are null!) */
--->
-<![CDATA[
+--><![CDATA[
         /* 列の値を取得(NULLを出来る限り無視) */
         iptr = PQgetvalue(res, i, i_fnum);
         tptr = PQgetvalue(res, i, t_fnum);
         bptr = PQgetvalue(res, i, b_fnum);
 
         /*
-]]>
-<!--
+]]><!--
          * The binary representation of INT4 is in network byte order, which
          * we'd better coerce to the local byte order.
--->
-<![CDATA[
+--><![CDATA[
          * INT4のバイナリ表現はネットワークバイトオーダーによる。
          * よって、ローカルバイトオーダーに合わせた方が良い。
          */
         ival = ntohl(*((uint32_t *) iptr));
 
         /*
-]]>
-<!--
+]]><!--
          * The binary representation of TEXT is, well, text, and since libpq
          * was nice enough to append a zero byte to it, it'll work just fine
          * as a C string.
--->
-<![CDATA[
+--><![CDATA[
          * TEXT型のバイナリ表現も同様にテキスト。
          * 更にlibpqはその最後にゼロバイトを付与するので、
          * C言語の文字列として単純に扱うことができる。
          *
-]]>
-<!--
+]]><!--
          * The binary representation of BYTEA is a bunch of bytes, which could
          * include embedded nulls so we have to pay attention to field length.
--->
-<![CDATA[
+--><![CDATA[
          * BYTEA のバイト表現はバイトの集まりである。 
          * null 埋め込みを含むのでフィールド長に注意を払わなければいけない。
          */
@@ -11518,13 +11415,11 @@ main(int argc, char **argv)
     uint32_t    binaryIntVal;
 
     /*
-]]>
-<!--
+]]><!--
      * If the user supplies a parameter on the command line, use it as the
      * conninfo string; otherwise default to setting dbname=postgres and using
      * environment variables or defaults for all other connection parameters.
--->
-<![CDATA[
+--><![CDATA[
      * ユーザがコマンドラインでパラメータを提供した場合、conninfo文字列として使用する。
      * 提供されない場合はデフォルトでdbname=postgresを使用する。
      * その他の接続パラメータについては環境変数やデフォルトを使用する。
@@ -11534,19 +11429,15 @@ main(int argc, char **argv)
     else
         conninfo = "dbname = postgres";
 
-]]>
-<!--
+]]><!--
     /* Make a connection to the database */
--->
-<![CDATA[
+--><![CDATA[
     /* データベースとの接続を確立する */
     conn = PQconnectdb(conninfo);
 
-]]>
-<!--
+]]><!--
     /* Check to see that the backend connection was successfully made */
--->
-<![CDATA[
+--><![CDATA[
     /* バックエンドとの接続確立に成功したかを確認する */
     if (PQstatus(conn) != CONNECTION_OK)
     {
@@ -11556,24 +11447,20 @@ main(int argc, char **argv)
     }
 
     /*
-]]>
-<!--
+]]><!--
      * The point of this program is to illustrate use of PQexecParams() with
      * out-of-line parameters, as well as binary transmission of data.
--->
-<![CDATA[
+--><![CDATA[
      * このプログラムのポイントは、行外パラメータを持つPQexecParams()の使用方法、
      * および、データのバイナリ転送を示すことである。
      *
-]]>
-<!--
+]]><!--
      * This first example transmits the parameters as text, but receives the
      * results in binary format.  By using out-of-line parameters we can avoid
      * a lot of tedious mucking about with quoting and escaping, even though
      * the data is text.  Notice how we don't have to do anything special with
      * the quote mark in the parameter value.
--->
-<![CDATA[
+--><![CDATA[
      * この最初の例はパラメータをテキストとして渡す。
      * しかし結果はバイナリフォーマットで受ける。
      * 行外パラメータを使うことで、データがテキストであっても引用符付けや
@@ -11582,26 +11469,22 @@ main(int argc, char **argv)
      * ほしい。
      */
 
-]]>
-<!--
+]]><!--
     /* Here is our out-of-line parameter value */
--->
-<![CDATA[
+--><![CDATA[
     /* 以下が行外パラメータの値である。 */
     paramValues[0] = "joe's place";
 
     res = PQexecParams(conn,
                        "SELECT * FROM test1 WHERE t = $1",
-]]>
-<!--
+]]><!--
                        1,       /* one param */
                        NULL,    /* let the backend deduce param type */
                        paramValues,
                        NULL,    /* don't need param lengths since text */
                        NULL,    /* default to all text params */
                        1);      /* ask for binary results */
--->
-<![CDATA[
+--><![CDATA[
                        1,           /* パラメータは1つ。 */
                        NULL,        /* バックエンドにパラメータの型を推測させる。 */
                        paramValues,
@@ -11621,69 +11504,55 @@ main(int argc, char **argv)
     PQclear(res);
 
     /*
-]]>
-<!--
+]]><!--
      * In this second example we transmit an integer parameter in binary form,
      * and again retrieve the results in binary form.
--->
-<![CDATA[
+--><![CDATA[
      * 2つ目の例は、バイナリフォームの中で整数値パラメータを渡す。
      * そして再びバイナリフォームで結果を受け取る。
      *
-]]>
-<!--
+]]><!--
      * Although we tell PQexecParams we are letting the backend deduce
      * parameter type, we really force the decision by casting the parameter
      * symbol in the query text.  This is a good safety measure when sending
      * binary parameters.
--->
-<![CDATA[
+--><![CDATA[
      * バックエンドにパラメータタイプを推測させていると PQexecParams に伝えるが、
      * クエリテキストの中にパラメータシンボルを入れることによって 強制的に決定する。
      * これはバイナリパラメータに送るときに安全で良い大きさである。
      */
 
-]]>
-<!--
+]]><!--
     /* Convert integer value "2" to network byte order */
--->
-<![CDATA[
+--><![CDATA[
     /* 整数値 "2" をネットワークバイトオーダーに変換 */ 
     binaryIntVal = htonl((uint32_t) 2);
 
-]]>
-<!--
+]]><!--
     /* Set up parameter arrays for PQexecParams */
--->
-<![CDATA[
+--><![CDATA[
     /* PQexecParams 用にパラメータ配列をセットする */
     paramValues[0] = (char *) &binaryIntVal;
     paramLengths[0] = sizeof(binaryIntVal);
-]]>
-<!--
+]]><!--
     paramFormats[0] = 1;        /* binary */
--->
-<![CDATA[
+--><![CDATA[
     paramFormats[0] = 1;        /* バイナリ */
 
     res = PQexecParams(conn,
                        "SELECT * FROM test1 WHERE i = $1::int4",
-]]>
-<!--
+]]><!--
                        1,       /* one param */
                        NULL,    /* let the backend deduce param type */
--->
-<![CDATA[
+--><![CDATA[
                        1,       /* パラメータは1つ */
                        NULL,    /* バックエンドにパラメータの型を推測させる。 */
                        paramValues,
                        paramLengths,
                        paramFormats,
-]]>
-<!--
+]]><!--
                        1);      /* ask for binary results */
--->
-<![CDATA[
+--><![CDATA[
                        1);      /* バイナリ結果を要求。 */
 
     if (PQresultStatus(res) != PGRES_TUPLES_OK)
@@ -11697,11 +11566,9 @@ main(int argc, char **argv)
 
     PQclear(res);
 
-]]>
-<!--
+]]><!--
     /* close the connection to the database and cleanup */
--->
-<![CDATA[
+--><![CDATA[
     /* データベースとの接続を閉じ、後始末を行う。 */
     PQfinish(conn);
 
