@@ -2,18 +2,29 @@
 <!-- See header comment in release.sgml about typical markup -->
 
  <sect1 id="release-9-4">
+<!--
   <title>Release 9.4</title>
+-->
+  <title>リリース9.4</title>
 
   <note>
+<!--
    <title>Release Date</title>
+-->
+   <title>リリース日</title>
    <simpara>2014-12-18</simpara>
   </note>
 
   <sect2>
+<!--
    <title>Overview</title>
-
+-->
+   <title>概要</title>
    <para>
+<!--
     Major enhancements in <productname>PostgreSQL</> 9.4 include:
+-->
+    <productname>PostgreSQL</>9.4の主な強化点には以下のものがあります。
    </para>
 
    <!-- This list duplicates items below, but without authors or details-->
@@ -22,395 +33,639 @@
 
      <listitem>
       <para>
+<!--
        Add <link linkend="datatype-json"><type>jsonb</></link>, a more
        capable and efficient data type for storing <acronym>JSON</> data
+-->
+より高機能で効率的な jsonb データ型が追加されました。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Add new <acronym>SQL</> command <xref linkend="SQL-ALTERSYSTEM">
        for changing <filename>postgresql.conf</> configuration file entries
+-->
+<filename>postgresql.conf</>設定ファイルの項目を変更する新たな
+<acronym>SQL</>コマンド<xref linkend="SQL-ALTERSYSTEM">を追加しました。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Reduce lock strength for some <xref linkend="SQL-ALTERTABLE">
        commands
+-->
+いくつかの<xref linkend="SQL-ALTERTABLE">コマンドでロックを軽減しました。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Allow <link linkend="rules-materializedviews">materialized views</>
        to be refreshed without blocking concurrent reads
+-->
+<link linkend="rules-materializedviews">materialized views</>を同時実行の読み取りを
+妨げずにリフレッシュできるようにしました。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Add support for <link linkend="logicaldecoding">logical decoding</>
        of WAL data, to allow database changes to be streamed out in a
        customizable format
+-->
+データベース変更をカスタマイズ可能な形式でストリーミング出力する、
+WALデータの<link linkend="logicaldecoding">ロジカルデコーディング</>をサポートしました。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
         Allow <link linkend="bgworker">background worker processes</>
         to be dynamically registered, started and terminated
+-->
+<link linkend="bgworker">バックグラウンドワーカープロセス</>を動的に登録、開始、終了
+できるようにしました。
       </para>
      </listitem>
 
    </itemizedlist>
 
    <para>
+<!-- 
     The above items are explained in more detail in the sections below.
+-->
+上記の項目については、以下でより詳細に説明します。
    </para>
 
   </sect2>
 
   <sect2>
 
+<!--
   <title>Migration to Version 9.4</title>
-
+-->
+  <title>バージョン9.4への移行</title>
    <para>
+<!--
     A dump/restore using <xref linkend="app-pg-dumpall">, or use
     of <xref linkend="pgupgrade">, is required for those wishing to migrate
     data from any previous release.
+-->
+以前のリリースからデータを移行したい時は、どのリリースについても、
+<application>pg_dump</application>を利用したダンプとリストア、
+あるいは<application>pg_upgrade</application>の利用が必要です。
    </para>
 
    <para>
+<!--
     Version 9.4 contains a number of changes that may affect compatibility
     with previous releases.  Observe the following incompatibilities:
+-->
+バージョン9.4には、以前のバージョンとの互換性に影響する多くの変更点が含まれています。
+以下の非互換性に注意してください。
    </para>
 
    <itemizedlist>
 
     <listitem>
      <para>
+<!--
       Tighten checks for multidimensional <link
       linkend="arrays">array</link> input (Bruce Momjian)
+-->
+多次元<link linkend="arrays">配列</link>の入力検査を厳格にしました。
+(Bruce Momjian)
      </para>
 
      <para>
+<!--
       Previously, an input array string that started with a single-element
       sub-array could later contain multi-element sub-arrays,
       e.g. <literal>'{{1}, {2,3}}'::int[]</> would be accepted.
+-->
+これまでは、単一要素の副配列から始まる入力配列文字列が、後に複数要素の副配列を
+含むことができました。例えば <literal>'{{1}, {2,3}}'::int[]</> は受け付けられます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Unicode escapes in <link linkend="datatype-json"><type>JSON</type></link>
       text values are no longer rendered with the backslash escaped
       (Andrew Dunstan)
+-->
+<link linkend="datatype-json"><type>JSON</type></link>文字列値におけるユニコード
+エスケープで、エスケープされたバックスラッシュでは処理されなくなりました。
      </para>
 
      <para>
+<!--
       Previously, all backslashes in text values being formed into JSON
       were escaped. Now a backslash followed by <literal>u</> and four
       hexadecimal digits is not escaped, as this is a legal sequence in a
       JSON string value, and escaping the backslash led to some perverse
       results.
+-->
+これまで、JSONに整形されるテキスト中のすべてのバックスラッシュはエスケープ
+されていました。
+エスケープしなくとも正しいJSON文字列値であり、エスケープすることで
+ひねくれた結果がもたらされていたことから、これからは、
+<literal>u</>と16進数4桁に続くバックスラッシュはエスケープされません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       When converting values of type <type>date</>, <type>timestamp</>
       or <type>timestamptz</>
       to <link linkend="datatype-json"><type>JSON</type></link>, render the
       values in a format compliant with ISO 8601 (Andrew Dunstan)
+-->
+<type>date</>型、<type>timestamp</>型、<type>timestamptz</>型の値を
+<link linkend="datatype-json"><type>JSON</type></link>に変換するとき、
+ISO 8601 に従った書式にします。
+(Andrew Dunstan)
      </para>
 
      <para>
+<!--
       Previously such values were rendered according to the current
       <xref linkend="guc-datestyle"> setting; but many JSON processors
       require timestamps to be in ISO 8601 format.  If necessary, the
       previous behavior can be obtained by explicitly casting the datetime
       value to <type>text</> before passing it to the JSON conversion
       function.
+-->
+これまでは現在の<xref linkend="guc-datestyle">設定に基づいて処理されていました。 
+しかし、多くのJSONプロセッサはタイムスタンプにISO 8601形式を要求します。
+必要であれば、JSON変換関数に渡す前に日付時刻の値を<type>text</>に明示的
+キャストすることで以前の振る舞いを実現できます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       The <link linkend="functions-json-op-table"><type>json</type>
       <literal>#&gt;</> <type>text[]</></link> path extraction operator now
       returns its lefthand input, not NULL, if the array is empty (Tom Lane)
+-->
+パス展開演算子 <link linkend="functions-json-op-table"><type>json</type>
+ <literal>#&gt;</> <type>text[]</></link> は、 配列が空であるとき、
+これからはNULLではなく左辺値を返すようになります。
      </para>
 
      <para>
+<!--
       This is consistent with the notion that this represents zero
       applications of the simple field/element extraction
       operator <literal>-&gt;</>.  Similarly, <type>json</type>
       <literal>#&gt;&gt;</> <type>text[]</> with an empty array merely
       coerces its lefthand input to text.
+-->
+これは、フィールド/要素を取り出す演算子<literal>-&gt;</>の適用を
+全く行わないという意味で一貫性があります。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Corner cases in
       the <link linkend="functions-json-op-table"><type>JSON</type>
       field/element/path extraction operators</link> now return NULL rather
       than raising an error (Tom Lane)
+-->
+<link linkend="functions-json-op-table"><type>JSON</type>のフィールド、要素、
+パスを取り出す演算子</link>は境界条件で、これからはエラーでなくNULLを返すようにしました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       For example, applying field extraction to a JSON array now yields NULL
       not an error.  This is more consistent (since some comparable cases such
       as no-such-field already returned NULL), and it makes it safe to create
       expression indexes that use these operators, since they will now not
       throw errors for any valid JSON input.
+-->
+例えば、JSON配列にフィールド取り出し演算子（-&gt;）を適用するとき、
+これからは、エラーでなくNULLがでます。これはより一貫性のある振る舞いです
+（類似の指定フィールドが無い場合では既にNULLが返ります）。
+また、正当な任意のJSONに対して決してエラーを投げないことから、これら演算子を
+つかった式インデックスの作成を安全にします。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Cause consecutive whitespace in <link
       linkend="functions-formatting-table"><function>to_timestamp()</></link>
       and <function>to_date()</> format strings to consume a corresponding
       number of characters in the input string (whitespace or not), then
       conditionally consume adjacent whitespace, if not in <literal>FX</>
       mode (Jeevan Chalke)
+-->
+<link linkend="functions-formatting-table"><function>to_timestamp()</></link>
+と<function>to_date()</>の書式文字列の連続した空白が、（空白文字以外を含め）
+入力文字列から対応した数だけ文字を消費するため、<literal>FX</>モードでなく
+ても条件付きで隣接した空白を消費します。
+(Jeevan Chalke)
      </para>
 
      <para>
+<!--
       Previously, consecutive whitespace characters in a non-<literal>FX</>
       format string behaved like a single whitespace character and consumed
       all adjacent whitespace in the input string.  For example, previously
       a format string of three spaces would consume only the first space in
       <literal>' 12'</>, but it will now consume all three characters.
+-->
+これまでは、<literal>FX</>書式以外での連続する空白文字は、単一の空白文字の
+ように振る舞い、入力文字列中の全ての隣接した空白を消費しました。例えば、
+以前は3つの空白の書式文字列は<literal>' 12'</>の最初の空白のみ消費しました。
+これからは、3文字すべてが消費されます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <link
       linkend="textsearch-functions-table"><function>ts_rank_cd()</></link>
       to ignore stripped lexemes (Alex Hill)
+-->
+<link linkend="textsearch-functions-table"><function>ts_rank_cd()</></link>関数を
+除去された語彙素を無視するように修正しました。
      </para>
 
      <para>
+<!--
       Previously, stripped lexemes were treated as if they had a default
       location, producing a rank of dubious usefulness.
+-->
+これまでは除去された語彙素がデフォルト位置を持つかのように扱われ、
+有効であるか疑わしい順位が生じていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       For functions declared to
       take <link linkend="xfunc-sql-variadic-functions"><literal>VARIADIC
       "any"</></link>, an actual parameter marked as <literal>VARIADIC</>
       must be of a determinable array type (Pavel Stehule)
+-->
+引数に<link linkend="xfunc-sql-variadic-functions"><literal>VARIADIC "any"</></link>
+を取る関数で、<literal>VARIADIC</>と指定された引数は決定可能な配列型でなければ
+ならなくなりました。
      </para>
 
      <para>
+<!--
       Such parameters can no longer be written as an undecorated string
       literal or <literal>NULL</>; a cast to an appropriate array data type
       will now be required.  Note that this does not affect parameters not
       marked <literal>VARIADIC</>.
+-->
+そのような引数に修飾されていない文字列リテラルや <literal>NULL</>を書くことが
+できなくなり、これからは適切な配列データ型でキャストが必要となります。
+なお、本変更は<literal>VARIADIC</>が指定されていない引数には影響しません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Ensure that whole-row variables expose the expected column names
       to functions that pay attention to column names within composite
       arguments (Tom Lane)
+-->
+行全体の変数で期待されるカラム名が、複合型引数を取りカラム名に注意をはらう関数に
+伝わることを、保証するようになりました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Constructs like <literal>row_to_json(tab.*)</> now always emit column
       names that match the column aliases visible for table <literal>tab</>
       at the point of the call.  In previous releases the emitted column
       names would sometimes be the table's actual column names regardless
       of any aliases assigned in the query.
+-->
+<literal>row_to_json(tab.*)</>などのデータ構成で、これからは、常に呼び出し時点の
+テーブル<literal>tab</>のカラムエイリアスに一致するカラム名を出力します。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       <xref linkend="sql-discard"> now also discards sequence-related state
       (Fabr&iacute;zio de Royes Mello, Robert Haas)
+-->
+<xref linkend="sql-discard"> がこれからはシーケンス関連の状態も廃棄します。
+(Fabr&iacute;zio de Royes Mello, Robert Haas)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Rename <link linkend="SQL-EXPLAIN"><command>EXPLAIN
       ANALYZE</></link>'s <quote>total runtime</quote> output
       to <quote>execution time</quote> (Tom Lane)
+-->
+<link linkend="SQL-EXPLAIN"><command>EXPLAIN ANALYZE</></link>の出力で
+<quote>total runtime</quote>から、<quote>execution time</quote>に
+項目名を変更しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Now that planning time is also reported, the previous name was
       confusing.
+-->
+これからはプラン時間も報告されるため、従来の項目名では紛らわしいです。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       <link linkend="SQL-SHOW"><command>SHOW TIME ZONE</></link> now
       outputs simple numeric UTC offsets in <acronym>POSIX</> timezone
       format (Tom Lane)
+-->
+<link linkend="SQL-SHOW"><command>SHOW TIME ZONE</></link> は、これからは
+<acronym>POSIX</>時間帯形式の簡素な数値のUTCオフセットを出力します。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Previously, such timezone settings were displayed as <link
       linkend="datatype-interval-output"><type>interval</></link> values.
       The new output is properly interpreted by <command>SET TIME ZONE</>
       when passed as a simple string, whereas the old output required
       special treatment to be re-parsed correctly.
+-->
+これまでは、timezone設定を<link linkend="datatype-interval-output"><type>interval</></link>
+の値として表示していました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Foreign data wrappers that support updating foreign tables must
       consider the possible presence of <literal>AFTER ROW</> triggers
       (Noah Misch)
+-->
+外部テーブルの更新に対応した外部データラッパは、<literal>AFTER ROW</>トリガーが
+存在する可能性に考慮しなければいけません。
+(Noah Misch)
      </para>
 
      <para>
+<!--
       When an <literal>AFTER ROW</> trigger is present, all columns of the
       table must be returned by updating actions, since the trigger might
       inspect any or all of them.  Previously, foreign tables never had
       triggers, so the FDW might optimize away fetching columns not mentioned
       in the <literal>RETURNING</> clause (if any).
+-->
+<literal>AFTER ROW</>トリガがある場合、トリガが読むかもしれないので、
+更新動作でテーブルのすべてのカラムを返されなければいけません。
+これまでは、外部テーブルはトリガを持つことがなかったので、外部データラッパが
+<literal>RETURNING</>句で言及されていないカラムの取得を省略して最適化しているかもしれません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Prevent <link
       linkend="ddl-constraints-check-constraints"><literal>CHECK</></link>
       constraints from referencing system columns, except
       <structfield>tableoid</> (Amit Kapila)
+-->
+<link linkend="ddl-constraints-check-constraints"><literal>CHECK</></link>制約が
+<structfield>tableoid</>以外のシステムカラムを参照できないようにしました。
+(Amit Kapila)
      </para>
 
      <para>
+<!--
       Previously such check constraints were allowed, but they would often
       cause errors during restores.
+-->
+これまではそのようなチェック制約が許されていましたが、リストア時にしばしばエラーを
+引き起こしていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Use the last specified <link linkend="recovery-target-settings">recovery
       target parameter</link> if multiple target parameters are specified
       (Heikki Linnakangas)
+-->
+複数の<link linkend="recovery-target-settings">リカバリターゲット設定</link>が
+指定されていた場合、最後の指定を使用するようにしました。
+(Heikki Linnakangas)
      </para>
 
      <para>
+<!--
       Previously, there was an undocumented precedence order among
       the <literal>recovery_target_<replaceable>xxx</></literal> parameters.
+-->
+これまでは <literal>recovery_target_<replaceable>xxx</></literal> 設定の優先順位が
+文書化されていませんでした。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       On Windows, automatically preserve quotes in command strings supplied
       by the user (Heikki Linnakangas)
+-->
+Windows で、機械的にユーザが書いたコマンド文字列内のクオートを維持します。
+(Heikki Linnakangas)
      </para>
 
      <para>
+<!--
       User commands that did their own quote preservation might need
       adjustment.  This is likely to be an issue for commands used in
       <xref linkend="guc-archive-command">, <xref linkend="restore-command">,
       and <link linkend="sql-copy"><command>COPY TO/FROM PROGRAM</></link>.
+-->
+クオートを維持するようにしているユーザコマンドではおそらく修正が必要です。
+<xref linkend="guc-archive-command">や<xref linkend="restore-command">、
+<link linkend="sql-copy"><command>COPY TO/FROM PROGRAM</></link>の
+コマンドで問題がありそうです。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Remove catalog column <link
       linkend="catalog-pg-class"><structfield>pg_class.reltoastidxid</></link>
       (Michael Paquier)
+-->
+システムカタログのカラム
+<link linkend="catalog-pg-class"><structfield>pg_class.reltoastidxid</></link>
+が取り除かれました。
+(Michael Paquier)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Remove catalog column <link
       linkend="catalog-pg-rewrite"><structfield>pg_rewrite.ev_attr</></link>
       (Kevin Grittner)
+-->
+システムカタログのカラム
+<link linkend="catalog-pg-rewrite"><structfield>pg_rewrite.ev_attr</></link>
+が取り除かれました。
+(Kevin Grittner)
      </para>
 
      <para>
+<!--
       Per-column rules have not been supported since
       <application>PostgreSQL</> 7.3.
+-->
+カラム単位のルールは<application>PostgreSQL</> 7.3以来サポートされていませんでした。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Remove native support for <application>Kerberos</> authentication
-      (<option>--with-krb5</>, etc)
+      (<option>- -with-krb5</>, etc)
       (Magnus Hagander)
+-->
+<application>Kerberos</>認証のネイティブサポート（<option>--with-krb5</>など）が除去されました。
      </para>
 
      <para>
+<!--
       The supported way to use <application>Kerberos</> authentication is
       with <acronym>GSSAPI</>.  The native code has been deprecated since
       <productname>PostgreSQL</> 8.3.
+-->
+<application>Kerberos</>認証の使用は<acronym>GSSAPI</>でサポートされます。
+ネイティブコードは <productname>PostgreSQL</> 8.3 から非推奨となっていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In <application>PL/Python</>, handle domains over arrays like the
       underlying array type (Rodolfo Campero)
+-->
+<application>PL/Python</>で、配列のドメインを配列型を基底とするように扱います。
+(Rodolfo Campero)
      </para>
 
      <para>
+<!--
       Previously such values were treated as strings.
+-->
+これまでは文字列として扱われていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Make libpq's <link
       linkend="libpq-pqconnectdbparams"><function>PQconnectdbParams()</></link>
       and <link
       linkend="libpq-pqpingparams"><function>PQpingParams()</></link>
       functions process zero-length strings as defaults (Adrian
       Vondendriesch)
+-->
+libpq の
+<link linkend="libpq-pqconnectdbparams"><function>PQconnectdbParams()</></link>、
+<link linkend="libpq-pqpingparams"><function>PQpingParams()</></link> 関数が
+空文字列をデフォルトとして処理します。
+(Adrian Vondendriesch)
      </para>
 
      <para>
+<!--
       Previously, these functions treated zero-length string values as
       selecting the default in only some cases.
+-->
+これまでは、これらの関数では一部の場合だけ空文字列でデフォルトを選んでいました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Change empty arrays returned by the <xref linkend="intarray"> module
       to be zero-dimensional arrays (Bruce Momjian)
+-->
+<xref linkend="intarray">モジュールが空配列を返すときゼロ次元配列になるように変更しました。
      </para>
 
      <para>
+<!--
       Previously, empty arrays were returned as zero-length one-dimensional
       arrays, whose text representation looked the same as zero-dimensional
       arrays (<literal>{}</>), but they acted differently in array
       operations.  <application>intarray</>'s behavior in this area now
       matches the built-in array operators.
+-->
+これまでは、空配列を長さゼロの１次元配列として返していました。それらのテキスト表現は
+ゼロ次元配列としたときと同じ（<literal>{}</>）ですが、配列操作での動作が異なります。
+この部分で<application>intarray</>の振る舞いが組み込みの配列演算子と同じになります。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       <xref linkend="pgupgrade"> now uses <option>-U</>
-      or <option>--username</> to specify the user name (Bruce Momjian)
+      or <option>- -username</> to specify the user name (Bruce Momjian)
+-->
+<xref linkend="pgupgrade">は、これからは <option>-U</> または <option>--username</> で
+ユーザ名を指定するようになります。
      </para>
 
      <para>
-      Previously this option was spelled <option>-u</> or <option>--user</>,
+<!--
+      Previously this option was spelled <option>-u</> or <option>- -user</>,
       but that was inconsistent with other tools.
+-->
+これまでは本オプションは <option>-u</> または <option>--user</> でしたが、
+他のツールとの一貫性に欠けていました。
      </para>
     </listitem>
 
@@ -2528,53 +2783,86 @@
 
       <listitem>
        <para>
+<!--
         Make <application>pg_stat_statements</> use a file, rather than
         shared memory, for query text storage (Peter Geoghegan)
+-->
+<application>pg_stat_statements</>がクエリ文字列の格納のために
+シェアードメモリではなくファイルを使うようにしました。
+(Peter Geoghegan)
        </para>
 
        <para>
+<!--
         This removes the previous limitation on query text length, and
         allows a higher number of unique statements to be tracked by default.
+-->
+これにより、クエリ文字列の長さの制限をなくし、デフォルトでこれまでより
+たくさんの異なるステートメントを追跡できるようにしました。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow reporting of <application>pg_stat_statements</>'s internal
         query hash identifier (Daniel Farina, Sameer Thakur, Peter
         Geoghegan)
+-->
+<application>pg_stat_statements</>の内部クエリハッシュ識別子の報告を
+できるようにしました。(Daniel Farina, Sameer Thakur, Peter Geoghegan)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add the ability to retrieve all <application>pg_stat_statements</>
         information except the query text (Peter Geoghegan)
+-->
+クエリ文字列以外にのすべての情報について<application>pg_stat_statements</>を
+取り出す機能を追加しました。(Peter Geoghegan)
        </para>
 
        <para>
+<!--
         This allows monitoring tools to fetch query text only for
         just-created entries, improving performance during repeated querying
         of the statistics.
+-->
+これにより、モニタリングツールが作成されたばかりのエントリを
+フェッチするこができるようになり、統計情報のために繰り返すクエリの性能を高めます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Make <application>pg_stat_statements</> ignore <command>DEALLOCATE</>
         commands (Fabien Coelho)
+-->
+<application>pg_stat_statements</> は<command>DEALLOCATE</>コマンドを
+無視するようにしました。(Fabien Coelho)
        </para>
 
        <para>
+<!--
         It already ignored <command>PREPARE</>, as well as planning time in
         general, so this seems more consistent.
+-->
+すでに<command>PREPARE</>を無視するようになっていますので、より一貫性を高めます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Save the statistics file into <filename>$PGDATA/pg_stat</> at server
         shutdown, rather than <filename>$PGDATA/global</> (Fujii Masao)
+-->
+サーバシャットダウン時に、統計ファイルを<filename>$PGDATA/global</>ではなく、
+<filename>$PGDATA/pg_stat</>に保存します。(Fujii Masao)
+
        </para>
       </listitem>
 
