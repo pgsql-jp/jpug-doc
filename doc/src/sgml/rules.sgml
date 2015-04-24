@@ -4,13 +4,13 @@
 <!--
 <title>The Rule System</title>
 -->
-<title>�롼�륷���ƥ�</title>
+<title>ルールシステム</title>
 
  <indexterm zone="rules">
 <!--
   <primary>rule</primary>
 -->
-  <primary>�롼��</primary>
+  <primary>ルール</primary>
  </indexterm>
 
 <para>
@@ -20,8 +20,8 @@
      are conceptually simple, but there are many subtle points
      involved in actually using them.
 -->
-�ܾϤǤ�<productname>PostgreSQL</productname>�Υ롼�륷���ƥ�ˤĤ����������ޤ���
-���֤ǲ�Ư����롼�륷���ƥ�ϳ�ǰ�Ȥ��Ƥ�ñ��Ǥ������ºݤ˻ȤäƤߤ�ȡ��狼��ˤ����Ȥ��������ʤ��餺����ޤ���
+本章では<productname>PostgreSQL</productname>のルールシステムについて説明します。
+本番で稼働するルールシステムは概念としては単純ですが、実際に使ってみると、わかりにくいところが少なからずあります。
 </para>
 
 <para>
@@ -31,8 +31,8 @@
      <productname>PostgreSQL</productname>, these can be implemented
      using functions and triggers as well.
 -->
-�̾綠���ϥ��ȥ��ɥץ���������ȥȥꥬ�Ǥ�����¾�Τ����Ĥ��Υǡ����١��������ƥ��ǽưŪ�ǡ����١����롼���������Ƥ��ޤ���
-<ProductName>PostgreSQL</ProductName>�Ǥϴؿ��ȥȥꥬ�Ȥ��Ƽ�������Ƥ��ޤ���
+通常それらはストアドプロシージャとトリガですが、他のいくつかのデータベースシステムは能動的データベースルールを定義しています。
+<ProductName>PostgreSQL</ProductName>では関数とトリガとして実装されています。
 </para>
 
 <para>
@@ -47,23 +47,23 @@
      also discussed in <xref linkend="STON90b"> and <xref
      linkend="ONG90">.
 -->
-�롼�륷���ƥ�ʤ�����Τ˸������䤤��碌�񤭴����롼�륷���ƥ�ˤϥ��ȥ��ɥץ���������ȥȥꥬ�ȤϤޤä����ۤʤ�ޤ���
-�롼�륷���ƥ�ϥ롼��򻲾Ȥ����䤤��碌�����������������䤤��碌�򡢷ײ�����ȼ¹ԤΤ�����䤤��碌�ץ��ʤ��Ϥ��ޤ���
-��������˶��Ϥʤ��ᡢ�䤤��碌����ץ��������㡢�ӥ塼���뤤�ϥС������ʤ�¿���Υѥ�����ǻ��Ѥ��뤳�Ȥ��Ǥ��ޤ���
-���Υ롼�륷���ƥ�δ���������ǽ�Ϥ�<xref linkend="STON90b">�����<xref linkend="ONG90">�ǲ��⤵��Ƥ��ޤ���
+ルールシステム（より正確に言うと問い合わせ書き換えルールシステム）はストアドプロシージャとトリガとはまったく異なります。
+ルールシステムはルールを参照して問い合わせを修正し、修正した問い合わせを、計画作成と実行のために問い合わせプランナに渡します。
+これは非常に強力なため、問い合わせ言語プロシージャ、ビューあるいはバージョンなど多くのパターンで使用することができます。
+このルールシステムの基礎理論と能力は<xref linkend="STON90b">および<xref linkend="ONG90">で解説されています。
 </para>
 
 <sect1 id="querytree">
 <!--
 <title>The Query Tree</title>
 -->
-<title>�䤤��碌�ĥ꡼�Ȥ�</title>
+<title>問い合わせツリーとは</title>
 
 <indexterm zone="querytree">
 <!--
  <primary>query tree</primary>
 -->
- <primary>�䤤��碌�ĥ꡼</primary>
+ <primary>問い合わせツリー</primary>
 </indexterm>
 
 <para>
@@ -71,7 +71,7 @@
     To understand how the rule system works it is necessary to know
     when it is invoked and what its input and results are.
 -->
-�ɤΤ褦�˥롼�륷���ƥब��ǽ���뤫�����򤹤뤿��ˤϡ��롼�뤬�ɤΤ褦�˵�ư���졢�������Ϥȷ�̤ϲ��������򤷤ʤ���Фʤ�ޤ���
+どのようにルールシステムが機能するかを理解するためには、ルールがどのように起動され、その入力と結果は何かを理解しなければなりません。
 </para>
 
 <para>
@@ -84,9 +84,9 @@
     the parser itself could have produced and thus, anything it sees
     is basically representable as an <acronym>SQL</acronym> statement.
 -->
-�롼�륷���ƥ���䤤��碌�ѡ����ȥץ��ʤ���֤˰��֤��ޤ���
-�롼�륷���ƥ�ϡ����ϤȤ��ƥѡ����ν��ϡ�ñ����䤤��碌�ĥ꡼������Ӳ��餫�����̤ʾ��������䤤��碌�ĥ꡼�Ǥ⤢��桼������ν񤭴����롼����ꡢ��̤Ȥ���0�İʾ���䤤��碌�ĥ꡼���������ޤ���
-�롼�륷���ƥ�����ϤȽ��ϤϾ�˥ѡ������ΤǤ��������뤳�Ȥ��Ǥ����Τǡ����Ȥ����оݤϴ���Ū��<acronym>SQL</acronym>ʸ�Ȥ���ɽ���Ǥ����ΤǤ���
+ルールシステムは問い合わせパーサとプランナの中間に位置します。
+ルールシステムは、入力としてパーサの出力、単一の問い合わせツリー、および何らかの特別な情報を持つ問い合わせツリーでもあるユーザ定義の書き換えルールを取り、結果として0個以上の問い合わせツリーを生成します。
+ルールシステムの入力と出力は常にパーサ自体でも生成することができるもので、参照する対象は基本的に<acronym>SQL</acronym>文として表現できるものです。
 </para>
 
 <para>
@@ -102,11 +102,11 @@
     <structname>pg_rewrite</structname>.  They are not formatted like
     the log output, but they contain exactly the same information.
 -->
-�Ǥ��䤤��碌�ĥ꡼�Ȥϲ��Ǥ��礦����
-����ϡ�<acronym>SQL</acronym>ʸ��������ġ������ʤ��̡��˵���������<acronym>SQL</acronym>ʸ������ɽ���Ǥ���
-<varname>debug_print_parse</varname>��<varname>debug_print_rewritten</varname>���⤷����<varname>debug_print_plan</varname>����ѥ�᡼�������ꤷ�Ƥ���С������Х�������䤤��碌�ĥ꡼�򸫤뤳�Ȥ��Ǥ��ޤ���
-�롼�륢��������<structname>pg_rewrite</structname>�����ƥ५����������䤤��碌�ĥ꡼�Ȥ��Ƴ�Ǽ����Ƥ��ޤ���
-����ϥ������ϤΤ褦����������Ƥ��ޤ��󤬡��ޤä���Ʊ���������äƤ��ޤ���
+では問い合わせツリーとは何でしょうか。
+それは、<acronym>SQL</acronym>文を構成する個々の部品を別々に記憶した、<acronym>SQL</acronym>文の内部表現です。
+<varname>debug_print_parse</varname>、<varname>debug_print_rewritten</varname>、もしくは<varname>debug_print_plan</varname>設定パラメータを設定していれば、サーバログ内で問い合わせツリーを見ることができます。
+ルールアクションも<structname>pg_rewrite</structname>システムカタログ内に問い合わせツリーとして格納されています。
+これはログ出力のように整形されていませんが、まったく同じ情報を持っています。
 </para>
 
 <para>
@@ -116,8 +116,8 @@
     sufficient to understand the rule system, this chapter will not
     teach how to read them.
 -->
-�䤤��碌�ĥ꡼���Τ�Τ��ɤि��ˤϤ������٤ηи���ɬ�פǤ���
-�롼�륷���ƥ�����򤹤뤿��ˤ��䤤��碌�ĥ꡼��<acronym>SQL</acronym>ɽ���ǽ�ʬ�Ǥ��Τǡ������ǤϤ����ɤ����ޤǤ϶����ޤ���
+問い合わせツリーそのものを読むためにはある程度の経験が必要です。
+ルールシステムを理解するためには問い合わせツリーの<acronym>SQL</acronym>表現で十分ですので、ここではその読み方までは教えません。
 </para>
 
 <para>
@@ -127,8 +127,8 @@
     the parts the statement is broken into when it is in the query tree
     structure. The parts of a query tree are
 -->
-�ܾϤ��䤤��碌�ĥ꡼��<acronym>SQL</acronym>ɽ���������ɤ����ɬ�פʤΤϡ��䤤��碌�ĥ꡼��¤�����ʬ�򤵤줿������ʸ�����ʤ��̤Ǥ��뤳�ȤǤ���
-�䤤��碌�ĥ꡼�ˤϰʲ������ʤ�����ޤ���
+本章の問い合わせツリーの<acronym>SQL</acronym>表現形式を読む時に必要なのは、問い合わせツリー構造の中に分解された、ある文の部品を識別できることです。
+問い合わせツリーには以下の部品があります。
 
 <variablelist>
     <varlistentry>
@@ -136,7 +136,7 @@
 <!--
         the command type
 -->
-���ޥ�ɼ���
+コマンド種類
     </term>
     <listitem>
     <para>
@@ -146,7 +146,7 @@
         <command>UPDATE</command>, <command>DELETE</command>) produced
         the query tree.
 -->
-����ϤɤΥ��ޥ�ɡ�<command>SELECT</command>��<command>INSERT</command>��<command>UPDATE</command>��<command>DELETE</command>�ˤ���ʸ���ϥĥ꡼���ä����򼨤�ñ����ͤǤ���
+これはどのコマンド（<command>SELECT</command>、<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>）が構文解析ツリーを作ったかを示す単純な値です。
     </para>
     </listitem>
     </varlistentry>
@@ -157,8 +157,8 @@
         the range table
       <indexterm><primary>range table</></>
 -->
-�ϰϥơ��֥�
-      <indexterm><primary>�ϰϥơ��֥�</></>
+範囲テーブル
+      <indexterm><primary>範囲テーブル</></>
     </term>
     <listitem>
     <para>
@@ -167,8 +167,8 @@
         In a <command>SELECT</command> statement these are the relations given after
         the <literal>FROM</literal> key word.
 -->
-�ϰϥơ��֥���䤤��碌�ǻȤ����졼�����Υꥹ�ȤǤ���
-<command>SELECT</command>ʸ�ǤϤ����<literal>FROM</literal>������ɤθ��Ϳ�������졼�����ˤʤ�ޤ���
+範囲テーブルは問い合わせで使われるリレーションのリストです。
+<command>SELECT</command>文ではこれは<literal>FROM</literal>キーワードの後で与えられるリレーションになります。
     </para>
 
     <para>
@@ -182,10 +182,10 @@
         have been merged in. The examples in this chapter will not have
         this situation.
 -->
-�ϰϥơ��֥�Τ��줾��ι��ܤϥơ��֥�⤷���ϥӥ塼���̤����䤤��碌���̤����ʤǤϤɤ��̾���ǸƤӽФ���뤫�򼨤��ޤ���
-�䤤��碌�ĥ꡼�Ǥ��ϰϥơ��֥�ι��ܤ�̾�������ֹ�ǻ��Ȥ���뤳�Ȥ�¿�����ᡢ�����Ǥ�<acronym>SQL</acronym>ʸ�Ȥϰ㤤����ʣ����̾�������뤫�Ȥ������Ȥ�����ˤʤ�ޤ���
-����ϥ롼����ϰϥơ��֥뤬�ޡ������줿��˵������ǽ��������ޤ���
-�ܾϤ���ǤϤ��ξ�����ޤ�Ǥ��ޤ���
+範囲テーブルのそれぞれの項目はテーブルもしくはビューを識別し、問い合わせの別の部品ではどんな名前で呼び出されるかを示します。
+問い合わせツリーでは範囲テーブルの項目は名前よりも番号で参照されることが多いため、ここでは<acronym>SQL</acronym>文とは違い、重複する名前があるかということは問題になりません。
+これはルールの範囲テーブルがマージされた後に起こる可能性があります。
+本章の例ではその状況を含んでいません。
     </para>
     </listitem>
     </varlistentry>
@@ -195,7 +195,7 @@
 <!--
         the result relation
 -->
-��̥�졼�����
+結果リレーション
     </term>
     <listitem>
     <para>
@@ -203,7 +203,7 @@
         This is an index into the range table that identifies the
         relation where the results of the query go.
 -->
-�䤤��碌�η�̤���Ǽ������졼�������̤����ϰϥơ��֥�ؤΥ���ǥå����Ǥ���
+問い合わせの結果が格納されるリレーションを識別する範囲テーブルへのインデックスです。
     </para>
 
     <para>
@@ -214,8 +214,8 @@
         <literal>INSERT ... SELECT</literal>, and is not discussed
         separately here.)
 -->
-<command>SELECT</command>�䤤��碌�Ϸ�̥�졼����������ޤ���
-��<command>SELECT INTO</command>�ξ������̤Ǥ�����<literal>INSERT ... SELECT</literal>���դ���<command>CREATE TABLE</command>�Ȥۤ�Ʊ���Ǥ��Τǡ������Ǥϸ��̤ˤ��������ޤ��󡣡�
+<command>SELECT</command>問い合わせは結果リレーションを持ちません。
+（<command>SELECT INTO</command>の場合は特別ですが、<literal>INSERT ... SELECT</literal>が付いた<command>CREATE TABLE</command>とほぼ同じですので、ここでは個別には説明しません。）
     </para>
 
     <para>
@@ -224,7 +224,7 @@
         <command>DELETE</command> commands, the result relation is the table
         (or view!) where the changes are to take effect.
 -->
-<command>INSERT</command>��<command>UPDATE</command>��<command>DELETE</command>���ޥ�ɤǤϡ���̥�졼�������ѹ���ͭ���ˤʤ�ơ��֥�ʤ⤷���ϥӥ塼�ˤǤ���
+<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>コマンドでは、結果リレーションは変更が有効になるテーブル（もしくはビュー）です。
     </para>
     </listitem>
     </varlistentry>
@@ -235,8 +235,8 @@
         the target list
     <indexterm><primary>target list</></>
 -->
-��Ū�ꥹ��
-    <indexterm><primary>��Ū�ꥹ��</></>
+目的リスト
+    <indexterm><primary>目的リスト</></>
     </term>
     <listitem>
     <para>
@@ -251,11 +251,11 @@
         expanded by the parser into the individual columns, so the
         rule system never sees it.)
 -->
-��Ū�ꥹ�Ȥ��䤤��碌�η�̤�������뼰�Υꥹ�ȤǤ���
-<command>SELECT</command>�ξ�硢���μ����䤤��碌�κǽ���̤��ۤ����ΤǤ���
-������<command>SELECT</command>��<command>FROM</command>������ɤδ֤ˤ��뼰���б����ޤ�
-��<literal>*</literal>��ñ�˥�졼���������Ƥ���̾�ξ�ά�Ǥ���
-����ϥѡ����ˤ�äƸ��̤����Ÿ������ޤ��Τǡ��롼�륷���ƥब���뤳�ȤϤ���ޤ���ˡ�
+目的リストは問い合わせの結果を定義する式のリストです。
+<command>SELECT</command>の場合、この式は問い合わせの最終結果を構築するものです。
+これらは<command>SELECT</command>と<command>FROM</command>キーワードの間にある式に対応します
+（<literal>*</literal>は単にリレーションの全ての列名の省略です。
+これはパーサによって個別の列に展開されますので、ルールシステムが見ることはありません）。
     </para>
 
     <para>
@@ -268,10 +268,10 @@
         table.  If it is a view, a whole-row variable is added instead,
         as described in <xref linkend="rules-views-update">.)
 -->
-<command>DELETE</command>���ޥ�ɤϷ�̤��֤��ޤ���Τǡ��̾����Ū�ꥹ�Ȥ�ɬ�פ���ޤ���
-�������ꡢ�롼�륷���ƥ�϶�����Ū�ꥹ�Ȥ����̤�<acronym>CTID</>���ܤ��ɲä������������塼����������٤��Ԥ򸫤Ĥ�����褦�ˤ��ޤ���
-��<acronym>CTID</>�Ϸ�̥�졼������̾�Υơ��֥�ξ����ɲä���ޤ���
-�⤷�ӥ塼�Ǥ����<xref linkend="rules-views-update">�ǽҤ٤�褦�ˡ�����˹����Τ��ѿ����ɲä���ޤ�����
+<command>DELETE</command>コマンドは結果を返しませんので、通常の目的リストは必要ありません。
+その代わり、ルールシステムは空の目的リストに特別な<acronym>CTID</>項目を追加し、エクゼキュータが削除すべき行を見つけられるようにします。
+（<acronym>CTID</>は結果リレーションが通常のテーブルの場合に追加されます。
+もしビューであれば<xref linkend="rules-views-update">で述べるように、代わりに行全体の変数が追加されます。）
     </para>
 
     <para>
@@ -286,10 +286,10 @@
         neither a given value nor a default) will be filled in by the
         planner with a constant null expression.
 -->
-<command>INSERT</command>�䤤��碌�Ǥϡ���Ū�ꥹ�ȤϷ�̥�졼���������뿷���ιԤ򼨤��ޤ���
-�����<literal>VALUES</>�礫<literal>INSERT ... SELECT</literal>�����<command>SELECT</command>��μ��Ǥ���
-�񤭴��������κǽ�Υ��ƥåפǤϡ������䤤��碌�Ǥϳ�����Ƥ�줺���ǥե�����ͤȤʤäƤ��������Ū�ꥹ�Ȥι��ܤ��ɲä��ޤ���
-�Ĥä�����ͤ�Ϳ�����Ƥ��ʤ��󡢤��ĥǥե�����ͤ�����ʤ���ˤ����ơ��ץ��ʤˤ�ä����NULL���������ޤ���
+<command>INSERT</command>問い合わせでは、目的リストは結果リレーションへ入る新規の行を示します。
+これは<literal>VALUES</>句か<literal>INSERT ... SELECT</literal>の中の<command>SELECT</command>句の式です。
+書き換え処理の最初のステップでは、元の問い合わせでは割り当てられず、デフォルト値となっている列の目的リストの項目を追加します。
+残った列（値が与えられていない列、かつデフォルト値を持たない列）は全て、プランナによって定数NULL式で埋められます。
     </para>
 
     <para>
@@ -303,10 +303,10 @@
         the rule system adds a <acronym>CTID</> or whole-row variable so that
         the executor can identify the old row to be updated.
 -->
-<command>UPDATE</command>���ޥ�ɤǤϡ���Ū�ꥹ�ȤϸŤ���Τ��֤�������٤��������Ԥ򼨤��ޤ���
-�롼�륷���ƥ�Ǥϥ��ޥ�����<literal>SET column = expression</literal>��ʬ�ˤ��뼰��������äƤ��ޤ���
-�ץ��ʤϡ��Ť��Ԥ��鿷�����Ԥ��ͤ򥳥ԡ����뼰���������뤳�Ȥˤ�ꡢȴ���Ƥ������������ޤ���
-<command>DELETE</command>�ξ���Ʊ�͡����������塼�����������٤��Ԥ򸫤Ĥ�����褦�ˡ��롼�륷���ƥ��<acronym>CTID</>�⤷���Ϲ����Τ��ѿ����ɲä��ޤ���
+<command>UPDATE</command>コマンドでは、目的リストは古いものを置き換えるべき新しい行を示します。
+ルールシステムではコマンド内の<literal>SET column = expression</literal>部分にある式だけを持っています。
+プランナは、古い行から新しい行へ値をコピーする式を挿入することにより、抜けている列を処理します。
+<command>DELETE</command>の場合と同様、エクゼキュータが更新すべき行を見つけられるように、ルールシステムは<acronym>CTID</>もしくは行全体の変数を追加します。
     </para>
 
     <para>
@@ -316,7 +316,7 @@
         of the relations in the range table, a parameter, or an expression
         tree made of function calls, constants, variables, operators, etc.
 -->
-��Ū�ꥹ�Ȥγƹ��ܤϡ�����͡��ϰϥơ��֥���Υ�졼��������1�Ĥ����ؤ������ѿ����ѥ�᡼�����μ����ݻ����뤫���ޤ��ϡ��ؿ��ƤӽФ���������ѿ����黻�Ҥʤɤˤ����줿���Υĥ꡼���ݻ����ޤ���
+目的リストの各項目は、定数値、範囲テーブル内のリレーション中の1つの列を指し示す変数、パラメータ等の式を保持するか、または、関数呼び出し、定数、変数、演算子などにより作られた式のツリーを保持します。
     </para>
     </listitem>
     </varlistentry>
@@ -326,7 +326,7 @@
 <!--
         the qualification
 -->
-���
+条件
     </term>
     <listitem>
     <para>
@@ -339,9 +339,9 @@
         final result row should be executed or not. It corresponds to the <literal>WHERE</> clause
         of an <acronym>SQL</acronym> statement.
 -->
-�䤤��碌�ξ�����Ū�ꥹ�Ȥι��ܤ˴ޤޤ�Ƥ��뼰�ˤ褯�������Ǥ���
-���μ��η�̤ϡ��ǽ�Ū�ʷ�̤ιԤ����뤿��Ρ�<command>INSERT</command>��<command>UPDATE</command>��<command>DELETE</command>�ޤ���<command>SELECT</command>�˱黻��¹Ԥ��٤����ɤ����򼨤��֡����ͤǤ���
-�����<acronym>SQL</acronym>ʸ�����<literal>WHERE</>����б����ޤ���
+問い合わせの条件は目的リストの項目に含まれている式によく似た式です。
+この式の結果は、最終的な結果の行を得るための（<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>または<command>SELECT</command>）演算を実行すべきかどうかを示すブール値です。
+それは<acronym>SQL</acronym>文の中の<literal>WHERE</>句に対応します。
     </para>
     </listitem>
     </varlistentry>
@@ -351,7 +351,7 @@
 <!--
         the join tree
 -->
-���ĥ꡼
+結合ツリー
     </term>
     <listitem>
     <para>
@@ -369,14 +369,14 @@
         top-level join-tree item, too.  So really the join tree represents
         both the <literal>FROM</> and <literal>WHERE</> clauses of a <command>SELECT</command>.
 -->
-�䤤��碌�η��ĥ꡼��<literal>FROM</>��ι�¤��ɽ���ޤ���
-<literal>SELECT ... FROM a, b, c</literal>�Τ褦��ñ����䤤��碌�Ǥϡ����ĥ꡼��ñ�ʤ�<literal>FROM</>���ܤΥꥹ�ȤǤ���
-�ʤ��ʤ餳���Ϥɤ�ʽ��֤Ƿ�礷�Ƥ⹽��ʤ�����Ǥ���
-������<literal>JOIN</>�����ä˳�����礬�Ȥ�줿���ϡ����η�礬���������̤�˷�礷�ʤ���Ф����ޤ���
-���ξ����ĥ꡼��<literal>JOIN</>���ι�¤��ɽ���ޤ���
-�����<literal>JOIN</>��ȴ�Ϣ�դ���줿�����<literal>ON</>�⤷����<literal>USING</>������Τ�ΡˤϤ����η��ĥ꡼�Ρ��ɤ��ղä��줿���Ȥ��Ƴ�Ǽ����ޤ���
-ĺ����٥��<literal>WHERE</>����ĺ����٥�η��ĥ꡼���ܤ��ղä��줿���Ȥ��Ƴ�Ǽ���뤳�Ȥ������Ǥ���
-�Ǥ����顢���ĥ꡼��<command>SELECT</command>��<literal>FROM</>���<literal>WHERE</>���ξ����ɽ���Ƥ���櫓�Ǥ���
+問い合わせの結合ツリーは<literal>FROM</>句の構造を表します。
+<literal>SELECT ... FROM a, b, c</literal>のような単純な問い合わせでは、結合ツリーは単なる<literal>FROM</>項目のリストです。
+なぜならこれらはどんな順番で結合しても構わないためです。
+しかし<literal>JOIN</>式、特に外部結合が使われた場合は、その結合が示す順番通りに結合しなければいけません。
+この場合結合ツリーは<literal>JOIN</>式の構造を表します。
+特定の<literal>JOIN</>句と関連付けられた制約（<literal>ON</>もしくは<literal>USING</>式からのもの）はこれらの結合ツリーノードに付加された条件として格納されます。
+頂点レベルの<literal>WHERE</>式を頂点レベルの結合ツリー項目に付加された条件として格納することも便利です。
+ですから、結合ツリーは<command>SELECT</command>の<literal>FROM</>句と<literal>WHERE</>句の両方を表しているわけです。
     </para>
     </listitem>
     </varlistentry>
@@ -386,7 +386,7 @@
 <!--
         the others
 -->
-����¾
+その他
     </term>
     <listitem>
     <para>
@@ -397,8 +397,8 @@
         doesn't have much to do with the fundamentals of the rule
         system.
 -->
-<literal>ORDER BY</>��Τ褦�ʡ��䤤��碌�ĥ꡼�Τ���¾�����ʤϡ������Ǥϼ��夲�ޤ���
-�롼�륷���ƥ�ϥ롼���Ŭ�Ѥ��Ƥ�����ˤ����ǹ��ܤ������ؤ��뤳�Ȥ⤢��ޤ���������ϥ롼�륷���ƥ�δ��ܤȤϤ��ޤ�ط����ޤ���
+<literal>ORDER BY</>句のような、問い合わせツリーのその他の部品は、ここでは取り上げません。
+ルールシステムはルールを適用している時にそこで項目を入れ替えることもありますが、これはルールシステムの基本とはあまり関係しません。
     </para>
     </listitem>
     </varlistentry>
@@ -411,15 +411,15 @@
 <!--
 <title>Views and the Rule System</title>
 -->
-<title>�ӥ塼�ȥ롼�륷���ƥ�</title>
+<title>ビューとルールシステム</title>
 
 <indexterm zone="rules-views">
 <!--
  <primary>rule</primary>
  <secondary>and views</secondary>
 -->
- <primary>�롼��</primary>
- <secondary>�ȥӥ塼</secondary>
+ <primary>ルール</primary>
+ <secondary>とビュー</secondary>
 </indexterm>
 
 <indexterm zone="rules-views">
@@ -427,8 +427,8 @@
  <primary>view</>
  <secondary>implementation through rules</>
 -->
- <primary>�ӥ塼</>
- <secondary>�롼�����Ѥ�������</>
+ <primary>ビュー</>
+ <secondary>ルールを使用した実装</>
 </indexterm>
 
 <para>
@@ -437,8 +437,8 @@
     using the rule system. In fact, there is essentially no difference
     between:
 -->
-<productname>PostgreSQL</productname>�ˤ�����ӥ塼�ϥ롼�륷���ƥ��ȤäƼ�������Ƥ��ޤ��� 
-�ºݡ�
+<productname>PostgreSQL</productname>におけるビューはルールシステムを使って実装されています。 
+実際、
 
 <programlisting>
 CREATE VIEW myview AS SELECT * FROM mytab;
@@ -447,14 +447,14 @@ CREATE VIEW myview AS SELECT * FROM mytab;
 <!--
     compared against the two commands:
 -->
-��
+と
 
 <programlisting>
 CREATE TABLE myview (<replaceable>same column list as mytab</replaceable>);
 CREATE RULE "_RETURN" AS ON SELECT TO myview DO INSTEAD
     SELECT * FROM mytab;
 </programlisting>
-��2�ĤΥ��ޥ�ɤδ֤ˤϴ���Ū�ʰ㤤�Ϥ���ޤ���
+の2つのコマンドの間には基本的な違いはありません。
 
 <!--
     because this is exactly what the <command>CREATE VIEW</command>
@@ -465,26 +465,26 @@ CREATE RULE "_RETURN" AS ON SELECT TO myview DO INSTEAD
     absolutely no difference between a table and a view. They are the
     same thing: relations.
 -->
-�ȸ����Τϡ�<command>CREATE VIEW</command>���ޥ�ɤˤ�ä�����Ū�ˤޤä���Ʊ�����ޥ�ɤ��Ԥ��뤫��Ǥ���
-����ˤ������Ѥ⤢��ޤ���
-����1�Ĥ�<productname>PostgreSQL</productname>�����ƥ५�������Υӥ塼�ˤĤ��Ƥξ���ϥơ��֥�ξ���Ȥޤä���Ʊ��Ǥ���Ȥ������ȤǤ���
-���Τ��ᡢ�ѡ����ˤȤäƤϥơ��֥�ȥӥ塼�δ֤˰㤤�ϰ��ڤ���ޤ���
-������Ʊ����Ρ��Ĥޤ��졼�����Ǥ���
+と言うのは、<command>CREATE VIEW</command>コマンドによって内部的にまったく同じコマンドが行われるからです。
+これには副作用もあります。
+その1つは<productname>PostgreSQL</productname>システムカタログのビューについての情報はテーブルの情報とまったく同一であるということです。
+そのため、パーサにとってはテーブルとビューの間に違いは一切ありません。
+これらは同じもの、つまりリレーションです。
 </para>
 
 <sect2 id="rules-select">
 <!--
 <title>How <command>SELECT</command> Rules Work</title>
 -->
-<title><command>SELECT</command>�롼���ư��</title>
+<title><command>SELECT</command>ルールの動き</title>
 
 <indexterm zone="rules-select">
 <!--
  <primary>rule</primary>
  <secondary sortas="SELECT">for SELECT</secondary>
 -->
- <primary>�롼��</primary>
- <secondary sortas="SELECT">SELECT��</secondary>
+ <primary>ルール</primary>
+ <secondary sortas="SELECT">SELECT用</secondary>
 </indexterm>
 
 <para>
@@ -496,9 +496,9 @@ CREATE RULE "_RETURN" AS ON SELECT TO myview DO INSTEAD
     query tree in place instead of creating a new one.  So
     <command>SELECT</command> rules are described first.
 -->
-���Ȥ����ޥ�ɤ�<command>INSERT</command>��<command>UPDATE</command>��<command>DELETE</command>�ʤɤǤ��äƤ⡢<literal>ON SELECT</>�롼������Ƥ��䤤��碌���Ф��Ǹ��Ŭ�Ѥ���ޤ���
-�����ơ����Υ롼���¾�Υ��ޥ�ɼ���Υ롼��Ȱۤʤ륻�ޥ�ƥ��å�����äƤ��ơ��䤤��碌�ĥ꡼�򿷵������������ˡ������ˤ����Τ������ޤ���
-�������ä�<command>SELECT</command>�롼�����ֽ��˵��Ҥ��ޤ���
+たとえコマンドが<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>などであっても、<literal>ON SELECT</>ルールは全ての問い合わせに対し最後に適用されます。
+そして、このルールは他のコマンド種類のルールと異なるセマンティックを持っていて、問い合わせツリーを新規に生成せずに、そこにあるものを修正します。
+したがって<command>SELECT</command>ルールを一番初めに記述します。
 </para>
 
 <para>
@@ -508,8 +508,8 @@ CREATE RULE "_RETURN" AS ON SELECT TO myview DO INSTEAD
     required to make rules safe enough to open them for ordinary users, and
     it restricts <literal>ON SELECT</> rules to act like views.
 -->
-���ߤΤȤ�����<literal>ON SELECT</>�롼��Ǥ�1�ĤΥ�������󤷤������줺�������<literal>INSTEAD</>�Ǥ���̵����<command>SELECT</>���������Ǥʤ���Ф����ޤ���
-��������ϡ����̤Υ桼�������򤷤Ƥ⡢�롼�륷���ƥब��ϴ�Ǥ��뤿���ɬ�פǤ��ꡢ<literal>ON SELECT</>�Υ롼��ϥӥ塼Ʊ�ͤ�ư��˸��ꤵ��ޤ���
+現在のところ、<literal>ON SELECT</>ルールでは1つのアクションしか許されず、それは<literal>INSTEAD</>である無条件の<command>SELECT</>アクションでなければいけません。
+この制約は、一般のユーザが何をしても、ルールシステムが堅牢であるために必要であり、<literal>ON SELECT</>のルールはビュー同様の動作に限定されます。
 </para>
 
 <para>
@@ -525,9 +525,9 @@ CREATE RULE "_RETURN" AS ON SELECT TO myview DO INSTEAD
     example that covers all the points discussed step by step rather
     than having many different ones that might mix up in mind.
 -->
-�ܾϤ���Ȥ��Ƶ󤲤Ƥ���Τϡ�����äȤ����黻�򤹤�2�Ĥη��Υӥ塼�ȡ����ˤ����ε�ǽ�����Ѥ��뤤���Ĥ��Υӥ塼�Ǥ���
-����2�ĤΥӥ塼�Τ�����1�Ĥϡ�<command>INSERT</command>��<command>UPDATE</command>��<command>DELETE</command>�����Ф���롼������ɲä��뤳�Ȥǥ������ޥ������졢�ǽ���̤ϲ��餫����ˡ�ε�ǽ�ˤ�ꤢ������¥ơ��֥�Τ褦�˿��񤦥ӥ塼�ˤʤ�ޤ���
-���Ƴؤ֤������Ȥ��ƤϷ褷�ƴ�ñ�ǤϤʤ���˿ʤळ�Ȥ����������뤫�⤷��ޤ��󤬡�¿�����̡����������Ф���Ƭ�κ���򾷤����⡢���Ƥ������򥹥ƥåפ��Ȥ��ɤ�1�Ĥ����󤲤������ɤ��Ǥ��礦��
+本章の例として挙げているのは、ちょっとした演算をする2つの結合のビューと、次にこれらの機能を利用するいくつかのビューです。
+初めの2つのビューのうちの1つは、<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>操作に対するルールを後で追加することでカスタマイズされ、最終結果は何らかの魔法の機能によりあたかも実テーブルのように振舞うビューになります。
+初めて学ぶための例としては決して簡単ではなく先に進むことを躊躇させるかもしれませんが、多くの別々の例を持ち出して頭の混乱を招くよりも、全ての論点をステップごとに追う1つの例を挙げる方が良いでしょう。
 </para>
 
 <para>
@@ -535,8 +535,8 @@ CREATE RULE "_RETURN" AS ON SELECT TO myview DO INSTEAD
 For the example, we need a little <literal>min</literal> function that
 returns the lower of 2 integer values. We create that as:
 -->
-������Ǥϡ�2�Ĥ��������龮�����ͤ��֤�����äȤ���<literal>min</literal>�ؿ���ɬ�פȤ��ޤ���
-�ؿ��������ϰʲ��Τ褦�ˤ��ޤ���
+この例では、2つの整数から小さな値を返すちょっとした<literal>min</literal>関数を必要とします。
+関数の生成は以下のようにします。
 
 <programlisting>
 CREATE FUNCTION min(integer, integer) RETURNS integer AS $$
@@ -550,7 +550,7 @@ $$ LANGUAGE SQL STRICT;
     The real tables we need in the first two rule system descriptions
     are these:
 -->
-�ǽ��2�ĤΥ롼�륷���ƥ��������ɬ�פȤ���¥ơ��֥��ʲ��˼����ޤ���
+最初の2つのルールシステムの説明で必要とする実テーブルを以下に示します。
 
 <programlisting>
 <!--
@@ -577,39 +577,39 @@ CREATE TABLE unit (
 );
 -->
 CREATE TABLE shoe_data (
-    shoename   text,          -- �ץ饤�ޥꥭ��
-    sh_avail   integer,       -- �߸�
-    slcolor    text,          -- ˾�ޤ�����ɳ�ο�
-    slminlen   real,          -- ��ɳ�κ�û������
-    slmaxlen   real,          -- ��ɳ�κ�Ĺ������
-    slunit     text           -- Ĺ����ñ��
+    shoename   text,          -- プライマリキー
+    sh_avail   integer,       -- 在庫
+    slcolor    text,          -- 望ましい靴紐の色
+    slminlen   real,          -- 靴紐の最短サイズ
+    slmaxlen   real,          -- 靴紐の最長サイズ
+    slunit     text           -- 長さの単位
 );
 
 CREATE TABLE shoelace_data (
-    sl_name    text,          -- �ץ饤�ޥꥭ��
-    sl_avail   integer,       -- �߸�
-    sl_color   text,          -- ��ɳ�ο�
-    sl_len     real,          -- ��ɳ��Ĺ��
-    sl_unit    text           -- Ĺ����ñ��
+    sl_name    text,          -- プライマリキー
+    sl_avail   integer,       -- 在庫
+    sl_color   text,          -- 靴紐の色
+    sl_len     real,          -- 靴紐の長さ
+    sl_unit    text           -- 長さの単位
 );
 
 CREATE TABLE unit (
-    un_name    text,          -- �ץ饤�ޥꥭ��
-    un_fact    real           -- cm���Ѵ�����ե�����
+    un_name    text,          -- プライマリキー
+    un_fact    real           -- cmに変換するファクタ
 );
 </programlisting>
 
 <!--
     As you can see, they represent shoe-store data.
 -->
-����Ǥ狼�뤫�⤷��ޤ��󤬡������Ϸ����Υǡ�����ɽ���Ƥ��ޤ���
+これでわかるかもしれませんが、これらは靴屋のデータを表しています。
 </para>
 
 <para>
 <!--
     The views are created as:
 -->
-�ӥ塼��ʲ��Τ褦�˺������ޤ���
+ビューを以下のように作成します。
 
 <programlisting>
 CREATE VIEW shoe AS
@@ -660,11 +660,11 @@ CREATE VIEW shoe_ready AS
     The action of the rule is one query tree that is a copy of the
     <command>SELECT</command> statement in the view creation command.
 -->
-<literal>shoelace</literal>�ӥ塼�ʺ�������ִ�ñ�ʥӥ塼���Ѥ�<command>CREATE VIEW</command>���ޥ�ɤϡ�<literal>shoelace</>��졼�����ȡ��䤤��碌�ϰϥơ��֥�����<literal>shoelace</>��졼����󤬻��Ȥ������Ϥ��ĤǤ⡢Ŭ�Ѥ����٤��񤭴����롼���¸�ߤ򼨤����ܤ�<structname>pg_rewrite</structname>�˺��ޤ���
-�롼��ϥ롼�����<command>SELECT</>�롼��ϸ��߻��Ĥ��Ȥ��Ǥ��ޤ���Τǡ���<command>SELECT</>�롼��ΤȤ����Ǽ��夲�ޤ��ˤ�����ʤ�<literal>INSTEAD</>�Ǥ���
-�롼������䤤��碌���Ȥϰۤʤ뤳�Ȥ����դ��Ƥ���������
-�롼�륢���������䤤��碌������äƤ��ޤ���
-���Υ롼�륢�������ϡ��ӥ塼�������ޥ�����<command>SELECT</command>�Υ��ԡ��Ǥ��롢1�Ĥ��䤤��碌�ĥ꡼�Ǥ���
+<literal>shoelace</literal>ビュー（今ある一番簡単なビュー）用の<command>CREATE VIEW</command>コマンドは、<literal>shoelace</>リレーションと、問い合わせ範囲テーブルの中で<literal>shoelace</>リレーションが参照される時はいつでも、適用されるべき書き換えルールの存在を示す項目を<structname>pg_rewrite</structname>に作ります。
+ルールはルール条件（<command>SELECT</>ルールは現在持つことができませんので、非<command>SELECT</>ルールのところで取り上げます）を持たない<literal>INSTEAD</>です。
+ルール条件は問い合わせ条件とは異なることに注意してください！
+ルールアクションは問い合わせ条件を持っています。
+このルールアクションは、ビュー作成コマンド内の<command>SELECT</command>のコピーである、1つの問い合わせツリーです。
 </para>
 
     <note>
@@ -675,7 +675,7 @@ CREATE VIEW shoe_ready AS
     the <structname>pg_rewrite</structname> entry aren't of interest
     for <command>SELECT</command> rules.
 -->
-<structname>pg_rewrite</structname>���ܤ�<literal>NEW</>��<literal>OLD</>���Ф���2�Ĥ����̤��ϰϥơ��֥���ܤ�<command>SELECT</command>�롼��ˤϴط�����ޤ���
+<structname>pg_rewrite</structname>項目の<literal>NEW</>と<literal>OLD</>に対する2つの特別な範囲テーブル項目は<command>SELECT</command>ルールには関係ありません。
     </para>
     </note>
 
@@ -684,7 +684,7 @@ CREATE VIEW shoe_ready AS
     Now we populate <literal>unit</literal>, <literal>shoe_data</literal>
     and <literal>shoelace_data</literal> and run a simple query on a view:
 -->
-�ǤϤ�����<literal>unit</literal>��<literal>shoe_data</literal>��<literal>shoelace_data</literal>�˥ǡ��������졢�ӥ塼�˴�ñ���䤤��碌��Ԥ��ޤ���
+ではここで<literal>unit</literal>、<literal>shoe_data</literal>、<literal>shoelace_data</literal>にデータを入れ、ビューに簡単な問い合わせを行います。
 
 <programlisting>
 INSERT INTO unit VALUES ('cm', 1.0);
@@ -728,8 +728,8 @@ SELECT * FROM shoelace;
     rules.  The <literal>SELECT * FROM shoelace</literal> was
     interpreted by the parser and produced the query tree:
 -->
-����ϡ��ӥ塼���Ф���Ǥ��ñ��<command>SELECT</command>�Ǥ��Τǡ����ε���˥ӥ塼�롼��δ��ܤ��������ޤ���
-<literal>SELECT * FROM shoelace</literal>�ϥѡ����ˤ�äƽ������졢�����䤤��碌�ĥ꡼����������ޤ���
+これは、ビューに対する最も簡単な<command>SELECT</command>ですので、この機会にビュールールの基本を説明します。
+<literal>SELECT * FROM shoelace</literal>はパーサによって処理され、次の問い合わせツリーが生成されます。
 
 <programlisting>
 SELECT shoelace.sl_name, shoelace.sl_avail,
@@ -745,9 +745,9 @@ SELECT shoelace.sl_name, shoelace.sl_avail,
     <literal>shoelace</literal> (the only one up to now) it finds the
     <literal>_RETURN</literal> rule with the query tree:
 -->
-���Υĥ꡼���롼�륷���ƥ���������ޤ���
-�롼�륷���ƥ���ϰϥơ��֥�򻲾Ȥ������餫�Υ�졼�������Ф��ƥ롼�뤬¸�ߤ��뤫Ĵ�٤ޤ���
-<literal>shoelace</literal>�ʸ������Ǥ�ͣ��Υӥ塼�ˤˤĤ��Ƥ��ϰϥơ��֥���ܤ��������ݡ��䤤��碌�ĥ꡼��<literal>_RETURN</literal>�롼��򸡽Ф��ޤ���
+このツリーがルールシステムに伝えられます。
+ルールシステムは範囲テーブルを参照し、何らかのリレーションに対してルールが存在するか調べます。
+<literal>shoelace</literal>（現時点では唯一のビュー）についての範囲テーブル項目を処理する際、問い合わせツリーで<literal>_RETURN</literal>ルールを検出します。
 
 <programlisting>
 SELECT s.sl_name, s.sl_avail,
@@ -766,8 +766,8 @@ SELECT s.sl_name, s.sl_avail,
     range table entry for the original one that referenced the view.  The
     resulting rewritten query tree is almost the same as if you had typed:
 -->
-�ӥ塼��Ÿ�����뤿��ˡ���饤����ñ��˥롼��Υ���������䤤��碌�ĥ꡼��������䤤��碌�ϰϥơ��֥�ι��ܤ��ꡢ�ӥ塼�򻲾Ȥ��Ƥ��������ϰϥơ��֥���֤������ޤ���
-�񤭴�����줿��̤��䤤��碌�ĥ꡼�ϡ��ʲ��Τ褦�����Ϥ������Ȥۤ�Ʊ���Ǥ���
+ビューを展開するために、リライタは単純にルールのアクション問い合わせツリーを持つ副問い合わせ範囲テーブルの項目を作り、ビューを参照していた元の範囲テーブルを置き換えます。
+書き換えられた結果の問い合わせツリーは、以下のように入力した場合とほぼ同じです。
 
 <programlisting>
 SELECT shoelace.sl_name, shoelace.sl_avail,
@@ -794,11 +794,11 @@ SELECT shoelace.sl_name, shoelace.sl_avail,
      the view, even though there's no direct use of the view in the rewritten
      query.
 -->
-������1�Ĥ����㤤������ޤ���
-���䤤��碌���ϰϥơ��֥뤬2�Ĥ�;ʬ�ʹ���<literal>shoelace old</>��<literal>shoelace new</>����äƤ��뤳�ȤǤ���
-�����ι��ܤ����䤤��碌�η��ĥ꡼����Ū�ꥹ�Ȥǻ��Ȥ���ޤ���Τǡ�ľ���䤤��碌�ǤϻȤ��ޤ���
-��饤���Ϥ�������Ѥ��ơ��ӥ塼�򻲾Ȥ����ϰϥơ��֥�ι��ܤ˸���¸�ߤ��������������³�ǧ������Ǽ���ޤ���
-������ˡ�ǡ��񤭴�����줿�䤤��碌��ľ�ܥӥ塼����Ѥ��Ƥ��ʤ��Ƥ⡢���������塼���ϥ桼�������Υӥ塼�˥����������뤿������������¤���äƤ��뤫��ǧ���ޤ���
+しかし1つだけ違いがあります。
+副問い合わせの範囲テーブルが2つの余分な項目<literal>shoelace old</>と<literal>shoelace new</>を持っていることです。
+これらの項目は副問い合わせの結合ツリーや目的リストで参照されませんので、直接問い合わせでは使われません。
+リライタはそれらを使用して、ビューを参照した範囲テーブルの項目に元々存在したアクセス権限確認情報を格納します。
+この方法で、書き換えられた問い合わせで直接ビューを使用していなくても、エクゼキュータはユーザがそのビューにアクセスするための正しい権限を持っているか確認します。
 </para>
 
 <para>
@@ -812,13 +812,13 @@ SELECT shoelace.sl_name, shoelace.sl_avail,
     so rewriting is complete and the above is the final result given to
     the planner.
 -->
-���줬�ǽ��Ŭ�Ѥ����롼��Ǥ���
-�롼�륷���ƥ�ϺǾ�̤��䤤��碌�λĤ�ʤ�����ǤϤ���ʾ夢��ޤ���ˤ��ϰϥơ��֥�ι��ܤ�����å���³���ޤ���
-�����ƥ롼�륷���ƥ�ϡ��ɲä��줿���䤤��碌���ϰϥơ��֥�ι��ܤ��ӥ塼�򻲾Ȥ��뤫��Ƶ�Ū�˳�ǧ���ޤ�
-�ʤ�����<literal>old</>��<literal>new</>��Ÿ�����ޤ���
-�����Ǥʤ����̵�ºƵ��ˤʤäƤ��ޤ��ޤ����ˡ�
-������Ǥ�<literal>shoelace_data</>��<literal>unit</>�Ѥν񤭴����롼��Ϥ���ޤ���
-�Ǥ�����񤭴����ϴ��뤷���嵭���ץ��ʤ��Ϥ����ǽ�Ū�ʷ�̤Ȥʤ�ޤ���
+これが最初に適用されるルールです。
+ルールシステムは最上位の問い合わせの残り（この例ではこれ以上ありません）の範囲テーブルの項目をチェックし続けます。
+そしてルールシステムは、追加された副問い合わせの範囲テーブルの項目がビューを参照するかを再帰的に確認します
+（しかし<literal>old</>や<literal>new</>は展開しません。
+そうでなければ無限再帰になってしまいます！）。
+この例では<literal>shoelace_data</>や<literal>unit</>用の書き換えルールはありません。
+ですから書き換えは完結し、上記がプランナに渡される最終的な結果となります。
 </para>
 
 <para>
@@ -827,7 +827,7 @@ SELECT shoelace.sl_name, shoelace.sl_avail,
     we have the matching shoelaces (color and length) and where the
     total number of exactly matching pairs is greater or equal to two.
 -->
-���ơ�Ź���֤��Ƥ��뷤ɳ�ʤο��ȥ������ˤ˰��פ��뷤��Ź�ˤ��뤫�������˰��פ��뷤ɳ�κ߸˿���2�ʾ夢�뤫�ɤ������İ������䤤��碌��񤤤Ƥߤޤ��礦��
+さて、店に置いてある靴紐（の色とサイズ）に一致する靴が店にあるか、完全に一致する靴紐の在庫数が2以上あるかどうかを把握する問い合わせを書いてみましょう。
 
 <programlisting>
 SELECT * FROM shoe_ready WHERE total_avail &gt;= 2;
@@ -844,7 +844,7 @@ SELECT * FROM shoe_ready WHERE total_avail &gt;= 2;
 <!--
     The output of the parser this time is the query tree:
 -->
-����Υѡ����ν��Ϥϰʲ����䤤��碌�ĥ꡼�Ǥ���
+今回のパーサの出力は以下の問い合わせツリーです。
 
 <programlisting>
 SELECT shoe_ready.shoename, shoe_ready.sh_avail,
@@ -859,7 +859,7 @@ SELECT shoe_ready.shoename, shoe_ready.sh_avail,
     <literal>shoe_ready</literal> view and it results in the
     query tree:
 -->
-�ǽ��Ŭ�Ѥ����롼���<literal>shoe_ready</literal>�ӥ塼�ѤΤ�Τǡ��䤤��碌�ĥ꡼�ˤ������̤ϰʲ��Τ褦�ˤʤ�ޤ���
+最初に適用されるルールは<literal>shoe_ready</literal>ビュー用のもので、問い合わせツリーにおける結果は以下のようになります。
 
 <programlisting>
 SELECT shoe_ready.shoename, shoe_ready.sh_avail,
@@ -882,7 +882,7 @@ SELECT shoe_ready.shoename, shoe_ready.sh_avail,
     <literal>shoelace</literal> are substituted into the range table of
     the subquery, leading to a three-level final query tree:
 -->
-Ʊ���褦�ˡ�<literal>shoe</literal>��<literal>shoelace</literal>�ѤΥ롼������䤤��碌���ϰϥơ��֥�Ȥ������Ѥ��졢3��٥�κǽ��䤤��碌�ĥ꡼�ؤ�Ƴ���ޤ���
+同じように、<literal>shoe</literal>と<literal>shoelace</literal>用のルールは副問い合わせの範囲テーブルとして代用され、3レベルの最終問い合わせツリーへと導きます。
 
 <programlisting>
 SELECT shoe_ready.shoename, shoe_ready.sh_avail,
@@ -931,11 +931,11 @@ SELECT shoe_ready.shoename, shoe_ready.sh_avail,
     collapsing the query tree is an optimization that the rewrite
     system doesn't have to concern itself with.
 -->
-���˥ץ��ʤϤ��Υĥ꡼��2��٥���䤤��碌�ĥ꡼�˽̤�ޤ���
-���ֲ���<command>SELECT</command>���ޥ�ɤ��̡��˽�������ɬ�פ�����ޤ���Τ�2���ܤ�<command>SELECT</command>��<quote>����ĥ��夲</quote>���ޤ���
-������2���ܤ�<command>SELECT</command>�Ͻ���ؿ�����Ĥ��ᡢĺ������϶��̤���ޤ���
-�⤷���������ĥ��夲�Ƥ��ޤ��Ȱ��־��<command>SELECT</command>��ư����Ѥ��Ƥ��ޤ����Ȥˤʤꡢ����Ϥ���������ޤ���
-���������䤤��碌�ĥ꡼��̤��Ȥ�����Ŭ���򡢽񤭴��������ƥ༫�Ȥǰռ�����ɬ�פϤ���ޤ���
+次にプランナはこのツリーを2レベルの問い合わせツリーに縮めます。
+一番下の<command>SELECT</command>コマンドは別々に処理する必要がありませんので2つ目の<command>SELECT</command>に<quote>引っ張り上げ</quote>られます。
+しかし2つ目の<command>SELECT</command>は集約関数を持つため、頂点からは区別されます。
+もしそれらを引っ張り上げてしまうと一番上の<command>SELECT</command>の動作を変えてしまうことになり、それはしたくありません。
+しかし、問い合わせツリーを縮めるという最適化を、書き換えシステム自身で意識する必要はありません。
    </para>
 </sect2>
 
@@ -943,7 +943,7 @@ SELECT shoe_ready.shoename, shoe_ready.sh_avail,
 <!--
 <title>View Rules in Non-<command>SELECT</command> Statements</title>
 -->
-<title>��<command>SELECT</command>ʸ�Υӥ塼�롼��</title>
+<title>非<command>SELECT</command>文のビュールール</title>
 
 <para>
 <!--
@@ -953,9 +953,9 @@ SELECT shoe_ready.shoename, shoe_ready.sh_avail,
     relation may affect the way in which the query rewriter works, because
     special care needs to be taken if the result relation is a view.
 -->
-����ޤǤΥӥ塼�롼��������Ǥ��䤤��碌�ĥ꡼��2�Ĥξܺ٤ˤĤ��ƿ���ޤ���Ǥ�����
-�����ϡ����ޥ�ɥ����פȷ�̥�졼�����Ǥ���
-�ºݡ����ޥ�ɥ����פϥӥ塼�롼��Ǥ�ɬ�פȤ���ޤ��󤬡���̥�졼����󤬥ӥ塼�ξ��ˤ����̤ʹ�θ��ɬ�פǤ��Τǡ���̥�졼�������䤤��碌��饤����ư��˱ƶ����뤫�⤷��ޤ���
+これまでのビュールールの説明では問い合わせツリーの2つの詳細について触れませんでした。
+それらは、コマンドタイプと結果リレーションです。
+実際、コマンドタイプはビュールールでは必要とされませんが、結果リレーションがビューの場合には特別な考慮が必要ですので、結果リレーションは問い合わせリライタの動作に影響するかもしれません。
 </para>
 
 <para>
@@ -969,10 +969,10 @@ SELECT shoe_ready.shoename, shoe_ready.sh_avail,
     <literal>t1</> and <literal>t2</> with columns <literal>a</> and
     <literal>b</>, the query trees for the two statements:
 -->
-<command>SELECT</command>��¾�Υ��ޥ�ɤ��Ф����䤤��碌�ĥ꡼�δ֤ˤ��礭�ʰ㤤�Ϥ���ޤ���
-���餫�ˡ������ϰ㤦���ޥ�ɥ����פ���äƤ��ơ�<command>SELECT</command>�ʳ��Υ��ޥ�ɤǤϡ���̥�졼�����Ϸ�̤γ�Ǽ��Ȥʤ��ϰϥơ��֥�ι��ܤ�ؤ������ޤ���
-����ʳ��ǤϤޤä���Ʊ���Ǥ���
-�Ǥ����顢<literal>a</>��<literal>b</>�������ĥơ��֥�<literal>t1</>��<literal>t2</>���Ф���ʲ���2�Ĥ�ʸ���䤤��碌�ĥ꡼�ϡ��ۤȤ��Ʊ���Ǥ���
+<command>SELECT</command>と他のコマンドに対する問い合わせツリーの間には大きな違いはありません。
+明らかに、それらは違うコマンドタイプを持っていて、<command>SELECT</command>以外のコマンドでは、結果リレーションは結果の格納先となる範囲テーブルの項目を指し示します。
+それ以外ではまったく同じです。
+ですから、<literal>a</>と<literal>b</>の列を持つテーブル<literal>t1</>、<literal>t2</>に対する以下の2つの文の問い合わせツリーは、ほとんど同じです。
 
 <programlisting>
 SELECT t2.b FROM t1, t2 WHERE t1.a = t2.a;
@@ -983,7 +983,7 @@ UPDATE t1 SET b = t2.b FROM t2 WHERE t1.a = t2.a;
 <!--
     are nearly identical.  In particular:
 -->
-�ʲ��ˡ�����Ū�˼����ޤ���
+以下に、具体的に示します。
 
     <itemizedlist>
         <listitem>
@@ -991,7 +991,7 @@ UPDATE t1 SET b = t2.b FROM t2 WHERE t1.a = t2.a;
 <!--
             The range tables contain entries for the tables <literal>t1</> and <literal>t2</>.
 -->
-�ϰϥơ��֥�ˤϡ��ơ��֥�<literal>t1</>��<literal>t2</>���Ф�����ܤ�����ޤ���
+範囲テーブルには、テーブル<literal>t1</>と<literal>t2</>に対する項目があります。
         </para>
         </listitem>
 
@@ -1001,7 +1001,7 @@ UPDATE t1 SET b = t2.b FROM t2 WHERE t1.a = t2.a;
             The target lists contain one variable that points to column
             <literal>b</> of the range table entry for table <literal>t2</>.
 -->
-��Ū�ꥹ�Ȥˤϥơ��֥�<literal>t2</>���Ф����ϰϥơ��֥���ܤ�<literal>b</>���ؤ�����1�Ĥ��ѿ�������ޤ���
+目的リストにはテーブル<literal>t2</>に対する範囲テーブル項目の<literal>b</>列を指し示す1つの変数があります。
         </para>
         </listitem>
 
@@ -1011,7 +1011,7 @@ UPDATE t1 SET b = t2.b FROM t2 WHERE t1.a = t2.a;
             The qualification expressions compare the columns <literal>a</> of both
             range-table entries for equality.
 -->
-��Ｐ�ϡ��ϰϥơ��֥��ξ���ܤ�<literal>a</>�������������Ӥ��ޤ���
+条件式は、範囲テーブルの両項目の<literal>a</>列の等価性を比較します。
         </para>
         </listitem>
 
@@ -1020,7 +1020,7 @@ UPDATE t1 SET b = t2.b FROM t2 WHERE t1.a = t2.a;
 <!--
             The join trees show a simple join between <literal>t1</> and <literal>t2</>.
 -->
-���ĥ꡼��<literal>t1</>��<literal>t2</>��ñ��ʷ���ɽ���Ƥ��ޤ���
+結合ツリーは<literal>t1</>と<literal>t2</>の単純な結合を表しています。
         </para>
         </listitem>
     </itemizedlist>
@@ -1034,9 +1034,9 @@ UPDATE t1 SET b = t2.b FROM t2 WHERE t1.a = t2.a;
     the target list by the planner and the final query tree will read
     as:
 -->
-��̤Ȥ��ơ�ξ�����䤤��碌�ĥ꡼�ϻ����褦�ʼ¹Էײ�ˤʤ�ޤ���
-�����ϤȤ��2�ĤΥơ��֥�η��Ǥ���
-<command>UPDATE</command>�Ǥ�<literal>t1</>����ȴ���Ƥ�����ϥץ��ʤˤ�ä���Ū�ꥹ�Ȥ��ɲä��졢�ǽ����䤤��碌�ĥ꡼�ϡ��ʲ��Τ褦�ˤʤ�ޤ���
+結果として、両方の問い合わせツリーは似たような実行計画になります。
+それらはともに2つのテーブルの結合です。
+<command>UPDATE</command>では<literal>t1</>から抜けている列はプランナによって目的リストに追加され、最終の問い合わせツリーは、以下のようになります。
 
 <programlisting>
 UPDATE t1 SET a = t1.a, b = t2.b FROM t2 WHERE t1.a = t2.a;
@@ -1046,7 +1046,7 @@ UPDATE t1 SET a = t1.a, b = t2.b FROM t2 WHERE t1.a = t2.a;
     and thus the executor run over the join will produce exactly the
     same result set as:
 -->
-�����ơ�����¹Ԥ������������塼���ϡ�
+そして、結合を実行したエクゼキュータは、
 
 <programlisting>
 SELECT t1.a, t2.b FROM t1, t2 WHERE t1.a = t2.a;
@@ -1063,13 +1063,13 @@ SELECT t1.a, t2.b FROM t1, t2 WHERE t1.a = t2.a;
     this result should go into table <literal>t1</>. But which of the rows
     that are there has to be replaced by the new row?
 -->
-�η�̽���Ȥޤä���Ʊ����̽����������ޤ���
-�Ȥϸ��äƤ�<command>UPDATE</command>�ˤϤ���äȤ������꤬����ޤ���
-����Ԥ����������塼���ηײ����ʬ�ϡ����η�̤����˸������Ƥ��뤫�˴�Ϳ���ޤ���
-���������塼����ñ�˷�̤Ȥʤ�Ԥν���������������Ǥ���
-1�Ĥ�<command>SELECT</command>���ޥ�ɤǤ⤦1�Ĥ�<command>UPDATE</command>���ޥ�ɤǤ���Ȥ������¤ϡ����������塼������Τ���̤ǰ����ޤ���
-�����Ǥϡ����줬<command>UPDATE</command>�Ǥ���Ȥ狼�äƤ��ơ����η�̤��ơ��֥�<literal>t1</>������ʤ���Ф����ʤ����Ȥ��ΤäƤ��ޤ���
-�������������ˤ���ɤιԤ��������Ԥˤ�ä��ִ�����ʤ���Фʤ�ʤ��ΤǤ��礦����
+の結果集合とまったく同じ結果集合を作成します。
+とは言っても<command>UPDATE</command>にはちょっとした問題があります。
+結合を行うエクゼキュータの計画の部分は、結合の結果が何に向けられているかに関与しません。
+エクゼキュータは単に結果となる行の集合を作成するだけです。
+1つは<command>SELECT</command>コマンドでもう1つは<command>UPDATE</command>コマンドであるという事実は、エクゼキュータの中のより上位で扱われます。
+そこでは、これが<command>UPDATE</command>であるとわかっていて、この結果がテーブル<literal>t1</>に入らなければいけないことを知っています。
+しかし、そこにあるどの行が新しい行によって置換されなければならないのでしょうか。
 </para>
 
 <para>
@@ -1084,12 +1084,12 @@ SELECT t1.a, t2.b FROM t1, t2 WHERE t1.a = t2.a;
     original row of <literal>t1</> to be updated.  After adding the
     <acronym>CTID</> to the target list, the query actually looks like:
 -->
-����������褹�뤿�ᡢ<command>UPDATE</command>ʸ��<command>DELETE</command>ʸ�ξ���Ʊ�͡ˤ���Ū�ꥹ�Ȥ��̤ι��ܤ��դ��ä����ޤ���
-����ϡ����ߤΥ��ץ�ID��<acronym>CTID</>�ˤǤ���
+この問題を解決するため、<command>UPDATE</command>文（<command>DELETE</command>文の場合も同様）の目的リストに別の項目が付け加えられます。
+それは、現在のタプルID（<acronym>CTID</>）です。
 <indexterm><primary>CTID</></>
-����Ϥ��ιԤΥե�����֥��å��ֹ�ȥ֥��å���ΰ��֤���ĥ����ƥ���Ǥ���
-�ơ��֥뤬�狼�äƤ����硢<acronym>CTID</>����Ѥ��ơ�����<literal>t1</>�Ԥ���Ф��ƹ������뤳�Ȥ��Ǥ��ޤ���
-<acronym>CTID</>����Ū�ꥹ�Ȥ��ɲä���ȡ��䤤��碌�ϰʲ��Τ褦�ˤʤ�ޤ���
+これはその行のファイルブロック番号とブロック中の位置を持つシステム列です。
+テーブルがわかっている場合、<acronym>CTID</>を使用して、元の<literal>t1</>行を抽出して更新することができます。
+<acronym>CTID</>を目的リストに追加すると、問い合わせは以下のようになります。
 
 <programlisting>
 SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
@@ -1107,10 +1107,10 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     the transaction commits the vacuum cleaner can eventually remove
     the dead row.
 -->
-�Ǥϡ�<productname>PostgreSQL</productname>���̤ξܺ�����������ޤ��礦��
-�ơ��֥�ιԤϾ�񤭤���ޤ���Τǡ�<command>ROLLBACK</command>������®���ΤǤ���
-<command>UPDATE</command>�Ǥϡ���<acronym>CTID</>�����������˥ơ��֥�˿�������̹Ԥ��������졢<acronym>CTID</>���ؤ������Ť��Ԥιԥإå����<literal>cmax</>��<literal>xmax</>���ܤϸ��ߤΥ��ޥ�ɥ����󥿤ȸ��ߤΥȥ�󥶥������ID�����ꤵ��ޤ��� 
-���Τ褦�ˤ��ơ��Ť��Ԥϱ����졢�ȥ�󥶥�����󤬥��ߥåȤ��줿�塢vacuum�ݽ�������ɬ�פˤʤä��Ԥ򤽤Τ����˺���Ǥ��ޤ���
+では、<productname>PostgreSQL</productname>の別の詳細説明に入りましょう。
+テーブルの行は上書きされませんので、<command>ROLLBACK</command>処理は速いのです。
+<command>UPDATE</command>では、（<acronym>CTID</>を取り除いた後）テーブルに新しい結果行が挿入され、<acronym>CTID</>が指し示す古い行の行ヘッダ内の<literal>cmax</>と<literal>xmax</>項目は現在のコマンドカウンタと現在のトランザクションIDに設定されます。 
+このようにして、古い行は隠され、トランザクションがコミットされた後、vacuum掃除機が不必要になった行をそのうちに削除できます。
 </para>
 
 <para>
@@ -1118,8 +1118,8 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     Knowing all that, we can simply apply view rules in absolutely
     the same way to any command. There is no difference.
 -->
-�����ξܺ٤���������Ǥ���С��ɤ�ʥ��ޥ�ɤ��Ф��Ƥ�ޤä���Ʊ���褦�ˤ��ƥӥ塼�Υ롼����ñ��Ŭ�Ѥ��뤳�Ȥ��Ǥ��ޤ���
-�����ˤϺ��ۤ�����ޤ���
+これらの詳細が全部理解できれば、どんなコマンドに対してもまったく同じようにしてビューのルールを簡単に適用することができます。
+そこには差異がありません。
 </para>
 </sect2>
 
@@ -1127,7 +1127,7 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
 <!--
 <title>The Power of Views in <productname>PostgreSQL</productname></title>
 -->
-<title><productname>PostgreSQL</productname>�ˤ�����ӥ塼��ǽ��</title>
+<title><productname>PostgreSQL</productname>におけるビューの能力</title>
 
 <para>
 <!--
@@ -1137,8 +1137,8 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     query tree that is a join of 4 tables (<literal>unit</> was used twice with
     different names).
 -->
-�����ޤǤǡ��롼�륷���ƥब�ɤΤ褦�˥ӥ塼�ν�����򸵤��䤤��碌�ĥ꡼���Ȥ�����뤫����⤷�ޤ�����
-��2����Ǥϡ�1�ĤΥӥ塼�����ñ���<command>SELECT</command>�ˤ�äơ��ǽ�Ū��4�ĤΥơ��֥���礹���䤤��碌�ĥ꡼����������ޤ�����<literal>unit</>�ϰ�ä�̾����2��Ȥ��ޤ����ˡ�
+ここまでで、ルールシステムがどのようにビューの諸定義を元の問い合わせツリーに組み入れるかを解説しました。
+第2の例では、1つのビューからの単純な<command>SELECT</command>によって、最終的に4つのテーブルを結合する問い合わせツリーが生成されました（<literal>unit</>は違った名前で2回使われました）。
 </para>
 
 <para>
@@ -1158,11 +1158,11 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     ensures, that this is all information available about the query
     up to that point.
 -->
-�ӥ塼��롼�륷���ƥ�Ǽ������������ϡ��ɤΥơ��֥�򥹥���󤹤٤����������Υơ��֥�֤δ�Ϣ�����ӥ塼���������������䤤��碌���˴ؤ����������ơ��ץ��ʤ�1�Ĥ��䤤��碌�ĥ꡼����˻��äƤ��뤳�ȤǤ���
-�����䤤��碌�����˥ӥ塼���Ф�����Ǥ������Ʊ�ͤǤ���
-�ץ��ʤϤ����Ǥɤ줬�䤤��碌�����κ�Ŭ��ϩ������ꤷ�ʤ���Фʤ�ޤ���
-�ץ��ʤ��ݻ��������¿�����¿���ۤɡ�����ɤ�����򲼤����Ȥ��Ǥ��ޤ���
-������<productname>PostgreSQL</productname>�˼�������Ƥ���롼�륷���ƥ�Ϥ��줬�������ǡ��󶡤���Ƥ������Ƥξ���Ǥ��뤳�Ȥ��ݾڤ��ޤ���
+ビューをルールシステムで実装する利点は、どのテーブルをスキャンすべきか、それらのテーブル間の関連性、ビューからの制約条件、元の問い合わせ条件に関する情報を全て、プランナが1つの問い合わせツリーの中に持っていることです。
+元の問い合わせが既にビューに対する結合である時も同様です。
+プランナはここでどれが問い合わせ処理の最適経路かを決定しなければなりません。
+プランナは保持する情報が多ければ多いほど、より良い決定を下すことができます。
+そして<productname>PostgreSQL</productname>に実装されているルールシステムはこれが現時点で、提供されている全ての情報であることを保証します。
 </para>
 </sect2>
 
@@ -1170,7 +1170,7 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
 <!--
 <title>Updating a View</title>
 -->
-<title>�ӥ塼�ι����ˤĤ���</title>
+<title>ビューの更新について</title>
 
 <para>
 <!--
@@ -1182,8 +1182,8 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     work.  There are several ways in which <productname>PostgreSQL</>
     can support the appearance of updating a view, however.
 -->
-�ӥ塼��<command>INSERT</command>��<command>UPDATE</command>��<command>DELETE</command>�ʤɤ���Ū��졼�����Ȥ���̾�դ���줿���Ϥɤ��ʤ�ΤǤ��礦����
-������������褦���ִ��򤹤�ȡ���̥�졼��������䤤��碌���ϰϥơ��֥���ܤ�ؤ��䤤��碌�ĥ꡼���Ǥ��Ƥ��ޤ�������Ͼ�꤯��ǽ���ޤ��󡣤������������Ĥ��Υ������Ǥ�<productname>PostgreSQL</>�ϥӥ塼�ι����򥵥ݡ��Ȥ�������Ǥ��ޤ���
+ビューが<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>などの目的リレーションとして名付けられた場合はどうなるのでしょうか？
+上で説明したような置換をすると、結果リレーションが副問い合わせの範囲テーブル項目を指す問い合わせツリーができてしまい、それは上手く機能しません。しかし、いくつかのケースでは<productname>PostgreSQL</>はビューの更新をサポートする事ができます。
 </para>
 
 <para>
@@ -1197,8 +1197,8 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     updatable</>.  For detailed information on the kinds of view that can
     be automatically updated, see <xref linkend="sql-createview">.
 -->
-���䤤��碌��ñ��Υơ��֥�򻲾Ȥ����Ľ�ʬ��ñ��Ǥ��������饤�������䤤��碌���ﻲ�ȥơ��֥�˼�ưŪ���֤��������������äơ�<command>INSERT</command>��<command>UPDATE</command>���뤤��<command>DELETE</command>��Ŭ�ڤ���ˡ���ﻲ�ȥơ��֥��Ŭ�Ѥ�������Ǥ��ޤ���
-���ξ���<quote>��ʬ��ñ��</>�Ǥ���Ȥ�<firstterm>��ưŪ�˹�����ǽ</>������Ǥ������ܺ٤ʼ�ưŪ�˹�����ǽ�ʥӥ塼�ξ���ˤĤ��Ƥϡ�<xref linkend="sql-createview">�򻲾Ȥ��Ƥ���������
+副問い合わせが単一のテーブルを参照しかつ十分に単純である時、リライタは副問い合わせを被参照テーブルに自動的に置き換え、したがって、<command>INSERT</command>、<command>UPDATE</command>あるいは<command>DELETE</command>を適切な方法で被参照テーブルに適用する事ができます。
+この場合の<quote>十分に単純</>であるとは<firstterm>自動的に更新可能</>ある事です。より詳細な自動的に更新可能なビューの情報については、<xref linkend="sql-createview">を参照してください。
 </para>
 
 <para>
@@ -1215,10 +1215,10 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     but another unexpanded range-table entry is added to the query
     to represent the view in its capacity as the result relation.
 -->
-�⤦��Ĥ���ˡ�Ȥ��ơ��ӥ塼���Ф���桼�������<literal>INSTEAD OF</>�ȥꥬ�ˤ�äƤ����Υ��ޥ�ɤ������������Ǥ��ޤ������ξ�硢�񤭴����Ͼ����㤦���ǹԤ��ޤ���
-<command>INSERT</command>���Ф��Ƥϡ���饤���ϥӥ塼���������⤻�����䤤��碌�η�̥�졼�����򤽤Τޤޤˤ��ޤ���
-<command>UPDATE</command>��<command>DELETE</command>���Ф��Ƥϡ����ޥ�ɤ������⤷���Ϻ�����褦�Ȥ���<quote>�Ť�</>�Ԥ��������뤿��˥ӥ塼�䤤��碌��Ÿ������ɬ�פ��ޤ�����ޤ���
-���Τ��ᡢ�ӥ塼���̾��̤�Ÿ������ޤ������⤦��Ĥ�Ÿ������ʤ��ϰϥơ��֥���ܤ���̥�졼�����Ȥ��ƥӥ塼��ɽ���䤤��碌���ɲä���ޤ���
+もう一つの方法として、ビューに対するユーザ定義の<literal>INSTEAD OF</>トリガによってこれらのコマンドを処理する事ができます。この場合、書き換えは少々違う形で行われます。
+<command>INSERT</command>に対しては、リライタはビューに全く何もせず、問い合わせの結果リレーションをそのままにします。
+<command>UPDATE</command>と<command>DELETE</command>に対しては、コマンドが更新もしくは削除しようとする<quote>古い</>行を生成するためにビュー問い合わせを展開する必要がまだあります。
+そのため、ビューは通常通り展開されますが、もう一つの展開されない範囲テーブル項目が結果リレーションとしてビューを表す問い合わせに追加されます。
 </para>
 
 <para>
@@ -1237,12 +1237,12 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     up to the trigger to work out what to update based on the old and
     new row values.
 -->
-�����ǵ���������ϥӥ塼�ǹ��������Ԥ�ɤΤ褦�����ꤹ�뤫�Ȥ������ȤǤ���
-��̥�졼����󤬥ơ��֥�ξ�硢��������Ԥ�ʪ��Ū�ʰ��֤����ꤹ�뤿������̤�<acronym>CTID</>���ܤ���Ū�ꥹ�Ȥ��ɲä���뤳�Ȥ�פ��Ф��Ʋ�������
-�ӥ塼�ιԤˤϼºݤ�ʪ��Ū�ʰ��֤��ʤ����ᡢ�ӥ塼�ˤ�<acronym>CTID</>������ޤ���Τǡ�����Ϸ�̥�졼����󤬥ӥ塼�ξ��ˤϾ�꤯�����ޤ���
-�������ꡢ<command>UPDATE</command>��<command>DELETE</command>���Ǥϡ����̤�<literal>������</>�ι��ܤ���Ū�ꥹ�Ȥ��ɲä���Ƥ��ơ�����ϥӥ塼���餹�٤Ƥ����ޤ�褦��Ÿ������Ƥ��ޤ���
-���������塼���Ϥ����ͤ�Ȥä�<quote>�Ť�</>�Ԥ�<literal>INSTEAD OF</>�ȥꥬ���󶡤��ޤ���
-����ιԤ��ͤ˴�Ť��ƹ��������Τ�׻�����Τϥȥꥬ����Ǥ�Ǥ���
+ここで起こる問題はビューで更新される行をどのように特定するかということです。
+結果リレーションがテーブルの場合、更新する行の物理的な位置を特定するために特別な<acronym>CTID</>項目が目的リストに追加されることを思い出して下さい。
+ビューの行には実際の物理的な位置がないため、ビューには<acronym>CTID</>がありませんので、これは結果リレーションがビューの場合には上手くいきません。
+その代わり、<command>UPDATE</command>や<command>DELETE</command>操作では、特別な<literal>行全体</>の項目が目的リストに追加されていて、それはビューからすべての列を含むように展開されています。
+エクゼキュータはこの値を使って<quote>古い</>行を<literal>INSTEAD OF</>トリガに提供します。
+新旧の行の値に基づいて更新するものを計算するのはトリガの責任です。
 </para>
 
 <para>
@@ -1254,9 +1254,9 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     that updates one or more tables, rather than views. That is the topic
     of the next section.
 -->
-�̤���ˡ�Ȥ��Ƥϡ��ӥ塼���Ф���<command>INSERT</command>��<command>UPDATE</command>��<command>DELETE</command>���ޥ�ɤ����ؤ�ư�����ꤹ��<literal>INSTEAD</>�롼������������Ǥ���
-�����Υ롼��ϡ��ӥ塼�ǤϤʤ����ޥ�ɤ��̾��1�Ĥ⤷����ʣ���Υơ��֥�򹹿����륳�ޥ�ɤ˽񤭴����ޤ���
-���줬���������ˤʤ�ޤ���
+別の方法としては、ビューに対する<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>コマンドに代替の動作を指定する<literal>INSTEAD</>ルールを定義する事です。
+これらのルールは、ビューではなくコマンドを、通常は1つもしくは複数のテーブルを更新するコマンドに書き換えます。
+それが次節の論題になります。
 </para>
 
 <para>
@@ -1268,8 +1268,8 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     evaluated first, and depending on the result, the triggers may not be
     used at all.
 -->
-�롼�뤬�ǽ��ɾ�����졢�����䤤��碌���ײ褵��¹Ԥ�������ˤ����񤭴����뤳�Ȥ����դ��Ʋ�������
-���Τ���ӥ塼��<literal>INSTEAD OF</>�ȥꥬ��<command>INSERT</>��<command>UPDATE</>��<command>DELETE</>�˴ؤ���롼�뤬���ä���硢�롼�뤬�ǽ��ɾ�����졢���η�̤�äƤϥȥꥬ�������Ȥ��ʤ����⤷��ޤ���
+ルールが最初に評価され、元の問い合わせが計画され実行される前にそれを書き換えることに注意して下さい。
+そのためビューに<literal>INSTEAD OF</>トリガと<command>INSERT</>や<command>UPDATE</>や<command>DELETE</>に関するルールがあった場合、ルールが最初に評価され、その結果よってはトリガが全く使われないかもしれません。
 </para>
 
 <para>
@@ -1280,7 +1280,7 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     triggers, they will override the default behavior of automatically
     updatable views.
 -->
-ñ��ʥӥ塼���Ф���<command>INSERT</command>��<command>UPDATE</command>���뤤��<command>DELETE</command>���ޥ�ɤμ�ư�񤭴����Ͼ�˺Ǹ�˻�ߤ��ޤ����������äơ��ӥ塼���롼��⤷���ϥȥꥬ����äƤ�����硢�����Ϲ�����ǽ�ӥ塼�Υǥե����ư����񤭤��ޤ���
+単純なビューに対する<command>INSERT</command>、<command>UPDATE</command>あるいは<command>DELETE</command>コマンドの自動書き換えは常に最後に試みられます。したがって、ビューがルールもしくはトリガを持っていた場合、これらは更新可能ビューのデフォルト動作を上書きします。
 </para>
 
 <para>
@@ -1290,7 +1290,7 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     the query as an update on the underlying base relation, an error will
     be thrown because the executor cannot update a view as such.
 -->
-�ӥ塼��<literal>INSTEAD</>�롼���<literal>INSTEAD OF</>�ȥꥬ���������Ƥ��餺�����ġ���饤�����������ưŪ���ﻲ�ȥơ��֥�ؤι����˽񤭴���������Ǥ��ʤ��ä���硢���������塼���ϥӥ塼�򹹿��Ǥ��ޤ���Τǥ��顼��ȯ�����ޤ���
+ビューに<literal>INSTEAD</>ルールも<literal>INSTEAD OF</>トリガも定義されておらず、かつ、リライタがクエリを自動的に被参照テーブルへの更新に書き換える事ができなかった場合、エグゼキュータはビューを更新できませんのでエラーが発生します。
 </para>
 
 </sect2>
@@ -1301,7 +1301,7 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
 <!--
 <title>Materialized Views</title>
 -->
-<title>�ޥƥꥢ�饤���ɥӥ塼</title>
+<title>マテリアライズドビュー</title>
 
 <indexterm zone="rules-materializedviews">
  <primary>rule</primary>
@@ -1324,7 +1324,7 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     rule system like views do, but persist the results in a table-like form.
     The main differences between:
 -->
-<productname>PostgreSQL</productname>�ˤ�����ޥƥꥢ�饤���ɥӥ塼�ϥӥ塼�Τ褦�˥롼�륷���ƥ����Ѥ��ޤ�������������ơ��֥�Ǥ��뤫�Τ褦�ʷ��֤Ƿ�̤��ݻ����ޤ���
+<productname>PostgreSQL</productname>におけるマテリアライズドビューはビューのようにルールシステムを使用しますが、あたかもテーブルであるかのような形態で結果を保持します。
 
 <programlisting>
 CREATE MATERIALIZED VIEW mymatview AS SELECT * FROM mytab;
@@ -1333,7 +1333,7 @@ CREATE MATERIALIZED VIEW mymatview AS SELECT * FROM mytab;
 <!--
     and:
 -->
-��
+と
 
 <programlisting>
 CREATE TABLE mymatview AS SELECT * FROM mytab;
@@ -1345,7 +1345,7 @@ CREATE TABLE mymatview AS SELECT * FROM mytab;
     exactly the same way that a view's query is stored, so that fresh data
     can be generated for the materialized view with:
 -->
-�δ֤μ�ʰ㤤�ϡ����θ�˥ޥƥꥢ�饤���ɥӥ塼��ľ�ܹ����Ǥ��ʤ����ȡ��ޥƥꥢ�饤���ɥӥ塼��������뤿��˻Ȥ�줿�����꤬�ӥ塼������Ʊ�ͤ���ˡ���ݻ����졢�ʲ��Υ��ޥ�ɤ��Ѥ��ƺǿ��Υǡ����ǥޥƥꥢ�饤���ɥӥ塼��ƹ��ۤǤ�����Ǥ���
+の間の主な違いは、その後にマテリアライズドビューを直接更新できない事と、マテリアライズドビューを作成するために使われたクエリがビューと全く同様の方法で保持され、以下のコマンドを用いて最新のデータでマテリアライズドビューを再構築できる事です。
 
 <programlisting>
 REFRESH MATERIALIZED VIEW mymatview;
@@ -1360,9 +1360,9 @@ REFRESH MATERIALIZED VIEW mymatview;
     directly from the materialized view, like from a table; the rule is
     only used for populating the materialized view.
 -->
-�ޥƥꥢ�饤���ɥӥ塼�˴ؤ�������<productname>PostgreSQL</productname>�����ƥ५�������ǥӥ塼��ơ��֥���Ф����Τ�����Ʊ�ͤ��ݻ�����Ƥ��ޤ���
-���Τ��ᡢ�ѡ����ˤȤäƥޥƥꥢ�饤���ɥӥ塼�ϥơ��֥��ӥ塼��Ʊ����졼�����Ǥ���
-�䤤��碌�ǥޥƥꥢ�饤���ɥӥ塼�����Ȥ��줿������������ơ��֥�Τ褦�ˡ��ǡ����ϥޥƥꥢ�饤���ɥӥ塼����ľ���֤���ޤ����롼��ϥޥƥꥢ�饤���ɥӥ塼�˥ǡ���������������ˤ������Ѥ���ޤ���
+マテリアライズドビューに関する情報は<productname>PostgreSQL</productname>システムカタログでビューやテーブルに対するものと全く同様に保持されています。
+そのため、パーサにとってマテリアライズドビューはテーブルやビューと同じリレーションです。
+問い合わせでマテリアライズドビューが参照された時、あたかもテーブルのように、データはマテリアライズドビューから直接返されます。ルールはマテリアライズドビューにデータを投入する時にだけ使用されます。
 </para>
 
 <para>
@@ -1372,8 +1372,8 @@ REFRESH MATERIALIZED VIEW mymatview;
     the data is not always current; yet sometimes current data is not needed.
     Consider a table which records sales:
 -->
-¿���ξ�硢�ޥƥꥢ�饤���ɥӥ塼�˳�Ǽ����Ƥ���ǡ����λ��Ȥϡ��ӥ塼���̤��ơ����뤤�ϥӥ塼���黲�Ȥ���Ƥ���ơ��֥��ľ�ܻ��Ȥ�������®�Ǥ������ǡ�������˺ǿ��Ǥ���Ȥϸ¤�ޤ��󡣤Ǥ��������ˤϺǿ��Υǡ�����ɬ�פǤʤ����⤢��ޤ���
-���������Ͽ����ơ��֥�����ͤ��Ƥߤޤ��礦��
+多くの場合、マテリアライズドビューに格納されているデータの参照は、ビューを通して、あるいはビューから参照されているテーブルを直接参照するよりも高速ですが、データが常に最新であるとは限りません。ですが、時には最新のデータは必要でない事もあります。
+販売履歴を記録するテーブルの例を考えてみましょう。
 
 <programlisting>
 <!--
@@ -1386,9 +1386,9 @@ CREATE TABLE invoice (
 -->
 CREATE TABLE invoice (
     invoice_no    integer        PRIMARY KEY,
-    seller_no     integer,       -- �������ID
-    invoice_date  date,          -- ������
-    invoice_amt   numeric(13,2)  -- ������
+    seller_no     integer,       -- 販売員のID
+    invoice_date  date,          -- 販売日
+    invoice_amt   numeric(13,2)  -- 販売量
 );
 </programlisting>
 
@@ -1397,7 +1397,7 @@ CREATE TABLE invoice (
     might want to summarize, and they may not care about the incomplete data
     for the current date:
 -->
-�⤷���ѼԤ���������ǡ�����®�䤫�˥���ղ���ǽ�Ǥ��äƤۤ����ȹͤ���ʤ顢���ϥǡ����������˾��ΤǤ��äơ��ǿ��Υǡ������Դ����Ǥ�����ϵ��ˤ��ʤ��Ǥ��礦��
+もし利用者が過去の販売データを速やかにグラフ化可能であってほしいと考えるなら、彼らはデータの要約を望むのであって、最新のデータが不完全である事は気にしないでしょう。
 
 <programlisting>
 CREATE MATERIALIZED VIEW sales_summary AS
@@ -1423,8 +1423,8 @@ CREATE UNIQUE INDEX sales_summary_seller
     dashboard created for salespeople.  A job could be scheduled to update
     the statistics each night using this SQL statement:
 -->
-���Υޥƥꥢ�饤���ɥӥ塼�ϱĶ�ô���Ѥ˺����������å���ܡ��ɤΥ���դ�ɽ������ΤˤԤä���Ǥ��礦��
-�ʲ���SQL��Ȥä����׾���򹹿����른��֤����ե������塼�뤷�Ƥ������Ȥ��Ǥ��ޤ���
+このマテリアライズドビューは営業担当用に作成されるダッシュボードのグラフを表示するのにぴったりでしょう。
+以下のSQLを使った統計情報を更新するジョブを毎晩スケジュールしておくことができます。
 
 <programlisting>
 REFRESH MATERIALIZED VIEW sales_summary;
@@ -1443,17 +1443,17 @@ REFRESH MATERIALIZED VIEW sales_summary;
     not support indexes; this advantage might not apply for other sorts of
     foreign data access.
 -->
-����ʳ��Υޥƥꥢ�饤���ɥӥ塼�����ӤȤ��ơ������ǡ�����åѤ��̤��ƥ�⡼�ȥ����ƥफ����������ǡ����ι�®�����󤲤��ޤ���
-�ʲ������<literal>file_fdw</literal>���Ѥ���ñ�����ǡ��¹Ի��֤�ޤߤޤ���������ϥ������륷���ƥ�Υ���å��嵡�����Ѥ��Ƥ��뤿�ᡢ��⡼�ȥ����ƥ�ؤΥ�����������Ӥ����㤤�����������Ǽ�������Τ���Ū�Ǥ���
-�ޥƥꥢ�饤���ɥӥ塼�ˤϥ���ǥå��������ꤹ�뤳�Ȥ�Ǥ��ޤ�����<literal>file_fdw</literal>�ϥ���ǥå����򥵥ݡ��Ȥ��ʤ����Ȥ����դ��Ƥ���������
-����ͭ�������ϡ�¾�μ���γ����ǡ������������ˤ����ƤϤޤ�ʤ��Ǥ��礦��
+それ以外のマテリアライズドビューの用途として、外部データラッパを通じてリモートシステムから取得したデータの高速化が挙げられます。
+以下の例は<literal>file_fdw</literal>を用いた単純な例で、実行時間を含みますが、これはローカルシステムのキャッシュ機構を用いているため、リモートシステムへのアクセスと比較した違いの方がここで示したものより劇的です。
+マテリアライズドビューにはインデックスを設定することもできますが、<literal>file_fdw</literal>はインデックスをサポートしないことに注意してください。
+この有利な点は、他の種類の外部データアクセスには当てはまらないでしょう。
 </para>
 
 <para>
 <!--
     Setup:
 -->
-���åȥ��å�:
+セットアップ:
 
 <programlisting>
 CREATE EXTENSION file_fdw;
@@ -1471,7 +1471,7 @@ VACUUM ANALYZE wrd;
 <!--
     Now let's spell-check a word.  Using <literal>file_fdw</literal> directly:
 -->
-<literal>file_fdw</literal>��ľ���Ѥ��ƻ���Υ��ڥ�����å��򤷤Ƥߤޤ��礦��
+<literal>file_fdw</literal>を直接用いて字句のスペルチェックをしてみましょう。
 
 <programlisting>
 SELECT count(*) FROM words WHERE word = 'caterpiler';
@@ -1485,7 +1485,7 @@ SELECT count(*) FROM words WHERE word = 'caterpiler';
 <!--
     With <command>EXPLAIN ANALYZE</>, we see:
 -->
-<command>EXPLAIN ANALYZE</>�ˤ��аʲ����̤�Ǥ�:
+<command>EXPLAIN ANALYZE</>によれば以下の通りです:
 
 <programlisting>
  Aggregate  (cost=21763.99..21764.00 rows=1 width=0) (actual time=188.180..188.181 rows=1 loops=1)
@@ -1501,7 +1501,7 @@ SELECT count(*) FROM words WHERE word = 'caterpiler';
 <!--
     If the materialized view is used instead, the query is much faster:
 -->
-����˥ޥƥꥢ�饤���ɥӥ塼��Ȥä���硢�����������®���ʤ�ޤ���
+代わりにマテリアライズドビューを使った場合、クエリは非常に速くなります。
 
 <programlisting>
  Aggregate  (cost=4.44..4.45 rows=1 width=0) (actual time=0.042..0.042 rows=1 loops=1)
@@ -1516,8 +1516,8 @@ SELECT count(*) FROM words WHERE word = 'caterpiler';
     Either way, the word is spelled wrong, so let's look for what we might
     have wanted.  Again using <literal>file_fdw</literal>:
 -->
-�ɤ���ξ��Ǥ⡢word���֤�ϴְ�äƤ��ޤ����Ǥϡ��桹��˾��Ǥ����Ǥ�������̤����뤿��ˡ��⤦����<literal>file_fdw</literal>��ȤäƤߤޤ���
-�����������������������֤��<quote>caterpillar</>��
+どちらの場合でも、wordの綴りは間違っています。では、我々が望んでいたであろう結果を得るために、もう一度<literal>file_fdw</literal>を使ってみます。
+（訳注：検索条件の正しい綴りは<quote>caterpillar</>）
 
 <programlisting>
 SELECT word FROM words ORDER BY word <-> 'caterpiler' LIMIT 10;
@@ -1552,7 +1552,7 @@ SELECT word FROM words ORDER BY word <-> 'caterpiler' LIMIT 10;
 <!--
     Using the materialized view:
 -->
-�ޥƥꥢ�饤���ɥӥ塼����Ѥ������:
+マテリアライズドビューを使用した場合:
 
 <programlisting>
  Limit  (cost=0.29..1.06 rows=10 width=10) (actual time=187.222..188.257 rows=10 loops=1)
@@ -1566,7 +1566,7 @@ SELECT word FROM words ORDER BY word <-> 'caterpiler' LIMIT 10;
     If you can tolerate periodic update of the remote data to the local
     database, the performance benefit can be substantial.
 -->
-���Ū�˥�⡼�ȤΥǡ������������˹������ͤФʤ�ʤ�������ƤǤ���ΤǤ���С��������ǽ����رפ������뤳�ȤǤ��礦��
+定期的にリモートのデータをローカルに更新せねばならない事を許容できるのであれば、代わりに性能上の便益を得られることでしょう。
 </para>
 
 </sect1>
@@ -1575,15 +1575,15 @@ SELECT word FROM words ORDER BY word <-> 'caterpiler' LIMIT 10;
 <!--
 <title>Rules on <command>INSERT</>, <command>UPDATE</>, and <command>DELETE</></title>
 -->
-<title><command>INSERT</>��<command>UPDATE</>��<command>DELETE</>�ˤĤ��ƤΥ롼��</title>
+<title><command>INSERT</>、<command>UPDATE</>、<command>DELETE</>についてのルール</title>
 
 <indexterm zone="rules-update">
 <!--
  <primary>rule</primary>
  <secondary sortas="INSERT">for INSERT</secondary>
 -->
- <primary>�롼��</primary>
- <secondary sortas="INSERT">INSERT��</secondary>
+ <primary>ルール</primary>
+ <secondary sortas="INSERT">INSERT用</secondary>
 </indexterm>
 
 <indexterm zone="rules-update">
@@ -1591,8 +1591,8 @@ SELECT word FROM words ORDER BY word <-> 'caterpiler' LIMIT 10;
  <primary>rule</primary>
  <secondary sortas="UPDATE">for UPDATE</secondary>
 -->
- <primary>�롼��</primary>
- <secondary sortas="UPDATE">UPDATE��</secondary>
+ <primary>ルール</primary>
+ <secondary sortas="UPDATE">UPDATE用</secondary>
 </indexterm>
 
 <indexterm zone="rules-update">
@@ -1600,8 +1600,8 @@ SELECT word FROM words ORDER BY word <-> 'caterpiler' LIMIT 10;
  <primary>rule</primary>
  <secondary sortas="DELETE">for DELETE</secondary>
 -->
- <primary>�롼��</primary>
- <secondary sortas="DELETE">DELETE��</secondary>
+ <primary>ルール</primary>
+ <secondary sortas="DELETE">DELETE用</secondary>
 </indexterm>
 
 <para>
@@ -1611,8 +1611,8 @@ SELECT word FROM words ORDER BY word <-> 'caterpiler' LIMIT 10;
     described in the previous section. First, their <command>CREATE
     RULE</command> command allows more:
 -->
-<command>INSERT</>��<command>UPDATE</>��<command>DELETE</>���������롼�������ǲ��⤷���ӥ塼�Υ롼��ȤϤޤä����ۤʤ�ޤ���
-������Ȥ��ơ�������<command>CREATE RULE</command>���ޥ�ɤǤϰʲ���Ԥ����Ȥ��Ǥ��ޤ���
+<command>INSERT</>、<command>UPDATE</>、<command>DELETE</>に定義するルールは前節で解説したビューのルールとはまったく異なります。
+第一点として、これらの<command>CREATE RULE</command>コマンドでは以下を行うことができます。
 
     <itemizedlist>
         <listitem>
@@ -1620,7 +1620,7 @@ SELECT word FROM words ORDER BY word <-> 'caterpiler' LIMIT 10;
 <!--
             They are allowed to have no action.
 -->
-��������󤬤ʤ��롼����ǽ�Ǥ���
+アクションがないルールも可能です。
         </para>
         </listitem>
 
@@ -1629,7 +1629,7 @@ SELECT word FROM words ORDER BY word <-> 'caterpiler' LIMIT 10;
 <!--
             They can have multiple actions.
 -->
-ʣ���Υ�����������Ƥޤ���
+複数のアクションを持てます。
         </para>
         </listitem>
 
@@ -1638,7 +1638,7 @@ SELECT word FROM words ORDER BY word <-> 'caterpiler' LIMIT 10;
 <!--
             They can be <literal>INSTEAD</> or <literal>ALSO</> (the default).
 -->
-<literal>INSTEAD</>�⤷����<literal>ALSO</>�ʥǥե���ȡˤ��뤳�Ȥ��Ǥ��ޤ���
+<literal>INSTEAD</>もしくは<literal>ALSO</>（デフォルト）を取ることができます。
         </para>
         </listitem>
 
@@ -1647,7 +1647,7 @@ SELECT word FROM words ORDER BY word <-> 'caterpiler' LIMIT 10;
 <!--
             The pseudorelations <literal>NEW</> and <literal>OLD</> become useful.
 -->
-������졼�����<literal>NEW</>��<literal>OLD</>����Ω�Ĥ褦�ˤʤ�ޤ���
+疑似リレーション<literal>NEW</>と<literal>OLD</>が役立つようになります。
         </para>
         </listitem>
 
@@ -1656,7 +1656,7 @@ SELECT word FROM words ORDER BY word <-> 'caterpiler' LIMIT 10;
 <!--
             They can have rule qualifications.
 -->
-�롼�����������뤳�Ȥ��Ǥ��ޤ���
+ルール条件を持たせることができます。
         </para>
         </listitem>
     </itemizedlist>
@@ -1666,15 +1666,15 @@ SELECT word FROM words ORDER BY word <-> 'caterpiler' LIMIT 10;
     create zero or more new query trees and can throw away the
     original one.
 -->
-�������Ȥ��ơ����ξ���䤤��碌�ĥ꡼���ѹ����ޤ���
-��������˿�����0�İʾ���䤤��碌�ĥ꡼���������ơ����ꥸ�ʥ���˴����뤳�Ȥ��Ǥ��ޤ���
+第二点として、その場で問い合わせツリーを変更しません。
+その代わりに新規の0個以上の問い合わせツリーを生成して、オリジナルを破棄することができます。
 </para>
 
 <sect2>
 <!--
 <title>How Update Rules Work</title>
 -->
-<title>�����롼���ư��</title>
+<title>更新ルールの動作</title>
 
 <para>
 <!--
@@ -1692,8 +1692,8 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
     In the following, <firstterm>update rules</> means rules that are defined
     on <command>INSERT</>, <command>UPDATE</>, or <command>DELETE</>.
 -->
-�嵭�ι�ʸ��Ф��Ƥ����Ƥ���������
-�ʲ��Ǥϡ�<firstterm>�����롼��</>��<command>INSERT</>��<command>UPDATE</>��<command>DELETE</>��������줿�롼����̣���ޤ���
+上記の構文を覚えておいてください。
+以下では、<firstterm>更新ルール</>は<command>INSERT</>、<command>UPDATE</>、<command>DELETE</>に定義されたルールを意味します。
 </para>
 
 <para>
@@ -1708,12 +1708,12 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
     can have a qualification or not and it can be <literal>INSTEAD</> or
     <literal>ALSO</> (the default).
 -->
-�����롼��ϡ��䤤��碌�ĥ꡼�η�̥�졼�����ȥ��ޥ�ɼ��ब<command>CREATE RULE</command>��Ϳ�����륪�֥������Ȥȥ��٥�Ȥ����������˥롼�륷���ƥ�ˤ�ä�Ŭ�Ѥ���ޤ���
-�����롼����Ф��ƥ롼�륷���ƥ���䤤��碌�ĥ꡼�Υꥹ�Ȥ��������ޤ���
-�ǽ���䤤��碌�ĥ꡼�ꥹ�Ȥ϶��Ǥ���
-0��<literal>NOTHING</>������ɡˡ�1�Ĥޤ���ʣ���Υ��������ͭ���Ǥ���
-��ñ�ˤ��뤿�ᡢ�����Ǥ�1�ĤΥ��������Υ롼�����夲�ޤ���
-���Υ롼��Ͼ�����äƤ��Ƥ���äƤ��ʤ��Ƥ⹽���ޤ��󤷡��ޤ�<literal>INSTEAD</>��<literal>ALSO</>�ʥǥե���ȡˤΤ����줫���뤳�Ȥ��Ǥ��ޤ���
+更新ルールは、問い合わせツリーの結果リレーションとコマンド種類が<command>CREATE RULE</command>で与えられるオブジェクトとイベントと等しい場合にルールシステムによって適用されます。
+更新ルールに対してルールシステムは問い合わせツリーのリストを生成します。
+最初は問い合わせツリーリストは空です。
+0（<literal>NOTHING</>キーワード）、1つまたは複数のアクションが有効です。
+簡単にするため、ここでは1つのアクションのルールを取り上げます。
+このルールは条件を持っていても持っていなくても構いませんし、また<literal>INSTEAD</>か<literal>ALSO</>（デフォルト）のいずれかを取ることができます。
 </para>
 
 <para>
@@ -1724,9 +1724,9 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
     which basically represent the relation that was given as object (but with a
     special meaning).
 -->
-�롼����ȤϤɤ�ʤ�ΤǤ��礦����
-����ϥ롼��Υ���������Ԥ�ʤ���Фʤ�ʤ����ȡ��ԤäƤϤʤ�ʤ�������ꤹ����Ǥ���
-����Ū�ˡ����̤ʰ�̣�礤����ä��˥��֥������ȤȤ���Ϳ�������졼�����Ǥ���<literal>NEW</>������졼�����<literal>OLD</>������졼����󡢤ޤ��ϡ�����ξ�ԤΤߤ򤳤ξ��ϻ��Ȥ��뤳�Ȥ��Ǥ��ޤ���
+ルール条件とはどんなものでしょうか。
+それはルールのアクションを行わなければならない時と、行ってはならない時を指定する条件です。
+基本的に（特別な意味合いを持った）オブジェクトとして与えられるリレーションである<literal>NEW</>疑似リレーションか<literal>OLD</>疑似リレーション、または、その両者のみをこの条件は参照することができます。
 </para>
 
    <para>
@@ -1734,7 +1734,7 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
     So we have three cases that produce the following query trees for
     a one-action rule.
 -->
-1���������Υ롼����Ф����ʲ����䤤��碌�ĥ꡼����������3�Ĥξ�礬����ޤ���
+1アクションのルールに対し、以下の問い合わせツリーを生成する3つの場合があります。
 
     <variablelist>
      <varlistentry>
@@ -1742,14 +1742,14 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
       <term>No qualification, with either <literal>ALSO</> or
       <literal>INSTEAD</></term>
 -->
-      <term><literal>ALSO</>�ޤ���<literal>INSTEAD</>�Ǿ�郎�ʤ���硣</term>
+      <term><literal>ALSO</>または<literal>INSTEAD</>で条件がない場合。</term>
       <listitem>
        <para>
 <!--
         the query tree from the rule action with the original query
         tree's qualification added
 -->
-�����䤤��碌�ĥ꡼�ξ�郎�ɲä��줿���롼�륢������󤫤���䤤��碌�ĥ꡼
+元の問い合わせツリーの条件が追加された、ルールアクションからの問い合わせツリー
        </para>
       </listitem>
      </varlistentry>
@@ -1758,7 +1758,7 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
 <!--
       <term>Qualification given and <literal>ALSO</></term>
 -->
-      <term>����դ�������<literal>ALSO</></term>
+      <term>条件付き、かつ<literal>ALSO</></term>
       <listitem>
        <para>
 <!--
@@ -1766,7 +1766,7 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
         qualification and the original query tree's qualification
         added
 -->
-�롼����ȸ����䤤��碌�ĥ꡼�ξ�郎�ɲä��줿���롼�륢������󤫤���䤤��碌�ĥ꡼
+ルール条件と元の問い合わせツリーの条件が追加された、ルールアクションからの問い合わせツリー
        </para>
       </listitem>
      </varlistentry>
@@ -1775,7 +1775,7 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
 <!--
       <term>Qualification given and <literal>INSTEAD</></term>
 -->
-      <term>����դ�������<literal>INSTEAD</></term>
+      <term>条件付き、かつ<literal>INSTEAD</></term>
       <listitem>
        <para>
 <!--
@@ -1784,7 +1784,7 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
         the original query tree with the negated rule qualification
         added
 -->
-�롼����ȸ����䤤��碌�ĥ꡼�ξ�郎�ɲä��줿���롼�륢������󤫤���䤤��碌�ĥ꡼�ȥ롼����������郎�ɲä��줿�����䤤��碌�ĥ꡼
+ルール条件と元の問い合わせツリーの条件が追加された、ルールアクションからの問い合わせツリーとルール条件の否定条件が追加された元の問い合わせツリー
        </para>
       </listitem>
      </varlistentry>
@@ -1796,8 +1796,8 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
     original query tree, we end up with either one or two output query trees
     for a rule with one action.
 -->
-�Ǹ�ˡ��⤷�롼�뤬<literal>ALSO</>�ξ�硢�ѹ�����Ƥ��ʤ������䤤��碌�ĥ꡼���ꥹ�Ȥ��դ��ä����ޤ���
-����դ���<literal>INSTEAD</>�롼��Τߤ����˸��ι�ʸ���ϥĥ꡼���ɲä򤷤Ƥ���Τǡ��Ǹ��1�ĤΥ�����������ĥ롼����Ф���1�Ĥ⤷����2�Ĥ��䤤��碌�ĥ꡼�ˤ��ɤ��夭�ޤ���
+最後に、もしルールが<literal>ALSO</>の場合、変更されていない元の問い合わせツリーがリストに付け加えられます。
+条件付きの<literal>INSTEAD</>ルールのみが既に元の構文解析ツリーに追加をしているので、最後は1つのアクションを持つルールに対して1つもしくは2つの問い合わせツリーにたどり着きます。
 </para>
 
 <para>
@@ -1810,11 +1810,11 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
     rows; otherwise, the actions might do nothing because they find no rows
     matching their qualifications.
 -->
-<literal>ON INSERT</>�롼��Ǥϡ������䤤��碌�ϡ���<literal>INSTEAD</>�ˤ��ߤ���Ƥ��ʤ��¤�˥롼��ˤ�ä��ɲä��줿�������������˼¹Ԥ���ޤ���
-����ˤ�ꡢ�����������������줿�ԡ�ʣ���ġˤ򻲾Ȥ��뤳�Ȥ��Ǥ��ޤ���
-��������<literal>ON UPDATE</>��<literal>ON DELETE</>�롼��Ǥϡ������䤤��碌�ϥ롼��ˤ�ä��ɲä��줿���������θ�˼¹Ԥ���ޤ���
-����ϡ���������󤬹��������ͽ��Ρ��ޤ��Ϻ�������ͽ��ιԤ򻲾ȤǤ��뤳�Ȥ��ݾڤ��ޤ���
-����ʤ��ȡ����˰��פ���Ԥ򸫤Ĥ��뤳�Ȥ��Ǥ��ʤ�����˥�������󤬺�ư���ʤ��ʤ��ǽ����������ޤ���
+<literal>ON INSERT</>ルールでは、元の問い合わせは、（<literal>INSTEAD</>により止められていない限り）ルールによって追加されたアクションの前に実行されます。
+これにより、アクションは挿入された行（複数可）を参照することができます。
+しかし、<literal>ON UPDATE</>と<literal>ON DELETE</>ルールでは、元の問い合わせはルールによって追加されたアクションの後に実行されます。
+これは、アクションが更新される予定の、または削除される予定の行を参照できることを保証します。
+さもないと、条件に一致する行を見つけることができないためにアクションが作動しなくなる可能性が起こります。
 </para>
 
 <para>
@@ -1828,10 +1828,10 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
     (Recursive expansion of a rule will be detected and reported as an
     error.)
 -->
-�롼�륢���������������줿�䤤��碌�ĥ꡼�ϡ����ٽ񤭴��������ƥ���Ϥ��졢���¿���Υ롼���Ŭ�Ѥ�����Ƥ��¿���Τ⤷���Ͼ��ʤ��䤤��碌�ĥ꡼�ˤʤ뤫�⤷��ޤ���
-�Ǥ����顢�롼��Υ��������ϥ롼�뼫�ȤȤϰۤʤ륳�ޥ�ɼ��फ���ۤʤ��̥�졼��������äƤ��ʤ���Фʤ�ޤ���
-����ʤ��ȡ����κƵ�Ū�����ˤ��̵�¥롼�פ˴٤äƤ��ޤ��ޤ���
-(�롼��κƵ�Ÿ���ϸ��Τ��졢���顼�Ȥ�����𤵤�ޤ���)
+ルールアクションで生成された問い合わせツリーは、再度書き換えシステムに渡され、より多くのルールの適用を受けてより多くのもしくは少ない問い合わせツリーになるかもしれません。
+ですから、ルールのアクションはルール自身とは異なるコマンド種類か、異なる結果リレーションを持っていなければなりません。
+さもないと、この再帰的処理により無限ループに陥ってしまいます。
+(ルールの再帰展開は検知され、エラーとして報告されます。)
 </para>
 
 <para>
@@ -1848,12 +1848,12 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
     replaced by a reference to the range-table entry that is the
     result relation.
 -->
-<structname>pg_rewrite</structname>�����ƥ५�������Υ��������ˤ����䤤��碌�ĥ꡼��ñ�ʤ�ƥ�ץ졼�ȤǤ���
-������<literal>NEW</>��<literal>OLD</>���Ф����ϰϥơ��֥�ι��ܤ򻲾Ȥ��뤳�Ȥ��Ǥ��뤿�ᡢ���Ѥ�������˲��餫���ִ����֤��Ȥ��Ƥ��ʤ���Фʤ�ޤ���
-<literal>NEW</>�򻲾Ȥ������Ƥ��Ф��������䤤��碌����Ū�ꥹ�Ȥ��б�������ܤ����뤫�ɤ�����������ޤ���
-���ܤ����Ĥ��ä����ˤϡ����ι��ܼ������Ȥ��֤������ޤ���
-���ܤ��ʤ��ä���硢<literal>NEW</>��<literal>OLD</>��Ʊ����̣�ˤʤ��<command>UPDATE</command>�ξ��ˤ���NULL�ˤ�ä��֤��������ޤ���<command>INSERT</command>�ξ��ˡ�
-<literal>OLD</>���Ф��뻲�Ȥ����Ʒ�̥�졼�����Ǥ����ϰϥơ��֥�ι��ܤؤλ��Ȥ��֤��������ޤ���
+<structname>pg_rewrite</structname>システムカタログのアクションにある問い合わせツリーは単なるテンプレートです。
+これらは<literal>NEW</>と<literal>OLD</>に対する範囲テーブルの項目を参照することができるため、使用される前に何らかの置換措置がとられていなければなりません。
+<literal>NEW</>を参照する全てに対し、元の問い合わせの目的リストは対応する項目があるかどうか検索されます。
+項目が見つかった場合には、その項目式が参照を置き換えます。
+項目がなかった場合、<literal>NEW</>は<literal>OLD</>と同じ意味になる（<command>UPDATE</command>の場合）か、NULLによって置き換えられます（<command>INSERT</command>の場合）。
+<literal>OLD</>に対する参照は全て結果リレーションである範囲テーブルの項目への参照に置き換えられます。
 </para>
 
 <para>
@@ -1862,15 +1862,15 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
     produced query tree(s).  Views cannot insert new update actions so
     there is no need to apply update rules to the output of view rewriting.
 -->
-�����롼���Ŭ�Ѥ������ȡ������ƥ�Ϥ����Ǻ��줿��ʸ���ϥĥ꡼�˥ӥ塼�롼���Ŭ�Ѥ��ޤ���
-�ӥ塼�ϡ��������������������������Ǥ��ʤ����ᡢ�ӥ塼�񤭴����η�̤˹����롼���Ŭ�Ѥ���ɬ�פϤ���ޤ���
+更新ルールの適用が終わると、システムはそこで作られた構文解析ツリーにビュールールを適用します。
+ビューは、新しい更新アクションを挿入できないため、ビュー書き換えの結果に更新ルールを適用する必要はありません。
 </para>
 
 <sect3>
 <!--
 <title>A First Rule Step by Step</title>
 -->
-<title>�ǽ�Υ롼�롢���ƥåץХ����ƥå�</title>
+<title>最初のルール、ステップバイステップ</title>
 
 <para>
 <!--
@@ -1880,8 +1880,8 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
     <command>UPDATE</command> is performed on
     <literal>shoelace_data</literal>.
 -->
-<literal>shoelace_data</literal>��졼������<literal>sl_avail</literal>����Ѳ������פ��Ƥߤ����Ȼפ��ޤ���
-�����ǥ����ѥơ��֥�ȡ�<literal>shoelace_data</literal>���Ф��ƹԤ���<command>UPDATE</command>������˵�Ͽ����롼����Ѱդ��ޤ�����
+<literal>shoelace_data</literal>リレーションの<literal>sl_avail</literal>列の変化を追跡してみたいと思います。
+そこでログ用テーブルと、<literal>shoelace_data</literal>に対して行われる<command>UPDATE</command>をログに記録するルールを用意しました。
 
 <programlisting>
 <!--
@@ -1893,10 +1893,10 @@ CREATE TABLE shoelace_log (
 );
 -->
 CREATE TABLE shoelace_log (
-    sl_name    text,          -- �ѹ����줿��ɳ
-    sl_avail   integer,       -- ������������
-    log_who    text,          -- ï���Ԥä���
-    log_when   timestamp      -- ���ĹԤä���
+    sl_name    text,          -- 変更された靴紐
+    sl_avail   integer,       -- 新しい現在値
+    log_who    text,          -- 誰が行ったか
+    log_when   timestamp      -- いつ行ったか
 );
 
 CREATE RULE log_shoelace AS ON UPDATE TO shoelace_data
@@ -1914,7 +1914,7 @@ CREATE RULE log_shoelace AS ON UPDATE TO shoelace_data
 <!--
     Now someone does:
 -->
-������ï�����ʲ���¹Ԥ��ޤ���
+ここで誰かが以下を実行します。
 
 <programlisting>
 UPDATE shoelace_data SET sl_avail = 6 WHERE sl_name = 'sl7';
@@ -1923,7 +1923,7 @@ UPDATE shoelace_data SET sl_avail = 6 WHERE sl_name = 'sl7';
 <!--
     and we look at the log table:
 -->
-�����ơ��֥�򸫤Ƥߤޤ��礦��
+ログテーブルを見てみましょう。
 
 <programlisting>
 SELECT * FROM shoelace_log;
@@ -1940,9 +1940,9 @@ SELECT * FROM shoelace_log;
     That's what we expected. What happened in the background is the following.
     The parser created the query tree:
 -->
-�פä��̤�η�̤��Фޤ�����
-�ʲ���΢�ǲ��������ä��Τ����������ޤ���
-�ѡ������ޤ��ʲ��ι�ʸ���ϥĥ꡼���������ޤ�����
+思った通りの結果が出ました。
+以下に裏で何が起こったのかを説明します。
+パーサがまず以下の構文解析ツリーを生成しました。
 
 <programlisting>
 UPDATE shoelace_data SET sl_avail = 6
@@ -1954,7 +1954,7 @@ UPDATE shoelace_data SET sl_avail = 6
     There is a rule <literal>log_shoelace</literal> that is <literal>ON UPDATE</> with the rule
     qualification expression:
 -->
-�ʲ��Υ롼���Ｐ
+以下のルール条件式
 
 <programlisting>
 NEW.sl_avail &lt;&gt; OLD.sl_avail
@@ -1963,7 +1963,7 @@ NEW.sl_avail &lt;&gt; OLD.sl_avail
 <!--
     and the action:
 -->
-����ӡ��ʲ��Υ������������<literal>ON UPDATE</>��<literal>log_shoelace</literal>�롼�뤬����ޤ���
+および、以下のアクションを持つ<literal>ON UPDATE</>の<literal>log_shoelace</literal>ルールがあります。
 
 <programlisting>
 INSERT INTO shoelace_log VALUES (
@@ -1980,9 +1980,9 @@ INSERT INTO shoelace_log VALUES (
     These are needed so that they can be referenced by variables in
     the <command>INSERT</command> command's query tree.)
 -->
-���̾<literal>INSERT ... VALUES ... FROM</>��񤯤��ȤϤǤ��ʤ��ΤǤ���äȴ�̯�˸����뤫�⤷��ޤ���
-������<literal>FROM</>���ñ��<literal>new</>��<literal>old</>���䤤��碌�ĥ꡼���ϰϥơ��֥���ܤ����뤳�Ȥ򼨤��Ƥ�������Ǥ���
-�����ϡ�<command>INSERT</command>���ޥ�ɤ��䤤��碌�ĥ꡼����ѿ����黲�Ȥ���뤿���ɬ�פʤΤǤ�����
+（通常、<literal>INSERT ... VALUES ... FROM</>を書くことはできないのでちょっと奇妙に見えるかもしれません。
+ここの<literal>FROM</>句は単に<literal>new</>と<literal>old</>の問い合わせツリーの範囲テーブル項目があることを示しているだけです。
+これらは、<command>INSERT</command>コマンドの問い合わせツリー中の変数から参照されるために必要なのです。）
 </para>
 
 <para>
@@ -1992,9 +1992,9 @@ INSERT INTO shoelace_log VALUES (
     query tree. In step 1, the range table of the original query is
     incorporated into the rule's action query tree. This results in:
 -->
-���Υ롼��Ͼ���դ���<literal>ALSO</>�롼��Ǥ��Τǡ��롼�륷���ƥ���ѹ����줿�롼�륢�������ȸ����䤤��碌�ĥ꡼�Ȥ���2�Ĥ��䤤��碌�ĥ꡼���֤��ʤ���Фʤ�ޤ���
-��1���ʳ��Ǹ����䤤��碌���ϰϥơ��֥�ϥ롼�륢��������䤤��碌�ĥ꡼�˼����ޤ�ޤ���
-�����ơ����η�̤����ߤޤ���
+このルールは条件付きの<literal>ALSO</>ルールですので、ルールシステムは変更されたルールアクションと元の問い合わせツリーという2つの問い合わせツリーを返さなければなりません。
+第1の段階で元の問い合わせの範囲テーブルはルールアクション問い合わせツリーに取り込まれます。
+そして、次の結果を生みます。
 
 <programlisting>
 INSERT INTO shoelace_log VALUES (
@@ -2008,8 +2008,8 @@ INSERT INTO shoelace_log VALUES (
     In step 2, the rule qualification is added to it, so the result set
     is restricted to rows where <literal>sl_avail</> changes:
 -->
-��2�ʳ��ǡ��ʲ��Τ褦�˥롼���郎�դ��ä����ޤ���
-����ˤ�ꡢ���η�̽����<literal>sl_avail</>���ѹ������Ԥ˸��ꤵ��ޤ���
+第2段階で、以下のようにルール条件が付け加えられます。
+これにより、この結果集合は<literal>sl_avail</>が変更した行に限定されます。
 
 <programlisting>
 INSERT INTO shoelace_log VALUES (
@@ -2026,9 +2026,9 @@ INSERT INTO shoelace_log VALUES (
     difficulty with it.  They need to support this same functionality
     anyway for <literal>INSERT ... SELECT</>.)
 -->
-��<literal>INSERT ... VALUES</>��<literal>WHERE</>�������ʤ����ᡢ����Ϥ���˴�̯�Ǥ���
-���������ץ��ʤȥ��������塼���ˤ�����Ϥ���ޤ���
-�����ϤɤΤߤ�<literal>INSERT ... SELECT</>�Τ����Ʊ����ǽ�򥵥ݡ��Ȥ��ʤ���Фʤ�ޤ��󡣡�
+（<literal>INSERT ... VALUES</>は<literal>WHERE</>句を持たないため、これはさらに奇妙です。
+しかし、プランナとエクゼキュータには問題はありません。
+これらはどのみち<literal>INSERT ... SELECT</>のために同じ機能をサポートしなければなりません。）
    </para>
 
    <para>
@@ -2037,7 +2037,7 @@ INSERT INTO shoelace_log VALUES (
     restricting the result set further to only the rows that would have been touched
     by the original query:
 -->
-��3�ʳ��ǡ��ʲ��Τ褦�˸����䤤��碌�ĥ꡼�ξ�郎�դ��ä���졢��̽���ϸ����䤤��碌���ѹ����줿�ԤΤߤˤ���˸��ꤵ��ޤ���
+第3段階で、以下のように元の問い合わせツリーの条件が付け加えられ、結果集合は元の問い合わせで変更された行のみにさらに限定されます。
 
 <programlisting>
 INSERT INTO shoelace_log VALUES (
@@ -2056,7 +2056,7 @@ INSERT INTO shoelace_log VALUES (
     original query tree or by the matching variable references
     from the result relation:
 -->
-��4�ʳ��Ǥϡ��ʲ��Τ褦�˸����䤤��碌�ĥ꡼����Ū�ꥹ�ȹ��ܡ��ޤ��Ϸ�̥�졼�����γ��������ѿ����Ȥǡ�<literal>NEW</>�λ��Ȥ��ִ����ޤ���
+第4段階では、以下のように元の問い合わせツリーの目的リスト項目、または結果リレーションの該当する変数参照で、<literal>NEW</>の参照を置換します。
 
 <programlisting>
 INSERT INTO shoelace_log VALUES (
@@ -2074,7 +2074,7 @@ INSERT INTO shoelace_log VALUES (
 <!--
     Step 5 changes <literal>OLD</> references into result relation references:
 -->
-��5�ʳ��ϡ��ʲ��Τ褦��<literal>OLD</>���Ȥ��̥�졼����󻲾Ȥ��֤������ޤ���
+第5段階は、以下のように<literal>OLD</>参照を結果リレーション参照に置き換えます。
 
 <programlisting>
 INSERT INTO shoelace_log VALUES (
@@ -2093,8 +2093,8 @@ INSERT INTO shoelace_log VALUES (
     original query tree.  In short, the output from the rule system
     is a list of two query trees that correspond to these statements:
 -->
-����ǽ����Ǥ������Υ롼���<literal>ALSO</>�Τ��ᡢ�����䤤��碌�ĥ꡼����Ϥ��ޤ���
-�ޤȤ��ȡ��롼�륷���ƥफ��ν��Ϥϰʲ���ʸ���б�����2�Ĥ��䤤��碌�ĥ꡼�Υꥹ�ȤǤ���
+これで終わりです。このルールは<literal>ALSO</>のため、元の問い合わせツリーも出力します。
+まとめると、ルールシステムからの出力は以下の文に対応する2つの問い合わせツリーのリストです。
 
 <programlisting>
 INSERT INTO shoelace_log VALUES (
@@ -2112,7 +2112,7 @@ UPDATE shoelace_data SET sl_avail = 6
     These are executed in this order, and that is exactly what
     the rule was meant to do.
 -->
-����2�ĤϽ����̤�˽������졢���Τ˥롼�뤬��������̤�Ǥ���
+この2つは順番通りに処理され、正確にルールが定義した通りです。
    </para>
 
    <para>
@@ -2120,7 +2120,7 @@ UPDATE shoelace_data SET sl_avail = 6
     The substitutions and the added qualifications
     ensure that, if the original query would be, say:
 -->
-�����䤤��碌���㤨�в����Τ褦�ʾ��ˡ��ִ����ɲä��줿���ϡ������ˤϲ���񤫤�ʤ����Ȥ�μ¤ˤ��ޤ���
+元の問い合わせが例えば下記のような場合に、置換と追加された条件は、ログには何も書かれないことを確実にします。
 
 <programlisting>
 UPDATE shoelace_data SET sl_color = 'green'
@@ -2134,8 +2134,8 @@ UPDATE shoelace_data SET sl_color = 'green'
     replaced by <literal>shoelace_data.sl_avail</>.  Thus, the extra
     command generated by the rule is:
 -->
-���ξ�硢�����䤤��碌�ĥ꡼����Ū�ꥹ�Ȥˤ�<literal>sl_avail</>�ι��ܤ�����ޤ���Τǡ�<literal>NEW.sl_avail</>��<literal>shoelace_data.sl_avail</>���֤��������ޤ���
-���η�̡����Υ롼��ˤ�äưʲ��Τ褦�����̤��䤤��碌����������ޤ���
+この場合、元の問い合わせツリーの目的リストには<literal>sl_avail</>の項目がありませんので、<literal>NEW.sl_avail</>が<literal>shoelace_data.sl_avail</>に置き換えられます。
+その結果、このルールによって以下のような特別の問い合わせが生成されます。
 
 <programlisting>
 INSERT INTO shoelace_log VALUES (
@@ -2149,7 +2149,7 @@ INSERT INTO shoelace_log VALUES (
 <!--
     and that qualification will never be true.
 -->
-�����Ƥ��ξ��Ϸ褷�ƿ��ˤϤʤ�ޤ���
+そしてこの条件は決して真にはなりません。
    </para>
 
    <para>
@@ -2157,8 +2157,8 @@ INSERT INTO shoelace_log VALUES (
     It will also work if the original query modifies multiple rows. So
     if someone issued the command:
 -->
-�⤷�����䤤��碌��ʣ���ιԤ��ѹ����Ƥ⤦�ޤ������ޤ���
-�Ǥ����顢ï���������Τ褦�ʥ��ޥ�ɤ�¹Ԥ����Ȥ��ޤ���
+もし元の問い合わせが複数の行を変更してもうまくいきます。
+ですから、誰かが下記のようなコマンドを実行したとします。
 
 <programlisting>
 UPDATE shoelace_data SET sl_avail = 0
@@ -2171,9 +2171,9 @@ UPDATE shoelace_data SET sl_avail = 0
     query trees qualification is different and that results
     in the extra query tree:
 -->
-���ξ�硢�ºݤˤ�4�Ԥ���������ޤ���<literal>sl1</>��<literal>sl2</>��<literal>sl3</>�����<literal>sl4</>�ˡ�
-������<literal>sl3</>�ϴ���<literal>sl_avail = 0</>����äƤ��ޤ���
-���ξ�硢�����䤤��碌�ĥ꡼�ξ����������������η�̡��ʲ��Τ褦�����̤��䤤��碌�ĥ꡼���롼��ˤ�ä���������ޤ���
+この場合、実際には4行が更新されます（<literal>sl1</>、<literal>sl2</>、<literal>sl3</>および<literal>sl4</>）。
+しかし<literal>sl3</>は既に<literal>sl_avail = 0</>を持っています。
+この場合、元の問い合わせツリーの条件を満たさず、その結果、以下のような特別の問い合わせツリーがルールによって生成されます。
 
 <programlisting>
 INSERT INTO shoelace_log
@@ -2188,9 +2188,9 @@ SELECT shoelace_data.sl_name, 0,
     being generated by the rule.  This query tree will surely insert
     three new log entries. And that's absolutely correct.
 -->
-���ι�ʸ���ϥĥ꡼�ϳμ¤�3�Ĥο������������ܤ��������ޤ���
-����Ϥޤä���������ư��Ǥ�
-[������sl3�Ԥ�WHERE 0 != shoelace_data.sl_avail�����������ʤ���0!=0�ˤΤǡ��ºݤ˹��������4��-1��3��ʬ�Υ������ܤ���������ޤ�]��
+この構文解析ツリーは確実に3つの新しいログ項目を挿入します。
+これはまったく正しい動作です
+[訳注：sl3行はWHERE 0 != shoelace_data.sl_avail条件を満たさない（0!=0）ので、実際に更新される4行-1の3行分のログ項目が挿入されます]。
 </para>
 
 <para>
@@ -2201,8 +2201,8 @@ SELECT shoelace_data.sl_name, 0,
     logging <command>INSERT</command> would not find any row where
     <literal>0 &lt;&gt; shoelace_data.sl_avail</literal>.
 -->
-�����Ǹ��ι�ʸ���ϥĥ꡼���Ǹ�˼¹Ԥ����Ȥ������Ȥ����פ���ͳ���狼��ޤ���
-�⤷<command>UPDATE</command>����˼¹Ԥ��줿�Ȥ����顢���ƤιԤ�0�˥��åȤ��졢<literal>0 &lt;&gt; shoelace_data.sl_avail</literal>�Ǥ���Ԥ�����񤭹��߻���<command>INSERT</command>���ʳ��Ǹ��Ĥ����ʤ��ʤ�ޤ���
+ここで元の構文解析ツリーが最後に実行されるということが重要な理由がわかります。
+もし<command>UPDATE</command>が先に実行されたとしたら、全ての行は0にセットされ、<literal>0 &lt;&gt; shoelace_data.sl_avail</literal>である行をログ書き込み時の<command>INSERT</command>の段階で見つけられなくなります。
 </para>
 </sect3>
 
@@ -2212,12 +2212,12 @@ SELECT shoelace_data.sl_name, 0,
 <!--
 <title>Cooperation with Views</title>
 -->
-<title>�ӥ塼�Ȥζ�Ĵ</title>
+<title>ビューとの協調</title>
 
 <!--
 <indexterm zone="rules-update-views"><primary>view</><secondary>updating</></>
 -->
-<indexterm zone="rules-update-views"><primary>�ӥ塼</><secondary>����</></>
+<indexterm zone="rules-update-views"><primary>ビュー</><secondary>更新</></>
 
 <para>
 <!--
@@ -2226,8 +2226,8 @@ SELECT shoelace_data.sl_name, 0,
     <command>UPDATE</command>, or <command>DELETE</command> on them is
     to let those query trees get thrown away.  So we could create the rules:
 -->
-ï�����ӥ塼���Ф���<command>INSERT</command>��<command>UPDATE</command>��<command>DELETE</command>��ȯ�Ԥ���Ȥ��ä������Ҥβ�ǽ������ӥ塼��졼�������ݸ���ñ����ˡ�ϡ������ι�ʸ���ϥĥ꡼���˴����Ƥ��ޤ����ȤǤ���
-���Τ���˰ʲ��Υ롼����뤳�Ȥ��Ǥ��ޤ���
+誰かがビューに対して<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>を発行するといった、前述の可能性からビューリレーションを保護する簡単な方法は、それらの構文解析ツリーを破棄してしまうことです。
+このために以下のルールを作ることができます。
 
 <programlisting>
 CREATE RULE shoe_ins_protect AS ON INSERT TO shoe
@@ -2247,9 +2247,9 @@ CREATE RULE shoe_del_protect AS ON DELETE TO shoe
     nothing because there is nothing left to be optimized or
     executed after the rule system is done with it.
 -->
-ï����<literal>shoe</literal>�ӥ塼��졼�����˾嵭������Ԥ����Ȥ���ȡ��롼�륷���ƥ�ϥ롼���Ŭ�Ѥ��ޤ���
-�롼��ˤϥ�������󤬤ʤ������ġ�<literal>INSTEAD</>�Ǥ����顢��̤��䤤��碌�ĥ꡼�ꥹ�Ȥ϶��ˤʤ�ޤ���
-�롼�륷���ƥ�ν�������λ������˺�Ŭ��������Τ�¹Ԥ����٤���Τ�����ĤäƤ��ޤ���Τǡ��䤤��碌���Τ�̵���ˤʤ�ޤ���
+誰かが<literal>shoe</literal>ビューリレーションに上記の操作を行おうとすると、ルールシステムはルールを適用します。
+ルールにはアクションがなく、かつ、<literal>INSTEAD</>ですから、結果の問い合わせツリーリストは空になります。
+ルールシステムの処理が完了した後に最適化されるものや実行されるべきものが何も残っていませんので、問い合わせ全体が無効になります。
 </para>
 
 <para>
@@ -2260,8 +2260,8 @@ CREATE RULE shoe_del_protect AS ON DELETE TO shoe
     on the <literal>shoelace</literal> view, we create
     the following rules:
 -->
-����������줿�롼�륷���ƥ�λ���ˡ�ϡ��¥ơ��֥��Ŭ��������Ԥ��䤤��碌�ĥ꡼�ؤν񤭴�����Ԥ��롼����뤳�ȤǤ���
-<literal>shoelace</literal>�ӥ塼�ˤ����Ŭ�Ѥ��뤿��˰ʲ��Υ롼�����ޤ���
+より洗練されたルールシステムの使用法は、実テーブルに適当な操作を行う問い合わせツリーへの書き換えを行うルールを作ることです。
+<literal>shoelace</literal>ビューにこれを適用するために以下のルールを作ります。
 
 <programlisting>
 CREATE RULE shoelace_ins AS ON INSERT TO shoelace
@@ -2299,9 +2299,9 @@ CREATE RULE shoelace_del AS ON DELETE TO shoelace
     single table, but it's a bit tedious for join views such as
     <literal>shoelace</literal>.  An example for the insert case is:
 -->
-���Υӥ塼���<literal>RETURNING</>�䤤��碌�򥵥ݡ��Ȥ�������硢�ӥ塼�ιԤ�׻�����<literal>RETURNING</>���ޤ�롼���������ʤ���Фʤ�ޤ���
-������̾ñ��ơ��֥���Ф���ӥ塼�Ǥ����˴�ñ�Ǥ�����<literal>shoelace</literal>�Τ褦�ʷ�礵�줿�ӥ塼�ξ���¿����ä����Ǥ���
-�������������Ȥ��ưʲ��˼����ޤ���
+このビュー上で<literal>RETURNING</>問い合わせをサポートしたい場合、ビューの行を計算する<literal>RETURNING</>句を含むルールを作成しなければなりません。
+これは通常、単一テーブルに対するビューでは非常に簡単ですが、<literal>shoelace</literal>のような結合されたビューの場合は多少やっかいです。
+挿入する場合を例として以下に示します。
 
 <programlisting>
 CREATE RULE shoelace_ins AS ON INSERT TO shoelace
@@ -2324,8 +2324,8 @@ CREATE RULE shoelace_ins AS ON INSERT TO shoelace
     <command>INSERT RETURNING</> queries on the view &mdash; the
     <literal>RETURNING</> clause is simply ignored for <command>INSERT</>.
 -->
-����1�ĤΥ롼�뤬���ӥ塼���Ф���<command>INSERT</>�䤤��碌��<command>INSERT RETURNING</>�䤤��碌�롼��򥵥ݡ��Ȥ��뤳�Ȥ����դ��Ƥ���������
-<command>INSERT</>�Ǥ�<literal>RETURNING</>�礬̵�뤵�������Ǥ���
+この1つのルールが、ビューに対する<command>INSERT</>問い合わせと<command>INSERT RETURNING</>問い合わせルールをサポートすることに注意してください。
+<command>INSERT</>では<literal>RETURNING</>句が無視されるだけです。
    </para>
 
    <para>
@@ -2337,10 +2337,10 @@ CREATE RULE shoelace_ins AS ON INSERT TO shoelace
     insert the items from the part list, and one with a special
     trick. The creation commands for these are:
 -->
-������Ź�ˤ�������˷�ɳ�Υ�������ʬ����������ȤȤ���Ϥ�����Ȳ��ꤷ�ޤ���
-����������������Ȥ�<literal>shoelace</literal>�ӥ塼�򹹿��������Ϥ���ޤ���
-����ˡ�������������ܤ���������ơ��֥���ü�ʻųݤ�����ĥơ��֥��2�Ĥξ����ʥơ��֥���Ѱդ��ޤ���
-�ʲ��Ϥ�����������륳�ޥ�ɤǤ���
+ここで店には不定期に靴紐のケースが分厚い送り状とともに届けられると仮定します。
+しかし、毎回毎回手作業で<literal>shoelace</literal>ビューを更新したくはありません。
+代わりに、送り状から品目を挿入するテーブルと特殊な仕掛けを持つテーブルの2つの小さなテーブルを用意します。
+以下はそれらを作成するコマンドです。
 
 <programlisting>
 CREATE TABLE shoelace_arrive (
@@ -2364,7 +2364,7 @@ CREATE RULE shoelace_ok_ins AS ON INSERT TO shoelace_ok
     Now you can fill the table <literal>shoelace_arrive</literal> with
     the data from the parts list:
 -->
-����ǡ�������Υǡ�����<literal>shoelace_arrive</literal>�ơ��֥���������뤳�Ȥ��Ǥ��ޤ���
+これで、送り状のデータを<literal>shoelace_arrive</literal>テーブルに投入することができます。
 
 <programlisting>
 SELECT * FROM shoelace_arrive;
@@ -2380,7 +2380,7 @@ SELECT * FROM shoelace_arrive;
 <!--
     Take a quick look at the current data:
 -->
-�����Ƹ��ߤΥǡ���������å����ޤ���
+そして現在のデータをチェックします。
 
 <programlisting>
 SELECT * FROM shoelace;
@@ -2401,7 +2401,7 @@ SELECT * FROM shoelace;
 <!--
     Now move the arrived shoelaces in:
 -->
-���ơ��Ϥ�����ɳ���ư���ޤ���
+さて、届いた靴紐を移動します。
 
 <programlisting>
 INSERT INTO shoelace_ok SELECT * FROM shoelace_arrive;
@@ -2410,7 +2410,7 @@ INSERT INTO shoelace_ok SELECT * FROM shoelace_arrive;
 <!--
     and check the results:
 -->
-�����Ʒ�̤��ǧ���ޤ���
+そして結果を確認します。
 
 <programlisting>
 SELECT * FROM shoelace ORDER BY sl_name;
@@ -2446,9 +2446,9 @@ SELECT * FROM shoelace_log;
     transformation will be the last in this chapter.  First, there is
     the parser's output:
 -->
-1�Ĥ�<literal>INSERT ... SELECT</literal>���餳�η�̤ˤʤ�ˤϡ�Ĺ��ƻ�Τ꤬����ޤ���
-�ܾϤǤ��䤤��碌�ĥ꡼���ѷ��˴ؤ��������Ϥ��줬�Ǹ�Ǥ���
-�ޤ����ʲ��Τ褦�ʥѡ����ν��Ϥ�����ޤ���
+1つの<literal>INSERT ... SELECT</literal>からこの結果になるには、長い道のりがあります。
+本章での問い合わせツリーの変形に関する説明はこれが最後です。
+まず、以下のようなパーサの出力があります。
 
 <programlisting>
 INSERT INTO shoelace_ok
@@ -2460,7 +2460,7 @@ SELECT shoelace_arrive.arr_name, shoelace_arrive.arr_quant
     Now the first rule <literal>shoelace_ok_ins</literal> is applied and turns this
     into:
 -->
-�ǽ��<literal>shoelace_ok_ins</literal>�롼�뤬Ŭ�Ѥ��졢��̤ϰʲ��Τ褦�ˤʤ�ޤ���
+最初の<literal>shoelace_ok_ins</literal>ルールが適用され、結果は以下のようになります。
 
 <programlisting>
 UPDATE shoelace
@@ -2477,8 +2477,8 @@ UPDATE shoelace
     the rule system again, and the second applied rule
     <literal>shoelace_upd</literal> produces:
 -->
-�����ơ�<literal>shoelace_ok</literal>���Ф��븵��<command>INSERT</command>���˴����ޤ���
-���ν񤭴�����줿�䤤��碌�ϺƤӥ롼�륷���ƥ���Ϥ���ơ�2���ܤ�Ŭ�Ѥ����<literal>shoelace_upd</literal>�롼��ϰʲ����������ޤ���
+そして、<literal>shoelace_ok</literal>に対する元の<command>INSERT</command>を破棄します。
+この書き換えられた問い合わせは再びルールシステムに渡されて、2番目に適用される<literal>shoelace_upd</literal>ルールは以下を生成します。
 
 <programlisting>
 UPDATE shoelace_data
@@ -2501,9 +2501,9 @@ UPDATE shoelace_data
     But the rule system isn't finished with this step, so it continues
     and applies the <literal>_RETURN</literal> rule on it, and we get:
 -->
-����ϺƤ�<literal>INSTEAD</>�롼��Ǥ��Τǡ��������䤤��碌�ĥ꡼���˴�����ޤ���
-�����䤤��碌��<literal>shoelace</literal>�ӥ塼�����³�����Ѥ��Ƥ��뤳�Ȥ����դ��Ƥ���������
-�������������ʳ��Ǥϥ롼�륷���ƥ�Ͻ�λ���Ƥ��ʤ����ᡢ����³��<literal>_RETURN</literal>�롼�뤬Ŭ�Ѥ��졢�����Τ褦�ˤʤ�ޤ���
+これは再び<literal>INSTEAD</>ルールですので、以前の問い合わせツリーは破棄されます。
+この問い合わせは<literal>shoelace</literal>ビューを引き続き使用していることに注意してください。
+しかし、この段階ではルールシステムは終了していないため、引き続き<literal>_RETURN</literal>ルールが適用され、下記のようになります。
 
 <programlisting>
 UPDATE shoelace_data
@@ -2526,7 +2526,7 @@ UPDATE shoelace_data
     Finally, the rule <literal>log_shoelace</literal> gets applied,
     producing the extra query tree:
 -->
-�Ǹ�ˡ�<literal>log_shoelace</literal>�롼�뤬Ŭ�Ѥ��졢�ʲ��Τ褦�����̤��䤤��碌�ĥ꡼����������ޤ���
+最後に、<literal>log_shoelace</literal>ルールが適用され、以下のような特別な問い合わせツリーが生成されます。
 
 <programlisting>
 INSERT INTO shoelace_log
@@ -2551,7 +2551,7 @@ SELECT s.sl_name,
     After that the rule system runs out of rules and returns the
     generated query trees.
 -->
-���θ塢�롼�륷���ƥ�ϥ롼���Ȥ��ڤꡢ�������줿�䤤��碌�ĥ꡼���֤��ޤ���
+この後、ルールシステムはルールを使い切り、生成された問い合わせツリーを返します。
    </para>
 
    <para>
@@ -2559,7 +2559,7 @@ SELECT s.sl_name,
     So we end up with two final query trees that are equivalent to the
     <acronym>SQL</acronym> statements:
 -->
-�����ơ��ʲ���<acronym>SQL</acronym>ʸ�������Ȥʤ�2�Ĥκǽ��䤤��碌�ĥ꡼�ǽ��뤷�ޤ���
+そして、以下の<acronym>SQL</acronym>文と等価となる2つの最終問い合わせツリーで終結します。
 
 <programlisting>
 INSERT INTO shoelace_log
@@ -2588,7 +2588,7 @@ UPDATE shoelace_data
     a fourth plus logging that final update in a fifth
     gets reduced into two queries.
 -->
-��̤ϡ�1�ĤΥ�졼����󤫤��褿�ǡ������̤Υ�졼�������������졢3���ܤΥ�졼�����ι������ѹ����졢4���ܤι�����5���ܤؤκǽ������Υ�����Ͽ���ѹ����졢�ǽ�Ū��2�Ĥ��䤤��碌�˽̾�����ޤ���
+結果は、1つのリレーションから来たデータが別のリレーションに挿入され、3つ目のリレーションの更新に変更され、4つ目の更新と5つ目への最終更新のログ記録に変更され、最終的に2つの問い合わせに縮小されます。
 </para>
 
 <para>
@@ -2600,9 +2600,9 @@ UPDATE shoelace_data
     so the execution plan for the rule systems output of the
     <command>INSERT</command> will be
 -->
-����äȸ��줷�������ʻ��ब����ޤ���
-�Ǥ��夬�ä�2�Ĥ��䤤��碌�򸫤�ȡ�1�Ĥ˽̾����줿�Ϥ���<literal>shoelace_data</literal>��졼������ϰϥơ��֥�����ٽФƤ��ޤ���
-�ץ��ʤϽ����򤷤ʤ��Τǡ�<command>INSERT</command>�Υ롼�륷���ƥ�ν��Ϥ��Ф���¹Էײ�ϼ��Τ褦�ˤʤ�ޤ���
+ちょっと見苦しい小さな事項があります。
+でき上がった2つの問い合わせを見ると、1つに縮小されたはずの<literal>shoelace_data</literal>リレーションが範囲テーブルに二度出てきます。
+プランナは処理をしないので、<command>INSERT</command>のルールシステムの出力に対する実行計画は次のようになります。
 
 <literallayout class="monospaced">
 <!--
@@ -2616,21 +2616,21 @@ Nested Loop
                     -&gt;  Seq Scan on shoelace_arrive
   -&gt;  Seq Scan on shoelace_data
 -->
-����Ҿ��롼��
-  -&gt;  �ޡ������
-        -&gt;  �������󥷥�륹�����
-              -&gt;  ������
-                    -&gt;  s���Ф��륷�����󥷥�륹�����
-        -&gt;  �������󥷥�륹�����
-              -&gt;  ������
-                    -&gt;  shoelace_arrive���Ф��륷�����󥷥�륹�����
-  -&gt;  shoelace_data���Ф��륷�����󥷥�륹�����
+入れ子状ループ
+  -&gt;  マージ結合
+        -&gt;  シーケンシャルスキャン
+              -&gt;  ソート
+                    -&gt;  sに対するシーケンシャルスキャン
+        -&gt;  シーケンシャルスキャン
+              -&gt;  ソート
+                    -&gt;  shoelace_arriveに対するシーケンシャルスキャン
+  -&gt;  shoelace_dataに対するシーケンシャルスキャン
 </literallayout>
 
 <!--
     while omitting the extra range table entry would result in a
 -->
-������;�פ��ϰϥơ��֥���ܤ��ά���뤳�Ȥǡ��ʲ��Τ褦�˥����ơ��֥�ˤޤä���Ʊ�����ܤ�����ޤ���
+一方、余計な範囲テーブル項目を省略することで、以下のようにログテーブルにまったく同じ項目が作られます。
 
 <literallayout class="monospaced">
 <!--
@@ -2642,13 +2642,13 @@ Merge Join
         -&gt;  Sort
               -&gt;  Seq Scan on shoelace_arrive
 -->
-�ޡ������
-  -&gt;  �������󥷥�륹�����
-        -&gt;  ������
-              -&gt;  s���Ф��륷�����󥷥�륹�����
-  -&gt;  �������󥷥�륹�����
-        -&gt;  ������
-              -&gt;  shoelace_arrive���Ф��륷�����󥷥�륹�����
+マージ結合
+  -&gt;  シーケンシャルスキャン
+        -&gt;  ソート
+              -&gt;  sに対するシーケンシャルスキャン
+  -&gt;  シーケンシャルスキャン
+        -&gt;  ソート
+              -&gt;  shoelace_arriveに対するシーケンシャルスキャン
 </literallayout>
 
 <!--
@@ -2659,9 +2659,9 @@ Merge Join
     <command>UPDATE</command>. But it was a really hard job to make
     that all possible at all.
 -->
-�Ǥ����顢�롼�륷���ƥ�ϡ��ޤä���ɬ�פΤʤ�<literal>shoelace_data</literal>��졼�������Ф���;�פʥ���������ٹԤ����Ȥˤʤ�ޤ���
-������<command>UPDATE</command>�Ǥ�Ʊ�ͤ����פʥ�����󤬺��ټ¹Ԥ���ޤ���
-�������ʤ��顢���������Ʋ�ǽ�ˤ���Τ����ѤʻŻ��Ǥ���
+ですから、ルールシステムは、まったく必要のない<literal>shoelace_data</literal>リレーションに対する余計なスキャンを一度行うことになります。
+そして<command>UPDATE</command>でも同様な不要なスキャンが再度実行されます。
+しかしながら、これらを全て可能にするのは大変な仕事です。
 </para>
 
 <para>
@@ -2671,8 +2671,8 @@ Merge Join
     Say you add some shoelaces with extraordinary colors to your
     database:
 -->
-�Ǹ��<productname>PostgreSQL</productname>�Υ롼�륷���ƥ�Ȥ��θ��Ϥ򼨤��ޤ��礦��
-�㤨�С��ޤä�����줽����ʤ���ɳ��ǡ����١������ɲä��Ƥߤޤ���
+最後に<productname>PostgreSQL</productname>のルールシステムとその効力を示しましょう。
+例えば、まったく売れそうもない靴紐をデータベースに追加してみます。
 
 <programlisting>
 INSERT INTO shoelace VALUES ('sl9', 0, 'pink', 35.0, 'inch', 0.0);
@@ -2684,8 +2684,8 @@ INSERT INTO shoelace VALUES ('sl10', 1000, 'magenta', 40.0, 'inch', 0.0);
     <literal>shoelace</literal> entries do not fit any shoe in color.
     The view for this is:
 -->
-���Ƥη��˹��ʤ�����<literal>shoelace</literal>���ܤˤ��뤫�ɤ����򸡺�����ӥ塼������������ȹͤ��ޤ���
-�ӥ塼�ϰʲ��Τ褦�ˤʤ�ޤ���
+全ての靴に合わない色が<literal>shoelace</literal>項目にあるかどうかを検査するビューを作成したいと考えます。
+ビューは以下のようになります。
 
 <programlisting>
 CREATE VIEW shoelace_mismatch AS
@@ -2696,7 +2696,7 @@ CREATE VIEW shoelace_mismatch AS
 <!--
     Its output is:
 -->
-���ν��Ϥϰʲ��Τ褦�ˤʤ�ޤ���
+この出力は以下のようになります。
 
 <programlisting>
 SELECT * FROM shoelace_mismatch;
@@ -2715,9 +2715,9 @@ SELECT * FROM shoelace_mismatch;
     To make it a little harder for <productname>PostgreSQL</productname>,
     we don't delete it directly. Instead we create one more view:
 -->
-�����ǡ��礦�����ʤ���ɳ�Τ������߸ˤ��ʤ���Τ�ǡ����١�������������褦�����ꤷ�Ƥߤޤ���
-�����<productname>PostgreSQL</productname>�ǤϺ���ʺ�ȤǤ��Τǡ�ľ�ܺ�����ޤ���
-����ˡ��ʲ��Τ褦�ˤ⤦1�ĥӥ塼��������ޤ���
+ここで、合う靴がない靴紐のうち、在庫がないものをデータベースから削除するように設定してみます。
+これは<productname>PostgreSQL</productname>では困難な作業ですので、直接削除しません。
+代わりに、以下のようにもう1つビューを作成します。
 
 <programlisting>
 CREATE VIEW shoelace_can_delete AS
@@ -2727,7 +2727,7 @@ CREATE VIEW shoelace_can_delete AS
 <!--
     and do it this way:
 -->
-�����ơ��ʲ���Ԥ��ޤ���
+そして、以下を行います。
 
 <programlisting>
 DELETE FROM shoelace WHERE EXISTS
@@ -2738,7 +2738,7 @@ DELETE FROM shoelace WHERE EXISTS
 <!--
     <foreignphrase>Voil&agrave;</foreignphrase>:
 -->
-�����Ǥ��ޤ�����
+さあできました。
 
 <programlisting>
 SELECT * FROM shoelace;
@@ -2768,7 +2768,7 @@ SELECT * FROM shoelace;
     one single query tree that deletes the requested data
     from a real table.
 -->
-���4�ĤΥͥ���/��礵�줿�ӥ塼�����䤤��碌�ξ��Ȥ��ƻ������������1�Ĥϥӥ塼��ޤ����䤤��碌������������ı黻��ܤ��줿�ӥ塼���󤬻Ȥ�����Ρ��ӥ塼���Ф���<command>DELETE</command>�����¥ơ��֥뤫���׵ᤵ�줿�ǡ�����������ñ����䤤��碌�ĥ꡼�˽񤭴������ޤ���
+合計4つのネスト/結合されたビューを副問い合わせの条件として持ち、その中の1つはビューを含む副問い合わせ条件を持ち、かつ演算を施されたビューの列が使われる場合の、ビューに対する<command>DELETE</command>が、実テーブルから要求されたデータを削除する単一の問い合わせツリーに書き換えられます。
 </para>
 
 <para>
@@ -2777,8 +2777,8 @@ SELECT * FROM shoelace;
     where such a construct is necessary. But it makes you feel
     comfortable that it works.
 -->
-���Τ褦�ʹ�¤��ɬ�פʾ����ϼ¼Ҳ�ǤϤۤȤ�ɤʤ��Ȼפ��ޤ���
-���������ºݤ�ư�����Ȥ��ǧ�Ǥ���а¿��Ǥ��ޤ���
+このような構造が必要な状況は実社会ではほとんどないと思われます。
+しかし、実際に動くことを確認できれば安心できます。
 </para>
 </sect2>
 
@@ -2788,15 +2788,15 @@ SELECT * FROM shoelace;
 <!--
 <title>Rules and Privileges</title>
 -->
-<title>�롼��ȸ���</title>
+<title>ルールと権限</title>
 
 <indexterm zone="rules-privileges">
 <!--
  <primary>privilege</primary>
  <secondary sortas="Regeln">with rules</secondary>
 -->
- <primary>����</primary>
- <secondary sortas="Regeln">�롼��Ǥ�</secondary>
+ <primary>権限</primary>
+ <secondary sortas="Regeln">ルールでの</secondary>
 </indexterm>
 
 <indexterm zone="rules-privileges">
@@ -2804,8 +2804,8 @@ SELECT * FROM shoelace;
  <primary>privilege</primary>
  <secondary sortas="Sichten">with views</secondary>
 -->
- <primary>����</primary>
- <secondary sortas="Sichten">�ӥ塼�Ǥ�</secondary>
+ <primary>権限</primary>
+ <secondary sortas="Sichten">ビューでの</secondary>
 </indexterm>
 
 <para>
@@ -2815,8 +2815,8 @@ SELECT * FROM shoelace;
     query get accessed. When update rules are used, this can include write access
     to tables.
 -->
-<productname>PostgreSQL</productname>�Υ롼�륷���ƥ�ˤ���䤤��碌�ν񤭴����ˤ�äơ����ꥸ�ʥ���䤤��碌�ǻȤ�줿��ΤǤϤʤ�¾�Υơ��֥�/�ӥ塼��������������ޤ���
-�����롼���Ȥ����Ȥˤ�äƥơ��֥�ؤν񤭹��ߥ�����������ޤ��뤳�Ȥ��Ǥ��ޤ���
+<productname>PostgreSQL</productname>のルールシステムによる問い合わせの書き換えによって、オリジナルの問い合わせで使われたものではない他のテーブル/ビューがアクセスされます。
+更新ルールを使うことによってテーブルへの書き込みアクセスを包含することができます。
 </para>
 
 <para>
@@ -2831,11 +2831,11 @@ SELECT * FROM shoelace;
     This means that a user only needs the required privileges
     for the tables/views that he names explicitly in his queries.
 -->
-�񤭴����롼����̡��ν�ͭ�ԤϤ��ޤ���
-��졼�����ʥơ��֥�ޤ��ϥӥ塼�ˤν�ͭ�Ԥϼ�ưŪ�ˤ����������줿�񤭴����롼��ν�ͭ�ԤȤʤ�ޤ���
-<productname>PostgreSQL</productname>�Υ롼�륷���ƥ�ϥǥե���ȤΥ����������楷���ƥ�ο��񤤤��ѹ����ޤ���
-�롼��ˤ�äƻ��Ѥ�����졼�����ϡ��롼���ư�����桼���θ��¤ǤϤʤ����롼���ͭ�Ԥθ��¤ǥ����å�����ޤ���
-���Τ��Ȥϡ��桼�����䤤��碌����������ơ��֥�/�ӥ塼���Ф��Ƥθ��¤�������Ф褤���Ȥ򼨤��Ƥ��ޤ���
+書き換えルールに別々の所有者はいません。
+リレーション（テーブルまたはビュー）の所有者は自動的にそれに定義された書き換えルールの所有者となります。
+<productname>PostgreSQL</productname>のルールシステムはデフォルトのアクセス制御システムの振舞いを変更します。
+ルールによって使用されるリレーションは、ルールを起動したユーザの権限ではなく、ルール所有者の権限でチェックされます。
+このことは、ユーザは問い合わせで明記するテーブル/ビューに対しての権限だけあればよいことを示しています。
 </para>
 
 <para>
@@ -2844,9 +2844,9 @@ SELECT * FROM shoelace;
     them are private, the others are of interest for the secretary of the office.
     He can construct the following:
 -->
-�㤨�С��ʲ��Τ褦�ˤ��ޤ���
-����桼�����������Ĥ��ϸĿ��ѤΡ�����¾�ϻ�̳���������Ѥ��뤿��Ρ������ֹ�Υꥹ�Ȥ���äƤ����Ȥ��ޤ���
-�桼���ϼ��Τ褦�ˤ��ƹ��ۤ��뤳�Ȥ��Ǥ��ޤ���
+例えば、以下のようにします。
+あるユーザが、いくつかは個人用の、その他は事務所で秘書が利用するための、電話番号のリストを持っていたとします。
+ユーザは次のようにして構築することができます。
 
 <programlisting>
 CREATE TABLE phone_data (person text, phone text, private boolean);
@@ -2871,11 +2871,11 @@ GRANT SELECT ON phone_number TO secretary;
     against the invoking user, so nobody but the user and the
     secretary can use it.
 -->
-���Υ桼���ʤȥǡ����١����Υ����ѡ��桼���˰ʳ���<literal>phone_data</>�ơ��֥�˥��������Ǥ��ޤ���
-��������<command>GRANT</>�ˤ������<literal>phone_number</>�ӥ塼���Ф�<command>SELECT</command>�Ǥ��ޤ���
-�롼�륷���ƥ��<literal>phone_number</>�����<command>SELECT</command>����<literal>phone_data</>�����<command>SELECT</command>���˽񤭴����ޤ���
-���Υ桼����<literal>phone_number</>�ν�ͭ�ԡ��������äƥ롼��ν�ͭ�ԤǤ����顢<literal>phone_data</>���ɤ߹��ߤ��Ф��륢�������Ϥ��Υ桼���θ��¤˽��äƥ����å����졢�䤤��碌������դ��Ƥ�褤���Ȥˤʤ�ޤ���
-<literal>phone_number</>�ؤΥ�������������å�����ޤ���������ϸƤӽФ����桼�����Ф��ƹԤ��ޤ��Τǡ����ȥ桼���ʳ��ϻȤ����Ȥ��Ǥ��ޤ���
+そのユーザ（とデータベースのスーパーユーザ）以外は<literal>phone_data</>テーブルにアクセスできません。
+しかし、<command>GRANT</>により秘書は<literal>phone_number</>ビューに対し<command>SELECT</command>できます。
+ルールシステムは<literal>phone_number</>からの<command>SELECT</command>操作を<literal>phone_data</>からの<command>SELECT</command>操作に書き換えます。
+そのユーザは<literal>phone_number</>の所有者、したがってルールの所有者ですから、<literal>phone_data</>の読み込みに対するアクセスはそのユーザの権限に従ってチェックされ、問い合わせを受け付けてもよいことになります。
+<literal>phone_number</>へのアクセスもチェックされますが、これは呼び出したユーザに対して行われますので、秘書とユーザ以外は使うことができません。
 </para>
 
 <para>
@@ -2891,14 +2891,14 @@ GRANT SELECT ON phone_number TO secretary;
     his <literal>phone_number</> view, he can revoke his access. Immediately, any
     access to the secretary's view would fail.
 -->
-���¤ϥ롼�뤴�Ȥ˥����å�����ޤ���
-�Ǥ����������������ΤȤ��������������ֹ�򻲾Ȥ��뤳�Ȥ��Ǥ��ޤ���
-�������������̤Υӥ塼��������������PUBLIC���Ф��륢���������Ĥ�Ϳ���뤳�Ȥ��Ǥ��ޤ���
-������������Υӥ塼���̤���ï�⤬<literal>phone_number</>�ǡ����򸫤뤳�Ȥ��Ǥ��ޤ���
-��񤬤Ǥ��ʤ����Ȥ�<literal>phone_data</>��ľ�ܥ�����������ӥ塼���뤳�ȤǤ�
-�ʼºݤˤϺ����ϤǤ��ޤ������������������ơ����¥����å��ǵ��䤵��ޤ��ˡ�
-�����ơ�����ȼ���<literal>phone_number</>�ӥ塼�򳫤������Ȥ˥桼�������դ��������ǡ����θ��¤���夲�뤳�Ȥ��Ǥ��ޤ���
-���Υӥ塼�ؤΥ���������¨�¤˼��Ԥ˽����ޤ���
+権限はルールごとにチェックされます。
+ですから秘書だけが今のところ公開の電話番号を参照することができます。
+しかし、秘書は別のビューを作成し、それにPUBLICに対するアクセス許可を与えることができます。
+こうすると秘書のビューを通して誰もが<literal>phone_number</>データを見ることができます。
+秘書ができないことは<literal>phone_data</>に直接アクセスするビューを作ることです
+（実際には作成はできますが、アクセスは全て、権限チェックで拒絶されます）。
+そして、秘書が独自の<literal>phone_number</>ビューを開いたことにユーザが気付いた時点で、秘書の権限を取り上げることができます。
+秘書のビューへのアクセスは即座に失敗に終わります。
 </para>
 
 <para>
@@ -2912,11 +2912,11 @@ GRANT SELECT ON phone_number TO secretary;
     If someone you trust does the thing above, it's time to
     think it over and then use <command>REVOKE</command>.
 -->
-���Υ롼�뤴�ȤΥ����å����������ƥ��ۡ���ˤʤ�ȹͤ���ͤ����뤫�⤷��ޤ��󤬡��ºݤˤϤ����ǤϤ���ޤ���
-�⤷���Τ褦�˵�ǽ���ʤ��Ȥʤ�ȡ�����<literal>phone_number</>��Ʊ�������ä��ơ��֥���Ѱդ��ơ�1��1��ǡ����򤽤��˥��ԡ����뤫�⤷��ޤ���
-�����ʤ�ȡ��ǡ�������Τ�ΤǤ����顢ï�˥�����������Ϳ���褦����μ�ͳ�Ǥ���
-<command>GRANT</command>��<quote>���ʤ����Ѥ��Ƥ��ޤ�</quote>�Ȥ������ȤǤ���
-���Ѥ��Ƥ���ï�������Τ褦�ʤ��Ȥ�Ԥä����ϡ��ͤ����Ѥ���<command>REVOKE</command>���Ƥ���������
+このルールごとのチェックがセキュリティホールになると考える人がいるかもしれませんが、実際にはそうではありません。
+もしこのように機能しないとなると、秘書は<literal>phone_number</>と同じ列を持ったテーブルを用意して、1日1回データをそこにコピーするかもしれません。
+そうなると、データは彼のものですから、誰にアクセス権を与えようが彼の自由です。
+<command>GRANT</command>は<quote>あなたを信用しています</quote>ということです。
+信用している誰かがこのようなことを行った場合は、考えを変えて<command>REVOKE</command>してください。
 </para>
 
 <para>
@@ -2927,8 +2927,8 @@ GRANT SELECT ON phone_number TO secretary;
     <literal>security_barrier</literal> flag has been set.  For example,
     the following view is insecure:
 -->
-��˼������褦�ʼ�ˡ��ȤäƤ���������Ƥ򱣤��Τ˥ӥ塼�ϻȤ��ޤ�����<literal>security_barrier</literal>�ե饰�����ꤵ��Ƥ��ʤ��¤ꡢ�����ʤ��Ԥˤ���ǡ����򱣤�����Ǥ�����ˡ�ǤϤʤ��������դ��Ƥ���������
-�㤨�С��ʲ��Υӥ塼�ϰ����ǤϤ���ޤ���
+上に示したような手法を使ってある列の内容を隠すのにビューは使えますが、<literal>security_barrier</literal>フラグが設定されていない限り、見えない行にあるデータを隠す信頼できる方法ではない事に注意してください。
+例えば、以下のビューは安全ではありません。
 <programlisting>
 CREATE VIEW phone_number AS
     SELECT person, phone FROM phone_data WHERE phone NOT LIKE '412%';
@@ -2943,9 +2943,9 @@ CREATE VIEW phone_number AS
     function prior to the <function>NOT LIKE</function> expression.
     For example:
 -->
-�롼�륷���ƥब<literal>phone_number</>�����<command>SELECT</command>��<literal>phone_data</>�����<command>SELECT</command>�˽񤭴�����<literal>phone</>��412�ǻϤޤ�ʤ����ܤΤߤ�ɬ�פ��Ȥ��������ɲä��ޤ��Τǡ����Υӥ塼�ϰ����˸����ޤ���
-���������桼�������Ȥδؿ�������Ǥ���ΤǤ���С�<function>NOT LIKE</function>�������˥桼������δؿ���¹Ԥ���褦�ץ��ʤ��������뤳�Ȥ��񤷤�����ޤ���
-�㤨�аʲ����̤�Ǥ���
+ルールシステムが<literal>phone_number</>からの<command>SELECT</command>を<literal>phone_data</>からの<command>SELECT</command>に書き換え、<literal>phone</>が412で始まらない項目のみが必要だという条件を追加しますので、このビューは安全に見えます。
+しかし、ユーザが自身の関数を作成できるのであれば、<function>NOT LIKE</function>式の前にユーザ定義の関数を実行するようプランナを説得することは難しくありません。
+例えば以下の通りです。
 <programlisting>
 CREATE FUNCTION tricky(text, text) RETURNS bool AS $$
 BEGIN
@@ -2965,9 +2965,9 @@ SELECT * FROM phone_number WHERE tricky(person, phone);
     similar attacks.  (For example, most casting functions include their
     input values in the error messages they produce.)
 -->
-�ץ��ʤϤ������<function>NOT LIKE</function>�����˰²���<function>tricky</function>�ؿ���¹Ԥ��뤳�Ȥ����Ӥޤ��Τǡ�<literal>phone_data</>�ơ��֥�οͤ������ֹ�Ϥ��٤�<literal>NOTICE</literal>�Ȥ���ɽ������ޤ���
-���Ȥ��桼�����������ؿ�������Ǥ��ʤ����Ǥ⡢Ʊ�ͤι�����Ȥ߹��ߴؿ����Ȥ��ޤ���
-���㤨�С��ۤȤ�ɤη��Ѵ��ؿ����������륨�顼��å������������ͤ�ޤ�Ǥ��ޤ�����
+プランナはより高価な<function>NOT LIKE</function>の前に安価な<function>tricky</function>関数を実行することを選びますので、<literal>phone_data</>テーブルの人と電話番号はすべて<literal>NOTICE</literal>として表示されます。
+たとえユーザが新しい関数を定義できない場合でも、同様の攻撃で組み込み関数が使えます。
+（例えば、ほとんどの型変換関数は生成するエラーメッセージに入力値を含んでいます。）
 </para>
 
 <para>
@@ -2986,13 +2986,13 @@ SELECT * FROM phone_number WHERE tricky(person, phone);
     which references <literal>shoelace_log</> is an unqualified
     <literal>INSERT</>.  This might not be true in more complex scenarios.
 -->
-Ʊ�ͤι�θ�Ϲ����롼��ˤ�Ŭ�ѤǤ��ޤ���
-�������ˤ����ơ��ǡ����١����Υơ��֥�ν�ͭ�Ԥ�<literal>shoelace</>�ӥ塼���Ф���ï����<literal>SELECT</>��<literal>INSERT</>��<literal>UPDATE</>��<literal>DELETE</>���¤�Ϳ���뤳�Ȥ��Ǥ��ޤ���
-��������<literal>shoelace_log</>���Ф��Ƥ�<literal>SELECT</>�����Ǥ���
-�������ܤ�񤭹���롼�륢�������ϻپ�ʤ��¹Ԥ��졢�ޤ���¾�Υ桼���ϥ������ܤ򸫤뤳�Ȥ��Ǥ��ޤ���
-��������¾�Υ桼���Ϲ��ܤ���¤�����ꡢ����¸�ߤ�����ܤ����롢���뤤�Ϻ�����뤳�ȤϤǤ��ޤ���
-���ξ�硢<literal>shoelace_log</>�򻲾Ȥ��Ƥ���롼��Ͼ��Τʤ�<literal>INSERT</>�����Ǥ��Τǡ����ν�����Ѥ���褦�˥ץ��ʤ��������뤳�Ȥǥ롼����˲������ǽ���Ϥ���ޤ���
-����Ϥ��ʣ���ʾ����Ǥ��������ʤ����⤷��ޤ���
+同様の考慮は更新ルールにも適用できます。
+前節の例において、データベースのテーブルの所有者は<literal>shoelace</>ビューに対し、誰かに<literal>SELECT</>、<literal>INSERT</>、<literal>UPDATE</>、<literal>DELETE</>権限を与えることができます。
+しかし、<literal>shoelace_log</>に対しては<literal>SELECT</>だけです。
+ログ項目を書き込むルールアクションは支障なく実行され、また、他のユーザはログ項目を見ることができます。
+しかし、他のユーザは項目を捏造したり、既に存在する項目を操作する、あるいは削除することはできません。
+この場合、<literal>shoelace_log</>を参照しているルールは条件のない<literal>INSERT</>だけですので、操作の順序を変えるようにプランナを説得することでルールを破壊する可能性はありません。
+これはより複雑な状況では正しくないかもしれません。
 </para>
 
 <para>
@@ -3004,9 +3004,9 @@ SELECT * FROM phone_number WHERE tricky(person, phone);
     example, if the view shown above had been created like this, it would
     be secure:
 -->
-�ӥ塼���ԥ�٥륻�����ƥ����󶡤�����ˤϡ����Υӥ塼�ˤ�<literal>security_barrier</>°������Ϳ����٤��Ǥ���
-����ϡ����դ���ä����Ф줿�ؿ���黻�Ҥ����ӥ塼��Ŭ�Ѥ���������˼��Ф��줿�Ԥ��Ф��Ƽ¹Ԥ���ʤ��褦�ˤ��ޤ���
-�㤨�С��嵭�Υӥ塼�����Τ褦��������줿��硢����ϰ����Ǥ���
+ビューが行レベルセキュリティを提供する場合には、そのビューには<literal>security_barrier</>属性を付与するべきです。
+これは、悪意を持って選ばれた関数や演算子が、ビューが適用されるより前に取り出された行に対して実行されないようにします。
+例えば、上記のビューが次のように定義された場合、これは安全です。
 <programlisting>
 CREATE VIEW phone_number WITH (security_barrier) AS
     SELECT person, phone FROM phone_data WHERE phone NOT LIKE '412%';
@@ -3018,7 +3018,7 @@ CREATE VIEW phone_number WITH (security_barrier) AS
     if it may compromise security.  For this reason, this option is not
     enabled by default.
 -->
-<literal>security_barrier</>���դ���������줿�ӥ塼�ϡ����Υ��ץ����ʤ��Υӥ塼������ǽ�����륯����¹ԥץ����������ޤ�������Ū�ˡ��Ǥ��®�������������ƥ�������꤬���륯����¹ԥץ����˴����ʤ���Фʤ�ʤ��Ȥ����������Բ���Ǥ������Τ��ᡢ���Υ��ץ����ϥǥե���ȤǤ�ͭ���ˤʤäƤ��ޤ���
+<literal>security_barrier</>を付けて定義されたビューは、このオプションなしのビューよりも性能の劣るクエリ実行プランを生成します。一般的に、最も高速だが、セキュリティ上の問題があるクエリ実行プランを破棄しなければならないという状況は不可避です。そのため、このオプションはデフォルトでは有効になっていません。
 </para>
 
 <para>
@@ -3035,8 +3035,8 @@ CREATE VIEW phone_number WITH (security_barrier) AS
     significant information about the unseen rows if applied before the security
     view's row filters.
 -->
-   �ץ��ʤ������ѤΤʤ��ؿ���⤦��������˰����ޤ��������δؿ���<literal>LEAKPROOF</literal>°������äƤ��ꡢ�����黻�Ҥʤɡ�ñ��ǹ����Ѥ�����黻�Ҥ�¿���ޤޤ�ޤ������ѼԤ��Ф����ԲĻ�ʹԤ��Ф��뤳���ؿ��θƤӽФ��Ϥ����ʤ�����ϳ���������ʤ����ᡢ�ץ��ʤϤ����δؿ���ɤΤ褦�ʾ��Ǥ�����˼¹Ԥ���������Ǥ��ޤ���
-�������㤨�Х����С��ե����䥼�������Τ褦��������ä��������ͤ˱����ƥ��顼��ȯ��������褦�ʴؿ��� leak-proof �ǤϤ���ޤ��󡣤��줬�⤷�������ƥ����ӥ塼�ξ���ǥե��륿��󥰤����������Ŭ�Ѥ��줿�ʤ顢�ԲĻ�Ԥ˴ؤ��벿�����פʾ����Ϳ��������Ǥ��Ƥ��ޤ��ޤ���
+   プランナは副作用のない関数をもう少し柔軟に扱います。これらの関数は<literal>LEAKPROOF</literal>属性を持っており、等価演算子など、単純で広く用いられる演算子も多く含まれます。利用者に対して不可視な行に対するこれら関数の呼び出しはいかなる情報も漏えいさせないため、プランナはこれらの関数をどのような場所でも安全に実行させる事ができます。
+一方、例えばオーバーフローやゼロ除算のよう、受け取った引数の値に応じてエラーを発生させるような関数は leak-proof ではありません。これがもしセキュリティ・ビューの条件句でフィルタリングされるより前に適用されたなら、不可視行に関する何か重要な情報を与える事ができてしまいます。
 </para>
 
 <para>
@@ -3055,10 +3055,10 @@ CREATE VIEW phone_number WITH (security_barrier) AS
     channel" attacks are of concern, it is probably unwise to grant any access
     to the data at all.
 -->
-   �ӥ塼��<literal>security_barrier</literal>°���դ���������줿�Ȥ��Ƥ⡢����ϸ���Ū�ʰ�̣�ǰ����Ǥ��롢�Ĥޤ��ԲĻ�ʹԤ����Ƥ�����Ū�˰����Ǥʤ��ؿ����Ϥ��������ʤ��Ȥ�������տޤ��Ƥ���ˤ����ޤ���
-���ѼԤˤ��ԲĻ�ʹԤ��Ф��Ʋ��餫�ο�¬��Ԥ�¾�μ��ʤ����뤫�⤷��ޤ����㤨�С�<command>EXPLAIN</command>���Ѥ��ƥ�����¹ԥץ��򸫤��ꡢ�ӥ塼���Ф��륯����¹Ի��֤��¬�����ꤹ�뤳�ȤǤ���
-   ���դι���Ԥ��ԲĻ�ǡ������̤��¬�����ꡢʬ��������͡ʤʤ��ʤ顢���������׾�����̤��Ƽ¹ԥץ������򡢤Ҥ��Ƥϼ¹Ի��֤˱ƶ����뤫�⤷��ޤ���ˤ˴ؤ��벿�餫�ξ������������Ǥ��뤫�⤷��ޤ���
-   �⤷�����μ��"�������ͥ�"���Ф����к���ɬ�פǤ���С��Ȥˤ����ǡ������Ф��륢����������Ĥ���Τ������ǤϤ���ޤ���
+   ビューが<literal>security_barrier</literal>属性付きで定義されたとしても、それは限定的な意味で安全である、つまり不可視な行の内容が潜在的に安全でない関数に渡される事がないという事を意図しているにすぎません。
+利用者には不可視な行に対して何らかの推測を行う他の手段があるかもしれません。例えば、<command>EXPLAIN</command>を用いてクエリ実行プランを見たり、ビューに対するクエリ実行時間を計測したりすることです。
+   悪意の攻撃者は不可視データの量を推測したり、分散や最頻値（なぜなら、これらは統計情報を通じて実行プランの選択、ひいては実行時間に影響するかもしれません）に関する何らかの情報を得る事ができるかもしれません。
+   もし、この種の"隠れチャネル"に対する対策が必要であれば、とにかくデータに対するアクセスを許可するのは得策ではありません。
 </para>
 </sect1>
 
@@ -3066,7 +3066,7 @@ CREATE VIEW phone_number WITH (security_barrier) AS
 <!--
 <title>Rules and Command Status</title>
 -->
-<title>�롼�뤪��ӥ��ޥ�ɤξ���</title>
+<title>ルールおよびコマンドの状態</title>
 
 <para>
 <!--
@@ -3075,16 +3075,16 @@ CREATE VIEW phone_number WITH (security_barrier) AS
     command it receives.  This is simple enough when there are no rules
     involved, but what happens when the query is rewritten by rules?
 -->
-<productname>PostgreSQL</productname>�����ФǤϡ�������ä��䤤��碌�Τ��줾����Ф��ơ�<literal>INSERT 149592 1</>�Τ褦�ʥ��ޥ�ɾ���ʸ������֤��ޤ���
-����ϴ�ñ�Ǥ������롼�뤬���Ѥ���Ƥ��ʤ����ˤϽ�ʬ�ʤ�ΤǤ���
-���������䤤��碌���롼��ˤ��񤭴�����줿��硢�ɤΤ褦�ˤʤ�Ǥ��礦����
+<productname>PostgreSQL</productname>サーバでは、受け取った問い合わせのそれぞれに対して、<literal>INSERT 149592 1</>のようなコマンド状態文字列を返します。
+これは簡単ですが、ルールが使用されていない場合には十分なものです。
+しかし、問い合わせがルールにより書き換えられた場合、どのようになるでしょうか。
 </para>
 
 <para>
 <!--
     Rules affect the command status as follows:
 -->
-�롼��ϥ��ޥ�ɾ��֤˰ʲ��Τ褦�˱ƶ���Ϳ���ޤ���
+ルールはコマンド状態に以下のように影響を与えます。
 
     <itemizedlist>
      <listitem>
@@ -3098,9 +3098,9 @@ CREATE VIEW phone_number WITH (security_barrier) AS
        number of rows it processes, and if so the reported status will
        be affected.)
 -->
-�䤤��碌��̵����<literal>INSTEAD</>�롼�뤬���Ѥ���Ƥ��ʤ���硢����Ϳ�����Ƥ����䤤��碌���¹Ԥ��졢���Υ��ޥ�ɾ��֤��̾��̤��֤���ޤ�
-�ʤ�����������դ�<literal>INSTEAD</>�롼�뤬���Ѥ���Ƥ����硢���ξ������꤬�����䤤��碌���ɲä���뤳�Ȥ����դ��Ƥ���������
-����ˤ�ꡢ��������Ԥο������ꡢ���η����𤵤����֤��ƶ�������뤫�⤷��ޤ���ˡ�
+問い合わせに無条件の<literal>INSTEAD</>ルールが使用されていない場合、元々与えられていた問い合わせが実行され、そのコマンド状態は通常通り返されます
+（しかし、条件付き<literal>INSTEAD</>ルールが使用されている場合、その条件の否定が元の問い合わせに追加されることに注意してください。
+これにより、処理する行の数が減り、その結果報告される状態が影響を受けるかもしれません）。
       </para>
      </listitem>
 
@@ -3118,9 +3118,9 @@ CREATE VIEW phone_number WITH (security_barrier) AS
        returned command status shows the original query type and
        zeroes for the row-count and OID fields.
 -->
-�䤤��碌��̵����<literal>INSTEAD</>�롼�뤬���Ѥ���Ƥ����硢�����䤤��碌�Ϥޤä����¹Ԥ���ޤ���
-���ξ�硢�����ФǤϡ��ʾ���դ��⤷����̵���Ρ�<literal>INSTEAD</>�롼��ˤ�ä��������졢���ġ������䤤��碌��Ʊ�������<command>INSERT</command>��<command>UPDATE</command>�ޤ���<command>DELETE</command>�ˤκǸ���䤤��碌�ˤĤ��ƥ��ޥ�ɾ��֤��֤��ޤ���
-���ξ��˹��פ����䤤��碌���롼��ˤ�ä��ɲä���ʤ���硢�֤���륳�ޥ�ɾ��֤ϡ������䤤��碌�μ���ȹԿ������OID�ե�����ɤ�0��ɽ������ޤ���
+問い合わせに無条件の<literal>INSTEAD</>ルールが使用されている場合、元の問い合わせはまったく実行されません。
+この場合、サーバでは、（条件付きもしくは無条件の）<literal>INSTEAD</>ルールによって挿入され、かつ、元の問い合わせと同じ種類（<command>INSERT</command>、<command>UPDATE</command>または<command>DELETE</command>）の最後の問い合わせについてコマンド状態を返します。
+この条件に合致する問い合わせがルールによって追加されない場合、返されるコマンド状態は、元の問い合わせの種類と行数およびOIDフィールドに0が表示されます。
       </para>
      </listitem>
     </itemizedlist>
@@ -3133,7 +3133,7 @@ CREATE VIEW phone_number WITH (security_barrier) AS
     alphabetically last rule name among the active rules, so that it
     gets applied last.
 -->
-��Ԥξ�硢�ץ�����ޤϡ�ͭ���롼�����ǥ���ե��٥åȽ�κǸ�Υ롼��̾��Ϳ���뤳�Ȥˤ�äơ�ɬ�פ�<literal>INSTEAD</>�롼���Ǹ�˼¹Ԥ��뤳�Ȥ��Ǥ��ޤ��������ơ����Τ��Ȥˤ�äơ����ޥ�ɾ��֤��μ¤ˤ��Υ롼������ꤵ���褦�ˤǤ��ޤ���
+後者の場合、プログラマは、有効ルールの中でアルファベット順の最後のルール名を与えることによって、必要な<literal>INSTEAD</>ルールを最後に実行することができます。そして、そのことによって、コマンド状態が確実にそのルールで設定されるようにできます。
 </para>
 </sect1>
 
@@ -3141,15 +3141,15 @@ CREATE VIEW phone_number WITH (security_barrier) AS
 <!--
 <title>Rules Versus Triggers</title>
 -->
-<title>�롼���Хȥꥬ</title>
+<title>ルール対トリガ</title>
 
 <indexterm zone="rules-triggers">
 <!--
  <primary>rule</primary>
  <secondary sortas="Trigger">compared with triggers</secondary>
 -->
- <primary>�롼��</primary>
- <secondary sortas="Trigger">�ȥȥꥬ�Ȥ����</secondary>
+ <primary>ルール</primary>
+ <secondary sortas="Trigger">とトリガとの比較</secondary>
 </indexterm>
 
 <indexterm zone="rules-triggers">
@@ -3157,8 +3157,8 @@ CREATE VIEW phone_number WITH (security_barrier) AS
  <primary>trigger</primary>
  <secondary sortas="Regeln">compared with rules</secondary>
 -->
- <primary>�ȥꥬ</primary>
- <secondary sortas="Regeln">�ȥ롼��Ȥ����</secondary>
+ <primary>トリガ</primary>
+ <secondary sortas="Regeln">とルールとの比較</secondary>
 </indexterm>
 
 <para>
@@ -3174,10 +3174,10 @@ CREATE VIEW phone_number WITH (security_barrier) AS
     and in the case of an invalid value an error message should
     be generated, it must be done by a trigger.
 -->
-�ȥꥬ�ˤ�äƹԤ���¿��������<productname>PostgreSQL</productname>�Υ롼�륷���ƥ�Ǽ�����ǽ�Ǥ���
-�롼��Ǽ����Ǥ��ʤ���Τ�1�ĤϤ����������ä˳��������˴ؤ��ƤǤ���
-�⤷¾�Υơ��֥������ͤ��ʤ��ä���硢���롼��ǥ��ޥ�ɤ�<literal>NOTHING</>�˽񤭴����Ƥ��ޤ����Ȥ��ǽ�Ǥ���������Ǥϥǡ��������ޤäƾõ��Ƥ��ޤ����ɤ������ǥ����Ȥϸ����ޤ���
-ͭ�����ͤ��ɤ����Υ����å���ɬ�פǡ�̵�����ͤˤĤ��Ƥϥ��顼��å�������ɽ������ɬ�פ�����ʤ顢���Τ��ȤϺ��ΤȤ����ȥꥬ��ȤäƹԤ�ʤ���Фʤ�ޤ���
+トリガによって行われる多くの操作は<productname>PostgreSQL</productname>のルールシステムで実装可能です。
+ルールで実装できないものの1つはある種の制約、特に外部キーに関してです。
+もし他のテーブルに列の値がなかった場合、条件ルールでコマンドを<literal>NOTHING</>に書き換えてしまうことも可能ですが、これではデータがだまって消去されてしまい、良いアイディアとは言えません。
+有効な値かどうかのチェックが必要で、無効な値についてはエラーメッセージを表示する必要があるなら、このことは今のところトリガを使って行わなければなりません。
 </para>
 
 <para>
@@ -3188,9 +3188,9 @@ CREATE VIEW phone_number WITH (security_barrier) AS
     triggers is often easier than writing rules, particularly if complex
     logic is required to perform the update.
 -->
-���ξϤǤϥӥ塼�򹹿�����Τ˥롼���Ȥ����Ȥ˾��������ƤƤ��ޤ�����
-���ξϤι����롼�����Ϥ��٤ƥӥ塼��<literal>INSTEAD OF</>�ȥꥬ��ȤäƤ�����Ǥ��ޤ���
-�ä˹�����¹Ԥ���Τ�ʣ�����������׵ᤵ�����ˤϡ����Τ褦�ʥȥꥬ��񤯤��ȤϤ��Ф��Х롼���񤯤����ñ�Ǥ���
+この章ではビューを更新するのにルールを使うことに焦点を当ててきました。
+この章の更新ルールの例はすべてビューの<literal>INSTEAD OF</>トリガを使っても実装できます。
+特に更新を実行するのに複雑な論理が要求される場合には、そのようなトリガを書くことはしばしばルールを書くよりも簡単です。
 </para>
 
 <para>
@@ -3205,11 +3205,11 @@ CREATE VIEW phone_number WITH (security_barrier) AS
     many times.  However, the trigger approach is conceptually far
     simpler than the rule approach, and is easier for novices to get right.
 -->
-�ɤ���Ǥ�����Ǥ������˴ؤ��Ƥɤ��餬�٥��Ȥ��ϥǡ����١����λ���ˡ�ˤ��ޤ���
-�ȥꥬ�ϳƹԤ��Ф��ư��ٵ�ư���ޤ���
-�롼����䤤��碌�������뤫�ɲä��䤤��碌���������ޤ���
-�Ǥ����顢1�Ĥ�ʸ��¿���ιԤ˱ƶ���Ϳ�����硢1�ĤιԤ���������٤˸ƤӽФ��졢���򤹤뤫���٤�Ʒ��ꤷ�ʤ���Фʤ�ʤ��ȥꥬ���⡢�ɲä��䤤��碌��1��ȯ�Ԥ���롼��������ۤȤ�ɤξ���®�ˤʤ�ޤ���
-���������ȥꥬ�����ϳ�ǰŪ�˥롼�륷���ƥ��꤫�ʤ�ñ��Ǥ��ꡢ�鿴�Ԥϴ�ñ���������������Ȥ��Ǥ��ޤ���
+どちらでも実装できる事項に関してどちらがベストかはデータベースの使用法によります。
+トリガは各行に対して一度起動します。
+ルールは問い合わせを修正するか追加の問い合わせを生成します。
+ですから、1つの文が多くの行に影響を与える場合、1つの行を処理する度に呼び出され、何をするかを何度も再決定しなければならないトリガよりも、追加の問い合わせを1つ発行するルールの方がほとんどの場合高速になります。
+しかし、トリガ方式は概念的にルールシステムよりかなり単純であり、初心者は簡単に正しく扱うことができます。
 </para>
 
 <para>
@@ -3217,8 +3217,8 @@ CREATE VIEW phone_number WITH (security_barrier) AS
     Here we show an example of how the choice of rules versus triggers
     plays out in one situation.  There are two tables:
 -->
-�����ǡ�����������ǥ롼��ȥȥꥬ�Τɤ�������򤹤뤫�򼨤����󤲤ޤ���
-�㤨�С�2�ĤΥơ��֥뤬����Ȥ��ޤ���
+ここで、ある状況下でルールとトリガのどちらを選択するかを示す例を挙げます。
+例えば、2つのテーブルがあるとします。
 
 <programlisting>
 CREATE TABLE computer (
@@ -3226,8 +3226,8 @@ CREATE TABLE computer (
     hostname        text,    &#045;- indexed
     manufacturer    text     &#045;- indexed
 -->
-    hostname        text,    -- ����ǥå�������
-    manufacturer    text     -- ����ǥå�������
+    hostname        text,    -- インデックスあり
+    manufacturer    text     -- インデックスあり
 );
 
 CREATE TABLE software (
@@ -3235,8 +3235,8 @@ CREATE TABLE software (
     software        text,    &#045;- indexed
     hostname        text     &#045;- indexed
 -->
-    software        text,    -- ����ǥå�������
-    hostname        text     -- ����ǥå�������
+    software        text,    -- インデックスあり
+    hostname        text     -- インデックスあり
 );
 </programlisting>
 
@@ -3246,9 +3246,9 @@ CREATE TABLE software (
     implement a constraint that deletes rows from <literal>software</>
     that reference a deleted computer.  The trigger would use this command:
 -->
-2�ĤΥơ��֥�ˤϤȤ�˿���ιԤ����äơ�<structfield>hostname</>��Υ���ǥå����ϰ�դǤ���
-�롼��/�ȥꥬ�Ϻ�����줿�ۥ��Ȥ򻲾Ȥ��롢<literal>software</>�ιԤ����������¤�������ʤ���Фʤ�ޤ���
-�ȥꥬ�ξ��ϰʲ��Υ��ޥ�ɤ���Ѥ��ޤ���
+2つのテーブルにはともに数千の行があって、<structfield>hostname</>上のインデックスは一意です。
+ルール/トリガは削除されたホストを参照する、<literal>software</>の行を削除する制限を実装しなければなりません。
+トリガの場合は以下のコマンドを使用します。
 
 <programlisting>
 DELETE FROM software WHERE hostname = $1;
@@ -3260,8 +3260,8 @@ DELETE FROM software WHERE hostname = $1;
     command and pass the <structfield>hostname</> value in the
     parameter.  The rule would be written as:
 -->
-<literal>computer</>���������줿��1�ĤҤȤĤ��Ф��Ƥ��Υȥꥬ���ƤӽФ���ޤ��Τǡ����Υ��ޥ�ɤν�����Ԥ����ײ����¸�����ѥ�᡼���Ȥ���<structfield>hostname</>���Ϥ����Ȥ��Ǥ��ޤ���
-�롼��ξ��ϰʲ��Τ褦�˺�������ޤ���
+<literal>computer</>から削除された行1つひとつに対してこのトリガが呼び出されますので、このコマンドの準備を行い、計画を保存し、パラメータとして<structfield>hostname</>を渡すことができます。
+ルールの場合は以下のように作成されます。
 
 <programlisting>
 CREATE RULE computer_del AS ON DELETE TO computer
@@ -3273,7 +3273,7 @@ CREATE RULE computer_del AS ON DELETE TO computer
 <!--
     Now we look at different types of deletes. In the case of a:
 -->
-�������̤���κ����ͤ��Ƥߤޤ��礦��
+ここで別の類の削除を考えてみましょう。
 
 <programlisting>
 DELETE FROM computer WHERE hostname = 'mypc.local.net';
@@ -3284,9 +3284,9 @@ DELETE FROM computer WHERE hostname = 'mypc.local.net';
     command issued by the trigger would also use an index scan (also fast).
     The extra command from the rule would be:
 -->
-��Τ褦�ʾ��Ǥϡ�<literal>computer</>�ϥ���ǥå����ˤ��ʹ�®�ˡ˥�����󤵤�ޤ���
-�ȥꥬ�ˤ�äƤ��Υ��ޥ�ɤ�ȯ�Ԥ��줿���⥤��ǥå���������󤬻��Ѥ���ޤ��ʹ�®�Ǥ��ˡ�
-�롼��ˤ���ɲå��ޥ�ɤϰʲ��Τ褦�ˤʤ�ޤ���
+上のような場合では、<literal>computer</>はインデックスにより（高速に）スキャンされます。
+トリガによってこのコマンドが発行された場合もインデックススキャンが使用されます（高速です）。
+ルールによる追加コマンドは以下のようになります。
 
 <programlisting>
 DELETE FROM software WHERE computer.hostname = 'mypc.local.net'
@@ -3297,7 +3297,7 @@ DELETE FROM software WHERE computer.hostname = 'mypc.local.net'
     Since there are appropriate indexes setup, the planner
     will create a plan of
 -->
-Ŭ�ڤʥ���ǥå��������ꤵ��Ƥ��ޤ��Τǡ��ץ��ʤϰʲ��ηײ��������ޤ���
+適切なインデックスが設定されていますので、プランナは以下の計画を作成します。
 
 <literallayout class="monospaced">
 <!--
@@ -3305,16 +3305,16 @@ Nestloop
   -&gt;  Index Scan using comp_hostidx on computer
   -&gt;  Index Scan using soft_hostidx on software
 -->
-����Ҿ��롼��
-  -&gt;  computer���Ф�comp_hostidx����Ѥ�������ǥå����������
-  -&gt;  software���Ф�soft_hostidx����Ѥ�������ǥå����������
+入れ子状ループ
+  -&gt;  computerに対しcomp_hostidxを使用したインデックススキャン
+  -&gt;  softwareに対しsoft_hostidxを使用したインデックススキャン
 </literallayout>
 
 <!--
     So there would be not that much difference in speed between
     the trigger and the rule implementation.
 -->
-�Ǥ��Τǡ��ȥꥬ�ȥ롼��μ����֤Ǥ�®�ٺ��Ϥ��ޤꤢ��ޤ���
+ですので、トリガとルールの実装間での速度差はあまりありません。
    </para>
 
    <para>
@@ -3324,8 +3324,8 @@ Nestloop
     <literal>old</>. There are two possible commands to do that. One
     is:
 -->
-���κ�������Ǥ�<structfield>hostname</>��<literal>old</>�ǻϤޤ�2,000�����Ƥ�computer�������褦�Ȼפ��ޤ���
-��ˡ�Ȥ���2�Ĥ�ͭ�����䤤��碌�����äơ�1�Ĥϰʲ��Τ褦�ʤ�ΤǤ���
+次の削除処理では<structfield>hostname</>が<literal>old</>で始まる2,000台全てのcomputerを削除しようと思います。
+方法として2つの有効な問い合わせがあって、1つは以下のようなものです。
 
 <programlisting>
 DELETE FROM computer WHERE hostname &gt;= 'old'
@@ -3335,7 +3335,7 @@ DELETE FROM computer WHERE hostname &gt;= 'old'
 <!--
     The command added by the rule will be:
 -->
-�롼��ˤ�ä��ɲä���륳�ޥ�ɤϰʲ��Τ褦�ˤʤ�ޤ���
+ルールによって追加されるコマンドは以下のようになります。
 
 <programlisting>
 DELETE FROM software WHERE computer.hostname &gt;= 'old' AND computer.hostname &lt; 'ole'
@@ -3345,7 +3345,7 @@ DELETE FROM software WHERE computer.hostname &gt;= 'old' AND computer.hostname &
 <!--
     with the plan
 -->
-������Ф���ײ�ϰʲ��Τ褦�ˤʤ�ޤ���
+これに対する計画は以下のようになります。
 
 <literallayout class="monospaced">
 <!--
@@ -3354,16 +3354,16 @@ Hash Join
   -&gt;  Hash
     -&gt;  Index Scan using comp_hostidx on computer
 -->
-�ϥå�����
-  -&gt;  software���Ф��륷�����󥷥�륹�����
-  -&gt;  �ϥå���
-    -&gt;  computer���Ф���comp_hostidx����Ѥ��륤��ǥå����������
+ハッシュ結合
+  -&gt;  softwareに対するシーケンシャルスキャン
+  -&gt;  ハッシュ
+    -&gt;  computerに対するcomp_hostidxを使用するインデックススキャン
 </literallayout>
 
 <!--
     The other possible command is:
 -->
-�⤦1�ĤΥ��ޥ�ɤϰʲ��Τ褦�ʤ�ΤǤ���
+もう1つのコマンドは以下のようなものです。
 
 <programlisting>
 DELETE FROM computer WHERE hostname ~ '^old';
@@ -3373,7 +3373,7 @@ DELETE FROM computer WHERE hostname ~ '^old';
     which results in the following executing plan for the command
     added by the rule:
 -->
-����ˤ�ꡢ�롼��ˤ�ä��ɲä���륳�ޥ���Ѥμ¹Էײ�ϰʲ��Τ褦�ˤʤ�ޤ���
+これにより、ルールによって追加されるコマンド用の実行計画は以下のようになります。
 
 <literallayout class="monospaced">
 <!--
@@ -3381,9 +3381,9 @@ Nestloop
   -&gt;  Index Scan using comp_hostidx on computer
   -&gt;  Index Scan using soft_hostidx on software
 -->
-����Ҿ��롼��
-  -&gt;  computer���Ф���comp_hostidx����Ѥ��륤��ǥå����������
-  -&gt;  software���Ф���soft_hostidx����Ѥ��륤��ǥå����������
+入れ子状ループ
+  -&gt;  computerに対するcomp_hostidxを使用するインデックススキャン
+  -&gt;  softwareに対するsoft_hostidxを使用するインデックススキャン
 </literallayout>
 
 <!--
@@ -3402,18 +3402,18 @@ Nestloop
     sequential scan situation. 2000 command executions from the trigger over the SPI
     manager take some time, even if all the index blocks will soon be in the cache.
 -->
-���줬�����Ƥ��뤳�Ȥϡ�<literal>AND</>�Ƿ�礵�줿ʣ���θ�����郎¸�ߤ����硢�ץ��ʤ�����ɽ���ǤΥ��ޥ�ɤǤϹԤäƤ��뤳�ȤǤ�����<literal>computer</>���<structfield>hostname</>���Ф��븡������<literal>software</>��Υ���ǥå����������ˤ�Ʊ�ͤ˻��ѤǤ��뤳�Ȥ����򤷤ʤ��Ȥ������ȤǤ���
-�ȥꥬ�Ϻ�������٤�2,000��ε켰����ԥ塼���Τ��줾��ˤĤ���1��ƤӽФ��졢���<literal>computer</>���1��Υ���ǥå�����������<literal>software</>���2,000��Υ���ǥå���������󤬹Ԥ��ޤ���
-�롼��ˤ������Ǥϥ���ǥå�������Ѥ���2�Ĥ��䤤��碌�ˤ�äƼ¹Ԥ���ޤ���
-�������󥷥�륹�����ξ��Ǥ�롼�뤬���®�����ɤ�����<literal>software</>�ơ��֥���礭���˰�¸���ޤ���
-���Ȥ������ƤΥ���ǥå����֥��å��������˥���å���˸����Ȥ��Ƥ⡢�ȥꥬ�ˤ��SPI�ޥ͡������ͳ��2,000��Υ��ޥ�ɤμ¹Ԥˤϻ��֤��פ��ޤ���
+これが示していることは、<literal>AND</>で結合された複数の検索条件が存在する場合、プランナは正規表現版のコマンドでは行っていることですが、<literal>computer</>上の<structfield>hostname</>に対する検索条件を<literal>software</>上のインデックススキャンにも同様に使用できることを理解しないということです。
+トリガは削除されるべき2,000台の旧式コンピュータのそれぞれについて1回呼び出され、結果<literal>computer</>上で1回のインデックススキャンと<literal>software</>上で2,000回のインデックススキャンが行われます。
+ルールによる実装ではインデックスを使用する2つの問い合わせによって実行されます。
+シーケンシャルスキャンの場合でもルールがより速いかどうかは<literal>software</>テーブルの大きさに依存します。
+参照する全てのインデックスブロックがすぐにキャッシュに現れるとしても、トリガによるSPIマネージャ経由の2,000回のコマンドの実行には時間を要します。
 </para>
 
 <para>
 <!--
     The last command we look at is:
 -->
-�Ǹ�Υ��ޥ�ɤ򸫤Ƥߤޤ��礦��
+最後のコマンドを見てみましょう。
 
 <programlisting>
 DELETE FROM computer WHERE manufacturer = 'bim';
@@ -3424,9 +3424,9 @@ DELETE FROM computer WHERE manufacturer = 'bim';
     <literal>computer</>. So the trigger will again run many commands
     through the executor.  The command generated by the rule will be:
 -->
-����ʸ�Ǥ�<literal>computer</>����¿���ιԤ����������̤Ȥʤ�ޤ���
-�Ǥ��Τǡ������Ǥ�ȥꥬ�ϥ��������塼�����̤���¿���Υ��ޥ�ɤ�¹Ԥ��뤳�Ȥˤʤ�ޤ���
-�롼��Ǻ�������륳�ޥ�ɤϰʲ��Τ褦�ʤ�ΤǤ���
+この文でも<literal>computer</>から多くの行が削除される結果となります。
+ですので、ここでもトリガはエクゼキュータを通して多くのコマンドを実行することになります。
+ルールで作成されるコマンドは以下のようなものです。
 
 <programlisting>
 DELETE FROM software WHERE computer.manufacturer = 'bim'
@@ -3437,8 +3437,8 @@ DELETE FROM software WHERE computer.manufacturer = 'bim'
     The plan for that command will again be the nested loop over two
     index scans, only using a different index on <literal>computer</>:
 -->
-���Υ��ޥ���Ѥηײ��ޤ�����Ʊ��2�ĤΥ���ǥå���������������Ҿ��롼�פȤʤ�ޤ���
-<literal>computer</>���̤Υ���ǥå�������Ѥ������Τߤ��ۤʤ�ޤ���
+このコマンド用の計画もまた前回同様2つのインデックススキャンの入れ子状ループとなります。
+<literal>computer</>の別のインデックスを使用する点のみが異なります。
 
 <programlisting>
 <!--
@@ -3446,9 +3446,9 @@ Nestloop
   -&gt;  Index Scan using comp_manufidx on computer
   -&gt;  Index Scan using soft_hostidx on software
 -->
-����Ҿ��롼��
-  -&gt;  computer���Ф���comp_manufidx����Ѥ��륤��ǥå����������
-  -&gt;  software���Ф���soft_hostidx����Ѥ��륤��ǥå����������
+入れ子状ループ
+  -&gt;  computerに対するcomp_manufidxを使用するインデックススキャン
+  -&gt;  softwareに対するsoft_hostidxを使用するインデックススキャン
 </programlisting>
 
 <!--
@@ -3456,11 +3456,11 @@ Nestloop
     will be more or less independent from the number of affected rows
     in a command.
 -->
-������ξ��ˤ����Ƥ⡢�롼�륷���ƥब���������ɲå��ޥ�ɤϱƶ��������Կ������¿���쾯�ʤ�����Ω���Ƥ��ޤ��� 
+いずれの場合においても、ルールシステムが生成する追加コマンドは影響を受ける行数からは多かれ少なかれ独立しています。 
 </para>
 
 <![IGNORE[
-<!-- ��ʸ������ What's happening with this?  If it doesn't come back, remove this section. -->
+<!-- 原文コメント What's happening with this?  If it doesn't come back, remove this section. -->
 <para>
 <!--
     Another situation is cases on <command>UPDATE</command> where it depends on the
@@ -3482,15 +3482,15 @@ Nestloop
     if the attribute isn't touched. So the rule, qualified or not,
     will only do its scans if there ever could be something to do.
 -->
-�̤ξ����Ȥ��ơ�����������¹Ԥ��٤����ݤ����ѹ����줿°���˰�¸���롢<command>UPDATE</command>�ξ�礬����ޤ���
-��������shoelace_log����Τ褦�ʥ롼����������ͣ�����ˡ�ϡ��롼�������Ѥ��뤳�ȤǤ���
-�����䤤��碌����Ū�ꥹ�Ȥ˽ФƤ��ʤ����ᡢ������оݤȤ���°�����ѹ�����ʤ��Ƥ��˼¹Ԥ�������̤��䤤��碌�Ȥʤ�ޤ��� 
-���ٻȤ���褦�ˤʤä����ϡ��ȥꥬ���Ф���롼��Τ⤦1�Ĥζ��ߤˤʤ�ޤ���
-���ξ�硢�ȥꥬ�κ�Ŭ���Ϥ�������ˤ���Բ�ǽ�Ǥ��� 
-�����°�����ѹ����줿���ˤΤߤ��Υ���������Ԥ��Ȥ����������ΤϤ��Ρʥȥꥬ�˴ؿ������˱�����Ƥ��뤫��Ǥ���
-�ȥꥬ������Ϲԥ�٥�Τߤ��Ф���ǧ�����Τǡ��Ԥ�������ȥȥꥬ�����꤬������褦�˥ȥꥬ���ƤӽФ���ʤ���Фʤ�ޤ���
-�롼�륷���ƥ�ξ����оݥꥹ�Ȥ򸡺����뤳�Ȥ��ѹ����줿���ɤ����狼��ޤ��Τǡ�°���������Ƥ��ʤ���Ф��θ���䤤��碌��������ߤ��뤳�Ȥ��Ǥ��ޤ���
-����̵ͭ�ˤ�����餺���롼��ϼ¹Ԥ��ʤ���Фʤ�ʤ����Ȥ�����Х�������¹Ԥ��ޤ���
+別の状況として、アクションを実行すべきか否かが変更された属性に依存する、<command>UPDATE</command>の場合があります。
+現時点でshoelace_logの例のようなルールを作成する唯一の方法は、ルール条件を使用することです。
+初めの問い合わせの目的リストに出てこないため、これは対象とする属性が変更されなくても常に実行される特別な問い合わせとなります。 
+再度使えるようになった場合は、トリガに対するルールのもう1つの強みになります。
+この場合、トリガの最適化はその定義により不可能です。 
+特定の属性が変更された時にのみそのアクションを行うという処理自体はその（トリガ）関数内部に隠されているからです。
+トリガの定義は行レベルのみに対して認められるので、行が触られるとトリガが決定が下せるようにトリガが呼び出されなければなりません。
+ルールシステムの場合は対象リストを検索することで変更されたかどうかわかりますので、属性が触られていなければその後の問い合わせを全て中止することができます。
+条件の有無にかかわらず、ルールは実行しなければならないことがあればスキャンを実行します。
 </para>
 ]]>
 
@@ -3500,7 +3500,7 @@ Nestloop
     triggers if their actions result in large and badly qualified
     joins, a situation where the planner fails.
 -->
-�ޤȤ��ȡ��䤤��碌��̤��礭�����ץ��ʤ����ޤ�����������Ǥ��ʤ��褦�ʾ������ǤΤߥ롼��ϥȥꥬ����٤����餫���٤��ʤ�ޤ���
+まとめると、問い合わせ結果が大きく、プランナがうまく結合条件を設定できないような状況下でのみルールはトリガに比べて明らかに遅くなります。
 </para>
 </sect1>
 

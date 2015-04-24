@@ -4,21 +4,21 @@
 <!--
  <title>Reliability and the Write-Ahead Log</title>
 -->
- <title>�������ȥ�����Խ񤭹���</title>
+ <title>信頼性とログ先行書き込み</title>
 
  <para>
 <!--
   This chapter explains how the Write-Ahead Log is used to obtain
   efficient, reliable operation.
 -->
-�ܾϤǤϡ���ΨŪ���Ŀ���Ǥ��뱿�Ѥ����뤿��˥�����Խ񤭹��ߤ��ɤΤ褦�˻��Ѥ���Ƥ��뤫�ˤĤ����������ޤ���
+本章では、効率的かつ信頼できる運用を得るためにログ先行書き込みがどのように使用されているかについて説明します。
  </para>
 
  <sect1 id="wal-reliability">
 <!--
   <title>Reliability</title>
 -->
-  <title>������</title>
+  <title>信頼性</title>
 
   <para>
 <!--
@@ -35,11 +35,11 @@
    another computer with similar hardware and all committed
    transactions will remain intact.
 -->
-�������ϡ����٤Ƥο���ʥǡ����١��������ƥ�ǽ��פ������Ǥ���
-<productname>PostgreSQL</>�Ͽ���Ǥ��������ݾڤ��뤿��ˤǤ��뤳�Ȥϲ��Ǥ⤷�ޤ���
-����Ǥ������Ȥϡ����ߥåȤ��줿�ȥ�󥶥������ˤ�국Ͽ���줿�ǡ����Ϥ��٤��Դ�ȯ�����ΰ�˳�Ǽ���졢�Ÿ��ǡ����ڥ졼�ƥ��󥰥����ƥ�ξ㳲���ϡ��ɥ������ξ㳲�������Ǥ������Դ�ȯ�����ΰ輫�Τξ㳲�Ͻ����ޤ����ˤ����äƤ�����Ǥ���Ȥ������Ǥ���
-�̾����ԥ塼���α�³Ū��Ǽ�ΰ�ʥǥ��������֤ʤɡˤؤΥǡ����񤭹��ߤ����������ξ����������ޤ���
-�ºݡ�����ԥ塼������̿Ū�ʾ㳲��ȯ�������Ȥ��Ƥ⡢�⤷�ǥ��������֤�̵���ʤ�С�����Υϡ��ɥ�����������̤Υ���ԥ塼���˰ܤ����Ȥ��Ǥ������ߥåȤ��줿�ȥ�󥶥��������̤�������Ǥ��ޤ���
+信頼性は、すべての深刻なデータベースシステムで重要な特性です。
+<productname>PostgreSQL</>は信頼できる操作を保証するためにできることは何でもします。
+信頼できる操作とは、コミットされたトランザクションにより記録されたデータはすべて不揮発性の領域に格納され、電源断、オペレーティングシステムの障害、ハードウェアの障害（当然ですが、不揮発性の領域自体の障害は除きます。）があっても安全であるという点です。
+通常、コンピュータの永続的格納領域（ディスク装置など）へのデータ書き込みの成功がこの条件を満たします。
+実際、コンピュータに致命的な障害が発生したとしても、もしディスク装置が無事ならば、類似のハードウェアを持つ別のコンピュータに移すことができ、コミットされたトランザクションを元通りに復元できます。
   </para>
 
   <para>
@@ -55,13 +55,13 @@
    features.  (See the <xref linkend="guc-wal-sync-method"> parameter
    to adjust how this is done.)
 -->
-�ǡ��������Ū�˥ǥ������ץ�å��˽񤭽Ф����Ȥϴ�ñ�����˻פ��뤫�⤷��ޤ��󤬡������ǤϤ���ޤ���
-�ǥ��������֤ϼ���ꡢCPU������ԥ塼���μ����ȥǥ������ץ�å��δ֤ˤ���Ƽ�Υ���å����ؤ����������®�Ǥ��뤫��Ǥ���
-�ޤ������ڥ졼�ƥ��󥰥����ƥ�ΥХåե�����å��夬¸�ߤ��ޤ���
-��������ˤ˥��������׵᤬����ǥ������֥��å��򥭥�å��夷���ǥ������ؤν񤭹��ߤ�ޤȤ�ޤ���
-�����ˤ⤹�٤ƤΥ��ڥ졼�ƥ��󥰥����ƥब�Хåե�����å����ǥ������˶����񤭹��ߤ�������ˡ�򥢥ץꥱ���������󶡤��Ƥ��ޤ���
-<productname>PostgreSQL</>�Ϥ��ε�ǽ����Ѥ��ޤ���
-�ʤ����Ĵ��������ˡ�ˤĤ��Ƥ�<xref linkend="guc-wal-sync-method">�ѥ�᡼���򻲾Ȥ��Ƥ�����������
+データを周期的にディスクプラッタに書き出すことは簡単な操作に思われるかもしれませんが、そうではありません。
+ディスク装置は主メモリ、CPU、コンピュータの主メモリとディスクプラッタの間にある各種のキャッシュ層と比べ非常に低速であるからです。
+まず、オペレーティングシステムのバッファキャッシュが存在します。
+これは頻繁にアクセス要求があるディスクブロックをキャッシュし、ディスクへの書き込みをまとめます。
+好運にもすべてのオペレーティングシステムがバッファキャッシュをディスクに強制書き込みさせる方法をアプリケーションに提供しています。
+<productname>PostgreSQL</>はこの機能を使用します。
+（これを調整する方法については<xref linkend="guc-wal-sync-method">パラメータを参照してください。）
   </para>
 
   <para>
@@ -79,14 +79,14 @@
    maintains power to the cache in case of system power loss.  After power
    is restored the data will be written to the disk drives.
 -->
-���ˡ��ǥ��������֤Υ���ȥ����饭��å��夬¸�ߤ����ǽ��������ޤ���
-�äˡ�<acronym>RAID</>����ȥ����饫���ɤǤϡ�����ϰ���Ū�Ǥ���
-������<firstterm>write-through</>����å��塢�Ĥޤꡢ�ǡ������Ϥ�������¨�¤˽񤭹��ߤ��ǥ��������֤��Ф��ƹԤʤ��롢�ξ�礬����ޤ���
-�ޤ���<firstterm>write-back</>����å��塢�Ĥޤꡢ¿���٤�ƽ񤭹��ߤ��ǥ��������֤��Ф��ƹԤʤ��롢�ξ��⤢��ޤ���
-������������å���Ǥϥǥ���������ȥ����饭��å��夬��ȯ�����Ĥޤꡢ�Ÿ��㳲�κݤˤ������Ƥ������Ƥ��ޤ��ޤ��Τǡ��������˴ؤ���㳲��ȯ�������ǽ��������ޤ���
-���ͥ�줿����ȥ����饫���ɤǤ�<firstterm>�Хåƥ�Хå����å��դ�����</>(<acronym>BBU</>s) ������ޤ���
-�Ĥޤꡢ�����ƥ���Ÿ�������Ƥ�����֤Ǥ⥭��å�����Ÿ��򶡵뤷�ޤ���
-����Ÿ������줷����ˡ��ǡ������ǥ��������֤˽񤭽Ф���ޤ���
+次に、ディスク装置のコントローラキャッシュが存在する可能性があります。
+特に、<acronym>RAID</>コントローラカードでは、これは一般的です。
+これらは<firstterm>write-through</>キャッシュ、つまり、データが届いた時に即座に書き込みがディスク装置に対して行なわれる、の場合があります。
+また、<firstterm>write-back</>キャッシュ、つまり、多少遅れて書き込みがディスク装置に対して行なわれる、の場合もあります。
+こうしたキャッシュではディスクコントローラキャッシュが揮発性、つまり、電源障害の際にその内容が失われてしまいますので、信頼性に関する障害が発生する可能性があります。
+より優れたコントローラカードでは<firstterm>バッテリバックアップ付き装置</>(<acronym>BBU</>s) を持ちます。
+つまり、システムの電源が落ちている状態でもキャッシュに電源を供給します。
+後で電源が復旧した後に、データがディスク装置に書き出されます。
   </para>
 
   <para>
@@ -98,10 +98,10 @@
    to have write-back caches that will not survive a power failure.  Many
    solid-state drives (SSD) also have volatile write-back caches.
 -->
-�Ǹ�ˡ��ۤȤ�ɤΥǥ��������֤�����å������äƤ��ޤ���������write-through�Ǥ��ꡢ������write-back�Ǥ���
-�ǥ���������ȥ����饭��å���ξ���Ʊ�ͤ�write-back�Υǥ��������֥���å���ξ��ˤϥǡ�����»�����붲�줬����ޤ���
-���̾���Ը�����IDE�����SATA���֤Ǥ��äˡ��褯write-back����å������Ѥ��Ƥ��ޤ���������Ÿ��㳲���˥ǡ������Ĥ�ޤ���
-¿���Υ���åɥ��ơ��ȥɥ饤��(SSD)��Ʊ�ͤ˴�ȯ����write-back����å������äƤ��ޤ���
+最後に、ほとんどのディスク装置がキャッシュを持っています。一部はwrite-throughであり、一部はwrite-backです。
+ディスクコントローラキャッシュの場合と同様にwrite-backのディスク装置キャッシュの場合にはデータが損失する恐れがあります。
+一般消費者向けのIDEおよびSATA装置では特に、よくwrite-backキャッシュを使用しています。これは電源障害時にデータが残りません。
+多くのソリッドステートドライブ(SSD)も同様に揮発性のwrite-backキャッシュを持っています。
   </para>
 
   <para>
@@ -109,7 +109,7 @@
    These caches can typically be disabled; however, the method for doing
    this varies by operating system and drive type:
 -->
-�����Υ���å���ϡ������̵���ˤǤ��ޤ����������ʤ��饪�ڥ졼�ƥ��󥰥����ƥ��ɥ饤�֤μ���ˤ�äƤ�����ˡ�ϰۤʤ�ޤ���
+これらのキャッシュは、大抵は無効にできます。しかしながらオペレーティングシステムやドライブの種類によってその方法は異なります。
   </para>
 
   <itemizedlist>
@@ -125,11 +125,11 @@
         whether the write cache is enabled and <command>sdparm &#045;-clear=WCE</>
         to disable it.
 -->
-<productname>Linux</>���<command>hdparm -I</>����Ѥ��뤳�Ȥ�IDE�����SATA�ɥ饤�֤Υ���å���ˤĤ���Ĵ�٤뤳�Ȥ��Ǥ��ޤ���
-<literal>Write cache</>�μ��� <literal>*</>������н񤭹��ߥ���å��夬ͭ���ˤʤäƤ��ޤ���
-<command>hdparm -W 0</>�ˤ��񤭹��ߥ���å����̵���ˤǤ��ޤ���
-SCSI�ɥ饤�֤Ǥ����<ulink url="http://sg.danny.cz/sg/sdparm.html"><application>sdparm</></ulink>��Ȥ����Ȥ�Ĵ������ǽ�Ǥ���
-<command>sdparm --get=WCE</command>�ˤ�ꥭ��å��夬ͭ�����ɤ����γ�ǧ���Ǥ���<command>sdparm --clear=WCE</>�ˤ��̵���ˤ��뤳�Ȥ��Ǥ��ޤ���
+<productname>Linux</>上で<command>hdparm -I</>を使用することでIDEおよびSATAドライブのキャッシュについて調べることができます。
+<literal>Write cache</>の次に <literal>*</>があれば書き込みキャッシュが有効になっています。
+<command>hdparm -W 0</>により書き込みキャッシュを無効にできます。
+SCSIドライブであれば<ulink url="http://sg.danny.cz/sg/sdparm.html"><application>sdparm</></ulink>を使うことで調査が可能です。
+<command>sdparm --get=WCE</command>によりキャッシュが有効かどうかの確認ができ、<command>sdparm --clear=WCE</>により無効にすることができます。
       </para>
     </listitem>
 
@@ -143,7 +143,7 @@ SCSI�ɥ饤�֤Ǥ����<ulink url="http://sg.danny.cz/sg/sdparm.html"><application>
         and the write cache both queried and changed using
         <command>sdparm</command> when available.
 -->
-<productname>FreeBSD</>�Ǥϡ�IDE�ɥ饤�֤��Ф���<command>atacontrol</command>�ˤ���ǧ���Ǥ��������ƽ񤭹��ߥ���å����̵���ˤ���ˤ�<filename>/boot/loader.conf</>��<literal>hw.ata.wc=0</>�����Ѥ��ޤ���SCSI�ɥ饤�֤��Ф��Ƥ�<command>camcontrol identify</command>���ǧ�˻��Ѥ��뤳�Ȥ��Ǥ���<command>sdparm</command>����ѤǤ�����ˤϤ�����Ѥ��ƽ񤭹��ߥ���å���γ�ǧ���ѹ�����ǽ�Ǥ���
+<productname>FreeBSD</>では、IDEドライブに対して<command>atacontrol</command>により確認ができ、そして書き込みキャッシュを無効にするには<filename>/boot/loader.conf</>の<literal>hw.ata.wc=0</>を利用します。SCSIドライブに対しては<command>camcontrol identify</command>を確認に使用することができ、<command>sdparm</command>を使用できる場合にはそれを用いて書き込みキャッシュの確認と変更が可能です。
       </para>
     </listitem>
 
@@ -155,8 +155,8 @@ SCSI�ɥ饤�֤Ǥ����<ulink url="http://sg.danny.cz/sg/sdparm.html"><application>
         (The Solaris <acronym>ZFS</> file system is safe with disk write-cache
         enabled because it issues its own disk cache flush commands.)
 -->
-<productname>Solaris</>�Ǥϡ��ǥ������ν񤭹��ߥ���å����<command>format -e</>������Ǥ��ޤ���
-(Solaris��<acronym>ZFS</>�ե����륷���ƥ�ϡ��ȼ��Υǥ���������å���񤭽Ф����ޥ�ɤ�ȯ�Ԥ��Ƥ��뤿�ᡢ�ǥ������ν񤭹��ߥ���å����ͭ���ˤ��Ƥ�����Ǥ���)
+<productname>Solaris</>では、ディスクの書き込みキャッシュは<command>format -e</>で制御できます。
+(Solarisの<acronym>ZFS</>ファイルシステムは、独自のディスクキャッシュ書き出しコマンドを発行しているため、ディスクの書き込みキャッシュを有効にしても安全です。)
       </para>
     </listitem>
 
@@ -170,9 +170,9 @@ SCSI�ɥ饤�֤Ǥ����<ulink url="http://sg.danny.cz/sg/sdparm.html"><application>
         <literal>fsync</> or <literal>fsync_writethrough</>, which prevent
         write caching.
 -->
-<productname>Windows</>�Ǥϡ��⤷<varname>wal_sync_method</>��<literal>open_datasync</>(�ǥե����)�ξ�硢
-<literal>My Computer\Open\<replaceable>disk drive</>\Properties\Hardware\Properties\Policies\Enable write caching on the disk</>�Υ����å��򳰤����Ȥǡ��񤭹��ߥ���å����̵���ˤǤ��ޤ���
-�⤦��Ĥ���ˡ�Ȥ��Ƥϡ�<varname>wal_sync_method</varname>��<literal>fsync</>��<literal>fsync_writethrough</>�����ꤷ���񤭹��ߥ���å������Ѥ��ʤ��褦�ˤ��ޤ���
+<productname>Windows</>では、もし<varname>wal_sync_method</>が<literal>open_datasync</>(デフォルト)の場合、
+<literal>My Computer\Open\<replaceable>disk drive</>\Properties\Hardware\Properties\Policies\Enable write caching on the disk</>のチェックを外すことで、書き込みキャッシュを無効にできます。
+もう一つの方法としては、<varname>wal_sync_method</varname>を<literal>fsync</>か<literal>fsync_writethrough</>に設定し、書き込みキャッシュを使用しないようにします。
       </para>
     </listitem>
 
@@ -182,7 +182,7 @@ SCSI�ɥ饤�֤Ǥ����<ulink url="http://sg.danny.cz/sg/sdparm.html"><application>
         On <productname>OS X</productname>, write caching can be prevented by
         setting <varname>wal_sync_method</> to <literal>fsync_writethrough</>.
 -->
-<productname>OS X</productname>�Ǥϡ�<varname>wal_sync_method</>��<literal>fsync_writethrough</>�����ꤹ�뤳�Ȥǽ񤭹��ߥ���å������Ѥ��ʤ��褦�ˤ��ޤ���
+<productname>OS X</productname>では、<varname>wal_sync_method</>を<literal>fsync_writethrough</>に設定することで書き込みキャッシュを使用しないようにします。
       </para>
     </listitem>
   </itemizedlist>
@@ -209,19 +209,19 @@ SCSI�ɥ饤�֤Ǥ����<ulink url="http://sg.danny.cz/sg/sdparm.html"><application>
    Hopefully file system and disk controller designers will eventually
    address this suboptimal behavior.
 -->
-�Ƕ��SATA�ɥ饤��(<acronym>ATAPI-6</>�ޤ��Ϥ���ʹ�)�ϥɥ饤�֥���å���ν񤭽Ф����ޥ��(<command>FLUSH CACHE EXT</>)���󶡤��Ƥ��������
-SCSI�ɥ饤�֤ǤϽ��褫�������<command>SYNCHRONIZE CACHE</>���ޥ�ɤ򥵥ݡ��Ȥ��Ƥ��ޤ�����
-�����Υ��ޥ�ɤϡ�ľ��PostgreSQL��ȯ�Ԥ���ޤ��󤬡������Ĥ��Υե����륷���ƥ�(�㤨��<acronym>ZFS</>��<acronym>ext4</>)�Ǥϡ�
-������write-back��ͭ���ʥɥ饤�֤إǡ�����񤭽Ф�����˻Ȥ��ޤ���
-�Թ��ʤ��Ȥˡ����Τ褦��write�Хꥢ����ĥե����륷���ƥ�ϡ��Хåƥ�Хå����å��դ�����
-(<acronym>BBU</>)�Υǥ���������ȥ�������Ȥ߹�碌���ݤˡ����ޤ���ư��򤷤ޤ���
-���Τ褦�ʽ�����ή��ˤ����ơ�Ʊ�����ޥ�ɤϥ���ȥ����饭��å���ˤ���ǡ��������ƥǥ������ض���Ū�˽񤭹��ߤ�Ԥ����ᡢ
-BBU�Υ��åȤ���Ⱦ�򼺤碌�Ƥ��ޤ���<xref linkend="pgtestfsync">�ץ�������
-�Ȥ����Ȥǡ����ʤ��δĶ����ƶ�������뤫�ɤ������ǧ�Ǥ��ޤ����⤷�ƶ��������褦�Ǥ���С�
-�ե����륷���ƥ��write�Хꥢ��̵���ˤ��뤫��(���ץ���󤬤����)�ǥ���������ȥ����������ꤹ�뤳�Ȥǡ�
-BBU�ˤ����ǽ��θ��̤����뤳�ȤǤ���Ǥ��礦���⤷write�Хꥢ��̵���ˤ������ϡ��Хåƥ꤬
-ư��Ƥ��뤳�Ȥ��ǧ���Ƥ����ޤ��礦���Хåƥ�η�٤ϥǡ��������β�ǽ���˷Ҥ���ޤ���
-�ե����륷���ƥ��ǥ���������ȥ�������߷׼Ԥ���������Ϥ���ư��������Ƥ���뤳�Ȥ�˾�ޤ�ޤ���
+最近のSATAドライブ(<acronym>ATAPI-6</>またはそれ以降)はドライブキャッシュの書き出しコマンド(<command>FLUSH CACHE EXT</>)を提供している一方、
+SCSIドライブでは従来から類似の<command>SYNCHRONIZE CACHE</>コマンドをサポートしていました。
+これらのコマンドは、直接PostgreSQLに発行されませんが、いくつかのファイルシステム(例えば<acronym>ZFS</>や<acronym>ext4</>)では、
+それらをwrite-backが有効なドライブへデータを書き出すために使います。
+不幸なことに、このようなwriteバリアを持つファイルシステムは、バッテリバックアップ付き装置
+(<acronym>BBU</>)のディスクコントローラと組み合わせた際に、好ましい動作をしません。
+このような処理の流れにおいて、同期コマンドはコントローラキャッシュにあるデータを全てディスクへ強制的に書き込みを行うため、
+BBUのメリットの大半を失わせています。<xref linkend="pgtestfsync">プログラムを
+使うことで、あなたの環境が影響を受けるかどうかを確認できます。もし影響を受けるようであれば、
+ファイルシステムのwriteバリアを無効にするか、(オプションがあれば)ディスクコントローラを再設定することで、
+BBUによる性能上の効果を得ることできるでしょう。もしwriteバリアを無効にした場合は、バッテリが
+動作していることを確認しておきましょう。バッテリの欠陥はデータロスの可能性に繋がります。
+ファイルシステムやディスクコントローラの設計者が、いずれはこの動作を修正してくれることが望まれます。
   </para>
 
   <para>
@@ -239,12 +239,12 @@ BBU�ˤ����ǽ��θ��̤����뤳�ȤǤ���Ǥ��礦���⤷write�Хꥢ��̵���ˤ�������
    You can test for reliable I/O subsystem behavior using <ulink
    url="http://brad.livejournal.com/2116715.html"><filename>diskchecker.pl</filename></ulink>.
 -->
-���ڥ졼�ƥ��󥰥����ƥब�����ȥ졼���ϡ��ɥ������˽񤭹����׵���������������ǡ������Դ�ȯ���Υ��ȥ졼���ΰ���������Ϥ������ɤ������ǧ���뤳�ȤϤۤܤǤ��ޤ���
-�Ǥ��Τǡ����ƤΥ��ȥ졼�������ʤ��ǡ����ȥե����륷���ƥ�Υ᥿�ǡ��������������ݾڤ��뤳�Ȥ�褯��ǧ���Ƥ������Ȥϡ������Ԥ���Ǥ�Ǥ���
-�Хåƥ�Хå����åפ��줿�񤭹��ߥ���å��������ʤ�����ȥ�����λ��Ѥ��򤱤Ƥ���������
-���֥�٥�Ǥϡ��⤷���֤�������˥ǡ������񤭽Ф���뤳�Ȥ��ݾڤǤ��ʤ��ΤǤ���С�write-back����å����̵���ˤ��Ƥ���������
-�⤷SSD��ȤäƤ����硢¿���Υɥ饤�֤ϥǥե���Ȥǥ���å���񤭽Ф����ޥ�ɤ�̵�뤹�뤳�Ȥ����դ��Ʋ�������
-<ulink url="http://brad.livejournal.com/2116715.html"><filename>diskchecker.pl</filename></ulink>��Ȥ����Ȥǡ�I/O���֥����ƥ��ư��ο�������ƥ��Ȥ��뤳�Ȥ��Ǥ��ޤ���
+オペレーティングシステムが、ストレージハードウェアに書き込み要求を送信した時、データが不揮発性のストレージ領域に本当に届いたかどうかを確認することはほぼできません。
+ですので、全てのストレージ構成品がデータとファイルシステムのメタデータの整合性を保証することをよく確認しておくことは、管理者の責任です。
+バッテリバックアップされた書き込みキャッシュを持たないコントローラの使用は避けてください。
+装置レベルでは、もし装置が停止前にデータが書き出されることを保証できないのであれば、write-backキャッシュを無効にしてください。
+もしSSDを使っている場合、多くのドライブはデフォルトでキャッシュ書き出しコマンドを無視することに注意して下さい。
+<ulink url="http://brad.livejournal.com/2116715.html"><filename>diskchecker.pl</filename></ulink>を使うことで、I/Oサブシステムの動作の信頼性をテストすることができます。
   </para>
 
   <para>
@@ -268,13 +268,13 @@ BBU�ˤ����ǽ��θ��̤����뤳�ȤǤ���Ǥ��礦���⤷write�Хꥢ��̵���ˤ�������
    (BBU) disk controllers do not prevent partial page writes unless
    they guarantee that data is written to the BBU as full (8kB) pages.
 -->
-�ǥ������ץ�å��ν񤭹������Τˤ�äƤ�ǡ���»����ȯ�����뤳�Ȥ�����ޤ���
-�ǥ������ץ�å��ϡ��̾�512�Х��ȤΥ�������ʬ�䤵��Ƥ��ޤ���
-ʪ��Ū���ɤ߹������񤭹������Ϥ��٤ơ����������Τ�������ޤ���
-�񤭹����׵᤬�ǥ�������ã�������������׵��512�Х��Ȥ��ܿ��ˤʤ�Ǥ��礦(<productname>PostgreSQL</>�Ǥ�������٤�8192�Х��Ȥ��ʤ��16��������񤭹��ߤޤ�)���������Ÿ��Ǥˤ�ꡢǤ�դΥ����ߥ󥰤ǽ񤭹��߽��������Ԥ��뤳�Ȥ����ꤨ�ޤ�������ϰ�����512�Х��ȤΥ������˽񤭹��ߤ��Ԥʤ�줿�Τˡ��Ĥ�Υ������ˤϽ񤭹��ߤ��Ԥʤ��Ƥ��ʤ��������̣���ޤ���
-��������������к��Ȥ��ơ�<productname>PostgreSQL</>�ϡ��ǥ�������μºݤΥڡ������ѹ�����<emphasis>��</>�����Ū�˥ڡ������ΤΥ��᡼�����³Ū��WAL��Ǽ�ΰ�˽񤭽Ф��ޤ���
-����ˤ�ꡢ<productname>PostgreSQL</>�ϥ���å���ꥫ�Х������ʬŪ�˽񤭽Ф��줿�ڡ�����WAL�������줵���뤳�Ȥ��Ǥ��ޤ���
-�⤷����ʬŪ�ʥڡ����񤭹��ߤ��ɻߤǤ���ե����륷���ƥॽ�եȥ��������㤨��ZFS�ˤ�Ȥ��ΤǤ���С�<xref linkend="guc-full-page-writes">��̵���ˤ��ƥڡ������᡼��������̵���ˤ��뤳�Ȥ��Ǥ��ޤ����Хåƥ�Хå����å��դ���BBU�ˤΥǥ���������ȥ�����Ǥϡ��ե�ڡ�����8kB�ˤ�BBU�ؽ񤭹��ޤ�뤳�Ȥ��ݾڤǤ��ʤ���С���ʬŪ�ʥڡ����񤭽Ф����ɻߤǤ��ޤ���
+ディスクプラッタの書き込み操作自体によってもデータ損失が発生することがあります。
+ディスクプラッタは、通常512バイトのセクタに分割されています。
+物理的な読み込み操作、書き込み操作はすべて、セクタ全体を処理します。
+書き込み要求がディスクに達した時、その要求は512バイトの倍数になるでしょう(<productname>PostgreSQL</>では大抵一度に8192バイトすなわち16セクタを書き込みます)。そして電源断により、任意のタイミングで書き込み処理が失敗することがありえます。これは一部の512バイトのセクタに書き込みが行なわれたのに、残りのセクタには書き込みが行なわれていない状況を意味します。
+こうした問題の対策として、<productname>PostgreSQL</>は、ディスク上の実際のページを変更する<emphasis>前</>に定期的にページ全体のイメージを永続的なWAL格納領域に書き出します。
+これにより、<productname>PostgreSQL</>はクラッシュリカバリ時に部分的に書き出されたページをWALから復旧させることができます。
+もし、部分的なページ書き込みを防止できるファイルシステムソフトウェア（例えばZFS）を使うのであれば、<xref linkend="guc-full-page-writes">を無効にしてページイメージ作成を無効にすることができます。バッテリバックアップ付き（BBU）のディスクコントローラでは、フルページ（8kB）がBBUへ書き込まれることを保証できなければ、部分的なページ書き出しを防止できません。
   </para>
   <para>
 <!--
@@ -282,7 +282,7 @@ BBU�ˤ����ǽ��θ��̤����뤳�ȤǤ���Ǥ��礦���⤷write�Хꥢ��̵���ˤ�������
    on storage devices that may occur because of hardware errors or media failure over time,
    such as reading/writing garbage data.
 -->
-�ɤ߽񤭤ˤ�뤴�ߥǡ����Τ褦�ʻ��ַв�˵�������ϡ��ɥ��������顼���ǥ����ξ��ȯ�����륹�ȥ졼��������β��餫�Υǡ�����»���Ф��Ƥ�<productname>PostgreSQL</>���ݸ�ޤ���
+読み書きによるごみデータのような時間経過に起因するハードウェアエラーやメディア故障で発生するストレージ装置内の何らかのデータ破損に対しても<productname>PostgreSQL</>は保護します。
    <itemizedlist>
     <listitem>
      <para>
@@ -292,8 +292,8 @@ BBU�ˤ����ǽ��θ��̤����뤳�ȤǤ���Ǥ��礦���⤷write�Хꥢ��̵���ˤ�������
       is set when we write each WAL record and checked during crash recovery,
       archive recovery and replication.
 -->
-WAL�ե�����Τ��줾��Υ쥳���ɤϡ��쥳���ɤ����Ƥ����Τ��ɤ����������뤿��CRC-32 (32-bit)�����å��ˤ���ݸ��Ƥ��ޤ���
-CRC���ͤϤ��줾���WAL�쥳���ɤ�񤭹��ߡ�����å�������β����Ǹ��ڤ��졢���������֤β����ȥ�ץꥱ�������������ꤵ��ޤ���
+WALファイルのそれぞれのレコードは、レコードの内容が正確かどうかを伝えるためCRC-32 (32-bit)チェックにより保護されています。
+CRCの値はそれぞれのWALレコードを書き込み、クラッシュ回復の過程で検証され、アーカイブの回復とレプリケーション時に設定されます。
      </para>
     </listitem>
     <listitem>
@@ -304,8 +304,8 @@ CRC���ͤϤ��줾���WAL�쥳���ɤ�񤭹��ߡ�����å�������β����Ǹ��ڤ��졢������
       linkend="app-initdb-data-checksums"><application>initdb</></link>
       for details about enabling data page checksums.
 -->
-WAL�쥳���ɤ˵�Ͽ����Ƥ������ڡ����Υ��᡼�����ݸ��Ƥ��Ƥ⡢�ǥե���ȤǤϥǡ����ڡ����ϥ����å�����׻��Ϥ���ޤ���
-�ܺ٤�<link linkend="app-initdb-data-checksums"><application>initdb</></link>�򻲾Ȥ��Ƥ���������
+WALレコードに記録されている全ページのイメージは保護されていても、デフォルトではデータページはチェックサム計算はされません。
+詳細は<link linkend="app-initdb-data-checksums"><application>initdb</></link>を参照してください。
      </para>
     </listitem>
     <listitem>
@@ -318,8 +318,8 @@ WAL�쥳���ɤ˵�Ͽ����Ƥ������ڡ����Υ��᡼�����ݸ��Ƥ��Ƥ⡢�ǥե���ȤǤϥ
       recent changes to be accurately rebuilt at crash recovery and those
       WAL records are protected as discussed above.
 -->
-<filename>pg_clog</filename>��<filename>pg_subtrans</filename>��<filename>pg_multixact</filename>��<filename>pg_serial</filename>��<filename>pg_notify</filename>��<filename>pg_stat</filename>��<filename>pg_snapshots</filename>�Τ褦�������ǡ�����¤��ľ�ܥ����å�����׻��⤵�줺�����ڡ����񤭹��ߤˤ���ݸ�⤵��Ƥ��ޤ���
-�����������Τ褦�ʥǡ�����¤����³������ϡ�WAL�쥳���ɤϥ���å�������������Τ˺ǿ����ѹ���Ԥ���褦WAL�쥳���ɤ��񤭽Ф��졢������WAL�쥳���ɤϾ嵭�Τ褦���ݸ��ޤ���
+<filename>pg_clog</filename>、<filename>pg_subtrans</filename>、<filename>pg_multixact</filename>、<filename>pg_serial</filename>、<filename>pg_notify</filename>、<filename>pg_stat</filename>、<filename>pg_snapshots</filename>のような内部データ構造は直接チェックサム計算もされず、全ページ書き込みによる保護もされていません。
+しかし、そのようなデータ構造が持続する場所は、WALレコードはクラッシュ回復時に正確に最新の変更を行えるようWALレコードが書き出され、それらのWALレコードは上記のように保護されます。
      </para>
     </listitem>
     <listitem>
@@ -327,7 +327,7 @@ WAL�쥳���ɤ˵�Ͽ����Ƥ������ڡ����Υ��᡼�����ݸ��Ƥ��Ƥ⡢�ǥե���ȤǤϥ
 <!--
       Individual state files in <filename>pg_twophase</filename> are protected by CRC-32.
 -->
-<filename>pg_twophase</filename>�ˤ�����̤ξ��֥ե������CRC-32���ݸ��Ƥ��ޤ���
+<filename>pg_twophase</filename>にある個別の状態ファイルはCRC-32で保護されています。
      </para>
     </listitem>
     <listitem>
@@ -337,7 +337,7 @@ WAL�쥳���ɤ˵�Ͽ����Ƥ������ڡ����Υ��᡼�����ݸ��Ƥ��Ƥ⡢�ǥե���ȤǤϥ
       materializations and intermediate results are not currently checksummed,
       nor will WAL records be written for changes to those files.
 -->
-�礭���䤤��碌����ǥ����ȡ��񸽲����������ַ���Ѥ˻��Ѥ�������Ū�ʥǡ����ե�����ϸ��ߥ����å�����׻����줺�������Υե�������Ф����ѹ���WAL�쥳���ɤ˽񤭹��ޤ�ޤ���
+大きな問い合わせの中でソート、具現化、および中間結果用に使用される暫定的なデータファイルは現在チェックサム計算されず、それらのファイルに対する変更もWALレコードに書き込まれません。
      </para>
     </listitem>
    </itemizedlist>
@@ -348,7 +348,7 @@ WAL�쥳���ɤ˵�Ͽ����Ƥ������ڡ����Υ��᡼�����ݸ��Ƥ��Ƥ⡢�ǥե���ȤǤϥ
    and it is assumed you will operate using RAM that uses industry standard
    Error Correcting Codes (ECC) or better protection.
 -->
-<productname>PostgreSQL</>�Ͻ�����ǽ�ʥ��꡼���顼���Ф����ݸ��Ԥ��ޤ��󡣹��ȵ��ʤθ��긡��������Error Correcting Codes -ECC-�ˤޤ��ϥХåƥ꡼�ݸ��դ���RAM���Ѥ����ꤵ��Ƥ��ޤ���
+<productname>PostgreSQL</>は修復可能なメモリーエラーに対して保護を行いません。工業規格の誤り検出訂正（Error Correcting Codes -ECC-）またはバッテリー保護付きのRAM使用が想定されています。
   </para>
  </sect1>
 
@@ -356,7 +356,7 @@ WAL�쥳���ɤ˵�Ͽ����Ƥ������ڡ����Υ��᡼�����ݸ��Ƥ��Ƥ⡢�ǥե���ȤǤϥ
 <!--
    <title>Write-Ahead Logging (<acronym>WAL</acronym>)</title>
 -->
-   <title>������Խ񤭹���(<acronym>WAL</acronym>)</title>
+   <title>ログ先行書き込み(<acronym>WAL</acronym>)</title>
 
    <indexterm zone="wal">
     <primary>WAL</primary>
@@ -366,7 +366,7 @@ WAL�쥳���ɤ˵�Ͽ����Ƥ������ڡ����Υ��᡼�����ݸ��Ƥ��Ƥ⡢�ǥե���ȤǤϥ
 <!--
     <primary>transaction log</primary>
 -->
-    <primary>�ȥ�󥶥���������</primary>
+    <primary>トランザクションログ</primary>
     <see>WAL</see>
    </indexterm>
 
@@ -386,11 +386,11 @@ WAL�쥳���ɤ˵�Ͽ����Ƥ������ڡ����Υ��᡼�����ݸ��Ƥ��Ƥ⡢�ǥե���ȤǤϥ
     the data pages can be redone from the log records.  (This is
     roll-forward recovery, also known as REDO.)
 -->
-<firstterm>������Խ񤭹���</firstterm>��<acronym>WAL</acronym>�ˤϥǡ����ΰ������μ¤ˤ��뤿���ɸ��Ū�ʼ�ˡ�Ǥ���
-�ܺ٤ˤĤ��Ƥϡ��ȥ�󥶥����������ˤĤ��ƽ񤫤줿(���٤ƤȤϸ����ޤ���)�����Ƥ��ν��Ҥ˵��ܤ���Ƥ��ޤ���
-��ñ�˸����ȡ�<acronym>WAL</acronym>�δ���Ū�ʹͤ����ϡ��ʥơ��֥�䥤��ǥå���������˥ǡ����ե�����ؤ��ѹ��ϡ������ؤε�Ͽ���Ĥޤꡢ�ѹ����Ƥ򵭽Ҥ��������쥳���ɤ���³��Ǽ�ΰ�˽񤭽Ф��줿��ˤΤ߽񤭽Ф���ʤ���Фʤ�ʤ��Ȥ������ȤǤ���
-���Τ褦�ʼ��˽��äƽ�����Ԥ��С����Ȥ�����å��夬�����Ƥ������Ȥäƥǡ����١�����ꥫ�Хꤹ�뤳�Ȥ��Ǥ��뤿�ᡢ�ȥ�󥶥������Υ��ߥåȤ��٤˥ǡ����ڡ�����ǥ��������Ǥ��Ф�ɬ�פ��ʤ��ʤ�ޤ���
-�ꥫ�Х�λ����Ǥϡ��ޤ����ǡ����ڡ������Ф��Ƥޤ��Ԥ��Ƥ��ʤ��ѹ�ʬ�ϥ����쥳���ɤ�ȤäƺƼ¹Ԥ���ޤ��ʤ��줬REDO�Ȥ����Τ��Ƥ��������ե���ɥꥫ�Х�Ǥ��ˡ�
+<firstterm>ログ先行書き込み</firstterm>（<acronym>WAL</acronym>）はデータの一貫性を確実にするための標準的な手法です。
+詳細については、トランザクション処理について書かれた(すべてとは言いませんが)たいていの書籍に記載されています。
+簡単に言うと、<acronym>WAL</acronym>の基本的な考え方は、（テーブルやインデックスがある）データファイルへの変更は、ログへの記録、つまり、変更内容を記述したログレコードが永続格納領域に書き出された後にのみ書き出されなければならないということです。
+このような手順に従って処理を行えば、たとえクラッシュが起きてもログを使ってデータベースをリカバリすることができるため、トランザクションのコミットの度にデータページをディスクに吐き出す必要がなくなります。
+リカバリの時点では、まず、データページに対してまだ行われていない変更分はログレコードを使って再実行されます（これがREDOとして知られているロールフォワードリカバリです）。
    </para>
 
    <tip>
@@ -406,7 +406,7 @@ WAL�쥳���ɤ˵�Ͽ����Ƥ������ڡ����Υ��᡼�����ݸ��Ƥ��Ƥ⡢�ǥե���ȤǤϥ
      <literal>data=writeback</> on a Linux ext3 file system.
      Journaled file systems do improve boot speed after a crash.
 -->
-<acronym>WAL</acronym>�ˤ��ǡ����١����ե��������Ȥ�㳲��˥ꥹ�ȥ����뤿�ᡢ�������Τ����Ǽ�ΰ�ˤ���ǡ����ե������WAL�ե�������Ф��Ƥϡ����㡼�ʥ�ե����륷���ƥ��ɬ�פ���ޤ��󡣼ºݡ��äˡ��⤷�ե����륷���ƥ��<emphasis>�ǡ���</emphasis>��ǥ������˥ե�å��夵���Ƥ�����ˤϡ����㡼�ʥ�󥰤Υ����С��إåɤ���ǽ�����������뤳�Ȥ�����ޤ��������ʤ��Ȥˡ����㡼�ʥ����Υǡ����Υե�å����ޥ���ȥ��ץ����ˤ��̵���ˤǤ��뤳�Ȥ�¿���Ǥ����㤨��Linux��ext3�ե����륷���ƥ�Ǥϡ�<literal>data=writeback</>�Ȼ��ꤷ�ޤ������㡼�ʥ�ե����륷���ƥ�Ͼ㳲��ε�ư®�٤�������ޤ���
+<acronym>WAL</acronym>によりデータベースファイルの中身を障害後にリストアするため、信頼性のある格納領域にあるデータファイルやWALファイルに対しては、ジャーナルファイルシステムは必要ありません。実際、特に、もしファイルシステムの<emphasis>データ</emphasis>をディスクにフラッシュさせている場合には、ジャーナリングのオーバーヘッドは性能を劣化させることがあります。幸運なことに、ジャーナリング中のデータのフラッシュをマウントオプションにより無効にできることが多いです。例えばLinuxのext3ファイルシステムでは、<literal>data=writeback</>と指定します。ジャーナルファイルシステムは障害後の起動速度を改善します。
     </para>
    </tip>
 
@@ -425,11 +425,11 @@ WAL�쥳���ɤ˵�Ͽ����Ƥ������ڡ����Υ��᡼�����ݸ��Ƥ��Ƥ⡢�ǥե���ȤǤϥ
     transactions, one <function>fsync</function> of the log file may
     suffice to commit many transactions.
 -->
-<acronym>WAL</acronym>����Ѥ��뤳�Ȥǥǥ������ؤν񤭹��߲���������˸������ޤ���
-�ȸ����Τ⡢�ȥ�󥶥�����󤬥��ߥåȤ��줿���Ȥ��ݾڤ��뤿��ˡ����Υȥ�󥶥��������ѹ����줿���ƤΥǡ����ե�����ǤϤʤ��������ե����������ǥ��������Ǥ��Ф�ɬ�פ����뤫��Ǥ��� 
-�����ե�����ؤν񤭹��ߤϥ������󥷥��˹Ԥ��뤿�ᡢ�ǡ����ڡ������Ǥ��Ф������Ȥ���٥����ե������Ʊ���Ϥ��ä��㥳���Ȥˤʤ�ޤ���
-������äˡ��ǡ�����Ǽ�ΰ���͡�����ʬ���ѹ����뾮���ʥȥ�󥶥�������¿�����������ФǸ����˸���ޤ���
-����ˡ������Ф������Ϥʥȥ�󥶥�������Ʊ����¿������������������ե���������<function>fsync</function>���뤳�Ȥǡ�¿���Υȥ�󥶥������򥳥ߥåȤ��뤳�Ȥ��Ǥ�����⤢��ޤ���
+<acronym>WAL</acronym>を使用することでディスクへの書き込み回数が大幅に減少します。
+と言うのも、トランザクションがコミットされたことを保証するために、そのトランザクションで変更された全てのデータファイルではなく、ログファイルだけをディスクに吐き出す必要があるからです。 
+ログファイルへの書き込みはシーケンシャルに行われるため、データページを吐き出すコストに比べログファイルの同期はずっと低コストになります。
+これは特に、データ格納領域の様々な部分を変更する小さなトランザクションを多く扱うサーバで顕著に現れます。
+さらに、サーバが小規模なトランザクションを同時に多く処理する時、ログファイルを一度<function>fsync</function>することで、多くのトランザクションをコミットすることができる場合もあります。
    </para>
 
    <para>
@@ -445,11 +445,11 @@ WAL�쥳���ɤ˵�Ͽ����Ƥ������ڡ����Υ��᡼�����ݸ��Ƥ��Ƥ⡢�ǥե���ȤǤϥ
     then replaying the WAL log for that period will fix any internal
     inconsistencies.
 -->
-�ޤ���<acronym>WAL</acronym>�ˤ�ꡢ<xref linkend="continuous-archiving">���������륪��饤��Хå����åפȥݥ���ȥ��󥿥���ꥫ�Х�򥵥ݡ��Ȥ��뤳�Ȥ��Ǥ��ޤ���
-WAL�Υǡ������ݻ����뤳�Ȥˤ�ꡢ����WAL�ǡ������ϰ���Ȥ���Ǥ�դλ������᤹���Ȥ��Ǥ��ޤ���
-ñ��˥ǡ����١����μ�Ȥʤ�ʪ���Хå����åפ򥤥󥹥ȡ��뤷��WAL��������Ū�λ����ޤ�ñ�˺������뤳�ȤǼ¸��Ǥ��ޤ���
-����ˡ�ʪ���Хå����åפϥ��󥹥��󥹲���ǽ�ʥǡ����١������֤Υ��ʥåץ���åȤǤ���ɬ�פ⤢��ޤ���
-�������٤λ��֤�вᤷ�ƺ������줿�Хå����åפǤ��äƤ⡢���δ����Ѥ�WAL��������뤳�Ȥˤ�ꡢ������������������ޤ���
+また、<acronym>WAL</acronym>により、<xref linkend="continuous-archiving">で説明するオンラインバックアップとポイントインタイムリカバリをサポートすることができます。
+WALのデータを保持することにより、そのWALデータが範囲内とする任意の時点に戻すことができます。
+単純にデータベースの主となる物理バックアップをインストールし、WALログを目的の時点まで単に再生することで実現できます。
+さらに、物理バックアップはインスタンス化可能なデータベース状態のスナップショットである必要もありません。
+ある程度の時間を経過して作成されたバックアップであっても、その期間用のWALを再生することにより、内部の不整合を修復します。
 
    </para>
   </sect1>
@@ -458,20 +458,20 @@ WAL�Υǡ������ݻ����뤳�Ȥˤ�ꡢ����WAL�ǡ������ϰ���Ȥ���Ǥ�դλ������᤹����
 <!--
   <title>Asynchronous Commit</title>
 -->
-  <title>��Ʊ�����ߥå�</title>
+  <title>非同期コミット</title>
 
    <indexterm>
 <!--
     <primary>synchronous commit</primary>
 -->
-    <primary>Ʊ�����ߥå�</primary>
+    <primary>同期コミット</primary>
    </indexterm>
 
    <indexterm>
 <!--
     <primary>asynchronous commit</primary>
 -->
-    <primary>��Ʊ�����ߥå�</primary>
+    <primary>非同期コミット</primary>
    </indexterm>
 
   <para>
@@ -481,9 +481,9 @@ WAL�Υǡ������ݻ����뤳�Ȥˤ�ꡢ����WAL�ǡ������ϰ���Ȥ���Ǥ�դλ������᤹����
    be lost if the database should crash.  In many applications this is an
    acceptable trade-off.
 -->
-<firstterm>��Ʊ�����ߥå�</>�Ȥϡ��ȥ�󥶥����������®�˴�λ���뤳�Ȥ��Ǥ��륪�ץ����Ǥ���
-��äȤ�Ƕ�Υȥ�󥶥�����󤬥ǡ����١���������å��夷�Ƥ��ޤä����˼�����Ȥ�������������ޤ���
-����ϡ�¿���Υ��ץꥱ�������Ǽ����������ȥ졼�ɥ��դǤ���
+<firstterm>非同期コミット</>とは、トランザクションをより高速に完了することができるオプションです。
+もっとも最近のトランザクションがデータベースがクラッシュしてしまった場合に失われるという危険があります。
+これは、多くのアプリケーションで受け入れられるトレードオフです。
   </para>
 
   <para>
@@ -501,12 +501,12 @@ WAL�Υǡ������ݻ����뤳�Ȥˤ�ꡢ����WAL�ǡ������ϰ���Ȥ���Ǥ�դλ������᤹����
    actually made their way to disk.  This can provide a significant boost
    in throughput for small transactions.
 -->
-��������������̤ꡢ�̾�ȥ�󥶥������Υ��ߥåȤ�<firstterm>Ʊ��Ū</>�Ǥ���
-�����Фϥȥ�󥶥�������<acronym>WAL</acronym>�쥳���ɤ���³Ū��Ǽ�ΰ�˵�Ͽ�����ޤǡ����饤����Ȥ������������Ȥ����Τ��뤳�Ȥ��Ե����ޤ���
-���äơ�ľ��˥����Х���å���Ȥ��ä��㳲�����ä��Ȥ��Ƥ⡢���ߥåȤ��줿����𤵤줿�ȥ�󥶥��������ݻ�����뤳�Ȥ򥯥饤����Ȥ��ݾڤ���ޤ���
-��������û���Υȥ�󥶥������Ǥϡ������ٱ�ϥȥ�󥶥������ν������֤���Ⱦ���������ǤȤʤ�ޤ���
-��Ʊ�����ߥåȥ⡼�ɤ����򤹤뤳�Ȥϡ������Ф�<acronym>WAL</acronym>��Ͽ���ºݤ˺������줿�̤�˥ǥ������˽񤭹��ޤ�������ˡ��ȥ�󥶥�����������Ū�ʴ�λ���ä��������������Τ��뤳�Ȥ��̣���ޤ���
-����ˤ�ꡢ�����Ϥʥȥ�󥶥������ǥ��롼�ץåȤ����ʤ���夷�ޤ���
+前節で説明した通り、通常トランザクションのコミットは<firstterm>同期的</>です。
+サーバはトランザクションの<acronym>WAL</acronym>レコードが永続的格納領域に記録されるまで、クライアントに成功したことを通知することを待機します。
+従って、直後にサーバクラッシュといった障害があったとしても、コミットされたと報告されたトランザクションは保持されることをクライアントは保証されます。
+しかし、短期のトランザクションでは、この遅延はトランザクションの処理時間の大半を占める要素となります。
+非同期コミットモードを選択することは、サーバが<acronym>WAL</acronym>記録が実際に作成された通りにディスクに書き込まれるより前に、トランザクションの論理的な完了をもって成功したと通知することを意味します。
+これにより、小規模なトランザクションでスループットがかなり向上します。
   </para>
 
   <para>
@@ -522,11 +522,11 @@ WAL�Υǡ������ݻ����뤳�Ȥˤ�ꡢ����WAL�ǡ������ϰ���Ȥ���Ǥ�դλ������᤹����
    scenarios, such as event logging, there is no need for a strong
    guarantee of this kind.
 -->
-��Ʊ�����ߥåȤˤϥǡ���»���δ���������ޤ���
-�ȥ�󥶥������δ�λ�򥯥饤����Ȥ����Τ��Ƥ���ȥ�󥶥�����������˴�λ����ʤĤޤꡢ�����Х���å��夷�Ƥ�»�����ʤ����Ȥ��ݾڤ����ˤޤǤδ֤ˤ鷺���ʻ��֤�¸�ߤ��ޤ���
-�������äơ����饤����Ȥ��ȥ�󥶥�����󤬵�Ͽ����Ƥ���Ȥ�������򸵤˳���Ū��ư���Ԥ����ϡ���Ʊ�����ߥåȤ���Ѥ��٤��ǤϤ���ޤ���
-�㤨�С���ԤǤϡ�ATM�θ���ʬ�ۤ�Ͽ����ȥ�󥶥���������Ʊ�����ߥåȤ���Ѥ��ƤϤ����ޤ���
-�����������٥�ȵ�Ͽ�ʤ�¿���Υ��ʥꥪ�Ǥϡ����μ���ݾڤ���äƳ�Ǽ����ɬ�פϤ���ޤ���
+非同期コミットにはデータ損失の危険があります。
+トランザクションの完了をクライアントに通知してからトランザクションが本当に完了する（つまり、サーバクラッシュしても損失がないことが保証される）までの間にわずかな時間が存在します。
+したがって、クライアントがトランザクションが記録されているという仮定を元に外部的な動作を行う場合は、非同期コミットを使用すべきではありません。
+例えば、銀行では、ATMの現金分配を記録するトランザクションで非同期コミットを使用してはいけません。
+しかし、イベント記録など多くのシナリオでは、この種の保証を持って格納する必要はありません。
   </para>
 
   <para>
@@ -543,12 +543,12 @@ WAL�Υǡ������ݻ����뤳�Ȥˤ�ꡢ����WAL�ǡ������ϰ���Ȥ���Ǥ�դλ������᤹����
    transaction A, it is not possible for A's effects to be lost while B's
    effects are preserved.
 -->
-��Ʊ�����ߥåȤˤ��⤿�餵���������ϡ��ǡ������˲��ǤϤʤ��ǡ�����»���Ǥ���
-�ǡ����١���������å��夷����硢�Ǹ�˥ե�å��夵�줿��Ͽ�ޤ�<acronym>WAL</acronym>��������뤳�Ȥ����줬�Ԥ��ޤ���
-���Τ��ᡢ�ǡ����١����������ǰ��������ä����֤����줵��ޤ������ǥ������˥ե�å��夵��Ƥ��ʤ��ȥ�󥶥������Ϥ��٤Ƥ����ˤ�ȿ�Ǥ���ޤ���
-�������äơ��ƶ��������Τϡ��Ǹ�˹Ԥ�줿�����Ĥ��Υȥ�󥶥�������»���Ǥ���
-�ȥ�󥶥������ϥ��ߥåȤ��줿��˺�������ޤ��Τǡ�������������뤳�ȤϤ���ޤ���
-�㤨�С��ȥ�󥶥������B�������˹Ԥ�줿�ȥ�󥶥������A�η�̤˰�¸�����ѹ���Ԥä���硢B�αƶ�����¸����Ƥ���¤ꡢA�αƶ��������뤳�Ȥϵ��������ޤ���
+非同期コミットによりもたらされる危険性は、データの破壊ではなくデータの損失です。
+データベースがクラッシュした場合、最後にフラッシュされた記録まで<acronym>WAL</acronym>を再生することで復旧が行われます。
+このため、データベースは内部で一貫性を持った状態に復旧されますが、ディスクにフラッシュされていないトランザクションはすべてそこには反映されません。
+したがって、影響を受けるのは、最後に行われたいくつかのトランザクションの損失です。
+トランザクションはコミットされた順に再生されますので、一貫性が失われることはありません。
+例えば、トランザクションBが以前に行われたトランザクションAの結果に依存した変更を行った場合、Bの影響が保存されている限り、Aの影響が失われることは起こり得ません。
   </para>
 
   <para>
@@ -563,12 +563,12 @@ WAL�Υǡ������ݻ����뤳�Ȥˤ�ꡢ����WAL�ǡ������ϰ���Ȥ���Ǥ�դλ������᤹����
    any one transaction depends on the value of
    <varname>synchronous_commit</varname> when transaction commit begins.
 -->
-�桼���ϳƥȥ�󥶥������ǥ��ߥåȥ⡼�ɤ����򤹤뤳�Ȥ��Ǥ��ޤ���
-���Τ��ᡢƱ���¹Ԥ����ȥ�󥶥�������Ʊ��Ū���������Ʊ����ξ���ǥ��ߥåȤ����뤳�Ȥ��Ǥ��ޤ���
-����ˤ�ꡢ��ǽ�ȥȥ�󥶥������ο������γμ����Ȥδ֤ǽ���������Ԥ����Ȥ��Ǥ��ޤ���
-���ߥåȥ⡼�ɤϥ桼���ˤ�����꤬��ǽ�ʥѥ�᡼��<xref linkend="guc-synchronous-commit">�����椵��ޤ���
-���Υѥ�᡼���ϡ�����ѥ�᡼�������ꤹ�뤳�Ȥ��Ǥ������Ƥ���ˡ���ѹ����뤳�Ȥ���ǽ�Ǥ���
-����ҤȤĤΥȥ�󥶥������ǻ��Ѥ����⡼�ɤϡ��ȥ�󥶥������Υ��ߥåȤ��Ϥޤä�����<varname>synchronous_commit</varname>���ͤ˰�¸���ޤ���
+ユーザは各トランザクションでコミットモードを選択することができます。
+このため、同時実行されるトランザクションを同期的、および非同期の両方でコミットさせることができます。
+これにより、性能とトランザクションの信頼性の確実性との間で柔軟な選択を行うことができます。
+コミットモードはユーザによる設定が可能なパラメータ<xref linkend="guc-synchronous-commit">で制御されます。
+このパラメータは、設定パラメータを設定することができる全ての方法で変更することが可能です。
+あるひとつのトランザクションで使用されるモードは、トランザクションのコミットが始まった時の<varname>synchronous_commit</varname>の値に依存します。
   </para>
 
   <para>
@@ -580,9 +580,9 @@ WAL�Υǡ������ݻ����뤳�Ȥˤ�ꡢ����WAL�ǡ������ϰ���Ȥ���Ǥ�դλ������᤹����
    The commands supporting two-phase commit, such as <command>PREPARE
    TRANSACTION</>, are also always synchronous.
 -->
-�㤨��<command>DROP TABLE</>�ʤɤ�����Υ桼�ƥ���ƥ����ޥ�ɤǤϡ�<varname>synchronous_commit</varname>������˴ؤ�餺������Ū��Ʊ��Ū���ߥåȤ��Ԥ��ޤ���
-����ˤ�ꡢ�����ФΥե����륷���ƥ�ȥǡ����١���������Ū�ʾ��֤Ȥδ֤ΰ�������ݾڤ���ޤ���
-<command>PREPARE TRANSACTION</>�ʤɤ�2�ꥳ�ߥåȤ򥵥ݡ��Ȥ��륳�ޥ�ɤ�ޤ������Ʊ��Ū�Ǥ���
+例えば<command>DROP TABLE</>などの特定のユーティリティコマンドでは、<varname>synchronous_commit</varname>の設定に関わらず、強制的に同期的コミットが行われます。
+これにより、サーバのファイルシステムとデータベースの論理的な状態との間の一貫性が保証されます。
+<command>PREPARE TRANSACTION</>などの2相コミットをサポートするコマンドもまた、常に同期的です。
   </para>
 
   <para>
@@ -599,9 +599,9 @@ WAL�Υǡ������ݻ����뤳�Ȥˤ�ꡢ����WAL�ǡ������ϰ���Ȥ���Ǥ�դλ������᤹����
    <varname>wal_writer_delay</varname> because the WAL writer is
    designed to favor writing whole pages at a time during busy periods.
 -->
-�⤷��Ʊ�����ߥåȤȤ��Υȥ�󥶥�������<acronym>WAL</acronym>��Ͽ�ν񤭹��ߤδ֤δ������֤˥ǡ����١���������å��夷���Ȥ���ȡ����Υȥ�󥶥������Ǥʤ��줿�ѹ��ϼ�����<emphasis>�Ǥ��礦</>��
-�Хå������ɥץ�������<quote>WAL�饤��</>�ˤ�̤�񤭹��ߤ�<acronym>WAL</acronym>��Ͽ��<xref linkend="guc-wal-writer-delay">�ߥ�����˥ǥ��������Ǥ��Ф��ޤ��Τǡ����δ������֤����¤���ޤ���
-WAL�饤���ϲ�Ư��˰��ڡ������Τ�񤭹���褦���߷פ���Ƥ��뤿�ᡢ�������֤μºݤκ����Ĺ����<varname>wal_writer_delay</varname>�Σ��ܤǤ���
+もし非同期コミットとそのトランザクションの<acronym>WAL</acronym>記録の書き込みの間の危険期間にデータベースがクラッシュしたとすると、そのトランザクションでなされた変更は失われる<emphasis>でしょう</>。
+バックグランドプロセス（<quote>WALライタ</>）が未書き込みの<acronym>WAL</acronym>記録を<xref linkend="guc-wal-writer-delay">ミリ秒毎にディスクに吐き出しますので、この危険期間は制限されます。
+WALライタは稼働中に一回ページ全体を書き込むように設計されているため、危険期間の実際の最大の長さは<varname>wal_writer_delay</varname>の３倍です。
   </para>
 
   <caution>
@@ -610,7 +610,7 @@ WAL�饤���ϲ�Ư��˰��ڡ������Τ�񤭹���褦���߷פ���Ƥ��뤿�ᡢ�������֤μ
     An immediate-mode shutdown is equivalent to a server crash, and will
     therefore cause loss of any unflushed asynchronous commits.
 -->
-¨���⡼�ɤΥ���åȥ�����ϥ����Х���å����Ʊ�����ȤǤ��Τǡ��Ǥ��Ф���Ƥ��ʤ���Ʊ�����ߥåȤ������뤳�Ȥˤʤ�ޤ���
+即時モードのシャットダウンはサーバクラッシュと同じことですので、吐き出されていない非同期コミットが失われることになります。
    </para>
   </caution>
 
@@ -629,11 +629,11 @@ WAL�饤���ϲ�Ư��˰��ڡ������Τ�񤭹���褦���߷פ���Ƥ��뤿�ᡢ�������֤μ
    obtained by turning off <varname>fsync</varname>, but without the risk
    of data corruption.
 -->
-��Ʊ�����ߥåȤǤ�<xref linkend="guc-fsync"> = off�Ȥ�������Ȥϰۤʤ�ư��ˤʤ�ޤ���
-<varname>fsync</varname>�ϥ��������Τ˴ؤ�������Ǥ��ꡢ���٤ƤΥȥ�󥶥�������ư����ѹ����ޤ���
-����ϡ�<productname>PostgreSQL</>�ˤ����롢�ǡ����١������̤ξ��ؤ�Ʊ���񤭹��ߤλ�Ԥ˴ؤ��뤹�٤ƤΥ����å���̵���ˤ��ޤ���
-���Τ��ᡢ�����ƥ९��å����<productname>PostgreSQL</>���Τμ��ԤǤϤʤ��ϡ��ɥ������䥪�ڥ졼�ƥ��󥰥����ƥ�Υ���å���ˤη�̡�ͽ¬�Ǥ��ʤ��ǡ����١������֤��˲���������ޤ���
-��Ʊ�����ߥåȤϥǡ����˲��δ������Ϥʤ���¿���ξ����Ǥ�<varname>fsync</varname>��̵���ˤ���������������ǽ����Ȥۤ�Ʊ������ǽ���󶡤��ޤ���
+非同期コミットでは<xref linkend="guc-fsync"> = offという設定とは異なる動作になります。
+<varname>fsync</varname>はサーバ全体に関する設定であり、すべてのトランザクションの動作を変更します。
+これは、<productname>PostgreSQL</>における、データベースの別の場所への同期書き込みの試行に関するすべてのロジックを無効にします。
+このため、システムクラッシュ（<productname>PostgreSQL</>自体の失敗ではなくハードウェアやオペレーティングシステムのクラッシュ）の結果、予測できないデータベース状態の破壊が起こります。
+非同期コミットはデータ破壊の危険性はなく、多くの状況では<varname>fsync</varname>を無効にした場合に得られる性能向上とほぼ同等の性能を提供します。
   </para>
 
   <para>
@@ -649,10 +649,10 @@ WAL�饤���ϲ�Ư��˰��ڡ������Τ�񤭹���褦���߷פ���Ƥ��뤿�ᡢ�������֤μ
    which transactions can join a group about to participate in a single
    flush, to amortize the cost of the flush among multiple transactions.
 -->
-�ޤ�<xref linkend="guc-commit-delay">����Ʊ�����ߥåȤ�����Τ褦�˸����ޤ���������ϼ¤ΤȤ���Ʊ�����ߥåȤΰ���ˡ�Ǥ���
-�ʼºݡ���Ʊ�����ߥåȻ�<varname>commit_delay</varname>��̵�뤵��ޤ�����
-�ȥ�󥶥������<acronym>WAL</acronym>��ǥ��������Ǥ��Ф�ľ���ˡ����������ȥ�󥶥������ˤ�äƼ¹Ԥ������٤��Ǥ��Ф��ˤ�ꡢ�ۤ�Ʊ�����˥��ߥåȤ�Ԥ�¾�Υȥ�󥶥�������ʬ������Ǥ���褦�ˤ��뤳�Ȥ���Ū�Ȥ����ٱ䤬<varname>commit_delay</varname>�ˤ��ȯ�����ޤ���
-��������ϡ����Υե�å���˻��褹�륰�롼�פˡ�ʣ���Υȥ�󥶥���������ǥե�å���Υ����Ȥ���Ѥ����ä�뤳�Ȥ���ǽ�ʥȥ�󥶥������λ���Ūͱͽ�򹭤�����ˡ�ΰ�ĤȤ��ƹͤ��뤳�Ȥ��Ǥ��ޤ���
+また<xref linkend="guc-commit-delay">も非同期コミットと類似のように見えますが、これは実のところ同期コミットの一方法です。
+（実際、非同期コミット時<varname>commit_delay</varname>は無視されます。）
+トランザクションが<acronym>WAL</acronym>をディスクに吐き出す直前に、こうしたトランザクションによって実行される一度の吐き出しにより、ほぼ同時期にコミットを行う他のトランザクションの分も処理できるようにすることを目的とした遅延が<varname>commit_delay</varname>により発生します。
+この設定は、一回のフラッシュに参画するグループに、複数のトランザクションの中でフラッシュのコストを償却し、加わることが可能なトランザクションの時間的猶予を広げる方法の一つとして考えることができます。
   </para>
 
  </sect1>
@@ -661,7 +661,7 @@ WAL�饤���ϲ�Ư��˰��ڡ������Τ�񤭹���褦���߷פ���Ƥ��뤿�ᡢ�������֤μ
 <!--
   <title><acronym>WAL</acronym> Configuration</title>
 -->
-<title><acronym>WAL</acronym>������</title>
+<title><acronym>WAL</acronym>の設定</title>
 
   <para>
 <!--
@@ -670,9 +670,9 @@ WAL�饤���ϲ�Ư��˰��ڡ������Τ�񤭹���褦���߷פ���Ƥ��뤿�ᡢ�������֤μ
    Consult <xref linkend="runtime-config"> for general information about
    setting server configuration parameters.
 -->
-�ǡ����١�������ǽ�˱ƶ�����褦��<acronym>WAL</>�˴�Ϣ��������ѥ�᡼����ʣ������ޤ���
-����Ǥϡ����λȤ������������ޤ���
-����������ѥ�᡼����������ˡ�ˤĤ��Ƥξܺ٤�<xref linkend="runtime-config">�򻲾Ȥ��Ƥ���������
+データベースの性能に影響するような<acronym>WAL</>に関連した設定パラメータが複数あります。
+本節では、その使い方を説明します。
+サーバ設定パラメータの設定方法についての詳細は<xref linkend="runtime-config">を参照してください。
   </para>
 
   <para>
@@ -693,13 +693,13 @@ WAL�饤���ϲ�Ư��˰��ڡ������Τ�񤭹���褦���߷פ���Ƥ��뤿�ᡢ�������֤μ
    <acronym>WAL</acronym> archiving is being done, the log segments must be
    archived before being recycled or removed.)
 -->
-<firstterm>�����å��ݥ����</firstterm><indexterm><primary>checkpoint</></>�ϡ���Ϣ�Υȥ�󥶥������ˤ����ơ����Υ����å��ݥ���Ȱ����˽񤫤줿���Ƥξ���ˤ��ҡ��פȥ���ǥå����ե����뤬���Ǥ˹�������Ƥ��뤳�Ȥ��ݾڤ�����Ǥ���
-�����å��ݥ���Ȥλ���ˤ����ơ����ƤΥ����ƥ��ڡ����ǡ����ϥǥ������˥ե�å��夵�졢�ü�ʥ����å��ݥ���ȥ쥳���ɤ������ե�����˽񤭹��ޤ�ޤ���
-(�ѹ����줿�쥳���ɤϰ�����<acronym>WAL</acronym>�ե�å��夵��Ƥ��ޤ���)
-����å��夷����������å��夫�����������ϺǸ�Υ����å��ݥ���ȥ쥳���ɤ򸫤Ĥ�����������ǤɤΥ쥳���ɡʤ����redo�쥳���ɤȸƤФ�Ƥ��ޤ��ˤ������������REDO�������򳫻Ϥ��٤�������ꤷ�ޤ���
-���Υ����å��ݥ���Ȱ����ˤʤ��줿�ǡ������ѹ��ϡ����Ǥ˥ǥ�������ˤ��뤳�Ȥ��ݾڤ���Ƥ��ޤ���
-���äơ������å��ݥ���ȸ塢redo�쥳������Τ��Υ����å��ݥ���Ȱ����Υ����������Ȥ����פȤʤꡢ�����Ѥޤ��Ϻ�����뤳�Ȥ��Ǥ��ޤ�
-��<acronym>WAL</acronym>���������֤��Ԥ����硢���Υ����������ȤϺ���⤷���Ϻ����Ѥ����������¸����ʤ���Фʤ�ޤ���ˡ�
+<firstterm>チェックポイント</firstterm><indexterm><primary>checkpoint</></>は、一連のトランザクションにおいて、そのチェックポイント以前に書かれた全ての情報によりヒープとインデックスファイルがすでに更新されていることを保証する場所です。
+チェックポイントの時刻において、全てのダーティページデータはディスクにフラッシュされ、特殊なチェックポイントレコードがログファイルに書き込まれます。
+(変更されたレコードは以前に<acronym>WAL</acronym>フラッシュされています。)
+クラッシュした時、クラッシュからの復旧処理は最後のチェックポイントレコードを見つけ、ログの中でどのレコード（これはredoレコードと呼ばれています）から復旧処理がREDOログ操作を開始すべきかを決定します。
+このチェックポイント以前になされたデータの変更は、すでにディスク上にあることが保証されています。
+従って、チェックポイント後、redoレコード内のそのチェックポイント以前のログセグメントは不要となり、再利用または削除することができます
+（<acronym>WAL</acronym>アーカイブが行われる場合、このログセグメントは削除もしくは再利用される前に保存されなければなりません）。
   </para>
 
   <para>
@@ -710,7 +710,7 @@ WAL�饤���ϲ�Ư��˰��ڡ������Τ�񤭹���褦���߷פ���Ƥ��뤿�ᡢ�������֤μ
    before the next checkpoint is due to start; this minimizes performance
    degradation during checkpoints.
 -->
-�����å��ݥ���Ƚ����ϡ����ƤΥ����ƥ��ǡ����ڡ�����ǥ������ؽ񤭽Ф����ᡢ�礭��I/O��٤�ȯ�������ޤ������Τ��ᡢ�����å��ݥ���Ƚ����Ϲʤ���ޤ�ޤ������������I/O�ϥ����å��ݥ���ȳ��Ϥ��鼡�Υ����å��ݥ���Ȥ����Ϥ����������ߤ��ޤ�������ϡ������å��ݥ���Ƚ��������ǽ����������ޤ�����̤�����ޤ���
+チェックポイント処理は、全てのダーティデータページをディスクへ書き出すため、大きなI/O負荷を発生させます。このため、チェックポイント処理は絞り込まれます。そうするとI/Oはチェックポイント開始から次のチェックポイントが開始する以前に停止します。これは、チェックポイント処理中の性能劣化を極力抑える効果があります。
   </para>
 
   <para>
@@ -729,12 +729,12 @@ WAL�饤���ϲ�Ư��˰��ڡ������Τ�񤭹���褦���߷פ���Ƥ��뤿�ᡢ�������֤μ
    It is also possible to force a checkpoint by using the SQL
    command <command>CHECKPOINT</command>.
 -->
-�����ФΥ����å��ݥ��󥿥ץ������ϼ�ưŪ�˥����å��ݥ���Ȥ����ˤ˼¹Ԥ��ޤ���
-<xref linkend="guc-checkpoint-segments">�����������ȿ���ã���뤫���ޤ���<xref linkend="guc-checkpoint-timeout">�ä��в᤹�뤫���ɤ��餫�ξ�郎���������ȥ����å��ݥ���Ȥ����Ϥ���ޤ���
-�ǥե���Ȥ�����Ǥϡ����줾��3�������Ȥ�300��(5ʬ)�ȤʤäƤ��ޤ���
-����Υ����å��ݥ���Ȱʹ߽񤭽Ф�WAL���ʤ���硢<varname>checkpoint_timeout</>���вᤷ���Ȥ��Ƥ⿷���������å��ݥ���Ȥ����Ф���ޤ���
-WAL���������ֽ�������Ѥ��Ƥ��ꡢ���ġ��ǡ���»���β�ǽ������ꤹ�뤿��˥ե�����Υ������������٤��Ф��벼�¤����ꤷ������硢���Υ����å��ݥ���ȥѥ�᡼���ǤϤʤ�<xref linkend="guc-archive-timeout">�ѥ�᡼����Ĵ�ᤷ�ʤ���Фʤ�ޤ���
-�ޤ���<command>CHECKPOINT</command> SQL���ޥ�ɤǶ���Ū�˥����å��ݥ���Ȥ�������뤳�Ȥ�Ǥ��ޤ���
+サーバのチェックポインタプロセスは自動的にチェックポイントを頻繁に実行します。
+<xref linkend="guc-checkpoint-segments">ログセグメント数に達するか、または<xref linkend="guc-checkpoint-timeout">秒が経過するか、どちらかの条件が満たされるとチェックポイントが開始されます。
+デフォルトの設定では、それぞれ3セグメントと300秒(5分)となっています。
+前回のチェックポイント以降書き出すWALがない場合、<varname>checkpoint_timeout</>が経過したとしても新しいチェックポイントが飛ばされます。
+WALアーカイブ処理を使用しており、かつ、データ損失の可能性を限定するためにファイルのアーカイブ頻度に対する下限を設定したい場合、このチェックポイントパラメータではなく<xref linkend="guc-archive-timeout">パラメータを調節しなければなりません。
+また、<command>CHECKPOINT</command> SQLコマンドで強制的にチェックポイントを作成することもできます。
   </para>
 
   <para>
@@ -752,13 +752,13 @@ WAL���������ֽ�������Ѥ��Ƥ��ꡢ���ġ��ǡ���»���β�ǽ������ꤹ�뤿��˥ե����
    partially negating the goal of using a smaller interval,
    and in any case causing more disk I/O.
 -->
-<varname>checkpoint_segments</varname>��<varname>checkpoint_timeout</varname>���ޤ��Ϥ���ξ�Ԥ򸺾�������ȡ������å��ݥ���ȤϤ�����ˤ˹Ԥ��ޤ���
-����ˤ�ꡢ�ƽ������פ�����֤���꾯�ʤ��ʤ�ޤ��Τǥ���å����ν����Ϲ�®�ˤʤ�ޤ���
-��������������ˤ˹Ԥ���褦�ˤʤ롢�ѹ����줿�ǡ����ڡ������Ǥ��Ф��ˤ�����礹�륳���ȤȥХ�󥹤�ͤ��ʤ���Фʤ�ޤ���
-<xref linkend="guc-full-page-writes">�����ꤵ��Ƥ���ʥǥե���ȤǤ��˾�硢¾�˹�θ���ʤ���Фʤ�ʤ���������ޤ���
-�ǡ����ڡ����ΰ�������ݾڤ��뤿��ˡ��ƥ����å��ݥ���ȸ�κǽ���ѹ������ǡ����ڡ����ϡ����Υڡ������Τ����Ƥ���������¸����뤳�Ȥˤʤ�ޤ���
-���Τ褦�ʾ�硢�����å��ݥ���Ȥδֳ֤򾯤ʤ����뤳�Ȥϡ�WAL�����ؤν��Ϥ����ä������ֳ֤�û��������Ū�ΰ�����̵��̣�ˤ��ޤ��� 
-�ޤ����μ¤ˤ��¿���Υǥ�����I/O��ȯ�����ޤ���
+<varname>checkpoint_segments</varname>、<varname>checkpoint_timeout</varname>、またはその両者を減少させると、チェックポイントはより頻繁に行われます。
+これにより、再処理に要する時間がより少なくなりますのでクラッシュ後の修復は高速になります。
+しかし、より頻繁に行われるようになる、変更されたデータページの吐き出しにより増大するコストとバランスを考えなければなりません。
+<xref linkend="guc-full-page-writes">が設定されている（デフォルトです）場合、他に考慮しなければならない点があります。
+データページの一貫性を保証するために、各チェックポイント後の最初に変更されるデータページは、そのページ全体の内容がログに保存されることになります。
+このような場合、チェックポイントの間隔を少なくすることは、WALログへの出力を増加させ、間隔を短くする目的の一部を無意味にします。 
+また、確実により多くのディスクI/Oが発生します。
   </para>
 
   <para>
@@ -779,13 +779,13 @@ WAL���������ֽ�������Ѥ��Ƥ��ꡢ���ġ��ǡ���»���β�ǽ������ꤹ�뤿��˥ե����
    to appear if you have not set <varname>checkpoint_segments</> high
    enough.
 -->
-�����å��ݥ���ȤϤ��ʤ����ʤ�ΤǤ���
-1�֤���ͳ�ϡ����ν����ϸ����������ƤΥ����ƥ��Хåե���񤭽Ф�ɬ�פ����뤳�ȡ�2���ܤ���ͳ�ϡ��嵭�Τ褦�ˤ��θ��;�פ�WAL�ν񤭹��ߤ�ȯ�����뤳�ȤǤ���
-���Τ��ᡢ�����å��ݥ�����ѤΥѥ�᡼����⤯���������å��ݥ���Ȥ����ޤ�ˤ���ȯ���뤳�Ȥ��ʤ��褦�ˤ��뤳�Ȥ򴫤�ޤ���
-��ñ�ʥ����å��ݥ�����ѤΥѥ�᡼���η����������Ȥ��ơ�<xref linkend="guc-checkpoint-warning">�ѥ�᡼�������ꤹ�뤳�Ȥ��Ǥ��ޤ���
-�����å��ݥ���Ȥ�ȯ���ֳ֤�<varname>checkpoint_warning</>��̤���ξ�硢<varname>checkpoint_segments</varname>�����ä򴫤���å������������ФΥ����˽��Ϥ���ޤ���
-���Υ�å����������˸��줿�Ȥ��Ƥ�����ˤϤʤ�ޤ��󤬡��ѽФ���褦�Ǥ���С������å��ݥ���Ȥ�����ѥ�᡼�������ä�����٤��Ǥ���
-<varname>checkpoint_segments</>��ʬ�⤯���ꤷ�Ƥ��ʤ��ȡ��絬�Ϥ�<command>COPY</>ž���ʤɤΤޤȤޤä����Ǥ��������ٹ�¿��ȯ�����뤫�⤷��ޤ���
+チェックポイントはかなり高価なものです。
+1番の理由は、この処理は現時点の全てのダーティバッファを書き出す必要があること、2番目の理由は、上記のようにその後に余計なWALの書き込みが発生することです。
+そのため、チェックポイント用のパラメータを高くし、チェックポイントがあまりにも頻発することがないようにすることを勧めます。
+簡単なチェックポイント用のパラメータの健全性検査として、<xref linkend="guc-checkpoint-warning">パラメータを設定することができます。
+チェックポイントの発生間隔が<varname>checkpoint_warning</>秒未満の場合、<varname>checkpoint_segments</varname>の増加を勧めるメッセージがサーバのログに出力されます。
+このメッセージが稀に現れたとしても問題にはなりませんが、頻出するようであれば、チェックポイントの制御パラメータを増加させるべきです。
+<varname>checkpoint_segments</>を十分高く設定していないと、大規模な<command>COPY</>転送などのまとまった操作でこうした警告が多く発生するかもしれません。
   </para>
 
   <para>
@@ -814,17 +814,17 @@ WAL���������ֽ�������Ѥ��Ƥ��ꡢ���ġ��ǡ���»���β�ǽ������ꤹ�뤿��˥ե����
    completed on time, which would result in performance loss due to
    unexpected variation in the number of WAL segments needed.
 -->
-�ڡ����񤭽Ф��ν���ˤ�������ϥ����ƥ�ΰ����ɤ�����ˡ������å��ݥ���ȴ��֤Υ����ƥ��Хåե��ν񤭽Ф��ϰ���δ��֤�ʬ������ޤ���
-���δ��֤�<xref linkend="guc-checkpoint-completion-target">�ˤ�����椵�졢�����å��ݥ���ȴֳ֤γ��Ȥ��ƻ��ꤵ��ޤ���
-I/O�γ��ϡ������å��ݥ���Ȥε�ư������<varname>checkpoint_segments</varname> WAL�������Ȥ����񤵤줿�������뤤�ϡ����ꤷ��<varname>checkpoint_timeout</varname>�ä��вᤷ���������Τɤ��餫��ȯ������Ȥ����ˡ������å��ݥ���Ȥ���λ����褦��Ĵ������ޤ���
-�ǥե���Ȥ�0.5�Ȥ����ͤǤϡ�<productname>PostgreSQL</>�ϡ����Υ����å��ݥ���Ȥ��Ϥޤ�ޤǤΤ��褽Ⱦʬ�λ��֤ǳƥ����å��ݥ���Ȥ���λ�����Τ�����Ǥ��뤳�Ȥˤʤ�ޤ���
-�̾�����ˤ����Ƥۤܺ����I/O���롼�ץåȤ˶ᤤ�褦�ʥ����ƥ�Ǥϡ������å��ݥ���Ȥˤ�����I/O��٤򸺤餹�����<varname>checkpoint_completion_target</varname>�����䤹���Ȥ򴫤�ޤ���
-���η����ϡ���Ĺ���줿�����å��ݥ���Ȥ��ꥫ�Х���˱ƶ��򤢤����뤳�ȤǤ���
-�ꥫ�Х���˻��ѤǤ���褦�ˡ����¿����WAL�������Ȥ��ݻ�����ɬ�פ����뤿��Ǥ���
-<varname>checkpoint_completion_target</varname>������1.0�����ꤹ�뤳�Ȥ�Ǥ��ޤ���������㤯�ޤ��뤳�ȡʤ����餯�����0.9�ˤ������Ǥ���
-�����å��ݥ���Ȥˤϡ������ƥ��Хåե���񤭽Ф��ʳ��γ�ư��ޤޤ�Ƥ��뤫��Ǥ���
-1.0�Ȥ�������ϡ���������ǥ����å��ݥ���Ȥ���λ���ʤ��ʤ�Ȥ�����̤˴٤�ޤ���
-�����ɬ�פ�WAL�������ȿ�������ʾ����ư���뤳�Ȥˤʤꡢ��ǽ��������ȯ�����뤳�Ȥˤʤ�ޤ���
+ページ書き出しの集中による入出力システムの溢れを防ぐために、チェックポイント期間のダーティバッファの書き出しは一定の期間に分散されます。
+この期間は<xref linkend="guc-checkpoint-completion-target">により制御され、チェックポイント間隔の割合として指定されます。
+I/Oの割合は、チェックポイントの起動時から<varname>checkpoint_segments</varname> WALセグメントが消費された時、あるいは、指定した<varname>checkpoint_timeout</varname>秒が経過した時、このどちらかが発生するとすぐに、チェックポイントが完了するように調整されます。
+デフォルトの0.5という値では、<productname>PostgreSQL</>は、次のチェックポイントが始まるまでのおよそ半分の時間で各チェックポイントが完了するものと想定できることになります。
+通常の操作においてほぼ最大のI/Oスループットに近いようなシステムでは、チェックポイントにおけるI/O負荷を減らすために<varname>checkpoint_completion_target</varname>を増やすことを勧めます。
+この欠点は、延長されたチェックポイントがリカバリ時に影響をあたえることです。
+リカバリ時に使用できるように、より多くのWALセグメントを保持する必要があるためです。
+<varname>checkpoint_completion_target</varname>を最大の1.0に設定することもできますが、より低く抑えること（おそらく最大で0.9）が最善です。
+チェックポイントには、ダーティバッファを書き出す以外の活動も含まれているからです。
+1.0という設定は、ある時点でチェックポイントが完了しなくなるという結果に陥ります。
+これは必要なWALセグメント数が想定以上に変動することになり、性能の劣化が発生することになります。
   </para>
 
   <para>
@@ -842,11 +842,11 @@ I/O�γ��ϡ������å��ݥ���Ȥε�ư������<varname>checkpoint_segments</varname> 
    segment files, the unneeded segment files will be deleted instead
    of recycled until the system gets back under this limit.
 -->
-WAL�������ȥե�����Ͼ�˾��ʤ��Ȥ�1�Ĥ��ꡢ�ޤ����̾��(2 + <varname>checkpoint_completion_target</varname>) * <varname>checkpoint_segments</varname> + 1���⤷����<varname>checkpoint_segments</> + <xref linkend="guc-wal-keep-segments"> + 1���¿���Ϥ���ޤ���
-�ƥ������ȥե�������̾�16�ᥬ�Х��ȡʤ��Υ������ϥ����ФΥ���ѥ�������ѹ���ǽ�ˤǤ���
-���Τ��Ȥ��顢<acronym>WAL</acronym>��ɬ�פȤ�����ΰ�����Ǥ��ޤ���
-���̡��Ť��������ȥե����뤬���פˤʤä����������Ϻ����ѡʤĤޤꡢ�ֹ��դ����륷�����󥹤ˤ����Ƥξ���Υ������ȤȤʤ�褦��̾�����ѹ��ˤ���ޤ���
-û���֤Υ������ϤΥԡ����Τ���˥������ȥե��������3��<varname>checkpoint_segments</varname> + 1��Ķ������硢�����ƥ�ϡ����ξ�°ʲ��ˤʤ�ޤǡ����פˤʤä��������ȥե����������Ѥ����ˡ�������ޤ���
+WALセグメントファイルは常に少なくとも1つあり、また、通常は(2 + <varname>checkpoint_completion_target</varname>) * <varname>checkpoint_segments</varname> + 1、もしくは<varname>checkpoint_segments</> + <xref linkend="guc-wal-keep-segments"> + 1より多くはありません。
+各セグメントファイルは通常16メガバイト（このサイズはサーバのコンパイル時に変更可能）です。
+このことから、<acronym>WAL</acronym>で必要とされる領域を推定できます。
+普通、古いセグメントファイルが不要になった時、それらは再利用（つまり、番号付けられるシーケンスにおいての将来のセグメントとなるように名前が変更）されます。
+短時間のログ出力のピークのためにセグメントファイル数が3×<varname>checkpoint_segments</varname> + 1を超えた場合、システムは、この上限以下になるまで、不要になったセグメントファイルを再利用せずに、削除します。
   </para>
 
   <para>
@@ -866,10 +866,10 @@ WAL�������ȥե�����Ͼ�˾��ʤ��Ȥ�1�Ĥ��ꡢ�ޤ����̾��(2 + <varname>checkpoi
    least <varname>checkpoint_segments</> log segments have been replayed
    since the last restartpoint.
 -->
-���������֤���Υꥫ�Х�⤷���ϥ�����Х��⡼�ɤˤ����ơ������ФǤ����Ū���̾ﱿ�ѤǤΥ����å��ݥ���Ƚ����Ȼ���<firstterm>�ꥹ�����ȥݥ����</><indexterm><primary>restartpoint</></>������Ԥ��ޤ�������ϡ����Ǥ˺������줿WAL������ɤ߹���ɬ�פ��ʤ��褦���ǥ������˸��ߤξ��֤���Ū�˽񤭹��ߡ�<filename>pg_control</>�ե�����򹹿����ޤ����ޤ�<filename>pg_xlog</>�ǥ��쥯�ȥ����θŤ������������Ȥ�����ѤǤ���褦�ˤ��ޤ���
-�ꥹ�����ȥݥ���Ƚ����ϥ����å��ݥ���Ȥ���Ͽ���줿���ˤ����»ܤ���ʤ��Τǡ��ޥ���¦�Υ����å��ݥ���Ƚ�������ȯ�����٤��㤤�Ǥ��礦��
-�Ƴ������ϡ��Ǹ�κƳ�������꾯�ʤ��Ȥ�<varname>checkpoint_timeout</>�ä��вᤷ�Ƥ���Ȥ���С������å��ݥ���ȥ쥳���ɤ���ã���줿�����ǻ�ư����ޤ���
-������Х��⡼�ɤˤ����ơ��Ƴ������Ϥ⤷�Ǹ�κƳ�������������<varname>checkpoint_segments</>�����������Ȥ��������줿���ˡ�Ʊ�ͤ˻�ư����ޤ���
+アーカイブからのリカバリもしくはスタンバイモードにおいて、サーバでは定期的に通常運用でのチェックポイント処理と似た<firstterm>リスタートポイント</><indexterm><primary>restartpoint</></>処理を行います。これは、すでに再生されたWALを再度読み込む必要がないよう、ディスクに現在の状態を強制的に書き込み、<filename>pg_control</>ファイルを更新します。また<filename>pg_xlog</>ディレクトリの中の古いログセグメントを再利用できるようにします。
+リスタートポイント処理はチェックポイントが記録された時にしか実施されないので、マスタ側のチェックポイント処理よりも発生頻度は低いでしょう。
+再開始点は、最後の再開始点より少なくとも<varname>checkpoint_timeout</>秒が経過しているとすれば、チェックポイントレコードが到達された時点で始動されます。
+スタンバイモードにおいて、再開始点はもし最後の再開始点から最低限<varname>checkpoint_segments</>ログセグメントが再生された場合に、同様に始動されます。
   </para>
 
   <para>
@@ -899,18 +899,18 @@ WAL�������ȥե�����Ͼ�˾��ʤ��Ȥ�1�Ĥ��ꡢ�ޤ����̾��(2 + <varname>checkpoi
    setting <varname>wal_buffers</> higher will help smooth response times
    during the period immediately following each checkpoint.
 -->
-�褯�Ȥ���2�Ĥ�������<acronym>WAL</acronym>�ؿ�������ޤ���
-<function>XLogInsert</function>��<function>XLogFlush</function>�Ǥ���
-<function>XLogInsert</function>�϶�ͭ������<acronym>WAL</acronym>�Хåե��˿������쥳���ɤ��������ޤ���
-�������쥳���ɤ���������;�Ϥ��ʤ����ϡ�<function>XLogInsert</function>�ϡ����դˤʤä�<acronym>WAL</acronym>�Хåե���񤭹��ߡʥ����ͥ륭��å���˰�ư�ˤ��ʤ���Ф����ޤ���
-�����˾�ޤ������ȤǤϤ���ޤ��� 
-�ʤ��ʤ顢�ǡ����١����ؤ����٥���ѹ����㤨�йԤ������ˤ��٤�<function>XLogInsert</function>���ƤФ�ޤ��������Τ褦�ʾ��ˤ��ѹ���������ڡ������Ф�����¾���å��������äƤ��ꡢ����椨�������ϲ�ǽ�ʸ¤��®�˼¹Ԥ���ʤ���Фʤ�ޤ���
-����˰������Ȥˤϡ�<acronym>WAL</acronym>�Хåե��ؤν񤭹��ߤκݤˡ�����˻��֤������롢����Ū�ʿ����������������Ȥ�������ɬ�פȤʤ뤫�⤷��ޤ���
-�̾<acronym>WAL</acronym>�ν񤭹��ߡ��Ǥ��Ф���<function>XLogFlush</function>�׵�Ǽ»ܤ���ޤ��� 
-����Ϥ����Ƥ��ξ�硢�ȥ�󥶥�����󥳥ߥåȤκݤ˱�³Ū�ʵ����ΰ�˥ȥ�󥶥������쥳���ɤ��Ǥ��Ф���뤳�Ȥ��ݾڤ��뤿��˹Ԥ��ޤ���
-�������Ϥ����̤˹Ԥ��륷���ƥ�Ǥϡ�<function>XLogInsert</function>�ˤ�ä�ɬ�פȤʤ�񤭹��ߤ��ɤ��ۤɤˤ�<function>XLogFlush</function>�׵᤬���ˤ˵�����ʤ����⤷��ޤ���
-�������������ƥ�Ǥϡ�<xref linkend="guc-wal-buffers">�ѥ�᡼�����ѹ�����<acronym>WAL</acronym>�Хåե��ο������䤷�Ƥ���������
-<xref linkend="guc-full-page-writes">�����ꤵ�졢���ġ������ƥब����پ��֤Ǥ����硢<varname>wal_buffers</>��⤯���뤳�Ȥǡ��ƥ����å��ݥ���Ȥ�ľ��α������֤��餫�ˤ��뤳�Ȥ��Ǥ��ޤ���
+よく使われる2つの内部用<acronym>WAL</acronym>関数があります。
+<function>XLogInsert</function>と<function>XLogFlush</function>です。
+<function>XLogInsert</function>は共有メモリ上の<acronym>WAL</acronym>バッファに新しいレコードを挿入します。
+新しいレコードを挿入する余地がない時は、<function>XLogInsert</function>は、満杯になった<acronym>WAL</acronym>バッファを書き込み（カーネルキャッシュに移動）しなければいけません。
+これは望ましいことではありません。 
+なぜなら、データベースへの低レベルの変更（例えば行の挿入）の度に<function>XLogInsert</function>が呼ばれますが、そのような場合には変更を受けたページに対して排他ロックがかかっており、それゆえこの操作は可能な限り高速に実行されなければなりません。
+さらに悪いことには、<acronym>WAL</acronym>バッファへの書き込みの際に、さらに時間がかかる、強制的な新しいログセグメントの生成が必要となるかもしれません。
+通常、<acronym>WAL</acronym>の書き込み、吐き出しは<function>XLogFlush</function>要求で実施されます。 
+これはたいていの場合、トランザクションコミットの際に永続的な記憶領域にトランザクションレコードが吐き出されることを保証するために行われます。
+ログ出力が大量に行われるシステムでは、<function>XLogInsert</function>によって必要となる書き込みを防ぐほどには<function>XLogFlush</function>要求が頻繁に起こらないかもしれません。
+そういうシステムでは、<xref linkend="guc-wal-buffers">パラメータを変更して<acronym>WAL</acronym>バッファの数を増やしてください。
+<xref linkend="guc-full-page-writes">が設定され、かつ、システムが高負荷状態である場合、<varname>wal_buffers</>を高くすることで、各チェックポイントの直後の応答時間を滑らかにすることができます。
   </para>
 
   <para>
@@ -931,12 +931,12 @@ WAL�������ȥե�����Ͼ�˾��ʤ��Ȥ�1�Ĥ��ꡢ�ޤ����̾��(2 + <varname>checkpoi
    platforms, sleep operations may take slightly longer than requested by
    the parameter.
 -->
-<xref linkend="guc-commit-delay">�ѥ�᡼���ϡ�<function>XLogFlush</function>��ǥ��å���������Ƥ��饰�롼�ץ��ߥåȾ�̼Ԥ����ޥ������õٻߤ��뤫��������ޤ������������롼�ץ��ߥå��ɽ��ԤϾ�̼Ԥθ���¤Ӥޤ���
-���٤Ƥ���̼Ԥη�̤Ȥ���������Ʊ�����ˤ��ե�å��夵���褦�ˡ������ٱ��¾�Υ����Хץ������������Υ��ߥåȥ쥳���ɤ�WAL�Хåե����ɲä��뤳�Ȥ���Ƥ��ޤ���
-<xref linkend="guc-fsync">��ͭ���Ǥʤ������ޤ���<xref linkend="guc-commit-siblings">��꾯�ʤ�¾�Υ��å���󤬤��λ����ǳ�ư���Ƥ���ȥ�󥶥������Ǥ���еٻߤϹԤ��ޤ���
-¾�β��餫�Υ��å����ľ���ˤǤ⥳�ߥåȤ���Ȥ��������ꤽ���ˤʤ����εٻߤ��򤱤��ΤǤ���
-�����Ĥ��Υץ�åȥۡ���ˤ����ơ��ٻ��׵��ʬ��ǽ��10�ߥ��äǡ��ɤ�ʣ�����10000�ߥ��äδ֤��󥼥��Ǥ���<varname>commit_delay</varname>�����Ʊ�����̤Ȥʤ뤳�Ȥ�Ф��Ƥ����Ƥ���������
-�����Ĥ��Υץ�åȥե�����ǡ��ٻ����ϥѥ�᡼���ˤ�ä��׵ᤵ�줿���֤��鷺����Ĺ���ʤ뤳�Ȥ�Ф��Ƥ����Ƥ���������
+<xref linkend="guc-commit-delay">パラメータは、<function>XLogFlush</function>内でロックを取得してからグループコミット上位者が何マイクロ秒休止するかを定義します。一方、グループコミット追従者は上位者の後に並びます。
+すべてが上位者の結果として生ずる同期操作によりフラッシュされるように、この遅延は他のサーバプロセスがそれらのコミットレコードをWALバッファに追加することを許容します。
+<xref linkend="guc-fsync">が有効でないか、または<xref linkend="guc-commit-siblings">より少ない他のセッションがその時点で活動しているトランザクションであれば休止は行われません。
+他の何らかのセッションが直ぐにでもコミットするという起こりそうにない時の休止を避けるものです。
+いくつかのプラットホームにおいて、休止要求の分解能は10ミリ秒で、どんな１から10000ミリ秒の間の非ゼロである<varname>commit_delay</varname>設定は同じ効果となることを覚えておいてください。
+いくつかのプラットフォームで、休止操作はパラメータによって要求された時間よりわずかに長くなることも覚えておいてください。
   </para>
 
   <para>
@@ -966,13 +966,13 @@ WAL�������ȥե�����Ͼ�˾��ʤ��Ȥ�1�Ĥ��ꡢ�ޤ����̾��(2 + <varname>checkpoi
    high can increase transaction latency by so much that total transaction
    throughput suffers.
 -->
-<varname>commit_delay</varname>����Ū�Ϥ��줾��Υե�å������Υ����Ȥ�Ʊ���¹Ԥ���륳�ߥåȤΥȥ�󥶥��������Ϥäƽ��Ѥ��뤳�Ȥ��������Ū�ˤϥȥ�󥶥��������Ԥ����֤�����ˤ��ˡ����꤬��Ū�����򤵤������ˤ��Υ����Ȥ����̲������ɬ�פ�����ޤ���
-���Υ����Ȥ��⤱��й⤤�ۤɡ�<varname>commit_delay</varname>�����λ����ޤǥȥ�󥶥������ν����̤����ä���ȴ��Ԥ���ޤ���
-<xref linkend="pgtestfsync">�ץ������ϡ���Ĥ�WAL�ե�å��夬ɬ�פȤ���ޥ�������ñ�̤�ʿ�ѻ��֤��¬���뤿��˻��Ѳ�ǽ�Ǥ���
-�ץ�����ब��𤹤�ñ���8kb�񤭹������Τ��ȤΥե�å���ʿ�ѻ��֤Σ�ʬ�Σ����ͤϡ����Ф���<varname>commit_delay</varname>�κǤ����Ū������Ǥ������äơ������ͤ�����κ����٤��Ŭ��������˻��Ѥ��볫�ϻ����Ȥ��ƿ侩����ޤ���
-WAL���������ٱ�β�ž�ǥ������˳�Ǽ����Ƥ���Ȥ���<varname>commit_delay</varname>�Υ��塼�˥󥰤��ä�ͭ���Ǥ��뤳�Ȥ��顢ȾƳ�Υɥ饤�֤ޤ��ϥХåƥ꡼���Хå����åפ���Ƥ���񤭹��ߥ���å����դ���RAID���졼�Τ褦�ʡ����̤˹�®��Ʊ�����֤��ͭ�����Ǽ��ǥ�����Ǥ��äƤ���åȤ���ɮ���٤���ΤǤ��������������Τ��Ȥ���ɽŪ�����٤��Ф��ƴְ㤤�ʤ����ڤ���ʤ���Фʤ�ޤ���
-<varname>commit_siblings</varname>�ι⤤�ͤϡ������ξ����ǻ��Ѥ���ʤ���Фʤ餺��������꾮����<varname>commit_siblings</varname>���ͤϹ��ٱ��ǥ�����Ǥ��Ф���ͭ�ѤǤ���
-;��ˤ�⤤�ͤ�<varname>commit_delay</varname>�����ꤹ��ȡ��ְܴۤ㤤�ʤ��ȥ�󥶥���������٤����פ����ȥ�󥶥�������ٱ�����������ä����뤳�Ȥˤʤ�ޤ���
+<varname>commit_delay</varname>の目的はそれぞれのフラッシュ操作のコストを同時実行されるコミットのトランザクションに渡って償却することから（潜在的にはトランザクションの待ち時間の代償により）、設定が知的に選択される以前にそのコストが定量化される必要があります。
+そのコストが高ければ高いほど、<varname>commit_delay</varname>がその時点までトランザクションの処理量が増加すると期待されます。
+<xref linkend="pgtestfsync">プログラムは、一つのWALフラッシュが必要とするマイクロ秒単位の平均時間を計測するために使用可能です。
+プログラムが報告する単一の8kb書き込み操作のあとのフラッシュ平均時間の２分の１の値は、しばしば<varname>commit_delay</varname>の最も効果的な設定です。従って、この値は特定の作業負荷を最適化する時に使用する開始時点として推奨されます。
+WALログが高遅延の回転ディスクに格納されているとき、<varname>commit_delay</varname>のチューニングは特に有効であることから、半導体ドライブまたはバッテリー・バックアップされている書き込みキャッシュ付きのRAIDアレーのような、特別に高速な同期時間を所有する格納メディア上であってもメリットは特筆すべきものです。しかし、このことは代表的作業負荷に対して間違いなく検証されなければなりません。
+<varname>commit_siblings</varname>の高い値は、これらの状況で使用されなければならず、一方より小さな<varname>commit_siblings</varname>の値は高遅延メディア上でしばしば有用です。
+余りにも高い値の<varname>commit_delay</varname>を設定すると、ほぼ間違いなくトランザクションの負荷の総計が被るトランザクション遅延を大幅に増加させることになります。
   </para>
 
   <para>
@@ -992,10 +992,10 @@ WAL���������ٱ�β�ž�ǥ������˳�Ǽ����Ƥ���Ȥ���<varname>commit_delay</varnam
    transaction throughput with as few as two clients (that is, a single
    committing client with one sibling transaction).
 -->
-<varname>commit_delay</varname>��(�ǥե���ȤΡ˥��������ꤵ���ȡ����롼�ץ��ߥåȤȤ������बȯ�����뤳�Ȥ������Ȥ��Ƥ���ޤ��������������줾��Υ��롼�פ�����Υե�å������ʤ��ä����ˤ�ȯ�������ʤ��Ǥδ�����ˤ��줾��Υ��ߥåȥ쥳���ɤ�ե�å��夹��ɬ�פ����ä���������ã�������å����Τߤ�������ޤ���
-��̤Υ��饤����Ȥˤ�����<quote>gangway effect</>�������ꤽ�����ȷ��̤���ȡ�<varname>commit_delay</varname>�������Ǥ��äƤ⥰�롼�ץ��ߥåȤθ��̤��������������ƽ�����<varname>commit_delay</varname>������Ū�����ꤷ�Ƥ���Ω�����ޤ���
-<varname>commit_delay</varname>������ϡʣ��ˤ����Ĥ���Ʊ���¹Ԥ��륳�ߥåȥȥ�󥶥������¸�ߤ��뤳�ȡ������ơʣ��˥��ߥå��ٹ礤�ˤ�ꤢ�����٤ޤǥ��롼�ץåȤ����¤���Ƥ��������Ω���ޤ���
-���������⤤��ž�Ԥ����֤ξ�硢��������Ϥ鷺����ĤΥ��饤����ȤΥȥ�󥶥�����󥹥롼�ץåȤ����ä������̤�����ޤ��ʸ���������С���Ĥη����sibling�˥ȥ�󥶥��������ͭ����ñ��Υ��ߥåȤ��륯�饤����ȤǤ��ˡ�
+<varname>commit_delay</varname>が(デフォルトの）ゼロに設定されると、グループコミットという種類が発生することが依然としてあります。しかし、それぞれのグループは前回のフラッシュ操作（あった場合）が発生したなかでの期間中にそれぞれのコミットレコードをフラッシュする必要があった時点に到達したセッションのみから成ります。
+上位のクライアントにおいて<quote>gangway effect</>が起こりそうだと計量すると、<varname>commit_delay</varname>がゼロであってもグループコミットの効果が著しく、そして従い、<varname>commit_delay</varname>を明示的に設定しても役立だちません。
+<varname>commit_delay</varname>の設定は（１）いくつかの同時実行するコミットトランザクションが存在すること、そして（２）コミット度合いによりある程度までスループットが制限されている場合に役立ちます。
+しかし、高い回転待ち時間の場合、この設定はわずか二つのクライアントのトランザクションスループットを増加される効果があります（言いかえれば、一つの兄弟（sibling）トランザクションを所有する単一のコミットするクライアントです）。
   </para>
 
   <para>
@@ -1012,11 +1012,11 @@ WAL���������ٱ�β�ž�ǥ������˳�Ǽ����Ƥ���Ȥ���<varname>commit_delay</varnam
    Note that this parameter is irrelevant if <varname>fsync</varname>
    has been turned off.
 -->
-<xref linkend="guc-wal-sync-method">�ѥ�᡼����<productname>PostgreSQL</productname>�������ͥ���Ф���<acronym>WAL</acronym>�����Υǥ������ؤν񤭹��ߤ��׵᤹����ˡ����ꤷ�ޤ���
-<literal>fsync_writethrough</>��������ɤ���������Ǥ⿮������Ʊ���Ϥ��Ǥ���<literal>fsync_writethrough</>��¾�Υ��ץ���󤬤������ʤ��Ȥ��Ǥ⡢�����ǥ���������å���ν񤭽Ф��������뤳�Ȥ��Ǥ��ޤ���
-�������ʤ��顢�ץ�åȥե�����ˤ�äƤɤ줬����®���Τ����ޤä����㤤�ޤ���
-<xref linkend="pgtestfsync">�ץ�������Ȥäưۤʤ륪�ץ�����®�٥ƥ��Ȥ�Ԥ����Ȥ��Ǥ��ޤ���
-���ʤߤˡ����Υѥ�᡼����<varname>fsync</varname>��̵���ˤʤäƤ���������Ω���ޤ���
+<xref linkend="guc-wal-sync-method">パラメータは<productname>PostgreSQL</productname>がカーネルに対して<acronym>WAL</acronym>更新のディスクへの書き込みを要求する方法を決定します。
+<literal>fsync_writethrough</>を除き、どういう設定でも信頼性は同じはずです。<literal>fsync_writethrough</>は他のオプションがそうしないときでも、時々ディスクキャッシュの書き出しを強制することができます。
+しかしながら、プラットフォームによってどれが一番速いのかがまったく違います。
+<xref linkend="pgtestfsync">プログラムを使って異なるオプションの速度テストを行うことができます。
+ちなみに、このパラメータは<varname>fsync</varname>が無効になっている場合は役に立ちません。
 
   </para>
 
@@ -1029,9 +1029,9 @@ WAL���������ٱ�β�ž�ǥ������˳�Ǽ����Ƥ���Ȥ���<varname>commit_delay</varnam
    <acronym>WAL</acronym> call being logged to the server log. This
    option might be replaced by a more general mechanism in the future.
 -->
-<xref linkend="guc-wal-debug">����ѥ�᡼����ͭ���ˤ��뤳�Ȥǡ�<function>XLogInsert</function>��<function>XLogFlush</function>�Ȥ���<acronym>WAL</acronym>�ƤӽФ�����󥵡��Х����˥������Ĥ�ޤ�
-�ʤ��Υѥ�᡼���򥵥ݡ��Ȥ���褦��<productname>PostgreSQL</productname>�򥳥�ѥ��뤹��ɬ�פ�����ޤ��ˡ�
-���褳�Υ��ץ����Ϥ�����Ū�ʵ������֤�������ǽ��������ޤ���
+<xref linkend="guc-wal-debug">設定パラメータを有効にすることで、<function>XLogInsert</function>と<function>XLogFlush</function>という<acronym>WAL</acronym>呼び出しは毎回サーバログにログが残ります
+（このパラメータをサポートするように<productname>PostgreSQL</productname>をコンパイルする必要があります）。
+将来このオプションはより一般的な機構に置き換わる可能性があります。
   </para>
  </sect1>
 
@@ -1039,7 +1039,7 @@ WAL���������ٱ�β�ž�ǥ������˳�Ǽ����Ƥ���Ȥ���<varname>commit_delay</varnam
 <!--
   <title>WAL Internals</title>
 -->
-  <title>WAL������</title>
+  <title>WALの内部</title>
 
 
   <para>
@@ -1050,8 +1050,8 @@ WAL���������ٱ�β�ž�ǥ������˳�Ǽ����Ƥ���Ȥ���<varname>commit_delay</varnam
    and that any necessary tuning is done (see <xref
    linkend="wal-configuration">).
 -->
-<acronym>WAL</acronym>�ϼ�ưŪ��ͭ���ˤʤ�ޤ���
-<acronym>WAL</acronym>������ɬ�פȤ���ǥ��������̤���ݤ��뤳�ȡ�������ɬ�פʤ�Х��塼�˥󥰤��뤳�Ȥ�����Ƥϡ�<xref linkend="wal-configuration">�򻲾ȡˡ������Ԥϲ��⤹��ɬ�פϤ���ޤ���
+<acronym>WAL</acronym>は自動的に有効になります。
+<acronym>WAL</acronym>ログが必要とするディスク容量を確保すること、そして必要ならばチューニングすることを除いては（<xref linkend="wal-configuration">を参照）、管理者は何もする必要はありません。
   </para>
 
   <para>
@@ -1070,11 +1070,11 @@ WAL���������ٱ�β�ž�ǥ������˳�Ǽ����Ƥ���Ȥ���<varname>commit_delay</varnam
    but it will take a very, very long time to exhaust the
    available stock of numbers.
 -->
-<acronym>WAL</acronym>�����ϡ��ǡ����ǥ��쥯�ȥ�ʲ���<filename>pg_xlog</filename>�ǥ��쥯�ȥ�ˡ��̾�16�ᥬ�Х��ȤΥ���������ĥ������ȥե�����ν���Ȥ��Ƴ�Ǽ����Ƥ��ޤ�(�����������Υ������ϥ����й��ۻ���<option>--with-wal-segsize</>�Ȥ���configure���ץ������ѹ��Ǥ��ޤ�)���ƥ������Ȥ��̾�8�����Х��ȤΥڡ�����ʬ�䤵��ޤ�(���Υ�������<option>--with-wal-blocksize</>�Ȥ���configure���ץ������ѹ��Ǥ��ޤ�)��
-�����쥳�����ѤΥإå���<filename>access/xlog.h</filename>�˵��Ҥ���Ƥ��ޤ��� 
-�쥳���ɤ����Ƥϡ��������оݤȤʤ���ݤμ���ˤ�äưۤʤ�ޤ���
-�������ȥե������̾���Ȥ���<filename>000000010000000000000000</filename>����Ϥޤ롢������ä������Ϳ�����Ƥ��ޤ���
-�����Ͻ�󤷤ޤ��󤬡����Ѳ�ǽ�ʿ�����Ȥ��Ԥ����ˤ�����Ĺ�����֤�������Ϥ��Ǥ���
+<acronym>WAL</acronym>ログは、データディレクトリ以下の<filename>pg_xlog</filename>ディレクトリに、通常16メガバイトのサイズを持つセグメントファイルの集合として格納されています(ただし、このサイズはサーバ構築時の<option>--with-wal-segsize</>というconfigureオプションで変更できます)。各セグメントは通常8キロバイトのページに分割されます(このサイズは<option>--with-wal-blocksize</>というconfigureオプションで変更できます)。
+ログレコード用のヘッダは<filename>access/xlog.h</filename>に記述されています。 
+レコードの内容は、ログの対象となる事象の種類によって異なります。
+セグメントファイルは名前として<filename>000000010000000000000000</filename>から始まる、常に増加する数が与えられています。
+数字は巡回しませんが、利用可能な数字を使い尽くすには非常に長い時間がかかるはずです。
   </para>
 
   <para>
@@ -1085,8 +1085,8 @@ WAL���������ٱ�β�ž�ǥ������˳�Ǽ����Ƥ���Ȥ���<varname>commit_delay</varnam
    is shut down, of course) and creating a symbolic link from the
    original location in the main data directory to the new location.
 -->
-���פʥǡ����١����ե����뤬�֤��Ƥ���ǥ������Ȥ��̤Υǥ������˥������֤�������������ޤ���
-�����<filename>pg_xlog</filename>�ǥ��쥯�ȥ���̤ξ��ˡʤ�����󥵡��Ф�λ���Ƥ����Ƥ���˰�ư������ǡ����ǥ��쥯�ȥ�ʲ��θ����ξ�꤫�鿷�������ؤΥ���ܥ�å���󥯤�ĥ�뤳�Ȥˤ�äƲ�ǽ�Ȥʤ�ޤ���
+主要なデータベースファイルが置いてあるディスクとは別のディスクにログを置くと利点があります。
+これは<filename>pg_xlog</filename>ディレクトリを別の場所に（もちろんサーバを終了しておいてから）移動し、主データディレクトリ以下の元々の場所から新しい場所へのシンボリックリンクを張ることによって可能となります。
   </para>
 
   <para>
@@ -1102,9 +1102,9 @@ WAL���������ٱ�β�ž�ǥ������˳�Ǽ����Ƥ���Ȥ���<varname>commit_delay</varnam
    <acronym>WAL</acronym> log files do not make such false reports.
    (See <xref linkend="wal-reliability">.)
 -->
-<acronym>WAL</acronym>����Ū�Ǥ��롢�μ¤˥ǡ����١����쥳���ɤ��ѹ���������˥������񤭽Ф���뤳�Ȥϡ��ºݤˤϥ���å���ˤ����ǡ������ʤ����ǥ������ˤϳ�Ǽ����Ƥ��ʤ�����<indexterm><primary>�ǥ������ɥ饤��</></>����Ǽ�����������ȥ����ͥ�˵���������Ԥ����Ȥˤ�äƼ������ǽ��������ޤ���
-���Τ褦�ʾ����Ǥϡ��Ÿ���������ݤˡ������Բ�ǽ�ʥǡ������˲��������뤳�Ȥ�����ޤ���
-�����Ԥϡ�<productname>PostgreSQL</productname>��<acronym>WAL</acronym>�������ݻ����Ƥ���ǥ��������֤����Τ褦�ʱ������򤷤ʤ��褦���ݾڤ���٤��Ǥ���(<xref linkend="wal-reliability">�򻲾Ȥ��Ʋ�������)
+<acronym>WAL</acronym>の目的である、確実にデータベースレコードが変更される前にログが書き出されることは、実際にはキャッシュにしかデータがなく、ディスクには格納されていない時に<indexterm><primary>ディスクドライブ</></>が格納に成功したとカーネルに虚偽の報告を行うことによって失われる可能性があります。
+そのような状況では、電源が落ちた際に、復旧不可能なデータの破壊が起こることがあります。
+管理者は、<productname>PostgreSQL</productname>の<acronym>WAL</acronym>ログを保持しているディスク装置がそのような嘘の報告をしないように保証するべきです。(<xref linkend="wal-reliability">を参照して下さい。)
   </para>
 
   <para>
@@ -1121,10 +1121,10 @@ WAL���������ٱ�β�ž�ǥ������˳�Ǽ����Ƥ���Ȥ���<varname>commit_delay</varnam
    changed since the checkpoint will be restored to a consistent
    state.
 -->
-�����å��ݥ���Ȥ��¹Ԥ��졢�������Ǥ��Ф��줿�塢�����å��ݥ���Ȥΰ��֤�<filename>pg_control</filename>����¸����ޤ���
-�������äơ��ꥫ�Х�γ��Ϥκݤϡ������ФϤޤ�<filename>pg_control</filename>���ɤߡ����˥����å��ݥ���ȥ쥳���ɤ��ɤߤޤ��� 
-�����ơ������å��ݥ���ȥ쥳������Ǽ����줿�����ΰ��֤��������򥹥���󤹤뤳�Ȥ�REDO������Ԥ��ޤ���
-�ǡ����ڡ������������Τϡ������å��ݥ���ȸ�κǽ�Υڡ����ѹ����˥��������¸����ޤ��Τ�(<xref linkend="guc-full-page-writes">�ѥ�᡼����̵���ˤ���Ƥ��ʤ��Ȥ�������Ǥ�)�����Υ����å��ݥ���Ȱʹߤ��ѹ����줿���ƤΥڡ����ϰ�Ӥ������֤����줵��ޤ���
+チェックポイントが実行され、ログが吐き出された後、チェックポイントの位置は<filename>pg_control</filename>に保存されます。
+したがって、リカバリの開始の際は、サーバはまず<filename>pg_control</filename>を読み、次にチェックポイントレコードを読みます。 
+そして、チェックポイントレコード内で示されたログの位置から前方をスキャンすることでREDO処理を行います。
+データページの内容全体は、チェックポイント後の最初のページ変更時にログ内に保存されますので(<xref linkend="guc-full-page-writes">パラメータが無効にされていないという前提です)、そのチェックポイント以降に変更された全てのページは一貫した状態に復旧されます。
   </para>
 
   <para>
@@ -1140,11 +1140,11 @@ WAL���������ٱ�β�ž�ǥ������˳�Ǽ����Ƥ���Ȥ���<varname>commit_delay</varnam
    theoretically a weak spot, <filename>pg_control</filename> does not
    seem to be a problem in practice.
 -->
-<filename>pg_control</filename>�����줿���������������������Ȥ�ս���ɤߡʤ��ʤ����������Τ���Ť���Τؤȡˡ��ǽ������å��ݥ���Ȥ򸫤Ĥ�����ˡ��ºݤˤϼ������������ɤ��Ȼפ��ޤ���
-�ޤ�����ϤǤ��Ƥ��ޤ���
-<filename>pg_control</filename>�Ϥ��ʤ꾮���ʤ�Ρ�1�ǥ������ڡ���̤���ˤǤ��Τǡ������Τ߽񤭹��ߤ����Ȥ�������ϵ�����ޤ���
-�ޤ����ν񤭹��ߤλ����Ǥϡ�<filename>pg_control</filename>���Τ��ɤ߹��ߤ��Ǥ��ʤ����Ȥˤ��ǡ����١������顼�Ȥ������Ϥ���ޤ���
-���Τ��ᡢ<filename>pg_control</filename>�������Ǥϼ����Ǥ������¼�����ˤʤ�ޤ���
+<filename>pg_control</filename>が壊れた場合に備え、ログセグメントを逆順に読み（すなわち新しいものから古いものへと）、最終チェックポイントを見つける方法を実際には実装した方が良いと思われます。
+まだこれはできていません。
+<filename>pg_control</filename>はかなり小さなもの（1ディスクページ未満）ですので、一部のみ書き込みされるという問題は起こりません。
+またこの書き込みの時点では、<filename>pg_control</filename>自体の読み込みができないことによるデータベースエラーという報告はありません。
+このため、<filename>pg_control</filename>は理屈では弱点ですが、実質問題になりません。
   </para>
  </sect1>
 </chapter>

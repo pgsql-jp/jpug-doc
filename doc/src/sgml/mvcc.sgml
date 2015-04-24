@@ -4,13 +4,13 @@
 <!--
   <title>Concurrency Control</title>
 -->
-  <title>Ʊ���¹�����</title>
+  <title>同時実行制御</title>
 
   <indexterm>
 <!--
    <primary>concurrency</primary>
 -->
-   <primary>Ʊ���¹�����</primary>
+   <primary>同時実行制御</primary>
   </indexterm>
 
   <para>
@@ -23,22 +23,22 @@
    of database applications should be familiar with the topics covered
    in this chapter.
 -->
-�ܾϤǤ�Ʊ����2�İʾ�Υ��å����Ʊ���ǡ����˥����������褦�Ȥ�����硢<productname>PostgreSQL</productname>�ǡ����١��������ƥब�ɤ����񤦤��ˤĤ����������ޤ���
-���Τ褦�ʾ����ǥǡ�������������μ¤��ݤİ��������ƤΥ��å������Ф��Ƹ���Ū�ʥ�����������Ĥ���褦�ˤ��뤳�Ȥ���Ū�Ǥ���
-�ǡ����١������ץꥱ��������ȯ�������ϡ��ܾϤǰ����Ƥ������Ƥ���Τ��Ƥ��ʤ���Фʤ�ޤ���
+本章では同時に2つ以上のセッションが同じデータにアクセスしようとした場合、<productname>PostgreSQL</productname>データベースシステムがどう振舞うかについて説明します。
+このような状況でデータの整合性を確実に保つ一方、全てのセッションに対して効果的なアクセスを許可するようにすることが目的です。
+データベースアプリケーションを開発する方は、本章で扱われている内容を熟知していなければなりません。
   </para>
 
   <sect1 id="mvcc-intro">
 <!--
    <title>Introduction</title>
 -->
-   <title>��ʸ</title>
+   <title>序文</title>
 
    <indexterm>
 <!--
     <primary>Multiversion Concurrency Control</primary>
 -->
-    <primary>¿�Ƿ�Ʊ���¹�����</primary>
+    <primary>多版型同時実行制御</primary>
    </indexterm>
 
    <indexterm>
@@ -49,7 +49,7 @@
 <!--
     <primary>Serializable Snapshot Isolation</primary>
 -->
-    <primary>���ꥢ�饤���֥륹�ʥåץ���å�ʬΥ</primary>
+    <primary>シリアライザブルスナップショット分離</primary>
    </indexterm>
 
    <indexterm>
@@ -74,11 +74,11 @@
     minimizes lock contention in order to allow for reasonable
     performance in multiuser environments.
 -->
-<productname>PostgreSQL</productname>�ϡ��ǡ����ؤ�Ʊ������������������뤿��˹��٤ʳ�ȯ�Ը����ġ��뷲���󶡤��ޤ���
-����Ū�ˡ��ǡ����������¿��������¿�Ƿ�Ʊ���¹�����<acronym>MVCC</acronym>�ˤ���Ѥ��ƴ�������Ƥ��ޤ���
-�Ĥޤꡢ�����δ��äȤʤäƤ���ǡ����θ��ߤξ��֤ˤ�����餺����SQLʸ���̤ä���������ˤ����륹�ʥåץ���åȡ�<firstterm>�ǡ����١����С������</firstterm>�ˤ򻲾Ȥ��롢�Ȥ�����ΤǤ���
-����ϡ�Ʊ�����¹Ԥ��Ƥ���ȥ�󥶥������Ʊ���Ԥ򹹿����뤳�Ȥˤ�äư�����������������礤���ǡ����λ��Ȥ�ʸ�ˤ����ʤ��褦�ˤ������줾��Υǡ����١������å������Ф���<firstterm>�ȥ�󥶥�������ʬΥ</firstterm>���󶡤��ޤ���
-<acronym>MVCC</acronym>�ϡ��ޥ���桼���Ķ�������Ū����ǽ�����뤿��ˡ�����Ū�ʥǡ����١��������ƥ�ǹԤ���褦�ʥ��å���ˡ���򤱤뤳�Ȥǡ����å��ζ����Ǿ������ޤ���
+<productname>PostgreSQL</productname>は、データへの同時アクセスを管理するために高度な開発者向けツール群を提供します。
+内部的に、データ一貫性は多版方式（多版型同時実行制御<acronym>MVCC</acronym>）を使用して管理されています。
+つまり、処理の基礎となっているデータの現在の状態にかかわらず、各SQL文は遡ったある時点におけるスナップショット（<firstterm>データベースバージョン</firstterm>）を参照する、というものです。
+これは、同時に並行しているトランザクションが同じ行を更新することによって引き起こす整合性を欠いたデータの参照を文にさせないようにし、それぞれのデータベースセッションに対して<firstterm>トランザクションの分離</firstterm>を提供します。
+<acronym>MVCC</acronym>は、マルチユーザ環境で理想的な性能を得るために、伝統的なデータベースシステムで行われるようなロック手法を避けることで、ロックの競合を最小化します。
    </para>
 
    <para>
@@ -93,9 +93,9 @@
     isolation through the use of an innovative <firstterm>Serializable
     Snapshot Isolation</firstterm> (<acronym>SSI</acronym>) level.
 -->
-���å��ǤϤʤ�Ʊ���¹������<acronym>MVCC</acronym>��ǥ����Ѥ����������ϡ�<acronym>MVCC</acronym>�Ǥ��䤤��碌���ɤ߹��ߡ˥��å��γ����ȡ��񤭹��ߥ��å��γ��������礷�ʤ����ȤǤ���
-�������äơ��ɤ߹��ߤϽ񤭹��ߤ����Ф˥֥��å����ޤ��󤷡��񤭹��ߤ��ɤ߹��ߤ�֥��å����뤳�Ȥ�����ޤ���
-�׿�Ū��<firstterm>���ꥢ�饤���֥륹�ʥåץ���å�ʬΥ</firstterm> (<acronym>SSI</acronym>)��٥�λ��Ѥ��̤����Ǥ⸷̩�ʥȥ�󥶥�������ʬΥ��٥���󶡤�����ˤ�<productname>PostgreSQL</productname>�Ϥ�����ݾڤ�ݻ����ޤ���
+ロックではなく同時実行制御の<acronym>MVCC</acronym>モデルを使用する主な利点は、<acronym>MVCC</acronym>では問い合わせ（読み込み）ロックの獲得と、書き込みロックの獲得が競合しないことです。
+したがって、読み込みは書き込みを絶対にブロックしませんし、書き込みも読み込みをブロックすることがありません。
+革新的な<firstterm>シリアライザブルスナップショット分離</firstterm> (<acronym>SSI</acronym>)レベルの使用を通した最も厳密なトランザクションの分離レベルを提供する場合にも<productname>PostgreSQL</productname>はこれの保証を維持します。
    </para>
 
    <para>
@@ -109,9 +109,9 @@
     locks provide a mechanism for acquiring locks that are not tied
     to a single transaction.
 -->
-����Ū�˴����ʥȥ�󥶥�������ʬΥ��ɬ�פȤ���������Ū�˶��礹������������뤳�Ȥ�˾�ॢ�ץꥱ�������Τ���ˡ�<productname>PostgreSQL</productname>�Ǥϥơ��֥��٥뤪��ӹԥ�٥�Υ��å���ǽ����Ѳ�ǽ�Ǥ���
-�ȤϤ�����<acronym>MVCC</acronym>��Ŭ�ڤ˻��Ѥ�����̾���å�������ǽ�����夷�ޤ���
-����ˡ����ץꥱ������������������Ū���å���ñ��ȥ�󥶥������˹�«����ʤ����å��γ����������󶡤��ޤ���
+全般的に完全なトランザクションの分離を必要とせず、明示的に競合する点を管理することを望むアプリケーションのために、<productname>PostgreSQL</productname>ではテーブルレベルおよび行レベルのロック機能も使用可能です。
+とはいえ、<acronym>MVCC</acronym>を適切に使用すると通常ロックよりも性能が向上します。
+さらに、アプリケーションが定義した勧告的ロックは単一トランザクションに拘束されないロックの獲得機構を提供します。
    </para>
   </sect1>
 
@@ -119,13 +119,13 @@
 <!--
    <title>Transaction Isolation</title>
 -->
-   <title>�ȥ�󥶥�������ʬΥ</title>
+   <title>トランザクションの分離</title>
 
    <indexterm>
 <!--
     <primary>transaction isolation</primary>
 -->
-    <primary>�ȥ�󥶥�������ʬΥ</primary>
+    <primary>トランザクションの分離</primary>
    </indexterm>
 
    <para>
@@ -143,19 +143,19 @@
     consistent with having been run one at a time, how could you see any
     phenomena caused by interactions?)
 -->
-<acronym>SQL</acronym>��ɸ�൬�ʤǤϡ��ȥ�󥶥�������ʬΥ�ˤĤ���4�ĤΥ�٥��������Ƥ��ޤ���
-ɸ�൬�ʤ��������Ƥ����ΤΤ����Ǥ⸷̩�ʤ�Τϥ��ꥢ�饤���֥�Ǥ���
-1���åȤΥ��ꥢ�饤���֥�ʥȥ�󥶥�������Ʊ���¹Ԥ������ˤϡ�������֤ǤҤȤĤ��Ĥ�����¹Ԥ�������Ʊ����̤Ȥʤ뤳�Ȥ��ݾڤ�����ΤǤ�����ʸ�Ǿܤ����Ҥ٤ޤ���
-¾��3��٥�ϡ�Ʊ���¹Ԥ��Ƥ���ȥ�󥶥������֤���ߺ��Ѥ˵������롢�ƥ�٥�Ǥ�ȯ�����ƤϤʤ�ʤ������̤˴�Ť��������ޤ���
-ɸ�൬�ʤΥ��ꥢ�饤���֥������Ǥϡ����Υ�٥�ǤϤ����θ��ݤ������ꤨ�ʤ��ȽҤ٤Ƥ��ޤ���
-(����϶ä����ȤǤϤ���ޤ��󡣥ȥ�󥶥������θ��̤��ҤȤĤ��ļ¹Ԥ��줿���Ȱ����������ʤ���Фʤ�ʤ��Ȥ����顢��ߺ��Ѥˤ�ä�ȯ���������ݤϤɤ���äƤ⸫�Ĥ��Ф����ȤϤǤ��ʤ��Ǥ��礦��)
+<acronym>SQL</acronym>の標準規格では、トランザクションの分離について4つのレベルを定義しています。
+標準規格で定義されているもののうち最も厳密なものはシリアライザブルです。
+1セットのシリアライザブルなトランザクションを同時実行した場合には、ある順番でひとつずつそれらを実行した場合と同じ結果となることが保証されるものです。本文で詳しく述べます。
+他の3レベルは、同時実行しているトランザクション間の相互作用に起因する、各レベルでは発生してはならない現象面に基づき定義されます。
+標準規格のシリアライザブルの定義では、このレベルではこれらの現象が起こりえないと述べています。
+(これは驚くことではありません。トランザクションの効果がひとつずつ実行された場合と一貫性を持たなければならないとしたら、相互作用によって発生した現象はどうやっても見つけ出すことはできないでしょう。)
    </para>
 
    <para>
 <!--
     The phenomena which are prohibited at various levels are:
 -->
-�Ƽ��٥�ˤ�����ػߤ���븽�ݤ�ʲ��˼����ޤ���
+各種レベルにおける禁止される現象を以下に示します。
 
     <variablelist>
      <varlistentry>
@@ -164,15 +164,15 @@
        dirty read
        <indexterm><primary>dirty read</primary></indexterm>
 -->
-�����ƥ��꡼��
-       <indexterm><primary>�����ƥ��꡼��</primary></indexterm>
+ダーティリード
+       <indexterm><primary>ダーティリード</primary></indexterm>
       </term>
      <listitem>
       <para>
 <!--
         A transaction reads data written by a concurrent uncommitted transaction.
 -->
-Ʊ���˼¹Ԥ���Ƥ���¾�Υȥ�󥶥�����󤬽񤭹����̤�����ߥåȤ��Ƥ��ʤ��ǡ������ɤ߹���Ǥ��ޤ���
+同時に実行されている他のトランザクションが書き込んで未だコミットしていないデータを読み込んでしまう。
        </para>
       </listitem>
      </varlistentry>
@@ -183,8 +183,8 @@
        nonrepeatable read
        <indexterm><primary>nonrepeatable read</primary></indexterm>
 -->
-ȿ����ǽ�ɤ߼��
-       <indexterm><primary>ȿ����ǽ�ɤ߼��</primary></indexterm>
+反復不能読み取り
+       <indexterm><primary>反復不能読み取り</primary></indexterm>
       </term>
      <listitem>
       <para>
@@ -193,7 +193,7 @@
         has been modified by another transaction (that committed since the
         initial read).
 -->
-�ȥ�󥶥�����󤬡������ɤ߹�����ǡ���������ɤ߹��ߡ����Υǡ�����(�ǽ���ɤ߹��ߤθ�˥��ߥåȤ���)�̤Υȥ�󥶥������ˤ�äƹ������줿���Ȥ򸫽Ф���
+トランザクションが、以前読み込んだデータを再度読み込み、そのデータが(最初の読み込みの後にコミットした)別のトランザクションによって更新されたことを見出す。
        </para>
       </listitem>
      </varlistentry>
@@ -204,8 +204,8 @@
        phantom read
        <indexterm><primary>phantom read</primary></indexterm>
 -->
-�ե���ȥ�꡼��
-       <indexterm><primary>�ե���ȥ�꡼��</primary></indexterm>
+ファントムリード
+       <indexterm><primary>ファントムリード</primary></indexterm>
       </term>
      <listitem>
       <para>
@@ -214,7 +214,7 @@
         search condition and finds that the set of rows satisfying the condition
         has changed due to another recently-committed transaction.
 -->
-�ȥ�󥶥�����󤬡�ʣ���ԤΤ��뽸����֤����������䤤��碌��Ƽ¹Ԥ��������̤Υȥ�󥶥�����󤬥��ߥåȤ��Ƥ��ޤä�����ˡ�Ʊ�����������䤤��碌��¹Ԥ��Ƥ�ۤʤ��̤����Ƥ��ޤ���
+トランザクションが、複数行のある集合を返す検索条件で問い合わせを再実行した時、別のトランザクションがコミットしてしまったために、同じ検索条件で問い合わせを実行しても異なる結果を得てしまう。
        </para>
       </listitem>
      </varlistentry>
@@ -226,20 +226,20 @@
 <!--
      <primary>transaction isolation level</primary>
 -->
-     <primary>�ȥ�󥶥������ʬΥ��٥�</primary>
+     <primary>トランザクション分離レベル</primary>
     </indexterm>
 <!--
     The four transaction isolation levels and the corresponding
     behaviors are described in <xref linkend="mvcc-isolevel-table">.
 -->
-4�Ĥ�ʬΥ��٥�Ȥ���ư���<xref linkend="mvcc-isolevel-table">�˼����ޤ���
+4つの分離レベルとその動作を<xref linkend="mvcc-isolevel-table">に示します。
    </para>
 
     <table tocentry="1" id="mvcc-isolevel-table">
 <!--
      <title>Standard <acronym>SQL</acronym> Transaction Isolation Levels</title>
 -->
-     <title>ɸ��<acronym>SQL</acronym>�ȥ�󥶥������ʬΥ��٥�</title>
+     <title>標準<acronym>SQL</acronym>トランザクション分離レベル</title>
      <tgroup cols="4">
       <thead>
        <row>
@@ -247,25 +247,25 @@
 <!--
          Isolation Level
 -->
-ʬΥ��٥�
+分離レベル
         </entry>
         <entry>
 <!--
          Dirty Read
 -->
-�����ƥ��꡼��
+ダーティリード
         </entry>
         <entry>
 <!--
          Nonrepeatable Read
 -->
-ȿ����ǽ�ɤ߼��
+反復不能読み取り
         </entry>
         <entry>
 <!--
          Phantom Read
 -->
-�ե���ȥ�꡼��
+ファントムリード
         </entry>
        </row>
       </thead>
@@ -275,25 +275,25 @@
 <!--
          Read uncommitted
 -->
-�꡼�ɥ��󥳥ߥåƥ���
+リードアンコミッティド
         </entry>
         <entry>
 <!--
          Possible
 -->
-��ǽ������
+可能性あり
         </entry>
         <entry>
 <!--
          Possible
 -->
-��ǽ������
+可能性あり
         </entry>
         <entry>
 <!--
          Possible
 -->
-��ǽ������
+可能性あり
         </entry>
        </row>
 
@@ -302,25 +302,25 @@
 <!--
          Read committed
 -->
-�꡼�ɥ��ߥåƥ���
+リードコミッティド
         </entry>
         <entry>
 <!--
          Not possible
 -->
-����
+安全
         </entry>
         <entry>
 <!--
          Possible
 -->
-��ǽ������
+可能性あり
         </entry>
         <entry>
 <!--
          Possible
 -->
-��ǽ������
+可能性あり
         </entry>
        </row>
 
@@ -329,25 +329,25 @@
 <!--
          Repeatable read
 -->
-��ԡ����֥�꡼��
+リピータブルリード
         </entry>
         <entry>
 <!--
          Not possible
 -->
-����
+安全
         </entry>
         <entry>
 <!--
          Not possible
 -->
-����
+安全
         </entry>
         <entry>
 <!--
          Possible
 -->
-��ǽ������
+可能性あり
         </entry>
        </row>
 
@@ -356,25 +356,25 @@
 <!--
          Serializable
 -->
-���ꥢ�饤���֥�
+シリアライザブル
         </entry>
         <entry>
 <!--
          Not possible
 -->
-����
+安全
         </entry>
         <entry>
 <!--
          Not possible
 -->
-����
+安全
         </entry>
         <entry>
 <!--
          Not possible
 -->
-����
+安全
         </entry>
        </row>
       </tbody>
@@ -399,14 +399,14 @@
     concurrency control architecture.  The behavior of the available
     isolation levels is detailed in the following subsections.
 -->
-<productname>PostgreSQL</productname>�Ǥϡ�4�Ĥ�ɸ��ȥ�󥶥������ʬΥ��٥�������׵᤹�뤳�Ȥ��Ǥ��ޤ���
-������������Ū�ˤϡ��꡼�ɥ��ߥåƥ��ɡ���ԡ����֥�꡼�ɤ���ӥ��ꥢ�饤���֥���б�����3�Ĥ���Ω����ʬΥ��٥�Τߤ�����ޤ���
-�꡼�ɥ��󥳥ߥåƥ��ɥ�٥�����򤷤������ºݤˤϥ꡼�ɥ��ߥåƥ��ɤˤʤꡢ��ԡ����֥�꡼�ɤ�<productname>PostgreSQL</productname>�Ǥμ����Ǥϥե���ȥ�꡼�ɤβ�ǽ���Ϥ���ޤ���
-���Τ褦�˼ºݤ�ʬΥ��٥�����򤷤���٥��긷̩�ˤʤ뤳�Ȥ�����ޤ���
-�����ɸ��SQL�Ǥ������Ƥ��ޤ���
-����4�Ĥ�ʬΥ��٥�ˤĤ��Ƥϡ�ȯ�����ƤϤʤ�ʤ����ݤΤߤ�������졢ȯ�����ʤ���Фʤ�ʤ����ݤ��������Ƥ��ޤ���
-<productname>PostgreSQL</>��3�Ĥ�ʬΥ��٥�Τߤ��󶡤��Ƥ�����ͳ�ϡ�¿�Ƿ�Ʊ���¹�����Ȥ������Ȥߤ�ɸ���ʬΥ��٥���Ϣ�դ���º�Ū����ˡ�����줷���ʤ��ä����ȤǤ���
-���Ѳ�ǽ��ʬΥ��٥�ˤĤ��Ƥϸ�Ǿܺ٤��������ޤ���
+<productname>PostgreSQL</productname>では、4つの標準トランザクション分離レベルを全て要求することができます。
+しかし、内部的には、リードコミッティド、リピータブルリードおよびシリアライザブルに対応する3つの独立した分離レベルのみがあります。
+リードアンコミッティドレベルを選択した時、実際にはリードコミッティドになり、リピータブルリードの<productname>PostgreSQL</productname>での実装ではファントムリードの可能性はありません。
+このように実際の分離レベルは選択したレベルより厳密になることがあります。
+これは標準SQLでも許されています。
+この4つの分離レベルについては、発生してはならない事象のみが定義され、発生しなければならない事象は定義されていません。
+<productname>PostgreSQL</>が3つの分離レベルのみを提供している理由は、多版型同時実行制御という仕組みに標準の分離レベルを関連付ける実際的な方法がこれしかなかったことです。
+利用可能な分離レベルについては後で詳細に説明します。
    </para>
 
    <para>
@@ -414,7 +414,7 @@
     To set the transaction isolation level of a transaction, use the
     command <xref linkend="sql-set-transaction">.
 -->
-�ȥ�󥶥������Υȥ�󥶥������ʬΥ��٥�����ꤹ��ˤ�<xref linkend="sql-set-transaction">���ޥ�ɤ���Ѥ��Ƥ���������
+トランザクションのトランザクション分離レベルを設定するには<xref linkend="sql-set-transaction">コマンドを使用してください。
    </para>
 
    <important>
@@ -428,9 +428,9 @@
        that made the changes aborts.  See <xref linkend="functions-sequence">
        and <xref linkend="datatype-serial">.
 -->
-�����Ĥ���<productname>PostgreSQL</productname>�ǡ������ȴؿ��ϥȥ�󥶥������ο����񤤤˴ؤ������̤ε�§������ޤ���
-�äˡ��������󥹤��Ф��Ƥ��ѹ��ϡʽ�����<type>serial</type>����Ѥ���������줿��Υ����󥿡ˤ�ľ������Ƥ�¾�Υȥ�󥶥������ǲĻ�Ȥʤꡢ�ѹ���Ԥä��ȥ�󥶥��������ߤ����ȥ�����Хå��ϤǤ��ޤ���
-<xref linkend="functions-sequence">�����<xref linkend="datatype-serial">�򻲾Ȥ��Ƥ���������
+いくつかの<productname>PostgreSQL</productname>データ型と関数はトランザクションの振る舞いに関して特別の規則があります。
+特に、シーケンスに対しての変更は（従い、<type>serial</type>を使用して宣言された列のカウンタ）は直後に全ての他のトランザクションで可視となり、変更を行ったトランザクションが中止されるとロールバックはできません。
+<xref linkend="functions-sequence">および<xref linkend="datatype-serial">を参照してください。
      </para>
    </important>
 
@@ -438,22 +438,22 @@
 <!--
    <title>Read Committed Isolation Level</title>
 -->
-   <title>�꡼�ɥ��ߥåƥ���ʬΥ��٥�</title>
+   <title>リードコミッティド分離レベル</title>
 
    <indexterm>
 <!--
     <primary>transaction isolation level</primary>
     <secondary>read committed</secondary>
 -->
-    <primary>�ȥ�󥶥������ʬΥ��٥�</primary>
-    <secondary>�꡼�ɥ��ߥåƥ���</secondary>
+    <primary>トランザクション分離レベル</primary>
+    <secondary>リードコミッティド</secondary>
    </indexterm>
 
    <indexterm>
 <!--
     <primary>read committed</primary>
 -->
-    <primary>�꡼�ɥ��ߥåƥ���</primary>
+    <primary>リードコミッティド</primary>
    </indexterm>
 
    <para>
@@ -474,11 +474,11 @@
     commit changes after the first <command>SELECT</command> starts and
     before the second <command>SELECT</command> starts.
 -->
-<productname>PostgreSQL</productname>�Ǥ�<firstterm>�꡼�ɥ��ߥåƥ���</firstterm>���ǥե���Ȥ�ʬΥ��٥�Ǥ���
-�ȥ�󥶥�����󤬤���ʬΥ��٥����Ѥ���ȡ�<command>SELECT</command>�䤤��碌��<literal>FOR UPDATE/SHARE</>���ȼ��ʤ��ˤϤ����䤤��碌���¹Ԥ����ľ���ޤǤ˥��ߥåȤ��줿�ǡ����Τߤ򻲾Ȥ����ޤ����ߥåȤ���Ƥ��ʤ��ǡ����䡢�����䤤��碌�μ¹�����̤�Ʊ���¹ԥȥ�󥶥�����󤬥��ߥåȤ��������ϻ��Ȥ��ޤ���
-��̤Ȥ��ơ�<command>SELECT</command>�䤤��碌�Ϥ����䤤��碌���¹Ԥ򳫻Ϥ��������Υǡ����١����Υ��ʥåץ���åȤ򻲾Ȥ��뤳�Ȥˤʤ�ޤ���
-������<command>SELECT</command>ʸ�ϡ���ʬ���ȤΥȥ�󥶥��������Ǽ¹Ԥ��칹�����줿��̤Ϥ��Ȥ��ޤ����ߥåȤ���Ƥ��ʤ��Ƥ⻲�Ȥ��ޤ���
-ñ��Υȥ�󥶥��������Ǥ��äƤ⡢<command>SELECT</command>ʸ��2��Ϣ³����ȯ�Ԥ�����硢�ǽ��<command>SELECT</command>ʸ�����Ϥ������2���ܤ�<command>SELECT</command>ʸ�����Ϥ�������¾�Υȥ�󥶥�����󤬹����򥳥ߥåȤ���ȡ��ǽ�Ȥ��μ���ȯ�Ԥ���<command>SELECT</command>�䤤��碌�ϰۤʤ�ǡ����򻲾Ȥ��Ƥ��ޤ����Ȥˤ����դ��Ƥ���������
+<productname>PostgreSQL</productname>では<firstterm>リードコミッティド</firstterm>がデフォルトの分離レベルです。
+トランザクションがこの分離レベルを使用すると、<command>SELECT</command>問い合わせ（<literal>FOR UPDATE/SHARE</>句を伴わない）はその問い合わせが実行される直前までにコミットされたデータのみを参照し、まだコミットされていないデータや、その問い合わせの実行中に別の同時実行トランザクションがコミットした更新は参照しません。
+結果として、<command>SELECT</command>問い合わせはその問い合わせが実行を開始した時点のデータベースのスナップショットを参照することになります。
+しかし<command>SELECT</command>文は、自分自身のトランザクション内で実行され更新された結果はたとえまだコミットされていなくても参照します。
+単一のトランザクション内であっても、<command>SELECT</command>文を2回連続して発行した場合、最初の<command>SELECT</command>文が開始した後で2番目の<command>SELECT</command>文が開始する前に他のトランザクションが更新をコミットすると、最初とその次に発行した<command>SELECT</command>問い合わせは異なるデータを参照してしまうことにも注意してください。
    </para>
 
    <para>
@@ -504,16 +504,16 @@
     SHARE</command>, this means it is the updated version of the row that is
     locked and returned to the client.
 -->
-<command>UPDATE</command>��<command>DELETE</command>��<command>SELECT FOR UPDATE</command>�������<command>SELECT FOR SHARE</command>���ޥ�ɤ��оݹԤ򸡺�����ݤ�<command>SELECT</command>���ޥ�ɤ�Ʊ���褦�˿��񤤤ޤ���
-�����Υ��ޥ�ɤϡ��䤤��碌�����Ϥ��줿�����Ǵ��˥��ߥåȤ��줿�оݹԤΤߤ򸡽Ф��ޤ���
-�������������оݹԤϡ����Ф����ޤǤˡ�Ʊ���¹����¾�Υȥ�󥶥������ˤ�äơ����˹����ʤ⤷���Ϻ�����뤤�ϥ��å��ˤ���Ƥ��ޤäƤ��뤫�⤷��ޤ���
-���Τ褦�ʾ�繹�������٤������ϡ��ǽ�ι����ȥ�󥶥�����󤬡ʤ��줬�ޤ��ʹ���ξ��˥��ߥåȤ⤷���ϥ�����Хå�����Τ��Ԥ��ޤ���
-�ǽ�ι���������������Хå������Ȥ��η�̤�̵�뤵��ơ�2���ܤι��������Ǹ������Ф����Ԥι�����³�Ԥ��뤳�Ȥ��Ǥ��ޤ���
-�ǽ�ι������������ߥåȤ����ȡ�2���ܤι��������Ǥϡ��ǽ�ι��������ˤ��Ԥ�������줿���Ϥ��ιԤ�̵�뤷�ޤ���
-�Ԥ��������ʤ��ä����ι��������ϡ��ǽ�Υ��ߥåȤǹ������줿�Ԥ�Ŭ�Ѥ���ޤ���
-���ޥ�ɤθ�������<literal>WHERE</>��ˤϡ��������줿�Ԥ��ޤ����θ������˰��פ��뤫�ɤ����γ�ǧ�Τ����ɾ������ޤ���
-�������Ȱ��פ��Ƥ����硢2���ܤι��������ϡ��������줿�Ԥ���Ѥ��ƽ����򳫻Ϥ��ޤ���
-<command>SELECT FOR UPDATE</command>�����<command>SELECT FOR SHARE</command>�ξ�硢���å����쥯�饤����Ȥ��֤����Τϡ����������С������ιԤǤ��뤳�Ȥ��̣���ޤ���
+<command>UPDATE</command>、<command>DELETE</command>、<command>SELECT FOR UPDATE</command>、および<command>SELECT FOR SHARE</command>コマンドは対象行を検索する際に<command>SELECT</command>コマンドと同じように振舞います。
+これらのコマンドは、問い合わせが開始された時点で既にコミットされた対象行のみを検出します。
+しかし、その対象行は、検出されるまでに、同時実行中の他のトランザクションによって、既に更新（もしくは削除あるいはロック）されてしまっているかもしれません。
+このような場合更新されるべき処理は、最初の更新トランザクションが（それがまだ進行中の場合）コミットもしくはロールバックするのを待ちます。
+最初の更新処理がロールバックされるとその結果は無視されて、2番目の更新処理で元々検出した行の更新を続行することができます。
+最初の更新処理がコミットされると、2番目の更新処理では、最初の更新処理により行が削除された場合はその行を無視します。
+行が削除されなかった時の更新処理は、最初のコミットで更新された行に適用されます。
+コマンドの検索条件（<literal>WHERE</>句）は、更新された行がまだその検索条件に一致するかどうかの確認のため再評価されます。
+検索条件と一致している場合、2番目の更新処理は、更新された行を使用して処理を開始します。
+<command>SELECT FOR UPDATE</command>および<command>SELECT FOR SHARE</command>の場合、ロックされクライアントに返されるのは、更新されるバージョンの行であることを意味します。
    </para>
 
    <para>
@@ -527,11 +527,11 @@
     cases.  For example, consider updating bank balances with transactions
     like:
 -->
-���Τ褦�ʻ��Ȥߤˤ�ꡢ�������ޥ�ɤ����ߤ���̷�⤷�����ʥåץ���åȤ򻲾Ȥ����ǽ��������ޤ���
-����Ϲ������ߤƤ���Ʊ���Ԥ��Ф���Ʊ���¹Թ����η�̤򻲾Ȥ��ޤ������ǡ����١������¾�ιԤ��Ф���Ʊ���¹Ԥ��䤤��碌�η�̤ϻ��ȤǤ��ޤ���
-���Τ褦��ư��򤹤뤿���ʣ�縡������ޤ��䤤��碌�˥꡼�ɥ��ߥåƥ��ɥ⡼�ɤ���Ѥ��뤳�Ȥ�Ŭ�ڤǤϤ���ޤ���
-�����������ñ��ʸ������ξ�硢���Υ⡼�ɤλ��Ѥ�Ŭ���Ƥ��ޤ���
-�㤨�С���ԤλĹ�򹹿�����ʲ��Τ褦�ʥȥ�󥶥�������ͤ��Ƥߤޤ���
+このような仕組みにより、更新コマンドが、互いに矛盾したスナップショットを参照する可能性があります。
+それは更新を試みている同じ行に対する同時実行更新の結果を参照しますが、データベース中の他の行に対する同時実行の問い合わせの結果は参照できません。
+このような動作をするために複合検索条件を含む問い合わせにリードコミッティドモードを使用することは適切ではありません。
+しかし、より単純な検索条件の場合、このモードの使用が適しています。
+例えば、銀行の残高を更新する以下のようなトランザクションを考えてみます。
 
 <screen>
 BEGIN;
@@ -547,8 +547,8 @@ COMMIT;
     predetermined row, letting it see the updated version of the row does
     not create any troublesome inconsistency.
 -->
-Ʊ���˼¹Ԥ����2�ĤΥȥ�󥶥�����󤬡������ֹ�12345�λĹ���ѹ����褦�Ȥ�����硢����12345�ιԤι�����ȼ�äƣ����ܤΥȥ�󥶥������򳫻Ϥ��뤳�Ȥ����餫��˾�ޤ��Ȥ����Ǥ���
-�ƥ��ޥ�ɤ������˷��ꤷ�Ƥ����ԤˤΤ߽�����Ԥ����ᡢ�������줿�С������ιԤ�����Ȥʤ������������������ޤ���
+同時に実行される2つのトランザクションが、口座番号12345の残高を変更しようとした場合、口座12345の行の更新に伴って２番目のトランザクションを開始することは明らかに望まれるところです。
+各コマンドが事前に決定していた行にのみ処理を行うため、更新されたバージョンの行は問題となる不整合を引き起こしません。
    </para>
 
    <para>
@@ -561,7 +561,7 @@ COMMIT;
     <literal>website.hits</literal> equaling <literal>9</literal> and
     <literal>10</literal>:
 -->
-���ʣ������ˡ�ˤ��꡼�ɥ��ߥåƥ��ɥ⡼�ɤǤϹ��ޤ����ʤ���̤��������ޤ����㤨�С��̤Υ��ޥ�ɤˤ�ꤽ�������狼���ɲá������ξ�����Ԥ��褦�Ȥ��Ƥ���ǡ����˺��Ѥ���<command>DELETE</command>���ޥ�ɤ�ͤ��ޤ������󤲤�ȡ�<literal>website</literal>�ϣ��ԤΥơ��֥�ǡ�������<literal>9</literal> �� <literal>10</literal>���ͤ����<literal>website.hits</literal>������ޤ���
+より複雑な用法によりリードコミッティドモードでは好ましくない結果を生成します。例えば、別のコマンドによりその制約条件から追加・削除の両方が行われようとしているデータに作用する<command>DELETE</command>コマンドを考えます。例を挙げると、<literal>website</literal>は２行のテーブルで、そこに<literal>9</literal> と <literal>10</literal>の値を持つ<literal>website.hits</literal>があります。
 
 <screen>
 BEGIN;
@@ -569,7 +569,7 @@ UPDATE website SET hits = hits + 1;
 <!--
 &#045;&#045; run from another session:  DELETE FROM website WHERE hits = 10;
 -->
--- �̤Υ��å���󤫤� DELETE FROM website WHERE hits = 10; ��¹Ԥ��ޤ�
+-- 別のセッションから DELETE FROM website WHERE hits = 10; を実行します
 COMMIT;
 </screen>
 
@@ -582,7 +582,7 @@ COMMIT;
     obtains a lock, the new row value is no longer <literal>10</> but
     <literal>11</>, which no longer matches the criteria.
 -->
-<command>UPDATE</command>�����<literal>website.hits = 10</literal>�Ԥ�¸�ߤ����Ȥ��Ƥ�<command>DELETE</command>�ϸ��̤����ߤޤ��󡣤ʤ������ʤ�Τ��ȸ����ȡ������������줿�Ԥ���<literal>9</>���ɤ����Ф��졢<command>UPDATE</command>����λ����<command>DELETE</command>�����å���������������Ǥϡ������Ԥ��ͤϤ�Ϥ�<literal>10</>�ǤϤʤ�<literal>11</>�ȤʤꡢȽ����ˤ�Ϥ���פ��ޤ���
+<command>UPDATE</command>前後に<literal>website.hits = 10</literal>行が存在したとしても<command>DELETE</command>は効果を生みません。なぜこうなるのかと言うと、事前更新された行の値<literal>9</>は読み飛ばされ、<command>UPDATE</command>が完了し、<command>DELETE</command>がロックを取得した時点では、新規行の値はもはや<literal>10</>ではなく<literal>11</>となり、判定基準にもはや一致しません。
    </para>
 
    <para>
@@ -594,8 +594,8 @@ COMMIT;
     at issue above is whether or not a <emphasis>single</> command
     sees an absolutely consistent view of the database.
 -->
-�꡼�ɥ��ߥåƥ��ɥ⡼�ɤϡ����줾��Υ��ޥ�ɤ򤽤λ����ޤǤ˥��ߥåȤ��줿���ƤΥȥ�󥶥�������ޤ࿷�����ʥåץ���åȤ�ȼ�äƳ��Ϥ���Τǡ�Ʊ��Υȥ�󥶥��������Ǥ����³�����ޥ�ɤϡ������ʤ���Ǥ⥳�ߥåȤ��줿Ʊ���¹ԥȥ�󥶥������η�̤򻲾Ȥ��ޤ���
-�嵭�����������<emphasis>ñ���</>���ޥ�ɤ��ǡ����١����θ�̩�˰�����Τ��븫�����򸫤�뤫�ݤ��Ǥ���
+リードコミッティドモードは、それぞれのコマンドをその時点までにコミットされた全てのトランザクションを含む新規スナップショットを伴って開始するので、同一のトランザクション内でそれに続くコマンドは、いかなる場合でもコミットされた同時実行トランザクションの結果を参照します。
+上記問題の要点は<emphasis>単一の</>コマンドがデータベースの厳密に一貫性のある見え方を見るるか否かです。
    </para>
 
    <para>
@@ -606,9 +606,9 @@ COMMIT;
     that do complex queries and updates might require a more rigorously
     consistent view of the database than Read Committed mode provides.
 -->
-�꡼�ɥ��ߥåƥ��ɥ⡼�ɤ��󶡤���Ƥ�����ʬŪ�ʥȥ�󥶥������ʬΥ�ϡ�¿���Υ��ץꥱ�������Ǥ�Ŭ�ڤǤ���
-�ޤ����Υ⡼�ɤϹ�®�ǡ��Ȥ������ñ�Ǥ��������Ƥξ����Ф��ƽ�ʬ�ǤϤ���ޤ���
-ʣ�����䤤��碌�乹����Ԥ����ץꥱ�������ϡ��꡼�ɥ��ߥåƥ��ɥ⡼�ɤ��󶡤���ʾ�Τ�긷���ʥǡ����١����θ�̩�˰�����Τ��븫������ɬ�פȤ��ޤ���
+リードコミッティドモードで提供されている部分的なトランザクション分離は、多くのアプリケーションでは適切です。
+またこのモードは高速で、使い方も簡単ですが、全ての場合に対して充分ではありません。
+複雑な問い合わせや更新を行うアプリケーションは、リードコミッティドモードが提供する以上のより厳正なデータベースの厳密に一貫性のある見え方を必要とします。
    </para>
   </sect2>
 
@@ -616,22 +616,22 @@ COMMIT;
 <!--
    <title>Repeatable Read Isolation Level</title>
 -->
-   <title>��ԡ����֥�꡼��ʬΥ��٥�</title>
+   <title>リピータブルリード分離レベル</title>
 
    <indexterm>
 <!--
     <primary>transaction isolation level</primary>
     <secondary>repeatable read</secondary>
 -->
-    <primary>�ȥ�󥶥������ʬΥ��٥�</primary>
-    <secondary>��ԡ����֥�꡼��</secondary>
+    <primary>トランザクション分離レベル</primary>
+    <secondary>リピータブルリード</secondary>
    </indexterm>
 
    <indexterm>
 <!--
     <primary>repeatable read</primary>
 -->
-    <primary>��ԡ����֥�꡼��</primary>
+    <primary>リピータブルリード</primary>
    </indexterm>
 
    <para>
@@ -649,10 +649,10 @@ COMMIT;
     <emphasis>minimum</emphasis> protections each isolation level must
     provide.
 -->
-<firstterm>��ԡ����֥�꡼��</firstterm>ʬΥ��٥�ϡ��ȥ�󥶥�����󤬳��Ϥ�������ޤǤ˥��ߥåȤ��줿�ǡ����Τߤ򻲾Ȥ��ޤ���
-���ߥåȤ���Ƥ��ʤ��ǡ����䡢���Υȥ�󥶥������μ¹�����̤Υȥ�󥶥������ǥ��ߥåȤ��줿�ѹ��򻲾Ȥ��ޤ���
-�ʤ��������ޤ����ߥåȤ���Ƥ��ʤ��Ȥ��Ƥ⡢�����䤤��碌�Ϥ��Υȥ�󥶥�����󼫿���ǹԤ�줿���ι����򻲾Ȥ��ޤ�����
-�����<acronym>SQL</acronym>��ɸ�൬�ʤǵ������Τ����궯���ݾڤ����Τǡ�<xref linkend="mvcc-isolevel-table">�ǽҤ٤Ƥ��븽�ݤ򤹤٤��ɤ��ޤ�����ǽҤ٤��褦�ˡ������ɸ�൬�ʤˤ�ä��ä˵��Ƥ���Ƥ��ꡢ���줾���ʬΥ��٥뤬�󶡤��ʤ��ƤϤʤ�ʤ�<emphasis>�Ǿ�</emphasis>���ݸ������Ƥ��ޤ���
+<firstterm>リピータブルリード</firstterm>分離レベルは、トランザクションが開始される前までにコミットされたデータのみを参照します。
+コミットされていないデータや、そのトランザクションの実行中に別のトランザクションでコミットされた変更を参照しません。
+（しかし、まだコミットされていないとしても、その問い合わせはそのトランザクション自身内で行われた過去の更新を参照します。）
+これは<acronym>SQL</acronym>の標準規格で求められるものよりもより強く保証するもので、<xref linkend="mvcc-isolevel-table">で述べている現象をすべて防ぎます。上で述べたように、これは標準規格によって特に許容されており、それぞれの分離レベルが提供しなくてはならない<emphasis>最小</emphasis>の保護が示されています。
    </para>
 
    <para>
@@ -665,8 +665,8 @@ COMMIT;
     transaction see the same data, i.e., they do not see changes made by
     other transactions that committed after their own transaction started.
 -->
-���Υ�٥�Ǥϡ���ԡ����֥�꡼�ɥȥ�󥶥������<emphasis>�ȥ�󥶥������</>���ϻ����Υ��ʥåץ���åȤ򸫤ޤ����ȥ�󥶥��������θ��ߤ��䤤��碌���ϻ��ǤϤʤ��Ȥ������ǡ��꡼�ɥ��ߥåƥ��ɤȤϰۤʤ�ޤ���
-���äơ�<emphasis>ñ��</>�ȥ�󥶥���������Ϣ³����<command>SELECT</command>ʸ�ϡ����Ʊ���ǡ����򻲾Ȥ��Ƥ��뤳�Ȥˤʤ�ޤ����Ĥޤꡢ���μ��ȤΥȥ�󥶥������θ�˥��ߥåȤ��줿¾�Υȥ�󥶥������ˤ���ѹ��򻲾Ȥ��ޤ���
+このレベルでは、リピータブルリードトランザクションが<emphasis>トランザクション</>開始時点のスナップショットを見ます。トランザクション内の現在の問い合わせ開始時ではないという点で、リードコミッティドとは異なります。
+従って、<emphasis>単一</>トランザクション内の連続する<command>SELECT</command>文は、常に同じデータを参照していることになります。つまり、その自身のトランザクションの後にコミットされた他のトランザクションによる変更を参照しません。
    </para>
 
    <para>
@@ -674,7 +674,7 @@ COMMIT;
     Applications using this level must be prepared to retry transactions
     due to serialization failures.
 -->
-���Υ�٥��Ȥä����ץꥱ�������Ǥϡ�ľ�󲽤μ��Ԥˤ��ȥ�󥶥������κƼ¹Ԥ������Ƥ���ɬ�פ�����ޤ���
+このレベルを使ったアプリケーションでは、直列化の失敗によるトランザクションの再実行に備えておく必要があります。
 
    </para>
 
@@ -694,12 +694,12 @@ COMMIT;
     (and actually updated or deleted the row, not just locked it)
     then the repeatable read transaction will be rolled back with the message
 -->
-<command>UPDATE</command>��<command>DELETE</command>��<command>SELECT FOR UPDATE</command>�������<command>SELECT FOR SHARE</command>���ޥ�ɤǤϡ�<command>SELECT</command>��Ʊ���褦���оݹԤ򸡺����ޤ���
-�����Υ��ޥ�ɤǤϡ��ȥ�󥶥�����󤬳��Ϥ��줿�����Ǵ��˥��ߥåȤ���Ƥ����оݹԤΤߤ򸡽Ф��ޤ���
-�������������оݹԤϡ����Ф����ޤǤˡ�Ʊ���¹����¾�Υȥ�󥶥������ˤ�äơ����˹����ʤ⤷���Ϻ�����뤤�ϥ��å��ˤ���Ƥ����ǽ��������ޤ���
-���Τ褦�ʾ�硢��ԡ����֥�꡼�ɥȥ�󥶥������ϡ��ǽ�ι����ȥ�󥶥�����󤬡ʤ���餬�ޤ��ʹ���ξ��˥��ߥåȤ⤷���ϥ�����Хå�����Τ��Ԥ��ޤ���
-�ǽ�ι���������������Хå������ȡ����η�̤�̵�뤵�졢��ԡ����֥�꡼�ɥȥ�󥶥������Ǥϸ������Ф����Ԥι�����³�Ԥ��뤳�Ȥ��Ǥ��ޤ���
-���������ǽ�ι������������ߥåȡʤ��ġ�ñ�˥��å����������Ǥʤ����ºݤ˹Ԥ������ޤ��Ϻ���ˤ����ȡ���ԡ����֥�꡼�ɥȥ�󥶥������Ǥϡ��ʲ��Τ褦�ʥ�å���������Ϥ��ƥ�����Хå���Ԥ��ޤ���
+<command>UPDATE</command>、<command>DELETE</command>、<command>SELECT FOR UPDATE</command>、および<command>SELECT FOR SHARE</command>コマンドでは、<command>SELECT</command>と同じように対象行を検索します。
+これらのコマンドでは、トランザクションが開始された時点で既にコミットされている対象行のみを検出します。
+しかし、その対象行は、検出されるまでに、同時実行中の他のトランザクションによって、既に更新（もしくは削除あるいはロック）されている可能性があります。
+このような場合、リピータブルリードトランザクションは、最初の更新トランザクションが（それらがまだ進行中の場合）コミットもしくはロールバックするのを待ちます。
+最初の更新処理がロールバックされると、その結果は無視され、リピータブルリードトランザクションでは元々検出した行の更新を続行することができます。
+しかし、最初の更新処理がコミット（かつ、単にロックされるだけでなく、実際に行が更新または削除）されると、リピータブルリードトランザクションでは、以下のようなメッセージを出力してロールバックを行います。
 
 <screen>
 ERROR:  could not serialize access due to concurrent update
@@ -709,7 +709,7 @@ ERROR:  could not serialize access due to concurrent update
     because a repeatable read transaction cannot modify or lock rows changed by
     other transactions after the repeatable read transaction began.
 -->
-����ϡ���ԡ����֥�꡼�ɥȥ�󥶥������Ǥϡ��ȥ�󥶥�����󤬳��Ϥ��줿����̤Υȥ�󥶥������ˤ�äƹ������줿�ǡ������ѹ��ޤ��ϥ��å����뤳�Ȥ��Ǥ��ʤ�����Ǥ���
+これは、リピータブルリードトランザクションでは、トランザクションが開始された後に別のトランザクションによって更新されたデータは変更またはロックすることができないためです。
    </para>
 
    <para>
@@ -721,8 +721,8 @@ ERROR:  could not serialize access due to concurrent update
     so there is no logical conflict in using the new version of the row
     as the starting point for the new transaction's update.
 -->
-���ץꥱ������󤬤��Υ��顼��å������������ä���硢���ߤΥȥ�󥶥����������Ǥ��ơ��ȥ�󥶥���������Τ�Ϥᤫ����ľ����ʤ���Фʤ�ޤ���
-2���ܤǤϡ��ȥ�󥶥������ϥ��ߥåȤ��줿�ѹ���ޤ�ƥǡ����١����κǽ�ξ��֤Ȥߤʤ��Τǡ��������С������ιԤ򿷤����ȥ�󥶥������ˤ����빹���λ����Ȥ��Ƥ⡢����Ū̷��ϵ�����ޤ���
+アプリケーションがこのエラーメッセージを受け取った場合、現在のトランザクションを中断して、トランザクション全体を始めからやり直されなければなりません。
+2回目では、トランザクションはコミットされた変更を含めてデータベースの最初の状態とみなすので、新しいバージョンの行を新しいトランザクションにおける更新の始点としても、論理的矛盾は起こりません。
    </para>
 
    <para>
@@ -730,8 +730,8 @@ ERROR:  could not serialize access due to concurrent update
     Note that only updating transactions might need to be retried; read-only
     transactions will never have serialization conflicts.
 -->
-�����ȥ�󥶥������ΤߺƼ¹Ԥ���ɬ�פ����뤫�⤷��ޤ���
-�ɤ߹������ѥȥ�󥶥������Ǥ�ľ�󲽤ξ��ͤϷ褷�Ƶ�����ޤ���
+更新トランザクションのみ再実行する必要があるかもしれません。
+読み込み専用トランザクションでは直列化の衝突は決して起こりません。
    </para>
 
    <para>
@@ -748,11 +748,11 @@ ERROR:  could not serialize access due to concurrent update
     this isolation level are not likely to work correctly without careful use
     of explicit locks to block conflicting transactions.
 -->
-��ԡ����֥�꡼�ɥ⡼�ɤǤϡ����ƤΥȥ�󥶥�����󤬥ǡ����١����ΰ�Ӥ������ѤΥӥ塼�ξ��֤򻲾Ȥ��뤳�Ȥ��ݾڤ���ޤ���
-�����������Υӥ塼�Ͼ�ˤ����Ĥ���Ʊ����٥��Ʊ���¹ԥȥ�󥶥�����������ʰ��٤˰�Ĥ��ĤΡ˼¹Ԥǰ���������ɬ�פϤ���ޤ���
-�㤨�С����Υ�٥���ɤ߼��ΤߤΥȥ�󥶥������ϡ��Хå�����λ�������Ȥ򼨤�����˹������줿����쥳���ɤ򻲾Ȥ��뤳�Ȥ��Ǥ��ޤ�����
-����쥳���ɤΤ������ΥС��������ɤ߼�뤿�ᡢ����Ū�ˤ��ΥХå��ΰ����Ȥʤ�ܺ٤ʥ쥳���ɤΣ��Ĥ򻲾Ȥ��뤳�Ȥ�<emphasis>�Ǥ��ޤ���</emphasis>��
-����ʬΥ��٥�Ǽ¹Ԥ���ȥ�󥶥������ˤ��ӥ��ͥ��롼��������褦�Ȥ��뤳�Ȥϡ����礹��ȥ�󥶥�������֥��å����뤿������տ�������Ū�ʥ��å�������ʤ��ȡ����Τ�ư��ʤ����Ȥ�¿������ޤ���
+リピータブルリードモードでは、全てのトランザクションがデータベースの一貫した不変のビューの状態を参照することが保証されます。
+しかし、このビューは常にいくつかの同じレベルの同時実行トランザクションの並列（一度に一つずつの）実行で一貫性を持つ必要はありません。
+例えば、このレベルの読み取りのみのトランザクションは、バッチが完了したことを示すために更新された制御レコードを参照することができますが、
+制御レコードのより以前のバージョンを読み取るため、論理的にそのバッチの一部となる詳細なレコードの１つを参照することは<emphasis>できません</emphasis>。
+この分離レベルで実行するトランザクションによりビジネスルールを強制しようとすることは、競合するトランザクションをブロックするために注意深く明示的なロックを持たないと、正確に動作しないことが多くあります。
    </para>
 
    <note>
@@ -764,8 +764,8 @@ ERROR:  could not serialize access due to concurrent update
      behavior, Repeatable Read should now be requested.
 -->
 
-<productname>PostgreSQL</productname> version 9.1������ޤǤǤϡ����ꥢ�饤���֥�ʬΥ��٥���׵�Ϥ��������������̤��ư��򤽤Τޤ��󶡤��Ƥ��ޤ�����
-�����Υ��ꥢ�饤���֥��ư���ݻ����뤿��ˤϡ���ԡ����֥�꡼�ɤ��׵ᤷ�ʤ���Фʤ�ʤ��ʤ�ޤ�����
+<productname>PostgreSQL</productname> version 9.1より前まででは、シリアライザブル分離レベルの要求はここで説明した通りの動作をそのまま提供していました。
+以前のシリアライザブルの動作を維持するためには、リピータブルリードを要求しなければならなくなりました。
     </para>
    </note>
   </sect2>
@@ -774,36 +774,36 @@ ERROR:  could not serialize access due to concurrent update
 <!--
    <title>Serializable Isolation Level</title>
 -->
-   <title>���ꥢ�饤���֥�ʬΥ��٥�</title>
+   <title>シリアライザブル分離レベル</title>
 
    <indexterm>
 <!--
     <primary>transaction isolation level</primary>
     <secondary>serializable</secondary>
 -->
-    <primary>�ȥ�󥶥������ʬΥ��٥�</primary>
-    <secondary>���ꥢ�饤���֥�</secondary>
+    <primary>トランザクション分離レベル</primary>
+    <secondary>シリアライザブル</secondary>
    </indexterm>
 
    <indexterm>
 <!--
     <primary>serializable</primary>
 -->
-    <primary>���ꥢ�饤���֥�</primary>
+    <primary>シリアライザブル</primary>
    </indexterm>
 
    <indexterm>
 <!--
     <primary>predicate locking</primary>
 -->
-    <primary>�Ҹ���å�</primary>
+    <primary>述語ロック</primary>
    </indexterm>
 
    <indexterm>
 <!--
     <primary>serialization anomaly</primary>
 -->
-    <primary>ľ�󲽰۾�</primary>
+    <primary>直列化異常</primary>
    </indexterm>
 
    <para>
@@ -826,11 +826,11 @@ ERROR:  could not serialize access due to concurrent update
     <firstterm>serialization anomaly</firstterm> will trigger a
     <firstterm>serialization failure</firstterm>.
 -->
-<firstterm>���ꥢ�饤���֥�</firstterm>ʬΥ��٥�ϡ��Ǥ⸷�����ȥ�󥶥�������ʬΥ�����󶡤��ޤ���
-���Υ�٥�Ǥϥȥ�󥶥������Ʊ���ˤǤϤʤ��������鼡�ؤȡ����������˼¹Ԥ���Ƥ���褦���༡Ū�ʥȥ�󥶥������μ¹Ԥ����ƤΥ��ߥåȤ��줿�ȥ�󥶥��������Ф����ߥ�졼�Ȥ��ޤ���
-�����������Υ�٥��Ȥä����ץꥱ�������Ǥϡ���ԡ����֥�꡼�ɥ�٥��Ʊ�ͤˡ�ľ�󲽤μ��Ԥˤ��ȥ�󥶥������κƼ¹Ԥ������Ƥ���ɬ�פ�����ޤ���
-�ºݡ�����ʬΥ��٥�ϡ��ʤ�������ǡ��༡�¹Բ�ǽ�ʤ��٤ƤΥȥ�󥶥������ˤ����ơ����ꥢ�饤���֥�ȥ�󥶥�������Ʊ���¹Ԥ��Ȥ�������Τʤ��褦�ʿ����񤤤򤷤Ƥ��ʤ����ƻ뤹�뤳�Ȥ��������ԡ����֥�꡼�ɤ�����Ʊ��ư���򤷤ޤ���
-���δƻ�Ǥϡ���ԡ����֥�꡼�ɤ�������Τ�ۤ��ƥ֥��å����뤳�ȤϤ���ޤ��󤬡��ƻ�ˤ�ꤤ���餫�Υ����С��إåɤ����ꡢ<firstterm>ľ�󲽰۾�</firstterm>������������褦�ʾ��֤θ��Τϡ�<firstterm>ľ�󲽤μ���</firstterm>������������Ǥ��礦��
+<firstterm>シリアライザブル</firstterm>分離レベルは、最も厳しいトランザクションの分離性を提供します。
+このレベルではトランザクションが同時にではなく、次から次へと、あたかも順に実行されているように逐次的なトランザクションの実行を全てのコミットされたトランザクションに対しエミュレートします。
+しかし、このレベルを使ったアプリケーションでは、リピータブルリードレベルと同様に、直列化の失敗によるトランザクションの再実行に備えておく必要があります。
+実際、この分離レベルは、（ある時点で）逐次実行可能なすべてのトランザクションにおいて、シリアライザブルトランザクションの同時実行の組が一貫性のないような振る舞いをしていないか監視することを除き、リピータブルリードと全く同じ動きをします。
+この監視では、リピータブルリードが示すものを越えてブロックすることはありませんが、監視によりいくらかのオーバーヘッドがあり、<firstterm>直列化異常</firstterm>を引き起こすような状態の検知は、<firstterm>直列化の失敗</firstterm>を引き起こすでしょう。
    </para>
 
    <para>
@@ -838,7 +838,7 @@ ERROR:  could not serialize access due to concurrent update
     As an example,
     consider a table <structname>mytab</>, initially containing:
 -->
-�㤨�С��ʲ��ν���ǡ��������<structname>mytab</>�Ȥ����ơ��֥��ͤ��Ƥߤޤ���
+例えば、以下の初期データを持つ<structname>mytab</>というテーブルを考えてみます。
 <screen>
  class | value
 -------+-------
@@ -850,7 +850,7 @@ ERROR:  could not serialize access due to concurrent update
 <!--
     Suppose that serializable transaction A computes:
 -->
-�����ǥ��ꥢ�饤���֥�ȥ�󥶥������A���ʲ���׻�����
+ここでシリアライザブルトランザクションAが以下を計算し、
 <screen>
 SELECT SUM(value) FROM mytab WHERE class = 1;
 </screen>
@@ -859,8 +859,8 @@ SELECT SUM(value) FROM mytab WHERE class = 1;
     new row with <structfield>class</><literal> = 2</>.  Concurrently, serializable
     transaction B computes:
 -->
-�����ơ�<structfield>value</>�ˤ��η�̡�30�ˤ�<structfield>class</><literal> = 2</>�ιԤȤ��ƿ��������������Ȥ��ޤ���
-Ʊ���˥��ꥢ�饤���֥�ȥ�󥶥������B���ʲ���׻�����
+そして、<structfield>value</>にその結果（30）を、<structfield>class</><literal> = 2</>の行として新たに挿入したとします。
+同時にシリアライザブルトランザクションBが以下を計算し、
 <screen>
 SELECT SUM(value) FROM mytab WHERE class = 2;
 </screen>
@@ -872,10 +872,10 @@ SELECT SUM(value) FROM mytab WHERE class = 2;
     consistent with the result, using Serializable transactions will allow one
     transaction to commit and will roll the other back with this message:
 -->
-���η��300�����������ơ����η�̤�<structfield>class</><literal> = 1</>�ο����ʹԤȤ������������Ȥ��ޤ���
-���θ塢ξ���Υȥ�󥶥�����󤬥��ߥåȤ��ߤޤ���
-�⤷�����ν�������ԡ����֥�꡼��ʬΥ��٥�Ǽ¹Ԥ��Ƥ���С�ξ���Υ��ߥåȤ��������Ǥ��礦��
-����������̤Ȱ��פ������Ǽ¹Ԥ��줿��Τ��ʤ����ᡢ���ꥢ�饤���֥�ȥ�󥶥���������Ѥ������ϡ��ҤȤĤΥȥ�󥶥�����󤬥��ߥåȤ�����졢¾���Ϥ��Υ�å������ȤȤ�˥�����Хå�����뤳�Ȥˤʤ�ޤ���
+その結果300を得、そして、この結果を<structfield>class</><literal> = 1</>の新たな行として挿入したとします。
+その後、両方のトランザクションがコミットを試みます。
+もし一方の処理がリピータブルリード分離レベルで実行していれば、両方のコミットが許されるでしょう。
+しかし、結果と一致する順序で実行されたものがないため、シリアライザブルトランザクションを使用した場合は、ひとつのトランザクションがコミットを許され、他方はこのメッセージとともにロールバックされることになります。
 
 <screen>
 ERROR:  could not serialize access due to read/write dependencies among transactions
@@ -887,8 +887,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     similarly the other order would have resulted in a different sum
     computed by A.
 -->
-������ͳ�ϡ��⤷A��B�������˼¹Ԥ���λ���Ƥ�����硢B�����¤�300�ǤϤʤ�330�ȷ׻�����뤿��Ǥ���
-Ʊ�ͤ��̤ν���Ǽ¹Ԥ��줿�Ȥ��Ƥ�A�Ƿ׻���������¤ϰۤʤ��̤ˤʤ�ޤ���
+この理由は、もしAがBよりも前に実行が完了していた場合、Bの総和は300ではなく330と計算されるためです。
+同様に別の順序で実行されたとしてもAで計算される総和は異なる結果になります。
    </para>
 
    <para>
@@ -905,11 +905,11 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     later aborted; instead, they should retry the transaction until it
     succeeds.
 -->
-�۾���ɻߤ��뤿�᥷�ꥢ�饤���֥�ȥ�󥶥��������ꤹ��ΤǤ���С��ȥ�󥶥������ͭ���˥��ߥåȤ��줿�Ȥ��Υȥ�󥶥������ǧ�����ޤǡ�����Ū�ʥ桼���ơ��֥뤫���ɤ߼��줿�����ʤ�ǡ�����ͭ���Ȥ�ǧ����ʤ����Ͻ��פǤ���
-�ɤ߹��ޤ��ľ����<firstterm>deferrable</firstterm>�ɤ߼�����ѥȥ�󥶥����������ɤ߹��ޤ줿�ǡ���������ơ����Τ��Ȥ��ɤ߼�����ѥȥ�󥶥������Ǥ��äƤ⿿�¤Ǥ���
-���Τ��ȸ����ȡ������Υȥ�󥶥�������¾�Υǡ������ɤ߹������˸��������꤫���Ȥ���Ƥ����ݾ��դ��Υ��ʥåץ���åȤ������ǽ�Ȥʤ�ޤ��Ե����뤫��Ǥ���
-����¾�����Ƥξ�硢������Ǥ����ȥ�󥶥������ˤ������ɤ߹��ޤ줿��̤򥢥ץꥱ�������Ͽ��Ѥ��ƤϤʤ�ʤ����ȤǤ���
-��������Ȥ��ơ����ץꥱ�������ϥȥ�󥶥��������������ޤǺƻ�Ԥ��٤��Ǥ���
+異常を防止するためシリアライザブルトランザクションを信頼するのであれば、トランザクションが有効にコミットされたとそのトランザクションが認められるまで、恒久的なユーザテーブルから読み取られたいかなるデータも有効とは認められない点は重要です。
+読み込まれて直ぐに<firstterm>deferrable</firstterm>読み取り専用トランザクション内で読み込まれたデータを除いて、このことは読み取り専用トランザクションであっても真実です。
+何故かと言うと、それらのトランザクションは他のデータを読み込む前に言われる問題から免がれている保証付きのスナップショットを取得可能となるまで待機するからです。
+その他の全ての場合、後に中断されるトランザクションにおいて読み込まれた結果をアプリケーションは信用してはならないことです。
+その代わりとして、アプリケーションはトランザクションが成功するまで再試行すべきです。
    </para>
 
    <para>
@@ -929,11 +929,11 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     UPDATE</literal> or <literal>SELECT FOR SHARE</literal> which not only
     can block other transactions but cause disk access.
 -->
-����ľ�������ݾڤ��뤿���<productname>PostgreSQL</productname>�Ǥϡ��ǽ�����餻����Ʊ���¹ԥȥ�󥶥�������������ɤ߼�ä���̤��Ф��ơ��񤭹��ߤ����ıƶ���ڤܤ������������ǽ�ˤ�����å����ݻ����뤳�Ȥ��̣���롢<firstterm>�Ҹ���å�</>��Ȥ��ޤ���
-<productname>PostgreSQL</productname>�Ǥϡ������Υ��å��ϥ֥��å��󥰤�����������ʤ����ᡢ�ǥåɥ��å����װ��Ȥʤ�<emphasis>�ʤ�</>��ΤǤ���
-�����ϡ�Ʊ���¹���Υ��ꥢ�饤���֥�ȥ�󥶥�����󤬡�ľ�󲽰۾�ˤĤʤ����Ȥ߹�碌�Ǥ��뤳�Ȥ��̤��ե饰��Ω�Ƥ뤳�Ȥ˻��Ѥ���ޤ���
+真の直列性を保証するために<productname>PostgreSQL</productname>では、最初に走らせた、同時実行トランザクションより前に読み取った結果に対して、書き込みがいつ影響を及ぼしたかを断定可能にするロックを保持することを意味する、<firstterm>述語ロック</>を使います。
+<productname>PostgreSQL</productname>では、これらのロックはブロッキングを引き起こさないため、デッドロックの要因となら<emphasis>ない</>ものです。
+それらは、同時実行中のシリアライザブルトランザクションが、直列化異常につながる組み合わせであることを識別しフラグを立てることに使用されます。
 
-����Ȥ��о�Ū�ˡ��ǡ����ΰ�������ݾڤ������꡼�ɥ��ߥåƥ��ɤ��뤤�ϥ�ԡ����֥�꡼�ɥȥ�󥶥������Ǥϡ�(���Υơ��֥����Ѥ��褦�Ȥ��Ƥ���¾�Υ桼����֥��å����뤳�Ȥ��Ǥ���)�ơ��֥����ΤΥ��å���ɬ�פȤ��뤫�⤷��ޤ��󡣤��뤤�ϡ�¾�Υȥ�󥶥�������֥��å���������Ǥʤ��ǥ��������������������������<literal>SELECT FOR UPDATE</literal>���뤤��<literal>SELECT FOR SHARE</literal>����Ѥ��뤫�⤷��ޤ���
+それとは対照的に、データの一貫性を保証したいリードコミッティドあるいはリピータブルリードトランザクションでは、(そのテーブルを使用しようとしている他のユーザをブロックすることができた)テーブル全体のロックを必要とするかもしれません。あるいは、他のトランザクションをブロックするだけでなくディスク・アクセスを引き起こす<literal>SELECT FOR UPDATE</literal>あるいは<literal>SELECT FOR SHARE</literal>を使用するかもしれません。
    </para>
 
    <para>
@@ -960,12 +960,12 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     often need to be kept past transaction commit, until overlapping read
     write transactions complete.
 -->
-<productname>PostgreSQL</productname>�νҸ���å��ϡ�¾�ΤۤȤ�ɤΥǡ����١��������ƥ��Ʊ�͡��ȥ�󥶥������ˤ�äƼºݤ˥����������줿�ǡ����򸵤ˤ��Ƥ��ޤ���
-�����ϡ�<literal>SIReadLock</>��<literal>mode</>�����<link linkend="view-pg-locks"><structname>pg_locks</structname></link>�����ƥ�ӥ塼�Ǹ��뤳�Ȥ��Ǥ��ޤ���
-�䤤��碌�μ¹Դ�����˳��������ü�ʥ��å��ϡ��䤤��碌�����Ѥ����ײ�˰�¸����Ǥ��礦���ޤ������å������פ��뤿��˻��Ѥ�������ξ��פ��ɤ�����ˡ�¿���Τ�꤭��κ٤������å�(�㤨�Х��ץ롦���å�)�ϥȥ�󥶥������δ֤ˡ���꾯���Τ�꤭����Ƥ����å�(�㤨�Хڡ��������å�)���Ȥ߹�碌���뤫�⤷��ޤ���
-ľ�󲽰۾�ˤĤʤ���褦�ʶ��礬��³���������ʤ����Ȥ��Τ���ȡ�<literal>READ ONLY</>�ȥ�󥶥�����󤬴�λ��������SIRead���å��������뤫�⤷��ޤ���
-�ºݡ�<literal>READ ONLY</>�ȥ�󥶥������ϡ��褯���ϻ����Ǥ��λ��¤�ξڤ����ɤ�ʽҸ���å���Ȥ�ʤ����Ȥ⤢��ޤ���<literal>SERIALIZABLE READ ONLY DEFERRABLE</>�ȥ�󥶥�����������Ū���׵ᤷ�����ˤϡ����λ��¤�ξڤǤ���ޤǥ֥��å����ޤ���(����ϡ����ꥢ�饤���֥�ȥ�󥶥������ϥ֥��å����뤱��ɤ⡢��ԡ����֥�꡼�ɥȥ�󥶥������ϥ֥��å����ʤ�<emphasis>ͣ��</>�Υ������Ǥ���)
-¾���ǡ�SIRead���å��ϡ����Ф����ɤ߼��Ƚ񤭹��ߤ��ŤʤäƤ���ȥ�󥶥�����󤬴�λ����ޤǡ����Υȥ�󥶥������Υ��ߥåȤ��ݻ������ɬ�פ�����ޤ���
+<productname>PostgreSQL</productname>の述語ロックは、他のほとんどのデータベースシステムと同様、トランザクションによって実際にアクセスされたデータを元にしています。
+これらは、<literal>SIReadLock</>の<literal>mode</>を持つ<link linkend="view-pg-locks"><structname>pg_locks</structname></link>システムビューで見ることができます。
+問い合わせの実行期間中に獲得した特殊なロックは、問い合わせが使用した計画に依存するでしょう。また、ロックを追跡するために使用されるメモリの消耗を防ぐために、多数のよりきめの細かいロック(例えばタプル・ロック)はトランザクションの間に、より少数のよりきめの粗いロック(例えばページ・ロック)へ組み合わせられるかもしれません。
+直列化異常につながるような競合が継続して生じないことを検知すると、<literal>READ ONLY</>トランザクションが完了する前にSIReadロックを解除するかもしれません。
+実際、<literal>READ ONLY</>トランザクションは、よく開始時点でその事実を確証し、どんな述語ロックもとらないこともあります。<literal>SERIALIZABLE READ ONLY DEFERRABLE</>トランザクションを明示的に要求した場合には、この事実を確証できるまでブロックします。(これは、シリアライザブルトランザクションはブロックするけれども、リピータブルリードトランザクションはブロックしない<emphasis>唯一</>のケースです。)
+他方で、SIReadロックは、しばしば読み取りと書き込みが重なっているトランザクションが完了するまで、過去のトランザクションのコミットに保持される必要があります。
    </para>
 
    <para>
@@ -989,13 +989,13 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     SHARE</>, Serializable transactions are the best performance choice
     for some environments.
 -->
-���ꥢ�饤���֥�ȥ�󥶥������ΰ�Ӥ������Ѥϳ�ȯ��ñ�㲽���뤳�Ȥ��Ǥ��ޤ���
-Ʊ���¹Ԥ������ꥢ�饤���֥�ȥ�󥶥������Τɤ�ʥ��åȤ�Ʊ�����̤�����Ȥ����ݾڤϡ��������⡢����餬���٤˼¹Ԥ��줿��Τ��ä����Τ褦�ˡ�ñ��Υȥ�󥶥������Ȥ��ƾ����Ǥ��뤳�Ȥ��̣���ޤ���
-����ϡ�ñ�ȤǼ¹Ԥ��줿����������ư���褦�񤫤�Ƥ����硢���ꥢ�饤���֥�ȥ�󥶥�����󤬺��ߤ��Ƥ��Ƥ�������ư���ξڤ���Ĥ��Ȥ��Ǥ��ޤ���
-���ε��Ѥ���Ѥ���Ķ��ǡ�ľ�󲽤μ���('40001'��SQLSTATE���ͤǾ���֤�)�򰷤���硢����Ū�ʼ��ʤ���äƤ��뤳�ȤϽ��פǤ���
-�ʤ��ʤ顢�ȥ�󥶥�������ɤ߼��/�񤭹��ߤΰ�¸���ˤɤ�����ƶ������ǽ�������뤫�Ȥ������Ȥȡ�ľ�󲽰۾���ɤ�����˥�����Хå�������ɬ�פ����뤫�Ȥ������Ȥ����Τ�ͽ¬���뤳�Ȥ����˺��������Ǥ���
-�ɤ߼��/�񤭹��ߤΰ�¸����ƻ뤷���ꡢľ�󲽰۾�ǽ�λ�����ȥ�󥶥�������Ƶ�ư���뤳�Ȥϥ����Ȥ�������ޤ���
-�������ʤ��顢���Υ����Ȥȡ�����Ū�ʥ��å���<literal>SELECT FOR UPDATE</>�ޤ���<literal>SELECT FOR SHARE</>����Ѥ����֥��å��󥰤Ȥ���Ӹ�Ƥ����ȡ����ꥢ�饤���֥�ȥ�󥶥������Ϥ����Ĥ��δĶ��ˤ����ƺ��ɤʼ¹Ԥ����򤹤뤳�Ȥˤʤ�ޤ���
+シリアライザブルトランザクションの一貫した使用は開発を単純化することができます。
+同時実行したシリアライザブルトランザクションのどんなセットも同じ効果があるという保証は、あたかも、それらが一度に実行されたものだったかのように、単一のトランザクションとして証明できることを意味します。
+これは、単独で実行された場合に正しく動作するよう書かれている場合、シリアライザブルトランザクションが混在していても正しく動作する確証を持つことができます。
+この技術を使用する環境で、直列化の失敗('40001'のSQLSTATEの値で常に返る)を扱う場合、一般的な手段を持っていることは重要です。
+なぜなら、トランザクションが読み取り/書き込みの依存性にどれだけ影響する可能性があるかということと、直列化異常を防ぐためにロールバックさせる必要があるかといこうとを、正確に予測することは非常に困難だからです。
+読み取り/書き込みの依存性を監視したり、直列化異常で終了したトランザクションを再起動することはコストがかかります。
+しかしながら、このコストと、明示的なロックと<literal>SELECT FOR UPDATE</>または<literal>SELECT FOR SHARE</>を使用したブロッキングとで比較検討すると、シリアライザブルトランザクションはいくつかの環境において最良な実行を選択することになります。
    </para>
 
    <para>
@@ -1003,7 +1003,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     For optimal performance when relying on Serializable transactions for
     concurrency control, these issues should be considered:
 -->
-Ʊ���¹�����Τ���˥��ꥢ�饤���֥�ȥ�󥶥���������Ѥ����硢��Ŭ�˼¹Ԥ��뤿��ˤϡ��ʲ���������θ���٤��Ǥ���
+同時実行制御のためにシリアライザブルトランザクションを使用する場合、最適に実行するためには、以下の問題を考慮すべきです。
 
     <itemizedlist>
      <listitem>
@@ -1011,7 +1011,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
 <!--
        Declare transactions as <literal>READ ONLY</> when possible.
 -->
-�Ǥ���¤�<literal>READ ONLY</>�Ȥ���������Ƥ���������
+できる限り<literal>READ ONLY</>として宣言してください。
       </para>
      </listitem>
      <listitem>
@@ -1022,8 +1022,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        it can be particularly important in a busy system using Serializable
        transactions.
 -->
-�⤷ɬ�פʤ�Х��ͥ������ס������Ѥ��ơ���ư�����³�������椷�Ƥ���������
-����Ͼ�˽��פʼ¹Ի��ι�θ���Ǥ��������ꥢ�饤���֥�ȥ�󥶥���������Ѥ���¿˻�ʥ����ƥ�ˤ����Ƥϡ��ä˽��פˤʤ��ǽ��������ޤ���
+もし必要ならばコネクションプールを使用して、活動中の接続数を制御してください。
+これは常に重要な実行時の考慮点ですが、シリアライザブルトランザクションを使用した多忙なシステムにおいては、特に重要になる可能性があります。
       </para>
      </listitem>
      <listitem>
@@ -1032,7 +1032,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        Don't put more into a single transaction than needed for integrity
        purposes.
 -->
-����������Ū�Ȥ���ɬ�װʾ��ñ��ȥ�󥶥��������֤��ʤ��褦�ˤ��Ƥ���������
+完全性を目的とした必要以上の単一トランザクションを置かないようにしてください。
       </para>
      </listitem>
      <listitem>
@@ -1041,7 +1041,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        Don't leave connections dangling <quote>idle in transaction</quote>
        longer than necessary.
 -->
-ɬ�װʾ��Ĺ��<quote>�ȥ�󥶥����������Ե�����</quote>����³�����ޤ����֤��Ƥ����ʤ��褦�ˤ��Ƥ���������
+必要以上に長く<quote>トランザクション内で待機状態</quote>で接続したまま放置しておかないようにしてください。
       </para>
      </listitem>
      <listitem>
@@ -1051,7 +1051,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        <literal>SELECT FOR SHARE</> where no longer needed due to the
        protections automatically provided by Serializable transactions.
 -->
-���ꥢ�饤���֥�ȥ�󥶥������ˤ�꼫ưŪ���󶡤�����ݸ�ˤ�ꡢ��ɬ�פʡ�����Ū�ʥ��å���<literal>SELECT FOR UPDATE</>�����<literal>SELECT FOR SHARE</>��������Ƥ���������
+シリアライザブルトランザクションにより自動的に提供される保護により、不必要な、明示的なロック、<literal>SELECT FOR UPDATE</>および<literal>SELECT FOR SHARE</>を取り除いてください。
       </para>
      </listitem>
      <listitem>
@@ -1063,8 +1063,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        failures may occur.  You can avoid this by increasing
        <xref linkend="guc-max-pred-locks-per-transaction">.
 -->
-�����ƥब��ñ��δط���٥�ǤνҸ���å��ˡ�¿���Υڡ�����٥�ǤνҸ���å����Ȥ߹�碌�뤳�Ȥ򶯤������硢�Ҹ���å��Υơ��֥�ϥ��꤬��­���뤿�ᡢľ�󲽼��Ԥγ�礬���ä��붲�줬����ޤ���
-����ϡ�<xref linkend="guc-max-pred-locks-per-transaction">�����䤹���Ȥˤ����򤹤뤳�Ȥ��Ǥ��ޤ���
+システムが、単一の関係レベルでの述語ロックに、多数のページレベルでの述語ロックを組み合わせることを強いられる場合、述語ロックのテーブルはメモリが不足するため、直列化失敗の割合が増加する恐れがあります。
+これは、<xref linkend="guc-max-pred-locks-per-transaction">を増やすことにより回避することができます。
       </para>
      </listitem>
      <listitem>
@@ -1078,9 +1078,9 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        in transaction rollbacks and restarts against any overall change in
        query execution time.
 -->
-�������󥷥�륹�����Ͼ�˥�졼������٥�ǤνҸ���å���ɬ�פȤ���Ǥ��礦�������ľ�󲽼��Ԥ����ä������˵��������礬����ޤ���
-<xref linkend="guc-random-page-cost">��̾������(�ޤ���)<xref linkend="guc-cpu-tuple-cost">�����ä��뤳�Ȥˤ�ꥤ��ǥå����������λ��Ѥ�¥�ʤ��뤳�Ȥ�ͭ�Ѥ��⤷��ޤ���
-�䤤��碌�¹Ի��֤�����Ū���Ѳ��������Ȥʤ롢�ȥ�󥶥������Υ�����Хå���Ƶ�ư�򸺾�������褦�ˡ�ɬ����Ƥ���Ƥ���������
+シーケンシャルスキャンは常にリレーションレベルでの述語ロックを必要とするでしょう。これは直列化失敗の増加した割合に起因する場合があります。
+<xref linkend="guc-random-page-cost">を縮小および(または)<xref linkend="guc-cpu-tuple-cost">を増加することによりインデックススキャンの使用を促進することは有用かもしれません。
+問い合わせ実行時間の全体的な変化に不利となる、トランザクションのロールバックや再起動を減少させるように、必ず検討してください。
       </para>
      </listitem>
     </itemizedlist>
@@ -1099,9 +1099,9 @@ ERROR:  could not serialize access due to read/write dependencies among transact
      see a transient state which is inconsistent with any serial execution
      of serializable transactions on the master.
 -->
-���ꥢ�饤���֥�ȥ�󥶥������ʬΥ��٥�Υ��ݡ��Ȥϡ��ޤ��ۥåȥ�����Х���ץꥱ���������оݤ˲ä����Ƥ��ޤ���(<xref linkend="hot-standby">�ǽҤ٤ޤ�)��
-�ۥåȥ�����Х��⡼�ɤǸ��ߥ��ݡ��Ȥ��줿�Ǥ⸷����ʬΥ��٥�ϥ�ԡ����֥�꡼�ɤǤ���
-�ޥ�����ǥ��ꥢ�饤���֥�ȥ�󥶥��������˥ǡ����١����˱�³Ū�ʽ񤭹��ߤ�Ԥʤ��С�������Х��Ϥ��٤ƺǽ�Ū�˰�Ӥ������֤�ã����������Ȥ������Ȥ��ݾڤ����Ǥ��礦����������Х���Ǽ¹Ԥ��줿��ԡ����֥�꡼�ɥȥ�󥶥������ϡ������ޥ����Υ��ꥢ�饤���֥�ȥ�󥶥�������Ǥ�դ�Ϣ³����¹ԤȰ��פ��ʤ����Ͼ��֤򸫤뤳�Ȥ�����Ǥ��礦��
+シリアライザブルトランザクション分離レベルのサポートは、まだホットスタンバイレプリケーションは対象に加えられていません(<xref linkend="hot-standby">で述べます)。
+ホットスタンバイモードで現在サポートされた最も厳しい分離レベルはリピータブルリードです。
+マスタ上でシリアライザブルトランザクション中にデータベースに永続的な書き込みを行なえば、スタンバイはすべて最終的に一貫した状態に達するだろうということは保証されるでしょうが、スタンバイ上で実行されたリピータブルリードトランザクションは、時々マスタのシリアライザブルトランザクションの任意の連続する実行と一致しない過渡状態を見ることがあるでしょう。
     </para>
    </warning>
   </sect2>
@@ -1111,13 +1111,13 @@ ERROR:  could not serialize access due to read/write dependencies among transact
 <!--
    <title>Explicit Locking</title>
 -->
-   <title>����Ū���å�</title>
+   <title>明示的ロック</title>
 
    <indexterm>
 <!--
     <primary>lock</primary>
 -->
-    <primary>���å�</primary>
+    <primary>ロック</primary>
    </indexterm>
 
    <para>
@@ -1133,11 +1133,11 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     executed concurrently with other operations on the same table, so it
     obtains an exclusive lock on the table to enforce that.)
 -->
-<productname>PostgreSQL</productname>�ϡ��ơ��֥���Υǡ������Ф���Ʊ���������������椹�뤿����͡��ʼ���Υ��å��⡼�ɤ������Ƥ��ޤ���
-�����Υ⡼�ɤϡ�<acronym>MVCC</acronym>�Ǥ�ɬ�פ�ư��������ʤ���硢���ץꥱ�����������Υ��å��˻��Ѥ��뤳�Ȥ��Ǥ��ޤ���
-�ޤ����ۤȤ�ɤ�<productname>PostgreSQL</productname>���ޥ�ɤǤϡ����Ȥ����ơ��֥뤬���Υ��ޥ�ɤμ¹�����̤���ˡ�Ǻ���⤷�����ѹ�����Ƥ��ʤ����Ȥ�μ¤ˤ��뤿��ˡ�Ŭ�ڤʥ⡼�ɤΥ��å���ưŪ�˳������ޤ���
-���㤨�С�<command>TRUNCATE</>���ޥ�ɤϡ�Ʊ���ơ��֥���Ф���¾�����Ȥ�Ʊ���˼¹Ԥ��뤳�Ȥϴ����Ǥ���
-���Τ��ᡢ���Υơ��֥�ؤ���¾���å�����Ū�˳������ޤ�����
+<productname>PostgreSQL</productname>は、テーブル内のデータに対する同時アクセスを制御するために様々な種類のロックモードを備えています。
+これらのモードは、<acronym>MVCC</acronym>では必要な動作を得られない場合、アプリケーション制御のロックに使用することができます。
+また、ほとんどの<productname>PostgreSQL</productname>コマンドでは、参照されるテーブルがそのコマンドの実行中に別の方法で削除もしくは変更されていないことを確実にするために、適切なモードのロックを自動的に獲得します。
+（例えば、<command>TRUNCATE</>コマンドは、同じテーブルに対する他の操作とは同時に実行することは危険です。
+そのため、そのテーブルへの排他ロックを強制的に獲得します。）
    </para>
 
    <para>
@@ -1148,15 +1148,15 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     system view. For more information on monitoring the status of the lock
     manager subsystem, refer to <xref linkend="monitoring">.
 -->
-���ߤΥǡ����١��������Фǽ��פʥ��å��ΰ������ǧ����ˤϡ�<link linkend="view-pg-locks"><structname>pg_locks</structname></link>�����ƥ�ӥ塼����Ѥ��Ƥ���������
-���å��������֥����ƥ�ξ����ƻ�ˤĤ��Ƥξܺ٤�<xref linkend="monitoring">�򻲾Ȥ��Ƥ���������
+現在のデータベースサーバで重要なロックの一覧を確認するには、<link linkend="view-pg-locks"><structname>pg_locks</structname></link>システムビューを使用してください。
+ロック管理サブシステムの状況監視についての詳細は<xref linkend="monitoring">を参照してください。
    </para>
 
   <sect2 id="locking-tables">
 <!--
    <title>Table-level Locks</title>
 -->
-   <title>�ơ��֥��٥���å�</title>
+   <title>テーブルレベルロック</title>
 
    <indexterm zone="locking-tables">
     <primary>LOCK</primary>
@@ -1187,25 +1187,25 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     transaction at a time) while others are not self-conflicting (for example,
     an <literal>ACCESS SHARE</literal> lock can be held by multiple transactions).
 -->
-�ʲ��Υꥹ�Ȥˡ�<productname>PostgreSQL</productname>�Ǽ�ưŪ�˻��Ѥ���롢���Ѳ�ǽ�ʥ��å��⡼�ɤȤ���ʸ̮�򼨤��ޤ���
-�ޤ���<xref linkend="sql-lock">���ޥ�ɤ���Ѥ��ơ������������å�������Ū�˳������뤳�Ȥ�Ǥ��ޤ���
-�����Υ��å��⡼�ɤϡ����Ȥ�����̾����<quote>row�ʹԡ�</quote>�Ȥ������դ��դ��Ƥ��Ƥ⡢���ƥơ��֥��٥�Υ��å��Ǥ��뤳�Ȥ����դ��Ƥ���������
-���å��⡼�ɤ�̾�������Ū�ʤ�ΤǤ���
-������̾���ϡ��ƥ��å��⡼�ɤ���ɽŪ�ʻ�����ˡ�򤢤�����ɽ���Ƥ��ޤ���
-����������̣Ū�ˤ�����Ʊ���Ǥ���
-���å��⡼�ɴ֤ˤ�����ͣ��μ¼�Ū�ʺ��ۤϡ��ɤΥ⡼�ɤ��ɤΥ⡼�ɤȶ��礹�뤫�Ȥ������å��⡼�ɤ��Ȥ߹�碌�Ǥ�(<xref linkend="table-lock-compatibility">�򻲾Ȥ��Ƥ�������)��
-2�ĤΥȥ�󥶥������ǡ����礹��⡼�ɤΥ��å���Ʊ����Ʊ��ơ��֥����ݻ����뤳�ȤϤǤ��ޤ���
-�ʤ��������ȥ�󥶥������ϼ�ʬ���ȤȤϷ褷�ƶ��礷�ޤ���
-�㤨�С�<literal>ACCESS EXCLUSIVE</literal>���å�������������θ�Ʊ���ơ��֥��<literal>ACCESS SHARE</literal>���å�������Ǥ����ǽ��������ޤ��ˡ�
-���礷�ʤ����å��⡼�ɤϡ�¿���Υȥ�󥶥�������Ʊ�����ݻ����뤳�Ȥ���ǽ�Ǥ���
-�äˡ����å��⡼�ɤˤϡ����ʶ��礹���Ρ��㤨�С�<literal>ACCESS EXCLUSIVE</literal>��Ʊ����ʣ���Υȥ�󥶥��������ݻ����뤳�Ȥ��Բ�ǽ�ˤȡ����ʶ��礷�ʤ���Ρ��㤨�С�<literal>ACCESS SHARE</literal>��ʣ���Υȥ�󥶥��������ݻ���ǽ�ˤ����뤳�Ȥ����դ��Ƥ���������
+以下のリストに、<productname>PostgreSQL</productname>で自動的に使用される、使用可能なロックモードとその文脈を示します。
+また、<xref linkend="sql-lock">コマンドを使用して、こうしたロックを明示的に獲得することもできます。
+これらのロックモードは、たとえその名前に<quote>row（行）</quote>という言葉が付いていても、全てテーブルレベルのロックであることに注意してください。
+ロックモードの名前は歴史的なものです。
+これらの名前は、各ロックモードの代表的な使用方法をある程度表しています。
+しかし、意味的には全て同じです。
+ロックモード間における唯一の実質的な差異は、どのモードがどのモードと競合するかというロックモードの組み合わせです(<xref linkend="table-lock-compatibility">を参照してください)。
+2つのトランザクションで、競合するモードのロックを同時に同一テーブル上に保持することはできません
+（しかし、トランザクションは自分自身とは決して競合しません。
+例えば、<literal>ACCESS EXCLUSIVE</literal>ロックを獲得し、その後同じテーブルに<literal>ACCESS SHARE</literal>ロックを獲得できる可能性があります）。
+競合しないロックモードは、多くのトランザクションで同時に保持することが可能です。
+特に、ロックモードには、自己競合するもの（例えば、<literal>ACCESS EXCLUSIVE</literal>は同時に複数のトランザクションで保持することは不可能）と、自己競合しないもの（例えば、<literal>ACCESS SHARE</literal>は複数のトランザクションで保持可能）があることに注意してください。
    </para>
 
      <variablelist>
 <!--
       <title>Table-level Lock Modes</title>
 -->
-      <title>�ơ��֥��٥���å��⡼��</title>
+      <title>テーブルレベルロックモード</title>
       <varlistentry>
        <term>
         <literal>ACCESS SHARE</literal>
@@ -1216,7 +1216,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          Conflicts with the <literal>ACCESS EXCLUSIVE</literal> lock
          mode only.
 -->
-         <literal>ACCESS EXCLUSIVE</literal>���å��⡼�ɤȤΤ߶��礷�ޤ���
+         <literal>ACCESS EXCLUSIVE</literal>ロックモードとのみ競合します。
         </para>
 
         <para>
@@ -1225,8 +1225,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          referenced tables.  In general, any query that only <emphasis>reads</> a table
          and does not modify it will acquire this lock mode.
 -->
-<command>SELECT</command>���ޥ�ɤˤ�ꡢ���Ȥ����ơ��֥���Ф��Ƥ��Υ⡼�ɤΥ��å�����������ޤ���
-�̾�ơ��֥��<emphasis>�ɤ߼��</>�Τߤ��ѹ���Ԥ�ʤ��䤤��碌�Ǥ�������ơ����Υ��å��⡼�ɤ�������ޤ���
+<command>SELECT</command>コマンドにより、参照されるテーブルに対してこのモードのロックが獲得されます。
+通常、テーブルの<emphasis>読み取り</>のみで変更を行わない問い合わせであれば全て、このロックモードを獲得します。
         </para>
        </listitem>
       </varlistentry>
@@ -1241,7 +1241,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          Conflicts with the <literal>EXCLUSIVE</literal> and
          <literal>ACCESS EXCLUSIVE</literal> lock modes.
 -->
-<literal>EXCLUSIVE</literal>�����<literal>ACCESS EXCLUSIVE</literal>���å��⡼�ɤȶ��礷�ޤ���
+<literal>EXCLUSIVE</literal>および<literal>ACCESS EXCLUSIVE</literal>ロックモードと競合します。
         </para>
 
         <para>
@@ -1253,7 +1253,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          that are referenced but not selected
          <option>FOR UPDATE/FOR SHARE</option>).
 -->
-<command>SELECT FOR UPDATE</command>�����<command>SELECT FOR SHARE</command>���ޥ�ɤϡ��ʻ��ȤϤ���Ƥ��뤬��<option>FOR UPDATE/FOR SHARE</option>�Ȥ�������Ϥ���Ƥ��ʤ�¾�Υơ��֥���Ф���<literal>ACCESS SHARE</literal>���å��˲ä��ơ��оݤȤʤ�ơ��֥��ˤ��Υ⡼�ɤΥ��å���������ޤ���
+<command>SELECT FOR UPDATE</command>および<command>SELECT FOR SHARE</command>コマンドは、（参照はされているが、<option>FOR UPDATE/FOR SHARE</option>として選択はされていない他のテーブルに対する<literal>ACCESS SHARE</literal>ロックに加えて）対象となるテーブル上にこのモードのロックを獲得します。
         </para>
        </listitem>
       </varlistentry>
@@ -1269,7 +1269,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          EXCLUSIVE</literal>, <literal>EXCLUSIVE</literal>, and
          <literal>ACCESS EXCLUSIVE</literal> lock modes.
 -->
-<literal>SHARE</literal>��<literal>SHARE ROW EXCLUSIVE</literal>��<literal>EXCLUSIVE</literal>�������<literal>ACCESS EXCLUSIVE</literal>���å��⡼�ɤȶ��礷�ޤ���
+<literal>SHARE</literal>、<literal>SHARE ROW EXCLUSIVE</literal>、<literal>EXCLUSIVE</literal>、および<literal>ACCESS EXCLUSIVE</literal>ロックモードと競合します。
         </para>
 
         <para>
@@ -1281,8 +1281,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          tables).  In general, this lock mode will be acquired by any
          command that <emphasis>modifies data</> in a table.
 -->
-<command>UPDATE</command>��<command>DELETE</command>�������<command>INSERT</command>���ޥ�ɤϡ��ʻ��Ȥ����¾�����ƤΥơ��֥���Ф���<literal>ACCESS SHARE</literal>���å��˲ä��ơ��оݤȤʤ�ơ��֥��ˤ��Υ⡼�ɤΥ��å���������ޤ���
-�̾���Υ��å��⡼�ɤϡ��ơ��֥��<emphasis>�ǡ������ѹ�����</>�䤤��碌�ˤ���������ޤ���
+<command>UPDATE</command>、<command>DELETE</command>、および<command>INSERT</command>コマンドは、（参照される他の全てのテーブルに対する<literal>ACCESS SHARE</literal>ロックに加えて）対象となるテーブル上にこのモードのロックを獲得します。
+通常、このロックモードは、テーブルの<emphasis>データを変更する</>問い合わせにより獲得されます。
         </para>
        </listitem>
       </varlistentry>
@@ -1301,8 +1301,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          This mode protects a table against
          concurrent schema changes and <command>VACUUM</> runs.
 -->
-<literal>SHARE UPDATE EXCLUSIVE</literal>��<literal>SHARE</literal>��<literal>SHARE ROW EXCLUSIVE</literal>��<literal>EXCLUSIVE</literal>�������<literal>ACCESS EXCLUSIVE</literal>���å��⡼�ɤȶ��礷�ޤ���
-���Υ⡼�ɤˤ�ꡢƱ���¹Ԥ���륹�����ޤ��ѹ������<command>VACUUM</>���ޥ�ɤμ¹Ԥ��顢�ơ��֥���ݸ�ޤ���
+<literal>SHARE UPDATE EXCLUSIVE</literal>、<literal>SHARE</literal>、<literal>SHARE ROW EXCLUSIVE</literal>、<literal>EXCLUSIVE</literal>、および<literal>ACCESS EXCLUSIVE</literal>ロックモードと競合します。
+このモードにより、同時実行されるスキーマの変更および<command>VACUUM</>コマンドの実行から、テーブルを保護します。
         </para>
 
         <para>
@@ -1313,7 +1313,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          <command>ALTER TABLE</command> variants (for full details see
          <xref linkend="SQL-ALTERTABLE">).
 -->
-��<option>FULL</option>�ʤ��Ρ�<command>VACUUM</command>���ޥ�ɡ�<command>ANALYZE</>���ޥ�ɡ�<command>CREATE INDEX CONCURRENTLY</>��<command>ALTER TABLE VALIDATE</command>������ӡ�����¾��<command>ALTER TABLE</command>�ΰ���(�ܺ٤�<xref linkend="SQL-ALTERTABLE">�򻲾Ȥ��Ƥ�������)�ˤ�äƳ�������ޤ���
+（<option>FULL</option>なしの）<command>VACUUM</command>コマンド、<command>ANALYZE</>コマンド、<command>CREATE INDEX CONCURRENTLY</>、<command>ALTER TABLE VALIDATE</command>、および、その他の<command>ALTER TABLE</command>の亜種(詳細は<xref linkend="SQL-ALTERTABLE">を参照してください)によって獲得されます。
         </para>
        </listitem>
       </varlistentry>
@@ -1331,8 +1331,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          <literal>ACCESS EXCLUSIVE</literal> lock modes.
          This mode protects a table against concurrent data changes.
 -->
-<literal>ROW EXCLUSIVE</literal>��<literal>SHARE UPDATE EXCLUSIVE</literal>��<literal>SHARE ROW EXCLUSIVE</literal>��<literal>EXCLUSIVE</literal>�������<literal>ACCESS EXCLUSIVE</literal>���å��⡼�ɤȶ��礷�ޤ���
-���Υ⡼�ɤϡ�Ʊ���¹Ԥ����ǡ����ѹ�����ơ��֥���ݸ�ޤ���
+<literal>ROW EXCLUSIVE</literal>、<literal>SHARE UPDATE EXCLUSIVE</literal>、<literal>SHARE ROW EXCLUSIVE</literal>、<literal>EXCLUSIVE</literal>、および<literal>ACCESS EXCLUSIVE</literal>ロックモードと競合します。
+このモードは、同時実行されるデータ変更からテーブルを保護します。
         </para>
 
         <para>
@@ -1340,7 +1340,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          Acquired by <command>CREATE INDEX</command>
          (without <option>CONCURRENTLY</option>).
 -->
-��<option>CONCURRENTLY</option>�ʤ��Ρ�<command>CREATE INDEX</command>�ˤ�äƳ�������ޤ���
+（<option>CONCURRENTLY</option>なしの）<command>CREATE INDEX</command>によって獲得されます。
         </para>
        </listitem>
       </varlistentry>
@@ -1360,9 +1360,9 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          This mode protects a table against concurrent data changes, and
          is self-exclusive so that only one session can hold it at a time.
 -->
-<literal>ROW EXCLUSIVE</literal>��<literal>SHARE UPDATE EXCLUSIVE</literal>��
-<literal>SHARE</literal>��<literal>SHARE ROW EXCLUSIVE</literal>��<literal>EXCLUSIVE</literal>�������<literal>ACCESS EXCLUSIVE</literal>���å��⡼�ɤȶ��礷�ޤ���
-���Υ⡼�ɤϡ�1�ĤΥ��å������������٤ˤ�����ݻ����뤳�Ȥ��Ǥ���褦��������¾Ū��Ʊ���Υǡ����ѹ�����ơ��֥���ݸ�ޤ���
+<literal>ROW EXCLUSIVE</literal>、<literal>SHARE UPDATE EXCLUSIVE</literal>、
+<literal>SHARE</literal>、<literal>SHARE ROW EXCLUSIVE</literal>、<literal>EXCLUSIVE</literal>、および<literal>ACCESS EXCLUSIVE</literal>ロックモードと競合します。
+このモードは、1つのセッションだけが一度にそれを保持することができるよう、自己排他的に同時のデータ変更からテーブルを保護します。
         </para>
 
         <para>
@@ -1370,7 +1370,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          This lock mode is not automatically acquired by any
          <productname>PostgreSQL</productname> command.
 -->
-���Υ��å��⡼�ɤ�ưŪ�˳�������<productname>PostgreSQL</productname>���ޥ�ɤϤ���ޤ���
+このロックモードを自動的に獲得する<productname>PostgreSQL</productname>コマンドはありません。
         </para>
        </listitem>
       </varlistentry>
@@ -1391,18 +1391,18 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          i.e., only reads from the table can proceed in parallel with a
          transaction holding this lock mode.
 -->
-<literal>ROW SHARE</literal>��<literal>ROW EXCLUSIVE</literal>��
-<literal>SHARE UPDATE EXCLUSIVE</literal>��<literal>SHARE</literal>��
-<literal>SHARE ROW EXCLUSIVE</literal>��<literal>EXCLUSIVE</literal>�������<literal>ACCESS EXCLUSIVE</literal>���å��⡼�ɤȶ��礷�ޤ���
-���Υ⡼�ɤϡ�Ʊ���¹Ԥ����<literal>ACCESS SHARE</literal>�Τߤ���Ĥ��ޤ���
-�Ĥޤꡢ���Υ��å��⡼�ɤ��ݻ�����ȥ�󥶥��������¹Ԥ��Ƽ¹ԤǤ�������ϡ��ơ��֥���ɤ߼������Ǥ���
+<literal>ROW SHARE</literal>、<literal>ROW EXCLUSIVE</literal>、
+<literal>SHARE UPDATE EXCLUSIVE</literal>、<literal>SHARE</literal>、
+<literal>SHARE ROW EXCLUSIVE</literal>、<literal>EXCLUSIVE</literal>、および<literal>ACCESS EXCLUSIVE</literal>ロックモードと競合します。
+このモードは、同時実行される<literal>ACCESS SHARE</literal>のみを許可します。
+つまり、このロックモードを保持するトランザクションと並行して実行できる処理は、テーブルの読み取りだけです。
         </para>
 
         <para>
 <!--
          Acquired by <command>REFRESH MATERIALIZED VIEW CONCURRENTLY</command>.
 -->
-<command>REFRESH MATERIALIZED VIEW CONCURRENTLY</command>�ˤ���������ޤ���
+<command>REFRESH MATERIALIZED VIEW CONCURRENTLY</command>により獲得されます。
         </para>
        </listitem>
       </varlistentry>
@@ -1423,13 +1423,13 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          This mode guarantees that the
          holder is the only transaction accessing the table in any way.
 -->
-���ƤΥ⡼�ɤΥ��å���<literal>ACCESS
-         SHARE</literal>��<literal>ROW SHARE</literal>��<literal>ROW
-         EXCLUSIVE</literal>��<literal>SHARE UPDATE
-         EXCLUSIVE</literal>��<literal>SHARE</literal>��<literal>SHARE
-         ROW EXCLUSIVE</literal>��<literal>EXCLUSIVE</literal>�������
-         <literal>ACCESS EXCLUSIVE</literal>�ˤȶ��礷�ޤ���
-���Υ⡼�ɤˤ�ꡢ�����ݻ��԰ʳ��˥ơ��֥�˥�����������ȥ�󥶥�����󤬤ʤ����Ȥ��ݾڤ���ޤ���
+全てのモードのロック（<literal>ACCESS
+         SHARE</literal>、<literal>ROW SHARE</literal>、<literal>ROW
+         EXCLUSIVE</literal>、<literal>SHARE UPDATE
+         EXCLUSIVE</literal>、<literal>SHARE</literal>、<literal>SHARE
+         ROW EXCLUSIVE</literal>、<literal>EXCLUSIVE</literal>、および
+         <literal>ACCESS EXCLUSIVE</literal>）と競合します。
+このモードにより、その保持者以外にテーブルにアクセスするトランザクションがないことが保証されます。
         </para>
 
         <para>
@@ -1442,9 +1442,9 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          This is also the default lock mode for <command>LOCK TABLE</command>
          statements that do not specify a mode explicitly.
 -->
-<command>DROP TABLE</>��<command>TRUNCATE</command>��<command>REINDEX</command>��<command>CLUSTER</command>��<command>VACUUM FULL</command>���ޥ�ɤˤ�äƳ�������ޤ���
-<command>ALTER TABLE</>��¿���η����⤳�Υ�٥�ǥ��å���������ޤ�(<xref linkend="SQL-ALTERTABLE">�򻲾Ȥ��Ƥ�������)��
-�ޤ�������Ū�˥⡼�ɤ���ꤷ�ʤ���С����줬<command>LOCK TABLE</command>ʸ����Ѥ���ݤΥǥե���ȤΥ��å��⡼�ɤǤ���
+<command>DROP TABLE</>、<command>TRUNCATE</command>、<command>REINDEX</command>、<command>CLUSTER</command>、<command>VACUUM FULL</command>コマンドによって獲得されます。
+<command>ALTER TABLE</>の多くの形式もこのレベルでロックを獲得します(<xref linkend="SQL-ALTERTABLE">を参照してください)。
+また、明示的にモードを指定しなければ、これが<command>LOCK TABLE</command>文を使用する際のデフォルトのロックモードです。
         </para>
        </listitem>
       </varlistentry>
@@ -1457,7 +1457,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        <command>SELECT</command> (without <option>FOR UPDATE/SHARE</option>)
        statement.
 -->
-<literal>ACCESS EXCLUSIVE</literal>���å��Τߤ���<command>SELECT</command>��<option>FOR UPDATE/SHARE</option>�ʤ���ʸ��֥��å����ޤ���
+<literal>ACCESS EXCLUSIVE</literal>ロックのみが、<command>SELECT</command>（<option>FOR UPDATE/SHARE</option>なし）文をブロックします。
       </para>
      </tip>
 
@@ -1471,11 +1471,11 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     <application>PL/pgSQL</> exception block: an error escape from the block
     releases locks acquired within it.
 -->
-�̾���å��ϳ��������塢�ȥ�󥶥������ν����ޤ��ݻ�����ޤ���
-�����������å��������֥ݥ���Ȥγ�Ω��˳������줿��硢�����֥ݥ���Ȥ�������Хå������ȡ����å���¨�¤˲�������ޤ���
-����ϡ�<command>ROLLBACK</>�������֥ݥ���Ȱʹߤ˹Ԥ�줿���٤ƤΥ��ޥ�ɤθ��̤��ä��Ȥ�����§�������������Ƥ��ޤ���
-<application>PL/pgSQL</>�㳰�֥��å���ǳ������줿���å����Ф��Ƥ�Ʊ�ͤǤ���
-���Υ֥��å����饨�顼��ȴ�����塢�������줿���å��ϲ�������ޤ���
+通常ロックは獲得した後、トランザクションの終わりまで保持されます。
+しかし、ロックがセーブポイントの確立後に獲得された場合、セーブポイントがロールバックされると、ロックは即座に解放されます。
+これは、<command>ROLLBACK</>がセーブポイント以降に行われたすべてのコマンドの効果を取消すという原則と整合性が取れています。
+<application>PL/pgSQL</>例外ブロック内で獲得されたロックに対しても同様です。
+そのブロックからエラーで抜けた後、獲得されたロックは解放されます。
    </para>
 
 
@@ -1484,7 +1484,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
 <!--
      <title> Conflicting Lock Modes</title>
 -->
-     <title> ���å��⡼�ɤζ���</title>
+     <title> ロックモードの競合</title>
      <tgroup cols="9">
       <colspec colnum="2" colname="lockst">
       <colspec colnum="9" colname="lockend">
@@ -1495,8 +1495,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
         <entry morerows="1">Requested Lock Mode</entry>
         <entry spanname="lockreq">Current Lock Mode</entry>
 -->
-        <entry morerows="1">�׵᤹����å��⡼��</entry>
-        <entry spanname="lockreq">���ߤΥ��å��⡼��</entry>
+        <entry morerows="1">要求するロックモード</entry>
+        <entry spanname="lockreq">現在のロックモード</entry>
        </row>
        <row>
         <entry>ACCESS SHARE</entry>
@@ -1607,7 +1607,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
 <!--
     <title>Row-level Locks</title>
 -->
-    <title>�ԥ�٥���å�</title>
+    <title>行レベルロック</title>
 
     <para>
 <!--
@@ -1621,19 +1621,19 @@ ERROR:  could not serialize access due to read/write dependencies among transact
      on the same row.  Row-level locks do not affect data querying; they
      block only <emphasis>writers and lockers</emphasis> to the same row.
 -->
-�ơ��֥��٥���å��˲ä��ơ��ԥ�٥���å�������ޤ���<productname>PostgreSQL</productname>����ưŪ�˻Ȥ�ʸ̮�դ��ǰʲ��˹ԥ�٥���å��ΰ���������ޤ���
-�ԥ�٥���å��ζ���δ�����ɽ�ˤĤ��Ƥ�<xref linkend="row-lock-compatibility">�򻲾Ȥ��Ƥ���������
-�ȥ�󥶥������ϰۤʤ����ȥ�󥶥��������Ǥ��äƤ⡢Ʊ���Ԥ��Ф��ƶ��礹����å����ݻ��Ǥ��뤳�Ȥ����դ��Ƥ���������
-������������ʳ��Ǥϡ���ĤΥȥ�󥶥�������Ʊ���Ԥ��Ф��ƶ��礹����å���褷���ݻ��Ǥ��ޤ���
-�ԥ�٥���å��ϡ��ǡ������䤤��碌�ˤϱƶ���Ϳ���ޤ���
-�ԥ�٥���å��ϡ�<emphasis>Ʊ���Ԥ��Ф���񤭹��ߤȥ��å�</emphasis>������֥��å����ޤ���
+テーブルレベルロックに加えて、行レベルロックがあります。<productname>PostgreSQL</productname>が自動的に使う文脈付きで以下に行レベルロックの一覧があります。
+行レベルロックの競合の完全な表については<xref linkend="row-lock-compatibility">を参照してください。
+トランザクションは異なる副トランザクション内であっても、同じ行に対して競合するロックを保持できることに注意してください。
+しかし、それ以外では、二つのトランザクションは同じ行に対して競合するロックを決して保持できません。
+行レベルロックは、データの問い合わせには影響を与えません。
+行レベルロックは、<emphasis>同じ行に対する書き込みとロック</emphasis>だけをブロックします。
     </para>
 
      <variablelist>
 <!--
       <title>Row-level Lock Modes</title>
 -->
-      <title>�ԥ�٥���å��⡼��</title>
+      <title>行レベルロックモード</title>
       <varlistentry>
        <term>
         <literal>FOR UPDATE</literal>
@@ -1662,11 +1662,11 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          since the transaction started.  For further discussion see
          <xref linkend="applevel-consistency">.
 -->
-<literal>FOR UPDATE</literal>�ˤ��<command>SELECT</command>ʸ�ˤ����Ф��줿�Ԥ������ѤǤ��뤫�Τ褦�˥��å�����ޤ���
-����ˤ�ꡢ�����ϸ��ߤΥȥ�󥶥�����󤬽����ޤǡ�¾�Υȥ�󥶥�����󤬥��å����ѹ�������Ǥ��ʤ��ʤ�ޤ���
-���ʤ���������ιԤ��Ф���<command>UPDATE</command>��<command>DELETE</command>��<command>SELECT FOR UPDATE</command>��<command>SELECT FOR NO KEY UPDATE</command>��<command>SELECT FOR SHARE</command>��<command>SELECT FOR KEY SHARE</command>�򤷤褦�Ȥ���¾�Υȥ�󥶥������ϸ��ߤΥȥ�󥶥�����󤬽����ޤǥ֥��å�����ޤ����դ˸����С�<command>SELECT FOR UPDATE</command>��Ʊ���Ԥ��Ф��ƾ嵭�Υ��ޥ�ɤ�¹Ԥ��Ƥ���Ʊ���¹ԥȥ�󥶥��������Ԥ������줫�鹹�����줿�Ԥ���å������֤��ޤ�(�Ԥ��������Ƥ���С��Ԥ��֤��ޤ���)��
-��������<literal>REPEATABLE READ</>�⤷����<literal>SERIALIZABLE</>�ȥ�󥶥��������Ǥϡ����å�����Ԥ��ȥ�󥶥������γ��Ϥ�������ѹ����줿���ˤϥ��顼���֤�ޤ���
-����ʾ�ε�����<xref linkend="applevel-consistency">�򻲾Ȥ��Ƥ���������
+<literal>FOR UPDATE</literal>により<command>SELECT</command>文により取り出された行が更新用であるかのようにロックされます。
+これにより、それらは現在のトランザクションが終わるまで、他のトランザクションがロック、変更、削除できなくなります。
+すなわち、これらの行に対して<command>UPDATE</command>、<command>DELETE</command>、<command>SELECT FOR UPDATE</command>、<command>SELECT FOR NO KEY UPDATE</command>、<command>SELECT FOR SHARE</command>、<command>SELECT FOR KEY SHARE</command>をしようとする他のトランザクションは現在のトランザクションが終わるまでブロックされます。逆に言えば、<command>SELECT FOR UPDATE</command>は同じ行に対して上記のコマンドを実行している同時実行トランザクションを待ち、それから更新された行をロックして返します(行が削除されていれば、行は返しません)。
+しかし、<literal>REPEATABLE READ</>もしくは<literal>SERIALIZABLE</>トランザクション内では、ロックする行がトランザクションの開始した後に変更された場合にはエラーが返ります。
+これ以上の議論は<xref linkend="applevel-consistency">を参照してください。
         </para>
         <para>
 <!--
@@ -1678,8 +1678,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          indexes and expressional indexes are not considered), but this may change
          in the future.
 -->
-<literal>FOR UPDATE</>���å��⡼�ɤϹԤ��Ф���<command>DELETE</>�Ǥ⡢��������ͤ��ѹ�����<command>UPDATE</>�Ǥ��������ޤ���
-�������Ǥϡ�<command>UPDATE</>�ξ��˹�θ�������ν���ϡ����������Ȥ��ƻȤ����ȤΤǤ����դΥ���ǥå���(�Ĥޤ���ʬ����ǥå����估����ǥå����Ϲ�θ����ޤ���)�������ΤǤ���������Ͼ����Ѥ�뤫�⤷��ޤ���
+<literal>FOR UPDATE</>ロックモードは行に対する<command>DELETE</>でも、ある列の値を変更する<command>UPDATE</>でも獲得されます。
+現時点では、<command>UPDATE</>の場合に考慮される列の集合は、外部キーとして使うことのできる一意のインデックス(つまり部分インデックスや式インデックスは考慮されません)があるものですが、これは将来変わるかもしれません。
         </para>
        </listitem>
       </varlistentry>
@@ -1697,8 +1697,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          a lock on the same rows. This lock mode is also acquired by any
          <command>UPDATE</> that does not acquire a <literal>FOR UPDATE</> lock.
 -->
-����������å����夤�ʳ���<literal>FOR UPDATE</>��Ʊ���褦�˿����񤤤ޤ������Υ��å���Ʊ���ԤΥ��å���������褦�Ȥ���<literal>SELECT FOR KEY SHARE</>���ޥ�ɤ�֥��å����ޤ���
-���Υ��å��⡼�ɤ�<literal>FOR UPDATE</>���å���������ʤ�<command>UPDATE</>�ˤ�äƤ��������ޤ���
+獲得するロックが弱い以外は<literal>FOR UPDATE</>と同じように振る舞います。このロックは同じ行のロックを獲得しようとする<literal>SELECT FOR KEY SHARE</>コマンドをブロックしません。
+このロックモードは<literal>FOR UPDATE</>ロックを獲得しない<command>UPDATE</>によっても獲得されます。
         </para>
        </listitem>
       </varlistentry>
@@ -1719,8 +1719,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          prevent them from performing <command>SELECT FOR SHARE</command> or
          <command>SELECT FOR KEY SHARE</command>.
 -->
-���Ф��줿�ƹԤ��Ф�����¾���å��ǤϤʤ���ͭ���å����������ʳ��ϡ�<literal>FOR NO KEY UPDATE</>��Ʊ���褦�˿����񤤤ޤ���
-��ͭ���å��ϡ�¾�Υȥ�󥶥�����󤬤����ιԤ��Ф���<command>UPDATE</command>��<command>DELETE</command>��<command>SELECT FOR UPDATE</command>��<command>SELECT FOR NO KEY UPDATE</>��¹Ԥ���Τ�֥��å����ޤ�����<command>SELECT FOR SHARE</command>��<command>SELECT FOR KEY SHARE</command>��¹Ԥ���Τ��˳����ޤ���
+取り出された各行に対して排他ロックではなく共有ロックを獲得する以外は、<literal>FOR NO KEY UPDATE</>と同じように振る舞います。
+共有ロックは、他のトランザクションがこれらの行に対して<command>UPDATE</command>、<command>DELETE</command>、<command>SELECT FOR UPDATE</command>、<command>SELECT FOR NO KEY UPDATE</>を実行するのをブロックしますが、<command>SELECT FOR SHARE</command>や<command>SELECT FOR KEY SHARE</command>を実行するのを阻害しません。
         </para>
        </listitem>
       </varlistentry>
@@ -1741,8 +1741,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          <command>SELECT FOR NO KEY UPDATE</>, <command>SELECT FOR SHARE</>,
          or <command>SELECT FOR KEY SHARE</>.
 -->
-����������å����夤�ʳ���<literal>FOR SHARE</literal>��Ʊ���褦�˿����񤤤ޤ���<literal>SELECT FOR UPDATE</>�ϥ֥��å�����ޤ�����<literal>SELECT FOR NO KEY UPDATE</>�ϥ֥��å�����ޤ���
-������ͭ���å��ϡ�¾�Υȥ�󥶥������<command>DELETE</command>�䥭���ͤ��ѹ�����<command>UPDATE</command>��¹Ԥ���Τ�֥��å����ޤ���������ʳ���<command>UPDATE</>�䡢<command>SELECT FOR NO KEY UPDATE</>��<command>SELECT FOR SHARE</>��<command>SELECT FOR KEY SHARE</>���˳����ޤ���
+獲得するロックが弱い以外は<literal>FOR SHARE</literal>と同じように振る舞います。<literal>SELECT FOR UPDATE</>はブロックされますが、<literal>SELECT FOR NO KEY UPDATE</>はブロックされません。
+キー共有ロックは、他のトランザクションが<command>DELETE</command>やキー値を変更する<command>UPDATE</command>を実行するのをブロックしますが、それ以外の<command>UPDATE</>や、<command>SELECT FOR NO KEY UPDATE</>、<command>SELECT FOR SHARE</>、<command>SELECT FOR KEY SHARE</>を阻害しません。
         </para>
        </listitem>
       </varlistentry>
@@ -1757,16 +1757,16 @@ ERROR:  could not serialize access due to read/write dependencies among transact
      UPDATE</command> modifies selected rows to mark them locked, and so
      will result in disk writes.
 -->
-<productname>PostgreSQL</productname>�Ǥϡ��������ѹ����줿�Ԥξ���򵭲����ʤ����ᡢƱ���˥��å��Ǥ���Կ��ξ�¤Ϥ���ޤ���
-���������Ԥ���å�����ݤˡ��ǥ������˽񤭹����Ȥ�ȯ�����뤫�⤷��ޤ���
-�㤨��<command>SELECT FOR UPDATE</command>�ϡ����򤵤줿�Ԥ���å�������ΤȰ����դ��뤿����ѹ���Ԥ��ޤ��Τǡ��ǥ������ˤ��η�̤�񤭹��ळ�Ȥˤʤ�ޤ���
+<productname>PostgreSQL</productname>では、メモリ上に変更された行の情報を記憶しないため、同時にロックできる行数の上限はありません。
+しかし、行をロックする際に、ディスクに書き込む作業が発生するかもしれません。
+例えば<command>SELECT FOR UPDATE</command>は、選択された行をロックしたものと印を付けるために変更を行いますので、ディスクにその結果を書き込むことになります。
     </para>
 
     <table tocentry="1" id="row-lock-compatibility">
 <!--
      <title>Conflicting Row-level Locks</title>
 -->
-     <title>�ԥ�٥���å��ζ���</title>
+     <title>行レベルロックの競合</title>
      <tgroup cols="5">
       <colspec colnum="2" colname="lockst">
       <colspec colnum="5" colname="lockend">
@@ -1777,8 +1777,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
         <entry morerows="1">Requested Lock Mode</entry>
         <entry spanname="lockreq">Current Lock Mode</entry>
 -->
-        <entry morerows="1">�׵᤹����å��⡼��</entry>
-        <entry spanname="lockreq">���ߤΥ��å��⡼��</entry>
+        <entry morerows="1">要求するロックモード</entry>
+        <entry spanname="lockreq">現在のロックモード</entry>
        </row>
        <row>
         <entry>FOR KEY SHARE</entry>
@@ -1825,7 +1825,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
 <!--
     <title>Page-level Locks</title>
 -->
-    <title>�ڡ�����٥���å�</title>
+    <title>ページレベルロック</title>
 
     <para>
 <!--
@@ -1835,9 +1835,9 @@ ERROR:  could not serialize access due to read/write dependencies among transact
      updated.  Application developers normally need not be concerned with
      page-level locks, but they are mentioned here for completeness.
 -->
-�ơ��֥�ȹԥ��å��˲ä����ڡ�����٥�ζ�ͭ/��¾���å������ꡢ�����϶�ͭ�Хåե��ס���ˤ���ơ��֥�ڡ����ؤ��ɤ߽񤭤Υ���������������뤿��˻��Ѥ���ޤ���
-�����Υ��å��ϡ��Ԥ��������줿��乹�����줿���¨�¤˲������ޤ���
-���ץꥱ�������ȯ�Ԥ��̾�ڡ�����٥���å����θ����ɬ�פϤ���ޤ��󤬡����å��ˤĤ������Ƥ������������ä����ᤳ���Ǽ��夲�ޤ�����
+テーブルと行ロックに加え、ページレベルの共有/排他ロックがあり、これらは共有バッファプールにあるテーブルページへの読み書きのアクセスを管理するために使用されます。
+これらのロックは、行が取得された後や更新された後に即座に解除されます。
+アプリケーション開発者は通常ページレベルロックを考慮する必要はありませんが、ロックについて全てを説明したかったためここで取り上げました。
     </para>
 
    </sect2>
@@ -1846,13 +1846,13 @@ ERROR:  could not serialize access due to read/write dependencies among transact
 <!--
     <title>Deadlocks</title>
 -->
-    <title>�ǥåɥ��å�</title>
+    <title>デッドロック</title>
 
     <indexterm zone="locking-deadlocks">
 <!--
      <primary>deadlock</primary>
 -->
-     <primary>�ǥåɥ��å�</primary>
+     <primary>デッドロック</primary>
     </indexterm>
 
     <para>
@@ -1870,11 +1870,11 @@ ERROR:  could not serialize access due to read/write dependencies among transact
      (Exactly which transaction will be aborted is difficult to
      predict and should not be relied upon.)
 -->
-����Ū�ʥ��å��λ��Ѥϡ�<firstterm>�ǥåɥ��å�</>�θ����Ȥʤ��ǽ��������ޤ���
-�ǥåɥ��å��Ȥϡ�2�ġʤ⤷���Ϥ���ʾ�ˤΥȥ�󥶥������ˤ����ơ����줾�줬��¾���Υȥ�󥶥������ɬ�פȤ�����å��������Ƥ��ޤ����ȤǤ���
-�㤨�С��ȥ�󥶥������1���ơ��֥�A����¾���å���������Ƥ��ơ����˥ơ��֥�B����¾���å���������褦�Ȥ���ݤˡ��ȥ�󥶥������2�����˥ơ��֥�B����¾���å�������ѤߤǤ��äơ�������ơ��֥�A����¾���å���������褦�Ȼ�ߤ��硢�ɤ���Υȥ�󥶥������������ʤ���ޤ���
-<productname>PostgreSQL</productname>�Ǥϡ���ưŪ�˥ǥåɥ��å��������Τ����ط�����ȥ�󥶥������ΰ����򥢥ܡ��Ȥ��뤳�Ȥˤ�ꡢ���ξ������褷���⤦�����Υȥ�󥶥������ν�����λ�����ޤ�
-�ʤɤ���Υȥ�󥶥������򥢥ܡ��Ȥ��뤫�����Τ�ͽ������Τ��񤷤�������˰�¸���٤��ǤϤ���ޤ���ˡ�
+明示的なロックの使用は、<firstterm>デッドロック</>の原因となる可能性があります。
+デッドロックとは、2つ（もしくはそれ以上）のトランザクションにおいて、それぞれが、他方のトランザクションが必要とするロックを所持してしまうことです。
+例えば、トランザクション1がテーブルAに排他ロックを獲得していて、次にテーブルBに排他ロックを獲得しようとする際に、トランザクション2が既にテーブルBに排他ロックを獲得済みであって、今からテーブルAに排他ロックを獲得しようと試みる場合、どちらのトランザクションも処理を進められません。
+<productname>PostgreSQL</productname>では、自動的にデッドロック状況を検知し、関係するトランザクションの一方をアボートすることにより、この状況を解決し、もう一方のトランザクションの処理を完了させます
+（どちらのトランザクションをアボートするかを正確に予期するのは難しく、これに依存すべきではありません）。
     </para>
 
     <para>
@@ -1884,10 +1884,10 @@ ERROR:  could not serialize access due to read/write dependencies among transact
      used). Consider the case in which two concurrent
      transactions modify a table. The first transaction executes:
 -->
-�ǥåɥ��å��Ϲԥ�٥���å��η�̤Ȥ���ȯ�������ǽ��������ޤ�
-�ʤ������äơ�����Ū�ʥ��å���������Ѥ��Ƥ��ʤ��Ƥ�ȯ�������ǽ��������ޤ��ˡ�
-2�Ĥ�Ʊ���¹ԥȥ�󥶥�����󤬤���ơ��֥���ѹ����������ͤ��Ƥߤޤ���
-1���ܤΥȥ�󥶥������ϰʲ���¹Ԥ��ޤ���
+デッドロックは行レベルロックの結果として発生する可能性があります
+（したがって、明示的なロック処理を使用していなくても発生する可能性があります）。
+2つの同時実行トランザクションがあるテーブルを変更する状況を考えてみます。
+1つ目のトランザクションは以下を実行します。
 
 <screen>
 UPDATE accounts SET balance = balance + 100.00 WHERE acctnum = 11111;
@@ -1897,8 +1897,8 @@ UPDATE accounts SET balance = balance + 100.00 WHERE acctnum = 11111;
      This acquires a row-level lock on the row with the specified
      account number. Then, the second transaction executes:
 -->
-����ϡ����ꤷ�������ֹ�ιԤ��Ф��ԥ�٥���å���������ޤ���
-����2���ܤΥȥ�󥶥�����󤬰ʲ���¹Ԥ��ޤ���
+これは、指定した口座番号の行に対し行レベルロックを獲得します。
+次に2番目のトランザクションが以下を実行します。
 
 <screen>
 UPDATE accounts SET balance = balance + 100.00 WHERE acctnum = 22222;
@@ -1915,10 +1915,10 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 11111;
      transaction one to complete before it continues execution. Now,
      transaction one executes:
 -->
-1���ܤ�<command>UPDATE</command>ʸ�ϻ��ꤵ�줿�Ԥ��Ф���ԥ�٥���å��γ����������������ιԤι������������ޤ���
-��������2���ܤ�<command>UPDATE</command>ʸ�ϡ������оݤιԤ����å�����Ƥ��뤳�Ȥ��Τ������å�����������ȥ�󥶥�����󤬴�λ����ޤ��Ե����ޤ���
-�ȥ�󥶥������2�ϡ������ǡ�³����¹Ԥ������˥ȥ�󥶥������1����λ����Τ��Ե����Ƥ��ޤ���
-���ơ��ȥ�󥶥������1�������ǰʲ���¹Ԥ��ޤ���
+1つ目の<command>UPDATE</command>文は指定された行に対する行レベルロックの獲得に成功し、この行の更新に成功します。
+しかし、2つ目の<command>UPDATE</command>文は、更新対象の行がロックされていることを検知し、ロックを獲得したトランザクションが完了するまで待機します。
+トランザクション2は、ここで、続きを実行する前にトランザクション1が完了するのを待機しています。
+さて、トランザクション1がここで以下を実行します。
 
 <screen>
 UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 22222;
@@ -1933,11 +1933,11 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 22222;
      condition. <productname>PostgreSQL</productname> will detect this
      situation and abort one of the transactions.
 -->
-�ȥ�󥶥������1�ϻ��ꤷ���Ԥιԥ�٥���å���������褦�Ȥ��ޤ�����������Բ�ǽ�Ǥ���
-�ȥ�󥶥������2�����Υ��å�����˳������Ƥ��뤫��Ǥ���
-���Τ��ᡢ�ȥ�󥶥������2����λ����Τ��Ե����뤳�Ȥˤʤ�ޤ���
-�������ơ��ȥ�󥶥������1�ϥȥ�󥶥������2�ǥ֥��å����졢�ȥ�󥶥������2�ϥȥ�󥶥������1�ǥ֥��å�����롢�Ĥޤꡢ�ǥåɥ��å����֤Ǥ���
-<productname>PostgreSQL</productname>�ϥǥåɥ��å����֤��Τ��������Υȥ�󥶥����������Ǥ����ޤ���
+トランザクション1は指定した行の行レベルロックを獲得しようとしますが、これは不可能です。
+トランザクション2がそのロックを既に獲得しているからです。
+そのため、トランザクション2が完了するのを待機することになります。
+こうして、トランザクション1はトランザクション2でブロックされ、トランザクション2はトランザクション1でブロックされる、つまり、デッドロック状態です。
+<productname>PostgreSQL</productname>はデッドロック状態を検知し、片方のトランザクションを中断させます。
     </para>
 
     <para>
@@ -1953,10 +1953,10 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 22222;
      advance, then deadlocks can be handled on-the-fly by retrying
      transactions that abort due to deadlocks.
 -->
-�ǥåɥ��å����ɤ��Ǥ��ɤ���ˡ�ϡ��ǡ����١�������Ѥ������ƤΥ��ץꥱ������󤬡��������Τ�������ʣ���Υ��֥������Ȥ��Ф�����å���������뤳�ȤǤ���
-���˼������ǥåɥ��å�����ǡ��⤷ξ���Υȥ�󥶥�������Ʊ������ǹԤ򹹿����Ƥ�����ǥåɥ��å��ϵ�����ޤ���
-�ޤ����ȥ�󥶥��������Υ��֥������Ȥ��Ф��Ƴ��������ǽ�Υ��å��������Υ��֥������Ȥ�ɬ�פȤ���Ǥ�����Ū�ʥ⡼�ɤǤ��뤳�Ȥ�μ¤��ݾڤ��٤��Ǥ���
-���Τ��Ȥ������˸��ڤǤ��ʤ���硢�ǥåɥ��å��ˤ�ꥢ�ܡ��Ȥ���ȥ�󥶥�������ƻ�Ԥ���С��ǥåɥ��å���ǡ����١������Ư�����ʤ���Ǥ�������뤳�Ȥ��Ǥ��ޤ���
+デッドロックを防ぐ最も良い方法は、データベースを使用する全てのアプリケーションが、整合性のある順序で複数のオブジェクトに対するロックを獲得することです。
+前に示したデッドロックの例で、もし両方のトランザクションで同じ順序で行を更新していたらデッドロックは起こりません。
+また、トランザクション内のオブジェクトに対して獲得した最初のロックが、そのオブジェクトが必要とする最も制限的なモードであることを確実に保証すべきです。
+このことが事前に検証できない場合、デッドロックによりアボートするトランザクションを再試行すれば、デッドロックをデータベースを稼働させながらでも処理することができます。
     </para>
 
     <para>
@@ -1967,8 +1967,8 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 22222;
      applications to hold transactions open for long periods of time
      (e.g., while waiting for user input).
 -->
-�ǥåɥ��å����������Ф���ʤ���С��ơ��֥��٥���å��⤷���Ϲԥ�٥���å����׵᤹��ȥ�󥶥������ϡ����礹����å������������ޤǡ�̵���¤��Ե����ޤ���
-�������äơ����ץꥱ��������Ĺ���֡��㤨�С��桼���������Ԥ��˥ȥ�󥶥������򳫤����ޤ��ݻ����Ƥ����Τϡ��侩����ޤ���
+デッドロック状況が検出されなければ、テーブルレベルロックもしくは行レベルロックを要求するトランザクションは、競合するロックが解放されるまで、無期限に待機します。
+したがって、アプリケーションで長時間（例えば、ユーザの入力待ち）トランザクションを開いたまま保持しておくのは、推奨されません。
     </para>
    </sect2>
 
@@ -1976,13 +1976,13 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 22222;
 <!--
     <title>Advisory Locks</title>
 -->
-    <title>����Ū���å�</title>
+    <title>勧告的ロック</title>
 
     <indexterm zone="advisory-locks">
 <!--
      <primary>advisory lock</primary>
 -->
-     <primary>����Ū���å�</primary>
+     <primary>勧告的ロック</primary>
     </indexterm>
 
     <indexterm zone="advisory-locks">
@@ -1990,8 +1990,8 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 22222;
      <primary>lock</primary>
      <secondary>advisory</secondary>
 -->
-     <primary>���å�</primary>
-     <secondary>����Ū</secondary>
+     <primary>ロック</primary>
+     <secondary>勧告的</secondary>
     </indexterm>
 
     <para>
@@ -2009,12 +2009,12 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 22222;
      advisory locks are faster, avoid table bloat, and are automatically
      cleaned up by the server at the end of the session.
 -->
-<productname>PostgreSQL</productname>�ϡ����ץꥱ��������ȼ��ΰ�̣����ĥ��å������������ˡ���󶡤��ޤ���
-����ϡ����λ��Ѥ˴ؤ��ƥ����ƥ�ˤ�����¤��ʤ����ȡ��Ĥޤꡢ���������Ѥ˴ؤ��Ƥϥ��ץꥱ���������Ǥ����Ĥ��Ȥ���<firstterm>����Ū���å�</>�ȸƤФ�ޤ���
-����Ū���å��ϡ�MVCC�����˹�碌�Ť餤���å���ά��ͭ�Ѥ˻��Ѥ��뤳�Ȥ��Ǥ��ޤ���
-�㤨�С�����Ū���å��Τ褯�������ѤȤ��ơ�������<quote>�ե�åȥե�����</>�ǡ������������ƥ��ŵ��Ū�ʡ����Ū�ʥ��å���ά���ϵ����뤳�ȤǤ���
-�������ӤΤ���˥ơ��֥���˥ե饰���Ǽ���뤳�Ȥ�Ǥ��ޤ���������Ū���å���������®�ǡ��ơ��֥����ĥ���ɤ����Ȥ��Ǥ��ޤ���
-�ޤ������å����λ���˥����Фˤ�뼫ư������Ԥ����Ȥ�Ǥ���褦�ˤʤ�ޤ���
+<productname>PostgreSQL</productname>は、アプリケーション独自の意味を持つロックを生成する手法を提供します。
+これは、その使用に関してシステムによる制限がないこと、つまり、正しい使用に関してはアプリケーションが責任を持つことから<firstterm>勧告的ロック</>と呼ばれます。
+勧告的ロックは、MVCC方式に合わせづらいロック戦略で有用に使用することができます。
+例えば、勧告的ロックのよくある利用として、いわゆる<quote>フラットファイル</>データ管理システムで典型的な、悲観的なロック戦略を模擬することです。
+この用途のためにテーブル内にフラグを格納することもできますが、勧告的ロックの方が高速で、テーブルの膨張を防ぐことができます。
+また、セッション終了時にサーバによる自動整理を行うこともできるようになります。
     </para>
 
     <para>
@@ -2042,19 +2042,19 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 22222;
      statement is true regardless of whether the existing lock hold and new
      request are at session level or transaction level.
 -->
-<productname>PostgreSQL</productname>�ˤϡ����å�����٥�ȥȥ�󥶥�������٥�Ȥ������Ĥδ���Ū���å��γ�����ˡ������ޤ���
-���å�����٥�ǳ�������ȡ�����Ū���å�������Ū�˲�������뤫�����å���󤬽�λ����ޤ��ݻ�����ޤ���
-ɸ��Υ��å��׵�Ȱۤʤꡢ���å�����٥봫��Ū���å��ϥȥ�󥶥������Ȥ�����̣�ˤϽ����ޤ���
-���å����ȥ�󥶥�����������˳������졢���Υȥ�󥶥��������ǥ�����Хå������Ȥ��Ƥ⡢������Хå�����ݻ�����ޤ���
-�����ơ��ƤӽФ����Υȥ�󥶥�����󤬸�Ǽ��Ԥ����Ȥ��Ƥ���å������ͭ���Ǥ���
-��ͭ����ץ���������ǡ�Ʊ��Υ��å�����٥�Υ��å���ʣ����������뤳�Ȥ�Ǥ��ޤ���
-���ξ�硢�ġ��Υ��å��׵���Ф��ơ����å���ºݤ˲������������б�������å�����׵᤬�ʤ���Фʤ�ޤ���
-�����ȥ�󥶥�������٥�Υ��å��Ϥ���̾�Υ��å��˻����褦��ư��ޤ���
-�����ϡ������ν����˼�ưŪ�˲�������ޤ��Τǡ�����Ū�ʥ��å��������Ϥ���ޤ���
-û���֤δ���Ū���å������Ѥ�����ϡ����å�����٥��ư����⤳��ư������������ʤ��Ȥ�¿������ޤ���
-Ʊ������Ū���å����̻Ҥ��Ф��륻�å�����٥�Υ��å��ȥȥ�󥶥�������٥�Υ��å��׵�ϡ������̤�ߤ���֥��å����ޤ���
-���å���󤬤��Ǥ˻��ꤵ�줿����Ū���å����ݻ����Ƥ����硢¾�Υ��å���󤬤��Υ��å����Ե����Ƥ����Ȥ��Ƥ⡢�ɲä��׵�Ͼ���������ޤ���
-������ݻ�����Ƥ�����å��ȿ������׵᤬���å�����٥뤫�ȥ�󥶥�������٥뤫�ɤ����˴ؤ�餺������ʸ�����ƤϤޤ�ޤ���
+<productname>PostgreSQL</productname>には、セッションレベルとトランザクションレベルという２つの勧告的ロックの獲得方法があります。
+セッションレベルで獲得すると、勧告的ロックは明示的に解放されるか、セッションが終了するまで保持されます。
+標準のロック要求と異なり、セッションレベル勧告的ロックはトランザクションという意味には従いません。
+ロックがトランザクション期間中に獲得され、そのトランザクションを後でロールバックしたとしても、ロールバック後も保持されます。
+そして、呼び出し元のトランザクションが後で失敗したとしてもロック解除は有効です。
+所有するプロセスの中で、同一のセッションレベルのロックを複数回獲得することもできます。
+この場合、個々のロック要求に対して、ロックを実際に解放する前に対応するロック解除要求がなければなりません。
+一方トランザクションレベルのロックはより通常のロックに似たように動作します。
+それらは、処理の終わりに自動的に解放されますので、明示的なロック解放操作はありません。
+短期間の勧告的ロックを利用する場合は、セッションレベルの動作よりもこの動作の方が便利なことが多くあります。
+同じ勧告的ロック識別子に対するセッションレベルのロックとトランザクションレベルのロック要求は、想像通り互いをブロックします。
+セッションがすでに指定された勧告的ロックを保持している場合、他のセッションがそのロックを待機していたとしても、追加の要求は常に成功します。
+これは保持されているロックと新しい要求がセッションレベルかトランザクションレベルかどうかに関わらず、この文は当てはまります。
     </para>
 
     <para>
@@ -2065,7 +2065,7 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 22222;
      linkend="view-pg-locks"><structname>pg_locks</structname></link> system
      view.
 -->
-<productname>PostgreSQL</productname>�ˤ����뤹�٤ƤΥ��å���Ʊ�ͤˡ��������Ǥ��٤ƤΥ��å������ݻ�����Ƥ��봫��Ū���å�����������<link linkend="view-pg-locks"><structname>pg_locks</structname></link>�����ƥ�ӥ塼�ˤ���ޤ���
+<productname>PostgreSQL</productname>におけるすべてのロックと同様に、現時点ですべてのセッションで保持されている勧告的ロックの全一覧は<link linkend="view-pg-locks"><structname>pg_locks</structname></link>システムビューにあります。
     </para>
 
     <para>
@@ -2080,11 +2080,11 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 22222;
      grantable by the server, typically in the tens to hundreds of thousands
      depending on how the server is configured.
 -->
-����Ū���å����̾�Υ��å��϶�ͭ����ס���˳�����Ƥ�졢�������̤�<xref linkend="guc-max-locks-per-transaction">��<xref linkend="guc-max-connections">�����ѿ��ˤ����ꤵ��ޤ���
-���Υ����ϲ�񤷤ʤ��褦�����դ�ɬ�פǤ���
-����ʤ��ȡ������Фϥ��å�������ޤä������Ĥ��뤳�Ȥ��Ǥ��ʤ��ʤ�ޤ���
-����ϡ������Фǵ��ĤǤ��봫��Ū���å����˾�¤����뤳�Ȥ��̣���ޤ���
-�����Ф�����ˤ��ޤ������̾1������10�����٤ˤʤ�ޤ���
+勧告的ロックと通常のロックは共有メモリプールに割り当てられ、その容量は<xref linkend="guc-max-locks-per-transaction">と<xref linkend="guc-max-connections">設定変数により決定されます。
+このメモリを浪費しないように注意が必要です。
+さもないと、サーバはロック獲得をまったく許可することができなくなります。
+これは、サーバで許可できる勧告的ロック数に上限があることを意味します。
+サーバの設定によりますが、通常、1万から10万程度になります。
     </para>
 
     <para>
@@ -2094,8 +2094,8 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 22222;
      taken to control the locks acquired because of the order in which SQL
      expressions are evaluated.  For example:
 -->
-�ä�����Ū�ʽ���դ���<literal>LIMIT</>�������䤤��碌�Ǥϡ����δ�����å��⡼�ɤ���Ѥ�����Ĥ��ξ��ˤ����ơ�SQL����ɾ������������θ���������줿���å������椹�뤳�Ȥ˵����ۤ�ʤ���Фʤ�ޤ���
-�ʲ�����򼨤��ޤ���
+特に明示的な順序付けと<literal>LIMIT</>句を持つ問い合わせでは、この勧告ロックモードを使用する幾つかの場合において、SQL式が評価される順序を考慮し獲得されたロックを制御することに気を配らなければなりません。
+以下に例を示します。
 <screen>
 <!--
 SELECT pg_advisory_lock(id) FROM foo WHERE id = 12345; &#045;&#045; ok
@@ -2105,12 +2105,12 @@ SELECT pg_advisory_lock(q.id) FROM
   SELECT id FROM foo WHERE id &gt; 12345 LIMIT 100
 ) q; &#045;&#045; ok
 -->
-SELECT pg_advisory_lock(id) FROM foo WHERE id = 12345; -- ����ʤ�
-SELECT pg_advisory_lock(id) FROM foo WHERE id &gt; 12345 LIMIT 100; -- ������
+SELECT pg_advisory_lock(id) FROM foo WHERE id = 12345; -- 問題なし
+SELECT pg_advisory_lock(id) FROM foo WHERE id &gt; 12345 LIMIT 100; -- 危険！
 SELECT pg_advisory_lock(q.id) FROM
 (
   SELECT id FROM foo WHERE id &gt; 12345 LIMIT 100
-) q; -- ����ʤ�
+) q; -- 問題なし
 </screen>
 <!--
      In the above queries, the second form is dangerous because the
@@ -2122,10 +2122,10 @@ SELECT pg_advisory_lock(q.id) FROM
      would be dangling, although still viewable in
      <structname>pg_locks</structname>.
 -->
-�����Ǥϡ����å������ؿ����¹Ԥ��������<literal>LIMIT</> ��Ŭ�Ѥ���뤳�Ȥ��ݾ�Ǥ��ʤ����ᡢ2���ܤη����ϴ����Ǥ���
-����ˤ�ꡢ���ץꥱ����������ꤷ�Ƥ��ʤ��ʤ󤫤�Υ��å�������������ǽ��������ޤ���
-���Τ��ᡢ�ʥ��å���󤬽�λ����ޤǡ˲����˼��Ԥ��뤳�Ȥˤʤ�ޤ���
-���ץꥱ������󤫤鸫��ȡ������������å��Ϥ����ξ���Ǥ�����<structname>pg_locks</structname>����ϻ��Ȥ���³���ޤ���
+上の例では、ロック獲得関数が実行される前に<literal>LIMIT</> が適用されることを保障できないため、2番目の形式は危険です。
+これにより、アプリケーションが想定していないなんからのロックが生成される可能性があります。
+そのため、（セッションが終了するまで）解放に失敗することになります。
+アプリケーションから見ると、こうしたロックはただの飾りですが、<structname>pg_locks</structname>からは参照され続けます。
     </para>
 
     <para>
@@ -2133,7 +2133,7 @@ SELECT pg_advisory_lock(q.id) FROM
      The functions provided to manipulate advisory locks are described in
      <xref linkend="functions-advisory-locks">.
 -->
-����Ū���å��򰷤�����δؿ��ˤĤ��Ƥϡ�<xref linkend="functions-advisory-locks">���������ޤ���
+勧告的ロックを扱うための関数については、<xref linkend="functions-advisory-locks">で説明します。
     </para>
    </sect2>
 
@@ -2143,7 +2143,7 @@ SELECT pg_advisory_lock(q.id) FROM
 <!--
    <title>Data Consistency Checks at the Application Level</title>
 -->
-   <title>���ץꥱ��������٥�ǤΥǡ����ΰ���������å�</title>
+   <title>アプリケーションレベルでのデータの一貫性チェック</title>
 
    <para>
 <!--
@@ -2152,7 +2152,7 @@ SELECT pg_advisory_lock(q.id) FROM
     shifting with each statement, and even a single statement may not
     restrict itself to the statement's snapshot if a write conflict occurs.
 -->
-�ǡ����λ����ϰϤϳƥ��ơ��ȥ��Ȥ��Ѳ�����Τǡ��꡼�ɥ��ߥåƥ��ɥȥ�󥶥���������Ѥ��ơ��ǡ����������˴ؤ���ӥ��ͥ��롼��򶯲�����Τ������񤷤����ȤǤ����ޤ����񤭹��߶��礬�������硢ñ��Υ��ơ��ȥ��ȤǤ������ơ��ȥ��ȤΥ��ʥåץ���åȤ˸��ꤵ��ʤ����⤷��ޤ���
+データの参照範囲は各ステートメントで変化するので、リードコミッティドトランザクションを使用して、データ保全性に関するビジネスルールを強化するのは非常に難しいことです。また、書き込み競合が生じる場合、単一のステートメントでさえステートメントのスナップショットに限定されないかもしれません。
    </para>
 
    <para>
@@ -2174,13 +2174,13 @@ SELECT pg_advisory_lock(q.id) FROM
     When such a cycle appears, integrity checks will not work correctly
     without some help.
 -->
-��ԡ����֥�꡼�ɥȥ�󥶥������ϼ¹����Τˤ錄�äƥǡ����ΰ��ꤷ�������ϰϤ�����ޤ�����<acronym>MVCC</acronym>���ʥåץ���åȤ�ǡ��������������å��˻��Ѥ��뤳�Ȥˤ�롢<firstterm>�ɤ߼��/�񤭹��߶���</firstterm>�Ȥ����Τ����Τ�ޤࡢ��̯�����꤬����ޤ���
+リピータブルリードトランザクションは実行全体にわたってデータの安定した参照範囲を持ちますが、<acronym>MVCC</acronym>スナップショットをデータ完全性チェックに使用することによる、<firstterm>読み取り/書き込み競合</firstterm>として知られるものを含む、微妙な問題があります。
 
-1�ĤΥȥ�󥶥�����󤬥ǡ�����񤭡�Ʊ���˼¹Ԥ���ȥ�󥶥�����󤬡�Ʊ���ǡ���(�񤭹��ߤ����ˡ����뤤�Ϥ��ν񤭹��ߤθ�ˤ�)���ɤळ�Ȥ��ߤ��硢������̤Υȥ�󥶥�������Ư���򸫤뤳�Ȥ��Ǥ��ޤ���
-���θ塢�ɤ߼�ϡ��ɤ줬�ǽ�˥������Ȥ����������뤤�ϡ��ɤ줬�ǽ�˥��ߥåȤ������ˤ�����餺�ǽ�˼¹Ԥ����褦�˸����ޤ���
-���Τޤޤ���������Ϥ���ޤ��󤬡��ɤ߼꤬����˥ǡ�����񤱤С�Ʊ���˼¹Ԥ����ȥ�󥶥�����󤬤�����ɤ����硢��ǽҤ٤��ȥ�󥶥������Τɤ��餫���������ä��褦�˸�����ȥ�󥶥������ȤʤäƤ��ޤ��ޤ���
-�Ǹ�˼¹Ԥ����褦�˸�����ȥ�󥶥�����󤬼ºݤˤϺǽ�˥��ߥåȤ��Ƥ�����硢�ȥ�󥶥������μ¹Խ�Υ���դˤϽ۴Ĥ��ưפ˽и����ޤ���
-���Τ褦�ʽ۴Ĥ��и���������������Υ����å��Ϥʤˤ�����λٱ礬�ʤ����������ư��ޤ���
+1つのトランザクションがデータを書き、同時に実行するトランザクションが、同じデータ(書き込みの前に、あるいはその書き込みの後にも)を読むことを試みる場合、それは別のトランザクションの働きを見ることができません。
+その後、読み手は、どれが最初にスタートしたか、あるいは、どれが最初にコミットしたかにかかわらず最初に実行したように見えます。
+そのままいけば問題はありませんが、読み手がさらにデータを書けば、同時に実行したトランザクションがそれを読んだ場合、上で述べたトランザクションのどちらかの前に走ったように見えるトランザクションとなってしまいます。
+最後に実行したように見えるトランザクションが実際には最初にコミットしていた場合、トランザクションの実行順のグラフには循環が容易に出現します。
+そのような循環が出現する時、完全性のチェックはなにかしらの支援がなければ正しく動作しません。
    </para>
 
    <para>
@@ -2192,15 +2192,15 @@ SELECT pg_advisory_lock(q.id) FROM
     order of execution, one of the transactions involved is rolled back to
     break the cycle.
 -->
-<xref linkend="xact-serializable">�ˤ��Ҥ٤��褦�ˡ����ꥢ�饤���֥�ȥ�󥶥������ϡ������ʥѥ�������ɤ߼��/�񤭹��߶���Τ������֥��å��󥰴ƻ��ä�����ԡ����֥�꡼�ɥȥ�󥶥������Ǥ���
-����˼¹Խ礬�۴Ĥ�����������ѥ����󤬸��Τ��줿��硢�ޤޤ�Ƥ����ȥ�󥶥������Τ�����1�ĤϽ۴Ĥ��Ǥ��ڤ뤿��˥�����Хå�����ޤ���
+<xref linkend="xact-serializable">により述べたように、シリアライザブルトランザクションは、危険なパターンの読み取り/書き込み競合のための非ブロッキング監視を加えたリピータブルリードトランザクションです。
+明白に実行順が循環を引き起こすパターンが検知された場合、含まれていたトランザクションのうちの1つは循環を断ち切るためにロールバックされます。
    </para>
 
    <sect2 id="serializable-consistency">
 <!--
     <title>Enforcing Consistency With Serializable Transactions</title>
 -->
-    <title>���ꥢ�饤���֥�ȥ�󥶥��������Ѥ���������ζ���</title>
+    <title>シリアライザブルトランザクションを用いた一貫性の強化</title>
 
     <para>
 <!--
@@ -2211,8 +2211,8 @@ SELECT pg_advisory_lock(q.id) FROM
      ensure consistency should <quote>just work</quote> in this regard in
      <productname>PostgreSQL</productname>.
 -->
-���ꥢ�饤���֥�ȥ�󥶥������ʬΥ��٥뤬���ǡ����ΰ������ɬ�פȤ��뤹�٤Ƥν񤭹��ߤ���Ӥ��٤Ƥ��ɤ߼��˻��Ѥ�����硢�������μ¤ˤ��뤿���ɬ�פʤ��Ȥ�¾�ˤϤ���ޤ���
-��������ݾڤ��뤿��˥��ꥢ�饤���֥�ȥ�󥶥���������Ѥ���褦�񤫤�Ƥ���¾�δĶ�����Υ��եȥ������ϡ�<productname>PostgreSQL</productname>�Ǥ������˴ؤ���<quote>������ư��</quote>�٤��Ǥ���
+シリアライザブルトランザクション分離レベルが、データの一貫性を必要とするすべての書き込みおよびすべての読み取りに使用される場合、一貫性を確実にするために必要なことは他にはありません。
+一貫性を保証するためにシリアライザブルトランザクションを使用するよう書かれている他の環境からのソフトウェアは、<productname>PostgreSQL</productname>でこの点に関して<quote>正しく動く</quote>べきです。
     </para>
 
     <para>
@@ -2227,16 +2227,16 @@ SELECT pg_advisory_lock(q.id) FROM
      subvert integrity checks, through checks of the transaction isolation
      level in triggers.
 -->
-���ε��Ѥ���Ѥ�����硢���ץꥱ������󥽥եȥ�������ľ�󲽼��Ԥǥ�����Хå������ȥ�󥶥�������ưŪ�˺ƻ�Ԥ���褦�ʥե졼�����������Ƥ����硢���ץꥱ�������ץ�����ޤˤȤä���ɬ�פ���ô�����߽Ф��ʤ��褦�ˤ���Ǥ��礦��
-<literal>default_transaction_isolation</>��<literal>serializable</>�˥��åȤ��뤳�ȤϤ褤�ͤ����⤷��ޤ���
-¾�Υȥ�󥶥������ʬΥ��٥�ϻ��Ѥ���ʤ����Ȥ��ݾڤ�����֤�֤��롢�����Ǥʤ���С������դ˴����̥����å��򼺤�ʤ��褦���ȥꥬ���ǥȥ�󥶥������ʬΥ��٥�Υ����å��򤹤뤳�Ȥ⸭���Ǥ��礦��
+この技術を使用した場合、アプリケーションソフトウェアが直列化失敗でロールバックしたトランザクションを自動的に再試行するようなフレームワークを備えている場合、アプリケーションプログラマにとって不必要な負担を生み出さないようにするでしょう。
+<literal>default_transaction_isolation</>を<literal>serializable</>にセットすることはよい考えかもしれません。
+他のトランザクション分離レベルは使用されないことを保証する処置を講ずる、そうでなければ、不注意に完全位チェックを失わないよう、トリガーでトランザクション分離レベルのチェックをすることも賢明でしょう。
     </para>
 
     <para>
 <!--
      See <xref linkend="xact-serializable"> for performance suggestions.
 -->
-�¹Ԥ˴ؤ��������<xref linkend="xact-serializable">�򻲾Ȥ��Ƥ���������
+実行に関する提言は<xref linkend="xact-serializable">を参照してください。
     </para>
 
     <warning>
@@ -2247,7 +2247,7 @@ SELECT pg_advisory_lock(q.id) FROM
       Because of that, those using hot standby may want to use Repeatable
       Read and explicit locking.on the master.
 -->
-���ꥢ�饤���֥�ȥ�󥶥���������Ѥ����������ݸ��٥�ϡ��ޤ��ۥåȥ�����Х��⡼��(<xref linkend="hot-standby">)�ˤϳ�ĥ����Ƥ��ޤ��󡣤��Τ���ˡ��ۥåȥ�����Х�����Ѥ�����ϡ��ޥ����ˤ������ԡ����֥�꡼�ɤ�����Ū�ʥ��å����������Ѥ�˾�ޤ�뤫�⤷��ޤ���
+シリアライザブルトランザクションを使用する整合性保護レベルは、まだホットスタンバイモード(<xref linkend="hot-standby">)には拡張されていません。そのために、ホットスタンバイを使用する場合は、マスタにおけるリピータブルリードと明示的なロック処理の利用が望まれるかもしれません。
      </para>
     </warning>
    </sect2>
@@ -2256,7 +2256,7 @@ SELECT pg_advisory_lock(q.id) FROM
 <!--
     <title>Enforcing Consistency With Explicit Blocking Locks</title>
 -->
-    <title>����Ū�ʥ֥��å��󥰥��å����Ѥ���������ζ���</title>
+    <title>明示的なブロッキングロックを用いた一貫性の強化</title>
 
     <para>
 <!--
@@ -2271,10 +2271,10 @@ SELECT pg_advisory_lock(q.id) FROM
      account when porting applications to
      <productname>PostgreSQL</productname> from other environments.
 -->
-�󥷥ꥢ�饤���֥�ν񤭹��ߤ���ǽ�ʾ�硢
-����Ԥθ�������ͭ������μ¤ʤ�ΤȤ���Ʊ���������򤱤뤿��ˤϡ�<command>SELECT FOR UPDATE</command>ʸ��<command>SELECT FOR SHARE</command>ʸ��Ŭ�ڤ�<command>LOCK TABLE</command>ʸ����Ѥ���ɬ�פ�����ޤ�
-��<command>SELECT FOR UPDATE</command>ʸ�����<command>SELECT FOR SHARE</command>ʸ���֤äƤ����ԤΤߤ�Ʊ���˵����빹��������å�����<command>LOCK TABLE</command>�ϥơ��֥����Τ���å����ޤ��ˡ�
-�����<productname>PostgreSQL</productname>��¾�δĶ����饢�ץꥱ��������ܿ�������˹�θ����ʤ���Фʤ�ޤ���
+非シリアライザブルの書き込みが可能な場合、
+ある行の現時点の有効性を確実なものとし、同時更新を避けるためには、<command>SELECT FOR UPDATE</command>文や<command>SELECT FOR SHARE</command>文、適切な<command>LOCK TABLE</command>文を使用する必要があります
+（<command>SELECT FOR UPDATE</command>文および<command>SELECT FOR SHARE</command>文は返ってきた行のみを同時に起こる更新からロックし、<command>LOCK TABLE</command>はテーブル全体をロックします）。
+これは<productname>PostgreSQL</productname>に他の環境からアプリケーションを移植する時に考慮されなければなりません
     </para>
 
     <para>
@@ -2292,10 +2292,10 @@ SELECT pg_advisory_lock(q.id) FROM
      conflicting operation unless an actual <command>UPDATE</command> of
      the row was performed while the lock was held.
 -->
-¾�δĶ������ڤ��ؤ������Τ���ʤ��������Ȥ��Ƥϡ�Ʊ���¹ԥȥ�󥶥���������򤵤줿�Ԥ򹹿����ʤ���������ʤ��Ȥ������Ȥ�<command>SELECT FOR UPDATE</command>���ݾڤ��ʤ��Ȥ������¤Ǥ���
-<productname>PostgreSQL</productname>�Ǥ���򤹤뤿��ˤϡ��ͤ��ѹ�����ɬ�פ��ʤ��Ƥ⡢�ºݤ˹Ԥ򹹿����ʤ���Фʤ�ޤ���
-<command>SELECT FOR UPDATE</command>�ϡ�¾�Υȥ�󥶥������Ʊ�����å���������뤳�ȡ��ޤ��ϡ����å����줿�Ԥ˱ƶ�����<command>UPDATE</command>�ޤ���<command>DELETE</command>��¹Ԥ��뤳�Ȥ�<emphasis>���Ū�˥֥��å����ޤ���</emphasis>
-�������ȥ�󥶥�����󤬥��ߥåȤ��뤫������Хå����ư��٤��Υ��å����������ȡ����å�����������Ƥ���֤ˡ��Ԥμºݤ�<command>UPDATE</command>���Ԥʤ��ʤ��ä���硢�֥��å����줿�ȥ�󥶥������ϡ����礷������³���뤳�Ȥˤʤ�ޤ���
+他の環境から切り替えた場合のさらなる注意点としては、同時実行トランザクションが選択された行を更新しないか削除しないということを<command>SELECT FOR UPDATE</command>が保証しないという事実です。
+<productname>PostgreSQL</productname>でそれをするためには、値を変更する必要がなくても、実際に行を更新しなければなりません。
+<command>SELECT FOR UPDATE</command>は、他のトランザクションが同じロックを獲得すること、または、ロックされた行に影響する<command>UPDATE</command>または<command>DELETE</command>を実行することを<emphasis>一時的にブロックします。</emphasis>
+しかしトランザクションがコミットするかロールバックして一度このロックを獲得すると、ロックが獲得されている間に、行の実際の<command>UPDATE</command>が行なわれなかった場合、ブロックされたトランザクションは、競合した操作を続けることになります。
     </para>
 
     <para>
@@ -2321,15 +2321,15 @@ SELECT pg_advisory_lock(q.id) FROM
      uncommitted changes in the locked table, other than those of the current
      transaction.
 -->
-�󥷥ꥢ�饤���֥�<acronym>MVCC</acronym>�ˤ����Ƥ�����Ū��ͭ���������å������̤ʹ�θ��ʧ��ʤ���Фʤ�ޤ���
-�㤨�ж�ԤΥ��ץꥱ�������ǡ����ĤΥơ��֥�ˤ������Ƥ������ι�פ����̤Υơ��֥�ˤ�������ι�פ�Ʊ���Ǥ��뤳�Ȥ���ĤΥơ��֥뤬��˹�������Ƥ���Ȥ��ˡ������å�����ɬ�פ�����Ȥ��ޤ���
-2�Ĥ�Ϣ³����<literal>SELECT SUM(...)</literal>���ޥ�ɤη�̤���٤�ȡ�2���ܤ��䤤��碌�ϡ������餯�ǽ���䤤��碌�ˤ�äƥ�����Ȥ���ʤ��ä��ȥ�󥶥������η�̤�ޤ�Ǥ��뤿�ᡢ�꡼�ɥ��ߥåƥ��ɥ⡼�ɤǤϿ���Τ����������¹ԤǤ��ʤ����Ȥ��狼��ޤ���
-1�ĤΥ�ԡ����֥�꡼�ɥȥ�󥶥�������2�Ĥι�פ���Ϥ���ȡ���ԡ����֥�꡼�ɥȥ�󥶥�����󤬳��Ϥ�������˥��ߥåȤ��줿�ȥ�󥶥�������̤Τߤ����Τʾ��������뤳�Ȥ��Ǥ��ޤ���
-�����������η�̤��⤿�餵�줿�����Ǥ�ʤ������Ǥ��뤫�ɤ����ϡ��ºݤˤϵ��路�����⤷��ޤ���
-�����������å���Ԥ����˥�ԡ����֥�꡼�ɥȥ�󥶥�����󼫿Ȥ��ѹ���Ԥä���硢���Υ����å���ͭ�����Ϥ���˵��路���ʤ�ޤ���
-����ˤ�ꡢ�ȥ�󥶥�����󳫻ϸ�˹Ԥ����ѹ������Ƥ����Ǥʤ��������̤Τ�Τ��ޤޤ�뤿��Ǥ���
-���Τ褦�ʾ�硢���տ����ͤǤ���С�������μ¤��İ����뤿��˥����å���ɬ�פ����ƤΥơ��֥����å�����Ǥ��礦��
-<literal>SHARE</>�⡼�ɡʤ⤷���Ϥ���ʾ�ˤΥ��å��ˤ�ꡢ���ߤΥȥ�󥶥������Ǥ��ѹ�����������å����줿�ơ��֥�˥��ߥåȤ���Ƥ��ʤ��ѹ���¸�ߤ��ʤ����Ȥ��ݾڤ���ޤ���
+非シリアライザブル<acronym>MVCC</acronym>においては全体的な有効性チェックに特別な考慮を払わなければなりません。
+例えば銀行のアプリケーションで、１つのテーブルにある全ての貸方の合計が、別のテーブルにある借方の合計と同じであることを、二つのテーブルが常に更新されているときに、チェックする必要があるとします。
+2つの連続する<literal>SELECT SUM(...)</literal>コマンドの結果を比べると、2番目の問い合わせは、おそらく最初の問い合わせによってカウントされなかったトランザクションの結果を含んでいるため、リードコミッティドモードでは信頼のおける処理を実行できないことがわかります。
+1つのリピータブルリードトランザクションで2つの合計を出力すると、リピータブルリードトランザクションが開始される前にコミットされたトランザクション結果のみの正確な状況を得ることができます。
+しかし、その結果がもたらされた時点でもなお妥当であるかどうかは、実際には疑わしいかもしれません。
+整合性チェックを行う前にリピータブルリードトランザクション自身が変更を行った場合、そのチェックの有効性はさらに疑わしくなります。
+これにより、トランザクション開始後に行われる変更の全てだけでなく、何か別のものが含まれるためです。
+このような場合、注意深い人であれば、現状を確実に把握するためにチェックに必要な全てのテーブルをロックするでしょう。
+<literal>SHARE</>モード（もしくはそれ以上）のロックにより、現在のトランザクションでの変更を除き、ロックされたテーブルにコミットされていない変更が存在しないことが保証されます。
     </para>
 
     <para>
@@ -2348,11 +2348,11 @@ SELECT pg_advisory_lock(q.id) FROM
      it is possible to obtain locks explicitly before the snapshot is
      frozen.
 -->
-Ʊ���ˡ�����Ū�ʥ��å���������Ѥ��ơ�Ʊ�����ѹ����¹Ԥ����Τ��ɤ����Ȥ����硢�꡼�ɥ��ߥåƥ��ɥ⡼�ɤ���Ѥ��뤫���ޤ��ϡ���ԡ����֥�꡼�ɥ⡼�ɤξ��ϡ��䤤��碌��¹Ԥ������˥��å����������褦α�դ��Ƥ���������
-��ԡ����֥�꡼�ɥȥ�󥶥������ˤ����Ƴ������줿���å��ϡ��ơ��֥���ѹ��򤫤���¾�Υȥ�󥶥�����󤬸��߼¹Ԥ���Ƥ��ʤ����Ȥ��ݾڤ��ޤ���
-���������ȥ�󥶥�����󤬻��Ȥ��Ƥ��륹�ʥåץ���åȤ������å��γ���������˼������줿��ΤǤ���С����Υ��ʥåץ���åȤϸ������ˤ����ƥ��ߥåȤ���Ƥ����ѹ�������Υơ��֥�Τ�ΤǤ����ǽ��������ޤ���
-��ԡ����֥�꡼�ɥȥ�󥶥������Υ��ʥåץ���åȤϡ��ºݤˤϤ��κǽ���䤤��碌�⤷���ϥǡ����ѹ����ޥ�ɡ�<literal>SELECT</>��<literal>INSERT</>��<literal>UPDATE</>���ޤ���<literal>DELETE</>�ˤ����Ϥ��줿�����Ǽ�������ޤ���
-�������äơ����ʥåץ���åȤ�����������ˡ�����Ū�˥��å���������뤳�Ȥ���ǽ�Ǥ���
+同時に、明示的なロック処理を使用して、同時に変更が実行されるのを防ごうとする場合、リードコミッティドモードを使用するか、または、リピータブルリードモードの場合は、問い合わせを実行する前にロックを獲得するよう留意してください。
+リピータブルリードトランザクションにおいて獲得されたロックは、テーブルに変更をかける他のトランザクションが現在実行されていないことを保証します。
+しかし、トランザクションが参照しているスナップショットが、ロックの獲得より前に取得されたものであれば、そのスナップショットは現時点においてコミットされている変更より前のテーブルのものである可能性があります。
+リピータブルリードトランザクションのスナップショットは、実際にはその最初の問い合わせもしくはデータ変更コマンド（<literal>SELECT</>、<literal>INSERT</>、<literal>UPDATE</>、または<literal>DELETE</>）が開始された時点で取得されます。
+したがって、スナップショットを取得する前に、明示的にロックを獲得することが可能です。
     </para>
    </sect2>
   </sect1>
@@ -2361,15 +2361,15 @@ SELECT pg_advisory_lock(q.id) FROM
 <!--
    <title>Locking and Indexes</title>
 -->
-<title>���å��ȥ���ǥå���</title>
+<title>ロックとインデックス</title>
 
    <indexterm zone="locking-indexes">
 <!--
     <primary>index</primary>
     <secondary>locks</secondary>
 -->
-    <primary>����ǥå���</primary>
-    <secondary>���å�</secondary>
+    <primary>インデックス</primary>
+    <secondary>ロック</secondary>
    </indexterm>
 
    <para>
@@ -2381,8 +2381,8 @@ SELECT pg_advisory_lock(q.id) FROM
     in <productname>PostgreSQL</productname>.
     The various index types are handled as follows:
 -->
-<productname>PostgreSQL</productname>�ϡ��ơ��֥�ǡ����ؤΥΥ�֥��å��ɤ߹���/�񤭹��ߥ��������������Ƥ��ޤ������������ߡ����ε�ǽ��<productname>PostgreSQL</productname>�Ǽ�������Ƥ������ƤΥ���ǥå������������᥽�åɤ��Ф��Ƽ�������Ƥ���櫓�ǤϤ���ޤ���
-�Ƽ�Υ���ǥå����Ǥϲ����Τ褦�˰����ޤ���
+<productname>PostgreSQL</productname>は、テーブルデータへのノンブロック読み込み/書き込みアクセスを備えています。しかし現在、この機能は<productname>PostgreSQL</productname>で実装されている全てのインデックスアクセスメソッドに対して実装されているわけではありません。
+各種のインデックスでは下記のように扱われます。
 
     <variablelist>
      <varlistentry>
@@ -2390,7 +2390,7 @@ SELECT pg_advisory_lock(q.id) FROM
 <!--
        B-tree, <acronym>GiST</acronym> and <acronym>SP-GiST</acronym> indexes
 -->
-B-tree����ǥå�����<acronym>GiST</acronym>�����<acronym>SP-GiST</acronym>����ǥå���
+B-treeインデックス、<acronym>GiST</acronym>および<acronym>SP-GiST</acronym>インデックス
       </term>
       <listitem>
        <para>
@@ -2400,9 +2400,9 @@ B-tree����ǥå�����<acronym>GiST</acronym>�����<acronym>SP-GiST</acronym>����
         index row is fetched or inserted.  These index types provide
         the highest concurrency without deadlock conditions.
 -->
-�ɤ߹���/�񤭹��ߥ���������û���ζ�ͭ/��¾�⡼�ɤΥڡ�����٥���å���Ȥ��ޤ���
-���å��ϡ�����ǥå����Ԥ������ޤ��ϼ��Ф����Ȥ������˲�������ޤ���
-�����Υ���ǥå�������ϡ��ǥåɥ��å����֤ˤʤ뤳�Ȥʤ����Ǥ�⤤Ʊ���¹������󶡤��ޤ���
+読み込み/書き込みアクセスに短期の共有/排他モードのページレベルロックを使います。
+ロックは、インデックス行が挿入または取り出されるとただちに解放されます。
+これらのインデックス種類は、デッドロック状態になることなく、最も高い同時実行性を提供します。
        </para>
       </listitem>
      </varlistentry>
@@ -2412,7 +2412,7 @@ B-tree����ǥå�����<acronym>GiST</acronym>�����<acronym>SP-GiST</acronym>����
 <!--
        Hash indexes
 -->
-       �ϥå��奤��ǥå���
+       ハッシュインデックス
       </term>
       <listitem>
        <para>
@@ -2423,9 +2423,9 @@ B-tree����ǥå�����<acronym>GiST</acronym>�����<acronym>SP-GiST</acronym>����
         ones, but deadlock is possible since the locks are held longer
         than one index operation.
 -->
-�ɤ߹���/�񤭹��ߥ��������˶�ͭ/��¾�⡼�ɤΥϥå���Х��åȥ�٥���å���Ȥ��ޤ���
-���å��ϡ��Х��å����Τ��������줿��˲�������ޤ���
-�Х��åȥ�٥���å��ϡ�����ǥå�����٥�Υ��å�����Ʊ���¹�����ͥ��Ƥ��ޤ�����1�ĤΥ���ǥå���������Ĺ�����å����ݻ�����ޤ��Τǡ��ǥåɥ��å��˴٤�䤹���ʤ�ޤ���
+読み込み/書き込みアクセスに共有/排他モードのハッシュバケットレベルロックを使います。
+ロックは、バケット全体が処理された後に解放されます。
+バケットレベルロックは、インデックスレベルのロックよりも同時実行性に優れていますが、1つのインデックス操作よりも長くロックが保持されますので、デッドロックに陥りやすくなります。
        </para>
       </listitem>
      </varlistentry>
@@ -2435,7 +2435,7 @@ B-tree����ǥå�����<acronym>GiST</acronym>�����<acronym>SP-GiST</acronym>����
 <!--
        <acronym>GIN</acronym> indexes
 -->
-       <acronym>GIN</acronym>����ǥå���
+       <acronym>GIN</acronym>インデックス
       </term>
       <listitem>
        <para>
@@ -2447,10 +2447,10 @@ B-tree����ǥå�����<acronym>GiST</acronym>�����<acronym>SP-GiST</acronym>����
         per row, so GIN might do substantial work for a single value's
         insertion.
 -->
-�ɤ߹���/�񤭹��ߥ���������û���ζ�ͭ/��¾�⡼�ɤΥڡ�����٥���å���Ȥ��ޤ���
-���å��ϡ�����ǥå����Ԥ������ޤ��ϼ��Ф����Ȥ������˲�������ޤ���
-��������GIN�ˤ�ꥤ��ǥå����դ����줿�ͤ������ϡ��̾�1��������ʣ���Υ���ǥå���������������⤿�餹���Ȥ����դ��Ƥ���������
-���Τ��ᡢGIN��ñ����ͤ�����������˹���¿���κ�Ȥ�Ԥ��ޤ���
+読み込み/書き込みアクセスに短期の共有/排他モードのページレベルロックを使います。
+ロックは、インデックス行が挿入または取り出されるとただちに解放されます。
+しかし、GINによりインデックス付けされた値の挿入は、通常1行当たり複数のインデックスキーの挿入をもたらすことに注意してください。
+そのため、GINは単一の値を挿入する時に更に多くの作業を行います。
        </para>
       </listitem>
      </varlistentry>
@@ -2466,10 +2466,10 @@ B-tree����ǥå�����<acronym>GiST</acronym>�����<acronym>SP-GiST</acronym>����
     non-scalar data, B-trees are not useful, and GiST, SP-GiST or GIN
     indexes should be used instead.
 -->
-�������Ǥϡ�B-tree����ǥå�����Ʊ���¹ԥ��ץꥱ�������ˤ����ƺ�������ǽ���󶡤��ޤ���
-����Ϥޤ����ϥå��奤��ǥå�������¿���ε�ǽ����Ĥ��ᡢ������ǡ����Υ���ǥå�����ɬ�פ�Ʊ���¹ԥ��ץꥱ�������ǿ侩���륤��ǥå������Ǥ���
-�󥹥���ǡ����򰷤���硢B-tree����Ѥ��뤳�Ȥ��Ǥ��ʤ����Ȥ����ΤǤ���
-���ξ��������GiST��SP-GiST�⤷����GIN����ǥå�������Ѥ��٤��Ǥ���
+現時点では、B-treeインデックスは同時実行アプリケーションにおいて最善の性能を提供します。
+これはまた、ハッシュインデックスよりも多くの機能を持つため、スカラデータのインデックスが必要な同時実行アプリケーションで推奨するインデックス型です。
+非スカラデータを扱う場合、B-treeを使用することができないことは明確です。
+この場合は代わりにGiST、SP-GiSTもしくはGINインデックスを使用すべきです。
    </para>
   </sect1>
  </chapter>

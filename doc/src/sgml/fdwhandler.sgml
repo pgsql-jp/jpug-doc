@@ -4,15 +4,15 @@
 <!--
    <title>Writing A Foreign Data Wrapper</title>
 -->
-   <title>�����ǡ�����åѤκ���</title>
+   <title>外部データラッパの作成</title>
 
    <indexterm zone="fdwhandler">
 <!--
     <primary>foreign data wrapper</primary>
     <secondary>handler for</secondary>
 -->
-    <primary>�����ǡ�����å�</primary>
-    <secondary>�Υϥ�ɥ�</secondary>
+    <primary>外部データラッパ</primary>
+    <secondary>のハンドラ</secondary>
    </indexterm>
 
    <para>
@@ -25,10 +25,10 @@
     tables is to be supported, the wrapper must handle that, too.
     This chapter outlines how to write a new foreign data wrapper.
 -->
-�����ơ��֥�ؤ����Ƥ����ϡ����������ФθƤӽФ����������ؿ��Υ��åȤǹ�������롢�����ǡ�����åѤˤ�äư����ޤ���
-��⡼�ȥǡ�������������ǡ�������Ф������Υǡ�����<productname>PostgreSQL</productname>���������塼�����ֵѤ�����Ǥ�ϳ����ǡ�����åѤˤ���ޤ���
-�⤷�����ơ��֥�ι����򥵥ݡ��Ȥ���ΤǤ���С���åѤϤ���ⰷ��ʤ���Фʤ�ޤ���
-�ܾϤǤϡ������������ǡ�����åѤ����������ˡ�γ��פ򼨤��ޤ���
+外部テーブルへの全ての操作は、コアサーバの呼び出しを処理する関数のセットで構成される、外部データラッパによって扱われます。
+リモートデータソースからデータを取り出し、そのデータを<productname>PostgreSQL</productname>エグゼキュータに返却する責任は外部データラッパにあります。
+もし外部テーブルの更新をサポートするのであれば、ラッパはそれも扱わなければなりません。
+本章では、新しい外部データラッパを作成する方法の概要を示します。
    </para>
 
    <para>
@@ -39,9 +39,9 @@
     The <xref linkend="sql-createforeigndatawrapper"> reference page also has
     some useful details.
 -->
-�ȼ��γ����ǡ�����åѤ��������ݡ�ɸ������ʪ�˴ޤޤ�Ƥ����Τ�ͥ�줿��ե���󥹤Ǥ���
-�������ĥ꡼��<filename>contrib</>���֥ǥ��쥯�ȥ��Ĵ�٤Ƥ���������
-<xref linkend="sql-createforeigndatawrapper">�ޥ˥奢��ڡ����ˤ�ͭ�Ѥʾ��󤬤���ޤ���
+独自の外部データラッパを作成する際、標準配布物に含まれているものは優れたリファレンスです。
+ソースツリーの<filename>contrib</>サブディレクトリを調べてください。
+<xref linkend="sql-createforeigndatawrapper">マニュアルページにも有用な情報があります。
    </para>
 
    <note>
@@ -52,8 +52,8 @@
      accommodate it into PostgreSQL would be large, and the standard API hasn't
      gained wide adoption anyway.
 -->
-ɸ��SQL�Ǥϳ����ǡ�����åѤ�������륤�󥿡��ե�������������Ƥ��ޤ���
-�������ʤ��顢PostgreSQL��Ŭ��������ϫ�Ϥ��礭�����ޤ�ɸ���API���������Ѥ���Ƥ���櫓�Ǥ�ʤ��Τǡ�PostgreSQL�Ϥ���API��������Ƥ��ޤ���
+標準SQLでは外部データラッパを作成するインターフェースを定義しています。
+しかしながら、PostgreSQLに適応させる労力が大きく、また標準のAPIが広く採用されているわけでもないので、PostgreSQLはそのAPIを実装していません。
     </para>
    </note>
 
@@ -61,7 +61,7 @@
 <!--
     <title>Foreign Data Wrapper Functions</title>
 -->
-    <title>�����ǡ�����åѴؿ�</title>
+    <title>外部データラッパ関数</title>
 
     <para>
 <!--
@@ -71,9 +71,9 @@
      For details on C language calling conventions and dynamic loading,
      see <xref linkend="xfunc-c">.
 -->
-FDW�κ�Ԥϡ��ϥ�ɥ�ؿ��ȡ����ץ����Ǹ��ڴؿ����������ɬ�פ�����ޤ���
-ξ�ؿ��Ȥ⡢version-1���󥿡��ե���������Ѥ��ơ�C�ʤɤΥ���ѥ������Ǻ������ʤ���Фʤ�ޤ���
-C����θƤӽФ������ưŪ�����ɤˤĤ��Ƥ�<xref linkend="xfunc-c">�򻲾Ȥ��Ƥ���������
+FDWの作者は、ハンドラ関数と、オプションで検証関数を実装する必要があります。
+両関数とも、version-1インターフェースを使用して、Cなどのコンパイル言語で作成しなければなりません。
+C言語の呼び出し規約と動的ロードについては<xref linkend="xfunc-c">を参照してください。
     </para>
 
     <para>
@@ -90,10 +90,10 @@ C����θƤӽФ������ưŪ�����ɤˤĤ��Ƥ�<xref linkend="xfunc-c">�򻲾Ȥ��Ƥ����
      callable at the SQL level.  The callback functions are described in
      <xref linkend="fdw-callbacks">.
 -->
-�ϥ�ɥ�ؿ���ñ�ˡ��ץ��ʤ䥨�������塼�����͡��ʥ��ƥʥ󥹥��ޥ�ɤ���ƤӽФ���륳����Хå��ؿ��Υݥ��󥿤��ݻ����빽¤�Τ��֤��ޤ���
-FDW��������뤿���ϫ�ϤΤۤȤ�ɤϡ������Υ�����Хå��ؿ���������뤳�Ȥ���䤵��ޤ���
-�ϥ�ɥ�ؿ��ϡ��������餺�ü�ʲ��۷��Ǥ���<type>fdw_handler</type>���֤��ؿ��Ȥ���<productname>PostgreSQL</productname>����Ͽ���ʤ���Фʤ�ޤ���
-������Хå��ؿ����̾��C����ؿ��ǡ�SQL��٥�Ǥϻ��Ȥ�ƤӽФ���Ǥ��ޤ��󡣥�����Хå��ؿ���������<xref linkend="fdw-callbacks">�ˤ���ޤ���
+ハンドラ関数は単に、プランナやエグゼキュータ、様々なメンテナンスコマンドから呼び出されるコールバック関数のポインタを保持する構造体を返します。
+FDWを作成するための労力のほとんどは、これらのコールバック関数を実装することに費やされます。
+ハンドラ関数は、引数を取らず特殊な仮想型である<type>fdw_handler</type>を返す関数として<productname>PostgreSQL</productname>に登録しなければなりません。
+コールバック関数は通常のC言語関数で、SQLレベルでは参照も呼び出しもできません。コールバック関数の説明は<xref linkend="fdw-callbacks">にあります。
     </para>
 
     <para>
@@ -114,9 +114,9 @@ FDW��������뤿���ϫ�ϤΤۤȤ�ɤϡ������Υ�����Хå��ؿ���������뤳�Ȥ���
      If no validator function is supplied, options are not checked at object
      creation time or object alteration time.
 -->
-���ڴؿ��ϡ����Υ�åѤ���Ѥ��볰�������С��桼���ޥåԥ󥰡������ơ��֥�����Ǥʤ��������ǡ�����åѼ��Ȥ�<command>CREATE</command>��<command>ALTER</command>�Ȥ��ä����ޥ�ɤǻ��ꤵ�줿���ץ������������򸡾ڤ�����Ǥ������ޤ���
-���ڴؿ��ϡ����ڤ��륪�ץ�����ޤ�text����ȡ����ץ������Ϣ�դ��륪�֥������Ȥμ����ɽ��OID(���Υ��֥������Ȥ���Ǽ����륷���ƥ५��������OID��<literal>ForeignDataWrapperRelationId</>�ޤ���<literal>ForeignServerRelationId</>�ޤ���<literal>UserMappingRelationId</>�ޤ���<literal>ForeignTableRelationId</>�Τ����줫)�Ȥ�����Ĥΰ��������ΤȤ�����Ͽ���ʤ���Фʤ�ޤ���
-���ڴؿ������ꤵ��ʤ��ä���硢���֥������Ⱥ������䥪�֥��������ѹ����˥��ץ����ϥ����å�����ޤ���
+検証関数は、そのラッパを使用する外部サーバ、ユーザマッピング、外部テーブルだけでなく、外部データラッパ自身の<command>CREATE</command>や<command>ALTER</command>といったコマンドで指定されたオプションの妥当性を検証する責任があります。
+検証関数は、検証するオプションを含むtext配列と、オプションを関連付けるオブジェクトの種類を表すOID(そのオブジェクトが格納されるシステムカタログのOIDで<literal>ForeignDataWrapperRelationId</>または<literal>ForeignServerRelationId</>または<literal>UserMappingRelationId</>または<literal>ForeignTableRelationId</>のいずれか)という二つの引数を取るものとして登録しなければなりません。
+検証関数が指定されなかった場合、オブジェクト作成時やオブジェクト変更時にオプションはチェックされません。
     </para>
 
    </sect1>
@@ -125,7 +125,7 @@ FDW��������뤿���ϫ�ϤΤۤȤ�ɤϡ������Υ�����Хå��ؿ���������뤳�Ȥ���
 <!--
     <title>Foreign Data Wrapper Callback Routines</title>
 -->
-    <title>�����ǡ�����åѤΥ�����Хå��롼����</title>
+    <title>外部データラッパのコールバックルーチン</title>
 
     <para>
 <!--
@@ -133,8 +133,8 @@ FDW��������뤿���ϫ�ϤΤۤȤ�ɤϡ������Υ�����Хå��ؿ���������뤳�Ȥ���
      struct containing pointers to the callback functions described below.
      The scan-related functions are required, the rest are optional.
 -->
-FDW�ϥ�ɥ�ؿ��ϡ��ʲ����������륳����Хå��ؿ��ؤΥݥ��󥿤�ޤࡢpalloc���줿<structname>FdwRoutine</>��¤�Τ��֤��ޤ���
-�������˴�Ϣ�����ؿ���ɬ�ܤǡ�����ʳ��Ͼ�ά��ǽ�Ǥ���
+FDWハンドラ関数は、以下で説明するコールバック関数へのポインタを含む、pallocされた<structname>FdwRoutine</>構造体を返します。
+スキャンに関連した関数は必須で、それ以外は省略可能です。
     </para>
 
     <para>
@@ -143,14 +143,14 @@ FDW�ϥ�ɥ�ؿ��ϡ��ʲ����������륳����Хå��ؿ��ؤΥݥ��󥿤�ޤࡢpalloc����
      <filename>src/include/foreign/fdwapi.h</>, which see for additional
      details.
 -->
-     <structname>FdwRoutine</>��¤�Τ�<filename>src/include/foreign/fdwapi.h</>���������Ƥ��ޤ��Τǡ��ɲþ���Ϥ�����򻲾Ȥ��Ƥ���������
+     <structname>FdwRoutine</>構造体は<filename>src/include/foreign/fdwapi.h</>で宣言されていますので、追加情報はそちらを参照してください。
     </para>
 
    <sect2 id="fdw-callbacks-scan">
 <!--
     <title>FDW Routines For Scanning Foreign Tables</title>
 -->
-    <title>�����ơ��֥륹�����Τ����FDW�롼����</title>
+    <title>外部テーブルスキャンのためのFDWルーチン</title>
 
     <para>
 <programlisting>
@@ -169,7 +169,7 @@ GetForeignRelSize (PlannerInfo *root,
      foreign table.  (<literal>foreigntableid</> could be obtained from the
      planner data structures, but it's passed explicitly to save effort.)
 -->
-�����ơ��֥�Υ�졼����󥵥������Ѥ���������ޤ������δؿ��ϡ����볰���ơ��֥�򥹥���󤹤륯����Υץ������γ��ϻ��˸ƤӽФ���ޤ���<literal>root</>�Ϥ��Υ�����˴ؤ���ץ��ʤΥ������Х����Ǥ���<literal>baserel</>�Ϥ��Υơ��֥�˴ؤ���ץ��ʤξ���Ǥ��������ơ�<literal>foreigntableid</>�Ϥ��γ����ơ��֥��<structname>pg_class</> OID�Ǥ���(<literal>foreigntableid</>�ϥץ��ʥǡ�����¤�Τ��������Ǥ��ޤ�������֤�ʤ����������Ū���Ϥ���ޤ���)
+外部テーブルのリレーションサイズ見積もりを取得します。この関数は、ある外部テーブルをスキャンするクエリのプラン作成の開始時に呼び出されます。<literal>root</>はそのクエリに関するプランナのグローバル情報です。<literal>baserel</>はそのテーブルに関するプランナの情報です。そして、<literal>foreigntableid</>はその外部テーブルの<structname>pg_class</> OIDです。(<literal>foreigntableid</>はプランナデータ構造体からも取得できますが、手間を省くために明示的に渡されます。)
     </para>
 
     <para>
@@ -182,15 +182,15 @@ GetForeignRelSize (PlannerInfo *root,
      update <literal>baserel-&gt;width</> if it can compute a better estimate
      of the average result row width.
 -->
-���δؿ��ϡ�������ˤ��ե��륿��󥰤��θ�����줿�����Υơ��֥륹������֤��ȸ����ޤ������<literal>baserel-&gt;rows</>�򹹿�����٤��Ǥ���
-<literal>baserel-&gt;rows</>�ν���ͤϸ���Υǥե���ȸ��Ѥ��ʤΤǡ���ǽ�ʸ¤��֤���������٤��Ǥ������δؿ��ϡ��Ԥ����Τ��褤���Ѥ���׻��Ǥ���ΤǤ���С�<literal>baserel-&gt;width</>�򹹿����뤳�Ȥ��������ޤ���
+この関数は、制約条件によるフィルタリングも考慮に入れた、そのテーブルスキャンが返すと見込まれる件数に<literal>baserel-&gt;rows</>を更新するべきです。
+<literal>baserel-&gt;rows</>の初期値は固定のデフォルト見積もりなので、可能な限り置き換えられるべきです。この関数は、行の幅のよりよい見積もりを計算できるのであれば、<literal>baserel-&gt;width</>を更新することも選択出来ます。
     </para>
 
     <para>
 <!--
      See <xref linkend="fdw-planning"> for additional information.
 -->
-�ɲþ���ˤĤ��Ƥ�<xref linkend="fdw-planning">�򻲾Ȥ��Ƥ���������
+追加情報については<xref linkend="fdw-planning">を参照してください。
     </para>
 
     <para>
@@ -207,9 +207,9 @@ GetForeignPaths (PlannerInfo *root,
      The parameters are the same as for <function>GetForeignRelSize</>,
      which has already been called.
 -->
-�����ơ��֥��Ф��륹�����Ȥ��Ƥ��ꤨ�륢�������ѥ���������ޤ���
-���δؿ��ϥ�����Υץ�������˸ƤӽФ���ޤ���
-�����ϡ���˸ƤФ�Ƥ���<function>GetForeignRelSize</>��Ʊ���Ǥ���
+外部テーブル対するスキャンとしてありえるアクセスパスを作成します。
+この関数はクエリのプラン作成中に呼び出されます。
+引数は、先に呼ばれている<function>GetForeignRelSize</>と同じです。
     </para>
 
     <para>
@@ -225,17 +225,17 @@ GetForeignPaths (PlannerInfo *root,
      estimates, and can contain any FDW-private information that is needed to
      identify the specific scan method intended.
 -->
-���δؿ��ϡ����ʤ��Ȥ��ĤΥ��������ѥ�(<structname>ForeignPath</>�Ρ���)��������ơ����줾��Υѥ���<literal>baserel-&gt;pathlist</>���ɲä��뤿���<function>add_path</>��ƤФʤ���Фʤ�ޤ���
-<structname>ForeignPath</>�Ρ��ɤ��ۤ���ˤ�<function>create_foreignscan_path</>��Ȥ����Ȥ��侩����Ƥ��ޤ���
-���δؿ��ϡ����Ȥ��Х����ȺѤߤη�̤�ɽ������ͭ����<literal>pathkeys</>����ĥѥ��Τ褦��ʣ���Υ��������ѥ���������뤳�Ȥ�����ޤ���
-���줾��Υ��������ѥ��ϥ����ȸ��Ѥ���ޤޤͤФʤ餺���ޤ��տޤ�������Υ�������������̤���Τ�ɬ�פ�FDW��ͭ�ξ������Ĥ��Ȥ�����ޤ���
+この関数は、少なくとも一つのアクセスパス(<structname>ForeignPath</>ノード)を作成して、それぞれのパスを<literal>baserel-&gt;pathlist</>に追加するために<function>add_path</>を呼ばなければなりません。
+<structname>ForeignPath</>ノードを構築するには<function>create_foreignscan_path</>を使うことが推奨されています。
+この関数は、たとえばソート済みの結果を表現する有効な<literal>pathkeys</>を持つパスのような複数のアクセスパスを作成することが出来ます。
+それぞれのアクセスパスはコスト見積もりを含まねばならず、また意図した特定のスキャン方式を識別するのに必要なFDW固有の情報を持つことが出来ます。
     </para>
 
     <para>
 <!--
      See <xref linkend="fdw-planning"> for additional information.
 -->
-�ɲþ���ˤĤ��Ƥ�<xref linkend="fdw-planning">�򻲾Ȥ��Ƥ���������
+追加情報については<xref linkend="fdw-planning">を参照してください。
     </para>
 
     <para>
@@ -257,9 +257,9 @@ GetForeignPlan (PlannerInfo *root,
      <function>GetForeignPaths</>), the target list to be emitted by the
      plan node, and the restriction clauses to be enforced by the plan node.
 -->
-���򤵤줿�������������ѥ�����<structname>ForeignScan</>�ץ��Ρ��ɤ�������ޤ���
-���δؿ��ϥ�����ץ������κǸ�˸ƤӽФ���ޤ���
-�����ϡ�<function>GetForeignRelSize</>��Ʊ����Τˡ����򤵤줿<structname>ForeignPath</>(������<function>GetForeignPaths</>�ˤ�äƺ������줿���)�ȡ����Υץ��Ρ��ɤˤ�äƽ��Ϥ���륿�����åȥꥹ�ȡ�����Ӥ��Υץ��Ρ��ɤǶ����������礬�ɲä���ޤ���
+選択された外部アクセスパスから<structname>ForeignScan</>プランノードを作成します。
+この関数はクエリプラン作成の最後に呼び出されます。
+引数は、<function>GetForeignRelSize</>と同じものに、選択された<structname>ForeignPath</>(事前に<function>GetForeignPaths</>によって作成されたもの)と、そのプランノードによって出力されるターゲットリスト、およびそのプランノードで強制される条件句が追加されます。
     </para>
 
     <para>
@@ -268,14 +268,14 @@ GetForeignPlan (PlannerInfo *root,
      node; it's recommended to use <function>make_foreignscan</> to build the
      <structname>ForeignScan</> node.
 -->
-���δؿ���<structname>ForeignScan</>�ץ��Ρ��ɤ���������֤��ʤ���Фʤ�ޤ���<structname>ForeignScan</>�Ρ��ɤ��ۤ���ˤ�<function>make_foreignscan</>��Ȥ����Ȥ��侩����Ƥ��ޤ���
+この関数は<structname>ForeignScan</>プランノードを作成して返さなければなりません。<structname>ForeignScan</>ノードを構築するには<function>make_foreignscan</>を使うことが推奨されています。
     </para>
 
     <para>
 <!--
      See <xref linkend="fdw-planning"> for additional information.
 -->
-�ɲþ���ˤĤ��Ƥ�<xref linkend="fdw-planning">�򻲾Ȥ��Ƥ���������
+追加情報については<xref linkend="fdw-planning">を参照してください。
     </para>
 
     <para>
@@ -299,12 +299,12 @@ BeginForeignScan (ForeignScanState *node,
      <literal>eflags</> contains flag bits describing the executor's
      operating mode for this plan node.
 -->
-�����ơ��֥륹�����μ¹Ԥ򳫻Ϥ��ޤ���
-���δؿ��ϥ��������塼���ε�ư��˸ƤӽФ���ޤ���
-�������򳫻ϤǤ���褦�ˤʤ����ˡ�������ɬ�פʽ������¹Ԥ���٤��Ǥ������ºݤΥ������μ¹Ԥ�Ϥ��٤��ǤϤ���ޤ���(����Ϻǽ��<function>IterateForeignScan</>�ƤӽФ��ˤ����ƹԤ���٤��Ǥ�)��
-<structname>ForeignScanState</>�Ρ��ɤϺ�������Ƥ��ޤ���������<structfield>fdw_state</>�ե�����ɤ�NULL�ΤޤޤǤ���
-������󤹤�ơ��֥�ξ���ϡ�<structname>ForeignScanState</>�Ρ���(�ºݤˤϤ�����ˤ��롢<function>PlanForeignScan</>�����֤��줿<structname>FdwPlan</>��¤�ΤؤΥݥ��󥿤�ޤࡢ<structname>ForeignScan</>�ץ��Ρ���)���̤��ƥ���������ǽ�Ǥ���
-<literal>eflags</>�ϡ����Υץ��Ρ��ɤ˴ؤ��륨�������塼�������⡼�ɤ�ɽ���ե饰�ӥåȤ�ޤߤޤ���
+外部テーブルスキャンの実行を開始します。
+この関数はエグゼキュータの起動中に呼び出されます。
+スキャンを開始できるようになる前に、あらゆる必要な初期化を実行するべきですが、実際のスキャンの実行を始めるべきではありません(それは最初の<function>IterateForeignScan</>呼び出しにおいて行われるべきです)。
+<structname>ForeignScanState</>ノードは作成されていますが、その<structfield>fdw_state</>フィールドはNULLのままです。
+スキャンするテーブルの情報は、<structname>ForeignScanState</>ノード(実際にはその先にある、<function>PlanForeignScan</>から返された<structname>FdwPlan</>構造体へのポインタを含む、<structname>ForeignScan</>プランノード)を通じてアクセス可能です。
+<literal>eflags</>は、このプランノードに関するエグゼキュータの操作モードを表すフラグビットを含みます。
     </para>
 
     <para>
@@ -314,8 +314,8 @@ BeginForeignScan (ForeignScanState *node,
      it should only do the minimum required to make the node state valid
      for <function>ExplainForeignScan</> and <function>EndForeignScan</>.
 -->
-<literal>(eflags &amp; EXEC_FLAG_EXPLAIN_ONLY)</>�����ξ�硢���δؿ��ϳ����˸����������¹Ԥ��٤��ǤϤʤ����Ȥ����դ��Ƥ���������
-<function>ExplainForeignScan</>��<function>EndForeignScan</>�Ѥ˥Ρ��ɾ��֤�ͭ���ˤ���Τ�ɬ�פȤ����Ǿ��¤Τ��Ȥ����򤹤٤��Ǥ���
+<literal>(eflags &amp; EXEC_FLAG_EXPLAIN_ONLY)</>が真の場合、この関数は外部に見える処理を実行すべきではないことに注意してください。
+<function>ExplainForeignScan</>や<function>EndForeignScan</>用にノード状態を有効にするのに必要とされる最小限のことだけをすべきです。
     </para>
 
     <para>
@@ -335,12 +335,12 @@ IterateForeignScan (ForeignScanState *node);
      in <function>BeginForeignScan</> if you need longer-lived storage, or use
      the <structfield>es_query_cxt</> of the node's <structname>EState</>.
 -->
-���������������Ԥ���Ф��ơ�����򥿥ץ�ơ��֥륹���åȤ�������֤��ޤ�(�������Ӥˤ�node��<structfield>ScanTupleSlot</>��Ȥ��٤��Ǥ�)��
-���Ѳ�ǽ�ʹԤ��ʤ����ϡ�NULL���֤��ޤ���
-���ץ�ơ��֥륹���åȵ�����Ȥ��ȡ�ʪ�����ץ�Ȳ��ۥ��ץ�Τɤ���Ǥ��֤��ޤ���
-�ۤȤ�ɤξ�硢�ѥե����ޥ󥹤δ��������Ԥ����֤Τ��ɤ��Ǥ��礦��
-���δؿ��ϡ��ƽФ����Ȥ˥ꥻ�åȤ����û̿�ʥ��ꥳ��ƥ�������ǸƤӽФ���뤳�Ȥ����դ��Ƥ���������
-���Ĺ̿�ʥ��ȥ졼����ɬ�פʾ��ϡ�<function>BeginForeignScan</>�ǥ��ꥳ��ƥ����Ȥ�������뤫���Ρ��ɤ�<structname>EState</>�˴ޤޤ��<structfield>es_query_cxt</>����Ѥ��Ƥ���������
+外部ソースから一行を取り出して、それをタプルテーブルスロットに入れて返します(この用途にはnodeの<structfield>ScanTupleSlot</>を使うべきです)。
+利用可能な行がない場合は、NULLを返します。
+タプルテーブルスロット機構を使うと、物理タプルと仮想タプルのどちらでも返せます。
+ほとんどの場合、パフォーマンスの観点から後者を選ぶのが良いでしょう。
+この関数は、呼出しごとにリセットされる短命なメモリコンテキスト内で呼び出されることに注意してください。
+より長命なストレージが必要な場合は、<function>BeginForeignScan</>でメモリコンテキストを作成するか、ノードの<structname>EState</>に含まれる<structfield>es_query_cxt</>を使用してください。
     </para>
 
     <para>
@@ -349,8 +349,8 @@ IterateForeignScan (ForeignScanState *node);
      being scanned.  If you choose to optimize away fetching columns that
      are not needed, you should insert nulls in those column positions.
 -->
-�֤����Ԥϥ�����󤵤�Ƥ��볰���ơ��֥�Υ���ॷ���ͥ���Ȱ��פ��ʤ���Фʤ�ޤ���
-���פʥ�������Ф��ʤ��褦�˺�Ŭ�����뤳�Ȥ����֤ʤ顢�����Υ������֤�NULL�������٤��Ǥ���
+返される行はスキャンされている外部テーブルのカラムシグネチャと一致しなければなりません。
+不要なカラムを取り出さないように最適化することを選ぶなら、それらのカラム位置にNULLを入れるべきです。
     </para>
 
     <para>
@@ -364,8 +364,8 @@ IterateForeignScan (ForeignScanState *node);
      declared that none should be present, it may be appropriate to raise an
      error (just as you would need to do in the case of a data type mismatch).
 -->
-<productname>PostgreSQL</productname>�Υ��������塼�����֤��줿�Ԥ������ơ��֥�����������줿<literal>NOT NULL</literal>����˰�ȿ���Ƥ��뤫�ɤ����ϵ��ˤ��ޤ��󡣤��������ץ��ʤϤ�������ܤ���<literal>NULL</>�ͤ�ޤޤʤ���������줿���<literal>NULL</>�ͤ����줿���������ʥ������Ŭ���򤷤Ƥ��ޤ���礬���뤳�Ȥ����դ��Ƥ���������
-�桼�������äƤϤʤ�ʤ�����������Τ�<literal>NULL</>�ͤ�������������(�ǡ����������פ��ʤ��ä����ˤ���ɬ�פ�����Τ�Ʊ�ͤ�)���顼��ȯ��������Τ�Ŭ�ڤǤ��礦��
+<productname>PostgreSQL</productname>のエグゼキュータは返された行が外部テーブルの列に定義された<literal>NOT NULL</literal>制約に違反しているかどうかは気にしません。しかし、プランナはそれに着目し、<literal>NULL</>値を含まないと宣言された列に<literal>NULL</>値が現れた場合に不正なクエリ最適化をしてしまう場合があることに注意してください。
+ユーザがあってはならないと宣言したのに<literal>NULL</>値に遭遇した場合は(データ型が一致しなかった場合にする必要があるのと同様に)エラーを発生させるのが適切でしょう。
     </para>
 
     <para>
@@ -379,8 +379,8 @@ ReScanForeignScan (ForeignScanState *node);
      scan depends on may have changed value, so the new scan does not
      necessarily return exactly the same rows.
 -->
-��Ƭ���饹������Ƴ����ޤ���
-������󤬰�¸���뤤���줫�Υѥ�᡼�����ͤ��ѹ����Ƥ��뤫�⤷��ʤ��Τǡ��������������ɬ�����⸷̩��Ʊ���Ԥ��֤��Ȥϸ¤�ʤ����Ȥ����դ��Ƥ���������
+先頭からスキャンを再開します。
+スキャンが依存するいずれかのパラメータが値を変更しているかもしれないので、新しいスキャンが必ずしも厳密に同じ行を返すとは限らないことに注意してください。
     </para>
 
     <para>
@@ -394,8 +394,8 @@ EndForeignScan (ForeignScanState *node);
      to release palloc'd memory, but for example open files and connections
      to remote servers should be cleaned up.
 -->
-��������λ���꥽������������ޤ���
-�̾palloc���줿�����������뤳�ȤϽ��פǤϤ���ޤ��󤬡��������ե�������⡼�ȥ����Фؤ���³�ʤɤϥ��꡼�󥢥åפ���٤��Ǥ���
+スキャンを終了しリソースを解放します。
+通常、pallocされたメモリを解放することは重要ではありませんが、開いたファイルやリモートサーバへの接続などはクリーンアップするべきです。
     </para>
 
    </sect2>
@@ -404,7 +404,7 @@ EndForeignScan (ForeignScanState *node);
 <!--
     <title>FDW Routines For Updating Foreign Tables</title>
 -->
-    <title>�����ơ��֥빹���Τ����FDW�롼����</title>
+    <title>外部テーブル更新のためのFDWルーチン</title>
 
     <para>
 <!--
@@ -412,7 +412,7 @@ EndForeignScan (ForeignScanState *node);
      some or all of the following callback functions depending on
      the needs and capabilities of the FDW:
 -->
-�⤷FDW��������ǽ�ʳ����ơ��֥�򥵥ݡ��Ȥ����硢FDW�Υˡ�����ǽ�Ϥ˱����ơ��ʲ��Υ�����Хå��ؿ��ΰ����ޤ������Ƥ��󶡤���ɬ�פ�����ޤ���
+もしFDWが更新可能な外部テーブルをサポートする場合、FDWのニーズと能力に応じて、以下のコールバック関数の一部または全てを提供する必要があります。
     </para>
 
     <para>
@@ -433,9 +433,9 @@ AddForeignUpdateTargets (Query *parsetree,
      retrieved from the foreign table during an <command>UPDATE</> or
      <command>DELETE</>.
 -->
-<command>UPDATE</>��<command>DELETE</>�����ϡ��ơ��֥륹�����ؿ��ˤ�äƻ����˥ե��å����줿�Ԥ��Ф��Ƽ¹Ԥ���ޤ���
-FDW�ϡ������������оݹԤ�̩�˼��̤Ǥ���褦�˹�ID��祭������ͤȤ��ä��ɲþ����ɬ�פȤ��뤫�⤷��ޤ���
-����򥵥ݡ��Ȥ��뤿��ˡ����δؿ���<command>UPDATE</>��<command>DELETE</>�δ֤˳����ơ��֥뤫������������Υꥹ�Ȥ��ɲäα����줿(�ޤ���<quote>����󥯤�</>)�������å�����ɲä��뤳�Ȥ��Ǥ��ޤ���
+<command>UPDATE</>と<command>DELETE</>の操作は、テーブルスキャン関数によって事前にフェッチされた行に対して実行されます。
+FDWは、更新や削除の対象行を厳密に識別できるように行IDや主キー列の値といった追加情報を必要とするかもしれません。
+それをサポートするために、この関数は<command>UPDATE</>や<command>DELETE</>の間に外部テーブルから取得される列のリストに追加の隠された(または<quote>ジャンクの</>)ターゲット列を追加することができます。
     </para>
 
     <para>
@@ -450,9 +450,9 @@ FDW�ϡ������������оݹԤ�̩�˼��̤Ǥ���褦�˹�ID��祭������ͤȤ��ä��ɲþ
      <literal>wholerow<replaceable>N</></literal>, as the core system can
      generate junk columns of these names.
 -->
-�����¹Ԥ���ˤϡ��ե��å������ɲä��ͤμ���ޤ�<structname>TargetEntry</>����ȥ��<literal>parsetree-&gt;targetList</>���ɲä��ޤ���
-���줾��Υ���ȥ��<structfield>resjunk</> = <literal>true</>�ȥޡ�������ʤ���Фʤ餺���ޤ��¹Ի��˥���ȥ���̤Ǥ���ۤʤ�<structfield>resname</>�����ɬ�פ�����ޤ���
-���������ƥब���Τ褦��̾���Υ������������Ǥ���褦�ˡ�<literal>ctid<replaceable>N</></literal>��<literal>wholerow</literal>��<literal>wholerow<replaceable>N</></literal>�Ȱ��פ���̾���ϻ��Ѥ��ʤ��Ǥ���������
+これを実行するには、フェッチする追加の値の式を含む<structname>TargetEntry</>エントリを<literal>parsetree-&gt;targetList</>に追加します。
+それぞれのエントリは<structfield>resjunk</> = <literal>true</>とマークされなければならず、また実行時にエントリを識別できる異なる<structfield>resname</>を持つ必要があります。
+コアシステムがそのような名前のジャンク列を生成できるように、<literal>ctid<replaceable>N</></literal>や<literal>wholerow</literal>、<literal>wholerow<replaceable>N</></literal>と一致する名前は使用しないでください。
     </para>
 
     <para>
@@ -464,8 +464,8 @@ FDW�ϡ������������оݹԤ�̩�˼��̤Ǥ���褦�˹�ID��祭������ͤȤ��ä��ɲþ
      <command>DELETE</> command, while <literal>target_rte</> and
      <literal>target_relation</> describe the target foreign table.
 -->
-���δؿ��ϥץ��ʤǤʤ���饤���ǸƤФ��Τǡ����Ѳ�ǽ�ʾ���ϥץ�������롼��������Ѳ�ǽ�ʤ�ΤȤϾ����ۤʤ�ޤ���
-<literal>parsetree</>��<command>UPDATE</>��<command>DELETE</>���ޥ�ɤΥѡ����ڤǡ�<literal>target_rte</>��<literal>target_relation</>���оݤγ����ơ��֥��ɽ���ޤ���
+この関数はプランナでなくリライタで呼ばれるので、利用可能な情報はプラン生成ルーチンで利用可能なものとは少し異なります。
+<literal>parsetree</>は<command>UPDATE</>や<command>DELETE</>コマンドのパース木で、<literal>target_rte</>と<literal>target_relation</>は対象の外部テーブルを表します。
     </para>
 
     <para>
@@ -476,8 +476,8 @@ FDW�ϡ������������оݹԤ�̩�˼��̤Ǥ���褦�˹�ID��祭������ͤȤ��ä��ɲþ
      operations, though <command>UPDATE</> may still be feasible if the FDW
      relies on an unchanging primary key to identify rows.)
 -->
-�⤷<function>AddForeignUpdateTargets</>�ݥ��󥿡���<literal>NULL</>�����ꤵ��Ƥ�����ϡ��ɲäΥ������åȼ����ɲä���ޤ���
-(FDW���Ԥ��̤���Τ����Ѥμ祭���˰�¸����ΤǤ����<command>UPDATE</>�ϰ����Ȥ��Ƽ¸���ǽ���⤷��ޤ��󤬡�<command>DELETE</>����������뤳�Ȥ��Բ�ǽ�ˤʤ�Ǥ��礦��)
+もし<function>AddForeignUpdateTargets</>ポインターが<literal>NULL</>に設定されている場合は、追加のターゲット式は追加されません。
+(FDWが行を識別するのに不変の主キーに依存するのであれば<command>UPDATE</>は依然として実現可能かもしれませんが、<command>DELETE</>操作を実装することは不可能になるでしょう。)
     </para>
 
     <para>
@@ -497,8 +497,8 @@ PlanForeignModify (PlannerInfo *root,
      have the form of a <literal>List</>, and will be delivered to
      <function>BeginForeignModify</> during the execution stage.
 -->
-�����ơ��֥���Ф��������������������ɬ�פȤʤ롢�ɲäΥץ����������������¹Ԥ��ޤ���
-���δؿ��ϡ�����������¹Ԥ���<structname>ModifyTable</>�ץ��Ρ��ɤ��ɲä����FDW��ͭ�ξ�����������ޤ������θ�ͭ�����<literal>List</>�����Ǥʤ���Фʤ餺���ޤ��¹��ʳ��δ֤�<function>BeginForeignModify</>���Ϥ���ޤ���
+外部テーブルに対する挿入、更新、削除に必要となる、追加のプラン生成アクションを実行します。
+この関数は、更新処理を実行する<structname>ModifyTable</>プランノードに追加されるFDW固有の情報を生成します。この固有情報は<literal>List</>形式でなければならず、また実行段階の間に<function>BeginForeignModify</>に渡されます。
     </para>
 
     <para>
@@ -512,17 +512,17 @@ PlanForeignModify (PlannerInfo *root,
      use this if you want to index into <literal>plan-&gt;plans</> or other
      substructure of the <literal>plan</> node.
 -->
-<literal>root</>�Ϥ��Υ�����˴ؤ���ץ��ʤΥ������Х����Ǥ���
-<literal>plan</>��<structfield>fdwPrivLists</>�ե�����ɤ�����ƴ������Ƥ���<structname>ModifyTable</>�ץ��Ρ��ɤǤ���
-<literal>resultRelation</>���оݤγ����ơ��֥���󥸥ơ��֥��ź���Ǽ��̤��ޤ���
-<literal>subplan_index</>��<structname>ModifyTable</>�ץ��Ρ��ɤ��оݤ��ɤ�Ǥ��뤫��0�Ϥޤ�Ǽ��̤��ޤ������ξ����<literal>plan-&gt;plans</>�ʤɤ�<literal>plan</>�β��̹�¤����ꤷ�������˻��Ѥ��Ƥ���������
+<literal>root</>はそのクエリに関するプランナのグローバル情報です。
+<literal>plan</>は<structfield>fdwPrivLists</>フィールドを除いて完成している<structname>ModifyTable</>プランノードです。
+<literal>resultRelation</>は対象の外部テーブルをレンジテーブルの添字で識別します。
+<literal>subplan_index</>は<structname>ModifyTable</>プランノードの対象がどれであるかを0始まりで識別します。この情報は<literal>plan-&gt;plans</>などの<literal>plan</>の下位構造を指定したい場合に使用してください。
     </para>
 
     <para>
 <!--
      See <xref linkend="fdw-planning"> for additional information.
 -->
-�ɲþ����<xref linkend="fdw-planning">�򻲾Ȥ��Ƥ���������
+追加情報は<xref linkend="fdw-planning">を参照してください。
     </para>
 
     <para>
@@ -532,7 +532,7 @@ PlanForeignModify (PlannerInfo *root,
      <literal>fdw_private</> list delivered to
      <function>BeginForeignModify</> will be NIL.
 -->
-�⤷<function>AddForeignUpdateTargets</>�ݥ��󥿡���<literal>NULL</>�����ꤵ��Ƥ�����ϡ��ɲäΥץ������������ϼ¹Ԥ��줺��<function>BeginForeignModify</>���Ϥ����<literal>fdw_private</>�ꥹ�Ȥ�NIL�ˤʤ�ޤ���
+もし<function>AddForeignUpdateTargets</>ポインターが<literal>NULL</>に設定されている場合は、追加のプラン作成時処理は実行されず、<function>BeginForeignModify</>に渡される<literal>fdw_private</>リストはNILになります。
     </para>
 
     <para>
@@ -553,10 +553,10 @@ BeginForeignModify (ModifyTableState *mtstate,
      <function>ExecForeignDelete</> will be called for each tuple to be
      inserted, updated, or deleted.
 -->
-�����ơ��֥�ؤ��ѹ����μ¹Ԥ򳫻Ϥ��ޤ���
-���Υ롼����ϥ��������塼���ε�ư��˸ƤӽФ���ޤ���
-�ºݤΥơ��֥��ѹ�����Ω�ä�ɬ�פʤ���������������¹Ԥ���ɬ�פ�����ޤ���
-���θ塢�ƥ��ץ뤬��������������������褦��<function>ExecForeignInsert</>��<function>ExecForeignUpdate</>��<function>ExecForeignDelete</>�Τ����줫���ƤФ�ޤ���
+外部テーブルへの変更操作の実行を開始します。
+このルーチンはエグゼキュータの起動中に呼び出されます。
+実際のテーブル変更に先立って必要なあらゆる初期化処理を実行する必要があります。
+その後、各タプルが挿入、更新、削除されるように<function>ExecForeignInsert</>、<function>ExecForeignUpdate</>、<function>ExecForeignDelete</>のいずれかが呼ばれます。
     </para>
 
     <para>
@@ -575,10 +575,10 @@ BeginForeignModify (ModifyTableState *mtstate,
      <literal>eflags</> contains flag bits describing the executor's
      operating mode for this plan node.
 -->
-<literal>mtstate</>�ϼ¹Ԥ���Ƥ���<structname>ModifyTable</>�ץ��Ρ������Τξ��֤Ǥ����ץ��˴ؤ�������Ū�ʥǡ����ȼ¹Ծ��֤Ϥ��ι�¤�η�ͳ�����Ѳ�ǽ�Ǥ���
-<literal>rinfo</>���оݤγ����ơ��֥��ɽ��<structname>ResultRelInfo</>��¤�ΤǤ���(<structname>ResultRelInfo</>��<structfield>ri_FdwState</>�ե�����ɤϤ�������ɬ�פȤʤ��ͭ�ξ��֤�FDW����Ǽ����Τ����ѤǤ��ޤ���)
-<literal>fdw_private</>�Ϥ⤷�����<function>PlanForeignModify</>���������줿��ͭ�ǡ�����ޤߤޤ���
-<literal>eflags</>�ϡ����Υץ��Ρ��ɤ˴ؤ��륨�������塼�������⡼�ɤ�ɽ���ե饰�ӥåȤ�ޤߤޤ���
+<literal>mtstate</>は実行されている<structname>ModifyTable</>プランノード全体の状態です。プランに関する全般的なデータと実行状態はこの構造体経由で利用可能です。
+<literal>rinfo</>は対象の外部テーブルを表す<structname>ResultRelInfo</>構造体です。(<structname>ResultRelInfo</>の<structfield>ri_FdwState</>フィールドはこの操作で必要となる固有の状態をFDWが格納するのに利用できます。)
+<literal>fdw_private</>はもしあれば<function>PlanForeignModify</>で生成された固有データを含みます。
+<literal>eflags</>は、このプランノードに関するエグゼキュータの操作モードを表すフラグビットを含みます。
     </para>
 
     <para>
@@ -588,8 +588,8 @@ BeginForeignModify (ModifyTableState *mtstate,
      it should only do the minimum required to make the node state valid
      for <function>ExplainForeignModify</> and <function>EndForeignModify</>.
 -->
-<literal>(eflags &amp; EXEC_FLAG_EXPLAIN_ONLY)</>�����ξ�硢���δؿ��ϳ����˸����������¹Ԥ��٤��ǤϤʤ����Ȥ����դ��Ƥ���������
-<function>ExplainForeignModify</>��<function>EndForeignModify</>�Ѥ˥Ρ��ɾ��֤�ͭ������Τ�ɬ�פʺǾ��¤Τ��Ȥ�����¹Ԥ���٤��Ǥ���
+<literal>(eflags &amp; EXEC_FLAG_EXPLAIN_ONLY)</>が真の場合、この関数は外部に見える処理を実行すべきではないことに注意してください。
+<function>ExplainForeignModify</>や<function>EndForeignModify</>用にノード状態を有効するのに必要な最小限のことだけを実行するべきです。
     </para>
 
     <para>
@@ -597,7 +597,7 @@ BeginForeignModify (ModifyTableState *mtstate,
      If the <function>BeginForeignModify</> pointer is set to
      <literal>NULL</>, no action is taken during executor startup.
 -->
-�⤷<function>BeginForeignModify</>�ݥ��󥿡���<literal>NULL</>�����ꤵ��Ƥ�����ϡ����������塼����ư���ˤ��ɲý����ϲ���¹Ԥ���ޤ���
+もし<function>BeginForeignModify</>ポインターが<literal>NULL</>に設定されている場合は、エグゼキュータ起動時には追加処理は何も実行されません。
     </para>
 
     <para>
@@ -622,11 +622,11 @@ ExecForeignInsert (EState *estate,
      columns.  (The <literal>planSlot</> is typically of little interest
      for <command>INSERT</> cases, but is provided for completeness.)
 -->
-�����ơ��֥�˥��ץ�����������ޤ���
-<literal>estate</>�Ϥ��Υ�����Υ������Х�ʼ¹Ծ��֤Ǥ���
-<literal>rinfo</>���оݤγ����ơ��֥��ɽ��<structname>ResultRelInfo</>��¤�ΤǤ���
-<literal>slot</>�ˤ���������륿�ץ뤬�ޤޤ�ޤ������ιԷ�����ϳ����ơ��֥�Ȱ��פ��ޤ���
-<literal>planSlot</>�ˤ�<structname>ModifyTable</>�ץ��Ρ��ɤΥ��֥ץ�������������ץ뤬�ޤޤ�ޤ����ɲä�<quote>�����</>���ޤߤ������ˤ����ơ�<literal>slot</>�Ȥϰۤʤ�ޤ���(<literal>planSlot</>�ϰ���Ū��<command>INSERT</command>�Υ������ˤ����ƤϤ���ۤɰ�̣������ޤ��󤬡��������Τ�����󶡤���ޤ���)
+外部テーブルにタプルを一つ挿入します。
+<literal>estate</>はそのクエリのグローバルな実行状態です。
+<literal>rinfo</>は対象の外部テーブルを表す<structname>ResultRelInfo</>構造体です。
+<literal>slot</>には挿入されるタプルが含まれます。その行型定義は外部テーブルと一致します。
+<literal>planSlot</>には<structname>ModifyTable</>プランノードのサブプランが生成したタプルが含まれます。追加の<quote>ジャンク</>列を含みうる点において、<literal>slot</>とは異なります。(<literal>planSlot</>は一般的に<command>INSERT</command>のケースにおいてはそれほど意味を持ちませんが、完全さのために提供されます。)
     </para>
 
     <para>
@@ -637,8 +637,8 @@ ExecForeignInsert (EState *estate,
      (again, typically as a result of triggers).  The passed-in
      <literal>slot</> can be re-used for this purpose.
 -->
-����ͤϼºݤ��������줿�ǡ���(�㤨�Хȥꥬ�������η�̤ʤɤˤ�ꡢ�󶡤��줿�ǡ����Ȥϰۤʤ뤫�⤷��ޤ���)��ޤॹ���åȤ����ޤ���(����������Ū�˥ȥꥬ���η��)�ºݤˤ���������ʤ��ä�����NULL�Ǥ���
-�Ϥ��줿<literal>slot</>�Ϥ������Ӥ˺����Ѳ�ǽ�Ǥ���
+戻り値は実際に挿入されたデータ(例えばトリガー処理の結果などにより、提供されたデータとは異なるかもしれません)を含むスロットか、または(こちらも一般的にトリガーの結果)実際には挿入されなかった場合はNULLです。
+渡された<literal>slot</>はこの用途に再利用可能です。
     </para>
 
     <para>
@@ -651,9 +651,9 @@ ExecForeignInsert (EState *estate,
      slot must be returned to indicate success, or the query's reported row
      count will be wrong.
 -->
-�ֵѤ��줿�����å���Υǡ�����<command>INSERT</>�����꤬<literal>RETURNING</>�����äƤ������⤷���ϳ����ơ��֥뤬<literal>AFTER ROW</>�ȥꥬ����äƤ������ˤΤ߻Ȥ��ޤ���
-�ȥꥬ�������ɬ�פȤ��ޤ�����FDW��<literal>RETURNING</>������Ƥ˱������ֵѤ����������ˤ��뤫���٤Ƥˤ��뤫���Ŭ������;�Ϥ�����ޤ���
-����Ȥϴط��ʤ�������������ɽ������ˤʤ�餫�Υ����åȤ��ֵѤ��ʤ���Фʤ�ޤ��󡣤���ʤ��ȡ���𤵤�륯����η�̹Կ������ä��ͤˤʤäƤ��ޤ��ޤ���
+返却されたスロット内のデータは<command>INSERT</>クエリが<literal>RETURNING</>句を持っていた場合もしくは外部テーブルが<literal>AFTER ROW</>トリガを持っていた場合にのみ使われます。
+トリガは全列を必要としますが、FDWは<literal>RETURNING</>句の内容に応じて返却する列を一部にするかすべてにするかを最適化する余地があります。
+それとは関係なく、処理成功を表すためになんらかのスロットは返却しなければなりません。さもないと、報告されるクエリの結果行数が誤った値になってしまいます。
     </para>
 
     <para>
@@ -662,7 +662,7 @@ ExecForeignInsert (EState *estate,
      <literal>NULL</>, attempts to insert into the foreign table will fail
      with an error message.
 -->
-�⤷<function>ExecForeignInsert</>�ݥ��󥿡���<literal>NULL</>�����ꤵ��Ƥ�����ϡ������ơ��֥�ؤ������λ�ߤϥ��顼��å������ȤȤ�˼��Ԥ��ޤ���
+もし<function>ExecForeignInsert</>ポインターが<literal>NULL</>に設定されている場合は、外部テーブルへの挿入の試みはエラーメッセージとともに失敗します。
     </para>
 
     <para>
@@ -687,11 +687,11 @@ ExecForeignUpdate (EState *estate,
      columns.  In particular, any junk columns that were requested by
      <function>AddForeignUpdateTargets</> will be available from this slot.
 -->
-�����ơ��֥���Υ��ץ���Ĺ������ޤ���
-<literal>estate</>�Ϥ��Υ�����Υ������Х�ʼ¹Ծ��֤Ǥ���
-<literal>rinfo</>���оݤγ����ơ��֥��ɽ��<structname>ResultRelInfo</>��¤�ΤǤ���
-<literal>slot</>�ˤϥ��ץ�ο������ǡ������ޤޤ�ޤ������ιԷ�����ϳ����ơ��֥�Ȱ��פ��ޤ���
-<literal>planSlot</>�ˤ�<structname>ModifyTable</>�ץ��Ρ��ɤΥ��֥ץ�������������ץ뤬�ޤޤ�ޤ����ɲä�<quote>�����</>���ޤߤ������ˤ����ơ�<literal>slot</>�Ȥϰۤʤ�ޤ����ºݡ�<function>AddForeignUpdateTargets</>���׵᤹�른�����Ϥ��Υ����åȤ������Ѳ�ǽ�Ǥ���
+外部テーブル内のタプルを一つ更新します。
+<literal>estate</>はそのクエリのグローバルな実行状態です。
+<literal>rinfo</>は対象の外部テーブルを表す<structname>ResultRelInfo</>構造体です。
+<literal>slot</>にはタプルの新しいデータが含まれます。その行型定義は外部テーブルと一致します。
+<literal>planSlot</>には<structname>ModifyTable</>プランノードのサブプランが生成したタプルが含まれます。追加の<quote>ジャンク</>列を含みうる点において、<literal>slot</>とは異なります。実際、<function>AddForeignUpdateTargets</>が要求するジャンク列はこのスロットから利用可能です。
     </para>
 
     <para>
@@ -702,8 +702,8 @@ ExecForeignUpdate (EState *estate,
      (again, typically as a result of triggers).  The passed-in
      <literal>slot</> can be re-used for this purpose.
 -->
-����ͤϼºݤ˹������줿�ǡ���(�㤨�Хȥꥬ�������η�̤ʤɤˤ�ꡢ�󶡤��줿�ǡ����Ȥϰۤʤ뤫�⤷��ޤ���)��ޤॹ���åȤ����ޤ���(����������Ū�˥ȥꥬ���η��)�ºݤˤϹ�������ʤ��ä�����NULL�Ǥ���
-�Ϥ��줿<literal>slot</>�Ϥ������Ӥ˺����Ѳ�ǽ�Ǥ���
+戻り値は実際に更新されたデータ(例えばトリガー処理の結果などにより、提供されたデータとは異なるかもしれません)を含むスロットか、または(こちらも一般的にトリガーの結果)実際には更新されなかった場合はNULLです。
+渡された<literal>slot</>はこの用途に再利用可能です。
     </para>
 
     <para>
@@ -716,9 +716,9 @@ ExecForeignUpdate (EState *estate,
      slot must be returned to indicate success, or the query's reported row
      count will be wrong.
 -->
-�ֵѤ��줿�����å���Υǡ�����<command>UPDATE</>�����꤬<literal>RETURNING</>�����äƤ������⤷���ϳ����ơ��֥뤬<literal>AFTER ROW</>�ȥꥬ����äƤ������ˤΤ߻Ȥ��ޤ���
-�ȥꥬ�������ɬ�פȤ��ޤ�����FDW��<literal>RETURNING</>������Ƥ˱������ֵѤ����������ˤ��뤫���Ƥˤ��뤫���Ŭ������;�Ϥ�����ޤ���
-����Ȥϴط��ʤ�������������ɽ������ˤʤ�餫�Υ����åȤ��ֵѤ��ʤ���Фʤ�ޤ��󡣤���ʤ��ȡ���𤵤�륯����η�̹Կ������ä��ͤˤʤäƤ��ޤ��ޤ���
+返却されたスロット内のデータは<command>UPDATE</>クエリが<literal>RETURNING</>句を持っていた場合もしくは外部テーブルが<literal>AFTER ROW</>トリガを持っていた場合にのみ使われます。
+トリガは全列を必要としますが、FDWは<literal>RETURNING</>句の内容に応じて返却する列を一部にするか全てにするかを最適化する余地があります。
+それとは関係なく、処理成功を表すためになんらかのスロットは返却しなければなりません。さもないと、報告されるクエリの結果行数が誤った値になってしまいます。
     </para>
 
     <para>
@@ -727,7 +727,7 @@ ExecForeignUpdate (EState *estate,
      <literal>NULL</>, attempts to update the foreign table will fail
      with an error message.
 -->
-�⤷<function>ExecForeignUpdate</>�ݥ��󥿡���<literal>NULL</>�����ꤵ��Ƥ�����ϡ������ơ��֥�ؤι����λ�ߤϥ��顼��å������ȤȤ�˼��Ԥ��ޤ���
+もし<function>ExecForeignUpdate</>ポインターが<literal>NULL</>に設定されている場合は、外部テーブルへの更新の試みはエラーメッセージとともに失敗します。
     </para>
 
     <para>
@@ -752,11 +752,11 @@ ExecForeignDelete (EState *estate,
      <function>AddForeignUpdateTargets</>.  The junk column(s) must be used
      to identify the tuple to be deleted.
 -->
-�����ơ��֥뤫�饿�ץ���ĺ�����ޤ���
-<literal>estate</>�Ϥ��Υ�����Υ������Х�ʼ¹Ծ��֤Ǥ���
-<literal>rinfo</>���оݤγ����ơ��֥��ɽ��<structname>ResultRelInfo</>��¤�ΤǤ���
-<literal>slot</>�ˤϥ��ץ�ο������ǡ������ޤޤ�ޤ������ιԷ�����ϳ����ơ��֥�Ȱ��פ��ޤ���
-<literal>planSlot</>�ˤ�<structname>ModifyTable</>�ץ��Ρ��ɤΥ��֥ץ�������������ץ뤬�ޤޤ�ޤ����ºݡ�<function>AddForeignUpdateTargets</>���׵᤹�른�����Ϥ��Υ����åȤ����Ӥޤ����������Ϻ������륿�ץ���̤��뤿��˻��Ѥ��ʤ���Фʤ�ޤ���
+外部テーブルからタプルを一つ削除します。
+<literal>estate</>はそのクエリのグローバルな実行状態です。
+<literal>rinfo</>は対象の外部テーブルを表す<structname>ResultRelInfo</>構造体です。
+<literal>slot</>にはタプルの新しいデータが含まれます。その行型定義は外部テーブルと一致します。
+<literal>planSlot</>には<structname>ModifyTable</>プランノードのサブプランが生成したタプルが含まれます。実際、<function>AddForeignUpdateTargets</>が要求するジャンク列はこのスロットが運びます。ジャンク列は削除されるタプルを識別するために使用しなければなりません。
     </para>
 
     <para>
@@ -765,8 +765,8 @@ ExecForeignDelete (EState *estate,
      or NULL if no row was deleted (typically as a result of triggers).  The
      passed-in <literal>slot</> can be used to hold the tuple to be returned.
 -->
-����ͤϼºݤ˺�����줿�ǡ�����ޤॹ���åȤ����ޤ���(����Ū�˥ȥꥬ���η��)�ºݤˤϺ������ʤ��ä�����NULL�Ǥ���
-�Ϥ��줿<literal>slot</>���ֵѤ��륿�ץ���ݻ��������Ӥ����Ѳ�ǽ�Ǥ���
+戻り値は実際に削除されたデータを含むスロットか、または(一般的にトリガーの結果)実際には削除されなかった場合はNULLです。
+渡された<literal>slot</>は返却するタプルを保持する用途に利用可能です。
     </para>
 
     <para>
@@ -779,9 +779,9 @@ ExecForeignDelete (EState *estate,
      slot must be returned to indicate success, or the query's reported row
      count will be wrong.
 -->
-�ֵѤ��줿�����å���Υǡ�����<command>DELETE</>�����꤬<literal>RETURNING</>�����äƤ������⤷���ϳ����ơ��֥뤬<literal>AFTER ROW</>�ȥꥬ����äƤ������ˤΤ߻Ȥ��ޤ���
-�ȥꥬ�������ɬ�פȤ��ޤ�����FDW��<literal>RETURNING</>������Ƥ˱������ֵѤ����������ˤ��뤫���Ƥˤ��뤫���Ŭ������;�Ϥ�����ޤ���
-����Ȥϴط��ʤ�������������ɽ������ˤʤ�餫�Υ����åȤ��ֵѤ��ʤ���Фʤ�ޤ��󡣤���ʤ��ȡ���𤵤�륯����η�̹Կ������ä��ͤˤʤäƤ��ޤ��ޤ���
+返却されたスロット内のデータは<command>DELETE</>クエリが<literal>RETURNING</>句を持っていた場合もしくは外部テーブルが<literal>AFTER ROW</>トリガを持っていた場合にのみ使われます。
+トリガは全列を必要としますが、FDWは<literal>RETURNING</>句の内容に応じて返却する列を一部にするか全てにするかを最適化する余地があります。
+それとは関係なく、処理成功を表すためになんらかのスロットは返却しなければなりません。さもないと、報告されるクエリの結果行数が誤った値になってしまいます。
     </para>
 
     <para>
@@ -790,7 +790,7 @@ ExecForeignDelete (EState *estate,
      <literal>NULL</>, attempts to delete from the foreign table will fail
      with an error message.
 -->
-�⤷<function>ExecForeignDelete</>�ݥ��󥿡���<literal>NULL</>�����ꤵ��Ƥ�����ϡ������ơ��֥뤫��κ���λ�ߤϥ��顼��å������ȤȤ�˼��Ԥ��ޤ���
+もし<function>ExecForeignDelete</>ポインターが<literal>NULL</>に設定されている場合は、外部テーブルからの削除の試みはエラーメッセージとともに失敗します。
     </para>
 
     <para>
@@ -805,7 +805,7 @@ EndForeignModify (EState *estate,
      to release palloc'd memory, but for example open files and connections
      to remote servers should be cleaned up.
 -->
-�ơ��֥빹���򽪤��ƥ꥽������������ޤ���palloc���줿����β������̾���פǤϤ���ޤ��󤬡��������ե�������⡼�ȥ����Фؤ���³�ϥ��꡼�󥢥åפ���٤��Ǥ���
+テーブル更新を終えてリソースを解放します。pallocされたメモリの解放は通常重要ではありませんが、開いたファイルやリモートサーバへの接続はクリーンアップするべきです。
     </para>
 
     <para>
@@ -813,7 +813,7 @@ EndForeignModify (EState *estate,
      If the <function>EndForeignModify</> pointer is set to
      <literal>NULL</>, no action is taken during executor shutdown.
 -->
-�⤷<function>EndForeignModify</>�ݥ��󥿡���<literal>NULL</>�����ꤵ��Ƥ�����ϡ����������塼����λ���ˤ��ɲý����ϲ���¹Ԥ���ޤ���
+もし<function>EndForeignModify</>ポインターが<literal>NULL</>に設定されている場合は、エグゼキュータ終了時には追加処理は何も実行されません。
     </para>
 
     <para>
@@ -831,9 +831,9 @@ IsForeignRelUpdatable (Relation rel);
      <literal>(1 << CMD_INSERT) = 8</> for <command>INSERT</>, and
      <literal>(1 << CMD_DELETE) = 16</> for <command>DELETE</>.
 -->
-���ꤵ�줿�����ơ��֥뤬�ɤι��������򥵥ݡ��Ȥ��Ƥ��뤫����𤷤ޤ���
-����ͤϡ����γ����ơ��֥뤬���ݡ��Ȥ�������ɽ���롼�륤�٥���ֹ�Υӥåȥޥ����Ǥ���ɬ�פ�����ޤ���
-<command>UPDATE</>�Ѥ�<literal>(1 << CMD_UPDATE) = 4</>��<command>INSERT</>�Ѥ�<literal>(1 << CMD_INSERT) = 8</>��<command>DELETE</>�Ѥ�<literal>(1 << CMD_DELETE) = 16</>�Ȥ��ä�<literal>CmdType</>����ͤ�Ȥ��ޤ���
+指定された外部テーブルがどの更新処理をサポートしているかを報告します。
+戻り値は、その外部テーブルがサポートする操作を表すルールイベント番号のビットマスクである必要があります。
+<command>UPDATE</>用の<literal>(1 << CMD_UPDATE) = 4</>、<command>INSERT</>用の<literal>(1 << CMD_INSERT) = 8</>、<command>DELETE</>用の<literal>(1 << CMD_DELETE) = 16</>といった<literal>CmdType</>列挙値を使います。
     </para>
 
     <para>
@@ -848,9 +848,9 @@ IsForeignRelUpdatable (Relation rel);
      checking in this function.  However, this function is used to determine
      updatability for display in the <literal>information_schema</> views.)
 -->
-�⤷<function>IsForeignRelUpdatable</>�ݥ��󥿡���<literal>NULL</>�����ꤵ��Ƥ���ȡ������ơ��֥��<function>ExecForeignInsert</>��<function>ExecForeignUpdate</>��<function>ExecForeignDelete</>���󶡤��Ƥ���ȡ����줾������������������򥵥ݡ��Ȥ��Ƥ����Ƚ�Ǥ��ޤ���
-���δؿ��ϡ�FDW�������Υơ��֥�ˤĤ��ƤΤ߹����򥵥ݡ��Ȥ�����ˤΤ�ɬ�פǤ���
-(���Τ褦�ʾ��Ǥ⡢���δؿ��ǥ����å���������˥�����¹Դؿ��ǥ��顼�ˤ��Ƥ⹽���ޤ��󡣤������ʤ��顢���δؿ���<literal>information_schema</>�Υӥ塼��ɽ���ǹ������ݤ�Ƚ�ꤹ��Τ˻��Ѥ���ޤ���)
+もし<function>IsForeignRelUpdatable</>ポインターが<literal>NULL</>に設定されていると、外部テーブルは<function>ExecForeignInsert</>、<function>ExecForeignUpdate</>、<function>ExecForeignDelete</>を提供していると、それぞれ挿入、更新、削除をサポートしていると判断します。
+この関数は、FDWが一部のテーブルについてのみ更新をサポートする場合にのみ必要です。
+(そのような場合でも、この関数でチェックする代わりにクエリ実行関数でエラーにしても構いません。しかしながら、この関数は<literal>information_schema</>のビューの表示で更新可否を判定するのに使用されます。)
     </para>
 
    </sect2>
@@ -859,7 +859,7 @@ IsForeignRelUpdatable (Relation rel);
 <!--
     <title>FDW Routines for <command>EXPLAIN</></title>
 -->
-    <title><command>EXPLAIN</>�Τ����FDW�롼����</title>
+    <title><command>EXPLAIN</>のためのFDWルーチン</title>
 
     <para>
 <programlisting>
@@ -877,9 +877,9 @@ ExplainForeignScan (ForeignScanState *node,
      can be inspected to provide run-time statistics in the <command>EXPLAIN
      ANALYZE</> case.
 -->
-�����ơ��֥륹�������ɲä�<command>EXPLAIN</>���Ϥ�ɽ�����ޤ���
-<command>EXPLAIN</>���Ϥ˥ե�����ɤ��ɲä��뤿���<function>ExplainPropertyText</>���Ϣ����ؿ���ƤӽФ����Ȥ��Ǥ��ޤ���
-<literal>es</>����Υե饰�ե�����ɤϲ���ɽ�����뤫�����Τ˻��ѤǤ��ޤ����ޤ���<command>EXPLAIN ANALYZE</>�ξ��ˤϡ��¹Ի����׾�����󶡤��뤿���<structname>ForeignScanState</>�Ρ��ɤξ��֤�Ĵ�٤뤳�Ȥ��Ǥ��ޤ���
+外部テーブルスキャンの追加の<command>EXPLAIN</>出力を表示します。
+<command>EXPLAIN</>出力にフィールドを追加するために<function>ExplainPropertyText</>や関連する関数を呼び出すことができます。
+<literal>es</>の中のフラグフィールドは何を表示するかを決めるのに使用できます。また、<command>EXPLAIN ANALYZE</>の場合には、実行時統計情報を提供するために<structname>ForeignScanState</>ノードの状態を調べることができます。
     </para>
 
     <para>
@@ -888,7 +888,7 @@ ExplainForeignScan (ForeignScanState *node,
      <literal>NULL</>, no additional information is printed during
      <command>EXPLAIN</>.
 -->
-�⤷<function>ExplainForeignScan</>�ݥ��󥿡���<literal>NULL</>�����ꤵ��Ƥ�����ϡ�<command>EXPLAIN</>����ɲþ����ɽ������ޤ���
+もし<function>ExplainForeignScan</>ポインターが<literal>NULL</>に設定されている場合は、<command>EXPLAIN</>中に追加情報は表示されません。
     </para>
 
     <para>
@@ -911,10 +911,10 @@ ExplainForeignModify (ModifyTableState *mtstate,
      ANALYZE</> case.  The first four arguments are the same as for
      <function>BeginForeignModify</>.
 -->
-�����ơ��֥빹�����ɲä�<command>EXPLAIN</>���Ϥ�ɽ�����ޤ���
-<command>EXPLAIN</>���Ϥ˥ե�����ɤ��ɲä��뤿���<function>ExplainPropertyText</>���Ϣ����ؿ���ƤӽФ����Ȥ��Ǥ��ޤ���
-<literal>es</>����Υե饰�ե�����ɤϲ���ɽ�����뤫�����Τ˻��ѤǤ��ޤ����ޤ���<command>EXPLAIN ANALYZE</>�ξ��ˤϡ��¹Ի����׾�����󶡤��뤿���<structname>ForeignScanState</>�Ρ��ɤξ��֤�Ĵ�٤뤳�Ȥ��Ǥ��ޤ���
-�ǽ��4�Ĥΰ�����<function>BeginForeignModify</>��Ʊ���Ǥ���
+外部テーブル更新の追加の<command>EXPLAIN</>出力を表示します。
+<command>EXPLAIN</>出力にフィールドを追加するために<function>ExplainPropertyText</>や関連する関数を呼び出すことができます。
+<literal>es</>の中のフラグフィールドは何を表示するかを決めるのに使用できます。また、<command>EXPLAIN ANALYZE</>の場合には、実行時統計情報を提供するために<structname>ForeignScanState</>ノードの状態を調べることができます。
+最初の4つの引数は<function>BeginForeignModify</>と同じです。
     </para>
 
     <para>
@@ -923,7 +923,7 @@ ExplainForeignModify (ModifyTableState *mtstate,
      <literal>NULL</>, no additional information is printed during
      <command>EXPLAIN</>.
 -->
-�⤷<function>ExplainForeignModify</>�ݥ��󥿡���<literal>NULL</>�����ꤵ��Ƥ�����ϡ�<command>EXPLAIN</>����ɲþ����ɽ������ޤ���
+もし<function>ExplainForeignModify</>ポインターが<literal>NULL</>に設定されている場合は、<command>EXPLAIN</>中に追加情報は表示されません。
     </para>
 
    </sect2>
@@ -932,7 +932,7 @@ ExplainForeignModify (ModifyTableState *mtstate,
 <!--
     <title>FDW Routines for <command>ANALYZE</></title>
 -->
-    <title><command>ANALYZE</>�Τ����FDW�롼����</title>
+    <title><command>ANALYZE</>のためのFDWルーチン</title>
 
     <para>
 <programlisting>
@@ -950,9 +950,9 @@ AnalyzeForeignTable (Relation relation,
      <parameter>func</>, plus the estimated size of the table in pages in
      <parameter>totalpages</>.  Otherwise, return <literal>false</>.
 -->
-���δؿ���<xref linkend="sql-analyze">�������ơ��֥���Ф��Ƽ¹Ԥ��줿�Ȥ��˸ƤӽФ���ޤ���
-�⤷FDW�����γ����ơ��֥�����׾��������Ǥ�����ϡ����Υơ��֥뤫�饵��ץ�Ԥ򽸤��ؿ��Υݥ��󥿤ȥڡ���ñ�̤ǤΥơ��֥륵�����θ��Ѥ��򤽤줾��<parameter>func</>��<parameter>totalpages</>���Ϥ�<literal>true</>���֤�ɬ�פ�����ޤ���
-�����Ǥʤ����ϡ�<literal>false</>���֤��ޤ���
+この関数は<xref linkend="sql-analyze">が外部テーブルに対して実行されたときに呼び出されます。
+もしFDWがこの外部テーブルの統計情報を収集できる場合は、そのテーブルからサンプル行を集める関数のポインタとページ単位でのテーブルサイズの見積もりをそれぞれ<parameter>func</>と<parameter>totalpages</>に渡し<literal>true</>を返す必要があります。
+そうでない場合は、<literal>false</>を返します。
     </para>
 
     <para>
@@ -960,14 +960,14 @@ AnalyzeForeignTable (Relation relation,
      If the FDW does not support collecting statistics for any tables, the
      <function>AnalyzeForeignTable</> pointer can be set to <literal>NULL</>.
 -->
-�⤷FDW�����׾���μ�����ɤΥơ��֥�ˤĤ��Ƥ⥵�ݡ��Ȥ��ʤ����ϡ�<function>AnalyzeForeignTable</>�ݥ��󥿡���NULL�ˤ��뤳�Ȥ�Ǥ��ޤ���
+もしFDWが統計情報の収集をどのテーブルについてもサポートしない場合は、<function>AnalyzeForeignTable</>ポインターをNULLにすることもできます。
     </para>
 
     <para>
 <!--
      If provided, the sample collection function must have the signature
 -->
-�⤷�󶡤������ϡ�����ץ�����ؿ��Ϥ��Τ褦�ʥ����ͥ�������ɬ�פ�����ޤ���
+もし提供される場合は、サンプル収集関数はこのようなシグネチャを持つ必要があります。
 <programlisting>
 int
 AcquireSampleRowsFunc (Relation relation, int elevel,
@@ -985,9 +985,9 @@ AcquireSampleRowsFunc (Relation relation, int elevel,
      <parameter>totaldeadrows</>.  (Set <parameter>totaldeadrows</> to zero
      if the FDW does not have any concept of dead rows.)
 -->
-����<parameter>targrows</>�ԤΥ����ॵ��ץ��ơ��֥뤫����������ƤӽФ������󶡤���<parameter>rows</>����˳�Ǽ����ɬ�פ�����ޤ���
-�ºݤ˼������줿�Ԥο����֤�ɬ�פ�����ޤ���
-����ˡ��ơ��֥�˴ޤޤ��ͭ���Ԥ����׹Ԥι�׿��θ��Ѥ�����ϥѥ�᡼����<parameter>totalrows</>��<parameter>totaldeadrows</>���֤�ɬ�פ�����ޤ���(�⤷FDW�����׹ԤȤ�����ǰ������ʤ�����<parameter>totaldeadrows</>��0�����ꤷ�Ƥ���������)
+最大<parameter>targrows</>行のランダムサンプルをテーブルから収集し、呼び出し元が提供する<parameter>rows</>配列に格納する必要があります。
+実際に収集された行の数を返す必要があります。
+さらに、テーブルに含まれる有効行と不要行の合計数の見積もりを出力パラメータの<parameter>totalrows</>と<parameter>totaldeadrows</>に返す必要があります。(もしFDWが不要行という概念を持たない場合は<parameter>totaldeadrows</>を0に設定してください。)
     </para>
 
    </sect2>
@@ -998,7 +998,7 @@ AcquireSampleRowsFunc (Relation relation, int elevel,
 <!--
     <title>Foreign Data Wrapper Helper Functions</title>
 -->
-    <title>�����ǡ�����åѥإ�Ѵؿ�</title>
+    <title>外部データラッパヘルパ関数</title>
 
     <para>
 <!--
@@ -1010,9 +1010,9 @@ AcquireSampleRowsFunc (Relation relation, int elevel,
      That header also defines the struct types that are returned by
      these functions.
 -->
-FDW���ץ����Τ褦��FDW��Ϣ���֥������Ȥ�°���˳����ǡ�����åѤκ�Ԥ���ñ�˥��������Ǥ���褦�ˡ������Ĥ��Υإ�Ѵؿ������������Ф��饨�����ݡ��Ȥ���Ƥ��ޤ���
-�����δؿ�����Ѥ���ˤϡ��إå��ե�����<filename>foreign/foreign.h</filename>�򤢤ʤ��Υ������ե�����˥��󥯥롼�ɤ���ɬ�פ�����ޤ���
-���Υإå��Ϥޤ������δؿ����֤���¤�Τ�������Ƥ��ޤ���
+FDWオプションのようなFDW関連オブジェクトの属性に外部データラッパの作者が簡単にアクセスできるように、いくつかのヘルパ関数がコアサーバからエクスポートされています。
+これらの関数を使用するには、ヘッダファイル<filename>foreign/foreign.h</filename>をあなたのソースファイルにインクルードする必要があります。
+このヘッダはまたこれらの関数が返す構造体も定義しています。
     </para>
 
     <para>
@@ -1027,7 +1027,7 @@ GetForeignDataWrapper(Oid fdwid);
      <structname>ForeignDataWrapper</structname> object contains properties
      of the FDW (see <filename>foreign/foreign.h</filename> for details).
 -->
-���δؿ��ϻ��ꤵ�줿OID����ĳ����ǡ�����åѤ�<structname>ForeignDataWrapper</structname>���֥������Ȥ��֤��ޤ���<structname>ForeignDataWrapper</structname>���֥������Ȥ�FDW�Υץ��ѥƥ���ޤߤޤ�(�ܺ٤�<filename>foreign/foreign.h</filename>�򻲾Ȥ��Ʋ�����)��
+この関数は指定されたOIDを持つ外部データラッパの<structname>ForeignDataWrapper</structname>オブジェクトを返します。<structname>ForeignDataWrapper</structname>オブジェクトはFDWのプロパティを含みます(詳細は<filename>foreign/foreign.h</filename>を参照して下さい)。
     </para>
 
     <para>
@@ -1042,7 +1042,7 @@ GetForeignServer(Oid serverid);
      <structname>ForeignServer</structname> object contains properties
      of the server (see <filename>foreign/foreign.h</filename> for details).
 -->
-���δؿ��ϻ��ꤵ�줿OID����ĳ��������Ф�<structname>ForeignServer</structname>���֥������Ȥ��֤��ޤ���<structname>ForeignServer</structname>���֥������Ȥϳ��������ФΥץ��ѥƥ���ޤߤޤ�(�ܺ٤�<filename>foreign/foreign.h</filename>�򻲾Ȥ��Ʋ�����)��
+この関数は指定されたOIDを持つ外部サーバの<structname>ForeignServer</structname>オブジェクトを返します。<structname>ForeignServer</structname>オブジェクトは外部サーバのプロパティを含みます(詳細は<filename>foreign/foreign.h</filename>を参照して下さい)。
     </para>
 
     <para>
@@ -1059,8 +1059,8 @@ GetUserMapping(Oid userid, Oid serverid);
      <structname>UserMapping</structname> object contains properties of the
      user mapping (see <filename>foreign/foreign.h</filename> for details).
 -->
-���δؿ��ϻ��ꤵ�줿������Ȼ��ꤵ�줿���������ФΥ桼���ޥåԥ󥰤�<structname>UserMapping</structname>���֥������Ȥ��֤��ޤ���(�⤷����Υ桼���Υޥåԥ󥰤��ʤ����ϡ�<literal>PUBLIC</>�Τ���Υޥåԥ󥰤��֤����������ʤ���Х��顼��ȯ�������ޤ���)
-<structname>UserMapping</structname>���֥������Ȥϥ桼���ޥåԥ󥰤Υץ��ѥƥ���ޤߤޤ�(�ܺ٤�<filename>foreign/foreign.h</filename>�򻲾Ȥ��Ʋ�����)��
+この関数は指定されたロールと指定された外部サーバのユーザマッピングの<structname>UserMapping</structname>オブジェクトを返します。(もし特定のユーザのマッピングがない場合は、<literal>PUBLIC</>のためのマッピングを返すか、それもなければエラーを発生させます。)
+<structname>UserMapping</structname>オブジェクトはユーザマッピングのプロパティを含みます(詳細は<filename>foreign/foreign.h</filename>を参照して下さい)。
     </para>
 
     <para>
@@ -1075,7 +1075,7 @@ GetForeignTable(Oid relid);
      <structname>ForeignTable</structname> object contains properties of the
      foreign table (see <filename>foreign/foreign.h</filename> for details).
 -->
-���δؿ��ϻ��ꤵ�줿OID����ĳ����ơ��֥��<structname>ForeignTable</structname>���֥������Ȥ��֤��ޤ���<structname>ForeignTable</structname>���֥������Ȥϳ����ơ��֥�Υץ��ѥƥ���ޤߤޤ�(�ܺ٤�<filename>foreign/foreign.h</filename>�򻲾Ȥ��Ʋ�����)��
+この関数は指定されたOIDを持つ外部テーブルの<structname>ForeignTable</structname>オブジェクトを返します。<structname>ForeignTable</structname>オブジェクトは外部テーブルのプロパティを含みます(詳細は<filename>foreign/foreign.h</filename>を参照して下さい)。
     </para>
 
     <para>
@@ -1090,7 +1090,7 @@ GetForeignColumnOptions(Oid relid, AttrNumber attnum);
      <structname>DefElem</structname>.  NIL is returned if the column has no
      options.
 -->
-���δؿ��ϻ��ꤵ�줿�����ơ��֥�OID��°���ֹ�˳������������ñ�̤�FDW���ץ�����<structname>DefElem</structname>�Υꥹ�ȷ������֤��ޤ��������󤬥��ץ���������ʤ�����NIL���֤�ޤ���
+この関数は指定された外部テーブルOIDと属性番号に該当する列の列単位のFDWオプションを<structname>DefElem</structname>のリスト形式で返します。その列がオプションを持たない場合はNILが返ります。
     </para>
 
     <para>
@@ -1098,7 +1098,7 @@ GetForeignColumnOptions(Oid relid, AttrNumber attnum);
      Some object types have name-based lookup functions in addition to the
      OID-based ones:
 -->
-�����Ĥ��Υ��֥������ȼ��̤ˤĤ��Ƥϡ�OID�١����Τ�Τ˲ä���̾���١����θ����ؿ��⤢��ޤ���
+いくつかのオブジェクト種別については、OIDベースのものに加えて名前ベースの検索関数もあります。
     </para>
 
     <para>
@@ -1113,7 +1113,7 @@ GetForeignDataWrapperByName(const char *name, bool missing_ok);
      is not found, return NULL if missing_ok is true, otherwise raise an
      error.
 -->
-���δؿ��ϻ��ꤵ�줿̾���γ����ǡ�����åѤ�<structname>ForeignDataWrapper</structname>���֥������Ȥ��֤��ޤ��������ǡ�����åѤ����Ĥ���ʤ����ϡ�missing_ok��true�ξ���NULL���֤�������ʳ��ξ��ϥ��顼��ȯ�������ޤ���
+この関数は指定された名前の外部データラッパの<structname>ForeignDataWrapper</structname>オブジェクトを返します。外部データラッパが見つからない場合は、missing_okがtrueの場合はNULLを返し、それ以外の場合はエラーを発生させます。
     </para>
 
     <para>
@@ -1127,7 +1127,7 @@ GetForeignServerByName(const char *name, bool missing_ok);
      for the foreign server with the given name.  If the server is not found,
      return NULL if missing_ok is true, otherwise raise an error.
 -->
-���δؿ��ϻ��ꤵ�줿̾���γ��������Ф�<structname>ForeignServer</structname>���֥������Ȥ��֤��ޤ������������Ф����Ĥ���ʤ����ϡ�missing_ok��true�ξ���NULL���֤�������ʳ��ξ��ϥ��顼��ȯ�������ޤ���
+この関数は指定された名前の外部サーバの<structname>ForeignServer</structname>オブジェクトを返します。外部サーバが見つからない場合は、missing_okがtrueの場合はNULLを返し、それ以外の場合はエラーを発生させます。
     </para>
 
    </sect1>
@@ -1136,7 +1136,7 @@ GetForeignServerByName(const char *name, bool missing_ok);
 <!--
     <title>Foreign Data Wrapper Query Planning</title>
 -->
-    <title>�����ǡ�����åѤΥ�����ץ�����</title>
+    <title>外部データラッパのクエリプラン作成</title>
 
     <para>
 <!--
@@ -1146,7 +1146,7 @@ GetForeignServerByName(const char *name, bool missing_ok);
      <productname>PostgreSQL</> planner.  Here are some notes about what
      they must do.
 -->
-FDW������Хå��ؿ���<function>GetForeignRelSize</>��<function>GetForeignPaths</>��<function>GetForeignPlan</>��<function>PlanForeignModify</function>��<productname>PostgreSQL</>�ץ��ʤ�ư��ȶ�Ĵ���ʤ���Фʤ�ޤ��󡣤����Ǥϡ������δؿ������٤����˴ؤ��뤤���Ĥ������ջ����Ҥ٤ޤ���
+FDWコールバック関数の<function>GetForeignRelSize</>、<function>GetForeignPaths</>、<function>GetForeignPlan</>、<function>PlanForeignModify</function>は<productname>PostgreSQL</>プランナの動作と協調しなければなりません。ここでは、これらの関数がすべき事に関するいくつかの注意事項を述べます。
     </para>
 
     <para>
@@ -1163,9 +1163,9 @@ FDW������Хå��ؿ���<function>GetForeignRelSize</>��<function>GetForeignPaths</
      have to be emitted by the <structname>ForeignScan</> plan node, not
      columns that are used in qual evaluation but not output by the query.
 -->
-<literal>root</>��<literal>baserel</>�˴ޤޤ�����ϡ������ơ��֥뤫���������ɬ�פΤ���������(�Ȥ���ˤ�륳����)��︺���뤿��˻��ѤǤ��ޤ���
-<literal>baserel-&gt;baserestrictinfo</>�ϡ����������Ԥ�ե��륿��󥰤���������(<literal>WHERE</>��)��ޤ�Ǥ��뤿�ᡢ�ä˶�̣������ΤǤ���(�����Υ��������塼��������ˤ���������å��Ǥ���Τǡ�FDW���Ȥ������������Ŭ�Ѥ��ʤ���Фʤ�ʤ��櫓�ǤϤ���ޤ���)
-<literal>baserel-&gt;reltargetlist</>�ϤɤΥ���ब���������ɬ�פ����뤫����ꤹ��Τ˻��ѤǤ��ޤ��������������Υꥹ�Ȥ�<structname>ForeignScan</>�ץ��Ρ��ɤ�����Ϥ��٤�����ष���ޤ�Ǥ��餺����︡���ˤ�ɬ�פ��������꤫��Ͻ��Ϥ���ʤ������ϴޤޤʤ����Ȥ����դ��Ƥ���������
+<literal>root</>と<literal>baserel</>に含まれる情報は、外部テーブルから取得する必要のある情報の量(とそれによるコスト)を削減するために使用できます。
+<literal>baserel-&gt;baserestrictinfo</>は、取得される行をフィルタリングする制約条件(<literal>WHERE</>句)を含んでいるため、特に興味深いものです。(コアのエグゼキュータが代わりにそれらをチェックできるので、FDW自身がこれらの制約を適用しなければならないわけではありません。)
+<literal>baserel-&gt;reltargetlist</>はどのカラムが取得される必要があるかを決定するのに使用できます。ただし、このリストは<structname>ForeignScan</>プランノードから出力すべきカラムしか含んでおらず、条件検査には必要だがクエリからは出力されないカラムは含まないことに注意してください。
     </para>
 
     <para>
@@ -1174,8 +1174,8 @@ FDW������Хå��ؿ���<function>GetForeignRelSize</>��<function>GetForeignPaths</
      keep information in.  Generally, whatever you store in FDW private fields
      should be palloc'd, so that it will be reclaimed at the end of planning.
 -->
-�͡��ʥץ饤�١��ȥե�����ɤ�FDW�Υץ������ؿ��Ǿ�����Ǽ������Ū�����ѤǤ��ޤ���
-����Ū�ˡ��ץ������κǸ�˲���Ǥ���褦�ˡ�FDW��ͭ�ե�����ɤ˳�Ǽ�����Τ�����palloc�ǳ��ݤ��٤��Ǥ���
+様々なプライベートフィールドがFDWのプラン作成関数で情報を格納する目的で利用できます。
+一般的に、プラン作成の最後に回収できるように、FDW固有フィールドに格納するものは全てpallocで確保すべきです。
     </para>
 
     <para>
@@ -1189,9 +1189,9 @@ FDW������Хå��ؿ���<function>GetForeignRelSize</>��<function>GetForeignPaths</
      <function>GetForeignPaths</> to <function>GetForeignPlan</>, thereby
      avoiding recalculation.
 -->
-<literal>baserel-&gt;fdw_private</>�ϡ�<type>void</>�ݥ��󥿤ǡ�FDW�Υץ������ؿ�������γ����ơ��֥�˴ؤ��������Ǽ������Ū�����ѤǤ��ޤ���
-�����ץ��ʤϡ�<literal>baserel</>�Ρ��ɤ����������Ȥ���NULL�ǽ��������Ȥ�������ơ����Υե�����ɤ˰��ڤ˿���ޤ���
-���Υե�����ɤϡ�<function>GetForeignRelSize</>����<function>GetForeignPaths</>��<function>GetForeignPaths</>����<function>GetForeignPlan</>�Ȥ��ä��褦�˾����缡������������ǡ���̤Ȥ��ƺƷ׻���ʤ����Ȥ��Ǥ��ޤ���
+<literal>baserel-&gt;fdw_private</>は、<type>void</>ポインタで、FDWのプラン作成関数で特定の外部テーブルに関する情報を格納する目的で利用できます。
+コアプランナは、<literal>baserel</>ノードが作成されるときにNULLで初期化するときを除いて、このフィールドに一切に触れません。
+このフィールドは、<function>GetForeignRelSize</>から<function>GetForeignPaths</>や<function>GetForeignPaths</>から<function>GetForeignPlan</>といったように情報を順次伝えるの便利で、結果として再計算を省くことができます。
     </para>
 
     <para>
@@ -1205,8 +1205,8 @@ FDW������Хå��ؿ���<function>GetForeignRelSize</>��<function>GetForeignPaths</
      by <function>nodeToString</>, for use with debugging support available
      in the backend.
 -->
-<function>GetForeignPaths</>�Ǥϡ�<structname>ForeignPath</>�Ρ��ɤ�<structfield>fdw_private</>�ե�����ɤ˸�ͭ������Ǽ���뤳�Ȥǡ��ۤʤ륢�������ѥ�����̤Ǥ��ޤ���<structfield>fdw_private</>��<type>List</>�ݥ��󥿤Ȥ����������Ƥ��ޤ����������ץ��ʤ����Υե�����ɤ����뤳�ȤϤʤ����ᡢ�ºݤˤϤʤ�Ǥ��Ǽ�Ǥ��ޤ���
-���������Хå�����ɤΥǥХå����ݡ��ȵ�ǽ�����ѤǤ���褦��<function>nodeToString</>�ǥ���׽���������Ȥ��Τ����ɤμ�ˡ�Ǥ���
+<function>GetForeignPaths</>では、<structname>ForeignPath</>ノードの<structfield>fdw_private</>フィールドに固有情報を格納することで、異なるアクセスパスを区別できます。<structfield>fdw_private</>は<type>List</>ポインタとして宣言されていますが、コアプランナがこのフィールドを操作することはないため、実際にはなんでも格納できます。
+しかし、バックエンドのデバッグサポート機能を利用できるように<function>nodeToString</>でダンプ出来る形式を使うのが最良の手法です。
     </para>
 
     <para>
@@ -1224,11 +1224,11 @@ FDW������Хå��ؿ���<function>GetForeignRelSize</>��<function>GetForeignPaths</
      trees will undergo post-processing by the planner to make them fully
      executable.
 -->
-<function>GetForeignPlan</>�Ǥϡ����򤵤줿<structname>ForeignPath</>�Ρ��ɤ�<structfield>fdw_private</>�ե�����ɤ�Ĵ�٤ơ�<structname>ForeignScan</>�ץ��Ρ�����˳�Ǽ����ץ��¹Ի������Ѳ�ǽ��<structfield>fdw_exprs</>��<structfield>fdw_private</>����ĤΥꥹ�Ȥ��������뤳�Ȥ��Ǥ��ޤ���
-������ξ���Ȥ�<function>copyObject</>�����ԡ��Ǥ�������Ǥʤ���Фʤ�ޤ���
-<structfield>fdw_private</>�ꥹ�ȤˤϤ���ʳ�������Ϥʤ��������Хå�����ɤˤ�äƲ�ᤵ��뤳�ȤϤ���ޤ���
-<structfield>fdw_exprs</>�ꥹ�Ȥ�NIL�Ǥʤ����ϡ�������¹Ի��˼¹Ԥ���뤳�Ȥ�տޤ������ĥ꡼���ޤޤ�Ƥ��뤳�Ȥ����Ԥ���ޤ���
-�����Υĥ꡼�ϡ������˼¹Բ�ǽ�ʾ��֤ˤ��뤿��˥ץ��ʤˤ������������ޤ���
+<function>GetForeignPlan</>では、選択された<structname>ForeignPath</>ノードの<structfield>fdw_private</>フィールドを調べて、<structname>ForeignScan</>プランノード内に格納されプラン実行時に利用可能な<structfield>fdw_exprs</>と<structfield>fdw_private</>の二つのリストを生成することができます。
+これらは両方とも<function>copyObject</>がコピーできる形式でなければなりません。
+<structfield>fdw_private</>リストにはこれ以外に制約はなく、コアバックエンドによって解釈されることはありません。
+<structfield>fdw_exprs</>リストがNILでない場合は、クエリ実行時に実行されることを意図した式ツリーが含まれていることが期待されます。
+これらのツリーは、完全に実行可能な状態にするためにプランナによる後処理を受けます。
     </para>
 
     <para>
@@ -1245,10 +1245,10 @@ FDW������Хå��ؿ���<function>GetForeignRelSize</>��<function>GetForeignPaths</
      clauses can be removed from the plan node's qual list so that the
      executor doesn't waste time rechecking them.
 -->
-<function>GetForeignPlan</>�Ǥϡ�����Ū���Ϥ��줿�������åȥꥹ�ȤϤ��Τޤޥץ��Ρ��ɤ˥��ԡ��Ǥ��ޤ���
-�Ϥ��줿<literal>scan_clauses</>�ꥹ�Ȥ�<literal>baserel-&gt;baserestrictinfo</>��Ʊ�����ޤߤޤ������¹Ը�Ψ�Τ褤�̤ν��֤��¤��ؤ��뤳�Ȥ�Ǥ��ޤ���
-FDW�ˤǤ���Τ�<structname>RestrictInfo</>�Ρ��ɤ�<literal>scan_clauses</>�ꥹ�Ȥ���(<function>extract_actual_clauses</>��Ȥä�)ȴ���Ф��ơ����Ƥζ��ץ��Ρ��ɤ�qual�ꥹ�Ȥ������������Ȥ��ä�ñ��ʥ������Ǥϡ����Ƥζ�ϼ¹Ի��˥��������塼���ˤ�äƥ����å�����ޤ���
-���ʣ����FDW�������ǰ����ζ������å��Ǥ��뤫�⤷��ޤ��󤬡����Τ褦�ʾ��ˤϡ����������塼�����ƥ����å��Τ���˻��֤�̵�̤ˤ��ʤ��褦�ˡ������ζ�ϥץ��Ρ��ɤ�qual�ꥹ�Ȥ������Ǥ��ޤ���
+<function>GetForeignPlan</>では、一般的に渡されたターゲットリストはそのままプランノードにコピーできます。
+渡された<literal>scan_clauses</>リストは<literal>baserel-&gt;baserestrictinfo</>と同じ句を含みますが、実行効率のよい別の順番に並べ替えることもできます。
+FDWにできるのが<structname>RestrictInfo</>ノードを<literal>scan_clauses</>リストから(<function>extract_actual_clauses</>を使って)抜き出して、全ての句をプランノードのqualリストに入れるだけ、といった単純なケースでは、全ての句は実行時にエグゼキュータによってチェックされます。
+より複雑なFDWは内部で一部の句をチェックできるかもしれませんが、そのような場合には、エグゼキュータが再チェックのために時間を無駄にしないように、それらの句はプランノードのqualリストから削除できます。
     </para>
 
     <para>
@@ -1272,12 +1272,12 @@ FDW�ˤǤ���Τ�<structname>RestrictInfo</>�Ρ��ɤ�<literal>scan_clauses</>�ꥹ��
      $1</literal>, with the parameter value obtained at run time from
      evaluation of the <structfield>fdw_exprs</> expression tree.
 -->
-���Ȥ��С���������¦��ɾ�����줿<replaceable>sub_expression</>���ͤ�����Х�⡼�ȥ�����¦�Ǽ¹Խ�����FDW��Ƚ�Ǥ���褦�ʡ�<replaceable>foreign_variable</> <literal>=</> <replaceable>sub_expression</>�Ȥ��ä������ξ����FDW�����̤��뤫�⤷��ޤ���
-�ѥ��Υ����ȸ��Ѥ��˱ƶ�����Τǡ����Τ褦�ʶ�μºݤμ��̤�<function>GetForeignPaths</>�Ǥʤ����٤��Ǥ���
-�����餯�����Υѥ���<structfield>fdw_private</>�ե�����ɤϼ��̤��줿���<structname>RestrictInfo</>�Ρ��ɤ򤵤��ݥ��󥿤�ޤ�Ǥ��礦��
-�����ơ�<function>GetForeignPlan</>�Ϥ��ζ��<literal>scan_clauses</>������������¹Բ�ǽ�ʷ����ˤۤ�����뤳�Ȥ��ݾ㤹�뤿���<replaceable>sub_expression</>��<structfield>fdw_exprs</>���ɲä���Ǥ��礦��
-�ޤ��������餯���¹Ի��˲��򤹤٤�����ץ��¹Դؿ��������뤿��˥ץ��Ρ��ɤ�<structfield>fdw_private</>�ե�����ɤ��������������Ǥ��礦��
-��⡼�ȥ����Ф�����줿������ϡ��¹Ի���<structfield>fdw_exprs</>���ĥ꡼��ɾ����������줿�ͤ�ѥ�᡼���ͤȤ���<literal>WHERE <replaceable>foreign_variable</> = $1</literal>�Τ褦�ʤ�Τ�ȼ���Ǥ��礦��
+たとえば、ローカル側で評価された<replaceable>sub_expression</>の値があればリモートサーバ側で実行出来るとFDWが判断するような、<replaceable>foreign_variable</> <literal>=</> <replaceable>sub_expression</>といった形式の条件句をFDWが識別するかもしれません。
+パスのコスト見積もりに影響するので、そのような句の実際の識別は<function>GetForeignPaths</>でなされるべきです。
+おそらく、そのパスの<structfield>fdw_private</>フィールドは識別された句の<structname>RestrictInfo</>ノードをさすポインタを含むでしょう。
+そして、<function>GetForeignPlan</>はその句を<literal>scan_clauses</>から取り除き、実行可能な形式にほぐされることを保障するために<replaceable>sub_expression</>を<structfield>fdw_exprs</>に追加するでしょう。
+また、おそらく、実行時に何をすべきかをプラン実行関数に伝えるためにプランノードの<structfield>fdw_private</>フィールドに制御情報を入れるでしょう。
+リモートサーバに送られたクエリは、実行時に<structfield>fdw_exprs</>式ツリーを評価して得られた値をパラメータ値とする<literal>WHERE <replaceable>foreign_variable</> = $1</literal>のようなものを伴うでしょう。
     </para>
 
     <para>
@@ -1297,11 +1297,11 @@ FDW�ˤǤ���Τ�<structname>RestrictInfo</>�Ρ��ɤ�<literal>scan_clauses</>�ꥹ��
      to <structfield>fdw_exprs</>, and then at run time the case works the
      same as for an ordinary restriction clause.
 -->
-FDW�Ϥ��Υơ��֥�ξ���Τߤ˰�¸����ѥ����˾��ʤ��Ȥ��Ĥ��������٤��Ǥ�����祯����Ǥϡ��㤨��<replaceable>foreign_variable</> <literal>=</> <replaceable>local_variable</>�Ȥ��ä�����˰�¸����ѥ�(��)���������뤳�Ȥ�Ǥ��ޤ���
-���Τ褦�ʶ��<literal>baserel-&gt;baserestrictinfo</>�ˤϸ��Ĥ��餺����졼�����η��ꥹ�Ȥˤ���Ϥ��Ǥ���
-���Τ褦�ʶ����Ѥ���ѥ���<quote>�ѥ�᡼�������줿�ѥ�</>�ȸƤФ�ޤ���
-���Τ褦�ʥѥ��Ǥϡ����򤵤줿����ʷ��ˤǻ��Ѥ���Ƥ����졼�����ʷ��ˤ�<literal>param_info</>��Ŭ�礹���ͤ������ꤷ�ʤ���Фʤ�ޤ���;�����ͤ�׻�����ˤ�<function>get_baserel_parampathinfo</>����Ѥ��ޤ���
-<function>GetForeignPlan</>�Ǥϡ������<replaceable>local_variable</>��ʬ��<structfield>fdw_exprs</>���ɲä��졢�¹Ի��ˤ��̾�ξ����Ʊ���褦��ư��ޤ���
+FDWはそのテーブルの条件句のみに依存するパスを常に少なくとも一つは生成すべきです。結合クエリでは、例えば<replaceable>foreign_variable</> <literal>=</> <replaceable>local_variable</>といった結合句に依存するパス(群)を生成することもできます。
+そのような句は<literal>baserel-&gt;baserestrictinfo</>には見つからず、リレーションの結合リストにあるはずです。
+そのような句を使用するパスは<quote>パラメータ化されたパス</>と呼ばれます。
+このようなパスでは、選択された結合句（群）で使用されているリレーション（群）を<literal>param_info</>の適合する値から特定しなければなりません;その値を計算するには<function>get_baserel_parampathinfo</>を使用します。
+<function>GetForeignPlan</>では、結合句の<replaceable>local_variable</>部分が<structfield>fdw_exprs</>に追加され、実行時には通常の条件句と同じように動作します。
     </para>
 
     <para>
@@ -1317,10 +1317,10 @@ FDW�Ϥ��Υơ��֥�ξ���Τߤ˰�¸����ѥ����˾��ʤ��Ȥ��Ĥ��������٤��Ǥ��
      <structname>ForeignScan</> plan node, that is it must contain only
      structures that <function>copyObject</> knows how to copy.
 -->
-<command>UPDATE</>��<command>DELETE</>�Υץ����������Ƥ���Ȥ���
-<function>PlanForeignModify</>�ϡ������˥������ץ�������ؿ��Ǻ��줿<literal>baserel-&gt;fdw_private</>�ǡ�����Ȥ�����ˡ����γ����ơ��֥�Τ����<structname>RelOptInfo</>��¤�Τ򸡺����뤳�Ȥ��Ǥ��ޤ���
-�������ʤ��顢<command>INSERT</>�Ǥ��оݥơ��֥�ϥ�����󤵤�ʤ��Τ��б�����<structname>RelOptInfo</>��¸�ߤ��ޤ���
-<function>PlanForeignModify</>�����֤����<structname>List</>�ˤϡ�<structname>ForeignScan</>�ץ��Ρ��ɤ�<structfield>fdw_private</>�ꥹ�Ȥ�Ʊ�ͤˡ�<function>copyObject</>�����ԡ��λ������ΤäƤ��빽¤�Τ����ݻ����ƤϤ����ʤ��Ȥ������󤬤���ޤ���
+<command>UPDATE</>や<command>DELETE</>のプランを生成しているとき、
+<function>PlanForeignModify</>は、事前にスキャンプラン生成関数で作られた<literal>baserel-&gt;fdw_private</>データを使うために、その外部テーブルのための<structname>RelOptInfo</>構造体を検索することができます。
+しかしながら、<command>INSERT</>では対象テーブルはスキャンされないので対応する<structname>RelOptInfo</>は存在しません。
+<function>PlanForeignModify</>から返される<structname>List</>には、<structname>ForeignScan</>プランノードの<structfield>fdw_private</>リストと同様に、<function>copyObject</>がコピーの仕方を知っている構造体しか保持してはいけないという制約があります。
     </para>
 
     <para>
@@ -1341,11 +1341,11 @@ FDW�Ϥ��Υơ��֥�ξ���Τߤ˰�¸����ѥ����˾��ʤ��Ȥ��Ĥ��������٤��Ǥ��
      impossible anyway depending on what locking semantics the external data
      source provides.
 -->
-Ʊ�������򥵥ݡ��Ȥ��볰���ǡ������������Ф���<command>UPDATE</>��<command>DELETE</>�Ǥϡ�<literal>ForeignScan</>����FDW���ե��å�����Ԥ򡢤Ǥ����<command>SELECT FOR UPDATE</>�����������Τ��Ѥ��ƥ��å����뤳�Ȥ��侩����Ƥ��ޤ���
-�ޤ��������ơ��֥뤬<command>SELECT FOR UPDATE/SHARE</>�ǻ��Ȥ������ˡ�FDW�ϼ��Ф����˹Ԥ���å����뤳�Ȥ����򤹤뤳�Ȥ�Ǥ��ޤ��������Ǥʤ���硢�����ơ��֥�˴ؤ���¤�<literal>FOR UPDATE</>��<literal>FOR SHARE</>�Ȥ��ä����ץ����ϴ���Ū�˲��⤷�ޤ���
-���ε�ư�ϡ�����Ū�˹ԥ��å��ϲ�ǽ�ʸ¤��ٱ䤵���Ȥ�������������ơ��֥���Ф������������ۤʤ륻�ޥ�ƥ�������⤿�餹���⤷��ޤ���
-���������Ŭ�Ѥ�������������ǽ���������⡼�ȹԤǤ�������å�����뤫�⤷��ޤ���
-�������ʤ��顢�������륻�ޥ�ƥ������ȴ����˰��פ����뤳�Ȥϡ��ƹԤˤĤ����ɲäΥ�⡼�ȥ���������ɬ�פȤʤ뤦���������ǡ������������󶡤�����å����ޥ�ƥ������˰�¸���뤿�ᤪ���餯�Բ�ǽ�Ǥ��礦��
+同時更新をサポートする外部データソースに対する<command>UPDATE</>や<command>DELETE</>では、<literal>ForeignScan</>操作はFDWがフェッチする行を、できれば<command>SELECT FOR UPDATE</>に相当するものを用いてロックすることが推奨されています。
+また、外部テーブルが<command>SELECT FOR UPDATE/SHARE</>で参照される場合に、FDWは取り出し時に行をロックすることを選択することもできます。そうでない場合、外部テーブルに関する限り<literal>FOR UPDATE</>や<literal>FOR SHARE</>といったオプションは基本的に何もしません。
+この挙動は、習慣的に行ロックは可能な限り遅延されるという、ローカルテーブルに対する操作と全く異なるセマンティクスをもたらすかもしれません。
+ローカルで適用される制約や結合条件で除外されるリモート行でさえもロックされるかもしれません。
+しかしながら、ローカルセマンティクスと完全に一致させることは、各行について追加のリモートアクセスが必要となるうえ、外部データソースが提供するロックセマンティクスに依存するためおそらく不可能でしょう。
     </para>
 
   </sect1>
