@@ -13,7 +13,7 @@
   mandatory access control (MAC) based on <productname>SELinux</> security
   policy.
 -->
-<filename>sepgsql</>�ϡ�SELinux�Υ������ƥ��ݥꥷ���˴�Ť�������٥�١����ζ����������������MAC; Mandatory Access Control�˵�ǽ���󶡤���⥸�塼��Ǥ���
+<filename>sepgsql</>は、SELinuxのセキュリティポリシーに基づいた、ラベルベースの強制アクセス制御（MAC; Mandatory Access Control）機能を提供するモジュールです。
  </para>
 
  <warning>
@@ -23,8 +23,8 @@
      enforce mandatory access control for all actions.  See
      <xref linkend="sepgsql-limitations">.
 -->
-���ߤμ����ˤϤ����Ĥ��ν��פ����»��ब���ꡢ���Τ��ᡢ���Ƥ������Ф��ƶ����������������Ŭ�Ѥ���櫓�ǤϤ���ޤ���
-�ܺ٤� <xref linkend="sepgsql-limitations"> ��������������
+現在の実装にはいくつかの重要な制限事項があり、そのため、全ての操作に対して強制アクセス制御を適用するわけではありません。
+詳細は <xref linkend="sepgsql-limitations"> をご覧ください。
    </para>
  </warning>
 
@@ -32,7 +32,7 @@
 <!--
   <title>Overview</title>
 -->
-  <title>����</title>
+  <title>概要</title>
 
   <para>
 <!--
@@ -46,10 +46,10 @@
    the usual SQL permissions checking performed by
    <productname>PostgreSQL</productname>.
 -->
-���Υ⥸�塼��ϡ�<productname>PostgreSQL</productname>��ɸ����󶡤��Ƥ����Τ˲ä��ơ�<productname>SELinux</>�����礵�줿������������Υ쥤�䡼���ɲä��ޤ���
-<productname>SELinux</>�λ�������ϡ����Υ⥸�塼�뤬<productname>PostgreSQL</>��桼�����֥��֥������ȥޥ͡�����Ȥ��Ƶ�ǽ���뤳�Ȥ��ǽ�ˤ��ޤ���
-���ʤ����DML������ˤ��ġ��Υơ��֥��ؿ��ؤΥ��������ϡ����ڥ졼�ƥ��󥰥����ƥ�Υ������ƥ��ݥꥷ���ˤ�äƥ����å�����ޤ���
-���Υ����å��ϡ�<productname>PostgreSQL</>�ˤ���̾��SQL�ѡ��ߥå��������å����Ф����ɲ�Ū�˼»ܤ���ޤ���
+このモジュールは、<productname>PostgreSQL</productname>が標準で提供しているものに加えて、<productname>SELinux</>と統合されたアクセス制御のレイヤーを追加します。
+<productname>SELinux</>の視点からは、このモジュールが<productname>PostgreSQL</>をユーザ空間オブジェクトマネージャとして機能することを可能にします。
+すなわち、DMLクエリによる個々のテーブルや関数へのアクセスは、オペレーティングシステムのセキュリティポリシーによってチェックされます。
+このチェックは、<productname>PostgreSQL</>による通常のSQLパーミッションチェックに対して追加的に実施されます。
   </para>
 
   <para>
@@ -66,11 +66,11 @@
    allow a centralized security policy to protect information assets
    independent of the particulars of how those assets are stored.
 -->
-<productname>SELinux</>�ˤ����륢����������ΰջ׷���ϡ�<literal>system_u:object_r:sepgsql_table_t:s0</>�Τ褦�ʽ񼰤���ä��������ƥ���٥�ȸƤФ��ʸ������Ѥ��ƹԤ��ޤ���
-�ġ��Υ�����������ΰջ׷���ˤϡ�������Υ�٥뤬���Ѥ���ޤ���
-���ʤ������������Ԥ����Ȥ�����Ρʥ��֥������ȡˤΥ�٥�ȡ����������оݤȤʤ륪�֥������ȤΥ�٥�Ǥ���
-�����Υ�٥�Ϥ��������Υ��֥������Ȥ��Ф���Ŭ�Ѥ���뤿�ᡢ�ʤ��Υ⥸�塼����Ѥ�����ǡ˥ǡ����١����˳�Ǽ���줿���֥������Ȥ��Ф��륢����������ϡ�¾�ΰ���Ū�ʥ��֥������ȡ��㤨�Хե�������Ф����Τ�Ʊ��δ��˽��äưջ׷��ꤵ�����ˤʤ�ޤ���
-���Υǥ�����ϡ�����񻺤��Ǽ������ˡ�Ȥ���Ω�ˡ��층�������줿�������ƥ��ݥꥷ���ˤ�äƾ���񻺤��ݸ�뤳�Ȥ�տޤ��Ƥ��ޤ���
+<productname>SELinux</>におけるアクセス制御の意思決定は、<literal>system_u:object_r:sepgsql_table_t:s0</>のような書式を持ったセキュリティラベルと呼ばれる文字列を用いて行われます。
+個々のアクセス制御の意思決定には、２種類のラベルが利用されます。
+すなわち、ある操作を行おうとする主体（サブジェクト）のラベルと、その操作の対象となるオブジェクトのラベルです。
+これらのラベルはあらゆる種類のオブジェクトに対して適用されるため、（このモジュールを用いる事で）データベースに格納されたオブジェクトに対するアクセス制御は、他の一般的なオブジェクト、例えばファイルに対するものと同一の基準に従って意思決定される事になります。
+このデザインは、情報資産を格納する方法とは独立に、一元管理されたセキュリティポリシーによって情報資産を保護することを意図しています。
   </para>
 
   <para>
@@ -78,7 +78,7 @@
    The <xref linkend="sql-security-label"> statement allows assignment of
    a security label to a database object.
 -->
-<xref linkend="sql-security-label">���Ѥ��ƥǡ����١������֥������Ȥ˥������ƥ���٥�����ꤹ�뤳�Ȥ��Ǥ��ޤ���
+<xref linkend="sql-security-label">を用いてデータベースオブジェクトにセキュリティラベルを設定することができます。
   </para>
 
  </sect2>
@@ -86,7 +86,7 @@
 <!--
   <title>Installation</title>
 -->
-  <title>���󥹥ȡ���</title>
+  <title>インストール</title>
 
   <para>
 <!--
@@ -98,9 +98,9 @@
     distributions may backport the necessary rules into older policy
     versions).
 -->
-���Υ⥸�塼���<productname>SELinux</>��ͭ����<productname>Linux</>�����ͥ� 2.6.28 �ʾ��ư��ޤ���
-����¾�Υץ�åȥե������Ǥ����Ѥ�����ϤǤ��ޤ���
-�ä��ơ��ʥǥ����ȥ�ӥ塼�����ˤ�äƤϡ�ɬ�פʥ롼���Ť��С������Υݥꥷ���˥Хå��ݡ��Ȥ��Ƥ����ǽ��������ޤ�����<productname>libselinux</> 2.1.10�ʾ塢<productname>selinux-policy</> 3.9.13�ʾ夬ɬ�פǤ���
+このモジュールは<productname>SELinux</>が有効な<productname>Linux</>カーネル 2.6.28 以上で動作します。
+その他のプラットフォーム上では利用する事はできません。
+加えて、（ディストリビューションによっては、必要なルールを古いバージョンのポリシーにバックポートしている可能性がありますが）<productname>libselinux</> 2.1.10以上、<productname>selinux-policy</> 3.9.13以上が必要です。
   </para>
 
   <para>
@@ -108,7 +108,7 @@
    The <command>sestatus</> command allows you to check the status of
    <productname>SELinux</productname>.  A typical display is:
 -->
-<command>sestatus</>���ޥ�ɤ��Ѥ���<productname>SELinux</>�ξ��֤��ǧ���뤳�Ȥ��Ǥ��ޤ���ŵ��Ū�ʽ�����ϰʲ����̤�Ǥ���
+<command>sestatus</>コマンドを用いて<productname>SELinux</>の状態を確認することができます。典型的な出力例は以下の通りです。
 <screen>
 $ sestatus
 SELinux status:                 enabled
@@ -122,7 +122,7 @@ Policy from config file:        targeted
    If <productname>SELinux</> is disabled or not installed, you must set
    that product up first before installing this module.
 -->
-<productname>SELinux</>��̵��������Ƥ��롢���뤤�ϥ��󥹥ȡ��뤵��Ƥ��ʤ���硢���Υ⥸�塼��Υ��󥹥ȡ�������ˡ�<productname>SELinux</>�Υ��åȥ��åפ�Ԥ�ͤФʤ�ޤ���
+<productname>SELinux</>が無効化されている、あるいはインストールされていない場合、このモジュールのインストールの前に、<productname>SELinux</>のセットアップを行わねばなりません。
   </para>
 
   <para>
@@ -131,8 +131,8 @@ Policy from config file:        targeted
    your PostgreSQL <literal>configure</> command.  Be sure that the
    <filename>libselinux-devel</> RPM is installed at build time.
 -->
-���Υ⥸�塼���ӥ�ɤ���ˤϡ�PostgreSQL��<literal>configure</literal>���ޥ�ɤ�<literal>--with-selinux</literal>���ץ������ɲä��Ƥ���������
-����ϡ��ӥ�ɻ���<filename>libselinux-devel</>�ѥå����������󥹥ȡ��뤵��Ƥ�������ǧ���ޤ���
+このモジュールをビルドするには、PostgreSQLの<literal>configure</literal>コマンドに<literal>--with-selinux</literal>オプションを追加してください。
+これは、ビルド時に<filename>libselinux-devel</>パッケージがインストールされている事を確認します。
   </para>
 
   <para>
@@ -146,8 +146,8 @@ Policy from config file:        targeted
    This will install functions needed for security label management, and
    assign initial security labels.
 -->
-���Υ⥸�塼������Ѥ���ˤϡ�<filename>postgresql.conf</>��<xref linkend="guc-shared-preload-libraries">�ѥ�᡼���� <literal>sepgsql</>��ޤ��ɬ�פ�����ޤ�������ʳ�����ˡ�ǥ����ɤ��줿��硢���Υ⥸�塼�����������ǽ���ޤ���
-���Υ⥸�塼��Υ����ɸ塢�ƥǡ����١������Ф���<filename>sepgsql.sql</>��¹Ԥ����������ƥ���٥�����Τ���δؿ��Υ��󥹥ȡ���䡢����������ƥ���٥�������Ԥ��٤��Ǥ���
+このモジュールを利用するには、<filename>postgresql.conf</>の<xref linkend="guc-shared-preload-libraries">パラメータに <literal>sepgsql</>を含める必要があります。これ以外の方法でロードされた場合、このモジュールは正しく機能しません。
+このモジュールのロード後、各データベースに対して<filename>sepgsql.sql</>を実行し、セキュリティラベル管理のための関数のインストールや、初期セキュリティラベルの設定を行うべきです。
   </para>
 
   <para>
@@ -156,8 +156,8 @@ Policy from config file:        targeted
    with <filename>sepgsql</> functions and security labels installed.
    Adjust the paths shown as appropriate for your installation:
 -->
-�ʲ���<filename>sepgsql</>�ؿ�����ӥ������ƥ���٥�ȶ��˥ǡ����١������饹��������������򼨤��ޤ���
-���󥹥ȡ�����˱����ơ�Ŭ���ѥ�̾���ɤ��ؤ���褦�ˤ��Ƥ���������
+以下に<filename>sepgsql</>関数およびセキュリティラベルと共にデータベースクラスタを初期化する手順を示します。
+インストール先に応じて、適宜パス名を読み替えるようにしてください。
   </para>
 
 <screen>
@@ -171,9 +171,9 @@ $ vi $PGDATA/postgresql.conf
 <!--
   to
 -->
-  ��
+  を
     shared_preload_libraries = 'sepgsql'          # (change requires restart)
-  ���ѹ�
+  に変更
 $ for DBNAME in template0 template1 postgres; do
     postgres --single -F -c exit_on_error=true $DBNAME \
       &lt;/usr/local/pgsql/share/contrib/sepgsql.sql &gt;/dev/null
@@ -186,7 +186,7 @@ $ for DBNAME in template0 template1 postgres; do
    depending on the particular versions you have of
    <productname>libselinux</> and <productname>selinux-policy</>:
 -->
-<productname>libselinux</>��<productname>selinux-policy</>�ΥС������ˤ�äƤϰʲ��Τ褦�ʥ�å����������Ϥ�����������ޤ���
+<productname>libselinux</>と<productname>selinux-policy</>のバージョンによっては以下のようなメッセージが出力される事があります。
 <screen>
 /etc/selinux/targeted/contexts/sepgsql_contexts:  line 33 has invalid object type db_blobs
 /etc/selinux/targeted/contexts/sepgsql_contexts:  line 36 has invalid object type db_language
@@ -198,7 +198,7 @@ $ for DBNAME in template0 template1 postgres; do
 <!--
    These messages are harmless and should be ignored.
 -->
-�����Υ�å�������̵���Ǥ��Τ�̵�뤷�Ƥ���������
+これらのメッセージは無害ですので無視してください。
   </para>
 
   <para>
@@ -206,7 +206,7 @@ $ for DBNAME in template0 template1 postgres; do
    If the installation process completes without error, you can now start the
    server normally.
 -->
-���󥹥ȡ����礬����˽�λ�����顢�̾��̤ꡢ�����Ф�ư���뤳�Ȥ��Ǥ��ޤ���
+インストール手順が正常に終了したら、通常通り、サーバを起動することができます。
   </para>
  </sect2>
 
@@ -214,7 +214,7 @@ $ for DBNAME in template0 template1 postgres; do
 <!--
   <title>Regression Tests</title>
 -->
-  <title>�ꥰ��å����ƥ���</title>
+  <title>リグレッションテスト</title>
 
   <para>
 <!--
@@ -230,12 +230,12 @@ $ for DBNAME in template0 template1 postgres; do
    that is they are comparable to <literal>make installcheck</> not
    <literal>make check</>.
 -->
-<productname>SELinux</>�������塢<filename>sepgsql</>�Υꥰ��å����ƥ��Ȥ�¹Ԥ���ˤϡ������Ĥ����ɲ�Ū�����꤬ɬ�פǡ����Τ����δ��Ĥ���<literal>root</>�Ǽ¹Ԥ���ɬ�פ�����ޤ���
-�ꥰ��å����ƥ��Ȥ��̾��<literal>make check</>��<literal>make installcheck</>���ޥ�ɤǼ¹Ԥ�����ϤǤ��ޤ���
-ɬ�פ������Ԥ����ƥ����ѥ�����ץȤ��ư�Ǽ¹Ԥ���ɬ�פ�����ޤ���
-���Υƥ��Ȥ�PostgreSQL�ӥ�ɥĥ꡼��<filename>contrib/sepgsql</>�ǥ��쥯�ȥ�Ǽ¹Ԥ���ɬ�פ�����ޤ���
-�������ӥ�ɥĥ꡼��ɬ�פȤ�����������Υƥ��Ȥϥ��󥹥ȡ��뤵�줿�����Ф��Ф��Ƽ¹Ԥ���ɬ�פ�����ޤ���
-����ϡ�<literal>make check</>�ǤϤʤ���<literal>make installcheck</>�ˤ褯���Ƥ��ޤ���
+<productname>SELinux</>の性質上、<filename>sepgsql</>のリグレッションテストを実行するには、いくつかの追加的な設定が必要で、そのうちの幾つかは<literal>root</>で実行する必要があります。
+リグレッションテストは通常の<literal>make check</>や<literal>make installcheck</>コマンドで実行する事はできません。
+必要な設定を行い、テスト用スクリプトを手動で実行する必要があります。
+このテストはPostgreSQLビルドツリーの<filename>contrib/sepgsql</>ディレクトリで実行する必要があります。
+しかしビルドツリーを必要とする一方、このテストはインストールされたサーバに対して実行する必要があります。
+これは、<literal>make check</>ではなく、<literal>make installcheck</>によく似ています。
   </para>
 
   <para>
@@ -245,8 +245,8 @@ $ for DBNAME in template0 template1 postgres; do
    Note that the current operating system user must be able to connect to the
    database as superuser without password authentication.
 -->
-�ǽ�ˡ�<xref linkend="sepgsql-installation">�˽��ä�<filename>sepgsql</>��ǡ����١����˥��åȥ��åפ��ޤ���
-���Ѥ���OS��Υ桼���ϡ�ǧ��̵���ǥǡ����١����ø��桼���Ȥ�����³�Ǥ���ɬ�פ����뤳�Ȥ�α�դ��Ƥ���������
+最初に、<xref linkend="sepgsql-installation">に従って<filename>sepgsql</>をデータベースにセットアップします。
+使用するOS上のユーザは、認証無しでデータベース特権ユーザとして接続できる必要があることに留意してください。
   </para>
 
   <para>
@@ -265,12 +265,12 @@ $ for DBNAME in template0 template1 postgres; do
    <literal><command>semodule</> -l</> should list <literal>sepgsql-regtest</literal> as an
    available policy package:
 -->
-���ˡ��ꥰ��å����ƥ����ѤΥݥꥷ���ѥå������Υӥ�ɤȥ��󥹥ȡ����ԤäƤ���������
-<filename>sepgsql-regtest</>�ݥꥷ���ϥꥰ��å����ƥ��Ȥμ¹Ԥ�ɬ�פʰ�Ϣ�Υ롼���ޤ����̤���Ū�Υݥꥷ���ѥå������Ǥ���
-�ݥꥷ���Υ������ե�����Ǥ���<filename>sepgsql-regtest.te</>���顢SELinux���󶡤���Makefile���Ѥ���<command>make</>���ޥ�ɤǥӥ�ɤ�������Ǥ��ޤ���
-���λ������󥹥ȡ����襷���ƥ�ˤ����ơ�Ŭ�ڤ�<filename>Makefile</>�ΰ��֤���ꤹ��ɬ�פ�����ޤ����ʲ�����Ǽ�����Ƥ���ѥ��ϰ���Ǥ���
-�ӥ�ɤ���λ�����顢<command>semodule</>���Ѥ��Ƥ��Υݥꥷ���ѥå������򥤥󥹥ȡ��뤹������Ǥ��ޤ������Υ��ޥ�ɤϡ����ꤵ�줿�ݥꥷ���ѥå��������󥯤��������ͥ���֤˥����ɤ�������̤����ޤ���
-���󥹥ȡ��뤬���ｪλ�����顢<literal><command>semodule</> -l</>�ˤ��ͭ���ʥѥå������ΰ����Ȥ���<literal>sepgsql-regtest</>��ɽ�������Ϥ��Ǥ���
+次に、リグレッションテスト用のポリシーパッケージのビルドとインストールを行ってください。
+<filename>sepgsql-regtest</>ポリシーはリグレッションテストの実行に必要な一連のルールを含む特別な目的のポリシーパッケージです。
+ポリシーのソースファイルである<filename>sepgsql-regtest.te</>から、SELinuxの提供するMakefileを用いて<command>make</>コマンドでビルドする事ができます。
+この時、インストール先システムにおいて、適切な<filename>Makefile</>の位置を指定する必要があります。以下の例で示されているパスは一例です。
+ビルドが完了したら、<command>semodule</>を用いてこのポリシーパッケージをインストールする事ができます。このコマンドは、指定されたポリシーパッケージをリンクし、カーネル空間にロードする役割を果たします。
+インストールが正常終了したら、<literal><command>semodule</> -l</>により有効なパッケージの一覧として<literal>sepgsql-regtest</>が表示されるはずです。
   </para>
 
 <screen>
@@ -290,10 +290,10 @@ sepgsql-regtest 1.07
    the rules needed to launch the regression tests.
    It can be turned on using the <command>setsebool</> command:
 -->
-���ˡ�<literal>sepgsql_regression_test_mode</>��ͭ�������Ƥ���������
-�����Τ��ᡢ�ǥե���ȤǤ�<filename>sepgsql-regtest</>�˴ޤޤ�����ƤΥ롼�뤬ͭ��������Ƥ������ǤϤ���ޤ���
-<literal>sepgsql_regression_test_mode</>�ѥ�᡼���ϥꥰ��å����ƥ��Ȥ�ư���뤿���ɬ�פȤʤ���Ĥ��Υ롼���ͭ���ˤ��ޤ���
-<command>setsebool</>���ޥ�ɤˤ�ä�ͭ������������Ǥ��ޤ���
+次に、<literal>sepgsql_regression_test_mode</>を有効化してください。
+安全のため、デフォルトでは<filename>sepgsql-regtest</>に含まれる全てのルールが有効化されている訳ではありません。
+<literal>sepgsql_regression_test_mode</>パラメータはリグレッションテストを起動するために必要となる幾つかのルールを有効にします。
+<command>setsebool</>コマンドによって有効化する事ができます。
   </para>
 
 <screen>
@@ -307,7 +307,7 @@ sepgsql_regression_test_mode --> on
    Fourth, verify your shell is operating in the <literal>unconfined_t</>
    domain:
 -->
-���ˡ������뤬<literal>unconfined_t</>�ɥᥤ���ư��Ƥ�������ǧ���Ʋ�������
+次に、シェルが<literal>unconfined_t</>ドメインで動作している事を確認して下さい。
   </para>
 <screen>
 $ id -Z
@@ -319,14 +319,14 @@ unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
    See <xref linkend="sepgsql-resources"> for details on adjusting your
    working domain, if necessary.
 -->
-���ѼԤ�ư��ɥᥤ������ꤹ����ˡ�ˤĤ��ơ�ɬ�פǤ���С��ܺ٤�<xref linkend="sepgsql-resources">��������������
+利用者の動作ドメインを設定する方法について、必要であれば、詳細は<xref linkend="sepgsql-resources">をご覧ください。
   </para>
 
   <para>
 <!--
    Finally, run the regression test script:
 -->
-�Ǹ�ˡ��ꥰ��å����ƥ��ȤΥ�����ץȤ�¹Ԥ��ޤ���
+最後に、リグレッションテストのスクリプトを実行します。
   </para>
 <screen>
 $ ./test_sepgsql
@@ -338,7 +338,7 @@ $ ./test_sepgsql
    steps correctly, and then it will run the regression tests for the
    <filename>sepgsql</> module.
 -->
-���Υ�����ץȤ����Ƥ����ꥹ�ƥåפ�����˹Ԥ��Ƥ��뤳�Ȥ��ǧ�������θ塢<filename>sepgsql</>�⥸�塼����Ф���ꥰ��å����ƥ��Ȥ�¹Ԥ��ޤ���
+このスクリプトは全ての設定ステップが正常に行われていることを確認し、その後、<filename>sepgsql</>モジュールに対するリグレッションテストを実行します。
   </para>
 
   <para>
@@ -346,7 +346,7 @@ $ ./test_sepgsql
    After completing the tests, it's recommended you disable
    the <literal>sepgsql_regression_test_mode</literal> parameter:
 -->
-�ƥ��Ȥμ¹Ը��<literal>sepgsql_regression_test_mode</>�ѥ�᡼����̵����������򤪴��ᤷ�ޤ���
+テストの実行後は<literal>sepgsql_regression_test_mode</>パラメータを無効化する事をお勧めします。
   </para>
 
 <screen>
@@ -358,7 +358,7 @@ $ sudo setsebool sepgsql_regression_test_mode off
    You might prefer to remove the <filename>sepgsql-regtest</> policy
    entirely:
 -->
-<filename>sepgsql-regtest</>�ݥꥷ���򥢥�����ɤ���ݤϡ��ʲ��Υ��ޥ�ɤ�¹Ԥ��Ƥ���������
+<filename>sepgsql-regtest</>ポリシーをアンロードする際は、以下のコマンドを実行してください。
   </para>
 
 <screen>
@@ -370,7 +370,7 @@ $ sudo semodule -r sepgsql-regtest
 <!--
   <title>GUC Parameters</title>
 -->
-  <title>GUC�ѥ�᡼��</title>
+  <title>GUCパラメータ</title>
 
   <variablelist>
    <varlistentry id="guc-sepgsql-permissive" xreflabel="sepgsql.permissive">
@@ -380,7 +380,7 @@ $ sudo semodule -r sepgsql-regtest
 <!--
       <primary><varname>sepgsql.permissive</> configuration parameter</primary>
 -->
-      <primary><varname>sepgsql.permissive</>����ѥ�᡼��</primary>
+      <primary><varname>sepgsql.permissive</>設定パラメータ</primary>
      </indexterm>
     </term>
     <listitem>
@@ -392,9 +392,9 @@ $ sudo semodule -r sepgsql-regtest
       This parameter can only be set in the <filename>postgresql.conf</>
       file or on the server command line.
 -->
-���Υѥ�᡼���ˤ�ꡢ���ڥ졼�ƥ��󥰥����ƥ������˴ؤ�餺��<filename>sepgsql</>��ѡ��ߥå��֥⡼�ɤ�ư���������Ǥ��ޤ���
-�ǥե���Ȥ������ͤ�off�Ǥ���
-<filename>postgresql.conf</>�⡢����ӥ����е�ư���Υ��ޥ�ɥ饤��ǤΤߡ����Υѥ�᡼�������ꤹ������Ǥ��ޤ���
+このパラメータにより、オペレーティングシステムの設定に関わらず、<filename>sepgsql</>をパーミッシブモードで動作させる事ができます。
+デフォルトの設定値はoffです。
+<filename>postgresql.conf</>内、およびサーバ起動時のコマンドラインでのみ、このパラメータを設定する事ができます。
      </para>
 
      <para>
@@ -403,8 +403,8 @@ $ sudo semodule -r sepgsql-regtest
       in permissive mode, even if SELinux in general is working in enforcing
       mode.  This parameter is primarily useful for testing purposes.
 -->
-���Υѥ�᡼����on�ξ�硢���Ȥ�SELinux������ե������󥰥⡼�ɤ�ư��Ƥ����Ȥ��Ƥ⡢<productname>SE-PostgreSQL</>�ϥѡ��ߥå��֥⡼�ɤ�ư��ޤ���
-���Υѥ�᡼���ϼ�Ȥ��ƥƥ��Ȥ���Ū��ͭ�ѤǤ���
+このパラメータがonの場合、たとえSELinuxがエンフォーシングモードで動作していたとしても、<productname>SE-PostgreSQL</>はパーミッシブモードで動作します。
+このパラメータは主としてテストの目的に有用です。
      </para>
     </listitem>
 
@@ -416,7 +416,7 @@ $ sudo semodule -r sepgsql-regtest
 <!--
       <primary><varname>sepgsql.debug_audit</> configuration parameter</>
 -->
-      <primary><varname>sepgsql.debug_audit</>����ѥ�᡼��</>
+      <primary><varname>sepgsql.debug_audit</>設定パラメータ</>
      </indexterm>
     </term>
     <listitem>
@@ -427,8 +427,8 @@ $ sudo semodule -r sepgsql-regtest
       The default is off, which means that messages will be printed according
       to the system settings.
 -->
-���Υѥ�᡼���ˤ�ꡢ�������ƥ��ݥꥷ��������Ȥ�̵�ط��˴ƺ���������Ϥ��������ǽ�ˤʤ�ޤ���
-�ǥե�����ͤ�off�ʥ������ƥ��ݥꥷ��������˽����ˤǤ���
+このパラメータにより、セキュリティポリシーの設定とは無関係に監査ログを出力する事が可能になります。
+デフォルト値はoff（セキュリティポリシーの設定に従う）です。
      </para>
 
      <para>
@@ -438,8 +438,8 @@ $ sudo semodule -r sepgsql-regtest
       By default, access violations are logged, but allowed
       accesses are not.
 -->
-<productname>SELinux</>�Υ������ƥ��ݥꥷ���ˤϡ�����Υ���������ƺ������˵�Ͽ���뤫�ݤ������椹��롼���¸�ߤ��ޤ���
-�ǥե���ȤǤϡ��ݥꥷ���˰�ȿ��������������Ͽ��������ʳ��ϥ����˵�Ͽ����ޤ���
+<productname>SELinux</>のセキュリティポリシーには、特定のアクセスを監査ログに記録するか否かを制御するルールも存在します。
+デフォルトでは、ポリシーに違反したアクセスを記録し、それ以外はログに記録されません。
      </para>
 
      <para>
@@ -447,7 +447,7 @@ $ sudo semodule -r sepgsql-regtest
       This parameter forces all possible logging to be turned on, regardless
       of the system policy.
 -->
-�����ƥ�Υݥꥷ���Ȥ�̵�ط��ˡ����Υѥ�᡼�������Ƥδƺ������ν��Ϥ������ޤ���
+システムのポリシーとは無関係に、このパラメータは全ての監査ログの出力を強制します。
      </para>
     </listitem>
    </varlistentry>
@@ -458,12 +458,12 @@ $ sudo semodule -r sepgsql-regtest
 <!--
   <title>Features</title>
 -->
-  <title>��ǽ</title>
+  <title>機能</title>
   <sect3>
 <!--
    <title>Controlled Object Classes</title>
 -->
-   <title>���椵��륪�֥������Ȥμ���</title>
+   <title>制御されるオブジェクトの種類</title>
    <para>
 <!--
     The security model of <productname>SELinux</> describes all the access
@@ -474,8 +474,8 @@ $ sudo semodule -r sepgsql-regtest
     attempted, the object is treated as if it were assigned the label
     <literal>unlabeled_t</>.
 -->
-<productname>SELinux</>�Υ������ƥ���ǥ�Ǥϡ����ƤΥ�����������롼���ư����Ρʥ��֥�������; ŵ��Ū�ˤϥǡ����١������饤����ȡˤ��оݥ��֥������ȴ֤δط��Ȥ��Ƶ��Ҥ��������ϥ������ƥ���٥�ˤ�äƼ��̤���ޤ���
-��٥��դ�����Ƥ��ʤ����֥������Ȥ��Ф��륢��������ȯ��������硢���Υ��֥������ȤϤ�������<literal>unlabeled_t</>�����פ�������Ƥ��Ƥ��뤫�Τ褦�˿��񤤤ޤ���
+<productname>SELinux</>のセキュリティモデルでは、全てのアクセス制御ルールは動作主体（サブジェクト; 典型的にはデータベースクライアント）と対象オブジェクト間の関係として記述し、これらはセキュリティラベルによって識別されます。
+ラベル付けされていないオブジェクトに対するアクセスが発生した場合、そのオブジェクトはあたかも<literal>unlabeled_t</>タイプが割り当てられているかのように振舞います。
    </para>
 
    <para>
@@ -489,9 +489,9 @@ $ sudo semodule -r sepgsql-regtest
     the label assigned to the new object's parent object and optionally name
     of the constructed object.
 -->
-���ߤ�<productname>sepgsql</>�Ǥϡ��������ޡ��ơ��֥롢����ࡢ�������󥹡��ӥ塼����Ӵؿ����Ф����٥��դ������ݡ��Ȥ���Ƥ��ޤ���
-<productname>sepgsql</>�����ѻ��ˤϡ������Υǡ����١������֥������Ȥ��Ф��ơ������������˼�ưŪ�˥������ƥ���٥뤬������Ƥ��ޤ���
-���Υ�٥�ϥǥե���ȥ������ƥ���٥�ȸƤФ졢�����ԤΥ�٥롢�ƴط��ˤ����륪�֥������ȤΥ�٥롢�����ƾ��ˤ�äƤϺ������줿���֥������Ȥ�̾���˴�Ť��ơ������ƥ�Υ������ƥ��ݥꥷ�������ꤷ�ޤ���
+現在の<productname>sepgsql</>では、スキーマ、テーブル、カラム、シーケンス、ビューおよび関数に対するラベル付けがサポートされています。
+<productname>sepgsql</>の利用時には、これらのデータベースオブジェクトに対して、その生成時に自動的にセキュリティラベルが割り当てられます。
+このラベルはデフォルトセキュリティラベルと呼ばれ、作成者のラベル、親関係にあたるオブジェクトのラベル、そして場合によっては作成されたオブジェクトの名前に基づいて、システムのセキュリティポリシーが決定します。
    </para>
 
    <para>
@@ -503,8 +503,8 @@ $ sudo semodule -r sepgsql-regtest
     sequences, views, and functions, it is the containing schema; for columns,
     it is the containing table.
 -->
-�������ǡ����١������֥������ȤΥ�٥�ϡ����������ܤȸƤФ��ۤʤä���٥�����ꤹ�뤿������̤ʥ롼�뤬�������ƥ��ݥꥷ�������ꤵ��Ƥ������������ƴط��ˤ��륪�֥������ȤΥ�٥������Ѥ��ޤ���
-�������ޤοƥ��֥������Ȥϥǡ����١����Ǥ��ꡢ�ơ��֥롢�������󥹡��ӥ塼������Ӵؿ��Ϥ���°���륹�����ޤ��������Ϥ���°����ơ��֥뤬�ƥ��֥������ȤȤ������ˤʤ�ޤ���
+新しいデータベースオブジェクトのラベルは、タイプ遷移と呼ばれる異なったラベルを設定するための特別なルールがセキュリティポリシーに設定されている場合を除き、親関係にあるオブジェクトのラベルを引き継ぎます。
+スキーマの親オブジェクトはデータベースであり、テーブル、シーケンス、ビュー、および関数はその属するスキーマが、カラムはその属するテーブルが親オブジェクトという事になります。
    </para>
   </sect3>
 
@@ -512,7 +512,7 @@ $ sudo semodule -r sepgsql-regtest
 <!--
    <title>DML Permissions</title>
 -->
-   <title>DML�ѡ��ߥå����</title>
+   <title>DMLパーミッション</title>
 
    <para>
 <!--
@@ -524,8 +524,8 @@ $ sudo semodule -r sepgsql-regtest
     <literal>WHERE</> or <literal>RETURNING</> clause, as a data source
     for <literal>UPDATE</>, and so on.
 -->
-�ơ��֥���Ф��Ƥϡ���ʸ�μ���˱�����<literal>db_table:select</>��<literal>db_table:insert</>��<literal>db_table:update</>���뤤��<literal>db_table:delete</>���¤����Ƥ��ﻲ�ȥơ��֥���Ф��ƥ����å�����ޤ���
-�ä��ơ�<literal>WHERE</>���<literal>RETURNING</>��ǻ��Ȥ���륫��ࡢ����<literal>UPDATE</>�κݤΥǡ������Ȥ������Ѥ���륫����°����ơ��֥���Ф���<literal>db_table:select</>���¤�����å�����ޤ���
+テーブルに対しては、構文の種類に応じて<literal>db_table:select</>、<literal>db_table:insert</>、<literal>db_table:update</>あるいは<literal>db_table:delete</>権限が全ての被参照テーブルに対してチェックされます。
+加えて、<literal>WHERE</>句や<literal>RETURNING</>句で参照されるカラム、又は<literal>UPDATE</>の際のデータ元として利用されるカラムの属するテーブルに対して<literal>db_table:select</>権限もチェックされます。
    </para>
 
    <para>
@@ -537,19 +537,19 @@ $ sudo semodule -r sepgsql-regtest
     will also be checked for columns being modified by <literal>UPDATE</> or
     <literal>INSERT</>.
 -->
-���Ȥ��줿���ƤΥ������Ф������٥�θ��¥����å����Ԥ��ޤ���
-<literal>SELECT</>��ʸ���ɤ߽Ф���륫�����Ф��Ƥ����Ǥʤ���¾��DML��ʸ�ǻ���
-����Ƥ��륫�����Ф��Ƥ�<literal>db_column:select</>���¤������å�����ޤ���
-�ޤ���<literal>UPDATE</>��<literal>INSERT</>�ˤ�ä������оݤȤʤäƤ��륫���
-���Ф��Ƥ⡢<literal>db_column:update</>��<literal>db_column:insert</>���¤�
-���줾������å�����ޤ���
+参照された全てのカラムに対して列レベルの権限チェックが行われます。
+<literal>SELECT</>構文で読み出されるカラムに対してだけでなく、他のDML構文で参照
+されているカラムに対しても<literal>db_column:select</>権限がチェックされます。
+また、<literal>UPDATE</>や<literal>INSERT</>によって操作の対象となっているカラム
+に対しても、<literal>db_column:update</>や<literal>db_column:insert</>権限が
+それぞれチェックされます。
    </para>
 
    <para>
 <!--
     For example, consider:
 -->
-�ʲ�����򸫤Ƥ�������
+以下の例を見てください
 <synopsis>
 UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
 </synopsis>
@@ -564,8 +564,8 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
     <literal>db_table:{select update}</> will also be checked
     at the table level.
 -->
-�����Ǥϡ����������<literal>t1.x</>���Ф���<literal>db_column:update</>���¤���������Ʊ���˻��Ȥ����<literal>t1.y</>���Ф��Ƥ�<literal>db_column:{select update}</>���¤��������ƻ��Ȥ���������<literal>t1.z</>�ˤ�<literal>db_column:select</>���¤������å�����ޤ���
-�ޤ����ơ��֥��٥�Ǥ�<literal>db_table:{select update}</>���¤������å�����ޤ���
+ここでは、更新される<literal>t1.x</>に対して<literal>db_column:update</>権限が、更新と同時に参照される<literal>t1.y</>に対しては<literal>db_column:{select update}</>権限が、そして参照されるだけの<literal>t1.z</>には<literal>db_column:select</>権限がチェックされます。
+また、テーブルレベルでは<literal>db_table:{select update}</>権限がチェックされます。
    </para>
 
    <para>
@@ -575,8 +575,8 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
     do not currently check permissions on execution of corresponding functions
     such as <literal>lastval()</>.
 -->
-<literal>SELECT</>��ʸ���Ѥ��ƥ������󥹤򻲾Ȥ����硢<literal>db_sequence:get_value</>�������å�����ޤ���
-�����������ߤΤȤ���<literal>lastval()</>�ʤɴ�Ϣ����ؿ��μ¹Ի��ˤϥѡ��ߥå��������å���Ԥ�ʤ�����α�դ��Ƥ���������
+<literal>SELECT</>構文を用いてシーケンスを参照する場合、<literal>db_sequence:get_value</>がチェックされます。
+しかし、現在のところ<literal>lastval()</>など関連する関数の実行時にはパーミッションチェックを行わない事に留意してください。
    </para>
 
    <para>
@@ -585,7 +585,7 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
     required permissions will be checked on the objects being
     expanded from the view, individually.
 -->
-�ӥ塼���Ф��Ƥ�<literal>db_view:expand</>���¤������å����졢�����ǡ��ӥ塼����Ÿ�����줿���֥������Ȥ��Ф���ѡ��ߥå���󤬸��̤˥����å�����ޤ���
+ビューに対しては<literal>db_view:expand</>権限がチェックされ、次いで、ビューから展開されたオブジェクトに対するパーミッションが個別にチェックされます。
    </para>
 
    <para>
@@ -596,11 +596,11 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
     <literal>db_procedure:{entrypoint}</> permission to check whether it
     can perform as entry point of trusted procedure.
 -->
-���ѼԤ�������ΰ����Ȥ��ơ����뤤�϶�ƻ���󥿡��ե��������Ѥ����ƤӽФ��ˤ�ä�
-�ؿ���¹Ԥ��褦�Ȥ���Ȥ���<literal>db_procedure:{execute}</>���¤������å�����
-�ޤ���
-�ؿ����ȥ饹�ƥåɥץ�������Ǥ����硢�ؿ����ȥ饹�ƥåɥץ�������Υ���ȥ꡼
-�ݥ���ȤȤ��ƿ����񤦻����Ǥ��뤫�ɤ����򸡺����뤿���<literal>db_procedure:{entrypoint}</>���¤������å�����ޤ���
+利用者がクエリの一部として、あるいは近道インターフェースを用いた呼び出しによって
+関数を実行しようとするとき、<literal>db_procedure:{execute}</>権限がチェックされ
+ます。
+関数がトラステッドプロシジャである場合、関数がトラステッドプロシジャのエントリー
+ポイントとして振る舞う事ができるかどうかを検査するために<literal>db_procedure:{entrypoint}</>権限がチェックされます。
    </para>
 
    <para>
@@ -613,9 +613,9 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
     qualification is present, an error will occur if the user does not have
     the requisite permission on the named schema.
 -->
-�����륹�����ޥ��֥������Ȥ˥����������뤿��ˤϡ�������ޤॹ�����ޤ��Ф���<literal>db_schema:search</>���¤�ɬ�פǤ���
-���륹�����ޥ��֥������Ȥ��������޽���̵���˻��Ȥ��줿��硢���θ��¤�Ϳ�����Ƥ��ʤ��������ޤ�õ������ޤ���ʤ����������ѼԤ��������ޤ��Ф���<literal>USAGE</>���¤�ͭ���Ƥ��ʤ����Τ褦�˿����񤤤ޤ��ˡ�
-����Ū�ʥ������޽��������ꡢ���Υ������ޤ��Ф������ѼԤ��׵ᤵ�줿���¤�ͭ���Ƥ��ʤ���硢���顼��ȯ�����ޤ���
+あらゆるスキーマオブジェクトにアクセスするためには、それらを含むスキーマに対する<literal>db_schema:search</>権限が必要です。
+あるスキーマオブジェクトがスキーマ修飾無しに参照された場合、この権限を与えられていないスキーマは探索されません（あたかも利用者がスキーマに対する<literal>USAGE</>権限を有していないかのように振る舞います）。
+明示的なスキーマ修飾があり、このスキーマに対して利用者が要求された権限を有していない場合、エラーが発生します。
    </para>
 
    <para>
@@ -625,7 +625,7 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
     so that we apply consistent access control rules independent of the manner
     in which the table contents are referenced.
 -->
-���饤����Ȥ����Ƥ��ﻲ�ȥơ��֥롦�������Ф��ƻ��Ȥθ��¤�ͭ���Ƥ���ɬ�פ�����ޤ�������餬�ӥ塼��ͳ�褷��Ÿ�����줿��ΤǤ��äƤ�Ʊ�ͤǤ�������ˤ�ꡢ�ơ��֥�����Ƥ��ɤΤ褦����ˡ�ˤ�äƻ��Ȥ���뤫�˴ط��ʤ�����Ӥ���������������롼���Ŭ�Ѥ�������Ǥ��ޤ���
+クライアントは全ての被参照テーブル・カラムに対して参照の権限を有している必要があります。それらがビューに由来し、展開されたものであっても同様です。これにより、テーブルの内容がどのような方法によって参照されるかに関係なく、一貫したアクセス制御ルールを適用する事ができます。
    </para>
 
    <para>
@@ -635,7 +635,7 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
     toast tables.  These operations are prohibited when
     <filename>sepgsql</> is enabled.
 -->
-�ǡ����١��������ѡ��桼�����Ф��ơ�ɸ��Υǡ����١������¥����ƥ��DML���Ѥ��������ƥ५�������ι����ȡ�TOAST�ơ��֥�λ��Ȥ���ӹ���������Ƥ��ޤ�����<productname>sepgsql</>��ͭ���ʤȤ������������϶ػߤ���ޤ���
+データベーススーパーユーザに対して、標準のデータベース権限システムはDMLを用いたシステムカタログの更新と、TOASTテーブルの参照および更新を許していますが、<productname>sepgsql</>が有効なとき、これらの操作は禁止されます。
    </para>
   </sect3>
 
@@ -643,7 +643,7 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
 <!--
    <title>DDL Permissions</title>
 -->
-   <title>DDL�ѡ��ߥå����</title>
+   <title>DDLパーミッション</title>
    <para>
 <!--
     <productname>SELinux</> defines several permissions to control common
@@ -652,8 +652,8 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
     special permissions to control their characteristic operations; such as
     addition or deletion of name entries within a particular schema.
 -->
-���֥������Ȥκ������ѹ�������䥻�����ƥ���٥���ѹ��ʤɡ�<productname>SELinux</>�ϳƥ��֥������Ȥ˶��̤��������椹�뤿��Υѡ��ߥå����򲿸Ĥ�������Ƥ��ޤ���
-�ޤ�������Υ������ޤ��Ф���̾�����ɲä����ʤɡ������Ĥ��Υ��֥������ȤˤϤ����ͭ���������椹�뤿������̤ʥѡ��ߥå������������Ƥ��ޤ���
+オブジェクトの作成、変更、削除やセキュリティラベルの変更など、<productname>SELinux</>は各オブジェクトに共通の操作を制御するためのパーミッションを何個か定義しています。
+また、特定のスキーマに対する名前の追加や削除など、いくつかのオブジェクトにはそれ固有の操作を制御するための特別なパーミッションも定義されています。
    </para>
    <para>
 <!--
@@ -662,9 +662,9 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
     client's security label and the proposed security label for the new
     object.  In some cases, additional privileges are required:
 -->
-�������ǡ����١������֥������Ȥκ����ˤ�<literal>create</>���¤�ɬ�פǤ���
-<productname>SELinux</>�����ѼԤΥ������ƥ���٥�ȿ��������֥������Ȥ���Ϳ�������ˤʤ륻�����ƥ���٥���Ф˴�Ť��ơ����θ��¤���ġ����뤤�ϵ��ݤ��ޤ���
-�����Ĥ��ξ��Ǥϡ��ɲ�Ū�ʸ��¥����å����Ԥ��ޤ���
+新しいデータベースオブジェクトの作成には<literal>create</>権限が必要です。
+<productname>SELinux</>は利用者のセキュリティラベルと新しいオブジェクトに付与される事になるセキュリティラベルの対に基づいて、この権限を許可、あるいは拒否します。
+いくつかの場合では、追加的な権限チェックが行われます。
    </para>
 
    <itemizedlist>
@@ -674,8 +674,8 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
       <xref linkend="sql-createdatabase"> additionally requires
       <literal>getattr</> permission for the source or template database.
 -->
-<xref linkend="sql-createdatabase">�ϡ�ʣ�����ޤ��ϥƥ�ץ졼�ȤΥǡ����١���
-���Ф���<literal>getattr</>���¤��׵ᤷ�ޤ���
+<xref linkend="sql-createdatabase">は、複製元またはテンプレートのデータベース
+に対する<literal>getattr</>権限を要求します。
      </para>
     </listitem>
     <listitem>
@@ -684,8 +684,8 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
       Creating a schema object additionally requires <literal>add_name</>
       permission on the parent schema.
 -->
-�������ޥ��֥������Ȥκ����ϡ������ޤॹ�����ޤ��Ф���<literal>add_name</>
-���¤��׵ᤷ�ޤ���
+スキーマオブジェクトの作成は、それを含むスキーマに対して<literal>add_name</>
+権限を要求します。
      </para>
     </listitem>
     <listitem>
@@ -695,8 +695,8 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
       individual table column, just as if each table column were a
       separate top-level object.
 -->
-�ơ��֥�κ�����Ʊ���ˡ����줬����������Ω�������֥������ȤǤ��뤫�Τ褦�ˡ�
-�ġ��Υơ��֥����������븢�¤��׵ᤷ�ޤ���
+テーブルの作成は同時に、それがあたかも独立したオブジェクトであるかのように、
+個々のテーブル列を作成する権限を要求します。
      </para>
     </listitem>
     <listitem>
@@ -706,7 +706,7 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
       requires <literal>install</> permission.  (This permission is also
       checked when <literal>LEAKPROOF</> is set for an existing function.)
 -->
-<literal>LEAKPROOF</>°������ä��ؿ��κ�����<literal>install</>���¤��׵ᤷ�ޤ����ʤ���Ϥޤ�����¸�δؿ���<literal>LEAKPROOF</>°�������ꤹ����ˤ��׵ᤵ��ޤ���
+<literal>LEAKPROOF</>属性を持った関数の作成は<literal>install</>権限を要求します。（これはまた、既存の関数に<literal>LEAKPROOF</>属性を設定する時にも要求されます）
      </para>
     </listitem>
    </itemizedlist>
@@ -719,9 +719,9 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
     contained within a particular schema (tables, views, sequences and
     procedures) additionally requires <literal>remove_name</> on the schema.
 -->
-<literal>DROP</>��ʸ�μ¹Ի����������륪�֥������Ȥ��Ф���<literal>drop</>���¤������å�����ޤ���
-<literal>CASCADE</>�ˤ�����Ū�˺������륪�֥������Ȥ��Ф��Ƥ�����å��ϹԤ��ޤ���
-����Υ������ޤ˴ޤޤ�륪�֥������ȡʥơ��֥롢�ӥ塼���������󥹤�ؿ��ˤκ���˺ݤ��Ƥϡ��������ޤ��Ф���<literal>remove_name</>���¤�ʻ���ƥ����å�����ޤ���
+<literal>DROP</>構文の実行時、削除されるオブジェクトに対して<literal>drop</>権限がチェックされます。
+<literal>CASCADE</>により間接的に削除されるオブジェクトに対してもチェックは行われます。
+特定のスキーマに含まれるオブジェクト（テーブル、ビュー、シーケンスや関数）の削除に際しては、スキーマに対する<literal>remove_name</>権限も併せてチェックされます。
    </para>
 
    <para>
@@ -732,8 +732,8 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
     permissions are instead checked on the parent object.  In some cases,
     additional permissions are required:
 -->
-<literal>ALTER</>��ʸ�μ¹Ի����ơ��֥���Ф��륤��ǥå�����ȥꥬ�ʤ��̥��֥������Ȥ˽�°�����Ρʤ���������˿ƥ��֥������Ȥ��Ф��븢�¤������å������ˤ������<literal>setattr</>�������å�����ޤ���
-�����Ĥ��ξ��Ǥϡ��ɲ�Ū�ʸ��¥����å����Ԥ��ޤ���
+<literal>ALTER</>構文の実行時、テーブルに対するインデックスやトリガなど別オブジェクトに従属するもの（これらは代わりに親オブジェクトに対する権限がチェックされる）を除き、<literal>setattr</>がチェックされます。
+いくつかの場合では、追加的な権限チェックが行われます。
    </para>
 
    <itemizedlist>
@@ -744,7 +744,7 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
       <literal>remove_name</> permission on the old schema and
       <literal>add_name</> permission on the new one.
 -->
-���֥������Ȥ򿷤����������ޤ˰�ư������ˤϡ��Ť��������ޤ��Ф���<literal>remove_name</>���¤����������������ޤ��Ф���<literal>add_name</>���¤�ɬ�פǤ���
+オブジェクトを新しいスキーマに移動させるには、古いスキーマに対して<literal>remove_name</>権限が、新しいスキーマに対して<literal>add_name</>権限が必要です。
      </para>
     </listitem>
     <listitem>
@@ -753,7 +753,7 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
       Setting the <literal>LEAKPROOF</> attribute on a function requires
       <literal>install</> permission.
 -->
-�ؿ����Ф���<literal>LEAKPROOF</>°���������<literal>install</>���¤��׵ᤷ�ޤ���
+関数に対する<literal>LEAKPROOF</>属性の設定は<literal>install</>権限を要求します。
      </para>
     </listitem>
     <listitem>
@@ -768,8 +768,8 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
       <productname>SELinux</>, only <literal>setattr</> should be checked here.
       This is currently not done due to implementation restrictions.)
 -->
-<xref linkend="sql-security-label">���ޥ�ɤμ¹Ի�����٥��դ�����륪�֥������ȤθŤ���٥���Ф���<literal>setattr</>���¤�<literal>relabelfrom</>���¤������Ϥ��줿��������٥���Ф���<literal>relabelto</>���¤������å�����ޤ���
-��ʣ���Υ�٥�ץ��Х��������󥹥ȡ��뤵��Ƥ��ꡢ���ѼԤ�<productname>SELinux</>�δ������ˤʤ���٥�����ꤷ�褦�Ȥ�����硢<literal>setattr</>���¤����������å������٤��Ǥ��������������������ˤ�ꡢ���ߤϤ��������å����Ƥ��ޤ����
+<xref linkend="sql-security-label">コマンドの実行時、ラベル付けされるオブジェクトの古いラベルに対して<literal>setattr</>権限と<literal>relabelfrom</>権限が、入力された新しいラベルに対して<literal>relabelto</>権限がチェックされます。
+（複数のラベルプロバイダがインストールされており、利用者が<productname>SELinux</>の管理下にないラベルを設定しようとした場合、<literal>setattr</>権限だけがチェックされるべきです。しかし実装上の制約により、現在はこれをチェックしていません）
      </para>
     </listitem>
    </itemizedlist>
@@ -780,7 +780,7 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
 <!--
    <title>Trusted Procedures</title>
 -->
-   <title>�ȥ饹�ƥå� �ץ�������</title>
+   <title>トラステッド プロシジャ</title>
    <para>
 <!--
     Trusted procedures are similar to security definer functions or setuid
@@ -792,9 +792,9 @@ UPDATE t1 SET x = 2, y = md5sum(y) WHERE z = 100;
     procedure is controlled by its security label and the operating system
     security policy.  For example:
 -->
-�ȥ饹�ƥåɡ��ץ��������SECURITY DEFINER�ؿ���Set-UID���ޥ�ɤ˻��Ƥ��ޤ����̾��̩�ǡ������Ф�����٤˥���ȥ����뤵�줿�����������ʤ��󶡤�����Ū�ǡ�<productname>SELinux</>�����ѼԤΤ�ΤȤϰۤʤ륻�����ƥ���٥�ǿ���ѤߤΥ����ɤ�¹Ԥ��뤿��ε�ǽ����äƤ��ޤ���
-�ؿ����ȥ饹�ƥåɡ��ץ�������Ȥ��ƿ��񤦤��ɤ����ϡ��ؿ��Υ������ƥ���٥뤪��ӥ��ڥ졼�ƥ��󥰥����ƥ�Υ������ƥ��ݥꥷ���˽��äƷ�ޤ�ޤ���
-�㤨�С�
+トラステッド・プロシジャはSECURITY DEFINER関数やSet-UIDコマンドに似ています。通常、機密データに対する高度にコントロールされたアクセス手段を提供する目的で、<productname>SELinux</>は利用者のものとは異なるセキュリティラベルで信頼済みのコードを実行するための機能を持っています。
+関数がトラステッド・プロシジャとして振舞うかどうかは、関数のセキュリティラベルおよびオペレーティングシステムのセキュリティポリシーに従って決まります。
+例えば：
    </para>
 
 <screen>
@@ -821,7 +821,7 @@ SECURITY LABEL
 <!--
     The above operations should be performed by an administrative user.
 -->
-���������ϴ������¤�������ѼԤǹԤäƤ���������
+これらの操作は管理権限を持つ利用者で行ってください。
    </para>
 
 <screen>
@@ -842,7 +842,7 @@ postgres=# SELECT cid, cname, show_credit(cid) FROM customer;
     to print the credit card numbers of customers with some of the digits
     masked out.
 -->
-���ξ�硢���̤����ѼԤ�<literal>customer.credit</>��ľ�ܻ��Ȥ��뤳�ȤϤǤ��ޤ��󤬡��ȥ饹�ƥåɡ��ץ�������Ǥ���<literal>show_credit</>���Ѥ�����ǡ������η夬�ޥ������줿�ܵҤΥ��쥸�åȥ������ֹ��ץ��Ȥ��������ǽ�ˤʤ�ޤ���
+この場合、一般の利用者は<literal>customer.credit</>を直接参照することはできませんが、トラステッド・プロシジャである<literal>show_credit</>を用いる事で、一部の桁がマスクされた顧客のクレジットカード番号をプリントする事が可能になります。
    </para>
   </sect3>
 
@@ -850,7 +850,7 @@ postgres=# SELECT cid, cname, show_credit(cid) FROM customer;
 <!--
    <title>Dynamic Domain Transitions</title>
 -->
-   <title>ưŪ�ɥᥤ������</title>
+   <title>動的ドメイン遷移</title>
    <para>
 <!--
     It is possible to use SELinux's dynamic domain transition feature
@@ -859,8 +859,8 @@ postgres=# SELECT cid, cname, show_credit(cid) FROM customer;
     The client domain needs the <literal>setcurrent</> permission and also
     <literal>dyntransition</> from the old to the new domain.
 -->
-�������ƥ��ݥꥷ���ˤ�äƵ��Ĥ���Ƥ����硢SELinux��ưŪ�ɥᥤ�����ܵ�ǽ���Ѥ��ơ����ѼԤΥ�٥�򿷤�����Τ��ڤ��ؤ�������Ǥ��ޤ���
-���ѼԤΥɥᥤ���<literal>setcurrent</>���¤���ӡ��Ť��ɥᥤ�󤫤鿷�����ɥᥤ������ܤ��뤿���<literal>dyntransition</>���¤�ͭ���Ƥ���ɬ�פ�����ޤ���
+セキュリティポリシーによって許可されている場合、SELinuxの動的ドメイン遷移機能を用いて、利用者のラベルを新しいものに切り替える事ができます。
+利用者のドメインは<literal>setcurrent</>権限および、古いドメインから新しいドメインに遷移するための<literal>dyntransition</>権限を有している必要があります。
    </para>
    <para>
 <!--
@@ -872,8 +872,8 @@ postgres=# SELECT cid, cname, show_credit(cid) FROM customer;
     safe when used to switch to a domain with a smaller set of privileges than
     the original one. For example:
 -->
-���ѼԤ˼��ȤΥ�٥롢���ʤ�����¤��ڤ��ؤ�������ǽ�ˤ���ưŪ�ɥᥤ�����ܤϡ������ƥ�ˤ�뼫ư�ڤ��ؤ��ʥȥ饹�ƥåɡ��ץ���������ξ��ˤ���٤ƿ��Ť˼�갷��ɬ�פ�����ޤ���
-<literal>dyntransition</>���¤ϸ����Υɥᥤ����⾮���ʸ��¥��åȤ���ĥɥᥤ����ڤ��ؤ�����ˤΤ߰����Ǥ���ȹͤ����ޤ����㤨�С�
+利用者に自身のラベル、すなわち権限を切り替える事を可能にする動的ドメイン遷移は、システムによる自動切り替え（トラステッド・プロシージャの場合）に比べて慎重に取り扱う必要があります。
+<literal>dyntransition</>権限は元々のドメインよりも小さな権限セットを持つドメインに切り替える場合にのみ安全であると考えられます。例えば、
    </para>
 <screen>
 regression=# select sepgsql_getcon();
@@ -897,7 +897,7 @@ ERROR:  SELinux: security policy violation
     range <literal>c1.c1023</> to the smaller range <literal>c1.c4</>, but
     switching back was denied.
 -->
-�嵭����Ǥϡ�����MCS���<literal>c0.c1023</>���鶹��MCS���<literal>c1.c4</>�ؤ����ܤϵ��Ĥ���Ƥ����ΤΡ����εդ϶ػߤ���Ƥ��ޤ���
+上記の例では、広いMCSレンジ<literal>c0.c1023</>から狭いMCSレンジ<literal>c1.c4</>への遷移は許可されているものの、その逆は禁止されています。
    </para>
    <para>
 <!--
@@ -921,12 +921,12 @@ ERROR:  SELinux: security policy violation
     (table, procedure definition, or whatever) must be protected from
     unauthorized access.
 -->
-ưŪ�ɥᥤ�����ܤȥȥ饹�ƥåɡ��ץ���������Ȥ߹�碌�ϡ�ŵ��Ū�ʥ��ͥ������ס���Υ饤�ե��������Ŭ�礹�붽̣��������ˡ���󶡤��ޤ���
-���Ȥ����ͥ������ס���󥰥��եȥ���������Ⱦ��SQL�μ¹Ԥ���Ĥ���Ƥ��ʤ����Ǥ⡢�ȥ饹�ƥåɡ��ץ����������¦����<literal>sepgsql_setcon()</literal>�ؿ����Ѥ������ѼԤΥ������ƥ���٥���ڤ��ؤ�������Ǥ��ޤ����ʥȥ饹�ƥåɡ��ץ�����������ѼԤΥ������ƥ���٥���ڤ��ؤ��뤿���ǧ�ھ�����׵᤹�٤��Ǥ���
-���θ塢���ߤΥ��å����ϥ��ͥ������ס���θ��¤ǤϤʤ����оݤȤʤ����ѼԤθ��¤�ư�����ˤʤ�ޤ���
-�ޤ���<literal>sepgsql_setcon()</literal>��<literal>NULL</literal>������Ϳ���ơ�Ŭ�ڤʸ��¥����å���Ԥ��˥ȥ饹�ƥåɡ��ץ������㤫��ƤӸƤӽФ����ǡ����ͥ������ס���ϸ�ǥ������ƥ���٥�򸵤��᤹�����Ǥ��ޤ���
-�����ǤΥݥ���Ȥϡ��ȥ饹�ƥåɡ��ץ�������������ºݤ�ͭ���ʥ������ƥ���٥���ѹ����븢�¤���äƤ��ꡢ������ǧ�ھ���Ϳ����줿���ˤΤߤ����¹Ԥ���Ȥ������Ǥ���
-�����ޤǤ�ʤ������������Τ���ˤϡ����¤Τʤ�������������ǧ�ھ�����ݻ�����ơ��֥��ؿ�����ʤɤ��ݸ�ʤ���Фʤ�ޤ���
+動的ドメイン遷移とトラステッド・プロシジャの組み合わせは、典型的なコネクションプーラのライフサイクルに適合する興味深い利用法を提供します。
+たとえコネクションプーリングソフトウェアが大半のSQLの実行を許可されていない場合でも、トラステッド・プロシジャの内側から<literal>sepgsql_setcon()</literal>関数を用いて利用者のセキュリティラベルを切り替える事ができます。（トラステッド・プロシジャは利用者のセキュリティラベルを切り替えるための認証情報を要求すべきです）
+この後、現在のセッションはコネクションプーラの権限ではなく、対象となる利用者の権限で動作する事になります。
+また、<literal>sepgsql_setcon()</literal>に<literal>NULL</literal>引数を与えて（適切な権限チェックを行う）トラステッド・プロシジャから再び呼び出す事で、コネクションプーラは後でセキュリティラベルを元に戻す事ができます。
+ここでのポイントは、トラステッド・プロシジャだけが実際に有効なセキュリティラベルを変更する権限を持っており、正しい認証情報が与えられた場合にのみそれを実行するという事です。
+言うまでもなく、安全な操作のためには、権限のないアクセスから認証情報を保持するテーブルや関数定義などを保護しなければなりません。
    </para>
   </sect3>
 
@@ -934,14 +934,14 @@ ERROR:  SELinux: security policy violation
 <!--
    <title>Miscellaneous</title>
 -->
-   <title>����¾</title>
+   <title>その他</title>
 
    <para>
 <!--
     We reject the <xref linkend="sql-load"> command across the board, because
     any module loaded could easily circumvent security policy enforcement.
 -->
-�����ɤ��줿�⥸�塼��ϡ��������ƥ��ݥꥷ����Ŭ�Ѥ��ưפ˥Х��ѥ��Ǥ��뤿�ᡢ<xref linkend="sql-load">���ޥ�ɤμ¹Ԥ�����Ū�˶ػߤ���Ƥ��ޤ���
+ロードされたモジュールは、セキュリティポリシーの適用を容易にバイパスできるため、<xref linkend="sql-load">コマンドの実行は全面的に禁止されています。
    </para>
 
   </sect3>
@@ -951,19 +951,19 @@ ERROR:  SELinux: security policy violation
 <!--
   <title>Sepgsql Functions</title>
 -->
-  <title>sepgsql�ؿ�</title>
+  <title>sepgsql関数</title>
   <para>
 <!--
    <xref linkend="sepgsql-functions-table"> shows the available functions.
 -->
-   <xref linkend="sepgsql-functions-table">�����Ѳ�ǽ�ʴؿ��򼨤��ޤ���
+   <xref linkend="sepgsql-functions-table">に利用可能な関数を示します。
   </para>
 
   <table id="sepgsql-functions-table">
 <!--
    <title>Sepgsql Functions</title>
 -->
-   <title>Sepgsql �ؿ�</title>
+   <title>Sepgsql 関数</title>
    <tgroup cols="2">
     <tbody>
      <row>
@@ -972,7 +972,7 @@ ERROR:  SELinux: security policy violation
 <!--
        Returns the client domain, the current security label of the client.
 -->
-���ѼԤΥɥᥤ�󡢤Ĥޤꡢ���ߤ����Ѽԥ�٥���ֵѤ��ޤ���
+利用者のドメイン、つまり、現在の利用者ラベルを返却します。
       </entry>
      </row>
      <row>
@@ -984,8 +984,8 @@ ERROR:  SELinux: security policy violation
        It also accepts <literal>NULL</literal> input as a request to transition
        to the client's original domain.
 -->
-�������ƥ��ݥꥷ���ǵ��Ĥ���Ƥ����硢���ߤΥ��å��������Ѽԥɥᥤ��򿷤����ɥᥤ��ؤ��ڤ��ؤ��ޤ���
-<literal>NULL</literal>������˼������ǽ�ǡ����ξ�硢���������Ѽԥɥᥤ��ؤ����ܤ��̣���ޤ���
+セキュリティポリシーで許可されている場合、現在のセッションの利用者ドメインを新しいドメインへと切り替えます。
+<literal>NULL</literal>を引数に取る事も可能で、その場合、元々の利用者ドメインへの遷移を意味します。
       </entry>
      </row>
      <row>
@@ -996,7 +996,7 @@ ERROR:  SELinux: security policy violation
       the mcstrans daemon is running.
 -->
       <entry>
-mcstrans�ǡ����ư��Ƥ����硢���Ϥ��줿MLS/MCS��󥸤򽤾��ե����ޥåȤ���ľ�ܥե����ޥåȤ��Ѵ����ޤ���
+mcstransデーモンが動作している場合、入力されたMLS/MCSレンジを修飾フォーマットから直接フォーマットに変換します。
       </entry>
      </row>
      <row>
@@ -1006,7 +1006,7 @@ mcstrans�ǡ����ư��Ƥ����硢���Ϥ��줿MLS/MCS��󥸤򽤾��ե����ޥåȤ��
       the mcstrans daemon is running.
 -->
       <entry>
-mcstrans�ǡ����ư��Ƥ����硢���Ϥ��줿MLS/MCS��󥸤�ľ�ܥե����ޥåȤ��齤���ե����ޥåȤ��Ѵ����ޤ���
+mcstransデーモンが動作している場合、入力されたMLS/MCSレンジを直接フォーマットから修飾フォーマットに変換します。
       </entry>
      </row>
      <row>
@@ -1017,7 +1017,7 @@ mcstrans�ǡ����ư��Ƥ����硢���Ϥ��줿MLS/MCS��󥸤�ľ�ܥե����ޥåȤ��
        current database. The argument may be NULL, or the name of a specfile
        to be used as alternative of the system default.
 -->
-���ߤΥǡ����١���������ƤΥ��֥������Ȥ��Ф��ƽ����٥�������Ƥޤ���������<literal>NULL</literal>�⤷���ϥ����ƥ��ɸ�����������ե������̾���Ǥ���
+現在のデータベース内の全てのオブジェクトに対して初期ラベルを割り当てます。引数は<literal>NULL</literal>もしくはシステムの標準に代わる定義ファイルの名前です。
       </entry>
      </row>
     </tbody>
@@ -1029,21 +1029,21 @@ mcstrans�ǡ����ư��Ƥ����硢���Ϥ��줿MLS/MCS��󥸤�ľ�ܥե����ޥåȤ��
 <!--
   <title>Limitations</title>
 -->
-  <title>���»���</title>
+  <title>制限事項</title>
 
   <variablelist>
    <varlistentry>
 <!--
     <term>Data Definition Language (DDL) Permissions</term>
 -->
-    <term>Data Definition Language (DDL) �ѡ��ߥå����</term>
+    <term>Data Definition Language (DDL) パーミッション</term>
     <listitem>
      <para>
 <!--
       Due to implementation restrictions, some DDL operations do not
       check permissions.
 -->
-�����������ˤ�ꡢ�����Ĥ���DDL���ϥѡ��ߥå���������å����ޤ���
+実装上の制約により、いくつかのDDL操作はパーミッションをチェックしません。
      </para>
     </listitem>
    </varlistentry>
@@ -1052,14 +1052,14 @@ mcstrans�ǡ����ư��Ƥ����硢���Ϥ��줿MLS/MCS��󥸤�ľ�ܥե����ޥåȤ��
 <!--
     <term>Data Control Language (DCL) Permissions</term>
 -->
-    <term>Data Control Language (DCL) �ѡ��ߥå����</term>
+    <term>Data Control Language (DCL) パーミッション</term>
     <listitem>
      <para>
 <!--
       Due to implementation restrictions, DCL operations do not check
       permissions.
 -->
-�����������ˤ�ꡢDCL���ϥѡ��ߥå���������å����ޤ���
+実装上の制約により、DCL操作はパーミッションをチェックしません。
      </para>
     </listitem>
    </varlistentry>
@@ -1075,8 +1075,8 @@ mcstrans�ǡ����ư��Ƥ����硢���Ϥ��줿MLS/MCS��󥸤�ľ�ܥե����ޥåȤ��
       <productname>PostgreSQL</> does not support row-level access; therefore,
       <filename>sepgsql</filename> does not support it either.
 -->
-<productname>PostgreSQL</>�Ϲԥ�٥륢����������򥵥ݡ��Ȥ��Ƥ��ޤ���
-�������äơ�<filename>sepgsql</filename>��Ʊ�ͤǤ���
+<productname>PostgreSQL</>は行レベルアクセス制御をサポートしていません。
+したがって、<filename>sepgsql</filename>も同様です。
      </para>
     </listitem>
    </varlistentry>
@@ -1085,7 +1085,7 @@ mcstrans�ǡ����ư��Ƥ����硢���Ϥ��줿MLS/MCS��󥸤�ľ�ܥե����ޥåȤ��
 <!--
     <term>Covert channels</term>
 -->
-    <term>�������ͥ�</term>
+    <term>隠れチャネル</term>
     <listitem>
      <para>
 <!--
@@ -1097,9 +1097,9 @@ mcstrans�ǡ����ư��Ƥ����硢���Ϥ��줿MLS/MCS��󥸤�ľ�ܥե����ޥåȤ��
       of a top secret table cannot be hidden; we only hope to conceal its
       contents.
 -->
-���Ȥ����ѼԤ����Ȥ���Ĥ���Ƥ��ʤ����֥������ȤǤ��äƤ⡢<productname>sepgsql</>�Ϥ���¸�ߤ򱣤����Ȥ�տޤ��Ƥ��ޤ���
-�㤨�С��桹�����륪�֥������Ȥ����Ƥ򻲾Ȥ�������Ǥ��ʤ��Ƥ⡢�祭���ζ���䳰��������ȿ������¾����ˡ�ˤ�ä��ԲĻ�ʥ��֥������Ȥ�¸�ߤ�������¬�Ǥ��ޤ���
-"�ǹⵡ̩"�ơ��֥��¸�ߤ򱣤����Ȥ��Բ�ǽ�Ǥ��ꡢ�������Ƥ���ƿ���뤳�Ȥ�����տޤ��Ƥ��ޤ���
+たとえ利用者が参照を許可されていないオブジェクトであっても、<productname>sepgsql</>はその存在を隠すことを意図していません。
+例えば、我々があるオブジェクトの内容を参照する事ができなくても、主キーの競合や外部キー違反、その他の方法によって不可視なオブジェクトが存在する事を推測できます。
+"最高機密"テーブルの存在を隠すことは不可能であり、その内容を秘匿することだけを意図しています。
      </para>
     </listitem>
    </varlistentry>
@@ -1110,7 +1110,7 @@ mcstrans�ǡ����ư��Ƥ����硢���Ϥ��줿MLS/MCS��󥸤�ľ�ܥե����ޥåȤ��
 <!--
   <title>External Resources</title>
 -->
-  <title>�����꥽����</title>
+  <title>外部リソース</title>
   <variablelist>
    <varlistentry>
     <term><ulink url="http://wiki.postgresql.org/wiki/SEPostgreSQL">SE-PostgreSQL Introduction</ulink></term>
@@ -1120,7 +1120,7 @@ mcstrans�ǡ����ư��Ƥ����硢���Ϥ��줿MLS/MCS��󥸤�ľ�ܥե����ޥåȤ��
       This wiki page provides a brief overview, security design, architecture,
       administration and upcoming features.
 -->
-����wiki�ڡ����Ǥϡ����ס��������ƥ����ǥ����󡢥������ƥ����㡢����������Ӿ���ε�ǽ�ˤĤ��ƾҲ𤷤Ƥ��ޤ���
+このwikiページでは、概要、セキュリティ・デザイン、アーキテクチャ、管理、および将来の機能について紹介しています。
      </para>
     </listitem>
    </varlistentry>
@@ -1133,8 +1133,8 @@ mcstrans�ǡ����ư��Ƥ����硢���Ϥ��줿MLS/MCS��󥸤�ľ�ܥե����ޥåȤ��
       <productname>SELinux</> on your systems.
       It focuses primarily on Fedora, but is not limited to Fedora.
 -->
-���Υɥ�����Ȥ�<productname>SELinux</>�����ƥ�������Ф��빭�Ϥ��μ����󶡤��Ƥ��ޤ���
-��Ȥ���Fedora���оݤȤ��Ƥ��ޤ���������˸¤ä���ΤǤϤ���ޤ���
+このドキュメントは<productname>SELinux</>システム管理に対する広範な知識を提供しています。
+主としてFedoraを対象としていますが、それに限ったものではありません。
      </para>
     </listitem>
    </varlistentry>
@@ -1147,8 +1147,8 @@ mcstrans�ǡ����ư��Ƥ����硢���Ϥ��줿MLS/MCS��󥸤�ľ�ܥե����ޥåȤ��
       <productname>SELinux</productname>.
       It focuses primarily on Fedora, but is not limited to Fedora.
 -->
-���Υɥ�����Ȥ�<productname>SELinux</>�˴ؤ���褯�������Ȳ���(FAQ)�Ǥ���
-��Ȥ���Fedora���оݤȤ��Ƥ��ޤ���������˸¤ä���ΤǤϤ���ޤ���
+このドキュメントは<productname>SELinux</>に関するよくある質問と回答(FAQ)です。
+主としてFedoraを対象としていますが、それに限ったものではありません。
      </para>
     </listitem>
    </varlistentry>
@@ -1159,7 +1159,7 @@ mcstrans�ǡ����ư��Ƥ����硢���Ϥ��줿MLS/MCS��󥸤�ľ�ܥե����ޥåȤ��
 <!--
   <title>Author</title>
 -->
-  <title>����</title>
+  <title>著者</title>
   <para>
    KaiGai Kohei <email>kaigai@ak.jp.nec.com</email>
   </para>

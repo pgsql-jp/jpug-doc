@@ -4,7 +4,7 @@
 <!--
  <title>Index Access Method Interface Definition</title>
 -->
- <title>����ǥå������������᥽�åɤΥ��󥿥ե��������</title>
+ <title>インデックスアクセスメソッドのインタフェース定義</title>
 
   <para>
 <!--
@@ -14,9 +14,9 @@
    knows nothing about indexes beyond what is specified here, so it is
    possible to develop entirely new index types by writing add-on code.
 -->
-�ܾϤϡ�<productname>PostgreSQL</productname>�Υ��������ƥ�ȸġ��Υ���ǥå���������������<firstterm>����ǥå������������᥽�å�</>�Ȥδ֤Υ��󥿥ե�������������ޤ���
-���������ƥ�ϥ���ǥå����λ��ͤΤߤ��İ����Ƥ��ޤ���
-�������äơ��ɲå����ɤ򵭽Ҥ��뤳�ȤǴ����˿���������ǥå��������ȯ���뤳�Ȥ��Ǥ��ޤ���
+本章は、<productname>PostgreSQL</productname>のコアシステムと個々のインデックス種類を管理する<firstterm>インデックスアクセスメソッド</>との間のインタフェースを定義します。
+コアシステムはインデックスの仕様のみを把握しています。
+したがって、追加コードを記述することで完全に新しいインデックス種類を開発することができます。
   </para>
 
   <para>
@@ -34,13 +34,13 @@
    linkend="storage-page-layout">, and they all use the same format for index
    tuple headers; but these decisions are not forced on an access method.)
 -->
-<productname>PostgreSQL</productname>�Υ���ǥå����Ϥ��٤ơ�����Ū�ˤ�<firstterm>���Ū�ʥ���ǥå���</>�Ȥ����Τ����ΤǤ���
-�Ĥޤꡢ����ǥå������оݤȤʤ�ơ��֥�ե�����Ȥ�ʪ��Ū��ʬ����Ƥ��ޤ���
-�ƥ���ǥå������ȼ���ʪ��Ū��<firstterm>��졼�����</>�Ȥ��Ƴ�Ǽ���졢�ޤ���<structname>pg_class</>����������ι��ܤȤ��Ƶ��Ҥ���ޤ���
-����ǥå��������Ƥϴ����ˤ��Υ���ǥå������������᥽�åɤ����沼�ˤ���ޤ���
-�ºݡ����٤ƤΥ���ǥå������������᥽�åɤϡ��̾�γ�Ǽ�ޥ͡�����ȥХåե��ޥ͡��������Ѥ��ƥ���ǥå��������Ƥ˥��������Ǥ���褦�ˡ�����ǥå�����ɸ�ॵ�����Υڡ�����ʬ�䤷�ޤ���
-�ʴ�¸�Τ��٤ƤΥ���ǥå������������᥽�åɤǤϤ���ˡ�<xref linkend="storage-page-layout">����������ɸ��ڡ����쥤�����Ȥ���Ѥ������٤�Ʊ���񼰤򥤥�ǥå������ץ�إå��˻��Ѥ��ޤ���
-������������ϥ��������᥽�åɤ˶�������Ƥ��뤳�ȤǤϤ���ޤ��󡣡�
+<productname>PostgreSQL</productname>のインデックスはすべて、技術的には<firstterm>補助的なインデックス</>として知られるものです。
+つまり、インデックスは対象となるテーブルファイルとは物理的に分かれています。
+各インデックスは独自の物理的な<firstterm>リレーション</>として格納され、また、<structname>pg_class</>カタログ内の項目として記述されます。
+インデックスの内容は完全にそのインデックスアクセスメソッドの制御下にあります。
+実際、すべてのインデックスアクセスメソッドは、通常の格納マネージャとバッファマネージャを使用してインデックスの内容にアクセスできるように、インデックスを標準サイズのページに分割します。
+（既存のすべてのインデックスアクセスメソッドではさらに、<xref linkend="storage-page-layout">で説明する標準ページレイアウトを使用し、すべて同じ書式をインデックスタプルヘッダに使用します。
+しかし、これはアクセスメソッドに強制されていることではありません。）
   </para>
 
   <para>
@@ -60,21 +60,21 @@
    dead tuples are reclaimed (by vacuuming) when the dead tuples themselves
    are reclaimed.
 -->
-����ǥå����ϸ�ΨŪ�ˤ���ǡ��������ͤ򡢥���ǥå����οƥơ��֥���ιԥС������ʥ��ץ�ˤ�<firstterm>���ץ뼱�̻�</>�����������<acronym>TID</>�˴�Ϣ�դ��ޤ���
-TID�ϡ��֥��å��ֹ桢�֥��å���ι����ֹ��<xref linkend="storage-page-layout">�򻲾ȡˤ��鹽������ޤ���
-����ϡ�����ιԥС�������ơ��֥뤫����Ф��Τ˽�ʬ�ʾ���Ǥ���
-MVCC�Ǥ�1�Ĥ�����Ū�ʹԤ�ʣ���θ��ߤΥС�����󤬤��뤳�Ȥ򡢥���ǥå�����ľ�ܰռ����뤳�ȤϤ���ޤ���
-����ǥå����Ǥϡ��ƥ��ץ�ϡ��ȼ��˥���ǥå������ܤ�����ʤ���Фʤ�ʤ���Ω�������֥������ȤǤ���
-�������äơ��Ԥ򹹿�����ȡ��������ͤ��Ѥ�äƤ��ʤ��äƤȤ��Ƥ⡢���ιԤ��Ф��Ƥޤä�������������ǥå������ܤ���������ޤ���
-��HOT���ץ�Ϥ����������㳰�Ǥ���������ǥå����Ϥ����ˤ��Ϳ���ޤ��󡣡�
-�ʥХ��塼��¹Ԥˤ�äơ����ץ��ץ뼫�Ȥ�������줿���ˡ����ץ��ץ���Ф��륤��ǥå������ܤϲ������ޤ���
+インデックスは効率的にあるデータキー値を、インデックスの親テーブル内の行バージョン（タプル）の<firstterm>タプル識別子</>言い換えると<acronym>TID</>に関連付けます。
+TIDは、ブロック番号、ブロック内の項目番号（<xref linkend="storage-page-layout">を参照）から構成されます。
+これは、特定の行バージョンをテーブルから取り出すのに十分な情報です。
+MVCCでは1つの論理的な行に複数の現在のバージョンがあることを、インデックスが直接意識することはありません。
+インデックスでは、各タプルは、独自にインデックス項目を持たなければならない独立したオブジェクトです。
+したがって、行を更新すると、キーの値が変わっていなかってとしても、その行に対してまったく新しいインデックス項目が作成されます。
+（HOTタプルはこの説明の例外ですが、インデックスはこれらにも関与しません。）
+（バキューム実行によって）不要タプル自身が回収された時に、不要タプルに対するインデックス項目は回収されます。
   </para>
 
  <sect1 id="index-catalog">
 <!--
   <title>Catalog Entries for Indexes</title>
 -->
-  <title>����ǥå����ѤΥ�����������</title>
+  <title>インデックス用のカタログ項目</title>
 
   <para>
 <!--
@@ -93,12 +93,12 @@ MVCC�Ǥ�1�Ĥ�����Ū�ʹԤ�ʣ���θ��ߤΥС�����󤬤��뤳�Ȥ򡢥���ǥå�����ľ�ܰ
    anyone able to write a new access method is expected to be competent
    to insert an appropriate row for themselves.
 -->
-�ƥ���ǥå����᥽�åɤϡ�<structname>pg_am</structname>�����ƥ५��������<xref linkend="catalog-pg-am">�򻲾ȡ���ιԤˤ�äƵ��Ҥ���ޤ���
-<structname>pg_am</structname>�Ԥμ�����Ƥϡ����������᥽�åɤ��󶡤���륤��ǥå������������ؿ����̤���<link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>���ܤؤλ��ȤǤ���
-�ܾϤθ�Ǥ��δؿ��Ѥ�API��������ޤ���
-<structname>pg_am</structname>�ԤϤ���ˡ�ʣ����Υ���ǥå����򥵥ݡ��Ȥ��뤫�ʤɤȤ��ä������������᥽�åɤθ���°���򤤤��Ĥ����ꤷ�ޤ���
-�������Ǥϡ�<structname>pg_am</structname>���ܤκ��������˴ؤ������̤�����Ϥ���ޤ���
-���������������᥽�åɤ�������뤳�Ȥ��Ǥ���ʹ֤ʤ�С�Ŭ�ڤʹԤ������Ǥ���ǽ�Ϥ���������ꤷ�Ƥ��ޤ���
+各インデックスメソッドは、<structname>pg_am</structname>システムカタログ（<xref linkend="catalog-pg-am">を参照）内の行によって記述されます。
+<structname>pg_am</structname>行の主な内容は、アクセスメソッドで提供されるインデックスアクセス関数を識別する<link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>項目への参照です。
+本章の後でこの関数用のAPIを定義します。
+<structname>pg_am</structname>行はさらに、複数列のインデックスをサポートするかなどといった、アクセスメソッドの固定属性をいくつか規定します。
+現時点では、<structname>pg_am</structname>項目の作成や削除に関する特別な補助はありません。
+新しいアクセスメソッドを作成することができる人間ならば、適切な行を挿入できる能力があると想定しています。
   </para>
 
   <para>
@@ -116,10 +116,10 @@ MVCC�Ǥ�1�Ĥ�����Ū�ʹԤ�ʣ���θ��ߤΥС�����󤬤��뤳�Ȥ򡢥���ǥå�����ľ�ܰ
    in <xref linkend="xindex">, which is prerequisite material for reading
    this chapter.
 -->
-�Ȥ��פ����뤿��ˡ�����ǥå������������᥽�åɤϤޤ���<link linkend="catalog-pg-opfamily"><structname>pg_opfamily</structname></link>��<link linkend="catalog-pg-opclass"><structname>pg_opclass</structname></link>��<link linkend="catalog-pg-amop"><structname>pg_amop</structname></link>�����<link linkend="catalog-pg-amproc"><structname>pg_amproc</structname></link>����������롢ʣ����<firstterm>�黻��²</>��<firstterm>�黻�ҥ��饹</>������ޤ���
-�����ι��ܤˤ�ꡢ�ץ��ʤϡ����Υ��������᥽�åɤΥ���ǥå������ɤΤ褦���䤤��碌�����Ф��ƻ��ѤǤ��뤫����ꤹ�뤳�Ȥ��Ǥ��ޤ���
-�黻��²�ȱ黻�ҥ��饹�ˤĤ��Ƥϡ�<xref linkend="xindex">���������ޤ���
-������ܾϤ��ɤ���ɬ�פȤʤ�����Ǥ���
+使い易くするために、インデックスアクセスメソッドはまた、<link linkend="catalog-pg-opfamily"><structname>pg_opfamily</structname></link>、<link linkend="catalog-pg-opclass"><structname>pg_opclass</structname></link>、<link linkend="catalog-pg-amop"><structname>pg_amop</structname></link>および<link linkend="catalog-pg-amproc"><structname>pg_amproc</structname></link>内で定義される、複数の<firstterm>演算子族</>と<firstterm>演算子クラス</>を持ちます。
+これらの項目により、プランナは、このアクセスメソッドのインデックスがどのような問い合わせ条件に対して使用できるかを決定することができます。
+演算子族と演算子クラスについては、<xref linkend="xindex">で説明します。
+これは本章を読む上で必要となる資料です。
   </para>
 
   <para>
@@ -139,12 +139,12 @@ MVCC�Ǥ�1�Ĥ�����Ū�ʹԤ�ʣ���θ��ߤΥС�����󤬤��뤳�Ȥ򡢥���ǥå�����ľ�ܰ
    accessed as part of the <structname>Relation</> data structure that is
    passed to all operations on the index.
 -->
-�ġ��Υ���ǥå����ϡ�����ǥå�����ʪ��Ū�ʥ�졼�����Ȥ��Ƶ��Ҥ���<link linkend="catalog-pg-class"><structname>pg_class</structname></link>���ܤȡ�����ǥå���������Ū�����ơ��Ĥޤꡢ����ǥå��������ĥ���ǥå�����ν���Ȥ�����ΰ�̣�򡢴�Ϣ����黻�ҥ��饹�ǺƸ����줿��ΤȤ���ɽ��<link linkend="catalog-pg-index"><structname>pg_index</structname></link>���ܤȤ��������ޤ���
-����ǥå�����ʥ����͡ˤϡ��ظ�Υơ��֥��ñ����󡢤��뤤�ϡ��ơ��֥�Ԥ��Ф��뼰�Ȥ��뤳�Ȥ��Ǥ��ޤ���
-�̾����ǥå������������᥽�åɤϥ���ǥå��������ͤ�����ɽ�����ˤĤ��ƹ�θ���ޤ���
-�ʾ�˷׻��ѤߤΥ����ͤȤ��ư����ޤ�����
-��������<structname>pg_index</structname>��α黻�ҥ��饹�ξ���򿼤���θ���ޤ���
-����ξ���Υ����������ܤϡ�����ǥå������Ф��뤹�٤Ƥ������Ϥ����<structname>Relation</>�ǡ�����¤�ΰ����Ȥ��ƥ����������뤳�Ȥ��Ǥ��ޤ���
+個々のインデックスは、インデックスを物理的なリレーションとして記述する<link linkend="catalog-pg-class"><structname>pg_class</structname></link>項目と、インデックスの論理的な内容、つまり、インデックスが持つインデックス列の集合とその列の意味を、関連する演算子クラスで再現されたものとして表す<link linkend="catalog-pg-index"><structname>pg_index</structname></link>項目とで定義されます。
+インデックス列（キー値）は、背後のテーブルの単純な列、あるいは、テーブル行に対する式とすることができます。
+通常、インデックスアクセスメソッドはインデックスキー値が何を表すかについて考慮しません。
+（常に計算済みのキー値として扱われます。）
+しかし、<structname>pg_index</structname>内の演算子クラスの情報を深く考慮します。
+この両方のカタログ項目は、インデックスに対するすべての操作に渡される<structname>Relation</>データ構造の一部としてアクセスすることができます。
   </para>
 
   <para>
@@ -188,25 +188,25 @@ MVCC�Ǥ�1�Ĥ�����Ū�ʹԤ�ʣ���θ��ߤΥС�����󤬤��뤳�Ȥ򡢥���ǥå�����ľ�ܰ
    <literal>IS NULL</> and <literal>IS NOT NULL</> clauses as search
    conditions.
 -->
-<structname>pg_am</structname>�Υե饰�����ˤϡ����Τʰ�̣������ʤ���Τ�����ޤ���
-<structfield>amcanunique</structfield>��ɬ�׾���<xref linkend="index-unique-checks">����������Ƥ��ޤ���
-<structfield>amcanmulticol</structfield>�ե饰�ϥ��������᥽�åɤ�ʣ������Ф��륤��ǥå����򥵥ݡ��Ȥ��뤳�Ȥ�ɽ����<structfield>amoptionalkey</structfield>�ϡ�����ǥå�����ǽ�����¶礬�ǽ�Υ���ǥå�����˻��ꤵ��Ƥ��ʤ�����������Ĥ��뤳�Ȥ�ɽ���ޤ���
-<structfield>amcanmulticol</structfield>�����ξ�硢<structfield>amoptionalkey</structfield>�ϴ���Ū�ˡ����������᥽�åɤ����¶�ʤ��Ǵ����ʥ���ǥå����������򥵥ݡ��Ȥ��뤫�ɤ�����ɽ���ޤ���
-ʣ������Ф��륤��ǥå����򥵥ݡ��Ȥ��륢�������᥽�åɤϡ��ǽ����ʹߤΤ��٤Ƥޤ��ϰ�������˴ؤ������¤��ʤ��Ƥ⥹�����򥵥ݡ���<emphasis>���ʤ���Фʤ�ޤ���</>��
-���������ǽ�Υ���ǥå�����ˤ����Ĥ������¤��׵᤹�뤳�Ȥ�ǧ����Ƥ��ޤ���
-����ϡ�<structfield>amoptionalkey</structfield>�򵶤����ꤹ�뤳�Ȥ����Τ���ޤ���
-����ǥå������������᥽�åɤ�<structfield>amoptionalkey</structfield>�򵶤ˤ��룱�Ĥ���ͳ�ϡ�NULL�򥤥�ǥå����դ����ʤ����Ǥ���
-�ۤȤ�ɤΥ���ǥå�����ǽ�ʱ黻�Ҥϸ�̩�ǡ�NULL�ͤ����Ϥ��Ф��ƿ����֤����Ȥ��Ǥ��ޤ���Τǡ�NULL���Ф��ƥ���ǥå������ܤ��Ǽ���ʤ����Ȥϰ츫̥��Ū�Ǥ���
-����ϥ���ǥå����������ˤ�äƲ����֤��ޤ���
-���������ǽ�Υ���ǥå�������Ф������¤��ʤ�����ǥå����������Ǥϡ����ΰ����ϼ��Ԥ��ޤ���
-�ץ��ʤ���������������󥭡���ޤä��������ʤ�����ǥå�������Ѥ��뤳�Ȥ���ꤹ���ǽ��������ޤ��Τǡ��ºݤ���ϡ�<structfield>amoptionalkey</structfield>�����Υ���ǥå�����NULL����ǥå���������ʤ���Фʤ�ʤ����Ȥ��̣���ޤ���
-��Ϣ�������¤Ȥ��ơ��ץ��ʤϤ�����������¤��ʤ��䤤��碌�ǥ���ǥå�������ѤǤ��뤳�Ȥ�����Ȥ��뤿�ᡢʣ���Υ���ǥå�����򥵥ݡ��Ȥ��륤��ǥå������������᥽�åɤ�1���ܤθ�����NULL�ͤΥ���ǥå����򥵥ݡ���<emphasis></>���ʤ���Фʤ�ʤ��Ȥ������Ȥ�����ޤ���
-�㤨�С�(a,b)���Ф��륤��ǥå����ˡ�<literal>WHERE a = 4</literal>�Ȥ��������䤤��碌��Ԥ����Ȥ�ͤ��Ƥߤޤ���
-�����ƥ�ϡ����Υ���ǥå�����<literal>a = 4</literal>����ĹԤ򥹥���󤹤뤳�Ȥ˻��ѤǤ����ΤȲ��ꤷ�ޤ���
-����Ϥ⤷��<literal>b</>��NULL�ξ��ιԤ򥤥�ǥå�������ά������ϴְ�äƤ��ޤ���
-���������ǽ�Υ���ǥå�����NULL�ξ��˹Ԥ��ά���뤳�Ȥ����ꤢ��ޤ���
-�ޤ���NULL�򥤥�ǥå����դ����륤��ǥå������������᥽�åɤ�<structfield>amsearchnulls</structfield>�����ꤹ���ǽ��������ޤ���
-����ϸ������Ȥ���<literal>IS NULL</>�����<literal>IS NOT NULL</>��򥵥ݡ��Ȥ��뤳�Ȥ򼨤��ޤ���
+<structname>pg_am</structname>のフラグ列の中には、明確な意味を持たないものがあります。
+<structfield>amcanunique</structfield>の必要条件は<xref linkend="index-unique-checks">で説明されています。
+<structfield>amcanmulticol</structfield>フラグはアクセスメソッドが複数列に対するインデックスをサポートすることを表し、<structfield>amoptionalkey</structfield>は、インデックス可能な制限句が最初のインデックス列に指定されていないスキャンを許可することを表します。
+<structfield>amcanmulticol</structfield>が偽の場合、<structfield>amoptionalkey</structfield>は基本的に、アクセスメソッドが制限句なしで完全なインデックススキャンをサポートするかどうかを表します。
+複数列に対するインデックスをサポートするアクセスメソッドは、最初の列以降のすべてまたは一部の列に関する制限がなくてもスキャンをサポート<emphasis>しなければなりません</>。
+しかし、最初のインデックス列にいくつかの制限を要求することは認められています。
+これは、<structfield>amoptionalkey</structfield>を偽に設定することで通知されます。
+インデックスアクセスメソッドが<structfield>amoptionalkey</structfield>を偽にする１つの理由は、NULLをインデックス付けしない場合です。
+ほとんどのインデックス可能な演算子は厳密で、NULL値の入力に対して真を返すことができませんので、NULLに対してインデックス項目を格納しないことは一見魅力的です。
+これはインデックススキャンによって何も返しません。
+しかし、最初のインデックス列に対する制限がないインデックススキャンでは、この引数は失敗します。
+プランナがこうしたスキャンキーをまったく持たないインデックスを使用することを決定する可能性がありますので、実際これは、<structfield>amoptionalkey</structfield>が真のインデックスはNULLインデックスを持たなければならないことを意味します。
+関連する制限として、プランナはこれらの列を制限しない問い合わせでインデックスを使用できることを前提とするため、複数のインデックス列をサポートするインデックスアクセスメソッドは1番目の後の列でNULL値のインデックスをサポート<emphasis></>しなければならないということがあります。
+例えば、(a,b)に対するインデックスに、<literal>WHERE a = 4</literal>という条件で問い合わせを行うことを考えてみます。
+システムは、このインデックスを<literal>a = 4</literal>を持つ行をスキャンすることに使用できるものと仮定します。
+これはもし、<literal>b</>がNULLの場合の行をインデックスが省略する場合は間違っています。
+しかし、最初のインデックス列がNULLの場合に行を省略することは問題ありません
+また、NULLをインデックス付けするインデックスアクセスメソッドは<structfield>amsearchnulls</structfield>を設定する可能性があります。
+これは検索条件として<literal>IS NULL</>および<literal>IS NOT NULL</>句をサポートすることを示します。
   </para>
 
  </sect1>
@@ -215,14 +215,14 @@ MVCC�Ǥ�1�Ĥ�����Ū�ʹԤ�ʣ���θ��ߤΥС�����󤬤��뤳�Ȥ򡢥���ǥå�����ľ�ܰ
 <!--
   <title>Index Access Method Functions</title>
 -->
-  <title>����ǥå������������᥽�åɴؿ�</title>
+  <title>インデックスアクセスメソッド関数</title>
 
   <para>
 <!--
    The index construction and maintenance functions that an index access
    method must provide are:
 -->
-����ǥå������������᥽�åɤ��󶡤��ʤ���Фʤ�ʤ�������ǥå������ۤ�����ݼ�ؿ���ʲ��˼����ޤ���
+インデックスアクセスメソッドが提供しなければならない、インデックス構築および保守関数を以下に示します。
   </para>
 
   <para>
@@ -242,11 +242,11 @@ ambuild (Relation heapRelation,
    The function must return a palloc'd struct containing statistics about
    the new index.
 -->
-����������ǥå������ۤ��ޤ���
-���Υ���ǥå�����졼�����ʪ��Ū�˺�������ޤ���
-����ϡ����������᥽�åɤ�ɬ�פȤ��벿�餫�θ���ǡ����ȡ��ơ��֥���˴���¸�ߤ��뤹�٤ƤΥ��ץ���б�������ܤ��񤭹��ޤ�ʤ���Фʤ�ޤ���
-�̾<function>ambuild</>�ؿ���<function>IndexBuildHeapScan()</>��ƤӽФ�����¸�Υ��ץ��ơ��֥뤫�饹����󤷡�����ǥå������������ʤ���Фʤ�ʤ�������׻����ޤ���
-���δؿ��ϡ�����������ǥå����˴ؤ������׾����ޤ�palloc���줿��¤�Τ��֤��ʤ���Фʤ�ޤ���
+新しいインデックスを構築します。
+空のインデックスリレーションが物理的に作成されます。
+これは、アクセスメソッドが必要とする何らかの固定データと、テーブル内に既に存在するすべてのタプルに対応する項目が書き込まれなければなりません。
+通常、<function>ambuild</>関数は<function>IndexBuildHeapScan()</>を呼び出し、既存のタプルをテーブルからスキャンし、インデックスに挿入しなければならないキーを計算します。
+この関数は、新しいインデックスに関する統計情報を含むpallocされた構造体を返さなければなりません。
   </para>
 
   <para>
@@ -260,9 +260,9 @@ ambuildempty (Relation indexRelation);
    empty index written to the initialization fork will be copied over the main
    relation fork on each server restart.
 -->
-���Υ���ǥå������ۤ����������ꤵ�줿��졼�����ν���ե�����(<symbol>INIT_FORKNUM</symbol>)�˽񤭽Ф��ޤ���
-���Υ᥽�åɤϥ�������ʤ��ơ��֥���Ф��ƤΤ߸ƤӽФ���ޤ���
-����ե������˽񤭽Ф��줿���Υ���ǥå����ϡ������ФκƵ�ư���٤˼��졼�����ե������˥��ԡ�����ޤ���
+空のインデックスを構築し、それを指定されたリレーションの初期フォーク(<symbol>INIT_FORKNUM</symbol>)に書き出します。
+このメソッドはログを取らないテーブルに対してのみ呼び出されます。
+初期フォークに書き出された空のインデックスは、サーバの再起動の度に主リレーションフォークにコピーされます。
   </para>
 
   <para>
@@ -288,13 +288,13 @@ aminsert (Relation indexRelation,
    parameter when performing uniqueness checking (since then it will have to
    look into the heap to verify tuple liveness).
 -->
-��¸�Υ���ǥå����˿��������ץ���������ޤ���
-<literal>values</>�����<literal>isnull</>���󤬥���ǥå�������륭���ͤ��󶡤����Τǡ�<literal>heap_tid</>������ǥå��������TID�Ǥ���
-���������᥽�åɤ���դʥ���ǥå����򥵥ݡ��Ȥ�����ʤ���<structname>pg_am</>.<structfield>amcanunique</>�����ξ��ˡ�<literal>checkUnique</>�ϼ¹Ԥ������������μ���򼨤��ޤ���
-����ϰ���������ٱ��ǽ���ݤ��ˤ�ä��Ѥ��ޤ���
-<xref linkend="index-unique-checks">�򻲾Ȥ��Ƥ���������
-�̾異�������᥽�åɤϡ������������Ԥ�����<literal>heapRelation</>�ѥ�᡼���Τߤ�ɬ�פȤ��ޤ�
-(���ץ��ͭ�����򸡾ڤ��뤿��˥ҡ�����򸡺����ʤ���Фʤ�ޤ���)��
+既存のインデックスに新しいタプルを挿入します。
+<literal>values</>配列と<literal>isnull</>配列がインデックスされるキー値を提供するもので、<literal>heap_tid</>がインデックスされるTIDです。
+アクセスメソッドが一意なインデックスをサポートする場合（その<structname>pg_am</>.<structfield>amcanunique</>が真の場合）、<literal>checkUnique</>は実行する一意性検査の種類を示します。
+これは一意性制約が遅延可能か否かによって変わります。
+<xref linkend="index-unique-checks">を参照してください。
+通常アクセスメソッドは、一意性検査を行う時に<literal>heapRelation</>パラメータのみを必要とします
+(タプルの有効性を検証するためにヒープ内を検索しなければなりません)。
   </para>
 
   <para>
@@ -305,9 +305,9 @@ aminsert (Relation indexRelation,
    FALSE means it might be non-unique (and a deferred uniqueness check must
    be scheduled).  For other cases a constant FALSE result is recommended.
 -->
-<literal>checkUnique</>��<literal>UNIQUE_CHECK_PARTIAL</>�ξ�硢�ؿ����������η���ͤǽ�ʬ�Ǥ���
-���ξ�硢���η�̤Ͽ��������ܤϰ�դǤ��뤳�Ȥ���ǧ���줿���Ȥ򡢰������η�̤ϰ�դǤʤ���ǽ�������뤳��(�ٱ�����������ͽ�ꤷ�ʤ���Фʤ�ʤ�����)���̣���ޤ���
-¾�ξ��Ǥϡ�����ε��Ȥ�����̤��侩����ޤ���
+<literal>checkUnique</>が<literal>UNIQUE_CHECK_PARTIAL</>の場合、関数の論理型の結果値で十分です。
+この場合、真の結果は新しい項目は一意であることが確認されたことを、一方偽の結果は一意でない可能性があること(遅延一意性検査を予定しなければならないこと)を意味します。
+他の場合では、一定の偽という結果が推奨されます。
   </para>
 
   <para>
@@ -315,8 +315,8 @@ aminsert (Relation indexRelation,
    Some indexes might not index all tuples.  If the tuple is not to be
    indexed, <function>aminsert</> should just return without doing anything.
 -->
-�����Υ���ǥå����ǤϤ��٤ƤΥ��ץ�򥤥�ǥå����դ����ʤ���ǽ��������ޤ���
-���ץ뤬����ǥå����դ�����ʤ���硢<function>aminsert</>�ϲ���Ԥ鷺�����ʤ���Фʤ�ޤ���
+一部のインデックスではすべてのタプルをインデックス付けしない可能性があります。
+タプルがインデックス付けされない場合、<function>aminsert</>は何も行わずに戻らなければなりません。
   </para>
 
   <para>
@@ -339,11 +339,11 @@ ambulkdelete (IndexVacuumInfo *info,
    It is OK to return NULL if no information needs to be passed on to
    <function>amvacuumcleanup</>.
 -->
-����ǥå������饿�ץ��ʣ���ġˤ������ޤ���
-�����<quote>�����</>����Ԥ��ޤ���������ǥå������Τ򥹥���󤷡��ƹ��ܤ��Ф��ƺ�����٤����ɤ���������Ԥ��褦�˼�������뤳�Ȥ����ꤵ��Ƥ��ޤ���
-�Ϥ����<literal>callback</>�ؿ��ϡ�<literal>callback(<replaceable>TID</>, callback_state) returns bool</literal>�Ȥ������ǡ�������TID�Ǽ��̤���륤��ǥå������ܤ������٤����ɤ������ꤹ�뤿��˸ƤӽФ��ʤ���Фʤ�ޤ���
-NULL�ޤ���palloc����������αƶ��˴ؤ������׾����ޤ๽¤�Τ��֤��ʤ���Фʤ�ޤ���
-<function>amvacuumcleanup</>���Ϥ��ʤ���Фʤ�ʤ����󤬤ʤ���С�NULL���֤��Ƥ����ꤢ��ޤ���
+インデックスからタプル（複数可）を削除します。
+これは<quote>一括削除</>操作を行いますが、インデックス全体をスキャンし、各項目に対して削除すべきかどうか検査を行うように実装されることが想定されています。
+渡される<literal>callback</>関数は、<literal>callback(<replaceable>TID</>, callback_state) returns bool</literal>という形で、参照用TIDで識別されるインデックス項目を削除すべきかどうか決定するために呼び出さなければなりません。
+NULLまたはpallocした削除操作の影響に関する統計情報を含む構造体を返さなければなりません。
+<function>amvacuumcleanup</>に渡さなければならない情報がなければ、NULLを返しても問題ありません。
   </para>
 
   <para>
@@ -357,11 +357,11 @@ NULL�ޤ���palloc����������αƶ��˴ؤ������׾����ޤ๽¤�Τ��֤��ʤ���Фʤ�
    modify and return the same struct if the passed <literal>stats</> is not
    null.
 -->
-<varname>maintenance_work_mem</>�����¤ˤ�ꡢ¿���Υ��ץ뤬�����������<function>ambulkdelete</>��ʣ����ƤӽФ�ɬ�פ����뤫�⤷��ޤ���
-<literal>stats</>�����ϡ����Υ���ǥå������Ф�������θƤӽФ���̤Ǥ���
-��<command>VACUUM</>���ˤ�����ǽ�θƤӽФ��ǤϤ����NULL�Ǥ�����
-����ˤ�ꡢ���������᥽�åɤ�������Τ˸٤ä����׾����׻����뤳�Ȥ��Ǥ��ޤ���
-ŵ��Ū�ˡ��Ϥ��줿<literal>stats</>��NULL�Ǥʤ���硢<function>ambulkdelete</>��Ʊ����¤�Τ��ѹ������֤��ޤ���
+<varname>maintenance_work_mem</>の制限により、多くのタプルが削除される時、<function>ambulkdelete</>を複数回呼び出す必要があるかもしれません。
+<literal>stats</>引数は、このインデックスに対する前回の呼び出し結果です。
+（<command>VACUUM</>操作における最初の呼び出しではこれはNULLです。）
+これにより、アクセスメソッドは操作全体に跨った統計情報を計算することができます。
+典型的に、渡された<literal>stats</>がNULLでない場合、<function>ambulkdelete</>は同じ構造体を変更し、返します。
   </para>
 
   <para>
@@ -384,15 +384,15 @@ amvacuumcleanup (IndexVacuumInfo *info,
    <command>VACUUM</command> operation, but otherwise correct stats should
    be returned.
 -->
-<command>VACUUM</command>����0��ʾ��<function>ambulkdelete</>�ƤӽФ��˸��������Ԥ��ޤ���
-����ϡ�����ǥå������׾�����֤��ʾ�ν�����Ԥ�ɬ�פϤ���ޤ���
-�����������Υ���ǥå����ڡ����β���ʤɤΰ��������Ԥ���ǽ��������ޤ���
-<literal>stats</>�ϺǸ��<function>ambulkdelete</>�ƤӽФ����֤�����ΤǤ���
-�������ɬ�פ����륿�ץ뤬¸�ߤ��ʤ��ä������<function>ambulkdelete</>���ƤӽФ���ʤ��ä�����NULL�Ȥʤ�ޤ���
-��̤�NULL�Ǥʤ���С�palloc���줿��¤�ΤǤʤ���Фʤ�ޤ���
-�ޤޤ�����׾����<structname>pg_class</>�򹹿����뤿��˻��Ѥ��졢�ޤ���<literal>VERBOSE</>�����ꤵ�줿<command>VACUUM</>�ˤ�ä���𤵤�ޤ���
-<command>VACUUM</command>���δ֤˥���ǥå������ޤä����Ѥ��ʤ��ä�����NULL���֤��Ƥ����ꤢ��ޤ���
-�������������Ǥʤ�������������׾�����֤��ʤ���Фʤ�ޤ���
+<command>VACUUM</command>操作（0回以上の<function>ambulkdelete</>呼び出し）後の整理を行います。
+これは、インデックス統計情報を返す以上の処理を行う必要はありません。
+しかし、空のインデックスページの回収などの一括整理を行う可能性があります。
+<literal>stats</>は最後の<function>ambulkdelete</>呼び出しが返したものです。
+削除する必要があるタプルが存在しなかったために<function>ambulkdelete</>が呼び出されなかった場合はNULLとなります。
+結果はNULLでなければ、pallocされた構造体でなければなりません。
+含まれる統計情報は<structname>pg_class</>を更新するために使用され、また、<literal>VERBOSE</>が指定された<command>VACUUM</>によって報告されます。
+<command>VACUUM</command>操作の間にインデックスがまったく変わらなかった場合はNULLを返しても問題ありません。
+しかし、そうでなければ正しい統計情報を返さなければなりません。
   </para>
 
   <para>
@@ -405,10 +405,10 @@ amvacuumcleanup (IndexVacuumInfo *info,
    that the access method do nothing except post-insert cleanup in such a
    call, and that only in an autovacuum worker process.
 -->
-<productname>PostgreSQL</productname> 8.4�λ����ǡ�<function>amvacuumcleanup</>��<command>ANALYZE</>���δ�λ�����ˤ�ƤӽФ���ޤ���
-���ξ�硢<literal>stats</>�Ͼ��NULL�ǡ�����ͤϤޤä���̵�뤵��ޤ���
-���λ��ݤ�<literal>info-&gt;analyze_only</literal>�򸡺����뤳�ȤǼ��̤���ޤ���
-���������᥽�åɤ����Τ褦�ʸƤӽФ���������������ʳ����⤷�ʤ��褦�ˡ������Ƥ���ϼ�ư�Х��塼�����ץ������ΤߤǤ���褦�ˤ��뤳�Ȥ�侩���ޤ���
+<productname>PostgreSQL</productname> 8.4の時点で、<function>amvacuumcleanup</>も<command>ANALYZE</>操作の完了時点にも呼び出されます。
+この場合、<literal>stats</>は常にNULLで、戻り値はまったく無視されます。
+この事象は<literal>info-&gt;analyze_only</literal>を検査することで識別されます。
+アクセスメソッドがそのような呼び出しで挿入後の整理以外何もしないように、そしてそれは自動バキュームワーカプロセスのみであるようにすることを推奨します。
   </para>
 
   <para>
@@ -424,9 +424,9 @@ amcanreturn (Relation indexRelation);
    the hash values not the original data), it is sufficient to set its
    <structfield>amcanreturn</> field to zero in <structname>pg_am</>.
 -->
-<structname>IndexTuple</structname>�����Υ���ǥå�������ȥ�򥤥�ǥå��������ꤵ�줿����ͤȤ����֤����Ȥˤ�ꡢ���Υ���ǥå�����<firstterm>����ǥå�������꡼�������</>�򥵥ݡ��Ȥ��Ƥ��뤫�ɤ�����Ƚ�Ǥ��ޤ���
-����ǥå�������꡼������󤬥��ݡ��Ȥ���Ƥ�����Ͽ����֤��졢���ݡ��Ȥ���Ƥ��ʤ����ϵ����֤�ޤ���
-����ǥå����Υ��������᥽�åɤ�����ǥå�������꡼�������򥵥ݡ��Ȥ��Ƥ��ʤ����(������Υ���ǥå����ϥϥå��奤��ǥå����ǡ�����ǥå����ˤϸ��Υǡ����ǤϤʤ��ϥå����ͤΤߤ���Ǽ����ޤ�)�� <structname>pg_am</>��<structfield>amcanreturn</>��˥��������åȤ���ޤ���
+<structname>IndexTuple</structname>形式のインデックスエントリをインデックスが設定された列の値として返すことにより、そのインデックスが<firstterm>インデックスオンリースキャン</>をサポートしているかどうかを判断します。
+インデックスオンリースキャンがサポートされている場合は真が返され、サポートされていない場合は偽が返ります。
+インデックスのアクセスメソッドがインデックスオンリースキャンをサポートしていない場合(この例のインデックスはハッシュインデックスで、インデックスには元のデータではなくハッシュ値のみが格納されます)、 <structname>pg_am</>の<structfield>amcanreturn</>列にゼロがセットされます。
   </para>
 
   <para>
@@ -444,8 +444,8 @@ amcostestimate (PlannerInfo *root,
    Estimate the costs of an index scan.  This function is described fully
    in <xref linkend="index-cost-estimation">, below.
 -->
-����ǥå����������Υ����Ȥ���ꤷ�ޤ���
-���δؿ��ˤĤ��Ƥϸ�Ҥ�<xref linkend="index-cost-estimation">���������ޤ���
+インデックススキャンのコストを推定します。
+この関数については後述の<xref linkend="index-cost-estimation">で説明します。
   </para>
 
   <para>
@@ -473,18 +473,18 @@ amoptions (ArrayType *reloptions,
    that case ignoring obsolete entries is appropriate.)
    It is OK to return NULL if default behavior is wanted.
 -->
-����ǥå����Ѥ�reloptions�β��Ϥȸ��ڤ�Ԥ��ޤ���
-����ǥå�������NULL��reloptions����¸�ߤ�����ˤΤ߸ƤӽФ���ޤ���
-<parameter>reloptions</>�ϡ�<replaceable>name</><literal>=</><replaceable>value</>�����ι��ܤ���ʤ롢<type>text</>��������Ǥ���
-���δؿ���<type>bytea</>�����ͤ��������ʤ���Фʤ餺�������ͤϥ���ǥå�����relcache���ܤ�<structfield>rd_options</>�ե�����ɤ˥��ԡ�����ޤ���
-<type>bytea</>�����ͤ����Ƥϥ��������᥽�åɤ��ȼ�������Ǥ���褦�˳�������Ƥ��ޤ���
-ɸ��Υ��������᥽�åɤΤۤȤ�ɤϤ��٤�<structname>StdRdOptions</>��¤�Τ���Ѥ��ޤ���
-<parameter>validate</>�����ξ�硢���餫�Υ��ץ����ǧ���Ǥ��ʤ��ä�����̵�����ͤ�¸�ߤ�����硢���δؿ���Ŭ�ڤʥ��顼��å���������𤷤ʤ���Фʤ�ޤ���
-<parameter>validate</>�����ξ�硢̵���ʹ��ܤ�ñ��̵�뤵��ޤ���
-���ɤ߹��ߥ��ץ���󤬴���<structname>pg_catalog</>�˳�Ǽ����Ƥ�����<parameter>validate</>�ϵ��Ǥ���
-���������᥽�åɤ����Υ��ץ�����Ѥε�§���ѹ��������ˤΤߡ�̵���ʹ��ܤ����Ф���ޤ���
-�����ơ����ξ�硢�Ť����ܤ�̵�뤹�뤳�Ȥ�Ŭ�ڤǤ�����
-�ǥե���Ȥ�ư���Ԥ碌��������NULL���֤��Ƥ����ꤢ��ޤ���
+インデックス用のreloptionsの解析と検証を行います。
+インデックスに非NULLのreloptions配列が存在する場合にのみ呼び出されます。
+<parameter>reloptions</>は、<replaceable>name</><literal>=</><replaceable>value</>形式の項目からなる、<type>text</>型の配列です。
+この関数は<type>bytea</>型の値を生成しなければならず、この値はインデックスのrelcache項目の<structfield>rd_options</>フィールドにコピーされます。
+<type>bytea</>型の値の内容はアクセスメソッドが独自に定義できるように開放されています。
+標準のアクセスメソッドのほとんどはすべて<structname>StdRdOptions</>構造体を使用します。
+<parameter>validate</>が真の場合、何らかのオプションが認識できなかった場合や無効な値が存在した場合、この関数は適切なエラーメッセージを報告しなければなりません。
+<parameter>validate</>が偽の場合、無効な項目は単に無視されます。
+（読み込みオプションが既に<structname>pg_catalog</>に格納されている場合<parameter>validate</>は偽です。
+アクセスメソッドがそのオプション用の規則を変更した場合にのみ、無効な項目が検出されます。
+そして、その場合、古い項目を無視することが適切です。）
+デフォルトの動作を行わせたい場合はNULLを返しても問題ありません。
   </para>
 
   <para>
@@ -497,10 +497,10 @@ amoptions (ArrayType *reloptions,
    <quote>bitmap</> index scans, or both.  The scan-related functions that an
    index access method must or may provide are:
 -->
-�����ʤ��饤��ǥå�������Ū�ϡ��褯<firstterm>������</>��<firstterm>������󥭡�</>�ȸƤФ�롢����ǥå�����ǽ��<literal>WHERE</>�������������ץ�Υ������򥵥ݡ��Ȥ��뤳�ȤǤ���
-����ǥå����������Υ��ޥ�ƥ��å����ϸ��<xref linkend="index-scanning">�Ǥ��ܤ����������ޤ���
-����ǥå������������᥽�åɤ�<quote>ñ��</>����ǥå����������<quote>�ӥåȥޥå�</>����ǥå���������󡢤ޤ��Ϥ�����������󶡤��ޤ���
-����ǥå������������᥽�åɤ��󶡤��ʤ���Фʤ�ʤ����⤷�����󶡤����ǽ���Τ��륹������Ϣ�δؿ���ʲ��˼����ޤ���
+当然ながらインデックスの目的は、よく<firstterm>修飾子</>や<firstterm>スキャンキー</>と呼ばれる、インデックス可能な<literal>WHERE</>条件を満たすタプルのスキャンをサポートすることです。
+インデックススキャンのセマンティックスは後の<xref linkend="index-scanning">でより詳しく説明します。
+インデックスアクセスメソッドは<quote>単純</>インデックススキャン、<quote>ビットマップ</>インデックススキャン、またはこれら双方を提供します。
+インデックスアクセスメソッドが提供しなければならない、もしくは提供する可能性のあるスキャン関連の関数を以下に示します。
   </para>
 
   <para>
@@ -523,14 +523,14 @@ ambeginscan (Relation indexRelation,
    acquiring locks;
    the interesting parts of index-scan startup are in <function>amrescan</>.
 -->
-����ǥå�����������������ޤ���
-<literal>nkeys</>�����<literal>norderbys</>�ѥ�᡼���ϡ��������ǻ��Ѥ�����������黻�ҤȽ���դ��黻�ҤθĿ���ɽ���ޤ���
-�������ΰ�������Ƥ���Ū���������⤷��ޤ���
-������󥭡��μ��ͤ��ޤ��󶡤���Ƥ��ʤ����Ȥ����դ��Ƥ���������
-��̤�palloc������¤�ΤǤʤ���Фʤ�ޤ���
-���������ͳ�ˤ�ꡢ����ǥå������������᥽�åɤ�<function>RelationGetIndexScan()</>�ƤӽФ��ˤ�äƤ��ι�¤�Τ����<emphasis>���ʤ���Фʤ�ޤ���</>��
-�ۤȤ�ɤξ�硢<function>ambeginscan</>�Ϥ��θƤӽФ��Ȥ����餯���å��γ�����¾�ˤϤۤȤ�ɲ���Ԥ��ޤ���
-����ǥå�����������Ϥ��ݤζ�̣������ʬ�ϡ�<function>amrescan</>�ˤ���ޤ���
+インデックススキャンを準備します。
+<literal>nkeys</>および<literal>norderbys</>パラメータは、スキャンで使用される等価性演算子と順序付け演算子の個数を表します。
+これらは領域を割り当てる目的で便利かもしれません。
+スキャンキーの実値がまだ提供されていないことに注意してください。
+結果はpallocした構造体でなければなりません。
+実装上の理由により、インデックスアクセスメソッドは<function>RelationGetIndexScan()</>呼び出しによってこの構造体を作成<emphasis>しなければなりません</>。
+ほとんどの場合、<function>ambeginscan</>はこの呼び出しとおそらくロックの獲得の他にはほとんど何も行いません。
+インデックススキャンを始める際の興味深い部分は、<function>amrescan</>にあります。
   </para>
 
   <para>
@@ -552,11 +552,11 @@ amrescan (IndexScanDesc scan,
    and so a new key comparison value is needed, but the scan key structure
    remains the same.
 -->
-����ǥå�����������ư�ޤ��ϺƵ�ư���ޤ���
-������󥭡��򿷤������뤳�Ȥ�Ǥ��ޤ���
-�ʲ����Ϥ��줿��������Ѥ��ƺƵ�ư����ˤϡ�<literal>key</>��<literal>orderbys</>���ޤ��Ϥ���ξ����NULL���Ϥ��ޤ���)
-<function>ambeginscan</>���Ϥ��������黻�ҡ�����դ��黻�ҤθĿ����¿������Ѥ��뤳�ȤϤǤ��ʤ����Ȥ����դ��Ƥ���������
-�ºݤˤϡ�����Ҿ��롼�׷��ˤ�äƿ������������ץ뤬���򤵤졢Ʊ��������󥭡���¤�Τǿ�������������ͤ�ɬ�פȤ��줿���ˡ����κƵ�ư��ǽ�ϻ��Ѥ���ޤ���
+インデックススキャンを起動または再起動します。
+スキャンキーを新しくすることもできます。
+（過去に渡されたキーを使用して再起動するには、<literal>key</>、<literal>orderbys</>、またはその両方にNULLを渡します。)
+<function>ambeginscan</>に渡したキー演算子、順序付け演算子の個数より多くを使用することはできないことに注意してください。
+実際には、入れ子状ループ結合によって新しい外部タプルが選択され、同じスキャンキー構造体で新しいキー比較値が必要とされた場合に、この再起動機能は使用されます。
   </para>
 
   <para>
@@ -582,18 +582,18 @@ amgettuple (IndexScanDesc scan,
    index predicate (if any) is never rechecked by <function>amgettuple</>
    callers.
 -->
-���ꤵ�줿��������⤫����ꤵ�줿�����ʥ���ǥå�����������ޤ��ϸ����ˤǼ��Υ��ץ����Ф��ޤ���
-���ץ����Ф������Ͽ����֤��ޤ���
-���פ��륿�ץ뤬�ĤäƤ��ʤ����ϵ����֤��ޤ���
-���ξ�硢���Υ��ץ��TID��<literal>scan</>�˳�Ǽ����ޤ���
-<quote>����</>�Ȥϡ�ñ�˥���ǥå����˥�����󥭡��˰��פ�����ܤ����ä����Ȥ��̣���Ƥ�������Ǥ���
-���ץ뤬ɬ���ҡ������¸�ߤ��뤳�Ȥ䡢�ƤӽФ����Υ��ʥåץ���åȤλ���̲ᤷ�����Ȥ��̣���ƤϤ��ޤ���
-�����ζǤˤϡ�<function>amgettuple</>��<literal>scan-&gt;xs_recheck</>�򿿤����������ꤷ�ʤ���Фʤ�ޤ���
-���ΰ�̣�ϡ�����ǥå������ܤ��μ¤˥�����󥭡��˰��פ��뤳�ȤǤ���
-���ΰ�̣�ϡ����줬�Τ��ʤ��ȤǤϤʤ���������󥭡���ɽ�����줿��郎�ҡ��ץ��ץ����Ф��줿��ǺƸ�������ʤ���Фʤ�ʤ����ȤǤ���
-�����к���<quote>��ĵ�</>����ǥå����黻�Ҥ򥵥ݡ��Ȥ��ޤ���
-�Ƹ����ϥ��������Τߤ˳���Ŭ�Ѥ���뤳�Ȥ����դ��Ƥ���������
-��ʬ����ǥå����Ҹ�ʤ⤷����Сˤ�<function>amgettuple</>�ƤӽФ����Ƿ褷�ƺƸ�������ޤ���
+指定されたスキャン内から指定された方向（インデックス内の前方または後方）で次のタプルを取り出します。
+タプルを取り出した場合は真を返します。
+一致するタプルが残っていない場合は偽を返します。
+真の場合、そのタプルのTIDが<literal>scan</>に格納されます。
+<quote>成功</>とは、単にインデックスにスキャンキーに一致する項目があったことを意味しているだけです。
+タプルが必ずヒープ内に存在することや、呼び出し元のスナップショットの試験を通過したことを意味してはいません。
+成功の暁には、<function>amgettuple</>は<literal>scan-&gt;xs_recheck</>を真か偽かに設定しなければなりません。
+偽の意味は、インデックス項目が確実にスキャンキーに一致することです。
+真の意味は、これが確かなことではなく、スキャンキーで表示された条件がヒープタプルを取り出された後で再検査されなければならないことです。
+この対策は<quote>非可逆</>インデックス演算子をサポートします。
+再検査はスキャン条件のみに拡大適用されることに注意してください。
+部分インデックス述語（もしあれば）は<function>amgettuple</>呼び出し元で決して再検査されません。
   </para>
 
   <para>
@@ -610,8 +610,8 @@ amgettuple (IndexScanDesc scan,
    <function>amgettuple</>, <function>amrescan</>, or <function>amendscan</>
    call for the scan.)
 -->
-���Υ���ǥå���������ǥå�������꡼�������򥵥ݡ��Ȥ��Ƥ�����(���ξ���<function>amcanreturn</function>�ˤ�꿿���֤���ޤ�)�����Υ��������᥽�åɤ�<literal>scan-&gt;xs_want_itup</>���ǧ�������줬���ξ�硢<literal>scan-&gt;xs_itupdesc</>���ץ�ǥ�������ץ��ȤȤ��<literal>scan-&gt;xs_itup</>�˳�Ǽ���줿<structname>IndexTuple</>�ݥ��󥿤η����ǥ���ǥå�������ȥ���Ф��븵�Υ���ǥå������줿�ǡ������֤���ޤ���
-(�ݥ��󥿤ˤ�äƻ��Ȥ���Ƥ���ǡ����ϥ��������᥽�åɤΤ�ȤǴ�������ޤ����ǡ����Ͼ��ʤ��Ȥ�<function>amgettuple</>��<function>amrescan</>�ޤ���<function>amendscan</>�ˤ�äƥ�����󤵤��ޤǤ褤���֤��ݤ��ʤ��ƤϤʤ�ޤ���)
+そのインデックスがインデックスオンリースキャンをサポートしている場合(その場合は<function>amcanreturn</function>により真が返されます)、そのアクセスメソッドは<literal>scan-&gt;xs_want_itup</>も確認し、それが真の場合、<literal>scan-&gt;xs_itupdesc</>タプルディスクリプタとともに<literal>scan-&gt;xs_itup</>に格納された<structname>IndexTuple</>ポインタの形式でインデックスエントリに対する元のインデックスされたデータが返されます。
+(ポインタによって参照されているデータはアクセスメソッドのもとで管理されます。データは少なくとも<function>amgettuple</>、<function>amrescan</>または<function>amendscan</>によってスキャンされるまでよい状態を保たなくてはなりません。)
   </para>
 
   <para>
@@ -621,8 +621,8 @@ amgettuple (IndexScanDesc scan,
    <structfield>amgettuple</> field in its <structname>pg_am</> row must
    be set to zero.
 -->
-<function>amgettuple</>�ؿ��ϡ����������᥽�åɤ�<quote>ñ��</>����ǥå����������򥵥ݡ��Ȥ���Ȥ��Τ��󶡤����ɬ�פ�����ޤ���
-�����Ǥʤ���С�<structname>pg_am</>�Ԥ�<structfield>amgettuple</>�ե�����ɤϥ��������ꤵ��ʤ���Фʤ�ޤ���
+<function>amgettuple</>関数は、アクセスメソッドが<quote>単純</>インデックススキャンをサポートするときのみ提供される必要があります。
+そうでなければ、<structname>pg_am</>行の<structfield>amgettuple</>フィールドはゼロに設定されなければなりません。
   </para>
 
   <para>
@@ -649,15 +649,15 @@ amgetbitmap (IndexScanDesc scan,
    are other restrictions too when using <function>amgetbitmap</>, as explained
    in <xref linkend="index-scanning">.
 -->
-���ꤵ�줿������󤫤����ƤΥ��ץ����Ф����ƤӽФ�¦���󶡤���<type>TIDBitmap</type>�ˤ������ղä��ޤ�
-�ʤĤޤꡢ���˥ӥåȥޥå���ˤ��뽸��ȥ��ץ�ID�ν���Ȥ�OR����ޤ��ˡ�
-���Ф��줿���ץ�����֤���ޤ����㤨�Ф����Ĥ���AM�Ͻ�ʣ�򸡽Ф��ޤ���Τǡ������ñ�ʤ복���Ǥ��ˡ�
-���ץ�ID��ӥåȥޥåפ���������֡�<function>amgetbitmap</>������Υ��ץ�ID��ɬ�פʥ��������κƸ����򼨤����Ȥ���ǽ�Ǥ���
-�����<function>amgettuple</>��<literal>xs_recheck</>���ϥѥ�᡼����������Ƥ��ޤ���
-���ա����ߤμ����ˤ����Ƥ��ε�ǽ���󶡤ϥӥåȥޥåפ��Τ�Τ���ĵճ�Ǽ���󶡤���Τ˷�ӤĤ��Ƥ��ơ��������äƸƤӽФ�¦�ϥ�����������ʬ����ǥå����ν�����¸�ߤ���Сˤ�Ƹ�����ǽ�ʥ��ץ���Ф��ƺƸ������ޤ���
-�Ȥϸ��äƤ����������Ȥϸ¤�ޤ���
-<function>amgetmulti</>�����<function>amgettuple</>��Ʊ������ǥå������������ǻ��Ѥ��뤳�ȤϤǤ��ޤ���
-<xref linkend="index-scanning">�����������̤ꡢ<function>amgetbitmap</>����Ѥ�����ˤ�¾�ˤ����¤�����ޤ���
+指定されたスキャンから全てのタプルを取り出し、呼び出し側が提供する<type>TIDBitmap</type>にそれらを付加します
+（つまり、既にビットマップ内にある集合とタプルIDの集合とのORを取ります）。
+取り出されたタプル数が返されます（例えばいくつかのAMは重複を検出しませんので、これは単なる概算です）。
+タプルIDをビットマップに挿入する間、<function>amgetbitmap</>は特定のタプルIDに必要なスキャン条件の再検査を示すことが可能です。
+これは<function>amgettuple</>の<literal>xs_recheck</>出力パラメータに類似しています。
+注意：現在の実装においてこの機能の提供はビットマップそのものの非可逆格納を提供するのに結びついていて、したがって呼び出し側はスキャン条件と部分インデックスの述部（存在すれば）を再検査可能なタプルに対して再検査します。
+とは言っても常に正しいとは限りません。
+<function>amgetmulti</>および<function>amgettuple</>を同じインデックススキャン内で使用することはできません。
+<xref linkend="index-scanning">で説明した通り、<function>amgetbitmap</>を使用する場合には他にも制限があります。
   </para>
 
   <para>
@@ -667,8 +667,8 @@ amgetbitmap (IndexScanDesc scan,
    <structfield>amgetbitmap</> field in its <structname>pg_am</> row must
    be set to zero.
 -->
-<function>amgetbitmap</>�ؿ��ϥ��������᥽�åɤ�<quote>�ӥåȥޥå�</>����ǥå����������򥵥ݡ��Ȥ��Ƥ�����Τ�ɬ�פǤ���
-�����Ǥʤ���С�<structname>pg_am</>�Ԥ����<structfield>amgetbitmap</>�ե�����ɤϥ��������ꤵ��ʤ���Фʤ�ޤ���
+<function>amgetbitmap</>関数はアクセスメソッドが<quote>ビットマップ</>インデックススキャンをサポートしている場合のみ必要です。
+そうでなければ、<structname>pg_am</>行の中の<structfield>amgetbitmap</>フィールドはゼロに設定されなければなりません。
   </para>
 
   <para>
@@ -681,9 +681,9 @@ amendscan (IndexScanDesc scan);
    should not be freed, but any locks or pins taken internally by the
    access method must be released.
 -->
-����������ߤ����꥽������������ޤ���
-<literal>scan</>��¤�μ��Τϲ������٤��ǤϤ���ޤ���
-���������᥽�åɤ�����Ū�˼��줿���å���ԥ�ϲ������ʤ���Фʤ�ޤ���
+スキャンを停止し、リソースを解放します。
+<literal>scan</>構造体自体は解放すべきではありません。
+アクセスメソッドで内部的に取られたロックやピンは解放しなければなりません。
   </para>
 
   <para>
@@ -695,8 +695,8 @@ ammarkpos (IndexScanDesc scan);
    Mark current scan position.  The access method need only support one
    remembered scan position per scan.
 -->
-���ߤΥ��������֤�Ͽ���ޤ���
-���������᥽�åɤ�1�������������1�Ĥε�Ͽ�Ѥߥ������Τߤ򥵥ݡ��Ȥ��ʤ���Фʤ�ޤ���
+現在のスキャン位置を記録します。
+アクセスメソッドは1スキャン当たり1つの記録済みスキャンのみをサポートしなければなりません。
   </para>
 
   <para>
@@ -707,7 +707,7 @@ amrestrpos (IndexScanDesc scan);
 <!--
    Restore the scan to the most recently marked position.
 -->
-��äȤ�Ƕ�˵�Ͽ���줿���֤˥��������ᤷ�ޤ���
+もっとも最近に記録された位置にスキャンを戻します。
   </para>
 
   <para>
@@ -723,13 +723,13 @@ amrestrpos (IndexScanDesc scan);
    <type>bytea</>.  This provision allows client code to execute
    <function>amoptions</> to test validity of options settings.
 -->
-�������Τ���ˡ�����ǥå������������᥽�åɴؿ���<literal>pg_proc</literal>���ܤϡ����Τʰ����ο��򼨤��ʤ���Фʤ�ޤ���
-�������������Ϥ��٤�<type>internal</>���Ȥ���������ޤ���
-�ʰ����ΤۤȤ�ɤ�SQL�Ǥ�̤�Τη�����Ĥ��ᡢ�桼�������������ؿ���ľ�ܸƤӽФ����Ȥ��ɤ����Ȥ�������ͳ�Ǥ�����
-����ͤη��ϡ�<type>void</>��<type>internal</>��<type>boolean</>�Τ����줫��Ŭ�ڤ��������ޤ���
-ͣ����㳰��<function>amoptions</>�Ǥ���
-����ϡ�<type>text[]</>�����<type>bool</>����<type>bytea</>���֤��褦��������������ʤ���Фʤ�ޤ���
-���ε���ˤ�ꡢ���饤����ȥ����ɤ�<function>amoptions</>��¹Ԥ��ƥ��ץ����������ͭ�����򸡺����뤳�Ȥ��Ǥ��ޤ���
+簡便性のために、インデックスアクセスメソッド関数の<literal>pg_proc</literal>項目は、正確な引数の数を示さなければなりません。
+しかし、それらはすべて<type>internal</>型として宣言します。
+（引数のほとんどがSQLでは未知の型を持つため、ユーザがこうした関数を直接呼び出すことを防ぐことがこの理由です。）
+戻り値の型は、<type>void</>、<type>internal</>、<type>boolean</>のいずれかで適切に宣言されます。
+唯一の例外は<function>amoptions</>です。
+これは、<type>text[]</>および<type>bool</>を取り<type>bytea</>を返すように正しく宣言しなければなりません。
+この規定により、クライアントコードは<function>amoptions</>を実行してオプションの設定の有効性を検査することができます。
   </para>
 
  </sect1>
@@ -738,7 +738,7 @@ amrestrpos (IndexScanDesc scan);
 <!--
   <title>Index Scanning</title>
 -->
-  <title>����ǥå����������</title>
+  <title>インデックススキャン</title>
 
   <para>
 <!--
@@ -749,8 +749,8 @@ amrestrpos (IndexScanDesc scan);
    determining whether they pass the scan's time qualification test or other
    conditions.
 -->
-����ǥå����������Ǥϡ�<firstterm>������󥭡�</>�˰��פ����Τȼ��������٤ƤΥ��ץ��TID�򷫤��֤����Ȥ˴ؤ�����Ǥ�򥤥�ǥå������������᥽�åɤ������ޤ���
-���������᥽�åɤˤϡ��ºݤΥ���ǥå����οƥơ��֥뤫��Υ��ץ�μ��Ф��䥿�ץ뤬�������λ������»��¾�ξ����̲ᤷ�����ɤ����η���ϴޤޤ�<emphasis>�ޤ���</>��
+インデックススキャンでは、<firstterm>スキャンキー</>に一致するものと示したすべてのタプルのTIDを繰り返すことに関する責任をインデックスアクセスメソッドが持ちます。
+アクセスメソッドには、実際のインデックスの親テーブルからのタプルの取り出しやタプルがスキャンの時間制限試験や他の条件を通過したかどうかの決定は含まれ<emphasis>ません</>。
   </para>
 
   <para>
@@ -763,10 +763,10 @@ amrestrpos (IndexScanDesc scan);
    keys, which are implicitly ANDed &mdash; the returned tuples are expected
    to satisfy all the indicated conditions.
 -->
-������󥭡��ϡ�<replaceable>index_key</> <replaceable>operator</> <replaceable>constant</>�Ȥ���������<literal>WHERE</>�������Ūɽ���Ǥ���
-�����ǡ�<replaceable>index_key</>�ϡ�����ǥå������1�Ĥǡ�<replaceable>operator</>�ϥ���ǥå�����˴�Ϣ�����黻��²�Υ��Ф�1�ĤǤ���
-����ǥå����������ϡ�����Ū��AND�黻�����0�İʾ�Υ�����󥭡�������ޤ���
-�֤���륿�ץ�ϻ��ꤵ�줿������������Τ����ꤵ��ޤ���
+スキャンキーは、<replaceable>index_key</> <replaceable>operator</> <replaceable>constant</>という形式の<literal>WHERE</>句の内部的表現です。
+ここで、<replaceable>index_key</>は、インデックス列の1つで、<replaceable>operator</>はインデックス列に関連した演算子族のメンバの1つです。
+インデックススキャンは、暗黙的にAND演算される0個以上のスキャンキーを持ちます。
+返されるタプルは指定された条件を満たすものと想定されます。
   </para>
 
   <para>
@@ -779,10 +779,10 @@ amrestrpos (IndexScanDesc scan);
    whether or not it really should be selected.  If the recheck option is not
    specified, the index scan must return exactly the set of matching entries.
 -->
-���������᥽�åɤϥ���ǥå���������������䤤��碌���Ф�<firstterm>��ĵ�</>���ޤ��ϺƸ������׵᤹�뤫�ɤ�������𤹤뤳�Ȥ��Ǥ��ޤ���
-����ϡ�����ǥå���������󤬥�����󥭡������������٤Ƥι��ܤȡ�����˲ä��ơ��������ʤ���ǽ���Τ�����ܤ��֤����Ȥ��̣���ޤ���
-���������ƥ�Υ���ǥå���������󵡹��ϥҡ��ץ��ץ���Ф������������򤵤��٤����ɤ����򸡾ڤ��뤿��ˤ��α黻�Ҥ򥤥�ǥå������˺���Ŭ�Ѥ��ޤ���
-�Ƹ������ץ���󤬻��ꤵ��ʤ���硢����ǥå����������ϰ��פ�����ܤν�����֤��ʤ���Фʤ�ޤ���
+アクセスメソッドはインデックスがある特定の問い合わせに対し<firstterm>非可逆</>、または再検査を要求するかどうかを報告することができます。
+これは、インデックススキャンがスキャンキーを満たすすべての項目と、それに加えて、満たさない可能性のある項目を返すことを意味します。
+コアシステムのインデックススキャン機構はヒープタプルに対し、本当に選択されるべきかどうかを検証するためにその演算子をインデックス条件に再度適用します。
+再検査オプションが指定されない場合、インデックススキャンは一致する項目の集合を返さなければなりません。
   </para>
 
   <para>
@@ -800,10 +800,10 @@ amrestrpos (IndexScanDesc scan);
    depend on the extent to which the index access method needs to reduce
    the scan keys to a <quote>normalized</> form.
 -->
-�μ¤ˡ����ꤵ�줿������󥭡����٤Ƥ˰��פ����ΤΤߤ򤹤٤����������Ĥ��Ф����Ȥϡ������˥��������᥽�åɤ���Ǥ�Ǥ��뤳�Ȥ����դ��Ƥ���������
-�ޤ������������ƥ�ϡ���Ĺ���ɤ�����̷�⤹�뤫�ɤ�������ꤹ�뤿��ΰ�̣Ū�ʲ��Ϥ�Ԥ鷺��ñ�˥���ǥå��������ȱ黻��²�˰��פ���<literal>WHERE</>��򤹤٤��Ϥ��ޤ���
-�㤨�С�<literal>WHERE x &gt; 4 AND x &gt; 14</>�����ꡢ<literal>x</>��B-tree����ǥå�����Ǥ��ä��Ȥ���ȡ�����ϡ�B-tree <function>amrescan</>�ؿ���Ǥ����ơ��ǽ�Υ�����󥭡�����Ĺ�Ǥ��ꡢ̵��Ǥ��뤳�Ȥ�ǧ�Τ���ޤ���
-<function>amrescan</>�ˤ�������������ɬ�����ϡ�����ǥå������������᥽�åɤ�������󥭡���<quote>������</>�����ˤ���ɬ�פ����뤫�ɤ����˰�¸���ޤ���
+確実に、指定されたスキャンキーすべてに一致するもののみをすべて正しく見つけ出すことは、完全にアクセスメソッドの責任であることに注意してください。
+また、コアシステムは、冗長かどうかや矛盾するかどうかを決定するための意味的な解析を行わず、単にインデックスキーと演算子族に一致する<literal>WHERE</>句をすべて渡します。
+例えば、<literal>WHERE x &gt; 4 AND x &gt; 14</>があり、<literal>x</>がB-treeインデックス列であったとすると、これは、B-tree <function>amrescan</>関数に任されて、最初のスキャンキーが冗長であり、無視できることが認知されます。
+<function>amrescan</>における前処理の必要性は、インデックスアクセスメソッドがスキャンキーを<quote>正規化</>形式にする必要があるかどうかに依存します。
   </para>
 
   <para>
@@ -812,8 +812,8 @@ amrestrpos (IndexScanDesc scan);
    do not.  There are actually two different ways that an access method can
    support sorted output:
 -->
-�����Υ��������᥽�åɤϡ�¾�ǤϹԤ��ޤ��󤬡���ʬ��������줿����ǥ���ǥå������ܤ��֤��ޤ���
-���������᥽�åɤ����Ϥν���դ��򥵥ݡ��ȤǤ���褦�ˤ�����ˡ�ϡ��¼�������¸�ߤ��ޤ���
+一部のアクセスメソッドは、他では行いませんが、十分に定義された順序でインデックス項目を返します。
+アクセスメソッドが出力の順序付けをサポートできるようにする方法は、実質２種類存在します。
 
     <itemizedlist>
      <listitem>
@@ -825,8 +825,8 @@ amrestrpos (IndexScanDesc scan);
        Currently, such access methods must use btree-compatible strategy
        numbers for their equality and ordering operators.
 -->
-��ˤ��Υǡ�����btree�ʤɡˤμ����ʽ���ǹ��ܤ��֤����������᥽�åɤ�<structname>pg_am</>.<structfield>amcanorder</>�򿿤����ꤷ�ʤ���Фʤ�ޤ���
-���ߡ������������������᥽�åɤϡ������������Ƚ���դ��黻�Ҥ�btree�ߴ�����ά�ֹ����Ѥ��ʤ���Фʤ�ޤ���
+常にそのデータ（btreeなど）の自然な順序で項目を返すアクセスメソッドは<structname>pg_am</>.<structfield>amcanorder</>を真に設定しなければなりません。
+現在、こうしたアクセスメソッドは、その等価性と順序付け演算子でbtree互換の戦略番号を使用しなければなりません。
       </para>
      </listitem>
      <listitem>
@@ -840,9 +840,9 @@ amrestrpos (IndexScanDesc scan);
        of that form can be passed to <function>amrescan</> as described
        previously.
 -->
-����դ��黻�Ҥ򥵥ݡ��Ȥ��륢�������᥽�åɤ�<structname>pg_am</>.<structfield>amcanorderbyop</>�򿿤����ꤷ�ʤ���Фʤ�ޤ���
-����ϡ�����ǥå�����<literal>ORDER BY</> <replaceable>index_key</> <replaceable>operator</> <replaceable>constant</>������������ǹ��ܤ��֤����Ȥ��Ǥ��뤳�Ȥ򼨤��ޤ���
-���Ҥ��̤ꡢ���η����Υ�����󽤾��Ҥ�<function>amrescan</>���Ϥ����Ȥ��Ǥ��ޤ���
+順序付け演算子をサポートするアクセスメソッドは<structname>pg_am</>.<structfield>amcanorderbyop</>を真に設定しなければなりません。
+これは、インデックスが<literal>ORDER BY</> <replaceable>index_key</> <replaceable>operator</> <replaceable>constant</>を満たす順序で項目を返すことができることを示します。
+前述の通り、この形式のスキャン修飾子を<function>amrescan</>に渡すことができます。
       </para>
      </listitem>
     </itemizedlist>
@@ -864,13 +864,13 @@ amrestrpos (IndexScanDesc scan);
    <structname>pg_am</>.<structfield>amcanbackward</> is false, all subsequent
    calls will have the same direction as the first one.)
 -->
-<function>amgettuple</>�ؿ���<literal>direction</>����������ޤ���
-�����<literal>ForwardScanDirection</>���̾�ξ��ˤޤ���<literal>BackwardScanDirection</>�Τ����줫���뤳�Ȥ��Ǥ��ޤ���
-<function>amrescan</>��κǽ�θƤӽФ���<literal>BackwardScanDirection</>����ꤷ�Ƥ�����硢���פ�������ǥå������ܤ��̾�����������Ȥ��������ǤϤʤ�������������Ȥ��������ǥ�����󤵤�ޤ���
-���Τ��ᡢ<function>amgettuple</>���̾�ʤ�Х���ǥå�����κǽ�˰��פ������ץ���֤��Ȥ����Ǥ������Ǹ�˰��פ������ץ���֤��ʤ���Фʤ�ޤ���
-�ʤ����<structfield>amcanorder</>���������ꤵ�줿���������᥽�åɤǤΤ�ȯ�����ޤ�����
-�ǽ�θƤӽФ��θ塢<function>amgettuple</>�ϡ��Ǥ�Ƕ���֤��줿���ܤ���ɤ���������˥�������ʤ�뤫��������ʤ���Фʤ�ޤ���
-�ʤ�����<structname>pg_am</>.<structfield>amcanbackward</>�����Ǥ���С�����³�����٤ƤθƤӽФ��Ϻǽ�Τ�Τ�Ʊ������������ޤ�����
+<function>amgettuple</>関数は<literal>direction</>引数を持ちます。
+これは<literal>ForwardScanDirection</>（通常の場合）または<literal>BackwardScanDirection</>のいずれかを取ることができます。
+<function>amrescan</>後の最初の呼び出しが<literal>BackwardScanDirection</>を指定していた場合、一致したインデックス項目は通常の前から後ろという方向ではなく、後ろから前という方向でスキャンされます。
+そのため、<function>amgettuple</>は通常ならばインデックス内の最初に一致したタプルを返すところですが、最後に一致したタプルを返さなければなりません。
+（これは<structfield>amcanorder</>が真に設定されたアクセスメソッドでのみ発生します。）
+最初の呼び出しの後、<function>amgettuple</>は、最も最近に返された項目からどちらの方向にスキャンを進めるかを準備しなければなりません。
+（しかし<structname>pg_am</>.<structfield>amcanbackward</>が偽であれば、引き続くすべての呼び出しは最初のものと同じ方向を持ちます。）
   </para>
 
   <para>
@@ -884,11 +884,11 @@ amrestrpos (IndexScanDesc scan);
    <structname>pg_am</>, but it is sufficient to have them throw errors if
    called.
 -->
-����դ����줿���������󶡤��륢�������᥽�åɤϥ����������֤�<quote>��Ͽ</>�򥵥ݡ��Ȥ��ʤ���Фʤ餺���ޤ�����Ǥ��ε�Ͽ���줿���֤���뤳�Ȥ򥵥ݡ��Ȥ��ʤ���Фʤ�ޤ���
-Ʊ�����֤�ʣ����Ͽ����뤫�⤷��ޤ���
-������������������1�Ĥΰ��֤Τߤ�Ͽ����ɬ�פ�����ޤ���
-������<function>ammarkpos</>�ƤӽФ��ˤ������Ͽ���줿���֤Ͼ�񤭤���ޤ���
-����դ����줿�������򥵥ݡ��Ȥ��ʤ����������᥽�åɤǤ��äƤ⡢<structname>pg_am</>��ǵ�Ͽ�Ѥδؿ��Ȱ��֤���뤿��δؿ����󶡤��ʤ���Фʤ�ޤ��󤬡��ƤӽФ��줿�Ȥ��Ƥ⥨�顼���֤������ǽ�ʬ�Ǥ���
+順序付けされたスキャンを提供するアクセスメソッドはスキャン内位置の<quote>記録</>をサポートしなければならず、また、後でその記録された位置に戻ることをサポートしなければなりません。
+同じ位置が複数回記録されるかもしれません。
+しかし、スキャン内の1つの位置のみを記録する必要があります。
+新しい<function>ammarkpos</>呼び出しにより前回記録された位置は上書きされます。
+順序付けされたスキャンをサポートしないアクセスメソッドであっても、<structname>pg_am</>内で記録用の関数と位置に戻るための関数を提供しなければなりませんが、呼び出されたとしてもエラーを返すだけで十分です。
   </para>
 
   <para>
@@ -904,11 +904,11 @@ amrestrpos (IndexScanDesc scan);
    miss or multiply return entries that were not themselves being inserted or
    deleted.
 -->
-���������֤ȵ�Ͽ���줿���֡ʤ⤷����Сˤ�ξ���ϡ�����ǥå������Ʊ�����������Ȥ��������ˤ������������ݻ����ʤ���Фʤ�ޤ���
-������󤬻Ϥޤä�����¸�ߤ��Ƥ�����硢���ܤ򸫤Ĥ��Ф���������󤬿������������줿���ܤ��֤��ʤ��ä��Ȥ��Ƥ����ꤢ��ޤ���
-���Τ褦�ʾ��Υ������Ǥϡ��ƥ�������Хå����åפˤ�äơ���������ǽ�λ������֤��줿��ΤȤ��ƹ��ܤ��֤���ޤ���
-Ʊ�ͤˡ�Ʊ���¹Ժ���ˤ�äƥ������η�̤˱ƶ����Ф뤫�⤷��ޤ���
-���פʤ��Ȥϡ����������ˤ�äơ����ι��ܼ��Τ��������������Ƥ��ʤ����ܤ��������Ǽ���줿����Ťˤʤä��ꤹ�뤳�Ȥ�������ʤ��Ȥ������Ǥ���
+スキャン位置と記録された位置（もしあれば）の両方は、インデックス内の同時挿入や削除という観点における一貫性を保持しなければなりません。
+スキャンが始まった時に存在していた場合、項目を見つけ出したスキャンが新しく挿入された項目を返さなかったとしても問題ありません。
+このような場合のスキャンでは、再スキャンやバックアップによって、あたかも最初の時点で返されたものとして項目が返されます。
+同様に、同時実行削除によってスキャンの結果に影響が出るかもしれません。
+重要なことは、挿入や削除によって、その項目自体が挿入・削除されていない項目がスキャンで失われたり二重になったりすることが起こらないという点です。
   </para>
 
   <para>
@@ -920,9 +920,9 @@ amrestrpos (IndexScanDesc scan);
    all-visible page; else the heap tuple must be visited anyway to check
    MVCC visibility.  But that is no concern of the access method's.
 -->
-����ǥå��������ꤵ�줿���ͤ�����ǥå����˳�Ǽ����Ƥ���(���ġ��Բĵ�ɽ���ǤϤʤ�)��硢�ҡ��ץ��ץ��TID�ǤϤʤ�����ǥå����˳�Ǽ���줿�ºݤΥǡ������֤�����ǥå�������꡼�������򥵥ݡ��Ȥ���Τ�ͭ�ѤǤ���
-����ϡ��Ļ����ޥåפˤ�äƲĻ벽���줿�ڡ������TID��Ƚ�ǤǤ�����ˤΤ�ư��ޤ���Ƚ�ǤǤ��ʤ�����MVCC���ǧ���뤿��˥ҡ��ץ��ץ�˥����������ʤ��ƤϤʤ�ޤ���
-����������ư��ϥ��������᥽�åɤǤϹ�θ����Ƥ��ޤ���
+インデックスが設定された列値がインデックスに格納されている(かつ、不可逆表現ではない)場合、ヒープタプルのTIDではなくインデックスに格納された実際のデータを返すインデックスオンリースキャンをサポートするのに有用です。
+これは、可視性マップによって可視化されたページ上のTIDが判断できる場合にのみ動作します。判断できない場合はMVCCを確認するためにヒープタプルにアクセスしなくてはなりません。
+しかしその動作はアクセスメソッドでは考慮されていません。
   </para>
 
   <para>
@@ -946,15 +946,15 @@ amrestrpos (IndexScanDesc scan);
    does not guarantee any locking of the returned tuples, with implications
    spelled out in <xref linkend="index-locking">.
 -->
-<function>amgettuple</>����Ѥ�������ˡ�<function>amgetbitmap</>����Ѥ��ơ����θƽФ��Ǥ��٤ƤΥ��ץ����Ф��ƥ���ǥå�����������Ԥ����Ȥ��Ǥ��ޤ���
-����ϥ��������᥽�å���ǤΥ��å�/���å�����Ȥ����������ɤ����Ȥ��Ǥ��ޤ��Τǡ�<function>amgettuple</>���⤫�ʤ��ΨŪ�Ǥ���
-�ºݤˤϡ�<function>amgetbitmap</>��<function>amgettuple</>�ƤӽФ��򷫤��֤����Ȥ�Ʊ�����̤���ĤϤ��Ǥ�����ʪ����ñ�㲽���뤿���ʣ�������¤�ä��Ƥ��ޤ���
-�ޤ����ˡ�<function>amgetbitmap</>�ϰ��Ǥ��٤ƤΥ��ץ���֤������������֤ε�Ͽ�Ȱ����ᤷ�򥵥ݡ��Ȥ��ޤ���
-����ˡ�����ν���դ���ޤä��������ʤ��ӥåȥޥåפ���˥��ץ뤬�֤���ޤ���
-�����<function>amgetbitmap</>��<literal>direction</>��������ʤ���ͳ�Ǥ���
-�ʽ���դ��黻�ҤϤ��Τ褦�ʥ������ǤϷ褷��Ϳ�����ޤ��󡣡�
-�ޤ���<function>amgetbitmap</>�ˤ�륤��ǥå�������꡼���������󶡤���Ƥ��ޤ��󡣤ʤ��ʤ顢����ǥå������ץ�����Ƥ��֤����ʤ��ʤ�����Ǥ���
-�Ǹ�ˡ�<function>amgetbitmap</>���֤��줿���ץ�˴ؤ���<xref linkend="index-locking">�˵��ܤ�����̣�ǤΥ��å����ݾڤ��ޤ���
+<function>amgettuple</>を使用する代わりに、<function>amgetbitmap</>を使用して、一回の呼出しですべてのタプルを取り出してインデックススキャンを行うことができます。
+これはアクセスメソッド内でのロック/ロック解除という過程を防ぐことができますので、<function>amgettuple</>よりもかなり効率的です。
+実際には、<function>amgetbitmap</>は<function>amgettuple</>呼び出しを繰り返すことと同じ効果を持つはずですが、物事を単純化するために複数の制限を加えています。
+まず第一に、<function>amgetbitmap</>は一回ですべてのタプルを返し、スキャン位置の記録と位置戻しをサポートしません。
+第二に、特定の順序付けをまったく持たないビットマップの中にタプルが返されます。
+これは<function>amgetbitmap</>が<literal>direction</>引数を取らない理由です。
+（順序付け演算子はこのようなスキャンでは決して与えられません。）
+また、<function>amgetbitmap</>によるインデックスオンリースキャンは提供されていません。なぜなら、インデックスタプルの内容を返す手段がないからです。
+最後に、<function>amgetbitmap</>は返されたタプルに関し、<xref linkend="index-locking">に記載した意味でのロックを保証しません。
   </para>
 
   <para>
@@ -963,7 +963,7 @@ amrestrpos (IndexScanDesc scan);
    <function>amgetbitmap</> and not <function>amgettuple</>, or vice versa,
    if its internal implementation is unsuited to one API or the other.
 -->
-���������᥽�åɤ������������ɤ��餫������API�ˤ�����ʤ���硢<function>amgettuple</>���������<function>amgetbitmap</>�Τߤ�������ޤ��Ϥ��εդ������Ƥ��뤳�Ȥ����դ��Ƥ���������
+アクセスメソッドの内部実装がどちらか片方のAPIにそぐわない場合、<function>amgettuple</>を実装せず<function>amgetbitmap</>のみを実装、またはその逆も許されていることに注意してください。
   </para>
 
  </sect1>
@@ -972,7 +972,7 @@ amrestrpos (IndexScanDesc scan);
 <!--
   <title>Index Locking Considerations</title>
 -->
-  <title>����ǥå����Υ��å������˴ؤ��븡Ƥ</title>
+  <title>インデックスのロック処理に関する検討</title>
 
   <para>
 <!--
@@ -986,11 +986,11 @@ amrestrpos (IndexScanDesc scan);
    An exclusive lock on the index as a whole will be taken only during index
    creation, destruction, or <command>REINDEX</>.
 -->
-����ǥå������������᥽�åɤϡ�ʣ���Υץ������ˤ�륤��ǥå�����Ʊ���������갷���ʤ���Фʤ�ޤ���
-<productname>PostgreSQL</productname>���������ƥ�ϥ���ǥå������������˥���ǥå������Ф���<literal>AccessShareLock</>��������ޤ���
-�ޤ������̾��<command>VACUUM</>��ޤ�˥���ǥå����ι������<literal>RowExclusiveLock</>��������ޤ���
-�����μ���Υ��å��϶��礷�ޤ���Τǡ����������᥽�åɤ�ɬ�פˤʤ뤫�⤷��ʤ�γ�٤κ٤��ʥ��å������˴ؤ�����Ǥ������ޤ���
-����ǥå������������˴���<literal>REINDEX</>���˥���ǥå������Τ��Ф�����¾���å�����������ޤ���
+インデックスアクセスメソッドは、複数のプロセスによるインデックスの同時更新を取り扱えなければなりません。
+<productname>PostgreSQL</productname>コアシステムはインデックススキャン中にインデックスに対して<literal>AccessShareLock</>を獲得します。
+また、（通常の<command>VACUUM</>を含む）インデックスの更新中に<literal>RowExclusiveLock</>を獲得します。
+これらの種類のロックは競合しませんので、アクセスメソッドは必要になるかもしれない粒度の細かなロック処理に関して責任を持ちます。
+インデックスの生成、破棄、<literal>REINDEX</>時にインデックス全体に対する排他ロックが獲得されます。
   </para>
 
   <para>
@@ -1001,8 +1001,8 @@ amrestrpos (IndexScanDesc scan);
    <filename>src/backend/access/nbtree/README</> and
    <filename>src/backend/access/hash/README</>.
 -->
-Ʊ�������򥵥ݡ��Ȥ��륤��ǥå���������ۤ��뤳�Ȥ��̾ɬ�פ�ư��ˤĤ��ƹ��Ϥ������٤ˤ錄����Ϥ�ɬ�פǤ���
-B-tree����ӥϥå��奤��ǥå�������Ǥϡ�<filename>src/backend/access/nbtree/README</>�� <filename>src/backend/access/hash/README</>�ˤ����߷פ˴ؤ�����������ɤळ�Ȥ��Ǥ��ޤ���
+同時更新をサポートするインデックス種類を構築することは通常、必要な動作について広範かつ微細にわたる解析が必要です。
+B-treeおよびハッシュインデックス種類では、<filename>src/backend/access/nbtree/README</>と <filename>src/backend/access/hash/README</>にある設計に関する決定事項を読むことができます。
   </para>
 
   <para>
@@ -1015,9 +1015,9 @@ B-tree����ӥϥå��奤��ǥå�������Ǥϡ�<filename>src/backend/access/nbtree/RE
    which the index might be inconsistent with the heap.  We handle this problem
    with the following rules:
 -->
-����ǥå������Ȥ�����Ū�ʰ�����׵��¾�ˡ�Ʊ���¹Թ����ˤϡ��ƥơ��֥��<firstterm>�ҡ���</>�ˤȥ���ǥå����֤ΰ�����˴ؤ������꤬ȯ�����ޤ���
-<productname>PostgreSQL</productname>�ϥҡ��פؤΥ�����������ӹ����ȥ���ǥå����ؤΥ�����������ӹ�����ʬΥ���Ƥ��ޤ��Τǡ�����ǥå����ȥҡ��פȤδ֤ΰ������̵���ʤ�ֳ֤�¸�ߤ��ޤ���
-�ʲ��ε�§�Ǥ�����������򰷤��ޤ���
+インデックス自身の内部的な一貫性要求の他に、同時実行更新には、親テーブル（<firstterm>ヒープ</>）とインデックス間の一貫性に関する問題が発生します。
+<productname>PostgreSQL</productname>はヒープへのアクセスおよび更新とインデックスへのアクセスおよび更新を分離していますので、インデックスとヒープとの間の一貫性が無くなる間隔が存在します。
+以下の規則でこうした問題を扱います。
 
     <itemizedlist>
      <listitem>
@@ -1028,10 +1028,10 @@ B-tree����ӥϥå��奤��ǥå�������Ǥϡ�<filename>src/backend/access/nbtree/RE
        This is okay because the index reader would be uninterested in an
        uncommitted row anyway.  But see <xref linkend="index-unique-checks">.)
 -->
-�������ҡ��׹��ܤϥ���ǥå������ܤ�����������˺�������ޤ���
-�ʤ��Τ��ᡢƱ���¹ԥ���ǥå����������ϥҡ��ץ���ȥ���ǧ������ˤ褯���Ԥ��ޤ���
-����ǥå������ɤ߼��ϡ�̤���ߥåȤιԤ��оݤȤ��ޤ���Τ����ꤢ��ޤ���
-��������<xref linkend="index-unique-checks">�򻲾Ȥ��Ƥ�����������
+新しいヒープ項目はインデックス項目を作成する前に作成されます。
+（このため、同時実行インデックススキャンはヒープエントリを確認する時によく失敗します。
+インデックスの読み取りは、未コミットの行を対象としませんので問題ありません。
+しかし、<xref linkend="index-unique-checks">を参照してください。）
       </para>
      </listitem>
      <listitem>
@@ -1040,7 +1040,7 @@ B-tree����ӥϥå��奤��ǥå�������Ǥϡ�<filename>src/backend/access/nbtree/RE
        When a heap entry is to be deleted (by <command>VACUUM</>), all its
        index entries must be removed first.
 -->
-�ҡ��ץ���ȥ꤬��<command>VACUUM</>�ˤ�äơ˺����������������Ф��뤹�٤ƤΥ���ǥå������ܤ���˺������ޤ���
+ヒープエントリが（<command>VACUUM</>によって）削除される時、これに対するすべてのインデックス項目が先に削除されます。
       </para>
      </listitem>
      <listitem>
@@ -1052,9 +1052,9 @@ B-tree����ӥϥå��奤��ǥå�������Ǥϡ�<filename>src/backend/access/nbtree/RE
        entries from pages that are pinned by other backends.  The need
        for this rule is explained below.
 -->
-����ǥå����������ϡ��Ǹ��<function>amgettuple</>���֤������ܤ��ݻ����륤��ǥå����ڡ�����Υԥ��������ʤ���Фʤ�ޤ���
-�ޤ���<function>ambulkdelete</>�ϡ�¾�ΥХå�����ɤ��ԥ����ĥڡ���������ܤ������뤳�ȤϤǤ��ޤ���
-���ε�§��ɬ�����ˤĤ��Ƥϸ���������ޤ���
+インデックススキャンは、最後に<function>amgettuple</>が返した項目を保持するインデックスページ上のピンを管理しなければなりません。
+また、<function>ambulkdelete</>は、他のバックエンドがピンを持つページから項目を削除することはできません。
+この規則の必要性については後で説明します。
       </para>
      </listitem>
     </itemizedlist>
@@ -1082,15 +1082,15 @@ B-tree����ӥϥå��奤��ǥå�������Ǥϡ�<filename>src/backend/access/nbtree/RE
    is done with it.  This solution costs little in run time, and adds blocking
    overhead only in the rare cases where there actually is a conflict.
 -->
-�����ܤε�§���ʤ��ȡ�<command>VACUUM</>�ˤ�äƺ�������ľ���ˡ�����ǥå����ɤ߼�꤬����ǥå������ܤ򸫤Ĥ��������ơ�<command>VACUUM</>�ˤ�äƺ�����줿����б�����ҡ��׹��ܤ�ã�����ǽ��������ޤ���
-���ι��ܥ����åȤ�<function>heap_fetch()</>��̵�뤵��ޤ��Τǡ�������ɤ߼�꤬ã�������ˤ��ι����ֹ椬̤���ѤǤ�����Ǥ��礭������ϵ�����ޤ���
-���������軰�ΥХå�����ɤ����Ǥˤ��ι��ܥ����åȤ�¾�Τ�Τ˺ƻ��Ѥ������Ϥɤ��ʤ�Ǥ��礦����
-���Υ����å���ο�������Τ������ʥåץ���åȻ���̲᤹��ˤϿ��������뤳�Ȥ��μ¤Ǥ��Τǡ�MVCC��§�ä����ʥåץ���åȤ���Ѥ���������ꤢ��ޤ���
-��������MVCC��§��ʤ����ʥåץ���å�(<literal>SnapshotNow</>�ʤ�)�Ǥϡ��ºݤˤϥ�����󥭡��˹��ʤ��Ԥ���դ����֤���ǽ��������ޤ���
-���٤Ƥξ��ˤ����ƥҡ��׹Ԥ��Ф�������󥭡��κƸ�����Ԥ����Ȥ�ɬ�ܤȤ��뤳�Ȥǡ������������������ݸ�뤳�Ȥ��Ǥ��ޤ���������Ϲ�������ޤ���
-����ˡ��ɤ߼�꤬�ޤ����פ���ҡ��׹��ܤؤΥ���ǥå������ܤ�<quote>�����</>�Ǥ��뤳�Ȥ򼨤������Ȥ��ơ�����ǥå����ڡ������Ф���ԥ����Ѥ��ޤ���
-���Υԥ���Ф���<function>ambulkdelete</>���֥��å�����褦�ˤ��뤳�Ȥǡ��ɤ߼��κ�Ȥ����������<command>VACUUM</>�����Υҡ��׹��ܤ����Ǥ��ʤ����Ȥ�μ¤ˤ��ޤ���
-�¹Ի��ˤ����뤳���к��Υ����ȤϾ��������ºݤ˶��礬ȯ�����뤴�����ʾ��ˤΤߥ֥��å����뤿��Υ����С��إåɤ��ä��ޤ���
+３番目の規則がないと、<command>VACUUM</>によって削除される直前に、インデックス読み取りがインデックス項目を見つけ、そして、<command>VACUUM</>によって削除された後に対応するヒープ項目に達する可能性があります。
+空の項目スロットは<function>heap_fetch()</>で無視されますので、これは読み取りが達した時にその項目番号が未使用である場合でも大きな問題は起こりません。
+しかし、第三のバックエンドがすでにその項目スロットを他のものに再使用した場合はどうなるでしょうか？
+そのスロット内の新しいものが、スナップショット試験を通過するには新しすぎることが確実ですので、MVCCに則ったスナップショットを使用する場合は問題ありません。
+しかし、MVCCに則らないスナップショット(<literal>SnapshotNow</>など)では、実際にはスキャンキーに合わない行を受付け、返す可能性があります。
+すべての場合においてヒープ行に対しスキャンキーの再検査を行うことを必須とすることで、こうした状況から保護することができますが、これは高価すぎます。
+代わりに、読み取りがまだ一致するヒープ項目へのインデックス項目の<quote>作業中</>であることを示す代理として、インデックスページに対するピンを使用します。
+このピンに対して<function>ambulkdelete</>がブロックするようにすることで、読み取りの作業が終わる前に<command>VACUUM</>がそのヒープ項目を削除できないことを確実にします。
+実行時におけるこの対策のコストは小さく、実際に競合が発生するごく稀な場合にのみブロックするためのオーバーヘッドが加わります。
   </para>
 
   <para>
@@ -1105,11 +1105,11 @@ B-tree����ӥϥå��奤��ǥå�������Ǥϡ�<filename>src/backend/access/nbtree/RE
    non-MVCC-compliant snapshots, but an asynchronous scan is workable
    for a query using an MVCC snapshot.
 -->
-�����к��ϡ�����ǥå����������<quote>Ʊ��</>���Ƥ��뤳�Ȥ��׵ᤷ�ޤ���
-�б����륤��ǥå������ܤΥ������θ�¨�¤˳ƥҡ��ץ��ץ����Ф��ʤ���Фʤ�ޤ���
-¿������ͳ�Τ��ᡢ����Ϲ���Ǥ���
-����ǥå�������¿����TID���������������ǤΤߥҡ��ץ��ץ�˥�����������<quote>��Ʊ��</>�������Ǥϡ�ɬ�פʥ��å����������С��إåɤ����ʤ꾯�ʤ��ʤꡢ�ޤ�������ΨŪ�ʥҡ��פؤΥ��������ѥ�������뤳�Ȥ��Ǥ��ޤ���
-��β��Ϥ˽����ȡ�MVCC��§��ʤ����ʥåץ���åȤǤ�Ʊ����������Ѥ��ʤ���Фʤ�ޤ��󤬡��䤤��碌��MVCC���ʥåץ���åȤ���Ѥ��������Ʊ������������Ѥ��뤳�Ȥ��Ǥ��ޤ���
+この対策は、インデックススキャンが<quote>同期</>していることを要求します。
+対応するインデックス項目のスキャンの後即座に各ヒープタプルを取り出さなければなりません。
+多くの理由のため、これは高価です。
+インデックスから多くのTIDを収集し、少し後でのみヒープタプルにアクセスする<quote>非同期</>スキャンでは、必要なロック処理オーバーヘッドがかなり少なくなり、また、より効率的なヒープへのアクセスパターンを取ることができます。
+上の解析に従うと、MVCCに則らないスナップショットでは同期方式を使用しなければなりませんが、問い合わせがMVCCスナップショットを使用する場合は非同期スキャンを使用することができます。
   </para>
 
   <para>
@@ -1118,8 +1118,8 @@ B-tree����ӥϥå��奤��ǥå�������Ǥϡ�<filename>src/backend/access/nbtree/RE
    keep an index pin on any of the returned tuples.  Therefore
    it is only safe to use such scans with MVCC-compliant snapshots.
 -->
-<function>amgetbitmap</>����ǥå����������Ǥϡ����������᥽�åɤ��֤���륿�ץ��˥���ǥå����ԥ��ޤä����ݻ����ޤ���
-�������äơ�MVCC��§�ä����ʥåץ���åȤǤ�����������������Ѥ��뤳�ȤΤߤ������Ǥ���
+<function>amgetbitmap</>インデックススキャンでは、アクセスメソッドは返されるタプル上にインデックスピンをまったく保持しません。
+したがって、MVCCに則ったスナップショットでこうしたスキャンを使用することのみが安全です。
   </para>
 
   <para>
@@ -1135,10 +1135,10 @@ B-tree����ӥϥå��奤��ǥå�������Ǥϡ�<filename>src/backend/access/nbtree/RE
    method implements finer-grained predicate locking, which will tend to
    reduce the frequency of such transaction cancellations.
 -->
-<structfield>ampredlocks</>�ե饰�����ꤵ��Ƥ��ʤ���硢���ꥢ�饤���֥�ȥ�󥶥��������Ǥ��Υ���ǥå������������᥽�åɤ���Ѥ��륹�����Ϥ�����⥤��ǥå������Τ��Ф���֥��å����ʤ��Ҹ���å���������ޤ���
-����ϡ�Ʊ���¹ԤΥ��ꥢ�饤���֥�ȥ�󥶥������ˤ�뤽�Υ���ǥå����ؤβ��餫�Υ��ץ������ǡ��ɤ߽񤭤ζ��礬ȯ�����뤳�Ȥ�����ޤ���
-Ʊ���¹ԤΥ��ꥢ�饤���֥�ȥ�󥶥������ν�������������ɤ߽񤭤ζ���ѥ����󤬸��Τ��줿��硢�ǡ��������������ݸ�뤿��ˤ����Υȥ�󥶥������Σ��Ĥϥ���󥻥뤵��ޤ���
-���Υե饰�����ꤵ��Ƥ����硢���������ȥ�󥶥������Υ���󥻥�����٤��㸺���뤳�Ȥˤʤ롢���γ�٤κ٤��ʽҸ���å��򥤥�ǥå������������᥽�åɤ��������Ƥ��뤳�Ȥ򼨤��ޤ���
+<structfield>ampredlocks</>フラグが設定されていない場合、シリアライザブルトランザクション内でそのインデックスアクセスメソッドを使用するスキャンはいずれもインデックス全体に対するブロックしない述語ロックを獲得します。
+これは、同時実行のシリアライザブルトランザクションによるそのインデックスへの何らかのタプル挿入で、読み書きの競合が発生することがあります。
+同時実行のシリアライザブルトランザクションの集合の中で特定の読み書きの競合パターンが検知された場合、データの整合性を保護するためにこれらのトランザクションの１つはキャンセルされます。
+このフラグが設定されている場合、こうしたトランザクションのキャンセルの頻度を低減することになる、より粒度の細かな述語ロックをインデックスアクセスメソッドが実装していることを示します。
   </para>
 
  </sect1>
@@ -1147,7 +1147,7 @@ B-tree����ӥϥå��奤��ǥå�������Ǥϡ�<filename>src/backend/access/nbtree/RE
 <!--
   <title>Index Uniqueness Checks</title>
 -->
-  <title>����ǥå������������</title>
+  <title>インデックス一意性検査</title>
 
   <para>
 <!--
@@ -1157,10 +1157,10 @@ B-tree����ӥϥå��奤��ǥå�������Ǥϡ�<filename>src/backend/access/nbtree/RE
    feature sets <structname>pg_am</>.<structfield>amcanunique</> true.
    (At present, only b-tree supports it.)
 -->
-<productname>PostgreSQL</productname>�ϡ�SQL�ΰ���������<firstterm>���������ǥå���</>����Ѥ��ƶ������ޤ���
-���Υ���ǥå����Ǥϡ�Ʊ�쥭�����Ф�ʣ���ι��ܤ�����ޤ���
-���ε�ǽ�򥵥ݡ��Ȥ��륢�������᥽�åɤ�<structname>pg_am</>.<structfield>amcanunique</>�򿿤����ꤷ�ޤ���
-�ʸ������Ǥ�b-tree�Τߤ�����򥵥ݡ��Ȥ��ޤ�����
+<productname>PostgreSQL</productname>は、SQLの一意性制約を<firstterm>一意性インデックス</>を使用して強制します。
+このインデックスでは、同一キーに対し複数の項目を許しません。
+この機能をサポートするアクセスメソッドは<structname>pg_am</>.<structfield>amcanunique</>を真に設定します。
+（現時点ではb-treeのみがこれをサポートします。）
   </para>
 
   <para>
@@ -1172,10 +1172,10 @@ B-tree����ӥϥå��奤��ǥå�������Ǥϡ�<filename>src/backend/access/nbtree/RE
    index keys.  This breaks down into the following cases that must be
    checked when inserting a new row into a unique index:
 -->
-MVCC�Τ��ᡢ����ǥå������ʪ��Ū�˽�ʣ�������ܤ�¸�ߤǤ��뤳�Ȥ����ɬ�פǤ���
-�����ι��ܤϣ��Ĥ�����Ū�ʹԤ�Ϣ³Ū�ʥС������򼨤��ޤ���
-�ºݤ˶�����������ư��ϡ�MVCC���ʥåץ���åȤ�Ʊ������ǥå�����������ĹԤ򣲤Ĵޤ�ʤ����ȤǤ���
-���������ǥå����˿������Ԥ�����������˸������ʤ���Фʤ�ʤ�������ʲ��Τ褦��ʬ�䤹�뤳�Ȥ��Ǥ��ޤ���
+MVCCのため、インデックス内に物理的に重複した項目が存在できることが常に必要です。
+これらの項目は１つの論理的な行の連続的なバージョンを示します。
+実際に強制させたい動作は、MVCCスナップショットが同じインデックスキーを持つ行を２つ含めないことです。
+一意性インデックスに新しい行を挿入する時に検査しなければならない状況を以下のように分割することができます。
 
     <itemizedlist>
      <listitem>
@@ -1186,9 +1186,9 @@ MVCC�Τ��ᡢ����ǥå������ʪ��Ū�˽�ʣ�������ܤ�¸�ߤǤ��뤳�Ȥ����ɬ�פǤ���
        version before inserting the new version, this will allow an UPDATE on
        a row without changing the key.)
 -->
-���礹��ͭ���ʹԤ����ߤΥȥ�󥶥������Ǻ�����줿�������ꤢ��ޤ���
-�ʶ���Ū�ˤϡ�UPDATE�Ͼ�˿������С������������������˸Ť��ԥС������������ޤ���
-����ˤ�ꥭ�����ѹ����뤳�Ȥʤ��Ԥ�UPDATE���뤳�Ȥ��Ǥ��ޤ�����
+競合する有効な行が現在のトランザクションで削除された場合は問題ありません。
+（具体的には、UPDATEは常に新しいバージョンを挿入する前に古い行バージョンを削除します。
+これによりキーを変更することなく行をUPDATEすることができます。）
       </para>
      </listitem>
      <listitem>
@@ -1201,10 +1201,10 @@ MVCC�Τ��ᡢ����ǥå������ʪ��Ū�˽�ʣ�������ܤ�¸�ߤǤ��뤳�Ȥ����ɬ�פǤ���
        violation.  (In practice we just wait for the other transaction to
        end and then redo the visibility check in toto.)
 -->
-���礹��Ԥ�̤���ߥåȤΥȥ�󥶥��������������줿��硢�������褦�Ȥ��Ƥ������ϥȥ�󥶥������Υ��ߥåȤ�ʬ����ޤ��Ե����ʤ���Фʤ�ޤ���
-������Хå��������϶��礷�ޤ���
-���礹��Ԥ�������줺�˥��ߥåȤ�����硢�������ȿ�Ȥʤ�ޤ���
-�ʶ���Ū�ˤϡ�¾�Υȥ�󥶥������ν�λ�򤿤��Ե�������λ��˲Ļ����θ��������˺Ƽ¹Ԥ��ޤ�����
+競合する行が未コミットのトランザクションで挿入された場合、挿入しようとしている方はトランザクションのコミットが分かるまで待機しなければなりません。
+ロールバックした場合は競合しません。
+競合する行が削除されずにコミットした場合、一意性違反となります。
+（具体的には、他のトランザクションの終了をただ待機し、終了後に可視性の検査を完全に再実行します。）
       </para>
      </listitem>
      <listitem>
@@ -1214,7 +1214,7 @@ MVCC�Τ��ᡢ����ǥå������ʪ��Ū�˽�ʣ�������ܤ�¸�ߤǤ��뤳�Ȥ����ɬ�פǤ���
        as-yet-uncommitted transaction, the would-be inserter must wait
        for that transaction to commit or abort, and then repeat the test.
 -->
-Ʊ�ͤˡ����礹��ͭ���ʹԤ�̤���ߥåȤΥȥ�󥶥������Ǻ�����줿��硢�������褦�Ȥ��Ƥ������ϥȥ�󥶥������Υ��ߥåȤޤ��ϥ��ܡ��Ȥ��Ե����ʤ���Фʤ餺�����θ塢��򷫤��֤��ޤ���
+同様に、競合する有効な行が未コミットのトランザクションで削除された場合、挿入しようとしている方はトランザクションのコミットまたはアボートを待機しなければならず、その後、試験を繰り返します。
       </para>
      </listitem>
     </itemizedlist>
@@ -1230,10 +1230,10 @@ MVCC�Τ��ᡢ����ǥå������ʪ��Ū�˽�ʣ�������ܤ�¸�ߤǤ��뤳�Ȥ����ɬ�פǤ���
    the current transaction.  It can happen during
    <command>CREATE UNIQUE INDEX CONCURRENTLY</>, however.)
 -->
-����ˡ��嵭��§�˽��ä��������ȿ����𤹤�ľ���ˡ����������᥽�åɤ����������Ԥ�ͭ��������ٸ������ʤ���Фʤ�ޤ���
-�⤷��̵���ʥ��ߥåȤǤ���С���ȿ����𤷤ƤϤ����ޤ���
-�ʸ��ߤΥȥ�󥶥������ˤ�äƺ������줿�̾�ιԤ������Ȥ��������Ǥϡ������ȯ�����뤳�ȤϤ���ޤ���
-�������������<command>CREATE UNIQUE INDEX CONCURRENTLY</>���ȯ�����뤳�Ȥ�����ޤ�����
+さらに、上記規則に従った一意性違反を報告する直前に、アクセスメソッドは挿入される行の有効性を再度検査しなければなりません。
+もし、無効なコミットであれば、違反を報告してはいけません。
+（現在のトランザクションによって作成された通常の行の挿入という状況では、これは発生することはありません。
+しかし、これは<command>CREATE UNIQUE INDEX CONCURRENTLY</>中に発生することがあります。）
   </para>
 
   <para>
@@ -1248,12 +1248,12 @@ MVCC�Τ��ᡢ����ǥå������ʪ��Ū�˽�ʣ�������ܤ�¸�ߤǤ��뤳�Ȥ����ɬ�פǤ���
    to avoid race conditions unless the conflict check is an integral part
    of insertion of the new index entry.
 -->
-����ǥå������������᥽�åɤˤ���������򼫿ȤǹԤ����Ȥ��׵ᤷ�ޤ���
-����ϡ�����ǥå��������Ƥ��Ф��ƽ�ʣ���륭������Ĥ��Ȥ򼨤��Ƥ���Ǥ�դιԤΥ��ߥåȾ��֤򸡺����뤿��ˡ��ҡ��פޤǥ����������ʤ���Фʤ�ʤ����Ȥ��̣���ޤ���
-���줬�����⥸�塼�벽����ʤ����Ȥˤϵ���;�ϤϤ���ޤ���
-��������;�פʺ�Ȥ��ɤ����Ȥ��Ǥ��ޤ���
-�⤷ʬΥ���줿õ����Ԥä��Ȥ���ȡ�����������ǥå������ܤ�����������򸡺�����������礹��Ԥ��Ф��륤��ǥå����������ɤ����Ƥⷫ���֤���ޤ���
-����ˡ����縡��������ǥå����Ԥ�������ʬ�����礵��ƹԤ��ʤ��¤ꡢ������֤��ɤ����Τ���ˡ������ޤ���
+インデックスアクセスメソッドにこうした試験を自身で行うことを要求します。
+これは、インデックスの内容に対して重複するキーを持つことを示している任意の行のコミット状態を検査するために、ヒープまでアクセスしなければならないことを意味します。
+これが醜くモジュール化されないことには疑う余地はありません。
+しかし、余計な作業を防ぐことができます。
+もし分離された探査を行ったとすると、新しいインデックス項目を挿入する場所を検索する時、競合する行に対するインデックス検索がどうしても繰り返されます。
+さらに、競合検査がインデックス行の挿入部分で統合されて行われない限り、競合状態を防ぐ明確な方法がありません。
   </para>
 
   <para>
@@ -1272,15 +1272,15 @@ MVCC�Τ��ᡢ����ǥå������ʪ��Ū�˽�ʣ�������ܤ�¸�ߤǤ��뤳�Ȥ����ɬ�פǤ���
    To implement this, the <function>aminsert</> function is passed a
    <literal>checkUnique</> parameter having one of the following values:
 -->
-����������ٱ��ǽ�Ǥ�����Ϥ����ʣ���ˤʤ�ޤ���
-�������Ը����Υ���ǥå������ܤ�������ǽ�ˤ���ɬ�פ�����ޤ���
-�������������ȿ���顼��ʸ�ν����ޤ��Ϥ���ʹߤޤ��ٱ䤵��ޤ���
-���פʥ���ǥå��������η����֤����ɤ�����ˡ�����ǥå������������᥽�åɤϽ���������δ֤����¤ΰ����������Ԥ�ʤ���Фʤ�ޤ���
-���줬��¸���륿�ץ�Ȥޤä������礬�ʤ����Ȥ򼨤�����硢����ǽ�λ�Ǥ���
-����ʤ���С��������������˺Ƹ�����Ԥ��褦�������塼�뤷�ޤ���
-�Ƹ����λ������оݤΥ��ץ��Ʊ����������Ĳ��餫��¾�Υ��ץ뤬¸�ߤ���ȡ����顼����𤷤ʤ���Фʤ�ޤ���
-�ʤ�����Ū�Τ����<quote>¸�ߤ���</>�ϼºݤˤ�<quote>����ǥå������ܤ�HOT����������˲��餫�Υ��ץ뤬¸�ߤ���</>���Ȥ��̣���ޤ�����
-�����������뤿��ˡ�<function>aminsert</>�ϰʲ��Τ����줫���ͤ����<literal>checkUnique</>�ѥ�᡼�����Ϥ���ޤ���
+一意性制約が遅延可能である場合はさらに複雑になります。
+新しい行向けのインデックス項目を挿入可能にする必要があります。
+しかし一意性違反エラーは文の終わりまたはそれ以降まで遅延されます。
+不要なインデックス検索の繰り返しを防ぐために、インデックスアクセスメソッドは初期の挿入の間に前座の一意性検査を行わなければなりません。
+これが現存するタプルとまったく競合がないことを示した場合、それで終了です。
+さもなければ、制約を強制する時に再検査を行うようスケジュールします。
+再検査の時点で対象のタプルと同じキーを持つ何らかの他のタプルが存在すると、エラーを報告しなければなりません。
+（この目的のために<quote>存在する</>は実際には<quote>インデックス項目のHOTチェイン内に何らかのタプルが存在する</>ことを意味します。）
+これを実装するために、<function>aminsert</>は以下のいずれかの値を持つ<literal>checkUnique</>パラメータを渡されます。
 
     <itemizedlist>
      <listitem>
@@ -1289,7 +1289,7 @@ MVCC�Τ��ᡢ����ǥå������ʪ��Ū�˽�ʣ�������ܤ�¸�ߤǤ��뤳�Ȥ����ɬ�פǤ���
        <literal>UNIQUE_CHECK_NO</> indicates that no uniqueness checking
        should be done (this is not a unique index).
 -->
-<literal>UNIQUE_CHECK_NO</>�ϡ������������Ԥ����ȤϤʤ�(����ϰ��������ǥå����ǤϤʤ�)���Ȥ򼨤��ޤ���
+<literal>UNIQUE_CHECK_NO</>は、一意性検査を行うことはない(これは一意性インデックスではない)ことを示します。
       </para>
      </listitem>
      <listitem>
@@ -1299,7 +1299,7 @@ MVCC�Τ��ᡢ����ǥå������ʪ��Ū�˽�ʣ�������ܤ�¸�ߤǤ��뤳�Ȥ����ɬ�פǤ���
        unique index, and the uniqueness check must be done immediately, as
        described above.
 -->
-<literal>UNIQUE_CHECK_YES</>�ϡ���Ҥ��̤��ٱ䤬�ʤ����������ǥå����Ǥ��ꡢ�����������¨���˹Ԥ�ʤ���Фʤ�ʤ����Ȥ򼨤��ޤ���
+<literal>UNIQUE_CHECK_YES</>は、上述の通り遅延がない一意性インデックスであり、一意性検査を即時に行わなければならないことを示します。
       </para>
      </listitem>
      <listitem>
@@ -1313,11 +1313,11 @@ MVCC�Τ��ᡢ����ǥå������ʪ��Ū�˽�ʣ�������ܤ�¸�ߤǤ��뤳�Ȥ����ɬ�פǤ���
        For each row for which FALSE is returned, a deferred recheck will
        be scheduled.
 -->
-<literal>UNIQUE_CHECK_PARTIAL</>�ϰ���������ٱ��ǽ�Ǥ��뤳�Ȥ򼨤��ޤ���
-<productname>PostgreSQL</productname>�Ϥ��Υ⡼�ɤ���Ѥ��ơ��ƹԤΥ���ǥå������ܤ��������ޤ���
-���Υ��������᥽�åɤϥ���ǥå�����ν�ʣ������ܤ�����ʤ���Фʤ�ޤ���
-������<function>aminsert</>���鵶���֤����Ȥǽ�ʣ�β�ǽ�������뤳�Ȥ���𤷤ʤ���Фʤ�ޤ���
-�����֤��줿�Ԥ��줾����Ф��ơ��ٱ�Ƹ�����ͽ�ꤵ��ޤ���
+<literal>UNIQUE_CHECK_PARTIAL</>は一意性制約が遅延可能であることを示します。
+<productname>PostgreSQL</productname>はこのモードを使用して、各行のインデックス項目を挿入します。
+このアクセスメソッドはインデックス内の重複する項目を許さなければなりません。
+そして<function>aminsert</>から偽を返すことで重複の可能性があることを報告しなければなりません。
+偽が返された行それぞれに対して、遅延再検査が予定されます。
       </para>
 
       <para>
@@ -1329,11 +1329,11 @@ MVCC�Τ��ᡢ����ǥå������ʪ��Ū�˽�ʣ�������ܤ�¸�ߤǤ��뤳�Ȥ����ɬ�פǤ���
        errors and will be rechecked later, by which time they may no longer
        be conflicts.
 -->
-���������᥽�åɤϰ���������ȿ�Ȥʤ뤫�⤷��ʤ��Ԥ��̤��ʤ���Фʤ�ޤ���
-�������ְ�ä�������𤹤뤳�Ȥϥ��顼�ǤϤ���ޤ���
-����ˤ��¾�Υȥ�󥶥��������ԤĤ��Ȥʤ�������Ԥ����Ȥ��Ǥ��ޤ���
-��������𤵤줿��ʣ�ϥ��顼�Ȥ��ư���줺����ǺƸ�������ޤ���
-�Ƹ������ˤϽ�ʣ���ʤ��ʤäƤ����ǽ��������ޤ���
+アクセスメソッドは一意性制約違反となるかもしれない行を識別しなければなりません。
+しかし間違った偽を報告することはエラーではありません。
+これにより他のトランザクションを待つことなく検査を行うことができます。
+ここで報告された重複はエラーとして扱われず、後で再検査されます。
+再検査時には重複しなくなっている可能性があります。
       </para>
      </listitem>
      <listitem>
@@ -1347,11 +1347,11 @@ MVCC�Τ��ᡢ����ǥå������ʪ��Ū�˽�ʣ�������ܤ�¸�ߤǤ��뤳�Ȥ����ɬ�פǤ���
        must check to see if there is another live index entry.  If so, and
        if the target row is also still live, report error.
 -->
-<literal>UNIQUE_CHECK_EXISTING</>�ϡ��������ȿ�β�ǽ�����������𤵤줿�Ԥ��Ф����ٱ�Ƹ����Ǥ��뤳�Ȥ򼨤��ޤ���
-�����<function>aminsert</>��ƤӽФ����ȤǼ�������ޤ��������������᥽�åɤϤ��ξ��˿���������ǥå������ܤ��������Ƥ�<emphasis>�����ޤ���</>��
-����ǥå������ܤϤ��Ǥ�¸�ߤ��ޤ���
-������⡢���������᥽�åɤ�¾��¸�ߤ��륤��ǥå������ܤ����뤫��������ɬ�פ�����ޤ���
-�⤷¸�ߤ����оݤιԤ�ޤ�¸�ߤ����票�顼����𤷤ޤ���
+<literal>UNIQUE_CHECK_EXISTING</>は、一意性違反の可能性があると報告された行に対する遅延再検査であることを示します。
+これは<function>aminsert</>を呼び出すことで実装されますが、アクセスメソッドはこの場合に新しいインデックス項目を挿入しては<emphasis>いけません</>。
+インデックス項目はすでに存在します。
+それよりも、アクセスメソッドは他に存在するインデックス項目があるか検査する必要があります。
+もし存在し、対象の行もまだ存在する場合エラーを報告します。
       </para>
 
       <para>
@@ -1366,10 +1366,10 @@ MVCC�Τ��ᡢ����ǥå������ʪ��Ū�˽�ʣ�������ܤ�¸�ߤǤ��뤳�Ȥ����ɬ�פǤ���
        target row is found in the recheck verifies that we are scanning
        for the same tuple values as were used in the original insertion.
 -->
-<literal>UNIQUE_CHECK_EXISTING</>�ƤӽФ��Ǥϡ����������᥽�åɤϤ�����оݹԤ��ºݤ˥���ǥå�����˴�¸�ι��ܤ���Ĥ����ڤ����⤷�ʤ���Х��顼����𤹤뤳�Ȥ�侩���ޤ���
-<function>aminsert</>���Ϥ���륤��ǥå������ץ��ͤ��Ʒ׻�����Ƥ��뤿�ᴫ��ޤ���
-����ǥå�������˼ºݤˤ����ѤǤϤʤ��ؿ����ޤޤ���硢����ǥå����δְ�ä��ΰ�򸡺����Ƥ��ޤ����⤷��ޤ���
-�Ƹ����ˤ��оݹԤ�¸�ߤ򸡺����뤳�Ȥǡ����������ǻ��Ѥ��줿��Τ�Ʊ�����ץ��ͤ򥹥���󤷤Ƥ��뤳�Ȥ򸡾ڤ��ޤ���
+<literal>UNIQUE_CHECK_EXISTING</>呼び出しでは、アクセスメソッドはさらに対象行が実際にインデックス内に既存の項目を持つか検証し、もしなければエラーを報告することを推奨します。
+<function>aminsert</>に渡されるインデックスタプル値が再計算されているため勧めます。
+インデックス定義に実際には不変ではない関数が含まれる場合、インデックスの間違った領域を検査してしまうかもしれません。
+再検査にて対象行の存在を検査することで、元の挿入で使用されたものと同じタプル値をスキャンしていることを検証します。
       </para>
      </listitem>
     </itemizedlist>
@@ -1381,7 +1381,7 @@ MVCC�Τ��ᡢ����ǥå������ʪ��Ū�˽�ʣ�������ܤ�¸�ߤǤ��뤳�Ȥ����ɬ�פǤ���
 <!--
   <title>Index Cost Estimation Functions</title>
 -->
-  <title>����ǥå��������ȿ���ؿ�</title>
+  <title>インデックスコスト推定関数</title>
 
   <para>
 <!--
@@ -1396,17 +1396,17 @@ MVCC�Τ��ᡢ����ǥå������ʪ��Ū�˽�ʣ�������ܤ�¸�ߤǤ��뤳�Ȥ����ɬ�פǤ���
    to allow index access methods to provide index-type-specific knowledge,
    in case it is possible to improve on the standard estimates.
 -->
-<function>amcostestimate</>�ؿ��ˤϡ�����ǥå����ȶ��˻��ѤǤ��뤳�Ȥ���ޤäƤ���WHERE�礪���ORDER BY��Υꥹ�Ȥ�ޤࡢ����ǥå����������β�ǽ���򵭽Ҥ������Ϳ�����ޤ���
-���δؿ��ϥ���ǥå����˥����������륳���Ȥγ�����WHERE��������١ʤĤޤꥤ��ǥå����������ˤ���Ф����Ԥοƥơ��֥�ˤ�������ˤ��֤��ʤ��ƤϤʤ�ޤ���
-ñ��ʾ����ȡ��ۤȤ�ɤ��٤ƤΥ����ȳ����κ�Ȥϡ����ץƥ��ޥ�����ɸ��롼�����ƤӽФ����ȤǹԤ��ޤ���
-<function>amcostestimate</>�ؿ�����Ĥ��Ȥΰ�̣�ϡ�ɸ��γ�����������뤳�Ȥ��Ǥ�����ˡ�����ǥå������������᥽�åɤ�����ǥå�������ͭ���μ��ηϤ��󶡤��뤳�Ȥ��Ǥ���Ȥ������ȤǤ���
+<function>amcostestimate</>関数には、インデックスと共に使用できることが決まっているWHERE句およびORDER BY句のリストを含む、インデックススキャンの可能性を記述する情報が与えられます。
+この関数はインデックスにアクセスするコストの概算とWHERE句の選択度（つまりインデックススキャンにて抽出される行の親テーブルにおける割合）を返さなくてはなりません。
+単純な場合だと、ほとんどすべてのコスト概算の作業は、オプティマイザの標準ルーチンを呼び出すことで行われます。
+<function>amcostestimate</>関数を持つことの意味は、標準の概算を改善することができる場合に、インデックスアクセスメソッドがインデックス型固有の知識体系を提供することができるということです。
   </para>
 
   <para>
 <!--
    Each <function>amcostestimate</> function must have the signature:
 -->
-���줾���<function>amcostestimate</>�ؿ��ϰʲ��Υ����ͥ��������ʤ���Ф����ޤ���
+それぞれの<function>amcostestimate</>関数は以下のシグネチャを持たなければいけません。
 
 <programlisting>
 void
@@ -1422,7 +1422,7 @@ amcostestimate (PlannerInfo *root,
 <!--
    The first three parameters are inputs:
 -->
-�ǽ��3�ĤΥѥ�᡼�������ϤǤ���
+最初の3つのパラメータは入力です。
 
    <variablelist>
     <varlistentry>
@@ -1432,7 +1432,7 @@ amcostestimate (PlannerInfo *root,
 <!-- 
        The planner's information about the query being processed.
 -->
-��������Ƥ����䤤��碌�˴ؤ���ץ��ʤξ���
+処理されている問い合わせに関するプランナの情報。
       </para>
      </listitem>
     </varlistentry>
@@ -1445,8 +1445,8 @@ amcostestimate (PlannerInfo *root,
        The index access path being considered.  All fields except cost and
        selectivity values are valid.
 -->
-��θ����륤��ǥå������������ѥ���
-�����Ȥ��������ͤ�������٤ƤΥե�����ɤ�ͭ���Ǥ���
+考慮されるインデックスアクセスパス。
+コストと選択性値を除くすべてのフィールドが有効です。
       </para>
      </listitem>
     </varlistentry>
@@ -1463,9 +1463,9 @@ amcostestimate (PlannerInfo *root,
        a larger <parameter>loop_count</> means that it may be appropriate
        to allow for some caching effects across multiple scans.
 -->
-�����ȳ����λ����оݤȤʤ륤��ǥå���������󤬷����֤��줿����Ǥ���
-������̾�ͥ��ȥ롼�ץ��祤������������Ѥ���륹�����β�������礭���ͤˤʤ�ޤ���
-�����ȳ�����1��Υ������Τ�����ͤǤ��뤳�Ȥ����դ��Ƥ���������<parameter>loop_count</>������礭����硢ʣ���Υ������ˤ����������̤�ߤ�ˤϽ�ʬ���ͤȤ�����Ǥ��礦��
+コスト概算の算出対象となるインデックススキャンが繰り返された回数です。
+これは通常、ネストループジョインの内部で利用されるスキャンの回数よりも大きい値になります。
+コスト概算は1回のスキャンのための値であることに注意してください。<parameter>loop_count</>がより大きい場合、複数のスキャンにより得られる効果をみるには十分な値といえるでしょう。
       </para>
      </listitem>
     </varlistentry>
@@ -1476,7 +1476,7 @@ amcostestimate (PlannerInfo *root,
 <!--
    The last four parameters are pass-by-reference outputs:
 -->
-�Ǹ��4�ĤΥѥ�᡼���ϻ����Ϥ��ν��ϤǤ���
+最後の4つのパラメータは参照渡しの出力です。
 
    <variablelist>
     <varlistentry>
@@ -1486,7 +1486,7 @@ amcostestimate (PlannerInfo *root,
 <!--
        Set to cost of index start-up processing
 -->
-����ǥå����ε�ư�����ˤ����륳���Ȥ����ꤵ��ޤ���
+インデックスの起動処理にかかるコストに設定されます。
       </para>
      </listitem>
     </varlistentry>
@@ -1498,7 +1498,7 @@ amcostestimate (PlannerInfo *root,
 <!--
        Set to total cost of index processing
 -->
-����ǥå������������ΤΥ����Ȥ����ꤵ��ޤ���
+インデックス処理の全体のコストに設定されます。
       </para>
      </listitem>
     </varlistentry>
@@ -1510,7 +1510,7 @@ amcostestimate (PlannerInfo *root,
 <!--
        Set to index selectivity
 -->
-����ǥå����������٤����ꤵ��ޤ���
+インデックスの選択度に設定されます。
       </para>
      </listitem>
     </varlistentry>
@@ -1523,7 +1523,7 @@ amcostestimate (PlannerInfo *root,
        Set to correlation coefficient between index scan order and
        underlying table's order
 --> 
-����ǥå����������ν��֤��ظ�Υơ��֥�ν��ִ֤���ط��������ꤵ��ޤ���
+インデックススキャンの順番と背後のテーブルの順番間の相関係数に設定されます。
       </para>
      </listitem>
     </varlistentry>
@@ -1536,8 +1536,8 @@ amcostestimate (PlannerInfo *root,
    any available procedural language, because they must access internal
    data structures of the planner/optimizer.
 -->
-�����ȳ����ؿ��ϡ�SQL�䤽��¾�μ�³������ǤϤʤ���C����ǽ񤫤�ʤ���Ф����ʤ����Ȥ����դ��Ƥ���������
-��ͳ�ϥץ���/���ץƥ��ޥ����������ǡ�����¤�˥����������ʤ���Ф����ʤ�����Ǥ���
+コスト概算関数は、SQLやその他の手続き言語ではなく、C言語で書かれなければいけないことに注意してください。
+理由はプランナ/オプティマイザの内部データ構造にアクセスしなければいけないためです。
   </para>
 
   <para>
@@ -1551,8 +1551,8 @@ amcostestimate (PlannerInfo *root,
    be charged for any comparison operators invoked during index processing
    (especially evaluation of the indexquals themselves).
 -->
-����ǥå����������������Ȥ�<filename>src/backend/optimizer/path/costsize.c</filename>�ǻȤ��롢�༡Ū�ʥǥ������֥��å��μ��Ф��ˤ�<varname>seq_page_cost</>�Υ����Ȥ�������Ʊ�μ��Ф��ˤ�<varname>random_page_cost</>�Υ����Ȥ��������ơ�1�ĤΥ���ǥå����Ԥν����ˤ��̾�<varname>cpu_index_tuple_cost</>�Ȥ��������Ȥ������롢�Ȥ����ѥ�᡼���Ƿ׻�����ʤ���Фʤ�ޤ���
-����ˡ�����ǥå����������ä�indexquals���Τ�ɾ���ˤδ֤˸ƤӽФ������ӱ黻���٤Ƥ��Ф��ơ�<varname>cpu_operator_cost</>��Ŭ���ʷ����򤫤��������Ȥ�������ޤ���
+インデックスアクセスコストは<filename>src/backend/optimizer/path/costsize.c</filename>で使われる、逐次的なディスクブロックの取り出しには<varname>seq_page_cost</>のコストが、順不同の取り出しには<varname>random_page_cost</>のコストが、そして、1つのインデックス行の処理には通常<varname>cpu_index_tuple_cost</>というコストがかかる、というパラメータで計算されなければなりません。
+さらに、インデックス処理（特にindexquals自体の評価）の間に呼び出される比較演算すべてに対して、<varname>cpu_operator_cost</>に適当な係数をかけたコストがかかります。
   </para>
 
   <para>
@@ -1561,7 +1561,7 @@ amcostestimate (PlannerInfo *root,
    scanning the index itself, but <emphasis>not</> the costs of retrieving or
    processing the parent-table rows that are identified by the index.
 -->
-�������������Ȥϡ�����ǥå������ȤΥ������ȴط����뤹�٤ƤΥǥ�������CPU�����Ȥ�ޤ�٤��Ǥ���������ǥå����Ǽ��̤����ƥơ��֥�ιԤν�������Фˤ����륳���Ȥϴޤ�Ƥ�<emphasis>�����ޤ���</>��
+アクセスコストは、インデックス自身のスキャンと関係するすべてのディスクとCPUコストも含むべきですが、インデックスで識別される親テーブルの行の処理や抽出にかかるコストは含めては<emphasis>いけません</>。
   </para>
 
   <para>
@@ -1571,9 +1571,9 @@ amcostestimate (PlannerInfo *root,
    indexes this can be taken as zero, but an index type with a high start-up
    cost might want to set it nonzero.
 -->
-<quote>��ư�ѥ�����</quote>�ϡ��ǽ�ιԤ���Ф��Ϥ�뤳�Ȥ��Ǥ���褦�ˤʤ�������䤵��ʤ���Фʤ�ʤ���������󥳥��Ȥΰ����Ǥ���
-�ۤȤ�ɤΥ���ǥå����Ǥϡ�����ϥ����Ȥ��뤳�Ȥ��Ǥ��ޤ���
-���������⤤��ư�ѥ����Ȥ���ĥ���ǥå�������ǤϤ�����󥼥��ˤ��뤳�Ȥ򴫤�ޤ���
+<quote>起動用コスト</quote>は、最初の行を取り出し始めることができるようになる前に費やされなければならない総スキャンコストの一部です。
+ほとんどのインデックスでは、これはゼロとすることができます。
+しかし、高い起動用コストを持つインデックス種類ではこれを非ゼロにすることを勧めます。
   </para>
 
   <para>
@@ -1583,8 +1583,8 @@ amcostestimate (PlannerInfo *root,
    of a lossy query, this will typically be higher than the fraction of
    rows that actually pass the given qual conditions.
 -->
-<parameter>indexSelectivity</>�ϡ�����ǥå����������δ֤���Ф����ƥơ��֥�ιԤγ������줿���Ȥ������ꤵ���٤��Ǥ���
-��ĵ��䤤��碌�ξ��Ϥ����ͤ���Ϳ����줿�������ºݤ��̲᤹��Ԥγ�����⤯�ʤ뤳�Ȥ��褯����ޤ���
+<parameter>indexSelectivity</>は、インデックススキャンの間に抽出される親テーブルの行の概算された割合として設定されるべきです。
+非可逆問い合わせの場合はこの値が、与えられた制約条件を実際に通過する行の割合よりも高くなることがよくあります。
   </para>
 
   <para>
@@ -1594,8 +1594,8 @@ amcostestimate (PlannerInfo *root,
    to adjust the estimate for the cost of fetching rows from the parent
    table.
 -->
-<parameter>indexCorrelation</>�ϡ�����ǥå����ν��֤ȥơ��֥�ν��֤δ֤Ρ�-1.0����1.0�ޤǤδ֤��ͤ������ؤȤ������ꤵ���٤��Ǥ���
-�����ͤϡ��ᥤ��ơ��֥뤫��Ԥ���Ф�����Υ����ȳ�����Ĵ�����뤿��˻��Ѥ���ޤ���
+<parameter>indexCorrelation</>は、インデックスの順番とテーブルの順番の間の（-1.0から1.0までの間の値を取る）相関として設定されるべきです。
+この値は、メインテーブルから行を取り出すためのコスト概算を調整するために使用されます。
   </para>
 
   <para>
@@ -1603,19 +1603,19 @@ amcostestimate (PlannerInfo *root,
    When <parameter>loop_count</> is greater than one, the returned numbers
    should be averages expected for any one scan of the index.
 -->
-<parameter>loop_count</>���ͤ�1����礭����硢����ͤϥ���ǥå��������Ѥ���1��Υ����������ꤷ��ʿ���ͤǤ���٤��Ǥ���
+<parameter>loop_count</>の値が1より大きい場合、戻り値はインデックスを利用した1回のスキャンを想定した平均値であるべきです。
   </para>
 
   <procedure>
 <!--
    <title>Cost Estimation</title>
 -->
-   <title>�����ȳ���</title>
+   <title>コスト概算</title>
    <para>
 <!--
     A typical cost estimator will proceed as follows:
 -->
-ŵ��Ū�ʥ����ȳ����ϼ��Τ褦�˿ʤ���ޤ���
+典型的なコスト概算は次のように進められます。
    </para>
 
    <step>
@@ -1625,8 +1625,8 @@ amcostestimate (PlannerInfo *root,
      based on the given qual conditions.  In the absence of any index-type-specific
      knowledge, use the standard optimizer function <function>clauselist_selectivity()</function>:
 -->
-Ϳ����줿������˴�Ť���ˬ�����ᥤ��ơ��֥�ιԤγ��򳵻������֤��ޤ���
-����ǥå�������ͭ���μ��ηϤ�����ʤ���硢ɸ��Υ��ץƥ��ޥ����δؿ��Ǥ���<function>clauselist_selectivity()</function>����Ѥ��Ƥ���������
+与えられた制約条件に基づいて訪れられるメインテーブルの行の割合を概算して返します。
+インデックス型固有の知識体系を持たない場合、標準のオプティマイザの関数である<function>clauselist_selectivity()</function>を使用してください。
 
 <programlisting>
 *indexSelectivity = clauselist_selectivity(root, path-&gt;indexquals,
@@ -1645,9 +1645,9 @@ amcostestimate (PlannerInfo *root,
      index's size in pages and rows is available from the
      <literal>path-&gt;indexinfo</> struct.)
 -->
-����������ˬ����륤��ǥå����ιԿ��򳵻����ޤ���
-¿���Υ���ǥå�������Ǥϡ������<parameter>indexSelectivity</>�ȥ���ǥå�������ˤ���Կ���ݤ�����Τ��������Ǥ�����������¿�����⤢��ޤ���
-�ʥڡ�������ӹ���Υ���ǥå����Υ�������<literal>path-&gt;indexinfo</>��¤�Τ������뤳�Ȥ��Ǥ��뤳�Ȥ����դ��Ƥ�����������
+スキャン中に訪れられるインデックスの行数を概算します。
+多くのインデックス種類では、これは<parameter>indexSelectivity</>とインデックスの中にある行数を掛けたものと等しいですが、それより多い場合もあります。
+（ページおよび行内のインデックスのサイズは<literal>path-&gt;indexinfo</>構造体から得ることができることに注意してください。）
     </para>
    </step>
 
@@ -1657,8 +1657,8 @@ amcostestimate (PlannerInfo *root,
      Estimate the number of index pages that will be retrieved during the scan.
      This might be just <parameter>indexSelectivity</> times the index's size in pages.
 -->
-������������Ф���륤��ǥå����ڡ������򳵻����ޤ���
-�����ñ��<parameter>indexSelectivity</>�˥ڡ�����Υ���ǥå����Υ�������ݤ�����Τˤʤ�Ǥ��礦��
+スキャン中に抽出されるインデックスページ数を概算します。
+これは単に<parameter>indexSelectivity</>にページ内のインデックスのサイズを掛けたものになるでしょう。
     </para>
    </step>
 
@@ -1667,8 +1667,8 @@ amcostestimate (PlannerInfo *root,
 <!--
      Compute the index access cost.  A generic estimator might do this:
 -->
-����ǥå����������������Ȥ�׻����ޤ���
-����Ū�ʳ����ˤ����Ƥϰʲ��Τ褦�˹Ԥ��Ǥ��礦��
+インデックスアクセスコストを計算します。
+汎用的な概算においては以下のように行うでしょう。
 
 <programlisting>
 /*
@@ -1678,10 +1678,10 @@ amcostestimate (PlannerInfo *root,
  * Also, we charge for evaluation of the indexquals at each index row.
  * All the costs are assumed to be paid incrementally during the scan.
 -->
- * ����Ū�ʲ���ϡ�����ǥå����ڡ������༡Ū���ɤޤ��Τǡ�
- * random_page_cost�ǤϤʤ������줾��seq_page_cost���ݤ���Ȥ�����ΤǤ���
- * �ƥ���ǥå����ԤǤ�indexquals��ɾ���ˤ⥳���Ȥ��ݤ���ޤ���
- * �����ȤϤ��٤ƥ������δ֤˽����˻�ʧ����Ȳ��ꤷ�ޤ���
+ * 一般的な仮定は、インデックスページは逐次的に読まれるので、
+ * random_page_costではなく、それぞれseq_page_costが掛かるというものです。
+ * 各インデックス行でのindexqualsの評価にもコストが掛かります。
+ * コストはすべてスキャンの間に徐々に支払われると仮定します。
  */
 cost_qual_eval(&amp;index_qual_cost, path-&gt;indexquals, root);
 *indexStartupCost = index_qual_cost.startup;
@@ -1693,7 +1693,7 @@ cost_qual_eval(&amp;index_qual_cost, path-&gt;indexquals, root);
      However, the above does not account for amortization of index reads
      across repeated index scans.
 -->
-����������ǤϷ����֤���륤��ǥå����������ˤ����륤��ǥå����ɤ߹��ߤˤĤ��Ƹ������Ѥ��θ���Ƥ��ޤ���
+しかし、上では繰り返されるインデックススキャンにかかるインデックス読み込みについて減価償却を考慮していません。
     </para>
    </step>
 
@@ -1704,9 +1704,9 @@ cost_qual_eval(&amp;index_qual_cost, path-&gt;indexquals, root);
      field, this can be retrieved from pg_statistic.  If the correlation
      is not known, the conservative estimate is zero (no correlation).
 -->
-����ǥå�������ؤ򳵻����ޤ���
-1�ĤΥե�����ɤ��Ф���ñ��ʽ��֤Υ���ǥå����Ǥϡ������pg_statistic�������ꤹ�뤳�Ȥ��Ǥ��ޤ���
-��ؤ�̤�Τξ�硢�������ѿ������ͤ���ȥ�����̵��ءˤȤʤ�ޤ���
+インデックスの相関を概算します。
+1つのフィールドに対する単純な順番のインデックスでは、これはpg_statisticから入手することができます。
+相関が未知の場合、概算を用心深く考えるとゼロ（無相関）となります。
     </para>
    </step>
   </procedure>
@@ -1716,7 +1716,7 @@ cost_qual_eval(&amp;index_qual_cost, path-&gt;indexquals, root);
    Examples of cost estimator functions can be found in
    <filename>src/backend/utils/adt/selfuncs.c</filename>.
 -->
-�����ȳ����ؿ������<filename>src/backend/utils/adt/selfuncs.c</filename>�ˤ���ޤ���
+コスト概算関数の例は<filename>src/backend/utils/adt/selfuncs.c</filename>にあります。
   </para>
  </sect1>
 </chapter>

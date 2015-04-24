@@ -4,15 +4,15 @@
 <!--
  <title>Interfacing Extensions To Indexes</title>
 -->
-<title>����ǥå�����ĥ��ǽ�ؤΥ��󥿥ե�����</title>
+<title>インデックス拡張機能へのインタフェース</title>
 
  <indexterm zone="xindex">
 <!--
   <primary>index</primary>
   <secondary>for user-defined data type</secondary>
 -->
-  <primary>����ǥå���</primary>
-  <secondary>�桼������ǡ������Ѥ�</secondary>
+  <primary>インデックス</primary>
+  <secondary>ユーザ定義データ型用の</secondary>
  </indexterm>
 
   <para>
@@ -25,10 +25,10 @@
    operator class for the B-tree index method that stores and sorts
    complex numbers in ascending absolute value order.
 -->
-����ޤǤΤȤ����Ǥϡ����������俷�����ؿ�������ӿ������黻�Ҥ�ɤ��ͤ�������뤫�ˤĤ����������Ƥ��ޤ�����
-�������ʤ��顢��������������Ф��륤��ǥå�����ޤ��������뤳�Ȥ��Ǥ��ޤ���
-���Τ���ˤϡ��������ǡ��������Ф���<firstterm>�黻�ҥ��饹</>���������ɬ�פ�����ޤ���
-����Ǥϡ�ʣ�ǿ����ͤ������ͤξ���˥����Ȥ���Ǽ����B-tree����ǥå����᥽�åɤ�Ȥä��������黻�ҥ��饹�ˤĤ��Ƥμ¹�����Ѥ��ơ��黻�ҥ��饹�γ�ǰ���������ޤ���
+これまでのところでは、新しい型や新しい関数、および新しい演算子をどの様に定義するかについて説明してきました。
+しかしながら、新しい型の列に対するインデックスをまだ作成することができません。
+このためには、新しいデータ型に対する<firstterm>演算子クラス</>を定義する必要があります。
+本節では、複素数を値の絶対値の昇順にソートし格納するB-treeインデックスメソッドを使った新しい演算子クラスについての実行例を用いて、演算子クラスの概念を説明します。
   </para>
 
   <para>
@@ -38,16 +38,16 @@
    When only a single data type is involved, an operator class is sufficient,
    so we'll focus on that case first and then return to operator families.
 -->
-�黻�ҥ��饹��<firstterm>�黻��²</>�ˤޤȤᡢ��̣Ū�˸ߴ�������ĥ��饹�֤δط���ɽ�����Ȥ��Ǥ��ޤ���
-1�ĤΥǡ������Τߤ��ޤޤ���硢�黻�ҥ��饹�ǽ�ʬ�Ǥ���
-�����Ǥޤ������������������ܤ������θ�Ǳ黻��²�����ޤ���
+演算子クラスを<firstterm>演算子族</>にまとめ、意味的に互換性を持つクラス間の関係を表すことができます。
+1つのデータ型のみが含まれる場合、演算子クラスで十分です。
+そこでまずこうした状況に注目し、その後で演算子族に戻ります。
   </para>
 
  <sect2 id="xindex-opclass">
 <!--
   <title>Index Methods and Operator Classes</title>
 -->
-  <title>����ǥå����᥽�åɤȱ黻�ҥ��饹</title>
+  <title>インデックスメソッドと演算子クラス</title>
 
   <para>
 <!--
@@ -60,10 +60,10 @@
    then creating a row in <classname>pg_am</classname> &mdash; but that is
    beyond the scope of this chapter (see <xref linkend="indexam">).
 -->
-<classname>pg_am</classname>�ơ��֥�ˤϳƥ���ǥå����᥽�åɡ������Ǥϥ��������᥽�åɤȤ����Τ��Ƥ��ޤ��ˤ��Ф���1�ĤιԤ��ޤޤ�Ƥ��ޤ���
-�ơ��֥�ؤ��̾�Υ��������Υ��ݡ��Ȥ�<productname>PostgreSQL</productname>���Ȥ߹��ޤ�Ƥ��ޤ��������٤ƤΥ���ǥå����᥽�åɤϡ�<classname>pg_am</classname>�ǵ��Ҥ���Ƥ��ޤ���
-ɬ�פȤ���륤�󥿥ե������롼�������������塢<classname>pg_am</classname>�˹Ԥ�������뤳�Ȥˤ�äơ�����������ǥå����᥽�åɤ��ɲä��뤳�Ȥ��Ǥ��ޤ���
-��������������ˡ�ˤĤ��Ƥ��������ܾϤǤ��ϰϤ�Ķ���Ƥ��ޤ���<xref linkend="indexam">�򻲾Ȥ��Ƥ��������ˡ�
+<classname>pg_am</classname>テーブルには各インデックスメソッド（内部ではアクセスメソッドとして知られています）に対して1つの行が含まれています。
+テーブルへの通常のアクセスのサポートは<productname>PostgreSQL</productname>に組み込まれていますが、すべてのインデックスメソッドは、<classname>pg_am</classname>で記述されています。
+必要とされるインタフェースルーチンを定義した後、<classname>pg_am</classname>に行を作成することによって、新しいインデックスメソッドを追加することができます。
+しかし、この方法についての説明は本章での範囲を超えています（<xref linkend="indexam">を参照してください）。
   </para>
 
   <para>
@@ -82,11 +82,11 @@
    index method, but do not directly correspond to any
    <literal>WHERE</>-clause operator that can be used with the index.
 -->
-����ǥå����᥽�åɤΥ롼����ˤϡ�ľ��Ū�˥���ǥå����᥽�åɤ��黻����ǡ������ξ���ϲ���Ϳ�����Ƥ��ޤ���
-����ˡ�<firstterm>�黻�ҥ��饹</>��������Υǡ����������ˤ����ƥ���ǥå����᥽�åɤ���Ѥ���ɬ�פ�����黻�ν�����̤��ޤ���
-<indexterm><primary>�黻�ҥ��饹</></indexterm>
-�黻�ҥ��饹�Ȥ���̾����ͳ��ϡ�����餬���ꤹ���Τ�1�Ĥ˥���ǥå����ǻ��ѤǤ���ʤĤޤꡢ����ǥå��������������Ѵ��Ǥ����<literal>WHERE</>��黻�Ҥν��礬���뤫��Ǥ���
-�ޤ����黻�ҥ��饹�ϡ�����ǥå����᥽�åɤ������黻��ɬ�פʡ�����������ǥå����ǻ��ѤǤ���<literal>WHERE</>��黻�Ҥˤ�ľ��Ū�ˤ��б����ʤ���<firstterm>���ݡ��ȥץ���������</>�򤤤��Ĥ����ꤹ�뤳�Ȥ��Ǥ��ޤ���
+インデックスメソッドのルーチンには、直接的にインデックスメソッドが演算するデータ型の情報は何も与えられていません。
+代わりに、<firstterm>演算子クラス</>が、特定のデータ型の操作においてインデックスメソッドを使用する必要がある演算の集合を識別します。
+<indexterm><primary>演算子クラス</></indexterm>
+演算子クラスという名前の由来は、それらが指定するものの1つにインデックスで使用できる（つまり、インデックススキャン条件に変換できる）<literal>WHERE</>句演算子の集合があるからです。
+また、演算子クラスは、インデックスメソッドの内部演算で必要な、しかしインデックスで使用できる<literal>WHERE</>句演算子には直接的には対応しない、<firstterm>サポートプロシージャ</>をいくつか指定することができます。
   </para>
 
   <para>
@@ -103,11 +103,11 @@
    useful and will be marked as the default operator class for that
    data type and index method.
 -->
-Ʊ�����ϥǡ���������ӥ���ǥå����᥽�åɤ��Ф���ʣ���α黻�ҥ��饹��������뤳�Ȥ���ǽ�Ǥ���
-����ˤ�ꡢ1�ĤΥǡ��������Ф��ơ�ʣ���Υ���ǥå����դ����ޥ�ƥ��å��ν����������뤳�Ȥ��Ǥ��ޤ���
-�㤨�С�B-tree����ǥå����Ǥϡ���������ǡ��������Ȥ˥����Ƚ���������ɬ�פ�����ޤ���
-ʣ�ǿ��ǡ������Ǥϡ�ʣ�ǿ��������ͤˤ��ǡ����򥽡��Ȥ���B-tree�黻�ҥ��饹�ȡ������ο��ͤˤ�꥽���Ȥ���B-tree�黻�ҥ��饹����ĤȤ��ä���ˡ�ϡ�ͭ�Ѥ��⤷��ޤ���
-�̾�ϱ黻�ҥ��饹��1�Ĥ�����Ū�˺Ǥ�ͭ�ѤǤ����Ƚ�Ǥ��졢���Υǡ���������ӥ���ǥå����᥽�åɤ��Ф���ǥե���Ȥα黻�ҥ��饹�Ȥ������ꤵ��ޤ���
+同じ入力データ型およびインデックスメソッドに対して複数の演算子クラスを定義することが可能です。
+これにより、1つのデータ型に対して、複数のインデックス付けセマンティックの集合を定義することができます。
+例えば、B-treeインデックスでは、処理するデータ型ごとにソート順を定義する必要があります。
+複素数データ型では、複素数の絶対値によりデータをソートするB-tree演算子クラスと、実部の数値によりソートするB-tree演算子クラスを持つといった方法は、有用かもしれません。
+通常は演算子クラスの1つが一般的に最も有用であると判断され、そのデータ型およびインデックスメソッドに対するデフォルトの演算子クラスとして設定されます。
   </para>
 
   <para>
@@ -118,8 +118,8 @@
    <literal>int4_ops</literal>), but each such class is an independent
    entity and must be defined separately.
 -->
-ʣ���ΰۤʤ륤��ǥå����᥽�åɤˡ�Ʊ��α黻�ҥ��饹̾����Ѥ��뤳�Ȥ��Ǥ��ޤ����㤨�С�B-tree�ȥϥå��奤��ǥå����᥽�åɤϡ�ξ���Ȥ�<literal>int4_ops</literal>�Ȥ���̾���α黻�ҥ��饹����Ĥ��Ȥ��Ǥ��ޤ��ˡ�
-�����������Τ褦�ʳƥ��饹����Ω�������ΤǤ��ꡢ�̡�����������ɬ�פ�����ޤ���
+複数の異なるインデックスメソッドに、同一の演算子クラス名を使用することができます（例えば、B-treeとハッシュインデックスメソッドは、両方とも<literal>int4_ops</literal>という名前の演算子クラスを持つことができます）。
+ただし、そのような各クラスは独立した実体であり、別々に定義される必要があります。
   </para>
  </sect2>
 
@@ -127,7 +127,7 @@
 <!--
   <title>Index Method Strategies</title>
 -->
-<title>����ǥå����᥽�åɤΥ��ȥ�ƥ�</title>
+<title>インデックスメソッドのストラテジ</title>
 
   <para>
 <!--
@@ -147,14 +147,14 @@
    strategy for a particular data type and interpretation of the index
    semantics.
 -->
-�黻�ҥ��饹�˴�Ϣ�դ����Ƥ���黻�Ҥϡ�<quote>���ȥ�ƥ��ֹ�</>�ˤ�꼱�̤���ޤ���
-<quote>���ȥ�ƥ��ֹ�</>�ϡ��黻�ҥ��饹�Υ���ƥ�������ˤ�����Ʊ黻�ҤΥ��ޥ�ƥ��������̤��뤿��Τ�ΤǤ���
-�㤨�С�B-tree�ξ�硢�������������������礭�����ظ�̩���¤�Ǥ��ʤ���Фʤ�ޤ���
-�������äơ�B-tree�˴ؤ��Ƥϡ�<quote>��꾮����</>�����<quote>�ʾ�</>�Τ褦�ʱ黻�Ҥ϶�̣�����ȸ����ޤ���
-<productname>PostgreSQL</productname>�Ǥϥ桼�����黻�Ҥ�����Ǥ��뤿�ᡢ<productname>PostgreSQL</productname>�ϱ黻�Ҥ�̾�����㤨��<literal>&lt;</>��<literal>&gt;=</>�ˤ򸫤Ĥ��Ƥ⡢���α黻�Ҥ��ɤΤ褦����Ӥ�Ԥ�����Ƚ�Ǥ��뤳�ȤϤǤ��ޤ���
-�������ꡢ����ǥå����᥽�åɤ�<quote>���ȥ�ƥ�</>�ν����������ޤ���
-<quote>���ȥ�ƥ�</>�����ѱ黻�Ҥȹͤ��뤳�Ȥ��Ǥ��ޤ���
-�Ʊ黻�ҥ��饹�ϡ�����Υǡ���������ӥ���ǥå������ޥ�ƥ��å����β��ˤ����ơ��ºݤΤɤα黻�Ҥ��ƥ��ȥ�ƥ����б����Ƥ��뤫����ꤷ�ޤ���
+演算子クラスに関連付けられている演算子は、<quote>ストラテジ番号</>により識別されます。
+<quote>ストラテジ番号</>は、演算子クラスのコンテキスト内における各演算子のセマンティクスを識別するためのものです。
+例えば、B-treeの場合、キーが小さい方から大きい方へ厳密に並んでいなければなりません。
+したがって、B-treeに関しては、<quote>より小さい</>および<quote>以上</>のような演算子は興味深いと言えます。
+<productname>PostgreSQL</productname>ではユーザが演算子を定義できるため、<productname>PostgreSQL</productname>は演算子の名前（例えば<literal>&lt;</>や<literal>&gt;=</>）を見つけても、その演算子がどのような比較を行うかを判断することはできません。
+その代わり、インデックスメソッドは<quote>ストラテジ</>の集合を定義します。
+<quote>ストラテジ</>は汎用演算子と考えることができます。
+各演算子クラスは、特定のデータ型およびインデックスセマンティックスの解釈において、実際のどの演算子が各ストラテジに対応しているかを指定します。
   </para>
 
   <para>
@@ -162,14 +162,14 @@
    The B-tree index method defines five strategies, shown in <xref
    linkend="xindex-btree-strat-table">.
 -->
-<xref linkend="xindex-btree-strat-table">�˼����褦�ˡ�B-tree����ǥå����᥽�åɤǤϥ��ȥ�ƥ���5��������ޤ���
+<xref linkend="xindex-btree-strat-table">に示すように、B-treeインデックスメソッドではストラテジを5つ定義します。
   </para>
 
    <table tocentry="1" id="xindex-btree-strat-table">
 <!--
     <title>B-tree Strategies</title>
 -->
-<title>B-tree���ȥ�ƥ�</title>
+<title>B-treeストラテジ</title>
     <tgroup cols="2">
      <thead>
       <row>
@@ -177,8 +177,8 @@
        <entry>Operation</entry>
        <entry>Strategy Number</entry>
 -->
-<entry>�黻</entry>
-       <entry>���ȥ�ƥ��ֹ�</entry>
+<entry>演算</entry>
+       <entry>ストラテジ番号</entry>
       </row>
      </thead>
      <tbody>
@@ -186,35 +186,35 @@
 <!--
        <entry>less than</entry>
 -->
-       <entry>���ʤ�</entry>
+       <entry>小なり</entry>
        <entry>1</entry>
       </row>
       <row>
 <!--
        <entry>less than or equal</entry>
 -->
-<entry>�ʲ�</entry>
+<entry>以下</entry>
        <entry>2</entry>
       </row>
       <row>
 <!--
        <entry>equal</entry>
 -->
-<entry>������</entry>
+<entry>等しい</entry>
        <entry>3</entry>
       </row>
       <row>
 <!--
        <entry>greater than or equal</entry>
 -->
-<entry>�ʾ�</entry>
+<entry>以上</entry>
        <entry>4</entry>
       </row>
       <row>
 <!--
        <entry>greater than</entry>
 -->
-<entry>��ʤ�</entry>
+<entry>大なり</entry>
        <entry>5</entry>
       </row>
      </tbody>
@@ -226,8 +226,8 @@
    Hash indexes support only equality comparisons, and so they use only one
    strategy, shown in <xref linkend="xindex-hash-strat-table">.
 -->
-�ϥå��奤��ǥå������������Τߤ򥵥ݡ��Ȥ��ޤ���
-�������äơ�<xref linkend="xindex-hash-strat-table">�˼����褦�ˡ����ȥ�ƥ���1�ĤΤ�������ޤ���
+ハッシュインデックスは等価性のみをサポートします。
+したがって、<xref linkend="xindex-hash-strat-table">に示すように、ストラテジを1つのみ定義します。
 
   </para>
 
@@ -235,7 +235,7 @@
 <!--
     <title>Hash Strategies</title>
 -->
-    <title>�ϥå��她�ȥ�ƥ�</title>
+    <title>ハッシュストラテジ</title>
     <tgroup cols="2">
      <thead>
       <row>
@@ -243,8 +243,8 @@
        <entry>Operation</entry>
        <entry>Strategy Number</entry>
 -->
-<entry>�黻</entry>
-       <entry>���ȥ�ƥ��ֹ�</entry>
+<entry>演算</entry>
+       <entry>ストラテジ番号</entry>
       </row>
      </thead>
      <tbody>
@@ -252,7 +252,7 @@
 <!--
        <entry>equal</entry>
 -->
-<entry>������</entry>
+<entry>等しい</entry>
        <entry>1</entry>
       </row>
      </tbody>
@@ -272,20 +272,20 @@
    four of them consider only the X direction; and the other four
    provide the same tests in the Y direction.
 -->
-GiST����ǥå����Ϥ�����Ǥ���
-����Υ��ȥ�ƥ��ν����ޤä��������ޤ���
-����ˡ������GiST�黻�ҥ��饹��<quote>consistent</>���ݡ��ȥ롼���󤬡����ȥ�ƥ��ֹ椬�����̣���뤫���ᤷ�ޤ���
-<!-- ����:consistency�ϰտ�Ū�˴ؿ�̾consistent���ѹ� -->
-�㤨�С�ʣ�����Ȥ߹��ߤ�GiST����ǥå����黻�ҥ��饹�ϡ�2�����������֥������Ȥ򥤥�ǥå����դ�����<xref linkend="xindex-rtree-strat-table">�Ǽ������<quote>R-tree</>���ȥ�ƥ����󶡤��ޤ���
-������4�Ĥ�2�������Ф���ʽ�ʣ����Ʊ����ޡ�����ޡ˻�Ǥ���
-�Ĥ����4�Ĥ�X�����Τߤ��Ф��롢�Ĥ�4�Ĥ�Y�����Τߤ��Ф���Ʊ��λ���󶡤��ޤ���
+GiSTインデックスはより柔軟です。
+固定のストラテジの集合をまったく持ちません。
+代わりに、特定のGiST演算子クラスの<quote>consistent</>サポートルーチンが、ストラテジ番号が何を意味するかを解釈します。
+<!-- 訳注:consistencyは意図的に関数名consistentに変更 -->
+例えば、複数の組み込みのGiSTインデックス演算子クラスは、2次元幾何オブジェクトをインデックス付けし、<xref linkend="xindex-rtree-strat-table">で示される<quote>R-tree</>ストラテジを提供します。
+この内4個は2次元に対する（重複、合同、包含、被包含）試験です。
+残りの内4個はX方向のみに対する、残り4個はY方向のみに対する同一の試験を提供します。
   </para>
 
    <table tocentry="1" id="xindex-rtree-strat-table">
 <!--
     <title>GiST Two-Dimensional <quote>R-tree</> Strategies</title>
 -->
-    <title>GiST�ˤ��2������<quote>R-tree</>���ȥ�ƥ�</title>
+    <title>GiSTによる2次元の<quote>R-tree</>ストラテジ</title>
     <tgroup cols="2">
      <thead>
       <row>
@@ -293,8 +293,8 @@ GiST����ǥå����Ϥ�����Ǥ���
        <entry>Operation</entry>
        <entry>Strategy Number</entry>
 -->
-<entry>�黻</entry>
-       <entry>���ȥ�ƥ��ֹ�</entry>
+<entry>演算</entry>
+       <entry>ストラテジ番号</entry>
       </row>
      </thead>
      <tbody>
@@ -302,84 +302,84 @@ GiST����ǥå����Ϥ�����Ǥ���
 <!--
        <entry>strictly left of</entry>
 -->
-       <entry>�����˺�¦</entry>
+       <entry>完全に左側</entry>
        <entry>1</entry>
       </row>
       <row>
 <!--
        <entry>does not extend to right of</entry>
 -->
-       <entry>��¦�ˤϤ߽Ф��ʤ�</entry>
+       <entry>右側にはみ出さない</entry>
        <entry>2</entry>
       </row>
       <row>
 <!--
        <entry>overlaps</entry>
 -->
-       <entry>�Ťʤ�</entry>
+       <entry>重なる</entry>
        <entry>3</entry>
       </row>
       <row>
 <!--
        <entry>does not extend to left of</entry>
 -->
-       <entry>��¦�ˤϤ߽Ф��ʤ�</entry>
+       <entry>左側にはみ出さない</entry>
        <entry>4</entry>
       </row>
       <row>
 <!--
        <entry>strictly right of</entry>
 -->
-       <entry>�����˱�¦</entry>
+       <entry>完全に右側</entry>
        <entry>5</entry>
       </row>
       <row>
 <!--
        <entry>same</entry>
 -->
-       <entry>Ʊ��</entry>
+       <entry>同じ</entry>
        <entry>6</entry>
       </row>
       <row>
 <!--
        <entry>contains</entry>
 -->
-       <entry>�ޤ�</entry>
+       <entry>含む</entry>
        <entry>7</entry>
       </row>
       <row>
 <!--
        <entry>contained by</entry>
 -->
-       <entry>�ޤޤ��</entry>
+       <entry>含まれる</entry>
        <entry>8</entry>
       </row>
       <row>
 <!--
        <entry>does not extend above</entry>
 -->
-       <entry>��¦�ˤϤ߽Ф��ʤ�</entry>
+       <entry>上側にはみ出さない</entry>
        <entry>9</entry>
       </row>
       <row>
 <!--
        <entry>strictly below</entry>
 -->
-       <entry>�����˲�¦</entry>
+       <entry>完全に下側</entry>
        <entry>10</entry>
       </row>
       <row>
 <!--
        <entry>strictly above</entry>
 -->
-       <entry>�����˾�¦</entry>
+       <entry>完全に上側</entry>
        <entry>11</entry>
       </row>
       <row>
 <!--
        <entry>does not extend below</entry>
 -->
-       <entry>��¦�ˤϤ߽Ф��ʤ�</entry>
+       <entry>下側にはみ出さない</entry>
        <entry>12</entry>
       </row>
      </tbody>
@@ -395,16 +395,16 @@ GiST����ǥå����Ϥ�����Ǥ���
    operator classes for points are shown in <xref
    linkend="xindex-spgist-point-strat-table">.
 -->
-SP-GiST����ǥå����Ͻ������Ȥ�������GiST�Ȼ��Ƥ��ꡢ����Υ��ȥ�ƥ���������ޤ���
-��������ˡ��Ʊ黻�ҥ��饹�Υ��ݡ��ȥ롼���󤬱黻�ҥ��饹������˽��äƥ��ȥ�ƥ��ֹ���ᤷ�ޤ���
-�㤨�С��Ȥ߹��ߤ������Ф���黻�ҥ��饹�ǻ��Ѥ���륹�ȥ�ƥ��ֹ��<xref linkend="xindex-spgist-point-strat-table">�˼����ޤ���
+SP-GiSTインデックスは柔軟性という点でGiSTと似ており、固定のストラテジ群を持ちません。
+その代わりに、各演算子クラスのサポートルーチンが演算子クラスの定義に従ってストラテジ番号を解釈します。
+例えば、組み込みの点に対する演算子クラスで使用されるストラテジ番号を<xref linkend="xindex-spgist-point-strat-table">に示します。
   </para>
 
    <table tocentry="1" id="xindex-spgist-point-strat-table">
 <!--
     <title>SP-GiST Point Strategies</title>
 -->
-    <title>SP-GiST�����˴ؤ��륹�ȥ�ƥ�</title>
+    <title>SP-GiSTの点に関するストラテジ</title>
     <tgroup cols="2">
      <thead>
       <row>
@@ -412,8 +412,8 @@ SP-GiST����ǥå����Ͻ������Ȥ�������GiST�Ȼ��Ƥ��ꡢ����Υ��ȥ�ƥ���������ޤ
        <entry>Operation</entry>
        <entry>Strategy Number</entry>
 -->
-       <entry>�黻</entry>
-       <entry>���ȥ�ƥ��ֹ�</entry>
+       <entry>演算</entry>
+       <entry>ストラテジ番号</entry>
       </row>
      </thead>
      <tbody>
@@ -421,42 +421,42 @@ SP-GiST����ǥå����Ͻ������Ȥ�������GiST�Ȼ��Ƥ��ꡢ����Υ��ȥ�ƥ���������ޤ
 <!--
        <entry>strictly left of</entry>
 -->
-       <entry>��̩�˺�¦</entry>
+       <entry>厳密に左側</entry>
        <entry>1</entry>
       </row>
       <row>
 <!--
        <entry>strictly right of</entry>
 -->
-       <entry>��̩�˱�¦</entry>
+       <entry>厳密に右側</entry>
        <entry>5</entry>
       </row>
       <row>
 <!--
        <entry>same</entry>
 -->
-       <entry>Ʊ��</entry>
+       <entry>同一</entry>
        <entry>6</entry>
       </row>
       <row>
 <!--
        <entry>contained by</entry>
 -->
-       <entry>��ޤ����</entry>
+       <entry>包含される</entry>
        <entry>8</entry>
       </row>
       <row>
 <!--
        <entry>strictly below</entry>
 -->
-       <entry>��̩�˲�</entry>
+       <entry>厳密に下</entry>
        <entry>10</entry>
       </row>
       <row>
 <!--
        <entry>strictly above</entry>
 -->
-       <entry>��̩�˾�</entry>
+       <entry>厳密に上</entry>
        <entry>11</entry>
       </row>
      </tbody>
@@ -472,9 +472,9 @@ SP-GiST����ǥå����Ͻ������Ȥ�������GiST�Ȼ��Ƥ��ꡢ����Υ��ȥ�ƥ���������ޤ
    the built-in operator classes for arrays are shown in
    <xref linkend="xindex-gin-array-strat-table">.
 -->
-GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-GiST����ǥå����Ȼ��Ƥ��ޤ���
-��������ˡ��Ʊ黻�ҥ��饹�Υ��ݡ��ȥ롼���󤬱黻�ҥ��饹������˽��äƥ��ȥ�ƥ��ֹ���ᤷ�ޤ���
-�㤨�С��Ȥ߹��ߤ�������Ф���黻�ҥ��饹�ǻ��Ѥ���륹�ȥ�ƥ��ֹ��<xref linkend="xindex-gin-array-strat-table">�˼����ޤ���
+GINインデックスは、いずれも固定のストラテジ群を持たないという点で、GiSTおよびSP-GiSTインデックスと似ています。
+その代わりに、各演算子クラスのサポートルーチンが演算子クラスの定義に従ってストラテジ番号を解釈します。
+例えば、組み込みの配列に対する演算子クラスで使用されるストラテジ番号を<xref linkend="xindex-gin-array-strat-table">に示します。
 
   </para>
 
@@ -482,7 +482,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
 <!--
     <title>GIN Array Strategies</title>
 -->
-    <title>GIN ����Υ��ȥ�ƥ�</title>
+    <title>GIN 配列のストラテジ</title>
     <tgroup cols="2">
      <thead>
       <row>
@@ -490,8 +490,8 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
        <entry>Operation</entry>
        <entry>Strategy Number</entry>
 -->
-       <entry>�黻</entry>
-       <entry>���ȥ�ƥ��ֹ�</entry>
+       <entry>演算</entry>
+       <entry>ストラテジ番号</entry>
       </row>
      </thead>
      <tbody>
@@ -499,28 +499,28 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
 <!--
        <entry>overlap</entry>
 -->
-       <entry>��ʣ</entry>
+       <entry>重複</entry>
        <entry>1</entry>
       </row>
       <row>
 <!--
        <entry>contains</entry>
 -->
-       <entry>���</entry>
+       <entry>包含</entry>
        <entry>2</entry>
       </row>
       <row>
 <!--
        <entry>is contained by</entry>
 -->
-       <entry>��ޤ����</entry>
+       <entry>包含される</entry>
        <entry>3</entry>
       </row>
       <row>
 <!--
        <entry>equal</entry>
 -->
-       <entry>������</entry>
+       <entry>等しい</entry>
        <entry>4</entry>
       </row>
      </tbody>
@@ -537,10 +537,10 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
    which typically don't return Boolean values; that feature is discussed
    in <xref linkend="xindex-ordering-ops">.)
 -->
-�嵭�α黻�ҤϤ��٤������ͤ��֤����Ȥ����դ��Ƥ���������
-�ºݡ�����ǥå����ǻ��Ѥ���뤿���<literal>WHERE</>�κǾ�̥�٥�Ǹ���ʤ���Фʤ�ޤ���Τǡ�����ǥå����᥽�åɸ����黻�ҤȤ���������줿�����٤Ƥα黻�Ҥ�����ͤη���<type>boolean</type>�Ǥʤ���Фʤ�ޤ���
-�ʰ����Υ���ǥå������������᥽�åɤϡ��̾����������ͤ��֤��ʤ�<firstterm>����դ��黻��</>�⥵�ݡ��Ȥ��ޤ���
-���ε�ǽ�ˤĤ��Ƥ�<xref linkend="xindex-ordering-ops">���������ޤ�����
+上記の演算子はすべて論理値を返すことに注意してください。
+実際、インデックスで使用されるために<literal>WHERE</>の最上位レベルで現れなければなりませんので、インデックスメソッド検索演算子として定義された、すべての演算子の戻り値の型は<type>boolean</type>でなければなりません。
+（一部のインデックスアクセスメソッドは、通常論理型の値を返さない<firstterm>順序付け演算子</>もサポートします。
+この機能については<xref linkend="xindex-ordering-ops">で説明します。）
   </para>
 
  </sect2>
@@ -549,7 +549,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
 <!--
   <title>Index Method Support Routines</title>
 -->
-  <title>����ǥå����᥽�åɤΥ��ݡ��ȥ롼����</title>
+  <title>インデックスメソッドのサポートルーチン</title>
 
   <para>
 <!--
@@ -563,12 +563,12 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
    SQL commands;  they are administrative routines used by
    the index methods, internally.
 -->
-���ȥ�ƥ����̾�����ƥब����ǥå�����Ȥ���ˡ��Ƚ�Ǥ��뤿��˽�ʬ�ʾ���ǤϤ���ޤ���
-�ºݤˤϡ�����ǥå����᥽�åɤ�ư��뤿��ˤϡ�����˥��ݡ��ȥ롼�����ɬ�פȤ��ޤ���
-�㤨��B-tree����ǥå����᥽�åɤϡ�2�ĤΥ�������Ӥ�������礭���Τ����������Τ�����꾮�����Τ������Ǥ��ʤ���Фʤ�ޤ���
-Ʊ�ͤˡ��ϥå��奤��ǥå����ϡ������ͤΥϥå��女���ɤ�׻��Ǥ��ʤ���Фʤ�ޤ���
-����������SQL���ޥ�ɤξ����ǻ��Ѥ����黻�ҤȤ��б����ޤ���
-�����ϥ���ǥå����᥽�åɤ�����Ū�˻��Ѥ��������ѥ롼����Ǥ���
+ストラテジは通常、システムがインデックスを使う方法を判断するために十分な情報ではありません。
+実際には、インデックスメソッドが動作するためには、さらにサポートルーチンを必要とします。
+例えばB-treeインデックスメソッドは、2つのキーを比較し、より大きいのか、等しいのか、より小さいのかを決定できなければなりません。
+同様に、ハッシュインデックスは、キー値のハッシュコードを計算できなければなりません。
+これらの操作はSQLコマンドの条件内で使用される演算子とは対応しません。
+これらはインデックスメソッドで内部的に使用される管理用ルーチンです。
   </para>
 
   <para>
@@ -580,8 +580,8 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
    functions to use by assigning them to the <quote>support function numbers</>
    specified by the index method.
 -->
-���ȥ�ƥ���Ʊ���褦�ˡ��黻�ҥ��饹�ˤ�ꡢͿ����줿�ǡ���������ӥ��ޥ�ƥ��å��������Ф��ơ��ɤ�����δؿ��������γ�����̤����٤��Ǥ��뤫�����̤���ޤ���
-����ǥå����᥽�åɤ�ɬ�פʴؿ��ν������������黻�ҥ��饹�ϡ������򥤥�ǥå����᥽�åɤǻ��ꤵ�줿<quote>���ݡ��ȴؿ��ֹ�</>���������뤳�Ȥˤ�äơ����Ѥ��٤��������ؿ����̤��ޤ���
+ストラテジと同じように、演算子クラスにより、与えられたデータ型およびセマンティックス解釈に対して、どの特定の関数がこれらの各役割を果たすべきであるかが識別されます。
+インデックスメソッドは必要な関数の集合を定義し、演算子クラスは、これらをインデックスメソッドで指定された<quote>サポート関数番号</>に代入することによって、使用すべき正しい関数を識別します。
   </para>
 
   <para>
@@ -590,14 +590,14 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
    supplied at the operator class author's option, as shown in <xref
    linkend="xindex-btree-support-table">.
 -->
-<xref linkend="xindex-btree-support-table">�˼����褦�ˡ�B-tree�Ǥϣ��ĤΥ��ݡ��ȴؿ���ɬ�ܤǤ������黻�ҥ��饹�����ԤΥ��ץ����Ȥ����󶡤����⤦���ĤΥ��ݡ��ȴؿ�����Ĥ��Ȥ��Ǥ��ޤ���
+<xref linkend="xindex-btree-support-table">に示すように、B-treeでは１つのサポート関数が必須ですが、演算子クラス作成者のオプションとして提供されるもう１つのサポート関数を持つことができます。
   </para>
 
    <table tocentry="1" id="xindex-btree-support-table">
 <!--
     <title>B-tree Support Functions</title>
 -->
-    <title>B-tree���ݡ��ȴؿ�</title>
+    <title>B-treeサポート関数</title>
     <tgroup cols="2">
      <thead>
       <row>
@@ -605,8 +605,8 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
        <entry>Function</entry>
        <entry>Support Number</entry>
 -->
-       <entry>�ؿ�</entry>
-       <entry>���ݡ����ֹ�</entry>
+       <entry>関数</entry>
+       <entry>サポート番号</entry>
       </row>
      </thead>
      <tbody>
@@ -617,7 +617,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
         greater than zero, indicating whether the first key is less than,
         equal to, or greater than the second
 -->
-2�ĤΥ�������Ӥ����ǽ�Υ�����2���ܤΥ�����꾮�������������������礭�����򼨤���0̤����0���⤷����0����礭���������֤��ޤ���
+2つのキーを比較し、最初のキーが2番目のキーより小さいか、等しいか、大きいかを示す、0未満、0、もしくは0より大きい整数を返します。
        </entry>
        <entry>1</entry>
       </row>
@@ -627,7 +627,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
         Return the addresses of C-callable sort support function(s),
         as documented in <filename>utils/sortsupport.h</> (optional)
 -->
-<filename>utils/sortsupport.h</>�˵��ܤ�����C���줫��ƤӽФ���ǽ�ʥ����ȥ��ݡ��ȴؿ��Υ��ɥ쥹���֤��ޤ�(��ά��ǽ)��
+<filename>utils/sortsupport.h</>に記載した、C言語から呼び出し可能なソートサポート関数のアドレスを返します(省略可能)。
        </entry>
        <entry>2</entry>
       </row>
@@ -640,14 +640,14 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
    Hash indexes require one support function, shown in <xref
    linkend="xindex-hash-support-table">.
 -->
-<xref linkend="xindex-hash-support-table">�˼����褦�ˡ��ϥå��奤��ǥå����Ǥ�ñ��Υ��ݡ��ȴؿ���ɬ�פǤ���
+<xref linkend="xindex-hash-support-table">に示すように、ハッシュインデックスでは単一のサポート関数が必要です。
   </para>
 
    <table tocentry="1" id="xindex-hash-support-table">
 <!--
     <title>Hash Support Functions</title>
 -->
-    <title>�ϥå��奵�ݡ��ȴؿ�</title>
+    <title>ハッシュサポート関数</title>
     <tgroup cols="2">
      <thead>
       <row>
@@ -655,8 +655,8 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
        <entry>Function</entry>
        <entry>Support Number</entry>
 -->
-       <entry>�ؿ�</entry>
-       <entry>���ݡ����ֹ�</entry>
+       <entry>関数</entry>
+       <entry>サポート番号</entry>
       </row>
      </thead>
      <tbody>
@@ -664,7 +664,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
 <!--
        <entry>Compute the hash value for a key</entry>
 -->
-       <entry>�����Υϥå����ͤ�׻�</entry>
+       <entry>キーのハッシュ値を計算</entry>
        <entry>1</entry>
       </row>
      </tbody>
@@ -677,15 +677,15 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
    shown in <xref linkend="xindex-gist-support-table">.
    (For more information see <xref linkend="GiST">.)
 -->
-<xref linkend="xindex-gist-support-table">�˼����褦�ˡ�GiST����ǥå�����7�ĤΥ��ݡ��ȴؿ���ɬ�פȤ����ޤ���8���ܤϾ�ά��ǽ�Ǥ���
-(�ܺ٤ˤĤ��Ƥ�<xref linkend="GiST">�򻲾Ȥ��Ƥ���������)
+<xref linkend="xindex-gist-support-table">に示すように、GiSTインデックスは7つのサポート関数を必要とし、また、8番目は省略可能です。
+(詳細については<xref linkend="GiST">を参照してください。)
   </para>
 
    <table tocentry="1" id="xindex-gist-support-table">
 <!--
     <title>GiST Support Functions</title>
 -->
-    <title>GiST���ݡ��ȴؿ�</title>
+    <title>GiSTサポート関数</title>
     <tgroup cols="3">
      <thead>
       <row>
@@ -694,9 +694,9 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
        <entry>Description</entry>
        <entry>Support Number</entry>
 -->
-       <entry>�ؿ�</entry>
-       <entry>����</entry>
-       <entry>���ݡ����ֹ�</entry>
+       <entry>関数</entry>
+       <entry>説明</entry>
+       <entry>サポート番号</entry>
       </row>
      </thead>
      <tbody>
@@ -707,7 +707,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
         query qualifier</entry>
 -->
        <entry><function>consistent</></entry>
-       <entry>�������䤤��碌�������������ɤ�������ꤷ�ޤ���</entry>
+       <entry>キーが問い合わせ条件を満たすかどうかを決定します。</entry>
        <entry>1</entry>
       </row>
       <row>
@@ -716,7 +716,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
        <entry>compute union of a set of keys</entry>
 -->
        <entry><function>union</></entry>
-       <entry>����������½����׻����ޤ���</entry>
+       <entry>キー集合の和集合を計算します。</entry>
        <entry>2</entry>
       </row>
       <row>
@@ -726,7 +726,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
         to be indexed</entry>
 -->
        <entry><function>compress</></entry>
-       <entry>�����ޤ��ϥ���ǥå����դ�������ͤΰ���ɽ����׻����ޤ���</entry>
+       <entry>キーまたはインデックス付けされる値の圧縮表現を計算します。</entry>
        <entry>3</entry>
       </row>
       <row>
@@ -736,7 +736,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
         compressed key</entry>
 -->
        <entry><function>decompress</></entry>
-       <entry>���̤��줿������ĥ����ɽ����׻����ޤ���</entry>
+       <entry>圧縮されたキーを伸張した表現を計算します。</entry>
        <entry>4</entry>
       </row>
       <row>
@@ -746,7 +746,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
        with given subtree's key</entry>
 -->
        <entry><function>penalty</></entry>
-       <entry>���ꤵ�줿���ĥ꡼������������ĥ꡼�˿���������������������Υڥʥ�ƥ���׻����ޤ���</entry>
+       <entry>指定された副ツリーキーを持つ副ツリーに新しいキーを挿入する時のペナルティを計算します。</entry>
        <entry>5</entry>
       </row>
       <row>
@@ -756,7 +756,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
        to the new page and compute the union keys for resulting pages</entry>
 -->
        <entry><function>picksplit</></entry>
-       <entry>�ڡ����ΤɤΥ���ȥ�򿷤����ڡ����˰�ư�����뤫����ꤷ����̥ڡ����Ѥ����祭����׻����ޤ���</entry>
+       <entry>ページのどのエントリを新しいページに移動させるかを決定し、結果ページ用の統合キーを計算します。</entry>
        <entry>6</entry>
       </row>
       <row>
@@ -765,7 +765,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
        <entry>compare two keys and return true if they are equal</entry>
 -->
        <entry><function>equal</></entry>
-       <entry>2�ĤΥ�������Ӥ�����������п����֤��ޤ���</entry>
+       <entry>2つのキーを比較し、等しければ真を返します。</entry>
        <entry>7</entry>
       </row>
       <row>
@@ -774,7 +774,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
        <entry>determine distance from key to query value (optional)</entry>
 -->
        <entry>
-�������䤤��碌�ͤȤδ֤ε�Υ����ꤷ�ޤ��ʾ�ά��ǽ�ˡ�
+キーと問い合わせ値との間の距離を決定します（省略可能）。
        </entry>
        <entry>8</entry>
       </row>
@@ -788,15 +788,15 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
    shown in <xref linkend="xindex-spgist-support-table">.
    (For more information see <xref linkend="SPGiST">.)
 -->
-<xref linkend="xindex-spgist-support-table">�˼����褦�ˡ�SP-GiST����ǥå����Ǥϣ��ĤΥ��ݡ��ȴؿ���ɬ�פǤ���
-(�ܺ٤ˤĤ��Ƥ�<xref linkend="SPGiST">�򻲾Ȥ��Ƥ���������)
+<xref linkend="xindex-spgist-support-table">に示すように、SP-GiSTインデックスでは５つのサポート関数が必要です。
+(詳細については<xref linkend="SPGiST">を参照してください。)
   </para>
 
    <table tocentry="1" id="xindex-spgist-support-table">
 <!--
     <title>SP-GiST Support Functions</title>
 -->
-    <title>SP-GiST���ݡ��ȴؿ�</title>
+    <title>SP-GiSTサポート関数</title>
     <tgroup cols="3">
      <thead>
       <row>
@@ -805,9 +805,9 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
        <entry>Description</entry>
        <entry>Support Number</entry>
 -->
-       <entry>�ؿ�</entry>
-       <entry>����</entry>
-       <entry>���ݡ����ֹ�</entry>
+       <entry>関数</entry>
+       <entry>説明</entry>
+       <entry>サポート番号</entry>
       </row>
      </thead>
      <tbody>
@@ -816,7 +816,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
 <!--
        <entry>provide basic information about the operator class</entry>
 -->
-       <entry>�黻�ҥ��饹�˴ؤ�����ܾ�����󶡤��ޤ���</entry>
+       <entry>演算子クラスに関する基本情報を提供します。</entry>
        <entry>1</entry>
       </row>
       <row>
@@ -824,7 +824,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
 <!--
        <entry>determine how to insert a new value into an inner tuple</entry>
 -->
-       <entry>�������ͤ��������ץ������������ˡ����ꤷ�ޤ���</entry>
+       <entry>新しい値を内部タプルに挿入する方法を決定します。</entry>
        <entry>2</entry>
       </row>
       <row>
@@ -832,7 +832,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
 <!--
        <entry>determine how to partition a set of values</entry>
 -->
-       <entry>�ͽ����ʬ�䤹����ˡ����ꤷ�ޤ���</entry>
+       <entry>値集合を分割する方法を決定します。</entry>
        <entry>3</entry>
       </row>
       <row>
@@ -841,7 +841,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
        <entry>determine which sub-partitions need to be searched for a
         query</entry>
 -->
-       <entry>�����䤤��碌�ǥ��֥ѡ��ƥ������θ�����ɬ�פ��ɤ������ꤷ�ޤ���</entry>
+       <entry>ある問い合わせでサブパーティションの検索が必要かどうか決定します。</entry>
        <entry>4</entry>
       </row>
       <row>
@@ -850,7 +850,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
        <entry>determine whether key satisfies the
         query qualifier</entry>
 -->
-       <entry>�������䤤��碌�����Ҥ����������ɤ������ꤷ�ޤ���</entry>
+       <entry>キーが問い合わせ修飾子を満たすかどうか決定します。</entry>
        <entry>5</entry>
       </row>
      </tbody>
@@ -863,15 +863,15 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
    shown in <xref linkend="xindex-gin-support-table">.
    (For more information see <xref linkend="GIN">.)
 -->
-<xref linkend="xindex-gin-support-table">�˼����褦�ˡ�GIN����ǥå����ϡ�4�ĤΥ��ݡ��ȴؿ���ɬ�פȤ����ޤ���5���ܤϾ�ά��ǽ�Ǥ���
-(�ܺ٤ˤĤ��Ƥ�<xref linkend="GIN">�򻲾Ȥ��Ƥ���������)
+<xref linkend="xindex-gin-support-table">に示すように、GINインデックスは、4つのサポート関数を必要とし、また、5番目は省略可能です。
+(詳細については<xref linkend="GIN">を参照してください。)
   </para>
 
    <table tocentry="1" id="xindex-gin-support-table">
 <!--
     <title>GIN Support Functions</title>
 -->
-    <title>GIN���ݡ��ȴؿ�</title>
+    <title>GINサポート関数</title>
     <tgroup cols="3">
      <thead>
       <row>
@@ -880,9 +880,9 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
        <entry>Description</entry>
        <entry>Support Number</entry>
 -->
-       <entry>�ؿ�</entry>
-       <entry>����</entry>
-       <entry>���ݡ����ֹ�</entry>
+       <entry>関数</entry>
+       <entry>説明</entry>
+       <entry>サポート番号</entry>
       </row>
      </thead>
      <tbody>
@@ -894,8 +894,8 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
         or greater than zero, indicating whether the first key is less than,
         equal to, or greater than the second
 -->
-2�ĤΥ�������Ӥ���0̤����0��0����礭���������֤��ޤ���
-���줾��ǽ�Υ����������礭�������������������򼨤��ޤ���
+2つのキーを比較し、0未満、0、0より大きな整数を返します。
+それぞれ最初のキーの方が大きい、等しい、小さいを示します。
        </entry>
        <entry>1</entry>
       </row>
@@ -904,7 +904,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
 <!--
        <entry>extract keys from a value to be indexed</entry>
 -->
-       <entry>����ǥå����դ�������ͤ��饭������Ф��ޤ���</entry>
+       <entry>インデックス付けされる値からキーを抽出します。</entry>
        <entry>2</entry>
       </row>
       <row>
@@ -912,7 +912,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
 <!--
        <entry>extract keys from a query condition</entry>
 -->
-       <entry>�䤤��碌��狼�饭������Ф��ޤ���</entry>
+       <entry>問い合わせ条件からキーを抽出します。</entry>
        <entry>3</entry>
       </row>
       <row>
@@ -922,8 +922,8 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
         determine whether value matches query condition (Boolean variant)
         (optional if support function 6 is present)
 -->
-�䤤��碌���˰��פ����ͤ��ɤ�������ꤷ�ޤ�(2�ͤΰ���)��
-(���ݡ��ȴؿ�6������С���ά��ǽ)
+問い合わせ条件に一致する値かどうかを決定します(2値の亜種)。
+(サポート関数6があれば、省略可能)
        </entry>
        <entry>4</entry>
       </row>
@@ -936,7 +936,7 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
         or greater than zero, indicating whether GIN should ignore this index
         entry, treat the entry as a match, or stop the index scan (optional)
 -->
-�䤤��碌�������ʬ�����ȥ���ǥå�������Υ�������Ӥ������줾�졢GIN�����Υ���ǥå������ܤ�̵�뤷�ʤ���Фʤ�ʤ��������פ�����ܤȤ��ư���ʤ���Фʤ�ʤ���������ǥå�������������ߤ��ʤ���Фʤ�ʤ����򼨤���������꾮��������������������礭�������ͤΤ����줫���֤��ޤ�(��ά��ǽ)��
+問い合わせからの部分キーとインデックスからのキーを比較し、それぞれ、GINがこのインデックス項目を無視しなければならないか、一致する項目として扱わなければならないか、インデックススキャンを中止しなければならないかを示す、ゼロより小さい、ゼロ、ゼロより大きい整数値のいずれかを返します(省略可能)。
        </entry>
        <entry>5</entry>
       </row>
@@ -947,8 +947,8 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
         determine whether value matches query condition (ternary variant)
         (optional if support function 4 is present)
 -->
-�䤤��碌���˰��פ����ͤ��ɤ�������ꤷ�ޤ�(3�ͤΰ���)��
-(���ݡ��ȴؿ�4������С���ά��ǽ)
+問い合わせ条件に一致する値かどうかを決定します(3値の亜種)。
+(サポート関数4があれば、省略可能)
        </entry>
        <entry>6</entry>
       </row>
@@ -967,9 +967,9 @@ GIN����ǥå����ϡ�����������Υ��ȥ�ƥ���������ʤ��Ȥ������ǡ�GiST�����SP-
    operators included in the operator class, but this is not the case for
    most GiST, SP-GiST, and GIN support functions.
 -->
-�����黻�ҤȰۤʤꡢ���ݡ��ȴؿ�������Υ���ǥå����᥽�åɤ����ꤹ��ǡ��������㤨��B-tree�Ѥ���Ӵؿ��ξ�硢����դ��������֤��ޤ���
-Ʊ�ͤ˳ƥ��ݡ��ȴؿ����Ϥ������ο��ȷ��ϥ���ǥå����᥽�åɤ˰�¸���ޤ���
-B-tree�ȥϥå���Ǥϡ���Ӵؿ��ȥϥå���������ݡ��ȴؿ��Ϥ��α黻�ҥ��饹�˴ޤޤ��黻�Ҥ�Ʊ�����ϥǡ���������ޤ�����GIN��SP-GiST�������GiST���ݡ��ȴؿ��ΤۤȤ�ɤϤ����ǤϤ���ޤ���
+検索演算子と異なり、サポート関数は特定のインデックスメソッドが想定するデータ型、例えばB-tree用の比較関数の場合、符号付き整数を返します。
+同様に各サポート関数に渡す引数の数と型はインデックスメソッドに依存します。
+B-treeとハッシュでは、比較関数とハッシュ処理サポート関数はその演算子クラスに含まれる演算子と同じ入力データ型を取りますが、GIN、SP-GiST、およびGiSTサポート関数のほとんどはそうではありません。
   </para>
  </sect2>
 
@@ -977,7 +977,7 @@ B-tree�ȥϥå���Ǥϡ���Ӵؿ��ȥϥå���������ݡ��ȴؿ��Ϥ��α黻�ҥ��饹�˴ޤ�
 <!--
   <title>An Example</title>
 -->
-  <title>��</title>
+  <title>例</title>
 
   <para>
 <!--
@@ -994,14 +994,14 @@ B-tree�ȥϥå���Ǥϡ���Ӵؿ��ȥϥå���������ݡ��ȴؿ��Ϥ��α黻�ҥ��饹�˴ޤ�
    discussed in <xref linkend="xoper">.  For an operator class on
    B-trees, the operators we require are:
 -->
-�����ޤǤǳ�ǰ�ˤĤ����������Ƥ��ޤ�����
-�����ǡ��������黻�ҥ��饹���������ͭ�Ѥ����Ҳ𤷤ޤ���
-�ʤ�������ȤǤ���褦�ˡ�����������ʪ���<filename>src/tutorial/complex.c</filename>��<filename>src/tutorial/complex.sql</filename>�˥��ԡ�������ޤ�����
-���α黻�ҥ��饹�ϡ�ʣ�ǿ��򤽤������ͤˤ����֤ǥ����Ȥ���黻�Ҥ򥫥ץ��벽���ޤ���
-�Ǥ��Τǡ�����̾����<literal>complex_abs_ops</literal>�����Ӥޤ�����
-�ǽ�˱黻�Ҥν��礬ɬ�פˤʤ�ޤ���
-�黻�Ҥ�������������<xref linkend="xoper">���������ޤ�����
-B-tree��α黻�ҥ��饹�Ǥϡ��ʲ��α黻�Ҥ�ɬ�פǤ���
+ここまでで概念について説明してきました。
+ここで、新しい演算子クラスを作成する有用な例を紹介します。
+（この例を作業できるように、ソース配布物内の<filename>src/tutorial/complex.c</filename>と<filename>src/tutorial/complex.sql</filename>にコピーがあります。）
+この演算子クラスは、複素数をその絶対値による順番でソートする演算子をカプセル化します。
+ですので、その名前に<literal>complex_abs_ops</literal>を選びました。
+最初に演算子の集合が必要になります。
+演算子を定義する処理は<xref linkend="xoper">で説明しました。
+B-tree上の演算子クラスでは、以下の演算子が必要です。
 
    <itemizedlist spacing="compact">
 <!--
@@ -1011,11 +1011,11 @@ B-tree��α黻�ҥ��饹�Ǥϡ��ʲ��α黻�Ҥ�ɬ�פǤ���
     <listitem><simpara>absolute-value greater-than-or-equal (strategy 4)</></>
     <listitem><simpara>absolute-value greater-than (strategy 5)</></>
 -->
-    <listitem><simpara>�����ͤˤ�롢���ʤ�ʥ��ȥ�ƥ�1��</></>
-    <listitem><simpara>�����ͤˤ�롢�ʲ��ʥ��ȥ�ƥ�2��</></>
-    <listitem><simpara>�����ͤˤ�롢�������ʥ��ȥ�ƥ�3��</></>
-    <listitem><simpara>�����ͤˤ�롢�ʾ�ʥ��ȥ�ƥ�4��</></>
-    <listitem><simpara>�����ͤˤ�롢��ʤ�ʥ��ȥ�ƥ�5��</></>
+    <listitem><simpara>絶対値による、小なり（ストラテジ1）</></>
+    <listitem><simpara>絶対値による、以下（ストラテジ2）</></>
+    <listitem><simpara>絶対値による、等しい（ストラテジ3）</></>
+    <listitem><simpara>絶対値による、以上（ストラテジ4）</></>
+    <listitem><simpara>絶対値による、大なり（ストラテジ5）</></>
    </itemizedlist>
   </para>
 
@@ -1027,9 +1027,9 @@ B-tree��α黻�ҥ��饹�Ǥϡ��ʲ��α黻�Ҥ�ɬ�פǤ���
    reduces the odds of getting inconsistent results for corner cases.
    Following this approach, we first write:
 -->
-��ӱ黻�Ҥδ�Ϣ���뽸������������˥��顼��ȯ����Ǿ��ˤ�����ˡ�ϡ��ޤ���B-tree��ӥ��ݡ��ȴؿ�������������θ�ˡ�¾�δؿ��򥵥ݡ��ȴؿ����Ф���1�ԤΥ�åѤȤ��ƺ������뤳�ȤǤ���
-����ˤ�ꡢ�����Ȥʤ���ǰ�����Τʤ���̤������Ψ���������ޤ���
-���μ�ˡ�˽��äơ��ޤ��ʲ���������ޤ���
+比較演算子の関連する集合を定義する時にエラーの発生を最小にする方法は、まず、B-tree比較サポート関数を作成し、その後に、他の関数をサポート関数に対する1行のラッパとして作成することです。
+これにより、境界となる条件で一貫性のない結果を得る確率が減少します。
+この手法に従って、まず以下を作成します。
 
 <programlisting><![CDATA[
 #define Mag(c)  ((c)->x*(c)->x + (c)->y*(c)->y)
@@ -1052,7 +1052,7 @@ complex_abs_cmp_internal(Complex *a, Complex *b)
 <!--
    Now the less-than function looks like:
 -->
-����ǡ����ʤ�ؿ��ϰʲ��Τ褦�ˤʤ�ޤ���
+これで、小なり関数は以下のようになります。
 
 <programlisting><![CDATA[
 PG_FUNCTION_INFO_V1(complex_abs_lt);
@@ -1072,7 +1072,7 @@ complex_abs_lt(PG_FUNCTION_ARGS)
    The other four functions differ only in how they compare the internal
    function's result to zero.
 -->
-¾��4�ؿ��Ǥΰ㤤�ϡ������ؿ��η�̤ȥ����Ȥ�ɤΤ褦����٤뤫�����Ǥ���
+他の4関数での違いは、内部関数の結果とゼロとをどのように比べるかだけです。
   </para>
 
   <para>
@@ -1080,7 +1080,7 @@ complex_abs_lt(PG_FUNCTION_ARGS)
    Next we declare the functions and the operators based on the functions
    to SQL:
 -->
-���ˡ��ؿ��ȡ����δؿ��˴�Ť��黻�Ҥ�SQL��������ޤ���
+次に、関数と、この関数に基づく演算子をSQLで宣言します。
 
 <programlisting>
 CREATE FUNCTION complex_abs_lt(complex, complex) RETURNS bool
@@ -1100,16 +1100,16 @@ CREATE OPERATOR &lt; (
    use of the index.  Note that the less-than, equal, and
    greater-than cases should use different selectivity functions.
 -->
-����������黻�Ҥ�����黻�Ҥ���ꤹ��¾��Ŭ�ڤ������������ؿ��ȷ��ؿ�����ꤹ�뤳�Ȥ����פǤ���
-����ʤ��ȡ����ץƥ��ޥ����ϥ���ǥå������ΨŪ�˻��Ѥ��뤳�Ȥ��Ǥ��ޤ���
-���ʤꡢ��������ʤ�ξ��˰ۤʤ��������ؿ�����Ѥ��ʤ���Фʤ�ʤ����Ȥ����դ��Ƥ���������
+正しく交代演算子と否定演算子を指定する他、適切な制限選択性関数と結合関数を指定することが重要です。
+さもないと、オプティマイザはインデックスを効率的に使用することができません。
+小なり、等価、大なりの場合に異なる選択性関数を使用しなければならないことに注意してください。
   </para>
 
   <para>
 <!--
    Other things worth noting are happening here:
 -->
-¾�ˤ����դ��٤����Ȥ�������ȯ�����ޤ���
+他にも注意すべきことがここで発生します。
 
   <itemizedlist>
    <listitem>
@@ -1124,10 +1124,10 @@ CREATE OPERATOR &lt; (
      the absolute values).  In that case, we'd need to use some other
      operator name for <function>complex_abs_eq</>.
 -->
-�㤨�С�<type>complex</type>����ξ���ڥ��ɤ˼��<literal>=</literal>�Ȥ���̾���α黻�Ҥ�1�Ĥ��������Ǥ��ޤ���
-���ξ�硢<type>complex</type>�Ѥ�¾��<literal>=</literal>�黻�Ҥ���Ƥޤ���
-���������ºݤ˥ǡ�������������Ƥ���Ȥ����顢�����餯��ʣ�ǿ��Ρ������ͤ��������ǤϤʤ����̾���������黻��Ԥ�<literal>=</literal>���ߤ���Ǥ��礦��
-���ξ�硢<function>complex_abs_eq</>�Ѥα黻��̾���̤�̾������Ѥ��ʤ���Фʤ�ޤ���
+例えば、<type>complex</type>型を両オペランドに取る<literal>=</literal>という名前の演算子を1つしか作成できません。
+この場合、<type>complex</type>用の他の<literal>=</literal>演算子を持てません。
+しかし、実際にデータ型を作成しているとしたら、おそらく、複素数の（絶対値の等価性ではない）通常の等価性演算を行う<literal>=</literal>を欲するでしょう。
+この場合、<function>complex_abs_eq</>用の演算子名に別の名前を使用しなければなりません。
     </para>
    </listitem>
 
@@ -1142,9 +1142,9 @@ CREATE OPERATOR &lt; (
      a good practice to include the data type name in the C function
      name, so as not to conflict with functions for other data types.
 -->
-<productname>PostgreSQL</productname>�Ǥϰۤʤ�����Υǡ������Ǥ����Ʊ��SQL̾�α黻�Ҥ�Ȥ����Ȥ��Ǥ��ޤ�����C�Ǥ�1�Ĥ�̾����1�ĤΥ������Х�ؿ����Ȥ�������Ǥ���
-�Ǥ����顢C�ؿ���<filename>abs_eq</filename>�Τ褦��ñ���̾���ˤ���٤��ǤϤ���ޤ���
-�̾�ϡ�¾�Υǡ������δؿ��Ⱦ��ͤ��ʤ��褦�ˡ�C�ؿ�̾�˥ǡ�����̾������Ƥ������Ȥ򴫤�ޤ���
+<productname>PostgreSQL</productname>では異なる引数のデータ型であれば同じSQL名の演算子を使うことができますが、Cでは1つの名前で1つのグローバル関数が使えるだけです。
+ですから、C関数は<filename>abs_eq</filename>のような単純な名前にするべきではありません。
+通常は、他のデータ型の関数と衝突しないように、C関数名にデータ型名を入れておくことを勧めます。
     </para>
    </listitem>
 
@@ -1158,8 +1158,8 @@ CREATE OPERATOR &lt; (
      To keep the example simple, we make the function have the same
      names at the C level and SQL level.
 -->
-<filename>abs_eq</filename>�ؿ���SQL̾�ϡ�<productname>PostgreSQL</productname>�������Υǡ������ˤ�ä�Ʊ��̾�������¾��SQL�ؿ�������̤��Ƥ���뤳�Ȥ���Ԥ��ƺ�뤳�Ȥ��Ǥ��ޤ���
-�����Ǥ�����ñ�ˤ��뤿��ˡ��ؿ���C��٥��SQL��٥��Ʊ��̾����Ϳ���Ƥ��ޤ���
+<filename>abs_eq</filename>関数のSQL名は、<productname>PostgreSQL</productname>が引数のデータ型によって同じ名前を持つ他のSQL関数から区別してくれることを期待して作ることができます。
+ここでは例を簡単にするために、関数にCレベルとSQLレベルで同じ名前を与えています。
     </para>
    </listitem>
   </itemizedlist>
@@ -1172,9 +1172,9 @@ CREATE OPERATOR &lt; (
    file that contains the operator functions.  This is how we declare
    the function:
 -->
-���Υ��ƥåפϡ�B-tree��ɬ�פʥ��ݡ��ȥ롼�������Ͽ�Ǥ���
-������������C�����ɤϡ��黻�Ҵؿ���Ʊ���ե���������äƤ��ޤ���
-�ʲ��ϡ��ؿ���ɤΤ褦��������뤫�򼨤��ޤ���
+次のステップは、B-treeに必要なサポートルーチンの登録です。
+これを実装するCコードは、演算子関数と同じファイルに入っています。
+以下は、関数をどのように宣言するかを示します。
 
 <programlisting>
 CREATE FUNCTION complex_abs_cmp(complex, complex)
@@ -1189,8 +1189,8 @@ CREATE FUNCTION complex_abs_cmp(complex, complex)
    Now that we have the required operators and support routine,
    we can finally create the operator class:
 -->
-����ޤǤǡ�ɬ�פʱ黻�Ҥ���ӥ��ݡ��ȥ롼�������Ĥ褦�ˤʤ�ޤ�����
-�Ǹ�˱黻�ҥ��饹��������뤳�Ȥ��Ǥ��ޤ���
+これまでで、必要な演算子およびサポートルーチンを持つようになりました。
+最後に演算子クラスを作成することができます。
 
 <programlisting><![CDATA[
 CREATE OPERATOR CLASS complex_abs_ops
@@ -1210,15 +1210,15 @@ CREATE OPERATOR CLASS complex_abs_ops
    And we're done!  It should now be possible to create
    and use B-tree indexes on <type>complex</type> columns.
 -->
-����ǽ����Ǥ���
-�����<type>complex</type>���B-tree����ǥå������äƻ��Ѥ��뤳�Ȥ���ǽ�ˤʤä��Ϥ��Ǥ���
+これで終わりです！
+これで<type>complex</type>列にB-treeインデックスを作って使用することが可能になったはずです。
   </para>
 
   <para>
 <!--
    We could have written the operator entries more verbosely, as in:
 -->
-�ʲ��Τ褦�ˡ��黻�ҥ���ȥ�����Ĺ�˵��Ҥ��뤳�Ȥ��Ǥ��ޤ���
+以下のように、演算子エントリをより冗長に記述することができます。
 <programlisting>
         OPERATOR        1       &lt; (complex, complex) ,
 </programlisting>
@@ -1226,7 +1226,7 @@ CREATE OPERATOR CLASS complex_abs_ops
    but there is no need to do so when the operators take the same data type
    we are defining the operator class for.
 -->
-���������黻�Ҥ����黻�ҥ��饹�������Ʊ��Υǡ����������硢���Τ褦�ʵ��Ҥ򤹤�ɬ�פϤ���ޤ���
+しかし、演算子が、演算子クラスの定義と同一のデータ型を取る場合、このような記述をする必要はありません。
   </para>
 
   <para>
@@ -1235,8 +1235,8 @@ CREATE OPERATOR CLASS complex_abs_ops
    default B-tree operator class for the <type>complex</type> data type.
    If you don't, just leave out the word <literal>DEFAULT</>.
 -->
-�嵭����ϡ��桼�������ο������黻�ҥ��饹��<type>complex</type>�ǡ������Υǥե���Ȥ�B-tree�黻�ҥ��饹�ˤ��褦�Ȥ��Ƥ���Ȳ��ꤷ�Ƥ��ޤ��� 
-���Τ褦�ˤ��ʤ���硢<literal>DEFAULT</>�Ȥ���ñ���������Ƥ���������
+上記の例は、ユーザがこの新しい演算子クラスを<type>complex</type>データ型のデフォルトのB-tree演算子クラスにしようとしていると仮定しています。 
+このようにしない場合、<literal>DEFAULT</>という単語を取り除いてください。
   </para>
  </sect2>
 
@@ -1244,7 +1244,7 @@ CREATE OPERATOR CLASS complex_abs_ops
 <!--
   <title>Operator Classes and Operator Families</title>
 -->
-  <title>�黻�ҥ��饹�ȱ黻��²</title>
+  <title>演算子クラスと演算子族</title>
 
   <para>
 <!--
@@ -1259,10 +1259,10 @@ CREATE OPERATOR CLASS complex_abs_ops
    optimizing SQL queries (particularly for B-tree operator classes, since
    the planner contains a great deal of knowledge about how to work with them).
 -->
-����ޤǤϰ���Ū�ˡ��黻�ҥ��饹��1�ĤΥǡ������Τߤ򰷤���ΤȲ��ꤷ�Ƥ��ޤ�����
-�Τ�������Υ���ǥå�����ˤϤ��ä�1�ĤΥǡ����������������ޤ��󤬡��ۤʤ�ǡ��������ͤȥ���ǥå��������Ӥ�Ԥ�����ǥå������Ϥ褯���Ω���ޤ���
-�ޤ����黻�ҥ��饹�ȴ�Ϣ�����ǡ�������٤�黻�Ҥ���ѤǤ����硢¾�Υǡ��������ȼ��δ�Ϣ�����黻�ҥ��饹����Ĥ��Ȥ��褯����ޤ���
-SQL�䤤��碌���Ŭ������ݤ˥ץ��ʤ�������뤳�Ȥ��Ǥ��ޤ��Τǡ���Ϣ�������饹������Ū�˴�Ϣ�դ��뤳�ȤϡʤɤΤ褦��ư��뤫�˴ؤ����μ���ץ��ʤ�¿�������ޤ��Τǡ��ä�B-tree�黻�ҥ��饹�ǡ�ͭ�ѤǤ���
+これまでは暗黙的に、演算子クラスは1つのデータ型のみを扱うものと仮定してきました。
+確かに特定のインデックス列にはたった1つのデータ型しかあり得ませんが、異なるデータ型の値とインデックス列の比較を行うインデックス操作はよく役に立ちます。
+また、演算子クラスと関連したデータ型を跨る演算子を使用できる場合、他のデータ型は独自の関連した演算子クラスを持つことがよくあります。
+SQL問い合わせを最適化する際にプランナを補助することができますので、関連したクラスを明示的に関連付けることは（どのように動作するかに関する知識をプランナは多く持ちますので、特にB-tree演算子クラスで）有用です。
 
   </para>
 
@@ -1279,11 +1279,11 @@ SQL�䤤��碌���Ŭ������ݤ˥ץ��ʤ�������뤳�Ȥ��Ǥ��ޤ��Τǡ���Ϣ��������
    Typically each operator class contains single-data-type operators
    while cross-data-type operators are loose in the family.
 -->
-����������˾�˱����뤿���<productname>PostgreSQL</productname>��<firstterm>�黻��²</>�Ȥ�����ǰ����Ѥ��ޤ���<indexterm><primary>�黻��²</></indexterm>
-�黻��²��1�İʾ�α黻�ҥ��饹���鹽������ޤ���
-�ޤ����黻��²���Τ�°���뤬���黻��²��θġ��Υ��饹�ˤ�°���ʤ�����ǥå�����ǽ�黻�Ҥ��б����륵�ݡ��ȴؿ���ޤ�뤳�Ȥ�Ǥ��ޤ���
-���������黻�Ҥ�ؿ�������Υ��饹��«������Ƥ��ʤ����Ȥ��顢�黻��²���<quote>��ͳ</>�Ǥ���ȸƤӤޤ���
-�̾�Ʊ黻�ҥ��饹��1�ĤΥǡ������黻�Ҥ�����ޤ������ǡ�������٤�黻�Ҥϱ黻��²��Ǽ�ͳ�ˤʤ�ޤ���
+こうした要望に応えるために<productname>PostgreSQL</productname>は<firstterm>演算子族</>という概念を使用します。<indexterm><primary>演算子族</></indexterm>
+演算子族は1つ以上の演算子クラスから構成されます。
+また、演算子族全体に属するが、演算子族内の個々のクラスには属さないインデックス可能演算子や対応するサポート関数を含めることもできます。
+こうした演算子や関数を、特定のクラスに束縛されていないことから、演算子族内で<quote>自由</>であると呼びます。
+通常、各演算子クラスは1つのデータ型演算子を持ちますが、データ型を跨る演算子は演算子族内で自由になります。
   </para>
 
   <para>
@@ -1304,15 +1304,15 @@ SQL�䤤��碌���Ŭ������ݤ˥ץ��ʤ�������뤳�Ȥ��Ǥ��ޤ��Τǡ���Ϣ��������
    non-essential operators can be added as loose members of the operator
    family.
 -->
-�黻��²��α黻�Ҥȴؿ��Ϥ��٤ơ���̣Ū�ʸߴ���������ʤ���Фʤ�ޤ���
-���θߴ����ˤĤ��Ƥ�ɬ�׾��ϥ���ǥå����᥽�åɤˤ�ä����ꤵ��ޤ���
-���Τ��ᡢ�黻��²���������ʬ�����黻�ҥ��饹�Ȥ������ӽФ���ˡ�˵������Ĥ��⤷��ޤ���
-�º�¿������Ū�Ǥϡ����饹��ʬ�����Ŭ�ڤǡ��黻��²��ͣ��ζ�̣�������롼�ײ��Ǥ���
-�黻�ҥ��饹�����������ͳ�ϡ��ɤ����¿���α黻��²�����餫�Υ���ǥå����򥵥ݡ��Ȥ��뤿���ɬ�פ�����ꤹ�뤳�ȤǤ���
-����黻�ҥ��饹����Ѥ��륤��ǥå�����¸�ߤ����硢�黻�ҥ��饹�Ϥ��Υ���ǥå����������ʤ��¤������뤳�Ȥ��Ǥ��ޤ���
-���������黻��²��¾����ʬ�����ʤ����¾�α黻�ҥ��饹�伫ͳ�ʱ黻�Ҥ������뤳�Ȥ��Ǥ��ޤ���
-�������äơ��黻�ҥ��饹�ϡ�����Υǡ��������Ф��륤��ǥå�����������������ɬ�פȤʤ�Ǿ��α黻�Ҥȴؿ��ν����ޤ�褦�˻��ꤹ�٤��Ǥ���
-�����ơ���Ϣ���뤬����Ū�ʤ�ΤǤϤʤ��黻�Ҥ�黻��²�μ�ͳ�ʥ��ФȤ����ɲä��뤳�Ȥ��Ǥ��ޤ���
+演算子族内の演算子と関数はすべて、意味的な互換性を持たなければなりません。
+この互換性についての必要条件はインデックスメソッドによって設定されます。
+このため、演算子族の特定の部分集合を演算子クラスとして選び出す方法に疑問を持つかもしれません。
+実際多くの目的では、クラスの分類は不適切で、演算子族が唯一の興味深いグループ化です。
+演算子クラスを定義する理由は、どれだけ多くの演算子族が何らかのインデックスをサポートするために必要かを指定することです。
+ある演算子クラスを使用するインデックスが存在する場合、演算子クラスはそのインデックスを削除しない限り削除することができません。
+しかし、演算子族の他の部分、すなわち、他の演算子クラスや自由な演算子を削除することができます。
+したがって、演算子クラスは、特定のデータ型に対するインデックスを操作する上で理論上必要となる最少の演算子と関数の集合を含むように指定すべきです。
+そして、関連するが基本的なものではない演算子を演算子族の自由なメンバとして追加することができます。
   </para>
 
   <para>
@@ -1327,11 +1327,11 @@ SQL�䤤��碌���Ŭ������ݤ˥ץ��ʤ�������뤳�Ȥ��Ǥ��ޤ��Τǡ���Ϣ��������
    on one of these types can be searched using a comparison value of another
    type.  The family could be duplicated by these definitions:
 -->
-�㤨��<productname>PostgreSQL</productname>�ˤ�<literal>integer_ops</>�Ȥ����Ȥ߹��ߤ�B-tree�黻��²������ޤ���
-�����ˤ�<type>bigint</> (<type>int8</>)��<type>integer</> (<type>int4</>)��<type>smallint</> (<type>int2</>)�������ؤΥ���ǥå����ˤ��줾���б�����<literal>int8_ops</>��<literal>int4_ops</>��<literal>int2_ops</>�Ȥ����黻�ҥ��饹���ޤޤ�Ƥ��ޤ���
-�ޤ����嵭�η�����Ǥ�դ�2�Ĥη�����ӤǤ���褦�ˡ����α黻��²�ˤϥǡ�������٤���ӱ黻�Ҥ�ޤޤ�ޤ���
-���Τ��ᡢ�嵭�η��Τ����줫���Ф��륤��ǥå�����¾�η����ͤȤ���Ӥκݤ˻��Ѥ��뤳�Ȥ��Ǥ��ޤ���
-���α黻��²�ϰʲ�������ˤ��¿�Ų�����Ƥ��ޤ���
+例えば<productname>PostgreSQL</productname>には<literal>integer_ops</>という組み込みのB-tree演算子族があります。
+ここには<type>bigint</> (<type>int8</>)、<type>integer</> (<type>int4</>)、<type>smallint</> (<type>int2</>)型の列上へのインデックスにそれぞれ対応した<literal>int8_ops</>、<literal>int4_ops</>、<literal>int2_ops</>という演算子クラスが含まれています。
+また、上記の型の内任意の2つの型を比較できるように、この演算子族にはデータ型を跨る比較演算子も含まれます。
+このため、上記の型のいずれかに対するインデックスを他の型の値との比較の際に使用することができます。
+この演算子族は以下の定義により多重化されています。
 
 <programlisting><![CDATA[
 CREATE OPERATOR FAMILY integer_ops USING btree;
@@ -1341,7 +1341,7 @@ DEFAULT FOR TYPE int8 USING btree FAMILY integer_ops AS
 ]]><!--
   &#045;- standard int8 comparisons
 --><![CDATA[
-  -- ɸ��int8���
+  -- 標準int8比較
   OPERATOR 1 < ,
   OPERATOR 2 <= ,
   OPERATOR 3 = ,
@@ -1355,7 +1355,7 @@ DEFAULT FOR TYPE int4 USING btree FAMILY integer_ops AS
 ]]><!--
   &#045;- standard int4 comparisons
 --><![CDATA[
-  -- ɸ��int4���
+  -- 標準int4比較
   OPERATOR 1 < ,
   OPERATOR 2 <= ,
   OPERATOR 3 = ,
@@ -1369,7 +1369,7 @@ DEFAULT FOR TYPE int2 USING btree FAMILY integer_ops AS
 ]]><!--
   &#045;- standard int2 comparisons
 --><![CDATA[
-  -- ɸ��int2���
+  -- 標準int2比較
   OPERATOR 1 < ,
   OPERATOR 2 <= ,
   OPERATOR 3 = ,
@@ -1382,7 +1382,7 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
 ]]><!--
   &#045;- cross-type comparisons int8 vs int2
 --><![CDATA[
-  -- ����٤���� int8��int2
+  -- 型を跨ぐ比較 int8対int2
   OPERATOR 1 < (int8, int2) ,
   OPERATOR 2 <= (int8, int2) ,
   OPERATOR 3 = (int8, int2) ,
@@ -1393,7 +1393,7 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
 ]]><!--
   &#045;- cross-type comparisons int8 vs int4
 --><![CDATA[
-  -- ����٤���� int8��int4
+  -- 型を跨ぐ比較 int8対int4
   OPERATOR 1 < (int8, int4) ,
   OPERATOR 2 <= (int8, int4) ,
   OPERATOR 3 = (int8, int4) ,
@@ -1404,7 +1404,7 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
 ]]><!--
   &#045;- cross-type comparisons int4 vs int2
 --><![CDATA[
-  -- ����٤���� int4��int2
+  -- 型を跨ぐ比較 int4対int2
   OPERATOR 1 < (int4, int2) ,
   OPERATOR 2 <= (int4, int2) ,
   OPERATOR 3 = (int4, int2) ,
@@ -1415,7 +1415,7 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
 ]]><!--
   &#045;- cross-type comparisons int4 vs int8
 --><![CDATA[
-  -- ����٤���� int4��int8
+  -- 型を跨ぐ比較 int4対int8
   OPERATOR 1 < (int4, int8) ,
   OPERATOR 2 <= (int4, int8) ,
   OPERATOR 3 = (int4, int8) ,
@@ -1426,7 +1426,7 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
 ]]><!--
   &#045;- cross-type comparisons int2 vs int8
 --><![CDATA[
-  -- ����٤���� int2��int8
+  -- 型を跨ぐ比較 int2対int8
   OPERATOR 1 < (int2, int8) ,
   OPERATOR 2 <= (int2, int8) ,
   OPERATOR 3 = (int2, int8) ,
@@ -1437,7 +1437,7 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
 ]]><!--
   &#045;- cross-type comparisons int2 vs int4
 --><![CDATA[
-  -- ����٤���� int2��int4
+  -- 型を跨ぐ比較 int2対int4
   OPERATOR 1 < (int2, int4) ,
   OPERATOR 2 <= (int2, int4) ,
   OPERATOR 3 = (int2, int4) ,
@@ -1457,10 +1457,10 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
    and in most cases should be declared as part of the operator class rather
    than as loose members of the family.
 -->
- ��������ϱ黻�ҥ��ȥ�ƥ��ؿ��ֹ�ȥ��ݡ��ȴؿ��ֹ��<quote>���</>���Ƥ��뤳�Ȥ����դ��Ƥ���������
-���ֹ�ϱ黻��²���ʣ���󸽤�ޤ���
-�����ֹ�Υ��󥹥��󥹤����줾��ۤʤ����ϥǡ���������ĸ¤ꡢ����ϵ�����ޤ���
-���Ϸ���ξ�����黻�ҥ��饹�����Ϸ���Ʊ�����󥹥��󥹤ϡ��黻�ҥ��饹�μ�黻�Ҥ���Ӽ祵�ݡ��ȴؿ��Ǥ��ꡢ�ۤȤ�ɤξ�硢�黻��²�μ�ͳ���ФǤϤʤ��黻�ҥ��饹�ΰ����Ȥ���������ʤ���Фʤ�ޤ���
+ この定義は演算子ストラテジ関数番号とサポート関数番号を<quote>上書き</>していることに注意してください。
+各番号は演算子族内で複数回現れます。
+特定番号のインスタンスがそれぞれ異なる入力データ型を持つ限り、これは許されます。
+入力型の両方が演算子クラスの入力型と同じインスタンスは、演算子クラスの主演算子および主サポート関数であり、ほとんどの場合、演算子族の自由メンバではなく演算子クラスの一部として宣言しなければなりません。
   </para>
 
   <para>
@@ -1477,11 +1477,11 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
    included.  Each operator class should include just the non-cross-type
    operators and support function for its data type.
 -->
-B-tree�黻��²�Ǥϡ��黻��²��Τ��٤Ƥα黻�Ҥϥ����ȸߴ����Ĥޤꡢ�黻��²�ǥ��ݡ��Ȥ����ǡ��������٤Ƥ��Ϥäƿ�ܵ�§��<quote>A = B����B = C�ʤ��A = C</>�����<quote>A &lt; B����B &lt; C�ʤ��A &lt; C</>��ݻ����ʤ���Фʤ�ޤ���
-����ˡ��黻��²���ɽ������뷿�δ֤ΰ���Ū���㥹�ȤȥХ��ʥꥭ�㥹�Ȥϡ���Ϣ���륽���Ƚ�����ѹ����ƤϤ����ޤ���
-�黻��²��γƱ黻�ҤǤϡ��黻�Ҥ�Ʊ���ǡ�������2�ĤΥǡ��������륵�ݡ��ȴؿ���¸�ߤ��ʤ���Фʤ�ޤ���
-�黻��²�򴰷뤵���뤳�ȡ��Ĥޤꡢ�ǡ��������Ȥ߹�碌���줾����Ф���黻�Ҥ򤹤٤ƴޤ�뤳�Ȥ�侩���ޤ���
-�Ʊ黻�ҥ��饹�ϡ����ȤΥǡ��������Ф��ƥǡ�������٤�ʤ��黻�Ҥȥ��ݡ��ȴؿ�������ޤ�ʤ���Фʤ�ޤ���
+B-tree演算子族では、演算子族内のすべての演算子はソート互換、つまり、演算子族でサポートされるデータ型すべてに渡って推移規則、<quote>A = BかつB = CならばA = C</>および<quote>A &lt; BかつB &lt; CならばA &lt; C</>を維持しなければなりません。
+さらに、演算子族内で表現される型の間の暗黙的キャストとバイナリキャストは、関連するソート順序を変更してはいけません。
+演算子族内の各演算子では、演算子と同じデータ型の2つのデータ型を取るサポート関数が存在しなければなりません。
+演算子族を完結させること、つまり、データ型の組み合わせそれぞれに対する演算子をすべて含めることを推奨します。
+各演算子クラスは、自身のデータ型に対してデータ型を跨らない演算子とサポート関数だけを含めなければなりません。
   </para>
 
   <para>
@@ -1502,14 +1502,14 @@ B-tree�黻��²�Ǥϡ��黻��²��Τ��٤Ƥα黻�Ҥϥ����ȸߴ����Ĥޤꡢ�黻��²�ǥ�
    Each operator class should include just the non-cross-type equality
    operator and the support function for its data type.
 -->
-ʣ���ǡ������Υϥå���黻��²���ۤ���ˤϡ��黻��²�ǥ��ݡ��Ȥ����ǡ��������줾����Ф���ߴ�������ĥϥå��奵�ݡ��ȴؿ���������ʤ���Фʤ�ޤ���
-�����ǡ��ߴ����Ȥϡ��ؿ������α黻��²���������黻�Ҥ������Ǥ���Ȥߤʤ����Ǥ�դ�2�Ĥ��ͤǤ�Ʊ��Υϥå��女���ɤ���������뤳�Ȥ��ݾڤ��뤳�Ȥ��̣���ޤ���
-�̾�����ۤʤ�ʪ��ɽ������ľ�硢�����¸����뤳�ȤϺ���Ǥ������¸���ǽ�ʾ��⤢��ޤ���
-����ˡ�����Ū�ޤ��ϥХ��ʥ��Ѵ��ˤ�ꡢ����黻��²��ɽ�������ǡ���������Ʊ���黻��²��ɽ�������ǡ��������ͤ򥭥㥹�Ȥ��Ƥ⡢�׻����줿�ϥå����ͤ��ѹ����ƤϤ����ޤ���
-�ǡ�����1�Ĥ��Ф��ƥ��ݡ��ȴؿ���1�Ĥ���¸�ߤ��ʤ����Ȥ����դ��Ƥ���������
-�������黻�Ҥ��Ȥˣ��ĤǤϤ���ޤ���
-�黻��²�򴰷뤵���뤳�ȡ��Ĥޤꡢ�ǡ��������Ȥ߹�碌���줾����Ф����������黻�Ҥ򤹤٤ƴޤ�뤳�Ȥ�侩���ޤ���
-�Ʊ黻�ҥ��饹�ϡ����ȤΥǡ��������Ф��ƥǡ�������٤�ʤ��黻�Ҥȥ��ݡ��ȴؿ�������ޤ�ʤ���Фʤ�ޤ���
+複数データ型のハッシュ演算子族を構築するには、演算子族でサポートされるデータ型それぞれに対する互換性を持つハッシュサポート関数を作成しなければなりません。
+ここで、互換性とは、関数がその演算子族の等価性演算子で等価であるとみなされる任意の2つの値では同一のハッシュコードが生成されることを保証することを意味します。
+通常、型が異なる物理表現を持つ場合、これを実現することは困難ですが、実現可能な場合もあります。
+さらに、暗黙的またはバイナリ変換により、ある演算子族で表現されるデータ型から同じ演算子族で表現されるデータ型に値をキャストしても、計算されたハッシュ値を変更してはいけません。
+データ型1つに対してサポート関数が1つしか存在しないことに注意してください。
+等価性演算子ごとに１つではありません。
+演算子族を完結させること、つまり、データ型の組み合わせそれぞれに対する等価性演算子をすべて含めることを推奨します。
+各演算子クラスは、自身のデータ型に対してデータ型を跨らない演算子とサポート関数だけを含めなければなりません。
   </para>
 
   <para>
@@ -1519,8 +1519,8 @@ B-tree�黻��²�Ǥϡ��黻��²��Τ��٤Ƥα黻�Ҥϥ����ȸߴ����Ĥޤꡢ�黻��²�ǥ�
    whatever the primary support functions for a given operator class can
    handle.
 -->
-GiST��SP-GiST��GIN����ǥå����Ǥϥǡ�������٤����ˤĤ��Ƥ�����Ū�ʵ�ˡ�Ϥ���ޤ���
-���ݡ��Ȥ����黻�ҷ���ñ�˻���黻�ҥ��饹�μ祵�ݡ��ȴؿ����������Ȥ��Ǥ����ΤǤ���
+GiST、SP-GiST、GINインデックスではデータ型を跨る操作についての明示的な記法はありません。
+サポートされる演算子群は単に指定演算子クラスの主サポート関数が扱うことができるものです。
   </para>
 
   <note>
@@ -1534,9 +1534,9 @@ GiST��SP-GiST��GIN����ǥå����Ǥϥǡ�������٤����ˤĤ��Ƥ�����Ū�ʵ�ˡ�Ϥ���
     handle cross-data-type comparisons more effectively when both data types
     have operators in the same operator family.
 -->
-<productname>PostgreSQL</productname>8.3������ΥС������Ǥϱ黻��²�Ȥ�����ǰ�Ϥ���ޤ���Ǥ�����
-���Τ��ᡢ����ǥå����ǻ��Ѥ���ͽ��Υǡ�������٤�黻�ҤϤ��٤ơ�����ǥå����α黻�ҥ��饹�˷�ӤĤ��ʤ���Фʤ�ޤ���Ǥ�����
-���μ�ˡ��ޤ����ѤǤ��ޤ���������ǥå����ΰ�¸���򹭤�����������ӡ�ξ�ǡ�������Ʊ��黻��²��Ǳ黻�Ҥ���ľ�硢�ץ��ʤ��ǡ�������٤ä���Ӥ����ΨŪ�˰������Ȥ��Ǥ�������ꡢ�ѻ�ͽ��Ǥ���
+<productname>PostgreSQL</productname>8.3より前のバージョンでは演算子族という概念はありませんでした。
+そのため、インデックスで使用する予定のデータ型を跨る演算子はすべて、インデックスの演算子クラスに結びつけなければなりませんでした。
+この手法もまだ使用できますが、インデックスの依存性を広げる点、および、両データ型が同一演算子族内で演算子を持つ場合、プランナがデータ型を跨った比較をより効率的に扱うことができる点より、廃止予定です。
    </para>
   </note>
  </sect2>
@@ -1545,13 +1545,13 @@ GiST��SP-GiST��GIN����ǥå����Ǥϥǡ�������٤����ˤĤ��Ƥ�����Ū�ʵ�ˡ�Ϥ���
 <!--
   <title>System Dependencies on Operator Classes</title>
 -->
-  <title>�����ƥ�α黻�ҥ��饹���Ф����¸��</title>
+  <title>システムの演算子クラスに対する依存性</title>
 
    <indexterm>
 <!--
     <primary>ordering operator</primary>
 -->
-    <primary>����դ��黻��</primary>
+    <primary>順序付け演算子</primary>
    </indexterm>
 
   <para>
@@ -1561,8 +1561,8 @@ GiST��SP-GiST��GIN����ǥå����Ǥϥǡ�������٤����ˤĤ��Ƥ�����Ū�ʵ�ˡ�Ϥ���
    with indexes.  Therefore, you might want to create operator classes
    even if you have no intention of indexing any columns of your data type.
 -->
-<productname>PostgreSQL</productname>�ϱ黻�ҥ��饹��ñ�˥���ǥå����ǻ��ѤǤ��뤫�ɤ��������ǤϤʤ���¿���������Ǳ黻�Ҥ���������ꤹ�뤿��˻��Ѥ��ޤ���
-�������äơ��ǡ���������򥤥�ǥå����դ�����Ĥ�꤬�ʤ��Ƥ⡢�黻�ҥ��饹��������������ɤ���ǽ��������ޤ���
+<productname>PostgreSQL</productname>は演算子クラスを、単にインデックスで使用できるかどうかだけではなく、多くの方式で演算子の性質を推定するために使用します。
+したがって、データ型の列をインデックス付けするつもりがなくても、演算子クラスを作成した方が良い可能性があります。
   </para>
 
   <para>
@@ -1577,9 +1577,9 @@ GiST��SP-GiST��GIN����ǥå����Ǥϥǡ�������٤����ˤĤ��Ƥ�����Ū�ʵ�ˡ�Ϥ���
    imposed by the operator class defines the default <literal>ORDER BY</>
    ordering.
 -->
-����Ū�ˤϡ�<literal>ORDER BY</>��<literal>DISTINCT</>�ʤɡ��ͤ���Ӥȥ����Ȥ�ɬ�פȤ���SQL��ǽ������ޤ���
-�桼������Υǡ��������Ф��Ƥ��ε�ǽ��������뤿��ˡ�<productname>PostgreSQL</productname>�Ϥ��Υǡ������ѤΥǥե���Ȥ�B-tree�黻�ҥ��饹�򸡺����ޤ���
-���α黻�ҥ��饹��<quote>����Ƚ��</>���Ф���<literal>GROUP BY</>��<literal>DISTINCT</>�Ѥ��ͤ��������ˤĤ��ƤΥ����ƥ�ΰո�������������α黻�ҥ��饹�ˤ�äƶ�������륽���Ƚ�������ǥե���Ȥ�<literal>ORDER BY</>�����������ޤ���
+具体的には、<literal>ORDER BY</>や<literal>DISTINCT</>など、値の比較とソートを必要とするSQL機能があります。
+ユーザ定義のデータ型に対してこの機能を実装するために、<productname>PostgreSQL</productname>はそのデータ型用のデフォルトのB-tree演算子クラスを検索します。
+この演算子クラスの<quote>等価判定</>メンバが、<literal>GROUP BY</>や<literal>DISTINCT</>用の値の等価性についてのシステムの意向を定義し、この演算子クラスによって強制されるソート順序が、デフォルトの<literal>ORDER BY</>順序を定義します。
   </para>
 
   <para>
@@ -1587,7 +1587,7 @@ GiST��SP-GiST��GIN����ǥå����Ǥϥǡ�������٤����ˤĤ��Ƥ�����Ū�ʵ�ˡ�Ϥ���
    Comparison of arrays of user-defined types also relies on the semantics
    defined by the default B-tree operator class.
 -->
-�ޤ����桼����������������Ӥϡ��ǥե���Ȥ�B-tree�黻�ҥ��饹�ˤ�ä��������륻�ޥ�ƥ��å��˰�¸���ޤ���
+また、ユーザ定義型の配列の比較は、デフォルトのB-tree演算子クラスによって定義されるセマンティックに依存します。
   </para>
 
   <para>
@@ -1597,8 +1597,8 @@ GiST��SP-GiST��GIN����ǥå����Ǥϥǡ�������٤����ˤĤ��Ƥ�����Ū�ʵ�ˡ�Ϥ���
    operator class only provides equality, in practice it is only enough
    to support array equality.
 -->
-�ǡ������ѤΥǥե���Ȥ�B-tree�黻�ҥ��饹��¸�ߤ��ʤ��ȡ������ƥ�ϥǥե���ȤΥϥå���黻�ҥ��饹�򸡺����ޤ���
-�����������μ���α黻�ҥ��饹���������Τߤ��󶡤��ޤ��Τǡ��ºݤˤ���ϡ������������Υ��ݡ��Ȥ������Ф��ƽ�ʬ�Ǥ���
+データ型用のデフォルトのB-tree演算子クラスが存在しないと、システムはデフォルトのハッシュ演算子クラスを検索します。
+しかし、この種類の演算子クラスは等価性のみを提供しますので、実際にこれは、配列等価性のサポートだけに対して十分です。
   </para>
 
   <para>
@@ -1607,7 +1607,7 @@ GiST��SP-GiST��GIN����ǥå����Ǥϥǡ�������٤����ˤĤ��Ƥ�����Ū�ʵ�ˡ�Ϥ���
    errors like <quote>could not identify an ordering operator</> if you
    try to use these SQL features with the data type.
 -->
-�ǡ������ѤΥǥե���Ȥα黻�ҥ��饹��¸�ߤ��ʤ����ˡ���������SQL��ǽ��ǡ������˻��Ѥ��褦�Ȥ���ȡ�<quote>����դ��黻�Ҥ��̤Ǥ��ʤ��ä�</>�Ȥ��ä����顼�Ȥʤ�ޤ���
+データ型用のデフォルトの演算子クラスが存在しない場合に、こうしたSQL機能をデータ型に使用しようとすると、<quote>順序付け演算子を識別できなかった</>といったエラーとなります。
   </para>
 
    <note>
@@ -1619,8 +1619,8 @@ GiST��SP-GiST��GIN����ǥå����Ǥϥǡ�������٤����ˤĤ��Ƥ�����Ū�ʵ�ˡ�Ϥ���
      behavior of relying on default operator classes avoids having to make
      any assumption about the behavior of operators with particular names.
 -->
-<productname>PostgreSQL</productname>�С������7.4������ޤǤǤϡ������Ȥ䥰�롼�ײ����ϰ���Ū��<literal>=</>��<literal>&lt;</>��<literal>&gt;</>�Ȥ���̾���α黻�Ҥ���Ѥ��Ƥ��ޤ�����
-���ο��������ǥե���Ȥα黻�ҥ��饹�˰�¸���뿶�񤤤ˤ�äơ������̾������ı黻�Ҥο��񤤤ˤĤ��Ʋ��餫�β����Ω�Ƥ뤳�Ȥ��ɻߤ��Ƥ��ޤ���
+<productname>PostgreSQL</productname>バージョン7.4より前まででは、ソートやグループ化操作は暗黙的に<literal>=</>、<literal>&lt;</>、<literal>&gt;</>という名前の演算子を使用していました。
+この新しい、デフォルトの演算子クラスに依存する振舞いによって、特定の名前を持つ演算子の振舞いについて何らかの仮定を立てることを防止しています。
 
     </para>
    </note>
@@ -1632,8 +1632,8 @@ GiST��SP-GiST��GIN����ǥå����Ǥϥǡ�������٤����ˤĤ��Ƥ�����Ū�ʵ�ˡ�Ϥ���
    hash aggregation, and related optimizations.  The hash operator family
    is essential here since it identifies the hash function(s) to use.
 -->
-¾�ν��פ����Ȥ��ơ��ϥå���黻��²��˸����黻�Ҥ��ϥå����硢�ϥå��彸�󡢴�Ϣ�����Ŭ���θ���Ȥʤ뤳�Ȥ�����ޤ���
-���Ѥ���ϥå���ؿ����̤��뤿�ᡢ�����ǤΥϥå���黻��²�ϴ���Ū�ʤ�ΤǤ���
+他の重要な点として、ハッシュ演算子族内に現れる演算子がハッシュ結合、ハッシュ集約、関連する最適化の候補となることがあります。
+使用するハッシュ関数を識別するため、ここでのハッシュ演算子族は基本的なものです。
 
   </para>
  </sect2>
@@ -1642,7 +1642,7 @@ GiST��SP-GiST��GIN����ǥå����Ǥϥǡ�������٤����ˤĤ��Ƥ�����Ū�ʵ�ˡ�Ϥ���
 <!--
   <title>Ordering Operators</title>
 -->
-  <title>����դ��黻��</title>
+  <title>順序付け演算子</title>
 
   <para>
 <!--
@@ -1667,14 +1667,14 @@ GiST��SP-GiST��GIN����ǥå����Ǥϥǡ�������٤����ˤĤ��Ƥ�����Ū�ʵ�ˡ�Ϥ���
    nearest-neighbor searches, if the operator is one that measures distance.
    For example, a query like
 -->
-�����Υ���ǥå������������᥽�åɡʸ������Ǥ�GiST�Τߡˤ�<firstterm>����դ��黻��</>�Ȥ�����ǰ�򥵥ݡ��Ȥ��ޤ���
-����ޤ��������Ƥ�����Τ�<firstterm>�����黻��</>�Ǥ�����
-�����黻�Ҥϡ�<literal>WHERE</> <replaceable>indexed_column</> <replaceable>operator</> <replaceable>constant</>�����������٤ƤιԤ򸫤Ĥ��뤿��ˡ�����ǥå����򸡺���ǽ�ˤ��뤿��Τ�ΤǤ���
-���פ����Ԥ��ɤν�����֤���뤫�ˤĤ��Ƥ��ݾڤ��ʤ����Ȥ����դ��Ƥ���������
-ȿ�Фˡ�����դ��黻�Ҥ��֤����Ȥ��Ǥ���Խ������ꤷ�ޤ��󤬡����ν������ꤷ�ޤ���
-����դ��黻�Ҥϡ�<literal>ORDER BY</> <replaceable>indexed_column</> <replaceable>operator</> <replaceable>constant</>��ɽ��������ǹԤ��֤�����ˡ�����ǥå����򥹥�����ǽ�ˤ��뤿��Τ�ΤǤ���
-���Τ褦�˽���դ��黻�Ҥ����������ͳ�ϡ����α黻�Ҥ���Υ��¬���ΤǤ���кǶ�˵�����򥵥ݡ��Ȥ��뤳�ȤǤ���
-�㤨�аʲ��Τ褦���䤤��碌��ͤ��ޤ���
+一部のインデックスアクセスメソッド（現時点ではGiSTのみ）は<firstterm>順序付け演算子</>という概念をサポートします。
+これまで説明してきたものは<firstterm>検索演算子</>でした。
+検索演算子は、<literal>WHERE</> <replaceable>indexed_column</> <replaceable>operator</> <replaceable>constant</>を満たすすべての行を見つけるために、インデックスを検索可能にするためのものです。
+一致した行がどの順序で返されるかについては保証がないことに注意してください。
+反対に、順序付け演算子は返すことができる行集合を限定しませんが、その順序を決定します。
+順序付け演算子は、<literal>ORDER BY</> <replaceable>indexed_column</> <replaceable>operator</> <replaceable>constant</>で表される順序で行を返すために、インデックスをスキャン可能にするためのものです。
+このように順序付け演算子を定義する理由は、その演算子が距離を測るものであれば最近傍検索をサポートすることです。
+例えば以下のような問い合わせを考えます。
 <programlisting><![CDATA[
 SELECT * FROM places ORDER BY location <-> point '(101,456)' LIMIT 10;
 ]]>
@@ -1684,8 +1684,8 @@ SELECT * FROM places ORDER BY location <-> point '(101,456)' LIMIT 10;
    on the location column can do this efficiently because
    <literal>&lt;-&gt;</> is an ordering operator.
 -->
-����ϻ��ꤷ���о������˺Ǥ�ᤤ10�����򸫤Ĥ��Ф��ޤ���
-<literal>&lt;-&gt;</>�Ͻ���դ��黻�ҤǤ��Τǡ�location����GiST����ǥå����ϡ�������ΨŪ�˹Ԥ����Ȥ��Ǥ��ޤ���
+これは指定した対象地点に最も近い10地点を見つけ出します。
+<literal>&lt;-&gt;</>は順序付け演算子ですので、location列上のGiSTインデックスは、これを効率的に行うことができます。
   </para>
 
   <para>
@@ -1702,12 +1702,12 @@ SELECT * FROM places ORDER BY location <-> point '(101,456)' LIMIT 10;
    operator returns <type>float8</>, it could be specified in an operator
    class creation command like this:
 -->
-�����黻�Ҥ������ͷ�̤��֤��ʤ���Фʤ�ޤ��󤬡�����դ��黻�Ҥ����̡���Υ��ɽ����ư����������ͷ��ʤɡ����餫��¾�η����֤��ޤ���
-���η����̾����ǥå����оݤΥǡ�������Ʊ���ˤϤʤ�ޤ���
-�ۤʤ�ǡ�������ư��ˤĤ��Ƥθ��경���줿������ɤ�����ˡ�����դ��黻�Ҥ�����Ǥϡ���̥ǡ������Υ����Ƚ������ꤹ��B-tree�黻��²��̾����ɬ�פȤ��ޤ���
-����ǽҤ٤��褦�ˡ�B-tree�黻��²��<productname>PostgreSQL</productname>�ν���դ���ˡ��������ޤ���
-�Ǥ��ΤǤ���ϼ�����ɽ���Ǥ���
-point���Ф���<literal>&lt;-&gt;</>�黻�Ҥ�<type>float8</>���֤��ޤ��Τǡ��黻�ҥ��饹��������륳�ޥ����ǰʲ��Τ褦�˻��ꤷ�ޤ���
+検索演算子が論理値結果を返さなければなりませんが、順序付け演算子は普通、距離を表す浮動小数点や数値型など、何らかの他の型を返します。
+この型は通常、インデックス対象のデータ型と同じにはなりません。
+異なるデータ型の動作についての固定化された前提を防ぐために、順序付け演算子の定義では、結果データ型のソート順序を指定するB-tree演算子族の名前を必要とします。
+前節で述べたように、B-tree演算子族は<productname>PostgreSQL</productname>の順序付け記法を定義します。
+ですのでこれは自然な表現です。
+pointに対する<literal>&lt;-&gt;</>演算子は<type>float8</>を返しますので、演算子クラスを作成するコマンド内で以下のように指定します。
 
 <programlisting><![CDATA[
 OPERATOR 15    <-> (point, point) FOR ORDER BY float_ops
@@ -1719,8 +1719,8 @@ OPERATOR 15    <-> (point, point) FOR ORDER BY float_ops
    is able to return rows in order of increasing values of the
    <literal>&lt;-&gt;</> operator.
 -->
-������<literal>float_ops</>�ϡ�<type>float8</>���Ф�������ޤ���ȹ��ߤα黻��²�Ǥ���
-��������ϡ�����ǥå�����<literal>&lt;-&gt;</>�黻�Ҥ��ͤ����ä��������ǹԤ��֤����Ȥ��Ǥ��뤳�Ȥ�ɽ���Ƥ��ޤ���
+ここで<literal>float_ops</>は、<type>float8</>に対する操作を含んだ組込みの演算子族です。
+この宣言は、インデックスが<literal>&lt;-&gt;</>演算子の値が増加する方向で行を返すことができることを表しています。
   </para>
  </sect2>
 
@@ -1728,7 +1728,7 @@ OPERATOR 15    <-> (point, point) FOR ORDER BY float_ops
 <!--
   <title>Special Features of Operator Classes</title>
 -->
-  <title>�黻�ҥ��饹���ü�ʵ�ǽ</title>
+  <title>演算子クラスの特殊な機能</title>
 
   <para>
 <!--
@@ -1736,8 +1736,8 @@ OPERATOR 15    <-> (point, point) FOR ORDER BY float_ops
    not discussed yet, mainly because they are not useful
    with the most commonly used index methods.
 -->
-�黻�ҥ��饹�ˤϡ��ޤ��������Ƥ��ʤ�2�Ĥ��ü�ʵ�ǽ������ޤ���
-�������Ƥ��ʤ������ͳ�ϡ��Ǥ�褯���Ѥ��륤��ǥå����᥽�åɤǤϡ�����餬���ޤ�ͭ�ѤǤϤʤ�����Ǥ���
+演算子クラスには、まだ説明していない2つの特殊な機能があります。
+説明していない主な理由は、最もよく使用するインデックスメソッドでは、これらがあまり有用ではないためです。
   </para>
 
   <para>
@@ -1746,8 +1746,8 @@ OPERATOR 15    <-> (point, point) FOR ORDER BY float_ops
    (or family) means that the index method can retrieve exactly the set of rows
    that satisfy a <literal>WHERE</> condition using the operator.  For example:
 -->
-�̾�黻�Ҥ�黻�ҥ��饹�ʤޤ��ϱ黻��²�ˤΥ��ФȤ����������ȡ�����ǥå����᥽�åɤǤ��α黻�Ҥ���Ѥ��ơ�<literal>WHERE</>�����������Ԥν�������Τ���Ф��뤳�Ȥ��Ǥ��ޤ���
-�ʲ�����򼨤��ޤ���
+通常、演算子を演算子クラス（または演算子族）のメンバとして宣言すると、インデックスメソッドでその演算子を使用して、<literal>WHERE</>条件を満たす行の集合を正確に抽出することができます。
+以下に例を示します。
 <programlisting>
 SELECT * FROM table WHERE integer_column &lt; 4;
 </programlisting>
@@ -1773,17 +1773,17 @@ SELECT * FROM table WHERE integer_column &lt; 4;
    operator classes to set the recheck flag, and so this is essentially an
    operator-class feature.
 -->
-���μ��ϡ��������B-tree����ǥå�������Ѥ��뤳�Ȥˤ�ꡢ���Τ����������Ȥ��Ǥ��ޤ���
-�����������פ���Ԥظ�̩�ǤϤʤ��Ȥ�Ƴ�����ʤȤ��ƥ���ǥå�����ͭ�ѤǤ����礬����ޤ���
-�㤨�С�GiST����ǥå����ǡ��������֥������Ȥζ����ܥå����Τߤ��Ǽ�����Ȥ��ޤ���
-���η�̡�¿�ѷ��Τ褦��Ĺ�����Ǥʤ����֥������ȤȤνŤʤ��ƥ��Ȥ���WHERE�������Τ����������Ȥ��Ǥ��ޤ���
-��äȤ⡢���Υ���ǥå�������Ѥ��ơ��оݥ��֥������Ȥζ����ܥå����˽Ťʤ붭���ܥå�������ĥ��֥������Ȥ򸡺���������ˡ��������줿���֥������ȤΤߤ��Ф������Τ˽Ťʤ뤫�ɤ�����ƥ��Ȥ��뤳�ȤϤǤ��ޤ���
-���ζڽ񤭤�Ŭ�Ѥ����硢����ǥå����ϱ黻�Ҥ��Ф���<quote>��ĵ�</>�ȸ����ޤ���
-��ĵե���ǥå��������ϡ�����Ԥ��䤤��碌����ºݤ���­���뤫���ʤ����λ���<firstterm>recheck</>�ե饰���֤�����ǥå����᥽�åɤ���Ĥ��ȤǼ�������ޤ���
-���������ƥ�ϡ�������ͭ���ʥޥå��Ȥ��ƹԤ��֤���뤫�ݤ����ǧ���뤿��ˡ���Ф��줿�Ԥ��Ф��Ƹ����䤤��碌���򸡺����ޤ���
-���μ�ˡ�ϥ���ǥå��������٤Ƥ�ɬ�פʹԤ��֤����Ȥ��ݾڤ��줿��ǡ����α黻�ҸƤӽФ���¹Ԥ��뤳�Ȥˤ�äƽ������뤳�Ȥ��Ǥ��롢�����Ĥ�;ʬ�ʹԤ��֤���ǽ�����������ư��ޤ���
-��ĵո������󶡤��륤��ǥå��������ʸ������Ǥ�GiST��SP-GiST�����GIN�ˤϸġ��α黻�ҥ��饹�Υ��ݡ��ȴؿ���recheck�ե饰�����ꤹ�뤳�Ȥ���Ĥ��ޤ���
-���Τ��ᤳ��ϸ�§Ū�˱黻�ҥ��饹�ε�ǽ�Ǥ���
+この式は、整数列にB-treeインデックスを使用することにより、正確に満たすことができます。
+しかし、一致する行へ厳密ではなくとも導く手段としてインデックスが有用である場合があります。
+例えば、GiSTインデックスで、幾何オブジェクトの境界ボックスのみを格納したとします。
+その結果、多角形のような長方形でないオブジェクトとの重なりをテストするWHERE条件は正確に満たすことができません。
+もっとも、このインデックスを使用して、対象オブジェクトの境界ボックスに重なる境界ボックスを持つオブジェクトを検索し、さらに、検索されたオブジェクトのみに対して正確に重なるかどうかをテストすることはできます。
+この筋書きを適用する場合、インデックスは演算子に対して<quote>非可逆</>と言われます。
+非可逆インデックス検索は、ある行が問い合わせ条件を実際に満足するかしないかの時に<firstterm>recheck</>フラグを返すインデックスメソッドを持つことで実装されます。
+コアシステムは、そこで有効なマッチとして行が返されるか否かを確認するために、抽出された行に対して元の問い合わせ条件を検査します。
+この手法はインデックスがすべての必要な行を返すことが保証された上で、元の演算子呼び出しを実行することによって除外することができる、いくつか余分な行を返す可能性がある場合に動作します。
+非可逆検索を提供するインデックス方式（現時点ではGiST、SP-GiSTおよびGIN）は個々の演算子クラスのサポート関数がrecheckフラグを設定することを許可します。
+このためこれは原則的に演算子クラスの機能です。
   </para>
 
   <para>
@@ -1795,11 +1795,11 @@ SELECT * FROM table WHERE integer_column &lt; 4;
    <type>box</>.  This situation is expressed by the <literal>STORAGE</>
    option in <command>CREATE OPERATOR CLASS</>: we'd write something like:
 -->
-���١�¿�ѷ��Τ褦��ʣ���ʥ��֥������Ȥζ����ܥå����Τߤ򥤥�ǥå����˳�Ǽ���Ƥ��������ͤ��ƤߤƤ���������
-���ξ�硢����ǥå�������ȥ��¿�ѷ����Τ��Ǽ����Τϡ�����ۤ�ͭ�Ѥʤ��ȤǤϤ���ޤ���
-ñ�ˡ����ñ���<literal>box</>���Υ��֥������Ȥ��Ǽ���������ɤ����⤷��ޤ���
-���Τ褦�ʾ����ϡ�<command>CREATE OPERATOR CLASS</>��<literal>STORAGE</>���ץ����ˤ�ä�ɽ�����뤳�Ȥ��Ǥ��ޤ���
-�㤨�С��ʲ��Τ褦�˵��Ҥ��ޤ���
+再度、多角形のような複雑なオブジェクトの境界ボックスのみをインデックスに格納している状況を考えてみてください。
+この場合、インデックスエントリに多角形全体を格納するのは、それほど有用なことではありません。
+単に、より単純な<literal>box</>型のオブジェクトを格納した方が良いかもしれません。
+このような状況は、<command>CREATE OPERATOR CLASS</>の<literal>STORAGE</>オプションによって表現することができます。
+例えば、以下のように記述します。
 
 <programlisting>
 CREATE OPERATOR CLASS polygon_ops
@@ -1820,12 +1820,12 @@ CREATE OPERATOR CLASS polygon_ops
    GIN <function>extractValue</> and <function>extractQuery</> support
    routines are responsible for extracting keys from indexed values.
 -->
-�������Ǥϡ�GiST����ǥå����᥽�åɤ�GIN����ǥå����᥽�åɤ�����Υǡ������Ȱۤʤ�<literal>STORAGE</>���򥵥ݡ��Ȥ��Ƥ��ޤ���
-<literal>STORAGE</>�����Ѥ��줿��硢GiST��<function>compress</>�����<function>decompress</>���ݡ��ȥ롼����ϡ��ǡ��������Ѵ�����ɬ�פ�����ޤ���
-GIN�Ǥϡ�<literal>STORAGE</>����<quote>����</>���ͤη����̤��ޤ���
-�̾盧��ϥ���ǥå����դ��������η��Ȥϰۤʤ�ޤ���
-�㤨�С�������������Ѥα黻�ҥ��饹��ñ�ʤ������򥭡��Ȥ��ƻ��Ĥ��⤷��ޤ���
-GIN��<literal>extractValue</>�����<literal>extractQuery</>���ݡ��ȥ롼���󤬡�����ǥå����դ����줿�ͤ��饭������Ф���Ǥ���餤�ޤ���
+現時点では、GiSTインデックスメソッドとGINインデックスメソッドが、列のデータ型と異なる<literal>STORAGE</>型をサポートしています。
+<literal>STORAGE</>が使用された場合、GiSTの<function>compress</>および<function>decompress</>サポートルーチンは、データ型を変換する必要があります。
+GINでは、<literal>STORAGE</>型は<quote>キー</>の値の型を識別します。
+通常これはインデックス付けされる列の型とは異なります。
+例えば、整数配列の列用の演算子クラスは単なる整数をキーとして持つかもしれません。
+GINの<literal>extractValue</>および<literal>extractQuery</>サポートルーチンが、インデックス付けされた値からキーを取り出す責任を負います。
   </para>
  </sect2>
 

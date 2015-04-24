@@ -19,7 +19,7 @@
   <type>varchar</>, <type>text</>, <type>bytea</>, <type>bit</>,
   <type>varbit</>, <type>macaddr</>, <type>inet</>, and <type>cidr</>.
 -->
-<filename>btree_gist</>�ϡ�������󤹤�ǡ��������Ф�B-tree��Ʊ����ư����������GiST����ǥå����黻�ҥ��饹���󶡤��ޤ����ǡ������ϡ�<type>int2</>��<type>int4</>��<type>int8</>��<type>float4</>��<type>float8</>��<type>numeric</>��<type>timestamp with time zone</>��<type>timestamp without time zone</>��<type>time with time zone</>��<type>time without time zone</>��<type>date</>��<type>interval</>��<type>oid</>��<type>money</>��<type>char</>��<type>varchar</>��<type>text</>��<type>bytea</>�� <type>bit</>��<type>varbit</>��<type>macaddr</>��<type>inet</>�������<type>cidr</>�Ǥ���
+<filename>btree_gist</>は、次に列挙するデータ型に対しB-treeと同等な動作を実装するGiSTインデックス演算子クラスを提供します。データ型は、<type>int2</>、<type>int4</>、<type>int8</>、<type>float4</>、<type>float8</>、<type>numeric</>、<type>timestamp with time zone</>、<type>timestamp without time zone</>、<type>time with time zone</>、<type>time without time zone</>、<type>date</>、<type>interval</>、<type>oid</>、<type>money</>、<type>char</>、<type>varchar</>、<type>text</>、<type>bytea</>、 <type>bit</>、<type>varbit</>、<type>macaddr</>、<type>inet</>、および<type>cidr</>です。
  </para>
 
  <para>
@@ -34,10 +34,10 @@
   are just simple data types.  Lastly, these operator classes are useful for
   GiST testing and as a base for developing other GiST operator classes.
 -->
-����Ū�ˡ������α黻�ҥ��饹��Ʊ����ɸ��B-tree����ǥå�����������ǽŪ��ο�魯��ʪ�ǤϤʤ���ɸ��B-tree�����ɤΣ��Ĥν��׵�ǽ�Ǥ����������פ�ǽ�Ϥ�礤�Ƥ��ޤ���
-�������ʤ��顢�ʲ��ǽҤ٤�褦��B-tree����ǥå����ˤϤʤ���ħ�򤤤��Ĥ������Ƥ��ޤ���
-�ޤ��������α黻�ҥ��饹�ϡ�GiST�ǤΤߥ���ǥå�����ǽ�ʥǡ���������⤢��С�ñ��ʥǡ���������⤢��褦��ʣ�����GiST����ǥå�����ɬ�פʾ��������Ǥ���
-�Ǹ�ˡ�GiST�λ������Ӥ���¾��GiST�黻�ҥ��饹�γ�ȯ�δ��äȤ��������Ǥ���
+一般的に、これらの演算子クラスは同等な標準B-treeインデックス方式を性能的に凌駕する物ではなく、標準B-treeコードの１つの重要機能である一意性強要の能力を欠いています。
+しかしながら、以下で述べるようにB-treeインデックスにはない特徴をいくつか備えています。
+また、これらの演算子クラスは、GiSTでのみインデックス可能なデータ型の列もあれば、単純なデータ型の列もあるような複数列のGiSTインデックスが必要な場合に便利です。
+最後に、GiSTの試験、およびその他のGiST演算子クラスの開発の基礎として便利です。
  </para>
 
  <para>
@@ -48,8 +48,8 @@
   <link linkend="SQL-CREATETABLE-EXCLUDE">exclusion constraint</link>,
   as described below.
 -->
-ŵ��Ū��B-tree�����黻�Ҥ˲ä��ơ�<filename>btree_gist</>��<literal>&lt;&gt;</literal>��<quote>�������ʤ�</quote>�ˤ��Ф��Ƥ⥤��ǥå����Υ��ݡ��Ȥ��󶡤��ޤ���
-����ϡ���ǽҤ٤�褦��<link linkend="SQL-CREATETABLE-EXCLUDE">��¾����</link>���Ȥ߹�碌��������Ǥ��礦��
+典型的なB-tree検索演算子に加えて、<filename>btree_gist</>は<literal>&lt;&gt;</literal>（<quote>等しくない</quote>）に対してもインデックスのサポートを提供します。
+これは、後で述べるような<link linkend="SQL-CREATETABLE-EXCLUDE">排他制約</link>と組み合わせると便利でしょう。
  </para>
 
  <para>
@@ -64,33 +64,33 @@
   <type>time without time zone</>, <type>date</>, <type>interval</>,
   <type>oid</>, and <type>money</>.
 -->
-�ޤ��������ʵ�Υ�Τ���ǡ������ˤϡ�<filename>btree_gist</>�ϵ�Υ�黻��<literal>&lt;-&gt;</>������������α黻�Ҥ�Ȥä��Ƕ��ܸ����ؤ�GiST����ǥå����Υ��ݡ��Ȥ��󶡤��ޤ���
-��Υ�黻�Ҥ�<type>int2</>��<type>int4</>��<type>int8</>��<type>float4</>��<type>float8</>��<type>timestamp with time zone</>��<type>timestamp without time zone</>��<type>time without time zone</>��<type>date</>��<type>interval</>��<type>oid</>��<type>money</>���󶡤���ޤ���
+また、自然な距離のあるデータ型には、<filename>btree_gist</>は距離演算子<literal>&lt;-&gt;</>を定義し、この演算子を使った最近接検索へのGiSTインデックスのサポートを提供します。
+距離演算子は<type>int2</>、<type>int4</>、<type>int8</>、<type>float4</>、<type>float8</>、<type>timestamp with time zone</>、<type>timestamp without time zone</>、<type>time without time zone</>、<type>date</>、<type>interval</>、<type>oid</>、<type>money</>に提供されます。
  </para>
 
  <sect2>
 <!--
   <title>Example Usage</title>
 -->
-  <title>������</title>
+  <title>使用例</title>
 
   <para>
 <!--
    Simple example using <literal>btree_gist</literal> instead of <literal>btree</literal>:
 -->
-<literal>btree</literal>�������<literal>btree_gist</literal>��Ȥä���ñ����
+<literal>btree</literal>の代わりに<literal>btree_gist</literal>を使った簡単な例
   </para>
 
 <programlisting>
 CREATE TABLE test (a int4);
--- <!--create index-->����ǥå����κ���
+-- <!--create index-->インデックスの作成
 CREATE INDEX testidx ON test USING gist (a);
--- <!--query-->�䤤��碌
+-- <!--query-->問い合わせ
 SELECT * FROM test WHERE a &lt; 10;
 <!--
 &#045;- nearest-neighbor search: find the ten entries closest to "42"
 -->
--- �Ƕ��ܸ���: "42"�˰��ֶᤤ10�ĤΥ���ȥ�򸫤Ĥ���
+-- 最近接検索: "42"に一番近い10個のエントリを見つける
 SELECT *, a &lt;-&gt; 42 AS dist FROM test ORDER BY a &lt;-&gt; 42 LIMIT 10;
 </programlisting>
 
@@ -100,7 +100,7 @@ SELECT *, a &lt;-&gt; 42 AS dist FROM test ORDER BY a &lt;-&gt; 42 LIMIT 10;
    constraint</link> to enforce the rule that a cage at a zoo
    can contain only one kind of animal:
 -->
-ưʪ��ΰ�Ĥ�ݣ��1�����ưʪ�������ʤ��Ȥ����롼��������뤿���<link linkend="SQL-CREATETABLE-EXCLUDE">��¾����</link>��Ȥ��ޤ���
+動物園の一つの檻に1種類の動物しかいないというルールを強制するために<link linkend="SQL-CREATETABLE-EXCLUDE">排他制約</link>を使います。
   </para>
 
 <programlisting>
@@ -127,7 +127,7 @@ INSERT 0 1
 <!--
   <title>Authors</title>
 -->
-  <title>�����</title>
+  <title>著作者</title>
 
   <para>
 <!--
@@ -137,8 +137,8 @@ INSERT 0 1
    <ulink url="http://www.sai.msu.su/~megera/postgres/gist/"></ulink>
    for additional information.
 -->
-   Teodor Sigaev��<email>teodor@stack.net</email>�ˡ�
-   Oleg Bartunov��<email>oleg@sai.msu.su</email>�ˡ������Janko Richter��<email>jankorichter@yahoo.de</email>�ˡ��ɲþ����<ulink url="http://www.sai.msu.su/~megera/postgres/gist/"></ulink>�򻲾Ȥ���������
+   Teodor Sigaev（<email>teodor@stack.net</email>）、
+   Oleg Bartunov（<email>oleg@sai.msu.su</email>）、およびJanko Richter（<email>jankorichter@yahoo.de</email>）。追加情報は<ulink url="http://www.sai.msu.su/~megera/postgres/gist/"></ulink>を参照ください。
   </para>
 
  </sect2>

@@ -86,7 +86,7 @@ man-stamp: stylesheet-man.xsl postgres.xml
 
 .PHONY: draft
 
-JADE.html.call = $(JADE) $(JADEFLAGS) $(SPFLAGS) $(SGMLINCLUDE) $(CATALOG) -d stylesheet.dsl -t sgml -i output-html
+JADE.html.call = SP_CHARSET_FIXED=1 SP_ENCODING=UTF-8 $(JADE) $(JADEFLAGS) $(SPFLAGS) $(SGMLINCLUDE) $(CATALOG) -d stylesheet.dsl -t sgml -i output-html
 ifeq ($(STYLE),website)
 JADE.html.call += -V website-stylesheet
 endif
@@ -238,7 +238,8 @@ INSTALL.html: standalone-install.sgml installation.sgml version.sgml
 # if we try to do "make all" in a VPATH build without the explicit
 # $(srcdir) on the postgres.sgml dependency in this rule.  GNU make bug?
 postgres.xml: $(srcdir)/postgres.sgml $(ALMOSTALLSGML)
-	$(OSX) -D. -x lower -i include-xslt-index $< >postgres.xmltmp
+	SP_CHARSET_FIXED=1 SP_ENCODING=UTF-8 \
+	$(OSX) -D. -x comment -x lower -i include-xslt-index $< >postgres.xmltmp
 	$(PERL) -p -e 's/\[(aacute|acirc|aelig|agrave|amp|aring|atilde|auml|bull|copy|eacute|egrave|gt|iacute|lt|mdash|nbsp|ntilde|oacute|ocirc|oslash|ouml|pi|quot|scaron|uuml) *\]/\&\1;/gi;' \
 	           -e '$$_ .= qq{<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">\n} if $$. == 1;' \
 	  <postgres.xmltmp > $@
@@ -275,7 +276,7 @@ XMLLINT = xmllint
 .SECONDARY: postgres-A4.fo postgres-US.fo
 
 %-fop.pdf: %.fo
-	$(FOP) -fo $< -pdf $@
+	$(FOP) -c fop.xconf -fo $< -pdf $@
 
 epub: postgres.epub
 postgres.epub: postgres.xml

@@ -4,14 +4,14 @@
 <!--
   <title>Large Objects</title>
 -->
-  <title>�顼�����֥�������</title>
+  <title>ラージオブジェクト</title>
 
 <!--
   <indexterm zone="largeobjects"><primary>large object</></>
   <indexterm><primary>BLOB</><see>large object</></>
 -->
-  <indexterm zone="largeobjects"><primary>�顼�����֥�������</></>
-  <indexterm><primary>BLOB</><see>�顼�����֥�������</></>
+  <indexterm zone="largeobjects"><primary>ラージオブジェクト</></>
+  <indexterm><primary>BLOB</><see>ラージオブジェクト</></>
 
    <para>
 <!--
@@ -21,9 +21,9 @@
     when working with data values that are too large to manipulate
     conveniently as a whole.
 -->
-<productname>PostgreSQL</productname>�ˤ�<firstterm>�顼�����֥�������</>��ǽ������ޤ���
-����ϡ��ü�ʥ顼�����֥������ȹ�¤�˳�Ǽ���줿�桼���ǡ������Ф��ƥ��ȥ꡼���ͼ��Υ����������󶡤��ޤ���
-���Τ�ޤ뤴�ȴ�ñ������ˤϵ���᤮��ǡ����ͤ������硢���ȥ꡼�ߥ󥰥���������ͭ�ѤǤ���
+<productname>PostgreSQL</productname>には<firstterm>ラージオブジェクト</>機能があります。
+これは、特殊なラージオブジェクト構造に格納されたユーザデータに対してストリーム様式のアクセスを提供します。
+全体をまるごと簡単に操作するには巨大過ぎるデータ値を操作する場合、ストリーミングアクセスが有用です。
    </para>
 
    <para>
@@ -37,17 +37,17 @@
     object interface internally to provide generic support for large
     values.  This is not described here.
 -->
-�ܾϤǤϡ�<productname>PostgreSQL</productname>�顼�����֥������ȥǡ����˴ؤ��롢�������ץ�����ߥ󥰡��䤤��碌���쥤�󥿥ե������ˤĤ����������ޤ���
-<application>libpq</application> C�饤�֥�����Ȥ����ܾϤǻ��Ѥ��Ƥ��ޤ������ۤȤ�ɤ�<productname>PostgreSQL</productname>��ͭ�Υץ�����ߥ󥰥��󥿥ե�������Ʊ���ε�ǽ����äƤ��ޤ���
-¾�Υ��󥿥ե������Ǥϡ�������ͤ�����Ū�˥��ݡ��ȤǤ���褦�ˡ��顼�����֥������ȥ��󥿥ե������������ǻ��Ѥ��Ƥ��뤫�⤷��ޤ���
-�����Ǥ��������ޤ���
+本章では、<productname>PostgreSQL</productname>ラージオブジェクトデータに関する、実装、プログラミング、問い合わせ言語インタフェースについて説明します。
+<application>libpq</application> Cライブラリを例として本章で使用していますが、ほとんどの<productname>PostgreSQL</productname>固有のプログラミングインタフェースは同等の機能を持っています。
+他のインタフェースでは、巨大な値を汎用的にサポートできるように、ラージオブジェクトインタフェースを内部で使用しているかもしれません。
+ここでは説明しません。
    </para>
 
   <sect1 id="lo-intro">
 <!--
    <title>Introduction</title>
 -->
-   <title>�Ϥ����</title>
+   <title>はじめに</title>
 
    <indexterm>
 <!--
@@ -55,7 +55,7 @@
     <secondary>versus large objects</secondary>
 -->
     <primary>TOAST</primary>
-    <secondary>�Х顼�����֥�������</secondary>
+    <secondary>対ラージオブジェクト</secondary>
    </indexterm>
 
    <para>
@@ -67,9 +67,9 @@
     Large objects can be created, modified, and deleted using a read/write API
     that is similar to standard operations on files.
 -->
-���٤ƤΥ顼�����֥������Ȥ�<link linkend="catalog-pg-largeobject"><structname>pg_largeobject</structname></link>�Ȥ����ҤȤĤΥ����ƥ�ơ��֥���˳�Ǽ����ޤ���
-�ƥ顼�����֥������ȤϤޤ�<link linkend="catalog-pg-largeobject-metadata"><structname>pg_largeobject_metadata</structname></link>�����ƥ�ơ��֥����˹��ܤ�����ޤ���
-�顼�����֥������Ȥ򡢥ե�����ɸ�����˻����ɤ߼��/�񤭽Ф�API����Ѥ��ơ��������ѹ���������뤳�Ȥ��Ǥ��ޤ���
+すべてのラージオブジェクトは<link linkend="catalog-pg-largeobject"><structname>pg_largeobject</structname></link>というひとつのシステムテーブル内に格納されます。
+各ラージオブジェクトはまた<link linkend="catalog-pg-largeobject-metadata"><structname>pg_largeobject_metadata</structname></link>システムテーブルの中に項目を持ちます。
+ラージオブジェクトを、ファイル標準操作に似た読み取り/書き出しAPIを使用して、作成、変更、削除することができます。
    </para>
 
    <para>
@@ -86,12 +86,12 @@
     done efficiently, while most operations on a <acronym>TOAST</acronym>ed
     field will read or write the whole value as a unit.
 -->
-<productname>PostgreSQL</productname>�ǤϤޤ���ñ��Υǡ����١����ڡ��������礭���ͤ�ưŪ�˥ơ��֥뤴�Ȥ�¸�ߤ����󼡳�Ǽ�ΰ�˳�Ǽ����<link linkend="storage-toast"><quote><acronym>TOAST</acronym></quote></link>�Ȥ�����Ǽ�����ƥ�򥵥ݡ��Ȥ��ޤ���
-����ˤ��顼�����֥������Ȥΰ��������פˤʤ�ޤ�����
-�顼�����֥������ȵ�ǽ�˻Ĥ�������1�Ĥϡ����Υ�������4�ƥ�Х��Ȥޤǲ�ǽ�Ǥ���Ȥ������Ǥ���
-<acronym>TOAST</acronym>�Ǥϥե�����ɤ�1�����Х��ȤޤǤ��������ޤ���
-�ޤ����顼�����֥������Ȥ���ʬ�ɤ߼�ꡢ��ʬ�����ϸ�ΨŪ�˹Ԥ����Ȥ��Ǥ��ޤ���
-����<acronym>TOAST</acronym>�����줿�ե�����ɤ��Ф������ΤۤȤ�ɤϡ����Υե���������Τ�ñ�̤Ȥ����ɤ߼�ꡢ�ޤ��Ͻ񤭽Ф����ʤ���ޤ���
+<productname>PostgreSQL</productname>ではまた、単一のデータベースページよりも大きな値を自動的にテーブルごとに存在する二次格納領域に格納する<link linkend="storage-toast"><quote><acronym>TOAST</acronym></quote></link>という格納システムをサポートします。
+これによりラージオブジェクトの一部は不要になりました。
+ラージオブジェクト機能に残る利点の1つは、そのサイズが4テラバイトまで可能であるという点です。
+<acronym>TOAST</acronym>ではフィールドは1ギガバイトまでしか扱えません。
+また、ラージオブジェクトの部分読み取り、部分更新は効率的に行うことができます。
+一方<acronym>TOAST</acronym>化されたフィールドに対する操作のほとんどは、そのフィールド全体を単位として読み取り、または書き出しがなされます。
    </para>
 
   </sect1>
@@ -100,7 +100,7 @@
 <!--
    <title>Implementation Features</title>
 -->
-   <title>������ǽ</title>
+   <title>実装機能</title>
 
    <para>
 <!--
@@ -110,8 +110,8 @@
     searches for the correct chunk number when doing random
     access reads and writes.
 -->
-�顼�����֥������Ȥμ����Ǥϡ��顼�����֥������Ȥ�<quote>�����</quote>��ʬ�䤷������󥯤�ǡ����١�����ιԤ˳�Ǽ���Ƥ��ޤ���
-B-tree����ǥå������ɤ߽��ѤΥ����ॢ�������˺ݤ��ơ����Τʥ�����ֹ�ι�®�������ݾڤ��Ƥ��ޤ���
+ラージオブジェクトの実装では、ラージオブジェクトを<quote>チャンク</quote>に分割し、チャンクをデータベース内の行に格納しています。
+B-treeインデックスは読み書き用のランダムアクセスに際して、正確なチャンク番号の高速検索を保証しています。
    </para>
 
    <para>
@@ -125,11 +125,11 @@ B-tree����ǥå������ɤ߽��ѤΥ����ॢ�������˺ݤ��ơ����Τʥ�����ֹ�ι�
     This corresponds to the common behavior of <quote>sparsely allocated</>
     files in <acronym>Unix</acronym> file systems.
 -->
-�顼�����֥��������ѤΥ���󥯤Ϸ�³��������ޤ���
-�㤨�С����ץꥱ������󤬿������顼�����֥������Ȥ򳫤���1000000���ե��åȤ˥������������Х��Ȥ����˽񤭽Ф�����硢�����1000000�Х��Ȥۤɤγ�Ǽ�ΰ褬������Ƥ��뤳�ȤˤϤʤ�ޤ���
-�ǡ����Х��Ȥ��ϰϤ��б��������󥯤Τߤ��ºݤ˽񤭽Ф���ޤ���
-�������ɤ߼�����ϺǸ��¸�ߤ������󥯤����ˤ���̤������Ƥ��ΰ褹�٤ƤȤ��ƥ������ɤ߼��ޤ���
-�����<acronym>Unix</acronym>�ե����륷���ƥ��<quote>���ѡ����������</>�ե�����ΰ���ư��˰��פ��ޤ���
+ラージオブジェクト用のチャンクは継続性を持ちません。
+例えば、アプリケーションが新しくラージオブジェクトを開き、1000000オフセットにシークし、数バイトそこに書き出した場合、これは1000000バイトほどの格納領域が割り当てられることにはなりません。
+データバイトの範囲に対応するチャンクのみが実際に書き出されます。
+しかし読み取り操作は最後に存在するチャンクの前にある未割り当ての領域すべてとしてゼロを読み取ります。
+これは<acronym>Unix</acronym>ファイルシステムの<quote>スパース割り当て</>ファイルの一般動作に一致します。
    </para>
 
    <para>
@@ -147,12 +147,12 @@ B-tree����ǥå������ɤ߽��ѤΥ����ॢ�������˺ݤ��ơ����Τʥ�����ֹ�ι�
     To adjust this behavior for compatibility with prior releases, see the
     <xref linkend="guc-lo-compat-privileges"> run-time parameter.
 -->
-<productname>PostgreSQL</> 9.0����顼�����֥������ȤϽ�ͭ�Ԥ���ӥ����������¤�����ޤ���
-�����<xref linkend="sql-grant">�����<xref linkend="sql-revoke">����Ѥ��ƴ�����ǽ�Ǥ���
-�顼�����֥������Ȥ��ɤ߼��ˤ�<literal>SELECT</literal>���¤�ɬ�פǤ���
-�ޤ��񤭽Ф����ڤ�ͤ�Τ���ˤ�<literal>UPDATE</literal>���¤�ɬ�פǤ���
-�顼�����֥������Ȥν�ͭ��(�ޤ��ϥǡ����١��������ѡ��桼��)�Τߤ��顼�����֥������Ȥκ�����������դ�����ͭ�Ԥ��ѹ�����ǽ�Ǥ���
-���Υ�꡼���Ȥθߴ����˴ؤ��뤳��ư���Ĵ�����뤿��ˤ�<xref linkend="guc-lo-compat-privileges">�¹Ի��ѥ�᡼���򻲾Ȥ��Ƥ���������
+<productname>PostgreSQL</> 9.0からラージオブジェクトは所有者およびアクセス権限を持ちます。
+これは<xref linkend="sql-grant">および<xref linkend="sql-revoke">を使用して管理可能です。
+ラージオブジェクトの読み取りには<literal>SELECT</literal>権限が必要です。
+また書き出し、切り詰めのためには<literal>UPDATE</literal>権限が必要です。
+ラージオブジェクトの所有者(またはデータベーススーパーユーザ)のみがラージオブジェクトの削除、コメント付け、所有者の変更が可能です。
+過去のリリースとの互換性に関するこの動作を調整するためには<xref linkend="guc-lo-compat-privileges">実行時パラメータを参照してください。
    </para>
   </sect1>
 
@@ -160,7 +160,7 @@ B-tree����ǥå������ɤ߽��ѤΥ����ॢ�������˺ݤ��ơ����Τʥ�����ֹ�ι�
 <!--
    <title>Client Interfaces</title>
 -->
-   <title>���饤����ȥ��󥿥ե�����</title>
+   <title>クライアントインタフェース</title>
 
    <para>
 <!--
@@ -173,8 +173,8 @@ B-tree����ǥå������ɤ߽��ѤΥ����ॢ�������˺ݤ��ơ����Τʥ�����ֹ�ι�
     <function>write</function>,
     <function>lseek</function>, etc.
 -->
-����Ǥϡ�<productname>PostgreSQL</productname>��<application>libpq</>���饤����ȥ��󥿥ե������饤�֥����󶡤����顼�����֥������ȤؤΥ����������ʤˤĤ����������ޤ���
-<productname>PostgreSQL</productname>�顼�����֥������ȥ��󥿥ե������ϡ�<acronym>Unix</acronym>�ե����륷���ƥ।�󥿥ե������˰�����߷פ���Ƥ��ꡢ<function>open</function>��<function>read</function>��<function>write</function>��<function>lseek</function>�ʤ�Ʊ�ͤΥ��󥿥ե�������ͭ���Ƥ��ޤ���
+本節では、<productname>PostgreSQL</productname>の<application>libpq</>クライアントインタフェースライブラリで提供されるラージオブジェクトへのアクセス手段について説明します。
+<productname>PostgreSQL</productname>ラージオブジェクトインタフェースは、<acronym>Unix</acronym>ファイルシステムインタフェースに因んで設計されており、<function>open</function>、<function>read</function>、<function>write</function>、<function>lseek</function>など同様のインタフェースを有しています。
    </para>
 
    <para>
@@ -184,7 +184,7 @@ B-tree����ǥå������ɤ߽��ѤΥ����ॢ�������˺ݤ��ơ����Τʥ�����ֹ�ι�
     since large object file descriptors are only valid for the duration of
     a transaction.
 -->
-�顼�����֥������ȥե����뵭�һҤϥȥ�󥶥������δ֤Ǥ���ͭ���Ǥ���ޤ���Τǡ������δؿ�����Ѥ����顼�����֥������Ȥ����Ϥ��٤�SQL�ȥ�󥶥������֥��å���ǹԤ��<emphasis>�ʤ���Фʤ�ޤ���</emphasis>��
+ラージオブジェクトファイル記述子はトランザクションの間でしか有効でありませんので、これらの関数を使用したラージオブジェクトの操作はすべてSQLトランザクションブロック内で行われ<emphasis>なければなりません</emphasis>。
    </para>
 
    <para>
@@ -194,8 +194,8 @@ B-tree����ǥå������ɤ߽��ѤΥ����ॢ�������˺ݤ��ơ����Τʥ�����ֹ�ι�
     A message describing the error is stored in the connection object and
     can be retrieved with <function>PQerrorMessage</>.
 -->
-�����δؿ��Τ����줫���Ĥμ¹Ի��˥��顼��ȯ��������硢�ؿ���¾�ǤϤ������ʤ��͡��̾��0�ޤ���-1���֤��ޤ���
-���顼�����������å���������³���֥���������˳�Ǽ���졢<function>PQerrorMessage</>���Ѥ��Ƽ��Ф����Ȥ��Ǥ��ޤ���
+これらの関数のいずれか１つの実行時にエラーが発生した場合、関数は他ではあり得ない値、通常は0または-1を返します。
+エラーを説明するメッセージは接続オブジェクト内に格納され、<function>PQerrorMessage</>を用いて取り出すことができます。
    </para>
 
    <para>
@@ -204,14 +204,14 @@ B-tree����ǥå������ɤ߽��ѤΥ����ॢ�������˺ݤ��ơ����Τʥ�����ֹ�ι�
     <filename>libpq/libpq-fs.h</filename> and link with the
     <application>libpq</application> library.
 -->
-�����δؿ�����Ѥ��륯�饤����ȥ��ץꥱ�������ϡ�<filename>libpq/libpq-fs.h</filename>�إå��ե�����򥤥󥯥롼�ɤ���<application>libpq</application>�饤�֥��ȥ�󥯤��ʤ���Фʤ�ޤ���
+これらの関数を使用するクライアントアプリケーションは、<filename>libpq/libpq-fs.h</filename>ヘッダファイルをインクルードし、<application>libpq</application>ライブラリとリンクしなければなりません。
    </para>
 
    <sect2 id="lo-create">
 <!--
     <title>Creating a Large Object</title>
 -->
-    <title>�顼�����֥������Ȥκ���</title>
+    <title>ラージオブジェクトの作成</title>
 
     <para>
      <indexterm><primary>lo_creat</></>
@@ -234,18 +234,18 @@ Oid lo_creat(PGconn *conn, int mode);
      (These symbolic constants are defined
      in the header file <filename>libpq/libpq-fs.h</filename>.)
 -->
-���δؿ��ϥ顼�����֥������Ȥ򿷵��˺������ޤ���
-����ͤϿ����顼�����֥������Ȥ˳�����Ƥ�줿OID�ǡ����Ի��ˤ�<symbol>InvalidOid</symbol>��0�ˤ��֤���ޤ���
-<productname>PostgreSQL</productname> 8.1�Ǥϡ�<replaceable class="parameter">mode</replaceable>�ϻ��Ѥ��줺��̵�뤵��ޤ���
-�������������Υ�꡼���Ȥθ����ߴ������ݻ����뤿��ˡ������<symbol>INV_READ</symbol>��<symbol>INV_WRITE</symbol>��<symbol>INV_READ</symbol> <literal>|</> <symbol>INV_WRITE</symbol>�����ꤹ�뤳�Ȥ������Ǥ���
-�ʤ������������ܥ��<filename>libpq/libpq-fs.h</filename>�إå��ե�������������Ƥ��ޤ�����
+この関数はラージオブジェクトを新規に作成します。
+戻り値は新規ラージオブジェクトに割り当てられたOIDで、失敗時には<symbol>InvalidOid</symbol>（0）が返されます。
+<productname>PostgreSQL</productname> 8.1では、<replaceable class="parameter">mode</replaceable>は使用されず、無視されます。
+しかし、以前のリリースとの後方互換性を保持するために、これを<symbol>INV_READ</symbol>、<symbol>INV_WRITE</symbol>、<symbol>INV_READ</symbol> <literal>|</> <symbol>INV_WRITE</symbol>に設定することが最善です。
+（これらの定数シンボルは<filename>libpq/libpq-fs.h</filename>ヘッダファイルで定義されています。）
     </para>
 
     <para>
 <!--
      An example:
 -->
-�ʲ�����򼨤��ޤ���
+以下に例を示します。
 <programlisting>
 inv_oid = lo_creat(conn, INV_READ|INV_WRITE);
 </programlisting>
@@ -269,12 +269,12 @@ Oid lo_create(PGconn *conn, Oid lobjId);
      The return value is the OID that was assigned to the new large object,
      or <symbol>InvalidOid</symbol> (zero) on failure.
 -->
-���δؿ���顼�����֥������Ȥ򿷵��˺������ޤ���
-������Ƥ���OID��<replaceable class="parameter">lobjId</replaceable>�ǻ��ꤹ�뤳�Ȥ��Ǥ��ޤ���
-����������硢����OID��¾�Υ顼�����֥������ȤǤ��Ǥ˻��Ѥ���Ƥ�����硢���Ԥ��ޤ���
-<replaceable class="parameter">lobjId</replaceable>��<symbol>InvalidOid</symbol>��0�ˤξ�硢<function>lo_create</>��̤���Ѥ�OID�������Ƥޤ���
-�ʤ����<function>lo_creat</>��Ʊ��ư��Ǥ�����
-����ͤϿ����顼�����֥������Ȥ˳�����Ƥ�줿OID�ǡ����Ի��ˤ�<symbol>InvalidOid</symbol>��0�ˤ��֤���ޤ���
+この関数もラージオブジェクトを新規に作成します。
+割り当てられるOIDを<replaceable class="parameter">lobjId</replaceable>で指定することができます。
+こうした場合、そのOIDが他のラージオブジェクトですでに使用されていた場合、失敗します。
+<replaceable class="parameter">lobjId</replaceable>が<symbol>InvalidOid</symbol>（0）の場合、<function>lo_create</>は未使用のOIDを割り当てます。
+（これは<function>lo_creat</>と同じ動作です。）
+戻り値は新規ラージオブジェクトに割り当てられたOIDで、失敗時には<symbol>InvalidOid</symbol>（0）が返されます。
     </para>
 
     <para>
@@ -283,15 +283,15 @@ Oid lo_create(PGconn *conn, Oid lobjId);
      8.1; if this function is run against an older server version, it will
      fail and return <symbol>InvalidOid</symbol>.
 -->
-<function>lo_create</>��<productname>PostgreSQL</productname> 8.1����Ƴ������ޤ�����
-���δؿ���Ť��С������Ǽ¹Ԥ�����ȼ��Ԥ���<symbol>InvalidOid</symbol>���֤���ޤ���
+<function>lo_create</>は<productname>PostgreSQL</productname> 8.1から導入されました。
+この関数を古いバージョンで実行させると失敗し、<symbol>InvalidOid</symbol>が返されます。
     </para>
 
     <para>
 <!--
      An example:
 -->
-��򼨤��ޤ���
+例を示します。
 <programlisting>
 inv_oid = lo_create(conn, desired_oid);
 </programlisting>
@@ -302,14 +302,14 @@ inv_oid = lo_create(conn, desired_oid);
 <!--
     <title>Importing a Large Object</title>
 -->
-    <title>�顼�����֥������ȤΥ���ݡ���</title>
+    <title>ラージオブジェクトのインポート</title>
 
     <para>
      <indexterm><primary>lo_import</></>
 <!--
      To import an operating system file as a large object, call
 -->
-���ڥ졼�ƥ��󥰥����ƥ��Υե������顼�����֥������ȤȤ��ƥ���ݡ��Ȥ���ˤϡ��ʲ��δؿ���ƤӽФ��ޤ���
+オペレーティングシステム上のファイルをラージオブジェクトとしてインポートするには、以下の関数を呼び出します。
 <synopsis>
 Oid lo_import(PGconn *conn, const char *filename);
 </synopsis>
@@ -323,11 +323,11 @@ Oid lo_import(PGconn *conn, const char *filename);
      the server; so it must exist in the client file system and be readable
      by the client application.
 -->
-<replaceable class="parameter">filename</replaceable>�ˤϡ��顼�����֥������ȤȤ��ƥ���ݡ��Ȥ��륪�ڥ졼�ƥ��󥰥����ƥ��Υե�����Υѥ�̾����ꤷ�ޤ���
-����ͤϡ������顼�����֥������Ȥ˳�����Ƥ�줿OID�Ǥ���
-���Ի���<symbol>InvalidOid</symbol>��0�ˤ��֤���ޤ���
-���Υե����뤬�����ФǤϤʤ������饤����ȥ��󥿥ե������饤�֥�꤫���ɤ߼���뤳�Ȥ����դ��Ƥ���������
-�Ǥ����顢���Υե�����ϥ��饤����ȤΥե����륷���ƥ���¸�ߤ������饤����ȥ��ץꥱ������󤫤��ɤ߼���ǽ�Ǥʤ���Фʤ�ޤ���
+<replaceable class="parameter">filename</replaceable>には、ラージオブジェクトとしてインポートするオペレーティングシステム上のファイルのパス名を指定します。
+戻り値は、新規ラージオブジェクトに割り当てられたOIDです。
+失敗時は<symbol>InvalidOid</symbol>（0）が返されます。
+このファイルがサーバではなく、クライアントインタフェースライブラリから読み取られることに注意してください。
+ですから、このファイルはクライアントのファイルシステム上に存在し、クライアントアプリケーションから読み取り可能でなければなりません。
     </para>
 
     <para>
@@ -349,11 +349,11 @@ Oid lo_import_with_oid(PGconn *conn, const char *filename, Oid lobjId);
      The return value is the OID that was assigned to the new large object,
      or <symbol>InvalidOid</symbol> (zero) on failure.
 -->
-���δؿ��⿷���Υ顼�����֥������Ȥ򥤥�ݡ��Ȥ��ޤ���
-������Ƥ���OID��<replaceable class="parameter">lobjId</replaceable>�ǻ��ꤹ�뤳�Ȥ��Ǥ��ޤ���
-����������硢����OID��¾�Υ顼�����֥������ȤǤ��Ǥ˻��Ѥ���Ƥ�����硢���Ԥ��ޤ���
-<replaceable class="parameter">lobjId</replaceable>��<symbol>InvalidOid</symbol>��0�ˤξ�硢<function>lo_import_with_oid</>��̤���Ѥ�OID�������Ƥޤ��ʤ����<function>lo_import</>��Ʊ��ư��Ǥ��ˡ�
-����ͤϿ����顼�����֥������Ȥ˳�����Ƥ�줿OID�ǡ����Ի��ˤ�<symbol>InvalidOid</symbol>��0�ˤ��֤���ޤ���
+この関数も新規のラージオブジェクトをインポートします。
+割り当てられるOIDを<replaceable class="parameter">lobjId</replaceable>で指定することができます。
+こうした場合、そのOIDが他のラージオブジェクトですでに使用されていた場合、失敗します。
+<replaceable class="parameter">lobjId</replaceable>が<symbol>InvalidOid</symbol>（0）の場合、<function>lo_import_with_oid</>は未使用のOIDを割り当てます（これは<function>lo_import</>と同じ動作です）。
+戻り値は新規ラージオブジェクトに割り当てられたOIDで、失敗時には<symbol>InvalidOid</symbol>（0）が返されます。
     </para>
 
     <para>
@@ -362,8 +362,8 @@ Oid lo_import_with_oid(PGconn *conn, const char *filename, Oid lobjId);
      8.4 and uses <function>lo_create</function> internally which is new in 8.1; if this function is run against 8.0 or before, it will
      fail and return <symbol>InvalidOid</symbol>.
 -->
-<function>lo_import_with_oid</>��<productname>PostgreSQL</productname> 8.4����Ƴ�����졢8.1����Ƴ�����줿<function>lo_create</function>�������ǻ��Ѥ��Ƥ��ޤ���
-���δؿ���8.0�����ΥС������Ǽ¹Ԥ�����ȼ��Ԥ���<symbol>InvalidOid</symbol>���֤���ޤ���
+<function>lo_import_with_oid</>は<productname>PostgreSQL</productname> 8.4から導入され、8.1から導入された<function>lo_create</function>を内部で使用しています。
+この関数を8.0以前のバージョンで実行させると失敗し、<symbol>InvalidOid</symbol>が返されます。
     </para>
    </sect2>
 
@@ -371,7 +371,7 @@ Oid lo_import_with_oid(PGconn *conn, const char *filename, Oid lobjId);
 <!--
     <title>Exporting a Large Object</title>
 -->
-    <title>�顼�����֥������ȤΥ������ݡ���</title>
+    <title>ラージオブジェクトのエクスポート</title>
 
     <para>
      <indexterm><primary>lo_export</></>
@@ -379,7 +379,7 @@ Oid lo_import_with_oid(PGconn *conn, const char *filename, Oid lobjId);
      To export a large object
      into an operating system file, call
 -->
-�顼�����֥������Ȥ򥪥ڥ졼�ƥ��󥰥����ƥ��Υե�����˥������ݡ��Ȥ���ˤϡ��ʲ��δؿ���ƤӽФ��ޤ���
+ラージオブジェクトをオペレーティングシステム上のファイルにエクスポートするには、以下の関数を呼び出します。
 <synopsis>
 int lo_export(PGconn *conn, Oid lobjId, const char *filename);
 </synopsis>
@@ -390,9 +390,9 @@ int lo_export(PGconn *conn, Oid lobjId, const char *filename);
      written by the client interface library, not by the server.  Returns 1
      on success, -1 on failure.
 -->
-<parameter>lobjId</parameter>�����ˤϡ��������ݡ��Ȥ�����顼�����֥������Ȥ�OID����ꤷ��<parameter>filename</parameter>�����ˤϡ����ڥ졼�ƥ��󥰥����ƥ��Υե�����Υѥ�̾����ꤷ�ޤ���
-���Υե�����ϥ����ФǤϤʤ������饤����ȥ��󥿥ե������饤�֥��ˤ�äƽ񤭹��ޤ�뤳�Ȥ����դ��Ƥ���������
-�������ˤ�1�����Ի��ˤ�-1���֤���ޤ���
+<parameter>lobjId</parameter>引数には、エクスポートさせるラージオブジェクトのOIDを指定し、<parameter>filename</parameter>引数には、オペレーティングシステム上のファイルのパス名を指定します。
+このファイルはサーバではなく、クライアントインタフェースライブラリによって書き込まれることに注意してください。
+成功時には1、失敗時には-1が返されます。
     </para>
    </sect2>
 
@@ -400,14 +400,14 @@ int lo_export(PGconn *conn, Oid lobjId, const char *filename);
 <!--
     <title>Opening an Existing Large Object</title>
 -->
-    <title>��¸�Υ顼�����֥������ȤΥ����ץ�</title>
+    <title>既存のラージオブジェクトのオープン</title>
 
     <para>
      <indexterm><primary>lo_open</></>
 <!--
      To open an existing large object for reading or writing, call
 -->
-�ɤ߼��ޤ��Ͻ񤭹��ߤΤ���˴�¸�Υ顼�����֥������Ȥ򳫤����ϡ��ʲ��δؿ���ƤӽФ��ޤ���
+読み取りまたは書き込みのために既存のラージオブジェクトを開く場合は、以下の関数を呼び出します。
 <synopsis>
 int lo_open(PGconn *conn, Oid lobjId, int mode);
 </synopsis>
@@ -428,12 +428,12 @@ int lo_open(PGconn *conn, Oid lobjId, int mode);
      the duration of the current transaction.
      On failure, -1 is returned.
 -->
-<parameter>lobjId</parameter>�����ˤϳ��������顼�����֥������Ȥ�OID����ꤷ�ޤ���
-<parameter>mode</parameter>�γƥӥåȤϡ����Υ��֥������Ȥ��ɤ߼��Τߡ�<symbol>INV_READ</>�ˡ��񤭹��ߤΤߡ�<symbol>INV_WRITE</symbol>�ˡ��ޤ��Ϥ���ξ���Ǥ���褦�˳����Τ������椹���ΤǤ���
-�ʤ������������ܥ��<filename>libpq/libpq-fs.h</filename>�إå��ե�������������Ƥ��ޤ�����
-<function>lo_open</function>�ϡ�<function>lo_read</function>��<function>lo_write</function>��<function>lo_lseek</function>��<function>lo_lseek64</function>��<function>lo_tell</function>��<function>lo_tell64</function>��<function>lo_truncate</function>��<function>lo_truncate64</function>��<function>lo_close</function>�ǻ��Ѥ��������Ρ˥顼�����֥������ȵ��һҤ��֤��ޤ���
-���ε��һҤϸ��ߤΥȥ�󥶥��������֤Τߤ�ͭ���Ǥ���
-���Ի��ˤ�-1���֤���ޤ���
+<parameter>lobjId</parameter>引数には開きたいラージオブジェクトのOIDを指定します。
+<parameter>mode</parameter>の各ビットは、そのオブジェクトを読み取りのみ（<symbol>INV_READ</>）、書き込みのみ（<symbol>INV_WRITE</symbol>）、またはその両方できるように開くのかを制御するものです。
+（これらの定数シンボルは<filename>libpq/libpq-fs.h</filename>ヘッダファイルで定義されています。）
+<function>lo_open</function>は、<function>lo_read</function>、<function>lo_write</function>、<function>lo_lseek</function>、<function>lo_lseek64</function>、<function>lo_tell</function>、<function>lo_tell64</function>、<function>lo_truncate</function>、<function>lo_truncate64</function>、<function>lo_close</function>で使用する（非負の）ラージオブジェクト記述子を返します。
+この記述子は現在のトランザクション期間のみで有効です。
+失敗時には-1が返されます。
     </para>
 
     <para>
@@ -453,20 +453,20 @@ int lo_open(PGconn *conn, Oid lobjId, int mode);
      of <literal>REPEATABLE READ</> versus <literal>READ COMMITTED</> transaction
      modes for ordinary SQL <command>SELECT</> commands.
 -->
-�������Ǥϡ������Ф�<symbol>INV_WRITE</symbol>�⡼�ɤ�<symbol>INV_READ</> <literal>|</> <symbol>INV_WRITE</symbol>�⡼�ɤȤ���̤��ޤ���
-�ɤ���ξ��Ǥ⵭�һҤ����ɤ߼���ǽ�Ǥ���
-�������������Υ⡼�ɤ�<symbol>INV_READ</>�����Υ⡼�ɤȤδ֤ˤ��礭�ʰ㤤������ޤ���
-<symbol>INV_READ</>�⡼�ɤǤϵ��һҤ˽񤭹��ळ�Ȥ��Ǥ��ޤ���
-�����ơ��ɤ߹�����ǡ����ϡ����Υȥ�󥶥�������¾�Υȥ�󥶥������Ǹ�ǽ񤭹�������ɤ����ϴط��ʤ���<function>lo_open</>��¹Ԥ�������ͭ�����ä��ȥ�󥶥�����󥹥ʥåץ���åȤλ����Υ顼�����֥������Ȥ����Ƥ�ȿ�Ǥ�����Τˤʤ�ޤ���
-<symbol>INV_WRITE</symbol>���դ��Ƴ��������һҤ����ɤ߼��ȡ����ߤΥȥ�󥶥������ˤ��񤭹��ߤ�¾�Υȥ�󥶥�����󤬥��ߥåȤ����񤭹��ߤ��٤Ƥ�ȿ�Ǥ����ǡ������֤���ޤ���
-����ϡ��̾��<command>SELECT</> SQL���ޥ�ɤˤ�����<literal>REPEATABLE READ</>�ȥ�󥶥�������ư���<literal>READ COMMITTED</>�ȥ�󥶥�������ư��ΰ㤤�˻��Ƥ��ޤ���
+現時点では、サーバは<symbol>INV_WRITE</symbol>モードと<symbol>INV_READ</> <literal>|</> <symbol>INV_WRITE</symbol>モードとを区別しません。
+どちらの場合でも記述子から読み取り可能です。
+しかし、これらのモードと<symbol>INV_READ</>だけのモードとの間には大きな違いがあります。
+<symbol>INV_READ</>モードでは記述子に書き込むことができません。
+そして、読み込んだデータは、このトランザクションや他のトランザクションで後で書き込んだかどうかは関係なく、<function>lo_open</>を実行した時に有効だったトランザクションスナップショットの時点のラージオブジェクトの内容を反映したものになります。
+<symbol>INV_WRITE</symbol>を付けて開いた記述子から読み取ると、現在のトランザクションによる書き込みや他のトランザクションがコミットした書き込みすべてを反映したデータが返されます。
+これは、通常の<command>SELECT</> SQLコマンドにおける<literal>REPEATABLE READ</>トランザクションの動作と<literal>READ COMMITTED</>トランザクションの動作の違いに似ています。
     </para>
 
     <para>
 <!--
      An example:
 -->
-�ʲ�����򼨤��ޤ���
+以下に例を示します。
 <programlisting>
 inv_fd = lo_open(conn, inv_oid, INV_READ|INV_WRITE);
 </programlisting>
@@ -477,7 +477,7 @@ inv_fd = lo_open(conn, inv_oid, INV_READ|INV_WRITE);
 <!--
 <title>Writing Data to a Large Object</title>
 -->
-<title>�顼�����֥������ȤؤΥǡ����ν񤭹���</title>
+<title>ラージオブジェクトへのデータの書き込み</title>
 
 <para>
      <indexterm><primary>lo_write</></>
@@ -496,10 +496,10 @@ int lo_write(PGconn *conn, int fd, const char *buf, size_t len);
      implementation, this will always equal <parameter>len</parameter> unless
      there is an error).  In the event of an error, the return value is -1.
 -->
-<parameter>len</parameter>�Х��Ȥ�<parameter>buf</parameter>��<parameter>len</parameter>�������Ǥʤ���Фʤ�ޤ���ˤ���<parameter>fd</>�顼�����֥������ȵ��һҤ˽񤭹��ߤޤ���
-<parameter>fd</parameter>�����ϻ����˼¹Ԥ���<function>lo_open</function>������ͤǤʤ���Ф����ޤ���
-�ºݤ˽񤭹��ޤ줿�Х��ȿ����֤���ޤ��ʸ��ߤμ����Ǥϥ��顼��ȯ�����ʤ��¤�<parameter>len</parameter>�Ⱦ���������ʤ�ޤ��ˡ�
-���顼���٥�Ȥ�ȯ���������ϡ�-1���֤��ޤ���
+<parameter>len</parameter>バイトを、<parameter>buf</parameter>（<parameter>len</parameter>サイズでなければなりません）から<parameter>fd</>ラージオブジェクト記述子に書き込みます。
+<parameter>fd</parameter>引数は事前に実行した<function>lo_open</function>の戻り値でなければいけません。
+実際に書き込まれたバイト数が返されます（現在の実装ではエラーが発生しない限り<parameter>len</parameter>と常に等しくなります）。
+エラーイベントが発生した場合は、-1を返します。
 </para>
 
 <para>
@@ -509,8 +509,8 @@ int lo_write(PGconn *conn, int fd, const char *buf, size_t len);
      <literal>INT_MAX</>.  In practice, it's best to transfer data in chunks
      of at most a few megabytes anyway.
 -->
-<parameter>len</parameter>�ѥ�᡼����<type>size_t</>�Ȥ����������Ƥ��ޤ��������δؿ���<literal>INT_MAX</>����礭���ͤ���䤷�ޤ���
-�ºݤˤϡ�¿���Ƥ���ᥬ�Х��ȤΥ���󥯤ǥǡ�����ž�����뤳�Ȥ������Ǥ���
+<parameter>len</parameter>パラメータは<type>size_t</>として宣言されていますが、この関数は<literal>INT_MAX</>より大きな値を拒絶します。
+実際には、多くても数メガバイトのチャンクでデータを転送することが最善です。
 </para>
 </sect2>
 
@@ -518,7 +518,7 @@ int lo_write(PGconn *conn, int fd, const char *buf, size_t len);
 <!--
 <title>Reading Data from a Large Object</title>
 -->
-<title>�顼�����֥������Ȥ���Υǡ������ɤ߹���</title>
+<title>ラージオブジェクトからのデータの読み込み</title>
 
 <para>
      <indexterm><primary>lo_read</></>
@@ -538,11 +538,11 @@ int lo_read(PGconn *conn, int fd, char *buf, size_t len);
      the large object is reached first.  In the event of an error, the return
      value is -1.
 -->
-<parameter>len</parameter>Ĺ�ΥХ��Ȥ�<parameter>fd</parameter>�顼�����֥������ȵ��һҤ���<parameter>buf</parameter>��<parameter>len</parameter>�������Ǥʤ���Фʤ�ޤ���ˤ��ɤ߹��ߤޤ���
-<parameter>fd</parameter>�����ϻ����˼¹Ԥ���<function>lo_open</function>������ͤǤʤ���Ф����ޤ���
-�ºݤ��ɤ߹��ޤ줿�Х��ȿ����֤���ޤ���
-�顼�����֥������ȤκǸ�����ã��������<parameter>len</parameter>��꾮�����ͤˤʤ�ޤ���
-���顼���٥�Ȥ�ȯ���������ϡ�-1�ͤ��֤��ޤ���
+<parameter>len</parameter>長のバイトを、<parameter>fd</parameter>ラージオブジェクト記述子から<parameter>buf</parameter>（<parameter>len</parameter>サイズでなければなりません）に読み込みます。
+<parameter>fd</parameter>引数は事前に実行した<function>lo_open</function>の戻り値でなければいけません。
+実際に読み込まれたバイト数が返されます。
+ラージオブジェクトの最後に先に達した場合は<parameter>len</parameter>より小さな値になります。
+エラーイベントが発生した場合は、-1値を返します。
 </para>
 
 <para>
@@ -552,8 +552,8 @@ int lo_read(PGconn *conn, int fd, char *buf, size_t len);
      <literal>INT_MAX</>.  In practice, it's best to transfer data in chunks
      of at most a few megabytes anyway.
 -->
-<parameter>len</parameter>�ѥ�᡼����<type>size_t</>�Ȥ����������Ƥ��ޤ��������δؿ���<literal>INT_MAX</>����礭���ͤ���䤷�ޤ���
-�ºݤˤϡ�¿���Ƥ���ᥬ�Х��Ȥ�������˥ǡ�����ž�����뤳�Ȥ������Ǥ���
+<parameter>len</parameter>パラメータは<type>size_t</>として宣言されていますが、この関数は<literal>INT_MAX</>より大きな値を拒絶します。
+実際には、多くても数メガバイトをチャンク内にデータを転送することが最善です。
 </para>
 </sect2>
 
@@ -561,7 +561,7 @@ int lo_read(PGconn *conn, int fd, char *buf, size_t len);
 <!--
 <title>Seeking in a Large Object</title>
 -->
-<title>�顼�����֥������ȤΥ�����</title>
+<title>ラージオブジェクトのシーク</title>
 
 <para>
      <indexterm><primary>lo_lseek</></>
@@ -569,7 +569,7 @@ int lo_read(PGconn *conn, int fd, char *buf, size_t len);
      To change the current read or write location associated with a
      large object descriptor, call
 -->
-�顼�����֥������ȵ��һҤ˴�Ϣ�դ�����Ƥ��롢���ߤ��ɤ߼��ޤ��Ͻ񤭹��ߤ�Ԥ����֤��ѹ�����ˤϡ��ʲ��δؿ���ƤӽФ��ޤ���
+ラージオブジェクト記述子に関連付けされている、現在の読み取りまたは書き込みを行う位置を変更するには、以下の関数を呼び出します。
 <synopsis>
 int lo_lseek(PGconn *conn, int fd, int offset, int whence);
 </synopsis>
@@ -583,9 +583,9 @@ int lo_lseek(PGconn *conn, int fd, int offset, int whence);
      <symbol>SEEK_END</> (seek from object end).  The return value is
      the new location pointer, or -1 on error.
 -->
-���δؿ���<parameter>fd</>�Ǽ��̤����顼�����֥������ȼ��̻Ҥθ��ߤΰ��֤�ؤ��ݥ��󥿤�<parameter>offset</>�ǻ��ꤷ�����������֤��ѹ����ޤ���
-<parameter>whence</>�˻����ǽ���ͤϡ�<symbol>SEEK_SET</>�ʥ��֥������Ȥ���Ƭ���֤��饷�����ˡ�<symbol>SEEK_CUR</>�ʸ��߰��֤��饷�����ˡ�<symbol>SEEK_END</>�ʥ��֥������Ȥ��������֤��饷�����ˤΤ����줫�Ǥ���
-����ͤϿ��������֥ݥ��󥿤ǡ����顼����-1���֤���ޤ���
+この関数は<parameter>fd</>で識別されるラージオブジェクト識別子の現在の位置を指すポインタを、<parameter>offset</>で指定した新しい位置に変更します。
+<parameter>whence</>に指定可能な値は、<symbol>SEEK_SET</>（オブジェクトの先頭位置からシーク）、<symbol>SEEK_CUR</>（現在位置からシーク）、<symbol>SEEK_END</>（オブジェクトの末尾位置からシーク）のいずれかです。
+戻り値は新しい位置ポインタで、エラー時に-1が返されます。
 </para>
 
 <para>
@@ -594,7 +594,7 @@ int lo_lseek(PGconn *conn, int fd, int offset, int whence);
      When dealing with large objects that might exceed 2GB in size,
      instead use
 -->
-2GB��Ķ���륵�����Υ顼�����֥������Ȥ��갷����������˰ʲ�����Ѥ��Ƥ���������
+2GBを超えるサイズのラージオブジェクトを取り扱う場合は代わりに以下を使用してください。
 <synopsis>
 pg_int64 lo_lseek64(PGconn *conn, int fd, pg_int64 offset, int whence);
 </synopsis>
@@ -606,8 +606,8 @@ pg_int64 lo_lseek64(PGconn *conn, int fd, pg_int64 offset, int whence);
      Note that <function>lo_lseek</function> will fail if the new location
      pointer would be greater than 2GB.
 -->
-���δؿ���<function>lo_lseek</function>��Ʊ��ư��򤷤ޤ�����<parameter>offset</>�Ȥ���2GB��Ķ�����ͤ���դ���2GB����礭�ʷ�̤���Ϥ��ޤ���
-<function>lo_lseek</function>��2GB��Ķ���뿷�������֥ݥ��󥿤����ꤵ�줿���˼��Ԥ��뤳�Ȥ����դ��Ƥ���������
+この関数は<function>lo_lseek</function>と同じ動作をしますが、<parameter>offset</>として2GBを超える値を受付け、2GBより大きな結果を出力します。
+<function>lo_lseek</function>は2GBを超える新しい位置ポインタが指定された場合に失敗することに注意してください。
 </para>
 
 <para>
@@ -616,8 +616,8 @@ pg_int64 lo_lseek64(PGconn *conn, int fd, pg_int64 offset, int whence);
      9.3.  If this function is run against an older server version, it will
      fail and return -1.
 -->
-<function>lo_lseek64</>��<productname>PostgreSQL</productname> 9.3�ˤ��ɲä���ޤ�����
-���δؿ�����Ť��С������Υ����Ф��Ф��Ƽ¹Ԥ������ˤϼ��Ԥ���-1���֤�ޤ���
+<function>lo_lseek64</>は<productname>PostgreSQL</productname> 9.3にて追加されました。
+この関数をより古いバージョンのサーバに対して実行した場合には失敗し、-1が返ります。
 </para>
 
 </sect2>
@@ -626,7 +626,7 @@ pg_int64 lo_lseek64(PGconn *conn, int fd, pg_int64 offset, int whence);
 <!--
 <title>Obtaining the Seek Position of a Large Object</title>
 -->
-<title>�顼�����֥������ȤΥ��������֤�����</title>
+<title>ラージオブジェクトのシーク位置の入手</title>
 
 <para>
      <indexterm><primary>lo_tell</></>
@@ -634,14 +634,14 @@ pg_int64 lo_lseek64(PGconn *conn, int fd, pg_int64 offset, int whence);
      To obtain the current read or write location of a large object descriptor,
      call
 -->
-�顼�����֥������ȵ��һҤθ��ߤ��ɤ߼�ꡢ�񤭹��߰��֤����ꤹ��ˤϡ��ʲ��δؿ���ƤӽФ��ޤ���
+ラージオブジェクト記述子の現在の読み取り、書き込み位置を入手するには、以下の関数を呼び出します。
 <synopsis>
 int lo_tell(PGconn *conn, int fd);
 </synopsis>
 <!--
      If there is an error, the return value is -1.
 -->
-���顼��ȯ����������-1���֤���ޤ���
+エラーが発生した場合は-1が返されます。
 </para>
 
 <para>
@@ -650,7 +650,7 @@ int lo_tell(PGconn *conn, int fd);
      When dealing with large objects that might exceed 2GB in size,
      instead use
 -->
-��������2GB��Ķ�����ǽ��������顼�����֥������Ȥ��갷����������˰ʲ�����Ѥ��ޤ���
+サイズが2GBを超える可能性があるラージオブジェクトを取り扱う場合は代わりに以下を使用します。
 <synopsis>
 pg_int64 lo_tell64(PGconn *conn, int fd);
 </synopsis>
@@ -661,8 +661,8 @@ pg_int64 lo_tell64(PGconn *conn, int fd);
      Note that <function>lo_tell</function> will fail if the current
      read/write location is greater than 2GB.
 -->
-���δؿ���<function>lo_tell</function>��Ʊ��ư��򤷤ޤ�����2GB����礭�ʷ�̤���Ϥ��ޤ���
-<function>lo_tell</function>��2GB��Ķ���뿷�������֤Ǥ��ɤ߽񤭤˼��Ԥ��ޤ���
+この関数は<function>lo_tell</function>と同じ動作をしますが、2GBより大きな結果を出力します。
+<function>lo_tell</function>は2GBを超える新しい位置での読み書きに失敗します。
 </para>
 
 <para>
@@ -671,8 +671,8 @@ pg_int64 lo_tell64(PGconn *conn, int fd);
      9.3.  If this function is run against an older server version, it will
      fail and return -1.
 -->
-<function>lo_tell64</>��<productname>PostgreSQL</productname> 9.3�ˤ��ɲä���ޤ�����
-���δؿ�����Ť��С������Υ����Ф��Ф��Ƽ¹Ԥ������ˤϼ��Ԥ���-1���֤�ޤ���
+<function>lo_tell64</>は<productname>PostgreSQL</productname> 9.3にて追加されました。
+この関数をより古いバージョンのサーバに対して実行した場合には失敗し、-1が返ります。
 </para>
 </sect2>
 
@@ -680,14 +680,14 @@ pg_int64 lo_tell64(PGconn *conn, int fd);
 <!--
 <title>Truncating a Large Object</title>
 -->
-<title>�顼�����֥������Ȥ��ڤ�ͤ��</title>
+<title>ラージオブジェクトを切り詰める</title>
 
 <para>
      <indexterm><primary>lo_truncate</></>
 <!--
      To truncate a large object to a given length, call
 -->
-�顼�����֥������Ȥ���ꤷ��Ĺ�����ڤ�ͤ��ˤϡ��ʲ���ƤӽФ��ޤ���
+ラージオブジェクトを指定した長さに切り詰めるには、以下を呼び出します。
 <synopsis>
 int lo_truncate(PGcon *conn, int fd, size_t len);
 </synopsis>
@@ -701,11 +701,11 @@ int lo_truncate(PGcon *conn, int fd, size_t len);
      On success, <function>lo_truncate</function> returns
      zero.  On error, the return value is -1.
 -->
-���δؿ��ϥ顼�����֥������ȵ��һ�<parameter>fd</>��<parameter>len</>Ĺ���ڤ�ͤ�ޤ���
-<parameter>fd</>����������ä�<function>lo_open</function>���֤�����ΤǤʤ���Фʤ�ޤ���
-<parameter>len</>�����ߤΥ顼�����֥�������Ĺ����礭����С��顼�����֥������Ȥϻ��ꤵ�줿Ĺ���ޤǥ̥�Х���('\0')�ǳ�ĥ����ޤ���
-������<function>lo_truncate</function>�ϥ������֤��ޤ���
-���Ի�������ͤ�-1�Ǥ���
+この関数はラージオブジェクト記述子<parameter>fd</>を<parameter>len</>長に切り詰めます。
+<parameter>fd</>引数は前もって<function>lo_open</function>が返したものでなければなりません。
+<parameter>len</>が現在のラージオブジェクト長より大きければ、ラージオブジェクトは指定された長さまでヌルバイト('\0')で拡張されます。
+成功時<function>lo_truncate</function>はゼロを返します。
+失敗時の戻り値は-1です。
 </para>
 
 <para>
@@ -713,7 +713,7 @@ int lo_truncate(PGcon *conn, int fd, size_t len);
      The read/write location associated with the descriptor
      <parameter>fd</parameter> is not changed.
 -->
-<parameter>fd</parameter>�ǥ�������ץ����ɤ߼��/�񤭽Ф����֤��Ѥ��ޤ���
+<parameter>fd</parameter>ディスクリプタの読み取り/書き出し位置は変わりません。
 </para>
 
 <para>
@@ -722,7 +722,7 @@ int lo_truncate(PGcon *conn, int fd, size_t len);
      <type>size_t</>, <function>lo_truncate</function> will reject length
      values larger than <literal>INT_MAX</>.
 -->
-<parameter>len</parameter>�ѥ�᡼����<type>size_t</>�Ȥ����������Ƥ��ޤ�����<function>lo_truncate</function>��<literal>INT_MAX</>����礭���ͤ���䤷�ޤ���
+<parameter>len</parameter>パラメータは<type>size_t</>として宣言されていますが、<function>lo_truncate</function>は<literal>INT_MAX</>より大きな値を拒絶します。
 </para>
 
 <para>
@@ -731,7 +731,7 @@ int lo_truncate(PGcon *conn, int fd, size_t len);
      When dealing with large objects that might exceed 2GB in size,
      instead use
 -->
-2GB��Ķ�����ǽ��������顼�����֥������Ȥ��갷����������˰ʲ�����Ѥ��ޤ���
+2GBを超える可能性があるラージオブジェクトを取り扱う場合は代わりに以下を使用します。
 <synopsis>
 int lo_truncate64(PGcon *conn, int fd, pg_int64 len);
 </synopsis>
@@ -740,7 +740,7 @@ int lo_truncate64(PGcon *conn, int fd, pg_int64 len);
      behavior as <function>lo_truncate</function>, but it can accept a
      <parameter>len</> value exceeding 2GB.
 -->
-���δؿ���<function>lo_truncate</function>��Ʊ��ư��򤷤ޤ�����2GB��Ķ����<parameter>len</>������դ��뤳�Ȥ��Ǥ��ޤ���
+この関数は<function>lo_truncate</function>と同じ動作をしますが、2GBを超える<parameter>len</>を受け付けることができます。
 </para>
 
 <para>
@@ -749,8 +749,8 @@ int lo_truncate64(PGcon *conn, int fd, pg_int64 len);
      8.3; if this function is run against an older server version, it will
      fail and return -1.
 -->
-<function>lo_truncate</function>��<productname>PostgreSQL</productname> 8.3�ǿ�����Ƴ������ޤ�����
-���δؿ���Ť��С������Υ����Ф��Ф��Ƽ¹Ԥ������ϼ��Ԥ���-1���֤���ޤ���
+<function>lo_truncate</function>は<productname>PostgreSQL</productname> 8.3で新規に導入されました。
+この関数を古いバージョンのサーバに対して実行した場合は失敗し、-1が返されます。
 </para>
 
 <para>
@@ -759,8 +759,8 @@ int lo_truncate64(PGcon *conn, int fd, pg_int64 len);
      9.3; if this function is run against an older server version, it will
      fail and return -1.
 -->
-<function>lo_truncate64</>��<productname>PostgreSQL</productname> 9.3�ˤ��ɲä���ޤ�����
-���δؿ�����Ť��С������Υ����Ф��Ф��Ƽ¹Ԥ������ˤϼ��Ԥ���-1���֤�ޤ���
+<function>lo_truncate64</>は<productname>PostgreSQL</productname> 9.3にて追加されました。
+この関数をより古いバージョンのサーバに対して実行した場合には失敗し、-1が返ります。
 </para>
 </sect2>
 
@@ -768,14 +768,14 @@ int lo_truncate64(PGcon *conn, int fd, pg_int64 len);
 <!--
 <title>Closing a Large Object Descriptor</title>
 -->
-<title>�顼�����֥������ȵ��һҤ��Ĥ���</title>
+<title>ラージオブジェクト記述子を閉じる</title>
 
 <para>
      <indexterm><primary>lo_close</></>
 <!--
      A large object descriptor can be closed by calling
 -->
-�ʲ���ƤӽФ����Ȥǥ顼�����֥������ȵ��һҤ��Ĥ������Ȥ��Ǥ��ޤ���
+以下を呼び出すことでラージオブジェクト記述子を閉ざすことができます。
 <synopsis>
 int lo_close(PGconn *conn, int fd);
 </synopsis>
@@ -785,9 +785,9 @@ int lo_close(PGconn *conn, int fd);
      On success, <function>lo_close</function> returns zero.  On
      error, the return value is -1.
 -->
-�����ǡ�<parameter>fd</>��<function>lo_open</function>������ͤǤ���顼�����֥������ȵ��һҤǤ���
-��������ȡ�<function>lo_close</function>��0���֤��ޤ���
-���Ԥ���ȡ�-1���֤��ޤ���
+ここで、<parameter>fd</>は<function>lo_open</function>の戻り値であるラージオブジェクト記述子です。
+成功すると、<function>lo_close</function>は0を返します。
+失敗すると、-1を返します。
 </para>
 
 <para>
@@ -795,7 +795,7 @@ int lo_close(PGconn *conn, int fd);
      Any large  object  descriptors that remain open at the end of a
      transaction will be closed automatically.
 -->
-�������ޤޤΥ顼�����֥������ȵ��һҤ����ƥȥ�󥶥������ν�λ���˼�ưŪ���Ĥ�����ޤ���
+開いたままのラージオブジェクト記述子は全てトランザクションの終了時に自動的に閉ざされます。
 </para>
 </sect2>
 
@@ -803,14 +803,14 @@ int lo_close(PGconn *conn, int fd);
 <!--
     <title>Removing a Large Object</title>
 -->
-<title>�顼�����֥������Ȥκ��</title>
+<title>ラージオブジェクトの削除</title>
 
     <para>
      <indexterm><primary>lo_unlink</></>
 <!--
      To remove a large object from the database, call
 -->
-�ǡ����١�������顼�����֥������Ȥ�������ˤϡ��ʲ��δؿ���ƤӽФ��ޤ���
+データベースからラージオブジェクトを削除するには、以下の関数を呼び出します。
 <synopsis>
 int lo_unlink(PGconn *conn, Oid lobjId);
 </synopsis>
@@ -818,8 +818,8 @@ int lo_unlink(PGconn *conn, Oid lobjId);
      The <parameter>lobjId</parameter> argument specifies the OID of the
      large object to remove.  Returns 1 if successful, -1 on failure.
 -->
-<parameter>lobjId</parameter>�����Ϻ������顼�����֥������Ȥ�OID����ꤷ�ޤ���
-��������1�򡢼��Ի���-1���֤��ޤ���
+<parameter>lobjId</parameter>引数は削除するラージオブジェクトのOIDを指定します。
+成功時に1を、失敗時に-1を返します。
     </para>
    </sect2>
 
@@ -830,21 +830,21 @@ int lo_unlink(PGconn *conn, Oid lobjId);
 <!--
 <title>Server-side Functions</title>
 -->
-<title>������¦�δؿ�</title>
+<title>サーバ側の関数</title>
 
   <para>
 <!--
    Server-side functions tailored for manipulating large objects from SQL are
    listed in <xref linkend="lo-funcs-table">.
 -->
-SQL����顼�����֥������Ȥ�����Τ�Ŭ������������¦�δؿ���<xref linkend="lo-funcs-table">����󤷤ޤ���
+SQLからラージオブジェクトを操作するのに適応したサーバ側の関数を<xref linkend="lo-funcs-table">に列挙します。
   </para>
 
   <table id="lo-funcs-table">
 <!--
    <title>SQL-oriented Large Object Functions</title>
 -->
-   <title>SQL�����顼�����֥������ȴؿ�</title>
+   <title>SQL向けラージオブジェクト関数</title>
    <tgroup cols="5">
     <thead>
      <row>
@@ -855,11 +855,11 @@ SQL����顼�����֥������Ȥ�����Τ�Ŭ������������¦�δؿ���<xref linkend="lo
       <entry>Example</entry>
       <entry>Result</entry>
 -->
-      <entry>�ؿ�</entry>
-      <entry>����ͤη�</entry>
-      <entry>����</entry>
-      <entry>��</entry>
-      <entry>���</entry>
+      <entry>関数</entry>
+      <entry>戻り値の型</entry>
+      <entry>説明</entry>
+      <entry>例</entry>
+      <entry>結果</entry>
      </row>
     </thead>
 
@@ -877,8 +877,8 @@ SQL����顼�����֥������Ȥ�����Τ�Ŭ������������¦�δؿ���<xref linkend="lo
        Create a large object and store data there, returning its OID.
        Pass <literal>0</> to have the system choose an OID.
 -->
-�顼�����֥������Ȥ�������Ƥ����˥ǡ������Ǽ��������OID���֤���
-�����ƥ��OID�����Ф���ˤ�<literal>0</>���Ϥ���
+ラージオブジェクトを作成してそこにデータを格納し、そのOIDを返す。
+システムにOIDを選ばせるには<literal>0</>を渡す。
       </entry>
       <entry><literal>lo_from_bytea(0, E'\\xffffff00')</literal></entry>
       <entry><literal>24528</literal></entry>
@@ -896,7 +896,7 @@ SQL����顼�����֥������Ȥ�����Τ�Ŭ������������¦�δؿ���<xref linkend="lo
 <!--
        Write data at the given offset.
 -->
-Ϳ����줿���ե��åȤ˥ǡ�����񤭹��ࡣ
+与えられたオフセットにデータを書き込む。
       </entry>
       <entry><literal>lo_put(24528, 1, E'\\xaa')</literal></entry>
       <entry></entry>
@@ -914,7 +914,7 @@ SQL����顼�����֥������Ȥ�����Τ�Ŭ������������¦�δؿ���<xref linkend="lo
 <!--
        Extract contents or a substring thereof.
 -->
-�����������Ƥޤ�����ʬʸ�������Ф���
+そこから内容または部分文字列を取り出す。
       </entry>
       <entry><literal>lo_get(24528, 0, 3)</literal></entry>
       <entry><literal>\xffaaff</literal></entry>
@@ -938,10 +938,10 @@ SQL����顼�����֥������Ȥ�����Τ�Ŭ������������¦�δؿ���<xref linkend="lo
    Here are examples of their use:
 
 -->
-����ޤ������������饤�����¦�δؿ����줾����б����롢�ɲäΤʥ�����¦�δؿ�������ޤ���
-�ºݡ��ۤȤ�ɤΥ��饤�����¦�δؿ����б����륵����¦�δؿ����Ф���ñ�ʤ륤�󥿥ե������Ǥ���
-SQL���ޥ�ɤ���θƤӽФ��������ʴؿ��ϡ�<function>lo_creat</function><indexterm><primary>lo_creat</></>��<function>lo_create</function>��<function>lo_unlink</function><indexterm><primary>lo_unlink</></>��<function>lo_import</function><indexterm><primary>lo_import</></>��<function>lo_export</function><indexterm><primary>lo_export</></>�Ǥ���
-�����λ�����򼨤��ޤ���
+これまで説明したクライアント側の関数それぞれに対応する、追加のなサーバ側の関数があります。
+実際、ほとんどのクライアント側の関数は対応するサーバ側の関数に対する単なるインタフェースです。
+SQLコマンドからの呼び出しが便利な関数は、<function>lo_creat</function><indexterm><primary>lo_creat</></>、<function>lo_create</function>、<function>lo_unlink</function><indexterm><primary>lo_unlink</></>、<function>lo_import</function><indexterm><primary>lo_import</></>、<function>lo_export</function><indexterm><primary>lo_export</></>です。
+これらの使用例を示します。
 <programlisting>
 CREATE TABLE image (
     name            text,
@@ -951,17 +951,17 @@ CREATE TABLE image (
 <!--
 SELECT lo_creat(-1);       &#055;- returns OID of new, empty large object
 -->
-SELECT lo_creat(-1);       -- ���������Υ顼�����֥������Ȥ�OID���֤��ޤ�
+SELECT lo_creat(-1);       -- 新しい空のラージオブジェクトのOIDを返します
 
 <!--
 SELECT lo_create(43213);   &#055;- attempts to create large object with OID 43213
 -->
-SELECT lo_create(43213);   -- OID 43213�ǥ顼�����֥������Ȥ��������Ԥ��ޤ�
+SELECT lo_create(43213);   -- OID 43213でラージオブジェクトの生成を試行します
 
 <!--
 SELECT lo_unlink(173454);  &#055;- deletes large object with OID 173454
 -->
-SELECT lo_unlink(173454);  -- OID 173454�Υ顼�����֥������Ȥ������ޤ�
+SELECT lo_unlink(173454);  -- OID 173454のラージオブジェクトを削除します
 
 INSERT INTO image (name, raster)
     VALUES ('beautiful image', lo_import('/etc/motd'));
@@ -970,7 +970,7 @@ INSERT INTO image (name, raster)
 INSERT INTO image (name, raster)  &#055;&#055; same as above, but specify OID to use
     VALUES ('beautiful image', lo_import('/etc/motd', 68583));
 -->
-INSERT INTO image (name, raster)  -- ���Ʊ���Ǥ������Ѥ���OID����ꤷ�ޤ�
+INSERT INTO image (name, raster)  -- 上と同じですが使用するOIDを指定します
     VALUES ('beautiful image', lo_import('/etc/motd', 68583));
 
 SELECT lo_export(image.raster, '/tmp/motd') FROM image
@@ -989,11 +989,11 @@ SELECT lo_export(image.raster, '/tmp/motd') FROM image
     in the client's file system, using the permissions of the client program.
     The client-side functions do not require superuser privilege.
 -->
-������¦��<function>lo_import</function>�����<function>lo_export</function>�ؿ���ư��ϥ��饤�����¦�δؿ��Ȥ��ʤ�ۤʤ�ޤ���
-����2�Ĥδؿ��ϥ����ФΥե����륷���ƥ��Υե�������ɤ߽񤭤򡢥ǡ����١������ͭ����桼���θ��¤ǹԤ��ޤ���
-�������äơ������λ��Ѥϥ����ѡ��桼���˸��ꤵ��Ƥ��ޤ���
-�о�Ū�ˡ����饤�����¦�Υ���ݡ��ȴؿ��ȥ������ݡ��ȴؿ��ϥ��饤����ȤΥե����륷���ƥ��Υե�����򥯥饤����ȥץ������θ��¤��ɤ߽񤭤��ޤ���
-���Υ��饤�����¦�δؿ��ϥ����ѡ��桼�����¤�ɬ�פȤ��ޤ���
+サーバ側の<function>lo_import</function>および<function>lo_export</function>関数の動作はクライアント側の関数とかなり異なります。
+この2つの関数はサーバのファイルシステム上のファイルの読み書きを、データベースを所有するユーザの権限で行います。
+したがって、これらの使用はスーパーユーザに限定されています。
+対照的に、クライアント側のインポート関数とエクスポート関数はクライアントのファイルシステム上のファイルをクライアントプログラムの権限で読み書きします。
+このクライアント側の関数はスーパーユーザ権限を必要としません。
   </para>
 
   <para>
@@ -1004,9 +1004,9 @@ SELECT lo_export(image.raster, '/tmp/motd') FROM image
     interfaces in that they do not contain underscores.  You must call
     these functions as <function>loread</> and <function>lowrite</>.
 -->
-�ޤ�<function>lo_read</function>�����<function>lo_write</function>�ε�ǽ�ϥ����Х����ɤθƤӽФ���𤷤Ƥ����Ѥ��뤳�Ȥ��Ǥ��ޤ���
-�����������Х����ɤδؿ�̾�ϥ��饤�����¦�Υ��󥿥ե������Ȥϰۤʤꡢ����������������ޤޤ�ޤ���
-<function>loread</>�����<function>lowrite</>�Ȥ��Ƥ����δؿ���ƤӽФ��ʤ���Фʤ�ޤ���
+また<function>lo_read</function>および<function>lo_write</function>の機能はサーバサイドの呼び出しを介しても利用することができます。
+しかしサーバサイドの関数名はクライアント側のインタフェースとは異なり、アンダースコアが含まれません。
+<function>loread</>および<function>lowrite</>としてこれらの関数を呼び出さなければなりません。
   </para>
 
 </sect1>
@@ -1015,7 +1015,7 @@ SELECT lo_export(image.raster, '/tmp/motd') FROM image
 <!--
 <title>Example Program</title>
 -->
-<title>����ץ�ץ������</title>
+<title>サンプルプログラム</title>
 
 <para>
 <!--
@@ -1026,16 +1026,16 @@ SELECT lo_export(image.raster, '/tmp/motd') FROM image
      benefit.  This program can also be found in
      <filename>src/test/examples/testlo.c</filename> in the source distribution.
 -->
-<xref linkend="lo-example">�ϡ�<application>libpq</>��Ȥä��顼�����֥������ȥ��󥿥ե������λȤ����򼨤�����ץ�ץ������Ǥ���
-�ץ������ΰ����ϥ����ȥ����Ȥ���Ƥ��ޤ������ɼԤˤ狼��䤹���褦�ˤ��Τޤ޻Ĥ��Ƥ���ޤ���
-���Υץ������ϡ�����������ʪ���<filename>src/test/examples</filename>�ˤ���ޤ���
+<xref linkend="lo-example">は、<application>libpq</>を使ったラージオブジェクトインタフェースの使い方を示すサンプルプログラムです。
+プログラムの一部はコメントアウトされていますが、読者にわかりやすいようにそのまま残してあります。
+このプログラムは、ソース配布物内の<filename>src/test/examples</filename>にあります。
 </para>
 
   <example id="lo-example">
 <!--
    <title>Large Objects with <application>libpq</application> Example Program</title>
 -->
-   <title><application>Libpq</application>����Ѥ����顼�����֥������ȤΥ���ץ�ץ������</title>
+   <title><application>Libpq</application>を使用したラージオブジェクトのサンプルプログラム</title>
 <programlisting><![CDATA[
 /*-------------------------------------------------------------------------
  *
@@ -1045,7 +1045,7 @@ SELECT lo_export(image.raster, '/tmp/motd') FROM image
  *    test using large objects with libpq
 -->
 <![CDATA[
- *    libpq�ˤ��顼�����֥������Ȥ���Ѥ���
+ *    libpqによるラージオブジェクトを使用する試験
  *
  * Portions Copyright (c) 1996-2014, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -1076,7 +1076,7 @@ SELECT lo_export(image.raster, '/tmp/motd') FROM image
  *    import file "in_filename" into database as large object "lobjOid"
 -->
 <![CDATA[
- *    "in_filename"�ե������顼�����֥�������"lobjOid"�Ȥ��ƥǡ����١����˥���ݡ��Ȥ��롣
+ *    "in_filename"ファイルをラージオブジェクト"lobjOid"としてデータベースにインポートする。
  *
  */
 static Oid
@@ -1095,7 +1095,7 @@ importFile(PGconn *conn, char *filename)
      * open the file to be read in
 -->
 <![CDATA[
-     * �ɤ߹���ե�����򳫤�
+     * 読み込むファイルを開く
      */
     fd = open(filename, O_RDONLY, 0666);
     if (fd < 0)
@@ -1104,7 +1104,7 @@ importFile(PGconn *conn, char *filename)
     {                           /* error */
 -->
 <![CDATA[
-    {                           /* ���顼�� */
+    {                           /* エラー時 */
         fprintf(stderr, "cannot open unix file\"%s\"\n", filename);
     }
 
@@ -1114,7 +1114,7 @@ importFile(PGconn *conn, char *filename)
      * create the large object
 -->
 <![CDATA[
-     * �顼�����֥������Ȥ��������
+     * ラージオブジェクトを作成する
      */
     lobjId = lo_creat(conn, INV_READ | INV_WRITE);
     if (lobjId == 0)
@@ -1128,7 +1128,7 @@ importFile(PGconn *conn, char *filename)
      * read in from the Unix file and write to the inversion file
 -->
 <![CDATA[
-     * Unix�ե����뤫���ɤ߹��ߡ�ž�֥ե�����ؽ񤭽Ф�
+     * Unixファイルから読み込み、転置ファイルへ書き出す
      */
     while ((nbytes = read(fd, buf, BUFSIZE)) > 0)
     {
@@ -1217,7 +1217,7 @@ overwrite(PGconn *conn, Oid lobjId, int start, int len)
  *    export large object "lobjOid" to file "out_filename"
 -->
 <![CDATA[
- *    �顼�����֥�������"lobjOid"��"out_filename"�ե�����˥������ݡ��Ȥ��롣
+ *    ラージオブジェクト"lobjOid"を"out_filename"ファイルにエクスポートする。
  *
  */
 static void
@@ -1235,7 +1235,7 @@ exportFile(PGconn *conn, Oid lobjId, char *filename)
      * open the large object
 -->
 <![CDATA[
-     * �顼�����֥������Ȥ��������
+     * ラージオブジェクトを作成する
      */
     lobj_fd = lo_open(conn, lobjId, INV_READ);
     if (lobj_fd < 0)
@@ -1247,7 +1247,7 @@ exportFile(PGconn *conn, Oid lobjId, char *filename)
      * open the file to be written to
 -->
 <![CDATA[
-     * �񤭹���ե�����򳫤�
+     * 書き込むファイルを開く
      */
     fd = open(filename, O_CREAT | O_WRONLY | O_TRUNC, 0666);
     if (fd < 0)
@@ -1256,7 +1256,7 @@ exportFile(PGconn *conn, Oid lobjId, char *filename)
     {                           /* error */
 -->
 <![CDATA[
-    {                           /* ���顼�� */
+    {                           /* エラー時 */
         fprintf(stderr, "cannot open unix file\"%s\"",
                 filename);
     }
@@ -1267,7 +1267,7 @@ exportFile(PGconn *conn, Oid lobjId, char *filename)
      * read in from the inversion file and write to the Unix file
 -->
 <![CDATA[
-     * ž�֥ե����뤫���ɤ߹��ߡ�Unix�ե�����ؽ񤭽Ф���
+     * 転置ファイルから読み込み、Unixファイルへ書き出す。
      */
     while ((nbytes = lo_read(conn, lobj_fd, buf, BUFSIZE)) > 0)
     {
@@ -1319,7 +1319,7 @@ main(int argc, char **argv)
      * set up the connection
 -->
 <![CDATA[
-     * ��³�����ꤹ��
+     * 接続を設定する
      */
     conn = PQsetdb(NULL, NULL, NULL, NULL, database);
 
@@ -1328,7 +1328,7 @@ main(int argc, char **argv)
     /* check to see that the backend connection was successfully made */
 -->
 <![CDATA[
-    /* �Хå�����ɤȤ���³�������������ɤ�����ǧ���� */
+    /* バックエンドとの接続が成功したかどうか確認する */
     if (PQstatus(conn) != CONNECTION_OK)
     {
         fprintf(stderr, "Connection to database failed: %s",
