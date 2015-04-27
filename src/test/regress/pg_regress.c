@@ -537,8 +537,8 @@ convert_sourcefiles_in(char *source_subdir, char *dest_dir, char *dest_subdir, c
 	if (directory_exists(testtablespace))
 		if (!rmtree(testtablespace, true))
 		{
-			fprintf(stderr, _("\n%s: could not remove test tablespace \"%s\": %s\n"),
-					progname, testtablespace, strerror(errno));
+			fprintf(stderr, _("\n%s: could not remove test tablespace \"%s\"\n"),
+					progname, testtablespace);
 			exit(2);
 		}
 	make_directory(testtablespace);
@@ -790,9 +790,17 @@ initialize_environment(void)
 		unsetenv("LC_NUMERIC");
 		unsetenv("LC_TIME");
 		unsetenv("LANG");
-		/* On Windows the default locale cannot be English, so force it */
-#if defined(WIN32) || defined(__CYGWIN__)
-		putenv("LANG=en");
+
+		/*
+		 * Most platforms have adopted the POSIX locale as their
+		 * implementation-defined default locale.  Exceptions include native
+		 * Windows, Darwin with --enable-nls, and Cygwin with --enable-nls.
+		 * (Use of --enable-nls matters because libintl replaces setlocale().)
+		 * Also, PostgreSQL does not support Darwin with locale environment
+		 * variables unset; see PostmasterMain().
+		 */
+#if defined(WIN32) || defined(__CYGWIN__) || defined(__darwin__)
+		putenv("LANG=C");
 #endif
 	}
 
@@ -1035,6 +1043,7 @@ config_sspi_auth(const char *pgdata)
 			   *domainname;
 	const char *username;
 	char	   *errstr;
+	bool		have_ipv6;
 	char		fname[MAXPGPATH];
 	int			res;
 	FILE	   *hba,
@@ -1052,6 +1061,28 @@ config_sspi_auth(const char *pgdata)
 	{
 		fprintf(stderr, "%s: %s\n", progname, errstr);
 		exit(2);
+	}
+
+	/*
+	 * Like initdb.c:setup_config(), determine whether the platform recognizes
+	 * ::1 (IPv6 loopback) as a numeric host address string.
+	 */
+	{
+		struct addrinfo *gai_result;
+		struct addrinfo hints;
+		WSADATA		wsaData;
+
+		hints.ai_flags = AI_NUMERICHOST;
+		hints.ai_family = AF_UNSPEC;
+		hints.ai_socktype = 0;
+		hints.ai_protocol = 0;
+		hints.ai_addrlen = 0;
+		hints.ai_canonname = NULL;
+		hints.ai_addr = NULL;
+		hints.ai_next = NULL;
+
+		have_ipv6 = (WSAStartup(MAKEWORD(2, 2), &wsaData) == 0 &&
+					 getaddrinfo("::1", NULL, &hints, &gai_result) == 0);
 	}
 
 	/* Check a Write outcome and report any error. */
@@ -1085,6 +1116,9 @@ config_sspi_auth(const char *pgdata)
 	CW(fputs("# Configuration written by config_sspi_auth()\n", hba) >= 0);
 	CW(fputs("host all all 127.0.0.1/32  sspi include_realm=1 map=regress\n",
 			 hba) >= 0);
+	if (have_ipv6)
+		CW(fputs("host all all ::1/128  sspi include_realm=1 map=regress\n",
+				 hba) >= 0);
 	CW(fclose(hba) == 0);
 
 	snprintf(fname, sizeof(fname), "%s/pg_ident.conf", pgdata);
@@ -2358,7 +2392,8 @@ regression_main(int argc, char *argv[], init_function ifunc, test_function tfunc
 			header(_("removing existing temp installation"));
 			if (!rmtree(temp_install, true))
 			{
-				fprintf(stderr, _("\n%s: could not remove temp installation \"%s\": %s\n"), progname, temp_install, strerror(errno));
+				fprintf(stderr, _("\n%s: could not remove temp installation \"%s\"\n"),
+						progname, temp_install);
 				exit(2);
 			}
 		}
@@ -2628,6 +2663,19 @@ regression_main(int argc, char *argv[], init_function ifunc, test_function tfunc
 	{
 		header(_("shutting down postmaster"));
 		stop_postmaster();
+	}
+
+	/*
+	 * If there were no errors, remove the temp installation immediately to
+	 * conserve disk space.  (If there were errors, we leave the installation
+	 * in place for possible manual investigation.)
+	 */
+	if (temp_install && fail_count == 0 && fail_ignore_count == 0)
+	{
+		header(_("removing temporary installation"));
+		if (!rmtree(temp_install, true))
+			fprintf(stderr, _("\n%s: could not remove temp installation \"%s\"\n"),
+					progname, temp_install);
 	}
 
 	fclose(logfile);
