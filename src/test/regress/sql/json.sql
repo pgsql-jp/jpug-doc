@@ -509,6 +509,7 @@ select * from json_to_recordset('[{"a":1,"b":"foo","d":false},{"a":2,"b":"bar","
 
 select * from json_to_recordset('[{"a":1,"b":{"d":"foo"},"c":true},{"a":2,"c":false,"b":{"d":"bar"}}]')
     as x(a int, b json, c boolean);
+<<<<<<< HEAD
 
 
 -- json_strip_nulls
@@ -529,3 +530,5 @@ select json_strip_nulls('[1,{"a":1,"b":null,"c":2},3]');
 
 -- an empty object is not null and should not be stripped
 select json_strip_nulls('{"a": {"b": null, "c": null}, "d": {} }');
+=======
+>>>>>>> doc_ja_9_4

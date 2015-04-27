@@ -174,8 +174,13 @@ lnext:
 				}
 
 				/* updated, so fetch and lock the updated version */
+<<<<<<< HEAD
 				copyTuple = EvalPlanQualFetch(estate, erm->relation, lockmode,
 											  erm->waitPolicy, &hufd.ctid, hufd.xmax);
+=======
+				copyTuple = EvalPlanQualFetch(estate, erm->relation, lockmode, erm->noWait,
+											  &hufd.ctid, hufd.xmax);
+>>>>>>> doc_ja_9_4
 
 				if (copyTuple == NULL)
 				{

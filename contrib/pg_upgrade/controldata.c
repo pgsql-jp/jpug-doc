@@ -134,6 +134,26 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 	{
 		pg_log(PG_VERBOSE, "%s", bufin);
 
+<<<<<<< HEAD
+=======
+#ifdef WIN32
+
+		/*
+		 * Due to an installer bug, LANG=C doesn't work for PG 8.3.3, but does
+		 * work 8.2.6 and 8.3.7, so check for non-ASCII output and suggest a
+		 * minor upgrade.
+		 */
+		if (GET_MAJOR_VERSION(cluster->major_version) <= 803)
+		{
+			for (p = bufin; *p; p++)
+				if (!isascii((unsigned char) *p))
+					pg_fatal("The 8.3 cluster's pg_controldata is incapable of outputting ASCII, even\n"
+							 "with LANG=C.  You must upgrade this cluster to a newer version of PostgreSQL\n"
+							 "8.3 to fix this bug.  PostgreSQL 8.3.7 and later are known to work properly.\n");
+		}
+#endif
+
+>>>>>>> doc_ja_9_4
 		if ((p = strstr(bufin, "pg_control version number:")) != NULL)
 		{
 			p = strchr(p, ':');
@@ -207,18 +227,30 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 		else if ((p = strstr(bufin, "Latest checkpoint's NextXID:")) != NULL)
 		{
 			p = strchr(p, ':');
+<<<<<<< HEAD
 
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem\n", __LINE__);
 
 			p++;				/* remove ':' char */
+=======
+
+			if (p == NULL || strlen(p) <= 1)
+				pg_fatal("%d: controldata retrieval problem\n", __LINE__);
+
+			p++;				/* removing ':' char */
+>>>>>>> doc_ja_9_4
 			cluster->controldata.chkpnt_nxtepoch = str2uint(p);
 
 			p = strchr(p, '/');
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem\n", __LINE__);
 
+<<<<<<< HEAD
 			p++;				/* remove '/' char */
+=======
+			p++;				/* removing '/' char */
+>>>>>>> doc_ja_9_4
 			cluster->controldata.chkpnt_nxtxid = str2uint(p);
 			got_xid = true;
 		}

@@ -1,7 +1,11 @@
 use strict;
 use warnings;
 use TestLib;
+<<<<<<< HEAD
 use Test::More tests => 18;
+=======
+use Test::More tests => 16;
+>>>>>>> doc_ja_9_4
 
 program_help_ok('reindexdb');
 program_version_ok('reindexdb');

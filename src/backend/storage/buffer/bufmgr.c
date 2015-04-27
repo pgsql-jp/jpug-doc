@@ -654,8 +654,13 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 											  found);
 
 			/*
+<<<<<<< HEAD
 			 * In RBM_ZERO_AND_LOCK mode the caller expects the page to
 			 * be locked on return.
+=======
+			 * In RBM_ZERO_AND_LOCK mode, the caller expects the buffer to
+			 * be already locked on return.
+>>>>>>> doc_ja_9_4
 			 */
 			if (!isLocalBuf)
 			{
@@ -746,8 +751,15 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 		 * Read in the page, unless the caller intends to overwrite it and
 		 * just wants us to allocate a buffer.
 		 */
+<<<<<<< HEAD
 		if (mode == RBM_ZERO_AND_LOCK || mode == RBM_ZERO_AND_CLEANUP_LOCK)
+=======
+		if (mode == RBM_ZERO_AND_LOCK || mode == RBM_ZERO_AND_CLEANUP_LOCK ||
+			mode == RBM_DO_NOT_USE)
+		{
+>>>>>>> doc_ja_9_4
 			MemSet((char *) bufBlock, 0, BLCKSZ);
+		}
 		else
 		{
 			instr_time	io_start,
@@ -798,11 +810,16 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 	 * (Note that we cannot use LockBuffer() of LockBufferForCleanup() here,
 	 * because they assert that the buffer is already valid.)
 	 */
+<<<<<<< HEAD
 	if ((mode == RBM_ZERO_AND_LOCK || mode == RBM_ZERO_AND_CLEANUP_LOCK) &&
 		!isLocalBuf)
 	{
 		LWLockAcquire(bufHdr->content_lock, LW_EXCLUSIVE);
 	}
+=======
+	if (mode == RBM_ZERO_AND_LOCK || mode == RBM_ZERO_AND_CLEANUP_LOCK)
+		LWLockAcquire(bufHdr->content_lock, LW_EXCLUSIVE);
+>>>>>>> doc_ja_9_4
 
 	if (isLocalBuf)
 	{

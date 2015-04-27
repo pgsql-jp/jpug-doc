@@ -70,7 +70,10 @@ usage(void)
 	printf(_("  -s, --status-interval=SECS\n"
 			 "                         time between status packets sent to server (default: %d)\n"), (standby_message_timeout / 1000));
 	printf(_("  -S, --slot=SLOTNAME    replication slot to use\n"));
+<<<<<<< HEAD
 	printf(_("      --synchronous      flush transaction log immediately after writing\n"));
+=======
+>>>>>>> doc_ja_9_4
 	printf(_("  -v, --verbose          output verbose messages\n"));
 	printf(_("  -V, --version          output version information, then exit\n"));
 	printf(_("  -?, --help             show this help, then exit\n"));
@@ -81,9 +84,12 @@ usage(void)
 	printf(_("  -U, --username=NAME    connect as specified database user\n"));
 	printf(_("  -w, --no-password      never prompt for password\n"));
 	printf(_("  -W, --password         force password prompt (should happen automatically)\n"));
+<<<<<<< HEAD
 	printf(_("\nOptional actions:\n"));
 	printf(_("      --create-slot      create a new replication slot (for the slot's name see --slot)\n"));
 	printf(_("      --drop-slot        drop the replication slot (for the slot's name see --slot)\n"));
+=======
+>>>>>>> doc_ja_9_4
 	printf(_("\nReport bugs to <pgsql-bugs@postgresql.org>.\n"));
 }
 

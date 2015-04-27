@@ -1072,12 +1072,19 @@ vac_truncate_clog(TransactionId frozenXID,
 		return;
 
 	/*
+<<<<<<< HEAD
 	 * Truncate CLOG and CommitTs to the oldest computed value.
 	 * Note we don't truncate multixacts; that will be done by the next
 	 * checkpoint.
 	 */
 	TruncateCLOG(frozenXID);
 	TruncateCommitTs(frozenXID);
+=======
+	 * Truncate CLOG to the oldest computed value.  Note we don't truncate
+	 * multixacts; that will be done by the next checkpoint.
+	 */
+	TruncateCLOG(frozenXID);
+>>>>>>> doc_ja_9_4
 
 	/*
 	 * Update the wrap limit for GetNewTransactionId and creation of new
@@ -1087,7 +1094,10 @@ vac_truncate_clog(TransactionId frozenXID,
 	 */
 	SetTransactionIdLimit(frozenXID, oldestxid_datoid);
 	SetMultiXactIdLimit(minMulti, minmulti_datoid);
+<<<<<<< HEAD
 	AdvanceOldestCommitTs(frozenXID);
+=======
+>>>>>>> doc_ja_9_4
 }
 
 

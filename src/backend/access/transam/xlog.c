@@ -3657,6 +3657,120 @@ CleanupBackupHistory(void)
 }
 
 /*
+<<<<<<< HEAD
+=======
+ * Restore a full-page image from a backup block attached to an XLOG record.
+ *
+ * lsn: LSN of the XLOG record being replayed
+ * record: the complete XLOG record
+ * block_index: which backup block to restore (0 .. XLR_MAX_BKP_BLOCKS - 1)
+ * get_cleanup_lock: TRUE to get a cleanup rather than plain exclusive lock
+ * keep_buffer: TRUE to return the buffer still locked and pinned
+ *
+ * Returns the buffer number containing the page.  Note this is not terribly
+ * useful unless keep_buffer is specified as TRUE.
+ *
+ * Note: when a backup block is available in XLOG, we restore it
+ * unconditionally, even if the page in the database appears newer.
+ * This is to protect ourselves against database pages that were partially
+ * or incorrectly written during a crash.  We assume that the XLOG data
+ * must be good because it has passed a CRC check, while the database
+ * page might not be.  This will force us to replay all subsequent
+ * modifications of the page that appear in XLOG, rather than possibly
+ * ignoring them as already applied, but that's not a huge drawback.
+ *
+ * If 'get_cleanup_lock' is true, a cleanup lock is obtained on the buffer,
+ * else a normal exclusive lock is used.  During crash recovery, that's just
+ * pro forma because there can't be any regular backends in the system, but
+ * in hot standby mode the distinction is important.
+ *
+ * If 'keep_buffer' is true, return without releasing the buffer lock and pin;
+ * then caller is responsible for doing UnlockReleaseBuffer() later.  This
+ * is needed in some cases when replaying XLOG records that touch multiple
+ * pages, to prevent inconsistent states from being visible to other backends.
+ * (Again, that's only important in hot standby mode.)
+ */
+Buffer
+RestoreBackupBlock(XLogRecPtr lsn, XLogRecord *record, int block_index,
+				   bool get_cleanup_lock, bool keep_buffer)
+{
+	BkpBlock	bkpb;
+	char	   *blk;
+	int			i;
+
+	/* Locate requested BkpBlock in the record */
+	blk = (char *) XLogRecGetData(record) + record->xl_len;
+	for (i = 0; i < XLR_MAX_BKP_BLOCKS; i++)
+	{
+		if (!(record->xl_info & XLR_BKP_BLOCK(i)))
+			continue;
+
+		memcpy(&bkpb, blk, sizeof(BkpBlock));
+		blk += sizeof(BkpBlock);
+
+		if (i == block_index)
+		{
+			/* Found it, apply the update */
+			return RestoreBackupBlockContents(lsn, bkpb, blk, get_cleanup_lock,
+											  keep_buffer);
+		}
+
+		blk += BLCKSZ - bkpb.hole_length;
+	}
+
+	/* Caller specified a bogus block_index */
+	elog(ERROR, "failed to restore block_index %d", block_index);
+	return InvalidBuffer;		/* keep compiler quiet */
+}
+
+/*
+ * Workhorse for RestoreBackupBlock usable without an xlog record
+ *
+ * Restores a full-page image from BkpBlock and a data pointer.
+ */
+static Buffer
+RestoreBackupBlockContents(XLogRecPtr lsn, BkpBlock bkpb, char *blk,
+						   bool get_cleanup_lock, bool keep_buffer)
+{
+	Buffer		buffer;
+	Page		page;
+
+	buffer = XLogReadBufferExtended(bkpb.node, bkpb.fork, bkpb.block,
+			get_cleanup_lock ? RBM_ZERO_AND_CLEANUP_LOCK : RBM_ZERO_AND_LOCK);
+	Assert(BufferIsValid(buffer));
+
+	page = (Page) BufferGetPage(buffer);
+
+	if (bkpb.hole_length == 0)
+	{
+		memcpy((char *) page, blk, BLCKSZ);
+	}
+	else
+	{
+		memcpy((char *) page, blk, bkpb.hole_offset);
+		/* must zero-fill the hole */
+		MemSet((char *) page + bkpb.hole_offset, 0, bkpb.hole_length);
+		memcpy((char *) page + (bkpb.hole_offset + bkpb.hole_length),
+			   blk + bkpb.hole_offset,
+			   BLCKSZ - (bkpb.hole_offset + bkpb.hole_length));
+	}
+
+	/*
+	 * The checksum value on this page is currently invalid. We don't need to
+	 * reset it here since it will be set before being written.
+	 */
+
+	PageSetLSN(page, lsn);
+	MarkBufferDirty(buffer);
+
+	if (!keep_buffer)
+		UnlockReleaseBuffer(buffer);
+
+	return buffer;
+}
+
+/*
+>>>>>>> doc_ja_9_4
  * Attempt to read an XLOG record.
  *
  * If RecPtr is not NULL, try to read a record at that position.  Otherwise
@@ -4982,11 +5096,14 @@ exitArchiveRecovery(TimeLineID endTLI, XLogRecPtr endOfLog)
 {
 	char		recoveryPath[MAXPGPATH];
 	char		xlogfname[MAXFNAMELEN];
+<<<<<<< HEAD
 	XLogSegNo	endLogSegNo;
 	XLogSegNo	startLogSegNo;
 
 	/* we always switch to a new timeline after archive recovery */
 	Assert(endTLI != ThisTimeLineID);
+=======
+>>>>>>> doc_ja_9_4
 
 	/*
 	 * We are no longer in archive recovery state.
@@ -5058,7 +5175,11 @@ exitArchiveRecovery(TimeLineID endTLI, XLogRecPtr endOfLog)
 	 * Let's just make real sure there are not .ready or .done flags posted
 	 * for the new segment.
 	 */
+<<<<<<< HEAD
 	XLogFileName(xlogfname, ThisTimeLineID, startLogSegNo);
+=======
+	XLogFileName(xlogfname, ThisTimeLineID, endLogSegNo);
+>>>>>>> doc_ja_9_4
 	XLogArchiveCleanup(xlogfname);
 
 	/*
@@ -5116,17 +5237,29 @@ getRecordTimestamp(XLogReaderState *record, TimestampTz *recordXtime)
 		*recordXtime = ((xl_xact_commit *) XLogRecGetData(record))->xact_time;
 		return true;
 	}
+<<<<<<< HEAD
 	if (rmid == RM_XACT_ID && record_info == XLOG_XACT_COMMIT_PREPARED)
+=======
+	if (record->xl_rmid == RM_XACT_ID && record_info == XLOG_XACT_COMMIT_PREPARED)
+>>>>>>> doc_ja_9_4
 	{
 		*recordXtime = ((xl_xact_commit_prepared *) XLogRecGetData(record))->crec.xact_time;
 		return true;
 	}
+<<<<<<< HEAD
 	if (rmid == RM_XACT_ID && record_info == XLOG_XACT_ABORT)
+=======
+	if (record->xl_rmid == RM_XACT_ID && record_info == XLOG_XACT_ABORT)
+>>>>>>> doc_ja_9_4
 	{
 		*recordXtime = ((xl_xact_abort *) XLogRecGetData(record))->xact_time;
 		return true;
 	}
+<<<<<<< HEAD
 	if (rmid == RM_XACT_ID && record_info == XLOG_XACT_ABORT_PREPARED)
+=======
+	if (record->xl_rmid == RM_XACT_ID && record_info == XLOG_XACT_ABORT_PREPARED)
+>>>>>>> doc_ja_9_4
 	{
 		*recordXtime = ((xl_xact_abort_prepared *) XLogRecGetData(record))->arec.xact_time;
 		return true;
@@ -5167,12 +5300,20 @@ recoveryStopsBefore(XLogReaderState *record)
 	/* Otherwise we only consider stopping before COMMIT or ABORT records. */
 	if (XLogRecGetRmid(record) != RM_XACT_ID)
 		return false;
+<<<<<<< HEAD
 	record_info = XLogRecGetInfo(record) & ~XLR_INFO_MASK;
+=======
+	record_info = record->xl_info & ~XLR_INFO_MASK;
+>>>>>>> doc_ja_9_4
 
 	if (record_info == XLOG_XACT_COMMIT_COMPACT || record_info == XLOG_XACT_COMMIT)
 	{
 		isCommit = true;
+<<<<<<< HEAD
 		recordXid = XLogRecGetXid(record);
+=======
+		recordXid = record->xl_xid;
+>>>>>>> doc_ja_9_4
 	}
 	else if (record_info == XLOG_XACT_COMMIT_PREPARED)
 	{
@@ -5181,12 +5322,21 @@ recoveryStopsBefore(XLogReaderState *record)
 	}
 	else if (record_info == XLOG_XACT_ABORT)
 	{
+<<<<<<< HEAD
 		isCommit = false;
 		recordXid = XLogRecGetXid(record);
 	}
 	else if (record_info == XLOG_XACT_ABORT_PREPARED)
 	{
 		isCommit = false;
+=======
+		isCommit = false;
+		recordXid = record->xl_xid;
+	}
+	else if (record_info == XLOG_XACT_ABORT_PREPARED)
+	{
+		isCommit = false;
+>>>>>>> doc_ja_9_4
 		recordXid = ((xl_xact_abort_prepared *) XLogRecGetData(record))->xid;
 	}
 	else
@@ -5307,7 +5457,11 @@ recoveryStopsAfter(XLogReaderState *record)
 		else if (record_info == XLOG_XACT_ABORT_PREPARED)
 			recordXid = ((xl_xact_abort_prepared *) XLogRecGetData(record))->xid;
 		else
+<<<<<<< HEAD
 			recordXid = XLogRecGetXid(record);
+=======
+			recordXid = record->xl_xid;
+>>>>>>> doc_ja_9_4
 
 		/*
 		 * There can be only one transaction end record with this exact
@@ -5988,8 +6142,11 @@ StartupXLOG(void)
 	MultiXactSetNextMXact(checkPoint.nextMulti, checkPoint.nextMultiOffset);
 	SetTransactionIdLimit(checkPoint.oldestXid, checkPoint.oldestXidDB);
 	SetMultiXactIdLimit(checkPoint.oldestMulti, checkPoint.oldestMultiDB);
+<<<<<<< HEAD
 	SetCommitTsLimit(checkPoint.oldestCommitTs,
 					 checkPoint.newestCommitTs);
+=======
+>>>>>>> doc_ja_9_4
 	MultiXactSetSafeTruncate(checkPoint.oldestMulti);
 	XLogCtl->ckptXidEpoch = checkPoint.nextXidEpoch;
 	XLogCtl->ckptXid = checkPoint.nextXid;
@@ -7522,8 +7679,23 @@ ShutdownXLOG(int code, Datum arg)
 static void
 LogCheckpointStart(int flags, bool restartpoint)
 {
+<<<<<<< HEAD
 	elog(LOG, "%s starting:%s%s%s%s%s%s%s%s",
 		 restartpoint ? "restartpoint" : "checkpoint",
+=======
+	const char *msg;
+
+	/*
+	 * XXX: This is hopelessly untranslatable. We could call gettext_noop for
+	 * the main message, but what about all the flags?
+	 */
+	if (restartpoint)
+		msg = "restartpoint starting:%s%s%s%s%s%s%s%s";
+	else
+		msg = "checkpoint starting:%s%s%s%s%s%s%s%s";
+
+	elog(LOG, msg,
+>>>>>>> doc_ja_9_4
 		 (flags & CHECKPOINT_IS_SHUTDOWN) ? " shutdown" : "",
 		 (flags & CHECKPOINT_END_OF_RECOVERY) ? " end-of-recovery" : "",
 		 (flags & CHECKPOINT_IMMEDIATE) ? " immediate" : "",

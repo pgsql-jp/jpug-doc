@@ -24,7 +24,6 @@
 
 #include "postgres.h"
 
-#include "miscadmin.h"
 #include "utils/memdebug.h"
 #include "utils/memutils.h"
 
@@ -56,6 +55,7 @@ MemoryContext PortalContext = NULL;
 
 static void MemoryContextStatsInternal(MemoryContext context, int level);
 
+<<<<<<< HEAD
 /*
  * You should not do memory allocations within a critical section, because
  * an out-of-memory error will be escalated to a PANIC. To enforce that
@@ -63,6 +63,8 @@ static void MemoryContextStatsInternal(MemoryContext context, int level);
  */
 #define AssertNotInCriticalSection(context) \
 	Assert(CritSectionCount == 0 || (context)->allowInCritSection)
+=======
+>>>>>>> doc_ja_9_4
 
 /*****************************************************************************
  *	  EXPORTED ROUTINES														 *
@@ -551,9 +553,12 @@ MemoryContextCreate(NodeTag tag, Size size,
 	MemoryContext node;
 	Size		needed = size + strlen(name) + 1;
 
+<<<<<<< HEAD
 	/* creating new memory contexts is not allowed in a critical section */
 	Assert(CritSectionCount == 0);
 
+=======
+>>>>>>> doc_ja_9_4
 	/* Get space for node and name */
 	if (TopMemoryContext != NULL)
 	{
@@ -615,7 +620,6 @@ MemoryContextAlloc(MemoryContext context, Size size)
 	void	   *ret;
 
 	AssertArg(MemoryContextIsValid(context));
-	AssertNotInCriticalSection(context);
 
 	if (!AllocSizeIsValid(size))
 		elog(ERROR, "invalid memory alloc request size %zu", size);
@@ -641,7 +645,6 @@ MemoryContextAllocZero(MemoryContext context, Size size)
 	void	   *ret;
 
 	AssertArg(MemoryContextIsValid(context));
-	AssertNotInCriticalSection(context);
 
 	if (!AllocSizeIsValid(size))
 		elog(ERROR, "invalid memory alloc request size %zu", size);
@@ -669,7 +672,6 @@ MemoryContextAllocZeroAligned(MemoryContext context, Size size)
 	void	   *ret;
 
 	AssertArg(MemoryContextIsValid(context));
-	AssertNotInCriticalSection(context);
 
 	if (!AllocSizeIsValid(size))
 		elog(ERROR, "invalid memory alloc request size %zu", size);
@@ -691,7 +693,6 @@ palloc(Size size)
 	void	   *ret;
 
 	AssertArg(MemoryContextIsValid(CurrentMemoryContext));
-	AssertNotInCriticalSection(CurrentMemoryContext);
 
 	if (!AllocSizeIsValid(size))
 		elog(ERROR, "invalid memory alloc request size %zu", size);
@@ -711,7 +712,6 @@ palloc0(Size size)
 	void	   *ret;
 
 	AssertArg(MemoryContextIsValid(CurrentMemoryContext));
-	AssertNotInCriticalSection(CurrentMemoryContext);
 
 	if (!AllocSizeIsValid(size))
 		elog(ERROR, "invalid memory alloc request size %zu", size);
@@ -783,7 +783,6 @@ repalloc(void *pointer, Size size)
 			   ((char *) pointer - STANDARDCHUNKHEADERSIZE))->context;
 
 	AssertArg(MemoryContextIsValid(context));
-	AssertNotInCriticalSection(context);
 
 	/* isReset must be false already */
 	Assert(!context->isReset);
@@ -806,7 +805,6 @@ MemoryContextAllocHuge(MemoryContext context, Size size)
 	void	   *ret;
 
 	AssertArg(MemoryContextIsValid(context));
-	AssertNotInCriticalSection(context);
 
 	if (!AllocHugeSizeIsValid(size))
 		elog(ERROR, "invalid memory alloc request size %zu", size);
@@ -848,7 +846,6 @@ repalloc_huge(void *pointer, Size size)
 			   ((char *) pointer - STANDARDCHUNKHEADERSIZE))->context;
 
 	AssertArg(MemoryContextIsValid(context));
-	AssertNotInCriticalSection(context);
 
 	/* isReset must be false already */
 	Assert(!context->isReset);

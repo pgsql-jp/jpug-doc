@@ -739,7 +739,10 @@ dumpRoles(PGconn *conn)
 						  "null::text as rolpassword, "
 						  "null::abstime as rolvaliduntil, "
 						  "false as rolreplication, "
+<<<<<<< HEAD
 						  "false as rolbypassrls, "
+=======
+>>>>>>> doc_ja_9_4
 						  "null as rolcomment, "
 						  "false AS is_current_user "
 						  "FROM pg_group "
@@ -1279,7 +1282,11 @@ dumpCreateDB(PGconn *conn)
 						   "SELECT datname, "
 						   "coalesce(rolname, (select rolname from pg_authid where oid=(select datdba from pg_database where datname='template0'))), "
 						   "pg_encoding_to_char(d.encoding), "
+<<<<<<< HEAD
 					  "datcollate, datctype, datfrozenxid, 0 AS datminmxid, "
+=======
+						   "datcollate, datctype, datfrozenxid, 0 AS datminmxid, "
+>>>>>>> doc_ja_9_4
 						   "datistemplate, datacl, datconnlimit, "
 						   "(SELECT spcname FROM pg_tablespace t WHERE t.oid = d.dattablespace) AS dattablespace "
 			  "FROM pg_database d LEFT JOIN pg_authid u ON (datdba = u.oid) "
@@ -1289,7 +1296,11 @@ dumpCreateDB(PGconn *conn)
 						   "SELECT datname, "
 						   "coalesce(rolname, (select rolname from pg_authid where oid=(select datdba from pg_database where datname='template0'))), "
 						   "pg_encoding_to_char(d.encoding), "
+<<<<<<< HEAD
 						   "null::text AS datcollate, null::text AS datctype, datfrozenxid, 0 AS datminmxid, "
+=======
+		   "null::text AS datcollate, null::text AS datctype, datfrozenxid, 0 AS datminmxid, "
+>>>>>>> doc_ja_9_4
 						   "datistemplate, datacl, datconnlimit, "
 						   "(SELECT spcname FROM pg_tablespace t WHERE t.oid = d.dattablespace) AS dattablespace "
 			  "FROM pg_database d LEFT JOIN pg_authid u ON (datdba = u.oid) "
@@ -1299,7 +1310,11 @@ dumpCreateDB(PGconn *conn)
 						   "SELECT datname, "
 						   "coalesce(usename, (select usename from pg_shadow where usesysid=(select datdba from pg_database where datname='template0'))), "
 						   "pg_encoding_to_char(d.encoding), "
+<<<<<<< HEAD
 						   "null::text AS datcollate, null::text AS datctype, datfrozenxid, 0 AS datminmxid, "
+=======
+		   "null::text AS datcollate, null::text AS datctype, datfrozenxid, 0 AS datminmxid, "
+>>>>>>> doc_ja_9_4
 						   "datistemplate, datacl, -1 as datconnlimit, "
 						   "(SELECT spcname FROM pg_tablespace t WHERE t.oid = d.dattablespace) AS dattablespace "
 		   "FROM pg_database d LEFT JOIN pg_shadow u ON (datdba = usesysid) "
@@ -1309,7 +1324,11 @@ dumpCreateDB(PGconn *conn)
 						   "SELECT datname, "
 						   "coalesce(usename, (select usename from pg_shadow where usesysid=(select datdba from pg_database where datname='template0'))), "
 						   "pg_encoding_to_char(d.encoding), "
+<<<<<<< HEAD
 						   "null::text AS datcollate, null::text AS datctype, datfrozenxid, 0 AS datminmxid, "
+=======
+		   "null::text AS datcollate, null::text AS datctype, datfrozenxid, 0 AS datminmxid, "
+>>>>>>> doc_ja_9_4
 						   "datistemplate, datacl, -1 as datconnlimit, "
 						   "'pg_default' AS dattablespace "
 		   "FROM pg_database d LEFT JOIN pg_shadow u ON (datdba = usesysid) "
@@ -1421,7 +1440,11 @@ dumpCreateDB(PGconn *conn)
 			{
 				appendPQExpBufferStr(buf, "-- For binary upgrade, set datfrozenxid and datminmxid.\n");
 				appendPQExpBuffer(buf, "UPDATE pg_catalog.pg_database "
+<<<<<<< HEAD
 								"SET datfrozenxid = '%u', datminmxid = '%u' "
+=======
+								  "SET datfrozenxid = '%u', datminmxid = '%u' "
+>>>>>>> doc_ja_9_4
 								  "WHERE datname = ",
 								  dbfrozenxid, dbminmxid);
 				appendStringLiteralConn(buf, dbname, conn);

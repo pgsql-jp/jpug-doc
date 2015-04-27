@@ -15,10 +15,18 @@
 
 
 static void check_new_cluster_is_empty(void);
+<<<<<<< HEAD
 static void check_databases_are_compatible(void);
 static void check_locale_and_encoding(DbInfo *olddb, DbInfo *newdb);
 static bool equivalent_locale(int category, const char *loca, const char *locb);
 static void check_is_install_user(ClusterInfo *cluster);
+=======
+static void check_locale_and_encoding(ControlData *oldctrl,
+						  ControlData *newctrl);
+static bool equivalent_locale(int category, const char *loca, const char *locb);
+static bool equivalent_encoding(const char *chara, const char *charb);
+static void check_is_super_user(ClusterInfo *cluster);
+>>>>>>> doc_ja_9_4
 static void check_for_prepared_transactions(ClusterInfo *cluster);
 static void check_for_isn_and_int8_passing_mismatch(ClusterInfo *cluster);
 static void check_for_reg_data_type_usage(ClusterInfo *cluster);
@@ -96,9 +104,39 @@ check_and_dump_old_cluster(bool live_check)
 	check_for_prepared_transactions(&old_cluster);
 	check_for_reg_data_type_usage(&old_cluster);
 	check_for_isn_and_int8_passing_mismatch(&old_cluster);
+<<<<<<< HEAD
 	if (GET_MAJOR_VERSION(old_cluster.major_version) == 904 &&
 		old_cluster.controldata.cat_ver < JSONB_FORMAT_CHANGE_CAT_VER)
 		check_for_jsonb_9_4_usage(&old_cluster);
+=======
+
+	if (GET_MAJOR_VERSION(old_cluster.major_version) == 904 &&
+		old_cluster.controldata.cat_ver < JSONB_FORMAT_CHANGE_CAT_VER)
+		check_for_jsonb_9_4_usage(&old_cluster);
+
+	/* old = PG 8.3 checks? */
+	if (GET_MAJOR_VERSION(old_cluster.major_version) <= 803)
+	{
+		old_8_3_check_for_name_data_type_usage(&old_cluster);
+		old_8_3_check_for_tsquery_usage(&old_cluster);
+		old_8_3_check_ltree_usage(&old_cluster);
+		if (user_opts.check)
+		{
+			old_8_3_rebuild_tsvector_tables(&old_cluster, true);
+			old_8_3_invalidate_hash_gin_indexes(&old_cluster, true);
+			old_8_3_invalidate_bpchar_pattern_ops_indexes(&old_cluster, true);
+		}
+		else
+
+			/*
+			 * While we have the old server running, create the script to
+			 * properly restore its sequence values but we report this at the
+			 * end.
+			 */
+			*sequence_script_file_name =
+				old_8_3_create_sequence_script(&old_cluster);
+	}
+>>>>>>> doc_ja_9_4
 
 	/* Pre-PG 9.4 had a different 'line' data type internal format */
 	if (GET_MAJOR_VERSION(old_cluster.major_version) <= 903)
@@ -272,6 +310,61 @@ check_cluster_compatibility(bool live_check)
 
 
 /*
+<<<<<<< HEAD
+=======
+ * set_locale_and_encoding()
+ *
+ * query the database to get the template0 locale
+ */
+static void
+set_locale_and_encoding(ClusterInfo *cluster)
+{
+	ControlData *ctrl = &cluster->controldata;
+	PGconn	   *conn;
+	PGresult   *res;
+	int			i_encoding;
+	int			cluster_version = cluster->major_version;
+
+	conn = connectToServer(cluster, "template1");
+
+	/* for pg < 80400, we got the values from pg_controldata */
+	if (cluster_version >= 80400)
+	{
+		int			i_datcollate;
+		int			i_datctype;
+
+		res = executeQueryOrDie(conn,
+								"SELECT datcollate, datctype "
+								"FROM	pg_catalog.pg_database "
+								"WHERE	datname = 'template0' ");
+		assert(PQntuples(res) == 1);
+
+		i_datcollate = PQfnumber(res, "datcollate");
+		i_datctype = PQfnumber(res, "datctype");
+
+		ctrl->lc_collate = pg_strdup(PQgetvalue(res, 0, i_datcollate));
+		ctrl->lc_ctype = pg_strdup(PQgetvalue(res, 0, i_datctype));
+
+		PQclear(res);
+	}
+
+	res = executeQueryOrDie(conn,
+							"SELECT pg_catalog.pg_encoding_to_char(encoding) "
+							"FROM	pg_catalog.pg_database "
+							"WHERE	datname = 'template0' ");
+	assert(PQntuples(res) == 1);
+
+	i_encoding = PQfnumber(res, "pg_encoding_to_char");
+	ctrl->encoding = pg_strdup(PQgetvalue(res, 0, i_encoding));
+
+	PQclear(res);
+
+	PQfinish(conn);
+}
+
+
+/*
+>>>>>>> doc_ja_9_4
  * check_locale_and_encoding()
  *
  * Check that locale and encoding of a database in the old and new clusters
@@ -280,6 +373,7 @@ check_cluster_compatibility(bool live_check)
 static void
 check_locale_and_encoding(DbInfo *olddb, DbInfo *newdb)
 {
+<<<<<<< HEAD
 	if (olddb->db_encoding != newdb->db_encoding)
 		pg_fatal("encodings for database \"%s\" do not match:  old \"%s\", new \"%s\"\n",
 				 olddb->db_name,
@@ -291,6 +385,17 @@ check_locale_and_encoding(DbInfo *olddb, DbInfo *newdb)
 	if (!equivalent_locale(LC_CTYPE, olddb->db_ctype, newdb->db_ctype))
 		pg_fatal("lc_ctype values for database \"%s\" do not match:  old \"%s\", new \"%s\"\n",
 				 olddb->db_name, olddb->db_ctype, newdb->db_ctype);
+=======
+	if (!equivalent_locale(LC_COLLATE, oldctrl->lc_collate, newctrl->lc_collate))
+		pg_fatal("lc_collate cluster values do not match:  old \"%s\", new \"%s\"\n",
+				 oldctrl->lc_collate, newctrl->lc_collate);
+	if (!equivalent_locale(LC_CTYPE, oldctrl->lc_ctype, newctrl->lc_ctype))
+		pg_fatal("lc_ctype cluster values do not match:  old \"%s\", new \"%s\"\n",
+				 oldctrl->lc_ctype, newctrl->lc_ctype);
+	if (!equivalent_encoding(oldctrl->encoding, newctrl->encoding))
+		pg_fatal("encoding cluster values do not match:  old \"%s\", new \"%s\"\n",
+				 oldctrl->encoding, newctrl->encoding);
+>>>>>>> doc_ja_9_4
 }
 
 /*
@@ -333,6 +438,15 @@ equivalent_locale(int category, const char *loca, const char *locb)
 	canonb = get_canonical_locale_name(category, locb);
 	charb = strrchr(canonb, '.');
 	lenb = charb ? (charb - canonb) : strlen(canonb);
+<<<<<<< HEAD
+=======
+
+	if (lena == lenb && pg_strncasecmp(canona, canonb, lena) == 0)
+		return true;
+
+	return false;
+}
+>>>>>>> doc_ja_9_4
 
 	if (lena == lenb && pg_strncasecmp(canona, canonb, lena) == 0)
 		return true;

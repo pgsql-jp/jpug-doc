@@ -430,6 +430,7 @@ copy_clog_xlog_xid(void)
 			  "\"%s/pg_resetxlog\" -f -e %u \"%s\"",
 			  new_cluster.bindir, old_cluster.controldata.chkpnt_nxtepoch,
 			  new_cluster.pgdata);
+<<<<<<< HEAD
 	/* must reset commit timestamp limits also */
 	exec_prog(UTILITY_LOG_FILE, NULL, true,
 			  "\"%s/pg_resetxlog\" -f -c %u,%u \"%s\"",
@@ -437,6 +438,8 @@ copy_clog_xlog_xid(void)
 			  old_cluster.controldata.chkpnt_nxtxid,
 			  old_cluster.controldata.chkpnt_nxtxid,
 			  new_cluster.pgdata);
+=======
+>>>>>>> doc_ja_9_4
 	check_ok();
 
 	/*

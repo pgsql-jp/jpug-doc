@@ -214,7 +214,11 @@ CPP_SBRS=.
 RSC_PROJ=/l 0x409 /fo"$(INTDIR)\libpq.res"
 
 LINK32=link.exe
+<<<<<<< HEAD
 LINK32_FLAGS=kernel32.lib user32.lib advapi32.lib shell32.lib ws2_32.lib secur32.lib $(SSL_LIBS)  $(KFW_LIB) $(ADD_SECLIB) \
+=======
+LINK32_FLAGS=kernel32.lib user32.lib advapi32.lib shell32.lib wsock32.lib ws2_32.lib secur32.lib $(SSL_LIBS)  $(KFW_LIB) $(ADD_SECLIB) \
+>>>>>>> doc_ja_9_4
  /nologo /subsystem:windows /dll $(LOPT) /incremental:no \
  /pdb:"$(OUTDIR)\libpqdll.pdb" /machine:$(CPU) \
  /out:"$(OUTDIR)\$(OUTFILENAME).dll"\

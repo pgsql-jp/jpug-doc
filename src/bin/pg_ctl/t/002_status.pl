@@ -6,9 +6,12 @@ use Test::More tests => 3;
 my $tempdir = TestLib::tempdir;
 my $tempdir_short = TestLib::tempdir_short;
 
+<<<<<<< HEAD
 command_exit_is([ 'pg_ctl', 'status', '-D', "$tempdir/nonexistent" ],
 	4, 'pg_ctl status with nonexistent directory');
 
+=======
+>>>>>>> doc_ja_9_4
 standard_initdb "$tempdir/data";
 open CONF, ">>$tempdir/data/postgresql.conf";
 print CONF "listen_addresses = ''\n";

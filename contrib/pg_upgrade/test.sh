@@ -149,7 +149,11 @@ export EXTRA_REGRESS_OPTS
 set -x
 
 standard_initdb "$oldbindir"/initdb
+<<<<<<< HEAD
 "$oldbindir"/pg_ctl start -l "$logdir/postmaster1.log" -o "$POSTMASTER_OPTS" -w
+=======
+$oldbindir/pg_ctl start -l "$logdir/postmaster1.log" -o "$POSTMASTER_OPTS" -w
+>>>>>>> doc_ja_9_4
 if "$MAKE" -C "$oldsrc" installcheck; then
 	pg_dumpall -f "$temp_root"/dump1.sql || pg_dumpall1_status=$?
 	if [ "$newsrc" != "$oldsrc" ]; then

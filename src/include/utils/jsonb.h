@@ -277,10 +277,17 @@ struct JsonbValue
 
 /*
  * Key/value pair within an Object.
+<<<<<<< HEAD
  *
  * This struct type is only used briefly while constructing a Jsonb; it is
  * *not* the on-disk representation.
  *
+=======
+ *
+ * This struct type is only used briefly while constructing a Jsonb; it is
+ * *not* the on-disk representation.
+ *
+>>>>>>> doc_ja_9_4
  * Pairs with duplicate keys are de-duplicated.  We store the originally
  * observed pair ordering for the purpose of removing duplicates in a
  * well-defined way (which is "last observed wins").
@@ -323,10 +330,17 @@ typedef struct JsonbIterator
 	JEntry	   *children;		/* JEntrys for child nodes */
 	/* Data proper.  This points to the beginning of the variable-length data */
 	char	   *dataProper;
+<<<<<<< HEAD
 
 	/* Current item in buffer (up to nElems) */
 	int			curIndex;
 
+=======
+
+	/* Current item in buffer (up to nElems) */
+	int			curIndex;
+
+>>>>>>> doc_ja_9_4
 	/* Data offset corresponding to current item */
 	uint32		curDataOffset;
 

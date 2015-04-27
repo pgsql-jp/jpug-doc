@@ -401,9 +401,15 @@ tas(volatile slock_t *lock)
 #if defined(__sparcv7)
 /*
  * No stbar or membar available, luckily no actually produced hardware
+<<<<<<< HEAD
  * requires a barrier.  We fall through to the default gcc definition of
  * S_UNLOCK in this case.
  */
+=======
+ * requires a barrier.
+ */
+#define S_UNLOCK(lock)		(*((volatile slock_t *) (lock)) = 0)
+>>>>>>> doc_ja_9_4
 #elif  __sparcv8
 /* stbar is available (and required for both PSO, RMO), membar isn't */
 #define S_UNLOCK(lock)	\

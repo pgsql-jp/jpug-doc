@@ -13,6 +13,11 @@
 <xsl:param name="use.extensions" select="1"></xsl:param>
 <xsl:param name="variablelist.as.blocks" select="1"></xsl:param>
 
+<xsl:param name="title.font.family" select="'YuGothic,Meiryo,MS-PGothic,Hiragino Kaku Gothic ProN,TakaoExGothic,OpenSymbol'"/>
+<xsl:param name="body.font.family" select="'YuMincho,Meiryo,MS-PMincho,Hiragino Mincho ProN,TakaoExMincho,Serif'"/>
+<xsl:param name="monospace.font.family" select="'Osaka-mono,MS-Gothic,TakaoGothic,monospace,Courier'"/>
+<xsl:param name="body.start.indent">0</xsl:param>
+
 <xsl:attribute-set name="monospace.verbatim.properties"
                    use-attribute-sets="verbatim.properties monospace.properties">
   <xsl:attribute name="wrap-option">wrap</xsl:attribute>

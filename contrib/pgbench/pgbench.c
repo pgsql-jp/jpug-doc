@@ -296,8 +296,11 @@ typedef struct
 
 	long		start_time;		/* when does the interval start */
 	int			cnt;			/* number of transactions */
+<<<<<<< HEAD
 	int			skipped;		/* number of transactions skipped under
 								 * --rate and --latency-limit */
+=======
+>>>>>>> doc_ja_9_4
 
 	double		min_latency;	/* min/max latencies */
 	double		max_latency;
@@ -502,6 +505,7 @@ getrand(TState *thread, int64 min, int64 max)
 }
 
 /*
+<<<<<<< HEAD
  * random number generator: exponential distribution from min to max inclusive.
  * the threshold is so that the density of probability for the last cut-off max
  * value is exp(-threshold).
@@ -572,6 +576,8 @@ getGaussianRand(TState *thread, int64 min, int64 max, double threshold)
 }
 
 /*
+=======
+>>>>>>> doc_ja_9_4
  * random number generator: generate a value, such that the series of values
  * will approximate a Poisson distribution centered on the given value.
  */
@@ -1011,9 +1017,13 @@ void
 agg_vals_init(AggVals *aggs, instr_time start)
 {
 	/* basic counters */
+<<<<<<< HEAD
 	aggs->cnt = 0;				/* number of transactions (includes skipped) */
 	aggs->skipped = 0;			/* xacts skipped under --rate --latency-limit */
 
+=======
+	aggs->cnt = 0;				/* number of transactions */
+>>>>>>> doc_ja_9_4
 	aggs->sum_latency = 0;		/* SUM(latency) */
 	aggs->sum2_latency = 0;				/* SUM(latency*latency) */
 
@@ -1097,6 +1107,10 @@ top:
 			}
 		}
 
+<<<<<<< HEAD
+=======
+		st->txn_scheduled = thread->throttle_trigger;
+>>>>>>> doc_ja_9_4
 		st->sleeping = 1;
 		st->throttling = true;
 		st->is_throttled = true;
@@ -1132,6 +1146,11 @@ top:
 
 	if (st->listen)
 	{							/* are we receiver? */
+		instr_time	now;
+		bool		now_valid = false;
+
+		INSTR_TIME_SET_ZERO(now); /* initialize to keep compiler quiet */
+
 		if (commands[st->state]->type == SQL_COMMAND)
 		{
 			if (debug)
@@ -1153,13 +1172,22 @@ top:
 		{
 			int			cnum = commands[st->state]->command_num;
 
+<<<<<<< HEAD
 			if (INSTR_TIME_IS_ZERO(now))
 				INSTR_TIME_SET_CURRENT(now);
+=======
+			if (!now_valid)
+			{
+				INSTR_TIME_SET_CURRENT(now);
+				now_valid = true;
+			}
+>>>>>>> doc_ja_9_4
 			INSTR_TIME_ACCUM_DIFF(thread->exec_elapsed[cnum],
 								  now, st->stmt_begin);
 			thread->exec_count[cnum]++;
 		}
 
+<<<<<<< HEAD
 		/* transaction finished: calculate latency and log the transaction */
 		if (commands[st->state + 1] == NULL)
 		{
@@ -1187,6 +1215,172 @@ top:
 				/* record over the limit transactions if needed. */
 				if (latency_limit && latency > latency_limit)
 					thread->latency_late++;
+=======
+		/* transaction finished: record latency under progress or throttling */
+		if ((progress || throttle_delay) && commands[st->state + 1] == NULL)
+		{
+			int64		latency;
+
+			if (!now_valid)
+			{
+				INSTR_TIME_SET_CURRENT(now);
+				now_valid = true;
+			}
+
+			latency = INSTR_TIME_GET_MICROSEC(now) - st->txn_scheduled;
+
+			st->txn_latencies += latency;
+
+			/*
+			 * XXX In a long benchmark run of high-latency transactions, this
+			 * int64 addition eventually overflows.  For example, 100 threads
+			 * running 10s transactions will overflow it in 2.56 hours.  With
+			 * a more-typical OLTP workload of .1s transactions, overflow
+			 * would take 256 hours.
+			 */
+			st->txn_sqlats += latency * latency;
+		}
+
+		/*
+		 * if transaction finished, record the time it took in the log
+		 */
+		if (logfile && commands[st->state + 1] == NULL)
+		{
+			double		lag;
+			double		latency;
+
+			/*
+			 * write the log entry if this row belongs to the random sample,
+			 * or no sampling rate was given which means log everything.
+			 */
+			if (sample_rate == 0.0 ||
+				pg_erand48(thread->random_state) <= sample_rate)
+			{
+				if (!now_valid)
+				{
+					INSTR_TIME_SET_CURRENT(now);
+					now_valid = true;
+				}
+				latency = (double) (INSTR_TIME_GET_MICROSEC(now) - st->txn_scheduled);
+				lag = (double) (INSTR_TIME_GET_MICROSEC(st->txn_begin) - st->txn_scheduled);
+
+				/* should we aggregate the results or not? */
+				if (agg_interval > 0)
+				{
+					/*
+					 * are we still in the same interval? if yes, accumulate
+					 * the values (print them otherwise)
+					 */
+					if (agg->start_time + agg_interval >= INSTR_TIME_GET_DOUBLE(now))
+					{
+						agg->cnt += 1;
+						agg->sum_latency += latency;
+						agg->sum2_latency += latency * latency;
+
+						/* first in this aggregation interval */
+						if ((agg->cnt == 1) || (latency < agg->min_latency))
+							agg->min_latency = latency;
+
+						if ((agg->cnt == 1) || (latency > agg->max_latency))
+							agg->max_latency = latency;
+
+						/* and the same for schedule lag */
+						if (throttle_delay)
+						{
+							agg->sum_lag += lag;
+							agg->sum2_lag += lag * lag;
+
+							if ((agg->cnt == 1) || (lag < agg->min_lag))
+								agg->min_lag = lag;
+							if ((agg->cnt == 1) || (lag > agg->max_lag))
+								agg->max_lag = lag;
+						}
+					}
+					else
+					{
+						/*
+						 * Loop until we reach the interval of the current
+						 * transaction (and print all the empty intervals in
+						 * between).
+						 */
+						while (agg->start_time + agg_interval < INSTR_TIME_GET_DOUBLE(now))
+						{
+							/*
+							 * This is a non-Windows branch (thanks to the
+							 * ifdef in usage), so we don't need to handle
+							 * this in a special way (see below).
+							 */
+							fprintf(logfile, "%ld %d %.0f %.0f %.0f %.0f",
+									agg->start_time,
+									agg->cnt,
+									agg->sum_latency,
+									agg->sum2_latency,
+									agg->min_latency,
+									agg->max_latency);
+							if (throttle_delay)
+								fprintf(logfile, " %.0f %.0f %.0f %.0f",
+										agg->sum_lag,
+										agg->sum2_lag,
+										agg->min_lag,
+										agg->max_lag);
+							fputc('\n', logfile);
+
+							/* move to the next inteval */
+							agg->start_time = agg->start_time + agg_interval;
+
+							/* reset for "no transaction" intervals */
+							agg->cnt = 0;
+							agg->min_latency = 0;
+							agg->max_latency = 0;
+							agg->sum_latency = 0;
+							agg->sum2_latency = 0;
+							agg->min_lag = 0;
+							agg->max_lag = 0;
+							agg->sum_lag = 0;
+							agg->sum2_lag = 0;
+						}
+
+						/*
+						 * and now update the reset values (include the
+						 * current)
+						 */
+						agg->cnt = 1;
+						agg->min_latency = latency;
+						agg->max_latency = latency;
+						agg->sum_latency = latency;
+						agg->sum2_latency = latency * latency;
+						agg->min_lag = lag;
+						agg->max_lag = lag;
+						agg->sum_lag = lag;
+						agg->sum2_lag = lag * lag;
+					}
+				}
+				else
+				{
+					/* no, print raw transactions */
+#ifndef WIN32
+
+					/*
+					 * This is more than we really ought to know about
+					 * instr_time
+					 */
+					fprintf(logfile, "%d %d %.0f %d %ld %ld",
+							st->id, st->cnt, latency, st->use_file,
+							(long) now.tv_sec, (long) now.tv_usec);
+#else
+
+					/*
+					 * On Windows, instr_time doesn't provide a timestamp
+					 * anyway
+					 */
+					fprintf(logfile, "%d %d %.0f %d 0 0",
+							st->id, st->cnt, latency, st->use_file);
+#endif
+					if (throttle_delay)
+						fprintf(logfile, " %.0f", lag);
+					fputc('\n', logfile);
+				}
+>>>>>>> doc_ja_9_4
 			}
 
 			/* record the time it took in the log */
@@ -1277,7 +1471,11 @@ top:
 	}
 
 	/* Record transaction start time under logging, progress or throttling */
+<<<<<<< HEAD
 	if ((logfile || progress || throttle_delay || latency_limit) && st->state == 0)
+=======
+	if ((logfile || progress || throttle_delay) && st->state == 0)
+>>>>>>> doc_ja_9_4
 	{
 		INSTR_TIME_SET_CURRENT(st->txn_begin);
 
@@ -2545,6 +2743,7 @@ printResults(int ttype, int64 normal_xacts, int nclients,
 	if (normal_xacts <= 0)
 		return;
 
+<<<<<<< HEAD
 	if (throttle_delay && latency_limit)
 		printf("number of transactions skipped: " INT64_FORMAT " (%.3f %%)\n",
 			   throttle_latency_skipped,
@@ -2556,6 +2755,9 @@ printResults(int ttype, int64 normal_xacts, int nclients,
 			   100.0 * latency_late / (throttle_latency_skipped + normal_xacts));
 
 	if (throttle_delay || progress || latency_limit)
+=======
+	if (throttle_delay || progress)
+>>>>>>> doc_ja_9_4
 	{
 		/* compute and show latency average and standard deviation */
 		double		latency = 0.001 * total_latencies / normal_xacts;

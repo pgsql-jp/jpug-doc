@@ -1,7 +1,11 @@
 use strict;
 use warnings;
 use TestLib;
+<<<<<<< HEAD
 use Test::More tests => 17;
+=======
+use Test::More tests => 16;
+>>>>>>> doc_ja_9_4
 
 my $tempdir = TestLib::tempdir;
 my $tempdir_short = TestLib::tempdir_short;

@@ -6785,14 +6785,25 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 
 		case VAR_SET_DEFAULT:
 		case VAR_RESET:
+<<<<<<< HEAD
+=======
 			value = NULL;
 			break;
 
+		case VAR_RESET_ALL:
+>>>>>>> doc_ja_9_4
+			value = NULL;
+			resetall = true;
+			break;
+
+<<<<<<< HEAD
 		case VAR_RESET_ALL:
 			value = NULL;
 			resetall = true;
 			break;
 
+=======
+>>>>>>> doc_ja_9_4
 		default:
 			elog(ERROR, "unrecognized alter system stmt type: %d",
 				 altersysstmt->setstmt->kind);
@@ -6806,6 +6817,7 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 		if (record == NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_UNDEFINED_OBJECT),
+<<<<<<< HEAD
 					 errmsg("unrecognized configuration parameter \"%s\"",
 							name)));
 
@@ -6821,12 +6833,32 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 					 errmsg("parameter \"%s\" cannot be changed",
 							name)));
 
+=======
+				   errmsg("unrecognized configuration parameter \"%s\"", name)));
+
+		/*
+		 * Don't allow the parameters which can't be set in configuration
+		 * files to be set in PG_AUTOCONF_FILENAME file.
+		 */
+		if ((record->context == PGC_INTERNAL) ||
+			(record->flags & GUC_DISALLOW_IN_FILE) ||
+			(record->flags & GUC_DISALLOW_IN_AUTO_FILE))
+			 ereport(ERROR,
+					 (errcode(ERRCODE_CANT_CHANGE_RUNTIME_PARAM),
+					  errmsg("parameter \"%s\" cannot be changed",
+							 name)));
+
+>>>>>>> doc_ja_9_4
 		if (!validate_conf_option(record, name, value, PGC_S_FILE,
 								  ERROR, true, NULL,
 								  &newextra))
 			ereport(ERROR,
+<<<<<<< HEAD
 					(errmsg("invalid value for parameter \"%s\": \"%s\"",
 							name, value)));
+=======
+			(errmsg("invalid value for parameter \"%s\": \"%s\"", name, value)));
+>>>>>>> doc_ja_9_4
 	}
 
 

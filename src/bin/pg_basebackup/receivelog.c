@@ -868,7 +868,37 @@ HandleCopyStream(PGconn *conn, XLogRecPtr startpos, uint32 timeline,
 			 * Process the received data, and any subsequent data we
 			 * can read without blocking.
 			 */
+<<<<<<< HEAD
 			r = CopyStreamReceive(conn, 0, &copybuf);
+=======
+			if (still_sending)
+			{
+				if (!close_walfile(basedir, partial_suffix, blockpos))
+				{
+					/* Error message written in close_walfile() */
+					PQclear(res);
+					goto error;
+				}
+				if (PQresultStatus(res) == PGRES_COPY_IN)
+				{
+					if (PQputCopyEnd(conn, NULL) <= 0 || PQflush(conn))
+					{
+						fprintf(stderr,
+								_("%s: could not send copy-end packet: %s"),
+								progname, PQerrorMessage(conn));
+						PQclear(res);
+						goto error;
+					}
+					PQclear(res);
+					res = PQgetResult(conn);
+				}
+				still_sending = false;
+			}
+			if (copybuf != NULL)
+				PQfreemem(copybuf);
+			*stoppos = blockpos;
+			return res;
+>>>>>>> doc_ja_9_4
 		}
 	}
 
@@ -1039,6 +1069,7 @@ ProcessKeepaliveMsg(PGconn *conn, char *copybuf, int len,
 			lastFlushPosition = blockpos;
 		}
 
+<<<<<<< HEAD
 		now = feGetCurrentTimestamp();
 		if (!sendFeedback(conn, blockpos, now, false))
 			return false;
@@ -1102,6 +1133,35 @@ ProcessXLogDataMsg(PGconn *conn, char *copybuf, int len,
 					_("%s: received transaction log record for offset %u with no file open\n"),
 					progname, xlogoff);
 			return false;
+=======
+			/* If the server requested an immediate reply, send one. */
+			if (replyRequested && still_sending)
+			{
+				if (reportFlushPosition && lastFlushPosition < blockpos &&
+					walfile != -1)
+				{
+					/*
+					 * If a valid flush location needs to be reported,
+					 * flush the current WAL file so that the latest flush
+					 * location is sent back to the server. This is necessary to
+					 * see whether the last WAL data has been successfully
+					 * replicated or not, at the normal shutdown of the server.
+					 */
+					if (fsync(walfile) != 0)
+					{
+						fprintf(stderr, _("%s: could not fsync file \"%s\": %s\n"),
+								progname, current_walfile_name, strerror(errno));
+						goto error;
+					}
+					lastFlushPosition = blockpos;
+				}
+
+				now = feGetCurrentTimestamp();
+				if (!sendFeedback(conn, blockpos, now, false))
+					goto error;
+				last_status = now;
+			}
+>>>>>>> doc_ja_9_4
 		}
 	}
 	else
@@ -1271,6 +1331,7 @@ CalculateCopyStreamSleeptime(int64 now, int standby_message_timeout,
 		status_targettime = last_status +
 			(standby_message_timeout - 1) * ((int64) 1000);
 
+<<<<<<< HEAD
 	if (status_targettime > 0)
 	{
 		long		secs;
@@ -1282,6 +1343,33 @@ CalculateCopyStreamSleeptime(int64 now, int standby_message_timeout,
 							  &usecs);
 		/* Always sleep at least 1 sec */
 		if (secs <= 0)
+=======
+				/* Did we reach the end of a WAL segment? */
+				if (blockpos % XLOG_SEG_SIZE == 0)
+				{
+					if (!close_walfile(basedir, partial_suffix, blockpos))
+						/* Error message written in close_walfile() */
+						goto error;
+
+					xlogoff = 0;
+
+					if (still_sending && stream_stop(blockpos, timeline, true))
+					{
+						if (PQputCopyEnd(conn, NULL) <= 0 || PQflush(conn))
+						{
+							fprintf(stderr, _("%s: could not send copy-end packet: %s"),
+									progname, PQerrorMessage(conn));
+							goto error;
+						}
+						still_sending = false;
+						break;	/* ignore the rest of this XLogData packet */
+					}
+				}
+			}
+			/* No more data left to write, receive next copy packet */
+		}
+		else
+>>>>>>> doc_ja_9_4
 		{
 			secs = 1;
 			usecs = 0;

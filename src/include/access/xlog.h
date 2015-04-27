@@ -158,8 +158,15 @@ extern bool XLOG_DEBUG;
 /* These are important to RequestCheckpoint */
 #define CHECKPOINT_WAIT			0x0020	/* Wait for completion */
 /* These indicate the cause of a checkpoint request */
+<<<<<<< HEAD
 #define CHECKPOINT_CAUSE_XLOG	0x0040	/* XLOG consumption */
 #define CHECKPOINT_CAUSE_TIME	0x0080	/* Elapsed time */
+=======
+#define CHECKPOINT_CAUSE_XLOG	0x0020	/* XLOG consumption */
+#define CHECKPOINT_CAUSE_TIME	0x0040	/* Elapsed time */
+#define CHECKPOINT_FLUSH_ALL	0x0080	/* Flush all pages, including those
+										 * belonging to unlogged tables */
+>>>>>>> doc_ja_9_4
 
 /* Checkpoint statistics */
 typedef struct CheckpointStatsData

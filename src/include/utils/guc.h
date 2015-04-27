@@ -34,6 +34,13 @@
 #define PG_AUTOCONF_FILENAME		"postgresql.auto.conf"
 
 /*
+ * Automatic configuration file name for ALTER SYSTEM.
+ * This file will be used to store values of configuration parameters
+ * set by ALTER SYSTEM command.
+ */
+#define PG_AUTOCONF_FILENAME		"postgresql.auto.conf"
+
+/*
  * Certain options can only be set at certain times. The rules are
  * like this:
  *
@@ -213,8 +220,12 @@ typedef enum
 #define GUC_UNIT_TIME			0x7000	/* mask for MS, S, MIN */
 
 #define GUC_NOT_WHILE_SEC_REST	0x8000	/* can't set if security restricted */
+<<<<<<< HEAD
 #define GUC_DISALLOW_IN_AUTO_FILE	0x00010000	/* can't set in
 												 * PG_AUTOCONF_FILENAME */
+=======
+#define GUC_DISALLOW_IN_AUTO_FILE	0x00010000	/* can't set in PG_AUTOCONF_FILENAME */
+>>>>>>> doc_ja_9_4
 
 /* GUC vars that are actually declared in guc.c, rather than elsewhere */
 extern bool log_duration;

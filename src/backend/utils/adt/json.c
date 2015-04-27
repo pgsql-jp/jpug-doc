@@ -1952,6 +1952,7 @@ json_object_agg_transfn(PG_FUNCTION_ARGS)
 	 * unknownout() works fine.
 	 */
 	val_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
+<<<<<<< HEAD
 
 	if (val_type == InvalidOid)
 		ereport(ERROR,
@@ -1961,6 +1962,17 @@ json_object_agg_transfn(PG_FUNCTION_ARGS)
 	if (PG_ARGISNULL(1))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+=======
+
+	if (val_type == InvalidOid)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("could not determine data type for argument %d", 1)));
+
+	if (PG_ARGISNULL(1))
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+>>>>>>> doc_ja_9_4
 				 errmsg("field name must not be null")));
 
 	arg = PG_GETARG_DATUM(1);
@@ -2091,12 +2103,21 @@ json_build_object(PG_FUNCTION_ARGS)
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("could not determine data type for argument %d",
 							i + 2)));
+<<<<<<< HEAD
 
 		if (PG_ARGISNULL(i + 1))
 			arg = (Datum) 0;
 		else
 			arg = PG_GETARG_DATUM(i + 1);
 
+=======
+
+		if (PG_ARGISNULL(i + 1))
+			arg = (Datum) 0;
+		else
+			arg = PG_GETARG_DATUM(i + 1);
+
+>>>>>>> doc_ja_9_4
 		add_json(arg, PG_ARGISNULL(i + 1), result, val_type, false);
 	}
 

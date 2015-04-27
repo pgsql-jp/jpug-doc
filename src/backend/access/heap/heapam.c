@@ -2483,6 +2483,7 @@ heap_multi_insert(Relation relation, HeapTuple *tuples, int ntuples,
 			}
 
 			/*
+<<<<<<< HEAD
 			 * If we're doing logical decoding, include the new tuple data
 			 * even if we take a full-page image of the page.
 			 */
@@ -2495,6 +2496,16 @@ heap_multi_insert(Relation relation, HeapTuple *tuples, int ntuples,
 
 			XLogRegisterBufData(0, tupledata, totaldatalen);
 			recptr = XLogInsert(RM_HEAP2_ID, info);
+=======
+			 * Signal that this is the last xl_heap_multi_insert record
+			 * emitted by this call to heap_multi_insert(). Needed for logical
+			 * decoding so it knows when to cleanup temporary data.
+			 */
+			if (ndone + nthispage == ntuples)
+				xlrec->flags |= XLOG_HEAP_LAST_MULTI_INSERT;
+
+			recptr = XLogInsert(RM_HEAP2_ID, info, rdata);
+>>>>>>> doc_ja_9_4
 
 			PageSetLSN(page, recptr);
 		}
@@ -4408,6 +4419,7 @@ l3:
 				/* wait for multixact to end, or die trying  */
 				switch (wait_policy)
 				{
+<<<<<<< HEAD
 					case LockWaitBlock:
 						MultiXactIdWait((MultiXactId) xwait, status, infomask,
 										relation, &tuple->t_data->t_ctid, XLTW_Lock, NULL);
@@ -4433,6 +4445,15 @@ l3:
 											RelationGetRelationName(relation))));
 
 						break;
+=======
+					if (!ConditionalMultiXactIdWait((MultiXactId) xwait,
+												  status, infomask, relation,
+													NULL))
+						ereport(ERROR,
+								(errcode(ERRCODE_LOCK_NOT_AVAILABLE),
+								 errmsg("could not obtain lock on row in relation \"%s\"",
+										RelationGetRelationName(relation))));
+>>>>>>> doc_ja_9_4
 				}
 
 				/* if there are updates, follow the update chain */
@@ -5514,8 +5535,12 @@ FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
 		 */
 		Assert((!(t_infomask & HEAP_LOCK_MASK) &&
 				HEAP_XMAX_IS_LOCKED_ONLY(t_infomask)) ||
+<<<<<<< HEAD
 			   !MultiXactIdIsRunning(multi,
 									 HEAP_XMAX_IS_LOCKED_ONLY(t_infomask)));
+=======
+			   !MultiXactIdIsRunning(multi));
+>>>>>>> doc_ja_9_4
 		if (HEAP_XMAX_IS_LOCKED_ONLY(t_infomask))
 		{
 			*flags |= FRM_INVALIDATE_XMAX;
@@ -7173,9 +7198,20 @@ heap_xlog_freeze_page(XLogReaderState *record)
 			ItemId		lp;
 			HeapTupleHeader tuple;
 
+<<<<<<< HEAD
 			xlrec_tp = &tuples[ntup];
 			lp = PageGetItemId(page, xlrec_tp->offset); /* offsets are one-based */
 			tuple = (HeapTupleHeader) PageGetItem(page, lp);
+=======
+	/*
+	 * Note: the NEWPAGE log record is used for both heaps and indexes, so do
+	 * not do anything that assumes we are touching a heap.
+	 */
+	buffer = XLogReadBufferExtended(xlrec->node, xlrec->forknum, xlrec->blkno,
+									RBM_ZERO_AND_LOCK);
+	Assert(BufferIsValid(buffer));
+	page = (Page) BufferGetPage(buffer);
+>>>>>>> doc_ja_9_4
 
 			heap_execute_freeze_tuple(tuple, xlrec_tp);
 		}

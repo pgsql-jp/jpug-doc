@@ -1085,7 +1085,11 @@ exec_command(const char *cmd,
 			for (i = 0; my_list[i] != NULL; i++)
 			{
 				char   *val = pset_value_string(my_list[i], &pset.popt);
+<<<<<<< HEAD
 				printf("%-24s %s\n", my_list[i], val);
+=======
+				printf("%-14s %s\n", my_list[i], val);
+>>>>>>> doc_ja_9_4
 				free(val);
 			}
 
@@ -2289,6 +2293,7 @@ set_unicode_line_style(printQueryOpt *popt, const char *value, size_t vallen,
 	return true;
 }
 
+<<<<<<< HEAD
 static const char *
 _unicode_linestyle2string(int linestyle)
 {
@@ -2304,6 +2309,8 @@ _unicode_linestyle2string(int linestyle)
 	return "unknown";
 }
 
+=======
+>>>>>>> doc_ja_9_4
 /*
  * do_pset
  *
@@ -2686,6 +2693,7 @@ printPsetInfo(const char *param, struct printQueryOpt *popt)
 			printf(_("Tuples only is on.\n"));
 		else
 			printf(_("Tuples only is off.\n"));
+<<<<<<< HEAD
 	}
 
 	/* unicode style formatting */
@@ -2705,6 +2713,8 @@ printPsetInfo(const char *param, struct printQueryOpt *popt)
 	{
 		printf(_("Unicode border linestyle is \"%s\".\n"),
 				_unicode_linestyle2string(popt->topt.unicode_header_linestyle));
+=======
+>>>>>>> doc_ja_9_4
 	}
 
 	else
@@ -2807,12 +2817,15 @@ pset_value_string(const char *param, struct printQueryOpt *popt)
 		return popt->title ? pset_quoted_string(popt->title) : pstrdup("");
 	else if (strcmp(param, "tuples_only") == 0)
 		return pstrdup(pset_bool_string(popt->topt.tuples_only));
+<<<<<<< HEAD
 	else if (strcmp(param, "unicode_border_linestyle") == 0)
 		return pstrdup(_unicode_linestyle2string(popt->topt.unicode_border_linestyle));
 	else if (strcmp(param, "unicode_column_linestyle") == 0)
 		return pstrdup(_unicode_linestyle2string(popt->topt.unicode_column_linestyle));
 	else if (strcmp(param, "unicode_header_linestyle") == 0)
 		return pstrdup(_unicode_linestyle2string(popt->topt.unicode_header_linestyle));
+=======
+>>>>>>> doc_ja_9_4
 	else
 		return pstrdup("ERROR");
 }

@@ -201,8 +201,11 @@ SET ROLE user_dw;
 CREATE TABLE foo_data AS SELECT i, md5(random()::text)
   FROM generate_series(1, 10) i;
 CREATE MATERIALIZED VIEW mv_foo AS SELECT * FROM foo_data;
+<<<<<<< HEAD
 CREATE MATERIALIZED VIEW mv_foo AS SELECT * FROM foo_data;
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_foo AS SELECT * FROM foo_data;
+=======
+>>>>>>> doc_ja_9_4
 CREATE UNIQUE INDEX ON mv_foo (i);
 RESET ROLE;
 REFRESH MATERIALIZED VIEW mv_foo;

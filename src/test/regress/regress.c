@@ -30,7 +30,10 @@
 #include "executor/executor.h"
 #include "executor/spi.h"
 #include "miscadmin.h"
+<<<<<<< HEAD
 #include "port/atomics.h"
+=======
+>>>>>>> doc_ja_9_4
 #include "utils/builtins.h"
 #include "utils/geo_decls.h"
 #include "utils/rel.h"
@@ -878,6 +881,7 @@ wait_pid(PG_FUNCTION_ARGS)
 
 	PG_RETURN_VOID();
 }
+<<<<<<< HEAD
 
 #ifndef PG_HAVE_ATOMIC_FLAG_SIMULATION
 static void
@@ -1116,3 +1120,5 @@ test_atomic_ops(PG_FUNCTION_ARGS)
 
 	PG_RETURN_BOOL(true);
 }
+=======
+>>>>>>> doc_ja_9_4

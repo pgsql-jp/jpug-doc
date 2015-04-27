@@ -1870,7 +1870,11 @@ EvalPlanQual(EState *estate, EPQState *epqstate,
 	/*
 	 * Get and lock the updated version of the row; if fail, return NULL.
 	 */
+<<<<<<< HEAD
 	copyTuple = EvalPlanQualFetch(estate, relation, lockmode, LockWaitBlock,
+=======
+	copyTuple = EvalPlanQualFetch(estate, relation, lockmode, false /* wait */,
+>>>>>>> doc_ja_9_4
 								  tid, priorXmax);
 
 	if (copyTuple == NULL)
@@ -1929,7 +1933,11 @@ EvalPlanQual(EState *estate, EPQState *epqstate,
  *	estate - executor state data
  *	relation - table containing tuple
  *	lockmode - requested tuple lock mode
+<<<<<<< HEAD
  *	wait_policy - requested lock wait policy
+=======
+ *	noWait - wait mode to pass to heap_lock_tuple
+>>>>>>> doc_ja_9_4
  *	*tid - t_ctid from the outdated tuple (ie, next updated version)
  *	priorXmax - t_xmax from the outdated tuple
  *
@@ -1945,8 +1953,12 @@ EvalPlanQual(EState *estate, EPQState *epqstate,
  * but we use "int" to avoid having to include heapam.h in executor.h.
  */
 HeapTuple
+<<<<<<< HEAD
 EvalPlanQualFetch(EState *estate, Relation relation, int lockmode,
 				  LockWaitPolicy wait_policy,
+=======
+EvalPlanQualFetch(EState *estate, Relation relation, int lockmode, bool noWait,
+>>>>>>> doc_ja_9_4
 				  ItemPointer tid, TransactionId priorXmax)
 {
 	HeapTuple	copyTuple = NULL;
@@ -1995,6 +2007,7 @@ EvalPlanQualFetch(EState *estate, Relation relation, int lockmode,
 			if (TransactionIdIsValid(SnapshotDirty.xmax))
 			{
 				ReleaseBuffer(buffer);
+<<<<<<< HEAD
 				switch (wait_policy)
 				{
 					case LockWaitBlock:
@@ -2014,6 +2027,20 @@ EvalPlanQualFetch(EState *estate, Relation relation, int lockmode,
 											RelationGetRelationName(relation))));
 						break;
 				}
+=======
+				if (noWait)
+				{
+					if (!ConditionalXactLockTableWait(SnapshotDirty.xmax))
+						ereport(ERROR,
+								(errcode(ERRCODE_LOCK_NOT_AVAILABLE),
+								 errmsg("could not obtain lock on row in relation \"%s\"",
+										RelationGetRelationName(relation))));
+				}
+				else
+					XactLockTableWait(SnapshotDirty.xmax,
+									  relation, &tuple.t_data->t_ctid,
+									  XLTW_FetchUpdated);
+>>>>>>> doc_ja_9_4
 				continue;		/* loop back to repeat heap_fetch */
 			}
 
@@ -2040,7 +2067,11 @@ EvalPlanQualFetch(EState *estate, Relation relation, int lockmode,
 			 */
 			test = heap_lock_tuple(relation, &tuple,
 								   estate->es_output_cid,
+<<<<<<< HEAD
 								   lockmode, wait_policy,
+=======
+								   lockmode, noWait,
+>>>>>>> doc_ja_9_4
 								   false, &buffer, &hufd);
 			/* We now have two pins on the buffer, get rid of one */
 			ReleaseBuffer(buffer);

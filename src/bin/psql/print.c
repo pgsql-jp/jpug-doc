@@ -1222,10 +1222,14 @@ print_aligned_vertical(const printTableContent *cont, FILE *fout)
 				dformatsize = 0;
 	struct lineptr *hlineptr,
 			   *dlineptr;
+<<<<<<< HEAD
 	bool		is_pager = false,
 				hmultiline = false,
 				dmultiline = false;
 	int			output_columns = 0;		/* Width of interactive console */
+=======
+	bool		is_pager = false;
+>>>>>>> doc_ja_9_4
 
 	if (cancel_pressed)
 		return;
@@ -1305,6 +1309,7 @@ print_aligned_vertical(const printTableContent *cont, FILE *fout)
 			fprintf(fout, "%s\n", cont->title);
 	}
 
+<<<<<<< HEAD
 	/*
 	 * Choose target output width: \pset columns, or $COLUMNS, or ioctl
 	 */
@@ -1406,26 +1411,26 @@ print_aligned_vertical(const printTableContent *cont, FILE *fout)
 		dwidth = width;
 	}
 
+=======
+>>>>>>> doc_ja_9_4
 	/* print records */
 	for (i = 0, ptr = cont->cells; *ptr; i++, ptr++)
 	{
 		printTextRule pos;
-		int			dline,
-					hline,
+		int			line_count,
 					dcomplete,
-					hcomplete,
-					offset,
-					chars_to_output;
+					hcomplete;
 
 		if (cancel_pressed)
 			break;
 
 		if (i == 0)
 			pos = PRINT_RULE_TOP;
+		else if (!(*(ptr + 1)))
+			pos = PRINT_RULE_BOTTOM;
 		else
 			pos = PRINT_RULE_MIDDLE;
 
-		/* Print record header (e.g. "[ RECORD N ]") above each record */
 		if (i % cont->ncolumns == 0)
 		{
 			unsigned int lhwidth = hwidth;
@@ -1436,9 +1441,15 @@ print_aligned_vertical(const printTableContent *cont, FILE *fout)
 
 			if (!opt_tuples_only)
 				print_aligned_vertical_line(format, opt_border, record++,
+<<<<<<< HEAD
 											lhwidth, dwidth, pos, fout);
 			else if (i != 0 || !cont->opt->start_table || opt_border == 2)
 				print_aligned_vertical_line(format, opt_border, 0, lhwidth,
+=======
+											hwidth, dwidth, pos, fout);
+			else if (i != 0 || !cont->opt->start_table || opt_border == 2)
+				print_aligned_vertical_line(format, opt_border, 0, hwidth,
+>>>>>>> doc_ja_9_4
 											dwidth, pos, fout);
 		}
 
@@ -1450,23 +1461,15 @@ print_aligned_vertical(const printTableContent *cont, FILE *fout)
 		pg_wcsformat((const unsigned char *) *ptr, strlen(*ptr), encoding,
 					 dlineptr, dheight);
 
-		/*
-		 * Loop through header and data in parallel dealing with newlines and
-		 * wrapped lines until they're both exhausted
-		 */
-		dline = hline = 0;
+		line_count = 0;
 		dcomplete = hcomplete = 0;
-		offset = 0;
-		chars_to_output = dlineptr[dline].width;
 		while (!dcomplete || !hcomplete)
 		{
-			/* Left border */
 			if (opt_border == 2)
-				fprintf(fout, "%s", dformat->leftvrule);
-
-			/* Header (never wrapped so just need to deal with newlines) */
+				fprintf(fout, "%s ", dformat->leftvrule);
 			if (!hcomplete)
 			{
+<<<<<<< HEAD
 				int			swidth = hwidth,
 							target_width = hwidth;
 				/*
@@ -1506,10 +1509,16 @@ print_aligned_vertical(const printTableContent *cont, FILE *fout)
 					if ((opt_border > 0) ||
 						(hmultiline && (format != &pg_asciiformat_old)))
 						fputs(" ", fout);
+=======
+				fprintf(fout, "%-s%*s", hlineptr[line_count].ptr,
+						hwidth - hlineptr[line_count].width, "");
+
+				if (!hlineptr[line_count + 1].ptr)
+>>>>>>> doc_ja_9_4
 					hcomplete = 1;
-				}
 			}
 			else
+<<<<<<< HEAD
 			{
 				unsigned int swidth = hwidth + opt_border;
 				if ((opt_border < 2) &&
@@ -1524,23 +1533,18 @@ print_aligned_vertical(const printTableContent *cont, FILE *fout)
 
 				fprintf(fout, "%*s", swidth, " ");
 			}
+=======
+				fprintf(fout, "%*s", hwidth, "");
+>>>>>>> doc_ja_9_4
 
-			/* Separator */
 			if (opt_border > 0)
-			{
-				if (offset)
-					fputs(format->midvrule_wrap, fout);
-				else if (!dline)
-					fputs(dformat->midvrule, fout);
-				else if (dline)
-					fputs(format->midvrule_nl, fout);
-				else
-					fputs(format->midvrule_blank, fout);
-			}
+				fprintf(fout, " %s ", dformat->midvrule);
+			else
+				fputc(' ', fout);
 
-			/* Data */
 			if (!dcomplete)
 			{
+<<<<<<< HEAD
 				int			target_width = dwidth,
 							bytes_to_output,
 							swidth = dwidth;
@@ -1604,20 +1608,26 @@ print_aligned_vertical(const printTableContent *cont, FILE *fout)
 				/* Right border */
 				if (opt_border == 2)
 					fputs(dformat->rightvrule, fout);
+=======
+				if (opt_border < 2)
+					fprintf(fout, "%s\n", dlineptr[line_count].ptr);
+				else
+					fprintf(fout, "%-s%*s %s\n", dlineptr[line_count].ptr,
+							dwidth - dlineptr[line_count].width, "",
+							dformat->rightvrule);
+>>>>>>> doc_ja_9_4
 
-				fputs("\n", fout);
+				if (!dlineptr[line_count + 1].ptr)
+					dcomplete = 1;
 			}
 			else
 			{
-				/*
-				 * data exhausted (this can occur if header is longer than the
-				 * data due to newlines in the header)
-				 */
 				if (opt_border < 2)
-					fputs("\n", fout);
+					fputc('\n', fout);
 				else
-					fprintf(fout, "%*s  %s\n", dwidth, "", dformat->rightvrule);
+					fprintf(fout, "%*s %s\n", dwidth, "", dformat->rightvrule);
 			}
+			line_count++;
 		}
 	}
 

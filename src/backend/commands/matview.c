@@ -67,7 +67,11 @@ static void mv_GenerateOper(StringInfo buf, Oid opoid);
 
 static void refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 						 int save_sec_context);
+<<<<<<< HEAD
 static void refresh_by_heap_swap(Oid matviewOid, Oid OIDNewHeap, char relpersistence);
+=======
+static void refresh_by_heap_swap(Oid matviewOid, Oid OIDNewHeap);
+>>>>>>> doc_ja_9_4
 
 static void OpenMatViewIncrementalMaintenance(void);
 static void CloseMatViewIncrementalMaintenance(void);
@@ -149,7 +153,10 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 	DestReceiver *dest;
 	bool		concurrent;
 	LOCKMODE	lockmode;
+<<<<<<< HEAD
 	char		relpersistence;
+=======
+>>>>>>> doc_ja_9_4
 	Oid			save_userid;
 	int			save_sec_context;
 	int			save_nestlevel;
@@ -259,8 +266,11 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 	else
 	{
 		tableSpace = matviewRel->rd_rel->reltablespace;
+<<<<<<< HEAD
 		relpersistence = matviewRel->rd_rel->relpersistence;
 	}
+=======
+>>>>>>> doc_ja_9_4
 
 	/*
 	 * Create the transient table that will receive the regenerated data. Lock
@@ -303,15 +313,22 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 		Assert(matview_maintenance_depth == old_depth);
 	}
 	else
+<<<<<<< HEAD
 		refresh_by_heap_swap(matviewOid, OIDNewHeap, relpersistence);
+=======
+		refresh_by_heap_swap(matviewOid, OIDNewHeap);
+>>>>>>> doc_ja_9_4
 
 	/* Roll back any GUC changes */
 	AtEOXact_GUC(false, save_nestlevel);
 
 	/* Restore userid and security context */
 	SetUserIdAndSecContext(save_userid, save_sec_context);
+<<<<<<< HEAD
 
 	return matviewOid;
+=======
+>>>>>>> doc_ja_9_4
 }
 
 /*

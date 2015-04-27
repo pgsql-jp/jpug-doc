@@ -2,18 +2,29 @@
 <!-- See header comment in release.sgml about typical markup -->
 
  <sect1 id="release-9-4">
+<!--
   <title>Release 9.4</title>
+-->
+  <title>リリース9.4</title>
 
   <note>
+<!--
    <title>Release Date</title>
+-->
+   <title>リリース日</title>
    <simpara>2014-12-18</simpara>
   </note>
 
   <sect2>
+<!--
    <title>Overview</title>
-
+-->
+   <title>概要</title>
    <para>
+<!--
     Major enhancements in <productname>PostgreSQL</> 9.4 include:
+-->
+    <productname>PostgreSQL</>9.4の主な強化点には以下のものがあります。
    </para>
 
    <!-- This list duplicates items below, but without authors or details-->
@@ -22,395 +33,653 @@
 
      <listitem>
       <para>
+<!--
        Add <link linkend="datatype-json"><type>jsonb</></link>, a more
        capable and efficient data type for storing <acronym>JSON</> data
+-->
+<acronym>JSON</>を格納するためのより高機能で効率的な<link linkend="datatype-json"><type>jsonb</></link>データ型が追加されました。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Add new <acronym>SQL</> command <xref linkend="SQL-ALTERSYSTEM">
        for changing <filename>postgresql.conf</> configuration file entries
+-->
+<filename>postgresql.conf</>設定ファイルの項目を変更する新たな
+<acronym>SQL</>コマンド<xref linkend="SQL-ALTERSYSTEM">を追加しました。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Reduce lock strength for some <xref linkend="SQL-ALTERTABLE">
        commands
+-->
+いくつかの<xref linkend="SQL-ALTERTABLE">コマンドでロックを軽減しました。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Allow <link linkend="rules-materializedviews">materialized views</>
        to be refreshed without blocking concurrent reads
+-->
+<link linkend="rules-materializedviews">マテリアライズドビュー</>を同時実行の読み取りを
+妨げずにリフレッシュできるようにしました。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Add support for <link linkend="logicaldecoding">logical decoding</>
        of WAL data, to allow database changes to be streamed out in a
        customizable format
+-->
+データベース変更をカスタマイズ可能な形式でストリーミング出力する、
+WALデータの<link linkend="logicaldecoding">ロジカルデコーディング</>をサポートしました。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
         Allow <link linkend="bgworker">background worker processes</>
         to be dynamically registered, started and terminated
+-->
+<link linkend="bgworker">バックグラウンドワーカプロセス</>を動的に登録、開始、終了
+できるようにしました。
       </para>
      </listitem>
 
    </itemizedlist>
 
    <para>
+<!-- 
     The above items are explained in more detail in the sections below.
+-->
+上記の項目については、以下でより詳細に説明します。
    </para>
 
   </sect2>
 
   <sect2>
 
+<!--
   <title>Migration to Version 9.4</title>
-
+-->
+  <title>バージョン9.4への移行</title>
    <para>
+<!--
     A dump/restore using <xref linkend="app-pg-dumpall">, or use
     of <xref linkend="pgupgrade">, is required for those wishing to migrate
     data from any previous release.
+-->
+以前のリリースからデータを移行したい時は、どのリリースについても、
+<application>pg_dump</application>を利用したダンプとリストア、
+あるいは<application>pg_upgrade</application>の利用が必要です。
    </para>
 
    <para>
+<!--
     Version 9.4 contains a number of changes that may affect compatibility
     with previous releases.  Observe the following incompatibilities:
+-->
+バージョン9.4には、以前のバージョンとの互換性に影響する多くの変更点が含まれています。
+以下の非互換性に注意してください。
    </para>
 
    <itemizedlist>
 
     <listitem>
      <para>
+<!--
       Tighten checks for multidimensional <link
       linkend="arrays">array</link> input (Bruce Momjian)
+-->
+多次元<link linkend="arrays">配列</link>の入力検査を厳格にしました。
+(Bruce Momjian)
      </para>
 
      <para>
+<!--
       Previously, an input array string that started with a single-element
       sub-array could later contain multi-element sub-arrays,
       e.g. <literal>'{{1}, {2,3}}'::int[]</> would be accepted.
+-->
+これまでは、単一要素の副配列から始まる入力配列文字列が、後に複数要素の副配列を
+含むことができました。例えば <literal>'{{1}, {2,3}}'::int[]</> は受け付けられます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Unicode escapes in <link linkend="datatype-json"><type>JSON</type></link>
       text values are no longer rendered with the backslash escaped
       (Andrew Dunstan)
+-->
+<link linkend="datatype-json"><type>JSON</type></link>文字列値におけるユニコード
+エスケープで、バックスラッシュではエスケープされなくなりました。
+(Andrew Dunstan)
      </para>
 
      <para>
+<!--
       Previously, all backslashes in text values being formed into JSON
       were escaped. Now a backslash followed by <literal>u</> and four
       hexadecimal digits is not escaped, as this is a legal sequence in a
       JSON string value, and escaping the backslash led to some perverse
       results.
+-->
+これまで、JSONに整形されるテキスト中のすべてのバックスラッシュはエスケープ
+されていました。
+エスケープしなくとも正しいJSON文字列値であり、エスケープすることで
+ひねくれた結果がもたらされていたことから、これからは、
+<literal>u</>と16進数4桁に続くバックスラッシュはエスケープされません。
+     </para>
+     <para>
+（訳注：9.4.1 で再度振る舞いが変更されています）
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       When converting values of type <type>date</>, <type>timestamp</>
       or <type>timestamptz</>
       to <link linkend="datatype-json"><type>JSON</type></link>, render the
       values in a format compliant with ISO 8601 (Andrew Dunstan)
+-->
+<type>date</>型、<type>timestamp</>型、<type>timestamptz</>型の値を
+<link linkend="datatype-json"><type>JSON</type></link>に変換するとき、
+ISO 8601に従った書式にします。
+(Andrew Dunstan)
      </para>
 
      <para>
+<!--
       Previously such values were rendered according to the current
       <xref linkend="guc-datestyle"> setting; but many JSON processors
       require timestamps to be in ISO 8601 format.  If necessary, the
       previous behavior can be obtained by explicitly casting the datetime
       value to <type>text</> before passing it to the JSON conversion
       function.
+-->
+これまでは現在の<xref linkend="guc-datestyle">設定に基づいて処理されていました。 
+しかし、多くのJSONプロセッサはタイムスタンプにISO 8601形式を要求します。
+必要であれば、JSON変換関数に渡す前に日付時刻の値を<type>text</>に明示的
+キャストすることで以前の振る舞いを実現できます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       The <link linkend="functions-json-op-table"><type>json</type>
       <literal>#&gt;</> <type>text[]</></link> path extraction operator now
       returns its lefthand input, not NULL, if the array is empty (Tom Lane)
+-->
+パス展開演算子 <link linkend="functions-json-op-table"><type>json</type>
+ <literal>#&gt;</> <type>text[]</></link> は、配列が空であるとき、
+これからはNULLではなく左辺値を返すようになります。
      </para>
 
      <para>
+<!--
       This is consistent with the notion that this represents zero
       applications of the simple field/element extraction
       operator <literal>-&gt;</>.  Similarly, <type>json</type>
       <literal>#&gt;&gt;</> <type>text[]</> with an empty array merely
       coerces its lefthand input to text.
+-->
+これは、フィールド/要素を取り出す演算子 <literal>-&gt;</> の適用を
+全く行わないという意味で一貫性があります。
+同様に <type>json</type> <literal>#&gt;&gt;</> <type>text[]</> は、
+単にその左辺値を強制的にテキストに変換します。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Corner cases in
       the <link linkend="functions-json-op-table"><type>JSON</type>
       field/element/path extraction operators</link> now return NULL rather
       than raising an error (Tom Lane)
+-->
+<link linkend="functions-json-op-table"><type>JSON</type>のフィールド、要素、
+パスを取り出す演算子</link>は境界条件で、これからはエラーでなくNULLを返すようにしました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       For example, applying field extraction to a JSON array now yields NULL
       not an error.  This is more consistent (since some comparable cases such
       as no-such-field already returned NULL), and it makes it safe to create
       expression indexes that use these operators, since they will now not
       throw errors for any valid JSON input.
+-->
+例えば、JSON配列にフィールド取り出し演算子（-&gt;）を適用するとき、
+これからは、エラーでなくNULLがでます。これはより一貫性のある振る舞いです
+（類似の指定フィールドが無い場合では既にNULLが返ります）。
+また、正当な任意のJSONに対して決してエラーを投げないことから、これら演算子を
+使った式インデックスの作成を安全にします。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Cause consecutive whitespace in <link
       linkend="functions-formatting-table"><function>to_timestamp()</></link>
       and <function>to_date()</> format strings to consume a corresponding
       number of characters in the input string (whitespace or not), then
       conditionally consume adjacent whitespace, if not in <literal>FX</>
       mode (Jeevan Chalke)
+-->
+<link linkend="functions-formatting-table"><function>to_timestamp()</></link>
+と<function>to_date()</>の書式文字列の連続した空白が、（空白文字以外を含め）
+入力文字列から対応した数だけ文字を消費するため、<literal>FX</>モードでなく
+ても条件付きで隣接した空白を消費します。
+(Jeevan Chalke)
      </para>
 
      <para>
+<!--
       Previously, consecutive whitespace characters in a non-<literal>FX</>
       format string behaved like a single whitespace character and consumed
       all adjacent whitespace in the input string.  For example, previously
       a format string of three spaces would consume only the first space in
       <literal>' 12'</>, but it will now consume all three characters.
+-->
+これまでは、<literal>FX</>書式以外での連続する空白文字は、単一の空白文字の
+ように振る舞い、入力文字列中の全ての隣接した空白を消費しました。例えば、
+以前は3つの空白の書式文字列は<literal>' 12'</>の最初の空白のみ消費しました。
+これからは、3文字すべてが消費されます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <link
       linkend="textsearch-functions-table"><function>ts_rank_cd()</></link>
       to ignore stripped lexemes (Alex Hill)
+-->
+<link linkend="textsearch-functions-table"><function>ts_rank_cd()</></link>
+関数を除去された語彙素を無視するように修正しました。
      </para>
 
      <para>
+<!--
       Previously, stripped lexemes were treated as if they had a default
       location, producing a rank of dubious usefulness.
+-->
+これまでは除去された語彙素がデフォルト位置を持つかのように扱われ、
+有効であるか疑わしい順位が生じていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       For functions declared to
       take <link linkend="xfunc-sql-variadic-functions"><literal>VARIADIC
       "any"</></link>, an actual parameter marked as <literal>VARIADIC</>
       must be of a determinable array type (Pavel Stehule)
+-->
+引数に<link linkend="xfunc-sql-variadic-functions"><literal>VARIADIC "any"</></link>
+を取る関数で、<literal>VARIADIC</>と指定された引数は決定可能な配列型でなければ
+ならなくなりました。
      </para>
 
      <para>
+<!--
       Such parameters can no longer be written as an undecorated string
       literal or <literal>NULL</>; a cast to an appropriate array data type
       will now be required.  Note that this does not affect parameters not
       marked <literal>VARIADIC</>.
+-->
+そのような引数に修飾されていない文字列リテラルや<literal>NULL</>を書くことが
+できなくなり、これからは適切な配列データ型でキャストが必要となります。
+なお、本変更は<literal>VARIADIC</>が指定されていない引数には影響しません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Ensure that whole-row variables expose the expected column names
       to functions that pay attention to column names within composite
       arguments (Tom Lane)
+-->
+行全体の変数で期待されるカラム名が、複合型引数を取りカラム名に注意をはらう関数に
+伝わることを、保証するようになりました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Constructs like <literal>row_to_json(tab.*)</> now always emit column
       names that match the column aliases visible for table <literal>tab</>
       at the point of the call.  In previous releases the emitted column
       names would sometimes be the table's actual column names regardless
       of any aliases assigned in the query.
+-->
+<literal>row_to_json(tab.*)</>などのデータ構成で、これからは、常に呼び出し時点の
+テーブル<literal>tab</>のカラムエイリアスに一致するカラム名を出力します。
+以前のリリースでは、カラム名がクエリに割り当てられた別名に関係なく
+テーブルの実際のカラム名になっていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       <xref linkend="sql-discard"> now also discards sequence-related state
       (Fabr&iacute;zio de Royes Mello, Robert Haas)
+-->
+<xref linkend="sql-discard">がこれからはシーケンス関連の状態も廃棄します。
+(Fabr&iacute;zio de Royes Mello, Robert Haas)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Rename <link linkend="SQL-EXPLAIN"><command>EXPLAIN
       ANALYZE</></link>'s <quote>total runtime</quote> output
       to <quote>execution time</quote> (Tom Lane)
+-->
+<link linkend="SQL-EXPLAIN"><command>EXPLAIN ANALYZE</></link>の出力で
+<quote>total runtime</quote>から、<quote>execution time</quote>に
+項目名を変更しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Now that planning time is also reported, the previous name was
       confusing.
+-->
+これからはプラン時間も報告されるため、従来の項目名では紛らわしいです。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       <link linkend="SQL-SHOW"><command>SHOW TIME ZONE</></link> now
       outputs simple numeric UTC offsets in <acronym>POSIX</> timezone
       format (Tom Lane)
+-->
+<link linkend="SQL-SHOW"><command>SHOW TIME ZONE</></link>は、これからは
+<acronym>POSIX</>時間帯形式の簡素な数値のUTCオフセットを出力します。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Previously, such timezone settings were displayed as <link
       linkend="datatype-interval-output"><type>interval</></link> values.
       The new output is properly interpreted by <command>SET TIME ZONE</>
       when passed as a simple string, whereas the old output required
       special treatment to be re-parsed correctly.
+-->
+これまでは、timezone設定を<link linkend="datatype-interval-output"><type>interval</></link>
+の値として表示していました。
+単純な文字列が渡されたとき、
+旧出力では正しく再解析されるように特別な扱いが必要であるのに対して、
+新出力では<command>SET TIME ZONE</>により適切に解釈されます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Foreign data wrappers that support updating foreign tables must
       consider the possible presence of <literal>AFTER ROW</> triggers
       (Noah Misch)
+-->
+外部テーブルの更新に対応した外部データラッパは、<literal>AFTER ROW</>トリガが
+存在する可能性に考慮しなければいけません。
+(Noah Misch)
      </para>
 
      <para>
+<!--
       When an <literal>AFTER ROW</> trigger is present, all columns of the
       table must be returned by updating actions, since the trigger might
       inspect any or all of them.  Previously, foreign tables never had
       triggers, so the FDW might optimize away fetching columns not mentioned
       in the <literal>RETURNING</> clause (if any).
+-->
+<literal>AFTER ROW</>トリガがある場合、トリガが読むかもしれないので、
+更新動作でテーブルのすべてのカラムを返されなければいけません。
+これまでは、外部テーブルはトリガを持つことがなかったので、外部データラッパが
+<literal>RETURNING</>句で言及されていないカラムの取得を省略して最適化しているかもしれません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Prevent <link
       linkend="ddl-constraints-check-constraints"><literal>CHECK</></link>
       constraints from referencing system columns, except
       <structfield>tableoid</> (Amit Kapila)
+-->
+<link linkend="ddl-constraints-check-constraints"><literal>CHECK</></link>制約が
+<structfield>tableoid</>以外のシステムカラムを参照できないようにしました。
+(Amit Kapila)
      </para>
 
      <para>
+<!--
       Previously such check constraints were allowed, but they would often
       cause errors during restores.
+-->
+これまではそのようなチェック制約が許されていましたが、リストア時にしばしばエラーを
+引き起こしていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Use the last specified <link linkend="recovery-target-settings">recovery
       target parameter</link> if multiple target parameters are specified
       (Heikki Linnakangas)
+-->
+複数の<link linkend="recovery-target-settings">リカバリターゲット設定</link>が
+指定されていた場合、最後の指定を使用するようにしました。
+(Heikki Linnakangas)
      </para>
 
      <para>
+<!--
       Previously, there was an undocumented precedence order among
       the <literal>recovery_target_<replaceable>xxx</></literal> parameters.
+-->
+これまでは<literal>recovery_target_<replaceable>xxx</></literal>設定の優先順位が
+文書化されていませんでした。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       On Windows, automatically preserve quotes in command strings supplied
       by the user (Heikki Linnakangas)
+-->
+Windowsで、機械的にユーザが書いたコマンド文字列内のクオートを維持します。
+(Heikki Linnakangas)
      </para>
 
      <para>
+<!--
       User commands that did their own quote preservation might need
       adjustment.  This is likely to be an issue for commands used in
       <xref linkend="guc-archive-command">, <xref linkend="restore-command">,
       and <link linkend="sql-copy"><command>COPY TO/FROM PROGRAM</></link>.
+-->
+クオートを維持するようにしているユーザコマンドではおそらく修正が必要です。
+<xref linkend="guc-archive-command">や<xref linkend="restore-command">、
+<link linkend="sql-copy"><command>COPY TO/FROM PROGRAM</></link>の
+コマンドで問題がありそうです。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Remove catalog column <link
       linkend="catalog-pg-class"><structfield>pg_class.reltoastidxid</></link>
       (Michael Paquier)
+-->
+システムカタログのカラム
+<link linkend="catalog-pg-class"><structfield>pg_class.reltoastidxid</></link>
+が取り除かれました。
+(Michael Paquier)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Remove catalog column <link
       linkend="catalog-pg-rewrite"><structfield>pg_rewrite.ev_attr</></link>
       (Kevin Grittner)
+-->
+システムカタログのカラム
+<link linkend="catalog-pg-rewrite"><structfield>pg_rewrite.ev_attr</></link>
+が取り除かれました。
+(Kevin Grittner)
      </para>
 
      <para>
+<!--
       Per-column rules have not been supported since
       <application>PostgreSQL</> 7.3.
+-->
+カラム単位のルールは<application>PostgreSQL</> 7.3以来サポートされていませんでした。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Remove native support for <application>Kerberos</> authentication
-      (<option>--with-krb5</>, etc)
+      (<option>&#045;&#045;with-krb5</>, etc)
       (Magnus Hagander)
+-->
+<application>Kerberos</>認証のネイティブサポート（<option>--with-krb5</>など）が除去されました。
+(Magnus Hagander)
      </para>
 
      <para>
+<!--
       The supported way to use <application>Kerberos</> authentication is
       with <acronym>GSSAPI</>.  The native code has been deprecated since
       <productname>PostgreSQL</> 8.3.
+-->
+<application>Kerberos</>認証の使用は<acronym>GSSAPI</>でサポートされます。
+ネイティブコードは<productname>PostgreSQL</> 8.3から非推奨となっていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In <application>PL/Python</>, handle domains over arrays like the
       underlying array type (Rodolfo Campero)
+-->
+<application>PL/Python</>で、配列のドメインを配列型を基底とするように扱います。
+(Rodolfo Campero)
      </para>
 
      <para>
+<!--
       Previously such values were treated as strings.
+-->
+これまでは文字列として扱われていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Make libpq's <link
       linkend="libpq-pqconnectdbparams"><function>PQconnectdbParams()</></link>
       and <link
       linkend="libpq-pqpingparams"><function>PQpingParams()</></link>
       functions process zero-length strings as defaults (Adrian
       Vondendriesch)
+-->
+libpq の
+<link linkend="libpq-pqconnectdbparams"><function>PQconnectdbParams()</></link>、
+<link linkend="libpq-pqpingparams"><function>PQpingParams()</></link>関数が
+空文字列をデフォルトとして処理します。
+(Adrian Vondendriesch)
      </para>
 
      <para>
+<!--
       Previously, these functions treated zero-length string values as
       selecting the default in only some cases.
+-->
+これまでは、これらの関数では一部の場合だけ空文字列でデフォルトを選んでいました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Change empty arrays returned by the <xref linkend="intarray"> module
       to be zero-dimensional arrays (Bruce Momjian)
+-->
+<xref linkend="intarray">モジュールが空配列を返すときゼロ次元配列になるように変更しました。
+(Bruce Momjian)
      </para>
 
      <para>
+<!--
       Previously, empty arrays were returned as zero-length one-dimensional
       arrays, whose text representation looked the same as zero-dimensional
       arrays (<literal>{}</>), but they acted differently in array
       operations.  <application>intarray</>'s behavior in this area now
       matches the built-in array operators.
+-->
+これまでは、空配列を長さゼロの１次元配列として返していました。それらのテキスト表現は
+ゼロ次元配列としたときと同じ（<literal>{}</>）ですが、配列操作での動作が異なります。
+この部分で<application>intarray</>の振る舞いが組み込みの配列演算子と同じになります。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       <xref linkend="pgupgrade"> now uses <option>-U</>
-      or <option>--username</> to specify the user name (Bruce Momjian)
+      or <option>&#045;&#045;username</> to specify the user name (Bruce Momjian)
+-->
+<xref linkend="pgupgrade">は、これからは<option>-U</>または<option>--username</>
+でユーザ名を指定するようになります。
+(Bruce Momjian)
      </para>
 
      <para>
-      Previously this option was spelled <option>-u</> or <option>--user</>,
+<!--
+      Previously this option was spelled <option>-u</> or <option>&#045;&#045;user</>,
       but that was inconsistent with other tools.
+-->
+これまでは本オプションは<option>-u</>または<option>--user</>でしたが、
+他のツールとの一貫性に欠けていました。
      </para>
     </listitem>
 
@@ -419,129 +688,213 @@
   </sect2>
 
   <sect2>
+<!--
    <title>Changes</title>
+-->
+   <title>変更点</title>
 
    <para>
+<!--
     Below you will find a detailed account of the changes between
     <productname>PostgreSQL</productname> 9.4 and the previous major
     release.
+-->
+これまでのメジャーリリースからの<productname>PostgreSQL</productname> 9.4
+の変更点の詳細説明を以下に示します。
    </para>
 
    <sect3>
+<!--
     <title>Server</title>
+-->
+    <title>サーバ</title>
 
      <itemizedlist>
 
       <listitem>
        <para>
+<!--
         Allow <link linkend="bgworker">background worker processes</link>
         to be dynamically registered, started and terminated (Robert Haas)
+-->
+<link linkend="bgworker">バックグラウンドワーカプロセス</link>を動的に
+登録、開始、終了できるようにしました。
+(Robert Haas)
        </para>
 
        <para>
+<!--
         The new <filename>worker_spi</> module shows an example of use
         of this feature.
+-->
+新たな<filename>worker_spi</>モジュールで本新機能の例を示します。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow dynamic allocation of shared memory segments (Robert Haas,
         Amit Kapila)
+-->
+共有メモリセグメントを動的に割り当てできるようにしました。
+(Robert Haas, Amit Kapila)
        </para>
 
        <para>
+<!--
         This feature is illustrated in the <filename>test_shm_mq</filename>
         module.
+-->
+本機能は<filename>test_shm_mq</filename>モジュールで例示されています。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         During crash recovery or immediate shutdown, send uncatchable
         termination signals (<systemitem>SIGKILL</>) to child processes
         that do not shut down promptly (MauMau, &Aacute;lvaro Herrera)
+-->
+クラッシュリカバリ、あるいは、immediateシャットダウンの際に、
+即座に停止しない子プロセスにキャッチできないシグナル（<systemitem>SIGKILL</>）
+を送るようになりました。
+(MauMau, &Aacute;lvaro Herrera)
        </para>
 
        <para>
+<!--
         This reduces the likelihood of leaving orphaned child processes
         behind after <xref linkend="app-postmaster"> shutdown, as well
         as ensuring that crash recovery can proceed if some child processes
         have become <quote>stuck</>.
+-->
+これにより、<xref linkend="app-postmaster">シャットダウン後に子プロセスが
+残ってしまう可能性を減らし、また、いくつかの子プロセスが<quote>刺った</>
+場合でもクラッシュリカバリの進行を保証します。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Improve randomness of the database system identifier (Tom Lane)
+-->
+データベースのシステム識別子のランダム性を改善しました。
+(Tom Lane)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Make <xref linkend="SQL-VACUUM"> properly report dead but
         not-yet-removable rows to the statistics collector (Hari Babu)
+-->
+<xref linkend="SQL-VACUUM">が、削除済(dead)であるけれど未だ除去できない行に
+ついて統計情報コレクタに適切に報告するようにしました。
+(Hari Babu)
        </para>
 
        <para>
+<!--
         Previously these were reported as live rows.
+-->
+これまでは有効(live)行であるものと報告されていました。
        </para>
       </listitem>
 
      </itemizedlist>
 
     <sect4>
+<!--
      <title>Indexes</title>
+-->
+     <title>インデックス</title>
 
      <itemizedlist>
 
       <listitem>
        <para>
+<!--
         Reduce <link linkend="GIN"><acronym>GIN</></link> index size
         (Alexander Korotkov, Heikki Linnakangas)
+-->
+GINインデックスのサイズを減らしました。
+(Alexander Korotkov, Heikki Linnakangas)
        </para>
 
        <para>
+<!--
         Indexes upgraded via <xref linkend="pgupgrade"> will work fine
         but will still be in the old, larger <acronym>GIN</> format.
         Use <xref linkend="SQL-REINDEX"> to recreate old GIN indexes in the
         new format.
+-->
+<xref linkend="pgupgrade">を使ってアップグレードした場合、動作しますが、
+従来のサイズの大きいGIN形式のままです。<xref linkend="SQL-REINDEX">
+で新たな形式でインデックスを作り直す必要があります。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Improve speed of multi-key <link
         linkend="GIN"><acronym>GIN</></link> lookups (Alexander Korotkov,
         Heikki Linnakangas)
+-->
+複合キーでの<link linkend="GIN"><acronym>GIN</></link>
+インデックス照会の速度を改善しました。
+(Alexander Korotkov, Heikki Linnakangas)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add <link linkend="GiST"><acronym>GiST</></link> index support
         for <link linkend="datatype-inet"><type>inet</></link> and
         <link linkend="datatype-cidr"><type>cidr</></link> data types
         (Emre Hasegeli)
+-->
+<link linkend="GiST"><acronym>GiST</></link> 
+インデックスが<link linkend="datatype-inet"><type>inet</></link>型、
+<link linkend="datatype-cidr"><type>cidr</></link>型に対応しました。
+(Emre Hasegeli)
        </para>
 
        <para>
+<!--
         Such indexes improve <link
         linkend="cidr-inet-operators-table">subnet and supernet</link>
         lookups and ordering comparisons.
+-->
+これらインデックス改善は、
+<link linkend="cidr-inet-operators-table">サブネット・スーパーネット</link>
+の照会や並べ替えのための比較を性能向上させます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Fix rare race condition in B-tree page deletion (Heikki Linnakangas)
+-->
+B-treeインデックスのページ削除における稀な競合状態を修正しました。
+(Heikki Linnakangas)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Make the handling of interrupted B-tree page splits more robust
         (Heikki Linnakangas)
+-->
+割り込みされたB-treeインデックスのページ分割の扱いをより頑健にしました。
+(Heikki Linnakangas)
        </para>
       </listitem>
 
@@ -550,118 +903,193 @@
     </sect4>
 
     <sect4>
+<!--
      <title>General Performance</title>
-
+-->
+     <title>性能全般</title>
      <itemizedlist>
 
       <listitem>
        <para>
+<!--
         Allow multiple backends to insert
         into <link linkend="wal"><acronym>WAL</></link> buffers
         concurrently (Heikki Linnakangas)
+-->
+複数バックエンドから<link linkend="wal"><acronym>WAL</></link>バッファに
+並行に挿入できるようになりました。
+(Heikki Linnakangas)
        </para>
 
        <para>
+<!--
         This improves parallel write performance.
+-->
+本変更は並列書き込み性能を改善します。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Conditionally write only the modified portion of updated rows to
         <link linkend="wal"><acronym>WAL</></link> (Amit Kapila)
+-->
+条件によって、更新された行のうち変更部分だけを
+<link linkend="wal"><acronym>WAL</></link>に書き込むようにしました。
+(Amit Kapila)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Improve performance of aggregate functions used as <link
         linkend="syntax-window-functions">window functions</link>
         (David Rowley, Florian Pflug, Tom Lane)
+-->
+<link linkend="syntax-window-functions">WINDOW関数</link>
+として使われる集約関数の性能を改善しました。
+(David Rowley, Florian Pflug, Tom Lane)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Improve speed of aggregates that
         use <link linkend="datatype-numeric"><type>numeric</></link> state
         values (Hadi Moshayedi)
+-->
+<link linkend="datatype-numeric"><type>numeric</></link>型を
+状態値に使う集約処理の速度を改善しました。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Attempt to <link linkend="vacuum-for-wraparound">freeze</link>
         tuples when tables are rewritten with <xref
         linkend="SQL-CLUSTER"> or <link
         linkend="SQL-VACUUM"><command>VACUUM FULL</></link> (Robert Haas,
         Andres Freund)
+-->
+テーブルが<xref linkend="SQL-CLUSTER">または<link linkend="SQL-VACUUM"><command>VACUUM FULL</></link>コマンドで書き直されたときにタプルの
+<link linkend="vacuum-for-wraparound">凍結</link>を試みます。
+(Robert Haas, Andres Freund)
        </para>
 
        <para>
+<!--
         This can avoid the need to freeze the tuples in the future.
+-->
+これにより将来にタプル凍結が必要になることを避けられます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Improve speed of <xref linkend="SQL-COPY"> with default <link
         linkend="functions-sequence-table"><function>nextval()</></link>
         columns (Simon Riggs)
+-->
+デフォルトがシーケンスの
+<link linkend="functions-sequence-table"><function>nextval()</></link>
+であるカラムに対する<xref linkend="SQL-COPY">の速度を改善しました。
+(Simon Riggs)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Improve speed of accessing many different <link
         linkend="SQL-CREATESEQUENCE">sequences</link> in the same session
         (David Rowley)
+-->
+一つの接続で多数の<link linkend="SQL-CREATESEQUENCE">シーケンス</link>
+にアクセスする場合の速度を改善しました。
+(David Rowley)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Raise hard limit on the number of tuples held in memory during sorting
         and B-tree index builds (Noah Misch)
+-->
+メモリ上でソートやB-treeインデックス構築をする際のタプル数の固定上限を引き上げました。
+(Noah Misch)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Reduce memory allocated by <application>PL/pgSQL</>
         <xref linkend="SQL-DO"> blocks (Tom Lane)
+-->
+PL/pgSQL手続き言語の<xref linkend="SQL-DO">ブロックによるメモリ割り当てを
+小さくしました。
+(Tom Lane)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Make the planner more aggressive about extracting restriction clauses
         from mixed <literal>AND</>/<literal>OR</> clauses (Tom Lane)
+-->
+プランナが<literal>AND</>/<literal>OR</>句が混在する中から、
+より積極的に制約句を抽出するようにしました。
+(Tom Lane)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Disallow pushing volatile <literal>WHERE</> clauses down
         into <literal>DISTINCT</> subqueries (Tom Lane)
+-->
+揮発性の<literal>WHERE</>句を<literal>DISTINCT</>サブクエリに
+プッシュダウンしないようにしました。
+(Tom Lane) 
        </para>
 
        <para>
+<!--
         Pushing down a <literal>WHERE</> clause can produce a more
         efficient plan overall, but at the cost of evaluating the clause
         more often than is implied by the text of the query; so don't do it
         if the clause contains any volatile functions.
+-->
+<literal>WHERE</>句のプッシュダウンは概してプラン改善に効果的ですが、
+問い合わせ文によっては句の評価コストがより多くなると考えられます。
+そのため、句がVOLATILE関数を含むときにはプッシュダウンを実施しません。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Auto-resize the catalog caches (Heikki Linnakangas)
+-->
+カタログキャッシュが自動でサイズ変更されるようにしました。
+(Heikki Linnakangas)
        </para>
 
        <para>
+<!--
         This reduces memory consumption for sessions accessing only a few
         tables, and improves performance for sessions accessing many tables.
+-->
+これは少数のテーブルにだけアクセスする接続に対してメモリ消費を減らし、
+また、多数のテーブルにアクセスする接続に対しては性能を向上させます。
        </para>
       </listitem>
 
@@ -670,38 +1098,62 @@
     </sect4>
 
     <sect4>
+
+<!--
      <title>Monitoring</title>
+-->
+     <title>監視</title>
 
      <itemizedlist>
 
       <listitem>
        <para>
+<!--
         Add <xref linkend="pg-stat-archiver-view"> system view to
         report <link linkend="wal"><acronym>WAL</></link> archiver activity
         (Gabriele Bartolini)
+-->
+<link linkend="wal"><acronym>WAL</></link>アーカイバの活動を報告する
+<xref linkend="pg-stat-archiver-view">システムビューを追加しました。
+(Gabriele Bartolini)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add <structfield>n_mod_since_analyze</> columns to
         <xref linkend="pg-stat-all-tables-view"> and related system views
         (Mark Kirkwood)
+-->
+<structfield>n_mod_since_analyze</>カラムを
+<xref linkend="pg-stat-all-tables-view">と関連するシステムビューに追加しました。
+(Mark Kirkwood)
        </para>
 
        <para>
+<!--
         These columns expose the system's estimate of the number of changed
         tuples since the table's last <xref linkend="sql-analyze">.  This
         estimate drives decisions about when to auto-analyze.
+-->
+本カラムは、最後に<xref linkend="sql-analyze">が行われて以降のタプル変更回数の推計値を表示します。この推計値が自動ANALYZEの駆動を決めるために使われます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add <structfield>backend_xid</> and <structfield>backend_xmin</>
         columns to the system view <xref linkend="pg-stat-activity-view">,
         and a <structfield>backend_xmin</> column to
         <xref linkend="pg-stat-replication-view"> (Christian Kruse)
+-->
+<structfield>backend_xid</>カラム、<structfield>backend_xmin</>カラムを、
+システムビュー<xref linkend="pg-stat-activity-view">に追加し、
+<structfield>backend_xmin</>カラムが<xref linkend="pg-stat-replication-view">
+に追加しました。
+(Christian Kruse)
        </para>
       </listitem>
 
@@ -716,53 +1168,86 @@
 
       <listitem>
        <para>
+<!--
         Add support for <acronym>SSL</> <acronym>ECDH</> key exchange
         (Marko Kreen)
+-->
+SSLでECDH鍵交換をサポートしました。
+(Marko Kreen)
        </para>
 
        <para>
+<!--
         This allows use of Elliptic Curve keys for server authentication.
         Such keys are faster and have better security than <acronym>RSA</>
         keys. The new configuration parameter
         <xref linkend="guc-ssl-ecdh-curve">
         controls which curve is used for <acronym>ECDH</>.
+-->
+楕円曲線鍵でサーバ認証ができるようになります。
+この鍵は<acronym>RSA</>鍵よりも高速で安全です。
+新たな設定パラメータ<xref linkend="guc-ssl-ecdh-curve">でどの曲線を
+<acronym>ECDH</>に使うかを制御します。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Improve the default <xref linkend="guc-ssl-ciphers"> setting
         (Marko Kreen)
+-->
+<xref linkend="guc-ssl-ciphers">設定のデフォルト値を改善しました。
+(Marko Kreen)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         By default, the server not the client now controls the preference
         order of <acronym>SSL</> ciphers
         (Marko Kreen)
+-->
+デフォルトでクライアント側でなくサーバ側の
+<acronym>SSL</>暗号の優先順設定を使用するようにしました。
+(Marko Kreen)
        </para>
 
        <para>
+<!--
         Previously, the order specified by <xref linkend="guc-ssl-ciphers">
         was usually ignored in favor of client-side defaults, which are not
         configurable in most <productname>PostgreSQL</> clients.  If
         desired, the old behavior can be restored via the new configuration
         parameter <xref linkend="guc-ssl-prefer-server-ciphers">.
+-->
+これまでは、<xref linkend="guc-ssl-ciphers">で指定した順番が、
+クライアント側のデフォルトの好みによってたいてい無視されていました。
+これはほとんどの<productname>PostgreSQL</>クライアントで設定不能です。
+望むなら新たな設定パラメータ<xref linkend="guc-ssl-prefer-server-ciphers">により従来の振る舞いに戻すこともできます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Make <xref linkend="guc-log-connections"> show <acronym>SSL</>
         encryption information (Andreas Kunert)
+-->
+<xref linkend="guc-log-connections">で<acronym>SSL</>暗号化情報を出力するようにしました。
+(Andreas Kunert)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Improve <acronym>SSL</> renegotiation handling (&Aacute;lvaro
         Herrera)
+-->
+<acronym>SSL</>再ネゴシエーション処理を改善しました。
+(&Aacute;lvaro Herrera)
        </para>
       </listitem>
 
@@ -771,146 +1256,229 @@
     </sect4>
 
     <sect4>
+<!--
      <title>Server Settings</title>
+-->
+     <title>サーバ設定</title>
 
      <itemizedlist>
 
       <listitem>
        <para>
+<!--
         Add new <acronym>SQL</> command <xref linkend="SQL-ALTERSYSTEM">
         for changing <filename>postgresql.conf</> configuration file entries
         (Amit Kapila)
+-->
+<filename>postgresql.conf</>設定ファイルの項目を変更できる新たな<acronym>SQL</>コマンド<xref linkend="SQL-ALTERSYSTEM">を追加しました。
+(Amit Kapila)
        </para>
 
        <para>
+<!--
         Previously such settings could only be changed by manually
         editing <filename>postgresql.conf</>.
+-->
+従来は設定変更するには<filename>postgresql.conf</>を手で編集するほかありませんでした。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add <xref linkend="guc-autovacuum-work-mem"> configuration parameter
         to control the amount of memory used by autovacuum workers
         (Peter Geoghegan)
+-->
+自動VACUUMワーカーのメモリ使用量を調整する<xref linkend="guc-autovacuum-work-mem">設定パラメータを追加しました。
+(Peter Geoghegan)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add <xref linkend="guc-huge-pages"> parameter to allow using huge
         memory pages on Linux (Christian Kruse, Richard Poole, Abhijit
         Menon-Sen)
+-->
+Linuxのhuge pagesを利用できる<xref linkend="guc-huge-pages">設定パラメータを追加しました。
+(Christian Kruse, Richard Poole, Abhijit Menon-Sen)
        </para>
 
        <para>
+<!--
         This can improve performance on large-memory systems.
+-->
+これにより巨大メモリを持つシステムの性能を改善できます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add <xref linkend="guc-max-worker-processes"> parameter
         to limit the number of background workers (Robert Haas)
+-->
+バックグラウンドワーカの数を制限する <xref linkend="guc-max-worker-processes">パラメータを追加しました。
+(Robert Haas)
        </para>
 
        <para>
+<!--
         This is helpful in configuring a standby server to have the
         required number of worker processes (the same as the primary).
+-->
+スタンバイサーバに必要な（プライマリと同じ）ワーカプロセス数を調整するときに役立ちます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add superuser-only <xref linkend="guc-session-preload-libraries">
         parameter to load libraries at session start (Peter Eisentraut)
+-->
+スーパーユーザのみ使用できるセッション開始時にライブラリをロードする<xref linkend="guc-session-preload-libraries">パラメータを追加しました。
        </para>
 
        <para>
+<!--
         In contrast to <xref linkend="guc-local-preload-libraries">, this
         parameter can load any shared library, not just those in
         the <filename>$libdir/plugins</> directory.
+-->
+<xref linkend="guc-local-preload-libraries">と違い、<filename>$libdir/plugins</>ディレクトリにあるものに限られず、本パラメータでは、どの共有ライブラリでもロードできます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add <xref linkend="guc-wal-log-hints"> parameter to enable WAL
         logging of hint-bit changes (Sawada Masahiko)
+-->
+ヒントビットの変更もWAL出力するようにする<xref linkend="guc-wal-log-hints">パラメータを追加しました。
+(Sawada Masahiko)
        </para>
 
        <para>
+<!--
         Hint bit changes are not normally logged, except when checksums are
         enabled.  This is useful for external tools
         like <application>pg_rewind</>.
+-->
+チェックサムを有効にしているときを除き、通常ヒントビットはWAL記録されません。
+本設定は、<application>pg_rewind</>のような外部ツールにおいて有用です。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Increase the default settings of <xref linkend="guc-work-mem">
         and <xref linkend="guc-maintenance-work-mem"> by four times (Bruce
         Momjian)
+-->
+<xref linkend="guc-work-mem">と<xref linkend="guc-maintenance-work-mem">
+のデフォルト設定値を４倍に増やしました。
+<xref linkend="guc-maintenance-work-mem">
+(Bruce Momjian)
        </para>
 
        <para>
+<!--
         The new defaults are 4MB and 64MB respectively.
+-->
+それぞれ4MBと64MBが新たなデフォルト値となります。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Increase the default setting of <xref
         linkend="guc-effective-cache-size">
         to 4GB (Bruce Momjian, Tom Lane)
+-->
+<xref linkend="guc-effective-cache-size">のデフォルト値を4GBに増やしました。
+(Bruce Momjian, Tom Lane)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow <function>printf</function>-style space padding to be
         specified in <xref linkend="guc-log-line-prefix"> (David Rowley)
+-->
+<xref linkend="guc-log-line-prefix">で<function>printf</function>形式の空白パディングを指定できるようにしました。
+(David Rowley)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow terabyte units (<literal>TB</>) to be used when specifying
         configuration variable values (Simon Riggs)
+-->
+設定ファイルにテラバイト単位 (<literal>TB</>)を記述できるようにしました。
+(Simon Riggs)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Show <acronym>PID</>s of lock holders and waiters and improve
         information about relations in <xref linkend="guc-log-lock-waits">
         log messages (Christian Kruse)
+-->
+<xref linkend="guc-log-lock-waits">によるログメッセージで、
+ロックを保持しているプロセス、待っているプロセスの<acronym>PID</>、
+および、改善されたリレーション情報が出力されるようにしました。
+(Christian Kruse)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Reduce server logging level when loading shared libraries (Peter
         Geoghegan)
+-->
+共有ライブラリをロードした際のログレベルをDEBUG1に下げました。
+(Peter Geoghegan) 
        </para>
 
        <para>
+<!--
         The previous level was <literal>LOG</>, which was too verbose
         for libraries loaded per-session.
+-->
+これまでは<literal>LOG</>レベルでしたが、接続ごとにロードされるライブラリの場合には冗長すぎました。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         On Windows, make <literal>SQL_ASCII</>-encoded databases and server
         processes (e.g., <xref linkend="app-postmaster">) emit messages in
         the character encoding of the server's Windows user locale
         (Alexander Law, Noah Misch)
+-->
+Windowsにて<literal>SQL_ASCII</>エンコーディングのデータベースとサーバプロセス（例えば <xref linkend="app-postmaster">）が、サーバのWindowsユーザロケールの文字エンコーディングでメッセージを出力するようになりました。
+(Alexander Law, Noah Misch)
        </para>
 
        <para>
+<!--
         Previously these messages were output in the Windows
         <acronym>ANSI</> code page.
+-->
+これまでは、Windowsの<acronym>ANSI</>コードページでメッセージが出力されていました。
        </para>
       </listitem>
 
@@ -921,160 +1489,248 @@
    </sect3>
 
    <sect3>
+<!--
     <title>Replication and Recovery</title>
+-->
+    <title>レプリケーションとリカバリ</title>
 
      <itemizedlist>
 
       <listitem>
        <para>
+<!--
         Add <link linkend="streaming-replication-slots">replication
         slots</link> to coordinate activity on streaming standbys with the
         node they are streaming from (Andres Freund, Robert Haas)
+-->
+ストリーミングレプリケーション元ノードでスタンバイの活動を調整する
+<link linkend="streaming-replication-slots">レプリケーションスロット</link>
+を追加しました。
+(Andres Freund, Robert Haas)
        </para>
 
        <para>
+<!--
         Replication slots allow preservation of resources like
         <acronym>WAL</> files on the primary until they are no longer
         needed by standby servers.
+-->
+レプリケーションスロットにより、プライマリ上の<acronym>WAL</>ファイル等リソースをスタンバイサーバが必要としなくなるまで保持することができます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add recovery parameter <xref linkend="recovery-min-apply-delay">
         to delay replication (Robert Haas, Fabr&iacute;zio de Royes Mello,
         Simon Riggs)
+-->
+レプリケーションを遅延させるリカバリ設定パラメータ<xref linkend="recovery-min-apply-delay">を追加しました。
+(Robert Haas, Fabr&iacute;zio de Royes Mello, Simon Riggs)
        </para>
 
        <para>
+<!--
         Delaying replay on standby servers can be useful for recovering
         from user errors.
+-->
+スタンバイサーバでの再生を遅らせることは、ユーザによる誤りから復旧するのに役立ちます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add <xref linkend="recovery-target">
         option <option>immediate</> to stop <link
         linkend="wal"><acronym>WAL</></link> recovery as soon as a
         consistent state is reached (MauMau, Heikki Linnakangas)
+-->
+リカバリ設定パラメータ<xref linkend="recovery-target">にオプション<option>immediate</>を追加しました。<link linkend="wal"><acronym>WAL</></link>リカバリを整合性のある状態に到達したらすぐに停止します。
+(MauMau, Heikki Linnakangas)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Improve recovery target processing (Heikki Linnakangas)
+-->
+リカバリターゲットの処理を改善しました。
+(Heikki Linnakangas)
        </para>
 
        <para>
+<!--
         The timestamp reported
         by <link linkend="functions-recovery-info-table"><function>pg_last_xact_replay_timestamp()</></link>
         now reflects already-committed records, not transactions about to
         be committed. Recovering to a restore point now replays the restore
         point, rather than stopping just before the restore point.
+-->
+停止を判定する<link linkend="functions-recovery-info-table"><function>pg_last_xact_replay_timestamp()</></link>が報告するタイムスタンプが、コミットされるであろうトランザクションでなく、コミット済みのレコードを反映するようにしました。
+リストアポイントよりも早すぎる時点で再生が止まってしまうのを防ぎます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         <link
         linkend="functions-admin-backup-table"><function>pg_switch_xlog()</></link>
         now clears any unused trailing space in the old <acronym>WAL</> file
         (Heikki Linnakangas)
+-->
+<link linkend="functions-admin-backup-table"><function>pg_switch_xlog()</></link>が古い<acronym>WAL</>ファイル上の使われない末尾領域をクリアするようにしました。
+(Heikki Linnakangas)
        </para>
 
        <para>
+<!--
         This improves the compression ratio for <acronym>WAL</> files.
+-->
+これは<acronym>WAL</>ファイルの圧縮率を改善します。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Report failure return codes from <link
         linkend="archive-recovery-settings">external recovery commands</>
         (Peter Eisentraut)
+-->
+<link linkend="archive-recovery-settings">リカバリ用外部コマンド</>からの
+リターンコードを報告するようにしました。
+(Peter Eisentraut)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Reduce spinlock contention during <acronym>WAL</> replay (Heikki
         Linnakangas)
+-->
+<acronym>WAL</>再生中のスピンロック競合を減らしました。
+(Heikki Linnakangas)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Write <acronym>WAL</> records of running transactions more
         frequently (Andres Freund)
+-->
+トランザクション実行の<acronym>WAL</>レコードの書き出しをより頻繁にしました。
        </para>
 
        <para>
+<!--
         This allows standby servers to start faster and clean up resources
         more aggressively.
+-->
+これによりスタンバイサーバで起動が速くなり、より積極的にリソースの片づけができるようになります。
        </para>
       </listitem>
 
      </itemizedlist>
 
      <sect4>
+<!--
       <title><link linkend="logicaldecoding">Logical Decoding</></title>
+-->
+      <title><link linkend="logicaldecoding">ロジカルデコーディング</></title>
 
       <para>
+<!--
        Logical decoding allows database changes to be streamed in a
        configurable format. The data is read from
        the <link linkend="wal"><acronym>WAL</></link> and transformed into the
        desired target format. To implement this feature, the following changes
        were made:
+-->
+ロジカルデコーディングにより、データベース変更を可変な形式で流し出すことができるようになります。
+データは<link linkend="wal"><acronym>WAL</></link>から読みとり、望む形式に変換されます。本機能を実装するため、以下の改修が行われました。
       </para>
 
       <itemizedlist>
 
        <listitem>
         <para>
+<!--
          Add support for <link linkend="logicaldecoding">logical decoding</>
          of WAL data, to allow database changes to be streamed out in a
          customizable format
          (Andres Freund)
+-->
+データベース変更をカスタマイズ可能な形式で連続的に出力できる、WALデータの<link linkend="logicaldecoding">ロジカルデコーディング</>をサポートしました。
+(Andres Freund)
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Add new <xref linkend="guc-wal-level"> setting <option>logical</>
          to enable logical change-set encoding in <acronym>WAL</> (Andres
          Freund)
+-->
+<xref linkend="guc-wal-level">設定パラメータに、<acronym>WAL</>に論理変更セットのエンコードを有効にする新たなオプション<option>logical</>を追加しました。
+(Andres Freund)
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Add table-level parameter <link
          linkend="catalog-pg-class"><literal>REPLICA IDENTITY</></link>
          to control logical replication (Andres Freund)
+-->
+論理レプリケーションの制御用にテーブル単位のパラメータ
+<link linkend="catalog-pg-class"><literal>REPLICA IDENTITY</></link>
+を追加しました。
+(Andres Freund)
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Add relation option <link
          linkend="SQL-CREATETABLE-storage-parameters"><option>user_catalog_table</></link>
          to identify user-created tables involved in logical change-set
          encoding (Andres Freund)
+-->
+論理変更セットのエンコードにおいてユーザ作成テーブルを識別するためのテーブル単位のパラメータ
+<link linkend="SQL-CREATETABLE-storage-parameters"><option>user_catalog_table</></link>
+を追加しました。
+(Andres Freund)
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Add <xref linkend="app-pgrecvlogical"> application to receive
          logical-decoding data (Andres Freund)
+-->
+ロジカルデコーディングデータを受け取るアプリケーション<xref linkend="app-pgrecvlogical">を追加しました。
+(Andres Freund)
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Add <xref linkend="test-decoding"> module to illustrate logical
          decoding at the <acronym>SQL</> level (Andres Freund)
+-->
+<acronym>SQL</>レベルでロジカルデコーディングを例示する<xref linkend="test-decoding">モジュールを追加しました。
+(Andres Freund)
         </para>
        </listitem>
 
@@ -1085,49 +1741,75 @@
    </sect3>
 
    <sect3>
+<!--
     <title>Queries</title>
+-->
+    <title>問い合わせ</title>
 
      <itemizedlist>
 
       <listitem>
        <para>
+<!--
         Add <link linkend="queries-tablefunctions"><literal>WITH
         ORDINALITY</></link> syntax to number the rows returned from a
         set-returning function in the <literal>FROM</> clause
         (Andrew Gierth, David Fetter)
+-->
+<literal>FROM</>句の集合を返す関数から返される行に番号をつける
+<link linkend="queries-tablefunctions"><literal>WITH ORDINALITY</></link>構文を追加しました。
+(Andrew Gierth, David Fetter)
        </para>
 
        <para>
+<!--
         This is particularly useful for functions like
         <function>unnest()</>.
+-->
+<function>unnest()</>のような関数で特に役立ちます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add <link linkend="queries-tablefunctions"><literal>ROWS
         FROM()</></link> syntax to allow horizontal concatenation of
         set-returning functions in the <literal>FROM</> clause (Andrew Gierth)
+-->
+<literal>FROM</>句で集合を返す関数の水平結合ができる
+<link linkend="queries-tablefunctions"><literal>ROWS FROM()</></link>構文を追加しました。
+(Andrew Gierth)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow <xref linkend="SQL-SELECT"> to have
         an empty target list (Tom Lane)
+-->
+<xref linkend="SQL-SELECT">で空のターゲットリストを持てるようにしました。
        </para>
 
        <para>
+<!--
         This was added so that views that select from a table with zero
         columns can be dumped and restored correctly.
+-->
+これにより、ゼロ個のカラムを選択するビューを正しくダンプ、リストアできるようになります。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Ensure that <link linkend="SQL-SELECT"><literal>SELECT ... FOR UPDATE
         NOWAIT</></link> does not wait in corner cases involving
         already-concurrently-updated tuples (Craig Ringer and Thomas Munro)
+-->
+<link linkend="SQL-SELECT"><literal>SELECT ... FOR UPDATE NOWAIT</></link>が例外的なケースでも既に同時更新されているタプルを待たないようにしました。
+(Craig Ringer and Thomas Munro)
        </para>
       </listitem>
 
@@ -1136,47 +1818,74 @@
    </sect3>
 
    <sect3>
+<!--
     <title>Utility Commands</title>
+-->
+    <title>ユーティリティコマンド</title>
 
      <itemizedlist>
 
       <listitem>
        <para>
+<!--
         Add <link linkend="SQL-DISCARD"><command>DISCARD
         SEQUENCES</></link> command to discard cached sequence-related state
         (Fabr&iacute;zio de Royes Mello, Robert Haas)
+-->
+キャッシュされたシーケンス関連の状態を破棄する<link linkend="SQL-DISCARD"><command>DISCARD SEQUENCES</></link>コマンドを追加しました。
+(Fabr&iacute;zio de Royes Mello, Robert Haas)
        </para>
 
        <para>
+<!--
         <command>DISCARD ALL</> will now also discard such information.
+-->
+これからは<command>DISCARD ALL</>もシーケンス関連の状態情報を破棄します。
        </para>
       </listitem>
 
        <listitem>
         <para>
+<!--
          Add <literal>FORCE NULL</> option
          to <link linkend="SQL-COPY"><command>COPY FROM</></link>, which
          causes quoted strings matching the specified null string to be
          converted to NULLs in <literal>CSV</> mode (Ian Barwick, Michael
          Paquier)
+-->
+<link linkend="SQL-COPY"><command>COPY FROM</></link>に、
+<literal>CSV</>モードで指定のNULL文字列に一致するクオートされた文字列をNULLに変換する、
+<literal>FORCE NULL</>オプションを追加しました。
+(Ian Barwick, Michael Paquier)
         </para>
 
         <para>
+<!--
          Without this option, only unquoted matching strings will be imported
          as null values.
+-->
+本オプションが無い場合、クオートされていなくてマッチした文字列だけNULLとして扱われます。
         </para>
        </listitem>
 
       <listitem>
        <para>
+<!--
         Issue warnings for commands used outside of transaction blocks
         when they can have no effect (Bruce Momjian)
+-->
+トランザクションブロックの外で意味をなさないコマンドを実行したとき、警告を出すようにしました。
+(Bruce Momjian)
        </para>
 
        <para>
+<!--
         New warnings are issued for <command>SET
         LOCAL</>, <command>SET CONSTRAINTS</>, <command>SET TRANSACTION</> and
         <command>ABORT</> when used outside a transaction block.
+-->
+新たに<command>SET LOCAL</>、<command>SET CONSTRAINTS</>、
+<command>SET TRANSACTION</>、および、<command>ABORT</>について、トランザクション外で使うと警告がでるようになります。
        </para>
       </listitem>
 
@@ -1189,22 +1898,34 @@
 
        <listitem>
         <para>
+<!--
          Make <command>EXPLAIN ANALYZE</> show planning time (Andreas
          Karlsson)
+-->
+<command>EXPLAIN ANALYZE</>がプラン時間を表示するようにしました。
+(Andreas Karlsson)
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Make <command>EXPLAIN</> show the grouping columns in Agg and
          Group nodes (Tom Lane)
+-->
+<command>EXPLAIN</>がAgg、Groupプラン要素にて集約しているカラムを出力するようにしました。
+(Tom Lane)
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Make <command>EXPLAIN ANALYZE</> show exact and lossy
          block counts in bitmap heap scans (Etsuro Fujita)
+-->
+<command>EXPLAIN ANALYZE</>でビットマップヒープスキャンのexactブロックカウントとlossyブロックカウントを出力するようにしました。
+(Etsuro Fujita)
         </para>
        </listitem>
 
@@ -1213,58 +1934,89 @@
      </sect4>
 
      <sect4>
+<!--
       <title>Views</title>
+-->
+      <title>ビュー</title>
 
       <itemizedlist>
 
       <listitem>
        <para>
+<!--
         Allow a <link linkend="rules-materializedviews">materialized view</>
         to be refreshed without blocking other sessions from reading the view
         meanwhile (Kevin Grittner)
+-->
+<link linkend="rules-materializedviews">マテリアライズドビュー</>を他セッションの同時参照を妨げずにリフレッシュできるようにしました。
+(Kevin Grittner)
        </para>
 
        <para>
+<!--
         This is done with <link
         linkend="SQL-REFRESHMATERIALIZEDVIEW"><command>REFRESH MATERIALIZED
         VIEW CONCURRENTLY</></link>.
+-->
+<link linkend="SQL-REFRESHMATERIALIZEDVIEW"><command>REFRESH MATERIALIZED VIEW CONCURRENTLY</></link>コマンドで行います。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow views to be <link
         linkend="SQL-CREATEVIEW-updatable-views">automatically
         updated</link> even if they contain some non-updatable columns
         (Dean Rasheed)
+-->
+たとえ更新できないカラムが含まれていても、ビューが<link linkend="SQL-CREATEVIEW-updatable-views">自動更新可能</link>になります。
+(Dean Rasheed)
        </para>
 
        <para>
+<!--
         Previously the presence of non-updatable output columns such as
         expressions, literals, and function calls prevented automatic
         updates.  Now <command>INSERT</>s, <command>UPDATE</>s and
         <command>DELETE</>s are supported, provided that they do not
         attempt to assign new values to any of the non-updatable columns.
+-->
+これまでは、式や定数、関数呼び出しなどの更新不能な出力カラムがあると、
+ビューは自動更新可能にはなりませんでした。これからは、更新不能なカラムに新しい値を割り当てしようとしないなら<command>INSERT</>、<command>UPDATE</>、<command>DELETE</>がサポートされます。
+
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow control over whether <command>INSERT</>s and
         <command>UPDATE</>s can add rows to an auto-updatable view that
         would not appear in the view (Dean Rasheed)
+-->
+<command>INSERT</>や<command>UPDATE</>で、
+自動更新可能ビューにそのビューにはあらわれない行を加えることができるかを制御できるようにしました。
+(Dean Rasheed)
        </para>
 
        <para>
+<!--
         This is controlled with the new <xref linkend="SQL-CREATEVIEW">
         clause <literal>WITH CHECK OPTION</>.
+-->
+新たに追加された<xref linkend="SQL-CREATEVIEW">の<literal>WITH CHECK OPTION</>句で制御します。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow <link linkend="rules-privileges">security barrier views</>
         to be automatically updatable (Dean Rasheed)
+-->
+<link linkend="rules-privileges">セキュリティバリアビュー</>も自動更新可能になれるようにしました。
+(Dean Rasheed)
        </para>
       </listitem>
 
@@ -1275,91 +2027,147 @@
    </sect3>
 
    <sect3>
+<!--
     <title>Object Manipulation</title>
+-->
+    <title>オブジェクトの操作</title>
 
      <itemizedlist>
 
       <listitem>
        <para>
+<!--
         Support triggers on <link linkend="SQL-CREATEFOREIGNTABLE">foreign
         tables</> (Ronan Dunklau)
+-->
+<link linkend="SQL-CREATEFOREIGNTABLE">外部テーブル</>のトリガをサポートしました。
+(Ronan Dunklau)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow moving groups of objects from one tablespace to another
         using the <literal>ALL IN TABLESPACE ... SET TABLESPACE</> form of
         <xref linkend="SQL-ALTERTABLE">, <xref linkend="SQL-ALTERINDEX">, or
         <xref linkend="SQL-ALTERMATERIALIZEDVIEW"> (Stephen Frost)
+-->
+<xref linkend="SQL-ALTERTABLE">、<xref linkend="SQL-ALTERINDEX">、
+<xref linkend="SQL-ALTERMATERIALIZEDVIEW">にて、
+<literal>ALL IN TABLESPACE ... SET TABLESPACE</>指定を使って、
+テーブルスペースのオブジェクト群をまとめて別テーブルスペースに移動できるようにしました。
+(Stephen Frost)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow changing foreign key constraint deferrability
         via <xref linkend="SQL-ALTERTABLE"> ... <literal>ALTER
         CONSTRAINT</> (Simon Riggs)
+-->
+
+<xref linkend="SQL-ALTERTABLE"> ... <literal>ALTER CONSTRAINT</>で外部キー制約が遅延できるかを変更できるようにしました。
+(Simon Riggs)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Reduce lock strength for some <xref linkend="SQL-ALTERTABLE">
         commands
         (Simon Riggs, Noah Misch, Robert Haas)
+-->
+いくつかの<xref linkend="SQL-ALTERTABLE">コマンドでロックの強さを下げました。
+(Simon Riggs, Noah Misch, Robert Haas)
        </para>
 
        <para>
+<!--
         Specifically, <literal>VALIDATE CONSTRAINT</>, <literal>CLUSTER
         ON</>, <literal>SET WITHOUT CLUSTER</>, <literal>ALTER COLUMN
         SET STATISTICS</>, <literal>ALTER COLUMN</> <literal>SET</>
         <option>(attribute_option)</>, <literal>ALTER COLUMN RESET</>
         <option>(attribute_option)</> no longer require <literal>ACCESS
         EXCLUSIVE</> locks.
+-->
+特に、<literal>VALIDATE CONSTRAINT</>、<literal>CLUSTER ON</>、
+<literal>SET WITHOUT CLUSTER</>、<literal>ALTER COLUMN SET STATISTICS</>、
+<literal>ALTER COLUMN</> <literal>SET</> <option>(attribute_option)</>、
+<literal>ALTER COLUMN RESET</> <option>(attribute_option)</>は、もはや
+<literal>ACCESS EXCLUSIVE</>ロックを必要としません。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow tablespace options to be set
         in <xref linkend="SQL-CREATETABLESPACE"> (Vik Fearing)
+-->
+テーブルスペースのオプションを
+<xref linkend="SQL-CREATETABLESPACE">で設定できるようにしました。
+(Vik Fearing)
        </para>
 
        <para>
+<!--
         Formerly these options could only be set
         via <xref linkend="SQL-ALTERTABLESPACE">.
+-->
+以前はこれらのオプションは<xref linkend="SQL-ALTERTABLESPACE">でしか設定できませんでした。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow <xref linkend="SQL-CREATEAGGREGATE"> to define the estimated
         size of the aggregate's transition state data (Hadi Moshayedi)
+-->
+<xref linkend="SQL-CREATEAGGREGATE">で集約の遷移状態データの推定サイズを指定できるようにしました。
+(Hadi Moshayedi)
        </para>
 
        <para>
+<!--
         Proper use of this feature allows the planner to better estimate
         how much memory will be used by aggregates.
+-->
+この機能を適切に使うことでプランナが集約での必要メモリ量をよりよく見積もれます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Fix <command>DROP IF EXISTS</> to avoid errors for non-existent
         objects in more cases (Pavel Stehule, Dean Rasheed)
+-->
+<command>DROP IF EXISTS</>が場合によってはオブジェクトが無いことでエラーになるのを修正しました。
+(Pavel Stehule, Dean Rasheed)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Improve how system relations are identified (Andres Freund,
         Robert Haas)
+-->
+システムリレーションの識別方法を改善しました。
+(Andres Freund, Robert Haas)
        </para>
 
        <para>
+<!--
         Previously, relations once moved into the <literal>pg_catalog</>
         schema could no longer be modified or dropped.
+-->
+これまでは、一度<literal>pg_catalog</>スキーマに移動したリレーションは、変更も削除もできませんでした。
        </para>
       </listitem>
 
@@ -1368,50 +2176,76 @@
    </sect3>
 
    <sect3>
+<!--
     <title>Data Types</title>
+-->
+    <title>データ型</title>
 
     <itemizedlist>
 
       <listitem>
        <para>
+<!--
         Fully implement the <link
         linkend="datatype-line"><type>line</></link> data type (Peter
         Eisentraut)
+-->
+<link linkend="datatype-line"><type>line</></link>データ型を完全に実装しました。
+(Peter Eisentraut)
        </para>
 
        <para>
+<!--
         The line <emphasis>segment</> data type (<link
         linkend="datatype-lseg"><type>lseg</></link>) has always been
         fully supported.  The previous <type>line</> data type (which was
         enabled only via a compile-time option) is not binary or
         dump-compatible with the new implementation.
+-->
+<emphasis>線分</>データ型(<link linkend="datatype-lseg"><type>lseg</></link>)
+は既にサポートされています。
+従来の<type>line</>データ型（コンパイルオプションでのみ有効にできます）は、バイナリでもダンプでも新しい実装と互換性がありません。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add <link linkend="datatype-pg-lsn"><type>pg_lsn</></link>
         data type to represent a <acronym>WAL</> log sequence number
         (<acronym>LSN</>) (Robert Haas, Michael Paquier)
+-->
+<acronym>WAL</>のログシーケンス番号(<acronym>LSN</>)をあらわす<link linkend="datatype-pg-lsn"><type>pg_lsn</></link>データ型を追加しました。
+(Robert Haas, Michael Paquier)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow single-point <link
         linkend="datatype-polygon"><type>polygon</></link>s to be converted
         to <link linkend="datatype-circle"><type>circle</></link>s
         (Bruce Momjian)
+-->
+一点だけの<link linkend="datatype-polygon"><type>polygon</></link>を
+<link linkend="datatype-circle"><type>circle</></link>に変換できるようにしました。
+(Bruce Momjian)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Support time zone abbreviations that change UTC offset from time to
         time (Tom Lane)
+-->
+UTCオフセットが変化するタイムゾーン略称をサポートしました。
+(Tom Lane)
        </para>
 
        <para>
+<!--
         Previously, <productname>PostgreSQL</> assumed that the UTC offset
         associated with a time zone abbreviation (such as <literal>EST</>)
         never changes in the usage of any particular locale.  However this
@@ -1422,70 +2256,109 @@
         abbreviations since 1970 (according to the IANA timezone database).
         In such timezones, <productname>PostgreSQL</> will now associate the
         correct UTC offset with the abbreviation depending on the given date.
+-->
+これまで<productname>PostgreSQL</>では（<literal>EST</>などの）一つのタイムゾーン略称に関連づけられたUTCオフセットは、いかなるロケールでの使用でも変化しないと仮定していました。
+しかしながら、実世界においてこの仮定は失敗しました。そこで、意味するUTCオフセットをときに変更できるタイムゾーン略称を導入しました。
+1970年以来の略称のUTCオフセットが変更されたタイムゾーンロケールで本機能を使えるように（IANAタイムゾーンデータベースに基づいて）ゾーン略称定義ファイルを刷新しました。これからは<productname>PostgreSQL</>は、略称に日付に応じた適切なUTCオフセットを関連づけます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow 5+ digit years for non-<acronym>ISO</> <link
         linkend="datatype-datetime"><type>timestamp</></link> and
         <type>date</> strings, where appropriate (Bruce Momjian)
+-->
+<link linkend="datatype-datetime"><type>timestamp</></link>と
+<type>date</>のISO形式以外の文字列で5桁以上の年を使用可能にしました。
+(Bruce Momjian)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add checks for overflow/underflow of <link
         linkend="datatype-datetime"><type>interval</></link> values
         (Bruce Momjian)
+-->
+<link linkend="datatype-datetime"><type>interval</></link>値のオーバーフロー、アンダーフローのチェックを加えました。
+(Bruce Momjian)
        </para>
       </listitem>
 
     </itemizedlist>
 
     <sect4>
+
      <title><link linkend="datatype-json"><acronym>JSON</></link></title>
 
      <itemizedlist>
 
        <listitem>
         <para>
+<!--
          Add <link linkend="datatype-json"><type>jsonb</></link>, a more
          capable and efficient data type for storing <acronym>JSON</> data
          (Oleg Bartunov, Teodor Sigaev, Alexander
          Korotkov, Peter Geoghegan, Andrew Dunstan)
+-->
+より高機能で効率的な<acronym>JSON</>文字列のデータ型<link linkend="datatype-json"><type>jsonb</></link>を追加しました。
+(Oleg Bartunov, Teodor Sigaev, Alexander Korotkov, Peter Geoghegan, Andrew Dunstan)
         </para>
 
         <para>
+<!--
          This new type allows faster access to values within a JSON
          document, and faster and more useful indexing of JSON columns.
          Scalar values in <type>jsonb</> documents are stored as appropriate
          scalar SQL types, and the JSON document structure is pre-parsed
          rather than being stored as text as in the original <type>json</>
          data type.
+-->
+この新しいデータ型は、JSON文書により高速にアクセスでき、また、JSONカラムにより高速で有用なインデックス適用ができます。
+従来の<type>json</>型がJSON文書全体をテキストとして格納するのに対し、
+<type>jsonb</>文書のスカラ値は適当なSQLデータ型として格納され、JSON文書の構造は事前解析されます。
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Add new JSON functions to allow for the construction
          of arbitrarily complex JSON trees (Andrew Dunstan, Laurence Rowe)
+-->
+任意の複雑なJSONツリーを構築できる新たなJSON関数を追加しました。
+(Andrew Dunstan, Laurence Rowe)
         </para>
 
         <para>
+<!--
          New functions include <link
          linkend="functions-json-processing-table"><function>json_array_elements_text()</></link>,
          <function>json_build_array()</>, <function>json_object()</>,
          <function>json_object_agg()</>, <function>json_to_record()</>,
          and <function>json_to_recordset()</>.
+-->
+新たな関数には、
+<link linkend="functions-json-processing-table"><function>json_array_elements_text()</></link>、
+<function>json_build_array()</>、<function>json_object()</>、
+<function>json_object_agg()</>、<function>json_to_record()</>、
+<function>json_to_recordset()</>が含まれます。
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Add <link
          linkend="functions-json-processing-table"><function>json_typeof()</></link>
          to return the data type of a <type>json</> value (Andrew Tipton)
+-->
+<type>json</>値のデータ型を返す
+<link linkend="functions-json-processing-table"><function>json_typeof()</></link>を追加しました。
+(Andrew Tipton)
         </para>
        </listitem>
 
@@ -1496,161 +2369,246 @@
    </sect3>
 
    <sect3>
+<!--
     <title>Functions</title>
+-->
+    <title>関数</title>
 
      <itemizedlist>
 
       <listitem>
        <para>
+<!--
         Add <link
         linkend="functions-datetime-delay"><function>pg_sleep_for(interval)</></link>
         and <function>pg_sleep_until(timestamp)</> to specify
         delays more flexibly (Vik Fearing, Julien Rouhaud)
+-->
+より柔軟に遅延を指定できる<link linkend="functions-datetime-delay"><function>pg_sleep_for(interval)</></link>と<function>pg_sleep_until(timestamp)</>を追加しました。
+(Vik Fearing, Julien Rouhaud)
        </para>
 
        <para>
+<!--
         The existing <function>pg_sleep()</> function only supports delays
         specified in seconds.
+-->
+既存の<function>pg_sleep()</>関数は秒指定の遅延のみをサポートしていました。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add <link
         linkend="array-functions-table"><function>cardinality()</></link>
         function for arrays (Marko Tiikkaja)
+-->
+配列を引数とする<link linkend="array-functions-table"><function>cardinality()</></link>関数を追加しました。
+(Marko Tiikkaja)
        </para>
 
        <para>
+<!--
         This returns the total number of elements in the array, or zero
         for an array with no elements.
+-->
+この関数は、配列要素の総数、要素が無い場合にはゼロを返します。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add <acronym>SQL</> functions to allow <link linkend="lo-funcs">large
         object reads/writes</link> at arbitrary offsets (Pavel Stehule)
+-->
+任意のオフセットで<link linkend="lo-funcs">ラージオブジェクトを読み書き</link>できる<acronym>SQL</>関数を追加しました。
+(Pavel Stehule)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow <link
         linkend="array-functions-table"><function>unnest()</></link>
         to take multiple arguments, which are individually unnested then
         horizontally concatenated (Andrew Gierth)
+-->
+<link linkend="array-functions-table"><function>unnest()</></link>を複数引数をとれるようにしました。引数は各々に展開され、水平に結合されます。
+(Andrew Gierth)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add functions to construct <type>time</>s, <type>date</>s,
         <type>timestamp</>s, <type>timestamptz</>s, and <type>interval</>s
         from individual values, rather than strings (Pavel Stehule)
+-->
+文字列ではなく個別の値から、<type>time</>、<type>date</>、<type>timestamp</>、<type>timestamptz</>、<type>interval</>の各データ型を構築する関数を追加しました。
+(Pavel Stehule)
        </para>
 
        <para>
+<!--
         These functions' names are prefixed with <literal>make_</>,
         e.g. <link linkend="functions-datetime-table"><function>make_date()</></link>.
+-->
+これらの関数には<literal>make_</>という接頭辞が付きます（例えば<link linkend="functions-datetime-table"><function>make_date()</></link>）。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Make <link
         linkend="functions-formatting-table"><function>to_char()</></link>'s
         <literal>TZ</> format specifier return a useful value for simple
         numeric time zone offsets (Tom Lane)
+-->
+<link linkend="functions-formatting-table"><function>to_char()</></link>関数の<literal>TZ</>書式指示子が、数値であらわれたタイムゾーンオフセットに対して有効な値を返すようにしました。
+(Tom Lane)
        </para>
 
        <para>
+<!--
         Previously, <literal>to_char(CURRENT_TIMESTAMP, 'TZ')</> returned
         an empty string if the <literal>timezone</> was set to a constant
         like <literal>-4</>.
+-->
+これまでは、
+<literal>timezone</>に「<literal>-4</>」のような定数が設定されていると、
+<literal>to_char(CURRENT_TIMESTAMP, 'TZ')</>が空文字列を返していました。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add timezone offset format specifier <literal>OF</> to <link
         linkend="functions-formatting-table"><function>to_char()</></link>
         (Bruce Momjian)
+-->
+<link linkend="functions-formatting-table"><function>to_char()</></link>で
+タイムゾーンオフセットの書式指示子「<literal>OF</>」がサポートされました。
+(Bruce Momjian)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Improve the random seed used for <link
         linkend="functions-math-random-table"><function>random()</></link>
         (Honza Horak)
+-->
+<link linkend="functions-math-random-table"><function>random()</></link>
+のランダムシードを改善しました。
+(Honza Horak)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Tighten validity checking for Unicode code points in <link
         linkend="functions-string-other"><function>chr(int)</></link>
         (Tom Lane)
+-->
+<link linkend="functions-string-other"><function>chr(int)</></link>で
+ユニコードのコードポイントの正当性チェックをより厳しくしました。
+(Tom Lane)
        </para>
 
        <para>
+<!--
         This function now only accepts values that are valid UTF8 characters
         according to RFC 3629.
+-->
+本関数はRFC 3629に従ったUTF8文字のみを有効な値として受けるようになります。
        </para>
       </listitem>
 
      </itemizedlist>
 
     <sect4>
+<!--
      <title>System Information Functions</title>
+-->
+     <title>システム情報関数</title>
 
      <itemizedlist>
 
       <listitem>
        <para>
+<!--
         Add functions for looking up objects in <structname>pg_class</>,
         <structname>pg_proc</>, <structname>pg_type</>, and
         <structname>pg_operator</> that do not generate errors for
         non-existent objects (Yugo Nagata, Nozomi Anzai,
         Robert Haas)
+-->
+システムテーブル<structname>pg_class</>、<structname>pg_proc</>、<structname>pg_type</>、<structname>pg_operator</>を検索して、オブジェクトが無くてもエラーを返さない関数をいくつか追加しました。
+(Yugo Nagata, Nozomi Anzai, Robert Haas)
        </para>
 
        <para>
+<!--
         For example, <link
         linkend="functions-info-catalog-table"><function>to_regclass()</></link>
         does a lookup in <structname>pg_class</> similarly to
         the <type>regclass</> input function, but it returns NULL for a
         non-existent object instead of failing.
+-->
+例えば、<link linkend="functions-info-catalog-table"><function>to_regclass()</></link>は<structname>pg_class</>を<type>regclass</>入力関数と同様に検索しますが、オブジェクトが無い場合には失敗するのでなくNULLを返します。
+<type>regclass</> 
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add function <link
         linkend="functions-admin-dblocation"><function>pg_filenode_relation()</></link>
         to allow for more efficient lookup of relation names from filenodes
         (Andres Freund)
+-->
+リレーション名をファイルノードからより効率的に検索できる<link linkend="functions-admin-dblocation"><function>pg_filenode_relation()</></link>関数を追加しました。
+(Andres Freund)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add <structfield>parameter_default</> column to <link
         linkend="infoschema-parameters"><structname>information_schema.parameters</></link>
         view (Peter Eisentraut)
+-->
+<link linkend="infoschema-parameters"><structname>information_schema.parameters</></link>ビューに<structfield>parameter_default</>カラムを追加しました。
+(Peter Eisentraut)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Make <link
         linkend="infoschema-schemata"><structname>information_schema.schemata</></link>
         show all accessible schemas (Peter Eisentraut)
+-->
+<link linkend="infoschema-schemata"><structname>information_schema.schemata</></link>が全てのアクセス可能なスキーマを表示するようにしました。
+(Peter Eisentraut)
        </para>
 
        <para>
+<!--
         Previously it only showed schemas owned by the current user.
+-->
+これまでは現在ユーザが所有者のスキーマだけ表示していました。
        </para>
       </listitem>
 
@@ -1659,29 +2617,41 @@
     </sect4>
 
     <sect4>
+<!--
      <title>Aggregates</title>
+-->
+     <title>集約</title>
 
      <itemizedlist>
 
       <listitem>
        <para>
+<!--
         Add control over which rows are passed
         into aggregate functions via the <link
         linkend="syntax-aggregates"><literal>FILTER</></link> clause
         (David Fetter)
+-->
+どの行を集約関数に渡すかを制御する<link linkend="syntax-aggregates"><literal>FILTER</></link>句が追加されました。
+(David Fetter)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Support ordered-set (<link
         linkend="syntax-aggregates"><literal>WITHIN GROUP</></link>)
         aggregates (Atri Sharma, Andrew Gierth, Tom Lane)
+-->
+順序付けされた集合(<link linkend="syntax-aggregates"><literal>WITHIN GROUP</></link>)の集約をサポートしました。
+(Atri Sharma, Andrew Gierth, Tom Lane)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add standard ordered-set aggregates <link
         linkend="functions-orderedset-table"><function>percentile_cont()</></link>,
         <function>percentile_disc()</>, <function>mode()</>, <link
@@ -1689,25 +2659,47 @@
         <function>dense_rank()</>, <function>percent_rank()</>, and
         <function>cume_dist()</>
         (Atri Sharma, Andrew Gierth)
+-->
+SQL標準の順序集合の集約関数
+<link linkend="functions-orderedset-table"><function>percentile_cont()</></link>、
+<function>percentile_disc()</>、
+<function>mode()</>、
+<link linkend="functions-hypothetical-table"><function>rank()</></link>、
+<function>dense_rank()</>、
+<function>percent_rank()</>、
+<function>cume_dist()</>が追加されました。
+(Atri Sharma, Andrew Gierth)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Support <link
         linkend="xfunc-sql-variadic-functions"><literal>VARIADIC</></link>
         aggregate functions (Tom Lane)
+-->
+集約関数で<link linkend="xfunc-sql-variadic-functions"><literal>VARIADIC</></link>
+をサポートしました。
+(Tom Lane)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow polymorphic aggregates to have non-polymorphic state data
         types (Tom Lane)
+-->
+引数に多態集約が多態でない状態データ型を持てるようにしました。
+(Tom Lane)
        </para>
        <para>
+<!--
         This allows proper declaration in SQL of aggregates like the built-in
         aggregate <function>array_agg()</>.
+-->
+組み込みの<function>array_agg()</>のような集約関数をSQLで適切に宣言できるようになります。
        </para>
       </listitem>
 
@@ -1718,65 +2710,102 @@
    </sect3>
 
    <sect3>
+<!--
     <title>Server-Side Languages</title>
+-->
+    <title>サーバサイド言語</title>
 
     <itemizedlist>
 
      <listitem>
       <para>
+<!--
        Add event trigger support to <link linkend="plperl">PL/Perl</>
        and <link linkend="pltcl">PL/Tcl</> (Dimitri Fontaine)
+-->
+<link linkend="plperl">PL/Perl</>と<link linkend="pltcl">PL/Tcl</>にイベントトリガのサポートを加えました。
+(Dimitri Fontaine)
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Convert <link linkend="datatype-numeric"><type>numeric</></link>
        values to <type>decimal</> in <link linkend="plpython">PL/Python</link>
        (Szymon Guz, Ronan Dunklau)
+-->
+<link linkend="datatype-numeric"><type>numeric</></link>型の値を
+<link linkend="plpython">PL/Python</link>で<type>decimal</>型に変換するようにしました。
+(Szymon Guz, Ronan Dunklau)
       </para>
 
       <para>
+<!--
        Previously such values were converted to Python <type>float</> values,
        risking loss of precision.
+-->
+これまでは、値をPythonの<type>float</>型の値に変換していました。
       </para>
      </listitem>
 
     </itemizedlist>
 
     <sect4>
+<!--
      <title><link linkend="plpgsql">PL/pgSQL</link> Server-Side Language</title>
+-->
+     <title><link linkend="plpgsql">PL/pgSQL</link>サーバサイド言語</title>
 
      <itemizedlist>
 
       <listitem>
        <para>
+<!--
         Add ability to retrieve the current PL/PgSQL call stack
         using <link linkend="plpgsql-get-diagnostics-context"><command>GET
         DIAGNOSTICS</></link>
         (Pavel Stehule, Stephen Frost)
+-->
+<link linkend="plpgsql-get-diagnostics-context"><command>GET DIAGNOSTICS</></link>
+を使ってPL/PgSQLの現在のコールスタックを取得できるようにしました。
+(Pavel Stehule, Stephen Frost)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add option <link
         linkend="plpgsql-statements-sql-onerow"><option>print_strict_params</></link>
         to display the parameters passed to a query that violated a
         <literal>STRICT</> constraint (Marko Tiikkaja)
+-->
+<literal>STRICT</>制約に違反したクエリを表示する
+<link linkend="plpgsql-statements-sql-onerow"><option>print_strict_params</></link>オプションを追加しました。
+(Marko Tiikkaja)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add variables <link
         linkend="plpgsql-extra-checks"><varname>plpgsql.extra_warnings</></link>
         and <varname>plpgsql.extra_errors</> to enable additional PL/pgSQL
         warnings and errors (Marko Tiikkaja, Petr Jelinek)
+-->
+追加的なPL/pgSQLの警告とエラーを有効にする
+<link linkend="plpgsql-extra-checks"><varname>plpgsql.extra_warnings</></link>変数、
+<varname>plpgsql.extra_errors</>変数を追加しました。
+(Marko Tiikkaja, Petr Jelinek)
        </para>
 
        <para>
+<!--
         Currently only warnings/errors about shadowed variables are available.
+-->
+いまのところ隠し変数についての警告、エラーが有効になるだけです。
        </para>
       </listitem>
 
@@ -1792,21 +2821,33 @@
 
       <listitem>
        <para>
+<!--
         Make libpq's <link
         linkend="libpq-pqconndefaults"><function>PQconndefaults()</></link>
         function ignore invalid service files (Steve Singer, Bruce Momjian)
+-->
+libpqの<link linkend="libpq-pqconndefaults"><function>PQconndefaults()</></link>が
+無効なサービスファイルを無視するようにしました。
+(Steve Singer, Bruce Momjian)
        </para>
 
        <para>
+<!--
         Previously it returned NULL if an incorrect service file was
         encountered.
+-->
+これまでは、不正なサービスファイルに遭遇するとNULLを返していました。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Accept <acronym>TLS</> protocol versions beyond <literal>TLSv1</>
         in libpq (Marko Kreen)
+-->
+<literal>TLSv1</>以降バージョンの<acronym>TLS</>プロトコルを受け付けます。
+(Marko Kreen)
        </para>
       </listitem>
 
@@ -1815,82 +2856,127 @@
    </sect3>
 
    <sect3>
+<!--
     <title>Client Applications</title>
+-->
+    <title>クライアントアプリケーション</title>
 
     <itemizedlist>
 
       <listitem>
        <para>
+<!--
         Add <xref linkend="APP-CREATEUSER"> option <option>-g</>
         to specify role membership (Chistopher Browne)
+-->
+<xref linkend="APP-CREATEUSER">に、所属するロールを指定する<option>-g</>オプションを追加しました。
+(Chistopher Browne)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add <xref linkend="APP-VACUUMDB">
-        option <option>--analyze-in-stages</> to analyze in stages of
+        option <option>&#045;&#045;analyze-in-stages</> to analyze in stages of
         increasing granularity (Peter Eisentraut)
+-->
+<xref linkend="APP-VACUUMDB">粒度を増やして複数段階で解析を行う<option>--analyze-in-stages</>オプションが追加されました。
+
        </para>
 
        <para>
+<!--
         This allows minimal statistics to be created quickly.
+-->
+これにより最小限の統計情報を素早く生成できます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Make <xref linkend="APP-PGRESETXLOG"> with option <option>-n</>
         output current and potentially changed values (Rajeev Rastogi)
+-->
+<xref linkend="APP-PGRESETXLOG">が<option>-n</>オプションにて現在値ともしかすると変更された値を出力するようにしました。
+(Rajeev Rastogi)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Make <xref linkend="app-initdb"> throw error for incorrect locale
         settings, rather than silently falling back to a default choice
         (Tom Lane)
+-->
+<xref linkend="app-initdb">が誤ったロケール設定に黙って代替にデフォルトを選択するのでなくエラーを出すようにしました。
+(Tom Lane)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Make <xref linkend="app-pg-ctl"> return exit code <literal>4</> for
         an inaccessible data directory (Amit Kapila, Bruce Momjian)
+-->
+<xref linkend="app-pg-ctl">がデータディレクトリにアクセスできないとき終了コード<literal>4</>を返すようにしました。
+(Amit Kapila, Bruce Momjian)
        </para>
 
        <para>
+<!--
         This behavior more closely matches the Linux Standard Base
         (<acronym>LSB</>) Core Specification.
+-->
+この振る舞いはLinux Standard Base(<acronym>LSB</>)のコア仕様により厳密に適合します。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         On Windows, ensure that a non-absolute <option>-D</> path
         specification is interpreted relative
         to <xref linkend="app-pg-ctl">'s current directory
         (Kumar Rajeev Rastogi)
+-->
+Windowsで相対パスで指定された<option>-D</>オプションを<xref linkend="app-pg-ctl">のカレントディレクトリからの相対パスと解釈することを保証します。
+(Kumar Rajeev Rastogi) 
        </para>
 
        <para>
+<!--
         Previously it would be interpreted relative to whichever directory
         the underlying Windows service was started in.
+-->
+これまでは、元となるWindowsサービスが開始されたディレクトリを起点にして解釈されていました。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow <function>sizeof()</> in <link linkend="ecpg">ECPG</link>
         C array definitions (Michael Meskes)
+-->
+<link linkend="ecpg">ECPG</link>でC言語の配列定義に<function>sizeof()</>を使用可能にしました。
+(Michael Meskes)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Make <link linkend="ecpg">ECPG</link> properly handle nesting
         of C-style comments in both C and <acronym>SQL</> text
         (Michael Meskes)
+-->
+<link linkend="ecpg">ECPG</link>で入れ子になったC言語スタイルのコメントをC言語中でも
+<acronym>SQL</>中でも適切に扱えるようにしました。
+(Michael Meskes)
        </para>
       </listitem>
 
@@ -1903,122 +2989,195 @@
 
       <listitem>
        <para>
+<!--
         Suppress <quote>No rows</quote> output in <application>psql</> <link
         linkend="APP-PSQL-meta-commands"><option>expanded</></link>
         mode when the footer is disabled (Bruce Momjian)
+-->
+<application>psql</>の<link linkend="APP-PSQL-meta-commands"><option>expanded</></link>
+モードでfooterが無効であるときには、<quote>No rows</quote>出力を抑止します。
+(Bruce Momjian)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow Control-C to abort <application>psql</> when it's hung at
         connection startup (Peter Eisentraut)
+-->
+コネクション開始時にハングアップしたとき、Control-C押下で終了できるようにしました。
+(Peter Eisentraut)
        </para>
       </listitem>
 
      </itemizedlist>
 
      <sect5>
+<!--
       <title><link linkend="APP-PSQL-meta-commands">Backslash Commands</link></title>
+-->
+      <title><link linkend="APP-PSQL-meta-commands">バックスラッシュコマンド</link></title>
 
       <itemizedlist>
 
        <listitem>
         <para>
+<!--
          Make <application>psql</>'s <command>\db+</> show tablespace options
          (Magnus Hagander)
+-->
+<application>psql</>の<command>\db+</>でテーブルスペースオプションが
+表示されるようにしました。
+(Magnus Hagander)
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Make <command>\do+</> display the functions
          that implement the operators (Marko Tiikkaja)
+-->
+<command>\do+</>で演算子を実装している関数が表示されるようにしました。
+(Marko Tiikkaja)
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Make <command>\d+</> output an
          <literal>OID</> line only if an <literal>oid</literal> column
          exists in the table (Bruce Momjian)
+-->
+<command>\d+</>でテーブルに<literal>oid</literal>カラムがある場合だけ
+<literal>OID</>行を表示するようにしました。
+(Bruce Momjian)
         </para>
 
         <para>
+<!--
          Previously, the presence or absence of an <literal>oid</literal>
          column was always reported.
+-->
+これまでは<literal>oid</literal>カラムの有無にかかわらず常に報告されていました。
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Make <command>\d</> show disabled system triggers (Bruce
          Momjian)
+-->
+<command>\d</>で無効になっているシステムトリガを表示するようにしました。
+(Bruce Momjian)
         </para>
 
         <para>
+<!--
          Previously, if you disabled all triggers, only user triggers
          would show as disabled.
+-->
+これまでは、すべてのトリガを無効にした場合、ユーザトリガだけが無効であるものとして表示されていました。
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Fix <command>\copy</> to no longer require
          a space between <literal>stdin</> and a semicolon (Etsuro Fujita)
+-->
+<command>\copy</>で「<literal>stdin</>」とセミコロンの間の空白を不要にしました。
+(Etsuro Fujita)
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Output the row count at the end of <command>\copy</>, just
          like <command>COPY</> already did (Kumar Rajeev Rastogi)
+-->
+<command>COPY</>ですでにそうなっているように、
+<command>\copy</>で最後に行数を出力します。
+(Kumar Rajeev Rastogi)
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Fix <command>\conninfo</> to display the
          server's <acronym>IP</> address for connections using
          <literal>hostaddr</> (Fujii Masao)
+-->
+<command>\conninfo</>で<literal>hostaddr</>を使って接続した場合に
+サーバの<acronym>IP</>アドレスを表示するように修正しました。
+(Fujii Masao)
         </para>
 
         <para>
+<!--
          Previously <command>\conninfo</> could not display the server's
          <acronym>IP</> address in such cases.
+-->
+これまでは<command>\conninfo</>はこのようなケースでサーバの
+<acronym>IP</>アドレスを表示できませんでした。
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Show the <acronym>SSL</> protocol version in
          <command>\conninfo</> (Marko Kreen)
+-->
+<command>\conninfo</>で<acronym>SSL</>プロトコルバージョンを表示します。
+(Marko Kreen)
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Add tab completion for <command>\pset</>
          (Pavel Stehule)
+-->
+<command>\pset</>のためのタブ補完が追加しました。
+(Pavel Stehule)
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Allow <command>\pset</> with no arguments
          to show all settings (Gilles Darold)
+-->
+引数無しの<command>\pset</>で設定一覧を表示するようにしました。
+(Gilles Darold)
         </para>
        </listitem>
 
        <listitem>
         <para>
+<!--
          Make <command>\s</> display the name of the history file it wrote
          without converting it to an absolute path (Tom Lane)
+-->
+<command>\s</>で書き出すヒストリファイル名を絶対パスに変換せずに表示するようにしました。
+(Tom Lane)
         </para>
 
         <para>
+<!--
          The code previously attempted to convert a relative file name to
          an absolute path for display, but frequently got it wrong.
+-->
+これまでのコードでは表示するのに相対パスを絶対パスに変換しようと試みていましたが、しばしば誤っていました。
         </para>
        </listitem>
 
@@ -2035,29 +3194,46 @@
 
       <listitem>
        <para>
+<!--
         Allow <xref linkend="APP-PGRESTORE"> options
         <option>-I</>, <option>-P</>, <option>-T</> and <option>-n</>
         to be specified multiple times (Heikki Linnakangas)
+-->
+<xref linkend="APP-PGRESTORE">のオプション<option>-I</>、<option>-P</>、<option>-T</>、<option>-n</>を複数指定できるようにしました。
+(Heikki Linnakangas)
        </para>
 
        <para>
+<!--
         This allows multiple objects to be restored in one operation.
+-->
+これにより一度の操作で複数オブジェクトをリストアできます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Optionally add <literal>IF EXISTS</> clauses to the <command>DROP</>
         commands emitted when removing old objects during a restore (Pavel
         Stehule)
+-->
+古いオブジェクトをリストア時に削除する場合にオプションで<literal>IF EXISTS</>句を<command>DROP</>コマンド出力に加えることができます。
+(Pavel Stehule)
        </para>
 
        <para>
+<!--
         This change prevents unnecessary errors when removing old objects.
-        The new <option>--if-exists</> option
+        The new <option>&#045;&#045;if-exists</> option
         for <xref linkend="APP-PGDUMP">, <xref linkend="APP-PG-DUMPALL">,
         and <xref linkend="APP-PGRESTORE"> is only available
-        when <option>--clean</> is also specified.
+        when <option>&#045;&#045;clean</> is also specified.
+-->
+本変更は古いオブジェクトを削除する際に不要なエラーがでるのを防ぎます。
+新たな<option>--if-exists</>オプションは、<xref linkend="APP-PGDUMP">、
+<xref linkend="APP-PG-DUMPALL">、<xref linkend="APP-PGRESTORE">で
+<option>--clean</>オプションも指定している場合に使用できます。
        </para>
       </listitem>
 
@@ -2072,32 +3248,53 @@
 
       <listitem>
        <para>
-        Add <application>pg_basebackup</> option <option>--xlogdir</>
+<!--
+        Add <application>pg_basebackup</> option <option>&#045;&#045;xlogdir</>
         to specify the <filename>pg_xlog</> directory location (Haribabu
         Kommi)
+-->
+<application>pg_basebackup</>に<filename>pg_xlog</>ディレクトリを指定するオプション
+<option>--xlogdir</>を追加しました。
+(Haribabu Kommi)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow <application>pg_basebackup</> to relocate tablespaces in
         the backup copy (Steeve Lennmark)
+-->
+<application>pg_basebackup</>でバックアップコピー内のテーブルスペースを
+新しい場所に移すことができます。
+(Steeve Lennmark)
        </para>
 
        <para>
+<!--
         This is particularly useful for using <application>pg_basebackup</>
         on the same machine as the primary.
+-->
+これは特に、プライマリと同マシンで<application>pg_basebackup</>を使用するときに便利です。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow network-stream base backups to be throttled (Antonin Houska)
+-->
+ネットワークストリーム経由のベースバックアップ取得を減速できるようにしました。
+(Antonin Houska)
        </para>
 
        <para>
+<!--
         This can be controlled with the <application>pg_basebackup</>
-        <option>--max-rate</> parameter.
+        <option>&#045;&#045;max-rate</> parameter.
+-->
+<application>pg_basebackup</>の<option>--max-rate</>パラメータで制御できます。
+
        </para>
       </listitem>
 
@@ -2108,241 +3305,387 @@
    </sect3>
 
    <sect3>
+<!--
     <title>Source Code</title>
+-->
+    <title>ソースコード</title>
 
      <itemizedlist>
 
       <listitem>
        <para>
+<!--
         Improve the way tuples are frozen to preserve forensic information
         (Robert Haas, Andres Freund)
+-->
+タプルを調査情報を保持して凍結する方法を改善しました。
+(Robert Haas, Andres Freund)
        </para>
 
        <para>
+<!--
         This change removes the main objection to freezing tuples as soon
         as possible.  Code that inspects tuple flag bits will need to be
         modified.
+-->
+この変更は、タプルをできるだけ早く凍結させることの難点を除去します。
+タプルのフラグビットを解析するコードは修正が必要となります。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         No longer require function prototypes for functions marked with the
         <link linkend="xfunc-c"><function>PG_FUNCTION_INFO_V1</></link>
         macro (Peter Eisentraut)
+-->
+関数宣言には<link linkend="xfunc-c"><function>PG_FUNCTION_INFO_V1</></link>
+マクロでの印づけを不要にしました。
+(Peter Eisentraut)
        </para>
 
        <para>
+<!--
         This change eliminates the need to write boilerplate prototypes.
         Note that the <function>PG_FUNCTION_INFO_V1</> macro must appear
         before the corresponding function definition to avoid compiler
         warnings.
+-->
+本変更は定形的なプロトタイプ記述の必要を除去します。
+なお、コンパイラ警告を避けるため、<function>PG_FUNCTION_INFO_V1</>
+マクロは対応する関数定義の手前では必要です。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Remove <varname>SnapshotNow</> and
         <function>HeapTupleSatisfiesNow()</> (Robert Haas)
+-->
+<varname>SnapshotNow</>と<function>HeapTupleSatisfiesNow()</>を除去しました。
+(Robert Haas)
        </para>
 
        <para>
+<!--
         All existing uses have been switched to more appropriate snapshot
         types.  Catalog scans now use <acronym>MVCC</> snapshots.
+-->
+既存の使用箇所はより適切なスナップショットタイプに切り替えられます。
+これからはカタログスキャンに<acronym>MVCC</>スナップショットが使われます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add an <acronym>API</> to allow memory allocations over one gigabyte
         (Noah Misch)
+-->
+1GB以上のメモリ割り当てが可能な<acronym>API</>を追加しました。
+(Noah Misch)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add <function>psprintf()</> to simplify memory allocation during
         string composition (Peter Eisentraut, Tom Lane)
+-->
+文字列構成用のメモリ割り当てを簡単にする<function>psprintf()</>を追加しました。
+(Peter Eisentraut, Tom Lane)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Support <function>printf()</> size modifier <literal>z</> to
         print <type>size_t</> values (Andres Freund)
+-->
+<type>size_t</>値を表示する
+<function>printf()</>のサイズ修飾子<literal>z</>をサポートしました。
+(Andres Freund)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Change <acronym>API</> of <function>appendStringInfoVA()</>
         to better use <function>vsnprintf()</> (David Rowley, Tom Lane)
+-->
+<function>vsnprintf()</>をよりよく使用するように
+<function>appendStringInfoVA()</><acronym>API</>が変更されました。
+(David Rowley, Tom Lane)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow new types of external toast datums to be created (Andres
         Freund)
+-->
+新たな種類の外部TOASTデータを作成できるようにしました。
+(Andres Freund)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add single-reader, single-writer, lightweight shared message queue
         (Robert Haas)
+-->
+単一リーダ、単一ライタの軽量な共有メッセージキューを追加しました。
+(Robert Haas)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Improve spinlock speed on x86_64 <acronym>CPU</>s (Heikki
         Linnakangas)
+-->
+x86_64 <acronym>CPU</>のスピンロックスピードを改善しました。
+(Heikki Linnakangas)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Remove spinlock support for unsupported platforms
         <productname>SINIX</>, <productname>Sun3</>, and
         <productname>NS32K</> (Robert Haas)
+-->
+サポートされないプラットフォーム<productname>SINIX</>、<productname>Sun3</>、<productname>NS32K</>のスピンロックサポートを除去しました。
+(Robert Haas)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Remove <acronym>IRIX</> port (Robert Haas)
+-->
+<acronym>IRIX</>移植を無くしました。
+(Robert Haas)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Reduce the number of semaphores required by
-        <option>--disable-spinlocks</> builds (Robert Haas)
+        <option>&#045;&#045;disable-spinlocks</> builds (Robert Haas)
+-->
+<option>--disable-spinlocks</>指定でビルドしたことによる必要セマフォ数を減らしました。
+(Robert Haas)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Rewrite <application>duplicate_oids</> Unix shell script in
         <application>Perl</> (Andrew Dunstan)
+-->
+<application>duplicate_oids</>シェルスクリプトを<application>Perl</>で書き直しました。
+(Andrew Dunstan)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add Test Anything Protocol (<acronym>TAP</>) tests for client
         programs (Peter Eisentraut)
+-->
+クライアントプログラムむけにTest Anything Protocol(<acronym>TAP</>)のテストを追加しました。
+(Peter Eisentraut)
        </para>
 
        <para>
+<!--
         Currently, these tests are run by <literal>make check-world</>
-        only if the <option>--enable-tap-tests</> option was given
+        only if the <option>&#045;&#045;enable-tap-tests</> option was given
         to <application>configure</>.
         This might become the default behavior in some future release.
+-->
+現在、これらのテストは<literal>make check-world</>で
+<option>--enable-tap-tests</>が<application>configure</>に指定されたときのみ実行されます。
+将来の機能リリースでデフォルトの振る舞いになるかもしれません。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add make targets <option>check-tests</> and
         <option>installcheck-tests</>, which allow selection of individual
         tests to be run (Andrew Dunstan)
+-->
+makeターゲットに、選択した個々のテストを実行できる<option>check-tests</>と<option>installcheck-tests</>を追加しました。(Andrew Dunstan)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Remove <option>maintainer-check</> makefile rule (Peter Eisentraut)
+-->
+makefileルールの<option>maintainer-check</>を除去しました。
+(Peter Eisentraut)
        </para>
 
        <para>
+<!--
         The default build rules now include all the formerly-optional tests.
+-->
+これからはデフォルトのビルドルールに以前はオプションであったテストが全て含まれます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Improve support for <envar>VPATH</> builds of <acronym>PGXS</>
         modules  (C&eacute;dric Villemain, Andrew Dunstan, Peter Eisentraut)
+-->
+<acronym>PGXS</>モジュールの<envar>VPATH</>ビルドのサポートを改善しました。
+(C&eacute;dric Villemain, Andrew Dunstan, Peter Eisentraut)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Upgrade to Autoconf 2.69 (Peter Eisentraut)
+-->
+Autoconf 2.69にアップグレードしました。
+(Peter Eisentraut)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add a <application>configure</> flag that appends custom text to the
         <envar>PG_VERSION</> string (Oskari Saarenmaa)
+-->
+<envar>PG_VERSION</>文字列に任意のカスタム文字列を追加できる<application>configure</>フラグを追加しました。
+(Oskari Saarenmaa)
        </para>
 
        <para>
+<!--
         This is useful for packagers building custom binaries.
+-->
+パッケージ製作者がカスタムバイナリを作るのに有用です。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Improve DocBook <acronym>XML</> validity (Peter Eisentraut)
+-->
+DocBookの<acronym>XML</>検証が改善されました。
+(Peter Eisentraut)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Fix various minor security and sanity issues reported by the
         <productname>Coverity</> scanner (Stephen Frost)
+-->
+<productname>Coverity</>スキャナーで報告された、多様な細かなセキュリティと健全性の問題を修正しました。
+(Stephen Frost)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Improve detection of invalid memory usage when testing
         <productname>PostgreSQL</> with <application>Valgrind</>
         (Noah Misch)
+-->
+<productname>PostgreSQL</>を<application>Valgrind</>でテストしたときの
+不正なメモリ利用の検出を改善しました。
+(Noah Misch)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Improve sample <application>Emacs</> configuration file
         <filename>emacs.samples</> (Peter Eisentraut)
+-->
+サンプル<application>Emacs</>設定ファイル<filename>emacs.samples</>を改善しました。
+(Peter Eisentraut)
        </para>
 
        <para>
+<!--
         Also add <filename>.dir-locals.el</> to the top of the source tree.
+-->
+また、<filename>.dir-locals.el</>をソースツリーのトップに加えました。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow <application>pgindent</> to accept a command-line list
         of typedefs (Bruce Momjian)
+-->
+<application>pgindent</>がtypedefsのコマンドラインリストを受け入れるようにしました。
+(Bruce Momjian)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Make <application>pgindent</> smarter about blank lines
         around preprocessor conditionals (Bruce Momjian)
+-->
+<application>pgindent</>を条件プリプロセッサ周辺の空行についてより賢くしました。
+(Bruce Momjian)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Avoid most uses of <command>dlltool</command>
         in <productname>Cygwin</> and
         <productname>Mingw</> builds (Marco Atzeri, Hiroshi Inoue)
+-->
+<productname>Cygwin</>と<productname>Mingw</>でのビルドで
+<command>dlltool</command>をほとんど使用しないようにしました。
+(Marco Atzeri, Hiroshi Inoue)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Support client-only installs in <acronym>MSVC</> (Windows) builds
         (MauMau)
+-->
+<acronym>MSVC</>(Windows)ビルドでクライアントのみインストールをサポートしました。
+(MauMau)
        </para>
       </listitem>
 
@@ -2351,130 +3694,215 @@
    </sect3>
 
    <sect3>
+<!--
     <title>Additional Modules</title>
+-->
+    <title>追加モジュール</title>
 
     <itemizedlist>
 
       <listitem>
        <para>
+<!--
         Add <xref linkend="pgprewarm"> extension to preload relation data
         into the shared buffer cache at server start (Robert Haas)
+-->
+サーバ起動時にリレーションデータを共有バッファに事前読み込みする<xref linkend="pgprewarm">拡張を追加しました。
+(Robert Haas)
        </para>
 
        <para>
+<!--
         This allows reaching full operating performance more quickly.
+-->
+これにより素早く完全な運用性能に達することができます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add <acronym>UUID</> random number generator
         <function>gen_random_uuid()</> to <xref linkend="pgcrypto">
         (Oskari Saarenmaa)
+-->
+<xref linkend="pgcrypto">に
+<acronym>UUID</>乱数を生成をする<function>gen_random_uuid()</>を追加しました。
+(Oskari Saarenmaa)
        </para>
 
        <para>
+<!--
         This allows creation of version 4 <acronym>UUID</>s without
         requiring installation of <xref linkend="uuid-ossp">.
+-->
+<xref linkend="uuid-ossp">をインストールすることなく、
+バージョン 4 <acronym>UUID</>が生成可能です。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow <xref linkend="uuid-ossp"> to work with
         the <systemitem>BSD</> or <systemitem>e2fsprogs</> UUID libraries,
         not only the <systemitem>OSSP</> UUID library (Matteo Beccati)
+-->
+<xref linkend="uuid-ossp">が<systemitem>OSSP</>UUIDライブラリだけでなく、
+<systemitem>BSD</>や<systemitem>e2fsprogs</>のUUIDライブラリで動作するようにしました。
+(Matteo Beccati)
        </para>
 
        <para>
+<!--
         This improves the <application>uuid-ossp</> module's portability
         since it no longer has to have the increasingly-obsolete OSSP
         library.  The module's name is now rather a misnomer, but we won't
         change it.
+-->
+この改善は、もはや廃れつつあるOSSPライブラリを必要としないので、
+<application>uuid-ossp</>モジュールの移植性を改善します。
+モジュール名は今や不適切ですが変更しないつもりです。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add option to <xref linkend="auto-explain"> to include trigger
         execution time (Horiguchi Kyotaro)
+-->
+<xref linkend="auto-explain">に実行時間を含めるオプションを追加しました。
+(Horiguchi Kyotaro)
+
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Fix <xref linkend="pgstattuple"> to not report rows from
         uncommitted transactions as dead (Robert Haas)
+-->
+コミットされていないトランザクションの行をdeadと報告しないように
+<xref linkend="pgstattuple">を修正しました。
+(Robert Haas)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Make <xref linkend="pgstattuple"> functions
         use <type>regclass</type>-type arguments (Satoshi Nagayasu)
+-->
+<xref linkend="pgstattuple">関数が<type>regclass</type>型の引数を使うようにしました。
+(Satoshi Nagayasu)
        </para>
 
        <para>
+<!--
         While <type>text</type>-type arguments are still supported, they
         may be removed in a future major release.
+-->
+しばらくは<type>text</type>型引数も未だサポートしますが、将来のメジャーリリースで除かれるでしょう。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Improve consistency of <xref linkend="pgrowlocks"> output to honor
         snapshot rules more consistently (Robert Haas)
+-->
+スナップショット規則を一貫して尊重して<xref linkend="pgrowlocks">
+出力の一貫性を改善しました。
+(Robert Haas)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Improve <xref linkend="pgtrgm">'s choice of trigrams for indexed
         regular expression searches (Alexander Korotkov)
+-->
+<xref linkend="pgtrgm">でインデックス付けされた正規表現検索のためのトリグラム選択を
+改善しました。
+(Alexander Korotkov)
        </para>
 
        <para>
+<!--
         This change discourages use of trigrams containing whitespace, which
         are usually less selective.
+-->
+本変更は通常低い選択性である空白文字を含むトリグラムの使用を抑止します。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow <xref linkend="pgxlogdump"> to report a live log stream
-        with <option>--follow</> (Heikki Linnakangas)
+        with <option>&#045;&#045;follow</> (Heikki Linnakangas)
+-->
+<xref linkend="pgxlogdump">が<option>--follow</>オプションで活動中の
+ログストリームについて報告できるようにしました。
+(Heikki Linnakangas)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Store <xref linkend="cube"> data more compactly (Stas Kelvich)
+-->
+<xref linkend="cube">データをより小さく格納します。
+(Stas Kelvich)
        </para>
 
        <para>
+<!--
         Existing data must be dumped/restored to use the new format.
         The old format can still be read.
+-->
+既存データはダンプ、リストアで新フォーマットにする必要があります。
+旧フォーマットも未だ読み取り可能です。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Reduce <xref linkend="vacuumlo"> client-side memory usage by using
         a cursor (Andrew Dunstan)
+-->
+カーソルを使うことで<xref linkend="vacuumlo">のクライアント側メモリ使用量を減らしました。
+(Andrew Dunstan)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Dramatically reduce memory consumption
         in <xref linkend="pgupgrade"> (Bruce Momjian)
+-->
+<xref linkend="pgupgrade">のメモリ使用量を大幅に削減しました。
+(Bruce Momjian)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Pass <xref linkend="pgupgrade">'s user name (<option>-U</>) option to
         generated analyze scripts (Bruce Momjian)
+-->
+<xref linkend="pgupgrade">でユーザ指定する<option>-U</>オプションを
+生成される解析スクリプトに渡すようにしました。
+(Bruce Momjian)
        </para>
       </listitem>
 
@@ -2487,33 +3915,52 @@
 
       <listitem>
        <para>
+<!--
         Remove line length limit for <application>pgbench</> scripts (Sawada
         Masahiko)
+-->
+<application>pgbench</>スクリプトの行の長さ制限をなくしました。
+(Sawada Masahiko)
        </para>
 
        <para>
+<!--
         The previous line limit was <envar>BUFSIZ</>.
+-->
+以前は<envar>BUFSIZ</>が行の長さの上限でした。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add long option names to <application>pgbench</> (Fabien Coelho)
+-->
+<application>pgbench</>に長いオプション名を追加しました。
+(Fabien Coelho)
        </para>
       </listitem>
 
       <listitem>
        <para>
-        Add <application>pgbench</> option <option>--rate</> to control
+<!--
+        Add <application>pgbench</> option <option>&#045;&#045;rate</> to control
         the transaction rate (Fabien Coelho)
+-->
+<application>pgbench</>にトランザクション速度を指定する<option>--rate</>オプションを追加しました。
+(Fabien Coelho)
        </para>
       </listitem>
 
       <listitem>
        <para>
-        Add <application>pgbench</> option <option>--progress</> to
+<!--
+        Add <application>pgbench</> option <option>&#045;&#045;progress</> to
         print periodic progress reports
         (Fabien Coelho)
+-->
+<application>pgbench</>に定期的に進行報告を表示する<option>--progress</>オプションを追加しました。
+(Fabien Coelho)
        </para>
       </listitem>
 
@@ -2528,53 +3975,89 @@
 
       <listitem>
        <para>
+<!--
         Make <application>pg_stat_statements</> use a file, rather than
         shared memory, for query text storage (Peter Geoghegan)
+-->
+<application>pg_stat_statements</>がクエリ文字列の格納のために
+共有メモリではなくファイルを使うようにしました。
+(Peter Geoghegan)
        </para>
 
        <para>
+<!--
         This removes the previous limitation on query text length, and
         allows a higher number of unique statements to be tracked by default.
+-->
+これにより、クエリ文字列の長さの制限をなくし、デフォルトでこれまでより
+たくさんの異なるステートメントを追跡できるようにしました。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Allow reporting of <application>pg_stat_statements</>'s internal
         query hash identifier (Daniel Farina, Sameer Thakur, Peter
         Geoghegan)
+-->
+<application>pg_stat_statements</>の内部クエリハッシュ識別子の報告を
+できるようにしました。
+(Daniel Farina, Sameer Thakur, Peter Geoghegan)
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Add the ability to retrieve all <application>pg_stat_statements</>
         information except the query text (Peter Geoghegan)
+-->
+クエリ文字列以外にのすべての情報について<application>pg_stat_statements</>を
+取り出す機能を追加しました。
+(Peter Geoghegan)
        </para>
 
        <para>
+<!--
         This allows monitoring tools to fetch query text only for
         just-created entries, improving performance during repeated querying
         of the statistics.
+-->
+これにより、モニタリングツールが作成されたばかりのエントリをフェッチできるようになり、統計情報のために繰り返すクエリの性能を高めます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Make <application>pg_stat_statements</> ignore <command>DEALLOCATE</>
         commands (Fabien Coelho)
+-->
+<application>pg_stat_statements</>が<command>DEALLOCATE</>コマンドを
+無視するようにしました。
+(Fabien Coelho)
        </para>
 
        <para>
+<!--
         It already ignored <command>PREPARE</>, as well as planning time in
         general, so this seems more consistent.
+-->
+すでに<command>PREPARE</>を無視するようになっていますので、より一貫性を高めます。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Save the statistics file into <filename>$PGDATA/pg_stat</> at server
         shutdown, rather than <filename>$PGDATA/global</> (Fujii Masao)
+-->
+サーバシャットダウン時に、統計ファイルを<filename>$PGDATA/global</>ではなく、
+<filename>$PGDATA/pg_stat</>に保存します。
+(Fujii Masao)
+
        </para>
       </listitem>
 

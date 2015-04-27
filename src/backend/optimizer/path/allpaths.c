@@ -106,7 +106,10 @@ static void check_output_expressions(Query *subquery,
 						 pushdown_safety_info *safetyInfo);
 static void compare_tlist_datatypes(List *tlist, List *colTypes,
 						pushdown_safety_info *safetyInfo);
+<<<<<<< HEAD
 static bool targetIsInAllPartitionLists(TargetEntry *tle, Query *query);
+=======
+>>>>>>> doc_ja_9_4
 static bool qual_is_pushdown_safe(Query *subquery, Index rti, Node *qual,
 					  pushdown_safety_info *safetyInfo);
 static void subquery_push_qual(Query *subquery,
@@ -1171,7 +1174,11 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 
 	/*
 	 * If the subquery has the "security_barrier" flag, it means the subquery
+<<<<<<< HEAD
 	 * originated from a view that must enforce row level security.  Then we
+=======
+	 * originated from a view that must enforce row-level security.  Then we
+>>>>>>> doc_ja_9_4
 	 * must not push down quals that contain leaky functions.  (Ideally this
 	 * would be checked inside subquery_is_pushdown_safe, but since we don't
 	 * currently pass the RTE to that function, we must do it here.)
@@ -1226,12 +1233,15 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	}
 
 	pfree(safetyInfo.unsafeColumns);
+<<<<<<< HEAD
 
 	/*
 	 * The upper query might not use all the subquery's output columns; if
 	 * not, we can simplify.
 	 */
 	remove_unused_subquery_outputs(subquery, rel);
+=======
+>>>>>>> doc_ja_9_4
 
 	/*
 	 * We can safely pass the outer tuple_fraction down to the subquery if the
@@ -1687,7 +1697,11 @@ standard_join_search(PlannerInfo *root, int levels_needed, List *initial_rels)
  * 2. If the subquery contains EXCEPT or EXCEPT ALL set ops we cannot push
  * quals into it, because that could change the results.
  *
+<<<<<<< HEAD
  * 3. If the subquery uses DISTINCT, we cannot push volatile quals into it.
+=======
+ * 4. If the subquery uses DISTINCT, we cannot push volatile quals into it.
+>>>>>>> doc_ja_9_4
  * This is because upper-level quals should semantically be evaluated only
  * once per distinct row, not once per original row, and if the qual is
  * volatile then extra evaluations could change the results.  (This issue
@@ -1695,12 +1709,15 @@ standard_join_search(PlannerInfo *root, int levels_needed, List *initial_rels)
  * when those are present we push into HAVING not WHERE, so that the quals
  * are still applied after aggregation.)
  *
+<<<<<<< HEAD
  * 4. If the subquery contains window functions, we cannot push volatile quals
  * into it.  The issue here is a bit different from DISTINCT: a volatile qual
  * might succeed for some rows of a window partition and fail for others,
  * thereby changing the partition contents and thus the window functions'
  * results for rows that remain.
  *
+=======
+>>>>>>> doc_ja_9_4
  * In addition, we make several checks on the subquery's output columns to see
  * if it is safe to reference them in pushed-down quals.  If output column k
  * is found to be unsafe to reference, we set safetyInfo->unsafeColumns[k]
@@ -1722,6 +1739,7 @@ standard_join_search(PlannerInfo *root, int levels_needed, List *initial_rels)
  * more than we save by eliminating rows before the DISTINCT step.  But it
  * would be very hard to estimate that at this stage, and in practice pushdown
  * seldom seems to make things worse, so we ignore that problem too.
+<<<<<<< HEAD
  *
  * Note: likewise, pushing quals into a subquery with window functions is a
  * bit dubious: the quals might remove some rows of a window partition while
@@ -1734,6 +1752,8 @@ standard_join_search(PlannerInfo *root, int levels_needed, List *initial_rels)
  * we'll do this anyway because the potential performance benefits are very
  * large, and we've seen no field complaints about the longstanding comparable
  * behavior with DISTINCT.
+=======
+>>>>>>> doc_ja_9_4
  */
 static bool
 subquery_is_pushdown_safe(Query *subquery, Query *topquery,
@@ -1747,6 +1767,10 @@ subquery_is_pushdown_safe(Query *subquery, Query *topquery,
 
 	/* Check points 3 and 4 */
 	if (subquery->distinctClause || subquery->hasWindowFuncs)
+		safetyInfo->unsafeVolatile = true;
+
+	/* Check point 4 */
+	if (subquery->distinctClause)
 		safetyInfo->unsafeVolatile = true;
 
 	/*
@@ -1842,6 +1866,7 @@ recurse_pushdown_safe(Node *setOp, Query *topquery,
  * there are no non-DISTINCT output columns, so we needn't check.  Note that
  * subquery_is_pushdown_safe already reported that we can't use volatile
  * quals if there's DISTINCT or DISTINCT ON.)
+<<<<<<< HEAD
  *
  * 4. If the subquery has any window functions, we must not push down quals
  * that reference any output columns that are not listed in all the subquery's
@@ -1851,6 +1876,8 @@ recurse_pushdown_safe(Node *setOp, Query *topquery,
  * partitions will not change a window function's results for remaining
  * partitions.  (Again, this also requires nonvolatile quals, but
  * subquery_is_pushdown_safe handles that.)
+=======
+>>>>>>> doc_ja_9_4
  */
 static void
 check_output_expressions(Query *subquery, pushdown_safety_info *safetyInfo)
@@ -1888,6 +1915,7 @@ check_output_expressions(Query *subquery, pushdown_safety_info *safetyInfo)
 		{
 			/* non-DISTINCT column, so mark it unsafe */
 			safetyInfo->unsafeColumns[tle->resno] = true;
+<<<<<<< HEAD
 			continue;
 		}
 
@@ -1897,6 +1925,8 @@ check_output_expressions(Query *subquery, pushdown_safety_info *safetyInfo)
 		{
 			/* not present in all PARTITION BY clauses, so mark it unsafe */
 			safetyInfo->unsafeColumns[tle->resno] = true;
+=======
+>>>>>>> doc_ja_9_4
 			continue;
 		}
 	}

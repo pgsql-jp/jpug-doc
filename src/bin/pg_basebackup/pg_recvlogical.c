@@ -857,7 +857,14 @@ main(int argc, char **argv)
 		disconnect_and_exit(1);
 	}
 
+<<<<<<< HEAD
 	/* Drop a replication slot. */
+=======
+
+	/*
+	 * drop a replication slot
+	 */
+>>>>>>> doc_ja_9_4
 	if (do_drop_slot)
 	{
 		if (verbose)
@@ -867,9 +874,29 @@ main(int argc, char **argv)
 
 		if (!DropReplicationSlot(conn, replication_slot))
 			disconnect_and_exit(1);
+<<<<<<< HEAD
 	}
 
 	/* Create a replication slot. */
+=======
+		}
+
+		if (PQntuples(res) != 0 || PQnfields(res) != 0)
+		{
+			fprintf(stderr,
+					_("%s: could not drop replication slot \"%s\": got %d rows and %d fields, expected %d rows and %d fields\n"),
+					progname, replication_slot, PQntuples(res), PQnfields(res), 0, 0);
+			disconnect_and_exit(1);
+		}
+
+		PQclear(res);
+		disconnect_and_exit(0);
+	}
+
+	/*
+	 * create a replication slot
+	 */
+>>>>>>> doc_ja_9_4
 	if (do_create_slot)
 	{
 		if (verbose)
@@ -877,8 +904,35 @@ main(int argc, char **argv)
 					_("%s: creating replication slot \"%s\"\n"),
 					progname, replication_slot);
 
+<<<<<<< HEAD
 		if (!CreateReplicationSlot(conn, replication_slot, plugin,
 								   &startpos, false))
+=======
+		snprintf(query, sizeof(query), "CREATE_REPLICATION_SLOT \"%s\" LOGICAL \"%s\"",
+				 replication_slot, plugin);
+
+		res = PQexec(conn, query);
+		if (PQresultStatus(res) != PGRES_TUPLES_OK)
+		{
+			fprintf(stderr, _("%s: could not send replication command \"%s\": %s"),
+					progname, query, PQerrorMessage(conn));
+			disconnect_and_exit(1);
+		}
+
+		if (PQntuples(res) != 1 || PQnfields(res) != 4)
+		{
+			fprintf(stderr,
+					_("%s: could not create replication slot \"%s\": got %d rows and %d fields, expected %d rows and %d fields\n"),
+					progname, replication_slot, PQntuples(res), PQnfields(res), 1, 4);
+			disconnect_and_exit(1);
+		}
+
+		if (sscanf(PQgetvalue(res, 0, 1), "%X/%X", &hi, &lo) != 2)
+		{
+			fprintf(stderr,
+					_("%s: could not parse transaction log location \"%s\"\n"),
+					progname, PQgetvalue(res, 0, 1));
+>>>>>>> doc_ja_9_4
 			disconnect_and_exit(1);
 	}
 

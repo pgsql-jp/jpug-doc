@@ -53,6 +53,10 @@
  */
 
 /*							yyyymmddN */
+<<<<<<< HEAD
 #define CATALOG_VERSION_NO	201412234
+=======
+#define CATALOG_VERSION_NO	201409291
+>>>>>>> doc_ja_9_4
 
 #endif

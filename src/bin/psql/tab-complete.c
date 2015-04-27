@@ -972,7 +972,11 @@ psql_completion(const char *text, int start, int end)
 		{"AGGREGATE", "COLLATION", "CONVERSION", "DATABASE", "DEFAULT PRIVILEGES", "DOMAIN",
 			"EVENT TRIGGER", "EXTENSION", "FOREIGN DATA WRAPPER", "FOREIGN TABLE", "FUNCTION",
 			"GROUP", "INDEX", "LANGUAGE", "LARGE OBJECT", "MATERIALIZED VIEW", "OPERATOR",
+<<<<<<< HEAD
 			"POLICY", "ROLE", "RULE", "SCHEMA", "SERVER", "SEQUENCE", "SYSTEM", "TABLE",
+=======
+			"ROLE", "RULE", "SCHEMA", "SERVER", "SEQUENCE", "SYSTEM", "TABLE",
+>>>>>>> doc_ja_9_4
 			"TABLESPACE", "TEXT SEARCH", "TRIGGER", "TYPE",
 		"USER", "USER MAPPING FOR", "VIEW", NULL};
 
@@ -2199,9 +2203,14 @@ psql_completion(const char *text, int start, int end)
 			 pg_strcasecmp(prev2_wd, "DATABASE") == 0)
 	{
 		static const char *const list_DATABASE[] =
+<<<<<<< HEAD
 		{"OWNER", "TEMPLATE", "ENCODING", "TABLESPACE", "IS_TEMPLATE",
 		"ALLOW_CONNECTIONS", "CONNECTION LIMIT", "LC_COLLATE", "LC_CTYPE",
 		NULL};
+=======
+		{"OWNER", "TEMPLATE", "ENCODING", "TABLESPACE", "CONNECTION LIMIT",
+		"LC_COLLATE", "LC_CTYPE", NULL};
+>>>>>>> doc_ja_9_4
 
 		COMPLETE_WITH_LIST(list_DATABASE);
 	}
@@ -4382,8 +4391,14 @@ complete_from_variables(const char *text, const char *prefix, const char *suffix
 			continue;
 		for (i = 0; known_varnames[i]; i++)	/* remove duplicate entry */
 		{
+<<<<<<< HEAD
 			if (strcmp(ptr->name, known_varnames[i]) == 0)
 				continue;
+=======
+			maxvars *= 2;
+			varnames = (char **) pg_realloc(varnames,
+											(maxvars + 1) * sizeof(char *));
+>>>>>>> doc_ja_9_4
 		}
 		append_variable_names(&varnames, &nvars, &maxvars, ptr->name,
 							  prefix, suffix);

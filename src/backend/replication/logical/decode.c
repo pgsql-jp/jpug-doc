@@ -606,7 +606,11 @@ DecodeInsert(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 
 	change->data.tp.clear_toast_afterwards = true;
 
+<<<<<<< HEAD
 	ReorderBufferQueueChange(ctx->reorder, XLogRecGetXid(r), buf->origptr, change);
+=======
+	ReorderBufferQueueChange(ctx->reorder, r->xl_xid, buf->origptr, change);
+>>>>>>> doc_ja_9_4
 }
 
 /*
@@ -658,7 +662,11 @@ DecodeUpdate(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 
 	change->data.tp.clear_toast_afterwards = true;
 
+<<<<<<< HEAD
 	ReorderBufferQueueChange(ctx->reorder, XLogRecGetXid(r), buf->origptr, change);
+=======
+	ReorderBufferQueueChange(ctx->reorder, r->xl_xid, buf->origptr, change);
+>>>>>>> doc_ja_9_4
 }
 
 /*
@@ -700,7 +708,11 @@ DecodeDelete(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 
 	change->data.tp.clear_toast_afterwards = true;
 
+<<<<<<< HEAD
 	ReorderBufferQueueChange(ctx->reorder, XLogRecGetXid(r), buf->origptr, change);
+=======
+	ReorderBufferQueueChange(ctx->reorder, r->xl_xid, buf->origptr, change);
+>>>>>>> doc_ja_9_4
 }
 
 /*
@@ -793,7 +805,11 @@ DecodeMultiInsert(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 		else
 			change->data.tp.clear_toast_afterwards = false;
 
+<<<<<<< HEAD
 		ReorderBufferQueueChange(ctx->reorder, XLogRecGetXid(r),
+=======
+		ReorderBufferQueueChange(ctx->reorder, r->xl_xid,
+>>>>>>> doc_ja_9_4
 								 buf->origptr, change);
 	}
 	Assert(data == tupledata + tuplelen);

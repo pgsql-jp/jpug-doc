@@ -559,7 +559,11 @@ main(int argc, char **argv)
 		exit_nicely(1);
 	}
 
+<<<<<<< HEAD
 	if (dopt->if_exists && !dopt->outputClean)
+=======
+	if (if_exists && !outputClean)
+>>>>>>> doc_ja_9_4
 		exit_horribly(NULL, "option --if-exists requires option -c/--clean\n");
 
 	/* Identify archive format to emit */
@@ -2173,8 +2177,12 @@ dumpDatabase(Archive *fout, DumpOptions *dopt)
 			   *collate,
 			   *ctype,
 			   *tablespace;
+<<<<<<< HEAD
 	uint32		frozenxid,
 				minmxid;
+=======
+	uint32		frozenxid, minmxid;
+>>>>>>> doc_ja_9_4
 
 	datname = PQdb(conn);
 
@@ -2186,10 +2194,28 @@ dumpDatabase(Archive *fout, DumpOptions *dopt)
 
 	/* Get the database owner and parameters from pg_database */
 	if (fout->remoteVersion >= 90300)
+<<<<<<< HEAD
+=======
 	{
 		appendPQExpBuffer(dbQry, "SELECT tableoid, oid, "
 						  "(%s datdba) AS dba, "
 						  "pg_encoding_to_char(encoding) AS encoding, "
+						  "datcollate, datctype, datfrozenxid, datminmxid, "
+						  "(SELECT spcname FROM pg_tablespace t WHERE t.oid = dattablespace) AS tablespace, "
+					  "shobj_description(oid, 'pg_database') AS description "
+
+						  "FROM pg_database "
+						  "WHERE datname = ",
+						  username_subquery);
+		appendStringLiteralAH(dbQry, datname, fout);
+	}
+	else if (fout->remoteVersion >= 80400)
+>>>>>>> doc_ja_9_4
+	{
+		appendPQExpBuffer(dbQry, "SELECT tableoid, oid, "
+						  "(%s datdba) AS dba, "
+						  "pg_encoding_to_char(encoding) AS encoding, "
+<<<<<<< HEAD
 						  "datcollate, datctype, datfrozenxid, datminmxid, "
 						  "(SELECT spcname FROM pg_tablespace t WHERE t.oid = dattablespace) AS tablespace, "
 					  "shobj_description(oid, 'pg_database') AS description "
@@ -2205,6 +2231,9 @@ dumpDatabase(Archive *fout, DumpOptions *dopt)
 						  "(%s datdba) AS dba, "
 						  "pg_encoding_to_char(encoding) AS encoding, "
 					  "datcollate, datctype, datfrozenxid, 0 AS datminmxid, "
+=======
+						  "datcollate, datctype, datfrozenxid, 0 AS datminmxid, "
+>>>>>>> doc_ja_9_4
 						  "(SELECT spcname FROM pg_tablespace t WHERE t.oid = dattablespace) AS tablespace, "
 					  "shobj_description(oid, 'pg_database') AS description "
 
@@ -2218,7 +2247,11 @@ dumpDatabase(Archive *fout, DumpOptions *dopt)
 		appendPQExpBuffer(dbQry, "SELECT tableoid, oid, "
 						  "(%s datdba) AS dba, "
 						  "pg_encoding_to_char(encoding) AS encoding, "
+<<<<<<< HEAD
 						  "NULL AS datcollate, NULL AS datctype, datfrozenxid, 0 AS datminmxid, "
+=======
+					   "NULL AS datcollate, NULL AS datctype, datfrozenxid, 0 AS datminmxid, "
+>>>>>>> doc_ja_9_4
 						  "(SELECT spcname FROM pg_tablespace t WHERE t.oid = dattablespace) AS tablespace, "
 					  "shobj_description(oid, 'pg_database') AS description "
 
@@ -2232,7 +2265,11 @@ dumpDatabase(Archive *fout, DumpOptions *dopt)
 		appendPQExpBuffer(dbQry, "SELECT tableoid, oid, "
 						  "(%s datdba) AS dba, "
 						  "pg_encoding_to_char(encoding) AS encoding, "
+<<<<<<< HEAD
 						  "NULL AS datcollate, NULL AS datctype, datfrozenxid, 0 AS datminmxid, "
+=======
+					   "NULL AS datcollate, NULL AS datctype, datfrozenxid, 0 AS datminmxid, "
+>>>>>>> doc_ja_9_4
 						  "(SELECT spcname FROM pg_tablespace t WHERE t.oid = dattablespace) AS tablespace "
 						  "FROM pg_database "
 						  "WHERE datname = ",
@@ -2356,8 +2393,12 @@ dumpDatabase(Archive *fout, DumpOptions *dopt)
 		PGresult   *lo_res;
 		PQExpBuffer loFrozenQry = createPQExpBuffer();
 		PQExpBuffer loOutQry = createPQExpBuffer();
+<<<<<<< HEAD
 		int			i_relfrozenxid,
 					i_relminmxid;
+=======
+		int			i_relfrozenxid, i_relminmxid;
+>>>>>>> doc_ja_9_4
 
 		/*
 		 * pg_largeobject
@@ -2402,6 +2443,7 @@ dumpDatabase(Archive *fout, DumpOptions *dopt)
 			resetPQExpBuffer(loFrozenQry);
 			resetPQExpBuffer(loOutQry);
 
+<<<<<<< HEAD
 			if (fout->remoteVersion >= 90300)
 				appendPQExpBuffer(loFrozenQry, "SELECT relfrozenxid, relminmxid\n"
 								  "FROM pg_catalog.pg_class\n"
@@ -2412,6 +2454,18 @@ dumpDatabase(Archive *fout, DumpOptions *dopt)
 								  "FROM pg_catalog.pg_class\n"
 								  "WHERE oid = %u;\n",
 								  LargeObjectMetadataRelationId);
+=======
+		if (fout->remoteVersion >= 90300)
+			appendPQExpBuffer(loFrozenQry, "SELECT relfrozenxid, relminmxid\n"
+							  "FROM pg_catalog.pg_class\n"
+							  "WHERE oid = %u;\n",
+							  LargeObjectMetadataRelationId);
+		else
+			appendPQExpBuffer(loFrozenQry, "SELECT relfrozenxid, 0 AS relminmxid\n"
+							  "FROM pg_catalog.pg_class\n"
+							  "WHERE oid = %u;\n",
+							  LargeObjectMetadataRelationId);
+>>>>>>> doc_ja_9_4
 
 			lo_res = ExecuteSqlQueryForSingleRow(fout, loFrozenQry->data);
 
@@ -4628,7 +4682,10 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "(%s c.relowner) AS rolname, "
 						  "c.relchecks, c.relhastriggers, "
 						  "c.relhasindex, c.relhasrules, c.relhasoids, "
+<<<<<<< HEAD
 						  "'f'::bool AS relrowsecurity, "
+=======
+>>>>>>> doc_ja_9_4
 						  "c.relfrozenxid, c.relminmxid, tc.oid AS toid, "
 						  "tc.relfrozenxid AS tfrozenxid, "
 						  "tc.relminmxid AS tminmxid, "
@@ -4669,7 +4726,10 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "(%s c.relowner) AS rolname, "
 						  "c.relchecks, c.relhastriggers, "
 						  "c.relhasindex, c.relhasrules, c.relhasoids, "
+<<<<<<< HEAD
 						  "'f'::bool AS relrowsecurity, "
+=======
+>>>>>>> doc_ja_9_4
 						  "c.relfrozenxid, c.relminmxid, tc.oid AS toid, "
 						  "tc.relfrozenxid AS tfrozenxid, "
 						  "tc.relminmxid AS tminmxid, "
@@ -4710,7 +4770,10 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "(%s c.relowner) AS rolname, "
 						  "c.relchecks, c.relhastriggers, "
 						  "c.relhasindex, c.relhasrules, c.relhasoids, "
+<<<<<<< HEAD
 						  "'f'::bool AS relrowsecurity, "
+=======
+>>>>>>> doc_ja_9_4
 						  "c.relfrozenxid, 0 AS relminmxid, tc.oid AS toid, "
 						  "tc.relfrozenxid AS tfrozenxid, "
 						  "0 AS tminmxid, "
@@ -4749,7 +4812,10 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "(%s c.relowner) AS rolname, "
 						  "c.relchecks, c.relhastriggers, "
 						  "c.relhasindex, c.relhasrules, c.relhasoids, "
+<<<<<<< HEAD
 						  "'f'::bool AS relrowsecurity, "
+=======
+>>>>>>> doc_ja_9_4
 						  "c.relfrozenxid, 0 AS relminmxid, tc.oid AS toid, "
 						  "tc.relfrozenxid AS tfrozenxid, "
 						  "0 AS tminmxid, "
@@ -4787,7 +4853,10 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "(%s c.relowner) AS rolname, "
 						  "c.relchecks, c.relhastriggers, "
 						  "c.relhasindex, c.relhasrules, c.relhasoids, "
+<<<<<<< HEAD
 						  "'f'::bool AS relrowsecurity, "
+=======
+>>>>>>> doc_ja_9_4
 						  "c.relfrozenxid, 0 AS relminmxid, tc.oid AS toid, "
 						  "tc.relfrozenxid AS tfrozenxid, "
 						  "0 AS tminmxid, "
@@ -4825,7 +4894,10 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "(%s c.relowner) AS rolname, "
 					  "c.relchecks, (c.reltriggers <> 0) AS relhastriggers, "
 						  "c.relhasindex, c.relhasrules, c.relhasoids, "
+<<<<<<< HEAD
 						  "'f'::bool AS relrowsecurity, "
+=======
+>>>>>>> doc_ja_9_4
 						  "c.relfrozenxid, 0 AS relminmxid, tc.oid AS toid, "
 						  "tc.relfrozenxid AS tfrozenxid, "
 						  "0 AS tminmxid, "
@@ -4863,7 +4935,10 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "(%s relowner) AS rolname, "
 						  "relchecks, (reltriggers <> 0) AS relhastriggers, "
 						  "relhasindex, relhasrules, relhasoids, "
+<<<<<<< HEAD
 						  "'f'::bool AS relrowsecurity, "
+=======
+>>>>>>> doc_ja_9_4
 						  "0 AS relfrozenxid, 0 AS relminmxid,"
 						  "0 AS toid, "
 						  "0 AS tfrozenxid, 0 AS tminmxid,"
@@ -4900,7 +4975,10 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "(%s relowner) AS rolname, "
 						  "relchecks, (reltriggers <> 0) AS relhastriggers, "
 						  "relhasindex, relhasrules, relhasoids, "
+<<<<<<< HEAD
 						  "'f'::bool AS relrowsecurity, "
+=======
+>>>>>>> doc_ja_9_4
 						  "0 AS relfrozenxid, 0 AS relminmxid,"
 						  "0 AS toid, "
 						  "0 AS tfrozenxid, 0 AS tminmxid,"
@@ -4933,7 +5011,10 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "(%s relowner) AS rolname, "
 						  "relchecks, (reltriggers <> 0) AS relhastriggers, "
 						  "relhasindex, relhasrules, relhasoids, "
+<<<<<<< HEAD
 						  "'f'::bool AS relrowsecurity, "
+=======
+>>>>>>> doc_ja_9_4
 						  "0 AS relfrozenxid, 0 AS relminmxid,"
 						  "0 AS toid, "
 						  "0 AS tfrozenxid, 0 AS tminmxid,"
@@ -4961,7 +5042,10 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "relchecks, (reltriggers <> 0) AS relhastriggers, "
 						  "relhasindex, relhasrules, "
 						  "'t'::bool AS relhasoids, "
+<<<<<<< HEAD
 						  "'f'::bool AS relrowsecurity, "
+=======
+>>>>>>> doc_ja_9_4
 						  "0 AS relfrozenxid, 0 AS relminmxid,"
 						  "0 AS toid, "
 						  "0 AS tfrozenxid, 0 AS tminmxid,"
@@ -4999,7 +5083,10 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "relchecks, (reltriggers <> 0) AS relhastriggers, "
 						  "relhasindex, relhasrules, "
 						  "'t'::bool AS relhasoids, "
+<<<<<<< HEAD
 						  "'f'::bool AS relrowsecurity, "
+=======
+>>>>>>> doc_ja_9_4
 						  "0 AS relfrozenxid, 0 AS relminmxid,"
 						  "0 AS toid, "
 						  "0 AS tfrozenxid, 0 AS tminmxid,"
@@ -13905,7 +13992,11 @@ dumpTableSchema(Archive *fout, DumpOptions *dopt, TableInfo *tbinfo)
 				/* We preserve the toast oids, so we can use it during restore */
 				appendPQExpBufferStr(q, "\n-- For binary upgrade, set toast's relfrozenxid and relminmxid\n");
 				appendPQExpBuffer(q, "UPDATE pg_catalog.pg_class\n"
+<<<<<<< HEAD
 							   "SET relfrozenxid = '%u', relminmxid = '%u'\n"
+=======
+								  "SET relfrozenxid = '%u', relminmxid = '%u'\n"
+>>>>>>> doc_ja_9_4
 								  "WHERE oid = '%u';\n",
 								  tbinfo->toast_frozenxid,
 								  tbinfo->toast_minmxid, tbinfo->toast_oid);
