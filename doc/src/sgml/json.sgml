@@ -99,20 +99,22 @@ JSONデータ型には<type>json</>型と<type>jsonb</>型という2種類のデ
   regardless of the database encoding, and are checked only for syntactic
   correctness (that is, that four hex digits follow <literal>\u</>).
   However, the input function for <type>jsonb</> is stricter: it disallows
-  Unicode escapes for non-ASCII characters (those
-  above <literal>U+007F</>) unless the database encoding is UTF8.  It also
-  insists that any use of Unicode surrogate pairs to designate characters
-  outside the Unicode Basic Multilingual Plane be correct.  Valid Unicode
-  escapes, except for <literal>\u0000</>, are then converted to the
-  equivalent ASCII or UTF8 character for storage.
+  Unicode escapes for non-ASCII characters (those above <literal>U+007F</>)
+  unless the database encoding is UTF8.  The <type>jsonb</> type also
+  rejects <literal>\u0000</> (because that cannot be represented in
+  <productname>PostgreSQL</productname>'s <type>text</> type), and it insists
+  that any use of Unicode surrogate pairs to designate characters outside
+  the Unicode Basic Multilingual Plane be correct.  Valid Unicode escapes
+  are converted to the equivalent ASCII or UTF8 character for storage;
+  this includes folding surrogate pairs into a single character.
 -->
  RFC 7159 では、JSON文字列はUnicodeエスケープシーケンス <literal>\u<replaceable>XXXX</></literal> を許可するように記述されています。
  <type>json</>型の入力関数は、データベースエンコーディング方式に関係なくUnicodeエスケープが許可されています。それは、構文上の正しさ(つまり<literal>\u</>に続けて16進数が4桁)だけをチェックしています。
  しかし、<type>jsonb</>の入力関数はより厳しくなります:
  データベースのエンコードがUTF8でない限り、Unicodeは非ASCII文字（<literal>U+007F</>より上位の文字）に対してエスケープを禁止します。
- また、Unicode基本多言語面以外の文字はUnicodeのサロゲートペアを使用することが正しいと主張しています。
-<literal>\u0000</>は除いて有効なUnicodeは同等のASCIIまたはUTF8文字に変換されて格納されます。
-[訳注:9.4.1以降では<literal>\u0000</>は許可されなくなります]
+<type>jsonb</>型は<literal>\u0000</>も許可しません。(なぜなら<productname>PostgreSQL</productname>の<type>text</>型で表現できないためです）。
+また、Unicode基本多言語面以外の文字はUnicodeのサロゲートペアに直すことが要求されています。
+有効なUnicodeエスケープは、同等のASCIIまたはUTF8文字に変換されて格納されます。これはサロゲートペアを単一の文字に変換する処理も含まれています。
  </para>
 
  <note>
@@ -146,7 +148,7 @@ JSONデータ型には<type>json</>型と<type>jsonb</>型という2種類のデ
   constitutes valid <type>jsonb</type> data that do not apply to
   the <type>json</type> type, nor to JSON in the abstract, corresponding
   to limits on what can be represented by the underlying data type.
-  Specifically, <type>jsonb</> will reject numbers that are outside the
+  Notably, <type>jsonb</> will reject numbers that are outside the
   range of the <productname>PostgreSQL</productname> <type>numeric</> data
   type, while <type>json</> will not.  Such implementation-defined
   restrictions are permitted by <acronym>RFC</> 7159.  However, in
@@ -160,7 +162,7 @@ JSONデータ型には<type>json</>型と<type>jsonb</>型という2種類のデ
 -->
 原文のJSONが<type>jsonb</>型に変換されるときには、<acronym>RFC</> 7159に記載されているプリミティブ型を<xref linkend="json-type-mapping-table">に記されているように<productname>PostgreSQL</productname>のネイティブな型に変換されます。
 そのため、<type>jsonb</type>データ型には、<type>json</type>型になく、また理論上JSONにはないマイナーな制約があります。それは基礎となるデータ型に付随する制限によって表されます。
-具体的には、<type>jsonb</>型は、<productname>PostgreSQL</productname>の<type>numeric</>型の範囲外の数を拒否します。このような処理系で定義される制限は<acronym>RFC</> 7159で許可されています。
+特に<type>jsonb</>型は、<productname>PostgreSQL</productname>の<type>numeric</>型の範囲外の数を拒否します。このような処理系で定義される制限は<acronym>RFC</> 7159で許可されています。
  しかし、それは IEEE 754 倍精度浮動小数点がJSONの<type>number</>プリミティブ型を表すのが一般的であるように、実際には他の実装でこのような問題が発生することの方がはるかに可能性が高いです(<acronym>RFC</> 7159が明示的に予測して、許可しています）。
  このようなシステムと<productname>PostgreSQL</productname>で交換フォーマットとしてJSONを使用する場合は、数値精度を失う危険性があることを把握しておく必要があります。
  </para>
@@ -197,9 +199,11 @@ JSONデータ型には<type>json</>型と<type>jsonb</>型という2種類のデ
         <entry><type>string</></entry>
         <entry><type>text</></entry>
 <!--
-        <entry>See notes above concerning encoding restrictions</entry>
+        <entry><literal>\u0000</> is disallowed, as are non-ASCII Unicode
+         escapes if database encoding is not UTF8</entry>
 -->
-        <entry>エンコーディングの制限に関する上記の注意事項を参照してください</entry>
+<entry><literal>\u0000</>は許可されません。
+またデータベースエンコーディングがUTF8でない場合、非アスキーのユニコードエスケープも許可されません。</entry>
        </row>
        <row>
         <entry><type>number</></entry>
