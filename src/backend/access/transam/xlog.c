@@ -5752,7 +5752,7 @@ recoveryApplyDelay(XLogRecord *record)
 	int			microsecs;
 
 	/* nothing to do if no delay configured */
-	if (recovery_min_apply_delay == 0)
+	if (recovery_min_apply_delay <= 0)
 		return false;
 
 	/*
@@ -9415,7 +9415,7 @@ xlog_redo(XLogRecPtr lsn, XLogRecord *record)
 		ControlFile->max_prepared_xacts = xlrec.max_prepared_xacts;
 		ControlFile->max_locks_per_xact = xlrec.max_locks_per_xact;
 		ControlFile->wal_level = xlrec.wal_level;
-		ControlFile->wal_log_hints = wal_log_hints;
+		ControlFile->wal_log_hints = xlrec.wal_log_hints;
 
 		/*
 		 * Update minRecoveryPoint to ensure that if recovery is aborted, we
