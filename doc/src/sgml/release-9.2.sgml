@@ -48,7 +48,7 @@
     <ulink url="http://wiki.postgresql.org/wiki/Changes_To_Norwegian_Locale"></>
 -->
 しかしながら、あなたがWindowsユーザで<quote>Norwegian (Bokm&aring;l)</>ロケールを使っているのなら、アップグレード後に<productname>PostgreSQL</>システムカタログ内に格納された全ての<quote>Norwegian (Bokm&aring;l)_Norway</>または<quote>norwegian-bokmal</>ロケール名をASCIIによる別名<quote>Norwegian_Norway</>に置き換える手動操作が必要です。
-+詳細は<ulink url="http://wiki.postgresql.org/wiki/Changes_To_Norwegian_Locale"></>を参照してください。
+詳細は<ulink url="http://wiki.postgresql.org/wiki/Changes_To_Norwegian_Locale"></>を参照してください。
    </para>
 
    <para>
@@ -71,11 +71,16 @@
 
     <listitem>
      <para>
+<!--
       Fix buffer overruns in <function>to_char()</>
       (Bruce Momjian)
+-->
+<function>to_char()</>のバッファオーバーランを修正しました。
+(Bruce Momjian)
      </para>
 
      <para>
+<!--
       When <function>to_char()</> processes a numeric formatting template
       calling for a large number of digits, <productname>PostgreSQL</>
       would read past the end of a buffer.  When processing a crafted
@@ -84,16 +89,27 @@
       We have not ruled out the possibility of attacks that lead to
       privilege escalation, though they seem unlikely.
       (CVE-2015-0241)
+-->
+<function>to_char()</>が大きな桁数をとる数値書式テンプレートを処理するとき、<productname>PostgreSQL</>がバッファ終端を超えて読み取ることがありえました。
+また、巧妙に作りこまれたタイムスタンプ書式テンプレートに対して、<productname>PostgreSQL</>がバッファ終端を超えて書き込むことがありえました。
+どちらの場合もサーバをクラッシュさせることができます。
+可能性は低いと見られますが、権限昇格に至る攻撃ができる可能性も排除できません。
+(CVE-2015-0241)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix buffer overrun in replacement <function>*printf()</> functions
       (Tom Lane)
+-->
+<function>*printf()</>置換関数におけるバッファオーバランを修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       <productname>PostgreSQL</> includes a replacement implementation
       of <function>printf</> and related functions.  This code will overrun
       a stack buffer when formatting a floating point number (conversion
@@ -105,40 +121,68 @@
       the <function>to_char()</> SQL function.  While that is the only
       affected core <productname>PostgreSQL</> functionality, extension
       modules that use printf-family functions may be at risk as well.
+-->
+-->
+<productname>PostgreSQL</>には<function>printf</>や関連する関数の置き換え実装が含まれています。
+およそ500桁以上の精度で浮動小数点数を（変換指定子<literal>e</>、<literal>E</>、<literal>f</>、<literal>F</>、<literal>g</>、<literal>G</>で）整形するとき、これらのコードでスタックバッファオーバランが起きます。
+これはサーバをクラッシュさせ、また、権限昇格に至る攻撃ができる可能性も排除できません。データベース利用者はSQL関数<function>to_char()</>を通してこのバッファオーバランを起こすことができます。
+<productname>PostgreSQL</>コア機能に影響があるほか、printf族の関数を使用している拡張モジュールにも危険があると考えられます。
      </para>
 
      <para>
+<!--
       This issue primarily affects <productname>PostgreSQL</> on Windows.
       <productname>PostgreSQL</> uses the system implementation of these
       functions where adequate, which it is on other modern platforms.
       (CVE-2015-0242)
+-->
+この問題は主にWindows上の<productname>PostgreSQL</>に影響があります。
+<productname>PostgreSQL</>は、その他の現代的なプラットフォーム上では、これら関数のシステム実装を使います。
+(CVE-2015-0242)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix buffer overruns in <filename>contrib/pgcrypto</>
       (Marko Tiikkaja, Noah Misch)
+-->
+<filename>contrib/pgcrypto</>でのバッファオーバランを修正しました。
+(Marko Tiikkaja, Noah Misch)
      </para>
 
      <para>
+<!--
       Errors in memory size tracking within the <filename>pgcrypto</>
       module permitted stack buffer overruns and improper dependence on the
       contents of uninitialized memory.  The buffer overrun cases can
       crash the server, and we have not ruled out the possibility of
       attacks that lead to privilege escalation.
       (CVE-2015-0243)
+-->
+<filename>pgcrypto</>モジュールでのメモリサイズ追跡の誤りにより、
+スタックバッファオーバランと未初期化メモリ内容への不適切な依存が起こりえました。
+このバッファオーバランはサーバをクラッシュさせ、また、
+権限昇格に至る攻撃ができる可能性も排除できません。
+(CVE-2015-0243)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix possible loss of frontend/backend protocol synchronization after
       an error
       (Heikki Linnakangas)
+-->
+エラー後にフロントエンド/バックエンドプロトコルの同期が失われる可能性があり、
+修正しました。
+(Heikki Linnakangas)
      </para>
 
      <para>
+<!--
       If any error occurred while the server was in the middle of reading a
       protocol message from the client, it could lose synchronization and
       incorrectly try to interpret part of the message's data as a new
@@ -151,16 +195,28 @@
       statement timeout will reduce, but not eliminate, the risk of
       exploit.  Our thanks to Emil Lenngren for reporting this issue.
       (CVE-2015-0244)
+-->
+サーバがクライアントからのメッセージを読んでいる途中に何らかエラーが起きた場合、同期が失われ、メッセージデータの一部分を新たなプロトコルメッセージと解釈しようと誤って試みられる可能性がありました。
+攻撃者がコマンドパラメータ中に巧妙に作りこんだバイナリデータを送り出すことで、SQLコマンドを注入することができるかもしれません。
+この筋書を引き起こす最もありそうなエラーは、ステートメントタイムアウトと問い合わせキャンセルです。
+とりわけ脆弱なのは、タイムアウトを使っていて、任意のユーザ作成データをバイナリの問い合わせパラメータとして送れるアプリケーションです。
+ステートメントタイムアウトを無効にすることで、脆弱性を悪用される危険性を無くせはしませんが軽減できます。
+本問題を報告してくれた Emil Lenngren 氏に感謝します。(CVE-2015-0244)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix information leak via constraint-violation error messages
       (Stephen Frost)
+-->
+制約違反エラーメッセージを通した情報漏洩を修正しました。
+(Stephen Frost)
      </para>
 
      <para>
+<!--
       Some server error messages show the values of columns that violate
       a constraint, such as a unique constraint.  If the user does not have
       <literal>SELECT</> privilege on all columns of the table, this could
@@ -168,34 +224,54 @@
       the code so that values are displayed only when they came from the SQL
       command or could be selected by the user.
       (CVE-2014-8161)
+-->
+いくつかのサーバエラーメッセージは一意性制約などの制約に違反した列の値を表示します。ユーザがテーブルの全列に<literal>SELECT</>権限を持たないとすれば、このことは、見ることができてはいけない値が露出していることになります。
+該当コードを修正し、値が表示されるのは SQLコマンドに由来する値であるか、ユーザで<literal>SELECT</>可能であるときだけにしました。
+(CVE-2014-8161)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Lock down regression testing's temporary installations on Windows
       (Noah Misch)
+-->
+Windows上で回帰テストの一時インストールへの接続制限を厳重にしました。
+(Noah Misch)
      </para>
 
      <para>
+<!--
       Use SSPI authentication to allow connections only from the OS user
       who launched the test suite.  This closes on Windows the same
       vulnerability previously closed on other platforms, namely that other
       users might be able to connect to the test postmaster.
       (CVE-2014-0067)
+-->
+テスト一式を起動したOSユーザからのみ接続を許すようにSSPI認証を使うようにします。
+これは、他のユーザがテスト用postmasterに接続できるという、他のプラットフォームむけで以前封鎖したのと同様の脆弱性を、Windows上でも封鎖するものです。
+(CVE-2014-0067)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Cope with the Windows locale named <quote>Norwegian (Bokm&aring;l)</>
       (Heikki Linnakangas)
+-->
+Windowsの<quote>Norwegian (Bokm&aring;l)</>ロケールに対応しました。
+(Heikki Linnakangas)
      </para>
 
      <para>
+<!--
       Non-ASCII locale names are problematic since it's not clear what
       encoding they should be represented in.  Map the troublesome locale
       name to a plain-ASCII alias, <quote>Norwegian_Norway</>.
+-->
+非ASCIIのロケール名は、どのエンコーディングで解釈すべきか明らかでないので問題があります。やっかいなロケール名にASCIIの別名<quote>Norwegian_Norway</>を割り当てました。
      </para>
     </listitem>
 
@@ -231,28 +307,43 @@
 
     <listitem>
      <para>
+<!--
       Fix <command>DROP</>'s dependency searching to correctly handle the
       case where a table column is recursively visited before its table
+      (Petr Jelinek, Tom Lane)
+-->
+テーブルを参照する前にそのテーブルの再帰的に参照する場合に<command>DROP</>の依存関係を正しく検索するよう修正しました。
       (Petr Jelinek, Tom Lane)
      </para>
 
      <para>
+<!--
       This case is only known to arise when an extension creates both a
       datatype and a table using that datatype.  The faulty code might
       refuse a <command>DROP EXTENSION</> unless <literal>CASCADE</> is
       specified, which should not be required.
+-->
+拡張がデータ型とそのデータ型を使用するテーブルの両方を作成するときにのみ発生することが知られています。この障害のあるコードは、必要とされるべきではない<literal>CASCADE</>が指定されていない<command>DROP EXTENSION</>が拒否される可能性があります。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix use-of-already-freed-memory problem in EvalPlanQual processing
       (Tom Lane)
+-->
+EvalPlanQual処理で解放済みメモリを使用してしまう問題を修正しました。
+(Tom Lane)
      </para>
 
      <para>
       In <literal>READ COMMITTED</> mode, queries that lock or update
       recently-updated rows could crash as a result of this bug.
+<!--
+-->
+<literal>READ COMMITTED</>モードで最近に更新した行をロックまたは更新すると、
+本障害によりクラッシュする可能性がありました。
      </para>
     </listitem>
 
@@ -418,16 +509,23 @@ JSONへのドメインの変換を以前の動作に戻しました。
 
     <listitem>
      <para>
+<!--
       Fix namespace handling in <function>xpath()</> (Ali Akbar)
+-->
+<function>xpath()</>の名前空間の扱いを修正しました。(Ali Akbar)
      </para>
 
      <para>
+<!--
       Previously, the <type>xml</> value resulting from
       an <function>xpath()</> call would not have namespace declarations if
       the namespace declarations were attached to an ancestor element in the
       input <type>xml</> value, rather than to the specific element being
       returned.  Propagate the ancestral declaration so that the result is
       correct when considered in isolation.
+-->
+これまで、入力<type>xml</>値で返される指定要素でなく先祖要素に名前空間宣言が付加されているとき、<function>xpath()</>呼び出しから返される<type>xml</>値は、名前空間宣言を持ちませんでした。
+孤立と見なされるとき結果が正しいなら先祖の宣言を伝搬するようにしました。
      </para>
     </listitem>
 
@@ -602,16 +700,25 @@ FDWクエリで、システム列の取り扱い、特に<structfield>tableoid</
 
     <listitem>
      <para>
+<!--
       Change <quote>pgstat wait timeout</> warning message to be LOG level,
       and rephrase it to be more understandable (Tom Lane)
+-->
+<quote>pgstat wait timeout</>というメッセージをWARNINGレベルからLOGレベルに変更して、文言もより分かりやすくしました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This message was originally thought to be essentially a can't-happen
       case, but it occurs often enough on our slower buildfarm members to be
       a nuisance.  Reduce it to LOG level, and expend a bit more effort on
       the wording: it now reads <quote>using stale statistics instead of
       current ones because stats collector is not responding</>.
+-->
+本メッセージは元々は基本的には起こらないケースと考えられていました。
+しかし、遅いビルドファームのマシンでたびたび発生して、邪魔になっていました。
+LOGレベルに下げ、また、言い回しに幾分の努力を払い、<quote>using stale statistics instead of current ones because stats collector is not responding</> （統計情報コレクタが応答しないため最新でない鮮度に欠けた統計情報を使います）としました。
      </para>
     </listitem>
 
@@ -716,11 +823,16 @@ FDWクエリで、システム列の取り扱い、特に<structfield>tableoid</
 
     <listitem>
      <para>
+<!--
       Improve consistency of parsing of <application>psql</>'s special
       variables (Tom Lane)
+-->
+<application>psql</>特別変数の解析について一貫性を改善しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Allow variant spellings of <literal>on</> and <literal>off</> (such
       as <literal>1</>/<literal>0</>) for <literal>ECHO_HIDDEN</>
       and <literal>ON_ERROR_ROLLBACK</>.  Report a warning for unrecognized
@@ -729,6 +841,11 @@ FDWクエリで、システム列の取り扱い、特に<structfield>tableoid</
       <literal>ON_ERROR_ROLLBACK</>, and <literal>VERBOSITY</>.  Recognize
       all values for all these variables case-insensitively; previously
       there was a mishmash of case-sensitive and case-insensitive behaviors.
+-->
+<literal>ECHO_HIDDEN</>と<literal>ON_ERROR_ROLLBACK</>に対して<literal>on</>と<literal>off</>を異なる書き方（<literal>1</>/<literal>0</>など）で書けるようになります。
+<literal>COMP_KEYWORD_CASE</>、<literal>ECHO</>、<literal>ECHO_HIDDEN</>、<literal>HISTCONTROL</>、<literal>ON_ERROR_ROLLBACK</>、および、<literal>VERBOSITY</>に対して解釈できない値には警告するようになります。
+全ての特別変数の値について大文字小文字の区別なく受け付けるようになります。
+これまでは大文字小文字の区別があるものと無いものが混在していました。
      </para>
     </listitem>
 
@@ -743,9 +860,12 @@ FDWクエリで、システム列の取り扱い、特に<structfield>tableoid</
 
     <listitem>
      <para>
+<!--
       Improve performance of <application>pg_dump</> when the database
       contains many instances of multiple dependency paths between the same
       two objects (Tom Lane)
+-->
+データベースが同じ2つのオブジェクトの間の複数の依存状態パスの多くのインスタンスを含んでいる場合の<application>pg_dump</>の性能を改善しました。(Tom Lane)
      </para>
     </listitem>
 
@@ -775,8 +895,12 @@ FDWクエリで、システム列の取り扱い、特に<structfield>tableoid</
 
     <listitem>
      <para>
+<!--
       Prevent WAL files created by <literal>pg_basebackup -x/-X</> from
       being archived again when the standby is promoted (Andres Freund)
+-->
+<literal>pg_basebackup -x/-X</>で作られたWALファイルが、スタンバイが昇格したときに再度アーカイブされることを防止しました。
+(Andres Freund)
      </para>
     </listitem>
 
@@ -793,8 +917,11 @@ FDWクエリで、システム列の取り扱い、特に<structfield>tableoid</
 
     <listitem>
      <para>
+<!--
       Fix upgrade-from-unpackaged script for <filename>contrib/citext</>
       (Tom Lane)
+-->
+<filename>contrib/citext</>のunpackagedからのアップグレードスクリプトを修正しました。(Tom Lane)
      </para>
     </listitem>
 
@@ -821,25 +948,39 @@ FDWクエリで、システム列の取り扱い、特に<structfield>tableoid</
 
     <listitem>
      <para>
+<!--
       Fix file descriptor leak in <filename>contrib/pg_test_fsync</>
+      (Jeff Janes)
+-->
+<filename>contrib/pg_test_fsync</>のファイルデスクリプタのリークを修正しました。
       (Jeff Janes)
      </para>
 
      <para>
+<!--
       This could cause failure to remove temporary files on Windows.
+-->
+これはWindows上のテンポラリファイルの削除に失敗する場合がありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Handle unexpected query results, especially NULLs, safely in
       <filename>contrib/tablefunc</>'s <function>connectby()</>
       (Michael Paquier)
+-->
+<filename>contrib/tablefunc</>の<function>connectby()</>で、予想外の問い合わせ結果（特にNULL）を安全に扱えるようにしました。
+(Michael Paquier)
      </para>
 
      <para>
+<!--
       <function>connectby()</> previously crashed if it encountered a NULL
       key value.  It now prints that row but doesn't recurse further.
+-->
+これまで<function>connectby()</>はNULLのキー値に遭遇するとクラッシュしていました。現在はその行を出力しますが更なる再帰はしません。
      </para>
     </listitem>
 
@@ -858,30 +999,44 @@ FDWクエリで、システム列の取り扱い、特に<structfield>tableoid</
 
     <listitem>
      <para>
+<!--
       Mark some <filename>contrib</> I/O functions with correct volatility
       properties (Tom Lane)
+-->
+いくつかの<filename>contrib</>のI/O関数に変動性のプロパティを印付けました。(Tom Lane)
      </para>
 
      <para>
+<!--
       The previous over-conservative marking was immaterial in normal use,
       but could cause optimization problems or rejection of valid index
       expression definitions.  Since the consequences are not large, we've
       just adjusted the function definitions in the extension modules'
       scripts, without changing version numbers.
+-->
+以前の消極的すぎる印付でも通常の使用では影響は軽微でした。しかし、最適化の問題や、有効なインデックス式の定義の拒絶を引き起こす可能性があります。結果は大きく影響しないので、私たちはバージョン番号を変更せずに、拡張モジュールのスクリプトで関数定義を調整しました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Numerous cleanups of warnings from Coverity static code analyzer
       (Andres Freund, Tatsuo Ishii, Marko Kreen, Tom Lane, Michael Paquier)
+-->
+Coverity静的コード解析からの多数の警告を一掃しました。
+(Andres Freund, Tatsuo Ishii, Marko Kreen, Tom Lane, Michael Paquier)
      </para>
 
      <para>
+<!--
       These changes are mostly cosmetic but in some cases fix corner-case
       bugs, for example a crash rather than a proper error report after an
       out-of-memory failure.  None are believed to represent security
       issues.
+-->
+ほとんどは表面的な変更ですが、一部は稀に起こりうるバグの修正で、メモリ不足で失敗した後に適切なエラーを出さずクラッシュする例があります。
+セキュリティ問題は無いと考えられます。
      </para>
     </listitem>
 
@@ -908,14 +1063,21 @@ FDWクエリで、システム列の取り扱い、特に<structfield>tableoid</
 
     <listitem>
      <para>
+<!--
       Make <application>pg_regress</> remove any temporary installation it
       created upon successful exit (Tom Lane)
+-->
+<application>pg_regress</>が成功して終了したら、一時インストールで作成したものを全て削除するようにしました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This results in a very substantial reduction in disk space usage
       during <literal>make check-world</>, since that sequence involves
       creation of numerous temporary installations.
+-->
+<literal>make check-world</>では多数の一時インストール作成を必要とするため、これは、<literal>make check-world</>実行におけるかなりのディスク使用量削減になります。
      </para>
     </listitem>
 
