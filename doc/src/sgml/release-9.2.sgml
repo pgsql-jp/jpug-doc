@@ -122,7 +122,6 @@
       affected core <productname>PostgreSQL</> functionality, extension
       modules that use printf-family functions may be at risk as well.
 -->
--->
 <productname>PostgreSQL</>には<function>printf</>や関連する関数の置き換え実装が含まれています。
 およそ500桁以上の精度で浮動小数点数を（変換指定子<literal>e</>、<literal>E</>、<literal>f</>、<literal>F</>、<literal>g</>、<literal>G</>で）整形するとき、これらのコードでスタックバッファオーバランが起きます。
 これはサーバをクラッシュさせ、また、権限昇格に至る攻撃ができる可能性も排除できません。データベース利用者はSQL関数<function>to_char()</>を通してこのバッファオーバランを起こすことができます。
@@ -277,31 +276,45 @@ Windowsの<quote>Norwegian (Bokm&aring;l)</>ロケールに対応しました。
 
     <listitem>
      <para>
+<!--
       Avoid possible data corruption if <command>ALTER DATABASE SET
       TABLESPACE</> is used to move a database to a new tablespace and then
       shortly later move it back to its original tablespace (Tom Lane)
+-->
+<command>ALTER DATABASE SET TABLESPACE</> を使ってデータベースを新しいテーブルスペースに移動し、直後に元のテーブルスペースに戻した場合にデータ破損する可能性がある問題を修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid corrupting tables when <command>ANALYZE</> inside a transaction
       is rolled back (Andres Freund, Tom Lane, Michael Paquier)
+-->
+トランザクションの中で実行した<command>ANALYZE</>をロールバックした際にテーブル破損する問題を修正しました。
+(Andres Freund, Tom Lane, Michael Paquier)
      </para>
 
      <para>
+<!--
       If the failing transaction had earlier removed the last index, rule, or
       trigger from the table, the table would be left in a corrupted state
       with the relevant <structname>pg_class</> flags not set though they
       should be.
+-->
+以前にテーブルから最新の索引、ルール、トリガーが取り除かれたトランザクションが失敗した時、関連する<structname>pg_class</>に本来はセットされるべきではない破損状態としてのフラグを伴って表が残されていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Ensure that unlogged tables are copied correctly
       during <command>CREATE DATABASE</> or <command>ALTER DATABASE SET
       TABLESPACE</> (Pavan Deolasee, Andres Freund)
+-->
+ログを取らないテーブルが<command>CREATE DATABASE</>や<command>ALTER DATABASE SET TABLESPACE</>中に正しくコピーされることを保証しました。(Pavan Deolasee, Andres Freund)
      </para>
     </listitem>
 
@@ -338,9 +351,9 @@ EvalPlanQual処理で解放済みメモリを使用してしまう問題を修�
      </para>
 
      <para>
+<!--
       In <literal>READ COMMITTED</> mode, queries that lock or update
       recently-updated rows could crash as a result of this bug.
-<!--
 -->
 <literal>READ COMMITTED</>モードで最近に更新した行をロックまたは更新すると、
 本障害によりクラッシュする可能性がありました。
@@ -349,44 +362,63 @@ EvalPlanQual処理で解放済みメモリを使用してしまう問題を修�
 
     <listitem>
      <para>
+<!--
       Fix planning of <command>SELECT FOR UPDATE</> when using a partial
       index on a child table (Kyotaro Horiguchi)
+-->
+子テーブルの部分インデックスを使用した時の<command>SELECT FOR UPDATE</>のプランを修正しました。
      </para>
 
      <para>
+<!--
       In <literal>READ COMMITTED</> mode, <command>SELECT FOR UPDATE</> must
       also recheck the partial index's <literal>WHERE</> condition when
       rechecking a recently-updated row to see if it still satisfies the
       query's <literal>WHERE</> condition.  This requirement was missed if the
       index belonged to an inheritance child table, so that it was possible
       to incorrectly return rows that no longer satisfy the query condition.
+-->
+<literal>READ COMMITTED</>モードの場合、<command>SELECT FOR UPDATE</>は部分インデックスの<literal>WHERE</>条件が最新のupdateされた行が<literal>WHERE</>条件をまだ満たしているか再度チェックする必要があります。この要件はそのインデックスが継承された小テーブルに付いている場合に失われます。このため、問い合わせ条件を満たしていない行を不正に返す可能性がありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix corner case wherein <command>SELECT FOR UPDATE</> could return a row
       twice, and possibly miss returning other rows (Tom Lane)
+-->
+稀に<command>SELECT FOR UPDATE</>が行を2回返し、他の行を返し損ねる可能性がある問題を修正しました。
      </para>
 
      <para>
+<!--
       In <literal>READ COMMITTED</> mode, a <command>SELECT FOR UPDATE</>
       that is scanning an inheritance tree could incorrectly return a row
       from a prior child table instead of the one it should return from a
       later child table.
+-->
+<literal>READ COMMITTED</>モードでは、継承された木を走査する<command>SELECT FOR UPDATE</>が後の子テーブルから返すべき行の代わりに前の子テーブルから行を不正に返すことがありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Reject duplicate column names in the referenced-columns list of
       a <literal>FOREIGN KEY</> declaration (David Rowley)
+-->
+<literal>FOREIGN KEY</>定義の被参照列リストに重複した列名が登録されることを拒絶します。
+(David Rowley)
      </para>
 
      <para>
+<!--
       This restriction is per SQL standard.  Previously we did not reject
       the case explicitly, but later on the code would fail with
       bizarre-looking errors.
+-->
+この制限はSQL標準です。以前はこのようなケースは明確には拒絶していませんでした。しかし、後にこのコードは奇妙なロックのエラーを伴って失敗するでしょう。
      </para>
     </listitem>
 
@@ -414,25 +446,37 @@ JSONへのドメインの変換を以前の動作に戻しました。
 
     <listitem>
      <para>
+<!--
       Fix bugs in raising a <type>numeric</> value to a large integral power
       (Tom Lane)
+-->
+<type>NUMERIC</>型の値を増やしていって冪数が大きくなる時の不具合を修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       The previous code could get a wrong answer, or consume excessive
       amounts of time and memory before realizing that the answer must
       overflow.
+-->
+以前のコードでは誤った答えを得るか、答えがオーバーフローすることに気づく前に大量の時間とメモリを消費する可能性がありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In <function>numeric_recv()</>, truncate away any fractional digits
       that would be hidden according to the value's <literal>dscale</> field
       (Tom Lane)
+-->
+<function>numeric_recv()</>は<literal>dscale</>フィールドの値によって隠されたいかなる小数点以を切り捨てます。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       A <type>numeric</> value's display scale (<literal>dscale</>) should
       never be less than the number of nonzero fractional digits; but
       apparently there's at least one broken client application that
@@ -441,6 +485,11 @@ JSONへのドメインの変換を以前の動作に戻しました。
       account by arithmetic operations even though they aren't printed.
       The least risky fix seems to be to truncate away such <quote>hidden</>
       digits on receipt, so that the value is indeed what it prints as.
+-->
+<type>numeric</>値の位取り(<literal>dscale</>)表示は0ではない小数点以下の数値より小さくなってはいけません。
+しかし、明らかに、少なくともバイナリの<type>numeric</>の値がそのように変換している壊れたクライアントアプリケーションが存在しました。
+表示されていないにも関わらず、小数点以下の挙動が考慮されていたためにこのような奇妙な挙動が引き起こされていました。
+引渡しの際のこの<quote>隠された</>小数点以下を切り捨てる修正はリスクがある修正と思われます。このため、その値を実際に表示するようにしました。
      </para>
     </listitem>
 
@@ -465,45 +514,71 @@ JSONへのドメインの変換を以前の動作に戻しました。
 
     <listitem>
      <para>
+<!--
       Reject out-of-range numeric timezone specifications (Tom Lane)
+-->
+タイムゾーンの仕様範囲外の数値を拒絶します。
      </para>
 
      <para>
+<!--
       Simple numeric timezone specifications exceeding +/- 168 hours (one
       week) would be accepted, but could then cause null-pointer dereference
       crashes in certain operations.  There's no use-case for such large UTC
       offsets, so reject them.
+-->
+単純な数字型のタイムゾーンは+/- 168時間(1週間)を超える指定を許容しますが、特定のオペレーションでヌルポインタを参照することによるクラッシュを引き起こしていました。
+そのような大きなUTCオフセットを使用するケースは存在しないため、これを拒絶します。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix bugs in <type>tsquery</> <literal>@&gt;</> <type>tsquery</>
       operator (Heikki Linnakangas)
+-->
+<type>tsquery</> <literal>@&gt;</> <type>tsquery</>演算子の不具合を修正しました。
+(Heikki Linnakangas)
      </para>
 
      <para>
+<!--
       Two different terms would be considered to match if they had the same
       CRC.  Also, if the second operand had more terms than the first, it
       would be assumed not to be contained in the first; which is wrong
       since it might contain duplicate terms.
+-->
+2つの異なる用語が同じCRCを保持している場合、これらは一致すると考慮していました。また、もし2つの2番目の演算項目が最初の演算項目より長い範囲を持つ場合、最初の演算項目は2番目の演算項目に含まれないと想定されていました。これらは重複した用語を含んでいる場合、誤りでした。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Improve ispell dictionary's defenses against bad affix files (Tom Lane)
+-->
+不正なaffixファイルからispell辞書が守られるように改善しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Allow more than 64K phrases in a thesaurus dictionary (David Boutin)
+-->
+シソーラス辞書に64Kを超える言葉を許容するようにしました。
+(David Boutin)
      </para>
 
      <para>
+<!--
       The previous coding could crash on an oversize dictionary, so this was
       deemed a back-patchable bug fix rather than a feature addition.
+-->
+以前のコーディングでは辞書のサイズを超えた場合、クラッシュする可能性がありました。
+このため機能追加ではなくバグフィックスとしてバックパッチしました。
      </para>
     </listitem>
 
@@ -588,41 +663,60 @@ FDWクエリで、システム列の取り扱い、特に<structfield>tableoid</
 
     <listitem>
      <para>
+<!--
       Fix planner problems with nested append relations, such as inherited
       tables within <literal>UNION ALL</> subqueries (Tom Lane)
+-->
+継承されたテーブルの中の<literal>UNION ALL</>サブクエリのような、入れ子追加リレーションのプランナの問題を修正しました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fail cleanly when a GiST index tuple doesn't fit on a page, rather
       than going into infinite recursion (Andrew Gierth)
+-->
+GiST索引のタプルがページと一致しない場合、無限に再帰に入らず明確にエラーを返します。
+(Andrew Gierth)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Exempt tables that have per-table <varname>cost_limit</>
       and/or <varname>cost_delay</> settings from autovacuum's global cost
       balancing rules (&Aacute;lvaro Herrera)
+-->
+自動バキュームのテーブルごとの<varname>cost_limit</>や/または<varname>cost_delay</>をグローバルコストのバランスルールからから除外します。
+(&Aacute;lvaro Herrera)
      </para>
 
      <para>
+<!--
       The previous behavior resulted in basically ignoring these per-table
       settings, which was unintended.  Now, a table having such settings
       will be vacuumed using those settings, independently of what is going
       on in other autovacuum workers.  This may result in heavier total I/O
       load than before, so such settings should be re-examined for sanity.
+-->
+以前の挙動では結果として基本的にテーブルごとの設定は意図せず無視されていました。今では、テーブルはこれらの設定に沿って、他の自動バキュームワーカーの実行とは独立して、バキュームされます。この変更により、結果的にトータルI/Oが増えるかもしれませんので、そのような設定がされている場合は健全性のために再試験するべきです。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid wholesale autovacuuming when autovacuum is nominally off
       (Tom Lane)
+-->
+自動バキュームが名目上offとされている場合は、大規模な自動バキュームが実行されることを避けます。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Even when autovacuum is nominally off, we will still launch autovacuum
       worker processes to vacuum tables that are at risk of XID wraparound.
       However, such a worker process then proceeded to vacuum all tables in
@@ -631,44 +725,69 @@ FDWクエリで、システム列の取り扱い、特に<structfield>tableoid</
       response to the wraparound threat.  Fix it so that if autovacuum is
       turned off, workers <emphasis>only</> do anti-wraparound vacuums and
       not any other work.
+-->
+自動バキュームが名目上offになっていたとしても、依然として自動バキュームワーカープロセスはXID周回問題の危険に備えバキュームを実行します。
+しかしながら、いつもの自動バキュームの閾値に達していたとしても、そのワーカープロセスは対象になるデータベースの全てのテーブルにバキュームを実行していました。
+この動作は決して期待された動作ではありません。最悪、周回の脅威への対応が遅れます。このため、autovacuumが切られている場合、ワーカープロセスは周回問題を回避する<emphasis>のみ</>のために動作し、他の動作はしません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       During crash recovery, ensure that unlogged relations are rewritten as
       empty and are synced to disk before recovery is considered complete
       (Abhijit Menon-Sen, Andres Freund)
+-->
+クラッシュリカバリ中に、ログを取らないリレーションは空に書き換えられ、リカバリが完了したと見なされる前にディスクの同期がとられるを保証しました。
+(Abhijit Menon-Sen, Andres Freund)
      </para>
 
      <para>
+<!--
       This prevents scenarios in which unlogged relations might contain
       garbage data following database crash recovery.
+-->
+データベースのクラッシュリカバリ後にログを取らないリレーションに不要なデータが含まれているかもしれないシナリオを防ぎます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix race condition between hot standby queries and replaying a
       full-page image (Heikki Linnakangas)
+-->
+ホットスタンバイの問い合わせとフルページイメージを再生の競合状態を修正しました。
+(Heikki Linnakangas)
      </para>
 
      <para>
+<!--
       This mistake could result in transient errors in queries being
       executed in hot standby.
+-->
+この誤りによってホットスタンバイの問い合わせ中に一時的なエラーを返す可能性がありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix several cases where recovery logic improperly ignored WAL records
       for <literal>COMMIT/ABORT PREPARED</> (Heikki Linnakangas)
+-->
+リカバリロジックが<literal>COMMIT/ABORT PREPARED</>のWALレコードが不適切に無視するいくつかのケースを修正しました。
+(Heikki Linnakangas)
      </para>
 
      <para>
+<!--
       The most notable oversight was
       that <varname>recovery_min_apply_delay</> failed to delay application
       of a two-phase commit.
+-->
+最も注目すべき見過ごしは<varname>recovery_min_apply_delay</>がアプリケーションの２フェーズコミットの遅延適用に失敗していることでした。
      </para>
     </listitem>
 
@@ -685,16 +804,24 @@ FDWクエリで、システム列の取り扱い、特に<structfield>tableoid</
 
     <listitem>
      <para>
+<!--
       Avoid creating unnecessary <filename>.ready</> marker files for
       timeline history files (Fujii Masao)
+-->
+タイムラインヒストリーファイルとして<filename>.ready</>目印ファイルを不必要に作成しないようにしました。
+(Fujii Masao)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix possible null pointer dereference when an empty prepared statement
       is used and the <varname>log_statement</> setting is <literal>mod</>
       or <literal>ddl</> (Fujii Masao)
+-->
+<varname>log_statement</>が<literal>mod</>もしくは<literal>ddl</>に設定されていて、プリペアードステートメントが使用されている場合、NULLポインタから値を取り出す可能性がある問題を修正しました。
+(Fujii Masao)
      </para>
     </listitem>
 
@@ -724,100 +851,155 @@ LOGレベルに下げ、また、言い回しに幾分の努力を払い、<quot
 
     <listitem>
      <para>
+<!--
       Fix SPARC spinlock implementation to ensure correctness if the CPU is
       being run in a non-TSO coherency mode, as some non-Solaris kernels do
       (Andres Freund)
+-->
+他のSolaris以外のカーネルと同様に、CPUが非TSO統合モードで実行されているか正確さを保証するための実装のためのSPARCのスピンロックを修正しました。
+(Andres Freund)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Warn if OS X's <function>setlocale()</> starts an unwanted extra
       thread inside the postmaster (Noah Misch)
+-->
+OS Xの<function>setlocale()</>が不必要なよけいなスレッドをpostmasterの中に作成した際に警告するようにしました。
+(Noah Misch)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix processing of repeated <literal>dbname</> parameters
       in <function>PQconnectdbParams()</> (Alex Shulgin)
+-->
+<function>PQconnectdbParams()</>中で<literal>dbname</>が繰り返された場合の扱いを修正しました。
+(Alex Shulgin)
      </para>
 
      <para>
+<!--
       Unexpected behavior ensued if the first occurrence
       of <literal>dbname</> contained a connection string or URI to be
       expanded.
+-->
+最初の<literal>dbname</>文字列の出現箇所に接続文字列や拡張のためのURIが含まれていた場合、予期しない挙動をしました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Ensure that <application>libpq</> reports a suitable error message on
       unexpected socket EOF (Marko Tiikkaja, Tom Lane)
+-->
+予期しないソケットのEOFが発生した場合に<application>libpq</>がふさわしいエラーメッセージを報告することを保証します。
+(Marko Tiikkaja, Tom Lane)
      </para>
 
      <para>
+<!--
       Depending on kernel behavior, <application>libpq</> might return an
       empty error string rather than something useful when the server
       unexpectedly closed the socket.
+-->
+カーネルの挙動によって、サーバーが予期せずソケットを閉じたとき、<application>libpq</>は役に立つメッセージではなく、空のエラー文字列を返していました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Clear any old error message during <function>PQreset()</>
       (Heikki Linnakangas)
+-->
+<function>PQreset()</>中の古いエラーメッセージを削除しました。
+(Heikki Linnakangas)
      </para>
 
      <para>
+<!--
       If <function>PQreset()</> is called repeatedly, and the connection
       cannot be re-established, error messages from the failed connection
       attempts kept accumulating in the <structname>PGconn</>'s error
       string.
+-->
+<function>PQreset()</>が繰り返し呼び出された場合、接続は再確立できず、<structname>PGconn</>のエラー文字列中に接続の試行に失敗したメッセージが蓄積されていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Properly handle out-of-memory conditions while parsing connection
       options in <application>libpq</> (Alex Shulgin, Heikki Linnakangas)
+-->
+<application>libpq</>の接続解析オプション中にメモリ不足状態を適切に取り扱うようにしました。
+(Alex Shulgin, Heikki Linnakangas)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix array overrun in <application>ecpg</>'s version
       of <function>ParseDateTime()</> (Michael Paquier)
+-->
+<application>ecpg</>バージョンの<function>ParseDateTime()</>で配列オーバーランする問題を修正しました。
+(Michael Paquier)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In <application>initdb</>, give a clearer error message if a password
       file is specified but is empty (Mats Erik Andersson)
+-->
+<application>initdb</>でパスワードファイルが指定されたが中身が空であった場合のエラーメッセージをより分かりやすくしました。
+(Mats Erik Andersson)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>psql</>'s <command>\s</> command to work nicely with
       libedit, and add pager support (Stepan Rutz, Tom Lane)
+-->
+libedit(Editline library)を使用している<application>psql</>の<command>\s</>コマンドがよく動くようになりました。また、ページャに対応しました。
+(Stepan Rutz, Tom Lane)
      </para>
 
      <para>
+<!--
       When using libedit rather than readline, <command>\s</> printed the
       command history in a fairly unreadable encoded format, and on recent
       libedit versions might fail altogether.  Fix that by printing the
       history ourselves rather than having the library do it.  A pleasant
       side-effect is that the pager is used if appropriate.
+-->
+readlineではなくlibeditを使用している場合、<command>\s</>は全く読めないエンコードのフォーマットでコマンドの履歴を表示していました。
+最近のバージョンのlibeditでは完全に失敗していました。ライブラリが履歴を表示せずに、履歴そのものを出力することで修正しました。
+喜ばしい副次効果としてページャが割り当てられた時に使用されるようになりました。
      </para>
 
      <para>
+<!--
       This patch also fixes a bug that caused newline encoding to be applied
       inconsistently when saving the command history with libedit.
       Multiline history entries written by older <application>psql</>
       versions will be read cleanly with this patch, but perhaps not
       vice versa, depending on the exact libedit versions involved.
+-->
+このパッチではコマンドの履歴をlibeditで保存した際、新しい行のエンコーディングを一貫性無く適用してしまう不具合も修正しています。
+古い<application>psql</>で書かれた複数行の実行履歴はこのパッチによって明確に読めるようになります。しかし、恐らく逆は成り立たず、
+含まれる正確なlibeditのバージョンに依存します。
      </para>
     </listitem>
 
@@ -851,10 +1033,14 @@ LOGレベルに下げ、また、言い回しに幾分の努力を払い、<quot
 
     <listitem>
      <para>
+<!--
       Fix <application>psql</>'s expanded-mode display to work
       consistently when using <literal>border</> = 3
       and <literal>linestyle</> = <literal>ascii</> or <literal>unicode</>
       (Stephen Frost)
+-->
+<literal>border</>を3とし、<literal>linestyle</> が <literal>ascii</>もしくは<literal>unicode</>の場合、<application>psql</>の拡張表示が一貫して動作するように修正しました。
+(Stephen Frost)
      </para>
     </listitem>
 
@@ -881,15 +1067,23 @@ LOGレベルに下げ、また、言い回しに幾分の努力を払い、<quot
 
     <listitem>
      <para>
+<!--
       Fix possible deadlock during parallel restore of a schema-only dump
       (Robert Haas, Tom Lane)
+-->
+スキーマのみが出力されたダンプファイルを並列でリストアする際にデッドロックが発生することがある問題を修正しました。
+(Robert Haas, Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
-      Fix core dump in <literal>pg_dump --binary-upgrade</> on zero-column
+<!--
+      Fix core dump in <literal>pg_dump &#045;&#045;binary-upgrade</> on zero-column
       composite type (Rushabh Lathia)
+-->
+列が無い複合型の<literal>pg_dump --binary-upgrade</>でコアダンプする問題を修正しました。
+(Rushabh Lathia)
      </para>
     </listitem>
 
@@ -927,22 +1121,33 @@ LOGレベルに下げ、また、言い回しに幾分の努力を払い、<quot
 
     <listitem>
      <para>
+<!--
       Fix block number checking
       in <filename>contrib/pageinspect</>'s <function>get_raw_page()</>
       (Tom Lane)
+-->
+<filename>contrib/pageinspect</>の<function>get_raw_page()</>でのブロック番号確認を修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       The incorrect checking logic could prevent access to some pages in
       non-main relation forks.
+-->
+誤った確認ロジックは主ではないリレーションから分岐したもリレーションのページアクセスを妨げる可能性がありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <filename>contrib/pgcrypto</>'s <function>pgp_sym_decrypt()</>
       to not fail on messages whose length is 6 less than a power of 2
       (Marko Tiikkaja)
+-->
+<filename>contrib/pgcrypto</>の<function>pgp_sym_decrypt()</>でメッセージが2の倍数から6小さい場合に失敗しないように修正しました。
+(Marko Tiikkaja)
      </para>
     </listitem>
 
@@ -986,14 +1191,21 @@ LOGレベルに下げ、また、言い回しに幾分の努力を払い、<quot
 
     <listitem>
      <para>
+<!--
       Avoid a possible crash in <filename>contrib/xml2</>'s
       <function>xslt_process()</> (Mark Simonetti)
+-->
+<filename>contrib/xml2</>'の<function>xslt_process()</>でクラッシュしないようになりました。
+(Mark Simonetti)
      </para>
 
      <para>
+<!--
       <application>libxslt</> seems to have an undocumented dependency on
       the order in which resources are freed; reorder our calls to avoid a
       crash.
+-->
+<application>libxslt</>にはリソース開放に明文化されていない順序の依存関係があるようです。クラッシュを避けるように再規定しました。
      </para>
     </listitem>
 
@@ -1042,22 +1254,34 @@ Coverity静的コード解析からの多数の警告を一掃しました。
 
     <listitem>
      <para>
+<!--
       Detect incompatible OpenLDAP versions during build (Noah Misch)
+-->
+ビルド中にOpenLDAPのバージョンの非互換を検出するようになりました。
+(Noah Misch)
      </para>
 
      <para>
+<!--
       With OpenLDAP versions 2.4.24 through 2.4.31,
       inclusive, <productname>PostgreSQL</> backends can crash at exit.
       Raise a warning during <application>configure</> based on the
       compile-time OpenLDAP version number, and test the crashing scenario
       in the <filename>contrib/dblink</> regression test.
+-->
+OpenLDAPのバージョン2.4.24から2.4.31(2.4.31を含む)では、<productname>PostgreSQL</>のバックエンドは終了時にクラッシュすることがありました。
+コンパイル時のOpenLDAPバージョン番号を元に <application>configure</>で警告を上げ、<filename>contrib/dblink</>のリグレッションテストでクラッシュシナリオで試験します。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In non-MSVC Windows builds, ensure <filename>libpq.dll</> is installed
       with execute permissions (Noah Misch)
+-->
+MSVCが無いWindowsのビルドで<filename>libpq.dll</>が実行権限有りでインストールされるようになりました。
+(Noah Misch)
      </para>
     </listitem>
 
@@ -1083,11 +1307,16 @@ Coverity静的コード解析からの多数の警告を一掃しました。
 
     <listitem>
      <para>
+<!--
       Support time zone abbreviations that change UTC offset from time to
       time (Tom Lane)
+-->
+UTCオフセットが変化するタイムゾーン略称をサポートしました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Previously, <productname>PostgreSQL</> assumed that the UTC offset
       associated with a time zone abbreviation (such as <literal>EST</>)
       never changes in the usage of any particular locale.  However this
@@ -1098,15 +1327,24 @@ Coverity静的コード解析からの多数の警告を一掃しました。
       abbreviations since 1970 (according to the IANA timezone database).
       In such timezones, <productname>PostgreSQL</> will now associate the
       correct UTC offset with the abbreviation depending on the given date.
+-->
+これまで<productname>PostgreSQL</>では（<literal>EST</>などの）一つのタイムゾーン略称に関連づけられたUTCオフセットは、いかなるロケールでの使用でも変化しないと仮定していました。
+しかしながら、実世界においてこの仮定は失敗しました。そこで、意味するUTCオフセットをときに変更できるタイムゾーン略称を導入しました。
+1970年以来の略称のUTCオフセットが変更されたタイムゾーンロケールで本機能を使えるように（IANAタイムゾーンデータベースに基づいて）ゾーン略称定義ファイルを刷新しました。これからは<productname>PostgreSQL</>は、略称に日付に応じた適切なUTCオフセットを関連づけます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Update time zone abbreviations lists (Tom Lane)
+-->
+タイムゾーンの略称リストを更新しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Add CST (China Standard Time) to our lists.
       Remove references to ADT as <quote>Arabia Daylight Time</>, an
       abbreviation that's been out of use since 2007; therefore, claiming
@@ -1114,15 +1352,25 @@ Coverity静的コード解析からの多数の警告を一掃しました。
       especially helpful.
       Fix entirely incorrect GMT offsets for CKT (Cook Islands), FJT, and FJST
       (Fiji); we didn't even have them on the proper side of the date line.
+-->
+CST(中国標準時)をリストに追加しました。
+<quote>アラビア夏時間</>を意味するADTへの参照を取り除きました。
+2007年よりこの略称は使用されていませんでした。そのため、<quote>大西洋夏時間</>と競合しているという主張は全く有用ではありませんでした。
+CTK(クックアイランド)、FJTおよびFJST(フィジー)のGMTからの完全に誤ったオフセットを修正しました。
+それらは日付変更線すら適切ではありませんでした。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Update time zone data files to <application>tzdata</> release 2015a.
+-->
+<application>tzdata</>リリース2015aを更新しました。
      </para>
 
      <para>
+<!--
       The IANA timezone database has adopted abbreviations of the form
       <literal>A<replaceable>x</>ST</literal>/<literal>A<replaceable>x</>DT</literal>
       for all Australian time zones, reflecting what they believe to be
@@ -1134,15 +1382,27 @@ Coverity静的コード解析からの多数の警告を一掃しました。
       EST, SAST, SAT, and WST, all of which are thought to be mostly
       historical usage.  Note that SAST has also been changed to be South
       Africa Standard Time in the <quote>Default</> abbreviation set.
+-->
+INAMAタイムゾーンのデータベースは南半球で現在最も多く実用されていると思われるオーストラリアの全てのタイムゾーンで<literal>A<replaceable>x</>ST</literal>/<literal>A<replaceable>x</>DT</literal>書式の略称に対応しています。
+これらの名前は他の略称と競合することはありません。(1994年より使われなくなったアクレ夏時間を除く)
+その結果、これらの名前は<quote>Default</>のタイムゾーンの略称のセットに採用されました。
+<quote>Australia</> の略称セットは今では最も古くから利用されていると考えられる、CST, EAST,EST, SAST, SAT, そして WSTのみが含まれます。
+SASTは<quote>Default</>の略称セットとして南アフリカ標準時間に変更された点に注意してください。
      </para>
 
      <para>
+<!--
       Also, add zone abbreviations SRET (Asia/Srednekolymsk) and XJT
       (Asia/Urumqi), and use WSST/WSDT for western Samoa.  Also, there were
       DST law changes in Chile, Mexico, the Turks &amp; Caicos Islands
       (America/Grand_Turk), and Fiji.  There is a new zone
       Pacific/Bougainville for portions of Papua New Guinea.  Also, numerous
       corrections for historical (pre-1970) time zone data.
+-->
+SRET(アジア/スレドネコリムスク)、XJT(アジア/ウルムチ)、西サモアで使われるWSST/WSDTのタイムゾーンも追加されました。
+また、チリのメキシコ、タークス&amp;カイコス諸島、フィジーで夏時間の変更がありました。
+新しく、パプアニューギニアの太平洋時間/ブーガンビルを加えました。
+また、1970年以前の歴史的なタイムゾーンのデータを大量に集めました。
      </para>
     </listitem>
 
@@ -2143,7 +2403,7 @@ GINメタページのアクティブな部分は標準的なディスクセク�
       Israel and Ukraine.
 -->
 タイムゾーンデータファイルを<application>tzdata</>リリース2014aに更新しました。
-フィージーとトルコでの夏時間の変更が含まれます。
+フィジーとトルコでの夏時間の変更が含まれます。
 また、イスラエルとウクライナでの歴史的な地域データの修正が含まれます。
      </para>
     </listitem>
