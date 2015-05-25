@@ -286,7 +286,7 @@ Branch: REL9_0_STABLE [3a2063369] 2015-01-28 12:33:29 -0500
       command or could be selected by the user.
       (CVE-2014-8161)
 -->
-いくつかのサーバエラーメッセージは一意制約などの制約に違反した列の値を表示します。ユーザがテーブルの全列に<literal>SELECT</>権限を持たないとすれば、このことは、見ることができてはいけない値が露出していることになります。
+いくつかのサーバエラーメッセージは一意性制約などの制約に違反した列の値を表示します。ユーザがテーブルの全列に<literal>SELECT</>権限を持たないとすれば、このことは、見ることができてはいけない値が露出していることになります。
 該当コードを修正し、値が表示されるのは SQLコマンドに由来する値であるか、ユーザで<literal>SELECT</>可能であるときだけにしました。
 (CVE-2014-8161)
      </para>
@@ -375,8 +375,7 @@ Branch: REL9_0_STABLE [45a607d5c] 2014-11-04 13:24:26 -0500
       TABLESPACE</> is used to move a database to a new tablespace and then
       shortly later move it back to its original tablespace (Tom Lane)
 -->
-★9.0翻訳待ち
-
+<command>ALTER DATABASE SET TABLESPACE</> を使ってデータベースを新しいテーブルスペースに移動し、直後に元のテーブルスペースに戻した場合にデータ破損する可能性がある問題を修正しました。
      </para>
     </listitem>
 
@@ -399,14 +398,18 @@ Branch: REL9_0_STABLE [73f950fc8] 2014-10-30 13:03:39 -0400
       Avoid corrupting tables when <command>ANALYZE</> inside a transaction
       is rolled back (Andres Freund, Tom Lane, Michael Paquier)
 -->
-★9.0翻訳待ち
+トランザクションの中で実行した<command>ANALYZE</>をロールバックした際にテーブル破損する問題を修正しました。
+(Andres Freund, Tom Lane, Michael Paquier)
      </para>
 
      <para>
+<!--
       If the failing transaction had earlier removed the last index, rule, or
       trigger from the table, the table would be left in a corrupted state
       with the relevant <structname>pg_class</> flags not set though they
       should be.
+-->
+以前にテーブルから最新の索引、ルール、トリガーが取り除かれたトランザクションが失敗した時、関連する<structname>pg_class</>に本来はセットされるべきではない破損状態としてのフラグを伴って表が残されていました。
      </para>
     </listitem>
 
@@ -424,7 +427,7 @@ Branch: REL9_1_STABLE [d5fef87e9] 2014-10-20 23:47:45 +0200
       during <command>CREATE DATABASE</> or <command>ALTER DATABASE SET
       TABLESPACE</> (Pavan Deolasee, Andres Freund)
 -->
-★9.1翻訳待ち
+ログを取らないテーブルが<command>CREATE DATABASE</>や<command>ALTER DATABASE SET TABLESPACE</>中に正しくコピーされることを保証しました。(Pavan Deolasee, Andres Freund)
      </para>
     </listitem>
 
@@ -467,14 +470,18 @@ Branch: REL9_1_STABLE [94d5d57d5] 2014-11-11 17:00:28 -0500
       case where a table column is recursively visited before its table
       (Petr Jelinek, Tom Lane)
 -->
-★9.1翻訳待ち
+テーブルを参照する前にそのテーブルの再帰的に参照する場合に<command>DROP</>の依存関係を正しく検索するよう修正しました。
+      (Petr Jelinek, Tom Lane)
      </para>
 
      <para>
+<!--
       This case is only known to arise when an extension creates both a
       datatype and a table using that datatype.  The faulty code might
       refuse a <command>DROP EXTENSION</> unless <literal>CASCADE</> is
       specified, which should not be required.
+-->
+拡張がデータ型とそのデータ型を使用するテーブルの両方を作成するときにのみ発生することが知られています。この障害のあるコードは、必要とされるべきではない<literal>CASCADE</>が指定されていない<command>DROP EXTENSION</>が拒否される可能性があります。
      </para>
     </listitem>
 
@@ -559,16 +566,19 @@ Branch: REL9_0_STABLE [662eebdc6] 2014-12-11 21:02:41 -0500
       Fix planning of <command>SELECT FOR UPDATE</> when using a partial
       index on a child table (Kyotaro Horiguchi)
 -->
-★9.0翻訳待ち
+子テーブルの部分インデックスを使用した時の<command>SELECT FOR UPDATE</>のプランを修正しました。(Kyotaro Horiguchi)
      </para>
 
      <para>
+<!--
       In <literal>READ COMMITTED</> mode, <command>SELECT FOR UPDATE</> must
       also recheck the partial index's <literal>WHERE</> condition when
       rechecking a recently-updated row to see if it still satisfies the
       query's <literal>WHERE</> condition.  This requirement was missed if the
       index belonged to an inheritance child table, so that it was possible
       to incorrectly return rows that no longer satisfy the query condition.
+-->
+<literal>READ COMMITTED</>モードの場合、<command>SELECT FOR UPDATE</>は部分インデックスの<literal>WHERE</>条件が最新のupdateされた行が<literal>WHERE</>条件をまだ満たしているか再度チェックする必要があります。この要件はそのインデックスが継承された小テーブルに付いている場合に失われます。このため、問い合わせ条件を満たしていない行を不正に返す可能性がありました。
      </para>
     </listitem>
 
@@ -586,14 +596,17 @@ Branch: REL9_0_STABLE [f5e4e92fb] 2014-12-11 19:37:17 -0500
       Fix corner case wherein <command>SELECT FOR UPDATE</> could return a row
       twice, and possibly miss returning other rows (Tom Lane)
 -->
-★9.0翻訳待ち
+稀に<command>SELECT FOR UPDATE</>が行を2回返し、他の行を返し損ねる可能性がある問題を修正しました。(Tom Lane)
      </para>
 
      <para>
+<!--
       In <literal>READ COMMITTED</> mode, a <command>SELECT FOR UPDATE</>
       that is scanning an inheritance tree could incorrectly return a row
       from a prior child table instead of the one it should return from a
       later child table.
+-->
+<literal>READ COMMITTED</>モードでは、継承された木を走査する<command>SELECT FOR UPDATE</>が後の子テーブルから返すべき行の代わりに前の子テーブルから行を不正に返すことがありました。
      </para>
     </listitem>
 
@@ -629,13 +642,17 @@ Branch: REL9_0_STABLE [4ff49746e] 2014-08-09 13:46:52 -0400
       Reject duplicate column names in the referenced-columns list of
       a <literal>FOREIGN KEY</> declaration (David Rowley)
 -->
-★9.0翻訳待ち
+<literal>FOREIGN KEY</>定義の被参照列リストに重複した列名が登録されることを拒絶します。
+(David Rowley)
      </para>
 
      <para>
+<!--
       This restriction is per SQL standard.  Previously we did not reject
       the case explicitly, but later on the code would fail with
       bizarre-looking errors.
+-->
+この制限はSQL標準です。以前はこのようなケースは明確には拒絶していませんでした。しかし、後にこのコードは奇妙なロックのエラーを伴って失敗するでしょう。
      </para>
     </listitem>
 
@@ -676,14 +693,19 @@ Branch: REL9_2_STABLE [15026ab97] 2014-08-09 18:40:38 -0400
       Restore previous behavior of conversion of domains to JSON
       (Tom Lane)
 -->
-★9.2翻訳待ち
+JSONへのドメインの変換を以前の動作に戻しました。
+      (Tom Lane)
      </para>
 
      <para>
+<!--
       This change causes domains over numeric and boolean to be treated
       like their base types for purposes of conversion to JSON.  It worked
       like that before 9.3.5 and 9.2.9, but was unintentionally changed
       while fixing a related problem.
+-->
+この変更は、数値やブール値に対するドメインをJSONへの変換するときに、それらの基本型と同様に扱うようになります。
+これは、9.3.5と9.2.9の前には、そのように動作していましたが、関連する問題を修正する時に意図せず変更されました。
      </para>
     </listitem>
 
@@ -716,13 +738,17 @@ Branch: REL9_0_STABLE [26f8a4691] 2014-09-11 23:31:06 -0400
       Fix bugs in raising a <type>numeric</> value to a large integral power
       (Tom Lane)
 -->
-★9.0翻訳待ち
+<type>NUMERIC</>型の値を増やしていって冪数が大きくなる時の不具合を修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       The previous code could get a wrong answer, or consume excessive
       amounts of time and memory before realizing that the answer must
       overflow.
+-->
+以前のコードでは誤った答えを得るか、答えがオーバーフローすることに気づく前に大量の時間とメモリを消費する可能性がありました。
      </para>
     </listitem>
 
@@ -741,10 +767,12 @@ Branch: REL9_0_STABLE [e6550626c] 2014-12-01 15:25:18 -0500
       that would be hidden according to the value's <literal>dscale</> field
       (Tom Lane)
 -->
-★9.0翻訳待ち
+<function>numeric_recv()</>は<literal>dscale</>フィールドの値によって隠されたいかなる小数点以を切り捨てます。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       A <type>numeric</> value's display scale (<literal>dscale</>) should
       never be less than the number of nonzero fractional digits; but
       apparently there's at least one broken client application that
@@ -753,6 +781,11 @@ Branch: REL9_0_STABLE [e6550626c] 2014-12-01 15:25:18 -0500
       account by arithmetic operations even though they aren't printed.
       The least risky fix seems to be to truncate away such <quote>hidden</>
       digits on receipt, so that the value is indeed what it prints as.
+-->
+<type>numeric</>値の位取り(<literal>dscale</>)表示は0ではない小数点以下の数値より小さくなってはいけません。
+しかし、明らかに、少なくともバイナリの<type>numeric</>の値がそのように変換している壊れたクライアントアプリケーションが存在しました。
+表示されていないにも関わらず、小数点以下の挙動が考慮されていたためにこのような奇妙な挙動が引き起こされていました。
+引渡しの際のこの<quote>隠された</>小数点以下を切り捨てる修正はリスクがある修正と思われます。このため、その値を実際に表示するようにしました。
      </para>
     </listitem>
 
@@ -768,12 +801,16 @@ Branch: REL9_2_STABLE [3359a818c] 2014-09-23 20:25:39 -0400
       Fix incorrect search for shortest-first regular expression matches
       (Tom Lane)
 -->
-★9.2待ち
+正規表現の最短マッチの誤りを修正しました。
+      (Tom Lane)
      </para>
 
      <para>
+<!--
       Matching would often fail when the number of allowed iterations is
       limited by a <literal>?</> quantifier or a bound expression.
+-->
+繰り返し回数が<literal>?</>量指定子(quantifier)やバウンド表現により制限されている場合に、しばしばマッチに失敗していました。
      </para>
     </listitem>
 
@@ -790,14 +827,18 @@ Branch: REL9_0_STABLE [6e5a39c9e] 2014-07-21 22:41:36 -0400
 <!--
       Reject out-of-range numeric timezone specifications (Tom Lane)
 -->
-★9.0翻訳待ち
+タイムゾーンの仕様範囲外の数値を拒絶します。
      </para>
 
      <para>
+<!--
       Simple numeric timezone specifications exceeding +/- 168 hours (one
       week) would be accepted, but could then cause null-pointer dereference
       crashes in certain operations.  There's no use-case for such large UTC
       offsets, so reject them.
+-->
+単純な数字型のタイムゾーンは+/- 168時間(1週間)を超える指定を許容しますが、特定のオペレーションでヌルポインタを参照することによるクラッシュを引き起こしていました。
+そのような大きなUTCオフセットを使用するケースは存在しないため、これを拒絶します。
      </para>
     </listitem>
 
@@ -815,14 +856,18 @@ Branch: REL9_0_STABLE [10059c2da] 2014-10-27 10:51:38 +0200
       Fix bugs in <type>tsquery</> <literal>@&gt;</> <type>tsquery</>
       operator (Heikki Linnakangas)
 -->
-★9.0翻訳待ち
+<type>tsquery</> <literal>@&gt;</> <type>tsquery</>演算子の不具合を修正しました。
+(Heikki Linnakangas)
      </para>
 
      <para>
+<!--
       Two different terms would be considered to match if they had the same
       CRC.  Also, if the second operand had more terms than the first, it
       would be assumed not to be contained in the first; which is wrong
       since it might contain duplicate terms.
+-->
+2つの異なる用語が同じCRCを保持している場合、これらは一致すると考慮していました。また、もし2つの2番目の演算項目が最初の演算項目より長い範囲を持つ場合、最初の演算項目は2番目の演算項目に含まれないと想定されていました。これらは重複した用語を含んでいる場合、誤りでした。
      </para>
     </listitem>
 
@@ -839,7 +884,8 @@ Branch: REL9_0_STABLE [21fa26b65] 2014-10-23 13:11:45 -0400
 <!--
       Improve ispell dictionary's defenses against bad affix files (Tom Lane)
 -->
-★9.0翻訳待ち
+不正なaffixファイルからispell辞書が守られるように改善しました。
+(Tom Lane)
      </para>
     </listitem>
 
@@ -856,12 +902,17 @@ Branch: REL9_0_STABLE [39493e4d9] 2014-11-06 20:53:07 -0500
 <!--
       Allow more than 64K phrases in a thesaurus dictionary (David Boutin)
 -->
-★9.0待ち
+シソーラス辞書に64Kを超える言葉を許容するようにしました。
+(David Boutin)
      </para>
 
      <para>
+<!--
       The previous coding could crash on an oversize dictionary, so this was
       deemed a back-patchable bug fix rather than a feature addition.
+-->
+以前のコーディングでは辞書のサイズを超えた場合、クラッシュする可能性がありました。
+このため機能追加ではなくバグフィックスとしてバックパッチしました。
      </para>
     </listitem>
 
@@ -880,7 +931,6 @@ Branch: REL9_0_STABLE [cebb3f032] 2015-01-17 22:37:32 -0500
 <!--
       Fix namespace handling in <function>xpath()</> (Ali Akbar)
 -->
-<function>xpath()</>の名前空間の扱いを修正しました。(Ali Akbar)
      </para>
 
      <para>
@@ -910,16 +960,23 @@ Branch: REL9_2_STABLE [19ccaf9d4] 2014-11-10 15:21:26 -0500
       to functions that pay attention to column names within composite
       arguments (Tom Lane)
 -->
-★9.2翻訳待ち
+行全体の変数で期待される列名が、複合型引数を取り列名に注意をはらう関数に伝わることを、保証するようになりました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       In some contexts, constructs like <literal>row_to_json(tab.*)</> may
       not produce the expected column names.  This is fixed properly as of
       9.4; in older branches, just ensure that we produce some nonempty
       name.  (In some cases this will be the underlying table's column name
       rather than the query-assigned alias that should theoretically be
       visible.)
+-->
+いくつかの状況では、<literal>row_to_json(tab.*)</>などのデータ構成で、予想される列名にならなかったかもしれません。
+これは9.4で適切に修正されていました。
+古いブランチでは、今回名前が空にならないことを保証するようになります。
+(いくつかの場合では、元となるテーブルの列名ではなく、クエリが割り当てられた別名で表示されます。）
      </para>
     </listitem>
 
@@ -935,7 +992,7 @@ Branch: REL9_2_STABLE [906599f65] 2014-11-22 16:01:15 -0500
       Fix mishandling of system columns,
       particularly <structfield>tableoid</>, in FDW queries (Etsuro Fujita)
 -->
-★9.2翻訳待ち
+FDWクエリで、システム列の取り扱い、特に<structfield>tableoid</>の誤りを修正しました。(Etsuro Fujita)
      </para>
     </listitem>
 
@@ -978,13 +1035,16 @@ Branch: REL9_2_STABLE [4586572d7] 2014-10-26 16:12:32 -0400
       (<replaceable>array</>)</literal> as an index qualifier if that leads
       to an inferior plan (Andrew Gierth)
 -->
-★9.2翻訳待ち
+インデックス修飾子として<literal><replaceable>indexed_column</> = ANY (<replaceable>array</>)</literal>が劣った計画につながる場合を回避するようにしました。(Andrew Gierth)
      </para>
 
      <para>
+<!--
       In some cases, <literal>= ANY</> conditions applied to non-first index
       columns would be done as index conditions even though it would be
       better to use them as simple filter conditions.
+-->
+単純なフィルタ条件を使用した方が良いインデックス条件にもかかわらず、<literal>= ANY</>条件が最初以外のインデックス列に適用される場合がありました。
      </para>
     </listitem>
 
@@ -1019,7 +1079,7 @@ Branch: REL9_0_STABLE [288f15b7c] 2014-10-01 19:30:41 -0400
       Fix planner problems with nested append relations, such as inherited
       tables within <literal>UNION ALL</> subqueries (Tom Lane)
 -->
-★9.0翻訳待ち
+継承されたテーブルの中の<literal>UNION ALL</>サブクエリのような、入れ子追加リレーションのプランナの問題を修正しました。(Tom Lane)
      </para>
     </listitem>
 
@@ -1037,7 +1097,8 @@ Branch: REL9_0_STABLE [f04b112d5] 2014-10-03 14:50:58 +0300
       Fail cleanly when a GiST index tuple doesn't fit on a page, rather
       than going into infinite recursion (Andrew Gierth)
 -->
-★9,0翻訳待ち
+GiST索引のタプルがページと一致しない場合、無限に再帰に入らず明確にエラーを返します。
+(Andrew Gierth)
      </para>
     </listitem>
 
@@ -1056,15 +1117,19 @@ Branch: REL9_0_STABLE [50a757698] 2014-10-03 13:01:27 -0300
       and/or <varname>cost_delay</> settings from autovacuum's global cost
       balancing rules (&Aacute;lvaro Herrera)
 -->
-★9.0翻訳待ち
+自動バキュームのテーブルごとの<varname>cost_limit</>や/または<varname>cost_delay</>をグローバルコストのバランスルールからから除外します。
+(&Aacute;lvaro Herrera)
      </para>
 
      <para>
+<!--
       The previous behavior resulted in basically ignoring these per-table
       settings, which was unintended.  Now, a table having such settings
       will be vacuumed using those settings, independently of what is going
       on in other autovacuum workers.  This may result in heavier total I/O
       load than before, so such settings should be re-examined for sanity.
+-->
+以前の挙動では結果として基本的にテーブルごとの設定は意図せず無視されていました。今では、テーブルはこれらの設定に沿って、他の自動バキュームワーカーの実行とは独立して、バキュームされます。この変更により、結果的にトータルI/Oが増えるかもしれませんので、そのような設定がされている場合は健全性のために再試験するべきです。
      </para>
     </listitem>
 
@@ -1082,10 +1147,11 @@ Branch: REL9_0_STABLE [91b4a881c] 2014-07-30 14:42:12 -0400
       Avoid wholesale autovacuuming when autovacuum is nominally off
       (Tom Lane)
 -->
-★9.0翻訳待ち
+自動バキュームが名目上offとされている場合は、大規模な自動バキュームが実行されることを避けます。
      </para>
 
      <para>
+<!--
       Even when autovacuum is nominally off, we will still launch autovacuum
       worker processes to vacuum tables that are at risk of XID wraparound.
       However, such a worker process then proceeded to vacuum all tables in
@@ -1094,6 +1160,10 @@ Branch: REL9_0_STABLE [91b4a881c] 2014-07-30 14:42:12 -0400
       response to the wraparound threat.  Fix it so that if autovacuum is
       turned off, workers <emphasis>only</> do anti-wraparound vacuums and
       not any other work.
+-->
+自動バキュームが名目上offになっていたとしても、依然として自動バキュームワーカープロセスはXID周回問題の危険に備えバキュームを実行します。
+しかしながら、いつもの自動バキュームの閾値に達していたとしても、そのワーカープロセスは対象になるデータベースの全てのテーブルにバキュームを実行していました。
+この動作は決して期待された動作ではありません。最悪、周回の脅威への対応が遅れます。このため、autovacuumが切られている場合、ワーカープロセスは周回問題を回避する<emphasis>のみ</>のために動作し、他の動作はしません。
      </para>
     </listitem>
 
@@ -1119,12 +1189,16 @@ Branch: REL9_1_STABLE [b0a48e996] 2014-11-15 01:22:32 +0100
       empty and are synced to disk before recovery is considered complete
       (Abhijit Menon-Sen, Andres Freund)
 -->
-★9.0翻訳待ち
+クラッシュリカバリ中に、ログを取らないリレーションは空に書き換えられ、リカバリが完了したと見なされる前にディスクの同期がとられることを保証しました。
+(Abhijit Menon-Sen, Andres Freund)
      </para>
 
      <para>
+<!--
       This prevents scenarios in which unlogged relations might contain
       garbage data following database crash recovery.
+-->
+データベースのクラッシュリカバリ後にログを取らないリレーションに不要なデータが含まれているかもしれないシナリオを防ぎます。
      </para>
     </listitem>
 
@@ -1142,12 +1216,16 @@ Branch: REL9_0_STABLE [681dbe7d4] 2014-11-13 20:00:51 +0200
       Fix race condition between hot standby queries and replaying a
       full-page image (Heikki Linnakangas)
 -->
-★9.0翻訳待ち
+ホットスタンバイの問い合わせとフルページイメージを再生の競合状態を修正しました。
+(Heikki Linnakangas)
      </para>
 
      <para>
+<!--
       This mistake could result in transient errors in queries being
       executed in hot standby.
+-->
+この誤りによってホットスタンバイの問い合わせ中に一時的なエラーを返す可能性がありました。
      </para>
     </listitem>
 
@@ -1165,13 +1243,17 @@ Branch: REL9_0_STABLE [804983961] 2014-07-29 11:58:17 +0300
       Fix several cases where recovery logic improperly ignored WAL records
       for <literal>COMMIT/ABORT PREPARED</> (Heikki Linnakangas)
 -->
-★9.0翻訳待ち
+リカバリロジックが<literal>COMMIT/ABORT PREPARED</>のWALレコードが不適切に無視するいくつかのケースを修正しました。
+(Heikki Linnakangas)
      </para>
 
      <para>
+<!--
       The most notable oversight was
       that <varname>recovery_min_apply_delay</> failed to delay application
       of a two-phase commit.
+-->
+最も注目すべき見過ごしは<varname>recovery_min_apply_delay</>がアプリケーションの２フェーズコミットの遅延適用に失敗していることでした。
      </para>
     </listitem>
 
@@ -1187,7 +1269,8 @@ Branch: REL9_2_STABLE [f904e9afd] 2014-10-23 16:31:44 +0900
       Prevent latest WAL file from being archived a second time at completion
       of crash recovery (Fujii Masao)
 -->
-★9.2翻訳待ち
+クラッシュリカバリの完了時に最新のWALファイルを再度アーカイブするのを防ぎました。
+(Fujii Masao)
      </para>
     </listitem>
 
@@ -1205,7 +1288,8 @@ Branch: REL9_0_STABLE [83c7bfb9a] 2014-11-06 21:26:21 +0900
       Avoid creating unnecessary <filename>.ready</> marker files for
       timeline history files (Fujii Masao)
 -->
-★9.0翻訳待ち
+タイムラインヒストリーファイルとして<filename>.ready</>目印ファイルを不必要に作成しないようにしました。
+(Fujii Masao)
      </para>
     </listitem>
 
@@ -1224,7 +1308,8 @@ Branch: REL9_0_STABLE [857a5d6b5] 2014-09-05 02:19:57 +0900
       is used and the <varname>log_statement</> setting is <literal>mod</>
       or <literal>ddl</> (Fujii Masao)
 -->
-★9.0翻訳待ち
+<varname>log_statement</>が<literal>mod</>もしくは<literal>ddl</>に設定されていて、プリペアードステートメントが使用されている場合、NULLポインタから値を取り出す可能性がある問題を修正しました。
+(Fujii Masao)
      </para>
     </listitem>
 
@@ -1293,7 +1378,8 @@ Branch: REL9_0_STABLE [f25e89601] 2014-09-09 23:48:03 +0200
       being run in a non-TSO coherency mode, as some non-Solaris kernels do
       (Andres Freund)
 -->
-★9.0翻訳待ち
+他のSolaris以外のカーネルと同様に、CPUが非TSO統合モードで実行されているか正確さを保証するための実装のためのSPARCのスピンロックを修正しました。
+(Andres Freund)
      </para>
     </listitem>
 
@@ -1313,7 +1399,8 @@ Branch: REL9_0_STABLE [2e4946169] 2015-01-07 22:46:20 -0500
       Warn if OS X's <function>setlocale()</> starts an unwanted extra
       thread inside the postmaster (Noah Misch)
 -->
-★9.0翻訳待ち
+OS Xの<function>setlocale()</>が不必要なよけいなスレッドをpostmasterの中に作成した際に警告するようにしました。
+(Noah Misch)
      </para>
     </listitem>
 
@@ -1331,13 +1418,17 @@ Branch: REL9_0_STABLE [9880fea4f] 2014-11-25 17:39:09 +0200
       Fix processing of repeated <literal>dbname</> parameters
       in <function>PQconnectdbParams()</> (Alex Shulgin)
 -->
-★9.0翻訳待ち
+<function>PQconnectdbParams()</>中で<literal>dbname</>が繰り返された場合の扱いを修正しました。
+(Alex Shulgin)
      </para>
 
      <para>
+<!--
       Unexpected behavior ensued if the first occurrence
       of <literal>dbname</> contained a connection string or URI to be
       expanded.
+-->
+最初の<literal>dbname</>文字列の出現箇所に接続文字列や拡張のためのURIが含まれていた場合、予期しない挙動をしました。
      </para>
     </listitem>
 
@@ -1355,13 +1446,17 @@ Branch: REL9_0_STABLE [ac6e87537] 2014-10-22 18:42:01 -0400
       Ensure that <application>libpq</> reports a suitable error message on
       unexpected socket EOF (Marko Tiikkaja, Tom Lane)
 -->
-★9.0翻訳待ち
+予期しないソケットのEOFが発生した場合に<application>libpq</>がふさわしいエラーメッセージを報告することを保証します。
+(Marko Tiikkaja, Tom Lane)
      </para>
 
      <para>
+<!--
       Depending on kernel behavior, <application>libpq</> might return an
       empty error string rather than something useful when the server
       unexpectedly closed the socket.
+-->
+カーネルの挙動によって、サーバーが予期せずソケットを閉じたとき、<application>libpq</>は役に立つメッセージではなく、空のエラー文字列を返していました。
      </para>
     </listitem>
 
@@ -1379,14 +1474,18 @@ Branch: REL9_0_STABLE [49ef4eba2] 2014-10-29 14:35:39 +0200
       Clear any old error message during <function>PQreset()</>
       (Heikki Linnakangas)
 -->
-★9.0翻訳待ち
+<function>PQreset()</>中の古いエラーメッセージを削除しました。
+(Heikki Linnakangas)
      </para>
 
      <para>
+<!--
       If <function>PQreset()</> is called repeatedly, and the connection
       cannot be re-established, error messages from the failed connection
       attempts kept accumulating in the <structname>PGconn</>'s error
       string.
+-->
+<function>PQreset()</>が繰り返し呼び出された場合、接続は再確立できず、<structname>PGconn</>のエラー文字列中に接続の試行に失敗したメッセージが蓄積されていました。
      </para>
     </listitem>
 
@@ -1404,7 +1503,8 @@ Branch: REL9_0_STABLE [1f3517039] 2014-11-25 14:10:54 +0200
       Properly handle out-of-memory conditions while parsing connection
       options in <application>libpq</> (Alex Shulgin, Heikki Linnakangas)
 -->
-★9.0翻訳待ち
+<application>libpq</>の接続解析オプション中にメモリ不足状態を適切に取り扱うようにしました。
+(Alex Shulgin, Heikki Linnakangas)
      </para>
     </listitem>
 
@@ -1422,7 +1522,8 @@ Branch: REL9_0_STABLE [d9a1e9de5] 2014-10-06 21:23:50 -0400
       Fix array overrun in <application>ecpg</>'s version
       of <function>ParseDateTime()</> (Michael Paquier)
 -->
-★9.0翻訳待ち
+<application>ecpg</>バージョンの<function>ParseDateTime()</>で配列オーバーランする問題を修正しました。
+(Michael Paquier)
      </para>
     </listitem>
 
@@ -1440,7 +1541,8 @@ Branch: REL9_0_STABLE [d67be559e] 2014-12-05 14:30:55 +0200
       In <application>initdb</>, give a clearer error message if a password
       file is specified but is empty (Mats Erik Andersson)
 -->
-★9.0翻訳待ち
+<application>initdb</>でパスワードファイルが指定されたが中身が空であった場合のエラーメッセージをより分かりやすくしました。
+(Mats Erik Andersson)
      </para>
     </listitem>
 
@@ -1458,23 +1560,34 @@ Branch: REL9_0_STABLE [44c518328] 2014-09-08 16:10:05 -0400
       Fix <application>psql</>'s <command>\s</> command to work nicely with
       libedit, and add pager support (Stepan Rutz, Tom Lane)
 -->
-★9.0翻訳待ち
+libedit(Editline library)を使用している<application>psql</>の<command>\s</>コマンドがよく動くようになりました。また、ページャに対応しました。
+(Stepan Rutz, Tom Lane)
      </para>
 
      <para>
+<!--
       When using libedit rather than readline, <command>\s</> printed the
       command history in a fairly unreadable encoded format, and on recent
       libedit versions might fail altogether.  Fix that by printing the
       history ourselves rather than having the library do it.  A pleasant
       side-effect is that the pager is used if appropriate.
+-->
+readlineではなくlibeditを使用している場合、<command>\s</>は全く読めないエンコードのフォーマットでコマンドの履歴を表示していました。
+最近のバージョンのlibeditでは完全に失敗していました。ライブラリが履歴を表示せずに、履歴そのものを出力することで修正しました。
+喜ばしい副次効果としてページャが割り当てられた時に使用されるようになりました。
      </para>
 
      <para>
+<!--
       This patch also fixes a bug that caused newline encoding to be applied
       inconsistently when saving the command history with libedit.
       Multiline history entries written by older <application>psql</>
       versions will be read cleanly with this patch, but perhaps not
       vice versa, depending on the exact libedit versions involved.
+-->
+このパッチではコマンドの履歴をlibeditで保存した際、新しい行のエンコーディングを一貫性無く適用してしまう不具合も修正しています。
+古い<application>psql</>で書かれた複数行の実行履歴はこのパッチによって明確に読めるようになります。しかし、恐らく逆は成り立たず、
+含まれる正確なlibeditのバージョンに依存します。
      </para>
     </listitem>
 
@@ -1549,7 +1662,8 @@ Branch: REL9_0_STABLE [1f89fc218] 2014-09-12 11:24:39 -0400
       and <literal>linestyle</> = <literal>ascii</> or <literal>unicode</>
       (Stephen Frost)
 -->
-★9.0翻訳待ち
+<literal>border</>を3とし、<literal>linestyle</> が <literal>ascii</>もしくは<literal>unicode</>の場合、 <application>psql</>の拡張表示が一貫して動作するように修正しました。
+(Stephen Frost)
      </para>
     </listitem>
 
@@ -1603,7 +1717,7 @@ Branch: REL9_1_STABLE [40c333c39] 2014-07-25 19:48:54 -0400
       contains many instances of multiple dependency paths between the same
       two objects (Tom Lane)
 -->
-★9.1翻訳待ち
+データベースが同じ2つのオブジェクトの間の複数の依存状態パスの多くのインスタンスを含んでいる場合の<application>pg_dump</>の性能を改善しました。(Tom Lane)
      </para>
     </listitem>
 
@@ -1619,7 +1733,7 @@ Branch: REL9_2_STABLE [3c5ce5102] 2014-11-13 18:19:35 -0500
       Fix <application>pg_dumpall</> to restore its ability to dump from
       pre-8.1 servers (Gilles Darold)
 -->
-★9.2翻訳待ち
+8.1より前のサーバからのダンプを出来るように<application>pg_dumpall</>を修正しました。(Gilles Darold)
      </para>
     </listitem>
 
@@ -1637,7 +1751,8 @@ Branch: REL9_0_STABLE [bbe3c069a] 2014-09-26 11:43:56 -0400
       Fix possible deadlock during parallel restore of a schema-only dump
       (Robert Haas, Tom Lane)
 -->
-★9.0翻訳待ち
+スキーマのみが出力されたダンプファイルを並列でリストアする際にデッドロックが発生することがある問題を修正しました。
+(Robert Haas, Tom Lane)
      </para>
     </listitem>
 
@@ -1655,7 +1770,8 @@ Branch: REL9_0_STABLE [31021e7ba] 2014-10-17 12:49:15 -0400
       Fix core dump in <literal>pg_dump &#045;&#045;binary-upgrade</> on zero-column
       composite type (Rushabh Lathia)
 -->
-★9.0翻訳待ち
+列が無い複合型の<literal>pg_dump --binary-upgrade</>でコアダンプする問題を修正しました。
+(Rushabh Lathia)
      </para>
     </listitem>
 
@@ -1821,7 +1937,8 @@ Branch: REL9_2_STABLE [5ff8c2d7d] 2014-09-19 13:19:05 -0400
       Fix failure of <filename>contrib/auto_explain</> to print per-node
       timing information when doing <command>EXPLAIN ANALYZE</> (Tom Lane)
 -->
-★9.2翻訳待ち
+<command>EXPLAIN ANALYZE</>を実行する際に<filename>contrib/auto_explain</>が、ノード毎の時間的調整情報の出力が失敗するのを修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
@@ -1838,7 +1955,7 @@ Branch: REL9_1_STABLE [9807c8220] 2014-08-28 18:21:20 -0400
       Fix upgrade-from-unpackaged script for <filename>contrib/citext</>
       (Tom Lane)
 -->
-★9.1翻訳待ち
+<filename>contrib/citext</>のunpackagedからのアップグレードスクリプトを修正しました。(Tom Lane)
      </para>
     </listitem>
 
@@ -1893,7 +2010,8 @@ Branch: REL9_0_STABLE [9dc2a3fd0] 2014-07-22 11:46:04 -0400
       in <filename>contrib/pageinspect</>'s <function>get_raw_page()</>
       (Tom Lane)
 -->
-★9.0翻訳待ち
+<filename>contrib/pageinspect</>の<function>get_raw_page()</>でのブロック番号確認を修正しました。
+(Tom Lane)
      </para>
 
      <para>
@@ -1917,7 +2035,8 @@ Branch: REL9_0_STABLE [ef5a3b957] 2014-11-11 17:22:58 -0500
       to not fail on messages whose length is 6 less than a power of 2
       (Marko Tiikkaja)
 -->
-★9.0翻訳待ち
+<filename>contrib/pgcrypto</>の<function>pgp_sym_decrypt()</>でメッセージが2の倍数から6小さい場合に失敗しないように修正しました。
+(Marko Tiikkaja)
      </para>
     </listitem>
 
@@ -1934,11 +2053,15 @@ Branch: REL9_1_STABLE [a855c90a7] 2014-11-19 12:26:06 -0500
       Fix file descriptor leak in <filename>contrib/pg_test_fsync</>
       (Jeff Janes)
 -->
-★9.1翻訳待ち
+<filename>contrib/pg_test_fsync</>のファイルデスクリプタのリークを修正しました。
+      (Jeff Janes)
      </para>
 
      <para>
+<!--
       This could cause failure to remove temporary files on Windows.
+-->
+これはWindows上のテンポラリファイルの削除に失敗する場合がありました。
      </para>
     </listitem>
 
@@ -1986,13 +2109,17 @@ Branch: REL9_0_STABLE [6a694bbab] 2014-11-27 11:13:03 -0500
       Avoid a possible crash in <filename>contrib/xml2</>'s
       <function>xslt_process()</> (Mark Simonetti)
 -->
-★9.0翻訳待ち
+<filename>contrib/xml2</>'の<function>xslt_process()</>でクラッシュしないようになりました。
+(Mark Simonetti)
      </para>
 
      <para>
+<!--
       <application>libxslt</> seems to have an undocumented dependency on
       the order in which resources are freed; reorder our calls to avoid a
       crash.
+-->
+<application>libxslt</>にはリソース開放に明文化されていない順序の依存関係があるようです。クラッシュを避けるように再規定しました。
      </para>
     </listitem>
 
@@ -2009,15 +2136,18 @@ Branch: REL9_1_STABLE [7225abf00] 2014-11-05 11:34:25 -0500
       Mark some <filename>contrib</> I/O functions with correct volatility
       properties (Tom Lane)
 -->
-★9.1翻訳待ち
+いくつかの<filename>contrib</>のI/O関数に変動性のプロパティを印付けました。(Tom Lane)
      </para>
 
      <para>
+<!--
       The previous over-conservative marking was immaterial in normal use,
       but could cause optimization problems or rejection of valid index
       expression definitions.  Since the consequences are not large, we've
       just adjusted the function definitions in the extension modules'
       scripts, without changing version numbers.
+-->
+以前の消極的すぎる印付でも通常の使用では影響は軽微でした。しかし、最適化の問題や、有効なインデックス式の定義の拒絶を引き起こす可能性があります。結果は大きく影響しないので、私たちはバージョン番号を変更せずに、拡張モジュールのスクリプトで関数定義を調整しました。
      </para>
     </listitem>
 
@@ -2139,15 +2269,20 @@ Branch: REL9_0_STABLE [4c6d0abde] 2014-07-22 11:02:25 -0400
 <!--
       Detect incompatible OpenLDAP versions during build (Noah Misch)
 -->
-★9.0翻訳待ち
+ビルド中にOpenLDAPのバージョンの非互換を検出するようになりました。
+(Noah Misch)
      </para>
 
      <para>
+<!--
       With OpenLDAP versions 2.4.24 through 2.4.31,
       inclusive, <productname>PostgreSQL</> backends can crash at exit.
       Raise a warning during <application>configure</> based on the
       compile-time OpenLDAP version number, and test the crashing scenario
       in the <filename>contrib/dblink</> regression test.
+-->
+OpenLDAPのバージョン2.4.24から2.4.31(2.4.31を含む)では、<productname>PostgreSQL</>のバックエンドは終了時にクラッシュすることがありました。
+コンパイル時のOpenLDAPバージョン番号を元に <application>configure</>で警告を上げ、<filename>contrib/dblink</>のリグレッションテストでクラッシュシナリオで試験します。
      </para>
     </listitem>
 
@@ -2165,7 +2300,8 @@ Branch: REL9_0_STABLE [e6841c4d6] 2014-08-18 23:01:23 -0400
       In non-MSVC Windows builds, ensure <filename>libpq.dll</> is installed
       with execute permissions (Noah Misch)
 -->
-★9.0翻訳待ち
+MSVCが無いWindowsのビルドで<filename>libpq.dll</>が実行権限有りでインストールされるようになりました。
+(Noah Misch)
      </para>
     </listitem>
 
@@ -2213,10 +2349,12 @@ Branch: REL9_0_STABLE [870a980aa] 2014-10-16 15:22:26 -0400
       Support time zone abbreviations that change UTC offset from time to
       time (Tom Lane)
 -->
-★9.0翻訳待ち
+UTCオフセットが変化するタイムゾーン略称をサポートしました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Previously, <productname>PostgreSQL</> assumed that the UTC offset
       associated with a time zone abbreviation (such as <literal>EST</>)
       never changes in the usage of any particular locale.  However this
@@ -2227,6 +2365,10 @@ Branch: REL9_0_STABLE [870a980aa] 2014-10-16 15:22:26 -0400
       abbreviations since 1970 (according to the IANA timezone database).
       In such timezones, <productname>PostgreSQL</> will now associate the
       correct UTC offset with the abbreviation depending on the given date.
+-->
+これまで<productname>PostgreSQL</>では（<literal>EST</>などの）一つのタイムゾーン略称に関連づけられたUTCオフセットは、いかなるロケールでの使用でも変化しないと仮定していました。
+しかしながら、実世界においてこの仮定は失敗しました。そこで、意味するUTCオフセットをときに変更できるタイムゾーン略称を導入しました。
+1970年以来の略称のUTCオフセットが変更されたタイムゾーンロケールで本機能を使えるように（IANAタイムゾーンデータベースに基づいて）ゾーン略称定義ファイルを刷新しました。これからは<productname>PostgreSQL</>は、略称に日付に応じた適切なUTCオフセットを関連づけます。
      </para>
     </listitem>
 
@@ -2248,10 +2390,12 @@ Branch: REL9_0_STABLE [8b70023af] 2014-12-24 16:35:54 -0500
 <!--
       Update time zone abbreviations lists (Tom Lane)
 -->
-★9.0翻訳待ち
+タイムゾーンの略称リストを更新しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Add CST (China Standard Time) to our lists.
       Remove references to ADT as <quote>Arabia Daylight Time</>, an
       abbreviation that's been out of use since 2007; therefore, claiming
@@ -2259,6 +2403,12 @@ Branch: REL9_0_STABLE [8b70023af] 2014-12-24 16:35:54 -0500
       especially helpful.
       Fix entirely incorrect GMT offsets for CKT (Cook Islands), FJT, and FJST
       (Fiji); we didn't even have them on the proper side of the date line.
+-->
+CST(中国標準時)をリストに追加しました。
+<quote>アラビア夏時間</>を意味するADTへの参照を取り除きました。
+2007年よりこの略称は使用されていませんでした。そのため、<quote>大西洋夏時間</>と競合しているという主張は全く有用ではありませんでした。
+CTK(クックアイランド)、FJTおよびFJST(フィジー)のGMTからの完全に誤ったオフセットを修正しました。
+それらは日付変更線すら適切ではありませんでした。
      </para>
     </listitem>
 
@@ -2285,10 +2435,11 @@ Branch: REL9_0_STABLE [b6391f587] 2014-10-04 14:18:43 -0400
 <!--
       Update time zone data files to <application>tzdata</> release 2015a.
 -->
-★9.0翻訳待ち
+<application>tzdata</>リリース2015aを更新しました。
      </para>
 
      <para>
+<!--
       The IANA timezone database has adopted abbreviations of the form
       <literal>A<replaceable>x</>ST</literal>/<literal>A<replaceable>x</>DT</literal>
       for all Australian time zones, reflecting what they believe to be
@@ -2300,15 +2451,27 @@ Branch: REL9_0_STABLE [b6391f587] 2014-10-04 14:18:43 -0400
       EST, SAST, SAT, and WST, all of which are thought to be mostly
       historical usage.  Note that SAST has also been changed to be South
       Africa Standard Time in the <quote>Default</> abbreviation set.
+-->
+INAMAタイムゾーンのデータベースは南半球で現在最も多く実用されていると思われるオーストラリアの全てのタイムゾーンで<literal>A<replaceable>x</>ST</literal>/<literal>A<replaceable>x</>DT</literal>書式の略称に対応しています。
+これらの名前は他の略称と競合することはありません。(1994年より使われなくなったアクレ夏時間を除く)
+その結果、これらの名前は<quote>Default</>のタイムゾーンの略称のセットに採用されました。
+<quote>Australia</> の略称セットは今では最も古くから利用されていると考えられる、CST, EAST,EST, SAST, SAT, そして WSTのみが含まれます。
+SASTは<quote>Default</>の略称セットとして南アフリカ標準時間に変更された点に注意してください。
      </para>
 
      <para>
+<!--
       Also, add zone abbreviations SRET (Asia/Srednekolymsk) and XJT
       (Asia/Urumqi), and use WSST/WSDT for western Samoa.  Also, there were
       DST law changes in Chile, Mexico, the Turks &amp; Caicos Islands
       (America/Grand_Turk), and Fiji.  There is a new zone
       Pacific/Bougainville for portions of Papua New Guinea.  Also, numerous
       corrections for historical (pre-1970) time zone data.
+-->
+SRET(アジア/スレドネコリムスク)、XJT(アジア/ウルムチ)、西サモアで使われるWSST/WSDTのタイムゾーンも追加されました。
+また、チリのメキシコ、タークス&amp;カイコス諸島、フィジーで夏時間の変更がありました。
+新しく、パプアニューギニアの太平洋時間/ブーガンビルを加えました。
+また、1970年以前の歴史的なタイムゾーンのデータを大量に集めました。
      </para>
     </listitem>
 
