@@ -965,11 +965,15 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
      Like transaction IDs, multixact IDs are implemented as a
      32-bit counter and corresponding storage, all of which requires
      careful aging management, storage cleanup, and wraparound handling.
+     There is a separate storage area which holds the list of members in
+     each multixact, which also uses a 32-bit counter and which must also
+     be managed.
 -->
 <firstterm>マルチトランザクションID</>は複数のトランザクションによる行ロックをサポートするのに使われます。
 タプルヘッダにはロック情報を格納するために限られた容量しかありませんので、二つ以上のトランザクションが同時に行をロックする時には必ず、その情報は<quote>マルチプル（訳注:複数の）トランザクションID</>、略してマルチトランザクションID、にエンコードされます。
 あるマルチトランザクションIDにどのトランザクションIDが含まれているかという情報は<filename>pg_multixact</>サブディレクトリに別に格納されており、マルチトランザクションIDのみがタプルヘッダの<structfield>xmax</>フィールドに現れます。
 トランザクションIDと同様に、マルチトランザクションIDは32ビットカウンタと対応する記憶領域として実装されており、どちらも注意深い年代管理や記憶領域の整理、周回の取り扱いが必要です。
+各マルチトランザクションにはメンバの一覧を保持する独立した記憶領域があり、そこでも32ビットカウンタを使っているので同じように管理しなければなりません。
     </para>
 
     <para>
@@ -1001,11 +1005,15 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
 <!--
      As a safety device, a whole-table vacuum scan will occur for any table
      whose multixact-age is greater than
-     <xref linkend="guc-autovacuum-multixact-freeze-max-age">.
-     This will occur even if autovacuum is nominally disabled.
+     <xref linkend="guc-autovacuum-multixact-freeze-max-age">.  Whole-table
+     vacuum scans will also occur progressively for all tables, starting with
+     those that have the oldest multixact-age, if the amount of used member
+     storage space exceeds the amount 50% of the addressible storage space.
+     Both of these kinds of whole-table scans will occur even if autovacuum is
+     nominally disabled.
 -->
 安全装置として、<xref linkend="guc-autovacuum-multixact-freeze-max-age">よりもそのマルチトランザクション年代が大きいどのテーブルに対しても、テーブル全体のバキューム走査が起こります。
-これは自動バキュームが名目上無効であっても起こります。
+メンバ記憶領域の使用量がアドレス指定可能な記憶領域の50%を越えた場合にも、テーブル全体のバキューム走査は、マルチトランザクション年代の一番古いものから始めて、すべてのテーブルに対して段階的に起こります。
     </para>
    </sect3>
   </sect2>
