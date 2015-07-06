@@ -92,6 +92,12 @@ contain_aggs_of_level_walker(Node *node,
 			return true;		/* abort the tree traversal and return true */
 		/* else fall through to examine argument */
 	}
+	if (IsA(node, GroupingFunc))
+	{
+		if (((GroupingFunc *) node)->agglevelsup == context->sublevels_up)
+			return true;
+		/* else fall through to examine argument */
+	}
 	if (IsA(node, Query))
 	{
 		/* Recurse into subselects */
@@ -156,6 +162,15 @@ locate_agg_of_level_walker(Node *node,
 			return true;		/* abort the tree traversal and return true */
 		}
 		/* else fall through to examine argument */
+	}
+	if (IsA(node, GroupingFunc))
+	{
+		if (((GroupingFunc *) node)->agglevelsup == context->sublevels_up &&
+			((GroupingFunc *) node)->location >= 0)
+		{
+			context->agg_location = ((GroupingFunc *) node)->location;
+			return true;		/* abort the tree traversal and return true */
+		}
 	}
 	if (IsA(node, Query))
 	{
@@ -426,9 +441,9 @@ OffsetVarNodes(Node *node, int offset, int sublevels_up)
 		/*
 		 * If we are starting at a Query, and sublevels_up is zero, then we
 		 * must also fix rangetable indexes in the Query itself --- namely
-		 * resultRelation and rowMarks entries.  sublevels_up cannot be zero
-		 * when recursing into a subquery, so there's no need to have the same
-		 * logic inside OffsetVarNodes_walker.
+		 * resultRelation, exclRelIndex and rowMarks entries.  sublevels_up
+		 * cannot be zero when recursing into a subquery, so there's no need
+		 * to have the same logic inside OffsetVarNodes_walker.
 		 */
 		if (sublevels_up == 0)
 		{
@@ -436,6 +451,10 @@ OffsetVarNodes(Node *node, int offset, int sublevels_up)
 
 			if (qry->resultRelation)
 				qry->resultRelation += offset;
+
+			if (qry->onConflict && qry->onConflict->exclRelIndex)
+				qry->onConflict->exclRelIndex += offset;
+
 			foreach(l, qry->rowMarks)
 			{
 				RowMarkClause *rc = (RowMarkClause *) lfirst(l);
@@ -617,6 +636,11 @@ ChangeVarNodes(Node *node, int rt_index, int new_index, int sublevels_up)
 
 			if (qry->resultRelation == rt_index)
 				qry->resultRelation = new_index;
+
+			/* this is unlikely to ever be used, but ... */
+			if (qry->onConflict && qry->onConflict->exclRelIndex == rt_index)
+				qry->onConflict->exclRelIndex = new_index;
+
 			foreach(l, qry->rowMarks)
 			{
 				RowMarkClause *rc = (RowMarkClause *) lfirst(l);
@@ -701,6 +725,14 @@ IncrementVarSublevelsUp_walker(Node *node,
 
 		if (agg->agglevelsup >= context->min_sublevels_up)
 			agg->agglevelsup += context->delta_sublevels_up;
+		/* fall through to recurse into argument */
+	}
+	if (IsA(node, GroupingFunc))
+	{
+		GroupingFunc *grp = (GroupingFunc *) node;
+
+		if (grp->agglevelsup >= context->min_sublevels_up)
+			grp->agglevelsup += context->delta_sublevels_up;
 		/* fall through to recurse into argument */
 	}
 	if (IsA(node, PlaceHolderVar))

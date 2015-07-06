@@ -222,7 +222,18 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString)
 	cxt.blist = NIL;
 	cxt.alist = NIL;
 	cxt.pkey = NULL;
-	cxt.hasoids = interpretOidsOption(stmt->options, true);
+
+	/*
+	 * Notice that we allow OIDs here only for plain tables, even though
+	 * foreign tables also support them.  This is necessary because the
+	 * default_with_oids GUC must apply only to plain tables and not any other
+	 * relkind; doing otherwise would break existing pg_dump files.  We could
+	 * allow explicit "WITH OIDS" while not allowing default_with_oids to
+	 * affect other relkinds, but it would complicate interpretOidsOption(),
+	 * and right now there's no WITH OIDS option in CREATE FOREIGN TABLE
+	 * anyway.
+	 */
+	cxt.hasoids = interpretOidsOption(stmt->options, !cxt.isforeign);
 
 	Assert(!stmt->ofTypename || !stmt->inhRelations);	/* grammar enforces */
 
@@ -1788,11 +1799,13 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 
 				Assert(IsA(inh, RangeVar));
 				rel = heap_openrv(inh, AccessShareLock);
-				if (rel->rd_rel->relkind != RELKIND_RELATION)
+				/* check user requested inheritance from valid relkind */
+				if (rel->rd_rel->relkind != RELKIND_RELATION &&
+					rel->rd_rel->relkind != RELKIND_FOREIGN_TABLE)
 					ereport(ERROR,
 							(errcode(ERRCODE_WRONG_OBJECT_TYPE),
-						   errmsg("inherited relation \"%s\" is not a table",
-								  inh->relname)));
+							 errmsg("inherited relation \"%s\" is not a table or foreign table",
+									inh->relname)));
 				for (count = 0; count < rel->rd_att->natts; count++)
 				{
 					Form_pg_attribute inhattr = rel->rd_att->attrs[count];
@@ -2372,6 +2385,7 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 	List	   *newcmds = NIL;
 	bool		skipValidation = true;
 	AlterTableCmd *newcmd;
+	RangeTblEntry *rte;
 
 	/*
 	 * We must not scribble on the passed-in AlterTableStmt, so copy it. (This
@@ -2382,10 +2396,17 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 	/* Caller is responsible for locking the relation */
 	rel = relation_open(relid, NoLock);
 
-	/* Set up pstate and CreateStmtContext */
+	/* Set up pstate */
 	pstate = make_parsestate(NULL);
 	pstate->p_sourcetext = queryString;
+	rte = addRangeTableEntryForRelation(pstate,
+										rel,
+										NULL,
+										false,
+										true);
+	addRTEtoQuery(pstate, rte, false, true, true);
 
+	/* Set up CreateStmtContext */
 	cxt.pstate = pstate;
 	if (stmt->relkind == OBJECT_FOREIGN_TABLE)
 	{
@@ -2413,8 +2434,8 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 
 	/*
 	 * The only subtypes that currently require parse transformation handling
-	 * are ADD COLUMN and ADD CONSTRAINT.  These largely re-use code from
-	 * CREATE TABLE.
+	 * are ADD COLUMN, ADD CONSTRAINT and SET DATA TYPE.  These largely re-use
+	 * code from CREATE TABLE.
 	 */
 	foreach(lcmd, stmt->cmds)
 	{
@@ -2446,6 +2467,7 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 					newcmds = lappend(newcmds, cmd);
 					break;
 				}
+
 			case AT_AddConstraint:
 
 				/*
@@ -2471,6 +2493,31 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 				cmd->subtype = AT_AddConstraint;
 				newcmds = lappend(newcmds, cmd);
 				break;
+
+			case AT_AlterColumnType:
+				{
+					ColumnDef  *def = (ColumnDef *) cmd->def;
+
+					/*
+					 * For ALTER COLUMN TYPE, transform the USING clause if
+					 * one was specified.
+					 */
+					if (def->raw_default)
+					{
+						def->cooked_default =
+							transformExpr(pstate, def->raw_default,
+										  EXPR_KIND_ALTER_COL_TRANSFORM);
+
+						/* it can't return a set */
+						if (expression_returns_set(def->cooked_default))
+							ereport(ERROR,
+									(errcode(ERRCODE_DATATYPE_MISMATCH),
+									 errmsg("transform expression must not return a set")));
+					}
+
+					newcmds = lappend(newcmds, cmd);
+					break;
+				}
 
 			default:
 				newcmds = lappend(newcmds, cmd);

@@ -37,7 +37,7 @@ SELECT [ ALL | DISTINCT [ ON ( <replaceable class="parameter">expression</replac
     [ * | <replaceable class="parameter">expression</replaceable> [ [ AS ] <replaceable class="parameter">output_name</replaceable> ] [, ...] ]
     [ FROM <replaceable class="parameter">from_item</replaceable> [, ...] ]
     [ WHERE <replaceable class="parameter">condition</replaceable> ]
-    [ GROUP BY <replaceable class="parameter">expression</replaceable> [, ...] ]
+    [ GROUP BY <replaceable class="parameter">grouping_element</replaceable> [, ...] ]
     [ HAVING <replaceable class="parameter">condition</replaceable> [, ...] ]
     [ WINDOW <replaceable class="parameter">window_name</replaceable> AS ( <replaceable class="parameter">window_definition</replaceable> ) [, ...] ]
     [ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] <replaceable class="parameter">select</replaceable> ]
@@ -49,7 +49,7 @@ SELECT [ ALL | DISTINCT [ ON ( <replaceable class="parameter">expression</replac
 
 <phrase>where <replaceable class="parameter">from_item</replaceable> can be one of:</phrase>
 
-    [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ] [ [ AS ] <replaceable class="parameter">alias</replaceable> [ ( <replaceable class="parameter">column_alias</replaceable> [, ...] ) ] ]
+    [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ] [ [ AS ] <replaceable class="parameter">alias</replaceable> [ ( <replaceable class="parameter">column_alias</replaceable> [, ...] ) ] ] [ TABLESAMPLE <replaceable class="parameter">sampling_method</replaceable> ( <replaceable class="parameter">argument</replaceable> [, ...] ) [ REPEATABLE ( <replaceable class="parameter">seed</replaceable> ) ] ]
     [ LATERAL ] ( <replaceable class="parameter">select</replaceable> ) [ AS ] <replaceable class="parameter">alias</replaceable> [ ( <replaceable class="parameter">column_alias</replaceable> [, ...] ) ]
     <replaceable class="parameter">with_query_name</replaceable> [ [ AS ] <replaceable class="parameter">alias</replaceable> [ ( <replaceable class="parameter">column_alias</replaceable> [, ...] ) ] ]
     [ LATERAL ] <replaceable class="parameter">function_name</replaceable> ( [ <replaceable class="parameter">argument</replaceable> [, ...] ] )
@@ -59,6 +59,15 @@ SELECT [ ALL | DISTINCT [ ON ( <replaceable class="parameter">expression</replac
     [ LATERAL ] ROWS FROM( <replaceable class="parameter">function_name</replaceable> ( [ <replaceable class="parameter">argument</replaceable> [, ...] ] ) [ AS ( <replaceable class="parameter">column_definition</replaceable> [, ...] ) ] [, ...] )
                 [ WITH ORDINALITY ] [ [ AS ] <replaceable class="parameter">alias</replaceable> [ ( <replaceable class="parameter">column_alias</replaceable> [, ...] ) ] ]
     <replaceable class="parameter">from_item</replaceable> [ NATURAL ] <replaceable class="parameter">join_type</replaceable> <replaceable class="parameter">from_item</replaceable> [ ON <replaceable class="parameter">join_condition</replaceable> | USING ( <replaceable class="parameter">join_column</replaceable> [, ...] ) ]
+
+<phrase>and <replaceable class="parameter">grouping_element</replaceable> can be one of:</phrase>
+
+    ( )
+    <replaceable class="parameter">expression</replaceable>
+    ( <replaceable class="parameter">expression</replaceable> [, ...] )
+    ROLLUP ( { <replaceable class="parameter">expression</replaceable> | ( <replaceable class="parameter">expression</replaceable> [, ...] ) } [, ...] )
+    CUBE ( { <replaceable class="parameter">expression</replaceable> | ( <replaceable class="parameter">expression</replaceable> [, ...] ) } [, ...] )
+    GROUPING SETS ( <replaceable class="parameter">grouping_element</replaceable> [, ...] )
 
 <phrase>and <replaceable class="parameter">with_query</replaceable> is:</phrase>
 
@@ -312,6 +321,50 @@ TABLE [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ]
         and all its descendant tables (if any) are scanned.  Optionally,
         <literal>*</> can be specified after the table name to explicitly
         indicate that descendant tables are included.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term>TABLESAMPLE <replaceable class="parameter">sampling_method</replaceable> ( <replaceable class="parameter">argument</replaceable> [, ...] ) [ REPEATABLE ( <replaceable class="parameter">seed</replaceable> ) ]</term>
+      <listitem>
+       <para>
+        Table sample clause after
+        <replaceable class="parameter">table_name</replaceable> indicates that
+        a <replaceable class="parameter">sampling_method</replaceable> should
+        be used to retrieve subset of rows in the table.
+        The <replaceable class="parameter">sampling_method</replaceable> can be
+        any sampling method installed in the database. There are currently two
+        sampling methods available in the standard
+        <productname>PostgreSQL</productname> distribution:
+        <itemizedlist>
+         <listitem>
+          <para><literal>SYSTEM</literal></para>
+         </listitem>
+         <listitem>
+          <para><literal>BERNOULLI</literal></para>
+         </listitem>
+        </itemizedlist>
+        Both of these sampling methods currently accept only single argument
+        which is the percent (floating point from 0 to 100) of the rows to
+        be returned.
+        The <literal>SYSTEM</literal> sampling method does block level
+        sampling with each block having the same chance of being selected and
+        returns all rows from each selected block.
+        The <literal>BERNOULLI</literal> scans whole table and returns
+        individual rows with equal probability. Additional sampling methods
+        may be installed in the database via extensions.
+       </para>
+       <para>
+        The optional parameter <literal>REPEATABLE</literal> uses the seed
+        parameter, which can be a number or expression producing a number, as
+        a random seed for sampling. Note that subsequent commands may return
+        different results even if same <literal>REPEATABLE</literal> clause was
+        specified. This happens because <acronym>DML</acronym> statements and
+        maintenance operations such as <command>VACUUM</> may affect physical
+        distribution of data. The <function>setseed()</> function will not
+        affect the sampling result when the <literal>REPEATABLE</literal>
+        parameter is used.
        </para>
       </listitem>
      </varlistentry>
@@ -621,20 +674,32 @@ WHERE <replaceable class="parameter">condition</replaceable>
    <para>
     The optional <literal>GROUP BY</literal> clause has the general form
 <synopsis>
-GROUP BY <replaceable class="parameter">expression</replaceable> [, ...]
+GROUP BY <replaceable class="parameter">grouping_element</replaceable> [, ...]
 </synopsis>
    </para>
 
    <para>
     <literal>GROUP BY</literal> will condense into a single row all
     selected rows that share the same values for the grouped
-    expressions.  <replaceable
-    class="parameter">expression</replaceable> can be an input column
-    name, or the name or ordinal number of an output column
-    (<command>SELECT</command> list item), or an arbitrary
+    expressions.  An <replaceable
+    class="parameter">expression</replaceable> used inside a
+    <replaceable class="parameter">grouping_element</replaceable>
+    can be an input column name, or the name or ordinal number of an
+    output column (<command>SELECT</command> list item), or an arbitrary
     expression formed from input-column values.  In case of ambiguity,
     a <literal>GROUP BY</literal> name will be interpreted as an
     input-column name rather than an output column name.
+   </para>
+
+   <para>
+    If any of <literal>GROUPING SETS</>, <literal>ROLLUP</> or
+    <literal>CUBE</> are present as grouping elements, then the
+    <literal>GROUP BY</> clause as a whole defines some number of
+    independent <replaceable>grouping sets</>.  The effect of this is
+    equivalent to constructing a <literal>UNION ALL</> between
+    subqueries with the individual grouping sets as their
+    <literal>GROUP BY</> clauses.  For further details on the handling
+    of grouping sets see <xref linkend="queries-grouping-sets">.
    </para>
 
    <para>
@@ -779,8 +844,8 @@ WINDOW <replaceable class="parameter">window_name</replaceable> AS ( <replaceabl
     The <replaceable class="parameter">frame_clause</> can be one of
 
 <synopsis>
-[ RANGE | ROWS ] <replaceable>frame_start</>
-[ RANGE | ROWS ] BETWEEN <replaceable>frame_start</> AND <replaceable>frame_end</>
+{ RANGE | ROWS } <replaceable>frame_start</>
+{ RANGE | ROWS } BETWEEN <replaceable>frame_start</> AND <replaceable>frame_end</>
 </synopsis>
 
     where <replaceable>frame_start</> and <replaceable>frame_end</> can be
@@ -1927,5 +1992,20 @@ SELECT distributors.* WHERE distributors.name = 'Westward';
     <literal>ROWS FROM( ... )</> is an extension of the SQL standard.
    </para>
   </refsect2>
+
+  <refsect2>
+   <title><literal>TABLESAMPLE</literal> clause</title>
+
+   <para>
+    The <literal>TABLESAMPLE</> clause is currently accepted only on physical
+    relations and materialized views.
+   </para>
+
+   <para>
+    Additional modules allow you to install custom sampling methods and use
+    them instead of the SQL standard methods.
+   </para>
+  </refsect2>
+
  </refsect1>
 </refentry>

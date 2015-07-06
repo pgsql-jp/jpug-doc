@@ -28,28 +28,23 @@ SUBDIRS = \
 		oid2name	\
 		pageinspect	\
 		passwordcheck	\
-		pg_archivecleanup \
 		pg_buffercache	\
 		pg_freespacemap \
 		pg_prewarm	\
 		pg_standby	\
 		pg_stat_statements \
-		pg_test_fsync	\
-		pg_test_timing	\
 		pg_trgm		\
-		pg_upgrade	\
-		pg_upgrade_support \
-		pgbench		\
 		pgcrypto	\
 		pgrowlocks	\
 		pgstattuple	\
-		pg_xlogdump	\
 		postgres_fdw	\
 		seg		\
 		spi		\
 		tablefunc	\
 		tcn		\
 		test_decoding	\
+		tsm_system_rows \
+		tsm_system_time \
 		tsearch2	\
 		unaccent	\
 		vacuumlo
@@ -76,6 +71,18 @@ ifeq ($(with_selinux),yes)
 SUBDIRS += sepgsql
 else
 ALWAYS_SUBDIRS += sepgsql
+endif
+
+ifeq ($(with_perl),yes)
+SUBDIRS += hstore_plperl
+else
+ALWAYS_SUBDIRS += hstore_plperl
+endif
+
+ifeq ($(with_python),yes)
+SUBDIRS += hstore_plpython ltree_plpython
+else
+ALWAYS_SUBDIRS += hstore_plpython ltree_plpython
 endif
 
 # Missing:

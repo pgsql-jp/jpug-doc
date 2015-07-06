@@ -26,13 +26,14 @@
 #include "catalog/pg_control.h"
 #include "common/pg_lzcompress.h"
 #include "miscadmin.h"
+#include "replication/origin.h"
 #include "storage/bufmgr.h"
 #include "storage/proc.h"
 #include "utils/memutils.h"
 #include "pg_trace.h"
 
 /* Buffer size required to store a compressed version of backup block image */
-#define PGLZ_MAX_BLCKSZ	PGLZ_MAX_OUTPUT(BLCKSZ)
+#define PGLZ_MAX_BLCKSZ PGLZ_MAX_OUTPUT(BLCKSZ)
 
 /*
  * For each block reference registered with XLogRegisterBuffer, we fill in
@@ -57,7 +58,7 @@ typedef struct
 
 	/* buffer to store a compressed version of backup block image */
 	char		compressed_page[PGLZ_MAX_BLCKSZ];
-}	registered_buffer;
+} registered_buffer;
 
 static registered_buffer *registered_buffers;
 static int	max_registered_buffers;		/* allocated size */
@@ -72,6 +73,9 @@ static XLogRecData *mainrdata_head;
 static XLogRecData *mainrdata_last = (XLogRecData *) &mainrdata_head;
 static uint32 mainrdata_len;	/* total # of bytes in chain */
 
+/* Should te in-progress insertion log the origin */
+static bool include_origin = false;
+
 /*
  * These are used to hold the record header while constructing a record.
  * 'hdr_scratch' is not a plain variable, but is palloc'd at initialization,
@@ -83,10 +87,12 @@ static uint32 mainrdata_len;	/* total # of bytes in chain */
 static XLogRecData hdr_rdt;
 static char *hdr_scratch = NULL;
 
+#define SizeOfXlogOrigin	(sizeof(RepOriginId) + sizeof(char))
+
 #define HEADER_SCRATCH_SIZE \
 	(SizeOfXLogRecord + \
 	 MaxSizeOfXLogRecordBlockHeader * (XLR_MAX_BLOCK_ID + 1) + \
-	 SizeOfXLogRecordDataHeaderLong)
+	 SizeOfXLogRecordDataHeaderLong + SizeOfXlogOrigin)
 
 /*
  * An array of XLogRecData structs, to hold registered data.
@@ -104,7 +110,7 @@ static XLogRecData *XLogRecordAssemble(RmgrId rmid, uint8 info,
 				   XLogRecPtr RedoRecPtr, bool doPageWrites,
 				   XLogRecPtr *fpw_lsn);
 static bool XLogCompressBackupBlock(char *page, uint16 hole_offset,
-									uint16 hole_length, char *dest, uint16 *dlen);
+						uint16 hole_length, char *dest, uint16 *dlen);
 
 /*
  * Begin constructing a WAL record. This must be called before the
@@ -116,11 +122,13 @@ XLogBeginInsert(void)
 	Assert(max_registered_block_id == 0);
 	Assert(mainrdata_last == (XLogRecData *) &mainrdata_head);
 	Assert(mainrdata_len == 0);
-	Assert(!begininsert_called);
 
 	/* cross-check on whether we should be here or not */
 	if (!XLogInsertAllowed())
 		elog(ERROR, "cannot make new WAL entries during recovery");
+
+	if (begininsert_called)
+		elog(ERROR, "XLogBeginInsert was already called");
 
 	begininsert_called = true;
 }
@@ -193,6 +201,7 @@ XLogResetInsertion(void)
 	max_registered_block_id = 0;
 	mainrdata_len = 0;
 	mainrdata_last = (XLogRecData *) &mainrdata_head;
+	include_origin = false;
 	begininsert_called = false;
 }
 
@@ -375,6 +384,16 @@ XLogRegisterBufData(uint8 block_id, char *data, int len)
 }
 
 /*
+ * Should this record include the replication origin if one is set up?
+ */
+void
+XLogIncludeOrigin(void)
+{
+	Assert(begininsert_called);
+	include_origin = true;
+}
+
+/*
  * Insert an XLOG record having the specified RMID and info bytes, with the
  * body of the record being the data and buffer references registered earlier
  * with XLogRegister* calls.
@@ -459,7 +478,7 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 	XLogRecData *rdt;
 	uint32		total_len = 0;
 	int			block_id;
-	pg_crc32	rdata_crc;
+	pg_crc32c	rdata_crc;
 	registered_buffer *prev_regbuf = NULL;
 	XLogRecData *rdt_datas_last;
 	XLogRecord *rechdr;
@@ -585,7 +604,10 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 											&compressed_len);
 			}
 
-			/* Fill in the remaining fields in the XLogRecordBlockHeader struct */
+			/*
+			 * Fill in the remaining fields in the XLogRecordBlockHeader
+			 * struct
+			 */
 			bkpb.fork_flags |= BKPBLOCK_HAS_IMAGE;
 
 			/*
@@ -650,10 +672,10 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 		{
 			samerel = true;
 			bkpb.fork_flags |= BKPBLOCK_SAME_REL;
-			prev_regbuf = regbuf;
 		}
 		else
 			samerel = false;
+		prev_regbuf = regbuf;
 
 		/* Ok, copy the header to the scratch buffer */
 		memcpy(scratch, &bkpb, SizeOfXLogRecordBlockHeader);
@@ -676,6 +698,14 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 		}
 		memcpy(scratch, &regbuf->block, sizeof(BlockNumber));
 		scratch += sizeof(BlockNumber);
+	}
+
+	/* followed by the record's origin, if any */
+	if (include_origin && replorigin_sesssion_origin != InvalidRepOriginId)
+	{
+		*(scratch++) = XLR_BLOCK_ID_ORIGIN;
+		memcpy(scratch, &replorigin_sesssion_origin, sizeof(replorigin_sesssion_origin));
+		scratch += sizeof(replorigin_sesssion_origin);
 	}
 
 	/* followed by main data, if any */
@@ -737,7 +767,7 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
  * the length of compressed block image.
  */
 static bool
-XLogCompressBackupBlock(char * page, uint16 hole_offset, uint16 hole_length,
+XLogCompressBackupBlock(char *page, uint16 hole_offset, uint16 hole_length,
 						char *dest, uint16 *dlen)
 {
 	int32		orig_len = BLCKSZ - hole_length;
@@ -765,16 +795,15 @@ XLogCompressBackupBlock(char * page, uint16 hole_offset, uint16 hole_length,
 		source = page;
 
 	/*
-	 * We recheck the actual size even if pglz_compress() reports success
-	 * and see if the number of bytes saved by compression is larger than
-	 * the length of extra data needed for the compressed version of block
-	 * image.
+	 * We recheck the actual size even if pglz_compress() reports success and
+	 * see if the number of bytes saved by compression is larger than the
+	 * length of extra data needed for the compressed version of block image.
 	 */
 	len = pglz_compress(source, orig_len, dest, PGLZ_strategy_default);
 	if (len >= 0 &&
 		len + extra_bytes < orig_len)
 	{
-		*dlen = (uint16) len;		/* successful compression */
+		*dlen = (uint16) len;	/* successful compression */
 		return true;
 	}
 	return false;

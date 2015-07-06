@@ -37,6 +37,7 @@
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
+#include "utils/sampling.h"
 
 PG_MODULE_MAGIC;
 
@@ -202,7 +203,7 @@ typedef struct PgFdwAnalyzeState
 	/* for random sampling */
 	double		samplerows;		/* # of rows fetched */
 	double		rowstoskip;		/* # of rows to skip before next sample */
-	double		rstate;			/* random state */
+	ReservoirStateData rstate;	/* state for reservoir sampling */
 
 	/* working memory contexts */
 	MemoryContext anl_cxt;		/* context for per-analyze lifespan data */
@@ -872,7 +873,8 @@ postgresGetForeignPlan(PlannerInfo *root,
 							local_exprs,
 							scan_relid,
 							params_list,
-							fdw_private);
+							fdw_private,
+							NIL /* no custom tlist */ );
 }
 
 /*
@@ -1171,6 +1173,7 @@ postgresPlanForeignModify(PlannerInfo *root,
 	List	   *targetAttrs = NIL;
 	List	   *returningList = NIL;
 	List	   *retrieved_attrs = NIL;
+	bool		doNothing = false;
 
 	initStringInfo(&sql);
 
@@ -1205,7 +1208,7 @@ postgresPlanForeignModify(PlannerInfo *root,
 		int			col;
 
 		col = -1;
-		while ((col = bms_next_member(rte->modifiedCols, col)) >= 0)
+		while ((col = bms_next_member(rte->updatedCols, col)) >= 0)
 		{
 			/* bit numbers are offset by FirstLowInvalidHeapAttributeNumber */
 			AttrNumber	attno = col + FirstLowInvalidHeapAttributeNumber;
@@ -1223,13 +1226,25 @@ postgresPlanForeignModify(PlannerInfo *root,
 		returningList = (List *) list_nth(plan->returningLists, subplan_index);
 
 	/*
+	 * ON CONFLICT DO UPDATE and DO NOTHING case with inference specification
+	 * should have already been rejected in the optimizer, as presently there
+	 * is no way to recognize an arbiter index on a foreign table.  Only DO
+	 * NOTHING is supported without an inference specification.
+	 */
+	if (plan->onConflictAction == ONCONFLICT_NOTHING)
+		doNothing = true;
+	else if (plan->onConflictAction != ONCONFLICT_NONE)
+		elog(ERROR, "unexpected ON CONFLICT specification: %d",
+			 (int) plan->onConflictAction);
+
+	/*
 	 * Construct the SQL command string.
 	 */
 	switch (operation)
 	{
 		case CMD_INSERT:
 			deparseInsertSql(&sql, root, resultRelation, rel,
-							 targetAttrs, returningList,
+							 targetAttrs, doNothing, returningList,
 							 &retrieved_attrs);
 			break;
 		case CMD_UPDATE:
@@ -2397,7 +2412,7 @@ postgresAcquireSampleRowsFunc(Relation relation, int elevel,
 	astate.numrows = 0;
 	astate.samplerows = 0;
 	astate.rowstoskip = -1;		/* -1 means not set yet */
-	astate.rstate = anl_init_selection_state(targrows);
+	reservoir_init_selection_state(&astate.rstate, targrows);
 
 	/* Remember ANALYZE context, and create a per-tuple temp context */
 	astate.anl_cxt = CurrentMemoryContext;
@@ -2537,13 +2552,12 @@ analyze_row_processor(PGresult *res, int row, PgFdwAnalyzeState *astate)
 		 * analyze.c; see Jeff Vitter's paper.
 		 */
 		if (astate->rowstoskip < 0)
-			astate->rowstoskip = anl_get_next_S(astate->samplerows, targrows,
-												&astate->rstate);
+			astate->rowstoskip = reservoir_get_next_S(&astate->rstate, astate->samplerows, targrows);
 
 		if (astate->rowstoskip <= 0)
 		{
 			/* Choose a random reservoir element to replace. */
-			pos = (int) (targrows * anl_random_fract());
+			pos = (int) (targrows * sampler_random_fract(astate->rstate.randstate));
 			Assert(pos >= 0 && pos < targrows);
 			heap_freetuple(astate->rows[pos]);
 		}
@@ -2720,11 +2734,11 @@ postgresImportForeignSchema(ImportForeignSchemaStmt *stmt, Oid serverOid)
 					appendStringInfoString(&buf, ", ");
 				deparseStringLiteral(&buf, rv->relname);
 			}
-			appendStringInfoString(&buf, ")");
+			appendStringInfoChar(&buf, ')');
 		}
 
 		/* Append ORDER BY at the end of query to ensure output ordering */
-		appendStringInfo(&buf, " ORDER BY c.relname, a.attnum");
+		appendStringInfoString(&buf, " ORDER BY c.relname, a.attnum");
 
 		/* Fetch the data */
 		res = PQexec(conn, buf.data);
@@ -2784,7 +2798,7 @@ postgresImportForeignSchema(ImportForeignSchemaStmt *stmt, Oid serverOid)
 				 */
 				appendStringInfoString(&buf, " OPTIONS (column_name ");
 				deparseStringLiteral(&buf, attname);
-				appendStringInfoString(&buf, ")");
+				appendStringInfoChar(&buf, ')');
 
 				/* Add COLLATE if needed */
 				if (import_collate && collname != NULL && collnamespace != NULL)
@@ -2950,8 +2964,14 @@ make_tuple_from_result_row(PGresult *res,
 
 	tuple = heap_form_tuple(tupdesc, values, nulls);
 
+	/*
+	 * If we have a CTID to return, install it in both t_self and t_ctid.
+	 * t_self is the normal place, but if the tuple is converted to a
+	 * composite Datum, t_self will be lost; setting t_ctid allows CTID to be
+	 * preserved during EvalPlanQual re-evaluations (see ROW_MARK_COPY code).
+	 */
 	if (ctid)
-		tuple->t_self = *ctid;
+		tuple->t_self = tuple->t_data->t_ctid = *ctid;
 
 	/* Clean up */
 	MemoryContextReset(temp_context);

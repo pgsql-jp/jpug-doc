@@ -47,6 +47,7 @@
 #include "catalog/pg_proc.h"
 #include "catalog/pg_rewrite.h"
 #include "catalog/pg_tablespace.h"
+#include "catalog/pg_transform.h"
 #include "catalog/pg_trigger.h"
 #include "catalog/pg_ts_config.h"
 #include "catalog/pg_ts_dict.h"
@@ -212,8 +213,8 @@ deleteObjectsInList(ObjectAddresses *targetObjects, Relation *depRel,
 		{
 			const ObjectAddress *thisobj = &targetObjects->refs[i];
 			const ObjectAddressExtra *extra = &targetObjects->extras[i];
-			bool	original = false;
-			bool	normal = false;
+			bool		original = false;
+			bool		normal = false;
 
 			if (extra->flags & DEPFLAG_ORIGINAL)
 				original = true;
@@ -1265,6 +1266,10 @@ doDeletion(const ObjectAddress *object, int flags)
 			RemovePolicyById(object->objectId);
 			break;
 
+		case OCLASS_TRANSFORM:
+			DropTransformById(object->objectId);
+			break;
+
 		default:
 			elog(ERROR, "unrecognized object class: %u",
 				 object->classId);
@@ -1596,6 +1601,24 @@ find_expr_references_walker(Node *node,
 											  ObjectIdGetDatum(objoid)))
 						add_object_address(OCLASS_TSDICT, objoid, 0,
 										   context->addrs);
+					break;
+
+				case REGNAMESPACEOID:
+					objoid = DatumGetObjectId(con->constvalue);
+					if (SearchSysCacheExists1(NAMESPACEOID,
+											  ObjectIdGetDatum(objoid)))
+						add_object_address(OCLASS_SCHEMA, objoid, 0,
+										   context->addrs);
+					break;
+
+					/*
+					 * Dependencies for regrole should be shared among all
+					 * databases, so explicitly inhibit to have dependencies.
+					 */
+				case REGROLEOID:
+					ereport(ERROR,
+							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+							 errmsg("constant of the type \'regrole\' cannot be used here")));
 					break;
 			}
 		}
@@ -2373,6 +2396,9 @@ getObjectClass(const ObjectAddress *object)
 
 		case PolicyRelationId:
 			return OCLASS_POLICY;
+
+		case TransformRelationId:
+			return OCLASS_TRANSFORM;
 	}
 
 	/* shouldn't get here */

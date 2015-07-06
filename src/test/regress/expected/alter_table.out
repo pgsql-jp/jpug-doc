@@ -289,6 +289,8 @@ Inherits: constraint_rename_test
 
 DROP TABLE constraint_rename_test2;
 DROP TABLE constraint_rename_test;
+ALTER TABLE IF EXISTS constraint_not_exist RENAME CONSTRAINT con3 TO con3foo; -- ok
+NOTICE:  relation "constraint_not_exist" does not exist, skipping
 ALTER TABLE IF EXISTS constraint_rename_test ADD CONSTRAINT con4 UNIQUE (a);
 NOTICE:  relation "constraint_rename_test" does not exist, skipping
 -- FOREIGN KEY CONSTRAINT adding TEST
@@ -1663,7 +1665,7 @@ select f3,max(f1) from foo group by f3;
 -- Simple tests for alter table column type
 alter table foo alter f1 TYPE integer; -- fails
 ERROR:  column "f1" cannot be cast automatically to type integer
-HINT:  Specify a USING expression to perform the conversion.
+HINT:  You might need to specify "USING f1::integer".
 alter table foo alter f1 TYPE varchar(10);
 create table anothertab (atcol1 serial8, atcol2 boolean,
 	constraint anothertab_chk check (atcol1 <= 3));
@@ -1678,7 +1680,10 @@ select * from anothertab;
 
 alter table anothertab alter column atcol1 type boolean; -- fails
 ERROR:  column "atcol1" cannot be cast automatically to type boolean
-HINT:  Specify a USING expression to perform the conversion.
+HINT:  You might need to specify "USING atcol1::boolean".
+alter table anothertab alter column atcol1 type boolean using atcol1::int; -- fails
+ERROR:  result of USING clause for column "atcol1" cannot be cast automatically to type boolean
+HINT:  You might need to add an explicit cast.
 alter table anothertab alter column atcol1 type integer;
 select * from anothertab;
  atcol1 | atcol2 
@@ -1955,9 +1960,9 @@ create trigger ttdummy
 	execute procedure
 	ttdummy (1, 1);
 select * from my_locks order by 1;
-  relname  |    max_lockmode     
------------+---------------------
- alterlock | AccessExclusiveLock
+  relname  |     max_lockmode      
+-----------+-----------------------
+ alterlock | ShareRowExclusiveLock
 (1 row)
 
 rollback;
@@ -1969,10 +1974,10 @@ select * from my_locks order by 1;
 
 alter table alterlock2 add foreign key (f1) references alterlock (f1);
 select * from my_locks order by 1;
-     relname     |    max_lockmode     
------------------+---------------------
- alterlock       | AccessExclusiveLock
- alterlock2      | AccessExclusiveLock
+     relname     |     max_lockmode      
+-----------------+-----------------------
+ alterlock       | ShareRowExclusiveLock
+ alterlock2      | ShareRowExclusiveLock
  alterlock2_pkey | AccessShareLock
  alterlock_pkey  | AccessShareLock
 (4 rows)
@@ -1982,10 +1987,10 @@ begin;
 alter table alterlock2
 add constraint alterlock2nv foreign key (f1) references alterlock (f1) NOT VALID;
 select * from my_locks order by 1;
-  relname   |    max_lockmode     
-------------+---------------------
- alterlock  | AccessExclusiveLock
- alterlock2 | AccessExclusiveLock
+  relname   |     max_lockmode      
+------------+-----------------------
+ alterlock  | ShareRowExclusiveLock
+ alterlock2 | ShareRowExclusiveLock
 (2 rows)
 
 commit;

@@ -89,7 +89,7 @@ ExecCreateTableAs(CreateTableAsStmt *stmt, const char *queryString,
 
 	if (stmt->if_not_exists)
 	{
-		Oid	nspid;
+		Oid			nspid;
 
 		nspid = RangeVarGetCreationNamespace(stmt->into->rel);
 
@@ -433,7 +433,7 @@ intorel_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
 	rte->requiredPerms = ACL_INSERT;
 
 	for (attnum = 1; attnum <= intoRelationDesc->rd_att->natts; attnum++)
-		rte->modifiedCols = bms_add_member(rte->modifiedCols,
+		rte->insertedCols = bms_add_member(rte->insertedCols,
 								attnum - FirstLowInvalidHeapAttributeNumber);
 
 	ExecCheckRTPerms(list_make1(rte), true);

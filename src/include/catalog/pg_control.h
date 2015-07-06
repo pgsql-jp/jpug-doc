@@ -16,8 +16,8 @@
 #define PG_CONTROL_H
 
 #include "access/xlogdefs.h"
-#include "common/pg_crc.h"
 #include "pgtime.h"				/* for pg_time_t */
+#include "port/pg_crc32c.h"
 
 
 /* Version identifier for this pg_control format */
@@ -46,8 +46,10 @@ typedef struct CheckPoint
 	MultiXactId oldestMulti;	/* cluster-wide minimum datminmxid */
 	Oid			oldestMultiDB;	/* database with minimum datminmxid */
 	pg_time_t	time;			/* time stamp of checkpoint */
-	TransactionId oldestCommitTs; /* oldest Xid with valid commit timestamp */
-	TransactionId newestCommitTs; /* newest Xid with valid commit timestamp */
+	TransactionId oldestCommitTs;		/* oldest Xid with valid commit
+										 * timestamp */
+	TransactionId newestCommitTs;		/* newest Xid with valid commit
+										 * timestamp */
 
 	/*
 	 * Oldest XID still running. This is only needed to initialize hot standby
@@ -224,7 +226,7 @@ typedef struct ControlFileData
 	uint32		data_checksum_version;
 
 	/* CRC of all above ... MUST BE LAST! */
-	pg_crc32	crc;
+	pg_crc32c	crc;
 } ControlFileData;
 
 /*

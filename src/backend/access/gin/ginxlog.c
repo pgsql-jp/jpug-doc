@@ -409,7 +409,7 @@ ginRedoSplit(XLogReaderState *record)
 
 /*
  * VACUUM_PAGE record contains simply a full image of the page, similar to
- * a XLOG_FPI record.
+ * an XLOG_FPI record.
  */
 static void
 ginRedoVacuumPage(XLogReaderState *record)
@@ -512,6 +512,7 @@ ginRedoUpdateMetapage(XLogReaderState *record)
 	Assert(BufferGetBlockNumber(metabuffer) == GIN_METAPAGE_BLKNO);
 	metapage = BufferGetPage(metabuffer);
 
+	GinInitPage(metapage, GIN_META, BufferGetPageSize(metabuffer));
 	memcpy(GinPageGetMeta(metapage), &data->metadata, sizeof(GinMetaPageData));
 	PageSetLSN(metapage, lsn);
 	MarkBufferDirty(metabuffer);

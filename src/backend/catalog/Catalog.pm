@@ -179,7 +179,7 @@ sub Catalogs
 
 					if (defined $attopt)
 					{
-						if ($attopt eq 'PG_FORCE_NULL')
+						if ($attopt eq 'BKI_FORCE_NULL')
 						{
 							$row{'forcenull'} = 1;
 						}
@@ -189,7 +189,8 @@ sub Catalogs
 						}
 						else
 						{
-							die "unknown column option $attopt on column $attname"
+							die
+"unknown column option $attopt on column $attname";
 						}
 					}
 					push @{ $catalog{columns} }, \%row;

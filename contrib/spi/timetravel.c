@@ -51,7 +51,7 @@ static EPlan *find_plan(char *ident, EPlan **eplan, int *nplans);
  *			and all other column values as in new tuple, and insert tuple
  *			with old data and stop_date eq current date
  *			ELSE - skip updation of tuple.
- *		2.  IF an delete affects tuple with stop_date eq INFINITY
+ *		2.  IF a delete affects tuple with stop_date eq INFINITY
  *			then insert the same tuple with stop_date eq current date
  *			[ and delete_user eq current user ]
  *			ELSE - skip deletion of tuple.
@@ -174,7 +174,7 @@ timetravel(PG_FUNCTION_ARGS)
 	}
 
 	/* create fields containing name */
-	newuser = CStringGetTextDatum(GetUserNameFromId(GetUserId()));
+	newuser = CStringGetTextDatum(GetUserNameFromId(GetUserId(), false));
 
 	nulltext = (Datum) NULL;
 

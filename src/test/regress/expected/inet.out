@@ -390,6 +390,25 @@ SELECT * FROM inet_tbl WHERE i <> '192.168.1.0/24'::cidr ORDER BY i;
  10:23::8000/113    | 10:23::ffff
 (16 rows)
 
+-- test index-only scans
+EXPLAIN (COSTS OFF)
+SELECT i FROM inet_tbl WHERE i << '192.168.1.0/24'::cidr ORDER BY i;
+                    QUERY PLAN                     
+---------------------------------------------------
+ Sort
+   Sort Key: i
+   ->  Index Only Scan using inet_idx2 on inet_tbl
+         Index Cond: (i << '192.168.1.0/24'::inet)
+(4 rows)
+
+SELECT i FROM inet_tbl WHERE i << '192.168.1.0/24'::cidr ORDER BY i;
+        i         
+------------------
+ 192.168.1.0/25
+ 192.168.1.255/25
+ 192.168.1.226
+(3 rows)
+
 SET enable_seqscan TO on;
 DROP INDEX inet_idx2;
 -- simple tests of inet boolean and arithmetic operators
@@ -594,4 +613,32 @@ SELECT '127::1'::inet - '127::2'::inet;
 ----------
        -1
 (1 row)
+
+-- insert one more row with addressed from different families
+INSERT INTO INET_TBL (c, i) VALUES ('10', '10::/8');
+-- now, this one should fail
+SELECT inet_merge(c, i) FROM INET_TBL;
+ERROR:  cannot merge addresses from different families
+-- fix it by inet_same_family() condition
+SELECT inet_merge(c, i) FROM INET_TBL WHERE inet_same_family(c, i);
+   inet_merge    
+-----------------
+ 192.168.1.0/24
+ 192.168.1.0/24
+ 192.168.1.0/24
+ 192.168.1.0/24
+ 192.168.1.0/24
+ 192.168.1.0/24
+ 10.0.0.0/8
+ 10.0.0.0/8
+ 10.1.2.3/32
+ 10.1.2.0/24
+ 10.1.0.0/16
+ 10.0.0.0/8
+ 10.0.0.0/7
+ 8.0.0.0/6
+ 10:23::/64
+ 10:23::8000/113
+ ::/24
+(17 rows)
 

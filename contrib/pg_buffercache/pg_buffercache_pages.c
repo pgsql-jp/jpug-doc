@@ -34,6 +34,7 @@ typedef struct
 	bool		isvalid;
 	bool		isdirty;
 	uint16		usagecount;
+
 	/*
 	 * An int32 is sufficiently large, as MAX_BACKENDS prevents a buffer from
 	 * being pinned by too many backends and each backend will only pin once
@@ -142,7 +143,7 @@ pg_buffercache_pages(PG_FUNCTION_ARGS)
 			LWLockAcquire(BufMappingPartitionLockByIndex(i), LW_SHARED);
 
 		/*
-		 * Scan though all the buffers, saving the relevant fields in the
+		 * Scan through all the buffers, saving the relevant fields in the
 		 * fctx->record structure.
 		 */
 		for (i = 0; i < NBuffers; i++)

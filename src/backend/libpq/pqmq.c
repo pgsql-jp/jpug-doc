@@ -16,12 +16,15 @@
 #include "libpq/libpq.h"
 #include "libpq/pqformat.h"
 #include "libpq/pqmq.h"
+#include "miscadmin.h"
 #include "tcop/tcopprot.h"
 #include "utils/builtins.h"
 
 static shm_mq *pq_mq;
 static shm_mq_handle *pq_mq_handle;
 static bool pq_mq_busy = false;
+static pid_t pq_mq_parallel_master_pid = 0;
+static pid_t pq_mq_parallel_master_backend_id = InvalidBackendId;
 
 static void mq_comm_reset(void);
 static int	mq_flush(void);
@@ -55,6 +58,18 @@ pq_redirect_to_shm_mq(shm_mq *mq, shm_mq_handle *mqh)
 	pq_mq_handle = mqh;
 	whereToSendOutput = DestRemote;
 	FrontendProtocol = PG_PROTOCOL_LATEST;
+}
+
+/*
+ * Arrange to SendProcSignal() to the parallel master each time we transmit
+ * message data via the shm_mq.
+ */
+void
+pq_set_parallel_master(pid_t pid, BackendId backend_id)
+{
+	Assert(PqCommMethods == &PqCommMqMethods);
+	pq_mq_parallel_master_pid = pid;
+	pq_mq_parallel_master_backend_id = backend_id;
 }
 
 static void
@@ -92,17 +107,16 @@ mq_is_send_pending(void)
 static int
 mq_putmessage(char msgtype, const char *s, size_t len)
 {
-	shm_mq_iovec	iov[2];
-	shm_mq_result	result;
+	shm_mq_iovec iov[2];
+	shm_mq_result result;
 
 	/*
-	 * If we're sending a message, and we have to wait because the
-	 * queue is full, and then we get interrupted, and that interrupt
-	 * results in trying to send another message, we respond by detaching
-	 * the queue.  There's no way to return to the original context, but
-	 * even if there were, just queueing the message would amount to
-	 * indefinitely postponing the response to the interrupt.  So we do
-	 * this instead.
+	 * If we're sending a message, and we have to wait because the queue is
+	 * full, and then we get interrupted, and that interrupt results in trying
+	 * to send another message, we respond by detaching the queue.  There's no
+	 * way to return to the original context, but even if there were, just
+	 * queueing the message would amount to indefinitely postponing the
+	 * response to the interrupt.  So we do this instead.
 	 */
 	if (pq_mq_busy)
 	{
@@ -120,7 +134,23 @@ mq_putmessage(char msgtype, const char *s, size_t len)
 	iov[1].len = len;
 
 	Assert(pq_mq_handle != NULL);
-	result = shm_mq_sendv(pq_mq_handle, iov, 2, false);
+
+	for (;;)
+	{
+		result = shm_mq_sendv(pq_mq_handle, iov, 2, true);
+
+		if (pq_mq_parallel_master_pid != 0)
+			SendProcSignal(pq_mq_parallel_master_pid,
+						   PROCSIG_PARALLEL_MESSAGE,
+						   pq_mq_parallel_master_backend_id);
+
+		if (result != SHM_MQ_WOULD_BLOCK)
+			break;
+
+		WaitLatch(&MyProc->procLatch, WL_LATCH_SET, 0);
+		CHECK_FOR_INTERRUPTS();
+		ResetLatch(&MyProc->procLatch);
+	}
 
 	pq_mq_busy = false;
 
@@ -135,10 +165,10 @@ mq_putmessage_noblock(char msgtype, const char *s, size_t len)
 {
 	/*
 	 * While the shm_mq machinery does support sending a message in
-	 * non-blocking mode, there's currently no way to try sending beginning
-	 * to send the message that doesn't also commit us to completing the
-	 * transmission.  This could be improved in the future, but for now
-	 * we don't need it.
+	 * non-blocking mode, there's currently no way to try sending beginning to
+	 * send the message that doesn't also commit us to completing the
+	 * transmission.  This could be improved in the future, but for now we
+	 * don't need it.
 	 */
 	elog(ERROR, "not currently supported");
 }
@@ -170,7 +200,7 @@ pq_parse_errornotice(StringInfo msg, ErrorData *edata)
 	/* Loop over fields and extract each one. */
 	for (;;)
 	{
-		char	code = pq_getmsgbyte(msg);
+		char		code = pq_getmsgbyte(msg);
 		const char *value;
 
 		if (code == '\0')
@@ -184,9 +214,9 @@ pq_parse_errornotice(StringInfo msg, ErrorData *edata)
 		{
 			case PG_DIAG_SEVERITY:
 				if (strcmp(value, "DEBUG") == 0)
-					edata->elevel = DEBUG1;	/* or some other DEBUG level */
+					edata->elevel = DEBUG1;		/* or some other DEBUG level */
 				else if (strcmp(value, "LOG") == 0)
-					edata->elevel = LOG;	/* can't be COMMERROR */
+					edata->elevel = LOG;		/* can't be COMMERROR */
 				else if (strcmp(value, "INFO") == 0)
 					edata->elevel = INFO;
 				else if (strcmp(value, "NOTICE") == 0)

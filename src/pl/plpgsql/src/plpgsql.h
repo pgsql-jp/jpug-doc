@@ -94,6 +94,7 @@ enum PLpgSQL_stmt_types
 	PLPGSQL_STMT_RETURN_NEXT,
 	PLPGSQL_STMT_RETURN_QUERY,
 	PLPGSQL_STMT_RAISE,
+	PLPGSQL_STMT_ASSERT,
 	PLPGSQL_STMT_EXECSQL,
 	PLPGSQL_STMT_DYNEXECUTE,
 	PLPGSQL_STMT_DYNFORS,
@@ -182,6 +183,7 @@ typedef struct
 	char		typtype;
 	Oid			typrelid;
 	Oid			collation;		/* from pg_type, but can be overridden */
+	bool		typisarray;		/* is "true" array, or domain over one */
 	int32		atttypmod;		/* typmod (taken from someplace else) */
 } PLpgSQL_type;
 
@@ -215,6 +217,7 @@ typedef struct PLpgSQL_expr
 	char	   *query;
 	SPIPlanPtr	plan;
 	Bitmapset  *paramnos;		/* all dnos referenced by this query */
+	int			rwparam;		/* dno of read/write param, or -1 if none */
 
 	/* function containing this expr (not set until we first parse query) */
 	struct PLpgSQL_function *func;
@@ -630,6 +633,13 @@ typedef struct
 	PLpgSQL_expr *expr;
 } PLpgSQL_raise_option;
 
+typedef struct
+{								/* ASSERT statement */
+	int			cmd_type;
+	int			lineno;
+	PLpgSQL_expr *cond;
+	PLpgSQL_expr *message;
+} PLpgSQL_stmt_assert;
 
 typedef struct
 {								/* Generic SQL statement to execute */
@@ -889,6 +899,8 @@ extern int	plpgsql_variable_conflict;
 
 extern bool plpgsql_print_strict_params;
 
+extern bool plpgsql_check_asserts;
+
 /* extra compile-time checks */
 #define PLPGSQL_XCHECK_NONE			0
 #define PLPGSQL_XCHECK_SHADOWVAR	1
@@ -1013,7 +1025,7 @@ extern int	plpgsql_peek(void);
 extern void plpgsql_peek2(int *tok1_p, int *tok2_p, int *tok1_loc,
 			  int *tok2_loc);
 extern int	plpgsql_scanner_errposition(int location);
-extern void plpgsql_yyerror(const char *message);
+extern void plpgsql_yyerror(const char *message) pg_attribute_noreturn();
 extern int	plpgsql_location_to_lineno(int location);
 extern int	plpgsql_latest_lineno(void);
 extern void plpgsql_scanner_init(const char *str);

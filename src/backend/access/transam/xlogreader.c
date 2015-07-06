@@ -21,6 +21,7 @@
 #include "access/xlogreader.h"
 #include "catalog/pg_control.h"
 #include "common/pg_lzcompress.h"
+#include "replication/origin.h"
 
 static bool allocate_recordbuf(XLogReaderState *state, uint32 reclength);
 
@@ -32,11 +33,7 @@ static bool ValidXLogRecord(XLogReaderState *state, XLogRecord *record,
 				XLogRecPtr recptr);
 static int ReadPageInternal(XLogReaderState *state, XLogRecPtr pageptr,
 				 int reqLen);
-static void
-report_invalid_record(XLogReaderState *state, const char *fmt,...)
-/* This extension allows gcc to check the format string for consistency with
-   the supplied arguments. */
-pg_attribute_printf(2, 3);
+static void report_invalid_record(XLogReaderState *state, const char *fmt,...) pg_attribute_printf(2, 3);
 
 static void ResetDecoder(XLogReaderState *state);
 
@@ -62,15 +59,18 @@ report_invalid_record(XLogReaderState *state, const char *fmt,...)
 /*
  * Allocate and initialize a new XLogReader.
  *
- * The returned XLogReader is palloc'd. (In FRONTEND code, that means that
- * running out-of-memory causes an immediate exit(1).
+ * Returns NULL if the xlogreader couldn't be allocated.
  */
 XLogReaderState *
 XLogReaderAllocate(XLogPageReadCB pagereadfunc, void *private_data)
 {
 	XLogReaderState *state;
 
-	state = (XLogReaderState *) palloc0(sizeof(XLogReaderState));
+	state = (XLogReaderState *)
+		palloc_extended(sizeof(XLogReaderState),
+						MCXT_ALLOC_NO_OOM | MCXT_ALLOC_ZERO);
+	if (!state)
+		return NULL;
 
 	state->max_block_id = -1;
 
@@ -78,17 +78,30 @@ XLogReaderAllocate(XLogPageReadCB pagereadfunc, void *private_data)
 	 * Permanently allocate readBuf.  We do it this way, rather than just
 	 * making a static array, for two reasons: (1) no need to waste the
 	 * storage in most instantiations of the backend; (2) a static char array
-	 * isn't guaranteed to have any particular alignment, whereas palloc()
-	 * will provide MAXALIGN'd storage.
+	 * isn't guaranteed to have any particular alignment, whereas
+	 * palloc_extended() will provide MAXALIGN'd storage.
 	 */
-	state->readBuf = (char *) palloc(XLOG_BLCKSZ);
+	state->readBuf = (char *) palloc_extended(XLOG_BLCKSZ,
+											  MCXT_ALLOC_NO_OOM);
+	if (!state->readBuf)
+	{
+		pfree(state);
+		return NULL;
+	}
 
 	state->read_page = pagereadfunc;
 	/* system_identifier initialized to zeroes above */
 	state->private_data = private_data;
 	/* ReadRecPtr and EndRecPtr initialized to zeroes above */
 	/* readSegNo, readOff, readLen, readPageTLI initialized to zeroes above */
-	state->errormsg_buf = palloc(MAX_ERRORMSG_LEN + 1);
+	state->errormsg_buf = palloc_extended(MAX_ERRORMSG_LEN + 1,
+										  MCXT_ALLOC_NO_OOM);
+	if (!state->errormsg_buf)
+	{
+		pfree(state->readBuf);
+		pfree(state);
+		return NULL;
+	}
 	state->errormsg_buf[0] = '\0';
 
 	/*
@@ -150,7 +163,13 @@ allocate_recordbuf(XLogReaderState *state, uint32 reclength)
 
 	if (state->readRecordBuf)
 		pfree(state->readRecordBuf);
-	state->readRecordBuf = (char *) palloc(newSize);
+	state->readRecordBuf =
+		(char *) palloc_extended(newSize, MCXT_ALLOC_NO_OOM);
+	if (state->readRecordBuf == NULL)
+	{
+		state->readRecordBufSize = 0;
+		return false;
+	}
 	state->readRecordBufSize = newSize;
 	return true;
 }
@@ -647,7 +666,7 @@ ValidXLogRecordHeader(XLogReaderState *state, XLogRecPtr RecPtr,
 static bool
 ValidXLogRecord(XLogReaderState *state, XLogRecord *record, XLogRecPtr recptr)
 {
-	pg_crc32	crc;
+	pg_crc32c	crc;
 
 	/* Calculate the CRC */
 	INIT_CRC32C(crc);
@@ -957,6 +976,7 @@ DecodeXLogRecord(XLogReaderState *state, XLogRecord *record, char **errormsg)
 	ResetDecoder(state);
 
 	state->decoded_record = record;
+	state->record_origin = InvalidRepOriginId;
 
 	ptr = (char *) record;
 	ptr += SizeOfXLogRecord;
@@ -990,6 +1010,10 @@ DecodeXLogRecord(XLogReaderState *state, XLogRecord *record, char **errormsg)
 			datatotal += main_data_len;
 			break;				/* by convention, the main data fragment is
 								 * always last */
+		}
+		else if (block_id == XLR_BLOCK_ID_ORIGIN)
+		{
+			COPY_HEADER_FIELD(&state->record_origin, sizeof(RepOriginId));
 		}
 		else if (block_id <= XLR_MAX_BLOCK_ID)
 		{
@@ -1062,50 +1086,53 @@ DecodeXLogRecord(XLogReaderState *state, XLogRecord *record, char **errormsg)
 					 blk->bimg_len == BLCKSZ))
 				{
 					report_invalid_record(state,
-					  "BKPIMAGE_HAS_HOLE set, but hole offset %u length %u block image length %u at %X/%X",
+										  "BKPIMAGE_HAS_HOLE set, but hole offset %u length %u block image length %u at %X/%X",
 										  (unsigned int) blk->hole_offset,
 										  (unsigned int) blk->hole_length,
 										  (unsigned int) blk->bimg_len,
 										  (uint32) (state->ReadRecPtr >> 32), (uint32) state->ReadRecPtr);
 					goto err;
 				}
+
 				/*
-				 * cross-check that hole_offset == 0 and hole_length == 0
-				 * if the HAS_HOLE flag is not set.
+				 * cross-check that hole_offset == 0 and hole_length == 0 if
+				 * the HAS_HOLE flag is not set.
 				 */
 				if (!(blk->bimg_info & BKPIMAGE_HAS_HOLE) &&
 					(blk->hole_offset != 0 || blk->hole_length != 0))
 				{
 					report_invalid_record(state,
-					  "BKPIMAGE_HAS_HOLE not set, but hole offset %u length %u at %X/%X",
+										  "BKPIMAGE_HAS_HOLE not set, but hole offset %u length %u at %X/%X",
 										  (unsigned int) blk->hole_offset,
 										  (unsigned int) blk->hole_length,
 										  (uint32) (state->ReadRecPtr >> 32), (uint32) state->ReadRecPtr);
 					goto err;
 				}
+
 				/*
-				 * cross-check that bimg_len < BLCKSZ
-				 * if the IS_COMPRESSED flag is set.
+				 * cross-check that bimg_len < BLCKSZ if the IS_COMPRESSED
+				 * flag is set.
 				 */
 				if ((blk->bimg_info & BKPIMAGE_IS_COMPRESSED) &&
 					blk->bimg_len == BLCKSZ)
 				{
 					report_invalid_record(state,
-					  "BKPIMAGE_IS_COMPRESSED set, but block image length %u at %X/%X",
+										  "BKPIMAGE_IS_COMPRESSED set, but block image length %u at %X/%X",
 										  (unsigned int) blk->bimg_len,
 										  (uint32) (state->ReadRecPtr >> 32), (uint32) state->ReadRecPtr);
 					goto err;
 				}
+
 				/*
-				 * cross-check that bimg_len = BLCKSZ if neither
-				 * HAS_HOLE nor IS_COMPRESSED flag is set.
+				 * cross-check that bimg_len = BLCKSZ if neither HAS_HOLE nor
+				 * IS_COMPRESSED flag is set.
 				 */
 				if (!(blk->bimg_info & BKPIMAGE_HAS_HOLE) &&
 					!(blk->bimg_info & BKPIMAGE_IS_COMPRESSED) &&
 					blk->bimg_len != BLCKSZ)
 				{
 					report_invalid_record(state,
-					  "neither BKPIMAGE_HAS_HOLE nor BKPIMAGE_IS_COMPRESSED set, but block image length is %u at %X/%X",
+										  "neither BKPIMAGE_HAS_HOLE nor BKPIMAGE_IS_COMPRESSED set, but block image length is %u at %X/%X",
 										  (unsigned int) blk->data_len,
 										  (uint32) (state->ReadRecPtr >> 32), (uint32) state->ReadRecPtr);
 					goto err;
@@ -1270,8 +1297,8 @@ bool
 RestoreBlockImage(XLogReaderState *record, uint8 block_id, char *page)
 {
 	DecodedBkpBlock *bkpb;
-	char   *ptr;
-	char	tmp[BLCKSZ];
+	char	   *ptr;
+	char		tmp[BLCKSZ];
 
 	if (!record->blocks[block_id].in_use)
 		return false;

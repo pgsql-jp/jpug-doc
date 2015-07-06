@@ -82,6 +82,12 @@ static void show_merge_append_keys(MergeAppendState *mstate, List *ancestors,
 					   ExplainState *es);
 static void show_agg_keys(AggState *astate, List *ancestors,
 			  ExplainState *es);
+static void show_grouping_sets(PlanState *planstate, Agg *agg,
+				   List *ancestors, ExplainState *es);
+static void show_grouping_set_keys(PlanState *planstate,
+					   Agg *aggnode, Sort *sortnode,
+					   List *context, bool useprefix,
+					   List *ancestors, ExplainState *es);
 static void show_group_keys(GroupState *gstate, List *ancestors,
 				ExplainState *es);
 static void show_sort_group_keys(PlanState *planstate, const char *qlabel,
@@ -103,11 +109,14 @@ static void ExplainIndexScanDetails(Oid indexid, ScanDirection indexorderdir,
 static void ExplainScanTarget(Scan *plan, ExplainState *es);
 static void ExplainModifyTarget(ModifyTable *plan, ExplainState *es);
 static void ExplainTargetRel(Plan *plan, Index rti, ExplainState *es);
-static void show_modifytable_info(ModifyTableState *mtstate, ExplainState *es);
+static void show_modifytable_info(ModifyTableState *mtstate, List *ancestors,
+					  ExplainState *es);
 static void ExplainMemberNodes(List *plans, PlanState **planstates,
 				   List *ancestors, ExplainState *es);
 static void ExplainSubPlans(List *plans, List *ancestors,
 				const char *relationship, ExplainState *es);
+static void ExplainCustomChildren(CustomScanState *css,
+								  List *ancestors, ExplainState *es);
 static void ExplainProperty(const char *qlabel, const char *value,
 				bool numeric, ExplainState *es);
 static void ExplainOpenGroup(const char *objtype, const char *labelname,
@@ -730,14 +739,24 @@ ExplainPreScanNode(PlanState *planstate, Bitmapset **rels_used)
 		case T_ValuesScan:
 		case T_CteScan:
 		case T_WorkTableScan:
-		case T_ForeignScan:
-		case T_CustomScan:
+		case T_SampleScan:
 			*rels_used = bms_add_member(*rels_used,
 										((Scan *) plan)->scanrelid);
+			break;
+		case T_ForeignScan:
+			*rels_used = bms_add_members(*rels_used,
+										 ((ForeignScan *) plan)->fs_relids);
+			break;
+		case T_CustomScan:
+			*rels_used = bms_add_members(*rels_used,
+									   ((CustomScan *) plan)->custom_relids);
 			break;
 		case T_ModifyTable:
 			*rels_used = bms_add_member(*rels_used,
 									((ModifyTable *) plan)->nominalRelation);
+			if (((ModifyTable *) plan)->exclRelRTI)
+				*rels_used = bms_add_member(*rels_used,
+										 ((ModifyTable *) plan)->exclRelRTI);
 			break;
 		default:
 			break;
@@ -957,6 +976,23 @@ ExplainNode(PlanState *planstate, List *ancestors,
 			else
 				pname = sname;
 			break;
+		case T_SampleScan:
+			{
+				/*
+				 * Fetch the tablesample method name from RTE.
+				 *
+				 * It would be nice to also show parameters, but since we
+				 * support arbitrary expressions as parameter it might get
+				 * quite messy.
+				 */
+				RangeTblEntry *rte;
+
+				rte = rt_fetch(((SampleScan *) plan)->scanrelid, es->rtable);
+				custom_name = get_tablesample_method_name(rte->tablesample->tsmid);
+				pname = psprintf("Sample Scan (%s)", custom_name);
+				sname = "Sample Scan";
+			}
+			break;
 		case T_Material:
 			pname = sname = "Materialize";
 			break;
@@ -1072,8 +1108,14 @@ ExplainNode(PlanState *planstate, List *ancestors,
 		case T_ValuesScan:
 		case T_CteScan:
 		case T_WorkTableScan:
+			ExplainScanTarget((Scan *) plan, es);
+			break;
 		case T_ForeignScan:
 		case T_CustomScan:
+			if (((Scan *) plan)->scanrelid > 0)
+				ExplainScanTarget((Scan *) plan, es);
+			break;
+		case T_SampleScan:
 			ExplainScanTarget((Scan *) plan, es);
 			break;
 		case T_IndexScan:
@@ -1326,6 +1368,7 @@ ExplainNode(PlanState *planstate, List *ancestors,
 		case T_CteScan:
 		case T_WorkTableScan:
 		case T_SubqueryScan:
+		case T_SampleScan:
 			show_scan_qual(plan->qual, "Filter", planstate, ancestors, es);
 			if (plan->qual)
 				show_instrumentation_count("Rows Removed by Filter", 1,
@@ -1457,7 +1500,8 @@ ExplainNode(PlanState *planstate, List *ancestors,
 										   planstate, es);
 			break;
 		case T_ModifyTable:
-			show_modifytable_info((ModifyTableState *) planstate, es);
+			show_modifytable_info((ModifyTableState *) planstate, ancestors,
+								  es);
 			break;
 		case T_Hash:
 			show_hash_info((HashState *) planstate, es);
@@ -1582,6 +1626,8 @@ ExplainNode(PlanState *planstate, List *ancestors,
 		IsA(plan, BitmapAnd) ||
 		IsA(plan, BitmapOr) ||
 		IsA(plan, SubqueryScan) ||
+		(IsA(planstate, CustomScanState) &&
+		 ((CustomScanState *) planstate)->custom_ps != NIL) ||
 		planstate->subPlan;
 	if (haschildren)
 	{
@@ -1635,6 +1681,10 @@ ExplainNode(PlanState *planstate, List *ancestors,
 		case T_SubqueryScan:
 			ExplainNode(((SubqueryScanState *) planstate)->subplan, ancestors,
 						"Subquery", NULL, es);
+			break;
+		case T_CustomScan:
+			ExplainCustomChildren((CustomScanState *) planstate,
+								  ancestors, es);
 			break;
 		default:
 			break;
@@ -1816,16 +1866,114 @@ show_agg_keys(AggState *astate, List *ancestors,
 {
 	Agg		   *plan = (Agg *) astate->ss.ps.plan;
 
-	if (plan->numCols > 0)
+	if (plan->numCols > 0 || plan->groupingSets)
 	{
 		/* The key columns refer to the tlist of the child plan */
 		ancestors = lcons(astate, ancestors);
-		show_sort_group_keys(outerPlanState(astate), "Group Key",
-							 plan->numCols, plan->grpColIdx,
-							 NULL, NULL, NULL,
-							 ancestors, es);
+
+		if (plan->groupingSets)
+			show_grouping_sets(outerPlanState(astate), plan, ancestors, es);
+		else
+			show_sort_group_keys(outerPlanState(astate), "Group Key",
+								 plan->numCols, plan->grpColIdx,
+								 NULL, NULL, NULL,
+								 ancestors, es);
+
 		ancestors = list_delete_first(ancestors);
 	}
+}
+
+static void
+show_grouping_sets(PlanState *planstate, Agg *agg,
+				   List *ancestors, ExplainState *es)
+{
+	List	   *context;
+	bool		useprefix;
+	ListCell   *lc;
+
+	/* Set up deparsing context */
+	context = set_deparse_context_planstate(es->deparse_cxt,
+											(Node *) planstate,
+											ancestors);
+	useprefix = (list_length(es->rtable) > 1 || es->verbose);
+
+	ExplainOpenGroup("Grouping Sets", "Grouping Sets", false, es);
+
+	show_grouping_set_keys(planstate, agg, NULL,
+						   context, useprefix, ancestors, es);
+
+	foreach(lc, agg->chain)
+	{
+		Agg		   *aggnode = lfirst(lc);
+		Sort	   *sortnode = (Sort *) aggnode->plan.lefttree;
+
+		show_grouping_set_keys(planstate, aggnode, sortnode,
+							   context, useprefix, ancestors, es);
+	}
+
+	ExplainCloseGroup("Grouping Sets", "Grouping Sets", false, es);
+}
+
+static void
+show_grouping_set_keys(PlanState *planstate,
+					   Agg *aggnode, Sort *sortnode,
+					   List *context, bool useprefix,
+					   List *ancestors, ExplainState *es)
+{
+	Plan	   *plan = planstate->plan;
+	char	   *exprstr;
+	ListCell   *lc;
+	List	   *gsets = aggnode->groupingSets;
+	AttrNumber *keycols = aggnode->grpColIdx;
+
+	ExplainOpenGroup("Grouping Set", NULL, true, es);
+
+	if (sortnode)
+	{
+		show_sort_group_keys(planstate, "Sort Key",
+							 sortnode->numCols, sortnode->sortColIdx,
+							 sortnode->sortOperators, sortnode->collations,
+							 sortnode->nullsFirst,
+							 ancestors, es);
+		if (es->format == EXPLAIN_FORMAT_TEXT)
+			es->indent++;
+	}
+
+	ExplainOpenGroup("Group Keys", "Group Keys", false, es);
+
+	foreach(lc, gsets)
+	{
+		List	   *result = NIL;
+		ListCell   *lc2;
+
+		foreach(lc2, (List *) lfirst(lc))
+		{
+			Index		i = lfirst_int(lc2);
+			AttrNumber	keyresno = keycols[i];
+			TargetEntry *target = get_tle_by_resno(plan->targetlist,
+												   keyresno);
+
+			if (!target)
+				elog(ERROR, "no tlist entry for key %d", keyresno);
+			/* Deparse the expression, showing any top-level cast */
+			exprstr = deparse_expression((Node *) target->expr, context,
+										 useprefix, true);
+
+			result = lappend(result, exprstr);
+		}
+
+		if (!result && es->format == EXPLAIN_FORMAT_TEXT)
+			ExplainPropertyText("Group Key", "()", es);
+		else
+			ExplainPropertyListNested("Group Key", result, es);
+	}
+
+	ExplainCloseGroup("Group Keys", "Group Keys", false, es);
+
+	if (sortnode && es->format == EXPLAIN_FORMAT_TEXT)
+		es->indent--;
+
+	ExplainCloseGroup("Grouping Set", NULL, true, es);
 }
 
 /*
@@ -2187,6 +2335,10 @@ ExplainScanTarget(Scan *plan, ExplainState *es)
 
 /*
  * Show the target of a ModifyTable node
+ *
+ * Here we show the nominal target (ie, the relation that was named in the
+ * original query).  If the actual target(s) is/are different, we'll show them
+ * in show_modifytable_info().
  */
 static void
 ExplainModifyTarget(ModifyTable *plan, ExplainState *es)
@@ -2220,6 +2372,7 @@ ExplainTargetRel(Plan *plan, Index rti, ExplainState *es)
 		case T_TidScan:
 		case T_ForeignScan:
 		case T_CustomScan:
+		case T_SampleScan:
 		case T_ModifyTable:
 			/* Assert it's on a real relation */
 			Assert(rte->rtekind == RTE_RELATION);
@@ -2303,30 +2456,159 @@ ExplainTargetRel(Plan *plan, Index rti, ExplainState *es)
 
 /*
  * Show extra information for a ModifyTable node
+ *
+ * We have three objectives here.  First, if there's more than one target
+ * table or it's different from the nominal target, identify the actual
+ * target(s).  Second, give FDWs a chance to display extra info about foreign
+ * targets.  Third, show information about ON CONFLICT.
  */
 static void
-show_modifytable_info(ModifyTableState *mtstate, ExplainState *es)
+show_modifytable_info(ModifyTableState *mtstate, List *ancestors,
+					  ExplainState *es)
 {
-	FdwRoutine *fdwroutine = mtstate->resultRelInfo->ri_FdwRoutine;
+	ModifyTable *node = (ModifyTable *) mtstate->ps.plan;
+	const char *operation;
+	const char *foperation;
+	bool		labeltargets;
+	int			j;
+	List	   *idxNames = NIL;
+	ListCell   *lst;
 
-	/*
-	 * If the first target relation is a foreign table, call its FDW to
-	 * display whatever additional fields it wants to.  For now, we ignore the
-	 * possibility of other targets being foreign tables, although the API for
-	 * ExplainForeignModify is designed to allow them to be processed.
-	 */
-	if (fdwroutine != NULL &&
-		fdwroutine->ExplainForeignModify != NULL)
+	switch (node->operation)
 	{
-		ModifyTable *node = (ModifyTable *) mtstate->ps.plan;
-		List	   *fdw_private = (List *) linitial(node->fdwPrivLists);
-
-		fdwroutine->ExplainForeignModify(mtstate,
-										 mtstate->resultRelInfo,
-										 fdw_private,
-										 0,
-										 es);
+		case CMD_INSERT:
+			operation = "Insert";
+			foperation = "Foreign Insert";
+			break;
+		case CMD_UPDATE:
+			operation = "Update";
+			foperation = "Foreign Update";
+			break;
+		case CMD_DELETE:
+			operation = "Delete";
+			foperation = "Foreign Delete";
+			break;
+		default:
+			operation = "???";
+			foperation = "Foreign ???";
+			break;
 	}
+
+	/* Should we explicitly label target relations? */
+	labeltargets = (mtstate->mt_nplans > 1 ||
+					(mtstate->mt_nplans == 1 &&
+	   mtstate->resultRelInfo->ri_RangeTableIndex != node->nominalRelation));
+
+	if (labeltargets)
+		ExplainOpenGroup("Target Tables", "Target Tables", false, es);
+
+	for (j = 0; j < mtstate->mt_nplans; j++)
+	{
+		ResultRelInfo *resultRelInfo = mtstate->resultRelInfo + j;
+		FdwRoutine *fdwroutine = resultRelInfo->ri_FdwRoutine;
+
+		if (labeltargets)
+		{
+			/* Open a group for this target */
+			ExplainOpenGroup("Target Table", NULL, true, es);
+
+			/*
+			 * In text mode, decorate each target with operation type, so that
+			 * ExplainTargetRel's output of " on foo" will read nicely.
+			 */
+			if (es->format == EXPLAIN_FORMAT_TEXT)
+			{
+				appendStringInfoSpaces(es->str, es->indent * 2);
+				appendStringInfoString(es->str,
+									   fdwroutine ? foperation : operation);
+			}
+
+			/* Identify target */
+			ExplainTargetRel((Plan *) node,
+							 resultRelInfo->ri_RangeTableIndex,
+							 es);
+
+			if (es->format == EXPLAIN_FORMAT_TEXT)
+			{
+				appendStringInfoChar(es->str, '\n');
+				es->indent++;
+			}
+		}
+
+		/* Give FDW a chance */
+		if (fdwroutine && fdwroutine->ExplainForeignModify != NULL)
+		{
+			List	   *fdw_private = (List *) list_nth(node->fdwPrivLists, j);
+
+			fdwroutine->ExplainForeignModify(mtstate,
+											 resultRelInfo,
+											 fdw_private,
+											 j,
+											 es);
+		}
+
+		if (labeltargets)
+		{
+			/* Undo the indentation we added in text format */
+			if (es->format == EXPLAIN_FORMAT_TEXT)
+				es->indent--;
+
+			/* Close the group */
+			ExplainCloseGroup("Target Table", NULL, true, es);
+		}
+	}
+
+	/* Gather names of ON CONFLICT arbiter indexes */
+	foreach(lst, node->arbiterIndexes)
+	{
+		char	   *indexname = get_rel_name(lfirst_oid(lst));
+
+		idxNames = lappend(idxNames, indexname);
+	}
+
+	if (node->onConflictAction != ONCONFLICT_NONE)
+	{
+		ExplainProperty("Conflict Resolution",
+						node->onConflictAction == ONCONFLICT_NOTHING ?
+						"NOTHING" : "UPDATE",
+						false, es);
+
+		/*
+		 * Don't display arbiter indexes at all when DO NOTHING variant
+		 * implicitly ignores all conflicts
+		 */
+		if (idxNames)
+			ExplainPropertyList("Conflict Arbiter Indexes", idxNames, es);
+
+		/* ON CONFLICT DO UPDATE WHERE qual is specially displayed */
+		if (node->onConflictWhere)
+		{
+			show_upper_qual((List *) node->onConflictWhere, "Conflict Filter",
+							&mtstate->ps, ancestors, es);
+			show_instrumentation_count("Rows Removed by Conflict Filter", 1, &mtstate->ps, es);
+		}
+
+		/* EXPLAIN ANALYZE display of actual outcome for each tuple proposed */
+		if (es->analyze && mtstate->ps.instrument)
+		{
+			double		total;
+			double		insert_path;
+			double		other_path;
+
+			InstrEndLoop(mtstate->mt_plans[0]->instrument);
+
+			/* count the number of source rows */
+			total = mtstate->mt_plans[0]->instrument->ntuples;
+			other_path = mtstate->ps.instrument->nfiltered2;
+			insert_path = total - other_path;
+
+			ExplainPropertyFloat("Tuples Inserted", insert_path, 0, es);
+			ExplainPropertyFloat("Conflicting Tuples", other_path, 0, es);
+		}
+	}
+
+	if (labeltargets)
+		ExplainCloseGroup("Target Tables", "Target Tables", false, es);
 }
 
 /*
@@ -2371,6 +2653,20 @@ ExplainSubPlans(List *plans, List *ancestors,
 		ExplainNode(sps->planstate, ancestors,
 					relationship, sp->plan_name, es);
 	}
+}
+
+/*
+ * Explain a list of children of a CustomScan.
+ */
+static void
+ExplainCustomChildren(CustomScanState *css, List *ancestors, ExplainState *es)
+{
+	ListCell   *cell;
+	const char *label =
+		(list_length(css->custom_ps) != 1 ? "children" : "child");
+
+	foreach (cell, css->custom_ps)
+		ExplainNode((PlanState *) lfirst(cell), ancestors, label, NULL, es);
 }
 
 /*
@@ -2439,6 +2735,52 @@ ExplainPropertyList(const char *qlabel, List *data, ExplainState *es)
 				appendStringInfoString(es->str, "- ");
 				escape_yaml(es->str, (const char *) lfirst(lc));
 			}
+			break;
+	}
+}
+
+/*
+ * Explain a property that takes the form of a list of unlabeled items within
+ * another list.  "data" is a list of C strings.
+ */
+void
+ExplainPropertyListNested(const char *qlabel, List *data, ExplainState *es)
+{
+	ListCell   *lc;
+	bool		first = true;
+
+	switch (es->format)
+	{
+		case EXPLAIN_FORMAT_TEXT:
+		case EXPLAIN_FORMAT_XML:
+			ExplainPropertyList(qlabel, data, es);
+			return;
+
+		case EXPLAIN_FORMAT_JSON:
+			ExplainJSONLineEnding(es);
+			appendStringInfoSpaces(es->str, es->indent * 2);
+			appendStringInfoChar(es->str, '[');
+			foreach(lc, data)
+			{
+				if (!first)
+					appendStringInfoString(es->str, ", ");
+				escape_json(es->str, (const char *) lfirst(lc));
+				first = false;
+			}
+			appendStringInfoChar(es->str, ']');
+			break;
+
+		case EXPLAIN_FORMAT_YAML:
+			ExplainYAMLLineStarting(es);
+			appendStringInfoString(es->str, "- [");
+			foreach(lc, data)
+			{
+				if (!first)
+					appendStringInfoString(es->str, ", ");
+				escape_yaml(es->str, (const char *) lfirst(lc));
+				first = false;
+			}
+			appendStringInfoChar(es->str, ']');
 			break;
 	}
 }

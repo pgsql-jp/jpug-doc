@@ -34,7 +34,7 @@
 
 
 /* txid will be signed int8 in database, so must limit to 63 bits */
-#define MAX_TXID   UINT64CONST(0x7FFFFFFFFFFFFFFF)
+#define MAX_TXID   ((uint64) PG_INT64_MAX)
 
 /* Use unsigned variant internally */
 typedef uint64 txid;
@@ -142,8 +142,10 @@ cmp_txid(const void *aa, const void *bb)
 static void
 sort_snapshot(TxidSnapshot *snap)
 {
-	txid	last = 0;
-	int		nxip, idx1, idx2;
+	txid		last = 0;
+	int			nxip,
+				idx1,
+				idx2;
 
 	if (snap->nxip > 1)
 	{

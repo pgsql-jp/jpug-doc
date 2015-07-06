@@ -77,10 +77,10 @@
 #include "utils/memutils.h"
 
 
-static int my_sock_read(BIO *h, char *buf, int size);
-static int my_sock_write(BIO *h, const char *buf, int size);
+static int	my_sock_read(BIO *h, char *buf, int size);
+static int	my_sock_write(BIO *h, const char *buf, int size);
 static BIO_METHOD *my_BIO_s_socket(void);
-static int my_SSL_set_fd(Port *port, int fd);
+static int	my_SSL_set_fd(Port *port, int fd);
 
 static DH  *load_dh_file(int keylength);
 static DH  *load_dh_buffer(const char *, size_t);
@@ -89,6 +89,8 @@ static int	verify_cb(int, X509_STORE_CTX *);
 static void info_cb(const SSL *ssl, int type, int args);
 static void initialize_ecdh(void);
 static const char *SSLerrmessage(void);
+
+static char *X509_NAME_to_cstring(X509_NAME *name);
 
 /* are we in the middle of a renegotiation? */
 static bool in_ssl_renegotiation = false;
@@ -351,7 +353,6 @@ be_tls_open_server(Port *port)
 				(errcode(ERRCODE_PROTOCOL_VIOLATION),
 				 errmsg("could not initialize SSL connection: %s",
 						SSLerrmessage())));
-		be_tls_close(port);
 		return -1;
 	}
 	if (!my_SSL_set_fd(port, port->sock))
@@ -360,7 +361,6 @@ be_tls_open_server(Port *port)
 				(errcode(ERRCODE_PROTOCOL_VIOLATION),
 				 errmsg("could not set SSL socket: %s",
 						SSLerrmessage())));
-		be_tls_close(port);
 		return -1;
 	}
 	port->ssl_in_use = true;
@@ -417,7 +417,6 @@ aloop:
 								err)));
 				break;
 		}
-		be_tls_close(port);
 		return -1;
 	}
 
@@ -447,7 +446,6 @@ aloop:
 			{
 				/* shouldn't happen */
 				pfree(peer_cn);
-				be_tls_close(port);
 				return -1;
 			}
 
@@ -461,7 +459,6 @@ aloop:
 						(errcode(ERRCODE_PROTOCOL_VIOLATION),
 						 errmsg("SSL certificate's common name contains embedded null")));
 				pfree(peer_cn);
-				be_tls_close(port);
 				return -1;
 			}
 
@@ -574,10 +571,9 @@ be_tls_write(Port *port, void *ptr, size_t len, int *waitfor)
 	int			err;
 
 	/*
-	 * If SSL renegotiations are enabled and we're getting close to the
-	 * limit, start one now; but avoid it if there's one already in
-	 * progress.  Request the renegotiation 1kB before the limit has
-	 * actually expired.
+	 * If SSL renegotiations are enabled and we're getting close to the limit,
+	 * start one now; but avoid it if there's one already in progress.
+	 * Request the renegotiation 1kB before the limit has actually expired.
 	 */
 	if (ssl_renegotiation_limit && !in_ssl_renegotiation &&
 		port->count > (ssl_renegotiation_limit - 1) * 1024L)
@@ -586,12 +582,12 @@ be_tls_write(Port *port, void *ptr, size_t len, int *waitfor)
 
 		/*
 		 * The way we determine that a renegotiation has completed is by
-		 * observing OpenSSL's internal renegotiation counter.  Make sure
-		 * we start out at zero, and assume that the renegotiation is
-		 * complete when the counter advances.
+		 * observing OpenSSL's internal renegotiation counter.  Make sure we
+		 * start out at zero, and assume that the renegotiation is complete
+		 * when the counter advances.
 		 *
-		 * OpenSSL provides SSL_renegotiation_pending(), but this doesn't
-		 * seem to work in testing.
+		 * OpenSSL provides SSL_renegotiation_pending(), but this doesn't seem
+		 * to work in testing.
 		 */
 		SSL_clear_num_renegotiations(port->ssl);
 
@@ -661,9 +657,9 @@ be_tls_write(Port *port, void *ptr, size_t len, int *waitfor)
 		}
 
 		/*
-		 * if renegotiation is still ongoing, and we've gone beyond the
-		 * limit, kill the connection now -- continuing to use it can be
-		 * considered a security problem.
+		 * if renegotiation is still ongoing, and we've gone beyond the limit,
+		 * kill the connection now -- continuing to use it can be considered a
+		 * security problem.
 		 */
 		if (in_ssl_renegotiation &&
 			port->count > ssl_renegotiation_limit * 1024L)
@@ -703,7 +699,7 @@ my_sock_read(BIO *h, char *buf, int size)
 
 	if (buf != NULL)
 	{
-		res = secure_raw_read(((Port *)h->ptr), buf, size);
+		res = secure_raw_read(((Port *) h->ptr), buf, size);
 		BIO_clear_retry_flags(h);
 		if (res <= 0)
 		{
@@ -1039,4 +1035,106 @@ SSLerrmessage(void)
 		return errreason;
 	snprintf(errbuf, sizeof(errbuf), _("SSL error code %lu"), errcode);
 	return errbuf;
+}
+
+/*
+ * Return information about the SSL connection
+ */
+int
+be_tls_get_cipher_bits(Port *port)
+{
+	int			bits;
+
+	if (port->ssl)
+	{
+		SSL_get_cipher_bits(port->ssl, &bits);
+		return bits;
+	}
+	else
+		return 0;
+}
+
+bool
+be_tls_get_compression(Port *port)
+{
+	if (port->ssl)
+		return (SSL_get_current_compression(port->ssl) != NULL);
+	else
+		return false;
+}
+
+void
+be_tls_get_version(Port *port, char *ptr, size_t len)
+{
+	if (port->ssl)
+		strlcpy(ptr, SSL_get_version(port->ssl), len);
+	else
+		ptr[0] = '\0';
+}
+
+void
+be_tls_get_cipher(Port *port, char *ptr, size_t len)
+{
+	if (port->ssl)
+		strlcpy(ptr, SSL_get_cipher(port->ssl), len);
+	else
+		ptr[0] = '\0';
+}
+
+void
+be_tls_get_peerdn_name(Port *port, char *ptr, size_t len)
+{
+	if (port->peer)
+		strlcpy(ptr, X509_NAME_to_cstring(X509_get_subject_name(port->peer)), len);
+	else
+		ptr[0] = '\0';
+}
+
+/*
+ * Convert an X509 subject name to a cstring.
+ *
+ */
+static char *
+X509_NAME_to_cstring(X509_NAME *name)
+{
+	BIO		   *membuf = BIO_new(BIO_s_mem());
+	int			i,
+				nid,
+				count = X509_NAME_entry_count(name);
+	X509_NAME_ENTRY *e;
+	ASN1_STRING *v;
+	const char *field_name;
+	size_t		size;
+	char		nullterm;
+	char	   *sp;
+	char	   *dp;
+	char	   *result;
+
+	(void) BIO_set_close(membuf, BIO_CLOSE);
+	for (i = 0; i < count; i++)
+	{
+		e = X509_NAME_get_entry(name, i);
+		nid = OBJ_obj2nid(X509_NAME_ENTRY_get_object(e));
+		v = X509_NAME_ENTRY_get_data(e);
+		field_name = OBJ_nid2sn(nid);
+		if (!field_name)
+			field_name = OBJ_nid2ln(nid);
+		BIO_printf(membuf, "/%s=", field_name);
+		ASN1_STRING_print_ex(membuf, v,
+							 ((ASN1_STRFLGS_RFC2253 & ~ASN1_STRFLGS_ESC_MSB)
+							  | ASN1_STRFLGS_UTF8_CONVERT));
+	}
+
+	/* ensure null termination of the BIO's content */
+	nullterm = '\0';
+	BIO_write(membuf, &nullterm, 1);
+	size = BIO_get_mem_data(membuf, &sp);
+	dp = pg_any_to_server(sp, size - 1, PG_UTF8);
+
+	result = pstrdup(dp);
+	if (dp != sp)
+		pfree(dp);
+	BIO_free(membuf);
+
+	return result;
 }

@@ -18,10 +18,7 @@
 
 extern bool setQFout(const char *fname);
 
-extern void
-psql_error(const char *fmt,...)
-/* This lets gcc check the format string for consistency. */
-pg_attribute_printf(1, 2);
+extern void psql_error(const char *fmt,...) pg_attribute_printf(1, 2);
 
 extern void NoticeProcessor(void *arg, const char *message);
 
@@ -39,7 +36,7 @@ extern void SetCancelConn(void);
 extern void ResetCancelConn(void);
 
 extern PGresult *PSQLexec(const char *query);
-extern int PSQLexecWatch(const char *query, const printQueryOpt *opt);
+extern int	PSQLexecWatch(const char *query, const printQueryOpt *opt);
 
 extern bool SendQuery(const char *query);
 
@@ -48,5 +45,7 @@ extern bool standard_strings(void);
 extern const char *session_username(void);
 
 extern void expand_tilde(char **filename);
+
+extern bool recognized_connection_string(const char *connstr);
 
 #endif   /* COMMON_H */

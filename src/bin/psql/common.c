@@ -491,7 +491,7 @@ int
 PSQLexecWatch(const char *query, const printQueryOpt *opt)
 {
 	PGresult   *res;
-	double	elapsed_msec = 0;
+	double		elapsed_msec = 0;
 	instr_time	before;
 	instr_time	after;
 
@@ -524,10 +524,9 @@ PSQLexecWatch(const char *query, const printQueryOpt *opt)
 	}
 
 	/*
-	 * If SIGINT is sent while the query is processing, the interrupt
-	 * will be consumed.  The user's intention, though, is to cancel
-	 * the entire watch process, so detect a sent cancellation request and
-	 * exit in this case.
+	 * If SIGINT is sent while the query is processing, the interrupt will be
+	 * consumed.  The user's intention, though, is to cancel the entire watch
+	 * process, so detect a sent cancellation request and exit in this case.
 	 */
 	if (cancel_pressed)
 	{
@@ -1337,7 +1336,7 @@ ExecQueryUsingCursor(const char *query, double *elapsed_msec)
 			 * If query requires multiple result sets, hack to ensure that
 			 * only one pager instance is used for the whole mess
 			 */
-			pset.queryFout = PageOutput(100000, my_popt.topt.pager);
+			pset.queryFout = PageOutput(100000, &(my_popt.topt));
 			did_pager = true;
 		}
 
@@ -1845,4 +1844,45 @@ expand_tilde(char **filename)
 #endif
 
 	return;
+}
+
+/*
+ * Checks if connection string starts with either of the valid URI prefix
+ * designators.
+ *
+ * Returns the URI prefix length, 0 if the string doesn't contain a URI prefix.
+ *
+ * XXX This is a duplicate of the eponymous libpq function.
+ */
+static int
+uri_prefix_length(const char *connstr)
+{
+	/* The connection URI must start with either of the following designators: */
+	static const char uri_designator[] = "postgresql://";
+	static const char short_uri_designator[] = "postgres://";
+
+	if (strncmp(connstr, uri_designator,
+				sizeof(uri_designator) - 1) == 0)
+		return sizeof(uri_designator) - 1;
+
+	if (strncmp(connstr, short_uri_designator,
+				sizeof(short_uri_designator) - 1) == 0)
+		return sizeof(short_uri_designator) - 1;
+
+	return 0;
+}
+
+/*
+ * Recognized connection string either starts with a valid URI prefix or
+ * contains a "=" in it.
+ *
+ * Must be consistent with parse_connection_string: anything for which this
+ * returns true should at least look like it's parseable by that routine.
+ *
+ * XXX This is a duplicate of the eponymous libpq function.
+ */
+bool
+recognized_connection_string(const char *connstr)
+{
+	return uri_prefix_length(connstr) != 0 || strchr(connstr, '=') != NULL;
 }

@@ -130,7 +130,7 @@ BackgroundWorkerShmemInit(void)
 		/*
 		 * Copy contents of worker list into shared memory.  Record the shared
 		 * memory slot assigned to each worker.  This ensures a 1-to-1
-		 * correspondence betwen the postmaster's private list and the array
+		 * correspondence between the postmaster's private list and the array
 		 * in shared memory.
 		 */
 		slist_foreach(siter, &BackgroundWorkerList)
@@ -254,15 +254,15 @@ BackgroundWorkerStateChange(void)
 		}
 
 		/*
-		 * If the worker is marked for termination, we don't need to add it
-		 * to the registered workers list; we can just free the slot.
-		 * However, if bgw_notify_pid is set, the process that registered the
-		 * worker may need to know that we've processed the terminate request,
-		 * so be sure to signal it.
+		 * If the worker is marked for termination, we don't need to add it to
+		 * the registered workers list; we can just free the slot. However, if
+		 * bgw_notify_pid is set, the process that registered the worker may
+		 * need to know that we've processed the terminate request, so be sure
+		 * to signal it.
 		 */
 		if (slot->terminate)
 		{
-			int	notify_pid;
+			int			notify_pid;
 
 			/*
 			 * We need a memory barrier here to make sure that the load of
@@ -341,7 +341,7 @@ BackgroundWorkerStateChange(void)
 		rw->rw_terminate = false;
 
 		/* Log it! */
-		ereport(LOG,
+		ereport(DEBUG1,
 				(errmsg("registering background worker \"%s\"",
 						rw->rw_worker.bgw_name)));
 
@@ -370,7 +370,7 @@ ForgetBackgroundWorker(slist_mutable_iter *cur)
 	slot = &BackgroundWorkerData->slot[rw->rw_shmem_slot];
 	slot->in_use = false;
 
-	ereport(LOG,
+	ereport(DEBUG1,
 			(errmsg("unregistering background worker \"%s\"",
 					rw->rw_worker.bgw_name)));
 
@@ -419,21 +419,28 @@ BackgroundWorkerStopNotifications(pid_t pid)
 /*
  * Reset background worker crash state.
  *
- * We assume that, after a crash-and-restart cycle, background workers should
- * be restarted immediately, instead of waiting for bgw_restart_time to
- * elapse.
+ * We assume that, after a crash-and-restart cycle, background workers without
+ * the never-restart flag should be restarted immediately, instead of waiting
+ * for bgw_restart_time to elapse.
  */
 void
 ResetBackgroundWorkerCrashTimes(void)
 {
-	slist_mutable_iter	iter;
+	slist_mutable_iter iter;
 
 	slist_foreach_modify(iter, &BackgroundWorkerList)
 	{
 		RegisteredBgWorker *rw;
 
 		rw = slist_container(RegisteredBgWorker, rw_lnode, iter.cur);
-		rw->rw_crashed_at = 0;
+
+		/*
+		 * For workers that should not be restarted, we don't want to lose the
+		 * information that they have crashed; otherwise, they would be
+		 * restarted, which is wrong.
+		 */
+		if (rw->rw_worker.bgw_restart_time != BGW_NEVER_RESTART)
+			rw->rw_crashed_at = 0;
 	}
 }
 
@@ -672,7 +679,8 @@ StartBackgroundWorker(void)
 		/*
 		 * Early initialization.  Some of this could be useful even for
 		 * background workers that aren't using shared memory, but they can
-		 * call the individual startup routines for those subsystems if needed.
+		 * call the individual startup routines for those subsystems if
+		 * needed.
 		 */
 		BaseInit();
 
@@ -733,7 +741,7 @@ RegisterBackgroundWorker(BackgroundWorker *worker)
 	static int	numworkers = 0;
 
 	if (!IsUnderPostmaster)
-		ereport(LOG,
+		ereport(DEBUG1,
 		 (errmsg("registering background worker \"%s\"", worker->bgw_name)));
 
 	if (!process_shared_preload_libraries_in_progress)
@@ -975,6 +983,56 @@ WaitForBackgroundWorkerStartup(BackgroundWorkerHandle *handle, pid_t *pidp)
 			}
 
 			ResetLatch(MyLatch);
+		}
+	}
+	PG_CATCH();
+	{
+		set_latch_on_sigusr1 = save_set_latch_on_sigusr1;
+		PG_RE_THROW();
+	}
+	PG_END_TRY();
+
+	set_latch_on_sigusr1 = save_set_latch_on_sigusr1;
+	return status;
+}
+
+/*
+ * Wait for a background worker to stop.
+ *
+ * If the worker hasn't yet started, or is running, we wait for it to stop
+ * and then return BGWH_STOPPED.  However, if the postmaster has died, we give
+ * up and return BGWH_POSTMASTER_DIED, because it's the postmaster that
+ * notifies us when a worker's state changes.
+ */
+BgwHandleStatus
+WaitForBackgroundWorkerShutdown(BackgroundWorkerHandle *handle)
+{
+	BgwHandleStatus status;
+	int			rc;
+	bool		save_set_latch_on_sigusr1;
+
+	save_set_latch_on_sigusr1 = set_latch_on_sigusr1;
+	set_latch_on_sigusr1 = true;
+
+	PG_TRY();
+	{
+		for (;;)
+		{
+			pid_t		pid;
+
+			CHECK_FOR_INTERRUPTS();
+
+			status = GetBackgroundWorkerPid(handle, &pid);
+			if (status == BGWH_STOPPED)
+				return status;
+
+			rc = WaitLatch(&MyProc->procLatch,
+						   WL_LATCH_SET | WL_POSTMASTER_DEATH, 0);
+
+			if (rc & WL_POSTMASTER_DEATH)
+				return BGWH_POSTMASTER_DIED;
+
+			ResetLatch(&MyProc->procLatch);
 		}
 	}
 	PG_CATCH();

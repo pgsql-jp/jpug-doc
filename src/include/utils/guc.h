@@ -121,26 +121,36 @@ typedef enum
 } GucSource;
 
 /*
- * Parsing the configuration file will return a list of name-value pairs
- * with source location info.
+ * Parsing the configuration file(s) will return a list of name-value pairs
+ * with source location info.  We also abuse this data structure to carry
+ * error reports about the config files.  An entry reporting an error will
+ * have errmsg != NULL, and might have NULLs for name, value, and/or filename.
+ *
+ * If "ignore" is true, don't attempt to apply the item (it might be an error
+ * report, or an item we determined to be duplicate).  "applied" is set true
+ * if we successfully applied, or could have applied, the setting.
  */
 typedef struct ConfigVariable
 {
 	char	   *name;
 	char	   *value;
+	char	   *errmsg;
 	char	   *filename;
 	int			sourceline;
+	bool		ignore;
+	bool		applied;
 	struct ConfigVariable *next;
 } ConfigVariable;
 
-extern bool ParseConfigFile(const char *config_file, const char *calling_file,
-				bool strict, int depth, int elevel,
+extern bool ParseConfigFile(const char *config_file, bool strict,
+				const char *calling_file, int calling_lineno,
+				int depth, int elevel,
 				ConfigVariable **head_p, ConfigVariable **tail_p);
 extern bool ParseConfigFp(FILE *fp, const char *config_file,
 			  int depth, int elevel,
 			  ConfigVariable **head_p, ConfigVariable **tail_p);
 extern bool ParseConfigDirectory(const char *includedir,
-					 const char *calling_file,
+					 const char *calling_file, int calling_lineno,
 					 int depth, int elevel,
 					 ConfigVariable **head_p,
 					 ConfigVariable **tail_p);
@@ -202,7 +212,8 @@ typedef enum
 #define GUC_SUPERUSER_ONLY		0x0100	/* show only to superusers */
 #define GUC_IS_NAME				0x0200	/* limit string to NAMEDATALEN-1 */
 #define GUC_NOT_WHILE_SEC_REST	0x0400	/* can't set if security restricted */
-#define GUC_DISALLOW_IN_AUTO_FILE 0x0800 /* can't set in PG_AUTOCONF_FILENAME */
+#define GUC_DISALLOW_IN_AUTO_FILE 0x0800		/* can't set in
+												 * PG_AUTOCONF_FILENAME */
 
 #define GUC_UNIT_KB				0x1000	/* value is in kilobytes */
 #define GUC_UNIT_BLOCKS			0x2000	/* value is in blocks */
@@ -246,7 +257,6 @@ extern int	temp_file_limit;
 extern int	num_temp_buffers;
 
 extern char *cluster_name;
-extern char *data_directory;
 extern char *ConfigFileName;
 extern char *HbaFileName;
 extern char *IdentFileName;
@@ -257,6 +267,10 @@ extern char *application_name;
 extern int	tcp_keepalives_idle;
 extern int	tcp_keepalives_interval;
 extern int	tcp_keepalives_count;
+
+#ifdef TRACE_SORT
+extern bool trace_sort;
+#endif
 
 /*
  * Functions exported by guc.c
@@ -351,7 +365,8 @@ extern int set_config_option(const char *name, const char *value,
 				  GucAction action, bool changeVal, int elevel,
 				  bool is_reload);
 extern void AlterSystemSetConfigFile(AlterSystemStmt *setstmt);
-extern char *GetConfigOptionByName(const char *name, const char **varname);
+extern char *GetConfigOptionByName(const char *name, const char **varname,
+					  bool missing_ok);
 extern void GetConfigOptionByNum(int varnum, const char **values, bool *noshow);
 extern int	GetNumConfigOptions(void);
 

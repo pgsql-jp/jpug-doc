@@ -224,6 +224,10 @@ SELECT count(*) FROM radix_text_tbl WHERE t >    'Worth                         
 
 SELECT count(*) FROM radix_text_tbl WHERE t ~>~  'Worth                         St  ';
 
+SELECT * FROM gpolygon_tbl ORDER BY f1 <-> '(0,0)'::point LIMIT 10;
+
+SELECT circle_center(f1), round(radius(f1)) as radius FROM gcircle_tbl ORDER BY f1 <-> '(200,300)'::point LIMIT 10;
+
 -- Now check the results from plain indexscan
 SET enable_seqscan = OFF;
 SET enable_indexscan = ON;
@@ -436,6 +440,14 @@ SELECT count(*) FROM radix_text_tbl WHERE t >    'Worth                         
 EXPLAIN (COSTS OFF)
 SELECT count(*) FROM radix_text_tbl WHERE t ~>~  'Worth                         St  ';
 SELECT count(*) FROM radix_text_tbl WHERE t ~>~  'Worth                         St  ';
+
+EXPLAIN (COSTS OFF)
+SELECT * FROM gpolygon_tbl ORDER BY f1 <-> '(0,0)'::point LIMIT 10;
+SELECT * FROM gpolygon_tbl ORDER BY f1 <-> '(0,0)'::point LIMIT 10;
+
+EXPLAIN (COSTS OFF)
+SELECT circle_center(f1), round(radius(f1)) as radius FROM gcircle_tbl ORDER BY f1 <-> '(200,300)'::point LIMIT 10;
+SELECT circle_center(f1), round(radius(f1)) as radius FROM gcircle_tbl ORDER BY f1 <-> '(200,300)'::point LIMIT 10;
 
 -- Now check the results from bitmap indexscan
 SET enable_seqscan = OFF;
@@ -671,6 +683,10 @@ CREATE INDEX hash_name_index ON hash_name_heap USING hash (random name_ops);
 CREATE INDEX hash_txt_index ON hash_txt_heap USING hash (random text_ops);
 
 CREATE INDEX hash_f8_index ON hash_f8_heap USING hash (random float8_ops);
+
+CREATE UNLOGGED TABLE unlogged_hash_table (id int4);
+CREATE INDEX unlogged_hash_index ON unlogged_hash_table USING hash (id int4_ops);
+DROP TABLE unlogged_hash_table;
 
 -- CREATE INDEX hash_ovfl_index ON hash_ovfl_heap USING hash (x int4_ops);
 
@@ -964,6 +980,14 @@ RESET enable_indexscan;
 
 explain (costs off)
   select * from tenk1 where (thousand, tenthous) in ((1,1001), (null,null));
+
+--
+-- REINDEX (VERBOSE)
+--
+CREATE TABLE reindex_verbose(id integer primary key);
+\set VERBOSITY terse
+REINDEX (VERBOSE) TABLE reindex_verbose;
+DROP TABLE reindex_verbose;
 
 --
 -- REINDEX SCHEMA

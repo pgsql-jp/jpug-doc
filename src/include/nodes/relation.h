@@ -260,6 +260,9 @@ typedef struct PlannerInfo
 
 	/* optional private data for join_search_hook, e.g., GEQO */
 	void	   *join_search_private;
+
+	/* for GroupingFunc fixup in setrefs */
+	AttrNumber *grouping_map;
 } PlannerInfo;
 
 
@@ -318,8 +321,9 @@ typedef struct PlannerInfo
  *			   clauses have been applied (ie, output rows of a plan for it)
  *		width - avg. number of bytes per tuple in the relation after the
  *				appropriate projections have been done (ie, output width)
- *		consider_startup - true if there is any value in keeping paths for
+ *		consider_startup - true if there is any value in keeping plain paths for
  *						   this rel on the basis of having cheap startup cost
+ *		consider_param_startup - the same for parameterized paths
  *		reltargetlist - List of Var and PlaceHolderVar nodes for the values
  *						we need to output from this relation.
  *						List is in no particular order, but all rels of an
@@ -365,16 +369,20 @@ typedef struct PlannerInfo
  *		subplan - plan for subquery (NULL if it's not a subquery)
  *		subroot - PlannerInfo for subquery (NULL if it's not a subquery)
  *		subplan_params - list of PlannerParamItems to be passed to subquery
- *		fdwroutine - function hooks for FDW, if foreign table (else NULL)
- *		fdw_private - private state for FDW, if foreign table (else NULL)
  *
  *		Note: for a subquery, tuples, subplan, subroot are not set immediately
  *		upon creation of the RelOptInfo object; they are filled in when
- *		set_subquery_pathlist processes the object.  Likewise, fdwroutine
- *		and fdw_private are filled during initial path creation.
+ *		set_subquery_pathlist processes the object.
  *
  *		For otherrels that are appendrel members, these fields are filled
  *		in just as for a baserel.
+ *
+ * If the relation is either a foreign table or a join of foreign tables that
+ * all belong to the same foreign server, these fields will be set:
+ *
+ *		serverid - OID of foreign server, if foreign table (else InvalidOid)
+ *		fdwroutine - function hooks for FDW, if foreign table (else NULL)
+ *		fdw_private - private state for FDW, if foreign table (else NULL)
  *
  * The presence of the remaining fields depends on the restrictions
  * and joins that the relation participates in:
@@ -430,6 +438,7 @@ typedef struct RelOptInfo
 
 	/* per-relation planner control flags */
 	bool		consider_startup;		/* keep cheap-startup-cost paths? */
+	bool		consider_param_startup; /* ditto, for parameterized paths? */
 
 	/* materialization information */
 	List	   *reltargetlist;	/* Vars to be output by scan of relation */
@@ -459,9 +468,12 @@ typedef struct RelOptInfo
 	struct Plan *subplan;		/* if subquery */
 	PlannerInfo *subroot;		/* if subquery */
 	List	   *subplan_params; /* if subquery */
+
+	/* Information about foreign tables and foreign joins */
+	Oid			serverid;		/* identifies server for the table or join */
 	/* use "struct FdwRoutine" to avoid including fdwapi.h here */
-	struct FdwRoutine *fdwroutine;		/* if foreign table */
-	void	   *fdw_private;	/* if foreign table */
+	struct FdwRoutine *fdwroutine;
+	void	   *fdw_private;
 
 	/* used by various scans and joins: */
 	List	   *baserestrictinfo;		/* RestrictInfo structures (if base
@@ -520,6 +532,8 @@ typedef struct IndexOptInfo
 	Oid		   *sortopfamily;	/* OIDs of btree opfamilies, if orderable */
 	bool	   *reverse_sort;	/* is sort order descending? */
 	bool	   *nulls_first;	/* do NULLs come first in the sort order? */
+	bool	   *canreturn;		/* which index cols can be returned in an
+								 * index-only scan? */
 	Oid			relam;			/* OID of the access method (in pg_am) */
 
 	RegProcedure amcostestimate;	/* OID of the access method's cost fcn */
@@ -533,7 +547,6 @@ typedef struct IndexOptInfo
 	bool		unique;			/* true if a unique index */
 	bool		immediate;		/* is uniqueness enforced immediately? */
 	bool		hypothetical;	/* true if index doesn't really exist */
-	bool		canreturn;		/* can index return IndexTuples? */
 	bool		amcanorderbyop; /* does AM support order by operator result? */
 	bool		amoptionalkey;	/* can query omit key for the first column? */
 	bool		amsearcharray;	/* can AM handle ScalarArrayOpExpr quals? */
@@ -916,7 +929,8 @@ typedef struct CustomPathMethods
 												RelOptInfo *rel,
 												struct CustomPath *best_path,
 												List *tlist,
-												List *clauses);
+												List *clauses,
+												List *custom_plans);
 	/* Optional: print additional fields besides "private" */
 	void		(*TextOutCustomPath) (StringInfo str,
 											  const struct CustomPath *node);
@@ -926,6 +940,7 @@ typedef struct CustomPath
 {
 	Path		path;
 	uint32		flags;			/* mask of CUSTOMPATH_* flags, see above */
+	List	   *custom_paths;	/* list of child Path nodes, if any */
 	List	   *custom_private;
 	const CustomPathMethods *methods;
 } CustomPath;
@@ -1665,6 +1680,28 @@ typedef struct SemiAntiJoinFactors
 } SemiAntiJoinFactors;
 
 /*
+ * Struct for extra information passed to subroutines of add_paths_to_joinrel
+ *
+ * restrictlist contains all of the RestrictInfo nodes for restriction
+ *		clauses that apply to this join
+ * mergeclause_list is a list of RestrictInfo nodes for available
+ *		mergejoin clauses in this join
+ * sjinfo is extra info about special joins for selectivity estimation
+ * semifactors is as shown above (only valid for SEMI or ANTI joins)
+ * param_source_rels are OK targets for parameterization of result paths
+ * extra_lateral_rels are additional parameterization for result paths
+ */
+typedef struct JoinPathExtraData
+{
+	List	   *restrictlist;
+	List	   *mergeclause_list;
+	SpecialJoinInfo *sjinfo;
+	SemiAntiJoinFactors semifactors;
+	Relids		param_source_rels;
+	Relids		extra_lateral_rels;
+} JoinPathExtraData;
+
+/*
  * For speed reasons, cost estimation for join paths is performed in two
  * phases: the first phase tries to quickly derive a lower bound for the
  * join cost, and then we check if that's sufficient to reject the path.
@@ -1686,12 +1723,10 @@ typedef struct JoinCostWorkspace
 	Cost		run_cost;		/* non-startup cost components */
 
 	/* private for cost_nestloop code */
+	Cost		inner_run_cost; /* also used by cost_mergejoin code */
 	Cost		inner_rescan_run_cost;
-	double		outer_matched_rows;
-	Selectivity inner_scan_frac;
 
 	/* private for cost_mergejoin code */
-	Cost		inner_run_cost;
 	double		outer_rows;
 	double		inner_rows;
 	double		outer_skip_rows;

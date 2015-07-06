@@ -317,7 +317,7 @@ foreign_expr_walker(Node *node,
 			break;
 		case T_ArrayRef:
 			{
-				ArrayRef   *ar = (ArrayRef *) node;;
+				ArrayRef   *ar = (ArrayRef *) node;
 
 				/* Assignment should not be in restrictions. */
 				if (ar->refassgnexpr != NULL)
@@ -847,8 +847,8 @@ appendWhereClause(StringInfo buf,
 void
 deparseInsertSql(StringInfo buf, PlannerInfo *root,
 				 Index rtindex, Relation rel,
-				 List *targetAttrs, List *returningList,
-				 List **retrieved_attrs)
+				 List *targetAttrs, bool doNothing,
+				 List *returningList, List **retrieved_attrs)
 {
 	AttrNumber	pindex;
 	bool		first;
@@ -891,6 +891,9 @@ deparseInsertSql(StringInfo buf, PlannerInfo *root,
 	}
 	else
 		appendStringInfoString(buf, " DEFAULT VALUES");
+
+	if (doNothing)
+		appendStringInfoString(buf, " ON CONFLICT DO NOTHING");
 
 	deparseReturningList(buf, root, rtindex, rel,
 					   rel->trigdesc && rel->trigdesc->trig_insert_after_row,

@@ -94,10 +94,14 @@ SET row_security TO ON;
 SELECT * FROM document WHERE f_leak(dtitle) ORDER BY did;
 SELECT * FROM document NATURAL JOIN category WHERE f_leak(dtitle) ORDER BY did;
 
+SELECT * FROM document TABLESAMPLE BERNOULLI (50) REPEATABLE(1) WHERE f_leak(dtitle) ORDER BY did;
+
 -- viewpoint from rls_regress_user2
 SET SESSION AUTHORIZATION rls_regress_user2;
 SELECT * FROM document WHERE f_leak(dtitle) ORDER BY did;
 SELECT * FROM document NATURAL JOIN category WHERE f_leak(dtitle) ORDER BY did;
+
+SELECT * FROM document TABLESAMPLE BERNOULLI (50) REPEATABLE(1) WHERE f_leak(dtitle) ORDER BY did;
 
 EXPLAIN (COSTS OFF) SELECT * FROM document WHERE f_leak(dtitle);
 EXPLAIN (COSTS OFF) SELECT * FROM document NATURAL JOIN category WHERE f_leak(dtitle);
@@ -145,6 +149,10 @@ INSERT INTO document VALUES (10, 33, 1, current_user, 'hoge');
 SET SESSION AUTHORIZATION rls_regress_user1;
 INSERT INTO document VALUES (8, 44, 1, 'rls_regress_user1', 'my third manga'); -- Must fail with unique violation, revealing presence of did we can't see
 SELECT * FROM document WHERE did = 8; -- and confirm we can't see it
+
+-- RLS policies are checked before constraints
+INSERT INTO document VALUES (8, 44, 1, 'rls_regress_user2', 'my third manga'); -- Should fail with RLS check violation, not duplicate key violation
+UPDATE document SET did = 8, dauthor = 'rls_regress_user2' WHERE did = 5; -- Should fail with RLS check violation, not duplicate key violation
 
 -- database superuser does bypass RLS policy when enabled
 RESET SESSION AUTHORIZATION;
@@ -207,6 +215,8 @@ COPY t1 FROM stdin WITH (oids);
 \.
 
 CREATE TABLE t2 (c float) INHERITS (t1);
+GRANT ALL ON t2 TO public;
+
 COPY t2 FROM stdin WITH (oids);
 201	1	abc	1.1
 202	2	bcd	2.2
@@ -216,6 +226,8 @@ COPY t2 FROM stdin WITH (oids);
 
 CREATE TABLE t3 (c text, b text, a int) WITH OIDS;
 ALTER TABLE t3 INHERIT t1;
+GRANT ALL ON t3 TO public;
+
 COPY t3(a,b,c) FROM stdin WITH (oids);
 301	1	xxx	X
 302	2	yyy	Y
@@ -423,9 +435,45 @@ UPDATE only t1 SET b = b WHERE f_leak(b) RETURNING oid, *, t1;
 UPDATE t1 SET b = b WHERE f_leak(b) RETURNING *;
 UPDATE t1 SET b = b WHERE f_leak(b) RETURNING oid, *, t1;
 
+-- updates with from clause
+EXPLAIN (COSTS OFF) UPDATE t2 SET b=t2.b FROM t3
+WHERE t2.a = 3 and t3.a = 2 AND f_leak(t2.b) AND f_leak(t3.b);
+
+UPDATE t2 SET b=t2.b FROM t3
+WHERE t2.a = 3 and t3.a = 2 AND f_leak(t2.b) AND f_leak(t3.b);
+
+EXPLAIN (COSTS OFF) UPDATE t1 SET b=t1.b FROM t2
+WHERE t1.a = 3 and t2.a = 3 AND f_leak(t1.b) AND f_leak(t2.b);
+
+UPDATE t1 SET b=t1.b FROM t2
+WHERE t1.a = 3 and t2.a = 3 AND f_leak(t1.b) AND f_leak(t2.b);
+
+EXPLAIN (COSTS OFF) UPDATE t2 SET b=t2.b FROM t1
+WHERE t1.a = 3 and t2.a = 3 AND f_leak(t1.b) AND f_leak(t2.b);
+
+UPDATE t2 SET b=t2.b FROM t1
+WHERE t1.a = 3 and t2.a = 3 AND f_leak(t1.b) AND f_leak(t2.b);
+
+-- updates with from clause self join
+EXPLAIN (COSTS OFF) UPDATE t2 t2_1 SET b = t2_2.b FROM t2 t2_2
+WHERE t2_1.a = 3 AND t2_2.a = t2_1.a AND t2_2.b = t2_1.b
+AND f_leak(t2_1.b) AND f_leak(t2_2.b) RETURNING *, t2_1, t2_2;
+
+UPDATE t2 t2_1 SET b = t2_2.b FROM t2 t2_2
+WHERE t2_1.a = 3 AND t2_2.a = t2_1.a AND t2_2.b = t2_1.b
+AND f_leak(t2_1.b) AND f_leak(t2_2.b) RETURNING *, t2_1, t2_2;
+
+EXPLAIN (COSTS OFF) UPDATE t1 t1_1 SET b = t1_2.b FROM t1 t1_2
+WHERE t1_1.a = 4 AND t1_2.a = t1_1.a AND t1_2.b = t1_1.b
+AND f_leak(t1_1.b) AND f_leak(t1_2.b) RETURNING *, t1_1, t1_2;
+
+UPDATE t1 t1_1 SET b = t1_2.b FROM t1 t1_2
+WHERE t1_1.a = 4 AND t1_2.a = t1_1.a AND t1_2.b = t1_1.b
+AND f_leak(t1_1.b) AND f_leak(t1_2.b) RETURNING *, t1_1, t1_2;
+
 RESET SESSION AUTHORIZATION;
 SET row_security TO OFF;
-SELECT * FROM t1;
+SELECT * FROM t1 ORDER BY a,b;
 
 SET SESSION AUTHORIZATION rls_regress_user1;
 SET row_security TO ON;
@@ -434,6 +482,151 @@ EXPLAIN (COSTS OFF) DELETE FROM t1 WHERE f_leak(b);
 
 DELETE FROM only t1 WHERE f_leak(b) RETURNING oid, *, t1;
 DELETE FROM t1 WHERE f_leak(b) RETURNING oid, *, t1;
+
+--
+-- S.b. view on top of Row-level security
+--
+SET SESSION AUTHORIZATION rls_regress_user0;
+CREATE TABLE b1 (a int, b text);
+INSERT INTO b1 (SELECT x, md5(x::text) FROM generate_series(-10,10) x);
+
+CREATE POLICY p1 ON b1 USING (a % 2 = 0);
+ALTER TABLE b1 ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON b1 TO rls_regress_user1;
+
+SET SESSION AUTHORIZATION rls_regress_user1;
+CREATE VIEW bv1 WITH (security_barrier) AS SELECT * FROM b1 WHERE a > 0 WITH CHECK OPTION;
+GRANT ALL ON bv1 TO rls_regress_user2;
+
+SET SESSION AUTHORIZATION rls_regress_user2;
+
+EXPLAIN (COSTS OFF) SELECT * FROM bv1 WHERE f_leak(b);
+SELECT * FROM bv1 WHERE f_leak(b);
+
+INSERT INTO bv1 VALUES (-1, 'xxx'); -- should fail view WCO
+INSERT INTO bv1 VALUES (11, 'xxx'); -- should fail RLS check
+INSERT INTO bv1 VALUES (12, 'xxx'); -- ok
+
+EXPLAIN (COSTS OFF) UPDATE bv1 SET b = 'yyy' WHERE a = 4 AND f_leak(b);
+UPDATE bv1 SET b = 'yyy' WHERE a = 4 AND f_leak(b);
+
+EXPLAIN (COSTS OFF) DELETE FROM bv1 WHERE a = 6 AND f_leak(b);
+DELETE FROM bv1 WHERE a = 6 AND f_leak(b);
+
+SET SESSION AUTHORIZATION rls_regress_user0;
+SELECT * FROM b1;
+--
+-- INSERT ... ON CONFLICT DO UPDATE and Row-level security
+--
+
+SET SESSION AUTHORIZATION rls_regress_user0;
+DROP POLICY p1 ON document;
+
+CREATE POLICY p1 ON document FOR SELECT USING (true);
+CREATE POLICY p2 ON document FOR INSERT WITH CHECK (dauthor = current_user);
+CREATE POLICY p3 ON document FOR UPDATE
+  USING (cid = (SELECT cid from category WHERE cname = 'novel'))
+  WITH CHECK (dauthor = current_user);
+
+SET SESSION AUTHORIZATION rls_regress_user1;
+
+-- Exists...
+SELECT * FROM document WHERE did = 2;
+
+-- ...so violates actual WITH CHECK OPTION within UPDATE (not INSERT, since
+-- alternative UPDATE path happens to be taken):
+INSERT INTO document VALUES (2, (SELECT cid from category WHERE cname = 'novel'), 1, 'rls_regress_user2', 'my first novel')
+    ON CONFLICT (did) DO UPDATE SET dtitle = EXCLUDED.dtitle, dauthor = EXCLUDED.dauthor;
+
+-- Violates USING qual for UPDATE policy p3.
+--
+-- UPDATE path is taken, but UPDATE fails purely because *existing* row to be
+-- updated is not a "novel"/cid 11 (row is not leaked, even though we have
+-- SELECT privileges sufficient to see the row in this instance):
+INSERT INTO document VALUES (33, 22, 1, 'rls_regress_user1', 'okay science fiction'); -- preparation for next statement
+INSERT INTO document VALUES (33, (SELECT cid from category WHERE cname = 'novel'), 1, 'rls_regress_user1', 'Some novel, replaces sci-fi') -- takes UPDATE path
+    ON CONFLICT (did) DO UPDATE SET dtitle = EXCLUDED.dtitle;
+-- Fine (we UPDATE, since INSERT WCOs and UPDATE security barrier quals + WCOs
+-- not violated):
+INSERT INTO document VALUES (2, (SELECT cid from category WHERE cname = 'novel'), 1, 'rls_regress_user1', 'my first novel')
+    ON CONFLICT (did) DO UPDATE SET dtitle = EXCLUDED.dtitle RETURNING *;
+-- Fine (we INSERT, so "cid = 33" ("technology") isn't evaluated):
+INSERT INTO document VALUES (78, (SELECT cid from category WHERE cname = 'novel'), 1, 'rls_regress_user1', 'some technology novel')
+    ON CONFLICT (did) DO UPDATE SET dtitle = EXCLUDED.dtitle, cid = 33 RETURNING *;
+-- Fine (same query, but we UPDATE, so "cid = 33", ("technology") is not the
+-- case in respect of *existing* tuple):
+INSERT INTO document VALUES (78, (SELECT cid from category WHERE cname = 'novel'), 1, 'rls_regress_user1', 'some technology novel')
+    ON CONFLICT (did) DO UPDATE SET dtitle = EXCLUDED.dtitle, cid = 33 RETURNING *;
+-- Same query a third time, but now fails due to existing tuple finally not
+-- passing quals:
+INSERT INTO document VALUES (78, (SELECT cid from category WHERE cname = 'novel'), 1, 'rls_regress_user1', 'some technology novel')
+    ON CONFLICT (did) DO UPDATE SET dtitle = EXCLUDED.dtitle, cid = 33 RETURNING *;
+-- Don't fail just because INSERT doesn't satisfy WITH CHECK option that
+-- originated as a barrier/USING() qual from the UPDATE.  Note that the UPDATE
+-- path *isn't* taken, and so UPDATE-related policy does not apply:
+INSERT INTO document VALUES (79, (SELECT cid from category WHERE cname = 'technology'), 1, 'rls_regress_user1', 'technology book, can only insert')
+    ON CONFLICT (did) DO UPDATE SET dtitle = EXCLUDED.dtitle RETURNING *;
+-- But this time, the same statement fails, because the UPDATE path is taken,
+-- and updating the row just inserted falls afoul of security barrier qual
+-- (enforced as WCO) -- what we might have updated target tuple to is
+-- irrelevant, in fact.
+INSERT INTO document VALUES (79, (SELECT cid from category WHERE cname = 'technology'), 1, 'rls_regress_user1', 'technology book, can only insert')
+    ON CONFLICT (did) DO UPDATE SET dtitle = EXCLUDED.dtitle RETURNING *;
+
+-- Test default USING qual enforced as WCO
+SET SESSION AUTHORIZATION rls_regress_user0;
+DROP POLICY p1 ON document;
+DROP POLICY p2 ON document;
+DROP POLICY p3 ON document;
+
+CREATE POLICY p3_with_default ON document FOR UPDATE
+  USING (cid = (SELECT cid from category WHERE cname = 'novel'));
+
+SET SESSION AUTHORIZATION rls_regress_user1;
+-- Just because WCO-style enforcement of USING quals occurs with
+-- existing/target tuple does not mean that the implementation can be allowed
+-- to fail to also enforce this qual against the final tuple appended to
+-- relation (since in the absence of an explicit WCO, this is also interpreted
+-- as an UPDATE/ALL WCO in general).
+--
+-- UPDATE path is taken here (fails due to existing tuple).  Note that this is
+-- not reported as a "USING expression", because it's an RLS UPDATE check that originated as
+-- a USING qual for the purposes of RLS in general, as opposed to an explicit
+-- USING qual that is ordinarily a security barrier.  We leave it up to the
+-- UPDATE to make this fail:
+INSERT INTO document VALUES (79, (SELECT cid from category WHERE cname = 'technology'), 1, 'rls_regress_user1', 'technology book, can only insert')
+    ON CONFLICT (did) DO UPDATE SET dtitle = EXCLUDED.dtitle RETURNING *;
+
+-- UPDATE path is taken here.  Existing tuple passes, since it's cid
+-- corresponds to "novel", but default USING qual is enforced against
+-- post-UPDATE tuple too (as always when updating with a policy that lacks an
+-- explicit WCO), and so this fails:
+INSERT INTO document VALUES (2, (SELECT cid from category WHERE cname = 'technology'), 1, 'rls_regress_user1', 'my first novel')
+    ON CONFLICT (did) DO UPDATE SET cid = EXCLUDED.cid, dtitle = EXCLUDED.dtitle RETURNING *;
+
+SET SESSION AUTHORIZATION rls_regress_user0;
+DROP POLICY p3_with_default ON document;
+
+--
+-- Test ALL policies with ON CONFLICT DO UPDATE (much the same as existing UPDATE
+-- tests)
+--
+CREATE POLICY p3_with_all ON document FOR ALL
+  USING (cid = (SELECT cid from category WHERE cname = 'novel'))
+  WITH CHECK (dauthor = current_user);
+
+SET SESSION AUTHORIZATION rls_regress_user1;
+
+-- Fails, since ALL WCO is enforced in insert path:
+INSERT INTO document VALUES (80, (SELECT cid from category WHERE cname = 'novel'), 1, 'rls_regress_user2', 'my first novel')
+    ON CONFLICT (did) DO UPDATE SET dtitle = EXCLUDED.dtitle, cid = 33;
+-- Fails, since ALL policy USING qual is enforced (existing, target tuple is in
+-- violation, since it has the "manga" cid):
+INSERT INTO document VALUES (4, (SELECT cid from category WHERE cname = 'novel'), 1, 'rls_regress_user1', 'my first novel')
+    ON CONFLICT (did) DO UPDATE SET dtitle = EXCLUDED.dtitle;
+-- Fails, since ALL WCO are enforced:
+INSERT INTO document VALUES (1, (SELECT cid from category WHERE cname = 'novel'), 1, 'rls_regress_user1', 'my first novel')
+    ON CONFLICT (did) DO UPDATE SET dauthor = 'rls_regress_user2';
 
 --
 -- ROLE/GROUP
@@ -601,6 +794,26 @@ CREATE POLICY p3 ON y2 USING (a % 4 = 0);
 SET SESSION AUTHORIZATION rls_regress_user1;
 SELECT * FROM y2 WHERE f_leak(b);
 EXPLAIN (COSTS OFF) SELECT * FROM y2 WHERE f_leak(b);
+
+--
+-- Qual push-down of leaky functions, when not referring to table
+--
+SELECT * FROM y2 WHERE f_leak('abc');
+EXPLAIN (COSTS OFF) SELECT * FROM y2 WHERE f_leak('abc');
+
+CREATE TABLE test_qual_pushdown (
+    abc text
+);
+
+INSERT INTO test_qual_pushdown VALUES ('abc'),('def');
+
+SELECT * FROM y2 JOIN test_qual_pushdown ON (b = abc) WHERE f_leak(abc);
+EXPLAIN (COSTS OFF) SELECT * FROM y2 JOIN test_qual_pushdown ON (b = abc) WHERE f_leak(abc);
+
+SELECT * FROM y2 JOIN test_qual_pushdown ON (b = abc) WHERE f_leak(b);
+EXPLAIN (COSTS OFF) SELECT * FROM y2 JOIN test_qual_pushdown ON (b = abc) WHERE f_leak(b);
+
+DROP TABLE test_qual_pushdown;
 
 --
 -- Plancache invalidate on user change.

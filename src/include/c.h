@@ -288,6 +288,34 @@ typedef unsigned long long int uint64;
 #define INT64_FORMAT "%" INT64_MODIFIER "d"
 #define UINT64_FORMAT "%" INT64_MODIFIER "u"
 
+/*
+ * 128-bit signed and unsigned integers
+ *		There currently is only a limited support for the type. E.g. 128bit
+ *		literals and snprintf are not supported; but math is.
+ */
+#if defined(PG_INT128_TYPE)
+#define HAVE_INT128
+typedef PG_INT128_TYPE int128;
+typedef unsigned PG_INT128_TYPE uint128;
+#endif
+
+/*
+ * stdint.h limits aren't guaranteed to be present and aren't guaranteed to
+ * have compatible types with our fixed width types. So just define our own.
+ */
+#define PG_INT8_MIN		(-0x7F-1)
+#define PG_INT8_MAX		(0x7F)
+#define PG_UINT8_MAX	(0xFF)
+#define PG_INT16_MIN	(-0x7FFF-1)
+#define PG_INT16_MAX	(0x7FFF)
+#define PG_UINT16_MAX	(0xFFFF)
+#define PG_INT32_MIN	(-0x7FFFFFFF-1)
+#define PG_INT32_MAX	(0x7FFFFFFF)
+#define PG_UINT32_MAX	(0xFFFFFFFF)
+#define PG_INT64_MIN	(-INT64CONST(0x7FFFFFFFFFFFFFFF) - 1)
+#define PG_INT64_MAX	INT64CONST(0x7FFFFFFFFFFFFFFF)
+#define PG_UINT64_MAX	UINT64CONST(0xFFFFFFFFFFFFFFFF)
+
 /* Select timestamp representation (float8 or int64) */
 #ifdef USE_INTEGER_DATETIMES
 #define HAVE_INT64_TIMESTAMP
@@ -569,9 +597,9 @@ typedef NameData *Name;
 
 /* only GCC supports the unused attribute */
 #ifdef __GNUC__
-#define pg_attribute_unused __attribute__((unused))
+#define pg_attribute_unused() __attribute__((unused))
 #else
-#define pg_attribute_unused
+#define pg_attribute_unused()
 #endif
 
 /* GCC and XLC support format attributes */
@@ -586,15 +614,16 @@ typedef NameData *Name;
 /* GCC, Sunpro and XLC support aligned, packed and noreturn */
 #if defined(__GNUC__) || defined(__SUNPRO_C) || defined(__IBMC__)
 #define pg_attribute_aligned(a) __attribute__((aligned(a)))
-#define pg_attribute_noreturn __attribute__((noreturn))
-#define pg_attribute_packed __attribute__((packed))
+#define pg_attribute_noreturn() __attribute__((noreturn))
+#define pg_attribute_packed() __attribute__((packed))
+#define HAVE_PG_ATTRIBUTE_NORETURN 1
 #else
 /*
- * NB: aligned and packed are not defined as empty as they affect code
- * functionality; they must be implemented by the compiler if they are to be
- * used.
+ * NB: aligned and packed are not given default definitions because they
+ * affect code functionality; they *must* be implemented by the compiler
+ * if they are to be used.
  */
-#define pg_attribute_noreturn
+#define pg_attribute_noreturn()
 #endif
 
 /* ----------------------------------------------------------------
@@ -943,7 +972,7 @@ typedef NameData *Name;
 #ifdef USE_ASSERT_CHECKING
 #define PG_USED_FOR_ASSERTS_ONLY
 #else
-#define PG_USED_FOR_ASSERTS_ONLY pg_attribute_unused
+#define PG_USED_FOR_ASSERTS_ONLY pg_attribute_unused()
 #endif
 
 
@@ -953,7 +982,7 @@ typedef NameData *Name;
  * To better support parallel installations of major PostgeSQL
  * versions as well as parallel installations of major library soname
  * versions, we mangle the gettext domain name by appending those
- * version numbers.  The coding rule ought to be that whereever the
+ * version numbers.  The coding rule ought to be that wherever the
  * domain name is mentioned as a literal, it must be wrapped into
  * PG_TEXTDOMAIN().  The macros below do not work on non-literals; but
  * that is somewhat intentional because it avoids having to worry
@@ -1007,10 +1036,7 @@ typedef NameData *Name;
  */
 
 #if !HAVE_DECL_SNPRINTF
-extern int
-snprintf(char *str, size_t count, const char *fmt,...)
-/* This extension allows gcc to check the format string */
-pg_attribute_printf(3, 4);
+extern int	snprintf(char *str, size_t count, const char *fmt,...) pg_attribute_printf(3, 4);
 #endif
 
 #if !HAVE_DECL_VSNPRINTF

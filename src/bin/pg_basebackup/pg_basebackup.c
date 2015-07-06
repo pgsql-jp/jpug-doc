@@ -199,6 +199,9 @@ tablespace_list_append(const char *arg)
 		exit(1);
 	}
 
+	canonicalize_path(cell->old_dir);
+	canonicalize_path(cell->new_dir);
+
 	if (tablespace_dirs.tail)
 		tablespace_dirs.tail->next = cell;
 	else
@@ -233,7 +236,7 @@ usage(void)
 	printf(_("  -D, --pgdata=DIRECTORY receive base backup into directory\n"));
 	printf(_("  -F, --format=p|t       output format (plain (default), tar)\n"));
 	printf(_("  -r, --max-rate=RATE    maximum transfer rate to transfer data directory\n"
-			 "                         (in kB/s, or use suffix \"k\" or \"M\")\n"));
+	  "                         (in kB/s, or use suffix \"k\" or \"M\")\n"));
 	printf(_("  -R, --write-recovery-conf\n"
 			 "                         write recovery.conf after backup\n"));
 	printf(_("  -T, --tablespace-mapping=OLDDIR=NEWDIR\n"
@@ -433,7 +436,7 @@ StartLogStreamer(char *startpos, uint32 timeline, char *sysidentifier)
 	snprintf(param->xlogdir, sizeof(param->xlogdir), "%s/pg_xlog", basedir);
 
 	/*
-	 * Create pg_xlog/archive_status (and thus pg_xlog) so we can can write to
+	 * Create pg_xlog/archive_status (and thus pg_xlog) so we can write to
 	 * basedir/pg_xlog as the directory entry in the tar file may arrive
 	 * later.
 	 */
@@ -1252,7 +1255,7 @@ ReceiveAndUnpackTarFile(PGconn *conn, PGresult *res, int rownum)
 						 * failures on related directories.
 						 */
 						if (!((pg_str_endswith(filename, "/pg_xlog") ||
-							   pg_str_endswith(filename, "/archive_status")) &&
+							 pg_str_endswith(filename, "/archive_status")) &&
 							  errno == EEXIST))
 						{
 							fprintf(stderr,
@@ -1275,12 +1278,12 @@ ReceiveAndUnpackTarFile(PGconn *conn, PGresult *res, int rownum)
 					 *
 					 * It's most likely a link in pg_tblspc directory, to the
 					 * location of a tablespace. Apply any tablespace mapping
-					 * given on the command line (--tablespace-mapping).
-					 * (We blindly apply the mapping without checking that
-					 * the link really is inside pg_tblspc. We don't expect
-					 * there to be other symlinks in a data directory, but
-					 * if there are, you can call it an undocumented feature
-					 * that you can map them too.)
+					 * given on the command line (--tablespace-mapping). (We
+					 * blindly apply the mapping without checking that the
+					 * link really is inside pg_tblspc. We don't expect there
+					 * to be other symlinks in a data directory, but if there
+					 * are, you can call it an undocumented feature that you
+					 * can map them too.)
 					 */
 					filename[strlen(filename) - 1] = '\0';		/* Remove trailing slash */
 
@@ -1513,7 +1516,7 @@ GenerateRecoveryConf(PGconn *conn)
 
 		/* Separate key-value pairs with spaces */
 		if (conninfo_buf.len != 0)
-			appendPQExpBufferStr(&conninfo_buf, " ");
+			appendPQExpBufferChar(&conninfo_buf, ' ');
 
 		/*
 		 * Write "keyword=value" pieces, the value string is escaped and/or
@@ -1649,13 +1652,14 @@ BaseBackup(void)
 		maxrate_clause = psprintf("MAX_RATE %u", maxrate);
 
 	basebkp =
-		psprintf("BASE_BACKUP LABEL '%s' %s %s %s %s %s",
+		psprintf("BASE_BACKUP LABEL '%s' %s %s %s %s %s %s",
 				 escaped_label,
 				 showprogress ? "PROGRESS" : "",
 				 includewal && !streamwal ? "WAL" : "",
 				 fastcheckpoint ? "FAST" : "",
 				 includewal ? "NOWAIT" : "",
-				 maxrate_clause ? maxrate_clause : "");
+				 maxrate_clause ? maxrate_clause : "",
+				 format == 't' ? "TABLESPACE_MAP" : "");
 
 	if (PQsendQuery(conn, basebkp) == 0)
 	{

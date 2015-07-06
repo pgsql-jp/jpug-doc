@@ -29,9 +29,10 @@ extern ObjectAddress DefineIndex(Oid relationId,
 			bool check_rights,
 			bool skip_build,
 			bool quiet);
-extern Oid	ReindexIndex(RangeVar *indexRelation);
-extern Oid	ReindexTable(RangeVar *relation);
-extern void ReindexMultipleTables(const char *objectName, ReindexObjectType objectKind);
+extern Oid	ReindexIndex(RangeVar *indexRelation, int options);
+extern Oid	ReindexTable(RangeVar *relation, int options);
+extern void ReindexMultipleTables(const char *objectName, ReindexObjectType objectKind,
+					  int options);
 extern char *makeObjectName(const char *name1, const char *name2,
 			   const char *label);
 extern char *ChooseRelationName(const char *name1, const char *name2,
@@ -50,10 +51,13 @@ extern void SetFunctionArgType(Oid funcOid, int argIndex, Oid newArgType);
 extern ObjectAddress AlterFunction(AlterFunctionStmt *stmt);
 extern ObjectAddress CreateCast(CreateCastStmt *stmt);
 extern void DropCastById(Oid castOid);
+extern ObjectAddress CreateTransform(CreateTransformStmt *stmt);
+extern void DropTransformById(Oid transformOid);
 extern void IsThereFunctionInNamespace(const char *proname, int pronargs,
 						   oidvector *proargtypes, Oid nspOid);
 extern void ExecuteDoStmt(DoStmt *stmt);
 extern Oid	get_cast_oid(Oid sourcetypeid, Oid targettypeid, bool missing_ok);
+extern Oid	get_transform_oid(Oid type_id, Oid lang_id, bool missing_ok);
 extern void interpret_function_parameter_list(List *parameters,
 								  Oid languageOid,
 								  bool is_aggregate,
@@ -87,6 +91,7 @@ extern void IsThereOpClassInNamespace(const char *opcname, Oid opcmethod,
 extern void IsThereOpFamilyInNamespace(const char *opfname, Oid opfmethod,
 						   Oid opfnamespace);
 extern Oid	get_am_oid(const char *amname, bool missing_ok);
+extern char *get_am_name(Oid amOid);
 extern Oid	get_opclass_oid(Oid amID, List *opclassname, bool missing_ok);
 extern Oid	get_opfamily_oid(Oid amID, List *opfamilyname, bool missing_ok);
 
@@ -101,7 +106,8 @@ extern ObjectAddress AlterTSDictionary(AlterTSDictionaryStmt *stmt);
 extern ObjectAddress DefineTSTemplate(List *names, List *parameters);
 extern void RemoveTSTemplateById(Oid tmplId);
 
-extern ObjectAddress DefineTSConfiguration(List *names, List *parameters);
+extern ObjectAddress DefineTSConfiguration(List *names, List *parameters,
+					  ObjectAddress *copied);
 extern void RemoveTSConfigurationById(Oid cfgId);
 extern ObjectAddress AlterTSConfiguration(AlterTSConfigurationStmt *stmt);
 

@@ -405,6 +405,14 @@ HeapTupleSatisfiesToast(HeapTuple htup, Snapshot snapshot,
 				}
 			}
 		}
+
+		/*
+		 * An invalid Xmin can be left behind by a speculative insertion that
+		 * is cancelled by super-deleting the tuple.  We shouldn't see any of
+		 * those in TOAST tables, but better safe than sorry.
+		 */
+		else if (!TransactionIdIsValid(HeapTupleHeaderGetXmin(tuple)))
+			return false;
 	}
 
 	/* otherwise assume the tuple is valid for TOAST. */
@@ -514,20 +522,20 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 
 				if (tuple->t_infomask & HEAP_XMAX_IS_MULTI)
 				{
-					if (MultiXactHasRunningRemoteMembers(xmax))
+					if (MultiXactIdIsRunning(xmax, true))
 						return HeapTupleBeingUpdated;
 					else
 						return HeapTupleMayBeUpdated;
 				}
 
-				/* if locker is gone, all's well */
+				/*
+				 * If the locker is gone, then there is nothing of interest
+				 * left in this Xmax; otherwise, report the tuple as
+				 * locked/updated.
+				 */
 				if (!TransactionIdIsInProgress(xmax))
 					return HeapTupleMayBeUpdated;
-
-				if (!TransactionIdIsCurrentTransactionId(xmax))
-					return HeapTupleBeingUpdated;
-				else
-					return HeapTupleMayBeUpdated;
+				return HeapTupleBeingUpdated;
 			}
 
 			if (tuple->t_infomask & HEAP_XMAX_IS_MULTI)
@@ -539,10 +547,11 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 				/* not LOCKED_ONLY, so it has to have an xmax */
 				Assert(TransactionIdIsValid(xmax));
 
-				/* updating subtransaction must have aborted */
+				/* deleting subtransaction must have aborted */
 				if (!TransactionIdIsCurrentTransactionId(xmax))
 				{
-					if (MultiXactHasRunningRemoteMembers(HeapTupleHeaderGetRawXmax(tuple)))
+					if (MultiXactIdIsRunning(HeapTupleHeaderGetRawXmax(tuple),
+											 false))
 						return HeapTupleBeingUpdated;
 					return HeapTupleMayBeUpdated;
 				}
@@ -664,7 +673,7 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 	if (TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetRawXmax(tuple)))
 	{
 		if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))
-			return HeapTupleMayBeUpdated;
+			return HeapTupleBeingUpdated;
 		if (HeapTupleHeaderGetCmax(tuple) >= curcid)
 			return HeapTupleSelfUpdated;		/* updated after scan started */
 		else
@@ -713,8 +722,11 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
  * output argument to return the xids of concurrent xacts that affected the
  * tuple.  snapshot->xmin is set to the tuple's xmin if that is another
  * transaction that's still in progress; or to InvalidTransactionId if the
- * tuple's xmin is committed good, committed dead, or my own xact.  Similarly
- * for snapshot->xmax and the tuple's xmax.
+ * tuple's xmin is committed good, committed dead, or my own xact.
+ * Similarly for snapshot->xmax and the tuple's xmax.  If the tuple was
+ * inserted speculatively, meaning that the inserter might still back down
+ * on the insertion without aborting the whole transaction, the associated
+ * token is also returned in snapshot->speculativeToken.
  */
 bool
 HeapTupleSatisfiesDirty(HeapTuple htup, Snapshot snapshot,
@@ -726,6 +738,7 @@ HeapTupleSatisfiesDirty(HeapTuple htup, Snapshot snapshot,
 	Assert(htup->t_tableOid != InvalidOid);
 
 	snapshot->xmin = snapshot->xmax = InvalidTransactionId;
+	snapshot->speculativeToken = 0;
 
 	if (!HeapTupleHeaderXminCommitted(tuple))
 	{
@@ -807,6 +820,20 @@ HeapTupleSatisfiesDirty(HeapTuple htup, Snapshot snapshot,
 		}
 		else if (TransactionIdIsInProgress(HeapTupleHeaderGetRawXmin(tuple)))
 		{
+			/*
+			 * Return the speculative token to caller.  Caller can worry about
+			 * xmax, since it requires a conclusively locked row version, and
+			 * a concurrent update to this tuple is a conflict of its
+			 * purposes.
+			 */
+			if (HeapTupleHeaderIsSpeculative(tuple))
+			{
+				snapshot->speculativeToken =
+					HeapTupleHeaderGetSpeculativeToken(tuple);
+
+				Assert(snapshot->speculativeToken != 0);
+			}
+
 			snapshot->xmin = HeapTupleHeaderGetRawXmin(tuple);
 			/* XXX shouldn't we fall through to look at xmax? */
 			return true;		/* in insertion by other */

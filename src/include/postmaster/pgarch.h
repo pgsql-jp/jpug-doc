@@ -24,7 +24,7 @@
  */
 #define MIN_XFN_CHARS	16
 #define MAX_XFN_CHARS	40
-#define VALID_XFN_CHARS "0123456789ABCDEF.history.backup"
+#define VALID_XFN_CHARS "0123456789ABCDEF.history.backup.partial"
 
 /* ----------
  * Functions called from postmaster
@@ -33,7 +33,7 @@
 extern int	pgarch_start(void);
 
 #ifdef EXEC_BACKEND
-extern void PgArchiverMain(int argc, char *argv[]) pg_attribute_noreturn;
+extern void PgArchiverMain(int argc, char *argv[]) pg_attribute_noreturn();
 #endif
 
 #endif   /* _PGARCH_H */

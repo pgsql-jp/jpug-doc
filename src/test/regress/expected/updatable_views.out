@@ -215,6 +215,67 @@ INSERT INTO rw_view15 VALUES (3, 'ROW 3'); -- should fail
 ERROR:  cannot insert into column "upper" of view "rw_view15"
 DETAIL:  View columns that are not columns of their base relation are not updatable.
 INSERT INTO rw_view15 (a) VALUES (3); -- should be OK
+INSERT INTO rw_view15 (a) VALUES (3) ON CONFLICT DO NOTHING; -- succeeds
+SELECT * FROM rw_view15;
+ a  |    upper    
+----+-------------
+ -2 | ROW -2
+ -1 | ROW -1
+  0 | ROW 0
+  1 | ROW 1
+  2 | ROW 2
+  3 | UNSPECIFIED
+(6 rows)
+
+INSERT INTO rw_view15 (a) VALUES (3) ON CONFLICT (a) DO NOTHING; -- succeeds
+SELECT * FROM rw_view15;
+ a  |    upper    
+----+-------------
+ -2 | ROW -2
+ -1 | ROW -1
+  0 | ROW 0
+  1 | ROW 1
+  2 | ROW 2
+  3 | UNSPECIFIED
+(6 rows)
+
+INSERT INTO rw_view15 (a) VALUES (3) ON CONFLICT (a) DO UPDATE set a = excluded.a; -- succeeds
+SELECT * FROM rw_view15;
+ a  |    upper    
+----+-------------
+ -2 | ROW -2
+ -1 | ROW -1
+  0 | ROW 0
+  1 | ROW 1
+  2 | ROW 2
+  3 | UNSPECIFIED
+(6 rows)
+
+INSERT INTO rw_view15 (a) VALUES (3) ON CONFLICT (a) DO UPDATE set upper = 'blarg'; -- fails
+ERROR:  cannot insert into column "upper" of view "rw_view15"
+DETAIL:  View columns that are not columns of their base relation are not updatable.
+SELECT * FROM rw_view15;
+ a  |    upper    
+----+-------------
+ -2 | ROW -2
+ -1 | ROW -1
+  0 | ROW 0
+  1 | ROW 1
+  2 | ROW 2
+  3 | UNSPECIFIED
+(6 rows)
+
+SELECT * FROM rw_view15;
+ a  |    upper    
+----+-------------
+ -2 | ROW -2
+ -1 | ROW -1
+  0 | ROW 0
+  1 | ROW 1
+  2 | ROW 2
+  3 | UNSPECIFIED
+(6 rows)
+
 ALTER VIEW rw_view15 ALTER COLUMN upper SET DEFAULT 'NOT SET';
 INSERT INTO rw_view15 (a) VALUES (4); -- should fail
 ERROR:  cannot insert into column "upper" of view "rw_view15"
@@ -2017,7 +2078,7 @@ SELECT * FROM base_tbl;
 
 DROP TABLE base_tbl CASCADE;
 NOTICE:  drop cascades to view rw_view1
--- security barrier view based on inheiritance set
+-- security barrier view based on inheritance set
 CREATE TABLE t1 (a int, b float, c text);
 CREATE INDEX t1_a_idx ON t1(a);
 INSERT INTO t1
@@ -2064,6 +2125,10 @@ UPDATE v1 SET a=100 WHERE snoop(a) AND leakproof(a) AND a = 3;
                                                              QUERY PLAN                                                             
 ------------------------------------------------------------------------------------------------------------------------------------
  Update on public.t1 t1_4
+   Update on public.t1 t1_4
+   Update on public.t11 t1
+   Update on public.t12 t1
+   Update on public.t111 t1
    ->  Subquery Scan on t1
          Output: 100, t1.b, t1.c, t1.ctid
          Filter: snoop(t1.a)
@@ -2132,7 +2197,7 @@ UPDATE v1 SET a=100 WHERE snoop(a) AND leakproof(a) AND a = 3;
                            ->  Seq Scan on public.t111 t111_4
                                  Output: t111_4.ctid, t111_4.tableoid, t111_4.a
                                  Filter: (t111_4.a = 3)
-(69 rows)
+(73 rows)
 
 UPDATE v1 SET a=100 WHERE snoop(a) AND leakproof(a) AND a = 3;
 SELECT * FROM v1 WHERE a=100; -- Nothing should have been changed to 100
@@ -2150,6 +2215,10 @@ UPDATE v1 SET a=a+1 WHERE snoop(a) AND leakproof(a) AND a = 8;
                                                              QUERY PLAN                                                             
 ------------------------------------------------------------------------------------------------------------------------------------
  Update on public.t1 t1_4
+   Update on public.t1 t1_4
+   Update on public.t11 t1
+   Update on public.t12 t1
+   Update on public.t111 t1
    ->  Subquery Scan on t1
          Output: (t1.a + 1), t1.b, t1.c, t1.ctid
          Filter: snoop(t1.a)
@@ -2218,7 +2287,7 @@ UPDATE v1 SET a=a+1 WHERE snoop(a) AND leakproof(a) AND a = 8;
                            ->  Seq Scan on public.t111 t111_4
                                  Output: t111_4.ctid, t111_4.tableoid, t111_4.a
                                  Filter: (t111_4.a = 8)
-(69 rows)
+(73 rows)
 
 UPDATE v1 SET a=a+1 WHERE snoop(a) AND leakproof(a) AND a = 8;
 NOTICE:  snooped value: 8

@@ -220,32 +220,45 @@ socket_comm_reset(void)
 /* --------------------------------
  *		socket_close - shutdown libpq at backend exit
  *
- * Note: in a standalone backend MyProcPort will be null,
- * don't crash during exit...
+ * This is the one pg_on_exit_callback in place during BackendInitialize().
+ * That function's unusual signal handling constrains that this callback be
+ * safe to run at any instant.
  * --------------------------------
  */
 static void
 socket_close(int code, Datum arg)
 {
+	/* Nothing to do in a standalone backend, where MyProcPort is NULL. */
 	if (MyProcPort != NULL)
 	{
 #if defined(ENABLE_GSS) || defined(ENABLE_SSPI)
 #ifdef ENABLE_GSS
 		OM_uint32	min_s;
 
-		/* Shutdown GSSAPI layer */
+		/*
+		 * Shutdown GSSAPI layer.  This section does nothing when interrupting
+		 * BackendInitialize(), because pg_GSS_recvauth() makes first use of
+		 * "ctx" and "cred".
+		 */
 		if (MyProcPort->gss->ctx != GSS_C_NO_CONTEXT)
 			gss_delete_sec_context(&min_s, &MyProcPort->gss->ctx, NULL);
 
 		if (MyProcPort->gss->cred != GSS_C_NO_CREDENTIAL)
 			gss_release_cred(&min_s, &MyProcPort->gss->cred);
 #endif   /* ENABLE_GSS */
-		/* GSS and SSPI share the port->gss struct */
 
+		/*
+		 * GSS and SSPI share the port->gss struct.  Since nowhere else does a
+		 * postmaster child free this, doing so is safe when interrupting
+		 * BackendInitialize().
+		 */
 		free(MyProcPort->gss);
 #endif   /* ENABLE_GSS || ENABLE_SSPI */
 
-		/* Cleanly shut down SSL layer */
+		/*
+		 * Cleanly shut down SSL layer.  Nowhere else does a postmaster child
+		 * call this, so this is safe when interrupting BackendInitialize().
+		 */
 		secure_close(MyProcPort);
 
 		/*
@@ -1112,7 +1125,7 @@ pq_getstring(StringInfo s)
 
 
 /* --------------------------------
- *		pq_startmsgread	- begin reading a message from the client.
+ *		pq_startmsgread - begin reading a message from the client.
  *
  *		This must be called before any of the pq_get* functions.
  * --------------------------------
@@ -1127,7 +1140,7 @@ pq_startmsgread(void)
 	if (PqCommReadingMsg)
 		ereport(FATAL,
 				(errcode(ERRCODE_PROTOCOL_VIOLATION),
-				 errmsg("terminating connection because protocol sync was lost")));
+		   errmsg("terminating connection because protocol sync was lost")));
 
 	PqCommReadingMsg = true;
 }
@@ -1561,7 +1574,7 @@ socket_endcopyout(bool errorAbort)
 /*
  * On Windows, we need to set both idle and interval at the same time.
  * We also cannot reset them to the default (setting to zero will
- * actually set them to zero, not default), therefor we fallback to
+ * actually set them to zero, not default), therefore we fallback to
  * the out-of-the-box default instead.
  */
 #if defined(WIN32) && defined(SIO_KEEPALIVE_VALS)

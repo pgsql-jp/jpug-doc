@@ -121,7 +121,7 @@ typedef struct Query
 	bool		hasRecursive;	/* WITH RECURSIVE was specified */
 	bool		hasModifyingCTE;	/* has INSERT/UPDATE/DELETE in WITH */
 	bool		hasForUpdate;	/* FOR [KEY] UPDATE/SHARE was specified */
-	bool		hasRowSecurity;	/* row security applied? */
+	bool		hasRowSecurity; /* row security applied? */
 
 	List	   *cteList;		/* WITH list (of CommonTableExpr's) */
 
@@ -132,9 +132,13 @@ typedef struct Query
 
 	List	   *withCheckOptions;		/* a list of WithCheckOption's */
 
+	OnConflictExpr *onConflict; /* ON CONFLICT DO [NOTHING | UPDATE] */
+
 	List	   *returningList;	/* return-values list (of TargetEntry) */
 
 	List	   *groupClause;	/* a list of SortGroupClause's */
+
+	List	   *groupingSets;	/* a list of GroupingSet's if present */
 
 	Node	   *havingQual;		/* qualifications applied to groups */
 
@@ -290,18 +294,18 @@ typedef struct CollateClause
  */
 typedef enum RoleSpecType
 {
-	ROLESPEC_CSTRING,		/* role name is stored as a C string */
-	ROLESPEC_CURRENT_USER,	/* role spec is CURRENT_USER */
-	ROLESPEC_SESSION_USER,	/* role spec is SESSION_USER */
-	ROLESPEC_PUBLIC			/* role name is "public" */
+	ROLESPEC_CSTRING,			/* role name is stored as a C string */
+	ROLESPEC_CURRENT_USER,		/* role spec is CURRENT_USER */
+	ROLESPEC_SESSION_USER,		/* role spec is SESSION_USER */
+	ROLESPEC_PUBLIC				/* role name is "public" */
 } RoleSpecType;
 
 typedef struct RoleSpec
 {
 	NodeTag		type;
-	RoleSpecType roletype;	/* Type of this rolespec */
-	char	   *rolename;	/* filled only for ROLESPEC_CSTRING */
-	int			location;	/* token location, or -1 if unknown */
+	RoleSpecType roletype;		/* Type of this rolespec */
+	char	   *rolename;		/* filled only for ROLESPEC_CSTRING */
+	int			location;		/* token location, or -1 if unknown */
 } RoleSpec;
 
 /*
@@ -332,6 +336,26 @@ typedef struct FuncCall
 	struct WindowDef *over;		/* OVER clause, if any */
 	int			location;		/* token location, or -1 if unknown */
 } FuncCall;
+
+/*
+ * TableSampleClause - a sampling method information
+ */
+typedef struct TableSampleClause
+{
+	NodeTag		type;
+	Oid			tsmid;
+	bool		tsmseqscan;
+	bool		tsmpagemode;
+	Oid			tsminit;
+	Oid			tsmnextblock;
+	Oid			tsmnexttuple;
+	Oid			tsmexaminetuple;
+	Oid			tsmend;
+	Oid			tsmreset;
+	Oid			tsmcost;
+	Node	   *repeatable;
+	List	   *args;
+} TableSampleClause;
 
 /*
  * A_Star - '*' representing all columns of a table or compound field
@@ -534,6 +558,22 @@ typedef struct RangeFunction
 } RangeFunction;
 
 /*
+ * RangeTableSample - represents <table> TABLESAMPLE <method> (<params>) REPEATABLE (<num>)
+ *
+ * SQL Standard specifies only one parameter which is percentage. But we allow
+ * custom tablesample methods which may need different input arguments so we
+ * accept list of arguments.
+ */
+typedef struct RangeTableSample
+{
+	NodeTag		type;
+	RangeVar   *relation;
+	char	   *method;			/* sampling method */
+	Node	   *repeatable;
+	List	   *args;			/* arguments for sampling method */
+} RangeTableSample;
+
+/*
  * ColumnDef - column definition (used in various creates)
  *
  * If the column has a default value, we may have the value expression
@@ -587,11 +627,11 @@ typedef enum TableLikeOption
 	CREATE_TABLE_LIKE_INDEXES = 1 << 2,
 	CREATE_TABLE_LIKE_STORAGE = 1 << 3,
 	CREATE_TABLE_LIKE_COMMENTS = 1 << 4,
-	CREATE_TABLE_LIKE_ALL = 0x7FFFFFFF
+	CREATE_TABLE_LIKE_ALL = PG_INT32_MAX
 } TableLikeOption;
 
 /*
- * IndexElem - index parameters (used in CREATE INDEX)
+ * IndexElem - index parameters (used in CREATE INDEX, and in ON CONFLICT)
  *
  * For a plain index attribute, 'name' is the name of the table column to
  * index, and 'expr' is NULL.  For an index expression, 'name' is NULL and
@@ -650,7 +690,7 @@ typedef struct LockingClause
 	NodeTag		type;
 	List	   *lockedRels;		/* FOR [KEY] UPDATE/SHARE relations */
 	LockClauseStrength strength;
-	LockWaitPolicy	waitPolicy;	/* NOWAIT and SKIP LOCKED */
+	LockWaitPolicy waitPolicy;	/* NOWAIT and SKIP LOCKED */
 } LockingClause;
 
 /*
@@ -735,11 +775,12 @@ typedef struct XmlSerialize
  *	  For SELECT/INSERT/UPDATE permissions, if the user doesn't have
  *	  table-wide permissions then it is sufficient to have the permissions
  *	  on all columns identified in selectedCols (for SELECT) and/or
- *	  modifiedCols (for INSERT/UPDATE; we can tell which from the query type).
- *	  selectedCols and modifiedCols are bitmapsets, which cannot have negative
- *	  integer members, so we subtract FirstLowInvalidHeapAttributeNumber from
- *	  column numbers before storing them in these fields.  A whole-row Var
- *	  reference is represented by setting the bit for InvalidAttrNumber.
+ *	  insertedCols and/or updatedCols (INSERT with ON CONFLICT DO UPDATE may
+ *	  have all 3).  selectedCols, insertedCols and updatedCols are bitmapsets,
+ *	  which cannot have negative integer members, so we subtract
+ *	  FirstLowInvalidHeapAttributeNumber from column numbers before storing
+ *	  them in these fields.  A whole-row Var reference is represented by
+ *	  setting the bit for InvalidAttrNumber.
  *--------------------
  */
 typedef enum RTEKind
@@ -769,6 +810,7 @@ typedef struct RangeTblEntry
 	 */
 	Oid			relid;			/* OID of the relation */
 	char		relkind;		/* relation kind (see pg_class.relkind) */
+	TableSampleClause *tablesample;		/* sampling method and parameters */
 
 	/*
 	 * Fields valid for a subquery RTE (else NULL):
@@ -834,7 +876,8 @@ typedef struct RangeTblEntry
 	AclMode		requiredPerms;	/* bitmask of required access permissions */
 	Oid			checkAsUser;	/* if valid, check access as this role */
 	Bitmapset  *selectedCols;	/* columns needing SELECT permission */
-	Bitmapset  *modifiedCols;	/* columns needing INSERT/UPDATE permission */
+	Bitmapset  *insertedCols;	/* columns needing INSERT permission */
+	Bitmapset  *updatedCols;	/* columns needing UPDATE permission */
 	List	   *securityQuals;	/* any security barrier quals to apply */
 } RangeTblEntry;
 
@@ -872,14 +915,24 @@ typedef struct RangeTblFunction
 /*
  * WithCheckOption -
  *		representation of WITH CHECK OPTION checks to be applied to new tuples
- *		when inserting/updating an auto-updatable view.
+ *		when inserting/updating an auto-updatable view, or RLS WITH CHECK
+ *		policies to be applied when inserting/updating a relation with RLS.
  */
+typedef enum WCOKind
+{
+	WCO_VIEW_CHECK,				/* WCO on an auto-updatable view */
+	WCO_RLS_INSERT_CHECK,		/* RLS INSERT WITH CHECK policy */
+	WCO_RLS_UPDATE_CHECK,		/* RLS UPDATE WITH CHECK policy */
+	WCO_RLS_CONFLICT_CHECK		/* RLS ON CONFLICT DO UPDATE USING policy */
+} WCOKind;
+
 typedef struct WithCheckOption
 {
 	NodeTag		type;
-	char	   *viewname;		/* name of view that specified the WCO */
+	WCOKind		kind;			/* kind of WCO */
+	char	   *relname;		/* name of relation that specified the WCO */
 	Node	   *qual;			/* constraint qual to check */
-	bool		cascaded;		/* true = WITH CASCADED CHECK OPTION */
+	bool		cascaded;		/* true for a cascaded WCO on a view */
 } WithCheckOption;
 
 /*
@@ -951,6 +1004,73 @@ typedef struct SortGroupClause
 } SortGroupClause;
 
 /*
+ * GroupingSet -
+ *		representation of CUBE, ROLLUP and GROUPING SETS clauses
+ *
+ * In a Query with grouping sets, the groupClause contains a flat list of
+ * SortGroupClause nodes for each distinct expression used.  The actual
+ * structure of the GROUP BY clause is given by the groupingSets tree.
+ *
+ * In the raw parser output, GroupingSet nodes (of all types except SIMPLE
+ * which is not used) are potentially mixed in with the expressions in the
+ * groupClause of the SelectStmt.  (An expression can't contain a GroupingSet,
+ * but a list may mix GroupingSet and expression nodes.)  At this stage, the
+ * content of each node is a list of expressions, some of which may be RowExprs
+ * which represent sublists rather than actual row constructors, and nested
+ * GroupingSet nodes where legal in the grammar.  The structure directly
+ * reflects the query syntax.
+ *
+ * In parse analysis, the transformed expressions are used to build the tlist
+ * and groupClause list (of SortGroupClause nodes), and the groupingSets tree
+ * is eventually reduced to a fixed format:
+ *
+ * EMPTY nodes represent (), and obviously have no content
+ *
+ * SIMPLE nodes represent a list of one or more expressions to be treated as an
+ * atom by the enclosing structure; the content is an integer list of
+ * ressortgroupref values (see SortGroupClause)
+ *
+ * CUBE and ROLLUP nodes contain a list of one or more SIMPLE nodes.
+ *
+ * SETS nodes contain a list of EMPTY, SIMPLE, CUBE or ROLLUP nodes, but after
+ * parse analysis they cannot contain more SETS nodes; enough of the syntactic
+ * transforms of the spec have been applied that we no longer have arbitrarily
+ * deep nesting (though we still preserve the use of cube/rollup).
+ *
+ * Note that if the groupingSets tree contains no SIMPLE nodes (only EMPTY
+ * nodes at the leaves), then the groupClause will be empty, but this is still
+ * an aggregation query (similar to using aggs or HAVING without GROUP BY).
+ *
+ * As an example, the following clause:
+ *
+ * GROUP BY GROUPING SETS ((a,b), CUBE(c,(d,e)))
+ *
+ * looks like this after raw parsing:
+ *
+ * SETS( RowExpr(a,b) , CUBE( c, RowExpr(d,e) ) )
+ *
+ * and parse analysis converts it to:
+ *
+ * SETS( SIMPLE(1,2), CUBE( SIMPLE(3), SIMPLE(4,5) ) )
+ */
+typedef enum
+{
+	GROUPING_SET_EMPTY,
+	GROUPING_SET_SIMPLE,
+	GROUPING_SET_ROLLUP,
+	GROUPING_SET_CUBE,
+	GROUPING_SET_SETS
+} GroupingSetKind;
+
+typedef struct GroupingSet
+{
+	NodeTag		type;
+	GroupingSetKind kind;
+	List	   *content;
+	int			location;
+} GroupingSet;
+
+/*
  * WindowClause -
  *		transformed representation of WINDOW and OVER clauses
  *
@@ -1015,6 +1135,37 @@ typedef struct WithClause
 } WithClause;
 
 /*
+ * InferClause -
+ *		ON CONFLICT unique index inference clause
+ *
+ * Note: InferClause does not propagate into the Query representation.
+ */
+typedef struct InferClause
+{
+	NodeTag		type;
+	List	   *indexElems;		/* IndexElems to infer unique index */
+	Node	   *whereClause;	/* qualification (partial-index predicate) */
+	char	   *conname;		/* Constraint name, or NULL if unnamed */
+	int			location;		/* token location, or -1 if unknown */
+} InferClause;
+
+/*
+ * OnConflictClause -
+ *		representation of ON CONFLICT clause
+ *
+ * Note: OnConflictClause does not propagate into the Query representation.
+ */
+typedef struct OnConflictClause
+{
+	NodeTag		type;
+	OnConflictAction action;	/* DO NOTHING or UPDATE? */
+	InferClause *infer;			/* Optional index inference clause */
+	List	   *targetList;		/* the target list (of ResTarget) */
+	Node	   *whereClause;	/* qualifications */
+	int			location;		/* token location, or -1 if unknown */
+} OnConflictClause;
+
+/*
  * CommonTableExpr -
  *	   representation of WITH list element
  *
@@ -1064,6 +1215,7 @@ typedef struct InsertStmt
 	RangeVar   *relation;		/* relation to insert into */
 	List	   *cols;			/* optional: names of the target columns */
 	Node	   *selectStmt;		/* the source SELECT/VALUES, or NULL */
+	OnConflictClause *onConflictClause; /* ON CONFLICT clause */
 	List	   *returningList;	/* list of expressions to return */
 	WithClause *withClause;		/* WITH clause */
 } InsertStmt;
@@ -1256,6 +1408,7 @@ typedef enum ObjectType
 	OBJECT_TABCONSTRAINT,
 	OBJECT_TABLE,
 	OBJECT_TABLESPACE,
+	OBJECT_TRANSFORM,
 	OBJECT_TRIGGER,
 	OBJECT_TSCONFIGURATION,
 	OBJECT_TSDICTIONARY,
@@ -2735,21 +2888,27 @@ typedef struct ConstraintsSetStmt
  *		REINDEX Statement
  * ----------------------
  */
+
+/* Reindex options */
+#define REINDEXOPT_VERBOSE 1 << 0		/* print progress info */
+
 typedef enum ReindexObjectType
 {
-	REINDEX_OBJECT_INDEX,	/* index */
-	REINDEX_OBJECT_TABLE,	/* table or materialized view */
-	REINDEX_OBJECT_SCHEMA,	/* schema */
-	REINDEX_OBJECT_SYSTEM,	/* system catalogs */
-	REINDEX_OBJECT_DATABASE	/* database */
+	REINDEX_OBJECT_INDEX,		/* index */
+	REINDEX_OBJECT_TABLE,		/* table or materialized view */
+	REINDEX_OBJECT_SCHEMA,		/* schema */
+	REINDEX_OBJECT_SYSTEM,		/* system catalogs */
+	REINDEX_OBJECT_DATABASE		/* database */
 } ReindexObjectType;
 
 typedef struct ReindexStmt
 {
 	NodeTag		type;
-	ReindexObjectType	kind;	/* REINDEX_OBJECT_INDEX, REINDEX_OBJECT_TABLE, etc. */
+	ReindexObjectType kind;		/* REINDEX_OBJECT_INDEX, REINDEX_OBJECT_TABLE,
+								 * etc. */
 	RangeVar   *relation;		/* Table or index to reindex */
 	const char *name;			/* name of database to reindex */
+	int			options;		/* Reindex options flags */
 } ReindexStmt;
 
 /* ----------------------
@@ -2779,6 +2938,20 @@ typedef struct CreateCastStmt
 	CoercionContext context;
 	bool		inout;
 } CreateCastStmt;
+
+/* ----------------------
+ *	CREATE TRANSFORM Statement
+ * ----------------------
+ */
+typedef struct CreateTransformStmt
+{
+	NodeTag		type;
+	bool		replace;
+	TypeName   *type_name;
+	char	   *lang;
+	FuncWithArgs *fromsql;
+	FuncWithArgs *tosql;
+} CreateTransformStmt;
 
 /* ----------------------
  *		PREPARE Statement
@@ -2850,9 +3023,19 @@ typedef struct AlterTSDictionaryStmt
 /*
  * TS Configuration stmts: DefineStmt, RenameStmt and DropStmt are default
  */
+typedef enum AlterTSConfigType
+{
+	ALTER_TSCONFIG_ADD_MAPPING,
+	ALTER_TSCONFIG_ALTER_MAPPING_FOR_TOKEN,
+	ALTER_TSCONFIG_REPLACE_DICT,
+	ALTER_TSCONFIG_REPLACE_DICT_FOR_TOKEN,
+	ALTER_TSCONFIG_DROP_MAPPING
+} AlterTSConfigType;
+
 typedef struct AlterTSConfigurationStmt
 {
 	NodeTag		type;
+	AlterTSConfigType kind;		/* ALTER_TSCONFIG_ADD_MAPPING, etc */
 	List	   *cfgname;		/* qualified name (list of Value strings) */
 
 	/*

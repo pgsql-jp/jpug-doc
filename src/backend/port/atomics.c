@@ -15,20 +15,37 @@
 
 /*
  * We want the functions below to be inline; but if the compiler doesn't
- * support that, fall back on providing them as regular functions.	See
+ * support that, fall back on providing them as regular functions.  See
  * STATIC_IF_INLINE in c.h.
  */
 #define ATOMICS_INCLUDE_DEFINITIONS
 
+#include "miscadmin.h"
 #include "port/atomics.h"
 #include "storage/spin.h"
+
+#ifdef PG_HAVE_MEMORY_BARRIER_EMULATION
+#ifdef WIN32
+#error "barriers are required (and provided) on WIN32 platforms"
+#endif
+#include <sys/types.h>
+#include <signal.h>
+#endif
 
 #ifdef PG_HAVE_MEMORY_BARRIER_EMULATION
 void
 pg_spinlock_barrier(void)
 {
-	S_LOCK(&dummy_spinlock);
-	S_UNLOCK(&dummy_spinlock);
+	/*
+	 * NB: we have to be reentrant here, some barriers are placed in signal
+	 * handlers.
+	 *
+	 * We use kill(0) for the fallback barrier as we assume that kernels on
+	 * systems old enough to require fallback barrier support will include an
+	 * appropriate barrier while checking the existence of the postmaster
+	 * pid.
+	 */
+	(void) kill(PostmasterPid, 0);
 }
 #endif
 
@@ -50,9 +67,10 @@ pg_atomic_init_flag_impl(volatile pg_atomic_flag *ptr)
 					 "size mismatch of atomic_flag vs slock_t");
 
 #ifndef HAVE_SPINLOCKS
+
 	/*
 	 * NB: If we're using semaphore based TAS emulation, be careful to use a
-	 * separate set of semaphores. Otherwise we'd get in trouble if a atomic
+	 * separate set of semaphores. Otherwise we'd get in trouble if an atomic
 	 * var would be manipulated while spinlock is held.
 	 */
 	s_init_lock_sema((slock_t *) &ptr->sema, true);
@@ -73,7 +91,7 @@ pg_atomic_clear_flag_impl(volatile pg_atomic_flag *ptr)
 	S_UNLOCK((slock_t *) &ptr->sema);
 }
 
-#endif /* PG_HAVE_ATOMIC_FLAG_SIMULATION */
+#endif   /* PG_HAVE_ATOMIC_FLAG_SIMULATION */
 
 #ifdef PG_HAVE_ATOMIC_U32_SIMULATION
 void
@@ -98,7 +116,8 @@ bool
 pg_atomic_compare_exchange_u32_impl(volatile pg_atomic_uint32 *ptr,
 									uint32 *expected, uint32 newval)
 {
-	bool ret;
+	bool		ret;
+
 	/*
 	 * Do atomic op under a spinlock. It might look like we could just skip
 	 * the cmpxchg if the lock isn't available, but that'd just emulate a
@@ -109,7 +128,7 @@ pg_atomic_compare_exchange_u32_impl(volatile pg_atomic_uint32 *ptr,
 	 */
 	SpinLockAcquire((slock_t *) &ptr->sema);
 
-	/* perform compare/exchange logic*/
+	/* perform compare/exchange logic */
 	ret = ptr->value == *expected;
 	*expected = ptr->value;
 	if (ret)
@@ -124,7 +143,8 @@ pg_atomic_compare_exchange_u32_impl(volatile pg_atomic_uint32 *ptr,
 uint32
 pg_atomic_fetch_add_u32_impl(volatile pg_atomic_uint32 *ptr, int32 add_)
 {
-	uint32 oldval;
+	uint32		oldval;
+
 	SpinLockAcquire((slock_t *) &ptr->sema);
 	oldval = ptr->value;
 	ptr->value += add_;
@@ -132,4 +152,4 @@ pg_atomic_fetch_add_u32_impl(volatile pg_atomic_uint32 *ptr, int32 add_)
 	return oldval;
 }
 
-#endif /* PG_HAVE_ATOMIC_U32_SIMULATION */
+#endif   /* PG_HAVE_ATOMIC_U32_SIMULATION */

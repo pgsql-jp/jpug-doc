@@ -295,7 +295,7 @@ merge_children(pairingheap *heap, pairingheap_node *children)
 static void
 pairingheap_dump_recurse(StringInfo buf,
 						 pairingheap_node *node,
-						 void (*dumpfunc) (pairingheap_node *node, StringInfo buf, void *opaque),
+	 void (*dumpfunc) (pairingheap_node *node, StringInfo buf, void *opaque),
 						 void *opaque,
 						 int depth,
 						 pairingheap_node *prev_or_parent)
@@ -306,7 +306,7 @@ pairingheap_dump_recurse(StringInfo buf,
 
 		appendStringInfoSpaces(buf, depth * 4);
 		dumpfunc(node, buf, opaque);
-		appendStringInfoString(buf, "\n");
+		appendStringInfoChar(buf, '\n');
 		if (node->first_child)
 			pairingheap_dump_recurse(buf, node->first_child, dumpfunc, opaque, depth + 1, node);
 		prev_or_parent = node;
@@ -316,7 +316,7 @@ pairingheap_dump_recurse(StringInfo buf,
 
 char *
 pairingheap_dump(pairingheap *heap,
-				 void (*dumpfunc) (pairingheap_node *node, StringInfo buf, void *opaque),
+	 void (*dumpfunc) (pairingheap_node *node, StringInfo buf, void *opaque),
 				 void *opaque)
 {
 	StringInfoData buf;

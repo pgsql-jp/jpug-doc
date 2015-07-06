@@ -106,7 +106,7 @@ execCurrentOf(CurrentOfExpr *cexpr,
 			if (!RowMarkRequiresRowShareLock(thiserm->markType))
 				continue;		/* ignore non-FOR UPDATE/SHARE items */
 
-			if (RelationGetRelid(thiserm->relation) == table_oid)
+			if (thiserm->relid == table_oid)
 			{
 				if (erm)
 					ereport(ERROR,
@@ -261,6 +261,7 @@ search_plan_tree(PlanState *node, Oid table_oid)
 			 * Relation scan nodes can all be treated alike
 			 */
 		case T_SeqScanState:
+		case T_SampleScanState:
 		case T_IndexScanState:
 		case T_IndexOnlyScanState:
 		case T_BitmapHeapScanState:

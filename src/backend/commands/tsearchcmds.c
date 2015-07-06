@@ -34,6 +34,7 @@
 #include "catalog/pg_type.h"
 #include "commands/alter.h"
 #include "commands/defrem.h"
+#include "commands/event_trigger.h"
 #include "miscadmin.h"
 #include "nodes/makefuncs.h"
 #include "parser/parse_func.h"
@@ -964,7 +965,7 @@ makeConfigurationDependencies(HeapTuple tuple, bool removeOld,
  * CREATE TEXT SEARCH CONFIGURATION
  */
 ObjectAddress
-DefineTSConfiguration(List *names, List *parameters)
+DefineTSConfiguration(List *names, List *parameters, ObjectAddress *copied)
 {
 	Relation	cfgRel;
 	Relation	mapRel = NULL;
@@ -1012,6 +1013,14 @@ DefineTSConfiguration(List *names, List *parameters)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
 				 errmsg("cannot specify both PARSER and COPY options")));
+
+	/* make copied tsconfig available to callers */
+	if (copied && OidIsValid(sourceOid))
+	{
+		ObjectAddressSet(*copied,
+						 TSConfigRelationId,
+						 sourceOid);
+	}
 
 	/*
 	 * Look up source config if given.
@@ -1434,6 +1443,8 @@ MakeConfigurationMapping(AlterTSConfigurationStmt *stmt,
 			}
 		}
 	}
+
+	EventTriggerCollectAlterTSConfig(stmt, cfgId, dictIds, ndict);
 }
 
 /*
@@ -1501,6 +1512,8 @@ DropConfigurationMapping(AlterTSConfigurationStmt *stmt,
 
 		i++;
 	}
+
+	EventTriggerCollectAlterTSConfig(stmt, cfgId, NULL, 0);
 }
 
 

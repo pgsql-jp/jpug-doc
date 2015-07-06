@@ -95,7 +95,6 @@ main(int argc, char *argv[])
 		{"file", required_argument, NULL, 'f'},
 		{"globals-only", no_argument, NULL, 'g'},
 		{"host", required_argument, NULL, 'h'},
-		{"ignore-version", no_argument, NULL, 'i'},
 		{"dbname", required_argument, NULL, 'd'},
 		{"database", required_argument, NULL, 'l'},
 		{"oids", no_argument, NULL, 'o'},
@@ -195,7 +194,7 @@ main(int argc, char *argv[])
 
 	pgdumpopts = createPQExpBuffer();
 
-	while ((c = getopt_long(argc, argv, "acd:f:gh:il:oOp:rsS:tU:vwWx", long_options, &optindex)) != -1)
+	while ((c = getopt_long(argc, argv, "acd:f:gh:l:oOp:rsS:tU:vwWx", long_options, &optindex)) != -1)
 	{
 		switch (c)
 		{
@@ -224,10 +223,6 @@ main(int argc, char *argv[])
 
 			case 'h':
 				pghost = pg_strdup(optarg);
-				break;
-
-			case 'i':
-				/* ignored, deprecated option */
 				break;
 
 			case 'l':
@@ -781,7 +776,7 @@ dumpRoles(PGconn *conn)
 		{
 			appendPQExpBufferStr(buf, "\n-- For binary upgrade, must preserve pg_authid.oid\n");
 			appendPQExpBuffer(buf,
-							  "SELECT binary_upgrade.set_next_pg_authid_oid('%u'::pg_catalog.oid);\n\n",
+							  "SELECT pg_catalog.binary_upgrade_set_next_pg_authid_oid('%u'::pg_catalog.oid);\n\n",
 							  auth_oid);
 		}
 
@@ -1422,7 +1417,7 @@ dumpCreateDB(PGconn *conn)
 		{
 			appendPQExpBufferStr(buf, "-- For binary upgrade, set datfrozenxid and datminmxid.\n");
 			appendPQExpBuffer(buf, "UPDATE pg_catalog.pg_database "
-							"SET datfrozenxid = '%u', datminmxid = '%u' "
+							  "SET datfrozenxid = '%u', datminmxid = '%u' "
 							  "WHERE datname = ",
 							  dbfrozenxid, dbminmxid);
 			appendStringLiteralConn(buf, dbname, conn);
@@ -1446,6 +1441,13 @@ dumpCreateDB(PGconn *conn)
 
 		free(fdbname);
 	}
+
+	if (default_encoding)
+		free(default_encoding);
+	if (default_collate)
+		free(default_collate);
+	if (default_ctype)
+		free(default_ctype);
 
 	PQclear(res);
 	destroyPQExpBuffer(buf);
@@ -1734,7 +1736,7 @@ runPgDump(const char *dbname)
 /*
  * buildShSecLabels
  *
- * Build SECURITY LABEL command(s) for an shared object
+ * Build SECURITY LABEL command(s) for a shared object
  *
  * The caller has to provide object type and identifier to select security
  * labels from pg_seclabels system view.

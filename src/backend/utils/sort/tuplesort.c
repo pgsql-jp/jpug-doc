@@ -147,13 +147,18 @@ bool		optimize_bounded_sort = true;
  * case where the first key determines the comparison result.  Note that
  * for a pass-by-reference datatype, datum1 points into the "tuple" storage.
  *
+ * There is one special case: when the sort support infrastructure provides an
+ * "abbreviated key" representation, where the key is (typically) a pass by
+ * value proxy for a pass by reference type.  In this case, the abbreviated key
+ * is stored in datum1 in place of the actual first key column.
+ *
  * When sorting single Datums, the data value is represented directly by
- * datum1/isnull1.  If the datatype is pass-by-reference and isnull1 is false,
- * then datum1 points to a separately palloc'd data value that is also pointed
- * to by the "tuple" pointer; otherwise "tuple" is NULL.  There is one special
- * case:  when the sort support infrastructure provides an "abbreviated key"
- * representation, where the key is (typically) a pass by value proxy for a
- * pass by reference type.
+ * datum1/isnull1 for pass by value types (or null values).  If the datatype is
+ * pass-by-reference and isnull1 is false, then "tuple" points to a separately
+ * palloc'd data value, otherwise "tuple" is NULL.  The value of datum1 is then
+ * either the same pointer as "tuple", or is an abbreviated key value as
+ * described above.  Accordingly, "tuple" is always used in preference to
+ * datum1 as the authoritative value for pass-by-reference cases.
  *
  * While building initial runs, tupindex holds the tuple's run number.  During
  * merge passes, we re-use it to hold the input tape number that each tuple in
@@ -336,9 +341,9 @@ struct Tuplesortstate
 	bool		markpos_eof;	/* saved "eof_reached" */
 
 	/*
-	 * The sortKeys variable is used by every case other than the datum and
-	 * hash index cases; it is set by tuplesort_begin_xxx.  tupDesc is only
-	 * used by the MinimalTuple and CLUSTER routines, though.
+	 * The sortKeys variable is used by every case other than the hash index
+	 * case; it is set by tuplesort_begin_xxx.  tupDesc is only used by the
+	 * MinimalTuple and CLUSTER routines, though.
 	 */
 	TupleDesc	tupDesc;
 	SortSupport sortKeys;		/* array of length nKeys */
@@ -351,11 +356,12 @@ struct Tuplesortstate
 
 	/*
 	 * Additional state for managing "abbreviated key" sortsupport routines
-	 * (which currently may be used by all cases except the Datum sort case and
-	 * hash index case).  Tracks the intervals at which the optimization's
+	 * (which currently may be used by all cases except the Datum sort case
+	 * and hash index case).  Tracks the intervals at which the optimization's
 	 * effectiveness is tested.
 	 */
-	int64		abbrevNext;		/* Tuple # at which to next check applicability */
+	int64		abbrevNext;		/* Tuple # at which to next check
+								 * applicability */
 
 	/*
 	 * These variables are specific to the CLUSTER case; they are set by
@@ -655,9 +661,9 @@ tuplesort_begin_heap(TupleDesc tupDesc,
 
 	/*
 	 * The "onlyKey" optimization cannot be used with abbreviated keys, since
-	 * tie-breaker comparisons may be required.  Typically, the optimization is
-	 * only of value to pass-by-value types anyway, whereas abbreviated keys
-	 * are typically only of value to pass-by-reference types.
+	 * tie-breaker comparisons may be required.  Typically, the optimization
+	 * is only of value to pass-by-value types anyway, whereas abbreviated
+	 * keys are typically only of value to pass-by-reference types.
 	 */
 	if (nkeys == 1 && !state->sortKeys->abbrev_converter)
 		state->onlyKey = state->sortKeys;
@@ -673,9 +679,9 @@ tuplesort_begin_cluster(TupleDesc tupDesc,
 						int workMem, bool randomAccess)
 {
 	Tuplesortstate *state = tuplesort_begin_common(workMem, randomAccess);
-	ScanKey			indexScanKey;
+	ScanKey		indexScanKey;
 	MemoryContext oldcontext;
-	int				i;
+	int			i;
 
 	Assert(indexRel->rd_rel->relam == BTREE_AM_OID);
 
@@ -766,9 +772,9 @@ tuplesort_begin_index_btree(Relation heapRel,
 							int workMem, bool randomAccess)
 {
 	Tuplesortstate *state = tuplesort_begin_common(workMem, randomAccess);
-	ScanKey			indexScanKey;
+	ScanKey		indexScanKey;
 	MemoryContext oldcontext;
-	int				i;
+	int			i;
 
 	oldcontext = MemoryContextSwitchTo(state->sortcontext);
 
@@ -901,29 +907,35 @@ tuplesort_begin_datum(Oid datumType, Oid sortOperator, Oid sortCollation,
 	state->copytup = copytup_datum;
 	state->writetup = writetup_datum;
 	state->readtup = readtup_datum;
+	state->abbrevNext = 10;
 
 	state->datumType = datumType;
-
-	/* Prepare SortSupport data */
-	state->onlyKey = (SortSupport) palloc0(sizeof(SortSupportData));
-
-	state->onlyKey->ssup_cxt = CurrentMemoryContext;
-	state->onlyKey->ssup_collation = sortCollation;
-	state->onlyKey->ssup_nulls_first = nullsFirstFlag;
-	/*
-	 * Conversion to abbreviated representation infeasible in the Datum case.
-	 * It must be possible to subsequently fetch original datum values within
-	 * tuplesort_getdatum(), which would require special-case preservation of
-	 * original values.
-	 */
-	state->onlyKey->abbreviate = false;
-
-	PrepareSortSupportFromOrderingOp(sortOperator, state->onlyKey);
 
 	/* lookup necessary attributes of the datum type */
 	get_typlenbyval(datumType, &typlen, &typbyval);
 	state->datumTypeLen = typlen;
 	state->datumTypeByVal = typbyval;
+
+	/* Prepare SortSupport data */
+	state->sortKeys = (SortSupport) palloc0(sizeof(SortSupportData));
+
+	state->sortKeys->ssup_cxt = CurrentMemoryContext;
+	state->sortKeys->ssup_collation = sortCollation;
+	state->sortKeys->ssup_nulls_first = nullsFirstFlag;
+
+	/* abbreviation is possible here only for by-reference types */
+	state->sortKeys->abbreviate = !typbyval;
+
+	PrepareSortSupportFromOrderingOp(sortOperator, state->sortKeys);
+
+	/*
+	 * The "onlyKey" optimization cannot be used with abbreviated keys, since
+	 * tie-breaker comparisons may be required.  Typically, the optimization
+	 * is only of value to pass-by-value types anyway, whereas abbreviated
+	 * keys are typically only of value to pass-by-reference types.
+	 */
+	if (!state->sortKeys->abbrev_converter)
+		state->onlyKey = state->sortKeys;
 
 	MemoryContextSwitchTo(oldcontext);
 
@@ -1266,7 +1278,7 @@ tuplesort_putindextuplevalues(Tuplesortstate *state, Relation rel,
 	else
 	{
 		/* Abort abbreviation */
-		int		i;
+		int			i;
 
 		stup.datum1 = original;
 
@@ -1274,13 +1286,13 @@ tuplesort_putindextuplevalues(Tuplesortstate *state, Relation rel,
 		 * Set state to be consistent with never trying abbreviation.
 		 *
 		 * Alter datum1 representation in already-copied tuples, so as to
-		 * ensure a consistent representation (current tuple was just handled).
-		 * Note that we rely on all tuples copied so far actually being
-		 * contained within memtuples array.
+		 * ensure a consistent representation (current tuple was just
+		 * handled). Note that we rely on all tuples copied so far actually
+		 * being contained within memtuples array.
 		 */
 		for (i = 0; i < state->memtupcount; i++)
 		{
-			SortTuple *mtup = &state->memtuples[i];
+			SortTuple  *mtup = &state->memtuples[i];
 
 			tuple = mtup->tuple;
 			mtup->datum1 = index_getattr(tuple,
@@ -1307,9 +1319,17 @@ tuplesort_putdatum(Tuplesortstate *state, Datum val, bool isNull)
 	SortTuple	stup;
 
 	/*
-	 * If it's a pass-by-reference value, copy it into memory we control, and
-	 * decrease availMem.  Then call the common code.
+	 * Pass-by-value types or null values are just stored directly in
+	 * stup.datum1 (and stup.tuple is not used and set to NULL).
+	 *
+	 * Non-null pass-by-reference values need to be copied into memory we
+	 * control, and possibly abbreviated. The copied value is pointed to by
+	 * stup.tuple and is treated as the canonical copy (e.g. to return via
+	 * tuplesort_getdatum or when writing to tape); stup.datum1 gets the
+	 * abbreviated value if abbreviation is happening, otherwise it's
+	 * identical to stup.tuple.
 	 */
+
 	if (isNull || state->datumTypeByVal)
 	{
 		stup.datum1 = val;
@@ -1318,10 +1338,44 @@ tuplesort_putdatum(Tuplesortstate *state, Datum val, bool isNull)
 	}
 	else
 	{
-		stup.datum1 = datumCopy(val, false, state->datumTypeLen);
+		Datum		original = datumCopy(val, false, state->datumTypeLen);
+
 		stup.isnull1 = false;
-		stup.tuple = DatumGetPointer(stup.datum1);
+		stup.tuple = DatumGetPointer(original);
 		USEMEM(state, GetMemoryChunkSpace(stup.tuple));
+
+		if (!state->sortKeys->abbrev_converter)
+		{
+			stup.datum1 = original;
+		}
+		else if (!consider_abort_common(state))
+		{
+			/* Store abbreviated key representation */
+			stup.datum1 = state->sortKeys->abbrev_converter(original,
+															state->sortKeys);
+		}
+		else
+		{
+			/* Abort abbreviation */
+			int			i;
+
+			stup.datum1 = original;
+
+			/*
+			 * Set state to be consistent with never trying abbreviation.
+			 *
+			 * Alter datum1 representation in already-copied tuples, so as to
+			 * ensure a consistent representation (current tuple was just
+			 * handled). Note that we rely on all tuples copied so far
+			 * actually being contained within memtuples array.
+			 */
+			for (i = 0; i < state->memtupcount; i++)
+			{
+				SortTuple  *mtup = &state->memtuples[i];
+
+				mtup->datum1 = PointerGetDatum(mtup->tuple);
+			}
+		}
 	}
 
 	puttuple_common(state, &stup);
@@ -1471,8 +1525,8 @@ consider_abort_common(Tuplesortstate *state)
 		state->abbrevNext *= 2;
 
 		/*
-		 * Check opclass-supplied abbreviation abort routine.  It may
-		 * indicate that abbreviation should not proceed.
+		 * Check opclass-supplied abbreviation abort routine.  It may indicate
+		 * that abbreviation should not proceed.
 		 */
 		if (!state->sortKeys->abbrev_abort(state->memtupcount,
 										   state->sortKeys))
@@ -1886,10 +1940,12 @@ tuplesort_getdatum(Tuplesortstate *state, bool forward,
 	}
 	else
 	{
+		/* use stup.tuple because stup.datum1 may be an abbreviation */
+
 		if (should_free)
-			*val = stup.datum1;
+			*val = PointerGetDatum(stup.tuple);
 		else
-			*val = datumCopy(stup.datum1, false, state->datumTypeLen);
+			*val = datumCopy(PointerGetDatum(stup.tuple), false, state->datumTypeLen);
 		*isNull = false;
 	}
 
@@ -2176,9 +2232,9 @@ mergeruns(Tuplesortstate *state)
 	{
 		/*
 		 * If there are multiple runs to be merged, when we go to read back
-		 * tuples from disk, abbreviated keys will not have been stored, and we
-		 * don't care to regenerate them.  Disable abbreviation from this point
-		 * on.
+		 * tuples from disk, abbreviated keys will not have been stored, and
+		 * we don't care to regenerate them.  Disable abbreviation from this
+		 * point on.
 		 */
 		state->sortKeys->abbrev_converter = NULL;
 		state->sortKeys->comparator = state->sortKeys->abbrev_full_comparator;
@@ -3066,7 +3122,7 @@ copytup_heap(Tuplesortstate *state, SortTuple *stup, void *tup)
 	 * MinimalTuple using the exported interface for that.
 	 */
 	TupleTableSlot *slot = (TupleTableSlot *) tup;
-	Datum			original;
+	Datum		original;
 	MinimalTuple tuple;
 	HeapTupleData htup;
 
@@ -3102,7 +3158,7 @@ copytup_heap(Tuplesortstate *state, SortTuple *stup, void *tup)
 	else
 	{
 		/* Abort abbreviation */
-		int		i;
+		int			i;
 
 		stup->datum1 = original;
 
@@ -3110,18 +3166,18 @@ copytup_heap(Tuplesortstate *state, SortTuple *stup, void *tup)
 		 * Set state to be consistent with never trying abbreviation.
 		 *
 		 * Alter datum1 representation in already-copied tuples, so as to
-		 * ensure a consistent representation (current tuple was just handled).
-		 * Note that we rely on all tuples copied so far actually being
-		 * contained within memtuples array.
+		 * ensure a consistent representation (current tuple was just
+		 * handled). Note that we rely on all tuples copied so far actually
+		 * being contained within memtuples array.
 		 */
 		for (i = 0; i < state->memtupcount; i++)
 		{
-			SortTuple *mtup = &state->memtuples[i];
+			SortTuple  *mtup = &state->memtuples[i];
 
 			htup.t_len = ((MinimalTuple) mtup->tuple)->t_len +
-							MINIMAL_TUPLE_OFFSET;
+				MINIMAL_TUPLE_OFFSET;
 			htup.t_data = (HeapTupleHeader) ((char *) mtup->tuple -
-							MINIMAL_TUPLE_OFFSET);
+											 MINIMAL_TUPLE_OFFSET);
 
 			mtup->datum1 = heap_getattr(&htup,
 										state->sortKeys[0].ssup_attno,
@@ -3192,7 +3248,7 @@ static int
 comparetup_cluster(const SortTuple *a, const SortTuple *b,
 				   Tuplesortstate *state)
 {
-	SortSupport	sortKey = state->sortKeys;
+	SortSupport sortKey = state->sortKeys;
 	HeapTuple	ltup;
 	HeapTuple	rtup;
 	TupleDesc	tupDesc;
@@ -3309,6 +3365,7 @@ copytup_cluster(Tuplesortstate *state, SortTuple *stup, void *tup)
 	tuple = heap_copytuple(tuple);
 	stup->tuple = (void *) tuple;
 	USEMEM(state, GetMemoryChunkSpace(tuple));
+
 	/*
 	 * set up first-column key value, and potentially abbreviate, if it's a
 	 * simple column
@@ -3341,7 +3398,7 @@ copytup_cluster(Tuplesortstate *state, SortTuple *stup, void *tup)
 	else
 	{
 		/* Abort abbreviation */
-		int		i;
+		int			i;
 
 		stup->datum1 = original;
 
@@ -3349,17 +3406,17 @@ copytup_cluster(Tuplesortstate *state, SortTuple *stup, void *tup)
 		 * Set state to be consistent with never trying abbreviation.
 		 *
 		 * Alter datum1 representation in already-copied tuples, so as to
-		 * ensure a consistent representation (current tuple was just handled).
-		 * Note that we rely on all tuples copied so far actually being
-		 * contained within memtuples array.
+		 * ensure a consistent representation (current tuple was just
+		 * handled). Note that we rely on all tuples copied so far actually
+		 * being contained within memtuples array.
 		 */
 		for (i = 0; i < state->memtupcount; i++)
 		{
-			SortTuple *mtup = &state->memtuples[i];
+			SortTuple  *mtup = &state->memtuples[i];
 
 			tuple = (HeapTuple) mtup->tuple;
 			mtup->datum1 = heap_getattr(tuple,
-										state->indexInfo->ii_KeyAttrNumbers[0],
+									  state->indexInfo->ii_KeyAttrNumbers[0],
 										state->tupDesc,
 										&stup->isnull1);
 		}
@@ -3432,10 +3489,10 @@ comparetup_index_btree(const SortTuple *a, const SortTuple *b,
 {
 	/*
 	 * This is similar to comparetup_heap(), but expects index tuples.  There
-	 * is also special handling for enforcing uniqueness, and special treatment
-	 * for equal keys at the end.
+	 * is also special handling for enforcing uniqueness, and special
+	 * treatment for equal keys at the end.
 	 */
-	SortSupport	sortKey = state->sortKeys;
+	SortSupport sortKey = state->sortKeys;
 	IndexTuple	tuple1;
 	IndexTuple	tuple2;
 	int			keysz;
@@ -3527,7 +3584,7 @@ comparetup_index_btree(const SortTuple *a, const SortTuple *b,
 				 errmsg("could not create unique index \"%s\"",
 						RelationGetRelationName(state->indexRel)),
 				 key_desc ? errdetail("Key %s is duplicated.", key_desc) :
-							errdetail("Duplicate keys exist."),
+				 errdetail("Duplicate keys exist."),
 				 errtableconstraint(state->heapRel,
 								 RelationGetRelationName(state->indexRel))));
 	}
@@ -3643,7 +3700,7 @@ copytup_index(Tuplesortstate *state, SortTuple *stup, void *tup)
 	else
 	{
 		/* Abort abbreviation */
-		int		i;
+		int			i;
 
 		stup->datum1 = original;
 
@@ -3651,13 +3708,13 @@ copytup_index(Tuplesortstate *state, SortTuple *stup, void *tup)
 		 * Set state to be consistent with never trying abbreviation.
 		 *
 		 * Alter datum1 representation in already-copied tuples, so as to
-		 * ensure a consistent representation (current tuple was just handled).
-		 * Note that we rely on all tuples copied so far actually being
-		 * contained within memtuples array.
+		 * ensure a consistent representation (current tuple was just
+		 * handled). Note that we rely on all tuples copied so far actually
+		 * being contained within memtuples array.
 		 */
 		for (i = 0; i < state->memtupcount; i++)
 		{
-			SortTuple *mtup = &state->memtuples[i];
+			SortTuple  *mtup = &state->memtuples[i];
 
 			tuple = (IndexTuple) mtup->tuple;
 			mtup->datum1 = index_getattr(tuple,
@@ -3715,9 +3772,22 @@ readtup_index(Tuplesortstate *state, SortTuple *stup,
 static int
 comparetup_datum(const SortTuple *a, const SortTuple *b, Tuplesortstate *state)
 {
-	return ApplySortComparator(a->datum1, a->isnull1,
-							   b->datum1, b->isnull1,
-							   state->onlyKey);
+	int			compare;
+
+	compare = ApplySortComparator(a->datum1, a->isnull1,
+								  b->datum1, b->isnull1,
+								  state->sortKeys);
+	if (compare != 0)
+		return compare;
+
+	/* if we have abbreviations, then "tuple" has the original value */
+
+	if (state->sortKeys->abbrev_converter)
+		compare = ApplySortAbbrevFullComparator(PointerGetDatum(a->tuple), a->isnull1,
+									   PointerGetDatum(b->tuple), b->isnull1,
+												state->sortKeys);
+
+	return compare;
 }
 
 static void
@@ -3746,8 +3816,8 @@ writetup_datum(Tuplesortstate *state, int tapenum, SortTuple *stup)
 	}
 	else
 	{
-		waddr = DatumGetPointer(stup->datum1);
-		tuplen = datumGetSize(stup->datum1, false, state->datumTypeLen);
+		waddr = stup->tuple;
+		tuplen = datumGetSize(PointerGetDatum(stup->tuple), false, state->datumTypeLen);
 		Assert(tuplen != 0);
 	}
 

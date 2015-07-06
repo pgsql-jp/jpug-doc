@@ -10,9 +10,12 @@
 #include "access/transam.h"
 #include "funcapi.h"
 #include "catalog/pg_proc.h"
+#include "catalog/pg_proc_fn.h"
 #include "catalog/pg_type.h"
 #include "utils/builtins.h"
 #include "utils/hsearch.h"
+#include "utils/inval.h"
+#include "utils/memutils.h"
 #include "utils/syscache.h"
 
 #include "plpython.h"
@@ -165,6 +168,17 @@ PLy_procedure_create(HeapTuple procTup, Oid fn_oid, bool is_trigger)
 	for (i = 0; i < FUNC_MAX_ARGS; i++)
 		PLy_typeinfo_init(&proc->args[i]);
 	proc->nargs = 0;
+	proc->langid = procStruct->prolang;
+	{
+		MemoryContext oldcxt;
+
+		Datum		protrftypes_datum = SysCacheGetAttr(PROCOID, procTup,
+										  Anum_pg_proc_protrftypes, &isnull);
+
+		oldcxt = MemoryContextSwitchTo(TopMemoryContext);
+		proc->trftypes = isnull ? NIL : oid_array_to_list(protrftypes_datum);
+		MemoryContextSwitchTo(oldcxt);
+	}
 	proc->code = proc->statics = NULL;
 	proc->globals = NULL;
 	proc->is_setof = procStruct->proretset;
@@ -219,7 +233,7 @@ PLy_procedure_create(HeapTuple procTup, Oid fn_oid, bool is_trigger)
 			else
 			{
 				/* do the real work */
-				PLy_output_datum_func(&proc->result, rvTypeTup);
+				PLy_output_datum_func(&proc->result, rvTypeTup, proc->langid, proc->trftypes);
 			}
 
 			ReleaseSysCache(rvTypeTup);
@@ -293,7 +307,9 @@ PLy_procedure_create(HeapTuple procTup, Oid fn_oid, bool is_trigger)
 					default:
 						PLy_input_datum_func(&(proc->args[pos]),
 											 types[i],
-											 argTypeTup);
+											 argTypeTup,
+											 proc->langid,
+											 proc->trftypes);
 						break;
 				}
 
@@ -430,7 +446,8 @@ PLy_procedure_argument_valid(PLyTypeInfo *arg)
 
 	/*
 	 * Zero typ_relid means that we got called on an output argument of a
-	 * function returning a unnamed record type; the info for it can't change.
+	 * function returning an unnamed record type; the info for it can't
+	 * change.
 	 */
 	if (!OidIsValid(arg->typ_relid))
 		return true;

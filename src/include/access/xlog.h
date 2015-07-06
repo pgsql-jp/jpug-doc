@@ -17,6 +17,8 @@
 #include "access/xlogreader.h"
 #include "datatype/timestamp.h"
 #include "lib/stringinfo.h"
+#include "nodes/pg_list.h"
+#include "storage/fd.h"
 
 
 /* Sync methods */
@@ -85,6 +87,7 @@ typedef enum
 } RecoveryTargetType;
 
 extern XLogRecPtr XactLastRecEnd;
+extern PGDLLIMPORT XLogRecPtr XactLastCommitEnd;
 
 extern bool reachedConsistency;
 
@@ -95,7 +98,6 @@ extern int	wal_keep_segments;
 extern int	XLOGbuffers;
 extern int	XLogArchiveTimeout;
 extern int	wal_retrieve_retry_interval;
-extern bool XLogArchiveMode;
 extern char *XLogArchiveCommand;
 extern bool EnableHotStandby;
 extern bool fullPageWrites;
@@ -104,6 +106,15 @@ extern bool wal_compression;
 extern bool log_checkpoints;
 
 extern int	CheckPointSegments;
+
+/* Archive modes */
+typedef enum ArchiveMode
+{
+	ARCHIVE_MODE_OFF = 0,		/* disabled */
+	ARCHIVE_MODE_ON,			/* enabled while server is running normally */
+	ARCHIVE_MODE_ALWAYS			/* enabled always (even during recovery) */
+} ArchiveMode;
+extern int	XLogArchiveMode;
 
 /* WAL levels */
 typedef enum WalLevel
@@ -115,7 +126,12 @@ typedef enum WalLevel
 } WalLevel;
 extern int	wal_level;
 
-#define XLogArchivingActive()	(XLogArchiveMode && wal_level >= WAL_LEVEL_ARCHIVE)
+/* Is WAL archiving enabled (always or only while server is running normally)? */
+#define XLogArchivingActive() \
+	(XLogArchiveMode > ARCHIVE_MODE_OFF && wal_level >= WAL_LEVEL_ARCHIVE)
+/* Is WAL archiving enabled always (even during recovery)? */
+#define XLogArchivingAlways() \
+	(XLogArchiveMode == ARCHIVE_MODE_ALWAYS && wal_level >= WAL_LEVEL_ARCHIVE)
 #define XLogArchiveCommandSet() (XLogArchiveCommand[0] != '\0')
 
 /*
@@ -257,7 +273,9 @@ extern void assign_checkpoint_completion_target(double newval, void *extra);
  * Starting/stopping a base backup
  */
 extern XLogRecPtr do_pg_start_backup(const char *backupidstr, bool fast,
-				   TimeLineID *starttli_p, char **labelfile);
+				   TimeLineID *starttli_p, char **labelfile, DIR *tblspcdir,
+				   List **tablespaces, char **tblspcmapfile, bool infotbssize,
+				   bool needtblspcmapfile);
 extern XLogRecPtr do_pg_stop_backup(char *labelfile, bool waitforarchive,
 				  TimeLineID *stoptli_p);
 extern void do_pg_abort_backup(void);
@@ -265,5 +283,8 @@ extern void do_pg_abort_backup(void);
 /* File path names (all relative to $PGDATA) */
 #define BACKUP_LABEL_FILE		"backup_label"
 #define BACKUP_LABEL_OLD		"backup_label.old"
+
+#define TABLESPACE_MAP			"tablespace_map"
+#define TABLESPACE_MAP_OLD		"tablespace_map.old"
 
 #endif   /* XLOG_H */

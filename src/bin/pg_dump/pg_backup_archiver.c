@@ -533,7 +533,7 @@ RestoreArchive(Archive *AHX)
 							 * search for hardcoded "DROP CONSTRAINT" instead.
 							 */
 							if (strcmp(te->desc, "DEFAULT") == 0)
-								appendPQExpBuffer(ftStmt, "%s", dropStmt);
+								appendPQExpBufferStr(ftStmt, dropStmt);
 							else
 							{
 								if (strcmp(te->desc, "CONSTRAINT") == 0 ||
@@ -2663,7 +2663,13 @@ _tocEntryRequired(TocEntry *te, teSection curSection, RestoreOptions *ropt)
 	if (ropt->selTypes)
 	{
 		if (strcmp(te->desc, "TABLE") == 0 ||
-			strcmp(te->desc, "TABLE DATA") == 0)
+			strcmp(te->desc, "TABLE DATA") == 0 ||
+			strcmp(te->desc, "VIEW") == 0 ||
+			strcmp(te->desc, "FOREIGN TABLE") == 0 ||
+			strcmp(te->desc, "MATERIALIZED VIEW") == 0 ||
+			strcmp(te->desc, "MATERIALIZED VIEW DATA") == 0 ||
+			strcmp(te->desc, "SEQUENCE") == 0 ||
+			strcmp(te->desc, "SEQUENCE SET") == 0)
 		{
 			if (!ropt->selTable)
 				return 0;
@@ -3246,7 +3252,7 @@ _printTocEntry(ArchiveHandle *AH, TocEntry *te, RestoreOptions *ropt, bool isDat
 		free(sanitized_schema);
 		free(sanitized_owner);
 
-		if (te->tablespace && !ropt->noTablespace)
+		if (te->tablespace && strlen(te->tablespace) > 0 && !ropt->noTablespace)
 		{
 			char	   *sanitized_tablespace;
 

@@ -36,7 +36,7 @@
 #include "utils/rel.h"
 #include "utils/syscache.h"
 
-/* Potentially set by contrib/pg_upgrade_support functions */
+/* Potentially set by pg_upgrade_support functions */
 Oid			binary_upgrade_next_pg_type_oid = InvalidOid;
 
 /* ----------------------------------------------------------------
@@ -133,7 +133,7 @@ TypeShellMake(const char *typeName, Oid typeNamespace, Oid ownerId)
 		if (!OidIsValid(binary_upgrade_next_pg_type_oid))
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("pg_type OID value not set when in binary upgrade mode")));
+			errmsg("pg_type OID value not set when in binary upgrade mode")));
 
 		HeapTupleSetOid(tup, binary_upgrade_next_pg_type_oid);
 		binary_upgrade_next_pg_type_oid = InvalidOid;

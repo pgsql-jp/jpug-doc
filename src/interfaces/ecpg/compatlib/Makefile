@@ -16,10 +16,10 @@ include $(top_builddir)/src/Makefile.global
 PGFILEDESC = "ECPG compat - compatibility library for ECPG"
 NAME= ecpg_compat
 SO_MAJOR_VERSION= 3
-SO_MINOR_VERSION= 7
+SO_MINOR_VERSION= 8
 
 override CPPFLAGS := -I../include -I$(top_srcdir)/src/interfaces/ecpg/include \
-	-I$(libpq_srcdir) -I$(top_srcdir)/src/include/utils $(CPPFLAGS)
+	-I$(libpq_srcdir) -DFRONTEND $(CPPFLAGS)
 override CFLAGS += $(PTHREAD_CFLAGS)
 
 SHLIB_LINK = -L../ecpglib -lecpg -L../pgtypeslib -lpgtypes $(libpq) \

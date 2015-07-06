@@ -43,7 +43,7 @@ static bool synchronous = false;
 
 
 static void usage(void);
-static DIR* get_destination_dir(char *dest_folder);
+static DIR *get_destination_dir(char *dest_folder);
 static void close_destination_dir(DIR *dest_dir, char *dest_folder);
 static XLogRecPtr FindStreamingStart(uint32 *tli);
 static void StreamLog(void);
@@ -128,10 +128,10 @@ stop_streaming(XLogRecPtr xlogpos, uint32 timeline, bool segment_finished)
 /*
  * Get destination directory.
  */
-static DIR*
+static DIR *
 get_destination_dir(char *dest_folder)
 {
-	DIR *dir;
+	DIR		   *dir;
 
 	Assert(dest_folder != NULL);
 	dir = opendir(dest_folder);
@@ -188,23 +188,11 @@ FindStreamingStart(uint32 *tli)
 
 		/*
 		 * Check if the filename looks like an xlog file, or a .partial file.
-		 * Xlog files are always 24 characters, and .partial files are 32
-		 * characters.
 		 */
-		if (strlen(dirent->d_name) == 24)
-		{
-			if (strspn(dirent->d_name, "0123456789ABCDEF") != 24)
-				continue;
+		if (IsXLogFileName(dirent->d_name))
 			ispartial = false;
-		}
-		else if (strlen(dirent->d_name) == 32)
-		{
-			if (strspn(dirent->d_name, "0123456789ABCDEF") != 24)
-				continue;
-			if (strcmp(&dirent->d_name[24], ".partial") != 0)
-				continue;
+		else if (IsPartialXLogFileName(dirent->d_name))
 			ispartial = true;
-		}
 		else
 			continue;
 
@@ -286,8 +274,10 @@ FindStreamingStart(uint32 *tli)
 static void
 StreamLog(void)
 {
-	XLogRecPtr	startpos, serverpos;
-	TimeLineID	starttli, servertli;
+	XLogRecPtr	startpos,
+				serverpos;
+	TimeLineID	starttli,
+				servertli;
 
 	/*
 	 * Connect in replication mode to the server
@@ -491,17 +481,19 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	if (replication_slot == NULL && (do_drop_slot || do_create_slot))
+	if (do_drop_slot && do_create_slot)
 	{
-		fprintf(stderr, _("%s: --create-slot and --drop-slot need a slot to be specified using --slot\n"), progname);
+		fprintf(stderr, _("%s: cannot use --create-slot together with --drop-slot\n"), progname);
 		fprintf(stderr, _("Try \"%s --help\" for more information.\n"),
 				progname);
 		exit(1);
 	}
 
-	if (do_drop_slot && do_create_slot)
+	if (replication_slot == NULL && (do_drop_slot || do_create_slot))
 	{
-		fprintf(stderr, _("%s: cannot use --create-slot together with --drop-slot\n"), progname);
+		/* translator: second %s is an option name */
+		fprintf(stderr, _("%s: %s needs a slot to be specified using --slot\n"), progname,
+				do_drop_slot ? "--drop-slot" : "--create-slot");
 		fprintf(stderr, _("Try \"%s --help\" for more information.\n"),
 				progname);
 		exit(1);
@@ -523,7 +515,8 @@ main(int argc, char **argv)
 	 */
 	if (!do_drop_slot)
 	{
-		DIR *dir = get_destination_dir(basedir);
+		DIR		   *dir = get_destination_dir(basedir);
+
 		close_destination_dir(dir, basedir);
 	}
 
@@ -548,8 +541,8 @@ main(int argc, char **argv)
 		disconnect_and_exit(1);
 
 	/*
-	 * Check that there is a database associated with connection, none
-	 * should be defined in this context.
+	 * Check that there is a database associated with connection, none should
+	 * be defined in this context.
 	 */
 	if (db_name)
 	{
@@ -587,8 +580,8 @@ main(int argc, char **argv)
 	}
 
 	/*
-	 * Don't close the connection here so that subsequent StreamLog()
-	 * can reuse it.
+	 * Don't close the connection here so that subsequent StreamLog() can
+	 * reuse it.
 	 */
 
 	while (true)

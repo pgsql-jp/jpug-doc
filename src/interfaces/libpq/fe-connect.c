@@ -2011,7 +2011,7 @@ keep_going:						/* We will come back to here until there is
 							appendPQExpBuffer(&conn->errorMessage,
 											  libpq_gettext("could not look up local user ID %d: %s\n"),
 											  (int) uid,
-											  pqStrerror(passerr, sebuf, sizeof(sebuf)));
+								  pqStrerror(passerr, sebuf, sizeof(sebuf)));
 						else
 							appendPQExpBuffer(&conn->errorMessage,
 											  libpq_gettext("local user with ID %d does not exist\n"),
@@ -3845,7 +3845,7 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 						if (!options[i].val)
 						{
 							printfPQExpBuffer(errorMessage,
-											libpq_gettext("out of memory\n"));
+										   libpq_gettext("out of memory\n"));
 							free(result);
 							return 3;
 						}
@@ -4061,6 +4061,16 @@ parseServiceFile(const char *serviceFile,
 				}
 				*val++ = '\0';
 
+				if (strcmp(key, "service") == 0)
+				{
+					printfPQExpBuffer(errorMessage,
+									  libpq_gettext("nested service specifications not supported in service file \"%s\", line %d\n"),
+									  serviceFile,
+									  linenr);
+					fclose(f);
+					return 3;
+				}
+
 				/*
 				 * Set the parameter --- but don't override any previous
 				 * explicit setting.
@@ -4075,7 +4085,7 @@ parseServiceFile(const char *serviceFile,
 						if (!options[i].val)
 						{
 							printfPQExpBuffer(errorMessage,
-											libpq_gettext("out of memory\n"));
+										   libpq_gettext("out of memory\n"));
 							fclose(f);
 							return 3;
 						}
@@ -4197,6 +4207,8 @@ parse_connection_string(const char *connstr, PQExpBuffer errorMessage,
  * designators.
  *
  * Returns the URI prefix length, 0 if the string doesn't contain a URI prefix.
+ *
+ * XXX this is duplicated in psql/common.c.
  */
 static int
 uri_prefix_length(const char *connstr)
@@ -4218,6 +4230,8 @@ uri_prefix_length(const char *connstr)
  *
  * Must be consistent with parse_connection_string: anything for which this
  * returns true should at least look like it's parseable by that routine.
+ *
+ * XXX this is duplicated in psql/common.c
  */
 static bool
 recognized_connection_string(const char *connstr)
@@ -4502,7 +4516,7 @@ conninfo_array_parse(const char *const * keywords, const char *const * values,
 								if (!options[k].val)
 								{
 									printfPQExpBuffer(errorMessage,
-													  libpq_gettext("out of memory\n"));
+										   libpq_gettext("out of memory\n"));
 									PQconninfoFree(options);
 									PQconninfoFree(dbname_options);
 									return NULL;
@@ -4512,6 +4526,7 @@ conninfo_array_parse(const char *const * keywords, const char *const * values,
 						}
 					}
 				}
+
 				/*
 				 * Forget the parsed connection string, so that any subsequent
 				 * dbname parameters will not be expanded.
@@ -5004,7 +5019,7 @@ conninfo_uri_parse_params(char *params,
 			/* Insert generic message if conninfo_storeval didn't give one. */
 			if (errorMessage->len == 0)
 				printfPQExpBuffer(errorMessage,
-								  libpq_gettext("invalid URI query parameter: \"%s\"\n"),
+					  libpq_gettext("invalid URI query parameter: \"%s\"\n"),
 								  keyword);
 			/* And fail. */
 			if (malloced)

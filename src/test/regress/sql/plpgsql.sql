@@ -3248,6 +3248,39 @@ $$ language plpgsql;
 
 select compos();
 
+-- RETURN variable is a different code path ...
+create or replace function compos() returns compostype as $$
+declare x int := 42;
+begin
+  return x;
+end;
+$$ language plpgsql;
+
+select * from compos();
+
+drop function compos();
+
+-- test: invalid use of composite variable in scalar-returning function
+create or replace function compos() returns int as $$
+declare
+  v compostype;
+begin
+  v := (1, 'hello');
+  return v;
+end;
+$$ language plpgsql;
+
+select compos();
+
+-- test: invalid use of composite expression in scalar-returning function
+create or replace function compos() returns int as $$
+begin
+  return (1, 'hello')::compostype;
+end;
+$$ language plpgsql;
+
+select compos();
+
 drop function compos();
 drop type compostype;
 
@@ -4217,3 +4250,51 @@ select outer_outer_func(20);
 drop function outer_outer_func(int);
 drop function outer_func(int);
 drop function inner_func(int);
+
+--
+-- Test ASSERT
+--
+
+do $$
+begin
+  assert 1=1;  -- should succeed
+end;
+$$;
+
+do $$
+begin
+  assert 1=0;  -- should fail
+end;
+$$;
+
+do $$
+begin
+  assert NULL;  -- should fail
+end;
+$$;
+
+-- check controlling GUC
+set plpgsql.check_asserts = off;
+do $$
+begin
+  assert 1=0;  -- won't be tested
+end;
+$$;
+reset plpgsql.check_asserts;
+
+-- test custom message
+do $$
+declare var text := 'some value';
+begin
+  assert 1=0, format('assertion failed, var = "%s"', var);
+end;
+$$;
+
+-- ensure assertions are not trapped by 'others'
+do $$
+begin
+  assert 1=0, 'unhandled assertion';
+exception when others then
+  null; -- do nothing
+end;
+$$;

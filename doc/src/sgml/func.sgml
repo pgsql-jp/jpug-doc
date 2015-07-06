@@ -2998,14 +2998,15 @@
            <para>
             <literal>I</literal> treats the argument value as an SQL
             identifier, double-quoting it if necessary.
-            It is an error for the value to be null.
+            It is an error for the value to be null (equivalent to
+            <function>quote_ident</>).
            </para>
           </listitem>
           <listitem>
            <para>
             <literal>L</literal> quotes the argument value as an SQL literal.
             A null value is displayed as the string <literal>NULL</>, without
-            quotes.
+            quotes (equivalent to <function>quote_nullable</function>).
            </para>
           </listitem>
          </itemizedlist>
@@ -5730,7 +5731,7 @@ SELECT SUBSTRING('XY1234Z', 'Y*?([0-9]{1,3})');
       <tbody>
        <row>
         <entry><literal>FM</literal> prefix</entry>
-        <entry>fill mode (suppress padding blanks and trailing zeroes)</entry>
+        <entry>fill mode (suppress leading zeroes and padding blanks)</entry>
         <entry><literal>FMMonth</literal></entry>
        </row>
        <row>
@@ -6133,7 +6134,7 @@ SELECT SUBSTRING('XY1234Z', 'Y*?([0-9]{1,3})');
       <tbody>
        <row>
         <entry><literal>FM</literal> prefix</entry>
-        <entry>fill mode (suppress padding blanks and trailing zeroes)</entry>
+        <entry>fill mode (suppress leading zeroes and padding blanks)</entry>
         <entry><literal>FM9999</literal></entry>
        </row>
        <row>
@@ -8295,6 +8296,12 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry><literal>box(circle '((0,0),2.0)')</literal></entry>
        </row>
        <row>
+        <entry><literal><function>box(<type>point</type>)</function></literal></entry>
+        <entry><type>box</type></entry>
+        <entry>point to empty box</entry>
+        <entry><literal>box(point '(0,0)')</literal></entry>
+       </row>
+       <row>
         <entry><literal><function>box(<type>point</type>, <type>point</type>)</function></literal></entry>
         <entry><type>box</type></entry>
         <entry>points to box</entry>
@@ -8305,6 +8312,12 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry><type>box</type></entry>
         <entry>polygon to box</entry>
         <entry><literal>box(polygon '((0,0),(1,1),(2,0))')</literal></entry>
+       </row>
+       <row>
+        <entry><literal><function>bound_box(<type>box</type>, <type>box</type>)</function></literal></entry>
+        <entry><type>box</type></entry>
+        <entry>boxes to bounding box</entry>
+        <entry><literal>bound_box(box '((0,0),(1,1))', box '((3,3),(4,4))')</literal></entry>
        </row>
        <row>
         <entry>
@@ -8732,6 +8745,30 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry>extract IP address and netmask length as text</entry>
         <entry><literal>text(inet '192.168.1.5')</literal></entry>
         <entry><literal>192.168.1.5/32</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <indexterm>
+          <primary>inet_same_family</primary>
+         </indexterm>
+         <literal><function>inet_same_family(<type>inet</type>, <type>inet</type>)</function></literal>
+        </entry>
+        <entry><type>boolean</type></entry>
+        <entry>are the addresses from the same family?</entry>
+        <entry><literal>inet_same_family('192.168.1.5/24', '::1')</literal></entry>
+        <entry><literal>false</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <indexterm>
+          <primary>inet_merge</primary>
+         </indexterm>
+         <literal><function>inet_merge(<type>inet</type>, <type>inet</type>)</function></literal>
+        </entry>
+        <entry><type>cidr</type></entry>
+        <entry>the smallest network which includes both of the given networks</entry>
+        <entry><literal>inet_merge('192.168.1.5/24', '192.168.2.5/24')</literal></entry>
+        <entry><literal>192.168.0.0/22</literal></entry>
        </row>
       </tbody>
      </tgroup>
@@ -10256,9 +10293,46 @@ table2-mapping
         <entry>Do all of these key/element <emphasis>strings</emphasis> exist?</entry>
         <entry><literal>'["a", "b"]'::jsonb ?&amp; array['a', 'b']</literal></entry>
        </row>
+       <row>
+        <entry><literal>||</literal></entry>
+        <entry><type>jsonb</type></entry>
+        <entry>Concatentate two jsonb values into a new jsonb value</entry>
+        <entry><literal>'["a", "b"]'::jsonb || '["c", "d"]'::jsonb</literal></entry>
+       </row>
+       <row>
+        <entry><literal>-</literal></entry>
+        <entry><type>text</type></entry>
+        <entry>Delete key/value pair or <emphasis>string</emphasis>
+        element from left operand.  Key/value pairs are matched based
+        on their key value.</entry>
+        <entry><literal>'{"a": "b"}'::jsonb - 'a' </literal></entry>
+       </row>
+       <row>
+        <entry><literal>-</literal></entry>
+        <entry><type>integer</type></entry>
+        <entry>Delete the array element with specified index (Negative
+        integers count from the end).  Throws an error if top level
+        container is not an array.</entry>
+        <entry><literal>'["a", "b"]'::jsonb - 1 </literal></entry>
+       </row>
+       <row>
+        <entry><literal>#-</literal></entry>
+        <entry><type>text[]</type></entry>
+        <entry>Delete the field or element with specified path</entry>
+        <entry><literal>'["a", {"b":1}]'::jsonb #- '{1,b}'</literal></entry>
+       </row>
       </tbody>
      </tgroup>
    </table>
+
+  <note>
+   <para>
+    The <literal>||</> operator concatenates the elements at the top level of
+    each of its operands. It does not operate recursively. For example, if
+    both operands are objects with a common key field name, the value of the
+    field in the result will just be the value from the right hand operand.
+   </para>
+  </note>
 
   <para>
    <xref linkend="functions-json-creation-table"> shows the functions that are
@@ -10510,6 +10584,12 @@ table2-mapping
   </indexterm>
   <indexterm>
    <primary>jsonb_strip_nulls</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_set</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_pretty</primary>
   </indexterm>
 
   <table id="functions-json-processing-table">
@@ -10766,6 +10846,49 @@ table2-mapping
        <entry><literal>json_strip_nulls('[{"f1":1,"f2":null},2,null,3]')</literal></entry>
        <entry><literal>[{"f1":1},2,null,3]</literal></entry>
        </row>
+      <row>
+       <entry><para><literal>jsonb_set(target jsonb, path text[], new_value jsonb<optional>, <parameter>create_missing</parameter> <type>boolean</type></optional>)</literal>
+         </para></entry>
+       <entry><para><type>jsonb</type></para></entry>
+       <entry>
+         Returns <replaceable>target</replaceable>
+         with the section designated by <replaceable>path</replaceable>
+         replaced by <replaceable>new_value</replaceable>, or with
+         <replaceable>new_value</replaceable> added if
+         <replaceable>create_missing</replaceable> is true ( default is
+         <literal>true</>) and the item
+         designated by <replaceable>path</replaceable> does not exist.
+       </entry>
+       <entry><para><literal>jsonb_set('[{"f1":1,"f2":null},2,null,3]', '{0,f1}','[2,3,4]', false)</literal>
+         </para><para><literal>jsonb_set('[{"f1":1,"f2":null},2]', '{0,f3}','[2,3,4]')</literal>
+         </para></entry>
+       <entry><para><literal>[{"f1":[2,3,4],"f2":null},2,null,3]</literal>
+         </para><para><literal>[{"f1": 1, "f2": null, "f3": [2, 3, 4]}, 2]</literal>
+        </para></entry>
+       </row>
+      <row>
+       <entry><para><literal>jsonb_pretty(from_json jsonb)</literal>
+         </para></entry>
+       <entry><para><type>text</type></para></entry>
+       <entry>
+         Returns <replaceable>from_json</replaceable>
+         as indented json text.
+       </entry>
+       <entry><literal>jsonb_pretty('[{"f1":1,"f2":null},2,null,3]')</literal></entry>
+       <entry>
+<programlisting>                    
+ [
+     {
+         "f1": 1,
+         "f2": null
+     },
+     2,
+     null,
+     3
+ ]
+</programlisting>
+        </entry>
+       </row>
      </tbody>
     </tgroup>
    </table>
@@ -10789,6 +10912,27 @@ table2-mapping
       identical column names in the target row type.  JSON fields that do not
       appear in the target row type will be omitted from the output, and
       target columns that do not match any JSON field will simply be NULL.
+    </para>
+  </note>
+
+  <note>
+    <para>
+      All the items of the <literal>path</> parameter of <literal>jsonb_set</>
+      must be present in the <literal>target</>, unless
+      <literal>create_missing</> is true, in which case all but the last item
+      must be present. If these conditions are not met the <literal>target</>
+      is returned unchanged.
+    </para>
+    <para>
+      If the last path item is an object key, it will be created if it
+      is absent and given the new value. If the last path item is an array
+      index, if it is positive the item to set is found by counting from
+      the left, and if negative by counting from the right - <literal>-1</>
+      designates the rightmost element, and so on.
+      If the item is out of the range -array_length .. array_length -1,
+      and create_missing is true, the new value is added at the beginning
+      of the array if the item is negative, and at the end of the array if
+      it is positive.
     </para>
   </note>
 
@@ -11480,10 +11624,10 @@ SELECT NULLIF(value, '(none)') ...
     <primary>array_lower</primary>
   </indexterm>
   <indexterm>
-    <primary>array_offset</primary>
+    <primary>array_position</primary>
   </indexterm>
   <indexterm>
-    <primary>array_offsets</primary>
+    <primary>array_positions</primary>
   </indexterm>
   <indexterm>
     <primary>array_prepend</primary>
@@ -11605,27 +11749,27 @@ SELECT NULLIF(value, '(none)') ...
        <row>
         <entry>
          <literal>
-          <function>array_offset</function>(<type>anyarray</type>, <type>anyelement</type> <optional>, <type>int</type></optional>)
+          <function>array_position</function>(<type>anyarray</type>, <type>anyelement</type> <optional>, <type>int</type></optional>)
          </literal>
         </entry>
         <entry><type>int</type></entry>
-        <entry>returns the offset of the first occurrence of the second
+        <entry>returns the subscript of the first occurrence of the second
         argument in the array, starting at the element indicated by the third
         argument or at the first element (array must be one-dimensional)</entry>
-        <entry><literal>array_offset(ARRAY['sun','mon','tue','wed','thu','fri','sat'], 'mon')</literal></entry>
+        <entry><literal>array_position(ARRAY['sun','mon','tue','wed','thu','fri','sat'], 'mon')</literal></entry>
         <entry><literal>2</literal></entry>
        </row>
        <row>
         <entry>
          <literal>
-          <function>array_offsets</function>(<type>anyarray</type>, <type>anyelement</type>)
+          <function>array_positions</function>(<type>anyarray</type>, <type>anyelement</type>)
          </literal>
         </entry>
         <entry><type>int[]</type></entry>
-        <entry>returns an array of offsets of all occurrences of the second
+        <entry>returns an array of subscripts of all occurrences of the second
         argument in the array given as first argument (array must be
         one-dimensional)</entry>
-        <entry><literal>array_offsets(ARRAY['A','A','B','A'], 'A')</literal></entry>
+        <entry><literal>array_positions(ARRAY['A','A','B','A'], 'A')</literal></entry>
         <entry><literal>{1,2,4}</literal></entry>
        </row>
        <row>
@@ -11740,18 +11884,18 @@ NULL baz</literallayout>(3 rows)</entry>
     </table>
 
    <para>
-    In <function>array_offset</function> and <function>array_offsets</>,
+    In <function>array_position</function> and <function>array_positions</>,
     each array element is compared to the searched value using
     <literal>IS NOT DISTINCT FROM</literal> semantics.
    </para>
 
    <para>
-    In <function>array_offset</function>, <literal>NULL</literal> is returned
+    In <function>array_position</function>, <literal>NULL</literal> is returned
     if the value is not found.
    </para>
 
    <para>
-    In <function>array_offsets</function>, <literal>NULL</literal> is returned
+    In <function>array_positions</function>, <literal>NULL</literal> is returned
     only if the array is <literal>NULL</literal>; if the value is not found in
     the array, an empty array is returned instead.
    </para>
@@ -12089,6 +12233,17 @@ NULL baz</literallayout>(3 rows)</entry>
         <entry><literal>upper_inf('(,)'::daterange)</literal></entry>
         <entry><literal>true</literal></entry>
        </row>
+       <row>
+        <entry>
+         <literal>
+          <function>range_merge</function>(<type>anyrange</type>, <type>anyrange</type>)
+         </literal>
+        </entry>
+        <entry><type>anyrange</type></entry>
+        <entry>the smallest range which includes both of the given ranges</entry>
+        <entry><literal>range_merge('[1,2)'::int4range, '[3,4)'::int4range)</literal></entry>
+        <entry><literal>[1,4)</literal></entry>
+       </row>
       </tbody>
      </tgroup>
     </table>
@@ -12118,7 +12273,9 @@ NULL baz</literallayout>(3 rows)</entry>
    <xref linkend="functions-aggregate-statistics-table">.
    The built-in ordered-set aggregate functions
    are listed in <xref linkend="functions-orderedset-table"> and
-   <xref linkend="functions-hypothetical-table">.
+   <xref linkend="functions-hypothetical-table">.  Grouping operations,
+   which are closely related to aggregate functions, are listed in
+   <xref linkend="functions-grouping-table">.
    The special syntax considerations for aggregate
    functions are explained in <xref linkend="syntax-aggregates">.
    Consult <xref linkend="tutorial-agg"> for additional introductory
@@ -13215,6 +13372,72 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
    they do not drop input rows containing nulls.  Null values sort according
    to the rule specified in the <literal>ORDER BY</> clause.
   </para>
+
+  <table id="functions-grouping-table">
+   <title>Grouping Operations</title>
+
+   <tgroup cols="3">
+    <thead>
+     <row>
+      <entry>Function</entry>
+      <entry>Return Type</entry>
+      <entry>Description</entry>
+     </row>
+    </thead>
+
+    <tbody>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>GROUPING</primary>
+       </indexterm>
+       <function>GROUPING(<replaceable class="parameter">args...</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>integer</type>
+      </entry>
+      <entry>
+       Integer bitmask indicating which arguments are not being included in the current
+       grouping set
+      </entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+   <para>
+    Grouping operations are used in conjunction with grouping sets (see
+    <xref linkend="queries-grouping-sets">) to distinguish result rows.  The
+    arguments to the <literal>GROUPING</> operation are not actually evaluated,
+    but they must match exactly expressions given in the <literal>GROUP BY</>
+    clause of the associated query level.  Bits are assigned with the rightmost
+    argument being the least-significant bit; each bit is 0 if the corresponding
+    expression is included in the grouping criteria of the grouping set generating
+    the result row, and 1 if it is not.  For example:
+<screen>
+<prompt>=&gt;</> <userinput>SELECT * FROM items_sold;</>
+ make  | model | sales
+-------+-------+-------
+ Foo   | GT    |  10
+ Foo   | Tour  |  20
+ Bar   | City  |  15
+ Bar   | Sport |  5
+(4 rows)
+
+<prompt>=&gt;</> <userinput>SELECT make, model, GROUPING(make,model), sum(sales) FROM items_sold GROUP BY ROLLUP(make,model);</>
+ make  | model | grouping | sum
+-------+-------+----------+-----
+ Foo   | GT    |        0 | 10
+ Foo   | Tour  |        0 | 20
+ Bar   | City  |        0 | 15
+ Bar   | Sport |        0 | 5
+ Foo   |       |        1 | 30
+ Bar   |       |        1 | 20
+       |       |        3 | 50
+(7 rows)
+</screen>
+   </para>
 
  </sect1>
 
@@ -14616,7 +14839,7 @@ SELECT * FROM pg_ls_dir('.') WITH ORDINALITY AS t(ls,n);
       <row>
        <entry><literal><function>version()</function></literal></entry>
        <entry><type>text</type></entry>
-       <entry><productname>PostgreSQL</> version information</entry>
+       <entry><productname>PostgreSQL</> version information. See also <xref linkend="guc-server-version-num"> for a machine-readable version.</entry>
       </row>
      </tbody>
     </tgroup>
@@ -14803,7 +15026,12 @@ SET search_path TO <replaceable>schema</> <optional>, <replaceable>schema</>, ..
 
    <para>
     <function>version</function> returns a string describing the
-    <productname>PostgreSQL</productname> server's version.
+    <productname>PostgreSQL</productname> server's version. You can also
+    get this information from <xref linkend="guc-server-version"> or
+    for a machine-readable version, <xref linkend="guc-server-version-num">.
+    Software developers should use <literal>server_version_num</literal>
+    (available since 8.2) or <xref linkend="libpq-pqserverversion"> instead
+    of parsing the text version.
    </para>
 
   <indexterm>
@@ -15354,8 +15582,9 @@ SELECT relname FROM pg_class WHERE pg_table_is_visible(oid);
    <para>
     Each function performs the visibility check for one type of database
     object.  Note that <function>pg_table_is_visible</function> can also be used
-    with views, indexes and sequences; <function>pg_type_is_visible</function>
-    can also be used with domains. For functions and operators, an object in
+    with views, materialized views, indexes, sequences and foreign tables;
+    <function>pg_type_is_visible</function> can also be used with domains.
+    For functions and operators, an object in
     the search path is visible if there is no object of the same name
     <emphasis>and argument data type(s)</> earlier in the path.  For operator
     classes, both name and associated index access method are considered.
@@ -16050,7 +16279,7 @@ SELECT collation for ('foo' COLLATE "de_DE");
       <row>
        <entry><literal><function>txid_current()</function></literal></entry>
        <entry><type>bigint</type></entry>
-       <entry>get current transaction ID</entry>
+       <entry>get current transaction ID, assigning a new one if the current transaction does not have one</entry>
       </row>
       <row>
        <entry><literal><function>txid_current_snapshot()</function></literal></entry>
@@ -16215,7 +16444,7 @@ SELECT collation for ('foo' COLLATE "de_DE");
         <indexterm>
          <primary>current_setting</primary>
         </indexterm>
-        <literal><function>current_setting(<parameter>setting_name</parameter>)</function></literal>
+        <literal><function>current_setting(<parameter>setting_name</parameter> [, <parameter>missing_ok</parameter> ])</function></literal>
        </entry>
        <entry><type>text</type></entry>
        <entry>get current value of setting</entry>
@@ -16263,6 +16492,11 @@ SELECT current_setting('datestyle');
  ISO, MDY
 (1 row)
 </programlisting>
+
+    If there is no setting named <parameter>setting_name</parameter>,
+    <function>current_setting</function> throws an error
+    unless <parameter>missing_ok</parameter> is supplied and is
+    <literal>true</literal>.
    </para>
 
    <para>
@@ -16538,11 +16772,12 @@ SELECT set_config('log_statement_stats', 'off', false);
     <function>pg_start_backup</> accepts an
     arbitrary user-defined label for the backup.  (Typically this would be
     the name under which the backup dump file will be stored.)  The function
-    writes a backup label file (<filename>backup_label</>) into the
-    database cluster's data directory, performs a checkpoint,
-    and then returns the backup's starting transaction log location as text.
-    The user can ignore this result value, but it is
-    provided in case it is useful.
+    writes a backup label file (<filename>backup_label</>) and, if there
+    are any links in the <filename>pg_tblspc/</> directory, a tablespace map
+    file (<filename>tablespace_map</>) into the database cluster's data
+    directory, performs a checkpoint, and then returns the backup's starting
+    transaction log location as text.  The user can ignore this result value,
+    but it is provided in case it is useful.
 <programlisting>
 postgres=# select pg_start_backup('label_goes_here');
  pg_start_backup
@@ -16557,7 +16792,8 @@ postgres=# select pg_start_backup('label_goes_here');
    </para>
 
    <para>
-    <function>pg_stop_backup</> removes the label file created by
+    <function>pg_stop_backup</> removes the label file and, if it exists,
+    the <filename>tablespace_map</> file created by
     <function>pg_start_backup</>, and creates a backup history file in
     the transaction log archive area.  The history file includes the label given to
     <function>pg_start_backup</>, the starting and ending transaction log locations for
@@ -16873,11 +17109,13 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
    <title>Replication Functions</title>
 
    <para>
-    The functions shown in <xref linkend="functions-replication-table"> are
-    for controlling and interacting with replication features.
-    See <xref linkend="streaming-replication">
-    and <xref linkend="streaming-replication-slots"> for information about the
-    underlying features.  Use of these functions is restricted to superusers.
+    The functions shown
+    in <xref linkend="functions-replication-table"> are for
+    controlling and interacting with replication features.
+    See <xref linkend="streaming-replication">,
+    <xref linkend="streaming-replication-slots">, <xref linkend="replication-origins">
+    for information about the underlying features.  Use of these
+    functions is restricted to superusers.
    </para>
 
    <para>
@@ -17034,6 +17272,194 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         on future calls.
        </entry>
       </row>
+
+      <row>
+       <entry id="pg-replication-origin-create">
+        <indexterm>
+         <primary>pg_replication_origin_create</primary>
+        </indexterm>
+        <literal><function>pg_replication_origin_create(<parameter>node_name</parameter> <type>text</type>)</function></literal>
+       </entry>
+       <entry>
+        <parameter>internal_id</parameter> <type>oid</type>
+       </entry>
+       <entry>
+        Create a replication origin with the passed in external
+        name, and create an internal id for it.
+       </entry>
+      </row>
+
+      <row>
+       <entry id="pg-replication-origin-drop">
+        <indexterm>
+         <primary>pg_replication_origin_drop</primary>
+        </indexterm>
+        <literal><function>pg_replication_origin_drop(<parameter>node_name</parameter> <type>text</type>)</function></literal>
+       </entry>
+       <entry>
+        void
+       </entry>
+       <entry>
+        Delete a previously created replication origin, including the
+        associated replay progress.
+       </entry>
+      </row>
+
+      <row>
+       <entry>
+        <indexterm>
+         <primary>pg_replication_origin_oid</primary>
+        </indexterm>
+        <literal><function>pg_replication_origin_oid(<parameter>node_name</parameter> <type>text</type>)</function></literal>
+       </entry>
+       <entry>
+        <parameter>internal_id</parameter> <type>oid</type>
+       </entry>
+       <entry>
+        Lookup replication origin by name and return the internal id. If no
+        corresponding replication origin is found an error is thrown.
+       </entry>
+      </row>
+
+      <row>
+       <entry id="pg-replication-origin-session-setup">
+        <indexterm>
+         <primary>pg_replication_origin_session_setup</primary>
+        </indexterm>
+        <literal><function>pg_replication_origin_setup_session(<parameter>node_name</parameter> <type>text</type>)</function></literal>
+       </entry>
+       <entry>
+        void
+       </entry>
+       <entry>
+        Configure the current session to be replaying from the passed in
+        origin, allowing replay progress to be tracked.  Use
+        <function>pg_replication_origin_session_reset</function> to revert.
+        Can only be used if no previous origin is configured.
+       </entry>
+      </row>
+
+      <row>
+       <entry>
+        <indexterm>
+         <primary>pg_replication_origin_session_reset</primary>
+        </indexterm>
+        <literal><function>pg_replication_origin_session_reset()</function></literal>
+       </entry>
+       <entry>
+        void
+       </entry>
+       <entry>
+        Cancel the effects
+        of <function>pg_replication_origin_session_setup()</function>.
+       </entry>
+      </row>
+
+      <row>
+       <entry>
+        <indexterm>
+         <primary>pg_replication_session_is_setup</primary>
+        </indexterm>
+        <literal><function>pg_replication_session_is_setup()</function></literal>
+       </entry>
+       <entry>
+        bool
+       </entry>
+       <entry>
+        Has a replication origin been configured in the current session?
+       </entry>
+      </row>
+
+      <row>
+       <entry id="pg-replication-origin-session-progress">
+        <indexterm>
+         <primary>pg_replication_origin_session_progress</primary>
+        </indexterm>
+        <literal><function>pg_replication_origin_progress(<parameter>flush</parameter> <type>bool</type>)</function></literal>
+       </entry>
+       <entry>
+        pg_lsn
+       </entry>
+       <entry>
+        Return the replay position for the replication origin configured in
+        the current session. The parameter <parameter>flush</parameter>
+        determines whether the corresponding local transaction will be
+        guaranteed to have been flushed to disk or not.
+       </entry>
+      </row>
+
+      <row>
+       <entry id="pg-replication-origin-xact-setup">
+        <indexterm>
+         <primary>pg_replication_origin_xact_setup</primary>
+        </indexterm>
+        <literal><function>pg_replication_origin_xact_setup(<parameter>origin_lsn</parameter> <type>pg_lsn</type>, <parameter>origin_timestamp</parameter> <type>timestamptz</type>)</function></literal>
+       </entry>
+       <entry>
+        void
+       </entry>
+       <entry>
+        Mark the current transaction to be replaying a transaction that has
+        committed at the passed in <acronym>LSN</acronym> and timestamp. Can
+        only be called when a replication origin has previously been
+        configured using
+        <function>pg_replication_origin_session_setup()</function>.
+       </entry>
+      </row>
+
+      <row>
+       <entry id="pg-replication-origin-xact-reset">
+        <indexterm>
+         <primary>pg_replication_origin_xact_reset</primary>
+        </indexterm>
+        <literal><function>pg_replication_origin_xact_reset()</function></literal>
+       </entry>
+       <entry>
+        void
+       </entry>
+       <entry>
+        Cancel the effects of
+        <function>pg_replication_origin_xact_setup()</function>.
+       </entry>
+      </row>
+
+      <row>
+       <entry>
+        <indexterm>
+         <primary>pg_replication_origin_advance</primary>
+        </indexterm>
+        <literal>pg_replication_origin_advance<function>(<parameter>node_name</parameter> <type>text</type>, <parameter>pos</parameter> <type>pg_lsn</type>)</function></literal>
+       </entry>
+       <entry>
+        void
+       </entry>
+       <entry>
+        Set replication progress for the passed in node to the passed in
+        position. This primarily is useful for setting up the initial position
+        or a new position after configuration changes and similar. Be aware
+        that careless use of this function can lead to inconsistently
+        replicated data.
+       </entry>
+      </row>
+
+      <row>
+       <entry id="pg-replication-origin-progress">
+        <indexterm>
+         <primary>pg_replication_origin_progress</primary>
+        </indexterm>
+        <literal><function>pg_replication_origin_progress(<parameter>node_name</parameter> <type>text</type>, <parameter>flush</parameter> <type>bool</type>)</function></literal>
+       </entry>
+       <entry>
+        pg_lsn
+       </entry>
+       <entry>
+        Return the replay position for the passed in replication origin. The
+        parameter <parameter>flush</parameter> determines whether the
+        corresponding local transaction will be guaranteed to have been
+        flushed to disk or not.
+       </entry>
+      </row>
+
      </tbody>
     </tgroup>
    </table>
@@ -17390,43 +17816,63 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
      <tbody>
       <row>
        <entry>
-        <literal><function>pg_ls_dir(<parameter>dirname</> <type>text</>)</function></literal>
+        <literal><function>pg_ls_dir(<parameter>dirname</> <type>text</> [, <parameter>missing_ok</> <type>boolean</>, <parameter>include_dot_dirs</> <type>boolean</>])</function></literal>
        </entry>
        <entry><type>setof text</type></entry>
-       <entry>List the contents of a directory</entry>
+       <entry>
+        List the contents of a directory.
+       </entry>
       </row>
       <row>
        <entry>
-        <literal><function>pg_read_file(<parameter>filename</> <type>text</> [, <parameter>offset</> <type>bigint</>, <parameter>length</> <type>bigint</>])</function></literal>
+        <literal><function>pg_read_file(<parameter>filename</> <type>text</> [, <parameter>offset</> <type>bigint</>, <parameter>length</> <type>bigint</> [, <parameter>missing_ok</> <type>boolean</>] ])</function></literal>
        </entry>
        <entry><type>text</type></entry>
-       <entry>Return the contents of a text file</entry>
+       <entry>
+        Return the contents of a text file.
+       </entry>
       </row>
       <row>
        <entry>
-        <literal><function>pg_read_binary_file(<parameter>filename</> <type>text</> [, <parameter>offset</> <type>bigint</>, <parameter>length</> <type>bigint</>])</function></literal>
+        <literal><function>pg_read_binary_file(<parameter>filename</> <type>text</> [, <parameter>offset</> <type>bigint</>, <parameter>length</> <type>bigint</> [, <parameter>missing_ok</> <type>boolean</>] ])</function></literal>
        </entry>
        <entry><type>bytea</type></entry>
-       <entry>Return the contents of a file</entry>
+       <entry>
+        Return the contents of a file.
+       </entry>
       </row>
       <row>
        <entry>
-        <literal><function>pg_stat_file(<parameter>filename</> <type>text</>)</function></literal>
+        <literal><function>pg_stat_file(<parameter>filename</> <type>text</>[, <parameter>missing_ok</> <type>boolean</type>])</function></literal>
        </entry>
        <entry><type>record</type></entry>
-       <entry>Return information about a file</entry>
+       <entry>
+        Return information about a file.
+       </entry>
       </row>
      </tbody>
     </tgroup>
    </table>
 
+   <para>
+    All of these functions take an optional <parameter>missing_ok</> parameter,
+    which specifies the behavior when the file or directory does not exist.
+    If <literal>true</literal>, the function returns NULL (except
+    <function>pg_ls_dir</>, which returns an empty result set). If
+    <literal>false</>, an error is raised. The default is <literal>false</>.
+   </para>
+
    <indexterm>
     <primary>pg_ls_dir</primary>
    </indexterm>
    <para>
-    <function>pg_ls_dir</> returns all the names in the specified
-    directory, except the special entries <quote><literal>.</></> and
-    <quote><literal>..</></>.
+    <function>pg_ls_dir</> returns the names of all files (and directories
+    and other special files) in the specified directory. The <parameter>
+    include_dot_dirs</> indicates whether <quote>.</> and <quote>..</> are
+    included in the result set. The default is to exclude them
+    (<literal>false</>), but including them can be useful when
+    <parameter>missing_ok</> is <literal>true</literal>, to distinguish an
+    empty directory from an non-existent directory.
    </para>
 
    <indexterm>
@@ -17823,8 +18269,99 @@ FOR EACH ROW EXECUTE PROCEDURE suppress_redundant_updates_trigger();
     see <xref linkend="event-triggers">.
    </para>
 
+  <sect2 id="pg-event-trigger-ddl-command-end-functions">
+   <title>Capturing Changes at Command End</title>
+
+   <indexterm>
+    <primary>pg_event_trigger_ddl_commands</primary>
+   </indexterm>
+
+   <para>
+    <function>pg_event_trigger_ddl_commands</> returns a list of
+    <acronym>DDL</acronym> commands executed by each user action,
+    when invoked in a function attached to a
+    <literal>ddl_command_end</> event trigger.  If called in any other
+    context, an error is raised.
+    <function>pg_event_trigger_ddl_commands</> returns one row for each
+    base command executed; some commands that are a single SQL sentence
+    may return more than one row.  This function returns the following
+    columns:
+
+    <informaltable>
+     <tgroup cols="3">
+      <thead>
+       <row>
+        <entry>Name</entry>
+        <entry>Type</entry>
+        <entry>Description</entry>
+       </row>
+      </thead>
+
+      <tbody>
+       <row>
+        <entry><literal>classid</literal></entry>
+        <entry><type>Oid</type></entry>
+        <entry>OID of catalog the object belongs in</entry>
+       </row>
+       <row>
+        <entry><literal>objid</literal></entry>
+        <entry><type>Oid</type></entry>
+        <entry>OID of the object in the catalog</entry>
+       </row>
+       <row>
+        <entry><literal>objsubid</literal></entry>
+        <entry><type>integer</type></entry>
+        <entry>Object sub-id (e.g. attribute number for columns)</entry>
+       </row>
+       <row>
+        <entry><literal>command_tag</literal></entry>
+        <entry><type>text</type></entry>
+        <entry>command tag</entry>
+       </row>
+       <row>
+        <entry><literal>object_type</literal></entry>
+        <entry><type>text</type></entry>
+        <entry>Type of the object</entry>
+       </row>
+       <row>
+        <entry><literal>schema_name</literal></entry>
+        <entry><type>text</type></entry>
+        <entry>
+         Name of the schema the object belongs in, if any; otherwise <literal>NULL</>.
+         No quoting is applied.
+        </entry>
+       </row>
+       <row>
+        <entry><literal>object_identity</literal></entry>
+        <entry><type>text</type></entry>
+        <entry>
+         Text rendering of the object identity, schema-qualified. Each and every
+         identifier present in the identity is quoted if necessary.
+        </entry>
+       </row>
+       <row>
+        <entry><literal>in_extension</literal></entry>
+        <entry><type>bool</type></entry>
+        <entry>whether the command is part of an extension script</entry>
+       </row>
+       <row>
+        <entry><literal>command</literal></entry>
+        <entry><type>pg_ddl_command</type></entry>
+        <entry>
+         A complete representation of the command, in internal format.
+         This cannot be output directly, but it can be passed to other
+         functions to obtain different pieces of information about the
+         command.
+        </entry>
+       </row>
+      </tbody>
+     </tgroup>
+    </informaltable>
+   </para>
+  </sect2>
+
   <sect2 id="pg-event-trigger-sql-drop-functions">
-   <title>Processing objects dropped by a DDL command.</title>
+   <title>Processing Objects Dropped by a DDL Command</title>
 
    <indexterm>
      <primary>pg_event_trigger_dropped_objects</primary>
@@ -17874,6 +18411,13 @@ FOR EACH ROW EXECUTE PROCEDURE suppress_redundant_updates_trigger();
         <entry>
          Flag indicating that there's a normal dependency relationship
          in the dependency graph leading to this object
+        </entry>
+       </row>
+       <row>
+        <entry><literal>is_temporary</literal></entry>
+        <entry><type>bool</type></entry>
+        <entry>
+         Flag indicating that the object was a temporary object.
         </entry>
        </row>
        <row>

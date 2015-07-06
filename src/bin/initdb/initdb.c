@@ -61,11 +61,20 @@
 #endif
 
 #include "catalog/catalog.h"
+#include "common/restricted_token.h"
 #include "common/username.h"
 #include "mb/pg_wchar.h"
 #include "getaddrinfo.h"
 #include "getopt_long.h"
 #include "miscadmin.h"
+
+
+/* Define PG_FLUSH_DATA_WORKS if we have an implementation for pg_flush_data */
+#if defined(HAVE_SYNC_FILE_RANGE)
+#define PG_FLUSH_DATA_WORKS 1
+#elif defined(USE_POSIX_FADVISE) && defined(POSIX_FADV_DONTNEED)
+#define PG_FLUSH_DATA_WORKS 1
+#endif
 
 /* Ideally this would be in a .h file, but it hardly seems worth the trouble */
 extern const char *select_default_timezone(const char *share_path);
@@ -178,9 +187,6 @@ static char *authwarning = NULL;
 static const char *boot_options = "-F";
 static const char *backend_options = "--single -F -O -c search_path=pg_catalog -c exit_on_error=true";
 
-#ifdef WIN32
-char	   *restrict_env;
-#endif
 static const char *subdirs[] = {
 	"global",
 	"pg_xlog",
@@ -219,10 +225,13 @@ static char **filter_lines_with_token(char **lines, const char *token);
 #endif
 static char **readfile(const char *path);
 static void writefile(char *path, char **lines);
-static void walkdir(char *path, void (*action) (char *fname, bool isdir));
-static void walktblspc_links(char *path, void (*action) (char *fname, bool isdir));
-static void pre_sync_fname(char *fname, bool isdir);
-static void fsync_fname(char *fname, bool isdir);
+static void walkdir(const char *path,
+		void (*action) (const char *fname, bool isdir),
+		bool process_symlinks);
+#ifdef PG_FLUSH_DATA_WORKS
+static void pre_sync_fname(const char *fname, bool isdir);
+#endif
+static void fsync_fname_ext(const char *fname, bool isdir);
 static FILE *popen_check(const char *command, const char *mode);
 static void exit_nicely(void);
 static char *get_id(void);
@@ -250,7 +259,7 @@ static void load_plpgsql(void);
 static void vacuum_db(void);
 static void make_template0(void);
 static void make_postgres(void);
-static void perform_fsync(void);
+static void fsync_pgdata(void);
 static void trapsig(int signum);
 static void check_ok(void);
 static char *escape_quotes(const char *src);
@@ -260,7 +269,6 @@ static void check_locale_name(int category, const char *locale,
 static bool check_locale_encoding(const char *locale, int encoding);
 static void setlocales(void);
 static void usage(const char *progname);
-void		get_restricted_token(void);
 void		setup_pgdata(void);
 void		setup_bin_paths(const char *argv0);
 void		setup_data_file_paths(void);
@@ -271,12 +279,6 @@ void		create_data_directory(void);
 void		create_xlog_symlink(void);
 void		warn_on_mount_point(int error);
 void		initialize_data_directory(void);
-
-
-#ifdef WIN32
-static int	CreateRestrictedProcess(char *cmd, PROCESS_INFORMATION *processInfo);
-#endif
-
 
 /*
  * macros for running pipes to postgres
@@ -527,59 +529,67 @@ writefile(char *path, char **lines)
  * walkdir: recursively walk a directory, applying the action to each
  * regular file and directory (including the named directory itself).
  *
- * Adapted from copydir() in copydir.c.
+ * If process_symlinks is true, the action and recursion are also applied
+ * to regular files and directories that are pointed to by symlinks in the
+ * given directory; otherwise symlinks are ignored.  Symlinks are always
+ * ignored in subdirectories, ie we intentionally don't pass down the
+ * process_symlinks flag to recursive calls.
+ *
+ * Errors are reported but not considered fatal.
+ *
+ * See also walkdir in fd.c, which is a backend version of this logic.
  */
 static void
-walkdir(char *path, void (*action) (char *fname, bool isdir))
+walkdir(const char *path,
+		void (*action) (const char *fname, bool isdir),
+		bool process_symlinks)
 {
 	DIR		   *dir;
-	struct dirent *direntry;
-	char		subpath[MAXPGPATH];
+	struct dirent *de;
 
 	dir = opendir(path);
 	if (dir == NULL)
 	{
 		fprintf(stderr, _("%s: could not open directory \"%s\": %s\n"),
 				progname, path, strerror(errno));
-		exit_nicely();
+		return;
 	}
 
-	while (errno = 0, (direntry = readdir(dir)) != NULL)
+	while (errno = 0, (de = readdir(dir)) != NULL)
 	{
+		char		subpath[MAXPGPATH];
 		struct stat fst;
+		int			sret;
 
-		if (strcmp(direntry->d_name, ".") == 0 ||
-			strcmp(direntry->d_name, "..") == 0)
+		if (strcmp(de->d_name, ".") == 0 ||
+			strcmp(de->d_name, "..") == 0)
 			continue;
 
-		snprintf(subpath, MAXPGPATH, "%s/%s", path, direntry->d_name);
+		snprintf(subpath, MAXPGPATH, "%s/%s", path, de->d_name);
 
-		if (lstat(subpath, &fst) < 0)
+		if (process_symlinks)
+			sret = stat(subpath, &fst);
+		else
+			sret = lstat(subpath, &fst);
+
+		if (sret < 0)
 		{
 			fprintf(stderr, _("%s: could not stat file \"%s\": %s\n"),
 					progname, subpath, strerror(errno));
-			exit_nicely();
+			continue;
 		}
 
-		if (S_ISDIR(fst.st_mode))
-			walkdir(subpath, action);
-		else if (S_ISREG(fst.st_mode))
+		if (S_ISREG(fst.st_mode))
 			(*action) (subpath, false);
+		else if (S_ISDIR(fst.st_mode))
+			walkdir(subpath, action, false);
 	}
 
 	if (errno)
-	{
 		fprintf(stderr, _("%s: could not read directory \"%s\": %s\n"),
 				progname, path, strerror(errno));
-		exit_nicely();
-	}
 
-	if (closedir(dir))
-	{
-		fprintf(stderr, _("%s: could not close directory \"%s\": %s\n"),
-				progname, path, strerror(errno));
-		exit_nicely();
-	}
+	(void) closedir(dir);
 
 	/*
 	 * It's important to fsync the destination directory itself as individual
@@ -591,149 +601,99 @@ walkdir(char *path, void (*action) (char *fname, bool isdir))
 }
 
 /*
- * walktblspc_links: call walkdir on each entry under the given
- * pg_tblspc directory, or do nothing if pg_tblspc doesn't exist.
- */
-static void
-walktblspc_links(char *path, void (*action) (char *fname, bool isdir))
-{
-	DIR		   *dir;
-	struct dirent *direntry;
-	char		subpath[MAXPGPATH];
-
-	dir = opendir(path);
-	if (dir == NULL)
-	{
-		if (errno == ENOENT)
-			return;
-		fprintf(stderr, _("%s: could not open directory \"%s\": %s\n"),
-				progname, path, strerror(errno));
-		exit_nicely();
-	}
-
-	while (errno = 0, (direntry = readdir(dir)) != NULL)
-	{
-		if (strcmp(direntry->d_name, ".") == 0 ||
-			strcmp(direntry->d_name, "..") == 0)
-			continue;
-
-		/* fsync the version specific tablespace subdirectory */
-		snprintf(subpath, sizeof(subpath), "%s/%s/%s",
-				 path, direntry->d_name, TABLESPACE_VERSION_DIRECTORY);
-
-		walkdir(subpath, action);
-	}
-
-	if (errno)
-	{
-		fprintf(stderr, _("%s: could not read directory \"%s\": %s\n"),
-				progname, path, strerror(errno));
-		exit_nicely();
-	}
-
-	if (closedir(dir))
-	{
-		fprintf(stderr, _("%s: could not close directory \"%s\": %s\n"),
-				progname, path, strerror(errno));
-		exit_nicely();
-	}
-}
-
-/*
  * Hint to the OS that it should get ready to fsync() this file.
+ *
+ * Ignores errors trying to open unreadable files, and reports other errors
+ * non-fatally.
  */
+#ifdef PG_FLUSH_DATA_WORKS
+
 static void
-pre_sync_fname(char *fname, bool isdir)
+pre_sync_fname(const char *fname, bool isdir)
 {
-#if defined(HAVE_SYNC_FILE_RANGE) || \
-	(defined(USE_POSIX_FADVISE) && defined(POSIX_FADV_DONTNEED))
 	int			fd;
 
 	fd = open(fname, O_RDONLY | PG_BINARY);
 
-	/*
-	 * Some OSs don't allow us to open directories at all (Windows returns
-	 * EACCES)
-	 */
-	if (fd < 0 && isdir && (errno == EISDIR || errno == EACCES))
-		return;
-
 	if (fd < 0)
 	{
+		if (errno == EACCES || (isdir && errno == EISDIR))
+			return;
 		fprintf(stderr, _("%s: could not open file \"%s\": %s\n"),
 				progname, fname, strerror(errno));
-		exit_nicely();
+		return;
 	}
 
 	/*
-	 * Prefer sync_file_range, else use posix_fadvise.  We ignore any error
-	 * here since this operation is only a hint anyway.
+	 * We do what pg_flush_data() would do in the backend: prefer to use
+	 * sync_file_range, but fall back to posix_fadvise.  We ignore errors
+	 * because this is only a hint.
 	 */
 #if defined(HAVE_SYNC_FILE_RANGE)
-	sync_file_range(fd, 0, 0, SYNC_FILE_RANGE_WRITE);
+	(void) sync_file_range(fd, 0, 0, SYNC_FILE_RANGE_WRITE);
 #elif defined(USE_POSIX_FADVISE) && defined(POSIX_FADV_DONTNEED)
-	posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+	(void) posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+#else
+#error PG_FLUSH_DATA_WORKS should not have been defined
 #endif
 
-	close(fd);
-#endif
+	(void) close(fd);
 }
 
+#endif   /* PG_FLUSH_DATA_WORKS */
+
 /*
- * fsync a file or directory
+ * fsync_fname_ext -- Try to fsync a file or directory
  *
- * Try to fsync directories but ignore errors that indicate the OS
- * just doesn't allow/require fsyncing directories.
- *
- * Adapted from fsync_fname() in copydir.c.
+ * Ignores errors trying to open unreadable files, or trying to fsync
+ * directories on systems where that isn't allowed/required.  Reports
+ * other errors non-fatally.
  */
 static void
-fsync_fname(char *fname, bool isdir)
+fsync_fname_ext(const char *fname, bool isdir)
 {
 	int			fd;
+	int			flags;
 	int			returncode;
 
 	/*
 	 * Some OSs require directories to be opened read-only whereas other
 	 * systems don't allow us to fsync files opened read-only; so we need both
-	 * cases here
+	 * cases here.  Using O_RDWR will cause us to fail to fsync files that are
+	 * not writable by our userid, but we assume that's OK.
 	 */
+	flags = PG_BINARY;
 	if (!isdir)
-		fd = open(fname, O_RDWR | PG_BINARY);
+		flags |= O_RDWR;
 	else
-		fd = open(fname, O_RDONLY | PG_BINARY);
+		flags |= O_RDONLY;
 
 	/*
-	 * Some OSs don't allow us to open directories at all (Windows returns
-	 * EACCES)
+	 * Open the file, silently ignoring errors about unreadable files (or
+	 * unsupported operations, e.g. opening a directory under Windows), and
+	 * logging others.
 	 */
-	if (fd < 0 && isdir && (errno == EISDIR || errno == EACCES))
-		return;
-
-	else if (fd < 0)
+	fd = open(fname, flags);
+	if (fd < 0)
 	{
+		if (errno == EACCES || (isdir && errno == EISDIR))
+			return;
 		fprintf(stderr, _("%s: could not open file \"%s\": %s\n"),
 				progname, fname, strerror(errno));
-		exit_nicely();
+		return;
 	}
 
 	returncode = fsync(fd);
 
-	/* Some OSs don't allow us to fsync directories at all */
-	if (returncode != 0 && isdir && errno == EBADF)
-	{
-		close(fd);
-		return;
-	}
-
-	if (returncode != 0)
-	{
+	/*
+	 * Some OSes don't allow us to fsync directories at all, so we can ignore
+	 * those errors. Anything else needs to be reported.
+	 */
+	if (returncode != 0 && !(isdir && errno == EBADF))
 		fprintf(stderr, _("%s: could not fsync file \"%s\": %s\n"),
 				progname, fname, strerror(errno));
-		exit_nicely();
-	}
 
-	close(fd);
+	(void) close(fd);
 }
 
 /*
@@ -2334,7 +2294,8 @@ vacuum_db(void)
 
 	PG_CMD_OPEN;
 
-	PG_CMD_PUTS("ANALYZE;\nVACUUM FULL;\nVACUUM FREEZE;\n");
+	/* Run analyze before VACUUM so the statistics are frozen. */
+	PG_CMD_PUTS("ANALYZE;\nVACUUM FREEZE;\n");
 
 	PG_CMD_CLOSE;
 
@@ -2427,50 +2388,73 @@ make_postgres(void)
 }
 
 /*
- * fsync everything down to disk
+ * Issue fsync recursively on PGDATA and all its contents.
+ *
+ * We fsync regular files and directories wherever they are, but we
+ * follow symlinks only for pg_xlog and immediately under pg_tblspc.
+ * Other symlinks are presumed to point at files we're not responsible
+ * for fsyncing, and might not have privileges to write at all.
+ *
+ * Errors are reported but not considered fatal.
  */
 static void
-perform_fsync(void)
+fsync_pgdata(void)
 {
-	char		pdir[MAXPGPATH];
+	bool		xlog_is_symlink;
+	char		pg_xlog[MAXPGPATH];
 	char		pg_tblspc[MAXPGPATH];
 
 	fputs(_("syncing data to disk ... "), stdout);
 	fflush(stdout);
 
-	/*
-	 * We need to name the parent of PGDATA.  get_parent_directory() isn't
-	 * enough here, because it can result in an empty string.
-	 */
-	snprintf(pdir, MAXPGPATH, "%s/..", pg_data);
-	canonicalize_path(pdir);
-
-	/*
-	 * Hint to the OS so that we're going to fsync each of these files soon.
-	 */
-
-	/* first the parent of the PGDATA directory */
-	pre_sync_fname(pdir, true);
-
-	/* then recursively through the data directory */
-	walkdir(pg_data, pre_sync_fname);
-
-	/* now do the same thing for everything under pg_tblspc */
+	snprintf(pg_xlog, MAXPGPATH, "%s/pg_xlog", pg_data);
 	snprintf(pg_tblspc, MAXPGPATH, "%s/pg_tblspc", pg_data);
-	walktblspc_links(pg_tblspc, pre_sync_fname);
 
 	/*
-	 * Now, do the fsync()s in the same order.
+	 * If pg_xlog is a symlink, we'll need to recurse into it separately,
+	 * because the first walkdir below will ignore it.
 	 */
+	xlog_is_symlink = false;
 
-	/* first the parent of the PGDATA directory */
-	fsync_fname(pdir, true);
+#ifndef WIN32
+	{
+		struct stat st;
 
-	/* then recursively through the data directory */
-	walkdir(pg_data, fsync_fname);
+		if (lstat(pg_xlog, &st) < 0)
+			fprintf(stderr, _("%s: could not stat file \"%s\": %s\n"),
+					progname, pg_xlog, strerror(errno));
+		else if (S_ISLNK(st.st_mode))
+			xlog_is_symlink = true;
+	}
+#else
+	if (pgwin32_is_junction(pg_xlog))
+		xlog_is_symlink = true;
+#endif
 
-	/* and now the same for all tablespaces */
-	walktblspc_links(pg_tblspc, fsync_fname);
+	/*
+	 * If possible, hint to the kernel that we're soon going to fsync the data
+	 * directory and its contents.
+	 */
+#ifdef PG_FLUSH_DATA_WORKS
+	walkdir(pg_data, pre_sync_fname, false);
+	if (xlog_is_symlink)
+		walkdir(pg_xlog, pre_sync_fname, false);
+	walkdir(pg_tblspc, pre_sync_fname, true);
+#endif
+
+	/*
+	 * Now we do the fsync()s in the same order.
+	 *
+	 * The main call ignores symlinks, so in addition to specially processing
+	 * pg_xlog if it's a symlink, pg_tblspc has to be visited separately with
+	 * process_symlinks = true.  Note that if there are any plain directories
+	 * in pg_tblspc, they'll get fsync'd twice.  That's not an expected case
+	 * so we don't worry about optimizing it.
+	 */
+	walkdir(pg_data, fsync_fname_ext, false);
+	if (xlog_is_symlink)
+		walkdir(pg_xlog, fsync_fname_ext, false);
+	walkdir(pg_tblspc, fsync_fname_ext, true);
 
 	check_ok();
 }
@@ -2754,116 +2738,6 @@ setlocales(void)
 #endif
 }
 
-#ifdef WIN32
-typedef BOOL (WINAPI * __CreateRestrictedToken) (HANDLE, DWORD, DWORD, PSID_AND_ATTRIBUTES, DWORD, PLUID_AND_ATTRIBUTES, DWORD, PSID_AND_ATTRIBUTES, PHANDLE);
-
-/* Windows API define missing from some versions of MingW headers */
-#ifndef  DISABLE_MAX_PRIVILEGE
-#define DISABLE_MAX_PRIVILEGE	0x1
-#endif
-
-/*
- * Create a restricted token and execute the specified process with it.
- *
- * Returns 0 on failure, non-zero on success, same as CreateProcess().
- *
- * On NT4, or any other system not containing the required functions, will
- * NOT execute anything.
- */
-static int
-CreateRestrictedProcess(char *cmd, PROCESS_INFORMATION *processInfo)
-{
-	BOOL		b;
-	STARTUPINFO si;
-	HANDLE		origToken;
-	HANDLE		restrictedToken;
-	SID_IDENTIFIER_AUTHORITY NtAuthority = {SECURITY_NT_AUTHORITY};
-	SID_AND_ATTRIBUTES dropSids[2];
-	__CreateRestrictedToken _CreateRestrictedToken = NULL;
-	HANDLE		Advapi32Handle;
-
-	ZeroMemory(&si, sizeof(si));
-	si.cb = sizeof(si);
-
-	Advapi32Handle = LoadLibrary("ADVAPI32.DLL");
-	if (Advapi32Handle != NULL)
-	{
-		_CreateRestrictedToken = (__CreateRestrictedToken) GetProcAddress(Advapi32Handle, "CreateRestrictedToken");
-	}
-
-	if (_CreateRestrictedToken == NULL)
-	{
-		fprintf(stderr, _("%s: WARNING: cannot create restricted tokens on this platform\n"), progname);
-		if (Advapi32Handle != NULL)
-			FreeLibrary(Advapi32Handle);
-		return 0;
-	}
-
-	/* Open the current token to use as a base for the restricted one */
-	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ALL_ACCESS, &origToken))
-	{
-		fprintf(stderr, _("%s: could not open process token: error code %lu\n"), progname, GetLastError());
-		return 0;
-	}
-
-	/* Allocate list of SIDs to remove */
-	ZeroMemory(&dropSids, sizeof(dropSids));
-	if (!AllocateAndInitializeSid(&NtAuthority, 2,
-		 SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, 0,
-								  0, &dropSids[0].Sid) ||
-		!AllocateAndInitializeSid(&NtAuthority, 2,
-	SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_POWER_USERS, 0, 0, 0, 0, 0,
-								  0, &dropSids[1].Sid))
-	{
-		fprintf(stderr, _("%s: could not allocate SIDs: error code %lu\n"),
-				progname, GetLastError());
-		return 0;
-	}
-
-	b = _CreateRestrictedToken(origToken,
-							   DISABLE_MAX_PRIVILEGE,
-							   sizeof(dropSids) / sizeof(dropSids[0]),
-							   dropSids,
-							   0, NULL,
-							   0, NULL,
-							   &restrictedToken);
-
-	FreeSid(dropSids[1].Sid);
-	FreeSid(dropSids[0].Sid);
-	CloseHandle(origToken);
-	FreeLibrary(Advapi32Handle);
-
-	if (!b)
-	{
-		fprintf(stderr, _("%s: could not create restricted token: error code %lu\n"), progname, GetLastError());
-		return 0;
-	}
-
-#ifndef __CYGWIN__
-	AddUserToTokenDacl(restrictedToken);
-#endif
-
-	if (!CreateProcessAsUser(restrictedToken,
-							 NULL,
-							 cmd,
-							 NULL,
-							 NULL,
-							 TRUE,
-							 CREATE_SUSPENDED,
-							 NULL,
-							 NULL,
-							 &si,
-							 processInfo))
-
-	{
-		fprintf(stderr, _("%s: could not start process for command \"%s\": error code %lu\n"), progname, cmd, GetLastError());
-		return 0;
-	}
-
-	return ResumeThread(processInfo->hThread);
-}
-#endif
-
 /*
  * print help text
  */
@@ -2957,53 +2831,6 @@ check_need_password(const char *authmethodlocal, const char *authmethodhost)
 	}
 }
 
-void
-get_restricted_token(void)
-{
-#ifdef WIN32
-
-	/*
-	 * Before we execute another program, make sure that we are running with a
-	 * restricted token. If not, re-execute ourselves with one.
-	 */
-
-	if ((restrict_env = getenv("PG_RESTRICT_EXEC")) == NULL
-		|| strcmp(restrict_env, "1") != 0)
-	{
-		PROCESS_INFORMATION pi;
-		char	   *cmdline;
-
-		ZeroMemory(&pi, sizeof(pi));
-
-		cmdline = pg_strdup(GetCommandLine());
-
-		putenv("PG_RESTRICT_EXEC=1");
-
-		if (!CreateRestrictedProcess(cmdline, &pi))
-		{
-			fprintf(stderr, _("%s: could not re-execute with restricted token: error code %lu\n"), progname, GetLastError());
-		}
-		else
-		{
-			/*
-			 * Successfully re-execed. Now wait for child process to capture
-			 * exitcode.
-			 */
-			DWORD		x;
-
-			CloseHandle(pi.hThread);
-			WaitForSingleObject(pi.hProcess, INFINITE);
-
-			if (!GetExitCodeProcess(pi.hProcess, &x))
-			{
-				fprintf(stderr, _("%s: could not get exit code from subprocess: error code %lu\n"), progname, GetLastError());
-				exit(1);
-			}
-			exit(x);
-		}
-	}
-#endif
-}
 
 void
 setup_pgdata(void)
@@ -3737,11 +3564,20 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	/* If we only need to fsync, just to it and exit */
+	/* If we only need to fsync, just do it and exit */
 	if (sync_only)
 	{
 		setup_pgdata();
-		perform_fsync();
+
+		/* must check that directory is readable */
+		if (pg_check_dir(pg_data) <= 0)
+		{
+			fprintf(stderr, _("%s: could not access directory \"%s\": %s\n"),
+					progname, pg_data, strerror(errno));
+			exit_nicely();
+		}
+
+		fsync_pgdata();
 		return 0;
 	}
 
@@ -3759,7 +3595,7 @@ main(int argc, char *argv[])
 
 	check_need_password(authmethodlocal, authmethodhost);
 
-	get_restricted_token();
+	get_restricted_token(progname);
 
 	setup_pgdata();
 
@@ -3794,7 +3630,7 @@ main(int argc, char *argv[])
 	initialize_data_directory();
 
 	if (do_sync)
-		perform_fsync();
+		fsync_pgdata();
 	else
 		printf(_("\nSync to disk skipped.\nThe data directory might become corrupt if the operating system crashes.\n"));
 
@@ -3806,11 +3642,7 @@ main(int argc, char *argv[])
 	get_parent_directory(bin_dir);
 
 	printf(_("\nSuccess. You can now start the database server using:\n\n"
-			 "    %s%s%spostgres%s -D %s%s%s\n"
-			 "or\n"
 			 "    %s%s%spg_ctl%s -D %s%s%s -l logfile start\n\n"),
-	   QUOTE_PATH, bin_dir, (strlen(bin_dir) > 0) ? DIR_SEP : "", QUOTE_PATH,
-		   QUOTE_PATH, pgdata_native, QUOTE_PATH,
 	   QUOTE_PATH, bin_dir, (strlen(bin_dir) > 0) ? DIR_SEP : "", QUOTE_PATH,
 		   QUOTE_PATH, pgdata_native, QUOTE_PATH);
 

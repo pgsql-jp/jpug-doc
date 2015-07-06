@@ -372,6 +372,36 @@ SELECT count(*) FROM radix_text_tbl WHERE t ~>~  'Worth                         
     48
 (1 row)
 
+SELECT * FROM gpolygon_tbl ORDER BY f1 <-> '(0,0)'::point LIMIT 10;
+                       f1                        
+-------------------------------------------------
+ ((240,359),(240,455),(337,455),(337,359))
+ ((662,163),(662,187),(759,187),(759,163))
+ ((1000,0),(0,1000))
+ ((0,1000),(1000,1000))
+ ((1346,344),(1346,403),(1444,403),(1444,344))
+ ((278,1409),(278,1457),(369,1457),(369,1409))
+ ((907,1156),(907,1201),(948,1201),(948,1156))
+ ((1517,971),(1517,1043),(1594,1043),(1594,971))
+ ((175,1820),(175,1850),(259,1850),(259,1820))
+ ((2424,81),(2424,160),(2424,160),(2424,81))
+(10 rows)
+
+SELECT circle_center(f1), round(radius(f1)) as radius FROM gcircle_tbl ORDER BY f1 <-> '(200,300)'::point LIMIT 10;
+ circle_center  | radius 
+----------------+--------
+ (288.5,407)    |     68
+ (710.5,175)    |     50
+ (323.5,1433)   |     51
+ (927.5,1178.5) |     30
+ (1395,373.5)   |     57
+ (1555.5,1007)  |     53
+ (217,1835)     |     45
+ (489,2421.5)   |     22
+ (2424,120.5)   |     40
+ (751.5,2655)   |     20
+(10 rows)
+
 -- Now check the results from plain indexscan
 SET enable_seqscan = OFF;
 SET enable_indexscan = ON;
@@ -384,7 +414,7 @@ SELECT * FROM fast_emp4000
 ----------------------------------------------------------------
  Sort
    Sort Key: ((home_base[0])[0])
-   ->  Index Scan using grect2ind on fast_emp4000
+   ->  Index Only Scan using grect2ind on fast_emp4000
          Index Cond: (home_base @ '(2000,1000),(200,200)'::box)
 (4 rows)
 
@@ -402,7 +432,7 @@ SELECT count(*) FROM fast_emp4000 WHERE home_base && '(1000,1000,0,0)'::box;
                          QUERY PLAN                          
 -------------------------------------------------------------
  Aggregate
-   ->  Index Scan using grect2ind on fast_emp4000
+   ->  Index Only Scan using grect2ind on fast_emp4000
          Index Cond: (home_base && '(1000,1000),(0,0)'::box)
 (3 rows)
 
@@ -414,10 +444,10 @@ SELECT count(*) FROM fast_emp4000 WHERE home_base && '(1000,1000,0,0)'::box;
 
 EXPLAIN (COSTS OFF)
 SELECT count(*) FROM fast_emp4000 WHERE home_base IS NULL;
-                    QUERY PLAN                    
---------------------------------------------------
+                      QUERY PLAN                       
+-------------------------------------------------------
  Aggregate
-   ->  Index Scan using grect2ind on fast_emp4000
+   ->  Index Only Scan using grect2ind on fast_emp4000
          Index Cond: (home_base IS NULL)
 (3 rows)
 
@@ -501,7 +531,7 @@ SELECT count(*) FROM point_tbl WHERE f1 <@ box '(0,0,100,100)';
                      QUERY PLAN                     
 ----------------------------------------------------
  Aggregate
-   ->  Index Scan using gpointind on point_tbl
+   ->  Index Only Scan using gpointind on point_tbl
          Index Cond: (f1 <@ '(100,100),(0,0)'::box)
 (3 rows)
 
@@ -516,8 +546,8 @@ SELECT count(*) FROM point_tbl WHERE box '(0,0,100,100)' @> f1;
                      QUERY PLAN                     
 ----------------------------------------------------
  Aggregate
-   ->  Index Scan using gpointind on point_tbl
-         Index Cond: ('(100,100),(0,0)'::box @> f1)
+   ->  Index Only Scan using gpointind on point_tbl
+         Index Cond: (f1 <@ '(100,100),(0,0)'::box)
 (3 rows)
 
 SELECT count(*) FROM point_tbl WHERE box '(0,0,100,100)' @> f1;
@@ -531,7 +561,7 @@ SELECT count(*) FROM point_tbl WHERE f1 <@ polygon '(0,0),(0,100),(100,100),(50,
                                        QUERY PLAN                                       
 ----------------------------------------------------------------------------------------
  Aggregate
-   ->  Index Scan using gpointind on point_tbl
+   ->  Index Only Scan using gpointind on point_tbl
          Index Cond: (f1 <@ '((0,0),(0,100),(100,100),(50,50),(100,0),(0,0))'::polygon)
 (3 rows)
 
@@ -546,7 +576,7 @@ SELECT count(*) FROM point_tbl WHERE f1 <@ circle '<(50,50),50>';
                      QUERY PLAN                     
 ----------------------------------------------------
  Aggregate
-   ->  Index Scan using gpointind on point_tbl
+   ->  Index Only Scan using gpointind on point_tbl
          Index Cond: (f1 <@ '<(50,50),50>'::circle)
 (3 rows)
 
@@ -558,10 +588,10 @@ SELECT count(*) FROM point_tbl WHERE f1 <@ circle '<(50,50),50>';
 
 EXPLAIN (COSTS OFF)
 SELECT count(*) FROM point_tbl p WHERE p.f1 << '(0.0, 0.0)';
-                   QUERY PLAN                    
--------------------------------------------------
+                      QUERY PLAN                      
+------------------------------------------------------
  Aggregate
-   ->  Index Scan using gpointind on point_tbl p
+   ->  Index Only Scan using gpointind on point_tbl p
          Index Cond: (f1 << '(0,0)'::point)
 (3 rows)
 
@@ -573,10 +603,10 @@ SELECT count(*) FROM point_tbl p WHERE p.f1 << '(0.0, 0.0)';
 
 EXPLAIN (COSTS OFF)
 SELECT count(*) FROM point_tbl p WHERE p.f1 >> '(0.0, 0.0)';
-                   QUERY PLAN                    
--------------------------------------------------
+                      QUERY PLAN                      
+------------------------------------------------------
  Aggregate
-   ->  Index Scan using gpointind on point_tbl p
+   ->  Index Only Scan using gpointind on point_tbl p
          Index Cond: (f1 >> '(0,0)'::point)
 (3 rows)
 
@@ -588,10 +618,10 @@ SELECT count(*) FROM point_tbl p WHERE p.f1 >> '(0.0, 0.0)';
 
 EXPLAIN (COSTS OFF)
 SELECT count(*) FROM point_tbl p WHERE p.f1 <^ '(0.0, 0.0)';
-                   QUERY PLAN                    
--------------------------------------------------
+                      QUERY PLAN                      
+------------------------------------------------------
  Aggregate
-   ->  Index Scan using gpointind on point_tbl p
+   ->  Index Only Scan using gpointind on point_tbl p
          Index Cond: (f1 <^ '(0,0)'::point)
 (3 rows)
 
@@ -603,10 +633,10 @@ SELECT count(*) FROM point_tbl p WHERE p.f1 <^ '(0.0, 0.0)';
 
 EXPLAIN (COSTS OFF)
 SELECT count(*) FROM point_tbl p WHERE p.f1 >^ '(0.0, 0.0)';
-                   QUERY PLAN                    
--------------------------------------------------
+                      QUERY PLAN                      
+------------------------------------------------------
  Aggregate
-   ->  Index Scan using gpointind on point_tbl p
+   ->  Index Only Scan using gpointind on point_tbl p
          Index Cond: (f1 >^ '(0,0)'::point)
 (3 rows)
 
@@ -618,10 +648,10 @@ SELECT count(*) FROM point_tbl p WHERE p.f1 >^ '(0.0, 0.0)';
 
 EXPLAIN (COSTS OFF)
 SELECT count(*) FROM point_tbl p WHERE p.f1 ~= '(-5, -12)';
-                   QUERY PLAN                    
--------------------------------------------------
+                      QUERY PLAN                      
+------------------------------------------------------
  Aggregate
-   ->  Index Scan using gpointind on point_tbl p
+   ->  Index Only Scan using gpointind on point_tbl p
          Index Cond: (f1 ~= '(-5,-12)'::point)
 (3 rows)
 
@@ -633,9 +663,9 @@ SELECT count(*) FROM point_tbl p WHERE p.f1 ~= '(-5, -12)';
 
 EXPLAIN (COSTS OFF)
 SELECT * FROM point_tbl ORDER BY f1 <-> '0,1';
-               QUERY PLAN                
------------------------------------------
- Index Scan using gpointind on point_tbl
+                  QUERY PLAN                  
+----------------------------------------------
+ Index Only Scan using gpointind on point_tbl
    Order By: (f1 <-> '(0,1)'::point)
 (2 rows)
 
@@ -653,9 +683,9 @@ SELECT * FROM point_tbl ORDER BY f1 <-> '0,1';
 
 EXPLAIN (COSTS OFF)
 SELECT * FROM point_tbl WHERE f1 IS NULL;
-               QUERY PLAN                
------------------------------------------
- Index Scan using gpointind on point_tbl
+                  QUERY PLAN                  
+----------------------------------------------
+ Index Only Scan using gpointind on point_tbl
    Index Cond: (f1 IS NULL)
 (2 rows)
 
@@ -667,9 +697,9 @@ SELECT * FROM point_tbl WHERE f1 IS NULL;
 
 EXPLAIN (COSTS OFF)
 SELECT * FROM point_tbl WHERE f1 IS NOT NULL ORDER BY f1 <-> '0,1';
-               QUERY PLAN                
------------------------------------------
- Index Scan using gpointind on point_tbl
+                  QUERY PLAN                  
+----------------------------------------------
+ Index Only Scan using gpointind on point_tbl
    Index Cond: (f1 IS NOT NULL)
    Order By: (f1 <-> '(0,1)'::point)
 (3 rows)
@@ -689,7 +719,7 @@ EXPLAIN (COSTS OFF)
 SELECT * FROM point_tbl WHERE f1 <@ '(-10,-10),(10,10)':: box ORDER BY f1 <-> '0,1';
                    QUERY PLAN                   
 ------------------------------------------------
- Index Scan using gpointind on point_tbl
+ Index Only Scan using gpointind on point_tbl
    Index Cond: (f1 <@ '(10,10),(-10,-10)'::box)
    Order By: (f1 <-> '(0,1)'::point)
 (3 rows)
@@ -1151,6 +1181,54 @@ SELECT count(*) FROM radix_text_tbl WHERE t ~>~  'Worth                         
 -------
     48
 (1 row)
+
+EXPLAIN (COSTS OFF)
+SELECT * FROM gpolygon_tbl ORDER BY f1 <-> '(0,0)'::point LIMIT 10;
+                     QUERY PLAN                      
+-----------------------------------------------------
+ Limit
+   ->  Index Scan using ggpolygonind on gpolygon_tbl
+         Order By: (f1 <-> '(0,0)'::point)
+(3 rows)
+
+SELECT * FROM gpolygon_tbl ORDER BY f1 <-> '(0,0)'::point LIMIT 10;
+                       f1                        
+-------------------------------------------------
+ ((240,359),(240,455),(337,455),(337,359))
+ ((662,163),(662,187),(759,187),(759,163))
+ ((1000,0),(0,1000))
+ ((0,1000),(1000,1000))
+ ((1346,344),(1346,403),(1444,403),(1444,344))
+ ((278,1409),(278,1457),(369,1457),(369,1409))
+ ((907,1156),(907,1201),(948,1201),(948,1156))
+ ((1517,971),(1517,1043),(1594,1043),(1594,971))
+ ((175,1820),(175,1850),(259,1850),(259,1820))
+ ((2424,81),(2424,160),(2424,160),(2424,81))
+(10 rows)
+
+EXPLAIN (COSTS OFF)
+SELECT circle_center(f1), round(radius(f1)) as radius FROM gcircle_tbl ORDER BY f1 <-> '(200,300)'::point LIMIT 10;
+                    QUERY PLAN                     
+---------------------------------------------------
+ Limit
+   ->  Index Scan using ggcircleind on gcircle_tbl
+         Order By: (f1 <-> '(200,300)'::point)
+(3 rows)
+
+SELECT circle_center(f1), round(radius(f1)) as radius FROM gcircle_tbl ORDER BY f1 <-> '(200,300)'::point LIMIT 10;
+ circle_center  | radius 
+----------------+--------
+ (288.5,407)    |     68
+ (710.5,175)    |     50
+ (323.5,1433)   |     51
+ (927.5,1178.5) |     30
+ (1395,373.5)   |     57
+ (1555.5,1007)  |     53
+ (217,1835)     |     45
+ (489,2421.5)   |     22
+ (2424,120.5)   |     40
+ (751.5,2655)   |     20
+(10 rows)
 
 -- Now check the results from bitmap indexscan
 SET enable_seqscan = OFF;
@@ -2264,6 +2342,9 @@ CREATE INDEX hash_txt_index ON hash_txt_heap USING hash (random text_ops);
 WARNING:  hash indexes are not WAL-logged and their use is discouraged
 CREATE INDEX hash_f8_index ON hash_f8_heap USING hash (random float8_ops);
 WARNING:  hash indexes are not WAL-logged and their use is discouraged
+CREATE UNLOGGED TABLE unlogged_hash_table (id int4);
+CREATE INDEX unlogged_hash_index ON unlogged_hash_table USING hash (id int4_ops);
+DROP TABLE unlogged_hash_table;
 -- CREATE INDEX hash_ovfl_index ON hash_ovfl_heap USING hash (x int4_ops);
 --
 -- Test functional index
@@ -2831,6 +2912,14 @@ explain (costs off)
    Index Cond: ((thousand = 1) AND (tenthous = 1001))
 (2 rows)
 
+--
+-- REINDEX (VERBOSE)
+--
+CREATE TABLE reindex_verbose(id integer primary key);
+\set VERBOSITY terse
+REINDEX (VERBOSE) TABLE reindex_verbose;
+INFO:  index "reindex_verbose_pkey" was reindexed
+DROP TABLE reindex_verbose;
 --
 -- REINDEX SCHEMA
 --

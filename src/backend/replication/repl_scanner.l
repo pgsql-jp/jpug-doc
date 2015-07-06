@@ -88,6 +88,7 @@ NOWAIT			{ return K_NOWAIT; }
 PROGRESS			{ return K_PROGRESS; }
 MAX_RATE		{ return K_MAX_RATE; }
 WAL			{ return K_WAL; }
+TABLESPACE_MAP			{ return K_TABLESPACE_MAP; }
 TIMELINE			{ return K_TIMELINE; }
 START_REPLICATION	{ return K_START_REPLICATION; }
 CREATE_REPLICATION_SLOT		{ return K_CREATE_REPLICATION_SLOT; }
@@ -205,7 +206,7 @@ addlitchar(unsigned char ychar)
 	appendStringInfoChar(&litbuf, ychar);
 }
 
-void pg_attribute_noreturn
+void
 yyerror(const char *message)
 {
 	ereport(ERROR,

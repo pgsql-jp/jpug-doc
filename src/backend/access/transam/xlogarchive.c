@@ -480,7 +480,10 @@ KeepFileRestoredFromArchive(char *path, char *xlogfname)
 	 * Create .done file forcibly to prevent the restored segment from being
 	 * archived again later.
 	 */
-	XLogArchiveForceDone(xlogfname);
+	if (XLogArchiveMode != ARCHIVE_MODE_ALWAYS)
+		XLogArchiveForceDone(xlogfname);
+	else
+		XLogArchiveNotify(xlogfname);
 
 	/*
 	 * If the existing file was replaced, since walsenders might have it open,
@@ -692,6 +695,60 @@ XLogArchiveIsBusy(const char *xlog)
 		return false;
 
 	return true;
+}
+
+/*
+ * XLogArchiveIsReadyOrDone
+ *
+ * Check to see if an XLOG segment file has a .ready or .done file.
+ * This is similar to XLogArchiveIsBusy(), but returns true if the file
+ * is already archived or is about to be archived.
+ *
+ * This is currently only used at recovery.  During normal operation this
+ * would be racy: the file might get removed or marked with .ready as we're
+ * checking it, or immediately after we return.
+ */
+bool
+XLogArchiveIsReadyOrDone(const char *xlog)
+{
+	char		archiveStatusPath[MAXPGPATH];
+	struct stat stat_buf;
+
+	/* First check for .done --- this means archiver is done with it */
+	StatusFilePath(archiveStatusPath, xlog, ".done");
+	if (stat(archiveStatusPath, &stat_buf) == 0)
+		return true;
+
+	/* check for .ready --- this means archiver is still busy with it */
+	StatusFilePath(archiveStatusPath, xlog, ".ready");
+	if (stat(archiveStatusPath, &stat_buf) == 0)
+		return true;
+
+	/* Race condition --- maybe archiver just finished, so recheck */
+	StatusFilePath(archiveStatusPath, xlog, ".done");
+	if (stat(archiveStatusPath, &stat_buf) == 0)
+		return true;
+
+	return false;
+}
+
+/*
+ * XLogArchiveIsReady
+ *
+ * Check to see if an XLOG segment file has an archive notification (.ready)
+ * file.
+ */
+bool
+XLogArchiveIsReady(const char *xlog)
+{
+	char		archiveStatusPath[MAXPGPATH];
+	struct stat stat_buf;
+
+	StatusFilePath(archiveStatusPath, xlog, ".ready");
+	if (stat(archiveStatusPath, &stat_buf) == 0)
+		return true;
+
+	return false;
 }
 
 /*

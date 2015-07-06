@@ -153,7 +153,9 @@ struct PGP_Context
 	 * internal variables
 	 */
 	int			mdc_checked;
-	int			corrupt_prefix;
+	int			corrupt_prefix; /* prefix failed RFC 4880 "quick check" */
+	int			unsupported_compr;		/* has bzip2 compression */
+	int			unexpected_binary;		/* binary data seen in text_mode */
 	int			in_mdc_pkt;
 	int			use_mdcbuf_filter;
 	PX_MD	   *mdc_ctx;
@@ -276,11 +278,11 @@ void		pgp_cfb_free(PGP_CFB *ctx);
 int			pgp_cfb_encrypt(PGP_CFB *ctx, const uint8 *data, int len, uint8 *dst);
 int			pgp_cfb_decrypt(PGP_CFB *ctx, const uint8 *data, int len, uint8 *dst);
 
-void		pgp_armor_encode(const uint8 *src, unsigned len, StringInfo dst,
-							 int num_headers, char **keys, char **values);
+void pgp_armor_encode(const uint8 *src, unsigned len, StringInfo dst,
+				 int num_headers, char **keys, char **values);
 int			pgp_armor_decode(const uint8 *src, int len, StringInfo dst);
-int			pgp_extract_armor_headers(const uint8 *src, unsigned len,
-									  int *nheaders, char ***keys, char ***values);
+int pgp_extract_armor_headers(const uint8 *src, unsigned len,
+						  int *nheaders, char ***keys, char ***values);
 
 int			pgp_compress_filter(PushFilter **res, PGP_Context *ctx, PushFilter *dst);
 int			pgp_decompress_filter(PullFilter **res, PGP_Context *ctx, PullFilter *src);

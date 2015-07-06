@@ -29,6 +29,7 @@ typedef struct HeapScanDescData
 	int			rs_nkeys;		/* number of scan keys */
 	ScanKey		rs_key;			/* array of scan key descriptors */
 	bool		rs_bitmapscan;	/* true if this is really a bitmap scan */
+	bool		rs_samplescan;	/* true if this is really a sample scan */
 	bool		rs_pageatatime; /* verify visibility page-at-a-time? */
 	bool		rs_allow_strat; /* allow or disallow use of access strategy */
 	bool		rs_allow_sync;	/* allow or disallow use of syncscan */
@@ -37,8 +38,8 @@ typedef struct HeapScanDescData
 	/* state set up at initscan time */
 	BlockNumber rs_nblocks;		/* total number of blocks in rel */
 	BlockNumber rs_startblock;	/* block # to start at */
-	BlockNumber	rs_initblock;	/* block # to consider initial of rel */
-	BlockNumber	rs_numblocks;	/* number of blocks to scan */
+	BlockNumber rs_initblock;	/* block # to consider initial of rel */
+	BlockNumber rs_numblocks;	/* number of blocks to scan */
 	BufferAccessStrategy rs_strategy;	/* access strategy for reads */
 	bool		rs_syncscan;	/* report location to syncscan logic? */
 
@@ -90,6 +91,17 @@ typedef struct IndexScanDescData
 	Buffer		xs_cbuf;		/* current heap buffer in scan, if any */
 	/* NB: if xs_cbuf is not InvalidBuffer, we hold a pin on that buffer */
 	bool		xs_recheck;		/* T means scan keys must be rechecked */
+
+	/*
+	 * When fetching with an ordering operator, the values of the ORDER BY
+	 * expressions of the last returned tuple, according to the index.  If
+	 * xs_recheckorderby is true, these need to be rechecked just like the
+	 * scan keys, and the values returned here are a lower-bound on the actual
+	 * values.
+	 */
+	Datum	   *xs_orderbyvals;
+	bool	   *xs_orderbynulls;
+	bool		xs_recheckorderby;
 
 	/* state data for traversing HOT chains in index_getnext */
 	bool		xs_continue_hot;	/* T if must keep walking HOT chain */

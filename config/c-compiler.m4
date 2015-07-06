@@ -7,8 +7,8 @@
 # Check if the C compiler understands signed types.
 AC_DEFUN([PGAC_C_SIGNED],
 [AC_CACHE_CHECK(for signed types, pgac_cv_c_signed,
-[AC_TRY_COMPILE([],
-[signed char c; signed short s; signed int i;],
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],
+[signed char c; signed short s; signed int i;])],
 [pgac_cv_c_signed=yes],
 [pgac_cv_c_signed=no])])
 if test x"$pgac_cv_c_signed" = xno ; then
@@ -81,7 +81,7 @@ AC_DEFUN([PGAC_TYPE_64BIT_INT],
 [define([Ac_define], [translit([have_$1_64], [a-z *], [A-Z_P])])dnl
 define([Ac_cachevar], [translit([pgac_cv_type_$1_64], [ *], [_p])])dnl
 AC_CACHE_CHECK([whether $1 is 64 bits], [Ac_cachevar],
-[AC_TRY_RUN(
+[AC_RUN_IFELSE([AC_LANG_SOURCE(
 [typedef $1 ac_int64;
 
 /*
@@ -107,7 +107,7 @@ int does_int64_work()
 }
 main() {
   exit(! does_int64_work());
-}],
+}])],
 [Ac_cachevar=yes],
 [Ac_cachevar=no],
 [# If cross-compiling, check the size reported by the compiler and
@@ -125,6 +125,43 @@ undefine([Ac_cachevar])dnl
 ])# PGAC_TYPE_64BIT_INT
 
 
+# PGAC_TYPE_128BIT_INT
+# ---------------------
+# Check if __int128 is a working 128 bit integer type, and if so
+# define PG_INT128_TYPE to that typename.  This currently only detects
+# a GCC/clang extension, but support for different environments may be
+# added in the future.
+#
+# For the moment we only test for support for 128bit math; support for
+# 128bit literals and snprintf is not required.
+AC_DEFUN([PGAC_TYPE_128BIT_INT],
+[AC_CACHE_CHECK([for __int128], [pgac_cv__128bit_int],
+[AC_LINK_IFELSE([AC_LANG_PROGRAM([
+/*
+ * These are globals to discourage the compiler from folding all the
+ * arithmetic tests down to compile-time constants.  We do not have
+ * convenient support for 64bit literals at this point...
+ */
+__int128 a = 48828125;
+__int128 b = 97656255;
+],[
+__int128 c,d;
+a = (a << 12) + 1; /* 200000000001 */
+b = (b << 12) + 5; /* 400000000005 */
+/* use the most relevant arithmetic ops */
+c = a * b;
+d = (c + b) / b;
+/* return different values, to prevent optimizations */
+if (d != a+1)
+  return 0;
+return 1;
+])],
+[pgac_cv__128bit_int=yes],
+[pgac_cv__128bit_int=no])])
+if test x"$pgac_cv__128bit_int" = xyes ; then
+  AC_DEFINE(PG_INT128_TYPE, __int128, [Define to the name of a signed 128-bit integer type.])
+fi])# PGAC_TYPE_128BIT_INT
+
 
 # PGAC_C_FUNCNAME_SUPPORT
 # -----------------------
@@ -132,8 +169,8 @@ undefine([Ac_cachevar])dnl
 # Define HAVE_FUNCNAME__FUNC or HAVE_FUNCNAME__FUNCTION accordingly.
 AC_DEFUN([PGAC_C_FUNCNAME_SUPPORT],
 [AC_CACHE_CHECK(for __func__, pgac_cv_funcname_func_support,
-[AC_TRY_COMPILE([#include <stdio.h>],
-[printf("%s\n", __func__);],
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([#include <stdio.h>],
+[printf("%s\n", __func__);])],
 [pgac_cv_funcname_func_support=yes],
 [pgac_cv_funcname_func_support=no])])
 if test x"$pgac_cv_funcname_func_support" = xyes ; then
@@ -141,8 +178,8 @@ AC_DEFINE(HAVE_FUNCNAME__FUNC, 1,
           [Define to 1 if your compiler understands __func__.])
 else
 AC_CACHE_CHECK(for __FUNCTION__, pgac_cv_funcname_function_support,
-[AC_TRY_COMPILE([#include <stdio.h>],
-[printf("%s\n", __FUNCTION__);],
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([#include <stdio.h>],
+[printf("%s\n", __FUNCTION__);])],
 [pgac_cv_funcname_function_support=yes],
 [pgac_cv_funcname_function_support=no])])
 if test x"$pgac_cv_funcname_function_support" = xyes ; then
@@ -162,8 +199,8 @@ fi])# PGAC_C_FUNCNAME_SUPPORT
 # gcc-style compound expressions to be able to wrap the thing into macros.
 AC_DEFUN([PGAC_C_STATIC_ASSERT],
 [AC_CACHE_CHECK(for _Static_assert, pgac_cv__static_assert,
-[AC_TRY_LINK([],
-[({ _Static_assert(1, "foo"); })],
+[AC_LINK_IFELSE([AC_LANG_PROGRAM([],
+[({ _Static_assert(1, "foo"); })])],
 [pgac_cv__static_assert=yes],
 [pgac_cv__static_assert=no])])
 if test x"$pgac_cv__static_assert" = xyes ; then
@@ -182,8 +219,8 @@ fi])# PGAC_C_STATIC_ASSERT
 # have the former and not the latter.
 AC_DEFUN([PGAC_C_TYPES_COMPATIBLE],
 [AC_CACHE_CHECK(for __builtin_types_compatible_p, pgac_cv__types_compatible,
-[AC_TRY_COMPILE([],
-[ int x; static int y[__builtin_types_compatible_p(__typeof__(x), int)]; ],
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],
+[[ int x; static int y[__builtin_types_compatible_p(__typeof__(x), int)]; ]])],
 [pgac_cv__types_compatible=yes],
 [pgac_cv__types_compatible=no])])
 if test x"$pgac_cv__types_compatible" = xyes ; then
@@ -199,8 +236,9 @@ fi])# PGAC_C_TYPES_COMPATIBLE
 # and define HAVE__BUILTIN_BSWAP32 if so.
 AC_DEFUN([PGAC_C_BUILTIN_BSWAP32],
 [AC_CACHE_CHECK(for __builtin_bswap32, pgac_cv__builtin_bswap32,
-[AC_TRY_COMPILE([static unsigned long int x = __builtin_bswap32(0xaabbccdd);],
-[],
+[AC_COMPILE_IFELSE([AC_LANG_SOURCE(
+[static unsigned long int x = __builtin_bswap32(0xaabbccdd);]
+)],
 [pgac_cv__builtin_bswap32=yes],
 [pgac_cv__builtin_bswap32=no])])
 if test x"$pgac_cv__builtin_bswap32" = xyes ; then
@@ -216,8 +254,9 @@ fi])# PGAC_C_BUILTIN_BSWAP32
 # and define HAVE__BUILTIN_CONSTANT_P if so.
 AC_DEFUN([PGAC_C_BUILTIN_CONSTANT_P],
 [AC_CACHE_CHECK(for __builtin_constant_p, pgac_cv__builtin_constant_p,
-[AC_TRY_COMPILE([static int x; static int y[__builtin_constant_p(x) ? x : 1];],
-[],
+[AC_COMPILE_IFELSE([AC_LANG_SOURCE(
+[[static int x; static int y[__builtin_constant_p(x) ? x : 1];]]
+)],
 [pgac_cv__builtin_constant_p=yes],
 [pgac_cv__builtin_constant_p=no])])
 if test x"$pgac_cv__builtin_constant_p" = xyes ; then
@@ -237,8 +276,8 @@ fi])# PGAC_C_BUILTIN_CONSTANT_P
 # and only a warning instead of an error would be produced.
 AC_DEFUN([PGAC_C_BUILTIN_UNREACHABLE],
 [AC_CACHE_CHECK(for __builtin_unreachable, pgac_cv__builtin_unreachable,
-[AC_TRY_LINK([],
-[__builtin_unreachable();],
+[AC_LINK_IFELSE([AC_LANG_PROGRAM([],
+[__builtin_unreachable();])],
 [pgac_cv__builtin_unreachable=yes],
 [pgac_cv__builtin_unreachable=no])])
 if test x"$pgac_cv__builtin_unreachable" = xyes ; then
@@ -254,10 +293,10 @@ fi])# PGAC_C_BUILTIN_UNREACHABLE
 # and define HAVE__VA_ARGS if so.
 AC_DEFUN([PGAC_C_VA_ARGS],
 [AC_CACHE_CHECK(for __VA_ARGS__, pgac_cv__va_args,
-[AC_TRY_COMPILE([#include <stdio.h>],
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([#include <stdio.h>],
 [#define debug(...) fprintf(stderr, __VA_ARGS__)
 debug("%s", "blarg");
-],
+])],
 [pgac_cv__va_args=yes],
 [pgac_cv__va_args=no])])
 if test x"$pgac_cv__va_args" = xyes ; then
@@ -349,10 +388,10 @@ undefine([Ac_cachevar])dnl
 # NB: Some platforms only do 32bit tas, others only do 8bit tas. Test both.
 AC_DEFUN([PGAC_HAVE_GCC__SYNC_CHAR_TAS],
 [AC_CACHE_CHECK(for builtin __sync char locking functions, pgac_cv_gcc_sync_char_tas,
-[AC_TRY_LINK([],
+[AC_LINK_IFELSE([AC_LANG_PROGRAM([],
   [char lock = 0;
    __sync_lock_test_and_set(&lock, 1);
-   __sync_lock_release(&lock);],
+   __sync_lock_release(&lock);])],
   [pgac_cv_gcc_sync_char_tas="yes"],
   [pgac_cv_gcc_sync_char_tas="no"])])
 if test x"$pgac_cv_gcc_sync_char_tas" = x"yes"; then
@@ -365,10 +404,10 @@ fi])# PGAC_HAVE_GCC__SYNC_CHAR_TAS
 # and define HAVE_GCC__SYNC_INT32_TAS
 AC_DEFUN([PGAC_HAVE_GCC__SYNC_INT32_TAS],
 [AC_CACHE_CHECK(for builtin __sync int32 locking functions, pgac_cv_gcc_sync_int32_tas,
-[AC_TRY_LINK([],
+[AC_LINK_IFELSE([AC_LANG_PROGRAM([],
   [int lock = 0;
    __sync_lock_test_and_set(&lock, 1);
-   __sync_lock_release(&lock);],
+   __sync_lock_release(&lock);])],
   [pgac_cv_gcc_sync_int32_tas="yes"],
   [pgac_cv_gcc_sync_int32_tas="no"])])
 if test x"$pgac_cv_gcc_sync_int32_tas" = x"yes"; then
@@ -381,9 +420,9 @@ fi])# PGAC_HAVE_GCC__SYNC_INT32_TAS
 # types, and define HAVE_GCC__SYNC_INT32_CAS if so.
 AC_DEFUN([PGAC_HAVE_GCC__SYNC_INT32_CAS],
 [AC_CACHE_CHECK(for builtin __sync int32 atomic operations, pgac_cv_gcc_sync_int32_cas,
-[AC_TRY_LINK([],
+[AC_LINK_IFELSE([AC_LANG_PROGRAM([],
   [int val = 0;
-   __sync_val_compare_and_swap(&val, 0, 37);],
+   __sync_val_compare_and_swap(&val, 0, 37);])],
   [pgac_cv_gcc_sync_int32_cas="yes"],
   [pgac_cv_gcc_sync_int32_cas="no"])])
 if test x"$pgac_cv_gcc_sync_int32_cas" = x"yes"; then
@@ -396,9 +435,9 @@ fi])# PGAC_HAVE_GCC__SYNC_INT32_CAS
 # types, and define HAVE_GCC__SYNC_INT64_CAS if so.
 AC_DEFUN([PGAC_HAVE_GCC__SYNC_INT64_CAS],
 [AC_CACHE_CHECK(for builtin __sync int64 atomic operations, pgac_cv_gcc_sync_int64_cas,
-[AC_TRY_LINK([],
+[AC_LINK_IFELSE([AC_LANG_PROGRAM([],
   [PG_INT64_TYPE lock = 0;
-   __sync_val_compare_and_swap(&lock, 0, (PG_INT64_TYPE) 37);],
+   __sync_val_compare_and_swap(&lock, 0, (PG_INT64_TYPE) 37);])],
   [pgac_cv_gcc_sync_int64_cas="yes"],
   [pgac_cv_gcc_sync_int64_cas="no"])])
 if test x"$pgac_cv_gcc_sync_int64_cas" = x"yes"; then
@@ -411,10 +450,10 @@ fi])# PGAC_HAVE_GCC__SYNC_INT64_CAS
 # types, and define HAVE_GCC__ATOMIC_INT32_CAS if so.
 AC_DEFUN([PGAC_HAVE_GCC__ATOMIC_INT32_CAS],
 [AC_CACHE_CHECK(for builtin __atomic int32 atomic operations, pgac_cv_gcc_atomic_int32_cas,
-[AC_TRY_LINK([],
+[AC_LINK_IFELSE([AC_LANG_PROGRAM([],
   [int val = 0;
    int expect = 0;
-   __atomic_compare_exchange_n(&val, &expect, 37, 0, __ATOMIC_SEQ_CST, __ATOMIC_RELAXED);],
+   __atomic_compare_exchange_n(&val, &expect, 37, 0, __ATOMIC_SEQ_CST, __ATOMIC_RELAXED);])],
   [pgac_cv_gcc_atomic_int32_cas="yes"],
   [pgac_cv_gcc_atomic_int32_cas="no"])])
 if test x"$pgac_cv_gcc_atomic_int32_cas" = x"yes"; then
@@ -427,12 +466,43 @@ fi])# PGAC_HAVE_GCC__ATOMIC_INT32_CAS
 # types, and define HAVE_GCC__ATOMIC_INT64_CAS if so.
 AC_DEFUN([PGAC_HAVE_GCC__ATOMIC_INT64_CAS],
 [AC_CACHE_CHECK(for builtin __atomic int64 atomic operations, pgac_cv_gcc_atomic_int64_cas,
-[AC_TRY_LINK([],
+[AC_LINK_IFELSE([AC_LANG_PROGRAM([],
   [PG_INT64_TYPE val = 0;
    PG_INT64_TYPE expect = 0;
-   __atomic_compare_exchange_n(&val, &expect, 37, 0, __ATOMIC_SEQ_CST, __ATOMIC_RELAXED);],
+   __atomic_compare_exchange_n(&val, &expect, 37, 0, __ATOMIC_SEQ_CST, __ATOMIC_RELAXED);])],
   [pgac_cv_gcc_atomic_int64_cas="yes"],
   [pgac_cv_gcc_atomic_int64_cas="no"])])
 if test x"$pgac_cv_gcc_atomic_int64_cas" = x"yes"; then
   AC_DEFINE(HAVE_GCC__ATOMIC_INT64_CAS, 1, [Define to 1 if you have __atomic_compare_exchange_n(int64 *, int *, int64).])
 fi])# PGAC_HAVE_GCC__ATOMIC_INT64_CAS
+
+# PGAC_SSE42_CRC32_INTRINSICS
+# -----------------------
+# Check if the compiler supports the x86 CRC instructions added in SSE 4.2,
+# using the _mm_crc32_u8 and _mm_crc32_u32 intrinsic functions. (We don't
+# test the 8-byte variant, _mm_crc32_u64, but it is assumed to be present if
+# the other ones are, on x86-64 platforms)
+#
+# An optional compiler flag can be passed as argument (e.g. -msse4.2). If the
+# intrinsics are supported, sets pgac_sse42_crc32_intrinsics, and CFLAGS_SSE42.
+AC_DEFUN([PGAC_SSE42_CRC32_INTRINSICS],
+[define([Ac_cachevar], [AS_TR_SH([pgac_cv_sse42_crc32_intrinsics_$1])])dnl
+AC_CACHE_CHECK([for _mm_crc32_u8 and _mm_crc32_u32 with CFLAGS=$1], [Ac_cachevar],
+[pgac_save_CFLAGS=$CFLAGS
+CFLAGS="$pgac_save_CFLAGS $1"
+ac_save_c_werror_flag=$ac_c_werror_flag
+ac_c_werror_flag=yes
+AC_LINK_IFELSE([AC_LANG_PROGRAM([#include <nmmintrin.h>],
+  [unsigned int crc = 0;
+   crc = _mm_crc32_u8(crc, 0);
+   crc = _mm_crc32_u32(crc, 0);])],
+  [Ac_cachevar=yes],
+  [Ac_cachevar=no])
+ac_c_werror_flag=$ac_save_c_werror_flag
+CFLAGS="$pgac_save_CFLAGS"])
+if test x"$Ac_cachevar" = x"yes"; then
+  CFLAGS_SSE42="$1"
+  pgac_sse42_crc32_intrinsics=yes
+fi
+undefine([Ac_cachevar])dnl
+])# PGAC_SSE42_CRC32_INTRINSICS

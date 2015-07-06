@@ -31,7 +31,7 @@
 /*
  * Each page of XLOG file has a header like this:
  */
-#define XLOG_PAGE_MAGIC 0xD083	/* can be used as WAL version indicator */
+#define XLOG_PAGE_MAGIC 0xD085	/* can be used as WAL version indicator */
 
 typedef struct XLogPageHeaderData
 {
@@ -137,10 +137,30 @@ typedef XLogLongPageHeaderData *XLogLongPageHeader;
  */
 #define MAXFNAMELEN		64
 
+/* Length of XLog file name */
+#define XLOG_FNAME_LEN     24
+
 #define XLogFileName(fname, tli, logSegNo)	\
 	snprintf(fname, MAXFNAMELEN, "%08X%08X%08X", tli,		\
 			 (uint32) ((logSegNo) / XLogSegmentsPerXLogId), \
 			 (uint32) ((logSegNo) % XLogSegmentsPerXLogId))
+
+#define XLogFileNameById(fname, tli, log, seg)	\
+	snprintf(fname, MAXFNAMELEN, "%08X%08X%08X", tli, log, seg)
+
+#define IsXLogFileName(fname) \
+	(strlen(fname) == XLOG_FNAME_LEN && \
+	 strspn(fname, "0123456789ABCDEF") == XLOG_FNAME_LEN)
+
+/*
+ * XLOG segment with .partial suffix.  Used by pg_receivexlog and at end of
+ * archive recovery, when we want to archive a WAL segment but it might not
+ * be complete yet.
+ */
+#define IsPartialXLogFileName(fname)	\
+	(strlen(fname) == XLOG_FNAME_LEN + strlen(".partial") &&	\
+	 strspn(fname, "0123456789ABCDEF") == XLOG_FNAME_LEN &&		\
+	 strcmp((fname) + XLOG_FNAME_LEN, ".partial") == 0)
 
 #define XLogFromFileName(fname, tli, logSegNo)	\
 	do {												\
@@ -158,6 +178,11 @@ typedef XLogLongPageHeaderData *XLogLongPageHeader;
 #define TLHistoryFileName(fname, tli)	\
 	snprintf(fname, MAXFNAMELEN, "%08X.history", tli)
 
+#define IsTLHistoryFileName(fname)	\
+	(strlen(fname) == 8 + strlen(".history") &&		\
+	 strspn(fname, "0123456789ABCDEF") == 8 &&		\
+	 strcmp((fname) + 8, ".history") == 0)
+
 #define TLHistoryFilePath(path, tli)	\
 	snprintf(path, MAXPGPATH, XLOGDIR "/%08X.history", tli)
 
@@ -168,6 +193,11 @@ typedef XLogLongPageHeaderData *XLogLongPageHeader;
 	snprintf(fname, MAXFNAMELEN, "%08X%08X%08X.%08X.backup", tli, \
 			 (uint32) ((logSegNo) / XLogSegmentsPerXLogId),		  \
 			 (uint32) ((logSegNo) % XLogSegmentsPerXLogId), offset)
+
+#define IsBackupHistoryFileName(fname) \
+	(strlen(fname) > XLOG_FNAME_LEN && \
+	 strspn(fname, "0123456789ABCDEF") == XLOG_FNAME_LEN && \
+	 strcmp((fname) + strlen(fname) - strlen(".backup"), ".backup") == 0)
 
 #define BackupHistoryFilePath(path, tli, logSegNo, offset)	\
 	snprintf(path, MAXPGPATH, XLOGDIR "/%08X%08X%08X.%08X.backup", tli, \
@@ -281,6 +311,8 @@ extern void XLogArchiveNotifySeg(XLogSegNo segno);
 extern void XLogArchiveForceDone(const char *xlog);
 extern bool XLogArchiveCheckDone(const char *xlog);
 extern bool XLogArchiveIsBusy(const char *xlog);
+extern bool XLogArchiveIsReady(const char *xlog);
+extern bool XLogArchiveIsReadyOrDone(const char *xlog);
 extern void XLogArchiveCleanup(const char *xlog);
 
 #endif   /* XLOG_INTERNAL_H */

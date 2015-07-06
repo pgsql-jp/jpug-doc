@@ -17,6 +17,8 @@
 # to want to use.
 html:
 
+NO_TEMP_INSTALL=yes
+
 subdir = doc/src/sgml
 top_builddir = ../../..
 include $(top_builddir)/src/Makefile.global
@@ -269,9 +271,11 @@ htmlhelp: stylesheet-hh.xsl postgres.xml
 	$(XSLTPROC) $(XSLTPROCFLAGS) $^
 
 %-A4.fo.tmp: stylesheet-fo.xsl %.xml
+	$(XMLLINT) --noout --valid $*.xml
 	$(XSLTPROC) $(XSLTPROCFLAGS) --stringparam paper.type A4 -o $@ $^
 
 %-US.fo.tmp: stylesheet-fo.xsl %.xml
+	$(XMLLINT) --noout --valid $*.xml
 	$(XSLTPROC) $(XSLTPROCFLAGS) --stringparam paper.type USletter -o $@ $^
 
 FOP = fop
@@ -331,6 +335,7 @@ endif
 installdirs:
 	$(MKDIR_P) '$(DESTDIR)$(htmldir)'/html $(addprefix '$(DESTDIR)$(mandir)'/man, 1 3 $(sqlmansectnum))
 
+# If the install used a man directory shared with other applications, this will remove all files.
 uninstall:
 	rm -f '$(DESTDIR)$(htmldir)/html/'* $(addprefix  '$(DESTDIR)$(mandir)'/man, 1/* 3/* $(sqlmansectnum)/*)
 

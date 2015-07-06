@@ -68,7 +68,7 @@ brtuple_disk_tupdesc(BrinDesc *brdesc)
 		{
 			for (j = 0; j < brdesc->bd_info[i]->oi_nstored; j++)
 				TupleDescInitEntry(tupdesc, attno++, NULL,
-								   brdesc->bd_info[i]->oi_typids[j],
+								 brdesc->bd_info[i]->oi_typcache[j]->type_id,
 								   -1, 0);
 		}
 
@@ -103,9 +103,10 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 
 	Assert(brdesc->bd_totalstored > 0);
 
-	values = palloc(sizeof(Datum) * brdesc->bd_totalstored);
-	nulls = palloc0(sizeof(bool) * brdesc->bd_totalstored);
-	phony_nullbitmap = palloc(sizeof(bits8) * BITMAPLEN(brdesc->bd_totalstored));
+	values = (Datum *) palloc(sizeof(Datum) * brdesc->bd_totalstored);
+	nulls = (bool *) palloc0(sizeof(bool) * brdesc->bd_totalstored);
+	phony_nullbitmap = (bits8 *)
+		palloc(sizeof(bits8) * BITMAPLEN(brdesc->bd_totalstored));
 
 	/*
 	 * Set up the values/nulls arrays for heap_fill_tuple
@@ -144,6 +145,9 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 			values[idxattno++] = tuple->bt_columns[keyno].bv_values[datumno];
 	}
 
+	/* Assert we did not overrun temp arrays */
+	Assert(idxattno <= brdesc->bd_totalstored);
+
 	/* compute total space needed */
 	len = SizeOfBrinTuple;
 	if (anynulls)
@@ -160,12 +164,15 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 
 	data_len = heap_compute_data_size(brtuple_disk_tupdesc(brdesc),
 									  values, nulls);
-
 	len += data_len;
+
+	len = MAXALIGN(len);
 
 	rettuple = palloc0(len);
 	rettuple->bt_blkno = blkno;
 	rettuple->bt_info = hoff;
+
+	/* Assert that hoff fits in the space available */
 	Assert((rettuple->bt_info & BRIN_OFFSET_MASK) == hoff);
 
 	/*
@@ -304,7 +311,7 @@ brin_free_tuple(BrinTuple *tuple)
 }
 
 /*
- * Create an palloc'd copy of a BrinTuple.
+ * Create a palloc'd copy of a BrinTuple.
  */
 BrinTuple *
 brin_copy_tuple(BrinTuple *tuple, Size len)
@@ -444,8 +451,8 @@ brin_deform_tuple(BrinDesc *brdesc, BrinTuple *tuple)
 		for (i = 0; i < brdesc->bd_info[keyno]->oi_nstored; i++)
 			dtup->bt_columns[keyno].bv_values[i] =
 				datumCopy(values[valueno++],
-						  brdesc->bd_tupdesc->attrs[keyno]->attbyval,
-						  brdesc->bd_tupdesc->attrs[keyno]->attlen);
+						  brdesc->bd_info[keyno]->oi_typcache[i]->typbyval,
+						  brdesc->bd_info[keyno]->oi_typcache[i]->typlen);
 
 		dtup->bt_columns[keyno].bv_hasnulls = hasnulls[keyno];
 		dtup->bt_columns[keyno].bv_allnulls = false;

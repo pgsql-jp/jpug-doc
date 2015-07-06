@@ -225,7 +225,7 @@ dsm_cleanup_using_control_segment(dsm_handle old_control_handle)
 	/*
 	 * Try to attach the segment.  If this fails, it probably just means that
 	 * the operating system has been rebooted and the segment no longer
-	 * exists, or an unrelated proces has used the same shm ID.  So just fall
+	 * exists, or an unrelated process has used the same shm ID.  So just fall
 	 * out quietly.
 	 */
 	if (!dsm_impl_op(DSM_OP_ATTACH, old_control_handle, 0, &impl_private,
@@ -466,18 +466,6 @@ dsm_create(Size size, int flags)
 	if (!dsm_init_done)
 		dsm_backend_startup();
 
-	/*
-	 * If we've been instructed to return NULL when it's not possible to
-	 * register another segment, check whether we seem to be at the limit.
-	 * This allows us to avoid the overhead of creating a new segment only to
-	 * immediately destroy it again.  Since we don't take the lock here, the
-	 * value we read might be slightly stale, but the remote possibility of
-	 * an unnecessary failure here shouldn't trouble anyone too much.
-	 */
-	if ((flags & DSM_CREATE_NULL_IF_MAXSEGMENTS) != 0
-		&& dsm_control->nitems >= dsm_control->maxitems)
-		return NULL;
-
 	/* Create a new segment descriptor. */
 	seg = dsm_create_descriptor();
 
@@ -514,6 +502,7 @@ dsm_create(Size size, int flags)
 	{
 		if ((flags & DSM_CREATE_NULL_IF_MAXSEGMENTS) != 0)
 		{
+			LWLockRelease(DynamicSharedMemoryControlLock);
 			dsm_impl_op(DSM_OP_DESTROY, seg->handle, 0, &seg->impl_private,
 						&seg->mapped_address, &seg->mapped_size, WARNING);
 			if (seg->resowner != NULL)

@@ -52,6 +52,7 @@
 #include "utils/acl.h"
 #include "utils/fmgroids.h"
 #include "utils/guc.h"
+#include "utils/memutils.h"
 #include "utils/pg_locale.h"
 #include "utils/portal.h"
 #include "utils/ps_status.h"
@@ -190,6 +191,18 @@ PerformAuthentication(Port *port)
 	 * FIXME: [fork/exec] Ugh.  Is there a way around this overhead?
 	 */
 #ifdef EXEC_BACKEND
+	/*
+	 * load_hba() and load_ident() want to work within the PostmasterContext,
+	 * so create that if it doesn't exist (which it won't).  We'll delete it
+	 * again later, in PostgresMain.
+	 */
+	if (PostmasterContext == NULL)
+		PostmasterContext = AllocSetContextCreate(TopMemoryContext,
+												  "Postmaster",
+												  ALLOCSET_DEFAULT_MINSIZE,
+												  ALLOCSET_DEFAULT_INITSIZE,
+												  ALLOCSET_DEFAULT_MAXSIZE);
+
 	if (!load_hba())
 	{
 		/*
@@ -418,7 +431,7 @@ InitCommunication(void)
  * backslashes, with \\ representing a literal backslash.
  */
 void
-pg_split_opts(char **argv, int *argcp, char *optstr)
+pg_split_opts(char **argv, int *argcp, const char *optstr)
 {
 	StringInfoData s;
 
@@ -438,8 +451,8 @@ pg_split_opts(char **argv, int *argcp, char *optstr)
 			break;
 
 		/*
-		 * Parse a single option + value, stopping at the first space, unless
-		 * it's escaped.
+		 * Parse a single option, stopping at the first space, unless it's
+		 * escaped.
 		 */
 		while (*optstr)
 		{
@@ -457,10 +470,11 @@ pg_split_opts(char **argv, int *argcp, char *optstr)
 			optstr++;
 		}
 
-		/* now store the option */
+		/* now store the option in the next argv[] position */
 		argv[(*argcp)++] = pstrdup(s.data);
 	}
-	resetStringInfo(&s);
+
+	pfree(s.data);
 }
 
 /*
@@ -827,7 +841,7 @@ InitPostgres(const char *in_dbname, Oid dboid, const char *username,
 		/* take database name from the caller, just for paranoia */
 		strlcpy(dbname, in_dbname, sizeof(dbname));
 	}
-	else
+	else if (OidIsValid(dboid))
 	{
 		/* caller specified database by OID */
 		HeapTuple	tuple;
@@ -847,10 +861,18 @@ InitPostgres(const char *in_dbname, Oid dboid, const char *username,
 		if (out_dbname)
 			strcpy(out_dbname, dbname);
 	}
-
-	/* Now we can mark our PGPROC entry with the database ID */
-	/* (We assume this is an atomic store so no lock is needed) */
-	MyProc->databaseId = MyDatabaseId;
+	else
+	{
+		/*
+		 * If this is a background worker not bound to any particular
+		 * database, we're done now.  Everything that follows only makes
+		 * sense if we are bound to a specific database.  We do need to
+		 * close the transaction we started before returning.
+		 */
+		if (!bootstrap)
+			CommitTransactionCommand();
+		return;
+	}
 
 	/*
 	 * Now, take a writer's lock on the database we are trying to connect to.
@@ -859,9 +881,13 @@ InitPostgres(const char *in_dbname, Oid dboid, const char *username,
 	 * pg_database).
 	 *
 	 * Note that the lock is not held long, only until the end of this startup
-	 * transaction.  This is OK since we are already advertising our use of
-	 * the database in the PGPROC array; anyone trying a DROP DATABASE after
-	 * this point will see us there.
+	 * transaction.  This is OK since we will advertise our use of the
+	 * database in the ProcArray before dropping the lock (in fact, that's the
+	 * next thing to do).  Anyone trying a DROP DATABASE after this point will
+	 * see us in the array once they have the lock.  Ordering is important for
+	 * this because we don't want to advertise ourselves as being in this
+	 * database until we have the lock; otherwise we create what amounts to a
+	 * deadlock with CountOtherDBBackends().
 	 *
 	 * Note: use of RowExclusiveLock here is reasonable because we envision
 	 * our session as being a concurrent writer of the database.  If we had a
@@ -872,6 +898,28 @@ InitPostgres(const char *in_dbname, Oid dboid, const char *username,
 	if (!bootstrap)
 		LockSharedObject(DatabaseRelationId, MyDatabaseId, 0,
 						 RowExclusiveLock);
+
+	/*
+	 * Now we can mark our PGPROC entry with the database ID.
+	 *
+	 * We assume this is an atomic store so no lock is needed; though actually
+	 * things would work fine even if it weren't atomic.  Anyone searching the
+	 * ProcArray for this database's ID should hold the database lock, so they
+	 * would not be executing concurrently with this store.  A process looking
+	 * for another database's ID could in theory see a chance match if it read
+	 * a partially-updated databaseId value; but as long as all such searches
+	 * wait and retry, as in CountOtherDBBackends(), they will certainly see
+	 * the correct value on their next try.
+	 */
+	MyProc->databaseId = MyDatabaseId;
+
+	/*
+	 * We established a catalog snapshot while reading pg_authid and/or
+	 * pg_database; but until we have set up MyDatabaseId, we won't react to
+	 * incoming sinval messages for unshared catalogs, so we won't realize it
+	 * if the snapshot has been invalidated.  Assume it's no good anymore.
+	 */
+	InvalidateCatalogSnapshot();
 
 	/*
 	 * Recheck pg_database to make sure the target database hasn't gone away.
@@ -1099,7 +1147,7 @@ ShutdownPostgres(int code, Datum arg)
 static void
 StatementTimeoutHandler(void)
 {
-	int sig = SIGINT;
+	int			sig = SIGINT;
 
 	/*
 	 * During authentication the timeout is used to deal with

@@ -2276,7 +2276,7 @@ SELECT count(*) FROM (SELECT j FROM (SELECT * FROM testjsonb UNION ALL SELECT * 
    894
 (1 row)
 
-SELECT distinct * FROM (values (jsonb '{}' || ''),('{}')) v(j);
+SELECT distinct * FROM (values (jsonb '{}' || ''::text),('{}')) v(j);
  j  
 ----
  {}
@@ -2751,5 +2751,500 @@ select jsonb_strip_nulls('{"a": {"b": null, "c": null}, "d": {} }');
  jsonb_strip_nulls  
 --------------------
  {"a": {}, "d": {}}
+(1 row)
+
+select jsonb_pretty('{"a": "test", "b": [1, 2, 3], "c": "test3", "d":{"dd": "test4", "dd2":{"ddd": "test5"}}}');
+        jsonb_pretty        
+----------------------------
+ {                         +
+     "a": "test",          +
+     "b": [                +
+         1,                +
+         2,                +
+         3                 +
+     ],                    +
+     "c": "test3",         +
+     "d": {                +
+         "dd": "test4",    +
+         "dd2": {          +
+             "ddd": "test5"+
+         }                 +
+     }                     +
+ }
+(1 row)
+
+select jsonb_pretty('[{"f1":1,"f2":null},2,null,[[{"x":true},6,7],8],3]');
+       jsonb_pretty        
+---------------------------
+ [                        +
+     {                    +
+         "f1": 1,         +
+         "f2": null       +
+     },                   +
+     2,                   +
+     null,                +
+     [                    +
+         [                +
+             {            +
+                 "x": true+
+             },           +
+             6,           +
+             7            +
+         ],               +
+         8                +
+     ],                   +
+     3                    +
+ ]
+(1 row)
+
+select jsonb_pretty('{"a":["b", "c"], "d": {"e":"f"}}');
+   jsonb_pretty   
+------------------
+ {               +
+     "a": [      +
+         "b",    +
+         "c"     +
+     ],          +
+     "d": {      +
+         "e": "f"+
+     }           +
+ }
+(1 row)
+
+select jsonb_concat('{"d": "test", "a": [1, 2]}', '{"g": "test2", "c": {"c1":1, "c2":2}}');
+                           jsonb_concat                            
+-------------------------------------------------------------------
+ {"a": [1, 2], "c": {"c1": 1, "c2": 2}, "d": "test", "g": "test2"}
+(1 row)
+
+select '{"aa":1 , "b":2, "cq":3}'::jsonb || '{"cq":"l", "b":"g", "fg":false}';
+                  ?column?                   
+---------------------------------------------
+ {"b": "g", "aa": 1, "cq": "l", "fg": false}
+(1 row)
+
+select '{"aa":1 , "b":2, "cq":3}'::jsonb || '{"aq":"l"}';
+               ?column?                
+---------------------------------------
+ {"b": 2, "aa": 1, "aq": "l", "cq": 3}
+(1 row)
+
+select '{"aa":1 , "b":2, "cq":3}'::jsonb || '{"aa":"l"}';
+           ?column?           
+------------------------------
+ {"b": 2, "aa": "l", "cq": 3}
+(1 row)
+
+select '{"aa":1 , "b":2, "cq":3}'::jsonb || '{}';
+          ?column?          
+----------------------------
+ {"b": 2, "aa": 1, "cq": 3}
+(1 row)
+
+select '["a", "b"]'::jsonb || '["c"]';
+    ?column?     
+-----------------
+ ["a", "b", "c"]
+(1 row)
+
+select '["a", "b"]'::jsonb || '["c", "d"]';
+       ?column?       
+----------------------
+ ["a", "b", "c", "d"]
+(1 row)
+
+select '["c"]' || '["a", "b"]'::jsonb;
+    ?column?     
+-----------------
+ ["c", "a", "b"]
+(1 row)
+
+select '["a", "b"]'::jsonb || '"c"';
+    ?column?     
+-----------------
+ ["a", "b", "c"]
+(1 row)
+
+select '"c"' || '["a", "b"]'::jsonb;
+    ?column?     
+-----------------
+ ["c", "a", "b"]
+(1 row)
+
+select '"a"'::jsonb || '{"a":1}';
+ERROR:  invalid concatenation of jsonb objects
+select '{"a":1}' || '"a"'::jsonb;
+ERROR:  invalid concatenation of jsonb objects
+select '["a", "b"]'::jsonb || '{"c":1}';
+       ?column?       
+----------------------
+ ["a", "b", {"c": 1}]
+(1 row)
+
+select '{"c": 1}'::jsonb || '["a", "b"]';
+       ?column?       
+----------------------
+ [{"c": 1}, "a", "b"]
+(1 row)
+
+select '{}'::jsonb || '{"cq":"l", "b":"g", "fg":false}';
+              ?column?              
+------------------------------------
+ {"b": "g", "cq": "l", "fg": false}
+(1 row)
+
+select pg_column_size('{}'::jsonb || '{}'::jsonb) = pg_column_size('{}'::jsonb);
+ ?column? 
+----------
+ t
+(1 row)
+
+select pg_column_size('{"aa":1}'::jsonb || '{"b":2}'::jsonb) = pg_column_size('{"aa":1, "b":2}'::jsonb);
+ ?column? 
+----------
+ t
+(1 row)
+
+select pg_column_size('{"aa":1, "b":2}'::jsonb || '{}'::jsonb) = pg_column_size('{"aa":1, "b":2}'::jsonb);
+ ?column? 
+----------
+ t
+(1 row)
+
+select pg_column_size('{}'::jsonb || '{"aa":1, "b":2}'::jsonb) = pg_column_size('{"aa":1, "b":2}'::jsonb);
+ ?column? 
+----------
+ t
+(1 row)
+
+select jsonb_delete('{"a":1 , "b":2, "c":3}'::jsonb, 'a');
+   jsonb_delete   
+------------------
+ {"b": 2, "c": 3}
+(1 row)
+
+select jsonb_delete('{"a":null , "b":2, "c":3}'::jsonb, 'a');
+   jsonb_delete   
+------------------
+ {"b": 2, "c": 3}
+(1 row)
+
+select jsonb_delete('{"a":1 , "b":2, "c":3}'::jsonb, 'b');
+   jsonb_delete   
+------------------
+ {"a": 1, "c": 3}
+(1 row)
+
+select jsonb_delete('{"a":1 , "b":2, "c":3}'::jsonb, 'c');
+   jsonb_delete   
+------------------
+ {"a": 1, "b": 2}
+(1 row)
+
+select jsonb_delete('{"a":1 , "b":2, "c":3}'::jsonb, 'd');
+       jsonb_delete       
+--------------------------
+ {"a": 1, "b": 2, "c": 3}
+(1 row)
+
+select '{"a":1 , "b":2, "c":3}'::jsonb - 'a';
+     ?column?     
+------------------
+ {"b": 2, "c": 3}
+(1 row)
+
+select '{"a":null , "b":2, "c":3}'::jsonb - 'a';
+     ?column?     
+------------------
+ {"b": 2, "c": 3}
+(1 row)
+
+select '{"a":1 , "b":2, "c":3}'::jsonb - 'b';
+     ?column?     
+------------------
+ {"a": 1, "c": 3}
+(1 row)
+
+select '{"a":1 , "b":2, "c":3}'::jsonb - 'c';
+     ?column?     
+------------------
+ {"a": 1, "b": 2}
+(1 row)
+
+select '{"a":1 , "b":2, "c":3}'::jsonb - 'd';
+         ?column?         
+--------------------------
+ {"a": 1, "b": 2, "c": 3}
+(1 row)
+
+select pg_column_size('{"a":1 , "b":2, "c":3}'::jsonb - 'b') = pg_column_size('{"a":1, "b":2}'::jsonb);
+ ?column? 
+----------
+ t
+(1 row)
+
+select '["a","b","c"]'::jsonb - 3;
+    ?column?     
+-----------------
+ ["a", "b", "c"]
+(1 row)
+
+select '["a","b","c"]'::jsonb - 2;
+  ?column?  
+------------
+ ["a", "b"]
+(1 row)
+
+select '["a","b","c"]'::jsonb - 1;
+  ?column?  
+------------
+ ["a", "c"]
+(1 row)
+
+select '["a","b","c"]'::jsonb - 0;
+  ?column?  
+------------
+ ["b", "c"]
+(1 row)
+
+select '["a","b","c"]'::jsonb - -1;
+  ?column?  
+------------
+ ["a", "b"]
+(1 row)
+
+select '["a","b","c"]'::jsonb - -2;
+  ?column?  
+------------
+ ["a", "c"]
+(1 row)
+
+select '["a","b","c"]'::jsonb - -3;
+  ?column?  
+------------
+ ["b", "c"]
+(1 row)
+
+select '["a","b","c"]'::jsonb - -4;
+    ?column?     
+-----------------
+ ["a", "b", "c"]
+(1 row)
+
+select jsonb_set('{"n":null, "a":1, "b":[1,2], "c":{"1":2}, "d":{"1":[2,3]}}'::jsonb, '{n}', '[1,2,3]');
+                                jsonb_set                                 
+--------------------------------------------------------------------------
+ {"a": 1, "b": [1, 2], "c": {"1": 2}, "d": {"1": [2, 3]}, "n": [1, 2, 3]}
+(1 row)
+
+select jsonb_set('{"n":null, "a":1, "b":[1,2], "c":{"1":2}, "d":{"1":[2,3]}}'::jsonb, '{b,-1}', '[1,2,3]');
+                                  jsonb_set                                  
+-----------------------------------------------------------------------------
+ {"a": 1, "b": [1, [1, 2, 3]], "c": {"1": 2}, "d": {"1": [2, 3]}, "n": null}
+(1 row)
+
+select jsonb_set('{"n":null, "a":1, "b":[1,2], "c":{"1":2}, "d":{"1":[2,3]}}'::jsonb, '{d,1,0}', '[1,2,3]');
+                                  jsonb_set                                  
+-----------------------------------------------------------------------------
+ {"a": 1, "b": [1, 2], "c": {"1": 2}, "d": {"1": [[1, 2, 3], 3]}, "n": null}
+(1 row)
+
+select jsonb_set('{"n":null, "a":1, "b":[1,2], "c":{"1":2}, "d":{"1":[2,3]}}'::jsonb, '{d,NULL,0}', '[1,2,3]');
+                              jsonb_set                              
+---------------------------------------------------------------------
+ {"a": 1, "b": [1, 2], "c": {"1": 2}, "d": {"1": [2, 3]}, "n": null}
+(1 row)
+
+select jsonb_set('{"n":null, "a":1, "b":[1,2], "c":{"1":2}, "d":{"1":[2,3]}}'::jsonb, '{n}', '{"1": 2}');
+                                jsonb_set                                
+-------------------------------------------------------------------------
+ {"a": 1, "b": [1, 2], "c": {"1": 2}, "d": {"1": [2, 3]}, "n": {"1": 2}}
+(1 row)
+
+select jsonb_set('{"n":null, "a":1, "b":[1,2], "c":{"1":2}, "d":{"1":[2,3]}}'::jsonb, '{b,-1}', '{"1": 2}');
+                                 jsonb_set                                  
+----------------------------------------------------------------------------
+ {"a": 1, "b": [1, {"1": 2}], "c": {"1": 2}, "d": {"1": [2, 3]}, "n": null}
+(1 row)
+
+select jsonb_set('{"n":null, "a":1, "b":[1,2], "c":{"1":2}, "d":{"1":[2,3]}}'::jsonb, '{d,1,0}', '{"1": 2}');
+                                 jsonb_set                                  
+----------------------------------------------------------------------------
+ {"a": 1, "b": [1, 2], "c": {"1": 2}, "d": {"1": [{"1": 2}, 3]}, "n": null}
+(1 row)
+
+select jsonb_set('{"n":null, "a":1, "b":[1,2], "c":{"1":2}, "d":{"1":[2,3]}}'::jsonb, '{d,NULL,0}', '{"1": 2}');
+                              jsonb_set                              
+---------------------------------------------------------------------
+ {"a": 1, "b": [1, 2], "c": {"1": 2}, "d": {"1": [2, 3]}, "n": null}
+(1 row)
+
+select jsonb_set('{"n":null, "a":1, "b":[1,2], "c":{"1":2}, "d":{"1":[2,3]}}'::jsonb, '{b,-1}', '"test"');
+                                jsonb_set                                 
+--------------------------------------------------------------------------
+ {"a": 1, "b": [1, "test"], "c": {"1": 2}, "d": {"1": [2, 3]}, "n": null}
+(1 row)
+
+select jsonb_set('{"n":null, "a":1, "b":[1,2], "c":{"1":2}, "d":{"1":[2,3]}}'::jsonb, '{b,-1}', '{"f": "test"}');
+                                    jsonb_set                                    
+---------------------------------------------------------------------------------
+ {"a": 1, "b": [1, {"f": "test"}], "c": {"1": 2}, "d": {"1": [2, 3]}, "n": null}
+(1 row)
+
+select jsonb_delete_path('{"n":null, "a":1, "b":[1,2], "c":{"1":2}, "d":{"1":[2,3]}}', '{n}');
+                    jsonb_delete_path                     
+----------------------------------------------------------
+ {"a": 1, "b": [1, 2], "c": {"1": 2}, "d": {"1": [2, 3]}}
+(1 row)
+
+select jsonb_delete_path('{"n":null, "a":1, "b":[1,2], "c":{"1":2}, "d":{"1":[2,3]}}', '{b,-1}');
+                        jsonb_delete_path                         
+------------------------------------------------------------------
+ {"a": 1, "b": [1], "c": {"1": 2}, "d": {"1": [2, 3]}, "n": null}
+(1 row)
+
+select jsonb_delete_path('{"n":null, "a":1, "b":[1,2], "c":{"1":2}, "d":{"1":[2,3]}}', '{d,1,0}');
+                        jsonb_delete_path                         
+------------------------------------------------------------------
+ {"a": 1, "b": [1, 2], "c": {"1": 2}, "d": {"1": [3]}, "n": null}
+(1 row)
+
+select '{"n":null, "a":1, "b":[1,2], "c":{"1":2}, "d":{"1":[2,3]}}'::jsonb #- '{n}';
+                         ?column?                         
+----------------------------------------------------------
+ {"a": 1, "b": [1, 2], "c": {"1": 2}, "d": {"1": [2, 3]}}
+(1 row)
+
+select '{"n":null, "a":1, "b":[1,2], "c":{"1":2}, "d":{"1":[2,3]}}'::jsonb #- '{b,-1}';
+                             ?column?                             
+------------------------------------------------------------------
+ {"a": 1, "b": [1], "c": {"1": 2}, "d": {"1": [2, 3]}, "n": null}
+(1 row)
+
+select '{"n":null, "a":1, "b":[1,2], "c":{"1":2}, "d":{"1":[2,3]}}'::jsonb #- '{d,1,0}';
+                             ?column?                             
+------------------------------------------------------------------
+ {"a": 1, "b": [1, 2], "c": {"1": 2}, "d": {"1": [3]}, "n": null}
+(1 row)
+
+-- empty structure and error conditions for delete and replace
+select '"a"'::jsonb - 'a'; -- error
+ERROR:  cannot delete from scalar
+select '{}'::jsonb - 'a';
+ ?column? 
+----------
+ {}
+(1 row)
+
+select '[]'::jsonb - 'a';
+ ?column? 
+----------
+ []
+(1 row)
+
+select '"a"'::jsonb - 1; -- error
+ERROR:  cannot delete from scalar
+select '{}'::jsonb -  1; -- error
+ERROR:  cannot delete from object using integer subscript
+select '[]'::jsonb - 1;
+ ?column? 
+----------
+ []
+(1 row)
+
+select '"a"'::jsonb #- '{a}'; -- error
+ERROR:  cannot delete path in scalar
+select '{}'::jsonb #- '{a}';
+ ?column? 
+----------
+ {}
+(1 row)
+
+select '[]'::jsonb #- '{a}';
+ ?column? 
+----------
+ []
+(1 row)
+
+select jsonb_set('"a"','{a}','"b"'); --error
+ERROR:  cannot set path in scalar
+select jsonb_set('{}','{a}','"b"', false);
+ jsonb_set 
+-----------
+ {}
+(1 row)
+
+select jsonb_set('[]','{1}','"b"', false);
+ jsonb_set 
+-----------
+ []
+(1 row)
+
+-- jsonb_set adding instead of replacing
+-- prepend to array
+select jsonb_set('{"a":1,"b":[0,1,2],"c":{"d":4}}','{b,-33}','{"foo":123}');
+                       jsonb_set                       
+-------------------------------------------------------
+ {"a": 1, "b": [{"foo": 123}, 0, 1, 2], "c": {"d": 4}}
+(1 row)
+
+-- append to array
+select jsonb_set('{"a":1,"b":[0,1,2],"c":{"d":4}}','{b,33}','{"foo":123}');
+                       jsonb_set                       
+-------------------------------------------------------
+ {"a": 1, "b": [0, 1, 2, {"foo": 123}], "c": {"d": 4}}
+(1 row)
+
+-- check nesting levels addition
+select jsonb_set('{"a":1,"b":[4,5,[0,1,2],6,7],"c":{"d":4}}','{b,2,33}','{"foo":123}');
+                              jsonb_set                              
+---------------------------------------------------------------------
+ {"a": 1, "b": [4, 5, [0, 1, 2, {"foo": 123}], 6, 7], "c": {"d": 4}}
+(1 row)
+
+-- add new key
+select jsonb_set('{"a":1,"b":[0,1,2],"c":{"d":4}}','{c,e}','{"foo":123}');
+                         jsonb_set                          
+------------------------------------------------------------
+ {"a": 1, "b": [0, 1, 2], "c": {"d": 4, "e": {"foo": 123}}}
+(1 row)
+
+-- adding doesn't do anything if elements before last aren't present
+select jsonb_set('{"a":1,"b":[0,1,2],"c":{"d":4}}','{x,-33}','{"foo":123}');
+                jsonb_set                
+-----------------------------------------
+ {"a": 1, "b": [0, 1, 2], "c": {"d": 4}}
+(1 row)
+
+select jsonb_set('{"a":1,"b":[0,1,2],"c":{"d":4}}','{x,y}','{"foo":123}');
+                jsonb_set                
+-----------------------------------------
+ {"a": 1, "b": [0, 1, 2], "c": {"d": 4}}
+(1 row)
+
+-- add to empty object
+select jsonb_set('{}','{x}','{"foo":123}');
+      jsonb_set      
+---------------------
+ {"x": {"foo": 123}}
+(1 row)
+
+--add to empty array
+select jsonb_set('[]','{0}','{"foo":123}');
+   jsonb_set    
+----------------
+ [{"foo": 123}]
+(1 row)
+
+select jsonb_set('[]','{99}','{"foo":123}');
+   jsonb_set    
+----------------
+ [{"foo": 123}]
+(1 row)
+
+select jsonb_set('[]','{-99}','{"foo":123}');
+   jsonb_set    
+----------------
+ [{"foo": 123}]
 (1 row)
 

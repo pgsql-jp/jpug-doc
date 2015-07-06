@@ -371,7 +371,7 @@ ClientAuthentication(Port *port)
 					   (errcode(ERRCODE_INVALID_AUTHORIZATION_SPECIFICATION),
 						errmsg("pg_hba.conf rejects replication connection for host \"%s\", user \"%s\", %s",
 							   hostinfo, port->user_name,
-							   port->ssl_in_use ? _("SSL on") : _("SSL off"))));
+							port->ssl_in_use ? _("SSL on") : _("SSL off"))));
 #else
 					ereport(FATAL,
 					   (errcode(ERRCODE_INVALID_AUTHORIZATION_SPECIFICATION),
@@ -387,7 +387,7 @@ ClientAuthentication(Port *port)
 						errmsg("pg_hba.conf rejects connection for host \"%s\", user \"%s\", database \"%s\", %s",
 							   hostinfo, port->user_name,
 							   port->database_name,
-							   port->ssl_in_use ? _("SSL on") : _("SSL off"))));
+							port->ssl_in_use ? _("SSL on") : _("SSL off"))));
 #else
 					ereport(FATAL,
 					   (errcode(ERRCODE_INVALID_AUTHORIZATION_SPECIFICATION),
@@ -811,15 +811,16 @@ pg_GSS_recvauth(Port *port)
 			size_t		kt_len = strlen(pg_krb_server_keyfile) + 14;
 			char	   *kt_path = malloc(kt_len);
 
-			if (!kt_path)
+			if (!kt_path ||
+				snprintf(kt_path, kt_len, "KRB5_KTNAME=%s",
+						 pg_krb_server_keyfile) != kt_len - 2 ||
+				putenv(kt_path) != 0)
 			{
 				ereport(LOG,
 						(errcode(ERRCODE_OUT_OF_MEMORY),
 						 errmsg("out of memory")));
 				return STATUS_ERROR;
 			}
-			snprintf(kt_path, kt_len, "KRB5_KTNAME=%s", pg_krb_server_keyfile);
-			putenv(kt_path);
 		}
 	}
 

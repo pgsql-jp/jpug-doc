@@ -16,6 +16,7 @@
 #include "storage/bufpage.h"
 #include "storage/off.h"
 #include "utils/relcache.h"
+#include "utils/typcache.h"
 
 
 /*
@@ -32,13 +33,13 @@ typedef struct BrinOpcInfo
 	/* Opaque pointer for the opclass' private use */
 	void	   *oi_opaque;
 
-	/* Type IDs of the stored columns */
-	Oid			oi_typids[FLEXIBLE_ARRAY_MEMBER];
+	/* Type cache entries of the stored columns */
+	TypeCacheEntry *oi_typcache[FLEXIBLE_ARRAY_MEMBER];
 } BrinOpcInfo;
 
 /* the size of a BrinOpcInfo for the given number of columns */
 #define SizeofBrinOpcInfo(ncols) \
-	(offsetof(BrinOpcInfo, oi_typids) + sizeof(Oid) * ncols)
+	(offsetof(BrinOpcInfo, oi_typcache) + sizeof(TypeCacheEntry *) * ncols)
 
 typedef struct BrinDesc
 {
@@ -84,11 +85,5 @@ typedef struct BrinDesc
 extern BrinDesc *brin_build_desc(Relation rel);
 extern void brin_free_desc(BrinDesc *bdesc);
 extern Datum brin_summarize_new_values(PG_FUNCTION_ARGS);
-
-/* brin_minmax.c */
-extern Datum brin_minmax_opcinfo(PG_FUNCTION_ARGS);
-extern Datum brin_minmax_add_value(PG_FUNCTION_ARGS);
-extern Datum brin_minmax_consistent(PG_FUNCTION_ARGS);
-extern Datum brin_minmax_union(PG_FUNCTION_ARGS);
 
 #endif   /* BRIN_INTERNAL_H */

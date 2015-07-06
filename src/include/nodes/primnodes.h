@@ -127,9 +127,13 @@ typedef struct Expr
  * upper-level plan nodes are reassigned to point to the outputs of their
  * subplans; for example, in a join node varno becomes INNER_VAR or OUTER_VAR
  * and varattno becomes the index of the proper element of that subplan's
- * target list.  But varnoold/varoattno continue to hold the original values.
- * The code doesn't really need varnoold/varoattno, but they are very useful
- * for debugging and interpreting completed plans, so we keep them around.
+ * target list.  Similarly, INDEX_VAR is used to identify Vars that reference
+ * an index column rather than a heap column.  (In ForeignScan and CustomScan
+ * plan nodes, INDEX_VAR is abused to signify references to columns of a
+ * custom scan tuple type.)  In all these cases, varnoold/varoattno hold the
+ * original values.  The code doesn't really need varnoold/varoattno, but they
+ * are very useful for debugging and interpreting completed plans, so we keep
+ * them around.
  */
 #define    INNER_VAR		65000		/* reference to inner subplan */
 #define    OUTER_VAR		65001		/* reference to outer subplan */
@@ -268,6 +272,41 @@ typedef struct Aggref
 } Aggref;
 
 /*
+ * GroupingFunc
+ *
+ * A GroupingFunc is a GROUPING(...) expression, which behaves in many ways
+ * like an aggregate function (e.g. it "belongs" to a specific query level,
+ * which might not be the one immediately containing it), but also differs in
+ * an important respect: it never evaluates its arguments, they merely
+ * designate expressions from the GROUP BY clause of the query level to which
+ * it belongs.
+ *
+ * The spec defines the evaluation of GROUPING() purely by syntactic
+ * replacement, but we make it a real expression for optimization purposes so
+ * that one Agg node can handle multiple grouping sets at once.  Evaluating the
+ * result only needs the column positions to check against the grouping set
+ * being projected.  However, for EXPLAIN to produce meaningful output, we have
+ * to keep the original expressions around, since expression deparse does not
+ * give us any feasible way to get at the GROUP BY clause.
+ *
+ * Also, we treat two GroupingFunc nodes as equal if they have equal arguments
+ * lists and agglevelsup, without comparing the refs and cols annotations.
+ *
+ * In raw parse output we have only the args list; parse analysis fills in the
+ * refs list, and the planner fills in the cols list.
+ */
+typedef struct GroupingFunc
+{
+	Expr		xpr;
+	List	   *args;			/* arguments, not evaluated but kept for
+								 * benefit of EXPLAIN etc. */
+	List	   *refs;			/* ressortgrouprefs of arguments */
+	List	   *cols;			/* actual column positions set by planner */
+	Index		agglevelsup;	/* same as Aggref.agglevelsup */
+	int			location;		/* token location */
+} GroupingFunc;
+
+/*
  * WindowFunc
  */
 typedef struct WindowFunc
@@ -305,6 +344,10 @@ typedef struct WindowFunc
  * Note: the result datatype is the element type when fetching a single
  * element; but it is the array type when doing subarray fetch or either
  * type of store.
+ *
+ * Note: for the cases where an array is returned, if refexpr yields a R/W
+ * expanded array, then the implementation is allowed to modify that object
+ * in-place and return the same object.)
  * ----------------
  */
 typedef struct ArrayRef
@@ -1143,6 +1186,21 @@ typedef struct CurrentOfExpr
 	int			cursor_param;	/* refcursor parameter number, or 0 */
 } CurrentOfExpr;
 
+/*
+ * InferenceElem - an element of a unique index inference specification
+ *
+ * This mostly matches the structure of IndexElems, but having a dedicated
+ * primnode allows for a clean separation between the use of index parameters
+ * by utility commands, and this node.
+ */
+typedef struct InferenceElem
+{
+	Expr		xpr;
+	Node	   *expr;			/* expression to infer from, or NULL */
+	Oid			infercollid;	/* OID of collation, or InvalidOid */
+	Oid			inferopclass;	/* OID of att opclass, or InvalidOid */
+} InferenceElem;
+
 /*--------------------
  * TargetEntry -
  *	   a target entry (used in query target lists)
@@ -1306,5 +1364,32 @@ typedef struct FromExpr
 	List	   *fromlist;		/* List of join subtrees */
 	Node	   *quals;			/* qualifiers on join, if any */
 } FromExpr;
+
+/*----------
+ * OnConflictExpr - represents an ON CONFLICT DO ... expression
+ *
+ * The optimizer requires a list of inference elements, and optionally a WHERE
+ * clause to infer a unique index.  The unique index (or, occasionally,
+ * indexes) inferred are used to arbitrate whether or not the alternative ON
+ * CONFLICT path is taken.
+ *----------
+ */
+typedef struct OnConflictExpr
+{
+	NodeTag		type;
+	OnConflictAction action;	/* DO NOTHING or UPDATE? */
+
+	/* Arbiter */
+	List	   *arbiterElems;	/* unique index arbiter list (of
+								 * InferenceElem's) */
+	Node	   *arbiterWhere;	/* unique index arbiter WHERE clause */
+	Oid			constraint;		/* pg_constraint OID for arbiter */
+
+	/* ON CONFLICT UPDATE */
+	List	   *onConflictSet;	/* List of ON CONFLICT SET TargetEntrys */
+	Node	   *onConflictWhere;	/* qualifiers to restrict UPDATE to */
+	int			exclRelIndex;	/* RT index of 'excluded' relation */
+	List	   *exclRelTlist;	/* tlist of the EXCLUDED pseudo relation */
+} OnConflictExpr;
 
 #endif   /* PRIMNODES_H */

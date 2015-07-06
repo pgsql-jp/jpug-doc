@@ -44,14 +44,6 @@
 
 #define SAMESIGN(a,b)	(((a) < 0) == ((b) < 0))
 
-#ifndef INT64_MAX
-#define INT64_MAX	INT64CONST(0x7FFFFFFFFFFFFFFF)
-#endif
-
-#ifndef INT64_MIN
-#define INT64_MIN	(-INT64CONST(0x7FFFFFFFFFFFFFFF) - 1)
-#endif
-
 /* Set at postmaster start */
 TimestampTz PgStartTime;
 
@@ -1578,7 +1570,7 @@ GetCurrentTimestamp(void)
 /*
  * GetCurrentIntegerTimestamp -- get the current operating system time as int64
  *
- * Result is the number of milliseconds since the Postgres epoch. If compiled
+ * Result is the number of microseconds since the Postgres epoch. If compiled
  * with --enable-integer-datetimes, this is identical to GetCurrentTimestamp(),
  * and is implemented as a macro.
  */
@@ -1971,7 +1963,7 @@ tm2timestamp(struct pg_tm * tm, fsec_t fsec, int *tzp, Timestamp *result)
 
 
 /* interval2tm()
- * Convert a interval data type to a tm structure.
+ * Convert an interval data type to a tm structure.
  */
 int
 interval2tm(Interval span, struct pg_tm * tm, fsec_t *fsec)
@@ -2915,7 +2907,7 @@ interval_justify_days(PG_FUNCTION_ARGS)
 }
 
 /* timestamp_pl_interval()
- * Add a interval to a timestamp data type.
+ * Add an interval to a timestamp data type.
  * Note that interval has provisions for qualitative year/month and day
  *	units, so try to do the right thing with them.
  * To add a month, increment the month, and use the same day of month.
@@ -3015,7 +3007,7 @@ timestamp_mi_interval(PG_FUNCTION_ARGS)
 
 
 /* timestamptz_pl_interval()
- * Add a interval to a timestamp with time zone data type.
+ * Add an interval to a timestamp with time zone data type.
  * Note that interval has provisions for qualitative year/month
  *	units, so try to do the right thing with them.
  * To add a month, increment the month, and use the same day of month.
@@ -3317,7 +3309,7 @@ interval_mul(PG_FUNCTION_ARGS)
 	result->day += (int32) month_remainder_days;
 #ifdef HAVE_INT64_TIMESTAMP
 	result_double = rint(span->time * factor + sec_remainder * USECS_PER_SEC);
-	if (result_double > INT64_MAX || result_double < INT64_MIN)
+	if (result_double > PG_INT64_MAX || result_double < PG_INT64_MIN)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
 				 errmsg("interval out of range")));

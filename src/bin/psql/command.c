@@ -1071,7 +1071,8 @@ exec_command(const char *cmd,
 			static const char *const my_list[] = {
 				"border", "columns", "expanded", "fieldsep", "fieldsep_zero",
 				"footer", "format", "linestyle", "null",
-				"numericlocale", "pager", "recordsep", "recordsep_zero",
+				"numericlocale", "pager", "pager_min_lines",
+				"recordsep", "recordsep_zero",
 				"tableattr", "title", "tuples_only",
 				"unicode_border_linestyle",
 				"unicode_column_linestyle",
@@ -1081,7 +1082,8 @@ exec_command(const char *cmd,
 
 			for (i = 0; my_list[i] != NULL; i++)
 			{
-				char   *val = pset_value_string(my_list[i], &pset.popt);
+				char	   *val = pset_value_string(my_list[i], &pset.popt);
+
 				printf("%-24s %s\n", my_list[i], val);
 				free(val);
 			}
@@ -1265,7 +1267,7 @@ exec_command(const char *cmd,
 					lines++;
 				}
 
-				output = PageOutput(lineno, pset.popt.topt.pager);
+				output = PageOutput(lineno, &(pset.popt.topt));
 				is_pager = true;
 			}
 			else
@@ -1514,7 +1516,7 @@ exec_command(const char *cmd,
 	else if (strcmp(cmd, "?") == 0)
 	{
 		char	   *opt0 = psql_scan_slash_option(scan_state,
-													OT_NORMAL, NULL, false);
+												  OT_NORMAL, NULL, false);
 
 		if (!opt0 || strcmp(opt0, "commands") == 0)
 			slashUsage(pset.popt.topt.pager);
@@ -1607,6 +1609,8 @@ do_connect(char *dbname, char *user, char *host, char *port)
 	PGconn	   *o_conn = pset.db,
 			   *n_conn;
 	char	   *password = NULL;
+	bool		keep_password;
+	bool		has_connection_string;
 
 	if (!o_conn && (!dbname || !user || !host || !port))
 	{
@@ -1620,14 +1624,34 @@ do_connect(char *dbname, char *user, char *host, char *port)
 		return false;
 	}
 
-	if (!dbname)
-		dbname = PQdb(o_conn);
+	/* grab values from the old connection, unless supplied by caller */
 	if (!user)
 		user = PQuser(o_conn);
 	if (!host)
 		host = PQhost(o_conn);
 	if (!port)
 		port = PQport(o_conn);
+
+	has_connection_string =
+		dbname ? recognized_connection_string(dbname) : false;
+
+	/*
+	 * Any change in the parameters read above makes us discard the password.
+	 * We also discard it if we're to use a conninfo rather than the
+	 * positional syntax.
+	 */
+	keep_password =
+		((strcmp(user, PQuser(o_conn)) == 0) &&
+		 (!host || strcmp(host, PQhost(o_conn)) == 0) &&
+		 (strcmp(port, PQport(o_conn)) == 0) &&
+		 !has_connection_string);
+
+	/*
+	 * Grab dbname from old connection unless supplied by caller.  No password
+	 * discard if this changes: passwords aren't (usually) database-specific.
+	 */
+	if (!dbname)
+		dbname = PQdb(o_conn);
 
 	/*
 	 * If the user asked to be prompted for a password, ask for one now. If
@@ -1643,9 +1667,13 @@ do_connect(char *dbname, char *user, char *host, char *port)
 	{
 		password = prompt_for_password(user);
 	}
-	else if (o_conn && user && strcmp(PQuser(o_conn), user) == 0)
+	else if (o_conn && keep_password)
 	{
-		password = pg_strdup(PQpass(o_conn));
+		password = PQpass(o_conn);
+		if (password && *password)
+			password = pg_strdup(password);
+		else
+			password = NULL;
 	}
 
 	while (true)
@@ -1653,32 +1681,39 @@ do_connect(char *dbname, char *user, char *host, char *port)
 #define PARAMS_ARRAY_SIZE	8
 		const char **keywords = pg_malloc(PARAMS_ARRAY_SIZE * sizeof(*keywords));
 		const char **values = pg_malloc(PARAMS_ARRAY_SIZE * sizeof(*values));
+		int			paramnum = 0;
 
-		keywords[0] = "host";
-		values[0] = host;
-		keywords[1] = "port";
-		values[1] = port;
-		keywords[2] = "user";
-		values[2] = user;
-		keywords[3] = "password";
-		values[3] = password;
-		keywords[4] = "dbname";
-		values[4] = dbname;
-		keywords[5] = "fallback_application_name";
-		values[5] = pset.progname;
-		keywords[6] = "client_encoding";
-		values[6] = (pset.notty || getenv("PGCLIENTENCODING")) ? NULL : "auto";
-		keywords[7] = NULL;
-		values[7] = NULL;
+		keywords[0] = "dbname";
+		values[0] = dbname;
+
+		if (!has_connection_string)
+		{
+			keywords[++paramnum] = "host";
+			values[paramnum] = host;
+			keywords[++paramnum] = "port";
+			values[paramnum] = port;
+			keywords[++paramnum] = "user";
+			values[paramnum] = user;
+		}
+		keywords[++paramnum] = "password";
+		values[paramnum] = password;
+		keywords[++paramnum] = "fallback_application_name";
+		values[paramnum] = pset.progname;
+		keywords[++paramnum] = "client_encoding";
+		values[paramnum] = (pset.notty || getenv("PGCLIENTENCODING")) ? NULL : "auto";
+
+		/* add array terminator */
+		keywords[++paramnum] = NULL;
+		values[paramnum] = NULL;
 
 		n_conn = PQconnectdbParams(keywords, values, true);
 
-		free(keywords);
-		free(values);
+		pg_free(keywords);
+		pg_free(values);
 
 		/* We can immediately discard the password -- no longer needed */
 		if (password)
-			free(password);
+			pg_free(password);
 
 		if (PQstatus(n_conn) == CONNECTION_OK)
 			break;
@@ -1829,7 +1864,7 @@ printSSLInfo(void)
 		   protocol ? protocol : _("unknown"),
 		   cipher ? cipher : _("unknown"),
 		   bits ? bits : _("unknown"),
-		   (compression && strcmp(compression, "off") != 0) ? _("on") : _("off"));
+	  (compression && strcmp(compression, "off") != 0) ? _("on") : _("off"));
 }
 
 
@@ -2248,6 +2283,9 @@ _align2string(enum printFormat in)
 		case PRINT_HTML:
 			return "html";
 			break;
+		case PRINT_ASCIIDOC:
+			return "asciidoc";
+			break;
 		case PRINT_LATEX:
 			return "latex";
 			break;
@@ -2324,6 +2362,8 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 			popt->topt.format = PRINT_WRAPPED;
 		else if (pg_strncasecmp("html", value, vallen) == 0)
 			popt->topt.format = PRINT_HTML;
+		else if (pg_strncasecmp("asciidoc", value, vallen) == 0)
+			popt->topt.format = PRINT_ASCIIDOC;
 		else if (pg_strncasecmp("latex", value, vallen) == 0)
 			popt->topt.format = PRINT_LATEX;
 		else if (pg_strncasecmp("latex-longtable", value, vallen) == 0)
@@ -2332,7 +2372,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 			popt->topt.format = PRINT_TROFF_MS;
 		else
 		{
-			psql_error("\\pset: allowed formats are unaligned, aligned, wrapped, html, latex, troff-ms\n");
+			psql_error("\\pset: allowed formats are unaligned, aligned, wrapped, html, asciidoc, latex, troff-ms\n");
 			return false;
 		}
 
@@ -2363,7 +2403,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 		if (!value)
 			;
 		else if (!set_unicode_line_style(popt, value, vallen,
-										 &popt->topt.unicode_border_linestyle))
+									   &popt->topt.unicode_border_linestyle))
 		{
 			psql_error("\\pset: allowed unicode border linestyle are single, double\n");
 			return false;
@@ -2376,7 +2416,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 		if (!value)
 			;
 		else if (!set_unicode_line_style(popt, value, vallen,
-										 &popt->topt.unicode_column_linestyle))
+									   &popt->topt.unicode_column_linestyle))
 		{
 			psql_error("\\pset: allowed unicode column linestyle are single, double\n");
 			return false;
@@ -2389,7 +2429,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 		if (!value)
 			;
 		else if (!set_unicode_line_style(popt, value, vallen,
-										 &popt->topt.unicode_header_linestyle))
+									   &popt->topt.unicode_header_linestyle))
 		{
 			psql_error("\\pset: allowed unicode header linestyle are single, double\n");
 			return false;
@@ -2519,6 +2559,13 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 			popt->topt.pager = 1;
 	}
 
+	/* set minimum lines for pager use */
+	else if (strcmp(param, "pager_min_lines") == 0)
+	{
+		if (value)
+			popt->topt.pager_min_lines = atoi(value);
+	}
+
 	/* disable "(x rows)" footer */
 	else if (strcmp(param, "footer") == 0)
 	{
@@ -2640,6 +2687,13 @@ printPsetInfo(const char *param, struct printQueryOpt *popt)
 			printf(_("Pager usage is off.\n"));
 	}
 
+	/* show minimum lines for pager use */
+	else if (strcmp(param, "pager_min_lines") == 0)
+	{
+		printf(_("Pager won't be used for less than %d lines\n"),
+			   popt->topt.pager_min_lines);
+	}
+
 	/* show record separator for unaligned text */
 	else if (strcmp(param, "recordsep") == 0)
 	{
@@ -2689,19 +2743,19 @@ printPsetInfo(const char *param, struct printQueryOpt *popt)
 	else if (strcmp(param, "unicode_border_linestyle") == 0)
 	{
 		printf(_("Unicode border linestyle is \"%s\".\n"),
-				_unicode_linestyle2string(popt->topt.unicode_border_linestyle));
+			 _unicode_linestyle2string(popt->topt.unicode_border_linestyle));
 	}
 
 	else if (strcmp(param, "unicode_column_linestyle") == 0)
 	{
 		printf(_("Unicode column linestyle is \"%s\".\n"),
-				_unicode_linestyle2string(popt->topt.unicode_column_linestyle));
+			 _unicode_linestyle2string(popt->topt.unicode_column_linestyle));
 	}
 
 	else if (strcmp(param, "unicode_header_linestyle") == 0)
 	{
 		printf(_("Unicode border linestyle is \"%s\".\n"),
-				_unicode_linestyle2string(popt->topt.unicode_header_linestyle));
+			 _unicode_linestyle2string(popt->topt.unicode_header_linestyle));
 	}
 
 	else
@@ -2792,6 +2846,8 @@ pset_value_string(const char *param, struct printQueryOpt *popt)
 		return pstrdup(pset_bool_string(popt->topt.numericLocale));
 	else if (strcmp(param, "pager") == 0)
 		return psprintf("%d", popt->topt.pager);
+	else if (strcmp(param, "pager_min_lines") == 0)
+		return psprintf("%d", popt->topt.pager_min_lines);
 	else if (strcmp(param, "recordsep") == 0)
 		return pset_quoted_string(popt->topt.recordSep.separator
 								  ? popt->topt.recordSep.separator
@@ -2890,7 +2946,7 @@ do_watch(PQExpBuffer query_buf, long sleep)
 
 	for (;;)
 	{
-		int	res;
+		int			res;
 		time_t		timer;
 		long		i;
 
@@ -2907,8 +2963,8 @@ do_watch(PQExpBuffer query_buf, long sleep)
 		res = PSQLexecWatch(query_buf->data, &myopt);
 
 		/*
-		 * PSQLexecWatch handles the case where we can no longer
-		 * repeat the query, and returns 0 or -1.
+		 * PSQLexecWatch handles the case where we can no longer repeat the
+		 * query, and returns 0 or -1.
 		 */
 		if (res == 0)
 			break;
@@ -2946,7 +3002,7 @@ do_watch(PQExpBuffer query_buf, long sleep)
  * returns true unless we have ECHO_HIDDEN_NOEXEC.
  */
 static bool
-lookup_function_echo_hidden(char * query)
+lookup_function_echo_hidden(char *query)
 {
 	if (pset.echo_hidden != PSQL_ECHO_HIDDEN_OFF)
 	{

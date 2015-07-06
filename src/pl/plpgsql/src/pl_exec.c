@@ -34,6 +34,7 @@
 #include "utils/array.h"
 #include "utils/builtins.h"
 #include "utils/datum.h"
+#include "utils/fmgroids.h"
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
@@ -153,6 +154,8 @@ static int exec_stmt_return_query(PLpgSQL_execstate *estate,
 					   PLpgSQL_stmt_return_query *stmt);
 static int exec_stmt_raise(PLpgSQL_execstate *estate,
 				PLpgSQL_stmt_raise *stmt);
+static int exec_stmt_assert(PLpgSQL_execstate *estate,
+				 PLpgSQL_stmt_assert *stmt);
 static int exec_stmt_execsql(PLpgSQL_execstate *estate,
 				  PLpgSQL_stmt_execsql *stmt);
 static int exec_stmt_dynexecute(PLpgSQL_execstate *estate,
@@ -171,6 +174,8 @@ static void exec_prepare_plan(PLpgSQL_execstate *estate,
 static bool exec_simple_check_node(Node *node);
 static void exec_simple_check_plan(PLpgSQL_expr *expr);
 static void exec_simple_recheck_plan(PLpgSQL_expr *expr, CachedPlan *cplan);
+static void exec_check_rw_parameter(PLpgSQL_expr *expr, int target_dno);
+static bool contains_target_param(Node *node, int *target_dno);
 static bool exec_eval_simple_expr(PLpgSQL_execstate *estate,
 					  PLpgSQL_expr *expr,
 					  Datum *result,
@@ -310,6 +315,44 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 					var->value = fcinfo->arg[i];
 					var->isnull = fcinfo->argnull[i];
 					var->freeval = false;
+
+					/*
+					 * Force any array-valued parameter to be stored in
+					 * expanded form in our local variable, in hopes of
+					 * improving efficiency of uses of the variable.  (This is
+					 * a hack, really: why only arrays? Need more thought
+					 * about which cases are likely to win.  See also
+					 * typisarray-specific heuristic in exec_assign_value.)
+					 *
+					 * Special cases: If passed a R/W expanded pointer, assume
+					 * we can commandeer the object rather than having to copy
+					 * it.  If passed a R/O expanded pointer, just keep it as
+					 * the value of the variable for the moment.  (We'll force
+					 * it to R/W if the variable gets modified, but that may
+					 * very well never happen.)
+					 */
+					if (!var->isnull && var->datatype->typisarray)
+					{
+						if (VARATT_IS_EXTERNAL_EXPANDED_RW(DatumGetPointer(var->value)))
+						{
+							/* take ownership of R/W object */
+							var->value = TransferExpandedObject(var->value,
+													   CurrentMemoryContext);
+							var->freeval = true;
+						}
+						else if (VARATT_IS_EXTERNAL_EXPANDED_RO(DatumGetPointer(var->value)))
+						{
+							/* R/O pointer, keep it as-is until assigned to */
+						}
+						else
+						{
+							/* flat array, so force to expanded form */
+							var->value = expand_array(var->value,
+													  CurrentMemoryContext,
+													  NULL);
+							var->freeval = true;
+						}
+					}
 				}
 				break;
 
@@ -363,8 +406,8 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 		estate.err_text = NULL;
 
 		/*
-		 * Provide a more helpful message if a CONTINUE or RAISE has been used
-		 * outside the context it can work in.
+		 * Provide a more helpful message if a CONTINUE has been used outside
+		 * the context it can work in.
 		 */
 		if (rc == PLPGSQL_RC_CONTINUE)
 			ereport(ERROR,
@@ -475,18 +518,14 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 
 			/*
 			 * If the function's return type isn't by value, copy the value
-			 * into upper executor memory context.
+			 * into upper executor memory context.  However, if we have a R/W
+			 * expanded datum, we can just transfer its ownership out to the
+			 * upper executor context.
 			 */
 			if (!fcinfo->isnull && !func->fn_retbyval)
-			{
-				Size		len;
-				void	   *tmp;
-
-				len = datumGetSize(estate.retval, false, func->fn_rettyplen);
-				tmp = SPI_palloc(len);
-				memcpy(tmp, DatumGetPointer(estate.retval), len);
-				estate.retval = PointerGetDatum(tmp);
-			}
+				estate.retval = SPI_datumTransfer(estate.retval,
+												  false,
+												  func->fn_rettyplen);
 		}
 	}
 
@@ -730,8 +769,8 @@ plpgsql_exec_trigger(PLpgSQL_function *func,
 		estate.err_text = NULL;
 
 		/*
-		 * Provide a more helpful message if a CONTINUE or RAISE has been used
-		 * outside the context it can work in.
+		 * Provide a more helpful message if a CONTINUE has been used outside
+		 * the context it can work in.
 		 */
 		if (rc == PLPGSQL_RC_CONTINUE)
 			ereport(ERROR,
@@ -862,8 +901,8 @@ plpgsql_exec_event_trigger(PLpgSQL_function *func, EventTriggerData *trigdata)
 		estate.err_text = NULL;
 
 		/*
-		 * Provide a more helpful message if a CONTINUE or RAISE has been used
-		 * outside the context it can work in.
+		 * Provide a more helpful message if a CONTINUE has been used outside
+		 * the context it can work in.
 		 */
 		if (rc == PLPGSQL_RC_CONTINUE)
 			ereport(ERROR,
@@ -1027,12 +1066,14 @@ exception_matches_conditions(ErrorData *edata, PLpgSQL_condition *cond)
 		int			sqlerrstate = cond->sqlerrstate;
 
 		/*
-		 * OTHERS matches everything *except* query-canceled; if you're
-		 * foolish enough, you can match that explicitly.
+		 * OTHERS matches everything *except* query-canceled and
+		 * assert-failure.  If you're foolish enough, you can match those
+		 * explicitly.
 		 */
 		if (sqlerrstate == 0)
 		{
-			if (edata->sqlerrcode != ERRCODE_QUERY_CANCELED)
+			if (edata->sqlerrcode != ERRCODE_QUERY_CANCELED &&
+				edata->sqlerrcode != ERRCODE_ASSERT_FAILURE)
 				return true;
 		}
 		/* Exact match? */
@@ -1469,6 +1510,10 @@ exec_stmt(PLpgSQL_execstate *estate, PLpgSQL_stmt *stmt)
 
 		case PLPGSQL_STMT_RAISE:
 			rc = exec_stmt_raise(estate, (PLpgSQL_stmt_raise *) stmt);
+			break;
+
+		case PLPGSQL_STMT_ASSERT:
+			rc = exec_stmt_assert(estate, (PLpgSQL_stmt_assert *) stmt);
 			break;
 
 		case PLPGSQL_STMT_EXECSQL:
@@ -2463,11 +2508,19 @@ exec_stmt_return(PLpgSQL_execstate *estate, PLpgSQL_stmt_return *stmt)
 	estate->retval = (Datum) 0;
 	estate->rettupdesc = NULL;
 	estate->retisnull = true;
+	estate->rettype = InvalidOid;
 
 	/*
 	 * Special case path when the RETURN expression is a simple variable
 	 * reference; in particular, this path is always taken in functions with
 	 * one or more OUT parameters.
+	 *
+	 * This special case is especially efficient for returning variables that
+	 * have R/W expanded values: we can put the R/W pointer directly into
+	 * estate->retval, leading to transferring the value to the caller's
+	 * context cheaply.  If we went through exec_eval_expr we'd end up with a
+	 * R/O pointer.  It's okay to skip MakeExpandedObjectReadOnly here since
+	 * we know we won't need the variable's value within the function anymore.
 	 */
 	if (stmt->retvarno >= 0)
 	{
@@ -2482,18 +2535,40 @@ exec_stmt_return(PLpgSQL_execstate *estate, PLpgSQL_stmt_return *stmt)
 					estate->retval = var->value;
 					estate->retisnull = var->isnull;
 					estate->rettype = var->datatype->typoid;
+
+					/*
+					 * Cope with retistuple case.  A PLpgSQL_var could not be
+					 * of composite type, so we needn't make any effort to
+					 * convert.  However, for consistency with the expression
+					 * code path, don't throw error if the result is NULL.
+					 */
+					if (estate->retistuple && !estate->retisnull)
+						ereport(ERROR,
+								(errcode(ERRCODE_DATATYPE_MISMATCH),
+								 errmsg("cannot return non-composite value from function returning composite type")));
 				}
 				break;
 
 			case PLPGSQL_DTYPE_REC:
 				{
 					PLpgSQL_rec *rec = (PLpgSQL_rec *) retvar;
+					int32		rettypmod;
 
 					if (HeapTupleIsValid(rec->tup))
 					{
-						estate->retval = PointerGetDatum(rec->tup);
-						estate->rettupdesc = rec->tupdesc;
-						estate->retisnull = false;
+						if (estate->retistuple)
+						{
+							estate->retval = PointerGetDatum(rec->tup);
+							estate->rettupdesc = rec->tupdesc;
+							estate->retisnull = false;
+						}
+						else
+							exec_eval_datum(estate,
+											retvar,
+											&estate->rettype,
+											&rettypmod,
+											&estate->retval,
+											&estate->retisnull);
 					}
 				}
 				break;
@@ -2501,15 +2576,28 @@ exec_stmt_return(PLpgSQL_execstate *estate, PLpgSQL_stmt_return *stmt)
 			case PLPGSQL_DTYPE_ROW:
 				{
 					PLpgSQL_row *row = (PLpgSQL_row *) retvar;
+					int32		rettypmod;
 
-					Assert(row->rowtupdesc);
-					estate->retval =
-						PointerGetDatum(make_tuple_from_row(estate, row,
-															row->rowtupdesc));
-					if (DatumGetPointer(estate->retval) == NULL)		/* should not happen */
-						elog(ERROR, "row not compatible with its own tupdesc");
-					estate->rettupdesc = row->rowtupdesc;
-					estate->retisnull = false;
+					if (estate->retistuple)
+					{
+						HeapTuple	tup;
+
+						if (!row->rowtupdesc)	/* should not happen */
+							elog(ERROR, "row variable has no tupdesc");
+						tup = make_tuple_from_row(estate, row, row->rowtupdesc);
+						if (tup == NULL)		/* should not happen */
+							elog(ERROR, "row not compatible with its own tupdesc");
+						estate->retval = PointerGetDatum(tup);
+						estate->rettupdesc = row->rowtupdesc;
+						estate->retisnull = false;
+					}
+					else
+						exec_eval_datum(estate,
+										retvar,
+										&estate->rettype,
+										&rettypmod,
+										&estate->retval,
+										&estate->retisnull);
 				}
 				break;
 
@@ -2596,6 +2684,11 @@ exec_stmt_return_next(PLpgSQL_execstate *estate,
 	 * Special case path when the RETURN NEXT expression is a simple variable
 	 * reference; in particular, this path is always taken in functions with
 	 * one or more OUT parameters.
+	 *
+	 * Unlike exec_statement_return, there's no special win here for R/W
+	 * expanded values, since they'll have to get flattened to go into the
+	 * tuplestore.  Indeed, we'd better make them R/O to avoid any risk of the
+	 * casting step changing them in-place.
 	 */
 	if (stmt->retvarno >= 0)
 	{
@@ -2613,6 +2706,11 @@ exec_stmt_return_next(PLpgSQL_execstate *estate,
 						ereport(ERROR,
 								(errcode(ERRCODE_DATATYPE_MISMATCH),
 						errmsg("wrong result type supplied in RETURN NEXT")));
+
+					/* let's be very paranoid about the cast step */
+					retval = MakeExpandedObjectReadOnly(retval,
+														isNull,
+													  var->datatype->typlen);
 
 					/* coerce type if needed */
 					retval = exec_cast_value(estate,
@@ -3117,6 +3215,48 @@ exec_stmt_raise(PLpgSQL_execstate *estate, PLpgSQL_stmt_raise *stmt)
 	return PLPGSQL_RC_OK;
 }
 
+/* ----------
+ * exec_stmt_assert			Assert statement
+ * ----------
+ */
+static int
+exec_stmt_assert(PLpgSQL_execstate *estate, PLpgSQL_stmt_assert *stmt)
+{
+	bool		value;
+	bool		isnull;
+
+	/* do nothing when asserts are not enabled */
+	if (!plpgsql_check_asserts)
+		return PLPGSQL_RC_OK;
+
+	value = exec_eval_boolean(estate, stmt->cond, &isnull);
+	exec_eval_cleanup(estate);
+
+	if (isnull || !value)
+	{
+		char	   *message = NULL;
+
+		if (stmt->message != NULL)
+		{
+			Datum		val;
+			Oid			typeid;
+			int32		typmod;
+
+			val = exec_eval_expr(estate, stmt->message,
+								 &isnull, &typeid, &typmod);
+			if (!isnull)
+				message = convert_value_to_string(estate, val, typeid);
+			/* we mustn't do exec_eval_cleanup here */
+		}
+
+		ereport(ERROR,
+				(errcode(ERRCODE_ASSERT_FAILURE),
+				 message ? errmsg_internal("%s", message) :
+				 errmsg("assertion failed")));
+	}
+
+	return PLPGSQL_RC_OK;
+}
 
 /* ----------
  * Initialize a mostly empty execution state
@@ -3283,6 +3423,13 @@ exec_prepare_plan(PLpgSQL_execstate *estate,
 
 	/* Check to see if it's a simple expression */
 	exec_simple_check_plan(expr);
+
+	/*
+	 * Mark expression as not using a read-write param.  exec_assign_value has
+	 * to take steps to override this if appropriate; that seems cleaner than
+	 * adding parameters to all other callers.
+	 */
+	expr->rwparam = -1;
 }
 
 
@@ -4021,6 +4168,19 @@ exec_assign_expr(PLpgSQL_execstate *estate, PLpgSQL_datum *target,
 	Oid			valtype;
 	int32		valtypmod;
 
+	/*
+	 * If first time through, create a plan for this expression, and then see
+	 * if we can pass the target variable as a read-write parameter to the
+	 * expression.  (This is a bit messy, but it seems cleaner than modifying
+	 * the API of exec_eval_expr for the purpose.)
+	 */
+	if (expr->plan == NULL)
+	{
+		exec_prepare_plan(estate, expr, 0);
+		if (target->dtype == PLPGSQL_DTYPE_VAR)
+			exec_check_rw_parameter(expr, target->dno);
+	}
+
 	value = exec_eval_expr(estate, expr, &isnull, &valtype, &valtypmod);
 	exec_assign_value(estate, target, value, isnull, valtype, valtypmod);
 	exec_eval_cleanup(estate);
@@ -4090,26 +4250,51 @@ exec_assign_value(PLpgSQL_execstate *estate,
 				/*
 				 * If type is by-reference, copy the new value (which is
 				 * probably in the eval_econtext) into the procedure's memory
-				 * context.
+				 * context.  But if it's a read/write reference to an expanded
+				 * object, no physical copy needs to happen; at most we need
+				 * to reparent the object's memory context.
+				 *
+				 * If it's an array, we force the value to be stored in R/W
+				 * expanded form.  This wins if the function later does, say,
+				 * a lot of array subscripting operations on the variable, and
+				 * otherwise might lose.  We might need to use a different
+				 * heuristic, but it's too soon to tell.  Also, are there
+				 * cases where it'd be useful to force non-array values into
+				 * expanded form?
 				 */
 				if (!var->datatype->typbyval && !isNull)
-					newvalue = datumCopy(newvalue,
-										 false,
-										 var->datatype->typlen);
+				{
+					if (var->datatype->typisarray &&
+						!VARATT_IS_EXTERNAL_EXPANDED_RW(DatumGetPointer(newvalue)))
+					{
+						/* array and not already R/W, so apply expand_array */
+						newvalue = expand_array(newvalue,
+												CurrentMemoryContext,
+												NULL);
+					}
+					else
+					{
+						/* else transfer value if R/W, else just datumCopy */
+						newvalue = datumTransfer(newvalue,
+												 false,
+												 var->datatype->typlen);
+					}
+				}
 
 				/*
-				 * Now free the old value.  (We can't do this any earlier
-				 * because of the possibility that we are assigning the var's
-				 * old value to it, eg "foo := foo".  We could optimize out
-				 * the assignment altogether in such cases, but it's too
-				 * infrequent to be worth testing for.)
+				 * Now free the old value, unless it's the same as the new
+				 * value (ie, we're doing "foo := foo").  Note that for
+				 * expanded objects, this test is necessary and cannot
+				 * reliably be made any earlier; we have to be looking at the
+				 * object's standard R/W pointer to be sure pointer equality
+				 * is meaningful.
 				 */
-				free_var(var);
+				if (var->value != newvalue || var->isnull || isNull)
+					free_var(var);
 
 				var->value = newvalue;
 				var->isnull = isNull;
-				if (!var->datatype->typbyval && !isNull)
-					var->freeval = true;
+				var->freeval = (!var->datatype->typbyval && !isNull);
 				break;
 			}
 
@@ -4455,10 +4640,14 @@ exec_assign_value(PLpgSQL_execstate *estate,
  *
  * At present this doesn't handle PLpgSQL_expr or PLpgSQL_arrayelem datums.
  *
- * NOTE: caller must not modify the returned value, since it points right
- * at the stored value in the case of pass-by-reference datatypes.  In some
- * cases we have to palloc a return value, and in such cases we put it into
- * the estate's short-term memory context.
+ * NOTE: the returned Datum points right at the stored value in the case of
+ * pass-by-reference datatypes.  Generally callers should take care not to
+ * modify the stored value.  Some callers intentionally manipulate variables
+ * referenced by R/W expanded pointers, though; it is those callers'
+ * responsibility that the results are semantically OK.
+ *
+ * In some cases we have to palloc a return value, and in such cases we put
+ * it into the estate's short-term memory context.
  */
 static void
 exec_eval_datum(PLpgSQL_execstate *estate,
@@ -5166,6 +5355,9 @@ exec_eval_simple_expr(PLpgSQL_execstate *estate,
 	{
 		/* It got replanned ... is it still simple? */
 		exec_simple_recheck_plan(expr, cplan);
+		/* better recheck r/w safety, as well */
+		if (expr->rwparam >= 0)
+			exec_check_rw_parameter(expr, expr->rwparam);
 		if (expr->expr_simple_expr == NULL)
 		{
 			/* Ooops, release refcount and fail */
@@ -5312,7 +5504,13 @@ setup_param_list(PLpgSQL_execstate *estate, PLpgSQL_expr *expr)
 		 */
 		MemSet(paramLI->params, 0, estate->ndatums * sizeof(ParamExternData));
 
-		/* Instantiate values for "safe" parameters of the expression */
+		/*
+		 * Instantiate values for "safe" parameters of the expression.  One of
+		 * them might be the variable the expression result will be assigned
+		 * to, in which case we can pass the variable's value as-is even if
+		 * it's a read-write expanded object; otherwise, convert read-write
+		 * pointers to read-only pointers for safety.
+		 */
 		dno = -1;
 		while ((dno = bms_next_member(expr->paramnos, dno)) >= 0)
 		{
@@ -5323,7 +5521,12 @@ setup_param_list(PLpgSQL_execstate *estate, PLpgSQL_expr *expr)
 				PLpgSQL_var *var = (PLpgSQL_var *) datum;
 				ParamExternData *prm = &paramLI->params[dno];
 
-				prm->value = var->value;
+				if (dno == expr->rwparam)
+					prm->value = var->value;
+				else
+					prm->value = MakeExpandedObjectReadOnly(var->value,
+															var->isnull,
+													  var->datatype->typlen);
 				prm->isnull = var->isnull;
 				prm->pflags = PARAM_FLAG_CONST;
 				prm->ptype = var->datatype->typoid;
@@ -5392,6 +5595,15 @@ plpgsql_param_fetch(ParamListInfo params, int paramid)
 	exec_eval_datum(estate, datum,
 					&prm->ptype, &prmtypmod,
 					&prm->value, &prm->isnull);
+
+	/*
+	 * If it's a read/write expanded datum, convert reference to read-only,
+	 * unless it's safe to pass as read-write.
+	 */
+	if (datum->dtype == PLPGSQL_DTYPE_VAR && dno != expr->rwparam)
+		prm->value = MakeExpandedObjectReadOnly(prm->value,
+												prm->isnull,
+								  ((PLpgSQL_var *) datum)->datatype->typlen);
 }
 
 
@@ -6334,6 +6546,113 @@ exec_simple_recheck_plan(PLpgSQL_expr *expr, CachedPlan *cplan)
 	expr->expr_simple_typmod = exprTypmod((Node *) tle->expr);
 }
 
+/*
+ * exec_check_rw_parameter --- can we pass expanded object as read/write param?
+ *
+ * If we have an assignment like "x := array_append(x, foo)" in which the
+ * top-level function is trusted not to corrupt its argument in case of an
+ * error, then when x has an expanded object as value, it is safe to pass the
+ * value as a read/write pointer and let the function modify the value
+ * in-place.
+ *
+ * This function checks for a safe expression, and sets expr->rwparam to the
+ * dno of the target variable (x) if safe, or -1 if not safe.
+ */
+static void
+exec_check_rw_parameter(PLpgSQL_expr *expr, int target_dno)
+{
+	Oid			funcid;
+	List	   *fargs;
+	ListCell   *lc;
+
+	/* Assume unsafe */
+	expr->rwparam = -1;
+
+	/*
+	 * If the expression isn't simple, there's no point in trying to optimize
+	 * (because the exec_run_select code path will flatten any expanded result
+	 * anyway).  Even without that, this seems like a good safety restriction.
+	 */
+	if (expr->expr_simple_expr == NULL)
+		return;
+
+	/*
+	 * If target variable isn't referenced by expression, no need to look
+	 * further.
+	 */
+	if (!bms_is_member(target_dno, expr->paramnos))
+		return;
+
+	/*
+	 * Top level of expression must be a simple FuncExpr or OpExpr.
+	 */
+	if (IsA(expr->expr_simple_expr, FuncExpr))
+	{
+		FuncExpr   *fexpr = (FuncExpr *) expr->expr_simple_expr;
+
+		funcid = fexpr->funcid;
+		fargs = fexpr->args;
+	}
+	else if (IsA(expr->expr_simple_expr, OpExpr))
+	{
+		OpExpr	   *opexpr = (OpExpr *) expr->expr_simple_expr;
+
+		funcid = opexpr->opfuncid;
+		fargs = opexpr->args;
+	}
+	else
+		return;
+
+	/*
+	 * The top-level function must be one that we trust to be "safe".
+	 * Currently we hard-wire the list, but it would be very desirable to
+	 * allow extensions to mark their functions as safe ...
+	 */
+	if (!(funcid == F_ARRAY_APPEND ||
+		  funcid == F_ARRAY_PREPEND))
+		return;
+
+	/*
+	 * The target variable (in the form of a Param) must only appear as a
+	 * direct argument of the top-level function.
+	 */
+	foreach(lc, fargs)
+	{
+		Node	   *arg = (Node *) lfirst(lc);
+
+		/* A Param is OK, whether it's the target variable or not */
+		if (arg && IsA(arg, Param))
+			continue;
+		/* Otherwise, argument expression must not reference target */
+		if (contains_target_param(arg, &target_dno))
+			return;
+	}
+
+	/* OK, we can pass target as a read-write parameter */
+	expr->rwparam = target_dno;
+}
+
+/*
+ * Recursively check for a Param referencing the target variable
+ */
+static bool
+contains_target_param(Node *node, int *target_dno)
+{
+	if (node == NULL)
+		return false;
+	if (IsA(node, Param))
+	{
+		Param	   *param = (Param *) node;
+
+		if (param->paramkind == PARAM_EXTERN &&
+			param->paramid == *target_dno + 1)
+			return true;
+		return false;
+	}
+	return expression_tree_walker(node, contains_target_param,
+								  (void *) target_dno);
+}
+
 /* ----------
  * exec_set_found			Set the global found variable to true/false
  * ----------
@@ -6490,7 +6809,12 @@ free_var(PLpgSQL_var *var)
 {
 	if (var->freeval)
 	{
-		pfree(DatumGetPointer(var->value));
+		if (DatumIsReadWriteExpandedObject(var->value,
+										   var->isnull,
+										   var->datatype->typlen))
+			DeleteExpandedObject(var->value);
+		else
+			pfree(DatumGetPointer(var->value));
 		var->freeval = false;
 	}
 }
@@ -6700,8 +7024,9 @@ format_expr_params(PLpgSQL_execstate *estate,
 
 		curvar = (PLpgSQL_var *) estate->datums[dno];
 
-		exec_eval_datum(estate, (PLpgSQL_datum *) curvar, &paramtypeid,
-						&paramtypmod, &paramdatum, &paramisnull);
+		exec_eval_datum(estate, (PLpgSQL_datum *) curvar,
+						&paramtypeid, &paramtypmod,
+						&paramdatum, &paramisnull);
 
 		appendStringInfo(&paramstr, "%s%s = ",
 						 paramno > 0 ? ", " : "",

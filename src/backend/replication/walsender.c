@@ -193,7 +193,7 @@ typedef void (*WalSndSendDataCallback) (void);
 static void WalSndLoop(WalSndSendDataCallback send_data);
 static void InitWalSenderSlot(void);
 static void WalSndKill(int code, Datum arg);
-static void WalSndShutdown(void) pg_attribute_noreturn;
+static void WalSndShutdown(void) pg_attribute_noreturn();
 static void XLogSendPhysical(void);
 static void XLogSendLogical(void);
 static void WalSndDone(WalSndSendDataCallback send_data);
@@ -781,6 +781,7 @@ CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
 	else
 	{
 		CheckLogicalDecodingRequirements();
+
 		/*
 		 * Initially create the slot as ephemeral - that allows us to nicely
 		 * handle errors during initialization because it'll get dropped if
@@ -1266,9 +1267,9 @@ exec_replication_command(const char *cmd_string)
 	MemoryContext old_context;
 
 	/*
-	 * Log replication command if log_replication_commands is enabled.
-	 * Even when it's disabled, log the command with DEBUG1 level for
-	 * backward compatibility.
+	 * Log replication command if log_replication_commands is enabled. Even
+	 * when it's disabled, log the command with DEBUG1 level for backward
+	 * compatibility.
 	 */
 	ereport(log_replication_commands ? LOG : DEBUG1,
 			(errmsg("received replication command: %s", cmd_string)));
@@ -2183,9 +2184,9 @@ XLogSendPhysical(void)
 	if (sendTimeLineIsHistoric)
 	{
 		/*
-		 * Streaming an old timeline timeline that's in this server's history,
-		 * but is not the one we're currently inserting or replaying. It can
-		 * be streamed up to the point where we switched off that timeline.
+		 * Streaming an old timeline that's in this server's history, but is
+		 * not the one we're currently inserting or replaying. It can be
+		 * streamed up to the point where we switched off that timeline.
 		 */
 		SendRqstPtr = sendTimeLineValidUpto;
 	}
@@ -2663,8 +2664,8 @@ WalSndWakeup(void)
 
 	for (i = 0; i < max_wal_senders; i++)
 	{
-		Latch *latch;
-		WalSnd *walsnd = &WalSndCtl->walsnds[i];
+		Latch	   *latch;
+		WalSnd	   *walsnd = &WalSndCtl->walsnds[i];
 
 		/*
 		 * Get latch pointer with spinlock held, for the unlikely case that

@@ -1405,7 +1405,7 @@ xml_parse(text *data, XmlOptionType xmloption_arg, bool preserve_whitespace,
 			if (*(utf8string + count))
 			{
 				res_code = xmlParseBalancedChunkMemory(doc, NULL, NULL, 0,
-													   utf8string + count, NULL);
+												   utf8string + count, NULL);
 				if (res_code != 0 || xmlerrcxt->err_occurred)
 					xml_ereport(xmlerrcxt, ERROR, ERRCODE_INVALID_XML_CONTENT,
 								"invalid XML content");
@@ -2473,7 +2473,7 @@ query_to_xml_internal(const char *query, char *tablename,
 	{
 		xmldata_root_element_start(result, xmltn, xmlschema,
 								   targetns, top_level);
-		appendStringInfoString(result, "\n");
+		appendStringInfoChar(result, '\n');
 	}
 
 	if (xmlschema)
@@ -2637,7 +2637,7 @@ schema_to_xml_internal(Oid nspid, const char *xmlschema, bool nulls,
 	result = makeStringInfo();
 
 	xmldata_root_element_start(result, xmlsn, xmlschema, targetns, top_level);
-	appendStringInfoString(result, "\n");
+	appendStringInfoChar(result, '\n');
 
 	if (xmlschema)
 		appendStringInfo(result, "%s\n\n", xmlschema);
@@ -2815,7 +2815,7 @@ database_to_xml_internal(const char *xmlschema, bool nulls,
 	result = makeStringInfo();
 
 	xmldata_root_element_start(result, xmlcn, xmlschema, targetns, true);
-	appendStringInfoString(result, "\n");
+	appendStringInfoChar(result, '\n');
 
 	if (xmlschema)
 		appendStringInfo(result, "%s\n\n", xmlschema);
@@ -3697,7 +3697,7 @@ xml_xpathobjtoxmlarray(xmlXPathObjectPtr xpathobj,
 					for (i = 0; i < result; i++)
 					{
 						datum = PointerGetDatum(xml_xmlnodetoxmltype(xpathobj->nodesetval->nodeTab[i],
-																	 xmlerrcxt));
+																 xmlerrcxt));
 						(void) accumArrayResult(astate, datum, false,
 												XMLOID, CurrentMemoryContext);
 					}

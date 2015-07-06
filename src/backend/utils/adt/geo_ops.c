@@ -2657,6 +2657,18 @@ dist_ppoly(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8(result);
 }
 
+Datum
+dist_polyp(PG_FUNCTION_ARGS)
+{
+	POLYGON    *poly = PG_GETARG_POLYGON_P(0);
+	Point	   *point = PG_GETARG_POINT_P(1);
+	float8		result;
+
+	result = dist_ppoly_internal(point, poly);
+
+	PG_RETURN_FLOAT8(result);
+}
+
 static double
 dist_ppoly_internal(Point *pt, POLYGON *poly)
 {
@@ -4227,6 +4239,45 @@ box_div(PG_FUNCTION_ARGS)
 	PG_RETURN_BOX_P(result);
 }
 
+/*
+ * Convert point to empty box
+ */
+Datum
+point_box(PG_FUNCTION_ARGS)
+{
+	Point	   *pt = PG_GETARG_POINT_P(0);
+	BOX		   *box;
+
+	box = (BOX *) palloc(sizeof(BOX));
+
+	box->high.x = pt->x;
+	box->low.x = pt->x;
+	box->high.y = pt->y;
+	box->low.y = pt->y;
+
+	PG_RETURN_BOX_P(box);
+}
+
+/*
+ * Smallest bounding box that includes both of the given boxes
+ */
+Datum
+boxes_bound_box(PG_FUNCTION_ARGS)
+{
+	BOX		   *box1 = PG_GETARG_BOX_P(0),
+			   *box2 = PG_GETARG_BOX_P(1),
+			   *container;
+
+	container = (BOX *) palloc(sizeof(BOX));
+
+	container->high.x = Max(box1->high.x, box2->high.x);
+	container->low.x = Min(box1->low.x, box2->low.x);
+	container->high.y = Max(box1->high.y, box2->high.y);
+	container->low.y = Min(box1->low.y, box2->low.y);
+
+	PG_RETURN_BOX_P(container);
+}
+
 
 /***********************************************************************
  **
@@ -5073,6 +5124,21 @@ dist_pc(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8(result);
 }
 
+/*
+ * Distance from a circle to a point
+ */
+Datum
+dist_cpoint(PG_FUNCTION_ARGS)
+{
+	CIRCLE	   *circle = PG_GETARG_CIRCLE_P(0);
+	Point	   *point = PG_GETARG_POINT_P(1);
+	float8		result;
+
+	result = point_dt(point, &circle->center) - circle->radius;
+	if (result < 0)
+		result = 0;
+	PG_RETURN_FLOAT8(result);
+}
 
 /*		circle_center	-		returns the center point of the circle.
  */

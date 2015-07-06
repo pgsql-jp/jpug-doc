@@ -80,8 +80,6 @@ void		px_free(void *p);
 #define PXE_NO_RANDOM				-17
 #define PXE_DECRYPT_FAILED			-18
 
-#define PXE_MBUF_SHORT_READ			-50
-
 #define PXE_PGP_CORRUPT_DATA		-100
 #define PXE_PGP_CORRUPT_ARMOR		-101
 #define PXE_PGP_UNSUPPORTED_COMPR	-102
@@ -206,9 +204,7 @@ void		px_set_debug_handler(void (*handler) (const char *));
 void		px_memset(void *ptr, int c, size_t len);
 
 #ifdef PX_DEBUG
-void
-px_debug(const char *fmt,...)
-pg_attribute_printf(1, 2);
+void		px_debug(const char *fmt,...) pg_attribute_printf(1, 2);
 #else
 #define px_debug(...)
 #endif

@@ -336,6 +336,48 @@ replace_outer_agg(PlannerInfo *root, Aggref *agg)
 }
 
 /*
+ * Generate a Param node to replace the given GroupingFunc expression which is
+ * expected to have agglevelsup > 0 (ie, it is not local).
+ */
+static Param *
+replace_outer_grouping(PlannerInfo *root, GroupingFunc *grp)
+{
+	Param	   *retval;
+	PlannerParamItem *pitem;
+	Index		levelsup;
+
+	Assert(grp->agglevelsup > 0 && grp->agglevelsup < root->query_level);
+
+	/* Find the query level the GroupingFunc belongs to */
+	for (levelsup = grp->agglevelsup; levelsup > 0; levelsup--)
+		root = root->parent_root;
+
+	/*
+	 * It does not seem worthwhile to try to match duplicate outer aggs. Just
+	 * make a new slot every time.
+	 */
+	grp = (GroupingFunc *) copyObject(grp);
+	IncrementVarSublevelsUp((Node *) grp, -((int) grp->agglevelsup), 0);
+	Assert(grp->agglevelsup == 0);
+
+	pitem = makeNode(PlannerParamItem);
+	pitem->item = (Node *) grp;
+	pitem->paramId = root->glob->nParamExec++;
+
+	root->plan_params = lappend(root->plan_params, pitem);
+
+	retval = makeNode(Param);
+	retval->paramkind = PARAM_EXEC;
+	retval->paramid = pitem->paramId;
+	retval->paramtype = exprType((Node *) grp);
+	retval->paramtypmod = -1;
+	retval->paramcollid = InvalidOid;
+	retval->location = grp->location;
+
+	return retval;
+}
+
+/*
  * Generate a new Param node that will not conflict with any other.
  *
  * This is used to create Params representing subplan outputs.
@@ -1494,14 +1536,16 @@ simplify_EXISTS_query(PlannerInfo *root, Query *query)
 {
 	/*
 	 * We don't try to simplify at all if the query uses set operations,
-	 * aggregates, modifying CTEs, HAVING, OFFSET, or FOR UPDATE/SHARE; none
-	 * of these seem likely in normal usage and their possible effects are
-	 * complex.  (Note: we could ignore an "OFFSET 0" clause, but that
-	 * traditionally is used as an optimization fence, so we don't.)
+	 * aggregates, grouping sets, modifying CTEs, HAVING, OFFSET, or FOR
+	 * UPDATE/SHARE; none of these seem likely in normal usage and their
+	 * possible effects are complex.  (Note: we could ignore an "OFFSET 0"
+	 * clause, but that traditionally is used as an optimization fence, so we
+	 * don't.)
 	 */
 	if (query->commandType != CMD_SELECT ||
 		query->setOperations ||
 		query->hasAggs ||
+		query->groupingSets ||
 		query->hasWindowFuncs ||
 		query->hasModifyingCTE ||
 		query->havingQual ||
@@ -1851,6 +1895,11 @@ replace_correlation_vars_mutator(Node *node, PlannerInfo *root)
 		if (((Aggref *) node)->agglevelsup > 0)
 			return (Node *) replace_outer_agg(root, (Aggref *) node);
 	}
+	if (IsA(node, GroupingFunc))
+	{
+		if (((GroupingFunc *) node)->agglevelsup > 0)
+			return (Node *) replace_outer_grouping(root, (GroupingFunc *) node);
+	}
 	return expression_tree_mutator(node,
 								   replace_correlation_vars_mutator,
 								   (void *) root);
@@ -2167,6 +2216,7 @@ finalize_plan(PlannerInfo *root, Plan *plan, Bitmapset *valid_params,
 			break;
 
 		case T_SeqScan:
+		case T_SampleScan:
 			context.paramids = bms_add_members(context.paramids, scan_params);
 			break;
 
@@ -2318,13 +2368,32 @@ finalize_plan(PlannerInfo *root, Plan *plan, Bitmapset *valid_params,
 		case T_ForeignScan:
 			finalize_primnode((Node *) ((ForeignScan *) plan)->fdw_exprs,
 							  &context);
+			/* We assume fdw_scan_tlist cannot contain Params */
 			context.paramids = bms_add_members(context.paramids, scan_params);
 			break;
 
 		case T_CustomScan:
-			finalize_primnode((Node *) ((CustomScan *) plan)->custom_exprs,
-							  &context);
-			context.paramids = bms_add_members(context.paramids, scan_params);
+			{
+				CustomScan *cscan = (CustomScan *) plan;
+				ListCell   *lc;
+
+				finalize_primnode((Node *) cscan->custom_exprs,
+								  &context);
+				/* We assume custom_scan_tlist cannot contain Params */
+				context.paramids =
+					bms_add_members(context.paramids, scan_params);
+
+				/* child nodes if any */
+				foreach (lc, cscan->custom_plans)
+				{
+					context.paramids =
+						bms_add_members(context.paramids,
+										finalize_plan(root,
+													  (Plan *) lfirst(lc),
+													  valid_params,
+													  scan_params));
+				}
+			}
 			break;
 
 		case T_ModifyTable:
@@ -2339,6 +2408,10 @@ finalize_plan(PlannerInfo *root, Plan *plan, Bitmapset *valid_params,
 				scan_params = bms_add_member(bms_copy(scan_params),
 											 locally_added_param);
 				finalize_primnode((Node *) mtplan->returningLists,
+								  &context);
+				finalize_primnode((Node *) mtplan->onConflictSet,
+								  &context);
+				finalize_primnode((Node *) mtplan->onConflictWhere,
 								  &context);
 				foreach(l, mtplan->plans)
 				{

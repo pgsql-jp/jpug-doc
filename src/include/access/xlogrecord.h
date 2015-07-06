@@ -13,7 +13,7 @@
 
 #include "access/rmgr.h"
 #include "access/xlogdefs.h"
-#include "common/pg_crc.h"
+#include "port/pg_crc32c.h"
 #include "storage/block.h"
 #include "storage/relfilenode.h"
 
@@ -46,13 +46,13 @@ typedef struct XLogRecord
 	uint8		xl_info;		/* flag bits, see below */
 	RmgrId		xl_rmid;		/* resource manager for this record */
 	/* 2 bytes of padding here, initialize to zero */
-	pg_crc32	xl_crc;			/* CRC for this record */
+	pg_crc32c	xl_crc;			/* CRC for this record */
 
 	/* XLogRecordBlockHeaders and XLogRecordDataHeader follow, no padding */
 
 } XLogRecord;
 
-#define SizeOfXLogRecord	(offsetof(XLogRecord, xl_crc) + sizeof(pg_crc32))
+#define SizeOfXLogRecord	(offsetof(XLogRecord, xl_crc) + sizeof(pg_crc32c))
 
 /*
  * The high 4 bits in xl_info may be used freely by rmgr. The
@@ -121,13 +121,13 @@ typedef struct XLogRecordBlockHeader
  */
 typedef struct XLogRecordBlockImageHeader
 {
-	uint16	length;	/* number of page image bytes */
-	uint16	hole_offset;	/* number of bytes before "hole" */
-	uint8		bimg_info;	/* flag bits, see below */
+	uint16		length;			/* number of page image bytes */
+	uint16		hole_offset;	/* number of bytes before "hole" */
+	uint8		bimg_info;		/* flag bits, see below */
 
 	/*
-	 * If BKPIMAGE_HAS_HOLE and BKPIMAGE_IS_COMPRESSED,
-	 * an XLogRecordBlockCompressHeader struct follows.
+	 * If BKPIMAGE_HAS_HOLE and BKPIMAGE_IS_COMPRESSED, an
+	 * XLogRecordBlockCompressHeader struct follows.
 	 */
 } XLogRecordBlockImageHeader;
 
@@ -136,7 +136,7 @@ typedef struct XLogRecordBlockImageHeader
 
 /* Information stored in bimg_info */
 #define BKPIMAGE_HAS_HOLE		0x01	/* page image has "hole" */
-#define BKPIMAGE_IS_COMPRESSED		0x02	/* page image is compressed */
+#define BKPIMAGE_IS_COMPRESSED		0x02		/* page image is compressed */
 
 /*
  * Extra header information used when page image has "hole" and
@@ -144,7 +144,7 @@ typedef struct XLogRecordBlockImageHeader
  */
 typedef struct XLogRecordBlockCompressHeader
 {
-	uint16	hole_length;	/* number of bytes in "hole" */
+	uint16		hole_length;	/* number of bytes in "hole" */
 } XLogRecordBlockCompressHeader;
 
 #define SizeOfXLogRecordBlockCompressHeader \
@@ -185,7 +185,7 @@ typedef struct XLogRecordDataHeaderShort
 {
 	uint8		id;				/* XLR_BLOCK_ID_DATA_SHORT */
 	uint8		data_length;	/* number of payload bytes */
-} XLogRecordDataHeaderShort;
+}	XLogRecordDataHeaderShort;
 
 #define SizeOfXLogRecordDataHeaderShort (sizeof(uint8) * 2)
 
@@ -193,7 +193,7 @@ typedef struct XLogRecordDataHeaderLong
 {
 	uint8		id;				/* XLR_BLOCK_ID_DATA_LONG */
 	/* followed by uint32 data_length, unaligned */
-} XLogRecordDataHeaderLong;
+}	XLogRecordDataHeaderLong;
 
 #define SizeOfXLogRecordDataHeaderLong (sizeof(uint8) + sizeof(uint32))
 
@@ -212,5 +212,6 @@ typedef struct XLogRecordDataHeaderLong
 
 #define XLR_BLOCK_ID_DATA_SHORT		255
 #define XLR_BLOCK_ID_DATA_LONG		254
+#define XLR_BLOCK_ID_ORIGIN			253
 
 #endif   /* XLOGRECORD_H */

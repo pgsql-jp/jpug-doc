@@ -392,7 +392,7 @@ vacuum_one_database(const char *dbname, vacuumingOptions *vacopts,
 		ntups = PQntuples(res);
 		for (i = 0; i < ntups; i++)
 		{
-			appendPQExpBuffer(&buf, "%s",
+			appendPQExpBufferStr(&buf,
 							  fmtQualifiedId(PQserverVersion(conn),
 											 PQgetvalue(res, i, 1),
 											 PQgetvalue(res, i, 0)));
@@ -484,6 +484,11 @@ vacuum_one_database(const char *dbname, vacuumingOptions *vacopts,
 		else
 			free_slot = slots;
 
+		/*
+		 * Execute the vacuum.  If not in parallel mode, this terminates the
+		 * program in case of an error.  (The parallel case handles query
+		 * errors in GetQueryResult through GetIdleSlot.)
+		 */
 		run_vacuum_command(free_slot->connection, sql.data,
 						   echo, dbname, tabname, progname, parallel);
 
@@ -638,7 +643,7 @@ prepare_vacuum_command(PQExpBuffer sql, PGconn *conn, vacuumingOptions *vacopts,
 				sep = comma;
 			}
 			if (sep != paren)
-				appendPQExpBufferStr(sql, ")");
+				appendPQExpBufferChar(sql, ')');
 		}
 		else
 		{
@@ -661,21 +666,27 @@ prepare_vacuum_command(PQExpBuffer sql, PGconn *conn, vacuumingOptions *vacopts,
 /*
  * Execute a vacuum/analyze command to the server.
  *
- * Result status is checked only if 'async' is false.
+ * Any errors during command execution are reported to stderr.  If async is
+ * false, this function exits the program after reporting the error.
  */
 static void
 run_vacuum_command(PGconn *conn, const char *sql, bool echo,
 				   const char *dbname, const char *table,
 				   const char *progname, bool async)
 {
+	bool		status;
+
 	if (async)
 	{
 		if (echo)
 			printf("%s\n", sql);
 
-		PQsendQuery(conn, sql);
+		status = PQsendQuery(conn, sql) == 1;
 	}
-	else if (!executeMaintenanceCommand(conn, sql, echo))
+	else
+		status = executeMaintenanceCommand(conn, sql, echo);
+
+	if (!status)
 	{
 		if (table)
 			fprintf(stderr,
@@ -684,8 +695,12 @@ run_vacuum_command(PGconn *conn, const char *sql, bool echo,
 		else
 			fprintf(stderr, _("%s: vacuuming of database \"%s\" failed: %s"),
 					progname, dbname, PQerrorMessage(conn));
-		PQfinish(conn);
-		exit(1);
+
+		if (!async)
+		{
+			PQfinish(conn);
+			exit(1);
+		}
 	}
 }
 
@@ -925,10 +940,10 @@ help(const char *progname)
 	printf(_("  -v, --verbose                   write a lot of output\n"));
 	printf(_("  -V, --version                   output version information, then exit\n"));
 	printf(_("  -z, --analyze                   update optimizer statistics\n"));
-	printf(_("  -Z, --analyze-only              only update optimizer statistics\n"));
+	printf(_("  -Z, --analyze-only              only update optimizer statistics;  no vacuum\n"));
 	printf(_("  -j, --jobs=NUM                  use this many concurrent connections to vacuum\n"));
 	printf(_("      --analyze-in-stages         only update optimizer statistics, in multiple\n"
-		   "                                  stages for faster results\n"));
+			 "                                  stages for faster results;  no vacuum\n"));
 	printf(_("  -?, --help                      show this help, then exit\n"));
 	printf(_("\nConnection options:\n"));
 	printf(_("  -h, --host=HOSTNAME       database server host or socket directory\n"));

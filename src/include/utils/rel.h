@@ -63,7 +63,6 @@ typedef struct RelationAmInfo
 	FmgrInfo	amcanreturn;
 } RelationAmInfo;
 
-
 /*
  * Here are the contents of a relation cache entry.
  */
@@ -90,7 +89,7 @@ typedef struct RelationData
 	 * survived into, or zero if not changed in the current transaction (or we
 	 * have forgotten changing it). rd_newRelfilenodeSubid can be forgotten
 	 * when a relation has multiple new relfilenodes within a single
-	 * transaction, with one of them occuring in a subsequently aborted
+	 * transaction, with one of them occurring in a subsequently aborted
 	 * subtransaction, e.g. BEGIN; TRUNCATE t; SAVEPOINT save; TRUNCATE t;
 	 * ROLLBACK TO save; -- rd_newRelfilenode is now forgotten
 	 */
@@ -209,6 +208,7 @@ typedef struct AutoVacOpts
 	int			multixact_freeze_min_age;
 	int			multixact_freeze_max_age;
 	int			multixact_freeze_table_age;
+	int			log_min_duration;
 	float8		vacuum_scale_factor;
 	float8		analyze_scale_factor;
 } AutoVacOpts;

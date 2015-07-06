@@ -302,6 +302,8 @@ extern Datum box_add(PG_FUNCTION_ARGS);
 extern Datum box_sub(PG_FUNCTION_ARGS);
 extern Datum box_mul(PG_FUNCTION_ARGS);
 extern Datum box_div(PG_FUNCTION_ARGS);
+extern Datum point_box(PG_FUNCTION_ARGS);
+extern Datum boxes_bound_box(PG_FUNCTION_ARGS);
 
 /* public path routines */
 extern Datum path_area(PG_FUNCTION_ARGS);
@@ -392,8 +394,10 @@ extern Datum circle_diameter(PG_FUNCTION_ARGS);
 extern Datum circle_radius(PG_FUNCTION_ARGS);
 extern Datum circle_distance(PG_FUNCTION_ARGS);
 extern Datum dist_pc(PG_FUNCTION_ARGS);
+extern Datum dist_cpoint(PG_FUNCTION_ARGS);
 extern Datum dist_cpoly(PG_FUNCTION_ARGS);
 extern Datum dist_ppoly(PG_FUNCTION_ARGS);
+extern Datum dist_polyp(PG_FUNCTION_ARGS);
 extern Datum circle_center(PG_FUNCTION_ARGS);
 extern Datum cr_circle(PG_FUNCTION_ARGS);
 extern Datum box_circle(PG_FUNCTION_ARGS);
@@ -410,6 +414,7 @@ extern Datum gist_box_picksplit(PG_FUNCTION_ARGS);
 extern Datum gist_box_consistent(PG_FUNCTION_ARGS);
 extern Datum gist_box_penalty(PG_FUNCTION_ARGS);
 extern Datum gist_box_same(PG_FUNCTION_ARGS);
+extern Datum gist_box_fetch(PG_FUNCTION_ARGS);
 extern Datum gist_poly_compress(PG_FUNCTION_ARGS);
 extern Datum gist_poly_consistent(PG_FUNCTION_ARGS);
 extern Datum gist_circle_compress(PG_FUNCTION_ARGS);
@@ -417,6 +422,9 @@ extern Datum gist_circle_consistent(PG_FUNCTION_ARGS);
 extern Datum gist_point_compress(PG_FUNCTION_ARGS);
 extern Datum gist_point_consistent(PG_FUNCTION_ARGS);
 extern Datum gist_point_distance(PG_FUNCTION_ARGS);
+extern Datum gist_bbox_distance(PG_FUNCTION_ARGS);
+extern Datum gist_point_fetch(PG_FUNCTION_ARGS);
+
 
 /* geo_selfuncs.c */
 extern Datum areasel(PG_FUNCTION_ARGS);
