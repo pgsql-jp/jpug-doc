@@ -249,6 +249,17 @@ static pid_t StartupPID = 0,
 			PgStatPID = 0,
 			SysLoggerPID = 0;
 
+/* Startup process's status */
+typedef enum
+{
+	STARTUP_NOT_RUNNING,
+	STARTUP_RUNNING,
+	STARTUP_SIGNALED,			/* we sent it a SIGQUIT or SIGKILL */
+	STARTUP_CRASHED
+} StartupStatusEnum;
+
+static StartupStatusEnum StartupStatus = STARTUP_NOT_RUNNING;
+
 /* Startup/shutdown state */
 #define			NoShutdown		0
 #define			SmartShutdown	1
@@ -258,7 +269,6 @@ static pid_t StartupPID = 0,
 static int	Shutdown = NoShutdown;
 
 static bool FatalError = false; /* T if recovering from backend crash */
-static bool RecoveryError = false;		/* T if WAL recovery failed */
 
 /*
  * We use a simple state machine to control startup, shutdown, and
@@ -301,8 +311,6 @@ static bool RecoveryError = false;		/* T if WAL recovery failed */
  * states, nor in PM_SHUTDOWN states (because we don't enter those states
  * when trying to recover from a crash).  It can be true in PM_STARTUP state,
  * because we don't clear it until we've successfully started WAL redo.
- * Similarly, RecoveryError means that we have crashed during recovery, and
- * should not try to restart.
  */
 typedef enum
 {
@@ -324,8 +332,10 @@ typedef enum
 
 static PMState pmState = PM_INIT;
 
-/* Start time of abort processing at immediate shutdown or child crash */
-static time_t AbortStartTime;
+/* Start time of SIGKILL timeout during immediate shutdown or child crash */
+/* Zero means timeout is not running */
+static time_t AbortStartTime = 0;
+/* Length of said timeout */
 #define SIGKILL_CHILDREN_AFTER_SECS		5
 
 static bool ReachedNormalRunning = false;		/* T if we've reached PM_RUN */
@@ -1236,6 +1246,7 @@ PostmasterMain(int argc, char *argv[])
 	 */
 	StartupPID = StartupDataBase();
 	Assert(StartupPID != 0);
+	StartupStatus = STARTUP_RUNNING;
 	pmState = PM_STARTUP;
 
 	/* Some workers may be scheduled to start now */
@@ -1411,7 +1422,8 @@ checkDataDir(void)
  * In normal conditions we wait at most one minute, to ensure that the other
  * background tasks handled by ServerLoop get done even when no requests are
  * arriving.  However, if there are background workers waiting to be started,
- * we don't actually sleep so that they are quickly serviced.
+ * we don't actually sleep so that they are quickly serviced.  Other exception
+ * cases are as shown in the code.
  */
 static void
 DetermineSleepTime(struct timeval * timeout)
@@ -1425,11 +1437,12 @@ DetermineSleepTime(struct timeval * timeout)
 	if (Shutdown > NoShutdown ||
 		(!StartWorkerNeeded && !HaveCrashedWorker))
 	{
-		if (AbortStartTime > 0)
+		if (AbortStartTime != 0)
 		{
 			/* time left to abort; clamp to 0 in case it already expired */
-			timeout->tv_sec = Max(SIGKILL_CHILDREN_AFTER_SECS -
-								  (time(NULL) - AbortStartTime), 0);
+			timeout->tv_sec = SIGKILL_CHILDREN_AFTER_SECS -
+				(time(NULL) - AbortStartTime);
+			timeout->tv_sec = Max(timeout->tv_sec, 0);
 			timeout->tv_usec = 0;
 		}
 		else
@@ -1699,20 +1712,13 @@ ServerLoop(void)
 		 * Note we also do this during recovery from a process crash.
 		 */
 		if ((Shutdown >= ImmediateShutdown || (FatalError && !SendStop)) &&
-			AbortStartTime > 0 &&
-			now - AbortStartTime >= SIGKILL_CHILDREN_AFTER_SECS)
+			AbortStartTime != 0 &&
+			(now - AbortStartTime) >= SIGKILL_CHILDREN_AFTER_SECS)
 		{
 			/* We were gentle with them before. Not anymore */
 			TerminateChildren(SIGKILL);
 			/* reset flag so we don't SIGKILL again */
 			AbortStartTime = 0;
-
-			/*
-			 * Additionally, unless we're recovering from a process crash,
-			 * it's now the time for postmaster to abandon ship.
-			 */
-			if (!FatalError)
-				ExitPostmaster(1);
 		}
 	}
 }
@@ -2586,6 +2592,7 @@ reaper(SIGNAL_ARGS)
 			if (Shutdown > NoShutdown &&
 				(EXIT_STATUS_0(exitstatus) || EXIT_STATUS_1(exitstatus)))
 			{
+				StartupStatus = STARTUP_NOT_RUNNING;
 				pmState = PM_WAIT_BACKENDS;
 				/* PostmasterStateMachine logic does the rest */
 				continue;
@@ -2608,16 +2615,18 @@ reaper(SIGNAL_ARGS)
 			/*
 			 * After PM_STARTUP, any unexpected exit (including FATAL exit) of
 			 * the startup process is catastrophic, so kill other children,
-			 * and set RecoveryError so we don't try to reinitialize after
-			 * they're gone.  Exception: if FatalError is already set, that
-			 * implies we previously sent the startup process a SIGQUIT, so
+			 * and set StartupStatus so we don't try to reinitialize after
+			 * they're gone.  Exception: if StartupStatus is STARTUP_SIGNALED,
+			 * then we previously sent the startup process a SIGQUIT; so
 			 * that's probably the reason it died, and we do want to try to
 			 * restart in that case.
 			 */
 			if (!EXIT_STATUS_0(exitstatus))
 			{
-				if (!FatalError)
-					RecoveryError = true;
+				if (StartupStatus == STARTUP_SIGNALED)
+					StartupStatus = STARTUP_NOT_RUNNING;
+				else
+					StartupStatus = STARTUP_CRASHED;
 				HandleChildCrash(pid, exitstatus,
 								 _("startup process"));
 				continue;
@@ -2626,6 +2635,7 @@ reaper(SIGNAL_ARGS)
 			/*
 			 * Startup succeeded, commence normal operations
 			 */
+			StartupStatus = STARTUP_NOT_RUNNING;
 			FatalError = false;
 			Assert(AbortStartTime == 0);
 			ReachedNormalRunning = true;
@@ -3173,7 +3183,10 @@ HandleChildCrash(int pid, int exitstatus, const char *procname)
 
 	/* Take care of the startup process too */
 	if (pid == StartupPID)
+	{
 		StartupPID = 0;
+		StartupStatus = STARTUP_CRASHED;
+	}
 	else if (StartupPID != 0 && take_action)
 	{
 		ereport(DEBUG2,
@@ -3181,6 +3194,7 @@ HandleChildCrash(int pid, int exitstatus, const char *procname)
 								 (SendStop ? "SIGSTOP" : "SIGQUIT"),
 								 (int) StartupPID)));
 		signal_child(StartupPID, (SendStop ? SIGSTOP : SIGQUIT));
+		StartupStatus = STARTUP_SIGNALED;
 	}
 
 	/* Take care of the bgwriter too */
@@ -3572,13 +3586,14 @@ PostmasterStateMachine(void)
 	}
 
 	/*
-	 * If recovery failed, or the user does not want an automatic restart
-	 * after backend crashes, wait for all non-syslogger children to exit, and
-	 * then exit postmaster. We don't try to reinitialize when recovery fails,
-	 * because more than likely it will just fail again and we will keep
-	 * trying forever.
+	 * If the startup process failed, or the user does not want an automatic
+	 * restart after backend crashes, wait for all non-syslogger children to
+	 * exit, and then exit postmaster.  We don't try to reinitialize when the
+	 * startup process fails, because more than likely it will just fail again
+	 * and we will keep trying forever.
 	 */
-	if (pmState == PM_NO_CHILDREN && (RecoveryError || !restart_after_crash))
+	if (pmState == PM_NO_CHILDREN &&
+		(StartupStatus == STARTUP_CRASHED || !restart_after_crash))
 		ExitPostmaster(1);
 
 	/*
@@ -3598,6 +3613,7 @@ PostmasterStateMachine(void)
 
 		StartupPID = StartupDataBase();
 		Assert(StartupPID != 0);
+		StartupStatus = STARTUP_RUNNING;
 		pmState = PM_STARTUP;
 		/* crash recovery started, reset SIGKILL flag */
 		AbortStartTime = 0;
@@ -3729,7 +3745,11 @@ TerminateChildren(int signal)
 {
 	SignalChildren(signal);
 	if (StartupPID != 0)
+	{
 		signal_child(StartupPID, signal);
+		if (signal == SIGQUIT || signal == SIGKILL)
+			StartupStatus = STARTUP_SIGNALED;
+	}
 	if (BgWriterPID != 0)
 		signal_child(BgWriterPID, signal);
 	if (CheckpointerPID != 0)
@@ -3961,7 +3981,16 @@ BackendInitialize(Port *port)
 	 * We arrange for a simple exit(1) if we receive SIGTERM or SIGQUIT or
 	 * timeout while trying to collect the startup packet.  Otherwise the
 	 * postmaster cannot shutdown the database FAST or IMMED cleanly if a
-	 * buggy client fails to send the packet promptly.
+	 * buggy client fails to send the packet promptly.  XXX it follows that
+	 * the remainder of this function must tolerate losing control at any
+	 * instant.  Likewise, any pg_on_exit_callback registered before or during
+	 * this function must be prepared to execute at any instant between here
+	 * and the end of this function.  Furthermore, affected callbacks execute
+	 * partially or not at all when a second exit-inducing signal arrives
+	 * after proc_exit_prepare() decrements on_proc_exit_index.  (Thanks to
+	 * that mechanic, callbacks need not anticipate more than one call.)  This
+	 * is fragile; it ought to instead follow the norm of handling interrupts
+	 * at selected, safe opportunities.
 	 */
 	pqsignal(SIGTERM, startup_die);
 	pqsignal(SIGQUIT, startup_die);

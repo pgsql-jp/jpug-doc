@@ -515,7 +515,8 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 	 * (Note that we cannot use LockBuffer() of LockBufferForCleanup() here,
 	 * because they assert that the buffer is already valid.)
 	 */
-	if (mode == RBM_ZERO_AND_LOCK || mode == RBM_ZERO_AND_CLEANUP_LOCK)
+	if ((mode == RBM_ZERO_AND_LOCK || mode == RBM_ZERO_AND_CLEANUP_LOCK) &&
+		!isLocalBuf)
 		LWLockAcquire(bufHdr->content_lock, LW_EXCLUSIVE);
 
 	if (isLocalBuf)
@@ -2124,7 +2125,7 @@ BufferGetLSNAtomic(Buffer buffer)
 	/*
 	 * If we don't need locking for correctness, fastpath out.
 	 */
-	if (!DataChecksumsEnabled() || BufferIsLocal(buffer))
+	if (!XLogHintBitIsNeeded() || BufferIsLocal(buffer))
 		return PageGetLSN(page);
 
 	/* Make sure we've got a real buffer, and that we hold a pin on it. */

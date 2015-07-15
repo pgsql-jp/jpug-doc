@@ -14680,13 +14680,12 @@ dumpEventTrigger(Archive *fout, EventTriggerInfo *evtinfo)
 	appendPQExpBufferStr(query, fmtId(evtinfo->dobj.name));
 	appendPQExpBufferStr(query, " ON ");
 	appendPQExpBufferStr(query, fmtId(evtinfo->evtevent));
-	appendPQExpBufferStr(query, " ");
 
 	if (strcmp("", evtinfo->evttags) != 0)
 	{
 		appendPQExpBufferStr(query, "\n         WHEN TAG IN (");
 		appendPQExpBufferStr(query, evtinfo->evttags);
-		appendPQExpBufferStr(query, ") ");
+		appendPQExpBufferChar(query, ')');
 	}
 
 	appendPQExpBufferStr(query, "\n   EXECUTE PROCEDURE ");
@@ -15134,6 +15133,7 @@ getExtensionMembership(Archive *fout, ExtensionInfo extinfo[],
 		addObjectDependency(&contable->dataObj->dobj,
 							reftable->dataObj->dobj.dumpId);
 	}
+	PQclear(res);
 	destroyPQExpBuffer(query);
 }
 

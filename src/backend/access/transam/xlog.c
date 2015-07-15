@@ -2255,9 +2255,9 @@ AdvanceXLInsertBuffer(XLogRecPtr upto, bool opportunistic)
 	LWLockRelease(WALBufMappingLock);
 
 #ifdef WAL_DEBUG
-	if (npages > 0)
+	if (XLOG_DEBUG && npages > 0)
 	{
-		elog(DEBUG1, "initialized %d pages, upto %X/%X",
+		elog(DEBUG1, "initialized %d pages, up to %X/%X",
 			 npages, (uint32) (NewPageEndPtr >> 32), (uint32) NewPageEndPtr);
 	}
 #endif
@@ -2838,7 +2838,7 @@ XLogFlush(XLogRecPtr record)
 
 			/*
 			 * Re-check how far we can now flush the WAL. It's generally not
-			 * safe to call WaitXLogInsetionsToFinish while holding
+			 * safe to call WaitXLogInsertionsToFinish while holding
 			 * WALWriteLock, because an in-progress insertion might need to
 			 * also grab WALWriteLock to make progress. But we know that all
 			 * the insertions up to insertpos have already finished, because
@@ -6140,6 +6140,18 @@ StartupXLOG(void)
 	RelationCacheInitFileRemove();
 
 	/*
+	 * If we previously crashed, there might be data which we had written,
+	 * intending to fsync it, but which we had not actually fsync'd yet.
+	 * Therefore, a power failure in the near future might cause earlier
+	 * unflushed writes to be lost, even though more recent data written to
+	 * disk from here on would be persisted.  To avoid that, fsync the entire
+	 * data directory.
+	 */
+	if (ControlFile->state != DB_SHUTDOWNED &&
+		ControlFile->state != DB_SHUTDOWNED_IN_RECOVERY)
+		SyncDataDirectory();
+
+	/*
 	 * Initialize on the assumption we want to recover to the latest timeline
 	 * that's active according to pg_control.
 	 */
@@ -7563,7 +7575,7 @@ HotStandbyActive(void)
 bool
 HotStandbyActiveInReplay(void)
 {
-	Assert(AmStartupProcess());
+	Assert(AmStartupProcess() || !IsPostmasterEnvironment);
 	return LocalHotStandbyActive;
 }
 
