@@ -24,7 +24,7 @@ extern bool check_track_commit_timestamp(bool *newval, void **extra,
 
 extern void TransactionTreeSetCommitTsData(TransactionId xid, int nsubxids,
 							   TransactionId *subxids, TimestampTz timestamp,
-							   RepOriginId nodeid, bool do_xlog);
+							   RepOriginId nodeid, bool write_xlog);
 extern bool TransactionIdGetCommitTsData(TransactionId xid,
 							 TimestampTz *ts, RepOriginId *nodeid);
 extern TransactionId GetLatestCommitTsData(TimestampTz *ts,
@@ -34,9 +34,8 @@ extern Size CommitTsShmemBuffers(void);
 extern Size CommitTsShmemSize(void);
 extern void CommitTsShmemInit(void);
 extern void BootStrapCommitTs(void);
-extern void StartupCommitTs(void);
-extern void ActivateCommitTs(void);
-extern void DeactivateCommitTs(bool do_wal);
+extern void StartupCommitTs(bool force_enable);
+extern void CommitTsParameterChange(bool xlrecvalue, bool pgcontrolvalue);
 extern void CompleteCommitTsInitialization(void);
 extern void ShutdownCommitTs(void);
 extern void CheckPointCommitTs(void);
@@ -67,4 +66,4 @@ extern void commit_ts_redo(XLogReaderState *record);
 extern void commit_ts_desc(StringInfo buf, XLogReaderState *record);
 extern const char *commit_ts_identify(uint8 info);
 
-#endif   /* COMMITTS_H */
+#endif   /* COMMIT_TS_H */

@@ -405,7 +405,7 @@ ExecInsertIndexTuples(TupleTableSlot *slot,
 		if (indexInfo->ii_ExclusionOps != NULL)
 		{
 			bool		violationOK;
-			bool		waitMode;
+			CEOUC_WAIT_MODE waitMode;
 
 			if (noDupErr)
 			{
@@ -535,8 +535,8 @@ ExecCheckIndexConstraints(TupleTableSlot *slot,
 
 		if (!indexRelation->rd_index->indimmediate)
 			ereport(ERROR,
-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errmsg("ON CONFLICT does not support deferred unique constraints/exclusion constraints as arbiters"),
+					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+					 errmsg("ON CONFLICT does not support deferrable unique constraints/exclusion constraints as arbiters"),
 					 errtableconstraint(heapRelation,
 								   RelationGetRelationName(indexRelation))));
 

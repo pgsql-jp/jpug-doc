@@ -55,10 +55,7 @@ static void ExplainOneQuery(Query *query, IntoClause *into, ExplainState *es,
 static void report_triggers(ResultRelInfo *rInfo, bool show_relname,
 				ExplainState *es);
 static double elapsed_time(instr_time *starttime);
-static void ExplainPreScanNode(PlanState *planstate, Bitmapset **rels_used);
-static void ExplainPreScanMemberNodes(List *plans, PlanState **planstates,
-						  Bitmapset **rels_used);
-static void ExplainPreScanSubPlans(List *plans, Bitmapset **rels_used);
+static bool ExplainPreScanNode(PlanState *planstate, Bitmapset **rels_used);
 static void ExplainNode(PlanState *planstate, List *ancestors,
 			const char *relationship, const char *plan_name,
 			ExplainState *es);
@@ -96,6 +93,8 @@ static void show_sort_group_keys(PlanState *planstate, const char *qlabel,
 					 List *ancestors, ExplainState *es);
 static void show_sortorder_options(StringInfo buf, Node *sortexpr,
 					   Oid sortOperator, Oid collation, bool nullsFirst);
+static void show_tablesample(TableSampleClause *tsc, PlanState *planstate,
+				 List *ancestors, ExplainState *es);
 static void show_sort_info(SortState *sortstate, ExplainState *es);
 static void show_hash_info(HashState *hashstate, ExplainState *es);
 static void show_tidbitmap_info(BitmapHeapScanState *planstate,
@@ -116,7 +115,7 @@ static void ExplainMemberNodes(List *plans, PlanState **planstates,
 static void ExplainSubPlans(List *plans, List *ancestors,
 				const char *relationship, ExplainState *es);
 static void ExplainCustomChildren(CustomScanState *css,
-								  List *ancestors, ExplainState *es);
+					  List *ancestors, ExplainState *es);
 static void ExplainProperty(const char *qlabel, const char *value,
 				bool numeric, ExplainState *es);
 static void ExplainOpenGroup(const char *objtype, const char *labelname,
@@ -346,7 +345,7 @@ ExplainOneQuery(Query *query, IntoClause *into, ExplainState *es,
 		INSTR_TIME_SET_CURRENT(planstart);
 
 		/* plan the query */
-		plan = pg_plan_query(query, 0, params);
+		plan = pg_plan_query(query, CURSOR_OPT_PARALLEL_OK, params);
 
 		INSTR_TIME_SET_CURRENT(planduration);
 		INSTR_TIME_SUBTRACT(planduration, planstart);
@@ -722,7 +721,7 @@ elapsed_time(instr_time *starttime)
  * This ensures that we don't confusingly assign un-suffixed aliases to RTEs
  * that never appear in the EXPLAIN output (such as inheritance parents).
  */
-static void
+static bool
 ExplainPreScanNode(PlanState *planstate, Bitmapset **rels_used)
 {
 	Plan	   *plan = planstate->plan;
@@ -730,6 +729,7 @@ ExplainPreScanNode(PlanState *planstate, Bitmapset **rels_used)
 	switch (nodeTag(plan))
 	{
 		case T_SeqScan:
+		case T_SampleScan:
 		case T_IndexScan:
 		case T_IndexOnlyScan:
 		case T_BitmapHeapScan:
@@ -739,7 +739,6 @@ ExplainPreScanNode(PlanState *planstate, Bitmapset **rels_used)
 		case T_ValuesScan:
 		case T_CteScan:
 		case T_WorkTableScan:
-		case T_SampleScan:
 			*rels_used = bms_add_member(*rels_used,
 										((Scan *) plan)->scanrelid);
 			break;
@@ -762,91 +761,7 @@ ExplainPreScanNode(PlanState *planstate, Bitmapset **rels_used)
 			break;
 	}
 
-	/* initPlan-s */
-	if (planstate->initPlan)
-		ExplainPreScanSubPlans(planstate->initPlan, rels_used);
-
-	/* lefttree */
-	if (outerPlanState(planstate))
-		ExplainPreScanNode(outerPlanState(planstate), rels_used);
-
-	/* righttree */
-	if (innerPlanState(planstate))
-		ExplainPreScanNode(innerPlanState(planstate), rels_used);
-
-	/* special child plans */
-	switch (nodeTag(plan))
-	{
-		case T_ModifyTable:
-			ExplainPreScanMemberNodes(((ModifyTable *) plan)->plans,
-								  ((ModifyTableState *) planstate)->mt_plans,
-									  rels_used);
-			break;
-		case T_Append:
-			ExplainPreScanMemberNodes(((Append *) plan)->appendplans,
-									((AppendState *) planstate)->appendplans,
-									  rels_used);
-			break;
-		case T_MergeAppend:
-			ExplainPreScanMemberNodes(((MergeAppend *) plan)->mergeplans,
-								((MergeAppendState *) planstate)->mergeplans,
-									  rels_used);
-			break;
-		case T_BitmapAnd:
-			ExplainPreScanMemberNodes(((BitmapAnd *) plan)->bitmapplans,
-								 ((BitmapAndState *) planstate)->bitmapplans,
-									  rels_used);
-			break;
-		case T_BitmapOr:
-			ExplainPreScanMemberNodes(((BitmapOr *) plan)->bitmapplans,
-								  ((BitmapOrState *) planstate)->bitmapplans,
-									  rels_used);
-			break;
-		case T_SubqueryScan:
-			ExplainPreScanNode(((SubqueryScanState *) planstate)->subplan,
-							   rels_used);
-			break;
-		default:
-			break;
-	}
-
-	/* subPlan-s */
-	if (planstate->subPlan)
-		ExplainPreScanSubPlans(planstate->subPlan, rels_used);
-}
-
-/*
- * Prescan the constituent plans of a ModifyTable, Append, MergeAppend,
- * BitmapAnd, or BitmapOr node.
- *
- * Note: we don't actually need to examine the Plan list members, but
- * we need the list in order to determine the length of the PlanState array.
- */
-static void
-ExplainPreScanMemberNodes(List *plans, PlanState **planstates,
-						  Bitmapset **rels_used)
-{
-	int			nplans = list_length(plans);
-	int			j;
-
-	for (j = 0; j < nplans; j++)
-		ExplainPreScanNode(planstates[j], rels_used);
-}
-
-/*
- * Prescan a list of SubPlans (or initPlans, which also use SubPlan nodes).
- */
-static void
-ExplainPreScanSubPlans(List *plans, Bitmapset **rels_used)
-{
-	ListCell   *lst;
-
-	foreach(lst, plans)
-	{
-		SubPlanState *sps = (SubPlanState *) lfirst(lst);
-
-		ExplainPreScanNode(sps->planstate, rels_used);
-	}
+	return planstate_tree_walker(planstate, ExplainPreScanNode, rels_used);
 }
 
 /*
@@ -935,6 +850,12 @@ ExplainNode(PlanState *planstate, List *ancestors,
 		case T_SeqScan:
 			pname = sname = "Seq Scan";
 			break;
+		case T_SampleScan:
+			pname = sname = "Sample Scan";
+			break;
+		case T_Gather:
+			pname = sname = "Gather";
+			break;
 		case T_IndexScan:
 			pname = sname = "Index Scan";
 			break;
@@ -975,23 +896,6 @@ ExplainNode(PlanState *planstate, List *ancestors,
 				pname = psprintf("Custom Scan (%s)", custom_name);
 			else
 				pname = sname;
-			break;
-		case T_SampleScan:
-			{
-				/*
-				 * Fetch the tablesample method name from RTE.
-				 *
-				 * It would be nice to also show parameters, but since we
-				 * support arbitrary expressions as parameter it might get
-				 * quite messy.
-				 */
-				RangeTblEntry *rte;
-
-				rte = rt_fetch(((SampleScan *) plan)->scanrelid, es->rtable);
-				custom_name = get_tablesample_method_name(rte->tablesample->tsmid);
-				pname = psprintf("Sample Scan (%s)", custom_name);
-				sname = "Sample Scan";
-			}
 			break;
 		case T_Material:
 			pname = sname = "Materialize";
@@ -1101,6 +1005,7 @@ ExplainNode(PlanState *planstate, List *ancestors,
 	switch (nodeTag(plan))
 	{
 		case T_SeqScan:
+		case T_SampleScan:
 		case T_BitmapHeapScan:
 		case T_TidScan:
 		case T_SubqueryScan:
@@ -1114,9 +1019,6 @@ ExplainNode(PlanState *planstate, List *ancestors,
 		case T_CustomScan:
 			if (((Scan *) plan)->scanrelid > 0)
 				ExplainScanTarget((Scan *) plan, es);
-			break;
-		case T_SampleScan:
-			ExplainScanTarget((Scan *) plan, es);
 			break;
 		case T_IndexScan:
 			{
@@ -1363,16 +1265,35 @@ ExplainNode(PlanState *planstate, List *ancestors,
 			if (es->analyze)
 				show_tidbitmap_info((BitmapHeapScanState *) planstate, es);
 			break;
+		case T_SampleScan:
+			show_tablesample(((SampleScan *) plan)->tablesample,
+							 planstate, ancestors, es);
+			/* FALL THRU to print additional fields the same as SeqScan */
 		case T_SeqScan:
 		case T_ValuesScan:
 		case T_CteScan:
 		case T_WorkTableScan:
 		case T_SubqueryScan:
-		case T_SampleScan:
 			show_scan_qual(plan->qual, "Filter", planstate, ancestors, es);
 			if (plan->qual)
 				show_instrumentation_count("Rows Removed by Filter", 1,
 										   planstate, es);
+			break;
+		case T_Gather:
+			{
+				Gather *gather = (Gather *) plan;
+
+				show_scan_qual(plan->qual, "Filter", planstate, ancestors, es);
+				if (plan->qual)
+					show_instrumentation_count("Rows Removed by Filter", 1,
+											   planstate, es);
+				ExplainPropertyInteger("Number of Workers",
+									   gather->num_workers, es);
+				if (gather->single_copy)
+					ExplainPropertyText("Single Copy",
+										gather->single_copy ? "true" : "false",
+										es);
+			}
 			break;
 		case T_FunctionScan:
 			if (es->verbose)
@@ -2110,6 +2031,72 @@ show_sortorder_options(StringInfo buf, Node *sortexpr,
 }
 
 /*
+ * Show TABLESAMPLE properties
+ */
+static void
+show_tablesample(TableSampleClause *tsc, PlanState *planstate,
+				 List *ancestors, ExplainState *es)
+{
+	List	   *context;
+	bool		useprefix;
+	char	   *method_name;
+	List	   *params = NIL;
+	char	   *repeatable;
+	ListCell   *lc;
+
+	/* Set up deparsing context */
+	context = set_deparse_context_planstate(es->deparse_cxt,
+											(Node *) planstate,
+											ancestors);
+	useprefix = list_length(es->rtable) > 1;
+
+	/* Get the tablesample method name */
+	method_name = get_func_name(tsc->tsmhandler);
+
+	/* Deparse parameter expressions */
+	foreach(lc, tsc->args)
+	{
+		Node	   *arg = (Node *) lfirst(lc);
+
+		params = lappend(params,
+						 deparse_expression(arg, context,
+											useprefix, false));
+	}
+	if (tsc->repeatable)
+		repeatable = deparse_expression((Node *) tsc->repeatable, context,
+										useprefix, false);
+	else
+		repeatable = NULL;
+
+	/* Print results */
+	if (es->format == EXPLAIN_FORMAT_TEXT)
+	{
+		bool		first = true;
+
+		appendStringInfoSpaces(es->str, es->indent * 2);
+		appendStringInfo(es->str, "Sampling: %s (", method_name);
+		foreach(lc, params)
+		{
+			if (!first)
+				appendStringInfoString(es->str, ", ");
+			appendStringInfoString(es->str, (const char *) lfirst(lc));
+			first = false;
+		}
+		appendStringInfoChar(es->str, ')');
+		if (repeatable)
+			appendStringInfo(es->str, " REPEATABLE (%s)", repeatable);
+		appendStringInfoChar(es->str, '\n');
+	}
+	else
+	{
+		ExplainPropertyText("Sampling Method", method_name, es);
+		ExplainPropertyList("Sampling Parameters", params, es);
+		if (repeatable)
+			ExplainPropertyText("Repeatable Seed", repeatable, es);
+	}
+}
+
+/*
  * If it's EXPLAIN ANALYZE, show tuplesort stats for a sort node
  */
 static void
@@ -2366,13 +2353,13 @@ ExplainTargetRel(Plan *plan, Index rti, ExplainState *es)
 	switch (nodeTag(plan))
 	{
 		case T_SeqScan:
+		case T_SampleScan:
 		case T_IndexScan:
 		case T_IndexOnlyScan:
 		case T_BitmapHeapScan:
 		case T_TidScan:
 		case T_ForeignScan:
 		case T_CustomScan:
-		case T_SampleScan:
 		case T_ModifyTable:
 			/* Assert it's on a real relation */
 			Assert(rte->rtekind == RTE_RELATION);
@@ -2663,9 +2650,9 @@ ExplainCustomChildren(CustomScanState *css, List *ancestors, ExplainState *es)
 {
 	ListCell   *cell;
 	const char *label =
-		(list_length(css->custom_ps) != 1 ? "children" : "child");
+	(list_length(css->custom_ps) != 1 ? "children" : "child");
 
-	foreach (cell, css->custom_ps)
+	foreach(cell, css->custom_ps)
 		ExplainNode((PlanState *) lfirst(cell), ancestors, label, NULL, es);
 }
 

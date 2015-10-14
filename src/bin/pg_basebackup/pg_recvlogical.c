@@ -38,6 +38,7 @@ static int	standby_message_timeout = 10 * 1000;		/* 10 sec = default */
 static int	fsync_interval = 10 * 1000; /* 10 sec = default */
 static XLogRecPtr startpos = InvalidXLogRecPtr;
 static bool do_create_slot = false;
+static bool slot_exists_ok = false;
 static bool do_start_slot = false;
 static bool do_drop_slot = false;
 
@@ -50,6 +51,7 @@ static const char *plugin = "test_decoding";
 static int	outfd = -1;
 static volatile sig_atomic_t time_to_abort = false;
 static volatile sig_atomic_t output_reopen = false;
+static bool output_isfile;
 static int64 output_last_fsync = -1;
 static bool output_needs_fsync = false;
 static XLogRecPtr output_written_lsn = InvalidXLogRecPtr;
@@ -74,6 +76,7 @@ usage(void)
 	printf(_("  -f, --file=FILE        receive log into this file, - for stdout\n"));
 	printf(_("  -F  --fsync-interval=SECS\n"
 			 "                         time between fsyncs to the output file (default: %d)\n"), (fsync_interval / 1000));
+	printf(_("      --if-not-exists    do not error if slot already exists when creating a slot\n"));
 	printf(_("  -I, --startpos=LSN     where in an existing slot should the streaming start\n"));
 	printf(_("  -n, --no-loop          do not loop on connection lost\n"));
 	printf(_("  -o, --option=NAME[=VALUE]\n"
@@ -177,8 +180,11 @@ OutputFsync(int64 now)
 
 	output_needs_fsync = false;
 
-	/* Accept EINVAL, in case output is writing to a pipe or similar. */
-	if (fsync(outfd) != 0 && errno != EINVAL)
+	/* can only fsync if it's a regular file */
+	if (!output_isfile)
+		return true;
+
+	if (fsync(outfd) != 0)
 	{
 		fprintf(stderr,
 				_("%s: could not fsync log file \"%s\": %s\n"),
@@ -317,6 +323,8 @@ StreamLogicalLog(void)
 		/* open the output file, if not open yet */
 		if (outfd == -1)
 		{
+			struct stat statbuf;
+
 			if (strcmp(outfile, "-") == 0)
 				outfd = fileno(stdout);
 			else
@@ -329,6 +337,13 @@ StreamLogicalLog(void)
 						progname, outfile, strerror(errno));
 				goto error;
 			}
+
+			if (fstat(outfd, &statbuf) != 0)
+				fprintf(stderr,
+						_("%s: could not stat file \"%s\": %s\n"),
+						progname, outfile, strerror(errno));
+
+			output_isfile = S_ISREG(statbuf.st_mode) && !isatty(outfd);
 		}
 
 		r = PQgetCopyData(conn, &copybuf, 1);
@@ -620,6 +635,7 @@ main(int argc, char **argv)
 		{"create-slot", no_argument, NULL, 1},
 		{"start", no_argument, NULL, 2},
 		{"drop-slot", no_argument, NULL, 3},
+		{"if-not-exists", no_argument, NULL, 4},
 		{NULL, 0, NULL, 0}
 	};
 	int			c;
@@ -751,6 +767,9 @@ main(int argc, char **argv)
 			case 3:
 				do_drop_slot = true;
 				break;
+			case 4:
+				slot_exists_ok = true;
+				break;
 
 			default:
 
@@ -878,8 +897,9 @@ main(int argc, char **argv)
 					progname, replication_slot);
 
 		if (!CreateReplicationSlot(conn, replication_slot, plugin,
-								   &startpos, false))
+								   false, slot_exists_ok))
 			disconnect_and_exit(1);
+		startpos = InvalidXLogRecPtr;
 	}
 
 	if (!do_start_slot)

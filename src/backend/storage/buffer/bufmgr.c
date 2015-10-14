@@ -80,11 +80,14 @@ bool		zero_damaged_pages = false;
 int			bgwriter_lru_maxpages = 100;
 double		bgwriter_lru_multiplier = 2.0;
 bool		track_io_timing = false;
+int			effective_io_concurrency = 0;
 
 /*
  * How many buffers PrefetchBuffer callers should try to stay ahead of their
  * ReadBuffer calls by.  This is maintained by the assign hook for
- * effective_io_concurrency.  Zero means "never prefetch".
+ * effective_io_concurrency.  Zero means "never prefetch".  This value is
+ * only used for buffers not belonging to tablespaces that have their
+ * effective_io_concurrency parameter set.
  */
 int			target_prefetch_pages = 0;
 
@@ -414,6 +417,64 @@ static void AtProcExit_Buffers(int code, Datum arg);
 static void CheckForBufferLeaks(void);
 static int	rnode_comparator(const void *p1, const void *p2);
 
+
+/*
+ * ComputeIoConcurrency -- get the number of pages to prefetch for a given
+ *		number of spindles.
+ */
+bool
+ComputeIoConcurrency(int io_concurrency, double *target)
+{
+	double		new_prefetch_pages = 0.0;
+	int			i;
+
+	/*
+	 * Make sure the io_concurrency value is within valid range; it may have
+	 * been forced with a manual pg_tablespace update.
+	 */
+	io_concurrency = Min(Max(io_concurrency, 0), MAX_IO_CONCURRENCY);
+
+	/*----------
+	 * The user-visible GUC parameter is the number of drives (spindles),
+	 * which we need to translate to a number-of-pages-to-prefetch target.
+	 * The target value is stashed in *extra and then assigned to the actual
+	 * variable by assign_effective_io_concurrency.
+	 *
+	 * The expected number of prefetch pages needed to keep N drives busy is:
+	 *
+	 * drives |   I/O requests
+	 * -------+----------------
+	 *		1 |   1
+	 *		2 |   2/1 + 2/2 = 3
+	 *		3 |   3/1 + 3/2 + 3/3 = 5 1/2
+	 *		4 |   4/1 + 4/2 + 4/3 + 4/4 = 8 1/3
+	 *		n |   n * H(n)
+	 *
+	 * This is called the "coupon collector problem" and H(n) is called the
+	 * harmonic series.  This could be approximated by n * ln(n), but for
+	 * reasonable numbers of drives we might as well just compute the series.
+	 *
+	 * Alternatively we could set the target to the number of pages necessary
+	 * so that the expected number of active spindles is some arbitrary
+	 * percentage of the total.  This sounds the same but is actually slightly
+	 * different.  The result ends up being ln(1-P)/ln((n-1)/n) where P is
+	 * that desired fraction.
+	 *
+	 * Experimental results show that both of these formulas aren't aggressive
+	 * enough, but we don't really have any better proposals.
+	 *
+	 * Note that if io_concurrency = 0 (disabled), we must set target = 0.
+	 *----------
+	 */
+
+	for (i = 1; i <= io_concurrency; i++)
+		new_prefetch_pages += (double) io_concurrency / (double) i;
+
+	*target = new_prefetch_pages;
+
+	/* This range check shouldn't fail, but let's be paranoid */
+	return (new_prefetch_pages > 0.0 && new_prefetch_pages < (double) INT_MAX);
+}
 
 /*
  * PrefetchBuffer -- initiate asynchronous read of a block of a relation
@@ -1273,7 +1334,7 @@ retry:
 		UnlockBufHdr(buf);
 		LWLockRelease(oldPartitionLock);
 		/* safety check: should definitely not be our *own* pin */
-		if (GetPrivateRefCount(buf->buf_id) > 0)
+		if (GetPrivateRefCount(BufferDescriptorGetBuffer(buf)) > 0)
 			elog(ERROR, "buffer is pinned in InvalidateBuffer");
 		WaitIO(buf);
 		goto retry;
@@ -1426,16 +1487,16 @@ ReleaseAndReadBuffer(Buffer buffer,
 static bool
 PinBuffer(volatile BufferDesc *buf, BufferAccessStrategy strategy)
 {
-	int			b = buf->buf_id;
+	Buffer		b = BufferDescriptorGetBuffer(buf);
 	bool		result;
 	PrivateRefCountEntry *ref;
 
-	ref = GetPrivateRefCountEntry(b + 1, true);
+	ref = GetPrivateRefCountEntry(b, true);
 
 	if (ref == NULL)
 	{
 		ReservePrivateRefCountEntry();
-		ref = NewPrivateRefCountEntry(b + 1);
+		ref = NewPrivateRefCountEntry(b);
 
 		LockBufHdr(buf);
 		buf->refcount++;
@@ -1460,8 +1521,7 @@ PinBuffer(volatile BufferDesc *buf, BufferAccessStrategy strategy)
 
 	ref->refcount++;
 	Assert(ref->refcount > 0);
-	ResourceOwnerRememberBuffer(CurrentResourceOwner,
-								BufferDescriptorGetBuffer(buf));
+	ResourceOwnerRememberBuffer(CurrentResourceOwner, b);
 	return result;
 }
 
@@ -1489,23 +1549,24 @@ PinBuffer(volatile BufferDesc *buf, BufferAccessStrategy strategy)
 static void
 PinBuffer_Locked(volatile BufferDesc *buf)
 {
-	int			b = buf->buf_id;
+	Buffer		b;
 	PrivateRefCountEntry *ref;
 
 	/*
 	 * As explained, We don't expect any preexisting pins. That allows us to
 	 * manipulate the PrivateRefCount after releasing the spinlock
 	 */
-	Assert(GetPrivateRefCountEntry(b + 1, false) == NULL);
+	Assert(GetPrivateRefCountEntry(BufferDescriptorGetBuffer(buf), false) == NULL);
 
 	buf->refcount++;
 	UnlockBufHdr(buf);
 
-	ref = NewPrivateRefCountEntry(b + 1);
+	b = BufferDescriptorGetBuffer(buf);
+
+	ref = NewPrivateRefCountEntry(b);
 	ref->refcount++;
 
-	ResourceOwnerRememberBuffer(CurrentResourceOwner,
-								BufferDescriptorGetBuffer(buf));
+	ResourceOwnerRememberBuffer(CurrentResourceOwner, b);
 }
 
 /*
@@ -1520,14 +1581,14 @@ static void
 UnpinBuffer(volatile BufferDesc *buf, bool fixOwner)
 {
 	PrivateRefCountEntry *ref;
+	Buffer		b = BufferDescriptorGetBuffer(buf);
 
 	/* not moving as we're likely deleting it soon anyway */
-	ref = GetPrivateRefCountEntry(buf->buf_id + 1, false);
+	ref = GetPrivateRefCountEntry(b, false);
 	Assert(ref != NULL);
 
 	if (fixOwner)
-		ResourceOwnerForgetBuffer(CurrentResourceOwner,
-								  BufferDescriptorGetBuffer(buf));
+		ResourceOwnerForgetBuffer(CurrentResourceOwner, b);
 
 	Assert(ref->refcount > 0);
 	ref->refcount--;
@@ -2739,6 +2800,7 @@ PrintBufferDescs(void)
 	for (i = 0; i < NBuffers; ++i)
 	{
 		volatile BufferDesc *buf = GetBufferDescriptor(i);
+		Buffer		b = BufferDescriptorGetBuffer(buf);
 
 		/* theoretically we should lock the bufhdr here */
 		elog(LOG,
@@ -2747,7 +2809,7 @@ PrintBufferDescs(void)
 			 i, buf->freeNext,
 		  relpathbackend(buf->tag.rnode, InvalidBackendId, buf->tag.forkNum),
 			 buf->tag.blockNum, buf->flags,
-			 buf->refcount, GetPrivateRefCount(i));
+			 buf->refcount, GetPrivateRefCount(b));
 	}
 }
 #endif
@@ -2761,8 +2823,9 @@ PrintPinnedBufs(void)
 	for (i = 0; i < NBuffers; ++i)
 	{
 		volatile BufferDesc *buf = GetBufferDescriptor(i);
+		Buffer		b = BufferDescriptorGetBuffer(buf);
 
-		if (GetPrivateRefCount(i + 1) > 0)
+		if (GetPrivateRefCount(b) > 0)
 		{
 			/* theoretically we should lock the bufhdr here */
 			elog(LOG,
@@ -2771,7 +2834,7 @@ PrintPinnedBufs(void)
 				 i, buf->freeNext,
 				 relpathperm(buf->tag.rnode, buf->tag.forkNum),
 				 buf->tag.blockNum, buf->flags,
-				 buf->refcount, GetPrivateRefCount(i + 1));
+				 buf->refcount, GetPrivateRefCount(b));
 		}
 	}
 }

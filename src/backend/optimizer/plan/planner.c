@@ -19,6 +19,7 @@
 #include <math.h>
 
 #include "access/htup_details.h"
+#include "access/parallel.h"
 #include "executor/executor.h"
 #include "executor/nodeAgg.h"
 #include "foreign/fdwapi.h"
@@ -43,6 +44,7 @@
 #include "parser/parsetree.h"
 #include "parser/parse_agg.h"
 #include "rewrite/rewriteManip.h"
+#include "storage/dsm_impl.h"
 #include "utils/rel.h"
 #include "utils/selfuncs.h"
 
@@ -194,8 +196,51 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 	glob->nParamExec = 0;
 	glob->lastPHId = 0;
 	glob->lastRowMarkId = 0;
+	glob->lastPlanNodeId = 0;
 	glob->transientPlan = false;
 	glob->hasRowSecurity = false;
+
+	/*
+	 * Assess whether it's feasible to use parallel mode for this query.
+	 * We can't do this in a standalone backend, or if the command will
+	 * try to modify any data, or if this is a cursor operation, or if any
+	 * parallel-unsafe functions are present in the query tree.
+	 *
+	 * For now, we don't try to use parallel mode if we're running inside
+	 * a parallel worker.  We might eventually be able to relax this
+	 * restriction, but for now it seems best not to have parallel workers
+	 * trying to create their own parallel workers.
+	 */
+	glob->parallelModeOK = (cursorOptions & CURSOR_OPT_PARALLEL_OK) != 0 &&
+		IsUnderPostmaster && dynamic_shared_memory_type != DSM_IMPL_NONE &&
+		parse->commandType == CMD_SELECT && !parse->hasModifyingCTE &&
+		parse->utilityStmt == NULL && !IsParallelWorker() &&
+		!contain_parallel_unsafe((Node *) parse);
+
+	/*
+	 * glob->parallelModeOK should tell us whether it's necessary to impose
+	 * the parallel mode restrictions, but we don't actually want to impose
+	 * them unless we choose a parallel plan, so that people who mislabel
+	 * their functions but don't use parallelism anyway aren't harmed.
+	 * However, it's useful for testing purposes to be able to force the
+	 * restrictions to be imposed whenever a parallel plan is actually chosen
+	 * or not.
+	 *
+	 * (It's been suggested that we should always impose these restrictions
+	 * whenever glob->parallelModeOK is true, so that it's easier to notice
+	 * incorrectly-labeled functions sooner.  That might be the right thing
+	 * to do, but for now I've taken this approach.  We could also control
+	 * this with a GUC.)
+	 *
+	 * FIXME: It's assumed that code further down will set parallelModeNeeded
+	 * to true if a parallel path is actually chosen.  Since the core
+	 * parallelism code isn't committed yet, this currently never happens.
+	 */
+#ifdef FORCE_PARALLEL_MODE
+	glob->parallelModeNeeded = glob->parallelModeOK;
+#else
+	glob->parallelModeNeeded = false;
+#endif
 
 	/* Determine what fraction of the plan is likely to be scanned */
 	if (cursorOptions & CURSOR_OPT_FAST_PLAN)
@@ -239,6 +284,25 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 			top_plan = materialize_finished_plan(top_plan);
 	}
 
+	/*
+	 * If any Params were generated, run through the plan tree and compute
+	 * each plan node's extParam/allParam sets.  Ideally we'd merge this into
+	 * set_plan_references' tree traversal, but for now it has to be separate
+	 * because we need to visit subplans before not after main plan.
+	 */
+	if (glob->nParamExec > 0)
+	{
+		Assert(list_length(glob->subplans) == list_length(glob->subroots));
+		forboth(lp, glob->subplans, lr, glob->subroots)
+		{
+			Plan	   *subplan = (Plan *) lfirst(lp);
+			PlannerInfo *subroot = (PlannerInfo *) lfirst(lr);
+
+			SS_finalize_plan(subroot, subplan);
+		}
+		SS_finalize_plan(root, top_plan);
+	}
+
 	/* final cleanup of the plan */
 	Assert(glob->finalrtable == NIL);
 	Assert(glob->finalrowmarks == NIL);
@@ -274,6 +338,7 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 	result->invalItems = glob->invalItems;
 	result->nParamExec = glob->nParamExec;
 	result->hasRowSecurity = glob->hasRowSecurity;
+	result->parallelModeNeeded = glob->parallelModeNeeded;
 
 	return result;
 }
@@ -312,7 +377,6 @@ subquery_planner(PlannerGlobal *glob, Query *parse,
 				 bool hasRecursion, double tuple_fraction,
 				 PlannerInfo **subroot)
 {
-	int			num_old_subplans = list_length(glob->subplans);
 	PlannerInfo *root;
 	Plan	   *plan;
 	List	   *newWithCheckOptions;
@@ -327,6 +391,7 @@ subquery_planner(PlannerGlobal *glob, Query *parse,
 	root->query_level = parent_root ? parent_root->query_level + 1 : 1;
 	root->parent_root = parent_root;
 	root->plan_params = NIL;
+	root->outer_params = NULL;
 	root->planner_cxt = CurrentMemoryContext;
 	root->init_plans = NIL;
 	root->cte_plan_ids = NIL;
@@ -505,14 +570,10 @@ subquery_planner(PlannerGlobal *glob, Query *parse,
 		if (rte->rtekind == RTE_RELATION)
 		{
 			if (rte->tablesample)
-			{
-				rte->tablesample->args = (List *)
-					preprocess_expression(root, (Node *) rte->tablesample->args,
+				rte->tablesample = (TableSampleClause *)
+					preprocess_expression(root,
+										  (Node *) rte->tablesample,
 										  EXPRKIND_TABLESAMPLE);
-				rte->tablesample->repeatable = (Node *)
-					preprocess_expression(root, rte->tablesample->repeatable,
-										  EXPRKIND_TABLESAMPLE);
-			}
 		}
 		else if (rte->rtekind == RTE_SUBQUERY)
 		{
@@ -574,13 +635,12 @@ subquery_planner(PlannerGlobal *glob, Query *parse,
 
 		if (contain_agg_clause(havingclause) ||
 			contain_volatile_functions(havingclause) ||
-			contain_subplans(havingclause) ||
-			parse->groupingSets)
+			contain_subplans(havingclause))
 		{
 			/* keep it in HAVING */
 			newHaving = lappend(newHaving, havingclause);
 		}
-		else if (parse->groupClause)
+		else if (parse->groupClause && !parse->groupingSets)
 		{
 			/* move it to WHERE */
 			parse->jointree->quals = (Node *)
@@ -661,13 +721,17 @@ subquery_planner(PlannerGlobal *glob, Query *parse,
 	}
 
 	/*
-	 * If any subplans were generated, or if there are any parameters to worry
-	 * about, build initPlan list and extParam/allParam sets for plan nodes,
-	 * and attach the initPlans to the top plan node.
+	 * Capture the set of outer-level param IDs we have access to, for use in
+	 * extParam/allParam calculations later.
 	 */
-	if (list_length(glob->subplans) != num_old_subplans ||
-		root->glob->nParamExec > 0)
-		SS_finalize_plan(root, plan, true);
+	SS_identify_outer_params(root);
+
+	/*
+	 * If any initPlans were created in this query level, attach them to the
+	 * topmost plan node for the level, and increment that node's cost to
+	 * account for them.
+	 */
+	SS_attach_initplans(root, plan);
 
 	/* Return internal info if caller wants it */
 	if (subroot)
@@ -697,11 +761,14 @@ preprocess_expression(PlannerInfo *root, Node *expr, int kind)
 	 * If the query has any join RTEs, replace join alias variables with
 	 * base-relation variables.  We must do this before sublink processing,
 	 * else sublinks expanded out from join aliases would not get processed.
-	 * We can skip it in non-lateral RTE functions and VALUES lists, however,
-	 * since they can't contain any Vars of the current query level.
+	 * We can skip it in non-lateral RTE functions, VALUES lists, and
+	 * TABLESAMPLE clauses, however, since they can't contain any Vars of the
+	 * current query level.
 	 */
 	if (root->hasJoinRTEs &&
-		!(kind == EXPRKIND_RTFUNC || kind == EXPRKIND_VALUES))
+		!(kind == EXPRKIND_RTFUNC ||
+		  kind == EXPRKIND_VALUES ||
+		  kind == EXPRKIND_TABLESAMPLE))
 		expr = flatten_join_alias_vars(root, expr);
 
 	/*
@@ -1538,9 +1605,11 @@ grouping_planner(PlannerInfo *root, double tuple_fraction)
 								  standard_qp_callback, &qp_extra);
 
 		/*
-		 * Extract rowcount and width estimates for use below.
+		 * Extract rowcount and width estimates for use below.  If final_rel
+		 * has been proven dummy, its rows estimate will be zero; clamp it to
+		 * one to avoid zero-divide in subsequent calculations.
 		 */
-		path_rows = final_rel->rows;
+		path_rows = clamp_row_est(final_rel->rows);
 		path_width = final_rel->width;
 
 		/*
@@ -2402,13 +2471,8 @@ build_grouping_chain(PlannerInfo *root,
 	 * Prepare the grpColIdx for the real Agg node first, because we may need
 	 * it for sorting
 	 */
-	if (list_length(rollup_groupclauses) > 1)
-	{
-		Assert(rollup_lists && llast(rollup_lists));
-
-		top_grpColIdx =
-			remap_groupColIdx(root, llast(rollup_groupclauses));
-	}
+	if (parse->groupingSets)
+		top_grpColIdx = remap_groupColIdx(root, llast(rollup_groupclauses));
 
 	/*
 	 * If we need a Sort operation on the input, generate that.

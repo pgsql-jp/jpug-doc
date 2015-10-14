@@ -69,7 +69,7 @@ libpqConnect(const char *connstr)
 	pg_free(str);
 
 	/*
-	 * Also check that full_page_writes is enabled. We can get torn pages if
+	 * Also check that full_page_writes is enabled.  We can get torn pages if
 	 * a page is modified while we read it with pg_read_binary_file(), and we
 	 * rely on full page images to fix them.
 	 */
@@ -81,6 +81,7 @@ libpqConnect(const char *connstr)
 
 /*
  * Runs a query that returns a single value.
+ * The result should be pg_free'd after use.
  */
 static char *
 run_simple_query(const char *sql)
@@ -119,9 +120,11 @@ libpqGetCurrentXlogInsertLocation(void)
 	val = run_simple_query("SELECT pg_current_xlog_insert_location()");
 
 	if (sscanf(val, "%X/%X", &hi, &lo) != 2)
-		pg_fatal("unrecognized result \"%s\" for current XLOG insert location\n", val);
+		pg_fatal("unrecognized result \"%s\" for current WAL insert location\n", val);
 
 	result = ((uint64) hi) << 32 | lo;
+
+	pg_free(val);
 
 	return result;
 }
@@ -201,6 +204,7 @@ libpqProcessFileList(void)
 
 		process_source_file(path, type, filesize, link_target);
 	}
+	PQclear(res);
 }
 
 /*----
@@ -244,7 +248,7 @@ receiveFileChunks(const char *sql)
 				continue;		/* final zero-row result */
 
 			default:
-				pg_fatal("unexpected result while fetching remote files: %s\n",
+				pg_fatal("unexpected result while fetching remote files: %s",
 						 PQresultErrorMessage(res));
 		}
 
@@ -296,7 +300,7 @@ receiveFileChunks(const char *sql)
 		if (PQgetisnull(res, 0, 2))
 		{
 			pg_log(PG_DEBUG,
-				   "received NULL chunk for file \"%s\", file has been deleted\n",
+			  "received null value for chunk for file \"%s\", file has been deleted\n",
 				   filename);
 			pg_free(filename);
 			PQclear(res);
@@ -345,6 +349,8 @@ libpqGetFile(const char *filename, size_t *filesize)
 	result = pg_malloc(len + 1);
 	memcpy(result, PQgetvalue(res, 0, 0), len);
 	result[len] = '\0';
+
+	PQclear(res);
 
 	pg_log(PG_DEBUG, "fetched file \"%s\", length %d\n", filename, len);
 
@@ -406,6 +412,7 @@ libpq_executeFileMap(filemap_t *map)
 	if (PQresultStatus(res) != PGRES_COMMAND_OK)
 		pg_fatal("could not create temporary table: %s",
 				 PQresultErrorMessage(res));
+	PQclear(res);
 
 	sql = "COPY fetchchunks FROM STDIN";
 	res = PQexec(conn, sql);
@@ -413,6 +420,7 @@ libpq_executeFileMap(filemap_t *map)
 	if (PQresultStatus(res) != PGRES_COPY_IN)
 		pg_fatal("could not send file list: %s",
 				 PQresultErrorMessage(res));
+	PQclear(res);
 
 	for (i = 0; i < map->narray; i++)
 	{
@@ -460,6 +468,7 @@ libpq_executeFileMap(filemap_t *map)
 		if (PQresultStatus(res) != PGRES_COMMAND_OK)
 			pg_fatal("unexpected result while sending file list: %s",
 					 PQresultErrorMessage(res));
+		PQclear(res);
 	}
 
 	/*

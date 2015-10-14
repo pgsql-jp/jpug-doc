@@ -609,9 +609,6 @@ typedef struct WholeRowVarExprState
 typedef struct AggrefExprState
 {
 	ExprState	xprstate;
-	List	   *aggdirectargs;	/* states of direct-argument expressions */
-	List	   *args;			/* states of aggregated-argument expressions */
-	ExprState  *aggfilter;		/* state of FILTER expression, if any */
 	int			aggno;			/* ID number for agg within its plan node */
 } AggrefExprState;
 
@@ -1257,13 +1254,22 @@ typedef struct ScanState
  */
 typedef ScanState SeqScanState;
 
-/*
- * SampleScan
+/* ----------------
+ *	 SampleScanState information
+ * ----------------
  */
 typedef struct SampleScanState
 {
 	ScanState	ss;
-	struct TableSampleDesc *tsdesc;
+	List	   *args;			/* expr states for TABLESAMPLE params */
+	ExprState  *repeatable;		/* expr state for REPEATABLE expr */
+	/* use struct pointer to avoid including tsmapi.h here */
+	struct TsmRoutine *tsmroutine;		/* descriptor for tablesample method */
+	void	   *tsm_state;		/* tablesample method can keep state here */
+	bool		use_bulkread;	/* use bulkread buffer access strategy? */
+	bool		use_pagemode;	/* use page-at-a-time visibility checking? */
+	bool		begun;			/* false means need to call BeginSampleScan */
+	uint32		seed;			/* random seed */
 } SampleScanState;
 
 /*
@@ -1418,7 +1424,8 @@ typedef struct BitmapIndexScanState
  *		lossy_pages		   total number of lossy pages retrieved
  *		prefetch_iterator  iterator for prefetching ahead of current page
  *		prefetch_pages	   # pages prefetch iterator is ahead of current
- *		prefetch_target    target prefetch distance
+ *		prefetch_target    current target prefetch distance
+ *		prefetch_maximum   maximum value for prefetch_target
  * ----------------
  */
 typedef struct BitmapHeapScanState
@@ -1433,6 +1440,7 @@ typedef struct BitmapHeapScanState
 	TBMIterator *prefetch_iterator;
 	int			prefetch_pages;
 	int			prefetch_target;
+	int			prefetch_maximum;
 } BitmapHeapScanState;
 
 /* ----------------
@@ -1816,6 +1824,7 @@ typedef struct GroupState
  */
 /* these structs are private in nodeAgg.c: */
 typedef struct AggStatePerAggData *AggStatePerAgg;
+typedef struct AggStatePerTransData *AggStatePerTrans;
 typedef struct AggStatePerGroupData *AggStatePerGroup;
 typedef struct AggStatePerPhaseData *AggStatePerPhase;
 
@@ -1824,14 +1833,16 @@ typedef struct AggState
 	ScanState	ss;				/* its first field is NodeTag */
 	List	   *aggs;			/* all Aggref nodes in targetlist & quals */
 	int			numaggs;		/* length of list (could be zero!) */
+	int			numtrans;		/* number of pertrans items */
 	AggStatePerPhase phase;		/* pointer to current phase data */
 	int			numphases;		/* number of phases */
 	int			current_phase;	/* current phase number */
 	FmgrInfo   *hashfunctions;	/* per-grouping-field hash fns */
 	AggStatePerAgg peragg;		/* per-Aggref information */
+	AggStatePerTrans pertrans;	/* per-Trans state information */
 	ExprContext **aggcontexts;	/* econtexts for long-lived data (per GS) */
 	ExprContext *tmpcontext;	/* econtext for input expressions */
-	AggStatePerAgg curperagg;	/* identifies currently active aggregate */
+	AggStatePerTrans curpertrans;	/* currently active trans state */
 	bool		input_done;		/* indicates end of input */
 	bool		agg_done;		/* indicates completion of Agg scan */
 	int			projected_set;	/* The last projected grouping set */
@@ -1938,6 +1949,22 @@ typedef struct UniqueState
 	FmgrInfo   *eqfunctions;	/* per-field lookup data for equality fns */
 	MemoryContext tempContext;	/* short-term context for comparisons */
 } UniqueState;
+
+/* ----------------
+ * GatherState information
+ *
+ *		Gather nodes launch 1 or more parallel workers, run a subplan
+ *		in those workers, and collect the results.
+ * ----------------
+ */
+typedef struct GatherState
+{
+	PlanState	ps;				/* its first field is NodeTag */
+	struct ParallelExecutorInfo *pei;
+	struct TupleQueueFunnel *funnel;
+	bool		need_to_scan_workers;
+	bool		need_to_scan_locally;
+} GatherState;
 
 /* ----------------
  *	 HashState information

@@ -153,8 +153,6 @@ CreateCachedPlan(Node *raw_parse_tree,
 	CachedPlanSource *plansource;
 	MemoryContext source_context;
 	MemoryContext oldcxt;
-	Oid			user_id;
-	int			security_context;
 
 	Assert(query_string != NULL);		/* required as of 8.4 */
 
@@ -176,8 +174,6 @@ CreateCachedPlan(Node *raw_parse_tree,
 	 * Most fields are just left empty for the moment.
 	 */
 	oldcxt = MemoryContextSwitchTo(source_context);
-
-	GetUserIdAndSecContext(&user_id, &security_context);
 
 	plansource = (CachedPlanSource *) palloc0(sizeof(CachedPlanSource));
 	plansource->magic = CACHEDPLANSOURCE_MAGIC;
@@ -208,8 +204,6 @@ CreateCachedPlan(Node *raw_parse_tree,
 	plansource->total_custom_cost = 0;
 	plansource->num_custom_plans = 0;
 	plansource->hasRowSecurity = false;
-	plansource->rowSecurityDisabled
-		= (security_context & SECURITY_ROW_LEVEL_DISABLED) != 0;
 	plansource->row_security_env = row_security;
 	plansource->planUserId = InvalidOid;
 
@@ -606,17 +600,10 @@ RevalidateCachedQuery(CachedPlanSource *plansource)
 	}
 
 	/*
-	 * Check if row security is enabled for this query and things have changed
-	 * such that we need to invalidate this plan and rebuild it.  Note that if
-	 * row security was explicitly disabled (eg: this is a FK check plan) then
-	 * we don't invalidate due to RLS.
-	 *
-	 * Otherwise, if the plan has a possible RLS dependency, force a replan if
-	 * either the role under which the plan was planned or the row_security
-	 * setting has been changed.
+	 * If the plan has a possible RLS dependency, force a replan if either the
+	 * role or the row_security setting has changed.
 	 */
 	if (plansource->is_valid
-		&& !plansource->rowSecurityDisabled
 		&& plansource->hasRowSecurity
 		&& (plansource->planUserId != GetUserId()
 			|| plansource->row_security_env != row_security))

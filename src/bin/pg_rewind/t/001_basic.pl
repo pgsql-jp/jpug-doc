@@ -9,8 +9,8 @@ sub run_test
 {
 	my $test_mode = shift;
 
-	RewindTest::init_rewind_test('basic', $test_mode);
 	RewindTest::setup_cluster();
+	RewindTest::start_master();
 
 	# Create a test table and insert a row in master.
 	master_psql("CREATE TABLE tbl1 (d text)");

@@ -631,7 +631,8 @@ ExecEvalScalarVar(ExprState *exprstate, ExprContext *econtext,
 		{
 			if (variable->vartype != attr->atttypid)
 				ereport(ERROR,
-						(errmsg("attribute %d has wrong type", attnum),
+						(errcode(ERRCODE_DATATYPE_MISMATCH),
+						 errmsg("attribute %d has wrong type", attnum),
 						 errdetail("Table has type %s, but query expects %s.",
 								   format_type_be(attr->atttypid),
 								   format_type_be(variable->vartype))));
@@ -4111,7 +4112,8 @@ ExecEvalFieldSelect(FieldSelectState *fstate,
 	/* As in ExecEvalScalarVar, we should but can't check typmod */
 	if (fselect->resulttype != attr->atttypid)
 		ereport(ERROR,
-				(errmsg("attribute %d has wrong type", fieldnum),
+				(errcode(ERRCODE_DATATYPE_MISMATCH),
+				 errmsg("attribute %d has wrong type", fieldnum),
 				 errdetail("Table has type %s, but query expects %s.",
 						   format_type_be(attr->atttypid),
 						   format_type_be(fselect->resulttype))));
@@ -4485,35 +4487,15 @@ ExecInitExpr(Expr *node, PlanState *parent)
 			break;
 		case T_Aggref:
 			{
-				Aggref	   *aggref = (Aggref *) node;
 				AggrefExprState *astate = makeNode(AggrefExprState);
 
 				astate->xprstate.evalfunc = (ExprStateEvalFunc) ExecEvalAggref;
 				if (parent && IsA(parent, AggState))
 				{
 					AggState   *aggstate = (AggState *) parent;
-					int			naggs;
 
 					aggstate->aggs = lcons(astate, aggstate->aggs);
-					naggs = ++aggstate->numaggs;
-
-					astate->aggdirectargs = (List *) ExecInitExpr((Expr *) aggref->aggdirectargs,
-																  parent);
-					astate->args = (List *) ExecInitExpr((Expr *) aggref->args,
-														 parent);
-					astate->aggfilter = ExecInitExpr(aggref->aggfilter,
-													 parent);
-
-					/*
-					 * Complain if the aggregate's arguments contain any
-					 * aggregates; nested agg functions are semantically
-					 * nonsensical.  (This should have been caught earlier,
-					 * but we defend against it here anyway.)
-					 */
-					if (naggs != aggstate->numaggs)
-						ereport(ERROR,
-								(errcode(ERRCODE_GROUPING_ERROR),
-						errmsg("aggregate function calls cannot be nested")));
+					aggstate->numaggs++;
 				}
 				else
 				{

@@ -59,6 +59,12 @@ struct XidCache
 #define		FP_LOCK_SLOTS_PER_BACKEND 16
 
 /*
+ * An invalid pgprocno.  Must be larger than the maximum number of PGPROC
+ * structures we could possibly have.  See comments for MAX_BACKENDS.
+ */
+#define INVALID_PGPROCNO		PG_INT32_MAX
+
+/*
  * Each backend has a PGPROC struct in shared memory.  There is also a list of
  * currently-unused PGPROC structs that will be reallocated to new backends.
  *
@@ -78,6 +84,7 @@ struct PGPROC
 {
 	/* proc->links MUST BE FIRST IN STRUCT (see ProcSleep,ProcWakeup,etc) */
 	SHM_QUEUE	links;			/* list link if process is in a list */
+	PGPROC	  **procgloballist;	/* procglobal list that owns this PGPROC */
 
 	PGSemaphoreData sem;		/* ONE semaphore to sleep on */
 	int			waitStatus;		/* STATUS_WAITING, STATUS_OK or STATUS_ERROR */
@@ -133,6 +140,11 @@ struct PGPROC
 	SHM_QUEUE	myProcLocks[NUM_LOCK_PARTITIONS];
 
 	struct XidCache subxids;	/* cache for subtransaction XIDs */
+
+	/* Support for group XID clearing. */
+	bool			clearXid;
+	pg_atomic_uint32	nextClearXidElem;
+	TransactionId	backendLatestXid;
 
 	/* Per-backend LWLock.  Protects fields below. */
 	LWLock	   *backendLock;	/* protects the fields below */
@@ -195,6 +207,8 @@ typedef struct PROC_HDR
 	PGPROC	   *autovacFreeProcs;
 	/* Head of list of bgworker free PGPROC structures */
 	PGPROC	   *bgworkerFreeProcs;
+	/* First pgproc waiting for group XID clear */
+	pg_atomic_uint32 firstClearXidElem;
 	/* WALWriter process's latch */
 	Latch	   *walwriterLatch;
 	/* Checkpointer process's latch */

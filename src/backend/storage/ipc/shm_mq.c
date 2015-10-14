@@ -584,7 +584,7 @@ shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
 			if (mqh->mqh_partial_bytes + rb > sizeof(Size))
 				lengthbytes = sizeof(Size) - mqh->mqh_partial_bytes;
 			else
-				lengthbytes = rb - mqh->mqh_partial_bytes;
+				lengthbytes = rb;
 			memcpy(&mqh->mqh_buffer[mqh->mqh_partial_bytes], rawdata,
 				   lengthbytes);
 			mqh->mqh_partial_bytes += lengthbytes;
@@ -746,6 +746,15 @@ shm_mq_detach(shm_mq *mq)
 }
 
 /*
+ * Get the shm_mq from handle.
+ */
+shm_mq *
+shm_mq_get_queue(shm_mq_handle *mqh)
+{
+	return mqh->mqh_queue;
+}
+
+/*
  * Write bytes into a shared message queue.
  */
 static shm_mq_result
@@ -777,33 +786,37 @@ shm_mq_send_bytes(shm_mq_handle *mqh, Size nbytes, const void *data,
 			return SHM_MQ_DETACHED;
 		}
 
-		if (available == 0)
+		if (available == 0 && !mqh->mqh_counterparty_attached)
 		{
-			shm_mq_result res;
-
 			/*
 			 * The queue is full, so if the receiver isn't yet known to be
 			 * attached, we must wait for that to happen.
 			 */
-			if (!mqh->mqh_counterparty_attached)
+			if (nowait)
 			{
-				if (nowait)
+				if (shm_mq_get_receiver(mq) == NULL)
 				{
-					if (shm_mq_get_receiver(mq) == NULL)
-					{
-						*bytes_written = sent;
-						return SHM_MQ_WOULD_BLOCK;
-					}
-				}
-				else if (!shm_mq_wait_internal(mq, &mq->mq_receiver,
-											   mqh->mqh_handle))
-				{
-					mq->mq_detached = true;
 					*bytes_written = sent;
-					return SHM_MQ_DETACHED;
+					return SHM_MQ_WOULD_BLOCK;
 				}
-				mqh->mqh_counterparty_attached = true;
 			}
+			else if (!shm_mq_wait_internal(mq, &mq->mq_receiver,
+										   mqh->mqh_handle))
+			{
+				mq->mq_detached = true;
+				*bytes_written = sent;
+				return SHM_MQ_DETACHED;
+			}
+			mqh->mqh_counterparty_attached = true;
+
+			/*
+			 * The receiver may have read some data after attaching, so we
+			 * must not wait without rechecking the queue state.
+			 */
+		}
+		else if (available == 0)
+		{
+			shm_mq_result res;
 
 			/* Let the receiver know that we need them to read some data. */
 			res = shm_mq_notify_receiver(mq);
@@ -949,63 +962,49 @@ static bool
 shm_mq_wait_internal(volatile shm_mq *mq, PGPROC *volatile * ptr,
 					 BackgroundWorkerHandle *handle)
 {
-	bool		save_set_latch_on_sigusr1;
 	bool		result = false;
 
-	save_set_latch_on_sigusr1 = set_latch_on_sigusr1;
-	if (handle != NULL)
-		set_latch_on_sigusr1 = true;
-
-	PG_TRY();
+	for (;;)
 	{
-		for (;;)
+		BgwHandleStatus status;
+		pid_t		pid;
+		bool		detached;
+
+		/* Acquire the lock just long enough to check the pointer. */
+		SpinLockAcquire(&mq->mq_mutex);
+		detached = mq->mq_detached;
+		result = (*ptr != NULL);
+		SpinLockRelease(&mq->mq_mutex);
+
+		/* Fail if detached; else succeed if initialized. */
+		if (detached)
 		{
-			BgwHandleStatus status;
-			pid_t		pid;
-			bool		detached;
+			result = false;
+			break;
+		}
+		if (result)
+			break;
 
-			/* Acquire the lock just long enough to check the pointer. */
-			SpinLockAcquire(&mq->mq_mutex);
-			detached = mq->mq_detached;
-			result = (*ptr != NULL);
-			SpinLockRelease(&mq->mq_mutex);
-
-			/* Fail if detached; else succeed if initialized. */
-			if (detached)
+		if (handle != NULL)
+		{
+			/* Check for unexpected worker death. */
+			status = GetBackgroundWorkerPid(handle, &pid);
+			if (status != BGWH_STARTED && status != BGWH_NOT_YET_STARTED)
 			{
 				result = false;
 				break;
 			}
-			if (result)
-				break;
-
-			if (handle != NULL)
-			{
-				/* Check for unexpected worker death. */
-				status = GetBackgroundWorkerPid(handle, &pid);
-				if (status != BGWH_STARTED && status != BGWH_NOT_YET_STARTED)
-				{
-					result = false;
-					break;
-				}
-			}
-
-			/* Wait to be signalled. */
-			WaitLatch(MyLatch, WL_LATCH_SET, 0);
-
-			/* An interrupt may have occurred while we were waiting. */
-			CHECK_FOR_INTERRUPTS();
-
-			/* Reset the latch so we don't spin. */
-			ResetLatch(MyLatch);
 		}
+
+		/* Wait to be signalled. */
+		WaitLatch(MyLatch, WL_LATCH_SET, 0);
+
+		/* An interrupt may have occurred while we were waiting. */
+		CHECK_FOR_INTERRUPTS();
+
+		/* Reset the latch so we don't spin. */
+		ResetLatch(MyLatch);
 	}
-	PG_CATCH();
-	{
-		set_latch_on_sigusr1 = save_set_latch_on_sigusr1;
-		PG_RE_THROW();
-	}
-	PG_END_TRY();
 
 	return result;
 }

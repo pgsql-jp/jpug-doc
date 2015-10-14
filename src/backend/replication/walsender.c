@@ -249,7 +249,7 @@ InitWalSender(void)
  * process, similar to what transaction abort does in a regular backend.
  */
 void
-WalSndErrorCleanup()
+WalSndErrorCleanup(void)
 {
 	LWLockReleaseAll();
 
@@ -514,7 +514,7 @@ StartReplication(StartReplicationCmd *cmd)
 	if (cmd->slotname)
 	{
 		ReplicationSlotAcquire(cmd->slotname);
-		if (MyReplicationSlot->data.database != InvalidOid)
+		if (SlotIsLogical(MyReplicationSlot))
 			ereport(ERROR,
 					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 					 (errmsg("cannot use a logical replication slot for physical replication"))));
@@ -641,8 +641,7 @@ StartReplication(StartReplicationCmd *cmd)
 
 		/* Initialize shared memory status, too */
 		{
-			/* use volatile pointer to prevent code rearrangement */
-			volatile WalSnd *walsnd = MyWalSnd;
+			WalSnd *walsnd = MyWalSnd;
 
 			SpinLockAcquire(&walsnd->mutex);
 			walsnd->sentPtr = sentPtr;
@@ -826,6 +825,14 @@ CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
 
 		ReplicationSlotPersist();
 	}
+	else if (cmd->kind == REPLICATION_KIND_PHYSICAL && cmd->reserve_wal)
+	{
+		ReplicationSlotReserveWal();
+
+		/* Write this slot to disk */
+		ReplicationSlotMarkDirty();
+		ReplicationSlotSave();
+	}
 
 	slot_name = NameStr(MyReplicationSlot->data.name);
 	snprintf(xpos, sizeof(xpos), "%X/%X",
@@ -982,8 +989,7 @@ StartLogicalReplication(StartReplicationCmd *cmd)
 
 	/* Also update the sent position status in shared memory */
 	{
-		/* use volatile pointer to prevent code rearrangement */
-		volatile WalSnd *walsnd = MyWalSnd;
+		WalSnd *walsnd = MyWalSnd;
 
 		SpinLockAcquire(&walsnd->mutex);
 		walsnd->sentPtr = MyReplicationSlot->data.restart_lsn;
@@ -1486,9 +1492,7 @@ static void
 PhysicalConfirmReceivedLocation(XLogRecPtr lsn)
 {
 	bool		changed = false;
-
-	/* use volatile pointer to prevent code rearrangement */
-	volatile ReplicationSlot *slot = MyReplicationSlot;
+	ReplicationSlot *slot = MyReplicationSlot;
 
 	Assert(lsn != InvalidXLogRecPtr);
 	SpinLockAcquire(&slot->mutex);
@@ -1546,8 +1550,7 @@ ProcessStandbyReplyMessage(void)
 	 * standby.
 	 */
 	{
-		/* use volatile pointer to prevent code rearrangement */
-		volatile WalSnd *walsnd = MyWalSnd;
+		WalSnd *walsnd = MyWalSnd;
 
 		SpinLockAcquire(&walsnd->mutex);
 		walsnd->write = writePtr;
@@ -1564,7 +1567,7 @@ ProcessStandbyReplyMessage(void)
 	 */
 	if (MyReplicationSlot && flushPtr != InvalidXLogRecPtr)
 	{
-		if (MyReplicationSlot->data.database != InvalidOid)
+		if (SlotIsLogical(MyReplicationSlot))
 			LogicalConfirmReceivedLocation(flushPtr);
 		else
 			PhysicalConfirmReceivedLocation(flushPtr);
@@ -1576,7 +1579,7 @@ static void
 PhysicalReplicationSlotNewXmin(TransactionId feedbackXmin)
 {
 	bool		changed = false;
-	volatile ReplicationSlot *slot = MyReplicationSlot;
+	ReplicationSlot *slot = MyReplicationSlot;
 
 	SpinLockAcquire(&slot->mutex);
 	MyPgXact->xmin = InvalidTransactionId;
@@ -1926,8 +1929,7 @@ InitWalSenderSlot(void)
 	 */
 	for (i = 0; i < max_wal_senders; i++)
 	{
-		/* use volatile pointer to prevent code rearrangement */
-		volatile WalSnd *walsnd = &WalSndCtl->walsnds[i];
+		WalSnd *walsnd = &WalSndCtl->walsnds[i];
 
 		SpinLockAcquire(&walsnd->mutex);
 
@@ -2137,8 +2139,7 @@ retry:
 	 */
 	if (am_cascading_walsender)
 	{
-		/* use volatile pointer to prevent code rearrangement */
-		volatile WalSnd *walsnd = MyWalSnd;
+		WalSnd *walsnd = MyWalSnd;
 		bool		reload;
 
 		SpinLockAcquire(&walsnd->mutex);
@@ -2376,8 +2377,7 @@ XLogSendPhysical(void)
 
 	/* Update shared memory status */
 	{
-		/* use volatile pointer to prevent code rearrangement */
-		volatile WalSnd *walsnd = MyWalSnd;
+		WalSnd *walsnd = MyWalSnd;
 
 		SpinLockAcquire(&walsnd->mutex);
 		walsnd->sentPtr = sentPtr;
@@ -2439,8 +2439,7 @@ XLogSendLogical(void)
 
 	/* Update shared memory status */
 	{
-		/* use volatile pointer to prevent code rearrangement */
-		volatile WalSnd *walsnd = MyWalSnd;
+		WalSnd *walsnd = MyWalSnd;
 
 		SpinLockAcquire(&walsnd->mutex);
 		walsnd->sentPtr = sentPtr;
@@ -2531,8 +2530,7 @@ WalSndRqstFileReload(void)
 
 	for (i = 0; i < max_wal_senders; i++)
 	{
-		/* use volatile pointer to prevent code rearrangement */
-		volatile WalSnd *walsnd = &WalSndCtl->walsnds[i];
+		WalSnd *walsnd = &WalSndCtl->walsnds[i];
 
 		if (walsnd->pid == 0)
 			continue;
@@ -2684,8 +2682,7 @@ WalSndWakeup(void)
 void
 WalSndSetState(WalSndState state)
 {
-	/* use volatile pointer to prevent code rearrangement */
-	volatile WalSnd *walsnd = MyWalSnd;
+	WalSnd *walsnd = MyWalSnd;
 
 	Assert(am_walsender);
 
@@ -2769,8 +2766,7 @@ pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
 
 	for (i = 0; i < max_wal_senders; i++)
 	{
-		/* use volatile pointer to prevent code rearrangement */
-		volatile WalSnd *walsnd = &WalSndCtl->walsnds[i];
+		WalSnd *walsnd = &WalSndCtl->walsnds[i];
 		XLogRecPtr	sentPtr;
 		XLogRecPtr	write;
 		XLogRecPtr	flush;
@@ -2926,8 +2922,7 @@ GetOldestWALSendPointer(void)
 
 	for (i = 0; i < max_wal_senders; i++)
 	{
-		/* use volatile pointer to prevent code rearrangement */
-		volatile WalSnd *walsnd = &WalSndCtl->walsnds[i];
+		WalSnd *walsnd = &WalSndCtl->walsnds[i];
 		XLogRecPtr	recptr;
 
 		if (walsnd->pid == 0)

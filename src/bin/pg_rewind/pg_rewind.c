@@ -60,8 +60,8 @@ usage(const char *progname)
 	printf(_("Usage:\n  %s [OPTION]...\n\n"), progname);
 	printf(_("Options:\n"));
 	printf(_("  -D, --target-pgdata=DIRECTORY  existing data directory to modify\n"));
-	printf(_("      --source-pgdata=DIRECTORY  source data directory to sync with\n"));
-	printf(_("      --source-server=CONNSTR    source server to sync with\n"));
+	printf(_("      --source-pgdata=DIRECTORY  source data directory to synchronize with\n"));
+	printf(_("      --source-server=CONNSTR    source server to synchronize with\n"));
 	printf(_("  -n, --dry-run                  stop before modifying anything\n"));
 	printf(_("  -P, --progress                 write progress messages\n"));
 	printf(_("      --debug                    write a lot of debug messages\n"));
@@ -215,7 +215,7 @@ main(int argc, char **argv)
 		pg_fatal("source and target cluster are on the same timeline\n");
 
 	findCommonAncestorTimeline(&divergerec, &lastcommontli);
-	printf(_("The servers diverged at WAL position %X/%X on timeline %u.\n"),
+	printf(_("servers diverged at WAL position %X/%X on timeline %u\n"),
 		   (uint32) (divergerec >> 32), (uint32) divergerec, lastcommontli);
 
 	/*
@@ -250,13 +250,13 @@ main(int argc, char **argv)
 
 	if (!rewind_needed)
 	{
-		printf(_("No rewind required.\n"));
+		printf(_("no rewind required\n"));
 		exit(0);
 	}
 
 	findLastCheckpoint(datadir_target, divergerec, lastcommontli,
 					   &chkptrec, &chkpttli, &chkptredo);
-	printf(_("Rewinding from last common checkpoint at %X/%X on timeline %u\n"),
+	printf(_("rewinding from last common checkpoint at %X/%X on timeline %u\n"),
 		   (uint32) (chkptrec >> 32), (uint32) chkptrec,
 		   chkpttli);
 

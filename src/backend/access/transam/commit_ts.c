@@ -93,6 +93,14 @@ CommitTimestampShared *commitTsShared;
 /* GUC variable */
 bool		track_commit_timestamp;
 
+/*
+ * When this is set, commit_ts is force-enabled during recovery.  This is so
+ * that a standby can replay WAL records coming from a master with the setting
+ * enabled.  (Note that this doesn't enable SQL access to the data; it's
+ * effectively write-only until the GUC itself is enabled.)
+ */
+static bool		enable_during_recovery;
+
 static void SetXidCommitTsInPage(TransactionId xid, int nsubxids,
 					 TransactionId *subxids, TimestampTz ts,
 					 RepOriginId nodeid, int pageno);
@@ -100,6 +108,8 @@ static void TransactionIdSetCommitTs(TransactionId xid, TimestampTz ts,
 						 RepOriginId nodeid, int slotno);
 static int	ZeroCommitTsPage(int pageno, bool writeXlog);
 static bool CommitTsPagePrecedes(int page1, int page2);
+static void ActivateCommitTs(void);
+static void DeactivateCommitTs(bool do_wal);
 static void WriteZeroPageXlogRec(int pageno);
 static void WriteTruncateXlogRec(int pageno);
 static void WriteSetTimestampXlogRec(TransactionId mainxid, int nsubxids,
@@ -122,29 +132,34 @@ static void WriteSetTimestampXlogRec(TransactionId mainxid, int nsubxids,
  * subtrans implementation changes in the future, we might want to revisit the
  * decision of storing timestamp info for each subxid.
  *
- * The do_xlog parameter tells us whether to include an XLog record of this
- * or not.  Normal path through RecordTransactionCommit() will be related
- * to a transaction commit XLog record, and so should pass "false" here.
- * Other callers probably want to pass true, so that the given values persist
- * in case of crashes.
+ * The write_xlog parameter tells us whether to include an XLog record of this
+ * or not.  Normally, this is called from transaction commit routines (both
+ * normal and prepared) and the information will be stored in the transaction
+ * commit XLog record, and so they should pass "false" for this.  The XLog redo
+ * code should use "false" here as well.  Other callers probably want to pass
+ * true, so that the given values persist in case of crashes.
  */
 void
 TransactionTreeSetCommitTsData(TransactionId xid, int nsubxids,
 							   TransactionId *subxids, TimestampTz timestamp,
-							   RepOriginId nodeid, bool do_xlog)
+							   RepOriginId nodeid, bool write_xlog)
 {
 	int			i;
 	TransactionId headxid;
 	TransactionId newestXact;
 
-	if (!track_commit_timestamp)
+	/*
+	 * No-op if the module is not enabled, but allow writes in a standby
+	 * during recovery.
+	 */
+	if (!track_commit_timestamp && !enable_during_recovery)
 		return;
 
 	/*
 	 * Comply with the WAL-before-data rule: if caller specified it wants this
 	 * value to be recorded in WAL, do so before touching the data.
 	 */
-	if (do_xlog)
+	if (write_xlog)
 		WriteSetTimestampXlogRec(xid, nsubxids, subxids, timestamp, nodeid);
 
 	/*
@@ -252,8 +267,10 @@ TransactionIdSetCommitTs(TransactionId xid, TimestampTz ts,
 /*
  * Interrogate the commit timestamp of a transaction.
  *
- * Return value indicates whether commit timestamp record was found for
- * given xid.
+ * The return value indicates whether a commit timestamp record was found for
+ * the given xid.  The timestamp value is returned in *ts (which may not be
+ * null), and the origin node for the Xid is returned in *nodeid, if it's not
+ * null.
  */
 bool
 TransactionIdGetCommitTsData(TransactionId xid, TimestampTz *ts,
@@ -294,8 +311,7 @@ TransactionIdGetCommitTsData(TransactionId xid, TimestampTz *ts,
 		TransactionIdPrecedes(xid, oldestCommitTs) ||
 		TransactionIdPrecedes(newestCommitTs, xid))
 	{
-		if (ts)
-			*ts = 0;
+		*ts = 0;
 		if (nodeid)
 			*nodeid = InvalidRepOriginId;
 		return false;
@@ -312,8 +328,7 @@ TransactionIdGetCommitTsData(TransactionId xid, TimestampTz *ts,
 		LWLockAcquire(CommitTsLock, LW_SHARED);
 		if (commitTsShared->xidLastCommit == xid)
 		{
-			if (ts)
-				*ts = commitTsShared->dataLastCommit.time;
+			*ts = commitTsShared->dataLastCommit.time;
 			if (nodeid)
 				*nodeid = commitTsShared->dataLastCommit.nodeid;
 
@@ -330,8 +345,7 @@ TransactionIdGetCommitTsData(TransactionId xid, TimestampTz *ts,
 		   SizeOfCommitTimestampEntry * entryno,
 		   SizeOfCommitTimestampEntry);
 
-	if (ts)
-		*ts = entry.time;
+	*ts = entry.time;
 	if (nodeid)
 		*nodeid = entry.nodeid;
 
@@ -525,38 +539,60 @@ ZeroCommitTsPage(int pageno, bool writeXlog)
 /*
  * This must be called ONCE during postmaster or standalone-backend startup,
  * after StartupXLOG has initialized ShmemVariableCache->nextXid.
+ *
+ * Caller may choose to enable the feature even when it is turned off in the
+ * configuration.
  */
 void
-StartupCommitTs(void)
+StartupCommitTs(bool force_enable)
 {
-	TransactionId xid = ShmemVariableCache->nextXid;
-	int			pageno = TransactionIdToCTsPage(xid);
-
-	if (track_commit_timestamp)
-	{
-		ActivateCommitTs();
-		return;
-	}
-
-	LWLockAcquire(CommitTsControlLock, LW_EXCLUSIVE);
-
 	/*
-	 * Initialize our idea of the latest page number.
+	 * If the module is not enabled, there's nothing to do here.  The module
+	 * could still be activated from elsewhere.
 	 */
-	CommitTsCtl->shared->latest_page_number = pageno;
-
-	LWLockRelease(CommitTsControlLock);
+	if (track_commit_timestamp || force_enable)
+		ActivateCommitTs();
 }
 
 /*
  * This must be called ONCE during postmaster or standalone-backend startup,
- * when commit timestamp is enabled, after recovery has finished.
+ * after recovery has finished.
  */
 void
 CompleteCommitTsInitialization(void)
 {
+	/*
+	 * If the feature is not enabled, turn it off for good.  This also removes
+	 * any leftover data.
+	 */
 	if (!track_commit_timestamp)
 		DeactivateCommitTs(true);
+}
+
+/*
+ * Activate or deactivate CommitTs' upon reception of a XLOG_PARAMETER_CHANGE
+ * XLog record in a standby.
+ */
+void
+CommitTsParameterChange(bool newvalue, bool oldvalue)
+{
+	/*
+	 * If the commit_ts module is disabled in this server and we get word from
+	 * the master server that it is enabled there, activate it so that we can
+	 * replay future WAL records involving it; also mark it as active on
+	 * pg_control.  If the old value was already set, we already did this, so
+	 * don't do anything.
+	 *
+	 * If the module is disabled in the master, disable it here too, unless
+	 * the module is enabled locally.
+	 */
+	if (newvalue)
+	{
+		if (!track_commit_timestamp && !oldvalue)
+			ActivateCommitTs();
+	}
+	else if (!track_commit_timestamp && oldvalue)
+		DeactivateCommitTs(false);
 }
 
 /*
@@ -575,7 +611,7 @@ CompleteCommitTsInitialization(void)
  * running with this module disabled for a while and thus might have skipped
  * the normal creation point.
  */
-void
+static void
 ActivateCommitTs(void)
 {
 	TransactionId xid = ShmemVariableCache->nextXid;
@@ -620,6 +656,9 @@ ActivateCommitTs(void)
 		Assert(!CommitTsCtl->shared->page_dirty[slotno]);
 		LWLockRelease(CommitTsControlLock);
 	}
+
+	/* We can now replay xlog records from this module */
+	enable_during_recovery = true;
 }
 
 /*
@@ -632,7 +671,7 @@ ActivateCommitTs(void)
  * Resets CommitTs into invalid state to make sure we don't hand back
  * possibly-invalid data; also removes segments of old data.
  */
-void
+static void
 DeactivateCommitTs(bool do_wal)
 {
 	TransactionId xid = ShmemVariableCache->nextXid;
@@ -650,7 +689,18 @@ DeactivateCommitTs(bool do_wal)
 	ShmemVariableCache->newestCommitTs = InvalidTransactionId;
 	LWLockRelease(CommitTsLock);
 
-	TruncateCommitTs(ReadNewTransactionId(), do_wal);
+	/*
+	 * Remove *all* files.  This is necessary so that there are no leftover
+	 * files; in the case where this feature is later enabled after running
+	 * with it disabled for some time there may be a gap in the file sequence.
+	 * (We can probably tolerate out-of-sequence files, as they are going to
+	 * be overwritten anyway when we wrap around, but it seems better to be
+	 * tidy.)
+	 */
+	(void) SlruScanDirectory(CommitTsCtl, SlruScanDirCbDeleteAll, NULL);
+
+	/* No longer enabled on recovery */
+	enable_during_recovery = false;
 }
 
 /*
@@ -690,7 +740,7 @@ ExtendCommitTs(TransactionId newestXact)
 	int			pageno;
 
 	/* nothing to do if module not enabled */
-	if (!track_commit_timestamp)
+	if (!track_commit_timestamp && !enable_during_recovery)
 		return;
 
 	/*
@@ -907,7 +957,7 @@ commit_ts_redo(XLogReaderState *record)
 			subxids = NULL;
 
 		TransactionTreeSetCommitTsData(setts->mainxid, nsubxids, subxids,
-									 setts->timestamp, setts->nodeid, false);
+									   setts->timestamp, setts->nodeid, true);
 		if (subxids)
 			pfree(subxids);
 	}

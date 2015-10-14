@@ -288,7 +288,7 @@ jsonb_object_keys(PG_FUNCTION_ARGS)
 		bool		skipNested = false;
 		JsonbIterator *it;
 		JsonbValue	v;
-		int			r;
+		JsonbIteratorToken r;
 
 		if (JB_ROOT_IS_SCALAR(jb))
 			ereport(ERROR,
@@ -597,6 +597,17 @@ jsonb_array_element(PG_FUNCTION_ARGS)
 	if (!JB_ROOT_IS_ARRAY(jb))
 		PG_RETURN_NULL();
 
+	/* Handle negative subscript */
+	if (element < 0)
+	{
+		uint32	nelements = JB_ROOT_COUNT(jb);
+
+		if (-element > nelements)
+			PG_RETURN_NULL();
+		else
+			element += nelements;
+	}
+
 	v = getIthJsonbValueFromContainer(&jb->root, element);
 	if (v != NULL)
 		PG_RETURN_JSONB(JsonbValueToJsonb(v));
@@ -628,6 +639,17 @@ jsonb_array_element_text(PG_FUNCTION_ARGS)
 
 	if (!JB_ROOT_IS_ARRAY(jb))
 		PG_RETURN_NULL();
+
+	/* Handle negative subscript */
+	if (element < 0)
+	{
+		uint32	nelements = JB_ROOT_COUNT(jb);
+
+		if (-element > nelements)
+			PG_RETURN_NULL();
+		else
+			element += nelements;
+	}
 
 	v = getIthJsonbValueFromContainer(&jb->root, element);
 	if (v != NULL)
@@ -719,7 +741,7 @@ get_path_all(FunctionCallInfo fcinfo, bool as_text)
 		/*
 		 * we have no idea at this stage what structure the document is so
 		 * just convert anything in the path that we can to an integer and set
-		 * all the other integers to -1 which will never match.
+		 * all the other integers to INT_MIN which will never match.
 		 */
 		if (*tpath[i] != '\0')
 		{
@@ -728,13 +750,13 @@ get_path_all(FunctionCallInfo fcinfo, bool as_text)
 
 			errno = 0;
 			ind = strtol(tpath[i], &endptr, 10);
-			if (*endptr == '\0' && errno == 0 && ind <= INT_MAX && ind >= 0)
+			if (*endptr == '\0' && errno == 0 && ind <= INT_MAX && ind >= INT_MIN)
 				ipath[i] = (int) ind;
 			else
-				ipath[i] = -1;
+				ipath[i] = INT_MIN;
 		}
 		else
-			ipath[i] = -1;
+			ipath[i] = INT_MIN;
 	}
 
 	result = get_worker(json, tpath, ipath, npath, as_text);
@@ -752,14 +774,15 @@ get_path_all(FunctionCallInfo fcinfo, bool as_text)
  *
  * json: JSON object (in text form)
  * tpath[]: field name(s) to extract
- * ipath[]: array index(es) (zero-based) to extract
+ * ipath[]: array index(es) (zero-based) to extract, accepts negatives
  * npath: length of tpath[] and/or ipath[]
  * normalize_results: true to de-escape string and null scalars
  *
  * tpath can be NULL, or any one tpath[] entry can be NULL, if an object
  * field is not to be matched at that nesting level.  Similarly, ipath can
- * be NULL, or any one ipath[] entry can be -1, if an array element is not
- * to be matched at that nesting level.
+ * be NULL, or any one ipath[] entry can be INT_MIN if an array element is
+ * not to be matched at that nesting level (a json datum should never be
+ * large enough to have -INT_MIN elements due to MaxAllocSize restriction).
  */
 static text *
 get_worker(text *json,
@@ -954,13 +977,24 @@ get_array_start(void *state)
 	{
 		/* Initialize counting of elements in this array */
 		_state->array_cur_index[lex_level] = -1;
+
+		/* INT_MIN value is reserved to represent invalid subscript */
+		if (_state->path_indexes[lex_level] < 0 &&
+			_state->path_indexes[lex_level] != INT_MIN)
+		{
+			/* Negative subscript -- convert to positive-wise subscript */
+			int		nelements = json_count_array_elements(_state->lex);
+
+			if (-_state->path_indexes[lex_level] <= nelements)
+				_state->path_indexes[lex_level] += nelements;
+		}
 	}
 	else if (lex_level == 0 && _state->npath == 0)
 	{
 		/*
 		 * Special case: we should match the entire array.  We only need this
-		 * at outermost level because at nested levels the match will have
-		 * been started by the outer field or array element callback.
+		 * at the outermost level because at nested levels the match will
+		 * have been started by the outer field or array element callback.
 		 */
 		_state->result_start = _state->lex->token_start;
 	}
@@ -1209,9 +1243,30 @@ get_jsonb_path_all(FunctionCallInfo fcinfo, bool as_text)
 			errno = 0;
 			lindex = strtol(indextext, &endptr, 10);
 			if (endptr == indextext || *endptr != '\0' || errno != 0 ||
-				lindex > INT_MAX || lindex < 0)
+				lindex > INT_MAX || lindex < INT_MIN)
 				PG_RETURN_NULL();
-			index = (uint32) lindex;
+
+			if (lindex >= 0)
+			{
+				index = (uint32) lindex;
+			}
+			else
+			{
+				/* Handle negative subscript */
+				uint32		nelements;
+
+				/* Container must be array, but make sure */
+				if ((container->header & JB_FARRAY) == 0)
+					elog(ERROR, "not a jsonb array");
+
+				nelements = container->header & JB_CMASK;
+
+				if (-lindex > nelements)
+					PG_RETURN_NULL();
+				else
+					index = nelements + lindex;
+			}
+
 			jbvp = getIthJsonbValueFromContainer(container, index);
 		}
 		else
@@ -1228,7 +1283,7 @@ get_jsonb_path_all(FunctionCallInfo fcinfo, bool as_text)
 		if (jbvp->type == jbvBinary)
 		{
 			JsonbIterator *it = JsonbIteratorInit((JsonbContainer *) jbvp->val.binary.data);
-			int			r;
+			JsonbIteratorToken r;
 
 			r = JsonbIteratorNext(&it, &tv, true);
 			container = (JsonbContainer *) jbvp->val.binary.data;
@@ -1401,7 +1456,7 @@ each_worker_jsonb(FunctionCallInfo fcinfo, const char *funcname, bool as_text)
 	bool		skipNested = false;
 	JsonbIterator *it;
 	JsonbValue	v;
-	int			r;
+	JsonbIteratorToken r;
 
 	if (!JB_ROOT_IS_OBJECT(jb))
 		ereport(ERROR,
@@ -1720,7 +1775,7 @@ elements_worker_jsonb(FunctionCallInfo fcinfo, const char *funcname,
 	bool		skipNested = false;
 	JsonbIterator *it;
 	JsonbValue	v;
-	int			r;
+	JsonbIteratorToken r;
 
 	if (JB_ROOT_IS_SCALAR(jb))
 		ereport(ERROR,
@@ -2737,7 +2792,7 @@ populate_recordset_worker(FunctionCallInfo fcinfo, const char *funcname,
 		JsonbIterator *it;
 		JsonbValue	v;
 		bool		skipNested = false;
-		int			r;
+		JsonbIteratorToken r;
 
 		Assert(jtype == JSONBOID);
 
@@ -3175,9 +3230,9 @@ jsonb_strip_nulls(PG_FUNCTION_ARGS)
 	JsonbIterator *it;
 	JsonbParseState *parseState = NULL;
 	JsonbValue *res = NULL;
-	int			type;
 	JsonbValue	v,
 				k;
+	JsonbIteratorToken type;
 	bool		last_was_key = false;
 
 	if (JB_ROOT_IS_SCALAR(jb))
@@ -3235,8 +3290,8 @@ addJsonbToParseState(JsonbParseState **jbps, Jsonb *jb)
 {
 	JsonbIterator *it;
 	JsonbValue *o = &(*jbps)->contVal;
-	int			type;
 	JsonbValue	v;
+	JsonbIteratorToken type;
 
 	it = JsonbIteratorInit(&jb->root);
 
@@ -3304,12 +3359,18 @@ jsonb_concat(PG_FUNCTION_ARGS)
 			   *it2;
 
 	/*
-	 * If one of the jsonb is empty, just return other.
+	 * If one of the jsonb is empty, just return the other if it's not
+	 * scalar and both are of the same kind.  If it's a scalar or they are
+	 * of different kinds we need to perform the concatenation even if one is
+	 * empty.
 	 */
-	if (JB_ROOT_COUNT(jb1) == 0)
-		PG_RETURN_JSONB(jb2);
-	else if (JB_ROOT_COUNT(jb2) == 0)
-		PG_RETURN_JSONB(jb1);
+	if (JB_ROOT_IS_OBJECT(jb1) == JB_ROOT_IS_OBJECT(jb2))
+	{
+		if (JB_ROOT_COUNT(jb1) == 0 && !JB_ROOT_IS_SCALAR(jb2))
+			PG_RETURN_JSONB(jb2);
+		else if (JB_ROOT_COUNT(jb2) == 0 && !JB_ROOT_IS_SCALAR(jb1))
+			PG_RETURN_JSONB(jb1);
+	}
 
 	it1 = JsonbIteratorInit(&jb1->root);
 	it2 = JsonbIteratorInit(&jb2->root);
@@ -3337,10 +3398,10 @@ jsonb_delete(PG_FUNCTION_ARGS)
 	int			keylen = VARSIZE_ANY_EXHDR(key);
 	JsonbParseState *state = NULL;
 	JsonbIterator *it;
-	uint32		r;
 	JsonbValue	v,
 			   *res = NULL;
 	bool		skipNested = false;
+	JsonbIteratorToken r;
 
 	if (JB_ROOT_IS_SCALAR(in))
 		ereport(ERROR,
@@ -3389,11 +3450,11 @@ jsonb_delete_idx(PG_FUNCTION_ARGS)
 	int			idx = PG_GETARG_INT32(1);
 	JsonbParseState *state = NULL;
 	JsonbIterator *it;
-	uint32		r,
-				i = 0,
+	uint32		i = 0,
 				n;
 	JsonbValue	v,
 			   *res = NULL;
+	JsonbIteratorToken r;
 
 	if (JB_ROOT_IS_SCALAR(in))
 		ereport(ERROR,
@@ -3411,10 +3472,8 @@ jsonb_delete_idx(PG_FUNCTION_ARGS)
 	it = JsonbIteratorInit(&in->root);
 
 	r = JsonbIteratorNext(&it, &v, false);
-	if (r == WJB_BEGIN_ARRAY)
-		n = v.val.array.nElems;
-	else
-		n = v.val.object.nPairs;
+	Assert (r == WJB_BEGIN_ARRAY);
+	n = v.val.array.nElems;
 
 	if (idx < 0)
 	{
@@ -3427,18 +3486,14 @@ jsonb_delete_idx(PG_FUNCTION_ARGS)
 	if (idx >= n)
 		PG_RETURN_JSONB(in);
 
-	pushJsonbValue(&state, r, r < WJB_BEGIN_ARRAY ? &v : NULL);
+	pushJsonbValue(&state, r, NULL);
 
 	while ((r = JsonbIteratorNext(&it, &v, true)) != 0)
 	{
-		if (r == WJB_ELEM || r == WJB_KEY)
+		if (r == WJB_ELEM)
 		{
 			if (i++ == idx)
-			{
-				if (r == WJB_KEY)
-					JsonbIteratorNext(&it, &v, true);	/* skip value */
 				continue;
-			}
 		}
 
 		res = pushJsonbValue(&state, r, r < WJB_BEGIN_ARRAY ? &v : NULL);
@@ -3551,13 +3606,13 @@ static JsonbValue *
 IteratorConcat(JsonbIterator **it1, JsonbIterator **it2,
 			   JsonbParseState **state)
 {
-	uint32		r1,
-				r2,
-				rk1,
-				rk2;
 	JsonbValue	v1,
 				v2,
 			   *res = NULL;
+	JsonbIteratorToken r1,
+				r2,
+				rk1,
+				rk2;
 
 	r1 = rk1 = JsonbIteratorNext(it1, &v1, false);
 	r2 = rk2 = JsonbIteratorNext(it2, &v2, false);
@@ -3657,7 +3712,7 @@ IteratorConcat(JsonbIterator **it1, JsonbIterator **it2,
  * If newval is null, the element is to be removed.
  *
  * If create is true, we create the new value if the key or array index
- * does not exist. All path elemnts before the last must already exist
+ * does not exist. All path elements before the last must already exist
  * whether or not create is true, or nothing is done.
  */
 static JsonbValue *
@@ -3666,8 +3721,13 @@ setPath(JsonbIterator **it, Datum *path_elems,
 		JsonbParseState **st, int level, Jsonb *newval, bool create)
 {
 	JsonbValue	v;
+	JsonbIteratorToken r;
 	JsonbValue *res = NULL;
-	int			r;
+
+	check_stack_depth();
+
+	if (path_nulls[level])
+		elog(ERROR, "path element at the position %d is NULL", level + 1);
 
 	r = JsonbIteratorNext(it, &v, false);
 
@@ -3733,7 +3793,7 @@ setPathObject(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 
 	for (i = 0; i < npairs; i++)
 	{
-		int			r = JsonbIteratorNext(it, &k, true);
+		JsonbIteratorToken r = JsonbIteratorNext(it, &k, true);
 
 		Assert(r == WJB_KEY);
 
@@ -3818,8 +3878,9 @@ setPathArray(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 
 		errno = 0;
 		lindex = strtol(c, &badp, 10);
-		if (errno != 0 || badp == c || lindex > INT_MAX || lindex < INT_MIN)
-			idx = nelems;
+		if (errno != 0 || badp == c || *badp != '\0' || lindex > INT_MAX ||
+			lindex < INT_MIN)
+			elog(ERROR, "path element at the position %d is not an integer", level + 1);
 		else
 			idx = lindex;
 	}
@@ -3829,7 +3890,7 @@ setPathArray(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 	if (idx < 0)
 	{
 		if (-idx > nelems)
-			idx = -1;
+			idx = INT_MIN;
 		else
 			idx = nelems + idx;
 	}
@@ -3838,12 +3899,12 @@ setPathArray(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 		idx = nelems;
 
 	/*
-	 * if we're creating, and idx == -1, we prepend the new value to the array
-	 * also if the array is empty - in which case we don't really care what
-	 * the idx value is
+	 * if we're creating, and idx == INT_MIN, we prepend the new value to the
+	 * array also if the array is empty - in which case we don't really care
+	 * what the idx value is
 	 */
 
-	if ((idx == -1 || nelems == 0) && create && (level == path_len - 1))
+	if ((idx == INT_MIN || nelems == 0) && create && (level == path_len - 1))
 	{
 		Assert(newval != NULL);
 		addJsonbToParseState(st, newval);
@@ -3853,7 +3914,7 @@ setPathArray(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 	/* iterate over the array elements */
 	for (i = 0; i < nelems; i++)
 	{
-		int			r;
+		JsonbIteratorToken r;
 
 		if (i == idx && level < path_len)
 		{

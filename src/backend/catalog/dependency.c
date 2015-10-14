@@ -126,7 +126,7 @@ typedef struct
  * This constant table maps ObjectClasses to the corresponding catalog OIDs.
  * See also getObjectClass().
  */
-static const Oid object_classes[MAX_OCLASS] = {
+static const Oid object_classes[] = {
 	RelationRelationId,			/* OCLASS_CLASS */
 	ProcedureRelationId,		/* OCLASS_PROC */
 	TypeRelationId,				/* OCLASS_TYPE */
@@ -158,7 +158,8 @@ static const Oid object_classes[MAX_OCLASS] = {
 	DefaultAclRelationId,		/* OCLASS_DEFACL */
 	ExtensionRelationId,		/* OCLASS_EXTENSION */
 	EventTriggerRelationId,		/* OCLASS_EVENT_TRIGGER */
-	PolicyRelationId			/* OCLASS_POLICY */
+	PolicyRelationId,			/* OCLASS_POLICY */
+	TransformRelationId			/* OCLASS_TRANSFORM */
 };
 
 
@@ -1910,6 +1911,14 @@ find_expr_references_walker(Node *node,
 								   context->addrs);
 		}
 	}
+	else if (IsA(node, TableSampleClause))
+	{
+		TableSampleClause *tsc = (TableSampleClause *) node;
+
+		add_object_address(OCLASS_PROC, tsc->tsmhandler, 0,
+						   context->addrs);
+		/* fall through to examine arguments */
+	}
 
 	return expression_tree_walker(node, find_expr_references_walker,
 								  (void *) context);
@@ -2036,6 +2045,12 @@ add_object_address(ObjectClass oclass, Oid objectId, int32 subId,
 				   ObjectAddresses *addrs)
 {
 	ObjectAddress *item;
+
+	/*
+	 * Make sure object_classes is kept up to date with the ObjectClass enum.
+	 */
+	StaticAssertStmt(lengthof(object_classes) == LAST_OCLASS + 1,
+					 "object_classes[] must cover all ObjectClasses");
 
 	/* enlarge array if needed */
 	if (addrs->numrefs >= addrs->maxrefs)

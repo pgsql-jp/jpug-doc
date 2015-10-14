@@ -181,6 +181,7 @@ InitProcGlobal(void)
 	ProcGlobal->startupBufferPinWaitBufId = -1;
 	ProcGlobal->walwriterLatch = NULL;
 	ProcGlobal->checkpointerLatch = NULL;
+	pg_atomic_init_u32(&ProcGlobal->firstClearXidElem, INVALID_PGPROCNO);
 
 	/*
 	 * Create and initialize all the PGPROC structures we'll need.  There are
@@ -242,18 +243,21 @@ InitProcGlobal(void)
 			/* PGPROC for normal backend, add to freeProcs list */
 			procs[i].links.next = (SHM_QUEUE *) ProcGlobal->freeProcs;
 			ProcGlobal->freeProcs = &procs[i];
+			procs[i].procgloballist = &ProcGlobal->freeProcs;
 		}
 		else if (i < MaxConnections + autovacuum_max_workers + 1)
 		{
 			/* PGPROC for AV launcher/worker, add to autovacFreeProcs list */
 			procs[i].links.next = (SHM_QUEUE *) ProcGlobal->autovacFreeProcs;
 			ProcGlobal->autovacFreeProcs = &procs[i];
+			procs[i].procgloballist = &ProcGlobal->autovacFreeProcs;
 		}
 		else if (i < MaxBackends)
 		{
 			/* PGPROC for bgworker, add to bgworkerFreeProcs list */
 			procs[i].links.next = (SHM_QUEUE *) ProcGlobal->bgworkerFreeProcs;
 			ProcGlobal->bgworkerFreeProcs = &procs[i];
+			procs[i].procgloballist = &ProcGlobal->bgworkerFreeProcs;
 		}
 
 		/* Initialize myProcLocks[] shared memory queues. */
@@ -281,6 +285,7 @@ InitProcess(void)
 {
 	/* use volatile pointer to prevent code rearrangement */
 	volatile PROC_HDR *procglobal = ProcGlobal;
+	PGPROC * volatile * procgloballist;
 
 	/*
 	 * ProcGlobal should be set up already (if we are a backend, we inherit
@@ -292,9 +297,17 @@ InitProcess(void)
 	if (MyProc != NULL)
 		elog(ERROR, "you already exist");
 
+	/* Decide which list should supply our PGPROC. */
+	if (IsAnyAutoVacuumProcess())
+		procgloballist = &procglobal->autovacFreeProcs;
+	else if (IsBackgroundWorker)
+		procgloballist = &procglobal->bgworkerFreeProcs;
+	else
+		procgloballist = &procglobal->freeProcs;
+
 	/*
-	 * Try to get a proc struct from the free list.  If this fails, we must be
-	 * out of PGPROC structures (not to mention semaphores).
+	 * Try to get a proc struct from the appropriate free list.  If this
+	 * fails, we must be out of PGPROC structures (not to mention semaphores).
 	 *
 	 * While we are holding the ProcStructLock, also copy the current shared
 	 * estimate of spins_per_delay to local storage.
@@ -303,21 +316,11 @@ InitProcess(void)
 
 	set_spins_per_delay(procglobal->spins_per_delay);
 
-	if (IsAnyAutoVacuumProcess())
-		MyProc = procglobal->autovacFreeProcs;
-	else if (IsBackgroundWorker)
-		MyProc = procglobal->bgworkerFreeProcs;
-	else
-		MyProc = procglobal->freeProcs;
+	MyProc = *procgloballist;
 
 	if (MyProc != NULL)
 	{
-		if (IsAnyAutoVacuumProcess())
-			procglobal->autovacFreeProcs = (PGPROC *) MyProc->links.next;
-		else if (IsBackgroundWorker)
-			procglobal->bgworkerFreeProcs = (PGPROC *) MyProc->links.next;
-		else
-			procglobal->freeProcs = (PGPROC *) MyProc->links.next;
+		*procgloballist = (PGPROC *) MyProc->links.next;
 		SpinLockRelease(ProcStructLock);
 	}
 	else
@@ -334,6 +337,12 @@ InitProcess(void)
 				 errmsg("sorry, too many clients already")));
 	}
 	MyPgXact = &ProcGlobal->allPgXact[MyProc->pgprocno];
+
+	/*
+	 * Cross-check that the PGPROC is of the type we expect; if this were
+	 * not the case, it would get returned to the wrong list.
+	 */
+	Assert(MyProc->procgloballist == procgloballist);
 
 	/*
 	 * Now that we have a PGPROC, mark ourselves as an active postmaster
@@ -384,6 +393,11 @@ InitProcess(void)
 	MyProc->waitLSN = 0;
 	MyProc->syncRepState = SYNC_REP_NOT_WAITING;
 	SHMQueueElemInit(&(MyProc->syncRepLinks));
+
+	/* Initialize fields for group XID clearing. */
+	MyProc->clearXid = false;
+	MyProc->backendLatestXid = InvalidTransactionId;
+	pg_atomic_init_u32(&MyProc->nextClearXidElem, INVALID_PGPROCNO);
 
 	/*
 	 * Acquire ownership of the PGPROC's latch, so that we can use WaitLatch
@@ -761,6 +775,7 @@ ProcKill(int code, Datum arg)
 	/* use volatile pointer to prevent code rearrangement */
 	volatile PROC_HDR *procglobal = ProcGlobal;
 	PGPROC	   *proc;
+	PGPROC * volatile * procgloballist;
 
 	Assert(MyProc != NULL);
 
@@ -799,24 +814,12 @@ ProcKill(int code, Datum arg)
 	MyProc = NULL;
 	DisownLatch(&proc->procLatch);
 
+	procgloballist = proc->procgloballist;
 	SpinLockAcquire(ProcStructLock);
 
 	/* Return PGPROC structure (and semaphore) to appropriate freelist */
-	if (IsAnyAutoVacuumProcess())
-	{
-		proc->links.next = (SHM_QUEUE *) procglobal->autovacFreeProcs;
-		procglobal->autovacFreeProcs = proc;
-	}
-	else if (IsBackgroundWorker)
-	{
-		proc->links.next = (SHM_QUEUE *) procglobal->bgworkerFreeProcs;
-		procglobal->bgworkerFreeProcs = proc;
-	}
-	else
-	{
-		proc->links.next = (SHM_QUEUE *) procglobal->freeProcs;
-		procglobal->freeProcs = proc;
-	}
+	proc->links.next = (SHM_QUEUE *) *procgloballist;
+	*procgloballist = proc;
 
 	/* Update shared estimate of spins_per_delay */
 	procglobal->spins_per_delay = update_spins_per_delay(procglobal->spins_per_delay);
@@ -1170,22 +1173,32 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 				/* release lock as quickly as possible */
 				LWLockRelease(ProcArrayLock);
 
-				ereport(LOG,
+				/* send the autovacuum worker Back to Old Kent Road */
+				ereport(DEBUG1,
 					  (errmsg("sending cancel to blocking autovacuum PID %d",
 							  pid),
 					   errdetail_log("%s", logbuf.data)));
 
-				pfree(logbuf.data);
-				pfree(locktagbuf.data);
-
-				/* send the autovacuum worker Back to Old Kent Road */
 				if (kill(pid, SIGINT) < 0)
 				{
-					/* Just a warning to allow multiple callers */
-					ereport(WARNING,
-							(errmsg("could not send signal to process %d: %m",
-									pid)));
+					/*
+					 * There's a race condition here: once we release the
+					 * ProcArrayLock, it's possible for the autovac worker to
+					 * close up shop and exit before we can do the kill().
+					 * Therefore, we do not whinge about no-such-process.
+					 * Other errors such as EPERM could conceivably happen if
+					 * the kernel recycles the PID fast enough, but such cases
+					 * seem improbable enough that it's probably best to issue
+					 * a warning if we see some other errno.
+					 */
+					if (errno != ESRCH)
+						ereport(WARNING,
+						   (errmsg("could not send signal to process %d: %m",
+								   pid)));
 				}
+
+				pfree(logbuf.data);
+				pfree(locktagbuf.data);
 			}
 			else
 				LWLockRelease(ProcArrayLock);

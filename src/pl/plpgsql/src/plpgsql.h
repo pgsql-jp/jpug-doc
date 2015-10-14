@@ -22,7 +22,6 @@
 #include "commands/event_trigger.h"
 #include "commands/trigger.h"
 #include "executor/spi.h"
-#include "utils/hsearch.h"
 
 /**********************************************************************
  * Definitions
@@ -45,6 +44,17 @@ enum
 	PLPGSQL_NSTYPE_VAR,
 	PLPGSQL_NSTYPE_ROW,
 	PLPGSQL_NSTYPE_REC
+};
+
+/* ----------
+ * A PLPGSQL_NSTYPE_LABEL stack entry must be one of these types
+ * ----------
+ */
+enum PLpgSQL_label_types
+{
+	PLPGSQL_LABEL_BLOCK,		/* DECLARE/BEGIN block */
+	PLPGSQL_LABEL_LOOP,			/* looping construct */
+	PLPGSQL_LABEL_OTHER			/* anything else */
 };
 
 /* ----------
@@ -332,6 +342,8 @@ typedef struct PLpgSQL_nsitem
 {								/* Item in the compilers namespace tree */
 	int			itemtype;
 	int			itemno;
+	/* For labels, itemno is a value of enum PLpgSQL_label_types. */
+	/* For other itemtypes, itemno is the associated PLpgSQL_datum's dno. */
 	struct PLpgSQL_nsitem *prev;
 	char		name[FLEXIBLE_ARRAY_MEMBER];	/* nul-terminated string */
 } PLpgSQL_nsitem;
@@ -752,12 +764,13 @@ typedef struct PLpgSQL_function
 	int			extra_warnings;
 	int			extra_errors;
 
+	/* the datums representing the function's local variables */
 	int			ndatums;
 	PLpgSQL_datum **datums;
-	PLpgSQL_stmt_block *action;
+	Bitmapset  *resettable_datums;		/* dnos of non-simple vars */
 
-	/* table for performing casts needed in this function */
-	HTAB	   *cast_hash;
+	/* function body parsetree */
+	PLpgSQL_stmt_block *action;
 
 	/* these fields change when the function is used */
 	struct PLpgSQL_execstate *cur_estate;
@@ -796,9 +809,14 @@ typedef struct PLpgSQL_execstate
 
 	/* we pass datums[i] to the executor, when needed, in paramLI->params[i] */
 	ParamListInfo paramLI;
+	bool		params_dirty;	/* T if any resettable datum has been passed */
 
 	/* EState to use for "simple" expression evaluation */
 	EState	   *simple_eval_estate;
+
+	/* Lookup table to use for executing type casts */
+	HTAB	   *cast_hash;
+	MemoryContext cast_hash_context;
 
 	/* temporary state for results from evaluation of query or expr */
 	SPITupleTable *eval_tuptable;
@@ -992,7 +1010,8 @@ extern void exec_get_datum_type_info(PLpgSQL_execstate *estate,
  * ----------
  */
 extern void plpgsql_ns_init(void);
-extern void plpgsql_ns_push(const char *label);
+extern void plpgsql_ns_push(const char *label,
+				enum PLpgSQL_label_types label_type);
 extern void plpgsql_ns_pop(void);
 extern PLpgSQL_nsitem *plpgsql_ns_top(void);
 extern void plpgsql_ns_additem(int itemtype, int itemno, const char *name);
@@ -1001,6 +1020,7 @@ extern PLpgSQL_nsitem *plpgsql_ns_lookup(PLpgSQL_nsitem *ns_cur, bool localmode,
 				  const char *name3, int *names_used);
 extern PLpgSQL_nsitem *plpgsql_ns_lookup_label(PLpgSQL_nsitem *ns_cur,
 						const char *name);
+extern PLpgSQL_nsitem *plpgsql_ns_find_nearest_loop(PLpgSQL_nsitem *ns_cur);
 
 /* ----------
  * Other functions in pl_funcs.c

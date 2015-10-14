@@ -93,6 +93,7 @@ extern Oid	get_func_variadictype(Oid funcid);
 extern bool get_func_retset(Oid funcid);
 extern bool func_strict(Oid funcid);
 extern char func_volatile(Oid funcid);
+extern char func_parallel(Oid funcid);
 extern bool get_func_leakproof(Oid funcid);
 extern float4 get_func_cost(Oid funcid);
 extern float4 get_func_rows(Oid funcid);
@@ -156,7 +157,6 @@ extern void free_attstatsslot(Oid atttype,
 extern char *get_namespace_name(Oid nspid);
 extern char *get_namespace_name_or_temp(Oid nspid);
 extern Oid	get_range_subtype(Oid rangeOid);
-extern char *get_tablesample_method_name(Oid tsmid);
 
 #define type_is_array(typid)  (get_element_type(typid) != InvalidOid)
 /* type_is_array_domain accepts both plain arrays and domains over arrays */

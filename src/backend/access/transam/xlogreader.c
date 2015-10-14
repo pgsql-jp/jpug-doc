@@ -124,13 +124,10 @@ XLogReaderFree(XLogReaderState *state)
 {
 	int			block_id;
 
-	for (block_id = 0; block_id <= state->max_block_id; block_id++)
+	for (block_id = 0; block_id <= XLR_MAX_BLOCK_ID; block_id++)
 	{
-		if (state->blocks[block_id].in_use)
-		{
-			if (state->blocks[block_id].data)
-				pfree(state->blocks[block_id].data);
-		}
+		if (state->blocks[block_id].data)
+			pfree(state->blocks[block_id].data);
 	}
 	if (state->main_data)
 		pfree(state->main_data);
@@ -751,20 +748,20 @@ ValidXLogPageHeader(XLogReaderState *state, XLogRecPtr recptr,
 			snprintf(sysident_str, sizeof(sysident_str), UINT64_FORMAT,
 					 state->system_identifier);
 			report_invalid_record(state,
-								  "WAL file is from different database system: WAL file database system identifier is %s, pg_control database system identifier is %s.",
+								  "WAL file is from different database system: WAL file database system identifier is %s, pg_control database system identifier is %s",
 								  fhdrident_str, sysident_str);
 			return false;
 		}
 		else if (longhdr->xlp_seg_size != XLogSegSize)
 		{
 			report_invalid_record(state,
-								  "WAL file is from different database system: Incorrect XLOG_SEG_SIZE in page header.");
+								  "WAL file is from different database system: incorrect XLOG_SEG_SIZE in page header");
 			return false;
 		}
 		else if (longhdr->xlp_xlog_blcksz != XLOG_BLCKSZ)
 		{
 			report_invalid_record(state,
-								  "WAL file is from different database system: Incorrect XLOG_BLCKSZ in page header.");
+								  "WAL file is from different database system: incorrect XLOG_BLCKSZ in page header");
 			return false;
 		}
 	}

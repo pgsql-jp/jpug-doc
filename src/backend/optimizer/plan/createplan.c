@@ -60,6 +60,8 @@ static SeqScan *create_seqscan_plan(PlannerInfo *root, Path *best_path,
 					List *tlist, List *scan_clauses);
 static SampleScan *create_samplescan_plan(PlannerInfo *root, Path *best_path,
 					   List *tlist, List *scan_clauses);
+static Gather *create_gather_plan(PlannerInfo *root,
+				   GatherPath *best_path);
 static Scan *create_indexscan_plan(PlannerInfo *root, IndexPath *best_path,
 					  List *tlist, List *scan_clauses, bool indexonly);
 static BitmapHeapScan *create_bitmap_scan_plan(PlannerInfo *root,
@@ -102,7 +104,10 @@ static List *order_qual_clauses(PlannerInfo *root, List *clauses);
 static void copy_path_costsize(Plan *dest, Path *src);
 static void copy_plan_costsize(Plan *dest, Plan *src);
 static SeqScan *make_seqscan(List *qptlist, List *qpqual, Index scanrelid);
-static SampleScan *make_samplescan(List *qptlist, List *qpqual, Index scanrelid);
+static SampleScan *make_samplescan(List *qptlist, List *qpqual, Index scanrelid,
+				TableSampleClause *tsc);
+static Gather *make_gather(List *qptlist, List *qpqual,
+			int nworkers, bool single_copy, Plan *subplan);
 static IndexScan *make_indexscan(List *qptlist, List *qpqual, Index scanrelid,
 			   Oid indexid, List *indexqual, List *indexqualorig,
 			   List *indexorderby, List *indexorderbyorig,
@@ -271,6 +276,10 @@ create_plan_recurse(PlannerInfo *root, Path *best_path)
 		case T_Unique:
 			plan = create_unique_plan(root,
 									  (UniquePath *) best_path);
+			break;
+		case T_Gather:
+			plan = (Plan *) create_gather_plan(root,
+											   (GatherPath *) best_path);
 			break;
 		default:
 			elog(ERROR, "unrecognized node type: %d",
@@ -1100,6 +1109,34 @@ create_unique_plan(PlannerInfo *root, UniquePath *best_path)
 	return plan;
 }
 
+/*
+ * create_gather_plan
+ *
+ *	  Create a Gather plan for 'best_path' and (recursively) plans
+ *	  for its subpaths.
+ */
+static Gather *
+create_gather_plan(PlannerInfo *root, GatherPath *best_path)
+{
+	Gather	   *gather_plan;
+	Plan	   *subplan;
+
+	subplan = create_plan_recurse(root, best_path->subpath);
+
+	gather_plan = make_gather(subplan->targetlist,
+							  NIL,
+							  best_path->num_workers,
+							  best_path->single_copy,
+							  subplan);
+
+	copy_path_costsize(&gather_plan->plan, &best_path->path);
+
+	/* use parallel mode for parallel plans. */
+	root->glob->parallelModeNeeded = true;
+
+	return gather_plan;
+}
+
 
 /*****************************************************************************
  *
@@ -1148,7 +1185,7 @@ create_seqscan_plan(PlannerInfo *root, Path *best_path,
 
 /*
  * create_samplescan_plan
- *	 Returns a samplecan plan for the base relation scanned by 'best_path'
+ *	 Returns a samplescan plan for the base relation scanned by 'best_path'
  *	 with restriction clauses 'scan_clauses' and targetlist 'tlist'.
  */
 static SampleScan *
@@ -1157,11 +1194,15 @@ create_samplescan_plan(PlannerInfo *root, Path *best_path,
 {
 	SampleScan *scan_plan;
 	Index		scan_relid = best_path->parent->relid;
+	RangeTblEntry *rte;
+	TableSampleClause *tsc;
 
-	/* it should be a base rel with tablesample clause... */
+	/* it should be a base rel with a tablesample clause... */
 	Assert(scan_relid > 0);
-	Assert(best_path->parent->rtekind == RTE_RELATION);
-	Assert(best_path->pathtype == T_SampleScan);
+	rte = planner_rt_fetch(scan_relid, root);
+	Assert(rte->rtekind == RTE_RELATION);
+	tsc = rte->tablesample;
+	Assert(tsc != NULL);
 
 	/* Sort clauses into best execution order */
 	scan_clauses = order_qual_clauses(root, scan_clauses);
@@ -1174,13 +1215,16 @@ create_samplescan_plan(PlannerInfo *root, Path *best_path,
 	{
 		scan_clauses = (List *)
 			replace_nestloop_params(root, (Node *) scan_clauses);
+		tsc = (TableSampleClause *)
+			replace_nestloop_params(root, (Node *) tsc);
 	}
 
 	scan_plan = make_samplescan(tlist,
 								scan_clauses,
-								scan_relid);
+								scan_relid,
+								tsc);
 
-	copy_path_costsize(&scan_plan->plan, best_path);
+	copy_path_costsize(&scan_plan->scan.plan, best_path);
 
 	return scan_plan;
 }
@@ -2161,9 +2205,9 @@ create_customscan_plan(PlannerInfo *root, CustomPath *best_path,
 	ListCell   *lc;
 
 	/* Recursively transform child paths. */
-	foreach (lc, best_path->custom_paths)
+	foreach(lc, best_path->custom_paths)
 	{
-		Plan   *plan = create_plan_recurse(root, (Path *) lfirst(lc));
+		Plan	   *plan = create_plan_recurse(root, (Path *) lfirst(lc));
 
 		custom_plans = lappend(custom_plans, plan);
 	}
@@ -3437,17 +3481,19 @@ make_seqscan(List *qptlist,
 static SampleScan *
 make_samplescan(List *qptlist,
 				List *qpqual,
-				Index scanrelid)
+				Index scanrelid,
+				TableSampleClause *tsc)
 {
 	SampleScan *node = makeNode(SampleScan);
-	Plan	   *plan = &node->plan;
+	Plan	   *plan = &node->scan.plan;
 
 	/* cost should be inserted by caller */
 	plan->targetlist = qptlist;
 	plan->qual = qpqual;
 	plan->lefttree = NULL;
 	plan->righttree = NULL;
-	node->scanrelid = scanrelid;
+	node->scan.scanrelid = scanrelid;
+	node->tablesample = tsc;
 
 	return node;
 }
@@ -4430,7 +4476,7 @@ make_sort_from_groupcols(PlannerInfo *root,
 		TargetEntry *tle = get_tle_by_resno(sub_tlist, grpColIdx[numsortkeys]);
 
 		if (!tle)
-			elog(ERROR, "could not retrive tle for sort-from-groupcols");
+			elog(ERROR, "could not retrieve tle for sort-from-groupcols");
 
 		sortColIdx[numsortkeys] = tle->resno;
 		sortOperators[numsortkeys] = grpcl->sortop;
@@ -4463,11 +4509,7 @@ make_material(Plan *lefttree)
  * materialize_finished_plan: stick a Material node atop a completed plan
  *
  * There are a couple of places where we want to attach a Material node
- * after completion of subquery_planner().  This currently requires hackery.
- * Since subquery_planner has already run SS_finalize_plan on the subplan
- * tree, we have to kluge up parameter lists for the Material node.
- * Possibly this could be fixed by postponing SS_finalize_plan processing
- * until setrefs.c is run?
+ * after completion of subquery_planner(), without any MaterialPath path.
  */
 Plan *
 materialize_finished_plan(Plan *subplan)
@@ -4487,10 +4529,6 @@ materialize_finished_plan(Plan *subplan)
 	matplan->total_cost = matpath.total_cost;
 	matplan->plan_rows = subplan->plan_rows;
 	matplan->plan_width = subplan->plan_width;
-
-	/* parameter kluge --- see comments above */
-	matplan->extParam = bms_copy(subplan->extParam);
-	matplan->allParam = bms_copy(subplan->allParam);
 
 	return matplan;
 }
@@ -4729,6 +4767,27 @@ make_unique(Plan *lefttree, List *distinctList)
 	node->numCols = numCols;
 	node->uniqColIdx = uniqColIdx;
 	node->uniqOperators = uniqOperators;
+
+	return node;
+}
+
+static Gather *
+make_gather(List *qptlist,
+			List *qpqual,
+			int nworkers,
+			bool single_copy,
+			Plan *subplan)
+{
+	Gather	   *node = makeNode(Gather);
+	Plan	   *plan = &node->plan;
+
+	/* cost should be inserted by caller */
+	plan->targetlist = qptlist;
+	plan->qual = qpqual;
+	plan->lefttree = subplan;
+	plan->righttree = NULL;
+	node->num_workers = nworkers;
+	node->single_copy = single_copy;
 
 	return node;
 }

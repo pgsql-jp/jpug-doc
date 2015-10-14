@@ -612,6 +612,31 @@ NUMERIC
      equivalent.  Both types are part of the <acronym>SQL</acronym>
      standard.
     </para>
+
+    <para>
+     When rounding values, the <type>numeric</type> type rounds ties away
+     from zero, while (on most machines) the <type>real</type>
+     and <type>double precision</type> types round ties to the nearest even
+     number.  For example:
+
+<programlisting>
+SELECT x,
+  round(x::numeric) AS num_round,
+  round(x::double precision) AS dbl_round
+FROM generate_series(-3.5, 3.5, 1) as x;
+  x   | num_round | dbl_round
+------+-----------+-----------
+ -3.5 |        -4 |        -4
+ -2.5 |        -3 |        -2
+ -1.5 |        -2 |        -2
+ -0.5 |        -1 |        -0
+  0.5 |         1 |         0
+  1.5 |         2 |         2
+  2.5 |         3 |         2
+  3.5 |         4 |         4
+(8 rows)
+</programlisting>
+    </para>
    </sect2>
 
 
@@ -1114,7 +1139,8 @@ SELECT '52093.89'::money::numeric::float8;
      advantages in some other database systems, there is no such advantage in
      <productname>PostgreSQL</productname>; in fact
      <type>character(<replaceable>n</>)</type> is usually the slowest of
-     the three because of its additional storage costs.  In most situations
+     the three because of its additional storage costs and slower
+     sorting.  In most situations
      <type>text</type> or <type>character varying</type> should be used
      instead.
     </para>
@@ -4321,7 +4347,7 @@ SET xmloption TO { DOCUMENT | CONTENT };
     an object identifier.  There are also several alias types for
     <type>oid</>: <type>regproc</>, <type>regprocedure</>,
     <type>regoper</>, <type>regoperator</>, <type>regclass</>,
-    <type>regtype</>, <type>regrole</>, <type>regnamespace</>, 
+    <type>regtype</>, <type>regrole</>, <type>regnamespace</>,
     <type>regconfig</>, and <type>regdictionary</>.
     <xref linkend="datatype-oid-table"> shows an overview.
    </para>
@@ -4598,6 +4624,10 @@ SELECT * FROM pg_attribute
    </indexterm>
 
    <indexterm zone="datatype-pseudo">
+    <primary>tsm_handler</primary>
+   </indexterm>
+
+   <indexterm zone="datatype-pseudo">
     <primary>cstring</primary>
    </indexterm>
 
@@ -4689,6 +4719,11 @@ SELECT * FROM pg_attribute
        <row>
         <entry><type>fdw_handler</></entry>
         <entry>A foreign-data wrapper handler is declared to return <type>fdw_handler</>.</entry>
+       </row>
+
+       <row>
+        <entry><type>tsm_handler</></entry>
+        <entry>A tablesample method handler is declared to return <type>tsm_handler</>.</entry>
        </row>
 
        <row>

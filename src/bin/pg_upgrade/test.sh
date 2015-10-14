@@ -21,6 +21,10 @@ unset MAKELEVEL
 # authentication configuration.
 standard_initdb() {
 	"$1" -N
+	if [ -n "$TEMP_CONFIG" -a -r "$TEMP_CONFIG" ]
+	then
+		cat "$TEMP_CONFIG" >> "$PGDATA/postgresql.conf"
+	fi
 	../../test/regress/pg_regress --config-auth "$PGDATA"
 }
 
@@ -62,7 +66,8 @@ esac
 POSTMASTER_OPTS="-F -c listen_addresses=$LISTEN_ADDRESSES -k \"$PGHOST\""
 export PGHOST
 
-temp_root=$PWD/tmp_check
+# don't rely on $PWD here, as old shells don't set it
+temp_root=`pwd`/tmp_check
 
 if [ "$1" = '--install' ]; then
 	temp_install=$temp_root/install
@@ -70,7 +75,6 @@ if [ "$1" = '--install' ]; then
 	libdir=$temp_install/$libdir
 
 	"$MAKE" -s -C ../.. install DESTDIR="$temp_install"
-	"$MAKE" -s -C . install DESTDIR="$temp_install"
 
 	# platform-specific magic to find the shared libraries; see pg_regress.c
 	LD_LIBRARY_PATH=$libdir:$LD_LIBRARY_PATH
@@ -104,7 +108,7 @@ PGDATA="$BASE_PGDATA.old"
 export PGDATA
 rm -rf "$BASE_PGDATA" "$PGDATA"
 
-logdir=$PWD/log
+logdir=`pwd`/log
 rm -rf "$logdir"
 mkdir "$logdir"
 
@@ -215,10 +219,11 @@ case $testhost in
 	*)	    sh ./delete_old_cluster.sh ;;
 esac
 
-if diff -q "$temp_root"/dump1.sql "$temp_root"/dump2.sql; then
+if diff "$temp_root"/dump1.sql "$temp_root"/dump2.sql >/dev/null; then
 	echo PASSED
 	exit 0
 else
+	echo "Files $temp_root/dump1.sql and $temp_root/dump2.sql differ"
 	echo "dumps were not identical"
 	exit 1
 fi

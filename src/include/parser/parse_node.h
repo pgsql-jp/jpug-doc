@@ -63,7 +63,8 @@ typedef enum ParseExprKind
 	EXPR_KIND_INDEX_PREDICATE,	/* index predicate */
 	EXPR_KIND_ALTER_COL_TRANSFORM,		/* transform expr in ALTER COLUMN TYPE */
 	EXPR_KIND_EXECUTE_PARAMETER,	/* parameter value in EXECUTE */
-	EXPR_KIND_TRIGGER_WHEN		/* WHEN condition in CREATE TRIGGER */
+	EXPR_KIND_TRIGGER_WHEN,		/* WHEN condition in CREATE TRIGGER */
+	EXPR_KIND_POLICY			/* USING or WITH CHECK expr in policy */
 } ParseExprKind;
 
 
@@ -152,7 +153,6 @@ struct ParseState
 	bool		p_hasSubLinks;
 	bool		p_hasModifyingCTE;
 	bool		p_is_insert;
-	bool		p_is_update;
 	bool		p_locked_from_parent;
 	Relation	p_target_relation;
 	RangeTblEntry *p_target_rangetblentry;

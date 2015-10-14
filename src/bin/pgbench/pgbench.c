@@ -55,6 +55,8 @@
 
 #include "pgbench.h"
 
+#define ERRCODE_UNDEFINED_TABLE  "42P01"
+
 /*
  * Multi-platform pthread implementations
  */
@@ -70,20 +72,8 @@ static int	pthread_join(pthread_t th, void **thread_return);
 /* Use platform-dependent pthread capability */
 #include <pthread.h>
 #else
-/* Use emulation with fork. Rename pthread identifiers to avoid conflicts */
-#define PTHREAD_FORK_EMULATION
-#include <sys/wait.h>
-
-#define pthread_t				pg_pthread_t
-#define pthread_attr_t			pg_pthread_attr_t
-#define pthread_create			pg_pthread_create
-#define pthread_join			pg_pthread_join
-
-typedef struct fork_pthread *pthread_t;
-typedef int pthread_attr_t;
-
-static int	pthread_create(pthread_t *thread, pthread_attr_t *attr, void *(*start_routine) (void *), void *arg);
-static int	pthread_join(pthread_t th, void **thread_return);
+/* No threads implementation, use none (-j 1) */
+#define pthread_t void *
 #endif
 
 
@@ -175,6 +165,7 @@ bool		use_quiet;			/* quiet logging onto stderr */
 int			agg_interval;		/* log aggregates instead of individual
 								 * transactions */
 int			progress = 0;		/* thread progress report every this seconds */
+bool		progress_timestamp = false; /* progress report with Unix time */
 int			progress_nclients = 0;		/* number of clients for progress
 										 * report */
 int			progress_nthreads = 0;		/* number of threads for progress
@@ -210,8 +201,6 @@ typedef struct
 	PGconn	   *con;			/* connection handle to DB */
 	int			id;				/* client No. */
 	int			state;			/* state No. */
-	int			cnt;			/* xacts count */
-	int			ecnt;			/* error count */
 	int			listen;			/* 0 indicates that an async query has been
 								 * sent */
 	int			sleeping;		/* 1 indicates that the client is napping */
@@ -221,15 +210,19 @@ typedef struct
 	int64		txn_scheduled;	/* scheduled start time of transaction (usec) */
 	instr_time	txn_begin;		/* used for measuring schedule lag times */
 	instr_time	stmt_begin;		/* used for measuring statement latencies */
-	int64		txn_latencies;	/* cumulated latencies */
-	int64		txn_sqlats;		/* cumulated square latencies */
 	bool		is_throttled;	/* whether transaction throttling is done */
 	int			use_file;		/* index in sql_files for this client */
 	bool		prepared[MAX_FILES];
+
+	/* per client collected stats */
+	int			cnt;			/* xacts count */
+	int			ecnt;			/* error count */
+	int64		txn_latencies;	/* cumulated latencies */
+	int64		txn_sqlats;		/* cumulated square latencies */
 } CState;
 
 /*
- * Thread state and result
+ * Thread state
  */
 typedef struct
 {
@@ -242,6 +235,9 @@ typedef struct
 	int		   *exec_count;		/* number of cmd executions (per Command) */
 	unsigned short random_state[3];		/* separate randomness for each thread */
 	int64		throttle_trigger;		/* previous/next throttling (us) */
+
+	/* per thread collected stats */
+	instr_time	conn_time;
 	int64		throttle_lag;	/* total transaction lag behind throttling */
 	int64		throttle_lag_max;		/* max transaction lag */
 	int64		throttle_latency_skipped;		/* lagging transactions
@@ -250,18 +246,6 @@ typedef struct
 } TState;
 
 #define INVALID_THREAD		((pthread_t) 0)
-
-typedef struct
-{
-	instr_time	conn_time;
-	int64		xacts;
-	int64		latencies;
-	int64		sqlats;
-	int64		throttle_lag;
-	int64		throttle_lag_max;
-	int64		throttle_latency_skipped;
-	int64		latency_late;
-} TResult;
 
 /*
  * queries read from files
@@ -390,8 +374,7 @@ usage(void)
 		 "  -f, --file=FILENAME      read transaction script from FILENAME\n"
 		   "  -j, --jobs=NUM           number of threads (default: 1)\n"
 		   "  -l, --log                write transaction times to log file\n"
-	"  -L, --latency-limit=NUM  count transactions lasting more than NUM ms\n"
-		   "                           as late.\n"
+	"  -L, --latency-limit=NUM  count transactions lasting more than NUM ms as late\n"
 		   "  -M, --protocol=simple|extended|prepared\n"
 		   "                           protocol for submitting queries (default: simple)\n"
 		   "  -n, --no-vacuum          do not run VACUUM before tests\n"
@@ -406,6 +389,7 @@ usage(void)
 		   "  -v, --vacuum-all         vacuum all four standard tables before tests\n"
 		   "  --aggregate-interval=NUM aggregate data over NUM seconds\n"
 		   "  --sampling-rate=NUM      fraction of transactions to log (e.g. 0.01 for 1%%)\n"
+		   "  --progress-timestamp     use Unix epoch timestamps for progress\n"
 		   "\nCommon options:\n"
 		   "  -d, --debug              print debugging output\n"
 	  "  -h, --host=HOSTNAME      database server host or socket directory\n"
@@ -667,7 +651,7 @@ doConnect(void)
 
 		if (!conn)
 		{
-			fprintf(stderr, "Connection to database \"%s\" failed\n",
+			fprintf(stderr, "connection to database \"%s\" failed\n",
 					dbName);
 			return NULL;
 		}
@@ -685,7 +669,7 @@ doConnect(void)
 	/* check to see that the backend connection was successfully made */
 	if (PQstatus(conn) == CONNECTION_BAD)
 	{
-		fprintf(stderr, "Connection to database \"%s\" failed:\n%s",
+		fprintf(stderr, "connection to database \"%s\" failed:\n%s",
 				dbName, PQerrorMessage(conn));
 		PQfinish(conn);
 		return NULL;
@@ -779,7 +763,8 @@ putVariable(CState *st, const char *context, char *name, char *value)
 		 */
 		if (!isLegalVariableName(name))
 		{
-			fprintf(stderr, "%s: invalid variable name '%s'\n", context, name);
+			fprintf(stderr, "%s: invalid variable name: \"%s\"\n",
+					context, name);
 			return false;
 		}
 
@@ -924,7 +909,7 @@ evaluateExpr(CState *st, PgBenchExpr *expr, int64 *retval)
 
 				if ((var = getVariable(st, expr->u.variable.varname)) == NULL)
 				{
-					fprintf(stderr, "undefined variable %s\n",
+					fprintf(stderr, "undefined variable \"%s\"\n",
 							expr->u.variable.varname);
 					return false;
 				}
@@ -1024,14 +1009,15 @@ runShellCommand(CState *st, char *variable, char **argv, int argc)
 		}
 		else if ((arg = getVariable(st, argv[i] + 1)) == NULL)
 		{
-			fprintf(stderr, "%s: undefined variable %s\n", argv[0], argv[i]);
+			fprintf(stderr, "%s: undefined variable \"%s\"\n",
+					argv[0], argv[i]);
 			return false;
 		}
 
 		arglen = strlen(arg);
 		if (len + arglen + (i > 0 ? 1 : 0) >= SHELL_COMMAND_SIZE - 1)
 		{
-			fprintf(stderr, "%s: too long shell command\n", argv[0]);
+			fprintf(stderr, "%s: shell command is too long\n", argv[0]);
 			return false;
 		}
 
@@ -1049,7 +1035,7 @@ runShellCommand(CState *st, char *variable, char **argv, int argc)
 		if (system(command))
 		{
 			if (!timer_exceeded)
-				fprintf(stderr, "%s: cannot launch shell command\n", argv[0]);
+				fprintf(stderr, "%s: could not launch shell command\n", argv[0]);
 			return false;
 		}
 		return true;
@@ -1058,19 +1044,19 @@ runShellCommand(CState *st, char *variable, char **argv, int argc)
 	/* Execute the command with pipe and read the standard output. */
 	if ((fp = popen(command, "r")) == NULL)
 	{
-		fprintf(stderr, "%s: cannot launch shell command\n", argv[0]);
+		fprintf(stderr, "%s: could not launch shell command\n", argv[0]);
 		return false;
 	}
 	if (fgets(res, sizeof(res), fp) == NULL)
 	{
 		if (!timer_exceeded)
-			fprintf(stderr, "%s: cannot read the result\n", argv[0]);
+			fprintf(stderr, "%s: could not read result of shell command\n", argv[0]);
 		(void) pclose(fp);
 		return false;
 	}
 	if (pclose(fp) < 0)
 	{
-		fprintf(stderr, "%s: cannot close shell command\n", argv[0]);
+		fprintf(stderr, "%s: could not close shell command\n", argv[0]);
 		return false;
 	}
 
@@ -1080,7 +1066,8 @@ runShellCommand(CState *st, char *variable, char **argv, int argc)
 		endptr++;
 	if (*res == '\0' || *endptr != '\0')
 	{
-		fprintf(stderr, "%s: must return an integer ('%s' returned)\n", argv[0], res);
+		fprintf(stderr, "%s: shell command must return an integer (not \"%s\")\n",
+				argv[0], res);
 		return false;
 	}
 	snprintf(res, sizeof(res), "%d", retval);
@@ -1088,7 +1075,7 @@ runShellCommand(CState *st, char *variable, char **argv, int argc)
 		return false;
 
 #ifdef DEBUG
-	printf("shell parameter name: %s, value: %s\n", argv[1], res);
+	printf("shell parameter name: \"%s\", value: \"%s\"\n", argv[1], res);
 #endif
 	return true;
 }
@@ -1151,11 +1138,12 @@ doCustom(TState *thread, CState *st, instr_time *conn_time, FILE *logfile, AggVa
 	 * first time it's needed, and reuse the same value throughout this
 	 * function after that. This also ensures that e.g. the calculated latency
 	 * reported in the log file and in the totals are the same. Zero means
-	 * "not set yet".
+	 * "not set yet". Reset "now" when we step to the next command with "goto
+	 * top", though.
 	 */
+top:
 	INSTR_TIME_SET_ZERO(now);
 
-top:
 	commands = sql_files[st->use_file];
 
 	/*
@@ -1244,7 +1232,7 @@ top:
 				fprintf(stderr, "client %d receiving\n", st->id);
 			if (!PQconsumeInput(st->con))
 			{					/* there's something wrong */
-				fprintf(stderr, "Client %d aborted in state %d. Probably the backend died while processing.\n", st->id, st->state);
+				fprintf(stderr, "client %d aborted in state %d; perhaps the backend died while processing\n", st->id, st->state);
 				return clientDone(st, false);
 			}
 			if (PQisBusy(st->con))
@@ -1313,7 +1301,7 @@ top:
 				case PGRES_TUPLES_OK:
 					break;		/* OK */
 				default:
-					fprintf(stderr, "Client %d aborted in state %d: %s",
+					fprintf(stderr, "client %d aborted in state %d: %s",
 							st->id, st->state, PQerrorMessage(st->con));
 					PQclear(res);
 					return clientDone(st, false);
@@ -1364,7 +1352,8 @@ top:
 		INSTR_TIME_SET_CURRENT(start);
 		if ((st->con = doConnect()) == NULL)
 		{
-			fprintf(stderr, "Client %d aborted in establishing connection.\n", st->id);
+			fprintf(stderr, "client %d aborted while establishing connection\n",
+					st->id);
 			return clientDone(st, false);
 		}
 		INSTR_TIME_SET_CURRENT(end);
@@ -1468,7 +1457,8 @@ top:
 		if (r == 0)
 		{
 			if (debug)
-				fprintf(stderr, "client %d cannot send %s\n", st->id, command->argv[0]);
+				fprintf(stderr, "client %d could not send %s\n",
+						st->id, command->argv[0]);
 			st->ecnt++;
 		}
 		else
@@ -1500,7 +1490,8 @@ top:
 			{
 				if ((var = getVariable(st, argv[2] + 1)) == NULL)
 				{
-					fprintf(stderr, "%s: undefined variable %s\n", argv[0], argv[2]);
+					fprintf(stderr, "%s: undefined variable \"%s\"\n",
+							argv[0], argv[2]);
 					st->ecnt++;
 					return true;
 				}
@@ -1509,20 +1500,12 @@ top:
 			else
 				min = strtoint64(argv[2]);
 
-#ifdef NOT_USED
-			if (min < 0)
-			{
-				fprintf(stderr, "%s: invalid minimum number %d\n", argv[0], min);
-				st->ecnt++;
-				return;
-			}
-#endif
-
 			if (*argv[3] == ':')
 			{
 				if ((var = getVariable(st, argv[3] + 1)) == NULL)
 				{
-					fprintf(stderr, "%s: undefined variable %s\n", argv[0], argv[3]);
+					fprintf(stderr, "%s: undefined variable \"%s\"\n",
+							argv[0], argv[3]);
 					st->ecnt++;
 					return true;
 				}
@@ -1533,7 +1516,8 @@ top:
 
 			if (max < min)
 			{
-				fprintf(stderr, "%s: maximum is less than minimum\n", argv[0]);
+				fprintf(stderr, "%s: \\setrandom maximum is less than minimum\n",
+						argv[0]);
 				st->ecnt++;
 				return true;
 			}
@@ -1548,7 +1532,8 @@ top:
 			 */
 			if (max - min < 0 || (max - min) + 1 < 0)
 			{
-				fprintf(stderr, "%s: range too large\n", argv[0]);
+				fprintf(stderr, "%s: \\setrandom range is too large\n",
+						argv[0]);
 				st->ecnt++;
 				return true;
 			}
@@ -1569,7 +1554,8 @@ top:
 				{
 					if ((var = getVariable(st, argv[5] + 1)) == NULL)
 					{
-						fprintf(stderr, "%s: invalid threshold number %s\n", argv[0], argv[5]);
+						fprintf(stderr, "%s: invalid threshold number: \"%s\"\n",
+								argv[0], argv[5]);
 						st->ecnt++;
 						return true;
 					}
@@ -1582,7 +1568,7 @@ top:
 				{
 					if (threshold < MIN_GAUSSIAN_THRESHOLD)
 					{
-						fprintf(stderr, "%s: gaussian threshold must be at least %f\n,", argv[5], MIN_GAUSSIAN_THRESHOLD);
+						fprintf(stderr, "gaussian threshold must be at least %f (not \"%s\")\n", MIN_GAUSSIAN_THRESHOLD, argv[5]);
 						st->ecnt++;
 						return true;
 					}
@@ -1595,7 +1581,7 @@ top:
 				{
 					if (threshold <= 0.0)
 					{
-						fprintf(stderr, "%s: exponential threshold must be strictly positive\n,", argv[5]);
+						fprintf(stderr, "exponential threshold must be greater than zero (not \"%s\")\n", argv[5]);
 						st->ecnt++;
 						return true;
 					}
@@ -1607,7 +1593,8 @@ top:
 			}
 			else	/* this means an error somewhere in the parsing phase... */
 			{
-				fprintf(stderr, "%s: unexpected arguments\n", argv[0]);
+				fprintf(stderr, "%s: invalid arguments for \\setrandom\n",
+						argv[0]);
 				st->ecnt++;
 				return true;
 			}
@@ -1651,7 +1638,8 @@ top:
 			{
 				if ((var = getVariable(st, argv[1] + 1)) == NULL)
 				{
-					fprintf(stderr, "%s: undefined variable %s\n", argv[0], argv[1]);
+					fprintf(stderr, "%s: undefined variable \"%s\"\n",
+							argv[0], argv[1]);
 					st->ecnt++;
 					return true;
 				}
@@ -2211,7 +2199,7 @@ parseQuery(Command *cmd, const char *raw_sql)
 	return true;
 }
 
-void
+void pg_attribute_noreturn()
 syntax_error(const char *source, const int lineno,
 			 const char *line, const char *command,
 			 const char *msg, const char *more, const int column)
@@ -2505,7 +2493,7 @@ process_file(char *filename)
 
 	if (num_files >= MAX_FILES)
 	{
-		fprintf(stderr, "Up to only %d SQL files are allowed\n", MAX_FILES);
+		fprintf(stderr, "at most %d SQL files are allowed\n", MAX_FILES);
 		exit(1);
 	}
 
@@ -2516,7 +2504,8 @@ process_file(char *filename)
 		fd = stdin;
 	else if ((fd = fopen(filename, "r")) == NULL)
 	{
-		fprintf(stderr, "%s: %s\n", filename, strerror(errno));
+		fprintf(stderr, "could not open file \"%s\": %s\n",
+				filename, strerror(errno));
 		pg_free(my_commands);
 		return false;
 	}
@@ -2627,7 +2616,7 @@ printResults(int ttype, int64 normal_xacts, int nclients,
 	time_include = INSTR_TIME_GET_DOUBLE(total_time);
 	tps_include = normal_xacts / time_include;
 	tps_exclude = normal_xacts / (time_include -
-						(INSTR_TIME_GET_DOUBLE(conn_total_time) / nthreads));
+						(INSTR_TIME_GET_DOUBLE(conn_total_time) / nclients));
 
 	if (ttype == 0)
 		s = "TPC-B (sort of)";
@@ -2786,6 +2775,7 @@ main(int argc, char **argv)
 		{"aggregate-interval", required_argument, NULL, 5},
 		{"rate", required_argument, NULL, 'R'},
 		{"latency-limit", required_argument, NULL, 'L'},
+		{"progress-timestamp", no_argument, NULL, 6},
 		{NULL, 0, NULL, 0}
 	};
 
@@ -2819,6 +2809,7 @@ main(int argc, char **argv)
 	int64		latency_late = 0;
 
 	int			i;
+	int			nclients_dealt;
 
 #ifdef HAVE_GETRLIMIT
 	struct rlimit rlim;
@@ -2896,7 +2887,8 @@ main(int argc, char **argv)
 				nclients = atoi(optarg);
 				if (nclients <= 0 || nclients > MAXCLIENTS)
 				{
-					fprintf(stderr, "invalid number of clients: %d\n", nclients);
+					fprintf(stderr, "invalid number of clients: \"%s\"\n",
+							optarg);
 					exit(1);
 				}
 #ifdef HAVE_GETRLIMIT
@@ -2909,10 +2901,11 @@ main(int argc, char **argv)
 					fprintf(stderr, "getrlimit failed: %s\n", strerror(errno));
 					exit(1);
 				}
-				if (rlim.rlim_cur <= (nclients + 2))
+				if (rlim.rlim_cur < nclients + 3)
 				{
-					fprintf(stderr, "You need at least %d open files but you are only allowed to use %ld.\n", nclients + 2, (long) rlim.rlim_cur);
-					fprintf(stderr, "Use limit/ulimit to increase the limit before using pgbench.\n");
+					fprintf(stderr, "need at least %d open files, but system limit is %ld\n",
+							nclients + 3, (long) rlim.rlim_cur);
+					fprintf(stderr, "Reduce number of clients, or use limit/ulimit to increase the system limit.\n");
 					exit(1);
 				}
 #endif   /* HAVE_GETRLIMIT */
@@ -2922,9 +2915,17 @@ main(int argc, char **argv)
 				nthreads = atoi(optarg);
 				if (nthreads <= 0)
 				{
-					fprintf(stderr, "invalid number of threads: %d\n", nthreads);
+					fprintf(stderr, "invalid number of threads: \"%s\"\n",
+							optarg);
 					exit(1);
 				}
+#ifndef ENABLE_THREAD_SAFETY
+				if (nthreads != 1)
+				{
+					fprintf(stderr, "threads are not supported on this platform; use -j1\n");
+					exit(1);
+				}
+#endif   /* !ENABLE_THREAD_SAFETY */
 				break;
 			case 'C':
 				benchmarking_option_set = true;
@@ -2939,7 +2940,7 @@ main(int argc, char **argv)
 				scale = atoi(optarg);
 				if (scale <= 0)
 				{
-					fprintf(stderr, "invalid scaling factor: %d\n", scale);
+					fprintf(stderr, "invalid scaling factor: \"%s\"\n", optarg);
 					exit(1);
 				}
 				break;
@@ -2947,13 +2948,14 @@ main(int argc, char **argv)
 				benchmarking_option_set = true;
 				if (duration > 0)
 				{
-					fprintf(stderr, "specify either a number of transactions (-t) or a duration (-T), not both.\n");
+					fprintf(stderr, "specify either a number of transactions (-t) or a duration (-T), not both\n");
 					exit(1);
 				}
 				nxacts = atoi(optarg);
 				if (nxacts <= 0)
 				{
-					fprintf(stderr, "invalid number of transactions: %d\n", nxacts);
+					fprintf(stderr, "invalid number of transactions: \"%s\"\n",
+							optarg);
 					exit(1);
 				}
 				break;
@@ -2961,13 +2963,13 @@ main(int argc, char **argv)
 				benchmarking_option_set = true;
 				if (nxacts > 0)
 				{
-					fprintf(stderr, "specify either a number of transactions (-t) or a duration (-T), not both.\n");
+					fprintf(stderr, "specify either a number of transactions (-t) or a duration (-T), not both\n");
 					exit(1);
 				}
 				duration = atoi(optarg);
 				if (duration <= 0)
 				{
-					fprintf(stderr, "invalid duration: %d\n", duration);
+					fprintf(stderr, "invalid duration: \"%s\"\n", optarg);
 					exit(1);
 				}
 				break;
@@ -2997,7 +2999,8 @@ main(int argc, char **argv)
 
 					if ((p = strchr(optarg, '=')) == NULL || p == optarg || *(p + 1) == '\0')
 					{
-						fprintf(stderr, "invalid variable definition: %s\n", optarg);
+						fprintf(stderr, "invalid variable definition: \"%s\"\n",
+								optarg);
 						exit(1);
 					}
 
@@ -3009,9 +3012,9 @@ main(int argc, char **argv)
 			case 'F':
 				initialization_option_set = true;
 				fillfactor = atoi(optarg);
-				if ((fillfactor < 10) || (fillfactor > 100))
+				if (fillfactor < 10 || fillfactor > 100)
 				{
-					fprintf(stderr, "invalid fillfactor: %d\n", fillfactor);
+					fprintf(stderr, "invalid fillfactor: \"%s\"\n", optarg);
 					exit(1);
 				}
 				break;
@@ -3019,7 +3022,7 @@ main(int argc, char **argv)
 				benchmarking_option_set = true;
 				if (num_files > 0)
 				{
-					fprintf(stderr, "query mode (-M) should be specified before transaction scripts (-f)\n");
+					fprintf(stderr, "query mode (-M) should be specified before any transaction scripts (-f)\n");
 					exit(1);
 				}
 				for (querymode = 0; querymode < NUM_QUERYMODE; querymode++)
@@ -3027,7 +3030,8 @@ main(int argc, char **argv)
 						break;
 				if (querymode >= NUM_QUERYMODE)
 				{
-					fprintf(stderr, "invalid query mode (-M): %s\n", optarg);
+					fprintf(stderr, "invalid query mode (-M): \"%s\"\n",
+							optarg);
 					exit(1);
 				}
 				break;
@@ -3036,8 +3040,7 @@ main(int argc, char **argv)
 				progress = atoi(optarg);
 				if (progress <= 0)
 				{
-					fprintf(stderr,
-						"thread progress delay (-P) must be positive (%s)\n",
+					fprintf(stderr, "invalid thread progress delay: \"%s\"\n",
 							optarg);
 					exit(1);
 				}
@@ -3051,7 +3054,7 @@ main(int argc, char **argv)
 
 					if (throttle_value <= 0.0)
 					{
-						fprintf(stderr, "invalid rate limit: %s\n", optarg);
+						fprintf(stderr, "invalid rate limit: \"%s\"\n", optarg);
 						exit(1);
 					}
 					/* Invert rate limit into a time offset */
@@ -3064,7 +3067,8 @@ main(int argc, char **argv)
 
 					if (limit_ms <= 0.0)
 					{
-						fprintf(stderr, "invalid latency limit: %s\n", optarg);
+						fprintf(stderr, "invalid latency limit: \"%s\"\n",
+								optarg);
 						exit(1);
 					}
 					benchmarking_option_set = true;
@@ -3089,23 +3093,28 @@ main(int argc, char **argv)
 				sample_rate = atof(optarg);
 				if (sample_rate <= 0.0 || sample_rate > 1.0)
 				{
-					fprintf(stderr, "invalid sampling rate: %f\n", sample_rate);
+					fprintf(stderr, "invalid sampling rate: \"%s\"\n", optarg);
 					exit(1);
 				}
 				break;
 			case 5:
 #ifdef WIN32
-				fprintf(stderr, "--aggregate-interval is not currently supported on Windows");
+				fprintf(stderr, "--aggregate-interval is not currently supported on Windows\n");
 				exit(1);
 #else
 				benchmarking_option_set = true;
 				agg_interval = atoi(optarg);
 				if (agg_interval <= 0)
 				{
-					fprintf(stderr, "invalid number of seconds for aggregation: %d\n", agg_interval);
+					fprintf(stderr, "invalid number of seconds for aggregation: \"%s\"\n",
+							optarg);
 					exit(1);
 				}
 #endif
+				break;
+			case 6:
+				progress_timestamp = true;
+				benchmarking_option_set = true;
 				break;
 			default:
 				fprintf(stderr, _("Try \"%s --help\" for more information.\n"), progname);
@@ -3113,6 +3122,14 @@ main(int argc, char **argv)
 				break;
 		}
 	}
+
+	/*
+	 * Don't need more threads than there are clients.  (This is not merely an
+	 * optimization; throttle_delay is calculated incorrectly below if some
+	 * threads have no clients assigned to them.)
+	 */
+	if (nthreads > nclients)
+		nthreads = nclients;
 
 	/* compute a per thread delay */
 	throttle_delay *= nthreads;
@@ -3133,7 +3150,7 @@ main(int argc, char **argv)
 	{
 		if (benchmarking_option_set)
 		{
-			fprintf(stderr, "some options cannot be used in initialization (-i) mode\n");
+			fprintf(stderr, "some of the specified options cannot be used in initialization (-i) mode\n");
 			exit(1);
 		}
 
@@ -3144,7 +3161,7 @@ main(int argc, char **argv)
 	{
 		if (initialization_option_set)
 		{
-			fprintf(stderr, "some options cannot be used in benchmarking mode\n");
+			fprintf(stderr, "some of the specified options cannot be used in benchmarking mode\n");
 			exit(1);
 		}
 	}
@@ -3153,59 +3170,37 @@ main(int argc, char **argv)
 	if (nxacts <= 0 && duration <= 0)
 		nxacts = DEFAULT_NXACTS;
 
-	if (nclients % nthreads != 0)
-	{
-		fprintf(stderr, "number of clients (%d) must be a multiple of number of threads (%d)\n", nclients, nthreads);
-		exit(1);
-	}
-
 	/* --sampling-rate may be used only with -l */
 	if (sample_rate > 0.0 && !use_log)
 	{
-		fprintf(stderr, "log sampling rate is allowed only when logging transactions (-l) \n");
+		fprintf(stderr, "log sampling (--sampling-rate) is allowed only when logging transactions (-l)\n");
 		exit(1);
 	}
 
 	/* --sampling-rate may must not be used with --aggregate-interval */
 	if (sample_rate > 0.0 && agg_interval > 0)
 	{
-		fprintf(stderr, "log sampling (--sampling-rate) and aggregation (--aggregate-interval) can't be used at the same time\n");
+		fprintf(stderr, "log sampling (--sampling-rate) and aggregation (--aggregate-interval) cannot be used at the same time\n");
 		exit(1);
 	}
 
-	if (agg_interval > 0 && (!use_log))
+	if (agg_interval > 0 && !use_log)
 	{
 		fprintf(stderr, "log aggregation is allowed only when actually logging transactions\n");
 		exit(1);
 	}
 
-	if ((duration > 0) && (agg_interval > duration))
+	if (duration > 0 && agg_interval > duration)
 	{
-		fprintf(stderr, "number of seconds for aggregation (%d) must not be higher that test duration (%d)\n", agg_interval, duration);
+		fprintf(stderr, "number of seconds for aggregation (%d) must not be higher than test duration (%d)\n", agg_interval, duration);
 		exit(1);
 	}
 
-	if ((duration > 0) && (agg_interval > 0) && (duration % agg_interval != 0))
+	if (duration > 0 && agg_interval > 0 && duration % agg_interval != 0)
 	{
 		fprintf(stderr, "duration (%d) must be a multiple of aggregation interval (%d)\n", duration, agg_interval);
 		exit(1);
 	}
-
-	/*
-	 * is_latencies only works with multiple threads in thread-based
-	 * implementations, not fork-based ones, because it supposes that the
-	 * parent can see changes made to the per-thread execution stats by child
-	 * threads.  It seems useful enough to accept despite this limitation, but
-	 * perhaps we should FIXME someday (by passing the stats data back up
-	 * through the parent-to-child pipes).
-	 */
-#ifndef ENABLE_THREAD_SAFETY
-	if (is_latencies && nthreads > 1)
-	{
-		fprintf(stderr, "-r does not work with -j larger than 1 on this platform.\n");
-		exit(1);
-	}
-#endif
 
 	/*
 	 * save main process id in the global variable because process id will be
@@ -3251,7 +3246,7 @@ main(int argc, char **argv)
 
 	if (PQstatus(con) == CONNECTION_BAD)
 	{
-		fprintf(stderr, "Connection to database '%s' failed.\n", dbName);
+		fprintf(stderr, "connection to database \"%s\" failed\n", dbName);
 		fprintf(stderr, "%s", PQerrorMessage(con));
 		exit(1);
 	}
@@ -3265,13 +3260,21 @@ main(int argc, char **argv)
 		res = PQexec(con, "select count(*) from pgbench_branches");
 		if (PQresultStatus(res) != PGRES_TUPLES_OK)
 		{
+			char	   *sqlState = PQresultErrorField(res, PG_DIAG_SQLSTATE);
+
 			fprintf(stderr, "%s", PQerrorMessage(con));
+			if (sqlState && strcmp(sqlState, ERRCODE_UNDEFINED_TABLE) == 0)
+			{
+				fprintf(stderr, "Perhaps you need to do initialization (\"pgbench -i\") in database \"%s\"\n", PQdb(con));
+			}
+
 			exit(1);
 		}
 		scale = atoi(PQgetvalue(res, 0, 0));
 		if (scale < 0)
 		{
-			fprintf(stderr, "count(*) from pgbench_branches invalid (%d)\n", scale);
+			fprintf(stderr, "invalid count(*) from pgbench_branches: \"%s\"\n",
+					PQgetvalue(res, 0, 0));
 			exit(1);
 		}
 		PQclear(res);
@@ -3279,7 +3282,7 @@ main(int argc, char **argv)
 		/* warn if we override user-given -s switch */
 		if (scale_given)
 			fprintf(stderr,
-			"Scale option ignored, using pgbench_branches table count = %d\n",
+					"scale option ignored, using count from pgbench_branches table (%d)\n",
 					scale);
 	}
 
@@ -3359,18 +3362,23 @@ main(int argc, char **argv)
 
 	/* set up thread data structures */
 	threads = (TState *) pg_malloc(sizeof(TState) * nthreads);
+	nclients_dealt = 0;
+
 	for (i = 0; i < nthreads; i++)
 	{
 		TState	   *thread = &threads[i];
 
 		thread->tid = i;
-		thread->state = &state[nclients / nthreads * i];
-		thread->nstate = nclients / nthreads;
+		thread->state = &state[nclients_dealt];
+		thread->nstate =
+			(nclients - nclients_dealt + nthreads - i - 1) / (nthreads - i);
 		thread->random_state[0] = random();
 		thread->random_state[1] = random();
 		thread->random_state[2] = random();
 		thread->throttle_latency_skipped = 0;
 		thread->latency_late = 0;
+
+		nclients_dealt += thread->nstate;
 
 		if (is_latencies)
 		{
@@ -3395,6 +3403,9 @@ main(int argc, char **argv)
 		}
 	}
 
+	/* all clients must be assigned to a thread */
+	Assert(nclients_dealt == nclients);
+
 	/* get start up time */
 	INSTR_TIME_SET_CURRENT(start_time);
 
@@ -3403,6 +3414,7 @@ main(int argc, char **argv)
 		setalarm(duration);
 
 	/* start threads */
+#ifdef ENABLE_THREAD_SAFETY
 	for (i = 0; i < nthreads; i++)
 	{
 		TState	   *thread = &threads[i];
@@ -3416,7 +3428,7 @@ main(int argc, char **argv)
 
 			if (err != 0 || thread->thread == INVALID_THREAD)
 			{
-				fprintf(stderr, "cannot create thread: %s\n", strerror(err));
+				fprintf(stderr, "could not create thread: %s\n", strerror(err));
 				exit(1);
 			}
 		}
@@ -3425,32 +3437,43 @@ main(int argc, char **argv)
 			thread->thread = INVALID_THREAD;
 		}
 	}
+#else
+	INSTR_TIME_SET_CURRENT(threads[0].start_time);
+	threads[0].thread = INVALID_THREAD;
+#endif   /* ENABLE_THREAD_SAFETY */
 
 	/* wait for threads and accumulate results */
 	INSTR_TIME_SET_ZERO(conn_total_time);
 	for (i = 0; i < nthreads; i++)
 	{
-		void	   *ret = NULL;
+		TState	   *thread = &threads[i];
+		int			j;
 
+#ifdef ENABLE_THREAD_SAFETY
 		if (threads[i].thread == INVALID_THREAD)
-			ret = threadRun(&threads[i]);
+			/* actually run this thread directly in the main thread */
+			(void) threadRun(thread);
 		else
-			pthread_join(threads[i].thread, &ret);
+			/* wait of other threads. should check that 0 is returned? */
+			pthread_join(thread->thread, NULL);
+#else
+		(void) threadRun(thread);
+#endif   /* ENABLE_THREAD_SAFETY */
 
-		if (ret != NULL)
+		/* thread level stats */
+		throttle_lag += thread->throttle_lag;
+		throttle_latency_skipped += threads->throttle_latency_skipped;
+		latency_late += thread->latency_late;
+		if (throttle_lag_max > thread->throttle_lag_max)
+			throttle_lag_max = thread->throttle_lag_max;
+		INSTR_TIME_ADD(conn_total_time, thread->conn_time);
+
+		/* client-level stats */
+		for (j = 0; j < thread->nstate; j++)
 		{
-			TResult    *r = (TResult *) ret;
-
-			total_xacts += r->xacts;
-			total_latencies += r->latencies;
-			total_sqlats += r->sqlats;
-			throttle_lag += r->throttle_lag;
-			throttle_latency_skipped += r->throttle_latency_skipped;
-			latency_late += r->latency_late;
-			if (r->throttle_lag_max > throttle_lag_max)
-				throttle_lag_max = r->throttle_lag_max;
-			INSTR_TIME_ADD(conn_total_time, r->conn_time);
-			free(ret);
+			total_xacts += thread->state[j].cnt;
+			total_latencies += thread->state[j].txn_latencies;
+			total_sqlats += thread->state[j].txn_sqlats;
 		}
 	}
 	disconnect_all(state, nclients);
@@ -3480,7 +3503,6 @@ threadRun(void *arg)
 {
 	TState	   *thread = (TState *) arg;
 	CState	   *state = thread->state;
-	TResult    *result;
 	FILE	   *logfile = NULL; /* per-thread log file */
 	instr_time	start,
 				end;
@@ -3511,9 +3533,7 @@ threadRun(void *arg)
 	thread->throttle_lag = 0;
 	thread->throttle_lag_max = 0;
 
-	result = pg_malloc(sizeof(TResult));
-
-	INSTR_TIME_SET_ZERO(result->conn_time);
+	INSTR_TIME_SET_ZERO(thread->conn_time);
 
 	/* open log file if requested */
 	if (use_log)
@@ -3528,7 +3548,8 @@ threadRun(void *arg)
 
 		if (logfile == NULL)
 		{
-			fprintf(stderr, "Couldn't open logfile \"%s\": %s", logpath, strerror(errno));
+			fprintf(stderr, "could not open logfile \"%s\": %s\n",
+					logpath, strerror(errno));
 			goto done;
 		}
 	}
@@ -3544,8 +3565,8 @@ threadRun(void *arg)
 	}
 
 	/* time after thread and connections set up */
-	INSTR_TIME_SET_CURRENT(result->conn_time);
-	INSTR_TIME_SUBTRACT(result->conn_time, thread->start_time);
+	INSTR_TIME_SET_CURRENT(thread->conn_time);
+	INSTR_TIME_SUBTRACT(thread->conn_time, thread->start_time);
 
 	agg_vals_init(&aggs, thread->start_time);
 
@@ -3557,12 +3578,13 @@ threadRun(void *arg)
 		int			prev_ecnt = st->ecnt;
 
 		st->use_file = getrand(thread, 0, num_files - 1);
-		if (!doCustom(thread, st, &result->conn_time, logfile, &aggs))
+		if (!doCustom(thread, st, &thread->conn_time, logfile, &aggs))
 			remains--;			/* I've aborted */
 
 		if (st->ecnt > prev_ecnt && commands[st->state]->type == META_COMMAND)
 		{
-			fprintf(stderr, "Client %d aborted in state %d. Execution meta-command failed.\n", i, st->state);
+			fprintf(stderr, "client %d aborted in state %d; execution of meta-command failed\n",
+					i, st->state);
 			remains--;			/* I've aborted */
 			PQfinish(st->con);
 			st->con = NULL;
@@ -3638,6 +3660,29 @@ threadRun(void *arg)
 				maxsock = sock;
 		}
 
+		/* also wake up to print the next progress report on time */
+		if (progress && min_usec > 0 && thread->tid == 0)
+		{
+			/* get current time if needed */
+			if (now_usec == 0)
+			{
+				instr_time	now;
+
+				INSTR_TIME_SET_CURRENT(now);
+				now_usec = INSTR_TIME_GET_MICROSEC(now);
+			}
+
+			if (now_usec >= next_report)
+				min_usec = 0;
+			else if ((next_report - now_usec) < min_usec)
+				min_usec = next_report - now_usec;
+		}
+
+		/*
+		 * Sleep until we receive data from the server, or a nap-time
+		 * specified in the script ends, or it's time to print a progress
+		 * report.
+		 */
 		if (min_usec > 0 && maxsock != -1)
 		{
 			int			nsocks; /* return from select(2) */
@@ -3657,7 +3702,7 @@ threadRun(void *arg)
 				if (errno == EINTR)
 					continue;
 				/* must be something wrong */
-				fprintf(stderr, "select failed: %s\n", strerror(errno));
+				fprintf(stderr, "select() failed: %s\n", strerror(errno));
 				goto done;
 			}
 		}
@@ -3672,81 +3717,20 @@ threadRun(void *arg)
 			if (st->con && (FD_ISSET(PQsocket(st->con), &input_mask)
 							|| commands[st->state]->type == META_COMMAND))
 			{
-				if (!doCustom(thread, st, &result->conn_time, logfile, &aggs))
+				if (!doCustom(thread, st, &thread->conn_time, logfile, &aggs))
 					remains--;	/* I've aborted */
 			}
 
 			if (st->ecnt > prev_ecnt && commands[st->state]->type == META_COMMAND)
 			{
-				fprintf(stderr, "Client %d aborted in state %d. Execution of meta-command failed.\n", i, st->state);
+				fprintf(stderr, "client %d aborted in state %d; execution of meta-command failed\n",
+						i, st->state);
 				remains--;		/* I've aborted */
 				PQfinish(st->con);
 				st->con = NULL;
 			}
 		}
 
-#ifdef PTHREAD_FORK_EMULATION
-		/* each process reports its own progression */
-		if (progress)
-		{
-			instr_time	now_time;
-			int64		now;
-
-			INSTR_TIME_SET_CURRENT(now_time);
-			now = INSTR_TIME_GET_MICROSEC(now_time);
-			if (now >= next_report)
-			{
-				/* generate and show report */
-				int64		count = 0,
-							lats = 0,
-							sqlats = 0,
-							skipped = 0;
-				int64		lags = thread->throttle_lag;
-				int64		run = now - last_report;
-				double		tps,
-							total_run,
-							latency,
-							sqlat,
-							stdev,
-							lag;
-
-				for (i = 0; i < nstate; i++)
-				{
-					count += state[i].cnt;
-					lats += state[i].txn_latencies;
-					sqlats += state[i].txn_sqlats;
-				}
-
-				total_run = (now - thread_start) / 1000000.0;
-				tps = 1000000.0 * (count - last_count) / run;
-				latency = 0.001 * (lats - last_lats) / (count - last_count);
-				sqlat = 1.0 * (sqlats - last_sqlats) / (count - last_count);
-				stdev = 0.001 * sqrt(sqlat - 1000000.0 * latency * latency);
-				lag = 0.001 * (lags - last_lags) / (count - last_count);
-				skipped = thread->throttle_latency_skipped - last_skipped;
-
-				fprintf(stderr,
-						"progress %d: %.1f s, %.1f tps, "
-						"lat %.3f ms stddev %.3f",
-						thread->tid, total_run, tps, latency, stdev);
-				if (throttle_delay)
-				{
-					fprintf(stderr, ", lag %.3f ms", lag);
-					if (latency_limit)
-						fprintf(stderr, ", skipped " INT64_FORMAT, skipped);
-				}
-				fprintf(stderr, "\n");
-
-				last_count = count;
-				last_lats = lats;
-				last_sqlats = sqlats;
-				last_lags = lags;
-				last_report = now;
-				last_skipped = thread->throttle_latency_skipped;
-				next_report += (int64) progress *1000000;
-			}
-		}
-#else
 		/* progress report by thread 0 for all threads */
 		if (progress && thread->tid == 0)
 		{
@@ -3770,7 +3754,19 @@ threadRun(void *arg)
 							sqlat,
 							lag,
 							stdev;
+				char		tbuf[64];
 
+				/*
+				 * Add up the statistics of all threads.
+				 *
+				 * XXX: No locking. There is no guarantee that we get an
+				 * atomic snapshot of the transaction count and latencies, so
+				 * these figures can well be off by a small amount. The
+				 * progress is report's purpose is to give a quick overview of
+				 * how the test is going, so that shouldn't matter too much.
+				 * (If a read from a 64-bit integer is not atomic, you might
+				 * get a "torn" read and completely bogus latencies though!)
+				 */
 				for (i = 0; i < progress_nclients; i++)
 				{
 					count += state[i].cnt;
@@ -3779,7 +3775,10 @@ threadRun(void *arg)
 				}
 
 				for (i = 0; i < progress_nthreads; i++)
+				{
+					skipped += thread[i].throttle_latency_skipped;
 					lags += thread[i].throttle_lag;
+				}
 
 				total_run = (now - thread_start) / 1000000.0;
 				tps = 1000000.0 * (count - last_count) / run;
@@ -3787,17 +3786,23 @@ threadRun(void *arg)
 				sqlat = 1.0 * (sqlats - last_sqlats) / (count - last_count);
 				stdev = 0.001 * sqrt(sqlat - 1000000.0 * latency * latency);
 				lag = 0.001 * (lags - last_lags) / (count - last_count);
-				skipped = thread->throttle_latency_skipped - last_skipped;
+
+				if (progress_timestamp)
+					sprintf(tbuf, "%.03f s",
+							INSTR_TIME_GET_MILLISEC(now_time) / 1000.0);
+				else
+					sprintf(tbuf, "%.1f s", total_run);
 
 				fprintf(stderr,
-						"progress: %.1f s, %.1f tps, "
-						"lat %.3f ms stddev %.3f",
-						total_run, tps, latency, stdev);
+						"progress: %s, %.1f tps, lat %.3f ms stddev %.3f",
+						tbuf, tps, latency, stdev);
+
 				if (throttle_delay)
 				{
 					fprintf(stderr, ", lag %.3f ms", lag);
 					if (latency_limit)
-						fprintf(stderr, ", " INT64_FORMAT " skipped", skipped);
+						fprintf(stderr, ", " INT64_FORMAT " skipped",
+								skipped - last_skipped);
 				}
 				fprintf(stderr, "\n");
 
@@ -3806,35 +3811,28 @@ threadRun(void *arg)
 				last_sqlats = sqlats;
 				last_lags = lags;
 				last_report = now;
-				last_skipped = thread->throttle_latency_skipped;
-				next_report += (int64) progress *1000000;
+				last_skipped = skipped;
+
+				/*
+				 * Ensure that the next report is in the future, in case
+				 * pgbench/postgres got stuck somewhere.
+				 */
+				do
+				{
+					next_report += (int64) progress *1000000;
+				} while (now >= next_report);
 			}
 		}
-#endif   /* PTHREAD_FORK_EMULATION */
 	}
 
 done:
 	INSTR_TIME_SET_CURRENT(start);
 	disconnect_all(state, nstate);
-	result->xacts = 0;
-	result->latencies = 0;
-	result->sqlats = 0;
-	for (i = 0; i < nstate; i++)
-	{
-		result->xacts += state[i].cnt;
-		result->latencies += state[i].txn_latencies;
-		result->sqlats += state[i].txn_sqlats;
-	}
-	result->throttle_lag = thread->throttle_lag;
-	result->throttle_lag_max = thread->throttle_lag_max;
-	result->throttle_latency_skipped = thread->throttle_latency_skipped;
-	result->latency_late = thread->latency_late;
-
 	INSTR_TIME_SET_CURRENT(end);
-	INSTR_TIME_ACCUM_DIFF(result->conn_time, end, start);
+	INSTR_TIME_ACCUM_DIFF(thread->conn_time, end, start);
 	if (logfile)
 		fclose(logfile);
-	return result;
+	return NULL;
 }
 
 /*
@@ -3856,90 +3854,6 @@ setalarm(int seconds)
 	alarm(seconds);
 }
 
-#ifndef ENABLE_THREAD_SAFETY
-
-/*
- * implements pthread using fork.
- */
-
-typedef struct fork_pthread
-{
-	pid_t		pid;
-	int			pipes[2];
-}	fork_pthread;
-
-static int
-pthread_create(pthread_t *thread,
-			   pthread_attr_t *attr,
-			   void *(*start_routine) (void *),
-			   void *arg)
-{
-	fork_pthread *th;
-	void	   *ret;
-	int			rc;
-
-	th = (fork_pthread *) pg_malloc(sizeof(fork_pthread));
-	if (pipe(th->pipes) < 0)
-	{
-		free(th);
-		return errno;
-	}
-
-	th->pid = fork();
-	if (th->pid == -1)			/* error */
-	{
-		free(th);
-		return errno;
-	}
-	if (th->pid != 0)			/* in parent process */
-	{
-		close(th->pipes[1]);
-		*thread = th;
-		return 0;
-	}
-
-	/* in child process */
-	close(th->pipes[0]);
-
-	/* set alarm again because the child does not inherit timers */
-	if (duration > 0)
-		setalarm(duration);
-
-	ret = start_routine(arg);
-	rc = write(th->pipes[1], ret, sizeof(TResult));
-	(void) rc;
-	close(th->pipes[1]);
-	free(th);
-	exit(0);
-}
-
-static int
-pthread_join(pthread_t th, void **thread_return)
-{
-	int			status;
-
-	while (waitpid(th->pid, &status, 0) != th->pid)
-	{
-		if (errno != EINTR)
-			return errno;
-	}
-
-	if (thread_return != NULL)
-	{
-		/* assume result is TResult */
-		*thread_return = pg_malloc(sizeof(TResult));
-		if (read(th->pipes[0], *thread_return, sizeof(TResult)) != sizeof(TResult))
-		{
-			free(*thread_return);
-			*thread_return = NULL;
-		}
-	}
-	close(th->pipes[0]);
-
-	free(th);
-	return 0;
-}
-#endif
 #else							/* WIN32 */
 
 static VOID CALLBACK
@@ -3961,7 +3875,7 @@ setalarm(int seconds)
 							   win32_timer_callback, NULL, seconds * 1000, 0,
 							   WT_EXECUTEINTIMERTHREAD | WT_EXECUTEONLYONCE))
 	{
-		fprintf(stderr, "Failed to set timer\n");
+		fprintf(stderr, "failed to set timer\n");
 		exit(1);
 	}
 }

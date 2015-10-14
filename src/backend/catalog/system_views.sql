@@ -150,7 +150,7 @@ CREATE VIEW pg_indexes AS
          LEFT JOIN pg_tablespace T ON (T.oid = I.reltablespace)
     WHERE C.relkind IN ('r', 'm') AND I.relkind = 'i';
 
-CREATE VIEW pg_stats AS
+CREATE VIEW pg_stats WITH (security_barrier) AS
     SELECT
         nspname AS schemaname,
         relname AS tablename,
@@ -211,7 +211,9 @@ CREATE VIEW pg_stats AS
     FROM pg_statistic s JOIN pg_class c ON (c.oid = s.starelid)
          JOIN pg_attribute a ON (c.oid = attrelid AND attnum = s.staattnum)
          LEFT JOIN pg_namespace n ON (n.oid = c.relnamespace)
-    WHERE NOT attisdropped AND has_column_privilege(c.oid, a.attnum, 'select');
+    WHERE NOT attisdropped
+    AND has_column_privilege(c.oid, a.attnum, 'select')
+    AND (c.relrowsecurity = false OR NOT row_security_active(c.oid));
 
 REVOKE ALL on pg_statistic FROM public;
 
@@ -674,7 +676,8 @@ CREATE VIEW pg_replication_slots AS
             L.active_pid,
             L.xmin,
             L.catalog_xmin,
-            L.restart_lsn
+            L.restart_lsn,
+            L.confirmed_flush_lsn
     FROM pg_get_replication_slots() AS L
             LEFT JOIN pg_database D ON (L.datoid = D.oid);
 
@@ -913,6 +916,13 @@ RETURNS SETOF RECORD
 LANGUAGE INTERNAL
 VOLATILE ROWS 1000 COST 1000
 AS 'pg_logical_slot_peek_binary_changes';
+
+CREATE OR REPLACE FUNCTION pg_create_physical_replication_slot(
+    IN slot_name name, IN immediately_reserve boolean DEFAULT false,
+    OUT slot_name name, OUT xlog_position pg_lsn)
+RETURNS RECORD
+LANGUAGE INTERNAL
+AS 'pg_create_physical_replication_slot';
 
 CREATE OR REPLACE FUNCTION
   make_interval(years int4 DEFAULT 0, months int4 DEFAULT 0, weeks int4 DEFAULT 0,

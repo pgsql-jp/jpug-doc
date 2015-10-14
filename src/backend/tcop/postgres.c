@@ -1030,7 +1030,8 @@ exec_simple_query(const char *query_string)
 		querytree_list = pg_analyze_and_rewrite(parsetree, query_string,
 												NULL, 0);
 
-		plantree_list = pg_plan_queries(querytree_list, 0, NULL);
+		plantree_list = pg_plan_queries(querytree_list,
+										CURSOR_OPT_PARALLEL_OK, NULL);
 
 		/* Done with the snapshot used for parsing/planning */
 		if (snapshot_set)
@@ -2824,9 +2825,7 @@ RecoveryConflictInterrupt(ProcSignalReason reason)
 	/*
 	 * Set the process latch. This function essentially emulates signal
 	 * handlers like die() and StatementCancelHandler() and it seems prudent
-	 * to behave similarly as they do. Alternatively all plain backend code
-	 * waiting on that latch, expecting to get interrupted by query cancels et
-	 * al., would also need to set set_latch_on_sigusr1.
+	 * to behave similarly as they do.
 	 */
 	SetLatch(MyLatch);
 
@@ -2997,33 +2996,35 @@ ProcessInterrupts(void)
 /*
  * IA64-specific code to fetch the AR.BSP register for stack depth checks.
  *
- * We currently support gcc, icc, and HP-UX inline assembly here.
+ * We currently support gcc, icc, and HP-UX's native compiler here.
+ *
+ * Note: while icc accepts gcc asm blocks on x86[_64], this is not true on
+ * ia64 (at least not in icc versions before 12.x).  So we have to carry a
+ * separate implementation for it.
  */
 #if defined(__ia64__) || defined(__ia64)
 
-#if defined(__hpux) && !defined(__GNUC__) && !defined __INTEL_COMPILER
+#if defined(__hpux) && !defined(__GNUC__) && !defined(__INTEL_COMPILER)
+/* Assume it's HP-UX native compiler */
 #include <ia64/sys/inline.h>
 #define ia64_get_bsp() ((char *) (_Asm_mov_from_ar(_AREG_BSP, _NO_FENCE)))
-#else
-
-#ifdef __INTEL_COMPILER
+#elif defined(__INTEL_COMPILER)
+/* icc */
 #include <asm/ia64regs.h>
-#endif
-
+#define ia64_get_bsp() ((char *) __getReg(_IA64_REG_AR_BSP))
+#else
+/* gcc */
 static __inline__ char *
 ia64_get_bsp(void)
 {
 	char	   *ret;
 
-#ifndef __INTEL_COMPILER
 	/* the ;; is a "stop", seems to be required before fetching BSP */
 	__asm__		__volatile__(
 										 ";;\n"
 										 "	mov	%0=ar.bsp	\n"
 							 :			 "=r"(ret));
-#else
-	ret = (char *) __getReg(_IA64_REG_AR_BSP);
-#endif
+
 	return ret;
 }
 #endif
@@ -3078,15 +3079,32 @@ restore_stack_base(pg_stack_base_t base)
 }
 
 /*
- * check_stack_depth: check for excessively deep recursion
+ * check_stack_depth/stack_is_too_deep: check for excessively deep recursion
  *
  * This should be called someplace in any recursive routine that might possibly
  * recurse deep enough to overflow the stack.  Most Unixen treat stack
  * overflow as an unrecoverable SIGSEGV, so we want to error out ourselves
  * before hitting the hardware limit.
+ *
+ * check_stack_depth() just throws an error summarily.  stack_is_too_deep()
+ * can be used by code that wants to handle the error condition itself.
  */
 void
 check_stack_depth(void)
+{
+	if (stack_is_too_deep())
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_STATEMENT_TOO_COMPLEX),
+				 errmsg("stack depth limit exceeded"),
+				 errhint("Increase the configuration parameter \"max_stack_depth\" (currently %dkB), "
+			  "after ensuring the platform's stack depth limit is adequate.",
+						 max_stack_depth)));
+	}
+}
+
+bool
+stack_is_too_deep(void)
 {
 	char		stack_top_loc;
 	long		stack_depth;
@@ -3112,14 +3130,7 @@ check_stack_depth(void)
 	 */
 	if (stack_depth > max_stack_depth_bytes &&
 		stack_base_ptr != NULL)
-	{
-		ereport(ERROR,
-				(errcode(ERRCODE_STATEMENT_TOO_COMPLEX),
-				 errmsg("stack depth limit exceeded"),
-				 errhint("Increase the configuration parameter \"max_stack_depth\" (currently %dkB), "
-			  "after ensuring the platform's stack depth limit is adequate.",
-						 max_stack_depth)));
-	}
+		return true;
 
 	/*
 	 * On IA64 there is a separate "register" stack that requires its own
@@ -3134,15 +3145,10 @@ check_stack_depth(void)
 
 	if (stack_depth > max_stack_depth_bytes &&
 		register_stack_base_ptr != NULL)
-	{
-		ereport(ERROR,
-				(errcode(ERRCODE_STATEMENT_TOO_COMPLEX),
-				 errmsg("stack depth limit exceeded"),
-				 errhint("Increase the configuration parameter \"max_stack_depth\" (currently %dkB), "
-			  "after ensuring the platform's stack depth limit is adequate.",
-						 max_stack_depth)));
-	}
+		return true;
 #endif   /* IA64 */
+
+	return false;
 }
 
 /* GUC check hook for max_stack_depth */

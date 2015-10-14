@@ -16,9 +16,12 @@
 
 #include "access/htup.h"
 #include "access/htup_details.h"
+#include "access/transam.h"
 #include "catalog/pg_class.h"
+#include "catalog/namespace.h"
 #include "miscadmin.h"
 #include "utils/acl.h"
+#include "utils/builtins.h"
 #include "utils/elog.h"
 #include "utils/rls.h"
 #include "utils/syscache.h"
@@ -37,7 +40,8 @@ extern int	check_enable_rls(Oid relid, Oid checkAsUser, bool noError);
  * for the table and the plan cache needs to be invalidated if the environment
  * changes.
  *
- * Handle checking as another role via checkAsUser (for views, etc).
+ * Handle checking as another role via checkAsUser (for views, etc).  Pass
+ * InvalidOid to check the current user.
  *
  * If noError is set to 'true' then we just return RLS_ENABLED instead of doing
  * an ereport() if the user has attempted to bypass RLS and they are not
@@ -51,7 +55,12 @@ check_enable_rls(Oid relid, Oid checkAsUser, bool noError)
 	HeapTuple	tuple;
 	Form_pg_class classform;
 	bool		relrowsecurity;
+	bool		relforcerowsecurity;
 	Oid			user_id = checkAsUser ? checkAsUser : GetUserId();
+
+	/* Nothing to do for built-in relations */
+	if (relid < FirstNormalObjectId)
+		return RLS_NONE;
 
 	tuple = SearchSysCache1(RELOID, ObjectIdGetDatum(relid));
 	if (!HeapTupleIsValid(tuple))
@@ -60,6 +69,7 @@ check_enable_rls(Oid relid, Oid checkAsUser, bool noError)
 	classform = (Form_pg_class) GETSTRUCT(tuple);
 
 	relrowsecurity = classform->relrowsecurity;
+	relforcerowsecurity = classform->relforcerowsecurity;
 
 	ReleaseSysCache(tuple);
 
@@ -68,46 +78,86 @@ check_enable_rls(Oid relid, Oid checkAsUser, bool noError)
 		return RLS_NONE;
 
 	/*
-	 * Check permissions
-	 *
-	 * If the relation has row level security enabled and the row_security GUC
-	 * is off, then check if the user has rights to bypass RLS for this
-	 * relation.  Table owners can always bypass, as can any role with the
-	 * BYPASSRLS capability.
-	 *
-	 * If the role is the table owner, then we bypass RLS unless row_security
-	 * is set to 'force'.  Note that superuser is always considered an owner.
+	 * BYPASSRLS users always bypass RLS.  Note that superusers are always
+	 * considered to have BYPASSRLS.
 	 *
 	 * Return RLS_NONE_ENV to indicate that this decision depends on the
-	 * environment (in this case, what the current values of user_id and
-	 * row_security are).
+	 * environment (in this case, the user_id).
 	 */
-	if (row_security != ROW_SECURITY_FORCE
-		&& (pg_class_ownercheck(relid, user_id)))
+	if (has_bypassrls_privilege(user_id))
 		return RLS_NONE_ENV;
 
 	/*
-	 * If the row_security GUC is 'off' then check if the user has permission
-	 * to bypass it.  Note that we have already handled the case where the
-	 * user is the table owner above.
+	 * Table owners generally bypass RLS, except if row_security=true and the
+	 * table has been set (by an owner) to FORCE ROW SECURITY, and this is not
+	 * a referential integrity check.
 	 *
-	 * Note that row_security is always considered 'on' when querying through
-	 * a view or other cases where checkAsUser is true, so skip this if
-	 * checkAsUser is in use.
+	 * Return RLS_NONE_ENV to indicate that this decision depends on the
+	 * environment (in this case, the user_id).
 	 */
-	if (!checkAsUser && row_security == ROW_SECURITY_OFF)
+	if (pg_class_ownercheck(relid, user_id))
 	{
-		if (has_bypassrls_privilege(user_id))
-			/* OK to bypass */
-			return RLS_NONE_ENV;
-		else if (noError)
+		/*
+		 * If row_security=true and FORCE ROW LEVEL SECURITY has been set on
+		 * the relation then we return RLS_ENABLED to indicate that RLS should
+		 * still be applied.  If we are in a SECURITY_NOFORCE_RLS context or if
+		 * row_security=false then we return RLS_NONE_ENV.
+		 *
+		 * The SECURITY_NOFORCE_RLS indicates that we should not apply RLS even
+		 * if the table has FORCE RLS set- IF the current user is the owner.
+		 * This is specifically to ensure that referential integrity checks are
+		 * able to still run correctly.
+		 *
+		 * This is intentionally only done after we have checked that the user
+		 * is the table owner, which should always be the case for referential
+		 * integrity checks.
+		 */
+		if (row_security && relforcerowsecurity && !InNoForceRLSOperation())
 			return RLS_ENABLED;
 		else
-			ereport(ERROR,
-					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
-				  errmsg("insufficient privilege to bypass row security.")));
+			return RLS_NONE_ENV;
 	}
+
+	/* row_security GUC says to bypass RLS, but user lacks permission */
+	if (!row_security && !noError)
+		ereport(ERROR,
+				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+				 errmsg("insufficient privilege to bypass row security.")));
 
 	/* RLS should be fully enabled for this relation. */
 	return RLS_ENABLED;
+}
+
+/*
+ * row_security_active
+ *
+ * check_enable_rls wrapped as a SQL callable function except
+ * RLS_NONE_ENV and RLS_NONE are the same for this purpose.
+ */
+Datum
+row_security_active(PG_FUNCTION_ARGS)
+{
+	/* By OID */
+	Oid			tableoid = PG_GETARG_OID(0);
+	int			rls_status;
+
+	rls_status = check_enable_rls(tableoid, InvalidOid, true);
+	PG_RETURN_BOOL(rls_status == RLS_ENABLED);
+}
+
+Datum
+row_security_active_name(PG_FUNCTION_ARGS)
+{
+	/* By qualified name */
+	text	   *tablename = PG_GETARG_TEXT_P(0);
+	RangeVar   *tablerel;
+	Oid			tableoid;
+	int			rls_status;
+
+	/* Look up table name.  Can't lock it - we might not have privileges. */
+	tablerel = makeRangeVarFromNameList(textToQualifiedNameList(tablename));
+	tableoid = RangeVarGetRelid(tablerel, NoLock, false);
+
+	rls_status = check_enable_rls(tableoid, InvalidOid, true);
+	PG_RETURN_BOOL(rls_status == RLS_ENABLED);
 }

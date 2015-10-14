@@ -42,9 +42,9 @@
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "replication/logical.h"
-#include "replication/walsender.h"
-#include "replication/syncrep.h"
 #include "replication/origin.h"
+#include "replication/syncrep.h"
+#include "replication/walsender.h"
 #include "storage/fd.h"
 #include "storage/lmgr.h"
 #include "storage/predicate.h"
@@ -83,7 +83,7 @@ int			synchronous_commit = SYNCHRONOUS_COMMIT_ON;
  * When running as a parallel worker, we place only a single
  * TransactionStateData on the parallel worker's state stack, and the XID
  * reflected there will be that of the *innermost* currently-active
- * subtransaction in the backend that initiated paralllelism.  However,
+ * subtransaction in the backend that initiated parallelism.  However,
  * GetTopTransactionId() and TransactionIdIsCurrentTransactionId()
  * need to return the same answers in the parallel worker as they would have
  * in the user backend, so we need some additional bookkeeping.
@@ -1119,6 +1119,8 @@ AtSubStart_ResourceOwner(void)
  *
  * Returns latest XID among xact and its children, or InvalidTransactionId
  * if the xact has no XID.  (We compute that here just because it's easier.)
+ *
+ * If you change this function, see RecordTransactionCommitPrepared also.
  */
 static TransactionId
 RecordTransactionCommit(void)
@@ -1172,6 +1174,15 @@ RecordTransactionCommit(void)
 	}
 	else
 	{
+		bool		replorigin;
+
+		/*
+		 * Are we using the replication origins feature?  Or, in other words,
+		 * are we replaying remote actions?
+		 */
+		replorigin = (replorigin_session_origin != InvalidRepOriginId &&
+					  replorigin_session_origin != DoNotReplicateId);
+
 		/*
 		 * Begin commit critical section and insert the commit XLOG record.
 		 */
@@ -1206,26 +1217,27 @@ RecordTransactionCommit(void)
 							RelcacheInitFileInval, forceSyncCommit,
 							InvalidTransactionId /* plain commit */ );
 
-		/*
-		 * Record plain commit ts if not replaying remote actions, or if no
-		 * timestamp is configured.
-		 */
-		if (replorigin_sesssion_origin == InvalidRepOriginId ||
-			replorigin_sesssion_origin == DoNotReplicateId ||
-			replorigin_sesssion_origin_timestamp == 0)
-			replorigin_sesssion_origin_timestamp = xactStopTimestamp;
-		else
-			replorigin_session_advance(replorigin_sesssion_origin_lsn,
+		if (replorigin)
+			/* Move LSNs forward for this replication origin */
+			replorigin_session_advance(replorigin_session_origin_lsn,
 									   XactLastRecEnd);
 
 		/*
-		 * We don't need to WAL log origin or timestamp here, the commit
-		 * record contains all the necessary information and will redo the SET
-		 * action during replay.
+		 * Record commit timestamp.  The value comes from plain commit
+		 * timestamp if there's no replication origin; otherwise, the
+		 * timestamp was already set in replorigin_session_origin_timestamp by
+		 * replication.
+		 *
+		 * We don't need to WAL-log anything here, as the commit record
+		 * written above already contains the data.
 		 */
+
+		if (!replorigin || replorigin_session_origin_timestamp == 0)
+			replorigin_session_origin_timestamp = xactStopTimestamp;
+
 		TransactionTreeSetCommitTsData(xid, nchildren, children,
-									   replorigin_sesssion_origin_timestamp,
-									   replorigin_sesssion_origin, false);
+									   replorigin_session_origin_timestamp,
+									   replorigin_session_origin, false);
 	}
 
 	/*
@@ -4585,6 +4597,7 @@ AbortSubTransaction(void)
 		AfterTriggerEndSubXact(false);
 		AtSubAbort_Portals(s->subTransactionId,
 						   s->parent->subTransactionId,
+						   s->curTransactionOwner,
 						   s->parent->curTransactionOwner);
 		AtEOSubXact_LargeObject(false, s->subTransactionId,
 								s->parent->subTransactionId);
@@ -5133,12 +5146,12 @@ XactLogCommitRecord(TimestampTz commit_time,
 	}
 
 	/* dump transaction origin information */
-	if (replorigin_sesssion_origin != InvalidRepOriginId)
+	if (replorigin_session_origin != InvalidRepOriginId)
 	{
 		xl_xinfo.xinfo |= XACT_XINFO_HAS_ORIGIN;
 
-		xl_origin.origin_lsn = replorigin_sesssion_origin_lsn;
-		xl_origin.origin_timestamp = replorigin_sesssion_origin_timestamp;
+		xl_origin.origin_lsn = replorigin_session_origin_lsn;
+		xl_origin.origin_timestamp = replorigin_session_origin_timestamp;
 	}
 
 	if (xl_xinfo.xinfo != 0)
@@ -5319,8 +5332,7 @@ xact_redo_commit(xl_xact_parsed_commit *parsed,
 
 	/* Set the transaction commit timestamp and metadata */
 	TransactionTreeSetCommitTsData(xid, parsed->nsubxacts, parsed->subxacts,
-								   commit_time, origin_id,
-								   false);
+								   commit_time, origin_id, false);
 
 	if (standbyState == STANDBY_DISABLED)
 	{

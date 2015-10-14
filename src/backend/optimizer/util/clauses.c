@@ -96,6 +96,7 @@ static bool contain_subplans_walker(Node *node, void *context);
 static bool contain_mutable_functions_walker(Node *node, void *context);
 static bool contain_volatile_functions_walker(Node *node, void *context);
 static bool contain_volatile_functions_not_nextval_walker(Node *node, void *context);
+static bool contain_parallel_unsafe_walker(Node *node, void *context);
 static bool contain_nonstrict_functions_walker(Node *node, void *context);
 static bool contain_leaked_vars_walker(Node *node, void *context);
 static Relids find_nonnullable_rels_walker(Node *node, bool top_level);
@@ -390,7 +391,7 @@ make_ands_implicit(Expr *clause)
 
 /*
  * contain_agg_clause
- *	  Recursively search for Aggref nodes within a clause.
+ *	  Recursively search for Aggref/GroupingFunc nodes within a clause.
  *
  *	  Returns true if any aggregate found.
  *
@@ -415,6 +416,11 @@ contain_agg_clause_walker(Node *node, void *context)
 	if (IsA(node, Aggref))
 	{
 		Assert(((Aggref *) node)->agglevelsup == 0);
+		return true;			/* abort the tree traversal and return true */
+	}
+	if (IsA(node, GroupingFunc))
+	{
+		Assert(((GroupingFunc *) node)->agglevelsup == 0);
 		return true;			/* abort the tree traversal and return true */
 	}
 	Assert(!IsA(node, SubLink));
@@ -1194,6 +1200,123 @@ contain_volatile_functions_not_nextval_walker(Node *node, void *context)
 }
 
 /*****************************************************************************
+ *		Check queries for parallel-unsafe constructs
+ *****************************************************************************/
+
+bool
+contain_parallel_unsafe(Node *node)
+{
+	return contain_parallel_unsafe_walker(node, NULL);
+}
+
+static bool
+contain_parallel_unsafe_walker(Node *node, void *context)
+{
+	if (node == NULL)
+		return false;
+	if (IsA(node, FuncExpr))
+	{
+		FuncExpr   *expr = (FuncExpr *) node;
+
+		if (func_parallel(expr->funcid) == PROPARALLEL_UNSAFE)
+			return true;
+		/* else fall through to check args */
+	}
+	else if (IsA(node, OpExpr))
+	{
+		OpExpr	   *expr = (OpExpr *) node;
+
+		set_opfuncid(expr);
+		if (func_parallel(expr->opfuncid) == PROPARALLEL_UNSAFE)
+			return true;
+		/* else fall through to check args */
+	}
+	else if (IsA(node, DistinctExpr))
+	{
+		DistinctExpr *expr = (DistinctExpr *) node;
+
+		set_opfuncid((OpExpr *) expr);	/* rely on struct equivalence */
+		if (func_parallel(expr->opfuncid) == PROPARALLEL_UNSAFE)
+			return true;
+		/* else fall through to check args */
+	}
+	else if (IsA(node, NullIfExpr))
+	{
+		NullIfExpr *expr = (NullIfExpr *) node;
+
+		set_opfuncid((OpExpr *) expr);	/* rely on struct equivalence */
+		if (func_parallel(expr->opfuncid) == PROPARALLEL_UNSAFE)
+			return true;
+		/* else fall through to check args */
+	}
+	else if (IsA(node, ScalarArrayOpExpr))
+	{
+		ScalarArrayOpExpr *expr = (ScalarArrayOpExpr *) node;
+
+		set_sa_opfuncid(expr);
+		if (func_parallel(expr->opfuncid) == PROPARALLEL_UNSAFE)
+			return true;
+		/* else fall through to check args */
+	}
+	else if (IsA(node, CoerceViaIO))
+	{
+		CoerceViaIO *expr = (CoerceViaIO *) node;
+		Oid			iofunc;
+		Oid			typioparam;
+		bool		typisvarlena;
+
+		/* check the result type's input function */
+		getTypeInputInfo(expr->resulttype,
+						 &iofunc, &typioparam);
+		if (func_parallel(iofunc) == PROPARALLEL_UNSAFE)
+			return true;
+		/* check the input type's output function */
+		getTypeOutputInfo(exprType((Node *) expr->arg),
+						  &iofunc, &typisvarlena);
+		if (func_parallel(iofunc) == PROPARALLEL_UNSAFE)
+			return true;
+		/* else fall through to check args */
+	}
+	else if (IsA(node, ArrayCoerceExpr))
+	{
+		ArrayCoerceExpr *expr = (ArrayCoerceExpr *) node;
+
+		if (OidIsValid(expr->elemfuncid) &&
+			func_parallel(expr->elemfuncid) == PROPARALLEL_UNSAFE)
+			return true;
+		/* else fall through to check args */
+	}
+	else if (IsA(node, RowCompareExpr))
+	{
+		/* RowCompare probably can't have volatile ops, but check anyway */
+		RowCompareExpr *rcexpr = (RowCompareExpr *) node;
+		ListCell   *opid;
+
+		foreach(opid, rcexpr->opnos)
+		{
+			if (op_volatile(lfirst_oid(opid)) == PROPARALLEL_UNSAFE)
+				return true;
+		}
+		/* else fall through to check args */
+	}
+	else if (IsA(node, Query))
+	{
+		Query *query = (Query *) node;
+
+		if (query->rowMarks != NULL)
+			return true;
+
+		/* Recurse into subselects */
+		return query_tree_walker(query,
+								 contain_parallel_unsafe_walker,
+								 context, 0);
+	}
+	return expression_tree_walker(node,
+								  contain_parallel_unsafe_walker,
+								  context);
+}
+
+/*****************************************************************************
  *		Check clauses for nonstrict functions
  *****************************************************************************/
 
@@ -1491,6 +1614,16 @@ contain_leaked_vars_walker(Node *node, void *context)
 				}
 			}
 			break;
+
+		case T_CurrentOfExpr:
+
+			/*
+			 * WHERE CURRENT OF doesn't contain function calls.  Moreover, it
+			 * is important that this can be pushed down into a
+			 * security_barrier view, since the planner must always generate
+			 * a TID scan when CURRENT OF is present -- c.f. cost_tidscan.
+			 */
+			return false;
 
 		default:
 

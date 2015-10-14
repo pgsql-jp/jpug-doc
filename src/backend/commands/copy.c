@@ -25,7 +25,6 @@
 #include "access/sysattr.h"
 #include "access/xact.h"
 #include "access/xlog.h"
-#include "catalog/namespace.h"
 #include "catalog/pg_type.h"
 #include "commands/copy.h"
 #include "commands/defrem.h"
@@ -37,12 +36,10 @@
 #include "miscadmin.h"
 #include "optimizer/clauses.h"
 #include "optimizer/planner.h"
-#include "parser/parse_relation.h"
 #include "nodes/makefuncs.h"
 #include "rewrite/rewriteHandler.h"
 #include "storage/fd.h"
 #include "tcop/tcopprot.h"
-#include "utils/acl.h"
 #include "utils/builtins.h"
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
@@ -896,8 +893,12 @@ DoCopy(const CopyStmt *stmt, const char *queryString, uint64 *processed)
 			target->val = (Node *) cr;
 			target->location = 1;
 
-			/* Build FROM clause */
-			from = stmt->relation;
+			/*
+			 * Build RangeVar for from clause, fully qualified based on the
+			 * relation which we have opened and locked.
+			 */
+			from = makeRangeVar(get_namespace_name(RelationGetNamespace(rel)),
+								RelationGetRelationName(rel), -1);
 
 			/* Build query */
 			select = makeNode(SelectStmt);
@@ -906,8 +907,13 @@ DoCopy(const CopyStmt *stmt, const char *queryString, uint64 *processed)
 
 			query = (Node *) select;
 
-			/* Close the handle to the relation as it is no longer needed. */
-			heap_close(rel, (is_from ? RowExclusiveLock : AccessShareLock));
+			/*
+			 * Close the relation for now, but keep the lock on it to prevent
+			 * changes between now and when we start the query-based COPY.
+			 *
+			 * We'll reopen it later as part of the query-based COPY.
+			 */
+			heap_close(rel, NoLock);
 			rel = NULL;
 		}
 	}
@@ -1404,28 +1410,28 @@ BeginCopy(bool is_from,
 		Assert(query->utilityStmt == NULL);
 
 		/* plan the query */
-		plan = planner(query, 0, NULL);
+		plan = pg_plan_query(query, 0, NULL);
 
 		/*
-		 * If we were passed in a relid, make sure we got the same one back
-		 * after planning out the query.  It's possible that it changed
-		 * between when we checked the policies on the table and decided to
-		 * use a query and now.
+		 * With row level security and a user using "COPY relation TO", we
+		 * have to convert the "COPY relation TO" to a query-based COPY (eg:
+		 * "COPY (SELECT * FROM relation) TO"), to allow the rewriter to add
+		 * in any RLS clauses.
+		 *
+		 * When this happens, we are passed in the relid of the originally
+		 * found relation (which we have locked).  As the planner will look up
+		 * the relation again, we double-check here to make sure it found the
+		 * same one that we have locked.
 		 */
 		if (queryRelId != InvalidOid)
 		{
-			Oid			relid = linitial_oid(plan->relationOids);
-
 			/*
-			 * There should only be one relationOid in this case, since we
-			 * will only get here when we have changed the command for the
-			 * user from a "COPY relation TO" to "COPY (SELECT * FROM
-			 * relation) TO", to allow row level security policies to be
-			 * applied.
+			 * Note that with RLS involved there may be multiple relations,
+			 * and while the one we need is almost certainly first, we don't
+			 * make any guarantees of that in the planner, so check the whole
+			 * list and make sure we find the original relation.
 			 */
-			Assert(list_length(plan->relationOids) == 1);
-
-			if (relid != queryRelId)
+			if (!list_member_oid(plan->relationOids, queryRelId))
 				ereport(ERROR,
 						(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				errmsg("relation referenced by COPY statement has changed")));
@@ -1594,10 +1600,12 @@ ClosePipeToProgram(CopyState cstate)
 	pclose_rc = ClosePipeStream(cstate->copy_file);
 	if (pclose_rc == -1)
 		ereport(ERROR,
-				(errmsg("could not close pipe to external command: %m")));
+				(errcode_for_file_access(),
+				 errmsg("could not close pipe to external command: %m")));
 	else if (pclose_rc != 0)
 		ereport(ERROR,
-				(errmsg("program \"%s\" failed",
+				(errcode(ERRCODE_EXTERNAL_ROUTINE_EXCEPTION),
+				 errmsg("program \"%s\" failed",
 						cstate->filename),
 				 errdetail_internal("%s", wait_result_to_str(pclose_rc))));
 }
@@ -1694,7 +1702,8 @@ BeginCopyTo(Relation rel,
 			cstate->copy_file = OpenPipeStream(cstate->filename, PG_BINARY_W);
 			if (cstate->copy_file == NULL)
 				ereport(ERROR,
-						(errmsg("could not execute command \"%s\": %m",
+						(errcode_for_file_access(),
+						 errmsg("could not execute command \"%s\": %m",
 								cstate->filename)));
 		}
 		else
@@ -1721,7 +1730,10 @@ BeginCopyTo(Relation rel,
 								cstate->filename)));
 
 			if (fstat(fileno(cstate->copy_file), &st))
-				elog(ERROR, "could not stat file \"%s\": %m", cstate->filename);
+				ereport(ERROR,
+						(errcode_for_file_access(),
+						 errmsg("could not stat file \"%s\": %m",
+								cstate->filename)));
 
 			if (S_ISDIR(st.st_mode))
 				ereport(ERROR,
@@ -2262,13 +2274,13 @@ CopyFrom(CopyState cstate)
 	{
 		if (!ThereAreNoPriorRegisteredSnapshots() || !ThereAreNoReadyPortals())
 			ereport(ERROR,
-					(ERRCODE_INVALID_TRANSACTION_STATE,
+					(errcode(ERRCODE_INVALID_TRANSACTION_STATE),
 					 errmsg("cannot perform FREEZE because of prior transaction activity")));
 
 		if (cstate->rel->rd_createSubid != GetCurrentSubTransactionId() &&
 		 cstate->rel->rd_newRelfilenodeSubid != GetCurrentSubTransactionId())
 			ereport(ERROR,
-					(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE,
+					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 					 errmsg("cannot perform FREEZE because the table was not created or truncated in the current subtransaction")));
 
 		hi_options |= HEAP_INSERT_FROZEN;
@@ -2728,7 +2740,8 @@ BeginCopyFrom(Relation rel,
 			cstate->copy_file = OpenPipeStream(cstate->filename, PG_BINARY_R);
 			if (cstate->copy_file == NULL)
 				ereport(ERROR,
-						(errmsg("could not execute command \"%s\": %m",
+						(errcode_for_file_access(),
+						 errmsg("could not execute command \"%s\": %m",
 								cstate->filename)));
 		}
 		else
@@ -2743,7 +2756,10 @@ BeginCopyFrom(Relation rel,
 								cstate->filename)));
 
 			if (fstat(fileno(cstate->copy_file), &st))
-				elog(ERROR, "could not stat file \"%s\": %m", cstate->filename);
+				ereport(ERROR,
+						(errcode_for_file_access(),
+						 errmsg("could not stat file \"%s\": %m",
+								cstate->filename)));
 
 			if (S_ISDIR(st.st_mode))
 				ereport(ERROR,

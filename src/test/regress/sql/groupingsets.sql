@@ -73,6 +73,35 @@ select grouping(a), a, array_agg(b),
 select a, b, sum(c), sum(sum(c)) over (order by a,b) as rsum
   from gstest2 group by rollup (a,b) order by rsum, a, b;
 
+-- nesting with grouping sets
+select sum(c) from gstest2
+  group by grouping sets((), grouping sets((), grouping sets(())))
+  order by 1 desc;
+select sum(c) from gstest2
+  group by grouping sets((), grouping sets((), grouping sets(((a, b)))))
+  order by 1 desc;
+select sum(c) from gstest2
+  group by grouping sets(grouping sets(rollup(c), grouping sets(cube(c))))
+  order by 1 desc;
+select sum(c) from gstest2
+  group by grouping sets(a, grouping sets(a, cube(b)))
+  order by 1 desc;
+select sum(c) from gstest2
+  group by grouping sets(grouping sets((a, (b))))
+  order by 1 desc;
+select sum(c) from gstest2
+  group by grouping sets(grouping sets((a, b)))
+  order by 1 desc;
+select sum(c) from gstest2
+  group by grouping sets(grouping sets(a, grouping sets(a), a))
+  order by 1 desc;
+select sum(c) from gstest2
+  group by grouping sets(grouping sets(a, grouping sets(a, grouping sets(a), ((a)), a, grouping sets(a), (a)), a))
+  order by 1 desc;
+select sum(c) from gstest2
+  group by grouping sets((a,(a,b)), grouping sets((a,(a,b)),a))
+  order by 1 desc;
+
 -- empty input: first is 0 rows, second 1, third 3 etc.
 select a, b, sum(v), count(*) from gstest_empty group by grouping sets ((a,b),a);
 select a, b, sum(v), count(*) from gstest_empty group by grouping sets ((a,b),());
@@ -154,6 +183,23 @@ select ten, sum(distinct four) from onek a
 group by grouping sets((ten,four),(ten))
 having exists (select 1 from onek b where sum(distinct a.four) = b.four);
 
+-- HAVING with GROUPING queries
+select ten, grouping(ten) from onek
+group by grouping sets(ten) having grouping(ten) >= 0
+order by 2,1;
+select ten, grouping(ten) from onek
+group by grouping sets(ten, four) having grouping(ten) > 0
+order by 2,1;
+select ten, grouping(ten) from onek
+group by rollup(ten) having grouping(ten) > 0
+order by 2,1;
+select ten, grouping(ten) from onek
+group by cube(ten) having grouping(ten) > 0
+order by 2,1;
+select ten, grouping(ten) from onek
+group by (ten) having grouping(ten) >= 0
+order by 2,1;
+
 -- FILTER queries
 select ten, sum(distinct four) filter (where four::text ~ '123') from onek a
 group by rollup(ten);
@@ -161,5 +207,9 @@ group by rollup(ten);
 -- More rescan tests
 select * from (values (1),(2)) v(a) left join lateral (select v.a, four, ten, count(*) from onek group by cube(four,ten)) s on true order by v.a,four,ten;
 select array(select row(v.a,s1.*) from (select two,four, count(*) from onek group by cube(two,four) order by two,four) s1) from (values (1),(2)) v(a);
+
+-- Grouping on text columns
+select sum(ten) from onek group by two, rollup(four::text) order by 1;
+select sum(ten) from onek group by rollup(four::text), two order by 1;
 
 -- end

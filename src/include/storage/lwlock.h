@@ -14,6 +14,10 @@
 #ifndef LWLOCK_H
 #define LWLOCK_H
 
+#ifdef FRONTEND
+#error "lwlock.h may not be included from frontend code"
+#endif
+
 #include "lib/ilist.h"
 #include "storage/s_lock.h"
 #include "port/atomics.h"
@@ -50,13 +54,13 @@ typedef struct LWLock
 	slock_t		mutex;			/* Protects LWLock and queue of PGPROCs */
 	uint16		tranche;		/* tranche ID */
 
-	pg_atomic_uint32 state;		/* state of exlusive/nonexclusive lockers */
+	pg_atomic_uint32 state;		/* state of exclusive/nonexclusive lockers */
 #ifdef LOCK_DEBUG
 	pg_atomic_uint32 nwaiters;	/* number of waiters */
 #endif
 	dlist_head	waiters;		/* list of waiting PGPROCs */
 #ifdef LOCK_DEBUG
-	struct PGPROC *owner;		/* last exlusive owner of the lock */
+	struct PGPROC *owner;		/* last exclusive owner of the lock */
 #endif
 } LWLock;
 
@@ -86,57 +90,10 @@ typedef union LWLockPadded
 	char		pad[LWLOCK_PADDED_SIZE];
 } LWLockPadded;
 extern PGDLLIMPORT LWLockPadded *MainLWLockArray;
+extern char *MainLWLockNames[];
 
-/*
- * Some commonly-used locks have predefined positions within MainLWLockArray;
- * defining macros here makes it much easier to keep track of these.  If you
- * add a lock, add it to the end to avoid renumbering the existing locks;
- * if you remove a lock, consider leaving a gap in the numbering sequence for
- * the benefit of DTrace and other external debugging scripts.
- */
-/* 0 is available; was formerly BufFreelistLock */
-#define ShmemIndexLock				(&MainLWLockArray[1].lock)
-#define OidGenLock					(&MainLWLockArray[2].lock)
-#define XidGenLock					(&MainLWLockArray[3].lock)
-#define ProcArrayLock				(&MainLWLockArray[4].lock)
-#define SInvalReadLock				(&MainLWLockArray[5].lock)
-#define SInvalWriteLock				(&MainLWLockArray[6].lock)
-#define WALBufMappingLock			(&MainLWLockArray[7].lock)
-#define WALWriteLock				(&MainLWLockArray[8].lock)
-#define ControlFileLock				(&MainLWLockArray[9].lock)
-#define CheckpointLock				(&MainLWLockArray[10].lock)
-#define CLogControlLock				(&MainLWLockArray[11].lock)
-#define SubtransControlLock			(&MainLWLockArray[12].lock)
-#define MultiXactGenLock			(&MainLWLockArray[13].lock)
-#define MultiXactOffsetControlLock	(&MainLWLockArray[14].lock)
-#define MultiXactMemberControlLock	(&MainLWLockArray[15].lock)
-#define RelCacheInitLock			(&MainLWLockArray[16].lock)
-#define CheckpointerCommLock		(&MainLWLockArray[17].lock)
-#define TwoPhaseStateLock			(&MainLWLockArray[18].lock)
-#define TablespaceCreateLock		(&MainLWLockArray[19].lock)
-#define BtreeVacuumLock				(&MainLWLockArray[20].lock)
-#define AddinShmemInitLock			(&MainLWLockArray[21].lock)
-#define AutovacuumLock				(&MainLWLockArray[22].lock)
-#define AutovacuumScheduleLock		(&MainLWLockArray[23].lock)
-#define SyncScanLock				(&MainLWLockArray[24].lock)
-#define RelationMappingLock			(&MainLWLockArray[25].lock)
-#define AsyncCtlLock				(&MainLWLockArray[26].lock)
-#define AsyncQueueLock				(&MainLWLockArray[27].lock)
-#define SerializableXactHashLock	(&MainLWLockArray[28].lock)
-#define SerializableFinishedListLock		(&MainLWLockArray[29].lock)
-#define SerializablePredicateLockListLock	(&MainLWLockArray[30].lock)
-#define OldSerXidLock				(&MainLWLockArray[31].lock)
-#define SyncRepLock					(&MainLWLockArray[32].lock)
-#define BackgroundWorkerLock		(&MainLWLockArray[33].lock)
-#define DynamicSharedMemoryControlLock		(&MainLWLockArray[34].lock)
-#define AutoFileLock				(&MainLWLockArray[35].lock)
-#define ReplicationSlotAllocationLock	(&MainLWLockArray[36].lock)
-#define ReplicationSlotControlLock		(&MainLWLockArray[37].lock)
-#define CommitTsControlLock			(&MainLWLockArray[38].lock)
-#define CommitTsLock				(&MainLWLockArray[39].lock)
-#define ReplicationOriginLock		(&MainLWLockArray[40].lock)
-
-#define NUM_INDIVIDUAL_LWLOCKS		41
+/* Names for fixed lwlocks */
+#include "storage/lwlocknames.h"
 
 /*
  * It's a bit odd to declare NUM_BUFFER_PARTITIONS and NUM_LOCK_PARTITIONS
@@ -182,10 +139,10 @@ extern bool LWLockAcquire(LWLock *lock, LWLockMode mode);
 extern bool LWLockConditionalAcquire(LWLock *lock, LWLockMode mode);
 extern bool LWLockAcquireOrWait(LWLock *lock, LWLockMode mode);
 extern void LWLockRelease(LWLock *lock);
+extern void LWLockReleaseClearVar(LWLock *lock, uint64 *valptr, uint64 val);
 extern void LWLockReleaseAll(void);
 extern bool LWLockHeldByMe(LWLock *lock);
 
-extern bool LWLockAcquireWithVar(LWLock *lock, uint64 *valptr, uint64 val);
 extern bool LWLockWaitForVar(LWLock *lock, uint64 *valptr, uint64 oldval, uint64 *newval);
 extern void LWLockUpdateVar(LWLock *lock, uint64 *valptr, uint64 value);
 

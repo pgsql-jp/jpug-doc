@@ -18,6 +18,7 @@
 #include "catalog/pg_type.h"
 #include "miscadmin.h"
 #include "nodes/makefuncs.h"
+#include "nodes/execnodes.h"
 #include "nodes/nodeFuncs.h"
 #include "nodes/relation.h"
 #include "utils/builtins.h"
@@ -26,6 +27,10 @@
 
 static bool expression_returns_set_walker(Node *node, void *context);
 static int	leftmostLoc(int loc1, int loc2);
+static bool planstate_walk_subplans(List *plans, bool (*walker) (),
+												void *context);
+static bool planstate_walk_members(List *plans, PlanState **planstates,
+					   bool (*walker) (), void *context);
 
 
 /*
@@ -1486,6 +1491,9 @@ exprLocation(const Node *expr)
 		case T_WindowDef:
 			loc = ((const WindowDef *) expr)->location;
 			break;
+		case T_RangeTableSample:
+			loc = ((const RangeTableSample *) expr)->location;
+			break;
 		case T_TypeName:
 			loc = ((const TypeName *) expr)->location;
 			break;
@@ -1995,6 +2003,17 @@ expression_tree_walker(Node *node,
 			return walker(((PlaceHolderInfo *) node)->ph_var, context);
 		case T_RangeTblFunction:
 			return walker(((RangeTblFunction *) node)->funcexpr, context);
+		case T_TableSampleClause:
+			{
+				TableSampleClause *tsc = (TableSampleClause *) node;
+
+				if (expression_tree_walker((Node *) tsc->args,
+										   walker, context))
+					return true;
+				if (walker((Node *) tsc->repeatable, context))
+					return true;
+			}
+			break;
 		default:
 			elog(ERROR, "unrecognized node type: %d",
 				 (int) nodeTag(node));
@@ -2082,13 +2101,8 @@ range_table_walker(List *rtable,
 		switch (rte->rtekind)
 		{
 			case RTE_RELATION:
-				if (rte->tablesample)
-				{
-					if (walker(rte->tablesample->args, context))
-						return true;
-					if (walker(rte->tablesample->repeatable, context))
-						return true;
-				}
+				if (walker(rte->tablesample, context))
+					return true;
 				break;
 			case RTE_CTE:
 				/* nothing to do */
@@ -2782,6 +2796,17 @@ expression_tree_mutator(Node *node,
 				return (Node *) newnode;
 			}
 			break;
+		case T_TableSampleClause:
+			{
+				TableSampleClause *tsc = (TableSampleClause *) node;
+				TableSampleClause *newnode;
+
+				FLATCOPY(newnode, tsc, TableSampleClause);
+				MUTATE(newnode->args, tsc->args, List *);
+				MUTATE(newnode->repeatable, tsc->repeatable, Expr *);
+				return (Node *) newnode;
+			}
+			break;
 		default:
 			elog(ERROR, "unrecognized node type: %d",
 				 (int) nodeTag(node));
@@ -2868,20 +2893,12 @@ range_table_mutator(List *rtable,
 		switch (rte->rtekind)
 		{
 			case RTE_RELATION:
-				if (rte->tablesample)
-				{
-					CHECKFLATCOPY(newrte->tablesample, rte->tablesample,
-								  TableSampleClause);
-					MUTATE(newrte->tablesample->args,
-						   newrte->tablesample->args,
-						   List *);
-					MUTATE(newrte->tablesample->repeatable,
-						   newrte->tablesample->repeatable,
-						   Node *);
-				}
+				MUTATE(newrte->tablesample, rte->tablesample,
+					   TableSampleClause *);
+				/* we don't bother to copy eref, aliases, etc; OK? */
 				break;
 			case RTE_CTE:
-				/* we don't bother to copy eref, aliases, etc; OK? */
+				/* nothing to do */
 				break;
 			case RTE_SUBQUERY:
 				if (!(flags & QTW_IGNORE_RT_SUBQUERIES))
@@ -3316,6 +3333,19 @@ raw_expression_tree_walker(Node *node,
 					return true;
 			}
 			break;
+		case T_RangeTableSample:
+			{
+				RangeTableSample *rts = (RangeTableSample *) node;
+
+				if (walker(rts->relation, context))
+					return true;
+				/* method name is deemed uninteresting */
+				if (walker(rts->args, context))
+					return true;
+				if (walker(rts->repeatable, context))
+					return true;
+			}
+			break;
 		case T_TypeName:
 			{
 				TypeName   *tn = (TypeName *) node;
@@ -3380,22 +3410,138 @@ raw_expression_tree_walker(Node *node,
 			break;
 		case T_CommonTableExpr:
 			return walker(((CommonTableExpr *) node)->ctequery, context);
-		case T_RangeTableSample:
-			{
-				RangeTableSample *rts = (RangeTableSample *) node;
-
-				if (walker(rts->relation, context))
-					return true;
-				if (walker(rts->repeatable, context))
-					return true;
-				if (walker(rts->args, context))
-					return true;
-			}
-			break;
 		default:
 			elog(ERROR, "unrecognized node type: %d",
 				 (int) nodeTag(node));
 			break;
 	}
+	return false;
+}
+
+/*
+ * planstate_tree_walker --- walk plan state trees
+ *
+ * The walker has already visited the current node, and so we need only
+ * recurse into any sub-nodes it has.
+ */
+bool
+planstate_tree_walker(PlanState *planstate, bool (*walker) (), void *context)
+{
+	Plan	   *plan = planstate->plan;
+	ListCell   *lc;
+
+	/* initPlan-s */
+	if (planstate_walk_subplans(planstate->initPlan, walker, context))
+		return true;
+
+	/* lefttree */
+	if (outerPlanState(planstate))
+	{
+		if (walker(outerPlanState(planstate), context))
+			return true;
+	}
+
+	/* righttree */
+	if (innerPlanState(planstate))
+	{
+		if (walker(innerPlanState(planstate), context))
+			return true;
+	}
+
+	/* special child plans */
+	switch (nodeTag(plan))
+	{
+		case T_ModifyTable:
+			if (planstate_walk_members(((ModifyTable *) plan)->plans,
+								  ((ModifyTableState *) planstate)->mt_plans,
+									   walker, context))
+				return true;
+			break;
+		case T_Append:
+			if (planstate_walk_members(((Append *) plan)->appendplans,
+									((AppendState *) planstate)->appendplans,
+									   walker, context))
+				return true;
+			break;
+		case T_MergeAppend:
+			if (planstate_walk_members(((MergeAppend *) plan)->mergeplans,
+								((MergeAppendState *) planstate)->mergeplans,
+									   walker, context))
+				return true;
+			break;
+		case T_BitmapAnd:
+			if (planstate_walk_members(((BitmapAnd *) plan)->bitmapplans,
+								 ((BitmapAndState *) planstate)->bitmapplans,
+									   walker, context))
+				return true;
+			break;
+		case T_BitmapOr:
+			if (planstate_walk_members(((BitmapOr *) plan)->bitmapplans,
+								  ((BitmapOrState *) planstate)->bitmapplans,
+									   walker, context))
+				return true;
+			break;
+		case T_SubqueryScan:
+			if (walker(((SubqueryScanState *) planstate)->subplan, context))
+				return true;
+			break;
+		case T_CustomScan:
+			foreach (lc, ((CustomScanState *) planstate)->custom_ps)
+			{
+				if (walker((PlanState *) lfirst(lc), context))
+					return true;
+			}
+			break;
+		default:
+			break;
+	}
+
+	/* subPlan-s */
+	if (planstate_walk_subplans(planstate->subPlan, walker, context))
+		return true;
+
+	return false;
+}
+
+/*
+ * Walk a list of SubPlans (or initPlans, which also use SubPlan nodes).
+ */
+static bool
+planstate_walk_subplans(List *plans, bool (*walker) (), void *context)
+{
+	ListCell   *lc;
+
+	foreach(lc, plans)
+	{
+		SubPlanState *sps = (SubPlanState *) lfirst(lc);
+
+		Assert(IsA(sps, SubPlanState));
+		if (walker(sps->planstate, context))
+			return true;
+	}
+
+	return false;
+}
+
+/*
+ * Walk the constituent plans of a ModifyTable, Append, MergeAppend,
+ * BitmapAnd, or BitmapOr node.
+ *
+ * Note: we don't actually need to examine the Plan list members, but
+ * we need the list in order to determine the length of the PlanState array.
+ */
+static bool
+planstate_walk_members(List *plans, PlanState **planstates,
+					   bool (*walker) (), void *context)
+{
+	int			nplans = list_length(plans);
+	int			j;
+
+	for (j = 0; j < nplans; j++)
+	{
+		if (walker(planstates[j], context))
+			return true;
+	}
+
 	return false;
 }

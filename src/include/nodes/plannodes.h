@@ -71,6 +71,8 @@ typedef struct PlannedStmt
 	int			nParamExec;		/* number of PARAM_EXEC Params used */
 
 	bool		hasRowSecurity; /* row security applied? */
+
+	bool		parallelModeNeeded; /* parallel mode required to execute? */
 } PlannedStmt;
 
 /* macro for fetching the Plan associated with a SubPlan node */
@@ -109,6 +111,7 @@ typedef struct Plan
 	/*
 	 * Common structural data for all Plan types.
 	 */
+	int			plan_node_id;	/* unique across entire final plan tree */
 	List	   *targetlist;		/* target list to be computed at this node */
 	List	   *qual;			/* implicitly-ANDed qual conditions */
 	struct Plan *lefttree;		/* input plan tree(s) */
@@ -287,7 +290,12 @@ typedef Scan SeqScan;
  *		table sample scan node
  * ----------------
  */
-typedef Scan SampleScan;
+typedef struct SampleScan
+{
+	Scan		scan;
+	/* use struct pointer to avoid including parsenodes.h here */
+	struct TableSampleClause *tablesample;
+} SampleScan;
 
 /* ----------------
  *		index scan node
@@ -744,6 +752,17 @@ typedef struct Unique
 	AttrNumber *uniqColIdx;		/* their indexes in the target list */
 	Oid		   *uniqOperators;	/* equality operators to compare with */
 } Unique;
+
+/* ------------
+ *		gather node
+ * ------------
+ */
+typedef struct Gather
+{
+	Plan		plan;
+	int			num_workers;
+	bool		single_copy;
+} Gather;
 
 /* ----------------
  *		hash build node

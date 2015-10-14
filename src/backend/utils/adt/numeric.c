@@ -4769,7 +4769,9 @@ set_var_from_var(NumericVar *value, NumericVar *dest)
 
 	newbuf = digitbuf_alloc(value->ndigits + 1);
 	newbuf[0] = 0;				/* spare digit for rounding */
-	memcpy(newbuf + 1, value->digits, value->ndigits * sizeof(NumericDigit));
+	if (value->ndigits > 0)		/* else value->digits might be null */
+		memcpy(newbuf + 1, value->digits,
+			   value->ndigits * sizeof(NumericDigit));
 
 	digitbuf_free(dest->buf);
 
@@ -5090,8 +5092,9 @@ make_result(NumericVar *var)
 		result->choice.n_long.n_weight = weight;
 	}
 
-	memcpy(NUMERIC_DIGITS(result), digits, n * sizeof(NumericDigit));
 	Assert(NUMERIC_NDIGITS(result) == n);
+	if (n > 0)
+		memcpy(NUMERIC_DIGITS(result), digits, n * sizeof(NumericDigit));
 
 	/* Check for overflow of int16 fields */
 	if (NUMERIC_WEIGHT(result) != weight ||
@@ -5786,9 +5789,15 @@ mul_var(NumericVar *var1, NumericVar *var2, NumericVar *result,
 	 * to avoid normalizing carries immediately.
 	 *
 	 * maxdig tracks the maximum possible value of any dig[] entry; when this
-	 * threatens to exceed INT_MAX, we take the time to propagate carries. To
-	 * avoid overflow in maxdig itself, it actually represents the max
-	 * possible value divided by NBASE-1.
+	 * threatens to exceed INT_MAX, we take the time to propagate carries.
+	 * Furthermore, we need to ensure that overflow doesn't occur during the
+	 * carry propagation passes either.  The carry values could be as much as
+	 * INT_MAX/NBASE, so really we must normalize when digits threaten to
+	 * exceed INT_MAX - INT_MAX/NBASE.
+	 *
+	 * To avoid overflow in maxdig itself, it actually represents the max
+	 * possible value divided by NBASE-1, ie, at the top of the loop it is
+	 * known that no dig[] entry exceeds maxdig * (NBASE-1).
 	 */
 	dig = (int *) palloc0(res_ndigits * sizeof(int));
 	maxdig = 0;
@@ -5803,7 +5812,7 @@ mul_var(NumericVar *var1, NumericVar *var2, NumericVar *result,
 
 		/* Time to normalize? */
 		maxdig += var1digit;
-		if (maxdig > INT_MAX / (NBASE - 1))
+		if (maxdig > (INT_MAX - INT_MAX / NBASE) / (NBASE - 1))
 		{
 			/* Yes, do it */
 			carry = 0;

@@ -301,7 +301,7 @@ CreateRole(CreateRoleStmt *stmt)
 		if (!superuser())
 			ereport(ERROR,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
-				errmsg("must be superuser to change bypassrls attribute.")));
+				errmsg("must be superuser to change bypassrls attribute")));
 	}
 	else
 	{
@@ -310,13 +310,6 @@ CreateRole(CreateRoleStmt *stmt)
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 					 errmsg("permission denied to create role")));
 	}
-
-	if (strcmp(stmt->role, "public") == 0 ||
-		strcmp(stmt->role, "none") == 0)
-		ereport(ERROR,
-				(errcode(ERRCODE_RESERVED_NAME),
-				 errmsg("role name \"%s\" is reserved",
-						stmt->role)));
 
 	/*
 	 * Check the pg_authid relation to be certain the role doesn't already
@@ -500,7 +493,7 @@ AlterRole(AlterRoleStmt *stmt)
 	char	   *validUntil = NULL;		/* time the login is valid until */
 	Datum		validUntil_datum;		/* same, as timestamptz Datum */
 	bool		validUntil_null;
-	bool		bypassrls = -1;
+	int			bypassrls = -1;
 	DefElem    *dpassword = NULL;
 	DefElem    *dissuper = NULL;
 	DefElem    *dinherit = NULL;
@@ -1158,13 +1151,6 @@ RenameRole(const char *oldname, const char *newname)
 		ereport(ERROR,
 				(errcode(ERRCODE_DUPLICATE_OBJECT),
 				 errmsg("role \"%s\" already exists", newname)));
-
-	if (strcmp(newname, "public") == 0 ||
-		strcmp(newname, "none") == 0)
-		ereport(ERROR,
-				(errcode(ERRCODE_RESERVED_NAME),
-				 errmsg("role name \"%s\" is reserved",
-						newname)));
 
 	/*
 	 * createrole is enough privilege unless you want to mess with a superuser

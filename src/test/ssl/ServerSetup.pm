@@ -43,23 +43,10 @@ sub copy_files
 	}
 }
 
-# Perform chmod on a set of files, taking into account wildcards
-sub chmod_files
-{
-	my $mode = shift;
-	my $file_expr = shift;
-
-	my @all_files = glob $file_expr;
-	foreach my $file_entry (@all_files)
-	{
-		chmod $mode, $file_entry
-		  or die "Could not run chmod with mode $mode on $file_entry";
-	}
-}
-
 sub configure_test_server_for_ssl
 {
-	my $tempdir = $_[0];
+	my $tempdir    = $_[0];
+	my $serverhost = $_[1];
 
 	# Create test users and databases
 	psql 'postgres', "CREATE USER ssltestuser";
@@ -72,6 +59,7 @@ sub configure_test_server_for_ssl
 	print CONF "fsync=off\n";
 	print CONF "log_connections=on\n";
 	print CONF "log_hostname=on\n";
+	print CONF "listen_addresses='$serverhost'\n";
 	print CONF "log_statement=all\n";
 
 	# enable SSL and set up server key
@@ -82,7 +70,7 @@ sub configure_test_server_for_ssl
 # Copy all server certificates and keys, and client root cert, to the data dir
 	copy_files("ssl/server-*.crt", "$tempdir/pgdata");
 	copy_files("ssl/server-*.key", "$tempdir/pgdata");
-	chmod_files(0600, "$tempdir/pgdata/server-*.key");
+	chmod(0600, glob "$tempdir/pgdata/server-*.key") or die $!;
 	copy_files("ssl/root+client_ca.crt", "$tempdir/pgdata");
 	copy_files("ssl/root+client.crl",    "$tempdir/pgdata");
 
@@ -94,11 +82,11 @@ sub configure_test_server_for_ssl
 	print HBA
 "# TYPE  DATABASE        USER            ADDRESS                 METHOD\n";
 	print HBA
-"hostssl trustdb         ssltestuser     127.0.0.1/32            trust\n";
+"hostssl trustdb         ssltestuser     $serverhost/32            trust\n";
 	print HBA
 "hostssl trustdb         ssltestuser     ::1/128                 trust\n";
 	print HBA
-"hostssl certdb          ssltestuser     127.0.0.1/32            cert\n";
+"hostssl certdb          ssltestuser     $serverhost/32            cert\n";
 	print HBA
 "hostssl certdb          ssltestuser     ::1/128                 cert\n";
 	close HBA;
@@ -121,12 +109,6 @@ sub switch_server_cert
 	print SSLCONF "ssl_crl_file='root+client.crl'\n";
 	close SSLCONF;
 
-   # Stop and restart server to reload the new config. We cannot use
-   # restart_test_server() because that overrides listen_addresses to only all
-   # Unix domain socket connections.
-
-	system_or_bail 'pg_ctl', 'stop',  '-s', '-D', "$tempdir/pgdata", '-w';
-	system_or_bail 'pg_ctl', 'start', '-s', '-D', "$tempdir/pgdata", '-w',
-	  '-l',
-	  "$tempdir/logfile";
+	# Stop and restart server to reload the new config.
+	restart_test_server();
 }

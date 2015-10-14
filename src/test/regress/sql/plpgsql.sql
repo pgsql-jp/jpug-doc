@@ -2361,21 +2361,51 @@ end; $$ language plpgsql;
 
 select continue_test1();
 
--- CONTINUE is only legal inside a loop
-create function continue_test2() returns void as $$
+drop function continue_test1();
+drop table conttesttbl;
+
+-- should fail: CONTINUE is only legal inside a loop
+create function continue_error1() returns void as $$
 begin
     begin
         continue;
     end;
-    return;
 end;
 $$ language plpgsql;
 
--- should fail
-select continue_test2();
+-- should fail: unlabeled EXIT is only legal inside a loop
+create function exit_error1() returns void as $$
+begin
+    begin
+        exit;
+    end;
+end;
+$$ language plpgsql;
 
--- CONTINUE can't reference the label of a named block
-create function continue_test3() returns void as $$
+-- should fail: no such label
+create function continue_error2() returns void as $$
+begin
+    begin
+        loop
+            continue no_such_label;
+        end loop;
+    end;
+end;
+$$ language plpgsql;
+
+-- should fail: no such label
+create function exit_error2() returns void as $$
+begin
+    begin
+        loop
+            exit no_such_label;
+        end loop;
+    end;
+end;
+$$ language plpgsql;
+
+-- should fail: CONTINUE can't reference the label of a named block
+create function continue_error3() returns void as $$
 begin
     <<begin_block1>>
     begin
@@ -2386,13 +2416,21 @@ begin
 end;
 $$ language plpgsql;
 
--- should fail
-select continue_test3();
+-- On the other hand, EXIT *can* reference the label of a named block
+create function exit_block1() returns void as $$
+begin
+    <<begin_block1>>
+    begin
+        loop
+            exit begin_block1;
+            raise exception 'should not get here';
+        end loop;
+    end;
+end;
+$$ language plpgsql;
 
-drop function continue_test1();
-drop function continue_test2();
-drop function continue_test3();
-drop table conttesttbl;
+select exit_block1();
+drop function exit_block1();
 
 -- verbose end block and end loop
 create function end_label1() returns void as $$
@@ -3805,6 +3843,45 @@ rollback;
 
 drop function error2(p_name_table text);
 drop function error1(text);
+
+-- Test for proper handling of cast-expression caching
+
+create function sql_to_date(integer) returns date as $$
+select $1::text::date
+$$ language sql immutable strict;
+
+create cast (integer as date) with function sql_to_date(integer) as assignment;
+
+create function cast_invoker(integer) returns date as $$
+begin
+  return $1;
+end$$ language plpgsql;
+
+select cast_invoker(20150717);
+select cast_invoker(20150718);  -- second call crashed in pre-release 9.5
+
+begin;
+select cast_invoker(20150717);
+select cast_invoker(20150718);
+savepoint s1;
+select cast_invoker(20150718);
+select cast_invoker(-1); -- fails
+rollback to savepoint s1;
+select cast_invoker(20150719);
+select cast_invoker(20150720);
+commit;
+
+drop function cast_invoker(integer);
+drop function sql_to_date(integer) cascade;
+
+-- Test handling of cast cache inside DO blocks
+-- (to check the original crash case, this must be a cast not previously
+-- used in this session)
+
+begin;
+do $$ declare x text[]; begin x := '{1.23, 4.56}'::numeric[]; end $$;
+do $$ declare x text[]; begin x := '{1.23, 4.56}'::numeric[]; end $$;
+end;
 
 -- Test for consistent reporting of error context
 

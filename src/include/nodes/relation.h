@@ -99,9 +99,15 @@ typedef struct PlannerGlobal
 
 	Index		lastRowMarkId;	/* highest PlanRowMark ID assigned */
 
+	int			lastPlanNodeId;	/* highest plan node ID assigned */
+
 	bool		transientPlan;	/* redo plan when TransactionXmin changes? */
 
 	bool		hasRowSecurity; /* row security applied? */
+
+	bool		parallelModeOK;	/* parallel mode potentially OK? */
+
+	bool		parallelModeNeeded;	/* parallel mode actually required? */
 } PlannerGlobal;
 
 /* macro for fetching the Plan associated with a SubPlan node */
@@ -131,7 +137,14 @@ typedef struct PlannerInfo
 
 	struct PlannerInfo *parent_root;	/* NULL at outermost Query */
 
+	/*
+	 * plan_params contains the expressions that this query level needs to
+	 * make available to a lower query level that is currently being planned.
+	 * outer_params contains the paramIds of PARAM_EXEC Params that outer
+	 * query levels will make available to this query level.
+	 */
 	List	   *plan_params;	/* list of PlannerParamItems, see below */
+	Bitmapset  *outer_params;
 
 	/*
 	 * simple_rel_array holds pointers to "base rels" and "other rels" (see
@@ -1032,6 +1045,19 @@ typedef struct UniquePath
 	List	   *in_operators;	/* equality operators of the IN clause */
 	List	   *uniq_exprs;		/* expressions to be made unique */
 } UniquePath;
+
+/*
+ * GatherPath runs several copies of a plan in parallel and collects the
+ * results.  The parallel leader may also execute the plan, unless the
+ * single_copy flag is set.
+ */
+typedef struct GatherPath
+{
+	Path		path;
+	Path	   *subpath;		/* path for each worker */
+	int			num_workers;	/* number of workers sought to help */
+	bool		single_copy;	/* path must not be executed >1x */
+} GatherPath;
 
 /*
  * All join-type paths share these fields.

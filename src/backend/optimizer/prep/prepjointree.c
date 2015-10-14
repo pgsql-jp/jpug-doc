@@ -899,6 +899,7 @@ pull_up_simple_subquery(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte,
 	subroot->query_level = root->query_level;
 	subroot->parent_root = root->parent_root;
 	subroot->plan_params = NIL;
+	subroot->outer_params = NULL;
 	subroot->planner_cxt = CurrentMemoryContext;
 	subroot->init_plans = NIL;
 	subroot->cte_plan_ids = NIL;
@@ -1091,12 +1092,15 @@ pull_up_simple_subquery(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte,
 
 			switch (child_rte->rtekind)
 			{
+				case RTE_RELATION:
+					if (child_rte->tablesample)
+						child_rte->lateral = true;
+					break;
 				case RTE_SUBQUERY:
 				case RTE_FUNCTION:
 				case RTE_VALUES:
 					child_rte->lateral = true;
 					break;
-				case RTE_RELATION:
 				case RTE_JOIN:
 				case RTE_CTE:
 					/* these can't contain any lateral references */
@@ -1432,25 +1436,40 @@ is_simple_subquery(Query *subquery, RangeTblEntry *rte,
 
 	/*
 	 * Don't pull up a subquery with an empty jointree, unless it has no quals
-	 * and deletion_ok is TRUE.  query_planner() will correctly generate a
-	 * Result plan for a jointree that's totally empty, but we can't cope with
-	 * an empty FromExpr appearing lower down in a jointree: we identify join
-	 * rels via baserelid sets, so we couldn't distinguish a join containing
-	 * such a FromExpr from one without it.  This would for example break the
-	 * PlaceHolderVar mechanism, since we'd have no way to identify where to
-	 * evaluate a PHV coming out of the subquery.  We can only handle such
-	 * cases if the place where the subquery is linked is a FromExpr or inner
-	 * JOIN that would still be nonempty after removal of the subquery, so
-	 * that it's still identifiable via its contained baserelids.  Safe
-	 * contexts are signaled by deletion_ok.  But even in a safe context, we
-	 * must keep the subquery if it has any quals, because it's unclear where
-	 * to put them in the upper query.  (Note that deletion of a subquery is
-	 * also dependent on the check below that its targetlist contains no
-	 * set-returning functions.  Deletion from a FROM list or inner JOIN is
-	 * okay only if the subquery must return exactly one row.)
+	 * and deletion_ok is TRUE and we're not underneath an outer join.
+	 *
+	 * query_planner() will correctly generate a Result plan for a jointree
+	 * that's totally empty, but we can't cope with an empty FromExpr
+	 * appearing lower down in a jointree: we identify join rels via baserelid
+	 * sets, so we couldn't distinguish a join containing such a FromExpr from
+	 * one without it.  We can only handle such cases if the place where the
+	 * subquery is linked is a FromExpr or inner JOIN that would still be
+	 * nonempty after removal of the subquery, so that it's still identifiable
+	 * via its contained baserelids.  Safe contexts are signaled by
+	 * deletion_ok.
+	 *
+	 * But even in a safe context, we must keep the subquery if it has any
+	 * quals, because it's unclear where to put them in the upper query.
+	 *
+	 * Also, we must forbid pullup if such a subquery is underneath an outer
+	 * join, because then we might need to wrap its output columns with
+	 * PlaceHolderVars, and the PHVs would then have empty relid sets meaning
+	 * we couldn't tell where to evaluate them.  (This test is separate from
+	 * the deletion_ok flag for possible future expansion: deletion_ok tells
+	 * whether the immediate parent site in the jointree could cope, not
+	 * whether we'd have PHV issues.  It's possible this restriction could be
+	 * fixed by letting the PHVs use the relids of the parent jointree item,
+	 * but that complication is for another day.)
+	 *
+	 * Note that deletion of a subquery is also dependent on the check below
+	 * that its targetlist contains no set-returning functions.  Deletion from
+	 * a FROM list or inner JOIN is okay only if the subquery must return
+	 * exactly one row.
 	 */
 	if (subquery->jointree->fromlist == NIL &&
-		(subquery->jointree->quals || !deletion_ok))
+		(subquery->jointree->quals != NULL ||
+		 !deletion_ok ||
+		 lowest_outer_join != NULL))
 		return false;
 
 	/*
@@ -1664,7 +1683,8 @@ is_simple_values(PlannerInfo *root, RangeTblEntry *rte, bool deletion_ok)
 
 	/*
 	 * Because VALUES can't appear under an outer join (or at least, we won't
-	 * try to pull it up if it does), we need not worry about LATERAL.
+	 * try to pull it up if it does), we need not worry about LATERAL, nor
+	 * about validity of PHVs for the VALUES' outputs.
 	 */
 
 	/*
@@ -1909,6 +1929,13 @@ replace_vars_in_jointree(Node *jtnode,
 			{
 				switch (rte->rtekind)
 				{
+					case RTE_RELATION:
+						/* shouldn't be marked LATERAL unless tablesample */
+						Assert(rte->tablesample);
+						rte->tablesample = (TableSampleClause *)
+							pullup_replace_vars((Node *) rte->tablesample,
+												context);
+						break;
 					case RTE_SUBQUERY:
 						rte->subquery =
 							pullup_replace_vars_subquery(rte->subquery,
@@ -1924,7 +1951,6 @@ replace_vars_in_jointree(Node *jtnode,
 							pullup_replace_vars((Node *) rte->values_lists,
 												context);
 						break;
-					case RTE_RELATION:
 					case RTE_JOIN:
 					case RTE_CTE:
 						/* these shouldn't be marked LATERAL */

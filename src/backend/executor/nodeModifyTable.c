@@ -351,8 +351,7 @@ ExecInsert(ModifyTableState *mtstate,
 			 *
 			 * We loop back here if we find a conflict below, either during
 			 * the pre-check, or when we re-check after inserting the tuple
-			 * speculatively.  See the executor README for a full discussion
-			 * of speculative insertion.
+			 * speculatively.
 			 */
 	vlock:
 			specConflict = false;
@@ -1679,7 +1678,7 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 
 		/* create target slot for UPDATE SET projection */
 		tupDesc = ExecTypeFromTL((List *) node->onConflictSet,
-								 false);
+						 resultRelInfo->ri_RelationDesc->rd_rel->relhasoids);
 		mtstate->mt_conflproj = ExecInitExtraTupleSlot(mtstate->ps.state);
 		ExecSetSlotDescriptor(mtstate->mt_conflproj, tupDesc);
 
