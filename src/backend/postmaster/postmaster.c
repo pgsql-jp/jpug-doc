@@ -370,6 +370,7 @@ static DNSServiceRef bonjour_sdref = NULL;
 /*
  * postmaster.c - function prototypes
  */
+static void CloseServerPorts(int status, Datum arg);
 static void unlink_external_pid_file(int status, Datum arg);
 static void getInstallationPaths(const char *argv0);
 static void checkDataDir(void);
@@ -892,6 +893,11 @@ PostmasterMain(int argc, char *argv[])
 	 * interlock (thanks to whoever decided to put socket files in /tmp :-().
 	 * For the same reason, it's best to grab the TCP socket(s) before the
 	 * Unix socket(s).
+	 *
+	 * Also note that this internally sets up the on_proc_exit function that
+	 * is responsible for removing both data directory and socket lockfiles;
+	 * so it must happen before opening sockets so that at exit, the socket
+	 * lockfiles go away after CloseServerPorts runs.
 	 */
 	CreateDataDirLockFile(true);
 
@@ -916,9 +922,14 @@ PostmasterMain(int argc, char *argv[])
 
 	/*
 	 * Establish input sockets.
+	 *
+	 * First, mark them all closed, and set up an on_proc_exit function that's
+	 * charged with closing the sockets again at postmaster shutdown.
 	 */
 	for (i = 0; i < MAXLISTEN; i++)
 		ListenSocket[i] = PGINVALID_SOCKET;
+
+	on_proc_exit(CloseServerPorts, 0);
 
 	if (ListenAddresses)
 	{
@@ -1160,6 +1171,27 @@ PostmasterMain(int argc, char *argv[])
 	RemovePgTempFiles();
 
 	/*
+	 * Forcibly remove the files signaling a standby promotion
+	 * request. Otherwise, the existence of those files triggers
+	 * a promotion too early, whether a user wants that or not.
+	 *
+	 * This removal of files is usually unnecessary because they
+	 * can exist only during a few moments during a standby
+	 * promotion. However there is a race condition: if pg_ctl promote
+	 * is executed and creates the files during a promotion,
+	 * the files can stay around even after the server is brought up
+	 * to new master. Then, if new standby starts by using the backup
+	 * taken from that master, the files can exist at the server
+	 * startup and should be removed in order to avoid an unexpected
+	 * promotion.
+	 *
+	 * Note that promotion signal files need to be removed before
+	 * the startup process is invoked. Because, after that, they can
+	 * be used by postmaster's SIGUSR1 signal handler.
+	 */
+	RemovePromoteSignalFiles();
+
+	/*
 	 * If enabled, start up syslogger collection subprocess
 	 */
 	SysLoggerPID = SysLogger_Start();
@@ -1262,6 +1294,42 @@ PostmasterMain(int argc, char *argv[])
 	abort();					/* not reached */
 }
 
+
+/*
+ * on_proc_exit callback to close server's listen sockets
+ */
+static void
+CloseServerPorts(int status, Datum arg)
+{
+	int			i;
+
+	/*
+	 * First, explicitly close all the socket FDs.  We used to just let this
+	 * happen implicitly at postmaster exit, but it's better to close them
+	 * before we remove the postmaster.pid lockfile; otherwise there's a race
+	 * condition if a new postmaster wants to re-use the TCP port number.
+	 */
+	for (i = 0; i < MAXLISTEN; i++)
+	{
+		if (ListenSocket[i] != PGINVALID_SOCKET)
+		{
+			StreamClose(ListenSocket[i]);
+			ListenSocket[i] = PGINVALID_SOCKET;
+		}
+	}
+
+	/*
+	 * Next, remove any filesystem entries for Unix sockets.  To avoid race
+	 * conditions against incoming postmasters, this must happen after closing
+	 * the sockets and before removing lock files.
+	 */
+	RemoveSocketFiles();
+
+	/*
+	 * We don't do anything about socket lock files here; those will be
+	 * removed in a later on_proc_exit callback.
+	 */
+}
 
 /*
  * on_proc_exit callback to delete external_pid_file
@@ -1528,10 +1596,10 @@ ServerLoop(void)
 {
 	fd_set		readmask;
 	int			nSockets;
-	time_t		now,
+	time_t		last_lockfile_recheck_time,
 				last_touch_time;
 
-	last_touch_time = time(NULL);
+	last_lockfile_recheck_time = last_touch_time = time(NULL);
 
 	nSockets = initMasks(&readmask);
 
@@ -1539,6 +1607,7 @@ ServerLoop(void)
 	{
 		fd_set		rmask;
 		int			selres;
+		time_t		now;
 
 		/*
 		 * Wait for a connection request to arrive.
@@ -1681,19 +1750,6 @@ ServerLoop(void)
 		if (StartWorkerNeeded || HaveCrashedWorker)
 			maybe_start_bgworker();
 
-		/*
-		 * Touch Unix socket and lock files every 58 minutes, to ensure that
-		 * they are not removed by overzealous /tmp-cleaning tasks.  We assume
-		 * no one runs cleaners with cutoff times of less than an hour ...
-		 */
-		now = time(NULL);
-		if (now - last_touch_time >= 58 * SECS_PER_MINUTE)
-		{
-			TouchSocketFiles();
-			TouchSocketLockFiles();
-			last_touch_time = now;
-		}
-
 #ifdef HAVE_PTHREAD_IS_THREADED_NP
 
 		/*
@@ -1702,6 +1758,16 @@ ServerLoop(void)
 		 */
 		Assert(pthread_is_threaded_np() == 0);
 #endif
+
+		/*
+		 * Lastly, check to see if it's time to do some things that we don't
+		 * want to do every single time through the loop, because they're a
+		 * bit expensive.  Note that there's up to a minute of slop in when
+		 * these tasks will be performed, since DetermineSleepTime() will let
+		 * us sleep at most that long; except for SIGKILL timeout which has
+		 * special-case logic there.
+		 */
+		now = time(NULL);
 
 		/*
 		 * If we already sent SIGQUIT to children and they are slow to shut
@@ -1719,6 +1785,39 @@ ServerLoop(void)
 			TerminateChildren(SIGKILL);
 			/* reset flag so we don't SIGKILL again */
 			AbortStartTime = 0;
+		}
+
+		/*
+		 * Once a minute, verify that postmaster.pid hasn't been removed or
+		 * overwritten.  If it has, we force a shutdown.  This avoids having
+		 * postmasters and child processes hanging around after their database
+		 * is gone, and maybe causing problems if a new database cluster is
+		 * created in the same place.  It also provides some protection
+		 * against a DBA foolishly removing postmaster.pid and manually
+		 * starting a new postmaster.  Data corruption is likely to ensue from
+		 * that anyway, but we can minimize the damage by aborting ASAP.
+		 */
+		if (now - last_lockfile_recheck_time >= 1 * SECS_PER_MINUTE)
+		{
+			if (!RecheckDataDirLockFile())
+			{
+				ereport(LOG,
+						(errmsg("performing immediate shutdown because data directory lock file is invalid")));
+				kill(MyProcPid, SIGQUIT);
+			}
+			last_lockfile_recheck_time = now;
+		}
+
+		/*
+		 * Touch Unix socket and lock files every 58 minutes, to ensure that
+		 * they are not removed by overzealous /tmp-cleaning tasks.  We assume
+		 * no one runs cleaners with cutoff times of less than an hour ...
+		 */
+		if (now - last_touch_time >= 58 * SECS_PER_MINUTE)
+		{
+			TouchSocketFiles();
+			TouchSocketLockFiles();
+			last_touch_time = now;
 		}
 	}
 }
@@ -4594,7 +4693,8 @@ SubPostmasterMain(int argc, char *argv[])
 	/*
 	 * If appropriate, physically re-attach to shared memory segment. We want
 	 * to do this before going any further to ensure that we can attach at the
-	 * same address the postmaster used.
+	 * same address the postmaster used.  On the other hand, if we choose not
+	 * to re-attach, we may have other cleanup to do.
 	 */
 	if (strcmp(argv[1], "--forkbackend") == 0 ||
 		strcmp(argv[1], "--forkavlauncher") == 0 ||
@@ -4602,6 +4702,8 @@ SubPostmasterMain(int argc, char *argv[])
 		strcmp(argv[1], "--forkboot") == 0 ||
 		strncmp(argv[1], "--forkbgworker=", 15) == 0)
 		PGSharedMemoryReAttach();
+	else
+		PGSharedMemoryNoReAttach();
 
 	/* autovacuum needs this set before calling InitProcess */
 	if (strcmp(argv[1], "--forkavlauncher") == 0)
