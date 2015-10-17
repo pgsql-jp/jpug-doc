@@ -98,8 +98,8 @@
    used for actual work.  (See <xref linkend="managing-databases"> for
    information about creating new databases within a cluster.)
 -->
-まず第一に、ディスク上にデータベース格納領域を初期化する必要があります。
-この格納領域を<firstterm>データベースクラスタ</firstterm>と呼びます（<acronym>SQL</acronym>ではカタログクラスタという用語が使用されます）。
+まず最初に、ディスク上にデータベース格納領域を初期化する必要があります。
+この格納領域を<firstterm>データベースクラスタ</firstterm>と呼びます。（標準<acronym>SQL</acronym>ではカタログクラスタという用語が使用されます）。
 データベースクラスタはデータベースの集合で、稼働しているデータベースサーバのただ1つのインスタンスを通して管理されます。
 初期化が終わると、データベースクラスタには<literal>postgres</literal>という名前のデータベースが含まれています。
 このデータベースは、ユーザ、サードパーティ製アプリケーションがユーティリティで使用するデフォルトデータベースになります。
@@ -148,10 +148,9 @@
 <!--
     As an alternative to the <option>-D</option> option, you can set
     the environment variable <envar>PGDATA</envar>.
-    <indexterm><primary><envar>PGDATA</envar></primary></indexterm>
 -->
 <option>-D</option>オプションを使う代わりに<envar>PGDATA</envar>環境変数を設定することもできます。
-<indexterm><primary><envar>PGDATA</envar></primary></indexterm>
+    <indexterm><primary><envar>PGDATA</envar></primary></indexterm>
    </para>
   </tip>
 
@@ -189,9 +188,12 @@
    like this:
 -->
 もし指定したディレクトリが存在しない場合は、<command>initdb</command>はその新しいディレクトリを作成しようとします。
-しかし（ここのアドバイスに従って非特権アカウントを作成した場合など）作成権限がない場合があります。
-その場合は（rootとして）手動でディレクトリ自体を作成し、その所有者を<productname>PostgreSQL</productname>ユーザに変更します。
-下記がその例となります。
+もちろん、その親ディレクトリに作成権限がない場合<command>initdb</command>は失敗します。
+<productname>PostgreSQL</productname>ユーザがデータディレクトリだけでなく、親ディレクトリも所有することを一般的に推奨します。
+このようにすると問題になることはありません。
+目的の親ディレクトリが存在しない場合は、まずそのディレクトリを作成する必要があります。
+親の親ディレクトリが書き込み可能でない場合は、root権限を使用して作成します。
+そのため、手順は下記のようになります。
 <screen>
 root# <userinput>mkdir /usr/local/pgsql</userinput>
 root# <userinput>chown postgres /usr/local/pgsql</userinput>
@@ -206,7 +208,7 @@ postgres$ <userinput>initdb -D /usr/local/pgsql/data</userinput>
    exists and already contains files; this is to prevent accidentally
    overwriting an existing installation.
 -->
-データディレクトリが既に初期化されているように見える場合は、<command>initdb</command>は実行を拒否します。
+データディレクトリが存在し、すでにファイルが含まれている場合は、<command>initdb</command>は実行を拒否します。これは、誤って既存のインストールを上書きしないようにするためです。
   </para>
 
   <para>
@@ -293,13 +295,20 @@ postgres$ <userinput>initdb -D /usr/local/pgsql/data</userinput>
   </para>
 
   <sect2 id="creating-cluster-mount-points">
+<!--
    <title>Use of Secondary File Systems</title>
+-->
+   <title>セカンダリファイルシステムの使用</title>
 
    <indexterm zone="creating-cluster-mount-points">
+<!--
     <primary>file system mount points</primary>
+-->
+    <primary>ファイルシステムマウントポイント</primary>
    </indexterm>
 
    <para>
+<!--
     Many installations create their database clusters on file systems
     (volumes) other than the machine's <quote>root</> volume.  If you
     choose to do this, it is not advisable to try to use the secondary
@@ -310,6 +319,11 @@ postgres$ <userinput>initdb -D /usr/local/pgsql/data</userinput>
     permissions problems, particularly for operations such
     as <application>pg_upgrade</>, and it also ensures clean failures if
     the secondary volume is taken offline.
+-->
+多くのインストールは、マシンの<quote>ルート</>ボリューム以外のファイルシステム（ボリューム）上でのデータベースクラスタを作成します。
+この選択をした場合、データディレクトリをセカンダリボリュームの最上位ディレクトリ（マウントポイント）を使用することはお勧めできません。
+最善の方法はマウントポイント内に<productname>PostgreSQL</productname>ユーザが所有するディレクトリを作成することです。
+この権限の問題を避けることは、特に<application>pg_upgrade</>の操作やセカンダリボリュームがオフラインになった時のきれいな失敗になることを保証します。
    </para>
 
   </sect2>
@@ -318,7 +332,7 @@ postgres$ <userinput>initdb -D /usr/local/pgsql/data</userinput>
 <!--
    <title>Use of Network File Systems</title>
 -->
-   <title>ネットワークファイルシステム</title>
+   <title>ネットワークファイルシステムの使用</title>
 
    <indexterm zone="creating-cluster-nfs">
 <!--
@@ -356,21 +370,25 @@ postgres$ <userinput>initdb -D /usr/local/pgsql/data</userinput>
 多くのインストレーションはネットワークファイルシステム上にデータベースクラスタを作成します。
 直接<acronym>NFS</>を介して行うこともありますし、<acronym>NFS</>を内部的に使うネットワークアタッチドストレージ（<acronym>NAS</>）デバイスを使用することもあります。
 <productname>PostgreSQL</>は<acronym>NFS</>ファイルシステムに特別なことを何も行いません。
-つまり<acronym>NFS</>はローカル接続のドライブ（<acronym>DAS</>、ダイレクトアタッチドストレージ）とまったく同様に振る舞うという前提です。
-クライアントとサーバの<acronym>NFS</>実装が標準セマンティックスを持たないならば、信頼性に関する問題が発生します
+つまり<acronym>NFS</>はローカル接続のドライブとまったく同様に振る舞うという前提です。
+クライアントとサーバの<acronym>NFS</>実装が標準ファイルシステム・セマンティックスを持たないならば、信頼性の問題を引き起こす可能性があります。
 （<ulink url="http://www.time-travellers.org/shane/papers/NFS_considered_harmful.html"></ulink>参照）。
-特に<acronym>NFS</>サーバへの遅延（非同期）書きこみが信頼性に関する問題を引き起こします。
-可能ならば<acronym>NFS</>ファイルシステムを（キャッシュ無しで）同期マウントし、これを防止してください。更に、<acronym>NFS</>をソフトマウントすることは薦められません。
-（ストレージエリアネットワーク（<acronym>SAN</>）は<acronym>NFS</>よりも低レベルな通信プロトコルを使用します。）
+具体的には、<acronym>NFS</>サーバへの遅延（非同期）書きこみがデータ破損の問題を引き起こす可能性があります。
+可能ならば<acronym>NFS</>ファイルシステムを（キャッシュ無しで）同期マウントし、この危険を防止してください。更に、<acronym>NFS</>をソフトマウントすることは薦められません。
    </para>
 
    <para>
+<!--
     Storage Area Networks (<acronym>SAN</>) typically use communication
     protocols other than <acronym>NFS</>, and may or may not be subject
     to hazards of this sort.  It's advisable to consult the vendor's
     documentation concerning data consistency guarantees.
     <productname>PostgreSQL</productname> cannot be more reliable than
     the file system it's using.
+-->
+ストレージエリアネットワーク（<acronym>SAN</>）は通常<acronym>NFS</>以外の通信プロトコルを使用し、この種の危険がある場合と無い場合があります。
+これは、データの整合性の保証に関するベンダのドキュメントを参照することをお勧めします。
+<productname>PostgreSQL</productname>は、使用しているファイルシステムよりも信頼することはできません。
    </para>
 
   </sect2>
@@ -458,7 +476,6 @@ $ <userinput>postgres -D /usr/local/pgsql/data &gt;logfile 2&gt;&amp;1 &amp;</us
 こうしたシェル構文は長くなりがちです。
 そのため、<command>pg_ctl</command>ラッパプログラムが提供されていて、いくつかのタスクを単純化しています。
 以下に例を示します。
-<indexterm><primary>pg_ctl</primary></indexterm>
 <programlisting>
 pg_ctl start -l logfile
 </programlisting>
@@ -1206,7 +1223,6 @@ psql: could not connect to server: No such file or directory
 <screen>
 <prompt>#</prompt> <userinput>sysctl kern.ipc.shmall=32768</userinput>
 <prompt>#</prompt> <userinput>sysctl kern.ipc.shmmax=134217728</userinput>
-<prompt>#</prompt> <userinput>sysctl kern.ipc.semmap=256</userinput>
 </screen>
 <!--
         To make these settings persist over reboots, modify
@@ -1283,7 +1299,6 @@ kern.ipc.semmnu=256
       <indexterm><primary>NetBSD</><secondary>IPC configuration</></>
 -->
       <indexterm><primary>NetBSD</><secondary>IPC設定</></>
-      <indexterm><primary>OpenBSD</><secondary>IPC設定</></>
       </term>
       <listitem>
        <para>
@@ -1414,7 +1429,6 @@ option        SEMMAP=256
 <!--
         The default maximum segment size is 32 MB, and the
         default maximum total size is 2097152
-        installations.  The default maximum total size is 2097152
         pages.  A page is almost always 4096 bytes except in unusual
         kernel configurations with <quote>huge pages</quote>
         (use <literal>getconf PAGE_SIZE</literal> to verify).
@@ -2226,9 +2240,10 @@ $ <userinput>sysctl -w vm.nr_hugepages=3170</userinput>
       replaying the WAL log) upon next start-up. This is recommended
       only in emergencies.
 -->
-これは<firstterm>即時シャットダウン</firstterm>です。
+これは<firstterm>即時シャットダウン</firstterm>モードです。
 サーバーは、すべての子プロセスに<systemitem>SIGQUIT</systemitem>を送信し、それらが終了するのを待ちます。
-5秒以内に終了しないものは、マスタの<command>postgres</command>プロセスから<systemitem>SIGKILL</systemitem>を送り、待たずに終了します。
+5秒以内に終了しないものは、<systemitem>SIGKILL</systemitem>を送ります。
+マスタサーバプロセスは通常のデータベースのシャットダウン処理を実行せずに、できるだけ早くすべての子プロセスが終了したとして終了します。
 これは次の起動時に（WALログを再実行することで）リカバリをすることになります。
 これは緊急の時にのみ使うことを勧めます。
       </para>
@@ -2550,12 +2565,6 @@ $ <userinput>kill -INT `head -1 /usr/local/pgsql/data/postmaster.pid`</userinput
 <screen>
 <userinput>pg_dumpall &gt; <replaceable>outputfile</></userinput>
 </screen>
-<!--
-      If you need to preserve OIDs (such as when using them as
-      foreign keys), then use the <option>-o</option> option when running
-      <application>pg_dumpall</>.
--->
-（外部キーとしてOIDを使用している場合など）OIDを保持する必要があれば、<application>pg_dumpall</>を実行する時に<option>-o</option>オプションを使用してください。
      </para>
 
      <para>
@@ -3423,19 +3432,18 @@ openssl req -x509 -in server.req -text -key server.key -out server.crt
     to turn the certificate into a self-signed certificate and to copy
     the key and certificate to where the server will look for them.
     Finally do:
-<programlisting>
-chmod og-rwx server.key
-</programlisting>
-    because the server will reject the file if its permissions are more
-    liberal than this.
-    For more details on how to create your server private key and
-    certificate, refer to the <productname>OpenSSL</> documentation.
 -->
 このように、証明書を自己署名の証明書にして、キーと証明書とをサーバが検索する場所にコピーします。
 サーバは、もしこのファイルがこれよりもゆるい権限の場合拒否するので、最後に以下を行います。
 <programlisting>
 chmod og-rwx server.key
 </programlisting>
+<!--
+    because the server will reject the file if its permissions are more
+    liberal than this.
+    For more details on how to create your server private key and
+    certificate, refer to the <productname>OpenSSL</> documentation.
+-->
 サーバの秘密キーおよび証明書を作成するための詳しい方法については<productname>OpenSSL</>の文書を参照してください。
    </para>
 
@@ -3540,28 +3548,28 @@ psql -h localhost -p 63333 postgres
   </para>
 
   <para>
-  <!--
+<!--
    You could also have set up the port forwarding as
-   -->
+-->
 以下に示すようにポートフォワードを設定することができます。
 <programlisting>
 ssh -L 63333:foo.com:5432 joe@foo.com
 </programlisting>
-   <!--
+<!--
    but then the database server will see the connection as coming in
    on its <literal>foo.com</literal> interface, which is not opened by
    the default setting <literal>listen_addresses =
    'localhost'</literal>.  This is usually not what you want.
-   -->
+-->
 しかしそうすると、データベースサーバはその<literal>foo.com</literal>インタフェースから接続が来たように判断し、デフォルトの設定である<literal>listen_addresses = 'localhost'</literal>では開かれません。
 通常これは好ましいことではありません。
   </para>
 
   <para>
-  <!--
+<!--
    If you have to <quote>hop</quote> to the database server via some
    login host, one possible setup could look like this:
-   -->
+-->
 どこかのログインホスト経由でデータベースサーバに<quote>跳躍</quote>しなければならない場合、以下のようにすることが可能です。
 <programlisting>
 ssh -L 63333:db.foo.com:5432 joe@shell.foo.com
@@ -3574,7 +3582,7 @@ ssh -L 63333:db.foo.com:5432 joe@shell.foo.com
    SSH offers quite a few configuration possibilities when the network
    is restricted in various ways.  Please refer to the SSH
    documentation for details.
-   -->
+-->
 <literal>shell.foo.com</literal>から<literal>db.foo.com</literal>へのこのような接続はSSHトンネルで暗号化されません。
 SSHはいろいろな方法でネットワークが制約されているとき、かなりの数の設定可能性を提供しています。
 詳細はSSHの文書を参照してください。
