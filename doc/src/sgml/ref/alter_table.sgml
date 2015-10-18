@@ -1294,7 +1294,7 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</>お�
     scanning the table to verify that existing rows meet the constraint,
     but does not require a table rewrite.
 -->
-<literal>CHECK</>あるいは<literal>NOT NULL</>制約を追加する時は、既存の行が制約に従うかどうかを検証するためにテーブルの走査が必要になります。
+<literal>CHECK</>あるいは<literal>NOT NULL</>制約を追加する時は、既存の行が制約に従うかどうかを検証するためにテーブルの走査が必要になりますが、テーブルの書き換えは必要ありません。
    </para>
 
    <para>
@@ -1334,15 +1334,20 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</>お�
     performs a rewrite of the whole table.  This results in reconstructing
     each row with the dropped column replaced by a null value.
 -->
-テーブルの書き換えを即座に強制するために、<link linkend="SQL-VACUUM">VACUUM FULL</>、<xref linkend="SQL-CLUSTER">、書き換えを強制するALTER TABLE構文を使用することができます。
-これにより、見た目にはテーブルに有意な変更はありませんが、使用されなくなったデータが取り除かれます。
+削除した列が占有していたスペースを即座に再利用できるようにするには、テーブル全体を書き換える構文の<command>ALTER TABLE</>を使用することができます。
+この結果、各行の削除される列がNULL値で再構成されます。
    </para>
 
    <para>
+<!--
     The rewriting forms of <command>ALTER TABLE</> are not MVCC-safe.
     After a table rewrite, the table will appear empty to concurrent
     transactions, if they are using a snapshot taken before the rewrite
     occurred.  See <xref linkend="mvcc-caveats"> for more details.
+-->
+テーブルを書き換える構文の<command>ALTER TABLE</>はMVCC的に安全ではありません。
+同時実行中のトランザクションが、テーブル書き換えが発生する前に取得したスナップショットを使っている場合、テーブルの書き換え後はそのトランザクションにはテーブルが空であるように見えます。
+詳しくは<xref linkend="mvcc-caveats">を参照して下さい。
    </para>
 
    <para>
