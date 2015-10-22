@@ -369,11 +369,11 @@ SQL文がブロック書き出しに費やした、ミリ秒単位の総時間
    Furthermore, it is not safe to assume that <structfield>queryid</>
    will be stable across major versions of <productname>PostgreSQL</>.
 -->
-<literal>pg_stat_statements</>の消費者は、問い合わせテキストよりもより安定で信頼できる各項目への識別子として(おそらく<structfield>dbid</>や<structfield>userid</>と組み合わせて)<structfield>queryid</>を使いたいかもしれません。
+<structname>pg_stat_statements</>の消費者は、問い合わせテキストよりもより安定で信頼できる各項目への識別子として(おそらく<structfield>dbid</>や<structfield>userid</>と組み合わせて)<structfield>queryid</>を使いたいかもしれません。
 しかし、<structfield>queryid</>ハッシュ値の安定性には限定された保証しかないのを理解することは重要です。
 識別子は解析後の木から得られますので、その値は、とりわけ、この表現に現れる内部オブジェクト識別子の関数です。
 これは少々直観に反する結果です。
-例えば、<literal>pg_stat_statements</>は見たところは同一の問い合わせを、それらが2つの問い合わせの実行の間に削除され再作成されたテーブルを参照しているのであれば、別個のものとみなします。
+例えば、<filename>pg_stat_statements</>は見たところは同一の問い合わせを、それらが2つの問い合わせの実行の間に削除され再作成されたテーブルを参照しているのであれば、別個のものとみなします。
 ハッシュ処理はプラットフォームのマシンアーキテクチャやその他の面の違いにも敏感です。
 その上、<productname>PostgreSQL</>のメジャーバージョンをまたがって<structfield>queryid</>が安定であるとみなすのは安全ではありません。
   </para>
@@ -397,6 +397,7 @@ SQL文がブロック書き出しに費やした、ミリ秒単位の総時間
   </para>
 
   <para>
+<!--
    The representative query texts are kept in an external disk file, and do
    not consume shared memory.  Therefore, even very lengthy query texts can
    be stored successfully.  However, if many long query texts are
@@ -408,6 +409,12 @@ SQL文がブロック書き出しに費やした、ミリ秒単位の総時間
    each <structfield>queryid</> are preserved.  If this happens, consider
    reducing <varname>pg_stat_statements.max</varname> to prevent
    recurrences.
+-->
+代表的な問い合わせテキストは外部ディスクファイルに保持され、共有メモリを消費しません。
+そのため、非常に長い問い合わせテキストであっても保存に成功します。
+しかし、数多くの長い問い合わせテキストが蓄積されると、外部ファイルは手に負えないくらい大きくなるかもしれません。
+もしそのようなことが起きれば、回復手法として、<filename>pg_stat_statements</>は問い合わせテキストを破棄することを選ぶでしょう。その結果、各<structfield>queryid</>に関連する統計は保存されるものの、<structname>pg_stat_statements</>ビュー内に存在するエントリはすべて<structfield>query</>フィールドがヌルになります。
+もしこのようなことが起きたら、再発防止のため<varname>pg_stat_statements.max</varname>を減らすことを検討してください。
   </para>
  </sect2>
 
