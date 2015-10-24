@@ -1568,11 +1568,11 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
         cryptanalysis when large amounts of traffic can be examined, but it
         also carries a large performance penalty. The sum of sent and received
         traffic is used to check the limit. If this parameter is set to 0,
-        renegotiation is disabled. The default is <literal>512MB</>.
+        renegotiation is disabled. The default is <literal>0</>.
        -->
        そのセッションキーの再調停が行われる前に、<acronym>SSL</>暗号化接続上で、どれだけの量のデータが流れても良いかを指定します。
        再調停は攻撃者が大量のトラフィックを送出した場合、暗号解析を行う機会を減少させます。しかし、同時に多大な性能上の不利益をもたらします。
-       送出されたのと受け取られたトラフィックの合計はその限度の検証に使用されます。もしパラメータが0に設定されると再調停は無効になります。デフォルトは<literal>512MB</>です。
+       送出されたのと受け取られたトラフィックの合計はその限度の検証に使用されます。もしパラメータが0に設定されると再調停は無効になります。デフォルトは<literal>0</>です。
        </para>
        <note>
         <para>
@@ -1589,6 +1589,17 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
         もしこれらのライブラリがクライアントまたはサーバで使用されているのであれば、SSL再調停は無効にすべきです。
         </para>
        </note>
+
+       <warning>
+        <para>
+       <!--
+         Due to bugs in <productname>OpenSSL</> enabling ssl renegotiation, by
+         configuring a non-zero <varname>ssl_renegotiation_limit</>, is likely
+         to lead to problems like long-lived connections breaking.
+        -->
+        再調停を有効にした際の<productname>OpenSSL</>のバグにより、<varname>ssl_renegotiation_limit</>を0以外にすると、長時間に渡る接続が切れてしまうような問題を引き起こす可能性があります。
+        </para>
+       </warning>
       </listitem>
      </varlistentry>
 
@@ -4082,8 +4093,7 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
        <xref linkend="synchronous-replication">で説明されているように、<firstterm>同期レプリケーション</>をサポート可能なコンマで区切られたリストでスタンバイサーバの名前を指定します。
        いつの時点においても、最低限一つの活動している同期スタンバイサーバが存在します。
        コミットを待機しているトランザクションは、このスタンバイサーバがそのデータの受信を確認してから処理の継続が許可されます。
-       同期スタンバイサーバはこのリストで一番目に名前が挙げられていており、現時点で接続され、そしてデータをリアルタイムでストリーミングしているものです（<link linkend="monitoring-stats-views-table">
-        <literal>pg_stat_replication</></link> ビューにおいて<literal>ストリーミング</literal>状態として示されています）。
+       同期スタンバイサーバはこのリストで一番目に名前が挙げられていており、現時点で接続され、そしてデータをリアルタイムでストリーミングしているものです（<link linkend="monitoring-stats-views-table"><literal>pg_stat_replication</></link> ビューにおいて<literal>ストリーミング</literal>状態として示されています）。
        このリストの後の方に記載されているその他のスタンバイサーバは潜在的に同期スタンバイサーバになることを示しています。
        もし現在の同期スタンバイサーバが理由にかかわらず切断された場合、次に順位の高いスタンバイサーバがすぐに取って代わります。
        二つ以上のスタンバイサーバ名を指定することでかなりの高可容性が得られます。
@@ -4331,7 +4341,7 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
        -->
        プライマリー、または上位サーバに対してレプリケーションの進捗情報を送信するため、スタンバイ上のWAL受信プロセスの最小頻度を指定します。ここで、<link linkend="monitoring-stats-views-table">
        <literal>pg_stat_replication</></link>ビューにより確認することが可能です。
-       スタンドバイサーバは既に書き込まれた最終のログ位置を報告し、その最終位置がディスクにフラッシュされ、その最終位置が適用されます。
+       スタンバイサーバは既に書き込まれた最終のログ位置を報告し、その最終位置がディスクにフラッシュされ、その最終位置が適用されます。
        このパラメータの値がそれぞれの報告間における秒単位の最大の時間間隔です。
        書き込み、またはフラッシュ位置が変更される毎に更新が行われます。
        あるいは、少なくともこのパラメータで設定された頻度で行われます。
@@ -5192,7 +5202,7 @@ RAM内に存在するページの取り出しコストは通常よりもかな�
         value changes the set of join paths explored, and may result in a
         better or worse best path being found.
        -->
-       結合順序検索空間にわたって、GEQOが無作為のパスを選択するために使用される乱数発生器の初期値を制御済ます。
+       結合順序検索空間にわたって、GEQOが無作為のパスを選択するために使用される乱数発生器の初期値を制御します。
        値は0（デフォルト）から1までの範囲です。
        値を変動させると探査される結合パスの集合を変化させ、それが見つかっているより良いか、より悪い最善のパスとなる可能性があります。
        </para>
@@ -5581,7 +5591,7 @@ local0.*    /var/log/postgresql
          This parameter can only be set at server start.
         -->
         このパラメータは<firstterm>logging collector</>を有効にします。
-        それは<systemitem>stderr</>に送られたログメッセージを捕捉し、ログファイルにリダイレクトするバックグランドプロセスです。
+        それは<systemitem>stderr</>に送られたログメッセージを捕捉し、ログファイルにリダイレクトするバックグラウンドプロセスです。
         この手法は<application>syslog</>へのログよりもしばしば有用です。
         メッセージの一部の種類が<application>syslog</>では出力されない可能性があるためです。
         （一般的な例として、ダイナミックリンカのエラーメッセージがあり、その他の例として<varname>archive_command</>のようなスクリプトにより生成されたエラーメッセージが挙げられます）。
@@ -5689,8 +5699,7 @@ local0.*    /var/log/postgresql
 （時間帯に依存した<literal>%</literal>エスケープが存在する場合、<xref
 linkend="guc-log-timezone">で指定された時間帯で計算が行われます。）
 サポートされている<literal>%</literal>-エスケープは<ulink
-        url="http://pubs.opengroup.org/onlinepubs/009695399/functions/strftime.html">strftime
-        </ulink> 仕様によく似ています。
+        url="http://pubs.opengroup.org/onlinepubs/009695399/functions/strftime.html">strftime</ulink> 仕様によく似ています。
 システムの<systemitem>strftime</systemitem>は直接使用されないので、プラットフォーム固有の（非標準）の拡張は動作しません。
 デフォルトは<literal>postgresql-%Y-%m-%d_%H%M%S.log</literal>です。
        </para>
@@ -6905,7 +6914,7 @@ FROM pg_stat_activity;
 <literal>ddl</>は、<literal>CREATE</>、<literal>ALTER</>、および<literal>DROP</>文といった、データ定義文を全てログに記録します。
 <literal>mod</>は、全ての<literal>ddl</>文に加え、<literal>INSERT</>、<literal>UPDATE</>、<literal>DELETE</>、<literal>TRUNCATE</>、および<literal>COPY FROM</>といった、データ変更文をログに記録します。
 <literal>PREPARE</>と<literal>EXPLAIN ANALYZE</>コマンドも、そこに含まれるコマンドが適切な種類であればログが録られます。
-拡張問い合わせプロトコルを使用するクライアントでは、Executeメッセージを受け取った時にBindパラメータの値が（すべての単一引用符が二重にされた常態で）含まれていた場合、ログに記録されます。
+拡張問い合わせプロトコルを使用するクライアントでは、Executeメッセージを受け取った時にBindパラメータの値が（すべての単一引用符が二重にされた状態で）含まれていた場合、ログに記録されます。
        </para>
 
        <para>
@@ -7042,7 +7051,7 @@ FROM pg_stat_activity;
         and application name.
         Here is a sample table definition for storing CSV-format log output:
        -->
-       <varname>log_destination</>リストに<literal>csvlog</>を含めることは、ログファイルをデータベーステーブルにインポートする簡便な方法を提供します。このオプションはカンマ区切り値書式（(<acronym>CSV</>）で以下の列を含むログ行を生成します。
+       <varname>log_destination</>リストに<literal>csvlog</>を含めることは、ログファイルをデータベーステーブルにインポートする簡便な方法を提供します。このオプションはカンマ区切り値書式（<acronym>CSV</>）で以下の列を含むログ行を生成します。
 
         ミリ秒単位のtimestamp、
         ユーザ名、
@@ -7064,7 +7073,7 @@ FROM pg_stat_activity;
         内部問い合わせにおけるエラー位置の文字数、
         エラーの文脈、
         PostgreSQLソースコード上のエラー発生場所（<varname>log_error_verbosity</>が<literal>verbose</>に設定されているならば）
-        アプリケーション名
+        アプリケーション名。
 以下にcsvlog出力を格納するためのテーブル定義のサンプルを示します。
 
 <programlisting>
@@ -7532,7 +7541,7 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
         prevent transaction ID wraparound.  See <xref
         linkend="vacuum-for-wraparound"> for more information.
        -->
-       このパラメータが無効であってとしてもシステムは、トランザクションIDの周回を防止する必要があれば、autovacuumプロセスを起動することに注意してください。
+       このパラメータが無効であったとしてもシステムは、トランザクションIDの周回を防止する必要があれば、autovacuumプロセスを起動することに注意してください。
 詳細は<xref linkend="vacuum-for-wraparound">を参照してください。
        </para>
       </listitem>
@@ -9143,7 +9152,7 @@ SET XML OPTION { DOCUMENT | CONTENT };
       their names with commas.  All library names are converted to lower case
       unless double-quoted.
 -->
-      それぞれのパラメータにおいて、2つ以上のライブラリをロードする必要がある場合は、それぞれのライブラリをカンマで区切ります。二重引用符で修飾子しない限り、すべてのライブラリ名は小文字に変換されます。
+      それぞれのパラメータにおいて、2つ以上のライブラリをロードする必要がある場合は、それぞれのライブラリをカンマで区切ります。二重引用符で修飾しない限り、すべてのライブラリ名は小文字に変換されます。
      </para>
 
      <para>
@@ -9221,7 +9230,7 @@ SET XML OPTION { DOCUMENT | CONTENT };
         non-superusers, this is usually not the right setting to use.  Look
         at <xref linkend="guc-session-preload-libraries"> instead.
 -->
-       モジュールが特にスーパユーザ以外に使われることを意図しているのでない限り、通常この方法はた正しい使い方ではありません。
+       モジュールが特にスーパユーザ以外に使われることを意図しているのでない限り、通常この方法は正しい使い方ではありません。
 代わりに<xref linkend="guc-session-preload-libraries">を見てください。
        </para>
       </listitem>
@@ -9408,7 +9417,7 @@ SET XML OPTION { DOCUMENT | CONTENT };
         (Use <literal>pg_config &#045;-pkglibdir</literal> to find out the name of
         this directory.) For example:
        -->
-       <varname>dynamic_library_path</varname>の値は、絶対パスのディレクトリ名をコロン（Windowsの場合はセミコロン）を区切った一覧です。
+       <varname>dynamic_library_path</varname>の値は、絶対パスのディレクトリ名をコロン（Windowsの場合はセミコロン）で区切った一覧です。
 この一覧の要素が特別な<literal>$libdir</literal>という値から始まる場合、コンパイルされた<productname>PostgreSQL</productname>パッケージのライブラリディレクトリで<literal>$libdir</literal>は置換されます。
 ここには、<productname>PostgreSQL</productname>の標準配布物により提供されるモジュールがインストールされます
 （このディレクトリ名を表示するには、<literal>pg_config --pkglibdir</literal> を使用してください）。
@@ -10933,7 +10942,7 @@ LOG:  CleanUpLock: deleting: lock(0xb7acd844) id(24688,24696,0,0,0,1)
         as for <symbol>trace_locks</symbol>, only for advisory locks.
        -->
        有効な場合、ユーザロックの使用状況に関する情報を出力します。
-       出力は<symbol>trace_locks</symbol>と同じですが、助言ロックに関するもののみを出力します。
+       出力は<symbol>trace_locks</symbol>と同じですが、勧告的ロックに関するもののみを出力します。
        </para>
        <para>
        <!--

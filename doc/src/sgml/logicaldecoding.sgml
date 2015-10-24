@@ -248,7 +248,7 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
      application-specific form such as a stream of tuples or SQL statements.
 -->
 
-<productname>PostgreSQL</productname>においてロジカルデコーディングは、記憶装置の階層レベルで更新を記述する<link linkend="wal">書き込先行みログ</link>の内容を、タプルやSQL文のストリームといったアプリケーション固有の形式にデコードすることによって実装されています。
+<productname>PostgreSQL</productname>においてロジカルデコーディングは、記憶装置のレベルで更新を記述する<link linkend="wal">書き込先行みログ</link>の内容を、タプルやSQL文のストリームといったアプリケーション固有の形式にデコードすることによって実装されています。
     </para>
    </sect2>
 
@@ -308,6 +308,7 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
 -->
 単一のデータベース中に、お互いに独立した複数のスロットが存在しても構いません。
 それぞれのスロットは自分自身の状態を持っており、データベース更新のストリーム上の別の場所から変更データを受信する異なる消費者があり得ます。
+多くのアプリケーションにとっては、各消費者に対して個別のスロットが必要となるでしょう。
     </para>
 
     <para>
@@ -318,7 +319,7 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
      on from when the last receiver stopped consuming them. Only one receiver
      may consume changes from a slot at any given time.
 -->
-ロジカルレプリケーションスロットは、受信者の状態については関知しません。同時にでなければ、同じスロットを使う複数の異なる受信者を持つことさえできます。その場合は、最後の受信者がストリームの消費を終了した時点から更新データを受信するだけです。
+ロジカルレプリケーションスロットは、受信者の状態については関知しません。同時にでなければ、同じスロットを使う複数の異なる受信者を持つことさえできます。その場合は、直近の受信者がストリームの消費を終了した時点から更新データを受信するだけです。
     </para>
 
     <note>
@@ -332,9 +333,9 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
       slot.  So if a slot is no longer required it should be dropped.
 -->
 レプリケーションスロットは、クラッシュをまたがって永続し、消費者の状態については関知しません。
-それらを使う接続がない場合でも、スロットに必要なリソースを削除されません。
-ですから記憶域が消費されます。関連するWALも、システムカタログの行も、レプリケーションスロットが必要とする限り<command>VACUUM</command>によって削除はされないからです。
-必要でなくなったスロットは削除すべきです。
+スロットを使う接続がない場合でも、消費者が必要としているリソースが削除されることを防ぎます。
+これによりストレージが消費されます。何故ならば、関連するWALもシステムカタログの行も、レプリケーションスロットが必要とする限り<command>VACUUM</command>によって削除されないからです。
+したがって、必要でなくなったスロットは削除すべきです。
      </para>
     </note>
    </sect2>
@@ -372,8 +373,8 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
      using the slot's contents without losing any changes.
 -->
 ストリーミングレプリケーションのインターフェイスを使って新しいスロットを作ると、スナップショットがエキスポートされます(<xref linkend="functions-snapshot-synchronization">参照)。
-このスナップショットは正確なデータベースの状態を示し、以後すべての変更は更新ストリームに含まれるようになります。
-このことを利用して、スロットが作られた祭のデータベースの状態を<link linkend="sql-set-transaction"><literal>SET TRANSACTION SNAPSHOT</literal></link>を使って読み込むことにより、新しいレプリカを作ることができます。
+このスナップショットはまさにその時点でのデータベースの状態を示しており、スナップショット以後のすべての変更は更新ストリームに含まれるようになります。
+このことを利用して、スロットが作られた際のデータベースの状態を<link linkend="sql-set-transaction"><literal>SET TRANSACTION SNAPSHOT</literal></link>を使って読み込むことにより、新しいレプリカを作ることができます。
 このトランザクションは、その時点のデータベースの状態をダンプするために使用することができます。
 また、スロットに含まれるデータを使って、ダンプした後で行われた更新を失うことなくデータベースを更新できます。
     </para>

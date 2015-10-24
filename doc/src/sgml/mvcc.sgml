@@ -595,7 +595,7 @@ COMMIT;
     sees an absolutely consistent view of the database.
 -->
 リードコミッティドモードは、それぞれのコマンドをその時点までにコミットされた全てのトランザクションを含む新規スナップショットを伴って開始するので、同一のトランザクション内でそれに続くコマンドは、いかなる場合でもコミットされた同時実行トランザクションの結果を参照します。
-上記問題の要点は<emphasis>単一の</>コマンドがデータベースの厳密に一貫性のある見え方を見るるか否かです。
+上記問題の要点は<emphasis>単一の</>コマンドがデータベースの厳密に一貫性のある見え方を見るか否かです。
    </para>
 
    <para>
@@ -1085,25 +1085,6 @@ ERROR:  could not serialize access due to read/write dependencies among transact
      </listitem>
     </itemizedlist>
    </para>
-
-   <warning>
-    <para>
-<!--
-     Support for the Serializable transaction isolation level has not yet
-     been added to Hot Standby replication targets (described in
-     <xref linkend="hot-standby">).  The strictest isolation level currently
-     supported in hot standby mode is Repeatable Read.  While performing all
-     permanent database writes within Serializable transactions on the
-     master will ensure that all standbys will eventually reach a consistent
-     state, a Repeatable Read transaction run on the standby can sometimes
-     see a transient state which is inconsistent with any serial execution
-     of serializable transactions on the master.
--->
-シリアライザブルトランザクション分離レベルのサポートは、まだホットスタンバイレプリケーションは対象に加えられていません(<xref linkend="hot-standby">で述べます)。
-ホットスタンバイモードで現在サポートされた最も厳しい分離レベルはリピータブルリードです。
-マスタ上でシリアライザブルトランザクション中にデータベースに永続的な書き込みを行なえば、スタンバイはすべて最終的に一貫した状態に達するだろうということは保証されるでしょうが、スタンバイ上で実行されたリピータブルリードトランザクションは、時々マスタのシリアライザブルトランザクションの任意の連続する実行と一致しない過渡状態を見ることがあるでしょう。
-    </para>
-   </warning>
   </sect2>
  </sect1>
 
@@ -2355,6 +2336,38 @@ SELECT pg_advisory_lock(q.id) FROM
 したがって、スナップショットを取得する前に、明示的にロックを獲得することが可能です。
     </para>
    </sect2>
+  </sect1>
+
+  <sect1 id="mvcc-caveats">
+   <title>Caveats</title>
+
+   <para>
+    Some DDL commands, currently only <xref linkend="sql-truncate"> and the
+    table-rewriting forms of <xref linkend="sql-altertable">, are not
+    MVCC-safe.  This means that after the truncation or rewrite commits, the
+    table will appear empty to concurrent transactions, if they are using a
+    snapshot taken before the DDL command committed.  This will only be an
+    issue for a transaction that did not access the table in question
+    before the DDL command started &mdash; any transaction that has done so
+    would hold at least an <literal>ACCESS SHARE</literal> table lock,
+    which would block the DDL command until that transaction completes.
+    So these commands will not cause any apparent inconsistency in the
+    table contents for successive queries on the target table, but they
+    could cause visible inconsistency between the contents of the target
+    table and other tables in the database.
+   </para>
+
+   <para>
+    Support for the Serializable transaction isolation level has not yet
+    been added to Hot Standby replication targets (described in
+    <xref linkend="hot-standby">).  The strictest isolation level currently
+    supported in hot standby mode is Repeatable Read.  While performing all
+    permanent database writes within Serializable transactions on the
+    master will ensure that all standbys will eventually reach a consistent
+    state, a Repeatable Read transaction run on the standby can sometimes
+    see a transient state that is inconsistent with any serial execution
+    of the transactions on the master.
+   </para>
   </sect1>
 
   <sect1 id="locking-indexes">

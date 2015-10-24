@@ -2211,7 +2211,7 @@ NULLは無視される。
 -->
 文字列の先頭から<replaceable>n</>文字を返します。
 <replaceable>n</>が負数の場合、|<replaceable>n</>|の数だけ文字列の末尾から切り取った文字列を返します。
-       </entry>
+        </entry>
        <entry><literal>left('abcde', 2)</literal></entry>
        <entry><literal>ab</literal></entry>
       </row>
@@ -4600,6 +4600,28 @@ cast(-44 as bit(12))           <lineannotation>111111010100</lineannotation>
     </para>
    </tip>
 
+   <caution>
+    <para>
+     While most regular-expression searches can be executed very quickly,
+     regular expressions can be contrived that take arbitrary amounts of
+     time and memory to process.  Be wary of accepting regular-expression
+     search patterns from hostile sources.  If you must do so, it is
+     advisable to impose a statement timeout.
+    </para>
+
+    <para>
+     Searches using <function>SIMILAR TO</function> patterns have the same
+     security hazards, since <function>SIMILAR TO</function> provides many
+     of the same capabilities as <acronym>POSIX</acronym>-style regular
+     expressions.
+    </para>
+
+    <para>
+     <function>LIKE</function> searches, being much simpler than the other
+     two options, are safer to use with possibly-hostile pattern sources.
+    </para>
+   </caution>
+
   <sect2 id="functions-like">
    <title><function>LIKE</function></title>
 
@@ -6144,7 +6166,7 @@ EREにはエスケープはありません。ブラケット式の外側では�
 <!--
        <entry> the character whose collating-sequence name
        is <literal>ESC</>,
-       or failing that, the character with octal value 033 </entry>
+       or failing that, the character with octal value <literal>033</> </entry>
 -->
        <entry>照合順名が<literal>ESC</>となる文字、それに失敗したら、033という8進数値を持つ文字。</entry>
        </row>
@@ -6185,10 +6207,11 @@ EREにはエスケープはありません。ブラケット式の外側では�
        <entry> <literal>\u</><replaceable>wxyz</> </entry>
 <!--
        <entry> (where <replaceable>wxyz</> is exactly four hexadecimal digits)
-       the UTF16 (Unicode, 16-bit) character <literal>U+</><replaceable>wxyz</>
-       in the local byte ordering </entry>
+       the character whose hexadecimal value is
+       <literal>0x</><replaceable>wxyz</>
 -->
-       <entry>（ここで<replaceable>wxyz</>は正確に4桁の16進数で）使用マシンのバイト順序付けで表した、<literal>U+</><replaceable>wxyz</>というUTF16（16ビット、Unicode）文字</entry>
+       <entry>（ここで<replaceable>wxyz</>は正確に4桁の16進数で）使用マシンのバイト順序付けで表した、<literal>U+</><replaceable>wxyz</>というUTF16（16ビット、Unicode）文字
+       </entry>
        </row>
 
        <row>
@@ -6196,7 +6219,8 @@ EREにはエスケープはありません。ブラケット式の外側では�
 <!--
        <entry> (where <replaceable>stuvwxyz</> is exactly eight hexadecimal
        digits)
-       reserved for a hypothetical Unicode extension to 32 bits
+       the character whose hexadecimal value is
+       <literal>0x</><replaceable>stuvwxyz</>
 -->
        <entry>（ここで<replaceable>stuvwxyz</>は正確に8桁の16進数です。）32ビットにUnicodeが拡張されるという仮説のために確保
        </entry>
@@ -6267,7 +6291,18 @@ EREにはエスケープはありません。ブラケット式の外側では�
    </para>
 
    <para>
-<!--
+    Numeric character-entry escapes specifying values outside the ASCII range
+    (0-127) have meanings dependent on the database encoding.  When the
+    encoding is UTF-8, escape values are equivalent to Unicode code points,
+    for example <literal>\u1234</> means the character <literal>U+1234</>.
+    For other multibyte encodings, character-entry escapes usually just
+    specify the concatenation of the byte values for the character.  If the
+    escape value does not correspond to any legal character in the database
+    encoding, no error will be raised, but it will never match any data.
+   </para>
+
+   <para>
+<--
     The character-entry escapes are always taken as ordinary characters.
     For example, <literal>\135</> is <literal>]</> in ASCII, but
     <literal>\135</> does not terminate a bracket expression.
@@ -6933,8 +6968,37 @@ SELECT SUBSTRING('XY1234Z', 'Y*?([0-9]{1,3})');
    </para>
 
    <para>
-<!--
-    Match lengths are measured in characters, not collating elements.
+    This is useful when you need the whole RE to have a greediness attribute
+    different from what's deduced from its elements.  As an example,
+    suppose that we are trying to separate a string containing some digits
+    into the digits and the parts before and after them.  We might try to
+    do that like this:
+<screen>
+SELECT regexp_matches('abc01234xyz', '(.*)(\d+)(.*)');
+<lineannotation>Result: </lineannotation><computeroutput>{abc0123,4,xyz}</computeroutput>
+</screen>
+    That didn't work: the first <literal>.*</> is greedy so
+    it <quote>eats</> as much as it can, leaving the <literal>\d+</> to
+    match at the last possible place, the last digit.  We might try to fix
+    that by making it non-greedy:
+<screen>
+SELECT regexp_matches('abc01234xyz', '(.*?)(\d+)(.*)');
+<lineannotation>Result: </lineannotation><computeroutput>{abc,0,""}</computeroutput>
+</screen>
+    That didn't work either, because now the RE as a whole is non-greedy
+    and so it ends the overall match as soon as possible.  We can get what
+    we want by forcing the RE as a whole to be greedy:
+<screen>
+SELECT regexp_matches('abc01234xyz', '(?:(.*?)(\d+)(.*)){1,1}');
+<lineannotation>Result: </lineannotation><computeroutput>{abc,01234,xyz}</computeroutput>
+</screen>
+    Controlling the RE's overall greediness separately from its components'
+    greediness allows great flexibility in handling variable-length patterns.
+   </para>
+
+   <para>
+    When deciding what is a longer or shorter match,
+    match lengths are measured in characters, not collating elements.
     An empty string is considered longer than no match at all.
     For example:
     <literal>bb*</>
@@ -7766,7 +7830,7 @@ BREにおいては、<literal>|</>、<literal>+</>、<literal>?</>は普通の�
 -->
         <entry><literal>FM</literal>接頭辞</entry>
 <!--
-        <entry>fill mode (suppress padding blanks and trailing zeroes)</entry>
+        <entry>fill mode (suppress leading zeroes and padding blanks)</entry>
 -->
         <entry>字詰めモード（空白のパディング、および末尾の0を無効）</entry>
         <entry><literal>FMMonth</literal></entry>
@@ -8389,7 +8453,7 @@ Oracleの実装では<literal>9</literal>の前の<literal>MI</literal>が置か
 -->
         <entry><literal>FM</literal>添え字</entry>
 <!--
-        <entry>fill mode (suppress padding blanks and trailing zeroes)</entry>
+        <entry>fill mode (suppress leading zeroes and padding blanks)</entry>
 -->
         <entry>字詰めモード（空白パディングの無効、および0の除去）</entry>
         <entry><literal>FM9999</literal></entry>
@@ -8551,7 +8615,7 @@ Oracleの実装では<literal>9</literal>の前の<literal>MI</literal>が置か
        </row>
        <row>
         <entry><literal>to_char(485, 'L999')</literal></entry>
-        <entry><literal>'DM&nbsp;485</literal></entry>
+        <entry><literal>'DM&nbsp;485'</literal></entry>
        </row>
        <row>
         <entry><literal>to_char(485, 'RN')</literal></entry>
@@ -13672,7 +13736,7 @@ table2-mapping
     <secondary>関数と演算子</secondary>
   </indexterm>
 
-  <para>
+   <para>
 <!--
    <xref linkend="functions-json-op-table"> shows the operators that
    are available for use with the two JSON data types (see <xref
@@ -17892,9 +17956,9 @@ NULL値は<literal>ORDER BY</>節で指定されるルールに従って並べ�
         <primary>lag</primary>
        </indexterm>
        <function>
-         lag(<replaceable class="parameter">value</replaceable> <type>any</>
+         lag(<replaceable class="parameter">value</replaceable> <type>anyelement</>
              [, <replaceable class="parameter">offset</replaceable> <type>integer</>
-             [, <replaceable class="parameter">default</replaceable> <type>any</> ]])
+             [, <replaceable class="parameter">default</replaceable> <type>anyelement</> ]])
        </function>
       </entry>
       <entry>
@@ -17908,7 +17972,9 @@ NULL値は<literal>ORDER BY</>節で指定されるルールに従って並べ�
        returns <replaceable class="parameter">value</replaceable> evaluated at
        the row that is <replaceable class="parameter">offset</replaceable>
        rows before the current row within the partition; if there is no such
-       row, instead return <replaceable class="parameter">default</replaceable>.
+       row, instead return <replaceable class="parameter">default</replaceable>
+       (which must be of the same type as
+       <replaceable class="parameter">value</replaceable>).
        Both <replaceable class="parameter">offset</replaceable> and
        <replaceable class="parameter">default</replaceable> are evaluated
        with respect to the current row.  If omitted,
@@ -17925,9 +17991,9 @@ NULL値は<literal>ORDER BY</>節で指定されるルールに従って並べ�
         <primary>lead</primary>
        </indexterm>
        <function>
-         lead(<replaceable class="parameter">value</replaceable> <type>any</>
+         lead(<replaceable class="parameter">value</replaceable> <type>anyelement</>
               [, <replaceable class="parameter">offset</replaceable> <type>integer</>
-              [, <replaceable class="parameter">default</replaceable> <type>any</> ]])
+              [, <replaceable class="parameter">default</replaceable> <type>anyelement</> ]])
        </function>
       </entry>
       <entry>
@@ -17941,7 +18007,9 @@ NULL値は<literal>ORDER BY</>節で指定されるルールに従って並べ�
        returns <replaceable class="parameter">value</replaceable> evaluated at
        the row that is <replaceable class="parameter">offset</replaceable>
        rows after the current row within the partition; if there is no such
-       row, instead return <replaceable class="parameter">default</replaceable>.
+       row, instead return <replaceable class="parameter">default</replaceable>
+       (which must be of the same type as
+       <replaceable class="parameter">value</replaceable>).
        Both <replaceable class="parameter">offset</replaceable> and
        <replaceable class="parameter">default</replaceable> are evaluated
        with respect to the current row.  If omitted,
@@ -22231,8 +22299,8 @@ postgres=# select pg_start_backup('label_goes_here');
     spike in I/O operations, slowing any concurrently executing queries.
 -->
 オプションの<type>boolean</type>型パラメータがあります。
-<literal>真</>であれば、すべからく早く<function>pg_start_backup</>の実行を指定します。
-いかなる現時点で実行中の問い合わせも速度を落とし、I/O操作で急増の原因の即時チェックポイントを強要します。
+<literal>真</>であれば、できる限り高速に<function>pg_start_backup</>を実行します。
+これは、即時のチェックポイントを強制するため、I/O 操作の急激な増加を引き起こし、実行中の問い合わせ全てを遅延させることがあります。
    </para>
 
    <para>
