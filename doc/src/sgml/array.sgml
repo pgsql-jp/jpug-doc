@@ -711,9 +711,6 @@ SELECT array_dims(ARRAY[1,2] || ARRAY[[3,4],[5,6]]);
 -->
 配列は<function>array_prepend</function>、<function>array_append</function>、もしくは<function>array_cat</function>を使って構築することもできます。
 初めの2つは一次元配列にしか対応していませんが、<function>array_cat</function>は多次元配列でも使えます。
-上で説明した連結演算子はそれぞれの関数を直接実行することよりも望ましいことを覚えておいてください。
-事実、それらの関数は連結演算子の実装のため主として存在します。
-とは言っても、ユーザ定義の集約関数を作る時そのまま使えます。
 例を挙げます。
 
 <programlisting>
@@ -749,33 +746,51 @@ SELECT array_cat(ARRAY[5,6], ARRAY[[1,2],[3,4]]);
  </para>
 
  <para>
+<!--
   In simple cases, the concatenation operator discussed above is preferred
   over direct use of these functions.  However, because the concatenation
   operator is overloaded to serve all three cases, there are situations where
   use of one of the functions is helpful to avoid ambiguity.  For example
   consider:
+-->
+単純な状況では、上で説明した連結演算子はそれぞれの関数を直接実行することよりも望ましいです。
+とは言っても、連結演算子は3つの場合すべてに対応するようオーバーロードされていますので、その関数の1つを使うとあいまいさを避けるのに役立つ場合があります。
+例えば、以下のような状況を考えてください。
 
 <programlisting>
-SELECT ARRAY[1, 2] || '{3, 4}';  -- the untyped literal is taken as an array
+<!--
+SELECT ARRAY[1, 2] || '{3, 4}';  &#045;- the untyped literal is taken as an array
+-->
+SELECT ARRAY[1, 2] || '{3, 4}';  -- 型指定のないリテラルは配列と見なされる
  ?column?
 -----------
  {1,2,3,4}
 
-SELECT ARRAY[1, 2] || '7';                 -- so is this one
+<!--
+SELECT ARRAY[1, 2] || '7';                 &#045;- so is this one
+-->
+SELECT ARRAY[1, 2] || '7';                 -- これも同様
 ERROR:  malformed array literal: "7"
 
-SELECT ARRAY[1, 2] || NULL;                -- so is an undecorated NULL
+<!--
+SELECT ARRAY[1, 2] || NULL;                &#045;- so is an undecorated NULL
+-->
+SELECT ARRAY[1, 2] || NULL;                -- 修飾されていないNULLも同様
  ?column?
 ----------
  {1,2}
 (1 row)
 
-SELECT array_append(ARRAY[1, 2], NULL);    -- this might have been meant
+<!--
+SELECT array_append(ARRAY[1, 2], NULL);    &#045;- this might have been meant
+-->
+SELECT array_append(ARRAY[1, 2], NULL);    -- これがやりたかった事かも
  array_append
 --------------
  {1,2,NULL}
 </programlisting>
 
+<!--
   In the examples above, the parser sees an integer array on one side of the
   concatenation operator, and a constant of undetermined type on the other.
   The heuristic it uses to resolve the constant's type is to assume it's of
@@ -785,6 +800,11 @@ SELECT array_append(ARRAY[1, 2], NULL);    -- this might have been meant
   that's the wrong choice, it could be fixed by casting the constant to the
   array's element type; but explicit use of <function>array_append</> might
   be a preferable solution.
+-->
+上の例では、パーサは連結演算子の一方の側に整数の配列を見つけ、もう一方の側に型の決まらない定数を見つけます。
+パーサが定数の型を解決するのに使う発見的手法は、演算子のもう一方の入力と同じ型(この場合には整数の配列)だと仮定することです。
+そのため、連結演算子は<function>array_append</>ではなく、<function>array_cat</>と推定されます。
+これが誤った選択である場合には、定数を配列の要素の型にキャストすることで直せるかもしれません。ですが、<function>array_append</>を明示的に使うのが好ましい解決法であるかもしれません。
  </para>
  </sect2>
 
