@@ -2339,9 +2339,13 @@ SELECT pg_advisory_lock(q.id) FROM
   </sect1>
 
   <sect1 id="mvcc-caveats">
+<!--
    <title>Caveats</title>
+-->
+   <title>警告</title>
 
    <para>
+<!--
     Some DDL commands, currently only <xref linkend="sql-truncate"> and the
     table-rewriting forms of <xref linkend="sql-altertable">, are not
     MVCC-safe.  This means that after the truncation or rewrite commits, the
@@ -2355,9 +2359,15 @@ SELECT pg_advisory_lock(q.id) FROM
     table contents for successive queries on the target table, but they
     could cause visible inconsistency between the contents of the target
     table and other tables in the database.
+-->
+DDLコマンドの中には、現在は<xref linkend="sql-truncate">とテーブルを書き換える形の<xref linkend="sql-altertable">だけですが、MVCCセーフでないものがあります。
+これは、DDLコマンドをコミットする前に取得したスナップショットを使っていると、切り詰めまたは書き換えのコミット後に、同時実行トランザクションに対してテーブルが空に見えることを意味しています。
+該当するテーブルにDDLコマンドが開始する前にアクセスしなかったトランザクションにとってのみ、これは問題となるでしょう&mdash;開始前にアクセスしたトランザクションは少なくとも<literal>ACCESS SHARE</literal>テーブルロックを保持しており、そのトランザクションが完了するまでDDLコマンドはブロックされるでしょう。
+ですので、対象のテーブルに対する連続した問い合わせで、このコマンドはテーブルの内容の見かけ上の不整合の原因とはなりません。しかし、対象のテーブルとデータベース内の他のテーブルの内容の間の可視の不整合の原因となるかもしれません。
    </para>
 
    <para>
+<!--
     Support for the Serializable transaction isolation level has not yet
     been added to Hot Standby replication targets (described in
     <xref linkend="hot-standby">).  The strictest isolation level currently
@@ -2367,6 +2377,10 @@ SELECT pg_advisory_lock(q.id) FROM
     state, a Repeatable Read transaction run on the standby can sometimes
     see a transient state that is inconsistent with any serial execution
     of the transactions on the master.
+-->
+シリアライザブルトランザクション分離レベルのサポートは、まだホットスタンバイレプリケーションは対象に加えられていません(<xref linkend="hot-standby">で述べます)。
+ホットスタンバイモードで現在サポートされた最も厳しい分離レベルはリピータブルリードです。
+マスタ上でシリアライザブルトランザクション中にデータベースに永続的な書き込みを行なえば、スタンバイはすべて最終的に一貫した状態に達するだろうということは保証されるでしょうが、スタンバイ上で実行されたリピータブルリードトランザクションは、時々マスタのトランザクションの任意の連続する実行と一致しない過渡状態を見ることがあるでしょう。
    </para>
   </sect1>
 
@@ -2374,7 +2388,7 @@ SELECT pg_advisory_lock(q.id) FROM
 <!--
    <title>Locking and Indexes</title>
 -->
-<title>ロックとインデックス</title>
+   <title>ロックとインデックス</title>
 
    <indexterm zone="locking-indexes">
 <!--
