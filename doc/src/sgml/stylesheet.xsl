@@ -16,11 +16,13 @@
 <xsl:param name="generate.legalnotice.link" select="1"></xsl:param>
 <xsl:param name="link.mailto.url">pgsql-docs@postgresql.org</xsl:param>
 <xsl:param name="chunk.first.sections" select="1"/>
+<!-- <xsl:param name="chunker.output.indent" select="'yes'"/> -->
 <xsl:param name="chunk.quietly" select="1"></xsl:param>
 <xsl:param name="toc.max.depth">2</xsl:param>
 
 <xsl:param name="website.stylesheet" select="0"/>
 
+<xsl:param name="html.original" select="0"/>
 <xsl:param name="html.stylesheet">
   <xsl:choose>
     <xsl:when test="$website.stylesheet = 0">stylesheet.css</xsl:when>
@@ -28,13 +30,25 @@
   </xsl:choose>
 </xsl:param>
 
-
 <!-- Change display of some elements -->
 
 <xsl:template match="command">
   <xsl:call-template name="inline.monoseq"/>
 </xsl:template>
 
+<xsl:template match="comment()">
+  <xsl:choose>
+    <xsl:when test="$html.original = 1">
+      <span class="original" xmlns="http://www.w3.org/1999/xhtml">
+        <xsl:comment>$<xsl:value-of select="dbhtml-filename"/></xsl:comment>
+        <xsl:value-of select="." />
+      </span><br xmlns="http://www.w3.org/1999/xhtml"/>
+    </xsl:when>
+    <xsl:otherwise>
+      <xsl:comment><xsl:value-of select="." /></xsl:comment>
+    </xsl:otherwise>
+  </xsl:choose>
+</xsl:template>
 
 <!-- table of contents configuration -->
 
