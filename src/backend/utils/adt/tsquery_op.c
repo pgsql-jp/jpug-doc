@@ -3,7 +3,7 @@
  * tsquery_op.c
  *	  Various operations with tsquery
  *
- * Portions Copyright (c) 1996-2014, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
  *
  *
  * IDENTIFICATION
@@ -243,6 +243,7 @@ collectTSQueryValues(TSQuery a, int *nvalues_p)
 	*nvalues_p = nvalues;
 	return values;
 }
+<<<<<<< HEAD
 
 static int
 cmp_string(const void *a, const void *b)
@@ -253,6 +254,19 @@ cmp_string(const void *a, const void *b)
 }
 
 static int
+=======
+
+static int
+cmp_string(const void *a, const void *b)
+{
+	const char *sa = *((const char **) a);
+	const char *sb = *((const char **) b);
+
+	return strcmp(sa, sb);
+}
+
+static int
+>>>>>>> FETCH_HEAD
 remove_duplicates(char **strings, int n)
 {
 	if (n <= 1)
@@ -300,8 +314,13 @@ tsq_mcontains(PG_FUNCTION_ARGS)
 		result = false;
 	else
 	{
+<<<<<<< HEAD
 		int i;
 		int j = 0;
+=======
+		int			i;
+		int			j = 0;
+>>>>>>> FETCH_HEAD
 
 		for (i = 0; i < ex_nvalues; i++)
 		{

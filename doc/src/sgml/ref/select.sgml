@@ -49,7 +49,7 @@ SELECT [ ALL | DISTINCT [ ON ( <replaceable class="parameter">expression</replac
     [ * | <replaceable class="parameter">expression</replaceable> [ [ AS ] <replaceable class="parameter">output_name</replaceable> ] [, ...] ]
     [ FROM <replaceable class="parameter">from_item</replaceable> [, ...] ]
     [ WHERE <replaceable class="parameter">condition</replaceable> ]
-    [ GROUP BY <replaceable class="parameter">expression</replaceable> [, ...] ]
+    [ GROUP BY <replaceable class="parameter">grouping_element</replaceable> [, ...] ]
     [ HAVING <replaceable class="parameter">condition</replaceable> [, ...] ]
     [ WINDOW <replaceable class="parameter">window_name</replaceable> AS ( <replaceable class="parameter">window_definition</replaceable> ) [, ...] ]
     [ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] <replaceable class="parameter">select</replaceable> ]
@@ -57,7 +57,7 @@ SELECT [ ALL | DISTINCT [ ON ( <replaceable class="parameter">expression</replac
     [ LIMIT { <replaceable class="parameter">count</replaceable> | ALL } ]
     [ OFFSET <replaceable class="parameter">start</replaceable> [ ROW | ROWS ] ]
     [ FETCH { FIRST | NEXT } [ <replaceable class="parameter">count</replaceable> ] { ROW | ROWS } ONLY ]
-    [ FOR { UPDATE | NO KEY UPDATE | SHARE | KEY SHARE } [ OF <replaceable class="parameter">table_name</replaceable> [, ...] ] [ NOWAIT ] [...] ]
+    [ FOR { UPDATE | NO KEY UPDATE | SHARE | KEY SHARE } [ OF <replaceable class="parameter">table_name</replaceable> [, ...] ] [ NOWAIT | SKIP LOCKED ] [...] ]
 
 <!--
 <phrase>where <replaceable class="parameter">from_item</replaceable> can be one of:</phrase>
@@ -66,6 +66,7 @@ SELECT [ ALL | DISTINCT [ ON ( <replaceable class="parameter">expression</replac
 
 
     [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ] [ [ AS ] <replaceable class="parameter">alias</replaceable> [ ( <replaceable class="parameter">column_alias</replaceable> [, ...] ) ] ]
+                [ TABLESAMPLE <replaceable class="parameter">sampling_method</replaceable> ( <replaceable class="parameter">argument</replaceable> [, ...] ) [ REPEATABLE ( <replaceable class="parameter">seed</replaceable> ) ] ]
     [ LATERAL ] ( <replaceable class="parameter">select</replaceable> ) [ AS ] <replaceable class="parameter">alias</replaceable> [ ( <replaceable class="parameter">column_alias</replaceable> [, ...] ) ]
     <replaceable class="parameter">with_query_name</replaceable> [ [ AS ] <replaceable class="parameter">alias</replaceable> [ ( <replaceable class="parameter">column_alias</replaceable> [, ...] ) ] ]
     [ LATERAL ] <replaceable class="parameter">function_name</replaceable> ( [ <replaceable class="parameter">argument</replaceable> [, ...] ] )
@@ -76,7 +77,19 @@ SELECT [ ALL | DISTINCT [ ON ( <replaceable class="parameter">expression</replac
                 [ WITH ORDINALITY ] [ [ AS ] <replaceable class="parameter">alias</replaceable> [ ( <replaceable class="parameter">column_alias</replaceable> [, ...] ) ] ]
     <replaceable class="parameter">from_item</replaceable> [ NATURAL ] <replaceable class="parameter">join_type</replaceable> <replaceable class="parameter">from_item</replaceable> [ ON <replaceable class="parameter">join_condition</replaceable> | USING ( <replaceable class="parameter">join_column</replaceable> [, ...] ) ]
 
+<<<<<<< HEAD
 <!--
+=======
+<phrase>and <replaceable class="parameter">grouping_element</replaceable> can be one of:</phrase>
+
+    ( )
+    <replaceable class="parameter">expression</replaceable>
+    ( <replaceable class="parameter">expression</replaceable> [, ...] )
+    ROLLUP ( { <replaceable class="parameter">expression</replaceable> | ( <replaceable class="parameter">expression</replaceable> [, ...] ) } [, ...] )
+    CUBE ( { <replaceable class="parameter">expression</replaceable> | ( <replaceable class="parameter">expression</replaceable> [, ...] ) } [, ...] )
+    GROUPING SETS ( <replaceable class="parameter">grouping_element</replaceable> [, ...] )
+
+>>>>>>> FETCH_HEAD
 <phrase>and <replaceable class="parameter">with_query</replaceable> is:</phrase>
 -->
 <phrase>また<replaceable class="parameter">with_query</replaceable>は以下の通りです。</phrase>
@@ -151,7 +164,10 @@ TABLE [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ]
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> FETCH_HEAD
       If the <literal>GROUP BY</literal> clause is specified,
       or if there are aggregate function calls, the
       output is combined into groups of rows that match on one or more
@@ -486,6 +502,61 @@ TABLE [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ]
 別名が指定されている場合は、その別名によって実際のテーブル名または関数名が完全に隠されます。
 例えば、<literal>FROM foo AS f</>と指定されている場合、<command>SELECT</command>文の以降の部分ではこの<literal>FROM</>項目を<literal>foo</>ではなく<literal>f</>として参照する必要があります。
 テーブルの別名があれば、そのテーブルの複数の列の名前を置き換える列の別名リストを記述することができます。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><literal>TABLESAMPLE <replaceable class="parameter">sampling_method</replaceable> ( <replaceable class="parameter">argument</replaceable> [, ...] ) [ REPEATABLE ( <replaceable class="parameter">seed</replaceable> ) ]</literal></term>
+      <listitem>
+       <para>
+        A <literal>TABLESAMPLE</> clause after
+        a <replaceable class="parameter">table_name</> indicates that the
+        specified <replaceable class="parameter">sampling_method</replaceable>
+        should be used to retrieve a subset of the rows in that table.
+        This sampling precedes the application of any other filters such
+        as <literal>WHERE</> clauses.
+        The standard <productname>PostgreSQL</productname> distribution
+        includes two sampling methods, <literal>BERNOULLI</literal>
+        and <literal>SYSTEM</literal>, and other sampling methods can be
+        installed in the database via extensions.
+       </para>
+
+       <para>
+        The <literal>BERNOULLI</> and <literal>SYSTEM</> sampling methods
+        each accept a single <replaceable class="parameter">argument</>
+        which is the fraction of the table to sample, expressed as a
+        percentage between 0 and 100.  This argument can be
+        any <type>real</>-valued expression.  (Other sampling methods might
+        accept more or different arguments.)  These two methods each return
+        a randomly-chosen sample of the table that will contain
+        approximately the specified percentage of the table's rows.
+        The <literal>BERNOULLI</literal> method scans the whole table and
+        selects or ignores individual rows independently with the specified
+        probability.
+        The <literal>SYSTEM</literal> method does block-level sampling with
+        each block having the specified chance of being selected; all rows
+        in each selected block are returned.
+        The <literal>SYSTEM</literal> method is significantly faster than
+        the <literal>BERNOULLI</literal> method when small sampling
+        percentages are specified, but it may return a less-random sample of
+        the table as a result of clustering effects.
+       </para>
+
+       <para>
+        The optional <literal>REPEATABLE</literal> clause specifies
+        a <replaceable class="parameter">seed</> number or expression to use
+        for generating random numbers within the sampling method.  The seed
+        value can be any non-null floating-point value.  Two queries that
+        specify the same seed and <replaceable class="parameter">argument</>
+        values will select the same sample of the table, if the table has
+        not been changed meanwhile.  But different seed values will usually
+        produce different samples.
+        If <literal>REPEATABLE</literal> is not given then a new random
+        sample is selected for each query.
+        Note that some add-on sampling methods do not
+        accept <literal>REPEATABLE</literal>, and will always produce new
+        samples on each use.
        </para>
       </listitem>
      </varlistentry>
@@ -905,7 +976,7 @@ WHERE <replaceable class="parameter">condition</replaceable>
 -->
 <literal>GROUP BY</literal>句の一般的な構文は以下の通りです（この句は省略可能です）。
 <synopsis>
-GROUP BY <replaceable class="parameter">expression</replaceable> [, ...]
+GROUP BY <replaceable class="parameter">grouping_element</replaceable> [, ...]
 </synopsis>
    </para>
 
@@ -913,10 +984,11 @@ GROUP BY <replaceable class="parameter">expression</replaceable> [, ...]
 <!--
     <literal>GROUP BY</literal> will condense into a single row all
     selected rows that share the same values for the grouped
-    expressions.  <replaceable
-    class="parameter">expression</replaceable> can be an input column
-    name, or the name or ordinal number of an output column
-    (<command>SELECT</command> list item), or an arbitrary
+    expressions.  An <replaceable
+    class="parameter">expression</replaceable> used inside a
+    <replaceable class="parameter">grouping_element</replaceable>
+    can be an input column name, or the name or ordinal number of an
+    output column (<command>SELECT</command> list item), or an arbitrary
     expression formed from input-column values.  In case of ambiguity,
     a <literal>GROUP BY</literal> name will be interpreted as an
     input-column name rather than an output column name.
@@ -927,7 +999,21 @@ GROUP BY <replaceable class="parameter">expression</replaceable> [, ...]
    </para>
 
    <para>
+<<<<<<< HEAD
 <!--
+=======
+    If any of <literal>GROUPING SETS</>, <literal>ROLLUP</> or
+    <literal>CUBE</> are present as grouping elements, then the
+    <literal>GROUP BY</> clause as a whole defines some number of
+    independent <replaceable>grouping sets</>.  The effect of this is
+    equivalent to constructing a <literal>UNION ALL</> between
+    subqueries with the individual grouping sets as their
+    <literal>GROUP BY</> clauses.  For further details on the handling
+    of grouping sets see <xref linkend="queries-grouping-sets">.
+   </para>
+
+   <para>
+>>>>>>> FETCH_HEAD
     Aggregate functions, if any are used, are computed across all rows
     making up each group, producing a separate value for each group.
     (If there are aggregate functions but no <literal>GROUP BY</literal>
@@ -938,6 +1024,7 @@ GROUP BY <replaceable class="parameter">expression</replaceable> [, ...]
     call; see <xref linkend="syntax-aggregates"> for more information.  When
     a <literal>FILTER</literal> clause is present, only those rows matching it
     are included in the input to that aggregate function.
+<<<<<<< HEAD
 -->
 集約関数が使用された場合、各グループ内の全ての行を対象に計算が行われ、グループごとに別々の値が生成されます
 （集約関数が使われていて<literal>GROUP BY</literal>がない場合、その問い合わせは選択された全ての行からなる1つのグループを持つものとして扱われます）。
@@ -948,6 +1035,11 @@ GROUP BY <replaceable class="parameter">expression</replaceable> [, ...]
 
    <para>
 <!--
+=======
+   </para>
+
+   <para>
+>>>>>>> FETCH_HEAD
     When <literal>GROUP BY</literal> is present,
     or any aggregate functions are present, it is not valid for
     the <command>SELECT</command> list expressions to refer to
@@ -964,12 +1056,16 @@ GROUP BY <replaceable class="parameter">expression</replaceable> [, ...]
    </para>
 
    <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> FETCH_HEAD
     Keep in mind that all aggregate functions are evaluated before
     evaluating any <quote>scalar</> expressions in the <literal>HAVING</>
     clause or <literal>SELECT</> list.  This means that, for example,
     a <literal>CASE</> expression cannot be used to skip evaluation of
     an aggregate function; see <xref linkend="syntax-express-eval">.
+<<<<<<< HEAD
 -->
 すべての集約関数は、<literal>HAVING</>句や<literal>SELECT</>リストのどの<quote>スカラー</>式よりも先に評価されることに注意してください。
 これは例えば、<literal>CASE</>式を集約関数の評価をスキップするために使うことはできない、ということを意味します。
@@ -978,6 +1074,11 @@ GROUP BY <replaceable class="parameter">expression</replaceable> [, ...]
 
    <para>
 <!--
+=======
+   </para>
+
+   <para>
+>>>>>>> FETCH_HEAD
     Currently, <literal>FOR NO KEY UPDATE</>, <literal>FOR UPDATE</>,
     <literal>FOR SHARE</> and <literal>FOR KEY SHARE</> cannot be
     specified with <literal>GROUP BY</literal>.
@@ -1019,11 +1120,14 @@ HAVING <replaceable class="parameter">condition</replaceable>
     unambiguously reference a grouping column, unless the reference
     appears within an aggregate function or the ungrouped column is
     functionally dependent on the grouping columns.
+<<<<<<< HEAD
 -->
 <literal>HAVING</literal>は、グループ化された行の中で、条件を満たさない行を取り除く機能を持ちます。
 <literal>HAVING</literal>と<literal>WHERE</literal>は次の点が異なります。
 <literal>WHERE</literal>が、<literal>GROUP BY</literal>の適用前に個々の行に対してフィルタを掛けるのに対し、<literal>HAVING</literal>は、<literal>GROUP BY</literal>の適用後に生成されたグループ化された行に対してフィルタをかけます。
 <replaceable class="parameter">condition</replaceable>内で使用する列は、集約関数内で使用される場合とグループ化されない列がグループ化される列に関数依存する場合を除き、グループ化された列を一意に参照するものでなければなりません。
+=======
+>>>>>>> FETCH_HEAD
    </para>
 
    <para>
@@ -1223,9 +1327,12 @@ UNBOUNDED FOLLOWING
     uniquely.  The <literal>RANGE</> options are designed to ensure that
     rows that are peers in the <literal>ORDER BY</> ordering are treated
     alike; all peer rows will be in the same frame.
+<<<<<<< HEAD
 -->
 <literal>ORDER BY</>順序によりその行を一意に順序付けできない場合、<literal>ROWS</>が予期できない結果をもたらす可能性があることに注意して下さい。
 <literal>RANGE</>は、<literal>ORDER BY</>順序におけるピアとなる行が同等に扱われる、つまりすべてのピアは同じフレーム内に両方とも存在することが確実になるように設計されています。
+=======
+>>>>>>> FETCH_HEAD
    </para>
 
    <para>
@@ -1947,7 +2054,7 @@ FETCH { FIRST | NEXT } [ <replaceable class="parameter">count</replaceable> ] { 
 ロック処理句の一般的な構文は以下の通りです。
 
 <synopsis>
-FOR <replaceable>lock_strength</> [ OF <replaceable class="parameter">table_name</replaceable> [, ...] ] [ NOWAIT ]
+FOR <replaceable>lock_strength</> [ OF <replaceable class="parameter">table_name</replaceable> [, ...] ] [ NOWAIT | SKIP LOCKED ]
 </synopsis>
 
 <!--
@@ -1964,19 +2071,30 @@ KEY SHARE
    </para>
 
    <para>
+<<<<<<< HEAD
 <!--
     For more information on each row-level lock mode, refer to
     <xref linkend="locking-rows">.
 -->
 それぞれの行レベルロックモードについての詳しい説明は<xref linkend="locking-rows">を参照してください。
+=======
+    For more information on each row-level lock mode, refer to
+    <xref linkend="locking-rows">.
+>>>>>>> FETCH_HEAD
    </para>
 
    <para>
 <!--
     To prevent the operation from waiting for other transactions to commit,
-    use the <literal>NOWAIT</> option.  With <literal>NOWAIT</>, the statement
-    reports an error, rather than waiting, if a selected row
-    cannot be locked immediately.  Note that <literal>NOWAIT</> applies only
+    use either the <literal>NOWAIT</> or <literal>SKIP LOCKED</literal>
+    option.  With <literal>NOWAIT</>, the statement reports an error, rather
+    than waiting, if a selected row cannot be locked immediately.
+    With <literal>SKIP LOCKED</literal>, any selected rows that cannot be
+    immediately locked are skipped.  Skipping locked rows provides an
+    inconsistent view of the data, so this is not suitable for general purpose
+    work, but can be used to avoid lock contention with multiple consumers
+    accessing a queue-like table.
+    Note that <literal>NOWAIT</> and <literal>SKIP LOCKED</literal> apply only
     to the row-level lock(s) &mdash; the required <literal>ROW SHARE</literal>
     table-level lock is still taken in the ordinary way (see
     <xref linkend="mvcc">).  You can use
@@ -2023,11 +2141,17 @@ KEY SHARE
     then it is processed as if it was only specified by the strongest one.
     Similarly, a table is processed
     as <literal>NOWAIT</> if that is specified in any of the clauses
+<<<<<<< HEAD
     affecting it.
 -->
 異なるロック方式を異なるテーブルに指定する必要があれば、複数のロック処理句を記述することができます。
 複数のロック処理句で同一のテーブルを記述した（または暗黙的に影響が与えられた）場合、最も強いものだけが指定されたかのように処理されます。
 同様に、あるテーブルに影響を与える句のいずれかで<literal>NOWAIT</>が指定された場合、そのテーブルは<literal>NOWAIT</>として処理されます。
+=======
+    affecting it.  Otherwise, it is processed
+    as <literal>SKIP LOCKED</literal> if that is specified in any of the
+    clauses affecting it.
+>>>>>>> FETCH_HEAD
    </para>
 
    <para>
@@ -2639,7 +2763,20 @@ SELECT distributors.* WHERE distributors.name = 'Westward';
   </refsect2>
 
   <refsect2>
+<<<<<<< HEAD
 <!--
+=======
+   <title><literal>TABLESAMPLE</literal> Clause Restrictions</title>
+
+   <para>
+    The <literal>TABLESAMPLE</> clause is currently accepted only on
+    regular tables and materialized views.  According to the SQL standard
+    it should be possible to apply it to any <literal>FROM</> item.
+   </para>
+  </refsect2>
+
+  <refsect2>
+>>>>>>> FETCH_HEAD
    <title>Function Calls in <literal>FROM</literal></title>
 -->
    <title><literal>FROM</literal>内の関数呼び出し</title>
@@ -2784,6 +2921,7 @@ SQL:1999以降では、SQL-92と完全には上位互換でない、多少異な
     <productname>PostgreSQL</productname> allows it in any <command>SELECT</>
     query as well as in sub-<command>SELECT</>s, but this is an extension.
     The <literal>FOR NO KEY UPDATE</>, <literal>FOR SHARE</> and
+<<<<<<< HEAD
     <literal>FOR KEY SHARE</> variants,
     as well as the <literal>NOWAIT</> option,
     do not appear in the standard.
@@ -2792,6 +2930,11 @@ SQL:1999以降では、SQL-92と完全には上位互換でない、多少異な
 <productname>PostgreSQL</productname>では、副<command>SELECT</>など任意の<command>SELECT</>で許されます。
 これは拡張です。
 <literal>FOR NO KEY UPDATE</>、<literal>FOR SHARE</>、<literal>FOR KEY SHARE</>の亜種、および<literal>NOWAIT</>オプションは標準にはありません。
+=======
+    <literal>FOR KEY SHARE</> variants, as well as the <literal>NOWAIT</>
+    and <literal>SKIP LOCKED</literal> options, do not appear in the
+    standard.
+>>>>>>> FETCH_HEAD
    </para>
   </refsect2>
 
@@ -2833,5 +2976,6 @@ SQL:1999以降では、SQL-92と完全には上位互換でない、多少異な
 <literal>ROWS FROM( ... )</>は標準SQLの拡張です。
    </para>
   </refsect2>
+
  </refsect1>
 </refentry>

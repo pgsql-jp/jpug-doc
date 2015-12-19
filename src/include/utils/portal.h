@@ -36,7 +36,7 @@
  * to look like NO SCROLL cursors.
  *
  *
- * Portions Copyright (c) 1996-2014, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/utils/portal.h
@@ -128,6 +128,10 @@ typedef struct PortalData
 	 * in which we ran the portal.
 	 */
 	SubTransactionId createSubid;		/* the creating subxact */
+<<<<<<< HEAD
+=======
+	SubTransactionId activeSubid;		/* the last subxact with activity */
+>>>>>>> FETCH_HEAD
 
 	/* The query or queries the portal will execute */
 	const char *sourceText;		/* text of query (as of 8.4, never NULL) */

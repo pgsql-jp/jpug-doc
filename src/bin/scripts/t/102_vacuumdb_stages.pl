@@ -19,7 +19,11 @@ qr/.*statement:\ SET\ default_statistics_target=1;\ SET\ vacuum_cost_delay=0;
 
 issues_sql_like(
 	[ 'vacuumdb', '--analyze-in-stages', '--all' ],
+<<<<<<< HEAD
                 qr/.*statement:\ SET\ default_statistics_target=1;\ SET\ vacuum_cost_delay=0;
+=======
+qr/.*statement:\ SET\ default_statistics_target=1;\ SET\ vacuum_cost_delay=0;
+>>>>>>> FETCH_HEAD
                    .*statement:\ ANALYZE.*
                    .*statement:\ SET\ default_statistics_target=1;\ SET\ vacuum_cost_delay=0;
                    .*statement:\ ANALYZE.*

@@ -217,7 +217,10 @@ SELECT clean_emp();
 
     <note>
      <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> FETCH_HEAD
       The entire body of a SQL function is parsed before any of it is
       executed.  While a SQL function can contain commands that alter
       the system catalogs (e.g., <command>CREATE TABLE</>), the effects
@@ -228,11 +231,14 @@ SELECT clean_emp();
       since <structname>foo</> won't exist yet when the <command>INSERT</>
       command is parsed.  It's recommended to use <application>PL/PgSQL</>
       instead of a SQL function in this type of situation.
+<<<<<<< HEAD
 -->
 SQL関数の本体全体は、その一部が実行される前に解析されます。
 SQL関数はシステムカタログを変更するコマンド(例えば<command>CREATE TABLE</>)を含むことができますので、そのようなコマンドの効果は関数の以降のコマンドの解析中は可視ではありません。
 それゆえ、例えば、<literal>CREATE TABLE foo (...); INSERT INTO foo VALUES(...);</literal>は単一のSQL関数にまとめられていると期待したようには動作しません。<command>INSERT</>コマンドが解析されている時には<structname>foo</>がまだ存在しないからです。
 このような場合にはSQL関数の代わりに<application>PL/PgSQL</>を使うことを薦めます。
+=======
+>>>>>>> FETCH_HEAD
      </para>
    </note>
 
@@ -1082,21 +1088,30 @@ SELECT mleast(VARIADIC ARRAY[10, -1, 5, 4.4]);
     </para>
 
     <para>
+<<<<<<< HEAD
 <!--
      Specifying <literal>VARIADIC</> in the call is also the only way to
      pass an empty array to a variadic function, for example:
 -->
 呼び出しで<literal>VARIADIC</>を指定することは、variadic関数に空の配列を渡す唯一の方法でもあります。例えば、
+=======
+     Specifying <literal>VARIADIC</> in the call is also the only way to
+     pass an empty array to a variadic function, for example:
+>>>>>>> FETCH_HEAD
 
 <screen>
 SELECT mleast(VARIADIC ARRAY[]::numeric[]);
 </screen>
 
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> FETCH_HEAD
      Simply writing <literal>SELECT mleast()</> does not work because a
      variadic parameter must match at least one actual argument.
      (You could define a second function also named <literal>mleast</>,
      with no parameters, if you wanted to allow such calls.)
+<<<<<<< HEAD
 -->
 variadicパラメータが少なくとも1つの実引数と一致しなければなりませんので、単に<literal>SELECT mleast()</>と書くだけでは上手くいきません。
 (もしそのような呼び出しを許可したいのなら、<literal>mleast</>という名前のパラメータのない第2の関数を定義することもできます。)
@@ -1104,6 +1119,11 @@ variadicパラメータが少なくとも1つの実引数と一致しなけれ�
 
     <para>
 <!--
+=======
+    </para>
+
+    <para>
+>>>>>>> FETCH_HEAD
      The array element parameters generated from a variadic parameter are
      treated as not having any names of their own.  This means it is not
      possible to call a variadic function using named arguments (<xref
@@ -1116,7 +1136,7 @@ variadicパラメータから生成される配列要素パラメータは、そ
 たとえば、
 
 <screen>
-SELECT mleast(VARIADIC arr := ARRAY[10, -1, 5, 4.4]);
+SELECT mleast(VARIADIC arr => ARRAY[10, -1, 5, 4.4]);
 </screen>
 
 <!--
@@ -1125,8 +1145,8 @@ SELECT mleast(VARIADIC arr := ARRAY[10, -1, 5, 4.4]);
 は動作しますが、
 
 <screen>
-SELECT mleast(arr := 10);
-SELECT mleast(arr := ARRAY[10, -1, 5, 4.4]);
+SELECT mleast(arr => 10);
+SELECT mleast(arr => ARRAY[10, -1, 5, 4.4]);
 </screen>
 は動作しません。
     </para>
@@ -2746,10 +2766,11 @@ lengthフィールドにはその構造体の総長が格納されます。つ�
 <programlisting>
 typedef struct {
     int32 length;
-    char data[1];
+    char data[FLEXIBLE_ARRAY_MEMBER];
 } text;
 </programlisting>
 
+<<<<<<< HEAD
 <!--
      Obviously,  the  data  field declared here is not long enough to hold
      all possible strings.  Since it's impossible to declare a variable-size
@@ -2763,6 +2784,10 @@ typedef struct {
 <acronym>C言語</acronym>では可変長の構造体を定義することは不可能ですので、<acronym>C</acronym>コンパイラは配列の添字の範囲検査を行わないという事実に依存します。
 必要な領域量を割り当て、あたかも正しい長さで宣言されたかのように、配列としてアクセスするだけです。
 （この手法はよく使用されます。C言語に関する多くの書籍で説明されています。）
+=======
+     The <literal>[FLEXIBLE_ARRAY_MEMBER]</> notation means that the actual
+     length of the data part is not specified by this declaration.
+>>>>>>> FETCH_HEAD
     </para>
 
     <para>
@@ -2855,6 +2880,11 @@ C 言語型
          <entry><type>abstime</type></entry>
          <entry><type>AbsoluteTime</type></entry>
          <entry><filename>utils/nabstime.h</filename></entry>
+        </row>
+        <row>
+         <entry><type>bigint</type> (<type>int8</type>)</entry>
+         <entry><type>int64</type></entry>
+         <entry><filename>postgres.h</filename></entry>
         </row>
         <row>
          <entry><type>boolean</type></entry>
@@ -4309,6 +4339,20 @@ SRF_RETURN_DONE(funcctx)
 <structfield>multi_call_memory_ctx</>によって参照されるメモリコンテキストは、<acronym>SRF</>の実行が終わるまで使用可能にしなければならないデータの保管場所として適しています。
 つまり、ほとんどの場合、最初の呼び出しのセットアップ中に<structfield>multi_call_memory_ctx</>へ切り替える必要があるということです。
     </para>
+
+    <warning>
+     <para>
+      While the actual arguments to the function remain unchanged between
+      calls, if you detoast the argument values (which is normally done
+      transparently by the
+      <function>PG_GETARG_<replaceable>xxx</replaceable></function> macro)
+      in the transient context then the detoasted copies will be freed on
+      each cycle. Accordingly, if you keep references to such values in
+      your <structfield>user_fctx</>, you must either copy them into the
+      <structfield>multi_call_memory_ctx</> after detoasting, or ensure
+      that you detoast the values only in that context.
+     </para>
+    </warning>
 
     <para>
 <!--

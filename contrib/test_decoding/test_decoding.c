@@ -3,7 +3,7 @@
  * test_decoding.c
  *		  example logical decoding output plugin
  *
- * Copyright (c) 2012-2014, PostgreSQL Global Development Group
+ * Copyright (c) 2012-2015, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		  contrib/test_decoding/test_decoding.c
@@ -21,6 +21,7 @@
 
 #include "replication/output_plugin.h"
 #include "replication/logical.h"
+#include "replication/origin.h"
 
 #include "utils/builtins.h"
 #include "utils/lsyscache.h"
@@ -29,7 +30,6 @@
 #include "utils/relcache.h"
 #include "utils/syscache.h"
 #include "utils/typcache.h"
-
 
 PG_MODULE_MAGIC;
 
@@ -44,6 +44,10 @@ typedef struct
 	bool		include_timestamp;
 	bool		skip_empty_xacts;
 	bool		xact_wrote_changes;
+<<<<<<< HEAD
+=======
+	bool		only_local;
+>>>>>>> FETCH_HEAD
 } TestDecodingData;
 
 static void pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt,
@@ -52,14 +56,22 @@ static void pg_decode_shutdown(LogicalDecodingContext *ctx);
 static void pg_decode_begin_txn(LogicalDecodingContext *ctx,
 					ReorderBufferTXN *txn);
 static void pg_output_begin(LogicalDecodingContext *ctx,
+<<<<<<< HEAD
 							TestDecodingData *data,
 							ReorderBufferTXN *txn,
 							bool last_write);
+=======
+				TestDecodingData *data,
+				ReorderBufferTXN *txn,
+				bool last_write);
+>>>>>>> FETCH_HEAD
 static void pg_decode_commit_txn(LogicalDecodingContext *ctx,
 					 ReorderBufferTXN *txn, XLogRecPtr commit_lsn);
 static void pg_decode_change(LogicalDecodingContext *ctx,
 				 ReorderBufferTXN *txn, Relation rel,
 				 ReorderBufferChange *change);
+static bool pg_decode_filter(LogicalDecodingContext *ctx,
+				 RepOriginId origin_id);
 
 void
 _PG_init(void)
@@ -77,6 +89,7 @@ _PG_output_plugin_init(OutputPluginCallbacks *cb)
 	cb->begin_cb = pg_decode_begin_txn;
 	cb->change_cb = pg_decode_change;
 	cb->commit_cb = pg_decode_commit_txn;
+	cb->filter_by_origin_cb = pg_decode_filter;
 	cb->shutdown_cb = pg_decode_shutdown;
 }
 
@@ -98,6 +111,10 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt,
 	data->include_xids = true;
 	data->include_timestamp = false;
 	data->skip_empty_xacts = false;
+<<<<<<< HEAD
+=======
+	data->only_local = false;
+>>>>>>> FETCH_HEAD
 
 	ctx->output_plugin_private = data;
 
@@ -156,6 +173,20 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt,
 				  errmsg("could not parse value \"%s\" for parameter \"%s\"",
 						 strVal(elem->arg), elem->defname)));
 		}
+<<<<<<< HEAD
+=======
+		else if (strcmp(elem->defname, "only-local") == 0)
+		{
+
+			if (elem->arg == NULL)
+				data->only_local = true;
+			else if (!parse_bool(strVal(elem->arg), &data->only_local))
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				  errmsg("could not parse value \"%s\" for parameter \"%s\"",
+						 strVal(elem->arg), elem->defname)));
+		}
+>>>>>>> FETCH_HEAD
 		else
 		{
 			ereport(ERROR,
@@ -222,6 +253,17 @@ pg_decode_commit_txn(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 						 timestamptz_to_str(txn->commit_time));
 
 	OutputPluginWrite(ctx, true);
+}
+
+static bool
+pg_decode_filter(LogicalDecodingContext *ctx,
+				 RepOriginId origin_id)
+{
+	TestDecodingData *data = ctx->output_plugin_private;
+
+	if (data->only_local && origin_id != InvalidRepOriginId)
+		return true;
+	return false;
 }
 
 /*
@@ -392,7 +434,7 @@ pg_decode_change(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 													  get_namespace_name(
 							  get_rel_namespace(RelationGetRelid(relation))),
 											  NameStr(class_form->relname)));
-	appendStringInfoString(ctx->out, ":");
+	appendStringInfoChar(ctx->out, ':');
 
 	switch (change->action)
 	{

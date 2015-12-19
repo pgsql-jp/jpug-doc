@@ -298,7 +298,12 @@ ecpg_get_data(const PGresult *results, int act_tuple, int act_field, int lineno,
 					date		ddres;
 					timestamp	tres;
 					interval   *ires;
+<<<<<<< HEAD
 					char *endptr, endchar;
+=======
+					char	   *endptr,
+								endchar;
+>>>>>>> FETCH_HEAD
 
 				case ECPGt_short:
 				case ECPGt_int:
@@ -568,7 +573,7 @@ ecpg_get_data(const PGresult *results, int act_tuple, int act_field, int lineno,
 					if (nres == NULL)
 					{
 						ecpg_log("ecpg_get_data on line %d: RESULT %s; errno %d\n",
-								 lineno, pval ? pval : "", errno);
+								 lineno, pval, errno);
 
 						if (INFORMIX_MODE(compat))
 						{
@@ -627,7 +632,7 @@ ecpg_get_data(const PGresult *results, int act_tuple, int act_field, int lineno,
 					if (ires == NULL)
 					{
 						ecpg_log("ecpg_get_data on line %d: RESULT %s; errno %d\n",
-								 lineno, pval ? pval : "", errno);
+								 lineno, pval, errno);
 
 						if (INFORMIX_MODE(compat))
 						{
@@ -681,7 +686,7 @@ ecpg_get_data(const PGresult *results, int act_tuple, int act_field, int lineno,
 					if (errno != 0)
 					{
 						ecpg_log("ecpg_get_data on line %d: RESULT %s; errno %d\n",
-								 lineno, pval ? pval : "", errno);
+								 lineno, pval, errno);
 
 						if (INFORMIX_MODE(compat))
 						{
@@ -729,7 +734,7 @@ ecpg_get_data(const PGresult *results, int act_tuple, int act_field, int lineno,
 					if (errno != 0)
 					{
 						ecpg_log("ecpg_get_data on line %d: RESULT %s; errno %d\n",
-								 lineno, pval ? pval : "", errno);
+								 lineno, pval, errno);
 
 						if (INFORMIX_MODE(compat))
 						{

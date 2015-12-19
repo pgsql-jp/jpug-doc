@@ -6,7 +6,7 @@
  *	   logical replication slots via SQL.
  *
  *
- * Copyright (c) 2012-2014, PostgreSQL Global Development Group
+ * Copyright (c) 2012-2015, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/replication/logicalfuncs.c
@@ -20,6 +20,8 @@
 #include "fmgr.h"
 #include "funcapi.h"
 #include "miscadmin.h"
+
+#include "access/xlog_internal.h"
 
 #include "catalog/pg_type.h"
 
@@ -51,7 +53,7 @@ typedef struct DecodingOutputState
 } DecodingOutputState;
 
 /*
- * Prepare for a output plugin write.
+ * Prepare for an output plugin write.
  */
 static void
 LogicalOutputPrepareWrite(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xid,
@@ -394,14 +396,18 @@ pg_logical_slot_get_changes_guts(FunctionCallInfo fcinfo, bool confirm, bool bin
 		MemoryContextSwitchTo(oldcontext);
 
 		/*
-		 * Check whether the output pluggin writes textual output if that's
+		 * Check whether the output plugin writes textual output if that's
 		 * what we need.
 		 */
 		if (!binary &&
-			ctx->options.output_type != OUTPUT_PLUGIN_TEXTUAL_OUTPUT)
+			ctx->options.output_type !=OUTPUT_PLUGIN_TEXTUAL_OUTPUT)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+<<<<<<< HEAD
 					 errmsg("logical decoding output plugin \"%s\" produces binary output, but \"%s\" expects textual data",
+=======
+					 errmsg("logical decoding output plugin \"%s\" produces binary output, but function \"%s\" expects textual data",
+>>>>>>> FETCH_HEAD
 							NameStr(MyReplicationSlot->data.plugin),
 							format_procedure(fcinfo->flinfo->fn_oid))));
 
@@ -431,7 +437,7 @@ pg_logical_slot_get_changes_guts(FunctionCallInfo fcinfo, bool confirm, bool bin
 			 * store the description into our tuplestore.
 			 */
 			if (record != NULL)
-				LogicalDecodingProcessRecord(ctx, record);
+				LogicalDecodingProcessRecord(ctx, ctx->reader);
 
 			/* check limits */
 			if (upto_lsn != InvalidXLogRecPtr &&

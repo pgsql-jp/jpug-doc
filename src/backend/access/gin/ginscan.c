@@ -4,7 +4,7 @@
  *	  routines to manage scans of inverted index relations
  *
  *
- * Portions Copyright (c) 1996-2014, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -44,6 +44,11 @@ ginbeginscan(PG_FUNCTION_ARGS)
 										ALLOCSET_DEFAULT_MINSIZE,
 										ALLOCSET_DEFAULT_INITSIZE,
 										ALLOCSET_DEFAULT_MAXSIZE);
+	so->keyCtx = AllocSetContextCreate(CurrentMemoryContext,
+									   "Gin scan key context",
+									   ALLOCSET_DEFAULT_MINSIZE,
+									   ALLOCSET_DEFAULT_INITSIZE,
+									   ALLOCSET_DEFAULT_MAXSIZE);
 	initGinState(&so->ginstate, scan->indexRelation);
 
 	scan->opaque = so;
@@ -227,6 +232,12 @@ ginFillScanKey(GinScanOpaque so, OffsetNumber attnum,
 	}
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * Release current scan keys, if any.
+ */
+>>>>>>> FETCH_HEAD
 void
 ginFreeScanKeys(GinScanOpaque so)
 {
@@ -235,6 +246,7 @@ ginFreeScanKeys(GinScanOpaque so)
 	if (so->keys == NULL)
 		return;
 
+<<<<<<< HEAD
 	for (i = 0; i < so->nkeys; i++)
 	{
 		GinScanKey	key = so->keys + i;
@@ -251,22 +263,24 @@ ginFreeScanKeys(GinScanOpaque so)
 	so->keys = NULL;
 	so->nkeys = 0;
 
+=======
+>>>>>>> FETCH_HEAD
 	for (i = 0; i < so->totalentries; i++)
 	{
 		GinScanEntry entry = so->entries[i];
 
 		if (entry->buffer != InvalidBuffer)
 			ReleaseBuffer(entry->buffer);
-		if (entry->list)
-			pfree(entry->list);
 		if (entry->matchIterator)
 			tbm_end_iterate(entry->matchIterator);
 		if (entry->matchBitmap)
 			tbm_free(entry->matchBitmap);
-		pfree(entry);
 	}
 
-	pfree(so->entries);
+	MemoryContextResetAndDeleteChildren(so->keyCtx);
+
+	so->keys = NULL;
+	so->nkeys = 0;
 	so->entries = NULL;
 	so->totalentries = 0;
 }
@@ -278,6 +292,14 @@ ginNewScanKey(IndexScanDesc scan)
 	GinScanOpaque so = (GinScanOpaque) scan->opaque;
 	int			i;
 	bool		hasNullQuery = false;
+	MemoryContext oldCtx;
+
+	/*
+	 * Allocate all the scan key information in the key context. (If
+	 * extractQuery leaks anything there, it won't be reset until the end of
+	 * scan or rescan, but that's OK.)
+	 */
+	oldCtx = MemoryContextSwitchTo(so->keyCtx);
 
 	/* if no scan keys provided, allocate extra EVERYTHING GinScanKey */
 	so->keys = (GinScanKey)
@@ -412,6 +434,8 @@ ginNewScanKey(IndexScanDesc scan)
 							 RelationGetRelationName(scan->indexRelation))));
 	}
 
+	MemoryContextSwitchTo(oldCtx);
+
 	pgstat_count_index_scan(scan->indexRelation);
 }
 
@@ -445,6 +469,7 @@ ginendscan(PG_FUNCTION_ARGS)
 	ginFreeScanKeys(so);
 
 	MemoryContextDelete(so->tempCtx);
+	MemoryContextDelete(so->keyCtx);
 
 	pfree(so);
 

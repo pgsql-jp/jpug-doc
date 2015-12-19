@@ -403,6 +403,13 @@ operator accepting exactly the domain's base type on both sides; if so, use it.
 二項演算子の1つの引数が<type>unknown</type>型であり、もう1つがドメイン型の場合、次に両側でドメインの基本型を厳密に受け付ける演算子があるかを確認します。
 </para>
 </step>
+<step id="op-resol-exact-domain" performance="optional">
+<para>
+If one argument of a binary operator invocation is of the <type>unknown</type>
+type and the other is of a domain type, next check to see if there is an
+operator accepting exactly the domain's base type on both sides; if so, use it.
+</para>
+</step>
 </substeps>
 </step>
 
@@ -431,6 +438,7 @@ candidate remains, use it; else continue to the next step.
 </step>
 <step performance="required">
 <para>
+<<<<<<< HEAD
 <!--
 If any input argument is of a domain type, treat it as being of the
 domain's base type for all subsequent steps.  This ensures that domains
@@ -438,11 +446,19 @@ act like their base types for purposes of ambiguous-operator resolution.
 -->
 入力引数のいずれかがドメイン型であれば、以降の段階すべてでドメインの基本型であるかのように扱います。
 これにより、曖昧な演算子を解決するのを目的としてその基本型であるかのようにドメインが振る舞うことが確実になります。
+=======
+If any input argument is of a domain type, treat it as being of the
+domain's base type for all subsequent steps.  This ensures that domains
+act like their base types for purposes of ambiguous-operator resolution.
+>>>>>>> FETCH_HEAD
 </para>
 </step>
 <step performance="required">
 <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> FETCH_HEAD
 Run through all candidates and keep those with the most exact matches
 on input types.  Keep all candidates if none have exact matches.
 If only one candidate remains, use it; else continue to the next step.
@@ -806,6 +822,45 @@ usable in all the same cases as a similarly-named operator on the base type.
 </para>
 </example>
 
+<example>
+<title>Custom Operator on a Domain Type</title>
+
+<para>
+Users sometimes try to declare operators applying just to a domain type.
+This is possible but is not nearly as useful as it might seem, because the
+operator resolution rules are designed to select operators applying to the
+domain's base type.  As an example consider
+<screen>
+CREATE DOMAIN mytext AS text CHECK(...);
+CREATE FUNCTION mytext_eq_text (mytext, text) RETURNS boolean AS ...;
+CREATE OPERATOR = (procedure=mytext_eq_text, leftarg=mytext, rightarg=text);
+CREATE TABLE mytable (val mytext);
+
+SELECT * FROM mytable WHERE val = 'foo';
+</screen>
+This query will not use the custom operator.  The parser will first see if
+there is a <type>mytext</> <literal>=</> <type>mytext</> operator
+(<xref linkend="op-resol-exact-unknown">), which there is not;
+then it will consider the domain's base type <type>text</>, and see if
+there is a <type>text</> <literal>=</> <type>text</> operator
+(<xref linkend="op-resol-exact-domain">), which there is;
+so it resolves the <type>unknown</>-type literal as <type>text</> and
+uses the <type>text</> <literal>=</> <type>text</> operator.
+The only way to get the custom operator to be used is to explicitly cast
+the literal:
+<screen>
+SELECT * FROM mytable WHERE val = text 'foo';
+</screen>
+so that the <type>mytext</> <literal>=</> <type>text</> operator is found
+immediately according to the exact-match rule.  If the best-match rules
+are reached, they actively discriminate against operators on domain types.
+If they did not, such an operator would create too many ambiguous-operator
+failures, because the casting rules always consider a domain as castable
+to or from its base type, and so the domain operator would be considered
+usable in all the same cases as a similarly-named operator on the base type.
+</para>
+</example>
+
 </sect1>
 
 <sect1 id="typeconv-func">
@@ -988,7 +1043,17 @@ act like their base types for purposes of ambiguous-function resolution.
 </step>
 <step performance="required">
 <para>
+<<<<<<< HEAD
 <!--
+=======
+If any input argument is of a domain type, treat it as being of the
+domain's base type for all subsequent steps.  This ensures that domains
+act like their base types for purposes of ambiguous-function resolution.
+</para>
+</step>
+<step performance="required">
+<para>
+>>>>>>> FETCH_HEAD
 Run through all candidates and keep those with the most exact matches
 on input types.  Keep all candidates if none have exact matches.
 If only one candidate remains, use it; else continue to the next step.
@@ -1254,10 +1319,17 @@ Check for an exact match with the target.
 
 <step performance="required">
 <para>
+<<<<<<< HEAD
 <!--
 Otherwise, try to convert the expression to the target type.  This will succeed
 if there is a registered cast between the two types.
 If the expression is an unknown-type literal, the contents of
+=======
+Otherwise, try to convert the expression to the target type.  This is possible
+if an <firstterm>assignment cast</> between the two types is registered in the
+<structname>pg_cast</> catalog (see <xref linkend="sql-createcast">).
+Alternatively, if the expression is an unknown-type literal, the contents of
+>>>>>>> FETCH_HEAD
 the literal string will be fed to the input conversion routine for the target
 type.
 -->
@@ -1429,13 +1501,17 @@ and Related Constructs</title>
 <!--
 If all inputs are of the same type, and it is not <type>unknown</type>,
 resolve as that type.
+<<<<<<< HEAD
 -->
 もし全ての入力値が同一型であり、<type>unknown</type>ではない場合、その型として解決されます。
+=======
+>>>>>>> FETCH_HEAD
 </para>
 </step>
 
 <step performance="required">
 <para>
+<<<<<<< HEAD
 <!--
 If any input is of a domain type, treat it as being of the
 domain's base type for all subsequent steps.
@@ -1444,14 +1520,23 @@ domain's base type for all subsequent steps.
   <footnote>
    <para>
 <!--
+=======
+If any input is of a domain type, treat it as being of the
+domain's base type for all subsequent steps.
+  <footnote>
+   <para>
+>>>>>>> FETCH_HEAD
     Somewhat like the treatment of domain inputs for operators and
     functions, this behavior allows a domain type to be preserved through
     a <literal>UNION</> or similar construct, so long as the user is
     careful to ensure that all inputs are implicitly or explicitly of that
     exact type.  Otherwise the domain's base type will be preferred.
+<<<<<<< HEAD
 -->
 演算子や関数に対するドメイン入力の取り扱いとある程度似ていて、この振舞いにより、利用者が注意して入力をすべて厳密な型であると保証する限り、ドメイン型を<literal>UNION</>や類似の構成体に保存できます。
 そうでなければ、ドメインの基本型が選ばれます。
+=======
+>>>>>>> FETCH_HEAD
    </para>
   </footnote>
 </para>

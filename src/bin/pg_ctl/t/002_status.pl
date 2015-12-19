@@ -1,8 +1,9 @@
 use strict;
 use warnings;
 use TestLib;
-use Test::More tests => 2;
+use Test::More tests => 3;
 
+<<<<<<< HEAD
 my $tempdir = TestLib::tempdir;
 my $tempdir_short = TestLib::tempdir_short;
 
@@ -11,6 +12,15 @@ open CONF, ">>$tempdir/data/postgresql.conf";
 print CONF "listen_addresses = ''\n";
 print CONF "unix_socket_directories = '$tempdir_short'\n";
 close CONF;
+=======
+my $tempdir       = TestLib::tempdir;
+my $tempdir_short = TestLib::tempdir_short;
+
+command_exit_is([ 'pg_ctl', 'status', '-D', "$tempdir/nonexistent" ],
+	4, 'pg_ctl status with nonexistent directory');
+
+standard_initdb "$tempdir/data";
+>>>>>>> FETCH_HEAD
 
 command_exit_is([ 'pg_ctl', 'status', '-D', "$tempdir/data" ],
 	3, 'pg_ctl status with server not running');

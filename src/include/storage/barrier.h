@@ -3,7 +3,7 @@
  * barrier.h
  *	  Memory barrier operations.
  *
- * Portions Copyright (c) 1996-2014, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/storage/barrier.h
@@ -13,6 +13,7 @@
 #ifndef BARRIER_H
 #define BARRIER_H
 
+<<<<<<< HEAD
 #include "storage/s_lock.h"
 
 extern slock_t dummy_spinlock;
@@ -168,12 +169,13 @@ extern slock_t dummy_spinlock;
  * If a compiler barrier is unavailable, you probably don't want a full
  * memory barrier instead, so if you have a use case for a compiler barrier,
  * you'd better use #ifdef.
+=======
+/*
+ * This used to be a separate file, full of compiler/architecture
+ * dependent defines, but it's not included in the atomics.h
+ * infrastructure and just kept for backward compatibility.
+>>>>>>> FETCH_HEAD
  */
-#if !defined(pg_read_barrier)
-#define pg_read_barrier()			pg_memory_barrier()
-#endif
-#if !defined(pg_write_barrier)
-#define pg_write_barrier()			pg_memory_barrier()
-#endif
+#include "port/atomics.h"
 
 #endif   /* BARRIER_H */

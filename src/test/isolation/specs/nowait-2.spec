@@ -34,4 +34,8 @@ permutation "s1a" "s2a" "s2b" "s1b" "s2c"
 permutation "s2a" "s1a" "s2b" "s1b" "s2c"
 # s2 acquires SHARE then UPDATE, then s1 tries to acquire SHARE but
 # can't so aborts because it can't acquire a regular lock
+<<<<<<< HEAD
 permutation "s2a" "s2b" "s1a" "s1b" "s2c"
+=======
+permutation "s2a" "s2b" "s1a" "s1b" "s2c"
+>>>>>>> FETCH_HEAD

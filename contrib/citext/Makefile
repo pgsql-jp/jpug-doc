@@ -3,8 +3,12 @@
 MODULES = citext
 
 EXTENSION = citext
+<<<<<<< HEAD
 DATA = citext--1.0.sql citext--1.1.sql citext--1.0--1.1.sql \
        citext--1.1--1.0.sql citext--unpackaged--1.0.sql
+=======
+DATA = citext--1.1.sql citext--1.0--1.1.sql citext--unpackaged--1.0.sql
+>>>>>>> FETCH_HEAD
 PGFILEDESC = "citext - case-insensitive character string data type"
 
 REGRESS = citext

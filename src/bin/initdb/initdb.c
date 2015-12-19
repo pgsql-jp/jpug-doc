@@ -38,7 +38,7 @@
  *
  * This code is released under the terms of the PostgreSQL License.
  *
- * Portions Copyright (c) 1996-2014, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/bin/initdb/initdb.c
@@ -61,6 +61,10 @@
 #endif
 
 #include "catalog/catalog.h"
+<<<<<<< HEAD
+=======
+#include "common/restricted_token.h"
+>>>>>>> FETCH_HEAD
 #include "common/username.h"
 #include "mb/pg_wchar.h"
 #include "getaddrinfo.h"
@@ -186,14 +190,12 @@ static char *authwarning = NULL;
 static const char *boot_options = "-F";
 static const char *backend_options = "--single -F -O -c search_path=pg_catalog -c exit_on_error=true";
 
-#ifdef WIN32
-char	   *restrict_env;
-#endif
 static const char *subdirs[] = {
 	"global",
 	"pg_xlog",
 	"pg_xlog/archive_status",
 	"pg_clog",
+	"pg_commit_ts",
 	"pg_dynshmem",
 	"pg_notify",
 	"pg_serial",
@@ -270,7 +272,6 @@ static void check_locale_name(int category, const char *locale,
 static bool check_locale_encoding(const char *locale, int encoding);
 static void setlocales(void);
 static void usage(const char *progname);
-void		get_restricted_token(void);
 void		setup_pgdata(void);
 void		setup_bin_paths(const char *argv0);
 void		setup_data_file_paths(void);
@@ -281,12 +282,6 @@ void		create_data_directory(void);
 void		create_xlog_symlink(void);
 void		warn_on_mount_point(int error);
 void		initialize_data_directory(void);
-
-
-#ifdef WIN32
-static int	CreateRestrictedProcess(char *cmd, PROCESS_INFORMATION *processInfo);
-#endif
-
 
 /*
  * macros for running pipes to postgres
@@ -396,9 +391,9 @@ replace_token(char **lines, const char *token, const char *replacement)
 
 		pre = where - lines[i];
 
-		strncpy(newline, lines[i], pre);
+		memcpy(newline, lines[i], pre);
 
-		strcpy(newline + pre, replacement);
+		memcpy(newline + pre, replacement, replen);
 
 		strcpy(newline + pre + replen, lines[i] + pre + toklen);
 
@@ -1307,6 +1302,12 @@ setup_config(void)
 			 dynamic_shared_memory_type);
 	conflines = replace_token(conflines, "#dynamic_shared_memory_type = posix",
 							  repltok);
+
+#ifndef USE_PREFETCH
+	conflines = replace_token(conflines,
+							  "#effective_io_concurrency = 1",
+							  "#effective_io_concurrency = 0");
+#endif
 
 	snprintf(path, sizeof(path), "%s/postgresql.conf", pg_data);
 
@@ -2296,7 +2297,8 @@ vacuum_db(void)
 
 	PG_CMD_OPEN;
 
-	PG_CMD_PUTS("ANALYZE;\nVACUUM FULL;\nVACUUM FREEZE;\n");
+	/* Run analyze before VACUUM so the statistics are frozen. */
+	PG_CMD_PUTS("ANALYZE;\nVACUUM FREEZE;\n");
 
 	PG_CMD_CLOSE;
 
@@ -2312,11 +2314,7 @@ make_template0(void)
 	PG_CMD_DECL;
 	const char **line;
 	static const char *template0_setup[] = {
-		"CREATE DATABASE template0;\n",
-		"UPDATE pg_database SET "
-		"	datistemplate = 't', "
-		"	datallowconn = 'f' "
-		"    WHERE datname = 'template0';\n",
+		"CREATE DATABASE template0 IS_TEMPLATE = true ALLOW_CONNECTIONS = false;\n",
 
 		/*
 		 * We use the OID of template0 to determine lastsysoid
@@ -2743,6 +2741,7 @@ setlocales(void)
 #endif
 }
 
+<<<<<<< HEAD
 #ifdef WIN32
 typedef BOOL (WINAPI * __CreateRestrictedToken) (HANDLE, DWORD, DWORD, PSID_AND_ATTRIBUTES, DWORD, PLUID_AND_ATTRIBUTES, DWORD, PSID_AND_ATTRIBUTES, PHANDLE);
 
@@ -2853,6 +2852,8 @@ CreateRestrictedProcess(char *cmd, PROCESS_INFORMATION *processInfo)
 }
 #endif
 
+=======
+>>>>>>> FETCH_HEAD
 /*
  * print help text
  */
@@ -2946,53 +2947,6 @@ check_need_password(const char *authmethodlocal, const char *authmethodhost)
 	}
 }
 
-void
-get_restricted_token(void)
-{
-#ifdef WIN32
-
-	/*
-	 * Before we execute another program, make sure that we are running with a
-	 * restricted token. If not, re-execute ourselves with one.
-	 */
-
-	if ((restrict_env = getenv("PG_RESTRICT_EXEC")) == NULL
-		|| strcmp(restrict_env, "1") != 0)
-	{
-		PROCESS_INFORMATION pi;
-		char	   *cmdline;
-
-		ZeroMemory(&pi, sizeof(pi));
-
-		cmdline = pg_strdup(GetCommandLine());
-
-		putenv("PG_RESTRICT_EXEC=1");
-
-		if (!CreateRestrictedProcess(cmdline, &pi))
-		{
-			fprintf(stderr, _("%s: could not re-execute with restricted token: error code %lu\n"), progname, GetLastError());
-		}
-		else
-		{
-			/*
-			 * Successfully re-execed. Now wait for child process to capture
-			 * exitcode.
-			 */
-			DWORD		x;
-
-			CloseHandle(pi.hThread);
-			WaitForSingleObject(pi.hProcess, INFINITE);
-
-			if (!GetExitCodeProcess(pi.hProcess, &x))
-			{
-				fprintf(stderr, _("%s: could not get exit code from subprocess: error code %lu\n"), progname, GetLastError());
-				exit(1);
-			}
-			exit(x);
-		}
-	}
-#endif
-}
 
 void
 setup_pgdata(void)
@@ -3757,7 +3711,7 @@ main(int argc, char *argv[])
 
 	check_need_password(authmethodlocal, authmethodhost);
 
-	get_restricted_token();
+	get_restricted_token(progname);
 
 	setup_pgdata();
 
@@ -3804,11 +3758,7 @@ main(int argc, char *argv[])
 	get_parent_directory(bin_dir);
 
 	printf(_("\nSuccess. You can now start the database server using:\n\n"
-			 "    %s%s%spostgres%s -D %s%s%s\n"
-			 "or\n"
 			 "    %s%s%spg_ctl%s -D %s%s%s -l logfile start\n\n"),
-	   QUOTE_PATH, bin_dir, (strlen(bin_dir) > 0) ? DIR_SEP : "", QUOTE_PATH,
-		   QUOTE_PATH, pgdata_native, QUOTE_PATH,
 	   QUOTE_PATH, bin_dir, (strlen(bin_dir) > 0) ? DIR_SEP : "", QUOTE_PATH,
 		   QUOTE_PATH, pgdata_native, QUOTE_PATH);
 
