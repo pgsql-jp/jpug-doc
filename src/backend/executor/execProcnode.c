@@ -7,7 +7,7 @@
  *	 ExecProcNode, or ExecEndNode on its subnodes and do the appropriate
  *	 processing.
  *
- * Portions Copyright (c) 1996-2014, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -85,6 +85,7 @@
 #include "executor/nodeBitmapIndexscan.h"
 #include "executor/nodeBitmapOr.h"
 #include "executor/nodeCtescan.h"
+#include "executor/nodeCustom.h"
 #include "executor/nodeForeignscan.h"
 #include "executor/nodeFunctionscan.h"
 #include "executor/nodeGroup.h"
@@ -101,6 +102,7 @@
 #include "executor/nodeNestloop.h"
 #include "executor/nodeRecursiveunion.h"
 #include "executor/nodeResult.h"
+#include "executor/nodeSamplescan.h"
 #include "executor/nodeSeqscan.h"
 #include "executor/nodeSetOp.h"
 #include "executor/nodeSort.h"
@@ -189,6 +191,11 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 												   estate, eflags);
 			break;
 
+		case T_SampleScan:
+			result = (PlanState *) ExecInitSampleScan((SampleScan *) node,
+													  estate, eflags);
+			break;
+
 		case T_IndexScan:
 			result = (PlanState *) ExecInitIndexScan((IndexScan *) node,
 													 estate, eflags);
@@ -242,6 +249,11 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 		case T_ForeignScan:
 			result = (PlanState *) ExecInitForeignScan((ForeignScan *) node,
 													   estate, eflags);
+			break;
+
+		case T_CustomScan:
+			result = (PlanState *) ExecInitCustomScan((CustomScan *) node,
+													  estate, eflags);
 			break;
 
 			/*
@@ -400,6 +412,10 @@ ExecProcNode(PlanState *node)
 			result = ExecSeqScan((SeqScanState *) node);
 			break;
 
+		case T_SampleScanState:
+			result = ExecSampleScan((SampleScanState *) node);
+			break;
+
 		case T_IndexScanState:
 			result = ExecIndexScan((IndexScanState *) node);
 			break;
@@ -440,6 +456,10 @@ ExecProcNode(PlanState *node)
 
 		case T_ForeignScanState:
 			result = ExecForeignScan((ForeignScanState *) node);
+			break;
+
+		case T_CustomScanState:
+			result = ExecCustomScan((CustomScanState *) node);
 			break;
 
 			/*
@@ -634,6 +654,10 @@ ExecEndNode(PlanState *node)
 			ExecEndSeqScan((SeqScanState *) node);
 			break;
 
+		case T_SampleScanState:
+			ExecEndSampleScan((SampleScanState *) node);
+			break;
+
 		case T_IndexScanState:
 			ExecEndIndexScan((IndexScanState *) node);
 			break;
@@ -676,6 +700,10 @@ ExecEndNode(PlanState *node)
 
 		case T_ForeignScanState:
 			ExecEndForeignScan((ForeignScanState *) node);
+			break;
+
+		case T_CustomScanState:
+			ExecEndCustomScan((CustomScanState *) node);
 			break;
 
 			/*

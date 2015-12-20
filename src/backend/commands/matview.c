@@ -3,7 +3,7 @@
  * matview.c
  *	  materialized view support
  *
- * Portions Copyright (c) 1996-2014, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -17,6 +17,7 @@
 #include "access/htup_details.h"
 #include "access/multixact.h"
 #include "access/xact.h"
+#include "access/xlog.h"
 #include "catalog/catalog.h"
 #include "catalog/indexing.h"
 #include "catalog/namespace.h"
@@ -65,8 +66,8 @@ static char *make_temptable_name_n(char *tempname, int n);
 static void mv_GenerateOper(StringInfo buf, Oid opoid);
 
 static void refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
-						 int save_sec_context);
-static void refresh_by_heap_swap(Oid matviewOid, Oid OIDNewHeap);
+					   int save_sec_context);
+static void refresh_by_heap_swap(Oid matviewOid, Oid OIDNewHeap, char relpersistence);
 
 static void OpenMatViewIncrementalMaintenance(void);
 static void CloseMatViewIncrementalMaintenance(void);
@@ -133,7 +134,7 @@ SetMatViewPopulatedState(Relation relation, bool newstate)
  * The matview's "populated" state is changed based on whether the contents
  * reflect the result set of the materialized view's query.
  */
-void
+ObjectAddress
 ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 				   ParamListInfo params, char *completionTag)
 {
@@ -148,9 +149,11 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 	DestReceiver *dest;
 	bool		concurrent;
 	LOCKMODE	lockmode;
+	char		relpersistence;
 	Oid			save_userid;
 	int			save_sec_context;
 	int			save_nestlevel;
+	ObjectAddress address;
 
 	/* Determine strength of lock needed. */
 	concurrent = stmt->concurrent;
@@ -250,16 +253,22 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 
 	/* Concurrent refresh builds new data in temp tablespace, and does diff. */
 	if (concurrent)
+	{
 		tableSpace = GetDefaultTablespace(RELPERSISTENCE_TEMP);
+		relpersistence = RELPERSISTENCE_TEMP;
+	}
 	else
+	{
 		tableSpace = matviewRel->rd_rel->reltablespace;
+		relpersistence = matviewRel->rd_rel->relpersistence;
+	}
 
 	/*
 	 * Create the transient table that will receive the regenerated data. Lock
 	 * it against access by any other process until commit (by which time it
 	 * will be gone).
 	 */
-	OIDNewHeap = make_new_heap(matviewOid, tableSpace, concurrent,
+	OIDNewHeap = make_new_heap(matviewOid, tableSpace, relpersistence,
 							   ExclusiveLock);
 	LockRelationOid(OIDNewHeap, AccessExclusiveLock);
 	dest = CreateTransientRelDestReceiver(OIDNewHeap);
@@ -295,13 +304,17 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 		Assert(matview_maintenance_depth == old_depth);
 	}
 	else
-		refresh_by_heap_swap(matviewOid, OIDNewHeap);
+		refresh_by_heap_swap(matviewOid, OIDNewHeap, relpersistence);
 
 	/* Roll back any GUC changes */
 	AtEOXact_GUC(false, save_nestlevel);
 
 	/* Restore userid and security context */
 	SetUserIdAndSecContext(save_userid, save_sec_context);
+
+	ObjectAddressSet(address, RelationRelationId, matviewOid);
+
+	return address;
 }
 
 /*
@@ -464,7 +477,7 @@ transientrel_destroy(DestReceiver *self)
  * the given integer, to make a new table name based on the old one.
  *
  * This leaks memory through palloc(), which won't be cleaned up until the
- * current memory memory context is freed.
+ * current memory context is freed.
  */
 static char *
 make_temptable_name_n(char *tempname, int n)
@@ -595,7 +608,7 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_CARDINALITY_VIOLATION),
-				 errmsg("new data for \"%s\" contains duplicate rows without any null columns",
+				 errmsg("new data for materialized view \"%s\" contains duplicate rows without any null columns",
 						RelationGetRelationName(matviewRel)),
 				 errdetail("Row: %s",
 			SPI_getvalue(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1))));
@@ -756,10 +769,10 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
  * swapping is handled by the called function, so it is not needed here.
  */
 static void
-refresh_by_heap_swap(Oid matviewOid, Oid OIDNewHeap)
+refresh_by_heap_swap(Oid matviewOid, Oid OIDNewHeap, char relpersistence)
 {
 	finish_heap_swap(matviewOid, OIDNewHeap, false, false, true, true,
-					 RecentXmin, ReadNextMultiXactId());
+					 RecentXmin, ReadNextMultiXactId(), relpersistence);
 }
 
 

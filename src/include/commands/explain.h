@@ -3,7 +3,7 @@
  * explain.h
  *	  prototypes for explain.c
  *
- * Portions Copyright (c) 1996-2014, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994-5, Regents of the University of California
  *
  * src/include/commands/explain.h
@@ -24,13 +24,6 @@ typedef enum ExplainFormat
 	EXPLAIN_FORMAT_YAML
 } ExplainFormat;
 
-/* Crude hack to avoid changing sizeof(ExplainState) in released branches */
-typedef struct ExplainStateExtra
-{
-	List	   *groupingstack;	/* format-specific grouping state */
-	List	   *deparsecxt;		/* context list for deparsing expressions */
-} ExplainStateExtra;
-
 typedef struct ExplainState
 {
 	StringInfo	str;			/* output buffer */
@@ -47,7 +40,8 @@ typedef struct ExplainState
 	List	   *rtable;			/* range table */
 	List	   *rtable_names;	/* alias names for RTEs */
 	int			indent;			/* current indentation level */
-	ExplainStateExtra *extra;	/* pointer to additional data */
+	List	   *grouping_stack; /* format-specific grouping state */
+	List	   *deparse_cxt;	/* context list for deparsing expressions */
 } ExplainState;
 
 /* Hook for plugins to get control in ExplainOneQuery() */
@@ -66,7 +60,7 @@ extern PGDLLIMPORT explain_get_index_name_hook_type explain_get_index_name_hook;
 extern void ExplainQuery(ExplainStmt *stmt, const char *queryString,
 			 ParamListInfo params, DestReceiver *dest);
 
-extern void ExplainInitState(ExplainState *es);
+extern ExplainState *NewExplainState(void);
 
 extern TupleDesc ExplainResultDesc(ExplainStmt *stmt);
 
@@ -89,6 +83,8 @@ extern void ExplainSeparatePlans(ExplainState *es);
 
 extern void ExplainPropertyList(const char *qlabel, List *data,
 					ExplainState *es);
+extern void ExplainPropertyListNested(const char *qlabel, List *data,
+						  ExplainState *es);
 extern void ExplainPropertyText(const char *qlabel, const char *value,
 					ExplainState *es);
 extern void ExplainPropertyInteger(const char *qlabel, int value,

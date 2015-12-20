@@ -218,6 +218,20 @@
        </para>
       </listitem>
      </varlistentry>
+
+     <varlistentry>
+      <term>
+       serialization anomaly
+       <indexterm><primary>serialization anomaly</primary></indexterm>
+      </term>
+     <listitem>
+      <para>
+        The result of successfully committing a group of transactions
+        is inconsistent with all possible orderings of running those
+        transactions one at a time.
+       </para>
+      </listitem>
+     </varlistentry>
     </variablelist>
    </para>
 
@@ -228,6 +242,7 @@
 -->
      <primary>トランザクション分離レベル</primary>
     </indexterm>
+<<<<<<< HEAD
 <!--
     The four transaction isolation levels and the corresponding
     behaviors are described in <xref linkend="mvcc-isolevel-table">.
@@ -241,6 +256,15 @@
 -->
      <title>標準<acronym>SQL</acronym>トランザクション分離レベル</title>
      <tgroup cols="4">
+=======
+    The SQL standard and PostgreSQL-implemented transaction isolation levels
+    are described in <xref linkend="mvcc-isolevel-table">.
+   </para>
+
+    <table tocentry="1" id="mvcc-isolevel-table">
+     <title>Transaction Isolation Levels</title>
+     <tgroup cols="5">
+>>>>>>> REL9_5_RC1
       <thead>
        <row>
         <entry>
@@ -267,6 +291,9 @@
 -->
 ファントムリード
         </entry>
+        <entry>
+         Serialization Anomaly
+        </entry>
        </row>
       </thead>
       <tbody>
@@ -278,7 +305,13 @@
 リードアンコミッティド
         </entry>
         <entry>
+<<<<<<< HEAD
 <!--
+=======
+         Allowed, but not in PG
+        </entry>
+        <entry>
+>>>>>>> REL9_5_RC1
          Possible
 -->
 可能性あり
@@ -322,6 +355,9 @@
 -->
 可能性あり
         </entry>
+        <entry>
+         Possible
+        </entry>
        </row>
 
        <row>
@@ -344,7 +380,13 @@
 安全
         </entry>
         <entry>
+<<<<<<< HEAD
 <!--
+=======
+         Allowed, but not in PG
+        </entry>
+        <entry>
+>>>>>>> REL9_5_RC1
          Possible
 -->
 可能性あり
@@ -376,12 +418,16 @@
 -->
 安全
         </entry>
+        <entry>
+         Not possible
+        </entry>
        </row>
       </tbody>
      </tgroup>
     </table>
 
    <para>
+<<<<<<< HEAD
 <!--
     In <productname>PostgreSQL</productname>, you can request any of the
     four standard transaction isolation levels.  But internally, there are
@@ -407,6 +453,23 @@
 この4つの分離レベルについては、発生してはならない事象のみが定義され、発生しなければならない事象は定義されていません。
 <productname>PostgreSQL</>が3つの分離レベルのみを提供している理由は、多版型同時実行制御という仕組みに標準の分離レベルを関連付ける実際的な方法がこれしかなかったことです。
 利用可能な分離レベルについては後で詳細に説明します。
+=======
+    In <productname>PostgreSQL</productname>, you can request any of
+    the four standard transaction isolation levels, but internally only
+    three distinct isolation levels are implemented, i.e. PostgreSQL's
+    Read Uncommitted mode behaves like Read Committed.  This is because
+    it is the only sensible way to map the standard isolation levels to
+    PostgreSQL's multiversion concurrency control architecture.
+   </para>
+
+   <para>
+    The table also shows that PostgreSQL's Repeatable Read implementation
+    does not allow phantom reads.  Stricter behavior is permitted by the
+    SQL standard: the four isolation levels only define which phenomena
+    must not happen, not which phenomena <emphasis>must</> happen.
+    The behavior of the available isolation levels is detailed in the
+    following subsections.
+>>>>>>> REL9_5_RC1
    </para>
 
    <para>
@@ -517,9 +580,33 @@
    </para>
 
    <para>
+<<<<<<< HEAD
 <!--
     Because of the above rule, it is possible for an updating command to see an
     inconsistent snapshot: it can see the effects of concurrent updating
+=======
+    <command>INSERT</command> with an <literal>ON CONFLICT DO UPDATE</> clause
+    behaves similarly. In Read Committed mode, each row proposed for insertion
+    will either insert or update. Unless there are unrelated errors, one of
+    those two outcomes is guaranteed.  If a conflict originates in another
+    transaction whose effects are not yet visible to the <command>INSERT
+    </command>, the <command>UPDATE</command> clause will affect that row,
+    even though possibly <emphasis>no</> version of that row is
+    conventionally visible to the command.
+   </para>
+
+   <para>
+    <command>INSERT</command> with an <literal>ON CONFLICT DO
+    NOTHING</> clause may have insertion not proceed for a row due to
+    the outcome of another transaction whose effects are not visible
+    to the <command>INSERT</command> snapshot.  Again, this is only
+    the case in Read Committed mode.
+   </para>
+
+   <para>
+    Because of the above rules, it is possible for an updating command to see
+    an inconsistent snapshot: it can see the effects of concurrent updating
+>>>>>>> REL9_5_RC1
     commands on the same rows it is trying to update, but it
     does not see effects of those commands on other rows in the database.
     This behavior makes Read Committed mode unsuitable for commands that
@@ -659,8 +746,9 @@ COMMIT;
 <!--
     This level is different from Read Committed in that a query in a
     repeatable read transaction sees a snapshot as of the start of the
+    first non-transaction-control statement in the
     <emphasis>transaction</>, not as of the start
-    of the current query within the transaction.  Thus, successive
+    of the current statement within the transaction.  Thus, successive
     <command>SELECT</command> commands within a <emphasis>single</>
     transaction see the same data, i.e., they do not see changes made by
     other transactions that committed after their own transaction started.
@@ -1347,11 +1435,16 @@ ERROR:  could not serialize access due to read/write dependencies among transact
         </para>
 
         <para>
+<<<<<<< HEAD
 <!--
          This lock mode is not automatically acquired by any
          <productname>PostgreSQL</productname> command.
 -->
 このロックモードを自動的に獲得する<productname>PostgreSQL</productname>コマンドはありません。
+=======
+         Acquired by <command>CREATE TRIGGER</command> and many forms of
+         <command>ALTER TABLE</command> (see <xref linkend="SQL-ALTERTABLE">).
+>>>>>>> REL9_5_RC1
         </para>
        </listitem>
       </varlistentry>
@@ -1417,8 +1510,11 @@ ERROR:  could not serialize access due to read/write dependencies among transact
 <!--
          Acquired by the <command>DROP TABLE</>,
          <command>TRUNCATE</command>, <command>REINDEX</command>,
-         <command>CLUSTER</command>, and <command>VACUUM FULL</command>
+         <command>CLUSTER</command>, <command>VACUUM FULL</command>,
+         and <command>REFRESH MATERIALIZED VIEW</command> (without
+         <option>CONCURRENTLY</option>)
          commands. Many forms of <command>ALTER TABLE</> also acquire
+<<<<<<< HEAD
          a lock at this level (see <xref linkend="SQL-ALTERTABLE">).
          This is also the default lock mode for <command>LOCK TABLE</command>
          statements that do not specify a mode explicitly.
@@ -1426,6 +1522,11 @@ ERROR:  could not serialize access due to read/write dependencies among transact
 <command>DROP TABLE</>、<command>TRUNCATE</command>、<command>REINDEX</command>、<command>CLUSTER</command>、<command>VACUUM FULL</command>コマンドによって獲得されます。
 <command>ALTER TABLE</>の多くの形式もこのレベルでロックを獲得します(<xref linkend="SQL-ALTERTABLE">を参照してください)。
 また、明示的にモードを指定しなければ、これが<command>LOCK TABLE</command>文を使用する際のデフォルトのロックモードです。
+=======
+         a lock at this level. This is also the default lock mode for
+         <command>LOCK TABLE</command> statements that do not specify
+         a mode explicitly.
+>>>>>>> REL9_5_RC1
         </para>
        </listitem>
       </varlistentry>
@@ -1601,6 +1702,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
      but other than that, two transactions can never hold conflicting locks
      on the same row.  Row-level locks do not affect data querying; they
      block only <emphasis>writers and lockers</emphasis> to the same row.
+<<<<<<< HEAD
 -->
 テーブルレベルロックに加えて、行レベルロックがあります。<productname>PostgreSQL</productname>が自動的に使う文脈付きで以下に行レベルロックの一覧があります。
 行レベルロックの競合の完全な表については<xref linkend="row-lock-compatibility">を参照してください。
@@ -1615,13 +1717,22 @@ ERROR:  could not serialize access due to read/write dependencies among transact
       <title>Row-level Lock Modes</title>
 -->
       <title>行レベルロックモード</title>
+=======
+    </para>
+
+     <variablelist>
+      <title>Row-level Lock Modes</title>
+>>>>>>> REL9_5_RC1
       <varlistentry>
        <term>
         <literal>FOR UPDATE</literal>
        </term>
        <listitem>
         <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL9_5_RC1
          <literal>FOR UPDATE</literal> causes the rows retrieved by the
          <command>SELECT</command> statement to be locked as though for
          update.  This prevents them from being locked, modified or deleted by
@@ -1642,6 +1753,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          however, an error will be thrown if a row to be locked has changed
          since the transaction started.  For further discussion see
          <xref linkend="applevel-consistency">.
+<<<<<<< HEAD
 -->
 <literal>FOR UPDATE</literal>により<command>SELECT</command>文により取り出された行が更新用であるかのようにロックされます。
 これにより、それらは現在のトランザクションが終わるまで、他のトランザクションがロック、変更、削除できなくなります。
@@ -1651,6 +1763,10 @@ ERROR:  could not serialize access due to read/write dependencies among transact
         </para>
         <para>
 <!--
+=======
+        </para>
+        <para>
+>>>>>>> REL9_5_RC1
          The <literal>FOR UPDATE</> lock mode
          is also acquired by any <command>DELETE</> on a row, and also by an
          <command>UPDATE</> that modifies the values on certain columns.  Currently,
@@ -1658,9 +1774,12 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          have a unique index on them that can be used in a foreign key (so partial
          indexes and expressional indexes are not considered), but this may change
          in the future.
+<<<<<<< HEAD
 -->
 <literal>FOR UPDATE</>ロックモードは行に対する<command>DELETE</>でも、ある列の値を変更する<command>UPDATE</>でも獲得されます。
 現時点では、<command>UPDATE</>の場合に考慮される列の集合は、外部キーとして使うことのできる一意のインデックス(つまり部分インデックスや式インデックスは考慮されません)があるものですが、これは将来変わるかもしれません。
+=======
+>>>>>>> REL9_5_RC1
         </para>
        </listitem>
       </varlistentry>
@@ -1671,15 +1790,21 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        </term>
        <listitem>
         <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL9_5_RC1
          Behaves similarly to <literal>FOR UPDATE</>, except that the lock
          acquired is weaker: this lock will not block
          <literal>SELECT FOR KEY SHARE</> commands that attempt to acquire
          a lock on the same rows. This lock mode is also acquired by any
          <command>UPDATE</> that does not acquire a <literal>FOR UPDATE</> lock.
+<<<<<<< HEAD
 -->
 獲得するロックが弱い以外は<literal>FOR UPDATE</>と同じように振る舞います。このロックは同じ行のロックを獲得しようとする<literal>SELECT FOR KEY SHARE</>コマンドをブロックしません。
 このロックモードは<literal>FOR UPDATE</>ロックを獲得しない<command>UPDATE</>によっても獲得されます。
+=======
+>>>>>>> REL9_5_RC1
         </para>
        </listitem>
       </varlistentry>
@@ -1690,7 +1815,10 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        </term>
        <listitem>
         <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL9_5_RC1
          Behaves similarly to <literal>FOR NO KEY UPDATE</>, except that it
          acquires a shared lock rather than exclusive lock on each retrieved
          row.  A shared lock blocks other transactions from performing
@@ -1699,9 +1827,12 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          <command>SELECT FOR NO KEY UPDATE</> on these rows, but it does not
          prevent them from performing <command>SELECT FOR SHARE</command> or
          <command>SELECT FOR KEY SHARE</command>.
+<<<<<<< HEAD
 -->
 取り出された各行に対して排他ロックではなく共有ロックを獲得する以外は、<literal>FOR NO KEY UPDATE</>と同じように振る舞います。
 共有ロックは、他のトランザクションがこれらの行に対して<command>UPDATE</command>、<command>DELETE</command>、<command>SELECT FOR UPDATE</command>、<command>SELECT FOR NO KEY UPDATE</>を実行するのをブロックしますが、<command>SELECT FOR SHARE</command>や<command>SELECT FOR KEY SHARE</command>を実行するのを阻害しません。
+=======
+>>>>>>> REL9_5_RC1
         </para>
        </listitem>
       </varlistentry>
@@ -1712,7 +1843,10 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        </term>
        <listitem>
         <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL9_5_RC1
          Behaves similarly to <literal>FOR SHARE</literal>, except that the
          lock is weaker: <literal>SELECT FOR UPDATE</> is blocked, but not
          <literal>SELECT FOR NO KEY UPDATE</>.  A key-shared lock blocks
@@ -1721,9 +1855,12 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          other <command>UPDATE</>, and neither does it prevent
          <command>SELECT FOR NO KEY UPDATE</>, <command>SELECT FOR SHARE</>,
          or <command>SELECT FOR KEY SHARE</>.
+<<<<<<< HEAD
 -->
 獲得するロックが弱い以外は<literal>FOR SHARE</literal>と同じように振る舞います。<literal>SELECT FOR UPDATE</>はブロックされますが、<literal>SELECT FOR NO KEY UPDATE</>はブロックされません。
 キー共有ロックは、他のトランザクションが<command>DELETE</command>やキー値を変更する<command>UPDATE</command>を実行するのをブロックしますが、それ以外の<command>UPDATE</>や、<command>SELECT FOR NO KEY UPDATE</>、<command>SELECT FOR SHARE</>、<command>SELECT FOR KEY SHARE</>を阻害しません。
+=======
+>>>>>>> REL9_5_RC1
         </para>
        </listitem>
       </varlistentry>
@@ -1744,22 +1881,31 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     </para>
 
     <table tocentry="1" id="row-lock-compatibility">
+<<<<<<< HEAD
 <!--
      <title>Conflicting Row-level Locks</title>
 -->
      <title>行レベルロックの競合</title>
+=======
+     <title>Conflicting Row-level Locks</title>
+>>>>>>> REL9_5_RC1
      <tgroup cols="5">
       <colspec colnum="2" colname="lockst">
       <colspec colnum="5" colname="lockend">
       <spanspec namest="lockst" nameend="lockend" spanname="lockreq">
       <thead>
        <row>
+<<<<<<< HEAD
 <!--
         <entry morerows="1">Requested Lock Mode</entry>
         <entry spanname="lockreq">Current Lock Mode</entry>
 -->
         <entry morerows="1">要求するロックモード</entry>
         <entry spanname="lockreq">現在のロックモード</entry>
+=======
+        <entry morerows="1">Requested Lock Mode</entry>
+        <entry spanname="lockreq">Current Lock Mode</entry>
+>>>>>>> REL9_5_RC1
        </row>
        <row>
         <entry>FOR KEY SHARE</entry>
@@ -1803,10 +1949,14 @@ ERROR:  could not serialize access due to read/write dependencies among transact
    </sect2>
 
    <sect2 id="locking-pages">
+<<<<<<< HEAD
 <!--
     <title>Page-level Locks</title>
 -->
     <title>ページレベルロック</title>
+=======
+    <title>Page-level Locks</title>
+>>>>>>> REL9_5_RC1
 
     <para>
 <!--
@@ -2227,8 +2377,11 @@ SELECT pg_advisory_lock(q.id) FROM
       does not yet extend to hot standby mode (<xref linkend="hot-standby">).
       Because of that, those using hot standby may want to use Repeatable
       Read and explicit locking on the master.
+<<<<<<< HEAD
 -->
 シリアライザブルトランザクションを使用する整合性保護レベルは、まだホットスタンバイモード(<xref linkend="hot-standby">)には拡張されていません。そのために、ホットスタンバイを使用する場合は、マスタにおけるリピータブルリードと明示的なロック処理の利用が望まれるかもしれません。
+=======
+>>>>>>> REL9_5_RC1
      </para>
     </warning>
    </sect2>
@@ -2339,6 +2492,7 @@ SELECT pg_advisory_lock(q.id) FROM
   </sect1>
 
   <sect1 id="mvcc-caveats">
+<<<<<<< HEAD
 <!--
    <title>Caveats</title>
 -->
@@ -2346,6 +2500,11 @@ SELECT pg_advisory_lock(q.id) FROM
 
    <para>
 <!--
+=======
+   <title>Caveats</title>
+
+   <para>
+>>>>>>> REL9_5_RC1
     Some DDL commands, currently only <xref linkend="sql-truncate"> and the
     table-rewriting forms of <xref linkend="sql-altertable">, are not
     MVCC-safe.  This means that after the truncation or rewrite commits, the
@@ -2359,6 +2518,7 @@ SELECT pg_advisory_lock(q.id) FROM
     table contents for successive queries on the target table, but they
     could cause visible inconsistency between the contents of the target
     table and other tables in the database.
+<<<<<<< HEAD
 -->
 DDLコマンドの中には、現在は<xref linkend="sql-truncate">とテーブルを書き換える形の<xref linkend="sql-altertable">だけですが、MVCCセーフでないものがあります。
 これは、DDLコマンドをコミットする前に取得したスナップショットを使っていると、切り詰めまたは書き換えのコミット後に、同時実行トランザクションに対してテーブルが空に見えることを意味しています。
@@ -2368,6 +2528,11 @@ DDLコマンドの中には、現在は<xref linkend="sql-truncate">とテーブ
 
    <para>
 <!--
+=======
+   </para>
+
+   <para>
+>>>>>>> REL9_5_RC1
     Support for the Serializable transaction isolation level has not yet
     been added to Hot Standby replication targets (described in
     <xref linkend="hot-standby">).  The strictest isolation level currently
@@ -2377,10 +2542,13 @@ DDLコマンドの中には、現在は<xref linkend="sql-truncate">とテーブ
     state, a Repeatable Read transaction run on the standby can sometimes
     see a transient state that is inconsistent with any serial execution
     of the transactions on the master.
+<<<<<<< HEAD
 -->
 シリアライザブルトランザクション分離レベルのサポートは、まだホットスタンバイレプリケーションは対象に加えられていません(<xref linkend="hot-standby">で述べます)。
 ホットスタンバイモードで現在サポートされた最も厳しい分離レベルはリピータブルリードです。
 マスタ上でシリアライザブルトランザクション中にデータベースに永続的な書き込みを行なえば、スタンバイはすべて最終的に一貫した状態に達するだろうということは保証されるでしょうが、スタンバイ上で実行されたリピータブルリードトランザクションは、時々マスタのトランザクションの任意の連続する実行と一致しない過渡状態を見ることがあるでしょう。
+=======
+>>>>>>> REL9_5_RC1
    </para>
   </sect1>
 
