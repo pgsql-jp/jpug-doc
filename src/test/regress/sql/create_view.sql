@@ -469,8 +469,6 @@ alter table tt14t drop column f3;
 select pg_get_viewdef('tt14v', true);
 select * from tt14v;
 
-<<<<<<< HEAD
-=======
 -- check display of whole-row variables in some corner cases
 
 create type nestedcomposite as (x int8_tbl);
@@ -498,7 +496,6 @@ create view tt18v as
 select pg_get_viewdef('tt18v', true);
 explain (costs off) select * from tt18v;
 
->>>>>>> FETCH_HEAD
 -- clean up all the random objects we made above
 set client_min_messages = warning;
 DROP SCHEMA temp_view_test CASCADE;

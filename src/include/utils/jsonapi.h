@@ -129,10 +129,6 @@ extern JsonLexContext *makeJsonLexContextCstringLen(char *json,
  *
  * str agrument does not need to be nul-terminated.
  */
-<<<<<<< HEAD
-extern bool IsValidJsonNumber(const char * str, int len);
-=======
 extern bool IsValidJsonNumber(const char *str, int len);
->>>>>>> FETCH_HEAD
 
 #endif   /* JSONAPI_H */

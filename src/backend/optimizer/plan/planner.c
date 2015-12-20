@@ -832,15 +832,10 @@ inheritance_planner(PlannerInfo *root)
 {
 	Query	   *parse = root->parse;
 	int			parentRTindex = parse->resultRelation;
-<<<<<<< HEAD
-	Bitmapset  *subqueryRTindexes;
-	Bitmapset  *modifiableARIindexes;
-=======
 	Bitmapset  *resultRTindexes;
 	Bitmapset  *subqueryRTindexes;
 	Bitmapset  *modifiableARIindexes;
 	int			nominalRelation = -1;
->>>>>>> FETCH_HEAD
 	List	   *final_rtable = NIL;
 	int			save_rel_array_size = 0;
 	RelOptInfo **save_rel_array = NULL;
@@ -851,11 +846,8 @@ inheritance_planner(PlannerInfo *root)
 	List	   *rowMarks;
 	ListCell   *lc;
 	Index		rti;
-<<<<<<< HEAD
-=======
 
 	Assert(parse->commandType != CMD_INSERT);
->>>>>>> FETCH_HEAD
 
 	/*
 	 * We generate a modified instance of the original Query for each target
@@ -872,9 +864,6 @@ inheritance_planner(PlannerInfo *root)
 	 * at least O(N^3) work expended here; and (2) would greatly complicate
 	 * management of the rowMarks list.
 	 *
-<<<<<<< HEAD
-	 * To begin with, generate a bitmapset of the relids of the subquery RTEs.
-=======
 	 * Note that any RTEs with security barrier quals will be turned into
 	 * subqueries during planning, and so we must create copies of them too,
 	 * except where they are target relations, which will each only be used in
@@ -895,7 +884,6 @@ inheritance_planner(PlannerInfo *root)
 	/*
 	 * Now, generate a bitmapset of the relids of the subquery RTEs, including
 	 * security-barrier RTEs that will become subqueries, as just explained.
->>>>>>> FETCH_HEAD
 	 */
 	subqueryRTindexes = NULL;
 	rti = 1;
@@ -903,13 +891,9 @@ inheritance_planner(PlannerInfo *root)
 	{
 		RangeTblEntry *rte = (RangeTblEntry *) lfirst(lc);
 
-<<<<<<< HEAD
-		if (rte->rtekind == RTE_SUBQUERY)
-=======
 		if (rte->rtekind == RTE_SUBQUERY ||
 			(rte->securityQuals != NIL &&
 			 !bms_is_member(rti, resultRTindexes)))
->>>>>>> FETCH_HEAD
 			subqueryRTindexes = bms_add_member(subqueryRTindexes, rti);
 		rti++;
 	}

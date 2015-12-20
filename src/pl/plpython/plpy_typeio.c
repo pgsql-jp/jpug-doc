@@ -915,10 +915,7 @@ PLyString_ToComposite(PLyTypeInfo *info, TupleDesc desc, PyObject *string)
 	Datum		result;
 	HeapTuple	typeTup;
 	PLyTypeInfo locinfo;
-<<<<<<< HEAD
-=======
 	PLyExecutionContext *exec_ctx = PLy_current_execution_context();
->>>>>>> FETCH_HEAD
 
 	/* Create a dummy PLyTypeInfo */
 	MemSet(&locinfo, 0, sizeof(PLyTypeInfo));
@@ -928,13 +925,9 @@ PLyString_ToComposite(PLyTypeInfo *info, TupleDesc desc, PyObject *string)
 	if (!HeapTupleIsValid(typeTup))
 		elog(ERROR, "cache lookup failed for type %u", desc->tdtypeid);
 
-<<<<<<< HEAD
-	PLy_output_datum_func2(&locinfo.out.d, typeTup);
-=======
 	PLy_output_datum_func2(&locinfo.out.d, typeTup,
 						   exec_ctx->curr_proc->langid,
 						   exec_ctx->curr_proc->trftypes);
->>>>>>> FETCH_HEAD
 
 	ReleaseSysCache(typeTup);
 

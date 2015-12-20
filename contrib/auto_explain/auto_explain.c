@@ -294,24 +294,6 @@ explain_ExecutorEnd(QueryDesc *queryDesc)
 		msec = queryDesc->totaltime->total * 1000.0;
 		if (msec >= auto_explain_log_min_duration)
 		{
-<<<<<<< HEAD
-			ExplainState es;
-
-			ExplainInitState(&es);
-			es.analyze = (queryDesc->instrument_options && auto_explain_log_analyze);
-			es.verbose = auto_explain_log_verbose;
-			es.buffers = (es.analyze && auto_explain_log_buffers);
-			es.timing = (es.analyze && auto_explain_log_timing);
-			es.summary = es.analyze;
-			es.format = auto_explain_log_format;
-
-			ExplainBeginOutput(&es);
-			ExplainQueryText(&es, queryDesc);
-			ExplainPrintPlan(&es, queryDesc);
-			if (es.analyze && auto_explain_log_triggers)
-				ExplainPrintTriggers(&es, queryDesc);
-			ExplainEndOutput(&es);
-=======
 			ExplainState *es = NewExplainState();
 
 			es->analyze = (queryDesc->instrument_options && auto_explain_log_analyze);
@@ -327,7 +309,6 @@ explain_ExecutorEnd(QueryDesc *queryDesc)
 			if (es->analyze && auto_explain_log_triggers)
 				ExplainPrintTriggers(es, queryDesc);
 			ExplainEndOutput(es);
->>>>>>> FETCH_HEAD
 
 			/* Remove last line break */
 			if (es->str->len > 0 && es->str->data[es->str->len - 1] == '\n')

@@ -1046,8 +1046,6 @@ drop view rule_v1;
 create view rule_v1(x) as select * from (values(1,2)) v(q,w);
 \d+ rule_v1
 drop view rule_v1;
-<<<<<<< HEAD
-=======
 
 --
 -- Check DO INSTEAD rules with ON CONFLICT
@@ -1146,4 +1144,3 @@ DROP RULE hat_upsert ON hats;
 
 drop table hats;
 drop table hat_data;
->>>>>>> FETCH_HEAD

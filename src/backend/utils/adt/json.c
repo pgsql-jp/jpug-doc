@@ -32,9 +32,6 @@
 #include "utils/typcache.h"
 #include "utils/syscache.h"
 
-/* String to output for infinite dates and timestamps */
-#define DT_INFINITY "\"infinity\""
-
 /*
  * The context of the parser is maintained by the recursive descent
  * mechanism, but is passed explicitly to the error reporting routine
@@ -1492,30 +1489,16 @@ datum_to_json(Datum val, bool is_null, StringInfo result,
 				char		buf[MAXDATELEN + 1];
 
 				date = DatumGetDateADT(val);
-<<<<<<< HEAD
-
-				if (DATE_NOT_FINITE(date))
-				{
-					/* we have to format infinity ourselves */
-					appendStringInfoString(result,DT_INFINITY);
-				}
-=======
 				/* Same as date_out(), but forcing DateStyle */
 				if (DATE_NOT_FINITE(date))
 					EncodeSpecialDate(date, buf);
->>>>>>> FETCH_HEAD
 				else
 				{
 					j2date(date + POSTGRES_EPOCH_JDATE,
 						   &(tm.tm_year), &(tm.tm_mon), &(tm.tm_mday));
 					EncodeDateOnly(&tm, USE_XSD_DATES, buf);
-<<<<<<< HEAD
-					appendStringInfo(result, "\"%s\"", buf);
-				}
-=======
 				}
 				appendStringInfo(result, "\"%s\"", buf);
->>>>>>> FETCH_HEAD
 			}
 			break;
 		case JSONTYPE_TIMESTAMP:
@@ -1526,31 +1509,16 @@ datum_to_json(Datum val, bool is_null, StringInfo result,
 				char		buf[MAXDATELEN + 1];
 
 				timestamp = DatumGetTimestamp(val);
-<<<<<<< HEAD
-
-				if (TIMESTAMP_NOT_FINITE(timestamp))
-				{
-					/* we have to format infinity ourselves */
-					appendStringInfoString(result,DT_INFINITY);
-				}
-=======
 				/* Same as timestamp_out(), but forcing DateStyle */
 				if (TIMESTAMP_NOT_FINITE(timestamp))
 					EncodeSpecialTimestamp(timestamp, buf);
->>>>>>> FETCH_HEAD
 				else if (timestamp2tm(timestamp, NULL, &tm, &fsec, NULL, NULL) == 0)
-				{
 					EncodeDateTime(&tm, fsec, false, 0, NULL, USE_XSD_DATES, buf);
-					appendStringInfo(result, "\"%s\"", buf);
-				}
 				else
 					ereport(ERROR,
 							(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
 							 errmsg("timestamp out of range")));
-<<<<<<< HEAD
-=======
 				appendStringInfo(result, "\"%s\"", buf);
->>>>>>> FETCH_HEAD
 			}
 			break;
 		case JSONTYPE_TIMESTAMPTZ:
@@ -1562,33 +1530,17 @@ datum_to_json(Datum val, bool is_null, StringInfo result,
 				const char *tzn = NULL;
 				char		buf[MAXDATELEN + 1];
 
-<<<<<<< HEAD
-				timestamp = DatumGetTimestamp(val);
-
-				if (TIMESTAMP_NOT_FINITE(timestamp))
-				{
-					/* we have to format infinity ourselves */
-					appendStringInfoString(result,DT_INFINITY);
-				}
-=======
 				timestamp = DatumGetTimestampTz(val);
 				/* Same as timestamptz_out(), but forcing DateStyle */
 				if (TIMESTAMP_NOT_FINITE(timestamp))
 					EncodeSpecialTimestamp(timestamp, buf);
->>>>>>> FETCH_HEAD
 				else if (timestamp2tm(timestamp, &tz, &tm, &fsec, &tzn, NULL) == 0)
-				{
 					EncodeDateTime(&tm, fsec, true, tz, tzn, USE_XSD_DATES, buf);
-					appendStringInfo(result, "\"%s\"", buf);
-				}
 				else
 					ereport(ERROR,
 							(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
 							 errmsg("timestamp out of range")));
-<<<<<<< HEAD
-=======
 				appendStringInfo(result, "\"%s\"", buf);
->>>>>>> FETCH_HEAD
 			}
 			break;
 		case JSONTYPE_JSON:
@@ -1995,11 +1947,7 @@ json_agg_finalfn(PG_FUNCTION_ARGS)
 		PG_RETURN_NULL();
 
 	/* Else return state with appropriate array terminator added */
-<<<<<<< HEAD
-	PG_RETURN_TEXT_P(catenate_stringinfo_string(state, "]"));
-=======
 	PG_RETURN_TEXT_P(catenate_stringinfo_string(state->str, "]"));
->>>>>>> FETCH_HEAD
 }
 
 /*
@@ -2038,28 +1986,6 @@ json_object_agg_transfn(PG_FUNCTION_ARGS)
 
 		arg_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
 
-<<<<<<< HEAD
-	/*
-	 * Note: since json_object_agg() is declared as taking type "any", the
-	 * parser will not do any type conversion on unknown-type literals (that
-	 * is, undecorated strings or NULLs).  Such values will arrive here as
-	 * type UNKNOWN, which fortunately does not matter to us, since
-	 * unknownout() works fine.
-	 */
-	val_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
-
-	if (val_type == InvalidOid)
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("could not determine data type for argument %d", 1)));
-
-	if (PG_ARGISNULL(1))
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("field name must not be null")));
-
-	arg = PG_GETARG_DATUM(1);
-=======
 		if (arg_type == InvalidOid)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -2098,23 +2024,13 @@ json_object_agg_transfn(PG_FUNCTION_ARGS)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("field name must not be null")));
->>>>>>> FETCH_HEAD
 
 	arg = PG_GETARG_DATUM(1);
 
 	datum_to_json(arg, false, state->str, state->key_category,
 				  state->key_output_func, true);
 
-<<<<<<< HEAD
-	val_type = get_fn_expr_argtype(fcinfo->flinfo, 2);
-
-	if (val_type == InvalidOid)
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("could not determine data type for argument %d", 2)));
-=======
 	appendStringInfoString(state->str, " : ");
->>>>>>> FETCH_HEAD
 
 	if (PG_ARGISNULL(2))
 		arg = (Datum) 0;
@@ -2143,26 +2059,6 @@ json_object_agg_finalfn(PG_FUNCTION_ARGS)
 	/* NULL result for no rows in, as is standard with aggregates */
 	if (state == NULL)
 		PG_RETURN_NULL();
-<<<<<<< HEAD
-
-	/* Else return state with appropriate object terminator added */
-	PG_RETURN_TEXT_P(catenate_stringinfo_string(state, " }"));
-}
-
-/*
- * Helper function for aggregates: return given StringInfo's contents plus
- * specified trailing string, as a text datum.  We need this because aggregate
- * final functions are not allowed to modify the aggregate state.
- */
-static text *
-catenate_stringinfo_string(StringInfo buffer, const char *addon)
-{
-	/* custom version of cstring_to_text_with_len */
-	int			buflen = buffer->len;
-	int			addlen = strlen(addon);
-	text	   *result = (text *) palloc(buflen + addlen + VARHDRSZ);
-
-=======
 
 	/* Else return state with appropriate object terminator added */
 	PG_RETURN_TEXT_P(catenate_stringinfo_string(state->str, " }"));
@@ -2181,7 +2077,6 @@ catenate_stringinfo_string(StringInfo buffer, const char *addon)
 	int			addlen = strlen(addon);
 	text	   *result = (text *) palloc(buflen + addlen + VARHDRSZ);
 
->>>>>>> FETCH_HEAD
 	SET_VARSIZE(result, buflen + addlen + VARHDRSZ);
 	memcpy(VARDATA(result), buffer->data, buflen);
 	memcpy(VARDATA(result) + buflen, addon, addlen);

@@ -141,28 +141,7 @@ retry:
 	{
 		int			w;
 
-<<<<<<< HEAD
-				/*
-				 * A handshake can fail, so be prepared to retry it, but only
-				 * a few times.
-				 */
-				for (retries = 0;; retries++)
-				{
-					if (SSL_do_handshake(port->ssl) > 0)
-						break;	/* done */
-					ereport(COMMERROR,
-							(errcode(ERRCODE_PROTOCOL_VIOLATION),
-							 errmsg("SSL handshake failure on renegotiation, retrying")));
-					if (retries >= 20)
-						ereport(FATAL,
-								(errcode(ERRCODE_PROTOCOL_VIOLATION),
-								 errmsg("could not complete SSL handshake on renegotiation, too many failures")));
-				}
-			}
-		}
-=======
 		Assert(waitfor);
->>>>>>> FETCH_HEAD
 
 		w = WaitLatchOrSocket(MyLatch,
 							  WL_LATCH_SET | waitfor,
@@ -228,81 +207,18 @@ retry:
 #ifdef USE_SSL
 	if (port->ssl_in_use)
 	{
-<<<<<<< HEAD
-		ereport(COMMERROR,
-				(errcode(ERRCODE_PROTOCOL_VIOLATION),
-				 errmsg("could not initialize SSL connection: %s",
-						SSLerrmessage())));
-		return -1;
-=======
 		n = be_tls_write(port, ptr, len, &waitfor);
->>>>>>> FETCH_HEAD
 	}
 	else
 #endif
 	{
-<<<<<<< HEAD
-		ereport(COMMERROR,
-				(errcode(ERRCODE_PROTOCOL_VIOLATION),
-				 errmsg("could not set SSL socket: %s",
-						SSLerrmessage())));
-		return -1;
-=======
 		n = secure_raw_write(port, ptr, len);
 		waitfor = WL_SOCKET_WRITEABLE;
->>>>>>> FETCH_HEAD
 	}
 
 	if (n < 0 && !port->noblock && (errno == EWOULDBLOCK || errno == EAGAIN))
 	{
-<<<<<<< HEAD
-		err = SSL_get_error(port->ssl, r);
-		switch (err)
-		{
-			case SSL_ERROR_WANT_READ:
-			case SSL_ERROR_WANT_WRITE:
-#ifdef WIN32
-				pgwin32_waitforsinglesocket(SSL_get_fd(port->ssl),
-											(err == SSL_ERROR_WANT_READ) ?
-						FD_READ | FD_CLOSE | FD_ACCEPT : FD_WRITE | FD_CLOSE,
-											INFINITE);
-#endif
-				goto aloop;
-			case SSL_ERROR_SYSCALL:
-				if (r < 0)
-					ereport(COMMERROR,
-							(errcode_for_socket_access(),
-							 errmsg("could not accept SSL connection: %m")));
-				else
-					ereport(COMMERROR,
-							(errcode(ERRCODE_PROTOCOL_VIOLATION),
-					errmsg("could not accept SSL connection: EOF detected")));
-				break;
-			case SSL_ERROR_SSL:
-				ereport(COMMERROR,
-						(errcode(ERRCODE_PROTOCOL_VIOLATION),
-						 errmsg("could not accept SSL connection: %s",
-								SSLerrmessage())));
-				break;
-			case SSL_ERROR_ZERO_RETURN:
-				ereport(COMMERROR,
-						(errcode(ERRCODE_PROTOCOL_VIOLATION),
-				   errmsg("could not accept SSL connection: EOF detected")));
-				break;
-			default:
-				ereport(COMMERROR,
-						(errcode(ERRCODE_PROTOCOL_VIOLATION),
-						 errmsg("unrecognized SSL error code: %d",
-								err)));
-				break;
-		}
-		return -1;
-	}
-
-	port->count = 0;
-=======
 		int			w;
->>>>>>> FETCH_HEAD
 
 		Assert(waitfor);
 
@@ -313,42 +229,14 @@ retry:
 		/* Handle interrupt. */
 		if (w & WL_LATCH_SET)
 		{
-<<<<<<< HEAD
-			char	   *peer_cn;
-
-			peer_cn = MemoryContextAlloc(TopMemoryContext, len + 1);
-			r = X509_NAME_get_text_by_NID(X509_get_subject_name(port->peer),
-										  NID_commonName, peer_cn, len + 1);
-			peer_cn[len] = '\0';
-			if (r != len)
-			{
-				/* shouldn't happen */
-				pfree(peer_cn);
-				return -1;
-			}
-=======
 			ResetLatch(MyLatch);
 			ProcessClientWriteInterrupt(true);
->>>>>>> FETCH_HEAD
 
 			/*
 			 * We'll retry the write. Most likely it will return immediately
 			 * because there's still no data available, and we'll wait for the
 			 * socket to become ready again.
 			 */
-<<<<<<< HEAD
-			if (len != strlen(peer_cn))
-			{
-				ereport(COMMERROR,
-						(errcode(ERRCODE_PROTOCOL_VIOLATION),
-						 errmsg("SSL certificate's common name contains embedded null")));
-				pfree(peer_cn);
-				return -1;
-			}
-
-			port->peer_cn = peer_cn;
-=======
->>>>>>> FETCH_HEAD
 		}
 		goto retry;
 	}

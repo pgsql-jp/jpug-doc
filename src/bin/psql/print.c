@@ -39,8 +39,6 @@
  */
 volatile bool cancel_pressed = false;
 
-<<<<<<< HEAD
-=======
 /*
  * Likewise, the sigpipe_trap and pager open/close functions are here rather
  * than in common.c so that this file can be used by non-psql programs.
@@ -48,7 +46,6 @@ volatile bool cancel_pressed = false;
 static bool always_ignore_sigpipe = false;
 
 
->>>>>>> FETCH_HEAD
 /* info for locale-aware numeric formatting; set up by setDecimalLocale() */
 static char *decimal_point;
 static int	groupdigits;
@@ -254,7 +251,6 @@ format_numeric_locale(const char *my_str)
 				leading_digits,
 				i,
 				new_str_pos;
-<<<<<<< HEAD
 
 	/*
 	 * If the string doesn't look like a number, return it unchanged.  This
@@ -273,26 +269,6 @@ format_numeric_locale(const char *my_str)
 	if (leading_digits == 0)
 		leading_digits = groupdigits;
 
-=======
-
-	/*
-	 * If the string doesn't look like a number, return it unchanged.  This
-	 * check is essential to avoid mangling already-localized "money" values.
-	 */
-	if (strspn(my_str, "0123456789+-.eE") != strlen(my_str))
-		return pg_strdup(my_str);
-
-	new_len = strlen(my_str) + additional_numeric_locale_len(my_str);
-	new_str = pg_malloc(new_len + 1);
-	new_str_pos = 0;
-	int_len = integer_digits(my_str);
-
-	/* number of digits in first thousands group */
-	leading_digits = int_len % groupdigits;
-	if (leading_digits == 0)
-		leading_digits = groupdigits;
-
->>>>>>> FETCH_HEAD
 	/* process sign */
 	if (my_str[0] == '-' || my_str[0] == '+')
 	{
@@ -1267,14 +1243,10 @@ print_aligned_vertical(const printTableContent *cont,
 				dformatsize = 0;
 	struct lineptr *hlineptr,
 			   *dlineptr;
-<<<<<<< HEAD
-	bool		is_pager = false;
-=======
 	bool		is_local_pager = false,
 				hmultiline = false,
 				dmultiline = false;
 	int			output_columns = 0;		/* Width of interactive console */
->>>>>>> FETCH_HEAD
 
 	if (cancel_pressed)
 		return;
@@ -1368,8 +1340,6 @@ print_aligned_vertical(const printTableContent *cont,
 			fprintf(fout, "%s\n", cont->title);
 	}
 
-<<<<<<< HEAD
-=======
 	/*
 	 * Choose target output width: \pset columns, or $COLUMNS, or ioctl
 	 */
@@ -1516,25 +1486,26 @@ print_aligned_vertical(const printTableContent *cont,
 		dwidth = newdwidth;
 	}
 
->>>>>>> FETCH_HEAD
 	/* print records */
 	for (i = 0, ptr = cont->cells; *ptr; i++, ptr++)
 	{
 		printTextRule pos;
-		int			line_count,
+		int			dline,
+					hline,
 					dcomplete,
-					hcomplete;
+					hcomplete,
+					offset,
+					chars_to_output;
 
 		if (cancel_pressed)
 			break;
 
 		if (i == 0)
 			pos = PRINT_RULE_TOP;
-		else if (!(*(ptr + 1)))
-			pos = PRINT_RULE_BOTTOM;
 		else
 			pos = PRINT_RULE_MIDDLE;
 
+		/* Print record header (e.g. "[ RECORD N ]") above each record */
 		if (i % cont->ncolumns == 0)
 		{
 			unsigned int lhwidth = hwidth;
@@ -1546,15 +1517,9 @@ print_aligned_vertical(const printTableContent *cont,
 
 			if (!opt_tuples_only)
 				print_aligned_vertical_line(format, opt_border, record++,
-<<<<<<< HEAD
-											hwidth, dwidth, pos, fout);
-			else if (i != 0 || !cont->opt->start_table || opt_border == 2)
-				print_aligned_vertical_line(format, opt_border, 0, hwidth,
-=======
 											lhwidth, dwidth, pos, fout);
 			else if (i != 0 || !cont->opt->start_table || opt_border == 2)
 				print_aligned_vertical_line(format, opt_border, 0, lhwidth,
->>>>>>> FETCH_HEAD
 											dwidth, pos, fout);
 		}
 
@@ -1566,20 +1531,23 @@ print_aligned_vertical(const printTableContent *cont,
 		pg_wcsformat((const unsigned char *) *ptr, strlen(*ptr), encoding,
 					 dlineptr, dheight);
 
-		line_count = 0;
+		/*
+		 * Loop through header and data in parallel dealing with newlines and
+		 * wrapped lines until they're both exhausted
+		 */
+		dline = hline = 0;
 		dcomplete = hcomplete = 0;
+		offset = 0;
+		chars_to_output = dlineptr[dline].width;
 		while (!dcomplete || !hcomplete)
 		{
+			/* Left border */
 			if (opt_border == 2)
-				fprintf(fout, "%s ", dformat->leftvrule);
+				fprintf(fout, "%s", dformat->leftvrule);
+
+			/* Header (never wrapped so just need to deal with newlines) */
 			if (!hcomplete)
 			{
-<<<<<<< HEAD
-				fprintf(fout, "%-s%*s", hlineptr[line_count].ptr,
-						hwidth - hlineptr[line_count].width, "");
-
-				if (!hlineptr[line_count + 1].ptr)
-=======
 				int			swidth = hwidth,
 							target_width = hwidth;
 
@@ -1621,13 +1589,10 @@ print_aligned_vertical(const printTableContent *cont,
 					if ((opt_border > 0) ||
 						(hmultiline && (format != &pg_asciiformat_old)))
 						fputs(" ", fout);
->>>>>>> FETCH_HEAD
 					hcomplete = 1;
+				}
 			}
 			else
-<<<<<<< HEAD
-				fprintf(fout, "%*s", hwidth, "");
-=======
 			{
 				unsigned int swidth = hwidth + opt_border;
 
@@ -1643,14 +1608,9 @@ print_aligned_vertical(const printTableContent *cont,
 
 				fprintf(fout, "%*s", swidth, " ");
 			}
->>>>>>> FETCH_HEAD
 
+			/* Separator */
 			if (opt_border > 0)
-<<<<<<< HEAD
-				fprintf(fout, " %s ", dformat->midvrule);
-			else
-				fputc(' ', fout);
-=======
 			{
 				if (offset)
 					fputs(format->midvrule_wrap, fout);
@@ -1659,21 +1619,10 @@ print_aligned_vertical(const printTableContent *cont,
 				else
 					fputs(format->midvrule_nl, fout);
 			}
->>>>>>> FETCH_HEAD
 
+			/* Data */
 			if (!dcomplete)
 			{
-<<<<<<< HEAD
-				if (opt_border < 2)
-					fprintf(fout, "%s\n", dlineptr[line_count].ptr);
-				else
-					fprintf(fout, "%-s%*s %s\n", dlineptr[line_count].ptr,
-							dwidth - dlineptr[line_count].width, "",
-							dformat->rightvrule);
-
-				if (!dlineptr[line_count + 1].ptr)
-					dcomplete = 1;
-=======
 				int			target_width = dwidth,
 							bytes_to_output,
 							swidth = dwidth;
@@ -1739,16 +1688,18 @@ print_aligned_vertical(const printTableContent *cont,
 					fputs(dformat->rightvrule, fout);
 
 				fputs("\n", fout);
->>>>>>> FETCH_HEAD
 			}
 			else
 			{
+				/*
+				 * data exhausted (this can occur if header is longer than the
+				 * data due to newlines in the header)
+				 */
 				if (opt_border < 2)
-					fputc('\n', fout);
+					fputs("\n", fout);
 				else
-					fprintf(fout, "%*s %s\n", dwidth, "", dformat->rightvrule);
+					fprintf(fout, "%*s  %s\n", dwidth, "", dformat->rightvrule);
 			}
-			line_count++;
 		}
 	}
 

@@ -182,13 +182,10 @@ static bool check_cluster_name(char **newval, void **extra, GucSource source);
 static const char *show_unix_socket_permissions(void);
 static const char *show_log_file_mode(void);
 
-<<<<<<< HEAD
-=======
 /* Private functions in guc-file.l that need to be called from guc.c */
 static ConfigVariable *ProcessConfigFileInternal(GucContext context,
 						  bool applySettings, int elevel);
 
->>>>>>> FETCH_HEAD
 
 /*
  * Options for enum values defined in this module.
@@ -2588,11 +2585,7 @@ static struct config_int ConfigureNamesInt[] =
 			GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE | GUC_DISALLOW_IN_FILE,
 		},
 		&ssl_renegotiation_limit,
-<<<<<<< HEAD
-		0, 0, MAX_KILOBYTES,
-=======
 		0, 0, 0,
->>>>>>> FETCH_HEAD
 		NULL, NULL, NULL
 	},
 
@@ -6736,21 +6729,12 @@ replace_auto_config_value(ConfigVariable **head_p, ConfigVariable **tail_p,
 			/* found a match, replace it */
 			pfree(item->value);
 			if (value != NULL)
-<<<<<<< HEAD
 			{
 				/* update the parameter value */
 				item->value = pstrdup(value);
 			}
 			else
 			{
-=======
-			{
-				/* update the parameter value */
-				item->value = pstrdup(value);
-			}
-			else
-			{
->>>>>>> FETCH_HEAD
 				/* delete the configuration parameter from list */
 				if (*head_p == item)
 					*head_p = item->next;
@@ -6776,17 +6760,11 @@ replace_auto_config_value(ConfigVariable **head_p, ConfigVariable **tail_p,
 	item = palloc(sizeof *item);
 	item->name = pstrdup(name);
 	item->value = pstrdup(value);
-<<<<<<< HEAD
-	item->filename = pstrdup("");		/* new item has no location */
-	item->sourceline = 0;
-	item->ignore = false;
-=======
 	item->errmsg = NULL;
 	item->filename = pstrdup("");		/* new item has no location */
 	item->sourceline = 0;
 	item->ignore = false;
 	item->applied = false;
->>>>>>> FETCH_HEAD
 	item->next = NULL;
 
 	if (*head_p == NULL)
@@ -6839,25 +6817,14 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 
 		case VAR_SET_DEFAULT:
 		case VAR_RESET:
-<<<<<<< HEAD
-=======
 			value = NULL;
 			break;
 
-		case VAR_RESET_ALL:
->>>>>>> FETCH_HEAD
-			value = NULL;
-			resetall = true;
-			break;
-
-<<<<<<< HEAD
 		case VAR_RESET_ALL:
 			value = NULL;
 			resetall = true;
 			break;
 
-=======
->>>>>>> FETCH_HEAD
 		default:
 			elog(ERROR, "unrecognized alter system stmt type: %d",
 				 altersysstmt->setstmt->kind);
@@ -6875,12 +6842,8 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 		if (record == NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_UNDEFINED_OBJECT),
-<<<<<<< HEAD
-				   errmsg("unrecognized configuration parameter \"%s\"", name)));
-=======
 					 errmsg("unrecognized configuration parameter \"%s\"",
 							name)));
->>>>>>> FETCH_HEAD
 
 		/*
 		 * Don't allow parameters that can't be set in configuration files to
@@ -6889,17 +6852,10 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 		if ((record->context == PGC_INTERNAL) ||
 			(record->flags & GUC_DISALLOW_IN_FILE) ||
 			(record->flags & GUC_DISALLOW_IN_AUTO_FILE))
-<<<<<<< HEAD
-			 ereport(ERROR,
-					 (errcode(ERRCODE_CANT_CHANGE_RUNTIME_PARAM),
-					  errmsg("parameter \"%s\" cannot be changed",
-							 name)));
-=======
 			ereport(ERROR,
 					(errcode(ERRCODE_CANT_CHANGE_RUNTIME_PARAM),
 					 errmsg("parameter \"%s\" cannot be changed",
 							name)));
->>>>>>> FETCH_HEAD
 
 		if (value)
 		{

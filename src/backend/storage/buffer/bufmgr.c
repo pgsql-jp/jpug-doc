@@ -671,13 +671,8 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 											  found);
 
 			/*
-<<<<<<< HEAD
-			 * In RBM_ZERO_AND_LOCK mode, the caller expects the buffer to
-			 * be already locked on return.
-=======
 			 * In RBM_ZERO_AND_LOCK mode the caller expects the page to be
 			 * locked on return.
->>>>>>> FETCH_HEAD
 			 */
 			if (!isLocalBuf)
 			{
@@ -768,15 +763,8 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 		 * Read in the page, unless the caller intends to overwrite it and
 		 * just wants us to allocate a buffer.
 		 */
-<<<<<<< HEAD
-		if (mode == RBM_ZERO_AND_LOCK || mode == RBM_ZERO_AND_CLEANUP_LOCK ||
-			mode == RBM_DO_NOT_USE)
-		{
-=======
 		if (mode == RBM_ZERO_AND_LOCK || mode == RBM_ZERO_AND_CLEANUP_LOCK)
->>>>>>> FETCH_HEAD
 			MemSet((char *) bufBlock, 0, BLCKSZ);
-		}
 		else
 		{
 			instr_time	io_start,
@@ -823,15 +811,6 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 	 * page before the caller has had a chance to initialize it.
 	 *
 	 * Since no-one else can be looking at the page contents yet, there is no
-<<<<<<< HEAD
-	 * difference between an exclusive lock and a cleanup-strength lock.
-	 * (Note that we cannot use LockBuffer() of LockBufferForCleanup() here,
-	 * because they assert that the buffer is already valid.)
-	 */
-	if ((mode == RBM_ZERO_AND_LOCK || mode == RBM_ZERO_AND_CLEANUP_LOCK) &&
-		!isLocalBuf)
-		LWLockAcquire(bufHdr->content_lock, LW_EXCLUSIVE);
-=======
 	 * difference between an exclusive lock and a cleanup-strength lock. (Note
 	 * that we cannot use LockBuffer() of LockBufferForCleanup() here, because
 	 * they assert that the buffer is already valid.)
@@ -841,7 +820,6 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 	{
 		LWLockAcquire(bufHdr->content_lock, LW_EXCLUSIVE);
 	}
->>>>>>> FETCH_HEAD
 
 	if (isLocalBuf)
 	{

@@ -499,15 +499,9 @@ ecpg_store_input(const int lineno, const bool force_indicator, const struct vari
 	char	   *newcopy = NULL;
 
 	/*
-<<<<<<< HEAD
-	 * arrays are not possible unless the column is an array, too
-	 * FIXME: we do not know if the column is an array here
-	 * array input to singleton column will result in a runtime error
-=======
 	 * arrays are not possible unless the column is an array, too FIXME: we do
 	 * not know if the column is an array here array input to singleton column
 	 * will result in a runtime error
->>>>>>> FETCH_HEAD
 	 */
 
 	/*
@@ -848,11 +842,7 @@ ecpg_store_input(const int lineno, const bool force_indicator, const struct vari
 						mallocedval = ecpg_strdup("", lineno);
 
 					if (!mallocedval)
-<<<<<<< HEAD
-							return false;
-=======
 						return false;
->>>>>>> FETCH_HEAD
 
 					for (element = 0; element < asize; element++)
 					{
@@ -915,11 +905,7 @@ ecpg_store_input(const int lineno, const bool force_indicator, const struct vari
 						mallocedval = ecpg_strdup("", lineno);
 
 					if (!mallocedval)
-<<<<<<< HEAD
-							return false;
-=======
 						return false;
->>>>>>> FETCH_HEAD
 
 					for (element = 0; element < asize; element++)
 					{
@@ -966,11 +952,7 @@ ecpg_store_input(const int lineno, const bool force_indicator, const struct vari
 						mallocedval = ecpg_strdup("", lineno);
 
 					if (!mallocedval)
-<<<<<<< HEAD
-							return false;
-=======
 						return false;
->>>>>>> FETCH_HEAD
 
 					for (element = 0; element < asize; element++)
 					{
@@ -1017,11 +999,7 @@ ecpg_store_input(const int lineno, const bool force_indicator, const struct vari
 						mallocedval = ecpg_strdup("", lineno);
 
 					if (!mallocedval)
-<<<<<<< HEAD
-							return false;
-=======
 						return false;
->>>>>>> FETCH_HEAD
 
 					for (element = 0; element < asize; element++)
 					{

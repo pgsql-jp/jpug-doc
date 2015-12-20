@@ -175,15 +175,9 @@ create_toast_table(Relation rel, Oid toastOid, Oid toastIndexOid,
 		/*
 		 * Check to see whether the table needs a TOAST table.
 		 *
-<<<<<<< HEAD
-		 * If an update-in-place TOAST relfilenode is specified, force TOAST file
-		 * creation even if it seems not to need one.  This handles the case
-		 * where the old cluster needed a TOAST table but the new cluster
-=======
 		 * If an update-in-place TOAST relfilenode is specified, force TOAST
 		 * file creation even if it seems not to need one.  This handles the
 		 * case where the old cluster needed a TOAST table but the new cluster
->>>>>>> FETCH_HEAD
 		 * would not normally create one.
 		 */
 

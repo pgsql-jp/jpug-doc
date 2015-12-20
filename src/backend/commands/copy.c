@@ -796,10 +796,7 @@ DoCopy(const CopyStmt *stmt, const char *queryString, uint64 *processed)
 	bool		pipe = (stmt->filename == NULL);
 	Relation	rel;
 	Oid			relid;
-<<<<<<< HEAD
-=======
 	Node	   *query = NULL;
->>>>>>> FETCH_HEAD
 	List	   *range_table = NIL;
 
 	/* Disallow COPY to/from file or program except to superusers. */
@@ -855,8 +852,6 @@ DoCopy(const CopyStmt *stmt, const char *queryString, uint64 *processed)
 				rte->selectedCols = bms_add_member(rte->selectedCols, attno);
 		}
 		ExecCheckRTPerms(range_table, true);
-<<<<<<< HEAD
-=======
 
 		/*
 		 * Permission check for row security policies.
@@ -924,7 +919,6 @@ DoCopy(const CopyStmt *stmt, const char *queryString, uint64 *processed)
 			heap_close(rel, NoLock);
 			rel = NULL;
 		}
->>>>>>> FETCH_HEAD
 	}
 	else
 	{

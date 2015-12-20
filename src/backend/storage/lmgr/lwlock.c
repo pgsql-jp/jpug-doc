@@ -85,7 +85,6 @@
 #include "pg_trace.h"
 #include "postmaster/postmaster.h"
 #include "replication/slot.h"
-#include "storage/barrier.h"
 #include "storage/ipc.h"
 #include "storage/predicate.h"
 #include "storage/proc.h"
@@ -153,12 +152,6 @@ static LWLockHandle held_lwlocks[MAX_SIMUL_LWLOCKS];
 static int	lock_addin_request = 0;
 static bool lock_addin_request_allowed = true;
 
-<<<<<<< HEAD
-static inline bool LWLockAcquireCommon(LWLock *l, LWLockMode mode,
-					uint64 *valptr, uint64 val);
-
-=======
->>>>>>> FETCH_HEAD
 #ifdef LWLOCK_STATS
 typedef struct lwlock_stats_key
 {
@@ -801,14 +794,6 @@ LWLockQueueSelf(LWLock *lock, LWLockMode mode)
 
 }
 
-<<<<<<< HEAD
-/* internal function to implement LWLockAcquire and LWLockAcquireWithVar */
-static inline bool
-LWLockAcquireCommon(LWLock *l, LWLockMode mode, uint64 *valptr, uint64 val)
-{
-	volatile LWLock *lock = l;
-	volatile uint64 *valp = valptr;
-=======
 /*
  * Remove ourselves from the waitlist.
  *
@@ -919,7 +904,6 @@ LWLockDequeueSelf(LWLock *lock)
 bool
 LWLockAcquire(LWLock *lock, LWLockMode mode)
 {
->>>>>>> FETCH_HEAD
 	PGPROC	   *proc = MyProc;
 	bool		result = true;
 	int			extraWaits = 0;
@@ -1065,18 +1049,7 @@ LWLockAcquire(LWLock *lock, LWLockMode mode)
 		result = false;
 	}
 
-<<<<<<< HEAD
-	/* If there's a variable associated with this lock, initialize it */
-	if (valp)
-		*valp = val;
-
-	/* We are done updating shared state of the lock itself. */
-	SpinLockRelease(&lock->mutex);
-
-	TRACE_POSTGRESQL_LWLOCK_ACQUIRE(T_NAME(l), T_ID(l), mode);
-=======
 	TRACE_POSTGRESQL_LWLOCK_ACQUIRE(T_NAME(lock), T_ID(lock), mode);
->>>>>>> FETCH_HEAD
 
 	/* Add lock to list of locks held by this backend */
 	held_lwlocks[num_held_lwlocks].lock = lock;
@@ -1392,24 +1365,6 @@ LWLockWaitForVar(LWLock *lock, uint64 *valptr, uint64 oldval, uint64 *newval)
 		 * Set RELEASE_OK flag, to make sure we get woken up as soon as the
 		 * lock is released.
 		 */
-<<<<<<< HEAD
-		proc->lwWaiting = true;
-		proc->lwWaitMode = LW_WAIT_UNTIL_FREE;
-		/* waiters are added to the front of the queue */
-		proc->lwWaitLink = lock->head;
-		if (lock->head == NULL)
-			lock->tail = proc;
-		lock->head = proc;
-
-		/*
-		 * Set releaseOK, to make sure we get woken up as soon as the lock is
-		 * released.
-		 */
-		lock->releaseOK = true;
-
-		/* Can release the mutex now */
-		SpinLockRelease(&lock->mutex);
-=======
 		pg_atomic_fetch_or_u32(&lock->state, LW_FLAG_RELEASE_OK);
 
 		/*
@@ -1427,7 +1382,6 @@ LWLockWaitForVar(LWLock *lock, uint64 *valptr, uint64 oldval, uint64 *newval)
 			LWLockDequeueSelf(lock);
 			break;
 		}
->>>>>>> FETCH_HEAD
 
 		/*
 		 * Wait until awakened.
@@ -1552,15 +1506,6 @@ LWLockUpdateVar(LWLock *lock, uint64 *valptr, uint64 val)
 	 */
 	dlist_foreach_modify(iter, &wakeup)
 	{
-<<<<<<< HEAD
-		proc = head;
-		head = proc->lwWaitLink;
-		proc->lwWaitLink = NULL;
-		/* check comment in LWLockRelease() about this barrier */
-		pg_write_barrier();
-		proc->lwWaiting = false;
-		PGSemaphoreUnlock(&proc->sem);
-=======
 		PGPROC	   *waiter = dlist_container(PGPROC, lwWaitLink, iter.cur);
 
 		dlist_delete(&waiter->lwWaitLink);
@@ -1568,7 +1513,6 @@ LWLockUpdateVar(LWLock *lock, uint64 *valptr, uint64 val)
 		pg_write_barrier();
 		waiter->lwWaiting = false;
 		PGSemaphoreUnlock(&waiter->sem);
->>>>>>> FETCH_HEAD
 	}
 }
 
@@ -1634,29 +1578,9 @@ LWLockRelease(LWLock *lock)
 	 */
 	if (check_waiters)
 	{
-<<<<<<< HEAD
-		LOG_LWDEBUG("LWLockRelease", T_NAME(l), T_ID(l), "release waiter");
-		proc = head;
-		head = proc->lwWaitLink;
-		proc->lwWaitLink = NULL;
-		/*
-		 * Guarantee that lwWaiting being unset only becomes visible once the
-		 * unlink from the link has completed. Otherwise the target backend
-		 * could be woken up for other reason and enqueue for a new lock - if
-		 * that happens before the list unlink happens, the list would end up
-		 * being corrupted.
-		 *
-		 * The barrier pairs with the SpinLockAcquire() when enqueing for
-		 * another lock.
-		 */
-		pg_write_barrier();
-		proc->lwWaiting = false;
-		PGSemaphoreUnlock(&proc->sem);
-=======
 		/* XXX: remove before commit? */
 		LOG_LWDEBUG("LWLockRelease", lock, "releasing waiters");
 		LWLockWakeup(lock);
->>>>>>> FETCH_HEAD
 	}
 
 	TRACE_POSTGRESQL_LWLOCK_RELEASE(T_NAME(lock), T_ID(lock));

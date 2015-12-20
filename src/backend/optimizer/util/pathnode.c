@@ -147,15 +147,10 @@ compare_fractional_path_costs(Path *path1, Path *path2,
  *
  * This function also enforces a policy rule that paths for which the relevant
  * one of parent->consider_startup and parent->consider_param_startup is false
-<<<<<<< HEAD
- * cannot win comparisons on the grounds of good startup cost, so we never
- * return COSTS_DIFFERENT when that is true for the total-cost loser.
-=======
  * cannot survive comparisons solely on the grounds of good startup cost, so
  * we never return COSTS_DIFFERENT when that is true for the total-cost loser.
  * (But if total costs are fuzzily equal, we compare startup costs anyway,
  * in hopes of eliminating one path or the other.)
->>>>>>> FETCH_HEAD
  */
 static PathCostComparison
 compare_path_costs_fuzzily(Path *path1, Path *path2, double fuzz_factor)
@@ -191,20 +186,8 @@ compare_path_costs_fuzzily(Path *path1, Path *path2, double fuzz_factor)
 		/* else path1 dominates */
 		return COSTS_BETTER1;
 	}
-<<<<<<< HEAD
-
-	/*
-	 * Fuzzily the same on total cost (so we might as well compare startup
-	 * cost, even when that would otherwise be uninteresting; but
-	 * parameterized paths aren't allowed to win this way, we'd rather move on
-	 * to other comparison heuristics)
-	 */
-	if (path1->startup_cost > path2->startup_cost * fuzz_factor &&
-		path2->param_info == NULL)
-=======
 	/* fuzzily the same on total cost ... */
 	if (path1->startup_cost > path2->startup_cost * fuzz_factor)
->>>>>>> FETCH_HEAD
 	{
 		/* ... but path1 fuzzily worse on startup, so path2 wins */
 		return COSTS_BETTER2;
@@ -454,12 +437,8 @@ add_path(RelOptInfo *parent_rel, Path *new_path)
 		/*
 		 * Do a fuzzy cost comparison with standard fuzziness limit.
 		 */
-<<<<<<< HEAD
-		costcmp = compare_path_costs_fuzzily(new_path, old_path, 1.01);
-=======
 		costcmp = compare_path_costs_fuzzily(new_path, old_path,
 											 STD_FUZZ_FACTOR);
->>>>>>> FETCH_HEAD
 
 		/*
 		 * If the two paths compare differently for startup and total cost,
@@ -1359,164 +1338,6 @@ translate_sub_tlist(List *tlist, int relid)
 }
 
 /*
-<<<<<<< HEAD
- * query_is_distinct_for - does query never return duplicates of the
- *		specified columns?
- *
- * colnos is an integer list of output column numbers (resno's).  We are
- * interested in whether rows consisting of just these columns are certain
- * to be distinct.  "Distinctness" is defined according to whether the
- * corresponding upper-level equality operators listed in opids would think
- * the values are distinct.  (Note: the opids entries could be cross-type
- * operators, and thus not exactly the equality operators that the subquery
- * would use itself.  We use equality_ops_are_compatible() to check
- * compatibility.  That looks at btree or hash opfamily membership, and so
- * should give trustworthy answers for all operators that we might need
- * to deal with here.)
- */
-static bool
-query_is_distinct_for(Query *query, List *colnos, List *opids)
-{
-	ListCell   *l;
-	Oid			opid;
-
-	Assert(list_length(colnos) == list_length(opids));
-
-	/*
-	 * A set-returning function in the query's targetlist can result in
-	 * returning duplicate rows, if the SRF is evaluated after the
-	 * de-duplication step; so we play it safe and say "no" if there are any
-	 * SRFs.  (We could be certain that it's okay if SRFs appear only in the
-	 * specified columns, since those must be evaluated before de-duplication;
-	 * but it doesn't presently seem worth the complication to check that.)
-	 */
-	if (expression_returns_set((Node *) query->targetList))
-		return false;
-
-	/*
-	 * DISTINCT (including DISTINCT ON) guarantees uniqueness if all the
-	 * columns in the DISTINCT clause appear in colnos and operator semantics
-	 * match.
-	 */
-	if (query->distinctClause)
-	{
-		foreach(l, query->distinctClause)
-		{
-			SortGroupClause *sgc = (SortGroupClause *) lfirst(l);
-			TargetEntry *tle = get_sortgroupclause_tle(sgc,
-													   query->targetList);
-
-			opid = distinct_col_search(tle->resno, colnos, opids);
-			if (!OidIsValid(opid) ||
-				!equality_ops_are_compatible(opid, sgc->eqop))
-				break;			/* exit early if no match */
-		}
-		if (l == NULL)			/* had matches for all? */
-			return true;
-	}
-
-	/*
-	 * Similarly, GROUP BY guarantees uniqueness if all the grouped columns
-	 * appear in colnos and operator semantics match.
-	 */
-	if (query->groupClause)
-	{
-		foreach(l, query->groupClause)
-		{
-			SortGroupClause *sgc = (SortGroupClause *) lfirst(l);
-			TargetEntry *tle = get_sortgroupclause_tle(sgc,
-													   query->targetList);
-
-			opid = distinct_col_search(tle->resno, colnos, opids);
-			if (!OidIsValid(opid) ||
-				!equality_ops_are_compatible(opid, sgc->eqop))
-				break;			/* exit early if no match */
-		}
-		if (l == NULL)			/* had matches for all? */
-			return true;
-	}
-	else
-	{
-		/*
-		 * If we have no GROUP BY, but do have aggregates or HAVING, then the
-		 * result is at most one row so it's surely unique, for any operators.
-		 */
-		if (query->hasAggs || query->havingQual)
-			return true;
-	}
-
-	/*
-	 * UNION, INTERSECT, EXCEPT guarantee uniqueness of the whole output row,
-	 * except with ALL.
-	 */
-	if (query->setOperations)
-	{
-		SetOperationStmt *topop = (SetOperationStmt *) query->setOperations;
-
-		Assert(IsA(topop, SetOperationStmt));
-		Assert(topop->op != SETOP_NONE);
-
-		if (!topop->all)
-		{
-			ListCell   *lg;
-
-			/* We're good if all the nonjunk output columns are in colnos */
-			lg = list_head(topop->groupClauses);
-			foreach(l, query->targetList)
-			{
-				TargetEntry *tle = (TargetEntry *) lfirst(l);
-				SortGroupClause *sgc;
-
-				if (tle->resjunk)
-					continue;	/* ignore resjunk columns */
-
-				/* non-resjunk columns should have grouping clauses */
-				Assert(lg != NULL);
-				sgc = (SortGroupClause *) lfirst(lg);
-				lg = lnext(lg);
-
-				opid = distinct_col_search(tle->resno, colnos, opids);
-				if (!OidIsValid(opid) ||
-					!equality_ops_are_compatible(opid, sgc->eqop))
-					break;		/* exit early if no match */
-			}
-			if (l == NULL)		/* had matches for all? */
-				return true;
-		}
-	}
-
-	/*
-	 * XXX Are there any other cases in which we can easily see the result
-	 * must be distinct?
-	 */
-
-	return false;
-}
-
-/*
- * distinct_col_search - subroutine for query_is_distinct_for
- *
- * If colno is in colnos, return the corresponding element of opids,
- * else return InvalidOid.  (We expect colnos does not contain duplicates,
- * so the result is well-defined.)
- */
-static Oid
-distinct_col_search(int colno, List *colnos, List *opids)
-{
-	ListCell   *lc1,
-			   *lc2;
-
-	forboth(lc1, colnos, lc2, opids)
-	{
-		if (colno == lfirst_int(lc1))
-			return lfirst_oid(lc2);
-	}
-	return InvalidOid;
-}
-
-/*
-=======
->>>>>>> FETCH_HEAD
  * create_subqueryscan_path
  *	  Creates a path corresponding to a sequential scan of a subquery,
  *	  returning the pathnode.

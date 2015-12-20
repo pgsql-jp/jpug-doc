@@ -453,11 +453,7 @@ sub fetchRegressOpts
 	my @opts;
 
 	$m =~ s{\\\r?\n}{}g;
-<<<<<<< HEAD
-	if ($m =~ /^\s*REGRESS_OPTS\s*=(.*)/m)
-=======
 	if ($m =~ /^\s*REGRESS_OPTS\s*\+?=(.*)/m)
->>>>>>> FETCH_HEAD
 	{
 
 		# Substitute known Makefile variables, then ignore options that retain
@@ -541,10 +537,6 @@ sub usage
 {
 	print STDERR
 	  "Usage: vcregress.pl ",
-<<<<<<< HEAD
-	  "<check|installcheck|plcheck|contribcheck|isolationcheck|ecpgcheck|upgradecheck> [schedule]\n";
-=======
 "<check|installcheck|plcheck|contribcheck|isolationcheck|ecpgcheck|upgradecheck> [schedule]\n";
->>>>>>> FETCH_HEAD
 	exit(1);
 }

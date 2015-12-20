@@ -37,10 +37,6 @@
 #include "utils/xml.h"
 
 
-/* Crude hack to avoid changing sizeof(ExplainState) in released branches */
-#define grouping_stack extra->groupingstack
-#define deparse_cxt extra->deparsecxt
-
 /* Hook for plugins to get control in ExplainOneQuery() */
 ExplainOneQuery_hook_type ExplainOneQuery_hook = NULL;
 
@@ -210,11 +206,7 @@ ExplainQuery(ExplainStmt *stmt, const char *queryString,
 				 errmsg("EXPLAIN option TIMING requires ANALYZE")));
 
 	/* currently, summary option is not exposed to users; just set it */
-<<<<<<< HEAD
-	es.summary = es.analyze;
-=======
 	es->summary = es->analyze;
->>>>>>> FETCH_HEAD
 
 	/*
 	 * Parse analysis was done already, but we still have to run the rule
@@ -286,13 +278,8 @@ NewExplainState(void)
 	es->costs = true;
 	/* Prepare output buffer. */
 	es->str = makeStringInfo();
-<<<<<<< HEAD
-	/* Kluge to avoid changing sizeof(ExplainState) in released branches. */
-	es->extra = (ExplainStateExtra *) palloc0(sizeof(ExplainStateExtra));
-=======
 
 	return es;
->>>>>>> FETCH_HEAD
 }
 
 /*

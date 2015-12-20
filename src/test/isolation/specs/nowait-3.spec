@@ -30,8 +30,4 @@ step "s3a"	{ SELECT * FROM foo FOR UPDATE NOWAIT; }
 step "s3b"	{ COMMIT; }
 
 # s3 skips to second record due to tuple lock held by s2
-<<<<<<< HEAD
 permutation "s1a" "s2a" "s3a" "s1b" "s2b" "s3b"
-=======
-permutation "s1a" "s2a" "s3a" "s1b" "s2b" "s3b"
->>>>>>> FETCH_HEAD

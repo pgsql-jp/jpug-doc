@@ -373,15 +373,9 @@ flatten_rtes_walker(Node *node, PlannerGlobal *glob)
  * In the flat rangetable, we zero out substructure pointers that are not
  * needed by the executor; this reduces the storage space and copying cost
  * for cached plans.  We keep only the ctename, alias and eref Alias fields,
-<<<<<<< HEAD
- * which are needed by EXPLAIN, and the selectedCols and modifiedCols bitmaps,
- * which are needed for executor-startup permissions checking and for trigger
- * event checking.
-=======
  * which are needed by EXPLAIN, and the selectedCols, insertedCols and
  * updatedCols bitmaps, which are needed for executor-startup permissions
  * checking and for trigger event checking.
->>>>>>> FETCH_HEAD
  */
 static void
 add_rte_to_flat_rtable(PlannerGlobal *glob, RangeTblEntry *rte)
@@ -1258,10 +1252,7 @@ copyVar(Var *var)
  * We must look up operator opcode info for OpExpr and related nodes,
  * add OIDs from regclass Const nodes into root->glob->relationOids, and
  * add PlanInvalItems for user-defined functions into root->glob->invalItems.
-<<<<<<< HEAD
-=======
  * We also fill in column index lists for GROUPING() expressions.
->>>>>>> FETCH_HEAD
  *
  * We assume it's okay to update opcode info in-place.  So this could possibly
  * scribble on the planner's input data structures, but it's OK.

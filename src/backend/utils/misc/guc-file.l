@@ -48,16 +48,11 @@ static sigjmp_buf *GUC_flex_fatal_jmp;
 
 static void FreeConfigVariable(ConfigVariable *item);
 
-<<<<<<< HEAD
-/* flex fails to supply a prototype for yylex, so provide one */
-int GUC_yylex(void);
-=======
 static void record_config_file_error(const char *errmsg,
 						 const char *config_file,
 						 int lineno,
 						 ConfigVariable **head_p,
 						 ConfigVariable **tail_p);
->>>>>>> FETCH_HEAD
 
 static int	GUC_flex_fatal(const char *msg);
 static char *GUC_scanstr(const char *s);
@@ -126,16 +121,8 @@ void
 ProcessConfigFile(GucContext context)
 {
 	int			elevel;
-<<<<<<< HEAD
-	const char *ConfFileWithError;
-	ConfigVariable *item,
-			   *head,
-			   *tail;
-	int			i;
-=======
 	MemoryContext config_cxt;
 	MemoryContext caller_cxt;
->>>>>>> FETCH_HEAD
 
 	/*
 	 * Config files are processed on startup (by the postmaster only) and on
@@ -212,22 +199,14 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 	 */
 	if (DataDir)
 	{
-<<<<<<< HEAD
-		if (!ParseConfigFile(PG_AUTOCONF_FILENAME, NULL, false, 0, elevel,
-=======
 		if (!ParseConfigFile(PG_AUTOCONF_FILENAME, false,
 							 NULL, 0, 0, elevel,
->>>>>>> FETCH_HEAD
 							 &head, &tail))
 		{
 			/* Syntax error(s) detected in the file, so bail out */
 			error = true;
 			ConfFileWithError = PG_AUTOCONF_FILENAME;
-<<<<<<< HEAD
-			goto cleanup_list;
-=======
 			goto bail_out;
->>>>>>> FETCH_HEAD
 		}
 	}
 	else
@@ -240,30 +219,6 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 		 * will be read later. OTOH, since data_directory isn't allowed in the
 		 * PG_AUTOCONF_FILENAME file, it will never be overwritten later.
 		 */
-<<<<<<< HEAD
-		ConfigVariable *prev = NULL;
-
-		/* Prune all items except "data_directory" from the list */
-		for (item = head; item;)
-		{
-			ConfigVariable *ptr = item;
-
-			item = item->next;
-			if (strcmp(ptr->name, "data_directory") != 0)
-			{
-				if (prev == NULL)
-					head = ptr->next;
-				else
-					prev->next = ptr->next;
-				if (ptr->next == NULL)
-					tail = prev;
-				FreeConfigVariable(ptr);
-			}
-			else
-				prev = ptr;
-		}
-
-=======
 		ConfigVariable *newlist = NULL;
 
 		/*
@@ -280,7 +235,6 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 			newlist->next = NULL;
 		head = tail = newlist;
 
->>>>>>> FETCH_HEAD
 		/*
 		 * Quick exit if data_directory is not present in file.
 		 *
@@ -289,11 +243,7 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 		 * the config file.
 		 */
 		if (head == NULL)
-<<<<<<< HEAD
-			return;
-=======
 			goto bail_out;
->>>>>>> FETCH_HEAD
 	}
 
 	/*
@@ -318,13 +268,8 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 	 * same reason, we don't attempt to validate the options' values here.
 	 *
 	 * In addition, the GUC_IS_IN_FILE flag is set on each existing GUC
-<<<<<<< HEAD
-	 * variable mentioned in the file; and we detect duplicate entries in
-	 * the file and mark the earlier occurrences as ignorable.
-=======
 	 * variable mentioned in the file; and we detect duplicate entries in the
 	 * file and mark the earlier occurrences as ignorable.
->>>>>>> FETCH_HEAD
 	 */
 	for (item = head; item; item = item->next)
 	{
@@ -480,10 +425,6 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 		if (item->ignore)
 			continue;
 
-		/* Ignore anything marked as ignorable */
-		if (item->ignore)
-			continue;
-
 		/* In SIGHUP cases in the postmaster, we want to report changes */
 		if (context == PGC_SIGHUP && applySettings && !IsUnderPostmaster)
 		{
@@ -518,9 +459,6 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 		else if (scres == 0)
 		{
 			error = true;
-<<<<<<< HEAD
-			ConfFileWithError = item->filename;
-=======
 			item->errmsg = pstrdup("setting could not be applied");
 			ConfFileWithError = item->filename;
 		}
@@ -528,7 +466,6 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 		{
 			/* no error, but variable's active value was not changed */
 			item->applied = true;
->>>>>>> FETCH_HEAD
 		}
 
 		/*
@@ -558,11 +495,7 @@ bail_out:
 					(errcode(ERRCODE_CONFIG_FILE_ERROR),
 					 errmsg("configuration file \"%s\" contains errors",
 							ConfFileWithError)));
-<<<<<<< HEAD
-		else if (apply)
-=======
 		else if (applying)
->>>>>>> FETCH_HEAD
 			ereport(elevel,
 					(errcode(ERRCODE_CONFIG_FILE_ERROR),
 					 errmsg("configuration file \"%s\" contains errors; unaffected changes were applied",
@@ -574,17 +507,8 @@ bail_out:
 							ConfFileWithError)));
 	}
 
-<<<<<<< HEAD
-	/*
-	 * Calling FreeConfigVariables() any earlier than this can cause problems,
-	 * because ConfFileWithError could be pointing to a string that will be
-	 * freed here.
-	 */
-	FreeConfigVariables(head);
-=======
 	/* Successful or otherwise, return the collected data list */
 	return head;
->>>>>>> FETCH_HEAD
 }
 
 /*
@@ -625,12 +549,9 @@ AbsoluteConfigLocation(const char *location, const char *calling_file)
  * If "strict" is true, treat failure to open the config file as an error,
  * otherwise just skip the file.
  *
-<<<<<<< HEAD
-=======
  * calling_file/calling_lineno identify the source of the request.
  * Pass NULL/0 if not recursing from an inclusion request.
  *
->>>>>>> FETCH_HEAD
  * See ParseConfigFp for further details.  This one merely adds opening the
  * config file rather than working from a caller-supplied file descriptor,
  * and absolute-ifying the path name if necessary.
@@ -758,10 +679,7 @@ GUC_flex_fatal(const char *msg)
  * *head_p and *tail_p must be initialized, either to NULL or valid pointers
  * to a ConfigVariable list, before calling the outer recursion level.  Any
  * name-value pairs read from the input file(s) will be appended to the list.
-<<<<<<< HEAD
-=======
  * Error reports will also be appended to the list, if elevel < ERROR.
->>>>>>> FETCH_HEAD
  *
  * Returns TRUE if successful, FALSE if an error occurred.  The error has
  * already been ereport'd, it is only necessary for the caller to clean up
@@ -864,12 +782,8 @@ ParseConfigFp(FILE *fp, const char *config_file, int depth, int elevel,
 			 * An include_dir directive isn't a variable and should be
 			 * processed immediately.
 			 */
-<<<<<<< HEAD
-			if (!ParseConfigDirectory(opt_value, config_file,
-=======
 			if (!ParseConfigDirectory(opt_value,
 									  config_file, ConfigFileLineno - 1,
->>>>>>> FETCH_HEAD
 									  depth + 1, elevel,
 									  head_p, tail_p))
 				OK = false;
@@ -915,14 +829,9 @@ ParseConfigFp(FILE *fp, const char *config_file, int depth, int elevel,
 			item->value = opt_value;
 			item->errmsg = NULL;
 			item->filename = pstrdup(config_file);
-<<<<<<< HEAD
-			item->sourceline = ConfigFileLineno-1;
-			item->ignore = false;
-=======
 			item->sourceline = ConfigFileLineno - 1;
 			item->ignore = false;
 			item->applied = false;
->>>>>>> FETCH_HEAD
 			item->next = NULL;
 			if (*head_p == NULL)
 				*head_p = item;
@@ -1144,8 +1053,6 @@ FreeConfigVariables(ConfigVariable *list)
 		FreeConfigVariable(item);
 		item = next;
 	}
-<<<<<<< HEAD
-=======
 }
 
 /*
@@ -1162,19 +1069,6 @@ FreeConfigVariable(ConfigVariable *item)
 		pfree(item->errmsg);
 	if (item->filename)
 		pfree(item->filename);
-	pfree(item);
->>>>>>> FETCH_HEAD
-}
-
-/*
- * Free a single ConfigVariable
- */
-static void
-FreeConfigVariable(ConfigVariable *item)
-{
-	pfree(item->name);
-	pfree(item->value);
-	pfree(item->filename);
 	pfree(item);
 }
 

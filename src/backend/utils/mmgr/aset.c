@@ -482,13 +482,8 @@ AllocSetContextCreate(MemoryContext parent,
 	StaticAssertStmt(ALLOC_CHUNK_LIMIT == ALLOCSET_SEPARATE_THRESHOLD,
 					 "ALLOC_CHUNK_LIMIT != ALLOCSET_SEPARATE_THRESHOLD");
 
-<<<<<<< HEAD
-	context->allocChunkLimit = ALLOC_CHUNK_LIMIT;
-	while ((Size) (context->allocChunkLimit + ALLOC_CHUNKHDRSZ) >
-=======
 	set->allocChunkLimit = ALLOC_CHUNK_LIMIT;
 	while ((Size) (set->allocChunkLimit + ALLOC_CHUNKHDRSZ) >
->>>>>>> FETCH_HEAD
 		   (Size) ((maxBlockSize - ALLOC_BLOCKHDRSZ) / ALLOC_CHUNK_FRACTION))
 		set->allocChunkLimit >>= 1;
 

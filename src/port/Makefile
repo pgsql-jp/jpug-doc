@@ -30,13 +30,8 @@ include $(top_builddir)/src/Makefile.global
 override CPPFLAGS := -I$(top_builddir)/src/port -DFRONTEND $(CPPFLAGS)
 LIBS += $(PTHREAD_LIBS)
 
-<<<<<<< HEAD
-OBJS = $(LIBOBJS) chklocale.o erand48.o fls.o inet_net_ntop.o \
-	noblock.o path.o pgcheckdir.o pg_crc.o pgmkdirp.o pgsleep.o \
-=======
 OBJS = $(LIBOBJS) $(PG_CRC32C_OBJS) chklocale.o erand48.o inet_net_ntop.o \
 	noblock.o path.o pgcheckdir.o pgmkdirp.o pgsleep.o \
->>>>>>> FETCH_HEAD
 	pgstrcasecmp.o pqsignal.o \
 	qsort.o qsort_arg.o quotes.o sprompt.o tar.o thread.o
 

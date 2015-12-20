@@ -591,11 +591,7 @@ DecodeInsert(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 
 	change->data.tp.clear_toast_afterwards = true;
 
-<<<<<<< HEAD
-	ReorderBufferQueueChange(ctx->reorder, r->xl_xid, buf->origptr, change);
-=======
 	ReorderBufferQueueChange(ctx->reorder, XLogRecGetXid(r), buf->origptr, change);
->>>>>>> FETCH_HEAD
 }
 
 /*
@@ -652,11 +648,7 @@ DecodeUpdate(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 
 	change->data.tp.clear_toast_afterwards = true;
 
-<<<<<<< HEAD
-	ReorderBufferQueueChange(ctx->reorder, r->xl_xid, buf->origptr, change);
-=======
 	ReorderBufferQueueChange(ctx->reorder, XLogRecGetXid(r), buf->origptr, change);
->>>>>>> FETCH_HEAD
 }
 
 /*
@@ -710,11 +702,7 @@ DecodeDelete(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 
 	change->data.tp.clear_toast_afterwards = true;
 
-<<<<<<< HEAD
-	ReorderBufferQueueChange(ctx->reorder, r->xl_xid, buf->origptr, change);
-=======
 	ReorderBufferQueueChange(ctx->reorder, XLogRecGetXid(r), buf->origptr, change);
->>>>>>> FETCH_HEAD
 }
 
 /*
@@ -805,21 +793,13 @@ DecodeMultiInsert(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 		 * xl_multi_insert_tuple record emitted by one heap_multi_insert()
 		 * call.
 		 */
-<<<<<<< HEAD
-		if (xlrec->flags & XLOG_HEAP_LAST_MULTI_INSERT &&
-=======
 		if (xlrec->flags & XLH_INSERT_LAST_IN_MULTI &&
->>>>>>> FETCH_HEAD
 			(i + 1) == xlrec->ntuples)
 			change->data.tp.clear_toast_afterwards = true;
 		else
 			change->data.tp.clear_toast_afterwards = false;
 
-<<<<<<< HEAD
-		ReorderBufferQueueChange(ctx->reorder, r->xl_xid,
-=======
 		ReorderBufferQueueChange(ctx->reorder, XLogRecGetXid(r),
->>>>>>> FETCH_HEAD
 								 buf->origptr, change);
 	}
 	Assert(data == tupledata + tuplelen);

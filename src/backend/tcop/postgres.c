@@ -539,14 +539,9 @@ ProcessClientReadInterrupt(bool blocked)
 		/* Check for general interrupts that arrived while reading */
 		CHECK_FOR_INTERRUPTS();
 
-<<<<<<< HEAD
-		/* Allow die interrupts to be processed while waiting */
-		ImmediateInterruptOK = true;
-=======
 		/* Process sinval catchup interrupts that happened while reading */
 		if (catchupInterruptPending)
 			ProcessCatchupInterrupt();
->>>>>>> FETCH_HEAD
 
 		/* Process sinval catchup interrupts that happened while reading */
 		if (notifyInterruptPending)
@@ -2651,16 +2646,6 @@ die(SIGNAL_ARGS)
 	{
 		InterruptPending = true;
 		ProcDiePending = true;
-<<<<<<< HEAD
-
-		/*
-		 * If we're waiting for input or a lock so that it's safe to
-		 * interrupt, service the interrupt immediately
-		 */
-		if (ImmediateInterruptOK)
-			ProcessInterrupts();
-=======
->>>>>>> FETCH_HEAD
 	}
 
 	/* If we're still here, waken anything waiting on the process latch */
@@ -2694,16 +2679,6 @@ StatementCancelHandler(SIGNAL_ARGS)
 	{
 		InterruptPending = true;
 		QueryCancelPending = true;
-<<<<<<< HEAD
-
-		/*
-		 * If we're waiting for input or a lock so that it's safe to
-		 * interrupt, service the interrupt immediately
-		 */
-		if (ImmediateInterruptOK)
-			ProcessInterrupts();
-=======
->>>>>>> FETCH_HEAD
 	}
 
 	/* If we're still here, waken anything waiting on the process latch */
@@ -2844,16 +2819,6 @@ RecoveryConflictInterrupt(ProcSignalReason reason)
 		 */
 		if (reason == PROCSIG_RECOVERY_CONFLICT_DATABASE)
 			RecoveryConflictRetryable = false;
-<<<<<<< HEAD
-
-		/*
-		 * If we're waiting for input or a lock so that it's safe to
-		 * interrupt, service the interrupt immediately.
-		 */
-		if (ImmediateInterruptOK)
-			ProcessInterrupts();
-=======
->>>>>>> FETCH_HEAD
 	}
 
 	/*
@@ -2887,14 +2852,7 @@ ProcessInterrupts(void)
 	{
 		ProcDiePending = false;
 		QueryCancelPending = false;		/* ProcDie trumps QueryCancel */
-<<<<<<< HEAD
-		ImmediateInterruptOK = false;	/* not idle anymore */
 		LockErrorCleanup();
-		DisableNotifyInterrupt();
-		DisableCatchupInterrupt();
-=======
-		LockErrorCleanup();
->>>>>>> FETCH_HEAD
 		/* As in quickdie, don't risk sending to client during auth */
 		if (ClientAuthInProgress && whereToSendOutput == DestRemote)
 			whereToSendOutput = DestNone;
@@ -2932,14 +2890,7 @@ ProcessInterrupts(void)
 	if (ClientConnectionLost)
 	{
 		QueryCancelPending = false;		/* lost connection trumps QueryCancel */
-<<<<<<< HEAD
-		ImmediateInterruptOK = false;	/* not idle anymore */
 		LockErrorCleanup();
-		DisableNotifyInterrupt();
-		DisableCatchupInterrupt();
-=======
-		LockErrorCleanup();
->>>>>>> FETCH_HEAD
 		/* don't send to client, we already know the connection to be dead. */
 		whereToSendOutput = DestNone;
 		ereport(FATAL,
@@ -2955,18 +2906,6 @@ ProcessInterrupts(void)
 	 */
 	if (RecoveryConflictPending && DoingCommandRead)
 	{
-<<<<<<< HEAD
-		QueryCancelPending = false;			/* this trumps QueryCancel */
-		ImmediateInterruptOK = false;		/* not idle anymore */
-		RecoveryConflictPending = false;
-		LockErrorCleanup();
-		DisableNotifyInterrupt();
-		DisableCatchupInterrupt();
-		pgstat_report_recovery_conflict(RecoveryConflictReason);
-		ereport(FATAL,
-				(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
-				 errmsg("terminating connection due to conflict with recovery"),
-=======
 		QueryCancelPending = false;		/* this trumps QueryCancel */
 		RecoveryConflictPending = false;
 		LockErrorCleanup();
@@ -2974,7 +2913,6 @@ ProcessInterrupts(void)
 		ereport(FATAL,
 				(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
 			  errmsg("terminating connection due to conflict with recovery"),
->>>>>>> FETCH_HEAD
 				 errdetail_recovery_conflict(),
 				 errhint("In a moment you should be able to reconnect to the"
 						 " database and repeat your command.")));
@@ -2989,7 +2927,6 @@ ProcessInterrupts(void)
 		 * the client in that case.)
 		 */
 		if (QueryCancelHoldoffCount != 0)
-<<<<<<< HEAD
 		{
 			/*
 			 * Re-arm InterruptPending so that we process the cancel request
@@ -2997,30 +2934,6 @@ ProcessInterrupts(void)
 			 */
 			InterruptPending = true;
 			return;
-		}
-
-		QueryCancelPending = false;
-		if (ClientAuthInProgress)
-		{
-			ImmediateInterruptOK = false;		/* not idle anymore */
-			LockErrorCleanup();
-			DisableNotifyInterrupt();
-			DisableCatchupInterrupt();
-			/* As in quickdie, don't risk sending to client during auth */
-			if (whereToSendOutput == DestRemote)
-				whereToSendOutput = DestNone;
-			ereport(ERROR,
-					(errcode(ERRCODE_QUERY_CANCELED),
-					 errmsg("canceling authentication due to timeout")));
-=======
-		{
-			/*
-			 * Re-arm InterruptPending so that we process the cancel request
-			 * as soon as we're done reading the message.
-			 */
-			InterruptPending = true;
-			return;
->>>>>>> FETCH_HEAD
 		}
 
 		QueryCancelPending = false;
@@ -3033,39 +2946,20 @@ ProcessInterrupts(void)
 		{
 			(void) get_timeout_indicator(STATEMENT_TIMEOUT, true);
 			LockErrorCleanup();
-<<<<<<< HEAD
-			DisableNotifyInterrupt();
-			DisableCatchupInterrupt();
-=======
->>>>>>> FETCH_HEAD
 			ereport(ERROR,
 					(errcode(ERRCODE_LOCK_NOT_AVAILABLE),
 					 errmsg("canceling statement due to lock timeout")));
 		}
 		if (get_timeout_indicator(STATEMENT_TIMEOUT, true))
 		{
-<<<<<<< HEAD
-			ImmediateInterruptOK = false;		/* not idle anymore */
 			LockErrorCleanup();
-			DisableNotifyInterrupt();
-			DisableCatchupInterrupt();
-=======
-			LockErrorCleanup();
->>>>>>> FETCH_HEAD
 			ereport(ERROR,
 					(errcode(ERRCODE_QUERY_CANCELED),
 					 errmsg("canceling statement due to statement timeout")));
 		}
 		if (IsAutoVacuumWorkerProcess())
 		{
-<<<<<<< HEAD
-			ImmediateInterruptOK = false;		/* not idle anymore */
 			LockErrorCleanup();
-			DisableNotifyInterrupt();
-			DisableCatchupInterrupt();
-=======
-			LockErrorCleanup();
->>>>>>> FETCH_HEAD
 			ereport(ERROR,
 					(errcode(ERRCODE_QUERY_CANCELED),
 					 errmsg("canceling autovacuum task")));
@@ -3074,11 +2968,6 @@ ProcessInterrupts(void)
 		{
 			RecoveryConflictPending = false;
 			LockErrorCleanup();
-<<<<<<< HEAD
-			DisableNotifyInterrupt();
-			DisableCatchupInterrupt();
-=======
->>>>>>> FETCH_HEAD
 			pgstat_report_recovery_conflict(RecoveryConflictReason);
 			ereport(ERROR,
 					(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
@@ -3093,14 +2982,7 @@ ProcessInterrupts(void)
 		 */
 		if (!DoingCommandRead)
 		{
-<<<<<<< HEAD
-			ImmediateInterruptOK = false;		/* not idle anymore */
 			LockErrorCleanup();
-			DisableNotifyInterrupt();
-			DisableCatchupInterrupt();
-=======
-			LockErrorCleanup();
->>>>>>> FETCH_HEAD
 			ereport(ERROR,
 					(errcode(ERRCODE_QUERY_CANCELED),
 					 errmsg("canceling statement due to user request")));
@@ -4017,11 +3899,7 @@ PostgresMain(int argc, char *argv[],
 		if (pq_is_reading_msg())
 			ereport(FATAL,
 					(errcode(ERRCODE_PROTOCOL_VIOLATION),
-<<<<<<< HEAD
-					 errmsg("terminating connection because protocol sync was lost")));
-=======
 			errmsg("terminating connection because protocol synchronization was lost")));
->>>>>>> FETCH_HEAD
 
 		/* Now we can allow interrupts again */
 		RESUME_INTERRUPTS();

@@ -193,14 +193,9 @@ extern void lazy_vacuum_rel(Relation onerel, int options,
 				VacuumParams *params, BufferAccessStrategy bstrategy);
 
 /* in commands/analyze.c */
-<<<<<<< HEAD
-extern void analyze_rel(Oid relid, VacuumStmt *vacstmt,
-			bool in_outer_xact, BufferAccessStrategy bstrategy);
-=======
 extern void analyze_rel(Oid relid, RangeVar *relation, int options,
 			VacuumParams *params, List *va_cols, bool in_outer_xact,
 			BufferAccessStrategy bstrategy);
->>>>>>> FETCH_HEAD
 extern bool std_typanalyze(VacAttrStats *stats);
 
 /* in utils/misc/sampling.c --- duplicate of declarations in utils/sampling.h */

@@ -317,19 +317,10 @@ unaccent_lexize(PG_FUNCTION_ARGS)
 	/* we allocate storage for the buffer only if needed */
 	buf.data = NULL;
 
-<<<<<<< HEAD
-	while (srcchar - srcstart < len)
-	{
-		TrieChar   *node;
-		int			charlen;
-
-		charlen = pg_mblen(srcchar);
-=======
 	while (len > 0)
 	{
 		TrieChar   *node;
 		int			matchlen;
->>>>>>> FETCH_HEAD
 
 		node = findReplaceTo(rootTrie, (unsigned char *) srcchar, len,
 							 &matchlen);
@@ -344,18 +335,13 @@ unaccent_lexize(PG_FUNCTION_ARGS)
 					appendBinaryStringInfo(&buf, srcstart, srcchar - srcstart);
 			}
 			appendBinaryStringInfo(&buf, node->replaceTo, node->replacelen);
-<<<<<<< HEAD
-=======
 		}
 		else
 		{
 			matchlen = pg_mblen(srcchar);
 			if (buf.data != NULL)
 				appendBinaryStringInfo(&buf, srcchar, matchlen);
->>>>>>> FETCH_HEAD
 		}
-		else if (buf.data != NULL)
-			appendBinaryStringInfo(&buf, srcchar, charlen);
 
 		srcchar += matchlen;
 		len -= matchlen;

@@ -151,18 +151,6 @@ static void dumpSecLabel(Archive *fout, DumpOptions *dopt, const char *target,
 static int findSecLabels(Archive *fout, Oid classoid, Oid objoid,
 			  SecLabelItem **items);
 static int	collectSecLabels(Archive *fout, SecLabelItem **items);
-<<<<<<< HEAD
-static void dumpDumpableObject(Archive *fout, DumpableObject *dobj);
-static void dumpNamespace(Archive *fout, NamespaceInfo *nspinfo);
-static void dumpExtension(Archive *fout, ExtensionInfo *extinfo);
-static void dumpType(Archive *fout, TypeInfo *tyinfo);
-static void dumpBaseType(Archive *fout, TypeInfo *tyinfo);
-static void dumpEnumType(Archive *fout, TypeInfo *tyinfo);
-static void dumpRangeType(Archive *fout, TypeInfo *tyinfo);
-static void dumpUndefinedType(Archive *fout, TypeInfo *tyinfo);
-static void dumpDomain(Archive *fout, TypeInfo *tyinfo);
-static void dumpCompositeType(Archive *fout, TypeInfo *tyinfo);
-=======
 static void dumpDumpableObject(Archive *fout, DumpOptions *dopt, DumpableObject *dobj);
 static void dumpNamespace(Archive *fout, DumpOptions *dopt, NamespaceInfo *nspinfo);
 static void dumpExtension(Archive *fout, DumpOptions *dopt, ExtensionInfo *extinfo);
@@ -173,7 +161,6 @@ static void dumpRangeType(Archive *fout, DumpOptions *dopt, TypeInfo *tyinfo);
 static void dumpUndefinedType(Archive *fout, DumpOptions *dopt, TypeInfo *tyinfo);
 static void dumpDomain(Archive *fout, DumpOptions *dopt, TypeInfo *tyinfo);
 static void dumpCompositeType(Archive *fout, DumpOptions *dopt, TypeInfo *tyinfo);
->>>>>>> FETCH_HEAD
 static void dumpCompositeTypeColComments(Archive *fout, TypeInfo *tyinfo);
 static void dumpShellType(Archive *fout, DumpOptions *dopt, ShellTypeInfo *stinfo);
 static void dumpProcLang(Archive *fout, DumpOptions *dopt, ProcLangInfo *plang);
@@ -576,11 +563,7 @@ main(int argc, char **argv)
 		exit_nicely(1);
 	}
 
-<<<<<<< HEAD
-	if (if_exists && !outputClean)
-=======
 	if (dopt.if_exists && !dopt.outputClean)
->>>>>>> FETCH_HEAD
 		exit_horribly(NULL, "option --if-exists requires option -c/--clean\n");
 
 	/* Identify archive format to emit */
@@ -1050,11 +1033,7 @@ setup_connection(Archive *AH, DumpOptions *dopt, const char *dumpencoding,
 		 * REPEATABLE READ transaction provides the appropriate integrity
 		 * guarantees.  This is a kluge, but safe for back-patching.
 		 */
-<<<<<<< HEAD
-		if (serializable_deferrable && AH->sync_snapshot_id == NULL)
-=======
 		if (dopt->serializable_deferrable && AH->sync_snapshot_id == NULL)
->>>>>>> FETCH_HEAD
 			ExecuteSqlStatement(AH,
 								"SET TRANSACTION ISOLATION LEVEL "
 								"SERIALIZABLE, READ ONLY, DEFERRABLE");
@@ -1389,24 +1368,6 @@ selectDumpableCast(DumpOptions *dopt, CastInfo *cast)
 		cast->dobj.dump = false;
 	else
 		cast->dobj.dump = dopt->include_everything;
-}
-
-/*
- * selectDumpableCast: policy-setting subroutine
- *		Mark a cast as to be dumped or not
- *
- * Casts do not belong to any particular namespace (since they haven't got
- * names), nor do they have identifiable owners.  To distinguish user-defined
- * casts from built-in ones, we must resort to checking whether the cast's
- * OID is in the range reserved for initdb.
- */
-static void
-selectDumpableCast(CastInfo *cast)
-{
-	if (cast->dobj.catId.oid < (Oid) FirstNormalObjectId)
-		cast->dobj.dump = false;
-	else
-		cast->dobj.dump = include_everything;
 }
 
 /*
@@ -2242,12 +2203,8 @@ dumpDatabase(Archive *fout, DumpOptions *dopt)
 			   *collate,
 			   *ctype,
 			   *tablespace;
-<<<<<<< HEAD
-	uint32		frozenxid, minmxid;
-=======
 	uint32		frozenxid,
 				minmxid;
->>>>>>> FETCH_HEAD
 
 	datname = PQdb(conn);
 
@@ -2277,11 +2234,7 @@ dumpDatabase(Archive *fout, DumpOptions *dopt)
 		appendPQExpBuffer(dbQry, "SELECT tableoid, oid, "
 						  "(%s datdba) AS dba, "
 						  "pg_encoding_to_char(encoding) AS encoding, "
-<<<<<<< HEAD
-						  "datcollate, datctype, datfrozenxid, 0 AS datminmxid, "
-=======
 					  "datcollate, datctype, datfrozenxid, 0 AS datminmxid, "
->>>>>>> FETCH_HEAD
 						  "(SELECT spcname FROM pg_tablespace t WHERE t.oid = dattablespace) AS tablespace, "
 					  "shobj_description(oid, 'pg_database') AS description "
 
@@ -2295,11 +2248,7 @@ dumpDatabase(Archive *fout, DumpOptions *dopt)
 		appendPQExpBuffer(dbQry, "SELECT tableoid, oid, "
 						  "(%s datdba) AS dba, "
 						  "pg_encoding_to_char(encoding) AS encoding, "
-<<<<<<< HEAD
-					   "NULL AS datcollate, NULL AS datctype, datfrozenxid, 0 AS datminmxid, "
-=======
 						  "NULL AS datcollate, NULL AS datctype, datfrozenxid, 0 AS datminmxid, "
->>>>>>> FETCH_HEAD
 						  "(SELECT spcname FROM pg_tablespace t WHERE t.oid = dattablespace) AS tablespace, "
 					  "shobj_description(oid, 'pg_database') AS description "
 
@@ -2313,11 +2262,7 @@ dumpDatabase(Archive *fout, DumpOptions *dopt)
 		appendPQExpBuffer(dbQry, "SELECT tableoid, oid, "
 						  "(%s datdba) AS dba, "
 						  "pg_encoding_to_char(encoding) AS encoding, "
-<<<<<<< HEAD
-					   "NULL AS datcollate, NULL AS datctype, datfrozenxid, 0 AS datminmxid, "
-=======
 						  "NULL AS datcollate, NULL AS datctype, datfrozenxid, 0 AS datminmxid, "
->>>>>>> FETCH_HEAD
 						  "(SELECT spcname FROM pg_tablespace t WHERE t.oid = dattablespace) AS tablespace "
 						  "FROM pg_database "
 						  "WHERE datname = ",
@@ -2441,12 +2386,8 @@ dumpDatabase(Archive *fout, DumpOptions *dopt)
 		PGresult   *lo_res;
 		PQExpBuffer loFrozenQry = createPQExpBuffer();
 		PQExpBuffer loOutQry = createPQExpBuffer();
-<<<<<<< HEAD
-		int			i_relfrozenxid, i_relminmxid;
-=======
 		int			i_relfrozenxid,
 					i_relminmxid;
->>>>>>> FETCH_HEAD
 
 		/*
 		 * pg_largeobject
@@ -2491,18 +2432,6 @@ dumpDatabase(Archive *fout, DumpOptions *dopt)
 			resetPQExpBuffer(loFrozenQry);
 			resetPQExpBuffer(loOutQry);
 
-<<<<<<< HEAD
-		if (fout->remoteVersion >= 90300)
-			appendPQExpBuffer(loFrozenQry, "SELECT relfrozenxid, relminmxid\n"
-							  "FROM pg_catalog.pg_class\n"
-							  "WHERE oid = %u;\n",
-							  LargeObjectMetadataRelationId);
-		else
-			appendPQExpBuffer(loFrozenQry, "SELECT relfrozenxid, 0 AS relminmxid\n"
-							  "FROM pg_catalog.pg_class\n"
-							  "WHERE oid = %u;\n",
-							  LargeObjectMetadataRelationId);
-=======
 			if (fout->remoteVersion >= 90300)
 				appendPQExpBuffer(loFrozenQry, "SELECT relfrozenxid, relminmxid\n"
 								  "FROM pg_catalog.pg_class\n"
@@ -2513,7 +2442,6 @@ dumpDatabase(Archive *fout, DumpOptions *dopt)
 								  "FROM pg_catalog.pg_class\n"
 								  "WHERE oid = %u;\n",
 								  LargeObjectMetadataRelationId);
->>>>>>> FETCH_HEAD
 
 			lo_res = ExecuteSqlQueryForSingleRow(fout, loFrozenQry->data);
 
@@ -4647,11 +4575,6 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "(%s c.relowner) AS rolname, "
 						  "c.relchecks, c.relhastriggers, "
 						  "c.relhasindex, c.relhasrules, c.relhasoids, "
-<<<<<<< HEAD
-						  "c.relfrozenxid, c.relminmxid, tc.oid AS toid, "
-						  "tc.relfrozenxid AS tfrozenxid, "
-						  "tc.relminmxid AS tminmxid, "
-=======
 						  "c.relrowsecurity, c.relforcerowsecurity, "
 						  "c.relfrozenxid, c.relminmxid, tc.oid AS toid, "
 						  "tc.relfrozenxid AS tfrozenxid, "
@@ -4698,7 +4621,6 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "c.relfrozenxid, c.relminmxid, tc.oid AS toid, "
 						  "tc.relfrozenxid AS tfrozenxid, "
 						  "tc.relminmxid AS tminmxid, "
->>>>>>> FETCH_HEAD
 						  "c.relpersistence, c.relispopulated, "
 						  "c.relreplident, c.relpages, "
 						  "CASE WHEN c.reloftype <> 0 THEN c.reloftype::pg_catalog.regtype ELSE NULL END AS reloftype, "
@@ -4736,11 +4658,8 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "(%s c.relowner) AS rolname, "
 						  "c.relchecks, c.relhastriggers, "
 						  "c.relhasindex, c.relhasrules, c.relhasoids, "
-<<<<<<< HEAD
-=======
 						  "'f'::bool AS relrowsecurity, "
 						  "'f'::bool AS relforcerowsecurity, "
->>>>>>> FETCH_HEAD
 						  "c.relfrozenxid, c.relminmxid, tc.oid AS toid, "
 						  "tc.relfrozenxid AS tfrozenxid, "
 						  "tc.relminmxid AS tminmxid, "
@@ -4781,11 +4700,8 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "(%s c.relowner) AS rolname, "
 						  "c.relchecks, c.relhastriggers, "
 						  "c.relhasindex, c.relhasrules, c.relhasoids, "
-<<<<<<< HEAD
-=======
 						  "'f'::bool AS relrowsecurity, "
 						  "'f'::bool AS relforcerowsecurity, "
->>>>>>> FETCH_HEAD
 						  "c.relfrozenxid, 0 AS relminmxid, tc.oid AS toid, "
 						  "tc.relfrozenxid AS tfrozenxid, "
 						  "0 AS tminmxid, "
@@ -4824,11 +4740,8 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "(%s c.relowner) AS rolname, "
 						  "c.relchecks, c.relhastriggers, "
 						  "c.relhasindex, c.relhasrules, c.relhasoids, "
-<<<<<<< HEAD
-=======
 						  "'f'::bool AS relrowsecurity, "
 						  "'f'::bool AS relforcerowsecurity, "
->>>>>>> FETCH_HEAD
 						  "c.relfrozenxid, 0 AS relminmxid, tc.oid AS toid, "
 						  "tc.relfrozenxid AS tfrozenxid, "
 						  "0 AS tminmxid, "
@@ -4866,11 +4779,8 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "(%s c.relowner) AS rolname, "
 						  "c.relchecks, c.relhastriggers, "
 						  "c.relhasindex, c.relhasrules, c.relhasoids, "
-<<<<<<< HEAD
-=======
 						  "'f'::bool AS relrowsecurity, "
 						  "'f'::bool AS relforcerowsecurity, "
->>>>>>> FETCH_HEAD
 						  "c.relfrozenxid, 0 AS relminmxid, tc.oid AS toid, "
 						  "tc.relfrozenxid AS tfrozenxid, "
 						  "0 AS tminmxid, "
@@ -4908,11 +4818,8 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "(%s c.relowner) AS rolname, "
 					  "c.relchecks, (c.reltriggers <> 0) AS relhastriggers, "
 						  "c.relhasindex, c.relhasrules, c.relhasoids, "
-<<<<<<< HEAD
-=======
 						  "'f'::bool AS relrowsecurity, "
 						  "'f'::bool AS relforcerowsecurity, "
->>>>>>> FETCH_HEAD
 						  "c.relfrozenxid, 0 AS relminmxid, tc.oid AS toid, "
 						  "tc.relfrozenxid AS tfrozenxid, "
 						  "0 AS tminmxid, "
@@ -4950,11 +4857,8 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "(%s relowner) AS rolname, "
 						  "relchecks, (reltriggers <> 0) AS relhastriggers, "
 						  "relhasindex, relhasrules, relhasoids, "
-<<<<<<< HEAD
-=======
 						  "'f'::bool AS relrowsecurity, "
 						  "'f'::bool AS relforcerowsecurity, "
->>>>>>> FETCH_HEAD
 						  "0 AS relfrozenxid, 0 AS relminmxid,"
 						  "0 AS toid, "
 						  "0 AS tfrozenxid, 0 AS tminmxid,"
@@ -4991,11 +4895,8 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "(%s relowner) AS rolname, "
 						  "relchecks, (reltriggers <> 0) AS relhastriggers, "
 						  "relhasindex, relhasrules, relhasoids, "
-<<<<<<< HEAD
-=======
 						  "'f'::bool AS relrowsecurity, "
 						  "'f'::bool AS relforcerowsecurity, "
->>>>>>> FETCH_HEAD
 						  "0 AS relfrozenxid, 0 AS relminmxid,"
 						  "0 AS toid, "
 						  "0 AS tfrozenxid, 0 AS tminmxid,"
@@ -5028,11 +4929,8 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "(%s relowner) AS rolname, "
 						  "relchecks, (reltriggers <> 0) AS relhastriggers, "
 						  "relhasindex, relhasrules, relhasoids, "
-<<<<<<< HEAD
-=======
 						  "'f'::bool AS relrowsecurity, "
 						  "'f'::bool AS relforcerowsecurity, "
->>>>>>> FETCH_HEAD
 						  "0 AS relfrozenxid, 0 AS relminmxid,"
 						  "0 AS toid, "
 						  "0 AS tfrozenxid, 0 AS tminmxid,"
@@ -5060,11 +4958,8 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "relchecks, (reltriggers <> 0) AS relhastriggers, "
 						  "relhasindex, relhasrules, "
 						  "'t'::bool AS relhasoids, "
-<<<<<<< HEAD
-=======
 						  "'f'::bool AS relrowsecurity, "
 						  "'f'::bool AS relforcerowsecurity, "
->>>>>>> FETCH_HEAD
 						  "0 AS relfrozenxid, 0 AS relminmxid,"
 						  "0 AS toid, "
 						  "0 AS tfrozenxid, 0 AS tminmxid,"
@@ -5102,11 +4997,8 @@ getTables(Archive *fout, DumpOptions *dopt, int *numTables)
 						  "relchecks, (reltriggers <> 0) AS relhastriggers, "
 						  "relhasindex, relhasrules, "
 						  "'t'::bool AS relhasoids, "
-<<<<<<< HEAD
-=======
 						  "'f'::bool AS relrowsecurity, "
 						  "'f'::bool AS relforcerowsecurity, "
->>>>>>> FETCH_HEAD
 						  "0 AS relfrozenxid, 0 AS relminmxid,"
 						  "0 AS toid, "
 						  "0 AS tfrozenxid, 0 AS tminmxid,"
@@ -6791,33 +6683,9 @@ getTransforms(Archive *fout, int *numTransforms)
 		lanname = get_language_name(fout, transforminfo[i].trflang);
 		if (typeInfo && lanname)
 			appendPQExpBuffer(&namebuf, "%s %s",
-<<<<<<< HEAD
-							  sTypeInfo->dobj.name, tTypeInfo->dobj.name);
-		castinfo[i].dobj.name = namebuf.data;
-
-		if (fout->remoteVersion < 70300 &&
-			OidIsValid(castinfo[i].castfunc))
-		{
-			/*
-			 * We need to make a dependency to ensure the function will be
-			 * dumped first.  (In 7.3 and later the regular dependency
-			 * mechanism handles this for us.)
-			 */
-			FuncInfo   *funcInfo;
-
-			funcInfo = findFuncByOid(castinfo[i].castfunc);
-			if (funcInfo)
-				addObjectDependency(&castinfo[i].dobj,
-									funcInfo->dobj.dumpId);
-		}
-
-		/* Decide whether we want to dump it */
-		selectDumpableCast(&(castinfo[i]));
-=======
 							  typeInfo->dobj.name, lanname);
 		transforminfo[i].dobj.name = namebuf.data;
 		free(lanname);
->>>>>>> FETCH_HEAD
 	}
 
 	PQclear(res);
@@ -8705,15 +8573,9 @@ dumpType(Archive *fout, DumpOptions *dopt, TypeInfo *tyinfo)
 	else if (tyinfo->typtype == TYPTYPE_ENUM)
 		dumpEnumType(fout, dopt, tyinfo);
 	else if (tyinfo->typtype == TYPTYPE_RANGE)
-<<<<<<< HEAD
-		dumpRangeType(fout, tyinfo);
-	else if (tyinfo->typtype == TYPTYPE_PSEUDO && !tyinfo->isDefined)
-		dumpUndefinedType(fout, tyinfo);
-=======
 		dumpRangeType(fout, dopt, tyinfo);
 	else if (tyinfo->typtype == TYPTYPE_PSEUDO && !tyinfo->isDefined)
 		dumpUndefinedType(fout, dopt, tyinfo);
->>>>>>> FETCH_HEAD
 	else
 		write_msg(NULL, "WARNING: typtype of data type \"%s\" appears to be invalid\n",
 				  tyinfo->dobj.name);
@@ -8990,11 +8852,7 @@ dumpRangeType(Archive *fout, DumpOptions *dopt, TypeInfo *tyinfo)
  * depending on it.
  */
 static void
-<<<<<<< HEAD
-dumpUndefinedType(Archive *fout, TypeInfo *tyinfo)
-=======
 dumpUndefinedType(Archive *fout, DumpOptions *dopt, TypeInfo *tyinfo)
->>>>>>> FETCH_HEAD
 {
 	PQExpBuffer q = createPQExpBuffer();
 	PQExpBuffer delq = createPQExpBuffer();
@@ -9011,11 +8869,7 @@ dumpUndefinedType(Archive *fout, DumpOptions *dopt, TypeInfo *tyinfo)
 	appendPQExpBuffer(delq, "%s;\n",
 					  qtypname);
 
-<<<<<<< HEAD
-	if (binary_upgrade)
-=======
 	if (dopt->binary_upgrade)
->>>>>>> FETCH_HEAD
 		binary_upgrade_set_type_oids_by_type_oid(fout,
 												 q, tyinfo->dobj.catId.oid);
 
@@ -9024,11 +8878,7 @@ dumpUndefinedType(Archive *fout, DumpOptions *dopt, TypeInfo *tyinfo)
 
 	appendPQExpBuffer(labelq, "TYPE %s", qtypname);
 
-<<<<<<< HEAD
-	if (binary_upgrade)
-=======
 	if (dopt->binary_upgrade)
->>>>>>> FETCH_HEAD
 		binary_upgrade_extension_member(q, &tyinfo->dobj, labelq->data);
 
 	ArchiveEntry(fout, tyinfo->dobj.catId, tyinfo->dobj.dumpId,
@@ -9042,16 +8892,6 @@ dumpUndefinedType(Archive *fout, DumpOptions *dopt, TypeInfo *tyinfo)
 				 NULL, NULL);
 
 	/* Dump Type Comments and Security Labels */
-<<<<<<< HEAD
-	dumpComment(fout, labelq->data,
-				tyinfo->dobj.namespace->dobj.name, tyinfo->rolname,
-				tyinfo->dobj.catId, 0, tyinfo->dobj.dumpId);
-	dumpSecLabel(fout, labelq->data,
-				 tyinfo->dobj.namespace->dobj.name, tyinfo->rolname,
-				 tyinfo->dobj.catId, 0, tyinfo->dobj.dumpId);
-
-	dumpACL(fout, tyinfo->dobj.catId, tyinfo->dobj.dumpId, "TYPE",
-=======
 	dumpComment(fout, dopt, labelq->data,
 				tyinfo->dobj.namespace->dobj.name, tyinfo->rolname,
 				tyinfo->dobj.catId, 0, tyinfo->dobj.dumpId);
@@ -9060,7 +8900,6 @@ dumpUndefinedType(Archive *fout, DumpOptions *dopt, TypeInfo *tyinfo)
 				 tyinfo->dobj.catId, 0, tyinfo->dobj.dumpId);
 
 	dumpACL(fout, dopt, tyinfo->dobj.catId, tyinfo->dobj.dumpId, "TYPE",
->>>>>>> FETCH_HEAD
 			qtypname, NULL, tyinfo->dobj.name,
 			tyinfo->dobj.namespace->dobj.name,
 			tyinfo->rolname, tyinfo->typacl);
@@ -14370,11 +14209,7 @@ dumpTableSchema(Archive *fout, DumpOptions *dopt, TableInfo *tbinfo)
 				/* We preserve the toast oids, so we can use it during restore */
 				appendPQExpBufferStr(q, "\n-- For binary upgrade, set toast's relfrozenxid and relminmxid\n");
 				appendPQExpBuffer(q, "UPDATE pg_catalog.pg_class\n"
-<<<<<<< HEAD
-								  "SET relfrozenxid = '%u', relminmxid = '%u'\n"
-=======
 							   "SET relfrozenxid = '%u', relminmxid = '%u'\n"
->>>>>>> FETCH_HEAD
 								  "WHERE oid = '%u';\n",
 								  tbinfo->toast_frozenxid,
 								  tbinfo->toast_minmxid, tbinfo->toast_oid);
@@ -15582,11 +15417,7 @@ dumpEventTrigger(Archive *fout, DumpOptions *dopt, EventTriggerInfo *evtinfo)
 				 "EVENT TRIGGER", SECTION_POST_DATA,
 				 query->data, "", NULL, NULL, 0, NULL, NULL);
 
-<<<<<<< HEAD
-	dumpComment(fout, labelq->data,
-=======
 	dumpComment(fout, dopt, labelq->data,
->>>>>>> FETCH_HEAD
 				NULL, evtinfo->evtowner,
 				evtinfo->dobj.catId, 0, evtinfo->dobj.dumpId);
 
@@ -15734,30 +15565,6 @@ dumpRule(Archive *fout, DumpOptions *dopt, RuleInfo *rinfo)
  *
  * 1. Identify objects which are members of extensions
  *
-<<<<<<< HEAD
- *    Generally speaking, this is to mark them as *not* being dumped, as most
- *    extension objects are created by the single CREATE EXTENSION command.
- *    The one exception is binary upgrades with pg_upgrade will still dump the
- *    non-table objects.
- *
- * 2. Identify and create dump records for extension configuration tables.
- *
- *    Extensions can mark tables as "configuration", which means that the user
- *    is able and expected to modify those tables after the extension has been
- *    loaded.  For these tables, we dump out only the data- the structure is
- *    expected to be handled at CREATE EXTENSION time, including any indexes or
- *    foriegn keys, which brings us to-
- *
- * 3. Record FK dependencies between configuration tables.
- *
- *    Due to the FKs being created at CREATE EXTENSION time and therefore before
- *    the data is loaded, we have to work out what the best order for reloading
- *    the data is, to avoid FK violations when the tables are restored.  This is
- *    not perfect- we can't handle circular dependencies and if any exist they
- *    will cause an invalid dump to be produced (though at least all of the data
- *    is included for a user to manually restore).  This is currently documented
- *    but perhaps we can provide a better solution in the future.
-=======
  *	  Generally speaking, this is to mark them as *not* being dumped, as most
  *	  extension objects are created by the single CREATE EXTENSION command.
  *	  The one exception is binary upgrades with pg_upgrade will still dump the
@@ -15780,7 +15587,6 @@ dumpRule(Archive *fout, DumpOptions *dopt, RuleInfo *rinfo)
  *	  will cause an invalid dump to be produced (though at least all of the data
  *	  is included for a user to manually restore).  This is currently documented
  *	  but perhaps we can provide a better solution in the future.
->>>>>>> FETCH_HEAD
  */
 void
 getExtensionMembership(Archive *fout, DumpOptions *dopt, ExtensionInfo extinfo[],
@@ -15977,36 +15783,20 @@ getExtensionMembership(Archive *fout, DumpOptions *dopt, ExtensionInfo extinfo[]
 	}
 
 	/*
-<<<<<<< HEAD
-	 * Now that all the TableInfoData objects have been created for all
-	 * the extensions, check their FK dependencies and register them to
-	 * try and dump the data out in an order which they can be restored
-	 * in.
-=======
 	 * Now that all the TableInfoData objects have been created for all the
 	 * extensions, check their FK dependencies and register them to try and
 	 * dump the data out in an order which they can be restored in.
->>>>>>> FETCH_HEAD
 	 *
 	 * Note that this is not a problem for user tables as their FKs are
 	 * recreated after the data has been loaded.
 	 */
 	printfPQExpBuffer(query,
-<<<<<<< HEAD
-			"SELECT conrelid, confrelid "
-			"FROM pg_constraint "
-				"JOIN pg_depend ON (objid = confrelid) "
-			"WHERE contype = 'f' "
-			"AND refclassid = 'pg_extension'::regclass "
-			"AND classid = 'pg_class'::regclass;");
-=======
 					  "SELECT conrelid, confrelid "
 					  "FROM pg_constraint "
 					  "JOIN pg_depend ON (objid = confrelid) "
 					  "WHERE contype = 'f' "
 					  "AND refclassid = 'pg_extension'::regclass "
 					  "AND classid = 'pg_class'::regclass;");
->>>>>>> FETCH_HEAD
 
 	res = ExecuteSqlQuery(fout, query->data, PGRES_TUPLES_OK);
 	ntups = PQntuples(res);
@@ -16017,15 +15807,10 @@ getExtensionMembership(Archive *fout, DumpOptions *dopt, ExtensionInfo extinfo[]
 	/* Now get the dependencies and register them */
 	for (i = 0; i < ntups; i++)
 	{
-<<<<<<< HEAD
-		Oid			conrelid, confrelid;
-		TableInfo  *reftable, *contable;
-=======
 		Oid			conrelid,
 					confrelid;
 		TableInfo  *reftable,
 				   *contable;
->>>>>>> FETCH_HEAD
 
 		conrelid = atooid(PQgetvalue(res, i, i_conrelid));
 		confrelid = atooid(PQgetvalue(res, i, i_confrelid));
@@ -16039,13 +15824,8 @@ getExtensionMembership(Archive *fout, DumpOptions *dopt, ExtensionInfo extinfo[]
 			continue;
 
 		/*
-<<<<<<< HEAD
-		 * Make referencing TABLE_DATA object depend on the
-		 * referenced table's TABLE_DATA object.
-=======
 		 * Make referencing TABLE_DATA object depend on the referenced table's
 		 * TABLE_DATA object.
->>>>>>> FETCH_HEAD
 		 */
 		addObjectDependency(&contable->dataObj->dobj,
 							reftable->dataObj->dobj.dumpId);

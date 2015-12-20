@@ -1461,10 +1461,6 @@ ProcessUtilitySlow(Node *parsetree,
 				commandCollected = true;
 				break;
 
-			case T_AlterTableMoveAllStmt:
-				AlterTableMoveAll((AlterTableMoveAllStmt *) parsetree);
-				break;
-
 			case T_DropStmt:
 				ExecDropStmt((DropStmt *) parsetree, isTopLevel);
 				/* no commands stashed for DROP */

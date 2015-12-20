@@ -401,10 +401,7 @@ AuxiliaryProcessMain(int argc, char *argv[])
 			proc_exit(1);		/* should never return */
 
 		case BootstrapProcess:
-<<<<<<< HEAD
-=======
 
->>>>>>> FETCH_HEAD
 			/*
 			 * There was a brief instant during which mode was Normal; this is
 			 * okay.  We need to be in bootstrap mode during BootStrapXLOG for

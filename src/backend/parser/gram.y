@@ -7417,8 +7417,6 @@ DropTransformStmt: DROP TRANSFORM opt_if_exists FOR Typename LANGUAGE name opt_d
  *		REINDEX [ (options) ] type <name>
  *****************************************************************************/
 
-<<<<<<< HEAD
-=======
 ReindexStmt:
 			REINDEX reindex_target_type qualified_name
 				{
@@ -7480,7 +7478,6 @@ reindex_option_elem:
  *
  *****************************************************************************/
 
->>>>>>> FETCH_HEAD
 AlterTblSpcStmt:
 			ALTER TABLESPACE name SET reloptions
 				{

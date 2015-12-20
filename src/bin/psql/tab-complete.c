@@ -983,10 +983,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_tables,
 								   "UNION SELECT 'ALL IN TABLESPACE'");
 	}
-<<<<<<< HEAD
-=======
 
->>>>>>> FETCH_HEAD
 	/*
 	 * complete with what you can alter (TABLE, GROUP, USER, ...) unless we're
 	 * in ALTER TABLE sth ALTER
@@ -998,11 +995,7 @@ psql_completion(const char *text, int start, int end)
 		{"AGGREGATE", "COLLATION", "CONVERSION", "DATABASE", "DEFAULT PRIVILEGES", "DOMAIN",
 			"EVENT TRIGGER", "EXTENSION", "FOREIGN DATA WRAPPER", "FOREIGN TABLE", "FUNCTION",
 			"GROUP", "INDEX", "LANGUAGE", "LARGE OBJECT", "MATERIALIZED VIEW", "OPERATOR",
-<<<<<<< HEAD
-			"ROLE", "RULE", "SCHEMA", "SERVER", "SEQUENCE", "SYSTEM", "TABLE",
-=======
 			"POLICY", "ROLE", "RULE", "SCHEMA", "SERVER", "SEQUENCE", "SYSTEM", "TABLE",
->>>>>>> FETCH_HEAD
 			"TABLESPACE", "TEXT SEARCH", "TRIGGER", "TYPE",
 		"USER", "USER MAPPING FOR", "VIEW", NULL};
 
@@ -1014,11 +1007,7 @@ psql_completion(const char *text, int start, int end)
 			 pg_strcasecmp(prev2_wd, "TABLESPACE") == 0)
 	{
 		static const char *const list_ALTERALLINTSPC[] =
-<<<<<<< HEAD
-			{"SET TABLESPACE", "OWNED BY", NULL};
-=======
 		{"SET TABLESPACE", "OWNED BY", NULL};
->>>>>>> FETCH_HEAD
 
 		COMPLETE_WITH_LIST(list_ALTERALLINTSPC);
 	}
@@ -1415,11 +1404,7 @@ psql_completion(const char *text, int start, int end)
 	else if (pg_strcasecmp(prev3_wd, "ALTER") == 0 &&
 			 pg_strcasecmp(prev2_wd, "SYSTEM") == 0 &&
 			 (pg_strcasecmp(prev_wd, "SET") == 0 ||
-<<<<<<< HEAD
-			 pg_strcasecmp(prev_wd, "RESET") == 0))
-=======
 			  pg_strcasecmp(prev_wd, "RESET") == 0))
->>>>>>> FETCH_HEAD
 		COMPLETE_WITH_QUERY(Query_for_list_of_alter_system_set_vars);
 	/* ALTER VIEW <name> */
 	else if (pg_strcasecmp(prev3_wd, "ALTER") == 0 &&
@@ -1847,10 +1832,7 @@ psql_completion(const char *text, int start, int end)
 			"toast.autovacuum_vacuum_cost_limit",
 			"toast.autovacuum_vacuum_scale_factor",
 			"toast.autovacuum_vacuum_threshold",
-<<<<<<< HEAD
-=======
 			"toast.log_autovacuum_min_duration",
->>>>>>> FETCH_HEAD
 			"user_catalog_table",
 			NULL
 		};
@@ -2252,14 +2234,9 @@ psql_completion(const char *text, int start, int end)
 			 pg_strcasecmp(prev2_wd, "DATABASE") == 0)
 	{
 		static const char *const list_DATABASE[] =
-<<<<<<< HEAD
-		{"OWNER", "TEMPLATE", "ENCODING", "TABLESPACE", "CONNECTION LIMIT",
-		"LC_COLLATE", "LC_CTYPE", NULL};
-=======
 		{"OWNER", "TEMPLATE", "ENCODING", "TABLESPACE", "IS_TEMPLATE",
 			"ALLOW_CONNECTIONS", "CONNECTION LIMIT", "LC_COLLATE", "LC_CTYPE",
 		NULL};
->>>>>>> FETCH_HEAD
 
 		COMPLETE_WITH_LIST(list_DATABASE);
 	}
@@ -3784,18 +3761,10 @@ psql_completion(const char *text, int start, int end)
 
 /* Backslash commands */
 /* TODO:  \dc \dd \dl */
-<<<<<<< HEAD
-	else if (strcmp(prev_wd, "\\connect") == 0 || strcmp(prev_wd, "\\c") == 0)
-	{
-		if (!recognized_connection_string(text))
-			COMPLETE_WITH_QUERY(Query_for_list_of_databases);
-	}
-=======
 	else if (strcmp(prev_wd, "\\?") == 0)
 	{
 		static const char *const my_list[] =
 		{"commands", "options", "variables", NULL};
->>>>>>> FETCH_HEAD
 
 		COMPLETE_WITH_LIST_CS(my_list);
 	}
@@ -4485,14 +4454,8 @@ complete_from_variables(const char *text, const char *prefix, const char *suffix
 			continue;
 		for (i = 0; known_varnames[i]; i++)		/* remove duplicate entry */
 		{
-<<<<<<< HEAD
-			maxvars *= 2;
-			varnames = (char **) pg_realloc(varnames,
-											(maxvars + 1) * sizeof(char *));
-=======
 			if (strcmp(ptr->name, known_varnames[i]) == 0)
 				continue;
->>>>>>> FETCH_HEAD
 		}
 		append_variable_names(&varnames, &nvars, &maxvars, ptr->name,
 							  prefix, suffix);
@@ -4574,11 +4537,7 @@ pg_strdup_keyword_case(const char *s, const char *ref)
 
 	if (pset.comp_case == PSQL_COMP_CASE_LOWER ||
 		((pset.comp_case == PSQL_COMP_CASE_PRESERVE_LOWER ||
-<<<<<<< HEAD
-		  pset.comp_case == PSQL_COMP_CASE_PRESERVE_UPPER) && islower(first)) ||
-=======
 	   pset.comp_case == PSQL_COMP_CASE_PRESERVE_UPPER) && islower(first)) ||
->>>>>>> FETCH_HEAD
 		(pset.comp_case == PSQL_COMP_CASE_PRESERVE_LOWER && !isalpha(first)))
 	{
 		for (p = ret; *p; p++)

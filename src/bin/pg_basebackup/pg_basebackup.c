@@ -236,11 +236,7 @@ usage(void)
 	printf(_("  -D, --pgdata=DIRECTORY receive base backup into directory\n"));
 	printf(_("  -F, --format=p|t       output format (plain (default), tar)\n"));
 	printf(_("  -r, --max-rate=RATE    maximum transfer rate to transfer data directory\n"
-<<<<<<< HEAD
-			 "                         (in kB/s, or use suffix \"k\" or \"M\")\n"));
-=======
 	  "                         (in kB/s, or use suffix \"k\" or \"M\")\n"));
->>>>>>> FETCH_HEAD
 	printf(_("  -R, --write-recovery-conf\n"
 			 "                         write recovery.conf after backup\n"));
 	printf(_("  -T, --tablespace-mapping=OLDDIR=NEWDIR\n"
@@ -378,11 +374,7 @@ LogStreamerMain(logstreamer_param *param)
 	if (!ReceiveXlogStream(param->bgconn, param->startptr, param->timeline,
 						   param->sysidentifier, param->xlogdir,
 						   reached_end_position, standby_message_timeout,
-<<<<<<< HEAD
-						   NULL, true))
-=======
 						   NULL, false, true))
->>>>>>> FETCH_HEAD
 
 		/*
 		 * Any errors will already have been reported in the function process,
@@ -1146,11 +1138,7 @@ ReceiveAndUnpackTarFile(PGconn *conn, PGresult *res, int rownum)
 	char		current_path[MAXPGPATH];
 	char		filename[MAXPGPATH];
 	const char *mapped_tblspc_path;
-<<<<<<< HEAD
-	int			current_len_left;
-=======
 	pgoff_t		current_len_left = 0;
->>>>>>> FETCH_HEAD
 	int			current_padding = 0;
 	bool		basetablespace;
 	char	   *copybuf = NULL;
@@ -1257,11 +1245,7 @@ ReceiveAndUnpackTarFile(PGconn *conn, PGresult *res, int rownum)
 						 * failures on related directories.
 						 */
 						if (!((pg_str_endswith(filename, "/pg_xlog") ||
-<<<<<<< HEAD
-							   pg_str_endswith(filename, "/archive_status")) &&
-=======
 							 pg_str_endswith(filename, "/archive_status")) &&
->>>>>>> FETCH_HEAD
 							  errno == EEXIST))
 						{
 							fprintf(stderr,
@@ -1284,21 +1268,12 @@ ReceiveAndUnpackTarFile(PGconn *conn, PGresult *res, int rownum)
 					 *
 					 * It's most likely a link in pg_tblspc directory, to the
 					 * location of a tablespace. Apply any tablespace mapping
-<<<<<<< HEAD
-					 * given on the command line (--tablespace-mapping).
-					 * (We blindly apply the mapping without checking that
-					 * the link really is inside pg_tblspc. We don't expect
-					 * there to be other symlinks in a data directory, but
-					 * if there are, you can call it an undocumented feature
-					 * that you can map them too.)
-=======
 					 * given on the command line (--tablespace-mapping). (We
 					 * blindly apply the mapping without checking that the
 					 * link really is inside pg_tblspc. We don't expect there
 					 * to be other symlinks in a data directory, but if there
 					 * are, you can call it an undocumented feature that you
 					 * can map them too.)
->>>>>>> FETCH_HEAD
 					 */
 					filename[strlen(filename) - 1] = '\0';		/* Remove trailing slash */
 

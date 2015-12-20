@@ -1271,12 +1271,8 @@ hstore_to_json_loose(PG_FUNCTION_ARGS)
 		else
 		{
 			resetStringInfo(&tmp);
-<<<<<<< HEAD
-			appendBinaryStringInfo(&tmp, HS_VAL(entries, base, i), HS_VALLEN(entries, i));
-=======
 			appendBinaryStringInfo(&tmp, HSTORE_VAL(entries, base, i),
 								   HSTORE_VALLEN(entries, i));
->>>>>>> FETCH_HEAD
 			if (IsValidJsonNumber(tmp.data, tmp.len))
 				appendBinaryStringInfo(&dst, tmp.data, tmp.len);
 			else

@@ -447,10 +447,6 @@ JsonbToCStringWorker(StringInfo out, JsonbContainer *in, int estimated_len, bool
 {
 	bool		first = true;
 	JsonbIterator *it;
-<<<<<<< HEAD
-	JsonbIteratorToken type = WJB_DONE;
-=======
->>>>>>> FETCH_HEAD
 	JsonbValue	v;
 	JsonbIteratorToken type = WJB_DONE;
 	int			level = 0;

@@ -416,11 +416,7 @@ ExecChooseHashTableSize(double ntuples, int tupwidth, bool useskew,
 	long		skew_table_bytes;
 	long		max_pointers;
 	long		mppow2;
-<<<<<<< HEAD
-	int			nbatch;
-=======
 	int			nbatch = 1;
->>>>>>> FETCH_HEAD
 	int			nbuckets;
 	double		dbuckets;
 
@@ -481,18 +477,12 @@ ExecChooseHashTableSize(double ntuples, int tupwidth, bool useskew,
 
 	/*
 	 * Set nbuckets to achieve an average bucket load of NTUP_PER_BUCKET when
-<<<<<<< HEAD
-	 * memory is filled.  Set nbatch to the smallest power of 2 that appears
-	 * sufficient.  The Min() steps limit the results so that the pointer
-	 * arrays we'll try to allocate do not exceed work_mem nor MaxAllocSize.
-=======
 	 * memory is filled, assuming a single batch; but limit the value so that
 	 * the pointer arrays we'll try to allocate do not exceed work_mem nor
 	 * MaxAllocSize.
 	 *
 	 * Note that both nbuckets and nbatch must be powers of 2 to make
 	 * ExecHashGetBucketAndBatch fast.
->>>>>>> FETCH_HEAD
 	 */
 	max_pointers = (work_mem * 1024L) / sizeof(HashJoinTuple);
 	max_pointers = Min(max_pointers, MaxAllocSize / sizeof(HashJoinTuple));
@@ -557,9 +547,6 @@ ExecChooseHashTableSize(double ntuples, int tupwidth, bool useskew,
 		while (nbatch < minbatch)
 			nbatch <<= 1;
 	}
-
-	Assert(nbuckets > 0);
-	Assert(nbatch > 0);
 
 	Assert(nbuckets > 0);
 	Assert(nbatch > 0);

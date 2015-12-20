@@ -87,8 +87,6 @@ typedef struct varatt_indirect
 	struct varlena *pointer;	/* Pointer to in-memory varlena */
 }	varatt_indirect;
 
-<<<<<<< HEAD
-=======
 /*
  * struct varatt_expanded is a "TOAST pointer" representing an out-of-line
  * Datum that is stored in memory, in some type-specific, not necessarily
@@ -106,7 +104,6 @@ typedef struct varatt_expanded
 	ExpandedObjectHeader *eohptr;
 } varatt_expanded;
 
->>>>>>> FETCH_HEAD
 /*
  * Type tag for the various sorts of "TOAST pointer" datums.  The peculiar
  * value for VARTAG_ONDISK comes from a requirement for on-disk compatibility
@@ -126,10 +123,7 @@ typedef enum vartag_external
 
 #define VARTAG_SIZE(tag) \
 	((tag) == VARTAG_INDIRECT ? sizeof(varatt_indirect) : \
-<<<<<<< HEAD
-=======
 	 VARTAG_IS_EXPANDED(tag) ? sizeof(varatt_expanded) : \
->>>>>>> FETCH_HEAD
 	 (tag) == VARTAG_ONDISK ? sizeof(varatt_external) : \
 	 TrapMacro(true, "unrecognized TOAST vartag"))
 

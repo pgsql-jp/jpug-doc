@@ -6746,12 +6746,9 @@ ATExecAlterConstraint(Relation rel, AlterTableCmd *cmd,
 		{
 			CacheInvalidateRelcacheByRelid(lfirst_oid(lc));
 		}
-<<<<<<< HEAD
-=======
 
 		ObjectAddressSet(address, ConstraintRelationId,
 						 HeapTupleGetOid(contuple));
->>>>>>> FETCH_HEAD
 	}
 	else
 		address = InvalidObjectAddress;
@@ -7907,11 +7904,7 @@ ATPrepAlterColumnType(List **wqueue,
 		if (transform == NULL)
 		{
 			/* error text depends on whether USING was specified or not */
-<<<<<<< HEAD
-			if (def->raw_default != NULL)
-=======
 			if (def->cooked_default != NULL)
->>>>>>> FETCH_HEAD
 				ereport(ERROR,
 						(errcode(ERRCODE_DATATYPE_MISMATCH),
 						 errmsg("result of USING clause for column \"%s\""
@@ -9711,11 +9704,7 @@ AlterTableMoveAll(AlterTableMoveAllStmt *stmt)
 	HeapTuple	tuple;
 	Oid			orig_tablespaceoid;
 	Oid			new_tablespaceoid;
-<<<<<<< HEAD
-	List	   *role_oids = roleNamesToIds(stmt->roles);
-=======
 	List	   *role_oids = roleSpecsToIds(stmt->roles);
->>>>>>> FETCH_HEAD
 
 	/* Ensure we were not asked to move something we can't */
 	if (stmt->objtype != OBJECT_TABLE && stmt->objtype != OBJECT_INDEX &&
@@ -9825,15 +9814,9 @@ AlterTableMoveAll(AlterTableMoveAllStmt *stmt)
 			!ConditionalLockRelationOid(relOid, AccessExclusiveLock))
 			ereport(ERROR,
 					(errcode(ERRCODE_OBJECT_IN_USE),
-<<<<<<< HEAD
-			   errmsg("aborting because lock on relation \"%s\".\"%s\" is not available",
-					  get_namespace_name(relForm->relnamespace),
-					  NameStr(relForm->relname))));
-=======
 					 errmsg("aborting because lock on relation \"%s.%s\" is not available",
 							get_namespace_name(relForm->relnamespace),
 							NameStr(relForm->relname))));
->>>>>>> FETCH_HEAD
 		else
 			LockRelationOid(relOid, AccessExclusiveLock);
 
@@ -9862,14 +9845,10 @@ AlterTableMoveAll(AlterTableMoveAllStmt *stmt)
 
 		cmds = lappend(cmds, cmd);
 
-<<<<<<< HEAD
-		AlterTableInternal(lfirst_oid(l), cmds, false);
-=======
 		EventTriggerAlterTableStart((Node *) stmt);
 		/* OID is set by AlterTableInternal */
 		AlterTableInternal(lfirst_oid(l), cmds, false);
 		EventTriggerAlterTableEnd();
->>>>>>> FETCH_HEAD
 	}
 
 	return new_tablespaceoid;

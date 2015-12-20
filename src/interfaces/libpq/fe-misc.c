@@ -917,15 +917,9 @@ pqSendSome(PGconn *conn, int len)
 			 * might not arrive until after we've gone to sleep.  Therefore,
 			 * we wait for either read ready or write ready.
 			 *
-<<<<<<< HEAD
-			 * In non-blocking mode, we don't wait here directly, but return
-			 * 1 to indicate that data is still pending.  The caller should
-			 * wait for both read and write ready conditions, and call
-=======
 			 * In non-blocking mode, we don't wait here directly, but return 1
 			 * to indicate that data is still pending.  The caller should wait
 			 * for both read and write ready conditions, and call
->>>>>>> FETCH_HEAD
 			 * PQconsumeInput() on read ready, but just in case it doesn't, we
 			 * call pqReadData() ourselves before returning.  That's not
 			 * enough if the data has not arrived yet, but it's the best we

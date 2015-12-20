@@ -82,15 +82,9 @@ DECLARE
 	detail text;
 BEGIN
 	PERFORM wait_pid(crash_pid)
-<<<<<<< HEAD
-	FROM dblink('dbname=contrib_regression', $$
-		SELECT pg_backend_pid() FROM dblink(
-			'service=test_ldap dbname=contrib_regression',
-=======
 	FROM dblink(connection_parameters(), $$
 		SELECT pg_backend_pid() FROM dblink(
 			'service=test_ldap '||connection_parameters(),
->>>>>>> FETCH_HEAD
 			-- This string concatenation is a hack to shoehorn a
 			-- set_pgservicefile call into the SQL statement.
 			'SELECT 1' || set_pgservicefile('pg_service.conf')
@@ -397,10 +391,6 @@ SELECT dblink_error_message('dtest1');
 SELECT dblink_disconnect('dtest1');
 
 -- test foreign data wrapper functionality
-<<<<<<< HEAD
-CREATE SERVER fdtest FOREIGN DATA WRAPPER dblink_fdw
-  OPTIONS (dbname 'contrib_regression');
-=======
 CREATE ROLE dblink_regression_test;
 DO $d$
     BEGIN
@@ -411,7 +401,6 @@ DO $d$
     END;
 $d$;
 
->>>>>>> FETCH_HEAD
 CREATE USER MAPPING FOR public SERVER fdtest
   OPTIONS (server 'localhost');  -- fail, can't specify server here
 CREATE USER MAPPING FOR public SERVER fdtest OPTIONS (user :'USER');
@@ -429,6 +418,7 @@ SELECT * FROM dblink('myconn','SELECT * FROM foo') AS t(a int, b text, c text[])
 \c - -
 REVOKE USAGE ON FOREIGN SERVER fdtest FROM dblink_regression_test;
 REVOKE EXECUTE ON FUNCTION dblink_connect_u(text, text) FROM dblink_regression_test;
+DROP USER dblink_regression_test;
 DROP USER MAPPING FOR public SERVER fdtest;
 DROP SERVER fdtest;
 

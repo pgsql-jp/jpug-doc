@@ -38,26 +38,16 @@ gen_db_file_maps(DbInfo *old_db, DbInfo *new_db,
 				 int *nmaps, const char *old_pgdata, const char *new_pgdata)
 {
 	FileNameMap *maps;
-<<<<<<< HEAD:contrib/pg_upgrade/info.c
-	int			old_relnum, new_relnum;
-=======
 	int			old_relnum,
 				new_relnum;
->>>>>>> FETCH_HEAD:src/bin/pg_upgrade/info.c
 	int			num_maps = 0;
 
 	maps = (FileNameMap *) pg_malloc(sizeof(FileNameMap) *
 									 old_db->rel_arr.nrels);
 
 	/*
-<<<<<<< HEAD:contrib/pg_upgrade/info.c
-	 * The old database shouldn't have more relations than the new one.
-	 * We force the new cluster to have a TOAST table if the old table
-	 * had one.
-=======
 	 * The old database shouldn't have more relations than the new one. We
 	 * force the new cluster to have a TOAST table if the old table had one.
->>>>>>> FETCH_HEAD:src/bin/pg_upgrade/info.c
 	 */
 	if (old_db->rel_arr.nrels > new_db->rel_arr.nrels)
 		pg_fatal("old and new databases \"%s\" have a mismatched number of relations\n",
@@ -72,17 +62,6 @@ gen_db_file_maps(DbInfo *old_db, DbInfo *new_db,
 
 		/*
 		 * It is possible that the new cluster has a TOAST table for a table
-<<<<<<< HEAD:contrib/pg_upgrade/info.c
-		 * that didn't need one in the old cluster, e.g. 9.0 to 9.1 changed the
-		 * NUMERIC length computation.  Therefore, if we have a TOAST table
-		 * in the new cluster that doesn't match, skip over it and continue
-		 * processing.  It is possible this TOAST table used an OID that was
-		 * reserved in the old cluster, but we have no way of testing that,
-		 * and we would have already gotten an error at the new cluster schema
-		 * creation stage.  Fortunately, since we only restore the OID counter
-		 * after schema restore, and restore in OID order via pg_dump, a
-		 * conflict would only happen if the new TOAST table had a very low
-=======
 		 * that didn't need one in the old cluster, e.g. 9.0 to 9.1 changed
 		 * the NUMERIC length computation.  Therefore, if we have a TOAST
 		 * table in the new cluster that doesn't match, skip over it and
@@ -92,7 +71,6 @@ gen_db_file_maps(DbInfo *old_db, DbInfo *new_db,
 		 * schema creation stage.  Fortunately, since we only restore the OID
 		 * counter after schema restore, and restore in OID order via pg_dump,
 		 * a conflict would only happen if the new TOAST table had a very low
->>>>>>> FETCH_HEAD:src/bin/pg_upgrade/info.c
 		 * OID.  However, TOAST tables created long after initial table
 		 * creation can have any OID, particularly after OID wraparound.
 		 */

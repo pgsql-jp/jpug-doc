@@ -621,19 +621,13 @@ select x from int8_tbl, extractq2(int8_tbl) f(x);
 select x from int8_tbl, extractq2(int8_tbl) f(x);
 
 create function extractq2_2(t int8_tbl) returns table(ret1 int8) as $$
-<<<<<<< HEAD
-  select extractq2(t)
-=======
   select extractq2(t) offset 0
->>>>>>> FETCH_HEAD
 $$ language sql immutable;
 
 explain (verbose, costs off)
 select x from int8_tbl, extractq2_2(int8_tbl) f(x);
 
 select x from int8_tbl, extractq2_2(int8_tbl) f(x);
-<<<<<<< HEAD
-=======
 
 -- without the "offset 0", this function gets optimized quite differently
 
@@ -645,4 +639,3 @@ explain (verbose, costs off)
 select x from int8_tbl, extractq2_2_opt(int8_tbl) f(x);
 
 select x from int8_tbl, extractq2_2_opt(int8_tbl) f(x);
->>>>>>> FETCH_HEAD

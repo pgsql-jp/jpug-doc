@@ -734,10 +734,7 @@ dumpRoles(PGconn *conn)
 						  "null::text as rolpassword, "
 						  "null::abstime as rolvaliduntil, "
 						  "false as rolreplication, "
-<<<<<<< HEAD
-=======
 						  "false as rolbypassrls, "
->>>>>>> FETCH_HEAD
 						  "null as rolcomment, "
 						  "false AS is_current_user "
 						  "FROM pg_group "
@@ -1263,8 +1260,6 @@ dumpCreateDB(PGconn *conn)
 
 	/* Now collect all the information about databases to dump */
 	if (server_version >= 90300)
-<<<<<<< HEAD
-=======
 		res = executeQuery(conn,
 						   "SELECT datname, "
 						   "coalesce(rolname, (select rolname from pg_authid where oid=(select datdba from pg_database where datname='template0'))), "
@@ -1275,26 +1270,11 @@ dumpCreateDB(PGconn *conn)
 			  "FROM pg_database d LEFT JOIN pg_authid u ON (datdba = u.oid) "
 						   "WHERE datallowconn ORDER BY 1");
 	else if (server_version >= 80400)
->>>>>>> FETCH_HEAD
 		res = executeQuery(conn,
 						   "SELECT datname, "
 						   "coalesce(rolname, (select rolname from pg_authid where oid=(select datdba from pg_database where datname='template0'))), "
 						   "pg_encoding_to_char(d.encoding), "
-<<<<<<< HEAD
-						   "datcollate, datctype, datfrozenxid, datminmxid, "
-						   "datistemplate, datacl, datconnlimit, "
-						   "(SELECT spcname FROM pg_tablespace t WHERE t.oid = d.dattablespace) AS dattablespace "
-			  "FROM pg_database d LEFT JOIN pg_authid u ON (datdba = u.oid) "
-						   "WHERE datallowconn ORDER BY 1");
-	else if (server_version >= 80400)
-		res = executeQuery(conn,
-						   "SELECT datname, "
-						   "coalesce(rolname, (select rolname from pg_authid where oid=(select datdba from pg_database where datname='template0'))), "
-						   "pg_encoding_to_char(d.encoding), "
-						   "datcollate, datctype, datfrozenxid, 0 AS datminmxid, "
-=======
 					  "datcollate, datctype, datfrozenxid, 0 AS datminmxid, "
->>>>>>> FETCH_HEAD
 						   "datistemplate, datacl, datconnlimit, "
 						   "(SELECT spcname FROM pg_tablespace t WHERE t.oid = d.dattablespace) AS dattablespace "
 			  "FROM pg_database d LEFT JOIN pg_authid u ON (datdba = u.oid) "
@@ -1304,11 +1284,7 @@ dumpCreateDB(PGconn *conn)
 						   "SELECT datname, "
 						   "coalesce(rolname, (select rolname from pg_authid where oid=(select datdba from pg_database where datname='template0'))), "
 						   "pg_encoding_to_char(d.encoding), "
-<<<<<<< HEAD
-		   "null::text AS datcollate, null::text AS datctype, datfrozenxid, 0 AS datminmxid, "
-=======
 						   "null::text AS datcollate, null::text AS datctype, datfrozenxid, 0 AS datminmxid, "
->>>>>>> FETCH_HEAD
 						   "datistemplate, datacl, datconnlimit, "
 						   "(SELECT spcname FROM pg_tablespace t WHERE t.oid = d.dattablespace) AS dattablespace "
 			  "FROM pg_database d LEFT JOIN pg_authid u ON (datdba = u.oid) "
@@ -1318,11 +1294,7 @@ dumpCreateDB(PGconn *conn)
 						   "SELECT datname, "
 						   "coalesce(usename, (select usename from pg_shadow where usesysid=(select datdba from pg_database where datname='template0'))), "
 						   "pg_encoding_to_char(d.encoding), "
-<<<<<<< HEAD
-		   "null::text AS datcollate, null::text AS datctype, datfrozenxid, 0 AS datminmxid, "
-=======
 						   "null::text AS datcollate, null::text AS datctype, datfrozenxid, 0 AS datminmxid, "
->>>>>>> FETCH_HEAD
 						   "datistemplate, datacl, -1 as datconnlimit, "
 						   "(SELECT spcname FROM pg_tablespace t WHERE t.oid = d.dattablespace) AS dattablespace "
 		   "FROM pg_database d LEFT JOIN pg_shadow u ON (datdba = usesysid) "
@@ -1332,11 +1304,7 @@ dumpCreateDB(PGconn *conn)
 						   "SELECT datname, "
 						   "coalesce(usename, (select usename from pg_shadow where usesysid=(select datdba from pg_database where datname='template0'))), "
 						   "pg_encoding_to_char(d.encoding), "
-<<<<<<< HEAD
-		   "null::text AS datcollate, null::text AS datctype, datfrozenxid, 0 AS datminmxid, "
-=======
 						   "null::text AS datcollate, null::text AS datctype, datfrozenxid, 0 AS datminmxid, "
->>>>>>> FETCH_HEAD
 						   "datistemplate, datacl, -1 as datconnlimit, "
 						   "'pg_default' AS dattablespace "
 		   "FROM pg_database d LEFT JOIN pg_shadow u ON (datdba = usesysid) "
@@ -1456,34 +1424,9 @@ dumpCreateDB(PGconn *conn)
 			else
 				appendPQExpBuffer(buf, "\\connect postgres\n");
 
-<<<<<<< HEAD
-			if (strcmp(dbistemplate, "t") == 0)
-			{
-				appendPQExpBufferStr(buf, "UPDATE pg_catalog.pg_database SET datistemplate = 't' WHERE datname = ");
-				appendStringLiteralConn(buf, dbname, conn);
-				appendPQExpBufferStr(buf, ";\n");
-			}
-		}
-		else if (strcmp(dbtablespace, "pg_default") != 0 && !no_tablespaces)
-		{
-			/*
-			 * Cannot change tablespace of the database we're connected to,
-			 * so to move "postgres" to another tablespace, we connect to
-			 * "template1", and vice versa.
-			 */
-			if (strcmp(dbname, "postgres") == 0)
-				appendPQExpBuffer(buf, "\\connect template1\n");
-			else
-				appendPQExpBuffer(buf, "\\connect postgres\n");
-
 			appendPQExpBuffer(buf, "ALTER DATABASE %s SET TABLESPACE %s;\n",
 							  fdbname, fmtId(dbtablespace));
 
-=======
-			appendPQExpBuffer(buf, "ALTER DATABASE %s SET TABLESPACE %s;\n",
-							  fdbname, fmtId(dbtablespace));
-
->>>>>>> FETCH_HEAD
 			/* connect to original database */
 			appendPQExpBuffer(buf, "\\connect %s\n", fdbname);
 		}

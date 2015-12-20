@@ -1071,12 +1071,8 @@ exec_command(const char *cmd,
 			static const char *const my_list[] = {
 				"border", "columns", "expanded", "fieldsep", "fieldsep_zero",
 				"footer", "format", "linestyle", "null",
-<<<<<<< HEAD
-				"numericlocale", "pager", "recordsep", "recordsep_zero",
-=======
 				"numericlocale", "pager", "pager_min_lines",
 				"recordsep", "recordsep_zero",
->>>>>>> FETCH_HEAD
 				"tableattr", "title", "tuples_only",
 				"unicode_border_linestyle",
 				"unicode_column_linestyle",
@@ -1086,14 +1082,9 @@ exec_command(const char *cmd,
 
 			for (i = 0; my_list[i] != NULL; i++)
 			{
-<<<<<<< HEAD
-				char   *val = pset_value_string(my_list[i], &pset.popt);
-				printf("%-14s %s\n", my_list[i], val);
-=======
 				char	   *val = pset_value_string(my_list[i], &pset.popt);
 
 				printf("%-24s %s\n", my_list[i], val);
->>>>>>> FETCH_HEAD
 				free(val);
 			}
 
@@ -1650,17 +1641,6 @@ do_connect(char *dbname, char *user, char *host, char *port)
 
 	/*
 	 * Any change in the parameters read above makes us discard the password.
-<<<<<<< HEAD
-	 * We also discard it if we're to use a conninfo rather than the positional
-	 * syntax.
-	 */
-	keep_password =
-		(o_conn &&
-		 (strcmp(user, PQuser(o_conn)) == 0) &&
-		 (!host || strcmp(host, PQhost(o_conn)) == 0) &&
-		 (strcmp(port, PQport(o_conn)) == 0) &&
-		 !has_connection_string);
-=======
 	 * We also discard it if we're to use a conninfo rather than the
 	 * positional syntax.  Note that currently, PQhost() can return NULL for a
 	 * default Unix-socket connection, so we have to allow NULL for host.
@@ -1673,7 +1653,6 @@ do_connect(char *dbname, char *user, char *host, char *port)
 			((host && PQhost(o_conn) && strcmp(host, PQhost(o_conn)) == 0) ||
 			 (host == NULL && PQhost(o_conn) == NULL)) &&
 			(port && PQport(o_conn) && strcmp(port, PQport(o_conn)) == 0);
->>>>>>> FETCH_HEAD
 
 	/*
 	 * Grab dbname from old connection unless supplied by caller.  No password
@@ -1885,18 +1864,10 @@ printSSLInfo(void)
 	if (!PQsslInUse(pset.db))
 		return;					/* no SSL */
 
-<<<<<<< HEAD
-	SSL_get_cipher_bits(ssl, &sslbits);
-	printf(_("SSL connection (protocol: %s, cipher: %s, bits: %d, compression: %s)\n"),
-		   SSL_get_version(ssl), SSL_get_cipher(ssl), sslbits,
-		   SSL_get_current_compression(ssl) ? _("on") : _("off"));
-#else
-=======
 	protocol = PQsslAttribute(pset.db, "protocol");
 	cipher = PQsslAttribute(pset.db, "cipher");
 	bits = PQsslAttribute(pset.db, "key_bits");
 	compression = PQsslAttribute(pset.db, "compression");
->>>>>>> FETCH_HEAD
 
 	printf(_("SSL connection (protocol: %s, cipher: %s, bits: %s, compression: %s)\n"),
 		   protocol ? protocol : _("unknown"),
@@ -2406,11 +2377,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 			popt->topt.format = PRINT_TROFF_MS;
 		else
 		{
-<<<<<<< HEAD
-			psql_error("\\pset: allowed formats are unaligned, aligned, wrapped, html, latex, latex-longtable, troff-ms\n");
-=======
 			psql_error("\\pset: allowed formats are unaligned, aligned, wrapped, html, asciidoc, latex, latex-longtable, troff-ms\n");
->>>>>>> FETCH_HEAD
 			return false;
 		}
 
@@ -2729,8 +2696,6 @@ printPsetInfo(const char *param, struct printQueryOpt *popt)
 			printf(_("Pager is always used.\n"));
 		else
 			printf(_("Pager usage is off.\n"));
-<<<<<<< HEAD
-=======
 	}
 
 	/* show minimum lines for pager use */
@@ -2740,7 +2705,6 @@ printPsetInfo(const char *param, struct printQueryOpt *popt)
 						"Pager won't be used for less than %d lines.\n",
 						popt->topt.pager_min_lines),
 			   popt->topt.pager_min_lines);
->>>>>>> FETCH_HEAD
 	}
 
 	/* show record separator for unaligned text */
@@ -2786,8 +2750,6 @@ printPsetInfo(const char *param, struct printQueryOpt *popt)
 			printf(_("Tuples only is on.\n"));
 		else
 			printf(_("Tuples only is off.\n"));
-<<<<<<< HEAD
-=======
 	}
 
 	/* Unicode style formatting */
@@ -2807,7 +2769,6 @@ printPsetInfo(const char *param, struct printQueryOpt *popt)
 	{
 		printf(_("Unicode header line style is \"%s\".\n"),
 			 _unicode_linestyle2string(popt->topt.unicode_header_linestyle));
->>>>>>> FETCH_HEAD
 	}
 
 	else
@@ -2898,11 +2859,8 @@ pset_value_string(const char *param, struct printQueryOpt *popt)
 		return pstrdup(pset_bool_string(popt->topt.numericLocale));
 	else if (strcmp(param, "pager") == 0)
 		return psprintf("%d", popt->topt.pager);
-<<<<<<< HEAD
-=======
 	else if (strcmp(param, "pager_min_lines") == 0)
 		return psprintf("%d", popt->topt.pager_min_lines);
->>>>>>> FETCH_HEAD
 	else if (strcmp(param, "recordsep") == 0)
 		return pset_quoted_string(popt->topt.recordSep.separator
 								  ? popt->topt.recordSep.separator
@@ -2915,15 +2873,12 @@ pset_value_string(const char *param, struct printQueryOpt *popt)
 		return popt->title ? pset_quoted_string(popt->title) : pstrdup("");
 	else if (strcmp(param, "tuples_only") == 0)
 		return pstrdup(pset_bool_string(popt->topt.tuples_only));
-<<<<<<< HEAD
-=======
 	else if (strcmp(param, "unicode_border_linestyle") == 0)
 		return pstrdup(_unicode_linestyle2string(popt->topt.unicode_border_linestyle));
 	else if (strcmp(param, "unicode_column_linestyle") == 0)
 		return pstrdup(_unicode_linestyle2string(popt->topt.unicode_column_linestyle));
 	else if (strcmp(param, "unicode_header_linestyle") == 0)
 		return pstrdup(_unicode_linestyle2string(popt->topt.unicode_header_linestyle));
->>>>>>> FETCH_HEAD
 	else
 		return pstrdup("ERROR");
 }

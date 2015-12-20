@@ -79,20 +79,12 @@ typedef struct ReplicationSlotOnDisk
 /* size of the part covered by the checksum */
 #define SnapBuildOnDiskChecksummedSize \
 	sizeof(ReplicationSlotOnDisk) - SnapBuildOnDiskNotChecksummedSize
-<<<<<<< HEAD
-/* size of the slot data that is version dependant */
-=======
 /* size of the slot data that is version dependent */
->>>>>>> FETCH_HEAD
 #define ReplicationSlotOnDiskV2Size \
 	sizeof(ReplicationSlotOnDisk) - ReplicationSlotOnDiskConstantSize
 
 #define SLOT_MAGIC		0x1051CA1		/* format identifier */
-<<<<<<< HEAD
-#define SLOT_VERSION	2				/* version for new files */
-=======
 #define SLOT_VERSION	2		/* version for new files */
->>>>>>> FETCH_HEAD
 
 /* Control array for replication slot management */
 ReplicationSlotCtlData *ReplicationSlotCtl = NULL;
@@ -554,11 +546,7 @@ ReplicationSlotMarkDirty(void)
 
 /*
  * Convert a slot that's marked as RS_EPHEMERAL to a RS_PERSISTENT slot,
-<<<<<<< HEAD
- * guaranteeing it will be there after a eventual crash.
-=======
  * guaranteeing it will be there after an eventual crash.
->>>>>>> FETCH_HEAD
  */
 void
 ReplicationSlotPersist(void)
@@ -998,11 +986,7 @@ SaveSlotToPath(ReplicationSlot *slot, const char *dir, int elevel)
 	}
 
 	cp.magic = SLOT_MAGIC;
-<<<<<<< HEAD
-	INIT_CRC32(cp.checksum);
-=======
 	INIT_CRC32C(cp.checksum);
->>>>>>> FETCH_HEAD
 	cp.version = SLOT_VERSION;
 	cp.length = ReplicationSlotOnDiskV2Size;
 
@@ -1012,17 +996,10 @@ SaveSlotToPath(ReplicationSlot *slot, const char *dir, int elevel)
 
 	SpinLockRelease(&slot->mutex);
 
-<<<<<<< HEAD
-	COMP_CRC32(cp.checksum,
-				(char *) (&cp) + SnapBuildOnDiskNotChecksummedSize,
-				SnapBuildOnDiskChecksummedSize);
-	FIN_CRC32(cp.checksum);
-=======
 	COMP_CRC32C(cp.checksum,
 				(char *) (&cp) + SnapBuildOnDiskNotChecksummedSize,
 				SnapBuildOnDiskChecksummedSize);
 	FIN_CRC32C(cp.checksum);
->>>>>>> FETCH_HEAD
 
 	if ((write(fd, &cp, sizeof(cp))) != sizeof(cp))
 	{
@@ -1199,19 +1176,11 @@ RestoreSlotFromDisk(const char *name)
 	CloseTransientFile(fd);
 
 	/* now verify the CRC */
-<<<<<<< HEAD
-	INIT_CRC32(checksum);
-	COMP_CRC32(checksum,
-			   (char *) &cp + SnapBuildOnDiskNotChecksummedSize,
-			   SnapBuildOnDiskChecksummedSize);
-	FIN_CRC32(checksum);
-=======
 	INIT_CRC32C(checksum);
 	COMP_CRC32C(checksum,
 				(char *) &cp + SnapBuildOnDiskNotChecksummedSize,
 				SnapBuildOnDiskChecksummedSize);
 	FIN_CRC32C(checksum);
->>>>>>> FETCH_HEAD
 
 	if (!EQ_CRC32C(checksum, cp.checksum))
 		ereport(PANIC,

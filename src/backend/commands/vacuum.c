@@ -71,13 +71,8 @@ static void vac_truncate_clog(TransactionId frozenXID,
 				  MultiXactId minMulti,
 				  TransactionId lastSaneFrozenXid,
 				  MultiXactId lastSaneMinMulti);
-<<<<<<< HEAD
-static bool vacuum_rel(Oid relid, VacuumStmt *vacstmt, bool do_toast,
-		   bool for_wraparound);
-=======
 static bool vacuum_rel(Oid relid, RangeVar *relation, int options,
 		   VacuumParams *params);
->>>>>>> FETCH_HEAD
 
 /*
  * Primary entry point for manual VACUUM and ANALYZE commands
@@ -185,14 +180,10 @@ vacuum(int options, RangeVar *relation, Oid relid, VacuumParams *params,
 	 * calls a hostile index expression that itself calls ANALYZE.
 	 */
 	if (in_vacuum)
-<<<<<<< HEAD
-		elog(ERROR, "%s cannot be executed from VACUUM or ANALYZE", stmttype);
-=======
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("%s cannot be executed from VACUUM or ANALYZE",
 						stmttype)));
->>>>>>> FETCH_HEAD
 
 	/*
 	 * Send info about dead objects to the statistics collector, unless we are
@@ -319,12 +310,8 @@ vacuum(int options, RangeVar *relation, Oid relid, VacuumParams *params,
 					PushActiveSnapshot(GetTransactionSnapshot());
 				}
 
-<<<<<<< HEAD
-				analyze_rel(relid, vacstmt, in_outer_xact, vac_strategy);
-=======
 				analyze_rel(relid, relation, options, params,
 							va_cols, in_outer_xact, vac_strategy);
->>>>>>> FETCH_HEAD
 
 				if (use_own_xacts)
 				{
@@ -546,13 +533,8 @@ vacuum_set_xid_limits(Relation rel,
 
 	/*
 	 * Compute the multixact age for which freezing is urgent.  This is
-<<<<<<< HEAD
-	 * normally autovacuum_multixact_freeze_max_age, but may be less if we
-	 * are short of multixact member space.
-=======
 	 * normally autovacuum_multixact_freeze_max_age, but may be less if we are
 	 * short of multixact member space.
->>>>>>> FETCH_HEAD
 	 */
 	effective_multixact_freeze_max_age = MultiXactMemberFreezeThreshold();
 
@@ -1155,18 +1137,11 @@ vac_truncate_clog(TransactionId frozenXID,
 		return;
 
 	/*
-<<<<<<< HEAD
-	 * Truncate CLOG to the oldest computed value.  Note we don't truncate
-	 * multixacts; that will be done by the next checkpoint.
-	 */
-	TruncateCLOG(frozenXID);
-=======
 	 * Truncate CLOG, multixact and CommitTs to the oldest computed value.
 	 */
 	TruncateCLOG(frozenXID);
 	TruncateCommitTs(frozenXID);
 	TruncateMultiXact(minMulti, minmulti_datoid);
->>>>>>> FETCH_HEAD
 
 	/*
 	 * Update the wrap limit for GetNewTransactionId and creation of new
@@ -1176,10 +1151,7 @@ vac_truncate_clog(TransactionId frozenXID,
 	 */
 	SetTransactionIdLimit(frozenXID, oldestxid_datoid);
 	SetMultiXactIdLimit(minMulti, minmulti_datoid);
-<<<<<<< HEAD
-=======
 	AdvanceOldestCommitTs(frozenXID);
->>>>>>> FETCH_HEAD
 }
 
 

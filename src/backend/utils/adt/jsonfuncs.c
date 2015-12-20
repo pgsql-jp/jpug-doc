@@ -123,8 +123,6 @@ static JsonbValue *findJsonbValueFromContainerLen(JsonbContainer *container,
 							   uint32 flags,
 							   char *key,
 							   uint32 keylen);
-<<<<<<< HEAD
-=======
 
 /* functions supporting jsonb_delete, jsonb_set and jsonb_concat */
 static JsonbValue *IteratorConcat(JsonbIterator **it1, JsonbIterator **it2,
@@ -141,7 +139,6 @@ static void setPathArray(JsonbIterator **it, Datum *path_elems,
 			 bool *path_nulls, int path_len, JsonbParseState **st,
 			 int level, Jsonb *newval, uint32 nelems, bool create);
 static void addJsonbToParseState(JsonbParseState **jbps, Jsonb *jb);
->>>>>>> FETCH_HEAD
 
 /* state for json_object_keys */
 typedef struct OkeysState
@@ -599,8 +596,6 @@ jsonb_array_element(PG_FUNCTION_ARGS)
 
 	if (!JB_ROOT_IS_ARRAY(jb))
 		PG_RETURN_NULL();
-<<<<<<< HEAD
-=======
 
 	/* Handle negative subscript */
 	if (element < 0)
@@ -612,7 +607,6 @@ jsonb_array_element(PG_FUNCTION_ARGS)
 		else
 			element += nelements;
 	}
->>>>>>> FETCH_HEAD
 
 	v = getIthJsonbValueFromContainer(&jb->root, element);
 	if (v != NULL)
@@ -645,8 +639,6 @@ jsonb_array_element_text(PG_FUNCTION_ARGS)
 
 	if (!JB_ROOT_IS_ARRAY(jb))
 		PG_RETURN_NULL();
-<<<<<<< HEAD
-=======
 
 	/* Handle negative subscript */
 	if (element < 0)
@@ -658,7 +650,6 @@ jsonb_array_element_text(PG_FUNCTION_ARGS)
 		else
 			element += nelements;
 	}
->>>>>>> FETCH_HEAD
 
 	v = getIthJsonbValueFromContainer(&jb->root, element);
 	if (v != NULL)
@@ -759,17 +750,10 @@ get_path_all(FunctionCallInfo fcinfo, bool as_text)
 
 			errno = 0;
 			ind = strtol(tpath[i], &endptr, 10);
-<<<<<<< HEAD
-			if (*endptr == '\0' && errno == 0 && ind <= INT_MAX && ind >= 0)
-				ipath[i] = (int) ind;
-			else
-				ipath[i] = -1;
-=======
 			if (*endptr == '\0' && errno == 0 && ind <= INT_MAX && ind >= INT_MIN)
 				ipath[i] = (int) ind;
 			else
 				ipath[i] = INT_MIN;
->>>>>>> FETCH_HEAD
 		}
 		else
 			ipath[i] = INT_MIN;
@@ -790,24 +774,15 @@ get_path_all(FunctionCallInfo fcinfo, bool as_text)
  *
  * json: JSON object (in text form)
  * tpath[]: field name(s) to extract
-<<<<<<< HEAD
- * ipath[]: array index(es) (zero-based) to extract
-=======
  * ipath[]: array index(es) (zero-based) to extract, accepts negatives
->>>>>>> FETCH_HEAD
  * npath: length of tpath[] and/or ipath[]
  * normalize_results: true to de-escape string and null scalars
  *
  * tpath can be NULL, or any one tpath[] entry can be NULL, if an object
  * field is not to be matched at that nesting level.  Similarly, ipath can
-<<<<<<< HEAD
- * be NULL, or any one ipath[] entry can be -1, if an array element is not
- * to be matched at that nesting level.
-=======
  * be NULL, or any one ipath[] entry can be INT_MIN if an array element is
  * not to be matched at that nesting level (a json datum should never be
  * large enough to have -INT_MIN elements due to MaxAllocSize restriction).
->>>>>>> FETCH_HEAD
  */
 static text *
 get_worker(text *json,
@@ -1002,33 +977,6 @@ get_array_start(void *state)
 	{
 		/* Initialize counting of elements in this array */
 		_state->array_cur_index[lex_level] = -1;
-<<<<<<< HEAD
-	}
-	else if (lex_level == 0 && _state->npath == 0)
-	{
-		/*
-		 * Special case: we should match the entire array.  We only need this
-		 * at outermost level because at nested levels the match will have
-		 * been started by the outer field or array element callback.
-		 */
-		_state->result_start = _state->lex->token_start;
-	}
-}
-
-static void
-get_array_end(void *state)
-{
-	GetState   *_state = (GetState *) state;
-	int			lex_level = _state->lex->lex_level;
-
-	if (lex_level == 0 && _state->npath == 0)
-	{
-		/* Special case: return the entire array */
-		char	   *start = _state->result_start;
-		int			len = _state->lex->prev_token_terminator - start;
-
-		_state->tresult = cstring_to_text_with_len(start, len);
-=======
 
 		/* INT_MIN value is reserved to represent invalid subscript */
 		if (_state->path_indexes[lex_level] < 0 &&
@@ -1049,7 +997,6 @@ get_array_end(void *state)
 		 * have been started by the outer field or array element callback.
 		 */
 		_state->result_start = _state->lex->token_start;
->>>>>>> FETCH_HEAD
 	}
 }
 
@@ -1059,12 +1006,6 @@ get_array_end(void *state)
 	GetState   *_state = (GetState *) state;
 	int			lex_level = _state->lex->lex_level;
 
-<<<<<<< HEAD
-	/* Update array element counter */
-	if (lex_level <= _state->npath)
-		_state->array_cur_index[lex_level - 1]++;
-
-=======
 	if (lex_level == 0 && _state->npath == 0)
 	{
 		/* Special case: return the entire array */
@@ -1086,7 +1027,6 @@ get_array_element_start(void *state, bool isnull)
 	if (lex_level <= _state->npath)
 		_state->array_cur_index[lex_level - 1]++;
 
->>>>>>> FETCH_HEAD
 	if (lex_level <= _state->npath &&
 		_state->pathok[lex_level - 1] &&
 		_state->path_indexes != NULL &&
@@ -1270,24 +1210,6 @@ get_jsonb_path_all(FunctionCallInfo fcinfo, bool as_text)
 	 * JsonbValue directly for root-level containers.)
 	 */
 	if (npath <= 0 && jbvp == NULL)
-<<<<<<< HEAD
-	{
-		if (as_text)
-		{
-			PG_RETURN_TEXT_P(cstring_to_text(JsonbToCString(NULL,
-															container,
-															VARSIZE(jb))));
-		}
-		else
-		{
-			/* not text mode - just hand back the jsonb */
-			PG_RETURN_JSONB(jb);
-		}
-	}
-
-	for (i = 0; i < npath; i++)
-=======
->>>>>>> FETCH_HEAD
 	{
 		if (as_text)
 		{
@@ -1321,11 +1243,7 @@ get_jsonb_path_all(FunctionCallInfo fcinfo, bool as_text)
 			errno = 0;
 			lindex = strtol(indextext, &endptr, 10);
 			if (endptr == indextext || *endptr != '\0' || errno != 0 ||
-<<<<<<< HEAD
-				lindex > INT_MAX || lindex < 0)
-=======
 				lindex > INT_MAX || lindex < INT_MIN)
->>>>>>> FETCH_HEAD
 				PG_RETURN_NULL();
 
 			if (lindex >= 0)

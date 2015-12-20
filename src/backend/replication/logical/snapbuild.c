@@ -598,11 +598,7 @@ SnapBuildExportSnapshot(SnapBuild *builder)
 
 	ereport(LOG,
 			(errmsg_plural("exported logical decoding snapshot: \"%s\" with %u transaction ID",
-<<<<<<< HEAD
-						   "exported logical decoding snapshot: \"%s\" with %u transaction IDs",
-=======
 		"exported logical decoding snapshot: \"%s\" with %u transaction IDs",
->>>>>>> FETCH_HEAD
 						   snap->xcnt,
 						   snapname, snap->xcnt)));
 	return snapname;
@@ -907,13 +903,8 @@ SnapBuildEndTxn(SnapBuild *builder, XLogRecPtr lsn, TransactionId xid)
 			ereport(LOG,
 				  (errmsg("logical decoding found consistent point at %X/%X",
 						  (uint32) (lsn >> 32), (uint32) lsn),
-<<<<<<< HEAD
-				errdetail("Transaction ID %u finished; no more running transactions.",
-						  xid)));
-=======
 				   errdetail("Transaction ID %u finished; no more running transactions.",
 							 xid)));
->>>>>>> FETCH_HEAD
 			builder->state = SNAPBUILD_CONSISTENT;
 		}
 	}
@@ -1240,13 +1231,8 @@ SnapBuildFindSnapshot(SnapBuild *builder, XLogRecPtr lsn, xl_running_xacts *runn
 	{
 		ereport(DEBUG1,
 				(errmsg_internal("skipping snapshot at %X/%X while building logical decoding snapshot, xmin horizon too low",
-<<<<<<< HEAD
-						(uint32) (lsn >> 32), (uint32) lsn),
-				 errdetail_internal("initial xmin horizon of %u vs the snapshot's %u",
-=======
 								 (uint32) (lsn >> 32), (uint32) lsn),
 		errdetail_internal("initial xmin horizon of %u vs the snapshot's %u",
->>>>>>> FETCH_HEAD
 				 builder->initial_xmin_horizon, running->oldestRunningXid)));
 		return true;
 	}
@@ -1265,13 +1251,8 @@ SnapBuildFindSnapshot(SnapBuild *builder, XLogRecPtr lsn, xl_running_xacts *runn
 			builder->start_decoding_at = lsn + 1;
 
 		/* As no transactions were running xmin/xmax can be trivially set. */
-<<<<<<< HEAD
-		builder->xmin = running->nextXid; /* < are finished */
-		builder->xmax = running->nextXid; /* >= are running */
-=======
 		builder->xmin = running->nextXid;		/* < are finished */
 		builder->xmax = running->nextXid;		/* >= are running */
->>>>>>> FETCH_HEAD
 
 		/* so we can safely use the faster comparisons */
 		Assert(TransactionIdIsNormal(builder->xmin));
@@ -1320,13 +1301,8 @@ SnapBuildFindSnapshot(SnapBuild *builder, XLogRecPtr lsn, xl_running_xacts *runn
 		 * currently running transactions have finished. We'll update both
 		 * while waiting for the pending transactions to finish.
 		 */
-<<<<<<< HEAD
-		builder->xmin = running->nextXid; /* < are finished */
-		builder->xmax = running->nextXid;  /* >= are running */
-=======
 		builder->xmin = running->nextXid;		/* < are finished */
 		builder->xmax = running->nextXid;		/* >= are running */
->>>>>>> FETCH_HEAD
 
 		/* so we can safely use the faster comparisons */
 		Assert(TransactionIdIsNormal(builder->xmin));
@@ -1582,11 +1558,7 @@ SnapBuildSerialize(SnapBuild *builder, XLogRecPtr lsn)
 	COMP_CRC32C(ondisk->checksum, ondisk_c, sz);
 	ondisk_c += sz;
 
-<<<<<<< HEAD
-	FIN_CRC32(ondisk->checksum);
-=======
 	FIN_CRC32C(ondisk->checksum);
->>>>>>> FETCH_HEAD
 
 	/* we have valid data now, open tempfile and write it there */
 	fd = OpenTransientFile(tmppath,
@@ -1760,11 +1732,7 @@ SnapBuildRestore(SnapBuild *builder, XLogRecPtr lsn)
 
 	CloseTransientFile(fd);
 
-<<<<<<< HEAD
-	FIN_CRC32(checksum);
-=======
 	FIN_CRC32C(checksum);
->>>>>>> FETCH_HEAD
 
 	/* verify checksum of what we've read */
 	if (!EQ_CRC32C(checksum, ondisk.checksum))

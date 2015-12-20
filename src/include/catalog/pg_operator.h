@@ -1810,11 +1810,6 @@ DESCR("key exists");
 DATA(insert OID = 3248 (  "?|"	   PGNSP PGUID b f f 3802 1009 16 0 0 jsonb_exists_any contsel contjoinsel ));
 DESCR("any key exists");
 DATA(insert OID = 3249 (  "?&"	   PGNSP PGUID b f f 3802 1009 16 0 0 jsonb_exists_all contsel contjoinsel ));
-<<<<<<< HEAD
-DESCR("exists all");
-DATA(insert OID = 3250 (  "<@"	   PGNSP PGUID b f f 3802 3802 16 3246 0 jsonb_contained contsel contjoinsel ));
-DESCR("is contained by");
-=======
 DESCR("all keys exist");
 DATA(insert OID = 3250 (  "<@"	   PGNSP PGUID b f f 3802 3802 16 3246 0 jsonb_contained contsel contjoinsel ));
 DESCR("is contained by");
@@ -1826,7 +1821,6 @@ DATA(insert OID = 3286 (  "-"	   PGNSP PGUID b f f 3802 23 3802 0 0 3303 - - ));
 DESCR("delete array element");
 DATA(insert OID = 3287 (  "#-"	   PGNSP PGUID b f f 3802 1009 3802 0 0 jsonb_delete_path - - ));
 DESCR("delete path");
->>>>>>> FETCH_HEAD
 
 /*
  * function prototypes

@@ -146,11 +146,7 @@ StartupDecodingContext(List *output_plugin_options,
 	 * replication slots.
 	 *
 	 * We can only do so if we're outside of a transaction (i.e. the case when
-<<<<<<< HEAD
-	 * streaming changes via walsender), otherwise a already setup
-=======
 	 * streaming changes via walsender), otherwise an already setup
->>>>>>> FETCH_HEAD
 	 * snapshot/xid would end up being ignored. That's not a particularly
 	 * bothersome restriction since the SQL interface can't be used for
 	 * streaming anyway.
@@ -235,11 +231,7 @@ CreateInitDecodingContext(char *plugin,
 	if (slot->data.database == InvalidOid)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
-<<<<<<< HEAD
-				 errmsg("cannot use physical replication slot for logical decoding")));
-=======
 		errmsg("cannot use physical replication slot for logical decoding")));
->>>>>>> FETCH_HEAD
 
 	if (slot->data.database != MyDatabaseId)
 		ereport(ERROR,

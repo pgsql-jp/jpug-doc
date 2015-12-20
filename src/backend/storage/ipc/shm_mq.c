@@ -815,14 +815,11 @@ shm_mq_send_bytes(shm_mq_handle *mqh, Size nbytes, const void *data,
 			 */
 			if (nowait)
 			{
-<<<<<<< HEAD
-=======
 				if (shm_mq_counterparty_gone(mq, mqh->mqh_handle))
 				{
 					*bytes_written = sent;
 					return SHM_MQ_DETACHED;
 				}
->>>>>>> FETCH_HEAD
 				if (shm_mq_get_receiver(mq) == NULL)
 				{
 					*bytes_written = sent;

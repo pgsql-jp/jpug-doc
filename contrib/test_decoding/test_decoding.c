@@ -44,10 +44,7 @@ typedef struct
 	bool		include_timestamp;
 	bool		skip_empty_xacts;
 	bool		xact_wrote_changes;
-<<<<<<< HEAD
-=======
 	bool		only_local;
->>>>>>> FETCH_HEAD
 } TestDecodingData;
 
 static void pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt,
@@ -56,15 +53,9 @@ static void pg_decode_shutdown(LogicalDecodingContext *ctx);
 static void pg_decode_begin_txn(LogicalDecodingContext *ctx,
 					ReorderBufferTXN *txn);
 static void pg_output_begin(LogicalDecodingContext *ctx,
-<<<<<<< HEAD
-							TestDecodingData *data,
-							ReorderBufferTXN *txn,
-							bool last_write);
-=======
 				TestDecodingData *data,
 				ReorderBufferTXN *txn,
 				bool last_write);
->>>>>>> FETCH_HEAD
 static void pg_decode_commit_txn(LogicalDecodingContext *ctx,
 					 ReorderBufferTXN *txn, XLogRecPtr commit_lsn);
 static void pg_decode_change(LogicalDecodingContext *ctx,
@@ -111,10 +102,7 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt,
 	data->include_xids = true;
 	data->include_timestamp = false;
 	data->skip_empty_xacts = false;
-<<<<<<< HEAD
-=======
 	data->only_local = false;
->>>>>>> FETCH_HEAD
 
 	ctx->output_plugin_private = data;
 
@@ -173,8 +161,6 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt,
 				  errmsg("could not parse value \"%s\" for parameter \"%s\"",
 						 strVal(elem->arg), elem->defname)));
 		}
-<<<<<<< HEAD
-=======
 		else if (strcmp(elem->defname, "only-local") == 0)
 		{
 
@@ -186,7 +172,6 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt,
 				  errmsg("could not parse value \"%s\" for parameter \"%s\"",
 						 strVal(elem->arg), elem->defname)));
 		}
->>>>>>> FETCH_HEAD
 		else
 		{
 			ereport(ERROR,

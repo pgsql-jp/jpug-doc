@@ -294,12 +294,6 @@ newarc(struct nfa * nfa,
 		return;
 	}
 
-<<<<<<< HEAD
-	/* check for duplicates */
-	for (a = from->outs; a != NULL; a = a->outchain)
-		if (a->to == to && a->co == co && a->type == t)
-			return;
-=======
 	/* check for duplicate arc, using whichever chain is shorter */
 	if (from->nouts <= to->nins)
 	{
@@ -332,7 +326,6 @@ createarc(struct nfa * nfa,
 		  struct state * to)
 {
 	struct arc *a;
->>>>>>> FETCH_HEAD
 
 	/* the arc is physically allocated within its from-state */
 	a = allocarc(nfa, from);
@@ -1970,9 +1963,6 @@ fixempties(struct nfa * nfa,
 	/* And iterate over the target states */
 	for (s = nfa->states; s != NULL && !NISERR(); s = s->next)
 	{
-<<<<<<< HEAD
-		for (s2 = emptyreachable(nfa, s, s); s2 != s && !NISERR(); s2 = nexts)
-=======
 		/* Ignore target states without non-EMPTY outarcs, per note above */
 		if (!s->flag && !hasnonemptyout(s))
 			continue;
@@ -1980,7 +1970,6 @@ fixempties(struct nfa * nfa,
 		/* Find predecessor states and accumulate their original inarcs */
 		arccount = 0;
 		for (s2 = emptyreachable(nfa, s, s, inarcsorig); s2 != s; s2 = nexts)
->>>>>>> FETCH_HEAD
 		{
 			/* Add s2's original inarcs to arcarray[], but ignore empties */
 			for (a = inarcsorig[s2->no]; a != NULL; a = a->inchain)
@@ -2063,12 +2052,8 @@ fixempties(struct nfa * nfa,
 static struct state *
 emptyreachable(struct nfa * nfa,
 			   struct state * s,
-<<<<<<< HEAD
-			   struct state * lastfound)
-=======
 			   struct state * lastfound,
 			   struct arc ** inarcsorig)
->>>>>>> FETCH_HEAD
 {
 	struct arc *a;
 
@@ -2083,13 +2068,8 @@ emptyreachable(struct nfa * nfa,
 	lastfound = s;
 	for (a = inarcsorig[s->no]; a != NULL; a = a->inchain)
 	{
-<<<<<<< HEAD
-		if (a->type == EMPTY && a->to->tmp == NULL)
-			lastfound = emptyreachable(nfa, a->to, lastfound);
-=======
 		if (a->type == EMPTY && a->from->tmp == NULL)
 			lastfound = emptyreachable(nfa, a->from, lastfound, inarcsorig);
->>>>>>> FETCH_HEAD
 	}
 	return lastfound;
 }

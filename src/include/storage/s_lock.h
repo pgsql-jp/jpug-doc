@@ -356,13 +356,8 @@ tas(volatile slock_t *lock)
 /*
  * Solaris has always run sparc processors in TSO (total store) mode, but
  * linux didn't use to and the *BSDs still don't. So, be careful about
-<<<<<<< HEAD
- * acquire/release semantics. The CPU will treat superflous membars as NOPs,
- * so it's just code space.
-=======
  * acquire/release semantics. The CPU will treat superfluous membars as
  * NOPs, so it's just code space.
->>>>>>> FETCH_HEAD
  */
 #define HAS_TEST_AND_SET
 
@@ -406,15 +401,9 @@ tas(volatile slock_t *lock)
 #if defined(__sparcv7) || defined(__sparc_v7__)
 /*
  * No stbar or membar available, luckily no actually produced hardware
-<<<<<<< HEAD
- * requires a barrier.
- */
-#define S_UNLOCK(lock)		(*((volatile slock_t *) (lock)) = 0)
-=======
  * requires a barrier.  We fall through to the default gcc definition of
  * S_UNLOCK in this case.
  */
->>>>>>> FETCH_HEAD
 #elif defined(__sparcv8) || defined(__sparc_v8__)
 /* stbar is available (and required for both PSO, RMO), membar isn't */
 #define S_UNLOCK(lock)	\

@@ -25,11 +25,7 @@ standard_initdb() {
 	then
 		cat "$TEMP_CONFIG" >> "$PGDATA/postgresql.conf"
 	fi
-<<<<<<< HEAD:contrib/pg_upgrade/test.sh
-	../../src/test/regress/pg_regress --config-auth "$PGDATA"
-=======
 	../../test/regress/pg_regress --config-auth "$PGDATA"
->>>>>>> FETCH_HEAD:src/bin/pg_upgrade/test.sh
 }
 
 # Establish how the server will listen for connections
@@ -156,11 +152,7 @@ export EXTRA_REGRESS_OPTS
 set -x
 
 standard_initdb "$oldbindir"/initdb
-<<<<<<< HEAD:contrib/pg_upgrade/test.sh
-$oldbindir/pg_ctl start -l "$logdir/postmaster1.log" -o "$POSTMASTER_OPTS" -w
-=======
 "$oldbindir"/pg_ctl start -l "$logdir/postmaster1.log" -o "$POSTMASTER_OPTS" -w
->>>>>>> FETCH_HEAD:src/bin/pg_upgrade/test.sh
 if "$MAKE" -C "$oldsrc" installcheck; then
 	pg_dumpall -f "$temp_root"/dump1.sql || pg_dumpall1_status=$?
 	if [ "$newsrc" != "$oldsrc" ]; then

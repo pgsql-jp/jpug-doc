@@ -79,13 +79,6 @@ static void do_analyze_rel(Relation onerel, int options,
 			   VacuumParams *params, List *va_cols,
 			   AcquireSampleRowsFunc acquirefunc, BlockNumber relpages,
 			   bool inh, bool in_outer_xact, int elevel);
-<<<<<<< HEAD
-static void BlockSampler_Init(BlockSampler bs, BlockNumber nblocks,
-				  int samplesize);
-static bool BlockSampler_HasMore(BlockSampler bs);
-static BlockNumber BlockSampler_Next(BlockSampler bs);
-=======
->>>>>>> FETCH_HEAD
 static void compute_index_stats(Relation onerel, double totalrows,
 					AnlIndexData *indexdata, int nindexes,
 					HeapTuple *rows, int numrows,
@@ -109,14 +102,9 @@ static Datum ind_fetch_func(VacAttrStatsP stats, int rownum, bool *isNull);
  *	analyze_rel() -- analyze one relation
  */
 void
-<<<<<<< HEAD
-analyze_rel(Oid relid, VacuumStmt *vacstmt,
-			bool in_outer_xact, BufferAccessStrategy bstrategy)
-=======
 analyze_rel(Oid relid, RangeVar *relation, int options,
 			VacuumParams *params, List *va_cols, bool in_outer_xact,
 			BufferAccessStrategy bstrategy)
->>>>>>> FETCH_HEAD
 {
 	Relation	onerel;
 	int			elevel;
@@ -266,22 +254,14 @@ analyze_rel(Oid relid, RangeVar *relation, int options,
 	/*
 	 * Do the normal non-recursive ANALYZE.
 	 */
-<<<<<<< HEAD
-	do_analyze_rel(onerel, vacstmt, acquirefunc, relpages,
-=======
 	do_analyze_rel(onerel, options, params, va_cols, acquirefunc, relpages,
->>>>>>> FETCH_HEAD
 				   false, in_outer_xact, elevel);
 
 	/*
 	 * If there are child tables, do recursive ANALYZE.
 	 */
 	if (onerel->rd_rel->relhassubclass)
-<<<<<<< HEAD
-		do_analyze_rel(onerel, vacstmt, acquirefunc, relpages,
-=======
 		do_analyze_rel(onerel, options, params, va_cols, acquirefunc, relpages,
->>>>>>> FETCH_HEAD
 					   true, in_outer_xact, elevel);
 
 	/*
@@ -309,16 +289,10 @@ analyze_rel(Oid relid, RangeVar *relation, int options,
  * appropriate acquirefunc for each child table.
  */
 static void
-<<<<<<< HEAD
-do_analyze_rel(Relation onerel, VacuumStmt *vacstmt,
-			   AcquireSampleRowsFunc acquirefunc, BlockNumber relpages,
-			   bool inh, bool in_outer_xact, int elevel)
-=======
 do_analyze_rel(Relation onerel, int options, VacuumParams *params,
 			   List *va_cols, AcquireSampleRowsFunc acquirefunc,
 			   BlockNumber relpages, bool inh, bool in_outer_xact,
 			   int elevel)
->>>>>>> FETCH_HEAD
 {
 	int			attr_cnt,
 				tcnt,

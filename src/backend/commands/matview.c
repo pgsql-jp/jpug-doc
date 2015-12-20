@@ -66,13 +66,8 @@ static char *make_temptable_name_n(char *tempname, int n);
 static void mv_GenerateOper(StringInfo buf, Oid opoid);
 
 static void refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
-<<<<<<< HEAD
-						 int save_sec_context);
-static void refresh_by_heap_swap(Oid matviewOid, Oid OIDNewHeap);
-=======
 					   int save_sec_context);
 static void refresh_by_heap_swap(Oid matviewOid, Oid OIDNewHeap, char relpersistence);
->>>>>>> FETCH_HEAD
 
 static void OpenMatViewIncrementalMaintenance(void);
 static void CloseMatViewIncrementalMaintenance(void);
@@ -154,17 +149,11 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 	DestReceiver *dest;
 	bool		concurrent;
 	LOCKMODE	lockmode;
-<<<<<<< HEAD
-	Oid			save_userid;
-	int			save_sec_context;
-	int			save_nestlevel;
-=======
 	char		relpersistence;
 	Oid			save_userid;
 	int			save_sec_context;
 	int			save_nestlevel;
 	ObjectAddress address;
->>>>>>> FETCH_HEAD
 
 	/* Determine strength of lock needed. */
 	concurrent = stmt->concurrent;
@@ -271,11 +260,8 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 	else
 	{
 		tableSpace = matviewRel->rd_rel->reltablespace;
-<<<<<<< HEAD
-=======
 		relpersistence = matviewRel->rd_rel->relpersistence;
 	}
->>>>>>> FETCH_HEAD
 
 	/*
 	 * Create the transient table that will receive the regenerated data. Lock
@@ -318,24 +304,17 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 		Assert(matview_maintenance_depth == old_depth);
 	}
 	else
-<<<<<<< HEAD
-		refresh_by_heap_swap(matviewOid, OIDNewHeap);
-=======
 		refresh_by_heap_swap(matviewOid, OIDNewHeap, relpersistence);
->>>>>>> FETCH_HEAD
 
 	/* Roll back any GUC changes */
 	AtEOXact_GUC(false, save_nestlevel);
 
 	/* Restore userid and security context */
 	SetUserIdAndSecContext(save_userid, save_sec_context);
-<<<<<<< HEAD
-=======
 
 	ObjectAddressSet(address, RelationRelationId, matviewOid);
 
 	return address;
->>>>>>> FETCH_HEAD
 }
 
 /*
@@ -629,11 +608,7 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_CARDINALITY_VIOLATION),
-<<<<<<< HEAD
-				 errmsg("new data for \"%s\" contains duplicate rows without any null columns",
-=======
 				 errmsg("new data for materialized view \"%s\" contains duplicate rows without any null columns",
->>>>>>> FETCH_HEAD
 						RelationGetRelationName(matviewRel)),
 				 errdetail("Row: %s",
 			SPI_getvalue(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1))));

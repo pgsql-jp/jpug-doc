@@ -554,13 +554,8 @@ createdb(const CreatedbStmt *stmt)
 	 * Force a checkpoint before starting the copy. This will force all dirty
 	 * buffers, including those of unlogged tables, out to disk, to ensure
 	 * source database is up-to-date on disk for the copy.
-<<<<<<< HEAD
-	 * FlushDatabaseBuffers() would suffice for that, but we also want
-	 * to process any pending unlink requests. Otherwise, if a checkpoint
-=======
 	 * FlushDatabaseBuffers() would suffice for that, but we also want to
 	 * process any pending unlink requests. Otherwise, if a checkpoint
->>>>>>> FETCH_HEAD
 	 * happened while we're copying files, a file might be deleted just when
 	 * we're about to copy it, causing the lstat() call in copydir() to fail
 	 * with ENOENT.
@@ -846,13 +841,8 @@ dropdb(const char *dbname, bool missing_ok)
 	if (ReplicationSlotsCountDBSlots(db_id, &nslots, &nslots_active))
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_IN_USE),
-<<<<<<< HEAD
-				 errmsg("database \"%s\" is used by a logical replication slot",
-						dbname),
-=======
 			  errmsg("database \"%s\" is used by a logical replication slot",
 					 dbname),
->>>>>>> FETCH_HEAD
 				 errdetail_plural("There is %d slot, %d of them active.",
 								  "There are %d slots, %d of them active.",
 								  nslots,

@@ -135,22 +135,13 @@ extern void MultiXactGetCheckptMulti(bool is_shutdown,
 						 Oid *oldestMultiDB);
 extern void CheckPointMultiXact(void);
 extern MultiXactId GetOldestMultiXactId(void);
-<<<<<<< HEAD
-extern void TruncateMultiXact(void);
-=======
 extern void TruncateMultiXact(MultiXactId oldestMulti, Oid oldestMultiDB);
->>>>>>> FETCH_HEAD
 extern void MultiXactSetNextMXact(MultiXactId nextMulti,
 					  MultiXactOffset nextMultiOffset);
 extern void MultiXactAdvanceNextMXact(MultiXactId minMulti,
 						  MultiXactOffset minMultiOffset);
 extern void MultiXactAdvanceOldest(MultiXactId oldestMulti, Oid oldestMultiDB);
-<<<<<<< HEAD
-extern void MultiXactSetSafeTruncate(MultiXactId safeTruncateMulti);
-extern int MultiXactMemberFreezeThreshold(void);
-=======
 extern int	MultiXactMemberFreezeThreshold(void);
->>>>>>> FETCH_HEAD
 
 extern void multixact_twophase_recover(TransactionId xid, uint16 info,
 						   void *recdata, uint32 len);

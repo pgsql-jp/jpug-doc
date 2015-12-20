@@ -3254,46 +3254,6 @@ ri_ReportViolation(const RI_ConstraintInfo *riinfo,
 	 * Check permissions- if the user does not have access to view the data in
 	 * any of the key columns then we don't include the errdetail() below.
 	 *
-<<<<<<< HEAD
-	 * Check table-level permissions first and, failing that, column-level
-	 * privileges.
-	 */
-	aclresult = pg_class_aclcheck(rel_oid, GetUserId(), ACL_SELECT);
-	if (aclresult != ACLCHECK_OK)
-	{
-		/* Try for column-level permissions */
-		for (idx = 0; idx < riinfo->nkeys; idx++)
-		{
-			aclresult = pg_attribute_aclcheck(rel_oid, attnums[idx],
-											  GetUserId(),
-											  ACL_SELECT);
-
-			/* No access to the key */
-			if (aclresult != ACLCHECK_OK)
-			{
-				has_perm = false;
-				break;
-			}
-		}
-	}
-
-	if (has_perm)
-	{
-		/* Get printable versions of the keys involved */
-		initStringInfo(&key_names);
-		initStringInfo(&key_values);
-		for (idx = 0; idx < riinfo->nkeys; idx++)
-		{
-			int			fnum = attnums[idx];
-			char	   *name,
-				   *val;
-
-			name = SPI_fname(tupdesc, fnum);
-			val = SPI_getvalue(violator, tupdesc, fnum);
-			if (!val)
-				val = "null";
-
-=======
 	 * Check if RLS is enabled on the relation first.  If so, we don't return
 	 * any specifics to avoid leaking data.
 	 *
@@ -3341,7 +3301,6 @@ ri_ReportViolation(const RI_ConstraintInfo *riinfo,
 			if (!val)
 				val = "null";
 
->>>>>>> FETCH_HEAD
 			if (idx > 0)
 			{
 				appendStringInfoString(&key_names, ", ");
@@ -3359,19 +3318,11 @@ ri_ReportViolation(const RI_ConstraintInfo *riinfo,
 						RelationGetRelationName(fk_rel),
 						NameStr(riinfo->conname)),
 				 has_perm ?
-<<<<<<< HEAD
-					 errdetail("Key (%s)=(%s) is not present in table \"%s\".",
-							   key_names.data, key_values.data,
-							   RelationGetRelationName(pk_rel)) :
-					 errdetail("Key is not present in table \"%s\".",
-							   RelationGetRelationName(pk_rel)),
-=======
 				 errdetail("Key (%s)=(%s) is not present in table \"%s\".",
 						   key_names.data, key_values.data,
 						   RelationGetRelationName(pk_rel)) :
 				 errdetail("Key is not present in table \"%s\".",
 						   RelationGetRelationName(pk_rel)),
->>>>>>> FETCH_HEAD
 				 errtableconstraint(fk_rel, NameStr(riinfo->conname))));
 	else
 		ereport(ERROR,
@@ -3384,13 +3335,8 @@ ri_ReportViolation(const RI_ConstraintInfo *riinfo,
 			errdetail("Key (%s)=(%s) is still referenced from table \"%s\".",
 					  key_names.data, key_values.data,
 					  RelationGetRelationName(fk_rel)) :
-<<<<<<< HEAD
-					errdetail("Key is still referenced from table \"%s\".",
-					  RelationGetRelationName(fk_rel)),
-=======
 				 errdetail("Key is still referenced from table \"%s\".",
 						   RelationGetRelationName(fk_rel)),
->>>>>>> FETCH_HEAD
 				 errtableconstraint(fk_rel, NameStr(riinfo->conname))));
 }
 

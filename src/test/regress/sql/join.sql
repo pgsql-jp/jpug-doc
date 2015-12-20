@@ -366,8 +366,6 @@ select aa, bb, unique1, unique1
   where bb < bb and bb is null;
 
 --
-<<<<<<< HEAD
-=======
 -- regression test: check handling of empty-FROM subquery underneath outer join
 --
 explain (costs off)
@@ -380,7 +378,6 @@ select * from int8_tbl i1 left join (int8_tbl i2 join
 order by 1, 2;
 
 --
->>>>>>> FETCH_HEAD
 -- regression test: check a case where join_clause_is_movable_into() gives
 -- an imprecise result, causing an assertion failure
 --
@@ -1119,8 +1116,6 @@ select * from
   on i8.q1 = i4.f1;
 
 --
-<<<<<<< HEAD
-=======
 -- test for appropriate join order in the presence of lateral references
 --
 
@@ -1199,7 +1194,6 @@ select ss2.* from
 where ss1.c2 = 0;
 
 --
->>>>>>> FETCH_HEAD
 -- test ability to push constants through outer join clauses
 --
 

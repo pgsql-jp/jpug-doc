@@ -1122,15 +1122,9 @@ DESCR("truncate large object");
 DATA(insert OID = 3172 (  lo_truncate64    PGNSP PGUID 12 1 0 0 0 f f f f t f v 2 0 23 "23 20" _null_ _null_ _null_ _null_ _null_ lo_truncate64 _null_ _null_ _null_ ));
 DESCR("truncate large object (64 bit)");
 
-<<<<<<< HEAD
-DATA(insert OID = 3457 (  lo_from_bytea    PGNSP PGUID 12 1 0 0 0 f f f f t f v 2 0 26 "26 17" _null_ _null_ _null_ _null_ lo_from_bytea _null_ _null_ _null_ ));
-DESCR("create new large object with given content");
-DATA(insert OID = 3458 (  lo_get		   PGNSP PGUID 12 1 0 0 0 f f f f t f v 1 0 17 "26" _null_ _null_ _null_ _null_ lo_get _null_ _null_ _null_ ));
-=======
 DATA(insert OID = 3457 (  lo_from_bytea    PGNSP PGUID 12 1 0 0 0 f f f f t f v 2 0 26 "26 17" _null_ _null_ _null_ _null_ _null_ lo_from_bytea _null_ _null_ _null_ ));
 DESCR("create new large object with given content");
 DATA(insert OID = 3458 (  lo_get		   PGNSP PGUID 12 1 0 0 0 f f f f t f v 1 0 17 "26" _null_ _null_ _null_ _null_ _null_ lo_get _null_ _null_ _null_ ));
->>>>>>> FETCH_HEAD
 DESCR("read entire large object");
 DATA(insert OID = 3459 (  lo_get		   PGNSP PGUID 12 1 0 0 0 f f f f t f v 3 0 17 "26 20 23" _null_ _null_ _null_ _null_ _null_ lo_get_fragment _null_ _null_ _null_ ));
 DESCR("read large object from offset for length");
@@ -4229,11 +4223,7 @@ DATA(insert OID = 2774 (  ginqueryarrayextract	PGNSP PGUID 12 1 0 0 0 f f f f t 
 DESCR("GIN array support");
 DATA(insert OID = 2744 (  ginarrayconsistent	PGNSP PGUID 12 1 0 0 0 f f f f t f i 8 0 16 "2281 21 2277 23 2281 2281 2281 2281" _null_ _null_ _null_ _null_ _null_ ginarrayconsistent _null_ _null_ _null_ ));
 DESCR("GIN array support");
-<<<<<<< HEAD
-DATA(insert OID = 3920 (  ginarraytriconsistent PGNSP PGUID 12 1 0 0 0 f f f f t f i 7 0 18 "2281 21 2277 23 2281 2281 2281" _null_ _null_ _null_ _null_ ginarraytriconsistent _null_ _null_ _null_ ));
-=======
 DATA(insert OID = 3920 (  ginarraytriconsistent PGNSP PGUID 12 1 0 0 0 f f f f t f i 7 0 18 "2281 21 2277 23 2281 2281 2281" _null_ _null_ _null_ _null_ _null_ ginarraytriconsistent _null_ _null_ _null_ ));
->>>>>>> FETCH_HEAD
 DESCR("GIN array support");
 DATA(insert OID = 3076 (  ginarrayextract	 PGNSP PGUID 12 1 0 0 0 f f f f t f i 2 0 2281 "2277 2281" _null_ _null_ _null_ _null_ _null_	ginarrayextract_2args _null_ _null_ _null_ ));
 DESCR("GIN array support (obsolete)");
@@ -4396,43 +4386,16 @@ DATA(insert OID = 3155 (  row_to_json	   PGNSP PGUID 12 1 0 0 0 f f f f t f s 1 
 DESCR("map row to json");
 DATA(insert OID = 3156 (  row_to_json	   PGNSP PGUID 12 1 0 0 0 f f f f t f s 2 0 114 "2249 16" _null_ _null_ _null_ _null_ _null_ row_to_json_pretty _null_ _null_ _null_ ));
 DESCR("map row to json with optional pretty printing");
-<<<<<<< HEAD
-DATA(insert OID = 3173 (  json_agg_transfn	 PGNSP PGUID 12 1 0 0 0 f f f f f f s 2 0 2281 "2281 2283" _null_ _null_ _null_ _null_ json_agg_transfn _null_ _null_ _null_ ));
-=======
 DATA(insert OID = 3173 (  json_agg_transfn	 PGNSP PGUID 12 1 0 0 0 f f f f f f s 2 0 2281 "2281 2283" _null_ _null_ _null_ _null_ _null_ json_agg_transfn _null_ _null_ _null_ ));
->>>>>>> FETCH_HEAD
 DESCR("json aggregate transition function");
 DATA(insert OID = 3174 (  json_agg_finalfn	 PGNSP PGUID 12 1 0 0 0 f f f f f f i 1 0 114 "2281" _null_ _null_ _null_ _null_ _null_ json_agg_finalfn _null_ _null_ _null_ ));
 DESCR("json aggregate final function");
-<<<<<<< HEAD
-DATA(insert OID = 3175 (  json_agg		   PGNSP PGUID 12 1 0 0 0 t f f f f f s 1 0 114 "2283" _null_ _null_ _null_ _null_ aggregate_dummy _null_ _null_ _null_ ));
-DESCR("aggregate input into json");
-DATA(insert OID = 3180 (  json_object_agg_transfn	 PGNSP PGUID 12 1 0 0 0 f f f f f f s 3 0 2281 "2281 2276 2276" _null_ _null_ _null_ _null_ json_object_agg_transfn _null_ _null_ _null_ ));
-=======
 DATA(insert OID = 3175 (  json_agg		   PGNSP PGUID 12 1 0 0 0 t f f f f f s 1 0 114 "2283" _null_ _null_ _null_ _null_ _null_ aggregate_dummy _null_ _null_ _null_ ));
 DESCR("aggregate input into json");
 DATA(insert OID = 3180 (  json_object_agg_transfn	 PGNSP PGUID 12 1 0 0 0 f f f f f f s 3 0 2281 "2281 2276 2276" _null_ _null_ _null_ _null_ _null_ json_object_agg_transfn _null_ _null_ _null_ ));
->>>>>>> FETCH_HEAD
 DESCR("json object aggregate transition function");
 DATA(insert OID = 3196 (  json_object_agg_finalfn	 PGNSP PGUID 12 1 0 0 0 f f f f f f i 1 0 114 "2281" _null_ _null_ _null_ _null_ _null_ json_object_agg_finalfn _null_ _null_ _null_ ));
 DESCR("json object aggregate final function");
-<<<<<<< HEAD
-DATA(insert OID = 3197 (  json_object_agg		   PGNSP PGUID 12 1 0 0 0 t f f f f f s 2 0 114 "2276 2276" _null_ _null_ _null_ _null_ aggregate_dummy _null_ _null_ _null_ ));
-DESCR("aggregate input into a json object");
-DATA(insert OID = 3198 (  json_build_array	   PGNSP PGUID 12 1 0 2276 0 f f f f f f s 1 0 114 "2276" "{2276}" "{v}" _null_ _null_ json_build_array _null_ _null_ _null_ ));
-DESCR("build a json array from any inputs");
-DATA(insert OID = 3199 (  json_build_array	   PGNSP PGUID 12 1 0 0 0 f f f f f f s 0 0 114  "" _null_ _null_ _null_ _null_ json_build_array_noargs _null_ _null_ _null_ ));
-DESCR("build an empty json array");
-DATA(insert OID = 3200 (  json_build_object    PGNSP PGUID 12 1 0 2276 0 f f f f f f s 1 0 114 "2276" "{2276}" "{v}" _null_ _null_ json_build_object _null_ _null_ _null_ ));
-DESCR("build a json object from pairwise key/value inputs");
-DATA(insert OID = 3201 (  json_build_object    PGNSP PGUID 12 1 0 0 0 f f f f f f s 0 0 114  "" _null_ _null_ _null_ _null_ json_build_object_noargs _null_ _null_ _null_ ));
-DESCR("build an empty json object");
-DATA(insert OID = 3202 (  json_object	 PGNSP PGUID 12 1 0 0 0 f f f f t f i 1 0 114 "1009" _null_ _null_ _null_ _null_ json_object _null_ _null_ _null_ ));
-DESCR("map text array of key value pairs to json object");
-DATA(insert OID = 3203 (  json_object	 PGNSP PGUID 12 1 0 0 0 f f f f t f i 2 0 114 "1009 1009" _null_ _null_ _null_ _null_ json_object_two_arg _null_ _null_ _null_ ));
-DESCR("map text arrays of keys and values to json object");
-DATA(insert OID = 3176 (  to_json	   PGNSP PGUID 12 1 0 0 0 f f f f t f s 1 0 114 "2283" _null_ _null_ _null_ _null_ to_json _null_ _null_ _null_ ));
-=======
 DATA(insert OID = 3197 (  json_object_agg		   PGNSP PGUID 12 1 0 0 0 t f f f f f s 2 0 114 "2276 2276" _null_ _null_ _null_ _null_ _null_ aggregate_dummy _null_ _null_ _null_ ));
 DESCR("aggregate input into a json object");
 DATA(insert OID = 3198 (  json_build_array	   PGNSP PGUID 12 1 0 2276 0 f f f f f f s 1 0 114 "2276" "{2276}" "{v}" _null_ _null_ _null_ json_build_array _null_ _null_ _null_ ));
@@ -4448,7 +4411,6 @@ DESCR("map text array of key value pairs to json object");
 DATA(insert OID = 3203 (  json_object	 PGNSP PGUID 12 1 0 0 0 f f f f t f i 2 0 114 "1009 1009" _null_ _null_ _null_ _null_ _null_ json_object_two_arg _null_ _null_ _null_ ));
 DESCR("map text arrays of keys and values to json object");
 DATA(insert OID = 3176 (  to_json	   PGNSP PGUID 12 1 0 0 0 f f f f t f s 1 0 114 "2283" _null_ _null_ _null_ _null_ _null_ to_json _null_ _null_ _null_ ));
->>>>>>> FETCH_HEAD
 DESCR("map input to json");
 DATA(insert OID = 3261 (  json_strip_nulls	   PGNSP PGUID 12 1 0 0 0 f f f f t f i 1 0 114 "114" _null_ _null_ _null_ _null_ _null_ json_strip_nulls _null_ _null_ _null_ ));
 DESCR("remove object fields with null values from json");
@@ -4459,15 +4421,9 @@ DATA(insert OID = 3949 (  json_array_element		PGNSP PGUID 12 1 0 0 0 f f f f t f
 DATA(insert OID = 3950 (  json_array_element_text	PGNSP PGUID 12 1 0 0 0 f f f f t f i 2 0 25  "114 23" _null_ _null_ "{from_json, element_index}" _null_ _null_ json_array_element_text _null_ _null_ _null_ ));
 DATA(insert OID = 3951 (  json_extract_path			PGNSP PGUID 12 1 0 25 0 f f f f t f i 2 0 114 "114 1009" "{114,1009}" "{i,v}" "{from_json,path_elems}" _null_ _null_ json_extract_path _null_ _null_ _null_ ));
 DESCR("get value from json with path elements");
-<<<<<<< HEAD
-DATA(insert OID = 3953 (  json_extract_path_text	PGNSP PGUID 12 1 0 25 0 f f f f t f i 2 0 25 "114 1009" "{114,1009}" "{i,v}" "{from_json,path_elems}" _null_ json_extract_path_text _null_ _null_ _null_ ));
-DESCR("get value from json as text with path elements");
-DATA(insert OID = 3955 (  json_array_elements		PGNSP PGUID 12 1 100 0 0 f f f f t t i 1 0 114 "114" "{114,114}" "{i,o}" "{from_json,value}" _null_ json_array_elements _null_ _null_ _null_ ));
-=======
 DATA(insert OID = 3953 (  json_extract_path_text	PGNSP PGUID 12 1 0 25 0 f f f f t f i 2 0 25 "114 1009" "{114,1009}" "{i,v}" "{from_json,path_elems}" _null_ _null_ json_extract_path_text _null_ _null_ _null_ ));
 DESCR("get value from json as text with path elements");
 DATA(insert OID = 3955 (  json_array_elements		PGNSP PGUID 12 1 100 0 0 f f f f t t i 1 0 114 "114" "{114,114}" "{i,o}" "{from_json,value}" _null_ _null_ json_array_elements _null_ _null_ _null_ ));
->>>>>>> FETCH_HEAD
 DESCR("key value pairs of a json object");
 DATA(insert OID = 3969 (  json_array_elements_text	PGNSP PGUID 12 1 100 0 0 f f f f t t i 1 0 25 "114" "{114,25}" "{i,o}" "{from_json,value}" _null_ _null_ json_array_elements_text _null_ _null_ _null_ ));
 DESCR("elements of json array");
@@ -4483,15 +4439,9 @@ DATA(insert OID = 3960 (  json_populate_record	   PGNSP PGUID 12 1 0 0 0 f f f f
 DESCR("get record fields from a json object");
 DATA(insert OID = 3961 (  json_populate_recordset  PGNSP PGUID 12 1 100 0 0 f f f f f t s 3 0 2283 "2283 114 16" _null_ _null_ _null_ _null_ _null_ json_populate_recordset _null_ _null_ _null_ ));
 DESCR("get set of records with fields from a json array of objects");
-<<<<<<< HEAD
-DATA(insert OID = 3204 (  json_to_record		   PGNSP PGUID 12 1 0 0 0 f f f f t f s 1 0 2249 "114" _null_ _null_ _null_ _null_ json_to_record _null_ _null_ _null_ ));
-DESCR("get record fields from a json object");
-DATA(insert OID = 3205 (  json_to_recordset		   PGNSP PGUID 12 1 100 0 0 f f f f f t s 1 0 2249 "114" _null_ _null_ _null_ _null_ json_to_recordset _null_ _null_ _null_ ));
-=======
 DATA(insert OID = 3204 (  json_to_record		   PGNSP PGUID 12 1 0 0 0 f f f f t f s 1 0 2249 "114" _null_ _null_ _null_ _null_ _null_ json_to_record _null_ _null_ _null_ ));
 DESCR("get record fields from a json object");
 DATA(insert OID = 3205 (  json_to_recordset		   PGNSP PGUID 12 1 100 0 0 f f f f f t s 1 0 2249 "114" _null_ _null_ _null_ _null_ _null_ json_to_recordset _null_ _null_ _null_ ));
->>>>>>> FETCH_HEAD
 DESCR("get set of records with fields from a json array of objects");
 DATA(insert OID = 3968 (  json_typeof			   PGNSP PGUID 12 1 0 0 0 f f f f t f i 1 0 25 "114" _null_ _null_ _null_ _null_ _null_ json_typeof _null_ _null_ _null_ ));
 DESCR("get the type of a json value");
@@ -4642,11 +4592,7 @@ DATA(insert OID = 3657 (  gin_extract_tsquery	PGNSP PGUID 12 1 0 0 0 f f f f t f
 DESCR("GIN tsvector support");
 DATA(insert OID = 3658 (  gin_tsquery_consistent PGNSP PGUID 12 1 0 0 0 f f f f t f i 8 0 16 "2281 21 3615 23 2281 2281 2281 2281" _null_ _null_ _null_ _null_ _null_	gin_tsquery_consistent _null_ _null_ _null_ ));
 DESCR("GIN tsvector support");
-<<<<<<< HEAD
-DATA(insert OID = 3921 (  gin_tsquery_triconsistent PGNSP PGUID 12 1 0 0 0 f f f f t f i 7 0 18 "2281 21 3615 23 2281 2281 2281" _null_ _null_ _null_ _null_	gin_tsquery_triconsistent _null_ _null_ _null_ ));
-=======
 DATA(insert OID = 3921 (  gin_tsquery_triconsistent PGNSP PGUID 12 1 0 0 0 f f f f t f i 7 0 18 "2281 21 3615 23 2281 2281 2281" _null_ _null_ _null_ _null_ _null_ gin_tsquery_triconsistent _null_ _null_ _null_ ));
->>>>>>> FETCH_HEAD
 DESCR("GIN tsvector support");
 DATA(insert OID = 3724 (  gin_cmp_tslexeme		PGNSP PGUID 12 1 0 0 0 f f f f t f i 2 0 23 "25 25" _null_ _null_ _null_ _null_ _null_ gin_cmp_tslexeme _null_ _null_ _null_ ));
 DESCR("GIN tsvector support");
@@ -4865,15 +4811,9 @@ DATA(insert OID = 3215 (  jsonb_array_element		PGNSP PGUID 12 1 0 0 0 f f f f t 
 DATA(insert OID = 3216 (  jsonb_array_element_text	PGNSP PGUID 12 1 0 0 0 f f f f t f i 2 0 25  "3802 23" _null_ _null_ "{from_json, element_index}" _null_ _null_ jsonb_array_element_text _null_ _null_ _null_ ));
 DATA(insert OID = 3217 (  jsonb_extract_path			PGNSP PGUID 12 1 0 25 0 f f f f t f i 2 0 3802 "3802 1009" "{3802,1009}" "{i,v}" "{from_json,path_elems}" _null_ _null_ jsonb_extract_path _null_ _null_ _null_ ));
 DESCR("get value from jsonb with path elements");
-<<<<<<< HEAD
-DATA(insert OID = 3940 (  jsonb_extract_path_text	PGNSP PGUID 12 1 0 25 0 f f f f t f i 2 0 25 "3802 1009" "{3802,1009}" "{i,v}" "{from_json,path_elems}" _null_ jsonb_extract_path_text _null_ _null_ _null_ ));
-DESCR("get value from jsonb as text with path elements");
-DATA(insert OID = 3219 (  jsonb_array_elements		PGNSP PGUID 12 1 100 0 0 f f f f t t i 1 0 3802 "3802" "{3802,3802}" "{i,o}" "{from_json,value}" _null_ jsonb_array_elements _null_ _null_ _null_ ));
-=======
 DATA(insert OID = 3940 (  jsonb_extract_path_text	PGNSP PGUID 12 1 0 25 0 f f f f t f i 2 0 25 "3802 1009" "{3802,1009}" "{i,v}" "{from_json,path_elems}" _null_ _null_ jsonb_extract_path_text _null_ _null_ _null_ ));
 DESCR("get value from jsonb as text with path elements");
 DATA(insert OID = 3219 (  jsonb_array_elements		PGNSP PGUID 12 1 100 0 0 f f f f t t i 1 0 3802 "3802" "{3802,3802}" "{i,o}" "{from_json,value}" _null_ _null_ jsonb_array_elements _null_ _null_ _null_ ));
->>>>>>> FETCH_HEAD
 DESCR("elements of a jsonb array");
 DATA(insert OID = 3465 (  jsonb_array_elements_text PGNSP PGUID 12 1 100 0 0 f f f f t t i 1 0 25 "3802" "{3802,25}" "{i,o}" "{from_json,value}" _null_ _null_ jsonb_array_elements_text _null_ _null_ _null_ ));
 DESCR("elements of jsonb array");
@@ -4885,15 +4825,6 @@ DATA(insert OID = 3208 (  jsonb_each				   PGNSP PGUID 12 1 100 0 0 f f f f t t 
 DESCR("key value pairs of a jsonb object");
 DATA(insert OID = 3932 (  jsonb_each_text		   PGNSP PGUID 12 1 100 0 0 f f f f t t i 1 0 2249 "3802" "{3802,25,25}" "{i,o,o}" "{from_json,key,value}" _null_ _null_ jsonb_each_text _null_ _null_ _null_ ));
 DESCR("key value pairs of a jsonb object");
-<<<<<<< HEAD
-DATA(insert OID = 3209 (  jsonb_populate_record    PGNSP PGUID 12 1 0 0 0 f f f f f f s 2 0 2283 "2283 3802" _null_ _null_ _null_ _null_ jsonb_populate_record _null_ _null_ _null_ ));
-DESCR("get record fields from a jsonb object");
-DATA(insert OID = 3475 (  jsonb_populate_recordset	PGNSP PGUID 12 1 100 0 0 f f f f f t s 2 0 2283 "2283 3802" _null_ _null_ _null_ _null_ jsonb_populate_recordset _null_ _null_ _null_ ));
-DESCR("get set of records with fields from a jsonb array of objects");
-DATA(insert OID = 3490 (  jsonb_to_record			PGNSP PGUID 12 1 0 0 0 f f f f t f s 1 0 2249 "3802" _null_ _null_ _null_ _null_ jsonb_to_record _null_ _null_ _null_ ));
-DESCR("get record fields from a json object");
-DATA(insert OID = 3491 (  jsonb_to_recordset		PGNSP PGUID 12 1 100 0 0 f f f f f t s 1 0 2249 "3802" _null_ _null_ _null_ _null_ jsonb_to_recordset _null_ _null_ _null_ ));
-=======
 DATA(insert OID = 3209 (  jsonb_populate_record    PGNSP PGUID 12 1 0 0 0 f f f f f f s 2 0 2283 "2283 3802" _null_ _null_ _null_ _null_ _null_ jsonb_populate_record _null_ _null_ _null_ ));
 DESCR("get record fields from a jsonb object");
 DATA(insert OID = 3475 (  jsonb_populate_recordset	PGNSP PGUID 12 1 100 0 0 f f f f f t s 2 0 2283 "2283 3802" _null_ _null_ _null_ _null_ _null_ jsonb_populate_recordset _null_ _null_ _null_ ));
@@ -4901,7 +4832,6 @@ DESCR("get set of records with fields from a jsonb array of objects");
 DATA(insert OID = 3490 (  jsonb_to_record			PGNSP PGUID 12 1 0 0 0 f f f f t f s 1 0 2249 "3802" _null_ _null_ _null_ _null_ _null_ jsonb_to_record _null_ _null_ _null_ ));
 DESCR("get record fields from a json object");
 DATA(insert OID = 3491 (  jsonb_to_recordset		PGNSP PGUID 12 1 100 0 0 f f f f f t s 1 0 2249 "3802" _null_ _null_ _null_ _null_ _null_ jsonb_to_recordset _null_ _null_ _null_ ));
->>>>>>> FETCH_HEAD
 DESCR("get set of records with fields from a json array of objects");
 DATA(insert OID = 3210 (  jsonb_typeof				PGNSP PGUID 12 1 0 0 0 f f f f t f i 1 0 25 "3802" _null_ _null_ _null_ _null_ _null_ jsonb_typeof _null_ _null_ _null_ ));
 DESCR("get the type of a jsonb value");
@@ -4933,11 +4863,7 @@ DATA(insert OID = 3483 (  gin_extract_jsonb_query  PGNSP PGUID 12 1 0 0 0 f f f 
 DESCR("GIN support");
 DATA(insert OID = 3484 (  gin_consistent_jsonb	PGNSP PGUID 12 1 0 0 0 f f f f t f i 8 0 16 "2281 21 2277 23 2281 2281 2281 2281" _null_ _null_ _null_ _null_ _null_ gin_consistent_jsonb _null_ _null_ _null_ ));
 DESCR("GIN support");
-<<<<<<< HEAD
-DATA(insert OID = 3488 (  gin_triconsistent_jsonb	PGNSP PGUID 12 1 0 0 0 f f f f t f i 7 0 18 "2281 21 2277 23 2281 2281 2281" _null_ _null_ _null_ _null_ gin_triconsistent_jsonb _null_ _null_ _null_ ));
-=======
 DATA(insert OID = 3488 (  gin_triconsistent_jsonb	PGNSP PGUID 12 1 0 0 0 f f f f t f i 7 0 18 "2281 21 2277 23 2281 2281 2281" _null_ _null_ _null_ _null_ _null_ gin_triconsistent_jsonb _null_ _null_ _null_ ));
->>>>>>> FETCH_HEAD
 DESCR("GIN support");
 DATA(insert OID = 3485 (  gin_extract_jsonb_path  PGNSP PGUID 12 1 0 0 0 f f f f t f i 3 0 2281 "2281 2281 2281" _null_ _null_ _null_ _null_ _null_ gin_extract_jsonb_path _null_ _null_ _null_ ));
 DESCR("GIN support");
@@ -4945,11 +4871,7 @@ DATA(insert OID = 3486 (  gin_extract_jsonb_query_path	PGNSP PGUID 12 1 0 0 0 f 
 DESCR("GIN support");
 DATA(insert OID = 3487 (  gin_consistent_jsonb_path  PGNSP PGUID 12 1 0 0 0 f f f f t f i 8 0 16 "2281 21 2277 23 2281 2281 2281 2281" _null_ _null_ _null_ _null_ _null_ gin_consistent_jsonb_path _null_ _null_ _null_ ));
 DESCR("GIN support");
-<<<<<<< HEAD
-DATA(insert OID = 3489 (  gin_triconsistent_jsonb_path	PGNSP PGUID 12 1 0 0 0 f f f f t f i 7 0 18 "2281 21 2277 23 2281 2281 2281" _null_ _null_ _null_ _null_ gin_triconsistent_jsonb_path _null_ _null_ _null_ ));
-=======
 DATA(insert OID = 3489 (  gin_triconsistent_jsonb_path	PGNSP PGUID 12 1 0 0 0 f f f f t f i 7 0 18 "2281 21 2277 23 2281 2281 2281" _null_ _null_ _null_ _null_ _null_ gin_triconsistent_jsonb_path _null_ _null_ _null_ ));
->>>>>>> FETCH_HEAD
 DESCR("GIN support");
 DATA(insert OID = 3301 (  jsonb_concat	   PGNSP PGUID 12 1 0 0 0 f f f f t f i 2 0 3802 "3802 3802" _null_ _null_ _null_ _null_ _null_ jsonb_concat _null_ _null_ _null_ ));
 DATA(insert OID = 3302 (  jsonb_delete	   PGNSP PGUID 12 1 0 0 0 f f f f t f i 2 0 3802 "3802 25" _null_ _null_ _null_ _null_ _null_ jsonb_delete _null_ _null_ _null_ ));

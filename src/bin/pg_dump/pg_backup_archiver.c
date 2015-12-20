@@ -533,11 +533,7 @@ RestoreArchive(Archive *AHX)
 							 * search for hardcoded "DROP CONSTRAINT" instead.
 							 */
 							if (strcmp(te->desc, "DEFAULT") == 0)
-<<<<<<< HEAD
-								appendPQExpBuffer(ftStmt, "%s", dropStmt);
-=======
 								appendPQExpBufferStr(ftStmt, dropStmt);
->>>>>>> FETCH_HEAD
 							else
 							{
 								if (strcmp(te->desc, "CONSTRAINT") == 0 ||
@@ -4247,11 +4243,7 @@ identify_locking_dependencies(ArchiveHandle *AH, TocEntry *te)
 
 		if (depid <= AH->maxDumpId && AH->tocsByDumpId[depid] != NULL &&
 			((strcmp(AH->tocsByDumpId[depid]->desc, "TABLE DATA") == 0) ||
-<<<<<<< HEAD
-			  strcmp(AH->tocsByDumpId[depid]->desc, "TABLE") == 0))
-=======
 			 strcmp(AH->tocsByDumpId[depid]->desc, "TABLE") == 0))
->>>>>>> FETCH_HEAD
 			lockids[nlockids++] = depid;
 	}
 

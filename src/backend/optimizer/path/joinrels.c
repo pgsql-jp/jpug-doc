@@ -332,11 +332,6 @@ join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 	bool		reversed;
 	bool		unique_ified;
 	bool		must_be_leftjoin;
-<<<<<<< HEAD
-	bool		lateral_fwd;
-	bool		lateral_rev;
-=======
->>>>>>> FETCH_HEAD
 	ListCell   *l;
 
 	/*

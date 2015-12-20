@@ -254,17 +254,6 @@ BackgroundWorkerStateChange(void)
 		}
 
 		/*
-<<<<<<< HEAD
-		 * If the worker is marked for termination, we don't need to add it
-		 * to the registered workers list; we can just free the slot.
-		 * However, if bgw_notify_pid is set, the process that registered the
-		 * worker may need to know that we've processed the terminate request,
-		 * so be sure to signal it.
-		 */
-		if (slot->terminate)
-		{
-			int	notify_pid;
-=======
 		 * If the worker is marked for termination, we don't need to add it to
 		 * the registered workers list; we can just free the slot. However, if
 		 * bgw_notify_pid is set, the process that registered the worker may
@@ -274,7 +263,6 @@ BackgroundWorkerStateChange(void)
 		if (slot->terminate)
 		{
 			int			notify_pid;
->>>>>>> FETCH_HEAD
 
 			/*
 			 * We need a memory barrier here to make sure that the load of
@@ -448,13 +436,8 @@ ResetBackgroundWorkerCrashTimes(void)
 		rw = slist_container(RegisteredBgWorker, rw_lnode, iter.cur);
 
 		/*
-<<<<<<< HEAD
-		 * For workers that should not be restarted, we don't want to lose
-		 * the information that they have crashed; otherwise, they would be
-=======
 		 * For workers that should not be restarted, we don't want to lose the
 		 * information that they have crashed; otherwise, they would be
->>>>>>> FETCH_HEAD
 		 * restarted, which is wrong.
 		 */
 		if (rw->rw_worker.bgw_restart_time != BGW_NEVER_RESTART)

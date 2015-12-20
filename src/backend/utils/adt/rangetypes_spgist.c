@@ -583,11 +583,7 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 					 */
 					cmp = adjacent_inner_consistent(typcache, &lower,
 													&centroidUpper,
-<<<<<<< HEAD
-											prevCentroid ? &prevUpper : NULL);
-=======
 										   prevCentroid ? &prevUpper : NULL);
->>>>>>> FETCH_HEAD
 					if (cmp > 0)
 						which1 = (1 << 1) | (1 << 4);
 					else if (cmp < 0)
@@ -598,21 +594,12 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 					/*
 					 * Also search for ranges's adjacent to argument's upper
 					 * bound. They will be found along the line adjacent to
-<<<<<<< HEAD
-					 * (and just right of) X=upper, which falls in quadrants
-					 * 3 and 4, or 1 and 2.
-					 */
-					cmp = adjacent_inner_consistent(typcache, &upper,
-													&centroidLower,
-											prevCentroid ? &prevLower : NULL);
-=======
 					 * (and just right of) X=upper, which falls in quadrants 3
 					 * and 4, or 1 and 2.
 					 */
 					cmp = adjacent_inner_consistent(typcache, &upper,
 													&centroidLower,
 										   prevCentroid ? &prevLower : NULL);
->>>>>>> FETCH_HEAD
 					if (cmp > 0)
 						which2 = (1 << 1) | (1 << 2);
 					else if (cmp < 0)
@@ -795,11 +782,7 @@ adjacent_cmp_bounds(TypeCacheEntry *typcache, RangeBound *arg,
 
 	Assert(arg->lower != centroid->lower);
 
-<<<<<<< HEAD
-	cmp = range_cmp_bounds(typcache, arg,  centroid);
-=======
 	cmp = range_cmp_bounds(typcache, arg, centroid);
->>>>>>> FETCH_HEAD
 
 	if (centroid->lower)
 	{
@@ -816,19 +799,11 @@ adjacent_cmp_bounds(TypeCacheEntry *typcache, RangeBound *arg,
 		 * With the argument range [..., 500), the adjacent range we're
 		 * searching for is [500, ...):
 		 *
-<<<<<<< HEAD
-		 *  ARGUMENT   CENTROID     CMP   ADJ
-		 *  [..., 500) [498, ...)    >    (N)   [500, ...) is to the right
-		 *  [..., 500) [499, ...)    =    (N)   [500, ...) is to the right
-		 *  [..., 500) [500, ...)    <     Y    [500, ...) is to the right
-		 *  [..., 500) [501, ...)    <     N    [500, ...) is to the left
-=======
 		 *	ARGUMENT   CENTROID		CMP   ADJ
 		 *	[..., 500) [498, ...)	 >	  (N)	[500, ...) is to the right
 		 *	[..., 500) [499, ...)	 =	  (N)	[500, ...) is to the right
 		 *	[..., 500) [500, ...)	 <	   Y	[500, ...) is to the right
 		 *	[..., 500) [501, ...)	 <	   N	[500, ...) is to the left
->>>>>>> FETCH_HEAD
 		 *
 		 * So, we must search left when the argument is smaller than, and not
 		 * adjacent, to the centroid. Otherwise search right.
@@ -846,19 +821,11 @@ adjacent_cmp_bounds(TypeCacheEntry *typcache, RangeBound *arg,
 		 * bounds. A matching adjacent upper bound must be *smaller* than the
 		 * argument, but only just.
 		 *
-<<<<<<< HEAD
-		 *  ARGUMENT   CENTROID     CMP   ADJ
-		 *  [500, ...) [..., 499)    >    (N)   [..., 500) is to the right
-		 *  [500, ...) [..., 500)    >    (Y)   [..., 500) is to the right
-		 *  [500, ...) [..., 501)    =    (N)   [..., 500) is to the left
-		 *  [500, ...) [..., 502)    <    (N)   [..., 500) is to the left
-=======
 		 *	ARGUMENT   CENTROID		CMP   ADJ
 		 *	[500, ...) [..., 499)	 >	  (N)	[..., 500) is to the right
 		 *	[500, ...) [..., 500)	 >	  (Y)	[..., 500) is to the right
 		 *	[500, ...) [..., 501)	 =	  (N)	[..., 500) is to the left
 		 *	[500, ...) [..., 502)	 <	  (N)	[..., 500) is to the left
->>>>>>> FETCH_HEAD
 		 *
 		 * We must search left when the argument is smaller than or equal to
 		 * the centroid. Otherwise search right. We don't need to check

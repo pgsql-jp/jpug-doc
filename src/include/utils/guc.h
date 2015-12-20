@@ -34,13 +34,6 @@
 #define PG_AUTOCONF_FILENAME		"postgresql.auto.conf"
 
 /*
- * Automatic configuration file name for ALTER SYSTEM.
- * This file will be used to store values of configuration parameters
- * set by ALTER SYSTEM command.
- */
-#define PG_AUTOCONF_FILENAME		"postgresql.auto.conf"
-
-/*
  * Certain options can only be set at certain times. The rules are
  * like this:
  *
@@ -129,12 +122,6 @@ typedef enum
 
 /*
  * Parsing the configuration file(s) will return a list of name-value pairs
-<<<<<<< HEAD
- * with source location info.
- *
- * If "ignore" is true, don't attempt to apply the item (it might be an item
- * we determined to be duplicate, for instance).
-=======
  * with source location info.  We also abuse this data structure to carry
  * error reports about the config files.  An entry reporting an error will
  * have errmsg != NULL, and might have NULLs for name, value, and/or filename.
@@ -142,7 +129,6 @@ typedef enum
  * If "ignore" is true, don't attempt to apply the item (it might be an error
  * report, or an item we determined to be duplicate).  "applied" is set true
  * if we successfully applied, or could have applied, the setting.
->>>>>>> FETCH_HEAD
  */
 typedef struct ConfigVariable
 {
@@ -154,7 +140,6 @@ typedef struct ConfigVariable
 	bool		ignore;
 	bool		applied;
 	struct ConfigVariable *next;
-	bool		ignore;
 } ConfigVariable;
 
 extern bool ParseConfigFile(const char *config_file, bool strict,
@@ -243,11 +228,6 @@ typedef enum
 
 #define GUC_UNIT				(GUC_UNIT_MEMORY | GUC_UNIT_TIME)
 
-<<<<<<< HEAD
-#define GUC_NOT_WHILE_SEC_REST	0x8000	/* can't set if security restricted */
-#define GUC_DISALLOW_IN_AUTO_FILE	0x00010000	/* can't set in PG_AUTOCONF_FILENAME */
-=======
->>>>>>> FETCH_HEAD
 
 /* GUC vars that are actually declared in guc.c, rather than elsewhere */
 extern bool log_duration;

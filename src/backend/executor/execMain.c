@@ -95,15 +95,6 @@ static void EvalPlanQualStart(EPQState *epqstate, EState *parentestate,
 				  Plan *planTree);
 
 /*
-<<<<<<< HEAD
- * Note that this macro also exists in commands/trigger.c.  There does not
- * appear to be any good header to put it into, given the structures that
- * it uses, so we let them be duplicated.  Be sure to update both if one needs
- * to be changed, however.
- */
-#define GetModifiedColumns(relinfo, estate) \
-	(rt_fetch((relinfo)->ri_RangeTableIndex, (estate)->es_range_table)->modifiedCols)
-=======
  * Note that GetUpdatedColumns() also exists in commands/trigger.c.  There does
  * not appear to be any good header to put it into, given the structures that
  * it uses, so we let them be duplicated.  Be sure to update both if one needs
@@ -113,7 +104,6 @@ static void EvalPlanQualStart(EPQState *epqstate, EState *parentestate,
 	(rt_fetch((relinfo)->ri_RangeTableIndex, (estate)->es_range_table)->insertedCols)
 #define GetUpdatedColumns(relinfo, estate) \
 	(rt_fetch((relinfo)->ri_RangeTableIndex, (estate)->es_range_table)->updatedCols)
->>>>>>> FETCH_HEAD
 
 /* end of local decls */
 
@@ -868,12 +858,9 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 		if (rc->isParent)
 			continue;
 
-<<<<<<< HEAD
-=======
 		/* get relation's OID (will produce InvalidOid if subquery) */
 		relid = getrelid(rc->rti, rangeTable);
 
->>>>>>> FETCH_HEAD
 		/*
 		 * If you change the conditions under which rel locks are acquired
 		 * here, be sure to adjust ExecOpenScanRelation to match.
@@ -1694,16 +1681,10 @@ ExecConstraints(ResultRelInfo *resultRelInfo,
 				slot_attisnull(slot, attrChk))
 			{
 				char	   *val_desc;
-<<<<<<< HEAD
-				Bitmapset  *modifiedCols;
-
-				modifiedCols = GetModifiedColumns(resultRelInfo, estate);
-=======
 
 				insertedCols = GetInsertedColumns(resultRelInfo, estate);
 				updatedCols = GetUpdatedColumns(resultRelInfo, estate);
 				modifiedCols = bms_union(insertedCols, updatedCols);
->>>>>>> FETCH_HEAD
 				val_desc = ExecBuildSlotValueDescription(RelationGetRelid(rel),
 														 slot,
 														 tupdesc,
@@ -1727,16 +1708,10 @@ ExecConstraints(ResultRelInfo *resultRelInfo,
 		if ((failed = ExecRelCheck(resultRelInfo, slot, estate)) != NULL)
 		{
 			char	   *val_desc;
-<<<<<<< HEAD
-			Bitmapset  *modifiedCols;
-
-			modifiedCols = GetModifiedColumns(resultRelInfo, estate);
-=======
 
 			insertedCols = GetInsertedColumns(resultRelInfo, estate);
 			updatedCols = GetUpdatedColumns(resultRelInfo, estate);
 			modifiedCols = bms_union(insertedCols, updatedCols);
->>>>>>> FETCH_HEAD
 			val_desc = ExecBuildSlotValueDescription(RelationGetRelid(rel),
 													 slot,
 													 tupdesc,
@@ -1746,11 +1721,7 @@ ExecConstraints(ResultRelInfo *resultRelInfo,
 					(errcode(ERRCODE_CHECK_VIOLATION),
 					 errmsg("new row for relation \"%s\" violates check constraint \"%s\"",
 							RelationGetRelationName(rel), failed),
-<<<<<<< HEAD
-					 val_desc ? errdetail("Failing row contains %s.", val_desc) : 0,
-=======
 			  val_desc ? errdetail("Failing row contains %s.", val_desc) : 0,
->>>>>>> FETCH_HEAD
 					 errtableconstraint(rel, failed)));
 		}
 	}
@@ -1811,22 +1782,6 @@ ExecWithCheckOptions(WCOKind kind, ResultRelInfo *resultRelInfo,
 		{
 			char	   *val_desc;
 			Bitmapset  *modifiedCols;
-<<<<<<< HEAD
-
-			modifiedCols = GetModifiedColumns(resultRelInfo, estate);
-			val_desc = ExecBuildSlotValueDescription(RelationGetRelid(rel),
-													 slot,
-													 tupdesc,
-													 modifiedCols,
-													 64);
-
-			ereport(ERROR,
-					(errcode(ERRCODE_WITH_CHECK_OPTION_VIOLATION),
-				 errmsg("new row violates WITH CHECK OPTION for view \"%s\"",
-						wco->viewname),
-					val_desc ? errdetail("Failing row contains %s.", val_desc) :
-							   0));
-=======
 			Bitmapset  *insertedCols;
 			Bitmapset  *updatedCols;
 
@@ -1887,7 +1842,6 @@ ExecWithCheckOptions(WCOKind kind, ResultRelInfo *resultRelInfo,
 					elog(ERROR, "unrecognized WCO kind: %u", wco->kind);
 					break;
 			}
->>>>>>> FETCH_HEAD
 		}
 	}
 }
@@ -1926,8 +1880,6 @@ ExecBuildSlotValueDescription(Oid reloid,
 	AclResult	aclresult;
 	bool		table_perm = false;
 	bool		any_perm = false;
-<<<<<<< HEAD
-=======
 
 	/*
 	 * Check if RLS is enabled and should be active for the relation; if so,
@@ -1936,7 +1888,6 @@ ExecBuildSlotValueDescription(Oid reloid,
 	 */
 	if (check_enable_rls(reloid, InvalidOid, true) == RLS_ENABLED)
 		return NULL;
->>>>>>> FETCH_HEAD
 
 	initStringInfo(&buf);
 
@@ -1976,13 +1927,8 @@ ExecBuildSlotValueDescription(Oid reloid,
 		{
 			/*
 			 * No table-level SELECT, so need to make sure they either have
-<<<<<<< HEAD
-			 * SELECT rights on the column or that they have provided the
-			 * data for the column.  If not, omit this column from the error
-=======
 			 * SELECT rights on the column or that they have provided the data
 			 * for the column.  If not, omit this column from the error
->>>>>>> FETCH_HEAD
 			 * message.
 			 */
 			aclresult = pg_attribute_aclcheck(reloid, tupdesc->attrs[i]->attnum,
@@ -2189,11 +2135,7 @@ EvalPlanQual(EState *estate, EPQState *epqstate,
 	/*
 	 * Get and lock the updated version of the row; if fail, return NULL.
 	 */
-<<<<<<< HEAD
-	copyTuple = EvalPlanQualFetch(estate, relation, lockmode, false /* wait */,
-=======
 	copyTuple = EvalPlanQualFetch(estate, relation, lockmode, LockWaitBlock,
->>>>>>> FETCH_HEAD
 								  tid, priorXmax);
 
 	if (copyTuple == NULL)
@@ -2252,11 +2194,7 @@ EvalPlanQual(EState *estate, EPQState *epqstate,
  *	estate - executor state data
  *	relation - table containing tuple
  *	lockmode - requested tuple lock mode
-<<<<<<< HEAD
- *	noWait - wait mode to pass to heap_lock_tuple
-=======
  *	wait_policy - requested lock wait policy
->>>>>>> FETCH_HEAD
  *	*tid - t_ctid from the outdated tuple (ie, next updated version)
  *	priorXmax - t_xmax from the outdated tuple
  *
@@ -2272,12 +2210,8 @@ EvalPlanQual(EState *estate, EPQState *epqstate,
  * but we use "int" to avoid having to include heapam.h in executor.h.
  */
 HeapTuple
-<<<<<<< HEAD
-EvalPlanQualFetch(EState *estate, Relation relation, int lockmode, bool noWait,
-=======
 EvalPlanQualFetch(EState *estate, Relation relation, int lockmode,
 				  LockWaitPolicy wait_policy,
->>>>>>> FETCH_HEAD
 				  ItemPointer tid, TransactionId priorXmax)
 {
 	HeapTuple	copyTuple = NULL;
@@ -2327,20 +2261,6 @@ EvalPlanQualFetch(EState *estate, Relation relation, int lockmode,
 			if (TransactionIdIsValid(SnapshotDirty.xmax))
 			{
 				ReleaseBuffer(buffer);
-<<<<<<< HEAD
-				if (noWait)
-				{
-					if (!ConditionalXactLockTableWait(SnapshotDirty.xmax))
-						ereport(ERROR,
-								(errcode(ERRCODE_LOCK_NOT_AVAILABLE),
-								 errmsg("could not obtain lock on row in relation \"%s\"",
-										RelationGetRelationName(relation))));
-				}
-				else
-					XactLockTableWait(SnapshotDirty.xmax,
-									  relation, &tuple.t_self,
-									  XLTW_FetchUpdated);
-=======
 				switch (wait_policy)
 				{
 					case LockWaitBlock:
@@ -2360,7 +2280,6 @@ EvalPlanQualFetch(EState *estate, Relation relation, int lockmode,
 										RelationGetRelationName(relation))));
 						break;
 				}
->>>>>>> FETCH_HEAD
 				continue;		/* loop back to repeat heap_fetch */
 			}
 
@@ -2387,11 +2306,7 @@ EvalPlanQualFetch(EState *estate, Relation relation, int lockmode,
 			 */
 			test = heap_lock_tuple(relation, &tuple,
 								   estate->es_output_cid,
-<<<<<<< HEAD
-								   lockmode, noWait,
-=======
 								   lockmode, wait_policy,
->>>>>>> FETCH_HEAD
 								   false, &buffer, &hufd);
 			/* We now have two pins on the buffer, get rid of one */
 			ReleaseBuffer(buffer);
@@ -2710,13 +2625,6 @@ EvalPlanQualFetchRowMarks(EPQState *epqstate)
 
 			/* build a temporary HeapTuple control structure */
 			tuple.t_len = HeapTupleHeaderGetDatumLength(td);
-<<<<<<< HEAD
-			ItemPointerSetInvalid(&(tuple.t_self));
-			/* relation might be a foreign table, if so provide tableoid */
-			tuple.t_tableOid = getrelid(erm->rti,
-										epqstate->estate->es_range_table);
-=======
->>>>>>> FETCH_HEAD
 			tuple.t_data = td;
 			/* relation might be a foreign table, if so provide tableoid */
 			tuple.t_tableOid = erm->relid;

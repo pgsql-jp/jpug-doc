@@ -79,13 +79,8 @@ expand_security_quals(PlannerInfo *root, List *tlist)
 	rt_index = 0;
 	foreach(cell, parse->rtable)
 	{
-<<<<<<< HEAD
-		bool			targetRelation = false;
-		RangeTblEntry  *rte = (RangeTblEntry *) lfirst(cell);
-=======
 		bool		targetRelation = false;
 		RangeTblEntry *rte = (RangeTblEntry *) lfirst(cell);
->>>>>>> FETCH_HEAD
 
 		rt_index++;
 
@@ -268,12 +263,8 @@ expand_security_qual(PlannerInfo *root, List *tlist, int rt_index,
 			 */
 			if (targetRelation)
 				applyLockingClause(subquery, 1, LCS_FORUPDATE,
-<<<<<<< HEAD
-								   false, false);
-=======
 								   LockWaitBlock, false);
 
->>>>>>> FETCH_HEAD
 			/*
 			 * Replace any variables in the outer query that refer to the
 			 * original relation RTE with references to columns that we will

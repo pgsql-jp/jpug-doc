@@ -143,11 +143,7 @@ static xmlDocPtr xml_parse(text *data, XmlOptionType xmloption_arg,
 		  bool preserve_whitespace, int encoding);
 static text *xml_xmlnodetoxmltype(xmlNodePtr cur, PgXmlErrorContext *xmlerrcxt);
 static int xml_xpathobjtoxmlarray(xmlXPathObjectPtr xpathobj,
-<<<<<<< HEAD
-					   ArrayBuildState **astate,
-=======
 					   ArrayBuildState *astate,
->>>>>>> FETCH_HEAD
 					   PgXmlErrorContext *xmlerrcxt);
 #endif   /* USE_LIBXML */
 
@@ -3680,11 +3676,7 @@ xml_xmlnodetoxmltype(xmlNodePtr cur, PgXmlErrorContext *xmlerrcxt)
  */
 static int
 xml_xpathobjtoxmlarray(xmlXPathObjectPtr xpathobj,
-<<<<<<< HEAD
-					   ArrayBuildState **astate,
-=======
 					   ArrayBuildState *astate,
->>>>>>> FETCH_HEAD
 					   PgXmlErrorContext *xmlerrcxt)
 {
 	int			result = 0;
@@ -3705,16 +3697,9 @@ xml_xpathobjtoxmlarray(xmlXPathObjectPtr xpathobj,
 					for (i = 0; i < result; i++)
 					{
 						datum = PointerGetDatum(xml_xmlnodetoxmltype(xpathobj->nodesetval->nodeTab[i],
-<<<<<<< HEAD
-																	 xmlerrcxt));
-						*astate = accumArrayResult(*astate, datum,
-												   false, XMLOID,
-												   CurrentMemoryContext);
-=======
 																 xmlerrcxt));
 						(void) accumArrayResult(astate, datum, false,
 												XMLOID, CurrentMemoryContext);
->>>>>>> FETCH_HEAD
 					}
 				}
 			}

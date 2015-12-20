@@ -93,8 +93,5 @@ permutation "wy1" "wy2" "c1" "c2" "read"
 permutation "upsert1" "upsert2" "c1" "c2" "read"
 permutation "readp1" "writep1" "readp2" "c1" "c2"
 permutation "writep2" "returningp1" "c1" "c2"
-<<<<<<< HEAD
-=======
 permutation "wx2" "partiallock" "c2" "c1" "read"
 permutation "wx2" "lockwithvalues" "c2" "c1" "read"
->>>>>>> FETCH_HEAD

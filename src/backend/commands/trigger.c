@@ -66,15 +66,6 @@ int			SessionReplicationRole = SESSION_REPLICATION_ROLE_ORIGIN;
 static int	MyTriggerDepth = 0;
 
 /*
-<<<<<<< HEAD
- * Note that this macro also exists in executor/execMain.c.  There does not
- * appear to be any good header to put it into, given the structures that
- * it uses, so we let them be duplicated.  Be sure to update both if one needs
- * to be changed, however.
- */
-#define GetModifiedColumns(relinfo, estate) \
-	(rt_fetch((relinfo)->ri_RangeTableIndex, (estate)->es_range_table)->modifiedCols)
-=======
  * Note that similar macros also exist in executor/execMain.c.  There does not
  * appear to be any good header to put them into, given the structures that
  * they use, so we let them be duplicated.  Be sure to update all if one needs
@@ -82,7 +73,6 @@ static int	MyTriggerDepth = 0;
  */
 #define GetUpdatedColumns(relinfo, estate) \
 	(rt_fetch((relinfo)->ri_RangeTableIndex, (estate)->es_range_table)->updatedCols)
->>>>>>> FETCH_HEAD
 
 /* Local function prototypes */
 static void ConvertTriggerToFK(CreateTrigStmt *stmt, Oid funcoid);

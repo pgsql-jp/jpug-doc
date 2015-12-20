@@ -1319,10 +1319,7 @@ ReorderBufferCommit(ReorderBuffer *rb, TransactionId xid,
 	PG_TRY();
 	{
 		ReorderBufferChange *change;
-<<<<<<< HEAD
-=======
 		ReorderBufferChange *specinsert = NULL;
->>>>>>> FETCH_HEAD
 
 		if (using_subtxn)
 			BeginInternalSubTransaction("replay");
@@ -1403,40 +1400,6 @@ ReorderBufferCommit(ReorderBuffer *rb, TransactionId xid,
 						 * they're not required anymore. The creator of the
 						 * tuple tells us.
 						 */
-<<<<<<< HEAD
-						if (relation->rd_rel->relkind == RELKIND_SEQUENCE)
-						{
-						}
-						/* user-triggered change */
-						else if (!IsToastRelation(relation))
-						{
-							ReorderBufferToastReplace(rb, txn, relation, change);
-							rb->apply_change(rb, txn, relation, change);
-
-							/*
-							 * Only clear reassembled toast chunks if we're
-							 * sure they're not required anymore. The creator
-							 * of the tuple tells us.
-							 */
-							if (change->data.tp.clear_toast_afterwards)
-								ReorderBufferToastReset(rb, txn);
-						}
-						/* we're not interested in toast deletions */
-						else if (change->action == REORDER_BUFFER_CHANGE_INSERT)
-						{
-							/*
-							 * Need to reassemble the full toasted Datum in
-							 * memory, to ensure the chunks don't get reused
-							 * till we're done remove it from the list of this
-							 * transaction's changes. Otherwise it will get
-							 * freed/reused while restoring spooled data from
-							 * disk.
-							 */
-							dlist_delete(&change->node);
-							ReorderBufferToastAppendChunk(rb, txn, relation,
-														  change);
-						}
-=======
 						if (change->data.tp.clear_toast_afterwards)
 							ReorderBufferToastReset(rb, txn);
 					}
@@ -1455,7 +1418,6 @@ ReorderBufferCommit(ReorderBuffer *rb, TransactionId xid,
 						ReorderBufferToastAppendChunk(rb, txn, relation,
 													  change);
 					}
->>>>>>> FETCH_HEAD
 
 			change_done:
 
@@ -1571,8 +1533,6 @@ ReorderBufferCommit(ReorderBuffer *rb, TransactionId xid,
 			}
 		}
 
-<<<<<<< HEAD
-=======
 		/*
 		 * There's a speculative insertion remaining, just clean in up, it
 		 * can't have been successful, otherwise we'd gotten a confirmation
@@ -1584,7 +1544,6 @@ ReorderBufferCommit(ReorderBuffer *rb, TransactionId xid,
 			specinsert = NULL;
 		}
 
->>>>>>> FETCH_HEAD
 		/* clean up the iterator */
 		ReorderBufferIterTXNFinish(rb, iterstate);
 		iterstate = NULL;

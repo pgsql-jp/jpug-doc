@@ -305,7 +305,3 @@
  */
 /* #define HEAPDEBUGALL */
 /* #define ACLDEBUG */
-<<<<<<< HEAD
-/* #define RTDEBUG */
-=======
->>>>>>> FETCH_HEAD

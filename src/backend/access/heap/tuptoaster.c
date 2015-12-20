@@ -209,8 +209,6 @@ heap_tuple_untoast_attr(struct varlena * attr)
 			memcpy(result, attr, VARSIZE_ANY(attr));
 			attr = result;
 		}
-<<<<<<< HEAD
-=======
 	}
 	else if (VARATT_IS_EXTERNAL_EXPANDED(attr))
 	{
@@ -220,7 +218,6 @@ heap_tuple_untoast_attr(struct varlena * attr)
 		attr = heap_tuple_fetch_attr(attr);
 		/* flatteners are not allowed to produce compressed/short output */
 		Assert(!VARATT_IS_EXTENDED(attr));
->>>>>>> FETCH_HEAD
 	}
 	else if (VARATT_IS_COMPRESSED(attr))
 	{

@@ -31,11 +31,7 @@ extern bool ReceiveXlogStream(PGconn *conn,
 				  stream_stop_callback stream_stop,
 				  int standby_message_timeout,
 				  char *partial_suffix,
-<<<<<<< HEAD
-				  bool mark_done);
-=======
 				  bool synchronous,
 				  bool mark_done);
 
 #endif   /* RECEIVELOG_H */
->>>>>>> FETCH_HEAD

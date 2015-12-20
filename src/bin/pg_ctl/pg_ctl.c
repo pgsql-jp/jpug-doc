@@ -1642,16 +1642,9 @@ pgwin32_ServiceMain(DWORD argc, LPTSTR *argv)
 			{
 				/*
 				 * status.dwCheckPoint can be incremented by
-<<<<<<< HEAD
-				 * test_postmaster_connection(true), so it might not
-				 * start from 0.
-				 */
-				int maxShutdownCheckPoint = status.dwCheckPoint + 12;;
-=======
 				 * test_postmaster_connection(), so it might not start from 0.
 				 */
 				int			maxShutdownCheckPoint = status.dwCheckPoint + 12;
->>>>>>> FETCH_HEAD
 
 				kill(postmasterPID, SIGINT);
 

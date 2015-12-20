@@ -849,11 +849,7 @@ PostmasterMain(int argc, char *argv[])
 	}
 	if (XLogArchiveMode > ARCHIVE_MODE_OFF && wal_level == WAL_LEVEL_MINIMAL)
 		ereport(ERROR,
-<<<<<<< HEAD
-				(errmsg("WAL archival (archive_mode=on) requires wal_level \"archive\", \"hot_standby\", or \"logical\"")));
-=======
 				(errmsg("WAL archival cannot be enabled when wal_level is \"minimal\"")));
->>>>>>> FETCH_HEAD
 	if (max_wal_senders > 0 && wal_level == WAL_LEVEL_MINIMAL)
 		ereport(ERROR,
 				(errmsg("WAL streaming (max_wal_senders > 0) requires wal_level \"archive\", \"hot_standby\", or \"logical\"")));
@@ -1269,11 +1265,7 @@ PostmasterMain(int argc, char *argv[])
 	 * normal case on Windows, which offers neither fork() nor sigprocmask().
 	 */
 	if (pthread_is_threaded_np() != 0)
-<<<<<<< HEAD
-		ereport(LOG,
-=======
 		ereport(FATAL,
->>>>>>> FETCH_HEAD
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("postmaster became multithreaded during startup"),
 		 errhint("Set the LC_ALL environment variable to a valid locale.")));
@@ -1782,15 +1774,6 @@ ServerLoop(void)
 		 */
 		now = time(NULL);
 
-#ifdef HAVE_PTHREAD_IS_THREADED_NP
-
-		/*
-		 * With assertions enabled, check regularly for appearance of
-		 * additional threads.  All builds check at start and exit.
-		 */
-		Assert(pthread_is_threaded_np() == 0);
-#endif
-
 		/*
 		 * If we already sent SIGQUIT to children and they are slow to shut
 		 * down, it's time to send them SIGKILL.  This doesn't happen
@@ -1807,8 +1790,6 @@ ServerLoop(void)
 			TerminateChildren(SIGKILL);
 			/* reset flag so we don't SIGKILL again */
 			AbortStartTime = 0;
-<<<<<<< HEAD
-=======
 		}
 
 		/*
@@ -1842,7 +1823,6 @@ ServerLoop(void)
 			TouchSocketFiles();
 			TouchSocketLockFiles();
 			last_touch_time = now;
->>>>>>> FETCH_HEAD
 		}
 	}
 }
@@ -2717,8 +2697,6 @@ reaper(SIGNAL_ARGS)
 				(EXIT_STATUS_0(exitstatus) || EXIT_STATUS_1(exitstatus)))
 			{
 				StartupStatus = STARTUP_NOT_RUNNING;
-<<<<<<< HEAD
-=======
 				pmState = PM_WAIT_BACKENDS;
 				/* PostmasterStateMachine logic does the rest */
 				continue;
@@ -2731,7 +2709,6 @@ reaper(SIGNAL_ARGS)
 				StartupStatus = STARTUP_NOT_RUNNING;
 				Shutdown = SmartShutdown;
 				TerminateChildren(SIGTERM);
->>>>>>> FETCH_HEAD
 				pmState = PM_WAIT_BACKENDS;
 				/* PostmasterStateMachine logic does the rest */
 				continue;
@@ -4804,11 +4781,8 @@ SubPostmasterMain(int argc, char *argv[])
 		/* do this as early as possible; in particular, before InitProcess() */
 		IsBackgroundWorker = true;
 
-<<<<<<< HEAD
-=======
 		InitPostmasterChild();
 
->>>>>>> FETCH_HEAD
 		/* Close the postmaster's sockets */
 		ClosePostmasterPorts(false);
 
@@ -4871,13 +4845,6 @@ ExitPostmaster(int status)
 	/*
 	 * There is no known cause for a postmaster to become multithreaded after
 	 * startup.  Recheck to account for the possibility of unknown causes.
-<<<<<<< HEAD
-	 */
-	if (pthread_is_threaded_np() != 0)
-		ereport(LOG,
-				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
-				 errmsg("postmaster became multithreaded")));
-=======
 	 * This message uses LOG level, because an unclean shutdown at this point
 	 * would usually not look much different from a clean shutdown.
 	 */
@@ -4886,7 +4853,6 @@ ExitPostmaster(int status)
 				(errcode(ERRCODE_INTERNAL_ERROR),
 				 errmsg_internal("postmaster became multithreaded"),
 		   errdetail("Please report this to <pgsql-bugs@postgresql.org>.")));
->>>>>>> FETCH_HEAD
 #endif
 
 	/* should cleanup shared memory and kill all backends */

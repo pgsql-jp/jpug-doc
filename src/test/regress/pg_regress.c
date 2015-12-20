@@ -29,10 +29,7 @@
 #include <sys/resource.h>
 #endif
 
-<<<<<<< HEAD
-=======
 #include "common/restricted_token.h"
->>>>>>> FETCH_HEAD
 #include "common/username.h"
 #include "getopt_long.h"
 #include "libpq/pqcomm.h"		/* needed for UNIXSOCK_PATH() */
@@ -92,10 +89,6 @@ static bool port_specified_by_user = false;
 static char *dlpath = PKGLIBDIR;
 static char *user = NULL;
 static _stringlist *extraroles = NULL;
-<<<<<<< HEAD
-static _stringlist *extra_install = NULL;
-=======
->>>>>>> FETCH_HEAD
 static char *config_auth_datadir = NULL;
 
 /* internal variables */
@@ -2024,10 +2017,6 @@ regression_main(int argc, char *argv[], init_function ifunc, test_function tfunc
 		{"use-existing", no_argument, NULL, 20},
 		{"launcher", required_argument, NULL, 21},
 		{"load-extension", required_argument, NULL, 22},
-<<<<<<< HEAD
-		{"extra-install", required_argument, NULL, 23},
-=======
->>>>>>> FETCH_HEAD
 		{"config-auth", required_argument, NULL, 24},
 		{NULL, 0, NULL, 0}
 	};
@@ -2142,9 +2131,6 @@ regression_main(int argc, char *argv[], init_function ifunc, test_function tfunc
 			case 24:
 				config_auth_datadir = pstrdup(optarg);
 				break;
-			case 24:
-				config_auth_datadir = pstrdup(optarg);
-				break;
 			default:
 				/* getopt_long already emitted a complaint */
 				fprintf(stderr, _("\nTry \"%s -h\" for more information.\n"),
@@ -2170,11 +2156,7 @@ regression_main(int argc, char *argv[], init_function ifunc, test_function tfunc
 		exit(0);
 	}
 
-<<<<<<< HEAD
-	if (temp_install && !port_specified_by_user)
-=======
 	if (temp_instance && !port_specified_by_user)
->>>>>>> FETCH_HEAD
 
 		/*
 		 * To reduce chances of interference with parallel installations, use
@@ -2213,13 +2195,8 @@ regression_main(int argc, char *argv[], init_function ifunc, test_function tfunc
 			header(_("removing existing temp instance"));
 			if (!rmtree(temp_instance, true))
 			{
-<<<<<<< HEAD
-				fprintf(stderr, _("\n%s: could not remove temp installation \"%s\"\n"),
-						progname, temp_install);
-=======
 				fprintf(stderr, _("\n%s: could not remove temp instance \"%s\"\n"),
 						progname, temp_instance);
->>>>>>> FETCH_HEAD
 				exit(2);
 			}
 		}
@@ -2296,11 +2273,7 @@ regression_main(int argc, char *argv[], init_function ifunc, test_function tfunc
 		 * Since we successfully used the same buffer for the much-longer
 		 * "initdb" command, this can't truncate.
 		 */
-<<<<<<< HEAD
-		snprintf(buf, sizeof(buf), "%s/data", temp_install);
-=======
 		snprintf(buf, sizeof(buf), "%s/data", temp_instance);
->>>>>>> FETCH_HEAD
 		config_sspi_auth(buf);
 #elif !defined(HAVE_UNIX_SOCKETS)
 #error Platform has no means to secure the test installation.
@@ -2344,19 +2317,12 @@ regression_main(int argc, char *argv[], init_function ifunc, test_function tfunc
 		 */
 		header(_("starting postmaster"));
 		snprintf(buf, sizeof(buf),
-<<<<<<< HEAD
-				 "\"%s/postgres\" -D \"%s/data\" -F%s "
-				 "-c \"listen_addresses=%s\" -k \"%s\" "
-				 "> \"%s/log/postmaster.log\" 2>&1",
-				 bindir, temp_install, debug ? " -d 5" : "",
-=======
 				 "\"%s%spostgres\" -D \"%s/data\" -F%s "
 				 "-c \"listen_addresses=%s\" -k \"%s\" "
 				 "> \"%s/log/postmaster.log\" 2>&1",
 				 bindir ? bindir : "",
 				 bindir ? "/" : "",
 				 temp_instance, debug ? " -d 5" : "",
->>>>>>> FETCH_HEAD
 				 hostname ? hostname : "", sockdir ? sockdir : "",
 				 outputdir);
 		postmaster_pid = spawn_process(buf);
@@ -2479,18 +2445,6 @@ regression_main(int argc, char *argv[], init_function ifunc, test_function tfunc
 	}
 
 	/*
-<<<<<<< HEAD
-	 * If there were no errors, remove the temp installation immediately to
-	 * conserve disk space.  (If there were errors, we leave the installation
-	 * in place for possible manual investigation.)
-	 */
-	if (temp_install && fail_count == 0 && fail_ignore_count == 0)
-	{
-		header(_("removing temporary installation"));
-		if (!rmtree(temp_install, true))
-			fprintf(stderr, _("\n%s: could not remove temp installation \"%s\"\n"),
-					progname, temp_install);
-=======
 	 * If there were no errors, remove the temp instance immediately to
 	 * conserve disk space.  (If there were errors, we leave the instance in
 	 * place for possible manual investigation.)
@@ -2501,7 +2455,6 @@ regression_main(int argc, char *argv[], init_function ifunc, test_function tfunc
 		if (!rmtree(temp_instance, true))
 			fprintf(stderr, _("\n%s: could not remove temp instance \"%s\"\n"),
 					progname, temp_instance);
->>>>>>> FETCH_HEAD
 	}
 
 	fclose(logfile);

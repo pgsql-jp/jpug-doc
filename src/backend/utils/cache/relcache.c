@@ -5180,7 +5180,6 @@ write_item(const void *data, Size len, FILE *fp)
 /*
  * Determine whether a given relation (identified by OID) is one of the ones
  * we should store in the local relcache init file.
-<<<<<<< HEAD
  *
  * We must cache all nailed rels, and for efficiency we should cache every rel
  * that supports a syscache.  The former set is almost but not quite a subset
@@ -5188,15 +5187,6 @@ write_item(const void *data, Size len, FILE *fp)
  * which RelationCacheInitializePhase3 chooses to nail for efficiency reasons,
  * but which does not support any syscache.
  *
-=======
- *
- * We must cache all nailed rels, and for efficiency we should cache every rel
- * that supports a syscache.  The former set is almost but not quite a subset
- * of the latter.  Currently, we must special-case TriggerRelidNameIndexId,
- * which RelationCacheInitializePhase3 chooses to nail for efficiency reasons,
- * but which does not support any syscache.
- *
->>>>>>> FETCH_HEAD
  * Note: this function is currently never called for shared rels.  If it were,
  * we'd probably also need a special case for DatabaseNameIndexId, which is
  * critical but does not support a syscache.

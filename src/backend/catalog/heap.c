@@ -1006,12 +1006,9 @@ AddNewRelationType(const char *typeName,
  *		if FALSE, relacl is always set NULL
  *	allow_system_table_mods: TRUE to allow creation in system namespaces
  *	is_internal: is this a system-generated catalog?
-<<<<<<< HEAD
-=======
  *
  * Output parameters:
  *	typaddress: if not null, gets the object address of the new pg_type entry
->>>>>>> FETCH_HEAD
  *
  * Returns the OID of the new relation
  * --------------------------------

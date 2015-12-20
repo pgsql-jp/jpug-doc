@@ -8,8 +8,6 @@ PGFILEDESC = "isn - data types for international product numbering standards"
 
 REGRESS = isn
 
-REGRESS = isn
-
 ifdef USE_PGXS
 PG_CONFIG = pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)

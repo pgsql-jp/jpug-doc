@@ -2868,11 +2868,6 @@ AggRegisterCallback(FunctionCallInfo fcinfo,
 
 		RegisterExprContextCallback(cxt, func, arg);
 
-<<<<<<< HEAD
-		RegisterExprContextCallback(aggstate->ss.ps.ps_ExprContext, func, arg);
-
-=======
->>>>>>> FETCH_HEAD
 		return;
 	}
 	elog(ERROR, "aggregate function cannot register a callback in this context");

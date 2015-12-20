@@ -1352,13 +1352,9 @@ build_tuplestore_recursively(char *key_fld,
 				appendStringInfo(&chk_current_key, "%s%s%s",
 								 branch_delim, current_key, branch_delim);
 				if (strstr(chk_branchstr.data, chk_current_key.data))
-<<<<<<< HEAD
-					elog(ERROR, "infinite recursion detected");
-=======
 					ereport(ERROR,
 							(errcode(ERRCODE_INVALID_RECURSION),
 							 errmsg("infinite recursion detected")));
->>>>>>> FETCH_HEAD
 			}
 
 			/* OK, extend the branch */
@@ -1500,20 +1496,15 @@ validateConnectbyTupleDesc(TupleDesc tupdesc, bool show_branch, bool show_serial
 static void
 compatConnectbyTupleDescs(TupleDesc ret_tupdesc, TupleDesc sql_tupdesc)
 {
-<<<<<<< HEAD
-=======
 	Oid			ret_atttypid;
 	Oid			sql_atttypid;
 	int32		ret_atttypmod;
 	int32		sql_atttypmod;
 
->>>>>>> FETCH_HEAD
 	/*
 	 * Result must have at least 2 columns.
 	 */
 	if (sql_tupdesc->natts < 2)
-<<<<<<< HEAD
-=======
 		ereport(ERROR,
 				(errcode(ERRCODE_DATATYPE_MISMATCH),
 				 errmsg("invalid return type"),
@@ -1529,19 +1520,9 @@ compatConnectbyTupleDescs(TupleDesc ret_tupdesc, TupleDesc sql_tupdesc)
 	sql_atttypmod = sql_tupdesc->attrs[0]->atttypmod;
 	if (ret_atttypid != sql_atttypid ||
 		(ret_atttypmod >= 0 && ret_atttypmod != sql_atttypmod))
->>>>>>> FETCH_HEAD
 		ereport(ERROR,
 				(errcode(ERRCODE_DATATYPE_MISMATCH),
 				 errmsg("invalid return type"),
-<<<<<<< HEAD
-				 errdetail("Query must return at least two columns.")));
-
-	/*
-	 * We have failed to check datatype match since 2003, so we don't do that
-	 * here.  The call will work as long as the datatypes are I/O
-	 * representation compatible.
-	 */
-=======
 				 errdetail("SQL key field type %s does " \
 						   "not match return key field type %s.",
 					   format_type_with_typemod(ret_atttypid, ret_atttypmod),
@@ -1560,7 +1541,6 @@ compatConnectbyTupleDescs(TupleDesc ret_tupdesc, TupleDesc sql_tupdesc)
 						   "not match return parent key field type %s.",
 					   format_type_with_typemod(ret_atttypid, ret_atttypmod),
 					format_type_with_typemod(sql_atttypid, sql_atttypmod))));
->>>>>>> FETCH_HEAD
 
 	/* OK, the two tupdescs are compatible for our purposes */
 }

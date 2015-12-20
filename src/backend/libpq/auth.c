@@ -845,12 +845,9 @@ pg_GSS_recvauth(Port *port)
 	do
 	{
 		pq_startmsgread();
-<<<<<<< HEAD
-=======
 
 		CHECK_FOR_INTERRUPTS();
 
->>>>>>> FETCH_HEAD
 		mtype = pq_getbyte();
 		if (mtype != 'p')
 		{

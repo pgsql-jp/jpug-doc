@@ -116,16 +116,11 @@ COMMIT;
 select to_json(date '2014-05-28');
 
 select to_json(date 'Infinity');
-<<<<<<< HEAD
-select to_json(timestamp 'Infinity');
-select to_json(timestamptz 'Infinity');
-=======
 select to_json(date '-Infinity');
 select to_json(timestamp 'Infinity');
 select to_json(timestamp '-Infinity');
 select to_json(timestamptz 'Infinity');
 select to_json(timestamptz '-Infinity');
->>>>>>> FETCH_HEAD
 
 --json_agg
 
@@ -260,10 +255,7 @@ where json_type = 'array';
 select '{"a": [{"b": "c"}, {"b": "cc"}]}'::json -> null::text;
 select '{"a": [{"b": "c"}, {"b": "cc"}]}'::json -> null::int;
 select '{"a": [{"b": "c"}, {"b": "cc"}]}'::json -> 1;
-<<<<<<< HEAD
-=======
 select '{"a": [{"b": "c"}, {"b": "cc"}]}'::json -> -1;
->>>>>>> FETCH_HEAD
 select '{"a": [{"b": "c"}, {"b": "cc"}]}'::json -> 'z';
 select '{"a": [{"b": "c"}, {"b": "cc"}]}'::json -> '';
 select '[{"b": "c"}, {"b": "cc"}]'::json -> 1;
@@ -400,7 +392,6 @@ select * from json_populate_record(row('x',3,'2012-12-31 15:30:56')::jpop,'{"c":
 
 select * from json_populate_recordset(null::jpop,'[{"a":"blurfl","x":43.2},{"b":3,"c":"2012-01-20 10:42:53"}]') q;
 select * from json_populate_recordset(row('def',99,null)::jpop,'[{"a":"blurfl","x":43.2},{"b":3,"c":"2012-01-20 10:42:53"}]') q;
-<<<<<<< HEAD
 select * from json_populate_recordset(null::jpop,'[{"a":"blurfl","x":43.2},{"b":3,"c":"2012-01-20 10:42:53"}]') q;
 select * from json_populate_recordset(row('def',99,null)::jpop,'[{"a":"blurfl","x":43.2},{"b":3,"c":"2012-01-20 10:42:53"}]') q;
 select * from json_populate_recordset(row('def',99,null)::jpop,'[{"a":[100,200,300],"x":43.2},{"a":{"z":true},"b":3,"c":"2012-01-20 10:42:53"}]') q;
@@ -409,34 +400,9 @@ select * from json_populate_recordset(row('def',99,null)::jpop,'[{"c":[100,200,3
 create type jpop2 as (a int, b json, c int, d int);
 select * from json_populate_recordset(null::jpop2, '[{"a":2,"c":3,"b":{"z":4},"d":6}]') q;
 
-=======
->>>>>>> FETCH_HEAD
 select * from json_populate_recordset(null::jpop,'[{"a":"blurfl","x":43.2},{"b":3,"c":"2012-01-20 10:42:53"}]') q;
 select * from json_populate_recordset(row('def',99,null)::jpop,'[{"a":"blurfl","x":43.2},{"b":3,"c":"2012-01-20 10:42:53"}]') q;
 select * from json_populate_recordset(row('def',99,null)::jpop,'[{"a":[100,200,300],"x":43.2},{"a":{"z":true},"b":3,"c":"2012-01-20 10:42:53"}]') q;
-
-create type jpop2 as (a int, b json, c int, d int);
-select * from json_populate_recordset(null::jpop2, '[{"a":2,"c":3,"b":{"z":4},"d":6}]') q;
-
-<<<<<<< HEAD
---handling of simple unicode escapes
-
-select json '{ "a":  "the Copyright \u00a9 sign" }' as correct_in_utf8;
-select json '{ "a":  "dollar \u0024 character" }' as correct_everywhere;
-select json '{ "a":  "dollar \\u0024 character" }' as not_an_escape;
-select json '{ "a":  "null \u0000 escape" }' as not_unescaped;
-select json '{ "a":  "null \\u0000 escape" }' as not_an_escape;
-
-select json '{ "a":  "the Copyright \u00a9 sign" }' ->> 'a' as correct_in_utf8;
-select json '{ "a":  "dollar \u0024 character" }' ->> 'a' as correct_everywhere;
-select json '{ "a":  "dollar \\u0024 character" }' ->> 'a' as not_an_escape;
-select json '{ "a":  "null \u0000 escape" }' ->> 'a' as fails;
-select json '{ "a":  "null \\u0000 escape" }' ->> 'a' as not_an_escape;
-=======
-select * from json_populate_recordset(null::jpop,'[{"a":"blurfl","x":43.2},{"b":3,"c":"2012-01-20 10:42:53"}]') q;
-select * from json_populate_recordset(row('def',99,null)::jpop,'[{"a":"blurfl","x":43.2},{"b":3,"c":"2012-01-20 10:42:53"}]') q;
-select * from json_populate_recordset(row('def',99,null)::jpop,'[{"a":[100,200,300],"x":43.2},{"a":{"z":true},"b":3,"c":"2012-01-20 10:42:53"}]') q;
->>>>>>> FETCH_HEAD
 
 --json_typeof() function
 select value, json_typeof(value)
@@ -546,8 +512,6 @@ select * from json_to_recordset('[{"a":1,"b":"foo","d":false},{"a":2,"b":"bar","
 
 select * from json_to_recordset('[{"a":1,"b":{"d":"foo"},"c":true},{"a":2,"c":false,"b":{"d":"bar"}}]')
     as x(a int, b json, c boolean);
-<<<<<<< HEAD
-=======
 
 
 -- json_strip_nulls
@@ -568,4 +532,3 @@ select json_strip_nulls('[1,{"a":1,"b":null,"c":2},3]');
 
 -- an empty object is not null and should not be stripped
 select json_strip_nulls('{"a": {"b": null, "c": null}, "d": {} }');
->>>>>>> FETCH_HEAD

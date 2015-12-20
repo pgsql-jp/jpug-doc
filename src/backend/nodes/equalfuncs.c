@@ -1849,10 +1849,6 @@ _equalCreateEventTrigStmt(const CreateEventTrigStmt *a, const CreateEventTrigStm
 {
 	COMPARE_STRING_FIELD(trigname);
 	COMPARE_STRING_FIELD(eventname);
-<<<<<<< HEAD
-	COMPARE_NODE_FIELD(funcname);
-=======
->>>>>>> FETCH_HEAD
 	COMPARE_NODE_FIELD(whenclause);
 	COMPARE_NODE_FIELD(funcname);
 

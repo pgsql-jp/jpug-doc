@@ -108,27 +108,17 @@ xlog_desc(StringInfo buf, XLogReaderState *record)
 			}
 		}
 
-<<<<<<< HEAD
-		appendStringInfo(buf, "parameter change: max_connections=%d max_worker_processes=%d "
-						 "max_prepared_xacts=%d max_locks_per_xact=%d "
-						 "wal_level=%s wal_log_hints=%s",
-=======
 		appendStringInfo(buf, "max_connections=%d max_worker_processes=%d "
 						 "max_prepared_xacts=%d max_locks_per_xact=%d "
 						 "wal_level=%s wal_log_hints=%s "
 						 "track_commit_timestamp=%s",
->>>>>>> FETCH_HEAD
 						 xlrec.MaxConnections,
 						 xlrec.max_worker_processes,
 						 xlrec.max_prepared_xacts,
 						 xlrec.max_locks_per_xact,
 						 wal_level_str,
-<<<<<<< HEAD
-						 xlrec.wal_log_hints ? "on" : "off");
-=======
 						 xlrec.wal_log_hints ? "on" : "off",
 						 xlrec.track_commit_timestamp ? "on" : "off");
->>>>>>> FETCH_HEAD
 	}
 	else if (info == XLOG_FPW_CHANGE)
 	{

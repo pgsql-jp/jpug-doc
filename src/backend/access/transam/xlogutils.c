@@ -264,11 +264,6 @@ XLogCheckInvalidPages(void)
  *	BLK_NOTFOUND	- block was not found (because it was truncated away by
  *					  an operation later in the WAL stream)
  *
-<<<<<<< HEAD
- * For historical reasons, instead of a ReadBufferMode argument, this only
- * supports RBM_ZERO_AND_LOCK (init == true) and RBM_NORMAL (init == false)
- * modes.
-=======
  * On return, the buffer is locked in exclusive-mode, and returned in *buf.
  * Note that the buffer is locked and returned even if it doesn't need
  * replaying.  (Getting the buffer lock is not really necessary during
@@ -296,23 +291,14 @@ XLogReadBufferForRedo(XLogReaderState *record, uint8 block_id,
 /*
  * Pin and lock a buffer referenced by a WAL record, for the purpose of
  * re-initializing it.
->>>>>>> FETCH_HEAD
  */
 Buffer
 XLogInitBufferForRedo(XLogReaderState *record, uint8 block_id)
 {
 	Buffer		buf;
 
-<<<<<<< HEAD
-	buf = XLogReadBufferExtended(rnode, MAIN_FORKNUM, blkno,
-								 init ? RBM_ZERO_AND_LOCK : RBM_NORMAL);
-	if (BufferIsValid(buf) && !init)
-		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
-
-=======
 	XLogReadBufferForRedoExtended(record, block_id, RBM_ZERO_AND_LOCK, false,
 								  &buf);
->>>>>>> FETCH_HEAD
 	return buf;
 }
 

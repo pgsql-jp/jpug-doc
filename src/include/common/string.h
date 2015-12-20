@@ -2,13 +2,8 @@
  *	string.h
  *		string handling helpers
  *
-<<<<<<< HEAD
- *  Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
- *  Portions Copyright (c) 1994, Regents of the University of California
-=======
  *	Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
  *	Portions Copyright (c) 1994, Regents of the University of California
->>>>>>> FETCH_HEAD
  *
  *	src/include/common/string.h
  */

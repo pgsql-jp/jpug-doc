@@ -64,11 +64,7 @@ static void disconnect_and_exit(int code);
 static void
 usage(void)
 {
-<<<<<<< HEAD
-	printf(_("%s receives PostgreSQL logical change streams.\n\n"),
-=======
 	printf(_("%s controls PostgreSQL logical decoding streams.\n\n"),
->>>>>>> FETCH_HEAD
 		   progname);
 	printf(_("Usage:\n"));
 	printf(_("  %s [OPTION]...\n"), progname);
@@ -80,10 +76,7 @@ usage(void)
 	printf(_("  -f, --file=FILE        receive log into this file, - for stdout\n"));
 	printf(_("  -F  --fsync-interval=SECS\n"
 			 "                         time between fsyncs to the output file (default: %d)\n"), (fsync_interval / 1000));
-<<<<<<< HEAD
-=======
 	printf(_("      --if-not-exists    do not error if slot already exists when creating a slot\n"));
->>>>>>> FETCH_HEAD
 	printf(_("  -I, --startpos=LSN     where in an existing slot should the streaming start\n"));
 	printf(_("  -n, --no-loop          do not loop on connection lost\n"));
 	printf(_("  -o, --option=NAME[=VALUE]\n"
@@ -642,10 +635,7 @@ main(int argc, char **argv)
 		{"create-slot", no_argument, NULL, 1},
 		{"start", no_argument, NULL, 2},
 		{"drop-slot", no_argument, NULL, 3},
-<<<<<<< HEAD
-=======
 		{"if-not-exists", no_argument, NULL, 4},
->>>>>>> FETCH_HEAD
 		{NULL, 0, NULL, 0}
 	};
 	int			c;
@@ -886,14 +876,7 @@ main(int argc, char **argv)
 		disconnect_and_exit(1);
 	}
 
-<<<<<<< HEAD
-
-	/*
-	 * drop a replication slot
-	 */
-=======
 	/* Drop a replication slot. */
->>>>>>> FETCH_HEAD
 	if (do_drop_slot)
 	{
 		if (verbose)
@@ -903,29 +886,9 @@ main(int argc, char **argv)
 
 		if (!DropReplicationSlot(conn, replication_slot))
 			disconnect_and_exit(1);
-<<<<<<< HEAD
-		}
-
-		if (PQntuples(res) != 0 || PQnfields(res) != 0)
-		{
-			fprintf(stderr,
-					_("%s: could not drop replication slot \"%s\": got %d rows and %d fields, expected %d rows and %d fields\n"),
-					progname, replication_slot, PQntuples(res), PQnfields(res), 0, 0);
-			disconnect_and_exit(1);
-		}
-
-		PQclear(res);
-		disconnect_and_exit(0);
-	}
-
-	/*
-	 * create a replication slot
-	 */
-=======
 	}
 
 	/* Create a replication slot. */
->>>>>>> FETCH_HEAD
 	if (do_create_slot)
 	{
 		if (verbose)
@@ -933,35 +896,8 @@ main(int argc, char **argv)
 					_("%s: creating replication slot \"%s\"\n"),
 					progname, replication_slot);
 
-<<<<<<< HEAD
-		snprintf(query, sizeof(query), "CREATE_REPLICATION_SLOT \"%s\" LOGICAL \"%s\"",
-				 replication_slot, plugin);
-
-		res = PQexec(conn, query);
-		if (PQresultStatus(res) != PGRES_TUPLES_OK)
-		{
-			fprintf(stderr, _("%s: could not send replication command \"%s\": %s"),
-					progname, query, PQerrorMessage(conn));
-			disconnect_and_exit(1);
-		}
-
-		if (PQntuples(res) != 1 || PQnfields(res) != 4)
-		{
-			fprintf(stderr,
-					_("%s: could not create replication slot \"%s\": got %d rows and %d fields, expected %d rows and %d fields\n"),
-					progname, replication_slot, PQntuples(res), PQnfields(res), 1, 4);
-			disconnect_and_exit(1);
-		}
-
-		if (sscanf(PQgetvalue(res, 0, 1), "%X/%X", &hi, &lo) != 2)
-		{
-			fprintf(stderr,
-					_("%s: could not parse transaction log location \"%s\"\n"),
-					progname, PQgetvalue(res, 0, 1));
-=======
 		if (!CreateReplicationSlot(conn, replication_slot, plugin,
 								   false, slot_exists_ok))
->>>>>>> FETCH_HEAD
 			disconnect_and_exit(1);
 		startpos = InvalidXLogRecPtr;
 	}

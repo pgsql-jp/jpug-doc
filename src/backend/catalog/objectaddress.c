@@ -3900,13 +3900,6 @@ getObjectIdentityParts(const ObjectAddress *object,
 					elog(ERROR, "cache lookup failed for conversion %u",
 						 object->objectId);
 				conForm = (Form_pg_conversion) GETSTRUCT(conTup);
-<<<<<<< HEAD
-				schema = get_namespace_name(conForm->connamespace);
-				appendStringInfoString(&buffer,
-								quote_qualified_identifier(schema,
-														   NameStr(conForm->conname)));
-				pfree(schema);
-=======
 				schema = get_namespace_name_or_temp(conForm->connamespace);
 				appendStringInfoString(&buffer,
 									   quote_qualified_identifier(schema,
@@ -3914,7 +3907,6 @@ getObjectIdentityParts(const ObjectAddress *object,
 				if (objname)
 					*objname = list_make2(schema,
 										  pstrdup(NameStr(conForm->conname)));
->>>>>>> FETCH_HEAD
 				ReleaseSysCache(conTup);
 				break;
 			}
@@ -4415,9 +4407,6 @@ getObjectIdentityParts(const ObjectAddress *object,
 				else
 					usename = "public";
 
-<<<<<<< HEAD
-				appendStringInfo(&buffer, "%s on server %s", usename,
-=======
 				if (objname)
 				{
 					*objname = list_make1(pstrdup(usename));
@@ -4426,7 +4415,6 @@ getObjectIdentityParts(const ObjectAddress *object,
 
 				appendStringInfo(&buffer, "%s on server %s",
 								 quote_identifier(usename),
->>>>>>> FETCH_HEAD
 								 srv->servername);
 				break;
 			}

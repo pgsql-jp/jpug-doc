@@ -798,10 +798,7 @@ CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
 	else
 	{
 		CheckLogicalDecodingRequirements();
-<<<<<<< HEAD
-=======
 
->>>>>>> FETCH_HEAD
 		/*
 		 * Initially create the slot as ephemeral - that allows us to nicely
 		 * handle errors during initialization because it'll get dropped if

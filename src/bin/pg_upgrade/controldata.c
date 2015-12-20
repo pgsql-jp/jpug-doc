@@ -134,26 +134,6 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 	{
 		pg_log(PG_VERBOSE, "%s", bufin);
 
-<<<<<<< HEAD:contrib/pg_upgrade/controldata.c
-#ifdef WIN32
-
-		/*
-		 * Due to an installer bug, LANG=C doesn't work for PG 8.3.3, but does
-		 * work 8.2.6 and 8.3.7, so check for non-ASCII output and suggest a
-		 * minor upgrade.
-		 */
-		if (GET_MAJOR_VERSION(cluster->major_version) <= 803)
-		{
-			for (p = bufin; *p; p++)
-				if (!isascii((unsigned char) *p))
-					pg_fatal("The 8.3 cluster's pg_controldata is incapable of outputting ASCII, even\n"
-							 "with LANG=C.  You must upgrade this cluster to a newer version of PostgreSQL\n"
-							 "8.3 to fix this bug.  PostgreSQL 8.3.7 and later are known to work properly.\n");
-		}
-#endif
-
-=======
->>>>>>> FETCH_HEAD:src/bin/pg_upgrade/controldata.c
 		if ((p = strstr(bufin, "pg_control version number:")) != NULL)
 		{
 			p = strchr(p, ':');
@@ -214,35 +194,14 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem\n", __LINE__);
 
-<<<<<<< HEAD:contrib/pg_upgrade/controldata.c
-			p++;				/* removing ':' char */
-			tli = str2uint(p);
-			got_tli = true;
-		}
-		else if ((p = strstr(bufin, "Latest checkpoint's NextXID:")) != NULL)
-		{
-			p = strchr(p, ':');
-
-			if (p == NULL || strlen(p) <= 1)
-				pg_fatal("%d: controldata retrieval problem\n", __LINE__);
-
-			p++;				/* removing ':' char */
-			cluster->controldata.chkpnt_nxtepoch = str2uint(p);
-
-=======
 			p++;				/* remove ':' char */
 			cluster->controldata.chkpnt_nxtepoch = str2uint(p);
 
->>>>>>> FETCH_HEAD:src/bin/pg_upgrade/controldata.c
 			p = strchr(p, '/');
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem\n", __LINE__);
 
-<<<<<<< HEAD:contrib/pg_upgrade/controldata.c
-			p++;				/* removing '/' char */
-=======
 			p++;				/* remove '/' char */
->>>>>>> FETCH_HEAD:src/bin/pg_upgrade/controldata.c
 			cluster->controldata.chkpnt_nxtxid = str2uint(p);
 			got_xid = true;
 		}
@@ -472,7 +431,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 	 * Before 9.3, pg_resetxlog reported the xlogid and segno of the first log
 	 * file after reset as separate lines. Starting with 9.3, it reports the
 	 * WAL file name. If the old cluster is older than 9.3, we construct the
-	 * WAL file name from the tli, xlogid, and segno.
+	 * WAL file name from the xlogid and segno.
 	 */
 	if (GET_MAJOR_VERSION(cluster->major_version) <= 902)
 	{
@@ -489,12 +448,6 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 		!got_multi ||
 		(!got_oldestmulti &&
 		 cluster->controldata.cat_ver >= MULTIXACT_FORMATCHANGE_CAT_VER) ||
-<<<<<<< HEAD:contrib/pg_upgrade/controldata.c
-		(!live_check && !got_nextxlogfile) ||
-		!got_align || !got_blocksz || !got_largesz || !got_walsz ||
-		!got_walseg || !got_ident || !got_index || !got_toast ||
-		!got_date_is_int || !got_float8_pass_by_value || !got_data_checksum_version)
-=======
 		!got_mxoff || (!live_check && !got_nextxlogfile) ||
 		!got_float8_pass_by_value || !got_align || !got_blocksz ||
 		!got_largesz || !got_walsz || !got_walseg || !got_ident ||
@@ -502,7 +455,6 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 		(!got_large_object &&
 		 cluster->controldata.ctrl_ver >= LARGE_OBJECT_SIZE_PG_CONTROL_VER) ||
 		!got_date_is_int || !got_data_checksum_version)
->>>>>>> FETCH_HEAD:src/bin/pg_upgrade/controldata.c
 	{
 		pg_log(PG_REPORT,
 			   "The %s cluster lacks some required control information:\n",
@@ -527,12 +479,9 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 		if (!live_check && !got_nextxlogfile)
 			pg_log(PG_REPORT, "  first WAL segment after reset\n");
 
-<<<<<<< HEAD:contrib/pg_upgrade/controldata.c
-=======
 		if (!got_float8_pass_by_value)
 			pg_log(PG_REPORT, "  float8 argument passing method\n");
 
->>>>>>> FETCH_HEAD:src/bin/pg_upgrade/controldata.c
 		if (!got_align)
 			pg_log(PG_REPORT, "  maximum alignment\n");
 

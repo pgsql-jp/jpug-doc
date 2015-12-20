@@ -83,8 +83,6 @@ COMMIT;
 
 -- show changes
 SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
-<<<<<<< HEAD
-=======
 
 -- ON CONFLICT DO UPDATE support
 BEGIN;
@@ -94,7 +92,6 @@ COMMIT;
 
 /* display results */
 SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
->>>>>>> FETCH_HEAD
 
 -- hide changes bc of oid visible in full table rewrites
 CREATE TABLE tr_unique(id2 serial unique NOT NULL, data int);

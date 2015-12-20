@@ -30,10 +30,7 @@
 #include "executor/executor.h"
 #include "executor/spi.h"
 #include "miscadmin.h"
-<<<<<<< HEAD
-=======
 #include "port/atomics.h"
->>>>>>> FETCH_HEAD
 #include "utils/builtins.h"
 #include "utils/geo_decls.h"
 #include "utils/rel.h"
@@ -875,22 +872,16 @@ wait_pid(PG_FUNCTION_ARGS)
 		elog(ERROR, "must be superuser to check PID liveness");
 
 	while (kill(pid, 0) == 0)
-<<<<<<< HEAD
-		pg_usleep(50000);
-=======
 	{
 		CHECK_FOR_INTERRUPTS();
 		pg_usleep(50000);
 	}
->>>>>>> FETCH_HEAD
 
 	if (errno != ESRCH)
 		elog(ERROR, "could not check PID %d liveness: %m", pid);
 
 	PG_RETURN_VOID();
 }
-<<<<<<< HEAD
-=======
 
 #ifndef PG_HAVE_ATOMIC_FLAG_SIMULATION
 static void
@@ -1129,4 +1120,3 @@ test_atomic_ops(PG_FUNCTION_ARGS)
 
 	PG_RETURN_BOOL(true);
 }
->>>>>>> FETCH_HEAD

@@ -74,11 +74,7 @@ else
 SHLIB_LINK += $(filter -lcrypt -ldes -lcom_err -lcrypto -lk5crypto -lkrb5 -lgssapi32 -lssl -lsocket -lnsl -lresolv -lintl $(PTHREAD_LIBS), $(LIBS)) $(LDAP_LIBS_FE)
 endif
 ifeq ($(PORTNAME), win32)
-<<<<<<< HEAD
-SHLIB_LINK += -lshell32 -lwsock32 -lws2_32 -lsecur32 $(filter -leay32 -lssleay32 -lcomerr32 -lkrb5_32, $(LIBS))
-=======
 SHLIB_LINK += -lshell32 -lws2_32 -lsecur32 $(filter -leay32 -lssleay32 -lcomerr32 -lkrb5_32, $(LIBS))
->>>>>>> FETCH_HEAD
 endif
 
 SHLIB_EXPORTS = exports.txt
@@ -129,12 +125,6 @@ install: all installdirs install-lib
 	$(INSTALL_DATA) $(srcdir)/libpq-int.h '$(DESTDIR)$(includedir_internal)'
 	$(INSTALL_DATA) $(srcdir)/pqexpbuffer.h '$(DESTDIR)$(includedir_internal)'
 	$(INSTALL_DATA) $(srcdir)/pg_service.conf.sample '$(DESTDIR)$(datadir)/pg_service.conf.sample'
-<<<<<<< HEAD
-ifneq (,$(findstring $(PORTNAME), win32 cygwin))
-	$(INSTALL_SHLIB) $(shlib) '$(DESTDIR)$(bindir)/$(shlib)'
-endif
-=======
->>>>>>> FETCH_HEAD
 
 installcheck:
 	$(MAKE) -C test $@

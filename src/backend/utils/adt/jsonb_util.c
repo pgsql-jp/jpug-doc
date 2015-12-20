@@ -58,13 +58,8 @@ static int	lengthCompareJsonbStringValue(const void *a, const void *b);
 static int	lengthCompareJsonbPair(const void *a, const void *b, void *arg);
 static void uniqueifyJsonbObject(JsonbValue *object);
 static JsonbValue *pushJsonbValueScalar(JsonbParseState **pstate,
-<<<<<<< HEAD
-										JsonbIteratorToken seq,
-										JsonbValue *scalarVal);
-=======
 					 JsonbIteratorToken seq,
 					 JsonbValue *scalarVal);
->>>>>>> FETCH_HEAD
 
 /*
  * Turn an in-memory JsonbValue into a Jsonb for on-disk storage.
@@ -523,11 +518,7 @@ pushJsonbValue(JsonbParseState **pstate, JsonbIteratorToken seq,
 {
 	JsonbIterator *it;
 	JsonbValue *res = NULL;
-<<<<<<< HEAD
-	JsonbValue v;
-=======
 	JsonbValue	v;
->>>>>>> FETCH_HEAD
 	JsonbIteratorToken tok;
 
 	if (!jbval || (seq != WJB_ELEM && seq != WJB_VALUE) ||
@@ -552,11 +543,7 @@ pushJsonbValue(JsonbParseState **pstate, JsonbIteratorToken seq,
  */
 static JsonbValue *
 pushJsonbValueScalar(JsonbParseState **pstate, JsonbIteratorToken seq,
-<<<<<<< HEAD
-			   JsonbValue *scalarVal)
-=======
 					 JsonbValue *scalarVal)
->>>>>>> FETCH_HEAD
 {
 	JsonbValue *result = NULL;
 
@@ -1618,7 +1605,6 @@ convertJsonbObject(StringInfo buffer, JEntry *pheader, JsonbValue *val, int leve
 					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 					 errmsg("total size of jsonb object elements exceeds the maximum of %u bytes",
 							JENTRY_OFFLENMASK)));
-<<<<<<< HEAD
 
 		/*
 		 * Convert each JB_OFFSET_STRIDE'th length to an offset.
@@ -1641,30 +1627,6 @@ convertJsonbObject(StringInfo buffer, JEntry *pheader, JsonbValue *val, int leve
 		 */
 		convertJsonbValue(buffer, &meta, &pair->value, level + 1);
 
-=======
-
-		/*
-		 * Convert each JB_OFFSET_STRIDE'th length to an offset.
-		 */
-		if ((i % JB_OFFSET_STRIDE) == 0)
-			meta = (meta & JENTRY_TYPEMASK) | totallen | JENTRY_HAS_OFF;
-
-		copyToBuffer(buffer, jentry_offset, (char *) &meta, sizeof(JEntry));
-		jentry_offset += sizeof(JEntry);
-	}
-	for (i = 0; i < nPairs; i++)
-	{
-		JsonbPair  *pair = &val->val.object.pairs[i];
-		int			len;
-		JEntry		meta;
-
-		/*
-		 * Convert value, producing a JEntry and appending its variable-length
-		 * data to buffer
-		 */
-		convertJsonbValue(buffer, &meta, &pair->value, level + 1);
-
->>>>>>> FETCH_HEAD
 		len = JBE_OFFLENFLD(meta);
 		totallen += len;
 

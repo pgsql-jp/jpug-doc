@@ -19,11 +19,7 @@
 #include <limits.h>
 #include <math.h>
 
-<<<<<<< HEAD
-#include "access/skey.h"
-=======
 #include "access/stratnum.h"
->>>>>>> FETCH_HEAD
 #include "access/sysattr.h"
 #include "catalog/pg_class.h"
 #include "foreign/fdwapi.h"
@@ -2061,14 +2057,9 @@ create_foreignscan_plan(PlannerInfo *root, ForeignPath *best_path,
 	ForeignScan *scan_plan;
 	RelOptInfo *rel = best_path->path.parent;
 	Index		scan_relid = rel->relid;
-<<<<<<< HEAD
-	RangeTblEntry *rte;
-	Bitmapset  *attrs_used = NULL;
-=======
 	Oid			rel_oid = InvalidOid;
 	Bitmapset  *attrs_used = NULL;
 	Plan	   *outer_plan = NULL;
->>>>>>> FETCH_HEAD
 	ListCell   *lc;
 	int			i;
 

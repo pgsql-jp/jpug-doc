@@ -298,12 +298,8 @@ ecpg_get_data(const PGresult *results, int act_tuple, int act_field, int lineno,
 					date		ddres;
 					timestamp	tres;
 					interval   *ires;
-<<<<<<< HEAD
-					char *endptr, endchar;
-=======
 					char	   *endptr,
 								endchar;
->>>>>>> FETCH_HEAD
 
 				case ECPGt_short:
 				case ECPGt_int:

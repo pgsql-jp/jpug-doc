@@ -15,11 +15,7 @@
 
 #include "lib/stringinfo.h"
 
-<<<<<<< HEAD
-extern int GetOldFunctionMessage(StringInfo buf);
-=======
 extern int	GetOldFunctionMessage(StringInfo buf);
->>>>>>> FETCH_HEAD
 extern int	HandleFunctionRequest(StringInfo msgBuf);
 
 #endif   /* FASTPATH_H */

@@ -1298,16 +1298,6 @@ ROLLBACK;
 \d check_fk_presence_2
 DROP TABLE check_fk_presence_1, check_fk_presence_2;
 
--- check for rollback of ANALYZE corrupting table property flags (bug #11638)
-CREATE TABLE check_fk_presence_1 (id int PRIMARY KEY, t text);
-CREATE TABLE check_fk_presence_2 (id int REFERENCES check_fk_presence_1, t text);
-BEGIN;
-ALTER TABLE check_fk_presence_2 DROP CONSTRAINT check_fk_presence_2_id_fkey;
-ANALYZE check_fk_presence_2;
-ROLLBACK;
-\d check_fk_presence_2
-DROP TABLE check_fk_presence_1, check_fk_presence_2;
-
 --
 -- lock levels
 --
@@ -1637,8 +1627,6 @@ ALTER TABLE IF EXISTS tt8 SET SCHEMA alter2;
 DROP TABLE alter2.tt8;
 DROP SCHEMA alter2;
 
-<<<<<<< HEAD
-=======
 
 -- Check that comments on constraints and indexes are not lost at ALTER TABLE.
 CREATE TABLE comment_test (
@@ -1675,7 +1663,6 @@ SELECT indexrelid::regclass::text as index, obj_description(indexrelid, 'pg_clas
 SELECT conname as constraint, obj_description(oid, 'pg_constraint') as comment FROM pg_constraint where conrelid = 'comment_test'::regclass ORDER BY 1, 2;
 
 
->>>>>>> FETCH_HEAD
 -- Check that we map relation oids to filenodes and back correctly.  Only
 -- display bad mappings so the test output doesn't change all the time.  A
 -- filenode function call can return NULL for a relation dropped concurrently

@@ -177,11 +177,7 @@ unique_key_recheck(PG_FUNCTION_ARGS)
 		 */
 		check_exclusion_constraint(trigdata->tg_relation, indexRel, indexInfo,
 								   &tmptid, values, isnull,
-<<<<<<< HEAD
-								   estate, false, false);
-=======
 								   estate, false);
->>>>>>> FETCH_HEAD
 	}
 
 	/*

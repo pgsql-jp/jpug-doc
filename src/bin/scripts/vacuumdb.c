@@ -16,15 +16,6 @@
 #include "dumputils.h"
 
 
-<<<<<<< HEAD
-static void vacuum_one_database(const char *dbname, bool full, bool verbose,
-	bool and_analyze, bool analyze_only, bool analyze_in_stages, int stage, bool freeze,
-					const char *table, const char *host, const char *port,
-					const char *username, enum trivalue prompt_password,
-					const char *progname, bool echo, bool quiet);
-static void vacuum_all_databases(bool full, bool verbose, bool and_analyze,
-					 bool analyze_only, bool analyze_in_stages, bool freeze,
-=======
 #define ERRCODE_UNDEFINED_TABLE  "42P01"
 
 /* Parallel vacuuming stuff */
@@ -57,7 +48,6 @@ static void vacuum_one_database(const char *dbname, vacuumingOptions *vacopts,
 
 static void vacuum_all_databases(vacuumingOptions *vacopts,
 					 bool analyze_in_stages,
->>>>>>> FETCH_HEAD
 					 const char *maintenance_db,
 					 const char *host, const char *port,
 					 const char *username, enum trivalue prompt_password,
@@ -304,21 +294,6 @@ main(int argc, char *argv[])
 
 			for (stage = 0; stage < ANALYZE_NUM_STAGES; stage++)
 			{
-<<<<<<< HEAD
-				vacuum_one_database(dbname, full, verbose, and_analyze,
-									analyze_only, analyze_in_stages, -1,
-									freeze, cell->val,
-									host, port, username, prompt_password,
-									progname, echo, quiet);
-			}
-		}
-		else
-			vacuum_one_database(dbname, full, verbose, and_analyze,
-								analyze_only, analyze_in_stages, -1,
-								freeze, NULL,
-								host, port, username, prompt_password,
-								progname, echo, quiet);
-=======
 				vacuum_one_database(dbname, &vacopts,
 									stage,
 									&tables,
@@ -338,7 +313,6 @@ main(int argc, char *argv[])
 								&password);
 
 		pg_free(password);
->>>>>>> FETCH_HEAD
 	}
 
 	exit(0);
@@ -586,13 +560,6 @@ finish:
  * quickly everywhere before generating more detailed ones.
  */
 static void
-<<<<<<< HEAD
-vacuum_one_database(const char *dbname, bool full, bool verbose, bool and_analyze,
-	bool analyze_only, bool analyze_in_stages, int stage, bool freeze, const char *table,
-					const char *host, const char *port,
-					const char *username, enum trivalue prompt_password,
-					const char *progname, bool echo, bool quiet)
-=======
 vacuum_all_databases(vacuumingOptions *vacopts,
 					 bool analyze_in_stages,
 					 const char *maintenance_db, const char *host,
@@ -600,7 +567,6 @@ vacuum_all_databases(vacuumingOptions *vacopts,
 					 enum trivalue prompt_password,
 					 int concurrentCons,
 					 const char *progname, bool echo, bool quiet)
->>>>>>> FETCH_HEAD
 {
 	PGconn	   *conn;
 	PGresult   *result;
@@ -757,46 +723,6 @@ run_vacuum_command(PGconn *conn, const char *sql, bool echo,
 
 	if (async)
 	{
-<<<<<<< HEAD
-		const char *stage_commands[] = {
-			"SET default_statistics_target=1; SET vacuum_cost_delay=0;",
-			"SET default_statistics_target=10; RESET vacuum_cost_delay;",
-			"RESET default_statistics_target;"
-		};
-		const char *stage_messages[] = {
-			gettext_noop("Generating minimal optimizer statistics (1 target)"),
-			gettext_noop("Generating medium optimizer statistics (10 targets)"),
-			gettext_noop("Generating default (full) optimizer statistics")
-		};
-
-		if (stage == -1)
-		{
-			int		i;
-
-			/* Run all stages. */
-			for (i = 0; i < 3; i++)
-			{
-				if (!quiet)
-				{
-					puts(gettext(stage_messages[i]));
-					fflush(stdout);
-				}
-				executeCommand(conn, stage_commands[i], progname, echo);
-				run_vacuum_command(conn, sql.data, echo, dbname, table, progname);
-			}
-		}
-		else
-		{
-			/* Otherwise, we got a stage from vacuum_all_databases(), so run
-			 * only that one. */
-			if (!quiet)
-			{
-				puts(gettext(stage_messages[stage]));
-				fflush(stdout);
-			}
-			executeCommand(conn, stage_commands[stage], progname, echo);
-			run_vacuum_command(conn, sql.data, echo, dbname, table, progname);
-=======
 		if (echo)
 			printf("%s\n", sql);
 
@@ -819,9 +745,7 @@ run_vacuum_command(PGconn *conn, const char *sql, bool echo,
 		{
 			PQfinish(conn);
 			exit(1);
->>>>>>> FETCH_HEAD
 		}
-
 	}
 }
 
@@ -955,42 +879,11 @@ GetQueryResult(PGconn *conn, const char *dbname, const char *progname)
 static void
 DisconnectDatabase(ParallelSlot *slot)
 {
-<<<<<<< HEAD
-	PGconn	   *conn;
-	PGresult   *result;
-	int			stage;
-=======
 	char		errbuf[256];
->>>>>>> FETCH_HEAD
 
 	if (!slot->connection)
 		return;
 
-<<<<<<< HEAD
-	/* If analyzing in stages, then run through all stages.  Otherwise just
-	 * run once, passing -1 as the stage. */
-	for (stage = (analyze_in_stages ? 0 : -1);
-		 stage < (analyze_in_stages ? 3 : 0);
-		 stage++)
-	{
-		int			i;
-
-		for (i = 0; i < PQntuples(result); i++)
-		{
-			char	   *dbname = PQgetvalue(result, i, 0);
-
-			if (!quiet)
-			{
-				printf(_("%s: vacuuming database \"%s\"\n"), progname, dbname);
-				fflush(stdout);
-			}
-
-			vacuum_one_database(dbname, full, verbose, and_analyze, analyze_only,
-								analyze_in_stages, stage,
-							freeze, NULL, host, port, username, prompt_password,
-								progname, echo, quiet);
-		}
-=======
 	if (PQtransactionStatus(slot->connection) == PQTRANS_ACTIVE)
 	{
 		PGcancel   *cancel;
@@ -1023,7 +916,6 @@ select_loop(int maxFd, fd_set *workerset, bool *aborting)
 	{
 		*aborting = true;
 		return -1;
->>>>>>> FETCH_HEAD
 	}
 	else
 		*aborting = false;

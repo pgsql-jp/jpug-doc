@@ -20,10 +20,7 @@ sub PRINT {
 	my $ok = 1;
 	for my $fh (@$self) {
 		print $fh @_ or $ok = 0;
-<<<<<<< HEAD
-=======
 		$fh->flush or $ok = 0;
->>>>>>> FETCH_HEAD
 	}
 	return $ok;
 }

@@ -40,8 +40,6 @@ select 10 as test01, 20 as test02 from generate_series(1,0) \gset
 
 -- show all pset options
 \pset
-<<<<<<< HEAD
-=======
 
 -- test multi-line headers, wrapping, and newline indicators
 prepare q as select array_to_string(array_agg(repeat('x',2*n)),E'\n') as "ab
@@ -330,4 +328,3 @@ execute q;
 execute q;
 
 deallocate q;
->>>>>>> FETCH_HEAD

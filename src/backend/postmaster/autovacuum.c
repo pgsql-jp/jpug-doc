@@ -190,10 +190,6 @@ typedef struct autovac_table
 	int			at_vacuum_cost_delay;
 	int			at_vacuum_cost_limit;
 	bool		at_dobalance;
-<<<<<<< HEAD
-	bool		at_wraparound;
-=======
->>>>>>> FETCH_HEAD
 	char	   *at_relname;
 	char	   *at_nspname;
 	char	   *at_datname;
@@ -302,13 +298,8 @@ static void do_autovacuum(void);
 static void FreeWorkerInfo(int code, Datum arg);
 
 static autovac_table *table_recheck_autovac(Oid relid, HTAB *table_toast_map,
-<<<<<<< HEAD
-											TupleDesc pg_class_desc,
-									int effective_multixact_freeze_max_age);
-=======
 					  TupleDesc pg_class_desc,
 					  int effective_multixact_freeze_max_age);
->>>>>>> FETCH_HEAD
 static void relation_needs_vacanalyze(Oid relid, AutoVacOpts *relopts,
 						  Form_pg_class classForm,
 						  PgStat_StatTabEntry *tabentry,
@@ -1934,13 +1925,8 @@ do_autovacuum(void)
 
 	/*
 	 * Compute the multixact age for which freezing is urgent.  This is
-<<<<<<< HEAD
-	 * normally autovacuum_multixact_freeze_max_age, but may be less if we
-	 * are short of multixact member space.
-=======
 	 * normally autovacuum_multixact_freeze_max_age, but may be less if we are
 	 * short of multixact member space.
->>>>>>> FETCH_HEAD
 	 */
 	effective_multixact_freeze_max_age = MultiXactMemberFreezeThreshold();
 

@@ -158,10 +158,6 @@ static int	push(struct nfa *, struct arc *, struct state **);
 #define COMPATIBLE	3			/* compatible but not satisfied yet */
 static int	combine(struct arc *, struct arc *);
 static void fixempties(struct nfa *, FILE *);
-<<<<<<< HEAD
-static struct state *emptyreachable(struct nfa *, struct state *, struct state *);
-static void replaceempty(struct nfa *, struct state *, struct state *);
-=======
 static struct state *emptyreachable(struct nfa *, struct state *,
 			   struct state *, struct arc **);
 static int	isconstraintarc(struct arc *);
@@ -172,7 +168,6 @@ static void breakconstraintloop(struct nfa *, struct state *);
 static void clonesuccessorstates(struct nfa *, struct state *, struct state *,
 					 struct state *, struct arc *,
 					 char *, char *, int);
->>>>>>> FETCH_HEAD
 static void cleanup(struct nfa *);
 static void markreachable(struct nfa *, struct state *, struct state *, struct state *);
 static void markcanreach(struct nfa *, struct state *, struct state *, struct state *);

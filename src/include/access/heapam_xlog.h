@@ -74,23 +74,12 @@
 /* PD_ALL_VISIBLE was cleared */
 #define XLH_UPDATE_OLD_ALL_VISIBLE_CLEARED		(1<<0)
 /* PD_ALL_VISIBLE was cleared in the 2nd page */
-<<<<<<< HEAD
-#define XLOG_HEAP_NEW_ALL_VISIBLE_CLEARED	(1<<1)
-#define XLOG_HEAP_CONTAINS_OLD_TUPLE		(1<<2)
-#define XLOG_HEAP_CONTAINS_OLD_KEY			(1<<3)
-#define XLOG_HEAP_CONTAINS_NEW_TUPLE		(1<<4)
-#define XLOG_HEAP_PREFIX_FROM_OLD			(1<<5)
-#define XLOG_HEAP_SUFFIX_FROM_OLD			(1<<6)
-/* last xl_heap_multi_insert record for one heap_multi_insert() call */
-#define XLOG_HEAP_LAST_MULTI_INSERT			(1<<7)
-=======
 #define XLH_UPDATE_NEW_ALL_VISIBLE_CLEARED		(1<<1)
 #define XLH_UPDATE_CONTAINS_OLD_TUPLE			(1<<2)
 #define XLH_UPDATE_CONTAINS_OLD_KEY				(1<<3)
 #define XLH_UPDATE_CONTAINS_NEW_TUPLE			(1<<4)
 #define XLH_UPDATE_PREFIX_FROM_OLD				(1<<5)
 #define XLH_UPDATE_SUFFIX_FROM_OLD				(1<<6)
->>>>>>> FETCH_HEAD
 
 /* convenience macro for checking whether any form of old tuple was logged */
 #define XLH_UPDATE_CONTAINS_OLD						\

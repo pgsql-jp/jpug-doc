@@ -312,10 +312,7 @@ extern void XLogArchiveForceDone(const char *xlog);
 extern bool XLogArchiveCheckDone(const char *xlog);
 extern bool XLogArchiveIsBusy(const char *xlog);
 extern bool XLogArchiveIsReady(const char *xlog);
-<<<<<<< HEAD
-=======
 extern bool XLogArchiveIsReadyOrDone(const char *xlog);
->>>>>>> FETCH_HEAD
 extern void XLogArchiveCleanup(const char *xlog);
 
 #endif   /* XLOG_INTERNAL_H */
