@@ -3,7 +3,7 @@
  * parse_func.c
  *		handle function calls in parser
  *
- * Portions Copyright (c) 1996-2014, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -93,6 +93,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	Oid			vatype;
 	FuncDetailCode fdresult;
 	char		aggkind = 0;
+	ParseCallbackState pcbstate;
 
 	/*
 	 * If there's an aggregate filter, transform it using transformWhereClause
@@ -235,12 +236,18 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	 * type.  We'll fix up the variadic case below.  We may also have to deal
 	 * with default arguments.
 	 */
+
+	setup_parser_errposition_callback(&pcbstate, pstate, location);
+
 	fdresult = func_get_detail(funcname, fargs, argnames, nargs,
 							   actual_arg_types,
 							   !func_variadic, true,
 							   &funcid, &rettype, &retset,
 							   &nvargs, &vatype,
 							   &declared_arg_types, &argdefaults);
+
+	cancel_parser_errposition_callback(&pcbstate);
+
 	if (fdresult == FUNCDETAIL_COERCION)
 	{
 		/*
@@ -1264,6 +1271,9 @@ func_get_detail(List *funcname,
 	FuncCandidateList raw_candidates;
 	FuncCandidateList best_candidate;
 
+	/* Passing NULL for argtypes is no longer allowed */
+	Assert(argtypes);
+
 	/* initialize output arguments to silence compiler warnings */
 	*funcid = InvalidOid;
 	*rettype = InvalidOid;
@@ -1779,7 +1789,7 @@ ParseComplexProjection(ParseState *pstate, char *funcname, Node *first_arg,
 									 ((Var *) first_arg)->varno,
 									 ((Var *) first_arg)->varlevelsup);
 		/* Return a Var if funcname matches a column, else NULL */
-		return scanRTEForColumn(pstate, rte, funcname, location);
+		return scanRTEForColumn(pstate, rte, funcname, location, 0, NULL);
 	}
 
 	/*
@@ -1853,7 +1863,7 @@ funcname_signature_string(const char *funcname, int nargs,
 			appendStringInfoString(&argbuf, ", ");
 		if (i >= numposargs)
 		{
-			appendStringInfo(&argbuf, "%s := ", (char *) lfirst(lc));
+			appendStringInfo(&argbuf, "%s => ", (char *) lfirst(lc));
 			lc = lnext(lc);
 		}
 		appendStringInfoString(&argbuf, format_type_be(argtypes[i]));
@@ -1891,6 +1901,9 @@ Oid
 LookupFuncName(List *funcname, int nargs, const Oid *argtypes, bool noError)
 {
 	FuncCandidateList clist;
+
+	/* Passing NULL for argtypes is no longer allowed */
+	Assert(argtypes);
 
 	clist = FuncnameGetCandidates(funcname, nargs, NIL, false, false, noError);
 

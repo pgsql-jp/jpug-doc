@@ -1,7 +1,7 @@
 /*
  * psql - the PostgreSQL interactive terminal
  *
- * Copyright (c) 2000-2014, PostgreSQL Global Development Group
+ * Copyright (c) 2000-2015, PostgreSQL Global Development Group
  *
  * src/bin/psql/input.c
  */
@@ -474,7 +474,7 @@ printHistory(const char *fname, unsigned short int pager)
 	if (fname == NULL)
 	{
 		/* use pager, if enabled, when printing to console */
-		output = PageOutput(INT_MAX, pager);
+		output = PageOutput(INT_MAX, pager ? &(pset.popt.topt) : NULL);
 		is_pager = true;
 	}
 	else
