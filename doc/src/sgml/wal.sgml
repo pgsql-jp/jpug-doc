@@ -178,10 +178,7 @@ SCSIドライブであれば<ulink url="http://sg.danny.cz/sg/sdparm.html"><appl
 
     <listitem>
       <para>
-<<<<<<< HEAD
 <!--
-=======
->>>>>>> REL9_5_RC1
         On <productname>OS X</productname>, write caching can be prevented by
         setting <varname>wal_sync_method</> to <literal>fsync_writethrough</>.
 -->
@@ -742,14 +739,9 @@ WALアーカイブ処理を使用しており、かつ、データ損失の可�
   </para>
 
   <para>
-<<<<<<< HEAD
 <!--
-   Reducing <varname>checkpoint_segments</varname> and/or
-   <varname>checkpoint_timeout</varname> causes checkpoints to occur
-=======
    Reducing <varname>checkpoint_timeout</varname> and/or
    <varname>max_wal_size</varname> causes checkpoints to occur
->>>>>>> REL9_5_RC1
    more often. This allows faster after-crash recovery, since less work
    will need to be redone. However, one must balance this against the
    increased cost of flushing dirty data pages more often. If
@@ -759,9 +751,9 @@ WALアーカイブ処理を使用しており、かつ、データ損失の可�
    logging the entire page content. In that case,
    a smaller checkpoint interval increases the volume of output to the WAL log,
    partially negating the goal of using a smaller interval,
-   and in any case causing more disk I/O.
+   and in any case causing more disk I/O.★コンフリクト解消に合わせて訳文も修正しました
 -->
-<varname>checkpoint_segments</varname>、<varname>checkpoint_timeout</varname>、またはその両者を減少させると、チェックポイントはより頻繁に行われます。
+<varname>checkpoint_timeout</varname>、<varname>max_wal_size</varname>、またはその両者を減少させると、チェックポイントはより頻繁に行われます。
 これにより、再処理に要する時間がより少なくなりますのでクラッシュ後の修復は高速になります。
 しかし、より頻繁に行われるようになる、変更されたデータページの吐き出しにより増大するコストとバランスを考えなければなりません。
 <xref linkend="guc-full-page-writes">が設定されている（デフォルトです）場合、他に考慮しなければならない点があります。
@@ -837,27 +829,7 @@ I/Oの割合は、チェックポイントの起動時から<varname>checkpoint_
   </para>
 
   <para>
-<<<<<<< HEAD
 <!--
-   There will always be at least one WAL segment file, and will normally
-   not be more than (2 + <varname>checkpoint_completion_target</varname>) * <varname>checkpoint_segments</varname> + 1
-   or <varname>checkpoint_segments</> + <xref linkend="guc-wal-keep-segments"> + 1
-   files.  Each segment file is normally 16 MB (though this size can be
-   altered when building the server).  You can use this to estimate space
-   requirements for <acronym>WAL</acronym>.
-   Ordinarily, when old log segment files are no longer needed, they
-   are recycled (that is, renamed to become future segments in the numbered
-   sequence). If, due to a short-term peak of log output rate, there
-   are more than 3 * <varname>checkpoint_segments</varname> + 1
-   segment files, the unneeded segment files will be deleted instead
-   of recycled until the system gets back under this limit.
--->
-WALセグメントファイルは常に少なくとも1つあり、また、通常は(2 + <varname>checkpoint_completion_target</varname>) * <varname>checkpoint_segments</varname> + 1、もしくは<varname>checkpoint_segments</> + <xref linkend="guc-wal-keep-segments"> + 1より多くはありません。
-各セグメントファイルは通常16メガバイト（このサイズはサーバのコンパイル時に変更可能）です。
-このことから、<acronym>WAL</acronym>で必要とされる領域を推定できます。
-普通、古いセグメントファイルが不要になった時、それらは再利用（つまり、番号付けられるシーケンスにおいての将来のセグメントとなるように名前が変更）されます。
-短時間のログ出力のピークのためにセグメントファイル数が3×<varname>checkpoint_segments</varname> + 1を超えた場合、システムは、この上限以下になるまで、不要になったセグメントファイルを再利用せずに、削除します。
-=======
    The number of WAL segment files in <filename>pg_xlog</> directory depends on
    <varname>min_wal_size</>, <varname>max_wal_size</> and
    the amount of WAL generated in previous checkpoint cycles. When old log
@@ -886,8 +858,8 @@ WALセグメントファイルは常に少なくとも1つあり、また、通�
    fails repeatedly, old WAL files will accumulate in <filename>pg_xlog</>
    until the situation is resolved. A slow or failed standby server that
    uses a replication slot will have the same effect (see
-   <xref linkend="streaming-replication-slots">).
->>>>>>> REL9_5_RC1
+   <xref linkend="streaming-replication-slots">). ★翻訳が必要です
+-->
   </para>
 
   <para>
@@ -901,25 +873,24 @@ WALセグメントファイルは常に少なくとも1つあり、また、通�
    directory.
    Restartpoints can't be performed more frequently than checkpoints in the
    master because restartpoints can only be performed at checkpoint records.
-   A restartpoint is triggered when a checkpoint record is reached if at
-   least <varname>checkpoint_timeout</> seconds have passed since the last
-<<<<<<< HEAD
-   restartpoint. In standby mode, a restartpoint is also triggered if at
-   least <varname>checkpoint_segments</> log segments have been replayed
-   since the last restartpoint.
+   A restartpoint is triggered when a checkpoint record is reached if at★
+   least <varname>checkpoint_timeout</> seconds have passed since the last★
+   restartpoint, or if WAL size is about to exceed★
+   <varname>max_wal_size</>. However, because of limitations on when a★
+   restartpoint can be performed, <varname>max_wal_size</> is often exceeded★
+   during recovery, by up to one checkpoint cycle's worth of WAL.★
+   (<varname>max_wal_size</> is never a hard limit anyway, so you should★
+   always leave plenty of headroom to avoid running out of disk space.)★
+
+★は追加翻訳が必要箇所
 -->
 アーカイブからのリカバリもしくはスタンバイモードにおいて、サーバでは定期的に通常運用でのチェックポイント処理と似た<firstterm>リスタートポイント</><indexterm><primary>restartpoint</></>処理を行います。これは、すでに再生されたWALを再度読み込む必要がないよう、ディスクに現在の状態を強制的に書き込み、<filename>pg_control</>ファイルを更新します。また<filename>pg_xlog</>ディレクトリの中の古いログセグメントを再利用できるようにします。
 リスタートポイント処理はチェックポイントが記録された時にしか実施されないので、マスタ側のチェックポイント処理よりも発生頻度は低いでしょう。
 再開始点は、最後の再開始点より少なくとも<varname>checkpoint_timeout</>秒が経過しているとすれば、チェックポイントレコードが到達された時点で始動されます。
 スタンバイモードにおいて、再開始点はもし最後の再開始点から最低限<varname>checkpoint_segments</>ログセグメントが再生された場合に、同様に始動されます。
-=======
-   restartpoint, or if WAL size is about to exceed
-   <varname>max_wal_size</>. However, because of limitations on when a
-   restartpoint can be performed, <varname>max_wal_size</> is often exceeded
-   during recovery, by up to one checkpoint cycle's worth of WAL.
-   (<varname>max_wal_size</> is never a hard limit anyway, so you should
-   always leave plenty of headroom to avoid running out of disk space.)
->>>>>>> REL9_5_RC1
+★追加翻訳必要箇所★
+
+
   </para>
 
   <para>
