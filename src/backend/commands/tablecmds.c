@@ -42,6 +42,7 @@
 #include "catalog/pg_type.h"
 #include "catalog/pg_type_fn.h"
 #include "catalog/storage.h"
+#include "catalog/storage_xlog.h"
 #include "catalog/toasting.h"
 #include "commands/cluster.h"
 #include "commands/comment.h"
@@ -3390,7 +3391,7 @@ ATExecCmd(List **wqueue, AlteredTableInfo *tab, Relation rel,
 		case AT_ReAddConstraint:		/* Re-add pre-existing check
 										 * constraint */
 			ATExecAddConstraint(wqueue, tab, rel, (Constraint *) cmd->def,
-								false, true, lockmode);
+								true, true, lockmode);
 			break;
 		case AT_AddIndexConstraint:		/* ADD CONSTRAINT USING INDEX */
 			ATExecAddIndexConstraint(tab, rel, (IndexStmt *) cmd->def, lockmode);
@@ -4148,7 +4149,7 @@ ATWrongRelkindError(Relation rel, int allowed_targets)
 			msg = _("\"%s\" is not a table, composite type, or foreign table");
 			break;
 		case ATT_TABLE | ATT_MATVIEW | ATT_INDEX | ATT_FOREIGN_TABLE:
-			msg = _("\"%s\" is not a table, materialized view, composite type, or foreign table");
+			msg = _("\"%s\" is not a table, materialized view, index, or foreign table");
 			break;
 		case ATT_VIEW:
 			msg = _("\"%s\" is not a view");
@@ -5764,13 +5765,6 @@ ATExecAddConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
  * AddRelationNewConstraints would normally assign different names to the
  * child constraints.  To fix that, we must capture the name assigned at
  * the parent table and pass that down.
- *
- * When re-adding a previously existing constraint (during ALTER COLUMN TYPE),
- * we don't need to recurse here, because recursion will be carried out at a
- * higher level; the constraint name issue doesn't apply because the names
- * have already been assigned and are just being re-used.  We need a separate
- * "is_readd" flag for that; just setting recurse=false would result in an
- * error if there are child tables.
  */
 static void
 ATAddCheckConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
@@ -5798,7 +5792,7 @@ ATAddCheckConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
 	 */
 	newcons = AddRelationNewConstraints(rel, NIL,
 										list_make1(copyObject(constr)),
-										recursing,		/* allow_merge */
+										recursing | is_readd,	/* allow_merge */
 										!recursing,		/* is_local */
 										is_readd);		/* is_internal */
 
@@ -5842,10 +5836,8 @@ ATAddCheckConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
 
 	/*
 	 * If adding a NO INHERIT constraint, no need to find our children.
-	 * Likewise, in a re-add operation, we don't need to recurse (that will be
-	 * handled at higher levels).
 	 */
-	if (constr->is_no_inherit || is_readd)
+	if (constr->is_no_inherit)
 		return;
 
 	/*
@@ -8204,10 +8196,30 @@ ATPostAlterTypeCleanup(List **wqueue, AlteredTableInfo *tab, LOCKMODE lockmode)
 			def_item, tab->changedConstraintDefs)
 	{
 		Oid			oldId = lfirst_oid(oid_item);
+		HeapTuple	tup;
+		Form_pg_constraint con;
 		Oid			relid;
 		Oid			confrelid;
+		bool		conislocal;
 
-		get_constraint_relation_oids(oldId, &relid, &confrelid);
+		tup = SearchSysCache1(CONSTROID, ObjectIdGetDatum(oldId));
+		if (!HeapTupleIsValid(tup))		/* should not happen */
+			elog(ERROR, "cache lookup failed for constraint %u", oldId);
+		con = (Form_pg_constraint) GETSTRUCT(tup);
+		relid = con->conrelid;
+		confrelid = con->confrelid;
+		conislocal = con->conislocal;
+		ReleaseSysCache(tup);
+
+		/*
+		 * If the constraint is inherited (only), we don't want to inject a
+		 * new definition here; it'll get recreated when ATAddCheckConstraint
+		 * recurses from adding the parent table's constraint.  But we had to
+		 * carry the info this far so that we can drop the constraint below.
+		 */
+		if (!conislocal)
+			continue;
+
 		ATPostAlterTypeParse(oldId, relid, confrelid,
 							 (char *) lfirst(def_item),
 							 wqueue, lockmode, tab->rewrite);
@@ -8629,8 +8641,7 @@ ATExecChangeOwner(Oid relationOid, Oid newOwnerId, bool recursing, LOCKMODE lock
 		 * Also change the ownership of the table's row type, if it has one
 		 */
 		if (tuple_class->relkind != RELKIND_INDEX)
-			AlterTypeOwnerInternal(tuple_class->reltype, newOwnerId,
-							 tuple_class->relkind == RELKIND_COMPOSITE_TYPE);
+			AlterTypeOwnerInternal(tuple_class->reltype, newOwnerId);
 
 		/*
 		 * If we are operating on a table or materialized view, also change
@@ -9200,6 +9211,15 @@ ATExecSetTableSpace(Oid tableOid, Oid newTableSpace, LOCKMODE lockmode)
 		if (smgrexists(rel->rd_smgr, forkNum))
 		{
 			smgrcreate(dstrel, forkNum, false);
+
+			/*
+			 * WAL log creation if the relation is persistent, or this is the
+			 * init fork of an unlogged relation.
+			 */
+			if (rel->rd_rel->relpersistence == RELPERSISTENCE_PERMANENT ||
+				(rel->rd_rel->relpersistence == RELPERSISTENCE_UNLOGGED &&
+				 forkNum == INIT_FORKNUM))
+				log_smgrcreate(&newrnode, forkNum);
 			copy_relation_data(rel->rd_smgr, dstrel, forkNum,
 							   rel->rd_rel->relpersistence);
 		}
@@ -9416,6 +9436,7 @@ copy_relation_data(SMgrRelation src, SMgrRelation dst,
 	char	   *buf;
 	Page		page;
 	bool		use_wal;
+	bool		copying_initfork;
 	BlockNumber nblocks;
 	BlockNumber blkno;
 
@@ -9429,10 +9450,19 @@ copy_relation_data(SMgrRelation src, SMgrRelation dst,
 	page = (Page) buf;
 
 	/*
+	 * The init fork for an unlogged relation in many respects has to be
+	 * treated the same as normal relation, changes need to be WAL logged and
+	 * it needs to be synced to disk.
+	 */
+	copying_initfork = relpersistence == RELPERSISTENCE_UNLOGGED &&
+		forkNum == INIT_FORKNUM;
+
+	/*
 	 * We need to log the copied data in WAL iff WAL archiving/streaming is
 	 * enabled AND it's a permanent relation.
 	 */
-	use_wal = XLogIsNeeded() && relpersistence == RELPERSISTENCE_PERMANENT;
+	use_wal = XLogIsNeeded() &&
+		(relpersistence == RELPERSISTENCE_PERMANENT || copying_initfork);
 
 	nblocks = smgrnblocks(src, forkNum);
 
@@ -9487,7 +9517,7 @@ copy_relation_data(SMgrRelation src, SMgrRelation dst,
 	 * wouldn't replay our earlier WAL entries. If we do not fsync those pages
 	 * here, they might still not be on disk when the crash occurs.
 	 */
-	if (relpersistence == RELPERSISTENCE_PERMANENT)
+	if (relpersistence == RELPERSISTENCE_PERMANENT || copying_initfork)
 		smgrimmedsync(dst, forkNum);
 }
 
