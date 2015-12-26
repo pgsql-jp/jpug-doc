@@ -100,10 +100,10 @@ postgres=# SELECT * FROM pg_create_logical_replication_slot('regression_slot', '
  regression_slot | 0/16B1970
 (1 row)
 
-postgres=# SELECT * FROM pg_replication_slots;
-    slot_name    |    plugin     | slot_type | datoid | database | active |  xmin  | catalog_xmin | restart_lsn
------------------+---------------+-----------+--------+----------+--------+--------+--------------+-------------
- regression_slot | test_decoding | logical   |  12052 | postgres | f      |        |          684 | 0/16A4408
+postgres=# SELECT slot_name, plugin, slot_type, database, active, restart_lsn FROM pg_replication_slots;
+    slot_name    |    plugin     | slot_type | database | active | restart_lsn
+-----------------+---------------+-----------+----------+--------+-------------
+ regression_slot | test_decoding | logical   | postgres | f      | 0/16A4408
 (1 row)
 
 postgres=# -- There are no changes to see yet
@@ -440,6 +440,7 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
    <title>Logical Decoding <acronym>SQL</acronym> Interface</title>
 -->
    <title>ロジカルデコーディング<acronym>SQL</acronym>インタフェース</title>
+
    <para>
 <!--
      See <xref linkend="functions-replication"> for detailed documentation on
@@ -465,6 +466,7 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
    <title>System Catalogs Related to Logical Decoding</title>
 -->
    <title>ロジカルデコーディング関連のシステムカタログ</title>
+
    <para>
 <!--
     The <link linkend="catalog-pg-replication-slots"><structname>pg_replication_slots</structname></link>
@@ -525,6 +527,7 @@ typedef struct OutputPluginCallbacks
     LogicalDecodeBeginCB begin_cb;
     LogicalDecodeChangeCB change_cb;
     LogicalDecodeCommitCB commit_cb;
+    LogicalDecodeFilterByOriginCB filter_by_origin_cb;
     LogicalDecodeShutdownCB shutdown_cb;
 } OutputPluginCallbacks;
 
@@ -533,7 +536,8 @@ typedef void (*LogicalOutputPluginInit)(struct OutputPluginCallbacks *cb);
 <!--
      The <function>begin_cb</function>, <function>change_cb</function>
      and <function>commit_cb</function> callbacks are required,
-     while <function>startup_cb</function>
+     while <function>startup_cb</function>,
+     <function>filter_by_origin_cb</function>
      and <function>shutdown_cb</function> are optional.
 -->
      コールバック関数の<function>begin_cb</function>、<function>change_cb</function>
@@ -686,10 +690,10 @@ typedef struct OutputPluginOptions
       <literal>output_type</literal> has to either be set to
       <literal>OUTPUT_PLUGIN_TEXTUAL_OUTPUT</literal>
       or <literal>OUTPUT_PLUGIN_BINARY_OUTPUT</literal>. See also
-      <xref linkend="logicaldecoding-output-mode"/>.
+      <xref linkend="logicaldecoding-output-mode">.
 -->
       <literal>output_type</literal>は<literal>OUTPUT_PLUGIN_TEXTUAL_OUTPUT</literal>か<literal>OUTPUT_PLUGIN_BINARY_OUTPUT</literal>のどちらかです。
-      <xref linkend="logicaldecoding-output-mode"/>を参照してください。
+      <xref linkend="logicaldecoding-output-mode">を参照してください。
      </para>
 
      <para>
@@ -709,6 +713,7 @@ typedef struct OutputPluginOptions
      <title>Shutdown Callback</title>
 -->
      <title>終了コールバック</title>
+
      <para>
 <!--
       The optional <function>shutdown_cb</function> callback is called
@@ -786,6 +791,7 @@ typedef void (*LogicalDecodeCommitCB) (
      <title>Change Callback</title>
 -->
      <title>更新コールバック</title>
+
      <para>
 <!--
       The required <function>change_cb</function> callback is called for every
@@ -831,6 +837,37 @@ unloggedテーブル(<xref linkend="SQL-CREATETABLE-UNLOGGED">参照)と(<xref l
       </para>
      </note>
     </sect3>
+
+     <sect3 id="logicaldecoding-output-plugin-filter-origin">
+     <title>Origin Filter Callback</title>
+
+     <para>
+       The optional <function>filter_by_origin_cb</function> callback
+       is called to determine whether data that has been replayed
+       from <parameter>origin_id</parameter> is of interest to the
+       output plugin.
+<programlisting>
+typedef bool (*LogicalDecodeChangeCB) (
+    struct LogicalDecodingContext *ctx,
+    RepNodeId origin_id
+);
+</programlisting>
+      The <parameter>ctx</parameter> parameter has the same contents
+      as for the other callbacks. No information but the origin is
+      available. To signal that changes originating on the passed in
+      node are irrelevant, return true, causing them to be filtered
+      away; false otherwise. The other callbacks will not be called
+      for transactions and changes that have been filtered away.
+     </para>
+     <para>
+       This is useful when implementing cascading or multidirectional
+       replication solutions. Filtering by the origin allows to
+       prevent replicating the same changes back and forth in such
+       setups.  While transactions and changes also carry information
+       about the origin, filtering via this callback is noticeably
+       more efficient.
+     </para>
+     </sect3>
    </sect2>
 
    <sect2 id="logicaldecoding-output-plugin-output">
@@ -904,7 +941,7 @@ WALを読む関数、出力データの書き込みを準備する関数、そ�
 
    <para>
 <!--
-    Logical decoding can be used to to build
+    Logical decoding can be used to build
     <link linkend="synchronous-replication">synchronous
     replication</link> solutions with the same user interface as synchronous
     replication for <link linkend="streaming-replication">streaming

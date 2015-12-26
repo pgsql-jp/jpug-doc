@@ -987,7 +987,12 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
      possible multixact ID still appearing in any tuple of that table.
      If this value is older than
      <xref linkend="guc-vacuum-multixact-freeze-table-age">, a whole-table
-     scan is forced.  Whole-table <command>VACUUM</> scans, regardless of
+     scan is forced.  <function>mxid_age()</> can be used on
+     <structname>pg_class</>.<structfield>relminmxid</> to find its age.
+    </para>
+
+    <para>
+     Whole-table <command>VACUUM</> scans, regardless of
      what causes them, enable advancing the value for that table.
      Eventually, as all tables in all databases are scanned and their
      oldest multixact values are advanced, on-disk storage for older
@@ -1008,7 +1013,7 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
      <xref linkend="guc-autovacuum-multixact-freeze-max-age">.  Whole-table
      vacuum scans will also occur progressively for all tables, starting with
      those that have the oldest multixact-age, if the amount of used member
-     storage space exceeds the amount 50% of the addressible storage space.
+     storage space exceeds the amount 50% of the addressable storage space.
      Both of these kinds of whole-table scans will occur even if autovacuum is
      nominally disabled.
 -->
@@ -1070,8 +1075,8 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
     the next database will be processed as soon as the first worker finishes.
     Each worker process will check each table within its database and
     execute <command>VACUUM</> and/or <command>ANALYZE</> as needed.
-    <varname>log_autovacuum_min_duration</varname> can be used to monitor
-    autovacuum activity.
+    <xref linkend="guc-log-autovacuum-min-duration"> can be set to monitor
+    autovacuum workers' activity.
 -->
 実際のところ<quote>自動バキュームデーモン</>は複数のプロセスから構成されます。
 <firstterm>自動バキュームランチャ</firstterm>という永続的デーモンプロセスが存在し、<firstterm>自動バキュームワーカ</firstterm>プロセスがすべてのデータベースを処理します。
@@ -1080,7 +1085,7 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
 同時に最大<xref linkend="guc-autovacuum-max-workers">個のプロセスが実行可能です。
 処理対象のデータベースが<varname>autovacuum_max_workers</>より多くある場合、次のデータベースは最初のワーカが終了するとすぐに処理されます。
 それぞれのワーカプロセスはデータベース内の各テーブルを検査し、必要に応じて<command>VACUUM</>または<command>ANALYZE</>コマンドを発行します。
-<varname>log_autovacuum_min_duration</varname>も自動バキューム作業を監視するために使えます。
+★<varname>log_autovacuum_min_duration</varname>も自動バキューム作業を監視するために使えます。
    </para>
 
    <para>
@@ -1088,7 +1093,7 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
     If several large tables all become eligible for vacuuming in a short
     amount of time, all autovacuum workers might become occupied with
     vacuuming those tables for a long period.  This would result
-    in other tables and databases not being vacuumed until a worker became
+    in other tables and databases not being vacuumed until a worker becomes
     available. There is no limit on how many workers might be in a
     single database, but workers do try to avoid repeating work that has
     already been done by other workers. Note that the number of running
@@ -1175,63 +1180,27 @@ analyze threshold = analyze base threshold + analyze scale factor * number of tu
    </para>
 
    <para>
-<!--
     The default thresholds and scale factors are taken from
     <filename>postgresql.conf</filename>, but it is possible to override them
-    on a table-by-table basis; see
+    (and many other autovacuum control parameters) on a per-table basis; see
     <xref linkend="sql-createtable-storage-parameters"
     endterm="sql-createtable-storage-parameters-title"> for more information.
-    If a setting
-    has been changed via storage parameters, that value is used; otherwise the
-    global settings are used. See <xref linkend="runtime-config-autovacuum"> for
-    more details on the global settings.
--->
-デフォルトの閾値と規模係数は、<filename>postgresql.conf</filename>から取られますが、テーブル毎に上書きすることができます。
-より詳細な情報は<xref linkend="sql-createtable-storage-parameters" endterm="sql-createtable-storage-parameters-title">を参照してください。
-ストレージパラメータで設定が変更されるとその値が使用されます。
-そうでなければ、全体設定が使われます。
-全体設定についての詳細な情報は<xref linkend="runtime-config-autovacuum">を参照してください。
+    If a setting has been changed via a table's storage parameters, that value
+    is used when processing that table; otherwise the global settings are
+    used. See <xref linkend="runtime-config-autovacuum"> for more details on
+    the global settings.
    </para>
 
    <para>
 <!--
-    Besides the base threshold values and scale factors, there are six
-    more autovacuum parameters that can be set for each table via
-    storage parameters.
-    The first parameter, <literal>autovacuum_enabled</>,
-    can be set to <literal>false</literal> to instruct the autovacuum daemon
-    to skip that particular table entirely.  In this case
-    autovacuum will only touch the table if it must do so
-    to prevent transaction ID wraparound.
-    Another two parameters,
-    <varname>autovacuum_vacuum_cost_delay</> and
-    <varname>autovacuum_vacuum_cost_limit</>, are used to set
-    table-specific values for the cost-based vacuum delay feature
-    (see <xref linkend="runtime-config-resource-vacuum-cost">).
-    <varname>autovacuum_freeze_min_age</>,
-    <varname>autovacuum_freeze_max_age</> and
-    <varname>autovacuum_freeze_table_age</> are used to set
-    values for <xref linkend="guc-vacuum-freeze-min-age">,
-    <xref linkend="guc-autovacuum-freeze-max-age"> and
-    <xref linkend="guc-vacuum-freeze-table-age"> respectively.
--->
-基礎閾値と規模係数の他に、ストレージパラメータを介して各テーブルに対して設定することができる自動バキューム用のパラメータが更に６つあります。
-最初の<literal>autovacuum_enabled</>パラメータは、<literal>false</literal>に設定することで自動バキュームデーモンにこのテーブル全体を対象から外すようにします。
-この場合自動バキュームは、トランザクションIDの周回を防ぐためにバキュームする必要がある時のみ、このテーブルを対象とします。
-別の２つのパラメータ、<varname>autovacuum_vacuum_cost_delay</>と<varname>autovacuum_vacuum_cost_limit</>はコストベースのバキューム遅延機能(<xref linkend="runtime-config-resource-vacuum-cost">参照)に対し、テーブル特定の値を設定するために使用されます。
-<varname>autovacuum_freeze_min_age</>、<varname>autovacuum_freeze_max_age</>および<varname>autovacuum_freeze_table_age</>は、それぞれ<xref linkend="guc-vacuum-freeze-min-age">、<xref linkend="guc-autovacuum-freeze-max-age">および<xref linkend="guc-vacuum-freeze-table-age">に対する値を設定するために使用されます。
-   </para>
-
-   <para>
-<!--
-    When multiple workers are running, the cost delay parameters are
+    When multiple workers are running, the autovacuum cost delay parameters
+    (see <xref linkend="runtime-config-resource-vacuum-cost">) are
     <quote>balanced</quote> among all the running workers, so that the
     total I/O impact on the system is the same regardless of the number
     of workers actually running.  However, any workers processing tables whose
-    <literal>autovacuum_vacuum_cost_delay</> or
-    <literal>autovacuum_vacuum_cost_limit</> have been set are not considered
-    in the balancing algorithm.
-
+    per-table <literal>autovacuum_vacuum_cost_delay</> or
+    <literal>autovacuum_vacuum_cost_limit</> storage parameters have been set
+    are not considered in the balancing algorithm.
 -->
 複数のワーカプロセスの実行中、コスト遅延パラメータは制限は実行中のワーカ全体に<quote>振り分け</quote>られます。
 このため、ワーカの実稼働数に関らず、システムに与えるI/Oの総影響は変わりありません。
@@ -1261,6 +1230,7 @@ analyze threshold = analyze base threshold + analyze scale factor * number of tu
    rebuilding steps.
 -->
 <xref linkend="sql-reindex">コマンドまたは一連の個々の再構築処理を使用して定期的にインデックスを再構築することが価値がある状況があります。
+
   </para>
 
   <para>
@@ -1317,7 +1287,7 @@ B-tree以外の任意の種類のインデックスを使用する際には、�
    and <xref linkend="sql-dropindex">. When an index is used to enforce
    uniqueness or other constraints, <xref linkend="sql-altertable"> might
    be necessary to swap the existing constraint with one enforced by
-   the new index. Review this alternate multi-step rebuild approach
+   the new index. Review this alternate multistep rebuild approach
    carefully before using it as there are limitations on which
    indexes can be reindexed this way, and errors must be handled.
 -->

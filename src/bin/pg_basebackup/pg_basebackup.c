@@ -4,7 +4,7 @@
  *
  * Author: Magnus Hagander <magnus@hagander.net>
  *
- * Portions Copyright (c) 1996-2014, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/pg_basebackup.c
@@ -199,6 +199,9 @@ tablespace_list_append(const char *arg)
 		exit(1);
 	}
 
+	canonicalize_path(cell->old_dir);
+	canonicalize_path(cell->new_dir);
+
 	if (tablespace_dirs.tail)
 		tablespace_dirs.tail->next = cell;
 	else
@@ -233,7 +236,7 @@ usage(void)
 	printf(_("  -D, --pgdata=DIRECTORY receive base backup into directory\n"));
 	printf(_("  -F, --format=p|t       output format (plain (default), tar)\n"));
 	printf(_("  -r, --max-rate=RATE    maximum transfer rate to transfer data directory\n"
-			 "                         (in kB/s, or use suffix \"k\" or \"M\")\n"));
+	  "                         (in kB/s, or use suffix \"k\" or \"M\")\n"));
 	printf(_("  -R, --write-recovery-conf\n"
 			 "                         write recovery.conf after backup\n"));
 	printf(_("  -T, --tablespace-mapping=OLDDIR=NEWDIR\n"
@@ -371,7 +374,7 @@ LogStreamerMain(logstreamer_param *param)
 	if (!ReceiveXlogStream(param->bgconn, param->startptr, param->timeline,
 						   param->sysidentifier, param->xlogdir,
 						   reached_end_position, standby_message_timeout,
-						   NULL, true))
+						   NULL, false, true))
 
 		/*
 		 * Any errors will already have been reported in the function process,
@@ -777,7 +780,7 @@ ReceiveTarFile(PGconn *conn, PGresult *res, int rownum)
 	bool		in_tarhdr = true;
 	bool		skip_file = false;
 	size_t		tarhdrsz = 0;
-	size_t		filesz = 0;
+	pgoff_t		filesz = 0;
 
 #ifdef HAVE_LIBZ
 	gzFile		ztarfile = NULL;
@@ -1042,7 +1045,7 @@ ReceiveTarFile(PGconn *conn, PGresult *res, int rownum)
 
 						skip_file = (strcmp(&tarhdr[0], "recovery.conf") == 0);
 
-						sscanf(&tarhdr[124], "%11o", (unsigned int *) &filesz);
+						filesz = read_tar_number(&tarhdr[124], 12);
 
 						padding = ((filesz + 511) & ~511) - filesz;
 						filesz += padding;
@@ -1135,7 +1138,7 @@ ReceiveAndUnpackTarFile(PGconn *conn, PGresult *res, int rownum)
 	char		current_path[MAXPGPATH];
 	char		filename[MAXPGPATH];
 	const char *mapped_tblspc_path;
-	int			current_len_left;
+	pgoff_t		current_len_left = 0;
 	int			current_padding = 0;
 	bool		basetablespace;
 	char	   *copybuf = NULL;
@@ -1204,20 +1207,10 @@ ReceiveAndUnpackTarFile(PGconn *conn, PGresult *res, int rownum)
 			}
 			totaldone += 512;
 
-			if (sscanf(copybuf + 124, "%11o", &current_len_left) != 1)
-			{
-				fprintf(stderr, _("%s: could not parse file size\n"),
-						progname);
-				disconnect_and_exit(1);
-			}
+			current_len_left = read_tar_number(&copybuf[124], 12);
 
 			/* Set permissions on the file */
-			if (sscanf(&copybuf[100], "%07o ", &filemode) != 1)
-			{
-				fprintf(stderr, _("%s: could not parse file mode\n"),
-						progname);
-				disconnect_and_exit(1);
-			}
+			filemode = read_tar_number(&copybuf[100], 8);
 
 			/*
 			 * All files are padded up to 512 bytes
@@ -1252,7 +1245,7 @@ ReceiveAndUnpackTarFile(PGconn *conn, PGresult *res, int rownum)
 						 * failures on related directories.
 						 */
 						if (!((pg_str_endswith(filename, "/pg_xlog") ||
-							   pg_str_endswith(filename, "/archive_status")) &&
+							 pg_str_endswith(filename, "/archive_status")) &&
 							  errno == EEXIST))
 						{
 							fprintf(stderr,
@@ -1275,12 +1268,12 @@ ReceiveAndUnpackTarFile(PGconn *conn, PGresult *res, int rownum)
 					 *
 					 * It's most likely a link in pg_tblspc directory, to the
 					 * location of a tablespace. Apply any tablespace mapping
-					 * given on the command line (--tablespace-mapping).
-					 * (We blindly apply the mapping without checking that
-					 * the link really is inside pg_tblspc. We don't expect
-					 * there to be other symlinks in a data directory, but
-					 * if there are, you can call it an undocumented feature
-					 * that you can map them too.)
+					 * given on the command line (--tablespace-mapping). (We
+					 * blindly apply the mapping without checking that the
+					 * link really is inside pg_tblspc. We don't expect there
+					 * to be other symlinks in a data directory, but if there
+					 * are, you can call it an undocumented feature that you
+					 * can map them too.)
 					 */
 					filename[strlen(filename) - 1] = '\0';		/* Remove trailing slash */
 
@@ -1513,7 +1506,7 @@ GenerateRecoveryConf(PGconn *conn)
 
 		/* Separate key-value pairs with spaces */
 		if (conninfo_buf.len != 0)
-			appendPQExpBufferStr(&conninfo_buf, " ");
+			appendPQExpBufferChar(&conninfo_buf, ' ');
 
 		/*
 		 * Write "keyword=value" pieces, the value string is escaped and/or
@@ -1582,8 +1575,8 @@ BaseBackup(void)
 {
 	PGresult   *res;
 	char	   *sysidentifier;
-	uint32		latesttli;
-	uint32		starttli;
+	TimeLineID	latesttli;
+	TimeLineID	starttli;
 	char	   *basebkp;
 	char		escaped_label[MAXPGPATH];
 	char	   *maxrate_clause = NULL;
@@ -1637,23 +1630,8 @@ BaseBackup(void)
 	/*
 	 * Run IDENTIFY_SYSTEM so we can get the timeline
 	 */
-	res = PQexec(conn, "IDENTIFY_SYSTEM");
-	if (PQresultStatus(res) != PGRES_TUPLES_OK)
-	{
-		fprintf(stderr, _("%s: could not send replication command \"%s\": %s"),
-				progname, "IDENTIFY_SYSTEM", PQerrorMessage(conn));
+	if (!RunIdentifySystem(conn, &sysidentifier, &latesttli, NULL, NULL))
 		disconnect_and_exit(1);
-	}
-	if (PQntuples(res) != 1 || PQnfields(res) < 3)
-	{
-		fprintf(stderr,
-				_("%s: could not identify system: got %d rows and %d fields, expected %d rows and %d or more fields\n"),
-				progname, PQntuples(res), PQnfields(res), 1, 3);
-		disconnect_and_exit(1);
-	}
-	sysidentifier = pg_strdup(PQgetvalue(res, 0, 0));
-	latesttli = atoi(PQgetvalue(res, 0, 1));
-	PQclear(res);
 
 	/*
 	 * Start the actual backup
@@ -1664,13 +1642,14 @@ BaseBackup(void)
 		maxrate_clause = psprintf("MAX_RATE %u", maxrate);
 
 	basebkp =
-		psprintf("BASE_BACKUP LABEL '%s' %s %s %s %s %s",
+		psprintf("BASE_BACKUP LABEL '%s' %s %s %s %s %s %s",
 				 escaped_label,
 				 showprogress ? "PROGRESS" : "",
 				 includewal && !streamwal ? "WAL" : "",
 				 fastcheckpoint ? "FAST" : "",
 				 includewal ? "NOWAIT" : "",
-				 maxrate_clause ? maxrate_clause : "");
+				 maxrate_clause ? maxrate_clause : "",
+				 format == 't' ? "TABLESPACE_MAP" : "");
 
 	if (PQsendQuery(conn, basebkp) == 0)
 	{

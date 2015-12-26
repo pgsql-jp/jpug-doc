@@ -18,9 +18,7 @@
 #include <openssl/x509.h>
 #include <openssl/asn1.h>
 
-
 PG_MODULE_MAGIC;
-
 
 static Datum X509_NAME_field_to_text(X509_NAME *name, text *fieldName);
 static Datum X509_NAME_to_text(X509_NAME *name);
@@ -37,7 +35,7 @@ PG_FUNCTION_INFO_V1(ssl_is_used);
 Datum
 ssl_is_used(PG_FUNCTION_ARGS)
 {
-	PG_RETURN_BOOL(MyProcPort->ssl != NULL);
+	PG_RETURN_BOOL(MyProcPort->ssl_in_use);
 }
 
 

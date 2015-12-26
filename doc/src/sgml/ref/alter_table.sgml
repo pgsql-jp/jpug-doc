@@ -68,19 +68,24 @@ ALTER TABLE ALL IN TABLESPACE <replaceable class="PARAMETER">name</replaceable> 
     ENABLE RULE <replaceable class="PARAMETER">rewrite_rule_name</replaceable>
     ENABLE REPLICA RULE <replaceable class="PARAMETER">rewrite_rule_name</replaceable>
     ENABLE ALWAYS RULE <replaceable class="PARAMETER">rewrite_rule_name</replaceable>
+    DISABLE ROW LEVEL SECURITY
+    ENABLE ROW LEVEL SECURITY
+    FORCE ROW LEVEL SECURITY
+    NO FORCE ROW LEVEL SECURITY
     CLUSTER ON <replaceable class="PARAMETER">index_name</replaceable>
     SET WITHOUT CLUSTER
     SET WITH OIDS
     SET WITHOUT OIDS
+    SET TABLESPACE <replaceable class="PARAMETER">new_tablespace</replaceable>
+    SET { LOGGED | UNLOGGED }
     SET ( <replaceable class="PARAMETER">storage_parameter</replaceable> = <replaceable class="PARAMETER">value</replaceable> [, ... ] )
     RESET ( <replaceable class="PARAMETER">storage_parameter</replaceable> [, ... ] )
     INHERIT <replaceable class="PARAMETER">parent_table</replaceable>
     NO INHERIT <replaceable class="PARAMETER">parent_table</replaceable>
     OF <replaceable class="PARAMETER">type_name</replaceable>
     NOT OF
-    OWNER TO <replaceable class="PARAMETER">new_owner</replaceable>
-    SET TABLESPACE <replaceable class="PARAMETER">new_tablespace</replaceable>
-    REPLICA IDENTITY {DEFAULT | USING INDEX <replaceable class="PARAMETER">index_name</replaceable> | FULL | NOTHING}
+    OWNER TO { <replaceable class="PARAMETER">new_owner</replaceable> | CURRENT_USER | SESSION_USER }
+    REPLICA IDENTITY { DEFAULT | USING INDEX <replaceable class="PARAMETER">index_name</replaceable> | FULL | NOTHING }
 
 <!--
 <phrase>and <replaceable class="PARAMETER">table_constraint_using_index</replaceable> is:</phrase>
@@ -147,20 +152,6 @@ ALTER TABLE ALL IN TABLESPACE <replaceable class="PARAMETER">name</replaceable> 
 また、削除する列にテーブル以外が依存（例えば、外部キー制約、ビューなど）している場合、<literal>CASCADE</>を付ける必要があります。
 <literal>IF EXISTS</literal>が指定されている場合、もしその列がなかったとしてもエラーにはなりません。
 この場合は代わりに注意が出力されます。
-     </para>
-    </listitem>
-   </varlistentry>
-
-   <varlistentry>
-    <term><literal>IF EXISTS</literal></term>
-    <listitem>
-     <para>
-<!--
-      Do not throw an error if the table does not exist. A notice is issued
-      in this case.
--->
-テーブルが存在しない場合でもエラーとしません。
-この場合は注意メッセージが発行されます。
      </para>
     </listitem>
    </varlistentry>
@@ -250,9 +241,11 @@ ALTER TABLE ALL IN TABLESPACE <replaceable class="PARAMETER">name</replaceable> 
      </para>
      <para>
 <!--
-      SET STATISTICS acquires a <literal>SHARE UPDATE EXCLUSIVE</literal> lock.
+      <literal>SET STATISTICS</literal> acquires a
+      <literal>SHARE UPDATE EXCLUSIVE</literal> lock.
 -->
 SET STATISTICSは<literal>SHARE UPDATE EXCLUSIVE</literal>ロックを取得します。
+★
      </para>
     </listitem>
    </varlistentry>
@@ -567,6 +560,9 @@ SET STATISTICSは<literal>SHARE UPDATE EXCLUSIVE</literal>ロックを取得し�
 <literal>ENABLE REPLICA</literal>としたトリガでは、セッションが<quote>replica</>モードである場合のみ発行されます。
 そして、<literal>ENABLE ALWAYS</literal>としたトリガでは、現在のレプリケーションモードに関係なく発行されます。
      </para>
+     <para>
+      This command acquires a <literal>SHARE ROW EXCLUSIVE</literal> lock.
+     </para>
     </listitem>
    </varlistentry>
 
@@ -587,6 +583,36 @@ SET STATISTICSは<literal>SHARE UPDATE EXCLUSIVE</literal>ロックを取得し�
 この意味はトリガの有効化、無効化と同じです。
 この設定は<literal>ON SELECT</literal>ルールでは無視されます。
 現在のセッションがデフォルト以外のレプリケーションモードであったとしても、ビュー操作を維持するために常に適用されます。
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>DISABLE</literal>/<literal>ENABLE ROW LEVEL SECURITY</literal></term>
+    <listitem>
+     <para>
+      These forms control the application of row security policies belonging
+      to the table.  If enabled and no policies exist for the table, then a
+      default-deny policy is applied.  Note that policies can exist for a table
+      even if row level security is disabled - in this case, the policies will
+      NOT be applied and the policies will be ignored.
+      See also
+      <xref linkend="SQL-CREATEPOLICY">.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>NO FORCE</literal>/<literal>FORCE ROW LEVEL SECURITY</literal></term>
+    <listitem>
+     <para>
+      These forms control the application of row security policies belonging
+      to the table when the user is the table owner.  If enabled, row level
+      security policies will be applied when the user is the table owner.  If
+      disabled (the default) then row level security will not be applied when
+      the user is the table owner.
+      See also
+      <xref linkend="SQL-CREATEPOLICY">.
      </para>
     </listitem>
    </varlistentry>
@@ -672,6 +698,42 @@ clusterオプションの変更は<literal>SHARE UPDATE EXCLUSIVE</literal>ロ�
 -->
 この構文は、テーブルから<literal>oid</literal>システム列を削除します。
 既に<literal>oid</literal>列が存在しなくても警告が表示されない点を除けば、<literal>DROP COLUMN oid RESTRICT</literal>とまったく同等です。
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>SET TABLESPACE</literal></term>
+    <listitem>
+     <para>
+      This form changes the table's tablespace to the specified tablespace and
+      moves the data file(s) associated with the table to the new tablespace.
+      Indexes on the table, if any, are not moved; but they can be moved
+      separately with additional <literal>SET TABLESPACE</literal> commands.
+      All tables in the current database in a tablespace can be moved by using
+      the <literal>ALL IN TABLESPACE</literal> form, which will lock all tables
+      to be moved first and then move each one.  This form also supports
+      <literal>OWNED BY</literal>, which will only move tables owned by the
+      roles specified.  If the <literal>NOWAIT</literal> option is specified
+      then the command will fail if it is unable to acquire all of the locks
+      required immediately.  Note that system catalogs are not moved by this
+      command, use <command>ALTER DATABASE</command> or explicit
+      <command>ALTER TABLE</command> invocations instead if desired.  The
+      <literal>information_schema</literal> relations are not considered part
+      of the system catalogs and will be moved.
+      See also
+      <xref linkend="SQL-CREATETABLESPACE">.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>SET { LOGGED | UNLOGGED }</literal></term>
+    <listitem>
+     <para>
+      This form changes the table from unlogged to logged or vice-versa
+      (see <xref linkend="SQL-CREATETABLE-UNLOGGED">).  It cannot be applied
+      to a temporary table.
      </para>
     </listitem>
    </varlistentry>
@@ -836,44 +898,6 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</>お�
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>SET TABLESPACE</literal></term>
-    <listitem>
-     <para>
-<!--
-      This form changes the table's tablespace to the specified tablespace and
-      moves the data file(s) associated with the table to the new tablespace.
-      Indexes on the table, if any, are not moved; but they can be moved
-      separately with additional <literal>SET TABLESPACE</literal> commands.
-      All tables in the current database in a tablespace can be moved by using
-      the <literal>ALL IN TABLESPACE</literal> form, which will lock all tables
-      to be moved first and then move each one.  This form also supports
-      <literal>OWNED BY</literal>, which will only move tables owned by the
-      roles specified.  If the <literal>NOWAIT</literal> option is specified
-      then the command will fail if it is unable to acquire all of the locks
-      required immediately.  Note that system catalogs are not moved by this
-      command, use <command>ALTER DATABASE</command> or explicit
-      <command>ALTER TABLE</command> invocations instead if desired.  The
-      <literal>information_schema</literal> relations are not considered part
-      of the system catalogs and will be moved.
-      See also
-      <xref linkend="SQL-CREATETABLESPACE">.
--->
-この構文を使用すると、テーブルのテーブル空間を指定したテーブル空間に変更し、テーブルに関連するデータファイルを新しいテーブル空間に移動することができます。
-テーブルにインデックスがあっても移動されません。
-インデックスを移動するには、別途<literal>SET TABLESPACE</literal>コマンドを実行します。
-<literal>ALL IN TABLESPACE</literal>構文を使うことで、テーブル空間内の現在のデータベースのすべてのテーブルを移動することができます。
-この場合、移動されるすべてのテーブルがまずロックされ、それから一つずつ移動されます。
-この構文は<literal>OWNED BY</literal>もサポートしており、これを使うと、指定のロールが所有しているテーブルだけを移動します。
-<literal>NOWAIT</literal>を指定した場合、必要とするすべてのロックを即座に獲得できなければ、このコマンドは失敗します。
-このコマンドではシステムカタログは移動されないことに注意してください。
-必要であれば、<command>ALTER DATABASE</command>を使うか、あるいは<command>ALTER TABLE</command>で明示的に指定してください。
-<literal>information_schema</literal>のリレーションはシステムカタログとはみなされないので、移動されます。
-<xref linkend="SQL-CREATETABLESPACE">も参照してください。
-     </para>
-    </listitem>
-   </varlistentry>
-
    <varlistentry id="SQL-CREATETABLE-REPLICA-IDENTITY">
     <term><literal>REPLICA IDENTITY</literal></term>
     <listitem>
@@ -984,6 +1008,16 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</>お�
   <title>パラメータ</title>
 
     <variablelist>
+
+     <varlistentry>
+      <term><literal>IF EXISTS</literal></term>
+      <listitem>
+       <para>
+        Do not throw an error if the table does not exist. A notice is issued
+        in this case.
+       </para>
+      </listitem>
+     </varlistentry>
 
      <varlistentry>
       <term><replaceable class="PARAMETER">name</replaceable></term>
@@ -1477,7 +1511,7 @@ ALTER TABLE distributors
 
   <para>
 <!--
-   To change an integer column containing UNIX timestamps to <type>timestamp
+   To change an integer column containing Unix timestamps to <type>timestamp
    with time zone</type> via a <literal>USING</literal> clause:
 -->
 <literal>USING</literal>句を使用して、Unixタイムスタンプを持つinteger型の列を<type>timestamp with time zone</type>に変更します。

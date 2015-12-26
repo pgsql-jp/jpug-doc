@@ -717,9 +717,10 @@ WALライタは稼働中に一回ページ全体を書き込むように設計�
 <!--
    The server's checkpointer process automatically performs
    a checkpoint every so often.  A checkpoint is begun every <xref
-   linkend="guc-checkpoint-segments"> log segments, or every <xref
-   linkend="guc-checkpoint-timeout"> seconds, whichever comes first.
-   The default settings are 3 segments and 300 seconds (5 minutes), respectively.
+   linkend="guc-checkpoint-timeout"> seconds, or if
+   <xref linkend="guc-max-wal-size"> is about to be exceeded,
+   whichever comes first.
+   The default settings are 5 minutes and 1 GB, respectively.
    If no WAL has been written since the previous checkpoint, new checkpoints
    will be skipped even if <varname>checkpoint_timeout</> has passed.
    (If WAL archiving is being used and you want to put a lower limit on how
@@ -730,7 +731,7 @@ WALライタは稼働中に一回ページ全体を書き込むように設計�
    command <command>CHECKPOINT</command>.
 -->
 サーバのチェックポインタプロセスは自動的にチェックポイントを頻繁に実行します。
-<xref linkend="guc-checkpoint-segments">ログセグメント数に達するか、または<xref linkend="guc-checkpoint-timeout">秒が経過するか、どちらかの条件が満たされるとチェックポイントが開始されます。
+<xref linkend="guc-max-wal-size">ログセグメント数に達するか、または<xref linkend="guc-checkpoint-timeout">秒が経過するか、どちらかの条件が満たされるとチェックポイントが開始されます。
 デフォルトの設定では、それぞれ3セグメントと300秒(5分)となっています。
 前回のチェックポイント以降書き出すWALがない場合、<varname>checkpoint_timeout</>が経過したとしても新しいチェックポイントが飛ばされます。
 WALアーカイブ処理を使用しており、かつ、データ損失の可能性を限定するためにファイルのアーカイブ頻度に対する下限を設定したい場合、このチェックポイントパラメータではなく<xref linkend="guc-archive-timeout">パラメータを調節しなければなりません。
@@ -739,8 +740,8 @@ WALアーカイブ処理を使用しており、かつ、データ損失の可�
 
   <para>
 <!--
-   Reducing <varname>checkpoint_segments</varname> and/or
-   <varname>checkpoint_timeout</varname> causes checkpoints to occur
+   Reducing <varname>checkpoint_timeout</varname> and/or
+   <varname>max_wal_size</varname> causes checkpoints to occur
    more often. This allows faster after-crash recovery, since less work
    will need to be redone. However, one must balance this against the
    increased cost of flushing dirty data pages more often. If
@@ -750,9 +751,9 @@ WALアーカイブ処理を使用しており、かつ、データ損失の可�
    logging the entire page content. In that case,
    a smaller checkpoint interval increases the volume of output to the WAL log,
    partially negating the goal of using a smaller interval,
-   and in any case causing more disk I/O.
+   and in any case causing more disk I/O.★コンフリクト解消に合わせて訳文も修正しました
 -->
-<varname>checkpoint_segments</varname>、<varname>checkpoint_timeout</varname>、またはその両者を減少させると、チェックポイントはより頻繁に行われます。
+<varname>checkpoint_timeout</varname>、<varname>max_wal_size</varname>、またはその両者を減少させると、チェックポイントはより頻繁に行われます。
 これにより、再処理に要する時間がより少なくなりますのでクラッシュ後の修復は高速になります。
 しかし、より頻繁に行われるようになる、変更されたデータページの吐き出しにより増大するコストとバランスを考えなければなりません。
 <xref linkend="guc-full-page-writes">が設定されている（デフォルトです）場合、他に考慮しなければならない点があります。
@@ -772,11 +773,11 @@ WALアーカイブ処理を使用しており、かつ、データ損失の可�
    parameter.  If checkpoints happen closer together than
    <varname>checkpoint_warning</> seconds,
    a message will be output to the server log recommending increasing
-   <varname>checkpoint_segments</varname>.  Occasional appearance of such
+   <varname>max_wal_size</varname>.  Occasional appearance of such
    a message is not cause for alarm, but if it appears often then the
    checkpoint control parameters should be increased. Bulk operations such
    as large <command>COPY</> transfers might cause a number of such warnings
-   to appear if you have not set <varname>checkpoint_segments</> high
+   to appear if you have not set <varname>max_wal_size</> high
    enough.
 -->
 チェックポイントはかなり高価なものです。
@@ -796,10 +797,10 @@ WALアーカイブ処理を使用しており、かつ、データ損失の可�
    <xref linkend="guc-checkpoint-completion-target">, which is
    given as a fraction of the checkpoint interval.
    The I/O rate is adjusted so that the checkpoint finishes when the
-   given fraction of <varname>checkpoint_segments</varname> WAL segments
-   have been consumed since checkpoint start, or the given fraction of
-   <varname>checkpoint_timeout</varname> seconds have elapsed,
-   whichever is sooner.  With the default value of 0.5,
+   given fraction of
+   <varname>checkpoint_timeout</varname> seconds have elapsed, or before
+   <varname>max_wal_size</varname> is exceeded, whichever is sooner.
+   With the default value of 0.5,
    <productname>PostgreSQL</> can be expected to complete each checkpoint
    in about half the time before the next checkpoint starts.  On a system
    that's very close to maximum I/O throughput during normal operation,
@@ -829,24 +830,36 @@ I/Oの割合は、チェックポイントの起動時から<varname>checkpoint_
 
   <para>
 <!--
-   There will always be at least one WAL segment file, and will normally
-   not be more than (2 + <varname>checkpoint_completion_target</varname>) * <varname>checkpoint_segments</varname> + 1
-   or <varname>checkpoint_segments</> + <xref linkend="guc-wal-keep-segments"> + 1
-   files.  Each segment file is normally 16 MB (though this size can be
-   altered when building the server).  You can use this to estimate space
-   requirements for <acronym>WAL</acronym>.
-   Ordinarily, when old log segment files are no longer needed, they
-   are recycled (that is, renamed to become future segments in the numbered
-   sequence). If, due to a short-term peak of log output rate, there
-   are more than 3 * <varname>checkpoint_segments</varname> + 1
-   segment files, the unneeded segment files will be deleted instead
-   of recycled until the system gets back under this limit.
+   The number of WAL segment files in <filename>pg_xlog</> directory depends on
+   <varname>min_wal_size</>, <varname>max_wal_size</> and
+   the amount of WAL generated in previous checkpoint cycles. When old log
+   segment files are no longer needed, they are removed or recycled (that is,
+   renamed to become future segments in the numbered sequence). If, due to a
+   short-term peak of log output rate, <varname>max_wal_size</> is
+   exceeded, the unneeded segment files will be removed until the system
+   gets back under this limit. Below that limit, the system recycles enough
+   WAL files to cover the estimated need until the next checkpoint, and
+   removes the rest. The estimate is based on a moving average of the number
+   of WAL files used in previous checkpoint cycles. The moving average
+   is increased immediately if the actual usage exceeds the estimate, so it
+   accommodates peak usage rather average usage to some extent.
+   <varname>min_wal_size</> puts a minimum on the amount of WAL files
+   recycled for future usage; that much WAL is always recycled for future use,
+   even if the system is idle and the WAL usage estimate suggests that little
+   WAL is needed.
+  </para>
+
+  <para>
+   Independently of <varname>max_wal_size</varname>,
+   <xref linkend="guc-wal-keep-segments"> + 1 most recent WAL files are
+   kept at all times. Also, if WAL archiving is used, old segments can not be
+   removed or recycled until they are archived. If WAL archiving cannot keep up
+   with the pace that WAL is generated, or if <varname>archive_command</varname>
+   fails repeatedly, old WAL files will accumulate in <filename>pg_xlog</>
+   until the situation is resolved. A slow or failed standby server that
+   uses a replication slot will have the same effect (see
+   <xref linkend="streaming-replication-slots">). ★翻訳が必要です
 -->
-WALセグメントファイルは常に少なくとも1つあり、また、通常は(2 + <varname>checkpoint_completion_target</varname>) * <varname>checkpoint_segments</varname> + 1、もしくは<varname>checkpoint_segments</> + <xref linkend="guc-wal-keep-segments"> + 1より多くはありません。
-各セグメントファイルは通常16メガバイト（このサイズはサーバのコンパイル時に変更可能）です。
-このことから、<acronym>WAL</acronym>で必要とされる領域を推定できます。
-普通、古いセグメントファイルが不要になった時、それらは再利用（つまり、番号付けられるシーケンスにおいての将来のセグメントとなるように名前が変更）されます。
-短時間のログ出力のピークのためにセグメントファイル数が3×<varname>checkpoint_segments</varname> + 1を超えた場合、システムは、この上限以下になるまで、不要になったセグメントファイルを再利用せずに、削除します。
   </para>
 
   <para>
@@ -860,27 +873,35 @@ WALセグメントファイルは常に少なくとも1つあり、また、通�
    directory.
    Restartpoints can't be performed more frequently than checkpoints in the
    master because restartpoints can only be performed at checkpoint records.
-   A restartpoint is triggered when a checkpoint record is reached if at
-   least <varname>checkpoint_timeout</> seconds have passed since the last
-   restartpoint. In standby mode, a restartpoint is also triggered if at
-   least <varname>checkpoint_segments</> log segments have been replayed
-   since the last restartpoint.
+   A restartpoint is triggered when a checkpoint record is reached if at★
+   least <varname>checkpoint_timeout</> seconds have passed since the last★
+   restartpoint, or if WAL size is about to exceed★
+   <varname>max_wal_size</>. However, because of limitations on when a★
+   restartpoint can be performed, <varname>max_wal_size</> is often exceeded★
+   during recovery, by up to one checkpoint cycle's worth of WAL.★
+   (<varname>max_wal_size</> is never a hard limit anyway, so you should★
+   always leave plenty of headroom to avoid running out of disk space.)★
+
+★は追加翻訳が必要箇所
 -->
 アーカイブからのリカバリもしくはスタンバイモードにおいて、サーバでは定期的に通常運用でのチェックポイント処理と似た<firstterm>リスタートポイント</><indexterm><primary>restartpoint</></>処理を行います。これは、すでに再生されたWALを再度読み込む必要がないよう、ディスクに現在の状態を強制的に書き込み、<filename>pg_control</>ファイルを更新します。また<filename>pg_xlog</>ディレクトリの中の古いログセグメントを再利用できるようにします。
 リスタートポイント処理はチェックポイントが記録された時にしか実施されないので、マスタ側のチェックポイント処理よりも発生頻度は低いでしょう。
 再開始点は、最後の再開始点より少なくとも<varname>checkpoint_timeout</>秒が経過しているとすれば、チェックポイントレコードが到達された時点で始動されます。
 スタンバイモードにおいて、再開始点はもし最後の再開始点から最低限<varname>checkpoint_segments</>ログセグメントが再生された場合に、同様に始動されます。
+★追加翻訳必要箇所★
+
+
   </para>
 
   <para>
 <!--
    There are two commonly used internal <acronym>WAL</acronym> functions:
-   <function>XLogInsert</function> and <function>XLogFlush</function>.
-   <function>XLogInsert</function> is used to place a new record into
+   <function>XLogInsertRecord</function> and <function>XLogFlush</function>.
+   <function>XLogInsertRecord</function> is used to place a new record into
    the <acronym>WAL</acronym> buffers in shared memory. If there is no
-   space for the new record, <function>XLogInsert</function> will have
+   space for the new record, <function>XLogInsertRecord</function> will have
    to write (move to kernel cache) a few filled <acronym>WAL</acronym>
-   buffers. This is undesirable because <function>XLogInsert</function>
+   buffers. This is undesirable because <function>XLogInsertRecord</function>
    is used on every database low level modification (for example, row
    insertion) at a time when an exclusive lock is held on affected
    data pages, so the operation needs to be as fast as possible.  What
@@ -891,7 +912,7 @@ WALセグメントファイルは常に少なくとも1つあり、また、通�
    made, for the most part, at transaction commit time to ensure that
    transaction records are flushed to permanent storage. On systems
    with high log output, <function>XLogFlush</function> requests might
-   not occur often enough to prevent <function>XLogInsert</function>
+   not occur often enough to prevent <function>XLogInsertRecord</function>
    from having to do writes.  On such systems
    one should increase the number of <acronym>WAL</acronym> buffers by
    modifying the <xref linkend="guc-wal-buffers"> parameter.  When
@@ -1025,7 +1046,7 @@ WALログが高遅延の回転ディスクに格納されているとき、<varn
    Enabling the <xref linkend="guc-wal-debug"> configuration parameter
    (provided that <productname>PostgreSQL</productname> has been
    compiled with support for it) will result in each
-   <function>XLogInsert</function> and <function>XLogFlush</function>
+   <function>XLogInsertRecord</function> and <function>XLogFlush</function>
    <acronym>WAL</acronym> call being logged to the server log. This
    option might be replaced by a more general mechanism in the future.
 -->
@@ -1063,7 +1084,7 @@ WALログが高遅延の回転ディスクに格納されているとき、<varn
    building the server).  Each segment is divided into pages, normally
    8 kB each (this size can be changed via the <option>&#045;-with-wal-blocksize</>
    configure option).  The log record headers are described in
-   <filename>access/xlog.h</filename>; the record content is dependent
+   <filename>access/xlogrecord.h</filename>; the record content is dependent
    on the type of event that is being logged.  Segment files are given
    ever-increasing numbers as names, starting at
    <filename>000000010000000000000000</filename>.  The numbers do not wrap,

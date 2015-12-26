@@ -44,6 +44,9 @@ if a == b:
     print(a)
 else:
     print(a + ' ' + b)"`
+if test "$PORTNAME" = win32 ; then
+    python_includespec=`echo $python_includespec | sed 's,[[\]],/,g'`
+fi
 AC_MSG_RESULT([$python_includespec])
 
 AC_SUBST(python_majorversion)[]dnl
@@ -93,6 +96,5 @@ AC_MSG_RESULT([${python_libspec} ${python_additional_libs}])
 AC_SUBST(python_libdir)[]dnl
 AC_SUBST(python_libspec)[]dnl
 AC_SUBST(python_additional_libs)[]dnl
-AC_SUBST(python_enable_shared)[]dnl
 
 ])# PGAC_CHECK_PYTHON_EMBED_SETUP

@@ -1075,6 +1075,46 @@ ROLLBACK;
 
    <para>
 <!--
+    When an <command>UPDATE</> or <command>DELETE</> command affects an ★翻訳が必要
+    inheritance hierarchy, the output might look like this: ★翻訳が必要
+-->
+★ここに翻訳文
+<screen>
+EXPLAIN UPDATE parent SET f2 = f2 + 1 WHERE f1 = 101;
+                                    QUERY PLAN
+-----------------------------------------------------------------------------------
+ Update on parent  (cost=0.00..24.53 rows=4 width=14)
+   Update on parent
+   Update on child1
+   Update on child2
+   Update on child3
+   -&gt;  Seq Scan on parent  (cost=0.00..0.00 rows=1 width=14)
+         Filter: (f1 = 101)
+   -&gt;  Index Scan using child1_f1_key on child1  (cost=0.15..8.17 rows=1 width=14)
+         Index Cond: (f1 = 101)
+   -&gt;  Index Scan using child2_f1_key on child2  (cost=0.15..8.17 rows=1 width=14)
+         Index Cond: (f1 = 101)
+   -&gt;  Index Scan using child3_f1_key on child3  (cost=0.15..8.17 rows=1 width=14)
+         Index Cond: (f1 = 101)
+</screen>
+
+    In this example the Update node needs to consider three child tables as
+    well as the originally-mentioned parent table.  So there are four input
+    scanning subplans, one per table.  For clarity, the Update node is
+    annotated to show the specific target tables that will be updated, in the
+    same order as the corresponding subplans.  (These annotations are new as
+    of <productname>PostgreSQL</> 9.5; in prior versions the reader had to
+    intuit the target tables by inspecting the subplans.)
+   </para>
+
+   <para>
+    The <literal>Planning time</literal> shown by <command>EXPLAIN
+    ANALYZE</command> is the time it took to generate the query plan from the
+    parsed query and optimize it. It does not include parsing or rewriting.
+   </para>
+
+   <para>
+<!--
     The <literal>Execution time</literal> shown by <command>EXPLAIN
     ANALYZE</command> includes executor start-up and shut-down time, as well
     as the time to run any triggers that are fired, but it does not include
@@ -1923,28 +1963,26 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
 <command>COPY</>自体には大して役立ちませんので、この助言は、上述の技法の片方または両方を使用している時にのみ有用です。
    </para>
   </sect2>
-
-  <sect2 id="populate-checkpoint-segments">
+  <sect2 id="populate-max-wal-size">
 <!--
-   <title>Increase <varname>checkpoint_segments</varname></title>
+   <title>Increase <varname>max_wal_size</varname></title>
 -->
-   <title><varname>checkpoint_segments</varname>を増やす</title>
-
+   <title><varname>max_wal_size</varname>を増やす</title>
    <para>
 <!--
     Temporarily increasing the <xref
-    linkend="guc-checkpoint-segments"> configuration variable can also
+    linkend="guc-max-wal-size"> configuration variable can also
     make large data loads faster.  This is because loading a large
     amount of data into <productname>PostgreSQL</productname> will
     cause checkpoints to occur more often than the normal checkpoint
     frequency (specified by the <varname>checkpoint_timeout</varname>
     configuration variable). Whenever a checkpoint occurs, all dirty
     pages must be flushed to disk. By increasing
-    <varname>checkpoint_segments</varname> temporarily during bulk
+    <varname>max_wal_size</varname> temporarily during bulk
     data loads, the number of checkpoints that are required can be
     reduced.
 -->
-大規模なデータをロードする時<xref linkend="guc-checkpoint-segments">設定変数を一時的に増やすことで高速化することができます。
+大規模なデータをロードする時<xref linkend="guc-max-wal-size">設定変数を一時的に増やすことで高速化することができます。
 大量のデータを<productname>PostgreSQL</productname>にロードすることで、通常のチェックポイントの頻度（<varname>checkpoint_timeout</varname>設定変数により指定されます）よりも頻繁にチェックポイントが発生するためです。
 チェックポイントが発生すると、すべてのダーティページ（ディスクに未書き込みの変更済みメモリページ）はディスクに吐き出されなければなりません。
 大量のデータロードの際に一時的に<varname>checkpoint_segments</varname>を増加させることで、必要なチェックポイント数を減らすことができます。
@@ -2097,9 +2135,9 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
 <!--
        Set appropriate (i.e., larger than normal) values for
        <varname>maintenance_work_mem</varname> and
-       <varname>checkpoint_segments</varname>.
+       <varname>max_wal_size</varname>.★コンフリクト解消時に反映
 -->
-<varname>maintenance_work_mem</varname>および<varname>checkpoint_segments</varname>を適切な（つまり通常よりも大きな）値に設定します。
+<varname>maintenance_work_mem</varname>および<varname>max_wal_size</varname>を適切な（つまり通常よりも大きな）値に設定します。
       </para>
      </listitem>
      <listitem>
@@ -2200,7 +2238,7 @@ WALアーカイブ処理またはストリーミングレプリケーション�
 <!--
     So when loading a data-only dump, it is up to you to drop and recreate
     indexes and foreign keys if you wish to use those techniques.
-    It's still useful to increase <varname>checkpoint_segments</varname>
+    It's still useful to increase <varname>max_wal_size</varname>
     while loading the data, but don't bother increasing
     <varname>maintenance_work_mem</varname>; rather, you'd do that while
     manually recreating indexes and foreign keys afterwards.
@@ -2304,12 +2342,12 @@ WALアーカイブ処理またはストリーミングレプリケーション�
      <listitem>
       <para>
 <!--
-       Increase <xref linkend="guc-checkpoint-segments"> and <xref
+       Increase <xref linkend="guc-max-wal-size"> and <xref
        linkend="guc-checkpoint-timeout"> ; this reduces the frequency
        of checkpoints, but increases the storage requirements of
        <filename>/pg_xlog</>.
 -->
-<xref linkend="guc-checkpoint-segments">および<xref linkend="guc-checkpoint-timeout">を増加させます。
+<xref linkend="guc-max-wal-size">および<xref linkend="guc-checkpoint-timeout">を増加させます。
 これによりチェックポイントの頻度が減少しますが、<filename>/pg_xlog</>で必要とする容量が増加します。
       </para>
      </listitem>

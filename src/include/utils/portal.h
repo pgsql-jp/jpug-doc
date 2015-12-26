@@ -36,7 +36,7 @@
  * to look like NO SCROLL cursors.
  *
  *
- * Portions Copyright (c) 1996-2014, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/utils/portal.h
@@ -128,6 +128,7 @@ typedef struct PortalData
 	 * in which we ran the portal.
 	 */
 	SubTransactionId createSubid;		/* the creating subxact */
+	SubTransactionId activeSubid;		/* the last subxact with activity */
 
 	/* The query or queries the portal will execute */
 	const char *sourceText;		/* text of query (as of 8.4, never NULL) */
@@ -178,13 +179,6 @@ typedef struct PortalData
 	/* Presentation data, primarily used by the pg_cursors system view */
 	TimestampTz creation_time;	/* time at which this portal was defined */
 	bool		visible;		/* include this portal in pg_cursors? */
-
-	/*
-	 * This field belongs with createSubid, but in pre-9.5 branches, add it
-	 * at the end to avoid creating an ABI break for extensions that examine
-	 * Portal structs.
-	 */
-	SubTransactionId activeSubid;		/* the last subxact with activity */
 }	PortalData;
 
 /*

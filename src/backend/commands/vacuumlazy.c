@@ -24,7 +24,7 @@
  * the TID array, just enough to hold as many heap tuples as fit on one page.
  *
  *
- * Portions Copyright (c) 1996-2014, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -44,6 +44,7 @@
 #include "access/multixact.h"
 #include "access/transam.h"
 #include "access/visibilitymap.h"
+#include "access/xlog.h"
 #include "catalog/catalog.h"
 #include "catalog/storage.h"
 #include "commands/dbcommands.h"
@@ -104,6 +105,7 @@ typedef struct LVRelStats
 	BlockNumber old_rel_pages;	/* previous value of pg_class.relpages */
 	BlockNumber rel_pages;		/* total number of pages */
 	BlockNumber scanned_pages;	/* number of pages we examined */
+	BlockNumber pinskipped_pages;		/* # of pages we skipped due to a pin */
 	double		scanned_tuples; /* counts only tuples on scanned pages */
 	double		old_rel_tuples; /* previous value of pg_class.reltuples */
 	double		new_rel_tuples; /* new estimated total # of tuples */
@@ -167,7 +169,7 @@ static bool heap_page_is_all_visible(Relation rel, Buffer buf,
  *		and locked the relation.
  */
 void
-lazy_vacuum_rel(Relation onerel, VacuumStmt *vacstmt,
+lazy_vacuum_rel(Relation onerel, int options, VacuumParams *params,
 				BufferAccessStrategy bstrategy)
 {
 	LVRelStats *vacrelstats;
@@ -191,14 +193,16 @@ lazy_vacuum_rel(Relation onerel, VacuumStmt *vacstmt,
 	TransactionId new_frozen_xid;
 	MultiXactId new_min_multi;
 
+	Assert(params != NULL);
+
 	/* measure elapsed time iff autovacuum logging requires it */
-	if (IsAutoVacuumWorkerProcess() && Log_autovacuum_min_duration >= 0)
+	if (IsAutoVacuumWorkerProcess() && params->log_min_duration >= 0)
 	{
 		pg_rusage_init(&ru0);
 		starttime = GetCurrentTimestamp();
 	}
 
-	if (vacstmt->options & VACOPT_VERBOSE)
+	if (options & VACOPT_VERBOSE)
 		elevel = INFO;
 	else
 		elevel = DEBUG2;
@@ -206,9 +210,10 @@ lazy_vacuum_rel(Relation onerel, VacuumStmt *vacstmt,
 	vac_strategy = bstrategy;
 
 	vacuum_set_xid_limits(onerel,
-						  vacstmt->freeze_min_age, vacstmt->freeze_table_age,
-						  vacstmt->multixact_freeze_min_age,
-						  vacstmt->multixact_freeze_table_age,
+						  params->freeze_min_age,
+						  params->freeze_table_age,
+						  params->multixact_freeze_min_age,
+						  params->multixact_freeze_table_age,
 						  &OldestXmin, &FreezeLimit, &xidFullScanLimit,
 						  &MultiXactCutoff, &mxactFullScanLimit);
 
@@ -323,14 +328,16 @@ lazy_vacuum_rel(Relation onerel, VacuumStmt *vacstmt,
 						 vacrelstats->new_dead_tuples);
 
 	/* and log the action if appropriate */
-	if (IsAutoVacuumWorkerProcess() && Log_autovacuum_min_duration >= 0)
+	if (IsAutoVacuumWorkerProcess() && params->log_min_duration >= 0)
 	{
 		TimestampTz endtime = GetCurrentTimestamp();
 
-		if (Log_autovacuum_min_duration == 0 ||
+		if (params->log_min_duration == 0 ||
 			TimestampDifferenceExceeds(starttime, endtime,
-									   Log_autovacuum_min_duration))
+									   params->log_min_duration))
 		{
+			StringInfoData buf;
+
 			TimestampDifference(starttime, endtime, &secs, &usecs);
 
 			read_rate = 0;
@@ -342,27 +349,38 @@ lazy_vacuum_rel(Relation onerel, VacuumStmt *vacstmt,
 				write_rate = (double) BLCKSZ *VacuumPageDirty / (1024 * 1024) /
 							(secs + usecs / 1000000.0);
 			}
+
+			/*
+			 * This is pretty messy, but we split it up so that we can skip
+			 * emitting individual parts of the message when not applicable.
+			 */
+			initStringInfo(&buf);
+			appendStringInfo(&buf, _("automatic vacuum of table \"%s.%s.%s\": index scans: %d\n"),
+							 get_database_name(MyDatabaseId),
+							 get_namespace_name(RelationGetNamespace(onerel)),
+							 RelationGetRelationName(onerel),
+							 vacrelstats->num_index_scans);
+			appendStringInfo(&buf, _("pages: %u removed, %u remain, %u skipped due to pins\n"),
+							 vacrelstats->pages_removed,
+							 vacrelstats->rel_pages,
+							 vacrelstats->pinskipped_pages);
+			appendStringInfo(&buf,
+							 _("tuples: %.0f removed, %.0f remain, %.0f are dead but not yet removable\n"),
+							 vacrelstats->tuples_deleted,
+							 vacrelstats->new_rel_tuples,
+							 vacrelstats->new_dead_tuples);
+			appendStringInfo(&buf,
+						 _("buffer usage: %d hits, %d misses, %d dirtied\n"),
+							 VacuumPageHit,
+							 VacuumPageMiss,
+							 VacuumPageDirty);
+			appendStringInfo(&buf, _("avg read rate: %.3f MB/s, avg write rate: %.3f MB/s\n"),
+							 read_rate, write_rate);
+			appendStringInfo(&buf, _("system usage: %s"), pg_rusage_show(&ru0));
+
 			ereport(LOG,
-					(errmsg("automatic vacuum of table \"%s.%s.%s\": index scans: %d\n"
-							"pages: %d removed, %d remain\n"
-							"tuples: %.0f removed, %.0f remain, %.0f are dead but not yet removable\n"
-							"buffer usage: %d hits, %d misses, %d dirtied\n"
-					  "avg read rate: %.3f MB/s, avg write rate: %.3f MB/s\n"
-							"system usage: %s",
-							get_database_name(MyDatabaseId),
-							get_namespace_name(RelationGetNamespace(onerel)),
-							RelationGetRelationName(onerel),
-							vacrelstats->num_index_scans,
-							vacrelstats->pages_removed,
-							vacrelstats->rel_pages,
-							vacrelstats->tuples_deleted,
-							vacrelstats->new_rel_tuples,
-							vacrelstats->new_dead_tuples,
-							VacuumPageHit,
-							VacuumPageMiss,
-							VacuumPageDirty,
-							read_rate, write_rate,
-							pg_rusage_show(&ru0))));
+					(errmsg_internal("%s", buf.data)));
+			pfree(buf.data);
 		}
 	}
 }
@@ -437,6 +455,7 @@ lazy_scan_heap(Relation onerel, LVRelStats *vacrelstats,
 	BlockNumber next_not_all_visible_block;
 	bool		skipping_all_visible_blocks;
 	xl_heap_freeze_tuple *frozen;
+	StringInfoData buf;
 
 	pg_rusage_init(&ru0);
 
@@ -618,6 +637,7 @@ lazy_scan_heap(Relation onerel, LVRelStats *vacrelstats,
 			if (!scan_all)
 			{
 				ReleaseBuffer(buf);
+				vacrelstats->pinskipped_pages++;
 				continue;
 			}
 
@@ -637,6 +657,7 @@ lazy_scan_heap(Relation onerel, LVRelStats *vacrelstats,
 			{
 				UnlockReleaseBuffer(buf);
 				vacrelstats->scanned_pages++;
+				vacrelstats->pinskipped_pages++;
 				continue;
 			}
 			LockBuffer(buf, BUFFER_LOCK_UNLOCK);
@@ -932,7 +953,7 @@ lazy_scan_heap(Relation onerel, LVRelStats *vacrelstats,
 				heap_execute_freeze_tuple(htup, &frozen[i]);
 			}
 
-			/* Now WAL-log freezing if neccessary */
+			/* Now WAL-log freezing if necessary */
 			if (RelationNeedsWAL(onerel))
 			{
 				XLogRecPtr	recptr;
@@ -1093,19 +1114,34 @@ lazy_scan_heap(Relation onerel, LVRelStats *vacrelstats,
 						RelationGetRelationName(onerel),
 						tups_vacuumed, vacuumed_pages)));
 
+	/*
+	 * This is pretty messy, but we split it up so that we can skip emitting
+	 * individual parts of the message when not applicable.
+	 */
+	initStringInfo(&buf);
+	appendStringInfo(&buf,
+					 _("%.0f dead row versions cannot be removed yet.\n"),
+					 nkeep);
+	appendStringInfo(&buf, _("There were %.0f unused item pointers.\n"),
+					 nunused);
+	appendStringInfo(&buf, ngettext("Skipped %u page due to buffer pins.\n",
+									"Skipped %u pages due to buffer pins.\n",
+									vacrelstats->pinskipped_pages),
+					 vacrelstats->pinskipped_pages);
+	appendStringInfo(&buf, ngettext("%u page is entirely empty.\n",
+									"%u pages are entirely empty.\n",
+									empty_pages),
+					 empty_pages);
+	appendStringInfo(&buf, _("%s."),
+					 pg_rusage_show(&ru0));
+
 	ereport(elevel,
 			(errmsg("\"%s\": found %.0f removable, %.0f nonremovable row versions in %u out of %u pages",
 					RelationGetRelationName(onerel),
 					tups_vacuumed, num_tuples,
 					vacrelstats->scanned_pages, nblocks),
-			 errdetail("%.0f dead row versions cannot be removed yet.\n"
-					   "There were %.0f unused item pointers.\n"
-					   "%u pages are entirely empty.\n"
-					   "%s.",
-					   nkeep,
-					   nunused,
-					   empty_pages,
-					   pg_rusage_show(&ru0))));
+			 errdetail_internal("%s", buf.data)));
+	pfree(buf.data);
 }
 
 
@@ -1753,6 +1789,7 @@ static bool
 heap_page_is_all_visible(Relation rel, Buffer buf, TransactionId *visibility_cutoff_xid)
 {
 	Page		page = BufferGetPage(buf);
+	BlockNumber blockno = BufferGetBlockNumber(buf);
 	OffsetNumber offnum,
 				maxoff;
 	bool		all_visible = true;
@@ -1777,7 +1814,7 @@ heap_page_is_all_visible(Relation rel, Buffer buf, TransactionId *visibility_cut
 		if (!ItemIdIsUsed(itemid) || ItemIdIsRedirected(itemid))
 			continue;
 
-		ItemPointerSet(&(tuple.t_self), BufferGetBlockNumber(buf), offnum);
+		ItemPointerSet(&(tuple.t_self), blockno, offnum);
 
 		/*
 		 * Dead line pointers can have index pointers pointing to them. So

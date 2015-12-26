@@ -185,7 +185,8 @@ CREATE INDEX test1_id_index ON test1 (id);
   <para>
 <!--
    <productname>PostgreSQL</productname> provides several index types:
-   B-tree, Hash, GiST, SP-GiST and GIN.  Each index type uses a different
+   B-tree, Hash, GiST, SP-GiST, GIN and BRIN.
+   Each index type uses a different
    algorithm that is best suited to different types of queries.
    By default, the <command>CREATE INDEX</command> command creates
    B-tree indexes, which fit the most common situations.
@@ -300,7 +301,7 @@ B-treeインデックスをソートされた順序でデータを受けとる�
 問い合わせプランナでは、インデックスの付いた列を<literal>=</literal>演算子を使用して比較する場合に、ハッシュインデックスの使用を検討します。
 ハッシュインデックスを作成するには、以下のようなコマンドを使用してください。
 <synopsis>
-CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable> USING hash (<replaceable>column</replaceable>);
+CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable> USING HASH (<replaceable>column</replaceable>);
 </synopsis>
   </para>
 
@@ -381,6 +382,7 @@ GiSTインデックスは単一種類のインデックスではなく、多く�
 他の多くのGiST演算子クラスが<literal>contrib</>群や別のプロジェクトとして利用可能です。
 詳細は<xref linkend="GiST">を参照してください。
   </para>
+
   <para>
 <!--
    GiST indexes are also capable of optimizing <quote>nearest-neighbor</>
@@ -439,6 +441,7 @@ SP-GiSTインデックスは広域な異なる不均衡でディスクベース�
     <member><literal>&lt;^</literal></member>
     <member><literal>&gt;^</literal></member>
    </simplelist>
+
 <!--
    (See <xref linkend="functions-geometry"> for the meaning of
    these operators.)
@@ -449,8 +452,8 @@ SP-GiSTインデックスは広域な異なる不均衡でディスクベース�
 (演算子の意味は以下を参照してください<xref linkend="functions-geometry"> )
 標準配布物に含まれるSP-GiSTクラスは<xref linkend="spgist-builtin-opclasses-table">に記載されています。
 詳細は <xref linkend="SPGiST">を参照してください。
-
   </para>
+
   <para>
    <indexterm>
 <!--
@@ -502,6 +505,39 @@ GiSTやSP-GiST同様、GINも多くの異なるユーザ定義のインデック
 標準配布物に含まれるGIN演算子クラスは<xref linkend="gin-builtin-opclasses-table">に記載されています。
 他の多くのGIN演算子クラスは<literal>contrib</>群または別のプロジェクトで利用可能です。
 詳細は<xref linkend="GIN">を参照してください。
+  </para>
+
+  <para>
+   <indexterm>
+    <primary>index</primary>
+    <secondary>BRIN</secondary>
+   </indexterm>
+   <indexterm>
+    <primary>BRIN</primary>
+    <see>index</see>
+   </indexterm>
+   BRIN indexes (a shorthand for Block Range indexes)
+   store summaries about the values stored in consecutive table physical block ranges.
+   Like GiST, SP-GiST and GIN,
+   BRIN can support many different indexing strategies,
+   and the particular operators with which a BRIN index can be used
+   vary depending on the indexing strategy.
+   For data types that have a linear sort order, the indexed data
+   corresponds to the minimum and maximum values of the
+   values in the column for each block range,
+   which support indexed queries using these operators:
+
+   <simplelist>
+    <member><literal>&lt;</literal></member>
+    <member><literal>&lt;=</literal></member>
+    <member><literal>=</literal></member>
+    <member><literal>&gt;=</literal></member>
+    <member><literal>&gt;</literal></member>
+   </simplelist>
+
+   The BRIN operator classes included in the standard distribution are
+   documented in <xref linkend="brin-builtin-opclasses-table">.
+   For more information see <xref linkend="BRIN">.
   </para>
  </sect1>
 
@@ -972,14 +1008,11 @@ NULL 値は同じ値とはみなされません。
   <note>
    <para>
 <!--
-    The preferred way to add a unique constraint to a table is
-    <literal>ALTER TABLE ... ADD CONSTRAINT</literal>.  The use of
-    indexes to enforce unique constraints could be considered an
-    implementation detail that should not be accessed directly.
-    One should, however, be aware that there's no need to manually
+    There's no need to manually
     create indexes on unique columns; doing so would just duplicate
     the automatically-created index.
 -->
+★★★
 テーブルに一意性制約を追加するためによく使用される方法は、<literal>ALTER TABLE ... ADD CONSTRAINT</literal>です。
 一意性制約を課すためのインデックスの用法は、直接アクセスしてはならない実装の細部とみなされることがあります。
 しかし、手作業で一意列に対しインデックスを作成する必要がないことには注意してください。
@@ -1599,7 +1632,8 @@ SELECT am.amname AS index_method,
   </para>
 
   <para>
-<!--    This expanded version of the previous query shows the operator family
+<!--
+    This expanded version of the previous query shows the operator family
     each operator class belongs to:
 -->
 この前述のクエリで拡張されたバージョンはどの演算子も含まれる演算子の種類に属します。

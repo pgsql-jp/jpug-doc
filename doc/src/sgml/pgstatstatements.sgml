@@ -26,6 +26,16 @@
 このことは、このモジュールを追加もしくは削除するには、サーバを再起動する必要があるということを意味しています。
  </para>
 
+ <para>
+   When <filename>pg_stat_statements</filename> is loaded, it tracks
+   statistics across all databases of the server.  To access and manipulate
+   these statistics, the module provides a view, <structname>pg_stat_statements</>,
+   and the utility functions <function>pg_stat_statements_reset</> and
+   <function>pg_stat_statements</>.  These are not available globally but
+   can be enabled for a specific database with
+   <command>CREATE EXTENSION pg_stat_statements</>.
+ </para>
+
  <sect2>
 <!--
   <title>The <structname>pg_stat_statements</structname> View</title>
@@ -35,7 +45,7 @@
   <para>
 <!--
    The statistics gathered by the module are made available via a
-   system view named <structname>pg_stat_statements</>.  This view
+   view named <structname>pg_stat_statements</>.  This view
    contains one row for each distinct database ID, user ID and query
    ID (up to the maximum number of distinct statements that the module
    can track).  The columns of the view are shown in
@@ -126,6 +136,34 @@
       <entry>Total time spent in the statement, in milliseconds</entry>
 -->
       <entry>SQL文の処理に費やした総時間（ミリ秒単位）</entry>
+     </row>
+
+     <row>
+      <entry><structfield>min_time</structfield></entry>
+      <entry><type>double precision</type></entry>
+      <entry></entry>
+      <entry>Minimum time spent in the statement, in milliseconds</entry>
+     </row>
+
+     <row>
+      <entry><structfield>max_time</structfield></entry>
+      <entry><type>double precision</type></entry>
+      <entry></entry>
+      <entry>Maximum time spent in the statement, in milliseconds</entry>
+     </row>
+
+     <row>
+      <entry><structfield>mean_time</structfield></entry>
+      <entry><type>double precision</type></entry>
+      <entry></entry>
+      <entry>Mean time spent in the statement, in milliseconds</entry>
+     </row>
+
+     <row>
+      <entry><structfield>stddev_time</structfield></entry>
+      <entry><type>double precision</type></entry>
+      <entry></entry>
+      <entry>Population standard deviation of time spent in the statement, in milliseconds</entry>
      </row>
 
      <row>
@@ -272,24 +310,10 @@ SQL文がブロック書き出しに費やした、ミリ秒単位の総時間
 
   <para>
 <!--
-   This view, and the functions <function>pg_stat_statements_reset</>
-   and <function>pg_stat_statements</>, are available only in
-   databases they have been specifically installed into by installing
-   the <literal>pg_stat_statements</> extension.
-   However, statistics are tracked across all databases of the server
-   whenever the <filename>pg_stat_statements</filename> module is loaded
-   into the server, regardless of presence of the view.
--->
-これらビューと関数<function>pg_stat_statements_reset</>と<function>pg_stat_statements</>は、<literal>pg_stat_statements</>拡張機能をインストールすることで明示的にインストールされたデータベースのみで利用可能です。
-しかしながら、統計情報は<filename>pg_stat_statements</filename>モジュールがサーバにロードされていれば、ビューの存在に関わらず、サーバのすべてのデータベースについて記録されます。
-  </para>
-
-  <para>
-<!--
    For security reasons, non-superusers are not allowed to see the SQL
-   text or <structfield>queryid</structfield> of queries executed by other users.  They can see
-   the statistics, however, if the view has been installed in their
-   database.
+   text or <structfield>queryid</structfield> of queries executed by other users.
+   They can see the statistics, however, if the view has been installed in their
+   database. ★変更は改行位置のみ。訳文に影響なし
 -->
 セキュリティ上の理由から、スーパーユーザ以外のユーザは、他のユーザによって実行されたSQLテキストや問い合わせの<structfield>queryid</structfield>を見ることができません。
 ただし、ユーザのデータベースにビューがインストールされている場合、統計情報についてはそれらユーザから見ることができます。
@@ -415,6 +439,20 @@ SQL文がブロック書き出しに費やした、ミリ秒単位の総時間
 しかし、数多くの長い問い合わせテキストが蓄積されると、外部ファイルは手に負えないくらい大きくなるかもしれません。
 もしそのようなことが起きれば、回復手法として、<filename>pg_stat_statements</>は問い合わせテキストを破棄することを選ぶでしょう。その結果、各<structfield>queryid</>に関連する統計は保存されるものの、<structname>pg_stat_statements</>ビュー内に存在するエントリはすべて<structfield>query</>フィールドがヌルになります。
 もしこのようなことが起きたら、再発防止のため<varname>pg_stat_statements.max</varname>を減らすことを検討してください。
+  </para>
+
+  <para>
+   The representative query texts are kept in an external disk file, and do
+   not consume shared memory.  Therefore, even very lengthy query texts can
+   be stored successfully.  However, if many long query texts are
+   accumulated, the external file might grow unmanageably large.  As a
+   recovery method if that happens, <filename>pg_stat_statements</> may
+   choose to discard the query texts, whereupon all existing entries in
+   the <structname>pg_stat_statements</> view will show
+   null <structfield>query</> fields, though the statistics associated with
+   each <structfield>queryid</> are preserved.  If this happens, consider
+   reducing <varname>pg_stat_statements.max</varname> to prevent
+   recurrences.
   </para>
  </sect2>
 

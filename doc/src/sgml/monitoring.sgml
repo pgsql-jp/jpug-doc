@@ -142,6 +142,22 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
   </para>
 
   <para>
+   If <xref linkend="guc-cluster-name"> has been configured the
+   cluster name will also be shown in <command>ps</> output:
+<screen>
+$ psql -c 'SHOW cluster_name'
+ cluster_name
+--------------
+ server1
+(1 row)
+
+$ ps aux|grep server1
+postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: server1: writer process
+...
+</screen>
+  </para>
+
+  <para>
 <!--
    If you have turned off <xref linkend="guc-update-process-title"> then the
    activity indicator is not updated; the process title is set only once
@@ -206,12 +222,15 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
 
   <para>
 <!--
-   <productname>PostgreSQL</productname> also supports reporting of the exact
-   command currently being executed by other server processes.  This
-   facility is independent of the collector process.
+   <productname>PostgreSQL</productname> also supports reporting dynamic
+   information about exactly what is going on in the system right now, such as
+   the exact command currently being executed by other server processes, and
+   which other connections exist in the system.  This facility is independent
+   of the collector process.
 -->
 また、<productname>PostgreSQL</productname>は他のサーバプロセスによって現在実行されている問い合わせを正確に報告する機能を持ちます。
 これはコレクタプロセスから独立している機能です。
+★★★
   </para>
 
  <sect2 id="monitoring-stats-setup">
@@ -306,14 +325,17 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
 
  <sect2 id="monitoring-stats-views">
 <!--
-  <title>Viewing Collected Statistics</title>
+  <title>Viewing Statistics</title>
 -->
-<title>収集した統計情報の表示</Title>
+<title>★収集した統計情報の表示</Title>
 
   <para>
 <!--
    Several predefined views, listed in <xref
-   linkend="monitoring-stats-views-table">, are available to show the results
+   linkend="monitoring-stats-dynamic-views-table">, are available to show
+   the current state of the system. There are also several other
+   views, listed in <xref
+   linkend="monitoring-stats-views-table">, available to show the results
    of statistics collection.  Alternatively, one can
    build custom views using the underlying statistics functions, as discussed
    in <xref linkend="monitoring-stats-functions">.
@@ -324,7 +346,7 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
 
   <para>
 <!--
-   When using the statistics to monitor current activity, it is important
+   When using the statistics to monitor collected data, it is important
    to realize that the information does not update instantaneously.
    Each individual server process transmits new statistical counts to
    the collector just before going idle; so a query or transaction still in
@@ -335,7 +357,7 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
    information collected by <varname>track_activities</varname> is
    always up-to-date.
 -->
-この統計情報を使用して、現在の活動状況を監視する場合、この情報は即座に更新されないことを認識することが重要です。
+★この統計情報を使用して、現在の活動状況を監視する場合、この情報は即座に更新されないことを認識することが重要です。
 個別のサーバプロセスは、待機状態になる直前に、新しい統計情報に関する数をコレクタに送信します。 
 ですので、実行中の問い合わせやトランザクションは表示上の総和には影響を与えません。  
 また、コレクタ自体もおよそ<varname>PGSTAT_STAT_INTERVAL</varname>（サーバ構築時に変更しない限り500 ms）ミリ秒に一度新しい報告を出力します。
@@ -389,11 +411,11 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
    これらの数値はトランザクション中に継続的に更新されていくため上記の様な(静的な情報を示す)振る舞いとはなりません。
   </para>
 
-  <table id="monitoring-stats-views-table">
+  <table id="monitoring-stats-dynamic-views-table">
 <!--
-   <title>Standard Statistics Views</title>
+   <title>Dynamic Statistics Views</title>
 -->
-<title>標準統計情報ビュー</title>
+<title>★標準統計情報ビュー</title>
 
    <tgroup cols="2">
     <thead>
@@ -424,6 +446,38 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
       </entry>
      </row>
 
+     <row>
+      <entry><structname>pg_stat_replication</><indexterm><primary>pg_stat_replication</primary></indexterm></entry>
+      <entry>One row per WAL sender process, showing statistics about
+       replication to that sender's connected standby server.
+       See <xref linkend="pg-stat-replication-view"> for details.
+      </entry>
+     </row>
+
+     <row>
+      <entry><structname>pg_stat_ssl</><indexterm><primary>pg_stat_ssl</primary></indexterm></entry>
+      <entry>One row per connection (regular and replication), showing information about
+       SSL used on this connection.
+       See <xref linkend="pg-stat-ssl-view"> for details.
+      </entry>
+     </row>
+
+    </tbody>
+   </tgroup>
+  </table>
+
+  <table id="monitoring-stats-views-table">
+   <title>Collected Statistics Views</title>
+
+   <tgroup cols="2">
+    <thead>
+     <row>
+      <entry>View Name</entry>
+      <entry>Description</entry>
+     </row>
+    </thead>
+
+    <tbody>
      <row>
       <entry><structname>pg_stat_archiver</><indexterm><primary>pg_stat_archiver</primary></indexterm></entry>
 <!--
@@ -459,6 +513,15 @@ WALアーカイバプロセスの活動状況に関する統計情報を１行�
       <entry>
 データベース当たり１行の形で、データベース全体の情報を表示します。
 詳細については<xref linkend="pg-stat-database-view">を参照してください。
+      </entry>
+     </row>
+
+     <row>
+      <entry><structname>pg_stat_database_conflicts</><indexterm><primary>pg_stat_database_conflicts</primary></indexterm></entry>
+      <entry>
+       One row per database, showing database-wide statistics about
+       query cancels due to conflict with recovery on standby servers.
+       See <xref linkend="pg-stat-database-conflicts-view"> for details.
       </entry>
      </row>
 
@@ -699,32 +762,6 @@ WALアーカイバプロセスの活動状況に関する統計情報を１行�
       <entry>
       <structname>pg_stat_user_functions</>と似ていますが、現在のトランザクション中に呼び出されたものだけをカウントします。
       (数値が見える時点では、これらの数値は<structname>pg_stat_user_functions</>に含まれて<emphasis>いません</>。)
-      </entry>
-     </row>
-
-     <row>
-      <entry><structname>pg_stat_replication</><indexterm><primary>pg_stat_replication</primary></indexterm></entry>
-<!--
-      <entry>One row per WAL sender process, showing statistics about
-       replication to that sender's connected standby server.
-       See <xref linkend="pg-stat-replication-view"> for details.
--->
-      <entry>
-WAL送信プロセス毎に１行の形式で、送信サーバが接続したスタンバイサーバへのレプリケーションに関する統計情報を表示します。
-詳細については<xref linkend="pg-stat-replication-view">を参照してください。
-      </entry>
-     </row>
-
-     <row>
-      <entry><structname>pg_stat_database_conflicts</><indexterm><primary>pg_stat_database_conflicts</primary></indexterm></entry>
-      <entry>
-<!--
-       One row per database, showing database-wide statistics about
-       query cancels due to conflict with recovery on standby servers.
-       See <xref linkend="pg-stat-database-conflicts-view"> for details.
--->
-データベース毎に１行の形式で、スタンバイサーバにおける復旧との競合のためにキャンセルされた問い合わせについてのデータベース全体の統計情報を表示します。
-詳細については<xref linkend="pg-stat-database-conflicts-view">を参照してください。
       </entry>
      </row>
 
@@ -1071,6 +1108,196 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
 状態が<literal>active</>であり、<structfield>waiting</>が真である場合、問い合わせは実行中ですが、システム内の何らかのロックによりブロックされていることを意味します。
    </para>
   </note>
+
+  <table id="pg-stat-replication-view" xreflabel="pg_stat_replication">
+   <title><structname>pg_stat_replication</structname> View</title>
+   <tgroup cols="3">
+    <thead>
+    <row>
+      <entry>Column</entry>
+      <entry>Type</entry>
+      <entry>Description</entry>
+     </row>
+    </thead>
+
+   <tbody>
+    <row>
+     <entry><structfield>pid</></entry>
+     <entry><type>integer</></entry>
+     <entry>Process ID of a WAL sender process</entry>
+    </row>
+    <row>
+     <entry><structfield>usesysid</></entry>
+     <entry><type>oid</></entry>
+     <entry>OID of the user logged into this WAL sender process</entry>
+    </row>
+    <row>
+     <entry><structfield>usename</></entry>
+     <entry><type>name</></entry>
+     <entry>Name of the user logged into this WAL sender process</entry>
+    </row>
+    <row>
+     <entry><structfield>application_name</></entry>
+     <entry><type>text</></entry>
+     <entry>Name of the application that is connected
+      to this WAL sender</entry>
+    </row>
+    <row>
+     <entry><structfield>client_addr</></entry>
+     <entry><type>inet</></entry>
+     <entry>IP address of the client connected to this WAL sender.
+      If this field is null, it indicates that the client is
+      connected via a Unix socket on the server machine.
+     </entry>
+    </row>
+    <row>
+     <entry><structfield>client_hostname</></entry>
+     <entry><type>text</></entry>
+     <entry>Host name of the connected client, as reported by a
+      reverse DNS lookup of <structfield>client_addr</>. This field will
+      only be non-null for IP connections, and only when <xref
+      linkend="guc-log-hostname"> is enabled.
+     </entry>
+    </row>
+    <row>
+     <entry><structfield>client_port</></entry>
+     <entry><type>integer</></entry>
+     <entry>TCP port number that the client is using for communication
+      with this WAL sender, or <literal>-1</> if a Unix socket is used
+     </entry>
+    </row>
+    <row>
+     <entry><structfield>backend_start</></entry>
+     <entry><type>timestamp with time zone</></entry>
+     <entry>Time when this process was started, i.e., when the
+      client connected to this WAL sender
+     </entry>
+    </row>
+    <row>
+     <entry><structfield>backend_xmin</structfield></entry>
+     <entry><type>xid</type></entry>
+     <entry>This standby's <literal>xmin</> horizon reported
+     by <xref linkend="guc-hot-standby-feedback">.</entry>
+    </row>
+    <row>
+     <entry><structfield>state</></entry>
+     <entry><type>text</></entry>
+     <entry>Current WAL sender state</entry>
+    </row>
+    <row>
+     <entry><structfield>sent_location</></entry>
+     <entry><type>pg_lsn</></entry>
+     <entry>Last transaction log position sent on this connection</entry>
+    </row>
+    <row>
+     <entry><structfield>write_location</></entry>
+     <entry><type>pg_lsn</></entry>
+     <entry>Last transaction log position written to disk by this standby
+      server</entry>
+    </row>
+    <row>
+     <entry><structfield>flush_location</></entry>
+     <entry><type>pg_lsn</></entry>
+     <entry>Last transaction log position flushed to disk by this standby
+      server</entry>
+    </row>
+    <row>
+     <entry><structfield>replay_location</></entry>
+     <entry><type>pg_lsn</></entry>
+     <entry>Last transaction log position replayed into the database on this
+      standby server</entry>
+    </row>
+    <row>
+     <entry><structfield>sync_priority</></entry>
+     <entry><type>integer</></entry>
+     <entry>Priority of this standby server for being chosen as the
+      synchronous standby</entry>
+    </row>
+    <row>
+     <entry><structfield>sync_state</></entry>
+     <entry><type>text</></entry>
+     <entry>Synchronous state of this standby server</entry>
+    </row>
+   </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+   The <structname>pg_stat_replication</structname> view will contain one row
+   per WAL sender process, showing statistics about replication to that
+   sender's connected standby server.  Only directly connected standbys are
+   listed; no information is available about downstream standby servers.
+  </para>
+
+  <table id="pg-stat-ssl-view" xreflabel="pg_stat_ssl">
+   <title><structname>pg_stat_ssl</structname> View</title>
+   <tgroup cols="3">
+    <thead>
+    <row>
+      <entry>Column</entry>
+      <entry>Type</entry>
+      <entry>Description</entry>
+     </row>
+    </thead>
+
+   <tbody>
+    <row>
+     <entry><structfield>pid</></entry>
+     <entry><type>integer</></entry>
+     <entry>Process ID of a backend or WAL sender process</entry>
+    </row>
+    <row>
+     <entry><structfield>ssl</></entry>
+     <entry><type>boolean</></entry>
+     <entry>True if SSL is used on this connection</entry>
+    </row>
+    <row>
+     <entry><structfield>version</></entry>
+     <entry><type>text</></entry>
+     <entry>Version of SSL in use, or NULL if SSL is not in use
+      on this connection</entry>
+    </row>
+    <row>
+     <entry><structfield>cipher</></entry>
+     <entry><type>text</></entry>
+     <entry>Name of SSL cipher in use, or NULL if SSL is not in use
+      on this connection</entry>
+    </row>
+    <row>
+     <entry><structfield>bits</></entry>
+     <entry><type>integer</></entry>
+     <entry>Number of bits in the encryption algorithm used, or NULL
+     if SSL is not used on this connection</entry>
+    </row>
+    <row>
+     <entry><structfield>compression</></entry>
+     <entry><type>boolean</></entry>
+     <entry>True if SSL compression is in use, false if not,
+      or NULL if SSL is not in use on this connection</entry>
+    </row>
+    <row>
+     <entry><structfield>clientdn</></entry>
+     <entry><type>text</></entry>
+     <entry>Distinguished Name (DN) field from the client certificate
+      used, or NULL if no client certificate was supplied or if SSL
+      is not in use on this connection. This field is truncated if the
+      DN field is longer than <symbol>NAMEDATALEN</symbol> (64 characters
+      in a standard build)
+     </entry>
+    </row>
+   </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+   The <structname>pg_stat_ssl</structname> view will contain one row per
+   backend or WAL sender process, showing statistics about SSL usage on
+   this connection. It can be joined to <structname>pg_stat_activity</structname>
+   or <structname>pg_stat_replication</structname> on the
+   <structfield>pid</structfield> column to get more details about the
+   connection.
+  </para>
+
 
   <table id="pg-stat-archiver-view" xreflabel="pg_stat_archiver">
 <!--
@@ -1555,6 +1782,70 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
 <structname>pg_stat_database</structname>には、クラスタ内のデータベース毎にデータベース全体の統計情報を示す１行が含まれます。
   </para>
 
+  <table id="pg-stat-database-conflicts-view" xreflabel="pg_stat_database_conflicts">
+   <title><structname>pg_stat_database_conflicts</structname> View</title>
+   <tgroup cols="3">
+    <thead>
+    <row>
+      <entry>Column</entry>
+      <entry>Type</entry>
+      <entry>Description</entry>
+     </row>
+    </thead>
+
+   <tbody>
+    <row>
+     <entry><structfield>datid</></entry>
+     <entry><type>oid</></entry>
+     <entry>OID of a database</entry>
+    </row>
+    <row>
+     <entry><structfield>datname</></entry>
+     <entry><type>name</></entry>
+     <entry>Name of this database</entry>
+    </row>
+    <row>
+     <entry><structfield>confl_tablespace</></entry>
+     <entry><type>bigint</></entry>
+     <entry>Number of queries in this database that have been canceled due to
+      dropped tablespaces</entry>
+    </row>
+    <row>
+     <entry><structfield>confl_lock</></entry>
+     <entry><type>bigint</></entry>
+     <entry>Number of queries in this database that have been canceled due to
+      lock timeouts</entry>
+    </row>
+    <row>
+     <entry><structfield>confl_snapshot</></entry>
+     <entry><type>bigint</></entry>
+     <entry>Number of queries in this database that have been canceled due to
+      old snapshots</entry>
+    </row>
+    <row>
+     <entry><structfield>confl_bufferpin</></entry>
+     <entry><type>bigint</></entry>
+     <entry>Number of queries in this database that have been canceled due to
+      pinned buffers</entry>
+    </row>
+    <row>
+     <entry><structfield>confl_deadlock</></entry>
+     <entry><type>bigint</></entry>
+     <entry>Number of queries in this database that have been canceled due to
+      deadlocks</entry>
+    </row>
+   </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+   The <structname>pg_stat_database_conflicts</structname> view will contain
+   one row per database, showing database-wide statistics about
+   query cancels occurring due to conflicts with recovery on standby servers.
+   This view will only contain information on standby servers, since
+   conflicts do not occur on master servers.
+  </para>
+
   <table id="pg-stat-all-tables-view" xreflabel="pg_stat_all_tables">
 <!--
    <title><structname>pg_stat_all_tables</structname> View</title>
@@ -1649,9 +1940,9 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
      <entry><structfield>n_tup_upd</></entry>
      <entry><type>bigint</></entry>
 <!--
-     <entry>Number of rows updated</entry>
+     <entry>Number of rows updated (includes HOT updated rows)</entry>
 -->
-     <entry>更新された行数です。</entry>
+     <entry>更新された行数です。★</entry>
     </row>
     <row>
      <entry><structfield>n_tup_del</></entry>
@@ -1900,9 +2191,8 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
   </para>
 
   <para>
-<!--
-   Indexes can be used via either simple index scans or <quote>bitmap</>
-   index scans.  In a bitmap scan
+   Indexes can be used by simple index scans, <quote>bitmap</> index scans,
+   and the optimizer.  In a bitmap scan
    the output of several indexes can be combined via AND or OR rules,
    so it is difficult to associate individual heap row fetches
    with specific indexes when a bitmap scan is used.  Therefore, a bitmap
@@ -1912,8 +2202,11 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
    <structname>pg_stat_all_tables</>.<structfield>idx_tup_fetch</>
    count for the table, but it does not affect
    <structname>pg_stat_all_indexes</>.<structfield>idx_tup_fetch</>.
+   The optimizer also accesses indexes to check for supplied constants
+   whose values are outside the recorded range of the optimizer statistics
+   because the optimizer statistics might be stale.
 -->
-単純インデックススキャンまたは<quote>ビットマップ</>インデックススキャンのいずれかを介してインデックスを使用することができます。
+★単純インデックススキャンまたは<quote>ビットマップ</>インデックススキャンのいずれかを介してインデックスを使用することができます。
 ビットマップスキャンでは、複数のインデックスの出力をANDやOR規則で組み合わせることができます。
 このため、ビットマップスキャンが使用される場合、特定インデックスと個々のヒープ行の取り出しとを関連づけることが困難です。
 したがってビットマップスキャンでは、使用したインデックスの<structname>pg_stat_all_indexes</>.<structfield>idx_tup_read</>個数を増やし、そのテーブルの<structname>pg_stat_all_tables</>.<structfield>idx_tup_fetch</>個数を増やしますが、<structname>pg_stat_all_indexes</>.<structfield>idx_tup_fetch</>を変更しません。
@@ -2318,292 +2611,6 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
 <xref linkend="guc-track-functions">パラメータは関数が追跡されるかどうかを正確に制御します。
   </para>
 
-  <table id="pg-stat-replication-view" xreflabel="pg_stat_replication">
-<!--
-   <title><structname>pg_stat_replication</structname> View</title>
--->
-   <title><structname>pg_stat_replication</structname>ビュー</title>
-   <tgroup cols="3">
-    <thead>
-    <row>
-<!--
-      <entry>Column</entry>
-      <entry>Type</entry>
-      <entry>Description</entry>
--->
-      <entry>列</entry>
-      <entry>型</entry>
-      <entry>説明</entry>
-     </row>
-
-    </thead>
-
-   <tbody>
-    <row>
-     <entry><structfield>pid</></entry>
-     <entry><type>integer</></entry>
-<!--
-     <entry>Process ID of a WAL sender process</entry>
--->
-     <entry>WAL送信プロセスのプロセスIDです。</entry>
-    </row>
-    <row>
-     <entry><structfield>usesysid</></entry>
-     <entry><type>oid</></entry>
-<!--
-     <entry>OID of the user logged into this WAL sender process</entry>
--->
-     <entry>WAL送信プロセスにログインしたユーザのOIDです。</entry>
-    </row>
-    <row>
-     <entry><structfield>usename</></entry>
-     <entry><type>name</></entry>
-<!--
-     <entry>Name of the user logged into this WAL sender process</entry>
--->
-     <entry>WAL送信プロセスにログインしたユーザの名前です。</entry>
-    </row>
-    <row>
-     <entry><structfield>application_name</></entry>
-     <entry><type>text</></entry>
-<!--
-     <entry>Name of the application that is connected
-      to this WAL sender</entry>
--->
-     <entry>WAL送信処理に接続したアプリケーションの名前です。</entry>
-    </row>
-    <row>
-     <entry><structfield>client_addr</></entry>
-     <entry><type>inet</></entry>
-<!--
-     <entry>IP address of the client connected to this WAL sender.
-      If this field is null, it indicates that the client is
-      connected via a Unix socket on the server machine.
--->
-     <entry>WAL送信処理に接続したクライアントのIPアドレスです。
-このフィールドがNULLの場合、クライアントがサーバマシン上のUnixソケット経由で接続したことを示します。
-     </entry>
-    </row>
-    <row>
-     <entry><structfield>client_hostname</></entry>
-     <entry><type>text</></entry>
-<!--
-     <entry>Host name of the connected client, as reported by a
-      reverse DNS lookup of <structfield>client_addr</>. This field will
-      only be non-null for IP connections, and only when <xref
-      linkend="guc-log-hostname"> is enabled.
--->
-     <entry>
-<structfield>client_addr</>のDNS逆引き検索により報告された、接続クライアントのホスト名です。
-IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にのみこのフィールドは非NULLになります。
-     </entry>
-    </row>
-    <row>
-     <entry><structfield>client_port</></entry>
-     <entry><type>integer</></entry>
-<!--
-     <entry>TCP port number that the client is using for communication
-      with this WAL sender, or <literal>-1</> if a Unix socket is used
--->
-     <entry>
-クライアントがWAL送信処理との通信に使用するTCPポート、もしUnixソケットを使用する場合は<literal>-1</>です。
-     </entry>
-    </row>
-    <row>
-     <entry><structfield>backend_start</></entry>
-     <entry><type>timestamp with time zone</></entry>
-<!--
-     <entry>Time when this process was started, i.e., when the
-      client connected to this WAL sender
--->
-     <entry>
-プロセスが開始、つまりクライアントがWAL送信処理に接続した時刻です。
-     </entry>
-    </row>
-    <row>
-     <entry><structfield>backend_xmin</structfield></entry>
-     <entry><type>xid</type></entry>
-<!--
-     <entry>This standby's <literal>xmin</> horizon reported
-     by <xref linkend="guc-hot-standby-feedback">.</entry>
--->
-     <entry>
-<xref linkend="guc-hot-standby-feedback">により報告されたこのスタンバイの<literal>xmin</>です。
-     </entry>
-    </row>
-    <row>
-     <entry><structfield>state</></entry>
-     <entry><type>text</></entry>
-<!--
-     <entry>Current WAL sender state</entry>
--->
-     <entry>現在のWAL送信処理の状態です。</entry>
-    </row>
-    <row>
-     <entry><structfield>sent_location</></entry>
-     <entry><type>pg_lsn</></entry>
-<!--
-     <entry>Last transaction log position sent on this connection</entry>
--->
-     <entry>接続上に送信された最後のトランザクションログ位置です。</entry>
-    </row>
-    <row>
-     <entry><structfield>write_location</></entry>
-     <entry><type>pg_lsn</></entry>
-<!--
-     <entry>Last transaction log position written to disk by this standby
-      server</entry>
--->
-     <entry>スタンバイサーバによってディスクに書き出された最後のトランザクションログ位置です。</entry>
-    </row>
-    <row>
-     <entry><structfield>flush_location</></entry>
-     <entry><type>pg_lsn</></entry>
-<!--
-     <entry>Last transaction log position flushed to disk by this standby
-      server</entry>
--->
-     <entry>スタンバイサーバによってディスクに吐き出された最後のトランザクションログ位置です。</entry>
-    </row>
-    <row>
-     <entry><structfield>replay_location</></entry>
-     <entry><type>pg_lsn</></entry>
-<!--
-     <entry>Last transaction log position replayed into the database on this
-      standby server</entry>
--->
-     <entry>スタンバイサーバ上のデータベースに再生された最後のトランザクションログ位置です。</entry>
-    </row>
-    <row>
-     <entry><structfield>sync_priority</></entry>
-     <entry><type>integer</></entry>
-<!--
-     <entry>Priority of this standby server for being chosen as the
-      synchronous standby</entry>
--->
-     <entry>このスタンバイサーバが同期スタンバイとして選択される優先度です。</entry>
-    </row>
-    <row>
-     <entry><structfield>sync_state</></entry>
-     <entry><type>text</></entry>
-<!--
-     <entry>Synchronous state of this standby server</entry>
--->
-     <entry>スタンバイサーバの同期状態です。</entry>
-    </row>
-   </tbody>
-   </tgroup>
-  </table>
-
-  <para>
-<!--
-   The <structname>pg_stat_replication</structname> view will contain one row
-   per WAL sender process, showing statistics about replication to that
-   sender's connected standby server.  Only directly connected standbys are
-   listed; no information is available about downstream standby servers.
--->
-<structname>pg_stat_replication</structname>ビューには、WAL送信プロセス毎に、送信処理に接続したスタンバイサーバへのレプリケーションに関する統計情報を示す１行を保持します。
-直接接続されたサーバのみが一覧表示されます。
-下流のスタンバイサーバに関する情報はありません。
-  </para>
-
-  <table id="pg-stat-database-conflicts-view" xreflabel="pg_stat_database_conflicts">
-<!--
-   <title><structname>pg_stat_database_conflicts</structname> View</title>
--->
-   <title><structname>pg_stat_database_conflicts</structname>ビュー</title>
-   <tgroup cols="3">
-    <thead>
-    <row>
-<!--
-      <entry>Column</entry>
-      <entry>Type</entry>
-      <entry>Description</entry>
--->
-      <entry>列</entry>
-      <entry>型</entry>
-      <entry>説明</entry>
-     </row>
-    </thead>
-
-   <tbody>
-    <row>
-     <entry><structfield>datid</></entry>
-     <entry><type>oid</></entry>
-<!--
-     <entry>OID of a database</entry>
--->
-     <entry>データベースのOIDです。</entry>
-    </row>
-    <row>
-     <entry><structfield>datname</></entry>
-     <entry><type>name</></entry>
-<!--
-     <entry>Name of this database</entry>
--->
-     <entry>データベースの名前です。</entry>
-    </row>
-    <row>
-     <entry><structfield>confl_tablespace</></entry>
-     <entry><type>bigint</></entry>
-<!--
-     <entry>Number of queries in this database that have been canceled due to
-      dropped tablespaces</entry>
--->
-     <entry>データベースにおいて、削除されたテーブル空間のためにキャンセルされた問い合わせの個数です。</entry>
-    </row>
-    <row>
-     <entry><structfield>confl_lock</></entry>
-     <entry><type>bigint</></entry>
-<!--
-     <entry>Number of queries in this database that have been canceled due to
-      lock timeouts</entry>
--->
-     <entry>データベースにおいて、ロック時間切れのためにキャンセルされた問い合わせの個数です。</entry>
-    </row>
-    <row>
-     <entry><structfield>confl_snapshot</></entry>
-     <entry><type>bigint</></entry>
-<!--
-     <entry>Number of queries in this database that have been canceled due to
-      old snapshots</entry>
--->
-     <entry>データベースにおいて、古いスナップショットのためにキャンセルされた問い合わせの個数です。</entry>
-    </row>
-    <row>
-     <entry><structfield>confl_bufferpin</></entry>
-     <entry><type>bigint</></entry>
-<!--
-     <entry>Number of queries in this database that have been canceled due to
-      pinned buffers</entry>
--->
-     <entry>データベースにおいて、ピンが付いたバッファのためにキャンセルされた問い合わせの個数です。</entry>
-    </row>
-    <row>
-     <entry><structfield>confl_deadlock</></entry>
-     <entry><type>bigint</></entry>
-<!--
-     <entry>Number of queries in this database that have been canceled due to
-      deadlocks</entry>
--->
-     <entry>データベースにおいて、デッドロックのためにキャンセルされた問い合わせの個数です。</entry>
-    </row>
-   </tbody>
-   </tgroup>
-  </table>
-
-  <para>
-<!--
-   The <structname>pg_stat_database_conflicts</structname> view will contain
-   one row per database, showing database-wide statistics about
-   query cancels occurring due to conflicts with recovery on standby servers.
-   This view will only contain information on standby servers, since
-   conflicts do not occur on master servers.
--->
-<structname>pg_stat_database_conflicts</structname>ビューは、データベース毎にスタンバイサーバでのリカバリと競合するためにキャンセルされた問い合わせに関するデータベース全体の統計情報を示す１行を保持します。
-マスタサーバでは競合は発生しませんので、スタンバイサーバ上の情報のみが保持されます。
-  </para>
-
  </sect2>
 
  <sect2 id="monitoring-stats-functions">
@@ -2690,6 +2697,14 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
       <entry>
 PIDが指定された場合、それに該当するバックエンドの情報のレコード、<symbol>NULL</symbol>が指定された場合はシステム上のアクティブな各バックエンドに関するレコードが返されます。
 返される情報内容は<structname>pg_stat_activity</structname>の一部と同じです。
+      </entry>
+     </row>
+
+     <row>
+      <entry><literal><function>pg_stat_get_snapshot_timestamp()</function></literal><indexterm><primary>pg_stat_get_snapshot_timestamp</primary></indexterm></entry>
+      <entry><type>timestamp with time zone</type></entry>
+      <entry>
+       Returns the timestamp of the current statistics snapshot
       </entry>
      </row>
 

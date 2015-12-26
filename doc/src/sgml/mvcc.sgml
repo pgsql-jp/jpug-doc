@@ -218,6 +218,20 @@
        </para>
       </listitem>
      </varlistentry>
+
+     <varlistentry>
+      <term>
+       serialization anomaly
+       <indexterm><primary>serialization anomaly</primary></indexterm>
+      </term>
+     <listitem>
+      <para>
+        The result of successfully committing a group of transactions
+        is inconsistent with all possible orderings of running those
+        transactions one at a time.
+       </para>
+      </listitem>
+     </varlistentry>
     </variablelist>
    </para>
 
@@ -228,19 +242,13 @@
 -->
      <primary>トランザクション分離レベル</primary>
     </indexterm>
-<!--
-    The four transaction isolation levels and the corresponding
-    behaviors are described in <xref linkend="mvcc-isolevel-table">.
--->
-4つの分離レベルとその動作を<xref linkend="mvcc-isolevel-table">に示します。
+    The SQL standard and PostgreSQL-implemented transaction isolation levels
+    are described in <xref linkend="mvcc-isolevel-table">.
    </para>
 
     <table tocentry="1" id="mvcc-isolevel-table">
-<!--
-     <title>Standard <acronym>SQL</acronym> Transaction Isolation Levels</title>
--->
-     <title>標準<acronym>SQL</acronym>トランザクション分離レベル</title>
-     <tgroup cols="4">
+     <title>Transaction Isolation Levels</title>
+     <tgroup cols="5">
       <thead>
        <row>
         <entry>
@@ -267,6 +275,9 @@
 -->
 ファントムリード
         </entry>
+        <entry>
+         Serialization Anomaly
+        </entry>
        </row>
       </thead>
       <tbody>
@@ -278,10 +289,10 @@
 リードアンコミッティド
         </entry>
         <entry>
-<!--
+         Allowed, but not in PG
+        </entry>
+        <entry>
          Possible
--->
-可能性あり
         </entry>
         <entry>
 <!--
@@ -322,6 +333,9 @@
 -->
 可能性あり
         </entry>
+        <entry>
+         Possible
+        </entry>
        </row>
 
        <row>
@@ -344,10 +358,10 @@
 安全
         </entry>
         <entry>
-<!--
+         Allowed, but not in PG
+        </entry>
+        <entry>
          Possible
--->
-可能性あり
         </entry>
        </row>
 
@@ -376,6 +390,9 @@
 -->
 安全
         </entry>
+        <entry>
+         Not possible
+        </entry>
        </row>
       </tbody>
      </tgroup>
@@ -383,22 +400,14 @@
 
    <para>
 <!--
-    In <productname>PostgreSQL</productname>, you can request any of the
-    four standard transaction isolation levels.  But internally, there are
-    only three distinct isolation levels, which correspond to the levels Read
-    Committed, Repeatable Read, and Serializable.  When you select the level Read
-    Uncommitted you really get Read Committed, and phantom reads are not possible
-    in the <productname>PostgreSQL</productname> implementation of Repeatable
-    Read, so the actual
-    isolation level might be stricter than what you select.  This is
-    permitted by the SQL standard: the four isolation levels only
-    define which phenomena must not happen, they do not define which
-    phenomena must happen.  The reason that <productname>PostgreSQL</>
-    only provides three isolation levels is that this is the only
-    sensible way to map the standard isolation levels to the multiversion
-    concurrency control architecture.  The behavior of the available
-    isolation levels is detailed in the following subsections.
+    In <productname>PostgreSQL</productname>, you can request any of
+    the four standard transaction isolation levels, but internally only
+    three distinct isolation levels are implemented, i.e. PostgreSQL's
+    Read Uncommitted mode behaves like Read Committed.  This is because
+    it is the only sensible way to map the standard isolation levels to
+    PostgreSQL's multiversion concurrency control architecture.
 -->
+★★★
 <productname>PostgreSQL</productname>では、4つの標準トランザクション分離レベルを全て要求することができます。
 しかし、内部的には、リードコミッティド、リピータブルリードおよびシリアライザブルに対応する3つの独立した分離レベルのみがあります。
 リードアンコミッティドレベルを選択した時、実際にはリードコミッティドになり、リピータブルリードの<productname>PostgreSQL</productname>での実装ではファントムリードの可能性はありません。
@@ -407,6 +416,15 @@
 この4つの分離レベルについては、発生してはならない事象のみが定義され、発生しなければならない事象は定義されていません。
 <productname>PostgreSQL</>が3つの分離レベルのみを提供している理由は、多版型同時実行制御という仕組みに標準の分離レベルを関連付ける実際的な方法がこれしかなかったことです。
 利用可能な分離レベルについては後で詳細に説明します。
+   </para>
+
+   <para>
+    The table also shows that PostgreSQL's Repeatable Read implementation
+    does not allow phantom reads.  Stricter behavior is permitted by the
+    SQL standard: the four isolation levels only define which phenomena
+    must not happen, not which phenomena <emphasis>must</> happen.
+    The behavior of the available isolation levels is detailed in the
+    following subsections.
    </para>
 
    <para>
@@ -517,9 +535,28 @@
    </para>
 
    <para>
-<!--
-    Because of the above rule, it is possible for an updating command to see an
-    inconsistent snapshot: it can see the effects of concurrent updating
+    <command>INSERT</command> with an <literal>ON CONFLICT DO UPDATE</> clause
+    behaves similarly. In Read Committed mode, each row proposed for insertion
+    will either insert or update. Unless there are unrelated errors, one of
+    those two outcomes is guaranteed.  If a conflict originates in another
+    transaction whose effects are not yet visible to the <command>INSERT
+    </command>, the <command>UPDATE</command> clause will affect that row,
+    even though possibly <emphasis>no</> version of that row is
+    conventionally visible to the command.
+   </para>
+
+   <para>
+    <command>INSERT</command> with an <literal>ON CONFLICT DO
+    NOTHING</> clause may have insertion not proceed for a row due to
+    the outcome of another transaction whose effects are not visible
+    to the <command>INSERT</command> snapshot.  Again, this is only
+    the case in Read Committed mode.
+   </para>
+
+   <para>
+<--
+    Because of the above rules, it is possible for an updating command to see
+    an inconsistent snapshot: it can see the effects of concurrent updating
     commands on the same rows it is trying to update, but it
     does not see effects of those commands on other rows in the database.
     This behavior makes Read Committed mode unsuitable for commands that
@@ -527,7 +564,7 @@
     cases.  For example, consider updating bank balances with transactions
     like:
 -->
-このような仕組みにより、更新コマンドが、互いに矛盾したスナップショットを参照する可能性があります。
+★★★このような仕組みにより、更新コマンドが、互いに矛盾したスナップショットを参照する可能性があります。
 それは更新を試みている同じ行に対する同時実行更新の結果を参照しますが、データベース中の他の行に対する同時実行の問い合わせの結果は参照できません。
 このような動作をするために複合検索条件を含む問い合わせにリードコミッティドモードを使用することは適切ではありません。
 しかし、より単純な検索条件の場合、このモードの使用が適しています。
@@ -659,8 +696,9 @@ COMMIT;
 <!--
     This level is different from Read Committed in that a query in a
     repeatable read transaction sees a snapshot as of the start of the
+    first non-transaction-control statement in the
     <emphasis>transaction</>, not as of the start
-    of the current query within the transaction.  Thus, successive
+    of the current statement within the transaction.  Thus, successive
     <command>SELECT</command> commands within a <emphasis>single</>
     transaction see the same data, i.e., they do not see changes made by
     other transactions that committed after their own transaction started.
@@ -1347,11 +1385,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
         </para>
 
         <para>
-<!--
-         This lock mode is not automatically acquired by any
-         <productname>PostgreSQL</productname> command.
--->
-このロックモードを自動的に獲得する<productname>PostgreSQL</productname>コマンドはありません。
+         Acquired by <command>CREATE TRIGGER</command> and many forms of
+         <command>ALTER TABLE</command> (see <xref linkend="SQL-ALTERTABLE">).
         </para>
        </listitem>
       </varlistentry>
@@ -1417,15 +1452,18 @@ ERROR:  could not serialize access due to read/write dependencies among transact
 <!--
          Acquired by the <command>DROP TABLE</>,
          <command>TRUNCATE</command>, <command>REINDEX</command>,
-         <command>CLUSTER</command>, and <command>VACUUM FULL</command>
+         <command>CLUSTER</command>, <command>VACUUM FULL</command>,
+         and <command>REFRESH MATERIALIZED VIEW</command> (without
+         <option>CONCURRENTLY</option>)
          commands. Many forms of <command>ALTER TABLE</> also acquire
-         a lock at this level (see <xref linkend="SQL-ALTERTABLE">).
-         This is also the default lock mode for <command>LOCK TABLE</command>
-         statements that do not specify a mode explicitly.
+         a lock at this level. This is also the default lock mode for
+         <command>LOCK TABLE</command> statements that do not specify
+         a mode explicitly.
 -->
 <command>DROP TABLE</>、<command>TRUNCATE</command>、<command>REINDEX</command>、<command>CLUSTER</command>、<command>VACUUM FULL</command>コマンドによって獲得されます。
 <command>ALTER TABLE</>の多くの形式もこのレベルでロックを獲得します(<xref linkend="SQL-ALTERTABLE">を参照してください)。
 また、明示的にモードを指定しなければ、これが<command>LOCK TABLE</command>文を使用する際のデフォルトのロックモードです。
+★★★
         </para>
        </listitem>
       </varlistentry>
@@ -1648,6 +1686,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
 すなわち、これらの行に対して<command>UPDATE</command>、<command>DELETE</command>、<command>SELECT FOR UPDATE</command>、<command>SELECT FOR NO KEY UPDATE</command>、<command>SELECT FOR SHARE</command>、<command>SELECT FOR KEY SHARE</command>をしようとする他のトランザクションは現在のトランザクションが終わるまでブロックされます。逆に言えば、<command>SELECT FOR UPDATE</command>は同じ行に対して上記のコマンドを実行している同時実行トランザクションを待ち、それから更新された行をロックして返します(行が削除されていれば、行は返しません)。
 しかし、<literal>REPEATABLE READ</>もしくは<literal>SERIALIZABLE</>トランザクション内では、ロックする行がトランザクションの開始した後に変更された場合にはエラーが返ります。
 これ以上の議論は<xref linkend="applevel-consistency">を参照してください。
+        </para>
+        <para>
         </para>
         <para>
 <!--
@@ -2345,7 +2385,6 @@ SELECT pg_advisory_lock(q.id) FROM
    <title>警告</title>
 
    <para>
-<!--
     Some DDL commands, currently only <xref linkend="sql-truncate"> and the
     table-rewriting forms of <xref linkend="sql-altertable">, are not
     MVCC-safe.  This means that after the truncation or rewrite commits, the

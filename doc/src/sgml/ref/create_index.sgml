@@ -29,7 +29,7 @@ PostgreSQL documentation
 
  <refsynopsisdiv>
 <synopsis>
-CREATE [ UNIQUE ] INDEX [ CONCURRENTLY ] [ <replaceable class="parameter">name</replaceable> ] ON <replaceable class="parameter">table_name</replaceable> [ USING <replaceable class="parameter">method</replaceable> ]
+CREATE [ UNIQUE ] INDEX [ CONCURRENTLY ] [ [ IF NOT EXISTS ] <replaceable class="parameter">name</replaceable> ] ON <replaceable class="parameter">table_name</replaceable> [ USING <replaceable class="parameter">method</replaceable> ]
     ( { <replaceable class="parameter">column_name</replaceable> | ( <replaceable class="parameter">expression</replaceable> ) } [ COLLATE <replaceable class="parameter">collation</replaceable> ] [ <replaceable class="parameter">opclass</replaceable> ] [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...] )
     [ WITH ( <replaceable class="PARAMETER">storage_parameter</replaceable> = <replaceable class="PARAMETER">value</replaceable> [, ... ] ) ]
     [ TABLESPACE <replaceable class="parameter">tablespace_name</replaceable> ]
@@ -84,10 +84,10 @@ CREATE [ UNIQUE ] INDEX [ CONCURRENTLY ] [ <replaceable class="parameter">name</
   <para>
 <!--
    <productname>PostgreSQL</productname> provides the index methods
-   B-tree, hash, GiST, SP-GiST, and GIN.  Users can also define their own index
-   methods, but that is fairly complicated.
+   B-tree, hash, GiST, SP-GiST, GIN, and BRIN.  Users can also define their own
+   index methods, but that is fairly complicated.
 -->
-<application>PostgreSQL</application>はB-tree、ハッシュ、GiST、SP-GiST、GINのインデックスメソッドを用意しています。
+<application>PostgreSQL</application>はB-tree、ハッシュ、GiST、SP-GiST、GINのインデックスメソッドを用意しています。★★★
 ユーザが独自にインデックスメソッドを定義することもできますが、これはかなり複雑です。
   </para>
 
@@ -189,6 +189,18 @@ CREATE [ UNIQUE ] INDEX [ CONCURRENTLY ] [ <replaceable class="parameter">name</
      </varlistentry>
 
      <varlistentry>
+      <term><literal>IF NOT EXISTS</literal></term>
+      <listitem>
+       <para>
+        Do not throw an error if a relation with the same name already exists.
+        A notice is issued in this case. Note that there is no guarantee that
+        the existing index is anything like the one that would have been created.
+        Index name is required when <literal>IF NOT EXISTS</literal> is specified.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
       <term><replaceable class="parameter">name</replaceable></term>
       <listitem>
        <para>
@@ -226,7 +238,8 @@ CREATE [ UNIQUE ] INDEX [ CONCURRENTLY ] [ <replaceable class="parameter">name</
 <!--
         The name of the index method to be used.  Choices are
         <literal>btree</literal>, <literal>hash</literal>,
-        <literal>gist</literal>, <literal>spgist</> and <literal>gin</>.
+        <literal>gist</literal>, <literal>spgist</>, <literal>gin</>, and
+        <literal>brin</>.
         The default method is <literal>btree</literal>.
 -->
 使用するインデックスメソッドの名前です。
@@ -412,7 +425,7 @@ B-tree、ハッシュ、GiSTおよびSP-GiSTといったインデックスはす
 
    <variablelist>
    <varlistentry>
-    <term><literal>FILLFACTOR</></term>
+    <term><literal>fillfactor</></term>
     <listitem>
      <para>
 <!--
@@ -452,7 +465,7 @@ GiSTインデックスではさらに以下のパラメータを受け付けま�
 
    <variablelist>
    <varlistentry>
-    <term><literal>BUFFERING</></term>
+    <term><literal>buffering</></term>
     <listitem>
     <para>
 <!--
@@ -474,14 +487,14 @@ GiSTインデックスではさらに以下のパラメータを受け付けま�
 
    <para>
 <!--
-    GIN indexes accept a different parameter:
+    GIN indexes accept different parameters:
 -->
 GINインデックスでは以下の異なるパラメータを受け付けます。
    </para>
 
    <variablelist>
    <varlistentry>
-    <term><literal>FASTUPDATE</></term>
+    <term><literal>fastupdate</></term>
     <listitem>
     <para>
 <!--
@@ -500,18 +513,45 @@ GINインデックスでは以下の異なるパラメータを受け付けま�
 
     <note>
      <para>
-<!--
-      Turning <literal>FASTUPDATE</> off via <command>ALTER INDEX</> prevents
+      Turning <literal>fastupdate</> off via <command>ALTER INDEX</> prevents
       future insertions from going into the list of pending index entries,
       but does not in itself flush previous entries.  You might want to
       <command>VACUUM</> the table afterward to ensure the pending list is
       emptied.
 -->
-<command>ALTER INDEX</>を使用して<literal>FASTUPDATE</>を無効にすることにより、以後の挿入は待機中のインデックス項目リストに入らないようになります。
+<command>ALTER INDEX</>を使用して★<literal>FASTUPDATE</>を無効にすることにより、以後の挿入は待機中のインデックス項目リストに入らないようになります。
 しかし、このコマンド自体はこれまでの項目を吐き出しません。
 確実に待機中のリストを空にするためには、続いてテーブルを<command>VACUUM</>する方が良いでしょう。
      </para>
     </note>
+    </listitem>
+   </varlistentry>
+   </variablelist>
+   <variablelist>
+   <varlistentry>
+    <term><literal>gin_pending_list_limit</></term>
+    <listitem>
+    <para>
+     Custom <xref linkend="guc-gin-pending-list-limit"> parameter.
+     This value is specified in kilobytes.
+    </para>
+    </listitem>
+   </varlistentry>
+   </variablelist>
+
+   <para>
+    <acronym>BRIN</> indexes accept a different parameter:
+   </para>
+
+   <variablelist>
+   <varlistentry>
+    <term><literal>pages_per_range</></term>
+    <listitem>
+    <para>
+     Defines the number of table blocks that make up one block range for
+     each entry of a <acronym>BRIN</> index (see <xref linkend="brin-intro">
+     for more details).  The default is <literal>128</>.
+    </para>
     </listitem>
    </varlistentry>
    </variablelist>
@@ -696,25 +736,27 @@ Indexes:
     Also, changes to hash indexes are not replicated over streaming or
     file-based replication after the initial base backup, so they
     give wrong answers to queries that subsequently use them.
-    For these reasons, hash index use is presently discouraged.
+    Hash indexes are also not properly restored during point-in-time
+    recovery.  For these reasons, hash index use is presently discouraged.
 -->
 ハッシュインデックス操作は現在WALに記録されません。
 このためハッシュインデックスは、データベースクラッシュの後未書き込みな変更があれば、<command>REINDEX</>を用いて再構築しなければならない可能性があります。
 また、ハッシュインデックスの変更は最初のベースバックアップ以降のストリーミングまたはファイルベースのレプリケーションでは複製されません。
 ですので、その後にそのインデックスを使用する問い合わせに対して間違った答えが返ります。
 このような理由から現在ハッシュインデックスの使用を勧めません。
+★★★
    </para>
   </caution>
 
   <para>
 <!--
-   Currently, only the B-tree, GiST and GIN index methods support
+   Currently, only the B-tree, GiST, GIN, and BRIN index methods support
    multicolumn indexes. Up to 32 fields can be specified by default.
    (This limit can be altered when building
    <productname>PostgreSQL</productname>.)  Only B-tree currently
    supports unique indexes.
--->    
-現在は、B-tree、GiST、GINインデックスメソッドのみが、複数列に対するインデックスをサポートしています。
+-->
+現在は、B-tree、GiST、GIN★インデックスメソッドのみが、複数列に対するインデックスをサポートしています。
 指定できる列は、デフォルトでは32個までです（この制限は<productname>PostgreSQL</productname>のコンパイル時に変更できます）。
 現在、B-treeのみが一意性インデックスをサポートしています。
   </para>
@@ -889,7 +931,7 @@ CREATE UNIQUE INDEX title_idx ON films (title) WITH (fillfactor = 70);
 -->
 高速更新を無効にして<acronym>GIN</>インデックスを作成します。
 <programlisting>
-CREATE INDEX gin_idx ON documents_table USING gin (locations) WITH (fastupdate = off);
+CREATE INDEX gin_idx ON documents_table USING GIN (locations) WITH (fastupdate = off);
 </programlisting>
   </para>
 
