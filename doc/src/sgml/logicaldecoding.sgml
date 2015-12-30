@@ -542,7 +542,7 @@ typedef void (*LogicalOutputPluginInit)(struct OutputPluginCallbacks *cb);
 -->
      コールバック関数の<function>begin_cb</function>、<function>change_cb</function>
      <function>commit_cb</function>は必須ですが、
-     <function>startup_cb</function>と<function>shutdown_cb</function>必須ではありません。
+     <function>startup_cb</function>、     <function>filter_by_origin_cb</function>、それに<function>shutdown_cb</function>必須ではありません。
     </para>
    </sect2>
 
@@ -839,33 +839,51 @@ unloggedテーブル(<xref linkend="SQL-CREATETABLE-UNLOGGED">参照)と(<xref l
     </sect3>
 
      <sect3 id="logicaldecoding-output-plugin-filter-origin">
+<!--
      <title>Origin Filter Callback</title>
+-->
+     <title>オリジンフィルターコールバック</title>
 
      <para>
+<!--
        The optional <function>filter_by_origin_cb</function> callback
        is called to determine whether data that has been replayed
        from <parameter>origin_id</parameter> is of interest to the
        output plugin.
+-->
+オプションの<function>filter_by_origin_cb</function>コールバックは、<parameter>origin_id</parameter>からリプレイされたデータがアウトプットプラグインの対象となるかどうかを判定するために呼び出されます。
 <programlisting>
 typedef bool (*LogicalDecodeChangeCB) (
     struct LogicalDecodingContext *ctx,
     RepNodeId origin_id
 );
 </programlisting>
+<!--
       The <parameter>ctx</parameter> parameter has the same contents
       as for the other callbacks. No information but the origin is
       available. To signal that changes originating on the passed in
       node are irrelevant, return true, causing them to be filtered
       away; false otherwise. The other callbacks will not be called
       for transactions and changes that have been filtered away.
+-->
+<parameter>ctx</parameter>パラメータは、他のコールバックと同じ内容を持ちます。
+オリジンの情報だけが得られます。
+過去においてノードを通過したことに起源を持つ変更が無関係であることを伝えるには、trueを返します。
+これにより、その変更は無視されることになります。
+無視されたトランザクション変更に関わる他のコールバックは呼び出されません。
      </para>
      <para>
+<!--
        This is useful when implementing cascading or multidirectional
        replication solutions. Filtering by the origin allows to
        prevent replicating the same changes back and forth in such
        setups.  While transactions and changes also carry information
        about the origin, filtering via this callback is noticeably
        more efficient.
+-->
+これは、カスケード、あるいは双方向レプリケーションソリューションを実装する際に有用です。
+オリジンでフィルターすることにより、そのような構成で同じ変更があちこちにレプリケーションされることを防ぐことができます。
+トランザクションや変更もオリジンに関する情報を持っていますが、このコールバックでフィルターするほうがずっと効率的です。
      </para>
      </sect3>
    </sect2>
