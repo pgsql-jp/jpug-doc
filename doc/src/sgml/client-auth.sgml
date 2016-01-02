@@ -381,7 +381,7 @@ IPアドレスと<literal>/</literal>、およびCIDRマスク長の間には空
 典型的なIPv4アドレス範囲の例は、単一のホストでは<literal>172.20.143.89/32</literal>、小規模ネットワークでは<literal>172.20.143.0/24</literal>、大規模ネットワークでは<literal>10.6.0.0/16</literal>のようなものです。
 IPv6アドレスの範囲は、単一のホストでは<literal>::1/128</literal>(この場合はIPv6ループバックアドレス)、小規模ネットワークでは<literal>fe80::7a31:c1ff:0000:0000/96</literal>のようなものです。
 <literal>0.0.0.0/0</literal>は全てのIPv4アドレスを意味します。また、<literal>::0/0</literal>は全てのIPv6アドレスを意味しています。
-単一ホストを指定するには、IPv4では32、IPv6では128というマスク長を使用してください。★
+単一ホストを指定するには、IPv4では32、IPv6では128というマスク長を使用してください。
 ネットワークアドレスでは末尾の0を省略できません。
       </para>
 
@@ -1038,11 +1038,10 @@ local   db1,db2,@demodbs  all                                   md5
    <replaceable>map-name</replaceable> parameter in <filename>pg_hba.conf</filename>
    to indicate which map to use for each individual connection.
 -->
-IdentやGSSAPIといった外部の認証システムを使用する場合は、接続を開始したオペレーティングシステムのユーザ名がデータベースユーザ名と同じであるとは限りません。
+IdentやGSSAPIといった外部の認証システムを使用する場合は、接続を開始したオペレーティングシステムのユーザ名が接続先のデータベースユーザ名と同じであるとは限りません。
 ユーザ名マップを使用するには、<filename>pg_hba.conf</filename>内で<literal>map</literal>=<replaceable>map-name</replaceable>オプションを指定してください。
 このオプションは、外部ユーザ名を受け取るすべての認証方式をサポートしています。
-異なる接続に対して、異なるマップが必要となる可能性があります。そのため、それぞれの接続に対して使用されるマップを指定するために、使用するマップの名称は
-<filename>pg_hba.conf</filename>内の<replaceable>map-name</replaceable>パラメータで指定されます。
+異なる接続に対して、異なるマップが必要となる可能性があります。そのため、それぞれの接続に対して使用されるマップを指定するために、使用するマップの名称は<filename>pg_hba.conf</filename>内の<replaceable>map-name</replaceable>パラメータで指定されます。
   </para>
 
   <para>
@@ -1181,7 +1180,6 @@ Unixユーザ<literal>robert</>は<productname>PostgreSQL</>ユーザである<l
    <title>An Example <filename>pg_ident.conf</> File</title>
 -->
    <title><filename>pg_ident.conf</>ファイルの例</title>
-
 <programlisting>
 # MAPNAME       SYSTEM-USERNAME         PG-USERNAME
 
@@ -1434,15 +1432,13 @@ PostgreSQLサーバはサーバにより使われるkeytabに含まれるいか�
     Alternatively, you can use the full <literal>username@realm</> principal as
     the role name in <productname>PostgreSQL</> without any mapping.
 -->
-★★★クライアントのプリンシパルは第一の構成要素として<productname>PostgreSQL</>のデータベースユーザ名を所有しなければなりません。
-例えば、<replaceable>pguser name/otherstuff@realm</>です。  
-もう1つの方法として、プリンシパル名の第一の構成要素からデータベースユーザ名にマップするユーザ名マッピングを使用することもできます。
-デフォルトではクライアントのrealmは<productname>PostgreSQL</>で検査されません。
-相互のrealm認証が使用可能になっていてrealmを確認する必要がある場合は、<literal>krb_realm</>パラメータを使用するか
-<literal>include_realm</>を使用可能にしてrealmを検査するためにユーザ名を使用してください。 
+クライアントのプリンシパルは<filename>pg_ident.conf</>で異なる<productname>PostgreSQL</>のデータベースユーザ名にマップできます。
+例えば、<literal>pgusername@realm</>は<literal>pgusername</>にマップされるかもしれません。
+もう1つの方法として、プリンシパル名全体<literal>username@realm</>を<productname>PostgreSQL</>のロール名としてマッピングなしに使うこともできます。
    </para>
 
    <para>
+<!--
     <productname>PostgreSQL</> also supports a parameter to strip the realm from
     the principal.  This method is supported for backwards compatibility and is
     strongly discouraged as it is then impossible to distinguish different users
@@ -1453,6 +1449,11 @@ PostgreSQLサーバはサーバにより使われるkeytabに含まれるいか�
     matches exactly what is in the <literal>krb_realm</literal> parameter) would be a secure but
     less capable option compared to specifying an explicit mapping in
     <filename>pg_ident.conf</>.
+-->
+<productname>PostgreSQL</>はプリンシパルからrealmを外すパラメータもサポートしています。
+この方法は後方互換のためにサポートされているものであり、異なるrealmから来た同じユーザ名の異なるユーザを区別することができませんので、使用しないことを強く薦めます。
+この方法を有効にするには<literal>include_realm</>を0に設定してください。
+単純な単一realmの設定では、(指定されたrealmが<literal>krb_realm</literal>パラメータ内のものと正確に一致するか確認する)<literal>krb_realm</>パラメータと組み合わされた<literal>include_realm</>で安全でしょうが、<filename>pg_ident.conf</>で明示的なマッピングを指定するのに比べてあまり適切でない選択でしょう。
    </para>
 
    <para>
@@ -1522,10 +1523,9 @@ MIT互換のKerberos5実装の例を以下に示します。
         are recommended to leave include_realm set to the default (1) and to
         provide an explicit mapping in <filename>pg_ident.conf</>.
 -->
-★★★1に設定されている場合は、認証されたユーザプリンシパルからのrealm名が、ユーザ名マッピング（<xref linkend="auth-username-maps">）で渡されるシステムユーザ名の中に含まれています。
-そうでなければ、異なるレルムから来た同じユーザ名のユーザを区別することができませんので、これは推奨される構成です。
-このパラメータのデフォルトは(システムユーザ名にはレルムを含めないことを意味する)0ですが、<productname>PostgreSQL</productname>の将来のバージョンでは1に変わるかもしれません。
-アップグレード時の問題を避けるために、ユーザは明示的に設定できます。
+0に設定されている場合は、認証されたユーザプリンシパルからのrealm名が、ユーザ名マッピング（<xref linkend="auth-username-maps">）で渡されるシステムユーザ名から外されています。
+<literal>krb_realm</literal>も一緒に使われていない限り、これは複数realm環境で安全ではありませんので、非推奨であり、主に後方互換性のために利用できます。
+include_realmをデフォルト(1)にしたまま、<filename>pg_ident.conf</>で明示的なマッピングを指定することをお薦めします。
        </para>
       </listitem>
      </varlistentry>
@@ -1547,8 +1547,8 @@ MIT互換のKerberos5実装の例を以下に示します。
         is what is seen as the system user name when mapping.
 -->
 システムとデータベースの間のマッピングを許可します。詳細は<xref linkend="auth-username-maps">を参照してください。
-GSSAPI/Kerberosプリンシパル<literal>username@EXAMPLE.COM</literal>(もしくは、あまり一般的ではありませんが<literal>username/hostbased@EXAMPLE.COM</literal>)に対しては、もし(推奨されているように、上記参照)<literal>include_realm</literal>が1に設定されていない場合はマッピングに使われるデフォルトのユーザ名は<literal>username</literal>(もしくは<literal>username/hostbased</literal>)です。★★★
-1に設定されている場合には、<literal>username@EXAMPLE.COM</literal>(もしくは<literal>username/hostbased@EXAMPLE.COM</literal>)がマッピング時のシステムユーザ名です。
+GSSAPI/Kerberosプリンシパル<literal>username@EXAMPLE.COM</literal>(もしくは、あまり一般的ではありませんが<literal>username/hostbased@EXAMPLE.COM</literal>)に対しては、もし<literal>include_realm</literal>が0に設定されていない限り、マッピングに使われるユーザ名は<literal>username@EXAMPLE.COM</literal>(もしくは<literal>username/hostbased@EXAMPLE.COM</literal>)です。
+0に設定されている場合には、<literal>username</literal>(もしくは<literal>username/hostbased</literal>)がマッピング時のシステムユーザ名です。
        </para>
       </listitem>
      </varlistentry>
@@ -1634,10 +1634,9 @@ realmをユーザプリンシパル名に一致するように設定します。
         are recommended to leave include_realm set to the default (1) and to
         provide an explicit mapping in <filename>pg_ident.conf</>.
 -->
-★★★1に設定されている場合は、認証されたユーザプリンシパルからのrealm名が、ユーザ名マッピング（<xref linkend="auth-username-maps">）で渡されるシステムユーザ名の中に含まれています。
-そうでなければ、異なるレルムから来た同じユーザ名のユーザを区別することができませんので、これは推奨される構成です。
-このパラメータのデフォルトは(システムユーザ名にはレルムを含めないことを意味する)0ですが、<productname>PostgreSQL</productname>の将来のバージョンでは1に変わるかもしれません。
-アップグレード時の問題を避けるために、ユーザは明示的に設定できます。
+0に設定されている場合は、認証されたユーザプリンシパルからのrealm名が、ユーザ名マッピング（<xref linkend="auth-username-maps">）で渡されるシステムユーザ名から外されています。
+<literal>krb_realm</literal>も一緒に使われていない限り、これは複数realm環境で安全ではありませんので、非推奨であり、主に後方互換性のために利用できます。
+include_realmをデフォルト(1)にしたまま、<filename>pg_ident.conf</>で明示的なマッピングを指定することをお薦めします。
        </para>
       </listitem>
      </varlistentry>
@@ -1658,10 +1657,10 @@ realmをユーザプリンシパル名に一致するように設定します。
         <literal>username</literal> (or <literal>username/hostbased</literal>)
         is what is seen as the system user name when mapping.
 -->
-★★★システムとデータベースユーザ名の間のマッピングを許可します。
+システムとデータベースユーザ名の間のマッピングを許可します。
 詳細は<xref linkend="auth-username-maps">を参照してください。
-GSSAPI/Kerberosプリンシパル<literal>username@EXAMPLE.COM</literal>(もしくは、あまり一般的ではありませんが<literal>username/hostbased@EXAMPLE.COM</literal>)に対しては、もし(推奨されているように、上記参照)<literal>include_realm</literal>が1に設定されていない場合はマッピングに使われるデフォルトのユーザ名は<literal>username</literal>(もしくは<literal>username/hostbased</literal>)です。
-1に設定されている場合には、<literal>username@EXAMPLE.COM</literal>(もしくは<literal>username/hostbased@EXAMPLE.COM</literal>)がマッピング時のシステムユーザ名です。
+GSSAPI/Kerberosプリンシパル<literal>username@EXAMPLE.COM</literal>(もしくは、あまり一般的ではありませんが<literal>username/hostbased@EXAMPLE.COM</literal>)に対しては、もし<literal>include_realm</literal>が0に設定されていない限り、マッピングに使われるユーザ名は<literal>username@EXAMPLE.COM</literal>(もしくは<literal>username/hostbased@EXAMPLE.COM</literal>)です。
+0に設定されている場合には、<literal>username</literal>(もしくは<literal>username/hostbased</literal>)がマッピング時のシステムユーザ名です。
        </para>
       </listitem>
      </varlistentry>
@@ -1930,7 +1929,7 @@ LDAP認証は2つのモードで動作します。1つ目のモードでは、�
 もしユーザとパスワードが指定されていなかった場合は、ディレクトリに対して匿名でバインドします。
 検索は<replaceable>ldapbasedn</>のサブツリーまで行われ、<replaceable>ldapsearchattribute</>で指定された属性に正確に一致するかどうかまで行われます。
 この検索において、一度ユーザが見つかるとサーバは切断して、クライアントで指定されたパスワードを使用してこのユーザとして再度ディレクトリにバインドします。これはそのログインが正しいかどうかを検証するためです。
-このモードはApache mod_authnz_ldap および pam_ldapのように他のソフトウェアと同じように、LDAP認証の仕組みで使用されるものと同じです。
+このモードはApache <literal>mod_authnz_ldap</literal>および<literal>pam_ldap</literal>のように他のソフトウェアと同じように、LDAP認証の仕組みで使用されるものと同じです。
 この方法は、ユーザオブジェクトがディレクトリに配置されている場合に、かなりの柔軟性があります。
 しかし、LDAPサーバへの2つの分離した接続が作成されます。
    </para>
