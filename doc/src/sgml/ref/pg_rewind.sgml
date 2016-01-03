@@ -11,12 +11,18 @@ PostgreSQL documentation
  <refmeta>
   <refentrytitle><application>pg_rewind</application></refentrytitle>
   <manvolnum>1</manvolnum>
+<!--
   <refmiscinfo>Application</refmiscinfo>
+-->
+  <refmiscinfo>アプリケーション</refmiscinfo>
  </refmeta>
 
  <refnamediv>
   <refname>pg_rewind</refname>
+<!--
   <refpurpose>synchronize a <productname>PostgreSQL</productname> data directory with another data directory that was forked from the first one</refpurpose>
+-->
+  <refpurpose><productname>PostgreSQL</productname>のデータディレクトリを、そこから派生した他のデータディレクトリと同期する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -38,16 +44,24 @@ PostgreSQL documentation
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <application>pg_rewind</> is a tool for synchronizing a PostgreSQL cluster
    with another copy of the same cluster, after the clusters' timelines have
    diverged. A typical scenario is to bring an old master server back online
    after failover, as a standby that follows the new master.
+-->
+<application>pg_rewind</>は、PostgreSQLのクラスタのタイムラインが分岐した後、クラスタをその複製のクラスタに同期するためのツールです。
+典型的なシナリオとしては、フェイルオーバ後、新しいマスターに追従するスタンバイとして、古いマスターサーバをオンラインに戻す、というのがあります。
   </para>
 
   <para>
+<!--
    The result is equivalent to replacing the target data directory with the
    source one. All files are copied, including configuration files. The
    advantage of <application>pg_rewind</> over taking a new base backup, or
@@ -55,9 +69,15 @@ PostgreSQL documentation
    not require reading through all unchanged files in the cluster. That makes
    it a lot faster when the database is large and only a small portion of it
    differs between the clusters.
+-->
+実行結果は、ターゲットデータディレクトリをソースディレクトリと置き換えたのと等しくなります。
+設定ファイルを含め、すべてのファイルがコピーされます。
+新しいベースバックアップを取ったり、<application>rsync</>のようなツールを使う場合と比較して、<application>pg_rewind</>はクラスタ内の変更されていないファイルを読出す必要がないという利点があります。
+データベースが大きく、クラスタ間で変更されている部分がわずかの場合には、極めて高速になります。
   </para>
 
   <para>
+<!--
    <application>pg_rewind</> examines the timeline histories of the source
    and target clusters to determine the point where they diverged, and
    expects to find WAL in the target cluster's <filename>pg_xlog</> directory
@@ -68,9 +88,17 @@ PostgreSQL documentation
    anymore. In that case, they can be manually copied from the WAL archive to
    the <filename>pg_xlog</> directory. Fetching missing files from a WAL
    archive automatically is currently not supported.
+-->
+<application>pg_rewind</>はソースとターゲットクラスタ内のタイムラインヒストリーを調べ、それらがどの時点で異なるものになったのかを調べます。
+そしてターゲットクラスタ内の<filename>pg_xlog</>ディレクトリ内の分岐点に到達するWALを見つけようとします。
+分岐点のあと間をおかずシャットダウンされたような典型的なフェイルオーバのシナリオにおいては、これは特に問題になりません。
+しかし、分岐点の後にターゲットクラスタが長時間運用されていた場合には、古いWALファイルはもう存在しないかもしれません。
+この場合は、WALアーカイブから手動で<filename>pg_xlog</>ディレクトリにコピーすることができます。
+不足しているWALファイルをアーカイブから自動的にコピーする機能は今のところサポートされていません。
   </para>
 
   <para>
+<!--
    When the target server is started up for the first time after running
    <application>pg_rewind</>, it will go into recovery mode and replay all
    WAL generated in the source server after the point of divergence.
@@ -80,9 +108,14 @@ PostgreSQL documentation
    target server is started up. That can be done by creating a
    <filename>recovery.conf</> file in the target data directory with a
    suitable <varname>restore_command</>.
+-->
+<application>pg_rewind</>を実行した後、最初にターゲットサーバを起動すると、そのサーバはリカバリモードに入り、分岐点以降ソースサーバで生成されたWALをすべてリプレイします。
+<application>pg_rewind</>が実行された時にWALがソースサーバになくて<application>pg_rewind</>のセッションではコピーできなかった場合は、ターゲットサーバが起動した時にWALを読む込めるようになっていなければなりません。
+適切な<varname>restore_command</>を設定した<filename>recovery.conf</>ファイルをターゲットデータディレクトリに置くことで、これを達成できます。
   </para>
 
   <para>
+<!--
    <application>pg_rewind</> requires that the target server either has
    the <xref linkend="guc-wal-log-hints"> option is enabled
    in <filename>postgresql.conf</> or that data checksums were enabled when
@@ -90,15 +123,24 @@ PostgreSQL documentation
    are currently on by default.
    <xref linkend="guc-full-page-writes"> must also be enabled.  That is the
    default.
+-->
+<application>pg_rewind</>を使用するには、ターゲットサーバ上で<filename>postgresql.conf</>の<xref linkend="guc-wal-log-hints">オプションが有効になっているか、<application>initdb</>でクラスタを初期化した時にデータチェックサムが有効になっていなければなりません。
+どちらもデフォルトでは無効です。
+<xref linkend="guc-full-page-writes">も有効でなければなりませんが、これはデフォルトで有効です。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Options</title>
-
+-->
+  <title>オプション</title>
    <para>
+<!--
     <application>pg_rewind</application> accepts the following command-line
     arguments:
+-->
+    <application>pg_rewind</application>は以下のコマンドラインオプションを受け付けます。
 
     <variablelist>
      <varlistentry>
@@ -106,9 +148,13 @@ PostgreSQL documentation
       <term><option>--target-pgdata=<replaceable class="parameter">directory</replaceable></option></term>
       <listitem>
        <para>
+<!--
         This option specifies the target data directory that is synchronized
         with the source. The target server must shut down cleanly before
         running <application>pg_rewind</application>
+-->
+このオプションは、同期するターゲットデータディレクトリを指定します。
+ターゲットサーバは、<application>pg_rewind</application>を実行する前に、正常にシャットダウンされていなければなりません。
        </para>
       </listitem>
      </varlistentry>
@@ -117,9 +163,13 @@ PostgreSQL documentation
       <term><option>--source-pgdata=<replaceable class="parameter">directory</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Specifies path to the data directory of the source server, to
-        synchronize the target with. When <option>--source-pgdata</> is
+        synchronize the target with. When <option>#045;&#045;source-pgdata</> is
         used, the source server must be cleanly shut down.
+-->
+同期するソースサーバのデータディレクトリへのパスを指定します。
+<option>--source-pgdata</>を使用する場合は、ソースサーバは正常にシャットダウンされていなければなりません。
        </para>
       </listitem>
      </varlistentry>
@@ -128,11 +178,16 @@ PostgreSQL documentation
       <term><option>--source-server=<replaceable class="parameter">connstr</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Specifies a libpq connection string to connect to the source
         <productname>PostgreSQL</> server to synchronize the target with.
         The connection must be a normal (non-replication) connection 
         with superuser access. The server must be up and running, 
         and must not be in recovery mode.
+-->
+同期するソース<productname>PostgreSQL</>サーバへ接続するためのlibpq接続文字列を指定します。
+接続は、スーパユーザアクセスである通常の接続(レプリケーション接続でない)でなければなりません。
+サーバは稼働中でなければならず、またリカバリモードであってはいけません。
        </para>
       </listitem>
      </varlistentry>
@@ -142,7 +197,10 @@ PostgreSQL documentation
       <term><option>--dry-run</option></term>
       <listitem>
        <para>
+<!--
         Do everything except actually modifying the target directory.
+-->
+ターゲットディレクトリを実際に更新する以外はすべてのことを行います。
        </para>
       </listitem>
      </varlistentry>
@@ -152,8 +210,11 @@ PostgreSQL documentation
       <term><option>--progress</option></term>
       <listitem>
        <para>
+<!--
         Enables progress reporting. Turning this on will deliver an approximate
         progress report while copying data over from the source cluster.
+-->
+進行状況のレポートを有効にします。このオプションを有効にすると、データをソースクラスタからコピーする際のおおよその進行状況をレポートします。
        </para>
       </listitem>
      </varlistentry>
@@ -162,8 +223,11 @@ PostgreSQL documentation
       <term><option>--debug</option></term>
       <listitem>
        <para>
+<!--
         Print verbose debugging output that is mostly useful for developers
         debugging <application>pg_rewind</>.
+-->
+主に開発者が<application>pg_rewind</>をデバッグするのに役立つ冗長なデバッグ出力を印字します。
        </para>
       </listitem>
      </varlistentry>
@@ -171,13 +235,19 @@ PostgreSQL documentation
      <varlistentry>
       <term><option>-V</option></term>
       <term><option>--version</option></term>
+<!--
       <listitem><para>Display version information, then exit.</para></listitem>
+-->
+      <listitem><para>バージョン情報を表示して終了します。</para></listitem>
      </varlistentry>
 
      <varlistentry>
       <term><option>-?</option></term>
       <term><option>--help</option></term>
+<!--
       <listitem><para>Show help, then exit.</para></listitem>
+-->
+      <listitem><para>ヘルプを表示して終了します。</para></listitem>
      </varlistentry>
 
     </variablelist>
@@ -185,54 +255,85 @@ PostgreSQL documentation
  </refsect1>
 
  <refsect1>
+<!--
   <title>Environment</title>
+-->
+  <title>環境</title>
 
   <para>
-   When <option>--source-server</> option is used,
+<!--
+   When <option>#045;&#045;source-server</> option is used,
    <application>pg_rewind</application> also uses the environment variables
    supported by <application>libpq</> (see <xref linkend="libpq-envars">).
+-->
+<option>--source-server</>オプションを使用する場合、<application>pg_rewind</application>は
+<application>libpq</>で利用できる環境変数を使用します(<xref linkend="libpq-envars">を参照)。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Notes</title>
+-->
+  <title>注釈</title>
 
   <refsect2>
+<!--
    <title>How it works</title>
+-->
+   <title>どうやって動くのか</title>
 
    <para>
+<!--
     The basic idea is to copy everything from the new cluster to the old
     cluster, except for the blocks that we know to be the same.
+-->
+基本的なアイデアは、同じであることがわかっているブロックを除き、すべてを新しいクラスタから古いクラスタにコピーする、というものです。
    </para>
 
    <procedure>
     <step>
      <para>
+<!--
       Scan the WAL log of the old cluster, starting from the last checkpoint
       before the point where the new cluster's timeline history forked off
       from the old cluster. For each WAL record, make a note of the data
       blocks that were touched. This yields a list of all the data blocks
       that were changed in the old cluster, after the new cluster forked off.
+-->
+古いクラスタからタイムラインが新しいクラスタで分岐した時点より前の最後のチェックポイントから始めて、古いクラスタのWALログをスキャンしします。
+各々のWALレコードについて、変更されたデータブロックを記録します。
+これにより、新しいクラスタで分岐した以降に、古いクラスタで変更されたすべてのデータブロックのリストが作成できます。
      </para>
     </step>
     <step>
      <para>
+<!--
       Copy all those changed blocks from the new cluster to the old cluster.
+-->
+変更されたすべてのブロックを新しいクラスタから古いクラスタにコピーします。
      </para>
     </step>
     <step>
      <para>
+<!--
       Copy all other files such as <filename>clog</filename> and configuration files from the new cluster
       to the old cluster, everything except the relation files.
+-->
+<filename>clog</filename>や設定ファイルなど、リレーションファイル以外のすべてのファイルを新しいクラスタから古いクラスタにコピーします。
      </para>
     </step>
     <step>
      <para>
+<!--
       Apply the WAL from the new cluster, starting from the checkpoint
       created at failover. (Strictly speaking, <application>pg_rewind</>
       doesn't apply the WAL, it just creates a backup label file indicating
       that when <productname>PostgreSQL</> is started, it will start replay
       from that checkpoint and apply all the required WAL.)
+-->
+フェイルオーバの際に作られたチェックポイントから始めて、新しいクラスタのWALを適用します。(厳密に言うと、<application>pg_rewind</>はWALの適用はせず、単にバックアップラベルファイルを作るだけです。
+それにより、<productname>PostgreSQL</>が起動する時、チェックポイントから始めてすべての必要なWALが適用されます)
      </para>
     </step>
    </procedure>
