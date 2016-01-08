@@ -434,7 +434,10 @@ SELECT '{"product": "PostgreSQL", "version": 9.4, "jsonb": true}'::jsonb @&gt; '
 -->
 -- 右辺の配列は左辺の配列に含まれま<emphasis>せん</>、
 -- 類似の配列が、その中のネストに含まれているにも関わらず:
-SELECT '[1, 2, [1, 3]]'::jsonb @&gt; '[1, 3]'::jsonb;  -- yields false
+<!--
+SELECT '[1, 2, [1, 3]]'::jsonb @&gt; '[1, 3]'::jsonb;  &#045;&#045; yields false
+-->
+SELECT '[1, 2, [1, 3]]'::jsonb @&gt; '[1, 3]'::jsonb;  -- falseになる
 
 <!--
 &#045;&#045; But with a layer of nesting, it is contained:
@@ -446,9 +449,15 @@ SELECT '[1, 2, [1, 3]]'::jsonb @&gt; '[[1, 3]]'::jsonb;
 &#045;&#045; Similarly, containment is not reported here:
 -->
 -- 同様に、これも含まれません:
-SELECT '{"foo": {"bar": "baz"}}'::jsonb @&gt; '{"bar": "baz"}'::jsonb;  -- yields false
+<!--
+SELECT '{"foo": {"bar": "baz"}}'::jsonb @&gt; '{"bar": "baz"}'::jsonb;  &#045;&#045; yields false
+-->
+SELECT '{"foo": {"bar": "baz"}}'::jsonb @&gt; '{"bar": "baz"}'::jsonb;  -- falseになる
 
--- A top-level key and an empty object is contained:
+-->
+&#045;&#045; A top-level key and an empty object is contained:
+-->
+-- トップレベルのキーと空のオブジェクトが含まれる。
 SELECT '{"foo": {"bar": "baz"}}'::jsonb @&gt; '{"foo": {}}'::jsonb;
 </programlisting>
 
@@ -484,7 +493,10 @@ SELECT '["foo", "bar"]'::jsonb @&gt; '"bar"'::jsonb;
 &#045;&#045; This exception is not reciprocal &#045;&#045; non-containment is reported here:
 -->
 -- この例外は相互的ではありません。 -- これは含まれません:
-SELECT '"bar"'::jsonb @&gt; '["bar"]'::jsonb;  -- yields false
+<!--
+SELECT '"bar"'::jsonb @&gt; '["bar"]'::jsonb;  &#045;&#045; yields false
+-->
+SELECT '"bar"'::jsonb @&gt; '["bar"]'::jsonb;  -- falseになる
 </programlisting>
 
   <para>
@@ -515,13 +527,19 @@ SELECT '{"foo": "bar"}'::jsonb ? 'foo';
 &#045;&#045; Object values are not considered:
 -->
 -- オブジェクト値は考慮されません:
-SELECT '{"foo": "bar"}'::jsonb ? 'bar';  -- yields false
+<!--
+SELECT '{"foo": "bar"}'::jsonb ? 'bar';  &#045;&#045; yields false
+-->
+SELECT '{"foo": "bar"}'::jsonb ? 'bar';  -- falseになる
 
 <!--
 &#045;&#045; As with containment, existence must match at the top level:
 -->
 -- オブジェクトはトップレベルから一致するように存在する必要があります:
-SELECT '{"foo": {"bar": "baz"}}'::jsonb ? 'bar'; -- yields false
+<!--
+SELECT '{"foo": {"bar": "baz"}}'::jsonb ? 'bar'; &#045;&#045; yields false
+-->
+SELECT '{"foo": {"bar": "baz"}}'::jsonb ? 'bar'; -- falseになる
 
 <!--
 &#045;&#045; A string is considered to exist if it matches a primitive JSON string:
@@ -542,6 +560,7 @@ SELECT '"foo"'::jsonb ? 'foo';
 
   <tip>
    <para>
+<!--
     Because JSON containment is nested, an appropriate query can skip
     explicit selection of sub-objects.  As an example, suppose that we have
     a <structfield>doc</> column containing objects at the top level, with
@@ -549,22 +568,36 @@ SELECT '"foo"'::jsonb ? 'foo';
     sub-objects.  This query finds entries in which sub-objects containing
     both <literal>"term":"paris"</> and <literal>"term":"food"</> appear,
     while ignoring any such keys outside the <literal>tags</> array:
+-->
+JSONはネストして含められるので、適切なクエリはサブオブジェクトの選択を明示的にスキップすることができます。
+例として、トップレベルに<structfield>doc</>列のオブジェクトが含まれ、<literal>tags</>フィールドにサブオブジェクトの配列が含まれているとします。
+この問い合わせは、配列の外側にあるようなキーを無視して、サブオブジェクトの<literal>"term":"paris"</>と<literal>"term":"food"</>を両方含まれるエントリを探し出すことが出来ます。
 <programlisting>
 SELECT doc-&gt;'site_name' FROM websites
   WHERE doc @&gt; '{"tags":[{"term":"paris"}, {"term":"food"}]}';
 </programlisting>
+<!--
     One could accomplish the same thing with, say,
+-->
+同じことを達成することは出来ます。例えば、
 <programlisting>
 SELECT doc-&gt;'site_name' FROM websites
   WHERE doc-&gt;'tags' @&gt; '[{"term":"paris"}, {"term":"food"}]';
 </programlisting>
+<!--
     but that approach is less flexible, and often less efficient as well.
+-->
+しかし、そのアプローチは柔軟性に欠け、効率も落ちます。
    </para>
 
    <para>
+<!--
     On the other hand, the JSON existence operator is not nested: it will
     only look for the specified key or array element at top level of the
     JSON value.
+-->
+一方、JSONの存在演算子は、ネストしていません。
+JSONの値の最上位に指定されたキーまたは配列要素のみを探します。
    </para>
   </tip>
 
@@ -609,7 +642,7 @@ SELECT doc-&gt;'site_name' FROM websites
     implement, see <xref linkend="functions-jsonb-op-table">.)
     An example of creating an index with this operator class is:
 -->
- <type>jsonb</>型では、デフォルトのGIN演算子クラスとして <literal>@&gt;</>、<literal>?</>、 <literal>?&amp;</>、<literal>?|</>をサポートしています。★★★
+<type>jsonb</>型では、デフォルトのGIN演算子クラスとしてトップレベルのキーが存在するかの演算子として<literal>?</>、<literal>?&amp;</>、<literal>?|</>を、パス／値が存在するかの演算子では<literal>@&gt;</>をクエリでサポートしています。
 （これらの演算子の意味の詳細は、<xref linkend="functions-jsonb-op-table">を参照してください。）
 この演算子クラスのインデックスを作成する例。
 <programlisting>
