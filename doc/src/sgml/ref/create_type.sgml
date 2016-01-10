@@ -404,7 +404,7 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
 その答えは、まず型が最初に<firstterm>シェル型</>として定義されます。
 これは名称と所有者以外の属性を持たないプレースホルダ型です。
 これは、コマンド<literal>CREATE TYPE <replaceable>name</></literal>を他にパラメータをつけずに発行することで行われます。
-この後、入出力関数をこのシェル型を参照するように定義することができます。
+この後、Cの入出力関数をこのシェル型を参照するように定義することができます。
 最後に完全な定義を持った<command>CREATE TYPE</>によって、シェル型の項目が完全かつ有効な型定義に置き換わり、新しい型を普通に使用することができるようになります。
   </para>
 
@@ -496,7 +496,7 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
 基本データ型は、<replaceable class="parameter">internallength</replaceable>に正の整数を指定して固定長として作成するだけでなく、<replaceable class="parameter">internallength</replaceable>に<literal>VARIABLE</literal>と設定し可変長として作成することもできます
 （内部的には、これは<literal>typlen</>を-1に設定することで表現されます）。  
 全ての可変長型の内部表現は、型の値の全長を示す4バイトの整数値から始まらなければなりません。
-★★★
+（長さフィールドは多くの場合<xref linkend="storage-toast">に記述されているようにエンコードされており、それに直接アクセスすることは賢明ではないことに注意してください。）
   </para>
 
   <para>
@@ -508,8 +508,7 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
    (4 bytes on some machines, 8 bytes on others).
 -->
 オプションの<option>PASSEDBYVALUE</option>フラグは、このデータ型の値が参照ではなく値によって渡されることを示します。
-<type>Datum</>型のサイズ（ほとんどのマシンでは4バイトだが、まれに8バイト）よりも長い内部表現の型は値で渡すことができません。
-★★★
+値によって渡される型は固定長でなければならず、その内部表現は<type>Datum</>型のサイズ（4バイトのマシンもあれば8バイトのマシンもあります）を超えてはいけません。
   </para>
 
   <para>
@@ -555,6 +554,7 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
   </para>
 
   <para>
+<!--
    All <replaceable class="parameter">storage</replaceable> values other
    than <literal>plain</literal> imply that the functions of the data type
    can handle values that have been <firstterm>toasted</>, as described
@@ -563,6 +563,10 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
    storage strategy for columns of a toastable data type; users can pick
    other strategies for individual columns using <literal>ALTER TABLE
    SET STORAGE</>.
+-->
+<literal>plain</literal>を除くすべての<replaceable class="parameter">storage</replaceable>の値は、そのデータ型の関数が、<xref linkend="storage-toast">および<xref linkend="xtypes-toast">に記述されているように<firstterm>toast</>された値を処理できることを暗示します。
+その他の特定の値を指定するのは、TOAST可能なデータ型の列について、単にデフォルトのTOAST戦略を決めるだけです。
+ユーザは個々の列について<literal>ALTER TABLE SET STORAGE</>を使って他の戦略を選択できます。
   </para>
 
   <para>
@@ -726,7 +730,7 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
 「システムが自動的に配列型を正しく作成するのであれば、<option>ELEMENT</>オプションはどうして存在するのだろう」と疑問に思うのも道理です疑問に思うのも道理です。
 <option>ELEMENT</>が意味を持つ、唯一の場合は次のような条件を満たす固定長の型を作成する時です。
 その条件とは、内部的に大量の同一の要素からなる配列となっていること、その配列に対して添字を指定して直接アクセスできること、加えて、今後作成する型全体に対する操作がどのようなものであっても、それらから直接アクセスできることです。
-例えば、<type>point</>型では、その構成要素である2つの浮動小数点にそれぞれ<literal>point[0]</>および<literal>point[1]</>を用いてアクセスすることができます。
+例えば、<type>point</>型は、2つの浮動小数点だけから構成され、それらは<literal>point[0]</>および<literal>point[1]</>を用いてアクセスすることができます。
 この機能は、その内部形式が同一の固定長フィールドの正確な並びである、固定長の型でのみ動作することに注意してください。
 添字による指定が可能な可変長型は、<literal>array_in</>と<literal>array_out</>を使用して、一般化された内部表現を持つ必要があります。 
 歴史的な理由（明らかに間違いなのですが、変更するには遅すぎたため）により、固定長配列型への要素番号指定は0から始まり、可変長配列の場合は1から始まります。 
