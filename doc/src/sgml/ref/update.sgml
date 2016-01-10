@@ -213,6 +213,7 @@ UPDATE [ ONLY ] <replaceable class="PARAMETER">table_name</replaceable> [ * ] [ 
     <term><replaceable class="PARAMETER">sub-SELECT</replaceable></term>
     <listitem>
      <para>
+<!--
       A <literal>SELECT</> sub-query that produces as many output columns
       as are listed in the parenthesized column list preceding it.  The
       sub-query must yield no more than one row when executed.  If it
@@ -220,6 +221,12 @@ UPDATE [ ONLY ] <replaceable class="PARAMETER">table_name</replaceable> [ * ] [ 
       if it yields no rows, NULL values are assigned to the target columns.
       The sub-query can refer to old values of the current row of the table
       being updated.
+-->
+その前の括弧内の列リストに列挙されているのと同じ数の出力列を生成する<literal>SELECT</>副問い合わせです。
+副問い合わせは実行時に最大でも1行しか生成してはいけません。
+1行だけ生成されたときは、各列の値が対象の列に代入されます。
+1行も生成されなかったときは、対象の列にNULL値が代入されます。
+副問い合わせは、更新対象のテーブルの現在行の古い値を参照することができます。
      </para>
     </listitem>
    </varlistentry>
@@ -476,19 +483,26 @@ UPDATE employees SET sales_count = sales_count + 1 WHERE id =
   </para>
 
   <para>
+<!--
    Update contact names in an accounts table to match the currently assigned
    salesmen:
+-->
+accountsテーブルのコンタクト先の氏名を、現在アサインされているセールスマンと一致するよう更新します。
 <programlisting>
 UPDATE accounts SET (contact_first_name, contact_last_name) =
     (SELECT first_name, last_name FROM salesmen
      WHERE salesmen.id = accounts.sales_id);
 </programlisting>
+<!--
    A similar result could be accomplished with a join:
+-->
+同じような結果は結合を使っても得ることができます。
 <programlisting>
 UPDATE accounts SET contact_first_name = first_name,
                     contact_last_name = last_name
   FROM salesmen WHERE salesmen.id = accounts.sales_id;
 </programlisting>
+<!--
    However, the second query may give unexpected results
    if <structname>salesmen</>.<structfield>id</> is not a unique key, whereas
    the first query is guaranteed to raise an error if there are multiple
@@ -496,10 +510,17 @@ UPDATE accounts SET contact_first_name = first_name,
    <structname>accounts</>.<structfield>sales_id</> entry, the first query
    will set the corresponding name fields to NULL, whereas the second query
    will not update that row at all.
+-->
+ただし、<structname>salesmen</>.<structfield>id</>が一意キーでない場合、2番目の問い合わせは予期しない結果をもたらすかもしれません。
+一方で、最初の問い合わせは、複数の<structfield>id</>がマッチしたときはエラーを発生することが保証されます。
+また、ある<structname>accounts</>.<structfield>sales_id</>エントリにマッチするレコードがない場合、最初の問い合わせは対応する名前フィールドをNULLに設定しますが、2番目の問い合わせは、その行を全く更新しません。
   </para>
 
   <para>
+<!--
    Update statistics in a summary table to match the current data:
+-->
+summaryテーブルの統計情報を現在のデータに合うように更新します。
 <programlisting>
 UPDATE summary s SET (sum_x, sum_y, avg_x, avg_y) =
     (SELECT sum(x), sum(y), avg(x), avg(y) FROM data d
@@ -584,6 +605,7 @@ UPDATE films SET kind = 'Dramatic' WHERE CURRENT OF c_films;
   </para>
 
   <para>
+<!--
    According to the standard, the source value for a parenthesized sub-list of
    column names can be any row-valued expression yielding the correct number
    of columns.  <productname>PostgreSQL</productname> only allows the source
@@ -591,6 +613,10 @@ UPDATE films SET kind = 'Dramatic' WHERE CURRENT OF c_films;
    sub-<literal>SELECT</>.  An individual column's updated value can be
    specified as <literal>DEFAULT</> in the row-constructor case, but not
    inside a sub-<literal>SELECT</>.
+-->
+標準に従うと、括弧内の列名の部分リストに対する入力値は、正しい数の列を生成する任意の行値による式です。
+<productname>PostgreSQL</productname>では入力値として、括弧内の式のリスト（行コンストラクタ）あるいはsub-<literal>SELECT</>しか許していません。
+行コンストラクタを使う場合、個々の列の更新値を<literal>DEFAULT</>として指定することができますが、sub-<literal>SELECT</>の内部ではできません。
   </para>
  </refsect1>
 </refentry>
