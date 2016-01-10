@@ -945,7 +945,7 @@ NULLキーがこの関数に渡されることはありません。
 1つのヒープ行の挿入または更新によりインデックスへの挿入が多く発生するという、転置インデックスの本質的な性質のため<acronym>GIN</acronym>インデックスの更新は低速になりがちです。
 （各キー用のヒープ行はインデックス付けされた項目から取り出されます。）
 <productname>PostgreSQL</productname> 8.4から<acronym>GIN</>は、新しいタプルを一時的なソートされていない、待機中の項目リストに挿入することにより、この作業の大部分を遅延させることができるようになりました。
-テーブルがバキュームされた時、または、待機中のリストが大きくなりすぎた（<xref linkend="guc-work-mem">よりも大きくなった）時、初期のインデックス作成の際に使用されるものと同様の一括挿入技法を使用して、項目は主<acronym>GIN</acronym>データ構造に移動されます。
+テーブルがバキュームされた時、または、待機中のリストが<xref linkend="guc-gin-pending-list-limit">よりも大きくなった時、初期のインデックス作成の際に使用されるものと同様の一括挿入技法を使用して、項目は主<acronym>GIN</acronym>データ構造に移動されます。
 これは、バキュームのオーバーヘッドが追加されることを考慮したとしても、<acronym>GIN</acronym>インデックスの更新速度を著しく向上します。
 さらに、フォアグラウンドの問い合わせ処理ではなくバックグラウンド処理でこのオーバーヘッド作業を実行することができます。
   </para>
@@ -974,7 +974,7 @@ NULLキーがこの関数に渡されることはありません。
    <acronym>GIN</acronym> index.  See <xref linkend="sql-createindex">
    for details.
 -->
-一貫した応答時間が更新速度より重要な場合、<acronym>GIN</acronym>インデックスに対する<literal>FASTUPDATE</literal>格納パラメータを無効にすることにより、待機中の項目の使用を無効にすることができます。
+一貫した応答時間が更新速度より重要な場合、<acronym>GIN</acronym>インデックスに対する<literal>fastupdate</literal>格納パラメータを無効にすることにより、待機中の項目の使用を無効にすることができます。
 詳細は<xref linkend="sql-createindex">を参照してください。
   </para>
  </sect2>
@@ -1079,18 +1079,21 @@ GINは<quote>部分一致</>問い合わせをサポートすることができ�
      However, enlarging the threshold of the cleanup operation means that
      if a foreground cleanup does occur, it will take even longer.
 -->
-既存の<literal>FASTUPDATE</>が有効な<acronym>GIN</acronym>インデックスに対して挿入を繰り返す間、待機中の項目リストが<varname>work_mem</>より大きくなると、システムはこのリストを整理します。
-観測される応答時間の変動を防ぐためには、待機中リストの整理をバックグラウンド（例えば自動バキューム）で起きるようにすることが望まれます。
-フォアグラウンドでの整理処理は、<varname>work_mem</>を大きくすること、もしくは自動バキュームをより積極的に行うことで防ぐことができます。
-しかし<varname>work_mem</>を大きくすることは、フォアグラウンドで整理処理が発生した時により長い時間がかかることを意味します。
-★★★
+<literal>fastupdate</>が有効な既存の<acronym>GIN</acronym>インデックスに対して挿入を繰り返す間、待機中の項目リストが<varname>gin_pending_list_limit</>より大きくなると、システムはこのリストを整理します。
+観測される応答時間の変動を防ぐためには、待機中リストの整理をバックグラウンド（すなわち自動バキューム）で起きるようにすることが望まれます。
+フォアグラウンドでの整理処理は、<varname>gin_pending_list_limit</>を大きくすること、もしくは自動バキュームをより積極的に行うことで防ぐことができます。
+しかし、整理処理の閾値を大きくすることは、フォアグラウンドで整理処理が発生した時により長い時間がかかることを意味します。
     </para>
     <para>
+<!--
      <varname>gin_pending_list_limit</> can be overridden for individual
      GIN indexes by changing storage parameters, and which allows each
      GIN index to have its own cleanup threshold.
      For example, it's possible to increase the threshold only for the GIN
      index which can be updated heavily, and decrease it otherwise.
+-->
+<varname>gin_pending_list_limit</>は格納パラメータを変更することで個々のGINインデックスに対して上書きでき、それにより各GINインデックスが自身の整理閾値を持てます。
+例えば、頻繁に更新される可能性のあるGINインデックスの閾値のみを増やして、それ以外は減らすことができます。
     </para>
    </listitem>
   </varlistentry>
