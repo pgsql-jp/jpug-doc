@@ -77,7 +77,10 @@ SELECT [ ALL | DISTINCT [ ON ( <replaceable class="parameter">expression</replac
                 [ WITH ORDINALITY ] [ [ AS ] <replaceable class="parameter">alias</replaceable> [ ( <replaceable class="parameter">column_alias</replaceable> [, ...] ) ] ]
     <replaceable class="parameter">from_item</replaceable> [ NATURAL ] <replaceable class="parameter">join_type</replaceable> <replaceable class="parameter">from_item</replaceable> [ ON <replaceable class="parameter">join_condition</replaceable> | USING ( <replaceable class="parameter">join_column</replaceable> [, ...] ) ]
 
+<!--
 <phrase>and <replaceable class="parameter">grouping_element</replaceable> can be one of:</phrase>
+-->
+<phrase>また<replaceable class="parameter">grouping_element</replaceable>は以下のいずれかです。</phrase>
 
     ( )
     <replaceable class="parameter">expression</replaceable>
@@ -504,6 +507,7 @@ TABLE [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ]
       <term><literal>TABLESAMPLE <replaceable class="parameter">sampling_method</replaceable> ( <replaceable class="parameter">argument</replaceable> [, ...] ) [ REPEATABLE ( <replaceable class="parameter">seed</replaceable> ) ]</literal></term>
       <listitem>
        <para>
+<!--
         A <literal>TABLESAMPLE</> clause after
         a <replaceable class="parameter">table_name</> indicates that the
         specified <replaceable class="parameter">sampling_method</replaceable>
@@ -514,9 +518,15 @@ TABLE [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ]
         includes two sampling methods, <literal>BERNOULLI</literal>
         and <literal>SYSTEM</literal>, and other sampling methods can be
         installed in the database via extensions.
+-->
+<replaceable class="parameter">table_name</>の後の<literal>TABLESAMPLE</>句は、そのテーブルの行の部分集合を取り出すときに、指定した<replaceable class="parameter">sampling_method</replaceable>を使うべきであることを示唆します。
+このサンプリングは<literal>WHERE</>など他のすべてのフィルタの適用に先立って行われます。
+<productname>PostgreSQL</productname>の標準ディストリビューションには、<literal>BERNOULLI</literal>と<literal>SYSTEM</literal>の2つのサンプリング方法が含まれています。
+他のサンプリング方法も拡張(extension)によりデータベースにインストールすることができます。
        </para>
 
        <para>
+<!--
         The <literal>BERNOULLI</> and <literal>SYSTEM</> sampling methods
         each accept a single <replaceable class="parameter">argument</>
         which is the fraction of the table to sample, expressed as a
@@ -535,9 +545,19 @@ TABLE [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ]
         the <literal>BERNOULLI</literal> method when small sampling
         percentages are specified, but it may return a less-random sample of
         the table as a result of clustering effects.
+-->
+サンプリング方法<literal>BERNOULLI</>と<literal>SYSTEM</>はいずれも1つだけ<replaceable class="parameter">argument</>を取り、これはテーブルからサンプリングする割合で0から100までのパーセントで表現されます。
+この引数は<type>real</>型の値を取る任意の式にできます。
+（他のサンプリング方法は、複数の、あるいは異なる引数を受け取るかもしれません。）
+これら2つの方法はいずれも、テーブルのうち指定された割合に近い行数を含む、ランダムに選択されたサンプルテーブルを返します。
+<literal>BERNOULLI</literal>では、テーブル全体を走査し、個々の行を別々に、指定された確率に従って、選択あるいは無視します。
+<literal>SYSTEM</literal>ではブロックレベルのサンプリングを行います。
+各ブロックは指定された確率で選択され、選択されたブロック内のすべての行が返されます。
+サンプリングに小さな割合が指定された場合、<literal>SYSTEM</literal>は<literal>BERNOULLI</literal>よりもかなり高速ですが、クラスタリング効果により、<literal>BERNOULLI</literal>に比べてランダムでないサンプルを返すかもしれません。
        </para>
 
        <para>
+<!--
         The optional <literal>REPEATABLE</literal> clause specifies
         a <replaceable class="parameter">seed</> number or expression to use
         for generating random numbers within the sampling method.  The seed
@@ -551,6 +571,13 @@ TABLE [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ]
         Note that some add-on sampling methods do not
         accept <literal>REPEATABLE</literal>, and will always produce new
         samples on each use.
+-->
+オプションの<literal>REPEATABLE</literal>句では、サンプリング方法で乱数を生成するための<replaceable class="parameter">seed</>の数あるいは式を指定します。
+シード値はNULL以外の任意の浮動点小数値とすることができます。
+シードと<replaceable class="parameter">argument</>の値が同じ2つの問い合わせは、その間にテーブルに変更がなければ、同じサンプルテーブルを返します。
+しかし、シードの値が異なれば、通常は異なるサンプルが生成されます。
+<literal>REPEATABLE</literal>が指定されていなければ、問い合わせ毎に新しくランダムなサンプルが生成されます。
+一部のアドオンのサンプリング方法では<literal>REPEATABLE</literal>が利用できず、使用の度に常に新しいサンプルを生成することに注意してください。
        </para>
       </listitem>
      </varlistentry>
@@ -988,11 +1015,12 @@ GROUP BY <replaceable class="parameter">grouping_element</replaceable> [, ...]
     input-column name rather than an output column name.
 -->
 <literal>GROUP BY</literal>は、グループ化のために与えられた式を評価し、結果が同じ値になった行を1つの行にまとめる機能を持ちます。
-<replaceable class="parameter">expression</replaceable>には、入力列の名前、出力列（<command>SELECT</command>リスト項目）の名前/序数、あるいは入力列の値から計算される任意の式を取ることができます。
+<replaceable class="parameter">grouping_element</replaceable>の内側で使われる<replaceable class="parameter">expression</replaceable>には、入力列の名前、出力列（<command>SELECT</command>リスト項目）の名前/序数、あるいは入力列の値から計算される任意の式を取ることができます。
 判断がつかない時は、<literal>GROUP BY</literal>の名前は出力列名ではなく入力列名として解釈されます。
    </para>
 
    <para>
+<!--
     If any of <literal>GROUPING SETS</>, <literal>ROLLUP</> or
     <literal>CUBE</> are present as grouping elements, then the
     <literal>GROUP BY</> clause as a whole defines some number of
@@ -1001,6 +1029,10 @@ GROUP BY <replaceable class="parameter">grouping_element</replaceable> [, ...]
     subqueries with the individual grouping sets as their
     <literal>GROUP BY</> clauses.  For further details on the handling
     of grouping sets see <xref linkend="queries-grouping-sets">.
+-->
+グループ化の要素として<literal>GROUPING SETS</>、<literal>ROLLUP</>、<literal>CUBE</>のいずれかが指定されている場合、<literal>GROUP BY</>句は全体でいくつかの独立した<replaceable>grouping sets</>を定義します。
+この効果は、個々のグループ集合を<literal>GROUP BY</>句で定義する副問い合わせを<literal>UNION ALL</>するのと同等です。
+グループ集合の処理の詳細については、<xref linkend="queries-grouping-sets">を参照してください。
    </para>
 
    <para>
@@ -2067,9 +2099,11 @@ KEY SHARE
     with the <literal>NOWAIT</> option first,
     if you need to acquire the table-level lock without waiting.
 -->
-他のトランザクションのコミットを待機することなく操作を進めるには、<literal>NOWAIT</>オプションを使用してください。
+他のトランザクションのコミットを待機することなく操作を進めるには、<literal>NOWAIT</>あるいは<literal>SKIP LOCKED</literal>オプションを使用してください。
 <literal>NOWAIT</>では、選択行のロックを即座に獲得できない時、文は待機せずに、エラーを報告します。
-<literal>NOWAIT</>は行レベルロックにのみに適用される点に注意してください。
+<literal>SKIP LOCKED</literal>では、即座にロックできない行はすべてスキップされます。
+行のロックをスキップすると、一貫性のないデータが見えることになるので、一般的な目的の作業のためには適しませんが、複数の消費者がキューのようなテーブルにアクセスするときのロック競合の回避などに利用できます。
+<literal>NOWAIT</>および<literal>SKIP LOCKED</literal>は行レベルロックにのみに適用される点に注意してください。
 つまり、必要な<literal>ROW SHARE</literal>テーブルレベルロックは通常通りの方法（ <xref linkend="mvcc">を参照）で獲得されます。
 もし、テーブルレベルのロックを待機せずに獲得しなければならないのであれば、最初に<xref linkend="sql-lock">の<literal>NOWAIT</>オプションを使用してください。
    </para>
@@ -2113,7 +2147,7 @@ KEY SHARE
 異なるロック方式を異なるテーブルに指定する必要があれば、複数のロック処理句を記述することができます。
 複数のロック処理句で同一のテーブルを記述した（または暗黙的に影響が与えられた）場合、最も強いものだけが指定されたかのように処理されます。
 同様に、あるテーブルに影響を与える句のいずれかで<literal>NOWAIT</>が指定された場合、そのテーブルは<literal>NOWAIT</>として処理されます。
-★★★
+それ以外の場合、あるテーブルに影響を与える句のいずれかで<literal>SKIP LOCKED</literal>が指定されていれば、そのテーブルは<literal>SKIP LOCKED</literal>として処理されます。
    </para>
 
    <para>
@@ -2725,12 +2759,19 @@ SELECT distributors.* WHERE distributors.name = 'Westward';
   </refsect2>
 
   <refsect2>
+<!--
    <title><literal>TABLESAMPLE</literal> Clause Restrictions</title>
+-->
+   <title><literal>TABLESAMPLE</literal>句の制限</title>
 
    <para>
+<!--
     The <literal>TABLESAMPLE</> clause is currently accepted only on
     regular tables and materialized views.  According to the SQL standard
     it should be possible to apply it to any <literal>FROM</> item.
+-->
+現在のところ、<literal>TABLESAMPLE</>句は通常のテーブルとマテリアライズドビューでのみ受け付けられます。
+SQL標準では、<literal>FROM</>句の任意の要素について適用可能であるべきとされています。
    </para>
   </refsect2>
 
@@ -2887,8 +2928,7 @@ SQL:1999以降では、SQL-92と完全には上位互換でない、多少異な
 <literal>FOR UPDATE</>は標準SQLに存在しますが、標準では、<command>DECLARE CURSOR</>のオプションとしてしか許されていません。
 <productname>PostgreSQL</productname>では、副<command>SELECT</>など任意の<command>SELECT</>で許されます。
 これは拡張です。
-<literal>FOR NO KEY UPDATE</>、<literal>FOR SHARE</>、<literal>FOR KEY SHARE</>の亜種、および<literal>NOWAIT</>オプションは標準にはありません。
-★★★
+<literal>FOR NO KEY UPDATE</>、<literal>FOR SHARE</>、<literal>FOR KEY SHARE</>の亜種、および<literal>NOWAIT</>と<literal>SKIP LOCKED</literal>オプションは標準にはありません。
    </para>
   </refsect2>
 
