@@ -1109,7 +1109,7 @@ SELECT plainto_tsquery('english', 'The Fat Rats');
     recognize Boolean operators, weight labels, or prefix-match labels
     in its input:
 -->
-<function>plainto_tsquery</>は、入力中の論理演算子も、重さラベルも、前方一致ラベルも認識できないことに注意してください。
+<function>plainto_tsquery</>は、入力中の論理演算子も、重み付けラベルも、前方一致ラベルも認識できないことに注意してください。
 
 <screen>
 SELECT plainto_tsquery('english', 'The Fat &amp; Rats:C');
@@ -1648,7 +1648,10 @@ FROM (SELECT id, body, q, ts_rank_cd(ti, q) AS rank
 
      <term>
      <indexterm>
+<!--
       <primary>tsvector concatenation</primary>
+-->
+      <primary>tsvectorの結合</primary>
      </indexterm>
 
       <literal><type>tsvector</> || <type>tsvector</></literal>
@@ -1670,7 +1673,10 @@ FROM (SELECT id, body, q, ts_rank_cd(ti, q) AS rank
        they would have affected the positions of the lexemes in the
        right-hand argument if textual concatenation were used.)
 -->
-<type>tsvector</>の結合演算子で、2つのベクトルの語彙素と位置情報を合成し、<type>tsvector</>を返します。右辺のベクトルの位置は左辺のベクトルの一番大きな位置情報のオフセットになります。その結果、この関数の結果は、元の文書を結合したものに<function>to_tsvector</>を適用したものとほぼ同じになります(まったく同じと言うわけではありません。左辺の引数の最後の位置にあるストップワードは取り除かれるのに対し、テキストの結合が行われた場合は、その影響が右辺の引数にある語彙素位置に影響を与えるからです)。
+<type>tsvector</>の結合演算子で、2つのベクトルの語彙素と位置情報を合成し、<type>tsvector</>を返します。
+位置と重み付けラベルは、結合では維持されます。
+右辺のベクトルの位置は左辺のベクトルの一番大きな位置情報のオフセットになります。その結果、この関数の結果は、元の2つの文書文字列を結合したものに<function>to_tsvector</>を適用したものとほぼ同じになります。
+(まったく同じと言うわけではありません。左辺の引数の最後から取り除かれたストップワードは結果に影響を与えないのに対し、テキストの結合が行われた場合は、右辺の引数にある語彙素位置に影響を与えるからです。)
       </para>
 
       <para>
@@ -4224,11 +4230,11 @@ SELECT plainto_tsquery('supernovae stars');
  </sect1>
 
  <sect1 id="textsearch-indexes">
-
 <!--
   <title>GIN and GiST Index Types</title>
 -->
   <title>GINおよびGiSTインデックス種類</title>
+
   <indexterm zone="textsearch-indexes">
    <primary>text search</primary>
    <secondary>indexes</secondary>
@@ -4298,13 +4304,20 @@ GiST (Generalized Search Tree)インデックスを作ります。<replaceable>c
   </para>
 
   <para>
+<!--
    GIN indexes are the preferred text search index type.  As inverted
    indexes, they contain an index entry for each word (lexeme), with a
    compressed list of matching locations.  Multi-word searches can find
    the first match, then use the index to remove rows that are lacking
    additional words.  GIN indexes store only the words (lexemes) of
    <type>tsvector</> values, and not their weight labels.  Thus a table
-   row recheck is needed when using a query that involves weights.★翻訳が必要です
+   row recheck is needed when using a query that involves weights.
+-->
+GINインデックスの方がより好ましいテキスト検索インデックス形式です。
+転置インデックスなので、マッチした位置の圧縮されたリストと合わせて各単語(語彙素)へのインデックスエントリを含みます。
+複数単語での検索は最初のマッチを見つけることができ、その後、追加の単語がない行を削除するのにインデックスを使えます。
+GINインデックスは<type>tsvector</>値の単語(語彙素)のみを格納しており、重み付けラベルは格納していません。
+そのため、重みを含む問い合わせを使う場合には、テーブル行の再検査が必要です。
   </para>
 
   <para>
@@ -4338,6 +4351,7 @@ GiSTインデックスが非可逆なのは、インデックス中の各文書�
   </para>
 
   <para>
+<!--
    Note that <acronym>GIN</acronym> index build time can often be improved
    by increasing <xref linkend="guc-maintenance-work-mem">, while
    <acronym>GiST</acronym> index build time is not sensitive to that
@@ -4347,6 +4361,7 @@ GiSTインデックスが非可逆なのは、インデックス中の各文書�
   </para>
 
   <para>
+<!--
    Partitioning of big collections and the proper use of GIN and GiST indexes
    allows the implementation of very fast searches with online update.
    Partitioning can be done at the database level using table inheritance,
@@ -4355,7 +4370,9 @@ GiSTインデックスが非可逆なのは、インデックス中の各文書�
    module. The latter is possible because ranking functions use
    only local information.
 -->
-大きなデータをパーティショニングし、GIN、GiSTインデックスを使うことによってオンラインの更新を伴いながら、非常に高速な検索を実現することができます。パーティショニングは、継承を使ってデータベースレベルで実現できます。あるいは、文書を複数のサーバに分散させ、<xref linkend="dblink">モジュールを使って検索結果を集約できます。これは、ランキング関数がローカルな情報しか使わないために可能になります。
+大きなデータをパーティショニングし、GIN、GiSTインデックスを適切に使うことによってオンラインの更新を伴いながら、非常に高速な検索を実現することができます。
+パーティショニングは、以下のどちらかの方法でデータベースレベルで実現できます。(1)テーブルの継承を使う。(2)文書を複数のサーバに分散させ、<xref linkend="dblink">モジュールを使って検索結果を集約する。
+2の方法は、ランキング関数がローカルな情報しか使わないため可能です。
   </para>
 
  </sect1>
