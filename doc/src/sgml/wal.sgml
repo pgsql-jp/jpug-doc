@@ -731,8 +731,8 @@ WALライタは稼働中に一回ページ全体を書き込むように設計�
    command <command>CHECKPOINT</command>.
 -->
 サーバのチェックポインタプロセスは自動的にチェックポイントを頻繁に実行します。
-<xref linkend="guc-max-wal-size">ログセグメント数に達するか、または<xref linkend="guc-checkpoint-timeout">秒が経過するか、どちらかの条件が満たされるとチェックポイントが開始されます。
-デフォルトの設定では、それぞれ3セグメントと300秒(5分)となっています。
+<xref linkend="guc-checkpoint-timeout">秒が経過するか、または<xref linkend="guc-max-wal-size">に達するか、どちらかの条件が最初に満たされるとチェックポイントが開始されます。
+デフォルトの設定では、それぞれ5分と1GBとなっています。
 前回のチェックポイント以降書き出すWALがない場合、<varname>checkpoint_timeout</>が経過したとしても新しいチェックポイントが飛ばされます。
 WALアーカイブ処理を使用しており、かつ、データ損失の可能性を限定するためにファイルのアーカイブ頻度に対する下限を設定したい場合、このチェックポイントパラメータではなく<xref linkend="guc-archive-timeout">パラメータを調節しなければなりません。
 また、<command>CHECKPOINT</command> SQLコマンドで強制的にチェックポイントを作成することもできます。
@@ -751,11 +751,11 @@ WALアーカイブ処理を使用しており、かつ、データ損失の可�
    logging the entire page content. In that case,
    a smaller checkpoint interval increases the volume of output to the WAL log,
    partially negating the goal of using a smaller interval,
-   and in any case causing more disk I/O.★コンフリクト解消に合わせて訳文も修正しました
+   and in any case causing more disk I/O.
 -->
-<varname>checkpoint_timeout</varname>、<varname>max_wal_size</varname>、またはその両者を減少させると、チェックポイントはより頻繁に行われます。
-これにより、再処理に要する時間がより少なくなりますのでクラッシュ後の修復は高速になります。
-しかし、より頻繁に行われるようになる、変更されたデータページの吐き出しにより増大するコストとバランスを考えなければなりません。
+<varname>checkpoint_timeout</varname>または<varname>max_wal_size</varname>、あるいはその両者を減少させると、チェックポイントはより頻繁に行われます。
+これにより、やり直しに要する処理量が少なくなるので、クラッシュ後の修復は高速になります。
+しかし、変更されたデータページの吐き出しがより頻繁に行われることにより増大するコストとバランスを考えなければなりません。
 <xref linkend="guc-full-page-writes">が設定されている（デフォルトです）場合、他に考慮しなければならない点があります。
 データページの一貫性を保証するために、各チェックポイント後の最初に変更されるデータページは、そのページ全体の内容がログに保存されることになります。
 このような場合、チェックポイントの間隔を少なくすることは、WALログへの出力を増加させ、間隔を短くする目的の一部を無意味にします。 
@@ -784,9 +784,9 @@ WALアーカイブ処理を使用しており、かつ、データ損失の可�
 1番の理由は、この処理は現時点の全てのダーティバッファを書き出す必要があること、2番目の理由は、上記のようにその後に余計なWALの書き込みが発生することです。
 そのため、チェックポイント用のパラメータを高くし、チェックポイントがあまりにも頻発することがないようにすることを勧めます。
 簡単なチェックポイント用のパラメータの健全性検査として、<xref linkend="guc-checkpoint-warning">パラメータを設定することができます。
-チェックポイントの発生間隔が<varname>checkpoint_warning</>秒未満の場合、<varname>checkpoint_segments</varname>の増加を勧めるメッセージがサーバのログに出力されます。
+チェックポイントの発生間隔が<varname>checkpoint_warning</>秒未満の場合、<varname>max_wal_size</varname>の増加を勧めるメッセージがサーバのログに出力されます。
 このメッセージが稀に現れたとしても問題にはなりませんが、頻出するようであれば、チェックポイントの制御パラメータを増加させるべきです。
-<varname>checkpoint_segments</>を十分高く設定していないと、大規模な<command>COPY</>転送などのまとまった操作でこうした警告が多く発生するかもしれません。
+<varname>max_wal_size</>を十分高く設定していないと、大規模な<command>COPY</>転送などのまとまった操作でこうした警告が多く発生するかもしれません。
   </para>
 
   <para>
@@ -817,7 +817,7 @@ WALアーカイブ処理を使用しており、かつ、データ損失の可�
 -->
 ページ書き出しの集中による入出力システムの溢れを防ぐために、チェックポイント期間のダーティバッファの書き出しは一定の期間に分散されます。
 この期間は<xref linkend="guc-checkpoint-completion-target">により制御され、チェックポイント間隔の割合として指定されます。
-I/Oの割合は、チェックポイントの起動時から<varname>checkpoint_segments</varname> WALセグメントが消費された時、あるいは、指定した<varname>checkpoint_timeout</varname>秒が経過した時、このどちらかが発生するとすぐに、チェックポイントが完了するように調整されます。
+I/Oの割合は、チェックポイントの起動時から<varname>checkpoint_timeout</varname>秒が経過した時、あるいは<varname>max_wal_size</varname>を超えた時、このどちらかが発生するとすぐに、チェックポイントが完了するように調整されます。
 デフォルトの0.5という値では、<productname>PostgreSQL</>は、次のチェックポイントが始まるまでのおよそ半分の時間で各チェックポイントが完了するものと想定できることになります。
 通常の操作においてほぼ最大のI/Oスループットに近いようなシステムでは、チェックポイントにおけるI/O負荷を減らすために<varname>checkpoint_completion_target</varname>を増やすことを勧めます。
 この欠点は、延長されたチェックポイントがリカバリ時に影響をあたえることです。
@@ -847,9 +847,20 @@ I/Oの割合は、チェックポイントの起動時から<varname>checkpoint_
    recycled for future usage; that much WAL is always recycled for future use,
    even if the system is idle and the WAL usage estimate suggests that little
    WAL is needed.
+-->
+<filename>pg_xlog</>ディレクトリ内のWALセグメントファイルの数は、<varname>min_wal_size</>、<varname>max_wal_size</>、それに前回のチェックポイントで生成されたWALの量に依存します。
+古いログセグメントファイルが不要になると、削除または再利用(連番のうち、今後利用される予定の番号に名前が変更されます)されます。
+ログの出力レートが短期間にピークを迎えたために<varname>max_wal_size</>を超えた場合、この制限以下になるまで不要なセグメントファイルが削除されます。
+この制限以下になると、次のチェックポイントまでは、システムは見積もりを満たすだけのWALファイルを再利用します。
+この見積は、前回のチェックポイントの際に使用されたWALファイルの移動平均に基づいています。
+もし実際の使用量が見積もりを上回ると、移動平均は直ちに増加します。
+これにより、平均需要というよりは、ピーク時の需要をある程度満たすことができるわけです。
+<varname>min_wal_size</>は、今後のために再利用されるWALファイル数の最小値を設定します。
+システムがアイドル状態にあり、WALの使用量を見積った結果、少ないWALしか必要ないとなったとしても、こうした量のWALファイルは必ず再利用されます。
   </para>
 
   <para>
+<!--
    Independently of <varname>max_wal_size</varname>,
    <xref linkend="guc-wal-keep-segments"> + 1 most recent WAL files are
    kept at all times. Also, if WAL archiving is used, old segments can not be
@@ -858,8 +869,12 @@ I/Oの割合は、チェックポイントの起動時から<varname>checkpoint_
    fails repeatedly, old WAL files will accumulate in <filename>pg_xlog</>
    until the situation is resolved. A slow or failed standby server that
    uses a replication slot will have the same effect (see
-   <xref linkend="streaming-replication-slots">). ★翻訳が必要です
+   <xref linkend="streaming-replication-slots">). 
 -->
+<varname>max_wal_size</varname>とは無関係に、WALファイルのうち、常に最新の(<xref linkend="guc-wal-keep-segments"> + 1)個が維持されます。
+また、WALアーカイブを利用している場合は、古いセグメントは、アーカイブされるまでは削除も再利用もされません。
+WALが生成されるペースにWALのアーカイブ処理が追いつかなかったり、<varname>archive_command</varname>が連続して失敗すると、事態が解決するまでWALファイルは<filename>pg_xlog</>の下に蓄積されていきます。
+レプリケーションスロットを使用しているスタンバイサーバが低速だったり、失敗すると、同じ現象が起きます(<xref linkend="streaming-replication-slots">を参照のこと)
   </para>
 
   <para>
@@ -873,24 +888,20 @@ I/Oの割合は、チェックポイントの起動時から<varname>checkpoint_
    directory.
    Restartpoints can't be performed more frequently than checkpoints in the
    master because restartpoints can only be performed at checkpoint records.
-   A restartpoint is triggered when a checkpoint record is reached if at★
-   least <varname>checkpoint_timeout</> seconds have passed since the last★
-   restartpoint, or if WAL size is about to exceed★
-   <varname>max_wal_size</>. However, because of limitations on when a★
-   restartpoint can be performed, <varname>max_wal_size</> is often exceeded★
-   during recovery, by up to one checkpoint cycle's worth of WAL.★
-   (<varname>max_wal_size</> is never a hard limit anyway, so you should★
-   always leave plenty of headroom to avoid running out of disk space.)★
-
-★は追加翻訳が必要箇所
+   A restartpoint is triggered when a checkpoint record is reached if at
+   least <varname>checkpoint_timeout</> seconds have passed since the last
+   restartpoint, or if WAL size is about to exceed
+   <varname>max_wal_size</>. However, because of limitations on when a
+   restartpoint can be performed, <varname>max_wal_size</> is often exceeded
+   during recovery, by up to one checkpoint cycle's worth of WAL.
+   (<varname>max_wal_size</> is never a hard limit anyway, so you should
+   always leave plenty of headroom to avoid running out of disk space.)
 -->
-アーカイブからのリカバリもしくはスタンバイモードにおいて、サーバでは定期的に通常運用でのチェックポイント処理と似た<firstterm>リスタートポイント</><indexterm><primary>restartpoint</></>処理を行います。これは、すでに再生されたWALを再度読み込む必要がないよう、ディスクに現在の状態を強制的に書き込み、<filename>pg_control</>ファイルを更新します。また<filename>pg_xlog</>ディレクトリの中の古いログセグメントを再利用できるようにします。
-リスタートポイント処理はチェックポイントが記録された時にしか実施されないので、マスタ側のチェックポイント処理よりも発生頻度は低いでしょう。
-再開始点は、最後の再開始点より少なくとも<varname>checkpoint_timeout</>秒が経過しているとすれば、チェックポイントレコードが到達された時点で始動されます。
-スタンバイモードにおいて、再開始点はもし最後の再開始点から最低限<varname>checkpoint_segments</>ログセグメントが再生された場合に、同様に始動されます。
-★追加翻訳必要箇所★
-
-
+アーカイブからのリカバリもしくはスタンバイモードにおいて、サーバでは定期的に通常運用でのチェックポイント処理と似た<firstterm>再開始点</><indexterm><primary>restartpoint</></>処理を行います。これは、すでに再生されたWALを再度読み込む必要がないよう、ディスクに現在の状態を強制的に書き込み、<filename>pg_control</>ファイルを更新します。また<filename>pg_xlog</>ディレクトリの中の古いログセグメントを再利用できるようにします。
+再開始点処理はチェックポイントレコードに対してしか実施されないので、マスタ側のチェックポイント処理よりも発生頻度が多いということはありません。
+再開始点は、最後の再開始点より少なくとも<varname>checkpoint_timeout</>秒が経過しているか、あるいは<varname>max_wal_size</>を超えそうな場合に起動されます。
+しかし、再開始点が実施できるための制約事項により、リカバリの際には1回のチェックポイント分のWALを上限に、<varname>max_wal_size</>を超えてしまいがちです。
+(どのみち<varname>max_wal_size</>はハードリミットではないので、ディスクスペースを使い尽くしてしまわないように、常に十分な余裕を持っておくべきです)
   </para>
 
   <para>
@@ -921,15 +932,15 @@ I/Oの割合は、チェックポイントの起動時から<varname>checkpoint_
    during the period immediately following each checkpoint.
 -->
 よく使われる2つの内部用<acronym>WAL</acronym>関数があります。
-<function>XLogInsert</function>と<function>XLogFlush</function>です。
-<function>XLogInsert</function>は共有メモリ上の<acronym>WAL</acronym>バッファに新しいレコードを挿入します。
-新しいレコードを挿入する余地がない時は、<function>XLogInsert</function>は、満杯になった<acronym>WAL</acronym>バッファを書き込み（カーネルキャッシュに移動）しなければいけません。
+<function>XLogInsertRecord</function>と<function>XLogFlush</function>です。
+<function>XLogInsertRecord</function>は共有メモリ上の<acronym>WAL</acronym>バッファに新しいレコードを挿入します。
+新しいレコードを挿入する余地がない時は、<function>XLogInsertRecord</function>は、満杯になった<acronym>WAL</acronym>バッファを書き込み（カーネルキャッシュに移動）しなければいけません。
 これは望ましいことではありません。 
-なぜなら、データベースへの低レベルの変更（例えば行の挿入）の度に<function>XLogInsert</function>が呼ばれますが、そのような場合には変更を受けたページに対して排他ロックがかかっており、それゆえこの操作は可能な限り高速に実行されなければなりません。
+なぜなら、データベースへの低レベルの変更（例えば行の挿入）の度に<function>XLogInsertRecord</function>が呼ばれますが、そのような場合には変更を受けたページに対して排他ロックがかかっており、それゆえこの操作は可能な限り高速に実行されなければなりません。
 さらに悪いことには、<acronym>WAL</acronym>バッファへの書き込みの際に、さらに時間がかかる、強制的な新しいログセグメントの生成が必要となるかもしれません。
 通常、<acronym>WAL</acronym>の書き込み、吐き出しは<function>XLogFlush</function>要求で実施されます。 
 これはたいていの場合、トランザクションコミットの際に永続的な記憶領域にトランザクションレコードが吐き出されることを保証するために行われます。
-ログ出力が大量に行われるシステムでは、<function>XLogInsert</function>によって必要となる書き込みを防ぐほどには<function>XLogFlush</function>要求が頻繁に起こらないかもしれません。
+ログ出力が大量に行われるシステムでは、<function>XLogInsertRecord</function>によって必要となる書き込みを防ぐほどには<function>XLogFlush</function>要求が頻繁に起こらないかもしれません。
 そういうシステムでは、<xref linkend="guc-wal-buffers">パラメータを変更して<acronym>WAL</acronym>バッファの数を増やしてください。
 <xref linkend="guc-full-page-writes">が設定され、かつ、システムが高負荷状態である場合、<varname>wal_buffers</>を高くすることで、各チェックポイントの直後の応答時間を滑らかにすることができます。
   </para>
@@ -1050,7 +1061,7 @@ WALログが高遅延の回転ディスクに格納されているとき、<varn
    <acronym>WAL</acronym> call being logged to the server log. This
    option might be replaced by a more general mechanism in the future.
 -->
-<xref linkend="guc-wal-debug">設定パラメータを有効にすることで、<function>XLogInsert</function>と<function>XLogFlush</function>という<acronym>WAL</acronym>呼び出しは毎回サーバログにログが残ります
+<xref linkend="guc-wal-debug">設定パラメータを有効にすることで、<function>XLogInsertRecord</function>と<function>XLogFlush</function>という<acronym>WAL</acronym>呼び出しは毎回サーバログにログが残ります
 （このパラメータをサポートするように<productname>PostgreSQL</productname>をコンパイルする必要があります）。
 将来このオプションはより一般的な機構に置き換わる可能性があります。
   </para>
@@ -1092,7 +1103,7 @@ WALログが高遅延の回転ディスクに格納されているとき、<varn
    available stock of numbers.
 -->
 <acronym>WAL</acronym>ログは、データディレクトリ以下の<filename>pg_xlog</filename>ディレクトリに、通常16メガバイトのサイズを持つセグメントファイルの集合として格納されています(ただし、このサイズはサーバ構築時の<option>--with-wal-segsize</>というconfigureオプションで変更できます)。各セグメントは通常8キロバイトのページに分割されます(このサイズは<option>--with-wal-blocksize</>というconfigureオプションで変更できます)。
-ログレコード用のヘッダは<filename>access/xlog.h</filename>に記述されています。 
+ログレコード用のヘッダは<filename>access/xlogrcord.h</filename>に記述されています。 
 レコードの内容は、ログの対象となる事象の種類によって異なります。
 セグメントファイルは名前として<filename>000000010000000000000000</filename>から始まる、常に増加する数が与えられています。
 数字は巡回しませんが、利用可能な数字を使い尽くすには非常に長い時間がかかるはずです。

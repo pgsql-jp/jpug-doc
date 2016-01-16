@@ -48,7 +48,7 @@ PostgreSQL documentation
    location for doing a restore using point-in-time recovery (see
    <xref linkend="continuous-archiving">).
 -->
-<application>pg_receivexlog</application>は実行中の<productname>PostgreSQL</productname>クラスタからトランザクションログをストリームするために使用されます。★
+<application>pg_receivexlog</application>は実行中の<productname>PostgreSQL</productname>クラスタからトランザクションログをストリームするために使用されます。
 トランザクションログはストリーミングレプリケーションプロトコルを使用してストリームされ、ローカルディレクトリのファイルとして書き出されます。
 このディレクトリはポイントインタイムリカバリ（<xref linkend="continuous-archiving">参照）を用いてリストアする際のアーカイブ場所として使用することができます。
   </para>
@@ -67,10 +67,14 @@ PostgreSQL documentation
   </para>
 
   <para>
+<!--
    Unlike the WAL receiver of a PostgreSQL standby server, <application>pg_receivexlog</>
    by default flushes WAL data only when a WAL file is closed.
-   The option <option>--synchronous</> must be specified to flush WAL data
+   The option <option>&#045;-synchronous</> must be specified to flush WAL data
    in real time.
+-->
+PostgreSQLのスタンバイサーバのWALレシーバと異なり、<application>pg_receivexlog</>はデフォルトでは、WALファイルがクローズされた時にのみ、WALデータをフラッシュします。
+WALデータをリアルタイムでフラッシュするには<option>--synchronous</>オプションを指定する必要があります。
   </para>
 
   <para>
@@ -86,7 +90,7 @@ PostgreSQL documentation
 -->
 トランザクションログは通常の<productname>PostgreSQL</productname>接続を経由して、そしてレプリケーションプロトコルを使用して、ストリームされます。
 この接続はスーパーユーザまたは<literal>REPLICATION</literal>権限（<xref linkend="role-attributes">参照）を持つユーザで確立されなければなりません。
-そして<filename>pg_hba.conf</filename>で明示的にレプリケーション用の接続を許可しなければなりません。
+そして<filename>pg_hba.conf</filename>でレプリケーション用の接続を許可しなければなりません。
 またサーバではストリーム用に利用できるセッションが少なくとも１つ存在できるために<xref linkend="guc-max-wal-senders">を十分大きく設定しなければなりません。
   </para>
 
@@ -133,8 +137,11 @@ PostgreSQL documentation
       <term><option>--if-not-exists</option></term>
       <listitem>
        <para>
-        Do not not error out when <option>--create-slot</option> is specified
+<!--
+        Do not not error out when <option>&#045;-create-slot</option> is specified
         and a slot with the specified name already exists.
+-->
+<option>--create-slot</option>が指定され、指定された名前のスロットが既に存在していた場合に、エラーを発生させません。
        </para>
       </listitem>
      </varlistentry>
@@ -180,23 +187,33 @@ PostgreSQL documentation
       <term><option>--slot=<replaceable class="parameter">slotname</replaceable></option></term>
       <listitem>
         <para>
+<!--
          Require <application>pg_receivexlog</application> to use an existing
          replication slot (see <xref linkend="streaming-replication-slots">).
          When this option is used, <application>pg_receivexlog</> will report
          a flush position to the server, indicating when each segment has been
          synchronized to disk so that the server can remove that segment if it
          is not otherwise needed.
+-->
+<application>pg_receivexlog</application>が既存のレプリケーションスロットを使うようにします(<xref linkend="streaming-replication-slots">を参照してください)。
+このオプションが使われると、<application>pg_receivexlog</>はフラッシュ位置をサーバに報告します。
+これは、各セグメントがいつディスクに同期されたかを示し、それによりサーバが必要のなくなったセグメントを削除できるようになります。
         </para>
 
         <para>
+<!--
          When the replication client
          of <application>pg_receivexlog</application> is configured on the
          server as a synchronous standby, then using a replication slot will
          report the flush position to the server, but only when a WAL file is
          closed.  Therefore, that configuration will cause transactions on the
          primary to wait for a long time and effectively not work
-         satisfactorily.  The option <literal>--synchronous</literal> (see
+         satisfactorily.  The option <literal>&#045;-synchronous</literal> (see
          below) must be specified in addition to make this work correctly.
+-->
+<application>pg_receivexlog</application>のレプリケーションクライアントが同期スタンバイとしてサーバ上で構成されている場合、レプリケーションスロットを利用するとフラッシュ位置がサーバに報告されますが、それはWALファイルがクローズされる時のみです。
+したがって、その構成ではプライマリ上のトランザクションが長時間待たされることになり、結果的に満足する動作を得られません。
+これを正しく動作させるには、追加で<literal>--synchronous</literal>オプション（以下を参照）を指定する必要があります。
         </para>
       </listitem>
      </varlistentry>
@@ -205,16 +222,23 @@ PostgreSQL documentation
       <term><option>--synchronous</option></term>
       <listitem>
        <para>
+<!--
         Flush the WAL data to disk immediately after it has been received. Also
         send a status packet back to the server immediately after flushing,
-        regardless of <literal>--status-interval</>.
+        regardless of <literal>&#045;-status-interval</>.
+-->
+WALデータを受け取ると即座にディスクにフラッシュします。
+またフラッシュした直後に、<literal>--status-interval</>の値が何であれ、ステータスパケットをサーバに送り返します。
        </para>
 
        <para>
+<!--
         This option should be specified if the replication client
         of <application>pg_receivexlog</application> is configured on the
         server as a synchronous standby, to ensure that timely feedback is
         sent to the server.
+-->
+<application>pg_receivexlog</application>のレプリケーションクライアントが同期スタンバイとしてサーバ上で構成されている場合、フィードバックが遅延なくサーバに送り返されることを確実にするため、このオプションを指定すべきです。
        </para>
       </listitem>
      </varlistentry>
@@ -367,16 +391,22 @@ PostgreSQL documentation
    </para>
 
    <para>
+<!--
     <application>pg_receivexlog</application> can perform one of the two
     following actions in order to control physical replication slots:
+-->
+<application>pg_receivexlog</application>は物理的なレプリケーションスロットを制御するため、以下の2つの動作のうちの1つを実行できます。
 
     <variablelist>
      <varlistentry>
       <term><option>--create-slot</option></term>
       <listitem>
        <para>
+<!--
         Create a new physical replication slot with the name specified in
-        <option>--slot</option>, then exit.
+        <option>&#045;-slot</option>, then exit.
+-->
+<option>--slot</option>で指定された名前の新しい物理的なレプリケーションスロットを作成して終了します。
        </para>
       </listitem>
      </varlistentry>
@@ -385,8 +415,11 @@ PostgreSQL documentation
       <term><option>--drop-slot</option></term>
       <listitem>
        <para>
+<!--
         Drop the replication slot with the name specified in
-        <option>--slot</option>, then exit.
+        <option>&#045;-slot</option>, then exit.
+-->
+<option>--slot</option>で指定された名前の物理的なレプリケーションスロットを削除して終了します。
        </para>
       </listitem>
      </varlistentry>
