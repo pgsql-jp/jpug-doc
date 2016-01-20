@@ -75,8 +75,7 @@ pg_dump <replaceable class="parameter">dbname</replaceable> &gt; <replaceable cl
 -->
 見てわかる通り、<application>pg_dump</>は結果を標準出力に書き出します。
 これがどのように活用できるかをこれから説明します。
-上記のコマンドがテキストファイルを作成している間、<application>pg_dump</>は並列実行やオブジェクトのより細かい制限に合わせてファイルを作ることができます。
-★★
+上記のコマンドはテキストファイルを作成しますが、<application>pg_dump</>は並列処理を可能にしたり、オブジェクトのリストアをより細かく制御できる他のフォーマットでファイルを作れます。
   </para>
 
   <para>
@@ -299,7 +298,7 @@ pg_dump -h <replaceable>host1</> <replaceable>dbname</> | psql -h <replaceable>h
     cluster, and also preserves cluster-wide data such as role and
     tablespace definitions. The basic usage of this command is:
 -->
-<application>pg_dump</>は同時に単一のデータベースのみをダンプします。
+<application>pg_dump</>は一度に単一のデータベースのみをダンプします。
 また、ロールやテーブル空間についての情報はダンプしません。
 （これらはテーブル毎ではなくクラスタ全体のものだからです。）
 データベースクラスタの全内容の簡便なダンプをサポートするために、<xref linkend="app-pg-dumpall">プログラムが提供されています。
@@ -498,7 +497,10 @@ pg_restore -d <replaceable class="parameter">dbname</replaceable> <replaceable c
      parallelism with the <command>-j</command> parameter. Parallel dumps
      are only supported for the "directory" archive format.
 -->
-<application>pg_dump</application>を並列実行することで、大きなデータベースのダンプを高速に実行することができます。これは同時に複数表のダンプを実行します。並列度は<command>-j</command>パラメータを指定することで制御できます。並列ダンプはディレクトリダンプ書式のみサポートします。
+<application>pg_dump</application>を並列実行することで、大きなデータベースのダンプを高速に実行することができます。
+これは同時に複数テーブルのダンプを実行します。
+並列度は<command>-j</command>パラメータを指定することで制御できます。
+並列ダンプはディレクトリダンプ書式のみサポートします。
 
 <programlisting>
 pg_dump -j <replaceable class="parameter">num</replaceable> -F d -f <replaceable class="parameter">out.dir</replaceable> <replaceable class="parameter">dbname</replaceable>
@@ -585,7 +587,7 @@ tar -cf backup.tar /usr/local/pgsql/data
       cluster useless.  So file system backups only work for complete
       backup and restoration of an entire database cluster.
 -->
-データベースのファイルシステムレイアウトの詳細を熟知している場合、ある個別のテーブルやデータベースをそれぞれのファイルやディレクトリからバックアップしたり復元したりすることを試みたいと思うことがあったかもしれません。
+データベースのファイルシステムレイアウトの詳細を熟知している場合、ある個別のテーブルやデータベースをそれぞれのファイルやディレクトリからバックアップしたり復元したりすることを試みたいと思うかもしれません。
 しかし、それらのファイル内の情報はすべてのトランザクションのコミット状態を保持するコミットログファイル<filename>pg_clog/*</filename>なしでは使えないため、この方法では正常なバックアップは<emphasis>行えません</>。
 テーブルファイルはこの情報があって初めて意味をなします。
 もちろんテーブルとそれに付帯する<filename>pg_clog</filename>データだけで復元することも、データベースクラスタにある他のテーブルを無効としてしまうのでできません。
@@ -665,7 +667,11 @@ tar -cf backup.tar /usr/local/pgsql/data
    will be consistent because the server was down.  This method
    allows a file system backup to be performed with minimal downtime.
 -->
-ファイルシステムをバックアップするその他の選択肢として<application>rsync</>の使用が挙げられます。これを行うには、先ずデータベースサーバが稼働中に<application>rsync</>を実行し、そして次の<application>rsync</>を実行するのに充分な余裕をもってデータベースサーバを停止します。次の<application>rsync</>は、比較的転送するデータ量が少なく、サーバが稼働していないため最終結果に矛盾がない事から、最初の<application>rsync</>よりもより迅速です。この方法で最小の稼働停止時間でファイルシステムのバックアップを行う事ができます。★★
+ファイルシステムをバックアップするその他の選択肢として<application>rsync</>の使用が挙げられます。
+これを行うには、先ずデータベースサーバが稼働中に<application>rsync</>を実行し、そして<command>rsync --checksum</>を実行するのに充分な間だけデータベースサーバを停止します。
+(<command>rsync</>はファイルの更新時刻に関して1秒の粒度しかありませんので、<option>--checksum</>が必要です。)
+次の<application>rsync</>は、比較的転送するデータ量が少なく、サーバが稼働していないため最終結果に矛盾がない事から、最初の<application>rsync</>よりも迅速です。
+この方法で最小の稼働停止時間でファイルシステムのバックアップを行う事ができます。
   </para>
 
   <para>
@@ -988,9 +994,8 @@ test ! -f /mnt/server/archivedir/00000001000000A900000065 &amp;&amp; cp pg_xlog/
     will return status zero when <option>-i</> is used and the target file
     already exists, which is <emphasis>not</> the desired behavior.)
 -->
-
 実際に既存のファイルを上書きしないこと、<emphasis>かつ、その場合に非ゼロのステータスを返すこと</>を確認するために使用するアーカイブ用コマンドを試験することを勧めます。
-上のUnix用のコマンド例では、別途<command>test</>という段階を含めることでこれを確認しています。いくつかのUnixプラットフォームでは<command>cp</>コマンドには<option>-i</> 引数を使うことで煩雑な出力を少なくし使うことができますが、正しい終了コードが返ることを確認せずに使用するべきではありません。(具体的にはGNUの<command>cp</>コマンドは<option>-i</> オプションなどを使い、ターゲットファイルがすでに存在している場合、ゼロのステータスを返します。これは<emphasis>期待していない</>動作です。）
+上のUnix用のコマンド例では、別途<command>test</>という段階を含めることでこれを確認しています。いくつかのUnixプラットフォームでは<command>cp</>コマンドには<option>-i</> 引数を使うことで煩雑な出力を少なくし使うことができますが、正しい終了コードが返ることを確認せずに使用するべきではありません。(具体的にはGNUの<command>cp</>コマンドは<option>-i</> オプションを使い、ターゲットファイルがすでに存在している場合、ゼロのステータスを返します。これは<emphasis>期待していない</>動作です。）
    </para>
 
    <para>
@@ -1010,7 +1015,7 @@ test ! -f /mnt/server/archivedir/00000001000000A900000065 &amp;&amp; cp pg_xlog/
     you free some space.)
 -->
 アーカイブ設定を設計する時には、操作者の介入が必要であったり、アーカイブ場所の容量不足の理由でアーカイブ用コマンドが繰り返し失敗した時にどうなるかを考慮してください。
-例えば、オートチェンジャ機能のないテープに書き出している場合に発生する可能性があります。
+例えば、これはオートチェンジャ機能のないテープに書き出している場合に発生する可能性があります。
 テープが一杯になった場合、テープを交換するまでアーカイブを行うことができなくなります。
 こうした状況を相応の早さで解消できるよう、適切に操作者に対しエラーや要求を確実に連絡できるようにしなければなりません。
 この状況が解消するまで、WALセグメントファイルは<filename>pg_xlog/</>ディレクトリ内に格納され続けます。（<filename>pg_xlog/</>を含むファイルシステムがいっぱいになると、<productname>PostgreSQL</>はパニック停止します。コミットされたトランザクションは失われませんが、データベースはいくらかの容量を開放するまでオフラインのままです。）
@@ -1218,9 +1223,7 @@ WALアーカイブによって<productname>PostgreSQL</>データベースでな
     sequence, and that the success of a step is verified before
     proceeding to the next step.
 -->
-
 低レベルのAPIを使ったベースバックアップを取得するには<xref linkend="app-pgbasebackup"> を使う方法に加えて数ステップが必要ですが、比較的簡単です。これらのステップは順番に実行することが重要で、次のステップに進む前にこれらのステップが成功していることを確認する必要があります。
-
   <orderedlist>
    <listitem>
     <para>
@@ -1254,8 +1257,9 @@ SELECT pg_start_backup('label');
 -->
 ここで<literal>label</>は、バックアップ操作を一意に識別するために使用する任意の文字列です
 （推奨方法は、格納先のバックアップダンプファイルの完全パスを使用することです）。
-<function>pg_start_backup</>は、開始時刻やラベル文字列などのバックアップ情報を持つ<filename>backup_label</>という名前の<firstterm>バックアップラベル</>ファイルを、クラスタディレクトリ内に作成します。このファイルはバックアップの完全性保持のために重要な意味をもつファイルでバックアップから必ずリストアする必要があるでしょう。
-★★★
+<function>pg_start_backup</>は、開始時刻やラベル文字列などのバックアップ情報を持つ<filename>backup_label</>という名前の<firstterm>バックアップラベル</>ファイルを、クラスタディレクトリ内に作成します。
+この関数は<filename>tablespace_map</>という名前の<firstterm>テーブル空間マップ</>ファイルもクラスタディレクトリ内に作ります。テーブル空間マップファイルには、もしそのようなリンクが1つ以上存在すれば<filename>pg_tblspc/</>内のテーブル空間シンボリックリンクに関する情報が入っています。
+どちらのファイルもバックアップの完全性保持のために重要な意味を持ちますので、バックアップから必ずリストアする必要があるでしょう。
     </para>
 
     <para>
@@ -1371,8 +1375,13 @@ SELECT pg_stop_backup();
     later, you can use the warning options <literal>&#045;-warning=no-file-changed
     &#045;-warning=no-file-removed</literal> to hide the related warning messages.
 -->
-ファイルシステムのバックアップツール中には複写している途中でファイルが変更されると警告もしくはエラーを報告するものがあります。稼働しているデータベースのベースバックアップを取っている場合には、この情況は正常でエラーではありません。しかし、この種の警告と本当のエラーとを区別できるか確認が必要です。例えば、<application>rsync</>のバージョンによっては<quote>消滅したソースファイル</>に対して別の退出コードを返し、そしてこの退出コードをエラーではないと受け付けるドライバスクリプトを記述することができます。同時にGNU <application>tar</>のバージョンによっては、<application>tar</>がそれを複写していた途中でファイルが切り詰められると、致命的エラーと識別できないエラーコードを返します。ありがたいことに、GNU <application>tar</>のバージョン1.16もしくはそれ以降では、バックアップ中にファイルが変更されると1で、それ以外のエラーの時は2でプログラムから抜けます。GNUの <application>tar</>で1.23以降のバージョンを使用しているのであれば、<literal>--warning=no-file-changed
-    --warning=no-file-removed</literal>オプションをつけることで関連する警告メッセージを隠すオプションを使用することができます。
+ファイルシステムのバックアップツール中には複写している途中でファイルが変更されると警告もしくはエラーを報告するものがあります。
+稼働しているデータベースのベースバックアップを取っている場合には、この情況は正常でエラーではありません。
+しかし、この種の警告と本当のエラーとを区別できるか確認が必要です。
+例えば、<application>rsync</>のバージョンによっては<quote>消滅したソースファイル</>に対して別の終了コードを返し、そしてこの終了コードをエラーではないと受け付けるドライバスクリプトを記述することができます。
+同時にGNU <application>tar</>のバージョンによっては、<application>tar</>がそれを複写していた途中でファイルが切り詰められると、致命的エラーと識別できないエラーコードを返します。
+ありがたいことに、GNU <application>tar</>のバージョン1.16もしくはそれ以降では、バックアップ中にファイルが変更されると1で、それ以外のエラーの時は2でプログラムから抜けます。
+GNUの <application>tar</>で1.23以降のバージョンを使用しているのであれば、<literal>--warning=no-file-changed --warning=no-file-removed</literal>オプションをつけることで関連する警告メッセージを隠すオプションを使用することができます。
    </para>
 
    <para>
@@ -1408,14 +1417,8 @@ SELECT pg_stop_backup();
 このちょっとした調整は、リストア処理中の失敗の危険性を低減できますので、行う価値があります。
 <filename>pg_xlog/</>がクラスタディレクトリ外のどこかを指し示すシンボリックリンクの場合は調整が簡単です。
 これは性能上の理由でよく使用される設定です。
-また、いずれこのバックアップを使う<application>postmaster</>ではなく、今起動している<application>postmaster</>の情報を記録している
-<filename>postmaster.pid</>と<filename>postmaster.opts</>も除外できます。(これらのファイルは<application>pg_ctl</>を誤作動させる可能性があります)
-   </para>
-
-   <para>
-最後のベースバックアップまで遡ることができる全てのアーカイブ済みWALファイルを保持する必要がありますので、ベースバックアップの実行間隔は通常、アーカイブ済みWALファイルを格納する領域をどれだけ拡張したいかによって決定されます。
-また、復旧処理に費すことができる時間がどの位許されるかについても考慮しなければなりません。
-復旧が必要になった時に、システムはこれらのセグメントを全てやり直しする必要がありますが、最後のベースバックアップからの経過時間が長ければその分やり直しに時間がかかります。
+また、いずれこのバックアップを使う<application>postmaster</>ではなく、今起動している<application>postmaster</>の情報を記録している<filename>postmaster.pid</>と<filename>postmaster.opts</>も除外できます。
+(これらのファイルは<application>pg_ctl</>を誤作動させる可能性があります。)
    </para>
 
    <para>
@@ -1455,12 +1458,13 @@ SELECT pg_stop_backup();
     contents are critical to the proper operation of the system's recovery
     process.
 -->
-また、<function>pg_start_backup</>関数がデータベースクラスタディレクトリ内に<filename>backup_label</>という名前のファイルを作成することに注意してください。★
+また、<function>pg_start_backup</>関数がデータベースクラスタディレクトリ内に<filename>backup_label</>と<filename>tablespace_map</>という名前のファイルを作成することに注意してください。
 これは、<function>pg_stop_backup</>によって削除されます。
 当然ながら、このファイルはバックアップダンプファイルの一部としてアーカイブされます。
 バックアップラベルファイルには、<function>pg_start_backup</>に付与したラベル文字列と<function>pg_start_backup</>が実行された時刻、最初のWALファイルの名前が含まれます。
 したがって、当惑した時にバックアップダンプファイルの中身を検索し、そのダンプファイルがどのバックアップセッションに由来したものかを確認することができます。
-しかし、このファイルはあなたのためだけの情報ではありません。バックアップラベルファイルの存在とその内容はリカバリを行うPostgreSQLのプロセスが適切に動作するために非常に重要です。
+テーブル空間マップファイルにはディレクトリ<filename>pg_tblspc/</>に存在するシンボリックリンク名と各シンボリックリンクのフルパスが含まれています。
+このファイルはあなたのためだけの情報ではありません。その存在と内容はシステムのリカバリプロセスが適切に動作するために非常に重要です。
    </para>
 
    <para>
@@ -1695,7 +1699,6 @@ restore_command = 'cp /mnt/server/archivedir/%f %p'
 アーカイブ場所で見つけられなかったWALセグメントは<filename>pg_xlog/</>から検索されます。
 これにより、最近の未アーカイブのセグメントを使用することができます。
 しかし、アーカイブ場所から利用できるセグメントは<filename>pg_xlog/</>内のファイルよりも優先的に使用されます。
-
    </para>
 
    <para>
@@ -1917,7 +1920,8 @@ restore_command = 'cp /mnt/server/archivedir/%f %p'
       included in the backup automatically, and no special action is
       required to restore the backup.
 -->
-ベースバックアップと同様に、スタンドアロンホットバックアップを作成する最も簡単な方法は <xref linkend="app-pgbasebackup">ツールを使用する方法です。実行時に<literal>-X</>オプションをつけることでバックアップに必要な全てのトランザクションログを自動的にバックアップに含めることができ、リストアするときには特に特別な作業を行う必要がありません。
+ベースバックアップと同様に、スタンドアローンホットバックアップを作成する最も簡単な方法は <xref linkend="app-pgbasebackup">ツールを使用する方法です。
+実行時に<literal>-X</>オプションをつけることでバックアップに必要な全てのトランザクションログを自動的にバックアップに含めることができ、リストアするときには特に特別な作業を行う必要がありません。
      </para>
 
      <para>
@@ -1928,21 +1932,20 @@ restore_command = 'cp /mnt/server/archivedir/%f %p'
       <literal>archive</> or higher, <varname>archive_mode</> to
       <literal>on</>, and set up an <varname>archive_command</> that performs
       archiving only when a <emphasis>switch file</> exists.  For example:
+-->
+バックアップファイルをコピーするのにより柔軟性が必要な場合、スタンドアローンホットバックアップのために低レベルのプロセスを使うこともできます。
+低レベルのスタンドアローンホットバックアップを取得するためには、準備として<varname>wal_level</>を<literal>archive</>以上にセットし、<varname>archive_mode</>を<literal>on</>にセットし、<emphasis>switch ファイル</>が存在する時のみに実行される<varname>archive_command</>をセットします。
+例：
 <programlisting>
 archive_command = 'test ! -f /var/lib/pgsql/backup_in_progress || (test ! -f /var/lib/pgsql/archive/%f &amp;&amp; cp %p /var/lib/pgsql/archive/%f)'
 </programlisting>
+<!--
       This command will perform archiving when
       <filename>/var/lib/pgsql/backup_in_progress</> exists, and otherwise
       silently return zero exit status (allowing <productname>PostgreSQL</>
       to recycle the unwanted WAL file).
 -->
-より柔軟なバックアップファイルが必要な場合、スタンドアローンホットバックアップと同様に低レベルのプロセスを使うこともできます。低レベルのスタンドアローンホットバックアップを取得するためには、準備として<varname>wal_level</>を<literal>archive</>以上にセットし、  <varname>archive_mode</>を<literal>on</>にセットし、<emphasis>switch ファイル</>が存在する時のみに実行される<varname>archive_command</>をセットします。例：
-<programlisting>
-archive_command = 'test ! -f /var/lib/pgsql/backup_in_progress || (test ! -f /var/lib/pgsql/archive/%f &amp;&amp; cp %p /var/lib/pgsql/archive/%f)'
-</programlisting>
-
-このコマンドは<filename>/var/lib/pgsql/backup_in_progress</> が存在する時のみ実行され、存在しない時は静かに0の退出コードを返します。(<productname>PostgreSQL</>に必要の無いWALファイルを再利用することを許可します)
-
+このコマンドは<filename>/var/lib/pgsql/backup_in_progress</> が存在する時のみ実行され、存在しない時は単に0の終了コードを返します(<productname>PostgreSQL</>に必要の無いWALファイルを再利用することを許可します)。
      </para>
 
      <para>
@@ -1969,10 +1972,9 @@ tar -rf /var/lib/pgsql/backup.tar /var/lib/pgsql/archive/
 -->
 完全なWALファイルのアーカイブが行われるように、スイッチファイル、<filename>/var/lib/pgsql/backup_in_progress</>が最初に作成されます。
 バックアップの後、スイッチファイルは削除されます。
-その後、アーカイブされたWALファイルは、ベースバックアップとすべての必要なWALファイル共に同じ<application>tar</>ファイルの一部になるよう、バックアップに追加されます。
-バックアップスクリプトにエラー処理を加えておくことを思い出してください。
+その後、ベースバックアップとすべての必要なWALファイルが共に同じ<application>tar</>ファイルの一部になるよう、アーカイブされたWALファイルはバックアップに追加されます。
+バックアップスクリプトにエラー処理を加えておくことを忘れないでください。
      </para>
-
     </sect3>
 
     <sect3 id="compressed-archive-logs">
@@ -2069,7 +2071,6 @@ archive_command = 'local_backup_script.sh "%p" "%f"'
        </listitem>
       </itemizedlist>
      </para>
-
      <tip>
       <para>
 <!--

@@ -384,8 +384,8 @@ CREATE [ [ GLOBAL | LOCAL ] { TEMPORARY | TEMP } | UNLOGGED ] TABLE [ IF NOT EXI
       tables from which the new table automatically inherits all
       columns.  Parent tables can be plain tables or foreign tables.
 -->
-<literal>INHERITS</>句でテーブルの一覧を指定すると、新しいテーブルは指定されたテーブルの全ての列を自動的に継承します。この句は省略可能です。
-★★★
+オプションの<literal>INHERITS</>句でテーブルの一覧を指定すると、新しいテーブルは指定されたテーブルの全ての列を自動的に継承します。
+親テーブルには通常のテーブルまたは外部テーブルを指定できます。
      </para>
 
      <para>
@@ -655,11 +655,15 @@ TRUEまたはUNKNOWNと評価される式は成功します。
      </para>
 
      <para>
+<!--
       When a table has multiple <literal>CHECK</literal> constraints,
       they will be tested for each row in alphabetical order by name,
       after checking <literal>NOT NULL</> constraints.
       (<productname>PostgreSQL</> versions before 9.5 did not honor any
       particular firing order for <literal>CHECK</literal> constraints.)
+-->
+テーブルに複数の<literal>CHECK</literal>制約がある場合、それらは<literal>NOT NULL</>制約について検証した後で、各行について名前のアルファベット順に検証されます。
+（<productname>PostgreSQL</>の9.5より前のバージョンでは、<literal>CHECK</literal>制約の実行について特定の順序はありませんでした。）
      </para>
     </listitem>
    </varlistentry>
@@ -1062,7 +1066,7 @@ predicateの前後に括弧が必要であることに注意して下さい。
 <literal>NOT DEFERRABLE</literal>がデフォルトです。
 現在、<literal>UNIQUE</>、<literal>PRIMARY KEY</>、<literal>EXCLUDE</>、<literal>REFERENCES</>（外部キー）制約のみがこの句を受け付けることができます。
 <literal>NOT NULL</>および <literal>CHECK</>制約は遅延させることができません。
-★★★
+遅延可能な制約は<literal>ON CONFLICT DO UPDATE</>句を含む<command>INSERT</command>文において、競合解決のために使うことはできないことに注意してください。
      </para>
     </listitem>
    </varlistentry>
@@ -1292,11 +1296,10 @@ predicateの前後に括弧が必要であることに注意して下さい。
 <literal>WITH</>句により、テーブルおよび<literal>UNIQUE</literal>、<literal>PRIMARY KEY</literal>、または<literal>EXCLUDE</>制約と関連づいたインデックスの<firstterm>格納パラメータ</>を指定することができます。
 インデックスの格納パラメータについては<xref linkend="SQL-CREATEINDEX">で説明します。
 現在テーブルで設定可能な格納パラメータの一覧を以下に示します。
-各パラメータに対して、注記がない限り、さらに<literal>toast</literal>という接頭辞のついた、同一の名前のパラメータがあります。
-これはもしあれば、テーブルの補助<acronym>TOAST</>テーブルの動作を制御するために使用することができます。
+これらのパラメータの多くに対して、示した通り、さらに<literal>toast</literal>という接頭辞のついた、同一の名前のパラメータがあります。
+これはもしあれば、テーブルの補助<acronym>TOAST</>テーブルの動作を制御します。
 (TOASTに関する詳細については<xref linkend="storage-toast">を参照してください。)
-TOASTテーブルは、<literal>toast.autovacuum_*</literal>の設定群の設定がない場合に親テーブルの<literal>autovacuum</literal>値を継承することに注意してください。
-★★★
+テーブルのパラメータ値が設定され、それと同等の<literal>toast.</literal>パラメータが設定されていない場合、TOASTテーブルはテーブルのパラメータ値を利用します。
    </para>
 
    <variablelist>
@@ -1348,14 +1351,14 @@ TOASTテーブルではこのパラメータを設定できません。
      setting this storage parameter to <literal>true</>, only
      to <literal>false</>.
 -->
-★★★
 特定のテーブルに対する自動バキュームデーモンを有効または無効にします。
 trueの場合、自動バキュームデーモンは、更新または削除されたタプル数が<literal>autovacuum_vacuum_threshold</>＋<literal>autovacuum_vacuum_scale_factor</>×リレーション内の推定有効タプル数を超えたときに、特定のテーブルに対する<command>VACUUM</>操作を始めます。
-同様に、挿入、更新、削除されたタプル数が<literal>autovacuum_analyze_threshold</>＋<literal>autovacuum_analyze_scale_factor</>×リレーション内の推定有効タプル数を超えたときに、<command>ANALYZE</>操作を始めます。
-falseの場合、トランザクション周回問題を回避するためを除き自動バキュームは行われません。
+trueの場合、自動バキュームデーモンは、<xref linkend="autovacuum">に記述されたルールに従って、このテーブルに対して自動的に<command>VACUUM</>あるいは<command>ANALYZE</>またはその両方の操作を行います。
+falseの場合、トランザクションIDの周回問題を回避するためを除き自動バキュームは行われません。
 周回問題の回避については<xref linkend="vacuum-for-wraparound">を参照してください。
-この変数が<xref linkend="guc-autovacuum">からの値を継承していることに気付いてください。
-★★★
+<xref linkend="guc-autovacuum">パラメータがfalseの場合、（トランザクションIDの周回問題を回避する場合を除き）自動バキュームデーモンはまったく実行されないことに注意して下さい。
+個々のテーブルの格納パラメータを設定しても、それは優先されません。
+従って、この格納パラメータを明示的に<literal>true</>に設定することにはほとんど意味はなく、<literal>false</>に設定することのみが意味を持ちます。
      </para>
     </listitem>
    </varlistentry>
@@ -1364,8 +1367,11 @@ falseの場合、トランザクション周回問題を回避するためを除
     <term><literal>autovacuum_vacuum_threshold</>, <literal>toast.autovacuum_vacuum_threshold</literal> (<type>integer</>)</term>
     <listitem>
      <para>
+<!--
       Per-table value for <xref linkend="guc-autovacuum-vacuum-threshold">
       parameter.
+-->
+<xref linkend="guc-autovacuum-vacuum-threshold">パラメータについて、テーブル毎に設定する値です。
      </para>
     </listitem>
    </varlistentry>
@@ -1374,8 +1380,11 @@ falseの場合、トランザクション周回問題を回避するためを除
     <term><literal>autovacuum_vacuum_scale_factor</>, <literal>toast.autovacuum_vacuum_scale_factor</literal> (<type>float4</>)</term>
     <listitem>
      <para>
+<!--
       Per-table value for <xref linkend="guc-autovacuum-vacuum-scale-factor">
       parameter.
+-->
+<xref linkend="guc-autovacuum-vacuum-scale-factor">パラメータについて、テーブル毎に設定する値です。
      </para>
     </listitem>
    </varlistentry>
@@ -1384,8 +1393,11 @@ falseの場合、トランザクション周回問題を回避するためを除
     <term><literal>autovacuum_analyze_threshold</> (<type>integer</>)</term>
     <listitem>
      <para>
+<!--
       Per-table value for <xref linkend="guc-autovacuum-analyze-threshold">
       parameter.
+-->
+<xref linkend="guc-autovacuum-analyze-threshold">パラメータについて、テーブル毎に設定する値です。
      </para>
     </listitem>
    </varlistentry>
@@ -1394,8 +1406,11 @@ falseの場合、トランザクション周回問題を回避するためを除
     <term><literal>autovacuum_analyze_scale_factor</> (<type>float4</>)</term>
     <listitem>
      <para>
+<!--
       Per-table value for <xref linkend="guc-autovacuum-analyze-scale-factor">
       parameter.
+-->
+<xref linkend="guc-autovacuum-analyze-scale-factor">パラメータについて、テーブル毎に設定する値です。
      </para>
     </listitem>
    </varlistentry>
@@ -1404,8 +1419,11 @@ falseの場合、トランザクション周回問題を回避するためを除
     <term><literal>autovacuum_vacuum_cost_delay</>, <literal>toast.autovacuum_vacuum_cost_delay</literal> (<type>integer</>)</term>
     <listitem>
      <para>
+<!--
       Per-table value for <xref linkend="guc-autovacuum-vacuum-cost-delay">
       parameter.
+-->
+<xref linkend="guc-autovacuum-vacuum-cost-delay">パラメータについて、テーブル毎に設定する値です。
      </para>
     </listitem>
    </varlistentry>
@@ -1414,8 +1432,11 @@ falseの場合、トランザクション周回問題を回避するためを除
     <term><literal>autovacuum_vacuum_cost_limit</>, <literal>toast.autovacuum_vacuum_cost_limit</literal> (<type>integer</>)</term>
     <listitem>
      <para>
+<!--
       Per-table value for <xref linkend="guc-autovacuum-vacuum-cost-limit">
       parameter.
+-->
+<xref linkend="guc-autovacuum-vacuum-cost-limit">パラメータについて、テーブル毎に設定する値です。
      </para>
     </listitem>
    </varlistentry>
@@ -1424,11 +1445,15 @@ falseの場合、トランザクション周回問題を回避するためを除
     <term><literal>autovacuum_freeze_min_age</>, <literal>toast.autovacuum_freeze_min_age</literal> (<type>integer</>)</term>
     <listitem>
      <para>
+<!--
       Per-table value for <xref linkend="guc-vacuum-freeze-min-age">
       parameter.  Note that autovacuum will ignore
       per-table <literal>autovacuum_freeze_min_age</> parameters that are
       larger than half the
       system-wide <xref linkend="guc-autovacuum-freeze-max-age"> setting.
+-->
+<xref linkend="guc-vacuum-freeze-min-age">パラメータについて、テーブル毎に設定する値です。
+テーブル単位の<literal>autovacuum_freeze_min_age</>パラメータをシステム全体の<xref linkend="guc-autovacuum-freeze-max-age">設定の1/2より大きく設定しても、自動バキュームが無視することに注意してください。
      </para>
     </listitem>
    </varlistentry>
@@ -1437,10 +1462,14 @@ falseの場合、トランザクション周回問題を回避するためを除
     <term><literal>autovacuum_freeze_max_age</>, <literal>toast.autovacuum_freeze_max_age</literal> (<type>integer</>)</term>
     <listitem>
      <para>
+<!--
       Per-table value for <xref linkend="guc-autovacuum-freeze-max-age">
       parameter.  Note that autovacuum will ignore
       per-table <literal>autovacuum_freeze_max_age</> parameters that are
       larger than the system-wide setting (it can only be set smaller).
+-->
+<xref linkend="guc-autovacuum-freeze-max-age">パラメータについて、テーブル毎に設定する値です。
+テーブル単位の<literal>autovacuum_freeze_max_age</>パラメータをシステム全体に対する設定より大きく設定しても、自動バキュームが無視することに注意してください（より小さな値しか設定できません）。
      </para>
     </listitem>
    </varlistentry>
@@ -1449,8 +1478,12 @@ falseの場合、トランザクション周回問題を回避するためを除
     <term><literal>autovacuum_freeze_table_age</literal>, <literal>toast.autovacuum_freeze_table_age</literal> (<type>integer</type>)</term>
     <listitem>
      <para>
+<!--
       Per-table value for <xref linkend="guc-vacuum-freeze-table-age">
       parameter.
+
+-->
+<xref linkend="guc-vacuum-freeze-table-age">パラメータについて、テーブル毎に設定する値です。
      </para>
     </listitem>
    </varlistentry>
@@ -1467,9 +1500,8 @@ falseの場合、トランザクション周回問題を回避するためを除
       system-wide <xref linkend="guc-autovacuum-multixact-freeze-max-age">
       setting.
 -->
-★★★
-<xref linkend="guc-vacuum-multixact-freeze-min-age">のカスタムパラメータです。
-テーブル単位の<literal>autovacuum_multixact_freeze_min_age</>をシステム全体の<xref linkend="guc-autovacuum-multixact-freeze-max-age">の半分より大きく設定しようとしても、自動バキュームが無視することに注意してください。
+<xref linkend="guc-vacuum-multixact-freeze-min-age">パラメータについて、テーブル毎に設定する値です。
+テーブル単位の<literal>autovacuum_multixact_freeze_min_age</>パラメータをシステム全体の<xref linkend="guc-autovacuum-multixact-freeze-max-age">の半分より大きく設定しても、自動バキュームが無視することに注意してください。
      </para>
     </listitem>
    </varlistentry>
@@ -1478,12 +1510,16 @@ falseの場合、トランザクション周回問題を回避するためを除
     <term><literal>autovacuum_multixact_freeze_max_age</literal>, <literal>toast.autovacuum_multixact_freeze_max_age</literal> (<type>integer</type>)</term>
     <listitem>
      <para>
+<!--
       Per-table value
       for <xref linkend="guc-autovacuum-multixact-freeze-max-age"> parameter.
       Note that autovacuum will ignore
       per-table <literal>autovacuum_multixact_freeze_max_age</> parameters
       that are larger than the system-wide setting (it can only be set
       smaller).
+-->
+<xref linkend="guc-autovacuum-multixact-freeze-max-age">パラメータについて、テーブル毎に設定する値です。
+テーブル単位の<literal>autovacuum_multixact_freeze_max_age</>をシステム全体に対する設定より大きくしても、自動バキュームが無視することに注意してください（より小さな値しか設定できません）。
      </para>
     </listitem>
    </varlistentry>
@@ -1492,8 +1528,11 @@ falseの場合、トランザクション周回問題を回避するためを除
     <term><literal>autovacuum_multixact_freeze_table_age</literal>, <literal>toast.autovacuum_multixact_freeze_table_age</literal> (<type>integer</type>)</term>
     <listitem>
      <para>
+<!--
       Per-table value
       for <xref linkend="guc-vacuum-multixact-freeze-table-age"> parameter.
+-->
+<xref linkend="guc-vacuum-multixact-freeze-table-age">パラメータについて、テーブル毎に設定する値です。
      </para>
     </listitem>
    </varlistentry>
@@ -1502,8 +1541,11 @@ falseの場合、トランザクション周回問題を回避するためを除
     <term><literal>log_autovacuum_min_duration</literal>, <literal>toast.log_autovacuum_min_duration</literal> (<type>integer</type>)</term>
     <listitem>
      <para>
+<!--
       Per-table value for <xref linkend="guc-log-autovacuum-min-duration">
       parameter.
+-->
+<xref linkend="guc-log-autovacuum-min-duration">パラメータについて、テーブル毎に設定する値です。
      </para>
     </listitem>
    </varlistentry>
@@ -1518,9 +1560,9 @@ falseの場合、トランザクション周回問題を回避するためを除
       <xref linkend="logicaldecoding-capabilities"> for details.
       This parameter cannot be set for TOAST tables.
 -->
-テーブルを(例えば、論理レプリケーションのための)追加のカタログテーブルとして宣言します。
+テーブルを論理レプリケーションのための追加のカタログテーブルとして宣言します。
 詳しくは<xref linkend="logicaldecoding-capabilities">を参照してください。
-★★★
+このパラメータはTOASTテーブルには設定できません。
      </para>
     </listitem>
    </varlistentry>

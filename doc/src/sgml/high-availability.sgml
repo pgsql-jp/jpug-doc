@@ -1940,14 +1940,22 @@ PostgreSQLは、WALデータをスタンバイが安全に受信したことが�
   </sect2>
 
   <sect2 id="continuous-archiving-in-standby">
+<!--
    <title>Continuous archiving in standby</title>
+-->
+   <title>スタンバイにおける継続的アーカイビング</title>
 
    <indexterm>
-     <primary>continuous archiving</primary>
-     <secondary>in standby</secondary>
+<!--
+    <primary>continuous archiving</primary>
+    <secondary>in standby</secondary>
+-->
+     <primary>継続的アーカイビング</primary>
+     <secondary>スタンバイにおける</secondary>
    </indexterm>
 
    <para>
+<!--
      When continuous WAL archiving is used in a standby, there are two
      different scenarios: the WAL archive can be shared between the primary
      and the standby, or the standby can have its own WAL archive. When
@@ -1963,9 +1971,18 @@ PostgreSQLは、WALデータをスタンバイが安全に受信したことが�
      but return success if the exactly same file is archived twice. And
      all that must be done free of race conditions, if two servers attempt
      to archive the same file at the same time.
+-->
+スタンバイにおいてWALの継続的アーカイビングが行われる場合、2つのシナリオが考えられます。
+WALアーカイブがプライマリとスタンバイで共有されるケースと、スタンバイが自分のWALアーカイブを持つケースです。
+スタンバイが自分のWALアーカイブを持つケースでは、<varname>archive_mode</varname>を<literal>always</literal>に設定しておくことにより、アーカイブからリストアされたWALセグメントであろうと、ストリーミングレプリケーション由来のWALセグメントであろうと、WALセグメントを受信する度にスタンバイはアーカイブコマンドを呼び出します。
+共有アーカイブのケースも同じように扱えますが、<varname>archive_command</varname>はアーカイブしようとしているファイルがすでに存在していて、それが同一内容かどうかのチェックを行う必要があります。
+このため、<varname>archive_command</varname>はより工夫が必要です。
+というのも、<varname>archive_command</varname>は既存のファイルを異なる内容で置き換えてはいけませんし、またまったく同じ内容のファイルを置き換えた場合には成功したと報告しなければならないからです。
+更に、2つのサーバが同時に同じファイルをアーカイブしようとした時に、競合状態が起きないようにしなければなりません。
    </para>
 
    <para>
+<!--
      If <varname>archive_mode</varname> is set to <literal>on</>, the
      archiver is not enabled during recovery or standby mode. If the standby
      server is promoted, it will start archiving after the promotion, but
@@ -1976,6 +1993,15 @@ PostgreSQLは、WALデータをスタンバイが安全に受信したことが�
      are found in the archive, but not if streaming replication is enabled.
      When a server is not in recovery mode, there is no difference between
      <literal>on</literal> and <literal>always</literal> modes.
+-->
+<varname>archive_mode</varname>が<literal>on</>の場合には、リカバリモードあるいはスタンバイモードではアーカイブは有効になりません。
+スタンバイサーバが昇格すると、昇格後にスタンバイサーバはアーカイブを開始します。
+しかし、自分が生成しなかったWALは一切アーカイブしません。
+完全な一連のWALファイルをアーカイブから取り出すためには、WALがスタンバイに到着する前に、すべてのWALがアーカイブされていることを保証しなければなりません。
+ファイルベースのログシッピングにおいても本質的にはこの通りです。
+というのも、スタンバイはアーカイブにあるファイルだけをリストアできるからです。
+ストリーミングレプリケーションが有効ならば、この限りではありません。
+サーバがリカバリモーでない場合には、<literal>on</literal>と<literal>always</literal>のモードの間には違いはありません。
    </para>
   </sect2>
   </sect1>
@@ -2071,6 +2097,7 @@ PostgreSQLは、WALデータをスタンバイが安全に受信したことが�
 以前のスタンバイサーバはプライマリサーバになり、以前のプライマリは停止し、その後も停止し続けるかもしれません。
 通常の運用に戻すには、スタンバイサーバを再作成しなければなりません。
 以前のプライマリサーバが起動できれば、これを使用しても構いませんし、第三のおそらく新規のシステムを使用しても構いません。
+<xref linkend="app-pgrewind">を使って、大きなクラスタにおける処理を早めることもできます。
 完了すれば、プライマリとスタンバイの役割が切り替わったとみなすことができます。
 新しいスタンバイサーバを再作成するまでに第三のサーバを使用して新しいプライマリのバックアップを提供することを選択する人もいますが、これがシステム構成と運用手順を複雑にすることは明らかです。
    </para>

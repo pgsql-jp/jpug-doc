@@ -58,7 +58,7 @@ PostgreSQLはユーザ提供のコードを別のプロセスとして実行で�
   the postmaster, <function>RegisterDynamicBackgroundWorker</function> must be
   called from a regular backend.
 -->
-バックグラウンドワーカは<productname>PostgreSQL</>スタート時にモジュールを <varname>shared_preload_libraries</> に記すことによって実行できます。バックグラウンドワーカとして実行したいモジュールは <function>RegisterBackgroundWorker (<type>BackgroundWorker *worker</type>) </function> を <function>_PG_init()</> から呼び出して登録する必要があります。バックグラウンドワーカはシステム起動後も <function>RegisterDynamicBackgroundWorker (<type>BackgroundWorker *worker, BackgroundWorkerHandle **handle</type>) </function> を呼び出すことによって実行することができます。<function>RegisterBackgroundWorker</> とは異なり、postmasterからのみ呼び出すことができます。 <function>RegisterDynamicBackgroundWorker</function> は通常のバックエンドから呼び出す必要があります。
+バックグラウンドワーカは<productname>PostgreSQL</>スタート時にモジュールを <varname>shared_preload_libraries</> に記すことによって実行できます。バックグラウンドワーカとして実行したいモジュールは <function>RegisterBackgroundWorker(<type>BackgroundWorker *worker</type>)</function> を <function>_PG_init()</> から呼び出して登録する必要があります。バックグラウンドワーカはシステム起動後も <function>RegisterDynamicBackgroundWorker(<type>BackgroundWorker *worker, BackgroundWorkerHandle **handle</type>)</function> を呼び出すことによって実行することができます。<function>RegisterBackgroundWorker</> とは異なり、postmasterからのみ呼び出すことができます。 <function>RegisterDynamicBackgroundWorker</function> は通常のバックエンドから呼び出す必要があります。
  </para>
 
  <para>
@@ -187,11 +187,16 @@ typedef struct BackgroundWorker
   </para>
 
   <para>
+<!--
    <structfield>bgw_extra</structfield> can contain extra data to be passed
    to the background worker.  Unlike <structfield>bgw_main_arg</>, this data
    is not passed as an argument to the worker's main function, but it can be
    accessed via <literal>MyBgworkerEntry</literal>, as discussed above.
+-->
+<structfield>bgw_extra</structfield>はバックグラウンドワーカに渡す追加データを含めることが出来ます。
+<structfield>bgw_main_arg</>とは異なり、このデータはワーカのメイン関数の引数として渡されていませんが、上述したように<literal>MyBgworkerEntry</literal>を介してアクセスすることが出来ます。
   </para>
+
   <para>
 <!--
    <structfield>bgw_notify_pid</structfield> is the PID of a PostgreSQL
@@ -220,9 +225,12 @@ typedef struct BackgroundWorker
   </para>
 -->
   <para>
-ひとたび実行すると、このプロセスは <function>BackgroundWorkerInitializeConnection( <parameter>char *dbname</parameter> 、 <parameter>char *username</parameter> )</function> ★★★を呼び出すことによって、データベースに接続できます。
-これはプロセスに <literal>SPI</literal> を使用してのトランザクションとクエリの実行を許します。★★★もし、 <varname>dbname</> がNULLであった場合、そのセッションは特定のデータベースに接続しません。しかし、共有カタログにはアクセスできます。もし、 <varname>username</> がNULLの場合、そのプロセスは <command>initdb</> 時に作成されたスーパーユーザとして実行されます。
-BackgroundWorkerInitializeConnectionは、バックグラウンドワーカごとに一度のみ呼ぶことができ、これはデータベースを切り替えることができません。
+ひとたび実行すると、このプロセスは<function>BackgroundWorkerInitializeConnection(<parameter>char *dbname</parameter>, <parameter>char *username</parameter>)</function>または<function>BackgroundWorkerInitializeConnectionByOid(<parameter>Oid dboid</parameter>, <parameter>Oid useroid</parameter>)</function>を呼び出すことによって、データベースに接続できます。
+これはプロセスに<literal>SPI</literal>インタフェースを使用してのトランザクションとクエリの実行を許します。
+もし、<varname>dbname</>がNULLであった場合、または<varname>dboid</>が<literal>InvalidOid</>であった場合には、そのセッションは特定のデータベースに接続しません。しかし、共有カタログにはアクセス出来ます。
+もし、<varname>username</> がNULLの場合、または<varname>useroid</>が<literal>InvalidOid</>の場合には、そのプロセスは <command>initdb</>時に作成されたスーパーユーザとして実行されます。
+バックグラウンドワーカはこれら２つの関数をどちらかを一度だけ呼ぶことが出来ます。
+これはデータベースを切り替えることができません。
   </para>
 
   <para>
@@ -282,7 +290,7 @@ BackgroundWorkerInitializeConnectionは、バックグラウンドワーカご�
    <literal>SIGTERM</> to the worker if it is running, and to unregister it
    as soon as it is not.
 -->
-バックグラウンドワーカを <function>RegisterDynamicBackgroundWorker</function> 関数により登録している場合、登録を実行するバックエンドはワーカの状態に関する情報を取得することが可能です。取得したい場合は <function>RegisterDynamicBackgroundWorker</function> に <type>BackgroundWorkerHandle *</type> のアドレスを渡す必要があります。もし登録に成功した場合、 <function>GetBackgroundWorkerPid (<parameter>BackgroundWorkerHandle *</parameter> 、 <parameter>pid_t *</parameter>) </function> 、または <function>TerminateBackgroundWorker (<parameter>BackgroundWorkerHandle *</parameter>) </function> のポインタは初期化されます。
+バックグラウンドワーカを <function>RegisterDynamicBackgroundWorker</function> 関数により登録している場合、登録を実行するバックエンドはワーカの状態に関する情報を取得することが可能です。取得したい場合は <function>RegisterDynamicBackgroundWorker</function> に <type>BackgroundWorkerHandle *</type> のアドレスを渡す必要があります。もし登録に成功した場合、 <function>GetBackgroundWorkerPid(<parameter>BackgroundWorkerHandle *</parameter>, <parameter>pid_t *</parameter>)</function>または<function>TerminateBackgroundWorker(<parameter>BackgroundWorkerHandle *</parameter>)</function> のポインタは初期化されます。
  <function>GetBackgroundWorkerPid</> はワーカの状態を監視することができます。以下の返り値が得られます。 <literal>BGWH_NOT_YET_STARTED</> ワーカはまだpostmasterにより開始されていない。<literal>BGWH_STOPPED</literal>開始されたが、もはや実行されていない。 <literal>BGWH_STARTED</literal>実行中です。この最後のケースでは、PIDは、第二の引数を介して返されます。
 <function>TerminateBackgroundWorker</>はワーカが実行していた場合postmasterがワーカに <literal>SIGTERM</> を送信し、まもなく登録を解除します。
   </para>
@@ -303,7 +311,7 @@ BackgroundWorkerInitializeConnectionは、バックグラウンドワーカご�
    value will be <literal>BGWH_STOPPED</literal> or
    <literal>BGWH_POSTMASTER_DIED</literal>.
 -->
- 場合によっては、バックグラウンドワーカを登録する処理は、ワーカが起動するのを待つことをお勧めします。これは <structfield>bgw_notify_pid</structfield> から <literal>MyProcPid</> で初期化し登録時に得られた <type>BackgroundWorkerHandle *</type> を使用して <function>WaitForBackgroundWorkerStartup (<parameter>BackgroundWorkerHandle *handle</parameter>、 <parameter>pid_t *</parameter>) </function> 関数を呼び出すことで実現します。
+ 場合によっては、バックグラウンドワーカを登録する処理は、ワーカが起動するのを待つことをお勧めします。これは <structfield>bgw_notify_pid</structfield> から <literal>MyProcPid</> で初期化し登録時に得られた <type>BackgroundWorkerHandle *</type> を使用して <function>WaitForBackgroundWorkerStartup(<parameter>BackgroundWorkerHandle *handle</parameter>, <parameter>pid_t *</parameter>)</function> 関数を呼び出すことで実現します。
  postmasterがバックグラウンドワーカを開始しようと試みたか、postmasterが死ぬまで、この関数はブロックします。バックグラウンドランナーが実行されている場合、戻り値は <literal>BGWH_STARTED</> 、およびPIDが提供されたアドレスに書き込まれます。そうでない場合、戻り値は <literal>BGWH_STOPPED</literal> または <literal>BGWH_POSTMASTER_DIED</literal> になります。
   </para>
 

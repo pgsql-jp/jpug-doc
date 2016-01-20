@@ -806,45 +806,6 @@ usable in all the same cases as a similarly-named operator on the base type.
 </para>
 </example>
 
-<example>
-<title>Custom Operator on a Domain Type</title>
-
-<para>
-Users sometimes try to declare operators applying just to a domain type.
-This is possible but is not nearly as useful as it might seem, because the
-operator resolution rules are designed to select operators applying to the
-domain's base type.  As an example consider
-<screen>
-CREATE DOMAIN mytext AS text CHECK(...);
-CREATE FUNCTION mytext_eq_text (mytext, text) RETURNS boolean AS ...;
-CREATE OPERATOR = (procedure=mytext_eq_text, leftarg=mytext, rightarg=text);
-CREATE TABLE mytable (val mytext);
-
-SELECT * FROM mytable WHERE val = 'foo';
-</screen>
-This query will not use the custom operator.  The parser will first see if
-there is a <type>mytext</> <literal>=</> <type>mytext</> operator
-(<xref linkend="op-resol-exact-unknown">), which there is not;
-then it will consider the domain's base type <type>text</>, and see if
-there is a <type>text</> <literal>=</> <type>text</> operator
-(<xref linkend="op-resol-exact-domain">), which there is;
-so it resolves the <type>unknown</>-type literal as <type>text</> and
-uses the <type>text</> <literal>=</> <type>text</> operator.
-The only way to get the custom operator to be used is to explicitly cast
-the literal:
-<screen>
-SELECT * FROM mytable WHERE val = text 'foo';
-</screen>
-so that the <type>mytext</> <literal>=</> <type>text</> operator is found
-immediately according to the exact-match rule.  If the best-match rules
-are reached, they actively discriminate against operators on domain types.
-If they did not, such an operator would create too many ambiguous-operator
-failures, because the casting rules always consider a domain as castable
-to or from its base type, and so the domain operator would be considered
-usable in all the same cases as a similarly-named operator on the base type.
-</para>
-</example>
-
 </sect1>
 
 <sect1 id="typeconv-func">
@@ -1027,18 +988,6 @@ act like their base types for purposes of ambiguous-function resolution.
 </step>
 <step performance="required">
 <para>
-
-<!--
-If any input argument is of a domain type, treat it as being of the
-domain's base type for all subsequent steps.  This ensures that domains
-act like their base types for purposes of ambiguous-function resolution.
-★翻訳が必要です
--->
-</para>
-</step>
-<step performance="required">
-<para>
-
 <!--
 Run through all candidates and keep those with the most exact matches
 on input types.  Keep all candidates if none have exact matches.
@@ -1305,18 +1254,17 @@ Check for an exact match with the target.
 
 <step performance="required">
 <para>
-
 <!--
 Otherwise, try to convert the expression to the target type.  This is possible
 if an <firstterm>assignment cast</> between the two types is registered in the
 <structname>pg_cast</> catalog (see <xref linkend="sql-createcast">).
 Alternatively, if the expression is an unknown-type literal, the contents of
 the literal string will be fed to the input conversion routine for the target
-type.★翻訳が必要です。
+type.
 -->
 なければ、式を対象の型に変換してみます。
-★ここに翻訳文が必要です。
-
+もし2つの型の間の<firstterm>代入キャスト</>が<structname>pg_cast</>カタログ(<xref linkend="sql-createcast">を参照してください)に登録されている場合、これは可能です。
+あるいは、もし式がunknown型リテラルの場合、リテラル文字列の内容は対象の型の入力変換ルーチンに与えられます。
 </para>
 </step>
 
@@ -1489,7 +1437,6 @@ resolve as that type.
 
 <step performance="required">
 <para>
-
 <!--
 If any input is of a domain type, treat it as being of the
 domain's base type for all subsequent steps.
