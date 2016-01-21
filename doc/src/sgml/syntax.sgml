@@ -1554,6 +1554,10 @@ SQLでは、この構文を数個のデータ型でのみ規定しています�
     Most operators have the same precedence and are left-associative.
     The precedence and associativity of the operators is hard-wired
     into the parser.
+-->
+<xref linkend="sql-precedence-table">は、<productname>PostgreSQL</>の演算子の優先順位と結合性を示しています。
+ほとんどの演算子は同じ優先順位を持ち、左結合します。
+演算子の優先順位と結合性はパーサに組み込まれています。
    </para>
 
    <para>
@@ -1561,12 +1565,7 @@ SQLでは、この構文を数個のデータ型でのみ規定しています�
     sometimes need to add parentheses when using combinations of
     binary and unary operators.  For instance:
 -->
-<xref linkend="sql-precedence-table">は、<productname>PostgreSQL</>の演算子の優先順位と結合性を示しています。
-ほとんどの演算子は同じ優先順位を持ち、左結合します。
-演算子の優先順位と結合性はパーサに組み込まれています。
-これは非直感的な動作を導く可能性があります。 
-例えば、ブーリアン演算子<literal>&lt;</>と<literal>&gt;</>は、ブーリアン演算子<literal>&lt;=</>と<literal>&gt;=</>とは違った優先順位を持ちます。
-さらに、二項演算子と単項演算子を組み合わせて使う場合は括弧を加える必要がある場合があります。
+二項演算子と単項演算子を組み合わせて使う場合は括弧を加える必要がある場合があります。
 例えば下記のような場合です。
 <programlisting>
 SELECT 5 ! - 6;
@@ -1600,7 +1599,8 @@ SELECT (5 !) - 6;
 <!--
     <title>Operator Precedence (highest to lowest)</title>
 -->
-    <title>演算子の優先順位（強いものから弱いものへ）</title>
+    <title>演算子の優先順位（高いものから低いものへ）</title>
+
     <tgroup cols="3">
      <thead>
       <row>
@@ -1688,9 +1688,9 @@ SELECT (5 !) - 6;
 
       <row>
 <!--
-       <entry>(any other)</entry>
+       <entry>(any other operator)</entry>
 -->
-       <entry>（その他）</entry>
+       <entry>(その他の演算子)</entry>
 <!--
        <entry>left</entry>
        <entry>all other native and user-defined operators</entry>
@@ -1702,23 +1702,30 @@ SELECT (5 !) - 6;
       <row>
        <entry><token>BETWEEN</token> <token>IN</token> <token>LIKE</token> <token>ILIKE</token> <token>SIMILAR</token></entry>
        <entry></entry>
+<!--
        <entry>range containment, set membership, string matching</entry>
+-->
+       <entry>範囲内に包含、集合の要素、文字列の一致</entry>
       </row>
 
       <row>
        <entry><token>&lt;</token> <token>&gt;</token> <token>=</token> <token>&lt;=</token> <token>&gt;=</token> <token>&lt;&gt;</token>
 </entry>
        <entry></entry>
+<!--
        <entry>comparison operators</entry>
-
+-->
+       <entry>比較演算子</entry>
       </row>
 
       <row>
        <entry><token>IS</token> <token>ISNULL</token> <token>NOTNULL</token></entry>
        <entry></entry>
+<!--
        <entry><literal>IS TRUE</>, <literal>IS FALSE</>, <literal>IS
        NULL</>, <literal>IS DISTINCT FROM</>, etc</entry>
-
+-->
+       <entry><literal>IS TRUE</>、<literal>IS FALSE</>、<literal>IS NULL</>、<literal>IS DISTINCT FROM</>、その他</entry>
       </row>
 
       <row>
@@ -1782,12 +1789,13 @@ SELECT 3 OPERATOR(pg_catalog.+) 4;
     <quote>any other operator</>.  This is true no matter
     which specific operator appears inside <literal>OPERATOR()</>.
 -->
-<literal>OPERATOR</>構文は、<xref linkend="sql-precedence-table">の<quote>その他</>演算子で示されているデフォルトの優先順位を持つとみなされます。
+<literal>OPERATOR</>構文は、<xref linkend="sql-precedence-table">の<quote>その他の演算子</>で示されているデフォルトの優先順位を持つとみなされます。
 これは、<literal>OPERATOR()</>にどの特定の演算子が入る場合でも変わりません。
    </para>
 
    <note>
     <para>
+<!--
      <productname>PostgreSQL</> versions before 9.5 used slightly different
      operator precedence rules.  In particular, <token>&lt;=</token>
      <token>&gt;=</token> and <token>&lt;&gt;</token> used to be treated as
@@ -1805,6 +1813,13 @@ SELECT 3 OPERATOR(pg_catalog.+) 4;
      you can test your application with the configuration
      parameter <xref linkend="guc-operator-precedence-warning"> turned on
      to see if any warnings are logged.
+-->
+9.5より前の<productname>PostgreSQL</>のバージョンでは少し異なる演算子優先順位規則を使っていました。
+特に<token>&lt;=</token>、<token>&gt;=</token>、<token>&lt;&gt;</token>は一般的な演算子として扱われていました。<literal>IS</>テストは高い優先順位を持つとして使われていました。<literal>NOT BETWEEN</>とそれに関係する構文は振る舞いが一貫しておらず、<literal>BETWEEN</>ではなく<literal>NOT</>の優先順位を持つと見なされる場合がありました。
+標準SQLにより準拠し、論理的に等しい構文の一貫しない扱いから来る混乱を減らすように、これらの規則は変更されました。
+ほとんどの場合、これらの変更により振る舞いが変わることはないでしょうし、もし変わっても恐らく<quote>no such operator</>で失敗になるくらいでしょう。後者は括弧を追加することで解決できるでしょう。
+しかしながら、稀に問い合わせがパースエラーを返すことなく振る舞いを変える場合があります。
+これらの変更が黙って何かを壊してしまったかどうかが心配であれば、設定パラメータ<xref linkend="guc-operator-precedence-warning">をオンにして、何か警告がログに書き込まれるかを見てください。
     </para>
    </note>
   </sect2>
@@ -2954,7 +2969,7 @@ UNBOUNDED FOLLOWING
 <!--
     The syntaxes using <literal>*</> are used for calling parameter-less
     aggregate functions as window functions, for example
-    <literal>count(*) OVER (PARTITION BY ORDER BY y)</>.
+    <literal>count(*) OVER (PARTITION BY x ORDER BY y)</>.
     The asterisk (<literal>*</>) is customarily not used for non-aggregate window functions.
     Aggregate window functions, unlike normal aggregate functions, do not
     allow <literal>DISTINCT</> or <literal>ORDER BY</> to be used within the
@@ -3414,24 +3429,19 @@ SELECT ARRAY(SELECT ARRAY[i, i*2] FROM generate_series(1,5) AS a(i));
 (1 row)
 </programlisting>
 <!--
-   The subquery must return a single column. The resulting
+   The subquery must return a single column.
+   If the subquery's output column is of a non-array type, the resulting
    one-dimensional array will have an element for each row in the
    subquery result, with an element type matching that of the
    subquery's output column.
-   The subquery must return a single column.★
-   If the subquery's output column is of a non-array type, the resulting★
-   one-dimensional array will have an element for each row in the★
-   subquery result, with an element type matching that of the★
-   subquery's output column.★
-   If the subquery's output column is of an array type, the result will be★
-   an array of the same type but one higher dimension; in this case all★
-   the subquery rows must yield arrays of identical dimensionality, else★
-   the result would not be rectangular.★
-★翻訳必要あり
+   If the subquery's output column is of an array type, the result will be
+   an array of the same type but one higher dimension; in this case all
+   the subquery rows must yield arrays of identical dimensionality, else
+   the result would not be rectangular.
 -->
 副問い合わせは単一の列を返さなければなりません。
-その結果である一次元配列は、副問い合わせの出力列と一致する型を要素型とした、副問い合わせの結果内の各行を要素として持ちます。
-★翻訳必要あり
+副問い合わせの出力列が非配列型であれば、その結果である一次元配列は、副問い合わせの出力列と一致する型を要素型とした、副問い合わせの結果内の各行を要素として持ちます。
+副問い合わせの出力列が配列型であれば、その結果は、同じ型で1つ次元の高い配列になります。この場合、副問い合わせの列はすべて同じ次元の配列とならなければなりません。そうでないと結果が長方形になりません。
   </para>
 
   <para>
@@ -3779,55 +3789,6 @@ SELECT CASE WHEN min(employees) > 0
 <function>min()</>と<function>avg()</>集約は入力行すべてに対して同時に計算されますので、もし<structfield>employees</>がゼロになる行があれば、<function>min()</>の結果が検査される機会の前にゼロ除算エラーが起こります。
 代わりに、まずは問題のある入力行が集約関数に渡されないようにするために<literal>WHERE</>または<literal>FILTER</>句を使ってください。
    </para>
-
-   <para>
-    <literal>CASE</> is not a cure-all for such issues, however.
-    One limitation of the technique illustrated above is that it does not
-    prevent early evaluation of constant subexpressions.
-    As described in <xref linkend="xfunc-volatility">, functions and
-    operators marked <literal>IMMUTABLE</literal> can be evaluated when
-    the query is planned rather than when it is executed.  Thus for example
-<programlisting>
-SELECT CASE WHEN x &gt; 0 THEN x ELSE 1/0 END FROM tab;
-</programlisting>
-    is likely to result in a division-by-zero failure due to the planner
-    trying to simplify the constant subexpression,
-    even if every row in the table has <literal>x &gt; 0</> so that the
-    <literal>ELSE</> arm would never be entered at run time.
-   </para>
-
-   <para>
-    While that particular example might seem silly, related cases that don't
-    obviously involve constants can occur in queries executed within
-    functions, since the values of function arguments and local variables
-    can be inserted into queries as constants for planning purposes.
-    Within <application>PL/pgSQL</> functions, for example, using an
-    <literal>IF</>-<literal>THEN</>-<literal>ELSE</> statement to protect
-    a risky computation is much safer than just nesting it in a
-    <literal>CASE</> expression.
-   </para>
-
-   <para>
-    Another limitation of the same kind is that a <literal>CASE</> cannot
-    prevent evaluation of an aggregate expression contained within it,
-    because aggregate expressions are computed before other
-    expressions in a <literal>SELECT</> list or <literal>HAVING</> clause
-    are considered.  For example, the following query can cause a
-    division-by-zero error despite seemingly having protected against it:
-<programlisting>
-SELECT CASE WHEN min(employees) > 0
-            THEN avg(expenses / employees)
-       END
-    FROM departments;
-</programlisting>
-    The <function>min()</> and <function>avg()</> aggregates are computed
-    concurrently over all the input rows, so if any row
-    has <structfield>employees</> equal to zero, the division-by-zero error
-    will occur before there is any opportunity to test the result of
-    <function>min()</>.  Instead, use a <literal>WHERE</>
-    or <literal>FILTER</> clause to prevent problematic input rows from
-    reaching an aggregate function in the first place.
-   </para>
   </sect2>
  </sect1>
 
@@ -3992,7 +3953,7 @@ SELECT concat_lower_or_upper('Hello', 'World');
      <literal>=></literal> to separate it from the argument expression.
      For example:
 -->
-名前付け表記では、各引数の名前は<literal>:=</literal>を使用し引数の表現と分けて指定されます。例を挙げます。
+名前付け表記では、各引数の名前は<literal>=></literal>を使用し引数の表現と分けて指定されます。例を挙げます。
 <screen>
 SELECT concat_lower_or_upper(a => 'Hello', b => 'World');
  concat_lower_or_upper 
@@ -4023,7 +3984,10 @@ SELECT concat_lower_or_upper(a => 'Hello', uppercase => true, b => 'World');
     </para>
 
     <para>
+<!--
       An older syntax based on ":=" is supported for backward compatibility:
+-->
+":="に基づく古い文法は後方互換性のためにサポートされます。
 <screen>
 SELECT concat_lower_or_upper(a := 'Hello', uppercase := true, b := 'World');
  concat_lower_or_upper 
