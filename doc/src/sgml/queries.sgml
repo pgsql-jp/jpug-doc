@@ -1769,9 +1769,9 @@ SELECT product_id, p.name, (sum(s.units) * (p.price - p.cost)) AS profit
     for simple <literal>GROUP BY</> clauses, and then the results returned.
     For example:
 -->
-上述のものよりも複雑なグループ化の操作は、<firstterm>グルーピング・セット</>の概念を用いて可能です。
-<literal>FROM</>句と<literal>WHERE</>句によって選択されたデータは、指定されたグルーピング・セットによってそれぞれグループ化され、シンプルな<literal>GROUP BY</>句と同じように集約計算され、その後結果が返されます。
-例えば
+上述のものよりも複雑なグループ化の操作は、<firstterm>グループ化セット</>の概念を用いることで可能です。
+<literal>FROM</>句と<literal>WHERE</>句によって選択されたデータは、指定されたグループ化セットによってそれぞれグループ化され、単純な<literal>GROUP BY</>句と同じように集約計算され、その後結果が返されます。
+例を示します。
 <screen>
 <prompt>=&gt;</> <userinput>SELECT * FROM items_sold;</>
  brand | size | sales
@@ -1805,7 +1805,7 @@ SELECT product_id, p.name, (sum(s.units) * (p.price - p.cost)) AS profit
 -->
 <literal>GROUPING SETS</>の各サブリストはゼロ個以上の列または式を指定することが出来ます。
 そして、それが直接<literal>GROUP BY</>句で指定したのと同じように解釈されます。
-空のグルーピング・セットは、全行を一つのグループとして解釈されます（何も入力行が存在しない場合でも出力されます）。
+空のグループ化セットは、全行が一つのグループにまで集約されることを意味します（何も入力行が存在しない場合でも出力されます）。
 これは、上述した<literal>GROUP BY</>句がない集約関数の場合と同様です。
    </para>
 
@@ -1816,8 +1816,8 @@ SELECT product_id, p.name, (sum(s.units) * (p.price - p.cost)) AS profit
     columns do not appear.  To distinguish which grouping a particular output
     row resulted from, see <xref linkend="functions-grouping-table">.
 -->
-グループ化している列または式の結果行は、列が存在しないグルーピング・セットのためにNULL値に置き換えられます。
-特定の出力行から生じたグループ化と区別する場合には<xref linkend="functions-grouping-table">を参照して下さい。
+グループ化している列または式の参照は、その列が現われないグループ化セットの結果行ではNULL値に置き換えられます。
+特定の出力行が、どのグループ化から生じたかを識別するには<xref linkend="functions-grouping-table">を参照して下さい。
    </para>
 
    <para>
@@ -1825,8 +1825,7 @@ SELECT product_id, p.name, (sum(s.units) * (p.price - p.cost)) AS profit
     A shorthand notation is provided for specifying two common types of grouping set.
     A clause of the form
 -->
-グルーピング・セットの中で一般的な２種類については、略記法での指定方法が提供されています。
-句の形式
+グループ化セットの中で一般的な２種類については、略記法での指定方法が提供されています。
 <programlisting>
 ROLLUP ( <replaceable>e1</>, <replaceable>e2</>, <replaceable>e3</>, ... )
 </programlisting>
@@ -1834,7 +1833,7 @@ ROLLUP ( <replaceable>e1</>, <replaceable>e2</>, <replaceable>e3</>, ... )
     represents the given list of expressions and all prefixes of the list including
     the empty list; thus it is equivalent to
 -->
-与えられた式のリストに空のリストを先頭に含めたすべてのリストを表示します。
+上の句は、式の指定されたリストと空のリストを含めたリストのすべてのプレフィックスを表します。
 したがって、以下と同等です。
 <programlisting>
 GROUPING SETS (
@@ -1856,7 +1855,6 @@ GROUPING SETS (
 <!--
     A clause of the form
 -->
-句の形式
 <programlisting>
 CUBE ( <replaceable>e1</>, <replaceable>e2</>, ... )
 </programlisting>
@@ -1864,7 +1862,7 @@ CUBE ( <replaceable>e1</>, <replaceable>e2</>, ... )
     represents the given list and all of its possible subsets (i.e. the power
     set).  Thus
 -->
-与えられたリストとその可能な部分集合（サブセット）のすべてを表示します（すなわち、冪集合（パワーセット））。
+上の句は、与えられたリストとその可能な部分集合（サブセット）のすべて（すなわち、べき集合）を表します。
 したがって
 <programlisting>
 CUBE ( a, b, c )
@@ -1872,7 +1870,7 @@ CUBE ( a, b, c )
 <!--
     is equivalent to
 -->
-以下と同等です。
+は以下と同等です。
 <programlisting>
 GROUPING SETS (
     ( a, b, c ),
@@ -1896,7 +1894,7 @@ GROUPING SETS (
     For example:
 -->
 <literal>CUBE</>句や<literal>ROLLUP</>句の各要素は、個々の式、または括弧で囲まれた要素のサブリスト、どちらかに出来ます。
-後者の場合には、サブリストは個々のグルーピング・セットを生成する目的で、一つの単位として扱われます。
+後者の場合には、サブリストは個々のグループ化セットを生成する目的において一つの単位として扱われます。
 例えば
 <programlisting>
 CUBE ( (a, b), (c, d) )
@@ -1904,7 +1902,7 @@ CUBE ( (a, b), (c, d) )
 <!--
     is equivalent to
 -->
-以下と同等です。
+は以下と同等です。
 <programlisting>
 GROUPING SETS (
     ( a, b, c, d ),
@@ -1942,8 +1940,8 @@ GROUPING SETS (
     is nested inside another, the effect is the same as if all the elements of
     the inner clause had been written directly in the outer clause.
 -->
-<literal>CUBE</>と<literal>ROLLUP</>構文は、<literal>GROUP BY</>句の中で直接、または入れ子の<literal>GROUPING SETS</>句の中、いずれかで使用することが出来ます。
-<literal>GROUPING SETS</>句が別の内側に入れ子になっている場合、内部の句が外部の句に直接書かれている場合と効果は同じになります。
+<literal>CUBE</>と<literal>ROLLUP</>構文は、<literal>GROUP BY</>句の中で直接使用、または<literal>GROUPING SETS</>句の中で入れ子に出来ます。
+<literal>GROUPING SETS</>句が別の内側に入れ子になっている場合、内側の句が外側の句に直接書かれている場合と効果は同じになります。
    </para>
 
    <para>
@@ -1952,7 +1950,7 @@ GROUPING SETS (
     clause, then the final list of grouping sets is the cross product of the
     individual items.  For example:
 -->
-<literal>GROUP BY</>句一つで指定されている複数の集約項目の場合、グルーピング・セットの最終的なリストは、個々の項目の外積（クロス積）です。
+複数の集約項目が<literal>GROUP BY</>句一つで指定されている場合、グループ化セットの最終的なリストは、個々の項目の外積（クロス積）です。
 例えば
 <programlisting>
 GROUP BY a, CUBE (b, c), GROUPING SETS ((d), (e))
@@ -1960,7 +1958,7 @@ GROUP BY a, CUBE (b, c), GROUPING SETS ((d), (e))
 <!--
     is equivalent to
 -->
-以下と同等です。
+は以下と同等です。
 <programlisting>
 GROUP BY GROUPING SETS (
     (a, b, c, d), (a, b, c, e),
