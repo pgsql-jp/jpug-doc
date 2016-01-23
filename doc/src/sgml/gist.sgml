@@ -357,8 +357,7 @@ CREATE INDEX ON my_table USING GIST (my_inet_column inet_ops);
    searches). The optional ninth method <function>fetch</> is needed if the
    operator class wishes to support index-only scans.
 -->
-<acronym>GiST</acronym>用の演算子クラスが提供しなければならない７つのメソッドを以下に示します。
-８番目は省略可能です。
+<acronym>GiST</acronym>用の演算子クラスが提供しなければならないメソッドが7つ、オプションで提供可能なメソッドが2つあります。
 インデックスの正確性は、確実に<function>same</>、<function>consistent</>、<function>union</>メソッドを適切に実装することです。
 一方、インデックスの効率（容量と速度）は<function>penalty</>と<function>picksplit</>メソッドに依存します。
 残る２つの基本メソッドは<function>compress</>と<function>decompress</>ですが、これによりインデックスはインデックス付けするデータと異なるデータ型のツリーデータを内部で持つことができるようになります。
@@ -366,8 +365,9 @@ CREATE INDEX ON my_table USING GIST (my_inet_column inet_ops);
 （しかしここでも<productname>PostgreSQL</>のデータ型規約に従わなければなりません。
 容量が可変のデータに関しては<literal>varlena</>を参照してください。）
 ツリーの内部データ型がSQLレベルで存在する場合、<command>CREATE OPERATOR CLASS</>コマンドの<literal>STORAGE</>オプションを使用することができます。
-省略可能な８番目のメソッドは<function>distance</>です。
-これは演算子クラスに順序付けスキャン（近傍検索）をサポートさせたい場合に必要です。★★★
+オプションの８番目のメソッドは<function>distance</>です。
+これは演算子クラスに順序付けスキャン（近傍検索）をサポートさせたい場合に必要です。
+オプションの9番目のメソッド<function>fetch</>は演算子クラスがインデックスオンリースキャンをサポートしたい場合に必要になります。
  </para>
 
  <variablelist>
@@ -664,8 +664,7 @@ my_compress(PG_FUNCTION_ARGS)
        manipulated by the other GiST methods in the operator class.
 -->
 <function>compress</function>メソッドの逆です。
-データ項目のインデックス表現から、データベースで扱うことができる書式に変換します。
-★★
+データ項目のインデックス表現から、演算子クラスの他のGiSTメソッドで扱うことができる書式に変換します。
       </para>
 
       <para>
@@ -1028,11 +1027,15 @@ my_distance(PG_FUNCTION_ARGS)
 }
 </programlisting>
 
+<!--
        The arguments to the <function>distance</> function are identical to
        the arguments of the <function>consistent</> function.
+-->
+<function>distance</>関数の引数は<function>consistent</>関数の引数と同一です。
       </para>
 
       <para>
+<!--
        Some approximation is allowed when determining the distance, so long
        as the result is never greater than the entry's actual distance. Thus,
        for example, distance to a bounding box is usually sufficient in
@@ -1043,9 +1046,17 @@ my_distance(PG_FUNCTION_ARGS)
        nodes; for them, the calculation is always assumed to be inexact.) In
        this case the executor will calculate the accurate distance after
        fetching the tuple from the heap, and reorder the tuples if necessary.
+-->
+距離の決定ににおいて、その結果がエントリの実際の距離よりも大きくならない限り、多少の概算は許されます。
+したがって、例えば、幾何学に関するアプリケーションでは、通常は外接矩形への距離で十分です。
+内部ツリーノードについては、返される距離はどの子ノードへの距離よりも大きくなることは許されません。
+返される距離が正確でない場合、関数は<literal>*recheck</>を真にセットする必要があります。
+（内部ツリーノードについては、計算はいつでも不正確であると見なされるため、これは必要ありません。）
+この場合、エグゼキュータはヒープからタプルを取得した後で正確な距離を計算し、必要ならタプルを並べ替えます。
       </para>
 
       <para>
+<!--
        If the distance function returns <literal>*recheck = true</> for any
        leaf node, the original ordering operator's return type must
        be <type>float8</> or <type>float4</>, and the distance function's
@@ -1057,6 +1068,11 @@ my_distance(PG_FUNCTION_ARGS)
        order returned by the ordering operator.  (Infinity and minus infinity
        are used internally to handle cases such as nulls, so it is not
        recommended that <function>distance</> functions return these values.)
+-->
+距離関数がリーフノードについて<literal>*recheck = true</>を返す場合、元の順序づけ演算子の戻り型は<type>float8</>または<type>float4</>でなければならず、また距離関数の結果の値は元の順序づけ演算子の戻り型と比較可能でなければなりません。
+なぜならエグゼキュータは距離関数の結果および再計算された順序づけ演算子の結果の両方を利用してソート処理を行うからです。
+その他の場合は、結果値の相対的な順序が順序づけ演算子が返す順序と一致する限り、距離関数の戻り値は任意の有限の<type>float8</>の値とすることができます。
+（無限大とマイナス無限大は内部的にNULLなどの場合を処理するために利用するので、<function>distance</>関数がこれらの値を戻すことは薦められません。）
       </para>
 
      </listitem>
@@ -1066,13 +1082,20 @@ my_distance(PG_FUNCTION_ARGS)
      <term><function>fetch</></term>
      <listitem>
       <para>
+<!--
        Converts the compressed index representation of the data item into the
        original data type, for index-only scans. The returned data must be an
        exact, non-lossy copy of the originally indexed value.
+-->
+インデックスオンリースキャンで使用するため、データ項目の圧縮されたインデックス表現を元のデータ型に変換します。
+返されたデータは元のインデックス値の正確で、何も失われていない複製でなければなりません。
       </para>
 
       <para>
+<!--
         The <acronym>SQL</> declaration of the function must look like this:
+-->
+この関数の<acronym>SQL</>宣言は以下のようにならなければなりません。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION my_fetch(internal)
@@ -1081,16 +1104,25 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C STRICT;
 </programlisting>
 
+<!--
         The argument is a pointer to a <structname>GISTENTRY</> struct. On
         entry, its 'key' field contains a non-NULL leaf datum in its
         compressed form. The return value is another <structname>GISTENTRY</>
         struct, whose 'key' field contains the same datum in the original,
         uncompressed form. If the opclass' compress function does nothing for
         leaf entries, the fetch method can return the argument as is.
+-->
+引数は<structname>GISTENTRY</>構造体へのポインタです。
+entryにおいて、そのkeyフィールドには、NULLでないリーフデータが圧縮形式で入っています。
+戻り値は別の<structname>GISTENTRY</>構造体で、そのkeyフィールドには、同じデータが元の非圧縮形式で入っています。
+opclassの圧縮関数がリーフのエントリに対して何もしないなら、fetchメソッドは引数をそのまま返すことができます。
        </para>
 
        <para>
+<!--
         The matching code in the C module could then follow this skeleton:
+-->
+Cモジュールにおける対応するコードは次の骨格に従うことになります。
 
 <programlisting>
 PG_FUNCTION_INFO_V1(my_fetch);
@@ -1107,10 +1139,16 @@ my_fetch(PG_FUNCTION_ARGS)
     fetched_data = palloc(sizeof(fetched_data_type));
 
     /*
+<!--
      * Convert 'fetched_data' into the a Datum of the original datatype.
+-->
+     * fetched_dataを元のデータ型のデータに変換する。
      */
 
+<!--
     /* fill *retval from fetch_data. */
+-->
+    /* fetch_dataを使って*retvalに値を入れる。 */
     gistentryinit(*retval, PointerGetDatum(converted_datum),
                   entry->rel, entry->page, entry->offset, FALSE);
 
@@ -1120,9 +1158,12 @@ my_fetch(PG_FUNCTION_ARGS)
       </para>
 
       <para>
+<!--
        If the compress method is lossy for leaf entries, the operator class
        cannot support index-only scans, and must not define a 'fetch'
        function.
+-->
+compressメソッドがリーフエントリに対してデータ損失がある場合、演算子クラスはインデックスオンリースキャンをサポートすることができず、fetch関数を定義してはいけません。
       </para>
 
      </listitem>
@@ -1210,7 +1251,7 @@ my_fetch(PG_FUNCTION_ARGS)
    data is ordered.
 -->
 デフォルトでは、インデックスのサイズが<xref linkend="guc-effective-cache-size">に達した時にGiSTインデックス構築はバッファ処理方式に切り替わります。
-CREATE INDEXコマンドの<literal>BUFFERING</literal>パラメータによって、手作業で有効または無効にすることができます。
+CREATE INDEXコマンドの<literal>buffering</literal>パラメータによって、手作業で有効または無効にすることができます。
 デフォルトの動作は大抵の場合良好です。
 しかし、入力データが順序付けされている場合、バッファ処理を無効にすることで構築が多少高速になります。
   </para>
