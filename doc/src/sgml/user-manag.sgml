@@ -19,7 +19,7 @@
 -->
 <productname>PostgreSQL</productname>は、<firstterm>ロール</>という概念を使用してデータベースへの接続承認を管理します。
 ロールは、その設定方法に応じて、データベースユーザ、またはデータベースユーザのグループとみなすことができます。
-ロールはデータベースオブジェクト（例えばテーブル）を所有することができます。
+ロールはデータベースオブジェクト（例えばテーブルや関数）を所有することができます。
 またロールは、どのオブジェクトに誰がアクセスできるかを制御するために、それらのオブジェクトに対しての権限を他のロールに割り当てることができます。
 更に、ロールの<firstterm>メンバ資格</>を他のロールに与えることもできます。
 そのため、メンバとなったロールは別のロールに割り当てられた権限を使用することができます。
@@ -341,7 +341,7 @@ CREATE USER <replaceable>name</replaceable>;
 -->
 あるロールがストリーミングレプリケーションの新規接続を実施するには、明示的な権限が付与されていなければなりません。
 （スーパーユーザは、すべての権限検査を迂回しますので、例外です。）
-ストリーミングレプリケーションを行うロールは、常に<literal>LOGIN</>権限も持っていることが必要です。
+ストリーミングレプリケーションを行うロールは、<literal>LOGIN</>権限も持っていることが必要です。
 こうしたロールを作成するには、<literal>CREATE ROLE <replaceable>name</replaceable> REPLICATION LOGIN</literal>を使用してください。
        </para>
       </listitem>
@@ -641,22 +641,35 @@ DROP ROLE <replaceable>name</replaceable>;
  </sect1>
 
  <sect1 id="role-removal">
+<!--
   <title>Dropping Roles</title>
+-->
+  <title>ロールの削除</title>
 
   <para>
+<!--
    Because roles can own database objects and can hold privileges
    to access other objects, dropping a role is often not just a matter of a
    quick <xref linkend="sql-droprole">.  Any objects owned by the role must
    first be dropped or reassigned to other owners; and any permissions
-   granted to the role must be revoked. ★翻訳が必要です。
+   granted to the role must be revoked.
+-->
+ロールはデータベースオブジェクトを所有したり、他のオブジェクトにアクセスする権限を保持したりできるので、ロールを削除するのは、単に<xref linkend="sql-droprole">を実行すれば良いというだけのものでないことがよくあります。
+そのロールが所有するすべてのオブジェクトについて、まずそれを削除するか、あるいは他の所有者に移すかしなければなりません。
+また、そのロールに付与されたすべての権限を取り上げる必要があります。
   </para>
 
   <para>
+<!--
    Ownership of objects can be transferred one at a time
    using <command>ALTER</> commands, for example:
+-->
+オブジェクトの所有権は<command>ALTER</>コマンドを使って、1度に1つずつ移管することができます。
+以下に例を示します。
 <programlisting>
 ALTER TABLE bobs_table OWNER TO alice;
 </programlisting>
+<!--
    Alternatively, the <xref linkend="sql-reassign-owned"> command can be
    used to reassign ownership of all objects owned by the role-to-be-dropped
    to a single other role.  Because <command>REASSIGN OWNED</> cannot access
@@ -664,10 +677,15 @@ ALTER TABLE bobs_table OWNER TO alice;
    that contains objects owned by the role.  (Note that the first
    such <command>REASSIGN OWNED</> will change the ownership of any
    shared-across-databases objects, that is databases or tablespaces, that
-   are owned by the role-to-be-dropped.) ★翻訳が必要です。
+   are owned by the role-to-be-dropped.)
+-->
+その代わりに<xref linkend="sql-reassign-owned">コマンドを使って、削除予定のロールが所有するすべてのオブジェクトの所有権を、単一の他のロールに移管することもできます。
+<command>REASSIGN OWNED</>は他のデータベースのオブジェクトにはアクセスできないので、そのロールが所有するオブジェクトを含むそれぞれのデータベース内で実行する必要があります。
+（最初にそのような<command>REASSIGN OWNED</>を実行した時に、データベース間で共有されるオブジェクト、つまりデータベースとテーブル空間については、すべて削除予定のロールから所有権が変更されることに注意してください。）
   </para>
 
   <para>
+<!--
    Once any valuable objects have been transferred to new owners, any
    remaining objects owned by the role-to-be-dropped can be dropped with
    the <xref linkend="sql-drop-owned"> command.  Again, this command cannot
@@ -675,39 +693,59 @@ ALTER TABLE bobs_table OWNER TO alice;
    database that contains objects owned by the role.  Also, <command>DROP
    OWNED</> will not drop entire databases or tablespaces, so it is
    necessary to do that manually if the role owns any databases or
-   tablespaces that have not been transferred to new owners. ★翻訳が必要です。
+   tablespaces that have not been transferred to new owners.
+-->
+重要なオブジェクトがすべて新しい所有者に移管された後は、削除予定のロールが所有する残りのオブジェクトはすべて<xref linkend="sql-drop-owned">コマンドで削除することができます。
+ここでも、このコマンドは他のデータベースのオブジェクトにはアクセスできないので、そのロールが所有するオブジェクトを含むそれぞれのデータベース内で実行する必要があります。
+また、<command>DROP OWNED</>はデータベース全体、あるいはテーブル空間全体を削除することはありませんので、ロールが所有するデータベースあるいはテーブル空間で新しい所有者に移管されていないものがあれば、手作業でそれを削除する必要があります。
   </para>
 
   <para>
+<!--
    <command>DROP OWNED</> also takes care of removing any privileges granted
    to the target role for objects that do not belong to it.
    Because <command>REASSIGN OWNED</> does not touch such objects, it's
    typically necessary to run both <command>REASSIGN OWNED</>
    and <command>DROP OWNED</> (in that order!) to fully remove the
-   dependencies of a role to be dropped. ★翻訳が必要です。
+   dependencies of a role to be dropped.
+-->
+<command>DROP OWNED</>対象のロールが所有しないオブジェクトについて、そのロールに付与されたすべての権限を削除することも行います。
+<command>REASSIGN OWNED</>はそのようなオブジェクトに関与しないので、削除されるロールによる依存関係を完全に取り除くには、多くの場合、<command>REASSIGN OWNED</>と<command>DROP OWNED</>の両方を（この順序で！）実行する必要があります。
   </para>
 
   <para>
+<!--
    In short then, the most general recipe for removing a role that has been
    used to own objects is:
+-->
+まとめると、オブジェクトを所有するために使用されたロールを削除する最も一般的な手順は以下のようになります。
   </para>
 <programlisting>
 REASSIGN OWNED BY doomed_role TO successor_role;
 DROP OWNED BY doomed_role;
--- repeat the above commands in each database of the cluster
+<!--
+&#045;&#045; repeat the above commands in each database of the cluster
+-->
+-- 上記のコマンドをクラスタ内の各データベースについて繰り返す
 DROP ROLE doomed_role;
 </programlisting>
 
   <para>
+<!--
    When not all owned objects are to be transferred to the same successor
    owner, it's best to handle the exceptions manually and then perform
    the above steps to mop up.
+-->
+すべての所有オブジェクトを同一の後継所有者に移管するのでない場合は、例外部分を手作業で処理した後で、上記の手順を実行して残りを処理するのが最善でしょう。
   </para>
 
   <para>
+<!--
    If <command>DROP ROLE</> is attempted while dependent objects still
    remain, it will issue messages identifying which objects need to be
    reassigned or dropped.
+-->
+依存するオブジェクトがまだ残っている状態で<command>DROP ROLE</>を実行すると、どのオブジェクトが所有者変更または削除の必要があるかを特定するメッセージが発行されます。
   </para>
  </sect1>
 
