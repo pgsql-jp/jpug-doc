@@ -107,7 +107,10 @@ Item
 
 <row>
  <entry><filename>pg_commit_ts</></entry>
+<!--
  <entry>Subdirectory containing transaction commit timestamp data</entry>
+-->
+ <entry>トランザクションのコミット時刻のデータを保有するサブディレクトリ</entry>
 </row>
 
 <row>
@@ -476,8 +479,8 @@ this limitation, large field values are compressed and/or broken up into
 multiple physical rows.  This happens transparently to the user, with only
 small impact on most of the backend code.  The technique is affectionately
 known as <acronym>TOAST</> (or <quote>the best thing since sliced bread</>).
-The <acronym>TOAST</> infrastructure is also used to improve handling of★翻訳が必要
-large data values in-memory.★翻訳が必要
+The <acronym>TOAST</> infrastructure is also used to improve handling of
+large data values in-memory.
 -->
 <productname>PostgreSQL</productname>は固定長のページサイズ（通常8キロバイト）を使用し、複数ページにまたがるタプルを許しません。
 そのため、大規模なフィールド値を直接格納できません。
@@ -485,7 +488,7 @@ large data values in-memory.★翻訳が必要
 これはユーザからは透過的に発生し、また、バックエンドのコード全体には小さな影響しか与えませんでした。
 この技法は<acronym>TOAST</>（または<quote>パンをスライスして以来最善のもの</>）という愛称で呼ばれます。
 [訳注：“パンをスライスして以来最善のもの（the best thing since sliced bread）”は素晴らしいものを意味します。]
-★翻訳が必要
+<acronym>TOAST</>の基盤は大きなデータ値のインメモリで処理の改善にも使用されています。
 </para>
 
 <para>
@@ -493,15 +496,6 @@ large data values in-memory.★翻訳が必要
 Only certain data types support <acronym>TOAST</> &mdash; there is no need to
 impose the overhead on data types that cannot produce large field values.
 To support <acronym>TOAST</>, a data type must have a variable-length
-★翻訳後削除してください。9.4原文
-(<firstterm>varlena</>) representation, in which the first 32-bit word of any
-stored value contains the total length of the value in bytes (including
-itself).  <acronym>TOAST</> does not constrain the rest of the representation.
-All the C-level functions supporting a <acronym>TOAST</>-able data type must
-be careful to handle <acronym>TOAST</>ed input values.  (This is normally done
-by invoking <function>PG_DETOAST_DATUM</> before doing anything with an input
-value, but in some cases more efficient approaches are possible.)
-★9.4原文ここまで。以下9.5原文
 (<firstterm>varlena</>) representation, in which, ordinarily, the first
 four-byte word of any stored value contains the total length of the value in
 bytes (including itself).  <acronym>TOAST</> does not constrain the rest
@@ -515,15 +509,17 @@ been <firstterm>detoasted</>.  (This is normally done by invoking
 <function>PG_DETOAST_DATUM</> before doing anything with an input value,
 but in some cases more efficient approaches are possible.
 See <xref linkend="xtypes-toast"> for more detail.)
-
 -->
 一部のデータ型のみが<acronym>TOAST</>をサポートします。
 大規模なフィールド値を生成することがないデータ型にオーバーヘッドを負わせる必要はありません。
-<acronym>TOAST</>をサポートするためには、データ型は可変長（<firstterm>varlena</>）表現を持たなければなりません。★変更対象
-格納する値の最初の32ビットワードにはバイト単位の値の（このワード自体を含む）長さが含まれます。★変更対象
-<acronym>TOAST</>は残りの表現について制限しません。★変更対象
-<acronym>TOAST</>可能なデータ型をサポートするC言語関数はすべて、<acronym>TOAST</>化された入力値を注意して扱わなければなりません★変更対象
-（通常これは、入力に対して何か作業をする前に<function>PG_DETOAST_DATUM</>を呼び出すことで行われますが、もっと効率的な方法が可能な場合もあります）。★変更対象
+<acronym>TOAST</>をサポートするためには、データ型は可変長（<firstterm>varlena</>）表現を持たなければなりません。
+通常は、格納する値の最初の4バイトワードには値の長さ（このワード自体を含む）がバイト単位で含まれます。
+<acronym>TOAST</>は残りのデータ型の表現について制限しません。
+<firstterm><acronym>TOAST</>化された値</firstterm>として集合的に呼ばれる特別な表現は、この先頭の長さのワードを更新または再解釈することで動作します。
+したがって、<acronym>TOAST</>可能なデータ型をサポートするC言語関数は、潜在的に<acronym>TOAST</>化されている入力値の扱い方に注意しなければなりません。
+つまり、入力が<firstterm>非TOAST化</>されなければ、それは実際には4バイトの長さのワードと内容から構成されていないかもしれないのです。
+（通常これは、入力に対して何か作業をする前に<function>PG_DETOAST_DATUM</>を呼び出すことで行われますが、もっと効率的な方法が可能な場合もあります
+詳しくは<xref linkend="xtypes-toast">を参照してください）。
 </para>
 
 <para>
@@ -560,61 +556,71 @@ the content of the <acronym>TOAST</> pointer tells that, instead.　
 そのため、すべての<acronym>TOAST</>可能なデータ型の値の論理サイズは1ギガバイト（2<superscript>30</> - 1バイト）までになります。
 両ビットが0の場合、値はそのデータ型の普通の<acronym>TOAST</>化されていない値となり、長さワードの残りのビットはデータの（長さワードを含む）総サイズ（バイト単位）となります。
 上位側または下位側のどちらか片方のビットが設定された場合、値は通常の4バイトのヘッダを持たず1バイトのヘッダを持ちます。
-また、長さワードの残りビットはデータの（長さワードを含む）総サイズ（バイト単位）となります。
-特殊な状況として、長さワードの残りビットがすべて0（自身の長さを含みますのでありえません）の場合、その値は別のTOASTテーブルに保存される行外データへのポインタです。
-（TOASTポインタのサイズはデータの第2バイト内で与えられます。）
-単一バイトヘッダを持つ値は特定の境界に整列されません。
+また、そのバイトの残りビットはデータの（長さワードを含む）総サイズ（バイト単位）となります。
+この方式により、127バイトより短い値の効率的な格納をサポートする一方で、データ型が必要なら1GBにまで大きくなることを可能にしています。
+1バイトのヘッダを持つ値は特定の境界に整列されませんが、4バイトのヘッダを持つ値は少なくとも4バイト境界の上に整列されます。
+このように整列のためのパディングを省略することで、短い値と比べて重要な追加のスペース節約ができます。
+特殊な状況として、1バイトのヘッダの残りビットがすべて0（自身の長さを含む場合はありえません）の場合、その値は行外データへのポインタで、以下に述べるようにいくつかの可能性があります。
+そのような<firstterm>TOASTポインタ</>の型とサイズはデータの2番目のバイトに格納されるコードによって決定されます。
 最後に上位側または下位側のビットが0で隣のビットが設定されている場合、データの内容は圧縮され、使用前に伸長しなければなりません。
-この場合、長さワードの残りビットは元データのサイズではなく圧縮したデータの総サイズになります。
+この場合、4バイトの長さワードの残りビットは元データのサイズではなく圧縮したデータの総サイズになります。
 圧縮が行外データでも起こりえますが、varlenaヘッダには圧縮されているかどうかについての情報がないことに注意してください。
-その代わり<acronym>TOAST</> ポインタの内容にこの情報が含まれています。★コンフリクト解消時に9.5に合わせて一部変更済み
+その代わり<acronym>TOAST</>ポインタの内容にこの情報が含まれています。
 </para>
 
 <para>
 <!--
-As mentioned, there are multiple types of <acronym>TOAST</> pointer datums.　★翻訳対象
-The oldest and most common type is a pointer to out-of-line data stored in　★翻訳対象
-a <firstterm><acronym>TOAST</> table</firstterm> that is separate from, but　★翻訳対象
-associated with, the table containing the <acronym>TOAST</> pointer datum　★翻訳対象
-itself.  These <firstterm>on-disk</> pointer datums are created by the　★翻訳対象
-<acronym>TOAST</> management code (in <filename>access/heap/tuptoaster.c</>)　★翻訳対象
-when a tuple to be stored on disk is too large to be stored as-is.　★翻訳対象
-Further details appear in <xref linkend="storage-toast-ondisk">.　★翻訳対象
-Alternatively, a <acronym>TOAST</> pointer datum can contain a pointer to　★翻訳対象
-out-of-line data that appears elsewhere in memory.  Such datums are　★翻訳対象
-necessarily short-lived, and will never appear on-disk, but they are very　★翻訳対象
-useful for avoiding copying and redundant processing of large data values.　★翻訳対象
-Further details appear in <xref linkend="storage-toast-inmemory">.　★翻訳対象
+As mentioned, there are multiple types of <acronym>TOAST</> pointer datums.
+The oldest and most common type is a pointer to out-of-line data stored in
+a <firstterm><acronym>TOAST</> table</firstterm> that is separate from, but
+associated with, the table containing the <acronym>TOAST</> pointer datum
+itself.  These <firstterm>on-disk</> pointer datums are created by the
+<acronym>TOAST</> management code (in <filename>access/heap/tuptoaster.c</>)
+when a tuple to be stored on disk is too large to be stored as-is.
+Further details appear in <xref linkend="storage-toast-ondisk">.
+Alternatively, a <acronym>TOAST</> pointer datum can contain a pointer to
+out-of-line data that appears elsewhere in memory.  Such datums are
+necessarily short-lived, and will never appear on-disk, but they are very
+useful for avoiding copying and redundant processing of large data values.
+Further details appear in <xref linkend="storage-toast-inmemory">.
 -->
-★ここに翻訳文
-テーブルの任意の列が<acronym>TOAST</>可能な場合、そのテーブルは連携する<acronym>TOAST</>テーブルを持ちます。★9.4時翻訳文
-<acronym>TOAST</>テーブルのOIDはテーブルの<structname>pg_class</>.<structfield>reltoastrelid</>項目に格納されます。★9.4時翻訳文
-詳細は後で説明しますが、行外の<acronym>TOAST</>化された値は<acronym>TOAST</>テーブル内に保持されます。★9.4時翻訳文
+前に触れたように、<acronym>TOAST</>ポインタデータにはいくつかの型があります。
+最も古くて一般的な型は<firstterm><acronym>TOAST</>テーブル</firstterm>に格納されている行外データへのポインタです。
+<acronym>TOAST</>テーブルは、<acronym>TOAST</>ポインタデータ自体を含むテーブルとは別の、しかし関連付けられるテーブルです。
+これらの<firstterm>ディスク上</>のポインタデータは、ディスク上に格納されるタプルが、そのまま格納するには大きすぎる時に、<acronym>TOAST</>管理コード（<filename>access/heap/tuptoaster.c</>にあります）によって作られます。
+更なる詳細は<xref linkend="storage-toast-ondisk">に記述されています。
+あるいは<acronym>TOAST</>ポインタデータは、メモリ内のどこかにある行外データへのポインタのこともあります。
+そのようなデータは短命で、ディスク上に現れることは決してありませんが、大きなデータ値を複製し、余分な処理をするのを避けるために有用です。
+更なる詳細は<xref linkend="storage-toast-inmemory">に記述されています。
 </para>
 
 <para>
 <!--
-The compression technique used for either in-line or out-of-line compressed★翻訳対象
-data is a fairly simple and very fast member★翻訳対象
-of the LZ family of compression techniques.  See★翻訳対象
-<filename>src/common/pg_lzcompress.c</> for the details.★翻訳対象
+The compression technique used for either in-line or out-of-line compressed
+data is a fairly simple and very fast member
+of the LZ family of compression techniques.  See
+<filename>src/common/pg_lzcompress.c</> for the details.
 -->
-使用される圧縮技術は、LZ系の圧縮技術の1つで単純かつ非常に高速なものです。 ★9.4時翻訳文
-詳細は<filename>src/backend/utils/adt/pg_lzcompress.c</>を参照してください。 ★9.4時翻訳文
+行内あるいは行外の圧縮データで使用される圧縮技術は、LZ系の圧縮技術の1つで単純かつ非常に高速なものです。
+詳細は<filename>src/common/pg_lzcompress.c</>を参照してください。
 </para>
 
 <sect2 id="storage-toast-ondisk">
+<!--
  <title>Out-of-line, on-disk TOAST storage</title>
+-->
+ <title>行外ディスク上のTOAST記憶</title>
 
 <para>
 <!--
-If any of the columns of a table are <acronym>TOAST</>-able, the table will★翻訳対象
-have an associated <acronym>TOAST</> table, whose OID is stored in the table's★翻訳対象
-<structname>pg_class</>.<structfield>reltoastrelid</> entry.  On-disk★翻訳対象
-<acronym>TOAST</>ed values are kept in the <acronym>TOAST</> table, as★翻訳対象
-described in more detail below.★翻訳対象
+If any of the columns of a table are <acronym>TOAST</>-able, the table will
+have an associated <acronym>TOAST</> table, whose OID is stored in the table's
+<structname>pg_class</>.<structfield>reltoastrelid</> entry.  On-disk
+<acronym>TOAST</>ed values are kept in the <acronym>TOAST</> table, as
+described in more detail below.
 -->
-★ここに翻訳文
+テーブルの列に1つでも<acronym>TOAST</>可能なものがあれば、そのテーブルには連携した<acronym>TOAST</>テーブルがあり、そのOIDがテーブルの<structname>pg_class</>.<structfield>reltoastrelid</>エントリに格納されます。
+ディスク上の<acronym>TOAST</>化された値は以下で詳しく説明する通り、<acronym>TOAST</>テーブルに保持されます。
 </para>
 
 <para>
@@ -635,20 +641,21 @@ retrieval of the values.  A pointer datum representing an out-of-line on-disk
 (its <structfield>chunk_id</>).  For convenience, pointer datums also store the
 logical datum size (original uncompressed data length) and physical stored size
 (different if compression was applied).  Allowing for the varlena header bytes,
-the total size of an on-disk <acronym>TOAST</> pointer datum is therefore 18　★翻訳が必要
-bytes regardless of the actual size of the represented value.★翻訳が必要
+the total size of an on-disk <acronym>TOAST</> pointer datum is therefore 18
+bytes regardless of the actual size of the represented value.
 -->
 行外の値は（圧縮される場合は圧縮後に）最大<literal>TOAST_MAX_CHUNK_SIZE</>バイトの塊に分割されます
 （デフォルトではこの値は4チャンク行が1ページに収まり、およそ2000バイトになるように選ばれます）。
 各塊は、データを持つテーブルと連携する<acronym>TOAST</>テーブル内に個別の行として格納されます。
 すべての<acronym>TOAST</>テーブルは<structfield>chunk_id</>列（特定の<acronym>TOAST</>化された値を識別するOID）、<structfield>chunk_seq</>列（値の塊に対する連番）、<structfield>chunk_data</>（塊の実際のデータ）列を持ちます。
 <structfield>chunk_id</>と<structfield>chunk_seq</>に対する一意性インデックスは値の抽出を高速化します。
-したがって、行外の<acronym>TOAST</>化された値を示すポインタデータには、検索先となる<acronym>TOAST</>テーブルのOIDと指定した値のOID(<structfield>chunk_id</>)を格納しなければなりません。
-簡便性のために、ポインタデータには論理データサイズ（元々の非圧縮のデータ長）と実際の格納サイズ（圧縮時には異なります）も格納されます。
-varlenaヘッダバイトに収納するために<acronym>TOAST</>ポインタデータの総サイズは、表現される値の実サイズに関係なく、18バイトになります。★9.5で修正の可能性あり
+したがって、行外のディスク上の<acronym>TOAST</>化された値を示すポインタデータには、検索先となる<acronym>TOAST</>テーブルのOIDと指定した値のOID(<structfield>chunk_id</>)を格納しなければなりません。
+簡便性のために、ポインタデータには論理データサイズ（元々の非圧縮のデータ長）と物理的な格納サイズ（圧縮時には異なります）も格納されます。
+varlenaヘッダバイトに収納するためにディスク上の<acronym>TOAST</>ポインタデータの総サイズは、表現される値の実サイズに関係なく、18バイトになります。
 </para>
 
 <para>
+<!--
 The <acronym>TOAST</> management code is triggered only
 when a row value to be stored in a table is wider than
 <symbol>TOAST_TUPLE_THRESHOLD</> bytes (normally 2 kB).
@@ -660,7 +667,7 @@ operation, values of unchanged fields are normally preserved as-is; so an
 UPDATE of a row with out-of-line values incurs no <acronym>TOAST</> costs if
 none of the out-of-line values change.
 -->
-<acronym>TOAST</>管理のコードは、テーブル内に格納される値が<symbol>TOAST_TUPLE_THRESHOLD</>バイト（通常2キロバイト）を超える時にのみ実行されます。　★コンフリクト時に変更点修正済み
+<acronym>TOAST</>管理のコードは、テーブル内に格納される値が<symbol>TOAST_TUPLE_THRESHOLD</>バイト（通常2キロバイト）を超える時にのみ実行されます。
 <acronym>TOAST</>コードは、行の値が<symbol>TOAST_TUPLE_TARGET</>バイト（こちらも通常2キロバイト）より小さくなるかそれ以上の縮小ができなくなるまで、フィールド値の圧縮や行外への移動を行います。
 更新操作中、変更されない値は通常そのまま残ります。
 行外の値を持つ行の更新では、行外の値の変更がなければ<acronym>TOAST</>するコストはかかりません。
@@ -671,7 +678,7 @@ none of the out-of-line values change.
 The <acronym>TOAST</> management code recognizes four different strategies
 for storing <acronym>TOAST</>-able columns on disk:
 -->
-<acronym>TOAST</>コードでは、以下の<acronym>TOAST</>可能な列を格納するための4つの異なる戦略を認めます。 ★９．４時原文
+<acronym>TOAST</>管理のコードでは、ディスク上に<acronym>TOAST</>可能な列を格納するために、以下の4つの異なる戦略を認識します。
    <itemizedlist>
     <listitem>
      <para>
@@ -769,18 +776,27 @@ comparison table, in which all the HTML pages were cut down to 7 kB to fit.
 </sect2>
 
 <sect2 id="storage-toast-inmemory">
+<!--
  <title>Out-of-line, in-memory TOAST storage</title>
+-->
+ <title>行外インメモリのTOAST記憶</title>
 
 <para>
+<!--
 <acronym>TOAST</> pointers can point to data that is not on disk, but is
 elsewhere in the memory of the current server process.  Such pointers
 obviously cannot be long-lived, but they are nonetheless useful.  There
 are currently two sub-cases:
 pointers to <firstterm>indirect</> data and
 pointers to <firstterm>expanded</> data.
+-->
+<acronym>TOAST</>ポインタは、ディスク上にあるデータだけでなく、現在のサーバプロセスのメモリ内の場所を指すこともできます。
+そのようなポインタは明らかに短命ですが、それでも有用です。
+現在のところ、<firstterm>間接</>データへのポインタと、<firstterm>拡張</>データへのポインタの2つのケースがあります。
 </para>
 
 <para>
+<!--
 Indirect <acronym>TOAST</> pointers simply point at a non-indirect varlena
 value stored somewhere in memory.  This case was originally created merely
 as a proof of concept, but it is currently used during logical decoding to
@@ -789,9 +805,15 @@ all out-of-line field values into the tuple might do).  The case is of
 limited use since the creator of the pointer datum is entirely responsible
 that the referenced data survives for as long as the pointer could exist,
 and there is no infrastructure to help with this.
+-->
+間接<acronym>TOAST</>ポインタは、単にメモリ上のどこかに格納されている間接的でないvarlena値を指すだけです。
+このケースは元々は単なる概念実証として作られたのですが、現在はロジカルデコーディング時に1GBを越える物理的タプルを作成する可能性を防ぐために使用されています。
+（すべての行外フィールド値をタプルに持ってこようとすると、そうなるかもしれません。）
+このケースでは、ポインタデータの作成者はポインタが存在可能な限り参照データが存在し続けることに全責任を負うため、利用が限られ、またこれを支援するための基盤もありません。
 </para>
 
 <para>
+<!--
 Expanded <acronym>TOAST</> pointers are useful for complex data types
 whose on-disk representation is not especially suited for computational
 purposes.  As an example, the standard varlena representation of a
@@ -815,9 +837,20 @@ Functions that do not know about the expanded representation, but simply
 apply <function>PG_DETOAST_DATUM</> to their inputs, will automatically
 receive the traditional varlena representation; so support for an expanded
 representation can be introduced incrementally, one function at a time.
+-->
+拡張<acronym>TOAST</>ポインタは、ディスク上の表現が計算目的にあまり適さない複雑なデータ型で有用です。
+例えば<productname>PostgreSQL</>の配列の標準varlena表現には、次元の情報、NULLの要素があればNULLのビットマップ、そしてすべての要素の値が順番どおりに含まれます。
+要素型自体が可変長だと、<replaceable>N</>番目の要素を探す唯一の方法は前にある要素のすべてをスキャンすることです。
+この表現は、そのサイズの小ささからディスク上の記録には適していますが、配列を使った計算では、すべての要素の開始位置が特定されている<quote>拡張</>または<quote>解体</>された表現があるとずっと良いです。
+<acronym>TOAST</>ポインタの機構では、参照渡しのデータが、標準のvarlena値（ディスク上の表現）あるいはメモリ上のどこかにある拡張表現を指す<acronym>TOAST</>ポインタを指すことを許すことで、このニーズに応えています。
+この拡張表現の詳細はデータ型に依存しますが、標準ヘッダを持ち、<filename>src/include/utils/expandeddatum.h</>にある他のAPIの要求を満たす必要があります。
+データ型を処理するc言語の関数は、どちらかの表現を扱うことを選ぶことができます。
+拡張表現を認識せず、入力データに単に<function>PG_DETOAST_DATUM</>を適用するだけの関数は、自動的に伝統的なvarlena表現を受け取ります。
+従って、拡張表現のサポートは徐々に、1回に1つの関数だけ導入することができます。
 </para>
 
 <para>
+<!--
 <acronym>TOAST</> pointers to expanded values are further broken down
 into <firstterm>read-write</> and <firstterm>read-only</> pointers.
 The pointed-to representation is the same either way, but a function that
@@ -826,15 +859,24 @@ in-place, whereas one that receives a read-only pointer must not; it must
 first create a copy if it wants to make a modified version of the value.
 This distinction and some associated conventions make it possible to avoid
 unnecessary copying of expanded values during query execution.
+-->
+拡張された値への<acronym>TOAST</>ポインタは、さらに<firstterm>読み書き</>のポインタと<firstterm>読み取りのみ</>のポインタに分類されます。
+指された先の表現はどちらでも同じですが、読み書きのポインタを受け取った関数は、そこにある参照値を変更できるのに対し、読み取りのみのポインタを受け取った関数では変更が許されないため、値を変更したバージョンを作りたければ、まずその複製を作る必要があります。
+この区別と、関連したいくつかの慣習により、問い合わせの実行時に拡張された値を不必要に複製するのを避けることが可能になります。
 </para>
 
 <para>
+<!--
 For all types of in-memory <acronym>TOAST</> pointer, the <acronym>TOAST</>
 management code ensures that no such pointer datum can accidentally get
 stored on disk.  In-memory <acronym>TOAST</> pointers are automatically
 expanded to normal in-line varlena values before storage &mdash; and then
 possibly converted to on-disk <acronym>TOAST</> pointers, if the containing
 tuple would otherwise be too big.
+-->
+すべてのタイプのインメモリの<acronym>TOAST</>ポインタについて、<acronym>TOAST</>管理のコードはそのようなポインタデータが偶然、ディスクに保存されてしまうことが決して起こらないようにします。
+インメモリの<acronym>TOAST</>ポインタは保存される前に自動的に拡張されて通常の行内のvarlena値になります。
+その後、含んでいるタプルが大きすぎるような時には、ディスク上の<acronym>TOAST</>ポインタに変換されることもあります。
 </para>
 
 </sect2>
