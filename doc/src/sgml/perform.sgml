@@ -1065,20 +1065,11 @@ ROLLBACK;
 
    <para>
 <!--
-    The <literal>Planning time</literal> shown by <command>EXPLAIN
-    ANALYZE</command> is the time it took to generate the query plan from the
-    parsed query and optimize it. It does not include parsing or rewriting.
+    When an <command>UPDATE</> or <command>DELETE</> command affects an
+    inheritance hierarchy, the output might look like this:
 -->
-<command>EXPLAIN ANALYZE</command>で表示される<literal>Planning time</literal>は、解析された問い合わせから問い合わせ計画を生成し最適化するのに掛かった時間です。
-解析と書き換えは含みません。
-   </para>
+<command>UPDATE</>もしくは<command>DELETE</>コマンドが継承階層に影響する場合には、出力は以下のようになるでしょう。
 
-   <para>
-<!--
-    When an <command>UPDATE</> or <command>DELETE</> command affects an ★翻訳が必要
-    inheritance hierarchy, the output might look like this: ★翻訳が必要
--->
-★ここに翻訳文
 <screen>
 EXPLAIN UPDATE parent SET f2 = f2 + 1 WHERE f1 = 101;
                                     QUERY PLAN
@@ -1098,6 +1089,7 @@ EXPLAIN UPDATE parent SET f2 = f2 + 1 WHERE f1 = 101;
          Index Cond: (f1 = 101)
 </screen>
 
+<!--
     In this example the Update node needs to consider three child tables as
     well as the originally-mentioned parent table.  So there are four input
     scanning subplans, one per table.  For clarity, the Update node is
@@ -1105,12 +1097,21 @@ EXPLAIN UPDATE parent SET f2 = f2 + 1 WHERE f1 = 101;
     same order as the corresponding subplans.  (These annotations are new as
     of <productname>PostgreSQL</> 9.5; in prior versions the reader had to
     intuit the target tables by inspecting the subplans.)
+-->
+この例では、Updateノードは元々言及されている親テーブルに加えて3つの子テーブルを考慮することが必要です。
+そのため、テーブル毎に1つ、4つの入力スキャン副計画があります。
+明確にするため、Updateノードには対応する副計画と同じ順に更新される特定の対象テーブルを示す注釈が付けられています。
+(この注釈は<productname>PostgreSQL</> 9.5からの新しいものです。以前のバージョンでは副計画を調べることで対象テーブルを勘で当てなければなりませんでした。)
    </para>
 
    <para>
+<!--
     The <literal>Planning time</literal> shown by <command>EXPLAIN
     ANALYZE</command> is the time it took to generate the query plan from the
     parsed query and optimize it. It does not include parsing or rewriting.
+-->
+<command>EXPLAIN ANALYZE</command>で表示される<literal>Planning time</literal>は、解析された問い合わせから問い合わせ計画を生成し最適化するのに掛かった時間です。
+解析と書き換えは含みません。
    </para>
 
    <para>
@@ -1963,15 +1964,17 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
 <command>COPY</>自体には大して役立ちませんので、この助言は、上述の技法の片方または両方を使用している時にのみ有用です。
    </para>
   </sect2>
+
   <sect2 id="populate-max-wal-size">
 <!--
    <title>Increase <varname>max_wal_size</varname></title>
 -->
    <title><varname>max_wal_size</varname>を増やす</title>
+
    <para>
 <!--
-    Temporarily increasing the <xref
-    linkend="guc-max-wal-size"> configuration variable can also
+    Temporarily increasing the <xref linkend="guc-max-wal-size">
+    configuration variable can also
     make large data loads faster.  This is because loading a large
     amount of data into <productname>PostgreSQL</productname> will
     cause checkpoints to occur more often than the normal checkpoint
@@ -1985,7 +1988,7 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
 大規模なデータをロードする時<xref linkend="guc-max-wal-size">設定変数を一時的に増やすことで高速化することができます。
 大量のデータを<productname>PostgreSQL</productname>にロードすることで、通常のチェックポイントの頻度（<varname>checkpoint_timeout</varname>設定変数により指定されます）よりも頻繁にチェックポイントが発生するためです。
 チェックポイントが発生すると、すべてのダーティページ（ディスクに未書き込みの変更済みメモリページ）はディスクに吐き出されなければなりません。
-大量のデータロードの際に一時的に<varname>checkpoint_segments</varname>を増加させることで、必要なチェックポイント数を減らすことができます。
+大量のデータロードの際に一時的に<varname>max_wal_size</varname>を増加させることで、必要なチェックポイント数を減らすことができます。
    </para>
   </sect2>
 
@@ -2135,7 +2138,7 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
 <!--
        Set appropriate (i.e., larger than normal) values for
        <varname>maintenance_work_mem</varname> and
-       <varname>max_wal_size</varname>.★コンフリクト解消時に反映
+       <varname>max_wal_size</varname>.
 -->
 <varname>maintenance_work_mem</varname>および<varname>max_wal_size</varname>を適切な（つまり通常よりも大きな）値に設定します。
       </para>
@@ -2188,7 +2191,6 @@ WALアーカイブ処理またはストリーミングレプリケーション�
 データ同士の関連性がどの程度あるかに依存しますが、手作業での整理の際には好まれるかと思います。さもなくばあまり勧めません。
 単一トランザクションで実行し、WALアーカイブを無効にしている場合、<command>COPY</>コマンドは最も高速に行われます。
       </para>
-
      </listitem>
      <listitem>
       <para>
@@ -2247,7 +2249,7 @@ WALアーカイブ処理またはストリーミングレプリケーション�
     and <xref linkend="autovacuum"> for more information.
 -->
 したがって、データのみのダンプをロードする時、上の技法を使用したければ自らインデックスと外部キーを削除、再作成しなければなりません。
-データをロードする時に<varname>checkpoint_segments</varname>を増やすことも有用です。
+データをロードする時に<varname>max_wal_size</varname>を増やすことも有用です。
 しかし、<varname>maintenance_work_mem</varname>を増やすことは考えないでください。
 これは、後でインデックスと外部キーを手作業で再作成する時に行う方がよいでしょう。
 また、実行した後で<command>ANALYZE</>を行うことを忘れないでください。
