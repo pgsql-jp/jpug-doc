@@ -487,7 +487,7 @@ large data values in-memory.
 大規模なフィールド値を圧縮したり、複数の物理的な行に分割したりすることで、この限界はなくなりました。
 これはユーザからは透過的に発生し、また、バックエンドのコード全体には小さな影響しか与えませんでした。
 この技法は<acronym>TOAST</>（または<quote>パンをスライスして以来最善のもの</>）という愛称で呼ばれます。
-[訳注：“パンをスライスして以来最善のもの（the best thing since sliced bread）”は素晴らしいものを意味します。]
+[訳注：TOASTはパンのトーストと綴りが同じなので、スライスしたパンを美味しく食べる方法に掛けて洒落ています。]
 <acronym>TOAST</>の基盤は大きなデータ値のインメモリで処理の改善にも使用されています。
 </para>
 
@@ -517,7 +517,7 @@ See <xref linkend="xtypes-toast"> for more detail.)
 <acronym>TOAST</>は残りのデータ型の表現について制限しません。
 <firstterm><acronym>TOAST</>化された値</firstterm>として集合的に呼ばれる特別な表現は、この先頭の長さのワードを更新または再解釈することで動作します。
 したがって、<acronym>TOAST</>可能なデータ型をサポートするC言語関数は、潜在的に<acronym>TOAST</>化されている入力値の扱い方に注意しなければなりません。
-つまり、入力が<firstterm>非TOAST化</>されなければ、それは実際には4バイトの長さのワードと内容から構成されていないかもしれないのです。
+つまり、入力が<firstterm>TOAST解除</>されなければ、それは実際には4バイトの長さのワードと内容から構成されていないかもしれないのです。
 （通常これは、入力に対して何か作業をする前に<function>PG_DETOAST_DATUM</>を呼び出すことで行われますが、もっと効率的な方法が可能な場合もあります
 詳しくは<xref linkend="xtypes-toast">を参照してください）。
 </para>
@@ -609,7 +609,7 @@ of the LZ family of compression techniques.  See
 <!--
  <title>Out-of-line, on-disk TOAST storage</title>
 -->
- <title>行外ディスク上のTOAST記憶</title>
+ <title>行外ディスク上のTOAST格納</title>
 
 <para>
 <!--
@@ -779,7 +779,7 @@ comparison table, in which all the HTML pages were cut down to 7 kB to fit.
 <!--
  <title>Out-of-line, in-memory TOAST storage</title>
 -->
- <title>行外インメモリのTOAST記憶</title>
+ <title>行外インメモリのTOAST格納</title>
 
 <para>
 <!--
@@ -792,7 +792,7 @@ pointers to <firstterm>expanded</> data.
 -->
 <acronym>TOAST</>ポインタは、ディスク上にあるデータだけでなく、現在のサーバプロセスのメモリ内の場所を指すこともできます。
 そのようなポインタは明らかに短命ですが、それでも有用です。
-現在のところ、<firstterm>間接</>データへのポインタと、<firstterm>拡張</>データへのポインタの2つのケースがあります。
+現在のところ、<firstterm>間接</>データへのポインタと、<firstterm>展開</>データへのポインタの2つのケースがあります。
 </para>
 
 <para>
@@ -838,15 +838,15 @@ apply <function>PG_DETOAST_DATUM</> to their inputs, will automatically
 receive the traditional varlena representation; so support for an expanded
 representation can be introduced incrementally, one function at a time.
 -->
-拡張<acronym>TOAST</>ポインタは、ディスク上の表現が計算目的にあまり適さない複雑なデータ型で有用です。
+展開<acronym>TOAST</>ポインタは、ディスク上の表現が計算目的にあまり適さない複雑なデータ型で有用です。
 例えば<productname>PostgreSQL</>の配列の標準varlena表現には、次元の情報、NULLの要素があればNULLのビットマップ、そしてすべての要素の値が順番どおりに含まれます。
 要素型自体が可変長だと、<replaceable>N</>番目の要素を探す唯一の方法は前にある要素のすべてをスキャンすることです。
-この表現は、そのサイズの小ささからディスク上の記録には適していますが、配列を使った計算では、すべての要素の開始位置が特定されている<quote>拡張</>または<quote>解体</>された表現があるとずっと良いです。
-<acronym>TOAST</>ポインタの機構では、参照渡しのデータが、標準のvarlena値（ディスク上の表現）あるいはメモリ上のどこかにある拡張表現を指す<acronym>TOAST</>ポインタを指すことを許すことで、このニーズに応えています。
-この拡張表現の詳細はデータ型に依存しますが、標準ヘッダを持ち、<filename>src/include/utils/expandeddatum.h</>にある他のAPIの要求を満たす必要があります。
+この表現は、そのサイズの小ささからディスク上の記録には適していますが、配列を使った計算では、すべての要素の開始位置が特定されている<quote>展開</>または<quote>解体</>された表現があるとずっと良いです。
+<acronym>TOAST</>ポインタの機構では、参照渡しのデータが、標準のvarlena値（ディスク上の表現）あるいはメモリ上のどこかにある展開表現を指す<acronym>TOAST</>ポインタを指すことを許すことで、このニーズに応えています。
+この展開表現の詳細はデータ型に依存しますが、標準ヘッダを持ち、<filename>src/include/utils/expandeddatum.h</>にある他のAPIの要求を満たす必要があります。
 データ型を処理するc言語の関数は、どちらかの表現を扱うことを選ぶことができます。
-拡張表現を認識せず、入力データに単に<function>PG_DETOAST_DATUM</>を適用するだけの関数は、自動的に伝統的なvarlena表現を受け取ります。
-従って、拡張表現のサポートは徐々に、1回に1つの関数だけ導入することができます。
+展開表現を認識せず、入力データに単に<function>PG_DETOAST_DATUM</>を適用するだけの関数は、自動的に伝統的なvarlena表現を受け取ります。
+従って、展開表現のサポートは徐々に、1回に1つの関数だけ導入することができます。
 </para>
 
 <para>
@@ -860,9 +860,9 @@ first create a copy if it wants to make a modified version of the value.
 This distinction and some associated conventions make it possible to avoid
 unnecessary copying of expanded values during query execution.
 -->
-拡張された値への<acronym>TOAST</>ポインタは、さらに<firstterm>読み書き</>のポインタと<firstterm>読み取りのみ</>のポインタに分類されます。
+展開された値への<acronym>TOAST</>ポインタは、さらに<firstterm>読み書き</>のポインタと<firstterm>読み取りのみ</>のポインタに分類されます。
 指された先の表現はどちらでも同じですが、読み書きのポインタを受け取った関数は、そこにある参照値を変更できるのに対し、読み取りのみのポインタを受け取った関数では変更が許されないため、値を変更したバージョンを作りたければ、まずその複製を作る必要があります。
-この区別と、関連したいくつかの慣習により、問い合わせの実行時に拡張された値を不必要に複製するのを避けることが可能になります。
+この区別と、関連したいくつかの慣習により、問い合わせの実行時に展開された値を不必要に複製するのを避けることが可能になります。
 </para>
 
 <para>
@@ -875,7 +875,7 @@ possibly converted to on-disk <acronym>TOAST</> pointers, if the containing
 tuple would otherwise be too big.
 -->
 すべてのタイプのインメモリの<acronym>TOAST</>ポインタについて、<acronym>TOAST</>管理のコードはそのようなポインタデータが偶然、ディスクに保存されてしまうことが決して起こらないようにします。
-インメモリの<acronym>TOAST</>ポインタは保存される前に自動的に拡張されて通常の行内のvarlena値になります。
+インメモリの<acronym>TOAST</>ポインタは保存される前に自動的に展開されて通常の行内のvarlena値になります。
 その後、含んでいるタプルが大きすぎるような時には、ディスク上の<acronym>TOAST</>ポインタに変換されることもあります。
 </para>
 
