@@ -2022,7 +2022,7 @@ sysctl -w vm.overcommit_memory=2
     <literal>-1000</>, thereby guaranteeing it will not be targeted by the OOM
     killer.  The simplest way to do this is to execute
 -->
-<varname>vm.overcommit_memory</>の変更と関係なく使用できるその他の方法は、プロセス固有の★★<varname>oom_score_adj</>値をpostmasterプロセス向けに<literal>-1000</>に設定することです。
+<varname>vm.overcommit_memory</>の変更と関係なく使用できるその他の方法は、プロセス固有の<firstterm>OOMスコア調整</>値をpostmasterプロセス向けに<literal>-1000</>に設定することです。
 これによりOOM killerの対象とならないことが保証されます。
 このための最も簡単な方法は以下をpostmasterの起動スクリプト内でpostmasterを実行する直前に実行することです。
 <programlisting>
@@ -2037,13 +2037,13 @@ echo -1000 > /proc/self/oom_score_adj
 -->
 この作業をrootで実行しなければならないことに注意して下さい。
 さもないと効果がありません。
-このためrootが所有する起動スクリプトがこれを行うためには最も簡単な場所です。
-★★こうした場合、<productname>PostgreSQL</>の構築時に <literal>-DLINUX_OOM_SCORE_ADJ=0</>を<varname>CPPFLAGS</>に追加したいと考えるでしょう。
-これによりpostmasterの子プロセスは通常のゼロという<varname>oom_score_adj</>で実行されるようになり、必要に応じてOOM killerの対象となりえます。
+このためrootが所有する起動スクリプトが、これを行うための最も簡単な場所です。
+その場合には、スタートアップスクリプトのpostmasterの起動前に以下の環境変数を設定することも推奨します。
 <programlisting>
 export PG_OOM_ADJUST_FILE=/proc/self/oom_score_adj
 export PG_OOM_ADJUST_VALUE=0
 </programlisting>
+<!--
     These settings will cause postmaster child processes to run with the
     normal OOM score adjustment of zero, so that the OOM killer can still
     target them at need.  You could use some other value for
@@ -2053,6 +2053,11 @@ export PG_OOM_ADJUST_VALUE=0
     set <envar>PG_OOM_ADJUST_FILE</>, the child processes will run with the
     same OOM score adjustment as the postmaster, which is unwise since the
     whole point is to ensure that the postmaster has a preferential setting.
+-->
+これらの設定は、いざという時にpostmasterの子プロセスをOOM killerのターゲットに出来るようにOOMスコア調整を通常のゼロで実行します。
+子プロセスを他のOOMスコア調整で実行したい場合には、<envar>PG_OOM_ADJUST_VALUE</>により別の値にすることが出来ます。
+（<envar>PG_OOM_ADJUST_VALUE</>は省略することが出来て、その場合はデフォルトのゼロになります。）
+<envar>PG_OOM_ADJUST_FILE</>を設定しない場合、子プロセスはpostmasterと同じOOMスコア調整で実行されますが、postmasterが優先される設定にすることが肝心なので、それは賢明とは言えません。
    </para>
 
    <para>
@@ -2062,9 +2067,8 @@ export PG_OOM_ADJUST_VALUE=0
     <filename>/proc/self/oom_adj</>.  This works the same except the disable
     value is <literal>-17</> not <literal>-1000</>.
 -->
-    古いLinuxカーネルは<filename>/proc/self/oom_score_adj</>を提供していませんが、同様の機能を持つ<filename>/proc/self/oom_adj</>があるでしょう。
-    これは、無効にするための設定値が<literal>-1000</>ではなく<literal>-17</>であるという点を除いては同じように動作します。
-    ★★★相当する<productname>PostgreSQL</>のビルドフラグは<literal>-DLINUX_OOM_ADJ=0</>です。
+古いLinuxカーネルは<filename>/proc/self/oom_score_adj</>を提供していませんが、同様の機能を持つ<filename>/proc/self/oom_adj</>があるでしょう。
+これは、無効にするための設定値が<literal>-1000</>ではなく<literal>-17</>であるという点を除いては同じように動作します。
    </para>
 
    <note>
@@ -2137,10 +2141,15 @@ $ <userinput>sysctl -w vm.nr_hugepages=3170</userinput>
    </para>
 
    <para>
+<!--
     It is also necessary to give the database server operating system
     user permission to use huge pages by setting
     <varname>vm.hugetlb_shm_group</> via <application>sysctl</>, and
     permission to lock memory with <command>ulimit -l</>.
+-->
+huge pagesを使用するデータベースサーバのオペレーティングシステムのユーザに権限を与える必要もあります。
+これは、<application>sysctl</>を介して<varname>vm.hugetlb_shm_group</>で設定します。
+また<command>ulimit -l</>でメモリにロック出来る権限も必要です。
    </para>
 
    <para>
@@ -2763,7 +2772,7 @@ pg_dumpall -p 5432 | psql -d postgres -p 5433
     running <application>initdb</>.  The <application>pg_upgrade</> <link
     linkend="pgupgrade">documentation</> outlines the necessary steps.
 -->
-★★<link linkend="pgupgrade">pg_upgrade</link>モジュールにより、<productname>PostgreSQL</>のあるバージョンから次のバージョンにインストレーションをその場で移行することができます。
+<xref linkend="pgupgrade">モジュールにより、<productname>PostgreSQL</>のあるバージョンから次のバージョンにインストレーションをその場で移行することができます。
 特に<option>--link</>オプションを使用することで、アップグレードは数分で行うことができます。
 これは、<application>pg_dumpall</>と同様の工程を必要とします。
 例えば、<application>initdb</>を実行し、サーバの起動／停止をおこないます。
