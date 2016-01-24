@@ -4,13 +4,13 @@
 <!--
  <title>Writing A Table Sampling Method</title>
 -->
- <title>テーブルサンプルメソッドの書き方</title>
+ <title>テーブルサンプリングメソッドの書き方</title>
 
  <indexterm zone="tablesample-method">
 <!--
   <primary>table sampling method</primary>
 -->
-  <primary>テーブルサンプルメソッド</primary>
+  <primary>テーブルサンプリングメソッド</primary>
  </indexterm>
 
  <indexterm zone="tablesample-method">
@@ -28,15 +28,15 @@
   by the SQL standard.  The sampling method determines which rows of the
   table will be selected when the <literal>TABLESAMPLE</> clause is used.
 -->
-<productname>PostgreSQL</>による<literal>TABLESAMPLE</>句の実装は、SQL標準が求める<literal>BERNOULLI</>と<literal>SYSTEM</>のメソッドに加え、ユーザ定義のテーブルサンプルメソッドをサポートしています。
-サンプルメソッドは、<literal>TABLESAMPLE</>句が使用された際にどの行が選択されるかを決定します。
+<productname>PostgreSQL</>による<literal>TABLESAMPLE</>句の実装は、SQL標準が求める<literal>BERNOULLI</>と<literal>SYSTEM</>のメソッドに加え、ユーザ定義のテーブルサンプリングメソッドをサポートしています。
+サンプリングメソッドは、<literal>TABLESAMPLE</>句が使用された際にどの行が選択されるかを決定します。
  </para>
  <para>
 <!--
   At the SQL level, a table sampling method is represented by a single SQL
   function, typically implemented in C, having the signature
 -->
-SQLレベルでは、テーブルサンプルメソッドは、以下の呼び出し形式を持ち、典型的にはCで実装された単一のSQLの関数で表現されます。
+SQLレベルでは、テーブルサンプリングメソッドは、以下の呼び出し形式を持ち、典型的にはCで実装された単一のSQLの関数で表現されます。
 <programlisting>
 method_name(internal) RETURNS tsm_handler
 </programlisting>
@@ -54,7 +54,7 @@ method_name(internal) RETURNS tsm_handler
 関数の名前は<literal>TABLESAMPLE</>句に現れるメソッド名と同じです。
 <type>internal</>引数は、ダミー(常に0の値を持つ)で、単にこの関数がSQLコマンドから直接呼ばれるのを防ぐために用意されています。
 関数の戻り値は、pallocされた<type>TsmRoutine</>型の構造体でなければなりません。
-その構造体の中には、サンプルメソッド用のサポート関数へのポインタが含まれています。
+その構造体の中には、サンプリングメソッド用のサポート関数へのポインタが含まれています。
 サポート関数は普通のC関数で、SQLレベルからは見ることも呼び出すこともできません。
 サポート関数は<xref linkend="tablesample-support-functions">で説明されています。
  </para>
@@ -64,7 +64,7 @@ method_name(internal) RETURNS tsm_handler
   In addition to function pointers, the <type>TsmRoutine</> struct must
   provide these additional fields:
 -->
-関数へのポインタに加え、<type>TsmRoutine</>は以下の追加のフィールドを提供しなければなりません。
+関数へのポインタに加え、<type>TsmRoutine</>構造体は以下の追加のフィールドを提供しなければなりません。
  </para>
 
  <variablelist>
@@ -80,9 +80,9 @@ method_name(internal) RETURNS tsm_handler
      represents the sampling percentage.  Custom sampling methods can have
      more or different parameters.
 -->
-このサンプルメソッドが使用される際に、<literal>TABLESAMPLE</>句が受け付ける引数のデータ型のOIDが格納された、OIDのリストです。
+このサンプリングメソッドが使用される際に、<literal>TABLESAMPLE</>句が受け付ける引数のデータ型のOIDが格納された、OIDのリストです。
 たとえば、組み込みのメソッドに対しては、このリストは、サンプリングのパーセンテージを表す<literal>FLOAT4OID</>という値を持つ単一の要素が含まれています。
-カスタムサンプルメソッドは、複数の異なるパラメータを持つことができます。
+カスタムサンプリングメソッドは、複数の異なるパラメータを持つことができます。
     </para>
    </listitem>
   </varlistentry>
@@ -99,8 +99,8 @@ method_name(internal) RETURNS tsm_handler
      the <literal>REPEATABLE</> clause is not accepted for use with the
      sampling method.
 -->
-<literal>true</>の場合、もし毎回同じ引数と<literal>REPEATABLE</>シード値が提供され、テーブル内容に変更がないならば、サンプルメソッドは実行されたどのクエリに対しても、同一のサンプルを出力することができます。
-<literal>falsetrue</>の場合は、サンプルメソッドを使用する際に<literal>REPEATABLE</>句を受け付けません。
+<literal>true</>の場合、もし毎回同じ引数と<literal>REPEATABLE</>シード値が提供され、テーブル内容に変更がないならば、サンプリングメソッドは実行されたどの問い合わせに対しても、同一のサンプルを出力することができます。
+<literal>falsetrue</>の場合は、サンプリングメソッドを使用する際に<literal>REPEATABLE</>句を受け付けません。
     </para>
    </listitem>
   </varlistentry>
@@ -117,9 +117,9 @@ method_name(internal) RETURNS tsm_handler
      would require scanning the sampled table more than once, since that
      might result in inconsistent query output.
 -->
-<literal>true</>の場合、サンプルメソッドは実行されたどのスキャンに対しても、同一のサンプルを出力することができます(パラメータ、シード値、スナップショットに変更がない、という前提で)。
+<literal>true</>の場合、サンプリングメソッドは同じ問い合わせ内で実行されたどのスキャンに対しても、同一のサンプルを出力することができます(パラメータ、シード値、スナップショットに変更がない、という前提で)。
 <literal>false</>の場合、プランナは、サンプル対象のテーブルを2度以上スキャンする必要のあるようなプランは選択しません。
-クエリの結果に不整合が発生する可能性があるからです。
+問い合わせの結果に不整合が発生する可能性があるからです。
     </para>
    </listitem>
   </varlistentry>
@@ -144,8 +144,8 @@ method_name(internal) RETURNS tsm_handler
   tree for the built-in sampling methods, and into the <filename>contrib</>
   subdirectory for add-on methods.
 -->
-標準配布物に含まれるテーブルサンプルメソッドは、自分でサンプルメソッドを書く際に良いお手本になります。
-組み込みのサンプルメソッドに関しては、ソースツリー中の<filename>src/backend/access/tablesample</>サブディレクトリを見てください。
+標準配布物に含まれるテーブルサンプリングメソッドは、自分でサンプリングメソッドを書く際に良いお手本になります。
+組み込みのサンプリングメソッドに関しては、ソースツリー中の<filename>src/backend/access/tablesample</>サブディレクトリを見てください。
 追加のメソッドに関しては<filename>contrib</>サブディレクトリを見てください。
  </para>
 
@@ -153,7 +153,7 @@ method_name(internal) RETURNS tsm_handler
 <!--
   <title>Sampling Method Support Functions</title>
 -->
-  <title>サンプルメソッドサポート関数</title>
+  <title>サンプリングメソッドサポート関数</title>
 
   <para>
 <!--
@@ -194,7 +194,7 @@ SampleScanGetSampleSize (PlannerInfo *root,
 -->
 この関数はプランニングの際に呼び出されます。
 サンプルスキャン中に読み出すリレーションのページ数と、スキャン中に選択されるタプル行数の見積もりを行わなければなりません。
-(たとえば、サンプル比率に<literal>baserel-&gt;pages</>と<literal>baserel-&gt;tuples</>を掛け、整数値になるように丸めることで見積もりが可能となるでしょう。)
+(たとえば、サンプル比率を推定し、それに<literal>baserel-&gt;pages</>と<literal>baserel-&gt;tuples</>を掛け、整数値になるように丸めることで見積もりが可能となるでしょう。)
 <literal>paramexprs</>リストは、<literal>TABLESAMPLE</>句への引数となる式を格納します。
 見積のためにその推測値が必要なら、<function>estimate_expression_value()</>を使ってこれらの式を定数に簡約化してみることをおすすめします。
 ただし、関数は簡約化ができない場合でもサイズに関する見積は提供しなければなりませんし、値が正しくない場合でも関数がエラーになってはいけません(推測値は、実行時には値がそうなるであろうということに過ぎないことを思い出してください)。
@@ -228,7 +228,7 @@ SampleScan計画ノードを実行するための初期化を行います。
 この関数はエグゼキュータの起動時に呼び出されます。
 処理を開始する前に必要な初期化をすべて行う必要があります。
 <structname>SampleScanState</>ノードは作成済みですが、<structfield>tsm_state</>フィールドはNULLです。
-<function>InitSampleScan</>関数はサンプルメソッドが必要とする内部データをすべてpallocし、<literal>node-&gt;tsm_state</>に格納します。
+<function>InitSampleScan</>関数はサンプリングメソッドが必要とする内部データをすべてpallocし、<literal>node-&gt;tsm_state</>に格納します。
 スキャン対象のテーブルに関する情報は<structname>SampleScanState</>ノードの他のフィールドを通じてアクセスできます
 (ただし、<literal>node-&gt;ss.ss_currentScanDesc</>スキャンディスクリプタはまだ設定されていません)。
 <literal>eflags</>には、この計画ノードにおけるエグゼキュータの動作モードを記述するフラグビットが含まれます。
@@ -250,7 +250,7 @@ SampleScan計画ノードを実行するための初期化を行います。
    <function>BeginSampleScan</> must perform all initialization needed
    by the sampling method.
 -->
-<function>BeginSampleScan</>がサンプルメソッドに必要なすべての初期化を行なわなければならないのであれば、(ポインタをNULLにすることにより)この関数は省略できます。
+この関数は(ポインタをNULLにすることにより)省略できますが、この場合、<function>BeginSampleScan</>がサンプリングメソッドに必要なすべての初期化を行なわなければなりません。
   </para>
 
   <para>
@@ -286,8 +286,8 @@ BeginSampleScan (SampleScanState *node,
 スキャン対象のテーブルに関する情報は<structname>SampleScanState</>ノードのフィールドを通じてアクセスできます
 (ただし、<literal>node-&gt;ss.ss_currentScanDesc</>スキャンディスクリプタはまだ設定されていません)。
 <literal>nparams</>の長さを持つ<literal>params</>配列は、<literal>TABLESAMPLE</>句で指定された引数の値を保持ししています。
-これらは、サンプルメソッドの<literal>parameterTypes</literal>リストで指定された数と型を持ち、NULLでないことがチェック済みです。
-<literal>seed</>には、サンプルメソッド内で使用する乱数生成器で使われるシードが格納されます。
+これらは、サンプリングメソッドの<literal>parameterTypes</literal>リストで指定された数と型を持ち、NULLでないことがチェック済みです。
+<literal>seed</>には、サンプリングメソッド内で使われる乱数のために使われるシードが格納されます。
 これは、<literal>REPEATABLE</>の値が指定されている場合はそこから派生したハッシュか、でなければ<literal>random()</>の結果です。
   </para>
 
@@ -310,8 +310,8 @@ BeginSampleScan (SampleScanState *node,
 -->
 この関数は<literal>node-&gt;use_bulkread</>と<literal>node-&gt;use_pagemode</>フィールドによって動作を変更します
 <literal>node-&gt;use_bulkread</>が<literal>true</>なら(これはデフォルトです)、スキャンは使用後のバッファの再利用を推奨するバッファアクセス戦略を使います。
-テーブルのわずかな部分だけをスキャンが再びアクセスするようなら、<literal>false</>にするのが妥当かもしれません。
-<literal>node-&gt;use_pagemode</>が<literal>true</>なら(これはデフォルトです)、スキャンはアクセスするページ上のすべてのタプルに対して可視性チェックを行います。
+テーブルのわずかな部分だけをスキャンがアクセスするようなら、<literal>false</>にするのが妥当かもしれません。
+<literal>node-&gt;use_pagemode</>が<literal>true</>なら(これはデフォルトです)、スキャンはアクセスするページ上のすべてのタプルに対して一括で可視性チェックを行います。
 スキャンがアクセスするページ上のわずかな部分のタプルだけを選択するのであれば、<literal>false</> にするのが妥当かもしれません。
 これにより、より少ないタプルに対して可視性チェックが行われます。
 ただし、個々の操作はより高くつきます。
@@ -327,7 +327,7 @@ BeginSampleScan (SampleScanState *node,
    same tuples as before (if the <literal>TABLESAMPLE</> parameters
    and seed don't change).
 -->
-サンプルメソッドに<literal>repeatable_across_scans</literal>という印があれば、最初にスキャンした時と同じタプルの集合を、再スキャンでも選択できることになります。
+サンプリングメソッドに<literal>repeatable_across_scans</literal>という印があれば、最初にスキャンした時と同じタプルの集合を、再スキャンでも選択できることになります。
 つまり、新しい<function>BeginSampleScan</>が、前回と同じタプルを選択することになるわけです。
 (もし<literal>TABLESAMPLE</>の引数とシードが変わらなければ、の話ですが)
   </para>
@@ -354,8 +354,9 @@ NextSampleBlock (SampleScanState *node);
    cannot assume that the relation pages are visited in the same order on
    each scan.
 -->
-コアのコードがリレーション全体を順スキャンする場合には、この関数は(ポインタをNULLにすることにより)省略できます。
-そのようなスキャンは同期スキャンを行う可能性があるので、毎回のスキャンで同じ順番でリレーションのページをアクセスするとは、サンプルメソッドは仮定できません。
+この関数は(ポインタをNULLにすることにより)省略できます。
+この場合コアのコードはリレーション全体を順スキャンします。
+そのようなスキャンは同期スキャンを行う可能性があるので、毎回のスキャンで同じ順番でリレーションのページをアクセスするとは、サンプリングメソッドは仮定できません。
   </para>
 
   <para>
@@ -389,7 +390,7 @@ NextSampleTuple (SampleScanState *node,
     to identify which tuples are valid and visible.  (This
     requires <literal>node-&gt;use_pagemode</> to be <literal>true</>.)
 -->
-<function>NextSampleTuple</>は、範囲<literal>1 .. maxoffset</>の中のどのオフセット番号が有効なタプルにあたるのかは明示的には教えてくれません。
+<function>NextSampleTuple</>は、範囲<literal>1 .. maxoffset</>の中のどのオフセット番号が有効なタプルにあたるのかは明示的には教えてもらえません。
 通常コアのコードは、存在しない、あるいは不可視のタプルは無視するため、通常はこれは問題になりません。
 サンプルの偏りも起きません。
 それでも必要ならば、関数は<literal>node-&gt;ss.ss_currentScanDesc-&gt;rs_vistuples[]</>を調べ、どのタプルが有効で可視なのかを調べることもできます(このためには<literal>node-&gt;use_pagemode</>が<literal>true</>である必要があります)。
