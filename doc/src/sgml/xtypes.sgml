@@ -318,6 +318,7 @@ CREATE TYPE complex (
  </para>
 
  <para>
+<!--
   If the internal representation of the data type is variable-length, the
   internal representation must follow the standard layout for variable-length
   data: the first four bytes must be a <type>char[4]</type> field which is
@@ -326,15 +327,25 @@ CREATE TYPE complex (
   size of the datum (including the length field itself) in this field
   and <function>VARSIZE()</function> to retrieve it.  (These macros exist
   because the length field may be encoded depending on platform.)
+-->
+データ型の内部表現が可変長であるなら、内部表現は可変長データの標準配置に従わなければなりません。先頭の4バイトは<type>char[4]</type>フィールドで、直接アクセスされることは決してありません（慣習的に<structfield>vl_len_</>と呼ばれます）。
+<function>SET_VARSIZE()</function>マクロを使用してデータの総量をこのフィールドに格納し、また、<function>VARSIZE()</function>を使用して取り出さなければなりません。
+(長さフィールドはプラットフォームに依存してエンコードされるかもしれませんので、このマクロが存在します。)
  </para>
 
  <para>
+<!--
   For further details see the description of the
   <xref linkend="sql-createtype"> command.
+-->
+詳細については<xref linkend="sql-createtype">コマンドの説明を参照してください。
  </para>
 
  <sect2 id="xtypes-toast">
+<!--
   <title>TOAST Considerations</title>
+-->
+  <title>TOASTの考慮</title>
    <indexterm>
 <!--
     <primary>TOAST</primary>
@@ -343,15 +354,9 @@ CREATE TYPE complex (
     <primary>TOAST</primary>
     <secondary>とユーザ定義型</secondary>
    </indexterm>
+
  <para>
 <!--
-
-★原文に変更あり
-変更前：
-  If the values of your data type vary in size (in internal form), you should
-  make the data type <acronym>TOAST</>-able (see <xref
-  linkend="storage-toast">). You should do this even if the data are always
-変更前ここまで：★訳文変更の必要あり
   If the values of your data type vary in size (in internal form), it's
   usually desirable to make the data type <acronym>TOAST</>-able (see <xref
   linkend="storage-toast">). You should do this even if the values are always
@@ -359,9 +364,8 @@ CREATE TYPE complex (
   <acronym>TOAST</> can save space on small data too, by reducing header
   overhead.
 -->
-データ型の値により（内部形式で）容量が変動する場合、そのデータ型を<acronym>TOAST</>可能とすることを勧めます。
-（<xref linkend="storage-toast">を参照してください。）
-ヘッダのオーバーヘッドを減らすことで<acronym>TOAST</>は小さなデータに対しても容量を抑えることができますので、データが常に小さ過ぎて圧縮したり外部に格納したりできない場合でも、これを行なうことを勧めます。
+データ型の値により（内部形式で）容量が変動する場合、そのデータ型を<acronym>TOAST</>可能とすることが通常は望ましいです（<xref linkend="storage-toast">を参照してください）。
+ヘッダのオーバーヘッドを減らすことで<acronym>TOAST</>は小さなデータに対しても容量を抑えることができますので、データが常に圧縮したり外部に格納したりするには小さ過ぎる場合でも、これを行なうことを推奨します。
  </para>
 
  <para>
@@ -373,11 +377,14 @@ CREATE TYPE complex (
   Then, when running the <command>CREATE TYPE</command> command, specify the
   internal length as <literal>variable</> and select some appropriate storage
   option other than <literal>plain</>.
- </para>★要翻訳
 -->
+<acronym>TOAST</>格納をサポートするために、そのデータ型を扱うC関数は常に、<function>PG_DETOAST_DATUM</>を使用して、渡されたTOAST化値を注意深く展開しなければなりません。
+（通常、こうした詳細は型独自の<function>GETARG_DATATYPE_P</function>マクロを定義して隠蔽します。）
+その後、<command>CREATE TYPE</command>コマンドを実行する際に、内部長を<literal>variable</>と指定し、また、<literal>plain</>以外の適当な格納オプションを選択してください。
+ </para>
 
-<!--
  <para>
+<!--
   If data alignment is unimportant (either just for a specific function or
   because the data type specifies byte alignment anyway) then it's possible
   to avoid some of the overhead of <function>PG_DETOAST_DATUM</>. You can use
@@ -389,7 +396,7 @@ CREATE TYPE complex (
   type definition specifies an alignment. If the alignment is important you
   must go through the regular <function>PG_DETOAST_DATUM</> interface.
 -->
-整列が（単なる特定の関数向けやデータ型が常にバイト単位の整列を規定しているため）重要でない場合、<function>PG_DETOAST_DATUM</>のオーバヘッドの一部を省くことができます。
+データの整列が（単なる特定の関数向けやデータ型が常にバイト単位の整列を規定しているため）重要でない場合、<function>PG_DETOAST_DATUM</>のオーバヘッドの一部を省くことができます。
 代わりに<function>PG_DETOAST_DATUM_PACKED</>を使用してください（通常は<function>GETARG_DATATYPE_PP</>マクロを定義することで隠蔽されます）。
 そして、<function>VARSIZE_ANY_EXHDR</>および<function>VARDATA_ANY</>マクロを使用して、圧縮されている可能性があるデータにアクセスしてください。
 繰り返しますが、これらのマクロから返されるデータは、たとえデータ型定義で整列を規定していたとしても、整列されません。
@@ -415,6 +422,7 @@ CREATE TYPE complex (
  </note>
 
  <para>
+<!--
   Another feature that's enabled by <acronym>TOAST</> support is the
   possibility of having an <firstterm>expanded</> in-memory data
   representation that is more convenient to work with than the format that
@@ -425,9 +433,14 @@ CREATE TYPE complex (
   with, so <productname>PostgreSQL</> provides a way to <quote>expand</>
   the flat format into a representation that is more suited to computation,
   and then pass that format in-memory between functions of the data type.
+-->
+<acronym>TOAST</>のサポートにより有効になるもう一つの機能は以下のような可能性です。ディスクに格納されたフォーマットよりも扱うのにより便利な<firstterm>展開された</>インメモリデータ表現を持てるかもしれません。
+通常のもしくは<quote>単純な</>varlena格納フォーマットは結局のところ単なるバイトのblobです。例えば、メモリの別の場所にコピーされるかもしれませんのでポインタを含むことができません。
+複雑なデータ型に対しては、単純なフォーマットは扱うのにかなり高価になるかもしれません。そこで、<productname>PostgreSQL</>は計算するのにより適した表現に単純なフォーマットを<quote>展開する</>方法を提供し、そのフォーマットをインメモリでそのデータ型の関数から関数へと渡します。
  </para>
 
  <para>
+<!--
   To use expanded storage, a data type must define an expanded format that
   follows the rules given in <filename>src/include/utils/expandeddatum.h</>,
   and provide functions to <quote>expand</> a flat varlena value into
@@ -441,9 +454,15 @@ CREATE TYPE complex (
   the flat varlena format will continue to work, though slightly
   inefficiently, with expanded inputs; they need not be converted until and
   unless better performance is important.
+-->
+展開された格納を使うためには、データ型は<filename>src/include/utils/expandeddatum.h</>にある規則に従う展開されたフォーマットを定義し、単純なvarlenaの値を展開されたフォーマットに<quote>展開する</>関数や展開されたフォーマットを通常のvarlena表現に<quote>戻す</>関数を提供しなければなりません。
+そのデータ型のC関数はすべてどちらの表現でも確実に受け付けられるようにしてください。おそらく、受け取ったらすぐに一方からもう一方に変換することによって実現することになるでしょう。
+これはそのデータ型の既存の関数をすべて一度に修正することを要求するものでありません。なぜなら、<function>PG_DETOAST_DATUM</>マクロが展開された入力を通常の単純なフォーマットに変換するために定義されているからです。
+そのため、単純なvarlenaフォーマットを扱う既存の関数は、わずかに非効率ではありますが、展開された入力も続けて扱えるでしょう。より良いパフォーマンスが重要になるまで、変更は必要ありません。
  </para>
 
  <para>
+<!--
   C functions that know how to work with an expanded representation
   typically fall into two categories: those that can only handle expanded
   format, and those that can handle either expanded or flat varlena inputs.
@@ -460,9 +479,17 @@ CREATE TYPE complex (
   pointer to a union of the flat varlena format and the expanded format.
   Callers can use the <function>VARATT_IS_EXPANDED_HEADER()</> macro to
   determine which format they received.
+-->
+展開された表現の扱い方を知っているC関数は典型的には以下の2つに分類されます。展開されたフォーマットのみを扱えるものと、展開されたものも単純なvarlena入力も扱えるものです。
+前者は書くのが簡単ですが、全般にあまり効率的ではないかもしれません。なぜなら、一つの関数による使用のために単純な入力を展開された形に変換することは、展開されたフォーマットで操作することで節約されることよりコストが掛かるかもしれないからです。
+展開されたフォーマットのみ扱うことが必要であるなら、単純な入力の展開された形への変換は引数を取得するマクロの中に隠すことができます。それゆえ、関数は伝統的なvarlena入力を扱うものよりもより複雑に見えることはありません。
+両方の型の入力を扱うためには、外部やショートヘッダや圧縮されたvarlenaの入力はトースト化を解除するけれども展開された入力に対してはトースト化を解除しないような、引数を取得する関数を書いてください。
+そのような関数は、単純なvarlenaフォーマットと展開されたフォーマットの共用体へのポインタを返すよう定義できます。
+呼び出し側はどちらのフォーマットを受け取ったのか確定するのに<function>VARATT_IS_EXPANDED_HEADER()</>マクロを使えます。
  </para>
 
  <para>
+<!--
   The <acronym>TOAST</> infrastructure not only allows regular varlena
   values to be distinguished from expanded values, but also
   distinguishes <quote>read-write</> and <quote>read-only</> pointers to
@@ -477,12 +504,20 @@ CREATE TYPE complex (
   return a read-write pointer to it.  Also, a C function that is modifying
   a read-write expanded value in-place should take care to leave the value
   in a sane state if it fails partway through.
+-->
+<acronym>TOAST</>基盤により、通常のvarlenaの値を展開された値から区別できるようになるだけでなく、展開された値への<quote>読み書き可能</>なポインタと<quote>読み取りのみ</>のポインタを区別できるようになります。
+入力値の修正されたバージョンを生成するC関数は、読み書き可能なポインタを受け取ったのであれば展開された入力値をその場で修正できますが、読み取りのみのポインタを受け取ったのであれば入力を変更してはなりません。その場合には、まず値をコピーして、修正するための新しい値を生成しなければなりません。
+展開された値を新しく作成したC関数は、必ずそこへの読み書き可能なポインタを返すことを推奨します。
+また、読み書き可能な展開された値をその場で修正するC関数は、途中で失敗した場合に気をつけて値を健全な状態のままにしておくことを推奨します。
  </para>
 
  <para>
+<!--
   For examples of working with expanded values, see the standard array
   infrastructure, particularly
   <filename>src/backend/utils/adt/array_expanded.c</>.
+-->
+展開された値を扱う例は、標準配列基盤、特に<filename>src/backend/utils/adt/array_expanded.c</>を見てください。
  </para>
 
  </sect2>
