@@ -989,21 +989,24 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
      <xref linkend="guc-vacuum-multixact-freeze-table-age">, a whole-table
      scan is forced.  <function>mxid_age()</> can be used on
      <structname>pg_class</>.<structfield>relminmxid</> to find its age.
+-->
+テーブルの一部または全体の<command>VACUUM</>テーブル走査の間に<xref linkend="guc-vacuum-multixact-freeze-min-age">よりも古いマルチトランザクションIDはすべて異なる値で置き換えられます。
+異なる値とは、0かもしれませんし、単一のトランザクションIDかもしれませんし、より新しいマルチトランザクションIDかもしれません。
+各テーブルでは、<structname>pg_class</>.<structfield>relminmxid</>がそのテーブルのタプルにまだ現れるマルチトランザクションIDのうちできるだけ古いものを保持しています。
+この値が<xref linkend="guc-vacuum-multixact-freeze-table-age">よりも古ければ、テーブル全体の走査が強制されます。
+<structname>pg_class</>.<structfield>relminmxid</>に対してその年代を調べるのに<function>mxid_age()</>を使えます。
     </para>
 
     <para>
+<!--
      Whole-table <command>VACUUM</> scans, regardless of
      what causes them, enable advancing the value for that table.
      Eventually, as all tables in all databases are scanned and their
      oldest multixact values are advanced, on-disk storage for older
      multixacts can be removed.
 -->
-テーブルの一部または全体の<command>VACUUM</>テーブル走査の間に<xref linkend="guc-vacuum-multixact-freeze-min-age">よりも古いマルチトランザクションIDはすべて異なる値で置き換えられます。
-異なる値とは、0かもしれませんし、単一のトランザクションIDかもしれませんし、より新しいマルチトランザクションIDかもしれません。
-各テーブルでは、<structname>pg_class</>.<structfield>relminmxid</>がそのテーブルのタプルにまだ現れる可能性のある一番古いマルチトランザクションIDを保持しています。
-この値が<xref linkend="guc-vacuum-multixact-freeze-table-age">よりも古ければ、テーブル全体の走査が強制されます。
 テーブル全体の<command>VACUUM</>走査は、その原因が何かに関わらず、そのテーブルのその値を進めることができます。
-結局、データベースすべてのテーブルすべてが走査され、最も古いマルチトランザクション値が薦められますので、ディスク上でより古いマルチトランザクションを保持している領域は削除できます。
+結局、データベースすべてのテーブルすべてが走査され、最も古いマルチトランザクション値が進められますので、ディスク上でより古いマルチトランザクションを保持している領域は削除できます。
     </para>
 
     <para>
@@ -1085,7 +1088,7 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
 同時に最大<xref linkend="guc-autovacuum-max-workers">個のプロセスが実行可能です。
 処理対象のデータベースが<varname>autovacuum_max_workers</>より多くある場合、次のデータベースは最初のワーカが終了するとすぐに処理されます。
 それぞれのワーカプロセスはデータベース内の各テーブルを検査し、必要に応じて<command>VACUUM</>または<command>ANALYZE</>コマンドを発行します。
-★<varname>log_autovacuum_min_duration</varname>も自動バキューム作業を監視するために使えます。
+<xref linkend="guc-log-autovacuum-min-duration">も自動バキュームワーカの活動を監視するために設定できます。
    </para>
 
    <para>
@@ -1180,6 +1183,7 @@ analyze threshold = analyze base threshold + analyze scale factor * number of tu
    </para>
 
    <para>
+<!--
     The default thresholds and scale factors are taken from
     <filename>postgresql.conf</filename>, but it is possible to override them
     (and many other autovacuum control parameters) on a per-table basis; see
@@ -1189,6 +1193,12 @@ analyze threshold = analyze base threshold + analyze scale factor * number of tu
     is used when processing that table; otherwise the global settings are
     used. See <xref linkend="runtime-config-autovacuum"> for more details on
     the global settings.
+-->
+デフォルトの閾値と規模係数は、<filename>postgresql.conf</filename>から取られますが、(他の多くの自動バキューム制御パラメータと合わせて)テーブル毎に上書きすることができます。
+より詳細な情報は<xref linkend="sql-createtable-storage-parameters" endterm="sql-createtable-storage-parameters-title">を参照してください。
+テーブルのストレージパラメータで設定が変更されると、そのテーブルを処理する時にその値が使用されます。
+そうでなければ、全体設定が使われます。
+全体設定についての詳細な情報は<xref linkend="runtime-config-autovacuum">を参照してください。
    </para>
 
    <para>
@@ -1202,9 +1212,9 @@ analyze threshold = analyze base threshold + analyze scale factor * number of tu
     <literal>autovacuum_vacuum_cost_limit</> storage parameters have been set
     are not considered in the balancing algorithm.
 -->
-複数のワーカプロセスの実行中、コスト遅延パラメータは制限は実行中のワーカ全体に<quote>振り分け</quote>られます。
+複数のワーカプロセスが実行している場合、自動バキュームコスト遅延パラメータ(<xref linkend="runtime-config-resource-vacuum-cost">を参照してください)は実行中のワーカ全体に<quote>振り分け</quote>られます。
 このため、ワーカの実稼働数に関らず、システムに与えるI/Oの総影響は変わりありません。
-しかし、<literal>autovacuum_vacuum_cost_delay</>または<literal>autovacuum_vacuum_cost_limit</>が設定されたテーブルを処理するワーカは振り分けアルゴリズムでは考慮されません。
+しかし、テーブル毎の<literal>autovacuum_vacuum_cost_delay</>または<literal>autovacuum_vacuum_cost_limit</>ストレージパラメータが設定されたテーブルを処理するワーカは振り分けアルゴリズムでは考慮されません。
    </para>
   </sect2>
  </sect1>
@@ -1230,7 +1240,6 @@ analyze threshold = analyze base threshold + analyze scale factor * number of tu
    rebuilding steps.
 -->
 <xref linkend="sql-reindex">コマンドまたは一連の個々の再構築処理を使用して定期的にインデックスを再構築することが価値がある状況があります。
-
   </para>
 
   <para>

@@ -52,7 +52,7 @@
      Support for additional events may be added in future releases.
 -->
 イベントトリガは、関連づけられたイベントが、定義されたデータベースで起こるたびに実行されます。
-現在の所サポートされているイベントは、<literal>ddl_command_start</>、<literal>ddl_command_end</>、<literal>sql_drop</>です。
+現在の所サポートされているイベントは、<literal>ddl_command_start</>、<literal>ddl_command_end</>、<literal>table_rewrite</>、<literal>sql_drop</>です。
 今後のリリースで新たなイベントが追加されるかもしれません。
    </para>
 
@@ -72,10 +72,10 @@
      <literal>SELECT INTO</literal> command, since this is equivalent to
      <literal>CREATE TABLE AS</literal>.
 -->
-<literal>ddl_command_start</>イベントは、<literal>CREATE</>、<literal>ALTER</>、<literal>DROP</>コマンドの実行の前に発生します。
+<literal>ddl_command_start</>イベントは、<literal>CREATE</>、<literal>ALTER</>、<literal>DROP</>、<literal>SECURITY LABEL</>、<literal>COMMENT</>、<literal>GRANT</>、<literal>REVOKE</>コマンドの実行の直前に発生します。
 影響するオブジェクトが存在するかどうかのチェックはイベントトリガが実行されるまで行われません。
 しかしながら例外として、共有オブジェクト &mdash; データベース、ロール、テーブルスペース &mdash; を対象としているDDLコマンド、もしくは、イベントトリガ自体をターゲットにしたコマンドに対してのイベントは起こりません。
-<literal>ddl_command_start</>はまた、 <literal>SELECT INTO</literal>コマンドの実行後にも発生します。このコマンドは<literal>CREATE TABLE AS</literal>コマンドと同等だからです。
+<literal>ddl_command_start</>はまた、<literal>SELECT INTO</literal>コマンドの実行直前にも発生します。このコマンドは<literal>CREATE TABLE AS</literal>コマンドと同等だからです。
    </para>
 
    <para>
@@ -90,7 +90,8 @@
     and thus the system catalogs can be read as already changed.
 -->
 <literal>ddl_command_end</>イベントは、ddl_command_startイベントが対象とする同様のコマンドの実行後に発生します。
-★★★
+発生した<acronym>DDL</>操作のより詳細を取得するには、<literal>ddl_command_end</>イベントトリガコード(<xref linkend="functions-event-triggers">を参照してください)で集合を返す関数<literal>pg_event_trigger_ddl_commands()</>を使ってください。
+トリガはアクションが起きた後(ただし、トランザクションのコミットの前)に起動し、システムカタログは既に変更されたものとして読まれることに注意してください。
    </para>
 
    <para>
@@ -110,12 +111,16 @@
    </para>
 
    <para>
+<!--
     The <literal>table_rewrite</> event occurs just before a table is
     rewritten by some actions of the commands <literal>ALTER TABLE</> and
     <literal>ALTER TYPE</>.  While other
     control statements are available to rewrite a table,
     like <literal>CLUSTER</literal> and <literal>VACUUM</literal>,
     the <literal>table_rewrite</> event is not triggered by them.
+-->
+コマンド<literal>ALTER TABLE</>や<literal>ALTER TYPE</>のアクションによりテーブルが書き換えられる直前に、<literal>table_rewrite</>イベントは発生します。
+<literal>CLUSTER</literal>や<literal>VACUUM</literal>のような他の制御文でもテーブルを書き換えられますが、それらでは<literal>table_rewrite</>イベントは引き起こされません。
    </para>
 
    <para>
@@ -196,7 +201,6 @@
      <title>Event Trigger Support by Command Tag</title>
 -->
      <title>コマンドタグによりサポートされるイベントトリガ</title>
-
      <tgroup cols="6">
       <thead>
        <row>
@@ -208,7 +212,10 @@
         <entry><literal>ddl_command_end</literal></entry>
         <entry><literal>sql_drop</literal></entry>
         <entry><literal>table_rewrite</literal></entry>
+<!--
         <entry>Notes</entry>
+-->
+        <entry>注意</entry>
        </row>
       </thead>
       <tbody>
@@ -426,7 +433,10 @@
         <entry align="center"><literal>X</literal></entry>
         <entry align="center"><literal>-</literal></entry>
         <entry align="center"><literal>-</literal></entry>
+<!--
         <entry align="center">Only for local objects</entry>
+-->
+        <entry align="center">ローカルオブジェクトに対してのみ</entry>
        </row>
        <row>
         <entry align="left"><literal>CREATE CAST</literal></entry>
@@ -889,7 +899,10 @@
         <entry align="center"><literal>X</literal></entry>
         <entry align="center"><literal>-</literal></entry>
         <entry align="center"><literal>-</literal></entry>
+<!--
         <entry align="center">Only for local objects</entry>
+-->
+        <entry align="center">ローカルオブジェクトに対してのみ</entry>
        </row>
        <row>
         <entry align="left"><literal>IMPORT FOREIGN SCHEMA</literal></entry>
@@ -905,7 +918,10 @@
         <entry align="center"><literal>X</literal></entry>
         <entry align="center"><literal>-</literal></entry>
         <entry align="center"><literal>-</literal></entry>
+<!--
         <entry align="center">Only for local objects</entry>
+-->
+        <entry align="center">ローカルオブジェクトに対してのみ</entry>
        </row>
        <row>
         <entry align="left"><literal>SECURITY LABEL</literal></entry>
@@ -913,7 +929,10 @@
         <entry align="center"><literal>X</literal></entry>
         <entry align="center"><literal>-</literal></entry>
         <entry align="center"><literal>-</literal></entry>
+<!--
         <entry align="center">Only for local objects</entry>
+-->
+        <entry align="center">ローカルオブジェクトに対してのみ</entry>
        </row>
        <row>
         <entry align="left"><literal>SELECT INTO</literal></entry>
@@ -1051,7 +1070,7 @@ typedef struct EventTriggerData
         See <xref linkend="event-trigger-definition"> for the meaning of these
         events.
 -->
-その関数が呼び出されたイベント、<literal>"ddl_command_start"</literal>、<literal>"ddl_command_end"</literal>、<literal>"sql_drop"</literal>のうちの１つを記述します。
+その関数が呼び出されたイベント、<literal>"ddl_command_start"</literal>、<literal>"ddl_command_end"</literal>、<literal>"sql_drop"</literal>、<literal>"table_rewrite"</literal>のうちの１つを記述します。
 これらのイベントの内容は、<xref linkend="event-trigger-definition">を参照してください。
        </para>
       </listitem>
@@ -1123,7 +1142,7 @@ C言語で作成したイベントトリガ関数に関するとても簡単な�
 -->
 <function>noddl</>関数は、呼ばれるたびに例外を発生させます。
 このイベントトリガは、この関数と<literal>ddl_command_start</literal>イベントを関連づけます。
-そのため、(<xref linkend="event-trigger-definition">で言及した例外はありますが)すべてのDDLコマンドは、実行できません。
+そのため、(<xref linkend="event-trigger-definition">で言及した例外はありますが例外を含む)すべてのDDLコマンドは、実行できません。
    </para>
 
    <para>
@@ -1220,25 +1239,40 @@ COMMIT;
   </sect1>
 
   <sect1 id="event-trigger-table-rewrite-example">
+<!--
    <title>A Table Rewrite Event Trigger Example</title>
+-->
+   <title>テーブル書き換えイベントトリガの例</title>
 
    <para>
+<!--
     Thanks to the <literal>table_rewrite</> event, it is possible to implement
     a table rewriting policy only allowing the rewrite in maintenance windows.
+-->
+<literal>table_rewrite</>イベントのおかげで、メンテナンスウィンドウでの書き換えを許可するだけでテーブル書き換えポリシーを実装できます。
    </para>
 
    <para>
+<!--
     Here's an example implementing such a policy.
+-->
+これが、そのようなポリシーを実装した例です。
 <programlisting>
 CREATE OR REPLACE FUNCTION no_rewrite()
  RETURNS event_trigger
  LANGUAGE plpgsql AS
 $$
 ---
---- Implement local Table Rewriting policy:
----   public.foo is not allowed rewriting, ever
----   other tables are only allowed rewriting between 1am and 6am
----   unless they have more than 100 blocks
+<!--
+&#045;&#045;- Implement local Table Rewriting policy:
+&#045;&#045;-   public.foo is not allowed rewriting, ever
+&#045;&#045;-   other tables are only allowed rewriting between 1am and 6am
+&#045;&#045;-   unless they have more than 100 blocks
+-->
+--- ローカルテーブル書き換えポリシーの実装:
+---   public.fooは書き換えが許可されていません
+---   その他のテーブルは100ブロック以下であれば、
+---   午前1時から午前6時までの間だけ書き換えが許可されます
 ---
 DECLARE
   table_oid oid := pg_event_trigger_table_rewrite_oid();
