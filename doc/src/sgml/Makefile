@@ -324,6 +324,7 @@ MAKEINFO = makeinfo
 
 # Quick syntax check without style processing
 check: postgres.sgml $(ALMOSTALLSGML) check-tabs
+	SP_CHARSET_FIXED=1 SP_ENCODING=UTF-8 \
 	$(NSGMLS) $(SPFLAGS) $(SGMLINCLUDE) -s $<
 
 
