@@ -64,21 +64,23 @@
     On tables and foreign tables, triggers can be defined to execute either
     before or after any <command>INSERT</command>, <command>UPDATE</command>,
     or <command>DELETE</command> operation, either once per modified row,
-    or once per <acronym>SQL</acronym> statement.  If an ★
-    <command>INSERT</command> contains an <literal>ON CONFLICT DO UPDATE</>★
-    clause, it is possible that the effects of a BEFORE insert trigger and★
-    a BEFORE update trigger can both be applied together, if a reference to★
-    an <varname>EXCLUDED</> column appears.  <command>UPDATE</command>★
-    triggers can moreover be set to fire only if certain columns are★
-    mentioned in the <literal>SET</literal> clause of the★
-    <command>UPDATE</command> statement.  Triggers can also fire for★
-    <command>TRUNCATE</command> statements.  If a trigger event occurs,★
-    the trigger's function is called at the appropriate time to handle the★
-    event.  Foreign tables do not support the TRUNCATE statement at all.★
-★翻訳が必要です
+    or once per <acronym>SQL</acronym> statement.  If an
+    <command>INSERT</command> contains an <literal>ON CONFLICT DO UPDATE</>
+    clause, it is possible that the effects of a BEFORE insert trigger and
+    a BEFORE update trigger can both be applied together, if a reference to
+    an <varname>EXCLUDED</> column appears.  <command>UPDATE</command>
+    triggers can moreover be set to fire only if certain columns are
+    mentioned in the <literal>SET</literal> clause of the
+    <command>UPDATE</command> statement.  Triggers can also fire for
+    <command>TRUNCATE</command> statements.  If a trigger event occurs,
+    the trigger's function is called at the appropriate time to handle the
+    event.  Foreign tables do not support the TRUNCATE statement at all.
 -->
 テーブルおよび外部テーブル上では、トリガを<command>INSERT</command>、<command>UPDATE</command>または<command>DELETE</command>操作の前後に、行を変更する度、あるいは<acronym>SQL</acronym>文ごとに実行するように定義することができます。
-★翻訳が必要です
+<command>INSERT</command>が<literal>ON CONFLICT DO UPDATE</>句を含む場合、<varname>EXCLUDED</>列への参照があるなら、BEFORE INSERTトリガとBEFORE UPDATEトリガの両方が適用されることもあります。
+UPDATEトリガについては、特定のカラムがUPDATE文のSET句の対象になった時のみ発動するよう設定することができます。また、トリガはTRUNCATE文についても実行できます。
+トリガイベントが起こると、トリガ関数がそのイベントを扱う適切な時点で呼び出されます。
+外部テーブルはTRUNCATEを全くサポートしません。
    </para>
 
    <para>
@@ -206,12 +208,17 @@
     <command>UPDATE</command> triggers, followed by statement-level
     <literal>AFTER</> <command>UPDATE</command> triggers and finally
     statement-level <literal>AFTER</> <command>INSERT</command>
-    triggers.★翻訳が必要です
+    triggers.
 -->
+<command>INSERT</command>が<literal>ON CONFLICT DO UPDATE</>句を含む場合、<varname>EXCLUDED</>列が参照されていると、すべての行単位<literal>BEFORE</> <command>INSERT</command>トリガおよびすべての行単位<literal>BEFORE</> <command>UPDATE</command>トリガの両方が適用され、それが更新後の行の最後の状態から明らかな場合がありえます。
+ただし、両方の行レベルのBEFOREトリガを実行するために<varname>EXCLUDED</>の参照が必要なわけではありません。
+驚くような結果の可能性について、<literal>BEFORE</> <command>INSERT</command>と<literal>BEFORE</> <command>UPDATE</command>の両方の文単位トリガーがあり、それらがいずれも挿入あるいは更新対象の行に影響を与える場合に考慮すべきです（これは更新が冪等ではないが、ほぼ同等であるときには、それでも問題になります）。
+文単位の<command>UPDATE</command>トリガは<literal>ON CONFLICT DO UPDATE</>が指定されたとき、その<command>UPDATE</command>によって行が影響を受けたかどうかに関わらず（そしてその代替である<command>UPDATE</command>部分が実行されたかどうかに関わらず）実行されることに注意してください。
+<literal>ON CONFLICT DO UPDATE</>句のある<command>INSERT</command>では、まず文単位の<literal>BEFORE</> <command>INSERT</command>トリガ、次に文単位の<literal>BEFORE</> <command>UPDATE</command>トリガ、次いで文単位の<literal>AFTER</> <command>UPDATE</command>トリガ、最後に文単位の<literal>AFTER</> <command>INSERT</command>トリガを実行します。
    </para>
 
    <para>
-
+<!--
     Trigger functions invoked by per-statement triggers should always
     return <symbol>NULL</symbol>. Trigger functions invoked by per-row
     triggers can return a table row (a value of
