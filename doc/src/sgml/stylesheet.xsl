@@ -40,7 +40,6 @@
   <xsl:choose>
     <xsl:when test="$html.original = 1">
       <span class="original" xmlns="http://www.w3.org/1999/xhtml">
-        <xsl:comment>$<xsl:value-of select="dbhtml-filename"/></xsl:comment>
         <xsl:value-of select="." />
       </span><br xmlns="http://www.w3.org/1999/xhtml"/>
     </xsl:when>
