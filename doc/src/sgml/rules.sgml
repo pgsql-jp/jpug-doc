@@ -1290,7 +1290,7 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     the query as an update on the underlying base relation, an error will
     be thrown because the executor cannot update a view as such.
 -->
-ビューに<literal>INSTEAD</>ルールも<literal>INSTEAD OF</>トリガも定義されておらず、かつ、リライタがクエリを自動的に被参照テーブルへの更新に書き換える事ができなかった場合、エグゼキュータはビューを更新できませんのでエラーが発生します。
+ビューに<literal>INSTEAD</>ルールも<literal>INSTEAD OF</>トリガも定義されておらず、かつ、リライタが問い合わせを自動的に被参照テーブルへの更新に書き換える事ができなかった場合、エグゼキュータはビューを更新できませんのでエラーが発生します。
 </para>
 
 </sect2>
@@ -1357,7 +1357,7 @@ CREATE TABLE mymatview AS SELECT * FROM mytab;
     exactly the same way that a view's query is stored, so that fresh data
     can be generated for the materialized view with:
 -->
-の間の主な違いは、その後にマテリアライズドビューを直接更新できない事と、マテリアライズドビューを作成するために使われたクエリがビューと全く同様の方法で保持され、以下のコマンドを用いて最新のデータでマテリアライズドビューを再構築できる事です。
+の間の主な違いは、その後にマテリアライズドビューを直接更新できない事と、マテリアライズドビューを作成するために使われた問い合わせがビューと全く同様の方法で保持され、以下のコマンドを用いて最新のデータでマテリアライズドビューを再構築できる事です。
 
 <programlisting>
 REFRESH MATERIALIZED VIEW mymatview;
@@ -1513,7 +1513,7 @@ SELECT count(*) FROM words WHERE word = 'caterpiler';
 <!--
     If the materialized view is used instead, the query is much faster:
 -->
-代わりにマテリアライズドビューを使った場合、クエリは非常に速くなります。
+代わりにマテリアライズドビューを使った場合、問い合わせは非常に速くなります。
 
 <programlisting>
  Aggregate  (cost=4.44..4.45 rows=1 width=0) (actual time=0.042..0.042 rows=1 loops=1)
@@ -1684,6 +1684,7 @@ SELECT word FROM words ORDER BY word <-> 'caterpiler' LIMIT 10;
 
 <caution>
  <para>
+<!--
   In many cases, tasks that could be performed by rules
   on <command>INSERT</>/<command>UPDATE</>/<command>DELETE</> are better done
   with triggers.  Triggers are notationally a bit more complicated, but their
@@ -1691,15 +1692,25 @@ SELECT word FROM words ORDER BY word <-> 'caterpiler' LIMIT 10;
   results when the original query contains volatile functions: volatile
   functions may get executed more times than expected in the process of
   carrying out the rules.
+-->
+多くの場合、<command>INSERT</>/<command>UPDATE</>/<command>DELETE</>におけるルールによって実行できるタスクは、トリガーで実行した方が良いでしょう。
+トリガーは概念としては少し複雑ですが、意味を理解するにはとても単純です。
+元の問い合わせにvolatile関数を含む場合、ルールは驚かせる結果を返すことがよくあります。（volatile関数はルールを遂行する過程で予期していた回数よりより多く実行されてしまうかもしれません）
+
  </para>
 
  <para>
+<!--
   Also, there are some cases that are not supported by these types of rules at
   all, notably including <literal>WITH</> clauses in the original query and
   multiple-assignment sub-<literal>SELECT</>s in the <literal>SET</> list
   of <command>UPDATE</> queries.  This is because copying these constructs
   into a rule query would result in multiple evaluations of the sub-query,
   contrary to the express intent of the query's author.
+-->
+また、これらのタイプのルールが全くサポートしない場合もあります。
+特に<literal>WITH</>句を元の問い合わせに含む場合と<command>UPDATE</>問い合わせの<literal>SET</>リストの中で複数列に代入するサブ<literal>SELECT</>の場合です。
+これはルール問い合わせにこれらの構造を複製すると副問い合わせを複数回評価し、問い合わせの作者が表現したかった意図と異なる結果となるためです。
  </para>
 </caution>
 
@@ -3030,15 +3041,15 @@ SELECT * FROM phone_number WHERE tricky(person, phone);
 
 <para>
 <!--
-    When it is necessary for a view to provide row level security, the
+    When it is necessary for a view to provide row-level security, the
     <literal>security_barrier</literal> attribute should be applied to
     the view.  This prevents maliciously-chosen functions and operators from
     being passed values from rows until after the view has done its work.  For
     example, if the view shown above had been created like this, it would
     be secure:
 -->
-ビューが行レベルセキュリティを提供する場合には、そのビューには<literal>security_barrier</>属性を付与するべきです。
-これは、悪意を持って選ばれた関数や演算子が、ビューが適用されるより前に取り出された行に対して実行されないようにします。
+ビューが行単位セキュリティを提供する場合には、そのビューには<literal>security_barrier</>属性を付与するべきです。
+これは、悪意を持って選ばれた関数や演算子が、ビューが適用されるより前に渡された行に対して実行されないようにします。
 例えば、上記のビューが次のように定義された場合、これは安全です。
 <programlisting>
 CREATE VIEW phone_number WITH (security_barrier) AS
@@ -3051,7 +3062,7 @@ CREATE VIEW phone_number WITH (security_barrier) AS
     if it may compromise security.  For this reason, this option is not
     enabled by default.
 -->
-<literal>security_barrier</>を付けて定義されたビューは、このオプションなしのビューよりも性能の劣るクエリ実行プランを生成します。一般的に、最も高速だが、セキュリティ上の問題があるクエリ実行プランを破棄しなければならないという状況は不可避です。そのため、このオプションはデフォルトでは有効になっていません。
+<literal>security_barrier</>を付けて定義されたビューは、このオプションなしのビューよりも性能の劣る問い合わせ実行プランを生成します。一般的に、最も高速だが、セキュリティ上の問題がある問い合わせ実行プランを破棄しなければならないという状況は不可避です。そのため、このオプションはデフォルトでは有効になっていません。
 </para>
 
 <para>
@@ -3071,8 +3082,12 @@ CREATE VIEW phone_number WITH (security_barrier) AS
     significant information about the unseen rows if applied before the security
     view's row filters.
 -->
-   プランナは副作用のない関数をもう少し柔軟に扱います。これらの関数は<literal>LEAKPROOF</literal>属性を持っており、等価演算子など、単純で広く用いられる演算子も多く含まれます。利用者に対して不可視な行に対するこれら関数の呼び出しはいかなる情報も漏えいさせないため、プランナはこれらの関数をどのような場所でも安全に実行させる事ができます。
-一方、例えばオーバーフローやゼロ除算のよう、受け取った引数の値に応じてエラーを発生させるような関数は leak-proof ではありません。これがもしセキュリティ・ビューの条件句でフィルタリングされるより前に適用されたなら、不可視行に関する何か重要な情報を与える事ができてしまいます。
+プランナは副作用が無い関数をもう少し柔軟に扱います。
+これらの関数は<literal>LEAKPROOF</literal>属性を持っており、等価演算子など、単純で広く用いられる演算子も多く含まれます。
+利用者に対して不可視な行に対するこれら関数の呼び出しはいかなる情報も漏えいさせないため、プランナはこれらの関数をどのような場所でも安全に実行させる事ができます。
+さらに、引数をとらなかったり、セキュリティバリアビューから引数を渡されない関数は、ビューからデータを渡されることは決して無いため、プッシュダウンされるための<literal>LEAKPROOF</literal>をマークする必要はありません。
+一方、受け取った引数の値に応じてエラー（例えばオーバーフローやゼロ除算など）を発生させるかもしれない関数は leak-proof ではありません。
+これがもしセキュリティ・ビューの条件句でフィルタリングされるより前に適用されたなら、不可視行に関する何か重要な情報を与える事ができてしまいます。
 </para>
 
 <para>
@@ -3092,7 +3107,7 @@ CREATE VIEW phone_number WITH (security_barrier) AS
     to the data at all.
 -->
    ビューが<literal>security_barrier</literal>属性付きで定義されたとしても、それは限定的な意味で安全である、つまり不可視な行の内容が潜在的に安全でない関数に渡される事がないという事を意図しているにすぎません。
-利用者には不可視な行に対して何らかの推測を行う他の手段があるかもしれません。例えば、<command>EXPLAIN</command>を用いてクエリ実行プランを見たり、ビューに対するクエリ実行時間を計測したりすることです。
+利用者には不可視な行に対して何らかの推測を行う他の手段があるかもしれません。例えば、<command>EXPLAIN</command>を用いて問い合わせ実行プランを見たり、ビューに対する問い合わせ実行時間を計測したりすることです。
    悪意の攻撃者は不可視データの量を推測したり、分散や最頻値（なぜなら、これらは統計情報を通じて実行プランの選択、ひいては実行時間に影響するかもしれません）に関する何らかの情報を得る事ができるかもしれません。
    もし、この種の"隠れチャネル"に対する対策が必要であれば、とにかくデータに対するアクセスを許可するのは得策ではありません。
 </para>
