@@ -41,7 +41,7 @@
     <xsl:when test="$html.original = 1">
       <span class="original" xmlns="http://www.w3.org/1999/xhtml">
         <xsl:value-of select="." />
-      </span><br xmlns="http://www.w3.org/1999/xhtml"/>
+      </span>
     </xsl:when>
     <xsl:otherwise>
       <xsl:comment><xsl:value-of select="." /></xsl:comment>
