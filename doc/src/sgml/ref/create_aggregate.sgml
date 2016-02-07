@@ -291,12 +291,12 @@ NULL入力値を持つ行は無視されます。
    the values of those direct arguments to be added to the collection of
    aggregate-input rows as an additional <quote>hypothetical</> row.
 -->
-パラメータのリストに<literal>ORDER BY</literal>を含む構文は、<firstterm>順序集約</firstterm>と呼ばれる特別な種類の集約を作ります。
-また<literal>HYPOTHETICAL</>が指定されている場合は、<firstterm>仮想集約</firstterm>が作られます。
+パラメータのリストに<literal>ORDER BY</literal>を含む構文は、<firstterm>順序集合集約</firstterm>と呼ばれる特別な種類の集約を作ります。
+また<literal>HYPOTHETICAL</>が指定されている場合は、<firstterm>仮想集合集約</firstterm>が作られます。
 これらの集約は、ソートされた値のグループに対して、順序に依存した方法で作用するため、入力についてのソート順の指定は、呼び出しにおける本質的な部分になります。
 また、これらの集約は<firstterm>直接</>引数をとることができます。
 直接引数は、行毎に一度ではなく、集約に対して一度だけ評価されます。
-仮想集約は、順序集約のサブクラスで、直接引数のいくつかが、集約される引数の列と、数とデータ型についてマッチする必要があります。
+仮想集合集約は、順序集合集約のサブクラスで、直接引数のいくつかが、集約される引数の列と、数とデータ型についてマッチする必要があります。
 これにより、直接引数の値を、<quote>仮想的な</>行として、集約の入力行の集合に加えることができます。
   </para>
 
@@ -439,7 +439,7 @@ SELECT col FROM tab ORDER BY col USING sortop LIMIT 1;
 <command>CREATE AGGREGATE</>の旧構文では、入力データ型は集約の名前の次に記載されたものではなく<literal>basetype</>パラメータにより指定されます。
 この構文では入力パラメータを1つしかとれないことに注意してください。
 この構文で引数を持たない集約を定義するためには、<literal>basetype</>を<literal>"ANY"</> （<literal>*</>ではありません）と指定してください。
-順序集約関数は旧構文では定義できません。
+順序集合集約関数は旧構文では定義できません。
      </para>
     </listitem>
    </varlistentry>
@@ -475,7 +475,7 @@ SELECT col FROM tab ORDER BY col USING sortop LIMIT 1;
       aggregated arguments, not the direct arguments.  Otherwise it is the
       same.
 -->
-順序(仮想を含む)集約では、状態遷移関数は現在値と集約引数のみを受け取り、直接引数は受け取りません。
+順序集合(仮想集合を含む)集約では、状態遷移関数は現在値と集約引数のみを受け取り、直接引数は受け取りません。
 それ以外の点は全く同じです。
      </para>
     </listitem>
@@ -544,7 +544,7 @@ SELECT col FROM tab ORDER BY col USING sortop LIMIT 1;
       final function receives not only the final state value,
       but also the values of all the direct arguments.
 -->
-順序(仮想を含む)集約では、最終関数は終了時の状態値だけでなく、すべての直接引数の値も受け取ります。
+順序集合(仮想集合を含む)集約では、最終関数は終了時の状態値だけでなく、すべての直接引数の値も受け取ります。
      </para>
 
      <para>
@@ -710,7 +710,7 @@ SELECT col FROM tab ORDER BY col USING sortop LIMIT 1;
       run-time behavior, only on parse-time resolution of the data types and
       collations of the aggregate's arguments.
 -->
-順序集約についてのみ、このフラグは、仮想集約の要求に従って集約の引数が処理されることを指定します。
+順序集合集約についてのみ、このフラグは、仮想集合集約の要求に従って集約の引数が処理されることを指定します。
 つまり、最後のいくつかの引数が、集約される(<literal>WITHIN GROUP</>の)引数と適合しなければなりません。
 <literal>HYPOTHETICAL</literal>フラグは実行時の動作には何の影響もなく、集約の引数のデータ型と照合についての解析時の解決にのみ影響します。
      </para>
@@ -827,13 +827,13 @@ SELECT col FROM tab ORDER BY col USING sortop LIMIT 1;
     ones; any preceding parameters represent additional direct arguments
     that are not constrained to match the aggregated arguments.
 -->
-順序集約の構文では、<literal>VARIADIC</>を最後の直接パラメータと、最後の集約(<literal>WITHIN GROUP</>)パラメータの両方について指定することができます。
+順序集合集約の構文では、<literal>VARIADIC</>を最後の直接パラメータと、最後の集約(<literal>WITHIN GROUP</>)パラメータの両方について指定することができます。
 しかし、現在の実装では<literal>VARIADIC</>の使用を2つの方法に制限しています。
-1つ目は、順序集約では、<literal>VARIADIC "any"</>のみが利用でき、他のvariadicの配列型は利用できないことです。
+1つ目は、順序集合集約では、<literal>VARIADIC "any"</>のみが利用でき、他のvariadicの配列型は利用できないことです。
 2つ目は、最後の直接パラメータが<literal>VARIADIC "any"</>の場合、集約パラメータは1つだけしか使えず、かつそれも<literal>VARIADIC "any"</>でなければならない、ということです。
 (システムカタログで使われる表現において、これらの2つのパラメータは、1つの<literal>VARIADIC "any"</>要素に統合されています。
 なぜなら、<structname>pg_proc</>は2つ以上の<literal>VARIADIC</>パラメータがある関数を表現できないからです。)
-仮想集約の場合、<literal>VARIADIC "any"</>パラメータに対応する直接引数は仮想的なパラメータで、それより前のパラメータは、集約引数に対応する制約のない、追加の直接引数となります。
+仮想集合集約の場合、<literal>VARIADIC "any"</>パラメータに対応する直接引数は仮想的なパラメータで、それより前のパラメータは、集約引数に対応する制約のない、追加の直接引数となります。
    </para>
 
    <para>
@@ -841,7 +841,7 @@ SELECT col FROM tab ORDER BY col USING sortop LIMIT 1;
     Currently, ordered-set aggregates do not need to support
     moving-aggregate mode, since they cannot be used as window functions.
 -->
-現在は、順序集約は、ウィンドウ関数として使うことはできないので、移動集約モードをサポートする必要はありません。
+現在は、順序集合集約は、ウィンドウ関数として使うことはできないので、移動集約モードをサポートする必要はありません。
    </para>
  </refsect1>
 
