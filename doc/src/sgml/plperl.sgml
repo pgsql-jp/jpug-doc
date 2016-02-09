@@ -23,19 +23,18 @@
 PL/Perlは<ulink url="http://www.perl.org/">Perlプログラミング言語</ulink>を使用して<productname>PostgreSQL</productname>関数を作成することができる、ロード可能な手続き言語です。
   </para>
 
-<!--
   <para>
+<!--
    The main advantage to using PL/Perl is that this allows use,
    within stored functions, of the manyfold <quote>string
+   munging</quote> operators and functions available for Perl.  Parsing
    complex strings might be easier using Perl than it is with the
    string functions and control structures provided in PL/pgSQL.
-   </para>
 -->
-  <para>
 PL/Perlを使用する主たる利点は、ストアドプロシージャの中で、さまざまな<quote>文字列操作</quote>やPerlで使用可能な関数を使用できるという点です。
 複雑な文字列解析は、PL/pgSQLで提供される文字列関数や制御構造体を使用するよりPerlを使用する方が簡単に行うことができます。
   </para>
-  
+
   <para>
 <!--
    To install PL/Perl in a particular database, use
@@ -83,13 +82,15 @@ PL/Perlを特定のデータベースにインストールするには、<litera
 
 -->
 PL/Perl言語で関数を作成するには、以下の標準的な<xref linkend="sql-createfunction">構文を使用してください。
-
-<!--    ★# PL/Perl function body -->
 <programlisting>
 CREATE FUNCTION <replaceable>funcname</replaceable> (<replaceable>argument-types</replaceable>) RETURNS <replaceable>return-type</replaceable> AS $$
+<!--
+    # PL/Perl function body
+ -->
     # PL/Perl関数本体
 $$ LANGUAGE plperl;
 </programlisting>
+
 <!--
    The body of the function is ordinary Perl code. In fact, the PL/Perl
    glue code wraps it inside a Perl subroutine.  A PL/Perl function is
@@ -146,7 +147,7 @@ PL/Perl関数はサブルーチン内に格納されますので、内部に記�
    </para>
   </note>
 
-   <para>
+  <para>
 <!--
    The syntax of the <command>CREATE FUNCTION</command> command requires
    the function body to be written as a string constant.  It is usually
@@ -160,7 +161,7 @@ PL/Perl関数はサブルーチン内に格納されますので、内部に記�
 <command>CREATE FUNCTION</command>コマンドの構文では、関数本体は文字列定数として記述されることを必須としています。
 通常、文字列定数にはドル引用符付け（<xref linkend="sql-syntax-dollar-quoting">を参照）を使用することが最も便利です。
 エスケープ文字列構文<literal>E''</>を使用することを選択した場合、関数本体で使用される単一引用符（<literal>'</>）とバックスラッシュ（<literal>\</>）をすべて二重にしなければなりません（<xref linkend="sql-syntax-strings">を参照）。
-   </para>
+  </para>
 
   <para>
 <!--
@@ -235,7 +236,6 @@ CREATE FUNCTION perl_max (integer, integer) RETURNS integer AS $$
     return $y;
 $$ LANGUAGE plperl;
 </programlisting>
-
 <!--
    As shown above, to return an SQL null value from a PL/Perl
    function, return an undefined value.  This can be done whether the
@@ -295,12 +295,12 @@ select returns_array();
   <para>
 <!--
    Perl passes <productname>PostgreSQL</productname> arrays as a blessed
-   PostgreSQL::InServer::ARRAY object. This object may be treated as an array
+   <type>PostgreSQL::InServer::ARRAY</type> object. This object may be treated as an array
    reference or a string, allowing for backward compatibility with Perl
    code written for <productname>PostgreSQL</productname> versions below 9.1 to
    run.  For example:
 -->
-Perlは<productname>PostgreSQL</productname>の配列をblessされたPostgreSQL::InServer::ARRAYオブジェクトとして渡します。
+Perlは<productname>PostgreSQL</productname>の配列をblessされた<type>PostgreSQL::InServer::ARRAY</type>オブジェクトとして渡します。
 9.1より過去の<productname>PostgreSQL</productname>で作成されたPerlコードを実行させるための後方互換性のため、このオブジェクトは配列への参照または文字列として扱うことができます。
 以下に例を示します。
 
@@ -333,7 +333,7 @@ SELECT concat_array_elements(ARRAY['PL','/','Perl']);
   <note>
    <para>
 <!--
-    Multi-dimensional arrays are represented as references to
+    Multidimensional arrays are represented as references to
     lower-dimensional arrays of references in a way common to every Perl
     programmer.
 -->
@@ -376,6 +376,7 @@ SELECT name, empcomp(employee.*) FROM employee;
 -->
 必要な属性を持つハッシュの参照を返すという同じ方法で、PL/Perl関数は複合型の結果を返すことができます。
 以下に例を示します。
+
 <programlisting>
 CREATE TYPE testrowperl AS (f1 integer, f2 text, f3 text);
 
@@ -397,7 +398,7 @@ SELECT * FROM perl_row();
 <!--
     PL/Perl functions can also return sets of either scalar or
     composite types.  Usually you'll want to return rows one at a
-    time, both to speed up startup time and to keep from queueing up
+    time, both to speed up startup time and to keep from queuing up
     the entire result set in memory.  You can do this with
     <function>return_next</function> as illustrated below.  Note that
     after the last <function>return_next</function>, you must put
@@ -456,7 +457,6 @@ $$ LANGUAGE plperl;
 
 SELECT * FROM perl_set();
 </programlisting>
-
   </para>
 
   <para>
@@ -550,7 +550,7 @@ Perl関数からデータベースそのものにアクセスするには以下�
       </indexterm>
      </term>
      <listitem>
-       <para>
+      <para>
 <!--
        <literal>spi_exec_query</literal> executes an SQL command and
 returns the entire row set as a reference to an array of hash
@@ -560,12 +560,12 @@ example of a query (<command>SELECT</command> command) with the
 optional maximum number of rows:
 -->
 <literal>spi_exec_query</literal>はSQLコマンドを実行し、行セット全体をハッシュへの参照を要素とする配列への参照として返します。
-<emphasis>結果が相対的に小規模であることが分かっている場合にのみこのコマンドを使用してください。</emphasis> 
+<emphasis>結果が相対的に小規模であることが分かっている場合にのみこのコマンドを使用してください。</emphasis>
 以下に最大行数オプションを持った問い合わせ（<command>SELECT</command>コマンド）の例を示します。
+
 <programlisting>
 $rv = spi_exec_query('SELECT * FROM my_table', 5);
 </programlisting>
-
 <!--
         This returns up to 5 rows from the table
         <literal>my_table</literal>.  If <literal>my_table</literal>
@@ -577,7 +577,6 @@ $rv = spi_exec_query('SELECT * FROM my_table', 5);
 <programlisting>
 $foo = $rv-&gt;{rows}[$i]-&gt;{my_column};
 </programlisting>
-
 <!--
        The total number of rows returned from a <command>SELECT</command>
        query can be accessed like this:
@@ -586,18 +585,17 @@ $foo = $rv-&gt;{rows}[$i]-&gt;{my_column};
 <programlisting>
 $nrows = $rv-&gt;{processed}
 </programlisting>
-       </para>
-       <para>
+      </para>
+
+      <para>
 <!--
        Here is an example using a different command type:
 -->
 以下は他の種類のコマンドを使用する例です。
-
 <programlisting>
 $query = "INSERT INTO my_table VALUES (1, 'test')";
 $rv = spi_exec_query($query);
 </programlisting>
-
 <!--
        You can then access the command status (e.g.,
        <literal>SPI_OK_INSERT</literal>) like this:
@@ -606,7 +604,6 @@ $rv = spi_exec_query($query);
 <programlisting>
 $res = $rv-&gt;{status};
 </programlisting>
-
 <!--
        To get the number of rows affected, do:
 -->
@@ -614,7 +611,7 @@ $res = $rv-&gt;{status};
 <programlisting>
 $nrows = $rv-&gt;{processed};
 </programlisting>
-       </para>
+      </para>
 
       <para>
 <!--
@@ -650,7 +647,7 @@ SELECT * FROM test_munge();
     </para>
     </listitem>
     </varlistentry>
-    
+
     <varlistentry>
      <term>
       <literal><function>spi_query(<replaceable>command</replaceable>)</function></literal>
@@ -815,7 +812,7 @@ $plan = spi_prepare('SELECT * FROM test WHERE id &gt; $1 AND name = $2',
 <literal>spi_exec_prepared</literal>の省略可能な第二パラメータは属性のハッシュ参照です。
 現在サポートされる唯一の属性は、問い合わせで返される最大行数を設定する<literal>limit</literal>です。
     </para>
-    
+
     <para>
 <!--
     The advantage of prepared queries is that is it possible to use one prepared plan for more
@@ -1070,7 +1067,7 @@ SELECT release_hosts_query();
         Return the <type>bytea</type> encoded form of the binary data contents of the given string.
 -->
 与えられた文字列の内容をバイナリデータ形式で符号化した<type>bytea</type>を返します。
-      </para>
+        </para>
      </listitem>
     </varlistentry>
 
@@ -1209,11 +1206,13 @@ Perl変数を2番目の引数として渡されたデータ型の値に変換し
    </variablelist>
   </sect2>
  </sect1>
+
  <sect1 id="plperl-global">
 <!--
   <title>Global Values in PL/Perl</title>
 -->
   <title>PL/Perlにおけるグローバルな値</title>
+
   <para>
 <!--
     You can use the global hash <varname>%_SHARED</varname> to store
@@ -1244,9 +1243,8 @@ $$ LANGUAGE plperl;
 SELECT set_var('sample', 'Hello, PL/Perl!  How''s tricks?');
 SELECT get_var('sample');
 </programlisting>
-
   </para>
-   
+
   <para>
 <!--
    Here is a slightly more complicated example using a code reference:
@@ -1463,7 +1461,7 @@ Perlは適切なフラグ、すなわち<literal>usemultiplicity</>または<lit
 このため、１つのセッションでは、<application>PL/PerlU</>関数、もしくは、すべて同一のSQLロールで呼び出される<application>PL/Perl</>関数のいずれかのみを実行することができます。
    </para>
   </note>
-  
+
  </sect1>
 
  <sect1 id="plperl-triggers">
@@ -1497,6 +1495,7 @@ PL/Perlを使用してトリガ関数を作成することができます。
       </para>
      </listitem>
     </varlistentry>
+
     <varlistentry>
      <term><literal>$_TD-&gt;{old}{foo}</literal></term>
      <listitem>
@@ -1733,6 +1732,7 @@ CREATE TRIGGER test_valid_id_trig
   <title>PL/Perl Event Triggers</title>
 -->
   <title>PL/Perlイベントトリガ</title>
+
   <para>
 <!--
    PL/Perl can be used to write event trigger functions.  In an event trigger
@@ -1817,7 +1817,7 @@ CREATE EVENT TRIGGER perl_a_snitch
 本節では<application>PL/Perl</>に影響する設定パラメータを列挙します。
   </para>
 
-   <variablelist>
+  <variablelist>
 
      <varlistentry id="guc-plperl-on-init" xreflabel="plperl.on_init">
       <term>
@@ -2055,7 +2055,6 @@ SPIはまだ完全に実装されていません。
 集合を返す関数が大規模な行セットを<literal>return</literal>を介してPostgreSQLに返す場合、同様の問題が起こります。
 前述の通り、この問題も<literal>return_next</literal>を使用して行毎に返すことで避けることができます。
      </para>
-
     </listitem>
 
      <listitem>
