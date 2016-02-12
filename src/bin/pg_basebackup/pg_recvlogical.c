@@ -645,7 +645,7 @@ main(int argc, char **argv)
 	char	   *db_name;
 
 	progname = get_progname(argv[0]);
-	set_pglocale_pgservice(argv[0], PG_TEXTDOMAIN("pg_recvlogical"));
+	set_pglocale_pgservice(argv[0], PG_TEXTDOMAIN("pg_basebackup"));
 
 	if (argc > 1)
 	{
@@ -853,7 +853,7 @@ main(int argc, char **argv)
 
 	/*
 	 * Obtain a connection to server. This is not really necessary but it
-	 * helps to get more precise error messages about authentification,
+	 * helps to get more precise error messages about authentication,
 	 * required GUC parameters and such.
 	 */
 	conn = GetConnection();
