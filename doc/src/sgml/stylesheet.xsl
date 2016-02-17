@@ -22,7 +22,6 @@
 
 <xsl:param name="website.stylesheet" select="0"/>
 
-<xsl:param name="html.original" select="0"/>
 <xsl:param name="html.stylesheet">
   <xsl:choose>
     <xsl:when test="$website.stylesheet = 0">stylesheet.css</xsl:when>
@@ -30,24 +29,14 @@
   </xsl:choose>
 </xsl:param>
 
+
 <!-- Change display of some elements -->
 
 <xsl:template match="command">
   <xsl:call-template name="inline.monoseq"/>
 </xsl:template>
 
-<xsl:template match="comment()">
-  <xsl:choose>
-    <xsl:when test="$html.original = 1">
-      <span class="original" xmlns="http://www.w3.org/1999/xhtml">
-        <xsl:value-of select="." />
-      </span>
-    </xsl:when>
-    <xsl:otherwise>
-      <xsl:comment><xsl:value-of select="." /></xsl:comment>
-    </xsl:otherwise>
-  </xsl:choose>
-</xsl:template>
+<xsl:include href="stylesheet-custom.xsl" />
 
 <!-- table of contents configuration -->
 
