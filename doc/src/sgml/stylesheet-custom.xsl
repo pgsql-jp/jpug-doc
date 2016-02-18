@@ -6,7 +6,6 @@
 <xsl:param name="html.original" select="0"/>
 
 <xsl:template match="comment()">
-  <xsl:variable name="sgmlfile" select="."/>
   <xsl:choose>
     <xsl:when test="$html.original = 1">
       <span class="original" >
@@ -65,6 +64,13 @@
                 </xsl:choose>
               </th>
               <td width="20%" align="{$direction.align.end}">
+                <xsl:choose>
+                <xsl:when test="$html.original = 1">
+                  <div class="actions">
+                    <a class="issue"><xsl:attribute name="href">https://github.com/pgsql-jp/jpug-doc/issues/new?title=version&#160;<xsl:value-of select="$pg.version"/>&#160;<xsl:call-template name="href.target"><xsl:with-param name="object" select="."/></xsl:call-template></xsl:attribute>New Issue</a>
+                  </div>
+                </xsl:when>
+                </xsl:choose>
               </td>
             </tr>
           </xsl:if>
