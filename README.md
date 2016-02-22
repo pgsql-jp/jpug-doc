@@ -1,4 +1,4 @@
-###Welcome JPUG-DOC project
+###Welcome to JPUG-DOC project
 
 本リポジトリは[PostgreSQL](http://www.postgresql.org/)の[文書](http://www.postgresql.org/docs/manuals/)を
 [日本語に翻訳](http://www.postgresql.jp/document/)しているプロジェクトのリポジトリです。<br>
