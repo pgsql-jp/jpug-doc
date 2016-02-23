@@ -5,6 +5,10 @@
 
 <xsl:param name="html.original" select="0"/>
 
+<xsl:template name="user.head.content">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0" />
+</xsl:template>
+
 <xsl:template match="comment()">
   <xsl:choose>
     <xsl:when test="$html.original = 1">
@@ -67,7 +71,7 @@
                 <xsl:choose>
                 <xsl:when test="$html.original = 1">
                   <div class="actions">
-                    <a class="issue"><xsl:attribute name="href">https://github.com/pgsql-jp/jpug-doc/issues/new?title=version&#160;<xsl:value-of select="$pg.version"/>&#160;<xsl:call-template name="href.target"><xsl:with-param name="object" select="."/></xsl:call-template></xsl:attribute>New Issue</a>
+                    <a class="issue"><xsl:attribute name="href">https://github.com/pgsql-jp/jpug-doc/issues/new?title=version&#160;<xsl:value-of select="$pg.version"/>&#160;<xsl:call-template name="href.target"><xsl:with-param name="object" select="."/></xsl:call-template></xsl:attribute>誤字、誤訳のご報告はこちら</a>
                   </div>
                 </xsl:when>
                 </xsl:choose>
