@@ -71,7 +71,7 @@
                 <xsl:choose>
                 <xsl:when test="$html.original = 1">
                   <div class="actions">
-                    <a class="issue"><xsl:attribute name="href">https://github.com/pgsql-jp/jpug-doc/issues/new?title=version&#160;<xsl:value-of select="$pg.version"/>&#160;<xsl:call-template name="href.target"><xsl:with-param name="object" select="."/></xsl:call-template></xsl:attribute>誤字、誤訳のご報告はこちら</a>
+                    <a class="issue"><xsl:attribute name="href">https://github.com/pgsql-jp/jpug-doc/issues/new?title=version&#160;<xsl:value-of select="$pg.version"/>&#160;<xsl:call-template name="href.target"><xsl:with-param name="object" select="."/></xsl:call-template></xsl:attribute>誤訳等の報告</a>
                   </div>
                 </xsl:when>
                 </xsl:choose>
