@@ -679,10 +679,10 @@ SELECT DISTINCT city
     table, and select the pairs of rows where these values match.
 -->
 ここまでの問い合わせは、一度に1つのテーブルにのみアクセスするものでした。
-問い合わせは、一度に複数のテーブルにアクセスすることも、同時にテーブル内の複数の行の処理を行う場合など、同じテーブルにアクセスすることも可能です。
-一度に同一のテーブルまたは複数のテーブルの複数の行にアクセスする問い合わせは、<firstterm>結合</firstterm>問い合わせと呼ばれます。
-例として、関連する都市の位置情報を気象データと一緒に表示したい場合が挙げられます。
-それを行うためには、<structname>weather</>テーブルの各行の<structfield>city</>列と、<structname>cities</>テーブルの全ての行の<structfield>name</>列を比較し、両者の値が一致する行の組み合わせを選択しなければなりません。
+問い合わせは、一度に複数のテーブルにアクセスすることも、テーブル内の複数の行の処理を同時に行うようなやり方で、１つのテーブルにアクセスすることも可能です。
+一度に同一のテーブルまたは異なるテーブルの複数の行にアクセスする問い合わせは、<firstterm>結合</firstterm>問い合わせと呼ばれます。
+例として、すべての気象データを関連する都市の位置情報と一緒に表示したい場合が挙げられます。
+それを行うためには、<structname>weather</>テーブルの各行の<structfield>city</>列を、<structname>cities</>テーブルの全ての行の<structfield>name</>列と比較し、両者の値が一致する行の組み合わせを選択しなければなりません。
     <note>
      <para>
 <!--
@@ -691,7 +691,7 @@ SELECT DISTINCT city
       pair of rows, but this is invisible to the user.
 -->
 これは概念的なモデルでしかありません。
-実際の結合は通常、1つひとつの行の組み合わせを比べるのではなく、もっと効率的な方法で行われます。
+実際の結合は通常、1つひとつの行の組み合わせを比べるよりも、もっと効率的な方法で行われます。
 しかし、これはユーザからはわかりません。
      </para>
     </note>
@@ -720,7 +720,7 @@ SELECT *
 <!--
     Observe two things about the result set:
 -->
-この結果から2つのことがわかります。
+この結果について2つのことに注目してください。
     <itemizedlist>
      <listitem>
       <para>
@@ -731,9 +731,9 @@ SELECT *
        ignores the unmatched rows in the <structname>weather</> table.  We will see
        shortly how this can be fixed.
 -->
-Hayward市についての結果行はありません。
-<structname>cities</structname>テーブルにはHaywardに一致する項目がなく、結合の際に<structname>weather</>テーブル内の一致しない行は無視されるからです。
-これがどのようになされるのかを、簡単に見てみましょう。
+Hayward市についての結果行がありません。
+これは<structname>cities</structname>テーブルにはHaywardに一致する項目がないからで、結合の際に<structname>weather</>テーブル内の一致されなかった行は無視されるのです。
+これをどうしたら解決できるかは、しばらく後で説明します。
       </para>
      </listitem>
 
@@ -749,8 +749,8 @@ Hayward市についての結果行はありません。
        <literal>*</literal>:
 -->
 都市名を持つ２つの列があります。
-<structname>weather</structname>テーブルと<structname>cities</structname>テーブルからの列のリストが連結されているためこのようになります。
-しかし実際には、これは望ましい結果ではないため、<literal>*</literal>を使わずに、明示的に出力列のリストを指定することになります。
+<structname>weather</structname>テーブルと<structname>cities</structname>テーブルからの列のリストが連結されるため、これは正しい動作です。
+しかし実際には、これは望ましい結果ではないため、<literal>*</literal>を使わずに、明示的に出力列のリストを指定することになるでしょう。
 <programlisting>
 SELECT city, temp_lo, temp_hi, prcp, date, location
     FROM weather, cities
@@ -784,8 +784,8 @@ SELECT city, temp_lo, temp_hi, prcp, date, location
     <firstterm>qualify</> the column names to show which one you
     meant, as in:
 -->
-列はそれぞれ異なる名前ですので、パーサは自動的にどのテーブルの列かを見つけます。
-2つのテーブルで列名が重複していた場合は、以下のようにどちらの列を表示させたいかを示すために列名を<firstterm>修飾</>しなければなりません。
+列がすべて異なる名前だったので、パーサは自動的にどのテーブルの列かを見つけることができました。
+2つのテーブルで列名が重複している場合は、以下のようにどちらの列を表示させたいかを示すために列名を<firstterm>修飾</>しなければなりません。
 
 <programlisting>
 SELECT weather.city, weather.temp_lo, weather.temp_hi,
@@ -799,8 +799,8 @@ SELECT weather.city, weather.temp_lo, weather.temp_hi,
     in a join query, so that the query won't fail if a duplicate
     column name is later added to one of the tables.
 -->
-結合問い合わせではすべての列名を修飾する方式が優れているとよく考えられています。
-テーブルのいずれかに後で重複する名前を持つ列が追加された場合に、問い合わせが失敗するからです。
+結合問い合わせではすべての列名を修飾するのが良いやり方であると一般に考えられています。
+そうすれば、テーブルのいずれかに後で重複する名前を持つ列が追加されても、問い合わせが失敗しません。
    </para>
 
    <para>
@@ -808,7 +808,7 @@ SELECT weather.city, weather.temp_lo, weather.temp_hi,
     Join queries of the kind seen thus far can also be written in this
     alternative form:
 -->
-ここで示すような結合問い合わせは、以下のように別の形で表すことができます。
+ここまでに示したような結合問い合わせは、以下のように別の形で表すことができます。
 
 <programlisting>
 SELECT *
@@ -839,9 +839,9 @@ SELECT *
     joins we have seen so far are inner joins.)  The command looks
     like this:
 -->
-ここで、どのようにすればHaywardのレコードを得ることができるようになるのでしょうか。
-実行したい問い合わせは、<structname>weather</structname>をスキャンし、各行に対して、<structname>cities</structname>行に一致するかを判断するものです。
-一致しない行があった場合、<structname>cities</structname>テーブルの列の部分を何らかの<quote>空の値</quote>に置き換えたいのです。
+ここで、どのようにすればHaywardのレコードを得ることができるようになるのかを明らかにします。
+実行したい問い合わせは、<structname>weather</structname>をスキャンし、各行に対して、<structname>cities</structname>行に一致する行を探すというものです。
+一致する行がなかった場合、<structname>cities</structname>テーブルの列の部分を何らかの<quote>空の値</quote>に置き換えたいのです。
 この種の問い合わせは<firstterm>外部結合</firstterm>と呼ばれます
 （これまで示してきた結合は内部結合です）。
 以下のようなコマンドになります。
@@ -869,7 +869,7 @@ SELECT *
 -->
 この問い合わせは<firstterm>左外部結合</firstterm>と呼ばれます。
 結合演算子の左側に指定したテーブルの各行が最低でも一度出力され、一方で、右側のテーブルでは左側のテーブルの行に一致するもののみが出力されるからです。
-右側のテーブルに一致しない、左側のテーブルの行を出力する時、右側のテーブルの列は空の値（NULL）で置換されます。
+右側のテーブルに一致するものがない、左側のテーブルの行を出力する時、右側のテーブルの列は空の値（NULL）で置換されます。
    </para>
 
    <formalpara>
@@ -1028,10 +1028,10 @@ SELECT city FROM weather WHERE temp_lo = max(temp_lo);     <lineannotation>間�
     the query can be restated to accomplish the desired result, here
     by using a <firstterm>subquery</firstterm>:
 -->
-しかし、<function>max</function>集約を<literal>WHERE</literal>で使用することができませんので、このコマンドは動作しません
+しかし、<function>max</function>集約を<literal>WHERE</literal>句で使用することができませんので、このコマンドは動作しません
 （<literal>WHERE</literal>句はどの行を集約処理に渡すのかを決定するものであり、したがって、集約関数の演算を行う前に評価されなければならないことは明らかです。
 このためにこの制限があります）。
-しかしたいていの場合、問い合わせを書き直すことで、意図した結果が得られます。
+しかし、よくあることですが、問い合わせを書き直すことで、意図した結果が得られます。
 これには以下のような<firstterm>副問い合わせ</firstterm>を使用します。
 
 <programlisting>
@@ -1063,7 +1063,7 @@ SELECT city FROM weather
     BY</literal> clauses.  For example, we can get the maximum low
     temperature observed in each city with:
 -->
-また、<literal>GROUP BY</literal>句と組み合わせた集約は非常に役に立ちます。
+また、<literal>GROUP BY</literal>句と組み合わせた集約も非常に役に立ちます。
 例えば、以下のコマンドで都市ごとに最低気温の最大値を求めることができます。
 
 <programlisting>
@@ -1087,7 +1087,7 @@ SELECT city, max(temp_lo)
     rows using <literal>HAVING</literal>:
 -->
 ここには都市ごとに1行の出力があります。
-それぞれの集約結果は都市に一致するテーブル行全体に対する演算結果です。
+それぞれの集約結果はその都市に一致するテーブル行全体に対する演算結果です。
 以下のように、<literal>HAVING</literal>を使用すると、グループ化された行にフィルタをかけることができます。
 
 <programlisting>
@@ -1127,7 +1127,7 @@ SELECT city, max(temp_lo)
       The <literal>LIKE</literal> operator does pattern matching and
       is explained in <xref linkend="functions-matching">.
 -->
-<literal>LIKE</literal>演算子はパターン一致を行います。これについては<xref linkend="functions-matching">で説明します。
+<literal>LIKE</literal>演算子はパターンマッチを行います。これについては<xref linkend="functions-matching">で説明します。
      </para>
     </callout>
    </calloutlist>
@@ -1153,9 +1153,7 @@ SELECT city, max(temp_lo)
     stage.)
 -->
 集約と<acronym>SQL</acronym>の<literal>WHERE</literal>と<literal>HAVING</literal>句の間の相互作用を理解することが重要です。
-<literal>WHERE</literal>と<literal>HAVING</literal>の基本的な違いを以下に記します。
-<literal>WHERE</literal>は、グループや集約を演算する前に入力行を選択します（したがって、これはどの行を使用して集約演算を行うかを制御します）。
-一方、<literal>HAVING</literal>は、グループと集約を演算した後に、グループ化された行を選択します。
+<literal>WHERE</literal>と<literal>HAVING</literal>の基本的な違いは、<literal>WHERE</literal>が、グループや集約を演算する前に入力行を選択する（したがって、これはどの行を使用して集約演算を行うかを制御します）のに対し、<literal>HAVING</literal>は、グループと集約を演算した後に、グループ化された行を選択する、ということです。
 したがって、<literal>WHERE</literal>句は集約関数を持つことはできません。
 集約を使用して、どの行をその集約の入力にするのかを決定することは意味をなしません。
 一方で、<literal>HAVING</literal>句は常に集約関数を持ちます
@@ -1171,9 +1169,10 @@ SELECT city, max(temp_lo)
     because we avoid doing the grouping and aggregate calculations
     for all rows that fail the <literal>WHERE</literal> check.
 -->
-前の例では<literal>WHERE</literal>内に都市名制限を適用することができます。
+前の例では<literal>WHERE</literal>内に都市名の制限を適用することができます。
 集約を行う必要がないからです。
-<literal>WHERE</literal>の検査で失敗する全ての行に対するグループ化や集約演算が行われませんので、<literal>HAVING</literal>に制限を追加するよりも効率的です。
+これは<literal>HAVING</literal>に制限を追加するよりも効率的です。
+なぜなら<literal>WHERE</literal>の検査で失敗する全ての行についてグループ化や集約演算が行われないからです。
    </para>
   </sect1>
 
