@@ -144,7 +144,7 @@ SELECT * FROM myview;
 次のような問題点を考えてみましょう。
 <classname>cities</classname>テーブルに一致する項目がない行は絶対に<classname>weather</classname>テーブルに挿入できなくしたいとします。
 これをデータの<firstterm>参照整合性</firstterm>の保全と呼びます。
-最も単純なデータベースシステムでは<classname>cities</classname>テーブルに一致する行が存在するかどうかを最初に検証してから<classname>weather</classname>テーブルに新規レコードを追加するか否かを実装しなければなりません。
+最も単純なデータベースシステムでこれを実装するとしたら、まず<classname>cities</classname>テーブルに一致する行が存在するかどうかを確認し、それから<classname>weather</classname>テーブルに新規レコードを追加する、あるいは拒絶する、といったことになるでしょう。
 この手法には多くの問題があること、そしてとても不便であることから、<productname>PostgreSQL</productname>に代わって作業させることができます。
    </para>
 
@@ -152,7 +152,7 @@ SELECT * FROM myview;
 <!--
     The new declaration of the tables would look like this:
 -->
-新規のテーブルの宣言は以下のようになります。
+これらのテーブルの新しい宣言は以下のようになります。
 
 <programlisting>
 CREATE TABLE cities (
@@ -224,7 +224,8 @@ DETAIL:  Key (city)=(Berkeley) is not present in table "cities".
 -->
 <firstterm>トランザクション</firstterm>は全てのデータベースシステムで基礎となる概念です。
 トランザクションの基本的要点は複数の手順を単一の「全てかなしか」の操作にまとめ上げることです。
-手順の進行途中の状態は他の動いているトランザクションからは見えません。そして、何らかのエラーが起こるとトランザクションは完結しません。ですからデータベースはエラーの原因となった手順によってまったく影響されることはありません。
+手順の進行途中の状態は他の同時実行中のトランザクションからは見えません。
+トランザクションの完結の障害となる何らかのエラーが起こると、それらの手順はどれもデータベースにまったく影響を与えません。
    </para>
 
    <para>
@@ -309,9 +310,9 @@ $100.00がアリスの口座から引き落とされずにボブの口座に振�
     until the transaction completes, whereupon all the updates become
     visible simultaneously.
 -->
-他にもトランザクション実装のデータベースの重要な特性は、原子的更新という概念に深く関係しています
-。複数のトランザクションが同時に動作している時、それぞれのトランザクションは別のトランザクションが行っている未完了の変更を見ることができてはなりません。
-例えば、あるトランザクションがすべての支店の残高を集計する作業を行なう場合、アリスの口座がある支店からの引き落としを勘定に入れませんし、ボブの口座がある支店への振り込みも勘定に入れません。もしくは両方とも勘定に入れます。
+トランザクション実装のデータベースの別の重要な特性は、原子的更新という概念に深く関係しています。
+複数のトランザクションが同時に動作している時、それぞれのトランザクションは別のトランザクションが行っている未完了の変更を見ることができてはなりません。
+例えば、あるトランザクションがすべての支店の残高を集計する作業を行なっているとき、アリスの口座がある支店からの引き落としを勘定に入れるけれども、ボブの口座がある支店への振り込みを勘定に入れないというのは受け入れられませんし、その逆も駄目です。
 つまり、データベース上での恒久的効果という意味のみならず、一連の操作の過程で可視性ということにおいてもトランザクションは「すべて」か「なし」かでなければなりません。
 作業中のトランザクションによる更新は、他のトランザクションからはトランザクションが完結するまで不可視です。
 そのトランザクションが完結したその時点で、トランザクションが行った更新の全てが見えるようになります。
@@ -324,7 +325,8 @@ $100.00がアリスの口座から引き落とされずにボブの口座に振�
     <command>BEGIN</> and <command>COMMIT</> commands.  So our banking
     transaction would actually look like:
 -->
-<productname>PostgreSQL</productname>ではトランザクションを構成するSQLコマンドを<command>BEGIN</command>と<command>COMMIT</command>で囲んで設定します。そうすると、この銀行取り引きのトランザクションの実際は次のようになります。
+<productname>PostgreSQL</productname>ではトランザクションを構成するSQLコマンドを<command>BEGIN</command>と<command>COMMIT</command>で囲んで設定します。
+従って、この銀行取り引きのトランザクションの実際は次のようになります。
 
 <programlisting>
 BEGIN;
@@ -359,7 +361,7 @@ COMMIT;
     is sometimes called a <firstterm>transaction block</>.
 -->
 <productname>PostgreSQL</productname>は実際全てのSQL文をトランザクション内で実行するようになっています。
-<command>BEGIN</command>を発行しないでも、それぞれの文は暗黙的に<command>BEGIN</command>が付いているとみなし、（成功すれば）<command>COMMIT</command>で囲まれているものとします。
+<command>BEGIN</command>を発行しない場合、それぞれの文は暗黙的に<command>BEGIN</command>が付いているとみなし、（成功すれば）<command>COMMIT</command>で囲まれているものとします。
 <command>BEGIN</command>と<command>COMMIT</command>で囲まれた文のグループは<firstterm>トランザクションブロック</firstterm>と呼ばれることもあります。
    </para>
 
@@ -371,7 +373,7 @@ COMMIT;
      blocks without asking.  Check the documentation for the interface
      you are using.
 -->
-いくつかのクライアントライブラリは自動的に<command>BEGIN</command>と<command>COMMIT</command>コマンドを発行し、警告なしにトランザクションブロックが有効になります。
+いくつかのクライアントライブラリは自動的に<command>BEGIN</command>と<command>COMMIT</command>コマンドを発行し、ユーザに尋ねることなくトランザクションブロックが有効になります。
 使用しているインタフェースのドキュメントで確認してください。
     </para>
    </note>
@@ -455,8 +457,8 @@ COMMIT;
     system due to an error, short of rolling it back completely and starting
     again.
 -->
-この例はもちろん極端に単純化していますが、セーブポイントの使用を通じてトランザクションブロック内で多くの可能な操作を行えることがわかります。
-さらには何らかのエラーでシステムがトランザクションブロックを中断した場合、完全にロールバックして再び開始するのを除いて、<command>ROLLBACK TO</>コマンドがトランザクションブロックの制御を取り戻す唯一の手段です。
+この例はもちろん極端に単純化していますが、セーブポイントの使用を通じてトランザクションブロック内で多くの制御を行えることがわかります。
+さらには何らかのエラーでシステムがトランザクションブロックを中断状態にした場合、完全にロールバックして再び開始するのを別とすれば、<command>ROLLBACK TO</>コマンドがトランザクションブロックの制御を取り戻す唯一の手段です。
    </para>
 
   </sect1>
