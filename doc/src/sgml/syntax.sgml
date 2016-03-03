@@ -2817,7 +2817,7 @@ UNBOUNDED FOLLOWING
     Here, <replaceable>expression</replaceable> represents any value
     expression that does not itself contain window function calls.
 -->
-ここで、<replaceable>expression</replaceable>はそれ自身ウィンドウ関数呼び出しを含まないいかなる値式を表わします。
+ここで、<replaceable>expression</replaceable>はそれ自身ウィンドウ関数呼び出しを含まない任意の値式を表わします。
    </para>
 
    <para>
@@ -2856,11 +2856,11 @@ UNBOUNDED FOLLOWING
     processed in an unspecified order.
 -->
 <literal>PARTITION BY</>オプションは問い合わせの行を<firstterm>パーティション</>に纏め、パーティションはウィンドウ関数により別々に処理されます。
-<literal>PARTITION BY</>は、その式が常に式であって出力列名や数値ではないという点を除いて、問い合わせレベルの<literal>GROUP BY</>句と同様に動作します。
+<literal>PARTITION BY</>は、その式が常に式であって出力列名や番号ではないという点を除いて、問い合わせレベルの<literal>GROUP BY</>句と同様に動作します。
 <literal>PARTITION BY</>がなければ、問い合わせで生じる行すべてが一つのパーティションとして扱われます。
 <literal>ORDER BY</>オプションはパーティションの行がウィンドウ関数により処理される順序を決定します。
-問い合わせレベルの<literal>ORDER BY</>句と同様に動作しますが、やはり出力列名や数値は使えません。
-<literal>ORDER BY</>がなければ、行は順序を指定されずに処理されます。
+問い合わせレベルの<literal>ORDER BY</>句と同様に動作しますが、やはり出力列名や番号は使えません。
+<literal>ORDER BY</>がなければ、行は不定の順序で処理されます。
    </para>
 
    <para>
@@ -2874,7 +2874,8 @@ UNBOUNDED FOLLOWING
     <replaceable>frame_end</>.  If <replaceable>frame_end</> is omitted,
     it defaults to <literal>CURRENT ROW</>.
 -->
-<replaceable class="parameter">frame_clause</replaceable>は、パーティション全体の代わりにそのフレーム上で作動するウィンドウ関数に対して、<firstterm>ウィンドウフレーム</>を構成する行の集合を指定します。
+<replaceable class="parameter">frame_clause</replaceable>は、パーティション全体ではなくフレーム上で作動するウィンドウ関数に対して、<firstterm>ウィンドウフレーム</>を構成する行の集合を指定します。
+ウィンドウフレームは現在のパーティションの部分集合になります。
 フレームは<literal>RANGE</>モードでも<literal>ROWS</>モードでも指定できます。
 どちらの場合でも<replaceable>frame_start</>から<replaceable>frame_end</>までです。
 <replaceable>frame_end</>を省略した場合のデフォルトは<literal>CURRENT ROW</>です。
@@ -2887,7 +2888,7 @@ UNBOUNDED FOLLOWING
     a <replaceable>frame_end</> of <literal>UNBOUNDED FOLLOWING</> means
     that the frame ends with the last row of the partition.
 -->
-<literal>UNBOUNDED PRECEDING</>の<replaceable>frame_start</>はフレームがパーティションの最初の行から始まること意味し、同様に、<literal>UNBOUNDED FOLLOWING</>の<replaceable>frame_end</>をフレームがパーティションの最後の行で終わること意味します。
+<replaceable>frame_start</>が<literal>UNBOUNDED PRECEDING</>であるのはフレームがパーティションの最初の行から始まること意味し、同様に、<replaceable>frame_end</>が<literal>UNBOUNDED FOLLOWING</>であるのはフレームがパーティションの最後の行で終わること意味します。
    </para>
 
    <para>
@@ -2900,7 +2901,7 @@ UNBOUNDED FOLLOWING
     <literal>ORDER BY</> peer.  In <literal>ROWS</> mode, <literal>CURRENT ROW</> simply means
     the current row.
 -->
-<literal>RANGE</>モードでは、<literal>CURRENT ROW</>の<replaceable>frame_start</>はフレームが現在行の最初の<firstterm>同等な</>行（<literal>ORDER BY</>が現在行と等しいとみなす行）から始まることを意味し、一方、<literal>CURRENT ROW</>の<replaceable>frame_end</>はフレームが現在行の最後の同等な<literal>ORDER BY</>行で終わることを意味します。
+<literal>RANGE</>モードでは、<replaceable>frame_start</>が<literal>CURRENT ROW</>であるのは、フレームが現在行の最初の<firstterm>ピア</>行（<literal>ORDER BY</>が現在行と同じ順序とみなす行）から始まることを意味し、一方、<replaceable>frame_end</>が<literal>CURRENT ROW</>であるのはフレームが現在行の最後の同等な<literal>ORDER BY</>ピア行で終わることを意味します。
 <literal>ROWS</>モードでは、<literal>CURRENT ROW</>は単に現在行を意味します。
    </para>
 
@@ -2932,8 +2933,8 @@ UNBOUNDED FOLLOWING
     row.
 -->
 デフォルトのフレーム化オプションは<literal>RANGE UNBOUNDED PRECEDING</>で、<literal>RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</>と同じです。
-これはパーティションの開始から<literal>ORDER BY</>による順序付けに沿った現在行と同等となる最後の<literal>ORDER BY</>行までのフレームをセットします。
-<literal>ORDER BY</>が無い場合は、すべての行が現在行と同等となりますのでパーティションのすべての行がウィンドウフレームに含まれます。
+<literal>ORDER BY</>があると、フレームはパーティションの開始から現在行の最後の<literal>ORDER BY</>ピア行までのすべての行になります。
+<literal>ORDER BY</>が無い場合は、すべての行が現在行のピアとなるので、パーティションのすべての行がウィンドウフレームに含まれます。
    </para>
 
    <para>
@@ -2984,7 +2985,7 @@ UNBOUNDED FOLLOWING
     allow <literal>DISTINCT</> or <literal>ORDER BY</> to be used within the
     function argument list.
 -->
-<literal>*</>を使用した構文は、例えば<literal>count(*) OVER (PARTITION BY x ORDER BY y)</>のように、ウィンドウ関数として呼び出しパラメータのない集約関数を使用します。
+<literal>*</>を使用した構文は、例えば<literal>count(*) OVER (PARTITION BY x ORDER BY y)</>のように、パラメータのない集約関数をウィンドウ関数として呼び出すために使用されます。
 アスタリスク(<literal>*</>)は習慣的に非集約ウィンドウ関数には使われません。通常の集約関数と異なり、集約ウィンドウ関数は、関数引数リストの中で<literal>DISTINCT</>や<literal>ORDER BY</>が使われることを許可しません。
    </para>
 
