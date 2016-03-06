@@ -2457,7 +2457,7 @@ sqrt(2)
     output value, such as the sum or average of the inputs.  The
     syntax of an aggregate expression is one of the following:
 -->
-<firstterm>集約式</firstterm>は、問い合わせによって選択される行に対して集約関数が適用されることを意味します。
+<firstterm>集約式</firstterm>は、問い合わせによって選択される行に対して集約関数を適用することを表現します。
 集約関数は、例えば入力の合計や平均などのように、複数の入力を単一の出力値にします。
 集約式の構文は下記のうちのいずれかです。
 
@@ -2511,7 +2511,8 @@ sqrt(2)
     can be assumed to be true, unless otherwise specified, for all
     built-in aggregates.
 -->
-１つ以上の式がNULLを返した場合にその行を破棄するように、ほとんどの集約関数はNULL入力を無視します。これは、特記されていない限り、すべての組込み集約で正しいと仮定することができます。
+ほとんどの集約関数はNULL入力を無視するため、行内の1つ以上の式がNULLを返す行は破棄されます。
+特記されていない限り、すべての組込み集約がそのような動作になると想定して良いです。
    </para>
 
    <para>
@@ -2543,7 +2544,11 @@ sqrt(2)
     are always just expressions and cannot be output-column names or numbers.
     For example:
 -->
-通常、入力行は順序を指定されずに集計関数に与えられます。多くの場合では問題になりません。たとえば<function>min</>は入力順序に関係なく同一の結果を返します。しかし一部の集約関数(<function>array_agg</>および<function>string_agg</>など)は入力行の順序に依存した結果を返します。こうした集約関数を使用する際は、省略可能な<replaceable>order_by_clause</>を使用して必要とする順序を指定できます。<replaceable>order_by_clause</>は、<xref linkend="queries-order">で説明する問い合わせレベルの<literal>ORDER BY</>句と同じ構文を取りますが、その式は常に単なる式であり、出力列名や序数とすることはできません。
+通常、入力行は順序を指定されずに集計関数に与えられます。
+多くの場合では問題になりません。たとえば<function>min</>は入力順序に関係なく同一の結果を返します。
+しかし一部の集約関数(<function>array_agg</>および<function>string_agg</>など)は入力行の順序に依存した結果を返します。
+こうした集約関数を使用する際は、オプションの<replaceable>order_by_clause</>を使用して必要とする順序を指定できます。
+<replaceable>order_by_clause</>は、<xref linkend="queries-order">で説明する問い合わせレベルの<literal>ORDER BY</>句と同じ構文を取りますが、その式は常に単なる式であり、出力列名や序数とすることはできません。
 以下に例を示します。
 <programlisting>
 SELECT array_agg(a ORDER BY b DESC) FROM table;
@@ -2594,7 +2599,7 @@ SELECT string_agg(a ORDER BY a, ',') FROM table;  -- incorrect
      The ability to specify both <literal>DISTINCT</> and <literal>ORDER BY</>
      in an aggregate function is a <productname>PostgreSQL</> extension.
 -->
-集計関数において<literal>DISTINCT</>と<literal>ORDER BY</>の両方を指定できる機能はPostgreSQL独自の拡張です。
+集計関数において<literal>DISTINCT</>と<literal>ORDER BY</>の両方を指定できる機能はPostgreSQLの拡張です。
     </para>
    </note>
 
@@ -2635,11 +2640,11 @@ SELECT string_agg(a ORDER BY a, ',') FROM table;  -- incorrect
     An example of an ordered-set aggregate call is:
 -->
 上記のように集約の通常の引数リストに<literal>ORDER BY</>を置くことは、その順序が省略可能な<quote>通常の</>集約への入力行を整列する時に使います。
-たいていは集約の計算がその入力行の特定の順序に関してのみ敏感なために、<replaceable>order_by_clause</replaceable>が<emphasis>必要な</><firstterm>順序集合集約</>と呼ばれる集約関数の副クラスがあります。
+たいていは集約の計算がその入力行の特定の順序に関してのみ意味を持つために、<replaceable>order_by_clause</replaceable>が<emphasis>必要な</><firstterm>順序集合集約</>と呼ばれる集約関数の副クラスがあります。
 順序集合集約の典型的な例は順位や百分位数の計算を含みます。
 順序集合集約では、<replaceable>order_by_clause</replaceable>は上の構文の最後に示したように<literal>WITHIN GROUP (...)</>の中に書かれます。
 <replaceable>order_by_clause</replaceable>の式は、通常の集約の引数のように入力行1行につき一度評価され、<replaceable>order_by_clause</replaceable>の要求に従って整列され、集約関数に入力引数として渡されます。
-(これは非<literal>WITHIN GROUP</> <replaceable>order_by_clause</>の場合とは異なり、ます。その場合には集約関数の引数としては扱いません。)
+(非<literal>WITHIN GROUP</> <replaceable>order_by_clause</>ではない場合はこれとは異なり、集約関数の引数としては扱われません。)
 <literal>WITHIN GROUP</>の前に引数の式があれば、<replaceable>order_by_clause</replaceable>に書かれた<firstterm>集約引数</>と区別するために<firstterm>直接引数</>と呼ばれます。
 通常の集約引数とは異なり、直接引数は集約の呼び出しの時に一度だけ評価され、入力行1行に一度ではありません。
 これは、変数が<literal>GROUP BY</>によりグループ化された場合にのみ、その変数を含むことが可能であることを意味します。この制限は直接引数が集約式の中に全くない場合と同じです。
@@ -2706,7 +2711,7 @@ FROM generate_series(1,10) AS s(i);
 -->
 集約式は、<command>SELECT</>コマンドの結果リストもしくは<literal>HAVING</>句内でのみ記述することができます。
 <literal>WHERE</>などの他の句では許されません。
-これらの句は理論上集計結果が形成される前に評価されるためです。
+これらの句は集計結果が形成される前に論理的に評価されるためです。
    </para>
 
    <para>
