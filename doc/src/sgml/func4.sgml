@@ -1,4 +1,4 @@
-<!-- doc/src/sgml/func4.sgml -->
+<!-- split-func4-start -->
 
  <sect1 id="functions-subquery">
 <!--
@@ -4031,7 +4031,7 @@ SELECT set_config('log_statement_stats', 'off', false);
     to superusers, with noted exceptions.
 -->
 <xref linkend="functions-admin-signal-table">に示す関数は、制御用シグナルを他のサーバプロセスに送信します。
-これらの関数の使用は、著名な例外を除き、大抵の場合スーパーユーザのみに制限されています。
+これらの関数の使用は、注記された例外を除き、大抵の場合スーパーユーザのみに制限されています。
    </para>
 
    <table id="functions-admin-signal-table">
@@ -4108,7 +4108,7 @@ SELECT set_config('log_statement_stats', 'off', false);
     Each of these functions returns <literal>true</literal> if
     successful and <literal>false</literal> otherwise.
 -->
-これらのそれぞれの関数は成功の場合<literal>true（真）</literal>を返し、そうでない場合は<literal>false（偽）</literal>を返します。
+これらのそれぞれの関数は成功の場合<literal>true</literal>（真）を返し、そうでない場合は<literal>false</literal>（偽）を返します。
    </para>
 
    <para>
@@ -4370,7 +4370,7 @@ postgres=# select pg_start_backup('label_goes_here');
     spike in I/O operations, slowing any concurrently executing queries.
 -->
 オプションの<type>boolean</type>型パラメータがあります。
-<literal>真</>であれば、できる限り高速に<function>pg_start_backup</>を実行します。
+<literal>true</>であれば、できる限り高速に<function>pg_start_backup</>を実行します。
 これは、即時のチェックポイントを強制するため、I/O 操作の急激な増加を引き起こし、実行中の問い合わせ全てを遅延させることがあります。
    </para>
 
@@ -4403,9 +4403,9 @@ postgres=# select pg_start_backup('label_goes_here');
     <function>pg_switch_xlog</> does nothing and returns the start location
     of the transaction log file currently in use.
 -->
-<function>pg_switch_xlog</>は、次のトランザクションログファイルに移動し、現在のファイルをアーカイブできるようにします（アーカイブを続けて使用することを前提とします）。
+<function>pg_switch_xlog</>は、次のトランザクションログファイルに移動し、現在のファイルをアーカイブできるようにします（継続的アーカイブを使用することを前提とします）。
 戻り値は、完了した現在のトランザクションログファイル内の終了トランザクションログの位置に1を加えたものです。
-前回のトランザクションログファイルの切り替えからトランザクションログに変化がなければ、<function>pg_switch_xlog</>は現在使用中のトランザクションログファイルの開始位置を返します。
+前回のトランザクションログファイルの切り替えからトランザクションログに変化がなければ、<function>pg_switch_xlog</>は何もせずに、現在使用中のトランザクションログファイルの開始位置を返します。
    </para>
 
    <para>
@@ -4601,7 +4601,12 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         the function returns NULL.
 -->
         <entry>
-        リカバリ中に再生された最後のトランザクションのタイムスタンプを取得します。このタイムスタンプは、プライマリにて該当するトランザクションがコミット、もしくはアボートされた際のトランザクションログが生成された時間です。もしリカバリ中に何のトランザクションも再生されていない場合、この関数はNULLを返します。もしリカバリが完了した場合、この関数はリカバリ中に再生した最後のトランザクションの時間を静的に示し続けます。サーバがリカバリ処理無しに開始された場合、この関数はNULLを返します。
+リカバリ中に再生された最後のトランザクションのタイムスタンプを取得します。
+このタイムスタンプは、プライマリにて該当するトランザクションがコミット、もしくはアボートされた際のWALレコードが生成された時間です。
+リカバリ中に何のトランザクションも再生されていない場合、この関数はNULLを返します。
+リカバリがまだ実行中の場合、この関数の戻り値は単調に増加します。
+リカバリが完了している場合、この関数の戻り値はリカバリ中に再生した最後のトランザクションの時間のまま変化しません。
+サーバがリカバリ処理無しに正常に開始された場合、この関数はNULLを返します。
        </entry>
       </row>
      </tbody>
@@ -4625,7 +4630,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
     These functions may be executed only during recovery.
 -->
 <xref linkend="functions-recovery-control-table">に示す関数は、リカバリの進行を制御する関数です。
-これらの関数はリカバリ中のみ実施することが可能です。
+これらの関数はリカバリ中のみ実行することが可能です。
    </para>
 
    <table id="functions-recovery-control-table">
@@ -4689,8 +4694,8 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
     recovery is resumed.
 -->
 リカバリ停止中は、それ以降のデータベースへの変更は適用されません。
-ホットスタンバイ側であれば、停止以降に発行されたSQLは、同じ一貫性を持ったデータベースのスナップショットを参照することができます。
-そしてリカバリが再開されるまで、以降のSQLとプライマリへのSQLの衝突は発生しません。
+ホットスタンバイ側では、新しい問い合わせはすべて、同じ一貫性を持ったデータベースのスナップショットを参照することになります。
+そしてリカバリが再開されるまで、これ以上の問い合わせの競合は発生しません。
    </para>
 
    <para>
@@ -4701,8 +4706,8 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
     eventually fill available disk space, depending upon the duration of
     the pause, the rate of WAL generation and available disk space.
 -->
-もしストリーミングレプリケーションが無効の場合、停止状態はいつまでも問題なく継続するでしょう。
-一方、ストリーミングレプリケーションによりWALレコードの受信が継続されていた場合、停止時間、WALの生成速度、ディスクの残存容量によりますが、ディスク溢れが発生する可能性があります。
+ストリーミングレプリケーションが無効の場合、停止状態はいつまでも問題なく継続するでしょう。
+ストリーミングレプリケーションの実行中は、WALレコードの受信が継続され、停止時間、WALの生成速度、ディスクの残存容量によりますが、ディスク溢れが発生する可能性があります。
    </para>
 
   </sect2>
@@ -6891,3 +6896,5 @@ CREATE EVENT TRIGGER test_table_rewrite_oid
     </para>
   </sect2>
   </sect1>
+
+<!-- split-func4-end -->
