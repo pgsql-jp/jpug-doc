@@ -6,7 +6,7 @@
 # in order to get this script working.
 
 sed -e '/^<!-- split-func1-start -->$/,/^<!-- split-func4-end -->$/d' \
-    -e '/<!-- split-func0-end -->/i&func1;\n&func2;\n&func3;\n&func4' \
+    -e '/<!-- split-func0-end -->/i&func1;\n&func2;\n&func3;\n&func4;' \
     func.sgml > func0.sgml
 sed -n -e '/^<!-- split-func1-start -->$/,/^<!-- split-func1-end -->$/p' func.sgml > func1.sgml
 sed -n -e '/^<!-- split-func2-start -->$/,/^<!-- split-func2-end -->$/p' func.sgml > func2.sgml
