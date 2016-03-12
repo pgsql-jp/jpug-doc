@@ -254,8 +254,8 @@ resolved in a useful way.
 暗黙のキャストを持つデータ型間の処理において、適切なキャスト処理のより良い決定を行えるようパーサは追加の自律機構を備えています。
 データ型は、<type>boolean</type>、<type>numeric</type>、<type>string</type>、<type>bitstring</type>、<type>datetime</type>、<type>timespan</type>、<type>geometric</type>、<type>network</type>、及びユーザ定義を含むいくつかの基本的な<firstterm>型カテゴリ</firstterm>に分けられます。
 (一覧は<xref linkend="catalog-typcategory-table">を参照してください。ですが、独自の型カテゴリを作成するのも可能なことに注意して下さい。)
-各カテゴリには、候補となる型の選択があった場合に、好ましいとされる1つ以上の<firstterm>好ましい型</firstterm>がある場合があります。
-好ましい型と利用可能な暗黙のキャストを注意して選択すれば、曖昧な式(複数の解析結果候補を持つもの)が有効な方法で解決されることを保証することが可能です。
+各カテゴリには、候補となる型の選択があった場合に、優先される1つ以上の<firstterm>優先される型</firstterm>がある場合があります。
+優先される型と利用可能な暗黙のキャストを注意して選択すれば、曖昧な式(複数の解析結果候補を持つもの)が有効な方法で解決されることを保証することが可能です。
 </para>
 
 <para>
@@ -464,8 +464,8 @@ will be required.
 Keep all candidates if none accept preferred types.
 If only one candidate remains, use it; else continue to the next step.
 -->
-全ての候補を検索し、型変換が必要とされる所で（入力データ型カテゴリの）好ましい型を受け付けるものを残します。
-好ましい型を受け付けるものが何もなければ全ての候補を残します。
+全ての候補を検索し、型変換が必要とされる所で（入力データ型カテゴリの）優先される型を受け付けるものを残します。
+優先される型を受け付けるものが何もなければ全ての候補を残します。
 1つの候補しか残らない場合、それを使います。
 それ以外の場合は次の段階に進みます。
 </para>
@@ -494,7 +494,7 @@ If only one candidate remains, use it; else continue to the next step.
 そうでなければ、もし残った全ての候補が同じ型カテゴリを受け入れる場合はそのカテゴリを選択します。
 そうでもなければ、さらに手掛かりがなければ正しい選択が演繹されることができませんので、失敗となります。
 ここで、選択された型カテゴリを受け付けない演算子候補は破棄されます。
-さらに、それらカテゴリ内の好ましい型を受け付ける候補が1つでもある場合、その引数の好ましい型ではないものを受け付ける候補は破棄されます。
+さらに、それらカテゴリ内の優先される型を受け付ける候補が1つでもある場合、その引数の優先されない型を受け付ける候補は破棄されます。
 これらの検査をどれも通らなかったら全ての候補を残します。
 1つの候補しか残らない場合、それを使います。
 それ以外の場合は次の段階に進みます。
@@ -631,7 +631,7 @@ type to resolve the unknown-type literals as.
 -->
 この場合、問い合わせ内に型が指定されていませんので、どの型を使用すべきかについての初期の指針がありません。
 ですから、パーサは全ての演算子候補を検索し、文字列カテゴリとビット列カテゴリ入力を受け付ける候補を見つけます。
-使用できる場合は文字列カテゴリが優先されますので、文字列カテゴリが選択され、それからその好ましい型である<type>text</type>が、不明のリテラルを解決する型として使用されます。
+使用できる場合は文字列カテゴリが優先されますので、文字列カテゴリが選択され、それから文字列に対して優先される型である<type>text</type>が、不明のリテラルを解決する型として使用されます。
 </para>
 </example>
 
@@ -652,7 +652,7 @@ will use that entry when faced with an <type>unknown</> input:
 -->
 <productname>PostgreSQL</productname>の演算子カタログには、前置演算子<literal>@</>用に複数の項目があります。
 これは全て各種数値データ型に対する絶対値計算を実装するものです。
-その1つは、数値カテゴリの好ましい型である<type>float8</type>型用の項目です。
+その1つは、数値カテゴリの優先される型である<type>float8</type>型用の項目です。
 したがって、<productname>PostgreSQL</productname>は、<type>unknown</>の入力があった場合にこれを使用します。
 <screen>
 SELECT @ '-4.5' AS "abs";
@@ -695,7 +695,7 @@ This happens because the system cannot decide which of the several
 possible <literal>~</> operators should be preferred.  We can help
 it out with an explicit cast:
 -->
-これは、システムが、複数の<literal>~</>演算子候補のうちどれが好ましいかを決定することができなかったため発生します。
+これは、システムが、複数の<literal>~</>演算子候補のうちどれが優先されるかを決定することができなかったため発生します。
 明示的なキャストを使用することで補助することができます。
 <screen>
 SELECT ~ CAST('20' AS int8) AS "negation";
@@ -746,7 +746,7 @@ a range literal.)
 -->
 <productname>PostgreSQL</productname>の演算子カタログは、<literal>&lt;@</>中置演算子のためのいくつかのエントリを持っていますが、
 数値型配列を左側に受け付けることができるのは配列包含(<type>anyarray</> <literal>&lt;@</> <type>anyarray</>)と範囲包含(<type>anyelement</> <literal>&lt;@</> <type>anyrange</>)の2つのみです。
-これらの多様な擬似データ型<xref linkend="datatype-pseudo">を参照は好ましいと見なされないため、このような方法ではパーサは曖昧さを解決することができません。
+これらの多様な擬似データ型(<xref linkend="datatype-pseudo">を参照)は優先されると見なされないため、このような方法ではパーサは曖昧さを解決することができません。
 しかし、<xref linkend="op-resol-last-unknown">では、未知の型のリテラルを別の入力と同じ型であると仮定するために数値配列とみなします。
 今のところ2つのうち一つの演算子だけがマッチできるため、配列包含が選択されます。(範囲包含が選択された場合、演算子の右側にある文字列は正しい範囲型のリテラルではないため、エラーとなるでしょう。)
 </para>
@@ -1012,8 +1012,8 @@ will be required.
 Keep all candidates if none accept preferred types.
 If only one candidate remains, use it; else continue to the next step.
 -->
-全ての候補を検索し、型変換が必要とされるところで（入力データ型カテゴリの）好ましい型を受け付けるものを残します。
-好ましい型を受け付けるものが何もなければ全ての候補を残します。
+全ての候補を検索し、型変換が必要とされるところで（入力データ型カテゴリの）優先される型を受け付けるものを残します。
+優先される型を受け付けるものが何もなければ全ての候補を残します。
 1つの候補しか残らない場合、それを使います。
 それ以外の場合は次の段階に進みます。
 </para>
@@ -1042,7 +1042,7 @@ If only one candidate remains, use it; else continue to the next step.
 そうでなければ、もし残った全ての候補が同じ型カテゴリを受け入れる場合はそのカテゴリを選択します。
 そうでもなければ、さらに手掛かりがなければ正しい選択が演繹されることができませんので、失敗となります。
 ここで、選択された型カテゴリを受け付けない演算子候補は破棄されます。
-さらに、このカテゴリ内の好ましい型を受け付ける候補が1つでもある場合、その引数の好ましい型ではないものを受け付ける候補は破棄されます。
+さらに、このカテゴリ内の優先される型を受け付ける候補が1つでもある場合、その引数の優先されない型を受け付ける候補は破棄されます。
 これらの検査をどれも通らなかったら全ての候補を残します。
 1つの候補しか残らない場合、それを使います。
 それ以外の場合は次の段階に進みます。
@@ -1143,7 +1143,7 @@ candidate function that accepts an argument of the preferred category
 -->
 <function>substr</function>関数は複数存在します。
 その1つは<type>text</type>と<type>integer</type>型を取ります。
-型の指定がない文字列定数で呼び出した場合、システムは好ましいカテゴリ<literal>string</literal>（すなわち<type>text</type>型）の引数を受け付ける候補関数を選択します。
+型の指定がない文字列定数で呼び出した場合、システムは優先されるカテゴリ<literal>string</literal>（すなわち<type>text</type>型）の引数を受け付ける候補関数を選択します。
 
 <screen>
 SELECT substr('1234', 3);
@@ -1456,7 +1456,7 @@ domain's base type for all subsequent steps.
     exact type.  Otherwise the domain's base type will be preferred.
 -->
 演算子や関数に対するドメイン入力の取り扱いとある程度似ていて、この振舞いにより、利用者が注意して入力をすべて厳密な型であると保証する限り、ドメイン型を<literal>UNION</>や類似の構成体に保存できます。
-そうでなければ、ドメインの基本型が選ばれます。
+そうでなければ、ドメインの基本型が優先されます。
    </para>
   </footnote>
 </para>
@@ -1469,7 +1469,7 @@ If all inputs are of type <type>unknown</type>, resolve as type
 <type>text</type> (the preferred type of the string category).
 Otherwise, <type>unknown</type> inputs are ignored.
 -->
-もし全ての入力値が<type>unknown</type>型だった場合、<type>text</type>型（文字列カテゴリの好ましい型）として解決されます。
+もし全ての入力値が<type>unknown</type>型だった場合、<type>text</type>型（文字列カテゴリの優先される型）として解決されます。
 そうでない場合は<type>unknown</type>入力は無視します。
 </para>
 </step>
@@ -1490,7 +1490,7 @@ Choose the first non-unknown input type which is a preferred type in
 that category, if there is one.
 -->
 最初のunknownではない入力データ型を選択します。
-もし存在すれば、このデータ型はそのカテゴリの好ましい型です。
+もし存在すれば、このデータ型はそのカテゴリの優先される型です。
 </para>
 </step>
 
