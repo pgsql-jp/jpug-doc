@@ -817,7 +817,7 @@ T1の各行R1に対して、T2において行R1との結合条件を満たして
      the rest of the query.  This is called a <firstterm>table
      alias</firstterm>.
 -->
-テーブルや複雑なテーブル参照は、問い合わせの後の方で派生テーブルを参照するために一時的な名前を与えることができます。
+テーブルや複雑なテーブル参照に一時的な名前を付与し、問い合わせの以降の部分では、その名前を使ってテーブルや複雑なテーブル参照を利用することができます。
 これを<firstterm>テーブルの別名</firstterm>と呼びます。
     </para>
 
@@ -866,12 +866,12 @@ SELECT * FROM some_very_long_table_name s JOIN another_fairly_long_name a ON s.i
 -->
 現在の問い合わせに関しては、別名がテーブル参照をする時の新しい名前になります。
 問い合わせの他の場所で元々の名前でテーブルを参照することはできなくなります。
-よって、これは有効ではありません。
+よって、次の例は有効ではありません。
 <programlisting>
 <!--
 SELECT * FROM my_table AS m WHERE my_table.a &gt; 5;    &#045;&#045; wrong
 -->
-SELECT * FROM my_table AS m WHERE my_table.a &gt; 5;    -- 悪い
+SELECT * FROM my_table AS m WHERE my_table.a &gt; 5;    -- 間違い
 </programlisting>
     </para>
 
@@ -988,7 +988,7 @@ FROM (SELECT * FROM table1) AS alias_name
      grouping or aggregation.
 -->
 この例は<literal>FROM table1 AS alias_name</literal>と同じです。
-さらに興味深いケースとして、副問い合わせがグループ化や集約を含んでいる場合、単純結合にまとめることはできないということがあります。
+副問い合わせがグループ化や集約を含んでいる場合は、単純結合にまとめることはできない、より重要な例が発生します。
     </para>
 
     <para>
@@ -1042,7 +1042,7 @@ FROM (VALUES ('anne', 'smith'), ('bob', 'jones'), ('joe', 'blow'))
      as columns of a table, view, or subquery.
 -->
 テーブル関数は、基本データ型（スカラ型）、もしくは複合データ型（テーブル行）からなる行の集合を生成する関数です。
-これらは、テーブル、ビュー、問い合わせの<literal>FROM</>句内の副問い合わせのように使用されます。
+これらは、問い合わせの<literal>FROM</>句内でテーブル、ビュー、副問い合わせのように使用されます。
 テーブル関数から返される列は、テーブル、ビュー、副問い合わせの列と同様の手順で、<literal>SELECT</>、<literal>JOIN</>、<literal>WHERE</>の中に含めることができます。
     </para>
 
@@ -1053,7 +1053,8 @@ FROM (VALUES ('anne', 'smith'), ('bob', 'jones'), ('joe', 'blow'))
      result rows in this case is that of the largest function result, with
      smaller results padded with null values to match.
 -->
-テーブル関数も並行列に返された結果を<literal>ROWS FROM</>構文を使用することで組み合わせることができます。このとき関数の結果行の数の方が多い場合、少ない結果側が一致するようにnull値で埋められます。
+テーブル関数は<literal>ROWS FROM</>構文を使用することで、それらの返却列を一緒に組み合わせることもできます。
+このときの結果の行数は、行数が最大となる関数の結果と同じになり、少ない結果側は多い結果に合わせてnull値で埋められます。
     </para>
 
 <synopsis>
@@ -1072,7 +1073,8 @@ ROWS FROM( <replaceable>function_call</replaceable> <optional>, ... </optional> 
      a different column name can be assigned to it using
      an <literal>AS</literal> clause.
 -->
-WITH ORDINALITY句が指定されている場合、関数が返す<type>bigint</type>型の列を追加します。行の数を返す関数は1から始まります。
+WITH ORDINALITY句が指定されている場合、関数の結果の列に<type>bigint</type>型の列が追加されます。
+この列は関数の結果の行を1から数えます。
 （これは標準SQLの構文<literal>UNNEST ... WITH ORDINALITY</literal>の一般化です。）
 デフォルトでは、この序数(ordinal)の列は<literal>ordinality</>になります。しかし別の名前を<literal>AS</literal>句を使用して別名を割り当てることができます。
     </para>
@@ -1085,7 +1087,8 @@ WITH ORDINALITY句が指定されている場合、関数が返す<type>bigint</
      (<xref linkend="functions-array">) had been called on each parameter
      separately and combined using the <literal>ROWS FROM</literal> construct.
 -->
-特別なテーブル関数<literal>UNNEST</literal>は、任意の数の配列パラメータで呼ばれることもあります。そしてそれは、列の対応する数を返し、あたかも<literal>UNNEST</literal>(<xref linkend="functions-array">)は各パラメータ毎に<literal>ROWS FROM</literal>構文を使用して結合されているかのようになります。
+特別なテーブル関数<literal>UNNEST</literal>は、任意の数の配列パラメータで呼ぶことができます。
+そしてそれは、対応する数の列を返し、あたかも<literal>UNNEST</literal>(<xref linkend="functions-array">)が各パラメータ毎に<literal>ROWS FROM</literal>構文を使用して結合されているかのようになります。
     </para>
 
 <synopsis>
@@ -1098,7 +1101,8 @@ UNNEST( <replaceable>array_expression</replaceable> <optional>, ... </optional> 
      name is used as the table name; in the case of a <literal>ROWS FROM()</>
      construct, the first function's name is used.
 -->
-<replaceable>table_alias</replaceable>が指定されない場合、テーブル名に関数名が使用されます。<literal>ROWS FROM()</>の場合は最初の関数名が使用されます。
+<replaceable>table_alias</replaceable>が指定されない場合、テーブル名として関数名が使用されます。
+<literal>ROWS FROM()</>の場合は最初の関数名が使用されます。
     </para>
 
     <para>
@@ -1108,7 +1112,7 @@ UNNEST( <replaceable>array_expression</replaceable> <optional>, ... </optional> 
      function returning a composite type, the result columns get the names
      of the individual attributes of the type.
 -->
-列に別名が提供されない場合、関数は基本データを返します。列名も関数名と同じになります。
+列に別名が提供されない場合、基本データ型を返す関数に対しては、列名も関数名と同じになります。
 複合型を返す関数の場合は、結果の列は型の個々の属性の名前を取得します。
     </para>
 
@@ -1150,7 +1154,7 @@ SELECT * FROM vw_getfoo;
      the query.  This syntax looks like:
 -->
 呼び出し方法に応じて異なる列集合を返すテーブル関数を定義することが役に立つ場合があります。
-これをサポートするには、テーブル関数を<type>record</>仮想型を返すものと宣言します。
+これをサポートするために、テーブル関数を<type>record</>擬似型を返すものと宣言することができます。
 こうした関数を問い合わせで使用する場合、システムがその問い合わせをどのように解析し計画を作成すればよいのかが判断できるように、想定した行構造を問い合わせ自身内に指定しなければなりません。
 この構文は次のようになります。
     </para>
@@ -1174,17 +1178,17 @@ ROWS FROM( ... <replaceable>function_call</replaceable> AS (<replaceable>column_
      a <replaceable>column_definition</replaceable> list can be written in
      place of a column alias list following <literal>ROWS FROM()</>.
 -->
-<literal>ROWS FROM()</>構文を使用しない場合は、<replaceable>列定義</replaceable>のリストから<literal>FROM</>項目に取り付けることができる列の別名に置き換えます。
+<literal>ROWS FROM()</>構文を使用しない場合は、<replaceable>column_definition</replaceable>のリストが<literal>FROM</>項目に取り付けることができる列の別名の代わりとなります。
 列の定義内の名前は、列の別名として機能します。
-<literal>ROWS FROM()</>構文を使用した場合は、<replaceable>列定義</replaceable>
-リストが個別に各メンバー関数に添付することができます。または<literal>WITH ORDINALITY</>句がない有する唯一のメンバ関数であれば、<replaceable>列定義</replaceable>リストは、<literal>ROWS FROM()</>を列別名リストの代わりに書き込むことができます。
+<literal>ROWS FROM()</>構文を使用する場合は、<replaceable>column_definition</replaceable>リストを個別に各メンバー関数に添付することができます。
+またはメンバ関数が1つだけしかなく、かつ<literal>WITH ORDINALITY</>句がない場合は、<replaceable>column_definition</replaceable>リストを、<literal>ROWS FROM()</>の後ろの列別名のリストの場所に書くことができます。
     </para>
 
     <para>
 <!--
      Consider this example:
 -->
-例を考えます。
+以下の例を考えます。
 
 <programlisting>
 SELECT *
