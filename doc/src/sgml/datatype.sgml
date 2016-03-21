@@ -482,10 +482,10 @@
    the original input.
 -->
 それぞれのデータ型はそのデータ型の入出力関数で決定される外部表現を保有しています。
-組み込みデータ型の多くには、はっきりとした外部書式があります。
-とは言っても、経路のような<productname>PostgreSQL</productname>に特有な型や、あるいは、日付や時刻データ型のように書式を複数選択できる型が多くあります。
-一部の入出力関数は転置することができません。
-つまり、出力関数による結果は最初の入力と比較した場合精度を失う可能性があります。
+組み込みデータ型の多くには、自明の外部書式があります。
+とは言っても、経路のような<productname>PostgreSQL</productname>に特有な型や、あるいは、日付や時刻データ型のように書式を複数選択できる型がいくつかあります。
+一部の入出力関数は可逆ではありません。
+つまり、出力関数による結果は元の入力と比較した場合精度を失う可能性があります。
   </para>
 
   <sect1 id="datatype-numeric">
@@ -579,7 +579,7 @@
 -->
     <entry>可変長</entry>
     <entry>ユーザ指定精度、正確</entry>
-    <entry>小数点前までは131072桁、小数点以降は16383桁</entry>
+    <entry>小数点より上は131072桁まで、小数点より下は16383桁まで</entry>
        </row>
        <row>
         <entry><type>numeric</></entry>
@@ -590,7 +590,7 @@
 -->
     <entry>可変長</entry>
     <entry>ユーザ指定精度、正確</entry>
-    <entry>小数点前までは131072桁、小数点以降は16383桁</entry>
+    <entry>小数点より上は131072桁まで、小数点より下は16383桁まで</entry>
        </row>
 
        <row>
@@ -723,7 +723,7 @@
 -->
 <type>integer</type>型は数値の範囲、格納サイズおよび性能において最も釣合いが取れていますので、一般的に使用されます。
 <type>smallint</type>型は通常はディスク容量に制限が付いている場合にのみ使用します。
-<type>bigint</type>型は<type>integer</type>の許容範囲では十分ではない場合にのみ使用すべきです。
+<type>bigint</type>型は<type>integer</type>の許容範囲では十分ではない場合に使用されるよう設計されています。
     </para>
 
     <para>
@@ -758,7 +758,7 @@
 <!--
     <primary>arbitrary precision numbers</primary>
 -->
-    <primary>任意の精度数</primary>
+    <primary>任意精度の数</primary>
    </indexterm>
 
     <indexterm>
@@ -782,8 +782,8 @@
 -->
 <type>numeric</type>型は、非常に大きな桁数で数値を格納できます。
 通貨金額やその他正確性が求められる数量を保存する時は特に、この型を推奨します。
-<type>numeric</type>の値での計算は、可能なところ、例えば、足し算、引算、掛け算では、正確な結果になります。
-とは言っても、<type>numeric</type>の値に対する計算は次節で説明する整数型、もしくは浮動小数点データ型に比較し非常に遅くなります。
+<type>numeric</type>の値での計算は、可能なところ、例えば、足し算、引算、掛け算では、正確な結果（訳注：10進の小数で誤差が生じない、ということ）になります。
+とは言っても、<type>numeric</type>の値に対する計算は整数型、もしくは次節で説明する浮動小数点データ型に比較し非常に遅くなります。
     </para>
 
     <para>
@@ -799,7 +799,7 @@
      zero.
 -->
 この後の説明では、次の用語を使用します。
-<type>numeric</type>の<firstterm>位取り</firstterm>とは、小数点の右側の小数点以下の桁数をいいます。
+<type>numeric</type>の<firstterm>位取り</firstterm>とは、小数点の右側の小数部分の桁数をいいます。
 <type>numeric</type>の<firstterm>精度</firstterm>とは数字全体の有効桁数です。
 すなわち、小数点をはさんでいる両側の桁数の合計です。
 そのため、23.5141という数値の精度は6で位取りは4となります。
@@ -813,8 +813,8 @@
      configured.  To declare a column of type <type>numeric</type> use
      the syntax:
 -->
-<type>numeric</type>列の数値の最大精度と最大位取りはともに設定することができます。
-列のデータ型を<type>numeric</type>と宣言するには次の構文を使います。
+<type>numeric</type>列の数値の最大精度と最大位取りの両方を設定することができます。
+<type>numeric</type>型の列を宣言するには次の構文を使います。
 <programlisting>
 NUMERIC(<replaceable>precision</replaceable>, <replaceable>scale</replaceable>)
 </programlisting>
@@ -823,7 +823,7 @@ NUMERIC(<replaceable>precision</replaceable>, <replaceable>scale</replaceable>)
      Alternatively:
 -->
 精度は正数、位取りは0もしくは正数でなければなりません。
-他に
+他の記述方法として、
 <programlisting>
 NUMERIC(<replaceable>precision</replaceable>)
 </programlisting>
@@ -831,6 +831,7 @@ NUMERIC(<replaceable>precision</replaceable>)
      selects a scale of 0.  Specifying:
 -->
 は位取りが0であることを選択します。
+精度も位取りも指定せず、
 <programlisting>
 NUMERIC
 </programlisting>
@@ -846,9 +847,9 @@ NUMERIC
      about portability, always specify the precision and scale
      explicitly.)
 -->
-精度または位取りの指定がない場合、実装されている限界の精度まで、いかなる精度あるいは位取りの値も格納できる列が作られます。
-この類の列はいかなる特定の位取りに対しても入力値を強要しませんが、宣言された位取りを持つ<type>numeric</type>列は入力値にその位取りを強要します。
-（標準<acronym>SQL</acronym>はデフォルトとして位取り0を要求していて、整数に対する厳密性を強制しています。
+と記述すると、実装されている限界の精度まで、いかなる精度あるいは位取りの値も格納できる列が作られます。
+この類の列は入力値をいかなる特定の位取りにも変換しませんが、宣言された位取りを持つ<type>numeric</type>列は入力値をその位取りに変換します。
+（標準<acronym>SQL</acronym>はデフォルトとして位取り0を要求していて、つまり、整数の精度に変換されます。
 しかし、この方法はあまり役に立たないと思われます。
 もし移植性を心配するなら、常に精度と位取りを明示的に設定してください。）
     </para>
@@ -938,7 +939,7 @@ NUMERIC
       values as equal, and greater than all non-<literal>NaN</>
       values.
 -->
-ほとんどの<quote>非数</>の実装において、<literal>NaN</>は（<literal>NaN</>を含む）他の数値と等価になるとみなされていません。
+ほとんどの<quote>非数</>の概念の実装において、<literal>NaN</>は（<literal>NaN</>を含む）他の数値と等価にならないとみなされています。
 <type>numeric</>値をソートできる、また、ツリーを基にしたインデックスで使用できるように、<productname>PostgreSQL</>は<literal>NaN</>同士は等しく、すべての<literal>NaN</>以外の値よりも大きな値となるものとして扱います。
      </para>
     </note>
@@ -950,7 +951,7 @@ NUMERIC
      standard.
 -->
 <type>decimal</type>と<type>numeric</type>型は等価です。
-2つのデータ型はともに標準<acronym>SQL</acronym>に従っています。
+2つのデータ型はともに標準<acronym>SQL</acronym>に含まれます。
     </para>
    </sect2>
 
@@ -996,7 +997,7 @@ NUMERIC
      extent that the underlying processor, operating system, and
      compiler support it.
 -->
-<type>real</type>と<type>double precision</type>は不正確な可変精度の数値データ型です。
+<type>real</type>と<type>double precision</type>は不正確な（訳注：10進の小数で誤差が生じる、ということ）可変精度の数値データ型です。
 実際にはこれらのデータ型は、使用しているプロセッサ、オペレーティングシステムおよびコンパイラがサポートしていれば、通常は（それぞれ単精度および倍精度の）バイナリ浮動小数点演算用の<acronym>IEEE</acronym>規格754の実装です。
     </para>
 
@@ -1059,11 +1060,11 @@ NUMERIC
      Numbers too close to zero that are not representable as distinct
      from zero will cause an underflow error.
 -->
-ほとんどのプラットフォームでは<type>real</type>は最低6桁の精度を持った少なくとも-1E+37と+1E+37の範囲です。
-<type>double precision</type>は通常最低15桁の精度でおよそ-1E+308と+1E+308の範囲です。
+ほとんどのプラットフォームでは<type>real</type>は最低6桁の精度を持ち、少なくとも1E-37から1E+37までの範囲です。
+<type>double precision</type>は通常最低15桁の精度でおよそ1E-307から1E+308までの範囲です。
 大き過ぎたり小さ過ぎる値はエラーの原因となります。
 入力値の精度が高過ぎる場合は丸められることがあります。
-ゼロに限りなく近い値で、しかもゼロとは区別されているようにみなされない数値はアンダーフローエラーを引き起こします。
+ゼロに限りなく近い値で、しかもゼロと異なる値として表現できない数値はアンダーフローエラーを引き起こします。
     </para>
 
     <note>
@@ -1076,7 +1077,7 @@ NUMERIC
       supported by PostgreSQL.  Increasing it will produce output that
       more accurately represents the stored value, but may be unportable.
 -->
-浮動小数点を含む値がテキスト型に変換される場合、<xref linkend="guc-extra-float-digits">によって有効数字を制御します。
+浮動小数点を含む値が出力用のテキストに変換される場合、<xref linkend="guc-extra-float-digits">によって有効数字を制御します。
 デフォルト値の<literal>0</literal>が指定されている場合、出力はPostgreSQLをサポートする全てのプラットホームで同じです。
 この値を大きくすることで格納された値をより精密に表現できますが、プラットホーム間の移植性が失われるかもしれません。
      </para>
@@ -1149,8 +1150,8 @@ IEEE754では、<literal>NaN</>は（<literal>NaN</>を含む）他のすべて�
      <type>float</type> with no precision specified is taken to mean
      <type>double precision</type>.
 -->
-また、<productname>PostgreSQL</productname>では不正確な数値型を規定する標準SQLの<type>float</type>と<type>float(<replaceable>p</replaceable>)</type>をサポートしています。
-ここで、<replaceable>p</replaceable>は<emphasis>2進数</>桁数で最低受け付ける精度を指定します。
+また、<productname>PostgreSQL</productname>では不正確な数値型についての標準SQLの表記である<type>float</type>と<type>float(<replaceable>p</replaceable>)</type>をサポートしています。
+ここで、<replaceable>p</replaceable>は<emphasis>2進数</>桁数で最低限、許容可能な精度を指定します。
 <productname>PostgreSQL</productname>は<type>float(1)</type>から<type>float(24)</type>を<type>real</type>を選択するものとして受け付け、<type>float(25)</type>から<type>float(53)</type>を<type>double precision</type>を選択するものとして受け付けます。
 許容範囲外の<replaceable>p</replaceable>の値はエラーになります。
 精度指定のない<type>float</type>は<type>double precision</type>として解釈されます。
@@ -1167,7 +1168,7 @@ IEEE754では、<literal>NaN</>は（<literal>NaN</>を含む）他のすべて�
       on all platforms.
 -->
 <type>real</type>と<type>double precision</type>の仮数がそれぞれ24ビットと53ビットであるという前提は、IEEE標準浮動小数点の実装では正しいものです。
-非IEEEのプラットフォームでは、一部無効になる可能性がありますが、単純化のためにすべてのプラットフォームで<replaceable>p</replaceable>の範囲は同一です。
+非IEEEのプラットフォームでは、若干、異なる可能性がありますが、単純化のためにすべてのプラットフォームで<replaceable>p</replaceable>の範囲は同一です。
      </para>
     </note>
 
@@ -1264,7 +1265,7 @@ ALTER SEQUENCE <replaceable class="parameter">tablename</replaceable>_<replaceab
 -->
 このように整数列を作成し、その列のデフォルト値が連番ジェネレータから割り当てられるようにしました。
 また、<literal>NOT NULL</>制約を適用することによって、NULL値が挿入されないようにします。
-（たいていの場合は、重複する値を間違って挿入しないように、<literal>UNIQUE</>制約または<literal>PRIMARY KEY</>制約も追加することが推奨されますが、これは自動的には行われません。）
+（たいていの場合は、重複する値を間違って挿入しないように、<literal>UNIQUE</>制約または<literal>PRIMARY KEY</>制約も追加することになるでしょうが、これは自動的には行われません。）
 最後に、シーケンスは列に<quote>より所有</>されるものと印が付きます。
 したがって、テーブルの列が削除された場合にシーケンスは削除されます。
     </para>
@@ -1314,7 +1315,8 @@ ALTER SEQUENCE <replaceable class="parameter">tablename</replaceable>_<replaceab
 <type>serial</type>と<type>serial4</type>という型の名称は等価です。
 ともに<type>integer</type>列を作成します。
 <type>bigserial</type>と<type>serial8</type>という型の名称も<type>bigint</type>列を作成することを除いて同じ振舞いをします。
-もしテーブルを使用する期間で2<superscript>31</>以上の識別子を使用すると予測される場合、<type>bigserial</type>を使用しなければいけません。<type>smallserial</type>と<type>serial2</type>という型の名称もまた、<type>smallint</type>列を作成することを除いて同じ振舞いをします。
+もしテーブルを使用する期間で2<superscript>31</>以上の識別子を使用すると予測される場合、<type>bigserial</type>を使用すべきです。
+<type>smallserial</type>と<type>serial2</type>という型の名称もまた、<type>smallint</type>列を作成することを除いて同じ振舞いをします。
     </para>
 
     <para>
