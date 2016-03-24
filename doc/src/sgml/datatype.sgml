@@ -1895,7 +1895,7 @@ SELECT b, char_length(b) FROM test2;
     strings are appropriate for storing text.
 -->
 バイナリ列はオクテット（またはバイト）の連続です。
-バイナリ列は２つの方法で文字列と区別されます。
+バイナリ列は２つの点で文字列と区別されます。
 1点目は、バイナリ列はゼロの値のオクテットと他の<quote>表示できない</quote>オクテット（通常32から126の範囲外のオクテット）を保存できるということです。
 文字列ではゼロというオクテットは使用できません。
 また、データベースで選択している文字セット符号化方式で無効なオクテット値やオクテット値の並びも使用できません。
@@ -1938,7 +1938,7 @@ SELECT b, char_length(b) FROM test2;
 <!--
    <title><type>bytea</> Hex Format</title>
 -->
-   <title><type>bytea</> hex書式</title>
+   <title><type>bytea</>のhex書式</title>
 
    <para>
 <!--
@@ -1956,10 +1956,10 @@ SELECT b, char_length(b) FROM test2;
     range of external applications and protocols, and it tends to be
     faster to convert than the escape format, so its use is preferred.
 -->
-<quote>hex</>書式ではバイナリデータをバイト単位で上位の1/2バイトを先頭に2桁の16進数に符号化します。
+<quote>hex</>書式ではバイナリデータの各バイトを上位4ビット、下位4ビットの順で2桁の16進数に符号化します。
 （エスケープ書式と区別するために）文字列全体は<literal>\x</literal>という並びの後に付けられます。
-一部の文脈では、エスケープ書式でバックスラッシュを二重にしなければならない一部の場合において、先頭のバックスラッシュを二重にしてエスケープさせる必要があるかもしれません。
-詳細に付いては後で説明します。
+一部の文脈では、先頭のバックスラッシュを二重にしてエスケープさせる必要があるかもしれません。
+これはエスケープ書式でバックスラッシュを二重にしなければならない場合と同じで、詳細は以下に示します。
 16進数の桁は大文字でも小文字でも構いません。
 桁の組み合わせと次の組み合わせの間に空白文字を入れることができます。
 （しかし桁の組み合わせの間や先頭の<literal>\x</literal>の間には入れることはできません。）
@@ -1982,7 +1982,7 @@ SELECT E'\\xDEADBEEF';
 <!--
    <title><type>bytea</> Escape Format</title>
 -->
-   <title><type>bytea</>エスケープ書式</title>
+   <title><type>bytea</>のエスケープ書式</title>
 
    <para>
 <!--
@@ -2004,7 +2004,7 @@ SELECT E'\\xDEADBEEF';
 これは、バイナリ列をASCII文字の並びとして表現しASCII文字として表現できないバイトは特殊なエスケープシーケンスとして表現するという方式を取ります。
 アプリケーションの見地から文字として表現されたバイトが有意であれば、この表現は簡便です。
 しかし現実にはバイナリ列と文字列の間の区別があいまいになりますので、通常は混乱します。
-また特に選択されたエスケープ機構は多少非効率的です。
+また選択されたこのエスケープ機構自体が多少非効率的です。
 このためこの書式はおそらくほとんどの新しいアプリケーションでは避けるべきでしょう。
    </para>
 
@@ -2026,7 +2026,7 @@ SELECT E'\\xDEADBEEF';
 -->
 エスケープ書式で<type>bytea</type>値を入力する際に、特定の値のオクテットをエスケープする<emphasis>必要</emphasis>があります。
 なお、すべてのオクテットの値をエスケープすることが<emphasis>できます</emphasis>。
-一般的にあるオクテットをエスケープするには、それをその3桁の8進番号に変換し、バックスラッシュ(エスケープ文字列構文を使用してリテラルとして値を記述する場合は2つのバックスラッシュ)を前に付けます。
+一般的にあるオクテットをエスケープするには、それをその3桁の8進数に変換し、バックスラッシュ(エスケープ文字列構文を使用してリテラルとして値を記述する場合は2つのバックスラッシュ)を前に付けます。
 他にもバックスラッシュ自体(オクテット値92)を二重のバックスラッシュとして表現することができます。
 <xref linkend="datatype-binary-sqlesc">には、エスケープする必要がある文字と、その適用可能な代替エスケープシーケンスを示しています。
    </para>
@@ -2095,10 +2095,11 @@ SELECT E'\\xDEADBEEF';
       </row>
 
       <row>
-       <entry>0 to 31 and 127 to 255</entry>
 <!--
+       <entry>0 to 31 and 127 to 255</entry>
        <entry><quote>non-printable</quote> octets</entry>
 -->
+       <entry>0から31まで、および127から255まで</entry>
        <entry><quote>表示できない</quote>オクテット</entry>
 <!--
        <entry><literal>E'\\<replaceable>xxx'</></literal> (octal value)</entry>
@@ -2121,9 +2122,9 @@ SELECT E'\\xDEADBEEF';
     length, even though the output representation is sometimes
     more than one character.
 -->
-実際には、<emphasis>表示できない</emphasis>オクテットに対するエスケープ要求はロケールの設定に依存して変化します。
-インスタンスによっては、エスケープをしないで済むこともあります。
-<xref linkend="datatype-binary-sqlesc">の例の各結果は、出力表現が時として１文字以上であっても、長さは正確に1オクテットであることに注意してください。
+実際には、<emphasis>表示できない</emphasis>オクテットに対するエスケープ要求はロケールの設定に依存して異なります。
+ロケールの設定によっては、エスケープをしないで済むこともあります。
+<xref linkend="datatype-binary-sqlesc">の例の各結果は、出力表現が時として2文字以上であっても、長さは正確に1オクテットであることに注意してください。
    </para>
 
    <para>
