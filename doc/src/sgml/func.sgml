@@ -23498,9 +23498,10 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
     so that one session sees the effects of that transaction and the other
     does not.
 -->
-<productname>PostgreSQL</>はデータベースのセッションに対して、それらのスナップショットを同期させることが可能です。<firstterm>snapshot</>は、そのスナップショットを使用しているトランザクションがどのデータを可視とできるかを決定します。
-同期スナップショットは、2つかそれ以上のセッションにおいて、全く同じデータベース内容を見たい場合に必要となります。もし、2つのセッションが独立したそれぞれのトランザクションを開始しただけであれば、ある第3のトランザクションのコミットが、
-2つのトランザクションの<command>START TRANSACTION</>の狭間で実行される可能性があり、そのため一方のトランザクションではそのコミット結果が見え、他方では見えないという影響を受けてしまうでしょう。
+<productname>PostgreSQL</>はデータベースのセッションに対して、それらのスナップショットを同期させることが可能です。
+<firstterm>スナップショット</>は、そのスナップショットを使用しているトランザクションにどのデータが可視かを決定します。
+同期スナップショットは、2つ以上のセッションにおいて、全く同じデータベース内容を見たい場合に必要となります。
+単に2つのセッションが独立してそれぞれのトランザクションを開始するだけでは、第3のトランザクションのコミットが、2つのトランザクションの<command>START TRANSACTION</>の狭間で実行され、そのため一方のトランザクションではそのコミット結果が見え、他方では見えないという可能性が常にあります。
    </para>
 
    <para>
@@ -23517,7 +23518,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
 -->
 このような問題を解決するため、<productname>PostgreSQL</>ではトランザクションが使用しているスナップショットを<firstterm>エクスポート</>できるようになっています。エクスポートしたトランザクションが開かれ続けている限り、他のトランザクションがそれを<firstterm>インポート</>することができ、
 そしてこれにより最初のトランザクションと正確に同じとなるデータベースの可視性を保証されます。ただし、これらの(スナップショットを共有している)トランザクションによって発生したデータベースへの変更は、コミットされていないトランザクションによる変更と同様に、(スナップショットを共有している)他のトランザクションには見えないままです。
-そのため、既存データに対しては同期されますが、それら自身による変更については通常の振る舞いをします。
+つまり、既存データに対しては同期されますが、それら自身による変更については通常の振る舞いをします。
    </para>
 
    <para>
@@ -23573,9 +23574,10 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
 -->
 <function>pg_export_snapshot</>関数は現在のスナップショットを保存し、そのスナップショットを識別する<type>text</>文字列を返します。
 この文字列はスナップショットをインポートしたい(データベース外の)クライアントに渡されなければなりません。
-エクスポートしたトランザクションが終わるまでの間のみ、そのスナップショットをインポートすることができます。必要ならばトランザクションを複数回エキスポートすることができます。
+エクスポートしたトランザクションが終わるまでの間のみ、そのスナップショットをインポートすることができます。
+必要ならばトランザクションは複数のスナップショットをエクスポートできます。
 <literal>REPEATABLE READ</>や上位の隔離レベルでは、トランザクションはその有効期間の間同じスナップショットを使用しますので、これは<literal>READ COMMITTED</>トランザクションでのみ有用であることに注意してください。
-一旦スナップショットをエクスポートしたトランザクションでは、<xref linkend="sql-prepare-transaction">によるPREPARE TRANSACTIONを使用するこができなくなります。
+一旦スナップショットをエクスポートしたトランザクションでは、<xref linkend="sql-prepare-transaction">による準備を使用することができなくなります。
    </para>
 
    <para>
@@ -23614,7 +23616,8 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
     Many of these functions have equivalent commands in the replication
     protocol; see <xref linkend="protocol-replication">.
 -->
-ここの関数の多くには、レプリケーションプロトコルに等価なコマンドがあります。<xref linkend="protocol-replication">を参照してください。
+これらの関数の多くには、レプリケーションプロトコルに等価なコマンドがあります。
+<xref linkend="protocol-replication">を参照してください。
    </para>
 
    <para>
@@ -23709,7 +23712,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         effect as the replication protocol command
         <literal>CREATE_REPLICATION_SLOT ... LOGICAL</literal>.
 -->
-<parameter>slot_name</parameter>という名前の新しい論理(デコード)レプリケーションスロットを作成します。
+出力プラグイン<parameter>plugin</parameter>を使用して、<parameter>slot_name</parameter>という名前の新しい論理(デコード)レプリケーションスロットを作成します。
 この関数を呼び出すのはレプリケーションプロトコルコマンド<literal>CREATE_REPLICATION_SLOT ... LOGICAL</literal>と同じ効果があります。
        </entry>
       </row>
@@ -23923,7 +23926,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
 <!--
         Has a replication origin been configured in the current session?
 -->
-現在のセッションで、レプリケーション起点が設定されたか
+現在のセッションで、レプリケーション起点が設定されたかどうかを返します。
        </entry>
       </row>
 
@@ -24512,14 +24515,14 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
     <xref linkend="functions-admin-index-table"> shows the functions
     available for index maintenance tasks.
 -->
-<xref linkend="functions-admin-index-table">にインデックスの補修タスクに使用できる関数を示します。
+<xref linkend="functions-admin-index-table">にインデックスの保守タスクに使用できる関数を示します。
    </para>
 
    <table id="functions-admin-index-table">
 <!--
     <title>Index Maintenance Functions</title>
 -->
-    <title>インデックス補修関数</title>
+    <title>インデックス保守関数</title>
     <tgroup cols="3">
      <thead>
 <!--
