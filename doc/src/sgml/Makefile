@@ -54,6 +54,10 @@ ifndef XSLTPROC
 XSLTPROC = $(missing) xsltproc
 endif
 
+ifndef FOPCONF
+FOPCONF = fop.xconf
+endif
+
 override XSLTPROCFLAGS += --stringparam pg.version '$(VERSION)'
 
 
@@ -285,14 +289,17 @@ htmlhelp: stylesheet-hh.xsl postgres.xml
 
 FOP = fop
 
+$(FOPCONF):
+	$(SHELL) fop-font.sh $(FOPCONF)
+
 # reformat FO output so that locations of errors are easier to find
 %.fo: %.fo.tmp
-	$(XMLLINT) --format --output $@ $^
+	$(XMLLINT) --format --encode utf-8 --output $@ $^
 
 .SECONDARY: postgres-A4.fo postgres-US.fo
 
-%-fop.pdf: %.fo
-	$(FOP) -c fop.xconf -fo $< -pdf $@
+%-fop.pdf: %.fo $(FOPCONF)
+	$(FOP) -c $(FOPCONF) -fo $< -pdf $@
 
 epub: postgres.epub
 postgres.epub: postgres.xml
@@ -415,6 +422,8 @@ clean:
 	rm -f HTML.index $(GENERATED_SGML)
 # XSLT
 	rm -f postgres.xml postgres.xmltmp htmlhelp.hhp toc.hhc index.hhk *.fo *.fo.tmp
+	rm -fr .fontmetrics
+	rm -f $(FOPCONF)
 # EPUB
 	rm -f postgres.epub
 # Texinfo
