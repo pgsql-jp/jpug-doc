@@ -3,11 +3,27 @@
                 xmlns="http://www.w3.org/1999/xhtml"
                 version="1.0">
 
+<xsl:param name="local.l10n.xml" select="document('')"/>
+<l:i18n xmlns:l="http://docbook.sourceforge.net/xmlns/l10n/1.0">
+  <l:l10n language="ja">
+    <l:gentext key="nav-prev" text="前へ"/>
+    <l:gentext key="nav-up" text="上へ"/>
+    <l:context name="xref-number-and-title">
+      <l:template name="sect1" text="%n. %t"/>
+      <l:template name="sect2" text="%n. %t"/>
+      <l:template name="sect3" text="%n. %t"/>
+      <l:template name="sect4" text="%n. %t"/>
+      <l:template name="sect5" text="%n. %t"/>
+    </l:context>
+  </l:l10n>
+</l:i18n>
+
 <xsl:param name="html.original" select="0"/>
 
 <xsl:template name="user.head.content">
   <meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0" />
 </xsl:template>
+
 
 <xsl:template match="comment()">
   <xsl:choose>
