@@ -529,6 +529,51 @@ GINインデックスは、いずれも固定のストラテジ群を持たな�
 
   <para>
 <!--
+   BRIN indexes are similar to GiST, SP-GiST and GIN indexes in that they
+   don't have a fixed set of strategies either.  Instead the support routines
+   of each operator class interpret the strategy numbers according to the
+   operator class's definition. As an example, the strategy numbers used by
+   the built-in <literal>Minmax</> operator classes are shown in
+   <xref linkend="xindex-brin-minmax-strat-table">.
+-->
+★翻訳が必要
+  </para>
+
+   <table tocentry="1" id="xindex-brin-minmax-strat-table">
+    <title>BRIN Minmax Strategies</title>
+    <tgroup cols="2">
+     <thead>
+      <row>
+       <entry>Operation</entry>
+       <entry>Strategy Number</entry>
+      </row>
+     </thead>
+     <tbody>
+      <row>
+       <entry>less than</entry>
+       <entry>1</entry>
+      </row>
+      <row>
+       <entry>less than or equal</entry>
+       <entry>2</entry>
+      </row>
+      <row>
+       <entry>equal</entry>
+       <entry>3</entry>
+      </row>
+      <row>
+       <entry>greater than or equal</entry>
+       <entry>4</entry>
+      </row>
+      <row>
+       <entry>greater than</entry>
+       <entry>5</entry>
+      </row>
+     </tbody>
+    </tgroup>
+   </table>
+
+  <para>
    Notice that all the operators listed above return Boolean values.  In
    practice, all operators defined as index method search operators must
    return type <type>boolean</type>, since they must appear at the top
@@ -969,6 +1014,55 @@ GINインデックスは、いずれも固定のストラテジ群を持たな�
 
   <para>
 <!--
+   BRIN indexes have four basic support functions, as shown in
+   <xref linkend="xindex-brin-support-table">; those basic functions
+   may require additional support functions to be provided.
+   (For more information see <xref linkend="brin-extensibility">.)
+-->
+★翻訳が必要
+  </para>
+
+   <table tocentry="1" id="xindex-brin-support-table">
+    <title>GIN Support Functions</title>
+    <tgroup cols="3">
+     <thead>
+      <row>
+       <entry>Function</entry>
+       <entry>Description</entry>
+       <entry>Support Number</entry>
+      </row>
+     </thead>
+     <tbody>
+      <row>
+       <entry><function>opcInfo</></entry>
+       <entry>
+        return internal information describing the indexed columns'
+        summary data
+       </entry>
+       <entry>1</entry>
+      </row>
+      <row>
+       <entry><function>add_value</></entry>
+       <entry>add a new value to an existing summary index tuple</entry>
+       <entry>2</entry>
+      </row>
+      <row>
+       <entry><function>consistent</></entry>
+       <entry>determine whether value matches query condition</entry>
+       <entry>3</entry>
+      </row>
+      <row>
+       <entry><function>union</></entry>
+       <entry>
+        compute union of two summary tuples
+       </entry>
+       <entry>4</entry>
+      </row>
+     </tbody>
+    </tgroup>
+   </table>
+
+  <para>
    Unlike search operators, support functions return whichever data
    type the particular index method expects; for example in the case
    of the comparison function for B-trees, a signed integer.  The number
@@ -976,11 +1070,11 @@ GINインデックスは、いずれも固定のストラテジ群を持たな�
    dependent on the index method.  For B-tree and hash the comparison and
    hashing support functions take the same input data types as do the
    operators included in the operator class, but this is not the case for
-   most GiST, SP-GiST, and GIN support functions.
+   most GiST, SP-GiST, GIN, and BRIN support functions.
 -->
 検索演算子と異なり、サポート関数は特定のインデックスメソッドが想定するデータ型、例えばB-tree用の比較関数の場合、符号付き整数を返します。
 同様に各サポート関数に渡す引数の数と型はインデックスメソッドに依存します。
-B-treeとハッシュでは、比較関数とハッシュ処理サポート関数はその演算子クラスに含まれる演算子と同じ入力データ型を取りますが、GIN、SP-GiST、およびGiSTサポート関数のほとんどはそうではありません。
+B-treeとハッシュでは、比較関数とハッシュ処理サポート関数はその演算子クラスに含まれる演算子と同じ入力データ型を取りますが、GIN、SP-GiST、GiSTおよびBRINサポート関数のほとんどはそうではありません。
   </para>
  </sect2>
 
@@ -1534,6 +1628,14 @@ GiST、SP-GiST、GINインデックスではデータ型を跨る操作につい
 サポートされる演算子群は単に指定演算子クラスの主サポート関数が扱うことができるものです。
   </para>
 
+  <para>
+   In BRIN, the requirements depends on the framework that provides the
+   operator classes.  For operator classes based on <literal>minmax</>,
+   the behavior required is the same as for B-tree operator families:
+   all the operators in the family must sort compatibly, and casts must
+   not change the associated sort ordering.
+  </para>
+
   <note>
    <para>
 <!--
@@ -1820,7 +1922,7 @@ CREATE OPERATOR CLASS polygon_ops
 </programlisting>
 
 <!--
-   At present, only the GiST and GIN index methods support a
+   At present, only the GiST, GIN and BRIN index methods support a
    <literal>STORAGE</> type that's different from the column data type.
    The GiST <function>compress</> and <function>decompress</> support
    routines must deal with data-type conversion when <literal>STORAGE</>
@@ -1830,13 +1932,20 @@ CREATE OPERATOR CLASS polygon_ops
    integer-array columns might have keys that are just integers.  The
    GIN <function>extractValue</> and <function>extractQuery</> support
    routines are responsible for extracting keys from indexed values.
+
+   BRIN is similar to GIN: the <literal>STORAGE</> type identifies the
+   type of the stored summary values, and operator classes' support
+   procedures are responsible for interpreting the summary values
+   correctly.
 -->
-現時点では、GiSTインデックスメソッドとGINインデックスメソッドが、列のデータ型と異なる<literal>STORAGE</>型をサポートしています。
+現時点では、GiST、GINおよびBRINインデックスメソッドが、列のデータ型と異なる<literal>STORAGE</>型をサポートしています。
 <literal>STORAGE</>が使用された場合、GiSTの<function>compress</>および<function>decompress</>サポートルーチンは、データ型を変換する必要があります。
 GINでは、<literal>STORAGE</>型は<quote>キー</>の値の型を識別します。
 通常これはインデックス付けされる列の型とは異なります。
 例えば、整数配列の列用の演算子クラスは単なる整数をキーとして持つかもしれません。
 GINの<literal>extractValue</>および<literal>extractQuery</>サポートルーチンが、インデックス付けされた値からキーを取り出す責任を負います。
+
+★後半４行の翻訳が必要
   </para>
  </sect2>
 
