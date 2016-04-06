@@ -53,7 +53,7 @@
    name <systemitem>postgres</systemitem> is often used, and is assumed
    throughout this book, but you can use another name if you like.
 -->
-システムにUnixのユーザアカウントを追加するためには、<command>useradd</command>コマンドか<command>adduser</command>コマンドを使用してください。
+システムにUnixのユーザアカウントを追加するためには、コマンド<command>useradd</command>か<command>adduser</command>を使用してください。
 <systemitem>postgres</systemitem>というユーザ名がよく使われ、本書全体でも使用していますが、好みの名前を使用しても構いません。
   </para>
  </sect1>
@@ -129,7 +129,7 @@
 これは<firstterm>データディレクトリ</firstterm>もしくは<firstterm>データ領域</firstterm>と呼ばれます。
 どこにデータを格納するかは完全にユーザの自由です。
 特にデフォルトの領域はありませんが、一般的によく使われるのは<filename>/usr/local/pgsql/data</filename>か<filename>/var/lib/pgsql/data</filename>です。
-データベースクラスタを初期化するためには、<productname>PostgreSQL</productname>と一緒にインストールされる<xref linkend="app-initdb">コマンド<indexterm><primary>initdb</></>を使用してください。
+データベースクラスタを初期化するためには、<productname>PostgreSQL</productname>と一緒にインストールされるコマンド<xref linkend="app-initdb"><indexterm><primary>initdb</></>を使用してください。
 データベースクラスタのファイルシステム上の場所は<option>-D</option>オプションで示します。
 例えば次のようにします。
 <screen>
@@ -530,7 +530,7 @@ pg_ctl start -l logfile
 他のシステムでは<filename>init.d</filename>や<filename>rc.d</>ディレクトリが使用されます。
 何を実行するにしても、サーバは<productname>PostgreSQL</productname>ユーザアカウントで起動させなければなりません。
 <emphasis>rootであってはいけません</emphasis>し、他のユーザでもいけません。
-したがって、<literal>su postgres -c '...'</literal>を使用してコマンドを実行しなければならないでしょう。
+したがって、<literal>su postgres -c '...'</literal>を使用してコマンドを実行する必要があるでしょう。
 以下に例を示します。
 <programlisting>
 su postgres -c 'pg_ctl start -D /usr/local/pgsql/data -l serverlog'
@@ -1021,7 +1021,7 @@ psql: could not connect to server: No such file or directory
         <entry>at least <literal>ceil((max_connections + autovacuum_max_workers + max_worker_processes + 5) / 16)</literal></>
 -->
 <entry>セマフォ識別子の最大数（つまりセット）</>
-<entry>最低 <literal>ceil((max_connections + autovacuum_max_workers + max_worker_processes + 5) / 16)</literal></>
+<entry>最低<literal>ceil((max_connections + autovacuum_max_workers + max_worker_processes + 5) / 16)</literal></>
        </row>
 
        <row>
@@ -1124,12 +1124,11 @@ psql: could not connect to server: No such file or directory
     which are usually confusingly worded <quote>No space
     left on device</>, from the function <function>semget</>.
 -->
-<productname>PostgreSQL</>は、許可した接続（<xref linkend="guc-max-connections">）および許可したワーカプロセス（<xref linkend="guc-autovacuum-max-workers">）ごとに1つのセマフォを使用し、16個のセマフォを一集合として扱います。
+<productname>PostgreSQL</>は、許可した接続（<xref linkend="guc-max-connections">）、許可したオートバキュームワーカプロセス（<xref linkend="guc-autovacuum-max-workers">）、許可したバックエンドプロセス(<xref linkend="guc-max-worker-processes">)ごとに1つのセマフォを使用し、16個のセマフォをセットとして扱います。
 それぞれそのようなセットは、他のアプリケーションに使われているセマフォセットとの衝突を検出するための<quote>マジックナンバー</quote>が含まれている17個目のセマフォを持っています。
-システム内のセマフォの最大数は<varname>SEMMNS</>によって設定され、その結果としてその値は少なくとも<varname>max_connections</>＋<varname>autovacuum_max_workers</>と同じ、ただし、許可された接続とワーカ16個ごとに余分な1個を加えた値以上はなければいけません
-（<xref linkend="sysvipc-parameters">の公式を参照してください）。
+システム内のセマフォの最大数は<varname>SEMMNS</>によって設定され、その結果としてその値は少なくとも<varname>max_connections</>＋<varname>autovacuum_max_workers</>＋<varname>max_worker_processes</>と同じ、ただし、許可された接続とワーカ16個ごとに余分な1個を加えた値以上はなければいけません（<xref linkend="sysvipc-parameters">の公式を参照してください）。
 <varname>SEMMNI</>パラメータはシステム上に同時に存在できるセマフォ集合の数の上限を決定します。
-ですからこのパラメータは少なくとも<literal>ceil((max_connections + autovacuum_max_workers + 4) / 16)</>以上はなくてはいけません。
+ですから、このパラメータは少なくとも<literal>ceil((max_connections + autovacuum_max_workers + max_worker_processes + 5) / 16)</>以上はなくてはいけません。
 一時的な失敗の回避策としては許可される接続の数を下げることができますが、<quote>No space left on device</>という紛らわしい言葉が<function>semget</>関数から表示されます。
    </para>
 
@@ -1343,7 +1342,7 @@ kern.ipc.semmnu=256
         <literal>option</>.
 -->
 5.0より前のバージョンの<systemitem class="osname">NetBSD</>では、（後述の）<systemitem class="osname">OpenBSD</>のように動作します。
-ただし、パラメータは<literal>option</>ではなく<literal>options</>キーワードを付けて設定しなければなりません。
+ただし、パラメータは<literal>option</>ではなく<literal>options</>キーワードを付けて設定する必要があります。
        </para>
       </listitem>
      </varlistentry>
