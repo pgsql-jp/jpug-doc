@@ -3717,10 +3717,10 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 まず例から始めましょう。
 市（cities）のデータモデルを作成しようとしていると仮定してください。
 それぞれの州にはたくさんの市がありますが、州都（capitals）は1つのみです。
-特定の州から州都を素早く検索したいとします。
+どの州についても州都を素早く検索したいとします。
 これは、2つのテーブルを作成することにより実現できます。
-1つは州都のテーブルで、もう1つは州都ではないテーブルです。
-しかし、州都であるか否かに関わらない市に対するデータを問い合わせたときには何が起こるでしょうか？
+1つは州都のテーブルで、もう1つは州都ではない市のテーブルです。
+しかし、州都であるか否かに関わらず、市に対するデータを問い合わせたいときには何が起こるでしょうか？
 継承はこの問題を解決できます。
 <structname>cities</structname>から継承される<structname>capitals</structname>テーブルを定義するのです。
 
@@ -3743,7 +3743,7 @@ CREATE TABLE capitals (
    their state.
 -->
 この場合、<structname>capitals</>テーブルは、その親テーブルである<structname>cities</>テーブルの列をすべて<firstterm>継承</>します。
-州都は1つの余分な列<structfield>state</>を持ち、州を表現します。
+州都は1つの追加の列<structfield>state</>を持ち、州を表現します。
   </para>
 
   <para>
@@ -3759,7 +3759,7 @@ CREATE TABLE capitals (
 <productname>PostgreSQL</productname>では、1つのテーブルは、0以上のテーブルから継承することが可能です。
 また、問い合わせはテーブルのすべての行、またはテーブルのすべての行と継承されたテーブルのすべての行のいずれかを参照できます。
 後者がデフォルトの動作になります。
-例えば次の問い合わせは、500フィートより上に位置している州都を含んだ、すべての市の名前を検索します。
+例えば次の問い合わせは、500フィートより上に位置しているすべての市の名前を、州都を含めて検索します。
 
 <programlisting>
 SELECT name, altitude
@@ -3835,7 +3835,7 @@ SELECT name, altitude
    However writing <literal>*</> might be useful to emphasize that
    additional tables will be searched.
 -->
-<literal>*</>の指定は、その動作がデフォルトである（あなたが<xref linkend="guc-sql-inheritance">構成オプションの設定を変更していない限り）ため必須ではありません。
+<literal>*</>の指定は、その動作が（<xref linkend="guc-sql-inheritance">構成オプションの設定を変更していない限り）デフォルトであるため、必須ではありません。
 しかしながら、<literal>*</>を指定することは、追加のテーブルが検索されることを強調するのに有効でしょう。
   </para>
 
@@ -3846,7 +3846,7 @@ SELECT name, altitude
    <structfield>tableoid</structfield> in each table which can tell you the
    originating table:
 -->
-場合によっては、ある特定の行がどのテーブルからきたものか知りたいということがあるかもしれません。
+ある特定の行がどのテーブルからきたものか知りたいという場合もあるでしょう。
 それぞれのテーブルには<structfield>tableoid</structfield>という、元になったテーブルを示すシステム列があります。
 
 <programlisting>
@@ -3917,7 +3917,7 @@ WHERE c.altitude &gt; 500;
    other tables in the inheritance hierarchy. In our example, the
    following <command>INSERT</command> statement will fail:
 -->
-継承は<command>INSERT</command>または<command>COPY</command>により、継承の階層にある他のテーブルにデータを自動的に伝播することはありません。
+継承は<command>INSERT</command>または<command>COPY</command>によるデータを、継承の階層にある他のテーブルに自動的に伝播しません。
 この例では、次の<command>INSERT</command>文は失敗します。
 <programlisting>
 INSERT INTO cities (name, population, altitude, state)
@@ -3933,11 +3933,11 @@ VALUES ('Albany', NULL, NULL, 'NY');
    does not contain the column <structfield>state</>, and so the
    command will be rejected before the rule can be applied.
 -->
-データが、どうにかして<structname>capitals</structname>テーブルまで到達できればいいのですが、そのようにはなりません。
-<command>INSERT</command>は、いつも指定されたテーブルに対してデータを挿入します。
+データが、どうにかして<structname>capitals</structname>テーブルに入ることを期待するかもしれませんが、そのようにはなりません。
+<command>INSERT</command>は、いつも指定されたテーブルそれ自体に対してデータを挿入します。
 ルール（詳細は<xref linkend="rules">を参照してください）を使用して挿入を中継できる場合もあります。
-しかし、ルールを使用しても上記のような場合には適用できません。
-なぜなら、<structname>cities</>テーブルには<structfield>state</>列は含まれていませんので、ルールが適用される前にコマンドは拒否されてしまうからです。
+しかし、ルールを使用しても上記のような場合は解決できません。
+なぜなら、<structname>cities</>テーブルに<structfield>state</>列が含まれていないため、ルールが適用される前にコマンドが拒否されてしまうからです。
   </para>
 
   <para>
@@ -4041,8 +4041,8 @@ VALUES ('Albany', NULL, NULL, 'NY');
    and rejection that apply during <command>CREATE TABLE</command>.
 -->
 <xref linkend="sql-altertable">は、列データ定義と検査制約の変更を継承の階層にあるテーブルに伝えます。
-繰り返しになりますが、他のテーブルに依存する列の削除は<literal>CASCADE</literal>オプションを使用したときのみ可能となります。
-<command>ALTER TABLE</command>は、重複列の統合時に適用される規則と<command>CREATE TABLE</command>時に適用される拒否の規則に従います。
+ここでも、他のテーブルに依存する列の削除は<literal>CASCADE</literal>オプションを使用したときのみ可能となります。
+<command>ALTER TABLE</command>は、重複列の統合と拒否について、<command>CREATE TABLE</command>時に適用される規則に従います。
   </para>
 
   <para>
@@ -4096,7 +4096,7 @@ VALUES ('Albany', NULL, NULL, 'NY');
    page (<xref linkend="sql-commands">).
 -->
 すべてのSQLコマンドが継承階層に対して動作できるとは限らないことに注意してください。
-データの検索、データの変更、スキーマの変更のために使用されるコマンド（例えば<literal>SELECT</literal>、<literal>UPDATE</literal>、<literal>DELETE</literal>、<literal>ALTER TABLE</literal>のほとんどの構文です。しかし<literal>INSERT</literal>や<literal>ALTER TABLE ... RENAME</literal>は除きます。）は通常、デフォルトで子テーブルを含み、また、それを除外するための<literal>ONLY</literal>記法をサポートします。
+データの検索、データの変更、スキーマの変更のために使用されるコマンド（例えば<literal>SELECT</literal>、<literal>UPDATE</literal>、<literal>DELETE</literal>、<literal>ALTER TABLE</literal>のほとんどの構文が該当しますが、<literal>INSERT</literal>や<literal>ALTER TABLE ... RENAME</literal>は含まれません）は通常、デフォルトで子テーブルを含み、また、それを除外するための<literal>ONLY</literal>記法をサポートします。
 データベース保守およびチューニング（例えば<literal>REINDEX</literal>、<literal>VACUUM</literal>）を行うコマンドは通常、個々の物理テーブルに対してのみ動作し、継承階層に対する再帰をサポートしません。
 個々のコマンドのそれぞれの動作はそのマニュアルページ（<xref linkend="sql-commands">）に記載されています。
   </para>
@@ -4109,7 +4109,8 @@ VALUES ('Albany', NULL, NULL, 'NY');
    referencing and referenced sides of a foreign key constraint. Thus,
    in the terms of the above example:
 -->
-継承機能の厳しい制限として、（一意性制約を含む）インデックス、および外部キーは、そのテーブルのみに適用され、それを継承した子テーブルには適用されないことがあります。これは外部キーの参照側、被参照側でも同様に適用されません。
+継承機能の重大な制限として、インデックス（一意性制約を含む）、および外部キーは、そのテーブルのみに適用され、それを継承した子テーブルには適用されないことがあります。
+これは外部キーの参照側、被参照側の両方について当てはまります。
 したがって、上の例では
 
    <itemizedlist>
@@ -4143,8 +4144,8 @@ VALUES ('Albany', NULL, NULL, 'NY');
       manually adding the same <literal>REFERENCES</> constraint to
       <structname>capitals</>.
 -->
-同じように、もし<structname>cities</>.<structfield>name</> <literal>REFERENCES</>他のテーブルとしても、この制約は自動的に<structname>capitals</>に引き継がれるわけではありません。
-この場合は<structname>capitals</>テーブルに同一の<literal>REFERENCES</>制約を手動で追加しなければいけません。
+同じように、<structname>cities</>.<structfield>name</> <literal>REFERENCES</>で他のテーブルを参照するようにしても、この制約は自動的に<structname>capitals</>に引き継がれるわけではありません。
+この場合は<structname>capitals</>テーブルに同一の<literal>REFERENCES</>制約を手動で追加すれば問題を回避できます。
      </para>
     </listitem>
 
@@ -4155,8 +4156,8 @@ VALUES ('Albany', NULL, NULL, 'NY');
       cities(name)</> would allow the other table to contain city names, but
       not capital names.  There is no good workaround for this case.
 -->
-他のテーブルの列<literal>REFERENCES cities(name)</>を指定することは、他のテーブルが市の名前を持つことを許可しますが、州都の名前を持つことを許可しません。
-この場合は次善策はありません。
+他のテーブルの列に<literal>REFERENCES cities(name)</>を指定すると、他のテーブルが市の名前を持つことはできますが、州都の名前を持つことできません。
+この場合は良い回避策がありません。
      </para>
     </listitem>
    </itemizedlist>
