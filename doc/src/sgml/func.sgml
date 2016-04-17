@@ -24578,7 +24578,7 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
     and a path matching the <varname>log_directory</> configuration setting
     for log files.  Use of these functions is restricted to superusers.
 -->
-<xref linkend="functions-admin-genfile-table">で示されている関数はサーバをホスティングしているマシン上のファイルに対し、生来のアクセスを提供します。
+<xref linkend="functions-admin-genfile-table">で示されている関数はサーバをホスティングしているマシン上のファイルに対し、ネイティブのアクセスを提供します。
 データベースクラスタディレクトリと<varname>log_directory</>に存在するファイルのみがアクセス可能です。
 クラスタディレクトリ内のファイルに対して相対パスを、そしてログファイルに対しては<varname>log_directory</>構成設定に一致するパスを使用してください。
    </para>
@@ -24696,8 +24696,11 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
     in the server encoding; an error is thrown if they are not valid in that
     encoding.
 -->
-<function>pg_read_file</>は与えられた<parameter>offset</>から始まり、最大<parameter>length</>バイト（最初にファイルの終りに到達すればこれより少なくなりますが）テキストファイルの一部分を返します。<parameter>offset</>が負の場合にはファイルの終りから数えた位置から読み出します。
-もし<parameter>offset</>と<parameter>length</>が省略された場合、ファイル全体が返されます。ファイルからのバイトの読み込みは、そのサーバ符号化方式に対する文字列と同様の解釈をされます。そのため、読み込んだバイト列がその符号化方式において有効でない場合にはエラーが投げられます。
+<function>pg_read_file</>は与えられた<parameter>offset</>から始まり、最大<parameter>length</>バイト（先にファイルの終りに到達すればこれより少なくなります）テキストファイルの一部分を返します。
+<parameter>offset</>が負の場合にはファイルの終りから数えた位置から読み出します。
+<parameter>offset</>と<parameter>length</>が省略された場合、ファイル全体が返されます。
+ファイルから読み込まれたバイトは、そのサーバの符号化方式での文字列として解釈をされます。
+読み込んだバイト列がその符号化方式において有効でない場合にはエラーが投げられます。
    </para>
 
    <indexterm>
@@ -24712,7 +24715,7 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
     can be used to read a file in a specified encoding:
 -->
 <function>pg_read_binary_file</>は、結果が<type>bytea</type>値となり、従って符号化の検査がされないことを除き、<function>pg_read_file</>と似ています。
-<function>convert_from</>関数と組み合わせることで、この指定した符号化方式でファイルの読み込みを行うことができます。
+<function>convert_from</>関数と組み合わせることで、この関数を、指定した符号化方式でファイルの読み込むために使うことができます。
     
 <programlisting>
 SELECT convert_from(pg_read_binary_file('file_in_utf8.txt'), 'UTF8');
@@ -24730,7 +24733,7 @@ SELECT convert_from(pg_read_binary_file('file_in_utf8.txt'), 'UTF8');
     file creation time stamp (Windows only), and a <type>boolean</type>
     indicating if it is a directory.  Typical usages include:
 -->
-<function>pg_stat_file</>はファイル容量、最終アクセス時刻、最終更新時刻、最後にファイルステータスを変更した時刻（これはUnixプラットフォームのみ）、ファイル作成時刻（Windowsのみ）およびもしディレクトリであればそれを示す<type>boolean</type>を返します。
+<function>pg_stat_file</>はファイル容量、最終アクセス時刻、最終更新時刻、最後にファイルステータスを変更した時刻（これはUnixプラットフォームのみ）、ファイル作成時刻（Windowsのみ）および、ディレクトリかどうかを示す<type>boolean</type>を返します。
 典型的な使用方法を示します。
 <programlisting>
 SELECT * FROM pg_stat_file('filename');
@@ -25002,7 +25005,7 @@ SELECT (pg_stat_file('filename')).modification;
 -->
 <function>pg_advisory_lock</>は、アプリケーションが定義したリソースをロックします。キーは単一の64ビットキー値、または、２つの32ビットキー（この2つのキー空間は重複しないことに注意）によって識別されます。
 もし、別のセッションが同一リソースに対するロックを保持している場合、関数はリソースが利用可能になるまで待機します。ロックは排他ロックです。
-複数のロック要求が待ち状態になります。ですので、同一リソースが３回ロックされた場合、他のセッションが使用できるように解放するためにはロック解除を３回行わなければなりません。
+複数のロック要求があればスタックに積まれるため、同一リソースが３回ロックされた場合、他のセッションが使用できるように解放するためにはロック解除を３回行わなければなりません。
    </para>
 
    <indexterm>
