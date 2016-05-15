@@ -2896,7 +2896,7 @@ SELECT <replaceable>select_list</replaceable> FROM <replaceable>table_expression
    <command>DELETE</>.
 -->
 <literal>WITH</>は、より大規模な問い合わせで使用される補助文を記述する方法を提供します。
-これらの文は共通テーブル式または<acronym>CTE</acronym>とよく呼ばれるものであり、１つの問い合わせのために存在する一時テーブルを定義すると考えることができます。
+これらの文は共通テーブル式(Common Table Expressions)または<acronym>CTE</acronym>とよく呼ばれるものであり、１つの問い合わせのために存在する一時テーブルを定義すると考えることができます。
 <literal>WITH</>句内の補助文はそれぞれ<command>SELECT</>、<command>INSERT</>、<command>UPDATE</>または<command>DELETE</>を取ることができます。
 そして<literal>WITH</>句自身は、これも<command>SELECT</>、<command>INSERT</>、<command>UPDATE</>または<command>DELETE</>を取ることができる主文に付与されます。
   </para>
@@ -3023,7 +3023,7 @@ SELECT sum(n) FROM t;
        Include all remaining rows in the result of the recursive query, and
        also place them in a temporary <firstterm>intermediate table</>.
 -->
-再帰自己参照に対する作業テーブルの実行中の内容を置換し、再帰的表現を評価します。
+再帰自己参照を作業テーブルの実行中の内容で置換し、再帰的表現を評価します。
 <literal>UNION</>（ただし<literal>UNION ALL</>は除きます）に対し、重複行と前の結果行と重複する行を破棄します。
 その再帰的問い合わせの結果の残っているすべての行を盛り込み、同時にそれらを一時<firstterm>中間テーブル</>に置きます。
       </para>
@@ -3072,7 +3072,7 @@ SELECT sum(n) FROM t;
    shows immediate inclusions:
 -->
 再帰的問い合わせは階層的、またはツリー構造データに対処するため一般的に使用されます。
-実用的な例は、直接使用する部品を表すテーブル１つのみが与えられ、そこから製品すべての直接・間接部品を見つける問い合わせです。
+実用的な例は、直接使用する部品を表すテーブル１つのみが与えられ、そこから製品すべての直接・間接部品を見つける次の問い合わせです。
 
 <programlisting>
 WITH RECURSIVE included_parts(sub_part, part, quantity) AS (
@@ -3102,10 +3102,10 @@ GROUP BY sub_part
    the following query that searches a table <structname>graph</> using a
    <structfield>link</> field:
 -->
-再帰的問い合わせを扱う場合、問い合わせの再帰部分が時としてタプルを返さない、または、問い合わせが永久にループするといったことのないように注意することが重要です。
-たまには、<literal>UNION ALL</>の替わりに<literal>UNION</>を使用し、重複する前回の出力行を廃棄することで、これを実現できます。
-しかし、ある周期でしばしば完全に重複している出力行を含みません。
-同じ場所が既に到達されたかどうかを確認するために、１つだけ、または数フィールドを検査する必要があるかもしれません。
+再帰的問い合わせを扱う場合、問い合わせの再帰部分が最終的にはタプルを返さないようにすることが重要です。
+そうしなければ、問い合わせが永久にループしてしまうからです。
+<literal>UNION ALL</>の替わりに<literal>UNION</>を使用することで、重複する前回の出力行が廃棄され、これを実現できることもあるでしょう。
+しかし、各周期が完全に重複している行を含まないこともよくあり、そのような場合は、1つまたは少数のフィールドを検査して、同じ場所に既に到達したかどうかを調べる必要があるかもしれません。
 このような状態を取り扱う標準手法は、既に巡回された値の配列を計算することです。
 例えば、<structfield>link</>フィールドを使ってテーブル<structname>graph</>を検索する以下の問い合わせを考えて見ます。
 
@@ -3130,8 +3130,8 @@ SELECT * FROM search_graph;
    <structfield>path</> and <structfield>cycle</> to the loop-prone query:
 -->
 この問い合わせは<structfield>link</>関係が循環を含んでいればループします。
-<quote>depth</>出力が必要ですので、<literal>UNION ALL</>を<literal>UNION</>に変えるだけでは、ループを取り除くことができません。
-その代わり、linkの特定の経路をたどっている間、同じ列に到達したかどうかを認識する必要があります。
+<quote>depth</>出力を要求しているので、<literal>UNION ALL</>を<literal>UNION</>に変えるだけでは、ループを取り除くことができません。
+その代わり、linkの特定の経路をたどっている間に、同じ行に到達したかどうかを認識する必要があります。
 このループしやすい問い合わせに、<structfield>path</>と<structfield>cycle</>の２列を加えます。
 
 <programlisting>
@@ -3164,7 +3164,7 @@ SELECT * FROM search_graph;
    compare fields <structfield>f1</> and <structfield>f2</>:
 -->
 循環を認識するために検査するために必要なフィールドが複数存在する一般的な状況では、行の配列を使用します。
-例えば、<structfield>f1</>と<structfield>f2</> のフィールドを比較する必要があるときは次のようにします。
+例えば、フィールド<structfield>f1</>と<structfield>f2</>を比較する必要があるときは次のようにします。
 
 <programlisting>
 WITH RECURSIVE search_graph(id, link, data, depth, path, cycle) AS (
@@ -3191,7 +3191,7 @@ SELECT * FROM search_graph;
     rather than a composite-type array to be used, gaining efficiency.
 -->
 循環を認識するために検査するために必要なフィールドが１つだけである一般的な場合では、<literal>ROW()</>構文を削除します。
-これで、複合型配列ではなく単純配列が得られ、効率も上がります。
+これで、複合型配列ではなく単純配列で済むので、効率も上がります。
    </para>
   </tip>
 
@@ -3203,8 +3203,8 @@ SELECT * FROM search_graph;
     search order by making the outer query <literal>ORDER BY</> a
     <quote>path</> column constructed in this way.
 -->
-再帰的問い合わせ評価アルゴリズムは、横型検索順でのその出力を作成します。
-このようにして作られた<quote>path</>列を外側問い合わせで<literal>ORDER BY</>し、縦型検索順の結果の表示が可能です。
+再帰的問い合わせ評価アルゴリズムは、横型検索順でその出力を作成します。
+このようにして作られた<quote>path</>列を外側問い合わせで<literal>ORDER BY</>すれば、縦型検索順の結果の表示が可能です。
    </para>
   </tip>
 
@@ -3263,8 +3263,8 @@ SELECT n FROM t LIMIT 100;
 -->
 有用な<literal>WITH</>問い合わせの特性は、親問い合わせ、もしくは兄弟<literal>WITH</>問い合わせによりたとえ１回以上参照されるとしても、親問い合わせ実行でたった１回だけ評価されることです。
 したがって、複数の場所で必要な高価な計算は、冗長作業を防止するため<literal>WITH</>問い合わせの中に配置することができます。
-他にありうるアプリケーションとしては、望まれない副作用のある関数の多重評価を避けることです。
-しかし、反対の見方をすれば、オプティマイザの能力は、親問い合わせからの制約を通常の副問い合わせではなく、<literal>WITH</>問い合わせに押し下げるには、劣っています。
+他にありうる適用としては、望まれない副作用のある関数の多重評価を避けることです。
+しかし、反対の見方をすれば、親問い合わせからの制約を<literal>WITH</>問い合わせに押し下げることについて、オプティマイザの能力は通常の副問い合わせに対するものより劣ります。
 <literal>WITH</>問い合わせは一般的に、親問い合わせが後で破棄するであろう行を抑制せずに、書かれた通りに評価されます。
 （しかし、上で述べたように、問い合わせの参照が限定された数の行のみを要求する場合、評価は早期に停止します。）
   </para>
@@ -3278,7 +3278,7 @@ SELECT n FROM t LIMIT 100;
    be referred to in the main command.
 -->
 上の例では<command>SELECT</>を使用する<literal>WITH</>のみを示しています。
-しかし、同じ方法で<command>INSERT</>、<command>UPDATE</>、または<command>DELETE</>を付与することができます。
+しかし、同じ方法で<command>INSERT</>、<command>UPDATE</>、または<command>DELETE</>に対して付与することができます。
 それぞれの場合において、これは主コマンド内で参照可能な一時テーブルを実質的に提供します。
   </para>
  </sect2>
@@ -3334,7 +3334,7 @@ SELECT * FROM moved_rows;
     rules apply, so it is possible to refer to the <literal>WITH</>
     statement's output from the sub-<command>SELECT</>.
 -->
-上の例の見事なところは、<command>INSERT</>内の副<command>SELECT</>ではなく<literal>WITH</>句が<command>INSERT</>に付与されていることです。
+上の例の見事なところは、<literal>WITH</>句が<command>INSERT</>内の副<command>SELECT</>ではなく、<command>INSERT</>に付与されていることです。
 これは、データ更新文は最上位レベルの文に付与される<literal>WITH</>句内でのみ許されているため必要です。
 しかし、通常の<literal>WITH</>の可視性規則が適用されますので、副<command>SELECT</>から<literal>WITH</>文の出力を参照することができます。
    </para>
@@ -3352,7 +3352,7 @@ SELECT * FROM moved_rows;
     A not-particularly-useful example is:
 -->
 上の例で示したように、<literal>WITH</>内のデータ変更文は通常<literal>RETURNING</>句を持ちます。
-データ変更文の対象テーブルでは<emphasis>なく</>、<literal>RETURNING</>句の出力が問い合わせの残りの部分で参照することができる一時テーブルを形成するものです。
+問い合わせの残りの部分で参照することができる一時テーブルを形成するのは、<literal>RETURNING</>句の出力の出力であって、データ変更文の対象テーブルでは<emphasis>ありません</>。
 <literal>WITH</>内のデータ変更文が<literal>RETURNING</>句を持たない場合、一時テーブルを形成しませんので、問い合わせの残りの部分で参照することができません。
 これにもかかわらずこうした文は実行されます。
 特別有用でもない例を以下に示します。
@@ -3411,7 +3411,7 @@ DELETE FROM parts
     as the primary query demands its output.
 -->
 <literal>WITH</>内のデータ変更文は正確に１回のみ実行され、主問い合わせがその出力をすべて（実際にはいずれか）を呼び出したかどうかに関係なく、常に完了します。
-これが、前節で説明した主問い合わせがその出力を要求した時に<command>SELECT</>の実行が行われるという<literal>WITH</>内の<command>SELECT</>についての規則と異なることに注意してください。
+これが、前節で説明した主問い合わせがその出力を要求した時のみに<command>SELECT</>の実行が行われるという<literal>WITH</>内の<command>SELECT</>についての規則と異なることに注意してください。
    </para>
 
    <para>
@@ -3473,9 +3473,9 @@ SELECT * FROM t;
     changed by the main statement or a sibling sub-statement.  The effects
     of such a statement will not be predictable.
 -->
-単一の文で同じ行を２回更新する試行はサポートされていません。
-１つの変更のみが行われますが、どちらかを確実に予測することは簡単ではありません（場合によっては不可能です）。
-これはまた、同じ文内ですでに更新された行を削除する場合でも当てはまります。
+単一の文で同じ行を２回更新しようとすることはサポートされていません。
+変更のうちの１つだけが行われますが、どれが実行されるを確実に予測することは簡単ではありません（場合によっては不可能です）。
+これはまた、同じ文内ですでに更新された行を削除する場合でも当てはまり、更新のみが実行されます。
 したがって一般的には単一の文で１つの行を２回変更しようと試みることを避けなければなりません。
 具体的には主文または同レベルの副文で変更される行と同じ行に影響を与える<literal>WITH</>副文を記述することは避けてください。
 こうした文の影響は予測することはできません。
