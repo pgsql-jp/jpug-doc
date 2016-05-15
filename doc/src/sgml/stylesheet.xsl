@@ -19,6 +19,7 @@
 <!-- <xsl:param name="chunker.output.indent" select="'yes'"/> -->
 <xsl:param name="chunk.quietly" select="1"></xsl:param>
 <xsl:param name="toc.max.depth">2</xsl:param>
+<xsl:param name="generate.section.toc.level">1</xsl:param>
 
 <xsl:param name="website.stylesheet" select="0"/>
 
