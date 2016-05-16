@@ -1330,17 +1330,26 @@ nextval('foo'::text)      <lineannotation>実行時に<literal>foo</literal>を�
        <important>
         <para>
 <!--
-         To avoid blocking concurrent transactions that obtain numbers from the
-         same sequence, a <function>nextval</function> operation is never
+         To avoid blocking concurrent transactions that obtain numbers from
+         the same sequence, a <function>nextval</function> operation is never
          rolled back; that is, once a value has been fetched it is considered
-         used, even if the transaction that did the
-         <function>nextval</function> later aborts.  This means that aborted
-         transactions might leave unused <quote>holes</quote> in the sequence
-         of assigned values.
+         used and will not be returned again.  This is true even if the
+         surrounding transaction later aborts, or if the calling query ends
+         up not using the value.  For example an <command>INSERT</> with
+         an <literal>ON CONFLICT</> clause will compute the to-be-inserted
+         tuple, including doing any required <function>nextval</function>
+         calls, before detecting any conflict that would cause it to follow
+         the <literal>ON CONFLICT</> rule instead.  Such cases will leave
+         unused <quote>holes</quote> in the sequence of assigned values.
+         Thus, <productname>PostgreSQL</> sequence objects <emphasis>cannot
+         be used to obtain <quote>gapless</> sequences</emphasis>.
 -->
 同一のシーケンスから数値を取得する同時実行トランザクション同士のブロックを防止するため、<function>nextval</function>演算は決してロールバックされません。
-と言うことは、たとえ<function>nextval</function>を実行したトランザクションが後にアボートしたとしても、値が一度取り出されたらそれは使用されたものと考えます。
-つまり、中止されたトランザクションは、割り当てられた値のシーケンス内に未使用の<quote>欠損</quote>を残す可能性があります。
+つまり、値が一度取り出されたら、それは使用されたものと見なされ、同じ値が再び返されることはありません。
+これは、それを取り囲むトランザクションが後にアボートした場合でも、あるいは呼び出し側の問い合わせがその値を使用せずに終わった場合でも当てはまります。
+例えば<literal>ON CONFLICT</>句のある<command>INSERT</>では、挿入される予定のタプルについて、必要となるすべての<function>nextval</function>の呼び出しも含めて計算し、その後で<literal>ON CONFLICT</>のルールを代わりに使用することになる競合について検知します。
+このような場合には、割り当てられた値のシーケンス内に未使用の<quote>欠損</quote>を残すことになります。
+従って、<productname>PostgreSQL</>のシーケンスオブジェクトは<emphasis><quote>欠番のない</>シーケンスを得るために使うことはできません</emphasis>。
         </para>
        </important>
 
@@ -1375,14 +1384,14 @@ nextval('foo'::text)      <lineannotation>実行時に<literal>foo</literal>を�
         Return the value most recently returned by
         <function>nextval</> in the current session. This function is
         identical to <function>currval</function>, except that instead
-        of taking the sequence name as an argument it fetches the
-        value of the last sequence used by <function>nextval</function>
+        of taking the sequence name as an argument it refers to whichever
+        sequence <function>nextval</function> was most recently applied to
         in the current session. It is an error to call
         <function>lastval</function> if <function>nextval</function>
         has not yet been called in the current session.
 -->
 現在のセッションの<function>nextval</>で直近に戻された値を返します。
-この関数は<function>currval</function>と同等ですが、引数としてシーケンス名をとる代わりに、現在のセッションで最後に<function>nextval</function>で使用されたシーケンスの値を取得するところが異なります。
+この関数は<function>currval</function>と同等ですが、引数としてシーケンス名をとる代わりに、現在のセッションで最後に<function>nextval</function>で使用されたシーケンスを参照するところが異なります。
 現在のセッションで<function>nextval</function>が未だ呼ばれていなければエラーになります。
        </para>
       </listitem>
