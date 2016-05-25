@@ -15160,11 +15160,12 @@ nextval('foo'::text)      <lineannotation>実行時に<literal>foo</literal>を�
          Thus, <productname>PostgreSQL</> sequence objects <emphasis>cannot
          be used to obtain <quote>gapless</> sequences</emphasis>.
 -->
-★翻訳が必要、以下修正前の翻訳文
-
 同一のシーケンスから数値を取得する同時実行トランザクション同士のブロックを防止するため、<function>nextval</function>演算は決してロールバックされません。
-と言うことは、たとえ<function>nextval</function>を実行したトランザクションが後にアボートしたとしても、値が一度取り出されたらそれは使用されたものと考えます。
-つまり、中止されたトランザクションは、割り当てられた値のシーケンス内に未使用の<quote>欠損</quote>を残す可能性があります。
+つまり、値が一度取り出されたら、それは使用されたものと見なされ、同じ値が再び返されることはありません。
+これは、それを取り囲むトランザクションが後にアボートした場合でも、あるいは呼び出し側の問い合わせがその値を使用せずに終わった場合でも当てはまります。
+例えば<literal>ON CONFLICT</>句のある<command>INSERT</>では、挿入される予定のタプルについて、必要となるすべての<function>nextval</function>の呼び出しも含めて計算し、その後で<literal>ON CONFLICT</>のルールを代わりに使用することになる競合について検知します。
+このような場合には、割り当てられた値のシーケンス内に未使用の<quote>欠損</quote>を残すことになります。
+従って、<productname>PostgreSQL</>のシーケンスオブジェクトは<emphasis><quote>欠番のない</>シーケンスを得るために使うことはできません</emphasis>。
         </para>
        </important>
 
@@ -15206,7 +15207,7 @@ nextval('foo'::text)      <lineannotation>実行時に<literal>foo</literal>を�
         has not yet been called in the current session.
 -->
 現在のセッションの<function>nextval</>で直近に戻された値を返します。
-この関数は<function>currval</function>と同等ですが、引数としてシーケンス名をとる代わりに、現在のセッションで最後に<function>nextval</function>で使用されたシーケンスの値を取得するところが異なります。
+この関数は<function>currval</function>と同等ですが、引数としてシーケンス名をとる代わりに、現在のセッションで最後に<function>nextval</function>で使用されたシーケンスを参照するところが異なります。
 現在のセッションで<function>nextval</function>が未だ呼ばれていなければエラーになります。
        </para>
       </listitem>
