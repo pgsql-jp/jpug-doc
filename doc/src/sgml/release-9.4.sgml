@@ -2,45 +2,72 @@
 <!-- See header comment in release.sgml about typical markup -->
 
  <sect1 id="release-9-4-8">
+<!--
   <title>Release 9.4.8</title>
+-->
+  <title>リリース9.4.8</title>
 
   <note>
+<!--
   <title>Release Date</title>
+-->
+  <title>リリース日</title>
   <simpara>2016-05-12</simpara>
   </note>
 
   <para>
+<!--
    This release contains a variety of fixes from 9.4.7.
    For information about new features in the 9.4 major release, see
    <xref linkend="release-9-4">.
+-->
+このリリースは9.4.7に対し、各種不具合を修正したものです。
+9.4メジャーリリースにおける新機能については、<xref linkend="release-9-4">を参照してください。
   </para>
 
   <sect2>
+<!--
    <title>Migration to Version 9.4.8</title>
+-->
+   <title>バージョン9.4.8への移行</title>
 
    <para>
+<!--
     A dump/restore is not required for those running 9.4.X.
+-->
+9.4.Xからの移行ではダンプ/リストアは不要です。
    </para>
 
    <para>
+<!--
     However, if you are upgrading from a version earlier than 9.4.6,
     see <xref linkend="release-9-4-6">.
+-->
+また、9.4.6よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-4-6">を参照して下さい。
    </para>
   </sect2>
 
   <sect2>
+<!--
    <title>Changes</title>
+-->
+   <title>変更点</title>
 
    <itemizedlist>
 
     <listitem>
      <para>
+<!--
       Clear the OpenSSL error queue before OpenSSL calls, rather than
       assuming it's clear already; and make sure we leave it clear
       afterwards (Peter Geoghegan, Dave Vitek, Peter Eisentraut)
+-->
+OpenSSLを呼び出す前にそのエラーキューを、既に消去されているとみなすのではなく、消去します。また、必ず後に消去しておくようにします。
+(Peter Geoghegan, Dave Vitek, Peter Eisentraut)
      </para>
 
      <para>
+<!--
       This change prevents problems when there are multiple connections
       using OpenSSL within a single process and not all the code involved
       follows the same rules for when to clear the error queue.
@@ -49,24 +76,37 @@
       SSL connections using the PHP, Python, or Ruby wrappers for OpenSSL.
       It's possible for similar problems to arise within the server as well,
       if an extension module establishes an outgoing SSL connection.
+-->
+この変更は、一つのプロセスの中でOpenSSLを使った複数の接続があって、含まれるコードの全てがエラーキューを消去するとき同一規則に従っていない場合の問題を防ぎます。
+特に、クライアントアプリケーションがPHPやPython、RubyのOpenSSLラッパーを使ったSSL接続と同時に、<application>libpq</>でSSL接続を使っているときに、障害が報告されました。
+拡張モジュールが外にむけたSSL接続をするのであれば、同様にサーバでも似た問題が起こる可能性があります。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <quote>failed to build any <replaceable>N</>-way joins</quote>
       planner error with a full join enclosed in the right-hand side of a
       left join (Tom Lane)
+-->
+左外部結合の右手側に入っている完全外部結合でのプランナのエラー<quote>failed to build any <replaceable>N</>-way joins (N個立ての結合の構築にいずれも失敗しました)</quote>を修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix incorrect handling of equivalence-class tests in multilevel
       nestloop plans (Tom Lane)
+-->
+複数階層の入れ子ループプランにおける等価クラス検査の誤った扱いを修正しました。
+ (Tom Lane)
      </para>
 
      <para>
+<!--
       Given a three-or-more-way equivalence class of variables, such
       as <literal>X.X = Y.Y = Z.Z</>, it was possible for the planner to omit
       some of the tests needed to enforce that all the variables are actually
@@ -74,188 +114,293 @@
       the <literal>WHERE</> clauses.  For various reasons, erroneous plans
       were seldom selected in practice, so that this bug has gone undetected
       for a long time.
+-->
+<literal>X.X = Y.Y = Z.Z</>のような、3つ以上からなる変数の等価クラスが与えられると、プランナが全ての変数が実際に等しいようにするために必要な検査の一部を怠る可能性があり、出力される行が<literal>WHERE</>句を満たさない結合をもたらしました。
+さまざまな理由のため、誤ったプランは実際には滅多に選択されません。
+そのため、このバグは長い間気づかれずにきました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix query-lifespan memory leak in GIN index scans (Julien Rouhaud)
+-->
+GINインデックススキャンで問い合わせ処理内のメモリリークを修正しました。
+(Julien Rouhaud)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix query-lifespan memory leak and potential index corruption hazard in
       GIN index insertion (Tom Lane)
+-->
+GINインデックスの挿入で、問い合わせ処理内のメモリリークとインデックス破損の可能性を修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       The memory leak would typically not amount to much in simple queries,
       but it could be very substantial during a large GIN index build with
       high <varname>maintenance_work_mem</>.
+-->
+このメモリリークは単純な問い合わせでは通常は大きくなりませんが、大きな<varname>maintenance_work_mem</>で巨大なGINインデックスを構築する間に相当な量になることがありえました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix possible misbehavior of <literal>TH</>, <literal>th</>,
       and <literal>Y,YYY</> format codes in <function>to_timestamp()</>
       (Tom Lane)
+-->
+<function>to_timestamp()</>の書式コード<literal>TH</>、<literal>th</>、<literal>Y,YYY</>の誤った振る舞いを修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       These could advance off the end of the input string, causing subsequent
       format codes to read garbage.
+-->
+これにより、入力文字列の末尾を超えて進み、次の書式コードでゴミが読まれるおそれがありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix dumping of rules and views in which the <replaceable>array</>
       argument of a <literal><replaceable>value</> <replaceable>operator</>
       ANY (<replaceable>array</>)</literal> construct is a sub-SELECT
       (Tom Lane)
+-->
+<literal><replaceable>value</> <replaceable>operator</> ANY (<replaceable>array</>)</literal>という構造の<replaceable>array</>引数が副問い合わせである場合のルールとビューのダンプを修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Disallow newlines in <command>ALTER SYSTEM</> parameter values
       (Tom Lane)
+-->
+<command>ALTER SYSTEM</>のパラメータ値で改行を禁止しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       The configuration-file parser doesn't support embedded newlines in
       string literals, so we mustn't allow them in values to be inserted
       by <command>ALTER SYSTEM</>.
+-->
+設定ファイルのパーサは文字列リテラルに含まれた改行に対応していませんので、私たちは<command>ALTER SYSTEM</>で挿入される値においてもこれを許すべきではありません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <command>ALTER TABLE ... REPLICA IDENTITY USING INDEX</> to
       work properly if an index on OID is selected (David Rowley)
+-->
+<command>ALTER TABLE ... REPLICA IDENTITY USING INDEX</>を、OIDに対するインデックスが指定されても適切に動作するように修正しました。
+(David Rowley)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix crash in logical decoding on alignment-picky platforms (Tom Lane,
       Andres Freund)
+-->
+アラインメントを選り好みするプラットフォームでのロジカルデコーディングのクラッシュを修正しました。
+(Tom Lane, Andres Freund)
      </para>
 
      <para>
+<!--
       The failure occurred only with a transaction large enough to spill to
       disk and a primary-key change within that transaction.
+-->
+ディスクにあふれ出るほど大きいトランザクションで、かつ、主キーがそのトランザクション中で変更されるときだけ、障害が発生します。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid repeated requests for feedback from receiver while shutting down
       walsender (Nick Cleaton)
+-->
+walsenderのシャットダウン中に受信側からフィードバックの要求が繰り返されるのを回避しました。
+(Nick Cleaton)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Make <application>pg_regress</> use a startup timeout from the
       <envar>PGCTLTIMEOUT</> environment variable, if that's set (Tom Lane)
+-->
+<envar>PGCTLTIMEOUT</>環境変数が設定されているなら、<application>pg_regress</>がその値による起動タイムアウトを適用するようにしました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This is for consistency with a behavior recently added
       to <application>pg_ctl</>; it eases automated testing on slow machines.
+-->
+これは、最近<application>pg_ctl</>に追加された振る舞いとの一貫性のためで、
+遅いマシンでの自動テストを容易にします。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>pg_upgrade</> to correctly restore extension
       membership for operator families containing only one operator class
       (Tom Lane)
+-->
+一つの演算子クラスだけを含む演算子族の拡張への所属を正しくリストアできるように<application>pg_upgrade</>を修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       In such a case, the operator family was restored into the new database,
       but it was no longer marked as part of the extension.  This had no
       immediate ill effects, but would cause later <application>pg_dump</>
       runs to emit output that would cause (harmless) errors on restore.
+-->
+このような場合、演算子族は新しいデータベースにリストアされますが、もはや拡張の一部として記されませんでした。
+これは直ちには悪影響はありませんが、後に<application>pg_dump</>がリストア時に（無害な）エラーを引き起こす出力を吐き出す原因となりました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>pg_upgrade</> to not fail when new-cluster TOAST rules
       differ from old (Tom Lane)
+-->
+新たなクラスタのTOAST規則が古いクラスタと異なるとき失敗しないように<application>pg_upgrade</>を修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       <application>pg_upgrade</> had special-case code to handle the
       situation where the new <productname>PostgreSQL</> version thinks that
       a table should have a TOAST table while the old version did not.  That
       code was broken, so remove it, and instead do nothing in such cases;
       there seems no reason to believe that we can't get along fine without
       a TOAST table if that was okay according to the old version's rules.
+-->
+<application>pg_upgrade</>には、新しい<productname>PostgreSQL</>バージョンが、古いバージョンには無いけれどこのテーブルはTOASTテーブルを持つべきとみなした場合を扱う特別な場合のコードがありました。
+このコードは壊れていたため除去し、このような場合には代わりに何もしません。
+古いバージョンの規則に従って問題ないなら、TOASTテーブルがないとうまくいかないと思う理由がないように思われます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Reduce the number of SysV semaphores used by a build configured with
-      <option>--disable-spinlocks</> (Tom Lane)
+      <option>&#045;&#045;disable-spinlocks</> (Tom Lane)
+-->
+<option>--disable-spinlocks</>と設定されたビルドで、使用されるSysVセマフォの数を減らしました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Rename internal function <function>strtoi()</>
       to <function>strtoint()</> to avoid conflict with a NetBSD library
       function (Thomas Munro)
+-->
+NetBSDのライブラリ関数との衝突を避けるため、内部関数<function>strtoi()</>の名前を<function>strtoint()</>に変えました。
+(Thomas Munro)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix reporting of errors from <function>bind()</>
       and <function>listen()</> system calls on Windows (Tom Lane)
+-->
+Windowsにおけるシステムコール<function>bind()</>と<function>listen()</>からのエラー報告を修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Reduce verbosity of compiler output when building with Microsoft Visual
       Studio (Christian Ullrich)
+-->
+Microsoft Visual Studioでビルドするときのコンパイラ出力の冗長さを減らしました。
+(Christian Ullrich)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <function>putenv()</> to work properly with Visual Studio 2013
       (Michael Paquier)
+-->
+Visual Studio 2013で適切に動作するように<function>putenv()</>を修正しました。
+(Michael Paquier)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid possibly-unsafe use of Windows' <function>FormatMessage()</>
       function (Christian Ullrich)
+-->
+Windowsの<function>FormatMessage()</>関数の安全でない可能性のある使用を回避しました。
+(Christian Ullrich)
      </para>
 
      <para>
+<!--
       Use the <literal>FORMAT_MESSAGE_IGNORE_INSERTS</> flag where
       appropriate.  No live bug is known to exist here, but it seems like a
       good idea to be careful.
+-->
+適切に<literal>FORMAT_MESSAGE_IGNORE_INSERTS</>フラグを使用します。
+これに関連した既知の未修整バグはありませんが、注意深くすることは良い考えと思われます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Update time zone data files to <application>tzdata</> release 2016d
       for DST law changes in Russia and Venezuela.  There are new zone
       names <literal>Europe/Kirov</> and <literal>Asia/Tomsk</> to reflect
       the fact that these regions now have different time zone histories from
       adjacent regions.
+-->
+タイムゾーンデータファイルを<application>tzdata</> release 2016dに更新しました。
+ロシア、ベネズエラの夏時間法の変更、当該地域は今では隣接した地域とは異なるタイムゾーンの歴史を持っているという事実を反映させた新しい地域名<literal>Europe/Kirov</>、<literal>Asia/Tomsk</>が含まれます。
      </para>
     </listitem>
 
@@ -285,15 +430,14 @@
    <xref linkend="release-9-4">.
 -->
 このリリースは9.4.6に対し、各種不具合を修正したものです。
-9.4メジャーリリースにおける新機能については、<xref linkend="release-9-4">
-を参照してください。
+9.4メジャーリリースにおける新機能については、<xref linkend="release-9-4">を参照してください。
   </para>
 
   <sect2>
 <!--
    <title>Migration to Version 9.4.7</title>
 -->
-   <title>バージョン 9.4.7への移行</title>
+   <title>バージョン9.4.7への移行</title>
 
    <para>
 <!--
@@ -337,8 +481,7 @@
       non-NULL <structfield>b</> values associated with later values
       of <structfield>a</>.
 -->
-<literal>ROW(a, b) &gt; ROW('x', 'y')</>のような行比較を使うインデックス検索は、
-<structfield>b</>カラムでNULL項目に到達すると、以降の<structfield>a</>の値に付随した非NULLの<structfield>b</>の値があるのを無視して、そこで止まってしまいました。
+<literal>ROW(a, b) &gt; ROW('x', 'y')</>のような行比較を使うインデックス検索は、<structfield>b</>カラムでNULL項目に到達すると、以降の<structfield>a</>の値に付随した非NULLの<structfield>b</>の値があるのを無視して、そこで止まってしまいました。
      </para>
     </listitem>
 
@@ -429,11 +572,7 @@
       incorrect reports of <quote>subxact logged without previous toplevel
       record</>, and incorrect reporting of a transaction's commit time.
 -->
-問題のある場合には、
-レプリカ識別子が<literal>FULL</>のとき1ページより大きいタプル、
-ディスクにスプールされるほど大きいトランザクション内で主キーを変更する<command>UPDATE</>、
-<quote>subxact logged without previous toplevel record</>（サブトランザクションが前のトップレベルレコード無しに記録されました）という誤った報告、および、
-トランザクションのコミット時刻の誤った報告が含まれます。
+問題のある場合には、レプリカ識別子が<literal>FULL</>のとき1ページより大きいタプル、ディスクにスプールされるほど大きいトランザクション内で主キーを変更する<command>UPDATE</>、<quote>subxact logged without previous toplevel record</>（サブトランザクションが前のトップレベルレコード無しに記録されました）という誤った報告、および、トランザクションのコミット時刻の誤った報告が含まれます。
      </para>
     </listitem>
 
@@ -486,7 +625,6 @@
       Avoid use of <function>sscanf()</> to parse <literal>ispell</>
       dictionary files (Artur Zakirov)
 -->
-
 <literal>ispell</>辞書ファイルを解析するのに<function>sscanf()</>を使わないようにしました。
 (Artur Zakirov)
      </para>
@@ -611,7 +749,6 @@
       Momjian)
 -->
 <application>pg_upgrade</>で、新データディレクトリが旧データディレクトリ内に在るとき、削除スクリプトの作成を省略するようにしました。
-
      </para>
 
      <para>
@@ -715,7 +852,7 @@ Perl本体からもはや提供されなくなったため、MSVCビルドで<li
 <!--
    <title>Migration to Version 9.4.6</title>
 -->
-   <title>バージョン 9.4.6への移行</title>
+   <title>バージョン9.4.6への移行</title>
 
    <para>
 <!--
@@ -779,14 +916,10 @@ Branch: REL9_4_STABLE [788e35ac0] 2015-11-05 18:15:48 -0500
       should <command>REINDEX</> <literal>jsonb_path_ops</> GIN indexes after
       installing this update to make sure that all searches work as expected.
 -->
-例えばスカラと副配列を含む配列のように、
-同じ入れ子レベルにスカラとサブオブジェクトを両方含む<type>jsonb</>値を処理するとき、
-異なる文脈において同じキーに対してキーハッシュ値が異なって計算されることがありました。
+例えばスカラと副配列を含む配列のように、同じ入れ子レベルにスカラとサブオブジェクトを両方含む<type>jsonb</>値を処理するとき、異なる文脈において同じキーに対してキーハッシュ値が異なって計算されることがありました。
 これにより問い合わせで見つかるべき項目が見つからない可能性があります。
-これを修正することは、新しいハッシュ計算コードに対して、
-既存のインデックスは既に一貫性に欠けているかもしれないことを意味します。
-全ての検索が確実に期待通りに動作するように、本アップデートの導入後、
-<literal>jsonb_path_ops</> GINインデックスを<command>REINDEX</>すべきです。
+これを修正することは、新しいハッシュ計算コードに対して、既存のインデックスは既に一貫性に欠けているかもしれないことを意味します。
+全ての検索が確実に期待通りに動作するように、本アップデートの導入後、<literal>jsonb_path_ops</> GINインデックスを<command>REINDEX</>すべきです。
      </para>
     </listitem>
 
@@ -887,8 +1020,7 @@ Branch: REL9_1_STABLE [5f9a86b35] 2015-12-12 14:19:29 +0100
       TABLE ... SET TABLESPACE</> for unlogged relations (Michael Paquier,
       Andres Freund)
 -->
-ログを取らないリレーションに対して<literal>ALTER TABLE ... SET TABLESPACE</>を行うとき、
-適切なWALレコードを出力するのに失敗していたものを修正しました。
+ログを取らないリレーションに対して<literal>ALTER TABLE ... SET TABLESPACE</>を行うとき、適切なWALレコードを出力するのに失敗していたものを修正しました。
 (Michael Paquier, Andres Freund)
      </para>
 
@@ -1070,9 +1202,7 @@ Branch: REL9_3_STABLE [0a34ff7e9] 2015-12-07 17:41:45 -0500
       N-way joins</> or <quote>could not devise a query plan</> planner
       failures.
 -->
-これは、<quote>failed to build any N-way joins</>、あるいは、
-<quote>could not devise a query plan</>というプランナのエラーをもたらす、
-いくつかの稀な状況について修正します。
+これは、<quote>failed to build any N-way joins</>、あるいは、<quote>could not devise a query plan</>というプランナのエラーをもたらす、いくつかの稀な状況について修正します。
      </para>
     </listitem>
 
@@ -1174,8 +1304,7 @@ Branch: REL9_4_STABLE [4f33572ee] 2015-10-20 11:06:24 -0700
       Translation of minus-infinity dates and timestamps to <type>json</>
       or <type>jsonb</> incorrectly rendered them as plus-infinity (Tom Lane)
 -->
-マイナス無限大の日付およびタイムスタンプを<type>json</>および<type>jsonb</>に変換するとき、
-誤ってプラス無限大にされていました。
+マイナス無限大の日付およびタイムスタンプを<type>json</>および<type>jsonb</>に変換するとき、誤ってプラス無限大にされていました。
      </para>
     </listitem>
 
@@ -1228,10 +1357,8 @@ Branch: REL9_1_STABLE [03ee6591d] 2015-11-07 12:43:24 -0500
       inside a parenthesized subexpression, and would give unexpected
       results.
 -->
-マニュアルによれば、先行検索制約に後方参照を含めることは許されていませんし、また、
-先行検索制約内の括弧は常に捕捉されません。
-しかしながら、括弧に入れられた副式の中ではこれらのケースを適切な処理に失敗していて、
-予期せぬ結果をもたらしていました。
+マニュアルによれば、先行検索制約に後方参照を含めることは許されていませんし、また、先行検索制約内の括弧は常に捕捉されません。
+しかしながら、括弧に入れられた副式の中ではこれらのケースを適切な処理に失敗していて、予期せぬ結果をもたらしていました。
      </para>
     </listitem>
 
@@ -1288,8 +1415,7 @@ Branch: REL9_1_STABLE [d394f12c0] 2015-10-16 14:14:41 -0400
 -->
 CVE-2007-4772 対応で加えられたコードは、不完全でかつ正しくありませんでした。
 複数状態に影響を与えるループを処理できません。
-また、（アサート無しのビルドであれば悪い結果には見えないけれども）アサート失敗を
-引き起こす可能性がありました。
+また、（アサート無しのビルドであれば悪い結果には見えないけれども）アサート失敗を引き起こす可能性がありました。
 複数状態ループにより、コンパイラがキャンセルされるか、状態数が多すぎるというエラー条件に達するまで走り続ける可能性がありました。
      </para>
     </listitem>
@@ -1320,8 +1446,7 @@ Branch: REL9_1_STABLE [b94c2b6a6] 2015-10-16 15:36:17 -0400
       complex</> errors in some cases that previously used unreasonable
       amounts of time and memory.
 -->
-本修正により、これまで途方もない時間とメモリを使っていたいくつかのケースで、
-<quote>regular expression is too complex</>(正規表現が複雑すぎます)というエラーを出します。
+本修正により、これまで途方もない時間とメモリを使っていたいくつかのケースで、<quote>regular expression is too complex</>(正規表現が複雑すぎます)というエラーを出します。
      </para>
     </listitem>
 
@@ -2087,7 +2212,6 @@ Branch: REL9_1_STABLE [2a37a103b] 2015-12-11 16:14:48 -0500
       Install our <filename>missing</> script where PGXS builds can find it
       (Jim Nasby)
 -->
-
 PGXSビルドで見つけられる場所に<filename>missing</>スクリプトを設置するようにしました。 
 (Jim Nasby)
      </para>
@@ -2182,15 +2306,14 @@ Branch: REL9_1_STABLE [386dcd539] 2015-12-11 19:08:40 -0500
    <xref linkend="release-9-4">.
 -->
 このリリースは9.4.4に対し、各種不具合を修正したものです。
-9.4メジャーリリースにおける新機能については、<xref linkend="release-9-4">
-を参照してください。
+9.4メジャーリリースにおける新機能については、<xref linkend="release-9-4">を参照してください。
   </para>
 
   <sect2>
 <!--
    <title>Migration to Version 9.4.5</title>
 -->
-   <title>バージョン 9.4.5への移行</title>
+   <title>バージョン9.4.5への移行</title>
 
    <para>
 <!--
@@ -2204,8 +2327,7 @@ Branch: REL9_1_STABLE [386dcd539] 2015-12-11 19:08:40 -0500
     However, if you are upgrading from a version earlier than 9.4.4,
     see <xref linkend="release-9-4-4">.
 -->
-また、9.4.4よりも前のバージョンからアップグレードする場合は、
-<xref linkend="release-9-4-4">を参照して下さい。
+また、9.4.4よりも前のバージョンからアップグレードする場合は、<xref linkend="release-9-4-4">を参照して下さい。
    </para>
   </sect2>
 
@@ -2275,7 +2397,8 @@ Branch: REL9_0_STABLE [188e081ef] 2015-10-05 10:06:36 -0400
       attacks that arrange for presence of confidential information in the
       disclosed bytes, but they seem unlikely.  (CVE-2015-5288)
 -->
-ある種の無効なソルト引数はサーバをクラッシュさせるか、わずかなバイト数のサーバメモリを露出させました。機密情報を露出するバイト列に在るように配置する攻撃の可能性は排除しませんが、ありそうにないと考えられます。
+ある種の無効なソルト引数はサーバをクラッシュさせるか、わずかなバイト数のサーバメモリを露出させました。
+機密情報を露出するバイト列に在るように配置する攻撃の可能性は排除しませんが、ありそうにないと考えられます。
 (CVE-2015-5288)
      </para>
     </listitem>
@@ -2482,8 +2605,8 @@ SSL再ネゴシエーションをデフォルトで無効にしました。
       of <varname>ssl_renegotiation_limit</> to zero (disabled).
 -->
 SSL再ネゴシエーションの使用は理論的には良い考えですが、OpenSSLライブラリに因るものと私たちのライブラリの使い方に因るものの両方で実際のところ多くのバグが見られました。
-再ネゴシエーションは9.5以降では完全に取り除く予定です。古いバージョン系列では
-<varname>ssl_renegotiation_limit</>のデフォルト値をゼロ（無効）に変更するだけとします。
+再ネゴシエーションは9.5以降では完全に取り除く予定です。
+古いバージョン系列では<varname>ssl_renegotiation_limit</>のデフォルト値をゼロ（無効）に変更するだけとします。
      </para>
     </listitem>
 
@@ -2852,7 +2975,6 @@ Branch: REL9_0_STABLE [bd327627f] 2015-08-04 18:18:47 -0400
 -->
 小さい<varname>work_mem</>設定でタプルストアを使用するときに、<quote>unexpected out-of-memory situation during sort</>エラーになるのを修正しました。
 (Tom Lane)
-
      </para>
     </listitem>
 
@@ -3265,7 +3387,6 @@ Branch: REL9_2_STABLE [f4297f8c5] 2015-07-27 12:32:48 +0300
 -->
 SP-GiSTインデックスで全ゼロページの扱いを修正しました。
 (Heikki Linnakangas)
-
      </para>
 
      <para>
@@ -3846,7 +3967,6 @@ Branch: REL9_0_STABLE [b5a22d8bb] 2015-08-29 16:09:25 -0400
       common.
 -->
 <application>gcc</>が一般的になりつつあるネイティブアセンブラを使う構成である場合に、<application>gcc</>でのビルドができませんでした。
-
      </para>
     </listitem>
 
@@ -3918,7 +4038,6 @@ Branch: REL9_0_STABLE [2d8c136e7] 2015-07-29 22:54:08 -0400
       Avoid use of inline functions when compiling with
       32-bit <application>xlc</>, due to compiler bugs (Noah Misch)
 -->
-
 コンパイラバグのため、32bit <application>xlc</>でインライン関数展開を使わないようにしました。
 (Noah Misch)
      </para>
@@ -4109,15 +4228,14 @@ Branch: REL9_0_STABLE [47ac95f37] 2015-10-02 19:16:37 -0400
    <xref linkend="release-9-4">.
 -->
 このリリースは9.4.3に対し、各種不具合を修正したものです。
-9.4メジャーリリースにおける新機能については、<xref linkend="release-9-4">
-を参照してください。
+9.4メジャーリリースにおける新機能については、<xref linkend="release-9-4">を参照してください。
   </para>
 
   <sect2>
 <!--
    <title>Migration to Version 9.4.4</title>
 -->
-   <title>バージョン 9.4.4への移行</title>
+   <title>バージョン9.4.4への移行</title>
 
    <para>
 <!--
@@ -4366,15 +4484,14 @@ Branch: REL9_3_STABLE [d3fdec6ae] 2015-06-03 11:58:47 -0400
    <xref linkend="release-9-4">.
 -->
 このリリースは9.4.2に対し、各種不具合を修正したものです。
-9.4メジャーリリースにおける新機能については、<xref linkend="release-9-4">
-を参照してください。
+9.4メジャーリリースにおける新機能については、<xref linkend="release-9-4">を参照してください。
   </para>
 
   <sect2>
 <!--
    <title>Migration to Version 9.4.3</title>
 -->
-   <title>バージョン 9.4.3への移行</title>
+   <title>バージョン9.4.3への移行</title>
 
    <para>
 <!--
@@ -4563,15 +4680,14 @@ Branch: REL9_0_STABLE [b06649b7f] 2015-05-26 22:15:00 -0400
    <xref linkend="release-9-4">.
 -->
 このリリースは9.4.1に対し、各種不具合を修正したものです。
-9.4メジャーリリースにおける新機能については、<xref linkend="release-9-4">
-を参照してください。
+9.4メジャーリリースにおける新機能については、<xref linkend="release-9-4">を参照してください。
   </para>
 
   <sect2>
 <!--
    <title>Migration to Version 9.4.2</title>
 -->
-   <title>バージョン 9.4.2への移行</title>
+   <title>バージョン9.4.2への移行</title>
 
    <para>
 <!--
@@ -5198,7 +5314,8 @@ Branch: REL9_0_STABLE [262fbcb9d] 2015-05-05 09:30:07 -0400
       second crash would have to be a system-level crash, not just a database
       crash, for there to be a problem.)
 -->
-これにより別のクラッシュがすぐ後に生じた場合でも一貫性を確実にします（問題となるのは二番目のクラッシュが単なるデータベースクラッシュではなくシステムレベルのクラッシュである場合です）。
+これにより別のクラッシュがすぐ後に生じた場合でも一貫性を確実にします。
+（問題となるのは二番目のクラッシュが単なるデータベースクラッシュではなくシステムレベルのクラッシュである場合です。）
      </para>
     </listitem>
 
@@ -5575,7 +5692,6 @@ Branch: REL9_0_STABLE [e48ce4f33] 2015-02-17 12:49:18 -0500
       Remove code for matching IPv4 <filename>pg_hba.conf</> entries to
       IPv4-in-IPv6 addresses (Tom Lane)
 -->
-
 IPv4の<filename>pg_hba.conf</>項目をIPv4-in-IPv6アドレスと照合する実装を除去しました。
 (Tom Lane)
      </para>
@@ -5919,7 +6035,6 @@ Branch: REL9_3_STABLE [d645273cf] 2015-03-06 13:27:46 -0500
       Avoid possible <application>pg_dump</> failure when concurrent sessions
       are creating and dropping temporary functions (Tom Lane)
 -->
-
 同時実行セッションで一時的な関数の作成と削除をしている場合に<application>pg_dump</>が失敗する可能性があり、防止しました。
 (Tom Lane)
      </para>
@@ -6229,15 +6344,14 @@ Branch: REL9_0_STABLE [3c3749a3b] 2015-05-15 19:36:20 -0400
    <xref linkend="release-9-4">.
 -->
 このリリースは9.4.0に対し、各種不具合を修正したものです。
-9.4メジャーリリースにおける新機能については、<xref linkend="release-9-4">
-を参照してください。
+9.4メジャーリリースにおける新機能については、<xref linkend="release-9-4">を参照してください。
   </para>
 
   <sect2>
 <!--
    <title>Migration to Version 9.4.1</title>
 -->
-   <title>バージョン 9.4.1への移行</title>
+   <title>バージョン9.4.1への移行</title>
 
    <para>
 <!--
@@ -6969,7 +7083,6 @@ Branch: REL9_4_STABLE [733728ff3] 2015-01-11 12:35:47 -0500
 <function>PQsetdbLogin()</>を実行するとき、<application>libpq</>はOSユーザ名を確認しようとします。それは、ほとんどのUnixプラットフォームで<filename>/etc/passwd</>の読み取りを伴います。
 9.4時点では読み取り失敗をハードエラーとして扱っていましたが、アプリケーションが接続するデータベースロール名を提示しない場合のみ失敗にするという従来の振る舞いに戻しました。
 このことは<filename>/etc/passwd</>ファイルの無いchroot環境での運用を支援します。
-
      </para>
     </listitem>
 
@@ -7451,8 +7564,7 @@ WALデータの<link linkend="logicaldecoding">ロジカルデコーディング
       text values are no longer rendered with the backslash escaped
       (Andrew Dunstan)
 -->
-<link linkend="datatype-json"><type>JSON</type></link>文字列値におけるユニコード
-エスケープで、バックスラッシュではエスケープされなくなりました。
+<link linkend="datatype-json"><type>JSON</type></link>文字列値におけるユニコードエスケープで、バックスラッシュではエスケープされなくなりました。
 (Andrew Dunstan)
      </para>
 
@@ -7464,17 +7576,12 @@ WALデータの<link linkend="logicaldecoding">ロジカルデコーディング
       JSON string value, and escaping the backslash led to some perverse
       results.
 -->
-これまで、JSONに整形されるテキスト中のすべてのバックスラッシュはエスケープ
-されていました。
-エスケープしなくとも正しいJSON文字列値であり、エスケープすることで
-ひねくれた結果がもたらされていたことから、これからは、
-<literal>u</>と16進数4桁に続くバックスラッシュはエスケープされません。
+これまで、JSONに整形されるテキスト中のすべてのバックスラッシュはエスケープされていました。
+エスケープしなくとも正しいJSON文字列値であり、エスケープすることでひねくれた結果がもたらされていたことから、これからは、<literal>u</>と16進数4桁に続くバックスラッシュはエスケープされません。
      </para>
      <para>
 訳注：9.4.1で本修正は取り消されています。
-オリジナルの9.4.1マニュアルでは、
-9.4.0リリースノートから本項目自体が削除されていますが、
-9.4.0 バージョンの情報を残すため、日本語訳では項目を残しました。
+オリジナルの9.4.1マニュアルでは、9.4.0リリースノートから本項目自体が削除されていますが、9.4.0バージョンの情報を残すため、日本語訳では項目を残しました。
      </para>
     </listitem>
 
@@ -7574,10 +7681,7 @@ ISO 8601に従った書式にします。
       conditionally consume adjacent whitespace, if not in <literal>FX</>
       mode (Jeevan Chalke)
 -->
-<link linkend="functions-formatting-table"><function>to_timestamp()</></link>
-と<function>to_date()</>の書式文字列の連続した空白が、（空白文字以外を含め）
-入力文字列から対応した数だけ文字を消費するため、<literal>FX</>モードでなく
-ても条件付きで隣接した空白を消費します。
+<link linkend="functions-formatting-table"><function>to_timestamp()</></link>と<function>to_date()</>の書式文字列の連続した空白が、（空白文字以外を含め）入力文字列から対応した数だけ文字を消費するため、<literal>FX</>モードでなくても条件付きで隣接した空白を消費します。
 (Jeevan Chalke)
      </para>
 
@@ -7603,8 +7707,7 @@ ISO 8601に従った書式にします。
       linkend="textsearch-functions-table"><function>ts_rank_cd()</></link>
       to ignore stripped lexemes (Alex Hill)
 -->
-<link linkend="textsearch-functions-table"><function>ts_rank_cd()</></link>
-関数を除去された語彙素を無視するように修正しました。
+<link linkend="textsearch-functions-table"><function>ts_rank_cd()</></link>関数を除去された語彙素を無視するように修正しました。
      </para>
 
      <para>
@@ -7625,9 +7728,7 @@ ISO 8601に従った書式にします。
       "any"</></link>, an actual parameter marked as <literal>VARIADIC</>
       must be of a determinable array type (Pavel Stehule)
 -->
-引数に<link linkend="xfunc-sql-variadic-functions"><literal>VARIADIC "any"</></link>
-を取る関数で、<literal>VARIADIC</>と指定された引数は決定可能な配列型でなければ
-ならなくなりました。
+引数に<link linkend="xfunc-sql-variadic-functions"><literal>VARIADIC "any"</></link>を取る関数で、<literal>VARIADIC</>と指定された引数は決定可能な配列型でなければならなくなりました。
      </para>
 
      <para>
@@ -8389,7 +8490,6 @@ PL/pgSQL手続き言語の<xref linkend="SQL-DO">ブロックによるメモリ�
     </sect4>
 
     <sect4>
-
 <!--
      <title>Monitoring</title>
 -->
@@ -9273,9 +9373,8 @@ Windowsにて<literal>SQL_ASCII</>エンコーディングのデータベース�
         <command>DELETE</>s are supported, provided that they do not
         attempt to assign new values to any of the non-updatable columns.
 -->
-これまでは、式や定数、関数呼び出しなどの更新不能な出力列があると、
-ビューは自動更新可能にはなりませんでした。これからは、更新不能な列に新しい値を割り当てしようとしないなら<command>INSERT</>、<command>UPDATE</>、<command>DELETE</>がサポートされます。
-
+これまでは、式や定数、関数呼び出しなどの更新不能な出力列があると、ビューは自動更新可能にはなりませんでした。
+これからは、更新不能な列に新しい値を割り当てしようとしないなら<command>INSERT</>、<command>UPDATE</>、<command>DELETE</>がサポートされます。
        </para>
       </listitem>
 
@@ -9359,7 +9458,6 @@ Windowsにて<literal>SQL_ASCII</>エンコーディングのデータベース�
         via <xref linkend="SQL-ALTERTABLE"> ... <literal>ALTER
         CONSTRAINT</> (Simon Riggs)
 -->
-
 <xref linkend="SQL-ALTERTABLE"> ... <literal>ALTER CONSTRAINT</>で外部キー制約が遅延できるかを変更できるようにしました。
 (Simon Riggs)
        </para>
@@ -9582,7 +9680,6 @@ UTCオフセットが変化するタイムゾーン略称をサポートしま�
     </itemizedlist>
 
     <sect4>
-
      <title><link linkend="datatype-json"><acronym>JSON</></link></title>
 
      <itemizedlist>
@@ -10173,7 +10270,6 @@ libpqの<link linkend="libpq-pqconndefaults"><function>PQconndefaults()</></link
         increasing granularity (Peter Eisentraut)
 -->
 <xref linkend="APP-VACUUMDB">粒度を増やして複数段階で解析を行う<option>--analyze-in-stages</>オプションが追加されました。
-
        </para>
 
        <para>
@@ -10585,7 +10681,6 @@ Windowsで相対パスで指定された<option>-D</>オプションを<xref lin
         <option>&#045;&#045;max-rate</> parameter.
 -->
 <application>pg_basebackup</>の<option>--max-rate</>パラメータで制御できます。
-
        </para>
       </listitem>
 
@@ -11065,7 +11160,6 @@ DocBookの<acronym>XML</>検証が改善されました。
 -->
 <xref linkend="auto-explain">に実行時間を含めるオプションを追加しました。
 (Horiguchi Kyotaro)
-
        </para>
       </listitem>
 
@@ -11345,10 +11439,8 @@ DocBookの<acronym>XML</>検証が改善されました。
         Save the statistics file into <filename>$PGDATA/pg_stat</> at server
         shutdown, rather than <filename>$PGDATA/global</> (Fujii Masao)
 -->
-サーバシャットダウン時に、統計ファイルを<filename>$PGDATA/global</>ではなく、
-<filename>$PGDATA/pg_stat</>に保存します。
+サーバシャットダウン時に、統計ファイルを<filename>$PGDATA/global</>ではなく、<filename>$PGDATA/pg_stat</>に保存します。
 (Fujii Masao)
-
        </para>
       </listitem>
 
