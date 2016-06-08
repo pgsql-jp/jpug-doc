@@ -2,46 +2,73 @@
 <!-- See header comment in release.sgml about typical markup -->
 
  <sect1 id="release-9-2-17">
+<!--
   <title>Release 9.2.17</title>
+-->
+  <title>リリース9.2.17</title>
 
   <note>
+<!--
   <title>Release Date</title>
+-->
+  <title>リリース日</title>
   <simpara>2016-05-12</simpara>
   </note>
 
   <para>
+<!--
    This release contains a variety of fixes from 9.2.16.
    For information about new features in the 9.2 major release, see
    <xref linkend="release-9-2">.
+-->
+このリリースは9.2.16に対し、各種不具合を修正したものです。
+9.2メジャーリリースにおける新機能については、<xref linkend="release-9-2">を参照してください。
   </para>
 
   <sect2>
+<!--
    <title>Migration to Version 9.2.17</title>
+-->
+   <title>バージョン9.2.17への移行</title>
 
    <para>
+<!--
     A dump/restore is not required for those running 9.2.X.
+-->
+9.2.Xからの移行ではダンプ/リストアは不要です。
    </para>
 
    <para>
+<!--
     However, if you are upgrading from a version earlier than 9.2.11,
     see <xref linkend="release-9-2-11">.
+-->
+また、9.2.11よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-2-11">を参照して下さい。
    </para>
 
   </sect2>
 
   <sect2>
+<!--
    <title>Changes</title>
+-->
+   <title>変更点</title>
 
    <itemizedlist>
 
     <listitem>
      <para>
+<!--
       Clear the OpenSSL error queue before OpenSSL calls, rather than
       assuming it's clear already; and make sure we leave it clear
       afterwards (Peter Geoghegan, Dave Vitek, Peter Eisentraut)
+-->
+OpenSSLを呼び出す前にそのエラーキューを、既に消去されているとみなすのではなく、消去します。また、必ず後に消去しておくようにします。
+(Peter Geoghegan, Dave Vitek, Peter Eisentraut)
      </para>
 
      <para>
+<!--
       This change prevents problems when there are multiple connections
       using OpenSSL within a single process and not all the code involved
       follows the same rules for when to clear the error queue.
@@ -50,24 +77,37 @@
       SSL connections using the PHP, Python, or Ruby wrappers for OpenSSL.
       It's possible for similar problems to arise within the server as well,
       if an extension module establishes an outgoing SSL connection.
+-->
+この変更は、一つのプロセスの中でOpenSSLを使った複数の接続があって、含まれるコードの全てがエラーキューを消去するとき同一規則に従っていない場合の問題を防ぎます。
+特に、クライアントアプリケーションがPHPやPython、RubyのOpenSSLラッパーを使ったSSL接続と同時に、<application>libpq</>でSSL接続を使っているときに、障害が報告されました。
+拡張モジュールが外にむけたSSL接続をするのであれば、同様にサーバでも似た問題が起こる可能性があります。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <quote>failed to build any <replaceable>N</>-way joins</quote>
       planner error with a full join enclosed in the right-hand side of a
       left join (Tom Lane)
+-->
+左外部結合の右手側に入っている完全外部結合でのプランナのエラー<quote>failed to build any <replaceable>N</>-way joins (N個立ての結合の構築にいずれも失敗しました)</quote>を修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix incorrect handling of equivalence-class tests in multilevel
       nestloop plans (Tom Lane)
+-->
+複数階層の入れ子ループプランにおける等価クラス検査の誤った扱いを修正しました。
+ (Tom Lane)
      </para>
 
      <para>
+<!--
       Given a three-or-more-way equivalence class of variables, such
       as <literal>X.X = Y.Y = Z.Z</>, it was possible for the planner to omit
       some of the tests needed to enforce that all the variables are actually
@@ -75,120 +115,187 @@
       the <literal>WHERE</> clauses.  For various reasons, erroneous plans
       were seldom selected in practice, so that this bug has gone undetected
       for a long time.
+-->
+<literal>X.X = Y.Y = Z.Z</>のような、3つ以上からなる変数の等価クラスが与えられると、プランナが全ての変数が実際に等しいようにするために必要な検査の一部を怠る可能性があり、出力される行が<literal>WHERE</>句を満たさない結合をもたらしました。
+さまざまな理由のため、誤ったプランは実際には滅多に選択されません。
+そのため、このバグは長い間気づかれずにきました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix possible misbehavior of <literal>TH</>, <literal>th</>,
       and <literal>Y,YYY</> format codes in <function>to_timestamp()</>
       (Tom Lane)
+-->
+<function>to_timestamp()</>の書式コード<literal>TH</>、<literal>th</>、<literal>Y,YYY</>の誤った振る舞いを修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       These could advance off the end of the input string, causing subsequent
       format codes to read garbage.
+-->
+これにより、入力文字列の末尾を超えて進み、次の書式コードでゴミが読まれるおそれがありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix dumping of rules and views in which the <replaceable>array</>
       argument of a <literal><replaceable>value</> <replaceable>operator</>
       ANY (<replaceable>array</>)</literal> construct is a sub-SELECT
       (Tom Lane)
+-->
+<literal><replaceable>value</> <replaceable>operator</> ANY (<replaceable>array</>)</literal>という構造の<replaceable>array</>引数が副問い合わせである場合のルールとビューのダンプを修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Make <application>pg_regress</> use a startup timeout from the
       <envar>PGCTLTIMEOUT</> environment variable, if that's set (Tom Lane)
+-->
+<envar>PGCTLTIMEOUT</>環境変数が設定されているなら、<application>pg_regress</>がその値による起動タイムアウトを適用するようにしました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This is for consistency with a behavior recently added
       to <application>pg_ctl</>; it eases automated testing on slow machines.
+-->
+これは、最近<application>pg_ctl</>に追加された振る舞いとの一貫性のためで、
+遅いマシンでの自動テストを容易にします。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>pg_upgrade</> to correctly restore extension
       membership for operator families containing only one operator class
       (Tom Lane)
+-->
+一つの演算子クラスだけを含む演算子族の拡張への所属を正しくリストアできるように<application>pg_upgrade</>を修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       In such a case, the operator family was restored into the new database,
       but it was no longer marked as part of the extension.  This had no
       immediate ill effects, but would cause later <application>pg_dump</>
       runs to emit output that would cause (harmless) errors on restore.
+-->
+このような場合、演算子族は新しいデータベースにリストアされますが、もはや拡張の一部として記されませんでした。
+これは直ちには悪影響はありませんが、後に<application>pg_dump</>がリストア時に（無害な）エラーを引き起こす出力を吐き出す原因となりました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Back-port 9.4-era memory-barrier code changes into 9.2 and 9.3 (Tom Lane)
+-->
+9.4のメモリバリアコードの変更を9.2と9.3にバックポートしました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       These changes were not originally needed in pre-9.4 branches, but we
       recently back-patched a fix that expected the barrier code to work
       properly.  Only IA64 (when using icc), HPPA, and Alpha platforms are
       affected.
+-->
+この変更は本来9.4より前のブランチでは必要ありませんでしたが、バリアコードが正しく動くようにする修正を最近、より前のバージョンにパッチとして適用しました。
+(iccを使用した時の)IA64、HPPA、Alphaプラットフォームのみに影響します。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Reduce the number of SysV semaphores used by a build configured with
-      <option>--disable-spinlocks</> (Tom Lane)
+      <option>&#045;&#045;disable-spinlocks</> (Tom Lane)
+-->
+<option>--disable-spinlocks</>と設定されたビルドで、使用されるSysVセマフォの数を減らしました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Rename internal function <function>strtoi()</>
       to <function>strtoint()</> to avoid conflict with a NetBSD library
       function (Thomas Munro)
+-->
+NetBSDのライブラリ関数との衝突を避けるため、内部関数<function>strtoi()</>の名前を<function>strtoint()</>に変えました。
+(Thomas Munro)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix reporting of errors from <function>bind()</>
       and <function>listen()</> system calls on Windows (Tom Lane)
+-->
+Windowsにおけるシステムコール<function>bind()</>と<function>listen()</>からのエラー報告を修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Reduce verbosity of compiler output when building with Microsoft Visual
       Studio (Christian Ullrich)
+-->
+Microsoft Visual Studioでビルドするときのコンパイラ出力の冗長さを減らしました。
+(Christian Ullrich)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid possibly-unsafe use of Windows' <function>FormatMessage()</>
       function (Christian Ullrich)
+-->
+Windowsの<function>FormatMessage()</>関数の安全でない可能性のある使用を回避しました。
+(Christian Ullrich)
      </para>
 
      <para>
+<!--
       Use the <literal>FORMAT_MESSAGE_IGNORE_INSERTS</> flag where
       appropriate.  No live bug is known to exist here, but it seems like a
       good idea to be careful.
+-->
+適切に<literal>FORMAT_MESSAGE_IGNORE_INSERTS</>フラグを使用します。
+これに関連した既知の未修整バグはありませんが、注意深くすることは良い考えと思われます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Update time zone data files to <application>tzdata</> release 2016d
       for DST law changes in Russia and Venezuela.  There are new zone
       names <literal>Europe/Kirov</> and <literal>Asia/Tomsk</> to reflect
       the fact that these regions now have different time zone histories from
       adjacent regions.
+-->
+タイムゾーンデータファイルを<application>tzdata</> release 2016dに更新しました。
+ロシア、ベネズエラの夏時間法の変更、当該地域は今では隣接した地域とは異なるタイムゾーンの歴史を持っているという事実を反映させた新しい地域名<literal>Europe/Kirov</>、<literal>Asia/Tomsk</>が含まれます。
      </para>
     </listitem>
 
@@ -225,7 +332,7 @@
 <!--
    <title>Migration to Version 9.2.16</title>
 -->
-   <title>バージョン 9.2.16への移行</title>
+   <title>バージョン9.2.16への移行</title>
 
    <para>
 <!--
@@ -245,7 +352,10 @@
   </sect2>
 
   <sect2>
+<!--
    <title>Changes</title>
+-->
+   <title>変更点</title>
 
    <itemizedlist>
 
@@ -332,7 +442,6 @@
       Avoid use of <function>sscanf()</> to parse <literal>ispell</>
       dictionary files (Artur Zakirov)
 -->
-
 <literal>ispell</>辞書ファイルを解析するのに<function>sscanf()</>を使わないようにしました。
 (Artur Zakirov)
      </para>
@@ -541,7 +650,7 @@ Perl本体からもはや提供されなくなったため、MSVCビルドで<li
 <!--
    <title>Migration to Version 9.2.15</title>
 -->
-   <title>バージョン 9.2.15への移行</title>
+   <title>バージョン9.2.15への移行</title>
 
    <para>
 <!--
@@ -1296,7 +1405,6 @@ Python 3.5で通るように<application>PL/Python</>のリグレッションテ
       Install our <filename>missing</> script where PGXS builds can find it
       (Jim Nasby)
 -->
-
 PGXSビルドで見つけられる場所に<filename>missing</>スクリプトを設置するようにしました。 
 (Jim Nasby)
      </para>
@@ -1381,15 +1489,14 @@ MSVCビルドにてインストールされるヘッダファイル群に<filena
    <xref linkend="release-9-2">.
 -->
 このリリースは9.2.13に対し、各種不具合を修正したものです。
-9.2メジャーリリースにおける新機能については、<xref linkend="release-9-2">
-を参照してください。
+9.2メジャーリリースにおける新機能については、<xref linkend="release-9-2">を参照してください。
   </para>
 
   <sect2>
 <!--
    <title>Migration to Version 9.2.14</title>
 -->
-   <title>バージョン 9.2.14への移行</title>
+   <title>バージョン9.2.14への移行</title>
 
    <para>
 <!--
@@ -1518,7 +1625,7 @@ Branch: REL9_1_STABLE [9b1b9446f] 2015-08-27 12:22:10 -0400
       Back-patch 9.3-era addition of per-resource-owner lock caches
       (Jeff Janes)
 -->
-9.3時代に加わったリソース所有者ごとのロックキャッシュを後方適用しました。
+9.3時代に加わったリソース所有者ごとのロックキャッシュをより前のバージョンに適用しました。
 (Jeff Janes)
      </para>
 
@@ -1729,7 +1836,6 @@ SSL再ネゴシエーションの使用は理論的には良い考えですが�
 -->
 小さい<varname>work_mem</>設定でタプルストアを使用するときに、<quote>unexpected out-of-memory situation during sort</>エラーになるのを修正しました。
 (Tom Lane)
-
      </para>
     </listitem>
 
@@ -1915,7 +2021,6 @@ GINインデックスで全ゼロページを再利用可能にしました。
 -->
 SP-GiSTインデックスで全ゼロページの扱いを修正しました。
 (Heikki Linnakangas)
-
      </para>
 
      <para>
@@ -2196,7 +2301,6 @@ Branch: REL9_2_STABLE [e90a629e1] 2015-09-22 14:58:38 -0700
       common.
 -->
 <application>gcc</>が一般的になりつつあるネイティブアセンブラを使う構成である場合に、<application>gcc</>でのビルドができませんでした。
-
      </para>
     </listitem>
 
@@ -2235,7 +2339,6 @@ Perlでは5.8.0以降からこの機能に依存しています。
       Avoid use of inline functions when compiling with
       32-bit <application>xlc</>, due to compiler bugs (Noah Misch)
 -->
-
 コンパイラバグのため、32bit <application>xlc</>でインライン関数展開を使わないようにしました。
 (Noah Misch)
      </para>
@@ -2313,15 +2416,14 @@ Windowsの<filename>install.bat</>スクリプトが空白文字を含む対象�
    <xref linkend="release-9-2">.
 -->
 このリリースは9.2.12に対し、各種不具合を修正したものです。
-9.2メジャーリリースにおける新機能については、<xref linkend="release-9-2">
-を参照してください。
+9.2メジャーリリースにおける新機能については、<xref linkend="release-9-2">を参照してください。
   </para>
 
   <sect2>
 <!--
    <title>Migration to Version 9.2.13</title>
 -->
-   <title>バージョン 9.2.13への移行</title>
+   <title>バージョン9.2.13への移行</title>
 
    <para>
 <!--
@@ -2420,15 +2522,14 @@ Windowsの<filename>install.bat</>スクリプトが空白文字を含む対象�
    <xref linkend="release-9-2">.
 -->
 このリリースは9.2.11に対し、各種不具合を修正したものです。
-9.2メジャーリリースにおける新機能については、<xref linkend="release-9-2">
-を参照してください。
+9.2メジャーリリースにおける新機能については、<xref linkend="release-9-2">を参照してください。
   </para>
 
   <sect2>
 <!--
    <title>Migration to Version 9.2.12</title>
 -->
-<title>バージョン 9.2.12への移行</title>
+   <title>バージョン9.2.12への移行</title>
 
    <para>
 <!--
@@ -2451,7 +2552,7 @@ Windowsの<filename>install.bat</>スクリプトが空白文字を含む対象�
 <!--
    <title>Changes</title>
 -->
-<title>変更点</title>
+   <title>変更点</title>
 
    <itemizedlist>
 
@@ -2538,7 +2639,7 @@ Windowsの<filename>install.bat</>スクリプトが空白文字を含む対象�
 長い間、<application>libpq</>はTLS v1のみのプロトコルが利用できるようにコーディングされていました。
 今ではTLSの新しいバージョンは一般的になったため、最新の一般的にサポートされているTLSバージョンでサーバと調停することを許可しました。
 (<productname>PostgreSQL</>サーバーはすでに調停するこは可能であったため、サーバサイドの変更は必要ありませんでした。)
-これは9.4.0ですでにリリースされている変更のバックパッチです。
+これは9.4.0ですでにリリースされている変更の、より前のバージョンへのパッチです。
      </para>
     </listitem>
 
@@ -2568,15 +2669,14 @@ Windowsの<filename>install.bat</>スクリプトが空白文字を含む対象�
    <xref linkend="release-9-2">.
 -->
 このリリースは9.2.10に対し、各種不具合を修正したものです。
-9.2メジャーリリースにおける新機能については、<xref linkend="release-9-2">
-を参照してください。
+9.2メジャーリリースにおける新機能については、<xref linkend="release-9-2">を参照してください。
   </para>
 
   <sect2>
 <!--
    <title>Migration to Version 9.2.11</title>
 -->
-<title>バージョン 9.2.11への移行</title>
+   <title>バージョン9.2.11への移行</title>
 
    <para>
 <!--
@@ -3473,7 +3573,7 @@ Sparc V8 マシンでのコンパイル失敗を修正しました。
 <!--
    <title>Migration to Version 9.2.10</title>
 -->
-<title>バージョン 9.2.10への移行</title>
+   <title>バージョン9.2.10への移行</title>
 
    <para>
 <!--
@@ -4022,7 +4122,7 @@ JSONへのドメインの変換を以前の動作に戻しました。
       deemed a back-patchable bug fix rather than a feature addition.
 -->
 以前のコーディングでは辞書のサイズを超えた場合、クラッシュする可能性がありました。
-このため機能追加ではなくバグフィックスとしてバックパッチしました。
+このため、これは機能追加というより、より前のバージョンにパッチとして適用されたバグフィックスと考えられます。
      </para>
     </listitem>
 
@@ -4883,7 +4983,7 @@ SRET(アジア/スレドネコリムスク)、XJT(アジア/ウルムチ)、西�
 <!--
    <title>Migration to Version 9.2.9</title>
 -->
-<title>バージョン 9.2.9への移行</title>
+   <title>バージョン9.2.9への移行</title>
 
    <para>
 <!--
@@ -4910,7 +5010,6 @@ SRET(アジア/スレドネコリムスク)、XJT(アジア/ウルムチ)、西�
 また、9.2.6よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-2-6">を参照して下さい。
    </para>
 
-
   </sect2>
 
   <sect2>
@@ -4928,7 +5027,6 @@ SRET(アジア/スレドネコリムスク)、XJT(アジア/ウルムチ)、西�
       indexes on <type>bit</> columns (Heikki Linnakangas)
 -->
 <filename>contrib/btree_gist</>拡張モジュールにおける<type>bit</>カラムのインデックスの初期化パディングバイトを修正しました。(Heikki Linnakangas)
-
      </para>
 
      <para>
@@ -5175,7 +5273,6 @@ Appendプラン出力の行全体を参照することによって、<quote>reco
       (Etsuro Fujita)
 -->
 <xref linkend="guc-default-with-oids">がtrueの場合でも、外部テーブルがOID付で作成される事を防止しました。(Etsuro Fujita)
-
      </para>
     </listitem>
 
@@ -6001,7 +6098,6 @@ PLバリデータ関数の主な役割は<command>CREATE FUNCTION</>の中で黙
       Prevent buffer overrun with long datetime strings (Noah Misch)
 -->
 長い日付時刻文字列によるバッファオーバーランを防止しました。(Noah Misch)
-
      </para>
 
      <para>
@@ -6808,8 +6904,8 @@ Cygwin環境で廃止予定の<literal>dllwrap</>ツールの使用を止めま�
     issues.  See the first two changelog entries below to find out whether
     your installation has been affected and what steps you can take if so.
 -->
-しかしながら、本リリースは多くのデータ破損が発生する可能性がある問題を修正しています。下記に示すはじめの2つの変更点を確認し、使用しているインストレーションが影響を受けるか、その場合どのような処
-置を施すべきか判断してください。
+しかしながら、本リリースは多くのデータ破損が発生する可能性がある問題を修正しています。
+下記に示すはじめの2つの変更点を確認し、使用しているインストレーションが影響を受けるか、その場合どのような処置を施すべきか判断してください。
    </para>
 
    <para>
@@ -6818,7 +6914,6 @@ Cygwin環境で廃止予定の<literal>dllwrap</>ツールの使用を止めま�
     see <xref linkend="release-9-2-4">.
 -->
 また、9.2.4以前のリリースからアップグレードする場合は、<xref linkend="release-9-2-4">を参照して下さい。
-
    </para>
 
   </sect2>
@@ -7265,7 +7360,6 @@ Windowsエラーコード変換のログ取得時に発生する可能性があ�
 時間帯データファイルを<application>tzdata</>リリース2013hに更新しました。
 アルゼンチン、ブラジル、ヨルダン、リビア、リヒテンシュタイン、モロッコ、およびパレスチナでの夏時間の変更が含まれます。
 インドネシアで使用されている新しい時間帯の略号、WIB, WIT, WITAが追加されました。
-
      </para>
     </listitem>
 
@@ -7344,7 +7438,6 @@ Windowsエラーコード変換のログ取得時に発生する可能性があ�
       when using a single-byte server encoding.
 -->
 シングルバイトのサーバエンコーディングを使用している場合のみ、<productname>PostgreSQL</>が非ASCII文字の大文字変換を行います。
-
      </para>
     </listitem>
 
@@ -10422,9 +10515,6 @@ btreeおよびGINインデックスが破損する可能性は低いです。
 -->
 接頭辞、つまり<replaceable>word</><literal>:*</>のパターンを含むテキスト検索の問い合わせについて、選択性の推定を改善しました。(Tom Lane)
      </para>
-
-     <para>
-     </para>
     </listitem>
 
     <listitem>
@@ -11159,7 +11249,6 @@ WALファイルが書き込まれた時に、その更新をアーカイブす�
         to <structfield>pid</>, to match other system tables (Magnus Hagander)
 -->
 <link linkend="monitoring-stats-views-table"><structname>pg_stat_activity</></link><structfield>.procpid</>の名前を<structfield>pid</>に変更し、他のシステムテーブルと同じようにしました。(Magnus Hagander)
-
        </para>
       </listitem>
 
@@ -12347,13 +12436,10 @@ Windowsで<filename>postgresql.conf</filename>の行番号が報告されるよ�
 <!--
         Cancel the running query if the client gets disconnected
         (Florian Pflug)
-
 -->
 クライアントが切断されたら、実行中の問い合わせを取り消すようにしました。(Florian Pflug)
        </para>
-      </listitem>
 
-      <listitem>
        <para>
 <!--
         If the backend detects loss of client connection during a query, it
