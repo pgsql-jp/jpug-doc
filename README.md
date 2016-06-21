@@ -9,6 +9,9 @@
 ## 初めて参加される方はこちらをご覧ください。
 https://github.com/pgsql-jp/jpug-doc/wiki/JPUG-DOCの翻訳活動への参加方法(初めての方向け)
 
+##本プロジェクトで提供いただいた翻訳物のライセンスの取り扱いについて
+本プロジェクトに提供いただいた翻訳物は[PostgreSQLライセンス](https://www.postgresql.org/about/licence/)として取り扱うことに合意したものとします。
+
 ## 関連リポジトリ
 
 ### 対訳表
