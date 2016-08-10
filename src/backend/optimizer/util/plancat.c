@@ -465,26 +465,18 @@ infer_arbiter_indexes(PlannerInfo *root)
 
 	/*
 	 * Build normalized/BMS representation of plain indexed attributes, as
-	 * well as direct list of inference elements.  This is required for
-	 * matching the cataloged definition of indexes.
+	 * well as a separate list of expression items.  This simplifies matching
+	 * the cataloged definition of indexes.
 	 */
 	foreach(l, onconflict->arbiterElems)
 	{
-		InferenceElem *elem;
+		InferenceElem *elem = (InferenceElem *) lfirst(l);
 		Var		   *var;
 		int			attno;
 
-		elem = (InferenceElem *) lfirst(l);
-
-		/*
-		 * Parse analysis of inference elements performs full parse analysis
-		 * of Vars, even for non-expression indexes (in contrast with utility
-		 * command related use of IndexElem).  However, indexes are cataloged
-		 * with simple attribute numbers for non-expression indexes.  Those
-		 * are handled later.
-		 */
 		if (!IsA(elem->expr, Var))
 		{
+			/* If not a plain Var, just shove it in inferElems for now */
 			inferElems = lappend(inferElems, elem->expr);
 			continue;
 		}
@@ -492,14 +484,13 @@ infer_arbiter_indexes(PlannerInfo *root)
 		var = (Var *) elem->expr;
 		attno = var->varattno;
 
-		if (attno < 0)
+		if (attno == 0)
 			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
-					 errmsg("system columns cannot be used in an ON CONFLICT clause")));
-		else if (attno == 0)
-			elog(ERROR, "whole row unique index inference specifications are not valid");
+					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+					 errmsg("whole row unique index inference specifications are not supported")));
 
-		inferAttrs = bms_add_member(inferAttrs, attno);
+		inferAttrs = bms_add_member(inferAttrs,
+								 attno - FirstLowInvalidHeapAttributeNumber);
 	}
 
 	/*
@@ -516,21 +507,20 @@ infer_arbiter_indexes(PlannerInfo *root)
 					 errmsg("constraint in ON CONFLICT clause has no associated index")));
 	}
 
-	indexList = RelationGetIndexList(relation);
-
 	/*
 	 * Using that representation, iterate through the list of indexes on the
 	 * target relation to try and find a match
 	 */
+	indexList = RelationGetIndexList(relation);
+
 	foreach(l, indexList)
 	{
 		Oid			indexoid = lfirst_oid(l);
 		Relation	idxRel;
 		Form_pg_index idxForm;
-		Bitmapset  *indexedAttrs = NULL;
+		Bitmapset  *indexedAttrs;
 		List	   *idxExprs;
 		List	   *predExprs;
-		List	   *whereExplicit;
 		AttrNumber	natt;
 		ListCell   *el;
 
@@ -587,16 +577,15 @@ infer_arbiter_indexes(PlannerInfo *root)
 		if (!idxForm->indisunique)
 			goto next;
 
-		/* Build BMS representation of cataloged index attributes */
+		/* Build BMS representation of plain (non expression) index attrs */
+		indexedAttrs = NULL;
 		for (natt = 0; natt < idxForm->indnatts; natt++)
 		{
 			int			attno = idxRel->rd_index->indkey.values[natt];
 
-			if (attno < 0)
-				elog(ERROR, "system column in index");
-
 			if (attno != 0)
-				indexedAttrs = bms_add_member(indexedAttrs, attno);
+				indexedAttrs = bms_add_member(indexedAttrs,
+								 attno - FirstLowInvalidHeapAttributeNumber);
 		}
 
 		/* Non-expression attributes (if any) must match */
@@ -652,13 +641,12 @@ infer_arbiter_indexes(PlannerInfo *root)
 			goto next;
 
 		/*
-		 * Any user-supplied ON CONFLICT unique index inference WHERE clause
-		 * need only be implied by the cataloged index definitions predicate.
+		 * If it's a partial index, its predicate must be implied by the ON
+		 * CONFLICT's WHERE clause.
 		 */
 		predExprs = RelationGetIndexPredicate(idxRel);
-		whereExplicit = make_ands_implicit((Expr *) onconflict->arbiterWhere);
 
-		if (!predicate_implied_by(predExprs, whereExplicit))
+		if (!predicate_implied_by(predExprs, (List *) onconflict->arbiterWhere))
 			goto next;
 
 		results = lappend_oid(results, idxForm->indexrelid);
@@ -1102,7 +1090,13 @@ get_relation_constraints(PlannerInfo *root,
 												  att->attcollation,
 												  0);
 					ntest->nulltesttype = IS_NOT_NULL;
-					ntest->argisrow = type_is_rowtype(att->atttypid);
+
+					/*
+					 * argisrow=false is correct even for a composite column,
+					 * because attnotnull does not represent a SQL-spec IS NOT
+					 * NULL test in such a case, just IS DISTINCT FROM NULL.
+					 */
+					ntest->argisrow = false;
 					ntest->location = -1;
 					result = lappend(result, ntest);
 				}

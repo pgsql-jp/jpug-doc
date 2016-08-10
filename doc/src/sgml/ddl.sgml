@@ -5421,17 +5421,17 @@ ANALYZE measurement;
    To ensure the integrity of the entire database structure,
    <productname>PostgreSQL</productname> makes sure that you cannot
    drop objects that other objects still depend on.  For example,
-   attempting to drop the products table we had considered in <xref
+   attempting to drop the products table we considered in <xref
    linkend="ddl-constraints-fk">, with the orders table depending on
-   it, would result in an error message such as this:
+   it, would result in an error message like this:
 -->
 データベース構造全体の整合性を保つため、<productname>PostgreSQL</productname>は、他のオブジェクトと依存関係にあるオブジェクトの削除を許可しません。
-例えば、<xref linkend="ddl-constraints-fk">で作成したproductsテーブルを削除しようとしても、ordersテーブルがこのテーブルに依存しているので、以下のようなエラーメッセージが現れます。
+例えば、<xref linkend="ddl-constraints-fk">で作成したproductsテーブルを削除しようとしても、ordersテーブルがこのテーブルに依存しているので、以下のようなエラーメッセージが現れます。 ★変更あり
 <screen>
 DROP TABLE products;
 
-NOTICE:  constraint orders_product_no_fkey on table orders depends on table products
 ERROR:  cannot drop table products because other objects depend on it
+DETAIL:  constraint orders_product_no_fkey on table orders depends on table products
 HINT:  Use DROP ... CASCADE to drop the dependent objects too.
 </screen>
 <!--
@@ -5447,16 +5447,17 @@ DROP TABLE products CASCADE;
    and all the dependent objects will be removed.  In this case, it
    doesn't remove the orders table, it only removes the foreign key
    constraint.  (If you want to check what <command>DROP ... CASCADE</> will do,
-   run <command>DROP</> without <literal>CASCADE</> and read the <literal>NOTICE</> messages.)
+   run <command>DROP</> without <literal>CASCADE</> and read the
+   <literal>DETAIL</> output.)
 -->
 これで全ての依存オブジェクトが削除されます。
 この場合、ordersテーブルは削除されずに外部キー制約のみが削除されます
-（<command>DROP ... CASCADE</>が何を行うかを知りたい場合は、<literal>CASCADE</>を指定せずに<command>DROP</>を実行して<literal>NOTICE</>メッセージを読んでください）。
+（<command>DROP ... CASCADE</>が何を行うかを知りたい場合は、<literal>CASCADE</>を指定せずに<command>DROP</>を実行して<literal>NOTICE</>メッセージを読んでください）。★変更あり
   </para>
 
   <para>
 <!--
-   All drop commands in <productname>PostgreSQL</productname> support
+   All <command>DROP</> commands in <productname>PostgreSQL</> support
    specifying <literal>CASCADE</literal>.  Of course, the nature of
    the possible dependencies varies with the type of the object.  You
    can also write <literal>RESTRICT</literal> instead of
@@ -5465,7 +5466,7 @@ DROP TABLE products CASCADE;
 -->
 <productname>PostgreSQL</productname>では、全ての削除用コマンドに<literal>CASCADE</literal>を指定することができます。
 もちろん、どのような依存関係が存在するかは、オブジェクトの種類によって異なります。
-また、<literal>CASCADE</literal>ではなく<literal>RESTRICT</literal>と記述すると、他のオブジェクトが依存しているオブジェクトの削除を禁止するというデフォルトの振舞いを指定することもできます。
+また、<literal>CASCADE</literal>ではなく<literal>RESTRICT</literal>と記述すると、他のオブジェクトが依存しているオブジェクトの削除を禁止するというデフォルトの振舞いを指定することもできます。★変更あり
   </para>
 
   <note>
@@ -5473,28 +5474,47 @@ DROP TABLE products CASCADE;
 <!--
     According to the SQL standard, specifying either
     <literal>RESTRICT</literal> or <literal>CASCADE</literal> is
-    required.  No database system actually enforces that rule, but
-    whether the default behavior is <literal>RESTRICT</literal> or
-    <literal>CASCADE</literal> varies across systems.
+    required in a <command>DROP</> command.  No database system actually
+    enforces that rule, but whether the default behavior
+    is <literal>RESTRICT</literal> or <literal>CASCADE</literal> varies
+    across systems. 
 -->
 標準SQLでは、<literal>RESTRICT</literal>または<literal>CASCADE</literal>のいずれかを指定する必要があります。
-実際にこの決まり通りのデータベースシステムはありませんが、デフォルトが<literal>RESTRICT</literal>であるか、<literal>CASCADE</literal>であるかは、システムによって異なります。
+実際にこの決まり通りのデータベースシステムはありませんが、デフォルトが<literal>RESTRICT</literal>であるか、<literal>CASCADE</literal>であるかは、システムによって異なります。★変更あり
+   </para>
    </para>
   </note>
 
-  <note>
-   <para>
-<!--
-    Foreign key constraint dependencies and serial column dependencies
-    from <productname>PostgreSQL</productname> versions prior to 7.3
-    are <emphasis>not</emphasis> maintained or created during the
-    upgrade process.  All other dependency types will be properly
-    created during an upgrade from a pre-7.3 database.
--->
-<productname>PostgreSQL</productname>の7.3より前のバージョンにおける外部キー制約の依存関係とシリアル列の依存関係は、アップグレード処理において維持も作成も<emphasis>されません</emphasis>。
-その他の種類の依存関係は全て、7.3より前のデータベースからのアップグレード中に適切に作成されます。
-   </para>
-  </note>
+  <para>
+   For user-defined functions, <productname>PostgreSQL</productname> tracks
+   dependencies associated with a function's externally-visible properties,
+   such as its argument and result types, but <emphasis>not</> dependencies
+   that could only be known by examining the function body.  As an example,
+   consider this situation:
+
+<programlisting>
+CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow',
+                             'green', 'blue', 'purple');
+
+CREATE TABLE my_colors (color rainbow, note text);
+
+CREATE FUNCTION get_color_note (rainbow) RETURNS text AS
+  'SELECT note FROM my_colors WHERE color = $1'
+  LANGUAGE SQL;
+</programlisting>
+
+   (See <xref linkend="xfunc-sql"> for an explanation of SQL-language
+   functions.)  <productname>PostgreSQL</productname> will be aware that
+   the <function>get_color_note</> function depends on the <type>rainbow</>
+   type: dropping the type would force dropping the function, because its
+   argument type would no longer be defined.  But <productname>PostgreSQL</>
+   will not consider <function>get_color_note</> to depend on
+   the <structname>my_colors</> table, and so will not drop the function if
+   the table is dropped.  While there are disadvantages to this approach,
+   there are also benefits.  The function is still valid in some sense if the
+   table is missing, though executing it would cause an error; creating a new
+   table of the same name would allow the function to work again.
+  </para>
  </sect1>
 
 </chapter>

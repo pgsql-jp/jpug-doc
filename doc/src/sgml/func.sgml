@@ -419,6 +419,32 @@
 
    <para>
     <indexterm>
+     <primary>IS DISTINCT FROM</primary>
+    </indexterm>
+    <indexterm>
+     <primary>IS NOT DISTINCT FROM</primary>
+    </indexterm>
+    Ordinary comparison operators yield null (signifying <quote>unknown</>),
+    not true or false, when either input is null.  For example,
+    <literal>7 = NULL</> yields null, as does <literal>7 &lt;&gt; NULL</>.  When
+    this behavior is not suitable, use the
+    <literal>IS <optional> NOT </> DISTINCT FROM</literal> constructs:
+<synopsis>
+<replaceable>a</replaceable> IS DISTINCT FROM <replaceable>b</replaceable>
+<replaceable>a</replaceable> IS NOT DISTINCT FROM <replaceable>b</replaceable>
+</synopsis>
+    For non-null inputs, <literal>IS DISTINCT FROM</literal> is
+    the same as the <literal>&lt;&gt;</> operator.  However, if both
+    inputs are null it returns false, and if only one input is
+    null it returns true.  Similarly, <literal>IS NOT DISTINCT
+    FROM</literal> is identical to <literal>=</literal> for non-null
+    inputs, but it returns true when both inputs are null, and false when only
+    one input is null. Thus, these constructs effectively act as though null
+    were a normal data value, rather than <quote>unknown</>.
+   </para>
+
+   <para>
+    <indexterm>
      <primary>IS NULL</primary>
     </indexterm>
     <indexterm>
@@ -458,12 +484,10 @@
     <literal><replaceable>expression</replaceable> = NULL</literal>
     because <literal>NULL</> is not <quote>equal to</quote>
     <literal>NULL</>.  (The null value represents an unknown value,
-    and it is not known whether two unknown values are equal.) This
-    behavior conforms to the SQL standard.
+    and it is not known whether two unknown values are equal.)
 -->
 <literal>NULL</>と<literal>NULL</>とは<quote>等しい</quote>関係にはありませんので、<literal><replaceable>expression</replaceable> = NULL</literal>と記述しては<emphasis>いけません</emphasis>
-（NULL値は不明の値を表しているため、不明な値同士が同じかどうかは識別できません）。
-これは標準SQLに従った動作です。
+（NULL値は不明の値を表しているため、不明な値同士が同じかどうかは識別できません）。★変更点修正済み
    </para>
 
   <tip>
@@ -486,7 +510,6 @@
    </para>
   </tip>
 
-  <note>
    <para>
 <!--
     If the <replaceable>expression</replaceable> is row-valued, then
@@ -495,49 +518,13 @@
     <literal>IS NOT NULL</> is true when the row expression itself is non-null
     and all the row's fields are non-null.  Because of this behavior,
     <literal>IS NULL</> and <literal>IS NOT NULL</> do not always return
-    inverse results for row-valued expressions, i.e., a row-valued
-    expression that contains both NULL and non-null values will return false
-    for both tests.
-    This definition conforms to the SQL standard, and is a change from the
-    inconsistent behavior exhibited by <productname>PostgreSQL</productname>
-    versions prior to 8.2.
--->
-<replaceable>expression</replaceable>が行値の場合、行式自体がNULLまたは、行のフィールドすべてがNULLの場合に<literal>IS NULL</>は真となります。一方<literal>IS NOT NULL</>は、行式自体が非NULLかつ、行のフィールドすべてが非NULLの場合に真となります。
-この動作により、<literal>IS NULL</>および<literal>IS NOT NULL</>は行値評価式に対し常に反対の結果を返しません。つまりNULLと非NULLの値の両方を含む行値式はどちらの試験でも偽を返します。
-この定義は標準SQLに従ったもので、8.2より前のバージョンの<productname>PostgreSQL</productname>における一貫性のない動作から変更されました。
-   </para>
-  </note>
-
-   <para>
-    <indexterm>
-     <primary>IS DISTINCT FROM</primary>
-    </indexterm>
-    <indexterm>
-     <primary>IS NOT DISTINCT FROM</primary>
-    </indexterm>
-<!--
-    Ordinary comparison operators yield null (signifying <quote>unknown</>),
-    not true or false, when either input is null.  For example,
-    <literal>7 = NULL</> yields null, as does <literal>7 &lt;&gt; NULL</>.  When
-    this behavior is not suitable, use the
-    <literal>IS <optional> NOT </> DISTINCT FROM</literal> constructs:
--->
-入力のどちらかがNULLの場合、通常の比較演算子は真や偽ではなく（<quote>不明</>を意味する）nullを生成します。
-例えば<literal>7 = NULL</>はnullになります。<literal>7 &lt;&gt; NULL</>も同様です。
-この動作が適切でない場合は、<literal>IS <optional> NOT </> DISTINCT FROM</literal>構文を使用してください。
-<synopsis>
-<replaceable>expression</replaceable> IS DISTINCT FROM <replaceable>expression</replaceable>
-<replaceable>expression</replaceable> IS NOT DISTINCT FROM <replaceable>expression</replaceable>
-</synopsis>
-<!--
-    For non-null inputs, <literal>IS DISTINCT FROM</literal> is
-    the same as the <literal>&lt;&gt;</> operator.  However, if both
-    inputs are null it returns false, and if only one input is
-    null it returns true.  Similarly, <literal>IS NOT DISTINCT
-    FROM</literal> is identical to <literal>=</literal> for non-null
-    inputs, but it returns true when both inputs are null, and false when only
-    one input is null. Thus, these constructs effectively act as though null
-    were a normal data value, rather than <quote>unknown</>.
+    inverse results for row-valued expressions; in particular, a row-valued
+    expression that contains both null and non-null fields will return false
+    for both tests.  In some cases, it may be preferable to
+    write <replaceable>row</replaceable> <literal>IS DISTINCT FROM NULL</>
+    or <replaceable>row</replaceable> <literal>IS NOT DISTINCT FROM NULL</>,
+    which will simply check whether the overall row value is null without any
+    additional tests on the row fields.
 -->
 非NULLの入力では、<literal>IS DISTINCT FROM</literal>は<literal>&lt;&gt;</>演算子と同じです。
 しかし、入力がどちらもNULLの場合、これは偽を返し、片方の入力のみがNULLの場合は真を返します。
@@ -935,9 +922,9 @@ NULL値が入力されると、<quote>不明</>という論理値として扱わ
 -->
        <entry>（入力型と同一）</entry>
 <!--
-       <entry>smallest integer not less than argument</entry>
+       <entry>nearest integer greater than or equal to argument</entry>
 -->
-       <entry>引数より小さくない最小の整数</entry>
+       <entry>引数より小さくない最小の整数 ★変更あり</entry>
        <entry><literal>ceil(-42.8)</literal></entry>
        <entry><literal>-42</literal></entry>
       </row>
@@ -954,9 +941,9 @@ NULL値が入力されると、<quote>不明</>という論理値として扱わ
 -->
        <entry>（入力型と同一）</entry>
 <!--
-       <entry>smallest integer not less than argument (alias for <function>ceil</function>)</entry>
+       <entry>nearest integer greater than or equal to argument (same as <function>ceil</function>)</entry>
 -->
-       <entry>引数より小さくない最小の整数（<function>ceil</function>の別名）</entry>
+       <entry>引数より小さくない最小の整数（<function>ceil</function>の別名）★変更あり</entry>
        <entry><literal>ceiling(-95.3)</literal></entry>
        <entry><literal>-95</literal></entry>
       </row>
@@ -1025,9 +1012,9 @@ NULL値が入力されると、<quote>不明</>という論理値として扱わ
 -->
        <entry>（入力型と同一）</entry>
 <!--
-       <entry>largest integer not greater than argument</entry>
+       <entry>nearest integer less than or equal to argument</entry>
 -->
-       <entry>引数より大きくない最大の整数</entry>
+       <entry>引数より大きくない最大の整数 ★変更あり</entry>
        <entry><literal>floor(-42.8)</literal></entry>
        <entry><literal>-43</literal></entry>
       </row>
@@ -23990,7 +23977,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         <indexterm>
          <primary>pg_replication_origin_xact_reset</primary>
         </indexterm>
-        <literal><function>pg_replication_origin_xact_reset()</function></literal>
+        <literal><function>pg_replication_origin_xact_reset(<parameter>origin_lsn</parameter> <type>pg_lsn</type>, <parameter>origin_timestamp</parameter> <type>timestamptz</type>)</function></literal>
        </entry>
        <entry>
         void
@@ -23999,6 +23986,12 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
 <!--
         Cancel the effects of
         <function>pg_replication_origin_xact_setup()</function>.
+        Note that two arguments were introduced <emphasis>by mistake</>
+        during the <productname>PostgreSQL</> 9.5 development cycle while
+        <function>pg_replication_origin_xact_reset()</function> actually
+        doesn't use them at all. Therefore, any dummy values except
+        <literal>NULL</> can be safely specified as the arguments.
+        This mistake will be fixed in a future release.
 -->
 <function>pg_replication_origin_xact_setup()</function>の効果を取り消します。
        </entry>

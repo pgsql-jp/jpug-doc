@@ -200,10 +200,10 @@ ALTER TABLE t1 DROP COLUMN junk1;    -- just a disturbing factor
 GRANT ALL ON t1 TO public;
 
 COPY t1 FROM stdin WITH (oids);
-101	1	aaa
+101	1	aba
 102	2	bbb
 103	3	ccc
-104	4	ddd
+104	4	dad
 \.
 
 CREATE TABLE t2 (c float) INHERITS (t1);
@@ -635,10 +635,10 @@ GRANT SELECT ON z1,z2 TO rls_regress_group1, rls_regress_group2,
     rls_regress_user1, rls_regress_user2;
 
 INSERT INTO z1 VALUES
-    (1, 'aaa'),
+    (1, 'aba'),
     (2, 'bbb'),
     (3, 'ccc'),
-    (4, 'ddd');
+    (4, 'dad');
 
 CREATE POLICY p1 ON z1 TO rls_regress_group1 USING (a % 2 = 0);
 CREATE POLICY p2 ON z1 TO rls_regress_group2 USING (a % 2 = 1);
