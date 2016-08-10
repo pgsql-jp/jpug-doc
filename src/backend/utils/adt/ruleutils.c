@@ -5543,12 +5543,15 @@ get_insert_query_def(Query *query, deparse_context *context)
 				context->varprefix = save_varprefix;
 			}
 		}
-		else if (confl->constraint != InvalidOid)
+		else if (OidIsValid(confl->constraint))
 		{
 			char	   *constraint = get_constraint_name(confl->constraint);
 
+			if (!constraint)
+				elog(ERROR, "cache lookup failed for constraint %u",
+					 confl->constraint);
 			appendStringInfo(buf, " ON CONSTRAINT %s",
-							 quote_qualified_identifier(NULL, constraint));
+							 quote_identifier(constraint));
 		}
 
 		if (confl->action == ONCONFLICT_NOTHING)
@@ -6009,7 +6012,8 @@ get_variable(Var *var, int levelsup, bool istoplevel, deparse_context *context)
 
 		tle = get_tle_by_resno(dpns->inner_tlist, var->varattno);
 		if (!tle)
-			elog(ERROR, "bogus varattno for subquery var: %d", var->varattno);
+			elog(ERROR, "invalid attnum %d for relation \"%s\"",
+				 var->varattno, rte->eref->aliasname);
 
 		Assert(netlevelsup == 0);
 		push_child_plan(dpns, dpns->inner_planstate, &save_dpns);
@@ -6070,9 +6074,13 @@ get_variable(Var *var, int levelsup, bool istoplevel, deparse_context *context)
 	else if (attnum > 0)
 	{
 		/* Get column name to use from the colinfo struct */
-		Assert(attnum <= colinfo->num_cols);
+		if (attnum > colinfo->num_cols)
+			elog(ERROR, "invalid attnum %d for relation \"%s\"",
+				 attnum, rte->eref->aliasname);
 		attname = colinfo->colnames[attnum - 1];
-		Assert(attname != NULL);
+		if (attname == NULL)	/* dropped column? */
+			elog(ERROR, "invalid attnum %d for relation \"%s\"",
+				 attnum, rte->eref->aliasname);
 	}
 	else
 	{
@@ -7882,17 +7890,43 @@ get_rule_expr(Node *node, deparse_context *context,
 				if (!PRETTY_PAREN(context))
 					appendStringInfoChar(buf, '(');
 				get_rule_expr_paren((Node *) ntest->arg, context, true, node);
-				switch (ntest->nulltesttype)
+
+				/*
+				 * For scalar inputs, we prefer to print as IS [NOT] NULL,
+				 * which is shorter and traditional.  If it's a rowtype input
+				 * but we're applying a scalar test, must print IS [NOT]
+				 * DISTINCT FROM NULL to be semantically correct.
+				 */
+				if (ntest->argisrow ||
+					!type_is_rowtype(exprType((Node *) ntest->arg)))
 				{
-					case IS_NULL:
-						appendStringInfoString(buf, " IS NULL");
-						break;
-					case IS_NOT_NULL:
-						appendStringInfoString(buf, " IS NOT NULL");
-						break;
-					default:
-						elog(ERROR, "unrecognized nulltesttype: %d",
-							 (int) ntest->nulltesttype);
+					switch (ntest->nulltesttype)
+					{
+						case IS_NULL:
+							appendStringInfoString(buf, " IS NULL");
+							break;
+						case IS_NOT_NULL:
+							appendStringInfoString(buf, " IS NOT NULL");
+							break;
+						default:
+							elog(ERROR, "unrecognized nulltesttype: %d",
+								 (int) ntest->nulltesttype);
+					}
+				}
+				else
+				{
+					switch (ntest->nulltesttype)
+					{
+						case IS_NULL:
+							appendStringInfoString(buf, " IS NOT DISTINCT FROM NULL");
+							break;
+						case IS_NOT_NULL:
+							appendStringInfoString(buf, " IS DISTINCT FROM NULL");
+							break;
+						default:
+							elog(ERROR, "unrecognized nulltesttype: %d",
+								 (int) ntest->nulltesttype);
+					}
 				}
 				if (!PRETTY_PAREN(context))
 					appendStringInfoChar(buf, ')');

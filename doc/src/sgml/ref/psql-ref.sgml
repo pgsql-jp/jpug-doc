@@ -1132,9 +1132,9 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
 
       <varlistentry>
 <!--
-        <term><literal>\c</literal> or <literal>\connect</literal> <literal>[ <replaceable class="parameter">dbname</replaceable> [ <replaceable class="parameter">username</replaceable> ] [ <replaceable class="parameter">host</replaceable> ] [ <replaceable class="parameter">port</replaceable> ] ] | <replaceable class="parameter">conninfo</replaceable> </literal></term>
+        <term><literal>\c</literal> or <literal>\connect [ -reuse-previous=<replaceable class="parameter">on|off</replaceable> ] [ <replaceable class="parameter">dbname</replaceable> [ <replaceable class="parameter">username</replaceable> ] [ <replaceable class="parameter">host</replaceable> ] [ <replaceable class="parameter">port</replaceable> ] | <replaceable class="parameter">conninfo</replaceable> ]</literal></term> ★変更あり
 -->
-        <term><literal>\c</literal> または <literal>\connect</literal> <literal>[ <replaceable class="parameter">dbname</replaceable> [ <replaceable class="parameter">username</replaceable> ] [ <replaceable class="parameter">host</replaceable> ] [ <replaceable class="parameter">port</replaceable> ] ] | <replaceable class="parameter">conninfo</replaceable> </literal></term>
+        <term><literal>\c</literal> または <literal>\connect</literal> <literal>[ <replaceable class="parameter">dbname</replaceable> [ <replaceable class="parameter">username</replaceable> ] [ <replaceable class="parameter">host</replaceable> ] [ <replaceable class="parameter">port</replaceable> ] ] | <replaceable class="parameter">conninfo</replaceable> </literal></term> 
         <listitem>
         <para>
 <!--
@@ -1150,20 +1150,23 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
 
         <para>
 <!--
-        When using positional parameters, if any of
-        <replaceable class="parameter">dbname</replaceable>,
+        Where the command omits database name, user, host, or port, the new
+        connection can reuse values from the previous connection.  By default,
+        values from the previous connection are reused except when processing
+        a <literal>conninfo</> string.  Passing a first argument
+        of <literal>-reuse-previous=on</>
+        or <literal>-reuse-previous=off</literal> overrides that default.
+        When the command neither specifies nor reuses a particular parameter,
+        the <application>libpq</application> default is used.  Specifying any
+        of <replaceable class="parameter">dbname</replaceable>,
         <replaceable class="parameter">username</replaceable>,
         <replaceable class="parameter">host</replaceable> or
-        <replaceable class="parameter">port</replaceable> are omitted or
-        specified as <literal>-</literal>, the value of that parameter from
-        the previous connection is used; if there is no previous connection,
-        the <application>libpq</application> default for the parameter's value
-        is used.  When using <literal>conninfo</> strings, no values from the
-        previous connection are used for the new connection.
+        <replaceable class="parameter">port</replaceable>
+        as <literal>-</literal> is equivalent to omitting that parameter.
 -->
 位置の構文を使うとき、<replaceable class="parameter">dbname</replaceable>、<replaceable class="parameter">username</replaceable>、<replaceable class="parameter">host</replaceable>、<replaceable class="parameter">port</replaceable>のいずれかが省略、あるいは <literal>-</literal>と指定された場合、対応するパラメータの値はこれまでの接続の値が使用されます。
 これまで接続されていない場合は、そのパラメータの値には<application>libpq</application>のデフォルト値が使用されます。
-<literal>conninfo</>接続文字列を使用する場合、これまでの接続の値は新しい接続に使用されません。
+<literal>conninfo</>接続文字列を使用する場合、これまでの接続の値は新しい接続に使用されません。 ★変更あり
         </para>
 
         <para>
@@ -4682,17 +4685,18 @@ SQLリテラルまたは識別子として変数の値をエスケープさせ�
     and special escape sequences that describe the appearance of the
     prompt. Prompt 1 is the normal prompt that is issued when
     <application>psql</application> requests a new command. Prompt 2 is
-    issued when more input is expected during command input because the
-    command was not terminated with a semicolon or a quote was not closed.
-    Prompt 3 is issued when you run an <acronym>SQL</acronym>
-    <command>COPY</command> command and you are expected to type in the
-    row values on the terminal.
+    issued when more input is expected during command entry, for example ★変更箇所
+    because the command was not terminated with a semicolon or a quote ★変更箇所
+    was not closed. ★変更箇所
+    Prompt 3 is issued when you are running an <acronym>SQL</acronym> ★変更箇所
+    <command>COPY FROM STDIN</command> command and you need to type in★変更箇所
+    a row value on the terminal.★変更箇所
 -->
 <application>psql</application>が発行するプロンプトは好みに応じてカスタマイズできます。
 <varname>PROMPT1</varname>、<varname>PROMPT2</varname>、<varname>PROMPT3</varname>という3つの変数はプロンプトの表示内容を示す文字列や特別なエスケープシーケンスを持ちます。
 プロンプト1は<application>psql</application>が新しいコマンドを受け付ける際に発行される通常のプロンプトです。
 プロンプト2はコマンドがセミコロンで終わっていない、または、引用符が閉じていないためにさらにコマンドの入力が要求されている際に発行されます。
-プロンプト3は<acronym>SQL</acronym>の<command>COPY</command>コマンドを実行していて、端末上で行の値の入力が要求されている際に発行されます。
+プロンプト3は<acronym>SQL</acronym>の<command>COPY</command>コマンドを実行していて、端末上で行の値の入力が要求されている際に発行されます。★変更あり
     </para>
 
     <para>
@@ -4803,21 +4807,24 @@ SQLリテラルまたは識別子として変数の値をエスケープさせ�
         <listitem>
         <para>
 <!--
-        In prompt 1 normally <literal>=</literal>, but <literal>^</literal> if
-        in single-line mode, and <literal>!</literal> if the session is
-        disconnected from the database (which can happen if
-        <command>\connect</command> fails). In prompt 2 the sequence is
-        replaced by <literal>-</literal>, <literal>*</literal>, a single quote,
-        a double quote, or a dollar sign, depending on whether
-        <application>psql</application> expects more input because the
-        command wasn't terminated yet, because you are inside a
-        <literal>/* ... */</literal> comment, or because you are inside
-        a quoted or dollar-escaped string. In prompt 3 the sequence doesn't
-        produce anything.
+        In prompt 1 normally <literal>=</literal>,
+        but <literal>^</literal> if in single-line mode,
+        or <literal>!</literal> if the session is disconnected from the
+        database (which can happen if <command>\connect</command> fails).
+        In prompt 2 <literal>%R</literal> is replaced by a character that
+        depends on why <application>psql</application> expects more input:
+        <literal>-</literal> if the command simply wasn't terminated yet,
+        but <literal>*</literal> if there is an unfinished
+        <literal>/* ... */</literal> comment,
+        a single quote if there is an unfinished quoted string,
+        a double quote if there is an unfinished quoted identifier,
+        a dollar sign if there is an unfinished dollar-quoted string,
+        or <literal>(</literal> if there is an unmatched left parenthesis.
+        In prompt 3 <literal>%R</literal> doesn't produce anything.
 -->
 プロンプト1の場合、通常は<literal>=</literal>、シングル行モードでは<literal>^</literal>、データベースとの接続が切れたセッションでは<literal>!</literal>になります（<command>\connect</command>が失敗した場合に発生します）。
 プロンプト2の場合、<literal>-</literal>、<literal>*</literal>、単一引用符、二重引用符、ドル記号に置き換えられます。どの文字に置き換えられるかは、<application>psql</application>が入力を待っている理由（コマンドが終了していない、<literal>/* ... */</literal>によるコメント行の中にいる、引用符やエスケープされたドル記号の中にいる）によって決まります。
-プロンプト3の場合、何も表示されません。
+プロンプト3の場合、何も表示されません。 ★変更あり
         </para>
         </listitem>
       </varlistentry>

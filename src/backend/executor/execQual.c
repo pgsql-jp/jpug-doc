@@ -2943,19 +2943,30 @@ ExecEvalCase(CaseExprState *caseExpr, ExprContext *econtext,
 
 	/*
 	 * If there's a test expression, we have to evaluate it and save the value
-	 * where the CaseTestExpr placeholders can find it. We must save and
+	 * where the CaseTestExpr placeholders can find it.  We must save and
 	 * restore prior setting of econtext's caseValue fields, in case this node
-	 * is itself within a larger CASE.
+	 * is itself within a larger CASE.  Furthermore, don't assign to the
+	 * econtext fields until after returning from evaluation of the test
+	 * expression.  We used to pass &econtext->caseValue_isNull to the
+	 * recursive call, but that leads to aliasing that variable within said
+	 * call, which can (and did) produce bugs when the test expression itself
+	 * contains a CASE.
+	 *
+	 * If there's no test expression, we don't actually need to save and
+	 * restore these fields; but it's less code to just do so unconditionally.
 	 */
 	save_datum = econtext->caseValue_datum;
 	save_isNull = econtext->caseValue_isNull;
 
 	if (caseExpr->arg)
 	{
+		bool		arg_isNull;
+
 		econtext->caseValue_datum = ExecEvalExpr(caseExpr->arg,
 												 econtext,
-												 &econtext->caseValue_isNull,
+												 &arg_isNull,
 												 NULL);
+		econtext->caseValue_isNull = arg_isNull;
 	}
 
 	/*
@@ -2967,10 +2978,11 @@ ExecEvalCase(CaseExprState *caseExpr, ExprContext *econtext,
 	{
 		CaseWhenState *wclause = lfirst(clause);
 		Datum		clause_value;
+		bool		clause_isNull;
 
 		clause_value = ExecEvalExpr(wclause->expr,
 									econtext,
-									isNull,
+									&clause_isNull,
 									NULL);
 
 		/*
@@ -2978,7 +2990,7 @@ ExecEvalCase(CaseExprState *caseExpr, ExprContext *econtext,
 		 * statement is satisfied.  A NULL result from the test is not
 		 * considered true.
 		 */
-		if (DatumGetBool(clause_value) && !*isNull)
+		if (DatumGetBool(clause_value) && !clause_isNull)
 		{
 			econtext->caseValue_datum = save_datum;
 			econtext->caseValue_isNull = save_isNull;
@@ -3793,6 +3805,21 @@ ExecEvalNullTest(NullTestState *nstate,
 
 	if (ntest->argisrow && !(*isNull))
 	{
+		/*
+		 * The SQL standard defines IS [NOT] NULL for a non-null rowtype
+		 * argument as:
+		 *
+		 * "R IS NULL" is true if every field is the null value.
+		 *
+		 * "R IS NOT NULL" is true if no field is the null value.
+		 *
+		 * This definition is (apparently intentionally) not recursive; so our
+		 * tests on the fields are primitive attisnull tests, not recursive
+		 * checks to see if they are all-nulls or no-nulls rowtypes.
+		 *
+		 * The standard does not consider the possibility of zero-field rows,
+		 * but here we consider them to vacuously satisfy both predicates.
+		 */
 		HeapTupleHeader tuple;
 		Oid			tupType;
 		int32		tupTypmod;
@@ -5333,15 +5360,24 @@ ExecCleanTargetListLength(List *targetlist)
  * of *isDone = ExprMultipleResult signifies a set element, and a return
  * of *isDone = ExprEndResult signifies end of the set of tuple.
  * We assume that *isDone has been initialized to ExprSingleResult by caller.
+ *
+ * Since fields of the result tuple might be multiply referenced in higher
+ * plan nodes, we have to force any read/write expanded values to read-only
+ * status.  It's a bit annoying to have to do that for every projected
+ * expression; in the future, consider teaching the planner to detect
+ * actually-multiply-referenced Vars and insert an expression node that
+ * would do that only where really required.
  */
 static bool
 ExecTargetList(List *targetlist,
+			   TupleDesc tupdesc,
 			   ExprContext *econtext,
 			   Datum *values,
 			   bool *isnull,
 			   ExprDoneCond *itemIsDone,
 			   ExprDoneCond *isDone)
 {
+	Form_pg_attribute *att = tupdesc->attrs;
 	MemoryContext oldContext;
 	ListCell   *tl;
 	bool		haveDoneSets;
@@ -5366,6 +5402,10 @@ ExecTargetList(List *targetlist,
 									  econtext,
 									  &isnull[resind],
 									  &itemIsDone[resind]);
+
+		values[resind] = MakeExpandedObjectReadOnly(values[resind],
+													isnull[resind],
+													att[resind]->attlen);
 
 		if (itemIsDone[resind] != ExprSingleResult)
 		{
@@ -5420,6 +5460,10 @@ ExecTargetList(List *targetlist,
 												  &isnull[resind],
 												  &itemIsDone[resind]);
 
+					values[resind] = MakeExpandedObjectReadOnly(values[resind],
+															  isnull[resind],
+														att[resind]->attlen);
+
 					if (itemIsDone[resind] == ExprEndResult)
 					{
 						/*
@@ -5453,6 +5497,7 @@ ExecTargetList(List *targetlist,
 													  econtext,
 													  &isnull[resind],
 													  &itemIsDone[resind]);
+						/* no need for MakeExpandedObjectReadOnly */
 					}
 				}
 
@@ -5578,6 +5623,7 @@ ExecProject(ProjectionInfo *projInfo, ExprDoneCond *isDone)
 	if (projInfo->pi_targetlist)
 	{
 		if (!ExecTargetList(projInfo->pi_targetlist,
+							slot->tts_tupleDescriptor,
 							econtext,
 							slot->tts_values,
 							slot->tts_isnull,

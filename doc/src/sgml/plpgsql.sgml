@@ -2134,36 +2134,62 @@ GET <optional> CURRENT </optional> DIAGNOSTICS <replaceable>variable</replaceabl
 </synopsis>
 
 <!--
-     This command allows retrieval of system status indicators.  Each
-     <replaceable>item</replaceable> is a key word identifying a status
-     value to be assigned to the specified variable (which should be
-     of the right data type to receive it).  The currently available
-     status items are <varname>ROW_COUNT</>, the number of rows
-     processed by the last <acronym>SQL</acronym> command sent to
-     the <acronym>SQL</acronym> engine, and <varname>RESULT_OID</>,
-     the OID of the last row inserted by the most recent
-     <acronym>SQL</acronym> command.  Note that <varname>RESULT_OID</>
-     is only useful after an <command>INSERT</command> command into a
-     table containing OIDs.
-     Colon-equal (<literal>:=</>) can be used instead of SQL-standard
-     <literal>=</> for <command>GET DIAGNOSTICS</>.
+     This command allows retrieval of system status indicators.
+     <literal>CURRENT</> is a noise word (but see also <command>GET STACKED
+     DIAGNOSTICS</command> in <xref linkend="plpgsql-exception-diagnostics">).
+     Each <replaceable>item</replaceable> is a key word identifying a status
+     value to be assigned to the specified <replaceable>variable</replaceable>
+     (which should be of the right data type to receive it).  The currently
+     available status items are shown
+     in <xref linkend="plpgsql-current-diagnostics-values">.  Colon-equal
+     (<literal>:=</>) can be used instead of the SQL-standard <literal>=</>
+     token.  An example:
 -->
 このコマンドによってシステムステータスインジケータを取り出すことができます。
 各<replaceable>item</replaceable>は、指定された変数（これは受け取るために正しいデータ型でなければなりません）に代入されるステータス値を識別するキーワードです。
 現在使用可能なステータス項目は、<acronym>SQL</acronym>エンジンに送信された最終<acronym>SQL</acronym>コマンドにより処理された行数を示す<varname>ROW_COUNT</>、および、最も最近の<acronym>SQL</acronym>コマンドにより挿入された最後の行のOIDを示す<varname>RESULT_OID</>です。
 <varname>RESULT_OID</>はOIDを保有するテーブルへの<command>INSERT</command>コマンドの後でのみ有意であることに注意してください。
 <command>GET DIAGNOSTICS</>では、代入記号（<literal>:=</>）が標準SQLにおける等号（<literal>=</>）の代わりに使用できます。
-    </para>
-
-    <para>
-<!--
-     An example:
--->
-以下に例を示します。
+以下に例を示します。★変更あり
 <programlisting>
 GET DIAGNOSTICS integer_var = ROW_COUNT;
 </programlisting>
     </para>
+
+     <table id="plpgsql-current-diagnostics-values">
+      <title>Available Diagnostics Items</title>
+      <tgroup cols="3">
+       <thead>
+        <row>
+         <entry>Name</entry>
+         <entry>Type</entry>
+         <entry>Description</entry>
+        </row>
+       </thead>
+       <tbody>
+        <row>
+         <entry><varname>ROW_COUNT</varname></entry>
+         <entry><type>integer</></entry>
+         <entry>the number of rows processed by the most
+          recent <acronym>SQL</acronym> command</entry>
+        </row>
+        <row>
+         <entry><varname>RESULT_OID</varname></entry>
+         <entry><type>oid</></entry>
+         <entry>the OID of the last row inserted by the most
+          recent <acronym>SQL</acronym> command (only useful after
+          an <command>INSERT</command> command into a table having
+          OIDs)</entry>
+        </row>
+        <row>
+         <entry><literal>PG_CONTEXT</literal></entry>
+         <entry><type>text</></entry>
+         <entry>line(s) of text describing the current call stack
+          (see <xref linkend="plpgsql-call-stack">)</entry>
+        </row>
+       </tbody>
+      </tgroup>
+     </table>
 
     <para>
 <!--
@@ -2707,13 +2733,13 @@ SELECT * FROM get_available_flightid(CURRENT_DATE);
 <application>PL/pgSQL</>には、以下のような３つの<command>IF</>の形式があります。
     <itemizedlist>
      <listitem>
-      <para><literal>IF ... THEN</></>
+      <para><literal>IF ... THEN ... END IF</></>
      </listitem>
      <listitem>
-      <para><literal>IF ... THEN ... ELSE</></>
+      <para><literal>IF ... THEN ... ELSE ... END IF</></>
      </listitem>
      <listitem>
-      <para><literal>IF ... THEN ... ELSIF ... THEN ... ELSE</></>
+      <para><literal>IF ... THEN ... ELSIF ... THEN ... ELSE ... END IF</></>
      </listitem>
     </itemizedlist>
 
@@ -3934,9 +3960,10 @@ GET STACKED DIAGNOSTICS <replaceable>variable</replaceable> { = | := } <replacea
 
 <!--
      Each <replaceable>item</replaceable> is a key word identifying a status
-     value to be assigned to the specified variable (which should be
-     of the right data type to receive it).  The currently available
-     status items are shown in <xref linkend="plpgsql-exception-diagnostics-values">.
+     value to be assigned to the specified <replaceable>variable</replaceable>
+     (which should be of the right data type to receive it).  The currently
+     available status items are shown
+     in <xref linkend="plpgsql-exception-diagnostics-values">.
 -->
 各<replaceable>item</replaceable>は、指定された変数（これは受け取るために正しいデータ型でなければなりません）に代入される状態値を識別するキーワードです。
 現在使用可能なステータス項目は<xref linkend="plpgsql-exception-diagnostics-values">に表示されています。
@@ -3944,7 +3971,7 @@ GET STACKED DIAGNOSTICS <replaceable>variable</replaceable> { = | := } <replacea
 
      <table id="plpgsql-exception-diagnostics-values">
 <!--
-      <title>Error Diagnostics Values</title>
+      <title>Error Diagnostics Items</title>
 -->
 <title>エラーの診断値</title>
       <tgroup cols="3">
@@ -3963,7 +3990,7 @@ GET STACKED DIAGNOSTICS <replaceable>variable</replaceable> { = | := } <replacea
        <tbody>
         <row>
          <entry><literal>RETURNED_SQLSTATE</literal></entry>
-         <entry>text</entry>
+         <entry><type>text</></entry>
 <!--
          <entry>the SQLSTATE error code of the exception</entry>
 -->
@@ -3971,7 +3998,7 @@ GET STACKED DIAGNOSTICS <replaceable>variable</replaceable> { = | := } <replacea
         </row>
         <row>
          <entry><literal>COLUMN_NAME</literal></entry>
-         <entry>text</entry>
+         <entry><type>text</></entry>
 <!--
          <entry>the name of the column related to exception</entry>
 -->
@@ -3979,7 +4006,7 @@ GET STACKED DIAGNOSTICS <replaceable>variable</replaceable> { = | := } <replacea
         </row>
         <row>
          <entry><literal>CONSTRAINT_NAME</literal></entry>
-         <entry>text</entry>
+         <entry><type>text</></entry>
 <!--
          <entry>the name of the constraint related to exception</entry>
 -->
@@ -3987,7 +4014,7 @@ GET STACKED DIAGNOSTICS <replaceable>variable</replaceable> { = | := } <replacea
         </row>
         <row>
          <entry><literal>PG_DATATYPE_NAME</literal></entry>
-         <entry>text</entry>
+         <entry><type>text</></entry>
 <!--
          <entry>the name of the data type related to exception</entry>
 -->
@@ -3995,7 +4022,7 @@ GET STACKED DIAGNOSTICS <replaceable>variable</replaceable> { = | := } <replacea
         </row>
         <row>
          <entry><literal>MESSAGE_TEXT</literal></entry>
-         <entry>text</entry>
+         <entry><type>text</></entry>
 <!--
          <entry>the text of the exception's primary message</entry>
 -->
@@ -4003,7 +4030,7 @@ GET STACKED DIAGNOSTICS <replaceable>variable</replaceable> { = | := } <replacea
         </row>
         <row>
          <entry><literal>TABLE_NAME</literal></entry>
-         <entry>text</entry>
+         <entry><type>text</></entry>
 <!--
          <entry>the name of the table related to exception</entry>
 -->
@@ -4011,7 +4038,7 @@ GET STACKED DIAGNOSTICS <replaceable>variable</replaceable> { = | := } <replacea
         </row>
         <row>
          <entry><literal>SCHEMA_NAME</literal></entry>
-         <entry>text</entry>
+         <entry><type>text</></entry>
 <!--
          <entry>the name of the schema related to exception</entry>
 -->
@@ -4019,7 +4046,7 @@ GET STACKED DIAGNOSTICS <replaceable>variable</replaceable> { = | := } <replacea
         </row>
         <row>
          <entry><literal>PG_EXCEPTION_DETAIL</literal></entry>
-         <entry>text</entry>
+         <entry><type>text</></entry>
 <!--
          <entry>the text of the exception's detail message, if any</entry>
 -->
@@ -4027,7 +4054,7 @@ GET STACKED DIAGNOSTICS <replaceable>variable</replaceable> { = | := } <replacea
         </row>
         <row>
          <entry><literal>PG_EXCEPTION_HINT</literal></entry>
-         <entry>text</entry>
+         <entry><type>text</></entry>
 <!--
          <entry>the text of the exception's hint message, if any</entry>
 -->
@@ -4035,11 +4062,12 @@ GET STACKED DIAGNOSTICS <replaceable>variable</replaceable> { = | := } <replacea
         </row>
         <row>
          <entry><literal>PG_EXCEPTION_CONTEXT</literal></entry>
-         <entry>text</entry>
+         <entry><type>text</></entry>
 <!--
-         <entry>line(s) of text describing the call stack</entry>
+         <entry>line(s) of text describing the call stack at the time of the
+          exception (see <xref linkend="plpgsql-call-stack">)</entry>
 -->
-<entry>呼び出しスタックを記述するテキストの行</entry>
+<entry>呼び出しスタックを記述するテキストの行 ★変更あり</entry>
         </row>
        </tbody>
       </tgroup>
@@ -4079,34 +4107,23 @@ END;
    </sect3>
   </sect2>
 
-  <sect2 id="plpgsql-get-diagnostics-context">
+  <sect2 id="plpgsql-call-stack">
 <!--
-   <title>Obtaining Current Execution Information</title>
+   <title>Obtaining Execution Location Information</title>
 -->
-<title>最新実行情報の取得</title>
 
+<title>最新実行情報の取得 ★変更あり</title>
    <para>
 <!--
-    The <command>GET <optional> CURRENT </optional> DIAGNOSTICS</command>
-    command retrieves information about current execution state (whereas
-    the <command>GET STACKED DIAGNOSTICS</command> command discussed above
-    reports information about the execution state as of a previous error).
-    This command has the form:
--->
-<command>GET <optional> CURRENT </optional> DIAGNOSTICS</command>コマンドは最新実行状態の情報を取り出します。
-（それに対して<command>GET STACKED DIAGNOSTICS</command>コマンドは、直前のエラーの時点における実行状態の情報を示します）。
-   </para>
-
-<synopsis>
-GET <optional> CURRENT </optional> DIAGNOSTICS <replaceable>variable</replaceable> { = | := } <replaceable>item</replaceable> <optional> , ... </optional>;
-</synopsis>
-
-   <para>
-<!--
-    Currently only one information item is supported.  Status
-    item <literal>PG_CONTEXT</> will return a text string with line(s) of
-    text describing the call stack.  The first line refers to the
-    current function and currently executing <command>GET DIAGNOSTICS</command>
+    The <command>GET DIAGNOSTICS</command> command, previously described
+    in <xref linkend="plpgsql-statements-diagnostics">, retrieves information
+    about current execution state (whereas the <command>GET STACKED
+    DIAGNOSTICS</command> command discussed above reports information about
+    the execution state as of a previous error).  Its <literal>PG_CONTEXT</>
+    status item is useful for identifying the current execution
+    location.  <literal>PG_CONTEXT</> returns a text string with line(s)
+    of text describing the call stack.  The first line refers to the current
+    function and currently executing <command>GET DIAGNOSTICS</command>
     command.  The second and any subsequent lines refer to calling functions
     further up the call stack.  For example:
 -->
@@ -4114,7 +4131,7 @@ GET <optional> CURRENT </optional> DIAGNOSTICS <replaceable>variable</replaceabl
 <literal>PG_CONTEXT</>ステータス項目はテキスト文字列を返し、テキストの行数が呼び出しスタックの段数となります。
 最初の行は最新の関数と現在実行中の<command>GET DIAGNOSTICS</command>コマンドを参照します。
 次行および後の行は、呼び出しスタック上の呼び出し関数を参照します。
-例を示します。
+例を示します。 ★変更あり
 
 <programlisting>
 CREATE OR REPLACE FUNCTION outer_func() RETURNS integer AS $$
@@ -4145,6 +4162,12 @@ CONTEXT:  PL/pgSQL function outer_func() line 3 at RETURN
 (1 row)
 </programlisting>
 
+   </para>
+
+   <para>
+    <literal>GET STACKED DIAGNOSTICS ... PG_EXCEPTION_CONTEXT</literal>
+    returns the same sort of stack trace, but describing the location
+    at which an error was detected, rather than the current location.
    </para>
   </sect2>
   </sect1>
@@ -6090,7 +6113,7 @@ SELECT * FROM sales_summary_bytime;
 
    <para>
 <!--
-    When a <application>PL/pgSQL</application> function is called as a
+    When a <application>PL/pgSQL</application> function is called as an
     event trigger, several special variables are created automatically
     in the top-level block. They are:
 -->
@@ -6130,7 +6153,7 @@ SELECT * FROM sales_summary_bytime;
 
    <para>
 <!--
-    <xref linkend="plpgsql-event-trigger-example"> shows an example of a
+    <xref linkend="plpgsql-event-trigger-example"> shows an example of an
     event trigger procedure in <application>PL/pgSQL</application>.
 -->
 <xref linkend="plpgsql-event-trigger-example">は<application>PL/pgSQL</application>におけるイベントトリガプロシージャの一例を示します。
