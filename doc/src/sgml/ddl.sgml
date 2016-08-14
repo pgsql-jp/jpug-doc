@@ -5426,7 +5426,7 @@ ANALYZE measurement;
    it, would result in an error message like this:
 -->
 データベース構造全体の整合性を保つため、<productname>PostgreSQL</productname>は、他のオブジェクトと依存関係にあるオブジェクトの削除を許可しません。
-例えば、<xref linkend="ddl-constraints-fk">で作成したproductsテーブルを削除しようとしても、ordersテーブルがこのテーブルに依存しているので、以下のようなエラーメッセージが現れます。 ★変更あり
+例えば、<xref linkend="ddl-constraints-fk">で検討したproductsテーブルを削除しようとしても、ordersテーブルがこのテーブルに依存しているので、以下のようなエラーメッセージが現れます。
 <screen>
 DROP TABLE products;
 
@@ -5452,7 +5452,7 @@ DROP TABLE products CASCADE;
 -->
 これで全ての依存オブジェクトが削除されます。
 この場合、ordersテーブルは削除されずに外部キー制約のみが削除されます
-（<command>DROP ... CASCADE</>が何を行うかを知りたい場合は、<literal>CASCADE</>を指定せずに<command>DROP</>を実行して<literal>NOTICE</>メッセージを読んでください）。★変更あり
+（<command>DROP ... CASCADE</>が何を行うかを知りたい場合は、<literal>CASCADE</>を指定せずに<command>DROP</>を実行して<literal>DETAIL</>出力を読んでください）。
   </para>
 
   <para>
@@ -5464,9 +5464,9 @@ DROP TABLE products CASCADE;
    <literal>CASCADE</literal> to get the default behavior, which is to
    prevent the dropping of objects that other objects depend on.
 -->
-<productname>PostgreSQL</productname>では、全ての削除用コマンドに<literal>CASCADE</literal>を指定することができます。
+<productname>PostgreSQL</productname>では、全ての<command>DROP</>コマンドに<literal>CASCADE</literal>を指定することができます。
 もちろん、どのような依存関係が存在するかは、オブジェクトの種類によって異なります。
-また、<literal>CASCADE</literal>ではなく<literal>RESTRICT</literal>と記述すると、他のオブジェクトが依存しているオブジェクトの削除を禁止するというデフォルトの振舞いを指定することもできます。★変更あり
+また、<literal>CASCADE</literal>ではなく<literal>RESTRICT</literal>と記述すると、他のオブジェクトが依存しているオブジェクトの削除を禁止するというデフォルトの振舞いを指定することもできます。
   </para>
 
   <note>
@@ -5479,17 +5479,21 @@ DROP TABLE products CASCADE;
     is <literal>RESTRICT</literal> or <literal>CASCADE</literal> varies
     across systems. 
 -->
-標準SQLでは、<literal>RESTRICT</literal>または<literal>CASCADE</literal>のいずれかを指定する必要があります。
-実際にこの決まり通りのデータベースシステムはありませんが、デフォルトが<literal>RESTRICT</literal>であるか、<literal>CASCADE</literal>であるかは、システムによって異なります。★変更あり
+標準SQLでは、<command>DROP</>コマンドで<literal>RESTRICT</literal>または<literal>CASCADE</literal>のいずれかを指定する必要があります。
+実際にこの決まり通りのデータベースシステムはありませんが、デフォルトが<literal>RESTRICT</literal>であるか、<literal>CASCADE</literal>であるかは、システムによって異なります。
    </para>
   </note>
 
   <para>
+<!--
    For user-defined functions, <productname>PostgreSQL</productname> tracks
    dependencies associated with a function's externally-visible properties,
    such as its argument and result types, but <emphasis>not</> dependencies
    that could only be known by examining the function body.  As an example,
    consider this situation:
+-->
+ユーザ定義関数について、<productname>PostgreSQL</productname>は引数や結果の型など、関数の外部に可視な属性に関連した依存性については追跡しますが、関数の実体を検査することによってしかわからない依存性は追跡<emphasis>しません</>。
+例えば以下の状況を考えてみます。
 
 <programlisting>
 CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow',
@@ -5502,6 +5506,7 @@ CREATE FUNCTION get_color_note (rainbow) RETURNS text AS
   LANGUAGE SQL;
 </programlisting>
 
+<!--
    (See <xref linkend="xfunc-sql"> for an explanation of SQL-language
    functions.)  <productname>PostgreSQL</productname> will be aware that
    the <function>get_color_note</> function depends on the <type>rainbow</>
@@ -5513,6 +5518,15 @@ CREATE FUNCTION get_color_note (rainbow) RETURNS text AS
    there are also benefits.  The function is still valid in some sense if the
    table is missing, though executing it would cause an error; creating a new
    table of the same name would allow the function to work again.
+-->
+（SQL言語による関数についての説明は<xref linkend="xfunc-sql">を参照してください。）
+<productname>PostgreSQL</productname>は関数<function>get_color_note</>が型<type>rainbow</>に依存することは認識します。
+例えば、その型を削除すると、関数の引数の型が定義されなくなるため、関数の削除も強制されます。
+しかし、<productname>PostgreSQL</>は<function>get_color_note</>がテーブル<structname>my_colors</>に依存するとは考えません。
+従って、そのテーブルが削除されても関数は削除されません。
+この方法には不利な点もありますが、同時に利益もあります。
+テーブルがない状態で関数を実行すればエラーを引き起こしますが、それでも関数はある意味で、有効な状態になっています。
+そのため、同じ名前の新しいテーブルを作成することで、関数を再び動作させることができます。
   </para>
  </sect1>
 
