@@ -487,8 +487,8 @@ CREATE [ [ GLOBAL | LOCAL ] { TEMPORARY | TEMP } | UNLOGGED ] TABLE [ IF NOT EXI
       the original and new tables.
 -->
 コピーする列のデフォルト式は、<literal>INCLUDING DEFAULTS</literal>が指定された場合にのみコピーされます。
-デフォルトが<function>nextval</>のようにデータベースを変更する関数を呼び出す場合は、元のテーブルと新しいテーブルの間にリンクを作成します。
-デフォルトでは、デフォルト式がコピーされないため、新しいテーブルのコピーされた列はデフォルト値としてNULLを持つことになります。★変更あり
+デフォルトの動作では、デフォルト式がコピーされないため、新しいテーブルのコピーされた列はデフォルト値としてNULLを持つことになります。
+<function>nextval</>のようにデータベースを変更する関数を呼び出すデフォルトをコピーすると、元のテーブルと新しいテーブルの間に関数的なリンクが作成される場合があることに注意してください。
      </para>
      <para>
 <!--
@@ -500,7 +500,6 @@ CREATE [ [ GLOBAL | LOCAL ] { TEMPORARY | TEMP } | UNLOGGED ] TABLE [ IF NOT EXI
 -->
 非NULL制約は常に新しいテーブルにコピーされます。
 <literal>CHECK</literal>制約は、<literal>INCLUDING CONSTRAINTS</literal>が指定された場合にのみコピーされます。
-元のテーブル上のインデックス、<literal>PRIMARY KEY</>、および<literal>UNIQUE</>制約は、<literal>INCLUDING INDEXES</literal>が指定された場合にのみ新しいテーブル上に作成されます。
 列制約とテーブル制約は区別されません。
      </para>
      <para>
@@ -513,12 +512,14 @@ CREATE [ [ GLOBAL | LOCAL ] { TEMPORARY | TEMP } | UNLOGGED ] TABLE [ IF NOT EXI
       were named.  (This behavior avoids possible duplicate-name failures for
       the new indexes.)
 -->
-★翻訳必要あり
+元のテーブルのインデックス、および<literal>PRIMARY KEY</>、<literal>UNIQUE</>、<literal>EXCLUDE</>の制約は<literal>INCLUDING INDEXES</literal>が指定された場合のみ、新しいテーブル上で作成されます。
+新しいインデックスと制約の名前は、元の名前とは関係なく、デフォルトの規則に従って付けられます。
+（この動作により、新しいインデックスが名前の重複によりエラーになる可能性を回避しています。）
      </para>
      <para>
 <!--
-      <literal>STORAGE</> settings for the copied column definitions will be ★変更あり
-      copied only if <literal>INCLUDING STORAGE</literal> is specified.  The　★変更あり
+      <literal>STORAGE</> settings for the copied column definitions will be
+      copied only if <literal>INCLUDING STORAGE</literal> is specified.  The
       default behavior is to exclude <literal>STORAGE</> settings, resulting
       in the copied columns in the new table having type-specific default
       settings.  For more on <literal>STORAGE</> settings, see
@@ -538,12 +539,12 @@ CREATE [ [ GLOBAL | LOCAL ] { TEMPORARY | TEMP } | UNLOGGED ] TABLE [ IF NOT EXI
 コピーされた列、制約、インデックスについてのコメントは<literal>INCLUDING COMMENTS</literal>が指定された場合のみコピーされます。
 このデフォルトの動作では、コメントは除外され、新しいテーブルにおけるコピーされた列や制約はコメントを持ちません。
      </para>
-<!--
      <para>
+<!--
       <literal>INCLUDING ALL</literal> is an abbreviated form of
       <literal>INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES INCLUDING STORAGE INCLUDING COMMENTS</literal>.
 -->
-<para><literal>INCLUDING ALL</literal>は<literal>INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES INCLUDING STORAGE INCLUDING COMMENTS</literal>の省略形です。
+<literal>INCLUDING ALL</literal>は<literal>INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES INCLUDING STORAGE INCLUDING COMMENTS</literal>の省略形です。
      </para>
      <para>
 <!--
@@ -553,7 +554,7 @@ CREATE [ [ GLOBAL | LOCAL ] { TEMPORARY | TEMP } | UNLOGGED ] TABLE [ IF NOT EXI
       If the same name is specified explicitly or in another
       <literal>LIKE</literal> clause, an error is signaled.
 -->
-また、<literal>INHERITS</literal>と異なり、<literal>LIKE</>によりコピーされた列や制約は類似の名前の列や制約にまとめられません。
+<literal>INHERITS</literal>と異なり、<literal>LIKE</>によりコピーされた列や制約は類似の名前の列や制約にまとめられません。
 同じ名前が明示的に、あるいは他の<literal>LIKE</literal>句で指定された場合、エラーが通知されます。
      </para>
      <para>
@@ -563,8 +564,8 @@ CREATE [ [ GLOBAL | LOCAL ] { TEMPORARY | TEMP } | UNLOGGED ] TABLE [ IF NOT EXI
       Inapplicable options (e.g., <literal>INCLUDING INDEXES</literal> from
       a view) are ignored.
 -->
-また<literal>LIKE</literal>句をビュー、外部テーブル、複合型から列をコピーするために使用することができます。
-不適切なオプション（ビューからの<literal>INCLUDING INDEXES</literal>など）は無視されます。★変更あり
+また<literal>LIKE</literal>句をビュー、外部テーブル、複合型から列の定義をコピーするために使用することができます。
+適用できないオプション（ビューからの<literal>INCLUDING INDEXES</literal>など）は無視されます。
      </para>
     </listitem>
    </varlistentry>
@@ -2150,16 +2151,22 @@ SQL:1999以降では、異なる構文と意味体系による単一継承を定
   <refsect2>
 <!--
    <title><literal>LIKE</> Clause</title>
+-->
+   <title><literal>LIKE</>句</title>
 
    <para>
+<!--
     While a <literal>LIKE</> clause exists in the SQL standard, many of the
     options that <productname>PostgreSQL</productname> accepts for it are not
     in the standard, and some of the standard's options are not implemented
-    by <productname>PostgreSQL</productname>. ★翻訳が必要
+    by <productname>PostgreSQL</productname>.
+-->
+<literal>LIKE</>句は標準SQLにありますが、<productname>PostgreSQL</productname>で利用可能な多くのオプションは標準にはなく、また標準のオプションの一部は<productname>PostgreSQL</productname>では実装されていません。
    </para>
   </refsect2>
 
   <refsect2>
+<!--
    <title><literal>WITH</> Clause</title>
 -->
    <title><literal>WITH</>句</title>
