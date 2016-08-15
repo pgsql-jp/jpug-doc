@@ -424,15 +424,21 @@
     <indexterm>
      <primary>IS NOT DISTINCT FROM</primary>
     </indexterm>
+<!--
     Ordinary comparison operators yield null (signifying <quote>unknown</>),
     not true or false, when either input is null.  For example,
     <literal>7 = NULL</> yields null, as does <literal>7 &lt;&gt; NULL</>.  When
     this behavior is not suitable, use the
     <literal>IS <optional> NOT </> DISTINCT FROM</literal> constructs:
+-->
+入力のどちらかがNULLの場合、通常の比較演算子は真や偽ではなく（<quote>不明</>を意味する）nullを生成します。
+例えば<literal>7 = NULL</>はnullになります。<literal>7 &lt;&gt; NULL</>も同様です。
+この動作が適切でない場合は、<literal>IS <optional> NOT </> DISTINCT FROM</literal>構文を使用してください。
 <synopsis>
 <replaceable>a</replaceable> IS DISTINCT FROM <replaceable>b</replaceable>
 <replaceable>a</replaceable> IS NOT DISTINCT FROM <replaceable>b</replaceable>
 </synopsis>
+<!--
     For non-null inputs, <literal>IS DISTINCT FROM</literal> is
     the same as the <literal>&lt;&gt;</> operator.  However, if both
     inputs are null it returns false, and if only one input is
@@ -441,6 +447,11 @@
     inputs, but it returns true when both inputs are null, and false when only
     one input is null. Thus, these constructs effectively act as though null
     were a normal data value, rather than <quote>unknown</>.
+-->
+非NULLの入力では、<literal>IS DISTINCT FROM</literal>は<literal>&lt;&gt;</>演算子と同じです。
+しかし、入力がどちらもNULLの場合、これは偽を返し、片方の入力のみがNULLの場合は真を返します。
+同様に、<literal>IS NOT DISTINCT FROM</literal>は非NULL入力では<literal>=</literal>と同じですが、両方の入力がNULLであれば真を、片方のみがNULLの場合は偽を返します。
+このように、これらの構文はNULLを<quote>不明な値</>ではなく、通常の値かのように動作します。
    </para>
 
    <para>
@@ -487,7 +498,7 @@
     and it is not known whether two unknown values are equal.)
 -->
 <literal>NULL</>と<literal>NULL</>とは<quote>等しい</quote>関係にはありませんので、<literal><replaceable>expression</replaceable> = NULL</literal>と記述しては<emphasis>いけません</emphasis>
-（NULL値は不明の値を表しているため、不明な値同士が同じかどうかは識別できません）。★変更点修正済み
+（NULL値は不明の値を表しているため、不明な値同士が同じかどうかは識別できません）。
    </para>
 
   <tip>
@@ -526,10 +537,12 @@
     which will simply check whether the overall row value is null without any
     additional tests on the row fields.
 -->
-非NULLの入力では、<literal>IS DISTINCT FROM</literal>は<literal>&lt;&gt;</>演算子と同じです。
-しかし、入力がどちらもNULLの場合、これは偽を返し、片方の入力のみがNULLの場合は真を返します。
-同様に、<literal>IS NOT DISTINCT FROM</literal>は非NULL入力では<literal>=</literal>と同じですが、両方の入力がNULLであれば真を、片方のみがNULLの場合は偽を返します。
-このように、これらの構文はNULLを<quote>不明な値</>ではなく、通常の値かのように動作します。
+<replaceable>expression</replaceable>が行値の場合、行式自体がNULLまたは、行のフィールドすべてがNULLの場合に<literal>IS NULL</>は真となります。
+一方<literal>IS NOT NULL</>は、行式自体が非NULLかつ、行のフィールドすべてが非NULLの場合に真となります。
+この動作により、<literal>IS NULL</>および<literal>IS NOT NULL</>は行値評価式に対し常に反対の結果を返すわけではありません。
+特に、NULLと非NULLの値の両方を含む行値式はどちらの試験でも偽を返します。
+場合によっては、<replaceable>row</replaceable> <literal>IS DISTINCT FROM NULL</>あるいは<replaceable>row</replaceable> <literal>IS NOT DISTINCT FROM NULL</>と記述する方が望ましいことがあるでしょう。
+これらは単に行全体の値がNULLかどうかを検査し、行のフィールドについての追加的検査を全く行わないからです。
    </para>
 
    <para>
@@ -924,7 +937,7 @@ NULL値が入力されると、<quote>不明</>という論理値として扱わ
 <!--
        <entry>nearest integer greater than or equal to argument</entry>
 -->
-       <entry>引数より小さくない最小の整数 ★変更あり</entry>
+       <entry>引数より大きいか等しく、引数に最も近い整数</entry>
        <entry><literal>ceil(-42.8)</literal></entry>
        <entry><literal>-42</literal></entry>
       </row>
@@ -943,7 +956,7 @@ NULL値が入力されると、<quote>不明</>という論理値として扱わ
 <!--
        <entry>nearest integer greater than or equal to argument (same as <function>ceil</function>)</entry>
 -->
-       <entry>引数より小さくない最小の整数（<function>ceil</function>の別名）★変更あり</entry>
+       <entry>引数より大きいか等しく、引数に最も近い整数（<function>ceil</function>と同じ）</entry>
        <entry><literal>ceiling(-95.3)</literal></entry>
        <entry><literal>-95</literal></entry>
       </row>
@@ -1014,7 +1027,7 @@ NULL値が入力されると、<quote>不明</>という論理値として扱わ
 <!--
        <entry>nearest integer less than or equal to argument</entry>
 -->
-       <entry>引数より大きくない最大の整数 ★変更あり</entry>
+       <entry>引数より小さいか等しく、引数に最も近い整数</entry>
        <entry><literal>floor(-42.8)</literal></entry>
        <entry><literal>-43</literal></entry>
       </row>
@@ -23994,6 +24007,9 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         This mistake will be fixed in a future release.
 -->
 <function>pg_replication_origin_xact_setup()</function>の効果を取り消します。
+2つの引数は<productname>PostgreSQL</> 9.5の開発サイクルにおいて<emphasis>間違って</>導入されてしまったものですが、<function>pg_replication_origin_xact_reset()</function>は実際にはそれらを全く使用しません。
+従って、引数としては<literal>NULL</>を除くどんなダミー値でも安全に指定することができます。
+この誤りは将来のリリースで修正されるでしょう。
        </entry>
       </row>
 
