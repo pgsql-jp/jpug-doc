@@ -2146,46 +2146,66 @@ GET <optional> CURRENT </optional> DIAGNOSTICS <replaceable>variable</replaceabl
      token.  An example:
 -->
 このコマンドによってシステムステータスインジケータを取り出すことができます。
-各<replaceable>item</replaceable>は、指定された変数（これは受け取るために正しいデータ型でなければなりません）に代入されるステータス値を識別するキーワードです。
-現在使用可能なステータス項目は、<acronym>SQL</acronym>エンジンに送信された最終<acronym>SQL</acronym>コマンドにより処理された行数を示す<varname>ROW_COUNT</>、および、最も最近の<acronym>SQL</acronym>コマンドにより挿入された最後の行のOIDを示す<varname>RESULT_OID</>です。
-<varname>RESULT_OID</>はOIDを保有するテーブルへの<command>INSERT</command>コマンドの後でのみ有意であることに注意してください。
-<command>GET DIAGNOSTICS</>では、代入記号（<literal>:=</>）が標準SQLにおける等号（<literal>=</>）の代わりに使用できます。
-以下に例を示します。★変更あり
+<literal>CURRENT</>は無意味な単語です（しかし<xref linkend="plpgsql-exception-diagnostics">の<command>GET STACKED DIAGNOSTICS</command>も参照してください）。
+各<replaceable>item</replaceable>は、指定された<replaceable>variable</replaceable>（これは受け取るために正しいデータ型でなければなりません）に代入されるステータス値を識別するキーワードです。
+現在使用可能なステータス項目は、<xref linkend="plpgsql-current-diagnostics-values">で示されています。
+代入記号（<literal>:=</>）が標準SQLにおける等号（<literal>=</>）の代わりに使用できます。
+以下に例を示します。
 <programlisting>
 GET DIAGNOSTICS integer_var = ROW_COUNT;
 </programlisting>
     </para>
 
      <table id="plpgsql-current-diagnostics-values">
+<!--
       <title>Available Diagnostics Items</title>
+-->
+      <title>使用できるステータス項目</title>
       <tgroup cols="3">
        <thead>
         <row>
+<!--
          <entry>Name</entry>
          <entry>Type</entry>
          <entry>Description</entry>
+-->
+         <entry>名前</entry>
+         <entry>型</entry>
+         <entry>説明</entry>
         </row>
        </thead>
        <tbody>
         <row>
          <entry><varname>ROW_COUNT</varname></entry>
          <entry><type>integer</></entry>
+<!--
          <entry>the number of rows processed by the most
           recent <acronym>SQL</acronym> command</entry>
+-->
+         <entry>最後の<acronym>SQL</acronym>コマンドにより処理された行数</entry>
         </row>
         <row>
          <entry><varname>RESULT_OID</varname></entry>
          <entry><type>oid</></entry>
+<!--
          <entry>the OID of the last row inserted by the most
           recent <acronym>SQL</acronym> command (only useful after
           an <command>INSERT</command> command into a table having
           OIDs)</entry>
+-->
+         <entry>最後の<acronym>SQL</acronym>コマンドにより挿入された最後の行のOID
+        （OIDを持つテーブルへの<command>INSERT</command>コマンドの後でのみ有用です）
+          </entry>
         </row>
         <row>
          <entry><literal>PG_CONTEXT</literal></entry>
          <entry><type>text</></entry>
+<!--
          <entry>line(s) of text describing the current call stack
           (see <xref linkend="plpgsql-call-stack">)</entry>
+-->
+         <entry>現在の呼び出しスタックを記述したテキストの行
+          （<xref linkend="plpgsql-call-stack">を参照）</entry>
         </row>
        </tbody>
       </tgroup>
@@ -4067,7 +4087,7 @@ GET STACKED DIAGNOSTICS <replaceable>variable</replaceable> { = | := } <replacea
          <entry>line(s) of text describing the call stack at the time of the
           exception (see <xref linkend="plpgsql-call-stack">)</entry>
 -->
-<entry>呼び出しスタックを記述するテキストの行 ★変更あり</entry>
+<entry>例外時における呼び出しスタックを記述するテキストの行（<xref linkend="plpgsql-call-stack">を参照）</entry>
         </row>
        </tbody>
       </tgroup>
@@ -4112,7 +4132,7 @@ END;
    <title>Obtaining Execution Location Information</title>
 -->
 
-<title>最新実行情報の取得 ★変更あり</title>
+<title>実行位置情報の取得</title>
    <para>
 <!--
     The <command>GET DIAGNOSTICS</command> command, previously described
@@ -4127,11 +4147,12 @@ END;
     command.  The second and any subsequent lines refer to calling functions
     further up the call stack.  For example:
 -->
-現在、1つの情報項目だけがサポートされています。
-<literal>PG_CONTEXT</>ステータス項目はテキスト文字列を返し、テキストの行数が呼び出しスタックの段数となります。
-最初の行は最新の関数と現在実行中の<command>GET DIAGNOSTICS</command>コマンドを参照します。
+以前、<xref linkend="plpgsql-statements-diagnostics">に記載されていた<command>GET DIAGNOSTICS</command>コマンドは、現在の実行状態に関する情報を取得します（対して、前述の<command>GET STACKED DIAGNOSTICS</command>コマンドは一つ前のエラー時点の実行状態を報告します）。
+これの<literal>PG_CONTEXT</>ステータス項目は現在の実行位置を識別するのに役立ちます。
+<literal>PG_CONTEXT</>は呼び出しスタックを記述したテキスト行を含むテキスト文字列を返します。
+最初の行は現在の関数と現在実行中の<command>GET DIAGNOSTICS</command>コマンドを参照します。
 次行および後の行は、呼び出しスタック上の呼び出し関数を参照します。
-例を示します。 ★変更あり
+例を示します。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION outer_func() RETURNS integer AS $$
@@ -4165,9 +4186,12 @@ CONTEXT:  PL/pgSQL function outer_func() line 3 at RETURN
    </para>
 
    <para>
+<!--
     <literal>GET STACKED DIAGNOSTICS ... PG_EXCEPTION_CONTEXT</literal>
     returns the same sort of stack trace, but describing the location
     at which an error was detected, rather than the current location.
+-->
+    <literal>GET STACKED DIAGNOSTICS ... PG_EXCEPTION_CONTEXT</literal>は同種のスタックトレースを返しますが、現在の位置ではなく、エラーが検出されたところの位置を記述します。
    </para>
   </sect2>
   </sect1>
