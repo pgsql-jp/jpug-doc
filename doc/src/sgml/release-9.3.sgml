@@ -2,46 +2,74 @@
 <!-- See header comment in release.sgml about typical markup -->
 
  <sect1 id="release-9-3-14">
+<!--
   <title>Release 9.3.14</title>
+-->
+  <title>リリース9.3.14</title>
 
   <note>
+<!--
   <title>Release Date</title>
+-->
+  <title>リリース日</title>
   <simpara>2016-08-11</simpara>
   </note>
 
   <para>
+<!--
    This release contains a variety of fixes from 9.3.13.
    For information about new features in the 9.3 major release, see
    <xref linkend="release-9-3">.
+-->
+このリリースは9.3.13に対し、各種不具合を修正したものです。
+9.3メジャーリリースにおける新機能については、<xref linkend="release-9-3">を参照してください。
   </para>
 
   <sect2>
+<!--
    <title>Migration to Version 9.3.14</title>
+-->
+   <title>バージョン9.3.14への移行</title>
 
    <para>
+<!--
     A dump/restore is not required for those running 9.3.X.
+-->
+9.3.Xからの移行ではダンプ/リストアは不要です。
    </para>
 
    <para>
+<!--
     However, if you are upgrading from a version earlier than 9.3.9,
     see <xref linkend="release-9-3-9">.
+-->
+また、9.3.9よりも前のバージョンからアップグレードする場合には、<xref linkend="release-9-3-9">を参照してください。
    </para>
 
   </sect2>
 
   <sect2>
+<!--
    <title>Changes</title>
+-->
+   <title>変更点</title>
 
    <itemizedlist>
 
     <listitem>
      <para>
+<!--
       Fix possible mis-evaluation of
       nested <literal>CASE</>-<literal>WHEN</> expressions (Heikki
       Linnakangas, Michael Paquier, Tom Lane)
+-->
+入れ子になった<literal>CASE</>-<literal>WHEN</>式誤評価のおそれがあり、
+修正されました。
+(Heikki Linnakangas, Michael Paquier, Tom Lane)
      </para>
 
      <para>
+<!--
       A <literal>CASE</> expression appearing within the test value
       subexpression of another <literal>CASE</> could become confused about
       whether its own test value was null or not.  Also, inlining of a SQL
@@ -51,30 +79,49 @@
       SQL function's body.  If the test values were of different data
       types, a crash might result; moreover such situations could be abused
       to allow disclosure of portions of server memory.  (CVE-2016-5423)
+-->
+他の<literal>CASE</>のテスト値の副式内に現れる<literal>CASE</>式が、
+自身のテスト値がnullであるかどうかを取り違える可能性がありました。
+そのうえ、<literal>CASE</>式で使われている等価演算子を実装しているSQL関数のインライン化が、SQL関数本体で<literal>CASE</>式内で呼ばれる関数に誤ったテスト値を渡す原因となる可能性がありました。
+テスト値が異なるデータ型の場合にはクラッシュに至るおそれがあり、さらにそのような状況をサーバメモリの一部を暴露できるように悪用されるおそれがありました。
+(CVE-2016-5423)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix client programs' handling of special characters in database and
       role names (Noah Misch, Nathan Bossart, Michael Paquier)
+-->
+データベース名とロール名についてクライアントプログラムの特殊文字の扱いを修正しました。
+(Noah Misch, Nathan Bossart, Michael Paquier)
      </para>
 
      <para>
+<!--
       Numerous places in <application>vacuumdb</> and other client programs
       could become confused by database and role names containing double
       quotes or backslashes.  Tighten up quoting rules to make that safe.
       Also, ensure that when a conninfo string is used as a database name
       parameter to these programs, it is correctly treated as such throughout.
+-->
+<application>vacuumdb</>他、各種クライアントプログラムの多数の箇所が、ダブルクオートやバックスラッシュを含むデータベース名やロール名で混乱するおそれがありました。
+これを安全にするためクオート規則を厳格にしました。
+そのうえ、conninfo文字列がこれらプログラムむけにデータベース名パラメータとして使われている場合に、全て確実にそのように正しく扱われるようにしました。
      </para>
 
      <para>
+<!--
       Fix handling of paired double quotes
       in <application>psql</>'s <command>\connect</>
       and <command>\password</> commands to match the documentation.
+-->
+<application>psql</>の<command>\connect</>コマンド、<command>\password</>コマンドにて、二つ組ダブルクオートの扱いをドキュメントと一致するように修正しました。
      </para>
 
      <para>
+<!--
       Introduce a new <option>-reuse-previous</> option
       in <application>psql</>'s <command>\connect</> command to allow
       explicit control of whether to re-use connection parameters from a
@@ -82,31 +129,48 @@
       the database name looks like a conninfo string, as before.)  This
       allows secure handling of database names containing special
       characters in <application>pg_dumpall</> scripts.
+-->
+<application>psql</>の<command>\connect</>コマンドに、前接続から接続パラメータを再利用するかを明示的に制御できる新たなオプション<option>-reuse-previous</>を導入しました。
+（これが無い場合は従来通りデータベース名がconninfo文字列とみられるかで判断されます。）
+これにより、<application>pg_dumpall</>スクリプトで特殊文字が含まれるデータベース名の安全な取り扱いが可能になります。
      </para>
 
      <para>
+<!--
       <application>pg_dumpall</> now refuses to deal with database and role
       names containing carriage returns or newlines, as it seems impractical
       to quote those characters safely on Windows.  In future we may reject
       such names on the server side, but that step has not been taken yet.
+-->
+改行・復帰の文字をWindowsで安全にクオートするのは現実的と見られないため、これからは<application>pg_dumpall</>はこれら文字を含むデータベース名、ロール名の処理を拒絶します。
+将来このような名前をサーバ側で拒絶するかもしれませんが、その処置は未だ取られていません。
      </para>
 
      <para>
+<!--
       These are considered security fixes because crafted object names
       containing special characters could have been used to execute
       commands with superuser privileges the next time a superuser
       executes <application>pg_dumpall</> or other routine maintenance
       operations.  (CVE-2016-5424)
+-->
+特殊文字を含む作りこまれたオブジェクト名が、次回の<application>pg_dumpall</>などの定期メンテナンス操作にてスーパーユーザ権限でコマンドを実行させるために使われるかもしれないため、これらはセキュリティ修正とみなされます。
+(CVE-2016-5424)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix corner-case misbehaviors for <literal>IS NULL</>/<literal>IS NOT
       NULL</> applied to nested composite values (Andrew Gierth, Tom Lane)
+-->
+入れ子になった複合値に適用される<literal>IS NULL</>/<literal>IS NOT NULL</>の、稀な場合の誤動作を修正しました。
+(Andrew Gierth, Tom Lane)
      </para>
 
      <para>
+<!--
       The SQL standard specifies that <literal>IS NULL</> should return
       TRUE for a row of all null values (thus <literal>ROW(NULL,NULL) IS
       NULL</> yields TRUE), but this is not meant to apply recursively
@@ -115,274 +179,423 @@
       treated the test as recursive (thus producing TRUE in both cases),
       and <filename>contrib/postgres_fdw</> could produce remote queries
       that misbehaved similarly.
+-->
+SQL標準は全てNULL値の行には<literal>IS NULL</>はTRUEを返すべきと明記しています（従って<literal>ROW(NULL,NULL) IS NULL</>はTRUE）。
+しかし、これは再帰的に適用されることを意味しません（従って<literal>ROW(NULL, ROW(NULL,NULL)) IS NULL</>はFALSE）。
+中核となるエグゼキュータではこれを正しく実現していますが、ある種のプランナ最適化がこのテストを再帰的に扱っていました（そのため両ケースでTRUEになる）。
+また、<filename>contrib/postgres_fdw</>がリモート問い合わせで同様の誤動作をする可能性がありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Make the <type>inet</> and <type>cidr</> data types properly reject
       IPv6 addresses with too many colon-separated fields (Tom Lane)
+-->
+多すぎるコロン区切りフィールドを持つIPv6アドレスを<type>inet</>、<type>cidr</>データ型が適切に拒絶するようにしました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Prevent crash in <function>close_ps()</>
       (the <type>point</> <literal>##</> <type>lseg</> operator)
       for NaN input coordinates (Tom Lane)
+-->
+NaN入力座標に対して<function>close_ps()</>（<type>point</> <literal>##</> <type>lseg</>演算子）でのクラッシュを防止しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Make it return NULL instead of crashing.
+-->
+クラッシュするのでなくNULLを返すようにしました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid possible crash in <function>pg_get_expr()</> when inconsistent
       values are passed to it (Michael Paquier, Thomas Munro)
+-->
+一貫性に欠けた値が渡された場合に起こりうる<function>pg_get_expr()</>でのクラッシュを回避しました。
+(Michael Paquier, Thomas Munro)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix several one-byte buffer over-reads in <function>to_number()</>
       (Peter Eisentraut)
+-->
+<function>to_number()</>でのいくつかの1バイトのバッファ超過読み込みを修正しました。
+(Peter Eisentraut)
      </para>
 
      <para>
+<!--
       In several cases the <function>to_number()</> function would read one
       more character than it should from the input string.  There is a
       small chance of a crash, if the input happens to be adjacent to the
       end of memory.
+-->
+いくつかの場合に<function>to_number()</>関数が入力文字列から本来よりも1文字多く読んでいました。
+入力文字列がたまたまメモリ末尾に配置された場合には、クラッシュする小さな可能性があります。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Do not run the planner on the query contained in <literal>CREATE
       MATERIALIZED VIEW</> or <literal>CREATE TABLE AS</>
       when <literal>WITH NO DATA</> is specified (Michael Paquier,
       Tom Lane)
+-->
+<literal>CREATE MATERIALIZED VIEW</>または<literal>CREATE TABLE AS</>に
+含まれる問い合わせは、<literal>WITH NO DATA</>が指定されているとき、プランナを実行しないようにしました。
+(Michael Paquier, Tom Lane)
      </para>
 
      <para>
+<!--
       This avoids some unnecessary failure conditions, for example if a
       stable function invoked by the materialized view depends on a table
       that doesn't exist yet.
+-->
+これは、例えばマテリアライズドビューから呼び出されるSTABLE関数が未だ存在していないテーブルに依存している場合など、不要な失敗条件を回避します。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid unsafe intermediate state during expensive paths
       through <function>heap_update()</> (Masahiko Sawada, Andres Freund)
+-->
+<function>heap_update()</>を通る高価な処理パスの間の安全でない中間状態を回避しました。
+(Masahiko Sawada, Andres Freund)
      </para>
 
      <para>
+<!--
       Previously, these cases locked the target tuple (by setting its XMAX)
       but did not WAL-log that action, thus risking data integrity problems
       if the page were spilled to disk and then a database crash occurred
       before the tuple update could be completed.
+-->
+これまで、これらの場合は対象タプルを（XMAXをセットすることで）ロックしていましたが、その動作をWAL記録していませんでした。
+したがって、ページがディスクに溢れて、それからタプル更新が完了する前にデータベースクラッシュが起きたとき、データ一貫性問題の危険がありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix hint bit update during WAL replay of row locking operations
       (Andres Freund)
+-->
+行ロック操作のWAL再生中のヒントビット更新を修正しました。
+(Andres Freund)
      </para>
 
      <para>
+<!--
       The only known consequence of this problem is that row locks held by
       a prepared, but uncommitted, transaction might fail to be enforced
       after a crash and restart.
+-->
+知られている本問題の影響は、準備されているけれどコミットされていないトランザクションにより保持された行ロックが、クラッシュと再起動の後に適用に失敗するかもしれないことだけです。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid unnecessary <quote>could not serialize access</> errors when
       acquiring <literal>FOR KEY SHARE</> row locks in serializable mode
       (&Aacute;lvaro Herrera)
+-->
+シリアライザブルモードで<literal>FOR KEY SHARE</>行ロックを取得するときの不要な<quote>could not serialize access</>（「直列化アクセスができませんでした」）エラーを回避しました。
+(&Aacute;lvaro Herrera)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid crash in <literal>postgres -C</> when the specified variable
       has a null string value (Michael Paquier)
+-->
+指定された変数がNULL文字列値を持っているときに、<literal>postgres -C</>でのクラッシュを回避しました。
+(Michael Paquier)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Ensure that backends see up-to-date statistics for shared catalogs
       (Tom Lane)
+-->
+バックエンドが共有カタログの最新の統計を確実に見るようにしました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       The statistics collector failed to update the statistics file for
       shared catalogs after a request from a regular backend.  This problem
       was partially masked because the autovacuum launcher regularly makes
       requests that did cause such updates; however, it became obvious with
       autovacuum disabled.
+-->
+統計情報コレクタは通常のバックエンドからの要求の後、共有カタログについて統計ファイルを更新するのに失敗していました。
+自動バキュームランチャーが定常的に要求するため、この問題は部分的に隠されていましたが、自動VACUUMを無効にすると顕在化しました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid redundant writes of the statistics files when multiple
       backends request updates close together (Tom Lane, Tomas Vondra)
+-->
+複数バックエンドがほぼ同時に更新を要求したときの統計ファイルの冗長な書き込みを回避しました。
+(Tom Lane, Tomas Vondra)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid consuming a transaction ID during <command>VACUUM</>
       (Alexander Korotkov)
+-->
+<command>VACUUM</>の間のトランザクションIDの消費を回避しました。
+(Alexander Korotkov)
      </para>
 
      <para>
+<!--
       Some cases in <command>VACUUM</> unnecessarily caused an XID to be
       assigned to the current transaction.  Normally this is negligible,
       but if one is up against the XID wraparound limit, consuming more
       XIDs during anti-wraparound vacuums is a very bad thing.
+-->
+ <command>VACUUM</>は一部ケースで現在トランザクションへの不要なXID割り当てを引き起こしていました。
+通常これは無視してよいものですが、XID周回限度に直面していたなら、周回対策のバキュームの間にさらにXIDを消費することは、甚だ悪い事態です。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid canceling hot-standby queries during <command>VACUUM FREEZE</>
+-->
+<command>VACUUM FREEZE</>中にはホットスタンバイの問い合わせのキャンセルを防ぎます
       (Simon Riggs, &Aacute;lvaro Herrera)
      </para>
 
      <para>
+<!--
       <command>VACUUM FREEZE</> on an otherwise-idle master server could
       result in unnecessary cancellations of queries on its standby
       servers.
+-->
+そうでなければアイドル状態のマスタサーバ上で<command>VACUUM FREEZE</>が動作すると、スタンバイサーバ上の問い合わせを不必要にキャンセルする可能性がありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Prevent possible failure when vacuuming multixact IDs in an
       installation that has been pg_upgrade'd from pre-9.3 (Andrew Gierth,
       &Aacute;lvaro Herrera)
+-->
+9.3より前のバージョンからpg_upgradeを適用したクラスタにおいて、マルチトランザクションIDをバキュームするとき起こりうる失敗を防止しました。
+(Andrew Gierth, &Aacute;lvaro Herrera)
      </para>
 
      <para>
+<!--
       The usual symptom of this bug is errors
       like <quote>MultiXactId <replaceable>NNN</> has not been created
-      yet -- apparent wraparound</quote>.
+      yet &#045;&#045; apparent wraparound</quote>.
+-->
+この障害のよくある症状は<quote>MultiXactId <replaceable>NNN</> has not been created yet -- apparent wraparound</quote>（「マルチトランザクションID NNNは未だ作られていません、周回しているようです」）といったエラーです。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       When a manual <command>ANALYZE</> specifies a column list, don't
       reset the table's <literal>changes_since_analyze</> counter
+-->
+手動<command>ANALYZE</>でカラムリストを指定するとき、テーブルの<literal>changes_since_analyze</>カウンタをリセットしないようにしました。
       (Tom Lane)
      </para>
 
      <para>
+<!--
       If we're only analyzing some columns, we should not prevent routine
       auto-analyze from happening for the other columns.
+-->
+私たちが一部カラムだけをアナライズするとき、他のカラムむけに定常的な自動アナライズが行われるのを妨げるべきではありません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <command>ANALYZE</>'s overestimation of <literal>n_distinct</>
       for a unique or nearly-unique column with many null entries (Tom
       Lane)
+-->
+ユニークもしくはほぼユニークでNULL要素を多数持つカラムに対して、<command>ANALYZE</>の<literal>n_distinct</>の過剰見積もりを修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       The nulls could get counted as though they were themselves distinct
       values, leading to serious planner misestimates in some types of
       queries.
+-->
+NULLが互いに異なる値であるかのように数えられることがあり、いくつかの類型の問い合わせで深刻なプランナの見積もり誤りをもたらしていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Prevent autovacuum from starting multiple workers for the same shared
       catalog (&Aacute;lvaro Herrera)
+-->
+自動VACUUMが複数のワーカを同じ共有カタログのために起動するのを防止しました。
+(&Aacute;lvaro Herrera)
      </para>
 
      <para>
+<!--
       Normally this isn't much of a problem because the vacuum doesn't take
       long anyway; but in the case of a severely bloated catalog, it could
       result in all but one worker uselessly waiting instead of doing
       useful work on other tables.
+-->
+通常このバキュームは何にせよ長時間を要さないため、大した問題にはなりません。
+しかし、ひどく肥大化したカタログの場合、一つを除く全てのワーカが他のテーブルに有益な仕事をする代わりに無駄に待つという結果になりかねません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Prevent infinite loop in GiST index build for geometric columns
       containing NaN component values (Tom Lane)
+-->
+NaNの要素値を含む幾何カラムに対するGiSTインデックス構築で、無限ループを防止しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <filename>contrib/btree_gin</> to handle the smallest
       possible <type>bigint</> value correctly (Peter Eisentraut)
+-->
+<filename>contrib/btree_gin</>がありうる最小の<type>bigint</>値を正しく扱えるように修正しました。
+(Peter Eisentraut)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Teach libpq to correctly decode server version from future servers
       (Peter Eisentraut)
+-->
+libpqが将来のサーバから正しくサーババージョンを解釈するようにしました。
+(Peter Eisentraut)
      </para>
 
      <para>
+<!--
       It's planned to switch to two-part instead of three-part server
       version numbers for releases after 9.6.  Make sure
       that <function>PQserverVersion()</> returns the correct value for
       such cases.
+-->
+9.6の次のリリースから3パートのバージョン番号に代えて、2パートのバージョン番号に切り替えることが計画されています。
+このような場合に<function>PQserverVersion()</>が正しい値を返すことを保証しました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>ecpg</>'s code for <literal>unsigned long long</>
       array elements (Michael Meskes)
+-->
+<application>ecpg</>の<literal>unsigned long long</>配列要素むけコードを修正しました。
+(Michael Meskes)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In <application>pg_dump</> with both <option>-c</> and <option>-C</>
       options, avoid emitting an unwanted <literal>CREATE SCHEMA public</>
       command (David Johnston, Tom Lane)
+-->
+<application>pg_dump</>で<option>-c</>、<option>-C</>の両オプションを伴う場合に、求められていない<literal>CREATE SCHEMA public</>コマンドの出力を回避しました。
+(David Johnston, Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Improve handling of <systemitem>SIGTERM</>/control-C in
       parallel <application>pg_dump</> and <application>pg_restore</> (Tom
       Lane)
+-->
+パラレルの<application>pg_dump</>および<application>pg_restore</>で<systemitem>SIGTERM</>/control-Cの扱いを改善しました。
+ (Tom Lane)
      </para>
 
      <para>
+<!--
       Make sure that the worker processes will exit promptly, and also arrange
       to send query-cancel requests to the connected backends, in case they
       are doing something long-running such as a <command>CREATE INDEX</>.
+-->
+これらが<command>CREATE INDEX</>などの何らか長い実行をしている場合に、ワーカプロセスが必ず速やかに終了し、接続されているバックエンドへの問い合わせキャンセル要求を送信するようにしました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix error reporting in parallel <application>pg_dump</>
       and <application>pg_restore</> (Tom Lane)
+-->
+パラレルの<application>pg_dump</>と<application>pg_restore</>にてエラー報告を修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Previously, errors reported by <application>pg_dump</>
       or <application>pg_restore</> worker processes might never make it to
       the user's console, because the messages went through the master
@@ -391,98 +604,156 @@
       everything to <literal>stderr</>.  In some cases this will result in
       duplicate messages (for instance, if all the workers report a server
       shutdown), but that seems better than no message.
+-->
+これまでは、<application>pg_dump</>や<application>pg_restore</>のワーカプロセスからのエラーメッセージがユーザのコンソールに出力されないことがありました。
+メッセージはマスタプロセスを通して伝達され、マスタプロセスのメッセージ伝搬を妨げるいくつかデッドロックするシナリオがあったためです。
+代わりとして単純に<literal>stderr</>にすべてを出力します。
+いくつかのケースでは重複するメッセージが出力されることになります（例えばすべてのワーカがサーバシャットダウンを報告します）。
+しかし、メッセージが無いよりは良いと思われます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Ensure that parallel <application>pg_dump</>
       or <application>pg_restore</> on Windows will shut down properly
       after an error (Kyotaro Horiguchi)
+-->
+パラレルの<application>pg_dump</>または<application>pg_restore</>がWindows上でエラー後に速やかに終了することを保証しました。
+(Kyotaro Horiguchi)
      </para>
 
      <para>
+<!--
       Previously, it would report the error, but then just sit until
       manually stopped by the user.
+-->
+これまではエラーを報告しますがユーザにより手動で停止されるまで単に止まっていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Make <application>pg_dump</> behave better when built without zlib
       support (Kyotaro Horiguchi)
+-->
+zlibサポート無しでビルドしたときに、<application>pg_dump</>がよりよく振る舞うようにしました。
+(Kyotaro Horiguchi)
      </para>
 
      <para>
+<!--
       It didn't work right for parallel dumps, and emitted some rather
       pointless warnings in other cases.
+-->
+パラレルダンプを正しく処理できず、他の場合でもいくつかのやや見当はずれな警告を出していました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Make <application>pg_basebackup</> accept <literal>-Z 0</> as
       specifying no compression (Fujii Masao)
+-->
+<application>pg_basebackup</>が圧縮無しの指定として<literal>-Z 0</>を受け付けるようにしました。
+(Fujii Masao)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix makefiles' rule for building AIX shared libraries to be safe for
       parallel make (Noah Misch)
+-->
+AIXの共有ライブラリをビルドするMakefileのルールをパラレルmakeで安全になるように修正しました。
+(Noah Misch)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix TAP tests and MSVC scripts to work when build directory's path
       name contains spaces (Michael Paquier, Kyotaro Horiguchi)
+-->
+ビルドディレクトリのパス名が空白文字を含むとき動作するように、TAPテストとMSVCスクリプトを修正しました。
+(Michael Paquier, Kyotaro Horiguchi)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Be more predictable about reporting <quote>statement timeout</>
       versus <quote>lock timeout</> (Tom Lane)
+-->
+<quote>lock timeout</>に対して<quote>statement timeout</>の報告について、より予測可能にしました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       On heavily loaded machines, the regression tests sometimes failed due
       to reporting <quote>lock timeout</> even though the statement timeout
       should have occurred first.
+-->
+負荷の重いマシンでは、ステートメントタイムアウトが先に発生したはずであるのに、<quote>lock timeout</>の報告のためにリグレッションテストがしばしば失敗していました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Make regression tests safe for Danish and Welsh locales (Jeff Janes,
       Tom Lane)
+-->
+デンマーク語、ウェールズ語のロケールについてリグレッションテストを安全にしました。
+(Jeff Janes, Tom Lane)
      </para>
 
      <para>
+<!--
       Change some test data that triggered the unusual sorting rules of
       these locales.
+-->
+これらのロケールの通常と違ったソート規則を働かせる一部データを変更しました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Update our copy of the timezone code to match
       IANA's <application>tzcode</> release 2016c (Tom Lane)
+-->
+タイムゾーンコードのコピーをIANAの<application>tzcode</> release 2016cに適合するように更新しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This is needed to cope with anticipated future changes in the time
       zone data files.  It also fixes some corner-case bugs in coping with
       unusual time zones.
+-->
+これはタイムゾーンデータファイルの予測される将来の変更に対応するために必要です。
+また、通常と異なるタイムゾーンに対応して、いくつかの稀な場合のバグを修正しています。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Update time zone data files to <application>tzdata</> release 2016f
       for DST law changes in Kemerovo and Novosibirsk, plus historical
       corrections for Azerbaijan, Belarus, and Morocco.
+-->
+タイムゾーンデータファイルを<application>tzdata</> release 2016fに更新しました。
+ケメロヴォとノヴォシビルスクの夏時間の変更、アゼルバイジャン、ベラルーシ、およびモロッコの歴史的な修正が含まれます。
      </para>
     </listitem>
 
