@@ -11,7 +11,6 @@
 #include <sys/time.h>
 
 #include "libpq-fe.h"
-#include "pqexpbuffer.h"
 
 /* Use port in the private/dynamic port number range */
 #define DEF_PGUPORT			50432
@@ -424,9 +423,6 @@ void		check_pghost_envvar(void);
 /* util.c */
 
 char	   *quote_identifier(const char *s);
-extern void appendShellString(PQExpBuffer buf, const char *str);
-extern void appendConnStrVal(PQExpBuffer buf, const char *str);
-extern void appendPsqlMetaConnect(PQExpBuffer buf, const char *dbname);
 int			get_user_info(char **user_name_p);
 void		check_ok(void);
 void		report_status(eLogType type, const char *fmt,...) pg_attribute_printf(2, 3);

@@ -476,18 +476,6 @@ build_join_rel(PlannerInfo *root,
 		joinrel->direct_lateral_relids = NULL;
 
 	/*
-	 * add_placeholders_to_joinrel also took care of adding the ph_lateral
-	 * sets of any PlaceHolderVars computed here to direct_lateral_relids, so
-	 * now we can finish computing that.  This is much like the computation of
-	 * the transitively-closed lateral_relids in min_join_parameterization,
-	 * except that here we *do* have to consider the added PHVs.
-	 */
-	joinrel->direct_lateral_relids =
-		bms_del_members(joinrel->direct_lateral_relids, joinrel->relids);
-	if (bms_is_empty(joinrel->direct_lateral_relids))
-		joinrel->direct_lateral_relids = NULL;
-
-	/*
 	 * Construct restrict and join clause lists for the new joinrel. (The
 	 * caller might or might not need the restrictlist, but I need it anyway
 	 * for set_joinrel_size_estimates().)
