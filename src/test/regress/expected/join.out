@@ -4006,43 +4006,40 @@ select d.* from d left join (select distinct * from b) s
 (1 row)
 
 -- join removal is not possible when the GROUP BY contains a column that is
--- not in the join condition
+-- not in the join condition.  (Note: as of 9.6, we notice that b.id is a
+-- primary key and so drop b.c_id from the GROUP BY of the resulting plan;
+-- but this happens too late for join removal in the outer plan level.)
 explain (costs off)
 select d.* from d left join (select * from b group by b.id, b.c_id) s
   on d.a = s.id;
-                 QUERY PLAN                  
----------------------------------------------
- Merge Left Join
-   Merge Cond: (d.a = s.id)
+                QUERY PLAN                
+------------------------------------------
+ Merge Right Join
+   Merge Cond: (b.id = d.a)
+   ->  Group
+         Group Key: b.id
+         ->  Index Scan using b_pkey on b
    ->  Sort
          Sort Key: d.a
          ->  Seq Scan on d
-   ->  Sort
-         Sort Key: s.id
-         ->  Subquery Scan on s
-               ->  HashAggregate
-                     Group Key: b.id, b.c_id
-                     ->  Seq Scan on b
-(11 rows)
+(8 rows)
 
 -- similarly, but keying off a DISTINCT clause
 explain (costs off)
 select d.* from d left join (select distinct * from b) s
   on d.a = s.id;
-                 QUERY PLAN                  
----------------------------------------------
- Merge Left Join
-   Merge Cond: (d.a = s.id)
+              QUERY PLAN              
+--------------------------------------
+ Merge Right Join
+   Merge Cond: (b.id = d.a)
+   ->  Unique
+         ->  Sort
+               Sort Key: b.id, b.c_id
+               ->  Seq Scan on b
    ->  Sort
          Sort Key: d.a
          ->  Seq Scan on d
-   ->  Sort
-         Sort Key: s.id
-         ->  Subquery Scan on s
-               ->  HashAggregate
-                     Group Key: b.id, b.c_id
-                     ->  Seq Scan on b
-(11 rows)
+(9 rows)
 
 -- check join removal works when uniqueness of the join condition is enforced
 -- by a UNION
@@ -4743,24 +4740,24 @@ select v.* from
   lateral (select x.q1,y.q1 union all select x.q2,y.q2) v(vx,vy);
         vx         |        vy         
 -------------------+-------------------
-               123 |                  
-               456 |                  
-               123 |  4567890123456789
-  4567890123456789 | -4567890123456789
-               123 |  4567890123456789
-  4567890123456789 |  4567890123456789
-               123 |  4567890123456789
-  4567890123456789 |               123
-  4567890123456789 |               123
-               123 |  4567890123456789
   4567890123456789 |               123
                123 |               456
-  4567890123456789 |  4567890123456789
-  4567890123456789 | -4567890123456789
-  4567890123456789 |  4567890123456789
-  4567890123456789 |  4567890123456789
+  4567890123456789 |               123
+               123 |  4567890123456789
   4567890123456789 |  4567890123456789
   4567890123456789 |               123
+               123 |  4567890123456789
+  4567890123456789 |               123
+  4567890123456789 |  4567890123456789
+  4567890123456789 |  4567890123456789
+               123 |  4567890123456789
+  4567890123456789 |  4567890123456789
+  4567890123456789 |  4567890123456789
+  4567890123456789 | -4567890123456789
+               123 |  4567890123456789
+  4567890123456789 | -4567890123456789
+               123 |                  
+               456 |                  
   4567890123456789 |                  
  -4567890123456789 |                  
 (20 rows)
@@ -4774,24 +4771,24 @@ select v.* from
   lateral (select x.q1,y.q1 from dual union all select x.q2,y.q2 from dual) v(vx,vy);
         vx         |        vy         
 -------------------+-------------------
-               123 |                  
-               456 |                  
-               123 |  4567890123456789
-  4567890123456789 | -4567890123456789
-               123 |  4567890123456789
-  4567890123456789 |  4567890123456789
-               123 |  4567890123456789
-  4567890123456789 |               123
-  4567890123456789 |               123
-               123 |  4567890123456789
   4567890123456789 |               123
                123 |               456
-  4567890123456789 |  4567890123456789
-  4567890123456789 | -4567890123456789
-  4567890123456789 |  4567890123456789
-  4567890123456789 |  4567890123456789
+  4567890123456789 |               123
+               123 |  4567890123456789
   4567890123456789 |  4567890123456789
   4567890123456789 |               123
+               123 |  4567890123456789
+  4567890123456789 |               123
+  4567890123456789 |  4567890123456789
+  4567890123456789 |  4567890123456789
+               123 |  4567890123456789
+  4567890123456789 |  4567890123456789
+  4567890123456789 |  4567890123456789
+  4567890123456789 | -4567890123456789
+               123 |  4567890123456789
+  4567890123456789 | -4567890123456789
+               123 |                  
+               456 |                  
   4567890123456789 |                  
  -4567890123456789 |                  
 (20 rows)
@@ -5187,6 +5184,63 @@ select * from
 ----+------+----
   0 | 9998 |  0
 (1 row)
+
+-- check proper extParam/allParam handling (this isn't exactly a LATERAL issue,
+-- but we can make the test case much more compact with LATERAL)
+explain (verbose, costs off)
+select * from (values (0), (1)) v(id),
+lateral (select * from int8_tbl t1,
+         lateral (select * from
+                    (select * from int8_tbl t2
+                     where q1 = any (select q2 from int8_tbl t3
+                                     where q2 = (select greatest(t1.q1,t2.q2))
+                                       and (select v.id=0)) offset 0) ss2) ss
+         where t1.q1 = ss.q2) ss0;
+                           QUERY PLAN                            
+-----------------------------------------------------------------
+ Nested Loop
+   Output: "*VALUES*".column1, t1.q1, t1.q2, ss2.q1, ss2.q2
+   ->  Seq Scan on public.int8_tbl t1
+         Output: t1.q1, t1.q2
+   ->  Nested Loop
+         Output: "*VALUES*".column1, ss2.q1, ss2.q2
+         ->  Values Scan on "*VALUES*"
+               Output: "*VALUES*".column1
+         ->  Subquery Scan on ss2
+               Output: ss2.q1, ss2.q2
+               Filter: (t1.q1 = ss2.q2)
+               ->  Seq Scan on public.int8_tbl t2
+                     Output: t2.q1, t2.q2
+                     Filter: (SubPlan 3)
+                     SubPlan 3
+                       ->  Result
+                             Output: t3.q2
+                             One-Time Filter: $4
+                             InitPlan 1 (returns $2)
+                               ->  Result
+                                     Output: GREATEST($0, t2.q2)
+                             InitPlan 2 (returns $4)
+                               ->  Result
+                                     Output: ($3 = 0)
+                             ->  Seq Scan on public.int8_tbl t3
+                                   Output: t3.q1, t3.q2
+                                   Filter: (t3.q2 = $2)
+(27 rows)
+
+select * from (values (0), (1)) v(id),
+lateral (select * from int8_tbl t1,
+         lateral (select * from
+                    (select * from int8_tbl t2
+                     where q1 = any (select q2 from int8_tbl t3
+                                     where q2 = (select greatest(t1.q1,t2.q2))
+                                       and (select v.id=0)) offset 0) ss2) ss
+         where t1.q1 = ss.q2) ss0;
+ id |        q1        |        q2         |        q1        |        q2        
+----+------------------+-------------------+------------------+------------------
+  0 | 4567890123456789 |               123 | 4567890123456789 | 4567890123456789
+  0 | 4567890123456789 |  4567890123456789 | 4567890123456789 | 4567890123456789
+  0 | 4567890123456789 | -4567890123456789 | 4567890123456789 | 4567890123456789
+(3 rows)
 
 -- test some error cases where LATERAL should have been used but wasn't
 select f1,g from int4_tbl a, (select f1 as g) ss;

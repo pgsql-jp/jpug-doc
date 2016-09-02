@@ -114,6 +114,7 @@ typedef struct CustomPath
     by <literal>nodeToString</>, so that debugging routines that attempt to
     print the custom path will work as designed.  <structfield>methods</> must
     point to a (usually statically allocated) object implementing the required
+<<<<<<< HEAD
     custom path methods, of which there are currently only two, as further
     detailed below.
 -->
@@ -127,6 +128,12 @@ typedef struct CustomPath
 そうすることで、カスタムパスを出力するデバッグルーチンが設計通りに動作します。
 <structfield>methods</>は要求されるカスタムパスのメソッドのオブジェクト（通常は静的に割り当てられる）を指している必要があります。
 メソッドは以下で詳細に説明する通り、現在は2つだけあるうちの1つとなります。
+=======
+    custom path methods, of which there is currently only one.  The
+    <structfield>LibraryName</> and <structfield>SymbolName</> fields must also
+    be initialized so that the dynamic loader can resolve them to locate the
+    method table.
+>>>>>>> REL9_6_RC1
   </para>
 
   <para>
@@ -183,6 +190,7 @@ Plan *(*PlanCustomPath) (PlannerInfo *root,
 戻り値は一般的には<literal>CustomScan</>オブジェクトで、その領域はコールバックが割り当てて初期化しなければなりません。
 詳しくは<xref linkend="custom-scan-plan">を参照してください。
    </para>
+<<<<<<< HEAD
 
    <para>
 <programlisting>
@@ -201,6 +209,8 @@ void (*TextOutCustomPath) (StringInfo str,
 このコールバックは必須ではありません。
 <function>nodeToString</>は、<structfield>custom_private</>を含め、それが見ることができる構造体のすべてのフィールドを自動的にダンプするため、これは<structname>CustomPath</>が、追加フィールドを含むより大きな構造体に組み込まれている時にのみ役に立ちます。
    </para>
+=======
+>>>>>>> REL9_6_RC1
   </sect2>
  </sect1>
 
@@ -323,6 +333,7 @@ Node *(*CreateCustomScanState) (CustomScan *cscan);
 戻り値では、ノードのタグと<structfield>methods</>が適切に設定されている必要がありますが、その他のフィールドはこの段階ではゼロのままになっています。
 <function>ExecInitCustomScan</>が基本的な初期化をした後、<function>BeginCustomScan</>コールバックが呼び出されることで、カスタムスキャンプロバイダがその他の必要なことを実行する機会が与えられます。
    </para>
+<<<<<<< HEAD
 
    <para>
 <programlisting>
@@ -340,6 +351,8 @@ void (*TextOutCustomScan) (StringInfo str,
 このコールバックは必須ではありません。
 <function>nodeToString</>は<quote>custom</>フィールドの下位構造を含め、構造体のすべてのフィールドを自動的にダンプするので、通常はこのコールバックの必要性は高くありません。
    </para>
+=======
+>>>>>>> REL9_6_RC1
   </sect2>
  </sect1>
 
@@ -368,7 +381,10 @@ typedef struct CustomScanState
   </para>
 
   <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL9_6_RC1
    <structfield>ss</> is initialized as for any other scan state,
    except that if the scan is for a join rather than a base relation,
    <literal>ss.ss_currentRelation</> is left NULL.
@@ -473,6 +489,43 @@ void (*RestrPosCustomScan) (CustomScanState *node);
 -->
 <function>MarkPosCustomScan</>コールバックで保存された以前のスキャン位置をリストアします。
 このコールバックは必須ではなく、<literal>CUSTOMPATH_SUPPORT_MARK_RESTORE</>フラグがセットされている場合にのみ、提供する必要があります。
+   </para>
+
+   <para>
+<programlisting>
+Size (*EstimateDSMCustomScan) (CustomScanState *node,
+                               ParallelContext *pcxt);
+</programlisting>
+    Estimate the amount of dynamic shared memory that will be required
+    for parallel operation.  This may be higher than the amount that will
+    actually be used, but it must not be lower.  The return value is in bytes.
+    This callback is optional, and need only be supplied if this custom
+    scan provider supports parallel execution.
+   </para>
+
+   <para>
+<programlisting>
+void (*InitializeDSMCustomScan) (CustomScanState *node,
+                                 ParallelContext *pcxt,
+                                 void *coordinate);
+</programlisting>
+    Initialize the dynamic shared memory that will be required for parallel
+    operation; <literal>coordinate</> points to an amount of allocated space
+    equal to the return value of <function>EstimateDSMCustomScan</>.
+    This callback is optional, and need only be supplied if this custom
+    scan provider supports parallel execution.
+   </para>
+
+   <para>
+<programlisting>
+void (*InitializeWorkerCustomScan) (CustomScanState *node,
+                                    shm_toc *toc,
+                                    void *coordinate);
+</programlisting>
+    Initialize a parallel worker's custom state based on the shared state
+    set up in the leader by <literal>InitializeDSMCustomScan</>.
+    This callback is optional, and needs only be supplied if this
+    custom path supports parallel execution.
    </para>
 
    <para>

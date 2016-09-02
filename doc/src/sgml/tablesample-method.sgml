@@ -1,6 +1,7 @@
 <!-- doc/src/sgml/tablesample-method.sgml -->
 
 <chapter id="tablesample-method">
+<<<<<<< HEAD
 <!--
  <title>Writing A Table Sampling Method</title>
 -->
@@ -11,6 +12,16 @@
   <primary>table sampling method</primary>
 -->
   <primary>テーブルサンプリングメソッド</primary>
+=======
+ <title>Writing A Table Sampling Method</title>
+
+ <indexterm zone="tablesample-method">
+  <primary>table sampling method</primary>
+ </indexterm>
+
+ <indexterm zone="tablesample-method">
+  <primary><literal>TABLESAMPLE</literal> method</primary>
+>>>>>>> REL9_6_RC1
  </indexterm>
 
  <indexterm zone="tablesample-method">
@@ -126,6 +137,7 @@ method_name(internal) RETURNS tsm_handler
  </variablelist>
 
  <para>
+<<<<<<< HEAD
 <!--
   The <type>TsmRoutine</> struct type is declared
   in <filename>src/include/access/tsmapi.h</>, which see for additional
@@ -157,13 +169,109 @@ method_name(internal) RETURNS tsm_handler
 
   <para>
 <!--
+=======
+  <productname>PostgreSQL</>'s implementation of the <literal>TABLESAMPLE</>
+  clause supports custom table sampling methods, in addition to
+  the <literal>BERNOULLI</> and <literal>SYSTEM</> methods that are required
+  by the SQL standard.  The sampling method determines which rows of the
+  table will be selected when the <literal>TABLESAMPLE</> clause is used.
+ </para>
+
+ <para>
+  At the SQL level, a table sampling method is represented by a single SQL
+  function, typically implemented in C, having the signature
+<programlisting>
+method_name(internal) RETURNS tsm_handler
+</programlisting>
+  The name of the function is the same method name appearing in the
+  <literal>TABLESAMPLE</> clause.  The <type>internal</> argument is a dummy
+  (always having value zero) that simply serves to prevent this function from
+  being called directly from a SQL command.
+  The result of the function must be a palloc'd struct of
+  type <type>TsmRoutine</>, which contains pointers to support functions for
+  the sampling method.  These support functions are plain C functions and
+  are not visible or callable at the SQL level.  The support functions are
+  described in <xref linkend="tablesample-support-functions">.
+ </para>
+
+ <para>
+  In addition to function pointers, the <type>TsmRoutine</> struct must
+  provide these additional fields:
+ </para>
+
+ <variablelist>
+  <varlistentry>
+   <term><literal>List *parameterTypes</literal></term>
+   <listitem>
+    <para>
+     This is an OID list containing the data type OIDs of the parameter(s)
+     that will be accepted by the <literal>TABLESAMPLE</> clause when this
+     sampling method is used.  For example, for the built-in methods, this
+     list contains a single item with value <literal>FLOAT4OID</>, which
+     represents the sampling percentage.  Custom sampling methods can have
+     more or different parameters.
+    </para>
+   </listitem>
+  </varlistentry>
+
+  <varlistentry>
+   <term><literal>bool repeatable_across_queries</literal></term>
+   <listitem>
+    <para>
+     If <literal>true</>, the sampling method can deliver identical samples
+     across successive queries, if the same parameters
+     and <literal>REPEATABLE</> seed value are supplied each time and the
+     table contents have not changed.  When this is <literal>false</>,
+     the <literal>REPEATABLE</> clause is not accepted for use with the
+     sampling method.
+    </para>
+   </listitem>
+  </varlistentry>
+
+  <varlistentry>
+   <term><literal>bool repeatable_across_scans</literal></term>
+   <listitem>
+    <para>
+     If <literal>true</>, the sampling method can deliver identical samples
+     across successive scans in the same query (assuming unchanging
+     parameters, seed value, and snapshot).
+     When this is <literal>false</>, the planner will not select plans that
+     would require scanning the sampled table more than once, since that
+     might result in inconsistent query output.
+    </para>
+   </listitem>
+  </varlistentry>
+ </variablelist>
+
+ <para>
+  The <type>TsmRoutine</> struct type is declared
+  in <filename>src/include/access/tsmapi.h</>, which see for additional
+  details.
+ </para>
+
+ <para>
+  The table sampling methods included in the standard distribution are good
+  references when trying to write your own.  Look into
+  the <filename>src/backend/access/tablesample</> subdirectory of the source
+  tree for the built-in sampling methods, and into the <filename>contrib</>
+  subdirectory for add-on methods.
+ </para>
+
+ <sect1 id="tablesample-support-functions">
+  <title>Sampling Method Support Functions</title>
+
+  <para>
+>>>>>>> REL9_6_RC1
    The TSM handler function returns a palloc'd <type>TsmRoutine</> struct
    containing pointers to the support functions described below.  Most of
    the functions are required, but some are optional, and those pointers can
    be NULL.
+<<<<<<< HEAD
 -->
 TSMハンドラ関数は、以下に示すサポート関数へのポインタを含むpallocされた<type>TsmRoutine</>構造体を返します。
 大半の関数は必須ですが、いくつかオプションのものがあり、そうした関数へのポインタはNULLにできます。
+=======
+>>>>>>> REL9_6_RC1
   </para>
 
   <para>
@@ -176,7 +284,10 @@ SampleScanGetSampleSize (PlannerInfo *root,
                          double *tuples);
 </programlisting>
 
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL9_6_RC1
    This function is called during planning.  It must estimate the number of
    relation pages that will be read during a sample scan, and the number of
    tuples that will be selected by the scan.  (For example, these might be
@@ -191,6 +302,7 @@ SampleScanGetSampleSize (PlannerInfo *root,
    be reduced, and it should not fail even if the values appear invalid
    (remember that they're only estimates of what the run-time values will be).
    The <literal>pages</> and <literal>tuples</> parameters are outputs.
+<<<<<<< HEAD
 -->
 この関数はプランニングの際に呼び出されます。
 サンプルスキャン中に読み出すリレーションのページ数と、スキャン中に選択されるタプル行数の見積もりを行わなければなりません。
@@ -199,6 +311,8 @@ SampleScanGetSampleSize (PlannerInfo *root,
 見積のためにその推測値が必要なら、<function>estimate_expression_value()</>を使ってこれらの式を定数に簡約化してみることをおすすめします。
 ただし、関数は簡約化ができない場合でもサイズに関する見積は提供しなければなりませんし、値が正しくない場合でも関数がエラーになってはいけません(推測値は、実行時には値がそうなるであろうということに過ぎないことを思い出してください)。
 <literal>pages</>と<literal>tuples</>パラメータは出力です。
+=======
+>>>>>>> REL9_6_RC1
   </para>
 
   <para>
@@ -208,7 +322,10 @@ InitSampleScan (SampleScanState *node,
                 int eflags);
 </programlisting>
 
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL9_6_RC1
    Initialize for execution of a SampleScan plan node.
    This is called during executor startup.
    It should perform any initialization needed before processing can start.
@@ -223,6 +340,7 @@ InitSampleScan (SampleScanState *node,
    up yet).
    <literal>eflags</> contains flag bits describing the executor's
    operating mode for this plan node.
+<<<<<<< HEAD
 -->
 SampleScan計画ノードを実行するための初期化を行います。
 この関数はエグゼキュータの起動時に呼び出されます。
@@ -236,10 +354,16 @@ SampleScan計画ノードを実行するための初期化を行います。
 
   <para>
 <!--
+=======
+  </para>
+
+  <para>
+>>>>>>> REL9_6_RC1
    When <literal>(eflags &amp; EXEC_FLAG_EXPLAIN_ONLY)</> is true,
    the scan will not actually be performed, so this function should only do
    the minimum required to make the node state valid for <command>EXPLAIN</>
    and <function>EndSampleScan</>.
+<<<<<<< HEAD
 -->
 <literal>(eflags &amp; EXEC_FLAG_EXPLAIN_ONLY)</>が真ならば、スキャンは実際には行われず、この関数は<command>EXPLAIN</>と<function>EndSampleScan</>にとってノードの状態が意味のあるように最低限必要な処理を行うことになります。
   </para>
@@ -251,6 +375,14 @@ SampleScan計画ノードを実行するための初期化を行います。
    by the sampling method.
 -->
 この関数は(ポインタをNULLにすることにより)省略できますが、この場合、<function>BeginSampleScan</>がサンプリングメソッドに必要なすべての初期化を行なわなければなりません。
+=======
+  </para>
+
+  <para>
+   This function can be omitted (set the pointer to NULL), in which case
+   <function>BeginSampleScan</> must perform all initialization needed
+   by the sampling method.
+>>>>>>> REL9_6_RC1
   </para>
 
   <para>
@@ -262,7 +394,10 @@ BeginSampleScan (SampleScanState *node,
                  uint32 seed);
 </programlisting>
 
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL9_6_RC1
    Begin execution of a sampling scan.
    This is called just before the first attempt to fetch a tuple, and
    may be called again if the scan needs to be restarted.
@@ -279,6 +414,7 @@ BeginSampleScan (SampleScanState *node,
    within the sampling method; it is either a hash derived from the
    <literal>REPEATABLE</> value if one was given, or the result
    of <literal>random()</> if not.
+<<<<<<< HEAD
 -->
 サンプルスキャンの実行を開始します。
 これははじめてタプルを取得する直前に呼び出されます。
@@ -293,6 +429,11 @@ BeginSampleScan (SampleScanState *node,
 
   <para>
 <!--
+=======
+  </para>
+
+  <para>
+>>>>>>> REL9_6_RC1
    This function may adjust the fields <literal>node-&gt;use_bulkread</>
    and <literal>node-&gt;use_pagemode</>.
    If <literal>node-&gt;use_bulkread</> is <literal>true</>, which it is by
@@ -307,6 +448,7 @@ BeginSampleScan (SampleScanState *node,
    tuples on each visited page.  That will result in fewer tuple visibility
    checks being performed, though each one will be more expensive because it
    will require more locking.
+<<<<<<< HEAD
 -->
 この関数は<literal>node-&gt;use_bulkread</>と<literal>node-&gt;use_pagemode</>フィールドによって動作を変更します
 <literal>node-&gt;use_bulkread</>が<literal>true</>なら(これはデフォルトです)、スキャンは使用後のバッファの再利用を推奨するバッファアクセス戦略を使います。
@@ -320,16 +462,24 @@ BeginSampleScan (SampleScanState *node,
 
   <para>
 <!--
+=======
+  </para>
+
+  <para>
+>>>>>>> REL9_6_RC1
    If the sampling method is
    marked <literal>repeatable_across_scans</literal>, it must be able to
    select the same set of tuples during a rescan as it did originally, that is
    a fresh call of <function>BeginSampleScan</> must lead to selecting the
    same tuples as before (if the <literal>TABLESAMPLE</> parameters
    and seed don't change).
+<<<<<<< HEAD
 -->
 サンプリングメソッドに<literal>repeatable_across_scans</literal>という印があれば、最初にスキャンした時と同じタプルの集合を、再スキャンでも選択できることになります。
 つまり、新しい<function>BeginSampleScan</>が、前回と同じタプルを選択することになるわけです。
 (もし<literal>TABLESAMPLE</>の引数とシードが変わらなければ、の話ですが)
+=======
+>>>>>>> REL9_6_RC1
   </para>
 
   <para>
@@ -338,6 +488,7 @@ BlockNumber
 NextSampleBlock (SampleScanState *node);
 </programlisting>
 
+<<<<<<< HEAD
 <!--
    Returns the block number of the next page to be scanned, or
    <literal>InvalidBlockNumber</> if no pages remain to be scanned.
@@ -348,15 +499,25 @@ NextSampleBlock (SampleScanState *node);
 
   <para>
 <!--
+=======
+   Returns the block number of the next page to be scanned, or
+   <literal>InvalidBlockNumber</> if no pages remain to be scanned.
+  </para>
+
+  <para>
+>>>>>>> REL9_6_RC1
    This function can be omitted (set the pointer to NULL), in which case
    the core code will perform a sequential scan of the entire relation.
    Such a scan can use synchronized scanning, so that the sampling method
    cannot assume that the relation pages are visited in the same order on
    each scan.
+<<<<<<< HEAD
 -->
 この関数は(ポインタをNULLにすることにより)省略できます。
 この場合コアのコードはリレーション全体を順スキャンします。
 そのようなスキャンは同期スキャンを行う可能性があるので、毎回のスキャンで同じ順番でリレーションのページをアクセスするとは、サンプリングメソッドは仮定できません。
+=======
+>>>>>>> REL9_6_RC1
   </para>
 
   <para>
@@ -367,20 +528,29 @@ NextSampleTuple (SampleScanState *node,
                  OffsetNumber maxoffset);
 </programlisting>
 
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL9_6_RC1
    Returns the offset number of the next tuple to be sampled on the
    specified page, or <literal>InvalidOffsetNumber</> if no tuples remain to
    be sampled.  <literal>maxoffset</> is the largest offset number in use
    on the page.
+<<<<<<< HEAD
 -->
 サンプル対象の指定ページ内の次のタプルのオフセットを返します。
 サンプル対象のタプルが残っていない場合は、<literal>InvalidOffsetNumber</>を返します。
 <literal>maxoffset</>は、使用中のページ中の最大オフセットです。
+=======
+>>>>>>> REL9_6_RC1
   </para>
 
   <note>
    <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL9_6_RC1
     <function>NextSampleTuple</> is not explicitly told which of the offset
     numbers in the range <literal>1 .. maxoffset</> actually contain valid
     tuples.  This is not normally a problem since the core code ignores
@@ -389,18 +559,24 @@ NextSampleTuple (SampleScanState *node,
     examine <literal>node-&gt;ss.ss_currentScanDesc-&gt;rs_vistuples[]</>
     to identify which tuples are valid and visible.  (This
     requires <literal>node-&gt;use_pagemode</> to be <literal>true</>.)
+<<<<<<< HEAD
 -->
 <function>NextSampleTuple</>は、範囲<literal>1 .. maxoffset</>の中のどのオフセット番号が有効なタプルにあたるのかは明示的には教えてもらえません。
 通常コアのコードは、存在しない、あるいは不可視のタプルは無視するため、通常はこれは問題になりません。
 サンプルの偏りも起きません。
 それでも必要ならば、関数は<literal>node-&gt;ss.ss_currentScanDesc-&gt;rs_vistuples[]</>を調べ、どのタプルが有効で可視なのかを調べることもできます(このためには<literal>node-&gt;use_pagemode</>が<literal>true</>である必要があります)。
 
+=======
+>>>>>>> REL9_6_RC1
    </para>
   </note>
 
   <note>
    <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL9_6_RC1
     <function>NextSampleTuple</> must <emphasis>not</> assume
     that <literal>blockno</> is the same page number returned by the most
     recent <function>NextSampleBlock</> call.  It was returned by some
@@ -410,10 +586,13 @@ NextSampleTuple (SampleScanState *node,
     sampling of a given page begins, successive <function>NextSampleTuple</>
     calls all refer to the same page until <literal>InvalidOffsetNumber</> is
     returned.
+<<<<<<< HEAD
 -->
 <function>NextSampleTuple</>は、直近の<function>NextSampleBlock</>の呼び出しが返したページ番号と<literal>blockno</>が同じであると見なすべきでは<emphasis>ありません</>。
 ページ番号は、以前の<function>NextSampleBlock</>の呼び出しが返したものではありますが、コアのコードは、先読みのために実際のスキャンに先立って<function>NextSampleBlock</>を呼び出すことが認められています。
 一旦あるページのサンプリングが開始すれば、<literal>InvalidOffsetNumber</>が返るまでは、続く<function>NextSampleTuple</>に呼び出しがすべて同じページを参照すると見なすことは問題ありません。
+=======
+>>>>>>> REL9_6_RC1
    </para>
   </note>
 
@@ -423,16 +602,22 @@ void
 EndSampleScan (SampleScanState *node);
 </programlisting>
 
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL9_6_RC1
    End the scan and release resources.  It is normally not important
    to release palloc'd memory, but any externally-visible resources
    should be cleaned up.
    This function can be omitted (set the pointer to NULL) in the common
    case where no such resources exist.
+<<<<<<< HEAD
 -->
 スキャンを終了し、リソースを解放します。
 通常pallocされたメモリを解放するのは重要なことではありませんが、外部から見えるリソースはすべて解放しなければなりません。
 そのようなリソースが存在しない場合は、この関数は(ポインタをNULLにすることにより)省略できます。
+=======
+>>>>>>> REL9_6_RC1
   </para>
 
  </sect1>

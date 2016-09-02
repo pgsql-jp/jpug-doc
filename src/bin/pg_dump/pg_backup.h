@@ -23,7 +23,7 @@
 #ifndef PG_BACKUP_H
 #define PG_BACKUP_H
 
-#include "dumputils.h"
+#include "fe_utils/simple_list.h"
 #include "libpq-fe.h"
 
 
@@ -75,6 +75,7 @@ typedef struct _restoreOptions
 	int			column_inserts;
 	int			if_exists;
 	int			no_security_labels;		/* Skip security label entries */
+	int			strict_names;
 
 	const char *filename;
 	int			dataOnly;

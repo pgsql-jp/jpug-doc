@@ -376,11 +376,12 @@ SELECT 'fat &amp; cow'::tsquery @@ 'a fat cat sat on a mat and ate a fat rat'::t
     As the above example suggests, a <type>tsquery</type> is not just raw
     text, any more than a <type>tsvector</type> is.  A <type>tsquery</type>
     contains search terms, which must be already-normalized lexemes, and
-    may combine multiple terms using AND, OR, and NOT operators.
-    (For details see <xref linkend="datatype-textsearch">.)  There are
-    functions <function>to_tsquery</> and <function>plainto_tsquery</>
+    may combine multiple terms using AND, OR, NOT, and FOLLOWED BY operators.
+    (For details see <xref linkend="datatype-tsquery">.)  There are
+    functions <function>to_tsquery</>, <function>plainto_tsquery</>,
+    and <function>phraseto_tsquery</>
     that are helpful in converting user-written text into a proper
-    <type>tsquery</type>, for example by normalizing words appearing in
+    <type>tsquery</type>, primarily by normalizing words appearing in
     the text.  Similarly, <function>to_tsvector</> is used to parse and
     normalize a document string.  So in practice a text search match would
     look more like this:
@@ -446,6 +447,68 @@ text @@ text
 最初の2つについてはすでに説明しました。
 <type>text</type> <literal>@@</literal> <type>tsquery</type>という形式は、<literal>to_tsvector(x) @@ y</literal>と同じです。
 <type>text</type> <literal>@@</literal> <type>text</type>という形式は、<literal>to_tsvector(x) @@plainto_tsquery(y)</literal>と同じです。
+   </para>
+
+   <para>
+    Within a <type>tsquery</>, the <literal>&amp;</literal> (AND) operator
+    specifies that both its arguments must appear in the document to have a
+    match.  Similarly, the <literal>|</literal> (OR) operator specifies that
+    at least one of its arguments must appear, while the <literal>!</> (NOT)
+    operator specifies that its argument must <emphasis>not</> appear in
+    order to have a match.
+   </para>
+
+   <para>
+    Searching for phrases is possible with the help of
+    the <literal>&lt;-&gt;</> (FOLLOWED BY) <type>tsquery</> operator, which
+    matches only if its arguments have matches that are adjacent and in the
+    given order.  For example:
+
+<programlisting>
+SELECT to_tsvector('fatal error') @@ to_tsquery('fatal &lt;-&gt; error');
+ ?column? 
+----------
+ t
+
+SELECT to_tsvector('error is not fatal') @@ to_tsquery('fatal &lt;-&gt; error');
+ ?column? 
+----------
+ f
+</programlisting>
+
+    There is a more general version of the FOLLOWED BY operator having the
+    form <literal>&lt;<replaceable>N</>&gt;</literal>,
+    where <replaceable>N</> is an integer standing for the difference between
+    the positions of the matching lexemes.  <literal>&lt;1&gt;</literal> is
+    the same as <literal>&lt;-&gt;</>, while <literal>&lt;2&gt;</literal>
+    allows exactly one other lexeme to appear between the matches, and so
+    on.  The <literal>phraseto_tsquery</> function makes use of this
+    operator to construct a <literal>tsquery</> that can match a multi-word
+    phrase when some of the words are stop words.  For example:
+
+<programlisting>
+SELECT phraseto_tsquery('cats ate rats');
+       phraseto_tsquery        
+-------------------------------
+ 'cat' &lt;-&gt; 'ate' &lt;-&gt; 'rat'
+
+SELECT phraseto_tsquery('the cats ate the rats');
+       phraseto_tsquery        
+-------------------------------
+ 'cat' &lt;-&gt; 'ate' &lt;2&gt; 'rat'
+</programlisting>
+   </para>
+
+   <para>
+    A special case that's sometimes useful is that <literal>&lt;0&gt;</literal>
+    can be used to require that two patterns match the same word.
+   </para>
+
+   <para>
+    Parentheses can be used to control nesting of the <type>tsquery</>
+    operators.  Without parentheses, <literal>|</literal> binds least tightly,
+    then <literal>&amp;</literal>, then <literal>&lt;-&gt;</literal>,
+    and <literal>!</literal> most tightly.
    </para>
   </sect2>
 
@@ -984,6 +1047,7 @@ UPDATE tt SET ti =
    <para>
 <!--
     <productname>PostgreSQL</productname> provides the
+<<<<<<< HEAD
     functions <function>to_tsquery</function> and
     <function>plainto_tsquery</function> for converting a query to
     the <type>tsquery</type> data type.  <function>to_tsquery</function>
@@ -991,6 +1055,16 @@ UPDATE tt SET ti =
     but is less forgiving about its input.
 -->
 <productname>PostgreSQL</productname>は、問合わせを<type>tsquery</type>に変換する<function>to_tsquery</function>関数と<function>plainto_tsquery</function>関数を提供しています。<function>to_tsquery</function>は、<function>plainto_tsquery</function>よりも多くの機能を提供していますが、入力のチェックはより厳格です。
+=======
+    functions <function>to_tsquery</function>,
+    <function>plainto_tsquery</function>, and
+    <function>phraseto_tsquery</function>
+    for converting a query to the <type>tsquery</type> data type.
+    <function>to_tsquery</function> offers access to more features
+    than either <function>plainto_tsquery</function> or
+    <function>phraseto_tsquery</function>, but it is less forgiving
+    about its input.
+>>>>>>> REL9_6_RC1
    </para>
 
    <indexterm>
@@ -1005,14 +1079,15 @@ to_tsquery(<optional> <replaceable class="PARAMETER">config</replaceable> <type>
 <!--
     <function>to_tsquery</function> creates a <type>tsquery</> value from
     <replaceable>querytext</replaceable>, which must consist of single tokens
-    separated by the Boolean operators <literal>&amp;</literal> (AND),
-    <literal>|</literal> (OR) and <literal>!</literal> (NOT).  These operators
-    can be grouped using parentheses.  In other words, the input to
+    separated by the <type>tsquery</> operators <literal>&amp;</literal> (AND),
+    <literal>|</literal> (OR), <literal>!</literal> (NOT), and
+    <literal>&lt;-&gt;</literal> (FOLLOWED BY), possibly grouped
+    using parentheses.  In other words, the input to
     <function>to_tsquery</function> must already follow the general rules for
     <type>tsquery</> input, as described in <xref
-    linkend="datatype-textsearch">.  The difference is that while basic
+    linkend="datatype-tsquery">.  The difference is that while basic
     <type>tsquery</> input takes the tokens at face value,
-    <function>to_tsquery</function> normalizes each token to a lexeme using
+    <function>to_tsquery</function> normalizes each token into a lexeme using
     the specified or default configuration, and discards any tokens that are
     stop words according to the configuration.  For example:
 -->
@@ -1077,9 +1152,14 @@ SELECT to_tsquery('''supernovae stars'' &amp; !crab');
 
 <!--
     Without quotes, <function>to_tsquery</function> will generate a syntax
+<<<<<<< HEAD
     error for tokens that are not separated by an AND or OR operator.
 -->
 引用符がない場合は、<function>to_tsquery</function>は、ANDあるいはOR演算子で区切られていないトークンに対して構文エラーを引き起こします。
+=======
+    error for tokens that are not separated by an AND, OR, or FOLLOWED BY
+    operator.
+>>>>>>> REL9_6_RC1
    </para>
 
    <indexterm>
@@ -1091,6 +1171,7 @@ plainto_tsquery(<optional> <replaceable class="PARAMETER">config</replaceable> <
 </synopsis>
 
    <para>
+<<<<<<< HEAD
 <!--
     <function>plainto_tsquery</> transforms unformatted text
     <replaceable>querytext</replaceable> to <type>tsquery</type>.
@@ -1099,6 +1180,13 @@ plainto_tsquery(<optional> <replaceable class="PARAMETER">config</replaceable> <
     between surviving words.
 -->
 <function>plainto_tsquery</>は整形されていないテキスト<replaceable>querytext</replaceable>を、<type>tsquery</type>に変換します。テキストはパースされ、<function>to_tsvector</>としてできる限り正規化されます。そして、<literal>&amp;</literal> (AND) 論理演算子が存続した単語の間に挿入されます。
+=======
+    <function>plainto_tsquery</> transforms the unformatted text
+    <replaceable>querytext</replaceable> to a <type>tsquery</type> value.
+    The text is parsed and normalized much as for <function>to_tsvector</>,
+    then the <literal>&amp;</literal> (AND) <type>tsquery</type> operator is
+    inserted between surviving words.
+>>>>>>> REL9_6_RC1
    </para>
 
    <para>
@@ -1114,12 +1202,18 @@ SELECT plainto_tsquery('english', 'The Fat Rats');
  'fat' &amp; 'rat'
 </screen>
 
+<<<<<<< HEAD
 <!--
     Note that <function>plainto_tsquery</> cannot
     recognize Boolean operators, weight labels, or prefix-match labels
     in its input:
 -->
 <function>plainto_tsquery</>は、入力中の論理演算子も、重み付けラベルも、前方一致ラベルも認識できないことに注意してください。
+=======
+    Note that <function>plainto_tsquery</> will not
+    recognize <type>tsquery</type> operators, weight labels,
+    or prefix-match labels in its input:
+>>>>>>> REL9_6_RC1
 
 <screen>
 SELECT plainto_tsquery('english', 'The Fat &amp; Rats:C');
@@ -1132,6 +1226,49 @@ SELECT plainto_tsquery('english', 'The Fat &amp; Rats:C');
     Here, all the input punctuation was discarded as being space symbols.
 -->
 ここでは、入力中のすべての句読点がスペース記号に変換された結果、破棄されています。
+   </para>
+
+   <indexterm>
+    <primary>phraseto_tsquery</primary>
+   </indexterm>
+
+<synopsis>
+phraseto_tsquery(<optional> <replaceable class="PARAMETER">config</replaceable> <type>regconfig</>, </optional> <replaceable class="PARAMETER">querytext</replaceable> <type>text</>) returns <type>tsquery</>
+</synopsis>
+
+   <para>
+    <function>phraseto_tsquery</> behaves much like
+    <function>plainto_tsquery</>, except that it inserts
+    the <literal>&lt;-&gt;</literal> (FOLLOWED BY) operator between
+    surviving words instead of the <literal>&amp;</literal> (AND) operator.
+    Also, stop words are not simply discarded, but are accounted for by
+    inserting <literal>&lt;<replaceable>N</>&gt;</literal> operators rather
+    than <literal>&lt;-&gt;</literal> operators.  This function is useful
+    when searching for exact lexeme sequences, since the FOLLOWED BY
+    operators check lexeme order not just the presence of all the lexemes.
+   </para>
+
+   <para>
+    Example:
+
+<screen>
+SELECT phraseto_tsquery('english', 'The Fat Rats');
+ phraseto_tsquery
+------------------
+ 'fat' &lt;-&gt; 'rat'
+</screen>
+
+    Like <function>plainto_tsquery</>, the
+    <function>phraseto_tsquery</> function will not
+    recognize <type>tsquery</type> operators, weight labels,
+    or prefix-match labels in its input:
+
+<screen>
+SELECT phraseto_tsquery('english', 'The Fat &amp; Rats:C');
+      phraseto_tsquery
+-----------------------------
+ 'fat' &lt;-&gt; 'rat' &lt;-&gt; 'c'
+</screen>
    </para>
 
   </sect2>
@@ -1774,6 +1911,7 @@ FROM (SELECT id, body, q, ts_rank_cd(ti, q) AS rank
 
      <listitem>
       <para>
+<<<<<<< HEAD
 <!--
        Returns a vector which lists the same lexemes as the given vector, but
        which lacks any position or weight information.  While the returned
@@ -1781,12 +1919,27 @@ FROM (SELECT id, body, q, ts_rank_cd(ti, q) AS rank
        ranking, it will usually be much smaller.
 -->
 位置、重みの情報がないことを除けば入力のベクトルと同じ語彙素のリストを持つベクトルを返します。返却されたベクトルは、情報を削除されていないベクトルに比べてランキングに関しては、ずっと有用性が低くなりますが、通常非常に小さくなります。
+=======
+       Returns a vector that lists the same lexemes as the given vector, but
+       lacks any position or weight information.  The result is usually much
+       smaller than an unstripped vector, but it is also less useful.
+       Relevance ranking does not work as well on stripped vectors as
+       unstripped ones.  Also,
+       the <literal>&lt;-&gt;</> (FOLLOWED BY) <type>tsquery</> operator
+       will never match stripped input, since it cannot determine the
+       distance between lexeme occurrences.
+>>>>>>> REL9_6_RC1
       </para>
      </listitem>
 
     </varlistentry>
 
    </variablelist>
+
+   <para>
+    A full list of <type>tsvector</>-related functions is available
+    in <xref linkend="textsearch-functions-table">.
+   </para>
 
   </sect2>
 
@@ -1855,6 +2008,59 @@ FROM (SELECT id, body, q, ts_rank_cd(ti, q) AS rank
        Returns the negation (NOT) of the given query.
 -->
 与えられた問合わせの否定を返します。
+      </para>
+     </listitem>
+
+    </varlistentry>
+
+    <varlistentry>
+
+     <term>
+      <literal><type>tsquery</> &lt;-&gt; <type>tsquery</></literal>
+     </term>
+
+     <listitem>
+      <para>
+       Returns a query that searches for a match to the first given query
+       immediately followed by a match to the second given query, using
+       the <literal>&lt;-&gt;</> (FOLLOWED BY)
+       <type>tsquery</> operator.  For example:
+
+<screen>
+SELECT to_tsquery('fat') &lt;-&gt; to_tsquery('cat | rat');
+             ?column?
+-----------------------------------
+ 'fat' &lt;-&gt; 'cat' | 'fat' &lt;-&gt; 'rat'
+</screen>
+      </para>
+     </listitem>
+
+    </varlistentry>
+
+    <varlistentry>
+
+     <term>
+     <indexterm>
+      <primary>tsquery_phrase</primary>
+     </indexterm>
+
+      <literal>tsquery_phrase(<replaceable class="PARAMETER">query1</replaceable> <type>tsquery</>, <replaceable class="PARAMETER">query2</replaceable> <type>tsquery</> [, <replaceable class="PARAMETER">distance</replaceable> <type>integer</> ]) returns <type>tsquery</></literal>
+     </term>
+
+     <listitem>
+      <para>
+       Returns a query that searches for a match to the first given query
+       followed by a match to the second given query at a distance of at
+       <replaceable>distance</replaceable> lexemes, using
+       the <literal>&lt;<replaceable>N</>&gt;</literal>
+       <type>tsquery</> operator.  For example:
+
+<screen>
+SELECT tsquery_phrase(to_tsquery('fat'), to_tsquery('cat'), 10);
+  tsquery_phrase
+------------------
+ 'fat' &lt;10&gt; 'cat'
+</screen>
       </para>
      </listitem>
 
@@ -3507,21 +3713,49 @@ SELECT plainto_tsquery('supernova star');
    </para>
 
    <para>
+<<<<<<< HEAD
 <!--
     To create an <application>Ispell</> dictionary, use the built-in
     <literal>ispell</literal> template and specify several parameters:
 -->
 <application>Ispell</>辞書を作るには、組み込みの<literal>ispell</literal>テンプレートを使い、いくつかパラメータを指定します。
+=======
+    To create an <application>Ispell</> dictionary perform these steps:
+>>>>>>> REL9_6_RC1
    </para>
-
+   <itemizedlist spacing="compact" mark="bullet">
+    <listitem>
+     <para>
+      download dictionary configuration files. <productname>OpenOffice</>
+      extension files have the <filename>.oxt</> extension. It is necessary
+      to extract <filename>.aff</> and <filename>.dic</> files, change
+      extensions to <filename>.affix</> and <filename>.dict</>. For some
+      dictionary files it is also needed to convert characters to the UTF-8
+      encoding with commands (for example, for a Norwegian language dictionary):
 <programlisting>
-CREATE TEXT SEARCH DICTIONARY english_ispell (
-    TEMPLATE = ispell,
-    DictFile = english,
-    AffFile = english,
-    StopWords = english
-);
+iconv -f ISO_8859-1 -t UTF-8 -o nn_no.affix nn_NO.aff
+iconv -f ISO_8859-1 -t UTF-8 -o nn_no.dict nn_NO.dic
 </programlisting>
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      copy files to the <filename>$SHAREDIR/tsearch_data</> directory
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      load files into PostgreSQL with the following command:
+<programlisting>
+CREATE TEXT SEARCH DICTIONARY english_hunspell (
+    TEMPLATE = ispell,
+    DictFile = en_us,
+    AffFile = en_us,
+    Stopwords = english);
+</programlisting>
+     </para>
+    </listitem>
+   </itemizedlist>
 
    <para>
 <!--
@@ -3546,7 +3780,60 @@ Ispell辞書は通常限られた数の単語を認識します。ですので�
    </para>
 
    <para>
+<<<<<<< HEAD
 <!--
+=======
+    The <filename>.affix</> file of <application>Ispell</> has the following
+    structure:
+<programlisting>
+prefixes
+flag *A:
+    .           >   RE      # As in enter > reenter
+suffixes
+flag T:
+    E           >   ST      # As in late > latest
+    [^AEIOU]Y   >   -Y,IEST # As in dirty > dirtiest
+    [AEIOU]Y    >   EST     # As in gray > grayest
+    [^EY]       >   EST     # As in small > smallest
+</programlisting>
+   </para>
+   <para>
+    And the <filename>.dict</> file has the following structure:
+<programlisting>
+lapse/ADGRS
+lard/DGRS
+large/PRTY
+lark/MRS
+</programlisting>
+   </para>
+
+   <para>
+    Format of the <filename>.dict</> file is:
+<programlisting>
+basic_form/affix_class_name
+</programlisting>
+   </para>
+
+   <para>
+    In the <filename>.affix</> file every affix flag is described in the
+    following format:
+<programlisting>
+condition > [-stripping_letters,] adding_affix
+</programlisting>
+   </para>
+
+   <para>
+    Here, condition has a format similar to the format of regular expressions.
+    It can use groupings <literal>[...]</> and <literal>[^...]</>.
+    For example, <literal>[AEIOU]Y</> means that the last letter of the word
+    is <literal>"y"</> and the penultimate letter is <literal>"a"</>,
+    <literal>"e"</>, <literal>"i"</>, <literal>"o"</> or <literal>"u"</>.
+    <literal>[^EY]</> means that the last letter is neither <literal>"e"</>
+    nor <literal>"y"</>.
+   </para>
+
+   <para>
+>>>>>>> REL9_6_RC1
     Ispell dictionaries support splitting compound words;
     a useful feature.
     Notice that the affix file should specify a special flag using the
@@ -3570,6 +3857,65 @@ SELECT ts_lexize('norwegian_ispell', 'overbuljongterningpakkmesterassistent');
    {over,buljong,terning,pakk,mester,assistent}
 SELECT ts_lexize('norwegian_ispell', 'sjokoladefabrikk');
    {sjokoladefabrikk,sjokolade,fabrikk}
+</programlisting>
+   </para>
+
+   <para>
+    <application>MySpell</> format is a subset of <application>Hunspell</>.
+    The <filename>.affix</> file of <application>Hunspell</> has the following
+    structure:
+<programlisting>
+PFX A Y 1
+PFX A   0     re         .
+SFX T N 4
+SFX T   0     st         e
+SFX T   y     iest       [^aeiou]y
+SFX T   0     est        [aeiou]y
+SFX T   0     est        [^ey]
+</programlisting>
+   </para>
+
+   <para>
+    The first line of an affix class is the header. Fields of an affix rules are
+    listed after the header:
+   </para>
+   <itemizedlist spacing="compact" mark="bullet">
+    <listitem>
+     <para>
+      parameter name (PFX or SFX)
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      flag (name of the affix class)
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      stripping characters from beginning (at prefix) or end (at suffix) of the
+      word
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      adding affix
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      condition that has a format similar to the format of regular expressions.
+     </para>
+    </listitem>
+   </itemizedlist>
+
+   <para>
+    The <filename>.dict</> file looks like the <filename>.dict</> file of
+    <application>Ispell</>:
+<programlisting>
+larder/M
+lardy/RT
+large/RSPMYT
+largehearted
 </programlisting>
    </para>
 
@@ -4240,10 +4586,14 @@ SELECT plainto_tsquery('supernovae stars');
  </sect1>
 
  <sect1 id="textsearch-indexes">
+<<<<<<< HEAD
 <!--
   <title>GIN and GiST Index Types</title>
 -->
   <title>GINおよびGiSTインデックス種類</title>
+=======
+  <title>GIN and GiST Index Types</title>
+>>>>>>> REL9_6_RC1
 
   <indexterm zone="textsearch-indexes">
 <!--
@@ -4272,10 +4622,14 @@ SELECT plainto_tsquery('supernovae stars');
      <indexterm zone="textsearch-indexes">
 <!--
       <primary>index</primary>
+<<<<<<< HEAD
 -->
       <primary>インデックス</primary>
       <secondary>GIN</secondary>
 <!--
+=======
+      <secondary>GIN</secondary>
+>>>>>>> REL9_6_RC1
       <tertiary>text search</tertiary>
 -->
       <tertiary>全文検索</tertiary>
@@ -4286,12 +4640,17 @@ SELECT plainto_tsquery('supernovae stars');
 
      <listitem>
       <para>
+<<<<<<< HEAD
 <!--
        Creates a GIN (Generalized Inverted Index)-based index.
        The <replaceable>column</replaceable> must be of <type>tsvector</> type.
 -->
 GIN (Generalized Inverted Index)インデックスを作ります。
 <replaceable>column</replaceable>は<type>tsvector</>型でなければなりません。
+=======
+       Creates a GIN (Generalized Inverted Index)-based index.
+       The <replaceable>column</replaceable> must be of <type>tsvector</> type.
+>>>>>>> REL9_6_RC1
       </para>
      </listitem>
     </varlistentry>
@@ -4302,10 +4661,14 @@ GIN (Generalized Inverted Index)インデックスを作ります。
      <indexterm zone="textsearch-indexes">
 <!--
       <primary>index</primary>
+<<<<<<< HEAD
 -->
       <primary>インデックス</primary>
       <secondary>GiST</secondary>
 <!--
+=======
+      <secondary>GiST</secondary>
+>>>>>>> REL9_6_RC1
       <tertiary>text search</tertiary>
 -->
       <tertiary>全文検索</tertiary>
@@ -4316,12 +4679,18 @@ GIN (Generalized Inverted Index)インデックスを作ります。
 
      <listitem>
       <para>
+<<<<<<< HEAD
 <!--
        Creates a GiST (Generalized Search Tree)-based index.
        The <replaceable>column</replaceable> can be of <type>tsvector</> or
        <type>tsquery</> type.
 -->
 GiST (Generalized Search Tree)インデックスを作ります。<replaceable>column</replaceable>は <type>tsvector</> または<type>tsquery</> 型です。
+=======
+       Creates a GiST (Generalized Search Tree)-based index.
+       The <replaceable>column</replaceable> can be of <type>tsvector</> or
+       <type>tsquery</> type.
+>>>>>>> REL9_6_RC1
       </para>
      </listitem>
     </varlistentry>
@@ -4330,7 +4699,10 @@ GiST (Generalized Search Tree)インデックスを作ります。<replaceable>c
   </para>
 
   <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL9_6_RC1
    GIN indexes are the preferred text search index type.  As inverted
    indexes, they contain an index entry for each word (lexeme), with a
    compressed list of matching locations.  Multi-word searches can find
@@ -4338,12 +4710,15 @@ GiST (Generalized Search Tree)インデックスを作ります。<replaceable>c
    additional words.  GIN indexes store only the words (lexemes) of
    <type>tsvector</> values, and not their weight labels.  Thus a table
    row recheck is needed when using a query that involves weights.
+<<<<<<< HEAD
 -->
 GINインデックスの方がより好ましいテキスト検索インデックス形式です。
 転置インデックスなので、マッチした位置の圧縮されたリストと合わせて各単語(語彙素)へのインデックスエントリを含みます。
 複数単語での検索は最初のマッチを見つけることができ、その後、追加の単語がない行を削除するのにインデックスを使えます。
 GINインデックスは<type>tsvector</>値の単語(語彙素)のみを格納しており、重み付けラベルは格納していません。
 そのため、重みを含む問い合わせを使う場合には、テーブル行の再検査が必要です。
+=======
+>>>>>>> REL9_6_RC1
   </para>
 
   <para>
@@ -4377,7 +4752,10 @@ GiSTインデックスが非可逆なのは、インデックス中の各文書�
   </para>
 
   <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL9_6_RC1
    Note that <acronym>GIN</acronym> index build time can often be improved
    by increasing <xref linkend="guc-maintenance-work-mem">, while
    <acronym>GiST</acronym> index build time is not sensitive to that
@@ -4387,7 +4765,10 @@ GiSTインデックスが非可逆なのは、インデックス中の各文書�
   </para>
 
   <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL9_6_RC1
    Partitioning of big collections and the proper use of GIN and GiST indexes
    allows the implementation of very fast searches with online update.
    Partitioning can be done at the database level using table inheritance,
@@ -4422,11 +4803,15 @@ psqlでテキスト検索設定オブジェクトに関する情報は、コマ�
   </para>
 
   <para>
+<<<<<<< HEAD
 <!--
    The optional parameter <literal>PATTERN</literal> can be the name of
+=======
+   The optional parameter <replaceable>PATTERN</replaceable> can be the name of
+>>>>>>> REL9_6_RC1
    a text search object, optionally schema-qualified.  If
-   <literal>PATTERN</literal> is omitted then information about all
-   visible objects will be displayed.  <literal>PATTERN</literal> can be a
+   <replaceable>PATTERN</replaceable> is omitted then information about all
+   visible objects will be displayed.  <replaceable>PATTERN</replaceable> can be a
    regular expression and can provide <emphasis>separate</emphasis> patterns
    for the schema and object names.  The following examples illustrate this:
 -->
@@ -4659,7 +5044,15 @@ Parser: "pg_catalog.default"
      <para><type>tsvector</>の位置量は、0より大きくかつ16,383以下でなければなりません</para>
     </listitem>
     <listitem>
+<<<<<<< HEAD
 <!--
+=======
+     <para>The match distance in a <literal>&lt;<replaceable>N</>&gt;</literal>
+     (FOLLOWED BY) <type>tsquery</> operator cannot be more than
+     16,384</para>
+    </listitem>
+    <listitem>
+>>>>>>> REL9_6_RC1
      <para>No more than 256 positions per lexeme</para>
 -->
      <para>語彙素の位置情報は256以下でなければなりません</para>
