@@ -578,8 +578,8 @@ typedef struct
 {
 <!--
     MemoryContext tuptabcxt;    /* memory context of result table */
-    uint32      alloced;        /* number of alloced vals */
-    uint32      free;           /* number of free vals */
+    uint64      alloced;        /* number of alloced vals */
+    uint64      free;           /* number of free vals */
     TupleDesc   tupdesc;        /* row descriptor */
     HeapTuple  *vals;           /* rows */
 -->
@@ -5805,14 +5805,14 @@ SPIのより複雑な例はソースツリー内の<filename>src/test/regress/re
 PG_MODULE_MAGIC;
 #endif
 
-int execq(text *sql, int cnt);
+int64 execq(text *sql, int cnt);
 
-int
+int64
 execq(text *sql, int cnt)
 {
     char *command;
     int ret;
-    int proc;
+    uint64 proc;
 
 <!--
     /* Convert given text object to a C string */
@@ -5836,11 +5836,12 @@ execq(text *sql, int cnt)
         TupleDesc tupdesc = SPI_tuptable-&gt;tupdesc;
         SPITupleTable *tuptable = SPI_tuptable;
         char buf[8192];
-        int i, j;
+        uint64 j;
 
         for (j = 0; j &lt; proc; j++)
         {
             HeapTuple tuple = tuptable-&gt;vals[j];
+            int i;
 
             for (i = 1, buf[0] = 0; i &lt;= tupdesc-&gt;natts; i++)
                 snprintf(buf + strlen (buf), sizeof(buf) - strlen(buf), " %s%s",
@@ -5875,9 +5876,9 @@ execq(text *sql, int cnt)
 以下は、コンパイルし共有ライブラリ（<xref linkend="dfunc">を参照）を作成した後で、関数を宣言する方法です。
 
 <programlisting>
-CREATE FUNCTION execq(text, integer) RETURNS integer
+CREATE FUNCTION execq(text, integer) RETURNS int8
     AS '<replaceable>filename</replaceable>'
-    LANGUAGE C;
+    LANGUAGE C STRICT;
 </programlisting>
   </para>
 

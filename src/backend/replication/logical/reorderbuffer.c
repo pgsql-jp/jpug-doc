@@ -4,7 +4,7 @@
  *	  PostgreSQL logical replay/reorder buffer management
  *
  *
- * Copyright (c) 2012-2015, PostgreSQL Global Development Group
+ * Copyright (c) 2012-2016, PostgreSQL Global Development Group
  *
  *
  * IDENTIFICATION
@@ -69,7 +69,7 @@
 #include "utils/combocid.h"
 #include "utils/memdebug.h"
 #include "utils/memutils.h"
-#include "utils/relcache.h"
+#include "utils/rel.h"
 #include "utils/relfilenodemap.h"
 #include "utils/tqual.h"
 
@@ -232,9 +232,7 @@ ReorderBufferAllocate(void)
 	/* allocate memory in own context, to have better accountability */
 	new_ctx = AllocSetContextCreate(CurrentMemoryContext,
 									"ReorderBuffer",
-									ALLOCSET_DEFAULT_MINSIZE,
-									ALLOCSET_DEFAULT_INITSIZE,
-									ALLOCSET_DEFAULT_MAXSIZE);
+									ALLOCSET_DEFAULT_SIZES);
 
 	buffer =
 		(ReorderBuffer *) MemoryContextAlloc(new_ctx, sizeof(ReorderBuffer));
@@ -414,6 +412,14 @@ ReorderBufferReturnChange(ReorderBuffer *rb, ReorderBufferChange *change)
 				change->data.tp.oldtuple = NULL;
 			}
 			break;
+		case REORDER_BUFFER_CHANGE_MESSAGE:
+			if (change->data.msg.prefix != NULL)
+				pfree(change->data.msg.prefix);
+			change->data.msg.prefix = NULL;
+			if (change->data.msg.message != NULL)
+				pfree(change->data.msg.message);
+			change->data.msg.message = NULL;
+			break;
 		case REORDER_BUFFER_CHANGE_INTERNAL_SNAPSHOT:
 			if (change->data.snapshot)
 			{
@@ -458,8 +464,8 @@ ReorderBufferGetTupleBuf(ReorderBuffer *rb, Size tuple_len)
 	/*
 	 * Most tuples are below MaxHeapTupleSize, so we use a slab allocator for
 	 * those. Thus always allocate at least MaxHeapTupleSize. Note that tuples
-	 * tuples generated for oldtuples can be bigger, as they don't have
-	 * out-of-line toast columns.
+	 * generated for oldtuples can be bigger, as they don't have out-of-line
+	 * toast columns.
 	 */
 	if (alloc_len < MaxHeapTupleSize)
 		alloc_len = MaxHeapTupleSize;
@@ -555,7 +561,7 @@ ReorderBufferTXNByXid(ReorderBuffer *rb, TransactionId xid, bool create,
 		}
 
 		/*
-		 * cached as non-existant, and asked not to create? Then nothing else
+		 * cached as non-existent, and asked not to create? Then nothing else
 		 * to do.
 		 */
 		if (!create)
@@ -603,7 +609,7 @@ ReorderBufferTXNByXid(ReorderBuffer *rb, TransactionId xid, bool create,
 	if (is_new)
 		*is_new = !found;
 
-	Assert(!create || !!txn);
+	Assert(!create || txn != NULL);
 	return txn;
 }
 
@@ -626,6 +632,61 @@ ReorderBufferQueueChange(ReorderBuffer *rb, TransactionId xid, XLogRecPtr lsn,
 
 	ReorderBufferCheckSerializeTXN(rb, txn);
 }
+
+/*
+ * Queue message into a transaction so it can be processed upon commit.
+ */
+void
+ReorderBufferQueueMessage(ReorderBuffer *rb, TransactionId xid,
+						  Snapshot snapshot, XLogRecPtr lsn,
+						  bool transactional, const char *prefix,
+						  Size message_size, const char *message)
+{
+	if (transactional)
+	{
+		MemoryContext oldcontext;
+		ReorderBufferChange *change;
+
+		Assert(xid != InvalidTransactionId);
+
+		oldcontext = MemoryContextSwitchTo(rb->context);
+
+		change = ReorderBufferGetChange(rb);
+		change->action = REORDER_BUFFER_CHANGE_MESSAGE;
+		change->data.msg.prefix = pstrdup(prefix);
+		change->data.msg.message_size = message_size;
+		change->data.msg.message = palloc(message_size);
+		memcpy(change->data.msg.message, message, message_size);
+
+		ReorderBufferQueueChange(rb, xid, lsn, change);
+
+		MemoryContextSwitchTo(oldcontext);
+	}
+	else
+	{
+		ReorderBufferTXN *txn = NULL;
+		volatile Snapshot snapshot_now = snapshot;
+
+		if (xid != InvalidTransactionId)
+			txn = ReorderBufferTXNByXid(rb, xid, true, NULL, lsn, true);
+
+		/* setup snapshot to allow catalog access */
+		SetupHistoricSnapshot(snapshot_now, NULL);
+		PG_TRY();
+		{
+			rb->message(rb, txn, lsn, false, prefix, message_size, message);
+
+			TeardownHistoricSnapshot(false);
+		}
+		PG_CATCH();
+		{
+			TeardownHistoricSnapshot(true);
+			PG_RE_THROW();
+		}
+		PG_END_TRY();
+	}
+}
+
 
 static void
 AssertTXNLsnOrder(ReorderBuffer *rb)
@@ -1494,6 +1555,13 @@ ReorderBufferCommit(ReorderBuffer *rb, TransactionId xid,
 					specinsert = change;
 					break;
 
+				case REORDER_BUFFER_CHANGE_MESSAGE:
+					rb->message(rb, txn, change->lsn, true,
+								change->data.msg.prefix,
+								change->data.msg.message_size,
+								change->data.msg.message);
+					break;
+
 				case REORDER_BUFFER_CHANGE_INTERNAL_SNAPSHOT:
 					/* get rid of the old */
 					TeardownHistoricSnapshot(false);
@@ -1741,26 +1809,8 @@ ReorderBufferForget(ReorderBuffer *rb, TransactionId xid, XLogRecPtr lsn)
 	 * catalog and we need to update the caches according to that.
 	 */
 	if (txn->base_snapshot != NULL && txn->ninvalidations > 0)
-	{
-		bool		use_subtxn = IsTransactionOrTransactionBlock();
-
-		if (use_subtxn)
-			BeginInternalSubTransaction("replay");
-
-		/*
-		 * Force invalidations to happen outside of a valid transaction - that
-		 * way entries will just be marked as invalid without accessing the
-		 * catalog. That's advantageous because we don't need to setup the
-		 * full state necessary for catalog access.
-		 */
-		if (use_subtxn)
-			AbortCurrentTransaction();
-
-		ReorderBufferExecuteInvalidations(rb, txn);
-
-		if (use_subtxn)
-			RollbackAndReleaseCurrentSubTransaction();
-	}
+		ReorderBufferImmediateInvalidation(rb, txn->ninvalidations,
+										   txn->invalidations);
 	else
 		Assert(txn->ninvalidations == 0);
 
@@ -1768,6 +1818,37 @@ ReorderBufferForget(ReorderBuffer *rb, TransactionId xid, XLogRecPtr lsn)
 	ReorderBufferCleanupTXN(rb, txn);
 }
 
+/*
+ * Execute invalidations happening outside the context of a decoded
+ * transaction. That currently happens either for xid-less commits
+ * (c.f. RecordTransactionCommit()) or for invalidations in uninteresting
+ * transactions (via ReorderBufferForget()).
+ */
+void
+ReorderBufferImmediateInvalidation(ReorderBuffer *rb, uint32 ninvalidations,
+								   SharedInvalidationMessage *invalidations)
+{
+	bool		use_subtxn = IsTransactionOrTransactionBlock();
+	int			i;
+
+	if (use_subtxn)
+		BeginInternalSubTransaction("replay");
+
+	/*
+	 * Force invalidations to happen outside of a valid transaction - that way
+	 * entries will just be marked as invalid without accessing the catalog.
+	 * That's advantageous because we don't need to setup the full state
+	 * necessary for catalog access.
+	 */
+	if (use_subtxn)
+		AbortCurrentTransaction();
+
+	for (i = 0; i < ninvalidations; i++)
+		LocalExecuteInvalidationMessage(&invalidations[i]);
+
+	if (use_subtxn)
+		RollbackAndReleaseCurrentSubTransaction();
+}
 
 /*
  * Tell reorderbuffer about an xid seen in the WAL stream. Has to be called at
@@ -2160,6 +2241,33 @@ ReorderBufferSerializeChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 				}
 				break;
 			}
+		case REORDER_BUFFER_CHANGE_MESSAGE:
+			{
+				char	   *data;
+				Size		prefix_size = strlen(change->data.msg.prefix) + 1;
+
+				sz += prefix_size + change->data.msg.message_size +
+					sizeof(Size) + sizeof(Size);
+				ReorderBufferSerializeReserve(rb, sz);
+
+				data = ((char *) rb->outbuf) + sizeof(ReorderBufferDiskChange);
+
+				/* write the prefix including the size */
+				memcpy(data, &prefix_size, sizeof(Size));
+				data += sizeof(Size);
+				memcpy(data, change->data.msg.prefix,
+					   prefix_size);
+				data += prefix_size;
+
+				/* write the message including the size */
+				memcpy(data, &change->data.msg.message_size, sizeof(Size));
+				data += sizeof(Size);
+				memcpy(data, change->data.msg.message,
+					   change->data.msg.message_size);
+				data += change->data.msg.message_size;
+
+				break;
+			}
 		case REORDER_BUFFER_CHANGE_INTERNAL_SNAPSHOT:
 			{
 				Snapshot	snap;
@@ -2207,7 +2315,10 @@ ReorderBufferSerializeChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 
 	if (write(fd, rb->outbuf, ondisk->size) != ondisk->size)
 	{
+		int			save_errno = errno;
+
 		CloseTransientFile(fd);
+		errno = save_errno;
 		ereport(ERROR,
 				(errcode_for_file_access(),
 				 errmsg("could not write to data file for XID %u: %m",
@@ -2424,6 +2535,30 @@ ReorderBufferRestoreChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 			}
 
 			break;
+		case REORDER_BUFFER_CHANGE_MESSAGE:
+			{
+				Size		prefix_size;
+
+				/* read prefix */
+				memcpy(&prefix_size, data, sizeof(Size));
+				data += sizeof(Size);
+				change->data.msg.prefix = MemoryContextAlloc(rb->context,
+															 prefix_size);
+				memcpy(change->data.msg.prefix, data, prefix_size);
+				Assert(change->data.msg.prefix[prefix_size - 1] == '\0');
+				data += prefix_size;
+
+				/* read the messsage */
+				memcpy(&change->data.msg.message_size, data, sizeof(Size));
+				data += sizeof(Size);
+				change->data.msg.message = MemoryContextAlloc(rb->context,
+											  change->data.msg.message_size);
+				memcpy(change->data.msg.message, data,
+					   change->data.msg.message_size);
+				data += change->data.msg.message_size;
+
+				break;
+			}
 		case REORDER_BUFFER_CHANGE_INTERNAL_SNAPSHOT:
 			{
 				Snapshot	oldsnap;
@@ -2936,7 +3071,8 @@ ApplyLogicalMappingFile(HTAB *tuplecid_data, Oid relid, const char *fname)
 	fd = OpenTransientFile(path, O_RDONLY | PG_BINARY, 0);
 	if (fd < 0)
 		ereport(ERROR,
-				(errmsg("could not open file \"%s\": %m", path)));
+				(errcode_for_file_access(),
+				 errmsg("could not open file \"%s\": %m", path)));
 
 	while (true)
 	{

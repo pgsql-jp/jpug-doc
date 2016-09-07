@@ -311,8 +311,8 @@ SQLコマンド内でテーブルに他の別名を付けることで、この�
     <para>
 <!--
      If an argument is of a composite type, then the dot notation,
-     e.g., <literal>argname.fieldname</literal> or
-     <literal>$1.fieldname</literal>, can be used to access attributes of the
+     e.g., <literal><replaceable>argname</>.<replaceable>fieldname</></literal> or
+     <literal>$1.<replaceable>fieldname</></literal>, can be used to access attributes of the
      argument.  Again, you might need to qualify the argument's name with the
      function name to make the form with an argument name unambiguous.
 -->
@@ -748,7 +748,8 @@ LINE 1: SELECT new_emp().name;
      Another option is to use
      functional notation for extracting an attribute.  The  simple  way
      to explain this is that we can use the
-     notations <literal>attribute(table)</>  and  <literal>table.attribute</>
+     notations <literal><replaceable>attribute</>(<replaceable>table</>)</>
+     and  <literal><replaceable>table</>.<replaceable>attribute</></>
      interchangeably.
 -->
 また、関数表記を使用して属性を抽出することもできます。
@@ -1119,7 +1120,7 @@ variadicパラメータから生成される配列要素パラメータは、そ
 たとえば、
 
 <screen>
-SELECT mleast(VARIADIC arr => ARRAY[10, -1, 5, 4.4]);
+SELECT mleast(VARIADIC arr =&gt; ARRAY[10, -1, 5, 4.4]);
 </screen>
 
 <!--
@@ -1128,8 +1129,8 @@ SELECT mleast(VARIADIC arr => ARRAY[10, -1, 5, 4.4]);
 は動作しますが、
 
 <screen>
-SELECT mleast(arr => 10);
-SELECT mleast(arr => ARRAY[10, -1, 5, 4.4]);
+SELECT mleast(arr =&gt; 10);
+SELECT mleast(arr =&gt; ARRAY[10, -1, 5, 4.4]);
 </screen>
 は動作しません。
     </para>
@@ -1849,12 +1850,15 @@ CREATE FUNCTION test(smallint, double precision) RETURNS ...
 <!--
     A function that takes a single argument of a composite type should
     generally not have the same name as any attribute (field) of that type.
-    Recall that <literal>attribute(table)</literal> is considered equivalent
-    to <literal>table.attribute</literal>.  In the case that there is an
+    Recall that <literal><replaceable>attribute</>(<replaceable>table</>)</literal>
+    is considered equivalent
+    to <literal><replaceable>table</>.<replaceable>attribute</></literal>.
+    In the case that there is an
     ambiguity between a function on a composite type and an attribute of
     the composite type, the attribute will always be used.  It is possible
     to override that choice by schema-qualifying the function name
-    (that is, <literal>schema.func(table)</literal>) but it's better to
+    (that is, <literal><replaceable>schema</>.<replaceable>func</>(<replaceable>table</>)
+    </literal>) but it's better to
     avoid the problem by not choosing conflicting names.
 -->
 一般的に、1つの複合型の引数を取る関数は、その型の属性（フィールド）と同じ名前を持ってはいけません。
@@ -4031,7 +4035,7 @@ HeapTuple BuildTupleFromCStrings(AttInMetadata *attinmeta, char **values)
 </programlisting>
 <!--
      to build a <structname>HeapTuple</> given user data
-     in C string form.  <literal>values</literal> is an array of C strings,
+     in C string form.  <parameter>values</parameter> is an array of C strings,
      one for each attribute of the return row. Each C string should be in
      the form expected by the input function of the attribute data
      type. In order to return a null value for one of the attributes,
@@ -4824,11 +4828,15 @@ void RequestAddinShmemSpace(int size)
 -->
 LWLocksはその<function>_PG_init</>関数で以下を呼び出すことで保持されます。
 <programlisting>
-void RequestAddinLWLocks(int n)
+void RequestNamedLWLockTranche(const char *tranche_name, int num_lwlocks)
 </programlisting>
 <!--
-     from <function>_PG_init</>.
+     from <function>_PG_init</>.  This will ensure that an array of
+     <literal>num_lwlocks</> LWLocks is available under the name
+     <literal>tranche_name</>.  Use <function>GetNamedLWLockTranche</>
+     to get a pointer to this array.
 -->
+★原文追加あり
     </para>
     <para>
 <!--
@@ -4850,7 +4858,7 @@ if (!ptr)
         {
                 initialize contents of shmem area;
                 acquire any requested LWLocks using:
-                ptr->mylockid = LWLockAssign();
+                ptr->locks = GetNamedLWLockTranche("my tranche name");
         }
         LWLockRelease(AddinShmemInitLock);
 }

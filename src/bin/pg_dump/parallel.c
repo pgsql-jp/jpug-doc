@@ -4,7 +4,7 @@
  *
  *	Parallel support for pg_dump and pg_restore
  *
- * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -61,6 +61,7 @@
 
 #include "parallel.h"
 #include "pg_backup_utils.h"
+#include "fe_utils/string_utils.h"
 
 #ifndef WIN32
 #include <sys/types.h>

@@ -95,7 +95,7 @@
  * with the higher XID backs out.
  *
  *
- * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -459,7 +459,7 @@ ExecInsertIndexTuples(TupleTableSlot *slot,
  *		ExecCheckIndexConstraints
  *
  *		This routine checks if a tuple violates any unique or
- *		exclusion constraints.  Returns true if there is no no conflict.
+ *		exclusion constraints.  Returns true if there is no conflict.
  *		Otherwise returns false, and the TID of the conflicting
  *		tuple is returned in *conflictTid.
  *
@@ -730,7 +730,7 @@ retry:
 	{
 		TransactionId xwait;
 		ItemPointerData ctid_wait;
-		XLTW_Oper		reason_wait;
+		XLTW_Oper	reason_wait;
 		Datum		existing_values[INDEX_MAX_KEYS];
 		bool		existing_isnull[INDEX_MAX_KEYS];
 		char	   *error_new;

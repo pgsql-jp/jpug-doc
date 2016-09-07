@@ -9,7 +9,7 @@
  * in cluster.c.
  *
  *
- * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -186,6 +186,15 @@ vacuum(int options, RangeVar *relation, Oid relid, VacuumParams *params,
 						stmttype)));
 
 	/*
+	 * Sanity check DISABLE_PAGE_SKIPPING option.
+	 */
+	if ((options & VACOPT_FULL) != 0 &&
+		(options & VACOPT_DISABLE_PAGE_SKIPPING) != 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				 errmsg("VACUUM option DISABLE_PAGE_SKIPPING cannot be used with FULL")));
+
+	/*
 	 * Send info about dead objects to the statistics collector, unless we are
 	 * in autovacuum --- autovacuum.c does this for itself.
 	 */
@@ -200,9 +209,7 @@ vacuum(int options, RangeVar *relation, Oid relid, VacuumParams *params,
 	 */
 	vac_context = AllocSetContextCreate(PortalContext,
 										"Vacuum",
-										ALLOCSET_DEFAULT_MINSIZE,
-										ALLOCSET_DEFAULT_INITSIZE,
-										ALLOCSET_DEFAULT_MAXSIZE);
+										ALLOCSET_DEFAULT_SIZES);
 
 	/*
 	 * If caller didn't give us a buffer strategy object, make one in the
@@ -489,7 +496,8 @@ vacuum_set_xid_limits(Relation rel,
 	 * working on a particular table at any time, and that each vacuum is
 	 * always an independent transaction.
 	 */
-	*oldestXmin = GetOldestXmin(rel, true);
+	*oldestXmin =
+		TransactionIdLimitedForOldSnapshots(GetOldestXmin(rel, true), rel);
 
 	Assert(TransactionIdIsNormal(*oldestXmin));
 

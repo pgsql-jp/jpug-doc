@@ -2,7 +2,7 @@
  * brin_xlog.c
  *		XLog replay routines for BRIN indexes
  *
- * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -47,7 +47,7 @@ brin_xlog_insert_update(XLogReaderState *record,
 {
 	XLogRecPtr	lsn = record->EndRecPtr;
 	Buffer		buffer;
-	BlockNumber	regpgno;
+	BlockNumber regpgno;
 	Page		page;
 	XLogRedoAction action;
 

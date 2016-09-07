@@ -170,11 +170,12 @@
 
      <listitem>
 <!--
-      <simpara>To update the visibility map, which speeds up index-only
-      scans.</simpara>
+      <simpara>To update the visibility map, which speeds
+      up <link linkend="indexes-index-only-scans">index-only
+      scans</link>.</simpara>
 -->
       <simpara>
-インデックスオンリースキャンを高速にする、可視性マップの更新。
+インデックスオンリースキャンを高速にする、可視性マップの更新。 ★変更あり
       </simpara>
      </listitem>
 
@@ -576,9 +577,11 @@
     Since <productname>PostgreSQL</productname> indexes don't contain tuple
     visibility information, a normal index scan fetches the heap tuple for each
     matching index entry, to check whether it should be seen by the current
-    transaction.  An <firstterm>index-only scan</>, on the other hand, checks
-    the visibility map first.  If it's known that all tuples on the page are
-    visible, the heap fetch can be skipped.  This is most noticeable on
+    transaction.
+    An <link linkend="indexes-index-only-scans"><firstterm>index-only
+    scan</></link>, on the other hand, checks the visibility map first.
+    If it's known that all tuples on the page are
+    visible, the heap fetch can be skipped.  This is most useful on
     large data sets where the visibility map can prevent disk accesses.
     The visibility map is vastly smaller than the heap, so it can easily be
     cached even when the heap is very large.
@@ -694,29 +697,34 @@ XIDのカウンタが一周して0に戻り、そして、突然に、過去に�
 
    <para>
 <!--
-    <command>VACUUM</> normally skips pages that don't have any dead row
-    versions, but those pages might still have row versions with old XID
-    values.  To ensure all old row versions have been frozen, a
-    scan of the whole table is needed.
-    <xref linkend="guc-vacuum-freeze-table-age"> controls when
-    <command>VACUUM</> does that: a whole table sweep is forced if
-    the table hasn't been fully scanned for <varname>vacuum_freeze_table_age</>
-    minus <varname>vacuum_freeze_min_age</> transactions. Setting it to 0
-    forces <command>VACUUM</> to always scan all pages, effectively ignoring
-    the visibility map.
+    <command>VACUUM</> uses the <link linkend="storage-vm">visibility map</>
+    to determine which pages of a relation must be scanned.  Normally, it
+    will skips pages that don't have any dead row versions even if those pages
+    might still have row versions with old XID values.  Therefore, normal
+    scans won't succeed in freezing every row version in the table.
+    Periodically, <command>VACUUM</> will perform an <firstterm>aggressive
+    vacuum</>, skipping only those pages which contain neither dead rows nor
+    any unfrozen XID or MXID values.
+    <xref linkend="guc-vacuum-freeze-table-age">
+    controls when <command>VACUUM</> does that: all-visible but not all-frozen
+    pages are scanned if the number of transactions that have passed since the
+    last such scan is greater than <varname>vacuum_freeze_table_age</> minus
+    <varname>vacuum_freeze_min_age</>. Setting
+    <varname>vacuum_freeze_table_age</> to 0 forces <command>VACUUM</> to
+    use this more aggressive strategy for all scans.
 -->
 <command>VACUUM</>は通常もはや使用されない行バージョンを持っていないページを読み飛ばしますが、それらのページは旧XID値の行バージョンを未だ所有している可能性があります。
 すべての古い行バージョンが凍結状態になったかどうかの確証を得るためには、すべてのテーブルの走査が必要です。
 <xref linkend="guc-vacuum-freeze-table-age">は<command>VACUUM</>がいつこれを行うかを制御します。
 つまり、テーブル全体にわたる清掃は<varname>vacuum_freeze_table_age</>から<varname>vacuum_freeze_min_age</>を差し引いたトランザクションに対しテーブルが完全に走査されていない場合に強制されます。
-0に設定することで<command>VACUUM</>は可視性マップを実質無視し、常に全てのページを走査するようになります。
+0に設定することで<command>VACUUM</>は可視性マップを実質無視し、常に全てのページを走査するようになります。 ★変更あり
    </para>
 
    <para>
 <!--
     The maximum time that a table can go unvacuumed is two billion
     transactions minus the <varname>vacuum_freeze_min_age</> value at
-    the time <command>VACUUM</> last scanned the whole table.  If it were to go
+    the time of the last aggressive vacuum. If it were to go
     unvacuumed for longer than
     that, data loss could result.  To ensure that this does not happen,
     autovacuum is invoked on any table that might contain unfrozen rows with
@@ -766,10 +774,10 @@ XIDのカウンタが一周して0に戻り、そして、突然に、過去に�
     normal delete and update activity is run in that window.  Setting it too
     close could lead to anti-wraparound autovacuums, even though the table
     was recently vacuumed to reclaim space, whereas lower values lead to more
-    frequent whole-table scans.
+    frequent aggressive vacuuming.
 -->
 <varname>vacuum_freeze_table_age</>に対する有効な最大値は0.95 * <varname>autovacuum_freeze_max_age</>です。
-これより値が高いと値は最大値までに制限されます。
+これより値が高いと値は最大値までに制限されます。 ★変更あり
 <varname>autovacuum_freeze_max_age</>より高い値は、周回防止用の自動バキュームがその時点でいずれにせよ誘発され、0.95という乗算係数がそれが起こる前に手動による<command>VACUUM</>実行の余地を残すため、意味を持ちません。
 経験則に従うと、定期的に計画された<command>VACUUM</>もしくは通常の削除・更新作業により誘発された自動バキュームがその期間で実行されるように十分な間隔を残しておくように、<command>vacuum_freeze_table_age</>は<varname>autovacuum_freeze_max_age</>より多少低い値に設定されるべきです。
 これを余りにも近い値に設定すると、たとえ領域を回収するために最近テーブルがバキュームされたとしても、周回防止用の自動バキュームに帰着します。
@@ -824,7 +832,7 @@ XIDのカウンタが一周して0に戻り、そして、突然に、過去に�
     <structname>pg_database</>.  In particular,
     the <structfield>relfrozenxid</> column of a table's
     <structname>pg_class</> row contains the freeze cutoff XID that was used
-    by the last whole-table <command>VACUUM</> for that table.  All rows
+    by the last aggressive <command>VACUUM</> for that table.  All rows
     inserted by transactions with XIDs older than this cutoff XID are
     guaranteed to have been frozen.  Similarly,
     the <structfield>datfrozenxid</> column of a database's
@@ -860,20 +868,23 @@ SELECT datname, age(datfrozenxid) FROM pg_database;
 
    <para>
 <!--
-    <command>VACUUM</> normally
-    only scans pages that have been modified since the last vacuum, but
-    <structfield>relfrozenxid</> can only be advanced when the whole table is
-    scanned. The whole table is scanned when <structfield>relfrozenxid</> is
-    more than <varname>vacuum_freeze_table_age</> transactions old, when
-    <command>VACUUM</>'s <literal>FREEZE</> option is used, or when all pages
-    happen to
+    <command>VACUUM</> normally only scans pages that have been modified
+    since the last vacuum, but <structfield>relfrozenxid</> can only be
+    advanced when every page of the table
+    that might contain unfrozen XIDs is scanned.  This happens when
+    <structfield>relfrozenxid</> is more than
+    <varname>vacuum_freeze_table_age</> transactions old, when
+    <command>VACUUM</>'s <literal>FREEZE</> option is used, or when all
+    pages that are not already all-frozen happen to
     require vacuuming to remove dead row versions. When <command>VACUUM</>
-    scans the whole table, after it's finished <literal>age(relfrozenxid)</>
-    should be a little more than the <varname>vacuum_freeze_min_age</> setting
-    that was used (more by the number of transactions started since the
-    <command>VACUUM</> started).  If no whole-table-scanning <command>VACUUM</>
-    is issued on the table until <varname>autovacuum_freeze_max_age</> is
-    reached, an autovacuum will soon be forced for the table.
+    scans every page in the table that is not already all-frozen, it should
+    set <literal>age(relfrozenxid)</> to a value just a little more than the
+    <varname>vacuum_freeze_min_age</> setting
+    that was used (more by the number of transcations started since the
+    <command>VACUUM</> started).  If no <structfield>relfrozenxid</>-advancing
+    <command>VACUUM</> is issued on the table until
+    <varname>autovacuum_freeze_max_age</> is reached, an autovacuum will soon
+    be forced for the table.
 -->
 <command>VACUUM</>は通常最後のバキュームから変更されたページのみ走査しますが、<structfield>relfrozenxid</>はテーブル全体が走査されたときのみ繰り上がります。
 テーブル全体は、<structfield>relfrozenxid</>が<varname>vacuum_freeze_table_age</>トランザクション年齢より大きい時、<command>VACUUM</>の<literal>FREEZE</>オプションが使用された時、もしくは使用されない行バージョンを削除するため全てのページをバキュームしなければならなくなった時、走査されます。
@@ -978,19 +989,21 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
 
     <para>
 <!--
-     During a <command>VACUUM</> table scan, either partial or of the whole
-     table, any multixact ID older than
+     Whenever <command>VACUUM</> scans any part of a table, it will replace
+     any multixact ID it encounters which is older than
      <xref linkend="guc-vacuum-multixact-freeze-min-age">
-     is replaced by a different value, which can be the zero value, a single
+     by a different value, which can be the zero value, a single
      transaction ID, or a newer multixact ID.  For each table,
      <structname>pg_class</>.<structfield>relminmxid</> stores the oldest
      possible multixact ID still appearing in any tuple of that table.
      If this value is older than
-     <xref linkend="guc-vacuum-multixact-freeze-table-age">, a whole-table
-     scan is forced.  <function>mxid_age()</> can be used on
+     <xref linkend="guc-vacuum-multixact-freeze-table-age">, an aggressive
+     vacuum is forced.  As discussed in the previous section, an aggressive
+     vacuum means that only those pages which are known to be all-frozen will
+     be skipped.  <function>mxid_age()</> can be used on
      <structname>pg_class</>.<structfield>relminmxid</> to find its age.
 -->
-テーブルの一部または全体の<command>VACUUM</>テーブル走査の間に<xref linkend="guc-vacuum-multixact-freeze-min-age">よりも古いマルチトランザクションIDはすべて異なる値で置き換えられます。
+テーブルの一部または全体の<command>VACUUM</>テーブル走査の間に<xref linkend="guc-vacuum-multixact-freeze-min-age">よりも古いマルチトランザクションIDはすべて異なる値で置き換えられます。 ★変更あり
 異なる値とは、0かもしれませんし、単一のトランザクションIDかもしれませんし、より新しいマルチトランザクションIDかもしれません。
 各テーブルでは、<structname>pg_class</>.<structfield>relminmxid</>がそのテーブルのタプルにまだ現れるマルチトランザクションIDのうちできるだけ古いものを保持しています。
 この値が<xref linkend="guc-vacuum-multixact-freeze-table-age">よりも古ければ、テーブル全体の走査が強制されます。
@@ -999,29 +1012,29 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
 
     <para>
 <!--
-     Whole-table <command>VACUUM</> scans, regardless of
+     Aggressive <command>VACUUM</> scans, regardless of
      what causes them, enable advancing the value for that table.
      Eventually, as all tables in all databases are scanned and their
      oldest multixact values are advanced, on-disk storage for older
      multixacts can be removed.
 -->
-テーブル全体の<command>VACUUM</>走査は、その原因が何かに関わらず、そのテーブルのその値を進めることができます。
+テーブル全体の<command>VACUUM</>走査は、その原因が何かに関わらず、そのテーブルのその値を進めることができます。 ★変更あり
 結局、データベースすべてのテーブルすべてが走査され、最も古いマルチトランザクション値が進められますので、ディスク上でより古いマルチトランザクションを保持している領域は削除できます。
     </para>
 
     <para>
 <!--
-     As a safety device, a whole-table vacuum scan will occur for any table
+     As a safety device, an aggressive vacuum scan will occur for any table
      whose multixact-age is greater than
-     <xref linkend="guc-autovacuum-multixact-freeze-max-age">.  Whole-table
+     <xref linkend="guc-autovacuum-multixact-freeze-max-age">.  Aggressive
      vacuum scans will also occur progressively for all tables, starting with
      those that have the oldest multixact-age, if the amount of used member
      storage space exceeds the amount 50% of the addressable storage space.
-     Both of these kinds of whole-table scans will occur even if autovacuum is
+     Both of these kinds of aggressive scans will occur even if autovacuum is
      nominally disabled.
 -->
 安全装置として、<xref linkend="guc-autovacuum-multixact-freeze-max-age">よりもそのマルチトランザクション年代が大きいどのテーブルに対しても、テーブル全体のバキューム走査が起こります。
-メンバ記憶領域の使用量がアドレス指定可能な記憶領域の50%を越えた場合にも、テーブル全体のバキューム走査は、マルチトランザクション年代の一番古いものから始めて、すべてのテーブルに対して段階的に起こります。
+メンバ記憶領域の使用量がアドレス指定可能な記憶領域の50%を越えた場合にも、テーブル全体のバキューム走査は、マルチトランザクション年代の一番古いものから始めて、すべてのテーブルに対して段階的に起こります。 ★変更あり
     </para>
    </sect3>
   </sect2>
@@ -1141,9 +1154,9 @@ vacuum threshold = vacuum base threshold + vacuum scale factor * number of tuple
     <command>UPDATE</command> and <command>DELETE</command> operation.  (It
     is only semi-accurate because some information might be lost under heavy
     load.)  If the <structfield>relfrozenxid</> value of the table is more
-    than <varname>vacuum_freeze_table_age</> transactions old, the whole
-    table is scanned to freeze old tuples and advance
-    <structfield>relfrozenxid</>, otherwise only pages that have been modified
+    than <varname>vacuum_freeze_table_age</> transactions old, an aggressive
+    vacuum is performed to freeze old tuples and advance
+    <structfield>relfrozenxid</>; otherwise, only pages that have been modified
     since the last vacuum are scanned.
 -->
 ここで、バキューム基礎閾値は<xref linkend="guc-autovacuum-vacuum-threshold">、バキューム規模係数は<xref linkend="guc-autovacuum-vacuum-scale-factor">、タプル数は<structname>pg_class</structname>.<structfield>reltuples</structfield>です。

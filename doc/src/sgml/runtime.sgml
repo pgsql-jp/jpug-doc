@@ -295,7 +295,7 @@ postgres$ <userinput>initdb -D /usr/local/pgsql/data</userinput>
 
   <para>
 <!--
-   Non-<literal>C</> and and non-<literal>POSIX</> locales rely on the
+   Non-<literal>C</> and non-<literal>POSIX</> locales rely on the
    operating system's collation library for character set ordering.
    This controls the ordering of keys stored in indexes.  For this reason,
    a cluster cannot switch to an incompatible collation library version,
@@ -611,6 +611,41 @@ fi
 -->
 を<filename>/etc/rc.d/rc.local</filename>や<filename>/etc/rc.local</filename>に追加してください。
 または、<productname>PostgreSQL</productname>で配布されるソースの中にある<filename>contrib/start-scripts/linux</filename>ファイルを参照してください。
+     </para>
+
+     <para>
+      When using <application>systemd</application>, you can use the following
+      service unit file (e.g.,
+      at <filename>/etc/systemd/system/postgresql.service</filename>):<indexterm><primary>systemd</primary></indexterm>
+<programlisting>
+[Unit]
+Description=PostgreSQL database server
+Documentation=man:postgres(1)
+
+[Service]
+Type=notify
+User=postgres
+ExecStart=/usr/local/pgsql/bin/postgres -D /usr/local/pgsql/data
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGINT
+TimeoutSec=0
+
+[Install]
+WantedBy=multi-user.target
+</programlisting>
+      Using <literal>Type=notify</literal> requires that the server binary was
+      built with <literal>configure --with-systemd</literal>.
+     </para>
+
+     <para>
+      Consider carefully the timeout
+      setting.  <application>systemd</application> has a default timeout of 90
+      seconds as of this writing and will kill a process that does not notify
+      readiness within that time.  But a <productname>PostgreSQL</productname>
+      server that might have to perform crash recovery at startup could take
+      much longer to become ready.  The suggested value of 0 disables the
+      timeout logic.
      </para>
     </listitem>
 
@@ -1936,6 +1971,18 @@ default:\
 -->
    <title>Linuxのメモリオーバーコミット</title>
 
+   <indexterm>
+    <primary>memory overcommit</primary>
+   </indexterm>
+
+   <indexterm>
+    <primary>OOM</primary>
+   </indexterm>
+
+   <indexterm>
+    <primary>overcommit</primary>
+   </indexterm>
+
    <para>
 <!--
     In Linux 2.4 and later, the default virtual memory behavior is not
@@ -2026,10 +2073,10 @@ sysctl -w vm.overcommit_memory=2
     or placing an equivalent entry in <filename>/etc/sysctl.conf</>.
     You might also wish to modify the related setting
     <varname>vm.overcommit_ratio</>.  For details see the kernel documentation
-    file <filename>Documentation/vm/overcommit-accounting</>.
+    file <ulink url="https://www.kernel.org/doc/Documentation/vm/overcommit-accounting"></ulink>.
 -->
 また、関連する<varname>vm.overcommit_ratio</>設定を変更した方が良いでしょう。
-詳細は<filename>Documentation/vm/overcommit-accounting</>カーネル文書を参照してください。
+詳細は<ulink url="https://www.kernel.org/doc/Documentation/vm/overcommit-accounting"></ulink>カーネル文書を参照してください。
    </para>
 
    <para>
@@ -2190,9 +2237,9 @@ huge pagesを使用するデータベースサーバのオペレーティング�
 <!--
     For a detailed description of the <productname>Linux</productname> huge
     pages feature have a look
-    at <ulink url="https://www.kernel.org/doc/Documentation/vm/hugetlbpage.txt">https://www.kernel.org/doc/Documentation/vm/hugetlbpage.txt</ulink>.
+    at <ulink url="https://www.kernel.org/doc/Documentation/vm/hugetlbpage.txt"></ulink>.
 -->
- <productname>Linux</productname>のhuge pagesの詳細は<ulink url="https://www.kernel.org/doc/Documentation/vm/hugetlbpage.txt">https://www.kernel.org/doc/Documentation/vm/hugetlbpage.txt</ulink>を参照してください。
+ <productname>Linux</productname>のhuge pagesの詳細は<ulink url="https://www.kernel.org/doc/Documentation/vm/hugetlbpage.txt"></ulink>を参照してください。
    </para>
 
   </sect2>
@@ -2863,7 +2910,7 @@ Slonyが異なるメジャーバージョンの<productname>PostgreSQL</>との�
 
   <para>
 <!--
-   The simplest way to prevent spoofing for <literal>local</>
+   One way to prevent spoofing of <literal>local</>
    connections is to use a Unix domain socket directory (<xref
    linkend="guc-unix-socket-directories">) that has write permission only
    for a trusted local user.  This prevents a malicious user from creating
@@ -2874,10 +2921,20 @@ Slonyが異なるメジャーバージョンの<productname>PostgreSQL</>との�
    to the relocated socket file.  You also might need to modify your
    <filename>/tmp</> cleanup script to prevent removal of the symbolic link.
 -->
-<literal>ローカル</>接続に対してなりすましを防ぐ、もっとも簡単な方法は、信頼できるローカルユーザのみに書き込み権限を付与したUnixドメインソケットディレクトリ（<xref linkend="guc-unix-socket-directories">）を使用することです。
+<literal>ローカル</>接続に対してなりすましを防ぐ、もっとも簡単な方法は、信頼できるローカルユーザのみに書き込み権限を付与したUnixドメインソケットディレクトリ（<xref linkend="guc-unix-socket-directories">）を使用することです。★原文変更あり
 これにより、悪意のあるユーザがそのディレクトリに独自のソケットを作成することを防ぐことができます。
 一部のアプリケーションがソケットファイルのために<filename>/tmp</>を参照し、なりすましに対して脆弱であるかもしれないと気にするならば、オペレーティングシステムの起動時に、再割り当てされたソケットファイルを指し示す<filename>/tmp/.s.PGSQL.5432</>というシンボリックリンクを作成してください。
 また、このシンボリックリンクが削除されることを防ぐために、<filename>/tmp</>を整理するスクリプトを変更する必要があるかもしれません。
+  </para>
+
+  <para>
+<!--
+   Another option for <literal>local</> connections is for clients to use
+   <link linkend="libpq-connect-requirepeer"><literal>requirepeer</></>
+   to specify the required owner of the server process connected to
+   the socket.
+-->
+★このpara追加
   </para>
 
   <para>
@@ -3230,9 +3287,20 @@ SSL接続により、ネットワーク越しに送信されるデータ（パ�
    the server's data directory, but other names and locations can be specified
    using the configuration parameters <xref linkend="guc-ssl-cert-file">
    and <xref linkend="guc-ssl-key-file">.
+  </para>
+
+  <para>
    On Unix systems, the permissions on <filename>server.key</filename> must
    disallow any access to world or group; achieve this by the command
-   <command>chmod 0600 server.key</command>.
+   <command>chmod 0600 server.key</command>.  Alternatively, the file can be
+   owned by root and have group read access (that is, <literal>0640</literal>
+   permissions).  That setup is intended for installations where certificate
+   and key files are managed by the operating system.  The user under which
+   the <productname>PostgreSQL</productname> server runs should then be made a
+   member of the group that has access to those certificate and key files.
+  </para>
+
+  <para>
    If the private key is protected with a passphrase, the
    server will prompt for the passphrase and will not start until it has
    been entered.
@@ -3265,21 +3333,26 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
    -->
    <title>クライアント証明書の使用</title>
 
-   <para>
+  <para>
 <!--
    To require the client to supply a trusted certificate, place
    certificates of the certificate authorities (<acronym>CA</acronym>s)
    you trust in the file <filename>root.crt</filename> in the data
    directory, set the parameter <xref linkend="guc-ssl-ca-file"> in
    <filename>postgresql.conf</filename> to <literal>root.crt</literal>,
-   and set the <literal>clientcert</literal> parameter
-   to 1 on the appropriate <literal>hostssl</> line(s) in
-   <filename>pg_hba.conf</>.
+   and add the authentication option <literal>clientcert=1</literal> to the
+   appropriate <literal>hostssl</> line(s) in <filename>pg_hba.conf</>.
    A certificate will then be requested from the client during
    SSL connection startup.  (See <xref linkend="libpq-ssl"> for a
    description of how to set up certificates on the client.)  The server will
    verify that the client's certificate is signed by one of the trusted
-   certificate authorities.  If intermediate <acronym>CA</>s appear in
+   certificate authorities.
+-->
+  </para>
+
+  <para>
+<!--
+   If intermediate <acronym>CA</>s appear in
    <filename>root.crt</filename>, the file must also contain certificate
    chains to their root <acronym>CA</>s.  Certificate Revocation List
    (CRL) entries
@@ -3302,13 +3375,14 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
 
   <para>
 <!--
-   The <literal>clientcert</literal> option in <filename>pg_hba.conf</> is
-   available for all authentication methods, but only for rows specified as
-   <literal>hostssl</>.  When <literal>clientcert</literal> is not specified
-   or is set to 0, the server will still verify presented client
-   certificates against its CA list, if one is configured,
-   &mdash; but it will not insist that a client certificate be presented.
+   The <literal>clientcert</literal> authentication option is available for
+   all authentication methods, but only in <filename>pg_hba.conf</> lines
+   specified as <literal>hostssl</>.  When <literal>clientcert</literal> is
+   not specified or is set to 0, the server will still verify any presented
+   client certificates against its CA file, if one is configured &mdash; but
+   it will not insist that a client certificate be presented.
 -->
+★原文変更あり
 <filename>pg_hba.conf</>の中の<literal>clientcert</literal>オプションはすべての認証方式に対して有効ですが、<literal>hostssl</>として指定された行のみに対してです。
 <literal>clientcert</literal>が指定されていない、または0と設定されている場合でも、認証局のリストが設定されていれば、サーバはその認証局に対してクライアント証明書の検証を行いますが、クライアント証明書の存在そのものを要求しません。
   </para>
@@ -3330,10 +3404,13 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
    If you are setting up client certificates, you may wish to use
    the <literal>cert</> authentication method, so that the certificates
    control user authentication as well as providing connection security.
-   See <xref linkend="auth-cert"> for details.
+   See <xref linkend="auth-cert"> for details.  (It is not necessary to
+   specify <literal>clientcert=1</literal> explicitly when using
+   the <literal>cert</> authentication method.)
 -->
 クライアント証明書を設定している場合、接続の安全性を提供するとともに証明書でユーザ認証を制御できるように<literal>cert</>認証方式を使用したいと考えるかもしれません。
 詳細については<xref linkend="auth-cert">を参照してください。
+★原文追加あり
   </para>
   </sect2>
 

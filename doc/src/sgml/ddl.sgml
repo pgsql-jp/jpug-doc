@@ -996,6 +996,17 @@ CREATE TABLE example (
 他にも主キーが宣言されているときにデータベースシステムがそれを利用する場面がいくつかあります。
 例えば、外部キーがそのテーブルを参照するとき、主キーがデフォルトの対象列となります。
    </para>
+
+   <para>
+    Primary keys are useful both for
+    documentation purposes and for client applications.  For example,
+    a GUI application that allows modifying row values probably needs
+    to know the primary key of a table to be able to identify rows
+    uniquely.  There are also various ways in which the database system
+    makes use of a primary key if one has been declared; for example,
+    the primary key defines the default target column(s) for foreign keys
+    referencing its table.
+   </para>
   </sect2>
 
   <sect2 id="ddl-constraints-fk">
@@ -2262,7 +2273,7 @@ ALTER TABLE products RENAME TO items;
   <para>
 <!--
    To assign privileges, the <command>GRANT</command> command is
-   used. For example, if <literal>joe</literal> is an existing user, and
+   used. For example, if <literal>joe</literal> is an existing role, and
    <literal>accounts</literal> is an existing table, the privilege to
    update the table can be granted with:
 -->
@@ -2280,8 +2291,8 @@ GRANT UPDATE ON accounts TO joe;
 
   <para>
 <!--
-   The special <quote>user</quote> name <literal>PUBLIC</literal> can
-   be used to grant a privilege to every user on the system.  Also,
+   The special <quote>role</quote> name <literal>PUBLIC</literal> can
+   be used to grant a privilege to every role on the system.  Also,
    <quote>group</> roles can be set up to help manage privileges when
    there are many users of a database &mdash; for details see
    <xref linkend="user-manag">.
@@ -2305,8 +2316,8 @@ REVOKE ALL ON accounts FROM PUBLIC;
    <command>DROP</>, <command>GRANT</>, <command>REVOKE</>, etc.)
    are always implicit in being the owner,
    and cannot be granted or revoked.  But the object owner can choose
-   to revoke his own ordinary privileges, for example to make a
-   table read-only for himself as well as others.
+   to revoke their own ordinary privileges, for example to make a
+   table read-only for themselves as well as others.
 -->
 オブジェクト所有者の特別の権限（<command>DROP</>、<command>GRANT</>、<command>REVOKE</>を行う権限など）は、所有者であることを前提とした権限なので、付与したり取り消したりすることはできません。
 しかしオブジェクト所有者は、テーブルを他のユーザ同様に自分自身に対しても読み取り専用にしたい時などに、自分の通常の権限を取り消すことができます。
@@ -2422,6 +2433,14 @@ REVOKE ALL ON accounts FROM PUBLIC;
 可視である行と変更可能な行について独立した制御ができるように、別々の式を指定することも可能です。
 ポリシーの式は問い合わせの一部分として、問い合わせをしているユーザの権限で実行されます。
 ただし、呼び出しユーザに利用できないデータにアクセスするために、セキュリティ定義関数を使うことができます。
+  </para>
+
+  <para>
+   Superusers and roles with the <literal>BYPASSRLS</> attribute always
+   bypass the row security system when accessing a table.  Table owners
+   normally bypass row security as well, though a table owner can choose to
+   be subject to row security with <link linkend="sql-altertable">ALTER
+   TABLE ... FORCE ROW LEVEL SECURITY</>.
   </para>
 
   <para>
@@ -2973,7 +2992,7 @@ SELECT * FROM information WHERE group_id = 2 FOR UPDATE;
    example, both <literal>schema1</> and <literal>myschema</> can
    contain tables named <literal>mytable</>.  Unlike databases,
    schemas are not rigidly separated: a user can access objects in any
-   of the schemas in the database he is connected to, if he has
+   of the schemas in the database they are connected to, if they have
    privileges to do so.
 -->
 データベースには、1つ以上の名前付き<firstterm>スキーマ</>が含まれ、スキーマにはテーブルが含まれます。
@@ -4023,11 +4042,11 @@ VALUES ('Albany', NULL, NULL, 'NY');
    if they are inherited
    from any parent tables. If you wish to remove a table and all of its
    descendants, one easy way is to drop the parent table with the
-   <literal>CASCADE</literal> option.
+   <literal>CASCADE</literal> option (see <xref linkend="ddl-depend">).
 -->
 子テーブルが存在する場合親テーブルを削除することはできません。
 また、子テーブルでは、親テーブルから継承した列、または検査制約を削除することも変更することもできません。
-テーブルとそのすべての子テーブルを削除したければ、<literal>CASCADE</literal>オプションを付けて親テーブルを削除することが簡単な方法です。
+テーブルとそのすべての子テーブルを削除したければ、<literal>CASCADE</literal>オプションを付けて親テーブルを削除することが簡単な方法です。 ★変更あり
   </para>
 
   <para>
@@ -5159,6 +5178,15 @@ ANALYZE measurement;
      </para>
     </listitem>
 
+    <listitem>
+     <para>
+      <command>INSERT</command> statements with <literal>ON CONFLICT</>
+      clauses are unlikely to work as expected, as the <literal>ON CONFLICT</>
+      action is only taken in case of unique violations on the specified
+      target relation, not its child relations.
+     </para>
+    </listitem>
+
    </itemizedlist>
    </para>
 
@@ -5444,9 +5472,11 @@ HINT:  Use DROP ... CASCADE to drop the dependent objects too.
 DROP TABLE products CASCADE;
 </screen>
 <!--
-   and all the dependent objects will be removed.  In this case, it
-   doesn't remove the orders table, it only removes the foreign key
-   constraint.  (If you want to check what <command>DROP ... CASCADE</> will do,
+   and all the dependent objects will be removed, as will any objects
+   that depend on them, recursively.  In this case, it doesn't remove
+   the orders table, it only removes the foreign key constraint.
+   It stops there because nothing depends on the foreign key constraint.
+   (If you want to check what <command>DROP ... CASCADE</> will do,
    run <command>DROP</> without <literal>CASCADE</> and read the
    <literal>DETAIL</> output.)
 -->
@@ -5456,17 +5486,16 @@ DROP TABLE products CASCADE;
   </para>
 
   <para>
-<!--
-   All <command>DROP</> commands in <productname>PostgreSQL</> support
+   Almost all <command>DROP</> commands in <productname>PostgreSQL</> support
    specifying <literal>CASCADE</literal>.  Of course, the nature of
    the possible dependencies varies with the type of the object.  You
    can also write <literal>RESTRICT</literal> instead of
    <literal>CASCADE</literal> to get the default behavior, which is to
-   prevent the dropping of objects that other objects depend on.
+   prevent dropping objects that any other objects depend on.
 -->
 <productname>PostgreSQL</productname>では、全ての<command>DROP</>コマンドに<literal>CASCADE</literal>を指定することができます。
 もちろん、どのような依存関係が存在するかは、オブジェクトの種類によって異なります。
-また、<literal>CASCADE</literal>ではなく<literal>RESTRICT</literal>と記述すると、他のオブジェクトが依存しているオブジェクトの削除を禁止するというデフォルトの振舞いを指定することもできます。
+また、<literal>CASCADE</literal>ではなく<literal>RESTRICT</literal>と記述すると、他のオブジェクトが依存しているオブジェクトの削除を禁止するというデフォルトの振舞いを指定することもできます。 ★変更あり
   </para>
 
   <note>
@@ -5483,6 +5512,15 @@ DROP TABLE products CASCADE;
 実際にこの決まり通りのデータベースシステムはありませんが、デフォルトが<literal>RESTRICT</literal>であるか、<literal>CASCADE</literal>であるかは、システムによって異なります。
    </para>
   </note>
+
+  <para>
+   If a <command>DROP</> command lists multiple
+   objects, <literal>CASCADE</literal> is only required when there are
+   dependencies outside the specified group.  For example, when saying
+   <literal>DROP TABLE tab1, tab2</literal> the existence of a foreign
+   key referencing <literal>tab1</> from <literal>tab2</> would not mean
+   that <literal>CASCADE</literal> is needed to succeed.
+  </para>
 
   <para>
 <!--

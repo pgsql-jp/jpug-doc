@@ -13,7 +13,7 @@
  * we must return a tuples-processed count in the completionTag.  (We no
  * longer do that for CTAS ... WITH NO DATA, however.)
  *
- * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -68,7 +68,7 @@ static ObjectAddress create_ctas_nodata(List *tlist, IntoClause *into);
 
 /* DestReceiver routines for collecting data */
 static void intorel_startup(DestReceiver *self, int operation, TupleDesc typeinfo);
-static void intorel_receive(TupleTableSlot *slot, DestReceiver *self);
+static bool intorel_receive(TupleTableSlot *slot, DestReceiver *self);
 static void intorel_shutdown(DestReceiver *self);
 static void intorel_destroy(DestReceiver *self);
 
@@ -353,7 +353,8 @@ ExecCreateTableAs(CreateTableAsStmt *stmt, const char *queryString,
 		/* save the rowcount if we're given a completionTag to fill */
 		if (completionTag)
 			snprintf(completionTag, COMPLETION_TAG_BUFSIZE,
-					 "SELECT %u", queryDesc->estate->es_processed);
+					 "SELECT " UINT64_FORMAT,
+					 queryDesc->estate->es_processed);
 
 		/* get object address that intorel_startup saved for us */
 		address = ((DR_intorel *) dest)->reladdr;
@@ -577,7 +578,7 @@ intorel_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
 /*
  * intorel_receive --- receive one tuple
  */
-static void
+static bool
 intorel_receive(TupleTableSlot *slot, DestReceiver *self)
 {
 	DR_intorel *myState = (DR_intorel *) self;
@@ -602,6 +603,8 @@ intorel_receive(TupleTableSlot *slot, DestReceiver *self)
 				myState->bistate);
 
 	/* We know this is a newly created relation, so there are no indexes */
+
+	return true;
 }
 
 /*

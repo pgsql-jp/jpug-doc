@@ -114,8 +114,10 @@ typedef struct CustomPath
     by <literal>nodeToString</>, so that debugging routines that attempt to
     print the custom path will work as designed.  <structfield>methods</> must
     point to a (usually statically allocated) object implementing the required
-    custom path methods, of which there are currently only two, as further
-    detailed below.
+    custom path methods, of which there is currently only one.  The
+    <structfield>LibraryName</> and <structfield>SymbolName</> fields must also
+    be initialized so that the dynamic loader can resolve them to locate the
+    method table.
 -->
 <structfield>path</>は、他のすべてのパスと同じく、行数の推定値、開始とトータルのコスト、このパスで提供されるソート順を含めて初期化される必要があります。
 <structfield>flags</>はビットマスクで、カスタムパスが逆向きスキャンをサポートできるなら<literal>CUSTOMPATH_SUPPORT_BACKWARD_SCAN</>を、マークとリストアがサポートできるなら<literal>CUSTOMPATH_SUPPORT_MARK_RESTORE</>を含めます。
@@ -182,24 +184,6 @@ Plan *(*PlanCustomPath) (PlannerInfo *root,
 カスタムパスを完成した計画に変換します。
 戻り値は一般的には<literal>CustomScan</>オブジェクトで、その領域はコールバックが割り当てて初期化しなければなりません。
 詳しくは<xref linkend="custom-scan-plan">を参照してください。
-   </para>
-
-   <para>
-<programlisting>
-void (*TextOutCustomPath) (StringInfo str,
-                           const CustomPath *node);
-</programlisting>
-<!--
-    Generate additional output when <function>nodeToString</> is invoked on
-    this custom path.  This callback is optional.  Since
-    <function>nodeToString</> will automatically dump all fields in the
-    structure that it can see, including <structfield>custom_private</>, this
-    is only useful if the <structname>CustomPath</> is actually embedded in a
-    larger struct containing additional fields.
--->
-<function>nodeToString</>がこのカスタムパス上で呼び出されたときに、追加の出力を生成します。
-このコールバックは必須ではありません。
-<function>nodeToString</>は、<structfield>custom_private</>を含め、それが見ることができる構造体のすべてのフィールドを自動的にダンプするため、これは<structname>CustomPath</>が、追加フィールドを含むより大きな構造体に組み込まれている時にのみ役に立ちます。
    </para>
   </sect2>
  </sect1>
@@ -322,23 +306,6 @@ Node *(*CreateCustomScanState) (CustomScan *cscan);
 多くのプロバイダは、より大きな構造体の最初のフィールドとしてこれを組み込もうとするので、実際の割り当ては通常の<structname>CustomScanState</>が必要とするよりも多くくなることが多いでしょう。
 戻り値では、ノードのタグと<structfield>methods</>が適切に設定されている必要がありますが、その他のフィールドはこの段階ではゼロのままになっています。
 <function>ExecInitCustomScan</>が基本的な初期化をした後、<function>BeginCustomScan</>コールバックが呼び出されることで、カスタムスキャンプロバイダがその他の必要なことを実行する機会が与えられます。
-   </para>
-
-   <para>
-<programlisting>
-void (*TextOutCustomScan) (StringInfo str,
-                           const CustomScan *node);
-</programlisting>
-<!--
-    Generate additional output when <function>nodeToString</> is invoked on
-    this custom plan node.  This callback is optional.  Since
-    <function>nodeToString</> will automatically dump all fields in the
-    structure, including the substructure of the <quote>custom</> fields,
-    there is usually not much need for this callback.
--->
-このカスタム計画ノードで<function>nodeToString</>が呼び出されたときに、追加の出力を生成します。
-このコールバックは必須ではありません。
-<function>nodeToString</>は<quote>custom</>フィールドの下位構造を含め、構造体のすべてのフィールドを自動的にダンプするので、通常はこのコールバックの必要性は高くありません。
    </para>
   </sect2>
  </sect1>
@@ -473,6 +440,43 @@ void (*RestrPosCustomScan) (CustomScanState *node);
 -->
 <function>MarkPosCustomScan</>コールバックで保存された以前のスキャン位置をリストアします。
 このコールバックは必須ではなく、<literal>CUSTOMPATH_SUPPORT_MARK_RESTORE</>フラグがセットされている場合にのみ、提供する必要があります。
+   </para>
+
+   <para>
+<programlisting>
+Size (*EstimateDSMCustomScan) (CustomScanState *node,
+                               ParallelContext *pcxt);
+</programlisting>
+    Estimate the amount of dynamic shared memory that will be required
+    for parallel operation.  This may be higher than the amount that will
+    actually be used, but it must not be lower.  The return value is in bytes.
+    This callback is optional, and need only be supplied if this custom
+    scan provider supports parallel execution.
+   </para>
+
+   <para>
+<programlisting>
+void (*InitializeDSMCustomScan) (CustomScanState *node,
+                                 ParallelContext *pcxt,
+                                 void *coordinate);
+</programlisting>
+    Initialize the dynamic shared memory that will be required for parallel
+    operation; <literal>coordinate</> points to an amount of allocated space
+    equal to the return value of <function>EstimateDSMCustomScan</>.
+    This callback is optional, and need only be supplied if this custom
+    scan provider supports parallel execution.
+   </para>
+
+   <para>
+<programlisting>
+void (*InitializeWorkerCustomScan) (CustomScanState *node,
+                                    shm_toc *toc,
+                                    void *coordinate);
+</programlisting>
+    Initialize a parallel worker's custom state based on the shared state
+    set up in the leader by <literal>InitializeDSMCustomScan</>.
+    This callback is optional, and needs only be supplied if this
+    custom path supports parallel execution.
    </para>
 
    <para>

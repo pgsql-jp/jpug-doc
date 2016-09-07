@@ -24,17 +24,21 @@
  * since it would get completely confused if someone inquired about a bogus
  * MultiXactId that pointed to an intermediate slot containing an XID.)
  *
- * XLOG interactions: this module generates an XLOG record whenever a new
- * OFFSETs or MEMBERs page is initialized to zeroes, as well as an XLOG record
- * whenever a new MultiXactId is defined.  This allows us to completely
- * rebuild the data entered since the last checkpoint during XLOG replay.
- * Because this is possible, we need not follow the normal rule of
- * "write WAL before data"; the only correctness guarantee needed is that
- * we flush and sync all dirty OFFSETs and MEMBERs pages to disk before a
- * checkpoint is considered complete.  If a page does make it to disk ahead
- * of corresponding WAL records, it will be forcibly zeroed before use anyway.
- * Therefore, we don't need to mark our pages with LSN information; we have
- * enough synchronization already.
+ * XLOG interactions: this module generates a record whenever a new OFFSETs or
+ * MEMBERs page is initialized to zeroes, as well as an
+ * XLOG_MULTIXACT_CREATE_ID record whenever a new MultiXactId is defined.
+ * This module ignores the WAL rule "write xlog before data," because it
+ * suffices that actions recording a MultiXactId in a heap xmax do follow that
+ * rule.  The only way for the MXID to be referenced from any data page is for
+ * heap_lock_tuple() or heap_update() to have put it there, and each generates
+ * an XLOG record that must follow ours.  The normal LSN interlock between the
+ * data page and that XLOG record will ensure that our XLOG record reaches
+ * disk first.  If the SLRU members/offsets data reaches disk sooner than the
+ * XLOG records, we do not care; after recovery, no xmax will refer to it.  On
+ * the flip side, to ensure that all referenced entries _do_ reach disk, this
+ * module's XLOG records completely rebuild the data entered since the last
+ * checkpoint.  We flush and sync all dirty OFFSETs and MEMBERs pages to disk
+ * before each checkpoint is considered complete.
  *
  * Like clog.c, and unlike subtrans.c, we have to preserve state across
  * crashes and ensure that MXID and offset numbering increases monotonically
@@ -55,7 +59,7 @@
  * counter does not fall within the wraparound horizon considering the global
  * minimum value.
  *
- * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/backend/access/transam/multixact.c
@@ -795,19 +799,7 @@ MultiXactIdCreateFromMembers(int nmembers, MultiXactMember *members)
 	 */
 	multi = GetNewMultiXactId(nmembers, &offset);
 
-	/*
-	 * Make an XLOG entry describing the new MXID.
-	 *
-	 * Note: we need not flush this XLOG entry to disk before proceeding. The
-	 * only way for the MXID to be referenced from any data page is for
-	 * heap_lock_tuple() to have put it there, and heap_lock_tuple() generates
-	 * an XLOG record that must follow ours.  The normal LSN interlock between
-	 * the data page and that XLOG record will ensure that our XLOG record
-	 * reaches disk first.  If the SLRU members/offsets data reaches disk
-	 * sooner than the XLOG record, we do not care because we'll overwrite it
-	 * with zeroes unless the XLOG record is there too; see notes at top of
-	 * this file.
-	 */
+	/* Make an XLOG entry describing the new MXID. */
 	xlrec.mid = multi;
 	xlrec.moff = offset;
 	xlrec.nmembers = nmembers;
@@ -996,8 +988,8 @@ GetNewMultiXactId(int nmembers, MultiXactOffset *offset)
 			char	   *oldest_datname = get_database_name(oldest_datoid);
 
 			/*
-			 * Immediately kick autovacuum into action as we're already
-			 * in ERROR territory.
+			 * Immediately kick autovacuum into action as we're already in
+			 * ERROR territory.
 			 */
 			SendPostmasterSignal(PMSIGNAL_START_AUTOVAC_LAUNCHER);
 
@@ -1126,7 +1118,7 @@ GetNewMultiXactId(int nmembers, MultiXactOffset *offset)
 		/*
 		 * To avoid swamping the postmaster with signals, we issue the autovac
 		 * request only when crossing a segment boundary. With default
-		 * compilation settings that's rougly after 50k members.  This still
+		 * compilation settings that's roughly after 50k members.  This still
 		 * gives plenty of chances before we get into real trouble.
 		 */
 		if ((MXOffsetToMemberPage(nextOffset) / SLRU_PAGES_PER_SEGMENT) !=
@@ -1142,8 +1134,8 @@ GetNewMultiXactId(int nmembers, MultiXactOffset *offset)
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg_plural("database with OID %u must be vacuumed before %d more multixact member is used",
 							   "database with OID %u must be vacuumed before %d more multixact members are used",
-						MultiXactState->offsetStopLimit - nextOffset + nmembers,
-						MultiXactState->oldestMultiXactDB,
+					 MultiXactState->offsetStopLimit - nextOffset + nmembers,
+							   MultiXactState->oldestMultiXactDB,
 					MultiXactState->offsetStopLimit - nextOffset + nmembers),
 				 errhint("Execute a database-wide VACUUM in that database with reduced vacuum_multixact_freeze_min_age and vacuum_multixact_freeze_table_age settings.")));
 
@@ -1578,10 +1570,8 @@ mXactCachePut(MultiXactId multi, int nmembers, MultiXactMember *members)
 		/* The cache only lives as long as the current transaction */
 		debug_elog2(DEBUG2, "CachePut: initializing memory context");
 		MXactContext = AllocSetContextCreate(TopTransactionContext,
-											 "MultiXact Cache Context",
-											 ALLOCSET_SMALL_MINSIZE,
-											 ALLOCSET_SMALL_INITSIZE,
-											 ALLOCSET_SMALL_MAXSIZE);
+											 "MultiXact cache context",
+											 ALLOCSET_SMALL_SIZES);
 	}
 
 	entry = (mXactCacheEnt *)
@@ -1837,11 +1827,13 @@ MultiXactShmemInit(void)
 	MultiXactMemberCtl->PagePrecedes = MultiXactMemberPagePrecedes;
 
 	SimpleLruInit(MultiXactOffsetCtl,
-				  "MultiXactOffset Ctl", NUM_MXACTOFFSET_BUFFERS, 0,
-				  MultiXactOffsetControlLock, "pg_multixact/offsets");
+				  "multixact_offset", NUM_MXACTOFFSET_BUFFERS, 0,
+				  MultiXactOffsetControlLock, "pg_multixact/offsets",
+				  LWTRANCHE_MXACTOFFSET_BUFFERS);
 	SimpleLruInit(MultiXactMemberCtl,
-				  "MultiXactMember Ctl", NUM_MXACTMEMBER_BUFFERS, 0,
-				  MultiXactMemberControlLock, "pg_multixact/members");
+				  "multixact_member", NUM_MXACTMEMBER_BUFFERS, 0,
+				  MultiXactMemberControlLock, "pg_multixact/members",
+				  LWTRANCHE_MXACTMEMBER_BUFFERS);
 
 	/* Initialize our shared state struct */
 	MultiXactState = ShmemInitStruct("Shared MultiXact State",
@@ -2036,7 +2028,11 @@ TrimMultiXact(void)
 
 	/*
 	 * Zero out the remainder of the current offsets page.  See notes in
-	 * TrimCLOG() for motivation.
+	 * TrimCLOG() for background.  Unlike CLOG, some WAL record covers every
+	 * pg_multixact SLRU mutation.  Since, also unlike CLOG, we ignore the WAL
+	 * rule "write xlog before data," nextMXact successors may carry obsolete,
+	 * nonzero offset values.  Zero those so case 2 of GetMultiXactIdMembers()
+	 * operates normally.
 	 */
 	entryno = MultiXactIdToOffsetEntry(nextMXact);
 	if (entryno != 0)
@@ -2804,7 +2800,7 @@ ReadMultiXactCounts(uint32 *multixacts, MultiXactOffset *members)
  * more aggressive in clamping this value.  That not only causes autovacuum
  * to ramp up, but also makes any manual vacuums the user issues more
  * aggressive.  This happens because vacuum_set_xid_limits() clamps the
- * freeze table and and the minimum freeze age based on the effective
+ * freeze table and the minimum freeze age based on the effective
  * autovacuum_multixact_freeze_max_age this function returns.  In the worst
  * case, we'll claim the freeze_max_age to zero, and every vacuum of any
  * table will try to freeze every multixact.

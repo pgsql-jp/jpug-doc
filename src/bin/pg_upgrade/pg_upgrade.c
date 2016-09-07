@@ -3,7 +3,7 @@
  *
  *	main source file
  *
- *	Copyright (c) 2010-2015, PostgreSQL Global Development Group
+ *	Copyright (c) 2010-2016, PostgreSQL Global Development Group
  *	src/bin/pg_upgrade/pg_upgrade.c
  */
 
@@ -38,6 +38,7 @@
 
 #include "pg_upgrade.h"
 #include "common/restricted_token.h"
+#include "fe_utils/string_utils.h"
 
 #ifdef HAVE_LANGINFO_H
 #include <langinfo.h>
@@ -260,8 +261,6 @@ prepare_new_cluster(void)
 			  new_cluster.bindir, cluster_conn_opts(&new_cluster),
 			  log_opts.verbose ? "--verbose" : "");
 	check_ok();
-
-	get_pg_database_relfilenode(&new_cluster);
 }
 
 
@@ -548,9 +547,9 @@ set_frozenxids(bool minmxid_only)
 		/*
 		 * We must update databases where datallowconn = false, e.g.
 		 * template0, because autovacuum increments their datfrozenxids,
-		 * relfrozenxids, and relminmxid even if autovacuum is turned off,
-		 * and even though all the data rows are already frozen.  To enable
-		 * this, we temporarily change datallowconn.
+		 * relfrozenxids, and relminmxid even if autovacuum is turned off, and
+		 * even though all the data rows are already frozen.  To enable this,
+		 * we temporarily change datallowconn.
 		 */
 		if (strcmp(datallowconn, "f") == 0)
 			PQclear(executeQueryOrDie(conn_template1,
