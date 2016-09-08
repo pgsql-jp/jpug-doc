@@ -18,18 +18,20 @@
    tables.  You can drop and recreate the tables, add columns, insert
    and update values, and severely mess up your system that way.
    Normally, one should not change the system catalogs by hand, there
-   are always SQL commands to do that.  (For example, <command>CREATE
+   are normally SQL commands to do that.  (For example, <command>CREATE
    DATABASE</command> inserts a row into the
    <structname>pg_database</structname> catalog &mdash; and actually
    creates the database on disk.)  There are some exceptions for
-   particularly esoteric operations, such as adding index access methods.
+   particularly esoteric operations, but many of those have been made
+   available as SQL commands over time, and so the need for direct manipulation
+   of the system catalogs is ever decreasing.
 -->
 システムカタログとは、リレーショナルデータベース管理システムがテーブルや列の情報などのスキーマメタデータと内部的な情報を格納する場所です。
 <productname>PostgreSQL</productname>のシステムカタログは通常のテーブルです。
 テーブルを削除したり再作成したり、列の追加および値の挿入や更新をすることは可能ですが、これらの操作でデータベースシステムを台なしにしてしまう可能性もあります。
 通常手作業でシステムカタログを変更してはいけません。
 その代わりとしてSQLコマンドを使用します（例えば<command>CREATE DATABASE</command>により<structname>pg_database</structname>カタログに1行挿入し、ディスク上にデータベースを実際に作成します）。
-しかしインデックスアクセスメソッドを追加するような特に難易度の高い操作の時などの例外があります。
+しかしインデックスアクセスメソッドを追加するような特に難易度の高い操作の時などの例外があります。★変更あり
   </para>
 
  <sect1 id="catalogs-overview">
@@ -284,6 +286,11 @@
       <entry>table inheritance hierarchy</entry>
 -->
       <entry>テーブル継承階層</entry>
+     </row>
+
+     <row>
+      <entry><link linkend="catalog-pg-init-privs"><structname>pg_init_privs</structname></link></entry>
+      <entry>object initial privileges</entry>
      </row>
 
      <row>
@@ -627,6 +634,24 @@
       <entry>最終関数（ない時はゼロ）</entry>
      </row>
      <row>
+      <entry><structfield>aggcombinefn</structfield></entry>
+      <entry><type>regproc</type></entry>
+      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
+      <entry>Combine function (zero if none)</entry>
+     </row>
+     <row>
+      <entry><structfield>aggserialfn</structfield></entry>
+      <entry><type>regproc</type></entry>
+      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
+      <entry>Serialization function (zero if none)</entry>
+     </row>
+     <row>
+      <entry><structfield>aggdeserialfn</structfield></entry>
+      <entry><type>regproc</type></entry>
+      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
+      <entry>Deserialization function (zero if none)</entry>
+     </row>
+     <row>
       <entry><structfield>aggmtransfn</structfield></entry>
       <entry><type>regproc</type></entry>
       <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
@@ -778,14 +803,15 @@
 
   <para>
 <!--
-   The catalog <structname>pg_am</structname> stores information about index
-   access methods.  There is one row for each index access method supported by
-   the system.  The contents of this catalog are discussed in detail in
-   <xref linkend="indexam">.
+   The catalog <structname>pg_am</structname> stores information about
+   relation access methods.  There is one row for each access method supported
+   by the system.
+   Currently, only indexes have access methods.  The requirements for index
+   access methods are discussed in detail in <xref linkend="indexam">.
 -->
 <structname>pg_am</structname>カタログにはインデックスアクセスメソッドの情報が格納されます。
 システムがサポートするインデックスアクセスメソッド毎に1つの行が存在します。
-このカタログの内容については<xref linkend="indexam">で詳しく説明します。
+このカタログの内容については<xref linkend="indexam">で詳しく説明します。★変更あり
   </para>
 
   <table>
@@ -832,305 +858,38 @@
      </row>
 
      <row>
-      <entry><structfield>amstrategies</structfield></entry>
-      <entry><type>int2</type></entry>
-      <entry></entry>
-<!--
-      <entry>Number of operator strategies for this access method,
-       or zero if access method does not have a fixed set of operator
-       strategies</entry>
--->
-      <entry>このアクセスメソッド用の演算子戦略番号。
-もしアクセスメソッドが固定された演算子戦略群を持たない場合はゼロ</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amsupport</structfield></entry>
-      <entry><type>int2</type></entry>
-      <entry></entry>
-<!--
-      <entry>Number of support routines for this access method</entry>
--->
-      <entry>このアクセスメソッド用のサポートルーチンの数</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amcanorder</structfield></entry>
-      <entry><type>bool</type></entry>
-      <entry></entry>
-<!--
-      <entry>Does the access method support ordered scans sorted by the
-       indexed column's value?</entry>
--->
-      <entry>アクセスメソッドは、インデックス列の値によってソートされた順序付けスキャンをサポートしているか？</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amcanorderbyop</structfield></entry>
-      <entry><type>bool</type></entry>
-      <entry></entry>
-<!--
-      <entry>Does the access method support ordered scans sorted by the result
-       of an operator on the indexed column?</entry>
--->
-      <entry>アクセスメソッドは、インデックス列に対する演算子の結果によってソートされた順序付けスキャンをサポートしているか？</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amcanbackward</structfield></entry>
-      <entry><type>bool</type></entry>
-      <entry></entry>
-<!--
-      <entry>Does the access method support backward scanning?</entry>
--->
-      <entry>アクセスメソッドは後方スキャンをサポートしているか？</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amcanunique</structfield></entry>
-      <entry><type>bool</type></entry>
-      <entry></entry>
-<!--
-      <entry>Does the access method support unique indexes?</entry>
--->
-      <entry>アクセスメソッドが一意インデックスをサポートするかどうか？</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amcanmulticol</structfield></entry>
-      <entry><type>bool</type></entry>
-      <entry></entry>
-<!--
-      <entry>Does the access method support multicolumn indexes?</entry>
--->
-      <entry>アクセスメソッドが複数列インデックスをサポートするかどうか？</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amoptionalkey</structfield></entry>
-      <entry><type>bool</type></entry>
-      <entry></entry>
-<!--
-      <entry>Does the access method support a scan without any constraint
-       for the first index column?</entry>
--->
-      <entry>アクセスメソッドが最初のインデックス列に対して制約無しのスキャンをサポートするかどうか？</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amsearcharray</structfield></entry>
-      <entry><type>bool</type></entry>
-      <entry></entry>
-<!--
-      <entry>Does the access method support <literal>ScalarArrayOpExpr</> searches?</entry>
--->
-      <entry>アクセスメソッドは<literal>ScalarArrayOpExpr</>検索をサポートするかどうか？</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amsearchnulls</structfield></entry>
-      <entry><type>bool</type></entry>
-      <entry></entry>
-<!--
-      <entry>Does the access method support <literal>IS NULL</>/<literal>NOT NULL</> searches?</entry>
--->
-      <entry>アクセスメソッドは<literal>IS NULL</>/<literal>NOT NULL</>検索をサポートしているか？</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amstorage</structfield></entry>
-      <entry><type>bool</type></entry>
-      <entry></entry>
-<!--
-      <entry>Can index storage data type differ from column data type?</entry>
--->
-      <entry>インデックス格納データの型を列のデータ型から変更できるか？</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amclusterable</structfield></entry>
-      <entry><type>bool</type></entry>
-      <entry></entry>
-<!--
-      <entry>Can an index of this type be clustered on?</entry>
--->
-      <entry>この型のインデックスはクラスタ可能か？</entry>
-     </row>
-
-     <row>
-      <entry><structfield>ampredlocks</structfield></entry>
-      <entry><type>bool</type></entry>
-      <entry></entry>
-<!--
-      <entry>Does an index of this type manage fine-grained predicate locks?</entry>
--->
-      <entry>この種類のインデックスが細粒度の述部ロックを管理するか?</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amkeytype</structfield></entry>
+      <entry><structfield>amhandler</structfield></entry>
       <entry><type>oid</type></entry>
-      <entry><literal><link linkend="catalog-pg-type"><structname>pg_type</structname></link>.oid</literal></entry>
-<!--
-      <entry>Type of data stored in index, or zero if not a fixed type</entry>
--->
-      <entry>インデックス内に保存されたデータ型、もしくは固定型ではない場合はゼロ</entry>
+      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
+      <entry>
+       OID of a handler function that is responsible for supplying information
+       about the access method
+      </entry>
      </row>
 
      <row>
-      <entry><structfield>aminsert</structfield></entry>
-      <entry><type>regproc</type></entry>
-      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
-<!--
-      <entry><quote>Insert this tuple</quote> function</entry>
--->
-      <entry><quote>このタプルを挿入する</quote>関数</entry>
+      <entry><structfield>amtype</structfield></entry>
+      <entry><type>char</type></entry>
+      <entry></entry>
+      <entry>
+       Currently always <literal>i</literal> to indicate an index access
+       method; other values may be allowed in future
+      </entry>
      </row>
-
-     <row>
-      <entry><structfield>ambeginscan</structfield></entry>
-      <entry><type>regproc</type></entry>
-      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
-<!--
-      <entry><quote>Prepare for index scan</quote> function</entry>
--->
-      <entry><quote>インデックススキャンを準備する</quote>関数</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amgettuple</structfield></entry>
-      <entry><type>regproc</type></entry>
-      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
-<!--
-      <entry><quote>Next valid tuple</quote> function, or zero if none</entry>
--->
-      <entry><quote>次に有効なタプル</quote>関数。存在しない場合はゼロ</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amgetbitmap</structfield></entry>
-      <entry><type>regproc</type></entry>
-      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
-<!--
-      <entry><quote>Fetch all valid tuples</quote> function, or zero if none</entry>
--->
-      <entry><quote>有効なタプルをすべて取り出す</quote>関数。存在しない場合はゼロ</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amrescan</structfield></entry>
-      <entry><type>regproc</type></entry>
-      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
-<!--
-      <entry><quote>(Re)start index scan</quote> function</entry>
--->
-      <entry><quote>インデックススキャンを（再）開始する</quote>関数</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amendscan</structfield></entry>
-      <entry><type>regproc</type></entry>
-      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
-<!--
-      <entry><quote>Clean up after index scan</quote> function</entry>
--->
-      <entry><quote>インデックススキャン後の整理</quote>関数</entry>
-     </row>
-
-     <row>
-      <entry><structfield>ammarkpos</structfield></entry>
-      <entry><type>regproc</type></entry>
-      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
-<!--
-      <entry><quote>Mark current scan position</quote> function</entry>
--->
-      <entry><quote>現在のスキャン位置を記録する</quote>関数</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amrestrpos</structfield></entry>
-      <entry><type>regproc</type></entry>
-      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
-<!--
-      <entry><quote>Restore marked scan position</quote> function</entry>
--->
-      <entry><quote>記録したスキャン位置に復元する</quote>関数</entry>
-     </row>
-
-     <row>
-      <entry><structfield>ambuild</structfield></entry>
-      <entry><type>regproc</type></entry>
-      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
-<!--
-      <entry><quote>Build new index</quote> function</entry>
--->
-      <entry><quote>新規インデックスを構築する</quote>関数</entry>
-     </row>
-
-     <row>
-      <entry><structfield>ambuildempty</structfield></entry>
-      <entry><type>regproc</type></entry>
-      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
-<!--
-      <entry><quote>Build empty index</quote> function</entry>
--->
-      <entry><quote>空のインデックスを構築する</quote>関数</entry>
-     </row>
-
-     <row>
-      <entry><structfield>ambulkdelete</structfield></entry>
-      <entry><type>regproc</type></entry>
-      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
-<!--
-      <entry>Bulk-delete function</entry>
--->
-      <entry>一括削除関数</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amvacuumcleanup</structfield></entry>
-      <entry><type>regproc</type></entry>
-      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
-<!--
-      <entry>Post-<command>VACUUM</command> cleanup function</entry>
--->
-      <entry><command>VACUUM</command>後の消去関数</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amcanreturn</structfield></entry>
-      <entry><type>regproc</type></entry>
-      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
-<!--
-      <entry>Function to check whether an index column supports index-only
-       scans. Can be zero if index-only scans are never supported.</entry>
--->
-      <entry>インデックスの列がインデックスオンリースキャンをサポートするかどうかを検査する関数。インデックスオンリースキャンがサポートされていなければゼロのこともある。</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amcostestimate</structfield></entry>
-      <entry><type>regproc</type></entry>
-      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
-<!--
-      <entry>Function to estimate cost of an index scan</entry>
--->
-      <entry>インデックススキャンのコスト推測関数</entry>
-     </row>
-
-     <row>
-      <entry><structfield>amoptions</structfield></entry>
-      <entry><type>regproc</type></entry>
-      <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
-<!--
-      <entry>Function to parse and validate <structfield>reloptions</> for an index</entry>
--->
-      <entry>インデックスの<structfield>reloptions</>を解析、検証する関数</entry>
-     </row>
-
     </tbody>
    </tgroup>
   </table>
+
+  <note>
+   <para>
+    Before <productname>PostgreSQL</> 9.6, <structname>pg_am</structname>
+    contained many additional columns representing properties of index access
+    methods.  That data is now only directly visible at the C code level.
+    However, <function>pg_index_column_has_property()</function> and related
+    functions have been added to allow SQL queries to inspect index access
+    method properties; see <xref linkend="functions-info-catalog-table">.
+   </para>
+  </note>
 
  </sect1>
 
@@ -2865,6 +2624,16 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
      </row>
 
      <row>
+      <entry><structfield>relforcerowsecurity</structfield></entry>
+      <entry><type>bool</type></entry>
+      <entry></entry>
+      <entry>
+       True if row level security (when enabled) will also apply to table owner; see
+       <link linkend="catalog-pg-policy"><structname>pg_policy</structname></link> catalog
+      </entry>
+     </row>
+
+     <row>
       <entry><structfield>relispopulated</structfield></entry>
       <entry><type>bool</type></entry>
       <entry></entry>
@@ -4403,6 +4172,19 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
     </varlistentry>
 
     <varlistentry>
+     <term><symbol>DEPENDENCY_AUTO_EXTENSION</> (<literal>x</>)</term>
+     <listitem>
+      <para>
+       The dependent object is not a member of the extension that is the
+       referenced object (and so should not be ignored by pg_dump), but
+       cannot function without it and should be dropped when the
+       extension itself is. The dependent object may be dropped on its
+       own as well.
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
      <term><symbol>DEPENDENCY_PIN</> (<literal>p</>)</term>
      <listitem>
       <para>
@@ -5677,30 +5459,48 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
 
  </sect1>
 
+ <sect1 id="catalog-pg-init-privs">
+  <title><structname>pg_init_privs</structname></title>
 
- <sect1 id="catalog-pg-language">
-  <title><structname>pg_language</structname></title>
-
-  <indexterm zone="catalog-pg-language">
-   <primary>pg_language</primary>
+  <indexterm zone="catalog-pg-init-privs">
+   <primary>pg_init_privs</primary>
   </indexterm>
 
   <para>
 <!--
-   The catalog <structname>pg_language</structname> registers
-   languages in which you can write functions or stored procedures.
-   See <xref linkend="sql-createlanguage">
-   and <xref linkend="xplang"> for more information about language handlers.
+   The catalog <structname>pg_init_privs</> records information about
+   the initial privileges of objects in the system.  There is one entry
+   for each object in the database which has a non-default (non-NULL)
+   initial set of privileges.
 -->
 <structname>pg_language</structname>カタログはユーザ定義関数やストアドプロシージャを作成することができる言語を登録します。
-言語ハンドラの詳細は<xref linkend="sql-createlanguage">と<xref linkend="xplang">を参照してください。
+言語ハンドラの詳細は<xref linkend="sql-createlanguage">と<xref linkend="xplang">を参照してください。 ★変更あり
+  </para>
+
+  <para>
+   Objects can have initial privileges either by having those privileges set
+   when the system is initialized (by <application>initdb</>) or when the
+   object is created during a <command>CREATE EXTENSION</command> and the
+   extension script sets initial privileges using the <command>GRANT</command>
+   system.  Note that the system will automatically handle recording of the
+   privileges during the extension script and that extension authors need
+   only use the <command>GRANT</command> and <command>REVOKE</command>
+   statements in their script to have the privileges recorded.  The
+   <literal>privtype</literal> column indicates if the initial privilege was
+   set by <application>initdb</> or during a
+   <command>CREATE EXTENSION</command> command.
+  </para>
+
+  <para>
+   Objects which have initial privileges set by <application>initdb</> will
+   have entries where <literal>privtype</literal> is
+   <literal>'i'</literal>, while objects which have initial privileges set
+   by <command>CREATE EXTENSION</command> will have entries where
+   <literal>privtype</literal> is <literal>'e'</literal>.
   </para>
 
   <table>
-<!--
-   <title><structname>pg_language</> Columns</title>
--->
-   <title><structname>pg_language</>の列</title>
+   <title><structname>pg_init_privs</> Columns</title>
 
    <tgroup cols="4">
     <thead>
@@ -5720,33 +5520,106 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
 
     <tbody>
      <row>
+      <entry><structfield>objoid</structfield></entry>
+      <entry><type>oid</type></entry>
+      <entry>any OID column</entry>
+      <entry>The OID of the specific object</entry>
+     </row>
+
+     <row>
+      <entry><structfield>classoid</structfield></entry>
+      <entry><type>oid</type></entry>
+      <entry><literal><link linkend="catalog-pg-class"><structname>pg_class</structname></link>.oid</literal></entry>
+      <entry>The OID of the system catalog the object is in</entry>
+     </row>
+
+     <row>
+      <entry><structfield>objsubid</structfield></entry>
+      <entry><type>int4</type></entry>
+      <entry></entry>
+      <entry>
+       For a table column, this is the column number (the
+       <structfield>objoid</> and <structfield>classoid</> refer to the
+       table itself).  For all other object types, this column is
+       zero.
+      </entry>
+     </row>
+
+     <row>
+      <entry><structfield>privtype</structfield></entry>
+      <entry><type>char</type></entry>
+      <entry></entry>
+      <entry>
+       A code defining the type of initial privilege of this object; see text
+      </entry>
+     </row>
+
+     <row>
+      <entry><structfield>initprivs</structfield></entry>
+      <entry><type>aclitem[]</type></entry>
+      <entry></entry>
+      <entry>
+       The initial access privileges; see
+       <xref linkend="sql-grant"> and
+       <xref linkend="sql-revoke">
+       for details
+      </entry>
+     </row>
+
+    </tbody>
+   </tgroup>
+  </table>
+
+ </sect1>
+
+
+ <sect1 id="catalog-pg-language">
+  <title><structname>pg_language</structname></title>
+
+  <indexterm zone="catalog-pg-language">
+   <primary>pg_language</primary>
+  </indexterm>
+
+  <para>
+   The catalog <structname>pg_language</structname> registers
+   languages in which you can write functions or stored procedures.
+   See <xref linkend="sql-createlanguage">
+   and <xref linkend="xplang"> for more information about language handlers.
+  </para>
+
+  <table>
+   <title><structname>pg_language</> Columns</title>
+
+   <tgroup cols="4">
+    <thead>
+     <row>
+      <entry>Name</entry>
+      <entry>Type</entry>
+      <entry>References</entry>
+      <entry>Description</entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
       <entry><structfield>oid</structfield></entry>
       <entry><type>oid</type></entry>
       <entry></entry>
-<!--
       <entry>Row identifier (hidden attribute; must be explicitly selected)</entry>
--->
-      <entry>行識別子（隠し属性です。明示的に選択しなければなりません）</entry>
      </row>
 
      <row>
       <entry><structfield>lanname</structfield></entry>
       <entry><type>name</type></entry>
       <entry></entry>
-<!--
       <entry>Name of the language</entry>
--->
-      <entry>言語名</entry>
      </row>
 
      <row>
       <entry><structfield>lanowner</structfield></entry>
       <entry><type>oid</type></entry>
       <entry><literal><link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.oid</literal></entry>
-<!--
       <entry>Owner of the language</entry>
--->
-      <entry>言語の所有者</entry>
      </row>
 
      <row>
@@ -5754,15 +5627,11 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
       <entry><type>bool</type></entry>
       <entry></entry>
       <entry>
-<!--
        This is false for internal languages (such as
        <acronym>SQL</acronym>) and true for user-defined languages.
        Currently, <application>pg_dump</application> still uses this
        to determine which languages need to be dumped, but this might be
        replaced by a different mechanism in the future.
--->
-（<acronym>SQL</acronym>などの）内部言語では偽となり、ユーザ定義言語では真となります。
-現在<application>pg_dump</application>ではダンプされる必要のある言語を決定するためにこれを使用していますが、いずれ別の処理方法に置き換えられる可能性があります。
       </entry>
      </row>
 
@@ -5771,15 +5640,10 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
       <entry><type>bool</type></entry>
       <entry></entry>
       <entry>
-<!--
        True if this is a trusted language, which means that it is believed
        not to grant access to anything outside the normal SQL execution
        environment.  Only superusers can create functions in untrusted
        languages.
--->
-信頼できる言語である場合は真です。
-これは通常のSQL実行環境の外部に対してまったくアクセスを許可しないことを意味しています。
-スーパーユーザだけが信頼できない言語で関数を作成することができます。
       </entry>
      </row>
 
@@ -5788,13 +5652,10 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
       <entry><type>oid</type></entry>
       <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
       <entry>
-<!--
        For noninternal languages this references the language
        handler, which is a special function that is responsible for
        executing all functions that are written in the particular
        language
--->
-内部言語でない場合、特定の言語で作成されたすべての関数の実行に責任を持つ特別な関数である言語ハンドラを参照します。
       </entry>
      </row>
 
@@ -7187,6 +7048,23 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
      </row>
 
      <row>
+      <entry><structfield>proparallel</structfield></entry>
+      <entry><type>char</type></entry>
+      <entry></entry>
+      <entry>
+       <structfield>proparallel</structfield> tells whether the function
+       can be safely run in parallel mode.
+       It is <literal>s</literal> for functions which are safe to run in
+       parallel mode without restriction.
+       It is <literal>r</literal> for functions which can be run in parallel
+       mode, but their execution is restricted to the parallel group leader;
+       parallel worker processes cannot invoke these functions.
+       It is <literal>u</literal> for functions which are unsafe in parallel
+       mode; the presence of such a function forces a serial execution plan.
+      </entry>
+     </row>
+
+     <row>
       <entry><structfield>pronargs</structfield></entry>
       <entry><type>int2</type></entry>
       <entry></entry>
@@ -8067,6 +7945,16 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
        target of a dependent policy object.
 -->
 参照されたオブジェクト（ロールである必要があります）が、依存するポリシーオブジェクトのターゲットとして述べられています。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><symbol>SHARED_DEPENDENCY_POLICY</> (<literal>r</>)</term>
+     <listitem>
+      <para>
+       The referenced object (which must be a role) is mentioned as the
+       target of a dependent policy object.
       </para>
      </listitem>
     </varlistentry>
@@ -10566,6 +10454,11 @@ N番目の<quote>スロット</quote>に保存されている統計情報を引�
      </row>
 
      <row>
+      <entry><link linkend="view-pg-config"><structname>pg_config</structname></link></entry>
+      <entry>compile-time configuration parameters</entry>
+     </row>
+
+     <row>
       <entry><link linkend="view-pg-cursors"><structname>pg_cursors</structname></link></entry>
 <!--
       <entry>open cursors</entry>
@@ -10599,10 +10492,7 @@ N番目の<quote>スロット</quote>に保存されている統計情報を引�
 
      <row>
       <entry><link linkend="view-pg-locks"><structname>pg_locks</structname></link></entry>
-<!--
-      <entry>currently held locks</entry>
--->
-      <entry>現在獲得されているロック</entry>
+      <entry>locks currently held or awaited</entry>
      </row>
 
      <row>
@@ -10651,6 +10541,16 @@ N番目の<quote>スロット</quote>に保存されている統計情報を引�
       <entry>replication slot information</entry>
 -->
       <entry>レプリケーションスロットの情報</entry>
+     </row>
+
+     <row>
+      <entry><link linkend="view-pg-replication-origin-status"><structname>pg_replication_origin_status</structname></link></entry>
+      <entry>information about replication origins, including replication progress</entry>
+     </row>
+
+     <row>
+      <entry><link linkend="view-pg-replication-slots"><structname>pg_replication_slots</structname></link></entry>
+      <entry>replication slot information</entry>
      </row>
 
      <row>
@@ -10977,6 +10877,53 @@ N番目の<quote>スロット</quote>に保存されている統計情報を引�
 -->
 <structname>pg_available_extension_versions</structname>ビューは読み取り専用です。
   </para>
+ </sect1>
+
+ <sect1 id="view-pg-config">
+  <title><structname>pg_config</structname></title>
+
+  <indexterm zone="view-pg-config">
+   <primary>pg_config</primary>
+  </indexterm>
+
+  <para>
+   The view <structname>pg_config</structname> describes the
+   compile-time configuration parameters of the currently installed
+   version of <productname>PostgreSQL</>. It is intended, for example, to
+   be used by software packages that want to interface to
+   <productname>PostgreSQL</> to facilitate finding the required header
+   files and libraries. It provides the same basic information as the
+   <xref linkend="app-pgconfig"> <productname>PostgreSQL</> client
+   application.
+  </para>
+
+  <table>
+   <title><structname>pg_config</> Columns</title>
+   <tgroup cols="3">
+    <thead>
+     <row>
+      <entry>Name</entry>
+      <entry>Type</entry>
+      <entry>Description</entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry><structfield>name</structfield></entry>
+      <entry><type>text</type></entry>
+      <entry>The parameter name</entry>
+     </row>
+
+     <row>
+      <entry><structfield>setting</structfield></entry>
+      <entry><type>text</type></entry>
+      <entry>The parameter value</entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
  </sect1>
 
  <sect1 id="view-pg-cursors">
@@ -11490,7 +11437,7 @@ SQLから<xref linkend="sql-declare">文経由。
   <para>
 <!--
    The view <structname>pg_locks</structname> provides access to
-   information about the locks held by open transactions within the
+   information about the locks held by active processes within the
    database server.  See <xref linkend="mvcc"> for more discussion
    of locking.
 -->
@@ -11501,9 +11448,9 @@ SQLから<xref linkend="sql-declare">文経由。
   <para>
 <!--
    <structname>pg_locks</structname> contains one row per active lockable
-   object, requested lock mode, and relevant transaction.  Thus, the same
+   object, requested lock mode, and relevant process.  Thus, the same
    lockable object might
-   appear many times, if multiple transactions are holding or waiting
+   appear many times, if multiple processes are holding or waiting
    for locks on it.  However, an object that currently has no locks on it
    will not appear at all.
 -->
@@ -11762,38 +11709,38 @@ SQLから<xref linkend="sql-declare">文経由。
   <para>
 <!--
    <structfield>granted</structfield> is true in a row representing a lock
-   held by the indicated transaction.  False indicates that this transaction is
-   currently waiting to acquire this lock, which implies that some other
-   transaction is holding a conflicting lock mode on the same lockable object.
-   The waiting transaction will sleep until the other lock is released (or a
-   deadlock situation is detected). A single transaction can be waiting to
-   acquire at most one lock at a time.
+   held by the indicated process.  False indicates that this process is
+   currently waiting to acquire this lock, which implies that at least one
+   other process is holding or waiting for a conflicting lock mode on the same
+   lockable object.  The waiting process will sleep until the other lock is
+   released (or a deadlock situation is detected).  A single process can be
+   waiting to acquire at most one lock at a time.
 -->
 指定されたトランザクションにより所有されているロックを表す行内では<structfield>granted</structfield>は真です。
 偽の場合はこのロックを獲得するため現在トランザクションが待機中であることを示しています。
 つまり、同じロック対象のオブジェクトに対して何らかの他のトランザクションが競合するロックを獲得していることを意味します。
 待機中のトランザクションはその別のトランザクションがロックを解放するまで活動を控えます。
 （もしくはデッドロック状態が検出されることになります）。
-単一トランザクションでは一度に多くても1つのロックを獲得するために待機します。
+単一トランザクションでは一度に多くても1つのロックを獲得するために待機します。 ★変更あり
   </para>
 
   <para>
 <!--
-   Every transaction holds an exclusive lock on its virtual transaction ID for
-   its entire duration.  If a permanent ID is assigned to the transaction
-   (which normally happens only if the transaction changes the state of the
-   database), it also holds an exclusive lock on its permanent transaction ID
-   until it ends.  When one transaction finds it necessary to wait specifically
-   for another transaction, it does so by attempting to acquire share lock on
-   the other transaction ID (either virtual or permanent ID depending on the
-   situation). That will succeed only when the other transaction
-   terminates and releases its locks.
+   Throughout running a transaction, a server process holds an exclusive lock
+   on the transaction's virtual transaction ID.  If a permanent ID is assigned
+   to the transaction (which normally happens only if the transaction changes
+   the state of the database), it also holds an exclusive lock on the
+   transaction's permanent transaction ID until it ends.  When a process finds
+   it necessary to wait specifically for another transaction to end, it does
+   so by attempting to acquire share lock on the other transaction's ID
+   (either virtual or permanent ID depending on the situation). That will
+   succeed only when the other transaction terminates and releases its locks.
 -->
 すべてのトランザクションはそのすべての過程完了までその仮想トランザクションID上に排他的ロックをかけます。
 もしある永続IDがトランザクションに割り当てられる（普通はトランザクションがデータベースの状態を変化させるときのみに発生します）と、トランザクションは終了するまで永続トランザクションIDに対して排他ロックを保持します。
 あるトランザクションが他のトランザクションを特定して待機しなければならないと判断した場合、他とみなしたトランザクションのIDに対し共有ロックを獲得するように試み、目的を達します。
 （仮想IDであるか永続IDであるかは、その状況によります）。
-これは、他とみなしたトランザクションが完了し、そしてロックを解放した場合のみ成功します。
+これは、他とみなしたトランザクションが完了し、そしてロックを解放した場合のみ成功します。 ★変更あり
   </para>
 
   <para>
@@ -11801,7 +11748,7 @@ SQLから<xref linkend="sql-declare">文経由。
    Although tuples are a lockable type of object,
    information about row-level locks is stored on disk, not in memory,
    and therefore row-level locks normally do not appear in this view.
-   If a transaction is waiting for a
+   If a process is waiting for a
    row-level lock, it will usually appear in the view as waiting for the
    permanent transaction ID of the current holder of that row lock.
 -->
@@ -11855,7 +11802,7 @@ SQLから<xref linkend="sql-declare">文経由。
    <structfield>pid</structfield> column of the <link
    linkend="pg-stat-activity-view"><structname>pg_stat_activity</structname></link>
    view to get more
-   information on the session holding or waiting to hold each lock,
+   information on the session holding or awaiting each lock,
    for example
 -->
 ロック保持もしくは保持を待機しているセッションのさらなる情報を入手するため<link linkend="pg-stat-activity-view"><structname>pg_stat_activity</structname></link>ビューの<structfield>pid</structfield>列と<structfield>pid</structfield>列を結合することができます。
@@ -11881,6 +11828,20 @@ SELECT * FROM pg_locks pl LEFT JOIN pg_stat_activity psa
 SELECT * FROM pg_locks pl LEFT JOIN pg_prepared_xacts ppx
     ON pl.virtualtransaction = '-1/' || ppx.transaction;
 </programlisting>
+  </para>
+
+  <para>
+   While it is possible to obtain information about which processes block
+   which other processes by joining <structname>pg_locks</structname> against
+   itself, this is very difficult to get right in detail.  Such a query would
+   have to encode knowledge about which lock modes conflict with which
+   others.  Worse, the <structname>pg_locks</structname> view does not expose
+   information about which processes are ahead of which others in lock wait
+   queues, nor information about which processes are parallel workers running
+   on behalf of which other client sessions.  It is better to use
+   the <function>pg_blocking_pids()</> function
+   (see <xref linkend="functions-info-session-table">) to identify which
+   process(es) a waiting process is blocked behind.
   </para>
 
   <para>
@@ -12259,7 +12220,7 @@ SQL経由で作成された準備済み文では、これはクライアント�
       <entry>
 <!--
        <literal>true</literal> if the prepared statement was created
-       via the <command>PREPARE</command> SQL statement;
+       via the <command>PREPARE</command> SQL command;
        <literal>false</literal> if the statement was prepared via the
        frontend/backend protocol
 -->
@@ -12661,7 +12622,21 @@ SQL経由で作成された準備済み文では、これはクライアント�
       <entry>このスロットの利用者に必要かもしれないため、チェックポイント中に自動除去されない、もっとも古いWALの(<literal>LSN</literal>) アドレス。
       </entry>
      </row>
-
+     <row>
+      <entry><structfield>confirmed_flush_lsn</structfield></entry>
+      <entry><type>pg_lsn</type></entry>
+      <entry></entry>
+<!--
+      <entry>The address (<literal>LSN</literal>) up to which the logical
+      slot's consumer has confirmed receiving data. Data older than this is
+      not available anymore. <literal>NULL</> for physical slots.
+      </entry>
+-->
+      <entry>★The address (<literal>LSN</literal>) up to which the logical
+      slot's consumer has confirmed receiving data. Data older than this is
+      not available anymore. <literal>NULL</> for physical slots.
+      </entry>
+     </row>
     </tbody>
    </tgroup>
   </table>
@@ -12844,6 +12819,16 @@ SQL経由で作成された準備済み文では、これはクライアント�
 -->
 ロールがすべての行単位セキュリティポリシーを無視するかどうか。
 詳しくは<xref linkend="ddl-rowsecurity">を参照してください。
+      </entry>
+     </row>
+
+     <row>
+      <entry><structfield>rolbypassrls</structfield></entry>
+      <entry><type>bool</type></entry>
+      <entry></entry>
+      <entry>
+       Role bypasses every row level security policy, see
+       <xref linkend="ddl-rowsecurity"> for more information.
       </entry>
      </row>
 
@@ -13396,7 +13381,7 @@ SQL経由で作成された準備済み文では、これはクライアント�
       <filename>postgresql.conf</filename> without restarting the server.
       They can also be set for a particular session in the connection request
       packet (for example, via <application>libpq</>'s <literal>PGOPTIONS</>
-      environment variable); any user can make such a change for his session.
+      environment variable); any user can make such a change for their session.
       However, these settings never change in a session after it is started.
       If you change them in <filename>postgresql.conf</filename>, send a
       <systemitem>SIGHUP</systemitem> signal to the postmaster to cause it to
@@ -13438,7 +13423,7 @@ SQL経由で作成された準備済み文では、これはクライアント�
 <!--
       These settings can be set from <filename>postgresql.conf</filename>,
       or within a session via the <command>SET</> command.  Any user is
-      allowed to change his session-local value.  Changes in
+      allowed to change their session-local value.  Changes in
       <filename>postgresql.conf</filename> will affect existing sessions
       only if no session-local value has been established with <command>SET</>.
 -->
@@ -14110,8 +14095,8 @@ SQL経由で作成された準備済み文では、これはクライアント�
    of time zone names that are recognized by <command>SET TIMEZONE</>,
    along with their associated abbreviations, UTC offsets,
    and daylight-savings status.  (Technically,
-   <productname>PostgreSQL</productname> uses <acronym>UT1</> rather
-   than UTC because leap seconds are not handled.)
+   <productname>PostgreSQL</productname> does not use UTC because leap
+   seconds are not handled.)
    Unlike the abbreviations shown in <link
    linkend="view-pg-timezone-abbrevs"><structname>pg_timezone_abbrevs</structname></link>, many of these names imply a set of daylight-savings transition
    date rules.  Therefore, the associated information changes across local DST

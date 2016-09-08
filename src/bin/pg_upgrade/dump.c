@@ -3,7 +3,7 @@
  *
  *	dump functions
  *
- *	Copyright (c) 2010-2015, PostgreSQL Global Development Group
+ *	Copyright (c) 2010-2016, PostgreSQL Global Development Group
  *	src/bin/pg_upgrade/dump.c
  */
 
@@ -12,6 +12,7 @@
 #include "pg_upgrade.h"
 
 #include <sys/types.h>
+#include "fe_utils/string_utils.h"
 
 
 void

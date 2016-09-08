@@ -3,7 +3,7 @@
  *
  * pl_gram.y			- Parser for the PL/pgSQL procedural language
  *
- * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -186,7 +186,8 @@ static	void			check_raise_parameters(PLpgSQL_stmt_raise *stmt);
 %type <forvariable>	for_variable
 %type <stmt>	for_control
 
-%type <str>		any_identifier opt_block_label opt_label option_value
+%type <str>		any_identifier opt_block_label opt_loop_label opt_label
+%type <str>		option_value
 
 %type <list>	proc_sect stmt_elsifs stmt_else
 %type <loop_body>	loop_body
@@ -536,7 +537,7 @@ decl_statement	: decl_varname decl_const decl_datatype decl_collate decl_notnull
 										   $4->itemno, $1.name);
 					}
 				| decl_varname opt_scrollable K_CURSOR
-					{ plpgsql_ns_push($1.name); }
+					{ plpgsql_ns_push($1.name, PLPGSQL_LABEL_OTHER); }
 				  decl_cursor_args decl_is_for decl_cursor_query
 					{
 						PLpgSQL_var *new;
@@ -1219,7 +1220,7 @@ opt_case_else	:
 					}
 				;
 
-stmt_loop		: opt_block_label K_LOOP loop_body
+stmt_loop		: opt_loop_label K_LOOP loop_body
 					{
 						PLpgSQL_stmt_loop *new;
 
@@ -1236,7 +1237,7 @@ stmt_loop		: opt_block_label K_LOOP loop_body
 					}
 				;
 
-stmt_while		: opt_block_label K_WHILE expr_until_loop loop_body
+stmt_while		: opt_loop_label K_WHILE expr_until_loop loop_body
 					{
 						PLpgSQL_stmt_while *new;
 
@@ -1254,7 +1255,7 @@ stmt_while		: opt_block_label K_WHILE expr_until_loop loop_body
 					}
 				;
 
-stmt_for		: opt_block_label K_FOR for_control loop_body
+stmt_for		: opt_loop_label K_FOR for_control loop_body
 					{
 						/* This runs after we've scanned the loop body */
 						if ($3->cmd_type == PLPGSQL_STMT_FORI)
@@ -1283,7 +1284,7 @@ stmt_for		: opt_block_label K_FOR for_control loop_body
 						}
 
 						check_labels($1, $4.end_label, $4.end_label_location);
-						/* close namespace started in opt_block_label */
+						/* close namespace started in opt_loop_label */
 						plpgsql_ns_pop();
 					}
 				;
@@ -1604,7 +1605,7 @@ for_variable	: T_DATUM
 					}
 				;
 
-stmt_foreach_a	: opt_block_label K_FOREACH for_variable foreach_slice K_IN K_ARRAY expr_until_loop loop_body
+stmt_foreach_a	: opt_loop_label K_FOREACH for_variable foreach_slice K_IN K_ARRAY expr_until_loop loop_body
 					{
 						PLpgSQL_stmt_foreach_a *new;
 
@@ -1666,6 +1667,43 @@ stmt_exit		: exit_type opt_label opt_exitcond
 						new->lineno	  = plpgsql_location_to_lineno(@1);
 						new->label	  = $2;
 						new->cond	  = $3;
+
+						if ($2)
+						{
+							/* We have a label, so verify it exists */
+							PLpgSQL_nsitem *label;
+
+							label = plpgsql_ns_lookup_label(plpgsql_ns_top(), $2);
+							if (label == NULL)
+								ereport(ERROR,
+										(errcode(ERRCODE_SYNTAX_ERROR),
+										 errmsg("there is no label \"%s\" "
+												"attached to any block or loop enclosing this statement",
+												$2),
+										 parser_errposition(@2)));
+							/* CONTINUE only allows loop labels */
+							if (label->itemno != PLPGSQL_LABEL_LOOP && !new->is_exit)
+								ereport(ERROR,
+										(errcode(ERRCODE_SYNTAX_ERROR),
+										 errmsg("block label \"%s\" cannot be used in CONTINUE",
+												$2),
+										 parser_errposition(@2)));
+						}
+						else
+						{
+							/*
+							 * No label, so make sure there is some loop (an
+							 * unlabelled EXIT does not match a block, so this
+							 * is the same test for both EXIT and CONTINUE)
+							 */
+							if (plpgsql_ns_find_nearest_loop(plpgsql_ns_top()) == NULL)
+								ereport(ERROR,
+										(errcode(ERRCODE_SYNTAX_ERROR),
+										 new->is_exit ?
+										 errmsg("EXIT cannot be used outside a loop, unless it has a label") :
+										 errmsg("CONTINUE cannot be used outside a loop"),
+										 parser_errposition(@1)));
+						}
 
 						$$ = (PLpgSQL_stmt *)new;
 					}
@@ -2295,12 +2333,24 @@ expr_until_loop :
 
 opt_block_label	:
 					{
-						plpgsql_ns_push(NULL);
+						plpgsql_ns_push(NULL, PLPGSQL_LABEL_BLOCK);
 						$$ = NULL;
 					}
 				| LESS_LESS any_identifier GREATER_GREATER
 					{
-						plpgsql_ns_push($2);
+						plpgsql_ns_push($2, PLPGSQL_LABEL_BLOCK);
+						$$ = $2;
+					}
+				;
+
+opt_loop_label	:
+					{
+						plpgsql_ns_push(NULL, PLPGSQL_LABEL_LOOP);
+						$$ = NULL;
+					}
+				| LESS_LESS any_identifier GREATER_GREATER
+					{
+						plpgsql_ns_push($2, PLPGSQL_LABEL_LOOP);
 						$$ = $2;
 					}
 				;
@@ -2311,8 +2361,7 @@ opt_label	:
 					}
 				| any_identifier
 					{
-						if (plpgsql_ns_lookup_label(plpgsql_ns_top(), $1) == NULL)
-							yyerror("label does not exist");
+						/* label validity will be checked by outer production */
 						$$ = $1;
 					}
 				;
@@ -3498,7 +3547,7 @@ check_sql_expr(const char *stmt, int location, int leaderlen)
 	syntax_errcontext.previous = error_context_stack;
 	error_context_stack = &syntax_errcontext;
 
-	oldCxt = MemoryContextSwitchTo(compile_tmp_cxt);
+	oldCxt = MemoryContextSwitchTo(plpgsql_compile_tmp_cxt);
 	(void) raw_parser(stmt);
 	MemoryContextSwitchTo(oldCxt);
 

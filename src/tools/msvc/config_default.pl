@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 our $config = {
-	asserts  => 0,    # --enable-cassert
+	asserts => 0,    # --enable-cassert
 	  # integer_datetimes=>1,   # --enable-integer-datetimes - on is now default
 	  # float4byval=>1,         # --disable-float4-byval, on by default
 
@@ -15,6 +15,7 @@ our $config = {
 	# wal_segsize => 16,      # --with-wal-segsize, 16MB by default
 	ldap      => 1,        # --with-ldap
 	extraver  => undef,    # --with-extra-version=<string>
+	gss       => undef,    # --with-gssapi=<path>
 	nls       => undef,    # --enable-nls=<path>
 	tap_tests => undef,    # --enable-tap-tests
 	tcl       => undef,    # --with-tls=<path>

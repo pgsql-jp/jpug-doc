@@ -3,13 +3,13 @@
  * generic-xlc.h
  *	  Atomic operations for IBM's CC
  *
- * Portions Copyright (c) 2013-2015, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2013-2016, PostgreSQL Global Development Group
  *
  * NOTES:
  *
  * Documentation:
  * * Synchronization and atomic built-in functions
- *   http://publib.boulder.ibm.com/infocenter/lnxpcomp/v8v101/topic/com.ibm.xlcpp8l.doc/compiler/ref/bif_sync.htm
+ *   http://www-01.ibm.com/support/knowledgecenter/SSGH3R_13.1.2/com.ibm.xlcpp131.aix.doc/compiler_ref/bifs_sync_atomic.html
  *
  * src/include/port/atomics/generic-xlc.h
  *
@@ -34,12 +34,6 @@ typedef struct pg_atomic_uint64
 } pg_atomic_uint64;
 
 #endif /* __64BIT__ */
-
-#endif /* defined(HAVE_ATOMICS) */
-
-#if defined(PG_USE_INLINE) || defined(ATOMICS_INCLUDE_DEFINITIONS)
-
-#if defined(HAVE_ATOMICS)
 
 #define PG_HAVE_ATOMIC_COMPARE_EXCHANGE_U32
 static inline bool
@@ -115,5 +109,3 @@ pg_atomic_fetch_add_u64_impl(volatile pg_atomic_uint64 *ptr, int64 add_)
 #endif /* PG_HAVE_ATOMIC_U64_SUPPORT */
 
 #endif /* defined(HAVE_ATOMICS) */
-
-#endif /* defined(PG_USE_INLINE) || defined(ATOMICS_INCLUDE_DEFINITIONS) */

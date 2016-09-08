@@ -64,7 +64,6 @@ SELECT [ ALL | DISTINCT [ ON ( <replaceable class="parameter">expression</replac
 -->
 <phrase>ここで<replaceable class="parameter">from_item</replaceable>は以下のいずれかです。</phrase>
 
-
     [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ] [ [ AS ] <replaceable class="parameter">alias</replaceable> [ ( <replaceable class="parameter">column_alias</replaceable> [, ...] ) ] ]
                 [ TABLESAMPLE <replaceable class="parameter">sampling_method</replaceable> ( <replaceable class="parameter">argument</replaceable> [, ...] ) [ REPEATABLE ( <replaceable class="parameter">seed</replaceable> ) ] ]
     [ LATERAL ] ( <replaceable class="parameter">select</replaceable> ) [ AS ] <replaceable class="parameter">alias</replaceable> [ ( <replaceable class="parameter">column_alias</replaceable> [, ...] ) ]
@@ -567,7 +566,7 @@ TABLE [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ]
         not been changed meanwhile.  But different seed values will usually
         produce different samples.
         If <literal>REPEATABLE</literal> is not given then a new random
-        sample is selected for each query.
+        seed is selected for each query.
         Note that some add-on sampling methods do not
         accept <literal>REPEATABLE</literal>, and will always produce new
         samples on each use.
@@ -666,7 +665,7 @@ TABLE [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ]
         with <literal>ROWS FROM( ... )</>.  The output of such an item is the
         concatenation of the first row from each function, then the second
         row from each function, etc.  If some of the functions produce fewer
-        rows than others, NULLs are substituted for the missing data, so
+        rows than others, null values are substituted for the missing data, so
         that the total number of rows returned is always the same as for the
         function that produced the most rows.
 -->
@@ -1458,6 +1457,36 @@ UNBOUNDED FOLLOWING
 このような場合、<literal>AS</>により新しい名前を指定することはできません。
 出力列名はテーブルの列名と同一になります。
    </para>
+
+   <para>
+    According to the SQL standard, the expressions in the output list should
+    be computed before applying <literal>DISTINCT</literal>, <literal>ORDER
+    BY</literal>, or <literal>LIMIT</literal>.  This is obviously necessary
+    when using <literal>DISTINCT</literal>, since otherwise it's not clear
+    what values are being made distinct.  However, in many cases it is
+    convenient if output expressions are computed after <literal>ORDER
+    BY</literal> and <literal>LIMIT</literal>; particularly if the output list
+    contains any volatile or expensive functions.  With that behavior, the
+    order of function evaluations is more intuitive and there will not be
+    evaluations corresponding to rows that never appear in the output.
+    <productname>PostgreSQL</> will effectively evaluate output expressions
+    after sorting and limiting, so long as those expressions are not
+    referenced in <literal>DISTINCT</literal>, <literal>ORDER BY</literal>
+    or <literal>GROUP BY</literal>.  (As a counterexample, <literal>SELECT
+    f(x) FROM tab ORDER BY 1</> clearly must evaluate <function>f(x)</>
+    before sorting.)  Output expressions that contain set-returning functions
+    are effectively evaluated after sorting and before limiting, so
+    that <literal>LIMIT</literal> will act to cut off the output from a
+    set-returning function.
+   </para>
+
+   <note>
+    <para>
+     <productname>PostgreSQL</> versions before 9.6 did not provide any
+     guarantees about the timing of evaluation of output expressions versus
+     sorting and limiting; it depended on the form of the chosen query plan.
+    </para>
+   </note>
   </refsect2>
 
   <refsect2 id="sql-distinct">
@@ -2772,6 +2801,22 @@ SELECT distributors.* WHERE distributors.name = 'Westward';
 -->
 現在のところ、<literal>TABLESAMPLE</>句は通常のテーブルとマテリアライズドビューでのみ受け付けられます。
 SQL標準では、<literal>FROM</>句の任意の要素について適用可能であるべきとされています。
+   </para>
+  </refsect2>
+
+  <refsect2>
+<!--
+   <title><literal>TABLESAMPLE</literal> Clause Restrictions</title>
+-->
+   <title><literal>TABLESAMPLE</literal> Clause Restrictions★訳して</title>
+
+   <para>
+<!--
+    The <literal>TABLESAMPLE</> clause is currently accepted only on
+    regular tables and materialized views.  According to the SQL standard
+    it should be possible to apply it to any <literal>FROM</> item.
+-->
+★この節、追加
    </para>
   </refsect2>
 

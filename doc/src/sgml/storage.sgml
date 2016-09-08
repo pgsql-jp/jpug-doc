@@ -972,7 +972,8 @@ can be used to examine the information stored in free space maps.
 <!--
 Each heap relation has a Visibility Map
 (VM) to keep track of which pages contain only tuples that are known to be
-visible to all active transactions. It's stored
+visible to all active transactions; it also keeps track of which pages contain
+only unfrozen tuples.  It's stored
 alongside the main relation data in a separate relation fork, named after the
 filenode number of the relation, plus a <literal>_vm</> suffix. For example,
 if the filenode of a relation is 12345, the VM is stored in a file called
@@ -987,12 +988,16 @@ Note that indexes do not have VMs.
 
 <para>
 <!--
-The visibility map simply stores one bit per heap page. A set bit means
-that all tuples on the page are known to be visible to all transactions.
-This means that the page does not contain any tuples that need to be vacuumed.
-This information can also be used by <firstterm>index-only scans</> to answer
-queries using only the index tuple.
+The visibility map stores two bits per heap page.  The first bit, if set,
+indicates that the page is all-visible, or in other words that the page does
+not contain any tuples that need to be vacuumed.
+This information can also be used
+by <link linkend="indexes-index-only-scans"><firstterm>index-only
+scans</></link> to answer queries using only the index tuple.
+The second bit, if set, means that all tuples on the page have been frozen.
+That means that even an anti-wraparound vacuum need not revisit the page.
 -->
+★原文変更あり
 可視性マップは単にヒープページ当たり1ビットを保持します。
 セットされたビットは、ページ内のすべてのタプルがすべてのトランザクションから可視であることが分かっていることを意味します。
 これは、そのページにはバキュームが必要なタプルをまったく含んでいないことを意味します。
@@ -1009,6 +1014,11 @@ cleared by any data-modifying operations on a page.
 このマップは、ビットがセットされている時は常にこの条件が真であることを確実に把握できるという点で保守的ですが、ビットがセットされていない場合は、真かもしれませんし偽かもしれません。
 可視性マップのビットはバキュームによってのみで設定されます。
 しかしページに対する任意のデータ編集操作によってクリアされます。
+</para>
+
+<para>
+The <xref linkend="pgvisibility"> module can be used to examine the
+information stored in the visibility map.
 </para>
 
 </sect1>

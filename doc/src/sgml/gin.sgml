@@ -680,17 +680,18 @@ NULLキーがこの関数に渡されることはありません。
   matches the query. It comes in two flavors, a boolean <function>consistent</>
   function, and a ternary <function>triConsistent</> function.
   <function>triConsistent</> covers the functionality of both, so providing
-  triConsistent alone is sufficient. However, if the boolean variant is
-  significantly cheaper to calculate, it can be advantageous to provide both.
-  If only the boolean variant is provided, some optimizations that depend on
-  refuting index items before fetching all the keys are disabled.
+  <function>triConsistent</> alone is sufficient. However, if the boolean
+  variant is significantly cheaper to calculate, it can be advantageous to
+  provide both.  If only the boolean variant is provided, some optimizations
+  that depend on refuting index items before fetching all the keys are
+  disabled.
 -->
 演算子クラスは、インデックス付けされた項目が問い合わせに一致するか確認する関数も提供しなければなりません。
 それは2つの方法で行なわれます。
 2値の<function>consistent</>関数と3値の<function>triConsistent</>関数です。
 <function>triConsistent</>が両方の機能を含みますので、triConsistentだけを提供しても十分です。
 しかし、2値の亜種を計算するのが著しく安価であれば、両方を提供することは役に立つかもしれません。
-2値の亜種のみが提供されていれば、すべてのキーを取得する前にインデックス項目が一致しないことを確認することに基づく最適化の中には無効となるものもあります。
+2値の亜種のみが提供されていれば、すべてのキーを取得する前にインデックス項目が一致しないことを確認することに基づく最適化の中には無効となるものもあります。 ★変更あり
 
   <variablelist>
     <varlistentry>
@@ -772,18 +773,20 @@ NULLキーがこの関数に渡されることはありません。
       <para>
 <!--
        <function>triConsistent</> is similar to <function>consistent</>,
-       but instead of a boolean <literal>check[]</>, there are three possible
-       values for each key: <literal>GIN_TRUE</>, <literal>GIN_FALSE</> and
+       but instead of booleans in the <literal>check</> vector, there are
+       three possible values for each
+       key: <literal>GIN_TRUE</>, <literal>GIN_FALSE</> and
        <literal>GIN_MAYBE</>. <literal>GIN_FALSE</> and <literal>GIN_TRUE</>
-       have the same meaning as regular boolean values.
+       have the same meaning as regular boolean values, while
        <literal>GIN_MAYBE</> means that the presence of that key is not known.
        When <literal>GIN_MAYBE</> values are present, the function should only
-       return GIN_TRUE if the item matches whether or not the index item
-       contains the corresponding query keys. Likewise, the function must
-       return GIN_FALSE only if the item does not match, whether or not it
-       contains the GIN_MAYBE keys. If the result depends on the GIN_MAYBE
-       entries, i.e. the match cannot be confirmed or refuted based on the
-       known query keys, the function must return GIN_MAYBE.
+       return <literal>GIN_TRUE</> if the item certainly matches whether or
+       not the index item contains the corresponding query keys. Likewise, the
+       function must return <literal>GIN_FALSE</> only if the item certainly
+       does not match, whether or not it contains the <literal>GIN_MAYBE</>
+       keys. If the result depends on the <literal>GIN_MAYBE</> entries, i.e.,
+       the match cannot be confirmed or refuted based on the known query keys,
+       the function must return <literal>GIN_MAYBE</>.
 -->
 <function>triConsistent</>は<function>consistent</>と似ていますが、論理値<literal>check[]</>の代わりに、各キーに対して3つの可能な値があります。<literal>GIN_TRUE</>、<literal>GIN_FALSE</>、<literal>GIN_MAYBE</>です。
 <literal>GIN_FALSE</>と<literal>GIN_TRUE</>は通常の論理値と同じ意味です。
@@ -794,11 +797,12 @@ NULLキーがこの関数に渡されることはありません。
       </para>
       <para>
 <!--
-       When there are no GIN_MAYBE values in the <literal>check</> vector,
-       <literal>GIN_MAYBE</> return value is equivalent of setting
-       <literal>recheck</> flag in the boolean <function>consistent</> function.
+       When there are no <literal>GIN_MAYBE</> values in the <literal>check</>
+       vector, a <literal>GIN_MAYBE</> return value is the equivalent of
+       setting the <literal>recheck</> flag in the
+       boolean <function>consistent</> function.
 -->
-<literal>check</>ベクターにGIN_MAYBE値がなければ、<literal>GIN_MAYBE</>戻り値は論理値の<function>consistent</>関数で<literal>recheck</>フラグを設定することと同じです。
+<literal>check</>ベクターにGIN_MAYBE値がなければ、<literal>GIN_MAYBE</>戻り値は論理値の<function>consistent</>関数で<literal>recheck</>フラグを設定することと同じです。 ★変更あり？
       </para>
      </listitem>
     </varlistentry>
@@ -863,11 +867,13 @@ NULLキーがこの関数に渡されることはありません。
   <function>extractValue</> are always of the operator class's input type, and
   all key values must be of the class's <literal>STORAGE</> type.  The type of
   the <literal>query</> argument passed to <function>extractQuery</>,
-  <function>consistent</> and <function>triConsistent</> is whatever is
-  specified as the right-hand input
-  type of the class member operator identified by the strategy number.
-  This need not be the same as the item type, so long as key values of the
-  correct type can be extracted from it.
+  <function>consistent</> and <function>triConsistent</> is whatever is the
+  right-hand input type of the class member operator identified by the
+  strategy number.  This need not be the same as the indexed type, so long as
+  key values of the correct type can be extracted from it.  However, it is
+  recommended that the SQL declarations of these three support functions use
+  the opclass's indexed data type for the <literal>query</> argument, even
+  though the actual type might be something else depending on the operator.
 -->
 上記の各種<literal>Datum</>値の実データ型は、演算子クラスに依存して変動します。
 <function>extractValue</>に渡される項目値は常に演算子クラスの入力型であり、キー値はすべてそのクラスの<literal>STORAGE</>型でなければなりません。
@@ -934,7 +940,9 @@ NULLキーがこの関数に渡されることはありません。
    from the indexed item). As of <productname>PostgreSQL</productname> 8.4,
    <acronym>GIN</> is capable of postponing much of this work by inserting
    new tuples into a temporary, unsorted list of pending entries.
-   When the table is vacuumed, or if the pending list becomes larger than
+   When the table is vacuumed or autoanalyzed, or when
+   <function>gin_clean_pending_list</function> function is called, or if the
+   pending list becomes larger than
    <xref linkend="guc-gin-pending-list-limit">, the entries are moved to the
    main <acronym>GIN</acronym> data structure using the same bulk insert
    techniques used during initial index creation.  This greatly improves

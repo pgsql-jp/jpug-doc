@@ -2,7 +2,7 @@
  *
  * createlang
  *
- * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/bin/scripts/createlang.c
@@ -12,7 +12,7 @@
 #include "postgres_fe.h"
 
 #include "common.h"
-#include "print.h"
+#include "fe_utils/print.h"
 
 static void help(const char *progname);
 
