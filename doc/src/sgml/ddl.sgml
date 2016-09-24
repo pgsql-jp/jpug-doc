@@ -2278,7 +2278,7 @@ ALTER TABLE products RENAME TO items;
    update the table can be granted with:
 -->
 権限を割り当てるには、<command>GRANT</command>コマンドを使用します。
-例えば、<literal>joe</literal>という既存のユーザと<literal>accounts</literal>という既存のテーブルがある場合、このテーブルを更新する権限を付与するには以下のようにします。
+例えば、<literal>joe</literal>という既存のロールと<literal>accounts</literal>という既存のテーブルがある場合、このテーブルを更新する権限を付与するには以下のようにします。
 <programlisting>
 GRANT UPDATE ON accounts TO joe;
 </programlisting>
@@ -2297,7 +2297,7 @@ GRANT UPDATE ON accounts TO joe;
    there are many users of a database &mdash; for details see
    <xref linkend="user-manag">.
 -->
-システム内の全てのユーザに権限を付与するには、特別な<quote>ユーザ</quote>名である<literal>PUBLIC</literal>を使用することができます。
+システム内の全てのロールに権限を付与するには、特別な<quote>ロール</quote>名である<literal>PUBLIC</literal>を使用することができます。
 また、<quote>グループ</>ロールを使用すれば、データベース内に多くのユーザが存在する場合に権限の管理が簡単になります。
 詳細は<xref linkend="user-manag">を参照してください。
   </para>
@@ -4046,7 +4046,7 @@ VALUES ('Albany', NULL, NULL, 'NY');
 -->
 子テーブルが存在する場合親テーブルを削除することはできません。
 また、子テーブルでは、親テーブルから継承した列、または検査制約を削除することも変更することもできません。
-テーブルとそのすべての子テーブルを削除したければ、<literal>CASCADE</literal>オプションを付けて親テーブルを削除することが簡単な方法です。 ★変更あり
+テーブルとそのすべての子テーブルを削除したければ、<literal>CASCADE</literal>オプションを付けて親テーブルを削除することが簡単な方法です（<xref linkend="ddl-depend">を参照）。
   </para>
 
   <para>
@@ -5480,8 +5480,9 @@ DROP TABLE products CASCADE;
    run <command>DROP</> without <literal>CASCADE</> and read the
    <literal>DETAIL</> output.)
 -->
-これで全ての依存オブジェクトが削除されます。
-この場合、ordersテーブルは削除されずに外部キー制約のみが削除されます
+これで、依存するいかなるオブジェクトも再帰的に探査された上で、全ての依存オブジェクトが削除されます。
+この場合、ordersテーブルは削除されずに外部キー制約のみが削除されます。
+外部キー制約に依存するものが何もないので、処理がそこで停止します。
 （<command>DROP ... CASCADE</>が何を行うかを知りたい場合は、<literal>CASCADE</>を指定せずに<command>DROP</>を実行して<literal>DETAIL</>出力を読んでください）。
   </para>
 
@@ -5493,9 +5494,9 @@ DROP TABLE products CASCADE;
    <literal>CASCADE</literal> to get the default behavior, which is to
    prevent dropping objects that any other objects depend on.
 -->
-<productname>PostgreSQL</productname>では、全ての<command>DROP</>コマンドに<literal>CASCADE</literal>を指定することができます。
+<productname>PostgreSQL</productname>では、ほぼ全ての<command>DROP</>コマンドに<literal>CASCADE</literal>を指定することができます。
 もちろん、どのような依存関係が存在するかは、オブジェクトの種類によって異なります。
-また、<literal>CASCADE</literal>ではなく<literal>RESTRICT</literal>と記述すると、他のオブジェクトが依存しているオブジェクトの削除を禁止するというデフォルトの振舞いを指定することもできます。 ★変更あり
+また、<literal>CASCADE</literal>ではなく<literal>RESTRICT</literal>と記述すると、他のオブジェクトが依存しているオブジェクトの削除を禁止するというデフォルトの振舞いを指定することもできます。 
   </para>
 
   <note>
@@ -5514,14 +5515,17 @@ DROP TABLE products CASCADE;
   </note>
 
   <para>
+<!--
    If a <command>DROP</> command lists multiple
    objects, <literal>CASCADE</literal> is only required when there are
    dependencies outside the specified group.  For example, when saying
    <literal>DROP TABLE tab1, tab2</literal> the existence of a foreign
    key referencing <literal>tab1</> from <literal>tab2</> would not mean
    that <literal>CASCADE</literal> is needed to succeed.
-  </para>
+-->
 
+  </para>
+<command>DROP</>コマンドで複数のオブジェクトを羅列した場合、<literal>CASCADE</literal>は、特定グループの外部依存関係が存在する時のみ要求されます。例えば、<literal>DROP TABLE tab1, tab2</literal>と記述したとき、<literal>tab2</>から<literal>tab1</>への外部キー参照が存在すると、コマンドを成功させるには<literal>CASCADE</literal>の指定が必要となります。
   <para>
 <!--
    For user-defined functions, <productname>PostgreSQL</productname> tracks
