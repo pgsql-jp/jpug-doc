@@ -1853,7 +1853,7 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
         <literal>@</> within the SQL environment, you will need to
         quote the user name.
        -->
-       これがオンの場合、<literal>username@dbname</>の様にしてユーザを作成しなければなりません。<literal>username</>が接続中のクライアントより渡された時、 <literal>@</>およびデータベース名がユーザ名に付加され、そのデータベース特有のユーザ名をサーバが見に行きます。SQL環境下で<literal>@</>を含む名前のユーザを作成する場合、そのユーザ名は引用符で括られなければならないことに注意してください。 ★原文変更あり、訳文変更の必要なし
+これがオンの場合、<replaceable>username@dbname</>の様にしてユーザを作成しなければなりません。<replaceable>username</>が接続中のクライアントより渡された時、 <literal>@</>およびデータベース名がユーザ名に付加され、そのデータベース特有のユーザ名をサーバが見に行きます。SQL環境下で<literal>@</>を含む名前のユーザを作成する場合、そのユーザ名は引用符で括られなければならないことに注意してください。
        </para>
 
        <para>
@@ -2206,6 +2206,7 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
       </term>
       <listitem>
        <para>
+<!--
         When the number of tuples to be sorted is smaller than this number,
         a sort will produce its first output run using replacement selection
         rather than quicksort.  This may be useful in memory-constrained
@@ -2233,6 +2234,22 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
         sorts used by <command>CREATE INDEX</> to build B-Tree
         indexes) from ever using replacement selection sort, unless the
         input tuples are quite wide.
+-->
+ソート対象のタプル数がこの指定値よりも小さい場合、クイックソートではなく、置換選択法を使ってソート処理の最初のラン出力を作ります。
+メモリが限られた環境で、物理から論理への強い相関性を持つタプルが大量のソート処理に投入される場合に有用かもしれません。
+なお、入力タプルが<emphasis>逆</emphasis>相関性を示す場合には適用されないことに注意してください。
+
+置換選択アルゴリズムにおいては、デフォルトの戦略が多数のランを実行してしまい、その結果を最後にマージしなければならないのと違って、マージを必要としない一つの長いランを実行できる可能性があります。
+このことにより、ソート処理を素早く完了できるかもしれません。
+</para>
+<para>
+デフォルト値は150,000タプルです。
+多くの場合、より高い設定値がより良い効率をもたらすどころか、むしろ非生産的かもしれません。
+なぜなら、優先度キューは、利用可能なCPUキャッシュの大きさに敏感なので、デフォルトのソート戦略は<firstterm>キャッシュ自明</firstterm>なアルゴリズムを使用して実行されるからです。
+この性質により、デフォルトのソート戦略では自動的かつ透過的に利用可能なCPUキャッシュを有効に利用できます。
+</para>
+<para>
+<varname>maintenance_work_mem</varname>をデフォルト値に設定すると、入力タプルの幅が非常に大き場合を除き、通常ユーティリティコマンドが外部ソート(たとえば、<command>CREATE INDEX</>がB-Treeインデックスを作成するために行うソート)が置換選択アルゴリズムを使うことはなくなります。
        </para>
       </listitem>
      </varlistentry>
@@ -2385,9 +2402,11 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
         default) means no limit.
         Only superusers can change this setting.
        -->
-       あるセッションが暫定ファイルとして使用できるディスクの最大容量を設定します。 ★変更あり
-       例えば、ソートやハッシュの一時ファイルであったり、カーソルを保持する格納ファイルです。
-       この値を超えようとするトランザクションは無視されます。値はキロバイト単位で指定され、（デフォルトである） <literal>-1</> の場合は制限がありません。この設定はスーパユーザのみ可能です。
+あるプロセスが一時ファイルとして使用できるディスクの最大容量を設定します。
+例えば、ソートやハッシュの一時ファイルであったり、カーソルを保持する格納ファイルです。
+この制限値を超えようとするトランザクションはキャンセルされます。
+値はキロバイト単位で指定され、（デフォルトである） <literal>-1</> の場合は制限がありません。
+この設定はスーパユーザのみ変更可能です。
        </para>
        <para>
        <!--
@@ -2798,6 +2817,7 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
        </term>
        <listitem>
         <para>
+<!--
          Whenever more than <varname>bgwriter_flush_after</varname> bytes have
          been written by the bgwriter, attempt to force the OS to issue these
          writes to the underlying storage.  Doing so will limit the amount of
@@ -2815,6 +2835,16 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
          <symbol>BLCKSZ</symbol> change the default and maximum.)
          This parameter can only be set in the <filename>postgresql.conf</>
          file or on the server command line.
+-->
+bgwriterが<varname>bgwriter_flush_after</varname>バイトより多く書く度に、OSが記憶装置に書き込むことを強制します。
+このことにより、カーネルのページキャッシュが持つダーティデータの量を一定量に制限し、チェックポイントの最後にfsyncが実行される際、あるいはバックグラウンドで実行される大きなバッチの中でOSがデータを書き出す際に性能の急激な低下を招く可能性を減らします。
+多くの場合これによってトランザクションの遅延を大幅に少なくなりますが、あるケース、特にワークロードが<xref linkend="guc-shared-buffers">よりも大きく、OSのページキャッシュよりも小さい時には性能が低下するかもしれません。
+この設定が無効なプラットホームがあります。
+有効な設定値は、この機能が無効になる<literal>0</literal>から、<literal>2MB</literal>までです。
+デフォルト値は、Linuxでは<literal>512kB</>で、それ以外は<literal>0</>です。
+(<symbol>BLCKSZ</symbol>がデフォルト値でなければ、この設定のデフォルト値と最大値が変更されます。)
+このパラメータは<filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定可能です。
+
         </para>
        </listitem>
       </varlistentry>
@@ -2876,11 +2906,10 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
          SSDs and other memory-based storage can often process many
          concurrent requests, so the best value might be in the hundreds.
 -->
-        この設定の開始点として優れた値は、データベースに使用されるRAID 0ストライプ、RAID 1ミラーを構成する個々のドライブ数です。 ★変更あり
-        （RAID 5ではパリティ用のドライブを数に含めてはなりません。）
-        しかし、同時実行セッションで発行される複数の問い合わせでデータベースが頻繁にビジーとなる場合、ディスクアレイのビジー率を抑えるために、より小さな値で十分であるかもしれません。
-        ディスクをビジーにするのに必要な値より大きな値を設定しても、余計なCPUオーバーヘッドを発生させるだけです。
-★追記あり
+磁気ディスクドライブにおいては、データベースに使用されるRAID 0ストライプ、RAID 1ミラーを構成する個々のドライブ数から始めると良いでしょう（RAID 5ではパリティ用のドライブを数に含めません。）
+しかし、同時実行セッションで発行される複数の問い合わせでデータベースが頻繁にビジーとなる場合、小さめの値で十分ディスクアレイがビジーになるかもしれません。
+ディスクをビジーにするのに必要な値より大きな値を設定しても、余計なCPUオーバーヘッドを発生させるだけです。
+SSDやそれ以外のメモリーベースの記憶装置は、多くの同時リクエストをこなすことができるので、最適な値は数百になるかもしれません。
         </para>
 
         <para>
@@ -2904,7 +2933,9 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
          tablespace parameter of the same name (see
          <xref linkend="sql-altertablespace">).
 -->
-デフォルトは、サポートされているシステムでは1、そうでなければ0です。 ★追記あり
+デフォルトは、サポートされているシステムでは1、そうでなければ0です。
+この値は、テーブルスペースパラメータの同じ名前のパラメータを設定することで、特定のテーブルスペース内のテーブルに対して上書きできます。
+(<xref linkend="sql-altertablespace">を参照ください)。
         </para>
        </listitem>
       </varlistentry>
@@ -2925,8 +2956,9 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
          can support.  This parameter can only be set at server start.  The
          default is 8.
 -->
-         システムがサポートするバックグラウンドプロセスの最大数を指定します。
-         このパラメータはサーバ起動時にのみ設定できます。 ★変更
+システムがサポートするバックグラウンドプロセスの最大数を指定します。
+このパラメータはサーバ起動時にのみ設定できます。
+デフォルトは8です。
         </para>
 
         <para>
@@ -2943,11 +2975,15 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
       <varlistentry id="guc-max-parallel-workers-per-gather" xreflabel="max_parallel_workers_per_gather">
        <term><varname>max_parallel_workers_per_gather</varname> (<type>integer</type>)
        <indexterm>
+<!--
         <primary><varname>max_parallel_workers_per_gather</> configuration parameter</primary>
+-->
+        <primary><varname>max_parallel_workers_per_gather</> 設定パラメータ</primary>
        </indexterm>
        </term>
        <listitem>
         <para>
+<!--
          Sets the maximum number of workers that can be started by a single
          <literal>Gather</literal> node.  Parallel workers are taken from the
          pool of processes established by
@@ -2972,6 +3008,21 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
          For example, a parallel query using 4 workers may use up to 5 times
          as much CPU time, memory, I/O bandwidth, and so forth as a query which
          uses no workers at all.
+-->
+一つの<literal>Gather</literal>ノードに対して起動できるワーカー数の最大値を設定します。
+パラレルワーカーは、<xref linkend="guc-max-worker-processes">で確立されたプロセスのプールから取得されます。
+実行時には、要求された数のワーカーは取得できないかもしれないことに注意してください。
+そうなると、実行プランは期待していたよりも少ない数のワーカーで実行されることになり、効率は悪化するかもしれません。
+この設定値をデフォルト値の0にすると、パラレルクエリの実行は行われません。
+        </para>
+
+        <para>
+パラレルクエリの実行により、パラレルクエリではない場合に比べて非常に多くのリソースが使用されるかもしれないことに注意してください。
+これは、個々のワーカープロセスは完全に別個のプロセスであり、システムに対してセッションが追加されたのと大体同じくらいの影響があるからです。
+この設定値を選択する際には、他のリソースの消費量を制御する他の設定値、たとえば<xref linkend="guc-work-mem">を設定するときと同様に、この点を考慮しておく必要があります。
+<varname>work_mem</>のような設定値によるリソース制限は、個々のワーカーに対して個別に適用されます。
+つまり、ひとつのプロセス対するよりも、すべてのプロセスの全体のリソース消費はずっと多いかもしれないということです。
+たとえば、あるパラレルクエリが4つのワーカーを使っているとすると、ワーカーを使わない場合に比べて、最大5倍のCPU時間、メモリ、I/Oバンド幅を使うかもしれません。
         </para>
        </listitem>
       </varlistentry>
@@ -2979,11 +3030,15 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
       <varlistentry id="guc-backend-flush-after" xreflabel="backend_flush_after">
        <term><varname>backend_flush_after</varname> (<type>integer</type>)
        <indexterm>
+<!--
         <primary><varname>backend_flush_after</> configuration parameter</primary>
+-->
+        <primary><varname>backend_flush_after</> 設定パラメータ</primary>
        </indexterm>
        </term>
        <listitem>
         <para>
+<!--
          Whenever more than <varname>backend_flush_after</varname> bytes have
          been written by a single backend, attempt to force the OS to issue
          these writes to the underlying storage.  Doing so will limit the
@@ -2999,6 +3054,14 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
          and <literal>2MB</literal>.  The default is <literal>0</> (i.e. no
          flush control).  (Non-default values of <symbol>BLCKSZ</symbol>
          change the maximum.)
+-->
+<varname>backend_flush_after</varname>バイトが単一のバックエンドによって書き込まれる度に、OSが記憶装置に書き込むことを強制します。
+このことにより、カーネルのページキャッシュが持つダーティデータの量を一定量に制限し、チェックポイントの最後にfsyncが実行される際、あるいはバックグラウンドで実行される大きなバッチの中でOSがデータを書き出す際に性能の急激な低下を招く可能性を減らします。
+多くの場合これによってトランザクションの遅延を大幅に少なくなりますが、あるケース、特にワークロードが<xref linkend="guc-shared-buffers">よりも大きく、OSのページキャッシュよりも小さい時には性能が低下するかもしれません。
+この設定が無効なプラットホームがあります。
+有効な設定値は、この機能が無効になる<literal>0</literal>から、<literal>2MB</literal>までです。
+デフォルト値は<literal>0</>です(すなわち書き出し制御を行いません)。
+(デフォルト値以外の<symbol>BLCKSZ</symbol>を使用する場合は、最大値は変わる可能性があります)。
         </para>
        </listitem>
       </varlistentry>
@@ -3006,17 +3069,25 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
       <varlistentry id="guc-old-snapshot-threshold" xreflabel="old_snapshot_threshold">
        <term><varname>old_snapshot_threshold</varname> (<type>integer</type>)
        <indexterm>
+<!--
         <primary><varname>old_snapshot_threshold</> configuration parameter</primary>
+-->
+        <primary><varname>old_snapshot_threshold</> 設定パラメータ</primary>
        </indexterm>
        </term>
        <listitem>
         <para>
+<!--
          Sets the minimum time that a snapshot can be used without risk of a
          <literal>snapshot too old</> error occurring when using the snapshot.
          This parameter can only be set at server start.
+-->
+スナップショットが使用されるときに、<literal>snapshot too old</>エラーを引き起こす危険性なしにスナップショットを利用できる最小値を設定します。
+このパラメータはサーバ起動時にのみ設定できます。
         </para>
 
         <para>
+<!--
          Beyond the threshold, old data may be vacuumed away.  This can help
          prevent bloat in the face of snapshots which remain in use for a
          long time.  To prevent incorrect results due to cleanup of data which
@@ -3024,9 +3095,14 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
          when the snapshot is older than this threshold and the snapshot is
          used to read a page which has been modified since the snapshot was
          built.
+-->
+この制限値を越えると、古いデータはバキュームされます。
+これにより、長い間残っていたスナップショットによりデータが溢れてしまうのを防ぐことができます。
+スナップショットから見えるデータが不正に消えるのを防ぐため、スナップショットがこの制限値よりも古く、かつこのスナップショットが作られた以降に変更されたページを読むためにスナップショットが使用されるときはエラーが発生します。
         </para>
 
         <para>
+<!--
          A value of <literal>-1</> disables this feature, and is the default.
          Useful values for production work probably range from a small number
          of hours to a few days.  The setting will be coerced to a granularity
@@ -3035,18 +3111,31 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
          useful for testing.  While a setting as high as <literal>60d</> is
          allowed, please note that in many workloads extreme bloat or
          transaction ID wraparound may occur in much shorter time frames.
+-->
+<literal>-1</>を設定するとこの機能が無効になります。
+これがデフォルトです。
+実際の環境でのおすすめの値はおそらく数時間時間から2, 3日の間となるでしょう。
+設定値は、分の粒度に書き換えられます。
+小さな値(たとえば<literal>0</>や<literal>1min</>)は、テストの際に有用だということで許可されています。
+<literal>60d</>のような大きな値の設定もできますが、多くのワークロードにおいて、大きなデータ溢れやトランザクションIDの周回がそれよりはずっと短い期間で起こる可能性があることに注意してください。
         </para>
 
         <para>
+<!--
          When this feature is enabled, freed space at the end of a relation
          cannot be released to the operating system, since that could remove
          information needed to detect the <literal>snapshot too old</>
          condition.  All space allocated to a relation remains associated with
          that relation for reuse only within that relation unless explicitly
          freed (for example, with <command>VACUUM FULL</>).
+-->
+この機能が有効であると、リレーションの終端部にあるフリースペースはオペレーティングシステムには返却されません。
+そうしないと、<literal>snapshot too old</>の条件の検出に必要な情報を削除してしまうことになるからです。
+明示的に解放されない限り（たとえば<command>VACUUM FULL</>によって）、リレーションに割り当てられた領域は、そのリレーションの中での再利用に限定して紐付けられます。
         </para>
 
         <para>
+<!--
          This setting does not attempt to guarantee that an error will be
          generated under any particular circumstances.  In fact, if the
          correct results can be generated from (for example) a cursor which
@@ -3057,6 +3146,12 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
          table which has a hash index.  For such tables this setting will
          neither reduce bloat nor create a possibility of a <literal>snapshot
          too old</> error on scanning.
+-->
+この設定は、どのような状況でもエラーが検出されることを保証するものではありません。
+（たとえば）マテリアライズされた結果集合を持つカーソルから正しい結果を得ることができるのであれば、たとえ参照している元のテーブルからVACUUMによって行が削除されたとしてもエラーにはなりません。
+ある種のテーブルでは、早期にVACUUMできないので、この設定の影響を受けません。
+例としては、システムカタログやハッシュインデックスが貼られたテーブルが挙げられます。
+このようなテーブルにおいては、この設定によってデータ溢れを防ぐことも、スキャンの際に<literal>snapshot too old</>エラーを起こす可能性を作り出すこともできません。
         </para>
        </listitem>
       </varlistentry>
@@ -3107,10 +3202,10 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
         decoding.  Each level includes the information logged at all lower
         levels.  This parameter can only be set at server start.
        -->
-       <varname>wal_level</>はどれだけの情報がWALに書かれるかを決定します。
-       デフォルト値は<literal>minimal</>で、クラッシュまたは即時停止から回復するのに必要な情報のみ書き出します。
-       <literal>archive</>はWALアーカイビングに必要なロギングを追加します。<literal>hot_standby</>は更にスタンバイサーバ上の読み取り専用問い合わせの情報を追加します。
-<literal>logical</>は、更にロジカルデコーディングをサポートするのに必要な情報を追加します。
+<varname>wal_level</>はどれだけの情報がWALに書かれるかを決定します。
+デフォルト値は<literal>minimal</>で、クラッシュまたは即時停止から回復するのに必要な情報のみ書き出します。
+<literal>replica</>はWALアーカイビングに必要なロギングを追加するとともに、更にスタンバイサーバ上の読み取り専用問い合わせの情報を追加します。
+最後に、<literal>logical</>は、更にロジカルデコーディングをサポートするのに必要な情報を追加します。
 それぞれのレベルは、下位のレベルのログ出力を含んでいます。
        このパラメータはサーバ起動時のみ設定可能です。
        </para>
@@ -3140,7 +3235,8 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
          <member><command>CLUSTER</></member>
          <member>同一トランザクション内で作成されたか、もしくは切り詰められたテーブルに対する<command>COPY</></member>
         </simplelist>
-       しかしminimal WALはベースバックアップとWALログからデータを再構築するための充分な情報を持ち合わせていません。したがって、WALアーカイビング（<xref linkend="guc-archive-mode">）あるいはストリーミングレプリケーションを有効にするには<literal>archive</>以上を使用しなければなりません。
+しかしminimal WALはベースバックアップとWALログからデータを再構築するための充分な情報を持ち合わせていません。
+したがって、WALアーカイビング（<xref linkend="guc-archive-mode">）とストリーミングレプリケーションを有効にするには、<literal>replica</>以上を使用しなければなりません。
        </para>
        <para>
 <!--
@@ -3152,13 +3248,18 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
         many <command>UPDATE</> and <command>DELETE</> statements are
         executed.
 -->
-       <literal>logical</>レベルでは、<literal>hot_standby</>と同じ情報がログされるのに加え、ロジカルチェンジセットをWALから取り出すのに必要な情報が追加されます。 ★変更あり？
-<literal>logical</>を使うとWALの量が増えます。とりわけ、多数のテーブルが<literal>REPLICA IDENTITY FULL</literal>と設定されていて(訳注: ALTER TABLE参照)、多くの<command>UPDATE</>と<command>DELETE</>文が実行される場合はこのことが言えます。
+       <literal>logical</>レベルでは、<literal>replica</>と同じ情報がログされるのに加え、ロジカルチェンジセットをWALから取り出すのに必要な情報が追加されます。
+<literal>logical</>を使うとWALの量が増えます。
+とりわけ、多数のテーブルが<literal>REPLICA IDENTITY FULL</literal>と設定されていて(訳注: ALTER TABLE参照)、多くの<command>UPDATE</>と<command>DELETE</>文が実行される場合はこのことが言えます。
        </para>
        <para>
+<!--
         In releases prior to 9.6, this parameter also allowed the
         values <literal>archive</literal> and <literal>hot_standby</literal>.
         These are still accepted but mapped to <literal>replica</literal>.
+-->
+9.6よりも前のリリースでは、このパラメータは<literal>archive</literal>と<literal>hot_standby</literal>という設定値も可能でした。
+引き続きこれらも受け付けられますが、<literal>replica</literal>へとマップされます。
        </para>
       </listitem>
      </varlistentry>
@@ -3284,7 +3385,7 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
         discussion see <xref linkend="wal-async-commit">.
        -->
 トランザクションのコミットがクライアントに<quote>成功</>の報告を返す前に、WALレコードがディスク上に書き込まれるまで待つかどうかの指定をします。
-有効な値は<literal>on</>、<literal>remote_write</>、<literal>local</>、および<literal>off</>です。
+有効な値は<literal>on</>、<literal>remote_apply</>、<literal>remote_write</>、<literal>local</>、および<literal>off</>です。
 デフォルトかつ安全な設定は<literal>on</>です。
 <literal>off</>の場合、クライアントに成功を報告する時点とトランザクションが本当にサーバクラッシュに対して安全になるまでの間に遅延が発生する場合があります。
 （遅延は最大で、<xref linkend="guc-wal-writer-delay">の3倍です。）
@@ -3320,13 +3421,16 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
         desirable when synchronous replication is in use, but is provided for
         completeness.
 -->
-<xref linkend="guc-synchronous-standby-names">が設定されていると、このパラメータは、トランザクションのWALレコードが、スタンバイサーバに複製されるまでトランザクションコミットを待機するか否かも制御します。 ★変更あり
+<xref linkend="guc-synchronous-standby-names">が空文字でない場合は、このパラメータは、WALレコードが、スタンバイサーバに複製されるまでトランザクションコミットを待機するか否かも制御します。
 <literal>on</>に設定すると、現在の同期スタンバイがトランザクションのコミットレコードを受け取り、記憶装置に吐き出したことを報告するまでコミットは待機します。
-このモードでは、プライマリおよびスタンバイの両方がデータベース記憶装置の故障を被った場合を除いて、トランザクションが失われないことが保証されます。
+このモードでは、プライマリおよびすべての同期スタンバイがデータベース記憶装置の故障を被った場合を除いて、トランザクションが失われないことが保証されます。
+<literal>remote_apply</>に設定すると、現在の同期スタンバイがトランザクションのコミットレコードを受け取って適用し、スタンバイ上で発行されたクエリから見えるようになったことを報告するまでコミットは待機します。
 <literal>remote_write</>に設定すると、現在の同期スタンバイがトランザクションのコミットレコードを受け取り、スタンバイのオペレーティングシステムに書き出したことを報告するまでコミットは待機します。
-しかし、データが必ずしもスタンバイの永続的な記憶装置に到達したとは言えません。
 この設定は仮に<productname>PostgreSQL</>のスタンバイインスタンスがクラッシュしたとしても、データ保護を保証するのに充分です。
 しかし、スタンバイがオペレーティングシステムのレベルでクラッシュした場合はこの限りではありません。
+データが必ずしもスタンバイの永続的な記憶装置に到達したとは言えないからです。
+最後に、<literal>local</>設定は、コミットがローカルにディスクに吐出されるまで待機しますが、レプリケーションされるまでは待機しません。
+これは通常同期レプリケーションが使用されている場合は望ましい設定ではありませんが、完全さのために提供されています。
        </para>
        <para>
 <!--
@@ -3335,8 +3439,8 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
         and <literal>local</> all provide the same synchronization level:
         transaction commits only wait for local flush to disk.
 -->
-       同期レプリケーションが使用されている場合、通常、ディスクに対してのローカルな書き込みとWALレコードのレプリケーションのいずれかを待つか、トランザクションに非同期でコミットさせるかどちらかの選択を行うよう実用的になっています。しかし、トランザクションに対し特別の値である<literal>local</>が使用でき、同期レプリケーションではなく、ディスクへのローカルフラッシュの待機を要請することが可能です。
-       もし <varname>synchronous_standby_names</> が設定されていなければ、<literal>on</>、<literal>remote_write</> および <literal>local</> の設定は全て同一の同期レベルを提供します。トランザクションのコミットはローカルディスクへの書き込みのみ待機します。 ★変更あり
+もし <varname>synchronous_standby_names</> が設定されていなければ、<literal>on</>、<literal>remote_apply</>、<literal>remote_write</> および <literal>local</> の設定は全て同一の同期レベルを提供します。
+すなわちトランザクションのコミットはローカルディスクへの吐き出しのみを待機します。
        </para>
        <para>
        <!--
@@ -3667,13 +3771,13 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
         next higher multiple of 10. This parameter can only be set in the
         <filename>postgresql.conf</> file or on the server command line.
 -->
-WALライタの活動周期の間隔を指定します。
-ライタのこの各周期でWALをディスクに吐き出します。
-そして<varname>wal_writer_delay</>ミリ秒待機し、それを繰り返します。
+WALライタがWALを吐き出す頻度を指定します。
+WALを吐き出したとあと、非同期コミットしているトランザクションに起こされない限り、<varname>wal_writer_delay</>ミリ秒待機します。
+最後の吐き出しが過去<varname>wal_writer_delay</>ミリ秒以内に起こなわれ、かつそれ以降<varname>wal_writer_flush_after</>バイト以内のWALが生成されている場合は、WALはOSに書き込まれますが、ディスクには吐出されません。
 デフォルト値は200ミリ秒（<literal>200ms</>）です。
 多くのシステムでは、待機間隔の実質的な分解能は10ミリ秒です。
 10の倍数以外の値を<varname>wal_writer_delay</>に設定しても、その次に大きい10の倍数を設定した場合と同じ結果となります。
-このパラメータは<filename>postgresql.conf</>ファイル内またはサーバのコマンドラインでのみ設定可能です。 ★変更あり
+このパラメータは<filename>postgresql.conf</>ファイル内またはサーバのコマンドラインでのみ設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -3681,11 +3785,15 @@ WALライタの活動周期の間隔を指定します。
      <varlistentry id="guc-wal-writer-flush-after" xreflabel="wal_writer_flush_after">
       <term><varname>wal_writer_flush_after</varname> (<type>integer</type>)
       <indexterm>
+<!--
        <primary><varname>wal_writer_flush_after</> configuration parameter</primary>
+-->
+       <primary><varname>wal_writer_flush_after</> 設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
       <para>
+<!--
         Specifies how often the WAL writer flushes WAL. In case the last flush
         happened less than <varname>wal_writer_delay</> milliseconds ago and
         less than <varname>wal_writer_flush_after</> bytes of WAL have been
@@ -3694,6 +3802,12 @@ WALライタの活動周期の間隔を指定します。
         flushed every time the WAL writer has written WAL.  The default is
         <literal>1MB</literal>. This parameter can only be set in the
         <filename>postgresql.conf</> file or on the server command line.
+-->
+WALライタがWALを吐き出す頻度を指定します。
+最後の吐き出しが過去<varname>wal_writer_delay</>ミリ秒以内に起こなわれ、かつそれ以降<varname>wal_writer_flush_after</>バイト以内のWALが生成されている場合は、WALはOSに書き込まれますが、ディスクには吐出されません。
+<varname>wal_writer_flush_after</>が<literal>0</>に設定されている場合は、WALが書かれるたびにWALが吐出されます。
+デフォルト値は<literal>1MB</literal>です。
+このパラメータは<filename>postgresql.conf</>ファイル内またはサーバのコマンドラインでのみ設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -3842,11 +3956,15 @@ WALライタの活動周期の間隔を指定します。
      <varlistentry id="guc-checkpoint-flush-after" xreflabel="checkpoint_flush_after">
       <term><varname>checkpoint_flush_after</varname> (<type>integer</type>)
       <indexterm>
+<!--
        <primary><varname>checkpoint_flush_after</> configuration parameter</primary>
+-->
+       <primary><varname>checkpoint_flush_after</>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Whenever more than <varname>checkpoint_flush_after</varname> bytes
         have been written while performing a checkpoint, attempt to force the
         OS to issue these writes to the underlying storage.  Doing so will
@@ -3864,6 +3982,15 @@ WALライタの活動周期の間隔を指定します。
         <symbol>BLCKSZ</symbol> change the default and maximum.)
         This parameter can only be set in the <filename>postgresql.conf</>
         file or on the server command line.
+-->
+チェックポイント実行中に<varname>checkpoint_flush_after</varname>バイトより多く書く度に、OSが記憶装置に書き込むことを強制します。
+このことにより、カーネルのページキャッシュが持つダーティデータの量を一定量に制限し、チェックポイントの最後にfsyncが実行される際、あるいはバックグラウンドで実行される大きなバッチの中でOSがデータを書き出す際に性能の急激な低下を招く可能性を減らします。
+多くの場合これによってトランザクションの遅延を大幅に少なくなりますが、あるケース、特にワークロードが<xref linkend="guc-shared-buffers">よりも大きく、OSのページキャッシュよりも小さい時には性能が低下するかもしれません。
+この設定が無効なプラットホームがあります。
+有効な設定値は、この機能が無効になる<literal>0</literal>から、<literal>2MB</literal>までです。
+デフォルト値は、Linuxでは<literal>256kB</>で、それ以外は<literal>0</>です。
+(<symbol>BLCKSZ</symbol>がデフォルト値でなければ、この設定のデフォルト値と最大値が変更されます。)
+このパラメータは<filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -4198,7 +4325,7 @@ WALライタの活動周期の間隔を指定します。
         クライアント接続が突然切断されると、タイムアウトするまで孤児接続スロットが残ってしまうかもしれません。
 ですから、このパラメータは想定されるクライアント数の最大値よりも少し大きめにして、切断されたクライアントが直ちに再接続できるようにした方が良いでしょう。
        このパラメータはサーバ起動時のみ設定可能です。
-       スタンバイサーバからの接続を許可するには、<varname>wal_level</>が<literal>archive</>以上に設定しておかなければなりません。
+スタンバイサーバからの接続を許可するには、<varname>wal_level</>を<literal>replica</>以上に設定しておかなければなりません。
        </para>
 
        </listitem>
@@ -4227,8 +4354,7 @@ WALライタの活動周期の間隔を指定します。
 -->
         サーバが使用できるレプリケーションスロット(<xref linkend="streaming-replication-slots">参照)の最大数を指定します。デフォルトは0です。
        このパラメータはサーバ起動時のみ設定可能です。
-         レプリケーションスロットが使用できるためには、<varname>wal_level</varname>を
-         <literal>archive</literal>以上に設定しなければなりません。
+レプリケーションスロットが使用できるためには、<varname>wal_level</varname>を<literal>replica</literal>以上に設定しなければなりません。
          現在存在しているレプリケーションスロットの数よりも少ない値を設定すると、サーバは起動しません。
         </para>
        </listitem>
@@ -4395,21 +4521,25 @@ WALライタの活動周期の間隔を指定します。
         it will be replaced immediately with the next-highest-priority standby.
         Specifying more than one standby name can allow very high availability.
        -->
-       <xref linkend="synchronous-replication">で説明されているように、<firstterm>同期レプリケーション</>をサポート可能なスタンバイサーバの名前をコンマで区切られたリストで指定します。★変更あり
-       いつの時点においても、活動している同期スタンバイサーバは最大でも1つです。
-       コミットを待機しているトランザクションは、このスタンバイサーバがそのデータの受信を確認してから処理の継続が許可されます。
-       同期スタンバイサーバはこのリストで一番目に名前が挙げられていており、現時点で接続され、そしてデータをリアルタイムでストリーミングしているものです（<link linkend="monitoring-stats-views-table"><literal>pg_stat_replication</></link> ビューにおいて<literal>ストリーミング</literal>状態として示されています）。
-       このリストの後の方に記載されているその他のスタンバイサーバは潜在的に同期スタンバイサーバになることを示しています。
-       もし現在の同期スタンバイサーバが理由にかかわらず切断された場合、次に順位の高いスタンバイサーバがすぐに取って代わります。
-       二つ以上のスタンバイサーバ名を指定することでかなりの高可用性が得られます。
+<xref linkend="synchronous-replication">で説明されているように、<firstterm>同期レプリケーション</>をサポート可能なスタンバイサーバの名前をコンマで区切られたリストで指定します。
+活動中の同期スタンバイサーバは最大でも1つです。
+コミットを待機しているトランザクションは、このスタンバイサーバがそのデータの受信を確認してから処理の継続が許可されます。
+同期スタンバイサーバはこのリストの最初の方に名前が挙げられていており、現時点で接続され、そしてデータをリアルタイムでストリーミングしているものです（<link linkend="monitoring-stats-views-table"><literal>pg_stat_replication</></link> ビューにおいて<literal>ストリーミング</literal>状態として示されています）。
+このリストの後の方に記載されているその他のスタンバイサーバは潜在的に同期スタンバイサーバになることを示しています。
+もし現在の同期スタンバイサーバが理由にかかわらず切断された場合、次に順位の高いスタンバイサーバがすぐに取って代わります。
+二つ以上のスタンバイサーバ名を指定することでかなりの高可用性が得られます。
        </para>
        <para>
+<!--
         This parameter specifies a list of standby servers using
         either of the following syntaxes:
+-->
+このパラメータは、以下の構文のいずれかを用いてスタンバイサーバのリストを指定します。
 <synopsis>
 <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="parameter">standby_name</replaceable> [, ...] )
 <replaceable class="parameter">standby_name</replaceable> [, ...]
 </synopsis>
+<!--
         where <replaceable class="parameter">num_sync</replaceable> is
         the number of synchronous standbys that transactions need to
         wait for replies from,
@@ -4419,14 +4549,24 @@ WALライタの活動周期の間隔を指定します。
         until their WAL records are received by three higher-priority standbys
         chosen from standby servers <literal>s1</>, <literal>s2</>,
         <literal>s3</> and <literal>s4</>.
+-->
+ここで、<replaceable class="parameter">num_sync</replaceable>は、トランザクションが応答を待機する必要のある同期スタンバイの数です。
+<replaceable class="parameter">standby_name</replaceable>は、スタンバイサーバの名前です。
+たとえば<literal>3 (s1, s2, s3, s4)</>とすると、<literal>s1</>、<literal>s2</>、<literal>s3</>、<literal>s4</>の中から選ばれた優先順位の高い3つのスタンバイサーバがWALレコードを受信するまでコミットは待機します。
         </para>
         <para>
+<!--
         The second syntax was used before <productname>PostgreSQL</>
         version 9.6 and is still supported. It's the same as the first syntax
         with <replaceable class="parameter">num_sync</replaceable> equal to 1.
         For example, <literal>1 (s1, s2)</> and
         <literal>s1, s2</> have the same meaning: either <literal>s1</>
         or <literal>s2</> is chosen as a synchronous standby.
+-->
+次の構文は、<productname>PostgreSQL</>9.6よりも前のバージョンで用いられていたものです。
+<replaceable class="parameter">num_sync</replaceable>を1とした時には前の構文と同じです。
+たとえば<literal>1 (s1, s2)</>と<literal>s1, s2</>は同じ意味です。
+どちらにおいても、<literal>s1</>か<literal>s2</>が同期スタンバイとして選ばれます。
        </para>
        <para>
         The name of a standby server for this purpose is the
@@ -4439,18 +4579,24 @@ WALライタの活動周期の間隔を指定します。
         <varname>application_name</>, including the default application name
         of <literal>walreceiver</>.
        -->
-       この目的のスタンバイサーバの名前は、スタンバイサーバのWAL receiverの<varname>primary_conninfo</>で設定されるのと同じく、スタンバイサーバの<varname>application_name</>設定となります。
-       一意性を強要する仕組みにはなっていません。
+この目的のスタンバイサーバの名前は、スタンバイサーバのWAL receiverの<varname>primary_conninfo</>で設定されるのと同じく、スタンバイサーバの<varname>application_name</>設定となります。
+一意性を強要する仕組みにはなっていません。
+重複があった場合、一致したスタンバイは優先順位が高いと見なされますが、どれが選ばれるかは非決定的です。
        <literal>walreceiver</>のデフォルトのアプリケーション名を含めて、特別の記載である<literal>*</>は全ての<varname>application_name</>にマッチします。
        </para>
        <note>
         <para>
+<!--
          Each <replaceable class="parameter">standby_name</replaceable>
          should have the form of a valid SQL identifier, unless it
          is <literal>*</>.  You can use double-quoting if necessary.  But note
          that <replaceable class="parameter">standby_name</replaceable>s are
          compared to standby application names case-insensitively, whether
          double-quoted or not.
+-->
+各々の<replaceable class="parameter">standby_name</replaceable>は、<literal>*</>である場合を除き、SQL識別子の形式を取らなければなりません。
+二重引用符を用いることもできます。
+しかし、二重引用符の有無に関わらず、<replaceable class="parameter">standby_name</replaceable>の比較は大文字小文字の区別なしに行われることに注意してください。
         </para>
        </note>
        <para>
@@ -4733,6 +4879,7 @@ WALライタの活動周期の間隔を指定します。
        カスケードレプリケーションが使用されている場合、フィードバックは最終的にプライマリーに到達するまで上位サーバに転送されます。スタンバイは上位に転送する以外、受け取ったフィードバックを他に使用しません。
        </para>
        <para>
+<!--
         This setting does not override the behavior of
         <varname>old_snapshot_threshold</> on the primary; a snapshot on the
         standby which exceeds the primary's age threshold can become invalid,
@@ -4741,6 +4888,11 @@ WALライタの活動周期の間隔を指定します。
         absolute limit on the time which dead rows can contribute to bloat,
         which would otherwise be violated because of the configuration of a
         standby.
+-->
+この設定は、プライマリの<varname>old_snapshot_threshold</>の挙動を上書きしません。
+プライマリの年齢上限を超えたスタンバイ上のスナップショットは無効となる可能性があります。
+これは、<varname>old_snapshot_threshold</>が、無効行によってデータ溢れが起こる時刻の絶対的な制限を提供することを意図しているからです。
+そうでなければ、スタンバイの設定によってこの目的は成立しなくなってしまいます。
        </para>
       </listitem>
      </varlistentry>
@@ -4981,7 +5133,9 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         The default is <literal>on</>.
  -->
 
-問い合わせプランナがインデックスオンリースキャン計画型を選択することを有効もしくは無効にします。デフォルトは<literal>on</>です。 ★変更あり
+問い合わせプランナがインデックスオンリースキャン計画型を選択することを有効もしくは無効にします。
+(<xref linkend="indexes-index-only-scans">を参照してください)
+デフォルトは<literal>on</>です。
        </para>
       </listitem>
      </varlistentry>
@@ -5354,14 +5508,21 @@ RAM内に存在するページの取り出しコストは通常よりもかな�
      <varlistentry id="guc-parallel-setup-cost" xreflabel="parallel_setup_cost">
       <term><varname>parallel_setup_cost</varname> (<type>floating point</type>)
       <indexterm>
+<!--
        <primary><varname>parallel_setup_cost</> configuration parameter</primary>
+-->
+       <primary><varname>parallel_setup_cost</>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Sets the planner's estimate of the cost of launching parallel worker
         processes.
         The default is 1000.
+-->
+パラレルワーカープロセスを起動するためのコストに対するプランナの推測値を設定します。
+デフォルトは1000です。
        </para>
       </listitem>
      </varlistentry>
@@ -5369,14 +5530,21 @@ RAM内に存在するページの取り出しコストは通常よりもかな�
      <varlistentry id="guc-parallel-tuple-cost" xreflabel="parallel_tuple_cost">
       <term><varname>parallel_tuple_cost</varname> (<type>floating point</type>)
       <indexterm>
+<!--
        <primary><varname>parallel_tuple_cost</> configuration parameter</primary>
+-->
+       <primary><varname>parallel_tuple_cost</>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Sets the planner's estimate of the cost of transferring one tuple
         from a parallel worker process to another process.
         The default is 0.1.
+-->
+あるパラレルワーカープロセスから、1行を他のプロセスに転送するためのコストに対するプランナの推測値を設定します。
+デフォルトは0.1です。
        </para>
       </listitem>
      </varlistentry>
@@ -5384,13 +5552,20 @@ RAM内に存在するページの取り出しコストは通常よりもかな�
      <varlistentry id="guc-min-parallel-relation-size" xreflabel="min_parallel_relation_size">
       <term><varname>min_parallel_relation_size</varname> (<type>integer</type>)
       <indexterm>
+<!--
        <primary><varname>min_parallel_relation_size</> configuration parameter</primary>
+-->
+       <primary><varname>min_parallel_relation_size</>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Sets the minimum size of relations to be considered for parallel scan.
         The default is 8 megabytes (<literal>8MB</>).
+-->
+パラレルスキャンを考慮する最小のリレーションサイズを指定します。
+デフォルトは8メガバイト（ <literal>8MB</>）です。
        </para>
       </listitem>
      </varlistentry>
@@ -5904,11 +6079,15 @@ SELECT * FROM parent WHERE key = 2400;
      <varlistentry id="guc-force-parallel-mode" xreflabel="force_parallel_mode">
       <term><varname>force_parallel_mode</varname> (<type>enum</type>)
       <indexterm>
+<!--
        <primary><varname>force_parallel_mode</> configuration parameter</primary>
+-->
+       <primary><varname>force_parallel_mode</>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Allows the use of parallel queries for testing purposes even in cases
         where no performance benefit is expected.
         The allowed values of <varname>force_parallel_mode</> are
@@ -5917,9 +6096,13 @@ SELECT * FROM parent WHERE key = 2400;
         for which it is thought to be safe), and <literal>regress</> (like
         <literal>on</>, but with additional behavior changes as explained
         below).
+-->
+性能改善が期待できなくても、テスト目的のためにパラレルクエリを利用できるようにします。
+<varname>force_parallel_mode</>に設定できる値は、<literal>off</>（性能改善が期待できるときにだけパラレルクエリを使用する）、<literal>on</>（安全なクエリに対しては常にパラレルクエリを強制する）、<literal>regress</>（<literal>on</>と同様だが、下記のような振る舞いの変更を伴う）です。
        </para>
 
        <para>
+<!--
         More specifically, setting this value to <literal>on</> will add
         a <literal>Gather</> node to the top of any query plan for which this
         appears to be safe, so that the query runs inside of a parallel worker.
@@ -5930,9 +6113,14 @@ SELECT * FROM parent WHERE key = 2400;
         unexpected results occur when this option is set, some functions used
         by the query may need to be marked <literal>PARALLEL UNSAFE</literal>
         (or, possibly, <literal>PARALLEL RESTRICTED</literal>).
+-->
+正確に言えば、この値を<literal>on</>にすると、安全と見なされるすべての問い合わせ計画の上に<literal>Gather</>ノードを追加し、クエリがパラレルワーカー上で実行するようにします。
+プランナがこれによってクエリが失敗すると思わない限り、パラレルワーカーが利用できない、あるいは使用できないような場合でも、たとえばサブトランザクションの開始のように、パラレルクエリコンテキストでは許可されない操作は不許可となります。
+このオプションを設定することによって、エラーとなったり、あるいは期待していなかった結果がもたらされる場合には、クエリで使用されている関数は<literal>PARALLEL UNSAFE</literal>と印を付ける必要があるかもしません（もしくは、<literal>PARALLEL RESTRICTED</literal>と）。
        </para>
 
        <para>
+<!--
         Setting this value to <literal>regress</> has all of the same effects
         as setting it to <literal>on</> plus some additional effects that are
         intended to facilitate automated regression testing.  Normally,
@@ -5942,6 +6130,10 @@ SELECT * FROM parent WHERE key = 2400;
         the <literal>Gather</> nodes added to plans by this setting are hidden
         in <literal>EXPLAIN</> output so that the output matches what
         would be obtained if this setting were turned <literal>off</>.
+-->
+この設定値を<literal>regress</>とすると、<literal>on</>とするのに加え、自動回帰テストを助けるための付加的な効果が現れます。
+通常パラレルワーカーからのメッセージは、そのことを表すコンテキスト行を表示しますが、<literal>regress</>と設定すると、非パラレル実行と同じ出力になるように、これを抑止します。
+また、プランに追加された<literal>Gather</>ノードは、<literal>EXPLAIN</>出力から隠され、<literal>off</>に設定したときと同じ出力が得られるようにします。
        </para>
       </listitem>
      </varlistentry>
@@ -6468,12 +6660,16 @@ linkend="guc-log-timezone">で指定された時間帯で計算が行われま�
       <varlistentry id="guc-syslog-sequence-numbers" xreflabel="syslog_sequence_numbers">
        <term><varname>syslog_sequence_numbers</varname> (<type>boolean</type>)
         <indexterm>
+<!--
          <primary><varname>syslog_sequence_numbers</> configuration parameter</primary>
+-->
+         <primary><varname>syslog_sequence_numbers</>設定パラメータ</primary>
         </indexterm>
        </term>
 
        <listitem>
         <para>
+<!--
          When logging to <application>syslog</application> and this is on (the
          default), then each message will be prefixed by an increasing
          sequence number (such as <literal>[2]</literal>).  This circumvents
@@ -6484,11 +6680,19 @@ linkend="guc-log-timezone">で指定された時間帯で計算が行われま�
          in <productname>rsyslog</productname>), so this might not be
          necessary.  Also, you could turn this off if you actually want to
          suppress repeated messages.
+-->
+<application>syslog</application>にログを出力している場合で、これがオン（デフォルト）であると、各メッセージには（<literal>[2]</literal>のような）増加する順序数が頭に追加されます。
+これにより、多くのsyslogの実装がデフォルトで行う<quote>--- last message repeated N times ---</quote>による出力の抑止が回避されます。
+近代的なsyslogの実装では、繰り返されるメッセージの抑止は設定変更できるので（たとえば、<productname>rsyslog</productname>)における<literal>$RepeatedMsgReduction</literal>）、この機能は必要ないかもしれません。
+繰り返されるメッセージを抑止したい場合には、これをオフにできます。
         </para>
 
         <para>
+<!--
          This parameter can only be set in the <filename>postgresql.conf</>
          file or on the server command line.
+-->
+このパラメータは、<filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定されます。
         </para>
       </listitem>
      </varlistentry>
@@ -6496,11 +6700,15 @@ linkend="guc-log-timezone">で指定された時間帯で計算が行われま�
      <varlistentry id="guc-syslog-split-messages" xreflabel="syslog_split_messages">
       <term><varname>syslog_split_messages</varname> (<type>boolean</type>)
       <indexterm>
+<!--
        <primary><varname>syslog_split_messages</> configuration parameter</primary>
+-->
+       <primary><varname>syslog_split_messages</>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         When logging to <application>syslog</> is enabled, this parameter
         determines how messages are delivered to syslog.  When on (the
         default), messages are split by lines, and long lines are split so
@@ -6508,20 +6716,34 @@ linkend="guc-log-timezone">で指定された時間帯で計算が行われま�
         traditional syslog implementations.  When off, PostgreSQL server log
         messages are delivered to the syslog service as is, and it is up to
         the syslog service to cope with the potentially bulky messages.
+-->
+<application>syslog</>へのログ出力が有効な場合、このパラメータはメッセージがどのようにsyslogに送られるかを規定します。
+オンなら（デフォルト）、メッセージは行に分割され、長い行は、典型的なsyslog実装のサイズ上限でである1024バイト以内に分割されます。
+オフならば、PostgreSQLサーバログメッセージは、そのままsyslogサービスに送られます。
+大きなサイズになるかもしれないメッセージにどう対応するかは、syslogサービス次第となります。
        </para>
 
        <para>
+<!--
         If syslog is ultimately logging to a text file, then the effect will
         be the same either way, and it is best to leave the setting on, since
         most syslog implementations either cannot handle large messages or
         would need to be specially configured to handle them.  But if syslog
         is ultimately writing into some other medium, it might be necessary or
         more useful to keep messages logically together.
+-->
+もしsyslogが最終的にテキストファイルにログを出力するのであれば、どちらに設定しても効果は同じです。
+設定値をオンにしておくのが最善です。
+多くのsyslogの実装では、長いメッセージを扱えないか、長いメッセージを扱うための特別な設定が必要だからです。
+しかし、syslogが最終的に他のメディアに書き込むのであれば、メッセージを論理的に一緒にしておくことが必要か、もしくは有用です。
        </para>
 
        <para>
+<!--
         This parameter can only be set in the <filename>postgresql.conf</>
         file or on the server command line.
+-->
+このパラメータは、<filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定されます。
        </para>
       </listitem>
      </varlistentry>
@@ -7289,7 +7511,10 @@ linkend="guc-log-timezone">で指定された時間帯で計算が行われま�
             </row>
             <row>
              <entry><literal>%n</literal></entry>
+<!--
              <entry>Time stamp with milliseconds (as a Unix epoch)</entry>
+-->
+             <entry>ミリ秒付きタイムスタンプ（Unixエポックとして）</entry>
              <entry>no</entry>
             </row>
             <row>
@@ -7786,7 +8011,8 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
      <application>ps</> or, on Windows, <application>Process Explorer</>.
      See <xref linkend="monitoring-ps"> for details.
 <!--
-これらの設定項目は、<command>ps</command>で見えるプロセスの表題を変更します。
+これらの設定項目は、<command>ps</command>で見えるサーバプロセスの表題を変更します。
+プロセスの表題は、典型的には<application>ps</>、あるいはWindowsにおいては<application>Process Explorer</>で見ることができます。
 詳細については、<xref linkend="monitoring-ps">を参照してください。
 -->
     </para>
@@ -7813,7 +8039,7 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
         if this parameter is set to the empty string <literal>''</> (which is
         the default). This parameter can only be set at server start.
 -->
-このクラスタ内のすべてのプロセス表題にクラスタ名を設定します。 ★変更あり
+このクラスタ内のすべてのサーバプロセス表題にクラスタ名を設定します。 
 クラスタ名は<symbol>NAMEDATALEN</>文字(標準のビルドでは64文字)より少ない文字列です。
 表示可能なASCII文字だけが<varname>cluster_name</varname>の値として設定できます。
 他の文字は、疑問符(<literal>?</literal>)に置き換えられます。
@@ -7843,8 +8069,8 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
         Only superusers can change this setting.
 -->
 サーバが新しいSQLコマンドを受け取る時に毎回、プロセスタイトルを更新できるようにします。
-プロセスタイトルは通常、<command>ps</>コマンドやWindowsでは<application>Process Explorer</>を使用して表示させることができます。
-スーパーユーザのみがこの設定を変更することができます。 ★変更あり
+この設定値はたいていのプラットホームで<literal>on</>がデフォルトになっていますが、Windowsではプロセスタイトルを更新するオーバヘッドが大きいため、<literal>off</>がデフォルトになっています。
+スーパーユーザのみがこの設定を変更することができます。
        </para>
       </listitem>
      </varlistentry>
@@ -9164,16 +9390,25 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
      <varlistentry id="guc-idle-in-transaction-session-timeout" xreflabel="idle_in_transaction_session_timeout">
       <term><varname>idle_in_transaction_session_timeout</varname> (<type>integer</type>)
       <indexterm>
+<!--
        <primary><varname>idle_in_transaction_session_timeout</> configuration parameter</primary>
+-->
+       <primary><varname>idle_in_transaction_session_timeout</>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
        Terminate any session with an open transaction that has been idle for
        longer than the specified duration in milliseconds. This allows any
        locks held by that session to be released and the connection slot to be reused;
        it also allows tuples visible only to this transaction to be vacuumed.  See
        <xref linkend="routine-vacuuming"> for more details about this.
+-->
+ミリ秒単位で指定された時間を超えて開いたトランザクションがアイドルだった場合に、セッションを終了します。
+これにより、そのセッションが獲得したロックを解放し、コネクションスロットを再利用できるようになります。
+また、このトランザクションからのみ見えるタプルがVACUUMできるようになります。
+更なる詳細は<xref linkend="routine-vacuuming">を見てください。
        </para>
        <para>
        The default value of 0 disables this feature.
@@ -9207,7 +9442,7 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
         information see
         <xref linkend="vacuum-for-wraparound">.
        -->
-       テーブルの<structname>pg_class</>.<structfield>relfrozenxid</>フィールドがこの設定で指定した時期に達すると、<command>VACUUM</>はテーブル全体の走査を行います。 ★変更あり
+       テーブルの<structname>pg_class</>.<structfield>relfrozenxid</>フィールドがこの設定で指定した時期に達すると、<command>VACUUM</>は積極的なテーブル走査を行います。
        デフォルトは1.5億トランザクションです。
        ユーザはこの値をゼロから20億までの任意の値に設定することができますが、<command>VACUUM</>は警告することなく、周回問題対策のautovacuumがテーブルに対して起動する前に定期的な手動<command>VACUUM</>が実行する機会を持つように、<xref linkend="guc-autovacuum-freeze-max-age">の95%に実効値を制限します。
        <xref linkend="vacuum-for-wraparound">を参照してください。
@@ -9272,8 +9507,9 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
         anti-wraparound is launched for the table.
         For more information see <xref linkend="vacuum-for-multixact-wraparound">.
 -->
-        <structname>pg_class</>.<structfield>relminmxid</>フィールドがこの設定値で指定した年代に達すると<command>VACUUM</>はテーブルの全スキャンを行います。 ★変更あり
-デフォルトは1億5千万マルチトランザクション(multixacts)です。
+        <structname>pg_class</>.<structfield>relminmxid</>フィールドがこの設定値で指定した年代に達すると<command>VACUUM</>はテーブルの積極的なスキャンを行います。
+積極的なスキャンは、不要タプルを含む可能性のあるページだけではなく、凍結XIDあるいはMXIDを含むすべてのページを読む通常の<command>VACUUM</>とは異なります。
+デフォルトは1億5千万トランザクションです。
 ユーザは0から20億まで任意の値を設定できますが、テーブルに対してラップアラウンド防止処理が起動される前に定期的な手動<command>VACUUM</>が走ることができるように、<command>VACUUM</>は<xref linkend="guc-autovacuum-multixact-freeze-max-age">の95%に暗黙的に制限します。
 詳細は<xref linkend="vacuum-for-multixact-wraparound">をご覧ください。
        </para>
