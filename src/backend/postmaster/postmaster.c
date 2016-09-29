@@ -576,6 +576,16 @@ PostmasterMain(int argc, char *argv[])
 	umask(S_IRWXG | S_IRWXO);
 
 	/*
+	 * Initialize random(3) so we don't get the same values in every run.
+	 *
+	 * Note: the seed is pretty predictable from externally-visible facts such
+	 * as postmaster start time, so avoid using random() for security-critical
+	 * random values during postmaster startup.  At the time of first
+	 * connection, PostmasterRandom will select a hopefully-more-random seed.
+	 */
+	srandom((unsigned int) (MyProcPid ^ MyStartTime));
+
+	/*
 	 * By default, palloc() requests in the postmaster will be allocated in
 	 * the PostmasterContext, which is space that can be recycled by backends.
 	 * Allocated data that needs to be available to backends should be
@@ -5102,6 +5112,10 @@ RandomSalt(char *md5Salt)
 
 /*
  * PostmasterRandom
+ *
+ * Caution: use this only for values needed during connection-request
+ * processing.  Otherwise, the intended property of having an unpredictable
+ * delay between random_start_time and random_stop_time will be broken.
  */
 static long
 PostmasterRandom(void)

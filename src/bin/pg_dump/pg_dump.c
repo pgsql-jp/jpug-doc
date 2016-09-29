@@ -1302,7 +1302,7 @@ checkExtensionMembership(DumpableObject *dobj, Archive *fout)
 
 	/*
 	 * In 9.6 and above, mark the member object to have any non-initial ACL,
-	 * policies, and security lables dumped.
+	 * policies, and security labels dumped.
 	 *
 	 * Note that any initial ACLs (see pg_init_privs) will be removed when we
 	 * extract the information about the object.  We don't provide support for
@@ -1324,8 +1324,8 @@ checkExtensionMembership(DumpableObject *dobj, Archive *fout)
 			dobj->dump = DUMP_COMPONENT_NONE;
 		else
 			dobj->dump = ext->dobj.dump_contains & (DUMP_COMPONENT_ACL |
-							DUMP_COMPONENT_SECLABEL | DUMP_COMPONENT_POLICY);
-
+													DUMP_COMPONENT_SECLABEL |
+													DUMP_COMPONENT_POLICY);
 	}
 
 	return true;
@@ -1338,15 +1338,11 @@ checkExtensionMembership(DumpableObject *dobj, Archive *fout)
 static void
 selectDumpableNamespace(NamespaceInfo *nsinfo, Archive *fout)
 {
-	if (checkExtensionMembership(&nsinfo->dobj, fout))
-		return;					/* extension membership overrides all else */
-
 	/*
 	 * If specific tables are being dumped, do not dump any complete
 	 * namespaces. If specific namespaces are being dumped, dump just those
 	 * namespaces. Otherwise, dump all non-system namespaces.
 	 */
-
 	if (table_include_oids.head != NULL)
 		nsinfo->dobj.dump_contains = nsinfo->dobj.dump = DUMP_COMPONENT_NONE;
 	else if (schema_include_oids.head != NULL)
@@ -1355,18 +1351,21 @@ selectDumpableNamespace(NamespaceInfo *nsinfo, Archive *fout)
 								   nsinfo->dobj.catId.oid) ?
 			DUMP_COMPONENT_ALL : DUMP_COMPONENT_NONE;
 	else if (fout->remoteVersion >= 90600 &&
-			 strncmp(nsinfo->dobj.name, "pg_catalog",
-					 strlen("pg_catalog")) == 0)
-
+			 strcmp(nsinfo->dobj.name, "pg_catalog") == 0)
+	{
 		/*
 		 * In 9.6 and above, we dump out any ACLs defined in pg_catalog, if
 		 * they are interesting (and not the original ACLs which were set at
 		 * initdb time, see pg_init_privs).
 		 */
 		nsinfo->dobj.dump_contains = nsinfo->dobj.dump = DUMP_COMPONENT_ACL;
+	}
 	else if (strncmp(nsinfo->dobj.name, "pg_", 3) == 0 ||
 			 strcmp(nsinfo->dobj.name, "information_schema") == 0)
+	{
+		/* Other system schemas don't get dumped */
 		nsinfo->dobj.dump_contains = nsinfo->dobj.dump = DUMP_COMPONENT_NONE;
+	}
 	else
 		nsinfo->dobj.dump_contains = nsinfo->dobj.dump = DUMP_COMPONENT_ALL;
 
@@ -1377,6 +1376,15 @@ selectDumpableNamespace(NamespaceInfo *nsinfo, Archive *fout)
 		simple_oid_list_member(&schema_exclude_oids,
 							   nsinfo->dobj.catId.oid))
 		nsinfo->dobj.dump_contains = nsinfo->dobj.dump = DUMP_COMPONENT_NONE;
+
+	/*
+	 * If the schema belongs to an extension, allow extension membership to
+	 * override the dump decision for the schema itself.  However, this does
+	 * not change dump_contains, so this won't change what we do with objects
+	 * within the schema.  (If they belong to the extension, they'll get
+	 * suppressed by it, otherwise not.)
+	 */
+	(void) checkExtensionMembership(&nsinfo->dobj, fout);
 }
 
 /*
@@ -2552,7 +2560,8 @@ dumpDatabase(Archive *fout)
 		appendPQExpBufferStr(creaQry, " LC_CTYPE = ");
 		appendStringLiteralAH(creaQry, ctype, fout);
 	}
-	if (strlen(tablespace) > 0 && strcmp(tablespace, "pg_default") != 0)
+	if (strlen(tablespace) > 0 && strcmp(tablespace, "pg_default") != 0 &&
+		!dopt->outputNoTablespaces)
 		appendPQExpBuffer(creaQry, " TABLESPACE = %s",
 						  fmtId(tablespace));
 	appendPQExpBufferStr(creaQry, ";\n");
@@ -4943,20 +4952,23 @@ getFuncs(Archive *fout, int *numFuncs)
 	selectSourceSchema(fout, "pg_catalog");
 
 	/*
-	 * Find all interesting functions.  We include functions in pg_catalog, if
-	 * they have an ACL different from what we set at initdb time (which is
-	 * saved in pg_init_privs for us to perform this check).  There may also
-	 * be functions which are members of extensions which we must dump if we
-	 * are in binary upgrade mode (we'll mark those functions as to-be-dumped
-	 * when we check if the extension is to-be-dumped and we're in binary
-	 * upgrade mode).
+	 * Find all interesting functions.  This is a bit complicated:
 	 *
-	 * Also, in 9.2 and up, exclude functions that are internally dependent on
-	 * something else, since presumably those will be created as a result of
-	 * creating the something else.  This currently only acts to suppress
-	 * constructor functions for range types.  Note that this is OK only
-	 * because the constructors don't have any dependencies the range type
-	 * doesn't have; otherwise we might not get creation ordering correct.
+	 * 1. Always exclude aggregates; those are handled elsewhere.
+	 *
+	 * 2. Always exclude functions that are internally dependent on something
+	 * else, since presumably those will be created as a result of creating
+	 * the something else.  This currently acts only to suppress constructor
+	 * functions for range types (so we only need it in 9.2 and up).  Note
+	 * this is OK only because the constructors don't have any dependencies
+	 * the range type doesn't have; otherwise we might not get creation
+	 * ordering correct.
+	 *
+	 * 3. Otherwise, we normally exclude functions in pg_catalog.  However, if
+	 * they're members of extensions and we are in binary-upgrade mode then
+	 * include them, since we want to dump extension members individually in
+	 * that mode.  Also, in 9.6 and up, include functions in pg_catalog if
+	 * they have an ACL different from what's shown in pg_init_privs.
 	 */
 	if (fout->remoteVersion >= 90600)
 	{
@@ -4983,14 +4995,14 @@ getFuncs(Archive *fout, int *numFuncs)
 						  "(p.oid = pip.objoid "
 						  "AND pip.classoid = 'pg_proc'::regclass "
 						  "AND pip.objsubid = 0) "
-						  "WHERE NOT proisagg "
-						  "AND NOT EXISTS (SELECT 1 FROM pg_depend "
+						  "WHERE NOT proisagg"
+						  "\n  AND NOT EXISTS (SELECT 1 FROM pg_depend "
 						  "WHERE classid = 'pg_proc'::regclass AND "
-						  "objid = p.oid AND deptype = 'i') AND ("
-						  "pronamespace != "
+						  "objid = p.oid AND deptype = 'i')"
+						  "\n  AND ("
+						  "\n  pronamespace != "
 						  "(SELECT oid FROM pg_namespace "
-						  "WHERE nspname = 'pg_catalog') OR "
-						  "p.proacl IS DISTINCT FROM pip.initprivs",
+						  "WHERE nspname = 'pg_catalog')",
 						  acl_subquery->data,
 						  racl_subquery->data,
 						  initacl_subquery->data,
@@ -5003,6 +5015,8 @@ getFuncs(Archive *fout, int *numFuncs)
 								 "objid = p.oid AND "
 								 "refclassid = 'pg_extension'::regclass AND "
 								 "deptype = 'e')");
+		appendPQExpBufferStr(query,
+						   "\n  OR p.proacl IS DISTINCT FROM pip.initprivs");
 		appendPQExpBufferChar(query, ')');
 
 		destroyPQExpBuffer(acl_subquery);
@@ -5020,16 +5034,18 @@ getFuncs(Archive *fout, int *numFuncs)
 						  "pronamespace, "
 						  "(%s proowner) AS rolname "
 						  "FROM pg_proc p "
-						  "WHERE NOT proisagg AND ("
-						  "pronamespace != "
-						  "(SELECT oid FROM pg_namespace "
-						  "WHERE nspname = 'pg_catalog')",
+						  "WHERE NOT proisagg",
 						  username_subquery);
 		if (fout->remoteVersion >= 90200)
 			appendPQExpBufferStr(query,
 							   "\n  AND NOT EXISTS (SELECT 1 FROM pg_depend "
 								 "WHERE classid = 'pg_proc'::regclass AND "
 								 "objid = p.oid AND deptype = 'i')");
+		appendPQExpBufferStr(query,
+							 "\n  AND ("
+							 "\n  pronamespace != "
+							 "(SELECT oid FROM pg_namespace "
+							 "WHERE nspname = 'pg_catalog')");
 		if (dopt->binary_upgrade && fout->remoteVersion >= 90100)
 			appendPQExpBufferStr(query,
 							   "\n  OR EXISTS(SELECT 1 FROM pg_depend WHERE "

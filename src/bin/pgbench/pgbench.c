@@ -250,6 +250,7 @@ typedef struct
 	int			nvariables;		/* number of variables */
 	bool		vars_sorted;	/* are variables sorted by name? */
 	int64		txn_scheduled;	/* scheduled start time of transaction (usec) */
+	int64		sleep_until;	/* scheduled start time of next cmd (usec) */
 	instr_time	txn_begin;		/* used for measuring schedule lag times */
 	instr_time	stmt_begin;		/* used for measuring statement latencies */
 	int			use_file;		/* index in sql_scripts for this client */
@@ -1828,6 +1829,7 @@ top:
 			}
 		}
 
+		st->sleep_until = st->txn_scheduled;
 		st->sleeping = true;
 		st->throttling = true;
 		st->is_throttled = true;
@@ -1840,7 +1842,7 @@ top:
 	{							/* are we sleeping? */
 		if (INSTR_TIME_IS_ZERO(now))
 			INSTR_TIME_SET_CURRENT(now);
-		if (INSTR_TIME_GET_MICROSEC(now) < st->txn_scheduled)
+		if (INSTR_TIME_GET_MICROSEC(now) < st->sleep_until)
 			return true;		/* Still sleeping, nothing to do here */
 		/* Else done sleeping, go ahead with next command */
 		st->sleeping = false;
@@ -2138,7 +2140,7 @@ top:
 				usec *= 1000000;
 
 			INSTR_TIME_SET_CURRENT(now);
-			st->txn_scheduled = INSTR_TIME_GET_MICROSEC(now) + usec;
+			st->sleep_until = INSTR_TIME_GET_MICROSEC(now) + usec;
 			st->sleeping = true;
 
 			st->listen = true;
@@ -3255,6 +3257,7 @@ printResults(TState *threads, StatsData *total, instr_time total_time,
 	tps_exclude = total->cnt / (time_include -
 						(INSTR_TIME_GET_DOUBLE(conn_total_time) / nclients));
 
+	/* Report test parameters. */
 	printf("transaction type: %s\n",
 		   num_scripts == 1 ? sql_script[0].desc : "multiple scripts");
 	printf("scaling factor: %d\n", scale);
@@ -3291,9 +3294,11 @@ printResults(TState *threads, StatsData *total, instr_time total_time,
 	if (throttle_delay || progress || latency_limit)
 		printSimpleStats("latency", &total->latency);
 	else
-		/* only an average latency computed from the duration is available */
-		printf("latency average: %.3f ms\n",
-			   1000.0 * duration * nclients / total->cnt);
+	{
+		/* no measurement, show average latency computed from run time */
+		printf("latency average = %.3f ms\n",
+			   1000.0 * time_include * nclients / total->cnt);
+	}
 
 	if (throttle_delay)
 	{
@@ -3319,7 +3324,7 @@ printResults(TState *threads, StatsData *total, instr_time total_time,
 		{
 			if (num_scripts > 1)
 				printf("SQL script %d: %s\n"
-					   " - weight = %d (targets %.1f%% of total)\n"
+					   " - weight: %d (targets %.1f%% of total)\n"
 					   " - " INT64_FORMAT " transactions (%.1f%% of total, tps = %f)\n",
 					   i + 1, sql_script[i].desc,
 					   sql_script[i].weight,
