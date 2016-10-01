@@ -21,11 +21,9 @@ PostgreSQLは、SQLによって実行された更新結果を外部のコンシ�
 
   <para>
 <!--
-   Changes are sent out in streams identified by logical replication slots.
-   Each stream outputs each change exactly once.
+   Changes are sent out in streams identified by logical replication slots. ★コンフリクト解消時に変更適用
 -->
 更新結果はロジカルレプリケーションスロット(logical replication slots)で識別され、ストリームに送出されます。
-各々のストリームは、厳密に一度だけそれぞれの更新を送出します。
   </para>
 
   <para>
@@ -272,8 +270,7 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
      In the context of logical replication, a slot represents a stream of
      changes that can be replayed to a client in the order they were made on
      the origin server. Each slot streams a sequence of changes from a single
-     database, sending each change exactly once (except when peeking forward
-     in the stream).
+     database.
 -->
 ロジカルレプリケーションの文脈ではスロットは、元のサーバで行われた変更と同じ順序でクライアント上でリプレイできるようなストリームを表します。
 それぞれのスロットは、単一のデータベース上の変更操作の連鎖をストリームとして流します。その際、それぞれの変更操作は厳密に一度だけ送出されます(ストリーム上で前方を覗き見る場合を除きます)。
@@ -300,15 +297,31 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
     </para>
 
     <para>
+<<<<<<< HEAD
 <!--
+=======
+     A logical slot will emit each change just once in normal operation.
+     The current position of each slot is persisted only at checkpoint, so in
+     the case of a crash the slot may return to an earlier LSN, which will
+     then cause recent changes to be resent when the server restarts.
+     Logical decoding clients are responsible for avoiding ill effects from
+     handling the same message more than once.  Clients may wish to record
+     the last LSN they saw when decoding and skip over any repeated data or
+     (when using the replication protocol) request that decoding start from
+     that LSN rather than letting the server determine the start point.
+     The Replication Progress Tracking feature is designed for this purpose,
+     refer to <link linkend="replication-origins">replication origins</link>.
+-->
+単一のデータベース中に、お互いに独立した複数のスロットが存在しても構いません。
+それぞれのスロットは自分自身の状態を持っており、データベース更新のストリーム上の別の場所から変更データを受信する異なる消費者があり得ます。
+多くのアプリケーションにとっては、各消費者に対して個別のスロットが必要となるでしょう。 ★変更あり
+    </para>
+
+    <para>
      Multiple independent slots may exist for a single database. Each slot has
      its own state, allowing different consumers to receive changes from
      different points in the database change stream. For most applications, a
      separate slot will be required for each consumer.
--->
-単一のデータベース中に、お互いに独立した複数のスロットが存在しても構いません。
-それぞれのスロットは自分自身の状態を持っており、データベース更新のストリーム上の別の場所から変更データを受信する異なる消費者があり得ます。
-多くのアプリケーションにとっては、各消費者に対して個別のスロットが必要となるでしょう。
     </para>
 
     <para>

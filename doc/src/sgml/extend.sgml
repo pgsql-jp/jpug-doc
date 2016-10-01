@@ -526,16 +526,18 @@
     by <application>pg_dump</>.  Such a change is usually only sensible if
     you concurrently make the same change in the extension's script file.
     (But there are special provisions for tables containing configuration
-    data; see below.)
+    data; see <xref linkend="extend-extensions-config-tables">.)
+    In production situations, it's generally better to create an extension
+    update script to perform changes to extension member objects.
 -->
 <productname>PostgreSQL</>はユーザに、拡張全体を削除させる以外に、拡張内に含まれる個々のオブジェクトを削除させません。
 また、拡張のメンバオブジェクトの定義を変更する（例えば関数では<command>CREATE OR REPLACE FUNCTION</command>を介して変更する）ことはできますが、変更した定義は<application>pg_dump</>によりダンプされないことに留意してください。
 こうした変更は通常、同時に拡張のスクリプトファイルにも同じ変更を行った場合のみ認識することができます。
-（しかし後述するように設定データを持つテーブルに対しては特殊な準備があります。）
+（しかし後述するように設定データを持つテーブルに対しては特殊な準備があります。） ★追加訳あり
    </para>
 
    <para>
-    The extension script may set privileges on objects which are part of the
+    The extension script may set privileges on objects that are part of the
     extension via <command>GRANT</command> and <command>REVOKE</command>
     statements.  The final set of privileges for each object (if any are set)
     will be stored in the
@@ -696,12 +698,14 @@
       <listitem>
        <para>
 <!--
-        A comment (any string) about the extension.  Alternatively,
-        the comment can be set by means of the <xref linkend="sql-comment">
-        command in the script file.
+        A comment (any string) about the extension.  The comment is applied
+        when initially creating an extension, but not during extension updates
+        (since that might override user-added comments).  Alternatively,
+        the extension's comment can be set by writing
+        a <xref linkend="sql-comment"> command in the script file.
 -->
 拡張に関するコメント（任意の文字列）です。
-この他の方法として、スクリプトファイル内で<xref linkend="sql-comment">コマンドを使用してコメントを設定することができます。
+この他の方法として、スクリプトファイル内で<xref linkend="sql-comment">コマンドを使用してコメントを設定することができます。 ★変更あり
        </para>
       </listitem>
      </varlistentry>
@@ -784,11 +788,11 @@
         its contained objects into a different schema after initial creation
         of the extension.  The default is <literal>false</>, i.e. the
         extension is not relocatable.
-        See below for more information.
+        See <xref linkend="extend-extensions-relocation"> for more information.
 -->
 拡張を最初に作成した後に拡張により含まれるオブジェクトを別のスキーマに移動することができる場合、拡張は<firstterm>再配置可能</>です。
 デフォルトは<literal>false</>、つまり、拡張は再配置可能ではありません。
-詳しくは後で説明します。
+詳しくは後で説明します。 ★変更あり
        </para>
       </listitem>
      </varlistentry>
@@ -800,11 +804,14 @@
 <!--
         This parameter can only be set for non-relocatable extensions.
         It forces the extension to be loaded into exactly the named schema
-        and not any other.  See below for more information.
+        and not any other.
+        The <varname>schema</varname> parameter is consulted only when
+        initially creating an extension, not during extension updates.
+        See <xref linkend="extend-extensions-relocation"> for more information.
 -->
 このパラメータは再配置可能ではない拡張に対してのみ設定することができます。
 拡張が指名したスキーマのみにロードされ、他にはロードされないことを強制します。
-詳しくは後で説明します。
+詳しくは後で説明します。 ★変更あり
        </para>
       </listitem>
      </varlistentry>
@@ -849,7 +856,8 @@
      comments) by the extension mechanism.  This provision is commonly used
      to throw an error if the script file is fed to <application>psql</>
      rather than being loaded via <command>CREATE EXTENSION</> (see example
-     script below).  Without that, users might accidentally load the
+     script in <xref linkend="extend-extensions-example">).
+     Without that, users might accidentally load the
      extension's contents as <quote>loose</> objects rather than as an
      extension, a state of affairs that's a bit tedious to recover from.
 -->
@@ -877,7 +885,7 @@
 
    </sect2>
 
-   <sect2>
+   <sect2 id="extend-extensions-relocation">
 <!--
     <title>Extension Relocatability</title>
 -->
@@ -1025,7 +1033,7 @@ SET LOCAL search_path TO @extschema@;
     </para>
    </sect2>
 
-   <sect2>
+   <sect2 id="extend-extensions-config-tables">
 <!--
     <title>Extension Configuration Tables</title>
 -->
@@ -1149,7 +1157,7 @@ SELECT pg_catalog.pg_extension_config_dump('my_config', 'WHERE NOT standard_entr
 外部キーの関係はCREATE EXTENSION時(データがテーブルにロードされる前)に設定されますので、循環依存はサポートされません。
 循環依存が存在すれば、データはダンプされますが、そのダンプを直接はリストアできず、ユーザの介入が必要になります。
     </para>
-    
+
     <para>
      Sequences associated with <type>serial</> or <type>bigserial</> columns
      need to be directly marked to dump their state. Marking their parent
@@ -1319,7 +1327,7 @@ SELECT * FROM pg_extension_update_paths('<replaceable>extension_name</>');
     </para>
    </sect2>
 
-   <sect2>
+   <sect2 id="extend-extensions-example">
 <!--
     <title>Extension Example</title>
 -->
