@@ -575,7 +575,7 @@ TABLE [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ]
 シード値はNULL以外の任意の浮動点小数値とすることができます。
 シードと<replaceable class="parameter">argument</>の値が同じ2つの問い合わせは、その間にテーブルに変更がなければ、同じサンプルテーブルを返します。
 しかし、シードの値が異なれば、通常は異なるサンプルが生成されます。
-<literal>REPEATABLE</literal>が指定されていなければ、問い合わせ毎に新しくランダムなサンプルが生成されます。
+<literal>REPEATABLE</literal>が指定されていなければ、システムが生成したシードに基づいて、問い合わせ毎に新しくランダムなサンプルが生成されます。
 一部のアドオンのサンプリングメソッドでは<literal>REPEATABLE</literal>が利用できず、使用の度に常に新しいサンプルを生成することに注意してください。
        </para>
       </listitem>
@@ -671,7 +671,7 @@ TABLE [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ]
 -->
 複数の関数呼び出しを<literal>ROWS FROM( ... )</>で括ることにより、1つの<literal>FROM</>句の項目にまとめることができます。
 このような項目の出力は各関数の最初の行を結合した項目、次いで各関数の2番目の行、といった具合になります。
-一部の関数が他の関数より少ない行数を出力した場合は、存在しないデータについてNULLが代用され、戻される行数はいつでも最大の行数を返した関数と同じになります。
+一部の関数が他の関数より少ない行数を出力した場合は、存在しないデータについてNULL値が代用され、戻される行数はいつでも最大の行数を返した関数と同じになります。
        </para>
 
       <para>
@@ -1459,6 +1459,7 @@ UNBOUNDED FOLLOWING
    </para>
 
    <para>
+<!--
     According to the SQL standard, the expressions in the output list should
     be computed before applying <literal>DISTINCT</literal>, <literal>ORDER
     BY</literal>, or <literal>LIMIT</literal>.  This is obviously necessary
@@ -1478,13 +1479,27 @@ UNBOUNDED FOLLOWING
     are effectively evaluated after sorting and before limiting, so
     that <literal>LIMIT</literal> will act to cut off the output from a
     set-returning function.
+-->
+標準SQLによれば、出力リスト内の式は、<literal>DISTINCT</literal>、<literal>ORDER BY</literal>、<literal>LIMIT</literal>を適用する前に計算することになっています。
+<literal>DISTINCT</literal>を使う場合は、これは明らかに必要です。
+なぜなら、そうしなければどの値がDISTINCTであるかわからないからです。
+しかし、多くの場合、<literal>ORDER BY</literal>や<literal>LIMIT</literal>の後で出力式を計算する方が便利です。
+特に出力式が揮発性(volatile)あるいは高価な式を含んでいる場合はそうです。
+この動作により、関数の評価順序はより直感的になり、出力に現れない行については評価されなくなります。
+<productname>PostgreSQL</>では、式が<literal>DISTINCT</literal>、<literal>ORDER BY</literal>、<literal>GROUP BY</literal>の中で参照されていない限り、ソートと制限(limit)の後にそれらの式を実際に評価します。
+（この判例として、<literal>SELECT f(x) FROM tab ORDER BY 1</> では明らかに<function>f(x)</>をソートの前に評価しなければなりません。）
+集合を返す関数を含む出力式は、ソートの後、制限の前に実際の評価が行われ、これにより<literal>LIMIT</literal>が集合を返す関数の出力を制限することになります。
    </para>
 
    <note>
     <para>
+<!--
      <productname>PostgreSQL</> versions before 9.6 did not provide any
      guarantees about the timing of evaluation of output expressions versus
      sorting and limiting; it depended on the form of the chosen query plan.
+-->
+<productname>PostgreSQL</>のバージョン9.6より前では、出力式がソートや制限に対して評価されるタイミングについて何の保証もしていませんでした。
+それは選択された問い合わせの計画の形式に依存します。
     </para>
    </note>
   </refsect2>
