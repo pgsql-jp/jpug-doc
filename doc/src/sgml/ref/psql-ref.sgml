@@ -131,10 +131,10 @@ PostgreSQL documentation
        after processing all the <option>-c</option> and <option>-f</option>
        options in sequence.
 -->
-★原文変更あり
-<application>psql</application>に対し、<replaceable class="parameter">command</replaceable>という1つのコマンド文字列を実行し、終了するよう指示します。
-このコマンドはシェルスクリプト内で有用です。
-このオプションを使用すると起動ファイル（<filename>psqlrc</filename>および<filename>~/.psqlrc</filename>）は無視されます。
+<application>psql</application>に対し、指定のコマンド文字列<replaceable class="parameter">command</replaceable>を実行するよう指示します。
+このオプションは繰り返すことができ、また<option>-f</option>オプションと任意の順序で組み合わせることができます。
+<option>-c</option>または<option>-f</option>が指定されると、<application>psql</application>は標準入力からコマンドを読み取りません。
+その代わりに、すべての<option>-c</option>オプションおよび<option>-f</option>オプションを順に処理した後、終了します。
       </para>
       <para>
 <!--
@@ -147,22 +147,24 @@ PostgreSQL documentation
        you could use repeated <option>-c</option> options or pipe the string
        into <application>psql</application>, for example:
 -->
-★原文変更あり
 <replaceable class="parameter">command</replaceable>は、サーバで完全に解析可能な（つまり、<application>psql</application>特有の機能は含まない）コマンド文字列、もしくは、バックスラッシュコマンド1つである必要があります。
-このため、このオプションでは<acronym>SQL</acronym>と<application>psql</application>メタコマンドを混在させることはできません。
-これらを同時に使用するには、例えば、<literal>echo '\x \\ SELECT * FROM foo;' | psql</literal>のようにパイプを使って文字列を<application>psql</application>に渡します（<literal>\\</>はメタコマンドの区切り文字です。）。
+このため、<option>-c</option>オプション内では<acronym>SQL</acronym>と<application>psql</application>メタコマンドを混在させることはできません。
+これらを同時に使用するには、<option>-c</option>オプションを繰り返し利用するか、あるいはパイプを使って文字列を<application>psql</application>に渡します。
+例えば、
 <programlisting>
 psql -c '\x' -c 'SELECT * FROM foo;'
 </programlisting>
 <!--
        or
 -->
+あるいは
 <programlisting>
 echo '\x \\ SELECT * FROM foo;' | psql
 </programlisting>
 <!--
        (<literal>\\</> is the separator meta-command.)
 -->
+のようにします（<literal>\\</>はメタコマンドの区切り文字です）。
       </para>
       <para>
 <!--
@@ -179,9 +181,10 @@ echo '\x \\ SELECT * FROM foo;' | psql
        because then <application>psql</application> sends
        each <acronym>SQL</acronym> command separately.
 -->
-コマンド文字列が複数のSQLコマンドを含む場合、トランザクションを複数に分ける<command>BEGIN</>/<command>COMMIT</>コマンドが明示的に文字列内に含まれない限り、それらのコマンドは1つのトランザクションで処理されます。
-これは、同じ文字列を<application>psql</application>の標準入力として渡した場合の動作とは異なります。
-また最後のSQLコマンドの結果のみが返されます。
+<option>-c</option>に渡される各<acronym>SQL</acronym>のコマンド文字列は、単一の問い合わせとしてサーバに送信されます。
+このため、トランザクションを複数に分ける<command>BEGIN</>/<command>COMMIT</>コマンドが明示的に文字列内に含まれない限り、文字列内に複数の<acronym>SQL</acronym>コマンドが含まれていたとしても、サーバはそれを1つのトランザクションとして実行します。
+また、<application>psql</application>は文字列内の最後の<acronym>SQL</acronym>コマンドの結果しか出力しません。
+同じ文字列をファイル、あるいは<application>psql</application>の標準入力として渡した場合、<application>psql</application>は各<acronym>SQL</acronym>コマンドを別々に送信しますので、この場合とは動作が異なります。
       </para>
       <para>
 <!--
@@ -192,8 +195,8 @@ echo '\x \\ SELECT * FROM foo;' | psql
        either using <application>echo</application> as illustrated above, or
        via a shell here-document, for example:
 -->
-これらの従来的な動作のため、<option>-c</option>の文字列に2つ以上のコマンドを指定すると、予期しない結果をもたらすことがあります。
-上記のように<application>echo</application>を使うか、あるいは以下の例のようにシェルのヒアドキュメントを使って、<application>psql</application>の標準入力に複数のコマンドを入力する方が良いでしょう。
+この動作のため、1つの<option>-c</option>の文字列に2つ以上のコマンドを指定すると、予期しない結果をもたらすことがあります。
+<option>-c</option>のコマンドを繰り返し使うか、あるいは、上記のように<application>echo</application>を使うか、以下の例のようにシェルのヒアドキュメントを使うことで、<application>psql</application>の標準入力に複数のコマンドを入力する方が良いでしょう。
 <programlisting>
 psql &lt;&lt;EOF
 \x
@@ -286,10 +289,11 @@ EOF
        Except for that, this option is largely equivalent to the
        meta-command <command>\i</command>.
 -->
-★原文変更あり
-対話式にコマンドを読み取るのではなく、<replaceable class="parameter">filename</replaceable>ファイルをコマンドの入力元として使用します。
-このファイルの処理が終了した後、<application>psql</application>は終了します。
-これは<command>\i</command>メタコマンドとほぼ同じ効力を持ちます。
+標準入力ではなく、ファイル<replaceable class="parameter">filename</replaceable>からコマンドを読み取ります。
+このオプションは繰り返すことができ、また<option>-c</option>オプションと任意の順序で組み合わせることができます。
+<option>-c</option>または<option>-f</option>が指定されると、<application>psql</application>は標準入力からコマンドを読み取りません。
+その代わりに、すべての<option>-c</option>オプションおよび<option>-f</option>オプションを順に処理した後、終了します。
+その点を除けば、このオプションは<command>\i</command>メタコマンドとほぼ同じ同等です。
       </para>
 
       <para>
@@ -302,7 +306,8 @@ EOF
        specified).
 -->
 <replaceable>filename</replaceable>に<literal>-</literal>（ハイフン）を指定すると、標準入力からEOFを示すもの、または<command>\q</>メタコマンドまで読み取られます。
-この場合、Readlineは使われないことに注意してください（<option>-n</option>が指定された場合と同様です）。★原文変更あり
+これは対話的入力をファイルからの入力と混在させるために使うことができます。
+ただし、この場合、Readlineは使われないことに注意してください（<option>-n</option>が指定された場合と同様です）。
       </para>
 
       <para>
@@ -783,9 +788,10 @@ EOF
         transaction.  This ensures that either all the commands complete
         successfully, or no changes are applied.
 -->
-★原文変更あり
-このオプションで起動された<application>psql</application>でスクリプトを実行するとき、スクリプトの前後を<command>BEGIN</>/<command>COMMIT</>で囲み、単一トランザクションとして実行します。
-これによりすべてのコマンドが完全に成功するか、変更がまったく行われないかのいずれかになります。
+このオプションは、1つ以上の<option>-c</option>オプションや<option>-f</option>オプションと組み合わせてのみ使うことができます。
+これにより<application>psql</application>は、最初のそのようなオプションの前に<command>BEGIN</>コマンドを発行し、最後のオプションの後に<command>COMMIT</>コマンドを発行するようになります。
+そうすることで、全てのコマンドが単一のトランザクションに囲まれます。
+これによりすべてのコマンドが成功して完了するか、変更がまったく行われないかのいずれかになります。
        </para>
 
        <para>
@@ -797,8 +803,8 @@ EOF
         transaction block, specifying this option will cause the whole
         transaction to fail.
 -->
-スクリプト内部で<command>BEGIN</>、<command>COMMIT</>、<command>ROLLBACK</>を使用している場合、このオプションは想定した効果をもたらしません。
-また、スクリプト内部にトランザクションブロック内部で実行することができないコマンドが含まれている場合、このオプションを指定することで、そのコマンドは失敗（そしてそのためにトランザクション全体が失敗）します。
+コマンド自体が<command>BEGIN</>、<command>COMMIT</>、<command>ROLLBACK</>を含んでいる場合、このオプションは期待した効果を得ることができません。
+また、個別のコマンドがトランザクションブロック内部で実行できない場合、このオプションを指定することで、そのトランザクション全体が失敗します。
        </para>
       </listitem>
      </varlistentry>
@@ -1178,7 +1184,7 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         strings as detailed in <xref linkend="libpq-connstring">.
 -->
 <productname>PostgreSQL</>サーバへの新規の接続を確立します。
-接続のパラメータは、位置の構文、あるいは<literal>conninfo</>接続文字列で指定することができます。
+接続のパラメータは、位置の構文、あるいは<replaceable>conninfo</>接続文字列で指定することができます。
 後者の詳細は<xref linkend="libpq-connstring">で説明します。
         </para>
 
@@ -1199,7 +1205,7 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         as <literal>-</literal> is equivalent to omitting that parameter.
 -->
 コマンドでデータベース名、ユーザ、ホストあるいはポートを省略した場合、新しい接続では以前の接続での値を再利用することができます。
-デフォルトでは、<literal>conninfo</>文字列を処理する場合を除き、以前の接続での値が再利用されます。★原文変更あり
+デフォルトでは、<replaceable>conninfo</>文字列を処理する場合を除き、以前の接続での値が再利用されます。
 第一引数で<literal>-reuse-previous=on</>あるいは<literal>-reuse-previous=off</literal>を渡すことで、このデフォルトと異なる動作をさせることができます。
 コマンドで特定のパラメータを指定せず、かつ再利用もしない場合は、<application>libpq</application>のデフォルトが使用されます。
 <replaceable class="parameter">dbname</replaceable>、<replaceable class="parameter">username</replaceable>、<replaceable class="parameter">host</replaceable>、<replaceable class="parameter">port</replaceable>のいずれについても<literal>-</literal>を指定するのは、パラメータを省略するのと同じになります。
@@ -1411,6 +1417,7 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
             ] ] ] ] </literal></term>
         <listitem>
         <para>
+<!--
         Executes the current query buffer (like <literal>\g</literal>) and
         shows the results in a crosstab grid.
         The query must return at least three columns.
@@ -1422,9 +1429,16 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         the output column to display within the grid.
         <replaceable class="parameter">sortcolH</replaceable> identifies
         an optional sort column for the horizontal header.
+-->
+問い合わせのバッファを実行し（<literal>\g</literal>と同様）、その結果をクロス表形式で表示します。
+問い合わせは少なくとも3つの列を返す必要があります。
+<replaceable class="parameter">colV</>で特定される出力列が縦方向のヘッダになり、<replaceable class="parameter">colH</replaceable>で特定される出力列が横方向のヘッダになります。
+<replaceable class="parameter">colD</replaceable>は表内に表示される出力列を特定します。
+オプションの<replaceable class="parameter">sortcolH</replaceable>で水平方向のヘッダをソートする列を指定できます。
         </para>
 
         <para>
+<!--
         Each column specification can be a column number (starting at 1) or
         a column name.  The usual SQL case folding and quoting rules apply to
         column names.  If omitted,
@@ -1438,15 +1452,25 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         <replaceable class="parameter">colV</replaceable> nor
         <replaceable class="parameter">colH</replaceable>
         is taken to be <replaceable class="parameter">colD</replaceable>.
+-->
+それぞれの列の指定は、列番号（1から始まります）でも列名でも可能です。
+列名については、通常のSQLの大文字小文字変換および引用の規則が適用されます。
+省略した場合、<replaceable class="parameter">colV</replaceable>は列1、<replaceable class="parameter">colH</replaceable>は列2となります。
+<replaceable class="parameter">colH</replaceable>は<replaceable class="parameter">colV</replaceable>とは異なるものでなければなりません。
+<replaceable class="parameter">colD</replaceable>を指定しない場合、問い合わせの結果にはちょうど3つの列がなければならず、<replaceable class="parameter">colV</replaceable>でも<replaceable class="parameter">colH</replaceable>でもない列が<replaceable class="parameter">colD</replaceable>となります。
         </para>
 
         <para>
+<!--
         The vertical header, displayed as the leftmost column, contains the
         values found in column <replaceable class="parameter">colV</>, in the
         same order as in the query results, but with duplicates removed.
+-->
+縦方向のヘッダは一番左の列に表示され、<replaceable class="parameter">colV</>の列にある値が問い合わせ結果と同じ順序で現れますが、重複するものは除かれます。
         </para>
 
         <para>
+<!--
         The horizontal header, displayed as the first row, contains the values
         found in column <replaceable class="parameter">colH</replaceable>,
         with duplicates removed.  By default, these appear in the same order
@@ -1456,9 +1480,14 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         values from <replaceable class="parameter">colH</replaceable> will
         appear in the horizontal header sorted according to the
         corresponding <replaceable class="parameter">sortcolH</> values.
+-->
+横方向のヘッダは1行目に表示され、<replaceable class="parameter">colH</replaceable>の列にある値が現れますが、重複するものは除かれます。
+デフォルトでは、これらは問い合わせの結果と同じ順序で表示されます。
+しかしオプションの<replaceable class="parameter">sortcolH</>引数が指定された場合は、<replaceable class="parameter">colH</replaceable>の値は対応する<replaceable class="parameter">sortcolH</>の値に従ってソートされて横方向のヘッダに現れますが、<replaceable class="parameter">sortcolH</>の列の値は整数値でなければなりません。
         </para>
 
         <para>
+<!--
         Inside the crosstab grid, for each distinct value <literal>x</literal>
         of <replaceable class="parameter">colH</replaceable> and each distinct
         value <literal>y</literal>
@@ -1470,6 +1499,10 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         of <replaceable class="parameter">colV</replaceable>
         is <literal>y</>.  If there is no such row, the cell is empty.  If
         there are multiple such rows, an error is reported.
+-->
+クロス表の内側では、<replaceable class="parameter">colH</replaceable>のそれぞれの個別値<literal>x</literal>と<replaceable class="parameter">colV</replaceable>のそれぞれの個別値<literal>y</literal>に対して、その交点<literal>(x,y)</literal>に位置するセルに、問い合わせの結果の<replaceable class="parameter">colH</replaceable>の値が<literal>x</literal>で<replaceable class="parameter">colV</replaceable>の値が<literal>y</>である行の<literal>colD</literal>列の値が現れます。
+そのような行がなければ、セルは空欄になります。
+そのような行が複数あると、エラーが報告されます。
         </para>
         </listitem>
       </varlistentry>
@@ -1575,11 +1608,16 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
 
         <listitem>
         <para>
+<!--
         Lists access methods. If <replaceable
         class="parameter">pattern</replaceable> is specified, only access
         methods whose names match the pattern are shown. If
         <literal>+</literal> is appended to the command name, each access
         method is listed with its associated handler function and description.
+-->
+アクセスメソッドの一覧を表示します。
+<replaceable class="parameter">pattern</replaceable>が指定された場合は、そのパターンにマッチする名前のアクセスメソッドのみが表示されます。
+コマンド名の後に<literal>+</literal>が付加された場合は、各メソッドに関連付けられたハンドラ関数および説明も表示されます。
         </para>
         </listitem>
       </varlistentry>
@@ -1907,14 +1945,12 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         parallel safety, owner, security classification, access privileges,
         language, source code and description.
 -->
-★原文変更あり
-関数とその引数と戻り値の型、および、<quote>agg</> (集約)、<quote>normal</>、<quote>trigger</>、<quote>window</>で分類される関数の種類の一覧を表示します。
+関数とその結果のデータ型、引数のデータ型、および、<quote>agg</> (集約)、<quote>normal</>、<quote>trigger</>、<quote>window</>で分類される関数の種類の一覧を表示します。
 特定種類の関数のみを表示させるには、対応する文字<literal>a</>、<literal>n</>、<literal>t</>、<literal>w</>をコマンドに付けて下さい。
 <replaceable class="parameter">pattern</replaceable>が指定されている場合は、そのパターンに名前がマッチする関数のみが表示されます。
 デフォルトではユーザが作成したオブジェクトのみが表示されます。
 システムオブジェクトを含めるためには、パターンまたは<literal>S</literal>修飾子を付与してください。
-<literal>\df+</literal>構文が使われた場合、各関数の、セキュリティ分類、揮発性、所有者、言語、ソースコードや説明を含む付加的情報も表示されます。
-★原文変更あり
+<literal>\df+</literal>構文が使われた場合、各関数の、揮発性、並列処理での安全性、所有者、セキュリティ分類、アクセス権限、言語、ソースコードや説明を含む付加的情報も表示されます。
         </para>
 
         <tip>
@@ -1924,7 +1960,7 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         data type, use your pager's search capability to scroll through the
         <literal>\df</> output.
 -->
-特定の型を引数とする関数や特定の型を返す関数を検索するには、ページャの検索機能を使用して<literal>\df</>の出力をスクロールしてください。
+特定のデータ型を引数とする関数や特定のデータ型を返す関数を検索するには、ページャの検索機能を使用して<literal>\df</>の出力をスクロールしてください。
         </para>
         </tip>
 
@@ -2026,6 +2062,8 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
 -->
 データベースロールを一覧表示します。
 (<quote>ユーザ</>と<quote>グループ</>という概念は<quote>ロール</>に統合されましたので、このコマンドは<literal>\du</literal>と同じものになりました。)
+デフォルトでは、ユーザによって作成されたロールのみが表示されます。
+システムロールを含めるには<literal>S</literal>修飾子を付与してください。
 <replaceable class="parameter">pattern</replaceable>が指定されている場合は、そのパターンに名前がマッチするロールのみが表示されます。
 <literal>\dg+</literal>構文が使用された場合、ロールそれぞれについて更なる情報が表示されます。
 現時点では各ロールのコメントが追加されます。
@@ -2253,6 +2291,8 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
 データベースロールを一覧表示します。
 (<quote>ユーザ</>と<quote>グループ</>という概念は<quote>ロール</>に統合されましたので、このコマンドは<literal>\dg</literal>と同じものになりました。)
 <replaceable class="parameter">pattern</replaceable>が指定されている場合は、そのパターンに名前がマッチするロールのみが表示されます。
+デフォルトでは、ユーザによって作成されたロールのみが表示されます。
+システムロールを含めるには<literal>S</literal>修飾子を付与してください。
 <literal>\du+</literal>構文が使用された場合、ロールそれぞれについて更なる情報が表示されます。
 現時点では各ロールのコメントが追加されます。
         </para>
@@ -2482,10 +2522,13 @@ Tue Oct 26 21:40:57 CEST 1999
 
         <listitem>
         <para>
+<!--
         Repeats the most recent server error message at maximum
         verbosity, as though <varname>VERBOSITY</varname> were set
         to <literal>verbose</> and <varname>SHOW_CONTEXT</varname> were
         set to <literal>always</>.
+-->
+最も最近のサーバのエラーメッセージを最大の冗長さ、つまり<varname>VERBOSITY</varname>が<literal>verbose</>に、そして<varname>SHOW_CONTEXT</varname>が<literal>always</>に設定されているかのようにして、繰り返します。
         </para>
         </listitem>
       </varlistentry>
@@ -2496,22 +2539,34 @@ Tue Oct 26 21:40:57 CEST 1999
 
         <listitem>
         <para>
+<!--
          This command fetches and edits the definition of the named view,
          in the form of a <command>CREATE OR REPLACE VIEW</> command.
          Editing is done in the same way as for <literal>\edit</>.
          After the editor exits, the updated command waits in the query buffer;
          type semicolon or <literal>\g</> to send it, or <literal>\r</>
          to cancel.
+-->
+このコマンドは、指定したビューの定義を<command>CREATE OR REPLACE VIEW</>コマンドの形式で取得して、編集します。
+編集は<literal>\edit</>の場合と同じ方法で行われます。
+エディタを終了した後、更新されたコマンドが問い合わせバッファで待っている状態になります。
+送信するにはセミコロンあるいは<literal>\g</>を、キャンセルするには<literal>\r</>を入力してください。
         </para>
 
         <para>
+<!--
          If no view is specified, a blank <command>CREATE VIEW</>
          template is presented for editing.
+-->
+ビューを指定しなかった場合は、空の<command>CREATE VIEW</>テンプレートが編集用に提供されます。
         </para>
 
         <para>
+<!--
          If a line number is specified, <application>psql</application> will
          position the cursor on the specified line of the view definition.
+-->
+行番号を指定した場合、<application>psql</application>はカーソルをビュー定義の指定した行に位置づけます。
         </para>
         </listitem>
       </varlistentry>
@@ -2573,10 +2628,14 @@ Tue Oct 26 21:40:57 CEST 1999
 
         <listitem>
         <para>
+<!--
          Sends the current query input buffer to the server, then treats
          each column of each row of the query's output (if any) as a SQL
          statement to be executed.  For example, to create an index on each
          column of <structname>my_table</>:
+-->
+現在の問い合わせ入力バッファをサーバに送信し、問い合わせの出力（あれば）の各行の各列をSQL文として実行します。
+例えば、<structname>my_table</>の各列にインデックスを作成するには次のようにします。
 <programlisting>
 =&gt; <userinput>SELECT format('create index on my_table(%I)', attname)</>
 -&gt; <userinput>FROM pg_attribute</>
@@ -2591,6 +2650,7 @@ CREATE INDEX
         </para>
 
         <para>
+<!--
          The generated queries are executed in the order in which the rows
          are returned, and left-to-right within each row if there is more
          than one column.  NULL fields are ignored.  The generated queries
@@ -2605,6 +2665,14 @@ CREATE INDEX
          using <command>\gexec</>.)  Query logging, single-step mode,
          timing, and other query execution features apply to each generated
          query as well.
+-->
+生成された問い合わせは行が返された順番で実行され、また2つ以上の列が返された場合は、各行の中で左から右に実行されます。
+NULLのフィールドは無視されます。
+生成された問い合わせは、そのままサーバに送信されて処理されるため、<application>psql</>のメタコマンドとすることはできず、また<application>psql</>の変数の参照を含むこともできません。
+個別の問い合わせで失敗した場合、残りの問い合わせの実行は<varname>ON_ERROR_STOP</varname>が設定されているのでなければ継続します。
+個々の問い合わせの実行は<varname>ECHO</varname>の処理に従います。
+（<command>\gexec</>を使う場合、<varname>ECHO</varname>を<literal>all</literal>あるいは<literal>queries</literal>に設定することが推奨されることが多いでしょう。）
+問い合わせのログ出力、シングルステップモード、時間表示(timing)、およびその他の問い合わせ実行に関する機能は、生成された各問い合わせにも適用されます。
         </para>
         </listitem>
       </varlistentry>
@@ -3157,7 +3225,7 @@ lo_import 152801
 <replaceable class="parameter">value</replaceable>を省略した場合、このコマンドは通常モードと拡張モードの設定をトグルします。
 拡張モードを有効にした場合、問い合わせ結果は左に列名、右にデータという2つの列で出力されます。
 このモードは、データが通常の<quote>水平(horizontal)</quote>モードによる画面表示に適していない場合に有用です。
-自動(auto)設定の場合、問い合わせの出力が画面幅より広ければ拡張モードが使用され、そうでなければ通常モードが使用されます。
+自動(auto)設定の場合、問い合わせの出力が2列以上でかつ画面幅より広ければ拡張モードが使用され、そうでなければ通常モードが使用されます。
 自動設定は位置揃え書式または折り返し書式でのみ有効です。
 この他の書式では、常に拡張モードが無効の場合と同様に動作します。
           </para>
@@ -3521,7 +3589,10 @@ null値の代わりに表示する文字列を設定します。
           </varlistentry>
 
           <varlistentry>
+<!--
           <term><literal>title</literal> (or <literal>C</literal>)</term>
+-->
+          <term><literal>title</literal> (または <literal>C</literal>)</term>
           <listitem>
           <para>
 <!--
@@ -3538,7 +3609,10 @@ null値の代わりに表示する文字列を設定します。
           </varlistentry>
 
           <varlistentry>
+<!--
           <term><literal>tuples_only</literal> (or <literal>t</literal>)</term>
+-->
+          <term><literal>tuples_only</literal> (または <literal>t</literal>)</term>
           <listitem>
           <para>
 <!--
@@ -3826,15 +3900,23 @@ testdb=&gt; <userinput>\setenv LESS -imx4F</userinput>
 
         <listitem>
          <para>
+<!--
           This command fetches and shows the definition of the named view,
           in the form of a <command>CREATE OR REPLACE VIEW</> command.
           The definition is printed to the current query output channel,
           as set by <command>\o</command>.
+-->
+このコマンドは、指定したビューの定義を<command>CREATE OR REPLACE VIEW</>コマンドの形式で取得して表示します。
+定義は現在の問い合わせの出力チャネルに表示されます。
+これは<command>\o</command>で設定できます。
          </para>
 
          <para>
+<!--
           If <literal>+</literal> is appended to the command name, then the
           output lines are numbered from 1.
+-->
+コマンド名の後に<literal>+</literal>が付加された場合は、出力行に1から番号が付けられます。
          </para>
         </listitem>
       </varlistentry>
@@ -3937,7 +4019,7 @@ testdb=&gt; <userinput>\setenv LESS -imx4F</userinput>
 -->
 中断するか問い合わせが失敗するまで、現在の問い合わせバッファを繰り返し（<literal>\g</>と同じように）実行します。
 実行の間に指定秒数(デフォルトは2)の休止が入ります。
-★原文追加あり
+各問い合わせの結果には、<literal>\pset title</>の文字列（あれば）、問い合わせ開始時の時刻、および遅延間隔を含むヘッダとともに表示されます。
         </para>
         </listitem>
       </varlistentry>
@@ -4735,6 +4817,7 @@ SQLキーワードを補完する時に大文字小文字のどちらを使用�
         <term><varname>SHOW_CONTEXT</varname></term>
         <listitem>
         <para>
+<!--
         This variable can be set to the
         values <literal>never</>, <literal>errors</>, or <literal>always</>
         to control whether <literal>CONTEXT</> fields are displayed in
@@ -4744,6 +4827,11 @@ SQLキーワードを補完する時に大文字小文字のどちらを使用�
         when <varname>VERBOSITY</> is set to <literal>terse</>.
         (See also <command>\errverbose</>, for use when you want a verbose
         version of the error you just got.)
+-->
+この変数は値<literal>never</>、<literal>errors</>、あるいは<literal>always</>に設定することができ、<literal>CONTEXT</>フィールドがサーバからのメッセージに表示されるかどうかを制御します。
+デフォルトは<literal>errors</>です（CONTEXTはエラーメッセージ内では表示されますが、注意や警告メッセージでは表示されません）。
+この設定は<varname>VERBOSITY</>が<literal>terse</>に設定されている場合は効果がありません。
+（<command>\errverbose</>も参照してください。こちらは受け取ったばかりのエラーについて、冗長なメッセージが必要なときに使えます。）
         </para>
         </listitem>
       </varlistentry>
@@ -4801,7 +4889,7 @@ SQLキーワードを補完する時に大文字小文字のどちらを使用�
         version of the error you just got.)
 -->
 この変数を<literal>default</>、<literal>verbose</>、<literal>terse</>のいずれかに設定することで、エラー報告の冗長性を制御できます。
-★原文追加あり
+（<command>\errverbose</>も参照してください。こちらは受け取ったばかりのエラーについて、冗長なメッセージが必要なときに使えます。）
         </para>
         </listitem>
       </varlistentry>
@@ -5068,7 +5156,10 @@ SQLリテラルまたは識別子として変数の値をエスケープさせ�
       <varlistentry>
         <term><literal>%p</literal></term>
         <listitem>
+<!--
          <para>The process ID of the backend currently connected to.</para>
+-->
+         <para>現在接続しているバックエンドのプロセスIDです。</para>
         </listitem>
       </varlistentry>
 
@@ -5345,10 +5436,8 @@ $endif
       These variables are examined in the order listed;
       the first that is set is used.
 -->
-★原文変更あり
-<command>\e</command>および<command>\ef</command>コマンドで使用されるエディタです。
-変数はこの順に検索されます。
-つまり設定された最初のものが使用されます。
+<command>\e</command>コマンド、<command>\ef</command>コマンド、<command>\ev</command>コマンドで使用されるエディタです。
+変数はこの順に検索され、設定された最初のものが使用されます。
      </para>
 
      <para>
@@ -5376,8 +5465,7 @@ $endif
       space in the value of the variable if there needs to be space
       between the option name and the line number.  Examples:
 -->
-★原文変更あり
-<command>\e</command>または<command>\ef</command>が行番号引数を付けて使用された場合、この変数は、ユーザのエディタに開始行番号を渡すために使用されるコマンドライン引数を指定します。
+<command>\e</command>、<command>\ef</command>または<command>\ev</command>が行番号引数を付けて使用された場合、この変数は、ユーザのエディタに開始行番号を渡すために使用されるコマンドライン引数を指定します。
 <productname>Emacs</>または<productname>vi</>のようなエディタでは、これはプラス(+)記号です。
 オプション名と行番号の間に空白文字が必要な場合は、変数の値の最後に空白文字を含めてください。
 以下に例を示します。
@@ -5491,8 +5579,7 @@ Unixシステム上のデフォルトは<literal>+</literal>です。
      typically with <command>\set</command> and <command>SET</command>
      commands.
 -->
-★原文変更あり
-<option>-X</option>または<option>-c</option>オプションが渡されない場合、<application>psql</application>は、データベースに接続した後、通常のコマンドを受け付け始める前に、システム全体用の開始ファイル(<filename>psqlrc</filename>)のコマンドを、続いてユーザ用の開始ファイル(<filename>~/.psqlrc</filename>)のコマンドを読み込み、実行しようとします。
+<option>-X</option>オプションが渡されない場合、<application>psql</application>は、データベースに接続した後、通常のコマンドを受け付け始める前に、システム全体用の開始ファイル(<filename>psqlrc</filename>)のコマンドを、続いてユーザ用の開始ファイル(<filename>~/.psqlrc</filename>)のコマンドを読み込み、実行しようとします。
 これらのファイルは、<command>\set</command>や<command>SET</command>コマンドを使用して、好みに応じたクライアントやサーバを設定するために使用することができます。
     </para>
     <para>
@@ -5600,7 +5687,7 @@ SQLコマンドの実行ならびに問い合わせ結果の表示といった�
        respective server.  But in practice, this additional complication should
        not be necessary.
 -->
-複数のメジャーバージョンが異なるサーバとの接続のために<application>psql</application>を使用したいのであれば、<application>psql</application>の最新版を使用することを勧めます。
+メジャーバージョンが異なる複数のサーバとの接続のために<application>psql</application>を使用したいのであれば、<application>psql</application>の最新版を使用することを勧めます。
 他の方法として、各メジャーバージョンの<application>psql</application>のコピーを保持し、確実にそれぞれのサーバに対応するバージョンを使用することができます。
 しかし実際には、この複雑さを追加することは必要ではないはずです。
       </para>
@@ -5608,19 +5695,26 @@ SQLコマンドの実行ならびに問い合わせ結果の表示といった�
 
       <listitem>
       <para>
+<!--
        Before <productname>PostgreSQL</productname> 9.6,
        the <option>-c</option> option implied <option>-X</option>
-       (<option>--no-psqlrc</>); this is no longer the case.
+       (<option>&#045;-no-psqlrc</>); this is no longer the case.
+-->
+<productname>PostgreSQL</productname>の9.6より前では、<option>-c</option>オプションが<option>-X</option> (<option>--no-psqlrc</>)を暗示しましたが、現在ではそうなっていません。
       </para>
       </listitem>
 
       <listitem>
       <para>
+<!--
        Before <productname>PostgreSQL</productname> 8.4,
        <application>psql</application> allowed the
        first argument of a single-letter backslash command to start
        directly after the command, without intervening whitespace.
        Now, some whitespace is required.
+-->
+<productname>PostgreSQL</productname>の8.4より前では、<application>psql</application>で1文字のバックスラッシュコマンドの最初の引数をコマンドの直後に空白文字を挟むことなく記述できました。
+現在では何らかの空白が必要になっています。
       </para>
       </listitem>
     </itemizedlist>
@@ -5804,8 +5898,11 @@ second | four
 </programlisting></para>
 
 <para>
+<!--
   When suitable, query results can be shown in a crosstab representation
   with the <command>\crosstabview</command> command:
+-->
+問い合わせの結果が適していれば、以下のように<command>\crosstabview</command>コマンドを使用してクロス表形式で表示することができます。
 <programlisting>
 testdb=&gt; <userinput>SELECT first, second, first &gt; 2 AS gt2 FROM my_table;</userinput>
  first | second | ge2 
@@ -5826,8 +5923,11 @@ testdb=&gt; <userinput>\crosstabview first second</userinput>
 (4 rows)
 </programlisting>
 
+<!--
 This second example shows a multiplication table with rows sorted in reverse
 numerical order and columns with an independent, ascending numerical order.
+-->
+この2つ目の例では、掛け算の表を、行は逆順にソートし、列はそれとは別に昇順に示しています。
 <programlisting>
 testdb=&gt; <userinput>SELECT t1.first as "A", t2.first+100 AS "B", t1.first*(t2.first+100) as "AxB",</userinput>
 testdb(&gt; <userinput>row_number() over(order by t2.first) AS ord</userinput>
