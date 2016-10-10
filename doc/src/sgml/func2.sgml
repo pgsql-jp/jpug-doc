@@ -36,20 +36,6 @@
 <xref linkend="functions-formatting-table">にこれらを列挙しています。
 これら関数は共通の呼び出し規約を踏襲しています。最初の引数は整形される値で2番目の引数は入力書式または出力書式を定義するテンプレートです。
    </para>
-   <para>
-<!--
-    A single-argument <function>to_timestamp</function> function is also
-    available;  it accepts a
-    <type>double precision</type> argument and converts from Unix epoch
-    (seconds since 1970-01-01 00:00:00+00) to
-    <type>timestamp with time zone</type>.
-    (<type>Integer</type> Unix epochs are implicitly cast to
-    <type>double precision</type>.)
--->
-単一引数の<function>to_timestamp</function>関数も利用可能です。
-これは<type>double precision</type>型の引数を取り、Unix時刻（1970-01-01 00:00:00+00からの秒数）から<type>timestamp with time zone</type>に変換します。
-（<type>Integer</type>型のUnix時刻は暗黙的に<type>double precision</type>にキャストされます。）
-   </para>
 
     <table id="functions-formatting-table">
 <!--
@@ -165,18 +151,16 @@
         <entry>文字列をタイムスタンプに変換</entry>
         <entry><literal>to_timestamp('05&nbsp;Dec&nbsp;2000', 'DD&nbsp;Mon&nbsp;YYYY')</literal></entry>
        </row>
-       <row>
-        <entry><literal><function>to_timestamp(<type>double precision</type>)</function></literal></entry>
-        <entry><type>timestamp with time zone</type></entry>
-<!--
-        <entry>convert Unix epoch to time stamp</entry>
--->
-        <entry>Unix時刻をタイムスタンプに変換</entry>
-        <entry><literal>to_timestamp(1284352323)</literal></entry>
-       </row>
       </tbody>
      </tgroup>
     </table>
+
+   <note>
+    <para>
+     There is also a single-argument <function>to_timestamp</function>
+     function; see <xref linkend="functions-datetime-table">.
+    </para>
+   </note>
 
    <para>
 <!--
@@ -1192,18 +1176,20 @@ Oracleの実装では<literal>9</literal>の前に<literal>MI</literal>が置か
      <listitem>
       <para>
 <!--
-       <literal>V</literal> effectively
+       <literal>V</literal> with <function>to_char</function>
        multiplies the input values by
        <literal>10^<replaceable>n</replaceable></literal>, where
        <replaceable>n</replaceable> is the number of digits following
-       <literal>V</literal>.
-       <function>to_char</function> does not support the use of
+       <literal>V</literal>.  <literal>V</literal> with
+       <function>to_number</function> divides in a similar manner.
+       <function>to_char</function> and <function>to_number</function>
+       do not support the use of
        <literal>V</literal> combined with a decimal point
        (e.g., <literal>99.9V99</literal> is not allowed).
 -->
 <literal>V</literal>は入力値を実質的に<literal>10^<replaceable>n</replaceable></literal>乗します。
 ここで<replaceable>n</replaceable>は<literal>V</literal>に続く桁数です。
-<function>to_char</function>関数は小数点と<literal>V</literal>との混在をサポートしません（例えば、<literal>99.9V99</literal> とはできません）。
+<function>to_char</function>関数は小数点と<literal>V</literal>との混在をサポートしません（例えば、<literal>99.9V99</literal> とはできません）。 ★変更あり
       </para>
      </listitem>
 
@@ -2038,7 +2024,7 @@ Oracleの実装では<literal>9</literal>の前に<literal>MI</literal>が置か
 -->
          年、月、週、日、時間、分、秒フィールドから時間間隔を作成
         </entry>
-        <entry><literal>make_interval(days => 10)</literal></entry>
+        <entry><literal>make_interval(days =&gt; 10)</literal></entry>
         <entry><literal>10 days</literal></entry>
        </row>
 
@@ -2114,10 +2100,10 @@ Oracleの実装では<literal>9</literal>の前に<literal>MI</literal>が置か
         <entry>
 <!--
          Create timestamp with time zone from year, month, day, hour, minute
-         and seconds fields. When <parameter>timezone</parameter> is not specified,
-         then current time zone is used.
+         and seconds fields; if <parameter>timezone</parameter> is not
+         specified, the current time zone is used
 -->
-         年、月、日、時、分、秒フィールドから時間帯付きの時刻を作成。<parameter>timezone</parameter>が指定されていなければ、現在の時間帯が使われる。
+         年、月、日、時、分、秒フィールドから時間帯付きの時刻を作成。<parameter>timezone</parameter>が指定されていなければ、現在の時間帯が使われる。 ★変更あり
         </entry>
         <entry><literal>make_timestamptz(2013, 7, 15, 8, 15, 23.5)</literal></entry>
         <entry><literal>2013-07-15 08:15:23.5+01</literal></entry>
@@ -2197,6 +2183,19 @@ Oracleの実装では<literal>9</literal>の前に<literal>MI</literal>が置か
         </entry>
         <entry></entry>
         <entry></entry>
+       </row>
+       <row>
+        <entry>
+         <indexterm>
+          <primary>to_timestamp</primary>
+         </indexterm>
+         <literal><function>to_timestamp(<type>double precision</type>)</function></literal>
+        </entry>
+        <entry><type>timestamp with time zone</type></entry>
+        <entry>Convert Unix epoch (seconds since 1970-01-01 00:00:00+00) to
+         timestamp</entry>
+        <entry><literal>to_timestamp(1284352323)</literal></entry>
+        <entry><literal>2010-09-13 04:32:03+00</literal></entry>
        </row>
       </tbody>
      </tgroup>
@@ -2524,21 +2523,15 @@ SELECT EXTRACT(EPOCH FROM INTERVAL '5 days 3 hours');
 
        <para>
 <!--
-        Here is how you can convert an epoch value back to a time
-        stamp:
+        You can convert an epoch value back to a time stamp
+        with <function>to_timestamp</>:
 -->
-以下に、この経過秒数をタイムスタンプ値に変換する方法を示します。
+以下に、この経過秒数をタイムスタンプ値に変換する方法を示します。 ★変更あり
        </para>
 <screen>
-SELECT TIMESTAMP WITH TIME ZONE 'epoch' + 982384720.12 * INTERVAL '1 second';
+SELECT to_timestamp(982384720.12);
+<lineannotation>Result: </lineannotation><computeroutput>2001-02-17 04:38:40.12+00</computeroutput>
 </screen>
-       <para>
-<!--
-        (The <function>to_timestamp</> function encapsulates the above
-        conversion.)
--->
-(<function>to_timestamp</>関数は上記の変換をカプセル化します。)
-       </para>
       </listitem>
      </varlistentry>
 
@@ -2773,7 +2766,7 @@ SELECT EXTRACT(SECOND FROM TIME '17:12:28.5');
         The time zone offset from UTC, measured in seconds.  Positive values
         correspond to time zones east of UTC, negative values to
         zones west of UTC.  (Technically,
-        <productname>PostgreSQL</productname> uses <acronym>UT1</> because
+        <productname>PostgreSQL</productname> does not use UTC because
         leap seconds are not handled.)
 -->
 秒単位のUTCからの時間帯オフセット。正の値はUTCより東の時間帯に対応し、負の値はUTCより西の時間帯に対応。
@@ -2863,6 +2856,17 @@ SELECT EXTRACT(YEAR FROM TIMESTAMP '2001-02-16 20:38:40');
 
     </variablelist>
    </para>
+
+   <note>
+    <para>
+     When the input value is +/-Infinity, <function>extract</> returns
+     +/-Infinity for monotonically-increasing fields (<literal>epoch</>,
+     <literal>julian</>, <literal>year</>, <literal>isoyear</>,
+     <literal>decade</>, <literal>century</>, and <literal>millennium</>).
+     For other fields, NULL is returned.  <productname>PostgreSQL</>
+     versions before 9.6 returned zero for all cases of infinite input.
+    </para>
+   </note>
 
    <para>
 <!--
@@ -3626,7 +3630,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry>Point or box of intersection</entry>
 -->
         <entry>交差点、交差矩形</entry>
-        <entry><literal>'((1,-1),(-1,1))' # '((1,1),(-1,-1))'</literal></entry>
+        <entry><literal>box '((1,-1),(-1,1))' # box '((1,1),(-2,-2))'</literal></entry>
        </row>
        <row>
         <entry> <literal>#</literal> </entry>
@@ -3634,7 +3638,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry>Number of points in path or polygon</entry>
 -->
         <entry>経路もしくは多角形の点の数</entry>
-        <entry><literal># '((1,0),(0,1),(-1,0))'</literal></entry>
+        <entry><literal># path '((1,0),(0,1),(-1,0))'</literal></entry>
        </row>
        <row>
         <entry> <literal>@-@</literal> </entry>
@@ -4888,11 +4892,12 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
      <title>Text Search Operators</title>
 -->
      <title>テキスト検索演算子</title>
-     <tgroup cols="4">
+     <tgroup cols="5">
       <thead>
        <row>
 <!--
         <entry>Operator</entry>
+        <entry>Return Type</entry>
         <entry>Description</entry>
         <entry>Example</entry>
         <entry>Result</entry>
@@ -4907,7 +4912,8 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
        <row>
         <entry> <literal>@@</literal> </entry>
 <!--
-        <entry><type>tsvector</> matches <type>tsquery</> ?</entry>
+        <entry><type>boolean</></entry>
+        <entry><type>tsvector</> matches <type>tsquery</> ?</entry> ★変更あり
 -->
         <entry><type>tsvector</>が<type>tsquery</>の条件に合うか？</entry>
         <entry><literal>to_tsvector('fat cats ate rats') @@ to_tsquery('cat &amp; rat')</literal></entry>
@@ -4916,6 +4922,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
        <row>
         <entry> <literal>@@@</literal> </entry>
 <!--
+        <entry><type>boolean</></entry> 変更あり
         <entry>deprecated synonym for <literal>@@</></entry>
 -->
         <entry><literal>@@</>に対する廃止予定の同義語</entry>
@@ -4925,6 +4932,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
        <row>
         <entry> <literal>||</literal> </entry>
 <!--
+        <entry><type>tsvector</></entry> ★変更あり
         <entry>concatenate <type>tsvector</>s</entry>
 -->
         <entry><type>tsvector</>を連結</entry>
@@ -4934,6 +4942,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
        <row>
         <entry> <literal>&amp;&amp;</literal> </entry>
 <!--
+        <entry><type>tsquery</></entry> ★変更あり
         <entry>AND <type>tsquery</>s together</entry>
 -->
         <entry><type>tsquery</>にAND演算を行う</entry>
@@ -4943,6 +4952,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
        <row>
         <entry> <literal>||</literal> </entry>
 <!--
+        <entry><type>tsquery</></entry> ★変更あり
         <entry>OR <type>tsquery</>s together</entry>
 -->
         <entry><type>tsquery</>にOR演算を行う</entry>
@@ -4952,6 +4962,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
        <row>
         <entry> <literal>!!</literal> </entry>
 <!--
+        <entry><type>tsquery</></entry> ★変更あり
         <entry>negate a <type>tsquery</></entry>
 -->
         <entry><type>tsquery</>を否定</entry>
@@ -4959,8 +4970,16 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry><literal>!'cat'</literal></entry>
        </row>
        <row>
+        <entry> <literal>&lt;-&gt;</literal> </entry>
+        <entry><type>tsquery</></entry>
+        <entry><type>tsquery</> followed by <type>tsquery</></entry>
+        <entry><literal>to_tsquery('fat') &lt;-&gt; to_tsquery('rat')</literal></entry>
+        <entry><literal>'fat' &lt;-&gt; 'rat'</literal></entry>
+       </row>
+       <row>
         <entry> <literal>@&gt;</literal> </entry>
 <!--
+        <entry><type>boolean</></entry> ★変更あり
         <entry><type>tsquery</> contains another ?</entry>
 -->
         <entry><type>tsquery</>は他方を包含するか？</entry>
@@ -4970,6 +4989,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
        <row>
         <entry> <literal>&lt;@</literal> </entry>
 <!--
+        <entry><type>boolean</></entry> ★変更あり
         <entry><type>tsquery</> is contained in ?</entry>
 -->
         <entry><type>tsquery</>は他方に包含されるか？</entry>
@@ -5025,6 +5045,18 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
        </row>
       </thead>
       <tbody>
+       <row>
+        <entry>
+         <indexterm>
+          <primary>array_to_tsvector</primary>
+         </indexterm>
+         <literal><function>array_to_tsvector(<type>text[]</>)</function></literal>
+        </entry>
+        <entry><type>tsvector</type></entry>
+        <entry>convert array of lexemes to <type>tsvector</type></entry>
+        <entry><literal>array_to_tsvector('{fat,cat,rat}'::text[])</literal></entry>
+        <entry><literal>'cat' 'fat' 'rat'</literal></entry>
+       </row>
        <row>
         <entry>
          <indexterm>
@@ -5092,6 +5124,19 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
        <row>
         <entry>
          <indexterm>
+          <primary>phraseto_tsquery</primary>
+         </indexterm>
+         <literal><function>phraseto_tsquery(<optional> <replaceable class="PARAMETER">config</> <type>regconfig</> , </optional> <replaceable class="PARAMETER">query</> <type>text</type>)</function></literal>
+        </entry>
+        <entry><type>tsquery</type></entry>
+        <entry>produce <type>tsquery</> that searches for a phrase,
+         ignoring punctuation</entry>
+        <entry><literal>phraseto_tsquery('english', 'The Fat Rats')</literal></entry>
+        <entry><literal>'fat' &lt;-&gt; 'rat'</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <indexterm>
           <primary>querytree</primary>
          </indexterm>
          <literal><function>querytree(<replaceable class="PARAMETER">query</replaceable> <type>tsquery</>)</function></literal>
@@ -5109,15 +5154,25 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
          <indexterm>
           <primary>setweight</primary>
          </indexterm>
-         <literal><function>setweight(<type>tsvector</>, <type>"char"</>)</function></literal>
+         <literal><function>setweight(<replaceable class="PARAMETER">vector</replaceable> <type>tsvector</>, <replaceable class="PARAMETER">weight</replaceable> <type>"char"</>)</function></literal>
         </entry>
         <entry><type>tsvector</type></entry>
-<!--
-        <entry>assign weight to each element of <type>tsvector</></entry>
--->
-        <entry><type>tsvector</>のそれぞれの要素に重みを割り当て</entry>
+        <entry>assign <replaceable class="PARAMETER">weight</replaceable> to each element of <replaceable class="PARAMETER">vector</replaceable></entry>
         <entry><literal>setweight('fat:2,4 cat:3 rat:5B'::tsvector, 'A')</literal></entry>
         <entry><literal>'cat':3A 'fat':2A,4A 'rat':5A</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <indexterm>
+          <primary>setweight</primary>
+          <secondary>setweight for specific lexeme(s)</secondary>
+         </indexterm>
+         <literal><function>setweight(<replaceable class="PARAMETER">vector</replaceable> <type>tsvector</>, <replaceable class="PARAMETER">weight</replaceable> <type>"char"</>, <replaceable class="PARAMETER">lexemes</replaceable> <type>text[]</>)</function></literal>
+        </entry>
+        <entry><type>tsvector</type></entry>
+        <entry>assign <replaceable class="PARAMETER">weight</replaceable> to elements of <replaceable class="PARAMETER">vector</replaceable> that are listed in <replaceable class="PARAMETER">lexemes</replaceable></entry>
+        <entry><literal>setweight('fat:2,4 cat:3 rat:5B'::tsvector, 'A', '{cat,rat}')</literal></entry>
+        <entry><literal>'cat':3A 'fat':2,4 'rat':5A</literal></entry>
        </row>
        <row>
         <entry>
@@ -5163,6 +5218,40 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry>ドキュメントテキストを<type>tsvector</>に縮小</entry>
         <entry><literal>to_tsvector('english', 'The Fat Rats')</literal></entry>
         <entry><literal>'fat':2 'rat':3</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <indexterm>
+          <primary>ts_delete</primary>
+         </indexterm>
+         <literal><function>ts_delete(<replaceable class="PARAMETER">vector</replaceable> <type>tsvector</>, <replaceable class="PARAMETER">lexeme</replaceable> <type>text</>)</function></literal>
+        </entry>
+        <entry><type>tsvector</type></entry>
+        <entry>remove given <replaceable class="PARAMETER">lexeme</replaceable> from <replaceable class="PARAMETER">vector</replaceable></entry>
+        <entry><literal>ts_delete('fat:2,4 cat:3 rat:5A'::tsvector, 'fat')</literal></entry>
+        <entry><literal>'cat':3 'rat':5A</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <!-- previous indexterm entry covers this too -->
+         <literal><function>ts_delete(<replaceable class="PARAMETER">vector</replaceable> <type>tsvector</>, <replaceable class="PARAMETER">lexemes</replaceable> <type>text[]</>)</function></literal>
+        </entry>
+        <entry><type>tsvector</type></entry>
+        <entry>remove any occurrence of lexemes in <replaceable class="PARAMETER">lexemes</replaceable> from <replaceable class="PARAMETER">vector</replaceable></entry>
+        <entry><literal>ts_delete('fat:2,4 cat:3 rat:5A'::tsvector, ARRAY['fat','rat'])</literal></entry>
+        <entry><literal>'cat':3</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <indexterm>
+          <primary>ts_filter</primary>
+         </indexterm>
+         <literal><function>ts_filter(<replaceable class="PARAMETER">vector</replaceable> <type>tsvector</>, <replaceable class="PARAMETER">weights</replaceable> <type>"char"[]</>)</function></literal>
+        </entry>
+        <entry><type>tsvector</type></entry>
+        <entry>select only elements with given <replaceable class="PARAMETER">weights</replaceable> from <replaceable class="PARAMETER">vector</replaceable></entry>
+        <entry><literal>ts_filter('fat:2,4 cat:3b rat:5A'::tsvector, '{a,b}')</literal></entry>
+        <entry><literal>'cat':3B 'rat':5A</literal></entry>
        </row>
        <row>
         <entry>
@@ -5217,10 +5306,8 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
          <literal><function>ts_rewrite(<replaceable class="PARAMETER">query</replaceable> <type>tsquery</>, <replaceable class="PARAMETER">target</replaceable> <type>tsquery</>, <replaceable class="PARAMETER">substitute</replaceable> <type>tsquery</>)</function></literal>
         </entry>
         <entry><type>tsquery</type></entry>
-<!--
-        <entry>replace target with substitute within query</entry>
--->
-        <entry>問い合わせ内で対象を代替と置換</entry>
+        <entry>replace <replaceable>target</> with <replaceable>substitute</>
+         within query</entry>
         <entry><literal>ts_rewrite('a &amp; b'::tsquery, 'a'::tsquery, 'foo|bar'::tsquery)</literal></entry>
         <entry><literal>'b' &amp; ( 'foo' | 'bar' )</literal></entry>
        </row>
@@ -5233,6 +5320,42 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry><command>SELECT</>から対象と代替を使用して置換</entry>
         <entry><literal>SELECT ts_rewrite('a &amp; b'::tsquery, 'SELECT t,s FROM aliases')</literal></entry>
         <entry><literal>'b' &amp; ( 'foo' | 'bar' )</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <indexterm>
+          <primary>tsquery_phrase</primary>
+         </indexterm>
+         <literal><function>tsquery_phrase(<replaceable class="PARAMETER">query1</replaceable> <type>tsquery</>, <replaceable class="PARAMETER">query2</replaceable> <type>tsquery</>)</function></literal>
+        </entry>
+        <entry><type>tsquery</type></entry>
+        <entry>make query that searches for <replaceable>query1</> followed
+         by <replaceable>query2</> (same as <literal>&lt;-&gt;</>
+         operator)</entry>
+        <entry><literal>tsquery_phrase(to_tsquery('fat'), to_tsquery('cat'))</literal></entry>
+        <entry><literal>'fat' &lt;-&gt; 'cat'</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal><function>tsquery_phrase(<replaceable class="PARAMETER">query1</replaceable> <type>tsquery</>, <replaceable class="PARAMETER">query2</replaceable> <type>tsquery</>, <replaceable class="PARAMETER">distance</replaceable> <type>integer</>)</function></literal>
+        </entry>
+        <entry><type>tsquery</type></entry>
+        <entry>make query that searches for <replaceable>query1</> followed by
+         <replaceable>query2</> at maximum distance <replaceable>distance</></entry>
+        <entry><literal>tsquery_phrase(to_tsquery('fat'), to_tsquery('cat'), 10)</literal></entry>
+        <entry><literal>'fat' &lt;10&gt; 'cat'</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <indexterm>
+          <primary>tsvector_to_array</primary>
+         </indexterm>
+         <literal><function>tsvector_to_array(<type>tsvector</>)</function></literal>
+        </entry>
+        <entry><type>text[]</type></entry>
+        <entry>convert <type>tsvector</> to array of lexemes</entry>
+        <entry><literal>tsvector_to_array('fat:2,4 cat:3 rat:5A'::tsvector)</literal></entry>
+        <entry><literal>{cat,fat,rat}</literal></entry>
        </row>
        <row>
         <entry>
@@ -5263,6 +5386,19 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry><type>tsvector</>列の自動更新のためのトリガ関数</entry>
         <entry><literal>CREATE TRIGGER ... tsvector_update_trigger_column(tsvcol, configcol, title, body)</literal></entry>
         <entry><literal></literal></entry>
+       </row>
+       <row>
+        <entry>
+         <indexterm>
+          <primary>unnest</primary>
+          <secondary>for tsvector</secondary>
+         </indexterm>
+         <literal><function>unnest(<type>tsvector</>, OUT <replaceable class="PARAMETER">lexeme</> <type>text</>, OUT <replaceable class="PARAMETER">positions</> <type>smallint[]</>, OUT <replaceable class="PARAMETER">weights</> <type>text</>)</function></literal>
+        </entry>
+        <entry><type>setof record</type></entry>
+        <entry>expand a tsvector to a set of rows</entry>
+        <entry><literal>unnest('fat:2,4 cat:3 rat:5A'::tsvector)</literal></entry>
+        <entry><literal>(cat,{3},{D}) ...</literal></entry>
        </row>
       </tbody>
      </tgroup>

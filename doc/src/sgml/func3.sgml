@@ -145,12 +145,12 @@ JSON配列の添字を整数で受け取り、フィールド、要素、パス�
   <para>
 <!--
    The standard comparison operators shown in  <xref
-   linkend="functions-comparison-table"> are available for
+   linkend="functions-comparison-op-table"> are available for
    <type>jsonb</type>, but not for <type>json</type>. They follow the
    ordering rules for B-tree operations outlined at <xref
    linkend="json-indexing">.
 -->
-<xref linkend="functions-comparison-table">に示されている標準の比較演算子が<type>jsonb</type>で利用可能ですが、<type>json</type>ではそうではありません。
+<xref linkend="functions-comparison-op-table">に示されている標準の比較演算子が<type>jsonb</type>で利用可能ですが、<type>json</type>ではそうではありません。
 それらは<xref linkend="json-indexing">で概略を述べたB-tree演算子の順序規則に従います。
   </para>
   <para>
@@ -612,6 +612,9 @@ variadic引数リストからJSONオブジェクトを作成。
    <primary>jsonb_set</primary>
   </indexterm>
   <indexterm>
+   <primary>jsonb_insert</primary>
+  </indexterm>
+  <indexterm>
    <primary>jsonb_pretty</primary>
   </indexterm>
 
@@ -955,6 +958,39 @@ NULL値を持つオブジェクトフィールドを削除した<replaceable>fro
         </para></entry>
        </row>
       <row>
+       <entry>
+           <para><literal>
+           jsonb_insert(target jsonb, path text[], new_value jsonb, <optional><parameter>insert_after</parameter> <type>boolean</type></optional>)
+           </literal></para>
+       </entry>
+       <entry><para><type>jsonb</type></para></entry>
+       <entry>
+         Returns <replaceable>target</replaceable> with
+         <replaceable>new_value</replaceable> inserted. If
+         <replaceable>target</replaceable> section designated by
+         <replaceable>path</replaceable> is in a JSONB array,
+         <replaceable>new_value</replaceable> will be inserted before target or
+         after if <replaceable>insert_after</replaceable> is true (default is
+         <literal>false</>). If <replaceable>target</replaceable> section
+         designated by <replaceable>path</replaceable> is in JSONB object,
+         <replaceable>new_value</replaceable> will be inserted only if
+         <replaceable>target</replaceable> does not exist. As with the path
+         orientated operators, negative integers that appear in
+         <replaceable>path</replaceable> count from the end of JSON arrays.
+       </entry>
+       <entry>
+           <para><literal>
+               jsonb_insert('{"a": [0,1,2]}', '{a, 1}', '"new_value"')
+           </literal></para>
+           <para><literal>
+               jsonb_insert('{"a": [0,1,2]}', '{a, 1}', '"new_value"', true)
+           </literal></para>
+       </entry>
+       <entry><para><literal>{"a": [0, "new_value", 1, 2]}</literal>
+         </para><para><literal>{"a": [0, 1, "new_value", 2]}</literal>
+        </para></entry>
+       </row>
+      <row>
        <entry><para><literal>jsonb_pretty(from_json jsonb)</literal>
          </para></entry>
        <entry><para><type>text</type></para></entry>
@@ -1019,14 +1055,15 @@ JSONキーは対象の行の型の中の同一の列の名前と一致します�
     <para>
 <!--
       All the items of the <literal>path</> parameter of <literal>jsonb_set</>
-      must be present in the <literal>target</>, unless
-      <literal>create_missing</> is true, in which case all but the last item
-      must be present. If these conditions are not met the <literal>target</>
-      is returned unchanged.
+      as well as <literal>jsonb_insert</> except the last item must be present
+      in the <literal>target</>. If <literal>create_missing</> is false, all
+      items of the <literal>path</> parameter of <literal>jsonb_set</> must be
+      present. If these conditions are not met the <literal>target</> is
+      returned unchanged.
 -->
 <literal>create_missing</>が真でないときは、<literal>jsonb_set</>の<literal>path</>パラメータのすべての項目が<literal>target</>内に存在しなければなりません。
 <literal>create_missing</>が真なら、最後の項目を除き、すべての項目が存在しなければなりません。
-これらの条件が満たされなければ、<literal>target</>が変更されずに返されます。
+これらの条件が満たされなければ、<literal>target</>が変更されずに返されます。 ★変更あり
     </para>
     <para>
 <!--
@@ -2926,13 +2963,14 @@ NULL baz</literallayout>(3 rows)</entry>
 -->
    <title>汎用集約関数</title>
 
-   <tgroup cols="4">
+   <tgroup cols="5">
     <thead>
      <row>
 <!--
       <entry>Function</entry>
       <entry>Argument Type(s)</entry>
       <entry>Return Type</entry>
+      <entry>Partial Mode</entry>
       <entry>Description</entry>
 -->
       <entry>関数</entry>
@@ -2963,6 +3001,7 @@ NULL baz</literallayout>(3 rows)</entry>
        引数の型の配列
       </entry>
 <!--
+      <entry>No</entry> ★変更あり
       <entry>input values, including nulls, concatenated into an array</entry>
 -->
       <entry>NULLを含めて入力値が結合された配列</entry>
@@ -2985,6 +3024,7 @@ NULL baz</literallayout>(3 rows)</entry>
 引数と同じデータ型
       </entry>
 <!--
+      <entry>No</entry> ★変更あり
       <entry>input arrays concatenated into array of one higher dimension
        (inputs must all have same dimensionality,
         and cannot be empty or NULL)</entry>
@@ -3019,6 +3059,7 @@ NULL baz</literallayout>(3 rows)</entry>
        整数型の引数であれば全て<type>numeric</type>、浮動小数点の引数であれば<type>double precision</type>、それ以外は引数のデータ型と同じ
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>the average (arithmetic mean) of all input values</entry>
 -->
       <entry>全ての入力値の平均値（算術平均）</entry>
@@ -3045,6 +3086,7 @@ NULL baz</literallayout>(3 rows)</entry>
         引数のデータ型と同じ
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>the bitwise AND of all non-null input values, or null if none</entry>
 -->
       <entry>全ての非NULLの入力値のビット積、非NULLの入力値がなければNULL</entry>
@@ -3072,6 +3114,7 @@ NULL baz</literallayout>(3 rows)</entry>
         引数のデータ型と同じ
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>the bitwise OR of all non-null input values, or null if none</entry>
 -->
       <entry>全ての非NULLの入力値のビット和、非NULLの入力値がなければNULL</entry>
@@ -3091,6 +3134,7 @@ NULL baz</literallayout>(3 rows)</entry>
        <type>bool</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>true if all input values are true, otherwise false</entry>
 -->
       <entry>全ての入力が真ならば真、そうでなければ偽</entry>
@@ -3110,6 +3154,7 @@ NULL baz</literallayout>(3 rows)</entry>
        <type>bool</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>true if at least one input value is true, otherwise false</entry>
 -->
       <entry>少なくとも1つの入力値が真ならば真。そうでなければ偽</entry>
@@ -3125,6 +3170,7 @@ NULL baz</literallayout>(3 rows)</entry>
       <entry></entry>
       <entry><type>bigint</type></entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>number of input rows</entry>
 -->
       <entry>入力行の数</entry>
@@ -3137,6 +3183,7 @@ NULL baz</literallayout>(3 rows)</entry>
 -->
       <entry>任意の型</entry>
       <entry><type>bigint</type></entry>
+      <entry>Yes</entry>
       <entry>
 <!--
        number of input rows for which the value of <replaceable
@@ -3160,6 +3207,7 @@ NULL baz</literallayout>(3 rows)</entry>
        <type>bool</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>equivalent to <function>bool_and</function></entry>
 -->
       <entry><function>bool_and</function>と等価</entry>
@@ -3179,6 +3227,7 @@ NULL baz</literallayout>(3 rows)</entry>
        <type>json</type>
       </entry>
 <!--
+      <entry>No</entry> ★変更あり
       <entry>aggregates values as a JSON array</entry>
 -->
       <entry>JSON配列として値を集約</entry>
@@ -3198,6 +3247,7 @@ NULL baz</literallayout>(3 rows)</entry>
        <type>jsonb</type>
       </entry>
 <!--
+      <entry>No</entry> ★変更あり
       <entry>aggregates values as a JSON array</entry>
 -->
       <entry>値をJSON配列として集約する</entry>
@@ -3217,6 +3267,7 @@ NULL baz</literallayout>(3 rows)</entry>
        <type>json</type>
       </entry>
 <!--
+      <entry>No</entry> ★変更あり
       <entry>aggregates name/value pairs as a JSON object</entry>
 -->
       <entry>名前／値の対をJSONオブジェクトとして集約</entry>
@@ -3236,6 +3287,7 @@ NULL baz</literallayout>(3 rows)</entry>
        <type>jsonb</type>
       </entry>
 <!--
+      <entry>No</entry> ★変更あり
       <entry>aggregates name/value pairs as a JSON object</entry>
 -->
       <entry>名前／値のペアをJSONオブジェクトとして集約</entry>
@@ -3257,6 +3309,7 @@ NULL baz</literallayout>(3 rows)</entry>
       <entry>same as argument type</entry>
 -->
       <entry>引数の型と同じ</entry>
+      <entry>Yes</entry>
       <entry>
 <!--
        maximum value of <replaceable
@@ -3283,6 +3336,7 @@ NULL baz</literallayout>(3 rows)</entry>
       <entry>same as argument type</entry>
 -->
       <entry>引数の型と同じ</entry>
+      <entry>Yes</entry>
       <entry>
 <!--
        minimum value of <replaceable
@@ -3316,6 +3370,7 @@ NULL baz</literallayout>(3 rows)</entry>
        引数と同じ型
       </entry>
 <!--
+      <entry>No</entry>
       <entry>input values concatenated into a string, separated by delimiter</entry>
 -->
       <entry>入力された値が指定したデリミタで区切られた一つの文字列に連結されます。</entry>
@@ -3347,6 +3402,7 @@ NULL baz</literallayout>(3 rows)</entry>
        <type>smallint</type>または<type>int</type>型の引数であれば<type>bigint</type>、<type>bigint</type>型の引数であれば<type>numeric</type>、それ以外は引数のデータ型と同じ
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>sum of <replaceable class="parameter">expression</replaceable> across all input values</entry>
 -->
       <entry>全ての入力値に渡り<replaceable class="parameter">expression</replaceable>の和</entry>
@@ -3366,6 +3422,7 @@ NULL baz</literallayout>(3 rows)</entry>
        <type>xml</type>
       </entry>
 <!--
+      <entry>No</entry> ★変更あり
       <entry>concatenation of XML values (see also <xref linkend="functions-xml-xmlagg">)</entry>
 -->
       <entry>XML値の連結（ <xref linkend="functions-xml-xmlagg">も参照）</entry>
@@ -3387,6 +3444,12 @@ NULL baz</literallayout>(3 rows)</entry>
 上記の関数は、<function>count</function>関数を除き、1行も選択されなかった場合NULL値を返すことに注意してください。
 特に、行の選択がない<function>sum</function>関数は、予想されるであろうゼロではなくNULLを返し、そして<function>array_agg</function>は、入力行が存在しない場合に、空配列ではなくNULLを返します。
 必要であれば、NULLをゼロまたは空配列と置換する目的で<function>coalesce</function>関数を使うことができます。
+  </para>
+
+  <para>
+   Aggregate functions which support <firstterm>Partial Mode</firstterm>
+   are eligible to participate in various optimizations, such as parallel
+   aggregation.
   </para>
 
   <note>
@@ -3467,11 +3530,9 @@ SELECT count(*) FROM sometable;
 SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
 ]]></screen>
 
-<!--
-   But this syntax is not allowed in the SQL standard, and is
-   not portable to other database systems.
--->
-しかしこの構文はSQL標準では許されておらず、他のデータベースシステムに移植性はありません。
+   Beware that this approach can fail if the outer query level contains
+   additional processing, such as a join, because that might cause the
+   subquery's output to be reordered before the aggregate is computed.
   </para>
 
   <para>
@@ -3510,13 +3571,14 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
 -->
    <title>統計処理用の集約関数</title>
 
-   <tgroup cols="4">
+   <tgroup cols="5">
     <thead>
      <row>
 <!--
       <entry>Function</entry>
       <entry>Argument Type</entry>
       <entry>Return Type</entry>
+      <entry>Partial Mode</entry>
       <entry>Description</entry>
 -->
       <entry>関数</entry>
@@ -3548,6 +3610,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
        <type>double precision</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>correlation coefficient</entry>
 -->
       <entry>相関係数</entry>
@@ -3575,6 +3638,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
        <type>double precision</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>population covariance</entry>
 -->
       <entry>母共分散</entry>
@@ -3602,6 +3666,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
        <type>double precision</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>sample covariance</entry>
 -->
       <entry>標本共分散</entry>
@@ -3621,6 +3686,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
        <type>double precision</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>average of the independent variable
       (<literal>sum(<replaceable class="parameter">X</replaceable>)/<replaceable class="parameter">N</replaceable></literal>)</entry>
 -->
@@ -3642,6 +3708,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
        <type>double precision</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>average of the dependent variable
       (<literal>sum(<replaceable class="parameter">Y</replaceable>)/<replaceable class="parameter">N</replaceable></literal>)</entry>
 -->
@@ -3663,6 +3730,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
        <type>bigint</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>number of input rows in which both expressions are nonnull</entry>
 -->
       <entry>両式が非NULLとなる入力行の個数</entry>
@@ -3688,6 +3756,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
        <type>double precision</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>y-intercept of the least-squares-fit linear equation
       determined by the (<replaceable
       class="parameter">X</replaceable>, <replaceable
@@ -3710,6 +3779,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
        <type>double precision</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>square of the correlation coefficient</entry>
 -->
       <entry>相関係数の二乗</entry>
@@ -3735,6 +3805,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
        <type>double precision</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>slope of the least-squares-fit linear equation determined
       by the (<replaceable class="parameter">X</replaceable>,
       <replaceable class="parameter">Y</replaceable>) pairs</entry>
@@ -3756,6 +3827,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
        <type>double precision</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry><literal>sum(<replaceable
       class="parameter">X</replaceable>^2) - sum(<replaceable
       class="parameter">X</replaceable>)^2/<replaceable
@@ -3784,6 +3856,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
        <type>double precision</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry><literal>sum(<replaceable
       class="parameter">X</replaceable>*<replaceable
       class="parameter">Y</replaceable>) - sum(<replaceable
@@ -3817,6 +3890,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
        <type>double precision</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry><literal>sum(<replaceable
       class="parameter">Y</replaceable>^2) - sum(<replaceable
       class="parameter">Y</replaceable>)^2/<replaceable
@@ -3861,6 +3935,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
        浮動小数点型の引数では<type>double precision</type>。それ以外では<type>numeric</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>historical alias for <function>stddev_samp</function></entry>
 -->
       <entry><function>stddev_samp</function>の歴史的な別名</entry>
@@ -3901,6 +3976,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
        浮動小数点型の引数では<type>double precision</type>。それ以外では<type>numeric</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>population standard deviation of the input values</entry>
 -->
       <entry>入力値に対する母標準偏差</entry>
@@ -3939,6 +4015,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
        浮動小数点型の引数では<type>double precision</type>。それ以外では<type>numeric</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>sample standard deviation of the input values</entry>
 -->
       <entry>入力値に対する標本標準偏差</entry>
@@ -3972,6 +4049,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
        浮動小数点型の引数では<type>double precision</type>。それ以外では<type>numeric</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>historical alias for <function>var_samp</function></entry>
 -->
       <entry><function>var_samp</function>の歴史的な別名</entry>
@@ -4010,6 +4088,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
        浮動小数点型の引数では<type>double precision</type>。それ以外では<type>numeric</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>population variance of the input values (square of the population standard deviation)</entry>
 -->
       <entry>入力値に対する母分散（母標準偏差の二乗）</entry>
@@ -4048,6 +4127,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
        浮動小数点型の引数では<type>double precision</type>。それ以外では<type>numeric</type>
       </entry>
 <!--
+      <entry>Yes</entry> ★変更あり
       <entry>sample variance of the input values (square of the sample standard deviation)</entry>
 -->
       <entry>入力値に対する標本分散（標本標準偏差の二乗）</entry>
@@ -4088,7 +4168,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
 -->
    <title>順序集合集約関数</title>
 
-   <tgroup cols="5">
+   <tgroup cols="6">
     <thead>
      <row>
 <!--
@@ -4096,6 +4176,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
       <entry>Direct Argument Type(s)</entry>
       <entry>Aggregated Argument Type(s)</entry>
       <entry>Return Type</entry>
+      <entry>Partial Mode</entry>
       <entry>Description</entry>
 -->
       <entry>関数</entry>
@@ -4134,6 +4215,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
 -->
        ソート式と同じ
       </entry>
+      <entry>No</entry>
       <entry>
 <!--
        returns the most frequent input value (arbitrarily choosing the first
@@ -4176,6 +4258,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
 -->
        ソート式と同じ
       </entry>
+      <entry>No</entry>
       <entry>
 <!--
        continuous percentile: returns a value corresponding to the specified
@@ -4205,10 +4288,11 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
 -->
        ソート式の型の配列
       </entry>
+      <entry>No</entry>
       <entry>
 <!--
        multiple continuous percentile: returns an array of results matching
-       the shape of the <literal>fractions</literal> parameter, with each
+       the shape of the <replaceable>fractions</replaceable> parameter, with each
        non-null element replaced by the value corresponding to that percentile
 -->
        複数の連続百分位数: 各非NULL要素をその百分位数に対応する値で置き換えて、<literal>fractions</literal>パラメータの形に一致する結果の配列を返す
@@ -4242,6 +4326,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
 -->
        ソート式と同じ
       </entry>
+      <entry>No</entry>
       <entry>
 <!--
        discrete percentile: returns the first input value whose position in
@@ -4270,10 +4355,11 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
 -->
        ソート式の型の配列
       </entry>
+      <entry>No</entry>
       <entry>
 <!--
        multiple discrete percentile: returns an array of results matching the
-       shape of the <literal>fractions</literal> parameter, with each non-null
+       shape of the <replaceable>fractions</replaceable> parameter, with each non-null
        element replaced by the input value corresponding to that percentile
 -->
        複数の離散百分位数: 各非NULL要素をその百分位数に対応する値で置き換えて、<literal>fractions</literal>パラメータの形に一致する結果の配列を返す
@@ -4327,7 +4413,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
 -->
    <title>仮想集合集約関数</title>
 
-   <tgroup cols="5">
+   <tgroup cols="6">
     <thead>
      <row>
 <!--
@@ -4335,6 +4421,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
       <entry>Direct Argument Type(s)</entry>
       <entry>Aggregated Argument Type(s)</entry>
       <entry>Return Type</entry>
+      <entry>Partial Mode</entry>
       <entry>Description</entry>
 -->
       <entry>関数</entry>
@@ -4367,6 +4454,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
       <entry>
        <type>bigint</type>
       </entry>
+      <entry>No</entry>
       <entry>
 <!--
        rank of the hypothetical row, with gaps for duplicate rows
@@ -4395,6 +4483,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
       <entry>
        <type>bigint</type>
       </entry>
+      <entry>No</entry>
       <entry>
 <!--
        rank of the hypothetical row, without gaps
@@ -4423,6 +4512,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
       <entry>
        <type>double precision</type>
       </entry>
+      <entry>No</entry>
       <entry>
 <!--
        relative rank of the hypothetical row, ranging from 0 to 1
@@ -4451,6 +4541,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
       <entry>
        <type>double precision</type>
       </entry>
+      <entry>No</entry>
       <entry>
 <!--
        relative rank of the hypothetical row, ranging from
