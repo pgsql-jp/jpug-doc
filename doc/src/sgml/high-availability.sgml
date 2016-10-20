@@ -1741,7 +1741,7 @@ primary_slot_name = 'node_a_slot'
 これらのパラメータにより、管理者はどのスタンバイサーバを同期スタンバイとすべきかを指定することができます。
 同期レプリケーションの設定は主にマスタでなされることに注意してください。
 指名されたスタンバイは直接マスターサーバに接続される必要があります。
-つまり、マスターサーバは下流サーバがカスケードレプリケーションで使用されているかについて何も知りません。
+つまり、カスケードレプリケーションを使用している下流スタンバイサーバについて、マスターサーバは何も知りません。
    </para>
 
    <para>
@@ -1758,9 +1758,9 @@ primary_slot_name = 'node_a_slot'
     Data loss could only occur if both the primary and the standby crash and
     the database of the primary gets corrupted at the same time.
 -->
-<varname>synchronous_commit</>を<literal>remote_write</>に設定することで、スタンバイサーバがコミットされたレコードを受け取り、オペレーティングシステムに書きだしたが、まだスタンバイ上のディスクに吐き出してはいない状態であることを確認できるまで、個々のコミットは待たされます。
+<varname>synchronous_commit</>を<literal>remote_write</>に設定することで、個々のコミットは、スタンバイサーバがコミットされたレコードを受け取り、オペレーティングシステムに書きだしたことが確認できるまで待ちますが、スタンバイ上のディスクに吐き出すまでは待ちません。
 これは、<literal>on</>と設定するより、提供される永続性は弱くなります。
-具体的には、スタンバイサーバは(<productname>PostgreSQL</> ではなく)オペレーティングシステムがクラッシュした場合にデータを失う可能性があります。
+具体的には、スタンバイサーバはオペレーティングシステムがクラッシュした場合にデータを失う可能性がありますが、<productname>PostgreSQL</>がクラッシュした場合にはデータを失いません。
 しかし、実用的にはこの設定はトランザクションの応答時間を短くすることができるので有用です。
 データの損失は、プライマリサーバとスタンバイサーバが同時にクラッシュし、かつ、プライマリのデータベースが同時に壊れた場合にのみ発生します。
    </para>
@@ -1774,7 +1774,7 @@ primary_slot_name = 'node_a_slot'
     consistency.
 -->
 <varname>synchronous_commit</>を<literal>remote_apply</>に設定することで、現在の同期スタンバイがトランザクションを再生し、ユーザから見えるようにしたと報告するまでは各々のコミットは待たされます。
-単純なケースでは、簡易な一貫性を保つ負荷分散を可能にします。
+単純なケースでは、因果一貫性を保つ負荷分散を可能にします。
    </para>
 
    <para>
@@ -1784,14 +1784,17 @@ primary_slot_name = 'node_a_slot'
     shutdown until all outstanding WAL records are transferred to the currently
     connected standby servers.
 -->
-高速シャットダウンが要求された場合、ユーザは待機を停止します。
-しかし非同期レプリケーションを使用している時、送信中のWALレコードが現在接続しているスタンバイサーバに転送されるまで、サーバは完全に停止しません。
+高速シャットダウンが要求された場合、ユーザは待ち状態ではなくなります。
+しかし非同期レプリケーションを使用している時と同じく、送信中のWALレコードが現在接続しているスタンバイサーバに転送されるまで、サーバは完全に停止しません。
    </para>
 
    </sect3>
 
    <sect3 id="synchronous-replication-multiple-standbys">
+<!--
     <title>Multiple Synchronous Standbys</title>
+-->
+    <title>複数の同期スタンバイ</title>
 
    <para>
 <!--
