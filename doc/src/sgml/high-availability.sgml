@@ -1643,9 +1643,9 @@ primary_slot_name = 'node_a_slot'
     (group-safe and 1-safe) when <varname>synchronous_commit</> is set to
     <literal>remote_write</>.
 -->
-同期レプリケーションは、あるトランザクションでなされた変更はすべて、１つの同期スタンバイサーバに転送されていることを確実にする機能を提供します。
+同期レプリケーションは、あるトランザクションでなされた変更はすべて、１つ以上の同期スタンバイサーバに転送されていることを確実にする機能を提供します。
 これはトランザクションコミットで提供される永続性の標準レベルを拡張します。
-この保護レベルはコンピュータ科学理論では2-safeレプリケーションと呼ばれます。 ★変更あり
+この保護レベルはコンピュータ科学理論では、2-safeレプリケーション、そして<varname>synchronous_commit</>が<literal>remote_write</>に設定されている場合にはgroup-1-safe (group-safeと1-safe) と呼ばれます。 
    </para>
 
    <para>
@@ -1735,11 +1735,13 @@ primary_slot_name = 'node_a_slot'
     standby servers using cascaded replication.
 -->
 コミットレコードがプライマリ上のディスクに書き出された後、WALレコードがスタンバイに送信されます。
-スタンバイにて<varname>wal_receiver_status_interval</>がゼロに設定されていない限り、スタンバイは新しいWALデータのバッチがディスクに書き出す度にメッセージを返します。
-スタンバイが、プライマリ上の<varname>synchronous_standby_names</>で指定したものと最初に一致するスタンバイである場合、そのスタンバイからの応答メッセージがコミットレコードの受領を確認するまでの待機を解除するために使用されます。
-これらのパラメータにより管理者はどのスタンバイサーバが同期スタンバイとすべきかを指定することができます。
+スタンバイにて<varname>wal_receiver_status_interval</>がゼロに設定されていない限り、スタンバイは新しいWALデータの塊がディスクに書き出される度に応答メッセージを返します。
+<varname>synchronous_commit</>が<literal>remote_apply</>に設定されている場合には、コミットレコードが再生され、そのトランザクションが可視化されたときに応答メッセージを返します。
+スタンバイが、プライマリ上の優先順リストである<varname>synchronous_standby_names</>から同期スタンバイとして選ばれた時は、いつコミットレコードの受領を確認ために待機しているトランザクションを解放すべきかを決めるために、他の同期スタンバイとともにそれらスタンバイからの応答メッセージが考慮されます。
+これらのパラメータにより、管理者はどのスタンバイサーバを同期スタンバイとすべきかを指定することができます。
 同期レプリケーションの設定は主にマスタでなされることに注意してください。
-指名されたスタンバイは直接マスターサーバに接続される必要があります。つまり、マスターサーバは下流サーバがカスケードレプリケーションで使用されているかについて何も知りません。
+指名されたスタンバイは直接マスターサーバに接続される必要があります。
+つまり、カスケードレプリケーションを使用している下流スタンバイサーバについて、マスターサーバは何も知りません。
    </para>
 
    <para>
@@ -1756,17 +1758,23 @@ primary_slot_name = 'node_a_slot'
     Data loss could only occur if both the primary and the standby crash and
     the database of the primary gets corrupted at the same time.
 -->
-<varname>synchronous_commit</>を<literal>remote_write</>に設定することで、スタンバイサーバはコミットされたレコードをスタンバイサーバがメモリ上に受け取ったことを確認するまでコミットを待つようになります。しかし、これはスタンバイサーバのディスクへ書きこまれたことを待つわけではありません。
-これは、<literal>on</>と設定するより、提供される永続性は弱くなります。具体的には、スタンバイサーバは(<productname>PostgreSQL</> ではなく)オペレーティングシステムがクラッシュした場合にデータを失う可能性があります。
-しかし、この設定はトランザクションの応答時間を短くすることができます。データの損失は、プライマリサーバとスタンバイサーバが同時にクラッシュし、かつ、プライマリのデータベースが同時に壊れた場合にのみ発生します。
+<varname>synchronous_commit</>を<literal>remote_write</>に設定することで、個々のコミットは、スタンバイサーバがコミットされたレコードを受け取り、オペレーティングシステムに書きだしたことが確認できるまで待ちますが、スタンバイ上のディスクに吐き出すまでは待ちません。
+これは、<literal>on</>と設定するより、提供される永続性は弱くなります。
+具体的には、スタンバイサーバはオペレーティングシステムがクラッシュした場合にデータを失う可能性がありますが、<productname>PostgreSQL</>がクラッシュした場合にはデータを失いません。
+しかし、実用的にはこの設定はトランザクションの応答時間を短くすることができるので有用です。
+データの損失は、プライマリサーバとスタンバイサーバが同時にクラッシュし、かつ、プライマリのデータベースが同時に壊れた場合にのみ発生します。
    </para>
 
    <para>
+<!--
     Setting <varname>synchronous_commit</> to <literal>remote_apply</> will
     cause each commit to wait until the current synchronous standbys report
     that they have replayed the transaction, making it visible to user
     queries.  In simple cases, this allows for load balancing with causal
     consistency.
+-->
+<varname>synchronous_commit</>を<literal>remote_apply</>に設定することで、現在の同期スタンバイがトランザクションを再生し、ユーザから見えるようにしたと報告するまでは各々のコミットは待たされます。
+単純なケースでは、因果一貫性を保つ負荷分散を可能にします。
    </para>
 
    <para>
@@ -1776,16 +1784,20 @@ primary_slot_name = 'node_a_slot'
     shutdown until all outstanding WAL records are transferred to the currently
     connected standby servers.
 -->
-高速シャットダウンが要求された場合、ユーザは待機を停止します。
-しかし非同期レプリケーションを使用している時、送信中のWALレコードが現在接続しているスタンバイサーバに転送されるまで、サーバは完全に停止しません。
+高速シャットダウンが要求された場合、ユーザは待ち状態ではなくなります。
+しかし非同期レプリケーションを使用している時と同じく、送信中のWALレコードが現在接続しているスタンバイサーバに転送されるまで、サーバは完全に停止しません。
    </para>
 
    </sect3>
 
    <sect3 id="synchronous-replication-multiple-standbys">
+<!--
     <title>Multiple Synchronous Standbys</title>
+-->
+    <title>複数の同期スタンバイ</title>
 
    <para>
+<!--
     Synchronous replication supports one or more synchronous standby servers;
     transactions will wait until all the standby servers which are considered
     as synchronous confirm receipt of their data. The number of synchronous
@@ -1798,13 +1810,26 @@ primary_slot_name = 'node_a_slot'
     represent potential synchronous standbys. If any of the current
     synchronous standbys disconnects for whatever reason, it will be replaced
     immediately with the next-highest-priority standby.
+-->
+同期レプリケーションは、一つ以上の同期スタンバイサーバをサポートします。
+同期と見なされるすべてのスタンバイサーバがデータの受領を確認するまで、トランザクションは待機します。
+トランザクションが応答を待たなければならない同期スタンバイの数は、<varname>synchronous_standby_names</>で指定されます。
+また、このパラメータには、スタンバイの名前のリストを指定します。
+このリストは、同期スタンバイとして選ばれる個々のスタンバイの優先順位を決定します。
+リストの最初の方に名前が現れるスタンバイには高い優先順位が与えられ、同期と見なされます。
+リストの後の方に現れる他のスタンバイサーバは、潜在的な同期スタンバイであることを表します。
+何かの理由で現在の同期スタンバイのどれかが切断されると、直ちに次に優先順位の高いスタンバイが取って代わります。
    </para>
    <para>
+<!--
     An example of <varname>synchronous_standby_names</> for multiple
     synchronous standbys is:
+-->
+複数同期スタンバイの<varname>synchronous_standby_names</>の例を示します。
 <programlisting>
 synchronous_standby_names = '2 (s1, s2, s3)'
 </programlisting>
+<!--
     In this example, if four standby servers <literal>s1</>, <literal>s2</>,
     <literal>s3</> and <literal>s4</> are running, the two standbys
     <literal>s1</> and <literal>s2</> will be chosen as synchronous standbys
@@ -1813,6 +1838,11 @@ synchronous_standby_names = '2 (s1, s2, s3)'
     the role of synchronous standby when either of <literal>s1</> or
     <literal>s2</> fails. <literal>s4</> is an asynchronous standby since
     its name is not in the list.
+-->
+この例では、もし4つのスタンバイサーバ<literal>s1</>、<literal>s2</>、<literal>s3</>、<literal>s4</>が稼働中なら、<literal>s1</>と<literal>s2</>が同期スタンバイに選ばれます。
+それらの名前がスタンバイ名のリストの最初の方にあるからです。
+<literal>s3</>は潜在的な同期スタンバイで、<literal>s1</>あるいは<literal>s2</>が故障した時に同期スタンバイの役割を取って代わります。
+このリストに名前が載っていないので、<literal>s4</>は非同期スタンバイです。
    </para>
    </sect3>
 
@@ -1886,21 +1916,31 @@ synchronous_standby_names = '2 (s1, s2, s3)'
     <title>高可用性に関する検討</title>
 
    <para>
+<!--
     <varname>synchronous_standby_names</> specifies the number and
     names of synchronous standbys that transaction commits made when
     <varname>synchronous_commit</> is set to <literal>on</>,
     <literal>remote_apply</> or <literal>remote_write</> will wait for
     responses from. Such transaction commits may never be completed
     if any one of synchronous standbys should crash.
+-->
+<varname>synchronous_commit</>が、<literal>on</>、<literal>remote_apply</>、<literal>remote_write</>のいずれかに設定されている場合、<varname>synchronous_standby_names</>には、コミットされたトランザクションが応答を待つ同期スタンバイの数と名前を指定します。
+そのようなトランザクションのコミットは、同期スタンバイのどれかがクラッシュすると決して完了しないかもしれません。
    </para>
 
    <para>
+<!--
     The best solution for high availability is to ensure you keep as many
     synchronous standbys as requested. This can be achieved by naming multiple
     potential synchronous standbys using <varname>synchronous_standby_names</>.
     The standbys whose names appear earlier in the list will be used as
     synchronous standbys. Standbys listed after these will take over
     the role of synchronous standby if one of current ones should fail.
+-->
+高可用性のもっとも良い解決方法は、想定したのと同じ数の同期スタンバイを確実に確保することです。
+これは、<varname>synchronous_standby_names</>を使って同期スタンバイ候補を複数指定することによって実現できます。
+そのリストの最初の方に名前が上がっているスタンバイは、同期スタンバイとして使用されます。
+その後の方に名前が上がっているスタンバイは、同期スタンバイのどれかが故障した時に、その役割を取って代わります。
    </para>
 
    <para>
@@ -1915,9 +1955,9 @@ synchronous_standby_names = '2 (s1, s2, s3)'
     The standby is only able to become a synchronous standby
     once it has reached <literal>streaming</> state.
 -->
-スタンバイが最初にプライマリに付与された時、それはまだ適切に同期されていません。
+スタンバイが最初にプライマリに接続された時、それはまだ適切に同期されていません。
 これは<literal>catchup</>モードと呼ばれます。
-最初にスタンバイとプライマリ間の遅延がゼロになった時に、実時間<literal>streaming</>状態に移ります。
+一旦スタンバイとプライマリ間の遅延がゼロになると、実時間<literal>streaming</>状態に移ります。
 追従（catchup）期間はスタンバイが作成された直後は長くなるかもしれません。
 スタンバイが停止している場合、追従期間はスタンバイの停止期間にしたがって長くなります。
 スタンバイは、<literal>streaming</>状態に達した後でのみ、同期スタンバイになることができます。
@@ -1939,7 +1979,7 @@ synchronous_standby_names = '2 (s1, s2, s3)'
 コミットが受領通知を待機している間にプライマリが再起動した場合、プライマリデータベースが復旧した後、待機中のトランザクションは完全にコミットされたものと記録されます。
 すべてのスタンバイがプライマリのクラッシュ時点で送信中のWALデータのすべてを受信したかどうかを確認する方法はありません。
 トランザクションの一部は、プライマリではコミットされたものと表示されていたとしても、スタンバイではコミットされていないと表示されるかもしれません。
-PostgreSQLは、WALデータをスタンバイが安全に受信したことが分かるまで、アプリケーションは明示的なトランザクションコミットの成功に関する受領通知を受けとらないことを保証しています。
+PostgreSQLは、WALデータをすべてのスタンバイが安全に受信したことが分かるまで、アプリケーションは明示的なトランザクションコミットの成功に関する受領通知を受けとらないことを保証しています。
    </para>
 
    <para>
@@ -1950,7 +1990,8 @@ PostgreSQLは、WALデータをスタンバイが安全に受信したことが�
     in <varname>synchronous_standby_names</> (or disable it) and
     reload the configuration file on the primary server.
 -->
-最終スタンバイサーバを本当に失った場合、<varname>synchronous_standby_names</>を無効にし、プライマリサーバの設定ファイルを再読み込みしなければなりません。
+要求していた数の同期スタンバイを本当に確保できないときは、トランザクションが応答を待たなければならない同期スタンバイの数を、<varname>synchronous_standby_names</>から減らしてください（もしくは無効にします）。
+そして、プライマリサーバの設定ファイルを再読み込みしてください。
    </para>
 
    <para>
@@ -3182,8 +3223,8 @@ LOG:  database system is ready to accept read only connections
     conditions:
 
 -->
-一貫性に関する情報はプライマリでチェックポイント毎に一度記録されます。
-プライマリで<varname>wal_level</>が<literal>hot_standby</>もしくは<literal>logical</>に設定されていない間に書き込まれたWALを読み取っている時、ホットスタンバイを有効にすることはできません。
+一貫性に関する情報はプライマリでチェックポイント毎に一回記録されます。
+プライマリで<varname>wal_level</>が<literal>replica</>もしくは<literal>logical</>に設定されていなかった期間に書き込まれたWALを読み取っている間は、ホットスタンバイを有効にすることはできません。
 また、一貫性のある状態への到達は、以下の両方が存在する間遅延することがあります。
       <itemizedlist>
        <listitem>
