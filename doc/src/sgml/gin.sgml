@@ -689,9 +689,9 @@ NULLキーがこの関数に渡されることはありません。
 演算子クラスは、インデックス付けされた項目が問い合わせに一致するか確認する関数も提供しなければなりません。
 それは2つの方法で行なわれます。
 2値の<function>consistent</>関数と3値の<function>triConsistent</>関数です。
-<function>triConsistent</>が両方の機能を含みますので、triConsistentだけを提供しても十分です。
+<function>triConsistent</>が両方の機能を含みますので、<function>triConsistent</>だけを提供しても十分です。
 しかし、2値の亜種を計算するのが著しく安価であれば、両方を提供することは役に立つかもしれません。
-2値の亜種のみが提供されていれば、すべてのキーを取得する前にインデックス項目が一致しないことを確認することに基づく最適化の中には無効となるものもあります。 ★変更あり
+2値の亜種のみが提供されていれば、すべてのキーを取得する前にインデックス項目が一致しないことを確認することに基づく最適化の中には無効となるものもあります。
 
   <variablelist>
     <varlistentry>
@@ -788,12 +788,11 @@ NULLキーがこの関数に渡されることはありません。
        the match cannot be confirmed or refuted based on the known query keys,
        the function must return <literal>GIN_MAYBE</>.
 -->
-<function>triConsistent</>は<function>consistent</>と似ていますが、論理値<literal>check[]</>の代わりに、各キーに対して3つの可能な値があります。<literal>GIN_TRUE</>、<literal>GIN_FALSE</>、<literal>GIN_MAYBE</>です。
-<literal>GIN_FALSE</>と<literal>GIN_TRUE</>は通常の論理値と同じ意味です。
-<literal>GIN_MAYBE</>はそのキーの存在が分からないこと意味します。
-<literal>GIN_MAYBE</>値があれば、インデックス項目が対応する問い合わせキーを含むかどうかに関わらず、項目が一致する場合にのみ関数はGIN_TRUEを返すべきです。
-同様に、GIN_MAYBEを含むかどうかに関わらず項目が一致しない場合にのみ関数はGIN_FALSEを返さなければなりません。
-結果がGIN_MAYBE項目に依存する、すなわち、分かっている問い合わせキーに基づいて、一致することもしないことも確認できない場合には、関数はGIN_MAYBEを返さなければなりません。
+<function>triConsistent</>は<function>consistent</>と似ていますが、論理値<literal>check</>の代わりに、各キーに対して3つの可能な値があります。<literal>GIN_TRUE</>、<literal>GIN_FALSE</>、<literal>GIN_MAYBE</>です。
+<literal>GIN_FALSE</>と<literal>GIN_TRUE</>は通常の論理値と同じ意味であり、<literal>GIN_MAYBE</>はそのキーの存在が分からないこと意味します。
+<literal>GIN_MAYBE</>値があれば、インデックス項目が対応する問い合わせキーを含むかどうかに関わらず、項目が確実に一致する場合にのみ関数は<literal>GIN_TRUE</>を返すべきです。
+同様に、<literal>GIN_MAYBE</>を含むかどうかに関わらず項目が確実に一致しない場合にのみ関数は<literal>GIN_FALSE</>を返さなければなりません。
+結果が<literal>GIN_MAYBE</>項目に依存する、すなわち、分かっている問い合わせキーに基づいて、一致することもしないことも確認できない場合には、関数は<literal>GIN_MAYBE</>を返さなければなりません。
       </para>
       <para>
 <!--
@@ -802,7 +801,7 @@ NULLキーがこの関数に渡されることはありません。
        setting the <literal>recheck</> flag in the
        boolean <function>consistent</> function.
 -->
-<literal>check</>ベクターにGIN_MAYBE値がなければ、<literal>GIN_MAYBE</>戻り値は論理値の<function>consistent</>関数で<literal>recheck</>フラグを設定することと同じです。 ★変更あり？
+<literal>check</>ベクターに<literal>GIN_MAYBE</>値がなければ、<literal>GIN_MAYBE</>戻り値は論理値の<function>consistent</>関数で<literal>recheck</>フラグを設定することと同じです。
       </para>
      </listitem>
     </varlistentry>
@@ -877,8 +876,9 @@ NULLキーがこの関数に渡されることはありません。
 -->
 上記の各種<literal>Datum</>値の実データ型は、演算子クラスに依存して変動します。
 <function>extractValue</>に渡される項目値は常に演算子クラスの入力型であり、キー値はすべてそのクラスの<literal>STORAGE</>型でなければなりません。
-<function>extractQuery</>、<function>consistent</>および<function>triConsistent</>に渡される<literal>query</>引数は、戦略番号によって識別されるクラスのメンバ演算子の右辺入力型として指定されたものになります。
+<function>extractQuery</>、<function>consistent</>および<function>triConsistent</>に渡される<literal>query</>引数の型は、戦略番号によって識別されるクラスのメンバ演算子の右辺入力型です。
 正しい型のキー値がそこから抽出できる限り、これは項目の型と同じである必要はありません。
+しかしながら、この3つのサポート関数のSQL宣言では、実際の型は演算子に依存して何か他のものであるとしても、<literal>query</>引数には演算子クラスのインデックス付けされたデータ型を使うことを勧めます。
  </para>
 
 </sect1>
@@ -953,7 +953,7 @@ NULLキーがこの関数に渡されることはありません。
 1つのヒープ行の挿入または更新によりインデックスへの挿入が多く発生するという、転置インデックスの本質的な性質のため<acronym>GIN</acronym>インデックスの更新は低速になりがちです。
 （各キー用のヒープ行はインデックス付けされた項目から取り出されます。）
 <productname>PostgreSQL</productname> 8.4から<acronym>GIN</>は、新しいタプルを一時的なソートされていない、待機中の項目リストに挿入することにより、この作業の大部分を遅延させることができるようになりました。
-テーブルがバキュームされた時、または、待機中のリストが<xref linkend="guc-gin-pending-list-limit">よりも大きくなった時、初期のインデックス作成の際に使用されるものと同様の一括挿入技法を使用して、項目は主<acronym>GIN</acronym>データ構造に移動されます。
+テーブルがバキュームまたは自動解析された時、<function>gin_clean_pending_list</function>関数が呼ばれたとき、または、待機中のリストが<xref linkend="guc-gin-pending-list-limit">よりも大きくなった時、初期のインデックス作成の際に使用されるものと同様の一括挿入技法を使用して、項目は主<acronym>GIN</acronym>データ構造に移動されます。
 これは、バキュームのオーバーヘッドが追加されることを考慮したとしても、<acronym>GIN</acronym>インデックスの更新速度を著しく向上します。
 さらに、フォアグラウンドの問い合わせ処理ではなくバックグラウンド処理でこのオーバーヘッド作業を実行することができます。
   </para>
