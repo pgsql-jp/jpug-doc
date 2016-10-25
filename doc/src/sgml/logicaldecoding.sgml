@@ -21,7 +21,7 @@ PostgreSQLは、SQLによって実行された更新結果を外部のコンシ�
 
   <para>
 <!--
-   Changes are sent out in streams identified by logical replication slots. ★コンフリクト解消時に変更適用
+   Changes are sent out in streams identified by logical replication slots.
 -->
 更新結果はロジカルレプリケーションスロット(logical replication slots)で識別され、ストリームに送出されます。
   </para>
@@ -273,7 +273,7 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
      database.
 -->
 ロジカルレプリケーションの文脈ではスロットは、元のサーバで行われた変更と同じ順序でクライアント上でリプレイできるようなストリームを表します。
-それぞれのスロットは、単一のデータベース上の変更操作の連鎖をストリームとして流します。その際、それぞれの変更操作は厳密に一度だけ送出されます(ストリーム上で前方を覗き見る場合を除きます)。
+それぞれのスロットは、単一のデータベース上の変更操作の連鎖をストリームとして流します。
     </para>
 
     <note>
@@ -293,13 +293,11 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
      in a <productname>PostgreSQL</productname> cluster. Slots persist
      independently of the connection using them and are crash-safe.
 -->
-それぞれのレプリケーションスロットは<productname>PostgreSQL</productname>クラスタの中でユニークな識別子を持っています。スロットは、そのために使用される接続とは独立しており、クラッシュセーフです。
+それぞれのレプリケーションスロットは<productname>PostgreSQL</productname>クラスタの中で一意な識別子を持っています。スロットは、そのために使用される接続とは独立しており、クラッシュセーフです。
     </para>
 
     <para>
-<<<<<<< HEAD
 <!--
-=======
      A logical slot will emit each change just once in normal operation.
      The current position of each slot is persisted only at checkpoint, so in
      the case of a crash the slot may return to an earlier LSN, which will
@@ -312,16 +310,25 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
      The Replication Progress Tracking feature is designed for this purpose,
      refer to <link linkend="replication-origins">replication origins</link>.
 -->
-単一のデータベース中に、お互いに独立した複数のスロットが存在しても構いません。
-それぞれのスロットは自分自身の状態を持っており、データベース更新のストリーム上の別の場所から変更データを受信する異なる消費者があり得ます。
-多くのアプリケーションにとっては、各消費者に対して個別のスロットが必要となるでしょう。 ★変更あり
+ロジカルスロットは、通常の操作においては、各々の変更操作を一度だけ送出します。
+それぞれのスロットにおける現在位置は、チェックポイントのときにだけ永続的になります。
+ですからクラッシュすると、スロットは以前のLSNに戻ってしまうかもしれませんし、サーバの再起動時には最近の変更が再送されることになります。
+ロジカルデコーディングのクライアントは、同じメッセージを複数回扱うことによる好ましくない結果を避けることに対して責任を追っています。
+クライアントはデコーディングの際に最後に確認したLSNを記録し、繰り返されるデータをスキップしたり、（レプリケーションプロトコルを使う場合に）サーバに開始時点を決めさせるのではなく、記録しておいたLSNからデコーディングを始めるように希望するかもしれません。
+レプリケーション進捗追跡機能はこの目的のために設計されています。
+<link linkend="replication-origins">replication origins</link>を参照してください。
     </para>
 
     <para>
+<!--
      Multiple independent slots may exist for a single database. Each slot has
      its own state, allowing different consumers to receive changes from
      different points in the database change stream. For most applications, a
      separate slot will be required for each consumer.
+-->
+単一のデータベース中に、お互いに独立した複数のスロットが存在しても構いません。
+それぞれのスロットは自分自身の状態を持っており、データベース更新のストリーム上の別の場所から変更データを受信する異なる消費者があり得ます。
+多くのアプリケーションにとっては、各消費者に対して個別のスロットが必要となるでしょう。
     </para>
 
     <para>
@@ -918,6 +925,7 @@ typedef void (*LogicalDecodeMessageCB) (
     const char *message
 );
 </programlisting>
+<!--
       The <parameter>txn</parameter> parameter contains meta information about
       the transaction, like the time stamp at which it has been committed and
       its XID. Note however that it can be NULL when the message is
@@ -929,11 +937,22 @@ typedef void (*LogicalDecodeMessageCB) (
       which can be used for identifying interesting messages for the current
       plugin. And finally the <parameter>message</parameter> parameter holds
       the actual message of <parameter>message_size</parameter> size.
+-->
+<parameter>txn</parameter>パラメータは、コミット時のタイムスタンプとXIDのような、トランザクションに関するメタ情報を含んでいます。
+ただし、そのメッセージがトランザクション扱いではなく、メッセージをログしたトランザクションにXIDが割り当てられてない場合はNULLになることに注意してください。
+<parameter>lsn</parameter>は、メッセージに対応するWALの位置です。
+<parameter>transactional</parameter>は、メッセージがトランザクションとして送られたものかどうかを表しています。
+<parameter>prefix</parameter>はnull終端された任意の接頭辞で、現在のプラグインが興味のあるメッセージを特定するために利用できます。
+最後に、<parameter>message</parameter>パラメータは、大きさが<parameter>message_size</parameter>の、実際のメッセージを保持します。
      </para>
      <para>
+<!--
       Extra care should be taken to ensure that the prefix the output plugin
       considers interesting is unique. Using name of the extension or the
       output plugin itself is often a good choice.
+-->
+出力プラグインが利用を考慮している接頭辞がユニークになるように、特に注意を払ってください。
+拡張の名前か、出力プラグインの名前を使うのが良い場合が多いです。
      </para>
     </sect3>
 
