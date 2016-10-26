@@ -116,8 +116,7 @@ PREPARE <replaceable class="PARAMETER">name</replaceable> [ ( <replaceable class
    to plan and rewrite but relatively expensive to execute, the
    performance advantage of prepared statements will be less noticeable.
 -->
-★原文変更あり
-プリペアド文の利点を最大限に発揮できるのは、単一のセッションで同類の問い合わせを多数実行する場合です。
+プリペアド文は潜在的には、単一のセッションで同類の問い合わせを多数実行する場合に、パフォーマンスにおける最大の利益がえられます。
 パフォーマンスの違いは、文の書き換えや実行計画が複雑なほど顕著になるでしょう。
 例えば、問い合わせに多数のテーブルの結合が含まれている場合や、いくつものルールを適用しなければならない場合などが考えられます。
 書き換えおよび実行計画が比較的単純で、実行コストが高い文の場合は、プリペアド文の効果はそれほど現れないでしょう。
@@ -202,11 +201,11 @@ PREPARE <replaceable class="PARAMETER">name</replaceable> [ ( <replaceable class
    than the generic plan, even after adding planning overhead, that the
    generic plan might never be used.
 -->
-★原文変更あり
-プリペアド文が何度も実行される場合、サーバは最終的に、毎回計画を再作成するのではなく、一般的な計画を保存し再利用することに決定する可能性があります。
+プリペアド文では、提供された<command>EXECUTE</command>の値に対してそれぞれ再計画するのでなく、一般的な計画を利用することができます。
 プリペアド文がパラメータを持たない場合、これは即座に起こります。
-パラメータを持つ場合は、一般的な計画がパラメータ値に合わせた計画に比べて大して高価ではないように見える場合に、これが起こります。
-一般化された計画は典型的には、問い合わせの性能が提供された特定のパラメータ値に大きな影響を受けない場合のみに選ばれます。
+パラメータを持つ場合は、5回以上の実行の後で、予測されるコストの平均（計画のオーバーヘッドを含む）が一般的な計画のコスト予測よりも高価である計画が生成されたときに、これが起こります。
+ひと度、一般的な計画が選ばれれば、そのプリペアド文が存続する間は、それが利用されます。
+多くの重複する値がある列で、稀な値を指定した<command>EXECUTE</command>を実行すると、計画のオーバーヘッドを加えた後でも、一般的な計画よりもずっと安価な独自計画が生成できるため、一般的な計画が決して使われなくなるかもしれません。
   </para>
 
   <para>
@@ -221,7 +220,10 @@ PREPARE <replaceable class="PARAMETER">name</replaceable> [ ( <replaceable class
    columns and specification of non-existent values affects the average
    plan cost, and hence if and when a generic plan is chosen.
 -->
-★この節、追加
+一般的な計画では、<command>EXECUTE</command>に提供される各値は、列の個別の値の1つで、列の値は均一に分散していることを仮定します。
+例えば、統計情報が列の3つの個別値を記録している場合、一般的な計画では列の同値比較において、処理される行の33%にマッチすると仮定します。
+列の統計について、一般的な計画では、一意列の選択性について正確に計算することも許しています。
+均一に分散していない列における比較や、存在しない値の指定は、平均的な計画のコストに影響を与えるため、一般的な計画が選択されるかどうか、また一般的な計画がいつ選択されるかにも影響します。
   </para>
 
   <para>
@@ -235,9 +237,9 @@ PREPARE <replaceable class="PARAMETER">name</replaceable> [ ( <replaceable class
    The row estimates in the generic plan reflect the selectivity
    computed for the parameters.
 -->
-プリペアド文に対して<productname>PostgreSQL</productname>が使用する問い合わせ計画を検証するためには、<xref linkend="sql-explain">を使用してください。
-一般的な計画が使用される場合には、<literal>$<replaceable>n</></literal>というパラメータ記号が含まれ、独自計画が使用される場合は現在のパラメータの実値で置換されます。
-★原文変更あり
+プリペアド文に対して<productname>PostgreSQL</productname>が使用する問い合わせ計画を検証するためには、<xref linkend="sql-explain">、例えば<command>EXPLAIN EXECUTE</>を使用してください。
+一般的な計画が使用される場合には、<literal>$<replaceable>n</></literal>というパラメータ記号が含まれ、独自計画が使用される場合は提供されたパラメータの値で置換されます。
+一般的な計画での行推定は、そのパラメータに対して計算した選択性を反映したものになります。
   </para>
 
   <para>

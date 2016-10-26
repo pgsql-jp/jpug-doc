@@ -31,7 +31,7 @@
 テーブルを削除したり再作成したり、列の追加および値の挿入や更新をすることは可能ですが、これらの操作でデータベースシステムを台なしにしてしまう可能性もあります。
 通常手作業でシステムカタログを変更してはいけません。
 その代わりとしてSQLコマンドを使用します（例えば<command>CREATE DATABASE</command>により<structname>pg_database</structname>カタログに1行挿入し、ディスク上にデータベースを実際に作成します）。
-しかしインデックスアクセスメソッドを追加するような特に難易度の高い操作の時などの例外があります。★変更あり
+しかし特に難易度の高い操作の時などの例外がありますが、それらの多くは時間と共にSQLコマンドとして利用可能となっており、それゆえシステムカタログを直接操作する必要は無くなってきています。
   </para>
 
  <sect1 id="catalogs-overview">
@@ -290,7 +290,10 @@
 
      <row>
       <entry><link linkend="catalog-pg-init-privs"><structname>pg_init_privs</structname></link></entry>
+<!--
       <entry>object initial privileges</entry>
+-->
+      <entry>オブジェクトの初期権限</entry>
      </row>
 
      <row>
@@ -637,19 +640,28 @@
       <entry><structfield>aggcombinefn</structfield></entry>
       <entry><type>regproc</type></entry>
       <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
+<!--
       <entry>Combine function (zero if none)</entry>
+-->
+      <entry>結合関数（ない時はゼロ）</entry>
      </row>
      <row>
       <entry><structfield>aggserialfn</structfield></entry>
       <entry><type>regproc</type></entry>
       <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
+<!--
       <entry>Serialization function (zero if none)</entry>
+-->
+      <entry>直列化関数（ない時はゼロ）</entry>
      </row>
      <row>
       <entry><structfield>aggdeserialfn</structfield></entry>
       <entry><type>regproc</type></entry>
       <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
+<!--
       <entry>Deserialization function (zero if none)</entry>
+-->
+      <entry>逆直列化関数（ない時はゼロ）</entry>
      </row>
      <row>
       <entry><structfield>aggmtransfn</structfield></entry>
@@ -809,9 +821,9 @@
    Currently, only indexes have access methods.  The requirements for index
    access methods are discussed in detail in <xref linkend="indexam">.
 -->
-<structname>pg_am</structname>カタログにはインデックスアクセスメソッドの情報が格納されます。
-システムがサポートするインデックスアクセスメソッド毎に1つの行が存在します。
-このカタログの内容については<xref linkend="indexam">で詳しく説明します。★変更あり
+<structname>pg_am</structname>カタログにはリレーションアクセスメソッドの情報が格納されます。
+システムがサポートするアクセスメソッド毎に1つの行が存在します。
+現在、インデックスのみがアクセスメソッドを持ちます。インデックスアクセスメソッドの要求事項は<xref linkend="indexam">にて詳しく説明します。
   </para>
 
   <table>
@@ -862,8 +874,11 @@
       <entry><type>oid</type></entry>
       <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
       <entry>
+<!--
        OID of a handler function that is responsible for supplying information
        about the access method
+-->
+アクセスメソッドについての情報の提供に責任を持つハンドラ関数のOID
       </entry>
      </row>
 
@@ -872,8 +887,12 @@
       <entry><type>char</type></entry>
       <entry></entry>
       <entry>
+<!--
        Currently always <literal>i</literal> to indicate an index access
        method; other values may be allowed in future
+-->
+インデックスアクセスメソッドを示す文字列の<literal>i</literal>。
+現在は常に<literal>i</literal>ですが、将来的に他の値が許容されるかもしれません。
       </entry>
      </row>
     </tbody>
@@ -882,12 +901,18 @@
 
   <note>
    <para>
+<!--
     Before <productname>PostgreSQL</> 9.6, <structname>pg_am</structname>
     contained many additional columns representing properties of index access
     methods.  That data is now only directly visible at the C code level.
     However, <function>pg_index_column_has_property()</function> and related
     functions have been added to allow SQL queries to inspect index access
     method properties; see <xref linkend="functions-info-catalog-table">.
+-->
+<productname>PostgreSQL</>9.6以前では、<structname>pg_am</structname>にはインデックスアクセスメソッドのプロパティを表す多くの追加列が含まれていました。
+そのデータは今ではCコードレベルで直接参照できるのみです。
+しかし、<function>pg_index_column_has_property()</function>関数と関連する関数群が、インデックスアクセスメソッドのプロパティを検査するためのSQLクエリを許容するために追加されました。
+<xref linkend="functions-info-catalog-table">を参照してください。
    </para>
   </note>
 
@@ -2656,10 +2681,10 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
        <literal>f</> = all columns
        <literal>i</> = index with <structfield>indisreplident</structfield> set, or default
 -->
-       行に<quote>replica identity</>フォームを使ったカラム。
+       行に<quote>replica identity</>フォームを使った列。
        <literal>d</> デフォルト（もしあれば主キー）、
        <literal>n</> 無し、
-       <literal>f</> 全カラム、
+       <literal>f</> 全ての列、
        <literal>i</> インデックスと <structfield>indisreplident</structfield>のセット、またはデフォルト
       </entry>
      </row>
@@ -2772,7 +2797,7 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
 <!--
    <title><structname>pg_collation</> Columns</title>
 -->
-   <title><structname>pg_collation</> の列</title>
+   <title><structname>pg_collation</>の列</title>
 
    <tgroup cols="4">
     <thead>
@@ -4164,7 +4189,7 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
        this dependency type acts the same as an internal dependency, but
        it's kept separate for clarity and to simplify <application>pg_dump</>.
 -->
-依存するオブジェクトは参照されるオブジェクトの<firstterm>extension</>のメンバです（<link linkend="catalog-pg-extension"><structname>pg_extension</structname></link>参照）。
+依存するオブジェクトは参照されるオブジェクトの<firstterm>拡張</>のメンバです（<link linkend="catalog-pg-extension"><structname>pg_extension</structname></link>参照）。
 依存するオブジェクトは参照されるオブジェクトに対する<command>DROP EXTENSION</>経由でのみ削除することができます。
 機能的にはこの種類の依存関係は内部依存関係と同様に動作しますが、明確さと<application>pg_dump</>を単純化するために別々に保持されます。
       </para>
@@ -4175,11 +4200,15 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
      <term><symbol>DEPENDENCY_AUTO_EXTENSION</> (<literal>x</>)</term>
      <listitem>
       <para>
+<!--
        The dependent object is not a member of the extension that is the
        referenced object (and so should not be ignored by pg_dump), but
        cannot function without it and should be dropped when the
        extension itself is. The dependent object may be dropped on its
        own as well.
+-->
+依存するオブジェクトは参照されるオブジェクトの拡張のメンバではありません（そしてそれゆえpg_dumpによって無視されません）が、参照されるオブジェクトなしに機能することが出来ず、拡張自体が削除される時に削除されるでしょう。
+依存するオブジェクトは、同様にそれ自身で削除されるかもしれません。
       </para>
      </listitem>
     </varlistentry>
@@ -5473,11 +5502,12 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
    for each object in the database which has a non-default (non-NULL)
    initial set of privileges.
 -->
-<structname>pg_language</structname>カタログはユーザ定義関数やストアドプロシージャを作成することができる言語を登録します。
-言語ハンドラの詳細は<xref linkend="sql-createlanguage">と<xref linkend="xplang">を参照してください。 ★変更あり
+<structname>pg_init_privs</>カタログは、システム内のオブジェクトの初期権限についての情報を記録します。
+データベース内の初期権限のセットがデフォルトでない（NULLでない）オブジェクトごとに1つの記述があります。
   </para>
 
   <para>
+<!--
    Objects can have initial privileges either by having those privileges set
    when the system is initialized (by <application>initdb</>) or when the
    object is created during a <command>CREATE EXTENSION</command> and the
@@ -5489,18 +5519,28 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
    <literal>privtype</literal> column indicates if the initial privilege was
    set by <application>initdb</> or during a
    <command>CREATE EXTENSION</command> command.
+-->
+オブジェクトは、システムが（<application>initdb</>によって）初期化された時、またはオブジェクトが<command>CREATE EXTENSION</command>の実行中に作成され、拡張スクリプトが<command>GRANT</command>コマンドを使用して初期権限をシステムにセットする時に初期権限を持つことができます。
+システムは、拡張スクリプトの実行中に権限の記録を自動的に処理することや、拡張作成者が権限を記録させるためにスクリプトの中で<command>GRANT</command>と<command>REVOKE</command>ステートメントの使用のみを必要とすることに注意してください。
+<literal>privtype</literal>列は、初期権限が<application>initdb</>によって設定されたか、もしくは<command>CREATE EXTENSION</command>コマンド実行中に設定されたかを表示します。
   </para>
 
   <para>
+<!--
    Objects which have initial privileges set by <application>initdb</> will
    have entries where <literal>privtype</literal> is
    <literal>'i'</literal>, while objects which have initial privileges set
    by <command>CREATE EXTENSION</command> will have entries where
    <literal>privtype</literal> is <literal>'e'</literal>.
+-->
+<application>initdb</>によって設定された初期権限を持つオブジェクトは、<literal>privtype</literal>が<literal>'i'</literal>となり、<command>CREATE EXTENSION</command>によって設定された初期権限を持つオブジェクトは、<literal>privtype</literal>が<literal>'e'</literal>となります。
   </para>
 
   <table>
+<!--
    <title><structname>pg_init_privs</> Columns</title>
+-->
+   <title><structname>pg_init_privs</>の列</title>
 
    <tgroup cols="4">
     <thead>
@@ -5522,15 +5562,22 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
      <row>
       <entry><structfield>objoid</structfield></entry>
       <entry><type>oid</type></entry>
+<!--
       <entry>any OID column</entry>
       <entry>The OID of the specific object</entry>
+-->
+      <entry>いずれかのOID列</entry>
+      <entry>オブジェクトを特定するOID</entry>
      </row>
 
      <row>
       <entry><structfield>classoid</structfield></entry>
       <entry><type>oid</type></entry>
       <entry><literal><link linkend="catalog-pg-class"><structname>pg_class</structname></link>.oid</literal></entry>
+<!--
       <entry>The OID of the system catalog the object is in</entry>
+-->
+      <entry>オブジェクトが存在するシステムカタログのOID</entry>
      </row>
 
      <row>
@@ -5538,10 +5585,14 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
       <entry><type>int4</type></entry>
       <entry></entry>
       <entry>
+<!--
        For a table column, this is the column number (the
        <structfield>objoid</> and <structfield>classoid</> refer to the
        table itself).  For all other object types, this column is
        zero.
+-->
+テーブル列においては、列番号となります（<structfield>objoid</>と<structfield>classoid</>はテーブル自身を参照します）。
+その他すべてのオブジェクト型においては、この列はゼロとなります。
       </entry>
      </row>
 
@@ -5550,7 +5601,11 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
       <entry><type>char</type></entry>
       <entry></entry>
       <entry>
+<!--
        A code defining the type of initial privilege of this object; see text
+-->
+オブジェクトの初期権限の型を設定しているコード。
+テキストを参照してください。
       </entry>
      </row>
 
@@ -5559,10 +5614,14 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
       <entry><type>aclitem[]</type></entry>
       <entry></entry>
       <entry>
+<!--
        The initial access privileges; see
        <xref linkend="sql-grant"> and
        <xref linkend="sql-revoke">
        for details
+-->
+初期アクセス権限。
+詳細は<xref linkend="sql-grant">と<xref linkend="sql-revoke">を参照してください。
       </entry>
      </row>
 
@@ -5581,22 +5640,35 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
   </indexterm>
 
   <para>
+<!--
    The catalog <structname>pg_language</structname> registers
    languages in which you can write functions or stored procedures.
    See <xref linkend="sql-createlanguage">
    and <xref linkend="xplang"> for more information about language handlers.
+-->
+<structname>pg_language</structname>カタログはユーザ定義関数やストアドプロシージャを作成することができる言語を登録します。
+言語ハンドラの詳細は<xref linkend="sql-createlanguage">と<xref linkend="xplang">を参照してください。
   </para>
 
   <table>
+<!--
    <title><structname>pg_language</> Columns</title>
+-->
+   <title><structname>pg_language</>の列</title>
 
    <tgroup cols="4">
     <thead>
      <row>
+<!--
       <entry>Name</entry>
       <entry>Type</entry>
       <entry>References</entry>
       <entry>Description</entry>
+-->
+      <entry>名前</entry>
+      <entry>型</entry>
+      <entry>参照先</entry>
+      <entry>説明</entry>
      </row>
     </thead>
 
@@ -5605,21 +5677,30 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
       <entry><structfield>oid</structfield></entry>
       <entry><type>oid</type></entry>
       <entry></entry>
+<!--
       <entry>Row identifier (hidden attribute; must be explicitly selected)</entry>
+-->
+      <entry>行識別子（隠し属性です。明示的に選択しなければなりません）</entry>
      </row>
 
      <row>
       <entry><structfield>lanname</structfield></entry>
       <entry><type>name</type></entry>
       <entry></entry>
+<!--
       <entry>Name of the language</entry>
+-->
+      <entry>言語名称</entry>
      </row>
 
      <row>
       <entry><structfield>lanowner</structfield></entry>
       <entry><type>oid</type></entry>
       <entry><literal><link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.oid</literal></entry>
+<!--
       <entry>Owner of the language</entry>
+-->
+      <entry>言語の所有者</entry>
      </row>
 
      <row>
@@ -5627,11 +5708,15 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
       <entry><type>bool</type></entry>
       <entry></entry>
       <entry>
+<!--
        This is false for internal languages (such as
        <acronym>SQL</acronym>) and true for user-defined languages.
        Currently, <application>pg_dump</application> still uses this
        to determine which languages need to be dumped, but this might be
        replaced by a different mechanism in the future.
+-->
+（<acronym>SQL</acronym>のような）内蔵言語ではfalseとなり、ユーザ定義言語ではtrueとなります。
+現在、<application>pg_dump</application>ではどの言語がダンプされる必要があるかを特定するためにこれを利用していますが、近い将来に異なるメカニズムによって置き換わる可能性があります。
       </entry>
      </row>
 
@@ -5640,10 +5725,15 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
       <entry><type>bool</type></entry>
       <entry></entry>
       <entry>
+<!--
        True if this is a trusted language, which means that it is believed
        not to grant access to anything outside the normal SQL execution
        environment.  Only superusers can create functions in untrusted
        languages.
+-->
+信頼できる言語の場合はtrueとなります。
+信頼できる言語とは、通常のSQL実行環境の外側にある、いかなる言語へのアクセス許可も付与されていないと信用できるものとなります。
+スーパユーザのみが信頼されない言語で関数を作成することができます。
       </entry>
      </row>
 
@@ -5652,10 +5742,14 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
       <entry><type>oid</type></entry>
       <entry><literal><link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.oid</literal></entry>
       <entry>
+<!--
        For noninternal languages this references the language
        handler, which is a special function that is responsible for
        executing all functions that are written in the particular
        language
+-->
+非内蔵言語用の、言語ハンドラを参照します。
+これは、この言語で記述されたすべての関数を実行するための責任を持つ特別な関数です。
       </entry>
      </row>
 
@@ -7052,6 +7146,7 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
       <entry><type>char</type></entry>
       <entry></entry>
       <entry>
+<!--
        <structfield>proparallel</structfield> tells whether the function
        can be safely run in parallel mode.
        It is <literal>s</literal> for functions which are safe to run in
@@ -7061,6 +7156,13 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
        parallel worker processes cannot invoke these functions.
        It is <literal>u</literal> for functions which are unsafe in parallel
        mode; the presence of such a function forces a serial execution plan.
+-->
+<structfield>proparallel</structfield>は関数が並列モードにて安全に実行できるかを示します。
+<literal>s</literal>は、制限なしに並列モードにて実行することが安全である関数を表します。
+<literal>r</literal>は、並列モードにて実行可能な関数を表しますが、実行は並列グループリーダに制限されます。
+並列ワーカプロセスはこれらの関数を呼び出すことができません。
+<literal>u</literal>は、並列モードにて安全ではない関数を表します。
+このような関数が存在すると、直列的な実行プランが強制されます。
       </entry>
      </row>
 
@@ -7428,7 +7530,10 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
 
   <table>
 
+<!--
    <title><structname>pg_replication_origin</structname> Columns</title>
+-->
+   <title><structname>pg_replication_origin</structname>の列</title>
 
    <tgroup cols="4">
     <thead>
@@ -8132,7 +8237,7 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
 <!--
    <title><structname>pg_shseclabel</structname> Columns</title>
 -->
-   <title><structname>pg_shseclabel</structname> の列</title>
+   <title><structname>pg_shseclabel</structname>の列</title>
    <tgroup cols="4">
     <thead>
      <row>
@@ -10455,7 +10560,10 @@ N番目の<quote>スロット</quote>に保存されている統計情報を引�
 
      <row>
       <entry><link linkend="view-pg-config"><structname>pg_config</structname></link></entry>
+<!--
       <entry>compile-time configuration parameters</entry>
+-->
+      <entry>コンパイル時の設定パラメータ</entry>
      </row>
 
      <row>
@@ -10492,7 +10600,10 @@ N番目の<quote>スロット</quote>に保存されている統計情報を引�
 
      <row>
       <entry><link linkend="view-pg-locks"><structname>pg_locks</structname></link></entry>
+<!--
       <entry>locks currently held or awaited</entry>
+-->
+      <entry>現在保持されている、または待っているロック</entry>
      </row>
 
      <row>
@@ -10887,6 +10998,7 @@ N番目の<quote>スロット</quote>に保存されている統計情報を引�
   </indexterm>
 
   <para>
+<!--
    The view <structname>pg_config</structname> describes the
    compile-time configuration parameters of the currently installed
    version of <productname>PostgreSQL</>. It is intended, for example, to
@@ -10895,15 +11007,25 @@ N番目の<quote>スロット</quote>に保存されている統計情報を引�
    files and libraries. It provides the same basic information as the
    <xref linkend="app-pgconfig"> <productname>PostgreSQL</> client
    application.
+-->
+<structname>pg_config</structname>ビューは、現在インストールされている<productname>PostgreSQL</>のバージョンのコンパイル時設定パラメータを表示します。
+例えば、<productname>PostgreSQL</>とインタフェースしたいソフトウェアパッケージによって、要求されるヘッダファイルとライブラリを探す手助けとなるために使用されることが意図されます。
+<productname>PostgreSQL</>クライアントアプリケーションである<xref linkend="app-pgconfig">と同様な基本的な情報を提供します。
   </para>
 
   <para>
+<!--
    By default, the <structname>pg_config</structname> view can be read
    only by superusers.
+-->
+デフォルトで、<structname>pg_config</structname>ビューはスーパユーザのみ参照可能です。
   </para>
 
   <table>
+<!--
    <title><structname>pg_config</> Columns</title>
+-->
+   <title><structname>pg_config</>の列</title>
    <tgroup cols="3">
     <thead>
      <row>
@@ -10917,13 +11039,19 @@ N番目の<quote>スロット</quote>に保存されている統計情報を引�
      <row>
       <entry><structfield>name</structfield></entry>
       <entry><type>text</type></entry>
+<!--
       <entry>The parameter name</entry>
+-->
+      <entry>パラメータ名</entry>
      </row>
 
      <row>
       <entry><structfield>setting</structfield></entry>
       <entry><type>text</type></entry>
+<!--
       <entry>The parameter value</entry>
+-->
+      <entry>パラメータ値</entry>
      </row>
     </tbody>
    </tgroup>
@@ -11143,7 +11271,7 @@ SQLから<xref linkend="sql-declare">文経由。
    By default, the <structname>pg_file_settings</structname> view can be read
    only by superusers.
 -->
-<structname>pg_file_settings</structname>ビューはスーパーユーザだけが読むことができます。
+デフォルトで、<structname>pg_file_settings</structname>ビューはスーパーユーザのみが参照可能です。
   </para>
 
   <table>
@@ -11446,7 +11574,7 @@ SQLから<xref linkend="sql-declare">文経由。
    database server.  See <xref linkend="mvcc"> for more discussion
    of locking.
 -->
-<structname>pg_locks</structname>ビューはデータベースサーバ内で開いているトランザクションにより獲得されたロックに関する情報へのアクセスを提供します。
+<structname>pg_locks</structname>ビューはデータベースサーバ内でアクティブなプロセスによって保持されたロックに関する情報へのアクセスを提供します。
 ロックに関するより詳細な説明は<xref linkend="mvcc">を参照してください。
   </para>
 
@@ -11459,8 +11587,8 @@ SQLから<xref linkend="sql-declare">文経由。
    for locks on it.  However, an object that currently has no locks on it
    will not appear at all.
 -->
-<structname>pg_locks</structname>にはロック対象となる進行中のオブジェクト、要求されたロックモード、および関連するトランザクション毎に1つの行を持ちます。
-ですから、もし複数のトランザクションがそのトランザクション上でロックを保持していたりロックを待機している場合には、同じロック対象オブジェクトが数多く出現することがあります。
+<structname>pg_locks</structname>にはロック対象となる進行中のオブジェクト、要求されたロックモード、および関連するプロセス毎に1つの行を持ちます。
+ですから、もし複数のプロセスが同じロック対象オブジェクトに対してロックを保持していたりロックを待機している場合には、同じロック対象オブジェクトが何度も出現することがあります。
 しかし現在ロックされていないオブジェクトはまったく現れません。
   </para>
 
@@ -11721,12 +11849,12 @@ SQLから<xref linkend="sql-declare">文経由。
    released (or a deadlock situation is detected).  A single process can be
    waiting to acquire at most one lock at a time.
 -->
-指定されたトランザクションにより所有されているロックを表す行内では<structfield>granted</structfield>は真です。
-偽の場合はこのロックを獲得するため現在トランザクションが待機中であることを示しています。
-つまり、同じロック対象のオブジェクトに対して何らかの他のトランザクションが競合するロックを獲得していることを意味します。
-待機中のトランザクションはその別のトランザクションがロックを解放するまで活動を控えます。
+指定されたプロセスにより保持されているロックを表す行内では<structfield>granted</structfield>は真です。
+偽の場合はこのロックを獲得するため現在プロセスが待機中であることを示しています。
+つまり、同じロック対象のオブジェクトに対して何らかの他のプロセスが競合するロックを保持、もしくは待機していることを意味します。
+待機中のプロセスはその別のプロセスがロックを解放するまで活動を控えます。
 （もしくはデッドロック状態が検出されることになります）。
-単一トランザクションでは一度に多くても1つのロックを獲得するために待機します。 ★変更あり
+単一プロセスでは一度に多くても1つのロックを獲得するために待機します。
   </para>
 
   <para>
@@ -11741,11 +11869,11 @@ SQLから<xref linkend="sql-declare">文経由。
    (either virtual or permanent ID depending on the situation). That will
    succeed only when the other transaction terminates and releases its locks.
 -->
-すべてのトランザクションはそのすべての過程完了までその仮想トランザクションID上に排他的ロックをかけます。
+トランザクションの実行中は常に、サーバプロセスはその仮想トランザクションID上に排他的ロックをかけます。
 もしある永続IDがトランザクションに割り当てられる（普通はトランザクションがデータベースの状態を変化させるときのみに発生します）と、トランザクションは終了するまで永続トランザクションIDに対して排他ロックを保持します。
-あるトランザクションが他のトランザクションを特定して待機しなければならないと判断した場合、他とみなしたトランザクションのIDに対し共有ロックを獲得するように試み、目的を達します。
+あるトランザクションが他のトランザクションを特定して終了まで待機しなければならないと判断した場合、他とみなしたトランザクションのIDに対し共有ロックを獲得するように試み、目的を達します。
 （仮想IDであるか永続IDであるかは、その状況によります）。
-これは、他とみなしたトランザクションが完了し、そしてロックを解放した場合のみ成功します。 ★変更あり
+これは、他とみなしたトランザクションが完了し、そしてロックを解放した場合のみ成功します。
   </para>
 
   <para>
@@ -11759,7 +11887,7 @@ SQLから<xref linkend="sql-declare">文経由。
 -->
 タプルはロック対象のオブジェクト種類ですが、行レベルロックについての情報はメモリではなく、ディスクに保存されます。
 よって行レベルロックは通常、このビューには現れません。
-もしトランザクションが行レベルロックの待ち状態である場合は、その行ロックを保持している永続トランザクションIDを待つ状態で、そのトランザクションはビューに現れます。
+もしプロセスが行レベルロックの待ち状態である場合は、その行ロックを保持している永続トランザクションIDを待つ状態で、そのトランザクションはビューに現れます。
   </para>
 
   <para>
@@ -11810,7 +11938,7 @@ SQLから<xref linkend="sql-declare">文経由。
    information on the session holding or awaiting each lock,
    for example
 -->
-ロック保持もしくは保持を待機しているセッションのさらなる情報を入手するため<link linkend="pg-stat-activity-view"><structname>pg_stat_activity</structname></link>ビューの<structfield>pid</structfield>列と<structfield>pid</structfield>列を結合することができます。
+それぞれのロックを保持もしくは待機しているセッションのさらなる情報を入手するため<link linkend="pg-stat-activity-view"><structname>pg_stat_activity</structname></link>ビューの<structfield>pid</structfield>列と<structfield>pid</structfield>列を結合することができます。
 例えば、このような感じです。
 <programlisting>
 SELECT * FROM pg_locks pl LEFT JOIN pg_stat_activity psa
@@ -11836,6 +11964,7 @@ SELECT * FROM pg_locks pl LEFT JOIN pg_prepared_xacts ppx
   </para>
 
   <para>
+<!--
    While it is possible to obtain information about which processes block
    which other processes by joining <structname>pg_locks</structname> against
    itself, this is very difficult to get right in detail.  Such a query would
@@ -11847,6 +11976,11 @@ SELECT * FROM pg_locks pl LEFT JOIN pg_prepared_xacts ppx
    the <function>pg_blocking_pids()</> function
    (see <xref linkend="functions-info-session-table">) to identify which
    process(es) a waiting process is blocked behind.
+-->
+<structname>pg_locks</structname>ビューとそれ自身の結合によって、どのプロセスが他のどのプロセスをブロックしているかの情報を入手することが可能ですが、同時に詳細な正しい情報を得ることは非常に困難です。
+このようなクエリはどのロックモードが他のものと衝突しているかについての知見を書き出すべきです。
+さらに悪いことに、<structname>pg_locks</structname>ビューは、ロック待ちキューにてどのプロセスが他のどのプロセスに先行しているかの情報を提供しない、またはどのプロセスが他のクライアントセッションのために動作している並列ワーカプロセスかの情報を提供しません。
+待機しているプロセスが、どのプロセスにブロックされているかを識別するためにより良い方法は、<function>pg_blocking_pids()</>関数（<xref linkend="functions-info-session-table">を参照してください）を使用することです。
   </para>
 
   <para>
@@ -12229,7 +12363,7 @@ SQL経由で作成された準備済み文では、これはクライアント�
        <literal>false</literal> if the statement was prepared via the
        frontend/backend protocol
 -->
-準備済み文が<command>PREPARE</command> SQL文経由で作成された場合は<literal>true</literal>、フロントエンド/バックエンドプロトコル経由で文が準備された場合は<literal>false</literal>
+準備済み文が<command>PREPARE</command> SQLコマンド経由で作成された場合は<literal>true</literal>、フロントエンド/バックエンドプロトコル経由で文が準備された場合は<literal>false</literal>
       </entry>
      </row>
     </tbody>
@@ -12637,9 +12771,9 @@ SQL経由で作成された準備済み文では、これはクライアント�
       not available anymore. <literal>NULL</> for physical slots.
       </entry>
 -->
-      <entry>★The address (<literal>LSN</literal>) up to which the logical
-      slot's consumer has confirmed receiving data. Data older than this is
-      not available anymore. <literal>NULL</> for physical slots.
+      <entry>利用者がデータの受信を確認できている論理スロットのアドレス（<literal>LSN</literal>)）。
+      これより古いデータは、もはや有効ではありません。
+      物理スロットの場合は<literal>NULL</>。
       </entry>
      </row>
     </tbody>
@@ -14086,10 +14220,14 @@ SQL経由で作成された準備済み文では、これはクライアント�
   </table>
 
   <para>
+<!--
    While most timezone abbreviations represent fixed offsets from UTC,
    there are some that have historically varied in value
    (see <xref linkend="datetime-config-files"> for more information).
    In such cases this view presents their current meaning.
+-->
+多くのタイムゾーンの省略形は、UTCからの固定されたオフセットで表現されている一方で、いくつかのものは歴史的にオフセット値が変化しています（詳細は<xref linkend="datetime-config-files">を参照してください）。
+このような場合には、それらの現在の意味を表示します。
   </para>
 
  </sect1>
@@ -14117,7 +14255,7 @@ SQL経由で作成された準備済み文では、これはクライアント�
 -->
 <structname>pg_timezone_names</structname>は、<command>SET TIMEZONE</>で認識される時間帯名称の一覧を提供します。
 ここには、その関連付けされた省略形、UTCオフセット、夏時間状況などが含まれます。
-（<productname>PostgreSQL</productname>は技術的には、うるう秒を扱いませんので、UTCではなく<acronym>UT1</>を使用します。）
+（<productname>PostgreSQL</productname>は技術的には、うるう秒を扱いませんので、UTCを使用しません。）
 <link linkend="view-pg-timezone-abbrevs"><structname>pg_timezone_abbrevs</structname></link>で示した省略形とは異なり、名前の多くが夏時間変換規則を意味しています。
 したがって、関連する情報はローカルなDST境界によって異なります。
 表示される情報は、現在の<function>CURRENT_TIMESTAMP</>に基づいて計算されたものです。
@@ -14334,7 +14472,10 @@ SQL経由で作成された準備済み文では、これはクライアント�
   </para>
 
   <table>
+<!--
    <title><structname>pg_user_mappings</> Columns</title>
+-->
+   <title><structname>pg_user_mappings</>の列</title>
 
    <tgroup cols="4">
     <thead>
