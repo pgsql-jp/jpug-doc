@@ -955,10 +955,14 @@ NUMERIC
     </para>
 
     <para>
+<!--
      When rounding values, the <type>numeric</type> type rounds ties away
      from zero, while (on most machines) the <type>real</type>
      and <type>double precision</type> types round ties to the nearest even
      number.  For example:
+-->
+値を丸める際、<type>numeric</type>型は0から離れるように丸めますが、一方で（ほとんどのマシンでは）<type>real</type>や<type>double precision</type>型ではその値に最も近い偶数に丸めます。
+以下に例を示します。:
 
 <programlisting>
 SELECT x,
@@ -1709,7 +1713,7 @@ SELECT '52093.89'::money::numeric::float8;
 -->
 空白で埋められる型を使用した場合の保存領域の増加、および、長さ制限付きの列に格納する際に長さを検査するためにいくつか余計なCPUサイクルが加わる点を別にして、これら3つの型の間で性能に関する差異はありません。
 他の一部のデータベースシステムでは<type>character(<replaceable>n</>)</type>には性能的な優位性がありますが、<productname>PostgreSQL</productname>ではこうした利点はありません。
-実際には、格納の際に追加のコストがあったり、ソートが遅かったりするため、<type>character(<replaceable>n</>)</type>は3つの中でもっとも低速です。★
+実際には、格納の際に追加のコストがあるため、<type>character(<replaceable>n</>)</type>は3つの中でもっとも低速です。
 多くの場合、代わりに<type>text</type>か<type>character varying</type>を使うのがお薦めです。
     </para>
    </tip>
@@ -5826,7 +5830,7 @@ SELECT 'a:1A fat:2B,4C cat:5D'::tsvector;
      normalization; it assumes the words it is given are normalized
      appropriately for the application.  For example,
 -->
-<type>tsvector</type>型自体は正規化を行わないことを理解することは重要です。
+<type>tsvector</type>型自体は単語の正規化を行わないことを理解することは重要です。
 与えられる単語はアプリケーションのために適切に正規化されていると仮定しています。
 以下に例を示します。
 
@@ -5884,20 +5888,30 @@ SELECT to_tsvector('english', 'The Fat Rats');
      specifies the distance between the two lexemes being searched
      for.  <literal>&lt;-&gt;</> is equivalent to <literal>&lt;1&gt;</>.
 -->
-<type>tsquery</type>の値には検索される語彙素が格納され、それらは<literal>&amp;</literal> (論理積)、<literal>|</literal> (論理和)、<literal>!</>(否定)論理演算子を遵守することで組み合わせられます。
-括弧を使用して演算子を強制的にグループ化することができます。★ 変更あり
+<type>tsquery</type>の値には検索される語彙素が格納されます。
+それらは論理演算子<literal>&amp;</literal> (論理積)、<literal>|</literal> (論理和)、<literal>!</>(否定)および語句検索演算子<literal>&lt;-&gt;</>(FOLLWED BY)を組み合わせることができます。
+FOLLOWED BY演算子には<literal>&lt;<replaceable>N</>&gt;</literal>という変化形もあり、<replaceable>N</>は２つの検索される語彙素の距離を指定する数値型の定数です。
+<literal>&lt;-&gt;</>と<literal>&lt;1&gt;</>は同じです。
     </para>
 
     <para>
+<!--
      Parentheses can be used to enforce grouping of these operators.
      In the absence of parentheses, <literal>!</> (NOT) binds most tightly,
      <literal>&lt;-&gt;</literal> (FOLLOWED BY) next most tightly, then
      <literal>&amp;</literal> (AND), with <literal>|</literal> (OR) binding
      the least tightly.
+-->
+括弧を使用して演算子を強制的にグループ化することができます。
+括弧が無い場合、<literal>!</> (NOT)が最も強く結合し、<literal>&lt;-&gt;</literal> (FOLLOWED BY)が次に強く結合します。
+次いで、<literal>&amp;</literal> (AND)の結合が強く、 <literal>|</literal> (OR)の結合が最も弱くなります。
     </para>
 
     <para>
+<!--
      Here are some examples:
+-->
+以下に例を示します：
 
 <programlisting>
 SELECT 'fat &amp; rat'::tsquery;
@@ -5920,9 +5934,11 @@ SELECT '(fat | rat) &lt;-&gt; cat'::tsquery;
 -----------------------------------
  'fat' &lt;-&gt; 'cat' | 'rat' &lt;-&gt; 'cat'
 </programlisting>
-
+<!--
      The last example demonstrates that <type>tsquery</type> sometimes
      rearranges nested operators into a logically equivalent formulation.
+-->
+最後の例は<type>tsquery</type>は結合された演算子を論理的に等価な表現に変更している実例です。
     </para>
 
     <para>
@@ -5931,8 +5947,8 @@ SELECT '(fat | rat) &lt;-&gt; cat'::tsquery;
      one or more weight letters, which restricts them to match only
      <type>tsvector</> lexemes with one of those weights:
 -->
-省略することもできますが、<type>tsquery</type>内の語彙素に1つ以上の重み文字をもったラベルを付けることができます。
-こうすると、同じ重みを持つ<type>tsvector</>語彙素のみに一致するように制限することになります。
+省略することもできますが、<type>tsquery</type>内の語彙素に1つ以上の重み文字でラベルを付けることができます。
+こうすると、これらの重みを持つ<type>tsvector</>語彙素のみに一致するように制限することになります。
 
 <programlisting>
 SELECT 'fat:ab &amp; cat'::tsquery;
@@ -5954,8 +5970,11 @@ SELECT 'super:*'::tsquery;
 -----------
  'super':*
 </programlisting>
+<!--
      This query will match any word in a <type>tsvector</> that begins
      with <quote>super</>.
+-->
+この問い合わせでは<quote>super</>で始まる<type>tsvector</>中の全ての言葉と一致します。
     </para>
 
     <para>
@@ -5977,8 +5996,12 @@ SELECT to_tsquery('Fat:ab &amp; Cats');
  'fat':AB &amp; 'cat'
 </programlisting>
 
+<!--
      Note that <function>to_tsquery</> will process prefixes in the same way
      as other words, which means this comparison returns true:
+-->
+<function>to_tsquery</>は他の言葉と同じように接頭辞を扱うことに注意してください。
+以下の比較の例ではtrueを返します。
 
 <programlisting>
 SELECT to_tsvector( 'postgraduate' ) @@ to_tsquery( 'postgres:*' );
@@ -5986,14 +6009,20 @@ SELECT to_tsvector( 'postgraduate' ) @@ to_tsquery( 'postgres:*' );
 ----------
  t
 </programlisting>
+<!--
      because <literal>postgres</> gets stemmed to <literal>postgr</>:
+-->
+これは<literal>postgres</>には<literal>postgr</>の語幹を含んでいるためです。
 <programlisting>
 SELECT to_tsvector( 'postgraduate' ), to_tsquery( 'postgres:*' );
   to_tsvector  | to_tsquery
 ---------------+------------
  'postgradu':1 | 'postgr':*
 </programlisting>
+<!--
      which will match the stemmed form of <literal>postgraduate</>.
+-->
+これは<literal>postgraduate</>の語幹の形と一致します。
     </para>
 
    </sect2>
@@ -7055,7 +7084,10 @@ LSNは例えば、<literal>16/B374D848</>のように２つのスラッシュで
 
        <row>
         <entry><type>index_am_handler</></entry>
+<!--
         <entry>An index access method handler is declared to return <type>index_am_handler</>.</entry>
+-->
+<entry>インデックスアクセスメソッドのハンドラは <type>index_am_handler</>を返すものとして宣言されます。</entry>
        </row>
 
        <row>
