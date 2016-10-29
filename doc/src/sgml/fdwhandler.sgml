@@ -504,14 +504,14 @@ GetForeignJoinPaths (PlannerInfo *root,
 <!--
     <title>FDW Routines For Planning Post-Scan/Join Processing</title>
 -->
-    <title>Post-Scan/Join処理をプラン生成するためのFDWルーチン</title>
+    <title>スキャン/結合後の処理をプラン生成するためのFDWルーチン</title>
 
     <para>
 <!--
      If an FDW supports performing remote post-scan/join processing, such as
      remote aggregation, it should provide this callback function:
 -->
-FDWがリモート集約など、リモートでのpost-scan/join処理をサポートする場合、次のコールバック関数を提供します。
+FDWがリモート集約など、リモートでのスキャン/結合後の処理をサポートする場合、次のコールバック関数を提供します。
     </para>
 
     <para>
@@ -535,10 +535,10 @@ GetForeignUpperPaths (PlannerInfo *root,
      it is not necessary that this function succeed in creating any paths,
      since paths involving local processing are always possible.
 -->
-集約やウィンドウ関数、ソート、テーブル更新など、全てのpost-scan/join問い合わせ処理むけのプランナ項である<firstterm>上位リレーション</>処理のための、ありうるアクセスパスを作成します。
+<firstterm>上位リレーション</>処理のための、ありうるアクセスパスを作成します。<firstterm>上位リレーション</>はプランナ用語で、ウィンドウ関数、ソート、テーブル更新など、全てのスキャン/結合後の問い合わせのことです。
 この省略可能な関数は問い合わせのプラン作成時に呼ばれます。
 今のところ、これは問い合わせに含まれる全てのベースリレーションが同じFDWに属する場合だけ呼ばれます。
-この関数では、FDWがどのようにリモートで実行するか分かっている全てのpost-scan/join処理に<structname>ForeignPath</>パスを生成し、それらパスを指定された上位リレーションに加えるために<function>add_path</>を呼び出してください。
+この関数では、FDWがどのようにリモートで実行するか分かっている全てのスキャン/結合後の処理に<structname>ForeignPath</>パスを生成し、それらパスを指定された上位リレーションに加えるために<function>add_path</>を呼び出してください。
 <function>GetForeignJoinPaths</>の時と同様に、この関数が何らかのパス作成に成功する必要はありません。なぜなら、ローカル処理を含んでいるパスはいつでも可能だからです。
     </para>
 
@@ -555,7 +555,7 @@ GetForeignUpperPaths (PlannerInfo *root,
      the previous processing step can be useful to avoid redundant planning
      work.)
 -->
-<literal>stage</>パラメータはどのpost-scan/join処理が現在考慮されているかを定めます。
+<literal>stage</>パラメータはどのスキャン/結合後の処理が現在考慮されているかを定めます。
 <literal>output_rel</>は本処理の計算方法をあらわすパスを受け取るであろう上位リレーションで、<literal>input_rel</>は本処理への入力をあらわすリレーションです。
 （注意：これらの処理は外部で実行されると考えられるため、<literal>output_rel</>に加えられる<structname>ForeignPath</>パスは、一般的に<literal>input_rel</>のパスへの直接の依存を全く持たないでしょう。
 しかしながら、手前の処理段階のために以前に生成されたパスを検査することは、冗長なプラン作成活動を回避するのに役立ちます。）
@@ -1178,6 +1178,10 @@ IterateDirectModify (ForeignScanState *node);
 -->
 <command>INSERT</>、<command>UPDATE</>、または、<command>DELETE</>の問い合わせが<literal>RETURNING</>句を持たないときには、リモートサーバでの直接変更の後、単にNULLが返ります。
 問い合わせが<literal>RETURNING</>句を持つときには、<literal>RETURNING</>計算に必要なデータを含む結果を一つ取り出し、タプルテーブルスロットでそれを返します（この用途にはノードの<structfield>ScanTupleSlot</>を使うべきです）。
+実際に挿入、更新、削除されたデータはノードの<structname>EState</>の<literal>es_result_relation_info-&gt;ri_projectReturning-&gt;pi_exprContext-&gt;ecxt_scantuple</>に格納されなければなりません。
+有効な行がそれ以上なければNULLを返します。
+これは呼び出しの間でリセットされる寿命の短いメモリコンテキストで呼び出されることに注意してください。
+より長命な格納場所を必要とするなら、<function>BeginDirectModify</>でメモリコンテキストを作るか、ノードの<structname>EState</>の<structfield>es_query_cxt</>を使ってください。
     </para>
 
     <para>
@@ -1225,7 +1229,7 @@ EndDirectModify (ForeignScanState *node);
      normally not important to release palloc'd memory, but for example open
      files and connections to the remote server should be cleaned up.
 -->
-以下のリモートサーバでの直接変更をクリーンアップします。
+リモートサーバでの直接変更の後、クリーンアップします。
 pallocされたメモリの解放は通常重要ではありませんが、開いたファイルやリモートサーバへの接続はクリーンアップするべきです。
     </para>
 
@@ -1748,7 +1752,7 @@ IsForeignScanParallelSafe(PlannerInfo *root, RelOptInfo *rel,
 -->
 スキャンがパラレルワーカーで実行できるかテストします。
 この関数はプランナが並列プランが可能であろうと考えるときだけ呼ばれます。また、そのスキャンにとってパラレルワーカーで実行するのが安全であるとき真を返すべきです。
-これは一般に、ワーカーのデータへの接続を何らかの形でリーダーとして同じトランザクション文脈を共有させることができるのでない限り、リモートデータソースがトランザクションのセマンティクスを持つ場合ではありません。
+リモートデータソースがトランザクションのセマンティクスを持つ場合は、一般にあてはまりません。ただし、ワーカーのデータへの接続を何らかの形でリーダーとして同じトランザクション文脈を共有させることができる場合を除きます。
     </para>
 
     <para>
@@ -1776,7 +1780,7 @@ EstimateDSMForeignScan(ForeignScanState *node, ParallelContext *pcxt);
 -->
 並列操作に必要とされるであろう動的共有メモリ量を推定します。
 これは実際に使われる量よりも大きくてよいですが、小さくてはいけません。
-返し値はバイト単位です。
+戻り値はバイト単位です。
     </para>
 
     <para>
@@ -1791,7 +1795,7 @@ InitializeDSMForeignScan(ForeignScanState *node, ParallelContext *pcxt,
     equal to the return value of <function>EstimateDSMForeignScan</>.
 -->
 並列処理で必要とされる動的共有メモリを初期化します。
-<literal>coordinate</>は<function>EstimateDSMForeignScan</>の返し値に等しいサイズだけ割り当てられた領域へのポインタです。
+<literal>coordinate</>は<function>EstimateDSMForeignScan</>の戻り値に等しいサイズだけ割り当てられた領域へのポインタです。
    </para>
 
    <para>
@@ -2213,7 +2217,7 @@ FDWはグルーピングや集約のような、スキャンや結合のレベ�
 例えば、リモート集約をあらわすパスは<function>add_path</>を使って<literal>UPPERREL_GROUP_AGG</>リレーションに挿入されるべきです。
 このパスは外部リレーションに対する単純なスキャンパスを読むことによるローカル集約実行とコストに基づいて比較されます（このようなパスが提供されなければならないことに注意してください、さもないとプラン時にエラーになります）。
 リモート集約パスが、通常そうなりますが、勝った場合には、パスは<function>GetForeignPlan</>を呼ぶ通常の手段でプランに変換されます。
-もし問い合わせの全てのベースリレーションが同じFDWから来るなら、このようなパスを生成するのに推奨される場所は、各上位リレーション（すなわち各post-scan/join処理段階）に対して呼び出される<function>GetForeignUpperPaths</>コールバック関数の中です。
+もし問い合わせの全てのベースリレーションが同じFDWから来るなら、このようなパスを生成するのに推奨される場所は、各上位リレーション（すなわち各スキャン/結合後の処理の段階）に対して呼び出される<function>GetForeignUpperPaths</>コールバック関数の中です。
     </para>
 
     <para>
@@ -2236,7 +2240,7 @@ FDWはグルーピングや集約のような、スキャンや結合のレベ�
 -->
 <function>PlanForeignModify</>と<xref linkend="fdw-callbacks-update">で記述された他のコールバックは、外部リレーションは通常の方法でスキャンされ、それから個別の行変更がローカルの<literal>ModifyTable</>プランノードで駆動されるという想定をもとに設計されています。
 この方法は変更が外部テーブルと同様にローカルテーブルを読む必要がある一般的な場合に必要です。
-しかしながら、操作が全体的に外部サーバで実行できるなら、FDWは<literal>ModifyTable</>方式に対して競合するところで、そうするパスを生成して、<literal>UPPERREL_FINAL</>上位リレーションに挿入することができます。
+しかしながら、操作が全体的に外部サーバで実行できるなら、FDWはそのようにするパスを生成して<literal>UPPERREL_FINAL</>上位リレーションに挿入することができます。ここでは<literal>ModifyTable</>方式に対して競合します。
 この方式は、<xref linkend="fdw-callbacks-row-locking">で記述された行ロックコールバックを使うのでなしに、リモート<literal>SELECT FOR UPDATE</>を実装するのにも使われます。
 <literal>UPPERREL_FINAL</>に挿入されたパスは問い合わせの<emphasis>全ての</>振る舞いの実装に責任があることに留意してください。
     </para>
