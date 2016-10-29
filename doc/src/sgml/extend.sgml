@@ -533,10 +533,12 @@
 <productname>PostgreSQL</>はユーザに、拡張全体を削除させる以外に、拡張内に含まれる個々のオブジェクトを削除させません。
 また、拡張のメンバオブジェクトの定義を変更する（例えば関数では<command>CREATE OR REPLACE FUNCTION</command>を介して変更する）ことはできますが、変更した定義は<application>pg_dump</>によりダンプされないことに留意してください。
 こうした変更は通常、同時に拡張のスクリプトファイルにも同じ変更を行った場合のみ認識することができます。
-（しかし後述するように設定データを持つテーブルに対しては特殊な準備があります。） ★追加訳あり
+（しかし設定データを持つテーブルに対しては特殊な準備があります。<xref linkend="extend-extensions-config-tables">を参照してください。）
+製造工程では、拡張メンバオブジェクトへの変更を処理するために拡張更新スクリプトを作成するのが一般により良い方法です。
    </para>
 
    <para>
+<!--
     The extension script may set privileges on objects that are part of the
     extension via <command>GRANT</command> and <command>REVOKE</command>
     statements.  The final set of privileges for each object (if any are set)
@@ -547,14 +549,23 @@
     by the set of <command>GRANT</command> and <command>REVOKE</command>
     statements necessary to set the privileges on the objects to what they were
     at the time the dump was taken.
+-->
+拡張スクリプトは、<command>GRANT</command>文と<command>REVOKE</command>文を使って拡張の一部のオブジェクトに権限を設定するかもしれません。
+それぞれのオブジェクト（どれかが設定される場合）の最終的な権限のセットは、<link linkend="catalog-pg-init-privs"><structname>pg_init_privs</structname></link>システムカタログに格納されます。
+<application>pg_dump</>が使用される時に、<command>CREATE EXTENSION</>コマンドがダンプ内に含まれ、ダンプが取られた時点で権限の設定が必要となるオブジェクトに対する<command>GRANT</command>文と<command>REVOKE</command>文が伴います。
    </para>
 
    <para>
+<!--
     <productname>PostgreSQL</> does not currently support extension scripts
     issuing <command>CREATE POLICY</command> or <command>SECURITY LABEL</command>
     statements.  These are expected to be set after the extension has been
     created.  All RLS policies and security labels on extension objects will be
     included in dumps created by <application>pg_dump</>.
+-->
+<productname>PostgreSQL</>は、現在<command>CREATE POLICY</command>文や<command>SECURITY LABEL</command>文の拡張スクリプトをサポートしていません。
+これらは拡張が作成された後に設定されると予想されます。
+拡張オブジェクトのすべての行セキュリティポリシーとセキュリティラベルは<application>pg_dump</>によって作成されたダンプに含まれます。
    </para>
 
    <para>
@@ -705,7 +716,8 @@
         a <xref linkend="sql-comment"> command in the script file.
 -->
 拡張に関するコメント（任意の文字列）です。
-この他の方法として、スクリプトファイル内で<xref linkend="sql-comment">コマンドを使用してコメントを設定することができます。 ★変更あり
+最初に拡張が作成されるときにコメントは適用されますが、拡張が更新される間はされません（ユーザが追加したコメントを上書いてしまうため）。
+この他の方法として、スクリプトファイル内で<xref linkend="sql-comment">コマンドを使用してコメントを設定することができます。
        </para>
       </listitem>
      </varlistentry>
@@ -792,7 +804,7 @@
 -->
 拡張を最初に作成した後に拡張により含まれるオブジェクトを別のスキーマに移動することができる場合、拡張は<firstterm>再配置可能</>です。
 デフォルトは<literal>false</>、つまり、拡張は再配置可能ではありません。
-詳しくは後で説明します。 ★変更あり
+詳しくは<xref linkend="extend-extensions-relocation">を参照してください。
        </para>
       </listitem>
      </varlistentry>
@@ -811,7 +823,9 @@
 -->
 このパラメータは再配置可能ではない拡張に対してのみ設定することができます。
 拡張が指名したスキーマのみにロードされ、他にはロードされないことを強制します。
-詳しくは後で説明します。 ★変更あり
+詳しくは後で説明します。 
+<varname>schema</varname>パラメータは、拡張を最初に作成するときにのみ参照され、拡張が更新される間はされません。
+詳しくは<xref linkend="extend-extensions-relocation">を参照してください。
        </para>
       </listitem>
      </varlistentry>
@@ -863,7 +877,7 @@
 -->
 拡張の<acronym>SQL</>スクリプトファイルには、<literal>\echo</>から始まる行を含めることができます。
 この行は拡張の機構では無視されます（コメントとして扱われます）。
-これは、このスクリプトが<command>CREATE EXTENSION</>（後述のスクリプト例を参照）ではなく<application>psql</>に渡された場合にエラーを発生するために一般的に使用するために用意されたものです。
+これは、このスクリプトが<command>CREATE EXTENSION</>（<xref linkend="extend-extensions-example">のスクリプト例を参照）ではなく<application>psql</>に渡された場合にエラーを発生するために一般的に使用するために用意されたものです。
 これがないと、ユーザは間違って拡張としてではなく、<quote>まとまっていない</>オブジェクトとして拡張の内容をロードしてしまい、復旧が多少困難な状態になる可能性があります。
     </para>
 
@@ -1070,8 +1084,8 @@ SET LOCAL search_path TO @extschema@;
      <function>pg_extension_config_dump(regclass, text)</> after creating the
      table or the sequence, for example
 -->
-この問題を解消するために、拡張のスクリプトファイルでは設定テーブルとして作成されるテーブルに印を付け、<application>pg_dump</>にテーブルの内容をダンプに含める（定義は含まれません）ようにさせることができます。
-このためには、以下の例のようにテーブルを作成した後に<function>pg_extension_config_dump(regclass, text)</>関数を呼び出してください。★変更あり
+この問題を解消するために、拡張のスクリプトファイルでは設定リレーションとして作成されるテーブル、またはシーケンスに印を付け、<application>pg_dump</>にテーブルの、またはシーケンスの内容をダンプに含める（定義は含まれません）ようにさせることができます。
+このためには、以下の例のようにテーブル、またはシーケンスを作成した後に<function>pg_extension_config_dump(regclass, text)</>関数を呼び出してください。
 <programlisting>
 CREATE TABLE my_config (key text, value text);
 CREATE SEQUENCE my_config_seq;
@@ -1084,7 +1098,7 @@ SELECT pg_catalog.pg_extension_config_dump('my_config_seq', '');
      associated with <type>serial</> or <type>bigserial</> columns can
      be marked as well.
 -->
-任意数のテーブルをこの方法で印付けることができます。 ★　変更あり
+任意数のテーブル、またはシーケンスをこの方法で印付けることができます。
     </para>
 
     <para>
@@ -1115,8 +1129,10 @@ SELECT pg_catalog.pg_extension_config_dump('my_config', 'WHERE NOT standard_entr
     </para>
 
     <para>
+<!--
      For sequences, the second argument of <function>pg_extension_config_dump</>
      has no effect.
+-->
     </para>
 
     <para>
@@ -1159,9 +1175,12 @@ SELECT pg_catalog.pg_extension_config_dump('my_config', 'WHERE NOT standard_entr
     </para>
 
     <para>
+<!--
      Sequences associated with <type>serial</> or <type>bigserial</> columns
      need to be directly marked to dump their state. Marking their parent
      relation is not enough for this purpose.
+-->
+親リレーションを印付けすることは、この目的に十分ではありません。
     </para>
    </sect2>
 
