@@ -386,9 +386,10 @@ SELECT 'fat &amp; cow'::tsquery @@ 'a fat cat sat on a mat and ate a fat rat'::t
     normalize a document string.  So in practice a text search match would
     look more like this:
 -->
-上記の例でわかるように、<type>tsquery</type>は、<type>tsvector</type>と違って、単なるテキストではありません。<type>tsquery</type>は正規化済の語彙素である検索表現を含み、AND, OR, NOT演算子を使って複数の表現を組み合わせても構いません。
-(詳細は<xref linkend="datatype-textsearch">を見てください。)
-たとえば、テキスト中の単語を正規化することにより、ユーザが入力したテキストを適切な<type>tsquery</type>に変換する<function>to_tsquery</>と<function>plainto_tsquery</>という関数があります。同様に、文書文字列をパースして正規化するために<function>to_tsvector</>が利用できます。
+上記の例でわかるように、<type>tsquery</type>は、<type>tsvector</type>と違って、単なるテキストではありません。<type>tsquery</type>は正規化済の語彙素である検索表現を含み、AND, OR, NOT, FOLLOWED BY演算子を使って複数の表現を組み合わせても構いません。
+(詳細は<xref linkend="datatype-tsquery">を見てください。)
+主にテキスト中の単語を正規化することにより、ユーザが入力したテキストを適切な<type>tsquery</type>に変換するのに便利な関数<function>to_tsquery</>、<function>plainto_tsquery</>、<function>phraseto_tsquery</>があります。
+同様に、文書文字列をパースして正規化するために<function>to_tsvector</>が利用できます。
 というわけで、実際にはテキスト検索照合はこんな感じになります。
 
 <programlisting>
@@ -450,19 +451,28 @@ text @@ text
    </para>
 
    <para>
+<!--
     Within a <type>tsquery</>, the <literal>&amp;</literal> (AND) operator
     specifies that both its arguments must appear in the document to have a
     match.  Similarly, the <literal>|</literal> (OR) operator specifies that
     at least one of its arguments must appear, while the <literal>!</> (NOT)
     operator specifies that its argument must <emphasis>not</> appear in
     order to have a match.
+-->
+<type>tsquery</>内において、演算子 <literal>&amp;</literal> (AND) は、マッチと見なされるには引数の両方がドキュメント内に現れる必要があるということを指定します。
+同様に、演算子 <literal>|</literal> (OR) では、引数の少なくとも一方が現れる必要があり、また演算子 <literal>!</> (NOT) は、マッチと見なされるには引数が現れては<emphasis>ならない</>ことを指定します。
    </para>
 
    <para>
+<!--
     Searching for phrases is possible with the help of
     the <literal>&lt;-&gt;</> (FOLLOWED BY) <type>tsquery</> operator, which
     matches only if its arguments have matches that are adjacent and in the
     given order.  For example:
+-->
+句の検索は、演算子 <literal>&lt;-&gt;</> (FOLLOWED BY) <type>tsquery</>を使うことで可能です。
+この演算子は、その引数にマッチする語が隣接していて、かつ指定と同じ順序である場合にのみマッチします。
+例を示します。
 
 <programlisting>
 SELECT to_tsvector('fatal error') @@ to_tsquery('fatal &lt;-&gt; error');
@@ -476,6 +486,7 @@ SELECT to_tsvector('error is not fatal') @@ to_tsquery('fatal &lt;-&gt; error');
  f
 </programlisting>
 
+<!--
     There is a more general version of the FOLLOWED BY operator having the
     form <literal>&lt;<replaceable>N</>&gt;</literal>,
     where <replaceable>N</> is an integer standing for the difference between
@@ -485,6 +496,12 @@ SELECT to_tsvector('error is not fatal') @@ to_tsquery('fatal &lt;-&gt; error');
     on.  The <literal>phraseto_tsquery</> function makes use of this
     operator to construct a <literal>tsquery</> that can match a multi-word
     phrase when some of the words are stop words.  For example:
+-->
+FOLLOWED BY演算子にはもっと汎用的なバージョンがあり、それは<literal>&lt;<replaceable>N</>&gt;</literal>という構文で使います。
+ここで<replaceable>N</>は整数で、マッチする語彙素の位置の差を表します。
+<literal>&lt;1&gt;</literal>は<literal>&lt;-&gt;</>と同じですが、<literal>&lt;2&gt;</literal>ではマッチする語の間にちょうど1つ、他の語彙素が現れることを許容する、という具合です。
+<literal>phraseto_tsquery</>関数は、この演算子を利用して、ストップワードを含む複数語の句にマッチ可能な<literal>tsquery</>を構築するものです。
+例を示します。
 
 <programlisting>
 SELECT phraseto_tsquery('cats ate rats');
@@ -500,15 +517,22 @@ SELECT phraseto_tsquery('the cats ate the rats');
    </para>
 
    <para>
+<!--
     A special case that's sometimes useful is that <literal>&lt;0&gt;</literal>
     can be used to require that two patterns match the same word.
+-->
+ときに役立つことがある特別な場合として、<literal>&lt;0&gt;</literal>を2つのパターンが同じ語にマッチすることを要求するために使うことができます。
    </para>
 
    <para>
+<!--
     Parentheses can be used to control nesting of the <type>tsquery</>
     operators.  Without parentheses, <literal>|</literal> binds least tightly,
     then <literal>&amp;</literal>, then <literal>&lt;-&gt;</literal>,
     and <literal>!</literal> most tightly.
+-->
+<type>tsquery</>演算子を入れ子にして管理するために括弧を使うことができます。
+括弧がない場合、<literal>|</literal>の結合が最も弱く、次が<literal>&amp;</literal>、その次が<literal>&lt;-&gt;</literal>で、<literal>!</literal>が最も強く結合します。
    </para>
   </sect2>
 
@@ -1056,7 +1080,8 @@ UPDATE tt SET ti =
     <function>phraseto_tsquery</function>, but it is less forgiving
     about its input.
 -->
-<productname>PostgreSQL</productname>は、問合わせを<type>tsquery</type>に変換する<function>to_tsquery</function>関数と<function>plainto_tsquery</function>関数を提供しています。<function>to_tsquery</function>は、<function>plainto_tsquery</function>よりも多くの機能を提供していますが、入力のチェックはより厳格です。★原文変更あり
+<productname>PostgreSQL</productname>は、問合わせを<type>tsquery</type>に変換する関数<function>to_tsquery</function>、<function>plainto_tsquery</function>、<function>phraseto_tsquery</function>を提供しています。
+<function>to_tsquery</function>は、<function>plainto_tsquery</function>と<function>phraseto_tsquery</function>のいずれよりも多くの機能を提供していますが、入力のチェックはより厳格です。
    </para>
 
    <indexterm>
@@ -1083,7 +1108,12 @@ to_tsquery(<optional> <replaceable class="PARAMETER">config</replaceable> <type>
     the specified or default configuration, and discards any tokens that are
     stop words according to the configuration.  For example:
 -->
-<function>to_tsquery</function>は、<replaceable>querytext</replaceable>から<type>tsquery</>としての値を生成します。<replaceable>querytext</replaceable>は、論理演算子<literal>&amp;</literal> (AND), <literal>|</literal> (OR)、<literal>!</literal> (NOT)で区切られる単一のトークンから構成されなければなりません。これらの演算子は括弧でグループ化できます。言い換えると、<function>to_tsquery</function>の入力は、<xref linkend="datatype-textsearch">で述べられている一般規則にしたがっていなければなりません。違いは、基本的な<type>tsquery</>の入力はトークンの表面的な値を受け取るのに対し、<function>to_tsquery</function>は指定した、あるいはデフォルトの設定を使ってトークンを語彙素へと正規化し、設定にしたがって、ストップワードであるようなトークンを破棄します。例を示します。
+<function>to_tsquery</function>は、<replaceable>querytext</replaceable>から<type>tsquery</>としての値を生成します。
+<replaceable>querytext</replaceable>は、<type>tsquery</>演算子<literal>&amp;</literal> (AND), <literal>|</literal> (OR)、<literal>!</literal> (NOT)、<literal>&lt;-&gt;</literal> (FOLLOWED BY)で区切られる単一のトークンから構成されなければなりません。
+これらの演算子は括弧でグループ化できます。
+言い換えると、<function>to_tsquery</function>の入力は、<xref linkend="datatype-tsquery">で述べられている一般規則にしたがっていなければなりません。
+違いは、基本的な<type>tsquery</>の入力はトークンの表面的な値を受け取るのに対し、<function>to_tsquery</function>は指定した、あるいはデフォルトの設定を使ってトークンを語彙素へと正規化し、設定にしたがって、ストップワードであるようなトークンを破棄します。
+例を示します。
 
 <screen>
 SELECT to_tsquery('english', 'The &amp; Fat &amp; Rats');
@@ -1147,7 +1177,7 @@ SELECT to_tsquery('''supernovae stars'' &amp; !crab');
     error for tokens that are not separated by an AND, OR, or FOLLOWED BY
     operator.
 -->
-引用符がない場合は、<function>to_tsquery</function>は、ANDあるいはOR演算子で区切られていないトークンに対して構文エラーを引き起こします。★原文変更あり
+引用符がない場合は、<function>to_tsquery</function>は、AND、ORあるいはFOLLOWED BY演算子で区切られていないトークンに対して構文エラーを引き起こします。
    </para>
 
    <indexterm>
@@ -1166,7 +1196,9 @@ plainto_tsquery(<optional> <replaceable class="PARAMETER">config</replaceable> <
     then the <literal>&amp;</literal> (AND) <type>tsquery</type> operator is
     inserted between surviving words.
 -->
-<function>plainto_tsquery</>は整形されていないテキスト<replaceable>querytext</replaceable>を、<type>tsquery</type>に変換します。テキストはパースされ、<function>to_tsvector</>としてできる限り正規化されます。そして、<literal>&amp;</literal> (AND) 論理演算子が存続した単語の間に挿入されます。★原文変更あり
+<function>plainto_tsquery</>は整形されていないテキスト<replaceable>querytext</replaceable>を、<type>tsquery</type>の値に変換します。
+テキストはパースされ、<function>to_tsvector</>としてできる限り正規化されます。
+そして、<type>tsquery</type>演算子<literal>&amp;</literal> (AND) が存続した単語の間に挿入されます。
    </para>
 
    <para>
@@ -1187,7 +1219,7 @@ SELECT plainto_tsquery('english', 'The Fat Rats');
     recognize <type>tsquery</type> operators, weight labels,
     or prefix-match labels in its input:
 -->
-<function>plainto_tsquery</>は、入力中の論理演算子も、重み付けラベルも、前方一致ラベルも認識できないことに注意してください。★原文変更あり
+<function>plainto_tsquery</>は、入力中の<type>tsquery</type>演算子も、重み付けラベルも、前方一致ラベルも認識しないことに注意してください。
 
 <screen>
 SELECT plainto_tsquery('english', 'The Fat &amp; Rats:C');
@@ -1211,6 +1243,7 @@ phraseto_tsquery(<optional> <replaceable class="PARAMETER">config</replaceable> 
 </synopsis>
 
    <para>
+<!--
     <function>phraseto_tsquery</> behaves much like
     <function>plainto_tsquery</>, except that it inserts
     the <literal>&lt;-&gt;</literal> (FOLLOWED BY) operator between
@@ -1220,10 +1253,17 @@ phraseto_tsquery(<optional> <replaceable class="PARAMETER">config</replaceable> 
     than <literal>&lt;-&gt;</literal> operators.  This function is useful
     when searching for exact lexeme sequences, since the FOLLOWED BY
     operators check lexeme order not just the presence of all the lexemes.
+-->
+<function>phraseto_tsquery</>は<function>plainto_tsquery</>とほぼ同じ動作をしますが、残った語の間に<literal>&amp;</literal> (AND) 演算子ではなく、<literal>&lt;-&gt;</literal> (FOLLOWED BY) 演算子を挿入するところが違います。
+また、ストップワードを単に無視するのでなく、<literal>&lt;-&gt;</literal>演算子の代わりに<literal>&lt;<replaceable>N</>&gt;</literal>演算子を挿入することで、意味のあるものとします。
+FOLLOWED BY演算子は、単にすべての語彙素が存在することだけでなく、語彙素の順序についても確認するため、この関数は語彙素の正確な順序について検索するときに役立ちます。
    </para>
 
    <para>
+<!--
     Example:
+-->
+例を示します。
 
 <screen>
 SELECT phraseto_tsquery('english', 'The Fat Rats');
@@ -1232,10 +1272,13 @@ SELECT phraseto_tsquery('english', 'The Fat Rats');
  'fat' &lt;-&gt; 'rat'
 </screen>
 
+<!--
     Like <function>plainto_tsquery</>, the
     <function>phraseto_tsquery</> function will not
     recognize <type>tsquery</type> operators, weight labels,
     or prefix-match labels in its input:
+-->
+<function>plainto_tsquery</>と同じく、<function>phraseto_tsquery</>関数もその入力内の<type>tsquery</type>演算子、重み付けラベル、前方一致ラベルを認識しません。
 
 <screen>
 SELECT phraseto_tsquery('english', 'The Fat &amp; Rats:C');
@@ -1895,7 +1938,10 @@ FROM (SELECT id, body, q, ts_rank_cd(ti, q) AS rank
        will never match stripped input, since it cannot determine the
        distance between lexeme occurrences.
 -->
-位置、重みの情報がないことを除けば入力のベクトルと同じ語彙素のリストを持つベクトルを返します。返却されたベクトルは、情報を削除されていないベクトルに比べてランキングに関しては、ずっと有用性が低くなりますが、通常非常に小さくなります。★原文変更あり
+入力のベクトルと同じ語彙素のリストを持つが、位置と重みの情報が全くないベクトルを返します。
+その結果は、通常は情報を削除されていないベクトルよりもずっと小さくなりますが、有用性も低くなります。
+また、<type>tsquery</>演算子<literal>&lt;-&gt;</> (FOLLOWED BY)は情報を削除した入力とマッチすることはありません。
+なぜなら語彙素が発生する間の距離を決定できないからです。
       </para>
      </listitem>
 
@@ -1904,8 +1950,11 @@ FROM (SELECT id, body, q, ts_rank_cd(ti, q) AS rank
    </variablelist>
 
    <para>
+<!--
     A full list of <type>tsvector</>-related functions is available
     in <xref linkend="textsearch-functions-table">.
+-->
+<type>tsvector</>に関連した関数の完全なリストが<xref linkend="textsearch-functions-table">にあります。
    </para>
 
   </sect2>
@@ -1988,10 +2037,14 @@ FROM (SELECT id, body, q, ts_rank_cd(ti, q) AS rank
 
      <listitem>
       <para>
+<!--
        Returns a query that searches for a match to the first given query
        immediately followed by a match to the second given query, using
        the <literal>&lt;-&gt;</> (FOLLOWED BY)
        <type>tsquery</> operator.  For example:
+-->
+1番目の問い合わせにマッチし、その直後に2番目の問い合わせにマッチするものを検索する問い合わせを、<type>tsquery</>演算子<literal>&lt;-&gt;</> (FOLLOWED BY) を使って返します。
+例を示します。
 
 <screen>
 SELECT to_tsquery('fat') &lt;-&gt; to_tsquery('cat | rat');
@@ -2016,11 +2069,15 @@ SELECT to_tsquery('fat') &lt;-&gt; to_tsquery('cat | rat');
 
      <listitem>
       <para>
+<!--
        Returns a query that searches for a match to the first given query
        followed by a match to the second given query at a distance of at
        <replaceable>distance</replaceable> lexemes, using
        the <literal>&lt;<replaceable>N</>&gt;</literal>
        <type>tsquery</> operator.  For example:
+-->
+1番目の問い合わせにマッチし、その後に<replaceable>distance</replaceable>個の語彙素の距離で2番目の問い合わせにマッチするものを検索する問い合わせを、<type>tsquery</>演算子<literal>&lt;<replaceable>N</>&gt;</>を使って返します。
+例を示します。
 
 <screen>
 SELECT tsquery_phrase(to_tsquery('fat'), to_tsquery('cat'), 10);
@@ -3683,17 +3740,23 @@ SELECT plainto_tsquery('supernova star');
 <!--
     To create an <application>Ispell</> dictionary perform these steps:
 -->
-<application>Ispell</>辞書を作るには、組み込みの<literal>ispell</literal>テンプレートを使い、いくつかパラメータを指定します。★原文変更あり
+<application>Ispell</>辞書を作るには、以下の手順を実行します。
    </para>
    <itemizedlist spacing="compact" mark="bullet">
     <listitem>
      <para>
+<!--
       download dictionary configuration files. <productname>OpenOffice</>
       extension files have the <filename>.oxt</> extension. It is necessary
       to extract <filename>.aff</> and <filename>.dic</> files, change
       extensions to <filename>.affix</> and <filename>.dict</>. For some
       dictionary files it is also needed to convert characters to the UTF-8
       encoding with commands (for example, for a Norwegian language dictionary):
+-->
+辞書の設定ファイルをダウンロードします。
+<productname>OpenOffice</>の拡張ファイルは拡張子<filename>.oxt</>があります。
+<filename>.aff</>ファイルと<filename>.dic</>ファイルを抽出し、拡張子を<filename>.affix</>と<filename>.dict</>に変更する必要があります。
+一部の辞書ファイルでは、以下のコマンドで文字をUTF-8の符号化に変換する必要もあります（例えば、ノルウェー語の辞書では次のようになります）。
 <programlisting>
 iconv -f ISO_8859-1 -t UTF-8 -o nn_no.affix nn_NO.aff
 iconv -f ISO_8859-1 -t UTF-8 -o nn_no.dict nn_NO.dic
@@ -3702,12 +3765,18 @@ iconv -f ISO_8859-1 -t UTF-8 -o nn_no.dict nn_NO.dic
     </listitem>
     <listitem>
      <para>
+<!--
       copy files to the <filename>$SHAREDIR/tsearch_data</> directory
+-->
+ファイルを<filename>$SHAREDIR/tsearch_data</>ディレクトリにコピーします。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       load files into PostgreSQL with the following command:
+-->
+以下のコマンドでファイルをPostgreSQLにロードします。
 <programlisting>
 CREATE TEXT SEARCH DICTIONARY english_hunspell (
     TEMPLATE = ispell,
@@ -3742,8 +3811,11 @@ Ispell辞書は通常限られた数の単語を認識します。ですので�
    </para>
 
    <para>
+<!--
     The <filename>.affix</> file of <application>Ispell</> has the following
     structure:
+-->
+<application>Ispell</>の<filename>.affix</>ファイルは次のような構造になっています。
 <programlisting>
 prefixes
 flag *A:
@@ -3757,7 +3829,10 @@ flag T:
 </programlisting>
    </para>
    <para>
+<!--
     And the <filename>.dict</> file has the following structure:
+-->
+そして、<filename>.dict</>ファイルは次のような構造になっています。
 <programlisting>
 lapse/ADGRS
 lard/DGRS
@@ -3767,21 +3842,28 @@ lark/MRS
    </para>
 
    <para>
+<!--
     Format of the <filename>.dict</> file is:
+-->
+<filename>.dict</>ファイルのフォーマットは次の通りです。
 <programlisting>
 basic_form/affix_class_name
 </programlisting>
    </para>
 
    <para>
+<!--
     In the <filename>.affix</> file every affix flag is described in the
     following format:
+-->
+<filename>.affix</>ファイルで、すべてのaffix(接辞)フラグは次のフォーマットで記述されています。
 <programlisting>
 condition > [-stripping_letters,] adding_affix
 </programlisting>
    </para>
 
    <para>
+<!--
     Here, condition has a format similar to the format of regular expressions.
     It can use groupings <literal>[...]</> and <literal>[^...]</>.
     For example, <literal>[AEIOU]Y</> means that the last letter of the word
@@ -3789,6 +3871,11 @@ condition > [-stripping_letters,] adding_affix
     <literal>"e"</>, <literal>"i"</>, <literal>"o"</> or <literal>"u"</>.
     <literal>[^EY]</> means that the last letter is neither <literal>"e"</>
     nor <literal>"y"</>.
+-->
+ここで、condition(条件)は正規表現の形式と同じような形式になります。
+<literal>[...]</>および<literal>[^...]</>のグループ化を使うことができます。
+例えば<literal>[AEIOU]Y</>は、単語の最後の文字が<literal>"y"</>で、その前の文字が<literal>"a"</>、<literal>"e"</>、<literal>"i"</>、<literal>"o"</>、<literal>"u"</>のいずれかであることを意味します。
+<literal>[^EY]</>は最後の文字が<literal>"e"</>でも<literal>"y"</>でもないことを意味します。
    </para>
 
    <para>
@@ -3820,9 +3907,13 @@ SELECT ts_lexize('norwegian_ispell', 'sjokoladefabrikk');
    </para>
 
    <para>
+<!--
     <application>MySpell</> format is a subset of <application>Hunspell</>.
     The <filename>.affix</> file of <application>Hunspell</> has the following
     structure:
+-->
+<application>MySpell</>のフォーマットは<application>Hunspell</>の部分集合です。
+<application>Hunspell</>の<filename>.affix</>ファイルは以下のような構造になっています。
 <programlisting>
 PFX A Y 1
 PFX A   0     re         .
@@ -3835,41 +3926,63 @@ SFX T   0     est        [^ey]
    </para>
 
    <para>
+<!--
     The first line of an affix class is the header. Fields of an affix rules are
     listed after the header:
+-->
+接辞(affix)クラスの1行目はヘッダです。
+接辞ルールのフィールドはヘッダの後に列挙されます。
    </para>
    <itemizedlist spacing="compact" mark="bullet">
     <listitem>
      <para>
+<!--
       parameter name (PFX or SFX)
+-->
+パラメータ名（PFXまたはSFX）
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       flag (name of the affix class)
+-->
+フラグ（接辞クラスの名前）
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       stripping characters from beginning (at prefix) or end (at suffix) of the
       word
+-->
+単語の先頭（接頭辞）から、あるいは終わり（接尾辞）から文字を削除する
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       adding affix
+-->
+接辞を追加する
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       condition that has a format similar to the format of regular expressions.
+-->
+正規表現の形式と類似の形式の条件
      </para>
     </listitem>
    </itemizedlist>
 
    <para>
+<!--
     The <filename>.dict</> file looks like the <filename>.dict</> file of
     <application>Ispell</>:
+-->
+<filename>.dict</>ファイルは<application>Ispell</>の<filename>.dict</>ファイルと同じように見えます。
 <programlisting>
 larder/M
 lardy/RT
@@ -4735,7 +4848,10 @@ psqlでテキスト検索設定オブジェクトに関する情報は、コマ�
    regular expression and can provide <emphasis>separate</emphasis> patterns
    for the schema and object names.  The following examples illustrate this:
 -->
-オプションパラメータの<literal>PATTERN</literal>はテキスト検索オブジェクトの名前にすることができます。オプションとしてスキーマ修飾することができます。<literal>PATTERN</literal>が省略されると、すべての可視的なオブジェクトが表示されます。<literal>PATTERN</literal>は正規表現を与えることができ、さらにスキーマとオブジェクト名に対して<emphasis>別々の</emphasis>パターンを与えることができます。
+オプションパラメータの<replaceable>PATTERN</replaceable>はテキスト検索オブジェクトの名前にすることができます。
+オプションとしてスキーマ修飾することができます。
+<replaceable>PATTERN</replaceable>が省略されると、すべての可視的なオブジェクトが表示されます。
+<replaceable>PATTERN</replaceable>は正規表現を与えることができ、さらにスキーマとオブジェクト名に対して<emphasis>別々の</emphasis>パターンを与えることができます。
 次の例はこれを説明するものです。
 
 <screen>
@@ -4968,9 +5084,8 @@ Parser: "pg_catalog.default"
      <para>The match distance in a <literal>&lt;<replaceable>N</>&gt;</literal>
      (FOLLOWED BY) <type>tsquery</> operator cannot be more than
      16,384</para>
-★この項目追加
 -->
-    <para>ここに翻訳</para>
+    <para><type>tsquery</>演算子<literal>&lt;<replaceable>N</>&gt;</literal>におけるマッチの距離は16,384より大きくすることはできません</para>
     </listitem>
     <listitem>
 <!--
