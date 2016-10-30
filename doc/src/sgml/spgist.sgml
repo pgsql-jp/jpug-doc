@@ -268,7 +268,9 @@
 内部タプルは、探索木の分岐点となるため、もっと複雑です。
 それぞれの内部タプルは1つ以上の<firstterm>ノード</>の集合を含んでおり、ノードは類似のリーフ値のグループを表現します。
 ノードは下向きのリンクを含んでおり、これは下のレベルの別の内部タプルを指すか、あるいはすべて同じインデックスページ上に載っているリーフタプルの短いリストを指しています。
-それぞれのノードは、それを記述する<firstterm>label</>を持っています。
+それぞれのノードは、通常、それを記述する<firstterm>ラベル</>を持っています。
+（あるいは、すべての内部タプルについて、決まったノードの集合しか扱わないのであれば、演算子クラスはノードのラベルを省略することができます。
+<xref linkend="spgist-null-labels">を参照してください。）
 例えば、基数木では、ノードのラベルは文字列の値の次の文字にすることができます。
 省略可能ですが、内部タプルはそのすべてのメンバーを記述する<firstterm>接頭辞</>の値を持つことができます。
 基数木では、これは表現される文字列に共通の接頭辞とすることができます。
@@ -287,7 +289,7 @@
   <firstterm>traverse values</>) during a tree descent.
 -->
 木構造のアルゴリズムには、現在のタプルのレベル(深さ)を知っていることが必要なものがあります。そこで、<acronym>SP-GiST</acronym>のコアは、演算子クラスが木構造をたどって下がるときにレベル数の管理を可能にしています。
-また、必要であれば、表現される値を加算的に再構築することもサポートしています。★原文変更あり
+また、必要であれば、表現される値を加算的に再構築すること、また木構造を下る間に追加データ（<firstterm>探索値</>と呼ばれます）を渡すこともサポートしています。
  </para>
 
  <note>
@@ -689,8 +691,7 @@ typedef struct spgPickSplitOut
        <structfield>leafTupleDatums</> arrays.
 -->
 <structfield>hasPrefix</>は新しい内部タプルが接頭辞を持つかどうかを示し、持つ場合は<structfield>prefixDatum</>を接頭辞の値にセットします。
-<structfield>nNodes</>は新しい内部タプルが含むノードの数を示し、<structfield>nodeLabels</>はそのラベル値の配列にセットします。
-(ノードがラベルを必要としないときは、<structfield>nodeLabels</>をNULLにセットします。詳細は<xref linkend="spgist-null-labels">を参照してください。)
+<structfield>nNodes</>は新しい内部タプルが含むノードの数を示し、<structfield>nodeLabels</>はそのラベル値の配列に、ノードのラベルが必要でないときはNULLにセットします。
 <structfield>mapTuplesToNodes</>は、それぞれのリーフタプルが割り当てられるノードの番号(0から)の配列にセットします。
 <structfield>leafTupleDatums</>は新しいリーフタプルに格納される値の配列にセットします(演算子クラスがデータをあるレベルから次のレベルに変更しなければこれらは入力の<structfield>datums</>と同じになります)。
 <function>picksplit</>関数は、<structfield>nodeLabels</>、<structfield>mapTuplesToNodes</>、<structfield>leafTupleDatums</>の配列についてpallocしなければならないことに注意してください。
@@ -839,6 +840,8 @@ typedef struct spgInnerConsistentOut
 通常、consistent関数では、配列のそれぞれのエントリの<structfield>sk_strategy</>および<structfield>sk_argument</>フィールドのみが問題となります。これらのフィールドにはそれぞれインデックス付け可能な演算子と比較値が入ります。
 なお、比較値がNULLかどうかを確認するために<structfield>sk_flags</>を検査する必要はありません。なぜならSP-GiSTのコアのコードがそのような条件を除外するからです。
 <structfield>reconstructedValue</>は親タプルのために再構築された値で、ルートレベルの場合、あるいは親レベルの<function>inner_consistent</>関数が値を返さなかった場合は<literal>(Datum) 0</>となります。
+<structfield>traversalValue</>は親インデックスのタプルの<function>inner_consistent</>の前の呼び出しから渡された探索データへのポインタで、ルートレベルならNULLです。
+<structfield>traversalMemoryContext</>は出力探索値が格納されるメモリコンテキストです（以下を参照）。
 <structfield>level</>は現在の内部タプルのレベルを、ルートレベルを0として数えたものです。
 <structfield>returnData</>は、この問い合わせで再構築されたデータが必要な場合に<literal>true</>となりますが、これは<function>config</>関数が<structfield>canReturnData</>を確認した場合にのみ、そうなります。
 <structfield>allTheSame</>は、現在の内部タプルに<quote>all-the-same</>の印が付いている場合にtrueになります。この場合、すべてのノードは(ラベルがあれば)同じラベルを持っていますから、そのすべてが問い合わせにマッチするか、いずれもマッチしないかのいずれかになります(<xref linkend="spgist-all-the-same">参照)。
@@ -879,7 +882,11 @@ typedef struct spgInnerConsistentOut
 演算子クラスがレベルを監視しているときは、それぞれのノードへと下って訪れるときに必要なレベルの増分の配列を<structfield>levelAdds</>にセットします。
 (この増分はすべてのノードについて同じになることも多いですが、必ずしもそうなるとは限らないので配列が使われます。)
 値の再構築が必要なときには、訪れるそれぞれの子ノードについて再構築された値の配列を<structfield>reconstructedValues</>にセットします。再構築が必要でなければ、<structfield>reconstructedValues</>をNULLのままにします。
-<function>inner_consistent</>関数は、<structfield>nodeNumbers</>、<structfield>levelAdds</>、<structfield>reconstructedValues</>の配列についてpallocしなければならないことに注意してください。★原文変更・追加あり
+追加の外部情報（<quote>探索値</>）をツリー探索の下位レベルに渡したい場合は、<structfield>traversalValues</>を適切な探索値、訪れるそれぞれの子ノードについて1つの配列にセットします。
+それ以外の場合は<structfield>traversalValues</>をNULLのままにします。
+<function>inner_consistent</>関数は、現在のメモリコンテキスト内の<structfield>nodeNumbers</>、<structfield>levelAdds</>、<structfield>reconstructedValues</>、<structfield>traversalValues</>の配列についてpallocしなければならないことに注意してください。
+ただし、<structfield>traversalValues</>配列が指すすべての出力探索値は<structfield>traversalMemoryContext</>内に割り当てられます。
+それぞれの探索値は1つのpallocされた塊でなければなりません。
       </para>
      </listitem>
     </varlistentry>
@@ -964,6 +971,7 @@ typedef struct spgLeafConsistentOut
 通常、consistent関数では、配列のそれぞれのエントリの<structfield>sk_strategy</>および<structfield>sk_argument</>フィールドのみが問題となります。これらのフィールドにはそれぞれインデックス付け可能な演算子と比較値が入ります。
 なお、比較値がNULLかどうかを確認するために<structfield>sk_flags</>を検査する必要はありません。なぜならSP-GiSTのコアのコードがそのような条件を除外するからです。
 <structfield>reconstructedValue</>は親タプルのために再構築された値で、ルートレベルの場合、あるいは親レベルの<function>inner_consistent</>関数が値を返さなかった場合は<literal>(Datum) 0</>となります。
+<structfield>traversalValue</>は親インデックスのタプルの<function>inner_consistent</>の前の呼び出しから渡された探索データへのポインタで、ルートレベルならNULLです。
 <structfield>level</>は現在のリーフタプルのレベルを、ルートレベルを0として数えたものです。
 <structfield>returnData</>は、この問い合わせで再構築されたデータが必要な場合に<literal>true</>となりますが、これは<function>config</>関数が<structfield>canReturnData</>を確認した場合にのみ、そうなります。
 <structfield>leafDatum</>は現在のリーフタプルに格納されている鍵の値です。
@@ -1049,7 +1057,7 @@ SP-GiSTのすべてのサポートメソッドは、通常は短期間有効な�
    reject any request to index a value that is too large to fit
    on an index page.
 -->
-それぞれのリーフタプルおよび内部タプルは1つのインデックスページ内(デフォルトで8KB)に収まらなければなりません。
+それぞれのリーフタプルおよび内部タプルは1つのインデックスページ内(デフォルトで8kB)に収まらなければなりません。
 従って、可変長のデータ型の値をインデックス付けするときは、長い値は基数木のようなメソッドによってのみサポートされます。つまり、ツリーのそれぞれのレベルではページに収まる短さの接頭辞を含み、最後のリーフレベルでは、やはりページに収まる短さの接尾辞を含む、というようなものです。
 このようなことが発生する場合の対応の準備ができている場合のみ、演算子クラスは<structfield>longValuesOK</>をTRUEにセットするべきです。
 そうでなければ、<acronym>SP-GiST</acronym>のコアは、インデックスページに収めるには大きすぎる値についてのインデックス付け要求を拒絶します。
@@ -1201,9 +1209,8 @@ SP-GiSTのすべてのサポートメソッドは、通常は短期間有効な�
   into <filename>src/backend/access/spgist/</>
   and <filename>src/backend/utils/adt/</> to see the code.
 -->
-<productname>PostgreSQL</productname>のソースコードの配布物には<acronym>SP-GiST</acronym>のインデックス演算子クラスの例がいくつか含まれています。
-コアのシステムは現在、text列についての基数木と点についての2種類の木(4分木とkd木)を提供しています。
-コードを参照するには、<filename>src/backend/access/spgist/</>を調べて下さい。★原文変更あり
+<productname>PostgreSQL</productname>のソースコードの配布物には、<xref linkend="spgist-builtin-opclasses-table">に示すように、<acronym>SP-GiST</acronym>のインデックス演算子クラスの例がいくつか含まれています。
+コードを見るには<filename>src/backend/access/spgist/</>と<filename>src/backend/utils/adt/</>を調べてみてください。
  </para>
 
 </sect1>
