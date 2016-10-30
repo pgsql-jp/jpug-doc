@@ -542,11 +542,15 @@ ereport(ERROR,
    </listitem>
    <listitem>
     <para>
+<!--
      <function>errhidecontext(bool hide_ctx)</function> can be called to
      specify suppression of the <literal>CONTEXT:</> portion of a message in
      the postmaster log.  This should only be used for verbose debugging
      messages where the repeated inclusion of context would bloat the log
      volume too much.
+-->
+<function>errhidecontext(bool hide_ctx)</function>は、postmasterのログ内のメッセージにおける<literal>STATEMENT:</>部分を抑制するために呼び出すことができます。
+これは、冗長なデバッグメッセージにおいてコンテキストを繰り返し含めることがログのサイズを巨大にしてしまうような場合にのみ用いられるべきです。
     </para>
    </listitem>
   </itemizedlist>
@@ -693,7 +697,7 @@ Hint:       the addendum
 そして、クライアントは、エラーメッセージ用に1行分確保すれば十分であるという仮定の下で画面設計を行うことができます。
 詳細メッセージやヒントメッセージを冗長モードに格下げしたり、エラーの詳細を表示するウィンドウをポップアップさせることもできます。
 また、詳細メッセージやヒントメッセージは通常ディスク容量を節約するためにサーバログには出力されません。
-ユーザはどうやってもその詳細を知りませんので、実装の詳細への参照を避けることが最善です。★原文変更あり
+ユーザがその詳細を知っているとは期待できないので、実装の詳細への参照を避けることが最善です。
    </para>
 
   </simplesect>
@@ -1360,47 +1364,85 @@ BETTER: unrecognized node type: 42
   </sect1>
 
   <sect1 id="source-conventions">
+<!--
    <title>Miscellaneous Coding Conventions</title>
+-->
+   <title>その他のコーディング規約</title>
 
    <simplesect>
+<!--
     <title>C Standard</title>
+-->
+    <title>標準C</title>
     <para>
+<!--
      Code in <productname>PostgreSQL</> should only rely on language
      features available in the C89 standard. That means a conforming
      C89 compiler has to be able to compile postgres, at least aside
      from a few platform dependent pieces. Features from later
      revision of the C standard or compiler specific features can be
      used, if a fallback is provided.
+-->
+<productname>PostgreSQL</>のコードはC89の標準で利用可能な言語機能にのみ依存することになっています。
+つまり、C89に準拠したコンパイラであれば、少数のプラットフォーム依存の部分を除けばpostgresをコンパイルできるはずです。
+代替策が用意されているのであれば、それより後のバージョンの標準Cの機能、あるいはコンパイラに依存した機能を使用することもできます。
     </para>
     <para>
+<!--
      For example <literal>static inline</> and
      <literal>_StaticAssert()</literal> are currently used, even
      though they are from newer revisions of the C standard. If not
      available we respectively fall back to defining the functions
      without inline, and to using a C89 compatible replacement that
      performs the same checks, but emits rather cryptic messages.
+-->
+例えば、<literal>static inline</>と<literal>_StaticAssert()</literal>は標準Cのより新しいバージョンにあるものですが、現在、使用されています。
+それらが利用できない場合は、<literal>static inline</>の代わりにインラインを使わない関数を定義し、<literal>_StaticAssert()</literal>については、同じチェックをする（ただし、やや暗号的なメッセージを発する）C89互換のもので代用します。
     </para>
    </simplesect>
 
    <simplesect>
+<!--
     <title>Function-Like Macros and Inline Functions</title>
+-->
+    <title>関数のようなマクロとインライン関数</title>
     <para>
+<!--
      Both, macros with arguments and <literal>static inline</>
      functions, may be used. The latter are preferable if there are
      multiple-evaluation hazards when written as a macro, as e.g. the
      case with
+-->
+引数付きのマクロと<literal>static inline</>の関数のどちらも使用することができます。
+マクロとして記述した場合に、複数回評価されるリスクがあるならば、後者を選択します。
+例えば次のような場合です。
 <programlisting>
 #define Max(x, y)       ((x) > (y) ? (x) : (y))
 </programlisting>
+<!--
      or when the macro would be very long. In other cases it's only
      possible to use macros, or at least easier.  For example because
      expressions of various types need to be passed to the macro.
+-->
+あるいは、マクロにすると非常に長くなる場合も、インライン関数を選択します。
+その他に、マクロだけしか利用できない、あるいはマクロの方が使いやすい場合があります。
+例えば、マクロに式や様々な型を渡す必要がある場合などです。
+<!-- 訳注：原文は構文的に不完全だが、文脈的に考えて
+     There are other cases where it's only...
+     という意図であると解釈して訳した。
+-->
     </para>
     <para>
+<!--
      When the definition an inline function references symbols
      (i.e. variables, functions) that are only available as part of the
      backend, the function may not be visible when included from frontend
      code.
+-->
+インライン関数の定義がバックエンドの一部としてのみ利用可能なシンボル（つまり、変数、関数）を参照する場合、その関数はフロントエンドのコードからインクルードされたときに不可視かもしれません。
+<!-- 訳注：
+     "the definition"と"an inline"の間に"of"が欠落しているものとして訳した。
+-->
 <programlisting>
 #ifndef FRONTEND
 static inline MemoryContext
@@ -1413,17 +1455,25 @@ MemoryContextSwitchTo(MemoryContext context)
 }
 #endif   /* FRONTEND */
 </programlisting>
+<!--
      In this example <literal>CurrentMemoryContext</>, which is only
      available in the backend, is referenced and the function thus
      hidden with a <literal>#ifndef FRONTEND</literal>. This rule
      exists because some compilers emit references to symbols
      contained in inline functions even if the function is not used.
+-->
+この例では、バックエンドのみで利用可能な<literal>CurrentMemoryContext</>が参照されているため、関数は<literal>#ifndef FRONTEND</literal>で隠されています。
+一部のコンパイラはインライン関数に含まれるシンボルの参照を、その関数が使われていなくても吐き出すため、この規則があります。
     </para>
    </simplesect>
 
    <simplesect>
+<!--
     <title>Writing Signal Handlers</title>
+-->
+    <title>シグナルハンドラの作成</title>
     <para>
+<!--
      To be suitable to run inside a signal handler code has to be
      written very carefully. The fundamental problem is that, unless
      blocked, a signal handler can interrupt code at any time. If code
@@ -1431,19 +1481,32 @@ MemoryContextSwitchTo(MemoryContext context)
      chaos may ensue. As an example consider what happens if a signal
      handler tries to acquire a lock that's already held in the
      interrupted code.
+-->
+シグナルハンドラの内部で実行されるのに適切であるためには、注意深くコードを書く必要があります。
+根本的問題は、シグナルハンドラは、ブロックされない限り、いつでもコードに対して割り込むことができるということです。
+シグナルハンドラの内側のコードが、外側のコードと同じ状態を使うと、混沌が発生するかもしれません。
+例えば、シグナルハンドラが、割り込まれたコードで既に保持されているロックを獲得しようとしたら何が起きるか考えてみてください。
     </para>
     <para>
+<!--
      Barring special arrangements code in signal handlers may only
      call async-signal safe functions (as defined in POSIX) and access
      variables of type <literal>volatile sig_atomic_t</literal>. A few
      functions in <command>postgres</command> are also deemed signal safe, importantly
      <function>SetLatch()</function>.
+-->
+特別に準備された状況を別にすると、シグナルハンドラのコードは、（POSIXで定義される通りの）非同期シグナルで安全な関数だけを呼ぶことができ、型<literal>volatile sig_atomic_t</literal>の変数だけにアクセスできます。
+<command>postgres</command>でも、いくつかの関数はシグナルで安全とされており、なかでも重要なのは<function>SetLatch()</function>です。
     </para>
     <para>
+<!--
      In most cases signal handlers should do nothing more than note
      that a signal has arrived, and wake up code running outside of
      the handler using a latch. An example of such a handler is the
      following:
+-->
+ほとんどの場合、シグナルハンドラはシグナルが到着したことを記録し、ハンドラの外部で動作しているコードをラッチを使って呼び起こす以上のことをすべきではありません。
+以下はそのようなハンドラの例です。
 <programlisting>
 static void
 handle_sighup(SIGNAL_ARGS)
@@ -1456,10 +1519,14 @@ handle_sighup(SIGNAL_ARGS)
     errno = save_errno;
 }
 </programlisting>
+<!--
      <varname>errno</> is saved and restored because
      <function>SetLatch()</> might change it. If that were not done
      interrupted code that's currently inspecting <varname>errno</varname> might see the wrong
      value.
+-->
+<varname>errno</>は<function>SetLatch()</>によって変更されるかもしれないので、保存して、リストアされます。
+そうしなければ、割り込まれたコードが、現在<varname>errno</varname>を参照している場合、誤った値を見ることになるかもしれません。
     </para>
    </simplesect>
 
