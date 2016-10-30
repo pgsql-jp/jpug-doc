@@ -20,7 +20,7 @@ PostgreSQL documentation
  <refnamediv>
   <refname>pg_rewind</refname>
 <!--
-  <refpurpose>synchronize a <productname>PostgreSQL</productname> data directory with another data directory that was forked from it</refpurpose> ★原文変更あり
+  <refpurpose>synchronize a <productname>PostgreSQL</productname> data directory with another data directory that was forked from it</refpurpose>
 -->
   <refpurpose><productname>PostgreSQL</productname>のデータディレクトリを、そこから派生した他のデータディレクトリと同期する</refpurpose>
  </refnamediv>
@@ -72,9 +72,10 @@ PostgreSQL documentation
    fraction of blocks differ between the clusters.
 -->
 実行結果は、ターゲットデータディレクトリをソースディレクトリと置き換えたのと等しくなります。
-設定ファイルを含め、すべてのファイルがコピーされます。
-新しいベースバックアップを取ったり、<application>rsync</>のようなツールを使う場合と比較して、<application>pg_rewind</>はクラスタ内の変更されていないファイルを読出す必要がないという利点があります。★原文変更あり
-データベースが大きく、クラスタ間で変更されている部分がわずかの場合には、極めて高速になります。
+リレーションファイルのうちの変化のあったブロックだけがコピーされます。
+それ以外のすべてのファイルは、設定ファイルを含め、すべてのファイルがコピーされます。
+新しいベースバックアップを取ったり、<application>rsync</>のようなツールを使う場合と比較して、<application>pg_rewind</>はクラスタ内の変更されていないブロックを読出す必要がないという利点があります。
+データベースが大きく、クラスタ間で変更されているブロックの割合が小さい場合には、極めて高速になります。
   </para>
 
   <para>
@@ -95,12 +96,14 @@ PostgreSQL documentation
    to become a standby again.
 -->
 <application>pg_rewind</>はソースとターゲットクラスタ内のタイムラインヒストリーを調べ、それらがどの時点で異なるものになったのかを調べます。
-そしてターゲットクラスタ内の<filename>pg_xlog</>ディレクトリ内の分岐点に到達するWALを見つけようとします。
-★原文変更あり
+差異が発生した分岐点までずっと遡ることにより、ターゲットクラスタ内の<filename>pg_xlog</>ディレクトリ内の分岐点に到達するWALを見つけようとします。
+変化の分岐点は、ターゲット側のタイムライン中、ソース側のタイムライン中、あるいはそれら共通の祖先の中に見つかる可能性があります。
 分岐点のあと間をおかずシャットダウンされたような典型的なフェイルオーバのシナリオにおいては、これは特に問題になりません。
 しかし、分岐点の後にターゲットクラスタが長時間運用されていた場合には、古いWALファイルはもう存在しないかもしれません。
 この場合は、WALアーカイブから手動で<filename>pg_xlog</>ディレクトリにコピーすることができます。
-不足しているWALファイルをアーカイブから自動的にコピーする機能は今のところサポートされていません。
+あるいは、<filename>recovery.conf</>を設定することにより、起動時に取得できます。
+<application>pg_rewind</>の利用は、フェイルオーバに留まりません。
+たとえば、スタンバイサーバは昇格してから書き込みトランザクションを実行し、再びスタンバイになるために巻き戻すこともできます。
   </para>
 
   <para>
@@ -115,7 +118,6 @@ PostgreSQL documentation
    <filename>recovery.conf</> file in the target data directory with a
    suitable <varname>restore_command</>.
 -->
-★原文変更あり
 <application>pg_rewind</>を実行した後、最初にターゲットサーバを起動すると、そのサーバはリカバリモードに入り、分岐点以降ソースサーバで生成されたWALをすべてリプレイします。
 <application>pg_rewind</>が実行された時にWALがソースサーバになくて<application>pg_rewind</>のセッションではコピーできなかった場合は、ターゲットサーバが起動した時にWALを読む込めるようになっていなければなりません。
 適切な<varname>restore_command</>を設定した<filename>recovery.conf</>ファイルをターゲットデータディレクトリに置くことで、これを達成できます。
@@ -130,7 +132,6 @@ PostgreSQL documentation
    are currently on by default.  <xref linkend="guc-full-page-writes">
    must also be set to <literal>on</>, but is enabled by default.
 -->
-★原文変更あり
 <application>pg_rewind</>を使用するには、ターゲットサーバ上で<filename>postgresql.conf</>の<xref linkend="guc-wal-log-hints">オプションが有効になっているか、<application>initdb</>でクラスタを初期化した時にデータチェックサムが有効になっていなければなりません。
 どちらもデフォルトでは無効です。
 <xref linkend="guc-full-page-writes">も有効でなければなりませんが、これはデフォルトで有効です。
@@ -175,9 +176,8 @@ PostgreSQL documentation
         server to synchronize the target with. This option requires the
         source server to be cleanly shut down.
 -->
-★原文変更あり
-同期するソースサーバのデータディレクトリへのパスを指定します。
-<option>--source-pgdata</>を使用する場合は、ソースサーバは正常にシャットダウンされていなければなりません。
+同期するソースサーバのデータディレクトリへのファイルシステム上のパスを指定します。
+このオプションを使用する場合は、ソースサーバは正常にシャットダウンされていなければなりません。
        </para>
       </listitem>
      </varlistentry>
@@ -194,8 +194,8 @@ PostgreSQL documentation
         server to be running and not in recovery mode.
 -->
 同期するソース<productname>PostgreSQL</>サーバへ接続するためのlibpq接続文字列を指定します。
-接続は、スーパユーザアクセスである通常の接続(レプリケーション接続でない)でなければなりません。★原文変更あり
-サーバは稼働中でなければならず、またリカバリモードであってはいけません。
+接続は、スーパユーザアクセスである通常の接続（レプリケーション接続でない）でなければなりません。
+ソースサーバは稼働中でなければならず、またリカバリモードであってはいけません。
        </para>
       </listitem>
      </varlistentry>
@@ -222,7 +222,7 @@ PostgreSQL documentation
         Enables progress reporting. Turning this on will deliver an approximate
         progress report while copying data from the source cluster.
 -->
-進行状況のレポートを有効にします。このオプションを有効にすると、データをソースクラスタからコピーする際のおおよその進行状況をレポートします。★原文変更あり
+進行状況のレポートを有効にします。このオプションを有効にすると、データをソースクラスタからコピーする際のおおよその進行状況をレポートします。
        </para>
       </listitem>
      </varlistentry>
@@ -296,7 +296,7 @@ PostgreSQL documentation
     The basic idea is to copy all file system-level changes from the source
     cluster to the target cluster:
 -->
-基本的なアイデアは、同じであることがわかっているブロックを除き、すべてを新しいクラスタから古いクラスタにコピーする、というものです。★原文変更あり
+基本的なアイデアは、ファイルシステムレベルの変更を、すべてをソースクラスタからターゲットクラスタにコピーする、というものです。
    </para>
 
    <procedure>
@@ -310,10 +310,9 @@ PostgreSQL documentation
       the data blocks that were changed in the target cluster, after the
       source cluster forked off.
 -->
-★原文変更あり
-古いクラスタからタイムラインが新しいクラスタで分岐した時点より前の最後のチェックポイントから始めて、古いクラスタのWALログをスキャンしします。
+ソースクラスタのタイムライン履歴がターゲットクラスタから分岐した時点より前の最後のチェックポイントから始めて、ターゲットクラスタのWALログをスキャンしします。
 各々のWALレコードについて、変更されたデータブロックを記録します。
-これにより、新しいクラスタで分岐した以降に、古いクラスタで変更されたすべてのデータブロックのリストが作成できます。
+これにより、ソースクラスタが分岐した以降に、ターゲットクラスタで変更されたすべてのデータブロックのリストが作成されます。
      </para>
     </step>
     <step>
@@ -323,7 +322,7 @@ PostgreSQL documentation
       the target cluster, either using direct file system access
       (<option>&#045;-source-pgdata</>) or SQL (<option>&#045;-source-server</>).
 -->
-★節追加
+ファイルシステムへの直接アクセス（<option>--source-pgdata</>）かSQL （<option>--source-server</>）を使って、変更のあったすべてのブロックを、ソースクラスタからターゲットクラスタにコピーします。
      </para>
     </step>
     <step>
@@ -333,8 +332,7 @@ PostgreSQL documentation
       configuration files from the source cluster to the target cluster
       (everything except the relation files).
 -->
-★原文変更あり
-<filename>clog</filename>や設定ファイルなど、リレーションファイル以外のすべてのファイルを新しいクラスタから古いクラスタにコピーします。
+<filename>pg_clog</filename>や設定ファイルなど、それ以外のすべてのファイルをソースクラスタからターゲットクラスタにコピーします。（リレーションファイル以外のすべて）
      </para>
     </step>
     <step>
@@ -346,9 +344,8 @@ PostgreSQL documentation
       makes <productname>PostgreSQL</> start by replaying all WAL from
       that checkpoint forward.)
 -->
-★原文変更あり
-フェイルオーバの際に作られたチェックポイントから始めて、新しいクラスタのWALを適用します。(厳密に言うと、<application>pg_rewind</>はWALの適用はせず、単にバックアップラベルファイルを作るだけです。
-それにより、<productname>PostgreSQL</>が起動する時、チェックポイントから始めてすべての必要なWALが適用されます)
+フェイルオーバの際に作られたチェックポイントから始めて、ソースクラスタのWALを適用します。（厳密に言うと、<application>pg_rewind</>はWALの適用はせず、単にバックアップラベルファイルを作るだけです。
+それにより、<productname>PostgreSQL</>が起動する時、チェックポイントより前方のすべてのWALが適用されます）
      </para>
     </step>
    </procedure>
