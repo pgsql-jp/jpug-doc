@@ -476,11 +476,10 @@ my_consistent(PG_FUNCTION_ARGS)
 ここで、<varname>key</>はインデックス要素であり、<varname>query</>はインデックスに対して検索される値です。
 <literal>StrategyNumber</>パラメータは、演算子クラスのどの演算子が適用されるかを示します。
 これは<command>CREATE OPERATOR CLASS</>コマンドの演算子番号の1つに一致します。
-このクラスに含めた演算子が何かに応じて、<varname>query</>のデータ型は変動することがあります。
-しかし、上記骨格は変動しないものと考えられます。 ★変更あり
       </para>
 
       <para>
+<!--
        Depending on which operators you have included in the class, the data
        type of <varname>query</> could vary with the operator, since it will
        be whatever type is on the righthand side of the operator, which might
@@ -491,6 +490,11 @@ my_consistent(PG_FUNCTION_ARGS)
        the <function>consistent</> function use the opclass's indexed data
        type for the <varname>query</> argument, even though the actual type
        might be something else depending on the operator.
+-->
+演算子の右辺にはいかなる型も来ることがあり、それは左辺に現れるインデックス付けされたデータ型とは違うものかもしれませんので、このクラスにどの演算子を含めたかに依存して、<varname>query</>のデータ型は演算子に応じて変動することがあります。
+(上のコードの骨格は型が1つだけ可能であることを仮定しています。
+そうでなければ、<varname>query</>引数の値を取得するのは演算子に依存しないといけないでしょう。)
+<function>consistent</>関数のSQL宣言では、実際の型は演算子に依存して何か他のものであるとしても、<varname>query</>引数の演算子クラスのインデックス付けされたデータ型を使うことをお勧めします。
       </para>
 
      </listitem>
@@ -577,21 +581,31 @@ my_union(PG_FUNCTION_ARGS)
       </para>
 
       <para>
+<!--
         The result of the <function>union</> function must be a value of the
         index's storage type, whatever that is (it might or might not be
         different from the indexed column's type).  The <function>union</>
         function should return a pointer to newly <function>palloc()</>ed
         memory. You can't just return the input value as-is, even if there is
         no type change.
+-->
+<function>union</>関数の結果は、(インデックス付けされた列の型とは異なるかもしれないし、異ならないかもしれませんが)それが何であれインデックスの格納型の値でなければなりません。
+<function>union</>関数は新たに<function>palloc()</>されたメモリへのポインタを返さなければなりません。
+型の変更がなかったとしても、入力値をそのまま返すことはできません。
       </para>
 
       <para>
+<!--
        As shown above, the <function>union</> function's
        first <type>internal</> argument is actually
        a <structname>GistEntryVector</> pointer.  The second argument is a
        pointer to an integer variable, which can be ignored.  (It used to be
        required that the <function>union</> function store the size of its
        result value into that variable, but this is no longer necessary.)
+-->
+上に示したように、<function>union</>関数の1番目の<type>internal</>引数は実際は<structname>GistEntryVector</>のポインタです。
+2番目の引数は整数の変数へのポインタであり、無視できます。
+(<function>union</>関数がその結果値の大きさをその変数に保存するのに必要だったのですが、これはもはや必要ではありません。)
       </para>
      </listitem>
     </varlistentry>
@@ -781,11 +795,16 @@ my_penalty(PG_FUNCTION_ARGS)
 }
 </programlisting>
 
+<!--
         For historical reasons, the <function>penalty</> function doesn't
         just return a <type>float</> result; instead it has to store the value
         at the location indicated by the third argument.  The return
         value per se is ignored, though it's conventional to pass back the
         address of that argument.
+-->
+歴史的な理由により、<function>penalty</>関数は単純に<type>float</>の結果を返しません。
+その代わり、3番目の引数で指定された場所に値を格納しなければなりません。
+その引数のアドレスを戻すのが慣例ですが、戻り値それ自体は無視されます。
       </para>
 
       <para>
@@ -919,10 +938,14 @@ my_picksplit(PG_FUNCTION_ARGS)
 }
 </programlisting>
 
+<!--
        Notice that the <function>picksplit</> function's result is delivered
        by modifying the passed-in <structname>v</> structure.  The return
        value per se is ignored, though it's conventional to pass back the
        address of <structname>v</>.
+-->
+<function>picksplit</>関数の結果は渡された<structname>v</>構造体を修正することで返されることに注意してください。
+<structname>v</>のアドレスを戻すのが慣例ですが、戻り値それ自体は無視されます。
       </para>
 
       <para>
@@ -948,7 +971,8 @@ my_picksplit(PG_FUNCTION_ARGS)
        (An <quote>index entry</> is a value of the index's storage type,
        not necessarily the original indexed column's type.)
 -->
-２つのインデックス項目が同一の場合に真、さもなくば偽を返します。 ★変更あり
+２つのインデックス項目が同一の場合に真、さもなくば偽を返します。
+(<quote>インデックス項目</>はインデックスの格納型の値であり、必ずしも元のインデックス付けされた列の型という訳ではありません。)
       </para>
 
       <para>
@@ -992,7 +1016,8 @@ my_same(PG_FUNCTION_ARGS)
         address of that argument.
 -->
 歴史的な理由により、<function>same</>関数は単純に論理値の結果を返しません。
-その代わり、３番目の引数で指定された場所にフラグを格納しなければなりません。 ★変更あり
+その代わり、3番目の引数で指定された場所にフラグを格納しなければなりません。
+その引数のアドレスを戻すのが慣例ですが、戻り値それ自体は無視されます。
       </para>
      </listitem>
     </varlistentry>
@@ -1124,7 +1149,7 @@ my_distance(PG_FUNCTION_ARGS)
        original data type, for index-only scans. The returned data must be an
        exact, non-lossy copy of the originally indexed value.
 -->
-インデックスオンリースキャンで使用するため、データ項目の圧縮されたインデックス表現を元のデータ型に変換します。 ★変更あり
+インデックスオンリースキャンで使用するため、データ項目の圧縮されたインデックス表現を元のデータ型に変換します。
 返されたデータは元のインデックス値の正確で、何も失われていない複製でなければなりません。
       </para>
 
@@ -1151,9 +1176,9 @@ LANGUAGE C STRICT;
         argument as-is.
 -->
 引数は<structname>GISTENTRY</>構造体へのポインタです。
-entryにおいて、そのkeyフィールドには、NULLでないリーフデータが圧縮形式で入っています。
-戻り値は別の<structname>GISTENTRY</>構造体で、そのkeyフィールドには、同じデータが元の非圧縮形式で入っています。
-opclassの圧縮関数がリーフのエントリに対して何もしないなら、fetchメソッドは引数をそのまま返すことができます。 ★変更あり
+関数が呼び出された時点では、その<structfield>key</>フィールドには、NULLでないリーフデータが圧縮形式で入っています。
+戻り値は別の<structname>GISTENTRY</>構造体で、その<structfield>key</>フィールドには、同じデータが元の非圧縮形式で入っています。
+opclassの圧縮関数がリーフのエントリに対して何もしないなら、<function>fetch</>メソッドは引数をそのまま返すことができます。
        </para>
 
        <para>
@@ -1201,7 +1226,7 @@ my_fetch(PG_FUNCTION_ARGS)
        cannot support index-only scans, and must not define
        a <function>fetch</> function.
 -->
-compressメソッドがリーフエントリに対してデータ損失がある場合、演算子クラスはインデックスオンリースキャンをサポートすることができず、fetch関数を定義してはいけません。★変更あり
+compressメソッドがリーフエントリに対してデータ損失がある場合、演算子クラスはインデックスオンリースキャンをサポートすることができず、<function>fetch</>関数を定義してはいけません。
       </para>
 
      </listitem>
