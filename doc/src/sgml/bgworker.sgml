@@ -123,8 +123,9 @@ typedef struct BackgroundWorker
        buffers, or any custom data structures which the worker itself may
        wish to create and use.
 -->
-<indexterm><primary>BGWORKER_SHMEM_ACCESS</primary></indexterm>共有メモリへのアクセスを要求します。
-共有メモリアクセスがないワーカは、<productname>PostgreSQL's</productname>の共有データ構造、重量または軽量のロック、共有バッファ、ワーカ自身のカスタムデータ構造を作成や使用等ができません。
+<indexterm><primary>BGWORKER_SHMEM_ACCESS</primary></indexterm>
+共有メモリへのアクセスを要求します。
+共有メモリアクセスがないワーカは、<productname>PostgreSQL's</productname>の共有データ構造、重量または軽量のロック、共有バッファ、ワーカが作成して利用したいカスタムデータ構造の作成や使用等ができません。
       </para>
      </listitem>
     </varlistentry>
@@ -141,8 +142,9 @@ typedef struct BackgroundWorker
        database must also attach shared memory using
        <literal>BGWORKER_SHMEM_ACCESS</literal>, or worker start-up will fail.
 -->
-<indexterm><primary>BGWORKER_BACKEND_DATABASE_CONNECTION</primary></indexterm>データベース接続を確立し、その後トランザクションやクエリの実行できることを要求します。
-<literal>BGWORKER_BACKEND_DATABASE_CONNECTION</literal>を使用するバックグラウンドワーカは<literal>BGWORKER_SHMEM_ACCESS</literal>を使用して共有メモリにアタッチしなければなりません。さもなければ起動時に失敗します。
+<indexterm><primary>BGWORKER_BACKEND_DATABASE_CONNECTION</primary></indexterm>
+トランザクションやクエリの実行が出来るデータベース接続を要求します。
+<literal>BGWORKER_BACKEND_DATABASE_CONNECTION</literal>を使用してデータベースに接続するバックグラウンドワーカは<literal>BGWORKER_SHMEM_ACCESS</literal>を使用して共有メモリにアタッチしなければなりません。さもなければ起動時に失敗します。
       </para>
      </listitem>
     </varlistentry>
@@ -204,10 +206,11 @@ typedef struct BackgroundWorker
    <structfield>bgw_function_name</>.
 -->
 <structfield>bgw_main</structfield>は、プロセスが起動されたときに実行される関数へのポインタです。
-このフィールドは安全にコアサーバ内の関数を起動するために使用することができます。なぜならば、共有ライブラリは、異なるバックエンドプロセスにおける異なる開始アドレスにロードすることができるためです。
-ライブラリが、<xref linkend="guc-shared-preload-libraries">を除いて任意のメカニズムを使用してロードされた、すべてのプラットフォームで発生します。
-<literal>EXEC_BACKEND</>が使用される場合であっても、またアドレス空間レイアウトのバリエーションがWindowsの場合であっても、このメカニズムがまだ発生します。
-<structfield>bgw_main</structfield>はNULLであってもよく、その場合は<structfield>bgw_library_name</structfield>と<structfield>bgw_function_name</structfield>がエントリポイントを決定するために使用されます。
+このフィールドはコアサーバ内の関数を起動する場合にのみ安全に使用することができます。なぜならば、共有ライブラリは、異なるバックエンドプロセスにおける異なる開始アドレスにロードすることができるためです。
+どのプラットフォームでも、ライブラリが<xref linkend="guc-shared-preload-libraries">以外の任意のメカニズムを使用してロードされた時に発生します。
+それを使う場合であっても、Windows上、および<literal>EXEC_BACKEND</>が使用される場合は、このメカニズムがまだ発生します。
+したがって、このAPIのほとんどのユーザーは、このフィールドがNULLに設定する必要があります。
+その場合は、<structfield>bgw_library_name</structfield>と<structfield>bgw_function_name</structfield>がエントリポイントを決定するために使用されます。
   </para>
 
   <para>
@@ -220,8 +223,8 @@ typedef struct BackgroundWorker
    <structfield>bgw_main</> should be set instead.
 -->
 <structfield>bgw_library_name</structfield>はバックグラウンドワーカの初期エントリーポイントのためのライブラリ名です。
-このライブラリの名前は、ワーカプロセスによって動的にロードされ、呼び出される関数を<structfield>bgw_function_name</structfield>と識別するために使用されます。
-コアコードからロードされる関数は、<structfield>bgw_main</>の代わりに設定する必要があります。
+その指定されたライブラリがワーカプロセスによって動的にロードされます。呼び出すべき関数を特定するために<structfield>bgw_function_name</structfield>が使用されます。
+コアコードから関数をロードする場合、<structfield>bgw_main</>の代わりに設定する必要があります。
   </para>
 
   <para>
@@ -250,7 +253,7 @@ typedef struct BackgroundWorker
 <structfield>bgw_main_arg</structfield>は、バックグラウンドワーカのメイン関数の<type>Datum</>引数です。
 <structfield>bgw_main</>経由か、<function>bgw_library_name</>と<function>bgw_function_name</>の組み合わせ経由であるかにかかわらず、メイン関数は単一の<type>Datum</>引数を取り、<type>void</>を返します。
 <structfield>bgw_main_arg</structfield>は引数として渡されます。
-加えて、グローバル変数<literal>MyBgworkerEntry</literal>は、登録時に渡されたの<structname>BackgroundWorker</structname>構造体のコピーを指しています。
+加えて、グローバル変数<literal>MyBgworkerEntry</literal>は、登録時に渡された<structname>BackgroundWorker</structname>構造体のコピーを指しています。
 ワーカはこの構造を調べることがあり、役に立ちます。
   </para>
 
@@ -264,7 +267,7 @@ typedef struct BackgroundWorker
    or <type>text</type> is passed then the pointer won't be valid from the
    new background worker process.
 -->
-Windowsの（どこか他の場所で<literal>EXEC_BACKEND</literal>が定義されている）場合、または動的バックグラウンドワーカは、渡された<type>Datum</>への参照は唯一の値であり安全ではありません。
+Windowsの（どこか他の場所で<literal>EXEC_BACKEND</literal>が定義されている）場合、または動的バックグラウンドワーカは、<type>Datum</>を参照で渡すのは安全ではありません。値のみで渡してください。
 引数が必要な場合は、int32型または他の小さな値を渡し、共有メモリに割り当てられた配列へのインデックスとしてそれを使用するのが最も安全です。
 <type>cstring</>や<type>text</type>のようなポインタを渡された場合は、新しいバックグラウンドワーカプロセスから有効になりません。
   </para>
@@ -424,9 +427,8 @@ postmasterがバックグラウンドワーカを開始しようと試みたか�
    will log those notifications, but there is no programmatic way for the
    worker to intercept and respond to those notifications.
 -->
-バックグラウンドワーカは、サーバプログラミングインターフェイス(<acronym>SPI</acronym>)経由で<command>NOTIFY</command>コマンドにより非同期に通知を送る場合、明示的に通知を配信することができるように囲んでいるトランザクションをコミットした後、<function>ProcessCompletedNotifies</function>を呼ぶ必要があります。
-バックグラウンドワーカは、<acronym>SPI</acronym>を通じて<command>LISTEN</command>の非同期通知の受信を登録します。
-ワーカがこれらの通知をログに記録しますが、ワーカが傍受し、それらの通知に応答するためのプログラム的な方法はありません。
+バックグラウンドワーカは、サーバプログラミングインターフェイス(<acronym>SPI</acronym>)経由で<command>NOTIFY</command>コマンドにより非同期に通知を送る場合、囲んでいるトランザクションをコミットした後、通知を配信することができるように明示的に<function>ProcessCompletedNotifies</function>を呼ぶ必要があります。
+バックグラウンドワーカは、<acronym>SPI</acronym>を通じて<command>LISTEN</command>による非同期通知の受信を登録した場合、ワーカがこれらの通知をログに記録しますが、ワーカが傍受し、それらの通知に応答するためのプログラム的な方法はありません。
   </para>
 
   <para>
