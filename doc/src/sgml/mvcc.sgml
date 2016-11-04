@@ -735,7 +735,7 @@ COMMIT;
 <firstterm>リピータブルリード</firstterm>分離レベルは、トランザクションが開始される前までにコミットされたデータのみを参照します。
 コミットされていないデータや、そのトランザクションの実行中に別のトランザクションでコミットされた変更を参照しません。
 （しかし、まだコミットされていないとしても、その問い合わせはそのトランザクション自身内で行われた過去の更新を参照します。）
-これは<acronym>SQL</acronym>の標準規格で求められるものよりもより強く保証するもので、<xref linkend="mvcc-isolevel-table">で述べている現象をすべて防ぎます。上で述べたように、これは標準規格によって特に許容されており、それぞれの分離レベルが提供しなくてはならない<emphasis>最小</emphasis>の保護が示されています。
+これは<acronym>SQL</acronym>の標準規格で求められるものよりもより強く保証するもので、直列化異常を除いて、<xref linkend="mvcc-isolevel-table">で述べている現象をすべて防ぎます。上で述べたように、これは標準規格によって特に許容されており、それぞれの分離レベルが提供しなくてはならない<emphasis>最小</emphasis>の保護が示されています。
    </para>
 
    <para>
@@ -1016,7 +1016,6 @@ ERROR:  could not serialize access due to read/write dependencies among transact
 真の直列性を保証するために<productname>PostgreSQL</productname>では、最初に走らせた、同時実行トランザクションより前に読み取った結果に対して、書き込みがいつ影響を及ぼしたかを断定可能にするロックを保持することを意味する、<firstterm>述語ロック</>を使います。
 <productname>PostgreSQL</productname>では、これらのロックはブロッキングを引き起こさないため、デッドロックの要因となら<emphasis>ない</>ものです。
 それらは、同時実行中のシリアライザブルトランザクションが、直列化異常につながる組み合わせであることを識別しフラグを立てることに使用されます。
-
 それとは対照的に、データの一貫性を保証したいリードコミッティドあるいはリピータブルリードトランザクションでは、(そのテーブルを使用しようとしている他のユーザをブロックすることができた)テーブル全体のロックを必要とするかもしれません。あるいは、他のトランザクションをブロックするだけでなくディスク・アクセスを引き起こす<literal>SELECT FOR UPDATE</literal>あるいは<literal>SELECT FOR SHARE</literal>を使用するかもしれません。
    </para>
 
@@ -1075,8 +1074,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     for some environments.
 -->
 シリアライザブルトランザクションの一貫した使用は開発を単純化することができます。
-同時実行したシリアライザブルトランザクションのどんなセットも同じ効果があるという保証は、あたかも、それらが一度に実行されたものだったかのように、単一のトランザクションとして証明できることを意味します。
-これは、単独で実行された場合に正しく動作するよう書かれている場合、シリアライザブルトランザクションが混在していても正しく動作する確証を持つことができます。
+正常にコミットされた同時実行のシリアライザブルトランザクションのどんなセットも　、あたかもそれらが一度に実行されたのと同じ効果をもつという保証は、単独で実行されたときに単一トランザクションが正しく動作するよう書かれていると実証できるなら、他のトランザクションが何をしているかの情報が全く無くとも、複数シリアライザブルトランザクションが混在する中で正しく動作するかコミットに成功しないかであると確証を持てることを意味します。
 この技術を使用する環境で、直列化の失敗('40001'のSQLSTATEの値で常に返る)を扱う場合、一般的な手段を持っていることは重要です。
 なぜなら、トランザクションが読み取り/書き込みの依存性にどれだけ影響する可能性があるかということと、直列化異常を防ぐためにロールバックさせる必要があるかといこうとを、正確に予測することは非常に困難だからです。
 読み取り/書き込みの依存性を監視したり、直列化異常で終了したトランザクションを再起動することはコストがかかります。
@@ -1084,6 +1082,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
    </para>
 
    <para>
+<!--
     While <productname>PostgreSQL</>'s Serializable transaction isolation
     level only allows concurrent transactions to commit if it can prove there
     is a serial order of execution that would produce the same effect, it
@@ -1101,6 +1100,12 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     protocol, unique constraints violations might be reported even in cases
     where they could not occur in a serial execution of the concurrent
     transactions.
+-->
+ポスグレのシリアライザブルトランザクション隔離レベルが同じ影響を生む同時のトランザクションがもし実行のシリアルオーダーがあることを証明できればそれだけにコミットすることを許しているとはいえ、本当のシリアル実行では起こらないエラーが常に防げるわけではない。
+特に、たとえそのキーが生成されていないことを挿入しようとする前に明示的に確かめた後でもオーバーラップしてるシリアライザブルトランザクションとのコンフリクトが原因で一意性制約違反を見ることになる可能性がある。
+これは潜在的にコンフリクトしているキーを挿入する全てのシリアライザブルトランザクションを最初にできるかどうか明示的に確かめて明確にすることで防ぐことができる。
+例えば、ユーザに新しいキーを聞いてからまずセレクトでそれがすでに存在しているか確かめるもしくは存在している中で一番大きなキーをセレクトし、それに 1 を足すことで新しいキーを生成するアプリケーションを想像してみてください。
+もしいくつかのシリアライザブルトランザクションがこのプロトコルに沿わずに直接新しいキーを挿入すれば、たとえそれがシリアル実行の同時トランザクションでは起こりえないケースでも一意性制約違反がレポートされるでしょう。
    </para>
 
    <para>
@@ -1148,7 +1153,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        <xref linkend="guc-idle-in-transaction-session-timeout"> may be used to
        automatically disconnect lingering sessions.
 -->
-必要以上に長く<quote>トランザクション内で待機状態</quote>で接続したまま放置しておかないようにしてください。 ★変更あり
+必要以上に長く<quote>トランザクション内で待機状態</quote>で接続したまま放置しておかないようにしてください。
+設定パラメータ<xref linkend="guc-idle-in-transaction-session-timeout">が長引くセッションを自動的に切断するのに使われるかもしれません。
       </para>
      </listitem>
      <listitem>
