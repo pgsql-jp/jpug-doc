@@ -729,14 +729,22 @@ SELECT percentile_disc(0.5) WITHIN GROUP (ORDER BY income) FROM households;
  </sect2>
 
   <sect2 id="xaggr-partial-aggregates">
+<!--
   <title>Partial Aggregation</title>
+-->
+  <title>部分集約</title>
 
   <indexterm>
+<!--
    <primary>aggregate function</primary>
    <secondary>partial aggregation</secondary>
+-->
+   <primary>集約関数</primary>
+   <secondary>部分集約</secondary>
   </indexterm>
 
   <para>
+<!--
    Optionally, an aggregate function can support <firstterm>partial
    aggregation</>.  The idea of partial aggregation is to run the aggregate's
    state transition function over different subsets of the input data
@@ -749,9 +757,16 @@ SELECT percentile_disc(0.5) WITHIN GROUP (ORDER BY income) FROM households;
    (In the future this mode might also be used for purposes such as combining
    aggregations over local and remote tables; but that is not implemented
    yet.)
+-->
+省略可能ですが、集約関数は<firstterm>部分集約</>をサポート出来ます。
+部分集約の考え方は、独立した入力データの異なるサブセットに状態遷移関数を実行します。その後、一度の操作ですべての入力のスキャンで得られるのと同じ状態値を生成するために、これらのサブセットから得られた状態値を結合します。
+このモードは、別のワーカプロセスをテーブルの異なる部分をスキャンさせることによって部分集約のために使用することが出来ます。
+それそれのワーカが、部分状態値を生成し、最後にこれらの状態値を結合して最終状態値を生成します。
+（将来このモードは、ローカルとリモートのテーブルの集計を結合させるなどの目的のために使用されるかもしれません。それはまだ実装されていません。）
   </para>
 
   <para>
+<!--
    To support partial aggregation, the aggregate definition must provide
    a <firstterm>combine function</>, which takes two values of the
    aggregate's state type (representing the results of aggregating over two
@@ -761,9 +776,15 @@ SELECT percentile_disc(0.5) WITHIN GROUP (ORDER BY income) FROM households;
    order of the input rows from the two sets would have been.  This means
    that it's usually impossible to define a useful combine function for
    aggregates that are sensitive to input row order.
+-->
+部分集合をサポートするためには、<firstterm>結合関数</>の集約定義を提供しなければなりません。
+それは、２つの集約の状態タイプ（入力行の２つ以上のサブセットの集約した結果を表わす）を取り、状態タイプの新しい値を生成します。状態は、それらの行の集合の組み合わせを集約した後であろうものを表します。
+それは、２つのセットからの入力行の相対的な順序があったであろうものが指定されていません。
+これは入力行の順序に敏感な集約のための結合関数を定義することは通常不可能だということを意味します。
   </para>
 
   <para>
+<!--
    As simple examples, <literal>MAX</> and <literal>MIN</> aggregates can be
    made to support partial aggregation by specifying the combine function as
    the same greater-of-two or lesser-of-two comparison function that is used
@@ -771,9 +792,14 @@ SELECT percentile_disc(0.5) WITHIN GROUP (ORDER BY income) FROM households;
    addition function as combine function.  (Again, this is the same as their
    transition function, unless the state value is wider than the input data
    type.)
+-->
+簡単な例を示します。<literal>MAX</>と<literal>MIN</>集約は、２つの大なり比較、又は２つの小なり比較関数と同じ結合関数を指定することで部分集約をサポートすることが出来ます。
+<literal>SUM</>集約は結合関数の追加がちょうど必要になります。
+（ここでも、入力データ型よりも状態値が広い場合を除き遷移関数と同じです。）
   </para>
 
   <para>
+<!--
    The combine function is treated much like a transition function that
    happens to take a value of the state type, not of the underlying input
    type, as its second argument.  In particular, the rules for dealing
@@ -782,18 +808,27 @@ SELECT percentile_disc(0.5) WITHIN GROUP (ORDER BY income) FROM households;
    that will be used not only as the initial state for each partial
    aggregation run, but also as the initial state for the combine function,
    which will be called to combine each partial result into that state.
+-->
+結合関数は、２番目の引数として、基本となる入力タイプではなく状態タイプの値を取りますが、遷移関数のように扱われています。
+具体的には、null値と厳格な関数に対処するためのルールは似ています。
+また、<literal>initcond</>が非nullを指定する集約定義の場合、各部分集約の実行のための初期状態として使用されるだけだけでなく、結合関数の初期状態として部分の結果を結合するために呼び出されることに留意してください。
   </para>
 
   <para>
+<!--
    If the aggregate's state type is declared as <type>internal</>, it is
    the combine function's responsibility that its result is allocated in
    the correct memory context for aggregate state values.  This means in
    particular that when the first input is <literal>NULL</> it's invalid
    to simply return the second input, as that value will be in the wrong
    context and will not have sufficient lifespan.
+-->
+集約の状態型が<type>internal</>で宣言されている場合、その結果が集約状態値の正しいメモリコンテキストに割り当てられていることは結合関数の責任です。
+これは特に、以下のことを意味します。最初の入力が<literal>NULL</>だと、２番目の入力を返すことは単に無効になり、その値が間違ったコンテキストになり、そして十分な寿命を持っていないことになります。
   </para>
 
   <para>
+<!--
    When the aggregate's state type is declared as <type>internal</>, it is
    usually also appropriate for the aggregate definition to provide a
    <firstterm>serialization function</> and a <firstterm>deserialization
@@ -801,9 +836,13 @@ SELECT percentile_disc(0.5) WITHIN GROUP (ORDER BY income) FROM households;
    to another.  Without these functions, parallel aggregation cannot be
    performed, and future applications such as local/remote aggregation will
    probably not work either.
+-->
+集約の状態型を<type>internal</>で宣言することは、<firstterm>シリアライズ関数</>と<firstterm>デシリアライズ関数</>を提供するために通常適切です。状態値を１つのプロセスから別のプロセスにコピーすることを可能にします。
+これらの関数がなければ、並列集約を行うことができず、将来のアプリケーションは、そのようなローカル/リモートの集約などは、おそらくどちらかが動作しません。
   </para>
 
   <para>
+<!--
    A serialization function must take a single argument of
    type <type>internal</> and return a result of type <type>bytea</>, which
    represents the state value packaged up into a flat blob of bytes.
@@ -814,12 +853,22 @@ SELECT percentile_disc(0.5) WITHIN GROUP (ORDER BY income) FROM households;
    result of the deserialization function should simply be allocated in the
    current memory context, as unlike the combine function's result, it is not
    long-lived.
+-->
+シリアライズ関数は、<type>internal</>の単一の引数を取り、フラットなblobのバイト状態値パッケージを表わす<type>bytea</>型を返します。
+逆にデシリアライズ関数はその変換を逆にします。
+<type>bytea</>型と<type>internal</>型の２つの引数を取り、<type>internal</>型を返します。
+（第２引数は使用さず常に０ですが、型の安全性の理由のために必要とされます。）
+デシリアライズ関数の結果は単純に、現在のメモリコンテキストに割り当てる必要があります。結合関数の結果とは異なり、長寿命でありません。
   </para>
 
   <para>
+<!--
    Worth noting also is that for an aggregate to be executed in parallel,
    the aggregate itself must be marked <literal>PARALLEL SAFE</>.  The
    parallel-safety markings on its support functions are not consulted.
+-->
+集約を並列に実行するために、集約自体に<literal>PARALLEL SAFE</>マークが、されなければならないというのは注目する価値があります。
+それのサポート関数のパラレルセーフマークは参照されません。
   </para>
 
  </sect2>
@@ -845,7 +894,7 @@ SELECT percentile_disc(0.5) WITHIN GROUP (ORDER BY income) FROM households;
    aggregate support function by calling
    <function>AggCheckCallContext</>, for example:
 -->
-C言語で作成された関数は、<function>AggCheckCallContext</>を呼び出して、集約の遷移関数または最終関数として呼び出されてるかを検出することができます。
+C言語で作成された関数は、<function>AggCheckCallContext</>を呼び出して、集約サポート関数として呼び出されてるかを検出することができます。
 例えば。
 <programlisting>
 if (AggCheckCallContext(fcinfo, NULL))
