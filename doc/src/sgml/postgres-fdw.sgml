@@ -387,7 +387,7 @@
 <!--
    <title>Remote Execution Options</title>
 -->
-   <title>★Remote Execution Options</title>
+   <title>リモート実行オプション</title>
 
    <para>
 <!--
@@ -399,13 +399,10 @@
     be improved by sending such <literal>WHERE</> clauses for remote
     execution.  This behavior can be controlled using the following option:
 -->
-★  By default, only <literal>WHERE</> clauses using built-in operators and
-    functions will be considered for execution on the remote server.  Clauses
-    involving non-built-in functions are checked locally after rows are
-    fetched.  If such functions are available on the remote server and can be
-    relied on to produce the same results as they do locally, performance can
-    be improved by sending such <literal>WHERE</> clauses for remote
-    execution.  This behavior can be controlled using the following option:
+デフォルトでは、組み込みの演算子および関数を使った<literal>WHERE</>句のみがリモートサーバでの実行を考慮されます。
+組み込みでない関数を含む句は、行が取得された後、ローカルで検査されます。
+そのような関数がリモートサーバで利用でき、かつローカルで実行するのと同じ結果を生成すると信頼できるときは、そのような<literal>WHERE</>句をリモートでの実行のために送出することでパフォーマンスを向上することができます。
+この動作は以下のオプションを使うことで制御できます。
    </para>
 
    <variablelist>
@@ -422,12 +419,9 @@
        be considered shippable to the remote server.
        This option can only be specified for foreign servers, not per-table.
 -->
-★     This option is a comma-separated list of names
-       of <productname>PostgreSQL</> extensions that are installed, in
-       compatible versions, on both the local and remote servers.  Functions
-       and operators that are immutable and belong to a listed extension will
-       be considered shippable to the remote server.
-       This option can only be specified for foreign servers, not per-table.
+このオプションは、<productname>PostgreSQL</>の拡張で、ローカルとリモートの両方に、互換のバージョンがインストールされているものの名前のリストです。
+IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモートサーバに送出可能とみなされます。
+このオプションは外部サーバについてのみ指定可能で、テーブル毎の指定ではありません。
       </para>
 
       <para>
@@ -437,10 +431,8 @@
        identically on both the local and remote servers.  Otherwise, remote
        queries may fail or behave unexpectedly.
 -->
-★     When using the <literal>extensions</literal> option, <emphasis>it is the
-       user's responsibility</> that the listed extensions exist and behave
-       identically on both the local and remote servers.  Otherwise, remote
-       queries may fail or behave unexpectedly.
+<literal>extensions</literal>オプションを使用する場合、列挙する拡張が存在し、かつローカルとリモートのサーバで同一の動作をするようにすることは<emphasis>ユーザの責任です</>。
+そうでない場合、リモートの問い合わせは失敗したり、期待と異なる動作をするかもしれません。
       </para>
      </listitem>
     </varlistentry>
@@ -456,11 +448,10 @@
        an option specified for the server.
        The default is <literal>100</>.
 -->
-★     This option specifies the number of rows <filename>postgres_fdw</>
-       should get in each fetch operation. It can be specified for a foreign
-       table or a foreign server. The option specified on a table overrides
-       an option specified for the server.
-       The default is <literal>100</>.
+このオプションは、<filename>postgres_fdw</>が1回のフェッチの動作で何行のデータを取得するかを指定します。
+これは外部テーブルあるいは外部サーバに対して指定できます。
+テーブルに対して指定されたオプションは、サーバに対して指定されたオプションよりも優先します。
+デフォルトは<literal>100</>です。
       </para>
      </listitem>
     </varlistentry>
@@ -728,8 +719,10 @@
 -->
 外部サーバからのデータ転送量を削減するため、<filename>postgres_fdw</>はリモート問い合わせを最適化しようと試みます。
 これは問い合わせの<literal>WHERE</>句をリモートサーバに送出する事、およびクエリで必要とされていないカラムを取得しない事により行われます。
-問い合わせの誤作動のリスクを下げるため、ビルトインのデータ型、演算子、関数だけを用いたものでない限り、リモートサーバに<literal>WHERE</>句は送出されません。また、<literal>WHERE</>句で使われる演算子と関数は<literal>IMMUTABLE</>でなければなりません。
-★
+問い合わせの誤作動のリスクを下げるため、組み込みあるいは外部サーバの<literal>extensions</>オプションに列挙されている拡張に属するデータ型、演算子、関数だけを用いたものでない限り、リモートサーバに<literal>WHERE</>句は送出されません。
+また、そのような<literal>WHERE</>句で使われる演算子と関数は<literal>IMMUTABLE</>でなければなりません。
+<command>UPDATE</>あるいは<command>DELETE</>の問い合わせについては、リモートサーバに送出できない<literal>WHERE</>句がなく、問い合わせにローカルな結合がなく、対象のテーブルにローカルな行レベルの<literal>BEFORE</>あるいは<literal>AFTER</>トリガーがないのであれば、<filename>postgres_fdw</>は問い合わせ全体をリもオートサーバに送出することで、問い合わせの実行の最適化を図ります。
+<command>UPDATE</>では、問い合わせの誤った実行のリスクを低減するため、対象列への代入式では組み込みのデータ型、<literal>IMMUTABLE</>演算子、<literal>IMMUTABLE</>関数のみを使わなければなりません。
   </para>
 
   <para>
@@ -742,13 +735,9 @@
    clauses, it takes the same precautions as mentioned above for the
    <literal>WHERE</> clauses.
 -->
-★ When <filename>postgres_fdw</> encounters a join between foreign tables on
-   the same foreign server, it sends the entire join to the foreign server,
-   unless for some reason it believes that it will be more efficient to fetch
-   rows from each table individually, or unless the table references involved
-   are subject to different user mappings.  While sending the <literal>JOIN</>
-   clauses, it takes the same precautions as mentioned above for the
-   <literal>WHERE</> clauses.
+同一の外部サーバ上の外部テーブルの間の結合がある場合、<filename>postgres_fdw</>はその結合全体を外部サーバに送出します。
+ただし、何らかの理由で各テーブルから個別に行を取得する方が効率的だと思われる場合、あるいは結合に含まれるテーブルの参照が異なるユーザマッピングに従う場合を除きます。
+<literal>JOIN</>句を送出するにあたり、<literal>WHERE</>句に関して上で説明したことと同じ注意が払われます。
   </para>
 
   <para>
@@ -782,7 +771,7 @@
    (see <xref linkend="sql-createfunction">) to such functions
    to establish their expected search path environment.
 -->
-<filename>postgres_fdw</>が開いたリモートセッションでは、<xref linkend="guc-search-path">パラメータは<literal>pg_catalog</>にだけ設定されますので、スキーマで修飾しなければビルトインオブジェクトだけが可視です。
+<filename>postgres_fdw</>が開いたリモートセッションでは、<xref linkend="guc-search-path">パラメータは<literal>pg_catalog</>にだけ設定されますので、スキーマで修飾しなければ組み込みオブジェクトだけが可視です。
 <filename>postgres_fdw</>自身が生成した問い合わせでは、常にそのような修飾を行ないますので、これは問題になりません。
 しかし、リモートテーブルのトリガやルールによってリモートサーバ上で実行された関数にとっては問題の原因となり得ます。
 例えば、リモートテーブルが実際にはビューであれば、そのビューで使われている関数はすべて制限された検索パスで実行されるでしょう。
@@ -871,7 +860,7 @@
 -->
 <filename>postgres_fdw</>のリモートサーバには<productname>PostgreSQL</> 8.3以降のバージョンを使用する事ができます。
 読み取り専用であれば、8.1以降のバージョンまで可能です。
-一方、<filename>postgres_fdw</>は<literal>IMMUTABLE</>属性を持ったビルトインの演算子と関数が外部テーブルの<literal>WHERE</>句に含まれる場合、リモート側で実行しても安全であると仮定します。そのため、リモートサーバのリリース後に追加された関数が実行のために送出されるかもしれず、結果として<quote>関数が見つかりません</>あるいは類するエラーを発生させる事になります。
+一方、<filename>postgres_fdw</>は<literal>IMMUTABLE</>属性を持った組み込みの演算子と関数が外部テーブルの<literal>WHERE</>句に含まれる場合、リモート側で実行しても安全であると仮定します。そのため、リモートサーバのリリース後に追加された関数が実行のために送出されるかもしれず、結果として<quote>関数が見つかりません</>あるいは類するエラーを発生させる事になります。
 この種の問題は問い合わせの書き換えによって対処する事ができます。
 例えば、最適化を妨げるため、外部テーブルへの参照を<literal>OFFSET 0</>を付けて副問い合わせに埋め込み、問題のある関数や演算子を副問い合わせの外に配置するなどの方法があります。
   </para>
