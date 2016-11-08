@@ -39,7 +39,7 @@
 各インデックスは独自の物理的な<firstterm>リレーション</>として格納され、また、<structname>pg_class</>カタログ内の項目として記述されます。
 インデックスの内容は完全にそのインデックスアクセスメソッドの制御下にあります。
 実際、すべてのインデックスアクセスメソッドは、通常の格納マネージャとバッファマネージャを使用してインデックスの内容にアクセスできるように、インデックスを標準サイズのページに分割します。
-（既存のすべてのインデックスアクセスメソッドではさらに、<xref linkend="storage-page-layout">で説明する標準ページレイアウトを使用し、すべて同じ書式をインデックスタプルヘッダに使用します。
+（既存のすべてのインデックスアクセスメソッドではさらに、<xref linkend="storage-page-layout">で説明する標準ページレイアウトを使用し、そのほとんどは同じ書式をインデックスタプルヘッダに使用します。
 しかし、これはアクセスメソッドに強制されていることではありません。）
   </para>
 
@@ -74,7 +74,7 @@ MVCCでは1つの論理的な行に複数の現在のバージョンがあるこ
 <!--
   <title>Basic API Structure for Indexes</title>
 -->
-  <title>★インデックス用のカタログ項目</title>
+  <title>インデックスの基本的API構造</title>
 
   <para>
 <!--
@@ -86,15 +86,13 @@ MVCCでは1つの論理的な行に複数の現在のバージョンがあるこ
    <xref linkend="sql-create-access-method"> and
    <xref linkend="sql-drop-access-method"> SQL commands.
 -->
-各インデックスメソッドは、<structname>pg_am</structname>システムカタログ（<xref linkend="catalog-pg-am">を参照）内の行によって記述されます。
-<structname>pg_am</structname>行の主な内容は、アクセスメソッドで提供されるインデックスアクセス関数を識別する<link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>項目への参照です。
-本章の後でこの関数用のAPIを定義します。
-<structname>pg_am</structname>行はさらに、複数列のインデックスをサポートするかなどといった、アクセスメソッドの固定属性をいくつか規定します。
-現時点では、<structname>pg_am</structname>項目の作成や削除に関する特別な補助はありません。
-新しいアクセスメソッドを作成することができる人間ならば、適切な行を挿入できる能力があると想定しています。
+各インデックスメソッドは<link linkend="catalog-pg-am"><structname>pg_am</structname></link>システムカタログの行で説明されます。
+<structname>pg_am</structname>エントリはアクセスメソッドの名前と<firstterm>ハンドラ関数</>を指定します。
+これらのエントリはSQLコマンド<xref linkend="sql-create-access-method">と<xref linkend="sql-drop-access-method">を使って、作成および削除することができます。
   </para>
 
   <para>
+<!--
    An index access method handler function must be declared to accept a
    single argument of type <type>internal</> and to return the
    pseudo-type <type>index_am_handler</>.  The argument is a dummy value that
@@ -110,10 +108,21 @@ MVCCでは1つの論理的な行に複数の現在のバージョンがあるこ
    indexes.  These support functions are plain C functions and are not
    visible or callable at the SQL level.  The support functions are described
    in <xref linkend="index-functions">.
+-->
+インデックスメソッドのハンドラ関数は、<type>internal</>型の引数を1つ取り、疑似型<type>index_am_handler</>を返すものとして宣言しなければなりません。
+引数は単にハンドラ関数がSQLコマンドから直接呼び出されるのを防ぐためのダミーの値です。
+関数の結果は型<structname>IndexAmRoutine</structname>のpallocされた構造体でなければならず、そこにはインデックスアクセスメソッドを使用するためにコアコードが知っている必要のあるすべてのことが含まれています。
+<structname>IndexAmRoutine</structname>構造体は、アクセスメソッドの<firstterm>API構造体</>とも呼ばれ、複数列のインデックスをサポートするかどうかなどといった、アクセスメソッドに関する様々な既定の属性を指定するフィールドが含まれます。
+さらに重要なことに、この構造体にはアクセスメソッドのサポート関数へのポインタが含まれ、これによってインデックスにアクセスするためのすべての実際の処理が行われます。
+これらのサポート関数は単なるCの関数で、SQLレベルでは見ることも呼び出すこともできません。
+サポート関数は<xref linkend="index-functions">で説明されています。
   </para>
 
   <para>
+<!--
    The structure <structname>IndexAmRoutine</structname> is defined thus:
+-->
+構造体<structname>IndexAmRoutine</structname>は以下のように定義されています。
 <programlisting>
 typedef struct IndexAmRoutine
 {
@@ -221,7 +230,7 @@ typedef struct IndexAmRoutine
 
   <para>
 <!--
-   Some of the flag fields of <structname>IndexAmRoutine</> have nonobvious
+   Some of the flag fields of <structname>IndexAmRoutine</structname> have nonobvious
    implications.  The requirements of <structfield>amcanunique</structfield>
    are discussed in <xref linkend="index-unique-checks">.
    The <structfield>amcanmulticol</structfield> flag asserts that the
@@ -260,7 +269,7 @@ typedef struct IndexAmRoutine
    <literal>IS NULL</> and <literal>IS NOT NULL</> clauses as search
    conditions.
 -->
-<structname>pg_am</structname>のフラグ列の中には、明確な意味を持たないものがあります。
+<structname>IndexAmRoutine</structname>のフラグフィールドの中には、意味がわかりにくいものがあります。
 <structfield>amcanunique</structfield>の必要条件は<xref linkend="index-unique-checks">で説明されています。
 <structfield>amcanmulticol</structfield>フラグはアクセスメソッドが複数列に対するインデックスをサポートすることを表し、<structfield>amoptionalkey</structfield>は、インデックス可能な制限句が最初のインデックス列に指定されていないスキャンを許可することを表します。
 <structfield>amcanmulticol</structfield>が偽の場合、<structfield>amoptionalkey</structfield>は基本的に、アクセスメソッドが制限句なしで完全なインデックススキャンをサポートするかどうかを表します。
@@ -294,7 +303,7 @@ typedef struct IndexAmRoutine
    The index construction and maintenance functions that an index access
    method must provide in <structname>IndexAmRoutine</structname> are:
 -->
-インデックスアクセスメソッドが提供しなければならない、インデックス構築および保守関数を以下に示します。 ★変更あり
+インデックスアクセスメソッドが<structname>IndexAmRoutine</structname>で提供しなければならない、インデックス構築および保守関数を以下に示します。
   </para>
 
   <para>
@@ -333,7 +342,7 @@ ambuildempty (Relation indexRelation);
    relation fork on each server restart.
 -->
 空のインデックスを構築し、それを指定されたリレーションの初期フォーク(<symbol>INIT_FORKNUM</symbol>)に書き出します。
-このメソッドはログを取らないテーブルに対してのみ呼び出されます。
+このメソッドはログを取らないインデックスに対してのみ呼び出されます。
 初期フォークに書き出された空のインデックスは、サーバの再起動の度に主リレーションフォークにコピーされます。
   </para>
 
@@ -362,7 +371,7 @@ aminsert (Relation indexRelation,
 -->
 既存のインデックスに新しいタプルを挿入します。
 <literal>values</>配列と<literal>isnull</>配列がインデックスされるキー値を提供するもので、<literal>heap_tid</>がインデックスされるTIDです。
-アクセスメソッドが一意なインデックスをサポートする場合（その<structname>pg_am</>.<structfield>amcanunique</>が真の場合）、<literal>checkUnique</>は実行する一意性検査の種類を示します。
+アクセスメソッドが一意なインデックスをサポートする場合（その<structfield>amcanunique</>が真の場合）、<literal>checkUnique</>は実行する一意性検査の種類を示します。
 これは一意性制約が遅延可能か否かによって変わります。
 <xref linkend="index-unique-checks">を参照してください。
 通常アクセスメソッドは、一意性検査を行う時に<literal>heapRelation</>パラメータのみを必要とします
@@ -498,10 +507,10 @@ amcanreturn (Relation indexRelation, int attno);
    the <structfield>amcanreturn</> field in its <structname>IndexAmRoutine</>
    struct can be set to NULL.
 -->
-<structname>IndexTuple</structname>形式のインデックスエントリをインデックスが設定された列の値として返すことにより、そのインデックスが指定された列で<firstterm>インデックスオンリースキャン</>をサポートしているかどうかを判断します。
+<structname>IndexTuple</structname>形式のインデックスエントリをインデックスが設定された列の値として返すことにより、そのインデックスが指定された列で<link linkend="indexes-index-only-scans"><firstterm>インデックスオンリースキャン</></link>をサポートしているかどうかを判断します。
 属性番号は1始まり、すなわち最初の列の属性番号は1です。
 インデックスオンリースキャンがサポートされている場合は真が返され、サポートされていない場合は偽が返ります。
-アクセスメソッドがインデックスオンリースキャンをサポートしていない場合、<structname>pg_am</>行の<structfield>amcanreturn</>フィールドにゼロがセットされます。
+アクセスメソッドがインデックスオンリースキャンをサポートしていない場合、<structname>IndexAmRoutine</>構造体の<structfield>amcanreturn</>フィールドをNULLにセットすることができます。
   </para>
 
   <para>
@@ -569,6 +578,7 @@ amproperty (Oid index_oid, int attno,
             IndexAMProperty prop, const char *propname,
             bool *res, bool *isnull);
 </programlisting>
+<!--
    The <function>amproperty</> method allows index access methods to override
    the default behavior of <function>pg_index_column_has_property</function>
    and related functions.
@@ -598,9 +608,21 @@ amproperty (Oid index_oid, int attno,
    If the <structfield>amproperty</> method returns <literal>false</> then
    the core code will proceed with its normal logic for determining the
    property test result.
+-->
+<function>amproperty</>メソッドにより、インデックスメソッドは<function>pg_index_column_has_property</function>および関連する関数のデフォルトの動作を上書きすることができます。
+インデックスアクセスメソッドがインデックスの属性の問い合わせについて特別な動作をしないのなら、<structname>IndexAmRoutine</>構造体の<structfield>amproperty</>フィールドはNULLにすることができます。
+そうでなければ、<function>amproperty</>は<function>pg_indexam_has_property</function>の呼び出しに対し、<parameter>index_oid</>と<parameter>attno</>をいずれもゼロにして、<function>pg_index_has_property</function>の呼び出しに対して<parameter>index_oid</>が有効、<parameter>attno</>がゼロで、あるいは<function>pg_index_column_has_property</function>の呼び出しに対して<parameter>index_oid</>が有効、<parameter>attno</>が1以上で呼び出されます。
+<parameter>prop</>は検査対象の属性を指定する列挙型の値、<parameter>propname</>は元の属性の名称の文字列です。
+コアのコードが属性名を認識しない場合、<parameter>prop</>は<literal>AMPROP_UNKNOWN</>になります。
+アクセスメソッドはカスタム属性名を定義して、マッチするものを<parameter>propname</>で確認する（コアコードとの一貫性のため、<function>pg_strcasecmp</>を使ってください）ことができます。
+コアコードに既知の名前については、<parameter>prop</>を検査する方が良いです。
+<structfield>amproperty</>メソッドが<literal>true</>を返すなら、それは属性検査の結果が決定したということで、<literal>*res</>を返すべき論理値にセットするか、NULLを返すために<literal>*isnull</>を<literal>true</>にセットするかしなければなりません。
+（どちらの参照変数も、呼び出しの前に<literal>false</>に初期化されます。）
+<structfield>amproperty</>メソッドが<literal>false</>を返すなら、コアコードは属性検査の結果を決定するために、通常の手続きを進めます。
   </para>
 
   <para>
+<!--
    Access methods that support ordering operators should
    implement <literal>AMPROP_DISTANCE_ORDERABLE</> property testing, as the
    core code does not know how to do that and will return NULL.  It may
@@ -609,6 +631,11 @@ amproperty (Oid index_oid, int attno,
    <structfield>amcanreturn</>, which is the core code's default behavior.
    The default behavior should be satisfactory for all other standard
    properties.
+-->
+順序付け演算子をサポートするアクセスメソッドは、<literal>AMPROP_DISTANCE_ORDERABLE</>の属性検査を実装する必要があります。
+なぜなら、コアコードはそれをどうすれば良いか知らないため、NULLを返すからです。
+コアコードのデフォルトの動作であるインデックスのオープンと<structfield>amcanreturn</>の呼び出しよりも安価にできるのであれば、<literal>AMPROP_RETURNABLE</>の検査を実装するのは利点となります。
+その他のすべての標準属性に対しては、デフォルトの動作が満足できるもののはずです。
   </para>
 
   <para>
@@ -616,15 +643,22 @@ amproperty (Oid index_oid, int attno,
 bool
 amvalidate (Oid opclassoid);
 </programlisting>
+<!--
    Validate the catalog entries for the specified operator class, so far as
    the access method can reasonably do that.  For example, this might include
    testing that all required support functions are provided.
    The <function>amvalidate</> function must return false if the opclass is
    invalid.  Problems should be reported with <function>ereport</> messages.
+-->
+指定の演算子クラスについて、アクセスメソッドが合理的にできる限りにおいて、カタログエントリを検証します。
+例えば、これには必要なすべてのサポート関数が提供されていることのテストが含まれるかもsしれません。
+<function>amvalidate</>関数は演算子クラスが無効なときは偽を返さなければなりません。
+問題点は<function>ereport</>メッセージにより報告されます。
   </para>
 
 
   <para>
+<!--
    The purpose of an index, of course, is to support scans for tuples matching
    an indexable <literal>WHERE</> condition, often called a
    <firstterm>qualifier</> or <firstterm>scan key</>.  The semantics of
@@ -746,8 +780,8 @@ amgettuple (IndexScanDesc scan,
    <function>amgettuple</>, <function>amrescan</>, or <function>amendscan</>
    call for the scan.)
 -->
-そのインデックスがインデックスオンリースキャンをサポートしている場合(その場合は<function>amcanreturn</function>により真が返されます)、そのアクセスメソッドは<literal>scan-&gt;xs_want_itup</>も確認し、それが真の場合、<literal>scan-&gt;xs_itupdesc</>タプルディスクリプタとともに<literal>scan-&gt;xs_itup</>に格納された<structname>IndexTuple</>ポインタの形式でインデックスエントリに対する元のインデックスされたデータが返されます。
-(ポインタによって参照されているデータはアクセスメソッドのもとで管理されます。データは少なくとも<function>amgettuple</>、<function>amrescan</>または<function>amendscan</>によってスキャンされるまでよい状態を保たなくてはなりません。) ★変更あり
+そのインデックスが<link linkend="indexes-index-only-scans">インデックスオンリースキャン</link>をサポートしている場合(その場合は<function>amcanreturn</function>により真が返されます)、そのアクセスメソッドは<literal>scan-&gt;xs_want_itup</>も確認し、それが真の場合、<literal>scan-&gt;xs_itupdesc</>タプルディスクリプタとともに<literal>scan-&gt;xs_itup</>に格納された<structname>IndexTuple</>ポインタの形式でインデックスエントリに対する元のインデックスされたデータが返されます。
+(ポインタによって参照されているデータはアクセスメソッドのもとで管理されます。データは少なくとも<function>amgettuple</>、<function>amrescan</>または<function>amendscan</>によってスキャンされるまでよい状態を保たなくてはなりません。)
   </para>
 
   <para>
@@ -758,7 +792,7 @@ amgettuple (IndexScanDesc scan,
    struct must be set to NULL.
 -->
 <function>amgettuple</>関数は、アクセスメソッドが<quote>単純</>インデックススキャンをサポートするときのみ提供される必要があります。
-そうでなければ、<structname>pg_am</>行の<structfield>amgettuple</>フィールドはゼロに設定されなければなりません。 ★変更あり
+そうでなければ、<structname>IndexAmRoutine</>構造体の<structfield>amgettuple</>フィールドはNULLに設定されなければなりません。
   </para>
 
   <para>
@@ -804,7 +838,7 @@ amgetbitmap (IndexScanDesc scan,
    struct must be set to NULL.
 -->
 <function>amgetbitmap</>関数はアクセスメソッドが<quote>ビットマップ</>インデックススキャンをサポートしている場合のみ必要です。
-そうでなければ、<structname>pg_am</>行の中の<structfield>amgetbitmap</>フィールドはゼロに設定されなければなりません。 ★変更あり
+そうでなければ、<structname>IndexAmRoutine</>構造体の中の<structfield>amgetbitmap</>フィールドはNULLに設定されなければなりません。
   </para>
 
   <para>
@@ -836,10 +870,14 @@ ammarkpos (IndexScanDesc scan);
   </para>
 
   <para>
+<!--
    The <function>ammarkpos</> function need only be provided if the access
    method supports ordered scans.  If it doesn't,
    the <structfield>ammarkpos</> field in its <structname>IndexAmRoutine</>
    struct may be set to NULL.
+-->
+<function>ammarkpos</>関数はアクセスメソッドが順序付けされたスキャンをサポートする場合にのみ提供する必要があります。
+そうでなければ、その<structname>IndexAmRoutine</>構造体の<structfield>ammarkpos</>フィールドはNULLに設定しても構いません。
   </para>
 
   <para>
@@ -860,15 +898,10 @@ amrestrpos (IndexScanDesc scan);
    the <structfield>amrestrpos</> field in its <structname>IndexAmRoutine</>
    struct may be set to NULL.
 -->
-★変更あり
-簡便性のために、インデックスアクセスメソッド関数の<literal>pg_proc</literal>項目は、正確な引数の数を示さなければなりません。
-しかし、それらはすべて<type>internal</>型として宣言します。
-（引数のほとんどがSQLでは未知の型を持つため、ユーザがこうした関数を直接呼び出すことを防ぐことがこの理由です。）
-戻り値の型は、<type>void</>、<type>internal</>、<type>boolean</>のいずれかで適切に宣言されます。
-唯一の例外は<function>amoptions</>です。
-これは、<type>text[]</>および<type>bool</>を取り<type>bytea</>を返すように正しく宣言しなければなりません。
-この規定により、クライアントコードは<function>amoptions</>を実行してオプションの設定の有効性を検査することができます。
+<function>amrestrpos</>関数はアクセスメソッドが順序付けされたスキャンをサポートする場合にのみ提供する必要があります。
+そうでなければ、その<structname>IndexAmRoutine</>構造体の<structfield>amrestrpos</>フィールドはNULLに設定しても構いません。
   </para>
+
  </sect1>
 
  <sect1 id="index-scanning">
@@ -962,7 +995,7 @@ amrestrpos (IndexScanDesc scan);
        Currently, such access methods must use btree-compatible strategy
        numbers for their equality and ordering operators.
 -->
-常にそのデータ（btreeなど）の自然な順序で項目を返すアクセスメソッドは<structname>pg_am</>.<structfield>amcanorder</>を真に設定しなければなりません。
+常にそのデータ（btreeなど）の自然な順序で項目を返すアクセスメソッドは<structfield>amcanorder</>を真に設定しなければなりません。
 現在、こうしたアクセスメソッドは、その等価性と順序付け演算子でbtree互換の戦略番号を使用しなければなりません。
       </para>
      </listitem>
@@ -977,7 +1010,7 @@ amrestrpos (IndexScanDesc scan);
        of that form can be passed to <function>amrescan</> as described
        previously.
 -->
-順序付け演算子をサポートするアクセスメソッドは<structname>pg_am</>.<structfield>amcanorderbyop</>を真に設定しなければなりません。
+順序付け演算子をサポートするアクセスメソッドは<structfield>amcanorderbyop</>を真に設定しなければなりません。
 これは、インデックスが<literal>ORDER BY</> <replaceable>index_key</> <replaceable>operator</> <replaceable>constant</>を満たす順序で項目を返すことができることを示します。
 前述の通り、この形式のスキャン修飾子を<function>amrescan</>に渡すことができます。
       </para>
@@ -1007,7 +1040,7 @@ amrestrpos (IndexScanDesc scan);
 そのため、<function>amgettuple</>は通常ならばインデックス内の最初に一致したタプルを返すところですが、最後に一致したタプルを返さなければなりません。
 （これは<structfield>amcanorder</>が真に設定されたアクセスメソッドでのみ発生します。）
 最初の呼び出しの後、<function>amgettuple</>は、最も最近に返された項目からどちらの方向にスキャンを進めるかを準備しなければなりません。
-（しかし<structname>pg_am</>.<structfield>amcanbackward</>が偽であれば、引き続くすべての呼び出しは最初のものと同じ方向を持ちます。）
+（しかし<structfield>amcanbackward</>が偽であれば、引き続くすべての呼び出しは最初のものと同じ方向を持ちます。）
   </para>
 
   <para>
@@ -1025,7 +1058,7 @@ amrestrpos (IndexScanDesc scan);
 同じ位置が複数回記録されるかもしれません。
 しかし、スキャン内の1つの位置のみを記録する必要があります。
 新しい<function>ammarkpos</>呼び出しにより前回記録された位置は上書きされます。
-順序付けされたスキャンをサポートしないアクセスメソッドであっても、<structname>pg_am</>内で記録用の関数と位置に戻るための関数を提供しなければなりませんが、呼び出されたとしてもエラーを返すだけで十分です。
+順序付けされたスキャンをサポートしないアクセスメソッドは<structname>IndexAmRoutine</>で<function>ammarkpos</>関数および<function>amrestrpos</>関数を提供する必要はないので、これらのポインタをNULLにセットしてください。
   </para>
 
   <para>
@@ -1058,8 +1091,9 @@ amrestrpos (IndexScanDesc scan);
    all-visible page; else the heap tuple must be visited anyway to check
    MVCC visibility.  But that is no concern of the access method's.
 -->
-インデックスが設定された列値がインデックスに格納されている(かつ、不可逆表現ではない)場合、ヒープタプルのTIDではなくインデックスに格納された実際のデータを返すインデックスオンリースキャンをサポートするのに有用です。
-これは、可視性マップによって可視化されたページ上のTIDが判断できる場合にのみ動作します。判断できない場合はMVCCを確認するためにヒープタプルにアクセスしなくてはなりません。
+インデックスが設定された列値がインデックスに格納されている(かつ、不可逆表現ではない)場合、ヒープタプルのTIDではなくインデックスに格納された実際のデータを返す<link linkend="indexes-index-only-scans">インデックスオンリースキャン</link>をサポートするのに有用です。
+これは、可視性マップによってTIDが全可視のページ上にあると判断できる場合にI/Oを避けるだけのことです。
+判断できない場合はMVCCを確認するためにヒープタプルにアクセスしなくてはなりません。
 しかしその動作はアクセスメソッドでは考慮されていません。
   </para>
 
@@ -1297,7 +1331,7 @@ B-treeおよびハッシュインデックス種類では、<filename>src/backen
 -->
 <productname>PostgreSQL</productname>は、SQLの一意性制約を<firstterm>一意性インデックス</>を使用して強制します。
 このインデックスでは、同一キーに対し複数の項目を許しません。
-この機能をサポートするアクセスメソッドは<structname>pg_am</>.<structfield>amcanunique</>を真に設定します。
+この機能をサポートするアクセスメソッドは<structfield>amcanunique</>を真に設定します。
 （現時点ではb-treeのみがこれをサポートします。）
   </para>
 
