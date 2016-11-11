@@ -766,7 +766,7 @@ SELECT 'doesn''t' AS ret
 （PL/Tcl関数においてこのエラーレベルを使用すべき理由はおそらく存在しませんが、完全性のために用意されています。）
 他のレベルは、異なる重要度のメッセージを生成するだけです。
 <xref linkend="guc-log-min-messages">と<xref linkend="guc-client-min-messages">設定パラメータは、特定の重要度のメッセージをクライアントに報告するか、サーバのログに書き出すか、あるいはその両方かを制御します。
-詳細については<xref linkend="runtime-config">を参照してください。★
+詳細については<xref linkend="runtime-config">および<xref linkend="pltcl-error-handling">を参照してください。
        </para>
       </listitem>
      </varlistentry>
@@ -1137,7 +1137,7 @@ CREATE EVENT TRIGGER tcl_a_snitch ON ddl_command_start EXECUTE PROCEDURE tclsnit
 <!--
     <title>Error Handling in PL/Tcl</title>
 -->
-    <title>★Error Handling in PL/Tcl</title>
+    <title>PL/Tclのエラー処理</title>
 
     <indexterm>
      <primary>exceptions</primary>
@@ -1154,13 +1154,9 @@ CREATE EVENT TRIGGER tcl_a_snitch ON ddl_command_start EXECUTE PROCEDURE tclsnit
      are not caught but are allowed to propagate out to the top level of
      execution of the PL/Tcl function, they turn into database errors.
 -->
-★   Tcl code within or called from a PL/Tcl function can raise an error,
-     either by executing some invalid operation or by generating an error
-     using the Tcl <function>error</function> command or
-     PL/Tcl's <function>elog</function> command.  Such errors can be caught
-     within Tcl using the Tcl <function>catch</function> command.  If they
-     are not caught but are allowed to propagate out to the top level of
-     execution of the PL/Tcl function, they turn into database errors.
+PL/Tcl関数中の、あるいはPL/Tcl関数から呼ばれるTclコードは、無効な操作の実行により、あるいはTclの<function>error</function>コマンドやPL/Tclの<function>elog</function>コマンドを使ってエラーを生成することにより、エラーとなることがありえます。
+これらエラーはTclの<function>catch</function>コマンドを使ってTcl内で捕捉することができます。
+これらエラーは、補足されず、PL/Tcl関数実行のトップレベルに伝播することが許容されているなら、データベースエラーに転化します。
     </para>
 
     <para>
@@ -1172,12 +1168,8 @@ CREATE EVENT TRIGGER tcl_a_snitch ON ddl_command_start EXECUTE PROCEDURE tclsnit
      Again, if they propagate out to the top level without being caught,
      they turn back into database errors.
 -->
-★   Conversely, database errors that occur within PL/Tcl's
-     <function>spi_exec</function>, <function>spi_prepare</function>,
-     and <function>spi_execp</function> commands are reported as Tcl errors,
-     so they are catchable by Tcl's <function>catch</function> command.
-     Again, if they propagate out to the top level without being caught,
-     they turn back into database errors.
+逆に、PL/Tclの<function>spi_exec</function>、<function>spi_prepare</function>、<function>spi_execp</function>コマンドの中で起きるデータベースエラーは、Tclのエラーとして報告され、したがって、これらはTclの<function>catch</function>コマンドにより補足可能です。
+ここでも同様に、捕捉されることなくトップレベルに伝播するならデータベースエラーに戻ります。
     </para>
 
     <para>
@@ -1203,26 +1195,12 @@ CREATE EVENT TRIGGER tcl_a_snitch ON ddl_command_start EXECUTE PROCEDURE tclsnit
      <varname>filename</>, <varname>lineno</>, and
      <varname>funcname</>.
 -->
-★   Tcl provides an <varname>errorCode</varname> variable that can represent
-     additional information about an error in a form that is easy for Tcl
-     programs to interpret.  The contents are in Tcl list format, and the
-     first word identifies the subsystem or library reporting the error;
-     beyond that the contents are left to the individual subsystem or
-     library.  For database errors reported by PL/Tcl commands, the first
-     word is <literal>POSTGRES</literal>, the second word is the Postgres
-     version number, and additional words are field name/value pairs
-     providing detailed information about the error.
-     Fields <varname>SQLSTATE</>, <varname>condition</>,
-     and <varname>message</> are always supplied
-     (the first two represent the error code and condition name as shown
-     in <xref linkend="errcodes-appendix">).
-     Fields that may be present include
-     <varname>detail</>, <varname>hint</>, <varname>context</>,
-     <varname>schema</>, <varname>table</>, <varname>column</>,
-     <varname>datatype</>, <varname>constraint</>,
-     <varname>statement</>, <varname>cursor_position</>,
-     <varname>filename</>, <varname>lineno</>, and
-     <varname>funcname</>.
+Tclは、Tclプログラムで解釈しやすい形式でエラーに関する追加情報を表現できる<varname>errorCode</varname>変数を提供します。
+変数の中身はTclリスト形式で、1番目の語でエラーを報告したサブシステムまたはライブラリを識別します。それ以降の内容は個々のサブシステムやライブラリに任されています。
+PL/Tclコマンドで報告されるデータベースエラーむけには、1番目の語が<literal>POSTGRES</literal>、2番目の語がPostgresのバージョン番号で、それ続く語はエラーの詳細情報を提供するフィールド名と値の組です。
+フィールド<varname>SQLSTATE</>、<varname>condition</>、および<varname>message</>は常に与えられます（最初の2つは<xref linkend="errcodes-appendix">にあるエラーコードと状態名です）。
+
+出現しうるフィールドとしては、<varname>detail</>、<varname>hint</>、<varname>context</>、<varname>schema</>、<varname>table</>、<varname>column</>、<varname>datatype</>、<varname>constraint</>、<varname>statement</>、<varname>cursor_position</>、<varname>filename</>、<varname>lineno</>および<varname>funcname</>があります。
     </para>
 
     <para>
@@ -1231,9 +1209,8 @@ CREATE EVENT TRIGGER tcl_a_snitch ON ddl_command_start EXECUTE PROCEDURE tclsnit
      information is to load it into an array, so that the field names become
      array subscripts.  Code for doing that might look like
 -->
-★   A convenient way to work with PL/Tcl's <varname>errorCode</varname>
-     information is to load it into an array, so that the field names become
-     array subscripts.  Code for doing that might look like
+PL/Tclの<varname>errorCode</varname>情報を処理する便利な方法は、それを配列に読み込むことです。これによりフィールド名は配列の添え字になります。
+これを行うコードは以下のようになります。
 
 <programlisting>
 if {[catch { spi_exec $sql_command }]} {
@@ -1251,8 +1228,7 @@ if {[catch { spi_exec $sql_command }]} {
      (The double colons explicitly specify that <varname>errorCode</varname>
      is a global variable.)
 -->
-★   (The double colons explicitly specify that <varname>errorCode</varname>
-     is a global variable.)
+（二重コロンは<varname>errorCode</varname>がグローバル変数であることを明示的に指定します。）
     </para>
    </sect1>
 
