@@ -26,7 +26,8 @@
 -->
 PostgreSQLはユーザ提供のコードを別のプロセスとして実行できるように拡張することができます。
 このプロセスは<command>postgres</command>によって起動、終了、監視され、サーバの状態に密接にリンクしています。
-これらのプロセスは<productname>PostgreSQL</>の共有メモリ領域にアタッチしたり、データベースの内部に接続するオプションを持ちます。これらはまた、通常のクライアントに接続された実際のサーバプロセスのように複数のトランザクションを連続して実行することができます。また、アプリケーションは<application>libpq</>とリンクすることにより通常のクライアントアプリケーションのようにサーバに接続して動作することができます。
+これらのプロセスは<productname>PostgreSQL</>の共有メモリ領域にアタッチしたり、データベースの内部に接続するオプションを持ちます。これらはまた、通常のクライアントに接続された実際のサーバプロセスのように複数のトランザクションを連続して実行することができます。
+また、アプリケーションは<application>libpq</>とリンクすることにより通常のクライアントアプリケーションのようにサーバに接続して動作することができます。
  </para>
 
  <warning>
@@ -40,7 +41,8 @@ PostgreSQLはユーザ提供のコードを別のプロセスとして実行で�
    background worker processes.
 -->
 バックグラウンドワーカを使うにあたっては、堅牢性とセキュリティリスクを考慮しなくてはなりません。なぜならば、<literal>C</>言語で書かれており、データへのアクセスが制限されていないためです。
-バックグラウンドワーカプロセスを有効にしたいと思っている管理者は厳重に注意して実践してください。バックグラウンドワーカプロセスの実行は、注意深く検査されたモジュールだけを許可する必要があります。
+バックグラウンドワーカプロセスを有効にしたいと思っている管理者は厳重に注意して実践してください。
+バックグラウンドワーカプロセスの実行は、注意深く検査されたモジュールだけを許可する必要があります。
   </para>
  </warning>
 
@@ -61,8 +63,8 @@ PostgreSQLはユーザ提供のコードを別のプロセスとして実行で�
 -->
 バックグラウンドワーカは<productname>PostgreSQL</>スタート時にモジュールを<varname>shared_preload_libraries</>に記すことによって実行できます。
 バックグラウンドワーカとして実行したいモジュールは<function>RegisterBackgroundWorker(<type>BackgroundWorker *worker</type>)</function>を<function>_PG_init()</>から呼び出して登録する必要があります。
-バックグラウンドワーカはシステム起動後も<function>RegisterDynamicBackgroundWorker(<type>BackgroundWorker *worker, BackgroundWorkerHandle **handle</type>)</function>を呼び出すことによって実行することができます。<function>RegisterBackgroundWorker</>とは異なり、postmasterからのみ呼び出すことができます。
-<function>RegisterDynamicBackgroundWorker</function>は通常のバックエンドから呼び出す必要があります。
+バックグラウンドワーカはシステム起動後も<function>RegisterDynamicBackgroundWorker(<type>BackgroundWorker *worker, BackgroundWorkerHandle **handle</type>)</function>を呼び出すことによって実行することができます。
+postmasterからのみ呼び出すことができる<function>RegisterBackgroundWorker</>とは異なり、<function>RegisterDynamicBackgroundWorker</function>は通常のバックエンドから呼び出す必要があります。
  </para>
 
  <para>
@@ -125,7 +127,7 @@ typedef struct BackgroundWorker
 -->
 <indexterm><primary>BGWORKER_SHMEM_ACCESS</primary></indexterm>
 共有メモリへのアクセスを要求します。
-共有メモリアクセスがないワーカは、<productname>PostgreSQL's</productname>の共有データ構造、重量または軽量のロック、共有バッファ、ワーカが作成して利用したいカスタムデータ構造の作成や使用等ができません。
+共有メモリアクセスがないワーカは、<productname>PostgreSQL</productname>の共有データ構造、重量または軽量のロック、共有バッファ、ワーカが作成して利用したいカスタムデータ構造の作成や使用等ができません。
       </para>
      </listitem>
     </varlistentry>
@@ -207,8 +209,8 @@ typedef struct BackgroundWorker
 -->
 <structfield>bgw_main</structfield>は、プロセスが起動されたときに実行される関数へのポインタです。
 このフィールドはコアサーバ内の関数を起動する場合にのみ安全に使用することができます。なぜならば、共有ライブラリは、異なるバックエンドプロセスにおける異なる開始アドレスにロードすることができるためです。
-どのプラットフォームでも、ライブラリが<xref linkend="guc-shared-preload-libraries">以外の任意のメカニズムを使用してロードされた時に発生します。
-それを使う場合であっても、Windows上、および<literal>EXEC_BACKEND</>が使用される場合は、このメカニズムがまだ発生します。
+どのプラットフォームでも<xref linkend="guc-shared-preload-libraries">以外の仕組みを使用してライブラリがロードされた場合、この開始アドレスの差異は発生します。
+<xref linkend="guc-shared-preload-libraries">の仕組みを使う場合であっても、Windows上、および<literal>EXEC_BACKEND</>が使用される場合は、アドレス空間の配置の差異がそれでも発生します。
 したがって、このAPIのほとんどのユーザーは、このフィールドがNULLに設定する必要があります。
 その場合は、<structfield>bgw_library_name</structfield>と<structfield>bgw_function_name</structfield>がエントリポイントを決定するために使用されます。
   </para>
@@ -224,7 +226,7 @@ typedef struct BackgroundWorker
 -->
 <structfield>bgw_library_name</structfield>はバックグラウンドワーカの初期エントリーポイントのためのライブラリ名です。
 その指定されたライブラリがワーカプロセスによって動的にロードされます。呼び出すべき関数を特定するために<structfield>bgw_function_name</structfield>が使用されます。
-コアコードから関数をロードする場合、<structfield>bgw_main</>の代わりに設定する必要があります。
+コアコードから関数をロードする場合、代わりに<structfield>bgw_main</>を設定する必要があります。
   </para>
 
   <para>
