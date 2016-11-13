@@ -614,9 +614,12 @@ fi
      </para>
 
      <para>
+<!--
       When using <application>systemd</application>, you can use the following
       service unit file (e.g.,
       at <filename>/etc/systemd/system/postgresql.service</filename>):<indexterm><primary>systemd</primary></indexterm>
+-->
+<application>systemd</application>を使用する場合は以下のサービスユニットファイルを（例えば<filename>/etc/systemd/system/postgresql.service</filename>として）使用できます。
 <programlisting>
 [Unit]
 Description=PostgreSQL database server
@@ -634,11 +637,15 @@ TimeoutSec=0
 [Install]
 WantedBy=multi-user.target
 </programlisting>
+<!--
       Using <literal>Type=notify</literal> requires that the server binary was
-      built with <literal>configure --with-systemd</literal>.
+      built with <literal>configure &#045;-with-systemd</literal>.
+-->
+<literal>Type=notify</literal>を使うには、サーバのバイナリが<literal>configure --with-systemd</literal>でビルドされている必要があります。
      </para>
 
      <para>
+<!--
       Consider carefully the timeout
       setting.  <application>systemd</application> has a default timeout of 90
       seconds as of this writing and will kill a process that does not notify
@@ -646,6 +653,11 @@ WantedBy=multi-user.target
       server that might have to perform crash recovery at startup could take
       much longer to become ready.  The suggested value of 0 disables the
       timeout logic.
+-->
+タイムアウトの設定について注意深く考えてみましょう。
+この文書を書いている時点で、<application>systemd</application>のデフォルトのタイムアウトは90秒で、その時間内に準備ができたことを通知しないプロセスは終了させられます。
+しかし、<productname>PostgreSQL</productname>サーバは起動時にクラッシュリカバリを実行せねばならないことがあり、準備ができるまでにそれよりずっと長い時間を要することがあります。
+ここで提案されている0という値は、そのタイムアウトの仕組みを無効にします。
      </para>
     </listitem>
 
@@ -1972,7 +1984,10 @@ default:\
    <title>Linuxのメモリオーバーコミット</title>
 
    <indexterm>
+<!--
     <primary>memory overcommit</primary>
+-->
+    <primary>メモリオーバーコミット</primary>
    </indexterm>
 
    <indexterm>
@@ -1980,7 +1995,10 @@ default:\
    </indexterm>
 
    <indexterm>
+<!--
     <primary>overcommit</primary>
+-->
+    <primary>オーバーコミット</primary>
    </indexterm>
 
    <para>
@@ -2076,7 +2094,7 @@ sysctl -w vm.overcommit_memory=2
     file <ulink url="https://www.kernel.org/doc/Documentation/vm/overcommit-accounting"></ulink>.
 -->
 また、関連する<varname>vm.overcommit_ratio</>設定を変更した方が良いでしょう。
-詳細は<ulink url="https://www.kernel.org/doc/Documentation/vm/overcommit-accounting"></ulink>カーネル文書を参照してください。
+詳細はカーネル文書ファイル<ulink url="https://www.kernel.org/doc/Documentation/vm/overcommit-accounting"></ulink>を参照してください。
    </para>
 
    <para>
@@ -2162,75 +2180,97 @@ Linux 2.4カーネルのベンダの中には、2.6のオーバーコミット<c
   </sect2>
 
   <sect2 id="linux-huge-pages">
-   <title>Linux huge pages</title>
+<!--
+   <title>Linux Huge Pages</title>
+-->
+   <title>LinuxのHugePages</title>
 
    <para>
 <!--
     Using huge pages reduces overhead when using large contiguous chunks of
-    memory, like <productname>PostgreSQL</productname> does. To enable this
+    memory, as <productname>PostgreSQL</productname> does, particularly when
+    using large values of <xref linkend="guc-shared-buffers">.  To use this
     feature in <productname>PostgreSQL</productname> you need a kernel
     with <varname>CONFIG_HUGETLBFS=y</varname> and
-    <varname>CONFIG_HUGETLB_PAGE=y</varname>. You also have to tune the system
-    setting <varname>vm.nr_hugepages</varname>. To estimate the number of
-    necessary huge pages start <productname>PostgreSQL</productname> without
-    huge pages enabled and check the <varname>VmPeak</varname> value from the
-    proc file system:
+    <varname>CONFIG_HUGETLB_PAGE=y</varname>. You will also have to adjust
+    the kernel setting <varname>vm.nr_hugepages</varname>. To estimate the
+    number of huge pages needed, start <productname>PostgreSQL</productname>
+    without huge pages enabled and check the
+    postmaster's <varname>VmPeak</varname> value, as well as the system's
+    huge page size, using the <filename>/proc</> file system.  This might
+    look like:
 -->
-<productname>PostgreSQL</productname>メモリの大きな連続チャンクを使用するときにhuge pagesを使用すると、オーバーヘッドが減少します。 <productname>PostgreSQL</productname>でこの機能を有効にするには、kernelの<varname>CONFIG_HUGETLBFS=y</varname>と<varname>CONFIG_HUGETLB_PAGE=y</varname>が必要です。
-またシステム設定<varname>vm.nr_hugepages</varname>を調整しなければなりません。
-<productname>PostgreSQL</productname>に必要なhuge pages数を見積もるには、huge pagesを有効にせずに、procファイルシステムから<varname>VmPeak</varname>の値をチェックします。
+<productname>PostgreSQL</productname>のように、メモリの大きな連続チャンクを使用するとき、特に<xref linkend="guc-shared-buffers">の値が大きい場合に、huge pagesを使用するとオーバーヘッドが減少します。
+<productname>PostgreSQL</productname>でこの機能を有効にするには、<varname>CONFIG_HUGETLBFS=y</varname>および<varname>CONFIG_HUGETLB_PAGE=y</varname>としたカーネルが必要です。
+またカーネル設定<varname>vm.nr_hugepages</varname>を調整する必要もあるでしょう。
+必要なhuge pages数を見積もるには、huge pagesを有効にせずに、<productname>PostgreSQL</productname>を起動し、procファイルシステムを使用してpostmasterの<varname>VmPeak</varname>の値をチェックします。
+これは以下のような感じになるでしょう。
 <programlisting>
-$ <userinput>head -1 /path/to/data/directory/postmaster.pid</userinput>
+$ <userinput>head -1 $PGDATA/postmaster.pid</userinput>
 4170
 $ <userinput>grep ^VmPeak /proc/4170/status</userinput>
 VmPeak:  6490428 kB
+$ <userinput>grep ^Hugepagesize /proc/meminfo</userinput>
+Hugepagesize:       2048 kB
 </programlisting>
-     <literal>6490428</literal> / <literal>2048</literal>
 <!--
-     (<varname>PAGE_SIZE</varname> is <literal>2MB</literal> in this case) are
-     roughly <literal>3169.154</literal> huge pages, so you will need at
-     least <literal>3170</literal> huge pages:
+     <literal>6490428</literal> / <literal>2048</literal> gives approximately
+     <literal>3169.154</literal>, so in this example we need at
+     least <literal>3170</literal> huge pages, which we can set with:
 -->
-（<varname>PAGE_SIZE</varname> はこのケースでは <literal>2MB</literal> ) は、おおよそ<literal>3169.154</literal>huge pagesなので、少なくとも <literal>3170</literal>のhuge pagesが必要になります。
+<literal>6490428</literal> / <literal>2048</literal>はおよそ<literal>3169.154</literal>ですので、この例では少なくとも<literal>3170</literal>のhuge pagesが必要で、それは以下のようにして設定できます。
 <programlisting>
 $ <userinput>sysctl -w vm.nr_hugepages=3170</userinput>
 </programlisting>
 <!--
-    Sometimes the kernel is not able to allocate the desired number of huge
-    pages, so it might be necessary to repeat that command or to reboot. Don't
-    forget to add an entry to <filename>/etc/sysctl.conf</filename> to persist
-    this setting through reboots.
+    A larger setting would be appropriate if other programs on the machine
+    also need huge pages.  Don't forget to add this setting
+    to <filename>/etc/sysctl.conf</filename> so that it will be reapplied
+    after reboots.
 -->
-時には、カーネルは望ましいhuge pages数を割り当てることができませんので、そのコマンドを繰り返すか、再起動の必要があるかもしれません。
- 再起動によって、この設定を永続化するために<filename>/etc/sysctl.conf</filename>にエントリを追加することを忘れないでください。
+同じマシン上で他にもhuge pagesが必要なプログラムがあるなら、もっと大きな設定が適切でしょう。
+再起動のときにこの設定が適用されるように、これを<filename>/etc/sysctl.conf</filename>に追加するのを忘れないで下さい。
    </para>
 
    <para>
 <!--
-    It is also necessary to give the database server operating system
-    user permission to use huge pages by setting
-    <varname>vm.hugetlb_shm_group</> via <application>sysctl</>, and
-    permission to lock memory with <command>ulimit -l</>.
+    Sometimes the kernel is not able to allocate the desired number of huge
+    pages immediately, so it might be necessary to repeat the command or to
+    reboot.  (Immediately after a reboot, most of the machine's memory
+    should be available to convert into huge pages.)  To verify the huge
+    page allocation situation, use:
 -->
-huge pagesを使用するデータベースサーバのオペレーティングシステムのユーザに権限を与える必要もあります。
-これは、<application>sysctl</>を介して<varname>vm.hugetlb_shm_group</>で設定します。
-また<command>ulimit -l</>でメモリにロック出来る権限も必要です。
+時には、カーネルは求められた数のhuge pagesを割り当てることができないことがあるので、そのコマンドを繰り返すか、再起動する必要があるかもしれません。
+（再起動の直後は、マシンのメモリの大部分はhuge pagesへの変更が可能なはずです。）
+huge pagesの割り当ての状況を確認するには、次のようにします。
+<programlisting>
+$ <userinput>grep Huge /proc/meminfo</userinput>
+</programlisting>
+   </para>
+
+   <para>
+<!--
+    It may also be necessary to give the database server's operating system
+    user permission to use huge pages by setting
+    <varname>vm.hugetlb_shm_group</> via <application>sysctl</>, and/or
+    give permission to lock memory with <command>ulimit -l</>.
+-->
+<application>sysctl</>を使って<varname>vm.hugetlb_shm_group</>を設定する、あるいは<command>ulimit -l</>でメモリをロックする権限を与えることで、データベースサーバのOSユーザにhuge pagesを使用する権限を与える必要もあるかもしれません。
    </para>
 
    <para>
 <!--
     The default behavior for huge pages in
     <productname>PostgreSQL</productname> is to use them when possible and
-    to fallback to normal pages when failing. To enforce the use of huge
-    pages, you can set
-    <link linkend="guc-huge-pages"><varname>huge_pages</varname></link>
-    to <literal>on</literal>. Note that in this case
-    <productname>PostgreSQL</productname> will fail to start if not enough huge
-    pages are available.
+    to fall back to normal pages when failing. To enforce the use of huge
+    pages, you can set <xref linkend="guc-huge-pages">
+    to <literal>on</literal> in <filename>postgresql.conf</>.
+    Note that with this setting <productname>PostgreSQL</> will fail to
+    start if not enough huge pages are available.
 -->
-<productname>PostgreSQL</productname>のhuge pagesのデフォルトの動作は、可能な場合は使用し、失敗した場合は通常のページ使用にフォールバックします。
-<link linkend="guc-huge-pages"><varname>huge_pages</varname></link>を<literal>on</literal> に設定することでhuge pagesの使用を強制することができます。
-この場合、十分なhuge pagesが確保できない場合、<productname>PostgreSQL</productname>の起動に失敗します。
+<productname>PostgreSQL</productname>のhuge pagesのデフォルトの動作は、可能な場合はhuge pagesを使用し、失敗した場合は通常のページを使用します。
+<filename>postgresql.conf</>で<link linkend="guc-huge-pages"><varname>huge_pages</varname></link>を<literal>on</literal>に設定することで、huge pagesの使用を強制することができます。
+この設定の場合、十分なhuge pagesが確保できなければ、<productname>PostgreSQL</productname>の起動に失敗することに注意してください。
    </para>
 
    <para>
@@ -2239,7 +2279,7 @@ huge pagesを使用するデータベースサーバのオペレーティング�
     pages feature have a look
     at <ulink url="https://www.kernel.org/doc/Documentation/vm/hugetlbpage.txt"></ulink>.
 -->
- <productname>Linux</productname>のhuge pagesの詳細は<ulink url="https://www.kernel.org/doc/Documentation/vm/hugetlbpage.txt"></ulink>を参照してください。
+<productname>Linux</productname>のhuge pages機能の詳細は<ulink url="https://www.kernel.org/doc/Documentation/vm/hugetlbpage.txt"></ulink>を参照してください。
    </para>
 
   </sect2>
@@ -2921,7 +2961,7 @@ Slonyが異なるメジャーバージョンの<productname>PostgreSQL</>との�
    to the relocated socket file.  You also might need to modify your
    <filename>/tmp</> cleanup script to prevent removal of the symbolic link.
 -->
-<literal>ローカル</>接続に対してなりすましを防ぐ、もっとも簡単な方法は、信頼できるローカルユーザのみに書き込み権限を付与したUnixドメインソケットディレクトリ（<xref linkend="guc-unix-socket-directories">）を使用することです。★原文変更あり
+<literal>local</>接続に対してなりすましを防ぐ、ひとつの方法は、信頼できるローカルユーザのみに書き込み権限を付与したUnixドメインソケットディレクトリ（<xref linkend="guc-unix-socket-directories">）を使用することです。
 これにより、悪意のあるユーザがそのディレクトリに独自のソケットを作成することを防ぐことができます。
 一部のアプリケーションがソケットファイルのために<filename>/tmp</>を参照し、なりすましに対して脆弱であるかもしれないと気にするならば、オペレーティングシステムの起動時に、再割り当てされたソケットファイルを指し示す<filename>/tmp/.s.PGSQL.5432</>というシンボリックリンクを作成してください。
 また、このシンボリックリンクが削除されることを防ぐために、<filename>/tmp</>を整理するスクリプトを変更する必要があるかもしれません。
@@ -2934,7 +2974,7 @@ Slonyが異なるメジャーバージョンの<productname>PostgreSQL</>との�
    to specify the required owner of the server process connected to
    the socket.
 -->
-★このpara追加
+<literal>local</>接続についての別の選択肢は、クライアントが<link linkend="libpq-connect-requirepeer"><literal>requirepeer</></>を使用して、ソケットに接続詞ているサーバプロセスの必要な所有者を指定することです。
   </para>
 
   <para>
@@ -3287,9 +3327,13 @@ SSL接続により、ネットワーク越しに送信されるデータ（パ�
    the server's data directory, but other names and locations can be specified
    using the configuration parameters <xref linkend="guc-ssl-cert-file">
    and <xref linkend="guc-ssl-key-file">.
+-->
+<acronym>SSL</>モードで起動するには、サーバ証明書と秘密鍵を含むファイルが存在していなければなりません。
+デフォルトでは、これらのファイルは<filename>server.crt</>および<filename>server.key</>という名前で、それぞれがサーバのデータディレクトリに存在していることが想定されていますが、設定パラメータの<xref linkend="guc-ssl-cert-file">と<xref linkend="guc-ssl-key-file">によって他の名前、他の場所を指定することもできます。
   </para>
 
   <para>
+<!--
    On Unix systems, the permissions on <filename>server.key</filename> must
    disallow any access to world or group; achieve this by the command
    <command>chmod 0600 server.key</command>.  Alternatively, the file can be
@@ -3298,17 +3342,20 @@ SSL接続により、ネットワーク越しに送信されるデータ（パ�
    and key files are managed by the operating system.  The user under which
    the <productname>PostgreSQL</productname> server runs should then be made a
    member of the group that has access to those certificate and key files.
+-->
+Unixシステムでは、<filename>server.key</filename>の権限は所有者以外からのアクセスを許可してはなりません。
+これは<command>chmod 0600 server.key</command>というコマンドで実現できます。
+あるいは、このファイルの所有者をrootにして、グループに読み取りアクセス権を与える（つまり、パーミッションを<literal>0640</literal>にする）ということもできます。
+この設定は、証明書と鍵ファイルがオペレーティングシステムによって管理されるインストレーションのためのものです。
+<productname>PostgreSQL</productname>サーバを実行するユーザは、証明書と鍵ファイルにアクセス権のあるグループのメンバーにする必要があります。
   </para>
 
   <para>
+<!--
    If the private key is protected with a passphrase, the
    server will prompt for the passphrase and will not start until it has
    been entered.
 -->
-<acronym>SSL</>モードで起動するには、サーバ証明書と秘密鍵を含むファイルが存在していなければなりません。
-デフォルトでは、これらのファイルは<filename>server.crt</>および<filename>server.key</>という名前で、それぞれがサーバのデータディレクトリに存在していることが想定されていますが、設定パラメータの<xref linkend="guc-ssl-cert-file">と<xref linkend="guc-ssl-key-file">によって他の名前、他の場所を指定することもできます。
-Unixシステムでは、<filename>server.key</filename>の権限は所有者以外からのアクセスを許可してはなりません。
-これは<command>chmod 0600 server.key</command>というコマンドで実現できます。
 秘密キーがパスフレーズで保護されている場合、サーバはパスフレーズの入力を促し、入力されるまでは起動しません。
   </para>
 
@@ -3348,6 +3395,10 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
    verify that the client's certificate is signed by one of the trusted
    certificate authorities.
 -->
+クライアントに信頼できる証明書を要求するためには、信頼する認証局（<acronym>CA</acronym>）の証明書をデータディレクトリ内の<filename>root.crt</filename>ファイルに置き、<filename>postgresql.conf</filename>の<xref linkend="guc-ssl-ca-file">パラメータを<literal>root.crt</literal>に設定し、認証オプション<literal>clientcert=1</literal>を<filename>pg_hba.conf</>の適切な<literal>hostssl</>行に追加します。
+そうすると、SSL接続の開始時にクライアントへ証明書が要求されます。
+（クライアント上での証明書の設定方法については<xref linkend="libpq-ssl">を参照してください。）
+サーバは、クライアントの証明書が信頼する認証局のいずれかにより署名されていることを検証します。
   </para>
 
   <para>
@@ -3364,10 +3415,6 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
    url="http://h71000.www7.hp.com/doc/83final/ba554_90007/ch04s02.html"></>
    for diagrams showing SSL certificate usage.)
 -->
-クライアントに信頼できる証明書を要求するためには、信頼する認証局（<acronym>CA</acronym>）の証明書をデータディレクトリ内の<filename>root.crt</filename>ファイルに記述し、<filename>postgresql.conf</filename>の<xref linkend="guc-ssl-ca-file">パラメータで<literal>root.crt</literal>を指定し、<filename>pg_hba.conf</>内の適切な<literal>hostssl</>行（複数もあり）に<literal>clientcert</literal>パラメータを1に設定します。
-その後、SSL接続の開始時にクライアントへ証明書が要求されます。
-（クライアントにある証明書の設定方法については<xref linkend="libpq-ssl">を参照してください。）
-サーバは、クライアントの証明書が信頼する認証局のいずれかにより署名されていることを検証します。
 中間<acronym>CA</>が<filename>root.crt</filename>に記載されている場合、ファイルにはルート<acronym>CA</>までの証明書チェーンが含まれている必要があります。
 <xref linkend="guc-ssl-crl-file">パラメータが設定されている場合、証明書失効リスト（CRL）項目も検査されます。
 （SSL証明書の使用方法を示す図については<ulink url="http://h71000.www7.hp.com/doc/83final/ba554_90007/ch04s02.html"></>を参照してください。）
@@ -3382,9 +3429,8 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
    client certificates against its CA file, if one is configured &mdash; but
    it will not insist that a client certificate be presented.
 -->
-★原文変更あり
-<filename>pg_hba.conf</>の中の<literal>clientcert</literal>オプションはすべての認証方式に対して有効ですが、<literal>hostssl</>として指定された行のみに対してです。
-<literal>clientcert</literal>が指定されていない、または0と設定されている場合でも、認証局のリストが設定されていれば、サーバはその認証局に対してクライアント証明書の検証を行いますが、クライアント証明書の存在そのものを要求しません。
+認証オプション<literal>clientcert</literal>はすべての認証方式について利用可能ですが、<filename>pg_hba.conf</>の<literal>hostssl</>として指定された行でのみ有効です。
+<literal>clientcert</literal>が指定されていない、または0と設定されている場合でも、認証局のリストが設定されていれば、サーバはその認証局に対してクライアント証明書の検証を行いますが、クライアント証明書を提示することを要求しません。
   </para>
 
   <para>
@@ -3410,7 +3456,7 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
 -->
 クライアント証明書を設定している場合、接続の安全性を提供するとともに証明書でユーザ認証を制御できるように<literal>cert</>認証方式を使用したいと考えるかもしれません。
 詳細については<xref linkend="auth-cert">を参照してください。
-★原文追加あり
+（<literal>cert</>認証方式を使用している場合は、明示的に<literal>clientcert=1</literal>を指定する必要はありません。）
   </para>
   </sect2>
 
