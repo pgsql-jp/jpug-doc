@@ -257,9 +257,8 @@ shared_buffers = 128MB
      Invalid parameter settings in the configuration file are likewise
      ignored (but logged) during <systemitem>SIGHUP</> processing.
     -->
-    設定ファイルはメインサーバプロセスが<systemitem>SIGHUP</>信号を受け取ると何時でも
-    再読み込みされます。手っ取り早く行なうには、コマンドラインから<literal>pg_ctl reload</>
-    を実行するか、SQL関数の<function>pg_reload_conf()</function>を呼び出します。
+設定ファイルは、メインサーバプロセスが<systemitem>SIGHUP</>信号を受け取るたびに再読み込みされます。
+このシグナルを手っ取り早く送信するには、コマンドラインから<literal>pg_ctl reload</>を実行するか、SQL関数の<function>pg_reload_conf()</function>を呼び出します。
 メインサーバプロセスは同時にこの信号を、現存のセッションが同様に新しい値を入手できるように、全ての現在実行しているサーバプロセスに伝播します(これは現在実行中のクライアントコマンドの処理を完了してから行われます)。
 他の手段として、直接単一のサーバプロセスにシグナルを送ることも可能です。いくつかのパラメータはサーバの起動時のみ設定されます;設定ファイル中のそれらのエントリのいかなる変更も、サーバが再起動されるまで無視されます。
 設定ファイル内で無効なパラメータが設定された場合はこのように（ログには残りますが）<systemitem>SIGHUP</> 処理中に無視されます。
@@ -277,7 +276,8 @@ shared_buffers = 128MB
      effect in the same way.  Settings in <filename>postgresql.auto.conf</>
      override those in <filename>postgresql.conf</>.
 -->
-    <filename>postgresql.conf</>に加え、<productname>PostgreSQL</productname>データディレクトリには <filename>postgresql.auto.conf</><indexterm><primary>postgresql.auto.conf</></>というファイルがあります。このファイルは <filename>postgresql.conf</> と同じフォーマットですが、手動では編集しません。
+<filename>postgresql.conf</>に加え、<productname>PostgreSQL</productname>のデータディレクトリには <filename>postgresql.auto.conf</><indexterm><primary>postgresql.auto.conf</></>というファイルがあります。
+このファイルは <filename>postgresql.conf</> と同じフォーマットですが、決して手動で編集してはいけません。
 このファイルは <xref linkend="SQL-ALTERSYSTEM"> コマンドを使った設定値を保存します。
 このファイルは<filename>postgresql.conf</> が読み込まれるときはいつでも同時に読み込まれ、同じように設定が反映されます。
 <filename>postgresql.auto.conf</>は、<filename>postgresql.conf</>の設定を上書きします。
@@ -541,12 +541,10 @@ env PGOPTIONS="-c geqo=off -c statement_timeout=5min" psql
       feature allows a configuration file to be divided into physically
       separate parts.  Include directives simply look like:
 -->
-       パラメータ設定に加え、<filename>postgresql.conf</>ファイルに<firstterm>include コマンド</>
-        を書くことができます。
-        このようにすると、別のファイルがあたかもその時点で設定ファイルに挿入されているごとく読み込まれ、
-        処理されるように指定されます。
-        この機能は設定ファイルが物理的に異なる全体の一部に分割されたようにします。
-        Includeコマンドは次のように単純です。
+パラメータ設定に加え、<filename>postgresql.conf</>ファイルに<firstterm>includeディレクティブ</>を入れることができます。
+このようにすると、別のファイルがあたかも設定ファイルのその場所に挿入されているかのごとく読み込まれ、処理されるように指定されます。
+この機能により、設定ファイルを物理的に異なる複数のパーツに分解することができます。
+Includeディレクティブは単に次のような形式になります。
 <!--
 <programlisting>
 include 'filename'
@@ -580,10 +578,9 @@ Includeコマンドは入れ子にすることができます。
       <literal>include_if_exists</> merely logs a message and continues
       processing the referencing configuration file.
 -->
-        <literal>include_if_exists</>コマンドもあります。これは参照ファイルが存在しないか、または
-        読み込むことができない場合の動作を除き、 <literal>include</>コマンドと同一の動作をします。
-        通常の<literal>include</>はこれをエラーと解釈しますが、<literal>include_if_exists</>はただ
-        単にログをとり、そして参照している設定ファイルの処理を続けます。
+<literal>include_if_exists</>ディレクティブもあります。
+これは参照ファイルが存在しないか、または読み込むことができない場合の動作を除き、<literal>include</>ディレクティブと同一の動作をします。
+通常の<literal>include</>はこれをエラーと解釈しますが、<literal>include_if_exists</>はただ単にログをとり、そして参照している設定ファイルの処理を続けます。
      </para>
 
      <para>
@@ -599,9 +596,8 @@ Includeコマンドは入れ子にすることができます。
       <literal>include_dir</literal> directives, which specify an entire
       directory of configuration files to include.  These look like
 -->
-       <filename>postgresql.conf</>ファイルは同時に<literal>include_dir</literal>コマンドを
-       持つことが可能で、includeする設定ファイルを含むディレクトリ全体を指定します。
-       このような感じです。
+includeする設定ファイルを含むディレクトリ全体を指定する<literal>include_dir</literal>ディレクティブを、<filename>postgresql.conf</>ファイルに含めることもできます
+このような感じです。
 <!--
 <programlisting>
 include_dir 'directory'
@@ -659,9 +655,10 @@ include 'server.conf'
       finally <filename>server.conf</> could have truly server-specific
       configuration information in it.
       -->
-       全てのシステムは同一の<filename>shared.conf</>を所有する様になるでしょう。
-       特定のメモリー容量を所有するそれぞれのサーバは同じ<filename>memory.conf</>を共有できます。
-       一つは8GBのRAMを持つ全てのサーバ群、他は16GBを持っています。そして最終的に<filename>server.conf</>で厳密にサーバ特有の設定情報を記載します。
+全てのシステムは同一の<filename>shared.conf</>を所有する様になるでしょう。
+特定のメモリー容量を所有するそれぞれのサーバは同じ<filename>memory.conf</>を共有できます。
+RAMが8GBのすべてのサーバには共通の<filename>memory.conf</>を1つ使い、16GBのサーバ群には別のものを使う、ということもできるでしょう。
+そして最後の<filename>server.conf</>には、本当にサーバ固有となる設定情報を記載します。
      </para>
 
      <para>
@@ -747,7 +744,7 @@ include_dir 'conf.d'
       全ての3つの設定ファイルは、デフォルトではデータベースクラスタのdataディレクトリに格納されます。
 本節で説明するパラメータにより、設定ファイルを何処にでも置くことが可能です。
 （そのようにすると管理がしやすくなります。
-具体的には、設定ファイルを分けて保存することで、設定ファイルの適切なバックアップを確実に行うことが容易になります。）
+とりわけ、設定ファイルを分けて保存することで、設定ファイルの適切なバックアップを確実に行うことがしばしば容易になります。）
      </para>
 
      <variablelist>
