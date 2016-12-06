@@ -62,7 +62,7 @@ SELECT content FROM test1 WHERE id = <replaceable>constant</replaceable>;
    efficient method for locating matching rows.  For instance, it
    might only have to walk a few levels deep into a search tree.
 -->
-高度な準備を行っていなければ、システムで一致する項目を全て検出するためには通常、<structname>test1</structname>テーブル全体を1行ごとにスキャンする必要があります。
+事前に準備を行っていなければ、システムで一致する項目を全て検出するためには、<structname>test1</structname>テーブル全体を1行ごとにスキャンする必要があります。
 <structname>test1</structname>に数多くの行があり、その問い合わせで返されるのが数行（おそらく0行か1行）しかない場合、これは明らかに効率が悪い方法と言えます。
 システムがインデックスを<structfield>id</structfield>列上で維持するように指示されていれば、一致する行を検出するのにより効率の良い方法を使うことができます。
 例えば、検索ツリーを数層分検索するだけで済む可能性もあります。
@@ -80,7 +80,7 @@ SELECT content FROM test1 WHERE id = <replaceable>constant</replaceable>;
    it is the task of the database programmer to foresee which indexes
    will be useful.
 -->
-ほとんどのノンフィクション小説で、同じような手法が使われています。
+ほとんどのノンフィクションの本で、同じような手法が使われています。
 読者が頻繁に調べる用語および概念は、その本の最後にアルファベット順に索引としてまとめられています。
 その本に興味を持った読者は、索引（インデックス）を調べ、比較的速く簡単に該当するページを開くことができるため、見たい場所を探すために本全部を読む必要はありません。
 読者がよく調べそうな項目を予想するのが著者の仕事であるように、どのインデックスが実用的であるかを予測するのはデータベースプログラマの仕事です。
@@ -139,7 +139,7 @@ CREATE INDEX test1_id_index ON test1 (id);
    also significantly speed up queries with joins.
 -->
 インデックスは、<command>UPDATE</command>や<command>DELETE</command>コマンドの検索条件でも使用できます。
-インデックスは結合問い合わせでより多く使用されます。
+さらに、インデックスは結合問い合わせでも使用されます。
 したがって、結合条件で記述されている列にインデックスを定義すれば、結合を伴った問い合わせにかかる時間もかなり短縮できます。
   </para>
 
@@ -155,7 +155,7 @@ CREATE INDEX test1_id_index ON test1 (id);
    for more information see <xref linkend="SQL-CREATEINDEX-CONCURRENTLY"
    endterm="SQL-CREATEINDEX-CONCURRENTLY-title">.
 -->
-大規模テーブルに対するインデックス作成が長期にわたる可能性があります。
+大規模テーブルに対するインデックス作成が長時間にわたる可能性があります。
 デフォルトで<productname>PostgreSQL</productname>はインデックス作成と並行してテーブルを読み取る（<command>SELECT</command>文）ことができますが、書き込み（<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>）はインデックス作成が終わるまでブロックされます。
 これは多くの運用環境では受け入れられません。
 インデックス作成中でも並行して書き込みできるようにすることができますが、いくつか注意しなければならないことがあります。
@@ -193,7 +193,7 @@ CREATE INDEX test1_id_index ON test1 (id);
 -->
 <productname>PostgreSQL</productname>では、B-tree、Hash、GiST、SP-GiST、GIN、BRINといった複数の種類のインデックスを使用可能です。
 インデックスの各種類は、異なる種類の問い合わせに最も適した、異なるアルゴリズムを使用します。
-デフォルトで<command>CREATE INDEX</command>コマンドは、B-treeインデックスを作成し、それはほとんどの一般的状況に適合します。
+デフォルトで<command>CREATE INDEX</command>コマンドは、B-treeインデックスを作成し、それは最も一般的な状況に適合します。
   </para>
 
   <para>
@@ -235,7 +235,7 @@ B-treeインデックスは、ある順番でソート可能なデータに対�
    a B-tree index search.  Also, an <literal>IS NULL</> or <literal>IS NOT
    NULL</> condition on an index column can be used with a B-tree index.
 -->
-また、<literal>BETWEEN</>や<literal>IN</>などのこれらの演算子の組み合わせと等価な式をB-treeインデックス検索で実装することができます。
+また、<literal>BETWEEN</>や<literal>IN</>などのこれらの演算子の組み合わせと等価な式もB-treeインデックス検索で実装することができます。
 インデックスの付いた列に対する<literal>IS NULL</>や<literal>IS NOT NULL</>でもB-treeインデックスを使用することができます。
   </para>
 
@@ -255,9 +255,8 @@ B-treeインデックスは、ある順番でソート可能なデータに対�
    non-alphabetic characters, i.e., characters that are not affected by
    upper/lower case conversion.
 -->
-オプティマイザは、パターンマッチ演算子<literal>LIKE</>、<literal>~</literal>を含む問い合わせでも、そのパターンが定数であり、先頭文字列を指定している<emphasis>場合</emphasis>B-treeインデックスを使用することができます。
-例えば、<literal>col LIKE 'foo%'</literal>または<literal>col ~ '^foo'</literal>です。
-<literal>col LIKE '%bar'</literal>では使用されません。
+オプティマイザは、パターンマッチ演算子<literal>LIKE</>、<literal>~</literal>を含む問い合わせでも、そのパターンが定数であり、先頭文字列を指定している<emphasis>のであれば</emphasis>B-treeインデックスを使用することができます。
+例えば、<literal>col LIKE 'foo%'</literal>または<literal>col ~ '^foo'</literal>では使用されますが、<literal>col LIKE '%bar'</literal>では使用されません。
 しかし、データベースがCロケールを使用していない場合、パターンマッチ問い合わせのインデックス付けをサポートする特別な演算子クラスでインデックスを作成しなければなりません。
 後述の<xref linkend="indexes-opclass">を参照してください。
 なお、<literal>ILIKE</literal>と<literal>~*</literal>でもB-treeインデックスを使用することができますが、パターンが英字以外の文字、つまり、大文字小文字の違いの影響がない文字で始まる場合のみです。
@@ -317,8 +316,8 @@ CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable>
     For these reasons, hash index use is presently discouraged.
 -->
 現在ハッシュインデックス操作はWALに記録されません。
-そのため、データベースクラッシュの後ハッシュインデックスを<command>REINDEX</>で再構築しなければならない可能性があります。
-また、最初のバックアップを取得して以降、ストリーミングレプリケーションやファイルベースのレプリケーションでは変更が反映されないため、その後ハッシュインデックスを使うクエリは誤った結果を返します。
+そのため、データベースクラッシュの後、書き込まれていない変更があるなら、ハッシュインデックスを<command>REINDEX</>で再構築しなければならない可能性があります。
+また、最初のバックアップを取得した後は、ストリーミングレプリケーションやファイルベースのレプリケーションでは変更が反映されないため、その後ハッシュインデックスを使う問い合わせは誤った結果を返します。
 これらの理由により、ハッシュインデックスの使用は現在お勧めできません。
    </para>
   </caution>
@@ -350,8 +349,7 @@ CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable>
 -->
 GiSTインデックスは単一種類のインデックスではなく、多くの異なるインデックス戦略を実装することができる基盤です。
 したがって、具体的なGiSTインデックスで使用できる演算子はインデックス戦略（<firstterm>演算子クラス</>）によって異なります。
-例えば、<productname>PostgreSQL</productname>の標準配布物には、複数の二次元幾何データ型用のGiST演算子クラスが含まれています。
-これらの演算子を使用してインデックス付けされた問い合わせをサポートします。
+例えば、<productname>PostgreSQL</productname>の標準配布物には、複数の二次元幾何データ型用のGiST演算子クラスが含まれており、以下の演算子を使用してインデックス付けされた問い合わせをサポートします。
 
    <simplelist>
     <member><literal>&lt;&lt;</literal></member>
@@ -400,8 +398,8 @@ SELECT * FROM places ORDER BY location <-> point '(101,456)' LIMIT 10;
    used in this way are listed in the column <quote>Ordering Operators</>.
 -->
 これは指定された対象地点に最も近い１０箇所を見つけ出します。
-繰り返しますが、これができるかどうかは使用される特定の演算子クラスに依存します。
-このように利用できる演算子は<xref linkend="gist-builtin-opclasses-table">の<quote>Ordering Operators</>列に表示されています。
+この場合も、これができるかどうかは使用される特定の演算子クラスに依存します。
+このように利用できる演算子は<xref linkend="gist-builtin-opclasses-table">の<quote>順序付け演算子</>列に表示されています。
   </para>
 
   <para>
@@ -586,7 +584,7 @@ GiST、SP-GiST、GINと同じように、BRINは多くの異なるインデッ�
    An index can be defined on more than one column of a table.  For example, if
    you have a table of this form:
 -->
-インデックスは、テーブルの1つ以上の列に定義することができます。
+インデックスは、テーブルの2つ以上の列に定義することができます。
 例えば、以下のようなテーブルがあるとします。
 <programlisting>
 CREATE TABLE test2 (
@@ -658,7 +656,7 @@ CREATE INDEX test2_mm_idx ON test2 (major, minor);
 例えば、<literal>(a, b, c)</literal>に対するインデックスがあり、<literal>WHERE a = 5 AND b &gt;= 42 AND c &lt; 77</>という問い合わせ条件があったとすると、
 <literal>a</> = 5かつ<literal>b</> = 42を持つ項目を先頭に、<literal>a</> = 5となる最後の項目までのインデックスをスキャンしなければなりません。
 <literal>c</> &gt;= 77を持つインデックス項目は飛ばされますが、スキャンを行わなければなりません。
-このインデックスは原理上、 <literal>a</>に対する制約を持たない、<literal>b</>および<literal>c</>、あるいは、<literal>b</>または<literal>c</>を制約に持つ問い合わせで使用することができます。
+このインデックスは原理上、 <literal>a</>に対する制約を持たず、<literal>b</>あるいは<literal>c</>に制約に持つ問い合わせでも使用することができます。
 しかし、インデックス全体がスキャンされますので、ほとんどの場合、プランナはインデックスの使用よりもシーケンシャルテーブルスキャンを選択します。
   </para>
 
@@ -724,7 +722,7 @@ GINと同様に、またB-treeやGiSTとは異なり、インデックス検索�
 -->
 複数列インデックスは慎重に使用する必要があります。
 多くの場合、単一列のインデックスで十分であり、また、その方がディスク領域と時間を節約できます。
-テーブルの使用方法が極端に様式化されていない限り、3つ以上の列を使用しているインデックスは、ほぼ間違いなく不適切であると言えます。
+テーブルの使用方法が極端に様式化されていない限り、4つ以上の列を使用しているインデックスは、不適切である可能性が高いでしょう。
 異なるインデックス構成の利点に関するこの他の説明について<xref linkend="indexes-bitmap-scans">および<xref linkend="indexes-index-only-scans">も参照してください。
   </para>
  </sect1>
@@ -758,7 +756,7 @@ GINと同様に、またB-treeやGiSTとは異なり、インデックス検索�
 単に問い合わせによって返される行を見つけ出すだけではなく、インデックスは、その行を指定した順番で取り出すことができます。
 これにより、別途ソート処理を行うことなく、問い合わせの<literal>ORDER BY</>指定に従うことが可能です。
 <productname>PostgreSQL</productname>が現在サポートするインデックスの種類の中で、B-Treeのみがソート出力を行うことができます。
-他の種類のインデックスでは指定なし、または、実装固有の順序で一致した行を返します。
+他の種類のインデックスでは指定なし、または、実装固有の順序でマッチした行を返します。
   </para>
 
   <para>
@@ -777,7 +775,7 @@ GINと同様に、またB-treeやGiSTとは異なり、インデックス検索�
    an index matching the <literal>ORDER BY</>, the first <replaceable>n</>
    rows can be retrieved directly, without scanning the remainder at all.
 -->
-プランナは、指定に一致し利用可能なインデックスでスキャンする、または、テーブルを物理的な順番でスキャンし明示的なソートを行うことにより、<literal>ORDER BY</>指定を満足させるかを考慮します。
+プランナは、<literal>ORDER BY</>指定を満足させるために、指定に一致し利用可能なインデックスでスキャンするか、または、テーブルを物理的な順番でスキャンし明示的なソートを行うかを考慮します。
 テーブルの大部分のスキャンが必要な問い合わせでは、後に発生するシーケンシャルなアクセスパターンのために要求されるディスクI/Oが少ないため、インデックスを使用するよりも、明示的なソートの方が高速です。
 数行を取り出す必要がある場合のみ、インデックスの方が有用になります。
 <literal>ORDER BY</>と<literal>LIMIT</> <replaceable>n</>が組み合わされた場合が、重要かつ特別です。
@@ -912,7 +910,7 @@ CREATE INDEX test3_desc_index ON test3 (id DESC NULLS LAST);
    the index results to identify the result rows.
 -->
 幸いにも、<productname>PostgreSQL</>は、単一のインデックススキャンでは実装できない場合を扱うために、複数のインデックス（同じインデックスの複数回使用を含む）を組み合わせる機能を持ちます。
-システムは複数のインデックススキャンを跨がる、条件の<literal>AND</>または<literal>OR</>を形成します。
+システムは複数のインデックススキャンを跨がる、<literal>AND</>条件および<literal>OR</>条件を形成できます。
 例えば、
 <literal>WHERE x = 42 OR x = 47 OR x = 53 OR x = 99</>という問い合わせは、問い合わせ句の1つを使用して<literal>x</>上のインデックスをスキャンする4つのスキャンに分割することができます。
 その後、これらのスキャンの結果はOR演算でまとめられ、結果を生成します。
@@ -935,7 +933,7 @@ CREATE INDEX test3_desc_index ON test3 (id DESC NULLS LAST);
    scan even though additional indexes are available that could have been
    used as well.
 -->
-複数のインデックスを組み合わせるために、システムは必要なインデックスそれぞれをスキャンし、インデックス条件に一致するものと報告されたテーブル行の位置を与えるためにメモリ上に<firstterm>ビットマップ</>を準備します。
+複数のインデックスを組み合わせるために、システムは必要なインデックスそれぞれをスキャンし、インデックス条件に適合するものと報告されたテーブル行の位置を与えるためにメモリ上に<firstterm>ビットマップ</>を準備します。
 その後、このビットマップは問い合わせで必要とされたように、ANDまたはOR演算されます。
 最後に、実際のテーブル行がアクセスされ、返されます。
 テーブル行は物理的な順番でアクセスされます。
@@ -1158,9 +1156,9 @@ CREATE INDEX people_names ON people ((first_name || ' ' || last_name));
    is more important than insertion and update speed.
 -->
 派生した式が、行が挿入、更新される度に実行されなければなりませんので、インデックス式は相対的に見て維持が高価です。
-しかし、インデックス式はインデックスを使用する検索の間で再計算<emphasis>されません</>。
+しかし、インデックス式はインデックス内にすでに格納されているため、インデックスを使用する検索の間は再計算<emphasis>されません</>。
 上の両方の例では、システムは問い合わせを単なる<literal>WHERE indexedcolumn = 'constant'</>と理解しますので、この検索速度は他の単純なインデックス問い合わせと同じです。
-したがって、式に対するインデックスは取り出し速度が挿入、更新速度より重要な場合にのみ有用です。
+したがって、式に対するインデックスは取り出し速度が挿入、更新速度より重要な場合に有用です。
   </para>
  </sect1>
 
@@ -1331,9 +1329,9 @@ WHERE client_ip = inet '192.168.100.23';
     performance by creating an index on just the unbilled rows.  The
     command to create the index would look like this:
 -->
-支払済み注文書および未支払注文書からなる、１つのテーブルがあるとします。
-そして、未支払注文書の方がテーブル全体に対する割合が小さく、かつその部分へのアクセス数が最も多かったとします。
-このような場合、未支払の行のみにインデックスを作成することにより、性能を向上させることができます。
+請求済み注文書および未請求注文書からなる、１つのテーブルがあるとします。
+そして、未請求注文書の方がテーブル全体に対する割合が小さく、かつその部分へのアクセス数が最も多かったとします。
+このような場合、未請求の行のみにインデックスを作成することにより、性能を向上させることができます。
 インデックスの作成には、以下のようなコマンドを使用します。
 <programlisting>
 CREATE INDEX orders_unbilled_index ON orders (order_nr)
@@ -1366,7 +1364,7 @@ SELECT * FROM orders WHERE billed is not true AND amount &gt; 5000.00;
     could be a win.
 -->
 この問い合わせでは、システムがインデックス全体を検索する必要があるため、<structfield>amount</>列に部分インデックスを作成した場合ほど効率は良くありません。
-しかし、未支払注文書データが比較的少ない場合は、この部分インデックスを未支払注文書を検出するためだけに使用した方が効率が良い可能性があります。
+しかし、未請求注文書データが比較的少ない場合は、この部分インデックスを未請求注文書を検出するためだけに使用した方が効率が良い可能性があります。
    </para>
 
    <para>
@@ -1381,7 +1379,7 @@ SELECT * FROM orders WHERE order_nr = 3501;
     The order 3501 might be among the billed or unbilled
     orders.
 -->
-注文番号3501は支払済みかもしれませんし、未支払かもしれないからです。
+注文番号3501は請求済みかもしれませんし、未請求かもしれないからです。
    </para>
   </example>
 
@@ -1474,7 +1472,7 @@ CREATE UNIQUE INDEX tests_success_constraint ON tests (subject, target)
     This is a particularly efficient approach when there are few
     successful tests and many unsuccessful ones.
 -->
-これは、成功するテストがほとんどなく、失敗するテストが多い場合に特に有効な手法です。
+これは、成功するテストが少なく、失敗するテストが多い場合に特に有効な手法です。
    </para>
   </example>
 
@@ -1573,11 +1571,11 @@ CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable>
 例えば、<type>int4</type>型に対するB-treeインデックスには、<literal>int4_ops</literal>クラスを使用します。
 この演算子クラスには、<type>int4</type>型の値用の比較関数が含まれています。
 実際には、通常、列のデータ型のデフォルト演算子クラスで十分です。
-演算子クラスを持つ主な理由は、複数の有意義なインデックスの振舞いを持つ、いくつかのデータ型に対してです。
-例えば、複素数データ型を、絶対値と実数部のどちらかでソートする必要があるとします。
+演算子クラスを持つ主な理由は、いくつかのデータ型では、複数の有意義なインデックスの振舞いがあり得るということです。
+例えば、複素数データ型を、絶対値でソートしたいかもしれませんし、実数部でソートしたいかもしれません。
 この処理は、そのデータ型の2つの演算子クラスを定義した上で、インデックスを作成する際に適切なクラスを選択することで、実行可能です。
 演算子クラスは基本的なソート順を決定します。
-（これは<literal>COLLATE</literal> <literal>ASC</>/<literal>DESC</>、<literal>NULLS FIRST</>/<literal>NULLS LAST</>、またはこの両方というソートオプションを付けることで変更される可能性があります。）
+（これはソートオプション<literal>COLLATE</literal>、<literal>ASC</>/<literal>DESC</>、<literal>NULLS FIRST</>/<literal>NULLS LAST</>を付けることで変更できます。）
   </para>
 
   <para>
@@ -1625,9 +1623,9 @@ CREATE INDEX test_index ON test_table (col varchar_pattern_ops);
       operator classes, because an index with the default operator class
       is usable for pattern-matching queries in the C locale.
 -->
-また、インデックスを使うために通常の<literal>&lt;</>、<literal>&lt;=</>、<literal>&gt;</>、または<literal>&gt;=</>比較を含む問い合わせを希望するのであれば、デフォルトの演算子クラスでインデックスを作成しなければならないことに注意してください。
+また、通常の<literal>&lt;</>、<literal>&lt;=</>、<literal>&gt;</>、または<literal>&gt;=</>比較を含む問い合わせでインデックスを使いたい場合も、デフォルトの演算子クラスでインデックスを作成しなければならないことに注意してください。
 こうした問い合わせでは<literal><replaceable>xxx</replaceable>_pattern_ops</literal>演算子クラスを使用することができません。（しかし、通常の等価比較はこれらの演算子クラスを使用することができます。）
-異なる演算子クラスで使用する列と同じ列に対して複数のインデックスを作成することができます。
+同じ列に対して異なる演算子クラスを使用して複数のインデックスを作成することができます。
 Cロケールを使用する場合は、<literal><replaceable>xxx</replaceable>_pattern_ops</literal>演算子クラスは必要ありません。
 Cロケールでのパターンマッチ問い合わせでは、デフォルト演算子クラスを使用したインデックスが使用できるためです。
      </para>
@@ -1662,7 +1660,7 @@ SELECT am.amname AS index_method,
    family.  The cross-type operators are members of the family, but are not
    associated with any single class within the family.
 -->
-実際のところ演算子クラスは、<firstterm>演算子族</>と呼ばれる大きな構造の一部でしかありません。
+実際のところ演算子クラスは、<firstterm>演算子族</>と呼ばれる、より大きな構造の一部でしかありません。
 複数のデータ型が似たような動作を行う場合、データ型を跨る演算子を定義し、インデックスで使用可能とすることが有用な場合がよくあります。
 このためには、各型に対する演算子クラスが同一の演算子族にまとめられている必要があります。
 データ型を跨る演算子は演算子族の要素です。演算子族内の1つの演算子クラスに結びついているわけではありません。
@@ -1673,7 +1671,7 @@ SELECT am.amname AS index_method,
     This expanded version of the previous query shows the operator family
     each operator class belongs to:
 -->
-この前述のクエリで拡張されたバージョンはどの演算子も含まれる演算子の種類に属します。
+以下は前述の問い合わせを拡張したバージョンで、各演算子クラスが属する演算子族を示します。
 <programlisting>
 SELECT am.amname AS index_method,
        opc.opcname AS opclass_name,
@@ -2070,7 +2068,7 @@ SELECT target FROM tests WHERE subject = 'some-subject' AND success;
    It is also possible to gather overall statistics about index usage
    in a running server, as described in <xref linkend="monitoring-stats">.
 -->
-<productname>PostgreSQL</>では、インデックスのメンテナンスまたはチューニングは必要ありませんが、どのインデックスが実際の問い合わせで使われているかを確認することは、やはり重要です。
+<productname>PostgreSQL</>では、インデックスのメンテナンスやチューニングは必要ありませんが、どのインデックスが実際の問い合わせで使われているかを確認することは、やはり重要です。
 個々のコマンドでのインデックスの使用状況は、<xref linkend="sql-explain">コマンドで検証できます。
 この目的のための用例を<xref linkend="using-explain">に示します。
 また、<xref linkend="monitoring-stats">に示す通り、稼働中のサーバにおけるインデックス使用状況の全体的な統計情報を取り出すこともできます。
@@ -2110,9 +2108,8 @@ SELECT target FROM tests WHERE subject = 'some-subject' AND success;
 まず、必ず<xref linkend="sql-analyze">コマンドを実行してください。
 このコマンドにより、テーブル内の値の分布に関する統計情報を収集します。
 この情報は、問い合わせにより返される行数を推測する際に必要となります。
-推測された行数は、利用できる各問い合わせ計画に実際のコストを割り当てるために、プランナで必要となります。
-実際の統計情報が少しでも欠如している場合、何らかのデフォルト値が仮定されます。
-このデフォルト値は、ほぼ間違いなく不正確です。
+推測された行数は、可能な各問い合わせ計画に実際のコストを割り当てるために、プランナで必要となります。
+実際の統計情報が欠如している場合、何らかのデフォルト値が仮定されますが、このデフォルト値は、ほぼ間違いなく不正確です。
 したがって、<command>ANALYZE</command>コマンドを実行せずに、アプリケーションのインデックス使用状況を検証しても、あまり意味がありません。
 より詳細な情報は<xref linkend="vacuum-for-statistics">と<xref linkend="autovacuum">を参照してください。
     </para>
@@ -2172,12 +2169,12 @@ SELECT target FROM tests WHERE subject = 'some-subject' AND success;
      the previous sections.)
 -->
 インデックスが使用されていない場合、テストのためにインデックスを強制的に使用するようにすると便利です。
-各種の計画型を無効にするかを設定できる実行時パラメータがあります
+様々な計画の種類を無効にすることを設定できる実行時パラメータがあります
 （<xref linkend="runtime-config-query-enable">を参照してください）。
-例えば、最も基本的な計画であるシーケンシャルスキャン（<varname>enable_seqscan</>）および入れ子状ループ結合（<varname>enable_nestloop</>）を無効に設定すると、システムは別の計画を使用するように強制されます。
-そのような設定を行っても、システムがシーケンシャルスキャンや入れ子状ループ結合を選択する場合は、インデックスを使用しない理由としておそらくもっと根本的な理由があるということになります。
-例えば、問い合わせの条件がインデックスに一致しない、などが考えられます。
-（どのような問い合わせで、どのようなインデックスを使用できるかは、前節で説明済みです。）
+例えば、最も基本的な計画であるシーケンシャルスキャン（<varname>enable_seqscan</>）およびネストループ結合（<varname>enable_nestloop</>）を無効に設定すると、システムは別の計画を使用するように強制されます。
+そのような設定を行っても、システムがシーケンシャルスキャンやネストループ結合を選択する場合は、インデックスを使用しない理由としておそらくもっと根本的な理由があるということになります。
+例えば、問い合わせの条件がインデックスに適合しない、などが考えられます。
+（どのような問い合わせで、どのようなインデックスを使用できるかは、前節までで説明済みです。）
     </para>
    </listitem>
 
@@ -2191,8 +2188,8 @@ SELECT target FROM tests WHERE subject = 'some-subject' AND success;
      and without indexes.  The <command>EXPLAIN ANALYZE</command>
      command can be useful here.
 -->
-強制的にインデックスを使うように設定し、インデックスを使用している場合は、次の2つの状況が考えられます。
-システムの判断が正しく、インデックスの使用が実際には適切ではないという状況と、問い合わせ計画のコスト推定が実情を反映していない状況です。
+強制的にインデックスを使うように設定することで、インデックスを使用するようになった場合は、次の2つの可能性が考えられます。
+システムの判断が正しく、インデックスの使用が実際には適切ではないという可能性と、問い合わせ計画のコスト推定が実情を反映していない可能性です。
 したがって、インデックスを使った問い合わせの実行時間と、使わない場合の実行時間を計測する必要があります。
 この場合、<command>EXPLAIN ANALYZE</command>コマンドが便利です。
     </para>
@@ -2212,12 +2209,12 @@ SELECT target FROM tests WHERE subject = 'some-subject' AND success;
      tuning the statistics-gathering parameters (see
      <xref linkend="sql-altertable">).
 -->
-コスト推定が間違っていると判明した場合、やはり2つの状況が考えられます。
+コスト推定が間違っていると判明した場合、やはり2つの可能性が考えられます。
 総コストは、各計画ノードの行単位のコストに、計画ノードの推定選択度を掛けることで算出されます。
 計画ノードのコスト推定は、実行時パラメータによって設定することができます
 （<xref linkend="runtime-config-query-constants">を参照してください）。
 推定選択度が不正確であるのは、統計情報が不十分であるのが原因です。
-統計情報収集用のパラメータを調節することによって、この状況を改善することができます
+統計情報収集用のパラメータを調節することによって、この状況を改善することができるかもしれません。
 （<xref linkend="sql-altertable">を参照してください）。
     </para>
 
@@ -2228,7 +2225,7 @@ SELECT target FROM tests WHERE subject = 'some-subject' AND success;
      explicitly.  You might also want to contact the
      <productname>PostgreSQL</> developers to examine the issue.
 -->
-コストを適切に調節できない場合は、明示的にインデックスを使用する必要が考えられます。
+コストを適切に調節できない場合は、明示的にインデックスの使用を強制する必要が考えられます。
 あるいは、<productname>PostgreSQL</>開発者に問題の調査を依頼することになるかもしれません。
     </para>
    </listitem>
