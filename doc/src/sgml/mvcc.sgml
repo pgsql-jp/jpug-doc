@@ -609,9 +609,9 @@
     cases.  For example, consider updating bank balances with transactions
     like:
 -->
-このような仕組みにより、更新コマンドが、互いに矛盾したスナップショットを参照する可能性があります。
-それは更新を試みている同じ行に対する同時実行更新の結果を参照しますが、データベース中の他の行に対する同時実行の問い合わせの結果は参照できません。
-このような動作をするために複合検索条件を含む問い合わせにリードコミッティドモードを使用することは適切ではありません。
+このような仕組みにより、更新コマンドが、一貫しないスナップショットを参照する可能性があります。
+つまり、自分が更新を試みているのと同じ行に対して同時に更新するコマンドの結果は参照できますが、それらのコマンドがデータベース中の他の行に対して更新した結果は参照しません。
+このような動作をするために複雑な検索条件を含む問い合わせにリードコミッティドモードを使用することは適切ではありません。
 しかし、より単純な検索条件の場合、このモードの使用が適しています。
 例えば、銀行の残高を更新する以下のようなトランザクションを考えてみます。
 
@@ -629,8 +629,8 @@ COMMIT;
     predetermined row, letting it see the updated version of the row does
     not create any troublesome inconsistency.
 -->
-同時に実行される2つのトランザクションが、口座番号12345の残高を変更しようとした場合、口座12345の行の更新に伴って２番目のトランザクションを開始することは明らかに望まれるところです。
-各コマンドが事前に決定していた行にのみ処理を行うため、更新されたバージョンの行は問題となる不整合を引き起こしません。
+2つのこのようなトランザクションが同時に口座番号12345の残高を変更しようとした場合、口座の行の更新されたバージョンに対して2番目のトランザクションが開始されることは明らかに望まれるところです。
+各コマンドは事前に決定していた行に対してのみ処理を行うため、行の更新されたバージョンを見せることによって、何の問題となる不整合も引き起こしません。
    </para>
 
    <para>
@@ -643,7 +643,9 @@ COMMIT;
     <literal>website.hits</literal> equaling <literal>9</literal> and
     <literal>10</literal>:
 -->
-より複雑な用法によりリードコミッティドモードでは好ましくない結果を生成します。例えば、別のコマンドによりその制約条件から追加・削除の両方が行われようとしているデータに作用する<command>DELETE</command>コマンドを考えます。例を挙げると、<literal>website</literal>は２行のテーブルで、そこに<literal>9</literal> と <literal>10</literal>の値を持つ<literal>website.hits</literal>があります。
+より複雑な使用法により、リードコミッティドモードでは好ましくない結果を生成する場合があります。
+例えば、別のコマンドによって<command>DELETE</command>の制約条件からデータが同時に追加・削除される場合を考えます。
+例えば、<literal>website</literal>は2行のテーブルで、<literal>website.hits</literal>の値には<literal>9</literal>と<literal>10</literal>があるとします。
 
 <screen>
 BEGIN;
@@ -664,7 +666,8 @@ COMMIT;
     obtains a lock, the new row value is no longer <literal>10</> but
     <literal>11</>, which no longer matches the criteria.
 -->
-<command>UPDATE</command>前後に<literal>website.hits = 10</literal>行が存在したとしても<command>DELETE</command>は効果を生みません。なぜこうなるのかと言うと、事前更新された行の値<literal>9</>は読み飛ばされ、<command>UPDATE</command>が完了し、<command>DELETE</command>がロックを取得した時点では、新規行の値はもはや<literal>10</>ではなく<literal>11</>となり、判定基準にもはや一致しません。
+<command>UPDATE</command>の前後の両方で<literal>website.hits = 10</literal>の行があるにも関わらず、<command>DELETE</command>は何もしません。
+なぜこうなるのかと言うと、更新前の行値<literal>9</>は読み飛ばされ、また<command>UPDATE</command>が完了して<command>DELETE</command>がロックを獲得した時点では、新しい行値は<literal>10</>ではなく<literal>11</>となり、判定条件にもはやマッチしなくなっているからです。
    </para>
 
    <para>
