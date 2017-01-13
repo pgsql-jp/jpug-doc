@@ -237,10 +237,10 @@ LYNX = lynx
 # locale support and is very picky about locale name spelling.  The
 # below has been finely tuned to run on FreeBSD and Linux/glibc.
 INSTALL: % : %.html
-	$(PERL) -p -e 's/<H(1|2)$$/<H\1 align=center/g' $< | LC_ALL=en_US.ISO8859-1 $(LYNX) -force_html -dump -nolist -stdin | $(ICONV) -f latin1 -t us-ascii//TRANSLIT > $@
+	$(PERL) -p -e 's/<H(1|2)$$/<H\1 align=center/g' $< | LC_ALL=ja_JP.UTF-8 $(LYNX) -force_html -dump -nolist -stdin > $@
 
 INSTALL.html: standalone-install.sgml installation.sgml version.sgml
-	$(JADE.text) -V nochunks standalone-install.sgml installation.sgml > $@
+	SP_CHARSET_FIXED=1 SP_ENCODING=UTF-8 $(JADE.text) -V nochunks standalone-install.sgml installation.sgml > $@
 
 
 ##
@@ -279,11 +279,11 @@ htmlhelp: stylesheet-hh.xsl postgres.xml
 	$(XMLLINT) --noout --valid postgres.xml
 	$(XSLTPROC) $(XSLTPROCFLAGS) $^
 
-%-A4.fo.tmp: stylesheet-fo.xsl %.xml
+%-A4.fo: stylesheet-fo.xsl %.xml
 	$(XMLLINT) --noout --valid $*.xml
 	$(XSLTPROC) $(XSLTPROCFLAGS) --stringparam paper.type A4 -o $@ $^
 
-%-US.fo.tmp: stylesheet-fo.xsl %.xml
+%-US.fo: stylesheet-fo.xsl %.xml
 	$(XMLLINT) --noout --valid $*.xml
 	$(XSLTPROC) $(XSLTPROCFLAGS) --stringparam paper.type USletter -o $@ $^
 
@@ -291,10 +291,6 @@ FOP = fop
 
 $(FOPCONF):
 	$(SHELL) fop-font.sh $(FOPCONF)
-
-# reformat FO output so that locations of errors are easier to find
-%.fo: %.fo.tmp
-	$(XMLLINT) --format --encode utf-8 --output $@ $^
 
 .SECONDARY: postgres-A4.fo postgres-US.fo
 
@@ -421,7 +417,7 @@ clean:
 # index
 	rm -f HTML.index $(GENERATED_SGML)
 # XSLT
-	rm -f postgres.xml postgres.xmltmp htmlhelp.hhp toc.hhc index.hhk *.fo *.fo.tmp
+	rm -f postgres.xml postgres.xmltmp htmlhelp.hhp toc.hhc index.hhk *.fo
 	rm -fr .fontmetrics
 	rm -f $(FOPCONF)
 # EPUB
