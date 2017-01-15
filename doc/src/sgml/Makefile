@@ -289,12 +289,9 @@ htmlhelp: stylesheet-hh.xsl postgres.xml
 
 FOP = fop
 
-$(FOPCONF):
-	$(SHELL) fop-font.sh $(FOPCONF)
-
 .SECONDARY: postgres-A4.fo postgres-US.fo
 
-%-fop.pdf: %.fo $(FOPCONF)
+%-fop.pdf: %.fo
 	$(FOP) -c $(FOPCONF) -fo $< -pdf $@
 
 epub: postgres.epub

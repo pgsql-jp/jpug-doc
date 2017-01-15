@@ -85,20 +85,25 @@
 <xsl:param name="body.start.indent">0</xsl:param>
 <xsl:param name="line-height">150%</xsl:param>
 
-<xsl:param name="title.font.family" select="'YuGothic,Meiryo,MS-PGothic,Hiragino Kaku Gothic ProN,TakaoPGothic'"/>
-<xsl:param name="body.font.family" select="'YuMincho,Meiryo,MS-PMincho,Hiragino Mincho ProN,TakaoPMincho'"/>
-<xsl:param name="monospace.font.family" select="'Osaka-mono,MS-Gothic,TakaoGothic'"/>
-<xsl:param name="symbol.font.family" select="'Osaka-mono,MS-Gothic,TakaoPGothic'"/>
-<xsl:param name="dingbat.font.family" select="'YuGothic,Meiryo,MS-PGothic,Hiragino Kaku Gothic ProN,TakaoPGothic'"/>
-<!--
-<xsl:param name="sans.font.family" select="'YuGothic,Meiryo,MS-PGothic,Hiragino Kaku Gothic ProN,TakaoPMincho'"/>
--->
+<xsl:param name="title.font.family" select="'YuGothic,Meiryo,MS-PGothic,Hiragino Kaku Gothic ProN,Gen Shin Gothic P,TakaoPGothic'"/>
+<xsl:param name="body.font.family" select="'YuMincho,Meiryo,MS-PMincho,Hiragino Mincho ProN,Serif,Gen Shin Gothic P,TakaoPMincho'"/>
+<xsl:param name="monospace.font.family" select="'Osaka-mono,MS-Gothic,Gen Shin Gothic Monospace,TakaoGothic'"/>
+<xsl:param name="symbol.font.family" select="'Osaka-mono,MS-Gothic,Gen Shin Gothic P,TakaoPGothic'"/>
+<xsl:param name="dingbat.font.family" select="'YuGothic,Meiryo,MS-PGothic,Hiragino Kaku Gothic ProN,Gen Shin Gothic P,TakaoPGothic'"/>
+
 <xsl:attribute-set name="table.properties" use-attribute-sets="normal.para.spacing">
   <xsl:attribute name="font-size">80%</xsl:attribute>
   <xsl:attribute name="wrap-option">wrap</xsl:attribute>
   <xsl:attribute name="text-align">left</xsl:attribute>
   <xsl:attribute name="white-space-treatment">ignore</xsl:attribute>
 </xsl:attribute-set>
+
+<xsl:template name="table.row.properties">
+  <xsl:if test="ancestor::thead">
+    <xsl:attribute name="font-size">100%</xsl:attribute>
+    <xsl:attribute name="background-color">#EFEFEF</xsl:attribute>
+  </xsl:if>
+</xsl:template>
 
 <xsl:attribute-set name="nongraphical.admonition.properties">
   <xsl:attribute name="border">1pt solid blue</xsl:attribute>
