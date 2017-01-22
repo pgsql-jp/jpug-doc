@@ -1017,10 +1017,11 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     UPDATE</literal> or <literal>SELECT FOR SHARE</literal> which not only
     can block other transactions but cause disk access.
 -->
-真の直列性を保証するために<productname>PostgreSQL</productname>では、最初に走らせた、同時実行トランザクションより前に読み取った結果に対して、書き込みがいつ影響を及ぼしたかを断定可能にするロックを保持することを意味する、<firstterm>述語ロック</>を使います。
+真の直列性を保証するために<productname>PostgreSQL</productname>では、<firstterm>述語ロック</>を使います。
+述語ロックでは、トランザクションが最初に実行されたとしたら、それによる書き込みが同時実行トランザクションによる読み取り結果にいつ影響を及ぼしたかの決定を可能にするロックを保持します。
 <productname>PostgreSQL</productname>では、これらのロックはブロッキングを引き起こさないため、デッドロックの要因となら<emphasis>ない</>ものです。
 それらは、同時実行中のシリアライザブルトランザクションが、直列化異常につながる組み合わせであることを識別しフラグを立てることに使用されます。
-それとは対照的に、データの一貫性を保証したいリードコミッティドあるいはリピータブルリードトランザクションでは、(そのテーブルを使用しようとしている他のユーザをブロックすることができた)テーブル全体のロックを必要とするかもしれません。あるいは、他のトランザクションをブロックするだけでなくディスク・アクセスを引き起こす<literal>SELECT FOR UPDATE</literal>あるいは<literal>SELECT FOR SHARE</literal>を使用するかもしれません。
+それとは対照的に、データの一貫性を保証したいリードコミッティドあるいはリピータブルリードトランザクションでは、テーブル全体のロック（そのテーブルを使用しようとしている他のユーザをブロックするかもしれません）を必要とするかもしれませんし、あるいは、他のトランザクションをブロックするだけでなくディスク・アクセスを引き起こす<literal>SELECT FOR UPDATE</literal>あるいは<literal>SELECT FOR SHARE</literal>を使用するかもしれません。
    </para>
 
    <para>
@@ -1048,11 +1049,14 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     write transactions complete.
 -->
 <productname>PostgreSQL</productname>の述語ロックは、他のほとんどのデータベースシステムと同様、トランザクションによって実際にアクセスされたデータを元にしています。
-これらは、<literal>SIReadLock</>の<literal>mode</>を持つ<link linkend="view-pg-locks"><structname>pg_locks</structname></link>システムビューで見ることができます。
-問い合わせの実行期間中に獲得した特殊なロックは、問い合わせが使用した計画に依存するでしょう。また、ロックを追跡するために使用されるメモリの消耗を防ぐために、多数のよりきめの細かいロック(例えばタプル・ロック)はトランザクションの間に、より少数のよりきめの粗いロック(例えばページ・ロック)へ組み合わせられるかもしれません。
-直列化異常につながるような競合が継続して生じないことを検知すると、<literal>READ ONLY</>トランザクションが完了する前にSIReadロックを解除するかもしれません。
-実際、<literal>READ ONLY</>トランザクションは、よく開始時点でその事実を確証し、どんな述語ロックもとらないこともあります。<literal>SERIALIZABLE READ ONLY DEFERRABLE</>トランザクションを明示的に要求した場合には、この事実を確証できるまでブロックします。(これは、シリアライザブルトランザクションはブロックするけれども、リピータブルリードトランザクションはブロックしない<emphasis>唯一</>のケースです。)
-他方で、SIReadロックは、しばしば読み取りと書き込みが重なっているトランザクションが完了するまで、過去のトランザクションのコミットに保持される必要があります。
+これらは、<link linkend="view-pg-locks"><structname>pg_locks</structname></link>システムビューに<literal>mode</>が<literal>SIReadLock</>のデータとして現れます。
+問い合わせの実行期間中に獲得される個別のロックは、問い合わせが使用した計画に依存するでしょう。
+また、ロックを追跡するために使用されるメモリの消耗を防ぐために、トランザクションの過程において、多数のよりきめの細かいロック（例えばタプル・ロック）が結合されて、より少数のよりきめの粗いロック（例えばページ・ロック）になるるかもしれません。
+直列化異常につながるような競合が継続して生じないことを検知すると、<literal>READ ONLY</>トランザクションは、それ完了する前にSIReadロックを解放できるかもしれません。
+実際、<literal>READ ONLY</>トランザクションは、よく開始時点でその事実を確証し、どんな述語ロックもとらないこともあります。
+<literal>SERIALIZABLE READ ONLY DEFERRABLE</>トランザクションを明示的に要求した場合には、この事実を確証できるまでブロックします。
+（これは、シリアライザブルトランザクションはブロックするけれども、リピータブルリードトランザクションはブロックしない<emphasis>唯一</>のケースです。）
+他方で、SIReadロックは、しばしば読み取りと書き込みが重なっているトランザクションが完了するまで、トランザクションのコミットが終わっても保持される必要があります。
    </para>
 
    <para>
