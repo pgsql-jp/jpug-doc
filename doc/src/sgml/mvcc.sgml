@@ -1079,8 +1079,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
 -->
 シリアライザブルトランザクションの一貫した使用は開発を単純化することができます。
 正常にコミットされた同時実行のシリアライザブルトランザクションのどんな集合も　、あたかもそれらが一度に一つずつ実行されたのと同じ結果になることが保証されるので、単独で実行されたときに単一トランザクションが正しく動作するよう書かれていると実証できるなら、他のトランザクションが何をしているかの情報が全く無くとも、複数シリアライザブルトランザクションが混在する中で正しく動作するかコミットに成功しないかであると確証を持つことができます。
-この技術を使用する環境で、直列化の失敗('40001'のSQLSTATEの値で常に返る)を扱う場合、一般的な手段を持っていることは重要です。
-なぜなら、トランザクションが読み取り/書き込みの依存性にどれだけ影響する可能性があるかということと、直列化異常を防ぐためにロールバックさせる必要があるかといこうとを、正確に予測することは非常に困難だからです。
+この技術を使用する環境では、直列化の失敗(常にSQLSTATE値が'40001'で常に返る)を扱うための、汎用的な手段を持っていることは重要です。
+なぜなら、どのトランザクションが読み取り/書き込みの依存性に影響し、直列化異常を防ぐためにロールバックさせる必要があるかといこうとを、正確に予測することは非常に困難だからです。
 読み取り/書き込みの依存性を監視したり、直列化異常で終了したトランザクションを再起動することはコストがかかります。
 しかしながら、このコストと、明示的なロックと<literal>SELECT FOR UPDATE</>または<literal>SELECT FOR SHARE</>を使用したブロッキングとで比較検討すると、シリアライザブルトランザクションはいくつかの環境において最良な実行を選択することになります。
    </para>
@@ -1117,7 +1117,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     For optimal performance when relying on Serializable transactions for
     concurrency control, these issues should be considered:
 -->
-同時実行制御のためにシリアライザブルトランザクションを使用する場合、最適に実行するためには、以下の問題を考慮すべきです。
+同時実行制御のためにシリアライザブルトランザクションを使用する場合、最適な性能ためには、以下の問題を考慮すべきです。
 
     <itemizedlist>
      <listitem>
@@ -1125,7 +1125,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
 <!--
        Declare transactions as <literal>READ ONLY</> when possible.
 -->
-できる限り<literal>READ ONLY</>として宣言してください。
+可能であればトランザクションを<literal>READ ONLY</>として宣言してください。
       </para>
      </listitem>
      <listitem>
@@ -1137,7 +1137,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        transactions.
 -->
 もし必要ならばコネクションプールを使用して、活動中の接続数を制御してください。
-これは常に重要な実行時の考慮点ですが、シリアライザブルトランザクションを使用した多忙なシステムにおいては、特に重要になる可能性があります。
+これは常に重要な性能上の考慮点ですが、シリアライザブルトランザクションを使用した多忙なシステムにおいては、特に重要になる可能性があります。
       </para>
      </listitem>
      <listitem>
@@ -1146,7 +1146,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        Don't put more into a single transaction than needed for integrity
        purposes.
 -->
-完全性を目的とした必要以上の単一トランザクションを置かないようにしてください。
+完全性のために必要とされる以上のものを１つのトランザクションに入れないようにしてください。
       </para>
      </listitem>
      <listitem>
@@ -1180,7 +1180,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        failures may occur.  You can avoid this by increasing
        <xref linkend="guc-max-pred-locks-per-transaction">.
 -->
-システムが、単一の関係レベルでの述語ロックに、多数のページレベルでの述語ロックを組み合わせることを強いられる場合、述語ロックのテーブルはメモリが不足するため、直列化失敗の割合が増加する恐れがあります。
+述語ロックのテーブルがメモリ不足になると、複数のページレベルの述語ロックを単一のリレーションレベルの述語ロックへと結合するようシステムが強いられ、直列化失敗の発生割合が増加する恐れがあります。
 これは、<xref linkend="guc-max-pred-locks-per-transaction">を増やすことにより回避することができます。
       </para>
      </listitem>
@@ -1198,7 +1198,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
 シーケンシャルスキャンは常にリレーションレベルでの述語ロックを必要とします。
 これによって、直列化失敗の頻度が増える可能性があります。
 <xref linkend="guc-random-page-cost">を縮小および(または)<xref linkend="guc-cpu-tuple-cost">を増加することによりインデックススキャンの使用を促進することは有用かもしれません。
-問い合わせ実行時間の全体的な変化に不利となる、トランザクションのロールバックや再起動を減少させるように、必ず検討してください。
+トランザクションのロールバックや再実行の減少を、問い合わせ実行時間の全体的な変化と比較検討するようにしてください。
       </para>
      </listitem>
     </itemizedlist>
