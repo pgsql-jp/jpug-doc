@@ -138,7 +138,7 @@ insert into insertconflicttest values (12, 'Date') on conflict (lower(fruit), ke
 drop index comp_key_index;
 
 --
--- Partial index tests, no inference predicate specificied
+-- Partial index tests, no inference predicate specified
 --
 create unique index part_comp_key_index on insertconflicttest(key, fruit) where key < 5;
 create unique index expr_part_comp_key_index on insertconflicttest(key, lower(fruit)) where key < 5;
@@ -281,6 +281,24 @@ on conflict (b) where coalesce(a, 1) > 0 do nothing;
 insert into insertconflict values (1, 2)
 on conflict (b) where coalesce(a, 1) > 1 do nothing;
 
+drop table insertconflict;
+
+--
+-- test insertion through view
+--
+
+create table insertconflict (f1 int primary key, f2 text);
+create view insertconflictv as
+  select * from insertconflict with cascaded check option;
+
+insert into insertconflictv values (1,'foo')
+  on conflict (f1) do update set f2 = excluded.f2;
+select * from insertconflict;
+insert into insertconflictv values (1,'bar')
+  on conflict (f1) do update set f2 = excluded.f2;
+select * from insertconflict;
+
+drop view insertconflictv;
 drop table insertconflict;
 
 

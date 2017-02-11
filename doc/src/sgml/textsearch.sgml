@@ -377,7 +377,7 @@ SELECT 'fat &amp; cow'::tsquery @@ 'a fat cat sat on a mat and ate a fat rat'::t
     text, any more than a <type>tsvector</type> is.  A <type>tsquery</type>
     contains search terms, which must be already-normalized lexemes, and
     may combine multiple terms using AND, OR, NOT, and FOLLOWED BY operators.
-    (For details see <xref linkend="datatype-tsquery">.)  There are
+    (For syntax details see <xref linkend="datatype-tsquery">.)  There are
     functions <function>to_tsquery</>, <function>plainto_tsquery</>,
     and <function>phraseto_tsquery</>
     that are helpful in converting user-written text into a proper
@@ -459,9 +459,12 @@ text @@ text
     at least one of its arguments must appear, while the <literal>!</> (NOT)
     operator specifies that its argument must <emphasis>not</> appear in
     order to have a match.
+    For example, the query <literal>fat &amp; ! rat</> matches documents that
+    contain <literal>fat</> but not <literal>rat</>.
 -->
 <type>tsquery</>内において、演算子 <literal>&amp;</literal> (AND) は、マッチと見なされるには引数の両方がドキュメント内に現れる必要があるということを指定します。
 同様に、演算子 <literal>|</literal> (OR) では、引数の少なくとも一方が現れる必要があり、また演算子 <literal>!</> (NOT) は、マッチと見なされるには引数が現れては<emphasis>ならない</>ことを指定します。
+★追加翻訳が必要
    </para>
 
    <para>
@@ -534,6 +537,28 @@ SELECT phraseto_tsquery('the cats ate the rats');
 -->
 <type>tsquery</>演算子を入れ子にして管理するために括弧を使うことができます。
 括弧がない場合、<literal>|</literal>の結合が最も弱く、次が<literal>&amp;</literal>、その次が<literal>&lt;-&gt;</literal>で、<literal>!</literal>が最も強く結合します。
+   </para>
+
+   <para>
+    It's worth noticing that the AND/OR/NOT operators mean something subtly
+    different when they are within the arguments of a FOLLOWED BY operator
+    than when they are not, because within FOLLOWED BY the exact position of
+    the match is significant.  For example, normally <literal>!x</> matches
+    only documents that do not contain <literal>x</> anywhere.
+    But <literal>!x &lt;-&gt; y</> matches <literal>y</> if it is not
+    immediately after an <literal>x</>; an occurrence of <literal>x</>
+    elsewhere in the document does not prevent a match.  Another example is
+    that <literal>x &amp; y</> normally only requires that <literal>x</>
+    and <literal>y</> both appear somewhere in the document, but
+    <literal>(x &amp; y) &lt;-&gt; z</> requires <literal>x</>
+    and <literal>y</> to match at the same place, immediately before
+    a <literal>z</>.  Thus this query behaves differently from
+    <literal>x &lt;-&gt; z &amp; y &lt;-&gt; z</>, which will match a
+    document containing two separate sequences <literal>x z</> and
+    <literal>y z</>.  (This specific query is useless as written,
+    since <literal>x</> and <literal>y</> could not match at the same place;
+    but with more complex situations such as prefix-match patterns, a query
+    of this form could be useful.)
    </para>
   </sect2>
 
@@ -1755,21 +1780,9 @@ query.',
 <!--
     <function>ts_headline</> uses the original document, not a
     <type>tsvector</type> summary, so it can be slow and should be used with
-    care.  A typical mistake is to call <function>ts_headline</function> for
-    <emphasis>every</emphasis> matching document when only ten documents are
-    to be shown. <acronym>SQL</acronym> subqueries can help; here is an
-    example:
+    care.
 -->
-<function>ts_headline</>は、<type>tsvector</type>の要約ではなく、元の文書を使います。ですので遅い可能性があり、注意深く使用する必要があります。よくある間違いは、たった10個の文書を表示しようとしているのに、<emphasis>すべての</emphasis>合致した文書に<function>ts_headline</function>を適用することです。<acronym>SQL</acronym>の副問い合わせがこのときに役に立ちます。例を示します。
-
-<programlisting>
-SELECT id, ts_headline(body, q), rank
-FROM (SELECT id, body, q, ts_rank_cd(ti, q) AS rank
-      FROM apod, to_tsquery('stars') q
-      WHERE ti @@ q
-      ORDER BY rank DESC
-      LIMIT 10) AS foo;
-</programlisting>
+<function>ts_headline</>は、<type>tsvector</type>の要約ではなく、元の文書を使います。ですので遅い可能性があり、注意深く使用する必要があります。よくある間違いは、たった10個の文書を表示しようとしているのに、<emphasis>すべての</emphasis>合致した文書に<function>ts_headline</function>を適用することです。<acronym>SQL</acronym>の副問い合わせがこのときに役に立ちます。例を示します。 ★変更あり
    </para>
 
   </sect2>

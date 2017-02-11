@@ -563,8 +563,8 @@ SELECT name, double_salary(emp.*) AS dream
 <!--
      Notice the use of the syntax <literal>$1.salary</literal>
      to select one field of the argument row value.  Also notice
-     how the calling <command>SELECT</> command uses <literal>*</>
-     to select
+     how the calling <command>SELECT</> command
+     uses <replaceable>table_name</><literal>.*</> to select
      the entire current row of a table as a composite value.  The table
      row can alternatively be referenced using just the table name,
      like this:
@@ -579,8 +579,11 @@ SELECT name, double_salary(emp) AS dream
 </screen>
 <!--
      but this usage is deprecated since it's easy to get confused.
+     (See <xref linkend="rowtypes-usage"> for details about these
+     two notations for the composite value of a table row.)
 -->
 しかし、この使用方法は混乱しやすいためお勧めしません。
+ ★新たに翻訳が必要
     </para>
 
     <para>
@@ -686,9 +689,10 @@ $$ LANGUAGE SQL;
 
     <para>
 <!--
-     We could call this function directly in either of two ways:
+     We could call this function directly either by using it in
+     a value expression:
 -->
-以下の2つの方法でこの関数を直接呼び出すことができます。
+以下の2つの方法でこの関数を直接呼び出すことができます。 ★変更あり
 
 <screen>
 SELECT new_emp();
@@ -696,7 +700,11 @@ SELECT new_emp();
          new_emp
 --------------------------
  (None,1000.0,25,"(2,2)")
+</screen>
 
+     or by calling it as a table function:
+
+<screen>
 SELECT * FROM new_emp();
 
  name | salary | age | cubicle
@@ -745,15 +753,10 @@ LINE 1: SELECT new_emp().name;
 
     <para>
 <!--
-     Another option is to use
-     functional notation for extracting an attribute.  The  simple  way
-     to explain this is that we can use the
-     notations <literal><replaceable>attribute</>(<replaceable>table</>)</>
-     and  <literal><replaceable>table</>.<replaceable>attribute</></>
-     interchangeably.
+     Another option is to use functional notation for extracting an attribute:
 -->
 また、関数表記を使用して属性を抽出することもできます。
-簡単に説明すると、<literal><replaceable>attribute</>(<replaceable>table</>)</>と<literal><replaceable>table</>.<replaceable>attribute</></>という表記方法のどちらでも使用できるということです。
+簡単に説明すると、<literal><replaceable>attribute</>(<replaceable>table</>)</>と<literal><replaceable>table</>.<replaceable>attribute</></>という表記方法のどちらでも使用できるということです。 ★変更あり
 
 <screen>
 SELECT name(new_emp());
@@ -762,75 +765,9 @@ SELECT name(new_emp());
 ------
  None
 </screen>
-
-<screen>
-<!--
-&#045;&#045; This is the same as:
-&#045;&#045; SELECT emp.name AS youngster FROM emp WHERE emp.age &lt; 30;
--->
--- これは
--- SELECT emp.name AS youngster FROM emp WHERE emp.age &lt; 30;
--- と同一です。
-
-SELECT name(emp) AS youngster FROM emp WHERE age(emp) &lt; 30;
-
- youngster
------------
- Sam
- Andy
-</screen>
+     As explained in <xref linkend="rowtypes-usage">, the field notation and
+     functional notation are equivalent.
     </para>
-
-    <tip>
-     <para>
-<!--
-      The equivalence between functional notation and attribute notation
-      makes it possible to use functions on composite types to emulate
-      <quote>computed fields</>.
--->
-関数表記と属性表記の同等性によって、<quote>計算処理されたフィールド</>を模擬するために複合型に対する関数を使用することができます。
-      <indexterm>
-<!--
-       <primary>computed field</primary>
--->
-       <primary>計算処理されたフィールド</primary>
-      </indexterm>
-      <indexterm>
-<!--
-       <primary>field</primary>
-       <secondary>computed</secondary>
--->
-       <primary>フィールド</primary>
-       <secondary>計算処理された</secondary>
-      </indexterm>
-<!--
-      For example, using the previous definition
-      for <literal>double_salary(emp)</>, we can write
--->
-例えば、上記で定義された<literal>double_salary(emp)</>を使用して、次のように記述することができます。
-
-<screen>
-SELECT emp.name, emp.double_salary FROM emp;
-</screen>
-
-<!--
-      An application using this wouldn't need to be directly aware that
-      <literal>double_salary</> isn't a real column of the table.
-      (You can also emulate computed fields with views.)
--->
-これを利用するアプリケーションは、<literal>double_salary</>が実際にはテーブルの列ではないことを直接気にする必要はありません。
-（また、ビューを用いて計算処理されたフィールドを模擬することも可能です。）
-     </para>
-
-     <para>
-<!--
-      Because of this behavior, it's unwise to give a function that takes
-      a single composite-type argument the same name as any of the fields of
-      that composite type.
--->
-このように動作しますので、単一の複合型の引数を取る関数に、その複合型のいずれかのフィールドの名前と同じ名前を付けることはお奨めしません。
-     </para>
-    </tip>
 
     <para>
 <!--
@@ -850,16 +787,6 @@ SELECT getname(new_emp());
  None
 (1 row)
 </screen>
-    </para>
-
-    <para>
-<!--
-     Still another way to use a function that returns a composite type is to
-     call it as a table function, as described in <xref
-     linkend="xfunc-sql-table-functions">.
--->
-複合型の結果を返す関数の使用方法として他にも、テーブル関数として呼び出す方法があります。
-これは<xref linkend="xfunc-sql-table-functions">で説明します。
     </para>
    </sect2>
 
@@ -4113,7 +4040,7 @@ C言語関数から集合（複数行）を返す機能のために特殊なAPI�
 この処理を制御を補助するための<structname>FuncCallContext</>構造体が備わっています。
 関数内では、複数の呼び出しにまたがる<structname>FuncCallContext</>へのポインタを保持するには、<literal>fcinfo-&gt;flinfo-&gt;fn_extra</>を使用します。
 <programlisting>
-typedef struct
+typedef struct FuncCallContext
 {
     /*
 <!--
@@ -4128,7 +4055,7 @@ typedef struct
      * SRF_FIRSTCALL_INIT()によってcall_cntrが0に初期化され、
      * SRF_RETURN_NEXT()が呼び出される度に増分されます。
      */
-    uint32 call_cntr;
+    uint64 call_cntr;
 
     /*
 <!--
@@ -4144,7 +4071,7 @@ typedef struct
      * 設定されていなければ、関数が終了したことを知るための別の方法を
      * 用意する必要があります。
      */
-    uint32 max_calls;
+    uint64 max_calls;
 
     /*
 <!--
