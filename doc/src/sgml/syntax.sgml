@@ -2284,12 +2284,15 @@ $1.somecolumn
     You can ask for all fields of a composite value by
     writing <literal>.*</literal>:
 -->
-SELECT列のリスト(<xref linkend="queries-select-lists">参照)に<literal>.*</literal>を記述することで、複合型の全ての値を問い合わせることが可能です。 ★変更あり
+<literal>.*</literal>を記述することで、複合型の全ての値を問い合わせることが可能です。
 <programlisting>
 (compositecol).*
 </programlisting>
+<!--
     This notation behaves differently depending on context;
     see <xref linkend="rowtypes-usage"> for details.
+-->
+この表記はコンテキストに依存して異なった振る舞いをします。詳細は<xref linkend="rowtypes-usage">を参照してください。
    </para>
   </sect2>
 
@@ -2415,7 +2418,7 @@ sqrt(2)
 反対にフィールド選択を関数形式で記述することもできます。
 つまり、<literal>col(table)</>や<literal>table.col</>のどちらを使っても良いということです。
 この動作は標準SQLにはありませんが、<productname>PostgreSQL</>では、これにより<quote>計算されたフィールド</>のエミュレートをする関数の利用が可能になるため、提供しています。
-詳しくは<xref linkend="xfunc-sql-composite-functions">を参照してください。 ★コンフリクト解消時に変更点対応
+詳しくは<xref linkend="rowtypes-usage">を参照してください。
     </para>
    </note>
   </sect2>
@@ -2638,17 +2641,6 @@ SELECT string_agg(a ORDER BY a, ',') FROM table;  -- incorrect
     case, write just <literal>()</> not <literal>(*)</>.
     (<productname>PostgreSQL</> will actually accept either spelling, but
     only the first way conforms to the SQL standard.)
-   </para>
-
-   <para>
-    <indexterm>
-     <primary>median</primary>
-    </indexterm>
-    <indexterm>
-     <primary>median</primary>
-     <seealso>percentile</seealso>
-    </indexterm>
-    An example of an ordered-set aggregate call is:
 -->
 上記のように集約の通常の引数リストに<literal>ORDER BY</>を置くことは、その順序が省略可能な<quote>通常の</>集約への入力行を整列する時に使います。
 たいていは集約の計算がその入力行の特定の順序に関してのみ意味を持つために、<replaceable>order_by_clause</replaceable>が<emphasis>必要な</><firstterm>順序集合集約</>と呼ばれる集約関数の副クラスがあります。
@@ -2662,6 +2654,26 @@ SELECT string_agg(a ORDER BY a, ',') FROM table;  -- incorrect
 直接引数は、典型的には1度の集約計算で1つの値だけが意味がある百分位数のようなもので使われます。
 直接引数のリストは空でも構いません。この場合、<literal>(*)</>ではなく<literal>()</>と書いてください。
 (<productname>PostgreSQL</>は実際にどちらの綴りも受け付けますが、後者だけが標準SQLに準拠しています。)
+   </para>
+
+   <para>
+    <indexterm>
+<!--
+     <primary>median</primary>
+-->
+     <primary>中央値(メジアン)</primary>
+    </indexterm>
+    <indexterm>
+<!--
+     <primary>median</primary>
+     <seealso>percentile</seealso>
+-->
+     <primary>中央値(メジアン)</primary>
+     <seealso>百分位数</seealso>
+    </indexterm>
+<!--
+    An example of an ordered-set aggregate call is:
+-->
 順序集合集約の例は以下の通りです。
 
 <programlisting>
@@ -3547,7 +3559,7 @@ SELECT ROW(1,2.5,'this is a test');
     columns <literal>f1</> and <literal>f2</>, these are the same:
 -->
 行コンストラクタには<replaceable>rowvalue</replaceable><literal>.*</literal>構文を含めることができます。
-これは、<command>SELECT</>リストの最上位レベルで<literal>.*</>構文が使用された時とまったく同様に、行値の要素の列挙に展開されます。
+これは、<command>SELECT</>リストの最上位レベルで<literal>.*</>構文が使用された時とまったく同様に、行値の要素の列挙に展開されます(<xref linkend="rowtypes-usage">参照)。
 たとえば、テーブル<literal>t</>が<literal>f1</>列と<literal>f2</>列を持つ場合、以下は同一です。
 <programlisting>
 SELECT ROW(t.*, 42) FROM t;
@@ -3566,7 +3578,7 @@ SELECT ROW(t.f1, t.f2, 42) FROM t;
      row value without <literal>.*</literal>, for instance
      <literal>ROW(t, 42)</>.
 -->
-<productname>PostgreSQL</productname> 8.2より前では、<literal>.*</literal>構文は展開されませんでした。
+<productname>PostgreSQL</productname> 8.2より前では、<literal>.*</literal>構文は行コンストラクタ内では展開されませんでした。
 <literal>ROW(t.*, 42)</>と記述すると、1つ目のフィールドにもう一つの行値を持つ、2つのフィールドからなる行が作成されました。
 たいていの場合、新しい動作はより使いやすくなっています。
 入れ子状の行値という古い動作が必要であれば、内側の行値には<literal>.*</literal>を使用せずに、たとえば<literal>ROW(t, 42)</>と記述してください。
@@ -3637,6 +3649,7 @@ SELECT getf1(CAST(ROW(11,'this is a test',2.5) AS myrowtype));
 また、以下の例のように、2つの行値を比較することも、<literal>IS NULL</>もしくは<literal>IS NOT NULL</>で行を検査することも可能です。
 <programlisting>
 SELECT ROW(1,2.5,'this is a test') = ROW(1, 3, 'not the same');
+
 <!--
 SELECT ROW(table.*) IS NULL FROM table;  &#045;&#045; detect all-null rows
 -->
