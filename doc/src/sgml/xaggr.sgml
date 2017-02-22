@@ -104,7 +104,7 @@ SELECT sum(a) FROM test_complex;
    <productname>PostgreSQL</productname> can figure out which kind
    of sum applies to a column of type <type>complex</type>.)
 -->
-（関数のオーバーライド機能に依存していることに注意してください。
+（関数のオーバーロード機能に依存していることに注意してください。
 <function>sum</>という名前の集約関数は複数存在しますが、<productname>PostgreSQL</productname>は列の<type>complex</type>型に適用できるsum関数を見つけ出すことができます。）
   </para>
 
@@ -690,7 +690,7 @@ SELECT percentile_disc(0.5) WITHIN GROUP (ORDER BY income) FROM households;
    (In the above example, notice that the state value is declared as
    type <type>internal</> &mdash; this is typical.)
 -->
-通常の集約の場合とは違って、順序集合集約のための入力行のソートは、 裏側でおこなわれて<emphasis>いません</>。それは集約のサポート関数の責任です。
+通常の集約の場合とは違って、順序集合集約のための入力行のソートは、裏側でおこなわれて<emphasis>いません</>。それは集約のサポート関数の責任です。
 典型的な実装方法は、集約の状態値に<quote>tuplesort</>オブジェクトへの参照を保持し、そのオブジェクトに入ってくる行を供給した後、ソートを完了し、最終関数内でデータを読み出すことです。
 この設計は、最終関数がソートされるデータに追加の<quote>架空</>行を注入するなどの特別な操作を実行するのを可能にします。
 通常の集約は多くの場合、<application>PL/pgSQL</application>または別のPL言語で書かれたサポート関数で実装することができますが、順序集合集約は状態値が任意のSQLデータ型のように定義可能ではないため一般的にC言語で書かれます。
@@ -912,7 +912,7 @@ if (AggCheckCallContext(fcinfo, NULL))
    re-executed on the same final state value.)
 -->
 この検査を行う理由の１つとして、遷移関数に対してこれが真の場合、先頭の入力は一時的な状態値でなければなりませんので、新規に割り当ててコピーを持つことなくそのまま変更しても安全であることが分かることがあります。
-例として<literal>int8inc()</>を参照してください。
+例として<function>int8inc()</>を参照してください。
 （これは関数内で参照渡しの入力を安全に変更できる<emphasis>唯一の</>場合です。
 特に通常の集約のための最終関数はいかなる場合でもそれらの入力を変更してはなりません。
 なぜならいくつかのケースでは、同じ最終状態の値から再実行されることがあるからです。）
@@ -932,7 +932,11 @@ if (AggCheckCallContext(fcinfo, NULL))
    to behave efficiently when used as transition function of a custom
    aggregate.)
 -->
-★翻訳が必要
+<function>AggCheckCallContext</>の第２引数は、集約の状態値が保管されているメモリコンテキストを取得するために使用できます。
+これは状態値として<quote>展開された</>オブジェクト（<xref linkend="xtypes-toast">を参照）を使用する遷移関数に便利です。
+最初の呼び出しで、遷移関数はメモリコンテキストが集約状態のコンテキストの子である展開されたオブジェクトを返し、その後の呼び出しで同じ展開されたオブジェクトを保持し続ける必要があります。
+<function>array_append()</>の例を参照してください。
+（<function>array_append()</>は組み込み集約の遷移関数ではありませんが、カスタム集約の遷移関数で使用すると効率的に動作するように書かれています。）
   </para>
 
   <para>
