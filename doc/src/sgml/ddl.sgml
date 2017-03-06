@@ -3948,7 +3948,7 @@ VALUES ('Albany', NULL, NULL, 'NY');
    otherwise with <literal>NO INHERIT</> clauses.  Other types of constraints
    (unique, primary key, and foreign key constraints) are not inherited.
 -->
-親テーブル上の検査制約と非NULL制約はその子テーブルに自動的に継承されます。
+親テーブル上の検査制約と非NULL制約は、<literal>NO INHERIT</>句によって明示的に指定され無い限り、その子テーブルに自動的に継承されます。
 他の種類の制約（一意性制約、主キー、外部キー制約）は継承されません。
   </para>
 
@@ -3960,11 +3960,12 @@ VALUES ('Albany', NULL, NULL, 'NY');
    same column name appears in multiple parent tables, or in both a parent
    table and the child's definition, then these columns are <quote>merged</>
    so that there is only one such column in the child table.  To be merged,
-<<<<<<< HEAD
-   columns must have the same data types, else an error is raised.  The
-   merged column will have copies of all the check constraints coming from
-   any one of the column definitions it came from, and will be marked not-null
-   if any of them are.
+   columns must have the same data types, else an error is raised.
+   Inheritable check constraints and not-null constraints are merged in a
+   similar fashion.  Thus, for example, a merged column will be marked
+   not-null if any one of the column definitions it came from is marked
+   not-null.  Check constraints are merged if they have the same name,
+   and the merge will fail if their conditions are different.
 -->
 テーブルは1つ以上の親テーブルから継承可能です。
 この場合、テーブルは親テーブルで定義された列の和になります。
@@ -3972,16 +3973,9 @@ VALUES ('Albany', NULL, NULL, 'NY');
 もし親テーブルに同じ名前の列がある場合、もしくは、親テーブルと子テーブルに同じ名前の列がある場合は、列が<quote>統合</>されて子テーブルではただ1つの列となります。
 統合されるには列は同じデータ型を持っている必要があります。
 異なるデータ型の場合にはエラーとなります。
-統合された列は、元となったテーブルで列定義が持つすべての検査制約のコピーを持ちます。
-そして、列定義のいずれかが非NULL制約を持てば、非NULLという印が付きます。
-=======
-   columns must have the same data types, else an error is raised.
-   Inheritable check constraints and not-null constraints are merged in a
-   similar fashion.  Thus, for example, a merged column will be marked
-   not-null if any one of the column definitions it came from is marked
-   not-null.  Check constraints are merged if they have the same name,
-   and the merge will fail if their conditions are different.
->>>>>>> REL9_6_2
+継承可能な検査制約と非NULL制約は、同じようなやり方で統合されます。
+つまり、例えば、列定義のいずれかが非NULL制約の印が付いているならば、統合された列に非NULLという印が付きます。
+検査制約は、同じ名前を持っている場合に統合され、それらの条件が異なる場合は統合に失敗します。
   </para>
 
   <para>
@@ -4057,20 +4051,7 @@ VALUES ('Albany', NULL, NULL, 'NY');
   </para>
 
   <para>
-<<<<<<< HEAD
 <!--
-   Note how table access permissions are handled.  Querying a parent
-   table can automatically access data in child tables without further
-   access privilege checking.  This preserves the appearance that the
-   data is (also) in the parent table.  Accessing the child tables
-   directly is, however, not automatically allowed and would require
-   further privileges to be granted.
--->
-テーブルアクセス権限がどのように扱われるかに注意して下さい。
-親テーブルへの問い合わせでは、それ以上アクセス権限を検査することなく自動的に子テーブルのデータにアクセスできます。
-これによりデータが親テーブルに（も）あるように見えることが保たれます。
-しかし、子テーブルへの直接のアクセスは自動的に許可されることはなく、追加の権限の付与が要求されるでしょう。
-=======
    Inherited queries perform access permission checks on the parent table
    only.  Thus, for example, granting <literal>UPDATE</> permission on
    the <structname>cities</> table implies permission to update rows in
@@ -4084,7 +4065,14 @@ VALUES ('Albany', NULL, NULL, 'NY');
    policies, if any, are applied only when it is the table explicitly named
    in the query; and in that case, any policies attached to its parent(s) are
    ignored.
->>>>>>> REL9_6_2
+-->
+継承された問い合わせは、親テーブルのみアクセス権限を検査します。
+つまり、例えば、<literal>UPDATE</>権限を<structname>cities</>テーブルに付与することは、<structname>cities</>テーブルを通じてアクセスする場合に、<structname>capitals</structname>テーブルにも行の更新権限を付与することを意味します。
+これによりデータが親テーブルに（も）あるように見えることが保たれます。
+しかし、<structname>capitals</structname>テーブルは、追加権限なしに直接更新することはできません。
+同様に、親テーブルの行セキュリティポリシー（<xref linkend="ddl-rowsecurity">を参照してください）が、継承された問い合わせの時に子テーブルの行に適用されます。
+子テーブルのポリシー（あれば）は、問い合わせにて明示的に指定されたテーブルである時にのみ適用されます。
+そしてこの場合、親テーブルに紐付けられたあらゆるポリシーは無視されます。
   </para>
 
   <para>
