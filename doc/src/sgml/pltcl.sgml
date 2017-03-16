@@ -442,31 +442,26 @@ PL/Tcl関数が予期しない相互作用に巻き込まれないようにす�
         If the command is a <command>SELECT</> statement, the values of the
         result columns are placed into Tcl variables named after the columns.
         If the <literal>-array</> option is given, the column values are
-<<<<<<< HEAD
-        instead stored into the named associative array, with the
-        column names used as array indexes.
--->
-コマンドが<command>SELECT</>文の場合、その結果得られた列の値は、列名にちなんだ名前のTcl変数に格納されます。
-<literal>-array</>オプションが付与された場合は、列の値は指定した名前の連想配列に格納され、その配列のインデックスとして列名が使用されます。
-=======
         instead stored into elements of the named associative array, with the
         column names used as array indexes.  In addition, the current row
         number within the result (counting from zero) is stored into the array
         element named <quote><literal>.tupno</></quote>, unless that name is
         in use as a column name in the result.
->>>>>>> REL9_6_2
+-->
+コマンドが<command>SELECT</>文の場合、その結果得られた列の値は、列名にちなんだ名前のTcl変数に格納されます。
+<literal>-array</>オプションが付与された場合は、列の値は指定された名前の連想配列の要素に格納され、その配列のインデックスとして列名が使用されます。
+加えて、結果内での現在の行番号（ゼロから数えます）が<quote><literal>.tupno</></quote>という名前の配列要素に格納されます。ただし、その名前が結果内の列名として使われていない場合に限られます。
        </para>
        <para>
 <!--
         If the command is a <command>SELECT</> statement and no <replaceable>loop-body</>
         script is given, then only the first row of results are stored into
-<<<<<<< HEAD
-        Tcl variables; remaining rows, if any, are ignored.  No storing occurs
-        if the
-        query returns no rows.  (This case can be detected by checking the
-        result of <function>spi_exec</function>.)  For example:
+        Tcl variables or array elements; remaining rows, if any, are ignored.
+        No storing occurs if the query returns no rows.  (This case can be
+        detected by checking the result of <function>spi_exec</function>.)
+        For example:
 -->
-問い合わせ文が<command>SELECT</>文、かつ、<replaceable>loop-body</>スクリプトが付与されなかった場合、結果のうち最初の行だけがTcl変数に格納されます。
+問い合わせ文が<command>SELECT</>文、かつ、<replaceable>loop-body</>スクリプトが付与されなかった場合、結果のうち最初の行だけがTclの変数または配列要素に格納されます。
 他にも行があったとしても、それらは無視されます。
 問い合わせが行を返さなかった場合は、変数への格納は発生しません
 （<function>spi_exec</function>の戻り値を検査することで、これを検出することができます）。
@@ -477,15 +472,6 @@ spi_exec "SELECT count(*) AS cnt FROM pg_proc"
 </programlisting>
 
 <!--
-=======
-        Tcl variables or array elements; remaining rows, if any, are ignored.
-        No storing occurs if the query returns no rows.  (This case can be
-        detected by checking the result of <function>spi_exec</function>.)
-        For example:
-<programlisting>
-spi_exec "SELECT count(*) AS cnt FROM pg_proc"
-</programlisting>
->>>>>>> REL9_6_2
         will set the Tcl variable <literal>$cnt</> to the number of rows in
         the <structname>pg_proc</> system catalog.
 -->
@@ -496,31 +482,23 @@ spi_exec "SELECT count(*) AS cnt FROM pg_proc"
         If the optional <replaceable>loop-body</> argument is given, it is
         a piece of Tcl script that is executed once for each row in the
         query result.  (<replaceable>loop-body</> is ignored if the given
-<<<<<<< HEAD
-        command is not a <command>SELECT</>.)  The values of the current row's columns
-        are stored into Tcl variables before each iteration.  For example:
--->
-<replaceable>loop-body</>オプション引数が付与された場合、それは、問い合わせの結果内の行それぞれに対して一度だけ実行される小さなTclスクリプトです
-（<replaceable>loop-body</>は<command>SELECT</>以外の問い合わせで付与された場合は無視されます）。
-処理中の行の列値は、各繰り返しの前にTcl変数に格納されます。
-以下に例を示します。
-
-=======
         command is not a <command>SELECT</>.)
         The values of the current row's columns
         are stored into Tcl variables or array elements before each iteration.
         For example:
->>>>>>> REL9_6_2
+-->
+<replaceable>loop-body</>オプション引数が付与された場合、それは、問い合わせの結果内の行それぞれに対して一度だけ実行される小さなTclスクリプトです
+（<replaceable>loop-body</>は<command>SELECT</>以外の問い合わせで付与された場合は無視されます）。
+処理中の行の列値は、各繰り返しの前にTclの変数または配列要素に格納されます。
+以下に例を示します。
+
 <programlisting>
 spi_exec -array C "SELECT * FROM pg_class" {
     elog DEBUG "have table $C(relname)"
 }
 </programlisting>
-<<<<<<< HEAD
 
 <!--
-=======
->>>>>>> REL9_6_2
         will print a log message for every row of <literal>pg_class</>.  This
         feature works similarly to other Tcl looping constructs; in
         particular <literal>continue</> and <literal>break</> work in the
@@ -1024,31 +1002,30 @@ NULLの列はこの配列内には現れません。
      triggers, for which the modified row will be inserted instead of the one
      given in <varname>$NEW</>; or for row-level <literal>INSTEAD OF</>
      <command>INSERT</> or <command>UPDATE</> triggers where the returned row
-<<<<<<< HEAD
-     is used to support <command>INSERT RETURNING</> and
-     <command>UPDATE RETURNING</> commands. The return value is ignored for
-     other types of triggers.
--->
-トリガプロシージャからの戻り値は、<literal>OK</>という文字列、<literal>SKIP</>という文字列、<literal>array get</> Tclコマンドによって返されるリストの内の1つを取ることができます。
-戻り値が<literal>OK</>の場合、トリガを発行した操作（<command>INSERT</>/<command>UPDATE</>/<command>DELETE</>）は正常に処理されます。
-<literal>SKIP</>はトリガマネージャにこの行に対する操作を何も出力せずに中止するように通知します。
-リストが返された場合は、PL/Tclに対し、変更した行を挿入するようにトリガマネージャに返すことを通知します。
-これは、<varname>$NEW</>内で与えられる行ではなく変更された行が挿入される、行レベルの<literal>BEFORE</> <command>INSERT</>または<command>UPDATE</>トリガ、または、返される行が<command>INSERT RETURNING</>および<command>UPDATE RETURNING</>コマンドをサポートするために使用される、行レベルの<literal>INSTEAD OF</> <command>INSERT</>または<command>UPDATE</>トリガでのみ有意です。
-この他の種類のトリガでは戻り値は無視されます。
-=======
      is used as the source data for <command>INSERT RETURNING</> or
      <command>UPDATE RETURNING</> clauses.
      In row-level <literal>BEFORE</> <command>DELETE</> or <literal>INSTEAD
      OF</> <command>DELETE</> triggers, returning a modified row has the same
      effect as returning <literal>OK</>, that is the operation proceeds.
      The trigger return value is ignored for all other types of triggers.
->>>>>>> REL9_6_2
+-->
+トリガプロシージャからの戻り値は、<literal>OK</>という文字列、<literal>SKIP</>という文字列、列名/値の組のリスト、の内の1つを取ることができます。
+戻り値が<literal>OK</>の場合、トリガを発行した操作（<command>INSERT</>/<command>UPDATE</>/<command>DELETE</>）は正常に処理されます。
+<literal>SKIP</>はトリガマネージャにこの行に対する操作を何も出力せずに中止するように通知します。
+リストが返された場合は、PL/Tclに対し、変更した行をトリガマネージャに返すことを通知します。変更行の内容はリスト内の列名と値により指定されます。
+リストで言及されなかった列は全てNULLが置かれます。
+変更された行を返すことは、<varname>$NEW</>内で与えられる行ではなく変更された行が挿入される、行レベルの<literal>BEFORE</> <command>INSERT</>または<command>UPDATE</>トリガ、または、返される行が<command>INSERT RETURNING</>および<command>UPDATE RETURNING</>句の元データとして使われる、行レベルの<literal>INSTEAD OF</> <command>INSERT</>または<command>UPDATE</>トリガでのみ有意です。
+行レベルの<literal>BEFORE</> <command>DELETE</>または<literal>INSTEAD OF</> <command>DELETE</>トリガでは、変更された行が返されることが<literal>OK</>が返されるのと同じ効果を持ち、その操作は処理されます。
+この他の種類のトリガでは戻り値は無視されます。
     </para>
 
     <tip>
      <para>
+<!--
       The result list can be made from an array representation of the
       modified tuple with the <literal>array get</> Tcl command.
+-->
+結果リストは<literal>array get</> Tclコマンドによる変更されたタプルの配列表現から作ることができます。
      </para>
     </tip>
 
