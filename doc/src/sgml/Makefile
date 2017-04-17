@@ -44,6 +44,10 @@ ifndef XSLTPROC
 XSLTPROC = xsltproc
 endif
 
+ifndef FOPCONF
+FOPCONF = fop.xconf
+endif
+
 override XSLTPROCFLAGS += --stringparam pg.version '$(VERSION)'
 
 DBTOEPUB ?= dbtoepub
@@ -275,12 +279,12 @@ XMLLINT = xmllint
 
 # reformat FO output so that locations of errors are easier to find
 %.fo: %.fo.tmp
-	$(XMLLINT) --format --output $@ $^
+	$(XMLLINT) --format --encode utf-8 --output $@ $^
 
 .SECONDARY: postgres-A4.fo postgres-US.fo
 
 %-fop.pdf: %.fo
-	$(FOP) -c fop.xconf -fo $< -pdf $@
+	$(FOP) -c $(FOPCONF) -fo $< -pdf $@
 
 epub: postgres.epub
 postgres.epub: postgres.xml
