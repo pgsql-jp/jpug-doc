@@ -416,7 +416,6 @@ clean:
 # XSLT
 	rm -f postgres.xml postgres.xmltmp htmlhelp.hhp toc.hhc index.hhk *.fo
 	rm -fr .fontmetrics
-	rm -f $(FOPCONF)
 # EPUB
 	rm -f postgres.epub
 # Texinfo

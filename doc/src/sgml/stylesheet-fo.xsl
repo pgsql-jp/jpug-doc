@@ -81,6 +81,22 @@
   <xsl:attribute name="background-color">#eef8e8</xsl:attribute>
 </xsl:attribute-set>
 
+<xsl:attribute-set name="nongraphical.admonition.properties">
+  <xsl:attribute name="border-style">solid</xsl:attribute>
+  <xsl:attribute name="border-width">1pt</xsl:attribute>
+  <xsl:attribute name="border-color">black</xsl:attribute>
+  <xsl:attribute name="padding-start">12pt</xsl:attribute>
+  <xsl:attribute name="padding-end">12pt</xsl:attribute>
+  <xsl:attribute name="padding-top">6pt</xsl:attribute>
+  <xsl:attribute name="padding-bottom">6pt</xsl:attribute>
+</xsl:attribute-set>
+
+<xsl:attribute-set name="admonition.title.properties">
+  <xsl:attribute name="text-align">center</xsl:attribute>
+</xsl:attribute-set>
+
+<!-- Change display of some elements -->
+
 <xsl:param name="l10n.gentext.default.language">ja</xsl:param>
 <xsl:param name="body.start.indent">0</xsl:param>
 <xsl:param name="line-height">150%</xsl:param>
@@ -104,12 +120,6 @@
     <xsl:attribute name="background-color">#EFEFEF</xsl:attribute>
   </xsl:if>
 </xsl:template>
-
-<xsl:attribute-set name="nongraphical.admonition.properties">
-  <xsl:attribute name="border">1pt solid blue</xsl:attribute>
-  <xsl:attribute name="padding">10pt</xsl:attribute>
-  <xsl:attribute name="background-color">#FCFCFC</xsl:attribute>
-</xsl:attribute-set>
 
 <xsl:param name="shade.verbatim">1</xsl:param>
 <xsl:attribute-set name="shade.verbatim.style">
