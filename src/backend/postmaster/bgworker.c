@@ -16,6 +16,7 @@
 
 #include "miscadmin.h"
 #include "libpq/pqsignal.h"
+#include "access/parallel.h"
 #include "postmaster/bgworker_internals.h"
 #include "postmaster/postmaster.h"
 #include "storage/barrier.h"
@@ -92,6 +93,26 @@ struct BackgroundWorkerHandle
 };
 
 static BackgroundWorkerArray *BackgroundWorkerData;
+
+/*
+ * List of internal background worker entry points.  We need this for
+ * reasons explained in LookupBackgroundWorkerFunction(), below.
+ */
+static const struct
+{
+	const char *fn_name;
+	bgworker_main_type fn_addr;
+}	InternalBGWorkers[] =
+
+{
+	{
+		"ParallelWorkerMain", ParallelWorkerMain
+	}
+};
+
+/* Private functions. */
+static bgworker_main_type LookupBackgroundWorkerFunction(char *libraryname, char *funcname);
+
 
 /*
  * Calculate shared memory needed.
@@ -696,21 +717,17 @@ StartBackgroundWorker(void)
 	}
 
 	/*
-	 * If bgw_main is set, we use that value as the initial entrypoint.
-	 * However, if the library containing the entrypoint wasn't loaded at
-	 * postmaster startup time, passing it as a direct function pointer is not
-	 * possible.  To work around that, we allow callers for whom a function
-	 * pointer is not available to pass a library name (which will be loaded,
-	 * if necessary) and a function name (which will be looked up in the named
-	 * library).
+	 * If bgw_main is set, we use that value as the entry point function.
+	 * Passing function addresses across processes is unreliable on many
+	 * platforms, but we'll leave the option in place in 9.x for backwards
+	 * compatibility.  Otherwise, look up the entry point function, loading
+	 * its library if necessary.
 	 */
 	if (worker->bgw_main != NULL)
 		entrypt = worker->bgw_main;
 	else
-		entrypt = (bgworker_main_type)
-			load_external_function(worker->bgw_library_name,
-								   worker->bgw_function_name,
-								   true, NULL);
+		entrypt = LookupBackgroundWorkerFunction(worker->bgw_library_name,
+												 worker->bgw_function_name);
 
 	/*
 	 * Note that in normal processes, we would call InitPostgres here.  For a
@@ -1049,4 +1066,48 @@ TerminateBackgroundWorker(BackgroundWorkerHandle *handle)
 	/* Make sure the postmaster notices the change to shared memory. */
 	if (signal_postmaster)
 		SendPostmasterSignal(PMSIGNAL_BACKGROUND_WORKER_CHANGE);
+}
+
+/*
+ * Look up (and possibly load) a bgworker entry point function.
+ *
+ * For functions contained in the core code, we use library name "postgres"
+ * and consult the InternalBGWorkers array.  External functions are
+ * looked up, and loaded if necessary, using load_external_function().
+ *
+ * The point of this is to pass function names as strings across process
+ * boundaries.  We can't pass actual function addresses because of the
+ * possibility that the function has been loaded at a different address
+ * in a different process.  This is obviously a hazard for functions in
+ * loadable libraries, but it can happen even for functions in the core code
+ * on platforms using EXEC_BACKEND (e.g., Windows).
+ *
+ * At some point it might be worthwhile to get rid of InternalBGWorkers[]
+ * in favor of applying load_external_function() for core functions too;
+ * but that raises portability issues that are not worth addressing now.
+ */
+static bgworker_main_type
+LookupBackgroundWorkerFunction(char *libraryname, char *funcname)
+{
+	/*
+	 * If the function is to be loaded from postgres itself, search the
+	 * InternalBGWorkers array.
+	 */
+	if (strcmp(libraryname, "postgres") == 0)
+	{
+		int			i;
+
+		for (i = 0; i < lengthof(InternalBGWorkers); i++)
+		{
+			if (strcmp(InternalBGWorkers[i].fn_name, funcname) == 0)
+				return InternalBGWorkers[i].fn_addr;
+		}
+
+		/* We can only reach this by programming error. */
+		elog(ERROR, "internal function \"%s\" not found", funcname);
+	}
+
+	/* Otherwise load from external library. */
+	return (bgworker_main_type)
+		load_external_function(libraryname, funcname, true, NULL);
 }
