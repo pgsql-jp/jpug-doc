@@ -412,7 +412,8 @@ static void TerminateChildren(int signal);
 #define SignalChildren(sig)			   SignalSomeChildren(sig, BACKEND_TYPE_ALL)
 
 static int	CountChildren(int target);
-static void maybe_start_bgworker(void);
+static bool assign_backendlist_entry(RegisteredBgWorker *rw);
+static void maybe_start_bgworkers(void);
 static bool CreateOptsFile(int argc, char *argv[], char *fullprogname);
 static pid_t StartChildProcess(AuxProcType type);
 static void StartAutovacuumWorker(void);
@@ -602,6 +603,15 @@ PostmasterMain(int argc, char *argv[])
 	/*
 	 * Set up signal handlers for the postmaster process.
 	 *
+	 * In the postmaster, we want to install non-ignored handlers *without*
+	 * SA_RESTART.  This is because they'll be blocked at all times except
+	 * when ServerLoop is waiting for something to happen, and during that
+	 * window, we want signals to exit the select(2) wait so that ServerLoop
+	 * can respond if anything interesting happened.  On some platforms,
+	 * signals marked SA_RESTART would not cause the select() wait to end.
+	 * Child processes will generally want SA_RESTART, but we expect them to
+	 * set up their own handlers before unblocking signals.
+	 *
 	 * CAUTION: when changing this list, check for side-effects on the signal
 	 * handling setup of child processes.  See tcop/postgres.c,
 	 * bootstrap/bootstrap.c, postmaster/bgwriter.c, postmaster/walwriter.c,
@@ -612,16 +622,20 @@ PostmasterMain(int argc, char *argv[])
 	pqinitmask();
 	PG_SETMASK(&BlockSig);
 
-	pqsignal(SIGHUP, SIGHUP_handler);	/* reread config file and have
-										 * children do same */
-	pqsignal(SIGINT, pmdie);	/* send SIGTERM and shut down */
-	pqsignal(SIGQUIT, pmdie);	/* send SIGQUIT and die */
-	pqsignal(SIGTERM, pmdie);	/* wait for children and shut down */
+	pqsignal_no_restart(SIGHUP, SIGHUP_handler);		/* reread config file
+														 * and have children do
+														 * same */
+	pqsignal_no_restart(SIGINT, pmdie); /* send SIGTERM and shut down */
+	pqsignal_no_restart(SIGQUIT, pmdie);		/* send SIGQUIT and die */
+	pqsignal_no_restart(SIGTERM, pmdie);		/* wait for children and shut
+												 * down */
 	pqsignal(SIGALRM, SIG_IGN); /* ignored */
 	pqsignal(SIGPIPE, SIG_IGN); /* ignored */
-	pqsignal(SIGUSR1, sigusr1_handler); /* message from child process */
-	pqsignal(SIGUSR2, dummy_handler);	/* unused, reserve for children */
-	pqsignal(SIGCHLD, reaper);	/* handle child termination */
+	pqsignal_no_restart(SIGUSR1, sigusr1_handler);		/* message from child
+														 * process */
+	pqsignal_no_restart(SIGUSR2, dummy_handler);		/* unused, reserve for
+														 * children */
+	pqsignal_no_restart(SIGCHLD, reaper);		/* handle child termination */
 	pqsignal(SIGTTIN, SIG_IGN); /* ignored */
 	pqsignal(SIGTTOU, SIG_IGN); /* ignored */
 	/* ignore SIGXFSZ, so that ulimit violations work like disk full */
@@ -1304,7 +1318,7 @@ PostmasterMain(int argc, char *argv[])
 	pmState = PM_STARTUP;
 
 	/* Some workers may be scheduled to start now */
-	maybe_start_bgworker();
+	maybe_start_bgworkers();
 
 	status = ServerLoop();
 
@@ -1771,7 +1785,7 @@ ServerLoop(void)
 
 		/* Get other worker processes running, if needed */
 		if (StartWorkerNeeded || HaveCrashedWorker)
-			maybe_start_bgworker();
+			maybe_start_bgworkers();
 
 #ifdef HAVE_PTHREAD_IS_THREADED_NP
 
@@ -2809,7 +2823,7 @@ reaper(SIGNAL_ARGS)
 				PgStatPID = pgstat_start();
 
 			/* workers may be scheduled to start now */
-			maybe_start_bgworker();
+			maybe_start_bgworkers();
 
 			/* at this point we are really open for business */
 			ereport(LOG,
@@ -4956,7 +4970,7 @@ sigusr1_handler(SIGNAL_ARGS)
 	}
 
 	if (StartWorkerNeeded || HaveCrashedWorker)
-		maybe_start_bgworker();
+		maybe_start_bgworkers();
 
 	if (CheckPostmasterSignal(PMSIGNAL_WAKEN_ARCHIVER) &&
 		PgArchPID != 0)
@@ -5491,12 +5505,32 @@ bgworker_forkexec(int shmem_slot)
  * Start a new bgworker.
  * Starting time conditions must have been checked already.
  *
+ * Returns true on success, false on failure.
+ * In either case, update the RegisteredBgWorker's state appropriately.
+ *
  * This code is heavily based on autovacuum.c, q.v.
  */
-static void
+static bool
 do_start_bgworker(RegisteredBgWorker *rw)
 {
 	pid_t		worker_pid;
+
+	Assert(rw->rw_pid == 0);
+
+	/*
+	 * Allocate and assign the Backend element.  Note we must do this before
+	 * forking, so that we can handle out of memory properly.
+	 *
+	 * Treat failure as though the worker had crashed.  That way, the
+	 * postmaster will wait a bit before attempting to start it again; if it
+	 * tried again right away, most likely it'd find itself repeating the
+	 * out-of-memory or fork failure condition.
+	 */
+	if (!assign_backendlist_entry(rw))
+	{
+		rw->rw_crashed_at = GetCurrentTimestamp();
+		return false;
+	}
 
 	ereport(DEBUG1,
 			(errmsg("starting background worker process \"%s\"",
@@ -5509,9 +5543,17 @@ do_start_bgworker(RegisteredBgWorker *rw)
 #endif
 	{
 		case -1:
+			/* in postmaster, fork failed ... */
 			ereport(LOG,
 					(errmsg("could not fork worker process: %m")));
-			return;
+			/* undo what assign_backendlist_entry did */
+			ReleasePostmasterChildSlot(rw->rw_child_slot);
+			rw->rw_child_slot = 0;
+			free(rw->rw_backend);
+			rw->rw_backend = NULL;
+			/* mark entry as crashed, so we'll try again later */
+			rw->rw_crashed_at = GetCurrentTimestamp();
+			break;
 
 #ifndef EXEC_BACKEND
 		case 0:
@@ -5535,14 +5577,24 @@ do_start_bgworker(RegisteredBgWorker *rw)
 			PostmasterContext = NULL;
 
 			StartBackgroundWorker();
+
+			exit(1);			/* should not get here */
 			break;
 #endif
 		default:
+			/* in postmaster, fork successful ... */
 			rw->rw_pid = worker_pid;
 			rw->rw_backend->pid = rw->rw_pid;
 			ReportBackgroundWorkerPID(rw);
-			break;
+			/* add new worker to lists of backends */
+			dlist_push_head(&BackendList, &rw->rw_backend->elem);
+#ifdef EXEC_BACKEND
+			ShmemBackendArrayAdd(rw->rw_backend);
+#endif
+			return true;
 	}
+
+	return false;
 }
 
 /*
@@ -5589,6 +5641,8 @@ bgworker_should_start_now(BgWorkerStartTime start_time)
  * Allocate the Backend struct for a connected background worker, but don't
  * add it to the list of backends just yet.
  *
+ * On failure, return false without changing any worker state.
+ *
  * Some info from the Backend is copied into the passed rw.
  */
 static bool
@@ -5601,14 +5655,6 @@ assign_backendlist_entry(RegisteredBgWorker *rw)
 		ereport(LOG,
 				(errcode(ERRCODE_OUT_OF_MEMORY),
 				 errmsg("out of memory")));
-
-		/*
-		 * The worker didn't really crash, but setting this nonzero makes
-		 * postmaster wait a bit before attempting to start it again; if it
-		 * tried again right away, most likely it'd find itself under the same
-		 * memory pressure.
-		 */
-		rw->rw_crashed_at = GetCurrentTimestamp();
 		return false;
 	}
 
@@ -5633,25 +5679,37 @@ assign_backendlist_entry(RegisteredBgWorker *rw)
 }
 
 /*
- * If the time is right, start one background worker.
+ * If the time is right, start background worker(s).
  *
- * As a side effect, the bgworker control variables are set or reset whenever
- * there are more workers to start after this one, and whenever the overall
- * system state requires it.
+ * As a side effect, the bgworker control variables are set or reset
+ * depending on whether more workers may need to be started.
+ *
+ * We limit the number of workers started per call, to avoid consuming the
+ * postmaster's attention for too long when many such requests are pending.
+ * As long as StartWorkerNeeded is true, ServerLoop will not block and will
+ * call this function again after dealing with any other issues.
  */
 static void
-maybe_start_bgworker(void)
+maybe_start_bgworkers(void)
 {
-	slist_mutable_iter iter;
+#define MAX_BGWORKERS_TO_LAUNCH 100
+	int			num_launched = 0;
 	TimestampTz now = 0;
+	slist_mutable_iter iter;
 
+	/*
+	 * During crash recovery, we have no need to be called until the state
+	 * transition out of recovery.
+	 */
 	if (FatalError)
 	{
 		StartWorkerNeeded = false;
 		HaveCrashedWorker = false;
-		return;					/* not yet */
+		return;
 	}
 
+	/* Don't need to be called again unless we find a reason for it below */
+	StartWorkerNeeded = false;
 	HaveCrashedWorker = false;
 
 	slist_foreach_modify(iter, &BackgroundWorkerList)
@@ -5660,11 +5718,11 @@ maybe_start_bgworker(void)
 
 		rw = slist_container(RegisteredBgWorker, rw_lnode, iter.cur);
 
-		/* already running? */
+		/* ignore if already running */
 		if (rw->rw_pid != 0)
 			continue;
 
-		/* marked for death? */
+		/* if marked for death, clean up and remove from list */
 		if (rw->rw_terminate)
 		{
 			ForgetBackgroundWorker(&iter);
@@ -5686,12 +5744,14 @@ maybe_start_bgworker(void)
 				continue;
 			}
 
+			/* read system time only when needed */
 			if (now == 0)
 				now = GetCurrentTimestamp();
 
 			if (!TimestampDifferenceExceeds(rw->rw_crashed_at, now,
 									  rw->rw_worker.bgw_restart_time * 1000))
 			{
+				/* Set flag to remember that we have workers to start later */
 				HaveCrashedWorker = true;
 				continue;
 			}
@@ -5699,35 +5759,39 @@ maybe_start_bgworker(void)
 
 		if (bgworker_should_start_now(rw->rw_worker.bgw_start_time))
 		{
-			/* reset crash time before calling assign_backendlist_entry */
+			/* reset crash time before trying to start worker */
 			rw->rw_crashed_at = 0;
 
 			/*
-			 * Allocate and assign the Backend element.  Note we must do this
-			 * before forking, so that we can handle out of memory properly.
+			 * Try to start the worker.
+			 *
+			 * On failure, give up processing workers for now, but set
+			 * StartWorkerNeeded so we'll come back here on the next iteration
+			 * of ServerLoop to try again.  (We don't want to wait, because
+			 * there might be additional ready-to-run workers.)  We could set
+			 * HaveCrashedWorker as well, since this worker is now marked
+			 * crashed, but there's no need because the next run of this
+			 * function will do that.
 			 */
-			if (!assign_backendlist_entry(rw))
+			if (!do_start_bgworker(rw))
+			{
+				StartWorkerNeeded = true;
 				return;
-
-			do_start_bgworker(rw);		/* sets rw->rw_pid */
-
-			dlist_push_head(&BackendList, &rw->rw_backend->elem);
-#ifdef EXEC_BACKEND
-			ShmemBackendArrayAdd(rw->rw_backend);
-#endif
+			}
 
 			/*
-			 * Have ServerLoop call us again.  Note that there might not
-			 * actually *be* another runnable worker, but we don't care all
-			 * that much; we will find out the next time we run.
+			 * If we've launched as many workers as allowed, quit, but have
+			 * ServerLoop call us again to look for additional ready-to-run
+			 * workers.  There might not be any, but we'll find out the next
+			 * time we run.
 			 */
-			StartWorkerNeeded = true;
-			return;
+			if (++num_launched >= MAX_BGWORKERS_TO_LAUNCH)
+			{
+				StartWorkerNeeded = true;
+				return;
+			}
 		}
 	}
-
-	/* no runnable worker found */
-	StartWorkerNeeded = false;
 }
 
 /*
@@ -6214,7 +6278,7 @@ InitPostmasterDeathWatchHandle(void)
 	 * write fd. That is taken care of in ClosePostmasterPorts().
 	 */
 	Assert(MyProcPid == PostmasterPid);
-	if (pipe(postmaster_alive_fds))
+	if (pipe(postmaster_alive_fds) < 0)
 		ereport(FATAL,
 				(errcode_for_file_access(),
 				 errmsg_internal("could not create pipe to monitor postmaster death: %m")));
@@ -6223,7 +6287,7 @@ InitPostmasterDeathWatchHandle(void)
 	 * Set O_NONBLOCK to allow testing for the fd's presence with a read()
 	 * call.
 	 */
-	if (fcntl(postmaster_alive_fds[POSTMASTER_FD_WATCH], F_SETFL, O_NONBLOCK))
+	if (fcntl(postmaster_alive_fds[POSTMASTER_FD_WATCH], F_SETFL, O_NONBLOCK) == -1)
 		ereport(FATAL,
 				(errcode_for_socket_access(),
 				 errmsg_internal("could not set postmaster death monitoring pipe to nonblocking mode: %m")));

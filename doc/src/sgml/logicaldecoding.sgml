@@ -551,7 +551,7 @@ typedef struct OutputPluginCallbacks
     LogicalDecodeShutdownCB shutdown_cb;
 } OutputPluginCallbacks;
 
-typedef void (*LogicalOutputPluginInit)(struct OutputPluginCallbacks *cb);
+typedef void (*LogicalOutputPluginInit) (struct OutputPluginCallbacks *cb);
 </programlisting>
 <!--
      The <function>begin_cb</function>, <function>change_cb</function>
@@ -611,7 +611,7 @@ CREATE TABLE another_catalog_table(data text) WITH (user_catalog_table = true);
      data in a data type that can contain arbitrary data (e.g., <type>bytea</type>) is
      cumbersome. If the output plugin only outputs textual data in the
      server's encoding, it can declare that by
-     setting <literal>OutputPluginOptions.output_mode</>
+     setting <literal>OutputPluginOptions.output_type</>
      to <literal>OUTPUT_PLUGIN_TEXTUAL_OUTPUT</> instead
      of <literal>OUTPUT_PLUGIN_BINARY_OUTPUT</> in
      the <link linkend="logicaldecoding-output-plugin-startup">startup
@@ -686,11 +686,9 @@ SQLで変更データを見るような場合、任意のかたちでデータ�
 -->
 ストリームに投入可能な更新の数に関係なく、レプリケーションスロットが作られるか、ストリームの変更がリクエストされた場合にオプションの<function>startup_cb</function>コールバック呼び出されます。
 <programlisting>
-typedef void (*LogicalDecodeStartupCB) (
-    struct LogicalDecodingContext *ctx,
-    OutputPluginOptions *options,
-    bool is_init
-);
+typedef void (*LogicalDecodeStartupCB) (struct LogicalDecodingContext *ctx,
+                                        OutputPluginOptions *options,
+                                        bool is_init);
 </programlisting>
 <!--
       The <literal>is_init</literal> parameter will be true when the
@@ -744,9 +742,7 @@ typedef struct OutputPluginOptions
 以前アクティブだったレプリケーションスロットが使われなくなったら、いつでも<function>shutdown_cb</function>コールバックが呼び出され、出力プラグインのプライベートリソースが解放されます。
 スロットは削除される必要はありません。単にストリームが停止します。
 <programlisting>
-typedef void (*LogicalDecodeShutdownCB) (
-    struct LogicalDecodingContext *ctx
-);
+typedef void (*LogicalDecodeShutdownCB) (struct LogicalDecodingContext *ctx);
 </programlisting>
      </para>
     </sect3>
@@ -766,10 +762,8 @@ typedef void (*LogicalDecodeShutdownCB) (
 必須である<function>begin_cb</function>コールバックは、コミットしたトランザクションの開始がデコードされる際に必ず呼び出されます。
 アボートしたトランザクションとその内容は決してデコードされません。
 <programlisting>
-typedef void (*LogicalDecodeBeginCB) (
-    struct LogicalDecodingContext *,
-    ReorderBufferTXN *txn
-);
+typedef void (*LogicalDecodeBeginCB) (struct LogicalDecodingContext *ctx,
+                                      ReorderBufferTXN *txn);
 </programlisting>
 <!--
       The <parameter>txn</parameter> parameter contains meta information about
@@ -798,10 +792,9 @@ typedef void (*LogicalDecodeBeginCB) (
 行が更新された場合は、それぞれの行に対して<function>change_cb</function>コールバックが、<function>commit_cb</function>の前に呼び出されます。
 
 <programlisting>
-typedef void (*LogicalDecodeCommitCB) (
-    struct LogicalDecodingContext *,
-    ReorderBufferTXN *txn
-);
+typedef void (*LogicalDecodeCommitCB) (struct LogicalDecodingContext *ctx,
+                                       ReorderBufferTXN *txn,
+                                       XLogRecPtr commit_lsn);
 </programlisting>
      </para>
     </sect3>
@@ -824,12 +817,10 @@ typedef void (*LogicalDecodeCommitCB) (
 トランザクション内の<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>の更新に対して、必須コールバックである<function>change_cb</function>が呼び出されます。
 元の更新コマンドが複数の行を一度に更新する場合は、それぞれの行に対してこのコールバックが呼び出されます。
 <programlisting>
-typedef void (*LogicalDecodeChangeCB) (
-    struct LogicalDecodingContext *ctx,
-    ReorderBufferTXN *txn,
-    Relation relation,
-    ReorderBufferChange *change
-);
+typedef void (*LogicalDecodeChangeCB) (struct LogicalDecodingContext *ctx,
+                                       ReorderBufferTXN *txn,
+                                       Relation relation,
+                                       ReorderBufferChange *change);
 </programlisting>
 <!--
       The <parameter>ctx</parameter> and <parameter>txn</parameter> parameters
@@ -873,10 +864,8 @@ unloggedテーブル(<xref linkend="SQL-CREATETABLE-UNLOGGED">参照)と(<xref l
 -->
 オプションの<function>filter_by_origin_cb</function>コールバックは、<parameter>origin_id</parameter>からリプレイされたデータがアウトプットプラグインの対象となるかどうかを判定するために呼び出されます。
 <programlisting>
-typedef bool (*LogicalDecodeFilterByOriginCB) (
-    struct LogicalDecodingContext *ctx,
-    RepNodeId origin_id
-);
+typedef bool (*LogicalDecodeFilterByOriginCB) (struct LogicalDecodingContext *ctx,
+                                               RepOriginId origin_id);
 </programlisting>
 <!--
       The <parameter>ctx</parameter> parameter has the same contents
@@ -920,15 +909,13 @@ typedef bool (*LogicalDecodeFilterByOriginCB) (
 -->
 オプションの<function>message_cb</function>コールバックは、ロジカルデコーディングメッセージがデコードされる度に呼び出されます。
 <programlisting>
-typedef void (*LogicalDecodeMessageCB) (
-    struct LogicalDecodingContext *,
-    ReorderBufferTXN *txn,
-    XLogRecPtr message_lsn,
-    bool transactional,
-    const char *prefix,
-    Size message_size,
-    const char *message
-);
+typedef void (*LogicalDecodeMessageCB) (struct LogicalDecodingContext *ctx,
+                                        ReorderBufferTXN *txn,
+                                        XLogRecPtr message_lsn,
+                                        bool transactional,
+                                        const char *prefix,
+                                        Size message_size,
+                                        const char *message);
 </programlisting>
 <!--
       The <parameter>txn</parameter> parameter contains meta information about
