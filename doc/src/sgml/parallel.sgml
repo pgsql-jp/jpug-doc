@@ -425,7 +425,7 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
     hash join means that an identical hash table is built in each worker
     process.
 -->
-処理対象のテーブルは、1個以上の他のテーブルとネステッドループか、ハッシュ結合で結合されます。
+処理対象のテーブルは、1個以上の他のテーブルとネステッドループか、ハッシュ結合で結合することができます。
 結合の内側は、パラレルワーカー中で実行しても安全だという条件下で、プランナがサポートするどのような非パラレルプランであっても構いません。
 たとえば、外側のテーブルの列の値を参照するインデックススキャンでも構いません。
 各々のワーカーは内側のプラン全体を実行します。
@@ -450,11 +450,11 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
     the final result.  This is reflected in the plan as a
     <literal>Finalize Aggregate</> node.
 -->
-<productname>PostgreSQL</>は、2段階のステージで集約処理を行うことによってパラレル集約処理をサポートします。
+<productname>PostgreSQL</>は、ふたつのステージで集約処理を行うことによってパラレル集約処理をサポートします。
 まず、クエリのパラレル部分に参加している個々のプロセスが集約ステップを実行し、それぞれのプロセスが認識しているグループに対する部分的な結果を生成します。
 これは<literal>Partial Aggregate</>ノードとしてプラン中に反映されています。
 次に、<literal>Gather</>ノードを通じて部分的な結果がリーダーに転送されます。
-最後に、最終的な結果を生成するために、リーダーはすべてのワーカーにまたがる結果を再集約します。
+最後に、リーダーは、すべてのワーカーにまたがる結果を再集約して、最終的な結果を生成します。
 これは、<literal>Finalize Aggregate</>ノードとしてプラン中に反映されています。
   </para>
 
@@ -471,8 +471,8 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
     query planner takes this into account during the planning process and is
     unlikely to choose parallel aggregate in this scenario.
 -->
-<literal>Finalize Aggregate</>ノードはリーダープロセスで実行されるので、入力行数に比べて相対的に多数のグループを生成するクエリは、クエリプランナはあまり好ましくないものとして認識します。
-たとえば最悪の場合、<literal>Finalize Aggregate</>ノードが認識するグループ数は、<literal>Partial Aggregate</>ですべてのワーカープロセスが認識する入力行数と同じくらい多くなります。
+<literal>Finalize Aggregate</>ノードはリーダープロセスで実行されるので、入力行数の割には、比較的多数のグループを生成するクエリは、クエリプランナはあまり好ましくないものとして認識します。
+たとえば最悪の場合、<literal>Finalize Aggregate</>ノードが認識するグループ数は、<literal>Partial Aggregate</>ですべてのワーカープロセスが認識する入力行数と同じだけの数になります。
 こうした場合には、明らかにパラレル集約を利用する性能上の利点がないことになります。
 クエリプランナはプラン処理中にこれを考慮するので、このシナリオでパラレル集約を採用することはまずありません。
   </para>
