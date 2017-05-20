@@ -254,6 +254,7 @@ postgres.xml: $(srcdir)/postgres.sgml $(ALMOSTALLSGML)
 	SP_CHARSET_FIXED=1 SP_ENCODING=UTF-8 \
 	$(OSX) -D. -x comment -x lower -i include-xslt-index $< >postgres.xmltmp
 	$(PERL) -p -e 's/\[(aacute|acirc|aelig|agrave|amp|aring|atilde|auml|bull|copy|eacute|egrave|gt|iacute|lt|mdash|nbsp|ntilde|oacute|ocirc|oslash|ouml|pi|quot|scaron|uuml) *\]/\&\1;/gi;' \
+                   -e 's/\<!-- doc\/src\/sgml\/.*\.sgml --\>//;' \
 	           -e '$$_ .= qq{<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">\n} if $$. == 1;' \
 	  <postgres.xmltmp > $@
 	rm postgres.xmltmp
