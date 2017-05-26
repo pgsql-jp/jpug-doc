@@ -637,9 +637,13 @@ rows = (outer_cardinality * inner_cardinality) * selectivity
  </sect1>
 
  <sect1 id="planner-stats-security">
+<!--
   <title>Planner Statistics and Security</title>
+-->
+  <title>プランナの統計情報とセキュリティ</title>
 
   <para>
+<!--
    Access to the table <structname>pg_statistic</structname> is restricted to
    superusers, so that ordinary users cannot learn about the contents of the
    tables of other users from it.  Some selectivity estimation functions will
@@ -655,9 +659,16 @@ rows = (outer_cardinality * inner_cardinality) * selectivity
    their values in error messages, in either case possibly exposing data from
    <structname>pg_statistic</structname> to a user who should not be able to
    see it.
+-->
+テーブル<structname>pg_statistic</structname>へのアクセスはスーパーユーザのみに制限されているため、一般ユーザはこのテーブルを使って他のユーザのテーブル内容について調べることはできません。
+選択性推定関数には保存されている統計情報を解析するためにユーザ定義の演算子（問い合わせに現れる演算子あるいは関連する演算子）を使うものがあります。
+例えば、保存されている最頻値を適用できるかどうかを調べるためには、選択性推定関数は適切な<literal>=</literal>演算子を実行して問い合わせ内の定数を保存されている値と比較する必要があるでしょう。
+従って、<structname>pg_statistic</structname>内のデータは、潜在的に、ユーザ定義演算子に渡される可能性があります。
+巧妙に作られた演算子を使うと、渡された引数を意図的に漏らす（例えば、それをログに出力する、他のテーブルに書き出すなど）、あるいはその値をエラーメッセージに出力することで偶然に漏らすことが可能で、いずれにせよ<structname>pg_statistic</structname>のデータを、それを見ることができないはずのユーザに対して露出する可能性があります。
   </para>
 
   <para>
+<!--
    In order to prevent this, the following applies to all built-in selectivity
    estimation functions.  When planning a query, in order to be able to use
    stored statistics, the current user must either
@@ -666,9 +677,14 @@ rows = (outer_cardinality * inner_cardinality) * selectivity
    accurately, the function that the operator is based on).  If not, then the
    selectivity estimator will behave as if no statistics are available, and
    the planner will proceed with default or fall-back assumptions.
+-->
+このことを防ぐため、すべての組み込みの選択性推定関数には以下のことが適用されます。
+問い合わせの計画を作成するとき、保存されている統計情報を使用できるためには、現在のユーザはテーブルあるいは対象の列に<literal>SELECT</literal>権限を持っている必要がある、あるいは使用する演算子（正確には、演算子の元となる関数）が<literal>LEAKPROOF</literal>である必要があります。
+そうでないときは、選択性推定はあたかも利用可能な統計情報がないかのような動作をし、プランナはデフォルトあるいは代替の推定に従って処理をします。
   </para>
 
   <para>
+<!--
    If a user does not have the required privilege on the table or columns,
    then in many cases the query will ultimately receive a permission-denied
    error, in which case this mechanism is invisible in practice.  But if the
@@ -679,21 +695,36 @@ rows = (outer_cardinality * inner_cardinality) * selectivity
    that, except that the plan might be suboptimal.  If one suspects that this
    is the case, one could try running the query as a more privileged user,
    to see if a different plan results.
+-->
+ユーザがテーブルや列について必要な権限を持っていない場合、最終的には権限不足のエラーを受け取ることが多いでしょう。
+この場合、上記の仕組みは実際にはユーザからはわかりません。
+しかし、ユーザがセキュリティバリアビューから読み取ろうとしている場合、プランナはそのビューの元となっているテーブルの統計情報を検査したいと思うかもしれず、またユーザはそのテーブルにはアクセス権がないかもしれません。
+その場合は、演算子がリークプルーフ(leak-proof)でなければ、統計情報は使用されません。
+そのことについての直接的なフィードバックは何もなく、プランが理想的ではないかもしれないというだけです。
+このことが起きているかもしれないと思った場合は、より権限のあるユーザで問い合わせを実行して、異なる計画が得られるかどうか調べることができます。
   </para>
 
   <para>
+<!--
    This restriction applies only to cases where the planner would need to
    execute a user-defined operator on one or more values
    from <structname>pg_statistic</structname>.  Thus the planner is permitted
    to use generic statistical information, such as the fraction of null values
    or the number of distinct values in a column, regardless of access
    privileges.
+-->
+この制限は、プランナが<structname>pg_statistic</structname>の1つ以上の値についてユーザ定義演算子を実行する必要がある場合にのみ適用されます。
+従って、列内でのNULL値の割合や異なる値の個数といった一般的な統計情報については、プランナはアクセス権限に関わらず使用することが許されています。
   </para>
 
   <para>
+<!--
    Selectivity estimation functions contained in third-party extensions that
    potentially operate on statistics with user-defined operators should follow
    the same security rules.  Consult the PostgreSQL source code for guidance.
+-->
+サードパーティの拡張に含まれる選択性推定関数で、ユーザ定義演算子で統計情報の演算をする可能性のあるものは、同じセキュリティ規則に従うべきです。
+そのための手引については、PostgreSQLのソースコードを参照してください。
   </para>
  </sect1>
 </chapter>
