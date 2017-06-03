@@ -2,52 +2,82 @@
 <!-- See header comment in release.sgml about typical markup -->
 
  <sect1 id="release-9-3-17">
+<!--
   <title>Release 9.3.17</title>
+-->
+  <title>リリース9.3.17</title>
 
   <note>
+<!--
   <title>Release Date</title>
+-->
+  <title>リリース日</title>
   <simpara>2017-05-11</simpara>
   </note>
 
   <para>
+<!--
    This release contains a variety of fixes from 9.3.16.
    For information about new features in the 9.3 major release, see
    <xref linkend="release-9-3">.
+-->
+このリリースは9.3.16に対し、各種不具合を修正したものです。
+9.3メジャーリリースにおける新機能については、<xref linkend="release-9-3">を参照してください。
   </para>
 
   <sect2>
+<!--
    <title>Migration to Version 9.3.17</title>
+-->
+   <title>バージョン9.3.17への移行</title>
 
    <para>
+<!--
     A dump/restore is not required for those running 9.3.X.
+-->
+9.3.Xからの移行ではダンプ/リストアは不要です。
    </para>
 
    <para>
+<!--
     However, if you use foreign data servers that make use of user
     passwords for authentication, see the first changelog entry below.
+-->
+しかしながら、認証にユーザパスワードを利用する外部データサーバを使っている場合には、以下の変更点の1番目の項目を参照してください。
    </para>
 
    <para>
+<!--
     Also, if you are upgrading from a version earlier than 9.3.16,
     see <xref linkend="release-9-3-16">.
+-->
+また、9.3.16よりも前のバージョンからアップグレードする場合には、<xref linkend="release-9-3-16">を参照してください。
    </para>
 
   </sect2>
 
   <sect2>
+<!--
    <title>Changes</title>
+-->
+   <title>変更点</title>
 
    <itemizedlist>
 
     <listitem>
      <para>
+<!--
       Restrict visibility
       of <structname>pg_user_mappings</>.<structfield>umoptions</>, to
       protect passwords stored as user mapping options
       (Michael Paquier, Feike Steenbergen)
+-->
+ユーザマッピングオプションとして格納されたパスワードを保護するため、<structname>pg_user_mappings</>.<structfield>umoptions</>の可視性を厳格化しました。
+(Michael Paquier, Feike Steenbergen)
      </para>
 
      <para>
+<!--
       The previous coding allowed the owner of a foreign server object,
       or anyone he has granted server <literal>USAGE</> permission to,
       to see the options for all user mappings associated with that server.
@@ -58,28 +88,44 @@
       is for <literal>PUBLIC</literal> and the current user is the server
       owner, or if the current user is a superuser.
       (CVE-2017-7486)
+-->
+これまでのコードは、外部サーバオブジェクトの所有者やサーバの<literal>USAGE</>権限を付与されているユーザに、そのサーバに関連した全てのユーザマッピングのオプションを参照することを許していました。
+これには他のユーザのパスワードがしっかり含まれているかもしれません。
+<structname>information_schema.user_mapping_options</>の振る舞いと一致するように、すなわち、これらオプションがマップされているユーザに、またはマッピングが<literal>PUBLIC</literal>で現在ユーザがサーバ所有者の場合に、あるいは現在ユーザがスーパーユーザである場合に、可視であるようにビュー定義を修正しました。
+(CVE-2017-7486)
      </para>
 
      <para>
+<!--
       By itself, this patch will only fix the behavior in newly initdb'd
       databases.  If you wish to apply this change in an existing database,
       you will need to do the following:
+-->
+このパッチのみでは新たにinitdbされたデータベースでの動作しか修正しません。
+この変更を既存のデータベースに適用するには、以下を行う必要があります。
      </para>
 
      <procedure>
       <step>
        <para>
+<!--
         Restart the postmaster after adding <literal>allow_system_table_mods
         = true</> to <filename>postgresql.conf</>.  (In versions
         supporting <command>ALTER SYSTEM</>, you can use that to make the
         configuration change, but you'll still need a restart.)
+-->
+<literal>allow_system_table_mods = true</>を<filename>postgresql.conf</>に加えた後、postmasterを再起動します。
+（<command>ALTER SYSTEM</>に対応したバージョンでは設定変更にそれを使うことができますが、それでも再起動は必要です。）
        </para>
       </step>
 
       <step>
        <para>
+<!--
         In <emphasis>each</> database of the cluster,
         run the following commands as superuser:
+-->
+クラスタ内の<emphasis>各</>データベースでスーパーユーザとして以下のコマンドを実行します。
 <programlisting>
 SET search_path = pg_catalog;
 CREATE OR REPLACE VIEW pg_user_mappings AS
@@ -107,19 +153,31 @@ CREATE OR REPLACE VIEW pg_user_mappings AS
 
       <step>
        <para>
+<!--
         Do not forget to include the <literal>template0</>
         and <literal>template1</> databases, or the vulnerability will still
         exist in databases you create later.  To fix <literal>template0</>,
         you'll need to temporarily make it accept connections.
         In <productname>PostgreSQL</> 9.5 and later, you can use
+-->
+<literal>template0</>、<literal>template1</>データベースを含めることを忘れないでください。
+そうでないと、後に作ったデータベースに引き続き脆弱性が存在することになります。
+<literal>template0</>を修正するには、これを一時的に接続を受け付けるようにする必要があります。
+<productname>PostgreSQL</> 9.5以降では、以下が使えます。
 <programlisting>
 ALTER DATABASE template0 WITH ALLOW_CONNECTIONS true;
 </programlisting>
+<!--
         and then after fixing <literal>template0</>, undo that with
+-->
+そして、<literal>template0</>を修正した後、以下で戻すことができます。
 <programlisting>
 ALTER DATABASE template0 WITH ALLOW_CONNECTIONS false;
 </programlisting>
+<!--
         In prior versions, instead use
+-->
+9.5より前のバージョンにおいては代わりに以下を使います。
 <programlisting>
 UPDATE pg_database SET datallowconn = true WHERE datname = 'template0';
 UPDATE pg_database SET datallowconn = false WHERE datname = 'template0';
@@ -129,8 +187,11 @@ UPDATE pg_database SET datallowconn = false WHERE datname = 'template0';
 
       <step>
        <para>
+<!--
         Finally, remove the <literal>allow_system_table_mods</> configuration
         setting, and again restart the postmaster.
+-->
+最後に、<literal>allow_system_table_mods</>設定を除去して、再度postmasterを再起動します。
        </para>
       </step>
      </procedure>
@@ -138,11 +199,16 @@ UPDATE pg_database SET datallowconn = false WHERE datname = 'template0';
 
     <listitem>
      <para>
+<!--
       Prevent exposure of statistical information via leaky operators
       (Peter Eisentraut)
+-->
+漏洩のある演算子を通した統計情報の露出を防止しました。
+(Peter Eisentraut)
      </para>
 
      <para>
+<!--
       Some selectivity estimation functions in the planner will apply
       user-defined operators to values obtained
       from <structname>pg_statistic</>, such as most common values and
@@ -154,16 +220,27 @@ UPDATE pg_database SET datallowconn = false WHERE datname = 'template0';
       permission to read the table column whose statistics are needed.
       At least one of these criteria is satisfied in most cases in practice.
       (CVE-2017-7484)
+-->
+プランナの一部の選択率見積関数は、ユーザ定義演算子を頻出値やヒストグラム項目のような<structname>pg_statistic</>から取得された値に適用します。
+これはテーブル権限がチェックされる前に行われるので、悪意のユーザがこの振る舞いを読み取り権限を持たないテーブル列の値を取得するために悪用するおそれがありました。
+修正するため、演算子の実装関数が漏洩防止を保証されておらず、呼び出しているユーザが統計情報を要するテーブル列の読み取り権限を持っていない場合には、デフォルトの見積で代用するようにしました。
+実際はたいていのケースでこれら基準のうち少なくとも一つを満たします。
+(CVE-2017-7484)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Restore <application>libpq</>'s recognition of
       the <envar>PGREQUIRESSL</> environment variable (Daniel Gustafsson)
+-->
+<application>libpq</>の<envar>PGREQUIRESSL</>環境変数の認識が復旧されました。
+(Daniel Gustafsson)
      </para>
 
      <para>
+<!--
       Processing of this environment variable was unintentionally dropped
       in <productname>PostgreSQL</> 9.3, but its documentation remained.
       This creates a security hazard, since users might be relying on the
@@ -172,282 +249,440 @@ UPDATE pg_database SET datallowconn = false WHERE datname = 'template0';
       but give it lower priority than <envar>PGSSLMODE</>, to avoid
       breaking configurations that work correctly with post-9.3 code.
       (CVE-2017-7485)
+-->
+環境変数の処理が<productname>PostgreSQL</> 9.3で意図せず外されていましたが、
+ドキュメントはそのままでした。
+ユーザがSSL暗号化接続を強制するために、もはや保証されないであろうこの環境変数に依存しているかもしれず、これはセキュリティ上の危険を生じさせます。
+この環境変数の処理を復旧しましたが、9.3以降のコードで正しく動作している設定を壊さないように、<envar>PGSSLMODE</>よりも低い優先順位を与えました。
+(CVE-2017-7485)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix possible corruption of <quote>init forks</> of unlogged indexes
       (Robert Haas, Michael Paquier)
+-->
+ログをとらないインデックスの<quote>初期フォーク</>の破損を修正しました。
+(Robert Haas, Michael Paquier)
      </para>
 
      <para>
+<!--
       This could result in an unlogged index being set to an invalid state
       after a crash and restart.  Such a problem would persist until the
       index was dropped and rebuilt.
+-->
+これによりクラッシュと再起動の後に、ログをとらないインデックスが不正な状態になるおそれがありました。
+この問題はインデックスが削除、再構築されるまで持続するでしょう。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix incorrect reconstruction of <structname>pg_subtrans</> entries
       when a standby server replays a prepared but uncommitted two-phase
       transaction (Tom Lane)
+-->
+スタンバイサーバが、準備されているけれどコミットされていない2相トランザクションを再生するときの<structname>pg_subtrans</>の項目の誤った再構築を修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       In most cases this turned out to have no visible ill effects, but in
       corner cases it could result in circular references
       in <structname>pg_subtrans</>, potentially causing infinite loops
       in queries that examine rows modified by the two-phase transaction.
+-->
+大抵の場合は目に見える悪影響には至りませんが、稀な場合に<structname>pg_subtrans</>で循環参照になり、2相トランザクションで修正された行を検査する問い合わせで潜在的に無限ループをひき起こす可能性がありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Ensure parsing of queries in extension scripts sees the results of
       immediately-preceding DDL (Julien Rouhaud, Tom Lane)
+-->
+拡張のスクリプトで問い合わせの構文解析に直前のDDLの結果が見えることを保証しました。
+(Julien Rouhaud, Tom Lane)
      </para>
 
      <para>
+<!--
       Due to lack of a cache flush step between commands in an extension
       script file, non-utility queries might not see the effects of an
       immediately preceding catalog change, such as <command>ALTER TABLE
       ... RENAME</>.
+-->
+拡張のスクリプトファイル内のコマンド間でキャッシュをフラッシュする手順が欠けていたため、ユーティリティ以外の問い合わせには直前の<command>ALTER TABLE ... RENAME</>のようなカタログ変更の結果が見えないかもしれませんでした。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Skip tablespace privilege checks when <command>ALTER TABLE ... ALTER
       COLUMN TYPE</> rebuilds an existing index (Noah Misch)
+-->
+<command>ALTER TABLE ... ALTER COLUMN TYPE</>が既存インデックスを再構築するときのテーブルスペースの権限検査を省略しました。
+(Noah Misch)
      </para>
 
      <para>
+<!--
       The command failed if the calling user did not currently have
       <literal>CREATE</> privilege for the tablespace containing the index.
       That behavior seems unhelpful, so skip the check, allowing the
       index to be rebuilt where it is.
+-->
+呼び出すユーザがインデックスを含むテーブルスペースに対する<literal>CREATE</>権限をそのとき持っていなかった場合、コマンドは失敗していました。
+この振る舞いは役に立たないと考えられるので、検査を省略し、ここではインデックスを再構築できるようにしました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <command>ALTER TABLE ... VALIDATE CONSTRAINT</> to not recurse
       to child tables when the constraint is marked <literal>NO INHERIT</>
       (Amit Langote)
+-->
+制約が<literal>NO INHERIT</>と印付けされているときには、<command>ALTER TABLE ... VALIDATE CONSTRAINT</>が子テーブルに再帰処理をしないように修正しました。
+(Amit Langote)
      </para>
 
      <para>
+<!--
       This fix prevents unwanted <quote>constraint does not exist</> failures
       when no matching constraint is present in the child tables.
+-->
+この修正は一致する制約が子テーブルに無いときに望まれない<quote>constraint does not exist（制約がありません）</>エラーになるのを防ぎます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <command>VACUUM</> to account properly for pages that could not
       be scanned due to conflicting page pins (Andrew Gierth)
+-->
+ページピンの競合によりスキャンできなかったページを適切に計算するように<command>VACUUM</>を修正しました。
+(Andrew Gierth)
      </para>
 
      <para>
+<!--
       This tended to lead to underestimation of the number of tuples in
       the table.  In the worst case of a small heavily-contended
       table, <command>VACUUM</> could incorrectly report that the table
       contained no tuples, leading to very bad planning choices.
+-->
+これはテーブルのタプル数の過小見積をもたらす傾向がありました。
+小さくて競合が激しいテーブルという最悪の場合には、<command>VACUUM</>がテーブルにはタプルが一切含まれないという不正な報告をして、非常に悪いプラン選択をもたらす可能性がありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Ensure that bulk-tuple-transfer loops within a hash join are
       interruptible by query cancel requests (Tom Lane, Thomas Munro)
+-->
+ハッシュ結合の中での大量タプル転送ループを問い合わせキャンセル要求により確実に割り込みできるようにしました。
+(Tom Lane, Thomas Munro)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <function>cursor_to_xml()</> to produce valid output
       with <replaceable>tableforest</> = false
       (Thomas Munro, Peter Eisentraut)
+-->
+<replaceable>tableforest</> = falseのとき、<function>cursor_to_xml()</>が正しいな出力をするように修正しました。
+(Thomas Munro, Peter Eisentraut)
      </para>
 
      <para>
+<!--
       Previously it failed to produce a wrapping <literal>&lt;table&gt;</>
       element.
+-->
+これまでは<literal>&lt;table&gt;</>要素の囲みを生成していませんでした。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Improve performance of <structname>pg_timezone_names</> view
       (Tom Lane, David Rowley)
+-->
+<structname>pg_timezone_names</>ビューの性能を改善しました。
+(Tom Lane, David Rowley)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix sloppy handling of corner-case errors from <function>lseek()</>
       and <function>close()</> (Tom Lane)
+-->
+<function>lseek()</>と<function>close()</>の稀な場合のエラーに対するいいかげんな処理を修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Neither of these system calls are likely to fail in typical situations,
       but if they did, <filename>fd.c</> could get quite confused.
+-->
+どちらも通常ではあまり失敗しないシステムコールですが、失敗した場合には<filename>fd.c</>がかなり混乱する可能性がありました。 
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix incorrect check for whether postmaster is running as a Windows
       service (Michael Paquier)
+-->
+postmasterがWindowsサービスとして実行しているかどうかの誤った検査を修正しました。
+(Michael Paquier)
      </para>
 
      <para>
+<!--
       This could result in attempting to write to the event log when that
       isn't accessible, so that no logging happens at all.
+-->
+これは、アクセス不能であるときにイベントログに書き出しを試みて、そのため全くログが書かれない結果をもたらしました。 
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>ecpg</> to support <command>COMMIT PREPARED</>
       and <command>ROLLBACK PREPARED</> (Masahiko Sawada)
+-->
+<command>COMMIT PREPARED</>と<command>ROLLBACK PREPARED</>に対応するように<application>ecpg</>を修正しました。
+(Masahiko Sawada)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix a double-free error when processing dollar-quoted string literals
       in <application>ecpg</> (Michael Meskes)
+-->
+<application>ecpg</>で、$でクォートされた文字列リテラルを処理する際の二重解放エラーを修正しました。
+(Michael Meskes)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In <application>pg_dump</>, fix incorrect schema and owner marking for
       comments and security labels of some types of database objects
       (Giuseppe Broccolo, Tom Lane)
+-->
+<application>pg_dump</>で、コメントとデータベースオブジェクトのいくつかのタイプのセキュリティラベルに対する、誤ったスキーマと所有者の印付けを修正しました。
+(Giuseppe Broccolo, Tom Lane)
      </para>
 
      <para>
+<!--
       In simple cases this caused no ill effects; but for example, a
       schema-selective restore might omit comments it should include, because
       they were not marked as belonging to the schema of their associated
       object.
+-->
+単純な使い方の場合には悪影響はありませんが、例えばスキーマを指定したリストアでは含まれるべきコメントが無視される可能性がありました。これはダンプ時にそれらが関連するオブジェクトのスキーマに属するという印付けがされなかったためです。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid emitting an invalid list file in <literal>pg_restore -l</>
       when SQL object names contain newlines (Tom Lane)
+-->
+<literal>pg_restore -l</>で、SQLオブジェクト名に改行が含まれるときに無効なリストファイルが出力されるのを回避しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Replace newlines by spaces, which is sufficient to make the output
       valid for <literal>pg_restore -L</>'s purposes.
+-->
+改行を空白で置き換えました。出力を<literal>pg_restore -L</>の用途に使えるようにするにはこれで十分です。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>pg_upgrade</> to transfer comments and security labels
       attached to <quote>large objects</> (blobs) (Stephen Frost)
+-->
+<quote>ラージオブジェクト</>(BLOB)に付けられたコメントとセキュリティラベルを移行するように<application>pg_upgrade</>を修正しました。
+(Stephen Frost)
      </para>
 
      <para>
+<!--
       Previously, blobs were correctly transferred to the new database, but
       any comments or security labels attached to them were lost.
+-->
+これまで、ラージオブジェクトは新データベースに正しく移行されていましたが、それに付加されたコメントとセキュリティラベルが失われていました。 
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Improve error handling
       in <filename>contrib/adminpack</>'s <function>pg_file_write()</>
       function (Noah Misch)
+-->
+<filename>contrib/adminpack</>の<function>pg_file_write()</>関数でエラー処理を改善しました。
+(Noah Misch)
      </para>
 
      <para>
+<!--
       Notably, it failed to detect errors reported
       by <function>fclose()</>.
+-->
+特に<function>fclose()</>から報告されたエラーを検知していませんでした。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In <filename>contrib/dblink</>, avoid leaking the previous unnamed
       connection when establishing a new unnamed connection (Joe Conway)
+-->
+<filename>contrib/dblink</>で新たな無名接続を確立するときに、前の無名接続がリークするのを回避しました。
+(Joe Conway)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <filename>contrib/pg_trgm</>'s extraction of trigrams from regular
       expressions (Tom Lane)
+-->
+<filename>contrib/pg_trgm</>の正規表現からのトライグラム抽出を修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       In some cases it would produce a broken data structure that could never
       match anything, leading to GIN or GiST indexscans that use a trigram
       index not finding any matches to the regular expression.
+-->
+場合によっては、何にも決してマッチしない壊れたデータ構造を生み出し、トライグラムインデックスを使うGINまたはGiSTのインデックススキャンが正規表現へのマッチを何も見つけられない結果になります。 
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In <filename>contrib/postgres_fdw</>,
       transmit query cancellation requests to the remote server
       (Michael Paquier, Etsuro Fujita)
+-->
+<filename>contrib/postgres_fdw</>にて、リモートサーバに問い合わせキャンセル要求を伝播するようにしました。
+(Michael Paquier, Etsuro Fujita)
      </para>
 
      <para>
+<!--
       Previously, a local query cancellation request did not cause an
       already-sent remote query to terminate early.  This is a back-patch
       of work originally done for 9.6.
+-->
+これまでは、ローカル問い合わせのキャンセル要求は送信済みのリモート問い合わせを早く終了させませんでした。
+これは最初に9.6で行われた作業のバックパッチです。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Support OpenSSL 1.1.0 (Heikki Linnakangas, Andreas Karlsson, Tom Lane)
+-->
+OpenSSL 1.1.0に対応しました。
+(Heikki Linnakangas, Andreas Karlsson, Tom Lane)
      </para>
 
      <para>
+<!--
       This is a back-patch of work previously done in newer branches;
       it's needed since many platforms are adopting newer OpenSSL versions.
+-->
+これはより新しいブランチで以前行なわれた作業のバックパッチです。多くのプラットフォームがOpenSSLの新しいバージョンを採用しているため、必要です。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Support Tcl 8.6 in MSVC builds (&Aacute;lvaro Herrera)
+-->
+MSVCビルドでTcl 8.6に対応しました。
+(&Aacute;lvaro Herrera)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Sync our copy of the timezone library with IANA release tzcode2017b
       (Tom Lane)
+-->
+私たちのタイムゾーンライブラリのコピーをIANA release tzcode2017bに同期しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This fixes a bug affecting some DST transitions in January 2038.
+-->
+これは、2038年1月の一部の夏時間遷移に影響するバグを修正します。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Update time zone data files to <application>tzdata</> release 2017b
       for DST law changes in Chile, Haiti, and Mongolia, plus historical
       corrections for Ecuador, Kazakhstan, Liberia, and Spain.
       Switch to numeric abbreviations for numerous time zones in South
       America, the Pacific and Indian oceans, and some Asian and Middle
       Eastern countries.
+-->
+タイムゾーンデータファイルを<application>tzdata</> release 2017bに更新しました。チリ、ハイチ、モンゴルの夏時間法の変更、エクアドル、カザフスタン、リベリア、スペインの歴史的修正が含まれます。
+南米、太平洋、インド洋、および、一部アジア・中東の国々における多数のタイムゾーンを、数字による省略形に切り替えました。 
      </para>
 
      <para>
+<!--
       The IANA time zone database previously provided textual abbreviations
       for all time zones, sometimes making up abbreviations that have little
       or no currency among the local population.  They are in process of
@@ -457,16 +692,26 @@ UPDATE pg_database SET datallowconn = false WHERE datname = 'template0';
       will continue to accept such removed abbreviations for timestamp input.
       But they will not be shown in the <structname>pg_timezone_names</>
       view nor used for output.
+-->
+IANAタイムゾーンデータベースはこれまで全てのタイムゾーンについて文字による省略形を提供しましたが、地元の人々の間でほとんど、あるいは全く通用していない省略形をしばしば作成していました。
+IANAは英語の省略形が現実に使われている形跡がないゾーンにおいてはUTCオフセット数値を使うことを選ぶという方針に転換しようとしてるところです。
+少なくともしばらくの間、<productname>PostgreSQL</>はタイムスタンプの入力に、このような削除された省略形を引き続き受け入れます。
+しかし、それらは<structname>pg_timezone_names</>ビューには現れず、出力にも使用されなくなります。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Use correct daylight-savings rules for POSIX-style time zone names
       in MSVC builds (David Rowley)
+-->
+MSVC ビルドにおいて、POSIX形式のタイムゾーン名に対して正しい夏時間規則を使用するようにしました。
+(David Rowley)
      </para>
 
      <para>
+<!--
       The Microsoft MSVC build scripts neglected to install
       the <filename>posixrules</> file in the timezone directory tree.
       This resulted in the timezone code falling back to its built-in
@@ -480,6 +725,13 @@ UPDATE pg_database SET datallowconn = false WHERE datname = 'template0';
       other zone file (see <xref linkend="datatype-timezones">).  Note that
       due to caching, you may need to restart the server to get such changes
       to take effect.
+-->
+MicrosoftのMSVCビルドスクリプトは<filename>posixrules</>ファイルをタイムゾーンディレクトリツリーにインストールするのを怠っていました。
+この結果、POSIX形式のタイムゾーン名に対し想定される夏時間の振る舞いについて、タイムゾーンコードがビルトインの規則に退行してしまっていました。
+歴史的な理由により、その組み込み規則は、米国が2007年より前に使っていた夏時間規則（すなわち、4月最初の日曜日と 10月最終の日曜日の変更）に引き続き対応しています。
+この修正にともない、POSIX形式のゾーン名は<literal>US/Eastern</>ゾーンの現在および歴史的な夏時間遷移日を使います。
+そのようにしたくない場合には、<filename>posixrules</>ファイルを削除するか、他のゾーンファイルのコピーで置き換えてください（<xref linkend="datatype-timezones">参照）。
+キャッシュ利用のため、このような変更を反映させるにはサーバの再起動が必要であることに注意してください。
      </para>
     </listitem>
 
@@ -573,7 +825,7 @@ UPDATE pg_database SET datallowconn = false WHERE datname = 'template0';
       reliable solution is to rebuild affected indexes after installing
       this update.
 -->
-<command>CREATE INDEX CONCURRENTLY</>が前もってインデックスされていない列に依存するインデックスの作成に使われていたなら、<command>CREATE INDEX</>コマンドと同時実行するトランザクションにより挿入あるいは更新された行が誤ったインデックスエントリを受け入れるおそれがありました。
+<command>CREATE INDEX CONCURRENTLY</>が前もってインデックスされていない列に依存するインデックスの作成に使われていたなら、<command>CREATE INDEX</>コマンドと同時実行するトランザクションにより更新された行が誤ったインデックスエントリを受け入れるおそれがありました。
 この現象が生じた疑いがあるなら、最も確実な対応はアップデート実施後に影響をうけたインデックスを再作成することです。
      </para>
     </listitem>
