@@ -3659,9 +3659,14 @@ getNamespaces(Archive *fout, int *numNamespaces)
 		 * essentially a no-op because the new public schema won't have an
 		 * entry in pg_init_privs anyway, as the entry will be removed when
 		 * the public schema is dropped.
+		 *
+		 * Further, we have to handle the case where the public schema does
+		 * not exist at all.
 		 */
 		if (dopt->outputClean)
-			appendPQExpBuffer(query," AND pip.objoid <> 'public'::regnamespace");
+			appendPQExpBuffer(query," AND pip.objoid <> "
+									"coalesce((select oid from pg_namespace "
+									"where nspname = 'public'),0)");
 
 		appendPQExpBuffer(query,") ");
 
@@ -12771,7 +12776,8 @@ dumpOpclass(Archive *fout, OpclassInfo *opcinfo)
 	i_opcfamilynsp = PQfnumber(res, "opcfamilynsp");
 	i_amname = PQfnumber(res, "amname");
 
-	opcintype = PQgetvalue(res, 0, i_opcintype);
+	/* opcintype may still be needed after we PQclear res */
+	opcintype = pg_strdup(PQgetvalue(res, 0, i_opcintype));
 	opckeytype = PQgetvalue(res, 0, i_opckeytype);
 	opcdefault = PQgetvalue(res, 0, i_opcdefault);
 	/* opcfamily will still be needed after we PQclear res */
@@ -13005,6 +13011,15 @@ dumpOpclass(Archive *fout, OpclassInfo *opcinfo)
 
 	PQclear(res);
 
+	/*
+	 * If needComma is still false it means we haven't added anything after
+	 * the AS keyword.  To avoid printing broken SQL, append a dummy STORAGE
+	 * clause with the same datatype.  This isn't sanctioned by the
+	 * documentation, but actually DefineOpClass will treat it as a no-op.
+	 */
+	if (!needComma)
+		appendPQExpBuffer(q, "STORAGE %s", opcintype);
+
 	appendPQExpBufferStr(q, ";\n");
 
 	appendPQExpBuffer(labelq, "OPERATOR CLASS %s",
@@ -13032,6 +13047,8 @@ dumpOpclass(Archive *fout, OpclassInfo *opcinfo)
 					opcinfo->dobj.namespace->dobj.name, opcinfo->rolname,
 					opcinfo->dobj.catId, 0, opcinfo->dobj.dumpId);
 
+	free(opcintype);
+	free(opcfamily);
 	free(amname);
 	destroyPQExpBuffer(query);
 	destroyPQExpBuffer(q);
@@ -14742,10 +14759,20 @@ dumpDefaultACL(Archive *fout, DefaultACLInfo *daclinfo)
  * 'tag' is the tag for the archive entry (typ. unquoted name of object).
  * 'nspname' is the namespace the object is in (NULL if none).
  * 'owner' is the owner, NULL if there is no owner (for languages).
- * 'acls' is the string read out of the fooacl system catalog field;
- *		it will be parsed here.
- * 'racls' contains any initial ACLs that the object had which have now been
- *		revoked by the user, it will also be parsed here.
+ * 'acls' contains the ACL string of the object from the appropriate system
+ * 		catalog field; it will be passed to buildACLCommands for building the
+ * 		appropriate GRANT commands.
+ * 'racls' contains the ACL string of any initial-but-now-revoked ACLs of the
+ * 		object; it will be passed to buildACLCommands for building the
+ * 		appropriate REVOKE commands.
+ * 'initacls' In binary-upgrade mode, ACL string of the object's initial
+ * 		privileges, to be recorded into pg_init_privs
+ * 'initracls' In binary-upgrade mode, ACL string of the object's
+ * 		revoked-from-default privileges, to be recorded into pg_init_privs
+ *
+ * NB: initacls/initracls are needed because extensions can set privileges on
+ * an object during the extension's script file and we record those into
+ * pg_init_privs as that object's initial privileges.
  *----------
  */
 static void
@@ -16961,6 +16988,7 @@ dumpEventTrigger(Archive *fout, EventTriggerInfo *evtinfo)
 {
 	DumpOptions *dopt = fout->dopt;
 	PQExpBuffer query;
+	PQExpBuffer delqry;
 	PQExpBuffer labelq;
 
 	/* Skip if not to be dumped */
@@ -16968,6 +16996,7 @@ dumpEventTrigger(Archive *fout, EventTriggerInfo *evtinfo)
 		return;
 
 	query = createPQExpBuffer();
+	delqry = createPQExpBuffer();
 	labelq = createPQExpBuffer();
 
 	appendPQExpBufferStr(query, "CREATE EVENT TRIGGER ");
@@ -17007,14 +17036,21 @@ dumpEventTrigger(Archive *fout, EventTriggerInfo *evtinfo)
 		}
 		appendPQExpBufferStr(query, ";\n");
 	}
+
+	appendPQExpBuffer(delqry, "DROP EVENT TRIGGER %s;\n",
+					  fmtId(evtinfo->dobj.name));
+
 	appendPQExpBuffer(labelq, "EVENT TRIGGER %s",
 					  fmtId(evtinfo->dobj.name));
 
 	if (evtinfo->dobj.dump & DUMP_COMPONENT_DEFINITION)
 		ArchiveEntry(fout, evtinfo->dobj.catId, evtinfo->dobj.dumpId,
-					 evtinfo->dobj.name, NULL, NULL, evtinfo->evtowner, false,
+					 evtinfo->dobj.name, NULL, NULL,
+					 evtinfo->evtowner, false,
 					 "EVENT TRIGGER", SECTION_POST_DATA,
-					 query->data, "", NULL, NULL, 0, NULL, NULL);
+					 query->data, delqry->data, NULL,
+					 NULL, 0,
+					 NULL, NULL);
 
 	if (evtinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, labelq->data,
@@ -17022,6 +17058,7 @@ dumpEventTrigger(Archive *fout, EventTriggerInfo *evtinfo)
 					evtinfo->dobj.catId, 0, evtinfo->dobj.dumpId);
 
 	destroyPQExpBuffer(query);
+	destroyPQExpBuffer(delqry);
 	destroyPQExpBuffer(labelq);
 }
 

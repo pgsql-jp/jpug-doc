@@ -187,6 +187,29 @@ ALTER FOREIGN TABLE ft1 ALTER COLUMN c1 OPTIONS (column_name 'C 1');
 ALTER FOREIGN TABLE ft2 ALTER COLUMN c1 OPTIONS (column_name 'C 1');
 \det+
 
+-- Test that alteration of server options causes reconnection
+-- Remote's errors might be non-English, so hide them to ensure stable results
+\set VERBOSITY terse
+SELECT c3, c4 FROM ft1 ORDER BY c3, c1 LIMIT 1;  -- should work
+ALTER SERVER loopback OPTIONS (SET dbname 'no such database');
+SELECT c3, c4 FROM ft1 ORDER BY c3, c1 LIMIT 1;  -- should fail
+DO $d$
+    BEGIN
+        EXECUTE $$ALTER SERVER loopback
+            OPTIONS (SET dbname '$$||current_database()||$$')$$;
+    END;
+$d$;
+SELECT c3, c4 FROM ft1 ORDER BY c3, c1 LIMIT 1;  -- should work again
+
+-- Test that alteration of user mapping options causes reconnection
+ALTER USER MAPPING FOR CURRENT_USER SERVER loopback
+  OPTIONS (ADD user 'no such user');
+SELECT c3, c4 FROM ft1 ORDER BY c3, c1 LIMIT 1;  -- should fail
+ALTER USER MAPPING FOR CURRENT_USER SERVER loopback
+  OPTIONS (DROP user);
+SELECT c3, c4 FROM ft1 ORDER BY c3, c1 LIMIT 1;  -- should work again
+\set VERBOSITY default
+
 -- Now we should be able to run ANALYZE.
 -- To exercise multiple code paths, we use local stats on ft1
 -- and remote-estimate mode on ft2.
@@ -818,6 +841,30 @@ RESET constraint_exclusion;
 INSERT INTO ft1(c1, c2) VALUES(1111, 2);
 UPDATE ft1 SET c2 = c2 + 1 WHERE c1 = 1;
 ALTER FOREIGN TABLE ft1 DROP CONSTRAINT ft1_c2negative;
+
+-- ===================================================================
+-- test WITH CHECK OPTION constraints
+-- ===================================================================
+
+CREATE TABLE base_tbl (a int, b int);
+CREATE FOREIGN TABLE foreign_tbl (a int, b int)
+  SERVER loopback OPTIONS(table_name 'base_tbl');
+CREATE VIEW rw_view AS SELECT * FROM foreign_tbl
+  WHERE a < b WITH CHECK OPTION;
+\d+ rw_view
+
+INSERT INTO rw_view VALUES (0, 10); -- ok
+INSERT INTO rw_view VALUES (10, 0); -- should fail
+EXPLAIN (VERBOSE, COSTS OFF)
+UPDATE rw_view SET b = 20 WHERE a = 0; -- not pushed down
+UPDATE rw_view SET b = 20 WHERE a = 0; -- ok
+EXPLAIN (VERBOSE, COSTS OFF)
+UPDATE rw_view SET b = -20 WHERE a = 0; -- not pushed down
+UPDATE rw_view SET b = -20 WHERE a = 0; -- should fail
+SELECT * FROM foreign_tbl;
+
+DROP FOREIGN TABLE foreign_tbl CASCADE;
+DROP TABLE base_tbl;
 
 -- ===================================================================
 -- test serial columns (ie, sequence-based defaults)
