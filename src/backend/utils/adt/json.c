@@ -323,7 +323,7 @@ makeJsonLexContextCstringLen(char *json, int len, bool need_escapes)
  * Publicly visible entry point for the JSON parser.
  *
  * lex is a lexing context, set up for the json to be processed by calling
- * makeJsonLexContext(). sem is a strucure of function pointers to semantic
+ * makeJsonLexContext(). sem is a structure of function pointers to semantic
  * action routines to be called at appropriate spots during parsing, and a
  * pointer to a state object to be passed to those routines.
  */
@@ -2003,7 +2003,7 @@ json_object_agg_transfn(PG_FUNCTION_ARGS)
 		if (arg_type == InvalidOid)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("could not determine data type for argument 1")));
+					 errmsg("could not determine data type for argument %d", 1)));
 
 		json_categorize_type(arg_type, &state->key_category,
 							 &state->key_output_func);
@@ -2013,7 +2013,7 @@ json_object_agg_transfn(PG_FUNCTION_ARGS)
 		if (arg_type == InvalidOid)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("could not determine data type for argument 2")));
+					 errmsg("could not determine data type for argument %d", 2)));
 
 		json_categorize_type(arg_type, &state->val_category,
 							 &state->val_output_func);

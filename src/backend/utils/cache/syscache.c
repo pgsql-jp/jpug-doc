@@ -845,8 +845,6 @@ static const struct cachedesc cacheinfo[] = {
 	}
 };
 
-#define SysCacheSize	((int) lengthof(cacheinfo))
-
 static CatCache *SysCache[SysCacheSize];
 
 static bool CacheInitialized = false;
@@ -876,6 +874,9 @@ InitCatalogCache(void)
 	int			cacheId;
 	int			i,
 				j;
+
+	StaticAssertStmt(SysCacheSize == (int) lengthof(cacheinfo),
+					 "SysCacheSize does not match syscache.c's array");
 
 	Assert(!CacheInitialized);
 
@@ -1210,6 +1211,27 @@ SearchSysCacheList(int cacheId, int nkeys,
 
 	return SearchCatCacheList(SysCache[cacheId], nkeys,
 							  key1, key2, key3, key4);
+}
+
+/*
+ * SysCacheInvalidate
+ *
+ *	Invalidate entries in the specified cache, given a hash value.
+ *	See CatCacheInvalidate() for more info.
+ *
+ *	This routine is only quasi-public: it should only be used by inval.c.
+ */
+void
+SysCacheInvalidate(int cacheId, uint32 hashValue)
+{
+	if (cacheId < 0 || cacheId >= SysCacheSize)
+		elog(ERROR, "invalid cache ID: %d", cacheId);
+
+	/* if this cache isn't initialized yet, no need to do anything */
+	if (!PointerIsValid(SysCache[cacheId]))
+		return;
+
+	CatCacheInvalidate(SysCache[cacheId], hashValue);
 }
 
 /*

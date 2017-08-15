@@ -177,10 +177,19 @@ sub tap_check
 	die "Tap tests not enabled in configuration"
 	  unless $config->{tap_tests};
 
+	my @flags;
+	foreach my $arg (0 .. scalar(@_))
+	{
+		next unless $_[$arg] =~ /^PROVE_FLAGS=(.*)/;
+		@flags = split(/\s+/, $1);
+		splice(@_,$arg,1);
+		last;
+	}
+
 	my $dir = shift;
 	chdir $dir;
 
-	my @args = ("prove", "--verbose", "t/*.pl");
+	my @args = ("prove", @flags, "t/*.pl");
 
 	# adjust the environment for just this test
 	local %ENV = %ENV;
@@ -217,11 +226,20 @@ sub bincheck
 sub taptest
 {
 	my $dir = shift;
+	my @args;
+
+	if ($dir =~ /^PROVE_FLAGS=/)
+	{
+		push(@args, $dir);
+		$dir = shift;
+	}
 
 	die "no tests found!" unless -d "$topdir/$dir/t";
 
+	push(@args,"$topdir/$dir");
+
 	InstallTemp();
-	my $status = tap_check("$topdir/$dir");
+	my $status = tap_check(@args);
 	exit $status if $status;
 }
 
