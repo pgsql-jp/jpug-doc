@@ -2,16 +2,16 @@
 <!-- See header comment in release.sgml about typical markup -->
 
  <sect1 id="release-9-5-8">
-<!--
   <title>Release 9.5.8</title>
--->
+<!--
   <title>リリース9.5.8</title>
+-->
 
   <formalpara>
 <!--
   <title>Release date:</title>
 -->
-  <title>リリース日</title>
+  <title>リリース日:</title>
   <para>2017-08-10</para>
   </formalpara>
 
@@ -65,13 +65,18 @@
 
     <listitem>
      <para>
+<!--
       Further restrict visibility
       of <structname>pg_user_mappings</>.<structfield>umoptions</>, to
       protect passwords stored as user mapping options
       (Noah Misch)
+-->
+ユーザマッピングオプションとして格納されたパスワードを保護するため、<structname>pg_user_mappings</>.<structfield>umoptions</>の可視性をさらに限定しました。
+(Noah Misch)
      </para>
 
      <para>
+<!--
       The fix for CVE-2017-7486 was incorrect: it allowed a user
       to see the options in her own user mapping, even if she did not
       have <literal>USAGE</> permission on the associated foreign server.
@@ -81,6 +86,12 @@
       show the options in such cases, <structname>pg_user_mappings</>
       should not either.
       (CVE-2017-7547)
+-->
+CVE-2017-7486に対する修正は正しくありませんでした。
+その修正では、ユーザが関連する外部サーバに対する<literal>USAGE</>権限を持っていなくとも、自身のユーザマッピングのオプションを見ることを許していました。
+このようなオプションはユーザ自身でなくサーバ所有者が用意したパスワードを含むかもしれません。
+このような場合に<structname>information_schema.user_mapping_options</>はオプションを見せませんので、<structname>pg_user_mappings</>も見せるべきではありません。
+(CVE-2017-7547)
      </para>
 
      <para>
@@ -189,11 +200,16 @@ UPDATE pg_database SET datallowconn = false WHERE datname = 'template0';
 
     <listitem>
      <para>
+<!--
       Disallow empty passwords in all password-based authentication methods
       (Heikki Linnakangas)
+-->
+全てのパスワードに基づく認証方式で空パスワードを禁止しました。
+(Heikki Linnakangas)
      </para>
 
      <para>
+<!--
       <application>libpq</> ignores empty password specifications, and does
       not transmit them to the server.  So, if a user's password has been
       set to the empty string, it's impossible to log in with that password
@@ -206,355 +222,562 @@ UPDATE pg_database SET datallowconn = false WHERE datname = 'template0';
       method, <literal>md5</>, accepted empty passwords.
       Change the server to reject empty passwords in all cases.
       (CVE-2017-7546)
+-->
+<application>libpq</>は空に指定されたパスワードを無視し、それをサーバに送りません。
+よって、ユーザのパスワードが空文字列に設定されていた場合、<application>psql</>や他の<application>libpq</>ベースのクライアントを通して、そのパスワードでログインすることはできません。
+このことから管理者はパスワードを空に設定することはパスワードログインをできなくすることに等しいと思うかもしれません。
+しかしながら、改変されたクライアントや<application>libpq</>ベースでないクライアントで、設定されている認証方式次第ではログインできる可能性があります。
+特に最も一般的な<literal>md5</>は空パスワードを受け付けていました。
+全ての場合で空パスワードを拒絶するようにサーバを変更しました。
+(CVE-2017-7546)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Make <function>lo_put()</> check for <literal>UPDATE</> privilege on
       the target large object (Tom Lane, Michael Paquier)
+-->
+<function>lo_put()</>が対象ラージオブジェクトの<literal>UPDATE</>権限を検査するようにしました。
+(Tom Lane, Michael Paquier)
      </para>
 
      <para>
+<!--
       <function>lo_put()</> should surely require the same permissions
       as <function>lowrite()</>, but the check was missing, allowing any
       user to change the data in a large object.
       (CVE-2017-7548)
+-->
+<function>lo_put()</>は確実に<function>lowrite()</>と同じ権限を必要とすべきでしたが、この検査が欠落していて、どのユーザにもラージオブジェクトのデータの変更を許していました。
+(CVE-2017-7548)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Correct the documentation about the process for upgrading standby
       servers with <application>pg_upgrade</> (Bruce Momjian)
+-->
+<application>pg_upgrade</>でスタンバイサーバをアップグレードする手順についてドキュメントを修正しました。
+(Bruce Momjian)
      </para>
 
      <para>
+<!--
       The previous documentation instructed users to start/stop the primary
       server after running <application>pg_upgrade</> but before syncing
       the standby servers.  This sequence is unsafe.
+-->
+これまでのドキュメントでは、<application>pg_upgrade</>実行後であるけれどスタンバイサーバを同期するより前に、ユーザにプライマリサーバを起動/停止するように教えていました。
+この手順は安全ではありません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix concurrent locking of tuple update chains (&Aacute;lvaro Herrera)
+-->
+タプル更新連鎖の同時ロックを修正しました。
+(&Aacute;lvaro Herrera)
      </para>
 
      <para>
+<!--
       If several sessions concurrently lock a tuple update chain with
       nonconflicting lock modes using an old snapshot, and they all
       succeed, it was possible for some of them to nonetheless fail (and
       conclude there is no live tuple version) due to a race condition.
       This had consequences such as foreign-key checks failing to see a
       tuple that definitely exists but is being updated concurrently.
+-->
+いくつかのセッションが競合しないロックモードで旧スナップショットを使ってタプル更新連鎖を同時にロックして、それらが全て成功した場合、それらの一部が競合状態のために失敗している（そして有効なタプルバージョンが無くなって終わる）可能性がありました。
+これは外部キー検査が実際には存在するけれども同時に更新されているタプルを参照するのに失敗するといった結果を招きました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix potential data corruption when freezing a tuple whose XMAX is a
       multixact with exactly one still-interesting member (Teodor Sigaev)
+-->
+XMAXが未だ関心のあるメンバーをちょうど1つ持つマルチトランザクションであるタプルを凍結するときの、潜在的なデータ破損を修正しました。
+(Teodor Sigaev)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid integer overflow and ensuing crash when sorting more than one
       billion tuples in-memory (Sergey Koposov)
+-->
+10億を超えるタプルをメモリ内でソートをするときの、整数オーバーフローと続いて起きるクラッシュを回避しました。
+(Sergey Koposov)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       On Windows, retry process creation if we fail to reserve the address
       range for our shared memory in the new process (Tom Lane, Amit
       Kapila)
+-->
+Windowsで新しいプロセスで共有メモリに対するアドレス範囲を確保できない場合、プロセス生成を再試行するようにしました。
+(Tom Lane, Amit Kapila)
      </para>
 
      <para>
+<!--
       This is expected to fix infrequent child-process-launch failures that
       are probably due to interference from antivirus products.
+-->
+おそらくはアンチウイルス製品の干渉によりたまに起きていた子プロセスの起動失敗が、これで修正されると考えられます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix low-probability corruption of shared predicate-lock hash table
       in Windows builds (Thomas Munro, Tom Lane)
+-->
+Windowsビルドにおける低い発生確率で生じる共有述語ロックハッシュテーブルの破損を修正しました。
+(Thomas Munro, Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid logging clean closure of an SSL connection as though
       it were a connection reset (Michael Paquier)
+-->
+SSL接続の正常終了に対する、接続リセットであったかのようなログ出力を回避しました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Prevent sending SSL session tickets to clients (Tom Lane)
+-->
+SSLセッションチケットをクライアントに送るのを防止しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This fix prevents reconnection failures with ticket-aware client-side
       SSL code.
+-->
+この修正はチケットを認識するクライアント側SSLコードによる再接続の失敗を防ぎます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix code for setting <xref linkend="guc-tcp-keepalives-idle"> on
       Solaris (Tom Lane)
+-->
+Solaris上の設定<xref linkend="guc-tcp-keepalives-idle">に対するコードを修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix statistics collector to honor inquiry messages issued just after
       a postmaster shutdown and immediate restart (Tom Lane)
+-->
+postmasterの停止と即座の再起動のすぐ後に発行された問い合わせメッセージを受け取るように、統計情報コレクタを修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Statistics inquiries issued within half a second of the previous
       postmaster shutdown were effectively ignored.
+-->
+前のpostmaster停止から0.5秒以内に発行された統計情報の問い合わせは事実上無視されていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Ensure that the statistics collector's receive buffer size is at
       least 100KB (Tom Lane)
+-->
+統計情報コレクタの受信バッファサイズが少なくとも100KBであることを保証しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This reduces the risk of dropped statistics data on older platforms
       whose default receive buffer size is less than that.
+-->
+これはデフォルトの受信バッファサイズがこれよりも小さい古いプラットフォーム上で統計情報データを取りこぼすリスクを軽減します。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix possible creation of an invalid WAL segment when a standby is
       promoted just after it processes an <literal>XLOG_SWITCH</> WAL
       record (Andres Freund)
+-->
+スタンバイが<literal>XLOG_SWITCH</> WALレコードを処理した直後に昇格したときに、不正なWALセグメントが作られる可能性があり、修正しました。
+(Andres Freund)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>walsender</> to exit promptly when client requests
       shutdown (Tom Lane)
+-->
+<application>walsender</>をクライアントが停止を要求したとき即座に終了するように修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <systemitem>SIGHUP</> and <systemitem>SIGUSR1</> handling in
       walsender processes (Petr Jelinek, Andres Freund)
+-->
+walsenderプロセスで<systemitem>SIGHUP</>と<systemitem>SIGUSR1</>の処理を修正しました。
+(Petr Jelinek, Andres Freund)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Prevent walsender-triggered panics during shutdown checkpoints
       (Andres Freund, Michael Paquier)
+-->
+シャットダウンのチェックポイント中にwalsenderがひき起こすパニックを防止しました。
+(Andres Freund, Michael Paquier)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix unnecessarily slow restarts of <application>walreceiver</>
       processes due to race condition in postmaster (Tom Lane)
+-->
+postmasterでの競合状態による<application>walreceiver</>プロセスの不必要な遅い再起動を修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix leakage of small subtransactions spilled to disk during logical
       decoding (Andres Freund)
+-->
+ロジカルデコーディング中のディスクにあふれ出る小さいサブトランザクションのリークを修正しました。
+(Andres Freund)
      </para>
 
      <para>
+<!--
       This resulted in temporary files consuming excessive disk space.
+-->
+結果としてディスク領域を過度に消費する一時ファイルが生じました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Reduce the work needed to build snapshots during creation of
       logical-decoding slots (Andres Freund, Petr Jelinek)
+-->
+ロジカルデコーディングスロットの作成中にスナップショットを作るために必要な作業を削減しました。
+(Andres Freund, Petr Jelinek)
      </para>
 
      <para>
+<!--
       The previous algorithm was infeasibly expensive on a server with a
       lot of open transactions.
+-->
+以前のアルゴリズムは、継続中のトランザクションが多いサーバ上では実行不能なほど高コストでした。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix race condition that could indefinitely delay creation of
       logical-decoding slots (Andres Freund, Petr Jelinek)
+-->
+ロジカルデコーディングスロット作成を無期限に遅延させるかもしれない競合状態を修正しました。
+(Andres Freund, Petr Jelinek)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Reduce overhead in processing syscache invalidation events (Tom Lane)
+-->
+システムキャッシュ無効化イベントの処理でのオーバーヘッドを軽減しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This is particularly helpful for logical decoding, which triggers
       frequent cache invalidation.
+-->
+これは頻繁にキャッシュ無効化を起こすロジカルデコーディングに特に有益です。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix cases where an <command>INSERT</> or <command>UPDATE</> assigns
       to more than one element of a column that is of domain-over-array
       type (Tom Lane)
+-->
+<command>INSERT</>または<command>UPDATE</>が、配列のドメイン型の列の複数要素に値を与える場合について修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Allow window functions to be used in sub-<literal>SELECT</>s that
       are within the arguments of an aggregate function (Tom Lane)
+-->
+ウィンドウ関数を集約関数の引数内の副<literal>SELECT</>で使えるようにしました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Move autogenerated array types out of the way during
       <command>ALTER ... RENAME</> (Vik Fearing)
+-->
+<command>ALTER ... RENAME</>のときに自動生成された配列型を退避するようにしました。
+(Vik Fearing)
      </para>
 
      <para>
+<!--
       Previously, we would rename a conflicting autogenerated array type
       out of the way during <command>CREATE</>; this fix extends that
       behavior to renaming operations.
+-->
+これまでは<command>CREATE</>のときに衝突する自動生成された配列型の名前をぶつからないように変えていました。
+本修正はこの振る舞いを名前変更操作に拡張したものです。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix dangling pointer in <command>ALTER TABLE</> when there is a
       comment on a constraint belonging to the table (David Rowley)
+-->
+テーブルに属する制約にコメントがあるときの<command>ALTER TABLE</>でのダングリングポインタを修正しました。
+(David Rowley)
      </para>
 
      <para>
+<!--
       Re-applying the comment to the reconstructed constraint could fail
       with a weird error message, or even crash.
+-->
+再構築された制約にコメントを再適用することに、奇妙なエラーメッセージを伴って失敗するおそれがありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Ensure that <command>ALTER USER ... SET</> accepts all the syntax
       variants that <command>ALTER ROLE ... SET</> does (Peter Eisentraut)
+-->
+<command>ALTER USER ... SET</>が<command>ALTER ROLE ... SET</>で対応している全ての構文の異形を確実に受け入れるようにしました。
+(Peter Eisentraut)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Properly update dependency info when changing a datatype I/O
       function's argument or return type from <type>opaque</> to the
       correct type (Heikki Linnakangas)
+-->
+データ型の入出力関数の引数や戻り値の型を<type>opaque</>から正確な型に変えるときに、依存性情報を適切に更新するようにしました。
+(Heikki Linnakangas)
      </para>
 
      <para>
+<!--
       <command>CREATE TYPE</> updates I/O functions declared in this
       long-obsolete style, but it forgot to record a dependency on the
       type, allowing a subsequent <command>DROP TYPE</> to leave broken
       function definitions behind.
+-->
+<command>CREATE TYPE</>は長らく使われていない形式で宣言された入出力関数を更新しますが、型の依存を記録するのを忘れていて、続く<command>DROP TYPE</>が壊れた関数定義を残すのを可能としていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Reduce memory usage when <command>ANALYZE</> processes
       a <type>tsvector</> column (Heikki Linnakangas)
+-->
+<command>ANALYZE</>が<type>tsvector</>列を処理するときのメモリ使用を減らしました。
+(Heikki Linnakangas)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix unnecessary precision loss and sloppy rounding when multiplying
       or dividing <type>money</> values by integers or floats (Tom Lane)
+-->
+<type>money</>値に対する整数または浮動小数点による乗算または除算のときに不必要な精度劣化といい加減な丸め計算があり、これを修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Tighten checks for whitespace in functions that parse identifiers,
       such as <function>regprocedurein()</> (Tom Lane)
+-->
+<function>regprocedurein()</>などの識別子を解析する関数で空白のチェックを厳格化しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Depending on the prevailing locale, these functions could
       misinterpret fragments of multibyte characters as whitespace.
+-->
+有力なロケールによっては、これら関数がマルチバイト文字の一部を空白と誤認するおそれがありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Use relevant <literal>#define</> symbols from Perl while
       compiling <application>PL/Perl</> (Ashutosh Sharma, Tom Lane)
+-->
+<application>PL/Perl</>をコンパイルするときに、Perlに由来する適切な<literal>#define</>シンボルを使うようにしました。
+(Ashutosh Sharma, Tom Lane)
      </para>
 
      <para>
+<!--
       This avoids portability problems, typically manifesting as
       a <quote>handshake</> mismatch during library load, when working with
       recent Perl versions.
+-->
+これにより移植性の問題を回避します。
+典型的には、最近のPerlバージョンで作業するときライブラリ読み込み中に<quote>ハンドシェイク</>不一致が示されます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In <application>libpq</>, reset GSS/SASL and SSPI authentication
       state properly after a failed connection attempt (Michael Paquier)
+-->
+<application>libpq</>にて、接続失敗した後にGSS/SASLおよびSSPI認証の状態を適切にリセットするようにしました。 
+(Michael Paquier)
      </para>
 
      <para>
+<!--
       Failure to do this meant that when falling back from SSL to non-SSL
       connections, a GSS/SASL failure in the SSL attempt would always cause
       the non-SSL attempt to fail.  SSPI did not fail, but it leaked memory.
+-->
+このリセットを怠ることで、SSL接続から非SSL接続に退行するときに、SSLでの試行でGSS/SASLに失敗すると常に非SSLの試行も失敗する結果をもたらしました。
+SSPIは失敗しませんがメモリリークが生じました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In <application>psql</>, fix failure when <command>COPY FROM STDIN</>
       is ended with a keyboard EOF signal and then another <command>COPY
       FROM STDIN</> is attempted (Thomas Munro)
+-->
+<application>psql</>で、<command>COPY FROM STDIN</>がキーボードからのEOF信号で中断されて、続いて他の<command>COPY FROM STDIN</>が試みられたときに生じるエラーを修正しました。
+(Thomas Munro)
      </para>
 
      <para>
+<!--
       This misbehavior was observed on BSD-derived platforms (including
       macOS), but not on most others.
+-->
+この誤動作はBSDから派生した(macOSを含む)プラットフォームで見られましたが、他のほとんどのプラットフォームでは見られません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>pg_dump</> and <application>pg_restore</> to
       emit <command>REFRESH MATERIALIZED VIEW</> commands last (Tom Lane)
+-->
+<command>REFRESH MATERIALIZED VIEW</>コマンドを最後に出力するように<application>pg_dump</>と<application>pg_restore</>を修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This prevents errors during dump/restore when a materialized view
       refers to tables owned by a different user.
+-->
+これにより、マテリアライズドビューが異なるユーザが所有者のテーブルを参照するときのダンプ/リストアのエラーを防ぎます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Improve <application>pg_dump</>/<application>pg_restore</>'s
       reporting of error conditions originating in <application>zlib</>
       (Vladimir Kunschikov, &Aacute;lvaro Herrera)
+-->
+<application>pg_dump</>/<application>pg_restore</>の<application>zlib</>に由来するエラー状態の報告を改善しました。
+(Vladimir Kunschikov, &Aacute;lvaro Herrera)
      </para>
     </listitem>
 
@@ -565,144 +788,226 @@ UPDATE pg_database SET datallowconn = false WHERE datname = 'template0';
      </para>
 
      <para>
+<!--
       It also now correctly assigns ownership of event triggers; before,
       they were restored as being owned by the superuser running the
       restore script.
+-->
+また、イベントトリガの所有者を正しく割り当てるようになりました。
+これまではリストアスクリプトを実行したスーパーユーザが所有者になるようにリストアされていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>pg_dump</> to not emit invalid SQL for an empty
       operator class (Daniel Gustafsson)
+-->
+<application>pg_dump</>を空の演算子クラスに対して無効なSQLを出力しないように修正しました。
+(Daniel Gustafsson)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>pg_dump</> output to stdout on Windows (Kuntal Ghosh)
+-->
+Windows上で<application>pg_dump</>の標準出力への出力を修正しました。
+(Kuntal Ghosh)
      </para>
 
      <para>
+<!--
       A compressed plain-text dump written to stdout would contain corrupt
       data due to failure to put the file descriptor into binary mode.
+-->
+ファイルディスクリプタをバイナリモードに設定しそこなっていたため、標準出力に書き出された圧縮されたプレーンテキストダンプに破損したデータが含まれていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <function>pg_get_ruledef()</> to print correct output for
       the <literal>ON SELECT</> rule of a view whose columns have been
       renamed (Tom Lane)
+-->
+列名が変更されているビューの<literal>ON SELECT</>ルールに対して<function>pg_get_ruledef()</>が正しい出力を表示するように修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       In some corner cases, <application>pg_dump</> relies
       on <function>pg_get_ruledef()</> to dump views, so that this error
       could result in dump/reload failures.
+-->
+一部の稀な場合に<application>pg_dump</>がビューをダンプするのに<function>pg_get_ruledef()</>に依存していて、この誤りがダンプ/リストアの失敗をもたらす可能性がありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix dumping of outer joins with empty constraints, such as the result
       of a <literal>NATURAL LEFT JOIN</> with no common columns (Tom Lane)
+-->
+共通列を持たない<literal>NATURAL LEFT JOIN</>結果のような、空の制約を伴う外部結合のダンプを修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix dumping of function expressions in the <literal>FROM</> clause in
       cases where the expression does not deparse into something that looks
       like a function call (Tom Lane)
+-->
+式が関数呼び出しに見える形に逆解析されない場合の<literal>FROM</>句内の関数式のダンプを修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>pg_basebackup</> output to stdout on Windows
       (Haribabu Kommi)
+-->
+
+Windows上で<application>pg_basebackup</>の標準出力への出力を修正しました。
+(Haribabu Kommi)
      </para>
 
      <para>
+<!--
       A backup written to stdout would contain corrupt data due to failure
       to put the file descriptor into binary mode.
+-->
+ファイルディスクリプタをバイナリモードに設定しそこなっていたため、標準出力に書き出されたバックアップに破損したデータが含まれていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>pg_rewind</> to correctly handle files exceeding 2GB
       (Kuntal Ghosh, Michael Paquier)
+-->
+2GBを超えるファイルを正しく扱うように<application>pg_rewind</>を修正しました。
+(Kuntal Ghosh, Michael Paquier)
      </para>
 
      <para>
+<!--
       Ordinarily such files won't appear in <productname>PostgreSQL</> data
       directories, but they could be present in some cases.
+-->
+通常は<productname>PostgreSQL</>データディレクトリにこのようなファイルは現れないでしょうが、一部の場合に存在する可能性があります。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>pg_upgrade</> to ensure that the ending WAL record
       does not have <xref linkend="guc-wal-level"> = <literal>minimum</>
       (Bruce Momjian)
+-->
+末尾のWALレコードが<xref linkend="guc-wal-level"> = <literal>minimum</>でないことを保証するように<application>pg_upgrade</>を修正しました。
+<xref linkend="guc-wal-level"> = <literal>minimum</>
+(Bruce Momjian)
      </para>
 
      <para>
+<!--
       This condition could prevent upgraded standby servers from
       reconnecting.
+-->
+この状態はアップグレードされたスタンバイサーバの再接続を妨げるおそれがありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>pg_xlogdump</>'s computation of WAL record length
       (Andres Freund)
+-->
+<application>pg_xlogdump</>のWALレコード長の計算を修正しました。
+(Andres Freund)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In <filename>postgres_fdw</>, re-establish connections to remote
       servers after <command>ALTER SERVER</> or <command>ALTER USER
       MAPPING</> commands (Kyotaro Horiguchi)
+-->
+<filename>postgres_fdw</>で、<command>ALTER SERVER</>または<command>ALTER USER MAPPING</>コマンドの後にリモートサーバへの接続を再確立するようにしました。
+(Kyotaro Horiguchi)
      </para>
 
      <para>
+<!--
       This ensures that option changes affecting connection parameters will
       be applied promptly.
+-->
+これにより接続パラメータに影響するオプションの変更が即座に適用されることを保証します。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In <filename>postgres_fdw</>, allow cancellation of remote
       transaction control commands (Robert Haas, Rafia Sabih)
+-->
+<filename>postgres_fdw</>で、リモートのトランザクション制御コマンドのキャンセルを可能にしました。
+(Robert Haas, Rafia Sabih)
      </para>
 
      <para>
+<!--
       This change allows us to quickly escape a wait for an unresponsive
       remote server in many more cases than previously.
+-->
+この変更で以前よりも多くの場合に応答しないリモートサーバの待機から素早く免れることができます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Increase <literal>MAX_SYSCACHE_CALLBACKS</> to provide more room for
       extensions (Tom Lane)
+-->
+より多くの空間を拡張に提供するため<literal>MAX_SYSCACHE_CALLBACKS</>を増やしました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Always use <option>-fPIC</>, not <option>-fpic</>, when building
       shared libraries with gcc (Tom Lane)
+-->
+gccで共有ライブラリをビルドするときに、<option>-fpic</>でなく常に<option>-fPIC</>を使うようにしました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This supports larger extension libraries on platforms where it makes
       a difference.
+-->
+一部のこの設定で違いが現れるプラットフォームで、より大きい拡張ライブラリに役立ちます。
      </para>
     </listitem>
 
@@ -715,42 +1020,65 @@ Branch: REL9_3_STABLE [3d9ae20e7] 2017-08-02 15:07:20 -0400
 Branch: REL9_2_STABLE [1188b9b2c] 2017-08-02 15:07:21 -0400
 -->
      <para>
+<!--
       Fix unescaped-braces issue in our build scripts for Microsoft MSVC,
       to avoid a warning or error from recent Perl versions (Andrew
       Dunstan)
+-->
+Perlの最近のバージョンで警告またはエラーになるのを回避するため、Microsoft MSVC用ビルドスクリプト内のエスケープされていない中括弧の問題を修正しました。
+(Andrew Dunstan)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In MSVC builds, handle the case where the <application>openssl</>
       library is not within a <filename>VC</> subdirectory (Andrew Dunstan)
+-->
+MSVCビルドで<application>openssl</>ライブラリが<filename>VC</>サブディレクトリ内に無い場合を処理するようにしました。
+(Andrew Dunstan)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In MSVC builds, add proper include path for <application>libxml2</>
       header files (Andrew Dunstan)
+-->
+MSVCビルドで、<application>libxml2</>ヘッダファイルの適切なインクルードパスを追加しました。
+(Andrew Dunstan)
      </para>
 
      <para>
+<!--
       This fixes a former need to move things around in standard Windows
       installations of <application>libxml2</>.
+-->
+これは<application>libxml2</>の標準Windowsインストールで以前に在るものを移動する必要があったものを修正します。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In MSVC builds, recognize a Tcl library that is
       named <filename>tcl86.lib</> (Noah Misch)
+-->
+MSVCビルドで、<filename>tcl86.lib</>という名前のTclライブラリを認識するようにしました。
+(Noah Misch)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In MSVC builds, honor <literal>PROVE_FLAGS</> settings
       on <filename>vcregress.pl</>'s command line (Andrew Dunstan)
+-->
+MSVCビルドで、<filename>vcregress.pl</>のコマンドライン上の<literal>PROVE_FLAGS</>設定を無視しないようにしました。
+(Andrew Dunstan)
      </para>
     </listitem>
 
@@ -760,56 +1088,89 @@ Branch: REL9_2_STABLE [1188b9b2c] 2017-08-02 15:07:21 -0400
  </sect1>
 
  <sect1 id="release-9-5-7">
+<!--
   <title>Release 9.5.7</title>
+-->
+  <title>リリース9.5.7</title>
 
   <formalpara>
+<!--
   <title>Release date:</title>
+-->
+  <title>リリース日:</title>
   <para>2017-05-11</para>
   </formalpara>
 
   <para>
+<!--
    This release contains a variety of fixes from 9.5.6.
    For information about new features in the 9.5 major release, see
    <xref linkend="release-9-5">.
+-->
+このリリースは9.5.6に対し、各種不具合を修正したものです。
+9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5">を参照してください。
   </para>
 
   <sect2>
+<!--
    <title>Migration to Version 9.5.7</title>
+-->
+   <title>バージョン9.5.7への移行</title>
 
    <para>
+<!--
     A dump/restore is not required for those running 9.5.X.
+-->
+9.5.Xからの移行ではダンプ/リストアは不要です。
    </para>
 
    <para>
+<!--
     However, if you use foreign data servers that make use of user
     passwords for authentication, see the first changelog entry below.
+-->
+しかしながら、認証にユーザパスワードを利用する外部データサーバを使っている場合には、以下の変更点の1番目の項目を参照してください。
    </para>
 
    <para>
+<!--
     Also, if you are using third-party replication tools that depend
     on <quote>logical decoding</>, see the fourth changelog entry below.
+-->
+また、<quote>ロジカルデコーディング</>に依存したサードパーティレプリケーションツールを使っている場合には、以下の変更点の4番目の項目を参照してください。
    </para>
 
    <para>
+<!--
     Also, if you are upgrading from a version earlier than 9.5.6,
     see <xref linkend="release-9-5-6">.
+-->
+また、9.5.6よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-6">を参照して下さい。
    </para>
   </sect2>
 
   <sect2>
+<!--
    <title>Changes</title>
+-->
+   <title>変更点</title>
 
    <itemizedlist>
 
     <listitem>
      <para>
+<!--
       Restrict visibility
       of <structname>pg_user_mappings</>.<structfield>umoptions</>, to
       protect passwords stored as user mapping options
       (Michael Paquier, Feike Steenbergen)
+-->
+ユーザマッピングオプションとして格納されたパスワードを保護するため、<structname>pg_user_mappings</>.<structfield>umoptions</>の可視性を厳格化しました。
+(Michael Paquier, Feike Steenbergen)
      </para>
 
      <para>
+<!--
       The previous coding allowed the owner of a foreign server object,
       or anyone he has granted server <literal>USAGE</> permission to,
       to see the options for all user mappings associated with that server.
@@ -820,18 +1181,28 @@ Branch: REL9_2_STABLE [1188b9b2c] 2017-08-02 15:07:21 -0400
       is for <literal>PUBLIC</literal> and the current user is the server
       owner, or if the current user is a superuser.
       (CVE-2017-7486)
+-->
+これまでのコードは、外部サーバオブジェクトの所有者やサーバの<literal>USAGE</>権限を付与されているユーザに、そのサーバに関連した全てのユーザマッピングのオプションを参照することを許していました。
+これには他のユーザのパスワードがしっかり含まれているかもしれません。
+<structname>information_schema.user_mapping_options</>の振る舞いと一致するように、すなわち、これらオプションがマップされているユーザに、またはマッピングが<literal>PUBLIC</literal>で現在ユーザがサーバ所有者の場合に、あるいは現在ユーザがスーパーユーザである場合に、可視であるようにビュー定義を修正しました。
+(CVE-2017-7486)
      </para>
 
      <para>
+<!--
       By itself, this patch will only fix the behavior in newly initdb'd
       databases.  If you wish to apply this change in an existing database,
       follow the corrected procedure shown in the changelog entry for
       CVE-2017-7547, in <xref linkend="release-9-5-8">.
+-->
+このパッチのみでは新たにinitdbされたデータベースでの動作しか修正しません。
+この変更を既存のデータベースに適用するには、<xref linkend="release-9-5-8">にあるCVE-2017-7547に対する変更点に示した正しい手順に従ってください。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Prevent exposure of statistical information via leaky operators
       (Peter Eisentraut)
 -->
@@ -1599,7 +1970,7 @@ MicrosoftのMSVCビルドスクリプトは<filename>posixrules</>ファイル�
 <!--
   <title>Release date:</title>
 -->
-<title>リリース日</title>
+  <title>リリース日:</title>
   <para>2017-02-09</para>
   </formalpara>
 
@@ -2618,7 +2989,7 @@ Windowsで環境変数の変更がデバッグオプションを有効にして�
 <!--
   <title>Release date:</title>
 -->
-<title>リリース日</title>
+  <title>リリース日:</title>
   <para>2016-10-27</para>
   </formalpara>
 
@@ -3738,7 +4109,7 @@ IANAは英語の省略形が現実に使われている形跡がないゾーン�
 <!--
   <title>Release date:</title>
 -->
-<title>リリース日</title>
+  <title>リリース日:</title>
   <para>2016-08-11</para>
   </formalpara>
 
@@ -5163,7 +5534,7 @@ Branch: REL9_1_STABLE [a44388ffe] 2016-08-05 12:59:02 -0400
 <!--
   <title>Release date:</title>
 -->
-<title>リリース日</title>
+  <title>リリース日:</title>
   <para>2016-05-12</para>
   </formalpara>
 
@@ -5835,7 +6206,7 @@ Branch: REL9_1_STABLE [bfc39da64] 2016-05-05 20:09:32 -0400
 <!--
   <title>Release date:</title>
 -->
-<title>リリース日</title>
+  <title>リリース日:</title>
   <para>2016-03-31</para>
   </formalpara>
 
@@ -6778,7 +7149,7 @@ Branch: REL9_1_STABLE [e5fd35cc5] 2016-03-25 19:03:54 -0400
 <!--
   <title>Release date:</title>
 -->
-<title>リリース日</title>
+  <title>リリース日:</title>
   <para>2016-02-11</para>
   </formalpara>
 
@@ -7364,7 +7735,7 @@ Branch: REL9_1_STABLE [6887d72d0] 2016-02-05 10:59:39 -0500
 <!--
    <title>Release date:</title>
 -->
-<title>リリース日</title>
+  <title>リリース日:</title>
    <para>2016-01-07</para>
   </formalpara>
 
