@@ -521,14 +521,27 @@ sub mkvcbuild
 		my @perl_embed_ccflags;
 		foreach my $f (split(" ",$Config{ccflags}))
 		{
-			if ($f =~ /^-D[^_]/)
+			if ($f =~ /^-D[^_]/ ||
+			    $f =~ /^-D_USE_32BIT_TIME_T/)
 			{
 				$f =~ s/\-D//;
 				push(@perl_embed_ccflags, $f);
 			}
 		}
 
-		# XXX this probably is redundant now?
+		# Perl versions before 5.13.4 don't provide -D_USE_32BIT_TIME_T
+		# regardless of how they were built.  On 32-bit Windows, assume
+		# such a version was built with a pre-MSVC-2005 compiler, and
+		# define the symbol anyway, so that we are compatible if we're
+		# being built with a later MSVC version.
+		push(@perl_embed_ccflags, '_USE_32BIT_TIME_T')
+		  if $solution->{platform} eq 'Win32'
+			  && $Config{PERL_REVISION} == 5
+			  && ($Config{PERL_VERSION} < 13
+				  || (   $Config{PERL_VERSION} == 13
+					  && $Config{PERL_SUBVERSION} < 4));
+
+		# Also, a hack to prevent duplicate definitions of uid_t/gid_t
 		push(@perl_embed_ccflags, 'PLPERL_HAVE_UID_GID');
 
 		foreach my $f (@perl_embed_ccflags)
