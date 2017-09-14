@@ -2120,9 +2120,6 @@ CommitTransaction(void)
 	 */
 	smgrDoPendingDeletes(true);
 
-	/* Check we've released all catcache entries */
-	AtEOXact_CatCache(true);
-
 	AtCommit_Notify();
 	AtEOXact_GUC(true, 1);
 	AtEOXact_SPI(true);
@@ -2391,9 +2388,6 @@ PrepareTransaction(void)
 	 */
 	PostPrepare_Twophase();
 
-	/* Check we've released all catcache entries */
-	AtEOXact_CatCache(true);
-
 	/* PREPARE acts the same as COMMIT as far as GUC is concerned */
 	AtEOXact_GUC(true, 1);
 	AtEOXact_SPI(true);
@@ -2593,7 +2587,6 @@ AbortTransaction(void)
 							 RESOURCE_RELEASE_AFTER_LOCKS,
 							 false, true);
 		smgrDoPendingDeletes(false);
-		AtEOXact_CatCache(false);
 
 		AtEOXact_GUC(false, 1);
 		AtEOXact_SPI(false);
@@ -4215,6 +4208,9 @@ AbortOutOfAnyTransaction(void)
 {
 	TransactionState s = CurrentTransactionState;
 
+	/* Ensure we're not running in a doomed memory context */
+	AtAbort_Memory();
+
 	/*
 	 * Get out of any transaction or nested transaction
 	 */
@@ -4256,7 +4252,14 @@ AbortOutOfAnyTransaction(void)
 				break;
 			case TBLOCK_ABORT:
 			case TBLOCK_ABORT_END:
-				/* AbortTransaction already done, still need Cleanup */
+
+				/*
+				 * AbortTransaction is already done, still need Cleanup.
+				 * However, if we failed partway through running ROLLBACK,
+				 * there will be an active portal running that command, which
+				 * we need to shut down before doing CleanupTransaction.
+				 */
+				AtAbort_Portals();
 				CleanupTransaction();
 				s->blockState = TBLOCK_DEFAULT;
 				break;
@@ -4279,6 +4282,14 @@ AbortOutOfAnyTransaction(void)
 			case TBLOCK_SUBABORT_END:
 			case TBLOCK_SUBABORT_RESTART:
 				/* As above, but AbortSubTransaction already done */
+				if (s->curTransactionOwner)
+				{
+					/* As in TBLOCK_ABORT, might have a live portal to zap */
+					AtSubAbort_Portals(s->subTransactionId,
+									   s->parent->subTransactionId,
+									   s->curTransactionOwner,
+									   s->parent->curTransactionOwner);
+				}
 				CleanupSubTransaction();
 				s = CurrentTransactionState;	/* changed by pop */
 				break;
@@ -4287,6 +4298,9 @@ AbortOutOfAnyTransaction(void)
 
 	/* Should be out of all subxacts now */
 	Assert(s->parent == NULL);
+
+	/* If we didn't actually have anything to do, revert to TopMemoryContext */
+	AtCleanup_Memory();
 }
 
 /*
