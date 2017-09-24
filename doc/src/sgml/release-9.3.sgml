@@ -2,94 +2,148 @@
 <!-- See header comment in release.sgml about typical markup -->
 
  <sect1 id="release-9-3-19">
+<!--
   <title>Release 9.3.19</title>
+-->
+  <title>リリース9.3.19</title>
 
   <formalpara>
+<!--
   <title>Release date:</title>
+-->
+  <title>リリース日:</title>
   <para>2017-08-31</para>
   </formalpara>
 
   <para>
+<!--
    This release contains a small number of fixes from 9.3.18.
    For information about new features in the 9.3 major release, see
    <xref linkend="release-9-3">.
+-->
+このリリースは9.3.18に対し、各種不具合を修正したものです。
+9.3メジャーリリースにおける新機能については、<xref linkend="release-9-3">を参照してください。
   </para>
 
   <sect2>
+<!--
    <title>Migration to Version 9.3.19</title>
+-->
+   <title>バージョン9.3.19への移行</title>
 
    <para>
+<!--
     A dump/restore is not required for those running 9.3.X.
+-->
+9.3.Xからの移行ではダンプ/リストアは不要です。
    </para>
 
    <para>
+<!--
     However, if you are upgrading from a version earlier than 9.3.18,
     see <xref linkend="release-9-3-18">.
+-->
+しかしながら、9.3.18よりも前のバージョンからアップグレードする場合には、<xref linkend="release-9-3-18">を参照してください。
    </para>
 
   </sect2>
 
   <sect2>
+<!--
    <title>Changes</title>
+-->
+   <title>変更点</title>
 
    <itemizedlist>
 
     <listitem>
      <para>
+<!--
       Show foreign tables
       in <structname>information_schema</>.<structname>table_privileges</>
       view (Peter Eisentraut)
+-->
+<structname>information_schema</>.<structname>table_privileges</>ビューで外部テーブルを表示するようになりました。
+(Peter Eisentraut)
      </para>
 
      <para>
+<!--
       All other relevant <structname>information_schema</> views include
       foreign tables, but this one ignored them.
+-->
+全ての他の関連する<structname>information_schema</>ビューは外部テーブルを含んでいますが、このビューは外部テーブルを無視していました。
      </para>
 
      <para>
+<!--
       Since this view definition is installed by <application>initdb</>,
       merely upgrading will not fix the problem.  If you need to fix this
       in an existing installation, you can, as a superuser, do this
       in <application>psql</>:
+-->
+このビュー定義は<application>initdb</>で導入されるため、アップグレードするだけでは問題は修正されません。
+既存のインストレーションで修正する必要がある場合、スーパーユーザーとして<application>psql</>で以下を実行してください。
 <programlisting>
 BEGIN;
 DROP SCHEMA information_schema CASCADE;
 \i <replaceable>SHAREDIR</>/information_schema.sql
 COMMIT;
 </programlisting>
-      (Run <literal>pg_config --sharedir</> if you're uncertain
+<!--
+      (Run <literal>pg_config -&#045;sharedir</> if you're uncertain
       where <replaceable>SHAREDIR</> is.)  This must be repeated in each
       database to be fixed.
+-->
+（<replaceable>SHAREDIR</>がどこににあるか確証がもてない場合、<literal>pg_config --sharedir</>を実行してください。）
+これは修正すべき各データベースで繰り返さなくてはなりません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Clean up handling of a fatal exit (e.g., due to receipt
       of <systemitem>SIGTERM</>) that occurs while trying to execute
       a <command>ROLLBACK</> of a failed transaction (Tom Lane)
+-->
+失敗したトランザクションの<command>ROLLBACK</>実行を試みている間に生じた、致命的な（例えば<systemitem>SIGTERM</>を受けとったことによる）終了の処理を整理しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This situation could result in an assertion failure.  In production
       builds, the exit would still occur, but it would log an unexpected
       message about <quote>cannot drop active portal</>.
+-->
+この状況はアサート失敗に至るかもしれません。
+実運用ビルドでもこのような終了は起きますが、この場合は<quote>cannot drop active portal(アクティブポータルを削除できません)</>といった予期せぬメッセージがログ出力されます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Remove assertion that could trigger during a fatal exit (Tom Lane)
+-->
+致命的な終了の間に駆動するかもしれないアサートを削除しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Correctly identify columns that are of a range type or domain type over
       a composite type or domain type being searched for (Tom Lane)
+-->
+検索されている、複合型またはドメイン型の上の、範囲型またはドメイン型の列を正確に識別するようにしました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Certain <command>ALTER</> commands that change the definition of a
       composite type or domain type are supposed to fail if there are any
       stored values of that type in the database, because they lack the
@@ -97,36 +151,55 @@ COMMIT;
       these checks could miss relevant values that are wrapped inside range
       types or sub-domains, possibly allowing the database to become
       inconsistent.
+-->
+複合型またはドメイン型の定義を変更する、ある種の<command>ALTER</>コマンドはデータベース中にその型の格納された値が1つでもあるときはエラーになるはずでした。なぜなら、そのような値を更新または検査するのに必要な基盤が欠けているためです。
+これまでは、これらの検査は範囲型またはドメイン型の内側にラップされた関連する値を見過ごすかもしれず、データベースが不整合になるのを許すおそれがありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix crash in <application>pg_restore</> when using parallel mode and
       using a list file to select a subset of items to restore
       (Fabr&iacute;zio de Royes Mello)
+-->
+<application>pg_restore</>における、パラレルモードを使っていてリストアする部分要素を選択するのにリストファイルを使っているときのクラッシュを修正しました。
+(Fabr&iacute;zio de Royes Mello)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Change <application>ecpg</>'s parser to allow <literal>RETURNING</>
       clauses without attached C variables (Michael Meskes)
+-->
+<application>ecpg</>のパーサを、C変数の割り当て無しの<literal>RETURNING</>句が使えるように変更しました。
+(Michael Meskes)
      </para>
 
      <para>
+<!--
       This allows <application>ecpg</> programs to contain SQL constructs
       that use <literal>RETURNING</> internally (for example, inside a CTE)
       rather than using it to define values to be returned to the client.
+-->
+これにより<literal>RETURNING</>をクライアントに返される値を定義するためではなく内部的に（例えばCTE内に）使ったSQL構文を<application>ecpg</>プログラムに含むことができます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Improve selection of compiler flags for PL/Perl on Windows (Tom Lane)
+-->
+Windows上のPL/Perlに対するコンパイラフラグの選択を改善しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This fix avoids possible crashes of PL/Perl due to inconsistent
       assumptions about the width of <type>time_t</> values.
       A side-effect that may be visible to extension developers is
@@ -134,6 +207,10 @@ COMMIT;
       in <productname>PostgreSQL</> Windows builds.  This is not expected
       to cause problems, because type <type>time_t</> is not used
       in any <productname>PostgreSQL</> API definitions.
+-->
+本修正は<type>time_t</>値の幅についての一貫性のない仮定のために起こりうるPL/Perlのクラッシュを回避します。
+拡張の開発者に見えるかもしれない副作用は、<literal>_USE_32BIT_TIME_T</>が<productname>PostgreSQL</>のWindowsビルドではもはやグローバルに定義されないことです。
+<type>time_t</>はいかなる<productname>PostgreSQL</> API定義でも使われないため、これは問題をひき起こさないと予想されます。
      </para>
     </listitem>
 
