@@ -41,6 +41,7 @@ my $tempdir_short = TestLib::tempdir_short;
 my %pgdump_runs = (
 	binary_upgrade => {
 		dump_cmd => [
+<<<<<<< HEAD
 			'pg_dump',       "--file=$tempdir/binary_upgrade.sql",
 			'--schema-only', '--binary-upgrade',
 			'--dbname=postgres', ], },
@@ -51,6 +52,20 @@ my %pgdump_runs = (
 	clean_if_exists => {
 		dump_cmd => [
 			'pg_dump',
+=======
+			'pg_dump',                            '--no-sync',
+			"--file=$tempdir/binary_upgrade.sql", '--schema-only',
+			'--binary-upgrade',                   '--dbname=postgres', ], },
+	clean => {
+		dump_cmd => [
+			'pg_dump', "--file=$tempdir/clean.sql",
+			'-c',      '--no-sync',
+			'--dbname=postgres', ], },
+	clean_if_exists => {
+		dump_cmd => [
+			'pg_dump',
+			'--no-sync',
+>>>>>>> REL_10_0
 			"--file=$tempdir/clean_if_exists.sql",
 			'-c',
 			'--if-exists',
@@ -58,6 +73,7 @@ my %pgdump_runs = (
 			'postgres', ], },
 	column_inserts => {
 		dump_cmd => [
+<<<<<<< HEAD
 			'pg_dump', "--file=$tempdir/column_inserts.sql",
 			'-a',      '--column-inserts',
 			'postgres', ], },
@@ -67,13 +83,32 @@ my %pgdump_runs = (
 			"--file=$tempdir/createdb.sql",
 			'-C',
 			'-R',                 # no-op, just for testing
+=======
+			'pg_dump',                            '--no-sync',
+			"--file=$tempdir/column_inserts.sql", '-a',
+			'--column-inserts',                   'postgres', ], },
+	createdb => {
+		dump_cmd => [
+			'pg_dump',
+			'--no-sync',
+			"--file=$tempdir/createdb.sql",
+			'-C',
+			'-R',    # no-op, just for testing
+>>>>>>> REL_10_0
 			'postgres', ], },
 	data_only => {
 		dump_cmd => [
 			'pg_dump',
+<<<<<<< HEAD
 			"--file=$tempdir/data_only.sql",
 			'-a',
 			'-v',                 # no-op, just make sure it works
+=======
+			'--no-sync',
+			"--file=$tempdir/data_only.sql",
+			'-a',
+			'-v',    # no-op, just make sure it works
+>>>>>>> REL_10_0
 			'postgres', ], },
 	defaults => {
 		dump_cmd => [ 'pg_dump', '-f', "$tempdir/defaults.sql", 'postgres', ],
@@ -81,7 +116,11 @@ my %pgdump_runs = (
 	defaults_custom_format => {
 		test_key => 'defaults',
 		dump_cmd => [
+<<<<<<< HEAD
 			'pg_dump', '-Fc', '-Z6',
+=======
+			'pg_dump', '--no-sync', '-Fc', '-Z6',
+>>>>>>> REL_10_0
 			"--file=$tempdir/defaults_custom_format.dump", 'postgres', ],
 		restore_cmd => [
 			'pg_restore',
@@ -90,7 +129,11 @@ my %pgdump_runs = (
 	defaults_dir_format => {
 		test_key => 'defaults',
 		dump_cmd => [
+<<<<<<< HEAD
 			'pg_dump',                             '-Fd',
+=======
+			'pg_dump', '--no-sync', '-Fd',
+>>>>>>> REL_10_0
 			"--file=$tempdir/defaults_dir_format", 'postgres', ],
 		restore_cmd => [
 			'pg_restore',
@@ -99,8 +142,13 @@ my %pgdump_runs = (
 	defaults_parallel => {
 		test_key => 'defaults',
 		dump_cmd => [
+<<<<<<< HEAD
 			'pg_dump', '-Fd', '-j2', "--file=$tempdir/defaults_parallel",
 			'postgres', ],
+=======
+			'pg_dump', '--no-sync', '-Fd', '-j2',
+			"--file=$tempdir/defaults_parallel", 'postgres', ],
+>>>>>>> REL_10_0
 		restore_cmd => [
 			'pg_restore',
 			"--file=$tempdir/defaults_parallel.sql",
@@ -108,13 +156,18 @@ my %pgdump_runs = (
 	defaults_tar_format => {
 		test_key => 'defaults',
 		dump_cmd => [
+<<<<<<< HEAD
 			'pg_dump',                                 '-Ft',
+=======
+			'pg_dump', '--no-sync', '-Ft',
+>>>>>>> REL_10_0
 			"--file=$tempdir/defaults_tar_format.tar", 'postgres', ],
 		restore_cmd => [
 			'pg_restore',
 			"--file=$tempdir/defaults_tar_format.sql",
 			"$tempdir/defaults_tar_format.tar", ], },
 	pg_dumpall_globals => {
+<<<<<<< HEAD
 		dump_cmd =>
 		  [ 'pg_dumpall', "--file=$tempdir/pg_dumpall_globals.sql", '-g', ],
 	},
@@ -139,6 +192,38 @@ my %pgdump_runs = (
 	section_post_data => {
 		dump_cmd => [
 			'pg_dump',             "--file=$tempdir/section_post_data.sql",
+=======
+		dump_cmd => [
+			'pg_dumpall',                             '--no-sync',
+			"--file=$tempdir/pg_dumpall_globals.sql", '-g', ], },
+	no_privs => {
+		dump_cmd => [
+			'pg_dump',                      '--no-sync',
+			"--file=$tempdir/no_privs.sql", '-x',
+			'postgres', ], },
+	no_owner => {
+		dump_cmd => [
+			'pg_dump',                      '--no-sync',
+			"--file=$tempdir/no_owner.sql", '-O',
+			'postgres', ], },
+	schema_only => {
+		dump_cmd => [
+			'pg_dump', '--no-sync', "--file=$tempdir/schema_only.sql",
+			'-s', 'postgres', ], },
+	section_pre_data => {
+		dump_cmd => [
+			'pg_dump',                              '--no-sync',
+			"--file=$tempdir/section_pre_data.sql", '--section=pre-data',
+			'postgres', ], },
+	section_data => {
+		dump_cmd => [
+			'pg_dump',                          '--no-sync',
+			"--file=$tempdir/section_data.sql", '--section=data',
+			'postgres', ], },
+	section_post_data => {
+		dump_cmd => [
+			'pg_dump', '--no-sync', "--file=$tempdir/section_post_data.sql",
+>>>>>>> REL_10_0
 			'--section=post-data', 'postgres', ], },);
 
 ###############################################################
@@ -241,12 +326,14 @@ my %tests = (
 	'CREATE SEQUENCE regress_pg_dump_table_col1_seq' => {
 		regexp => qr/^
                     \QCREATE SEQUENCE regress_pg_dump_table_col1_seq\E
+                    \n\s+\QAS integer\E
                     \n\s+\QSTART WITH 1\E
                     \n\s+\QINCREMENT BY 1\E
                     \n\s+\QNO MINVALUE\E
                     \n\s+\QNO MAXVALUE\E
                     \n\s+\QCACHE 1;\E
                     \n/xm,
+<<<<<<< HEAD
 		like   => { binary_upgrade => 1, },
 		unlike => {
 			clean              => 1,
@@ -269,6 +356,8 @@ my %tests = (
 			\n\s+\Qcol1 integer NOT NULL,\E
 			\n\s+\Qcol2 integer\E
 			\n\);\n/xm,
+=======
+>>>>>>> REL_10_0
 		like   => { binary_upgrade => 1, },
 		unlike => {
 			clean              => 1,
@@ -282,6 +371,31 @@ my %tests = (
 			section_pre_data   => 1,
 			section_post_data  => 1, }, },
 
+<<<<<<< HEAD
+=======
+	'CREATE TABLE regress_pg_dump_table_added' => {
+		create_order => 7,
+		create_sql =>
+'CREATE TABLE regress_pg_dump_table_added (col1 int not null, col2 int);',
+		regexp => qr/^
+			\QCREATE TABLE regress_pg_dump_table_added (\E
+			\n\s+\Qcol1 integer NOT NULL,\E
+			\n\s+\Qcol2 integer\E
+			\n\);\n/xm,
+		like   => { binary_upgrade => 1, },
+		unlike => {
+			clean              => 1,
+			clean_if_exists    => 1,
+			createdb           => 1,
+			defaults           => 1,
+			no_privs           => 1,
+			no_owner           => 1,
+			pg_dumpall_globals => 1,
+			schema_only        => 1,
+			section_pre_data   => 1,
+			section_post_data  => 1, }, },
+
+>>>>>>> REL_10_0
 	'CREATE SEQUENCE regress_pg_dump_seq' => {
 		regexp => qr/^
                     \QCREATE SEQUENCE regress_pg_dump_seq\E
@@ -458,9 +572,14 @@ my %tests = (
 			pg_dumpall_globals => 1,
 			section_post_data  => 1, }, },
 
+<<<<<<< HEAD
 	'GRANT SELECT(col2) ON regress_pg_dump_table TO regress_dump_test_role'
 	  => {
 		create_order => 4,
+=======
+	'GRANT SELECT(col2) ON regress_pg_dump_table TO regress_dump_test_role' =>
+	  { create_order => 4,
+>>>>>>> REL_10_0
 		create_sql   => 'GRANT SELECT(col2) ON regress_pg_dump_table
 						   TO regress_dump_test_role;',
 		regexp => qr/^

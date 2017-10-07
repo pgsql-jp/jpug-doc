@@ -3,7 +3,7 @@
  * socket.c
  *	  Microsoft Windows Win32 Socket Functions
  *
- * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/port/win32/socket.c
@@ -298,7 +298,7 @@ pgwin32_socket(int af, int type, int protocol)
 }
 
 int
-pgwin32_bind(SOCKET s, struct sockaddr * addr, int addrlen)
+pgwin32_bind(SOCKET s, struct sockaddr *addr, int addrlen)
 {
 	int			res;
 
@@ -320,7 +320,7 @@ pgwin32_listen(SOCKET s, int backlog)
 }
 
 SOCKET
-pgwin32_accept(SOCKET s, struct sockaddr * addr, int *addrlen)
+pgwin32_accept(SOCKET s, struct sockaddr *addr, int *addrlen)
 {
 	SOCKET		rs;
 
@@ -342,7 +342,7 @@ pgwin32_accept(SOCKET s, struct sockaddr * addr, int *addrlen)
 
 /* No signal delivery during connect. */
 int
-pgwin32_connect(SOCKET s, const struct sockaddr * addr, int addrlen)
+pgwin32_connect(SOCKET s, const struct sockaddr *addr, int addrlen)
 {
 	int			r;
 
@@ -426,7 +426,7 @@ pgwin32_recv(SOCKET s, char *buf, int len, int f)
 		pg_usleep(10000);
 	}
 	ereport(NOTICE,
-	  (errmsg_internal("could not read from ready socket (after retries)")));
+			(errmsg_internal("could not read from ready socket (after retries)")));
 	errno = EWOULDBLOCK;
 	return -1;
 }
@@ -500,7 +500,7 @@ pgwin32_send(SOCKET s, const void *buf, int len, int flags)
  * since it is not used in postgresql!
  */
 int
-pgwin32_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timeval * timeout)
+pgwin32_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timeval *timeout)
 {
 	WSAEVENT	events[FD_SETSIZE * 2]; /* worst case is readfds totally
 										 * different from writefds, so

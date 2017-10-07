@@ -1721,8 +1721,9 @@ FDWがテーブル定義のインポートをサポートしない場合は、<f
 <!--
      A <structname>ForeignScan</> node can, optionally, support parallel
      execution.  A parallel <structname>ForeignScan</> will be executed
-     in multiple processes and should return each row only once across
+     in multiple processes and must return each row exactly once across
      all cooperating processes.  To do this, processes can coordinate through
+<<<<<<< HEAD
      fixed size chunks of dynamic shared memory.  This shared memory is not
      guaranteed to be mapped at the same address in every process, so pointers
      may not be used.  The following callbacks are all optional in general,
@@ -1733,6 +1734,12 @@ FDWがテーブル定義のインポートをサポートしない場合は、<f
 これを行うため、プロセスは動的共有メモリの固定サイズチャンクを通して調整をはかることができます。
 この共有メモリは全プロセスで同じアドレスに割り当てされることが保証されませんので、ポインタはおそらく使えません。
 以下のコールバックは一般に全て省略可能ですが、パラレル実行をサポートするためには必要です。
+=======
+     fixed-size chunks of dynamic shared memory.  This shared memory is not
+     guaranteed to be mapped at the same address in every process, so it
+     must not contain pointers.  The following functions are all optional,
+     but most are required if parallel execution is to be supported.
+>>>>>>> REL_10_0
     </para>
 
     <para>
@@ -1756,8 +1763,12 @@ IsForeignScanParallelSafe(PlannerInfo *root, RelOptInfo *rel,
     </para>
 
     <para>
+<<<<<<< HEAD
 <!--
     If this callback is not defined, it is assumed that the scan must take
+=======
+    If this function is not defined, it is assumed that the scan must take
+>>>>>>> REL_10_0
     place within the parallel leader.  Note that returning true does not mean
     that the scan itself can be done in parallel, only that the scan can be
     performed within a parallel worker.  Therefore, it can be useful to define
@@ -1777,10 +1788,16 @@ EstimateDSMForeignScan(ForeignScanState *node, ParallelContext *pcxt);
     Estimate the amount of dynamic shared memory that will be required
     for parallel operation.  This may be higher than the amount that will
     actually be used, but it must not be lower.  The return value is in bytes.
+<<<<<<< HEAD
 -->
 並列操作に必要とされるであろう動的共有メモリ量を推定します。
 これは実際に使われる量よりも大きくてよいですが、小さくてはいけません。
 戻り値はバイト単位です。
+=======
+    This function is optional, and can be omitted if not needed; but if it
+    is omitted, the next three functions must be omitted as well, because
+    no shared memory will be allocated for the FDW's use.
+>>>>>>> REL_10_0
     </para>
 
     <para>
@@ -1791,11 +1808,33 @@ InitializeDSMForeignScan(ForeignScanState *node, ParallelContext *pcxt,
 </programlisting>
 <!--
     Initialize the dynamic shared memory that will be required for parallel
+<<<<<<< HEAD
     operation; <literal>coordinate</> points to an amount of allocated space
     equal to the return value of <function>EstimateDSMForeignScan</>.
 -->
 並列処理で必要とされる動的共有メモリを初期化します。
 <literal>coordinate</>は<function>EstimateDSMForeignScan</>の戻り値に等しいサイズだけ割り当てられた領域へのポインタです。
+=======
+    operation.  <literal>coordinate</> points to a shared memory area of
+    size equal to the return value of <function>EstimateDSMForeignScan</>.
+    This function is optional, and can be omitted if not needed.
+   </para>
+
+    <para>
+<programlisting>
+void
+ReInitializeDSMForeignScan(ForeignScanState *node, ParallelContext *pcxt,
+                           void *coordinate);
+</programlisting>
+    Re-initialize the dynamic shared memory required for parallel operation
+    when the foreign-scan plan node is about to be re-scanned.
+    This function is optional, and can be omitted if not needed.
+    Recommended practice is that this function reset only shared state,
+    while the <function>ReScanForeignScan</> function resets only local
+    state.  Currently, this function will be called
+    before <function>ReScanForeignScan</>, but it's best not to rely on
+    that ordering.
+>>>>>>> REL_10_0
    </para>
 
    <para>
@@ -1804,6 +1843,7 @@ void
 InitializeWorkerForeignScan(ForeignScanState *node, shm_toc *toc,
                             void *coordinate);
 </programlisting>
+<<<<<<< HEAD
 <!--
     Initialize a parallel worker's custom state based on the shared state
     set up in the leader by <literal>InitializeDSMForeignScan</>.
@@ -1812,6 +1852,25 @@ InitializeWorkerForeignScan(ForeignScanState *node, shm_toc *toc,
 -->
 <literal>InitializeDSMForeignScan</>でリーダーがセットアップした共有状態に基づくパラレルワーカーのカスタム状態を初期化します。
 このコールバックは省略可能で、このカスタムパスがパラレル実行をサポートする場合だけ用意する必要があります。
+=======
+    Initialize a parallel worker's local state based on the shared state
+    set up by the leader during <function>InitializeDSMForeignScan</>.
+    This function is optional, and can be omitted if not needed.
+   </para>
+
+   <para>
+<programlisting>
+void
+ShutdownForeignScan(ForeignScanState *node);
+</programlisting>
+    Release resources when it is anticipated the node will not be executed
+    to completion.  This is not called in all cases; sometimes,
+    <literal>EndForeignScan</> may be called without this function having
+    been called first.  Since the DSM segment used by parallel query is
+    destroyed just after this callback is invoked, foreign data wrappers that
+    wish to take some action before the DSM segment goes away should implement
+    this method.
+>>>>>>> REL_10_0
    </para>
    </sect2>
 

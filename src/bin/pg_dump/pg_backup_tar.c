@@ -33,6 +33,7 @@
 #include "pg_backup_tar.h"
 #include "pg_backup_utils.h"
 #include "pgtar.h"
+#include "common/file_utils.h"
 #include "fe_utils/string_utils.h"
 
 #include <sys/stat.h>
@@ -152,9 +153,6 @@ InitArchiveFmt_Tar(ArchiveHandle *AH)
 	AH->ClonePtr = NULL;
 	AH->DeClonePtr = NULL;
 
-	AH->MasterStartParallelItemPtr = NULL;
-	AH->MasterEndParallelItemPtr = NULL;
-
 	AH->WorkerJobDumpPtr = NULL;
 	AH->WorkerJobRestorePtr = NULL;
 
@@ -180,7 +178,7 @@ InitArchiveFmt_Tar(ArchiveHandle *AH)
 			ctx->tarFH = fopen(AH->fSpec, PG_BINARY_W);
 			if (ctx->tarFH == NULL)
 				exit_horribly(modulename,
-						   "could not open TOC file \"%s\" for output: %s\n",
+							  "could not open TOC file \"%s\" for output: %s\n",
 							  AH->fSpec, strerror(errno));
 		}
 		else
@@ -209,7 +207,7 @@ InitArchiveFmt_Tar(ArchiveHandle *AH)
 		 */
 		if (AH->compression != 0)
 			exit_horribly(modulename,
-					 "compression is not supported by tar archive format\n");
+						  "compression is not supported by tar archive format\n");
 	}
 	else
 	{							/* Read Mode */
@@ -559,7 +557,11 @@ _tarReadRaw(ArchiveHandle *AH, void *buf, size_t len, TAR_MEMBER *th, FILE *fh)
 				if (res != len && !GZEOF(th->zFH))
 				{
 #ifdef HAVE_LIBZ
+<<<<<<< HEAD
 					int		errnum;
+=======
+					int			errnum;
+>>>>>>> REL_10_0
 					const char *errmsg = gzerror(th->zFH, &errnum);
 
 					exit_horribly(modulename,
@@ -916,6 +918,10 @@ _CloseArchive(ArchiveHandle *AH)
 			if (fputc(0, ctx->tarFH) == EOF)
 				WRITE_ERROR_EXIT;
 		}
+
+		/* Sync the output file if one is defined */
+		if (AH->dosync && AH->fSpec)
+			(void) fsync_fname(AH->fSpec, false, progname);
 	}
 
 	AH->FH = NULL;
@@ -1203,7 +1209,7 @@ _tarPositionTo(ArchiveHandle *AH, const char *filename)
 						  th->targetFile, filename);
 
 		/* Header doesn't match, so read to next header */
-		len = ((th->fileLen + 511) & ~511);		/* Padded length */
+		len = ((th->fileLen + 511) & ~511); /* Padded length */
 		blks = len >> 9;		/* # of 512 byte blocks */
 
 		for (i = 0; i < blks; i++)
@@ -1245,7 +1251,7 @@ _tarGetHeader(ArchiveHandle *AH, TAR_MEMBER *th)
 		if (len != 512)
 			exit_horribly(modulename,
 						  ngettext("incomplete tar header found (%lu byte)\n",
-								 "incomplete tar header found (%lu bytes)\n",
+								   "incomplete tar header found (%lu bytes)\n",
 								   len),
 						  (unsigned long) len);
 

@@ -2,7 +2,7 @@
  *
  * vacuumdb
  *
- * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/bin/scripts/vacuumdb.c
@@ -16,6 +16,11 @@
 #include <sys/select.h>
 #endif
 
+<<<<<<< HEAD
+=======
+#include "catalog/pg_class.h"
+
+>>>>>>> REL_10_0
 #include "common.h"
 #include "fe_utils/simple_list.h"
 #include "fe_utils/string_utils.h"
@@ -388,8 +393,12 @@ vacuum_one_database(const char *dbname, vacuumingOptions *vacopts,
 		initPQExpBuffer(&buf);
 
 		res = executeQuery(conn,
-			"SELECT c.relname, ns.nspname FROM pg_class c, pg_namespace ns\n"
-			 " WHERE relkind IN (\'r\', \'m\') AND c.relnamespace = ns.oid\n"
+						   "SELECT c.relname, ns.nspname"
+						   " FROM pg_class c, pg_namespace ns\n"
+						   " WHERE relkind IN ("
+						   CppAsString2(RELKIND_RELATION) ", "
+						   CppAsString2(RELKIND_MATVIEW) ")"
+						   " AND c.relnamespace = ns.oid\n"
 						   " ORDER BY c.relpages DESC;",
 						   progname, echo);
 
@@ -551,7 +560,7 @@ vacuum_all_databases(vacuumingOptions *vacopts,
 	conn = connectMaintenanceDatabase(maintenance_db, host, port,
 									  username, prompt_password, progname);
 	result = executeQuery(conn,
-			"SELECT datname FROM pg_database WHERE datallowconn ORDER BY 1;",
+						  "SELECT datname FROM pg_database WHERE datallowconn ORDER BY 1;",
 						  progname, echo);
 	PQfinish(conn);
 
@@ -699,7 +708,7 @@ run_vacuum_command(PGconn *conn, const char *sql, bool echo,
 	{
 		if (table)
 			fprintf(stderr,
-			_("%s: vacuuming of table \"%s\" in database \"%s\" failed: %s"),
+					_("%s: vacuuming of table \"%s\" in database \"%s\" failed: %s"),
 					progname, table, PQdb(conn), PQerrorMessage(conn));
 		else
 			fprintf(stderr, _("%s: vacuuming of database \"%s\" failed: %s"),

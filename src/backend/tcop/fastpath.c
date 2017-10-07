@@ -3,7 +3,7 @@
  * fastpath.c
  *	  routines to handle function requests from the frontend
  *
- * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -54,13 +54,13 @@ struct fp_info
 	Oid			namespace;		/* other stuff from pg_proc */
 	Oid			rettype;
 	Oid			argtypes[FUNC_MAX_ARGS];
-	char		fname[NAMEDATALEN];		/* function name for logging */
+	char		fname[NAMEDATALEN]; /* function name for logging */
 };
 
 
-static int16 parse_fcall_arguments(StringInfo msgBuf, struct fp_info * fip,
+static int16 parse_fcall_arguments(StringInfo msgBuf, struct fp_info *fip,
 					  FunctionCallInfo fcinfo);
-static int16 parse_fcall_arguments_20(StringInfo msgBuf, struct fp_info * fip,
+static int16 parse_fcall_arguments_20(StringInfo msgBuf, struct fp_info *fip,
 						 FunctionCallInfo fcinfo);
 
 
@@ -108,8 +108,8 @@ GetOldFunctionMessage(StringInfo buf)
 			/* FATAL here since no hope of regaining message sync */
 			ereport(FATAL,
 					(errcode(ERRCODE_PROTOCOL_VIOLATION),
-				  errmsg("invalid argument size %d in function call message",
-						 argsize)));
+					 errmsg("invalid argument size %d in function call message",
+							argsize)));
 		}
 		/* and arg contents */
 		if (argsize > 0)
@@ -195,7 +195,7 @@ SendFunctionResult(Datum retval, bool isnull, Oid rettype, int16 format)
  * function 'func_id'.
  */
 static void
-fetch_fp_info(Oid func_id, struct fp_info * fip)
+fetch_fp_info(Oid func_id, struct fp_info *fip)
 {
 	HeapTuple	func_htp;
 	Form_pg_proc pp;
@@ -293,7 +293,7 @@ HandleFunctionRequest(StringInfo msgBuf)
 	if (PG_PROTOCOL_MAJOR(FrontendProtocol) < 3)
 		(void) pq_getmsgstring(msgBuf); /* dummy string */
 
-	fid = (Oid) pq_getmsgint(msgBuf, 4);		/* function oid */
+	fid = (Oid) pq_getmsgint(msgBuf, 4);	/* function oid */
 
 	/*
 	 * There used to be a lame attempt at caching lookup info here. Now we
@@ -405,7 +405,7 @@ HandleFunctionRequest(StringInfo msgBuf)
  * is returned.
  */
 static int16
-parse_fcall_arguments(StringInfo msgBuf, struct fp_info * fip,
+parse_fcall_arguments(StringInfo msgBuf, struct fp_info *fip,
 					  FunctionCallInfo fcinfo)
 {
 	int			nargs;
@@ -460,8 +460,8 @@ parse_fcall_arguments(StringInfo msgBuf, struct fp_info * fip,
 			if (argsize < 0)
 				ereport(ERROR,
 						(errcode(ERRCODE_PROTOCOL_VIOLATION),
-				  errmsg("invalid argument size %d in function call message",
-						 argsize)));
+						 errmsg("invalid argument size %d in function call message",
+								argsize)));
 
 			/* Reset abuf to empty, and insert raw data into it */
 			resetStringInfo(&abuf);
@@ -523,8 +523,8 @@ parse_fcall_arguments(StringInfo msgBuf, struct fp_info * fip,
 			if (argsize != -1 && abuf.cursor != abuf.len)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_BINARY_REPRESENTATION),
-				errmsg("incorrect binary data format in function argument %d",
-					   i + 1)));
+						 errmsg("incorrect binary data format in function argument %d",
+								i + 1)));
 		}
 		else
 			ereport(ERROR,
@@ -543,7 +543,7 @@ parse_fcall_arguments(StringInfo msgBuf, struct fp_info * fip,
  * is returned.
  */
 static int16
-parse_fcall_arguments_20(StringInfo msgBuf, struct fp_info * fip,
+parse_fcall_arguments_20(StringInfo msgBuf, struct fp_info *fip,
 						 FunctionCallInfo fcinfo)
 {
 	int			nargs;
@@ -590,8 +590,8 @@ parse_fcall_arguments_20(StringInfo msgBuf, struct fp_info * fip,
 		if (argsize < 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_PROTOCOL_VIOLATION),
-				  errmsg("invalid argument size %d in function call message",
-						 argsize)));
+					 errmsg("invalid argument size %d in function call message",
+							argsize)));
 
 		/* Reset abuf to empty, and insert raw data into it */
 		resetStringInfo(&abuf);
@@ -606,8 +606,8 @@ parse_fcall_arguments_20(StringInfo msgBuf, struct fp_info * fip,
 		if (abuf.cursor != abuf.len)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_BINARY_REPRESENTATION),
-			   errmsg("incorrect binary data format in function argument %d",
-					  i + 1)));
+					 errmsg("incorrect binary data format in function argument %d",
+							i + 1)));
 	}
 
 	/* Desired result format is always binary in protocol 2.0 */

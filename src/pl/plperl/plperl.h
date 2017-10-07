@@ -5,7 +5,7 @@
  *
  * This should be included _AFTER_ postgres.h and system include files
  *
- * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
  * Portions Copyright (c) 1995, Regents of the University of California
  *
  * src/pl/plperl/plperl.h
@@ -74,8 +74,8 @@
 #else
 #define vsnprintf		pg_vsnprintf
 #define snprintf		pg_snprintf
-#endif   /* __GNUC__ */
-#endif   /* USE_REPL_SNPRINTF */
+#endif							/* __GNUC__ */
+#endif							/* USE_REPL_SNPRINTF */
 
 /* perl version and platform portability */
 #define NEED_eval_pv
@@ -120,4 +120,4 @@ void		plperl_spi_cursor_close(char *);
 char	   *plperl_sv_to_literal(SV *, char *);
 void		plperl_util_elog(int level, SV *msg);
 
-#endif   /* PL_PERL_H */
+#endif							/* PL_PERL_H */

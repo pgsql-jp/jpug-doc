@@ -287,6 +287,7 @@
 <title><application>PL/pgSQL</application>の構造</title>
 
   <para>
+<<<<<<< HEAD
 <!--
    Functions written in <application>PL/pgSQL</application> are defined
    to the server by executing <xref linkend="sql-createfunction"> commands.
@@ -294,12 +295,20 @@
 -->
 <application>PL/pgSQL</application>で書かれた関数は<xref linkend="sql-createfunction">コマンドを実行することでサーバに定義されます。
 そのようなコマンドは通常、例えば次のようになります。
+=======
+   Functions written in <application>PL/pgSQL</application> are defined
+   to the server by executing <xref linkend="sql-createfunction"> commands.
+   Such a command would normally look like, say,
+>>>>>>> REL_10_0
 <programlisting>
 CREATE FUNCTION somefunc(integer, text) RETURNS integer
 AS '<replaceable>function body text</>'
 LANGUAGE plpgsql;
 </programlisting>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL_10_0
    The function body is simply a string literal so far as <command>CREATE
    FUNCTION</> is concerned.  It is often helpful to use dollar quoting
    (see <xref linkend="sql-syntax-dollar-quoting">) to write the function
@@ -307,6 +316,7 @@ LANGUAGE plpgsql;
    any single quotes or backslashes in the function body must be escaped by
    doubling them.  Almost all the examples in this chapter use dollar-quoted
    literals for their function bodies.
+<<<<<<< HEAD
 -->
 関数本体は<command>CREATE FUNCTION</>にとっては単なる文字列リテラルです。
 関数本体を書くのには、普通の単一引用符構文よりは、ドル引用符(<xref linkend="sql-syntax-dollar-quoting">を参照)を使うのが、多くの場合役に立ちます。
@@ -316,6 +326,11 @@ LANGUAGE plpgsql;
 
   <para>
 <!--
+=======
+  </para>
+
+  <para>
+>>>>>>> REL_10_0
    <application>PL/pgSQL</application> is a block-structured language.
    The complete text of a function body must be a
    <firstterm>block</>. A block is defined as:
@@ -5841,22 +5856,24 @@ CREATE TABLE emp_audit(
 CREATE OR REPLACE FUNCTION process_emp_audit() RETURNS TRIGGER AS $emp_audit$
     BEGIN
         --
+<<<<<<< HEAD
 <!--
         &#045;&#045; Create a row in emp_audit to reflect the operation performed on emp,
         &#045;&#045; make use of the special variable TG_OP to work out the operation.
 -->
         -- empで行った操作を反映する行をemp_auditに作成
         -- 操作の種類を決定するために、特殊な変数TG_OPを活用
+=======
+        -- Create a row in emp_audit to reflect the operation performed on emp,
+        -- making use of the special variable TG_OP to work out the operation.
+>>>>>>> REL_10_0
         --
         IF (TG_OP = 'DELETE') THEN
             INSERT INTO emp_audit SELECT 'D', now(), user, OLD.*;
-            RETURN OLD;
         ELSIF (TG_OP = 'UPDATE') THEN
             INSERT INTO emp_audit SELECT 'U', now(), user, NEW.*;
-            RETURN NEW;
         ELSIF (TG_OP = 'INSERT') THEN
             INSERT INTO emp_audit SELECT 'I', now(), user, NEW.*;
-            RETURN NEW;
         END IF;
 <!--
         RETURN NULL; &#045;&#045; result is ignored since this is an AFTER trigger
@@ -6158,6 +6175,82 @@ UPDATE sales_fact SET units_sold = units_sold * 2;
 SELECT * FROM sales_summary_bytime;
 </programlisting>
    </example>
+
+   <para>
+    <literal>AFTER</> triggers can also make use of <firstterm>transition
+    tables</> to inspect the entire set of rows changed by the triggering
+    statement.  The <command>CREATE TRIGGER</> command assigns names to one
+    or both transition tables, and then the function can refer to those names
+    as though they were read-only temporary tables.
+    <xref linkend="plpgsql-trigger-audit-transition-example"> shows an example.
+   </para>
+
+   <example id="plpgsql-trigger-audit-transition-example">
+    <title>Auditing with Transition Tables</title>
+
+    <para>
+     This example produces the same results as
+     <xref linkend="plpgsql-trigger-audit-example">, but instead of using a
+     trigger that fires for every row, it uses a trigger that fires once
+     per statement, after collecting the relevant information in a transition
+     table.  This can be significantly faster than the row-trigger approach
+     when the invoking statement has modified many rows.  Notice that we must
+     make a separate trigger declaration for each kind of event, since the
+     <literal>REFERENCING</> clauses must be different for each case.  But
+     this does not stop us from using a single trigger function if we choose.
+     (In practice, it might be better to use three separate functions and
+     avoid the run-time tests on <varname>TG_OP</>.)
+    </para>
+
+<programlisting>
+CREATE TABLE emp (
+    empname           text NOT NULL,
+    salary            integer
+);
+
+CREATE TABLE emp_audit(
+    operation         char(1)   NOT NULL,
+    stamp             timestamp NOT NULL,
+    userid            text      NOT NULL,
+    empname           text      NOT NULL,
+    salary integer
+);
+
+CREATE OR REPLACE FUNCTION process_emp_audit() RETURNS TRIGGER AS $emp_audit$
+    BEGIN
+        --
+        -- Create rows in emp_audit to reflect the operations performed on emp,
+        -- making use of the special variable TG_OP to work out the operation.
+        --
+        IF (TG_OP = 'DELETE') THEN
+            INSERT INTO emp_audit
+                SELECT 'D', now(), user, o.* FROM old_table o;
+        ELSIF (TG_OP = 'UPDATE') THEN
+            INSERT INTO emp_audit
+                SELECT 'U', now(), user, n.* FROM new_table n;
+        ELSIF (TG_OP = 'INSERT') THEN
+            INSERT INTO emp_audit
+                SELECT 'I', now(), user, n.* FROM new_table n;
+        END IF;
+        RETURN NULL; -- result is ignored since this is an AFTER trigger
+    END;
+$emp_audit$ LANGUAGE plpgsql;
+
+CREATE TRIGGER emp_audit_ins
+    AFTER INSERT ON emp
+    REFERENCING NEW TABLE AS new_table
+    FOR EACH STATEMENT EXECUTE PROCEDURE process_emp_audit();
+CREATE TRIGGER emp_audit_upd
+    AFTER UPDATE ON emp
+    REFERENCING OLD TABLE AS old_table NEW TABLE AS new_table
+    FOR EACH STATEMENT EXECUTE PROCEDURE process_emp_audit();
+CREATE TRIGGER emp_audit_del
+    AFTER DELETE ON emp
+    REFERENCING OLD TABLE AS old_table
+    FOR EACH STATEMENT EXECUTE PROCEDURE process_emp_audit();
+</programlisting>
+   </example>
+
 </sect2>
 
   <sect2 id="plpgsql-event-trigger">
@@ -7058,7 +7151,7 @@ a_output := a_output || $$ if v_$$ || referrer_keys.kind || $$ like '$$
    <para>
 <!--
     To aid the user in finding instances of simple but common problems before
-    they cause harm, <application>PL/PgSQL</> provides additional
+    they cause harm, <application>PL/pgSQL</> provides additional
     <replaceable>checks</>. When enabled, depending on the configuration, they
     can be used to emit either a <literal>WARNING</> or an <literal>ERROR</>
     during the compilation of a function. A function which has received
@@ -7708,17 +7801,21 @@ SELECT * FROM cs_parse_url('http://foobar.com/query.cgi?baz');
 <programlisting>
 CREATE OR REPLACE PROCEDURE cs_create_job(v_job_id IN INTEGER) IS
     a_running_job_count INTEGER;
-    PRAGMA AUTONOMOUS_TRANSACTION;<co id="co.plpgsql-porting-pragma">
+    PRAGMA AUTONOMOUS_TRANSACTION; -- <co id="co.plpgsql-porting-pragma">
 BEGIN
-    LOCK TABLE cs_jobs IN EXCLUSIVE MODE;<co id="co.plpgsql-porting-locktable">
+    LOCK TABLE cs_jobs IN EXCLUSIVE MODE; -- <co id="co.plpgsql-porting-locktable">
 
     SELECT count(*) INTO a_running_job_count FROM cs_jobs WHERE end_stamp IS NULL;
 
     IF a_running_job_count &gt; 0 THEN
+<<<<<<< HEAD
 <!--
         COMMIT; &#045;&#045; free lock<co id="co.plpgsql-porting-commit">
 -->
         COMMIT; -- ロックを解放<co id="co.plpgsql-porting-commit">
+=======
+        COMMIT; -- free lock <co id="co.plpgsql-porting-commit">
+>>>>>>> REL_10_0
         raise_application_error(-20000,
                  'Unable to create a new job: a job is currently running.');
     END IF;
@@ -7806,7 +7903,7 @@ BEGIN
     SELECT count(*) INTO a_running_job_count FROM cs_jobs WHERE end_stamp IS NULL;
 
     IF a_running_job_count &gt; 0 THEN
-        RAISE EXCEPTION 'Unable to create a new job: a job is currently running';<co id="co.plpgsql-porting-raise">
+        RAISE EXCEPTION 'Unable to create a new job: a job is currently running'; -- <co id="co.plpgsql-porting-raise">
     END IF;
 
     DELETE FROM cs_active_job;
@@ -7815,11 +7912,16 @@ BEGIN
     BEGIN
         INSERT INTO cs_jobs (job_id, start_stamp) VALUES (v_job_id, now());
     EXCEPTION
+<<<<<<< HEAD
         WHEN unique_violation THEN <co id="co.plpgsql-porting-exception">
 <!--
             &#045;&#045; don't worry if it already exists
 -->
                         -- 既存であっても問題なし
+=======
+        WHEN unique_violation THEN -- <co id="co.plpgsql-porting-exception">
+            -- don't worry if it already exists
+>>>>>>> REL_10_0
     END;
 END;
 $$ LANGUAGE plpgsql;

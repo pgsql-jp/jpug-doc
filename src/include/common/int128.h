@@ -61,7 +61,11 @@ int128_add_int64(INT128 *i128, int64 v)
 static inline void
 int128_add_int64_mul_int64(INT128 *i128, int64 x, int64 y)
 {
+<<<<<<< HEAD
 	*i128 += (int128) x *(int128) y;
+=======
+	*i128 += (int128) x * (int128) y;
+>>>>>>> REL_10_0
 }
 
 /*
@@ -271,6 +275,12 @@ int128_to_int64(INT128 val)
 	return (int64) val.lo;
 }
 
+<<<<<<< HEAD
 #endif   /* USE_NATIVE_INT128 */
 
 #endif   /* INT128_H */
+=======
+#endif							/* USE_NATIVE_INT128 */
+
+#endif							/* INT128_H */
+>>>>>>> REL_10_0

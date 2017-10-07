@@ -9,7 +9,10 @@
 #include "postgres_fe.h"
 
 #include <fcntl.h>
+<<<<<<< HEAD
 #include <locale.h>
+=======
+>>>>>>> REL_10_0
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
@@ -28,7 +31,7 @@ typedef int64 zic_t;
 
 #ifndef ZIC_MAX_ABBR_LEN_WO_WARN
 #define ZIC_MAX_ABBR_LEN_WO_WARN	  6
-#endif   /* !defined ZIC_MAX_ABBR_LEN_WO_WARN */
+#endif							/* !defined ZIC_MAX_ABBR_LEN_WO_WARN */
 
 #ifndef WIN32
 #ifdef S_IRUSR
@@ -47,9 +50,18 @@ typedef int64 zic_t;
 static ptrdiff_t const PTRDIFF_MAX = MAXVAL(ptrdiff_t, TYPE_BIT(ptrdiff_t));
 #endif
 
+<<<<<<< HEAD
 /* The type and printf format for line numbers.  */
 typedef int lineno_t;
 #define PRIdLINENO "d"
+=======
+/*
+ * The type for line numbers.  In Postgres, use %d to format them; upstream
+ * uses PRIdMAX but we prefer not to rely on that, not least because it
+ * results in platform-dependent strings to be translated.
+ */
+typedef int lineno_t;
+>>>>>>> REL_10_0
 
 struct rule
 {
@@ -84,9 +96,9 @@ struct rule
  *	r_dycode		r_dayofmonth	r_wday
  */
 
-#define DC_DOM		0	/* 1..31 */		/* unused */
-#define DC_DOWGEQ	1	/* 1..31 */		/* 0..6 (Sun..Sat) */
-#define DC_DOWLEQ	2	/* 1..31 */		/* 0..6 (Sun..Sat) */
+#define DC_DOM		0	/* 1..31 */ /* unused */
+#define DC_DOWGEQ	1	/* 1..31 */ /* 0..6 (Sun..Sat) */
+#define DC_DOWLEQ	2	/* 1..31 */ /* 0..6 (Sun..Sat) */
 
 struct zone
 {
@@ -138,9 +150,15 @@ static char lowerit(char);
 static void mkdirs(char const *, bool);
 static void newabbr(const char *abbr);
 static zic_t oadd(zic_t t1, zic_t t2);
+<<<<<<< HEAD
 static void outzone(const struct zone * zp, ptrdiff_t ntzones);
 static zic_t rpytime(const struct rule * rp, zic_t wantedy);
 static void rulesub(struct rule * rp,
+=======
+static void outzone(const struct zone *zp, ptrdiff_t ntzones);
+static zic_t rpytime(const struct rule *rp, zic_t wantedy);
+static void rulesub(struct rule *rp,
+>>>>>>> REL_10_0
 		const char *loyearp, const char *hiyearp,
 		const char *typep, const char *monthp,
 		const char *dayp, const char *timep);
@@ -292,12 +310,15 @@ struct lookup
 };
 
 static struct lookup const *byword(const char *string,
-	   const struct lookup * lp);
+	   const struct lookup *lp);
 
-static struct lookup const line_codes[] = {
+static struct lookup const zi_line_codes[] = {
 	{"Rule", LC_RULE},
 	{"Zone", LC_ZONE},
 	{"Link", LC_LINK},
+	{NULL, 0}
+};
+static struct lookup const leap_line_codes[] = {
 	{"Leap", LC_LEAP},
 	{NULL, 0}
 };
@@ -373,7 +394,7 @@ static struct attype
 	zic_t		at;
 	bool		dontmerge;
 	unsigned char type;
-}	*attypes;
+}		   *attypes;
 static zic_t gmtoffs[TZ_MAX_TYPES];
 static char isdsts[TZ_MAX_TYPES];
 static unsigned char abbrinds[TZ_MAX_TYPES];
@@ -424,7 +445,7 @@ erealloc(void *ptr, size_t size)
 }
 
 static char *
-ecpyalloc(char const * str)
+ecpyalloc(char const *str)
 {
 	return memcheck(strdup(str));
 }
@@ -436,7 +457,12 @@ growalloc(void *ptr, size_t itemsize, ptrdiff_t nitems, ptrdiff_t *nitems_alloc)
 		return ptr;
 	else
 	{
+<<<<<<< HEAD
 		ptrdiff_t	amax = PTRDIFF_MAX - WORK_AROUND_QTBUG_53071;
+=======
+		ptrdiff_t	nitems_max = PTRDIFF_MAX - WORK_AROUND_QTBUG_53071;
+		ptrdiff_t	amax = nitems_max < SIZE_MAX ? nitems_max : SIZE_MAX;
+>>>>>>> REL_10_0
 
 		if ((amax - 1) / 3 * 2 < *nitems_alloc)
 			memory_exhausted(_("integer overflow"));
@@ -450,7 +476,11 @@ growalloc(void *ptr, size_t itemsize, ptrdiff_t nitems, ptrdiff_t *nitems_alloc)
  */
 
 static void
+<<<<<<< HEAD
 eats(char const * name, lineno_t num, char const * rname, lineno_t rnum)
+=======
+eats(char const *name, lineno_t num, char const *rname, lineno_t rnum)
+>>>>>>> REL_10_0
 {
 	filename = name;
 	linenum = num;
@@ -459,7 +489,11 @@ eats(char const * name, lineno_t num, char const * rname, lineno_t rnum)
 }
 
 static void
+<<<<<<< HEAD
 eat(char const * name, lineno_t num)
+=======
+eat(char const *name, lineno_t num)
+>>>>>>> REL_10_0
 {
 	eats(name, num, NULL, -1);
 }
@@ -504,7 +538,11 @@ warning(const char *string,...)
 }
 
 static void
+<<<<<<< HEAD
 close_file(FILE *stream, char const * dir, char const * name)
+=======
+close_file(FILE *stream, char const *dir, char const *name)
+>>>>>>> REL_10_0
 {
 	char const *e = (ferror(stream) ? _("I/O error")
 					 : fclose(stream) != 0 ? strerror(errno) : NULL);
@@ -537,7 +575,11 @@ usage(FILE *stream, int status)
    ancestors.  After this is done, all files are accessed with names
    relative to DIR.  */
 static void
+<<<<<<< HEAD
 change_directory(char const * dir)
+=======
+change_directory(char const *dir)
+>>>>>>> REL_10_0
 {
 	if (chdir(dir) != 0)
 	{
@@ -564,7 +606,7 @@ static const char *leapsec;
 static const char *yitcommand;
 
 int
-main(int argc, char *argv[])
+main(int argc, char **argv)
 {
 	int			c,
 				k;
@@ -573,7 +615,7 @@ main(int argc, char *argv[])
 
 #ifndef WIN32
 	umask(umask(S_IWGRP | S_IWOTH) | (S_IWGRP | S_IWOTH));
-#endif   /* !WIN32 */
+#endif
 	progname = argv[0];
 	if (TYPE_BIT(zic_t) <64)
 	{
@@ -632,7 +674,10 @@ main(int argc, char *argv[])
 				break;
 			case 'y':
 				if (yitcommand == NULL)
+				{
+					warning(_("-y is obsolescent"));
 					yitcommand = strdup(optarg);
+				}
 				else
 				{
 					fprintf(stderr,
@@ -721,8 +766,8 @@ main(int argc, char *argv[])
 }
 
 static bool
-componentcheck(char const * name, char const * component,
-			   char const * component_end)
+componentcheck(char const *name, char const *component,
+			   char const *component_end)
 {
 	enum
 	{
@@ -813,7 +858,11 @@ namecheck(const char *name)
  */
 #ifdef HAVE_SYMLINK
 static char *
+<<<<<<< HEAD
 relname(char const * from, char const * to)
+=======
+relname(char const *from, char const *to)
+>>>>>>> REL_10_0
 {
 	size_t		i,
 				taillen,
@@ -853,12 +902,20 @@ relname(char const * from, char const * to)
 	}
 	return result;
 }
+<<<<<<< HEAD
 #endif   /* HAVE_SYMLINK */
+=======
+#endif							/* HAVE_SYMLINK */
+>>>>>>> REL_10_0
 
 /* Hard link FROM to TO, following any symbolic links.
    Return 0 if successful, an error number otherwise.  */
 static int
+<<<<<<< HEAD
 hardlinkerr(char const * from, char const * to)
+=======
+hardlinkerr(char const *from, char const *to)
+>>>>>>> REL_10_0
 {
 	int			r = linkat(AT_FDCWD, from, AT_FDCWD, to, AT_SYMLINK_FOLLOW);
 
@@ -866,7 +923,11 @@ hardlinkerr(char const * from, char const * to)
 }
 
 static void
+<<<<<<< HEAD
 dolink(char const * fromfield, char const * tofield, bool staysymlink)
+=======
+dolink(char const *fromfield, char const *tofield, bool staysymlink)
+>>>>>>> REL_10_0
 {
 	bool		todirs_made = false;
 	int			link_errno;
@@ -876,6 +937,7 @@ dolink(char const * fromfield, char const * tofield, bool staysymlink)
 	 * us.
 	 */
 	if (itsdir(fromfield))
+<<<<<<< HEAD
 	{
 		fprintf(stderr, _("%s: link from %s/%s failed: %s\n"),
 				progname, directory, fromfield, strerror(EPERM));
@@ -887,6 +949,19 @@ dolink(char const * fromfield, char const * tofield, bool staysymlink)
 		todirs_made = true;
 	else if (errno != ENOENT)
 	{
+=======
+	{
+		fprintf(stderr, _("%s: link from %s/%s failed: %s\n"),
+				progname, directory, fromfield, strerror(EPERM));
+		exit(EXIT_FAILURE);
+	}
+	if (staysymlink)
+		staysymlink = itssymlink(tofield);
+	if (remove(tofield) == 0)
+		todirs_made = true;
+	else if (errno != ENOENT)
+	{
+>>>>>>> REL_10_0
 		char const *e = strerror(errno);
 
 		fprintf(stderr, _("%s: Can't remove %s/%s: %s\n"),
@@ -895,6 +970,7 @@ dolink(char const * fromfield, char const * tofield, bool staysymlink)
 	}
 	link_errno = staysymlink ? ENOTSUP : hardlinkerr(fromfield, tofield);
 	if (link_errno == ENOENT && !todirs_made)
+<<<<<<< HEAD
 	{
 		mkdirs(tofield, true);
 		todirs_made = true;
@@ -902,6 +978,15 @@ dolink(char const * fromfield, char const * tofield, bool staysymlink)
 	}
 	if (link_errno != 0)
 	{
+=======
+	{
+		mkdirs(tofield, true);
+		todirs_made = true;
+		link_errno = hardlinkerr(fromfield, tofield);
+	}
+	if (link_errno != 0)
+	{
+>>>>>>> REL_10_0
 #ifdef HAVE_SYMLINK
 		bool		absolute = *fromfield == '/';
 		char	   *linkalloc = absolute ? NULL : relname(fromfield, tofield);
@@ -921,7 +1006,11 @@ dolink(char const * fromfield, char const * tofield, bool staysymlink)
 						strerror(link_errno));
 		}
 		else
+<<<<<<< HEAD
 #endif   /* HAVE_SYMLINK */
+=======
+#endif							/* HAVE_SYMLINK */
+>>>>>>> REL_10_0
 		{
 			FILE	   *fp,
 					   *tp;
@@ -1010,7 +1099,11 @@ static const zic_t early_time = (WORK_AROUND_GNOME_BUG_730332
 
 /* Return true if NAME is a directory.  */
 static bool
+<<<<<<< HEAD
 itsdir(char const * name)
+=======
+itsdir(char const *name)
+>>>>>>> REL_10_0
 {
 	struct stat st;
 	int			res = stat(name, &st);
@@ -1035,7 +1128,11 @@ itsdir(char const * name)
 
 /* Return true if NAME is a symbolic link.  */
 static bool
+<<<<<<< HEAD
 itssymlink(char const * name)
+=======
+itssymlink(char const *name)
+>>>>>>> REL_10_0
 {
 #ifdef HAVE_SYMLINK
 	char		c;
@@ -1203,6 +1300,9 @@ infile(const char *name)
 			wantcont = inzcont(fields, nfields);
 		else
 		{
+			struct lookup const *line_codes
+			= name == leapsec ? leap_line_codes : zi_line_codes;
+
 			lp = byword(fields[0], line_codes);
 			if (lp == NULL)
 				error(_("input line of unknown type"));
@@ -1221,12 +1321,7 @@ infile(const char *name)
 						wantcont = false;
 						break;
 					case LC_LEAP:
-						if (name != leapsec)
-							warning(_("%s: Leap line in non leap"
-									  " seconds file %s"),
-									progname, name);
-						else
-							inleap(fields, nfields);
+						inleap(fields, nfields);
 						wantcont = false;
 						break;
 					default:	/* "cannot happen" */
@@ -1251,7 +1346,7 @@ infile(const char *name)
  * Call error with errstring and return zero on errors.
  */
 static zic_t
-gethms(char const * string, char const * errstring, bool signable)
+gethms(char const *string, char const *errstring, bool signable)
 {
 	/* PG: make hh be int not zic_t to avoid sscanf portability issues */
 	int			hh;
@@ -1360,7 +1455,11 @@ inzone(char **fields, int nfields)
 			strcmp(zones[i].z_name, fields[ZF_NAME]) == 0)
 		{
 			error(_("duplicate zone name %s"
+<<<<<<< HEAD
 					" (file \"%s\", line %" PRIdLINENO ")"),
+=======
+					" (file \"%s\", line %d)"),
+>>>>>>> REL_10_0
 				  fields[ZF_NAME],
 				  zones[i].z_filename,
 				  zones[i].z_linenum);
@@ -1574,20 +1673,10 @@ inleap(char **fields, int nfields)
 			positive = false;
 			count = 1;
 		}
-		else if (strcmp(cp, "--") == 0)
-		{
-			positive = false;
-			count = 2;
-		}
 		else if (strcmp(cp, "+") == 0)
 		{
 			positive = true;
 			count = 1;
-		}
-		else if (strcmp(cp, "++") == 0)
-		{
-			positive = true;
-			count = 2;
 		}
 		else
 		{
@@ -1600,9 +1689,13 @@ inleap(char **fields, int nfields)
 			return;
 		}
 		t = tadd(t, tod);
+<<<<<<< HEAD
 		if (t < early_time)
+=======
+		if (t < 0)
+>>>>>>> REL_10_0
 		{
-			error(_("leap second precedes Big Bang"));
+			error(_("leap second precedes Epoch"));
 			return;
 		}
 		leapadd(t, positive, lp->l_value, count);
@@ -1635,7 +1728,7 @@ inlink(char **fields, int nfields)
 }
 
 static void
-rulesub(struct rule * rp, const char *loyearp, const char *hiyearp,
+rulesub(struct rule *rp, const char *loyearp, const char *hiyearp,
 		const char *typep, const char *monthp, const char *dayp,
 		const char *timep)
 {
@@ -1754,11 +1847,14 @@ rulesub(struct rule * rp, const char *loyearp, const char *hiyearp,
 			error(_("typed single year"));
 			return;
 		}
+		warning(_("year type \"%s\" is obsolete; use \"-\" instead"),
+				typep);
 		rp->r_yrtype = ecpyalloc(typep);
 	}
 
 	/*
-	 * Day work. Accept things such as:  1	last-Sunday  Sun<=20  Sun>=7
+	 * Day work. Accept things such as: 1 lastSunday last-Sunday
+	 * (undocumented; warn about this) Sun<=20 Sun>=7
 	 */
 	dp = ecpyalloc(dayp);
 	if ((lp = byword(dp, lasts)) != NULL)
@@ -2141,7 +2237,7 @@ writezone(const char *const name, const char *const string, char version)
 				writetype[type] = true;
 			}
 		}
-#endif   /* !defined
+#endif							/* !defined
 								 * LEAVE_SOME_PRE_2011_SYSTEMS_IN_THE_LURCH */
 		thistypecnt = 0;
 		for (i = 0; i < typecnt; ++i)
@@ -2324,7 +2420,7 @@ abbroffset(char *buf, zic_t offset)
 }
 
 static size_t
-doabbr(char *abbr, struct zone const * zp, char const * letters,
+doabbr(char *abbr, struct zone const *zp, char const *letters,
 	   zic_t stdoff, bool doquotes)
 {
 	char	   *cp;
@@ -2410,7 +2506,7 @@ stringoffset(char *result, zic_t offset)
 }
 
 static int
-stringrule(char *result, const struct rule * const rp, const zic_t dstoff,
+stringrule(char *result, const struct rule *const rp, const zic_t dstoff,
 		   const zic_t gmtoff)
 {
 	zic_t		tod = rp->r_tod;
@@ -2492,7 +2588,7 @@ stringrule(char *result, const struct rule * const rp, const zic_t dstoff,
 }
 
 static int
-rule_cmp(struct rule const * a, struct rule const * b)
+rule_cmp(struct rule const *a, struct rule const *b)
 {
 	if (!a)
 		return -!!b;
@@ -2510,7 +2606,11 @@ enum
 YEAR_BY_YEAR_ZONE = 1};
 
 static int
+<<<<<<< HEAD
 stringzone(char *result, struct zone const * zpfirst, ptrdiff_t zonecount)
+=======
+stringzone(char *result, struct zone const *zpfirst, ptrdiff_t zonecount)
+>>>>>>> REL_10_0
 {
 	const struct zone *zp;
 	struct rule *rp;
@@ -2645,7 +2745,11 @@ stringzone(char *result, struct zone const * zpfirst, ptrdiff_t zonecount)
 }
 
 static void
+<<<<<<< HEAD
 outzone(const struct zone * zpfirst, ptrdiff_t zonecount)
+=======
+outzone(const struct zone *zpfirst, ptrdiff_t zonecount)
+>>>>>>> REL_10_0
 {
 	const struct zone *zp;
 	struct rule *rp;
@@ -2851,9 +2955,10 @@ outzone(const struct zone * zpfirst, ptrdiff_t zonecount)
 				{
 					ptrdiff_t	k;
 					zic_t		jtime,
-								ktime = 0;
+								ktime;
 					zic_t		offset;
 
+					INITIALIZE(ktime);
 					if (useuntil)
 					{
 						/*
@@ -2930,7 +3035,8 @@ outzone(const struct zone * zpfirst, ptrdiff_t zonecount)
 							continue;
 						}
 						if (*startbuf == '\0' &&
-							startoff == oadd(zp->z_gmtoff, stdoff))
+							startoff == oadd(zp->z_gmtoff,
+											 stdoff))
 						{
 							doabbr(startbuf,
 								   zp,
@@ -3046,7 +3152,7 @@ addtt(zic_t starttime, int type)
 }
 
 static int
-addtype(zic_t gmtoff, char const * abbr, bool isdst, bool ttisstd, bool ttisgmt)
+addtype(zic_t gmtoff, char const *abbr, bool isdst, bool ttisstd, bool ttisgmt)
 {
 	int			i,
 				j;
@@ -3105,14 +3211,7 @@ leapadd(zic_t t, bool positive, int rolling, int count)
 	}
 	for (i = 0; i < leapcnt; ++i)
 		if (t <= trans[i])
-		{
-			if (t == trans[i])
-			{
-				error(_("repeated leap second moment"));
-				exit(EXIT_FAILURE);
-			}
 			break;
-		}
 	do
 	{
 		for (j = leapcnt; j > i; --j)
@@ -3133,19 +3232,30 @@ adjleap(void)
 {
 	int			i;
 	zic_t		last = 0;
+	zic_t		prevtrans = 0;
 
 	/*
 	 * propagate leap seconds forward
 	 */
 	for (i = 0; i < leapcnt; ++i)
 	{
+		if (trans[i] - prevtrans < 28 * SECSPERDAY)
+		{
+			error(_("Leap seconds too close together"));
+			exit(EXIT_FAILURE);
+		}
+		prevtrans = trans[i];
 		trans[i] = tadd(trans[i], last);
 		last = corr[i] += last;
 	}
 }
 
 static char *
+<<<<<<< HEAD
 shellquote(char *b, char const * s)
+=======
+shellquote(char *b, char const *s)
+>>>>>>> REL_10_0
 {
 	*b++ = '\'';
 	while (*s)
@@ -3192,7 +3302,7 @@ yearistype(zic_t year, const char *type)
 	exit(EXIT_FAILURE);
 }
 
-/* Is A a space character in the C locale?	*/
+/* Is A a space character in the C locale?  */
 static bool
 is_space(char a)
 {
@@ -3363,14 +3473,44 @@ itsabbr(const char *abbr, const char *word)
 	return true;
 }
 
+/* Return true if ABBR is an initial prefix of WORD, ignoring ASCII case.  */
+
+static bool
+ciprefix(char const *abbr, char const *word)
+{
+	do
+		if (!*abbr)
+			return true;
+	while (lowerit(*abbr++) == lowerit(*word++));
+
+	return false;
+}
+
 static const struct lookup *
-byword(const char *word, const struct lookup * table)
+byword(const char *word, const struct lookup *table)
 {
 	const struct lookup *foundlp;
 	const struct lookup *lp;
 
 	if (word == NULL || table == NULL)
 		return NULL;
+
+	/*
+	 * If TABLE is LASTS and the word starts with "last" followed by a
+	 * non-'-', skip the "last" and look in WDAY_NAMES instead. Warn about any
+	 * usage of the undocumented prefix "last-".
+	 */
+	if (table == lasts && ciprefix("last", word) && word[4])
+	{
+		if (word[4] == '-')
+			warning(_("\"%s\" is undocumented; use \"last%s\" instead"),
+					word, word + 5);
+		else
+		{
+			word += 4;
+			table = wday_names;
+		}
+	}
 
 	/*
 	 * Look for exact match.
@@ -3384,13 +3524,31 @@ byword(const char *word, const struct lookup * table)
 	 */
 	foundlp = NULL;
 	for (lp = table; lp->l_word != NULL; ++lp)
-		if (itsabbr(word, lp->l_word))
+		if (ciprefix(word, lp->l_word))
 		{
 			if (foundlp == NULL)
 				foundlp = lp;
 			else
 				return NULL;	/* multiple inexact matches */
 		}
+
+	/* Warn about any backward-compatibility issue with pre-2017c zic.  */
+	if (foundlp)
+	{
+		bool		pre_2017c_match = false;
+
+		for (lp = table; lp->l_word; lp++)
+			if (itsabbr(word, lp->l_word))
+			{
+				if (pre_2017c_match)
+				{
+					warning(_("\"%s\" is ambiguous in pre-2017c zic"), word);
+					break;
+				}
+				pre_2017c_match = true;
+			}
+	}
+
 	return foundlp;
 }
 
@@ -3479,7 +3637,7 @@ tadd(zic_t t1, zic_t t2)
  */
 
 static zic_t
-rpytime(const struct rule * rp, zic_t wantedy)
+rpytime(const struct rule *rp, zic_t wantedy)
 {
 	int			m,
 				i;
@@ -3571,7 +3729,7 @@ will not work with pre-2004 versions of zic"));
 		return min_time;
 	if (dayoff > max_time / SECSPERDAY)
 		return max_time;
-	t = (zic_t) dayoff *SECSPERDAY;
+	t = (zic_t) dayoff * SECSPERDAY;
 
 	return tadd(t, rp->r_tod);
 }
@@ -3615,12 +3773,17 @@ newabbr(const char *string)
    do it for ARGNAME too.  Exit with failure if there is trouble.
    Do not consider an existing non-directory to be trouble.  */
 static void
+<<<<<<< HEAD
 mkdirs(char const * argname, bool ancestors)
+=======
+mkdirs(char const *argname, bool ancestors)
+>>>>>>> REL_10_0
 {
 	char	   *name;
 	char	   *cp;
 
 	cp = name = ecpyalloc(argname);
+<<<<<<< HEAD
 
 	/* Do not mkdir a root directory, as it must exist.  */
 #ifdef WIN32
@@ -3630,6 +3793,21 @@ mkdirs(char const * argname, bool ancestors)
 	while (*cp == '/')
 		cp++;
 
+=======
+
+	/*
+	 * On MS-Windows systems, do not worry about drive letters or backslashes,
+	 * as this should suffice in practice.  Time zone names do not use drive
+	 * letters and backslashes.  If the -d option of zic does not name an
+	 * already-existing directory, it can use slashes to separate the
+	 * already-existing ancestor prefix from the to-be-created subdirectories.
+	 */
+
+	/* Do not mkdir a root directory, as it must exist.  */
+	while (*cp == '/')
+		cp++;
+
+>>>>>>> REL_10_0
 	while (cp && ((cp = strchr(cp, '/')) || !ancestors))
 	{
 		if (cp)

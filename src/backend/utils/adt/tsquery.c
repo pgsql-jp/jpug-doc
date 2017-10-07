@@ -3,7 +3,7 @@
  * tsquery.c
  *	  I/O functions for tsquery
  *
- * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
  *
  *
  * IDENTIFICATION
@@ -234,8 +234,8 @@ gettoken_query(TSQueryParserState state,
 			case WAITOPERAND:
 				if (t_iseq(state->buf, '!'))
 				{
-					(state->buf)++;		/* can safely ++, t_iseq guarantee
-										 * that pg_mblen()==1 */
+					(state->buf)++; /* can safely ++, t_iseq guarantee that
+									 * pg_mblen()==1 */
 					*operator = OP_NOT;
 					state->state = WAITOPERAND;
 					return PT_OPR;
@@ -458,7 +458,7 @@ cleanOpStack(TSQueryParserState state,
 	{
 		/* NOT is right associative unlike to others */
 		if ((op != OP_NOT && opPriority > OP_PRIORITY(stack[*lenstack - 1].op)) ||
-		(op == OP_NOT && opPriority >= OP_PRIORITY(stack[*lenstack - 1].op)))
+			(op == OP_NOT && opPriority >= OP_PRIORITY(stack[*lenstack - 1].op)))
 			break;
 
 		(*lenstack)--;
@@ -542,7 +542,7 @@ findoprnd_recurse(QueryItem *ptr, uint32 *pos, int nnodes, bool *needcleanup)
 
 		if (ptr[*pos].qoperator.oper == OP_NOT)
 		{
-			ptr[*pos].qoperator.left = 1;		/* fixed offset */
+			ptr[*pos].qoperator.left = 1;	/* fixed offset */
 			(*pos)++;
 
 			/* process the only argument */
@@ -551,7 +551,7 @@ findoprnd_recurse(QueryItem *ptr, uint32 *pos, int nnodes, bool *needcleanup)
 		else
 		{
 			QueryOperator *curitem = &ptr[*pos].qoperator;
-			int			tmp = *pos;		/* save current position */
+			int			tmp = *pos; /* save current position */
 
 			Assert(curitem->oper == OP_AND ||
 				   curitem->oper == OP_OR ||
@@ -1015,7 +1015,8 @@ tsqueryrecv(PG_FUNCTION_ARGS)
 
 		if (item->type == QI_VAL)
 		{
-			size_t		val_len;	/* length after recoding to server encoding */
+			size_t		val_len;	/* length after recoding to server
+									 * encoding */
 			uint8		weight;
 			uint8		prefix;
 			const char *val;
@@ -1055,7 +1056,7 @@ tsqueryrecv(PG_FUNCTION_ARGS)
 			 */
 			operands[i] = val;
 
-			datalen += val_len + 1;		/* + 1 for the '\0' terminator */
+			datalen += val_len + 1; /* + 1 for the '\0' terminator */
 		}
 		else if (item->type == QI_OPR)
 		{

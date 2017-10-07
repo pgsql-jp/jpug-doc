@@ -6,7 +6,7 @@
  * Estimates are based on histograms of lower and upper bounds, and the
  * fraction of empty ranges.
  *
- * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -47,15 +47,15 @@ static float8 get_distance(TypeCacheEntry *typcache, RangeBound *bound1,
 static int length_hist_bsearch(Datum *length_hist_values,
 					int length_hist_nvalues, double value, bool equal);
 static double calc_length_hist_frac(Datum *length_hist_values,
-		int length_hist_nvalues, double length1, double length2, bool equal);
+					  int length_hist_nvalues, double length1, double length2, bool equal);
 static double calc_hist_selectivity_contained(TypeCacheEntry *typcache,
 								RangeBound *lower, RangeBound *upper,
 								RangeBound *hist_lower, int hist_nvalues,
-						 Datum *length_hist_values, int length_hist_nvalues);
+								Datum *length_hist_values, int length_hist_nvalues);
 static double calc_hist_selectivity_contains(TypeCacheEntry *typcache,
 							   RangeBound *lower, RangeBound *upper,
 							   RangeBound *hist_lower, int hist_nvalues,
-						 Datum *length_hist_values, int length_hist_nvalues);
+							   Datum *length_hist_values, int length_hist_nvalues);
 
 /*
  * Returns a default selectivity estimate for given operator, when we don't
@@ -239,13 +239,13 @@ calc_rangesel(TypeCacheEntry *typcache, VariableStatData *vardata,
 	if (HeapTupleIsValid(vardata->statsTuple))
 	{
 		Form_pg_statistic stats;
-		float4	   *numbers;
-		int			nnumbers;
+		AttStatsSlot sslot;
 
 		stats = (Form_pg_statistic) GETSTRUCT(vardata->statsTuple);
 		null_frac = stats->stanullfrac;
 
 		/* Try to get fraction of empty ranges */
+<<<<<<< HEAD
 		if (get_attstatsslot(vardata->statsTuple,
 							 FLOAT8OID, -1,
 							 STATISTIC_KIND_RANGE_LENGTH_HISTOGRAM,
@@ -258,6 +258,17 @@ calc_rangesel(TypeCacheEntry *typcache, VariableStatData *vardata,
 				elog(ERROR, "invalid empty fraction statistic");		/* shouldn't happen */
 			empty_frac = numbers[0];
 			free_attstatsslot(FLOAT8OID, NULL, 0, numbers, nnumbers);
+=======
+		if (get_attstatsslot(&sslot, vardata->statsTuple,
+							 STATISTIC_KIND_RANGE_LENGTH_HISTOGRAM,
+							 InvalidOid,
+							 ATTSTATSSLOT_NUMBERS))
+		{
+			if (sslot.nnumbers != 1)
+				elog(ERROR, "invalid empty fraction statistic");	/* shouldn't happen */
+			empty_frac = sslot.numbers[0];
+			free_attstatsslot(&sslot);
+>>>>>>> REL_10_0
 		}
 		else
 		{
@@ -374,10 +385,14 @@ static double
 calc_hist_selectivity(TypeCacheEntry *typcache, VariableStatData *vardata,
 					  RangeType *constval, Oid operator)
 {
-	Datum	   *hist_values;
+	AttStatsSlot hslot;
+	AttStatsSlot lslot;
 	int			nhist;
+<<<<<<< HEAD
 	Datum	   *length_hist_values = NULL;
 	int			length_nhist = 0;
+=======
+>>>>>>> REL_10_0
 	RangeBound *hist_lower;
 	RangeBound *hist_upper;
 	int			i;
@@ -397,23 +412,21 @@ calc_hist_selectivity(TypeCacheEntry *typcache, VariableStatData *vardata,
 
 	/* Try to get histogram of ranges */
 	if (!(HeapTupleIsValid(vardata->statsTuple) &&
-		  get_attstatsslot(vardata->statsTuple,
-						   vardata->atttype, vardata->atttypmod,
+		  get_attstatsslot(&hslot, vardata->statsTuple,
 						   STATISTIC_KIND_BOUNDS_HISTOGRAM, InvalidOid,
-						   NULL,
-						   &hist_values, &nhist,
-						   NULL, NULL)))
+						   ATTSTATSSLOT_VALUES)))
 		return -1.0;
 
 	/*
 	 * Convert histogram of ranges into histograms of its lower and upper
 	 * bounds.
 	 */
+	nhist = hslot.nvalues;
 	hist_lower = (RangeBound *) palloc(sizeof(RangeBound) * nhist);
 	hist_upper = (RangeBound *) palloc(sizeof(RangeBound) * nhist);
 	for (i = 0; i < nhist; i++)
 	{
-		range_deserialize(typcache, DatumGetRangeType(hist_values[i]),
+		range_deserialize(typcache, DatumGetRangeType(hslot.values[i]),
 						  &hist_lower[i], &hist_upper[i], &empty);
 		/* The histogram should not contain any empty ranges */
 		if (empty)
@@ -425,6 +438,7 @@ calc_hist_selectivity(TypeCacheEntry *typcache, VariableStatData *vardata,
 		operator == OID_RANGE_CONTAINED_OP)
 	{
 		if (!(HeapTupleIsValid(vardata->statsTuple) &&
+<<<<<<< HEAD
 			  get_attstatsslot(vardata->statsTuple,
 							   FLOAT8OID, -1,
 							   STATISTIC_KIND_RANGE_LENGTH_HISTOGRAM,
@@ -434,18 +448,35 @@ calc_hist_selectivity(TypeCacheEntry *typcache, VariableStatData *vardata,
 							   NULL, NULL)))
 		{
 			free_attstatsslot(vardata->atttype, hist_values, nhist, NULL, 0);
+=======
+			  get_attstatsslot(&lslot, vardata->statsTuple,
+							   STATISTIC_KIND_RANGE_LENGTH_HISTOGRAM,
+							   InvalidOid,
+							   ATTSTATSSLOT_VALUES)))
+		{
+			free_attstatsslot(&hslot);
+>>>>>>> REL_10_0
 			return -1.0;
 		}
 
 		/* check that it's a histogram, not just a dummy entry */
+<<<<<<< HEAD
 		if (length_nhist < 2)
 		{
 			free_attstatsslot(FLOAT8OID,
 							  length_hist_values, length_nhist, NULL, 0);
 			free_attstatsslot(vardata->atttype, hist_values, nhist, NULL, 0);
+=======
+		if (lslot.nvalues < 2)
+		{
+			free_attstatsslot(&lslot);
+			free_attstatsslot(&hslot);
+>>>>>>> REL_10_0
 			return -1.0;
 		}
 	}
+	else
+		memset(&lslot, 0, sizeof(lslot));
 
 	/* Extract the bounds of the constant value. */
 	range_deserialize(typcache, constval, &const_lower, &const_upper, &empty);
@@ -544,8 +575,8 @@ calc_hist_selectivity(TypeCacheEntry *typcache, VariableStatData *vardata,
 		case OID_RANGE_CONTAINS_OP:
 			hist_selec =
 				calc_hist_selectivity_contains(typcache, &const_lower,
-											 &const_upper, hist_lower, nhist,
-										   length_hist_values, length_nhist);
+											   &const_upper, hist_lower, nhist,
+											   lslot.values, lslot.nvalues);
 			break;
 
 		case OID_RANGE_CONTAINED_OP:
@@ -563,14 +594,14 @@ calc_hist_selectivity(TypeCacheEntry *typcache, VariableStatData *vardata,
 			{
 				hist_selec =
 					1.0 - calc_hist_selectivity_scalar(typcache, &const_lower,
-												   hist_lower, nhist, false);
+													   hist_lower, nhist, false);
 			}
 			else
 			{
 				hist_selec =
 					calc_hist_selectivity_contained(typcache, &const_lower,
-											 &const_upper, hist_lower, nhist,
-										   length_hist_values, length_nhist);
+													&const_upper, hist_lower, nhist,
+													lslot.values, lslot.nvalues);
 			}
 			break;
 
@@ -580,9 +611,14 @@ calc_hist_selectivity(TypeCacheEntry *typcache, VariableStatData *vardata,
 			break;
 	}
 
+<<<<<<< HEAD
 	free_attstatsslot(FLOAT8OID,
 					  length_hist_values, length_nhist, NULL, 0);
 	free_attstatsslot(vardata->atttype, hist_values, nhist, NULL, 0);
+=======
+	free_attstatsslot(&lslot);
+	free_attstatsslot(&hslot);
+>>>>>>> REL_10_0
 
 	return hist_selec;
 }
@@ -609,7 +645,7 @@ calc_hist_selectivity_scalar(TypeCacheEntry *typcache, RangeBound *constbound,
 	/* Adjust using linear interpolation within the bin */
 	if (index >= 0 && index < hist_nvalues - 1)
 		selec += get_position(typcache, constbound, &hist[index],
-						&hist[index + 1]) / (Selectivity) (hist_nvalues - 1);
+							  &hist[index + 1]) / (Selectivity) (hist_nvalues - 1);
 
 	return selec;
 }
@@ -704,7 +740,7 @@ get_position(TypeCacheEntry *typcache, RangeBound *value, RangeBound *hist1,
 
 		/* Calculate relative position using subdiff function. */
 		bin_width = DatumGetFloat8(FunctionCall2Coll(
-												&typcache->rng_subdiff_finfo,
+													 &typcache->rng_subdiff_finfo,
 													 typcache->rng_collation,
 													 hist2->val,
 													 hist1->val));
@@ -712,7 +748,7 @@ get_position(TypeCacheEntry *typcache, RangeBound *value, RangeBound *hist1,
 			return 0.5;			/* zero width bin */
 
 		position = DatumGetFloat8(FunctionCall2Coll(
-												&typcache->rng_subdiff_finfo,
+													&typcache->rng_subdiff_finfo,
 													typcache->rng_collation,
 													value->val,
 													hist1->val))
@@ -1008,7 +1044,7 @@ static double
 calc_hist_selectivity_contained(TypeCacheEntry *typcache,
 								RangeBound *lower, RangeBound *upper,
 								RangeBound *hist_lower, int hist_nvalues,
-						  Datum *length_hist_values, int length_hist_nvalues)
+								Datum *length_hist_values, int length_hist_nvalues)
 {
 	int			i,
 				upper_index;
@@ -1118,7 +1154,7 @@ static double
 calc_hist_selectivity_contains(TypeCacheEntry *typcache,
 							   RangeBound *lower, RangeBound *upper,
 							   RangeBound *hist_lower, int hist_nvalues,
-						  Datum *length_hist_values, int length_hist_nvalues)
+							   Datum *length_hist_values, int length_hist_nvalues)
 {
 	int			i,
 				lower_index;

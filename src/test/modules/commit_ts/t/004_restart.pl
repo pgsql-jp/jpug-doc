@@ -7,10 +7,14 @@ use Test::More tests => 16;
 
 my $node_master = get_new_node('master');
 $node_master->init(allows_streaming => 1);
+<<<<<<< HEAD
 $node_master->append_conf(
 	'postgresql.conf', qq(
 track_commit_timestamp = on
 ));
+=======
+$node_master->append_conf('postgresql.conf', 'track_commit_timestamp = on');
+>>>>>>> REL_10_0
 $node_master->start;
 
 my ($ret, $stdout, $stderr);
@@ -25,12 +29,20 @@ like(
 
 ($ret, $stdout, $stderr) =
   $node_master->psql('postgres', qq[SELECT pg_xact_commit_timestamp('1');]);
+<<<<<<< HEAD
 is($ret, 0, 'getting ts of BootstrapTransactionId succeeds');
+=======
+is($ret,    0,  'getting ts of BootstrapTransactionId succeeds');
+>>>>>>> REL_10_0
 is($stdout, '', 'timestamp of BootstrapTransactionId is null');
 
 ($ret, $stdout, $stderr) =
   $node_master->psql('postgres', qq[SELECT pg_xact_commit_timestamp('2');]);
+<<<<<<< HEAD
 is($ret, 0, 'getting ts of FrozenTransactionId succeeds');
+=======
+is($ret,    0,  'getting ts of FrozenTransactionId succeeds');
+>>>>>>> REL_10_0
 is($stdout, '', 'timestamp of FrozenTransactionId is null');
 
 # Since FirstNormalTransactionId will've occurred during initdb, long before we
@@ -54,7 +66,11 @@ my $xid = $node_master->safe_psql(
 
 my $before_restart_ts = $node_master->safe_psql('postgres',
 	qq[SELECT pg_xact_commit_timestamp('$xid');]);
+<<<<<<< HEAD
 ok($before_restart_ts != '' && $before_restart_ts != 'null',
+=======
+ok($before_restart_ts ne '' && $before_restart_ts ne 'null',
+>>>>>>> REL_10_0
 	'commit timestamp recorded');
 
 $node_master->stop('immediate');
@@ -75,10 +91,14 @@ is($after_restart_ts, $before_restart_ts,
 
 # Now disable commit timestamps
 
+<<<<<<< HEAD
 $node_master->append_conf(
 	'postgresql.conf', qq(
 track_commit_timestamp = off
 ));
+=======
+$node_master->append_conf('postgresql.conf', 'track_commit_timestamp = off');
+>>>>>>> REL_10_0
 
 $node_master->stop('fast');
 $node_master->start;
@@ -110,10 +130,14 @@ like(
 	'expected error from disabled tx when committs disabled');
 
 # Re-enable, restart and ensure we can still get the old timestamps
+<<<<<<< HEAD
 $node_master->append_conf(
 	'postgresql.conf', qq(
 track_commit_timestamp = on
 ));
+=======
+$node_master->append_conf('postgresql.conf', 'track_commit_timestamp = on');
+>>>>>>> REL_10_0
 
 $node_master->stop('fast');
 $node_master->start;

@@ -2,12 +2,14 @@
  * ginfuncs.c
  *		Functions to investigate the content of GIN indexes
  *
- * Copyright (c) 2014-2016, PostgreSQL Global Development Group
+ * Copyright (c) 2014-2017, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		contrib/pageinspect/ginfuncs.c
  */
 #include "postgres.h"
+
+#include "pageinspect.h"
 
 #include "access/gin.h"
 #include "access/gin_private.h"
@@ -29,6 +31,7 @@ PG_FUNCTION_INFO_V1(gin_page_opaque_info);
 PG_FUNCTION_INFO_V1(gin_leafpage_items);
 
 
+<<<<<<< HEAD
 static Page
 get_page_from_raw(bytea *raw_page)
 {
@@ -49,6 +52,8 @@ get_page_from_raw(bytea *raw_page)
 }
 
 
+=======
+>>>>>>> REL_10_0
 Datum
 gin_metapage_info(PG_FUNCTION_ARGS)
 {
@@ -214,7 +219,7 @@ gin_leafpage_items(PG_FUNCTION_ARGS)
 		if (opaq->flags != (GIN_DATA | GIN_LEAF | GIN_COMPRESSED))
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("input page is not a compressed GIN data leaf page"),
+					 errmsg("input page is not a compressed GIN data leaf page"),
 					 errdetail("Flags %04X, expected %04X",
 							   opaq->flags,
 							   (GIN_DATA | GIN_LEAF | GIN_COMPRESSED))));

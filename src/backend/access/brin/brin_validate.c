@@ -3,7 +3,7 @@
  * brin_validate.c
  *	  Opclass validator for BRIN.
  *
- * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -23,6 +23,7 @@
 #include "catalog/pg_type.h"
 #include "utils/builtins.h"
 #include "utils/syscache.h"
+#include "utils/regproc.h"
 
 
 /*
@@ -264,8 +265,13 @@ brinvalidate(Oid opclassoid)
 			continue;			/* got it */
 		ereport(INFO,
 				(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
+<<<<<<< HEAD
 		  errmsg("operator class \"%s\" of access method %s is missing support function %d",
 				 opclassname, "brin", i)));
+=======
+				 errmsg("operator class \"%s\" of access method %s is missing support function %d",
+						opclassname, "brin", i)));
+>>>>>>> REL_10_0
 		result = false;
 	}
 

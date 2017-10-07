@@ -77,12 +77,16 @@ PostgreSQL documentation
    and <filename>pg_hba.conf</filename> must explicitly permit the replication
    connection. The server must also be configured
    with <xref linkend="guc-max-wal-senders"> set high enough to leave at least
+<<<<<<< HEAD
    one session available for the backup.
 -->
 バックアップは通常の<productname>PostgreSQL</productname>接続を経由して、レプリケーションプロトコルを用いて、作成されます。
 この接続はスーパーユーザまたは<literal>REPLICATION</literal>権限（<xref linkend="role-attributes">参照）を持つユーザが確立しなければなりません。
 さらにレプリケーション用の接続には<filename>pg_hba.conf</filename>における明示的な権限が許されていなければなりません。
 またサーバで<xref linkend="guc-max-wal-senders">を、バックアップ用に少なくとも１つのセッションを残すように十分大きく設定する必要があります。
+=======
+   one session available for the backup and one for WAL streaming (if used).
+>>>>>>> REL_10_0
   </para>
 
   <para>
@@ -126,6 +130,7 @@ PostgreSQL documentation
     </listitem>
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       There is no guarantee that all WAL files required for the backup are archived
       at the end of backup. If you are planning to use the backup for an archive
@@ -135,6 +140,10 @@ PostgreSQL documentation
 バックアップの終了時点で、バックアップに必要なすべてのWALファイルがアーカイブされている保証はありません。
 アーカイブリカバリ用にこのバックアップを使用する予定で、かつ、その時点で必要なファイルすべてが利用できることを確実にしたい場合、
 <literal>-x</>オプションを使用してバックアップに含めなければなりません。
+=======
+      If you are using <literal>-X none</>, there is no guarantee that all
+      WAL files required for the backup are archived at the end of backup.
+>>>>>>> REL_10_0
      </para>
     </listitem>
     <listitem>
@@ -267,11 +276,16 @@ PostgreSQL documentation
             target directory, the tar contents will be written to
             standard output, suitable for piping to for example
             <productname>gzip</productname>. This is only possible if
+<<<<<<< HEAD
             the cluster has no additional tablespaces.
 -->
 対象ディレクトリとして<literal>-</literal>（ダッシュ）という値が指定された場合、tarの内容は標準出力に書き出されます。
 これは例えば<productname>gzip</productname>へのパイプ処理に適しています。
 これはクラスタが追加テーブル空間を持たない場合のみ行うことができます。
+=======
+            the cluster has no additional tablespaces and WAL
+            streaming is not used.
+>>>>>>> REL_10_0
            </para>
            </listitem>
          </varlistentry>
@@ -356,6 +370,31 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
 ベースバックアップがレプリケーションスロットを利用したストリーミングレプリケーションのスタンバイとしての使用を意図したものであるなら、<filename>recovery.conf</filename>内で同じレプリケーションスロット名を使用すべきです。
 そうすることで、ベースバックアップの終了とストリーミングレプリケーションの開始の間の時間に、サーバが必要なWALデータを一切削除しないことが保証されます。
        </para>
+       <para>
+        If this option is not specified and the server supports temporary
+        replication slots (version 10 and later), then a temporary replication
+        slot is automatically used for WAL streaming.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>--no-slot</option></term>
+      <listitem>
+       <para>
+        This option prevents the creation of a temporary replication slot
+        during the backup even if it's supported by the server.
+       </para>
+       <para>
+        Temporary replication slots are created by default if no slot name
+        is given with the option <option>-S</option> when using log streaming.
+       </para>
+       <para>
+        The main purpose of this option is to allow taking a base backup when
+        the server is out of free replication slots.  Using replication slots
+        is almost always preferred, because it prevents needed WAL from being
+        removed by the server during the backup.
+       </para>
       </listitem>
      </varlistentry>
 
@@ -399,13 +438,19 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
      </varlistentry>
 
      <varlistentry>
-      <term><option>--xlogdir=<replaceable class="parameter">xlogdir</replaceable></option></term>
+      <term><option>--waldir=<replaceable class="parameter">waldir</replaceable></option></term>
       <listitem>
        <para>
+<<<<<<< HEAD
 <!--
         Specifies the location for the transaction log directory.
         <replaceable>xlogdir</replaceable> must be an absolute path.
         The transaction log directory can only be specified when
+=======
+        Specifies the location for the write-ahead log directory.
+        <replaceable>waldir</replaceable> must be an absolute path.
+        The write-ahead log directory can only be specified when
+>>>>>>> REL_10_0
         the backup is in plain mode.
 --> 
 トランザクションログのディレクトリの場所を指定します。
@@ -416,6 +461,7 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
      </varlistentry>
 
      <varlistentry>
+<<<<<<< HEAD
       <term><option>-x</option></term>
       <term><option>--xlog</option></term>
       <listitem>
@@ -430,10 +476,13 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
      </varlistentry>
 
      <varlistentry>
+=======
+>>>>>>> REL_10_0
       <term><option>-X <replaceable class="parameter">method</replaceable></option></term>
-      <term><option>--xlog-method=<replaceable class="parameter">method</replaceable></option></term>
+      <term><option>--wal-method=<replaceable class="parameter">method</replaceable></option></term>
       <listitem>
        <para>
+<<<<<<< HEAD
 <!--
         Includes the required transaction log files (WAL files) in the
         backup. This will include all transaction logs generated during
@@ -450,18 +499,43 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
        <para>
 <!--
         The following methods for collecting the transaction logs are
+=======
+        Includes the required write-ahead log files (WAL files) in the
+        backup. This will include all write-ahead logs generated during
+        the backup. Unless the method <literal>none</literal> is specified,
+        it is possible to start a postmaster directly in the extracted
+        directory without the need to consult the log archive, thus
+        making this a completely standalone backup.
+       </para>
+       <para>
+        The following methods for collecting the write-ahead logs are
+>>>>>>> REL_10_0
         supported:
 -->
 以下のトランザクションログを収集するための方法がサポートされます。
 
         <variablelist>
          <varlistentry>
+          <term><literal>n</literal></term>
+          <term><literal>none</literal></term>
+          <listitem>
+           <para>
+            Don't include write-ahead log in the backup.
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry>
           <term><literal>f</literal></term>
           <term><literal>fetch</literal></term>
           <listitem>
            <para>
+<<<<<<< HEAD
 <!--
             The transaction log files are collected at the end of the backup.
+=======
+            The write-ahead log files are collected at the end of the backup.
+>>>>>>> REL_10_0
             Therefore, it is necessary for the
             <xref linkend="guc-wal-keep-segments"> parameter to be set high
              enough that the log is not removed before the end of the backup.
@@ -472,6 +546,10 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
 したがって、<xref linkend="guc-wal-keep-segments">パラメータを、バックアップの最後までログが削除されない程度に十分大きくする必要があります。
 ログの転送時点でそのログがローテートされていた場合、バックアップは失敗し、使用することができません。
            </para>
+           <para>
+            The write-ahead log files will be written to
+            the <filename>base.tar</filename> file.
+           </para>
           </listitem>
          </varlistentry>
 
@@ -480,12 +558,17 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
           <term><literal>stream</literal></term>
           <listitem>
            <para>
+<<<<<<< HEAD
 <!--
             Stream the transaction log while the backup is created. This will
+=======
+            Stream the write-ahead log while the backup is created. This will
+>>>>>>> REL_10_0
             open a second connection to the server and start streaming the
-            transaction log in parallel while running the backup. Therefore,
+            write-ahead log in parallel while running the backup. Therefore,
             it will use up two connections configured by the
             <xref linkend="guc-max-wal-senders"> parameter. As long as the
+<<<<<<< HEAD
              client can keep up with transaction log received, using this mode
              requires no extra transaction logs to be saved on the master.
 -->
@@ -493,6 +576,18 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
 これは第二のサーバ接続を開き、バックアップを実行している間、並行してトランザクションログのストリーミングを始めます。
 したがって、これは<xref linkend="guc-max-wal-senders">で設定される接続を２つ使用します。
 クライアントが受け取ったトランザクションログに追従している限り、このモードを使用すれば、マスタ上に余分に保管されるトランザクションログは必要ありません。
+=======
+             client can keep up with write-ahead log received, using this mode
+             requires no extra write-ahead logs to be saved on the master.
+           </para>
+           <para>
+            The write-ahead log files are written to a separate file
+            named <filename>pg_wal.tar</filename> (if the server is a version
+            earlier than 10, the file will be named <filename>pg_xlog.tar</filename>).
+           </para>
+           <para>
+            This value is the default.
+>>>>>>> REL_10_0
            </para>
           </listitem>
          </varlistentry>
@@ -509,10 +604,15 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
 <!--
         Enables gzip compression of tar file output, with the default
         compression level. Compression is only available when using
+<<<<<<< HEAD
         the tar format.
 -->
 tarファイル出力のデフォルトの圧縮レベルによるgzip圧縮を有効にします。
 tarファイルを生成する場合のみ圧縮を利用することができます。
+=======
+        the tar format, and the suffix <filename>.gz</filename> will
+        automatically be added to all tar filenames.
+>>>>>>> REL_10_0
        </para>
       </listitem>
      </varlistentry>
@@ -526,11 +626,16 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
         Enables gzip compression of tar file output, and specifies the
         compression level (0 through 9, 0 being no compression and 9 being best
         compression). Compression is only available when using the tar
+<<<<<<< HEAD
         format.
 -->
 tarファイル出力のgzip圧縮を有効にします。
 また圧縮レベル（0から9まで、0は圧縮なし、9が最高の圧縮レベル）を指定します。
 tarファイルを生成する場合のみ圧縮を利用することができます。
+=======
+        format, and the suffix <filename>.gz</filename> will
+        automatically be added to all tar filenames.
+>>>>>>> REL_10_0
        </para>
       </listitem>
      </varlistentry>
@@ -549,10 +654,14 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
       <term><option>--checkpoint=<replaceable class="parameter">fast|spread</replaceable></option></term>
       <listitem>
        <para>
+<<<<<<< HEAD
 <!--
         Sets checkpoint mode to fast (immediate) or spread (default) (see <xref linkend="backup-lowlevel-base-backup">).
 -->
 チェックポイントモードをfast（即座に実行）またはspread（デフォルト）に設定します(<xref linkend="backup-lowlevel-base-backup">を参照してください)。
+=======
+        Sets checkpoint mode to fast (immediate) or spread (default) (see <xref linkend="backup-lowlevel-base-backup">).
+>>>>>>> REL_10_0
        </para>
       </listitem>
      </varlistentry>
@@ -568,6 +677,24 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
 -->
 バックアップのラベルを設定します。
 何も指定がない場合、<quote><literal>pg_basebackup base backup</literal></quote>というデフォルト値が使用されます。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>-n</option></term>
+      <term><option>--no-clean</option></term>
+      <listitem>
+       <para>
+        By default, when <command>pg_basebackup</command> aborts with an
+        error, it removes any directories it might have created before
+        discovering that it cannot finish the job (for example, data directory
+        and write-ahead log directory). This option inhibits tidying-up and is
+        thus useful for debugging.
+       </para>
+
+       <para>
+        Note that tablespace directories are not cleaned up either way.
        </para>
       </listitem>
      </varlistentry>
@@ -601,6 +728,21 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
 -->
 これが有効な場合、バックアップはまずデータベース全体容量を計算し、その後バックアップに戻り、実際の内容を送信します。
 バックアップに要する時間は少し長くなるかもしれません。特に最初のデータが送られるようになるまでの時間がより長くなります。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>-N</option></term>
+      <term><option>--no-sync</option></term>
+      <listitem>
+       <para>
+        By default, <command>pg_basebackup</command> will wait for all files
+        to be written safely to disk.  This option causes
+        <command>pg_basebackup</command> to return without waiting, which is
+        faster, but means that a subsequent operating system crash can leave
+        the base backup corrupt.  Generally, this option is useful for testing
+        but should not be used when creating a production installation.
        </para>
       </listitem>
      </varlistentry>
@@ -842,6 +984,7 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
   <title>注意</title>
 
   <para>
+<<<<<<< HEAD
 <!--
    At the beginning of the backup, a checkpoint needs to be written on the
    server the backup is taken from.  Especially if the option
@@ -866,6 +1009,24 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
 しかし、通常ファイルとディレクトリのみがコピーされます。
 シンボリックリンク(テーブル空間で利用されているものを除く)および特殊デバイスファイルはスキップされます。
 (正確な詳細については<xref linkend="protocol-replication">を参照してください。)
+=======
+   At the beginning of the backup, a checkpoint needs to be written on the
+   server the backup is taken from.  Especially if the option
+   <literal>--checkpoint=fast</literal> is not used, this can take some time
+   during which <application>pg_basebackup</application> will be appear
+   to be idle.
+  </para>
+
+  <para>
+   The backup will include all files in the data directory and tablespaces,
+   including the configuration files and any additional files placed in the
+   directory by third parties, except certain temporary files managed by
+   PostgreSQL.  But only regular files and directories are copied, except that
+   symbolic links used for tablespaces are preserved.  Symbolic links pointing
+   to certain directories known to PostgreSQL are copied as empty directories.
+   Other symbolic links and special device files are skipped.
+   See <xref linkend="protocol-replication"> for the precise details.
+>>>>>>> REL_10_0
   </para>
 
   <para>
@@ -949,7 +1110,7 @@ tar形式モードを使う場合、PostgreSQLサーバを起動する前に各t
 -->
 単一のテーブル空間を持つローカルデータベースのバックアップを作成し、それを<productname>bzip2</productname>で圧縮します。
 <screen>
-<prompt>$</prompt> <userinput>pg_basebackup -D - -Ft | bzip2 &gt; backup.tar.bz2</userinput>
+<prompt>$</prompt> <userinput>pg_basebackup -D - -Ft -X fetch | bzip2 &gt; backup.tar.bz2</userinput>
 </screen>
 <!--
    (This command will fail if there are multiple tablespaces in the

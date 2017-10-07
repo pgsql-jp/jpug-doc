@@ -3,7 +3,7 @@
  *
  *	file system operations
  *
- *	Copyright (c) 2010-2016, PostgreSQL Global Development Group
+ *	Copyright (c) 2010-2017, PostgreSQL Global Development Group
  *	src/bin/pg_upgrade/file.c
  */
 
@@ -89,7 +89,11 @@ copyFile(const char *src, const char *dst,
 				 schemaName, relName, src, dst, strerror(errno));
 	}
 
+<<<<<<< HEAD
 #endif   /* WIN32 */
+=======
+#endif							/* WIN32 */
+>>>>>>> REL_10_0
 }
 
 
@@ -290,7 +294,11 @@ check_hard_link(void)
 
 	if (pg_link_file(existing_file, new_link_file) < 0)
 		pg_fatal("could not create hard link between old and new data directories: %s\n"
+<<<<<<< HEAD
 				 "In link mode the old and new data directories must be on the same file system volume.\n",
+=======
+				 "In link mode the old and new data directories must be on the same file system.\n",
+>>>>>>> REL_10_0
 				 strerror(errno));
 
 	unlink(new_link_file);

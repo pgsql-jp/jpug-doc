@@ -98,6 +98,7 @@ C関数では可能ですが、PL/Tclにはデータベースサーバ内部に�
     directory if Tcl support is specified in the configuration step of
     the installation procedure.  To install <application>PL/Tcl</>
     and/or <application>PL/TclU</> in a particular database, use the
+<<<<<<< HEAD
     <command>CREATE EXTENSION</> command or the
     <command>createlang</command> program, for example
     <literal>createlang pltcl <replaceable>dbname</></literal> or
@@ -106,6 +107,11 @@ C関数では可能ですが、PL/Tclにはデータベースサーバ内部に�
 インストール時にTclサポートの設定が指定されていれば、<application>PL/Tcl</>と<application>PL/TclU</>呼び出しハンドラの共有オブジェクトコードは自動的に作成され、<productname>PostgreSQL</productname>のライブラリディレクトリにインストールされます。
 <application>PL/Tcl</>または<application>PL/TclU</>の一方あるいは両方を特定のデータベースにインストールしたい場合は、<command>CREATE EXTENSION</>または<filename>createlang</filename>プログラムを使用してください。
 例えば、<literal>createlang pltcl <replaceable>dbname</></literal>または<literal>createlang pltclu <replaceable>dbname</></literal>です。
+=======
+    <command>CREATE EXTENSION</> command, for example
+    <literal>CREATE EXTENSION pltcl</literal> or
+    <literal>CREATE EXTENSION pltclu</literal>.
+>>>>>>> REL_10_0
    </para>
   </sect1>
 
@@ -143,6 +149,7 @@ $$ LANGUAGE pltcl;
     <para>
 <!--
      The body of the function is simply a piece of Tcl script.
+<<<<<<< HEAD
      When the function is called, the argument values are passed as
      variables <literal>$1</literal> ... <literal>$<replaceable>n</replaceable></literal> to the
      Tcl script.  The result is returned
@@ -152,6 +159,13 @@ $$ LANGUAGE pltcl;
 関数本体は、単なる小さなTclスクリプトです。
 関数が呼び出された時、引数の値はTclスクリプトに<literal>$1</literal> ... <literal>$<replaceable>n</replaceable></literal>という変数として渡されます。
 結果は通常通り<literal>return</literal>文を使用してTclのコードから返されます。
+=======
+     When the function is called, the argument values are passed to the
+     Tcl script as variables named <literal>1</literal>
+     ... <literal><replaceable>n</replaceable></literal>.  The result is
+     returned from the Tcl code in the usual way, with
+     a <literal>return</literal> statement.
+>>>>>>> REL_10_0
     </para>
 
     <para>
@@ -249,14 +263,43 @@ $$ LANGUAGE pltcl;
     </para>
 
     <para>
+<<<<<<< HEAD
 <!--
      There is currently no support for returning a composite-type
      result value, nor for returning sets.
 -->
 今のところ、複合型の戻り値を返す機能や集合を返す機能はサポートされていません。
+=======
+     PL/Tcl functions can return composite-type results, too.  To do this,
+     the Tcl code must return a list of column name/value pairs matching
+     the expected result type.  Any column names omitted from the list
+     are returned as nulls, and an error is raised if there are unexpected
+     column names.  Here is an example:
+
+<programlisting>
+CREATE FUNCTION square_cube(in int, out squared int, out cubed int) AS $$
+    return [list squared [expr {$1 * $1}] cubed [expr {$1 * $1 * $1}]]
+$$ LANGUAGE pltcl;
+</programlisting>
+>>>>>>> REL_10_0
     </para>
 
+    <tip>
+     <para>
+      The result list can be made from an array representation of the
+      desired tuple with the <literal>array get</> Tcl command.  For example:
+
+<programlisting>
+CREATE FUNCTION raise_pay(employee, delta int) RETURNS employee AS $$
+    set 1(salary) [expr {$1(salary) + $2}]
+    return [array get 1]
+$$ LANGUAGE pltcl;
+</programlisting>
+     </para>
+    </tip>
+
     <para>
+<<<<<<< HEAD
 <!--
      <application>PL/Tcl</> does not currently have full support for
      domain types: it treats a domain the same as the underlying scalar
@@ -269,6 +312,31 @@ $$ LANGUAGE pltcl;
 ドメインをその背後にあるスカラ型と同様に扱います。
 これは、ドメインに関連する制約が強制されないことを意味しています。
 これは関数の引数では問題ありませんが、<application>PL/Tcl</>関数をドメイン型を返すように宣言した場合は危険です。
+=======
+     PL/Tcl functions can return sets.  To do this, the Tcl code should
+     call <function>return_next</function> once per row to be returned,
+     passing either the appropriate value when returning a scalar type,
+     or a list of column name/value pairs when returning a composite type.
+     Here is an example returning a scalar type:
+
+<programlisting>
+CREATE FUNCTION sequence(int, int) RETURNS SETOF int AS $$
+    for {set i $1} {$i &lt; $2} {incr i} {
+        return_next $i
+    }
+$$ LANGUAGE pltcl;
+</programlisting>
+
+     and here is one returning a composite type:
+
+<programlisting>
+CREATE FUNCTION table_of_squares(int, int) RETURNS TABLE (x int, x2 int) AS $$
+    for {set i $1} {$i &lt; $2} {incr i} {
+        return_next [list x $i x2 [expr {$i * $i}]]
+    }
+$$ LANGUAGE pltcl;
+</programlisting>
+>>>>>>> REL_10_0
     </para>
 
    </sect1>
@@ -284,6 +352,7 @@ $$ LANGUAGE pltcl;
      The argument values supplied to a PL/Tcl function's code are simply
      the input arguments converted to text form (just as if they had been
      displayed by a <command>SELECT</> statement).  Conversely, the
+<<<<<<< HEAD
      <literal>return</>
      command will accept any string that is acceptable input format for
      the function's declared return type.  So, within the PL/Tcl function,
@@ -292,6 +361,11 @@ $$ LANGUAGE pltcl;
 PL/Tcl関数コードに与えられる引数の値は、単に、テキスト形式（<command>SELECT</>文によりそれを表示した場合と同じ形式）に変換された入力引数です。
 逆に、<literal>return</>コマンドは、その関数宣言における戻り値の型の入力書式として受け付けることができる、任意の文字列を受け付けます。
 このようにPL/Tcl関数ではすべての値は単なるテキスト文字列です。
+=======
+     <literal>return</> and <literal>return_next</> commands will accept
+     any string that is acceptable input format for the function's declared
+     result type, or for the specified column of a composite result type.
+>>>>>>> REL_10_0
     </para>
 
    </sect1>
@@ -447,10 +521,13 @@ PL/Tcl関数が予期しない相互作用に巻き込まれないようにす�
         number within the result (counting from zero) is stored into the array
         element named <quote><literal>.tupno</></quote>, unless that name is
         in use as a column name in the result.
+<<<<<<< HEAD
 -->
 コマンドが<command>SELECT</>文の場合、その結果得られた列の値は、列名にちなんだ名前のTcl変数に格納されます。
 <literal>-array</>オプションが付与された場合は、列の値は指定された名前の連想配列の要素に格納され、その配列のインデックスとして列名が使用されます。
 加えて、結果内での現在の行番号（ゼロから数えます）が<quote><literal>.tupno</></quote>という名前の配列要素に格納されます。ただし、その名前が結果内の列名として使われていない場合に限られます。
+=======
+>>>>>>> REL_10_0
        </para>
        <para>
 <!--
@@ -460,6 +537,7 @@ PL/Tcl関数が予期しない相互作用に巻き込まれないようにす�
         No storing occurs if the query returns no rows.  (This case can be
         detected by checking the result of <function>spi_exec</function>.)
         For example:
+<<<<<<< HEAD
 -->
 問い合わせ文が<command>SELECT</>文、かつ、<replaceable>loop-body</>スクリプトが付与されなかった場合、結果のうち最初の行だけがTclの変数または配列要素に格納されます。
 他にも行があったとしても、それらは無視されます。
@@ -472,6 +550,11 @@ spi_exec "SELECT count(*) AS cnt FROM pg_proc"
 </programlisting>
 
 <!--
+=======
+<programlisting>
+spi_exec "SELECT count(*) AS cnt FROM pg_proc"
+</programlisting>
+>>>>>>> REL_10_0
         will set the Tcl variable <literal>$cnt</> to the number of rows in
         the <structname>pg_proc</> system catalog.
 -->
@@ -486,19 +569,25 @@ spi_exec "SELECT count(*) AS cnt FROM pg_proc"
         The values of the current row's columns
         are stored into Tcl variables or array elements before each iteration.
         For example:
+<<<<<<< HEAD
 -->
 <replaceable>loop-body</>オプション引数が付与された場合、それは、問い合わせの結果内の行それぞれに対して一度だけ実行される小さなTclスクリプトです
 （<replaceable>loop-body</>は<command>SELECT</>以外の問い合わせで付与された場合は無視されます）。
 処理中の行の列値は、各繰り返しの前にTclの変数または配列要素に格納されます。
 以下に例を示します。
 
+=======
+>>>>>>> REL_10_0
 <programlisting>
 spi_exec -array C "SELECT * FROM pg_class" {
     elog DEBUG "have table $C(relname)"
 }
 </programlisting>
+<<<<<<< HEAD
 
 <!--
+=======
+>>>>>>> REL_10_0
         will print a log message for every row of <literal>pg_class</>.  This
         feature works similarly to other Tcl looping constructs; in
         particular <literal>continue</> and <literal>break</> work in the
@@ -660,6 +749,20 @@ $$ LANGUAGE pltcl;
 -->
 直前の<function>spi_exec</>または<function>spi_execp</>によるコマンドが単一行の<command>INSERT</>文であり、かつ、更新されるテーブルがOIDを持つ場合、そのコマンドによって挿入された行のOIDを返します。
 （さもなければ、ゼロを返します。）
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><function>subtransaction</function> <replaceable>command</replaceable></term>
+      <listitem>
+       <para>
+        The Tcl script contained in <replaceable>command</replaceable> is
+        executed within a SQL subtransaction.  If the script returns an
+        error, that entire subtransaction is rolled back before returning the
+        error out to the surrounding Tcl code.
+        See <xref linkend="pltcl-subtransactions"> for more details and an
+        example.
        </para>
       </listitem>
      </varlistentry>
@@ -1008,6 +1111,7 @@ NULLの列はこの配列内には現れません。
      OF</> <command>DELETE</> triggers, returning a modified row has the same
      effect as returning <literal>OK</>, that is the operation proceeds.
      The trigger return value is ignored for all other types of triggers.
+<<<<<<< HEAD
 -->
 トリガプロシージャからの戻り値は、<literal>OK</>という文字列、<literal>SKIP</>という文字列、列名/値の組のリスト、の内の1つを取ることができます。
 戻り値が<literal>OK</>の場合、トリガを発行した操作（<command>INSERT</>/<command>UPDATE</>/<command>DELETE</>）は正常に処理されます。
@@ -1017,15 +1121,22 @@ NULLの列はこの配列内には現れません。
 変更された行を返すことは、<varname>$NEW</>内で与えられる行ではなく変更された行が挿入される、行レベルの<literal>BEFORE</> <command>INSERT</>または<command>UPDATE</>トリガ、または、返される行が<command>INSERT RETURNING</>および<command>UPDATE RETURNING</>句の元データとして使われる、行レベルの<literal>INSTEAD OF</> <command>INSERT</>または<command>UPDATE</>トリガでのみ有意です。
 行レベルの<literal>BEFORE</> <command>DELETE</>または<literal>INSTEAD OF</> <command>DELETE</>トリガでは、変更された行が返されることが<literal>OK</>が返されるのと同じ効果を持ち、その操作は処理されます。
 この他の種類のトリガでは戻り値は無視されます。
+=======
+>>>>>>> REL_10_0
     </para>
 
     <tip>
      <para>
+<<<<<<< HEAD
 <!--
       The result list can be made from an array representation of the
       modified tuple with the <literal>array get</> Tcl command.
 -->
 結果リストは<literal>array get</> Tclコマンドによる変更されたタプルの配列表現から作ることができます。
+=======
+      The result list can be made from an array representation of the
+      modified tuple with the <literal>array get</> Tcl command.
+>>>>>>> REL_10_0
      </para>
     </tip>
 
@@ -1175,6 +1286,7 @@ CREATE EVENT TRIGGER tcl_a_snitch ON ddl_command_start EXECUTE PROCEDURE tclsnit
      either by executing some invalid operation or by generating an error
      using the Tcl <function>error</function> command or
      PL/Tcl's <function>elog</function> command.  Such errors can be caught
+<<<<<<< HEAD
      within Tcl using the Tcl <function>catch</function> command.  If they
      are not caught but are allowed to propagate out to the top level of
      execution of the PL/Tcl function, they turn into database errors.
@@ -1195,6 +1307,24 @@ PL/Tcl関数中の、あるいはPL/Tcl関数から呼ばれるTclコードは�
 -->
 逆に、PL/Tclの<function>spi_exec</function>、<function>spi_prepare</function>、<function>spi_execp</function>コマンドの中で起きるデータベースエラーは、Tclのエラーとして報告され、したがって、これらはTclの<function>catch</function>コマンドにより捕捉可能です。
 ここでも同様に、捕捉されることなくトップレベルに伝播するならデータベースエラーに戻ります。
+=======
+     within Tcl using the Tcl <function>catch</function> command.  If an
+     error is not caught but is allowed to propagate out to the top level of
+     execution of the PL/Tcl function, it is reported as a SQL error in the
+     function's calling query.
+    </para>
+
+    <para>
+     Conversely, SQL errors that occur within PL/Tcl's
+     <function>spi_exec</function>, <function>spi_prepare</function>,
+     and <function>spi_execp</function> commands are reported as Tcl errors,
+     so they are catchable by Tcl's <function>catch</function> command.
+     (Each of these PL/Tcl commands runs its SQL operation in a
+     subtransaction, which is rolled back on error, so that any
+     partially-completed operation is automatically cleaned up.)
+     Again, if an error propagates out to the top level without being caught,
+     it turns back into a SQL error.
+>>>>>>> REL_10_0
     </para>
 
     <para>
@@ -1205,7 +1335,7 @@ PL/Tcl関数中の、あるいはPL/Tcl関数から呼ばれるTclコードは�
      first word identifies the subsystem or library reporting the error;
      beyond that the contents are left to the individual subsystem or
      library.  For database errors reported by PL/Tcl commands, the first
-     word is <literal>POSTGRES</literal>, the second word is the Postgres
+     word is <literal>POSTGRES</literal>, the second word is the PostgreSQL
      version number, and additional words are field name/value pairs
      providing detailed information about the error.
      Fields <varname>SQLSTATE</>, <varname>condition</>,
@@ -1256,6 +1386,7 @@ if {[catch { spi_exec $sql_command }]} {
     </para>
    </sect1>
 
+<<<<<<< HEAD
    <sect1 id="pltcl-unknown">
 <!--
        <title>Modules and the <function>unknown</> Command</title>
@@ -1276,8 +1407,121 @@ PL/Tclでは、使用時に自動的にTclのコードを読み込む機能が�
 これは、Tclコードのモジュールを含むと仮定される<literal>pltcl_modules</>という特殊なテーブルを認識します。
 このテーブルが存在する場合、そのテーブルから<literal>unknown</>モジュールが取り出され、データベースセッション内でPL/Tclが最初に実行される直前にTclインタプリタに読み込まれます。
 （セッション内で複数のインタプリタが使用される場合、これは個々のTclインタプリタそれぞれで起こります。<xref linkend="pltcl-global">を参照してください。）
-       </para>
+=======
+   <sect1 id="pltcl-subtransactions">
+    <title>Explicit Subtransactions in PL/Tcl</title>
+
+    <indexterm>
+     <primary>subtransactions</primary>
+     <secondary>in PL/Tcl</secondary>
+    </indexterm>
+
+    <para>
+     Recovering from errors caused by database access as described in
+     <xref linkend="pltcl-error-handling"> can lead to an undesirable
+     situation where some operations succeed before one of them fails,
+     and after recovering from that error the data is left in an
+     inconsistent state.  PL/Tcl offers a solution to this problem in
+     the form of explicit subtransactions.
+    </para>
+
+    <para>
+     Consider a function that implements a transfer between two accounts:
+<programlisting>
+CREATE FUNCTION transfer_funds() RETURNS void AS $$
+    if [catch {
+        spi_exec "UPDATE accounts SET balance = balance - 100 WHERE account_name = 'joe'"
+        spi_exec "UPDATE accounts SET balance = balance + 100 WHERE account_name = 'mary'"
+    } errormsg] {
+        set result [format "error transferring funds: %s" $errormsg]
+    } else {
+        set result "funds transferred successfully"
+    }
+    spi_exec "INSERT INTO operations (result) VALUES ('[quote $result]')"
+$$ LANGUAGE pltcl;
+</programlisting>
+     If the second <command>UPDATE</command> statement results in an
+     exception being raised, this function will log the failure, but
+     the result of the first <command>UPDATE</command> will
+     nevertheless be committed.  In other words, the funds will be
+     withdrawn from Joe's account, but will not be transferred to
+     Mary's account.  This happens because each <function>spi_exec</function>
+     is a separate subtransaction, and only one of those subtransactions
+     got rolled back.
+    </para>
+
+    <para>
+     To handle such cases, you can wrap multiple database operations in an
+     explicit subtransaction, which will succeed or roll back as a whole.
+     PL/Tcl provides a <function>subtransaction</function> command to manage
+     this.  We can rewrite our function as:
+<programlisting>
+CREATE FUNCTION transfer_funds2() RETURNS void AS $$
+    if [catch {
+        subtransaction {
+            spi_exec "UPDATE accounts SET balance = balance - 100 WHERE account_name = 'joe'"
+            spi_exec "UPDATE accounts SET balance = balance + 100 WHERE account_name = 'mary'"
+        }
+    } errormsg] {
+        set result [format "error transferring funds: %s" $errormsg]
+    } else {
+        set result "funds transferred successfully"
+    }
+    spi_exec "INSERT INTO operations (result) VALUES ('[quote $result]')"
+$$ LANGUAGE pltcl;
+</programlisting>
+     Note that use of <function>catch</function> is still required for this
+     purpose.  Otherwise the error would propagate to the top level of the
+     function, preventing the desired insertion into
+     the <structname>operations</structname> table.
+     The <function>subtransaction</function> command does not trap errors, it
+     only assures that all database operations executed inside its scope will
+     be rolled back together when an error is reported.
+    </para>
+
+    <para>
+     A rollback of an explicit subtransaction occurs on any error reported
+     by the contained Tcl code, not only errors originating from database
+     access.  Thus a regular Tcl exception raised inside
+     a <function>subtransaction</function> command will also cause the
+     subtransaction to be rolled back.  However, non-error exits out of the
+     contained Tcl code (for instance, due to <function>return</function>) do
+     not cause a rollback.
+    </para>
+   </sect1>
+
+   <sect1 id="pltcl-config">
+    <title>PL/Tcl Configuration</title>
+
+    <para>
+     This section lists configuration parameters that
+     affect <application>PL/Tcl</>.
+    </para>
+
+    <variablelist>
+
+     <varlistentry id="guc-pltcl-start-proc" xreflabel="pltcl.start_proc">
+      <term>
+       <varname>pltcl.start_proc</varname> (<type>string</type>)
+       <indexterm>
+        <primary><varname>pltcl.start_proc</> configuration parameter</primary>
+       </indexterm>
+      </term>
+      <listitem>
        <para>
+        This parameter, if set to a nonempty string, specifies the name
+        (possibly schema-qualified) of a parameterless PL/Tcl function that
+        is to be executed whenever a new Tcl interpreter is created for
+        PL/Tcl.  Such a function can perform per-session initialization, such
+        as loading additional Tcl code.  A new Tcl interpreter is created
+        when a PL/Tcl function is first executed in a database session, or
+        when an additional interpreter has to be created because a PL/Tcl
+        function is called by a new SQL role.
+>>>>>>> REL_10_0
+       </para>
+
+       <para>
+<<<<<<< HEAD
 <!--
         While the <literal>unknown</> module could actually contain any
         initialization script you need, it normally defines a Tcl
@@ -1297,8 +1541,17 @@ PL/Tclでは、使用時に自動的にTclのコードを読み込む機能が�
 プロシージャが検出された場合、インタプリタに読み込まれ、その後、元々試みられたプロシージャ呼び出しを実行することが許されます。
 二次的な<literal>pltcl_modfuncs</>テーブルは、どの関数がどのモジュールで定義されているかに関するインデックスを提供します。
 これにより検索がかなり高速になります。
+=======
+        The referenced function must be written in the <literal>pltcl</>
+        language, and must not be marked <literal>SECURITY DEFINER</>.
+        (These restrictions ensure that it runs in the interpreter it's
+        supposed to initialize.)  The current user must have permission to
+        call it, too.
+>>>>>>> REL_10_0
        </para>
+
        <para>
+<<<<<<< HEAD
 <!--
         The <productname>PostgreSQL</productname> distribution includes
         support scripts to maintain these tables:
@@ -1311,8 +1564,19 @@ PL/Tclでは、使用時に自動的にTclのコードを読み込む機能が�
 <productname>PostgreSQL</productname>の配布には、これらのテーブル管理用のサポートスクリプト、<command>pltcl_loadmod</>、<command>pltcl_listmod</>および<command>pltcl_delmod</>が含まれています。
 同様に標準の<literal>unknown</>モジュールのソースが<filename>share/unknown.pltcl</>に含まれています。
 自動読み込み機構をサポートさせるためには、あらかじめ各データベースにこのモジュールを読み込ませる必要があります。
+=======
+        If the function fails with an error it will abort the function call
+        that caused the new interpreter to be created and propagate out to
+        the calling query, causing the current transaction or subtransaction
+        to be aborted.  Any actions already done within Tcl won't be undone;
+        however, that interpreter won't be used again.  If the language is
+        used again the initialization will be attempted again within a fresh
+        Tcl interpreter.
+>>>>>>> REL_10_0
        </para>
+
        <para>
+<<<<<<< HEAD
 <!--
         The tables <literal>pltcl_modules</> and <literal>pltcl_modfuncs</>
         must be readable by all, but it is wise to make them owned and
@@ -1326,7 +1590,32 @@ PL/Tclでは、使用時に自動的にTclのコードを読み込む機能が�
 しかし、その所有者をデータベース管理者とし、データベース管理者のみが書き込み可能とする方が良いでしょう。
 セキュリティ対策としてPL/Tclは<literal>pltcl_modules</>をスーパーユーザが所有していない限りそれを無視します(このため<literal>unknown</>モジュールの読み込みを行いません)。
 しかし、十分信頼できるのであればこのテーブル上の更新権限を他のユーザに付与することができます。
+=======
+        Only superusers can change this setting.  Although this setting
+        can be changed within a session, such changes will not affect Tcl
+        interpreters that have already been created.
+>>>>>>> REL_10_0
        </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-pltclu-start-proc" xreflabel="pltclu.start_proc">
+      <term>
+       <varname>pltclu.start_proc</varname> (<type>string</type>)
+       <indexterm>
+        <primary><varname>pltclu.start_proc</> configuration parameter</primary>
+       </indexterm>
+      </term>
+      <listitem>
+       <para>
+        This parameter is exactly like <varname>pltcl.start_proc</varname>,
+        except that it applies to PL/TclU.  The referenced function must
+        be written in the <literal>pltclu</> language.
+       </para>
+      </listitem>
+     </varlistentry>
+
+    </variablelist>
    </sect1>
 
    <sect1 id="pltcl-procnames">

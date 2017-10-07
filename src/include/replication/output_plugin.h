@@ -2,7 +2,7 @@
  * output_plugin.h
  *	   PostgreSQL Logical Decode Plugin Interface
  *
- * Copyright (c) 2012-2016, PostgreSQL Global Development Group
+ * Copyright (c) 2012-2017, PostgreSQL Global Development Group
  *
  *-------------------------------------------------------------------------
  */
@@ -42,47 +42,80 @@ typedef void (*LogicalOutputPluginInit) (struct OutputPluginCallbacks *cb);
  * the same slot is used from there one, it will be "false".
  */
 typedef void (*LogicalDecodeStartupCB) (struct LogicalDecodingContext *ctx,
+<<<<<<< HEAD
 												OutputPluginOptions *options,
 													bool is_init);
+=======
+										OutputPluginOptions *options,
+										bool is_init);
+>>>>>>> REL_10_0
 
 /*
  * Callback called for every (explicit or implicit) BEGIN of a successful
  * transaction.
  */
 typedef void (*LogicalDecodeBeginCB) (struct LogicalDecodingContext *ctx,
+<<<<<<< HEAD
 												  ReorderBufferTXN *txn);
+=======
+									  ReorderBufferTXN *txn);
+>>>>>>> REL_10_0
 
 /*
  * Callback for every individual change in a successful transaction.
  */
 typedef void (*LogicalDecodeChangeCB) (struct LogicalDecodingContext *ctx,
+<<<<<<< HEAD
 												   ReorderBufferTXN *txn,
 												   Relation relation,
 												ReorderBufferChange *change);
+=======
+									   ReorderBufferTXN *txn,
+									   Relation relation,
+									   ReorderBufferChange *change);
+>>>>>>> REL_10_0
 
 /*
  * Called for every (explicit or implicit) COMMIT of a successful transaction.
  */
 typedef void (*LogicalDecodeCommitCB) (struct LogicalDecodingContext *ctx,
+<<<<<<< HEAD
 												   ReorderBufferTXN *txn,
 												   XLogRecPtr commit_lsn);
+=======
+									   ReorderBufferTXN *txn,
+									   XLogRecPtr commit_lsn);
+>>>>>>> REL_10_0
 
 /*
  * Called for the generic logical decoding messages.
  */
 typedef void (*LogicalDecodeMessageCB) (struct LogicalDecodingContext *ctx,
+<<<<<<< HEAD
 													ReorderBufferTXN *txn,
 													XLogRecPtr message_lsn,
 													bool transactional,
 													const char *prefix,
 													Size message_size,
 													const char *message);
+=======
+										ReorderBufferTXN *txn,
+										XLogRecPtr message_lsn,
+										bool transactional,
+										const char *prefix,
+										Size message_size,
+										const char *message);
+>>>>>>> REL_10_0
 
 /*
  * Filter changes by origin.
  */
 typedef bool (*LogicalDecodeFilterByOriginCB) (struct LogicalDecodingContext *ctx,
+<<<<<<< HEAD
 													  RepOriginId origin_id);
+=======
+											   RepOriginId origin_id);
+>>>>>>> REL_10_0
 
 /*
  * Called to shutdown an output plugin.
@@ -106,5 +139,9 @@ typedef struct OutputPluginCallbacks
 /* Functions in replication/logical/logical.c */
 extern void OutputPluginPrepareWrite(struct LogicalDecodingContext *ctx, bool last_write);
 extern void OutputPluginWrite(struct LogicalDecodingContext *ctx, bool last_write);
+<<<<<<< HEAD
+=======
+extern void OutputPluginUpdateProgress(struct LogicalDecodingContext *ctx);
+>>>>>>> REL_10_0
 
-#endif   /* OUTPUT_PLUGIN_H */
+#endif							/* OUTPUT_PLUGIN_H */

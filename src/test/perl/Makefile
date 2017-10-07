@@ -2,7 +2,11 @@
 #
 # Makefile for src/test/perl
 #
+<<<<<<< HEAD
 # Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
+=======
+# Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+>>>>>>> REL_10_0
 # Portions Copyright (c) 1994, Regents of the University of California
 #
 # src/test/perl/Makefile

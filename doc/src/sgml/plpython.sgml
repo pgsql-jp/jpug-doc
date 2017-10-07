@@ -21,8 +21,7 @@
  <para>
 <!--
   To install PL/Python in a particular database, use
-  <literal>CREATE EXTENSION plpythonu</>, or from the shell command line use
-  <literal>createlang plpythonu <replaceable>dbname</></literal> (but
+  <literal>CREATE EXTENSION plpythonu</> (but
   see also <xref linkend="plpython-python23">).
 -->
 PL/Pythonを特定のデータベースにインストールするには、<literal>CREATE EXTENSION plpythonu</>を使用するか、またはシェルのコマンドラインから<literal>createlang plpython <replaceable>dbname</></literal>を使用してください
@@ -667,16 +666,20 @@ $$ LANGUAGE plpythonu;
 <!--
    SQL array values are passed into PL/Python as a Python list.  To
    return an SQL array value out of a PL/Python function, return a
+<<<<<<< HEAD
    Python sequence, for example a list or tuple:
 -->
 SQL配列値はPythonのリストとしてPL/Pythonに渡されます。
 PL/Python関数の外部にSQL配列値を返すためには、Pythonのシーケンス、例えばリストかタプルを返します。
+=======
+   Python list:
+>>>>>>> REL_10_0
 
 <programlisting>
 CREATE FUNCTION return_arr()
   RETURNS int[]
 AS $$
-return (1, 2, 3, 4, 5)
+return [1, 2, 3, 4, 5]
 $$ LANGUAGE plpythonu;
 
 SELECT return_arr();
@@ -686,7 +689,38 @@ SELECT return_arr();
 (1 row)
 </programlisting>
 
+<<<<<<< HEAD
 <!--
+=======
+   Multidimensional arrays are passed into PL/Python as nested Python lists.
+   A 2-dimensional array is a list of lists, for example. When returning
+   a multi-dimensional SQL array out of a PL/Python function, the inner
+   lists at each level must all be of the same size. For example:
+
+<programlisting>
+CREATE FUNCTION test_type_conversion_array_int4(x int4[]) RETURNS int4[] AS $$
+plpy.info(x, type(x))
+return x
+$$ LANGUAGE plpythonu;
+
+SELECT * FROM test_type_conversion_array_int4(ARRAY[[1,2,3],[4,5,6]]);
+INFO:  ([[1, 2, 3], [4, 5, 6]], &lt;type 'list'&gt;)
+ test_type_conversion_array_int4 
+---------------------------------
+ {{1,2,3},{4,5,6}}
+(1 row)
+</programlisting>
+
+   Other Python sequences, like tuples, are also accepted for
+   backwards-compatibility with PostgreSQL versions 9.6 and below, when
+   multi-dimensional arrays were not supported. However, they are always
+   treated as one-dimensional arrays, because they are ambiguous with
+   composite types. For the same reason, when a composite type is used in a
+   multi-dimensional array, it must be represented by a tuple, rather than a
+   list.
+  </para>
+  <para>
+>>>>>>> REL_10_0
    Note that in Python, strings are sequences, which can have
    undesirable effects that might be familiar to Python programmers:
 -->
@@ -789,8 +823,8 @@ CREATE TYPE named_value AS (
 CREATE FUNCTION make_pair (name text, value integer)
   RETURNS named_value
 AS $$
-  return [ name, value ]
-  # or alternatively, as tuple: return ( name, value )
+  return ( name, value )
+  # or alternatively, as tuple: return [ name, value ]
 $$ LANGUAGE plpythonu;
 </programlisting>
 
@@ -799,6 +833,11 @@ $$ LANGUAGE plpythonu;
        the corresponding position.
 -->
 任意の列でSQL NULL値を返すには、対応する位置に<symbol>None</symbol>を挿入します。
+      </para>
+      <para>
+       When an array of composite types is returned, it cannot be returned as a list,
+       because it is ambiguous whether the Python list represents a composite type,
+       or another array dimension.
       </para>
      </listitem>
     </varlistentry>
@@ -992,6 +1031,7 @@ AS $$
 $$ LANGUAGE plpythonu;
 </programlisting>
 
+<<<<<<< HEAD
        <warning>
         <para>
 <!--
@@ -1010,6 +1050,8 @@ Pythonの<ulink url="http://bugs.python.org/issue1483133">bug #1483133</ulink>�
 Python運用版やパッチ適用済みのFedora 4ではこの問題は起こりません。
         </para>
        </warning>
+=======
+>>>>>>> REL_10_0
       </para>
      </listitem>
     </varlistentry>
@@ -1477,7 +1519,18 @@ rv = plpy.execute(plan, ["name"], 5)
      </para>
 
      <para>
+<<<<<<< HEAD
 <!--
+=======
+      Alternatively, you can call the <function>execute</function> method on
+      the plan object:
+<programlisting>
+rv = plan.execute(["name"], 5)
+</programlisting>
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       Query parameters and result row fields are converted between PostgreSQL
       and Python data types as described in <xref linkend="plpython-data">.
 -->
@@ -1521,11 +1574,17 @@ $$ LANGUAGE plpythonu;
       as <literal>plpy.execute</literal> (except for the row limit) and returns
       a cursor object, which allows you to process large result sets in smaller
       chunks.  As with <literal>plpy.execute</literal>, either a query string
+<<<<<<< HEAD
       or a plan object along with a list of arguments can be used.
 -->
 <literal>plpy.cursor</literal>関数は<literal>plpy.execute</literal>と同じ引数を受け取り（行数制限引数を除いた）カーソルオブジェクトとして返します。
 これにより大規模な結果セットをより小さな塊の中で処理することができます。
 <literal>plpy.execute</literal>の場合と同様、問い合わせ文字列または引数リスト付きの計画オブジェクトを使用することができます。
+=======
+      or a plan object along with a list of arguments can be used, or
+      the <function>cursor</function> function can be called as a method of
+      the plan object.
+>>>>>>> REL_10_0
      </para>
 
      <para>
@@ -1580,7 +1639,7 @@ $$ LANGUAGE plpythonu;
 CREATE FUNCTION count_odd_prepared() RETURNS integer AS $$
 odd = 0
 plan = plpy.prepare("select num from largetable where num % $1 &lt;&gt; 0", ["integer"])
-rows = list(plpy.cursor(plan, [2]))
+rows = list(plpy.cursor(plan, [2]))  # or: = list(plan.cursor([2]))
 
 return len(rows)
 $$ LANGUAGE plpythonu;

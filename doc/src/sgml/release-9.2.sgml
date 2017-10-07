@@ -2,6 +2,7 @@
 <!-- See header comment in release.sgml about typical markup -->
 
  <sect1 id="release-9-2-23">
+<<<<<<< HEAD
 <!--
   <title>Release 9.2.23</title>
 -->
@@ -12,10 +13,17 @@
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release 9.2.23</title>
+
+  <formalpara>
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2017-08-31</para>
   </formalpara>
 
   <para>
+<<<<<<< HEAD
 <!--
    This release contains a small number of fixes from 9.2.22.
    For information about new features in the 9.2 major release, see
@@ -54,20 +62,48 @@
     see <xref linkend="release-9-2-22">.
 -->
 しかしながら、9.2.22よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-2-22">を参照して下さい。
+=======
+   This release contains a small number of fixes from 9.2.22.
+   For information about new features in the 9.2 major release, see
+   <xref linkend="release-9-2">.
+  </para>
+
+  <para>
+   The <productname>PostgreSQL</> community will stop releasing updates
+   for the 9.2.X release series in September 2017.
+   Users are encouraged to update to a newer release branch soon.
+  </para>
+
+  <sect2>
+   <title>Migration to Version 9.2.23</title>
+
+   <para>
+    A dump/restore is not required for those running 9.2.X.
+   </para>
+
+   <para>
+    However, if you are upgrading from a version earlier than 9.2.22,
+    see <xref linkend="release-9-2-22">.
+>>>>>>> REL_10_0
    </para>
 
   </sect2>
 
   <sect2>
+<<<<<<< HEAD
 <!--
    <title>Changes</title>
 -->
    <title>変更点</title>
+=======
+   <title>Changes</title>
+>>>>>>> REL_10_0
 
    <itemizedlist>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Show foreign tables
       in <structname>information_schema</>.<structname>table_privileges</>
@@ -87,10 +123,24 @@
 
      <para>
 <!--
+=======
+      Show foreign tables
+      in <structname>information_schema</>.<structname>table_privileges</>
+      view (Peter Eisentraut)
+     </para>
+
+     <para>
+      All other relevant <structname>information_schema</> views include
+      foreign tables, but this one ignored them.
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       Since this view definition is installed by <application>initdb</>,
       merely upgrading will not fix the problem.  If you need to fix this
       in an existing installation, you can, as a superuser, do this
       in <application>psql</>:
+<<<<<<< HEAD
 -->
 このビュー定義は<application>initdb</>で導入されるため、アップグレードするだけでは問題は修正されません。
 既存のインストレーションで修正する必要がある場合、スーパーユーザーとして<application>psql</>で以下を実行してください。
@@ -107,11 +157,53 @@ COMMIT;
 -->
 （<replaceable>SHAREDIR</>がどこににあるか確証がもてない場合、<literal>pg_config --sharedir</>を実行してください。）
 これは修正すべき各データベースで繰り返さなくてはなりません。
+=======
+<programlisting>
+SET search_path TO information_schema;
+CREATE OR REPLACE VIEW table_privileges AS
+    SELECT CAST(u_grantor.rolname AS sql_identifier) AS grantor,
+           CAST(grantee.rolname AS sql_identifier) AS grantee,
+           CAST(current_database() AS sql_identifier) AS table_catalog,
+           CAST(nc.nspname AS sql_identifier) AS table_schema,
+           CAST(c.relname AS sql_identifier) AS table_name,
+           CAST(c.prtype AS character_data) AS privilege_type,
+           CAST(
+             CASE WHEN
+                  -- object owner always has grant options
+                  pg_has_role(grantee.oid, c.relowner, 'USAGE')
+                  OR c.grantable
+                  THEN 'YES' ELSE 'NO' END AS yes_or_no) AS is_grantable,
+           CAST(CASE WHEN c.prtype = 'SELECT' THEN 'YES' ELSE 'NO' END AS yes_or_no) AS with_hierarchy
+
+    FROM (
+            SELECT oid, relname, relnamespace, relkind, relowner, (aclexplode(coalesce(relacl, acldefault('r', relowner)))).* FROM pg_class
+         ) AS c (oid, relname, relnamespace, relkind, relowner, grantor, grantee, prtype, grantable),
+         pg_namespace nc,
+         pg_authid u_grantor,
+         (
+           SELECT oid, rolname FROM pg_authid
+           UNION ALL
+           SELECT 0::oid, 'PUBLIC'
+         ) AS grantee (oid, rolname)
+
+    WHERE c.relnamespace = nc.oid
+          AND c.relkind IN ('r', 'v', 'f')
+          AND c.grantee = grantee.oid
+          AND c.grantor = u_grantor.oid
+          AND c.prtype IN ('INSERT', 'SELECT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER')
+          AND (pg_has_role(u_grantor.oid, 'USAGE')
+               OR pg_has_role(grantee.oid, 'USAGE')
+               OR grantee.rolname = 'PUBLIC');
+</programlisting>
+      This must be repeated in each database to be fixed,
+      including <literal>template0</>.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Clean up handling of a fatal exit (e.g., due to receipt
       of <systemitem>SIGTERM</>) that occurs while trying to execute
@@ -129,21 +221,37 @@ COMMIT;
 -->
 この状況はアサート失敗に至るかもしれません。
 実運用ビルドでもこのような終了は起きますが、この場合は<quote>cannot drop active portal(アクティブポータルを削除できません)</>といった予期せぬメッセージがログ出力されます。
+=======
+      Clean up handling of a fatal exit (e.g., due to receipt
+      of <systemitem>SIGTERM</>) that occurs while trying to execute
+      a <command>ROLLBACK</> of a failed transaction (Tom Lane)
+     </para>
+
+     <para>
+      This situation could result in an assertion failure.  In production
+      builds, the exit would still occur, but it would log an unexpected
+      message about <quote>cannot drop active portal</>.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Remove assertion that could trigger during a fatal exit (Tom Lane)
 -->
 致命的な終了の間に駆動するかもしれないアサートを削除しました。
 (Tom Lane)
+=======
+      Remove assertion that could trigger during a fatal exit (Tom Lane)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Correctly identify columns that are of a range type or domain type over
       a composite type or domain type being searched for (Tom Lane)
@@ -154,6 +262,13 @@ COMMIT;
 
      <para>
 <!--
+=======
+      Correctly identify columns that are of a range type or domain type over
+      a composite type or domain type being searched for (Tom Lane)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       Certain <command>ALTER</> commands that change the definition of a
       composite type or domain type are supposed to fail if there are any
       stored values of that type in the database, because they lack the
@@ -161,14 +276,18 @@ COMMIT;
       these checks could miss relevant values that are wrapped inside range
       types or sub-domains, possibly allowing the database to become
       inconsistent.
+<<<<<<< HEAD
 -->
 複合型またはドメイン型の定義を変更する、ある種の<command>ALTER</>コマンドはデータベース中にその型の格納された値が1つでもあるときはエラーになるはずでした。なぜなら、そのような値を更新または検査するのに必要な基盤が欠けているためです。
 これまでは、これらの検査は範囲型またはドメイン型の内側にラップされた関連する値を見過ごすかもしれず、データベースが不整合になるのを許すおそれがありました。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Change <application>ecpg</>'s parser to allow <literal>RETURNING</>
       clauses without attached C variables (Michael Meskes)
@@ -184,11 +303,22 @@ COMMIT;
       rather than using it to define values to be returned to the client.
 -->
 これにより<literal>RETURNING</>をクライアントに返される値を定義するためではなく内部的に（例えばCTE内に）使ったSQL構文を<application>ecpg</>プログラムに含むことができます。
+=======
+      Change <application>ecpg</>'s parser to allow <literal>RETURNING</>
+      clauses without attached C variables (Michael Meskes)
+     </para>
+
+     <para>
+      This allows <application>ecpg</> programs to contain SQL constructs
+      that use <literal>RETURNING</> internally (for example, inside a CTE)
+      rather than using it to define values to be returned to the client.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Improve selection of compiler flags for PL/Perl on Windows (Tom Lane)
 -->
@@ -198,6 +328,12 @@ Windows上のPL/Perlに対するコンパイラフラグの選択を改善しま
 
      <para>
 <!--
+=======
+      Improve selection of compiler flags for PL/Perl on Windows (Tom Lane)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       This fix avoids possible crashes of PL/Perl due to inconsistent
       assumptions about the width of <type>time_t</> values.
       A side-effect that may be visible to extension developers is
@@ -205,10 +341,13 @@ Windows上のPL/Perlに対するコンパイラフラグの選択を改善しま
       in <productname>PostgreSQL</> Windows builds.  This is not expected
       to cause problems, because type <type>time_t</> is not used
       in any <productname>PostgreSQL</> API definitions.
+<<<<<<< HEAD
 -->
 本修正は<type>time_t</>値の幅についての一貫性のない仮定のために起こりうるPL/Perlのクラッシュを回避します。
 拡張の開発者に見えるかもしれない副作用は、<literal>_USE_32BIT_TIME_T</>が<productname>PostgreSQL</>のWindowsビルドではもはやグローバルに定義されないことです。
 <type>time_t</>はいかなる<productname>PostgreSQL</> API定義でも使われないため、これは問題をひき起こさないと予想されます。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
@@ -218,6 +357,7 @@ Windows上のPL/Perlに対するコンパイラフラグの選択を改善しま
  </sect1>
 
  <sect1 id="release-9-2-22">
+<<<<<<< HEAD
 <!--
   <title>Release 9.2.22</title>
 -->
@@ -228,10 +368,17 @@ Windows上のPL/Perlに対するコンパイラフラグの選択を改善しま
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release 9.2.22</title>
+
+  <formalpara>
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2017-08-10</para>
   </formalpara>
 
   <para>
+<<<<<<< HEAD
 <!--
    This release contains a variety of fixes from 9.2.21.
    For information about new features in the 9.2 major release, see
@@ -278,25 +425,61 @@ Windows上のPL/Perlに対するコンパイラフラグの選択を改善しま
     see <xref linkend="release-9-2-20">.
 -->
 また、9.2.20よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-2-20">を参照して下さい。
+=======
+   This release contains a variety of fixes from 9.2.21.
+   For information about new features in the 9.2 major release, see
+   <xref linkend="release-9-2">.
+  </para>
+
+  <para>
+   The <productname>PostgreSQL</> community will stop releasing updates
+   for the 9.2.X release series in September 2017.
+   Users are encouraged to update to a newer release branch soon.
+  </para>
+
+  <sect2>
+   <title>Migration to Version 9.2.22</title>
+
+   <para>
+    A dump/restore is not required for those running 9.2.X.
+   </para>
+
+   <para>
+    However, if you use foreign data servers that make use of user
+    passwords for authentication, see the first changelog entry below.
+   </para>
+
+   <para>
+    Also, if you are upgrading from a version earlier than 9.2.20,
+    see <xref linkend="release-9-2-20">.
+>>>>>>> REL_10_0
    </para>
 
   </sect2>
 
   <sect2>
+<<<<<<< HEAD
 <!--
    <title>Changes</title>
 -->
    <title>変更点</title>
+=======
+   <title>Changes</title>
+>>>>>>> REL_10_0
 
    <itemizedlist>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL_10_0
       Further restrict visibility
       of <structname>pg_user_mappings</>.<structfield>umoptions</>, to
       protect passwords stored as user mapping options
       (Noah Misch)
+<<<<<<< HEAD
 -->
 ユーザマッピングオプションとして格納されたパスワードを保護するため、<structname>pg_user_mappings</>.<structfield>umoptions</>の可視性をさらに限定しました。
 (Noah Misch)
@@ -304,6 +487,11 @@ Windows上のPL/Perlに対するコンパイラフラグの選択を改善しま
 
      <para>
 <!--
+=======
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       The fix for CVE-2017-7486 was incorrect: it allowed a user
       to see the options in her own user mapping, even if she did not
       have <literal>USAGE</> permission on the associated foreign server.
@@ -313,6 +501,7 @@ Windows上のPL/Perlに対するコンパイラフラグの選択を改善しま
       show the options in such cases, <structname>pg_user_mappings</>
       should not either.
       (CVE-2017-7547)
+<<<<<<< HEAD
 -->
 CVE-2017-7486に対する修正は正しくありませんでした。
 その修正では、ユーザが関連する外部サーバに対する<literal>USAGE</>権限を持っていなくとも、自身のユーザマッピングのオプションを見ることを許していました。
@@ -329,29 +518,48 @@ CVE-2017-7486に対する修正は正しくありませんでした。
 -->
 このパッチのみでは新たにinitdbされたデータベースでの動作しか修正しません。
 この変更を既存のデータベースに適用するには、以下を行う必要があります。
+=======
+     </para>
+
+     <para>
+      By itself, this patch will only fix the behavior in newly initdb'd
+      databases.  If you wish to apply this change in an existing database,
+      you will need to do the following:
+>>>>>>> REL_10_0
      </para>
 
      <procedure>
       <step>
        <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL_10_0
         Restart the postmaster after adding <literal>allow_system_table_mods
         = true</> to <filename>postgresql.conf</>.  (In versions
         supporting <command>ALTER SYSTEM</>, you can use that to make the
         configuration change, but you'll still need a restart.)
+<<<<<<< HEAD
 -->
 <literal>allow_system_table_mods = true</>を<filename>postgresql.conf</>に加えた後、postmasterを再起動します。
 （<command>ALTER SYSTEM</>に対応したバージョンでは設定変更にそれを使うことができますが、それでも再起動は必要です。）
+=======
+>>>>>>> REL_10_0
        </para>
       </step>
 
       <step>
        <para>
+<<<<<<< HEAD
 <!--
         In <emphasis>each</> database of the cluster,
         run the following commands as superuser:
 -->
 クラスタ内の<emphasis>各</>データベースでスーパーユーザとして以下のコマンドを実行します。
+=======
+        In <emphasis>each</> database of the cluster,
+        run the following commands as superuser:
+>>>>>>> REL_10_0
 <programlisting>
 SET search_path = pg_catalog;
 CREATE OR REPLACE VIEW pg_user_mappings AS
@@ -381,12 +589,16 @@ CREATE OR REPLACE VIEW pg_user_mappings AS
 
       <step>
        <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL_10_0
         Do not forget to include the <literal>template0</>
         and <literal>template1</> databases, or the vulnerability will still
         exist in databases you create later.  To fix <literal>template0</>,
         you'll need to temporarily make it accept connections.
         In <productname>PostgreSQL</> 9.5 and later, you can use
+<<<<<<< HEAD
 -->
 <literal>template0</>、<literal>template1</>データベースを含めることを忘れないでください。
 そうでないと、後に作ったデータベースに引き続き脆弱性が存在することになります。
@@ -406,6 +618,16 @@ ALTER DATABASE template0 WITH ALLOW_CONNECTIONS false;
         In prior versions, instead use
 -->
 9.5より前のバージョンにおいては代わりに以下を使います。
+=======
+<programlisting>
+ALTER DATABASE template0 WITH ALLOW_CONNECTIONS true;
+</programlisting>
+        and then after fixing <literal>template0</>, undo that with
+<programlisting>
+ALTER DATABASE template0 WITH ALLOW_CONNECTIONS false;
+</programlisting>
+        In prior versions, instead use
+>>>>>>> REL_10_0
 <programlisting>
 UPDATE pg_database SET datallowconn = true WHERE datname = 'template0';
 UPDATE pg_database SET datallowconn = false WHERE datname = 'template0';
@@ -415,11 +637,16 @@ UPDATE pg_database SET datallowconn = false WHERE datname = 'template0';
 
       <step>
        <para>
+<<<<<<< HEAD
 <!--
         Finally, remove the <literal>allow_system_table_mods</> configuration
         setting, and again restart the postmaster.
 -->
 最後に、<literal>allow_system_table_mods</>設定を除去して、再度postmasterを再起動します。
+=======
+        Finally, remove the <literal>allow_system_table_mods</> configuration
+        setting, and again restart the postmaster.
+>>>>>>> REL_10_0
        </para>
       </step>
      </procedure>
@@ -427,6 +654,7 @@ UPDATE pg_database SET datallowconn = false WHERE datname = 'template0';
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Disallow empty passwords in all password-based authentication methods
       (Heikki Linnakangas)
@@ -437,6 +665,13 @@ UPDATE pg_database SET datallowconn = false WHERE datname = 'template0';
 
      <para>
 <!--
+=======
+      Disallow empty passwords in all password-based authentication methods
+      (Heikki Linnakangas)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       <application>libpq</> ignores empty password specifications, and does
       not transmit them to the server.  So, if a user's password has been
       set to the empty string, it's impossible to log in with that password
@@ -449,6 +684,7 @@ UPDATE pg_database SET datallowconn = false WHERE datname = 'template0';
       method, <literal>md5</>, accepted empty passwords.
       Change the server to reject empty passwords in all cases.
       (CVE-2017-7546)
+<<<<<<< HEAD
 -->
 <application>libpq</>は空に指定されたパスワードを無視し、それをサーバに送りません。
 よって、ユーザのパスワードが空文字列に設定されていた場合、<application>psql</>や他の<application>libpq</>ベースのクライアントを通して、そのパスワードでログインすることはできません。
@@ -457,11 +693,14 @@ UPDATE pg_database SET datallowconn = false WHERE datname = 'template0';
 特に最も一般的な<literal>md5</>は空パスワードを受け付けていました。
 全ての場合で空パスワードを拒絶するようにサーバを変更しました。
 (CVE-2017-7546)
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       On Windows, retry process creation if we fail to reserve the address
       range for our shared memory in the new process (Tom Lane, Amit
@@ -477,32 +716,53 @@ Windowsで新しいプロセスで共有メモリに対するアドレス範囲�
       are probably due to interference from antivirus products.
 -->
 おそらくはアンチウイルス製品の干渉によりたまに起きていた子プロセスの起動失敗が、これで修正されると考えられます。
+=======
+      On Windows, retry process creation if we fail to reserve the address
+      range for our shared memory in the new process (Tom Lane, Amit
+      Kapila)
+     </para>
+
+     <para>
+      This is expected to fix infrequent child-process-launch failures that
+      are probably due to interference from antivirus products.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix low-probability corruption of shared predicate-lock hash table
       in Windows builds (Thomas Munro, Tom Lane)
 -->
 Windowsビルドにおける低い発生確率で生じる共有述語ロックハッシュテーブルの破損を修正しました。
 (Thomas Munro, Tom Lane)
+=======
+      Fix low-probability corruption of shared predicate-lock hash table
+      in Windows builds (Thomas Munro, Tom Lane)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Avoid logging clean closure of an SSL connection as though
       it were a connection reset (Michael Paquier)
 -->
 SSL接続の正常終了に対する、接続リセットであったかのようなログ出力を回避しました。
+=======
+      Avoid logging clean closure of an SSL connection as though
+      it were a connection reset (Michael Paquier)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Prevent sending SSL session tickets to clients (Tom Lane)
 -->
@@ -516,22 +776,36 @@ SSLセッションチケットをクライアントに送るのを防止しま�
       SSL code.
 -->
 この修正はチケットを認識するクライアント側SSLコードによる再接続の失敗を防ぎます。
+=======
+      Prevent sending SSL session tickets to clients (Tom Lane)
+     </para>
+
+     <para>
+      This fix prevents reconnection failures with ticket-aware client-side
+      SSL code.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix code for setting <xref linkend="guc-tcp-keepalives-idle"> on
       Solaris (Tom Lane)
 -->
 Solaris上の設定<xref linkend="guc-tcp-keepalives-idle">に対するコードを修正しました。
 (Tom Lane)
+=======
+      Fix code for setting <xref linkend="guc-tcp-keepalives-idle"> on
+      Solaris (Tom Lane)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix statistics collector to honor inquiry messages issued just after
       a postmaster shutdown and immediate restart (Tom Lane)
@@ -546,11 +820,21 @@ postmasterの停止と即座の再起動のすぐ後に発行された問い合�
       postmaster shutdown were effectively ignored.
 -->
 前のpostmaster停止から0.5秒以内に発行された統計情報の問い合わせは事実上無視されていました。
+=======
+      Fix statistics collector to honor inquiry messages issued just after
+      a postmaster shutdown and immediate restart (Tom Lane)
+     </para>
+
+     <para>
+      Statistics inquiries issued within half a second of the previous
+      postmaster shutdown were effectively ignored.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Ensure that the statistics collector's receive buffer size is at
       least 100KB (Tom Lane)
@@ -565,11 +849,21 @@ postmasterの停止と即座の再起動のすぐ後に発行された問い合�
       whose default receive buffer size is less than that.
 -->
 これはデフォルトの受信バッファサイズがこれよりも小さい古いプラットフォーム上で統計情報データを取りこぼすリスクを軽減します。
+=======
+      Ensure that the statistics collector's receive buffer size is at
+      least 100KB (Tom Lane)
+     </para>
+
+     <para>
+      This reduces the risk of dropped statistics data on older platforms
+      whose default receive buffer size is less than that.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix possible creation of an invalid WAL segment when a standby is
       promoted just after it processes an <literal>XLOG_SWITCH</> WAL
@@ -577,33 +871,49 @@ postmasterの停止と即座の再起動のすぐ後に発行された問い合�
 -->
 スタンバイが<literal>XLOG_SWITCH</> WALレコードを処理した直後に昇格したときに、不正なWALセグメントが作られる可能性があり、修正しました。
 (Andres Freund)
+=======
+      Fix possible creation of an invalid WAL segment when a standby is
+      promoted just after it processes an <literal>XLOG_SWITCH</> WAL
+      record (Andres Freund)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix <systemitem>SIGHUP</> and <systemitem>SIGUSR1</> handling in
       walsender processes (Petr Jelinek, Andres Freund)
 -->
 walsenderプロセスで<systemitem>SIGHUP</>と<systemitem>SIGUSR1</>の処理を修正しました。
 (Petr Jelinek, Andres Freund)
+=======
+      Fix <systemitem>SIGHUP</> and <systemitem>SIGUSR1</> handling in
+      walsender processes (Petr Jelinek, Andres Freund)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix unnecessarily slow restarts of <application>walreceiver</>
       processes due to race condition in postmaster (Tom Lane)
 -->
 postmasterでの競合状態による<application>walreceiver</>プロセスの不必要な遅い再起動を修正しました。
 (Tom Lane)
+=======
+      Fix unnecessarily slow restarts of <application>walreceiver</>
+      processes due to race condition in postmaster (Tom Lane)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix cases where an <command>INSERT</> or <command>UPDATE</> assigns
       to more than one element of a column that is of domain-over-array
@@ -611,11 +921,17 @@ postmasterでの競合状態による<application>walreceiver</>プロセスの�
 -->
 <command>INSERT</>または<command>UPDATE</>が、配列のドメイン型の列の複数要素に値を与える場合について修正しました。
 (Tom Lane)
+=======
+      Fix cases where an <command>INSERT</> or <command>UPDATE</> assigns
+      to more than one element of a column that is of domain-over-array
+      type (Tom Lane)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Move autogenerated array types out of the way during
       <command>ALTER ... RENAME</> (Vik Fearing)
@@ -632,22 +948,38 @@ postmasterでの競合状態による<application>walreceiver</>プロセスの�
 -->
 これまでは<command>CREATE</>のときに衝突する自動生成された配列型の名前をぶつからないように変えていました。
 本修正はこの振る舞いを名前変更操作に拡張したものです。
+=======
+      Move autogenerated array types out of the way during
+      <command>ALTER ... RENAME</> (Vik Fearing)
+     </para>
+
+     <para>
+      Previously, we would rename a conflicting autogenerated array type
+      out of the way during <command>CREATE</>; this fix extends that
+      behavior to renaming operations.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Ensure that <command>ALTER USER ... SET</> accepts all the syntax
       variants that <command>ALTER ROLE ... SET</> does (Peter Eisentraut)
 -->
 <command>ALTER USER ... SET</>が<command>ALTER ROLE ... SET</>で対応している全ての構文の異形を確実に受け入れるようにしました。
 (Peter Eisentraut)
+=======
+      Ensure that <command>ALTER USER ... SET</> accepts all the syntax
+      variants that <command>ALTER ROLE ... SET</> does (Peter Eisentraut)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Properly update dependency info when changing a datatype I/O
       function's argument or return type from <type>opaque</> to the
@@ -659,39 +991,61 @@ postmasterでの競合状態による<application>walreceiver</>プロセスの�
 
      <para>
 <!--
+=======
+      Properly update dependency info when changing a datatype I/O
+      function's argument or return type from <type>opaque</> to the
+      correct type (Heikki Linnakangas)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       <command>CREATE TYPE</> updates I/O functions declared in this
       long-obsolete style, but it forgot to record a dependency on the
       type, allowing a subsequent <command>DROP TYPE</> to leave broken
       function definitions behind.
+<<<<<<< HEAD
 -->
 <command>CREATE TYPE</>は長らく使われていない形式で宣言された入出力関数を更新しますが、型の依存を記録するのを忘れていて、続く<command>DROP TYPE</>が壊れた関数定義を残すのを可能としていました。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Reduce memory usage when <command>ANALYZE</> processes
       a <type>tsvector</> column (Heikki Linnakangas)
 -->
 <command>ANALYZE</>が<type>tsvector</>列を処理するときのメモリ使用を減らしました。
 (Heikki Linnakangas)
+=======
+      Reduce memory usage when <command>ANALYZE</> processes
+      a <type>tsvector</> column (Heikki Linnakangas)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix unnecessary precision loss and sloppy rounding when multiplying
       or dividing <type>money</> values by integers or floats (Tom Lane)
 -->
 <type>money</>値に対する整数または浮動小数点による乗算または除算のときに不必要な精度劣化といい加減な丸め計算があり、これを修正しました。
 (Tom Lane)
+=======
+      Fix unnecessary precision loss and sloppy rounding when multiplying
+      or dividing <type>money</> values by integers or floats (Tom Lane)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Tighten checks for whitespace in functions that parse identifiers,
       such as <function>regprocedurein()</> (Tom Lane)
@@ -706,11 +1060,21 @@ postmasterでの競合状態による<application>walreceiver</>プロセスの�
       misinterpret fragments of multibyte characters as whitespace.
 -->
 有力なロケールによっては、これら関数がマルチバイト文字の一部を空白と誤認するおそれがありました。
+=======
+      Tighten checks for whitespace in functions that parse identifiers,
+      such as <function>regprocedurein()</> (Tom Lane)
+     </para>
+
+     <para>
+      Depending on the prevailing locale, these functions could
+      misinterpret fragments of multibyte characters as whitespace.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Use relevant <literal>#define</> symbols from Perl while
       compiling <application>PL/Perl</> (Ashutosh Sharma, Tom Lane)
@@ -727,11 +1091,22 @@ postmasterでの競合状態による<application>walreceiver</>プロセスの�
 -->
 これにより移植性の問題を回避します。
 典型的には、最近のPerlバージョンで作業するときライブラリ読み込み中に<quote>ハンドシェイク</>不一致が示されます。
+=======
+      Use relevant <literal>#define</> symbols from Perl while
+      compiling <application>PL/Perl</> (Ashutosh Sharma, Tom Lane)
+     </para>
+
+     <para>
+      This avoids portability problems, typically manifesting as
+      a <quote>handshake</> mismatch during library load, when working with
+      recent Perl versions.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       In <application>psql</>, fix failure when <command>COPY FROM STDIN</>
       is ended with a keyboard EOF signal and then another <command>COPY
@@ -747,22 +1122,38 @@ postmasterでの競合状態による<application>walreceiver</>プロセスの�
       macOS), but not on most others.
 -->
 この誤動作はBSDから派生した(macOSを含む)プラットフォームで見られましたが、他のほとんどのプラットフォームでは見られません。
+=======
+      In <application>psql</>, fix failure when <command>COPY FROM STDIN</>
+      is ended with a keyboard EOF signal and then another <command>COPY
+      FROM STDIN</> is attempted (Thomas Munro)
+     </para>
+
+     <para>
+      This misbehavior was observed on BSD-derived platforms (including
+      macOS), but not on most others.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix <application>pg_dump</> to not emit invalid SQL for an empty
       operator class (Daniel Gustafsson)
 -->
 <application>pg_dump</>を空の演算子クラスに対して無効なSQLを出力しないように修正しました。
 (Daniel Gustafsson)
+=======
+      Fix <application>pg_dump</> to not emit invalid SQL for an empty
+      operator class (Daniel Gustafsson)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix <application>pg_dump</> output to stdout on Windows (Kuntal Ghosh)
 -->
@@ -776,11 +1167,20 @@ Windows上で<application>pg_dump</>の標準出力への出力を修正しま�
       data due to failure to put the file descriptor into binary mode.
 -->
 ファイルディスクリプタをバイナリモードに設定しそこなっていたため、標準出力に書き出された圧縮されたプレーンテキストダンプに破損したデータが含まれていました。
+=======
+      Fix <application>pg_dump</> output to stdout on Windows (Kuntal Ghosh)
+     </para>
+
+     <para>
+      A compressed plain-text dump written to stdout would contain corrupt
+      data due to failure to put the file descriptor into binary mode.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix <function>pg_get_ruledef()</> to print correct output for
       the <literal>ON SELECT</> rule of a view whose columns have been
@@ -797,11 +1197,23 @@ Windows上で<application>pg_dump</>の標準出力への出力を修正しま�
       could result in dump/reload failures.
 -->
 一部の稀な場合に<application>pg_dump</>がビューをダンプするのに<function>pg_get_ruledef()</>に依存していて、この誤りがダンプ/リストアの失敗をもたらす可能性がありました。
+=======
+      Fix <function>pg_get_ruledef()</> to print correct output for
+      the <literal>ON SELECT</> rule of a view whose columns have been
+      renamed (Tom Lane)
+     </para>
+
+     <para>
+      In some corner cases, <application>pg_dump</> relies
+      on <function>pg_get_ruledef()</> to dump views, so that this error
+      could result in dump/reload failures.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix dumping of function expressions in the <literal>FROM</> clause in
       cases where the expression does not deparse into something that looks
@@ -809,11 +1221,17 @@ Windows上で<application>pg_dump</>の標準出力への出力を修正しま�
 -->
 式が関数呼び出しに見える形に逆解析されない場合の<literal>FROM</>句内の関数式のダンプを修正しました。
 (Tom Lane)
+=======
+      Fix dumping of function expressions in the <literal>FROM</> clause in
+      cases where the expression does not deparse into something that looks
+      like a function call (Tom Lane)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix <application>pg_basebackup</> output to stdout on Windows
       (Haribabu Kommi)
@@ -829,11 +1247,21 @@ Windows上で<application>pg_basebackup</>の標準出力への出力を修正�
       to put the file descriptor into binary mode.
 -->
 ファイルディスクリプタをバイナリモードに設定しそこなっていたため、標準出力に書き出されたバックアップに破損したデータが含まれていました。
+=======
+      Fix <application>pg_basebackup</> output to stdout on Windows
+      (Haribabu Kommi)
+     </para>
+
+     <para>
+      A backup written to stdout would contain corrupt data due to failure
+      to put the file descriptor into binary mode.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix <application>pg_upgrade</> to ensure that the ending WAL record
       does not have <xref linkend="guc-wal-level"> = <literal>minimum</>
@@ -850,11 +1278,22 @@ Windows上で<application>pg_basebackup</>の標準出力への出力を修正�
       reconnecting.
 -->
 この状態はアップグレードされたスタンバイサーバの再接続を妨げるおそれがありました。
+=======
+      Fix <application>pg_upgrade</> to ensure that the ending WAL record
+      does not have <xref linkend="guc-wal-level"> = <literal>minimum</>
+      (Bruce Momjian)
+     </para>
+
+     <para>
+      This condition could prevent upgraded standby servers from
+      reconnecting.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Always use <option>-fPIC</>, not <option>-fpic</>, when building
       shared libraries with gcc (Tom Lane)
@@ -869,11 +1308,21 @@ gccで共有ライブラリをビルドするときに、<option>-fpic</>でな�
       a difference.
 -->
 一部のこの設定で違いが現れるプラットフォームで、より大きい拡張ライブラリに役立ちます。
+=======
+      Always use <option>-fPIC</>, not <option>-fpic</>, when building
+      shared libraries with gcc (Tom Lane)
+     </para>
+
+     <para>
+      This supports larger extension libraries on platforms where it makes
+      a difference.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix unescaped-braces issue in our build scripts for Microsoft MSVC,
       to avoid a warning or error from recent Perl versions (Andrew
@@ -881,22 +1330,33 @@ gccで共有ライブラリをビルドするときに、<option>-fpic</>でな�
 -->
 Perlの最近のバージョンで警告またはエラーになるのを回避するため、Microsoft MSVC用ビルドスクリプト内のエスケープされていない中括弧の問題を修正しました。
 (Andrew Dunstan)
+=======
+      Fix unescaped-braces issue in our build scripts for Microsoft MSVC,
+      to avoid a warning or error from recent Perl versions (Andrew
+      Dunstan)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       In MSVC builds, handle the case where the <application>openssl</>
       library is not within a <filename>VC</> subdirectory (Andrew Dunstan)
 -->
 MSVCビルドで<application>openssl</>ライブラリが<filename>VC</>サブディレクトリ内に無い場合を処理するようにしました。
 (Andrew Dunstan)
+=======
+      In MSVC builds, handle the case where the <application>openssl</>
+      library is not within a <filename>VC</> subdirectory (Andrew Dunstan)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       In MSVC builds, add proper include path for <application>libxml2</>
       header files (Andrew Dunstan)
@@ -911,17 +1371,31 @@ MSVCビルドで、<application>libxml2</>ヘッダファイルの適切なイ�
       installations of <application>libxml2</>.
 -->
 これは<application>libxml2</>の標準Windowsインストールで以前に在るものを移動する必要があったものを修正します。
+=======
+      In MSVC builds, add proper include path for <application>libxml2</>
+      header files (Andrew Dunstan)
+     </para>
+
+     <para>
+      This fixes a former need to move things around in standard Windows
+      installations of <application>libxml2</>.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       In MSVC builds, recognize a Tcl library that is
       named <filename>tcl86.lib</> (Noah Misch)
 -->
 MSVCビルドで、<filename>tcl86.lib</>という名前のTclライブラリを認識するようにしました。
 (Noah Misch)
+=======
+      In MSVC builds, recognize a Tcl library that is
+      named <filename>tcl86.lib</> (Noah Misch)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
@@ -931,6 +1405,7 @@ MSVCビルドで、<filename>tcl86.lib</>という名前のTclライブラリを
  </sect1>
 
  <sect1 id="release-9-2-21">
+<<<<<<< HEAD
 <!--
   <title>Release 9.2.21</title>
 -->
@@ -941,10 +1416,17 @@ MSVCビルドで、<filename>tcl86.lib</>という名前のTclライブラリを
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release 9.2.21</title>
+
+  <formalpara>
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2017-05-11</para>
   </formalpara>
 
   <para>
+<<<<<<< HEAD
 <!--
    This release contains a variety of fixes from 9.2.20.
    For information about new features in the 9.2 major release, see
@@ -991,25 +1473,61 @@ MSVCビルドで、<filename>tcl86.lib</>という名前のTclライブラリを
     see <xref linkend="release-9-2-20">.
 -->
 また、9.2.20よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-2-20">を参照して下さい。
+=======
+   This release contains a variety of fixes from 9.2.20.
+   For information about new features in the 9.2 major release, see
+   <xref linkend="release-9-2">.
+  </para>
+
+  <para>
+   The <productname>PostgreSQL</> community will stop releasing updates
+   for the 9.2.X release series in September 2017.
+   Users are encouraged to update to a newer release branch soon.
+  </para>
+
+  <sect2>
+   <title>Migration to Version 9.2.21</title>
+
+   <para>
+    A dump/restore is not required for those running 9.2.X.
+   </para>
+
+   <para>
+    However, if you use foreign data servers that make use of user
+    passwords for authentication, see the first changelog entry below.
+   </para>
+
+   <para>
+    Also, if you are upgrading from a version earlier than 9.2.20,
+    see <xref linkend="release-9-2-20">.
+>>>>>>> REL_10_0
    </para>
 
   </sect2>
 
   <sect2>
+<<<<<<< HEAD
 <!--
    <title>Changes</title>
 -->
    <title>変更点</title>
+=======
+   <title>Changes</title>
+>>>>>>> REL_10_0
 
    <itemizedlist>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL_10_0
       Restrict visibility
       of <structname>pg_user_mappings</>.<structfield>umoptions</>, to
       protect passwords stored as user mapping options
       (Michael Paquier, Feike Steenbergen)
+<<<<<<< HEAD
 -->
 ユーザマッピングオプションとして格納されたパスワードを保護するため、<structname>pg_user_mappings</>.<structfield>umoptions</>の可視性を厳格化しました。
 (Michael Paquier, Feike Steenbergen)
@@ -1017,6 +1535,11 @@ MSVCビルドで、<filename>tcl86.lib</>という名前のTclライブラリを
 
      <para>
 <!--
+=======
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       The previous coding allowed the owner of a foreign server object,
       or anyone he has granted server <literal>USAGE</> permission to,
       to see the options for all user mappings associated with that server.
@@ -1027,6 +1550,7 @@ MSVCビルドで、<filename>tcl86.lib</>という名前のTclライブラリを
       is for <literal>PUBLIC</literal> and the current user is the server
       owner, or if the current user is a superuser.
       (CVE-2017-7486)
+<<<<<<< HEAD
 -->
 これまでのコードは、外部サーバオブジェクトの所有者やサーバの<literal>USAGE</>権限を付与されているユーザに、そのサーバに関連した全てのユーザマッピングのオプションを参照することを許していました。
 これには他のユーザのパスワードがしっかり含まれているかもしれません。
@@ -1036,18 +1560,27 @@ MSVCビルドで、<filename>tcl86.lib</>という名前のTclライブラリを
 
      <para>
 <!--
+=======
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       By itself, this patch will only fix the behavior in newly initdb'd
       databases.  If you wish to apply this change in an existing database,
       follow the corrected procedure shown in the changelog entry for
       CVE-2017-7547, in <xref linkend="release-9-2-22">.
+<<<<<<< HEAD
 -->
 このパッチのみでは新たにinitdbされたデータベースでの動作しか修正しません。
 この変更を既存のデータベースに適用するには、<xref linkend="release-9-2-22">にあるCVE-2017-7547に対する変更点に示した正しい手順に従ってください。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Prevent exposure of statistical information via leaky operators
       (Peter Eisentraut)
@@ -1058,6 +1591,13 @@ MSVCビルドで、<filename>tcl86.lib</>という名前のTclライブラリを
 
      <para>
 <!--
+=======
+      Prevent exposure of statistical information via leaky operators
+      (Peter Eisentraut)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       Some selectivity estimation functions in the planner will apply
       user-defined operators to values obtained
       from <structname>pg_statistic</>, such as most common values and
@@ -1069,17 +1609,21 @@ MSVCビルドで、<filename>tcl86.lib</>という名前のTclライブラリを
       permission to read the table column whose statistics are needed.
       At least one of these criteria is satisfied in most cases in practice.
       (CVE-2017-7484)
+<<<<<<< HEAD
 -->
 プランナの一部の選択率見積関数は、ユーザ定義演算子を頻出値やヒストグラム項目のような<structname>pg_statistic</>から取得された値に適用します。
 これはテーブル権限がチェックされる前に行われるので、悪意のユーザがこの振る舞いを読み取り権限を持たないテーブル列の値を取得するために悪用するおそれがありました。
 修正するため、演算子の実装関数が漏洩防止を保証されておらず、呼び出しているユーザが統計情報を要するテーブル列の読み取り権限を持っていない場合には、デフォルトの見積で代用するようにしました。
 実際はたいていのケースでこれら基準のうち少なくとも一つを満たします。
 (CVE-2017-7484)
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix possible corruption of <quote>init forks</> of unlogged indexes
       (Robert Haas, Michael Paquier)
@@ -1096,11 +1640,22 @@ MSVCビルドで、<filename>tcl86.lib</>という名前のTclライブラリを
 -->
 これによりクラッシュと再起動の後に、ログをとらないインデックスが不正な状態になるおそれがありました。
 この問題はインデックスが削除、再構築されるまで持続するでしょう。
+=======
+      Fix possible corruption of <quote>init forks</> of unlogged indexes
+      (Robert Haas, Michael Paquier)
+     </para>
+
+     <para>
+      This could result in an unlogged index being set to an invalid state
+      after a crash and restart.  Such a problem would persist until the
+      index was dropped and rebuilt.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix incorrect reconstruction of <structname>pg_subtrans</> entries
       when a standby server replays a prepared but uncommitted two-phase
@@ -1112,17 +1667,29 @@ MSVCビルドで、<filename>tcl86.lib</>という名前のTclライブラリを
 
      <para>
 <!--
+=======
+      Fix incorrect reconstruction of <structname>pg_subtrans</> entries
+      when a standby server replays a prepared but uncommitted two-phase
+      transaction (Tom Lane)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       In most cases this turned out to have no visible ill effects, but in
       corner cases it could result in circular references
       in <structname>pg_subtrans</>, potentially causing infinite loops
       in queries that examine rows modified by the two-phase transaction.
+<<<<<<< HEAD
 -->
 大抵の場合は目に見える悪影響には至りませんが、稀な場合に<structname>pg_subtrans</>で循環参照になり、2相トランザクションで修正された行を検査する問い合わせで潜在的に無限ループをひき起こす可能性がありました。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Ensure parsing of queries in extension scripts sees the results of
       immediately-preceding DDL (Julien Rouhaud, Tom Lane)
@@ -1133,17 +1700,28 @@ MSVCビルドで、<filename>tcl86.lib</>という名前のTclライブラリを
 
      <para>
 <!--
+=======
+      Ensure parsing of queries in extension scripts sees the results of
+      immediately-preceding DDL (Julien Rouhaud, Tom Lane)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       Due to lack of a cache flush step between commands in an extension
       script file, non-utility queries might not see the effects of an
       immediately preceding catalog change, such as <command>ALTER TABLE
       ... RENAME</>.
+<<<<<<< HEAD
 -->
 拡張のスクリプトファイル内のコマンド間でキャッシュをフラッシュする手順が欠けていたため、ユーティリティ以外の問い合わせには直前の<command>ALTER TABLE ... RENAME</>のようなカタログ変更の結果が見えないかもしれませんでした。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Skip tablespace privilege checks when <command>ALTER TABLE ... ALTER
       COLUMN TYPE</> rebuilds an existing index (Noah Misch)
@@ -1154,18 +1732,29 @@ MSVCビルドで、<filename>tcl86.lib</>という名前のTclライブラリを
 
      <para>
 <!--
+=======
+      Skip tablespace privilege checks when <command>ALTER TABLE ... ALTER
+      COLUMN TYPE</> rebuilds an existing index (Noah Misch)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       The command failed if the calling user did not currently have
       <literal>CREATE</> privilege for the tablespace containing the index.
       That behavior seems unhelpful, so skip the check, allowing the
       index to be rebuilt where it is.
+<<<<<<< HEAD
 -->
 呼び出すユーザがインデックスを含むテーブルスペースに対する<literal>CREATE</>権限をそのとき持っていなかった場合、コマンドは失敗していました。
 この振る舞いは役に立たないと考えられるので、検査を省略し、ここではインデックスを再構築できるようにしました。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix <command>ALTER TABLE ... VALIDATE CONSTRAINT</> to not recurse
       to child tables when the constraint is marked <literal>NO INHERIT</>
@@ -1181,11 +1770,22 @@ MSVCビルドで、<filename>tcl86.lib</>という名前のTclライブラリを
       when no matching constraint is present in the child tables.
 -->
 この修正は一致する制約が子テーブルに無いときに望まれない<quote>constraint does not exist（制約がありません）</>エラーになるのを防ぎます。
+=======
+      Fix <command>ALTER TABLE ... VALIDATE CONSTRAINT</> to not recurse
+      to child tables when the constraint is marked <literal>NO INHERIT</>
+      (Amit Langote)
+     </para>
+
+     <para>
+      This fix prevents unwanted <quote>constraint does not exist</> failures
+      when no matching constraint is present in the child tables.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix <command>VACUUM</> to account properly for pages that could not
       be scanned due to conflicting page pins (Andrew Gierth)
@@ -1196,29 +1796,45 @@ MSVCビルドで、<filename>tcl86.lib</>という名前のTclライブラリを
 
      <para>
 <!--
+=======
+      Fix <command>VACUUM</> to account properly for pages that could not
+      be scanned due to conflicting page pins (Andrew Gierth)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       This tended to lead to underestimation of the number of tuples in
       the table.  In the worst case of a small heavily-contended
       table, <command>VACUUM</> could incorrectly report that the table
       contained no tuples, leading to very bad planning choices.
+<<<<<<< HEAD
 -->
 これはテーブルのタプル数の過小見積をもたらす傾向がありました。
 小さくて競合が激しいテーブルという最悪の場合には、<command>VACUUM</>がテーブルにはタプルが一切含まれないという不正な報告をして、非常に悪いプラン選択をもたらす可能性がありました。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Ensure that bulk-tuple-transfer loops within a hash join are
       interruptible by query cancel requests (Tom Lane, Thomas Munro)
 -->
 ハッシュ結合の中での大量タプル転送ループを問い合わせキャンセル要求により確実に割り込みできるようにしました。
 (Tom Lane, Thomas Munro)
+=======
+      Ensure that bulk-tuple-transfer loops within a hash join are
+      interruptible by query cancel requests (Tom Lane, Thomas Munro)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix <function>cursor_to_xml()</> to produce valid output
       with <replaceable>tableforest</> = false
@@ -1234,22 +1850,38 @@ MSVCビルドで、<filename>tcl86.lib</>という名前のTclライブラリを
       element.
 -->
 これまでは<literal>&lt;table&gt;</>要素の囲みを生成していませんでした。
+=======
+      Fix <function>cursor_to_xml()</> to produce valid output
+      with <replaceable>tableforest</> = false
+      (Thomas Munro, Peter Eisentraut)
+     </para>
+
+     <para>
+      Previously it failed to produce a wrapping <literal>&lt;table&gt;</>
+      element.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Improve performance of <structname>pg_timezone_names</> view
       (Tom Lane, David Rowley)
 -->
 <structname>pg_timezone_names</>ビューの性能を改善しました。
 (Tom Lane, David Rowley)
+=======
+      Improve performance of <structname>pg_timezone_names</> view
+      (Tom Lane, David Rowley)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix sloppy handling of corner-case errors from <function>lseek()</>
       and <function>close()</> (Tom Lane)
@@ -1264,11 +1896,21 @@ MSVCビルドで、<filename>tcl86.lib</>という名前のTclライブラリを
       but if they did, <filename>fd.c</> could get quite confused.
 -->
 どちらも通常ではあまり失敗しないシステムコールですが、失敗した場合には<filename>fd.c</>がかなり混乱する可能性がありました。 
+=======
+      Fix sloppy handling of corner-case errors from <function>lseek()</>
+      and <function>close()</> (Tom Lane)
+     </para>
+
+     <para>
+      Neither of these system calls are likely to fail in typical situations,
+      but if they did, <filename>fd.c</> could get quite confused.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix incorrect check for whether postmaster is running as a Windows
       service (Michael Paquier)
@@ -1283,33 +1925,53 @@ postmasterがWindowsサービスとして実行しているかどうかの誤っ
       isn't accessible, so that no logging happens at all.
 -->
 これは、アクセス不能であるときにイベントログに書き出しを試みて、そのため全くログが書かれない結果をもたらしました。 
+=======
+      Fix incorrect check for whether postmaster is running as a Windows
+      service (Michael Paquier)
+     </para>
+
+     <para>
+      This could result in attempting to write to the event log when that
+      isn't accessible, so that no logging happens at all.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix <application>ecpg</> to support <command>COMMIT PREPARED</>
       and <command>ROLLBACK PREPARED</> (Masahiko Sawada)
 -->
 <command>COMMIT PREPARED</>と<command>ROLLBACK PREPARED</>に対応するように<application>ecpg</>を修正しました。
 (Masahiko Sawada)
+=======
+      Fix <application>ecpg</> to support <command>COMMIT PREPARED</>
+      and <command>ROLLBACK PREPARED</> (Masahiko Sawada)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix a double-free error when processing dollar-quoted string literals
       in <application>ecpg</> (Michael Meskes)
 -->
 <application>ecpg</>で、$でクォートされた文字列リテラルを処理する際の二重解放エラーを修正しました。
 (Michael Meskes)
+=======
+      Fix a double-free error when processing dollar-quoted string literals
+      in <application>ecpg</> (Michael Meskes)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       In <application>pg_dump</>, fix incorrect schema and owner marking for
       comments and security labels of some types of database objects
@@ -1321,17 +1983,29 @@ postmasterがWindowsサービスとして実行しているかどうかの誤っ
 
      <para>
 <!--
+=======
+      In <application>pg_dump</>, fix incorrect schema and owner marking for
+      comments and security labels of some types of database objects
+      (Giuseppe Broccolo, Tom Lane)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       In simple cases this caused no ill effects; but for example, a
       schema-selective restore might omit comments it should include, because
       they were not marked as belonging to the schema of their associated
       object.
+<<<<<<< HEAD
 -->
 単純な使い方の場合には悪影響はありませんが、例えばスキーマを指定したリストアでは含まれるべきコメントが無視される可能性がありました。これはダンプ時にそれらが関連するオブジェクトのスキーマに属するという印付けがされなかったためです。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Avoid emitting an invalid list file in <literal>pg_restore -l</>
       when SQL object names contain newlines (Tom Lane)
@@ -1346,11 +2020,21 @@ postmasterがWindowsサービスとして実行しているかどうかの誤っ
       valid for <literal>pg_restore -L</>'s purposes.
 -->
 改行を空白で置き換えました。出力を<literal>pg_restore -L</>の用途に使えるようにするにはこれで十分です。
+=======
+      Avoid emitting an invalid list file in <literal>pg_restore -l</>
+      when SQL object names contain newlines (Tom Lane)
+     </para>
+
+     <para>
+      Replace newlines by spaces, which is sufficient to make the output
+      valid for <literal>pg_restore -L</>'s purposes.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix <application>pg_upgrade</> to transfer comments and security labels
       attached to <quote>large objects</> (blobs) (Stephen Frost)
@@ -1365,11 +2049,21 @@ postmasterがWindowsサービスとして実行しているかどうかの誤っ
       any comments or security labels attached to them were lost.
 -->
 これまで、ラージオブジェクトは新データベースに正しく移行されていましたが、それに付加されたコメントとセキュリティラベルが失われていました。 
+=======
+      Fix <application>pg_upgrade</> to transfer comments and security labels
+      attached to <quote>large objects</> (blobs) (Stephen Frost)
+     </para>
+
+     <para>
+      Previously, blobs were correctly transferred to the new database, but
+      any comments or security labels attached to them were lost.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Improve error handling
       in <filename>contrib/adminpack</>'s <function>pg_file_write()</>
@@ -1385,22 +2079,38 @@ postmasterがWindowsサービスとして実行しているかどうかの誤っ
       by <function>fclose()</>.
 -->
 特に<function>fclose()</>から報告されたエラーを検知していませんでした。
+=======
+      Improve error handling
+      in <filename>contrib/adminpack</>'s <function>pg_file_write()</>
+      function (Noah Misch)
+     </para>
+
+     <para>
+      Notably, it failed to detect errors reported
+      by <function>fclose()</>.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       In <filename>contrib/dblink</>, avoid leaking the previous unnamed
       connection when establishing a new unnamed connection (Joe Conway)
 -->
 <filename>contrib/dblink</>で新たな無名接続を確立するときに、前の無名接続がリークするのを回避しました。
 (Joe Conway)
+=======
+      In <filename>contrib/dblink</>, avoid leaking the previous unnamed
+      connection when establishing a new unnamed connection (Joe Conway)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Support OpenSSL 1.1.0 (Heikki Linnakangas, Andreas Karlsson, Tom Lane)
 -->
@@ -1414,21 +2124,34 @@ OpenSSL 1.1.0に対応しました。
       it's needed since many platforms are adopting newer OpenSSL versions.
 -->
 これはより新しいブランチで以前行なわれた作業のバックパッチです。多くのプラットフォームがOpenSSLの新しいバージョンを採用しているため、必要です。
+=======
+      Support OpenSSL 1.1.0 (Heikki Linnakangas, Andreas Karlsson, Tom Lane)
+     </para>
+
+     <para>
+      This is a back-patch of work previously done in newer branches;
+      it's needed since many platforms are adopting newer OpenSSL versions.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Support Tcl 8.6 in MSVC builds (&Aacute;lvaro Herrera)
 -->
 MSVCビルドでTcl 8.6に対応しました。
 (&Aacute;lvaro Herrera)
+=======
+      Support Tcl 8.6 in MSVC builds (&Aacute;lvaro Herrera)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Sync our copy of the timezone library with IANA release tzcode2017b
       (Tom Lane)
@@ -1442,18 +2165,30 @@ MSVCビルドでTcl 8.6に対応しました。
       This fixes a bug affecting some DST transitions in January 2038.
 -->
 これは、2038年1月の一部の夏時間遷移に影響するバグを修正します。
+=======
+      Sync our copy of the timezone library with IANA release tzcode2017b
+      (Tom Lane)
+     </para>
+
+     <para>
+      This fixes a bug affecting some DST transitions in January 2038.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL_10_0
       Update time zone data files to <application>tzdata</> release 2017b
       for DST law changes in Chile, Haiti, and Mongolia, plus historical
       corrections for Ecuador, Kazakhstan, Liberia, and Spain.
       Switch to numeric abbreviations for numerous time zones in South
       America, the Pacific and Indian oceans, and some Asian and Middle
       Eastern countries.
+<<<<<<< HEAD
 -->
 タイムゾーンデータファイルを<application>tzdata</> release 2017bに更新しました。チリ、ハイチ、モンゴルの夏時間法の変更、エクアドル、カザフスタン、リベリア、スペインの歴史的修正が含まれます。
 南米、太平洋、インド洋、および、一部アジア・中東の国々における多数のタイムゾーンを、数字による省略形に切り替えました。 
@@ -1461,6 +2196,11 @@ MSVCビルドでTcl 8.6に対応しました。
 
      <para>
 <!--
+=======
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       The IANA time zone database previously provided textual abbreviations
       for all time zones, sometimes making up abbreviations that have little
       or no currency among the local population.  They are in process of
@@ -1470,16 +2210,20 @@ MSVCビルドでTcl 8.6に対応しました。
       will continue to accept such removed abbreviations for timestamp input.
       But they will not be shown in the <structname>pg_timezone_names</>
       view nor used for output.
+<<<<<<< HEAD
 -->
 IANAタイムゾーンデータベースはこれまで全てのタイムゾーンについて文字による省略形を提供しましたが、地元の人々の間でほとんど、あるいは全く通用していない省略形をしばしば作成していました。
 IANAは英語の省略形が現実に使われている形跡がないゾーンにおいてはUTCオフセット数値を使うことを選ぶという方針に転換しようとしてるところです。
 少なくともしばらくの間、<productname>PostgreSQL</>はタイムスタンプの入力に、このような削除された省略形を引き続き受け入れます。
 しかし、それらは<structname>pg_timezone_names</>ビューには現れず、出力にも使用されなくなります。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Use correct daylight-savings rules for POSIX-style time zone names
       in MSVC builds (David Rowley)
@@ -1490,6 +2234,13 @@ MSVC ビルドにおいて、POSIX形式のタイムゾーン名に対して正�
 
      <para>
 <!--
+=======
+      Use correct daylight-savings rules for POSIX-style time zone names
+      in MSVC builds (David Rowley)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       The Microsoft MSVC build scripts neglected to install
       the <filename>posixrules</> file in the timezone directory tree.
       This resulted in the timezone code falling back to its built-in
@@ -1503,6 +2254,7 @@ MSVC ビルドにおいて、POSIX形式のタイムゾーン名に対して正�
       other zone file (see <xref linkend="datatype-timezones">).  Note that
       due to caching, you may need to restart the server to get such changes
       to take effect.
+<<<<<<< HEAD
 -->
 MicrosoftのMSVCビルドスクリプトは<filename>posixrules</>ファイルをタイムゾーンディレクトリツリーにインストールするのを怠っていました。
 この結果、POSIX形式のタイムゾーン名に対し想定される夏時間の振る舞いについて、タイムゾーンコードがビルトインの規則に退行してしまっていました。
@@ -1510,6 +2262,8 @@ MicrosoftのMSVCビルドスクリプトは<filename>posixrules</>ファイル�
 この修正にともない、POSIX形式のゾーン名は<literal>US/Eastern</>ゾーンの現在および歴史的な夏時間遷移日を使います。
 そのようにしたくない場合には、<filename>posixrules</>ファイルを削除するか、他のゾーンファイルのコピーで置き換えてください（<xref linkend="datatype-timezones">参照）。
 キャッシュ利用のため、このような変更を反映させるにはサーバの再起動が必要であることに注意してください。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
@@ -1519,6 +2273,7 @@ MicrosoftのMSVCビルドスクリプトは<filename>posixrules</>ファイル�
  </sect1>
 
  <sect1 id="release-9-2-20">
+<<<<<<< HEAD
 <!--
   <title>Release 9.2.20</title>
 -->
@@ -1529,10 +2284,17 @@ MicrosoftのMSVCビルドスクリプトは<filename>posixrules</>ファイル�
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release 9.2.20</title>
+
+  <formalpara>
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2017-02-09</para>
   </formalpara>
 
   <para>
+<<<<<<< HEAD
 <!--
    This release contains a variety of fixes from 9.2.19.
    For information about new features in the 9.2 major release, see
@@ -1570,20 +2332,48 @@ MicrosoftのMSVCビルドスクリプトは<filename>posixrules</>ファイル�
     see <xref linkend="release-9-2-11">.
 -->
 また、9.2.11よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-2-11">を参照して下さい。
+=======
+   This release contains a variety of fixes from 9.2.19.
+   For information about new features in the 9.2 major release, see
+   <xref linkend="release-9-2">.
+  </para>
+
+  <sect2>
+   <title>Migration to Version 9.2.20</title>
+
+   <para>
+    A dump/restore is not required for those running 9.2.X.
+   </para>
+
+   <para>
+    However, if your installation has been affected by the bug described in
+    the first changelog entry below, then after updating you may need
+    to take action to repair corrupted indexes.
+   </para>
+
+   <para>
+    Also, if you are upgrading from a version earlier than 9.2.11,
+    see <xref linkend="release-9-2-11">.
+>>>>>>> REL_10_0
    </para>
 
   </sect2>
 
   <sect2>
+<<<<<<< HEAD
 <!--
    <title>Changes</title>
 -->
    <title>変更点</title>
+=======
+   <title>Changes</title>
+>>>>>>> REL_10_0
 
    <itemizedlist>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix a race condition that could cause indexes built
       with <command>CREATE INDEX CONCURRENTLY</> to be corrupt
@@ -1595,6 +2385,14 @@ MicrosoftのMSVCビルドスクリプトは<filename>posixrules</>ファイル�
 
      <para>
 <!--
+=======
+      Fix a race condition that could cause indexes built
+      with <command>CREATE INDEX CONCURRENTLY</> to be corrupt
+      (Pavan Deolasee, Tom Lane)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       If <command>CREATE INDEX CONCURRENTLY</> was used to build an index
       that depends on a column not previously indexed, then rows
       updated by transactions that ran concurrently with
@@ -1602,14 +2400,18 @@ MicrosoftのMSVCビルドスクリプトは<filename>posixrules</>ファイル�
       index entries.  If you suspect this may have happened, the most
       reliable solution is to rebuild affected indexes after installing
       this update.
+<<<<<<< HEAD
 -->
 <command>CREATE INDEX CONCURRENTLY</>が前もってインデックスされていない列に依存するインデックスの作成に使われていたなら、<command>CREATE INDEX</>コマンドと同時実行するトランザクションにより更新された行が誤ったインデックスエントリを受け入れるおそれがありました。
 この現象が生じた疑いがあるなら、最も確実な対応はアップデート実施後に影響をうけたインデックスを再作成することです。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Unconditionally WAL-log creation of the <quote>init fork</> for an
       unlogged table (Michael Paquier)
@@ -1620,12 +2422,22 @@ MicrosoftのMSVCビルドスクリプトは<filename>posixrules</>ファイル�
 
      <para>
 <!--
+=======
+      Unconditionally WAL-log creation of the <quote>init fork</> for an
+      unlogged table (Michael Paquier)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       Previously, this was skipped when <xref linkend="guc-wal-level">
       = <literal>minimal</>, but actually it's necessary even in that case
       to ensure that the unlogged table is properly reset to empty after a
       crash.
+<<<<<<< HEAD
 -->
 これまで<xref linkend="guc-wal-level"> = <literal>minimal</>のときには省略されていましたが、ログをとらないテーブルがクラッシュ後に適切に空に初期化されることを保証するために、実際にはその場合でも必要でした。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
@@ -1635,6 +2447,7 @@ Author: Fujii Masao <fujii@postgresql.org>
 Branch: REL9_2_STABLE [38bec1805] 2017-01-25 07:02:25 +0900
 -->
      <para>
+<<<<<<< HEAD
 <!--
       Fix WAL page header validation when re-reading segments (Takayuki
       Tsunakawa, Amit Kapila)
@@ -1648,33 +2461,53 @@ Branch: REL9_2_STABLE [38bec1805] 2017-01-25 07:02:25 +0900
       could be reported during recovery.
 -->
 稀に、リカバリ中に誤った<quote>out-of-sequence TLI</>エラーが報告される可能性がありました。
+=======
+      Fix WAL page header validation when re-reading segments (Takayuki
+      Tsunakawa, Amit Kapila)
+     </para>
+
+     <para>
+      In corner cases, a spurious <quote>out-of-sequence TLI</> error
+      could be reported during recovery.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       If the stats collector dies during hot standby, restart it (Takayuki
       Tsunakawa)
 -->
 統計情報コレクタがホットスタンバイ動作中に落ちたときに、それを再起動するようにしました。
 (Takayuki Tsunakawa)
+=======
+      If the stats collector dies during hot standby, restart it (Takayuki
+      Tsunakawa)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Check for interrupts while hot standby is waiting for a conflicting
       query (Simon Riggs)
 -->
 ホットスタンバイが衝突する問い合わせを待機している間、割り込みを検査するようにしました。
 (Simon Riggs)
+=======
+      Check for interrupts while hot standby is waiting for a conflicting
+      query (Simon Riggs)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Avoid constantly respawning the autovacuum launcher in a corner case
       (Amit Khandekar)
@@ -1690,11 +2523,22 @@ Branch: REL9_2_STABLE [38bec1805] 2017-01-25 07:02:25 +0900
       already being processed by autovacuum workers.
 -->
 この修正は自動バキュームが名目上offでいくつか凍結を要するテーブルがあるけれども全てのそのようなテーブルは既に自動バキュームワーカにより処理中である場合の問題を回避します。
+=======
+      Avoid constantly respawning the autovacuum launcher in a corner case
+      (Amit Khandekar)
+     </para>
+
+     <para>
+      This fix avoids problems when autovacuum is nominally off and there
+      are some tables that require freezing, but all such tables are
+      already being processed by autovacuum workers.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix check for when an extension member object can be dropped (Tom Lane)
 -->
@@ -1709,11 +2553,21 @@ Branch: REL9_2_STABLE [38bec1805] 2017-01-25 07:02:25 +0900
       other cases.
 -->
 拡張のアップグレードスクリプトはメンバオブジェクトを削除できなければいけませんが、serial列のシーケンスについてできませんでした。また、他の場合でもそうなる可能性がありました。
+=======
+      Fix check for when an extension member object can be dropped (Tom Lane)
+     </para>
+
+     <para>
+      Extension upgrade scripts should be able to drop member objects,
+      but this was disallowed for serial-column sequences, and possibly
+      other cases.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Make sure <command>ALTER TABLE</> preserves index tablespace
       assignments when rebuilding indexes (Tom Lane, Michael Paquier)
@@ -1729,11 +2583,22 @@ Branch: REL9_2_STABLE [38bec1805] 2017-01-25 07:02:25 +0900
       indexes.
 -->
 これまでは<xref linkend="guc-default-tablespace">のデフォルト以外の設定によりインデックス破壊をもたらす可能性がありました。
+=======
+      Make sure <command>ALTER TABLE</> preserves index tablespace
+      assignments when rebuilding indexes (Tom Lane, Michael Paquier)
+     </para>
+
+     <para>
+      Previously, non-default settings
+      of <xref linkend="guc-default-tablespace"> could result in broken
+      indexes.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Prevent dropping a foreign-key constraint if there are pending
       trigger events for the referenced relation (Tom Lane)
@@ -1748,11 +2613,21 @@ Branch: REL9_2_STABLE [38bec1805] 2017-01-25 07:02:25 +0900
       or <quote>relation <replaceable>NNN</> has no triggers</quote> errors.
 -->
 これにより<quote>could not find trigger <replaceable>NNN</></quote>（トリガNNNが見つかりません）または<quote>relation <replaceable>NNN</> has no triggers</quote>（リレーションNNNにトリガがありません）というエラーを回避します。
+=======
+      Prevent dropping a foreign-key constraint if there are pending
+      trigger events for the referenced relation (Tom Lane)
+     </para>
+
+     <para>
+      This avoids <quote>could not find trigger <replaceable>NNN</></quote>
+      or <quote>relation <replaceable>NNN</> has no triggers</quote> errors.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix processing of OID column when a table with OIDs is associated to
       a parent with OIDs via <command>ALTER TABLE ... INHERIT</> (Amit
@@ -1769,11 +2644,23 @@ OIDを持つテーブルがOIDを持つ親テーブルと<command>ALTER TABLE ..
       inheritance changes.
 -->
 この場合、OID列は通常のユーザ列と同様に扱われるべきでしたが、そうなっておらず、後の継承の変更で奇妙な振る舞いをひき起こしていました。
+=======
+      Fix processing of OID column when a table with OIDs is associated to
+      a parent with OIDs via <command>ALTER TABLE ... INHERIT</> (Amit
+      Langote)
+     </para>
+
+     <para>
+      The OID column should be treated the same as regular user columns in
+      this case, but it wasn't, leading to odd behavior in later
+      inheritance changes.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Check for serializability conflicts before reporting
       constraint-violation failures (Thomas Munro)
@@ -1784,6 +2671,13 @@ OIDを持つテーブルがOIDを持つ親テーブルと<command>ALTER TABLE ..
 
      <para>
 <!--
+=======
+      Check for serializability conflicts before reporting
+      constraint-violation failures (Thomas Munro)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       When using serializable transaction isolation, it is desirable
       that any error due to concurrent transactions should manifest
       as a serialization failure, thereby cueing the application that
@@ -1793,15 +2687,19 @@ OIDを持つテーブルがOIDを持つ親テーブルと<command>ALTER TABLE ..
       serialization error if the application explicitly checked for
       the presence of a conflicting key (and did not find it) earlier
       in the transaction.
+<<<<<<< HEAD
 -->
 シリアライザブルトランザクション隔離を使っているとき、同時トランザクションを原因とするいかなるエラーも直列化の失敗として表明するのが望ましく、それによりアプリケーションにリトライが成功するかもしれないという手がかりを与えます。
 残念ながら、キー重複の失敗が同時挿入で引き起こされた場合には、これは確実には生じません。
 本変更は、アプリケーションがトランザクションのより早くに明示的に競合するキーの存在をチェックした（そして見つからなかった）なら、このようなエラーが直列化のエラーとして報告されることを保証します。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Ensure that column typmods are determined accurately for
       multi-row <literal>VALUES</> constructs (Tom Lane)
@@ -1817,11 +2715,22 @@ OIDを持つテーブルがOIDを持つ親テーブルと<command>ALTER TABLE ..
       later values don't share the same limit.
 -->
 これは、列の最初の値が決定可能なtypmod（例えば<type>varchar</>の長さ）を持つけれど続く値は同じ制限を共有しないときに発生する問題を修正します。
+=======
+      Ensure that column typmods are determined accurately for
+      multi-row <literal>VALUES</> constructs (Tom Lane)
+     </para>
+
+     <para>
+      This fixes problems occurring when the first value in a column has a
+      determinable typmod (e.g., length for a <type>varchar</> value) but
+      later values don't share the same limit.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Throw error for an unfinished Unicode surrogate pair at the end of a
       Unicode string (Tom Lane)
@@ -1832,18 +2741,29 @@ OIDを持つテーブルがOIDを持つ親テーブルと<command>ALTER TABLE ..
 
      <para>
 <!--
+=======
+      Throw error for an unfinished Unicode surrogate pair at the end of a
+      Unicode string (Tom Lane)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       Normally, a Unicode surrogate leading character must be followed by a
       Unicode surrogate trailing character, but the check for this was
       missed if the leading character was the last character in a Unicode
       string literal (<literal>U&amp;'...'</>) or Unicode identifier
       (<literal>U&amp;"..."</>).
+<<<<<<< HEAD
 -->
 通常、ユニコードのサロゲート先頭文字にはユニコードのサロゲート末尾文字が続かなければなりませんが、先頭文字がユニコード文字列リテラル(<literal>U&amp;'...'</>)またはユニコード識別子(<literal>U&amp;"..."</>)の最後の文字である場合に、これについての検査が見逃されていました。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Ensure that a purely negative text search query, such
       as <literal>!foo</>, matches empty <type>tsvector</>s (Tom Dunstan)
@@ -1858,53 +2778,81 @@ OIDを持つテーブルがOIDを持つ親テーブルと<command>ALTER TABLE ..
       scans or GiST index searches.
 -->
 このようなマッチはGINインデックス検索では見つかりましたが、シーケンシャルスキャンやGiSTインデックススキャンでは見つかりませんでした。
+=======
+      Ensure that a purely negative text search query, such
+      as <literal>!foo</>, matches empty <type>tsvector</>s (Tom Dunstan)
+     </para>
+
+     <para>
+      Such matches were found by GIN index searches, but not by sequential
+      scans or GiST index searches.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Prevent crash when <function>ts_rewrite()</> replaces a non-top-level
       subtree with an empty query (Artur Zakirov)
 -->
 <function>ts_rewrite()</>が非トップレベルのサブツリーを空クエリで置き換えるときのクラッシュを、防止しました。
 (Artur Zakirov)
+=======
+      Prevent crash when <function>ts_rewrite()</> replaces a non-top-level
+      subtree with an empty query (Artur Zakirov)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix performance problems in <function>ts_rewrite()</> (Tom Lane)
 -->
 <function>ts_rewrite()</>での性能問題を修正しました。
 (Tom Lane)
+=======
+      Fix performance problems in <function>ts_rewrite()</> (Tom Lane)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix <function>ts_rewrite()</>'s handling of nested NOT operators
       (Tom Lane)
 -->
 <function>ts_rewrite()</>の入れ子NOT演算子の扱いを修正しました。
 (Tom Lane)
+=======
+      Fix <function>ts_rewrite()</>'s handling of nested NOT operators
+      (Tom Lane)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix <function>array_fill()</> to handle empty arrays properly (Tom Lane)
 -->
 空配列を適切に扱うように<function>array_fill()</>を修正しました。
 (Tom Lane)
+=======
+      Fix <function>array_fill()</> to handle empty arrays properly (Tom Lane)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix one-byte buffer overrun in <function>quote_literal_cstr()</>
       (Heikki Linnakangas)
@@ -1919,11 +2867,21 @@ OIDを持つテーブルがOIDを持つ親テーブルと<command>ALTER TABLE ..
       quotes and/or backslashes.
 -->
 このオーバランは入力全体がシングルクォートおよび/またはバックスラッシュで構成される場合でのみ発生します。
+=======
+      Fix one-byte buffer overrun in <function>quote_literal_cstr()</>
+      (Heikki Linnakangas)
+     </para>
+
+     <para>
+      The overrun occurred only if the input consisted entirely of single
+      quotes and/or backslashes.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Prevent multiple calls of <function>pg_start_backup()</>
       and <function>pg_stop_backup()</> from running concurrently (Michael
@@ -1939,11 +2897,22 @@ OIDを持つテーブルがOIDを持つ親テーブルと<command>ALTER TABLE ..
       someone tries to run these functions in parallel.
 -->
 誰かがこれらの関数を並列に実行しようとしたときの、アサート失敗あるいはもっと悪い事態を回避します。
+=======
+      Prevent multiple calls of <function>pg_start_backup()</>
+      and <function>pg_stop_backup()</> from running concurrently (Michael
+      Paquier)
+     </para>
+
+     <para>
+      This avoids an assertion failure, and possibly worse things, if
+      someone tries to run these functions in parallel.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Avoid discarding <type>interval</>-to-<type>interval</> casts
       that aren't really no-ops (Tom Lane)
@@ -1954,40 +2923,61 @@ OIDを持つテーブルがOIDを持つ親テーブルと<command>ALTER TABLE ..
 
      <para>
 <!--
+=======
+      Avoid discarding <type>interval</>-to-<type>interval</> casts
+      that aren't really no-ops (Tom Lane)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       In some cases, a cast that should result in zeroing out
       low-order <type>interval</> fields was mistakenly deemed to be a
       no-op and discarded.  An example is that casting from <type>INTERVAL
       MONTH</> to <type>INTERVAL YEAR</> failed to clear the months field.
+<<<<<<< HEAD
 -->
 一部の場合に下位の<type>interval</>フィールドのゼロ埋めした結果になるべきキャストが誤って何もしない処理と認識され、捨てられていました。
 一例は<type>INTERVAL MONTH</>から<type>INTERVAL YEAR</>へのキャストが月フィールドをクリアしないことです。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix <application>pg_dump</> to dump user-defined casts and transforms
       that use built-in functions (Stephen Frost)
 -->
 組み込み関数を使うユーザ定義キャストと変換をダンプするように<application>pg_dump</>を修正しました。
 (Stephen Frost)
+=======
+      Fix <application>pg_dump</> to dump user-defined casts and transforms
+      that use built-in functions (Stephen Frost)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix possible <application>pg_basebackup</> failure on standby
       server when including WAL files (Amit Kapila, Robert Haas)
 -->
 WALファイルを含めたときスタンバイサーバで起こりうる<application>pg_basebackup</>の失敗を修正しました。
 (Amit Kapila, Robert Haas)
+=======
+      Fix possible <application>pg_basebackup</> failure on standby
+      server when including WAL files (Amit Kapila, Robert Haas)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Ensure that the Python exception objects we create for PL/Python are
       properly reference-counted (Rafa de la Torre, Tom Lane)
@@ -2002,11 +2992,21 @@ PL/Pythonむけに作成したPython例外オブジェクトが確実に適切�
       collection cycle has occurred.
 -->
 これはPythonのガーベージコレクションのサイクルが起きた後にオブジェクトが使われた場合の失敗を回避します。
+=======
+      Ensure that the Python exception objects we create for PL/Python are
+      properly reference-counted (Rafa de la Torre, Tom Lane)
+     </para>
+
+     <para>
+      This avoids failures if the objects are used after a Python garbage
+      collection cycle has occurred.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix PL/Tcl to support triggers on tables that have <literal>.tupno</>
       as a column name (Tom Lane)
@@ -2017,18 +3017,29 @@ PL/Pythonむけに作成したPython例外オブジェクトが確実に適切�
 
      <para>
 <!--
+=======
+      Fix PL/Tcl to support triggers on tables that have <literal>.tupno</>
+      as a column name (Tom Lane)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       This matches the (previously undocumented) behavior of
       PL/Tcl's <command>spi_exec</> and <command>spi_execp</> commands,
       namely that a magic <literal>.tupno</> column is inserted only if
       there isn't a real column named that.
+<<<<<<< HEAD
 -->
 これは（以前の文書化されていない）PL/Tclの<command>spi_exec</>および<command>spi_execp</>コマンドの振る舞いと調和させます。
 すなわち、<literal>.tupno</>マジック列はその名前の真の列が無い場合だけ挿入されます。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Allow DOS-style line endings in <filename>~/.pgpass</> files,
       even on Unix (Vik Fearing)
@@ -2043,33 +3054,53 @@ Unix上であってもDOS形式の改行文字が<filename>~/.pgpass</>ファイ
       Windows machines.
 -->
 この変更は同じパスワードファイルをUnixマシンとWindowsマシンとで使うのを簡単にします。
+=======
+      Allow DOS-style line endings in <filename>~/.pgpass</> files,
+      even on Unix (Vik Fearing)
+     </para>
+
+     <para>
+      This change simplifies use of the same password file across Unix and
+      Windows machines.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix one-byte buffer overrun if <application>ecpg</> is given a file
       name that ends with a dot (Takayuki Tsunakawa)
 -->
 <application>ecpg</>にドットで終わるファイル名が与えられた際の1バイトのバッファオーバランを修正しました。
 (Takayuki Tsunakawa)
+=======
+      Fix one-byte buffer overrun if <application>ecpg</> is given a file
+      name that ends with a dot (Takayuki Tsunakawa)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix <application>psql</>'s tab completion for <command>ALTER DEFAULT
       PRIVILEGES</> (Gilles Darold, Stephen Frost)
 -->
 <command>ALTER DEFAULT PRIVILEGES</>に対する<application>psql</>のタブ補完を修正しました。
 (Gilles Darold, Stephen Frost)
+=======
+      Fix <application>psql</>'s tab completion for <command>ALTER DEFAULT
+      PRIVILEGES</> (Gilles Darold, Stephen Frost)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       In <application>psql</>, treat an empty or all-blank setting of
       the <envar>PAGER</> environment variable as meaning <quote>no
@@ -2085,11 +3116,22 @@ Unix上であってもDOS形式の改行文字が<filename>~/.pgpass</>ファイ
       vanish entirely.
 -->
 これまでは、このような設定はページャにむけようとした出力を全く見えなくしていました。
+=======
+      In <application>psql</>, treat an empty or all-blank setting of
+      the <envar>PAGER</> environment variable as meaning <quote>no
+      pager</> (Tom Lane)
+     </para>
+
+     <para>
+      Previously, such a setting caused output intended for the pager to
+      vanish entirely.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Improve <filename>contrib/dblink</>'s reporting of
       low-level <application>libpq</> errors, such as out-of-memory
@@ -2097,22 +3139,33 @@ Unix上であってもDOS形式の改行文字が<filename>~/.pgpass</>ファイ
 -->
 <filename>contrib/dblink</>のメモリ不足などの低レベル<application>libpq</>エラーの報告を改善しました。
 (Joe Conway)
+=======
+      Improve <filename>contrib/dblink</>'s reporting of
+      low-level <application>libpq</> errors, such as out-of-memory
+      (Joe Conway)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       On Windows, ensure that environment variable changes are propagated
       to DLLs built with debug options (Christian Ullrich)
 -->
 Windowsで環境変数の変更がデバッグオプションを有効にしてビルドされたDLLに確実に伝播するようにしました。
 (Christian Ullrich)
+=======
+      On Windows, ensure that environment variable changes are propagated
+      to DLLs built with debug options (Christian Ullrich)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Sync our copy of the timezone library with IANA release tzcode2016j
       (Tom Lane)
@@ -2128,21 +3181,37 @@ Windowsで環境変数の変更がデバッグオプションを有効にして�
       links.
 -->
 多数の問題が修正されており、最も重要なものとしては対象ディレクトリがハードリンクをサポートしない場合はタイムゾーンデータ導入に失敗していたことがあります。
+=======
+      Sync our copy of the timezone library with IANA release tzcode2016j
+      (Tom Lane)
+     </para>
+
+     <para>
+      This fixes various issues, most notably that timezone data
+      installation failed if the target directory didn't support hard
+      links.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL_10_0
       Update time zone data files to <application>tzdata</> release 2016j
       for DST law changes in northern Cyprus (adding a new zone
       Asia/Famagusta), Russia (adding a new zone Europe/Saratov), Tonga,
       and Antarctica/Casey.
       Historical corrections for Italy, Kazakhstan, Malta, and Palestine.
       Switch to preferring numeric zone abbreviations for Tonga.
+<<<<<<< HEAD
 -->
 タイムゾーンデータを<application>tzdata</> release 2016jに更新しました。
 北キプロス（新タイムゾーン Asia/Famagusta 追加）、ロシア（新タイムゾーン Europe/Saratov 追加）、トンガ、Antarctica/Casey における夏時間法の変更と、イタリア、カザフスタン、マルタ、パレスチナにおける歴史的修正、トンガにおける数値によるゾーン略記法を選択する変更が含まれます。 
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
@@ -2152,6 +3221,7 @@ Windowsで環境変数の変更がデバッグオプションを有効にして�
  </sect1>
 
  <sect1 id="release-9-2-19">
+<<<<<<< HEAD
 <!--
   <title>Release 9.2.19</title>
 -->
@@ -2162,10 +3232,17 @@ Windowsで環境変数の変更がデバッグオプションを有効にして�
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release 9.2.19</title>
+
+  <formalpara>
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2016-10-27</para>
   </formalpara>
 
   <para>
+<<<<<<< HEAD
 <!--
    This release contains a variety of fixes from 9.2.18.
    For information about new features in the 9.2 major release, see
@@ -2194,20 +3271,42 @@ Windowsで環境変数の変更がデバッグオプションを有効にして�
     see <xref linkend="release-9-2-11">.
 -->
 また、9.2.11よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-2-11">を参照して下さい。
+=======
+   This release contains a variety of fixes from 9.2.18.
+   For information about new features in the 9.2 major release, see
+   <xref linkend="release-9-2">.
+  </para>
+
+  <sect2>
+   <title>Migration to Version 9.2.19</title>
+
+   <para>
+    A dump/restore is not required for those running 9.2.X.
+   </para>
+
+   <para>
+    However, if you are upgrading from a version earlier than 9.2.11,
+    see <xref linkend="release-9-2-11">.
+>>>>>>> REL_10_0
    </para>
 
   </sect2>
 
   <sect2>
+<<<<<<< HEAD
 <!--
    <title>Changes</title>
 -->
    <title>変更点</title>
+=======
+   <title>Changes</title>
+>>>>>>> REL_10_0
 
    <itemizedlist>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix EvalPlanQual rechecks involving CTE scans (Tom Lane)
 -->
@@ -2220,11 +3319,20 @@ CTEスキャンを伴うEvalPlanQualの再検査を修正しました。(Tom Lan
       leading to failure to update rows that were recently updated.
 -->
 再検査はCTEを行を返さないものと常にみなしており、これは典型的には最近更新された行の更新の失敗に繋がっていました。
+=======
+      Fix EvalPlanQual rechecks involving CTE scans (Tom Lane)
+     </para>
+
+     <para>
+      The recheck would always see the CTE as returning no rows, typically
+      leading to failure to update rows that were recently updated.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix improper repetition of previous results from hashed aggregation in
       a subquery (Andrew Gierth)
@@ -2234,19 +3342,30 @@ CTEスキャンを伴うEvalPlanQualの再検査を修正しました。(Tom Lan
 
      <para>
 <!--
+=======
+      Fix improper repetition of previous results from hashed aggregation in
+      a subquery (Andrew Gierth)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       The test to see if we can reuse a previously-computed hash table of
       the aggregate state values neglected the possibility of an outer query
       reference appearing in an aggregate argument expression.  A change in
       the value of such a reference should lead to recalculating the hash
       table, but did not.
+<<<<<<< HEAD
 -->
 以前に計算された集約状態値のハッシュテーブルを再利用可能か確認するテストは集約引数式に外部の問い合わせ参照が現れる可能性を無視していました。
 そのような参照の値の変化により、ハッシュテーブルが再計算されることになるはずですが、そうなっていませんでした。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix <command>EXPLAIN</> to emit valid XML when
       <xref linkend="guc-track-io-timing"> is on (Markus Winand)
@@ -2263,11 +3382,22 @@ CTEスキャンを伴うEvalPlanQualの再検査を修正しました。(Tom Lan
 -->
 これまでXML出力形式オプションは<literal>&lt;I/O-Read-Time&gt;</>のような文法的に無効なタグを生成していました。
 これは<literal>&lt;I-O-Read-Time&gt;</>となります。
+=======
+      Fix <command>EXPLAIN</> to emit valid XML when
+      <xref linkend="guc-track-io-timing"> is on (Markus Winand)
+     </para>
+
+     <para>
+      Previously the XML output-format option produced syntactically invalid
+      tags such as <literal>&lt;I/O-Read-Time&gt;</>.  That is now
+      rendered as <literal>&lt;I-O-Read-Time&gt;</>.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Suppress printing of zeroes for unmeasured times
       in <command>EXPLAIN</> (Maksim Milyutin)
@@ -2277,18 +3407,29 @@ CTEスキャンを伴うEvalPlanQualの再検査を修正しました。(Tom Lan
 
      <para>
 <!--
+=======
+      Suppress printing of zeroes for unmeasured times
+      in <command>EXPLAIN</> (Maksim Milyutin)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       Certain option combinations resulted in printing zero values for times
       that actually aren't ever measured in that combination.  Our general
       policy in <command>EXPLAIN</> is not to print such fields at all, so
       do that consistently in all cases.
+<<<<<<< HEAD
 -->
 特定のオプションの組み合わせでは、その組み合わせでは実際には決して計測されない時間に対して0を表示していました。
 <command>EXPLAIN</>での私たちの一般的な方針は、そのようなフィールドは全く表示しないことですので、すべての場合で首尾一貫してそのようにします。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix timeout length when <command>VACUUM</> is waiting for exclusive
       table lock so that it can truncate the table (Simon Riggs)
@@ -2304,11 +3445,22 @@ CTEスキャンを伴うEvalPlanQualの再検査を修正しました。(Tom Lan
 -->
 タイムアウトは50ミリ秒とされていましたが、実際にはたったの50マイクロ秒でした。そのため<command>VACUUM</>は意図したよりもずっと簡単に切り捨てを諦めていました。
 意図していた値に設定しました。
+=======
+      Fix timeout length when <command>VACUUM</> is waiting for exclusive
+      table lock so that it can truncate the table (Simon Riggs)
+     </para>
+
+     <para>
+      The timeout was meant to be 50 milliseconds, but it was actually only
+      50 microseconds, causing <command>VACUUM</> to give up on truncation
+      much more easily than intended.  Set it to the intended value.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix bugs in merging inherited <literal>CHECK</> constraints while
       creating or altering a table (Tom Lane, Amit Langote)
@@ -2319,43 +3471,65 @@ CTEスキャンを伴うEvalPlanQualの再検査を修正しました。(Tom Lan
 
      <para>
 <!--
+=======
+      Fix bugs in merging inherited <literal>CHECK</> constraints while
+      creating or altering a table (Tom Lane, Amit Langote)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       Allow identical <literal>CHECK</> constraints to be added to a parent
       and child table in either order.  Prevent merging of a valid
       constraint from the parent table with a <literal>NOT VALID</>
       constraint on the child.  Likewise, prevent merging of a <literal>NO
       INHERIT</> child constraint with an inherited constraint.
+<<<<<<< HEAD
 -->
 同一の<literal>CHECK</>制約を親テーブルと子テーブルにどの順でも加えることを可能にします。
 親テーブルからの有効な制約と子テーブルの<literal>NOT VALID</>な制約とのマージを防止します。
 そのうえ、<literal>NO INHERIT</>な子の制約と継承された制約とのマージを防止します。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Remove artificial restrictions on the values accepted
       by <function>numeric_in()</> and <function>numeric_recv()</>
 -->
 <function>numeric_in()</>と<function>numeric_recv()</>が受け付ける値に関する人為的な制限を取り除きました。
+=======
+      Remove artificial restrictions on the values accepted
+      by <function>numeric_in()</> and <function>numeric_recv()</>
+>>>>>>> REL_10_0
       (Tom Lane)
      </para>
 
      <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL_10_0
       We allow numeric values up to the limit of the storage format (more
       than <literal>1e100000</>), so it seems fairly pointless
       that <function>numeric_in()</> rejected scientific-notation exponents
       above 1000.  Likewise, it was silly for <function>numeric_recv()</> to
       reject more than 1000 digits in an input value.
+<<<<<<< HEAD
 -->
 格納書式の制限(<literal>1e100000</>以上)までの数値を許していますので、<function>numeric_in()</>が科学的表記法で1000より大きな指数を拒否するのはかなり意味のないことと思われます。
 同様に<function>numeric_recv()</>が入力値として1000桁より大きなものを拒否するのも馬鹿げたことでした。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Avoid very-low-probability data corruption due to testing tuple
       visibility without holding buffer lock (Thomas Munro, Peter Geoghegan,
@@ -2363,21 +3537,32 @@ CTEスキャンを伴うEvalPlanQualの再検査を修正しました。(Tom Lan
 -->
 バッファロックの保持なしにタプル可視性をテストすることによる、とても低い確率のデータ破損を回避しました。
 (Thomas Munro, Peter Geoghegan, Tom Lane)
+=======
+      Avoid very-low-probability data corruption due to testing tuple
+      visibility without holding buffer lock (Thomas Munro, Peter Geoghegan,
+      Tom Lane)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix file descriptor leakage when truncating a temporary relation of
       more than 1GB (Andres Freund)
 -->
 1GBよりも大きな一時リレーションを切り捨てる時のファイルディスクリプタのリークを修正しました。(Andres Freund)
+=======
+      Fix file descriptor leakage when truncating a temporary relation of
+      more than 1GB (Andres Freund)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Disallow starting a standalone backend with <literal>standby_mode</>
       turned on (Michael Paquier)
@@ -2392,11 +3577,22 @@ CTEスキャンを伴うEvalPlanQualの再検査を修正しました。(Tom Lan
       in code that wasn't designed with this situation in mind.
 -->
 WALデータを取得して処理するWALレシーバがありませんので、これは全く有用ではありません。この状況を考慮して設計されていないコードで誤った動作をする可能性がありました。
+=======
+      Disallow starting a standalone backend with <literal>standby_mode</>
+      turned on (Michael Paquier)
+     </para>
+
+     <para>
+      This can't do anything useful, since there will be no WAL receiver
+      process to fetch more WAL data; and it could result in misbehavior
+      in code that wasn't designed with this situation in mind.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Don't try to share SSL contexts across multiple connections
       in <application>libpq</> (Heikki Linnakangas)
@@ -2411,11 +3607,21 @@ WALデータを取得して処理するWALレシーバがありませんので�
       different SSL parameters for different connections.
 -->
 特に異なる接続に異なるSSLパラメータを使おうとするとき、これは稀な場合で起きる様々なバグをもたらしました。
+=======
+      Don't try to share SSL contexts across multiple connections
+      in <application>libpq</> (Heikki Linnakangas)
+     </para>
+
+     <para>
+      This led to assorted corner-case bugs, particularly when trying to use
+      different SSL parameters for different connections.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Avoid corner-case memory leak in <application>libpq</> (Tom Lane)
 -->
@@ -2429,61 +3635,95 @@ WALデータを取得して処理するWALレシーバがありませんので�
       during <function>PQreset()</>, but there might be related cases.
 -->
 報告された問題は<function>PQreset()</>でエラー報告がメモリリークするものですが、関連したケースがいくつかあると思われます。
+=======
+      Avoid corner-case memory leak in <application>libpq</> (Tom Lane)
+     </para>
+
+     <para>
+      The reported problem involved leaking an error report
+      during <function>PQreset()</>, but there might be related cases.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Make <application>ecpg</>'s <option>&#045;-help</> and <option>&#045;-version</>
       options work consistently with our other executables (Haribabu Kommi)
 -->
 <application>ecpg</>の<option>--help</>と<option>--version</>オプションが他の実行ファイルと首尾一貫して動作するようにしました(Haribabu Kommi)
+=======
+      Make <application>ecpg</>'s <option>--help</> and <option>--version</>
+      options work consistently with our other executables (Haribabu Kommi)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       In <application>pg_dump</>, never dump range constructor functions
 -->
 <application>pg_dump</>では、範囲コンストラクタ関数を決してダンプしません。
+=======
+      In <application>pg_dump</>, never dump range constructor functions
+>>>>>>> REL_10_0
       (Tom Lane)
      </para>
 
      <para>
+<<<<<<< HEAD
 <!--
       This oversight led to <application>pg_upgrade</> failures with
       extensions containing range types, due to duplicate creation of the
       constructor functions.
 -->
 この見過ごしにより、<application>pg_upgrade</>はコンストラクタ関数を重複して生成していたため範囲型を含む拡張で失敗していました。
+=======
+      This oversight led to <application>pg_upgrade</> failures with
+      extensions containing range types, due to duplicate creation of the
+      constructor functions.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix <filename>contrib/intarray/bench/bench.pl</> to print the results
       of the <command>EXPLAIN</> it does when given the <option>-e</> option
 -->
 <option>-e</>オプションが指定された場合に<filename>contrib/intarray/bench/bench.pl</>が<command>EXPLAIN</>の結果を表示するよう修正しました。
+=======
+      Fix <filename>contrib/intarray/bench/bench.pl</> to print the results
+      of the <command>EXPLAIN</> it does when given the <option>-e</> option
+>>>>>>> REL_10_0
       (Daniel Gustafsson)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Update Windows time zone mapping to recognize some time zone names
       added in recent Windows versions (Michael Paquier)
 -->
 最近のWindowsのバージョンで追加されたタイムゾーン名を認識するようWindowsのタイムゾーンのマッピングを更新しました。(Michael Paquier)
+=======
+      Update Windows time zone mapping to recognize some time zone names
+      added in recent Windows versions (Michael Paquier)
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Prevent failure of obsolete dynamic time zone abbreviations (Tom Lane)
 -->
@@ -2492,6 +3732,12 @@ WALデータを取得して処理するWALレシーバがありませんので�
 
      <para>
 <!--
+=======
+      Prevent failure of obsolete dynamic time zone abbreviations (Tom Lane)
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       If a dynamic time zone abbreviation does not match any entry in the
       referenced time zone, treat it as equivalent to the time zone name.
       This avoids unexpected failures when IANA removes abbreviations from
@@ -2500,21 +3746,28 @@ WALデータを取得して処理するWALレシーバがありませんので�
       consequences were not limited to not recognizing the individual
       abbreviation; any mismatch caused
       the <structname>pg_timezone_abbrevs</> view to fail altogether.
+<<<<<<< HEAD
 -->
 参照されるタイムゾーンに動的タイムゾーン省略形が一致するものがない場合に、タイムゾーン名と同じであると扱います。
 これは、IANAがタイムゾーンデータベースから省略形を削除した場合に発生する予期せぬ失敗を回避します。削除は<application>tzdata</> release 2016fで行なわれましたし、また、将来再び行なわれる可能性が高いです。
 結果は個々の省略形の分別だけに限定されません。ミスマッチにより<structname>pg_timezone_abbrevs</>ビューが完全に失敗します。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL_10_0
       Update time zone data files to <application>tzdata</> release 2016h
       for DST law changes in Palestine and Turkey, plus historical
       corrections for Turkey and some regions of Russia.
       Switch to numeric abbreviations for some time zones in Antarctica,
       the former Soviet Union, and Sri Lanka.
+<<<<<<< HEAD
 -->
 タイムゾーンデータファイルを<application>tzdata</> release 2016hに更新しました。
 パレスチナとトルコの夏時間法の変更、トルコとロシアのいくつかの地域の歴史的修正が含まれます。
@@ -2523,6 +3776,11 @@ WALデータを取得して処理するWALレシーバがありませんので�
 
      <para>
 <!--
+=======
+     </para>
+
+     <para>
+>>>>>>> REL_10_0
       The IANA time zone database previously provided textual abbreviations
       for all time zones, sometimes making up abbreviations that have little
       or no currency among the local population.  They are in process of
@@ -2532,6 +3790,7 @@ WALデータを取得して処理するWALレシーバがありませんので�
       will continue to accept such removed abbreviations for timestamp input.
       But they will not be shown in the <structname>pg_timezone_names</>
       view nor used for output.
+<<<<<<< HEAD
 -->
 IANAタイムゾーンデータベースはこれまで全てのタイムゾーンについて文字による省略形を提供しましたが、地元の人々の間でほとんど、あるいは全く通用していない省略形をしばしば作成していました。
 IANAは英語の省略形が現実に使われている形跡がないゾーンにおいてはUTCオフセット数値を使うことを選ぶという方針に転換しようとしてるところです。
@@ -2547,6 +3806,14 @@ IANAは英語の省略形が現実に使われている形跡がないゾーン�
 -->
 本更新では<literal>AMT</>はもはやアルメニア時間の意味で使われるものとしては現れません。
 それゆえに、これをアマゾン時間すなわちUTC+4ではなくUTC-4と解釈するように<literal>Default</>省略形セットを変更しました。
+=======
+     </para>
+
+     <para>
+      In this update, <literal>AMT</> is no longer shown as being in use to
+      mean Armenia Time.  Therefore, we have changed the <literal>Default</>
+      abbreviation set to interpret it as Amazon Time, thus UTC-4 not UTC+4.
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
@@ -2562,10 +3829,14 @@ IANAは英語の省略形が現実に使われている形跡がないゾーン�
   <title>リリース9.2.18</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2016-08-11</para>
   </formalpara>
 
@@ -3093,10 +4364,14 @@ AIXの共有ライブラリをビルドするMakefileのルールをパラレル
   <title>リリース9.2.17</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2016-05-12</para>
   </formalpara>
 
@@ -3396,10 +4671,14 @@ Windowsの<function>FormatMessage()</>関数の安全でない可能性のある
   <title>リリース9.2.16</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2016-03-31</para>
   </formalpara>
 
@@ -3535,8 +4814,11 @@ Windowsの<function>FormatMessage()</>関数の安全でない可能性のある
 <!--
       This dodges a portability problem on FreeBSD-derived platforms
       (including macOS).
+<<<<<<< HEAD
 -->
 これにより（macOSを含む）FreeBSD派生のプラットフォームにおける移植性の問題を回避します。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
@@ -3714,10 +4996,14 @@ Perl本体からもはや提供されなくなったため、MSVCビルドで<li
   <title>リリース9.2.15</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2016-02-11</para>
   </formalpara>
 
@@ -4560,10 +5846,14 @@ MSVCビルドにてインストールされるヘッダファイル群に<filena
   <title>リリース9.2.14</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2015-10-08</para>
   </formalpara>
 
@@ -5487,10 +6777,14 @@ Windowsの<filename>install.bat</>スクリプトが空白文字を含む対象�
   <title>リリース9.2.13</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2015-06-12</para>
   </formalpara>
 
@@ -5593,10 +6887,14 @@ Windowsの<filename>install.bat</>スクリプトが空白文字を含む対象�
 <title>リリース9.2.12</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
   <title>Release date:</title>
 -->
 <title>リリース9.2.12</title>
+=======
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2015-06-04</para>
   </formalpara>
 
@@ -5740,10 +7038,14 @@ Windowsの<filename>install.bat</>スクリプトが空白文字を含む対象�
   <title>リリース9.2.11</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2015-05-22</para>
   </formalpara>
 
@@ -6637,10 +7939,14 @@ Sparc V8 マシンでのコンパイル失敗を修正しました。
   <title>リリース9.2.10</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2015-02-05</para>
   </formalpara>
 
@@ -7492,7 +8798,10 @@ LOGレベルに下げ、また、言い回しに幾分の努力を払い、<quot
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
+=======
+>>>>>>> REL_10_0
       Warn if macOS's <function>setlocale()</> starts an unwanted extra
       thread inside the postmaster (Noah Misch)
 -->
@@ -8047,10 +9356,14 @@ SRET(アジア/スレドネコリムスク)、XJT(アジア/ウルムチ)、西�
   <title>リリース9.2.9</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2014-07-24</para>
   </formalpara>
 
@@ -8568,10 +9881,14 @@ Windowsで<application>initdb</>や<application>pg_upgrade</>がエラーにな�
 
     <listitem>
      <para>
+<<<<<<< HEAD
 <!--
       Fix linking of <application>libpython</> on macOS (Tom Lane)
 -->
 macOSで<application>libpython</>のリンクを修正しました。(Tom Lane)
+=======
+      Fix linking of <application>libpython</> on macOS (Tom Lane)
+>>>>>>> REL_10_0
      </para>
 
      <para>
@@ -8763,10 +10080,14 @@ macOSで<application>libpython</>のリンクを修正しました。(Tom Lane)
   <title>リリース9.2.8</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2014-03-20</para>
   </formalpara>
 
@@ -8865,8 +10186,11 @@ GINメタページのアクティブな部分は標準的なディスクセク�
 <!--
       This prevents scenarios wherein a pathological regular expression
       could lock up a server process uninterruptibly for a long time.
+<<<<<<< HEAD
 -->
 おかしな正規表現によって長時間、中断不可なサーバプロセスでロックされてしまうシナリオを防ぎます。
+=======
+>>>>>>> REL_10_0
      </para>
     </listitem>
 
@@ -9046,10 +10370,14 @@ GINメタページのアクティブな部分は標準的なディスクセク�
   <title>リリース9.2.7</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2014-02-20</para>
   </formalpara>
 
@@ -9953,10 +11281,14 @@ Cygwin環境で廃止予定の<literal>dllwrap</>ツールの使用を止めま�
   <title>リリース9.2.6</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2013-12-05</para>
   </formalpara>
 
@@ -10460,10 +11792,14 @@ Windowsエラーコード変換のログ取得時に発生する可能性があ�
   <title>リリース9.2.5</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2013-10-10</para>
   </formalpara>
 
@@ -11079,10 +12415,14 @@ ARM64でスピンロックをサポートしました。(Mark Salter)
   <title>リリース9.2.4</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2013-04-04</para>
   </formalpara>
 
@@ -11684,10 +13024,14 @@ Microsoft Visual Studio 2012で<productname>PostgreSQL</>をビルドできる�
   <title>リリース9.2.3</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2013-02-07</para>
   </formalpara>
 
@@ -12357,10 +13701,14 @@ Windows用にクロスコンパイルしたときに、<application>pgxs</>が�
   <title>リリース9.2.2</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2012-12-06</para>
   </formalpara>
 
@@ -13439,10 +14787,14 @@ AIX上でのロード可能モジュールのビルドについて<application>p
   <title>リリース9.2.1</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
   <title>Release date:</title>
 -->
   <title>リリース日:</title>
+=======
+  <title>Release date:</title>
+>>>>>>> REL_10_0
   <para>2012-09-24</para>
   </formalpara>
 
@@ -13693,10 +15045,14 @@ PL/Perlで正しく最適化されない場合があるのを回避しました�
   <title>リリース9.2</title>
 
   <formalpara>
+<<<<<<< HEAD
 <!--
    <title>Release date:</title>
 -->
    <title>リリース日:</title>
+=======
+   <title>Release date:</title>
+>>>>>>> REL_10_0
    <para>2012-09-10</para>
   </formalpara>
 
@@ -13777,7 +15133,7 @@ PL/Perlで正しく最適化されない場合があるのを回避しました�
        <para>
 <!--
         Add a <link
-        linkend="app-pgreceivexlog"><application>pg_receivexlog</></link>
+        linkend="app-pgreceivewal"><application>pg_receivexlog</></link>
         tool to archive WAL file changes as they are written
 -->
 WALファイルが書き込まれた時に、その更新をアーカイブするツール<link linkend="app-pgreceivexlog"><application>pg_receivexlog</></link>を追加しました。
@@ -15458,7 +16814,7 @@ Windowsで<filename>postgresql.conf</filename>の行番号が報告されるよ�
        <para>
 <!--
         Add a <link
-        linkend="app-pgreceivexlog"><application>pg_receivexlog</></link>
+        linkend="app-pgreceivewal"><application>pg_receivexlog</></link>
         tool to archive WAL file changes as they are written, rather
         than waiting for completed WAL files (Magnus Hagander)
 -->

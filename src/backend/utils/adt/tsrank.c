@@ -3,7 +3,7 @@
  * tsrank.c
  *		rank tsvector by tsquery
  *
- * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
  *
  *
  * IDENTIFICATION
@@ -18,6 +18,7 @@
 
 #include "tsearch/ts_utils.h"
 #include "utils/array.h"
+#include "utils/builtins.h"
 #include "miscadmin.h"
 
 
@@ -907,9 +908,15 @@ calc_rank_cd(const float4 *arrdata, TSVector txt, TSQuery query, int method)
 		Wdoc += Cpos / ((double) (1 + nNoise));
 
 		CurExtPos = ((double) (ext.q + ext.p)) / 2.0;
+<<<<<<< HEAD
 		if (NExtent > 0 && CurExtPos > PrevExtPos		/* prevent division by
 														 * zero in a case of
 				multiple lexize */ )
+=======
+		if (NExtent > 0 && CurExtPos > PrevExtPos	/* prevent division by
+													 * zero in a case of
+			  * multiple lexize */ )
+>>>>>>> REL_10_0
 			SumDist += 1.0 / (CurExtPos - PrevExtPos);
 
 		PrevExtPos = CurExtPos;
