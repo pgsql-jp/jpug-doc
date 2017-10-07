@@ -55,6 +55,10 @@ ifndef XSLTPROC
 XSLTPROC = $(missing) xsltproc
 endif
 
+ifndef FOPCONF
+FOPCONF = fop.xconf
+endif
+
 override XSLTPROCFLAGS += --stringparam pg.version '$(VERSION)'
 
 
@@ -99,13 +103,13 @@ version.sgml: $(top_srcdir)/configure
 	  echo "<!ENTITY majorversion \"$(MAJORVERSION)\">"; \
 	} > $@
 
-features-supported.sgml: $(top_srcdir)/src/backend/catalog/sql_feature_packages.txt $(top_srcdir)/src/backend/catalog/sql_features.txt
+features-supported.sgml: $(top_srcdir)/src/backend/catalog/sql_feature_packages.txt.ja $(top_srcdir)/src/backend/catalog/sql_features.txt.ja
 	$(PERL) $(srcdir)/mk_feature_tables.pl YES $^ > $@
 
-features-unsupported.sgml: $(top_srcdir)/src/backend/catalog/sql_feature_packages.txt $(top_srcdir)/src/backend/catalog/sql_features.txt
+features-unsupported.sgml: $(top_srcdir)/src/backend/catalog/sql_feature_packages.txt.ja $(top_srcdir)/src/backend/catalog/sql_features.txt.ja
 	$(PERL) $(srcdir)/mk_feature_tables.pl NO $^ > $@
 
-errcodes-table.sgml: $(top_srcdir)/src/backend/utils/errcodes.txt generate-errcodes-table.pl
+errcodes-table.sgml: $(top_srcdir)/src/backend/utils/errcodes.txt.ja generate-errcodes-table.pl
 	$(PERL) $(srcdir)/generate-errcodes-table.pl $< > $@
 
 
@@ -125,13 +129,14 @@ LYNX = lynx
 # locale support and is very picky about locale name spelling.  The
 # below has been finely tuned to run on FreeBSD and Linux/glibc.
 INSTALL: % : %.html
-	$(PERL) -p -e 's,<h(1|2) class="title",<h\1 align=center,g' $< | LC_ALL=en_US.ISO8859-1 $(LYNX) -force_html -dump -nolist -stdin | $(ICONV) -f latin1 -t us-ascii//TRANSLIT > $@
+	$(PERL) -p -e 's,<h(1|2) class="title",<h\1 align=center,g' $< | LC_ALL=ja_JP.UTF-8 $(LYNX) -force_html -dump -nolist -stdin > $@
 
 INSTALL.html: %.html : stylesheet-text.xsl %.xml
 	$(XMLLINT) --noout --valid $*.xml
 	$(XSLTPROC) $(XSLTPROCFLAGS) $(XSLTPROC_HTML_FLAGS) $^ >$@
 
 INSTALL.xml: standalone-install.sgml installation.sgml version.sgml
+	SP_CHARSET_FIXED=1 SP_ENCODING=UTF-8 \
 	$(OSX) $(SPFLAGS) $(SGMLINCLUDE) -x lower $(filter-out version.sgml,$^) >$@.tmp
 	$(call mangle-xml,chapter)
 
@@ -144,7 +149,8 @@ INSTALL.xml: standalone-install.sgml installation.sgml version.sgml
 # if we try to do "make all" in a VPATH build without the explicit
 # $(srcdir) on the postgres.sgml dependency in this rule.  GNU make bug?
 postgres.xml: $(srcdir)/postgres.sgml $(ALLSGML)
-	$(OSX) $(SPFLAGS) $(SGMLINCLUDE) -x lower $< >$@.tmp
+	SP_CHARSET_FIXED=1 SP_ENCODING=UTF-8 \
+	$(OSX) $(SPFLAGS) $(SGMLINCLUDE) -x comment -x lower $< >$@.tmp
 	$(call mangle-xml,book)
 
 define mangle-xml
@@ -161,6 +167,10 @@ endef
 
 ifeq ($(STYLE),website)
 XSLTPROC_HTML_FLAGS += --param website.stylesheet 1
+endif
+
+ifdef ORIGINAL
+XSLTPROC_HTML_FLAGS += --param html.original 1
 endif
 
 html: html-stamp
@@ -201,7 +211,7 @@ postgres.pdf:
 	$(XSLTPROC) $(XSLTPROCFLAGS) --stringparam paper.type USletter -o $@ $^
 
 %.pdf: %.fo
-	$(FOP) -fo $< -pdf $@
+	$(FOP) -c $(FOPCONF) -fo $< -pdf $@
 
 
 ##
@@ -238,6 +248,7 @@ MAKEINFO = makeinfo
 
 # Quick syntax check without style processing
 check: postgres.sgml $(ALLSGML) check-tabs
+	SP_CHARSET_FIXED=1 SP_ENCODING=UTF-8 \
 	$(NSGMLS) $(SPFLAGS) $(SGMLINCLUDE) -s $<
 
 
