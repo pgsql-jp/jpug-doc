@@ -193,7 +193,6 @@
   <xsl:apply-templates mode="no.anchor.mode"/>
 </xsl:template>
 
-<<<<<<< HEAD
 <!-- include refsects in PDF bookmarks
      (https://github.com/docbook/xslt10-stylesheets/issues/46) -->
 
@@ -216,44 +215,6 @@
     </fo:bookmark-title>
     <xsl:apply-templates select="*" mode="bookmark"/>
   </fo:bookmark>
-=======
-<xsl:template match="text()">
-<xsl:choose>
-  <xsl:when test="ancestor::table">
-    <xsl:call-template name="intersperse-with-zero-spaces">
-      <xsl:with-param name="str" select="translate(., '&#x2014;', '&#x2015;')"/>
-    </xsl:call-template>
-  </xsl:when>
-  <xsl:otherwise>
-    <xsl:value-of select="translate(., '&#x2014;', '&#x2015;')"/>
-  </xsl:otherwise>
-</xsl:choose>
-</xsl:template>
-
-<!-- Actual intercalation: recursive -->
-<xsl:template name="intersperse-with-zero-spaces">
-  <xsl:param name="str"/>
-  <xsl:variable name="spacechars">
-        &#x9;&#xA;
-        &#x2000;&#x2001;&#x2002;&#x2003;&#x2004;&#x2005;
-        &#x2006;&#x2007;&#x2008;&#x2009;&#x200A;&#x200B;
-  </xsl:variable>
-  <xsl:if test="string-length($str) > 0">
-    <xsl:variable name="c1"
-                  select="substring($str, 1, 1)"/>
-    <xsl:variable name="c2"
-                  select="substring($str, 2, 1)"/>
-    <xsl:value-of select="$c1"/>
-    <xsl:if test="$c2 != '' and
-                  not(contains($spacechars, $c1) or
-                  contains($spacechars, $c2))">
-      <xsl:text>​</xsl:text>
-    </xsl:if>
-    <xsl:call-template name="intersperse-with-zero-spaces">
-      <xsl:with-param name="str" select="substring($str, 2)"/>
-    </xsl:call-template>
-  </xsl:if>
->>>>>>> doc_ja_9_6
 </xsl:template>
 
 <xsl:template match="text()">

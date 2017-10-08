@@ -1,4 +1,8 @@
 <?xml version='1.0'?>
+<!DOCTYPE xsl:stylesheet [
+<!ENTITY % common.entities SYSTEM "http://docbook.sourceforge.net/release/xsl/current/common/entities.ent">
+%common.entities;
+]>
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
                 version='1.0'
                 xmlns="http://www.w3.org/TR/xhtml1/transitional"
@@ -16,6 +20,7 @@
 <xsl:param name="generate.legalnotice.link" select="1"></xsl:param>
 <xsl:param name="chunk.first.sections" select="1"/>
 <xsl:param name="chunk.quietly" select="1"></xsl:param>
+<xsl:param name="generate.section.toc.level">1</xsl:param>
 <xsl:param name="admon.style"></xsl:param>  <!-- handled by CSS stylesheet -->
 
 <xsl:param name="website.stylesheet" select="0"/>
@@ -27,6 +32,7 @@
   </xsl:choose>
 </xsl:param>
 
+<xsl:include href="stylesheet-custom.xsl" />
 
 <!--
 Customization of header
@@ -162,6 +168,30 @@ Customization of header
         <hr/>
       </xsl:if>
     </div>
+  </xsl:if>
+</xsl:template>
+
+<!-- pgsql-docs -->
+<xsl:template match="indexterm" mode="index-div-quicklinks">
+  <xsl:param name="scope" select="."/>
+  <xsl:param name="role" select="''"/>
+  <xsl:param name="type" select="''"/>
+
+  <xsl:variable name="key"
+                select="translate(substring(&primary;, 1, 1),
+                        &lowercase;,&uppercase;)"/>
+
+  <xsl:if test="key('letter', $key)[&scope;]
+                [count(.|key('primary', &primary;)[&scope;][1]) = 1]">
+    <xsl:if test="contains(concat(&lowercase;, &uppercase;), $key)">
+      |
+      <a>
+        <xsl:attribute name="href">
+          <xsl:value-of select="concat('#indexdiv-', $key)"/>
+        </xsl:attribute>
+        <xsl:value-of select="translate($key, &lowercase;, &uppercase;)"/>
+      </a>
+    </xsl:if>
   </xsl:if>
 </xsl:template>
 
