@@ -85,18 +85,44 @@
 このビュー定義は<application>initdb</>で導入されるため、アップグレードするだけでは問題は修正されません。
 既存のインストレーションで修正する必要がある場合、スーパーユーザーとして<application>psql</>で以下を実行してください。
 <programlisting>
-BEGIN;
-DROP SCHEMA information_schema CASCADE;
-\i <replaceable>SHAREDIR</>/information_schema.sql
-COMMIT;
+SET search_path TO information_schema;
+CREATE OR REPLACE VIEW table_privileges AS
+    SELECT CAST(u_grantor.rolname AS sql_identifier) AS grantor,
+           CAST(grantee.rolname AS sql_identifier) AS grantee,
+           CAST(current_database() AS sql_identifier) AS table_catalog,
+           CAST(nc.nspname AS sql_identifier) AS table_schema,
+           CAST(c.relname AS sql_identifier) AS table_name,
+           CAST(c.prtype AS character_data) AS privilege_type,
+           CAST(
+             CASE WHEN
+                  -- object owner always has grant options
+                  pg_has_role(grantee.oid, c.relowner, 'USAGE')
+                  OR c.grantable
+                  THEN 'YES' ELSE 'NO' END AS yes_or_no) AS is_grantable,
+           CAST(CASE WHEN c.prtype = 'SELECT' THEN 'YES' ELSE 'NO' END AS yes_or_no) AS with_hierarchy
+
+    FROM (
+            SELECT oid, relname, relnamespace, relkind, relowner, (aclexplode(coalesce(relacl, acldefault('r', relowner)))).* FROM pg_class
+         ) AS c (oid, relname, relnamespace, relkind, relowner, grantor, grantee, prtype, grantable),
+         pg_namespace nc,
+         pg_authid u_grantor,
+         (
+           SELECT oid, rolname FROM pg_authid
+           UNION ALL
+           SELECT 0::oid, 'PUBLIC'
+         ) AS grantee (oid, rolname)
+
+    WHERE c.relnamespace = nc.oid
+          AND c.relkind IN ('r', 'v', 'f')
+          AND c.grantee = grantee.oid
+          AND c.grantor = u_grantor.oid
+          AND c.prtype IN ('INSERT', 'SELECT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER')
+          AND (pg_has_role(u_grantor.oid, 'USAGE')
+               OR pg_has_role(grantee.oid, 'USAGE')
+               OR grantee.rolname = 'PUBLIC');
 </programlisting>
-<!--
-      (Run <literal>pg_config -&#045;sharedir</> if you're uncertain
-      where <replaceable>SHAREDIR</> is.)  This must be repeated in each
-      database to be fixed.
--->
-（<replaceable>SHAREDIR</>がどこににあるか確証がもてない場合、<literal>pg_config --sharedir</>を実行してください。）
-これは修正すべき各データベースで繰り返さなくてはなりません。
+      This must be repeated in each database to be fixed,
+      including <literal>template0</>.
      </para>
     </listitem>
 
@@ -16013,7 +16039,7 @@ postmasterが複数のUnixドメインソケットを監視できるようにし
         to run on computers with different architectures (Heikki
         Linnakangas)
 -->
-<link linkend="app-pgreceivexlog"><application>pg_receivexlog</></link>のようなツールが異なるアーキテクチャのコンピュータで実行できるようにしました。(Heikki Linnakangas)
+<link linkend="app-pgreceivewal"><application>pg_receivexlog</></link>のようなツールが異なるアーキテクチャのコンピュータで実行できるようにしました。(Heikki Linnakangas)
        </para>
 
        <para>
@@ -16057,7 +16083,7 @@ postmasterが複数のUnixドメインソケットを監視できるようにし
         <option>&#45;-xlog-method</> to handle streaming timeline switches
         (Heikki Linnakangas)
 -->
-<link linkend="app-pgreceivexlog"><application>pg_receivexlog</></link>と<link linkend="app-pgbasebackup"><application>pg_basebackup</></link><option>--xlog-method</>が、タイムラインの切替を扱えるようになりました。(Heikki Linnakangas)
+<link linkend="app-pgreceivewal"><application>pg_receivexlog</></link>と<link linkend="app-pgbasebackup"><application>pg_basebackup</></link><option>--xlog-method</>が、タイムラインの切替を扱えるようになりました。(Heikki Linnakangas)
        </para>
       </listitem>
 
@@ -16888,7 +16914,7 @@ PL/PythonにOIDを適切なPythonのnumeric型に変換させるようにしま�
         linkend="app-pgreceivewal"><application>pg_receivexlog</></link>
         to allow specifying a connection string (Amit Kapila)
 -->
-<link linkend="APP-PG-DUMPALL"><application>pg_dumpall</></link>、<link linkend="app-pgbasebackup"><application>pg_basebackup</></link>、<link linkend="app-pgreceivexlog"><application>pg_receivexlog</></link>に、接続文字列を指定できる<option>--dbname</>オプションを追加しました。(Amit Kapila)
+<link linkend="APP-PG-DUMPALL"><application>pg_dumpall</></link>、<link linkend="app-pgbasebackup"><application>pg_basebackup</></link>、<link linkend="app-pgreceivewal"><application>pg_receivexlog</></link>に、接続文字列を指定できる<option>--dbname</>オプションを追加しました。(Amit Kapila)
        </para>
       </listitem>
 
@@ -17650,10 +17676,10 @@ Mac <productname>macOS</>上の<link linkend="plpython">PL/Python</link>が、�
       <listitem>
        <para>
 <!--
-        Add <link linkend="pgxlogdump"><application>pg_xlogdump</></link>
+        Add <link linkend="pgwaldump"><application>pg_xlogdump</></link>
         contrib program (Andres Freund)
 -->
-<link linkend="pgxlogdump"><application>pg_xlogdump</></link>をcontribモジュールに追加しました。(Andres Freund)
+<link linkend="pgwaldump"><application>pg_xlogdump</></link>をcontribモジュールに追加しました。(Andres Freund)
        </para>
       </listitem>
 
