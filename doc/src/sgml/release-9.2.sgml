@@ -95,18 +95,44 @@
 このビュー定義は<application>initdb</>で導入されるため、アップグレードするだけでは問題は修正されません。
 既存のインストレーションで修正する必要がある場合、スーパーユーザーとして<application>psql</>で以下を実行してください。
 <programlisting>
-BEGIN;
-DROP SCHEMA information_schema CASCADE;
-\i <replaceable>SHAREDIR</>/information_schema.sql
-COMMIT;
+SET search_path TO information_schema;
+CREATE OR REPLACE VIEW table_privileges AS
+    SELECT CAST(u_grantor.rolname AS sql_identifier) AS grantor,
+           CAST(grantee.rolname AS sql_identifier) AS grantee,
+           CAST(current_database() AS sql_identifier) AS table_catalog,
+           CAST(nc.nspname AS sql_identifier) AS table_schema,
+           CAST(c.relname AS sql_identifier) AS table_name,
+           CAST(c.prtype AS character_data) AS privilege_type,
+           CAST(
+             CASE WHEN
+                  -- object owner always has grant options
+                  pg_has_role(grantee.oid, c.relowner, 'USAGE')
+                  OR c.grantable
+                  THEN 'YES' ELSE 'NO' END AS yes_or_no) AS is_grantable,
+           CAST(CASE WHEN c.prtype = 'SELECT' THEN 'YES' ELSE 'NO' END AS yes_or_no) AS with_hierarchy
+
+    FROM (
+            SELECT oid, relname, relnamespace, relkind, relowner, (aclexplode(coalesce(relacl, acldefault('r', relowner)))).* FROM pg_class
+         ) AS c (oid, relname, relnamespace, relkind, relowner, grantor, grantee, prtype, grantable),
+         pg_namespace nc,
+         pg_authid u_grantor,
+         (
+           SELECT oid, rolname FROM pg_authid
+           UNION ALL
+           SELECT 0::oid, 'PUBLIC'
+         ) AS grantee (oid, rolname)
+
+    WHERE c.relnamespace = nc.oid
+          AND c.relkind IN ('r', 'v', 'f')
+          AND c.grantee = grantee.oid
+          AND c.grantor = u_grantor.oid
+          AND c.prtype IN ('INSERT', 'SELECT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER')
+          AND (pg_has_role(u_grantor.oid, 'USAGE')
+               OR pg_has_role(grantee.oid, 'USAGE')
+               OR grantee.rolname = 'PUBLIC');
 </programlisting>
-<!--
-      (Run <literal>pg_config -&#045;sharedir</> if you're uncertain
-      where <replaceable>SHAREDIR</> is.)  This must be repeated in each
-      database to be fixed.
--->
-（<replaceable>SHAREDIR</>がどこににあるか確証がもてない場合、<literal>pg_config --sharedir</>を実行してください。）
-これは修正すべき各データベースで繰り返さなくてはなりません。
+      This must be repeated in each database to be fixed,
+      including <literal>template0</>.
      </para>
     </listitem>
 
@@ -13777,10 +13803,10 @@ PL/Perlで正しく最適化されない場合があるのを回避しました�
        <para>
 <!--
         Add a <link
-        linkend="app-pgreceivexlog"><application>pg_receivexlog</></link>
+        linkend="app-pgreceivewal"><application>pg_receivexlog</></link>
         tool to archive WAL file changes as they are written
 -->
-WALファイルが書き込まれた時に、その更新をアーカイブするツール<link linkend="app-pgreceivexlog"><application>pg_receivexlog</></link>を追加しました。
+WALファイルが書き込まれた時に、その更新をアーカイブするツール<link linkend="app-pgreceivewal"><application>pg_receivexlog</></link>を追加しました。
        </para>
       </listitem>
 
@@ -15458,11 +15484,11 @@ Windowsで<filename>postgresql.conf</filename>の行番号が報告されるよ�
        <para>
 <!--
         Add a <link
-        linkend="app-pgreceivexlog"><application>pg_receivexlog</></link>
+        linkend="app-pgreceivewal"><application>pg_receivexlog</></link>
         tool to archive WAL file changes as they are written, rather
         than waiting for completed WAL files (Magnus Hagander)
 -->
-<link linkend="app-pgreceivexlog"><application>pg_receivexlog</></link>ツールを追加しました。
+<link linkend="app-pgreceivewal"><application>pg_receivexlog</></link>ツールを追加しました。
 これは、完全なWALファイルを待つ代わりに、WALファイルの変更を、書き込まれたときにアーカイブします。(Magnus Hagander)
        </para>
       </listitem>

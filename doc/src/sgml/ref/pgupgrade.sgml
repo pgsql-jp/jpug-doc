@@ -48,9 +48,9 @@
   <application>pg_upgrade</> (formerly called <application>pg_migrator</>) allows data
   stored in <productname>PostgreSQL</> data files to be upgraded to a later <productname>PostgreSQL</>
   major version without the data dump/reload typically required for
-  major version upgrades, e.g. from 8.4.7 to the current major release
+  major version upgrades, e.g. from 9.6.3 to the current major release
   of <productname>PostgreSQL</>.  It is not required for minor version upgrades, e.g. from
-  9.0.1 to 9.0.4.
+  9.6.2 to 9.6.3.
 -->
 <application>pg_upgrade</>(これまでは<application>pg_migrator</>と呼ばれていました)を使用して、メジャーバージョンへのアップグレード、例えば、8.4.7から現時点のメジャーリリースの<productname>PostgreSQL</>、に通常必要とされたデータのダンプ/リストアを行うことなく、<productname>PostgreSQL</>データファイル内に格納されたデータをより最新の<productname>PostgreSQL</>メジャーバージョンに移行することができます。
 これは、例えば9.0.1から9.0.4などマイナーバージョンへのアップグレードでは必要ありません。
@@ -91,7 +91,7 @@ PostgreSQLのメジャーリリースでは通常、システムテーブルの�
   <para>
 <!--
    pg_upgrade supports upgrades from 8.4.X and later to the current
-   major release of <productname>PostgreSQL</>, including snapshot and alpha releases.
+   major release of <productname>PostgreSQL</>, including snapshot and beta releases.
 -->
 pg_upgradeは8.4.X以降から現時点の<productname>PostgreSQL</>のメジャーリリース(スナップショット版やαリリースを含む)へのアップグレードをサポートします。
   </para>
@@ -298,7 +298,7 @@ pg_upgradeは8.4.X以降から現時点の<productname>PostgreSQL</>のメジャ
     <para>
 <!--
      If you are using a version-specific installation directory, e.g.
-     <filename>/opt/PostgreSQL/9.1</>, you do not need to move the old cluster. The
+     <filename>/opt/PostgreSQL/&majorversion;</>, you do not need to move the old cluster. The
      graphical installers all use version-specific installation directories.
 -->
 バージョンに関連したインストレーションディレクトリ(例えば<filename>/opt/PostgreSQL/9.1</>)を使用しているのであれば、古いクラスタを移動する必要はありません。
@@ -448,8 +448,8 @@ make prefix=/usr/local/pgsql.new install
 例えばUnixでは以下を使用します。
 
 <programlisting>
-pg_ctl -D /opt/PostgreSQL/8.4 stop
-pg_ctl -D /opt/PostgreSQL/9.0 stop
+pg_ctl -D /opt/PostgreSQL/9.6 stop
+pg_ctl -D /opt/PostgreSQL/&majorversion; stop
 </programlisting>
 
 <!--
@@ -458,8 +458,8 @@ pg_ctl -D /opt/PostgreSQL/9.0 stop
 Windowsでは以下
 
 <programlisting>
-NET STOP postgresql-8.4
-NET STOP postgresql-9.0
+NET STOP postgresql-9.6
+NET STOP postgresql-&majorversion;
 </programlisting>
     </para>
 
@@ -473,20 +473,19 @@ NET STOP postgresql-9.0
    </step>
 
    <step>
-<!--
     <title>Prepare for standby server upgrades</title>
--->
-    <title>スタンバイサーバのアップグレードの準備</title>
 
     <para>
 <!--
-     If you are upgrading standby servers (as outlined in section <xref
-     linkend="pgupgrade-step-replicas">), verify that the old standby
+     If you are upgrading standby servers using methods outlined in section <xref
+     linkend="pgupgrade-step-replicas">, verify that the old standby
      servers are caught up by running <application>pg_controldata</>
      against the old primary and standby clusters.  Verify that the
      <quote>Latest checkpoint location</> values match in all clusters.
      (There will be a mismatch if old standby servers were shut down
-     before the old primary.)
+     before the old primary.)  Also, change <varname>wal_level</> to
+     <literal>replica</> in the <filename>postgresql.conf</> file on the
+     new primary cluster.
 -->
 スタンバイサーバを（<xref linkend="pgupgrade-step-replicas">の節で示した手順で）アップグレードする場合は、<application>pg_controldata</>を実行して、古いスタンバイサーバが、古いプライマリ及びスタンバイのクラスタに同期していることを確認してください。
 すべてのクラスタで<quote>Latest checkpoint location</>（最終チェックポイント位置）の値が一致することを確認してください。
@@ -514,8 +513,8 @@ NET STOP postgresql-9.0
      Always run the <application>pg_upgrade</> binary of the new server, not the old one.
      <application>pg_upgrade</> requires the specification of the old and new cluster's
      data and executable (<filename>bin</>) directories. You can also specify
-     user and port values, and whether you want the data linked instead of
-     copied (the default).
+     user and port values, and whether you want the data files linked
+     instead of the default copy behavior.
 -->
 古いサーバのものではなく、常に新しいサーバの<application>pg_upgrade</>バイナリを実行してください。
 <application>pg_upgrade</>は古いクラスタおよび新しいクラスタのデータと実行形式ファイルの格納ディレクトリ（<filename>bin</>）の指定を要求します。
@@ -529,8 +528,8 @@ NET STOP postgresql-9.0
      your old cluster
      once you start the new cluster after the upgrade.  Link mode also
      requires that the old and new cluster data directories be in the
-     same file system.  (Tablespaces and <filename>pg_xlog</> can be on
-     different file systems.)  See <literal>pg_upgrade &#045;-help</> for a full
+     same file system.  (Tablespaces and <filename>pg_wal</> can be on
+     different file systems.)  See <literal>pg_upgrade &#045;&#045;help</> for a full
      list of options.
 -->
 リンクモードを使用する場合、アップグレードは非常に高速になり(ファイルのコピーがありません)、ディスク容量が少なくなりますが、アップグレード後に新しいクラスタを一度でも実行してしまうと、古いクラスタにアクセスすることができなくなります。
@@ -563,7 +562,7 @@ Windowsユーザの場合、管理者アカウントでログオンしなけれ�
 
 <programlisting>
 RUNAS /USER:postgres "CMD.EXE"
-SET PATH=%PATH%;C:\Program Files\PostgreSQL\9.0\bin;
+SET PATH=%PATH%;C:\Program Files\PostgreSQL\&majorversion;\bin;
 </programlisting>
 
 <!--
@@ -573,10 +572,10 @@ SET PATH=%PATH%;C:\Program Files\PostgreSQL\9.0\bin;
 
 <programlisting>
 pg_upgrade.exe
-        --old-datadir "C:/Program Files/PostgreSQL/8.4/data"
-        --new-datadir "C:/Program Files/PostgreSQL/9.0/data"
-        --old-bindir "C:/Program Files/PostgreSQL/8.4/bin"
-        --new-bindir "C:/Program Files/PostgreSQL/9.0/bin"
+        --old-datadir "C:/Program Files/PostgreSQL/9.6/data"
+        --new-datadir "C:/Program Files/PostgreSQL/&majorversion;/data"
+        --old-bindir "C:/Program Files/PostgreSQL/9.6/bin"
+        --new-bindir "C:/Program Files/PostgreSQL/&majorversion;/bin"
 </programlisting>
 
 <!--
@@ -630,23 +629,24 @@ pg_upgrade.exe
    </step>
 
    <step id="pgupgrade-step-replicas">
-<!--
     <title>Upgrade Streaming Replication and Log-Shipping standby servers</title>
--->
-    <title>ストリーミングレプリケーションおよびログシッピングのスタンバイサーバのアップグレード</title>
 
     <para>
-<!--
-     If you have Streaming Replication (see <xref
+
+     If you used link mode and have Streaming Replication (see <xref
      linkend="streaming-replication">) or Log-Shipping (see <xref
-     linkend="warm-standby">) standby servers, follow these steps to
-     upgrade them.  You will not be running <application>pg_upgrade</>
-     on the standby servers, but rather <application>rsync</>.  Do not
-     start any servers yet.
--->
-ストリーミングレプリケーション（<xref linkend="streaming-replication">参照）またはログシッピング（<xref linkend="warm-standby">）のスタンバイサーバがある場合、以下の手順に従ってそれらをアップグレードしてください。
-スタンバイサーバでは<application>pg_upgrade</>は使わず、代わりに<application>rsync</>を使います。
-まだどのサーバも起動しないでください。
+     linkend="warm-standby">) standby servers, you can follow these steps to
+     quickly upgrade them.  You will not be running <application>pg_upgrade</> on
+     the standby servers, but rather <application>rsync</> on the primary.
+     Do not start any servers yet.
+    </para>
+
+    <para>
+     If you did <emphasis>not</> use link mode, do not have or do not
+     want to use <application>rsync</>, or want an easier solution, skip
+     the instructions in this section and simply recreate the standby
+     servers once <application>pg_upgrade</> completes and the new primary
+     is running.
     </para>
 
     <substeps>
@@ -677,7 +677,7 @@ pg_upgrade.exe
 <!--
        Make sure the new standby data directories do <emphasis>not</>
        exist or are empty.  If <application>initdb</> was run, delete
-       the standby server data directories.
+       the standby servers' new data directories.
 -->
 新しいスタンバイのデータディレクトリが存在<emphasis>しない</>か空であることを確実にしてください。
 <application>initdb</>が実行されている場合は、スタンバイサーバのデータディレクトリを削除してください。
@@ -693,7 +693,7 @@ pg_upgrade.exe
       <para>
 <!--
        Install the same custom shared object files on the new standbys
-       that you installed in the new master cluster.
+       that you installed in the new primary cluster.
 -->
 新しいマスタのクラスタにインストールしたのと同じカスタム共有オブジェクトファイルを新しいスタンバイにインストールしてください。
       </para>
@@ -722,9 +722,10 @@ pg_upgrade.exe
 
       <para>
 <!--
-       Save any configuration files from the standbys you need to keep,
-       e.g.  <filename>postgresql.conf</>, <literal>recovery.conf</>,
-       as these will be overwritten or removed in the next step.
+       Save any configuration files from the old standbys' data
+       directories you need to keep, e.g.  <filename>postgresql.conf</>,
+       <literal>recovery.conf</>, because these will be overwritten or
+       removed in the next step.
 -->
 スタンバイの設定ファイルで保持する必要のあるもの、例えば<filename>postgresql.conf</>や<literal>recovery.conf</>を保存してください。
 これらは次のステップで上書きあるいは削除されるからです。
@@ -732,51 +733,82 @@ pg_upgrade.exe
      </step>
 
      <step>
-<!--
       <title>Run <application>rsync</></title>
--->
-      <title><application>rsync</>の実行</title>
 
       <para>
 <!--
+       When using link mode, standby servers can be quickly upgraded using
+       <application>rsync</>.  To accomplish this, from a directory on
+       the primary server that is above the old and new database cluster
+       directories, run this on the <emphasis>primary</> for each standby
+       server:
        From a directory that is above the old and new database cluster
        directories, run this for each slave:
 -->
 古いデータベースクラスタおよび新しいデータベースクラスタのディレクトリの上位のディレクトリで、各スレーブに対して、以下を実行してください。
 
 <programlisting>
-rsync --archive --delete --hard-links --size-only old_pgdata new_pgdata remote_dir
+rsync --archive --delete --hard-links --size-only --no-inc-recursive old_pgdata new_pgdata remote_dir
 </programlisting>
 
 <!--
        where <option>old_pgdata</> and <option>new_pgdata</> are relative
-       to the current directory, and <option>remote_dir</> is
-       <emphasis>above</> the old and new cluster directories on
-       the standby server.  The old and new relative cluster paths
-       must match on the master and standby server.  Consult the
+       to the current directory on the primary, and <option>remote_dir</>
+       is <emphasis>above</> the old and new cluster directories
+       on the standby.  The directory structure under the specified
+       directories on the primary and standbys must match.  Consult the
        <application>rsync</> manual page for details on specifying the
-       remote directory, e.g. <literal>standbyhost:/opt/PostgreSQL/</>.
-       <application>rsync</> will be fast when <application>pg_upgrade</>'s
-       <option>&#045;-link</> mode is used because it will create hard links
-       on the remote server rather than transferring user data.
-       Unfortunately, <application>rsync</> needlessly copies the
-       files associated with temporary and unlogged tables.
+       remote directory, e.g.
 -->
 ここで<option>old_pgdata</>および<option>new_pgdata</>はカレントディレクトリからの相対パス、<option>remote_dir</>はスタンバイサーバ上の古いクラスタと新しいクラスタのディレクトリの<emphasis>上位</>のディレクトリです。
 古いクラスタと新しいクラスタの相対パスは、マスターサーバとスタンバイサーバで一致しなければなりません。
 リモートディレクトリの指定、例えば<literal>standbyhost:/opt/PostgreSQL/</>の詳細については<application>rsync</>のマニュアルを参照してください。
 <application>pg_upgrade</>の<option>--link</>モードを使用すると、リモートサーバでユーザデータを転送する代わりにハードリンクを作成するので、<application>rsync</>が高速になります。
 残念ながら、<application>rsync</>は一時テーブルおよびログを取らないテーブルに関連付けられたファイルについて不要な複製をします。
+
+<programlisting>
+rsync --archive --delete --hard-links --size-only --no-inc-recursive /opt/PostgreSQL/9.5/data \
+      /opt/PostgreSQL/9.6/data standby.example.com:/opt/PostgreSQL
+</programlisting>
+
+       You can verify what the command will do using
+       <application>rsync</>'s <option>--dry-run</> option.  While
+       <application>rsync</> must be run on the primary for at least one
+       standby, it is possible to run <application>rsync</> on an upgraded
+       standby to upgrade other standbys, as long as the upgraded standby
+       has not been started.
+      </para>
+
+      <para>
+       What this does is to record the links created by
+       <application>pg_upgrade</>'s link mode that connect files in the
+       old and new clusters on the primary server.  It then finds matching
+       files in the standby's old cluster and creates links for them in the
+       standby's new cluster.  Files that were not linked on the primary
+       are copied from the primary to the standby.  (They are usually
+       small.)  This provides rapid standby upgrades.  Unfortunately,
+       <application>rsync</> needlessly copies files associated with
+       temporary and unlogged tables because these files don't normally
+       exist on standby servers.
       </para>
 
       <para>
 <!--
        If you have tablespaces, you will need to run a similar
-       <application>rsync</> command for each tablespace directory.  If you
-       have relocated <filename>pg_xlog</> outside the data directories,
-       <application>rsync</> must be run on those directories too.
+       <application>rsync</> command for each tablespace directory, e.g.:
+
 -->
 テーブル空間を使用している場合は、各テーブル空間のディレクトリについて、同様の<application>rsync</>コマンドを実行する必要があります。
+<programlisting>
+rsync --archive --delete --hard-links --size-only --no-inc-recursive /vol1/pg_tblsp/PG_9.5_201510051 \
+      /vol1/pg_tblsp/PG_9.6_201608131 standby.example.com:/vol1/pg_tblsp
+</programlisting>
+
+<!--
+       If you have relocated <filename>pg_wal</> outside the data
+       directories, <application>rsync</> must be run on those directories
+       too.
+-->
 <filename>pg_xlog</>をデータディレクトリの外側に移動している場合は、そのディレクトリについても<application>rsync</>を実行しなければなりません。
       </para>
      </step>
@@ -791,8 +823,8 @@ rsync --archive --delete --hard-links --size-only old_pgdata new_pgdata remote_d
 <!--
        Configure the servers for log shipping.  (You do not need to run
        <function>pg_start_backup()</> and <function>pg_stop_backup()</>
-       or take a file system backup as the slaves are still synchronized
-       with the master.)
+       or take a file system backup as the standbys are still synchronized
+       with the primary.)
 -->
 ログシッピングのためにサーバを設定します。
 （スレーブはまだマスターと同期されているので、<function>pg_start_backup()</>と<function>pg_stop_backup()</>を実行したり、ファイルシステムのバックアップを取得したりする必要はありません。）
@@ -856,7 +888,7 @@ rsync --archive --delete --hard-links --size-only old_pgdata new_pgdata remote_d
 各スクリプトは以下を使用して実行しなければなりません。
 
 <programlisting>
-psql --username postgres --file script.sql postgres
+psql --username=postgres --file=script.sql postgres
 </programlisting>
 
 <!--

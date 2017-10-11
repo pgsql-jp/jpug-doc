@@ -34,7 +34,8 @@ ALTER TYPE <replaceable class="PARAMETER">name</replaceable> OWNER TO { <replace
 ALTER TYPE <replaceable class="PARAMETER">name</replaceable> RENAME ATTRIBUTE <replaceable class="PARAMETER">attribute_name</replaceable> TO <replaceable class="PARAMETER">new_attribute_name</replaceable> [ CASCADE | RESTRICT ]
 ALTER TYPE <replaceable class="PARAMETER">name</replaceable> RENAME TO <replaceable class="PARAMETER">new_name</replaceable>
 ALTER TYPE <replaceable class="PARAMETER">name</replaceable> SET SCHEMA <replaceable class="PARAMETER">new_schema</replaceable>
-ALTER TYPE <replaceable class="PARAMETER">name</replaceable> ADD VALUE [ IF NOT EXISTS ] <replaceable class="PARAMETER">new_enum_value</replaceable> [ { BEFORE | AFTER } <replaceable class="PARAMETER">existing_enum_value</replaceable> ]
+ALTER TYPE <replaceable class="PARAMETER">name</replaceable> ADD VALUE [ IF NOT EXISTS ] <replaceable class="PARAMETER">new_enum_value</replaceable> [ { BEFORE | AFTER } <replaceable class="PARAMETER">neighbor_enum_value</replaceable> ]
+ALTER TYPE <replaceable class="PARAMETER">name</replaceable> RENAME VALUE <replaceable class="PARAMETER">existing_enum_value</replaceable> TO <replaceable class="PARAMETER">new_enum_value</replaceable>
 
 <!--
 <phrase>where <replaceable class="PARAMETER">action</replaceable> is one of:</phrase>
@@ -172,28 +173,13 @@ ALTER TYPE <replaceable class="PARAMETER">name</replaceable> ADD VALUE [ IF NOT 
    </varlistentry>
 
    <varlistentry>
-    <term><literal>CASCADE</literal></term>
+    <term><literal>RENAME VALUE</literal></term>
     <listitem>
      <para>
-<!--
-      Automatically propagate the operation to typed tables of the
-      type being altered, and their descendants.
--->
-自動的に変更される型で型付けされたテーブルとその子テーブルにこの操作を伝播します。
-     </para>
-    </listitem>
-   </varlistentry>
-
-   <varlistentry>
-    <term><literal>RESTRICT</literal></term>
-    <listitem>
-     <para>
-<!--
-      Refuse the operation if the type being altered is the type of a
-      typed table.  This is the default.
--->
-変更対象の型がテーブルの型付けに使用されている場合に拒絶します。
-これがデフォルトです。
+      This form renames a value of an enum type.
+      The value's place in the enum's ordering is not affected.
+      An error will occur if the specified value is not present or the new
+      name is already present.
      </para>
     </listitem>
    </varlistentry>
@@ -334,7 +320,8 @@ ALTER TYPE <replaceable class="PARAMETER">name</replaceable> ADD VALUE [ IF NOT 
       <listitem>
        <para>
 <!--
-        The new value to be added to an enum type's list of values.
+        The new value to be added to an enum type's list of values,
+        or the new name to be given to an existing value.
         Like all enum literals, it needs to be quoted.
 -->
 列挙型リストの値に追加する新しい値です。
@@ -344,7 +331,7 @@ ALTER TYPE <replaceable class="PARAMETER">name</replaceable> ADD VALUE [ IF NOT 
      </varlistentry>
 
      <varlistentry>
-      <term><replaceable class="PARAMETER">existing_enum_value</replaceable></term>
+      <term><replaceable class="PARAMETER">neighbor_enum_value</replaceable></term>
       <listitem>
        <para>
 <!--
@@ -354,6 +341,36 @@ ALTER TYPE <replaceable class="PARAMETER">name</replaceable> ADD VALUE [ IF NOT 
 -->
 列挙型の並び順序において新しい値をその直前または直後に追加する、既存の列挙型の値です。
 すべての列挙型のリテラル同様、引用符を付けなければなりません。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><replaceable class="PARAMETER">existing_enum_value</replaceable></term>
+      <listitem>
+       <para>
+        The existing enum value that should be renamed.
+        Like all enum literals, it needs to be quoted.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><literal>CASCADE</literal></term>
+      <listitem>
+       <para>
+        Automatically propagate the operation to typed tables of the
+        type being altered, and their descendants.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><literal>RESTRICT</literal></term>
+      <listitem>
+       <para>
+        Refuse the operation if the type being altered is the type of a
+        typed table.  This is the default.
        </para>
       </listitem>
      </varlistentry>
@@ -453,6 +470,13 @@ ALTER TYPE compfoo ADD ATTRIBUTE f3 int;
 列挙型の特定のソート位置に新しい値を追加します。
 <programlisting>
 ALTER TYPE colors ADD VALUE 'orange' AFTER 'red';
+</programlisting>
+  </para>
+
+  <para>
+   To rename an enum value:
+<programlisting>
+ALTER TYPE colors RENAME VALUE 'purple' TO 'mauve';
 </programlisting></para>
  </refsect1>
 

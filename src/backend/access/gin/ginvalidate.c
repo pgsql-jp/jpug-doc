@@ -3,7 +3,7 @@
  * ginvalidate.c
  *	  Opclass validator for GIN.
  *
- * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -24,6 +24,7 @@
 #include "utils/builtins.h"
 #include "utils/lsyscache.h"
 #include "utils/syscache.h"
+#include "utils/regproc.h"
 
 
 /*
@@ -237,14 +238,14 @@ ginvalidate(Oid opclassoid)
 		if (opclassgroup &&
 			(opclassgroup->functionset & (((uint64) 1) << i)) != 0)
 			continue;			/* got it */
-		if (i == GIN_COMPARE_PARTIAL_PROC)
+		if (i == GIN_COMPARE_PROC || i == GIN_COMPARE_PARTIAL_PROC)
 			continue;			/* optional method */
 		if (i == GIN_CONSISTENT_PROC || i == GIN_TRICONSISTENT_PROC)
 			continue;			/* don't need both, see check below loop */
 		ereport(INFO,
 				(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
-		   errmsg("operator class \"%s\" of access method %s is missing support function %d",
-				  opclassname, "gin", i)));
+				 errmsg("operator class \"%s\" of access method %s is missing support function %d",
+						opclassname, "gin", i)));
 		result = false;
 	}
 	if (!opclassgroup ||

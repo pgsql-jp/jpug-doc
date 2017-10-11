@@ -42,7 +42,7 @@ CREATE ROLE <replaceable class="PARAMETER">name</replaceable> [ [ WITH ] <replac
     | REPLICATION | NOREPLICATION
     | BYPASSRLS | NOBYPASSRLS
     | CONNECTION LIMIT <replaceable class="PARAMETER">connlimit</replaceable>
-    | [ ENCRYPTED | UNENCRYPTED ] PASSWORD '<replaceable class="PARAMETER">password</replaceable>'
+    | [ ENCRYPTED ] PASSWORD '<replaceable class="PARAMETER">password</replaceable>'
     | VALID UNTIL '<replaceable class="PARAMETER">timestamp</replaceable>'
     | IN ROLE <replaceable class="PARAMETER">role_name</replaceable> [, ...]
     | IN GROUP <replaceable class="PARAMETER">role_name</replaceable> [, ...]
@@ -291,7 +291,7 @@ pg_dumpを実行するユーザが適切な権限を持っていなければ、�
      </varlistentry>
 
      <varlistentry>
-      <term><literal>PASSWORD</> <replaceable class="parameter">password</replaceable></term>
+      <term>[ <literal>ENCRYPTED</> ] <literal>PASSWORD</> <replaceable class="parameter">password</replaceable></term>
       <listitem>
        <para>
 <!--
@@ -310,31 +310,28 @@ pg_dumpを実行するユーザが適切な権限を持っていなければ、�
 パスワードの指定がなければ、パスワードがNULLに設定され、そのアカウントでのパスワード認証は常に失敗します。
 NULLというパスワードを明示的に<literal>PASSWORD NULL</literal>と記述することもできます。
        </para>
-      </listitem>
-     </varlistentry>
-
-     <varlistentry>
-      <term><literal>ENCRYPTED</></term>
-      <term><literal>UNENCRYPTED</></term>
-      <listitem>
+       <note>
+         <para>
+           Specifying an empty string will also set the password to null,
+           but that was not the case before <productname>PostgreSQL</>
+           version 10. In earlier versions, an empty string could be used,
+           or not, depending on the authentication method and the exact
+           version, and libpq would refuse to use it in any case.
+           To avoid the ambiguity, specifying an empty string should be
+           avoided.
+         </para>
+       </note>
        <para>
-<!--
-        These key words control whether the password is stored
-        encrypted in the system catalogs.  (If neither is specified,
-        the default behavior is determined by the configuration
-        parameter <xref linkend="guc-password-encryption">.)  If the
-        presented password string is already in MD5-encrypted format,
-        then it is stored encrypted as-is, regardless of whether
-        <literal>ENCRYPTED</> or <literal>UNENCRYPTED</> is specified
-        (since the system cannot decrypt the specified encrypted
-        password string).  This allows reloading of encrypted
-        passwords during dump/restore.
--->
-これらのキーワードを使用すると、パスワードを暗号化してシステムカタログに格納するかどうかを制御できます
-（指定されていない場合のデフォルトの動作は、設定パラメータ<xref linkend="guc-password-encryption">によって決まります）。
-指定された文字列が既にMD5暗号化書式である場合は、<literal>ENCRYPTED</>、<literal>UNENCRYPTED</>のどちらが指定されているかに関係なく、そのまま保存されます
-（システムでは、暗号化されたパスワードを復号できないからです）。
-これにより、ダンプ/リストア時に暗号化パスワードを再読み込みすることができます。
+        The password is always stored encrypted in the system catalogs. The
+        <literal>ENCRYPTED</> keyword has no effect, but is accepted for
+        backwards compatibility. The method of encryption is determined
+        by the configuration parameter <xref linkend="guc-password-encryption">.
+        If the presented password string is already in MD5-encrypted or
+        SCRAM-encrypted format, then it is stored as-is regardless of
+        <varname>password_encryption</> (since the system cannot decrypt
+        the specified encrypted password string, to encrypt it in a
+        different format).  This allows reloading of encrypted passwords
+        during dump/restore.
        </para>
       </listitem>
      </varlistentry>

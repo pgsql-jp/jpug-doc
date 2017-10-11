@@ -822,19 +822,23 @@ XIDのカウンタが一周して0に戻り、そして、突然に、過去に�
    <para>
 <!--
     The sole disadvantage of increasing <varname>autovacuum_freeze_max_age</>
-    (and <varname>vacuum_freeze_table_age</> along with it)
-    is that the <filename>pg_clog</> subdirectory of the database cluster
-    will take more space, because it must store the commit status of all
-    transactions back to the <varname>autovacuum_freeze_max_age</> horizon.
-    The commit status uses two bits per transaction, so if
-    <varname>autovacuum_freeze_max_age</> is set to its maximum allowed
-    value of two billion, <filename>pg_clog</> can be expected to
-    grow to about half a gigabyte.  If this is trivial compared to your
-    total database size, setting <varname>autovacuum_freeze_max_age</> to
-    its maximum allowed value is recommended.  Otherwise, set it depending
-    on what you are willing to allow for <filename>pg_clog</> storage.
-    (The default, 200 million transactions, translates to about 50MB of
-    <filename>pg_clog</> storage.)
+    (and <varname>vacuum_freeze_table_age</> along with it) is that
+    the <filename>pg_xact</> and <filename>pg_commit_ts</filename>
+    subdirectories of the database cluster will take more space, because it
+    must store the commit status and (if <varname>track_commit_timestamp</> is
+    enabled) timestamp of all transactions back to
+    the <varname>autovacuum_freeze_max_age</> horizon.  The commit status uses
+    two bits per transaction, so if
+    <varname>autovacuum_freeze_max_age</> is set to its maximum allowed value
+    of two billion, <filename>pg_xact</> can be expected to grow to about half
+    a gigabyte and <filename>pg_commit_ts</filename> to about 20GB.  If this
+    is trivial compared to your total database size,
+    setting <varname>autovacuum_freeze_max_age</> to its maximum allowed value
+    is recommended.  Otherwise, set it depending on what you are willing to
+    allow for <filename>pg_xact</> and <filename>pg_commit_ts</> storage.
+    (The default, 200 million transactions, translates to about 50MB
+    of <filename>pg_xact</> storage and about 2GB of <filename>pg_commit_ts</>
+    storage.)
 -->
 <varname>autovacuum_freeze_max_age</>（およびそれに付随する<varname>vacuum_freeze_table_age</>）を増やす唯一の欠点は、データベースクラスタのサブディレクトリ<filename>pg_clog</>がより大きな容量となることです。
 <varname>autovacuum_freeze_max_age</>の範囲まですべてのトランザクションのコミット状況を格納しなければならないためです。
@@ -915,7 +919,7 @@ SELECT datname, age(datfrozenxid) FROM pg_database;
     scans every page in the table that is not already all-frozen, it should
     set <literal>age(relfrozenxid)</> to a value just a little more than the
     <varname>vacuum_freeze_min_age</> setting
-    that was used (more by the number of transcations started since the
+    that was used (more by the number of transactions started since the
     <command>VACUUM</> started).  If no <structfield>relfrozenxid</>-advancing
     <command>VACUUM</> is issued on the table until
     <varname>autovacuum_freeze_max_age</> is reached, an autovacuum will soon
@@ -1290,6 +1294,7 @@ analyze threshold = analyze base threshold + analyze scale factor * number of tu
    rebuilding steps.
 -->
 <xref linkend="sql-reindex">コマンドまたは一連の個々の再構築処理を使用して定期的にインデックスを再構築することが価値がある状況があります。
+
   </para>
 
   <para>

@@ -181,7 +181,7 @@
  * 7) Mark state 3 final because state 5 of source NFA is marked as final.
  *
  *
- * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -450,7 +450,7 @@ struct TrgmPackedGraph
 	 * by color trigram number.
 	 */
 	int			colorTrigramsCount;
-	int		   *colorTrigramGroups;		/* array of size colorTrigramsCount */
+	int		   *colorTrigramGroups; /* array of size colorTrigramsCount */
 
 	/*
 	 * The states of the simplified NFA.  State number 0 is always initial
@@ -2350,4 +2350,4 @@ printTrgmPackedGraph(TrgmPackedGraph *packedGraph, TRGM *trigrams)
 	pfree(buf.data);
 }
 
-#endif   /* TRGM_REGEXP_DEBUG */
+#endif							/* TRGM_REGEXP_DEBUG */

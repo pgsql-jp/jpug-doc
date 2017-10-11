@@ -599,10 +599,10 @@ tar -cf backup.tar /usr/local/pgsql/data
       directories. This will <emphasis>not</> work because the
       information contained in these files is not usable without
       the commit log files,
-      <filename>pg_clog/*</filename>, which contain the commit status of
+      <filename>pg_xact/*</filename>, which contain the commit status of
       all transactions. A table file is only usable with this
       information. Of course it is also impossible to restore only a
-      table and the associated <filename>pg_clog</filename> data
+      table and the associated <filename>pg_xact</filename> data
       because that would render all other tables in the database
       cluster useless.  So file system backups only work for complete
       backup and restoration of an entire database cluster.
@@ -738,7 +738,7 @@ CHECKPOINTコマンドをスナップショット取得前に発行すること�
   <para>
 <!--
    At all times, <productname>PostgreSQL</> maintains a
-   <firstterm>write ahead log</> (WAL) in the <filename>pg_xlog/</>
+   <firstterm>write ahead log</> (WAL) in the <filename>pg_wal/</>
    subdirectory of the cluster's data directory. The log records
    every change made to the database's data files.  This log exists
    primarily for crash-safety purposes: if the system crashes, the
@@ -959,7 +959,7 @@ archive_command = 'copy "%p" "C:\\server\\archivedir\\%f"'  # Windows
 推奨するものではなく、また、全てのプラットフォームで動作しない可能性があります）。
 <literal>%p</>および<literal>%f</>パラメータが置き換えられたあと、実行された実コマンドは以下のようになります。
 <programlisting>
-test ! -f /mnt/server/archivedir/00000001000000A900000065 &amp;&amp; cp pg_xlog/00000001000000A900000065 /mnt/server/archivedir/00000001000000A900000065
+test ! -f /mnt/server/archivedir/00000001000000A900000065 &amp;&amp; cp pg_wal/00000001000000A900000065 /mnt/server/archivedir/00000001000000A900000065
 </programlisting>
 <!--
     A similar command will be generated for each new file to be archived.
@@ -1036,9 +1036,9 @@ test ! -f /mnt/server/archivedir/00000001000000A900000065 &amp;&amp; cp pg_xlog/
     fills, nothing further can be archived until the tape is swapped.
     You should ensure that any error condition or request to a human operator
     is reported appropriately so that the situation can be
-    resolved reasonably quickly. The <filename>pg_xlog/</> directory will
+    resolved reasonably quickly. The <filename>pg_wal/</> directory will
     continue to fill with WAL segment files until the situation is resolved.
-    (If the file system containing <filename>pg_xlog/</> fills up,
+    (If the file system containing <filename>pg_wal/</> fills up,
     <productname>PostgreSQL</> will do a PANIC shutdown.  No committed
     transactions will be lost, but the database will remain offline until
     you free some space.)
@@ -1058,7 +1058,7 @@ test ! -f /mnt/server/archivedir/00000001000000A900000065 &amp;&amp; cp pg_xlog/
     operation continues even if the archiving process falls a little behind.
     If archiving falls significantly behind, this will increase the amount of
     data that would be lost in the event of a disaster. It will also mean that
-    the <filename>pg_xlog/</> directory will contain large numbers of
+    the <filename>pg_wal/</> directory will contain large numbers of
     not-yet-archived segment files, which could eventually exceed available
     disk space. You are advised to monitor the archiving process to ensure that
     it is working as you intend.
@@ -1127,7 +1127,7 @@ WALアーカイブによって<productname>PostgreSQL</>データベースでな
    <para>
 <!--
     Also, you can force a segment switch manually with
-    <function>pg_switch_xlog</> if you want to ensure that a
+    <function>pg_switch_wal</> if you want to ensure that a
     just-finished transaction is archived as soon as possible.  Other utility
     functions related to WAL management are listed in <xref
     linkend="functions-admin-backup-table">.
@@ -1148,7 +1148,7 @@ WALアーカイブによって<productname>PostgreSQL</>データベースでな
     configuration file reload.  If you wish to temporarily stop archiving,
     one way to do it is to set <varname>archive_command</> to the empty
     string (<literal>''</>).
-    This will cause WAL files to accumulate in <filename>pg_xlog/</> until a
+    This will cause WAL files to accumulate in <filename>pg_wal/</> until a
     working <varname>archive_command</> is re-established.
 -->
 <varname>wal_level</>が<literal>minimal</>の場合、<xref linkend="populate-pitr">に書かれているように、いくつかのSQLコマンドはWALロギングを回避するため最適化されます。
@@ -1375,11 +1375,14 @@ SELECT pg_start_backup('label', false, false);
 -->
 以前と同じ接続の中で、以下のコマンドを実行します。
 <programlisting>
-SELECT * FROM pg_stop_backup(false);
+SELECT * FROM pg_stop_backup(false, true);
 </programlisting>
 <!--
-     This terminates the backup mode and performs an automatic switch to
-     the next WAL segment.  The reason for the switch is to arrange for
+     This terminates backup mode. On a primary, it also performs an automatic
+     switch to the next WAL segment.  On a standby, it is not possible to
+     automatically switch WAL segments, so you may wish to run
+     <function>pg_switch_wal</function> on the primary to perform a manual
+     switch. The reason for the switch is to arrange for
      the last WAL segment file written during the backup interval to be
      ready to archive.
 -->
@@ -1407,9 +1410,12 @@ SELECT * FROM pg_stop_backup(false);
      Once the WAL segment files active during the backup are archived, you are
      done.  The file identified by <function>pg_stop_backup</>'s first return
      value is the last segment that is required to form a complete set of
-     backup files.  If <varname>archive_mode</> is enabled,
+     backup files.  On a primary, if <varname>archive_mode</> is enabled and the
+     <literal>wait_for_archive</> parameter is <literal>true</>,
      <function>pg_stop_backup</> does not return until the last segment has
      been archived.
+     On a standby, <varname>archive_mode</> must be <literal>always</> in order
+     for <function>pg_stop_backup</> to wait.
      Archiving of these files happens automatically since you have
      already configured <varname>archive_command</>. In most cases this
      happens quickly, but you are advised to monitor your archive
@@ -1432,6 +1438,18 @@ SELECT * FROM pg_stop_backup(false);
 アーカイブコマンドの失敗によりアーカイブ処理が遅れてしまったとしても、アーカイブが成功し、そしてバックアップが完了するまで再試行を繰り返すようになっています。
 <function>pg_stop_backup</>実行においての時間期限を設けたい場合、適切な<varname>statement_timeout</varname>の値を設定できますが、この設定値によって<function>pg_stop_backup</>が中断したときにバックアップが正当ではない可能性があるということを肝に銘じてください。
     </para>
+    <para>
+     If the backup process monitors and ensures that all WAL segment files
+     required for the backup are successfully archived then the
+     <literal>wait_for_archive</> parameter (which defaults to true) can be set
+     to false to have
+     <function>pg_stop_backup</> return as soon as the stop backup record is
+     written to the WAL.  By default, <function>pg_stop_backup</> will wait
+     until all WAL has been archived, which can take some time.  This option
+     must be used with caution: if WAL archiving is not monitored correctly
+     then the backup might not include all of the WAL files and will
+     therefore be incomplete and not able to be restored.
+    </para>
    </listitem>
   </orderedlist>
     </para>
@@ -1444,9 +1462,9 @@ SELECT * FROM pg_stop_backup(false);
     <para>
 <!--
      The process for an exclusive backup is mostly the same as for a
-     non-exclusive one, but it differs in a few key steps. It does not allow
-     more than one concurrent backup to run, and there can be some issues on
-     the server if it crashes during the backup. Prior to PostgreSQL 9.6, this
+     non-exclusive one, but it differs in a few key steps. This type of backup
+     can only be taken on a primary and does not allow concurrent backups.
+     Prior to <productname>PostgreSQL</> 9.6, this
      was the only low-level method available, but it is now recommended that
      all users upgrade their scripts to use non-exclusive backups if possible.
 -->
@@ -1535,6 +1553,11 @@ SELECT pg_start_backup('label', true);
 この作業時に、データベースの通常の操作を停止することは不要ですし、望ましい方法でもありません。
 このバックアップの実行中に考慮すべき点は<xref linkend="backup-lowlevel-base-backup-data">を参照してください。
     </para>
+    <para>
+      Note that if the server crashes during the backup it may not be
+      possible to restart until the <literal>backup_label</> file has been
+      manually deleted from the <envar>PGDATA</envar> directory.
+    </para>
    </listitem>
    <listitem>
     <para>
@@ -1548,10 +1571,10 @@ SELECT pg_start_backup('label', true);
 SELECT pg_stop_backup();
 </programlisting>
 <!--
-     This terminates the backup mode and performs an automatic switch to
-     the next WAL segment.  The reason for the switch is to arrange for
-     the last WAL segment file written during the backup interval to be
-     ready to archive.
+     This function terminates backup mode and
+     performs an automatic switch to the next WAL segment. The reason for the
+     switch is to arrange for the last WAL segment written during the backup
+     interval to be ready to archive.
 -->
 これはバックアップモードを終了し、次のWALセグメントへの自動切換えを行います。
 この切換えの理由は、バックアップ期間中に書き出された最後のWALファイルがアーカイブできるよう準備することです。
@@ -1643,10 +1666,10 @@ GNUの <application>tar</>で1.23以降のバージョンを使用している�
    <para>
 <!--
     You should, however, omit from the backup the files within the
-    cluster's <filename>pg_xlog/</> subdirectory.  This
+    cluster's <filename>pg_wal/</> subdirectory.  This
     slight adjustment is worthwhile because it reduces the risk
     of mistakes when restoring.  This is easy to arrange if
-    <filename>pg_xlog/</> is a symbolic link pointing to someplace outside
+    <filename>pg_wal/</> is a symbolic link pointing to someplace outside
     the cluster directory, which is a common setup anyway for performance
     reasons.  You might also want to exclude <filename>postmaster.pid</>
     and <filename>postmaster.opts</>, which record information
@@ -1682,6 +1705,22 @@ GNUの <application>tar</>で1.23以降のバージョンを使用している�
 これは、これらのレプリケーションスロットを使っているクライアントはまだ、スタンバイではなく、マスターのスロットを接続し続け、更新しているからです。
 バックアップが新しいマスターを作成するためだけに作成されたとしても、レプリケーションスロットをコピーすることは特に有益であるとは考えられません。
 このようにバックアップにレプリケーションスロットを含むことは、新しいマスターがオンラインになったときにはスロットの内容が期限切れしており、有害である可能性があります。
+   </para>
+
+   <para>
+    The contents of the directories <filename>pg_dynshmem/</>,
+    <filename>pg_notify/</>, <filename>pg_serial/</>,
+    <filename>pg_snapshots/</>, <filename>pg_stat_tmp/</>,
+    and <filename>pg_subtrans/</> (but not the directories themselves) can be
+    omitted from the backup as they will be initialized on postmaster startup.
+    If <xref linkend="guc-stats-temp-directory"> is set and is under the data
+    directory then the contents of that directory can also be omitted.
+   </para>
+
+   <para>
+    Any file or directory beginning with <filename>pgsql_tmp</filename> can be
+    omitted from the backup.  These files are removed on postmaster start and
+    the directories will be recreated as needed.
    </para>
 
    <para>
@@ -1752,7 +1791,7 @@ GNUの <application>tar</>で1.23以降のバージョンを使用している�
      location in case you need them later. Note that this precaution will
      require that you have enough free space on your system to hold two
      copies of your existing database. If you do not have enough space,
-     you should at least save the contents of the cluster's <filename>pg_xlog</>
+     you should at least save the contents of the cluster's <filename>pg_wal</>
      subdirectory, as it might contain logs which
      were not archived before the system went down.
 -->
@@ -1789,9 +1828,9 @@ GNUの <application>tar</>で1.23以降のバージョンを使用している�
    <listitem>
     <para>
 <!--
-     Remove any files present in <filename>pg_xlog/</>; these came from the
+     Remove any files present in <filename>pg_wal/</>; these came from the
      file system backup and are therefore probably obsolete rather than current.
-     If you didn't archive <filename>pg_xlog/</> at all, then recreate
+     If you didn't archive <filename>pg_wal/</> at all, then recreate
      it with proper permissions,
      being careful to ensure that you re-establish it as a symbolic link
      if you had it set up that way before.
@@ -1806,7 +1845,7 @@ GNUの <application>tar</>で1.23以降のバージョンを使用している�
     <para>
 <!--
      If you have unarchived WAL segment files that you saved in step 2,
-     copy them into <filename>pg_xlog/</>.  (It is best to copy them,
+     copy them into <filename>pg_wal/</>.  (It is best to copy them,
      not move them, so you still have the unmodified files if a
      problem occurs and you have to start over.)
 -->
@@ -1936,9 +1975,9 @@ restore_command = 'cp /mnt/server/archivedir/%f %p'
    <para>
 <!--
     WAL segments that cannot be found in the archive will be sought in
-    <filename>pg_xlog/</>; this allows use of recent un-archived segments.
+    <filename>pg_wal/</>; this allows use of recent un-archived segments.
     However, segments that are available from the archive will be used in
-    preference to files in <filename>pg_xlog/</>.
+    preference to files in <filename>pg_wal/</>.
 -->
 アーカイブ場所で見つけられなかったWALセグメントは<filename>pg_xlog/</>から検索されます。
 これにより、最近の未アーカイブのセグメントを使用することができます。
@@ -2169,7 +2208,7 @@ restore_command = 'cp /mnt/server/archivedir/%f %p'
       As with base backups, the easiest way to produce a standalone
       hot backup is to use the <xref linkend="app-pgbasebackup">
       tool. If you include the <literal>-X</> parameter when calling
-      it, all the transaction log required to use the backup will be
+      it, all the write-ahead log required to use the backup will be
       included in the backup automatically, and no special action is
       required to restore the backup.
 -->
@@ -2181,7 +2220,8 @@ restore_command = 'cp /mnt/server/archivedir/%f %p'
 <!--
       If more flexibility in copying the backup files is needed, a lower
       level process can be used for standalone hot backups as well.
-      To prepare for low level standalone hot backups, set <varname>wal_level</> to
+      To prepare for low level standalone hot backups, make sure
+      <varname>wal_level</> is set to
       <literal>replica</> or higher, <varname>archive_mode</> to
       <literal>on</>, and set up an <varname>archive_command</> that performs
       archiving only when a <emphasis>switch file</> exists.  For example:
@@ -2228,6 +2268,7 @@ tar -rf /var/lib/pgsql/backup.tar /var/lib/pgsql/archive/
 その後、ベースバックアップとすべての必要なWALファイルが共に同じ<application>tar</>ファイルの一部になるよう、アーカイブされたWALファイルはバックアップに追加されます。
 バックアップスクリプトにエラー処理を加えておくことを忘れないでください。
      </para>
+
     </sect3>
 
     <sect3 id="compressed-archive-logs">
@@ -2326,6 +2367,7 @@ archive_command = 'local_backup_script.sh "%p" "%f"'
        </listitem>
       </itemizedlist>
      </para>
+
      <tip>
       <para>
 <!--
@@ -2358,26 +2400,6 @@ archive_command = 'local_backup_script.sh "%p" "%f"'
 将来のリリースでは修正されるはずです。
 
   <itemizedlist>
-   <listitem>
-    <para>
-<!--
-     Operations on hash indexes are not presently WAL-logged, so
-     replay will not update these indexes.  This will mean that any new inserts
-     will be ignored by the index, updated rows will apparently disappear and
-     deleted rows will still retain pointers. In other words, if you modify a
-     table with a hash index on it then you will get incorrect query results
-     on a standby server.  When recovery completes it is recommended that you
-     manually <xref linkend="sql-reindex">
-     each such index after completing a recovery operation.
--->
-ハッシュインデックスに対する操作は現在WALログに残りません。
-したがって、再生してもこれらのインデックスは更新されません。
-これは、新しい挿入はインデックスにより無視され、更新された行は見かけ上消え、削除された行はポインタを保持し続けるということです。
-すなわち、ハッシュインデックス付きのテーブルを変更すると、スタンバイサーバでは不正確な問い合わせ結果が得られます。
-復旧処理が終わった後に手作業でそうしたインデックスそれぞれに対して<xref linkend="sql-reindex">を行うことが推奨されます。
-    </para>
-   </listitem>
-
    <listitem>
     <para>
 <!--

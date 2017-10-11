@@ -3,7 +3,7 @@
  * nodeCtescan.c
  *	  routines to handle CteScan nodes.
  *
- * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -149,9 +149,11 @@ CteScanRecheck(CteScanState *node, TupleTableSlot *slot)
  *		access method functions.
  * ----------------------------------------------------------------
  */
-TupleTableSlot *
-ExecCteScan(CteScanState *node)
+static TupleTableSlot *
+ExecCteScan(PlanState *pstate)
 {
+	CteScanState *node = castNode(CteScanState, pstate);
+
 	return ExecScan(&node->ss,
 					(ExecScanAccessMtd) CteScanNext,
 					(ExecScanRecheckMtd) CteScanRecheck);
@@ -191,6 +193,7 @@ ExecInitCteScan(CteScan *node, EState *estate, int eflags)
 	scanstate = makeNode(CteScanState);
 	scanstate->ss.ps.plan = (Plan *) node;
 	scanstate->ss.ps.state = estate;
+	scanstate->ss.ps.ExecProcNode = ExecCteScan;
 	scanstate->eflags = eflags;
 	scanstate->cte_table = NULL;
 	scanstate->eof_cte = false;
@@ -210,7 +213,7 @@ ExecInitCteScan(CteScan *node, EState *estate, int eflags)
 	prmdata = &(estate->es_param_exec_vals[node->cteParam]);
 	Assert(prmdata->execPlan == NULL);
 	Assert(!prmdata->isnull);
-	scanstate->leader = (CteScanState *) DatumGetPointer(prmdata->value);
+	scanstate->leader = castNode(CteScanState, DatumGetPointer(prmdata->value));
 	if (scanstate->leader == NULL)
 	{
 		/* I am the leader */
@@ -223,7 +226,6 @@ ExecInitCteScan(CteScan *node, EState *estate, int eflags)
 	else
 	{
 		/* Not the leader */
-		Assert(IsA(scanstate->leader, CteScanState));
 		/* Create my own read pointer, and ensure it is at start */
 		scanstate->readptr =
 			tuplestore_alloc_read_pointer(scanstate->leader->cte_table,
@@ -243,12 +245,8 @@ ExecInitCteScan(CteScan *node, EState *estate, int eflags)
 	/*
 	 * initialize child expressions
 	 */
-	scanstate->ss.ps.targetlist = (List *)
-		ExecInitExpr((Expr *) node->scan.plan.targetlist,
-					 (PlanState *) scanstate);
-	scanstate->ss.ps.qual = (List *)
-		ExecInitExpr((Expr *) node->scan.plan.qual,
-					 (PlanState *) scanstate);
+	scanstate->ss.ps.qual =
+		ExecInitQual(node->scan.plan.qual, (PlanState *) scanstate);
 
 	/*
 	 * tuple table initialization
@@ -268,8 +266,6 @@ ExecInitCteScan(CteScan *node, EState *estate, int eflags)
 	 */
 	ExecAssignResultTypeFromTL(&scanstate->ss.ps);
 	ExecAssignScanProjectionInfo(&scanstate->ss);
-
-	scanstate->ss.ps.ps_TupFromTlist = false;
 
 	return scanstate;
 }

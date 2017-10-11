@@ -257,6 +257,12 @@
       </row>
 
       <row>
+       <entry><type>macaddr8</type></entry>
+       <entry></entry>
+       <entry>MAC (Media Access Control) address (EUI-64 format)</entry>
+      </row>
+
+      <row>
        <entry><type>money</type></entry>
        <entry></entry>
 <!--
@@ -1139,7 +1145,7 @@ FROM generate_series(-3.5, 3.5, 1) as x;
      floating-point arithmetic does not follow IEEE 754, these values
      will probably not work as expected.)  When writing these values
      as constants in an SQL command, you must put quotes around them,
-     for example <literal>UPDATE table SET x = 'Infinity'</>.  On input,
+     for example <literal>UPDATE table SET x = '-Infinity'</>.  On input,
      these strings are recognized in a case-insensitive manner.
 -->
 これらはそれぞれ、IEEE 754の特殊な値、<quote>無限大</quote>、<quote>負の無限大</quote>、<quote>非数値</quote>を表します。
@@ -1249,6 +1255,14 @@ IEEE754では、<literal>NaN</>は（<literal>NaN</>を含む）他のすべて�
      <primary>シーケンス</primary>
      <secondary>連番型</secondary>
     </indexterm>
+
+    <note>
+     <para>
+      This section describes a PostgreSQL-specific way to create an
+      autoincrementing column.  Another way is to use the SQL-standard
+      identity column feature, described at <xref linkend="sql-createtable">.
+     </para>
+    </note>
 
     <para>
 <!--
@@ -1408,7 +1422,7 @@ ALTER SEQUENCE <replaceable class="parameter">tablename</replaceable>_<replaceab
       </thead>
       <tbody>
        <row>
-        <entry>money</entry>
+        <entry><type>money</type></entry>
 <!--
         <entry>8 bytes</entry>
         <entry>currency amount</entry>
@@ -2387,7 +2401,7 @@ SELECT E'\\xDEADBEEF';
         <entry>4713 BC</entry>
         <entry>294276 AD</entry>
 <!--
-        <entry>1 microsecond / 14 digits</entry>
+        <entry>1 microsecond</entry>
 -->
 <entry>1マイクロ秒、14桁</entry>
        </row>
@@ -2402,7 +2416,7 @@ SELECT E'\\xDEADBEEF';
         <entry>4713 BC</entry>
         <entry>294276 AD</entry>
 <!--
-        <entry>1 microsecond / 14 digits</entry>
+        <entry>1 microsecond</entry>
 -->
 <entry>1マイクロ秒、14桁</entry>
        </row>
@@ -2432,24 +2446,17 @@ SELECT E'\\xDEADBEEF';
         <entry>00:00:00</entry>
         <entry>24:00:00</entry>
 <!--
-        <entry>1 microsecond / 14 digits</entry>
+        <entry>1 microsecond</entry>
 -->
 <entry>1マイクロ秒、14桁</entry>
        </row>
        <row>
         <entry><type>time [ (<replaceable>p</replaceable>) ] with time zone</type></entry>
-<!--
         <entry>12 bytes</entry>
-        <entry>times of day only, with time zone</entry>
--->
-<entry>12バイト</entry>
-<entry>その日の時刻のみ、時間帯付き</entry>
+        <entry>time of day (no date), with time zone</entry>
         <entry>00:00:00+1459</entry>
         <entry>24:00:00-1459</entry>
-<!--
-        <entry>1 microsecond / 14 digits</entry>
--->
-<entry>1マイクロ秒、14桁</entry>
+        <entry>1 microsecond</entry>
        </row>
        <row>
         <entry><type>interval [ <replaceable>fields</replaceable> ] [ (<replaceable>p</replaceable>) ]</type></entry>
@@ -2458,7 +2465,7 @@ SELECT E'\\xDEADBEEF';
         <entry>time interval</entry>
         <entry>-178000000 years</entry>
         <entry>178000000 years</entry>
-        <entry>1 microsecond / 14 digits</entry>
+        <entry>1 microsecond</entry>
     -->
     <entry>16バイト</entry>
         <entry>時間間隔</entry>
@@ -2493,8 +2500,7 @@ SELECT E'\\xDEADBEEF';
     <replaceable>p</replaceable> which specifies the number of
     fractional digits retained in the seconds field. By default, there
     is no explicit bound on precision.  The allowed range of
-    <replaceable>p</replaceable> is from 0 to 6 for the
-    <type>timestamp</type> and <type>interval</type> types.
+    <replaceable>p</replaceable> is from 0 to 6.
 -->
 <type>time</type>、<type>timestamp</type>および<type>interval</type>は秒フィールドに保有されている小数点以下の桁数を指定する精度値<replaceable>p</replaceable>をオプションで受け付けます。
 デフォルトでは、精度についての明示的な限界はありません。
@@ -2661,9 +2667,10 @@ MINUTE TO SECOND
      specification giving the number of
      fractional digits in the seconds field. Precision can be
      specified for <type>time</type>, <type>timestamp</type>, and
-     <type>interval</type> types.  The allowed values are mentioned
-     above.  If no precision is specified in a constant specification,
-     it defaults to the precision of the literal value.
+     <type>interval</type> types, and can range from 0 to 6.
+     If no precision is specified in a constant specification,
+     it defaults to the precision of the literal value (but not
+     more than 6 digits).
 -->
 ここで、<replaceable>p</replaceable>は秒フィールドの小数点以下の桁数を与えるオプションの精度の指定です。
 精度は<type>time</type>、<type>timestamp</type>および<type>interval</type>型に対して設定できます。
@@ -5250,6 +5257,12 @@ SELECT person.name, holidays.num_weeks FROM person, holidays
     <entry>MACアドレス</entry>
        </row>
 
+       <row>
+        <entry><type>macaddr8</type></entry>
+        <entry>8 bytes</entry>
+        <entry>MAC addresses (EUI-64 format)</entry>
+       </row>
+
       </tbody>
      </tgroup>
     </table>
@@ -5469,7 +5482,9 @@ IPv6ではアドレス長は128ビットですので、128ビットが一意な�
 <!--
     The essential difference between <type>inet</type> and <type>cidr</type>
     data types is that <type>inet</type> accepts values with nonzero bits to
-    the right of the netmask, whereas <type>cidr</type> does not.
+    the right of the netmask, whereas <type>cidr</type> does not.  For
+    example, <literal>192.168.0.1/24</literal> is valid for <type>inet</type>
+    but not for <type>cidr</type>.
 -->
 <type>inet</type>データ型と<type>cidr</type>データ型との基本的な相違は、<type>inet</type>ではネットマスクの右側に0でないビット値を受け付けますが、<type>cidr</type>では受け付けないことです。
     </para>
@@ -5559,6 +5574,77 @@ PostgreSQLではビット反転に関する準備をしていません。
 -->
 残る5つの入力書式はどの標準にも属しません。
     </para>
+   </sect2>
+
+   <sect2 id="datatype-macaddr8">
+    <title><type>macaddr8</type></title>
+
+    <indexterm>
+     <primary>macaddr8 (data type)</primary>
+    </indexterm>
+
+    <indexterm>
+     <primary>MAC address (EUI-64 format)</primary>
+     <see>macaddr</see>
+    </indexterm>
+
+    <para>
+     The <type>macaddr8</> type stores MAC addresses in EUI-64
+     format, known for example from Ethernet card hardware addresses
+     (although MAC addresses are used for other purposes as well).
+     This type can accept both 6 and 8 byte length MAC addresses
+     and stores them in 8 byte length format.  MAC addresses given
+     in 6 byte format will be stored in 8 byte length format with the
+     4th and 5th bytes set to FF and FE, respectively.
+
+     Note that IPv6 uses a modified EUI-64 format where the 7th bit
+     should be set to one after the conversion from EUI-48.  The
+     function <function>macaddr8_set7bit</> is provided to make this
+     change.
+
+     Generally speaking, any input which is comprised of pairs of hex
+     digits (on byte boundaries), optionally separated consistently by
+     one of <literal>':'</>, <literal>'-'</> or <literal>'.'</>, is
+     accepted.  The number of hex digits must be either 16 (8 bytes) or
+     12 (6 bytes).  Leading and trailing whitespace is ignored.
+
+     The following are examples of input formats that are accepted:
+
+     <simplelist>
+      <member><literal>'08:00:2b:01:02:03:04:05'</></member>
+      <member><literal>'08-00-2b-01-02-03-04-05'</></member>
+      <member><literal>'08002b:0102030405'</></member>
+      <member><literal>'08002b-0102030405'</></member>
+      <member><literal>'0800.2b01.0203.0405'</></member>
+      <member><literal>'0800-2b01-0203-0405'</></member>
+      <member><literal>'08002b01:02030405'</></member>
+      <member><literal>'08002b0102030405'</></member>
+     </simplelist>
+
+     These examples would all specify the same address.  Upper and
+     lower case is accepted for the digits
+     <literal>a</> through <literal>f</>.  Output is always in the
+     first of the forms shown.
+
+     The last six input formats that are mentioned above are not part
+     of any standard.
+
+     To convert a traditional 48 bit MAC address in EUI-48 format to
+     modified EUI-64 format to be included as the host portion of an
+     IPv6 address, use <function>macaddr8_set7bit</> as shown:
+
+<programlisting>
+SELECT macaddr8_set7bit('08:00:2b:01:02:03');
+<computeroutput>
+    macaddr8_set7bit     
+-------------------------
+ 0a:00:2b:ff:fe:01:02:03
+(1 row)
+</computeroutput>
+</programlisting>
+
+    </para>
+
    </sect2>
 
   </sect1>
@@ -5933,7 +6019,7 @@ SELECT 'fat &amp; (rat | cat)'::tsquery;
  'fat' &amp; ( 'rat' | 'cat' )
 
 SELECT 'fat &amp; rat &amp; ! cat'::tsquery;
-        tsquery
+        tsquery         
 ------------------------
  'fat' &amp; 'rat' &amp; !'cat'
 </programlisting>
@@ -6365,7 +6451,7 @@ XMLデータは内部的にUTF-8として処理されますので、サーバの
     <!--
      Some XML-related functions may not work at all on non-ASCII data
      when the server encoding is not UTF-8.  This is known to be an
-     issue for <function>xpath()</> in particular.
+     issue for <function>xmltable()</> and <function>xpath()</> in particular.
      -->
 サーバ符号化方式がUTF-8でない場合、いくつかのXMLに関係した関数は非ASCIIデータに対して全く機能しないことがあります。
 特に<function>xpath()</>に対する問題として知られています。
@@ -6838,7 +6924,7 @@ OID別名型はトランザクション隔離規則に完全には従いませ�
    <para>
 <!--
     The <type>pg_lsn</type> data type can be used to store LSN (Log Sequence
-    Number) data which is a pointer to a location in the XLOG. This type is a
+    Number) data which is a pointer to a location in the WAL. This type is a
     representation of <type>XLogRecPtr</type> and an internal system type of
     <productname>PostgreSQL</productname>.
 -->
@@ -6855,7 +6941,7 @@ OID別名型はトランザクション隔離規則に完全には従いませ�
     standard comparison operators, like <literal>=</literal> and
     <literal>&gt;</literal>.  Two LSNs can be subtracted using the
     <literal>-</literal> operator; the result is the number of bytes separating
-    those write-ahead log positions.
+    those write-ahead log locations.
 -->
 内部的にはLSNは64bit整数型で、WALストリームのバイト位置を表現します。
 LSNは例えば、<literal>16/B374D848</>のように２つのスラッシュで分けられた8桁の16進数で表示されます。
@@ -6936,6 +7022,10 @@ LSNは例えば、<literal>16/B374D848</>のように２つのスラッシュで
 
    <indexterm zone="datatype-pseudo">
     <primary>internal</primary>
+   </indexterm>
+
+   <indexterm zone="datatype-pseudo">
+    <primary>unknown</primary>
    </indexterm>
 
    <indexterm zone="datatype-pseudo">
@@ -7131,9 +7221,16 @@ LSNは例えば、<literal>16/B374D848</>のように２つのスラッシュで
        </row>
 
        <row>
+        <entry><type>unknown</></entry>
+        <entry>Identifies a not-yet-resolved type, e.g. of an undecorated
+         string literal.</entry>
+       </row>
+
+       <row>
         <entry><type>opaque</></entry>
 <!--
-        <entry>An obsolete type name that formerly served all the above purposes.</entry>
+        <entry>An obsolete type name that formerly served many of the above
+         purposes.</entry>
 -->
         <entry>
 過去に上記の目的すべてを果たしていた古いデータ型の名前です。

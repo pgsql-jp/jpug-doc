@@ -20,12 +20,12 @@ our (@ISA, @EXPORT_OK);
 my $insttype;
 my @client_contribs = ('oid2name', 'pgbench', 'vacuumlo');
 my @client_program_files = (
-	'clusterdb',     'createdb',       'createlang', 'createuser',
-	'dropdb',        'droplang',       'dropuser',   'ecpg',
-	'libecpg',       'libecpg_compat', 'libpgtypes', 'libpq',
-	'pg_basebackup', 'pg_config',      'pg_dump',    'pg_dumpall',
-	'pg_isready',    'pg_receivexlog', 'pg_recvlogical', 'pg_restore',
-	'psql', 'reindexdb',     'vacuumdb',       @client_contribs);
+	'clusterdb',      'createdb',   'createuser',    'dropdb',
+	'dropuser',       'ecpg',       'libecpg',       'libecpg_compat',
+	'libpgtypes',     'libpq',      'pg_basebackup', 'pg_config',
+	'pg_dump',        'pg_dumpall', 'pg_isready',    'pg_receivewal',
+	'pg_recvlogical', 'pg_restore', 'psql',          'reindexdb',
+	'vacuumdb',       @client_contribs);
 
 sub lcopy
 {
@@ -58,8 +58,8 @@ sub Install
 
 		# suppress warning about harmless redeclaration of $config
 		no warnings 'misc';
-		require "config_default.pl";
-		require "config.pl" if (-f "config.pl");
+		do "config_default.pl";
+		do "config.pl" if (-f "config.pl");
 	}
 
 	chdir("../../..")    if (-f "../../../configure");
@@ -367,7 +367,7 @@ sub GenerateConversionScript
 		$sql .=
 "COMMENT ON CONVERSION pg_catalog.$name IS 'conversion for $se to $de';\n\n";
 	}
-	open($F, ">$target/share/conversion_create.sql")
+	open($F, '>', "$target/share/conversion_create.sql")
 	  || die "Could not write to conversion_create.sql\n";
 	print $F $sql;
 	close($F);
@@ -392,8 +392,8 @@ sub GenerateTimezoneFiles
 
 	print "Generating timezone files...";
 
-	my @args = ("$conf/zic/zic", '-d', "$target/share/timezone",
-				'-p', "$posixrules");
+	my @args =
+	  ("$conf/zic/zic", '-d', "$target/share/timezone", '-p', "$posixrules");
 	foreach (@tzfiles)
 	{
 		my $tzfile = $_;
@@ -416,7 +416,7 @@ sub GenerateTsearchFiles
 	$mf =~ /^LANGUAGES\s*=\s*(.*)$/m
 	  || die "Could not find LANGUAGES line in snowball Makefile\n";
 	my @pieces = split /\s+/, $1;
-	open($F, ">$target/share/snowball_create.sql")
+	open($F, '>', "$target/share/snowball_create.sql")
 	  || die "Could not write snowball_create.sql";
 	print $F read_file('src/backend/snowball/snowball_func.sql.in');
 
@@ -742,7 +742,7 @@ sub read_file
 	my $t = $/;
 
 	undef $/;
-	open($F, $filename) || die "Could not open file $filename\n";
+	open($F, '<', $filename) || die "Could not open file $filename\n";
 	my $txt = <$F>;
 	close($F);
 	$/ = $t;

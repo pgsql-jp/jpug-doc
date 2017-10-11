@@ -9,7 +9,7 @@
  * exist, though, because mmap'd shmem provides no way to find out how
  * many processes are attached, which we need for interlocking purposes.
  *
- * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -38,6 +38,7 @@
 #include "storage/ipc.h"
 #include "storage/pg_shmem.h"
 #include "utils/guc.h"
+#include "utils/pidfile.h"
 
 
 /*
@@ -193,29 +194,29 @@ InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size)
 		errno = shmget_errno;
 		ereport(FATAL,
 				(errmsg("could not create shared memory segment: %m"),
-		  errdetail("Failed system call was shmget(key=%lu, size=%zu, 0%o).",
-					(unsigned long) memKey, size,
-					IPC_CREAT | IPC_EXCL | IPCProtection),
+				 errdetail("Failed system call was shmget(key=%lu, size=%zu, 0%o).",
+						   (unsigned long) memKey, size,
+						   IPC_CREAT | IPC_EXCL | IPCProtection),
 				 (shmget_errno == EINVAL) ?
 				 errhint("This error usually means that PostgreSQL's request for a shared memory "
-		 "segment exceeded your kernel's SHMMAX parameter, or possibly that "
+						 "segment exceeded your kernel's SHMMAX parameter, or possibly that "
 						 "it is less than "
 						 "your kernel's SHMMIN parameter.\n"
-		"The PostgreSQL documentation contains more information about shared "
+						 "The PostgreSQL documentation contains more information about shared "
 						 "memory configuration.") : 0,
 				 (shmget_errno == ENOMEM) ?
 				 errhint("This error usually means that PostgreSQL's request for a shared "
 						 "memory segment exceeded your kernel's SHMALL parameter.  You might need "
 						 "to reconfigure the kernel with larger SHMALL.\n"
-		"The PostgreSQL documentation contains more information about shared "
+						 "The PostgreSQL documentation contains more information about shared "
 						 "memory configuration.") : 0,
 				 (shmget_errno == ENOSPC) ?
 				 errhint("This error does *not* mean that you have run out of disk space.  "
 						 "It occurs either if all available shared memory IDs have been taken, "
 						 "in which case you need to raise the SHMMNI parameter in your kernel, "
-		  "or because the system's overall limit for shared memory has been "
+						 "or because the system's overall limit for shared memory has been "
 						 "reached.\n"
-		"The PostgreSQL documentation contains more information about shared "
+						 "The PostgreSQL documentation contains more information about shared "
 						 "memory configuration.") : 0));
 	}
 
@@ -440,10 +441,10 @@ GetHugePageSize(Size *hugepagesize, int *mmap_flags)
 			FreeFile(fp);
 		}
 	}
-#endif   /* __linux__ */
+#endif							/* __linux__ */
 }
 
-#endif   /* MAP_HUGETLB */
+#endif							/* MAP_HUGETLB */
 
 /*
  * Creates an anonymous mmap()ed shared memory segment.
@@ -504,10 +505,10 @@ CreateAnonymousSegment(Size *size)
 				(errmsg("could not map anonymous shared memory: %m"),
 				 (mmap_errno == ENOMEM) ?
 				 errhint("This error usually means that PostgreSQL's request "
-					"for a shared memory segment exceeded available memory, "
-					 "swap space, or huge pages. To reduce the request size "
+						 "for a shared memory segment exceeded available memory, "
+						 "swap space, or huge pages. To reduce the request size "
 						 "(currently %zu bytes), reduce PostgreSQL's shared "
-					   "memory usage, perhaps by reducing shared_buffers or "
+						 "memory usage, perhaps by reducing shared_buffers or "
 						 "max_connections.",
 						 *size) : 0));
 	}
@@ -533,7 +534,7 @@ AnonymousShmemDetach(int status, Datum arg)
 	}
 }
 
-#endif   /* USE_ANONYMOUS_SHMEM */
+#endif							/* USE_ANONYMOUS_SHMEM */
 
 /*
  * PGSharedMemoryCreate
@@ -771,7 +772,7 @@ PGSharedMemoryNoReAttach(void)
 	UsedShmemSegID = 0;
 }
 
-#endif   /* EXEC_BACKEND */
+#endif							/* EXEC_BACKEND */
 
 /*
  * PGSharedMemoryDetach

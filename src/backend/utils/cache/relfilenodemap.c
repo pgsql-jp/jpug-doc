@@ -3,7 +3,7 @@
  * relfilenodemap.c
  *	  relfilenode to oid mapping cache.
  *
- * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -68,9 +68,9 @@ RelfilenodeMapInvalidateCallback(Datum arg, Oid relid)
 		 * all entries, otherwise just remove the specific relation's entry.
 		 * Always remove negative cache entries.
 		 */
-		if (relid == InvalidOid ||		/* complete reset */
-			entry->relid == InvalidOid ||		/* negative cache entry */
-			entry->relid == relid)		/* individual flushed relation */
+		if (relid == InvalidOid ||	/* complete reset */
+			entry->relid == InvalidOid ||	/* negative cache entry */
+			entry->relid == relid)	/* individual flushed relation */
 		{
 			if (hash_search(RelfilenodeMapHash,
 							(void *) &entry->key,

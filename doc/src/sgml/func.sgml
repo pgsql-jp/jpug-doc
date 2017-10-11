@@ -1820,7 +1820,7 @@ NULL値が入力されると、<quote>不明</>という論理値として扱わ
     transformation functions <literal><function>radians()</function></literal>
     and <literal><function>degrees()</function></literal> shown earlier.
     However, using the degree-based trigonometric functions is preferred,
-    as that way avoids roundoff error for special cases such
+    as that way avoids round-off error for special cases such
     as <literal>sind(30)</>.
 -->
 度単位の角度を扱う別の方法は、前に示した単位変換関数<literal><function>radians()</function></literal>と<literal><function>degrees()</function></literal>を使うことです。
@@ -2792,6 +2792,23 @@ NULLの引数は無視されます。
       <row>
        <entry>
         <indexterm>
+         <primary>regexp_match</primary>
+        </indexterm>
+        <literal><function>regexp_match(<parameter>string</parameter> <type>text</type>, <parameter>pattern</parameter> <type>text</type> [, <parameter>flags</parameter> <type>text</type>])</function></literal>
+       </entry>
+       <entry><type>text[]</type></entry>
+       <entry>
+        Return captured substring(s) resulting from the first match of a POSIX
+        regular expression to the <parameter>string</parameter>. See
+        <xref linkend="functions-posix-regexp"> for more information.
+       </entry>
+       <entry><literal>regexp_match('foobarbequebaz', '(bar)(beque)')</literal></entry>
+       <entry><literal>{bar,beque}</literal></entry>
+      </row>
+
+      <row>
+       <entry>
+        <indexterm>
          <primary>regexp_matches</primary>
         </indexterm>
         <literal><function>regexp_matches(<parameter>string</parameter> <type>text</type>, <parameter>pattern</parameter> <type>text</type> [, <parameter>flags</parameter> <type>text</type>])</function></literal>
@@ -2799,15 +2816,15 @@ NULLの引数は無視されます。
        <entry><type>setof text[]</type></entry>
        <entry>
 <!--
-        Return all captured substrings resulting from matching a POSIX regular
-        expression against the <parameter>string</parameter>. See
+        Return captured substring(s) resulting from matching a POSIX regular
+        expression to the <parameter>string</parameter>. See
         <xref linkend="functions-posix-regexp"> for more information.
 -->
 <parameter>string</parameter>に対してPOSIX正規表現でマッチし、捕捉されたすべての部分文字列を返します。
 より詳細は<xref linkend="functions-posix-regexp">を参照してください。
        </entry>
-       <entry><literal>regexp_matches('foobarbequebaz', '(bar)(beque)')</literal></entry>
-       <entry><literal>{bar,beque}</literal></entry>
+       <entry><literal>regexp_matches('foobarbequebaz', 'ba.', 'g')</literal></entry>
+       <entry><literal>{bar}</literal><para><literal>{baz}</literal></para> (2 rows)</entry>
       </row>
 
       <row>
@@ -5342,6 +5359,9 @@ substring('foobar' from '#"o_b#"%' for '#')    <lineannotation>NULL</lineannotat
     <primary>regexp_replace</primary>
    </indexterm>
    <indexterm>
+    <primary>regexp_match</primary>
+   </indexterm>
+   <indexterm>
     <primary>regexp_matches</primary>
    </indexterm>
    <indexterm>
@@ -5565,29 +5585,25 @@ regexp_replace('foobarbaz', 'b(..)', E'X\\1Y', 'g')
 
     <para>
 <!--
-     The <function>regexp_matches</> function returns a text array of
-     all of the captured substrings resulting from matching a POSIX
-     regular expression pattern.  It has the syntax
-     <function>regexp_matches</function>(<replaceable>string</>, <replaceable>pattern</>
-     <optional>, <replaceable>flags</> </optional>).
-     The function can return no rows, one row, or multiple rows (see
-     the <literal>g</> flag below).  If the <replaceable>pattern</>
-     does not match, the function returns no rows.  If the pattern
-     contains no parenthesized subexpressions, then each row
-     returned is a single-element text array containing the substring
-     matching the whole pattern.  If the pattern contains parenthesized
-     subexpressions, the function returns a text array whose
-     <replaceable>n</>'th element is the substring matching the
-     <replaceable>n</>'th parenthesized subexpression of the pattern
-     (not counting <quote>non-capturing</> parentheses; see below for
-     details).
-     The <replaceable>flags</> parameter is an optional text
-     string containing zero or more single-letter flags that change the
-     function's behavior.  Flag <literal>g</> causes the function to find
-     each match in the string, not only the first one, and return a row for
-     each such match.  Supported flags (though
-     not <literal>g</>)
-     are described in <xref linkend="posix-embedded-options-table">.
+     The <function>regexp_match</> function returns a text array of
+     captured substring(s) resulting from the first match of a POSIX
+     regular expression pattern to a string.  It has the syntax
+     <function>regexp_match</function>(<replaceable>string</>,
+     <replaceable>pattern</> <optional>, <replaceable>flags</> </optional>).
+     If there is no match, the result is <literal>NULL</>.
+     If a match is found, and the <replaceable>pattern</> contains no
+     parenthesized subexpressions, then the result is a single-element text
+     array containing the substring matching the whole pattern.
+     If a match is found, and the <replaceable>pattern</> contains
+     parenthesized subexpressions, then the result is a text array
+     whose <replaceable>n</>'th element is the substring matching
+     the <replaceable>n</>'th parenthesized subexpression of
+     the <replaceable>pattern</> (not counting <quote>non-capturing</>
+     parentheses; see below for details).
+     The <replaceable>flags</> parameter is an optional text string
+     containing zero or more single-letter flags that change the function's
+     behavior.  Supported flags are described
+     in <xref linkend="posix-embedded-options-table">.
 -->
 <function>regexp_matches</>関数はPOSIX正規表現パターンマッチの結果捕捉された全ての部分文字列のテキスト配列を返します。
 <function>regexp_matches</function>(<replaceable>string</>, <replaceable>pattern</> <optional>, <replaceable>flags</> </optional>)の構文になります。
@@ -5606,40 +5622,86 @@ regexp_replace('foobarbaz', 'b(..)', E'X\\1Y', 'g')
 -->
 例：
 <programlisting>
-SELECT regexp_matches('foobarbequebaz', '(bar)(beque)');
- regexp_matches 
-----------------
- {bar,beque}
+SELECT regexp_match('foobarbequebaz', 'bar.*que');
+ regexp_match
+--------------
+ {barbeque}
 (1 row)
 
-SELECT regexp_matches('foobarbequebazilbarfbonk', '(b[^b]+)(b[^b]+)', 'g');
- regexp_matches 
-----------------
+SELECT regexp_match('foobarbequebaz', '(bar)(beque)');
+ regexp_match
+--------------
  {bar,beque}
- {bazil,barf}
-(2 rows)
-
-SELECT regexp_matches('foobarbequebaz', 'barbeque');
- regexp_matches 
-----------------
- {barbeque}
+(1 row)
+</programlisting>
+    In the common case where you just want the whole matching substring
+    or <literal>NULL</> for no match, write something like
+<programlisting>
+SELECT (regexp_match('foobarbequebaz', 'bar.*que'))[1];
+ regexp_match
+--------------
+ barbeque
 (1 row)
 </programlisting>
    </para>
 
+    <para>
+     The <function>regexp_matches</> function returns a set of text arrays
+     of captured substring(s) resulting from matching a POSIX regular
+     expression pattern to a string.  It has the same syntax as
+     <function>regexp_match</function>.
+     This function returns no rows if there is no match, one row if there is
+     a match and the <literal>g</> flag is not given, or <replaceable>N</>
+     rows if there are <replaceable>N</> matches and the <literal>g</> flag
+     is given.  Each returned row is a text array containing the whole
+     matched substring or the substrings matching parenthesized
+     subexpressions of the <replaceable>pattern</>, just as described above
+     for <function>regexp_match</function>.
+     <function>regexp_matches</> accepts all the flags shown
+     in <xref linkend="posix-embedded-options-table">, plus
+     the <literal>g</> flag which commands it to return all matches, not
+     just the first one.
+    </para>
+
+   <para>
+    Some examples:
+<programlisting>
+SELECT regexp_matches('foo', 'not there');
+ regexp_matches
+----------------
+(0 rows)
+
+SELECT regexp_matches('foobarbequebazilbarfbonk', '(b[^b]+)(b[^b]+)', 'g');
+ regexp_matches
+----------------
+ {bar,beque}
+ {bazil,barf}
+(2 rows)
+</programlisting>
+   </para>
+
+   <tip>
    <para>
 <!--
-    It is possible to force <function>regexp_matches()</> to always
-    return one row by using a sub-select;  this is particularly useful
-    in a <literal>SELECT</> target list when you want all rows
-    returned, even non-matching ones:
+     In most cases <function>regexp_matches()</> should be used with
+     the <literal>g</> flag, since if you only want the first match, it's
+     easier and more efficient to use <function>regexp_match()</>.
+     However, <function>regexp_match()</> only exists
+     in <productname>PostgreSQL</> version 10 and up.  When working in older
+     versions, a common trick is to place a <function>regexp_matches()</>
+     call in a sub-select, for example:
 -->
 副問い合わせを使用することで、<function>regexp_matches()</>が常に1行を返すように強制することが可能です。
 これは、<literal>SELECT</>の対象リスト内で、マッチするものが無い行も含めて全ての行を返して欲しい場合に特に有用です。
 <programlisting>
 SELECT col1, (SELECT regexp_matches(col2, '(bar)(beque)')) FROM tab;
 </programlisting>
-   </para>
+     This produces a text array if there's a match, or <literal>NULL</> if
+     not, the same as <function>regexp_match()</> would do.  Without the
+     sub-select, this query would produce no output at all for table rows
+     without a match, which is typically not the desired behavior.
+    </para>
+   </tip>
 
     <para>
 <!--
@@ -5735,6 +5797,7 @@ SELECT foo FROM regexp_split_to_table('the quick brown fox', E'\\s*') AS foo;
     zero-length matches that occur at the start or end of the string
     or immediately after a previous match.  This is contrary to the strict
     definition of regexp matching that is implemented by
+    <function>regexp_match</> and
     <function>regexp_matches</>, but is usually the most convenient behavior
     in practice.  Other software systems such as Perl use similar definitions.
 -->
@@ -7342,7 +7405,7 @@ RE全体に対してはその要素から推論されるものと異なる欲張
 例として、数字をいくつか含む文字列を数字とその前後の部分に分けようとしているとします。
 次のようにしてみるかもしれません。
 <screen>
-SELECT regexp_matches('abc01234xyz', '(.*)(\d+)(.*)');
+SELECT regexp_match('abc01234xyz', '(.*)(\d+)(.*)');
 <lineannotation>Result: </lineannotation><computeroutput>{abc0123,4,xyz}</computeroutput>
 </screen>
 <!--
@@ -7354,7 +7417,7 @@ SELECT regexp_matches('abc01234xyz', '(.*)(\d+)(.*)');
 上手くいきませんでした。最初の<literal>.*</>が欲張りで、可能なだけ<quote>消費</>してしまい、<literal>\d+</>は最後の可能な場所で最後の数字にマッチします。
 欲張りでなくすることで直そうとするかもしれません。
 <screen>
-SELECT regexp_matches('abc01234xyz', '(.*?)(\d+)(.*)');
+SELECT regexp_match('abc01234xyz', '(.*?)(\d+)(.*)');
 <lineannotation>Result: </lineannotation><computeroutput>{abc,0,""}</computeroutput>
 </screen>
 <!--
@@ -7365,7 +7428,7 @@ SELECT regexp_matches('abc01234xyz', '(.*?)(\d+)(.*)');
 またもや上手くいきませんでした。今度は、REが全体として欲張りでなくなってしまい、できる限り早く全体に渡るマッチを終わらせてしまうからです。
 RE全体として欲張りにすることで欲しいものが得られます。
 <screen>
-SELECT regexp_matches('abc01234xyz', '(?:(.*?)(\d+)(.*)){1,1}');
+SELECT regexp_match('abc01234xyz', '(?:(.*?)(\d+)(.*)){1,1}');
 <lineannotation>Result: </lineannotation><computeroutput>{abc,01234,xyz}</computeroutput>
 </screen>
 <!--
@@ -7750,6 +7813,17 @@ BREにおいては、<literal>|</>、<literal>+</>、<literal>?</>は普通の�
     </para>
    </note>
 
+   <tip>
+    <para>
+     <function>to_timestamp</function> and <function>to_date</function>
+     exist to handle input formats that cannot be converted by
+     simple casting.  For most standard date/time formats, simply casting the
+     source string to the required data type works, and is much easier.
+     Similarly, <function>to_number</> is unnecessary for standard numeric
+     representations.
+    </para>
+   </tip>
+
    <para>
 <!--
     In a <function>to_char</> output template string, there are certain
@@ -8120,7 +8194,7 @@ BREにおいては、<literal>|</>、<literal>+</>、<literal>?</>は普通の�
        <row>
         <entry><literal>Q</literal></entry>
 <!--
-        <entry>quarter (ignored by <function>to_date</> and <function>to_timestamp</>)</entry>
+        <entry>quarter</entry>
 -->
         <entry>四半期（<function>to_date</>と<function>to_timestamp</>は無視します）</entry>
        </row>
@@ -8333,27 +8407,6 @@ BREにおいては、<literal>|</>、<literal>+</>、<literal>?</>は普通の�
      <listitem>
       <para>
 <!--
-       <function>to_timestamp</function> and <function>to_date</function>
-       exist to handle input formats that cannot be converted by
-       simple casting.  These functions interpret input liberally,
-       with minimal error checking.  While they produce valid output,
-       the conversion can yield unexpected results.  For example,
-       input to these functions is not restricted by normal ranges,
-       thus <literal>to_date('20096040','YYYYMMDD')</literal> returns
-       <literal>2014-01-17</literal> rather than causing an error.
-       Casting does not have this behavior.
--->
-<function>to_timestamp</function>と<function>to_date</function>は単純なキャストでは変換できない入力書式を扱うために存在します。
-この関数は最低限のエラー検査で入力を自由に解釈します。
-有効な出力を生成しますが、変換は思わぬ結果を生じることがあります。
-例えば、この関数への入力は通常の範囲で制限されてはいませんので、<literal>to_date('20096040','YYYYMMDD')</literal>はエラーを起こすのではなく、<literal>2014-01-17</literal>を返します。
-キャストにはこのような動作はありません。
-      </para>
-     </listitem>
-
-     <listitem>
-      <para>
-<!--
        Ordinary text is allowed in <function>to_char</function>
        templates and will be output literally.  You can put a substring
        in double quotes to force it to be interpreted as literal text
@@ -8386,7 +8439,8 @@ BREにおいては、<literal>|</>、<literal>+</>、<literal>?</>は普通の�
      <listitem>
       <para>
 <!--
-       If the year format specification is less than four digits, e.g.
+       In <function>to_timestamp</function> and <function>to_date</function>,
+       if the year format specification is less than four digits, e.g.
        <literal>YYY</>, and the supplied year is less than four digits,
        the year will be adjusted to be nearest to the year 2020, e.g.
        <literal>95</> becomes 1995.
@@ -8398,8 +8452,9 @@ BREにおいては、<literal>|</>、<literal>+</>、<literal>?</>は普通の�
      <listitem>
       <para>
 <!--
-       The <literal>YYYY</literal> conversion from string to <type>timestamp</type> or
-       <type>date</type> has a restriction when processing years with more than 4 digits. You must
+       In <function>to_timestamp</function> and <function>to_date</function>,
+       the <literal>YYYY</literal> conversion has a restriction when
+       processing years with more than 4 digits. You must
        use some non-digit character or template after <literal>YYYY</literal>,
        otherwise the year is always interpreted as 4 digits. For example
        (with the year 20000):
@@ -8418,12 +8473,12 @@ BREにおいては、<literal>|</>、<literal>+</>、<literal>?</>は普通の�
      <listitem>
       <para>
 <!--
-       In conversions from string to <type>timestamp</type> or
-       <type>date</type>, the <literal>CC</literal> (century) field is ignored
+       In <function>to_timestamp</function> and <function>to_date</function>,
+       the <literal>CC</literal> (century) field is accepted but ignored
        if there is a <literal>YYY</literal>, <literal>YYYY</literal> or
        <literal>Y,YYY</literal> field. If <literal>CC</literal> is used with
-       <literal>YY</literal> or <literal>Y</literal> then the year is computed
-       as the year in the specified century.  If the century is
+       <literal>YY</literal> or <literal>Y</literal> then the result is
+       computed as that year in the specified century.  If the century is
        specified but the year is not, the first year of the century
        is assumed.
 -->
@@ -8435,10 +8490,20 @@ BREにおいては、<literal>|</>、<literal>+</>、<literal>?</>は普通の�
 
      <listitem>
       <para>
+       In <function>to_timestamp</function> and <function>to_date</function>,
+       weekday names or numbers (<literal>DAY</literal>, <literal>D</literal>,
+       and related field types) are accepted but are ignored for purposes of
+       computing the result.  The same is true for quarter
+       (<literal>Q</literal>) fields.
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
 <!--
-       An ISO 8601 week-numbering date (as distinct from a Gregorian date)
-       can be specified to <function>to_timestamp</function> and
-       <function>to_date</function> in one of two ways:
+       In <function>to_timestamp</function> and <function>to_date</function>,
+       an ISO 8601 week-numbering date (as distinct from a Gregorian date)
+       can be specified in one of two ways:
 -->
 ISO 8601週番号日は（グレゴリオ暦の日付とは異なって）<function>to_timestamp</function>と<function>to_date</function>で２つの方法のうちのひとつで指定できます。
        <itemizedlist>
@@ -8501,16 +8566,17 @@ ISO 8601週番号年の文脈では、<quote>月</>、あるいは<quote>月内�
      <listitem>
       <para>
 <!--
-       In a conversion from string to <type>timestamp</type>, millisecond
+       In <function>to_timestamp</function>, millisecond
        (<literal>MS</literal>) or microsecond (<literal>US</literal>)
-       values are used as the
+       fields are used as the
        seconds digits after the decimal point. For example
-       <literal>to_timestamp('12:3', 'SS:MS')</literal> is not 3 milliseconds,
-       but 300, because the conversion counts it as 12 + 0.3 seconds.
-       This means for the format <literal>SS:MS</literal>, the input values
-       <literal>12:3</literal>, <literal>12:30</literal>, and <literal>12:300</literal> specify the
-       same number of milliseconds. To get three milliseconds, one must use
-       <literal>12:003</literal>, which the conversion counts as
+       <literal>to_timestamp('12.3', 'SS.MS')</literal> is not 3 milliseconds,
+       but 300, because the conversion treats it as 12 + 0.3 seconds.
+       So, for the format <literal>SS.MS</literal>, the input values
+       <literal>12.3</literal>, <literal>12.30</literal>,
+       and <literal>12.300</literal> specify the
+       same number of milliseconds. To get three milliseconds, one must write
+       <literal>12.003</literal>, which the conversion treats as
        12 + 0.003 = 12.003 seconds.
 -->
 文字列型から<type>timestamp</type>型への変換に際し、ミリ秒(<literal>MS</literal>)またはマイクロ秒(<literal>US</literal>)の値は小数点の位置の後の秒の桁として使用されます。
@@ -8548,9 +8614,10 @@ ISO 8601週番号年の文脈では、<quote>月</>、あるいは<quote>月内�
       <para>
 <!--
         <function>to_char(interval)</function> formats <literal>HH</> and
-        <literal>HH12</> as shown on a 12-hour clock, i.e. zero hours
-        and 36 hours output as <literal>12</>, while <literal>HH24</>
-        outputs the full hour value, which can exceed 23 for intervals.
+        <literal>HH12</> as shown on a 12-hour clock, for example zero hours
+        and 36 hours both output as <literal>12</>, while <literal>HH24</>
+        outputs the full hour value, which can exceed 23 in
+        an <type>interval</> value.
 -->
 <function>to_char(interval)</function>関数は、<literal>HH</>と<literal>HH12</>を12時間の時計に表示されるように整形します。
 すなわち0時間と36時間を<literal>12</>として出力します。
@@ -8588,17 +8655,11 @@ ISO 8601週番号年の文脈では、<quote>月</>、あるいは<quote>月内�
       <tbody>
        <row>
         <entry><literal>9</literal></entry>
-<!--
-        <entry>value with the specified number of digits</entry>
--->
-        <entry>指定された桁数での値</entry>
+        <entry>digit position (can be dropped if insignificant)</entry>
        </row>
        <row>
         <entry><literal>0</literal></entry>
-<!--
-        <entry>value with leading zeros</entry>
--->
-        <entry>前にゼロが付いた値</entry>
+        <entry>digit position (will not be dropped, even if insignificant)</entry>
        </row>
        <row>
 <!--
@@ -8611,7 +8672,7 @@ ISO 8601週番号年の文脈では、<quote>月</>、あるいは<quote>月内�
        <row>
 <!--
         <entry><literal>,</literal> (comma)</entry>
-        <entry>group (thousand) separator</entry>
+        <entry>group (thousands) separator</entry>
 -->
         <entry><literal>,</literal> (コンマ)</entry>
         <entry>千単位で区切る符号</entry>
@@ -8714,32 +8775,53 @@ ISO 8601週番号年の文脈では、<quote>月</>、あるいは<quote>月内�
     <itemizedlist>
      <listitem>
       <para>
-<!--
-       A sign formatted using <literal>SG</literal>, <literal>PL</literal>, or
-       <literal>MI</literal> is not anchored to
-       the number; for example,
-       <literal>to_char(-12, 'MI9999')</literal> produces <literal>'-&nbsp;&nbsp;12'</literal>
-       but <literal>to_char(-12, 'S9999')</literal> produces <literal>'&nbsp;&nbsp;-12'</literal>.
-       The Oracle implementation does not allow the use of
-       <literal>MI</literal> before <literal>9</literal>, but rather
-       requires that <literal>9</literal> precede
-       <literal>MI</literal>.
--->
-<literal>SG</literal>、<literal>PL</literal>、または<literal>MI</literal>で整形された符号は、数値と関連付けられません。
-例えば、<literal>to_char(-12, 'MI9999')</literal>は<literal>'-&nbsp;&nbsp;12'</literal>となる一方、<literal>to_char(-12, 'S9999')</literal>は<literal>'&nbsp;&nbsp;-12'</literal>となります。
-Oracleの実装では<literal>9</literal>の前に<literal>MI</literal>が置かれてはならず、<literal>9</literal>の後に<literal>MI</literal>が置かれることを要求しています。
+       <literal>0</> specifies a digit position that will always be printed,
+       even if it contains a leading/trailing zero.  <literal>9</> also
+       specifies a digit position, but if it is a leading zero then it will
+       be replaced by a space, while if it is a trailing zero and fill mode
+       is specified then it will be deleted.  (For <function>to_number()</>,
+       these two pattern characters are equivalent.)
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+       The pattern characters <literal>S</>, <literal>L</>, <literal>D</>,
+       and <literal>G</> represent the sign, currency symbol, decimal point,
+       and thousands separator characters defined by the current locale
+       (see <xref linkend="guc-lc-monetary">
+       and <xref linkend="guc-lc-numeric">).  The pattern characters period
+       and comma represent those exact characters, with the meanings of
+       decimal point and thousands separator, regardless of locale.
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+       If no explicit provision is made for a sign
+       in <function>to_char()</>'s pattern, one column will be reserved for
+       the sign, and it will be anchored to (appear just left of) the
+       number.  If <literal>S</> appears just left of some <literal>9</>'s,
+       it will likewise be anchored to the number.
       </para>
      </listitem>
 
      <listitem>
       <para>
 <!--
-       <literal>9</literal> results in a value with the same number of
-       digits as there are <literal>9</literal>s. If a digit is
-       not available it outputs a space.
+       A sign formatted using <literal>SG</literal>, <literal>PL</literal>, or
+       <literal>MI</literal> is not anchored to
+       the number; for example,
+       <literal>to_char(-12, 'MI9999')</literal> produces <literal>'-&nbsp;&nbsp;12'</literal>
+       but <literal>to_char(-12, 'S9999')</literal> produces <literal>'&nbsp;&nbsp;-12'</literal>.
+       (The Oracle implementation does not allow the use of
+       <literal>MI</literal> before <literal>9</literal>, but rather
+       requires that <literal>9</literal> precede
+       <literal>MI</literal>.)
 -->
-<literal>9</literal>は<literal>9</literal>が並んでいる数と同じ桁数の値を出力します。
-桁が使用可能でない場合、スペースを出力します。
+<literal>SG</literal>、<literal>PL</literal>、または<literal>MI</literal>で整形された符号は、数値と関連付けられません。
+例えば、<literal>to_char(-12, 'MI9999')</literal>は<literal>'-&nbsp;&nbsp;12'</literal>となる一方、<literal>to_char(-12, 'S9999')</literal>は<literal>'&nbsp;&nbsp;-12'</literal>となります。
+Oracleの実装では<literal>9</literal>の前に<literal>MI</literal>が置かれてはならず、<literal>9</literal>の後に<literal>MI</literal>が置かれることを要求しています。
       </para>
      </listitem>
 
@@ -8802,8 +8884,8 @@ Oracleの実装では<literal>9</literal>の前に<literal>MI</literal>が置か
    <para>
 <!--
     Certain modifiers can be applied to any template pattern to alter its
-    behavior.  For example, <literal>FM9999</literal>
-    is the <literal>9999</literal> pattern with the
+    behavior.  For example, <literal>FM99.99</literal>
+    is the <literal>99.99</literal> pattern with the
     <literal>FM</literal> modifier.
     <xref linkend="functions-formatting-numericmod-table"> shows the
     modifier patterns for numeric formatting.
@@ -8838,7 +8920,8 @@ Oracleの実装では<literal>9</literal>の前に<literal>MI</literal>が置か
 -->
         <entry><literal>FM</literal>添え字</entry>
 <!--
-        <entry>fill mode (suppress leading zeroes and padding blanks)</entry>
+        <entry>fill mode (suppress trailing zeroes and padding blanks)</entry>
+        <entry><literal>FM99.99</literal></entry>
 -->
         <entry>字詰めモード（先頭の0、および空白の埋め字を無効）</entry>
         <entry><literal>FM9999</literal></entry>
@@ -8909,6 +8992,10 @@ Oracleの実装では<literal>9</literal>の前に<literal>MI</literal>が置か
        <row>
         <entry><literal>to_char(-0.1, 'FM9.99')</literal></entry>
         <entry><literal>'-.1'</literal></entry>
+       </row>
+       <row>
+        <entry><literal>to_char(-0.1, 'FM90.99')</literal></entry>
+        <entry><literal>'-0.1'</literal></entry>
        </row>
        <row>
         <entry><literal>to_char(0.1, '0.9')</literal></entry>
@@ -12445,6 +12532,62 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
 <type>macaddr</type>型は（<literal>&gt;</literal>、<literal>&lt;=</literal>等の）辞書編集順に並べる標準関係演算子とNOT、AND、ORのビット演算子(<literal>~</literal>、<literal>&amp;</literal>、<literal>|</literal>)もサポートしています。
    </para>
 
+   <para>
+   <xref linkend="macaddr8-functions-table"> shows the functions
+   available for use with the <type>macaddr8</type> type.  The function
+   <literal><function>trunc(<type>macaddr8</type>)</function></literal> returns a MAC
+   address with the last 5 bytes set to zero.  This can be used to
+   associate the remaining prefix with a manufacturer.
+  </para>
+
+    <table id="macaddr8-functions-table">
+     <title><type>macaddr8</type> Functions</title>
+     <tgroup cols="5">
+      <thead>
+       <row>
+        <entry>Function</entry>
+        <entry>Return Type</entry>
+        <entry>Description</entry>
+        <entry>Example</entry>
+        <entry>Result</entry>
+       </row>
+      </thead>
+      <tbody>
+       <row>
+        <entry>
+         <indexterm>
+          <primary>trunc</primary>
+         </indexterm>
+         <literal><function>trunc(<type>macaddr8</type>)</function></literal>
+        </entry>
+        <entry><type>macaddr8</type></entry>
+        <entry>set last 5 bytes to zero</entry>
+        <entry><literal>trunc(macaddr8 '12:34:56:78:90:ab:cd:ef')</literal></entry>
+        <entry><literal>12:34:56:00:00:00:00:00</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <indexterm>
+          <primary>macaddr8_set7bit</primary>
+         </indexterm>
+         <literal><function>macaddr8_set7bit(<type>macaddr8</type>)</function></literal>
+        </entry>
+        <entry><type>macaddr8</type></entry>
+        <entry>set 7th bit to one, also known as modified EUI-64, for inclusion in an IPv6 address</entry>
+        <entry><literal>macaddr8_set7bit(macaddr8 '00:34:56:ab:cd:ef')</literal></entry>
+        <entry><literal>02:34:56:ff:fe:ab:cd:ef</literal></entry>
+       </row>
+      </tbody>
+     </tgroup>
+    </table>
+
+   <para>
+    The <type>macaddr8</type> type also supports the standard relational
+    operators (<literal>&gt;</literal>, <literal>&lt;=</literal>, etc.) for
+    ordering, and the bitwise arithmetic operators (<literal>~</literal>,
+    <literal>&amp;</literal> and <literal>|</literal>) for NOT, AND and OR.
+   </para>
+
   </sect1>
 
 
@@ -12840,6 +12983,18 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
        </row>
        <row>
         <entry>
+         <literal><function>to_tsvector(<optional> <replaceable class="PARAMETER">config</> <type>regconfig</> , </optional> <replaceable class="PARAMETER">document</> <type>json(b)</type>)</function></literal>
+        </entry>
+        <entry><type>tsvector</type></entry>
+        <entry>
+          reduce each string value in the document to a <type>tsvector</>, and then
+          concatenate those in document order to produce a single <type>tsvector</>
+        </entry>
+        <entry><literal>to_tsvector('english', '{"a": "The Fat Rats"}'::json)</literal></entry>
+        <entry><literal>'fat':2 'rat':3</literal></entry>
+       </row>
+       <row>
+        <entry>
          <indexterm>
           <primary>ts_delete</primary>
          </indexterm>
@@ -12895,6 +13050,15 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry>問い合わせによるマッチを表示</entry>
         <entry><literal>ts_headline('x y z', 'z'::tsquery)</literal></entry>
         <entry><literal>x y &lt;b&gt;z&lt;/b&gt;</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal><function>ts_headline(<optional> <replaceable class="PARAMETER">config</replaceable> <type>regconfig</>, </optional> <replaceable class="PARAMETER">document</replaceable> <type>json(b)</>, <replaceable class="PARAMETER">query</replaceable> <type>tsquery</> <optional>, <replaceable class="PARAMETER">options</replaceable> <type>text</> </optional>)</function></literal>
+        </entry>
+        <entry><type>text</type></entry>
+        <entry>display a query match</entry>
+        <entry><literal>ts_headline('{"a":"x y z"}'::json, 'z'::tsquery)</literal></entry>
+        <entry><literal>{"a":"x y &lt;b&gt;z&lt;/b&gt;"}</literal></entry>
        </row>
        <row>
         <entry>
@@ -13040,7 +13204,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         </entry>
         <entry><type>setof record</type></entry>
 <!--
-        <entry>expand a tsvector to a set of rows</entry>
+        <entry>expand a <type>tsvector</type> to a set of rows</entry>
 -->
         <entry>tsvectorを行の集合に展開する</entry>
         <entry><literal>unnest('fat:2,4 cat:3 rat:5A'::tsvector)</literal></entry>
@@ -13896,67 +14060,71 @@ SELECT xml_is_well_formed_document('<pg:foo xmlns:pg="http://postgresql.org/stuf
 -->
    <title>XMLの処理</title>
 
-   <indexterm>
-    <primary>XPath</primary>
-   </indexterm>
-
    <para>
 <!--
     To process values of data type <type>xml</type>, PostgreSQL offers
     the functions <function>xpath</function> and
     <function>xpath_exists</function>, which evaluate XPath 1.0
-    expressions.
+    expressions, and the <function>XMLTABLE</function>
+    table function.
 -->
 データ型<type>xml</type>の値を処理するため、PostgreSQLは関数<function>xpath</function>と<function>xpath_exists</function>を提供しており、それはXPath 1.0式を評価します。
    </para>
+
+   <sect3 id="functions-xml-processing-xpath">
+    <title><literal>xpath</literal></title>
+
+    <indexterm>
+     <primary>XPath</primary>
+    </indexterm>
 
 <synopsis>
 <function>xpath</function>(<replaceable>xpath</replaceable>, <replaceable>xml</replaceable> <optional>, <replaceable>nsarray</replaceable></optional>)
 </synopsis>
 
-   <para>
+    <para>
 <!--
-    The function <function>xpath</function> evaluates the XPath
-    expression <replaceable>xpath</replaceable> (a <type>text</> value)
-    against the XML value
-    <replaceable>xml</replaceable>.  It returns an array of XML values
-    corresponding to the node set produced by the XPath expression.
-    If the XPath expression returns a scalar value rather than a node set,
-    a single-element array is returned.
+     The function <function>xpath</function> evaluates the XPath
+     expression <replaceable>xpath</replaceable> (a <type>text</> value)
+     against the XML value
+     <replaceable>xml</replaceable>.  It returns an array of XML values
+     corresponding to the node set produced by the XPath expression.
+     If the XPath expression returns a scalar value rather than a node set,
+     a single-element array is returned.
 -->
 関数<function>xpath</function>は、XML値<replaceable>xml</replaceable>に対し、XPath式<replaceable>xpath</replaceable>(ひとつの<type>text</>値)を評価します。そして、XPath式で作成されたノードセットに対応するXML値の配列を返します。
 もし、XPath式がノードセットではなくスカラー値を返す場合、単一要素の配列が返されます。
-   </para>
+    </para>
 
-  <para>
+    <para>
 <!--
-    The second argument must be a well formed XML document. In particular,
-    it must have a single root node element.
+     The second argument must be a well formed XML document. In particular,
+     it must have a single root node element.
 -->
 2番目の引数は整形済XML文書でなければなりません。特に、単一のルートノード要素を持たなければなりません。
-  </para>
+    </para>
 
-   <para>
+    <para>
 <!--
-    The optional third argument of the function is an array of namespace
-    mappings.  This array should be a two-dimensional <type>text</> array with
-    the length of the second axis being equal to 2 (i.e., it should be an
-    array of arrays, each of which consists of exactly 2 elements).
-    The first element of each array entry is the namespace name (alias), the
-    second the namespace URI. It is not required that aliases provided in
-    this array be the same as those being used in the XML document itself (in
-    other words, both in the XML document and in the <function>xpath</function>
-    function context, aliases are <emphasis>local</>).
+     The optional third argument of the function is an array of namespace
+     mappings.  This array should be a two-dimensional <type>text</> array with
+     the length of the second axis being equal to 2 (i.e., it should be an
+     array of arrays, each of which consists of exactly 2 elements).
+     The first element of each array entry is the namespace name (alias), the
+     second the namespace URI. It is not required that aliases provided in
+     this array be the same as those being used in the XML document itself (in
+     other words, both in the XML document and in the <function>xpath</function>
+     function context, aliases are <emphasis>local</>).
 -->
 オプショナルな関数の３番目の引数は名前空間マッピング配列です。
 この配列は、第２軸が２に等しい長さをもつ２次元<type>text</>配列です（つまり、それは配列の配列で、それぞれは正確に２つの要素からなります）。
 それぞれの配列のエントリの最初の要素は名前空間の名前（別名）で、２番目は名前空間のURIです。
 この配列内で提供される別名がXML文書自身で使用されるものと同じであることは必要ではありません（言い換えると、XML文書内および<function>xpath</function>関数の両方の文脈の中で、別名は<emphasis>ローカル</>です）。
-   </para>
+    </para>
 
-   <para>
+    <para>
 <!--
-    Example:
+     Example:
 -->
 例：
 <screen><![CDATA[
@@ -13968,11 +14136,11 @@ SELECT xpath('/my:a/text()', '<my:a xmlns:my="http://example.com">test</my:a>',
  {test}
 (1 row)
 ]]></screen>
-   </para>
+    </para>
 
-   <para>
+    <para>
 <!--
-    To deal with default (anonymous) namespaces, do something like this:
+     To deal with default (anonymous) namespaces, do something like this:
 -->
 デフォルト(匿名)名前空間を取り扱うためには、以下のようなことを実施してください。
 <screen><![CDATA[
@@ -13984,32 +14152,36 @@ SELECT xpath('//mydefns:b/text()', '<a xmlns="http://example.com"><b>test</b></a
  {test}
 (1 row)
 ]]></screen>
-   </para>
+    </para>
+   </sect3>
 
-   <indexterm>
-    <primary>xpath_exists</primary>
-   </indexterm>
+   <sect3 id="functions-xml-processing-xpath-exists">
+    <title><literal>xpath_exists</literal></title>
+
+    <indexterm>
+     <primary>xpath_exists</primary>
+    </indexterm>
 
 <synopsis>
 <function>xpath_exists</function>(<replaceable>xpath</replaceable>, <replaceable>xml</replaceable> <optional>, <replaceable>nsarray</replaceable></optional>)
 </synopsis>
 
-   <para>
+    <para>
 <!--
-    The function <function>xpath_exists</function> is a specialized form
-    of the <function>xpath</function> function.  Instead of returning the
-    individual XML values that satisfy the XPath, this function returns a
-    Boolean indicating whether the query was satisfied or not.  This
-    function is equivalent to the standard <literal>XMLEXISTS</> predicate,
-    except that it also offers support for a namespace mapping argument.
+     The function <function>xpath_exists</function> is a specialized form
+     of the <function>xpath</function> function.  Instead of returning the
+     individual XML values that satisfy the XPath, this function returns a
+     Boolean indicating whether the query was satisfied or not.  This
+     function is equivalent to the standard <literal>XMLEXISTS</> predicate,
+     except that it also offers support for a namespace mapping argument.
 -->
 関数<function>xpath_exists</function>は、<function>xpath</function>関数の特別な形式です。この関数は、XPathを満足する個別のXML値を返す代わりに、問い合わせがそれを満足するかどうかを論理値で返します。
 この関数は、名前空間にマッピングされた引数をもサポートする点を除き、標準の<literal>XMLEXISTS</>述語と同じです。
-   </para>
 
-   <para>
+    </para>
+    <para>
 <!--
-    Example:
+     Example:
 -->
 例:
 <screen><![CDATA[
@@ -14021,7 +14193,238 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
  t
 (1 row)
 ]]></screen>
-   </para>
+    </para>
+   </sect3>
+
+   <sect3 id="functions-xml-processing-xmltable">
+    <title><literal>xmltable</literal></title>
+
+    <indexterm>
+     <primary>xmltable</primary>
+    </indexterm>
+
+    <indexterm zone="functions-xml-processing-xmltable">
+     <primary>table function</primary>
+     <secondary>XMLTABLE</secondary>
+    </indexterm>
+
+<synopsis>
+<function>xmltable</function>( <optional>XMLNAMESPACES(<replaceable>namespace uri</replaceable> AS <replaceable>namespace name</replaceable><optional>, ...</optional>), </optional>
+          <replaceable>row_expression</replaceable> PASSING <optional>BY REF</optional> <replaceable>document_expression</replaceable> <optional>BY REF</optional>
+          COLUMNS <replaceable>name</replaceable> { <replaceable>type</replaceable> <optional>PATH <replaceable>column_expression</replaceable></optional> <optional>DEFAULT <replaceable>default_expression</replaceable></optional> <optional>NOT NULL | NULL</optional>
+                        | FOR ORDINALITY }
+                   <optional>, ...</optional>
+)
+</synopsis>
+
+    <para>
+     The <function>xmltable</function> function produces a table based
+     on the given XML value, an XPath filter to extract rows, and an
+     optional set of column definitions.
+    </para>
+
+    <para>
+     The optional <literal>XMLNAMESPACES</> clause is a comma-separated
+     list of namespaces.  It specifies the XML namespaces used in
+     the document and their aliases. A default namespace specification
+     is not currently supported.
+    </para>
+
+    <para>
+     The required <replaceable>row_expression</> argument is an XPath
+     expression that is evaluated against the supplied XML document to
+     obtain an ordered sequence of XML nodes. This sequence is what
+     <function>xmltable</> transforms into output rows.
+    </para>
+
+    <para>
+     <replaceable>document_expression</> provides the XML document to
+     operate on.
+     The <literal>BY REF</literal> clauses have no effect in PostgreSQL,
+     but are allowed for SQL conformance and compatibility with other
+     implementations.
+     The argument must be a well-formed XML document; fragments/forests
+     are not accepted.
+    </para>
+
+    <para>
+     The mandatory <literal>COLUMNS</literal> clause specifies the list
+     of columns in the output table.
+     If the <literal>COLUMNS</> clause is omitted, the rows in the result
+     set contain a single column of type <literal>xml</> containing the
+     data matched by <replaceable>row_expression</>.
+     If <literal>COLUMNS</literal> is specified, each entry describes a
+     single column.
+     See the syntax summary above for the format.
+     The column name and type are required; the path, default and
+     nullability clauses are optional.
+    </para>
+
+    <para>
+     A column marked <literal>FOR ORDINALITY</literal> will be populated
+     with row numbers matching the order in which the
+     output rows appeared in the original input XML document.
+     At most one column may be marked <literal>FOR ORDINALITY</literal>.
+    </para>
+
+    <para>
+     The <literal>column_expression</> for a column is an XPath expression
+     that is evaluated for each row, relative to the result of the
+     <replaceable>row_expression</>, to find the value of the column.
+     If no <literal>column_expression</> is given, then the column name
+     is used as an implicit path.
+    </para>
+
+    <para>
+     If a column's XPath expression returns multiple elements, an error
+     is raised.
+     If the expression matches an empty tag, the result is an
+     empty string (not <literal>NULL</>).
+     Any <literal>xsi:nil</> attributes are ignored.
+    </para>
+
+    <para>
+     The text body of the XML matched by the <replaceable>column_expression</>
+     is used as the column value. Multiple <literal>text()</literal> nodes
+     within an element are concatenated in order. Any child elements,
+     processing instructions, and comments are ignored, but the text contents
+     of child elements are concatenated to the result.
+     Note that the whitespace-only <literal>text()</> node between two non-text
+     elements is preserved, and that leading whitespace on a <literal>text()</>
+     node is not flattened.
+    </para>
+
+    <para>
+     If the path expression does not match for a given row but
+     <replaceable>default_expression</> is specified, the value resulting
+     from evaluating that expression is used.
+     If no <literal>DEFAULT</> clause is given for the column,
+     the field will be set to <literal>NULL</>.
+     It is possible for a <replaceable>default_expression</> to reference
+     the value of output columns that appear prior to it in the column list,
+     so the default of one column may be based on the value of another
+     column.
+    </para>
+
+    <para>
+     Columns may be marked <literal>NOT NULL</>. If the
+     <replaceable>column_expression</> for a <literal>NOT NULL</> column
+     does not match anything and there is no <literal>DEFAULT</> or the
+     <replaceable>default_expression</> also evaluates to null, an error
+     is reported.
+    </para>
+
+    <para>
+     Unlike regular PostgreSQL functions, <replaceable>column_expression</>
+     and <replaceable>default_expression</> are not evaluated to a simple
+     value before calling the function.
+     <replaceable>column_expression</> is normally evaluated
+     exactly once per input row, and <replaceable>default_expression</>
+     is evaluated each time a default is needed for a field.
+     If the expression qualifies as stable or immutable the repeat
+     evaluation may be skipped.
+     Effectively <function>xmltable</> behaves more like a subquery than a
+     function call.
+     This means that you can usefully use volatile functions like
+     <function>nextval</> in <replaceable>default_expression</>, and
+     <replaceable>column_expression</> may depend on other parts of the
+     XML document.
+    </para>
+
+    <para>
+     Examples:
+  <screen><![CDATA[
+CREATE TABLE xmldata AS SELECT
+xml $$
+<ROWS>
+  <ROW id="1">
+    <COUNTRY_ID>AU</COUNTRY_ID>
+    <COUNTRY_NAME>Australia</COUNTRY_NAME>
+  </ROW>
+  <ROW id="5">
+    <COUNTRY_ID>JP</COUNTRY_ID>
+    <COUNTRY_NAME>Japan</COUNTRY_NAME>
+    <PREMIER_NAME>Shinzo Abe</PREMIER_NAME>
+    <SIZE unit="sq_mi">145935</SIZE>
+  </ROW>
+  <ROW id="6">
+    <COUNTRY_ID>SG</COUNTRY_ID>
+    <COUNTRY_NAME>Singapore</COUNTRY_NAME>
+    <SIZE unit="sq_km">697</SIZE>
+  </ROW>
+</ROWS>
+$$ AS data;
+
+SELECT xmltable.*
+  FROM xmldata,
+       XMLTABLE('//ROWS/ROW'
+                PASSING data
+                COLUMNS id int PATH '@id',
+                        ordinality FOR ORDINALITY,
+                        "COUNTRY_NAME" text,
+                        country_id text PATH 'COUNTRY_ID',
+                        size_sq_km float PATH 'SIZE[@unit = "sq_km"]',
+                        size_other text PATH
+                             'concat(SIZE[@unit!="sq_km"], " ", SIZE[@unit!="sq_km"]/@unit)',
+                        premier_name text PATH 'PREMIER_NAME' DEFAULT 'not specified') ;
+
+ id | ordinality | COUNTRY_NAME | country_id | size_sq_km |  size_other  | premier_name  
+----+------------+--------------+------------+------------+--------------+---------------
+  1 |          1 | Australia    | AU         |            |              | not specified
+  5 |          2 | Japan        | JP         |            | 145935 sq_mi | Shinzo Abe
+  6 |          3 | Singapore    | SG         |        697 |              | not specified
+]]></screen>
+
+     The following example shows concatenation of multiple text() nodes,
+     usage of the column name as XPath filter, and the treatment of whitespace,
+     XML comments and processing instructions:
+
+  <screen><![CDATA[
+CREATE TABLE xmlelements AS SELECT
+xml $$
+  <root>
+   <element>  Hello<!-- xyxxz -->2a2<?aaaaa?> <!--x-->  bbb<x>xxx</x>CC  </element>
+  </root>
+$$ AS data;
+
+SELECT xmltable.*
+  FROM xmlelements, XMLTABLE('/root' PASSING data COLUMNS element text);
+       element        
+----------------------
+   Hello2a2   bbbCC  
+]]></screen>
+    </para>
+
+    <para>
+     The following example illustrates how
+     the <literal>XMLNAMESPACES</literal> clause can be used to specify
+     the default namespace, and a list of additional namespaces
+     used in the XML document as well as in the XPath expressions:
+
+  <screen><![CDATA[
+WITH xmldata(data) AS (VALUES ('
+<example xmlns="http://example.com/myns" xmlns:B="http://example.com/b">
+ <item foo="1" B:bar="2"/>
+ <item foo="3" B:bar="4"/>
+ <item foo="4" B:bar="5"/>
+</example>'::xml)
+)
+SELECT xmltable.*
+  FROM XMLTABLE(XMLNAMESPACES('http://example.com/myns' AS x,
+                              'http://example.com/b' AS "B"),
+             '/x:example/x:item'
+                PASSING (SELECT data FROM xmldata)
+                COLUMNS foo int PATH '@foo',
+                  bar int PATH '@B:bar');
+ foo | bar
+-----+-----
+   1 |   2
+   3 |   4
+   4 |   5
+(3 rows)
+]]></screen>
+    </para>
+   </sect3>
   </sect2>
 
   <sect2 id="functions-xml-mapping">
@@ -14621,6 +15024,14 @@ JSON配列の添字を整数で受け取り、フィールド、要素、パス�
        </row>
        <row>
         <entry><literal>-</literal></entry>
+        <entry><type>text[]</type></entry>
+        <entry>Delete multiple key/value pairs or <emphasis>string</emphasis>
+        elements from left operand.  Key/value pairs are matched based
+        on their key value.</entry>
+        <entry><literal>'{"a": "b", "c": "d"}'::jsonb - '{a,c}'::text[] </literal></entry>
+       </row>
+       <row>
+        <entry><literal>-</literal></entry>
         <entry><type>integer</type></entry>
 <!--
         <entry>Delete the array element with specified index (Negative
@@ -15123,12 +15534,12 @@ variadic引数リストからJSONオブジェクトを作成。
 -->
 <replaceable>from_json</replaceable>内のオブジェクトを行を<replaceable>base</>で定義されたレコード型に一致する列に拡張する(以下の注意書きを参照)。
        </entry>
-       <entry><literal>select * from json_populate_record(null::myrowtype, '{"a":1,"b":2}')</literal></entry>
+       <entry><literal>select * from json_populate_record(null::myrowtype, '{"a": 1, "b": ["2", "a b"], "c": {"d": 4, "e": "a  b c"}}')</literal></entry>
        <entry>
 <programlisting>
- a | b
----+---
- 1 | 2
+ a |   b       |      c
+---+-----------+-------------
+ 1 | {2,"a b"} | (4,"a b c")
 </programlisting>
        </entry>
       </row>
@@ -15234,12 +15645,12 @@ JSON配列を<type>text</>値の集合に展開する。
 JSONオブジェクトから任意のレコードを作成する（下記の注釈を参照）。
 <type>record</>を返す関数すべてと同様、呼び出し側が<literal>AS</>句でレコードの構造を明示的に決める必要がある。
        </entry>
-       <entry><literal>select * from json_to_record('{"a":1,"b":[1,2,3],"c":"bar"}') as x(a int, b text, d text) </literal></entry>
+       <entry><literal>select * from json_to_record('{"a":1,"b":[1,2,3],"c":[1,2,3],"e":"bar","r": {"a": 123, "b": "a b c"}}') as x(a int, b text, c int[], d text, r myrowtype) </literal></entry>
        <entry>
 <programlisting>
- a |    b    | d
----+---------+---
- 1 | [1,2,3] |
+ a |    b    |    c    | d |       r
+---+---------+---------+---+---------------
+ 1 | [1,2,3] | {1,2,3} |   | (123,"a b c")
 </programlisting>
        </entry>
       </row>
@@ -15753,6 +16164,10 @@ nextval('foo'::text)      <lineannotation>実行時に<literal>foo</literal>を�
         </para>
        </important>
 
+       <para>
+        This function requires <literal>USAGE</literal>
+        or <literal>UPDATE</literal> privilege on the sequence.
+       </para>
       </listitem>
      </varlistentry>
 
@@ -15772,6 +16187,11 @@ nextval('foo'::text)      <lineannotation>実行時に<literal>foo</literal>を�
 現在のセッションにおいて、そのシーケンスから<function>nextval</function>によって取得された直近の値を返します。
 （セッション内でそのシーケンスに対し<function>nextval</function>が呼ばれていない場合には、エラーが報告されます。）
 これはセッションごとの個別の値を返すので、現在のセッションが<function>nextval</function>を実行した後、他のセッションが<function>nextval</function>を実行したかどうかに関わらず、期待通りの回答をもたらします。
+       </para>
+
+       <para>
+        This function requires <literal>USAGE</literal>
+        or <literal>SELECT</literal> privilege on the sequence.
        </para>
       </listitem>
      </varlistentry>
@@ -15793,6 +16213,11 @@ nextval('foo'::text)      <lineannotation>実行時に<literal>foo</literal>を�
 現在のセッションの<function>nextval</>で直近に戻された値を返します。
 この関数は<function>currval</function>と同等ですが、引数としてシーケンス名をとる代わりに、現在のセッションで最後に<function>nextval</function>で使用されたシーケンスを参照するところが異なります。
 現在のセッションで<function>nextval</function>が未だ呼ばれていなければエラーになります。
+       </para>
+
+       <para>
+        This function requires <literal>USAGE</literal>
+        or <literal>SELECT</literal> privilege on the last used sequence.
        </para>
       </listitem>
      </varlistentry>
@@ -15854,6 +16279,11 @@ SELECT setval('foo', 42, false);    <lineannotation>次の<function>nextval</>�
 シーケンスはトランザクションとは異なる扱いを受けるため、<function>setval</function>による変更は、そのトランザクションがロールバックされたとしても元に戻りません。
         </para>
        </important>
+
+       <para>
+        This function requires <literal>UPDATE</literal> privilege on the
+        sequence.
+       </para>
       </listitem>
      </varlistentry>
     </variablelist>
@@ -17298,13 +17728,14 @@ NULL baz</literallayout>(3 rows)</entry>
   <para>
 <!--
    <firstterm>Aggregate functions</firstterm> compute a single result
-   from a set of input values.  The built-in normal aggregate functions
-   are listed in
-   <xref linkend="functions-aggregate-table"> and
-   <xref linkend="functions-aggregate-statistics-table">.
-   The built-in ordered-set aggregate functions
-   are listed in <xref linkend="functions-orderedset-table"> and
-   <xref linkend="functions-hypothetical-table">.  Grouping operations,
+   from a set of input values.  The built-in general-purpose aggregate
+   functions are listed in <xref linkend="functions-aggregate-table">
+   and statistical aggregates in <xref
+   linkend="functions-aggregate-statistics-table">.
+   The built-in within-group ordered-set aggregate functions
+   are listed in <xref linkend="functions-orderedset-table">
+   while the built-in within-group hypothetical-set ones are in <xref
+   linkend="functions-hypothetical-table">.  Grouping operations,
    which are closely related to aggregate functions, are listed in
    <xref linkend="functions-grouping-table">.
    The special syntax considerations for aggregate
@@ -18647,8 +19078,6 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
         <primary>percentile</primary>
         <secondary>continuous</secondary>
 -->
-        <primary>百分位数</primary>
-        <secondary>連続</secondary>
        </indexterm>
        <function>percentile_cont(<replaceable class="parameter">fraction</replaceable>) WITHIN GROUP (ORDER BY <replaceable class="parameter">sort_expression</replaceable>)</function>
       </entry>
@@ -19120,7 +19549,7 @@ NULL値は<literal>ORDER BY</>節で指定されるルールに従って並べ�
 <!--
    The built-in window functions are listed in
    <xref linkend="functions-window-table">.  Note that these functions
-   <emphasis>must</> be invoked using window function syntax; that is an
+   <emphasis>must</> be invoked using window function syntax, i.e., an
    <literal>OVER</> clause is required.
 -->
 組み込みウィンドウ関数は<xref linkend="functions-window-table">に一覧されています。
@@ -19129,12 +19558,14 @@ NULL値は<literal>ORDER BY</>節で指定されるルールに従って並べ�
 
   <para>
 <!--
-   In addition to these functions, any built-in or user-defined normal
-   aggregate function (but not ordered-set or hypothetical-set aggregates)
+   In addition to these functions, any built-in or user-defined
+   general-purpose or statistical
+   aggregate (i.e., not ordered-set or hypothetical-set aggregates)
    can be used as a window function; see
    <xref linkend="functions-aggregate"> for a list of the built-in aggregates.
    Aggregate functions act as window functions only when an <literal>OVER</>
-   clause follows the call; otherwise they act as regular aggregates.
+   clause follows the call; otherwise they act as non-window aggregates
+   and return a single row for the entire set.
 -->
 これらの関数に加え、どんな組み込み、またはユーザ定義の通常の集約関数もウィンドウ関数として使用できます(ただし順序集合や仮想集合集約はそうではありません)。組み込み集約関数一覧は<xref linkend="functions-aggregate">を参照してください。
 集約関数は、呼び出しの後に<literal>OVER</>句が続いた場合のみウィンドウ関数として動作します。それ以外の場合は、通常の集約関数として動作します。
@@ -19220,7 +19651,7 @@ NULL値は<literal>ORDER BY</>節で指定されるルールに従って並べ�
        <type>double precision</type>
       </entry>
 <!--
-      <entry>relative rank of the current row: (<function>rank</> - 1) / (total rows - 1)</entry>
+      <entry>relative rank of the current row: (<function>rank</> - 1) / (total partition rows - 1)</entry>
 -->
       <entry>現在行の相対順位。 (<function>rank</> - 1) / (総行数 - 1)</entry>
      </row>
@@ -19236,7 +19667,7 @@ NULL値は<literal>ORDER BY</>節で指定されるルールに従って並べ�
        <type>double precision</type>
       </entry>
 <!--
-      <entry>relative rank of the current row: (number of rows preceding or peer with current row) / (total rows)</entry>
+      <entry>cumulative distribution: (number of partition rows preceding or peer with current row) / total partition rows</entry>
 -->
       <entry>現在行の相対順位。 (現在行より先行する行およびピアの行数) / (総行数)</entry>
      </row>
@@ -19411,9 +19842,10 @@ NULL値は<literal>ORDER BY</>節で指定されるルールに従って並べ�
    All of the functions listed in
    <xref linkend="functions-window-table"> depend on the sort ordering
    specified by the <literal>ORDER BY</> clause of the associated window
-   definition.  Rows that are not distinct in the <literal>ORDER BY</>
-   ordering are said to be <firstterm>peers</>; the four ranking functions
-   are defined so that they give the same answer for any two peer rows.
+   definition.  Rows that are not distinct when considering only the
+   <literal>ORDER BY</> columns are said to be <firstterm>peers</>.
+   The four ranking functions (including <function>cume_dist</>) are
+   defined so that they give the same answer for all peer rows.
 -->
 <xref linkend="functions-window-table">に列挙された関数はすべて、対応するウィンドウ定義の<literal>ORDER BY</>句で指定されるソート順に依存します。
 <literal>ORDER BY</>順で重複する行は<firstterm>ピア</>と呼ばれます。
@@ -19477,6 +19909,14 @@ SQL標準は、<function>lead</>、<function>lag</>、<function>first_value</>�
 （<literal>ORDER BY</>順序付けを逆に行うことで、<literal>FROM LAST</>の結果を得ることができます。）
    </para>
   </note>
+
+  <para>
+   <function>cume_dist</> computes the fraction of partition rows that
+   are less than or equal to the current row and its peers, while
+   <function>percent_rank</> computes the fraction of partition rows that
+   are less than the current row, assuming the current row does not exist
+   in the partition.
+  </para>
 
  </sect1>
 
@@ -20834,11 +21274,11 @@ SELECT * FROM pg_ls_dir('.') WITH ORDINALITY AS t(ls,n);
  postmaster.pid  |  9
  pg_ident.conf   | 10
  global          | 11
- pg_clog         | 12
+ pg_xact         | 12
  pg_snapshots    | 13
  pg_multixact    | 14
  PG_VERSION      | 15
- pg_xlog         | 16
+ pg_wal          | 16
  pg_hba.conf     | 17
  pg_stat_tmp     | 18
  pg_subtrans     | 19
@@ -20925,6 +21365,12 @@ SELECT * FROM pg_ls_dir('.') WITH ORDINALITY AS t(ls,n);
       </row>
 
       <row>
+       <entry><literal><function>current_role</function></literal></entry>
+       <entry><type>name</type></entry>
+       <entry>equivalent to <function>current_user</function></entry>
+      </row>
+
+      <row>
        <entry><literal><function>current_schema</function>[()]</literal></entry>
        <entry><type>name</type></entry>
 <!--
@@ -21004,7 +21450,7 @@ SELECT * FROM pg_ls_dir('.') WITH ORDINALITY AS t(ls,n);
        <entry><literal><function>pg_blocking_pids(<type>int</type>)</function></literal></entry>
        <entry><type>int[]</type></entry>
 <!--
-       <entry>Process ID(s) that are blocking specified server process ID</entry>
+       <entry>Process ID(s) that are blocking specified server process ID from acquiring a lock</entry>
 -->
        <entry>指定のサーバプロセスIDをブロックしているプロセスID</entry>
       </row>
@@ -21016,6 +21462,13 @@ SELECT * FROM pg_ls_dir('.') WITH ORDINALITY AS t(ls,n);
        <entry>configuration load time</entry>
 -->
        <entry>設定を読み込んだ時刻</entry>
+      </row>
+
+      <row>
+       <entry><literal><function>pg_current_logfile(<optional><type>text</></optional>)</function></literal></entry>
+       <entry><type>text</type></entry>
+       <entry>Primary log file name, or log in the requested format,
+       currently in use by the logging collector</entry>
       </row>
 
       <row>
@@ -21061,6 +21514,12 @@ SELECT * FROM pg_ls_dir('.') WITH ORDINALITY AS t(ls,n);
        <entry>server start time</entry>
 -->
        <entry>サーバの起動時刻</entry>
+      </row>
+
+      <row>
+       <entry><literal><function>pg_safe_snapshot_blocking_pids(<type>int</type>)</function></literal></entry>
+       <entry><type>int[]</type></entry>
+       <entry>Process ID(s) that are blocking specified server process ID from acquiring a safe snapshot</entry>
       </row>
 
       <row>
@@ -21330,6 +21789,45 @@ SET search_path TO <replaceable>schema</> <optional>, <replaceable>schema</>, ..
    </para>
 
    <indexterm>
+    <primary>pg_current_logfile</primary>
+   </indexterm>
+
+   <indexterm>
+    <primary>Logging</primary>
+    <secondary>pg_current_logfile function</secondary>
+   </indexterm>
+
+   <indexterm>
+     <primary>current_logfiles</primary>
+     <secondary>and the pg_current_logfile function</secondary>
+   </indexterm>
+
+   <indexterm>
+    <primary>Logging</primary>
+    <secondary>current_logfiles file and the pg_current_logfile
+    function</secondary>
+   </indexterm>
+
+   <para>
+    <function>pg_current_logfile</function> returns, as <type>text</type>,
+    the path of the log file(s) currently in use by the logging collector.
+    The path includes the <xref linkend="guc-log-directory"> directory
+    and the log file name.  Log collection must be enabled or the return value
+    is <literal>NULL</literal>.  When multiple log files exist, each in a
+    different format, <function>pg_current_logfile</function> called
+    without arguments returns the path of the file having the first format
+    found in the ordered list: <systemitem>stderr</>, <systemitem>csvlog</>.
+    <literal>NULL</literal> is returned when no log file has any of these
+    formats.  To request a specific file format supply, as <type>text</type>,
+    either <systemitem>csvlog</> or <systemitem>stderr</> as the value of the
+    optional parameter. The return value is <literal>NULL</literal> when the
+    log format requested is not a configured
+    <xref linkend="guc-log-destination">.  The
+    <function>pg_current_logfiles</function> reflects the contents of the
+    <filename>current_logfiles</> file.
+   </para>
+
+   <indexterm>
     <primary>pg_my_temp_schema</primary>
    </indexterm>
 
@@ -21389,6 +21887,25 @@ SET search_path TO <replaceable>schema</> <optional>, <replaceable>schema</>, ..
 <function>pg_postmaster_start_time</function>は、サーバが起動したときの<type>timestamp with time zone</type>を返します。
    </para>
 
+   <indexterm>
+    <primary>pg_safe_snapshot_blocking_pids</primary>
+   </indexterm>
+
+   <para>
+    <function>pg_safe_snapshot_blocking_pids</function> returns an array of
+    the process IDs of the sessions that are blocking the server process with
+    the specified process ID from acquiring a safe snapshot, or an empty array
+    if there is no such server process or it is not blocked.  A session
+    running a <literal>SERIALIZABLE</literal> transaction blocks
+    a <literal>SERIALIZABLE READ ONLY DEFERRABLE</literal> transaction from
+    acquiring a snapshot until the latter determines that it is safe to avoid
+    taking any predicate locks.  See <xref linkend="xact-serializable"> for
+    more information about serializable and deferrable transactions.  Frequent
+    calls to this function could have some impact on database performance,
+    because it needs access to the predicate lock manager's shared
+    state for a short time.
+   </para>
+   
    <indexterm>
     <primary>version</primary>
    </indexterm>
@@ -21695,6 +22212,21 @@ SET search_path TO <replaceable>schema</> <optional>, <replaceable>schema</>, ..
        <entry>does current user have privilege for type</entry>
 -->
        <entry>現在のユーザに型に対する権限があるのか</entry>
+      </row>
+      <row>
+       <entry><literal><function>has_type_privilege</function>(<parameter>user</parameter>,
+                                  <parameter>type</parameter>,
+                                  <parameter>privilege</parameter>)</literal>
+       </entry>
+       <entry><type>boolean</type></entry>
+       <entry>does user have privilege for type</entry>
+      </row>
+      <row>
+       <entry><literal><function>has_type_privilege</function>(<parameter>type</parameter>,
+                                  <parameter>privilege</parameter>)</literal>
+       </entry>
+       <entry><type>boolean</type></entry>
+       <entry>does current user have privilege for type</entry>
       </row>
       <row>
        <entry><literal><function>pg_has_role</function>(<parameter>user</parameter>,
@@ -22007,6 +22539,18 @@ SELECT has_function_privilege('joeuser', 'myfunc(int, text)', 'execute');
    </para>
 
    <para>
+    <function>has_type_privilege</function> checks whether a user
+    can access a type in a particular way.
+    Its argument possibilities
+    are analogous to <function>has_table_privilege</function>.
+    When specifying a type by a text string rather than by OID,
+    the allowed input is the same as for the <type>regtype</> data type
+    (see <xref linkend="datatype-oid">).
+    The desired access privilege type must evaluate to
+    <literal>USAGE</literal>.
+   </para>
+
+   <para>
 <!--
     <function>pg_has_role</function> checks whether a user
     can access a role in a particular way.
@@ -22136,6 +22680,12 @@ SELECT relname FROM pg_class WHERE pg_table_is_visible(oid);
        <entry>演算子族が検索パスにおいて可視であるか</entry>
       </row>
       <row>
+       <entry><literal><function>pg_statistics_obj_is_visible(<parameter>stat_oid</parameter>)</function></literal>
+       </entry>
+       <entry><type>boolean</type></entry>
+       <entry>is statistics object visible in search path</entry>
+      </row>
+      <row>
        <entry><literal><function>pg_table_is_visible(<parameter>table_oid</parameter>)</function></literal>
        </entry>
        <entry><type>boolean</type></entry>
@@ -22210,6 +22760,9 @@ SELECT relname FROM pg_class WHERE pg_table_is_visible(oid);
    </indexterm>
    <indexterm>
     <primary>pg_opfamily_is_visible</primary>
+   </indexterm>
+   <indexterm>
+    <primary>pg_statistics_obj_is_visible</primary>
    </indexterm>
    <indexterm>
     <primary>pg_table_is_visible</primary>
@@ -22311,6 +22864,10 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
 
    <indexterm>
     <primary>pg_get_serial_sequence</primary>
+   </indexterm>
+
+   <indexterm>
+    <primary>pg_get_statisticsobjdef</primary>
    </indexterm>
 
    <indexterm>
@@ -22531,10 +23088,14 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
        <entry><literal><function>pg_get_serial_sequence(<parameter>table_name</parameter>, <parameter>column_name</parameter>)</function></literal></entry>
        <entry><type>text</type></entry>
 <!--
-       <entry>get name of the sequence that a <type>serial</type>, <type>smallserial</type> or <type>bigserial</type> column
-       uses</entry>
+       <entry>get name of the sequence that a serial or identity column uses</entry>
 -->
        <entry><type>serial</type>、<type>smallserial</type>、または<type>bigserial</type>列が使用するシーケンス名の取得</entry>
+      </row>
+      <row>
+       <entry><literal><function>pg_get_statisticsobjdef(<parameter>statobj_oid</parameter>)</function></literal></entry>
+       <entry><type>text</type></entry>
+       <entry>get <command>CREATE STATISTICS</> command for extended statistics object</entry>
       </row>
       <row>
        <entry><function>pg_get_triggerdef</function>(<parameter>trigger_oid</parameter>)</entry>
@@ -22766,19 +23327,20 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
 <!--
    <function>pg_get_constraintdef</function>,
    <function>pg_get_indexdef</function>, <function>pg_get_ruledef</function>,
-   and <function>pg_get_triggerdef</function>, respectively reconstruct the
-   creating command for a constraint, index, rule, or trigger. (Note that this
-   is a decompiled reconstruction, not the original text of the command.)
-   <function>pg_get_expr</function> decompiles the internal form of an
-   individual expression, such as the default value for a column.  It can be
-   useful when examining the contents of system catalogs.  If the expression
-   might contain Vars, specify the OID of the relation they refer to as the
-   second parameter; if no Vars are expected, zero is sufficient.
-   <function>pg_get_viewdef</function> reconstructs the <command>SELECT</>
-   query that defines a view. Most of these functions come in two variants,
-   one of which can optionally <quote>pretty-print</> the result.  The
-   pretty-printed format is more readable, but the default format is more
-   likely to be interpreted the same way by future versions of
+   <function>pg_get_statisticsobjdef</function>, and
+   <function>pg_get_triggerdef</function>, respectively reconstruct the
+   creating command for a constraint, index, rule, extended statistics object,
+   or trigger. (Note that this is a decompiled reconstruction, not the
+   original text of the command.) <function>pg_get_expr</function> decompiles
+   the internal form of an individual expression, such as the default value
+   for a column.  It can be useful when examining the contents of system
+   catalogs.  If the expression might contain Vars, specify the OID of the
+   relation they refer to as the second parameter; if no Vars are expected,
+   zero is sufficient. <function>pg_get_viewdef</function> reconstructs the
+   <command>SELECT</> query that defines a view. Most of these functions come
+   in two variants, one of which can optionally <quote>pretty-print</> the
+   result.  The pretty-printed format is more readable, but the default format
+   is more likely to be interpreted the same way by future versions of
    <productname>PostgreSQL</>; avoid using pretty-printed output for dump
    purposes.  Passing <literal>false</> for the pretty-print parameter yields
    the same result as the variant that does not have the parameter at all.
@@ -22819,19 +23381,24 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
 <!--
    <function>pg_get_serial_sequence</function> returns the name of the
    sequence associated with a column, or NULL if no sequence is associated
-   with the column.  The first input parameter is a table name with
-   optional schema, and the second parameter is a column name.  Because
-   the first parameter is potentially a schema and table, it is not treated
-   as a double-quoted identifier, meaning it is lower cased by default,
-   while the second parameter, being just a column name, is treated as
-   double-quoted and has its case preserved.  The function returns a value
-   suitably formatted for passing to sequence functions (see <xref
-   linkend="functions-sequence">).  This association can be modified or
-   removed with <command>ALTER SEQUENCE OWNED BY</>.  (The function
-   probably should have been called
-   <function>pg_get_owned_sequence</function>; its current name reflects the fact
-   that it's typically used with <type>serial</> or <type>bigserial</>
-   columns.)
+   with the column.  If the column is an identity column, the associated
+   sequence is the sequence internally created for the identity column.  For
+   columns created using one of the serial types
+   (<type>serial</type>, <type>smallserial</type>, <type>bigserial</type>), it
+   is the sequence created for that serial column definition.  In the latter
+   case, this association can be modified or removed with <command>ALTER
+   SEQUENCE OWNED BY</>.  (The function probably should have been called
+   <function>pg_get_owned_sequence</function>; its current name reflects the
+   fact that it has typically been used with <type>serial</>
+   or <type>bigserial</> columns.)  The first input parameter is a table name
+   with optional schema, and the second parameter is a column name.  Because
+   the first parameter is potentially a schema and table, it is not treated as
+   a double-quoted identifier, meaning it is lower cased by default, while the
+   second parameter, being just a column name, is treated as double-quoted and
+   has its case preserved.  The function returns a value suitably formatted
+   for passing to sequence functions
+   (see <xref linkend="functions-sequence">).  A typical use is in reading the
+   current value of a sequence for an identity or serial column, for example:
 -->
 <function>pg_get_serial_sequence</function>は、列に関連したシーケンスの名前を返します。もし、列に関連したシーケンスが存在しなければ、NULLを返します。
 最初の入力パラメータはテーブル名です。スキーマを付けることもできます。２番目のパラメータは列名です。
@@ -22839,6 +23406,9 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
 この関数は、シーケンス関数に渡すことができるよう適切な書式で値を返します（<xref linkend="functions-sequence">を参照）。
 この関連付けは<command>ALTER SEQUENCE OWNED BY</>により変更、削除することができます。
 （この関数はおそらく<function>pg_get_owned_sequence</function>と呼ばれるべきでした。現在の名前は、通常は<type>serial</>や<type>bigserial</>列で使われることからきています。）
+<programlisting>
+SELECT currval(pg_get_serial_sequence('sometable', 'id'));
+</programlisting>
   </para>
 
   <para>
@@ -23457,6 +24027,10 @@ SELECT collation for ('foo' COLLATE "de_DE");
    </indexterm>
 
    <indexterm>
+    <primary>txid_current_if_assigned</primary>
+   </indexterm>
+
+   <indexterm>
     <primary>txid_current_snapshot</primary>
    </indexterm>
 
@@ -23474,6 +24048,10 @@ SELECT collation for ('foo' COLLATE "de_DE");
 
    <indexterm>
     <primary>txid_visible_in_snapshot</primary>
+   </indexterm>
+
+   <indexterm>
+    <primary>txid_status</primary>
    </indexterm>
 
    <para>
@@ -23508,6 +24086,11 @@ SELECT collation for ('foo' COLLATE "de_DE");
        <entry>get current transaction ID, assigning a new one if the current transaction does not have one</entry>
 -->
        <entry>現在のトランザクションIDの取得、現在のトランザクションにIDがなければ新規に割り当てる</entry>
+      </row>
+      <row>
+       <entry><literal><function>txid_current_if_assigned()</function></literal></entry>
+       <entry><type>bigint</type></entry>
+       <entry>same as <function>txid_current()</function> but returns null instead of assigning a new transaction ID if none is already assigned</entry>
       </row>
       <row>
        <entry><literal><function>txid_current_snapshot()</function></literal></entry>
@@ -23549,6 +24132,11 @@ SELECT collation for ('foo' COLLATE "de_DE");
        <entry>is transaction ID visible in snapshot? (do not use with subtransaction ids)</entry>
 -->
        <entry>スナップショットにあるトランザクションIDは可視か？（サブトランザクションIDで使用しないこと）</entry>
+      </row>
+      <row>
+       <entry><literal><function>txid_status(<parameter>bigint</parameter>)</function></literal></entry>
+       <entry><type>txid_status</type></entry>
+       <entry>report the status of the given transaction: <literal>committed</literal>, <literal>aborted</literal>, <literal>in progress</literal>, or null if the transaction ID is too old</entry>
       </row>
      </tbody>
     </tgroup>
@@ -23649,6 +24237,24 @@ SELECT collation for ('foo' COLLATE "de_DE");
 -->
 <type>txid_snapshot</>のテキスト表現は<literal><replaceable>xmin</>:<replaceable>xmax</>:<replaceable>xip_list</></literal>です。
 例えば、<literal>10:20:10,14,15</literal>は<literal>xmin=10, xmax=20, xip_list=10, 14, 15</literal>を意味します。
+   </para>
+
+   <para>
+    <function>txid_status(bigint)</> reports the commit status of a recent
+    transaction.  Applications may use it to determine whether a transaction
+    committed or aborted when the application and database server become
+    disconnected while a <literal>COMMIT</literal> is in progress.
+    The status of a transaction will be reported as either
+    <literal>in progress</>,
+    <literal>committed</>, or <literal>aborted</>, provided that the
+    transaction is recent enough that the system retains the commit status
+    of that transaction.  If is old enough that no references to that
+    transaction survive in the system and the commit status information has
+    been discarded, this function will return NULL.  Note that prepared
+    transactions are reported as <literal>in progress</>; applications must
+    check <link
+    linkend="view-pg-prepared-xacts"><literal>pg_prepared_xacts</></> if they
+    need to determine whether the txid is a prepared transaction.
    </para>
 
    <para>
@@ -23825,17 +24431,17 @@ SELECT collation for ('foo' COLLATE "de_DE");
      <tbody>
 
       <row>
-       <entry><literal>checkpoint_location</literal></entry>
+       <entry><literal>checkpoint_lsn</literal></entry>
        <entry><type>pg_lsn</type></entry>
       </row>
 
       <row>
-       <entry><literal>prior_location</literal></entry>
+       <entry><literal>prior_lsn</literal></entry>
        <entry><type>pg_lsn</type></entry>
       </row>
 
       <row>
-       <entry><literal>redo_location</literal></entry>
+       <entry><literal>redo_lsn</literal></entry>
        <entry><type>pg_lsn</type></entry>
       </row>
 
@@ -24047,11 +24653,6 @@ SELECT collation for ('foo' COLLATE "de_DE");
       </row>
 
       <row>
-       <entry><literal>bigint_timestamps</literal></entry>
-       <entry><type>boolean</type></entry>
-      </row>
-
-      <row>
        <entry><literal>float4_pass_by_value</literal></entry>
        <entry><type>boolean</type></entry>
       </row>
@@ -24098,7 +24699,7 @@ SELECT collation for ('foo' COLLATE "de_DE");
      <tbody>
 
       <row>
-       <entry><literal>min_recovery_end_location</literal></entry>
+       <entry><literal>min_recovery_end_lsn</literal></entry>
        <entry><type>pg_lsn</type></entry>
       </row>
 
@@ -24108,12 +24709,12 @@ SELECT collation for ('foo' COLLATE "de_DE");
       </row>
 
       <row>
-       <entry><literal>backup_start_location</literal></entry>
+       <entry><literal>backup_start_lsn</literal></entry>
        <entry><type>pg_lsn</type></entry>
       </row>
 
       <row>
-       <entry><literal>backup_end_location</literal></entry>
+       <entry><literal>backup_end_lsn</literal></entry>
        <entry><type>pg_lsn</type></entry>
       </row>
 
@@ -24314,7 +24915,7 @@ SELECT set_config('log_statement_stats', 'off', false);
     The functions shown in <xref
     linkend="functions-admin-signal-table"> send control signals to
     other server processes.  Use of these functions is restricted to
-    superusers by default but access may be granted to others with the
+    superusers by default but access may be granted to others using
     <command>GRANT</command>, with noted exceptions.
 -->
 <xref linkend="functions-admin-signal-table">に示す関数は、制御用シグナルを他のサーバプロセスに送信します。
@@ -24458,13 +25059,13 @@ SELECT set_config('log_statement_stats', 'off', false);
     <primary>pg_create_restore_point</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_current_xlog_flush_location</primary>
+    <primary>pg_current_wal_flush_lsn</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_current_xlog_insert_location</primary>
+    <primary>pg_current_wal_insert_lsn</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_current_xlog_location</primary>
+    <primary>pg_current_wal_lsn</primary>
    </indexterm>
    <indexterm>
     <primary>pg_start_backup</primary>
@@ -24479,16 +25080,16 @@ SELECT set_config('log_statement_stats', 'off', false);
     <primary>pg_backup_start_time</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_switch_xlog</primary>
+    <primary>pg_switch_wal</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_xlogfile_name</primary>
+    <primary>pg_walfile_name</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_xlogfile_name_offset</primary>
+    <primary>pg_walfile_name_offset</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_xlog_location_diff</primary>
+    <primary>pg_wal_lsn_diff</primary>
    </indexterm>
 
    <para>
@@ -24497,7 +25098,7 @@ SELECT set_config('log_statement_stats', 'off', false);
     linkend="functions-admin-backup-table"> assist in making on-line backups.
     These functions cannot be executed during recovery (except
     <function>pg_is_in_backup</function>, <function>pg_backup_start_time</function>
-    and <function>pg_xlog_location_diff</function>).
+    and <function>pg_wal_lsn_diff</function>).
 -->
 <xref linkend="functions-admin-backup-table">に示す関数はオンラインバックアップの作成を支援するものです。
 これらの関数は、リカバリ中には実行できません(<function>pg_is_in_backup</function>、<function>pg_backup_start_time</function>、および<function>pg_xlog_location_diff</function>は除く)。
@@ -24530,31 +25131,31 @@ SELECT set_config('log_statement_stats', 'off', false);
       </row>
       <row>
        <entry>
-        <literal><function>pg_current_xlog_flush_location()</function></literal>
+        <literal><function>pg_current_wal_flush_lsn()</function></literal>
         </entry>
        <entry><type>pg_lsn</type></entry>
 <!--
-       <entry>Get current transaction log flush location</entry>
+       <entry>Get current write-ahead log flush location</entry>
 -->
        <entry>トランザクションログの現在のフラッシュ位置を取得する</entry>
       </row>
       <row>
        <entry>
-        <literal><function>pg_current_xlog_insert_location()</function></literal>
+        <literal><function>pg_current_wal_insert_lsn()</function></literal>
         </entry>
        <entry><type>pg_lsn</type></entry>
 <!--
-       <entry>Get current transaction log insert location</entry>
+       <entry>Get current write-ahead log insert location</entry>
 -->
        <entry>現在のトランザクションログの挿入位置の取得</entry>
       </row>
       <row>
        <entry>
-        <literal><function>pg_current_xlog_location()</function></literal>
+        <literal><function>pg_current_wal_lsn()</function></literal>
         </entry>
        <entry><type>pg_lsn</type></entry>
 <!--
-       <entry>Get current transaction log write location</entry>
+       <entry>Get current write-ahead log write location</entry>
 -->
        <entry>現在のトランザクションログの書き込み位置を取得</entry>
       </row>
@@ -24580,7 +25181,7 @@ SELECT set_config('log_statement_stats', 'off', false);
       </row>
       <row>
        <entry>
-        <literal><function>pg_stop_backup(<parameter>exclusive</> <type>boolean</>)</function></literal>
+        <literal><function>pg_stop_backup(<parameter>exclusive</> <type>boolean</> <optional>, <parameter>wait_for_archive</> <type>boolean</> </optional>)</function></literal>
         </entry>
        <entry><type>setof record</type></entry>
 <!--
@@ -24610,41 +25211,41 @@ SELECT set_config('log_statement_stats', 'off', false);
       </row>
       <row>
        <entry>
-        <literal><function>pg_switch_xlog()</function></literal>
+        <literal><function>pg_switch_wal()</function></literal>
         </entry>
        <entry><type>pg_lsn</type></entry>
 <!--
-       <entry>Force switch to a new transaction log file (restricted to superusers by default, but other users can be granted EXECUTE to run the function)</entry>
+       <entry>Force switch to a new write-ahead log file (restricted to superusers by default, but other users can be granted EXECUTE to run the function)</entry>
 -->
        <entry>新しいトランザクションログファイルへの強制移行(デフォルトではスーパーユーザのみ実行可能、ただし他のユーザにも関数を実行するEXECUTE権限を与えることができる)</entry>
       </row>
       <row>
        <entry>
-        <literal><function>pg_xlogfile_name(<parameter>location</> <type>pg_lsn</>)</function></literal>
+        <literal><function>pg_walfile_name(<parameter>lsn</> <type>pg_lsn</>)</function></literal>
         </entry>
        <entry><type>text</type></entry>
 <!--
-       <entry>Convert transaction log location string to file name</entry>
+       <entry>Convert write-ahead log location to file name</entry>
 -->
        <entry>トランザクションログの位置を表す文字列をファイル名に変換</entry>
       </row>
       <row>
        <entry>
-        <literal><function>pg_xlogfile_name_offset(<parameter>location</> <type>pg_lsn</>)</function></literal>
+        <literal><function>pg_walfile_name_offset(<parameter>lsn</> <type>pg_lsn</>)</function></literal>
         </entry>
        <entry><type>text</>, <type>integer</></entry>
 <!--
-       <entry>Convert transaction log location string to file name and decimal byte offset within file</entry>
+       <entry>Convert write-ahead log location to file name and decimal byte offset within file</entry>
 -->
        <entry>トランザクションログの位置を表す文字列を、ファイル名とファイル内の10進のバイトオフセットに変換</entry>
       </row>
       <row>
        <entry>
-        <literal><function>pg_xlog_location_diff(<parameter>location</> <type>pg_lsn</>, <parameter>location</> <type>pg_lsn</>)</function></literal>
+        <literal><function>pg_wal_lsn_diff(<parameter>lsn</> <type>pg_lsn</>, <parameter>lsn</> <type>pg_lsn</>)</function></literal>
        </entry>
        <entry><type>numeric</></entry>
 <!--
-       <entry>Calculate the difference between two transaction log locations</entry>
+       <entry>Calculate the difference between two write-ahead log locations</entry>
 -->
        <entry>2つのトランザクションログの位置差分を算出</entry>
       </row>
@@ -24660,7 +25261,7 @@ SELECT set_config('log_statement_stats', 'off', false);
     backup label file (<filename>backup_label</>) and, if there are any links
     in the <filename>pg_tblspc/</> directory, a tablespace map file
     (<filename>tablespace_map</>) into the database cluster's data directory,
-    performs a checkpoint, and then returns the backup's starting transaction
+    performs a checkpoint, and then returns the backup's starting write-ahead
     log location as text.  The user can ignore this result value, but it is
     provided in case it is useful. When used in non-exclusive mode, the
     contents of these files are instead returned by the
@@ -24698,23 +25299,47 @@ postgres=# select pg_start_backup('label_goes_here');
     <function>pg_start_backup</>. In a non-exclusive backup, the contents of
     the <filename>backup_label</> and <filename>tablespace_map</> are returned
     in the result of the function, and should be written to files in the
-    backup (and not in the data directory).
+    backup (and not in the data directory).  There is an optional second
+    parameter of type <type>boolean</type>.  If false, the <function>pg_stop_backup</>
+    will return immediately after the backup is completed without waiting for
+    WAL to be archived.  This behavior is only useful for backup
+    software which independently monitors WAL archiving. Otherwise, WAL
+    required to make the backup consistent might be missing and make the backup
+    useless.  When this parameter is set to true, <function>pg_stop_backup</>
+    will wait for WAL to be archived when archiving is enabled; on the standby,
+    this means that it will wait only when <varname>archive_mode = always</>.
+    If write activity on the primary is low, it may be useful to run
+    <function>pg_switch_wal</> on the primary in order to trigger
+    an immediate segment switch.
 -->
 排他的バックアップでは、<function>pg_stop_backup</>は、<function>pg_start_backup</>で作成されたラベルファイルおよび、もしあれば<filename>tablespace_map</>ファイルを削除します。
 非排他的バックアップでは、<filename>backup_label</>および<filename>tablespace_map</>の内容が関数の結果として返され、それをバックアップ内のファイルに書き込む必要があります（データディレクトリ内のファイルに書いてはいけません）。
    </para>
 
    <para>
-<!--
-    The function also creates a backup history file in the transaction log
+    When executed on a primary, the function also creates a backup history file
+    in the write-ahead log
     archive area. The history file includes the label given to
-    <function>pg_start_backup</>, the starting and ending transaction log locations for
+    <function>pg_start_backup</>, the starting and ending write-ahead log locations for
     the backup, and the starting and ending times of the backup.  The return
-    value is the backup's ending transaction log location (which again
+    value is the backup's ending write-ahead log location (which again
     can be ignored).  After recording the ending location, the current
-    transaction log insertion
-    point is automatically advanced to the next transaction log file, so that the
-    ending transaction log file can be archived immediately to complete the backup.
+    write-ahead log insertion
+    point is automatically advanced to the next write-ahead log file, so that the
+    ending write-ahead log file can be archived immediately to complete the backup.
+   </para>
+
+   <para>
+    <function>pg_switch_wal</> moves to the next write-ahead log file, allowing the
+    current file to be archived (assuming you are using continuous archiving).
+    The return value is the ending write-ahead log location + 1 within the just-completed write-ahead log file.
+    If there has been no write-ahead log activity since the last write-ahead log switch,
+    <function>pg_switch_wal</> does nothing and returns the start location
+    of the write-ahead log file currently in use.
+   </para>
+
+   <para>
+    <function>pg_create_restore_point</> creates a named write-ahead log
 -->
 この関数はまた、トランザクションログ格納領域にバックアップ履歴ファイルを作成します。
 履歴ファイルには<function>pg_start_backup</>で付与されたラベル、バックアップのトランザクションログの位置の開始位置、終了位置、バックアップ開始時刻、終了時刻が含まれます。
@@ -24724,23 +25349,8 @@ postgres=# select pg_start_backup('label_goes_here');
 
    <para>
 <!--
-    <function>pg_switch_xlog</> moves to the next transaction log file, allowing the
-    current file to be archived (assuming you are using continuous archiving).
-    The return value is the ending transaction log location + 1 within the just-completed transaction log file.
-    If there has been no transaction log activity since the last transaction log switch,
-    <function>pg_switch_xlog</> does nothing and returns the start location
-    of the transaction log file currently in use.
--->
-<function>pg_switch_xlog</>は、次のトランザクションログファイルに移動し、現在のファイルをアーカイブできるようにします（継続的アーカイブを使用することを前提とします）。
-戻り値は、完了した現在のトランザクションログファイル内の終了トランザクションログの位置に1を加えたものです。
-前回のトランザクションログファイルの切り替えからトランザクションログに変化がなければ、<function>pg_switch_xlog</>は何もせずに、現在使用中のトランザクションログファイルの開始位置を返します。
-   </para>
-
-   <para>
-<!--
-    <function>pg_create_restore_point</> creates a named transaction log
     record that can be used as recovery target, and returns the corresponding
-    transaction log location.  The given name can then be used with
+    write-ahead log location.  The given name can then be used with
     <xref linkend="recovery-target-name"> to specify the point up to which
     recovery will proceed.  Avoid creating multiple restore points with the
     same name, since recovery will stop at the first one whose name matches
@@ -24753,17 +25363,17 @@ postgres=# select pg_start_backup('label_goes_here');
 
    <para>
 <!--
-    <function>pg_current_xlog_location</> displays the current transaction log write
+    <function>pg_current_wal_lsn</> displays the current write-ahead log write
     location in the same format used by the above functions.  Similarly,
-    <function>pg_current_xlog_insert_location</> displays the current transaction log
-    insertion point and <function>pg_current_xlog_flush_location</> displays the
-    current transaction log flush point. The insertion point is the <quote>logical</>
-    end of the transaction log at any instant, while the write location is the end of
+    <function>pg_current_wal_insert_lsn</> displays the current write-ahead log
+    insertion location and <function>pg_current_wal_flush_lsn</> displays the
+    current write-ahead log flush location. The insertion location is the <quote>logical</>
+    end of the write-ahead log at any instant, while the write location is the end of
     what has actually been written out from the server's internal buffers and flush
     location is the location guaranteed to be written to durable storage. The write
     location is the end of what can be examined from outside the server, and is usually
-    what you want if you are interested in archiving partially-complete transaction log
-    files.  The insertion and flush points are made available primarily for server
+    what you want if you are interested in archiving partially-complete write-ahead log
+    files.  The insertion and flush locations are made available primarily for server
     debugging purposes.  These are both read-only operations and do not
     require superuser permissions.
 -->
@@ -24778,24 +25388,24 @@ postgres=# select pg_start_backup('label_goes_here');
 
    <para>
 <!--
-    You can use <function>pg_xlogfile_name_offset</> to extract the
-    corresponding transaction log file name and byte offset from the results of any of the
+    You can use <function>pg_walfile_name_offset</> to extract the
+    corresponding write-ahead log file name and byte offset from the results of any of the
     above functions.  For example:
 -->
 <function>pg_xlogfile_name_offset</>を使用して、上記いずれの関数の結果からも、対応するトランザクションログファイルとバイトオフセットを取り出すことができます。
 以下に例を示します。
 <programlisting>
-postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
+postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
         file_name         | file_offset 
 --------------------------+-------------
  00000001000000000000000D |     4039624
 (1 row)
 </programlisting>
 <!--
-    Similarly, <function>pg_xlogfile_name</> extracts just the transaction log file name.
-    When the given transaction log location is exactly at a transaction log file boundary, both
-    these functions return the name of the preceding transaction log file.
-    This is usually the desired behavior for managing transaction log archiving
+    Similarly, <function>pg_walfile_name</> extracts just the write-ahead log file name.
+    When the given write-ahead log location is exactly at a write-ahead log file boundary, both
+    these functions return the name of the preceding write-ahead log file.
+    This is usually the desired behavior for managing write-ahead log archiving
     behavior, since the preceding file is the last one that currently
     needs to be archived.
 -->
@@ -24806,8 +25416,8 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
 
    <para>
 <!--
-    <function>pg_xlog_location_diff</> calculates the difference in bytes
-    between two transaction log locations. It can be used with
+    <function>pg_wal_lsn_diff</> calculates the difference in bytes
+    between two write-ahead log locations. It can be used with
     <structname>pg_stat_replication</structname> or some functions shown in
     <xref linkend="functions-admin-backup-table"> to get the replication lag.
 -->
@@ -24835,10 +25445,10 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
     <primary>pg_is_in_recovery</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_last_xlog_receive_location</primary>
+    <primary>pg_last_wal_receive_lsn</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_last_xlog_replay_location</primary>
+    <primary>pg_last_wal_replay_lsn</primary>
    </indexterm>
    <indexterm>
     <primary>pg_last_xact_replay_timestamp</primary>
@@ -24883,11 +25493,11 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
       </row>
       <row>
        <entry>
-        <literal><function>pg_last_xlog_receive_location()</function></literal>
+        <literal><function>pg_last_wal_receive_lsn()</function></literal>
         </entry>
        <entry><type>pg_lsn</type></entry>
 <!--
-       <entry>Get last transaction log location received and synced to disk by
+       <entry>Get last write-ahead log location received and synced to disk by
         streaming replication. While streaming replication is in progress
         this will increase monotonically. If recovery has completed this will
         remain static at
@@ -24900,11 +25510,11 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
       </row>
       <row>
        <entry>
-        <literal><function>pg_last_xlog_replay_location()</function></literal>
+        <literal><function>pg_last_wal_replay_lsn()</function></literal>
         </entry>
        <entry><type>pg_lsn</type></entry>
 <!--
-       <entry>Get last transaction log location replayed during recovery.
+       <entry>Get last write-ahead log location replayed during recovery.
         If recovery is still in progress this will increase monotonically.
         If recovery has completed then this value will remain static at
         the value of the last WAL record applied during that recovery.
@@ -24944,13 +25554,13 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
    </table>
 
    <indexterm>
-    <primary>pg_is_xlog_replay_paused</primary>
+    <primary>pg_is_wal_replay_paused</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_xlog_replay_pause</primary>
+    <primary>pg_wal_replay_pause</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_xlog_replay_resume</primary>
+    <primary>pg_wal_replay_resume</primary>
    </indexterm>
 
    <para>
@@ -24980,7 +25590,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
      <tbody>
       <row>
        <entry>
-        <literal><function>pg_is_xlog_replay_paused()</function></literal>
+        <literal><function>pg_is_wal_replay_paused()</function></literal>
         </entry>
        <entry><type>bool</type></entry>
 <!--
@@ -24992,7 +25602,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
       </row>
       <row>
        <entry>
-        <literal><function>pg_xlog_replay_pause()</function></literal>
+        <literal><function>pg_wal_replay_pause()</function></literal>
         </entry>
        <entry><type>void</type></entry>
 <!--
@@ -25003,7 +25613,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
       </row>
       <row>
        <entry>
-        <literal><function>pg_xlog_replay_resume()</function></literal>
+        <literal><function>pg_wal_replay_resume()</function></literal>
         </entry>
        <entry><type>void</type></entry>
 <!--
@@ -25221,10 +25831,10 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         <indexterm>
          <primary>pg_create_physical_replication_slot</primary>
         </indexterm>
-        <literal><function>pg_create_physical_replication_slot(<parameter>slot_name</parameter> <type>name</type> <optional>, <parameter>immediately_reserve</> <type>boolean</> </optional>)</function></literal>
+        <literal><function>pg_create_physical_replication_slot(<parameter>slot_name</parameter> <type>name</type> <optional>, <parameter>immediately_reserve</> <type>boolean</>, <parameter>temporary</> <type>boolean</></optional>)</function></literal>
        </entry>
        <entry>
-        (<parameter>slot_name</parameter> <type>name</type>, <parameter>xlog_position</parameter> <type>pg_lsn</type>)
+        (<parameter>slot_name</parameter> <type>name</type>, <parameter>lsn</parameter> <type>pg_lsn</type>)
        </entry>
        <entry>
 <!--
@@ -25235,7 +25845,11 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         the <acronym>LSN</> is reserved on first connection from a streaming
         replication client. Streaming changes from a physical slot is only
         possible with the streaming-replication protocol &mdash;
-        see <xref linkend="protocol-replication">. This function corresponds
+        see <xref linkend="protocol-replication">. The optional third
+        parameter, <parameter>temporary</>, when set to true, specifies that
+        the slot should not be permanently stored to disk and is only meant
+        for use by current session. Temporary slots are also
+        released upon any error. This function corresponds
         to the replication protocol command <literal>CREATE_REPLICATION_SLOT
         ... PHYSICAL</literal>.
 -->
@@ -25261,7 +25875,8 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
 <!--
         Drops the physical or logical replication slot
         named <parameter>slot_name</parameter>. Same as replication protocol
-        command <literal>DROP_REPLICATION_SLOT</>.
+        command <literal>DROP_REPLICATION_SLOT</>. For logical slots, this must
+        be called when connected to the same database the slot was created on.
 -->
 <parameter>slot_name</parameter>という名前の物理もしくは論理レプリケーションスロットを削除します。
 レプリケーションプロトコルコマンド<literal>DROP_REPLICATION_SLOT</>と同じです。
@@ -25273,16 +25888,20 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         <indexterm>
          <primary>pg_create_logical_replication_slot</primary>
         </indexterm>
-        <literal><function>pg_create_logical_replication_slot(<parameter>slot_name</parameter> <type>name</type>, <parameter>plugin</parameter> <type>name</type>)</function></literal>
+        <literal><function>pg_create_logical_replication_slot(<parameter>slot_name</parameter> <type>name</type>, <parameter>plugin</parameter> <type>name</type> <optional>, <parameter>temporary</> <type>boolean</></optional>)</function></literal>
        </entry>
        <entry>
-        (<parameter>slot_name</parameter> <type>name</type>, <parameter>xlog_position</parameter> <type>pg_lsn</type>)
+        (<parameter>slot_name</parameter> <type>name</type>, <parameter>lsn</parameter> <type>pg_lsn</type>)
        </entry>
        <entry>
 <!--
         Creates a new logical (decoding) replication slot named
         <parameter>slot_name</parameter> using the output plugin
-        <parameter>plugin</parameter>.  A call to this function has the same
+        <parameter>plugin</parameter>. The optional third
+        parameter, <parameter>temporary</>, when set to true, specifies that
+        the slot should not be permanently stored to disk and is only meant
+        for use by current session. Temporary slots are also
+        released upon any error. A call to this function has the same
         effect as the replication protocol command
         <literal>CREATE_REPLICATION_SLOT ... LOGICAL</literal>.
 -->
@@ -25299,7 +25918,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         <literal><function>pg_logical_slot_get_changes(<parameter>slot_name</parameter> <type>name</type>, <parameter>upto_lsn</parameter> <type>pg_lsn</type>, <parameter>upto_nchanges</parameter> <type>int</type>, VARIADIC <parameter>options</parameter> <type>text[]</type>)</function></literal>
        </entry>
        <entry>
-        (<parameter>location</parameter> <type>pg_lsn</type>, <parameter>xid</parameter> <type>xid</type>, <parameter>data</parameter> <type>text</type>)
+        (<parameter>lsn</parameter> <type>pg_lsn</type>, <parameter>xid</parameter> <type>xid</type>, <parameter>data</parameter> <type>text</type>)
        </entry>
        <entry>
 <!--
@@ -25331,7 +25950,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         <literal><function>pg_logical_slot_peek_changes(<parameter>slot_name</parameter> <type>name</type>, <parameter>upto_lsn</parameter> <type>pg_lsn</type>, <parameter>upto_nchanges</parameter> <type>int</type>, VARIADIC <parameter>options</parameter> <type>text[]</type>)</function></literal>
        </entry>
        <entry>
-        (<parameter>location</parameter> <type>text</type>, <parameter>xid</parameter> <type>xid</type>, <parameter>data</parameter> <type>text</type>)
+        (<parameter>lsn</parameter> <type>pg_lsn</type>, <parameter>xid</parameter> <type>xid</type>, <parameter>data</parameter> <type>text</type>)
        </entry>
        <entry>
 <!--
@@ -25352,7 +25971,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         <literal><function>pg_logical_slot_get_binary_changes(<parameter>slot_name</parameter> <type>name</type>, <parameter>upto_lsn</parameter> <type>pg_lsn</type>, <parameter>upto_nchanges</parameter> <type>int</type>, VARIADIC <parameter>options</parameter> <type>text[]</type>)</function></literal>
        </entry>
        <entry>
-        (<parameter>location</parameter> <type>pg_lsn</type>, <parameter>xid</parameter> <type>xid</type>, <parameter>data</parameter> <type>bytea</type>)
+        (<parameter>lsn</parameter> <type>pg_lsn</type>, <parameter>xid</parameter> <type>xid</type>, <parameter>data</parameter> <type>bytea</type>)
        </entry>
        <entry>
 <!--
@@ -25372,7 +25991,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         <literal><function>pg_logical_slot_peek_binary_changes(<parameter>slot_name</parameter> <type>name</type>, <parameter>upto_lsn</parameter> <type>pg_lsn</type>, <parameter>upto_nchanges</parameter> <type>int</type>, VARIADIC <parameter>options</parameter> <type>text[]</type>)</function></literal>
        </entry>
        <entry>
-        (<parameter>location</parameter> <type>pg_lsn</type>, <parameter>xid</parameter> <type>xid</type>, <parameter>data</parameter> <type>bytea</type>)
+        (<parameter>lsn</parameter> <type>pg_lsn</type>, <parameter>xid</parameter> <type>xid</type>, <parameter>data</parameter> <type>bytea</type>)
        </entry>
        <entry>
 <!--
@@ -25516,7 +26135,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
        </entry>
        <entry>
 <!--
-        Return the replay position for the replication origin configured in
+        Return the replay location for the replication origin configured in
         the current session. The parameter <parameter>flush</parameter>
         determines whether the corresponding local transaction will be
         guaranteed to have been flushed to disk or not.
@@ -25569,11 +26188,11 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
       </row>
 
       <row>
-       <entry>
+       <entry id="pg-replication-origin-advance">
         <indexterm>
          <primary>pg_replication_origin_advance</primary>
         </indexterm>
-        <literal>pg_replication_origin_advance<function>(<parameter>node_name</parameter> <type>text</type>, <parameter>pos</parameter> <type>pg_lsn</type>)</function></literal>
+        <literal>pg_replication_origin_advance<function>(<parameter>node_name</parameter> <type>text</type>, <parameter>lsn</parameter> <type>pg_lsn</type>)</function></literal>
        </entry>
        <entry>
         <type>void</>
@@ -25581,8 +26200,8 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
        <entry>
 <!--
         Set replication progress for the given node to the given
-        position. This primarily is useful for setting up the initial position
-        or a new position after configuration changes and similar. Be aware
+        location. This primarily is useful for setting up the initial location
+        or a new location after configuration changes and similar. Be aware
         that careless use of this function can lead to inconsistently
         replicated data.
 -->
@@ -25604,7 +26223,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
        </entry>
        <entry>
 <!--
-        Return the replay position for the given replication origin. The
+        Return the replay location for the given replication origin. The
         parameter <parameter>flush</parameter> determines whether the
         corresponding local transaction will be guaranteed to have been
         flushed to disk or not.
@@ -25932,9 +26551,11 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
     accept the OID or name of a database or tablespace, and return the total
     disk space used therein.  To use <function>pg_database_size</function>,
     you must have <literal>CONNECT</> permission on the specified database
-    (which is granted by default).  To use <function>pg_tablespace_size</>,
-    you must have <literal>CREATE</> permission on the specified tablespace,
-    unless it is the default tablespace for the current database.
+    (which is granted by default), or be a member of the <literal>pg_read_all_stats</>
+    role. To use <function>pg_tablespace_size</>, you must have
+    <literal>CREATE</> permission on the specified tablespace, or be a member
+    of the <literal>pg_read_all_stats</> role unless it is the default tablespace for
+    the current database.
 -->
 <function>pg_database_size</>と<function>pg_tablespace_size</>はデータベースまたはテーブル空間の名前またはOIDを受付け、そこで使用される総容量を返します。
 <function>pg_database_size</function>を使うためには、指定されたデータベースに<literal>CONNECT</>権限(デフォルトで付与されている)を持っていなければなりません。
@@ -26167,6 +26788,65 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
 データベースのデフォルトテーブル空間内のテーブルに対しては、テーブル空間は0と指定できます。
    </para>
 
+   <para>
+    <xref linkend="functions-admin-collation"> lists functions used to manage
+    collations.
+   </para>
+
+   <table id="functions-admin-collation">
+    <title>Collation Management Functions</title>
+    <tgroup cols="3">
+     <thead>
+      <row><entry>Name</entry> <entry>Return Type</entry> <entry>Description</entry></row>
+     </thead>
+
+     <tbody>
+      <row>
+       <entry>
+        <indexterm><primary>pg_collation_actual_version</primary></indexterm>
+        <literal><function>pg_collation_actual_version(<type>oid</>)</function></literal>
+       </entry>
+       <entry><type>text</type></entry>
+       <entry>Return actual version of collation from operating system</entry>
+      </row>
+      <row>
+       <entry>
+        <indexterm><primary>pg_import_system_collations</primary></indexterm>
+        <literal><function>pg_import_system_collations(<parameter>schema</> <type>regnamespace</>)</function></literal>
+       </entry>
+       <entry><type>integer</type></entry>
+       <entry>Import operating system collations</entry>
+      </row>
+     </tbody>
+    </tgroup>
+   </table>
+
+   <para>
+    <function>pg_collation_actual_version</function> returns the actual
+    version of the collation object as it is currently installed in the
+    operating system.  If this is different from the value
+    in <literal>pg_collation.collversion</literal>, then objects depending on
+    the collation might need to be rebuilt.  See also
+    <xref linkend="sql-altercollation">.
+   </para>
+
+   <para>
+    <function>pg_import_system_collations</> adds collations to the system
+    catalog <literal>pg_collation</literal> based on all the
+    locales it finds in the operating system.  This is
+    what <command>initdb</command> uses;
+    see <xref linkend="collation-managing"> for more details.  If additional
+    locales are installed into the operating system later on, this function
+    can be run again to add collations for the new locales.  Locales that
+    match existing entries in <literal>pg_collation</literal> will be skipped.
+    (But collation objects based on locales that are no longer
+    present in the operating system are not removed by this function.)
+    The <parameter>schema</parameter> parameter would typically
+    be <literal>pg_catalog</literal>, but that is not a requirement;
+    the collations could be installed into some other schema as well.
+    The function returns the number of new collation objects it created.
+   </para>
+
   </sect2>
 
   <sect2 id="functions-admin-index">
@@ -26181,6 +26861,14 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
 
    <indexterm>
     <primary>gin_clean_pending_list</primary>
+   </indexterm>
+
+   <indexterm>
+    <primary>brin_summarize_range</primary>
+   </indexterm>
+
+   <indexterm>
+    <primary>brin_desummarize_range</primary>
    </indexterm>
 
    <para>
@@ -26222,6 +26910,20 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
       </row>
       <row>
        <entry>
+        <literal><function>brin_summarize_range(<parameter>index</> <type>regclass</>, <parameter>blockNumber</> <type>bigint</type>)</function></literal>
+       </entry>
+       <entry><type>integer</type></entry>
+       <entry>summarize the page range covering the given block, if not already summarized</entry>
+      </row>
+      <row>
+       <entry>
+        <literal><function>brin_desummarize_range(<parameter>index</> <type>regclass</>, <parameter>blockNumber</> <type>bigint</type>)</function></literal>
+       </entry>
+       <entry><type>integer</type></entry>
+       <entry>de-summarize the page range covering the given block, if summarized</entry>
+      </row>
+      <row>
+       <entry>
         <literal><function>gin_clean_pending_list(<parameter>index</> <type>regclass</>)</function></literal>
        </entry>
        <entry><type>bigint</type></entry>
@@ -26241,7 +26943,8 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
     that are not currently summarized by the index; for any such range
     it creates a new summary index tuple by scanning the table pages.
     It returns the number of new page range summaries that were inserted
-    into the index.
+    into the index.  <function>brin_summarize_range</> does the same, except
+    it only summarizes the range that covers the given block number.
 -->
 <function>brin_summarize_new_values</>はBRINインデックスのOIDまたは名前を受け取り、インデックスを検査してベーステーブル内のインデックスによって現在要約されていないページ範囲を探します。
 そのような範囲があれば、テーブルのページをスキャンして新しい要約インデックスタプルを作成します。
@@ -26282,7 +26985,8 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
     database cluster directory and the <varname>log_directory</> can be
     accessed.  Use a relative path for files in the cluster directory,
     and a path matching the <varname>log_directory</> configuration setting
-    for log files.  Use of these functions is restricted to superusers.
+    for log files.  Use of these functions is restricted to superusers
+    except where stated otherwise.
 -->
 <xref linkend="functions-admin-genfile-table">で示されている関数はサーバをホスティングしているマシン上のファイルに対し、ネイティブのアクセスを提供します。
 データベースクラスタディレクトリと<varname>log_directory</>に存在するファイルのみがアクセス可能です。
@@ -26315,6 +27019,28 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
         List the contents of a directory.
 -->
 ディレクトリの内容を一覧表示する
+       </entry>
+      </row>
+      <row>
+       <entry>
+        <literal><function>pg_ls_logdir()</function></literal>
+       </entry>
+       <entry><type>setof record</type></entry>
+       <entry>
+        List the name, size, and last modification time of files in the log
+        directory. Access is granted to members of the <literal>pg_monitor</>
+        role and may be granted to other non-superuser roles.
+       </entry>
+      </row>
+      <row>
+       <entry>
+        <literal><function>pg_ls_waldir()</function></literal>
+       </entry>
+       <entry><type>setof record</type></entry>
+       <entry>
+        List the name, size, and last modification time of files in the WAL
+        directory. Access is granted to members of the <literal>pg_monitor</>
+        role and may be granted to other non-superuser roles.
        </entry>
       </row>
       <row>
@@ -26359,7 +27085,7 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
 
    <para>
 <!--
-    All of these functions take an optional <parameter>missing_ok</> parameter,
+    Some of these functions take an optional <parameter>missing_ok</> parameter,
     which specifies the behavior when the file or directory does not exist.
     If <literal>true</literal>, the function returns NULL (except
     <function>pg_ls_dir</>, which returns an empty result set). If
@@ -26387,6 +27113,27 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
 <function>pg_ls_dir</>は、指定されたディレクトリ内のすべてのファイル（およびディレクトリと他の特殊ファイル）の名前を返します。
 <parameter>include_dot_dirs</>は<quote>.</>と<quote>..</>が結果集合に含まれるかどうかを指定します。
 デフォルト(<literal>false</>)ではそれらを除外しますが、それらを含めると、<parameter>missing_ok</>が<literal>true</literal>の場合は、空のディレクトリと存在しないディレクトリを区別するために役立つでしょう。
+   </para>
+
+   <indexterm>
+    <primary>pg_ls_logdir</primary>
+   </indexterm>
+   <para>
+    <function>pg_ls_logdir</> returns the name, size, and last modified time
+    (mtime) of each file in the log directory. By default, only superusers
+    and members of the <literal>pg_monitor</> role can use this function.
+    Access may be granted to others using <command>GRANT</command>.
+   </para>
+
+   <indexterm>
+    <primary>pg_ls_waldir</primary>
+   </indexterm>
+   <para>
+    <function>pg_ls_waldir</> returns the name, size, and last modified time
+    (mtime) of each file in the write ahead log (WAL) directory. By
+    default only superusers and members of the <literal>pg_monitor</> role
+    can use this function. Access may be granted to others using
+    <command>GRANT</command>.
    </para>
 
    <indexterm>

@@ -84,18 +84,44 @@
 このビュー定義は<application>initdb</>で導入されるため、アップグレードするだけでは問題は修正されません。
 既存のインストレーションで修正する必要がある場合、スーパーユーザーとして<application>psql</>で以下を実行してください。
 <programlisting>
-BEGIN;
-DROP SCHEMA information_schema CASCADE;
-\i <replaceable>SHAREDIR</>/information_schema.sql
-COMMIT;
+SET search_path TO information_schema;
+CREATE OR REPLACE VIEW table_privileges AS
+    SELECT CAST(u_grantor.rolname AS sql_identifier) AS grantor,
+           CAST(grantee.rolname AS sql_identifier) AS grantee,
+           CAST(current_database() AS sql_identifier) AS table_catalog,
+           CAST(nc.nspname AS sql_identifier) AS table_schema,
+           CAST(c.relname AS sql_identifier) AS table_name,
+           CAST(c.prtype AS character_data) AS privilege_type,
+           CAST(
+             CASE WHEN
+                  -- object owner always has grant options
+                  pg_has_role(grantee.oid, c.relowner, 'USAGE')
+                  OR c.grantable
+                  THEN 'YES' ELSE 'NO' END AS yes_or_no) AS is_grantable,
+           CAST(CASE WHEN c.prtype = 'SELECT' THEN 'YES' ELSE 'NO' END AS yes_or_no) AS with_hierarchy
+
+    FROM (
+            SELECT oid, relname, relnamespace, relkind, relowner, (aclexplode(coalesce(relacl, acldefault('r', relowner)))).* FROM pg_class
+         ) AS c (oid, relname, relnamespace, relkind, relowner, grantor, grantee, prtype, grantable),
+         pg_namespace nc,
+         pg_authid u_grantor,
+         (
+           SELECT oid, rolname FROM pg_authid
+           UNION ALL
+           SELECT 0::oid, 'PUBLIC'
+         ) AS grantee (oid, rolname)
+
+    WHERE c.relnamespace = nc.oid
+          AND c.relkind IN ('r', 'v', 'f')
+          AND c.grantee = grantee.oid
+          AND c.grantor = u_grantor.oid
+          AND c.prtype IN ('INSERT', 'SELECT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER')
+          AND (pg_has_role(u_grantor.oid, 'USAGE')
+               OR pg_has_role(grantee.oid, 'USAGE')
+               OR grantee.rolname = 'PUBLIC');
 </programlisting>
-<!--
-      (Run <literal>pg_config -&#045;sharedir</> if you're uncertain
-      where <replaceable>SHAREDIR</> is.)  This must be repeated in each
-      database to be fixed.
--->
-（<replaceable>SHAREDIR</>がどこににあるか確証がもてない場合、<literal>pg_config --sharedir</>を実行してください。）
-これは修正すべき各データベースで繰り返さなくてはなりません。
+      This must be repeated in each database to be fixed,
+      including <literal>template0</>.
      </para>
     </listitem>
 
@@ -10793,10 +10819,10 @@ PostgreSQLによる丸め関数を使うプラットフォームに<acronym>POSI
        linkend="pgarchivecleanup"><application>pg_archivecleanup</></>,
        <link linkend="pgtestfsync"><application>pg_test_fsync</></>,
        <link linkend="pgtesttiming"><application>pg_test_timing</></>,
-       and <link linkend="pgxlogdump"><application>pg_xlogdump</></>
+       and <link linkend="pgwaldump"><application>pg_xlogdump</></>
        from <filename>contrib</> to <filename>src/bin</> (Peter Eisentraut)
 -->
-<link linkend="pgarchivecleanup"><application>pg_archivecleanup</></>、<link linkend="pgtestfsync"><application>pg_test_fsync</></>、<link linkend="pgtesttiming"><application>pg_test_timing</></>、<link linkend="pgxlogdump"><application>pg_xlogdump</></>を<filename>contrib</>から<filename>src/bin</>に移しました。
+<link linkend="pgarchivecleanup"><application>pg_archivecleanup</></>、<link linkend="pgtestfsync"><application>pg_test_fsync</></>、<link linkend="pgtesttiming"><application>pg_test_timing</></>、<link linkend="pgwaldump"><application>pg_xlogdump</></>を<filename>contrib</>から<filename>src/bin</>に移しました。
 (Peter Eisentraut)
       </para>
 
@@ -10831,10 +10857,10 @@ PostgreSQLによる丸め関数を使うプラットフォームに<acronym>POSI
       <para>
 <!--
        Allow <link
-       linkend="app-pgreceivexlog"><application>pg_receivexlog</></>
+       linkend="app-pgreceivewal"><application>pg_receivexlog</></>
        to manage physical replication slots (Michael Paquier)
 -->
-<link linkend="app-pgreceivexlog"><application>pg_receivexlog</></>で物理レプリケーションスロットを管理できるようにしました。
+<link linkend="app-pgreceivewal"><application>pg_receivexlog</></>で物理レプリケーションスロットを管理できるようにしました。
 (Michael Paquier)
       </para>
 
@@ -10854,11 +10880,11 @@ PostgreSQLによる丸め関数を使うプラットフォームに<acronym>POSI
       <para>
 <!--
        Allow <link
-       linkend="app-pgreceivexlog"><application>pg_receivexlog</></>
+       linkend="app-pgreceivewal"><application>pg_receivexlog</></>
        to synchronously flush <acronym>WAL</> to storage using new
        <option>&#045;&#045;synchronous</> option (Furuya Osamu, Fujii Masao)
 -->
-新たな<option>--synchronous</>オプションで<link linkend="app-pgreceivexlog"><application>pg_receivexlog</></>が<acronym>WAL</>を記憶装置に同期フラッシュするようにしました。
+新たな<option>--synchronous</>オプションで<link linkend="app-pgreceivewal"><application>pg_receivexlog</></>が<acronym>WAL</>を記憶装置に同期フラッシュするようにしました。
 (Furuya Osamu, Fujii Masao)
       </para>
 
@@ -10937,10 +10963,10 @@ PostgreSQLによる丸め関数を使うプラットフォームに<acronym>POSI
 -->
       <para>
 <!--
-       Add <link linkend="pgxlogdump"><application>pg_xlogdump</></> option
+       Add <link linkend="pgwaldump"><application>pg_xlogdump</></> option
        <option>&#045;&#045;stats</> to display summary statistics (Abhijit Menon-Sen)
 -->
-<link linkend="pgxlogdump"><application>pg_xlogdump</></>に要約統計を表示するオプション<option>--stats</>を追加しました。
+<link linkend="pgwaldump"><application>pg_xlogdump</></>に要約統計を表示するオプション<option>--stats</>を追加しました。
 (Abhijit Menon-Sen)
       </para>
      </listitem>

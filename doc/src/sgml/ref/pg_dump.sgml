@@ -196,17 +196,33 @@ PostgreSQL documentation
        <para>
 <!--
         Include large objects in the dump.  This is the default behavior
-        except when <option>&#045;-schema</>, <option>&#045;-table</>, or
-        <option>&#045;-schema-only</> is specified.  The <option>-b</>
+        except when <option>&#045;&#045;schema</>, <option>&#045;&#045;table</>, or
+        <option>&#045;&#045;schema-only</> is specified.  The <option>-b</>
         switch is therefore only useful to add large objects to dumps
         where a specific schema or table has been requested.  Note that
         blobs are considered data and therefore will be included when
-        &#045;-data-only is used, but not when &#045;-schema-only is.
+        &#045;&#045;data-only is used, but not when &#045;&#045;schema-only is.
 -->
 ラージオブジェクトをダンプに含めます。
 <option>--schema</>、<option>--table</>、<option>--schema-only</>が指定された場合を除き、これがデフォルトの動作です。
 したがって、<option>-b</>オプションは特定のスキーマやテーブルのダンプにラージオブジェクトを追加する場合にのみ有用です。
 blobはデータとみなされるため、--data-onlyが使われたときは含まれますが、--schema-onlyが使われたときには含まれないことに注意してください。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>-B</></term>
+      <term><option>--no-blobs</></term>
+      <listitem>
+       <para>
+        Exclude large objects in the dump.
+       </para>
+
+       <para>
+        When both <option>-b</> and <option>-B</> are given, the behavior
+        is to output large objects, when data is being dumped, see the
+        <option>-b</> documentation.
        </para>
       </listitem>
      </varlistentry>
@@ -465,14 +481,16 @@ tar形式アーカイブを展開すると、有効なディレクトリ形式�
        </para>
        <para>
 <!--
-        For a consistent backup, the database server needs to support synchronized snapshots,
-        a feature that was introduced in <productname>PostgreSQL</productname> 9.2. With this
-        feature, database clients can ensure they see the same data set even though they use
-        different connections. <command>pg_dump -j</command> uses multiple database
-        connections; it connects to the database once with the master process and
-        once again for each worker job. Without the synchronized snapshot feature, the
-        different worker jobs wouldn't be guaranteed to see the same data in each connection,
-        which could lead to an inconsistent backup.
+        For a consistent backup, the database server needs to support
+        synchronized snapshots, a feature that was introduced in
+        <productname>PostgreSQL</productname> 9.2 for primary servers and 10
+        for standbys. With this feature, database clients can ensure they see
+        the same data set even though they use different connections.
+        <command>pg_dump -j</command> uses multiple database connections; it
+        connects to the database once with the master process and once again
+        for each worker job. Without the synchronized snapshot feature, the
+        different worker jobs wouldn't be guaranteed to see the same data in
+        each connection, which could lead to an inconsistent backup.
 -->
 一貫したバックアップのためには、データベースサーバは、<productname>PostgreSQL</productname> 9.2で導入された機能である、同期されたスナップショットをサポートする必要があります。
 この機能を用いて、データベースクライアントは異なる接続を使用していたとしても、確実に同じデータセットを参照することができます。
@@ -1096,16 +1114,24 @@ tarアーカイブ形式では現在圧縮を全くサポートしていませ�
         the dump. Instead fail if unable to lock a table within the specified
         <replaceable class="parameter">timeout</>. The timeout may be
         specified in any of the formats accepted by <command>SET
-        statement_timeout</>.  (Allowed values vary depending on the server
+        statement_timeout</>.  (Allowed formats vary depending on the server
         version you are dumping from, but an integer number of milliseconds
-        is accepted by all versions since 7.3.  This option is ignored when
-        dumping from a pre-7.3 server.)
+        is accepted by all versions.)
 -->
 ダンプの開始時に共有テーブルのロックを永遠に待ちません。
 代わりに指定した<replaceable class="parameter">timeout</>内にテーブルロックを獲得できなければ失敗します。
 タイムアウトは<command>SET statement_timeout</>で受け付けられる任意の書式で指定できます。
 （使用可能な値はダンプの元となるサーバのバージョンに依存して異なりますが、7.3以降のすべてのバージョンにおいてミリ秒単位の整数値は受け付けられます。
 7.3より前のサーバからダンプする場合、このオプションは無視されます。）
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>--no-publications</option></term>
+      <listitem>
+       <para>
+        Do not dump publications.
        </para>
       </listitem>
      </varlistentry>
@@ -1118,6 +1144,29 @@ tarアーカイブ形式では現在圧縮を全くサポートしていませ�
         Do not dump security labels.
 -->
 セキュリティラベルをダンプしません。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>--no-subscriptions</option></term>
+      <listitem>
+       <para>
+        Do not dump subscriptions.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>--no-sync</option></term>
+      <listitem>
+       <para>
+        By default, <command>pg_dump</command> will wait for all files
+        to be written safely to disk.  This option causes
+        <command>pg_dump</command> to return without waiting, which is
+        faster, but means that a subsequent operating system crash can leave
+        the dump corrupt.  Generally, this option is useful for testing
+        but should not be used when dumping data from production installation.
        </para>
       </listitem>
      </varlistentry>
@@ -1686,7 +1735,7 @@ CREATE DATABASE foo WITH TEMPLATE template0;
    <productname>PostgreSQL</> server versions newer than
    <application>pg_dump</>'s version.  <application>pg_dump</> can also
    dump from <productname>PostgreSQL</> servers older than its own version.
-   (Currently, servers back to version 7.0 are supported.)
+   (Currently, servers back to version 8.0 are supported.)
    However, <application>pg_dump</> cannot dump from
    <productname>PostgreSQL</> servers newer than its own major version;
    it will refuse to even try, rather than risk making an invalid dump.
@@ -1710,6 +1759,18 @@ CREATE DATABASE foo WITH TEMPLATE template0;
 これにより、<productname>PostgreSQL</>の異なるバージョンで、予約語のリストが変わることによって発生する問題を防ぐことができるからです。
   </para>
 
+  <para>
+   When dumping logical replication subscriptions,
+   <application>pg_dump</application> will generate <command>CREATE
+   SUBSCRIPTION</command> commands that use the <literal>NOCONNECT</literal>
+   option, so that restoring the subscription does not make remote connections
+   for creating a replication slot or for initial table copy.  That way, the
+   dump can be restored without requiring network access to the remote
+   servers.  It is then up to the user to reactivate the subscriptions in a
+   suitable way.  If the involved hosts have changed, the connection
+   information might have to be changed.  It might also be appropriate to
+   truncate the target tables before initiating a new full table copy.
+  </para>
  </refsect1>
 
  <refsect1 id="pg-dump-examples">

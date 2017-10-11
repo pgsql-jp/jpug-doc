@@ -13,7 +13,7 @@
  * uint32_t and uint64_t respectively (these are also the respective return
  * types).  Use caution when using these wrapper macros with signed integers.
  *
- * Copyright (c) 2015-2016, PostgreSQL Global Development Group
+ * Copyright (c) 2015-2017, PostgreSQL Global Development Group
  *
  * src/include/port/pg_bswap.h
  *
@@ -29,7 +29,7 @@
 					(((x) << 8)  & 0x00ff0000) | \
 					(((x) >> 8)  & 0x0000ff00) | \
 					(((x) >> 24) & 0x000000ff))
-#endif   /* HAVE__BUILTIN_BSWAP32 */
+#endif							/* HAVE__BUILTIN_BSWAP32 */
 
 #ifdef HAVE__BUILTIN_BSWAP64
 #define BSWAP64(x) __builtin_bswap64(x)
@@ -42,7 +42,7 @@
 					(((x) >> 24) & UINT64CONST(0x0000000000ff0000)) | \
 					(((x) >> 40) & UINT64CONST(0x000000000000ff00)) | \
 					(((x) >> 56) & UINT64CONST(0x00000000000000ff)))
-#endif   /* HAVE__BUILTIN_BSWAP64 */
+#endif							/* HAVE__BUILTIN_BSWAP64 */
 
 /*
  * Rearrange the bytes of a Datum from big-endian order into the native byte
@@ -63,7 +63,7 @@
 #define		DatumBigEndianToNative(x)	BSWAP64(x)
 #else							/* SIZEOF_DATUM != 8 */
 #define		DatumBigEndianToNative(x)	BSWAP32(x)
-#endif   /* SIZEOF_DATUM == 8 */
-#endif   /* WORDS_BIGENDIAN */
+#endif							/* SIZEOF_DATUM == 8 */
+#endif							/* WORDS_BIGENDIAN */
 
-#endif   /* PG_BSWAP_H */
+#endif							/* PG_BSWAP_H */

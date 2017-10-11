@@ -3,13 +3,12 @@
  * libpq_fetch.c
  *	  Functions for fetching files from a remote server.
  *
- * Copyright (c) 2013-2016, PostgreSQL Global Development Group
+ * Copyright (c) 2013-2017, PostgreSQL Global Development Group
  *
  *-------------------------------------------------------------------------
  */
 #include "postgres_fe.h"
 
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
 #include <fcntl.h>
@@ -121,7 +120,7 @@ run_simple_query(const char *sql)
 }
 
 /*
- * Calls pg_current_xlog_insert_location() function
+ * Calls pg_current_wal_insert_lsn() function
  */
 XLogRecPtr
 libpqGetCurrentXlogInsertLocation(void)
@@ -131,7 +130,7 @@ libpqGetCurrentXlogInsertLocation(void)
 	uint32		lo;
 	char	   *val;
 
-	val = run_simple_query("SELECT pg_current_xlog_insert_location()");
+	val = run_simple_query("SELECT pg_current_wal_insert_lsn()");
 
 	if (sscanf(val, "%X/%X", &hi, &lo) != 2)
 		pg_fatal("unrecognized result \"%s\" for current WAL insert location\n", val);
@@ -229,10 +228,10 @@ pg_recvint64(int64 value)
 {
 	union
 	{
-		int64	i64;
-		uint32	i32[2];
-	} swap;
-	int64	result;
+		int64		i64;
+		uint32		i32[2];
+	}			swap;
+	int64		result;
 
 	swap.i64 = value;
 
@@ -271,6 +270,7 @@ receiveFileChunks(const char *sql)
 		char	   *filename;
 		int			filenamelen;
 		int64		chunkoff;
+		char		chunkoff_str[32];
 		int			chunksize;
 		char	   *chunk;
 
@@ -343,8 +343,13 @@ receiveFileChunks(const char *sql)
 			continue;
 		}
 
-		pg_log(PG_DEBUG, "received chunk for file \"%s\", offset " INT64_FORMAT ", size %d\n",
-			   filename, chunkoff, chunksize);
+		/*
+		 * Separate step to keep platform-dependent format code out of
+		 * translatable strings.
+		 */
+		snprintf(chunkoff_str, sizeof(chunkoff_str), INT64_FORMAT, chunkoff);
+		pg_log(PG_DEBUG, "received chunk for file \"%s\", offset %s, size %d\n",
+			   filename, chunkoff_str, chunksize);
 
 		open_target_file(filename, false);
 
@@ -513,7 +518,7 @@ libpq_executeFileMap(filemap_t *map)
 	 * temporary table. Now, actually fetch all of those ranges.
 	 */
 	sql =
-		"SELECT path, begin, \n"
+		"SELECT path, begin,\n"
 		"  pg_read_binary_file(path, begin, len, true) AS chunk\n"
 		"FROM fetchchunks\n";
 

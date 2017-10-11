@@ -449,22 +449,6 @@ SELECT '2014-10-25 22:00:01 UTC'::timestamptz AT TIME ZONE 'MSK';
 SELECT '2014-10-25 23:00:00 UTC'::timestamptz AT TIME ZONE 'MSK';
 
 --
--- Test that the pg_timezone_names and pg_timezone_abbrevs views are
--- more-or-less working.  We can't test their contents in any great detail
--- without the outputs changing anytime IANA updates the underlying data,
--- but it seems reasonable to expect at least one entry per major meridian.
--- (At the time of writing, the actual counts are around 38 because of
--- zones using fractional GMT offsets, so this is a pretty loose test.)
---
-select count(distinct utc_offset) >= 24 as ok from pg_timezone_names;
-select count(distinct utc_offset) >= 24 as ok from pg_timezone_abbrevs;
--- Let's check the non-default timezone abbreviation sets, too
-set timezone_abbreviations = 'Australia';
-select count(distinct utc_offset) >= 24 as ok from pg_timezone_abbrevs;
-set timezone_abbreviations = 'India';
-select count(distinct utc_offset) >= 24 as ok from pg_timezone_abbrevs;
-
---
 -- Test that AT TIME ZONE isn't misoptimized when using an index (bug #14504)
 --
 create temp table tmptz (f1 timestamptz primary key);

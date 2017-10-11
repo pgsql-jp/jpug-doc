@@ -93,8 +93,8 @@ PostgreSQLは、SQLによって実行された更新結果を外部のコンシ�
 <programlisting>
 postgres=# -- Create a slot named 'regression_slot' using the output plugin 'test_decoding'
 postgres=# SELECT * FROM pg_create_logical_replication_slot('regression_slot', 'test_decoding');
-    slot_name    | xlog_position
------------------+---------------
+    slot_name    |    lsn
+-----------------+-----------
  regression_slot | 0/16B1970
 (1 row)
 
@@ -106,8 +106,8 @@ postgres=# SELECT slot_name, plugin, slot_type, database, active, restart_lsn, c
 
 postgres=# -- There are no changes to see yet
 postgres=# SELECT * FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL);
- location | xid | data
-----------+-----+------
+ lsn | xid | data 
+-----+-----+------
 (0 rows)
 
 postgres=# CREATE TABLE data(id serial primary key, data text);
@@ -115,17 +115,17 @@ CREATE TABLE
 
 postgres=# -- DDL isn't replicated, so all you'll see is the transaction
 postgres=# SELECT * FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL);
- location  | xid |    data
------------+-----+------------
- 0/16D5D48 | 688 | BEGIN 688
- 0/16E0380 | 688 | COMMIT 688
+    lsn    |  xid  |     data     
+-----------+-------+--------------
+ 0/BA2DA58 | 10297 | BEGIN 10297
+ 0/BA5A5A0 | 10297 | COMMIT 10297
 (2 rows)
 
 postgres=# -- Once changes are read, they're consumed and not emitted
 postgres=# -- in a subsequent call:
 postgres=# SELECT * FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL);
- location | xid | data
-----------+-----+------
+ lsn | xid | data 
+-----+-----+------
 (0 rows)
 
 postgres=# BEGIN;
@@ -134,41 +134,41 @@ postgres=# INSERT INTO data(data) VALUES('2');
 postgres=# COMMIT;
 
 postgres=# SELECT * FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL);
- location  | xid |                     data
------------+-----+-----------------------------------------------
- 0/16E0478 | 689 | BEGIN 689
- 0/16E0478 | 689 | table public.data: INSERT: id[integer]:1 data[text]:'1'
- 0/16E0580 | 689 | table public.data: INSERT: id[integer]:2 data[text]:'2'
- 0/16E0650 | 689 | COMMIT 689
+    lsn    |  xid  |                          data                           
+-----------+-------+---------------------------------------------------------
+ 0/BA5A688 | 10298 | BEGIN 10298
+ 0/BA5A6F0 | 10298 | table public.data: INSERT: id[integer]:1 data[text]:'1'
+ 0/BA5A7F8 | 10298 | table public.data: INSERT: id[integer]:2 data[text]:'2'
+ 0/BA5A8A8 | 10298 | COMMIT 10298
 (4 rows)
 
 postgres=# INSERT INTO data(data) VALUES('3');
 
 postgres=# -- You can also peek ahead in the change stream without consuming changes
 postgres=# SELECT * FROM pg_logical_slot_peek_changes('regression_slot', NULL, NULL);
- location  | xid |                     data
------------+-----+-----------------------------------------------
- 0/16E09C0 | 690 | BEGIN 690
- 0/16E09C0 | 690 | table public.data: INSERT: id[integer]:3 data[text]:'3'
- 0/16E0B90 | 690 | COMMIT 690
+    lsn    |  xid  |                          data                           
+-----------+-------+---------------------------------------------------------
+ 0/BA5A8E0 | 10299 | BEGIN 10299
+ 0/BA5A8E0 | 10299 | table public.data: INSERT: id[integer]:3 data[text]:'3'
+ 0/BA5A990 | 10299 | COMMIT 10299
 (3 rows)
 
 postgres=# -- The next call to pg_logical_slot_peek_changes() returns the same changes again
 postgres=# SELECT * FROM pg_logical_slot_peek_changes('regression_slot', NULL, NULL);
- location  | xid |                     data
------------+-----+-----------------------------------------------
- 0/16E09C0 | 690 | BEGIN 690
- 0/16E09C0 | 690 | table public.data: INSERT: id[integer]:3 data[text]:'3'
- 0/16E0B90 | 690 | COMMIT 690
+    lsn    |  xid  |                          data                           
+-----------+-------+---------------------------------------------------------
+ 0/BA5A8E0 | 10299 | BEGIN 10299
+ 0/BA5A8E0 | 10299 | table public.data: INSERT: id[integer]:3 data[text]:'3'
+ 0/BA5A990 | 10299 | COMMIT 10299
 (3 rows)
 
 postgres=# -- options can be passed to output plugin, to influence the formatting
 postgres=# SELECT * FROM pg_logical_slot_peek_changes('regression_slot', NULL, NULL, 'include-timestamp', 'on');
- location  | xid |                     data
------------+-----+-----------------------------------------------
- 0/16E09C0 | 690 | BEGIN 690
- 0/16E09C0 | 690 | table public.data: INSERT: id[integer]:3 data[text]:'3'
- 0/16E0B90 | 690 | COMMIT 690 (at 2014-02-27 16:41:51.863092+01)
+    lsn    |  xid  |                          data                           
+-----------+-------+---------------------------------------------------------
+ 0/BA5A8E0 | 10299 | BEGIN 10299
+ 0/BA5A8E0 | 10299 | table public.data: INSERT: id[integer]:3 data[text]:'3'
+ 0/BA5A990 | 10299 | COMMIT 10299 (at 2017-05-10 12:07:21.272494-04)
 (3 rows)
 
 postgres=# -- Remember to destroy a slot you no longer need to stop it consuming
@@ -320,6 +320,20 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
     </para>
 
     <para>
+     A logical slot will emit each change just once in normal operation.
+     The current position of each slot is persisted only at checkpoint, so in
+     the case of a crash the slot may return to an earlier LSN, which will
+     then cause recent changes to be resent when the server restarts.
+     Logical decoding clients are responsible for avoiding ill effects from
+     handling the same message more than once.  Clients may wish to record
+     the last LSN they saw when decoding and skip over any repeated data or
+     (when using the replication protocol) request that decoding start from
+     that LSN rather than letting the server determine the start point.
+     The Replication Progress Tracking feature is designed for this purpose,
+     refer to <link linkend="replication-origins">replication origins</link>.
+    </para>
+
+    <para>
 <!--
      Multiple independent slots may exist for a single database. Each slot has
      its own state, allowing different consumers to receive changes from
@@ -381,8 +395,9 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
     <title>スナップショットのエクスポート</title>
     <para>
 <!--
-     When a new replication slot is created using the streaming replication interface,
-     a snapshot is exported
+     When a new replication slot is created using the streaming replication
+     interface (see <xref linkend="protocol-replication-create-slot">), a
+     snapshot is exported
      (see <xref linkend="functions-snapshot-synchronization">), which will show
      exactly the state of the database after which all changes will be
      included in the change stream. This can be used to create a new replica by
@@ -397,6 +412,12 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
 このことを利用して、スロットが作られた際のデータベースの状態を<link linkend="sql-set-transaction"><literal>SET TRANSACTION SNAPSHOT</literal></link>を使って読み込むことにより、新しいレプリカを作ることができます。
 このトランザクションは、その時点のデータベースの状態をダンプするために使用することができます。
 また、スロットに含まれるデータを使って、ダンプした後で行われた更新を失うことなくデータベースを更新できます。
+    </para>
+    <para>
+     Creation of a snapshot is not always possible.  In particular, it will
+     fail when connected to a hot standby.  Applications that do not require
+     snapshot export may suppress it with the <literal>NOEXPORT_SNAPSHOT</>
+     option.
     </para>
    </sect2>
   </sect1>
@@ -416,7 +437,7 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
      </listitem>
 
      <listitem>
-      <para><literal>DROP_REPLICATION_SLOT <replaceable>slot_name</replaceable></literal></para>
+      <para><literal>DROP_REPLICATION_SLOT <replaceable>slot_name</replaceable></literal> <optional> <literal>WAIT</> </></para>
      </listitem>
 
      <listitem>
@@ -491,7 +512,7 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
 <!--
     The <link linkend="view-pg-replication-slots"><structname>pg_replication_slots</structname></link>
     view and the
-    <link linkend="monitoring-stats-views-table"><structname>pg_stat_replication</structname></link>
+    <link linkend="pg-stat-replication-view"><structname>pg_stat_replication</structname></link>
     view provide information about the current state of replication slots and
     streaming replication connections respectively. These views apply to both physical and
     logical replication.
@@ -923,7 +944,7 @@ typedef void (*LogicalDecodeMessageCB) (struct LogicalDecodingContext *ctx,
       its XID. Note however that it can be NULL when the message is
       non-transactional and the XID was not assigned yet in the transaction
       which logged the message. The <parameter>lsn</parameter> has WAL
-      position of the message. The <parameter>transactional</parameter> says
+      location of the message. The <parameter>transactional</parameter> says
       if the message was sent as transactional or not.
       The <parameter>prefix</parameter> is arbitrary null-terminated prefix
       which can be used for identifying interesting messages for the current

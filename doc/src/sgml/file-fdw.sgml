@@ -11,10 +11,11 @@
 <!--
   The <filename>file_fdw</> module provides the foreign-data wrapper
   <function>file_fdw</function>, which can be used to access data
-  files in the server's file system.  Data files must be in a format
+  files in the server's file system, or to execute programs on the server
+  and read their output.  The data file or program output must be in a format
   that can be read by <command>COPY FROM</command>;
   see <xref linkend="sql-copy"> for details.
-  Access to such data files is currently read-only.
+  Access to data files is currently read-only.
 -->
 <filename>file_fdw</>モジュールは、サーバのファイルシステムにあるデータファイルにアクセスするのに使用できる外部データラッパ<function>file_fdw</function>を提供します。
 データファイルは<command>COPY FROM</command>で読むことのできるフォーマットでなければなりません。
@@ -36,12 +37,22 @@
 
    <listitem>
     <para>
-<!--
-     Specifies the file to be read.  Required.  Must be an absolute path name.
--->
-読み込むファイルを指定します。
-必須です。
-絶対パスでなければなりません。
+     Specifies the file to be read.  Must be an absolute path name.
+     Either <literal>filename</literal> or <literal>program</literal> must be
+     specified, but not both.
+    </para>
+   </listitem>
+  </varlistentry>
+
+  <varlistentry>
+   <term><literal>program</literal></term>
+
+   <listitem>
+    <para>
+     Specifies the command to be executed.  The standard output of this
+     command will be read as though <command>COPY FROM PROGRAM</> were used.
+     Either <literal>program</literal> or <literal>filename</literal> must be
+     specified, but not both.
     </para>
    </listitem>
   </varlistentry>
@@ -52,7 +63,7 @@
    <listitem>
     <para>
 <!--
-     Specifies the file's format,
+     Specifies the data format,
      the same as <command>COPY</>'s <literal>FORMAT</literal> option.
 -->
 ファイルフォーマットを指定するもので、<command>COPY</>の<literal>FORMAT</literal>オプションと同じです。
@@ -66,7 +77,7 @@
    <listitem>
     <para>
 <!--
-     Specifies whether the file has a header line,
+     Specifies whether the data has a header line,
      the same as <command>COPY</>'s <literal>HEADER</literal> option.
 -->
 ファイルがヘッダ行を持つか指定するもので、<command>COPY</>の<literal>HEADER</literal>オプションと同じです。
@@ -80,7 +91,7 @@
    <listitem>
     <para>
 <!--
-     Specifies the file's delimiter character,
+     Specifies the data delimiter character,
      the same as <command>COPY</>'s <literal>DELIMITER</literal> option.
 -->
 ファイルのデリミタ文字を指定するもので、<command>COPY</>の<literal>DELIMITER</literal>オプションと同じです。
@@ -94,7 +105,7 @@
    <listitem>
     <para>
 <!--
-     Specifies the file's quote character,
+     Specifies the data quote character,
      the same as <command>COPY</>'s <literal>QUOTE</literal> option.
 -->
 ファイルの引用符文字を指定するもので、<command>COPY</>の<literal>QUOTE</literal>オプションと同じです。
@@ -108,7 +119,7 @@
    <listitem>
     <para>
 <!--
-     Specifies the file's escape character,
+     Specifies the data escape character,
      the same as <command>COPY</>'s <literal>ESCAPE</literal> option.
 -->
 ファイルのエスケープ文字を指定するもので、<command>COPY</>の<literal>ESCAPE</literal>オプションと同じです。
@@ -122,7 +133,7 @@
    <listitem>
     <para>
 <!--
-     Specifies the file's null string,
+     Specifies the data null string,
      the same as <command>COPY</>'s <literal>NULL</literal> option.
 -->
 ファイルのnull文字列を指定するもので、<command>COPY</>の<literal>NULL</literal>オプションと同じです。
@@ -136,7 +147,7 @@
    <listitem>
     <para>
 <!--
-     Specifies the file's encoding,
+     Specifies the data encoding,
      the same as <command>COPY</>'s <literal>ENCODING</literal> option.
 -->
 ファイルのエンコーディングを指定するもので、<command>COPY</>の<literal>ENCODING</literal>オプションと同じです。
@@ -148,11 +159,11 @@
 
  <para>
 <!--
-  Note that while <command>COPY</> allows options such as OIDS and HEADER
-  to be specified without a corresponding value, the foreign data wrapper
+  Note that while <command>COPY</> allows options such as <literal>HEADER</>
+  to be specified without a corresponding value, the foreign table option
   syntax requires a value to be present in all cases.  To activate
-  <command>COPY</> options normally supplied without a value, you can
-  instead pass the value TRUE.
+  <command>COPY</> options typically written without a value, you can pass
+  the value TRUE, since all such options are Booleans.
 -->
 <command>COPY</>ではOIDSやHEADERといったオプションを対応する値なしで指定できるのに対して、外部データラッパの構文では全ての場合において値を指定する必要がある点に注意してください。
 通常値なしで指定される<command>COPY</>オプションを有効にするには、代わりにTRUEを渡すことができます。
@@ -176,7 +187,7 @@
 <!--
      This is a Boolean option.  If true, it specifies that values of the
      column should not be matched against the null string (that is, the
-     file-level <literal>null</literal> option).  This has the same effect
+     table-level <literal>null</literal> option).  This has the same effect
      as listing the column in <command>COPY</>'s
      <literal>FORCE_NOT_NULL</literal> option.
 -->
@@ -231,18 +242,28 @@
  <para>
 <!--
   Changing table-level options requires superuser privileges, for security
-  reasons: only a superuser should be able to determine which file is read.
-  In principle non-superusers could be allowed to change the other options,
-  but that's not supported at present.
+  reasons: only a superuser should be able to control which file is read
+  or which program is run.  In principle non-superusers could be allowed to
+  change the other options, but that's not supported at present.
 -->
 どのファイルから読み込むかを決定できるのはスーパーユーザーのみでなければならない、というセキュリティ上の理由から、テーブルレベルのオプションを変更するにはスーパーユーザ権限が必要です。
 原則としては非スーパーユーザはその他のオプションを変更することを許されてもよいのですが、現時点ではサポートされていません。
  </para>
 
  <para>
+  When specifying the <literal>program</> option, keep in mind that the option
+  string is executed by the shell.  If you need to pass any arguments to the
+  command that come from an untrusted source, you must be careful to strip or
+  escape any characters that might have special meaning to the shell.
+  For security reasons, it is best to use a fixed command string, or at least
+  avoid passing any user input in it.
+ </para>
+
+ <para>
 <!--
   For a foreign table using <literal>file_fdw</>, <command>EXPLAIN</> shows
-  the name of the file to be read.  Unless <literal>COSTS OFF</> is
+  the name of the file to be read or program to be run.
+  For a file, unless <literal>COSTS OFF</> is
   specified, the file size (in bytes) is shown as well.
 -->
 <literal>file_fdw</>を使用する外部テーブルでは、<command>EXPLAIN</>は読み込むファイルの名前を表示します。
@@ -257,7 +278,7 @@
 
   <para>
 <!--
-   One of the obvious uses for the <literal>file_fdw</> is to make
+   One of the obvious uses for <literal>file_fdw</> is to make
    the PostgreSQL activity log available as a table for querying.  To
    do this, first you must be logging to a CSV file, which here we
    will call <literal>pglog.csv</>.  First, install <literal>file_fdw</>
@@ -318,7 +339,7 @@ CREATE FOREIGN TABLE pglog (
   location text,
   application_name text
 ) SERVER pglog
-OPTIONS ( filename '/home/josh/9.1/data/pg_log/pglog.csv', format 'csv' );
+OPTIONS ( filename '/home/josh/data/log/pglog.csv', format 'csv' );
 </programlisting>
   </para>
 

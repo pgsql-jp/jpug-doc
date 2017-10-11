@@ -369,11 +369,11 @@
     The server then sends an appropriate authentication request message,
     to which the frontend must reply with an appropriate authentication
     response message (such as a password).
-    For all authentication methods except GSSAPI and SSPI, there is at most
-    one request and one response. In some methods, no response
+    For all authentication methods except GSSAPI, SSPI and SASL, there is at
+    most one request and one response. In some methods, no response
     at all is needed from the frontend, and so no authentication request
-    occurs. For GSSAPI and SSPI, multiple exchanges of packets may be needed
-    to complete the authentication.
+    occurs. For GSSAPI, SSPI and SASL, multiple exchanges of packets may be
+    needed to complete the authentication.
 -->
 サーバはその後、適切な認証要求メッセージを送信します。
 フロントエンドはこれに適切な認証応答メッセージ（パスワードなど）で答えなければなりません。
@@ -519,7 +519,7 @@ GSSAPIとSSPIでは認証を完了するために複数のパケットの交換�
        <para>
 <!--
         The frontend must now initiate a GSSAPI negotiation. The frontend
-        will send a PasswordMessage with the first part of the GSSAPI
+        will send a GSSResponse message with the first part of the GSSAPI
         data stream in response to this. If further messages are needed,
         the server will respond with AuthenticationGSSContinue.
 -->
@@ -536,7 +536,7 @@ GSSAPIとSSPIでは認証を完了するために複数のパケットの交換�
        <para>
 <!--
         The frontend must now initiate a SSPI negotiation. The frontend
-        will send a PasswordMessage with the first part of the SSPI
+        will send a GSSResponse with the first part of the SSPI
         data stream in response to this. If further messages are needed,
         the server will respond with AuthenticationGSSContinue.
 -->
@@ -557,7 +557,7 @@ GSSAPIとSSPIでは認証を完了するために複数のパケットの交換�
         or a previous AuthenticationGSSContinue). If the GSSAPI
         or SSPI data in this message
         indicates more data is needed to complete the authentication,
-        the frontend must send that data as another PasswordMessage. If
+        the frontend must send that data as another GSSResponse message. If
         GSSAPI or SSPI authentication is completed by this message, the server
         will next send AuthenticationOk to indicate successful authentication
         or ErrorResponse to indicate failure.
@@ -565,6 +565,46 @@ GSSAPIとSSPIでは認証を完了するために複数のパケットの交換�
 このメッセージには、GSSAPIまたはSSPI調停の直前の段階（AuthenticationGSS、AuthenticationSSPIまたは前回のAuthenticationGSSContinue）についての応答データが含まれます。
 このメッセージ内のGSSAPIまたはSSPIデータが認証を完結させるため、更なる追加データが必要であることを指示している場合、フロントエンドは他のPasswordMessageとしてデータを送信しなければなりません。
 このメッセージでGSSAPIまたはSSPI認証が完了すれば、次にサーバはAuthenticationOkを送信して認証が成功したことを示すか、あるいはErrorResponseを送信して失敗したことを示します。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term>AuthenticationSASL</term>
+      <listitem>
+       <para>
+        The frontend must now initiate a SASL negotiation, using one of the
+        SASL mechanisms listed in the message. The frontend will send a
+        SASLInitialResponse with the name of the selected mechanism, and the
+        first part of the SASL data stream in response to this. If further
+        messages are needed, the server will respond with
+        AuthenticationSASLContinue. See <xref linkend="sasl-authentication">
+        for details.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term>AuthenticationSASLContinue</term>
+      <listitem>
+       <para>
+        This message contains challenge data from the previous step of SASL
+        negotiation (AuthenticationSASL, or a previous
+        AuthenticationSASLContinue). The frontend must respond with a
+        SASLResponse message.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term>AuthenticationSASLFinal</term>
+      <listitem>
+       <para>
+        SASL authentication has completed with additional mechanism-specific
+        data for the client. The server will next send AuthenticationOk to
+        indicate successful authentication, or an ErrorResponse to indicate
+        failure. This message is sent only if the SASL mechanism specifies
+        additional data to be sent from server to client at completion.
        </para>
       </listitem>
      </varlistentry>
@@ -1008,7 +1048,7 @@ RowDescriptionメッセージ内で与えられる書式コードは、どの書
      number of parameter symbols (<literal>$</><replaceable>n</>)
      used in the query string.  Another special case is that a parameter's
      type can be specified as <type>void</> (that is, the OID of the
-     <type>void</> pseudotype).  This is meant to allow parameter symbols
+     <type>void</> pseudo-type).  This is meant to allow parameter symbols
      to be used for function parameters that are actually OUT parameters.
      Ordinarily there is no context in which a <type>void</> parameter
      could be used, but if such a parameter symbol appears in a function's
@@ -1971,6 +2011,139 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
   </sect2>
  </sect1>
 
+<sect1 id="sasl-authentication">
+<title>SASL Authentication</title>
+
+<para>
+<firstterm>SASL</> is a framework for authentication in connection-oriented
+protocols. At the moment, <productname>PostgreSQL</> implements only one SASL
+authentication mechanism, SCRAM-SHA-256, but more might be added in the
+future. The below steps illustrate how SASL authentication is performed in
+general, while the next subsection gives more details on SCRAM-SHA-256.
+</para>
+
+<procedure>
+<title>SASL Authentication Message Flow</title>
+
+<step id="sasl-auth-begin">
+<para>
+  To begin a SASL authentication exchange, the server sends an
+  AuthenticationSASL message. It includes a list of SASL authentication
+  mechanisms that the server can accept, in the server's preferred order.
+</para>
+</step>
+
+<step id="sasl-auth-initial-response">
+<para>
+  The client selects one of the supported mechanisms from the list, and sends
+  a SASLInitialResponse message to the server. The message includes the name
+  of the selected mechanism, and an optional Initial Client Response, if the
+  selected mechanism uses that.
+</para>
+</step>
+
+<step id="sasl-auth-continue">
+<para>
+  One or more server-challenge and client-response message will follow. Each
+  server-challenge is sent in an AuthenticationSASLContinue message, followed
+  by a response from client in an SASLResponse message. The particulars of
+  the messages are mechanism specific.
+</para>
+</step>
+
+<step id="sasl-auth-end">
+<para>
+  Finally, when the authentication exchange is completed successfully, the
+  server sends an AuthenticationSASLFinal message, followed
+  immediately by an AuthenticationOk message. The AuthenticationSASLFinal
+  contains additional server-to-client data, whose content is particular to the
+  selected authentication mechanism. If the authentication mechanism doesn't
+  use additional data that's sent at completion, the AuthenticationSASLFinal
+  message is not sent.
+</para>
+</step>
+</procedure>
+
+<para>
+On error, the server can abort the authentication at any stage, and send an
+ErrorMessage.
+</para>
+
+ <sect2 id="sasl-scram-sha256">
+  <title>SCRAM-SHA-256 authentication</title>
+
+  <para>
+    <firstterm>SCRAM-SHA-256</> (called just <firstterm>SCRAM</> from now on) is
+    the only implemented SASL mechanism, at the moment. It is described in detail
+    in RFC 7677 and RFC 5802.
+  </para>
+
+  <para>
+When SCRAM-SHA-256 is used in PostgreSQL, the server will ignore the user name
+that the client sends in the <structname>client-first-message</>. The user name
+that was already sent in the startup message is used instead.
+<productname>PostgreSQL</> supports multiple character encodings, while SCRAM
+dictates UTF-8 to be used for the user name, so it might be impossible to
+represent the PostgreSQL user name in UTF-8.
+  </para>
+
+  <para>
+The SCRAM specification dictates that the password is also in UTF-8, and is
+processed with the <firstterm>SASLprep</> algorithm.
+<productname>PostgreSQL</>, however, does not require UTF-8 to be used for
+the password. When a user's password is set, it is processed with SASLprep
+as if it was in UTF-8, regardless of the actual encoding used. However, if
+it is not a legal UTF-8 byte sequence, or it contains UTF-8 byte sequences
+that are prohibited by the SASLprep algorithm, the raw password will be used
+without SASLprep processing, instead of throwing an error. This allows the
+password to be normalized when it is in UTF-8, but still allows a non-UTF-8
+password to be used, and doesn't require the system to know which encoding
+the password is in.
+  </para>
+
+  <para>
+<firstterm>Channel binding</> has not been implemented yet.
+  </para>
+
+<procedure>
+<title>Example</title>
+  <step id="scram-begin">
+<para>
+  The server sends an AuthenticationSASL message. It includes a list of
+  SASL authentication mechanisms that the server can accept.
+</para>
+</step>
+<step id="scram-client-first">
+<para>
+  The client responds by sending a SASLInitialResponse message, which
+  indicates the chosen mechanism, <literal>SCRAM-SHA-256</>. In the Initial
+  Client response field, the message contains the SCRAM
+  <structname>client-first-message</>.
+</para>
+</step>
+<step id="scram-server-first">
+<para>
+  Server sends an AuthenticationSASLContinue message, with a SCRAM
+  <structname>server-first message</> as the content.
+</para>
+</step>
+<step id="scram-client-final">
+<para>
+  Client sends a SASLResponse message, with SCRAM
+  <structname>client-final-message</> as the content.
+</para>
+</step>
+<step id="scram-server-final">
+<para>
+  Server sends an AuthenticationSASLFinal message, with the SCRAM
+  <structname>server-final-message</>, followed immediately by
+  an AuthenticationOk message.
+</para>
+</step>
+</procedure>
+</sect2>
+</sect1>
+
 <sect1 id="protocol-replication">
 <!--
 <title>Streaming Replication Protocol</title>
@@ -2012,10 +2185,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
 </programlisting>
 <!--
  However, it is often more useful to use
- <xref linkend="app-pgreceivexlog"> (for physical replication) or
+ <xref linkend="app-pgreceivewal"> (for physical replication) or
  <xref linkend="app-pgrecvlogical"> (for logical replication).
 -->
-しかし、物理的レプリケーションのために<xref linkend="app-pgreceivexlog">を使用し、論理的レプリケーションのため<xref linkend="app-pgrecvlogical">を使用すれば、もっと有用なことが多いです。
+しかし、物理的レプリケーションのために<xref linkend="app-pgreceivewal">を使用し、論理的レプリケーションのため<xref linkend="app-pgrecvlogical">を使用すれば、もっと有用なことが多いです。
 </para>
 
 <para>
@@ -2080,8 +2253,8 @@ walsenderモードで受け付けられるコマンドは以下の通りです�
       <listitem>
       <para>
 <!--
-       Current xlog flush location. Useful to get a known location in the
-       transaction log where streaming can start.
+       Current WAL flush location. Useful to get a known location in the
+       write-ahead log where streaming can start.
 -->
 現在のxlogの吐き出し位置です。
 ストリーミングを開始できるトランザクションログの既知の位置を得る際に有用です。
@@ -2105,6 +2278,30 @@ walsenderモードで受け付けられるコマンドは以下の通りです�
 
       </variablelist>
      </para>
+    </listitem>
+  </varlistentry>
+
+  <varlistentry>
+    <term><literal>SHOW</literal> <replaceable class="parameter">name</replaceable>
+     <indexterm><primary>SHOW</primary></indexterm>
+    </term>
+    <listitem>
+     <para>
+      Requests the server to send the current setting of a run-time parameter.
+      This is similar to the SQL command <xref linkend="sql-show">.
+     </para>
+
+     <variablelist>
+      <varlistentry>
+       <term><replaceable class="parameter">name</></term>
+       <listitem>
+         <para>
+          The name of a run-time parameter. Available parameters are documented
+          in <xref linkend="runtime-config">.
+         </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
     </listitem>
   </varlistentry>
 
@@ -2158,8 +2355,8 @@ walsenderモードで受け付けられるコマンドは以下の通りです�
     </listitem>
   </varlistentry>
 
-  <varlistentry>
-   <term><literal>CREATE_REPLICATION_SLOT</literal> <replaceable class="parameter">slot_name</> { <literal>PHYSICAL</> [ <literal>RESERVE_WAL</> ] | <literal>LOGICAL</> <replaceable class="parameter">output_plugin</> }
+  <varlistentry id="protocol-replication-create-slot" xreflabel="CREATE_REPLICATION_SLOT">
+   <term><literal>CREATE_REPLICATION_SLOT</literal> <replaceable class="parameter">slot_name</> [ <literal>TEMPORARY</> ] { <literal>PHYSICAL</> [ <literal>RESERVE_WAL</> ] | <literal>LOGICAL</> <replaceable class="parameter">output_plugin</> [ <literal>EXPORT_SNAPSHOT</> | <literal>NOEXPORT_SNAPSHOT</> | <literal>USE_SNAPSHOT</> ] }
      <indexterm><primary>CREATE_REPLICATION_SLOT</primary></indexterm>
     </term>
     <listitem>
@@ -2203,6 +2400,17 @@ walsenderモードで受け付けられるコマンドは以下の通りです�
       </varlistentry>
 
       <varlistentry>
+       <term><literal>TEMPORARY</></term>
+       <listitem>
+        <para>
+         Specify that this replication slot is a temporary one. Temporary
+         slots are not saved to disk and are automatically dropped on error
+         or when the session has finished.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
        <term><literal>RESERVE_WAL</></term>
        <listitem>
         <para>
@@ -2216,7 +2424,76 @@ walsenderモードで受け付けられるコマンドは以下の通りです�
         </para>
        </listitem>
       </varlistentry>
+
+      <varlistentry>
+       <term><literal>EXPORT_SNAPSHOT</></term>
+       <term><literal>NOEXPORT_SNAPSHOT</></term>
+       <term><literal>USE_SNAPSHOT</></term>
+       <listitem>
+        <para>
+         Decides what to do with the snapshot created during logical slot
+         initialization. <literal>EXPORT_SNAPSHOT</>, which is the default,
+         will export the snapshot for use in other sessions. This option can't
+         be used inside a transaction.  <literal>USE_SNAPSHOT</> will use the
+         snapshot for the current transaction executing the command. This
+         option must be used in a transaction, and
+         <literal>CREATE_REPLICATION_SLOT</literal> must be the first command
+         run in that transaction.  Finally, <literal>NOEXPORT_SNAPSHOT</> will
+         just use the snapshot for logical decoding as normal but won't do
+         anything else with it.
+        </para>
+       </listitem>
+      </varlistentry>
      </variablelist>
+
+     <para>
+      In response to this command, the server will send a one-row result set
+      containing the following fields:
+
+      <variablelist>
+       <varlistentry>
+        <term><literal>slot_name</literal> (<type>text</type>)</term>
+        <listitem>
+         <para>
+          The name of the newly-created replication slot.
+         </para>
+        </listitem>
+       </varlistentry>
+
+       <varlistentry>
+        <term><literal>consistent_point</literal> (<type>text</type>)</term>
+        <listitem>
+         <para>
+          The WAL location at which the slot became consistent.  This is the
+          earliest location from which streaming can start on this replication
+          slot.
+         </para>
+        </listitem>
+       </varlistentry>
+
+       <varlistentry>
+        <term><literal>snapshot_name</literal> (<type>text</type>)</term>
+        <listitem>
+         <para>
+          The identifier of the snapshot exported by the command.  The
+          snapshot is valid until a new command is executed on this connection
+          or the replication connection is closed.  Null if the created slot
+          is physical.
+         </para>
+        </listitem>
+       </varlistentry>
+
+       <varlistentry>
+        <term><literal>output_plugin</literal> (<type>text</type>)</term>
+        <listitem>
+         <para>
+          The name of the output plugin used by the newly-created replication
+          slot.  Null if the created slot is physical.
+         </para>
+        </listitem>
+       </varlistentry>
+      </variablelist>
+     </para>
     </listitem>
   </varlistentry>
 
@@ -2228,7 +2505,7 @@ walsenderモードで受け付けられるコマンドは以下の通りです�
      <para>
 <!--
       Instructs server to start streaming WAL, starting at
-      WAL position <replaceable class="parameter">XXX/XXX</>.
+      WAL location <replaceable class="parameter">XXX/XXX</>.
       If <literal>TIMELINE</literal> option is specified,
       streaming starts on timeline <replaceable class="parameter">tli</>;
       otherwise, the server's current timeline is selected. The server can
@@ -2275,7 +2552,7 @@ walsenderモードで受け付けられるコマンドは以下の通りです�
       acknowledges this by also exiting COPY mode, the server sends a result
       set with one row and two columns, indicating the next timeline in this
       server's history. The first column is the next timeline's ID (type <type>int8</type>), and the
-      second column is the WAL position where the switch happened (type <type>text</type>). Usually,
+      second column is the WAL location where the switch happened (type <type>text</type>). Usually,
       the switch position is the end of the WAL that was streamed, but there
       are corner cases where the server can send some WAL from the old
       timeline that it has not itself replayed before promoting. Finally, the
@@ -2627,15 +2904,33 @@ WALデータストリームの断片。
       </term>
       <listitem>
       <para>
-<!--
-          The standby's current xmin. This may be 0, if the standby is
-          sending notification that Hot Standby feedback will no longer
-          be sent on this connection. Later non-zero messages may
-          reinitiate the feedback mechanism.
--->
-スタンバイの現在のxminです。
-もはやホットスタンバイフィードバックがこの接続では送信されないという通知を、スタンバイが送信している場合、この値は0でしょう。
-後ほど、0でないメッセージがフィードバック機構を再び開始します。
+          The standby's current global xmin, excluding the catalog_xmin from any
+          replication slots. If both this value and the following
+          catalog_xmin are 0 this is treated as a notification that Hot Standby
+          feedback will no longer be sent on this connection. Later non-zero
+          messages may reinitiate the feedback mechanism.
+      </para>
+      </listitem>
+      </varlistentry>
+      <varlistentry>
+      <term>
+          Int32
+      </term>
+      <listitem>
+      <para>
+          The epoch of the global xmin xid on the standby.
+      </para>
+      </listitem>
+      </varlistentry>
+      <varlistentry>
+      <term>
+          Int32
+      </term>
+      <listitem>
+      <para>
+          The lowest catalog_xmin of any replication slots on the standby. Set to 0
+          if no catalog_xmin exists on the standby or if hot standby feedback is being
+          disabled.
       </para>
       </listitem>
       </varlistentry>
@@ -2646,7 +2941,7 @@ WALデータストリームの断片。
       <listitem>
       <para>
 <!--
-          The standby's current epoch.
+          The epoch of the catalog_xmin xid on the standby.
 -->
 スタンバイの現在のエポックです。
       </para>
@@ -2666,7 +2961,7 @@ WALデータストリームの断片。
      <para>
 <!--
       Instructs server to start streaming WAL for logical replication, starting
-      at WAL position <replaceable class="parameter">XXX/XXX</>. The server can
+      at WAL location <replaceable class="parameter">XXX/XXX</>. The server can
       reply with an error, for example if the requested section of WAL has already
       been recycled. On success, server responds with a CopyBothResponse
       message, and then starts to stream WAL to the frontend.
@@ -2714,7 +3009,7 @@ CopyBothResponse内部のメッセージは、<literal>START_REPLICATION ... PHY
        <listitem>
         <para>
 <!--
-         The WAL position to begin streaming at.
+         The WAL location to begin streaming at.
 -->
 ストリームを開始するWAL時点。
         </para>
@@ -2749,14 +3044,16 @@ CopyBothResponse内部のメッセージは、<literal>START_REPLICATION ... PHY
   </varlistentry>
 
   <varlistentry>
-    <term><literal>DROP_REPLICATION_SLOT</literal> <replaceable class="parameter">slot_name</>
+    <term>
+     <literal>DROP_REPLICATION_SLOT</literal> <replaceable class="parameter">slot_name</> <optional> <literal>WAIT</> </optional>
      <indexterm><primary>DROP_REPLICATION_SLOT</primary></indexterm>
     </term>
     <listitem>
      <para>
 <!--
-      Drops a replication slot, freeing any reserved server-side resources. If
-      the slot is currently in use by an active connection, this command fails.
+      Drops a replication slot, freeing any reserved server-side resources.
+      If the slot is a logical slot that was created in a database other than
+      the database the walsender is connected to, this command fails.
 -->
 レプリケーションスロットを削除し、サーバ側で準備した資源を解放します。
 実行中の接続に現在スロットが使用中の場合、このコマンドは失敗します。
@@ -2771,6 +3068,17 @@ CopyBothResponse内部のメッセージは、<literal>START_REPLICATION ... PHY
 -->
 削除するスロット名。
          </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term><literal>WAIT</literal></term>
+       <listitem>
+        <para>
+         This option causes the command to wait if the slot is active until
+         it becomes inactive, instead of the default behavior of raising an
+         error.
+        </para>
        </listitem>
       </varlistentry>
      </variablelist>
@@ -2854,7 +3162,7 @@ CopyBothResponse内部のメッセージは、<literal>START_REPLICATION ... PHY
 <!--
           Include the necessary WAL segments in the backup. This will include
           all the files between start and stop backup in the
-          <filename>pg_xlog</filename> directory of the base directory tar
+          <filename>pg_wal</filename> directory of the base directory tar
           file.
 -->
 バックアップ内に必要なWALセグメントを含めます。
@@ -3030,7 +3338,9 @@ CopyResponse結果内のデータは、テーブル空間の内容のtar形式�
        <listitem>
         <para>
 <!--
-         various temporary files created during the operation of the PostgreSQL server
+         Various temporary files and directories created during the operation
+         of the PostgreSQL server, such as any file or directory beginning
+         with <filename>pgsql_tmp</>.
 -->
 PostgreSQLサーバの操作中に、種々の一時ファイルが作成されます。
         </para>
@@ -3038,8 +3348,8 @@ PostgreSQLサーバの操作中に、種々の一時ファイルが作成され�
        <listitem>
         <para>
 <!--
-         <filename>pg_xlog</>, including subdirectories. If the backup is run
-         with WAL files included, a synthesized version of <filename>pg_xlog</filename> will be
+         <filename>pg_wal</>, including subdirectories. If the backup is run
+         with WAL files included, a synthesized version of <filename>pg_wal</filename> will be
          included, but it will only contain the files necessary for the
          backup to work, not the rest of the contents.
 -->
@@ -3051,7 +3361,11 @@ PostgreSQLサーバの操作中に、種々の一時ファイルが作成され�
        <listitem>
         <para>
 <!--
-         <filename>pg_replslot</> is copied as an empty directory.
+         <filename>pg_dynshmem</>, <filename>pg_notify</>,
+         <filename>pg_replslot</>, <filename>pg_serial</>,
+         <filename>pg_snapshots</>, <filename>pg_stat_tmp</>, and
+         <filename>pg_subtrans</> are copied as empty directories (even if
+         they are symbolic links).
 -->
 <filename>pg_replslot</>が空ディレクトリとしてコピーされます。
         </para>
@@ -3060,7 +3374,8 @@ PostgreSQLサーバの操作中に、種々の一時ファイルが作成され�
         <para>
 <!--
          Files other than regular files and directories, such as symbolic
-         links and special device files, are skipped.  (Symbolic links
+         links (other than for the directories listed above) and special
+         device files, are skipped.  (Symbolic links
          in <filename>pg_tblspc</filename> are maintained.)
 -->
 通常のファイルとディレクトリ以外のもの、シンボリックリンクや特殊なデバイスファイルは省略されます。
@@ -3080,6 +3395,119 @@ PostgreSQLサーバの操作中に、種々の一時ファイルが作成され�
 
 </para>
 
+</sect1>
+
+<sect1 id="protocol-logical-replication">
+ <title>Logical Streaming Replication Protocol</title>
+
+ <para>
+  This section describes the logical replication protocol, which is the message
+  flow started by the <literal>START_REPLICATION</literal>
+  <literal>SLOT</literal> <replaceable class="parameter">slot_name</>
+  <literal>LOGICAL</literal> replication command.
+ </para>
+
+ <para>
+  The logical streaming replication protocol builds on the primitives of
+  the physical streaming replication protocol.
+ </para>
+
+ <sect2 id="protocol-logical-replication-params">
+  <title>Logical Streaming Replication Parameters</title>
+
+  <para>
+   The logical replication <literal>START_REPLICATION</literal> command
+   accepts following parameters:
+
+   <variablelist>
+    <varlistentry>
+     <term>
+      proto_version
+     </term>
+     <listitem>
+      <para>
+       Protocol version. Currently only version <literal>1</literal> is
+       supported.
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term>
+      publication_names
+     </term>
+     <listitem>
+      <para>
+       Comma separated list of publication names for which to subscribe
+       (receive changes). The individual publication names are treated
+       as standard objects names and can be quoted the same as needed.
+      </para>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+
+  </para>
+ </sect2>
+
+ <sect2 id="protocol-logical-messages">
+  <title>Logical Replication Protocol Messages</title>
+
+  <para>
+   The individual protocol messages are discussed in the following
+   subsections. Individual messages are described in
+   <xref linkend="protocol-logicalrep-message-formats">.
+  </para>
+
+  <para>
+   All top-level protocol messages begin with a message type byte.
+   While represented in code as a character, this is a signed byte with no
+   associated encoding.
+  </para>
+
+  <para>
+   Since the streaming replication protocol supplies a message length there
+   is no need for top-level protocol messages to embed a length in their
+   header.
+  </para>
+
+ </sect2>
+
+ <sect2 id="protocol-logical-messages-flow">
+  <title>Logical Replication Protocol Message Flow</title>
+
+  <para>
+   With the exception of the <literal>START_REPLICATION</literal> command and
+   the replay progress messages, all information flows only from the backend
+   to the frontend.
+  </para>
+
+  <para>
+   The logical replication protocol sends individual transactions one by one.
+   This means that all messages between a pair of Begin and Commit messages
+   belong to the same transaction.
+  </para>
+
+  <para>
+   Every sent transaction contains zero or more DML messages (Insert,
+   Update, Delete). In case of a cascaded setup it can also contain Origin
+   messages. The origin message indicated that the transaction originated on
+   different replication node. Since a replication node in the scope of logical
+   replication protocol can be pretty much anything, the only identifier
+   is the origin name. It's downstream's responsibility to handle this as
+   needed (if needed). The Origin message is always sent before any DML
+   messages in the transaction.
+  </para>
+
+  <para>
+   Every DML message contains an arbitrary relation ID, which can be mapped to
+   an ID in the Relation messages. The Relation messages describe the schema of the
+   given relation. The Relation message is sent for a given relation either
+   because it is the first time we send a DML message for given relation in the
+   current session or because the relation definition has changed since the
+   last Relation message was sent for it. The protocol assumes that the client
+   is capable of caching the metadata for as many relations as needed.
+  </para>
+ </sect2>
 </sect1>
 
 <sect1 id="protocol-message-types">
@@ -3613,6 +4041,8 @@ SSPI認証証明メッセージが必要であることを指定します。
 </para>
 </listitem>
 </varlistentry>
+
+
 <varlistentry>
 <term>
 AuthenticationGSSContinue (B)
@@ -3682,7 +4112,7 @@ GSSAPIまたはSSPI認証データです。
 
 <varlistentry>
 <term>
-BackendKeyData (B)
+AuthenticationSASL (B)
 </term>
 <listitem>
 <para>
@@ -3690,14 +4120,12 @@ BackendKeyData (B)
 <variablelist>
 <varlistentry>
 <term>
-        Byte1('K')
+        Byte1('R')
 </term>
 <listitem>
 <para>
 <!--
-                Identifies the message as cancellation key data.
-                The frontend must save these values if it wishes to be
-                able to issue CancelRequest messages later.
+                Identifies the message as an authentication request.
 -->
 メッセージが取消用キーデータであることを識別します。
 もし、後でCancelRequestメッセージを発行する可能性があれば、フロントエンドはこの値を保存しなければなりません。
@@ -3706,7 +4134,7 @@ BackendKeyData (B)
 </varlistentry>
 <varlistentry>
 <term>
-        Int32(12)
+        Int32
 </term>
 <listitem>
 <para>
@@ -3719,14 +4147,55 @@ BackendKeyData (B)
 </varlistentry>
 <varlistentry>
 <term>
-        Int32
+        Int32(10)
+</term>
+<listitem>
+<para>
+                Specifies that SASL authentication is required.
+</para>
+</listitem>
+</varlistentry>
+</variablelist>
+The message body is a list of SASL authentication mechanisms, in the
+server's order of preference. A zero byte is required as terminator after
+the last authentication mechanism name. For each mechanism, there is the
+following:
+<variablelist>
+<varlistentry>
+<term>
+        String
+</term>
+<listitem>
+<para>
+                Name of a SASL authentication mechanism.
+</para>
+</listitem>
+</varlistentry>
+</variablelist>
+
+</para>
+</listitem>
+</varlistentry>
+
+
+<varlistentry>
+<term>
+AuthenticationSASLContinue (B)
+</term>
+<listitem>
+<para>
+
+<variablelist>
+<varlistentry>
+<term>
+        Byte1('R')
 </term>
 <listitem>
 <para>
 <!--
-                The process ID of this backend.
+                Identifies the message as an authentication request.
 -->
-このバックエンドのプロセスID。
+このメッセージがBindコマンドであることを識別します。
 </para>
 </listitem>
 </varlistentry>
@@ -3737,9 +4206,142 @@ BackendKeyData (B)
 <listitem>
 <para>
 <!--
-                The secret key of this backend.
+                Length of message contents in bytes, including self.
 -->
-このバックエンドの秘密鍵。
+自身を含む、メッセージ内容の長さ（バイト単位）。
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32(11)
+</term>
+<listitem>
+<para>
+                Specifies that this message contains a SASL challenge.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Byte<replaceable>n</replaceable>
+</term>
+<listitem>
+<para>
+                SASL data, specific to the SASL mechanism being used.
+</para>
+</listitem>
+</varlistentry>
+</variablelist>
+
+</para>
+</listitem>
+</varlistentry>
+
+
+<varlistentry>
+<term>
+AuthenticationSASLFinal (B)
+</term>
+<listitem>
+<para>
+
+<variablelist>
+<varlistentry>
+<term>
+        Byte1('R')
+</term>
+<listitem>
+<para>
+                Identifies the message as an authentication request.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32
+</term>
+<listitem>
+<para>
+                Length of message contents in bytes, including self.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32(12)
+</term>
+<listitem>
+<para>
+                Specifies that SASL authentication has completed.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Byte<replaceable>n</replaceable>
+</term>
+<listitem>
+<para>
+                SASL outcome "additional data", specific to the SASL mechanism
+                being used.
+</para>
+</listitem>
+</varlistentry>
+</variablelist>
+
+</para>
+</listitem>
+</varlistentry>
+
+
+<varlistentry>
+<term>
+BackendKeyData (B)
+</term>
+<listitem>
+<para>
+
+<variablelist>
+<varlistentry>
+<term>
+        Byte1('K')
+</term>
+<listitem>
+<para>
+                Identifies the message as cancellation key data.
+                The frontend must save these values if it wishes to be
+                able to issue CancelRequest messages later.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32(12)
+</term>
+<listitem>
+<para>
+                Length of message contents in bytes, including self.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32
+</term>
+<listitem>
+<para>
+                The process ID of this backend.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32
+</term>
+<listitem>
+<para>
+                The secret key of this backend.
 </para>
 </listitem>
 </varlistentry>
@@ -3764,10 +4366,7 @@ Bind (F)
 </term>
 <listitem>
 <para>
-<!--
                 Identifies the message as a Bind command.
--->
-このメッセージがBindコマンドであることを識別します。
 </para>
 </listitem>
 </varlistentry>
@@ -3777,10 +4376,7 @@ Bind (F)
 </term>
 <listitem>
 <para>
-<!--
                 Length of message contents in bytes, including self.
--->
-自身を含む、メッセージ内容の長さ（バイト単位）。
 </para>
 </listitem>
 </varlistentry>
@@ -3790,12 +4386,8 @@ Bind (F)
 </term>
 <listitem>
 <para>
-<!--
                 The name of the destination portal
                 (an empty string selects the unnamed portal).
--->
-宛先ポータルの名前です
-（空文字列で無名ポータルを選択します）。
 </para>
 </listitem>
 </varlistentry>
@@ -3805,12 +4397,8 @@ Bind (F)
 </term>
 <listitem>
 <para>
-<!--
                 The name of the source prepared statement
                 (an empty string selects the unnamed prepared statement).
--->
-元となるプリペアド文の名前です
-（空文字列で無名のプリペアド文を選択します）。
 </para>
 </listitem>
 </varlistentry>
@@ -3820,7 +4408,6 @@ Bind (F)
 </term>
 <listitem>
 <para>
-<!--
                 The number of parameter format codes that follow
                 (denoted <replaceable>C</> below).
                 This can be zero to indicate that there are no parameters
@@ -3828,11 +4415,6 @@ Bind (F)
                 or one, in which case the specified format code is applied
                 to all parameters; or it can equal the actual number of
                 parameters.
--->
-後続するパラメータ書式コードの数
-（以下では<replaceable>C</>で表します）。
-これは、パラメータが存在しない、あるいはすべてのパラメータがデフォルトの書式（テキスト）を使用することを示す0に、指定する書式コードをすべてのパラメータに適用することを示す1にすることができます。
-さもなくば、これは実際のパラメータ数と同じになります。
 </para>
 </listitem>
 </varlistentry>
@@ -3842,12 +4424,8 @@ Bind (F)
 </term>
 <listitem>
 <para>
-<!--
                 The parameter format codes.  Each must presently be
                 zero (text) or one (binary).
--->
-パラメータ書式コード。
-現在、それぞれは0（テキスト）もしくは1（バイナリ）のいずれかでなければなりません。
 </para>
 </listitem>
 </varlistentry>
@@ -5415,6 +5993,52 @@ NULLの場合、後続の値用のバイトはありません。
 
 <varlistentry>
 <term>
+GSSResponse (F)
+</term>
+<listitem>
+<para>
+
+<variablelist>
+<varlistentry>
+<term>
+        Byte1('p')
+</term>
+<listitem>
+<para>
+                Identifies the message as a GSSAPI or SSPI response. Note that
+                this is also used for SASL and password response messages.
+                The exact message type can be deduced from the context.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32
+</term>
+<listitem>
+<para>
+                Length of message contents in bytes, including self.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Byte<replaceable>n</replaceable>
+</term>
+<listitem>
+<para>
+                GSSAPI/SSPI specific message data.
+</para>
+</listitem>
+</varlistentry>
+</variablelist>
+</para>
+</listitem>
+</varlistentry>
+
+
+<varlistentry>
+<term>
 NoData (B)
 </term>
 <listitem>
@@ -5927,10 +6551,8 @@ PasswordMessage (F)
 <para>
 <!--
                 Identifies the message as a password response. Note that
-                this is also used for GSSAPI and SSPI response messages
-                (which is really a design error, since the contained data
-                is not a null-terminated string in that case, but can be
-                arbitrary binary data).
+                this is also used for GSSAPI, SSPI and SASL response messages.
+                The exact message type can be deduced from the context.
 -->
 メッセージがパスワード応答であることを識別します。
 これがGSSAPIまたはSSPI応答メッセージでも使用されることに注意してください。
@@ -6297,6 +6919,120 @@ RowDescriptionがステートメント用のDescribeから返された場合、�
 
 <varlistentry>
 <term>
+SASLInitialResponse (F)
+</term>
+<listitem>
+<para>
+
+<variablelist>
+<varlistentry>
+<term>
+        Byte1('p')
+</term>
+<listitem>
+<para>
+                Identifies the message as an initial SASL response. Note that
+                this is also used for GSSAPI, SSPI and password response messages.
+                The exact message type is deduced from the context.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32
+</term>
+<listitem>
+<para>
+                Length of message contents in bytes, including self.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        String
+</term>
+<listitem>
+<para>
+                Name of the SASL authentication mechanism that the client
+                selected.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32
+</term>
+<listitem>
+<para>
+                Length of SASL mechanism specific "Initial Client Response" that
+                follows, or -1 if there is no Initial Response.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Byte<replaceable>n</replaceable>
+</term>
+<listitem>
+<para>
+                SASL mechanism specific "Initial Response".
+</para>
+</listitem>
+</varlistentry>
+</variablelist>
+</para>
+</listitem>
+</varlistentry>
+
+
+<varlistentry>
+<term>
+SASLResponse (F)
+</term>
+<listitem>
+<para>
+
+<variablelist>
+<varlistentry>
+<term>
+        Byte1('p')
+</term>
+<listitem>
+<para>
+                Identifies the message as a SASL response. Note that
+                this is also used for GSSAPI, SSPI and password response messages.
+                The exact message type can be deduced from the context.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32
+</term>
+<listitem>
+<para>
+                Length of message contents in bytes, including self.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Byte<replaceable>n</replaceable>
+</term>
+<listitem>
+<para>
+                SASL mechanism specific message data.
+</para>
+</listitem>
+</varlistentry>
+</variablelist>
+</para>
+</listitem>
+</varlistentry>
+
+
+<varlistentry>
+<term>
 SSLRequest (F)
 </term>
 <listitem>
@@ -6309,10 +7045,7 @@ SSLRequest (F)
 </term>
 <listitem>
 <para>
-<!--
                 Length of message contents in bytes, including self.
--->
-自身を含む、メッセージ内容の長さ（バイト単位）。
 </para>
 </listitem>
 </varlistentry>
@@ -6322,15 +7055,10 @@ SSLRequest (F)
 </term>
 <listitem>
 <para>
-<!--
                 The <acronym>SSL</acronym> request code.  The value is chosen to contain
                 <literal>1234</> in the most significant 16 bits, and <literal>5679</> in the
                 least significant 16 bits.  (To avoid confusion, this code
                 must not be the same as any protocol version number.)
--->
-<acronym>SSL</acronym>要求コードです。
-この値は、最上位16ビットに<literal>1234</>が、下位16ビットに<literal>5679</>を持つように選択されます
-（混乱を防ぐため、このコードはプロトコルバージョン番号と同一になってはいけません）。
 </para>
 </listitem>
 </varlistentry>
@@ -6355,10 +7083,7 @@ StartupMessage (F)
 </term>
 <listitem>
 <para>
-<!--
                 Length of message contents in bytes, including self.
--->
-自身を含む、メッセージ内容の長さ（バイト単位）。
 </para>
 </listitem>
 </varlistentry>
@@ -6368,33 +7093,20 @@ StartupMessage (F)
 </term>
 <listitem>
 <para>
-<!--
                 The protocol version number.  The most significant 16 bits are
                 the major version number (3 for the protocol described here).
                 The least significant 16 bits are the minor version number
                 (0 for the protocol described here).
--->
-プロトコルバージョン番号です。
-最上位16ビットは主バージョン番号（本章で説明したプロトコルでは3）です。
-下位16ビットは副バージョン番号（本章で説明したプロトコルでは0）です。
 </para>
 </listitem>
 </varlistentry>
 </variablelist>
-<!--
         The protocol version number is followed by one or more pairs of
         parameter name and value strings.  A zero byte is required as a
         terminator after the last name/value pair.
         Parameters can appear in any
         order.  <literal>user</> is required, others are optional.
         Each parameter is specified as:
--->
-プロトコルバージョン番号の後に、1つ以上のパラメータ名と値文字列のペアが続きます。
-最後の名前と値のペアの後に終端としてゼロバイトが必要です。
-パラメータは任意の順番で現れることができます。
-<literal>user</>は必須です。
-他は省略可能です。
-各パラメータは以下のように指定されます。
 <variablelist>
 <varlistentry>
 <term>
@@ -6457,6 +7169,22 @@ StartupMessage (F)
 （これは廃棄予定であり、個々の実行時パラメータを設定する方が好ましいです。）
 この文字列の中の空白は、バックスラッシュ(<literal>\</>)でエスケープされていなければ、引数を分けるためのものとみなされます。
 バックスラッシュそのものを表すためには<literal>\\</>と書いてください。
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+                <literal>replication</>
+</term>
+<listitem>
+<para>
+                        Used to connect in streaming replication mode, where
+                        a small set of replication commands can be issued
+                        instead of SQL statements. Value can be
+                        <literal>true</>, <literal>false</>, or
+                        <literal>database</>, and the default is
+                        <literal>false</>. See
+                        <xref linkend="protocol-replication"> for details.
 </para>
 </listitem>
 </varlistentry>
@@ -6644,6 +7372,25 @@ message.
 フィールドの内容は<literal>ERROR</>、<literal>FATAL</>、<literal>PANIC</>（エラーメッセージ内）、<literal>WARNING</>、<literal>NOTICE</>、<literal>DEBUG</>、<literal>INFO</>、<literal>LOG</>（警報メッセージ内）です。
 これは、その内容が決して地域化されないという点以外は<literal>S</>フィールドと同一です。
 これは<productname>PostgreSQL</>バージョン9.6以降で生成されたメッセージにだけあります。
+</para>
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+<literal>V</>
+</term>
+<listitem>
+<para>
+        Severity: the field contents are
+        <literal>ERROR</>, <literal>FATAL</>, or
+        <literal>PANIC</> (in an error message), or
+        <literal>WARNING</>, <literal>NOTICE</>, <literal>DEBUG</>,
+        <literal>INFO</>, or <literal>LOG</> (in a notice message).
+        This is identical to the <literal>S</> field except
+        that the contents are never localized.  This is present only in
+        messages generated by <productname>PostgreSQL</> versions 9.6
+        and later.
 </para>
 </listitem>
 </varlistentry>
@@ -6967,6 +7714,701 @@ not line breaks.
 具体的には、必要に応じて長い行を分割しなければなりません。
 エラーメッセージフィールド内にある改行文字は、改行ではなく、段落の区切りとして扱わなければなりません。
 </para>
+
+</sect1>
+
+<sect1 id="protocol-logicalrep-message-formats">
+<title>Logical Replication Message Formats</title>
+
+<para>
+This section describes the detailed format of each logical replication message.
+These messages are returned either by the replication slot SQL interface or are
+sent by a walsender. In case of a walsender they are encapsulated inside the replication
+protocol WAL messages as described in <xref linkend="protocol-replication">
+and generally obey same message flow as physical replication.
+</para>
+
+<variablelist>
+
+<varlistentry>
+<term>
+Begin
+</term>
+<listitem>
+<para>
+
+<variablelist>
+<varlistentry>
+<term>
+        Byte1('B')
+</term>
+<listitem>
+<para>
+                Identifies the message as a begin message.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int64
+</term>
+<listitem>
+<para>
+                The final LSN of the transaction.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int64
+</term>
+<listitem>
+<para>
+                Commit timestamp of the transaction. The value is in number
+                of microseconds since PostgreSQL epoch (2000-01-01).
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32
+</term>
+<listitem>
+<para>
+                Xid of the transaction.
+</para>
+</listitem>
+</varlistentry>
+
+</variablelist>
+</para>
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+Commit
+</term>
+<listitem>
+<para>
+
+<variablelist>
+<varlistentry>
+<term>
+        Byte1('C')
+</term>
+<listitem>
+<para>
+                Identifies the message as a commit message.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int8
+</term>
+<listitem>
+<para>
+                Flags; currently unused (must be 0).
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int64
+</term>
+<listitem>
+<para>
+                The LSN of the commit.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int64
+</term>
+<listitem>
+<para>
+                The end LSN of the transaction.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int64
+</term>
+<listitem>
+<para>
+                Commit timestamp of the transaction. The value is in number
+                of microseconds since PostgreSQL epoch (2000-01-01).
+</para>
+</listitem>
+</varlistentry>
+
+</variablelist>
+</para>
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+Origin
+</term>
+<listitem>
+<para>
+
+<variablelist>
+<varlistentry>
+<term>
+        Byte1('O')
+</term>
+<listitem>
+<para>
+                Identifies the message as an origin message.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int64
+</term>
+<listitem>
+<para>
+                The LSN of the commit on the origin server.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        String
+</term>
+<listitem>
+<para>
+                Name of the origin.
+</para>
+</listitem>
+</varlistentry>
+
+</variablelist>
+</para>
+
+<para>
+  Note that there can be multiple Origin messages inside a single transaction.
+</para>
+
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+Relation
+</term>
+<listitem>
+<para>
+
+<variablelist>
+<varlistentry>
+<term>
+        Byte1('R')
+</term>
+<listitem>
+<para>
+                Identifies the message as a relation message.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32
+</term>
+<listitem>
+<para>
+                ID of the relation.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        String
+</term>
+<listitem>
+<para>
+                Namespace (empty string for <literal>pg_catalog</literal>).
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        String
+</term>
+<listitem>
+<para>
+                Relation name.
+</para>
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+        Int8
+</term>
+<listitem>
+<para>
+                Replica identity setting for the relation (same as
+                <structfield>relreplident</structfield> in <structname>pg_class</structname>).
+</para>
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+        Int16
+</term>
+<listitem>
+<para>
+                Number of columns.
+</para>
+</listitem>
+</varlistentry>
+</variablelist>
+        Next, the following message part appears for each column:
+<variablelist>
+<varlistentry>
+<term>
+        Int8
+</term>
+<listitem>
+<para>
+                Flags for the column. Currently can be either 0 for no flags
+                or 1 which marks the column as part of the key.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        String
+</term>
+<listitem>
+<para>
+                Name of the column.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32
+</term>
+<listitem>
+<para>
+                ID of the column's data type.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32
+</term>
+<listitem>
+<para>
+                Type modifier of the column (<structfield>atttypmod</structfield>).
+</para>
+</listitem>
+</varlistentry>
+
+</variablelist>
+</para>
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+Type
+</term>
+<listitem>
+<para>
+
+<variablelist>
+<varlistentry>
+<term>
+        Byte1('Y')
+</term>
+<listitem>
+<para>
+                Identifies the message as a type message.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32
+</term>
+<listitem>
+<para>
+                ID of the data type.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        String
+</term>
+<listitem>
+<para>
+                Namespace (empty string for <literal>pg_catalog</literal>).
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        String
+</term>
+<listitem>
+<para>
+                Name of the data type.
+</para>
+</listitem>
+</varlistentry>
+
+</variablelist>
+</para>
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+Insert
+</term>
+<listitem>
+<para>
+
+<variablelist>
+<varlistentry>
+<term>
+        Byte1('I')
+</term>
+<listitem>
+<para>
+                Identifies the message as an insert message.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32
+</term>
+<listitem>
+<para>
+                ID of the relation corresponding to the ID in the relation
+                message.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Byte1('N')
+</term>
+<listitem>
+<para>
+                Identifies the following TupleData message as a new tuple.
+</para>
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+        TupleData
+</term>
+<listitem>
+<para>
+                TupleData message part representing the contents of new tuple.
+</para>
+</listitem>
+</varlistentry>
+
+</variablelist>
+</para>
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+Update
+</term>
+<listitem>
+<para>
+
+<variablelist>
+<varlistentry>
+<term>
+        Byte1('U')
+</term>
+<listitem>
+<para>
+                Identifies the message as an update message.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32
+</term>
+<listitem>
+<para>
+                ID of the relation corresponding to the ID in the relation
+                message.
+</para>
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+        Byte1('K')
+</term>
+<listitem>
+<para>
+                Identifies the following TupleData submessage as a key.
+                This field is optional and is only present if
+                the update changed data in any of the column(s) that are
+                part of the REPLICA IDENTITY index.
+</para>
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+        Byte1('O')
+</term>
+<listitem>
+<para>
+                Identifies the following TupleData submessage as an old tuple.
+                This field is optional and is only present if table in which
+                the update happened has REPLICA IDENTITY set to FULL.
+</para>
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+        TupleData
+</term>
+<listitem>
+<para>
+                TupleData message part representing the contents of the old tuple
+                or primary key. Only present if the previous 'O' or 'K' part
+                is present.
+</para>
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+        Byte1('N')
+</term>
+<listitem>
+<para>
+                Identifies the following TupleData message as a new tuple.
+</para>
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+        TupleData
+</term>
+<listitem>
+<para>
+                TupleData message part representing the contents of a new tuple.
+</para>
+</listitem>
+</varlistentry>
+
+</variablelist>
+</para>
+
+<para>
+    The Update message may contain either a 'K' message part or an 'O' message part
+    or neither of them, but never both of them.
+</para>
+
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+Delete
+</term>
+<listitem>
+<para>
+
+<variablelist>
+<varlistentry>
+<term>
+        Byte1('D')
+</term>
+<listitem>
+<para>
+                Identifies the message as a delete message.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32
+</term>
+<listitem>
+<para>
+                ID of the relation corresponding to the ID in the relation
+                message.
+</para>
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+        Byte1('K')
+</term>
+<listitem>
+<para>
+                Identifies the following TupleData submessage as a key.
+                This field is present if the table in which the delete has
+                happened uses an index as REPLICA IDENTITY.
+</para>
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+        Byte1('O')
+</term>
+<listitem>
+<para>
+                Identifies the following TupleData message as a old tuple.
+                This field is is present if the table in which the delete has
+                happened has REPLICA IDENTITY set to FULL.
+</para>
+</listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+        TupleData
+</term>
+<listitem>
+<para>
+                TupleData message part representing the contents of the old tuple
+                or primary key, depending on the previous field.
+</para>
+</listitem>
+</varlistentry>
+</variablelist>
+</para>
+
+<para>
+    The Delete message may contain either a 'K' message part or an 'O' message part,
+    but never both of them.
+</para>
+
+</listitem>
+</varlistentry>
+
+</variablelist>
+
+<para>
+
+The following message parts are shared by the above messages.
+
+</para>
+
+<variablelist>
+
+<varlistentry>
+<term>
+TupleData
+</term>
+<listitem>
+<para>
+
+<variablelist>
+<varlistentry>
+<term>
+        Int16
+</term>
+<listitem>
+<para>
+                Number of columns.
+</para>
+</listitem>
+</varlistentry>
+</variablelist>
+        Next, one of the following submessages appears for each column:
+<variablelist>
+<varlistentry>
+<term>
+        Byte1('n')
+</term>
+<listitem>
+<para>
+                Identifies the data as NULL value.
+</para>
+</listitem>
+</varlistentry>
+</variablelist>
+        Or
+<variablelist>
+<varlistentry>
+<term>
+        Byte1('u')
+</term>
+<listitem>
+<para>
+                Identifies unchanged TOASTed value (the actual value is not
+                sent).
+</para>
+</listitem>
+</varlistentry>
+</variablelist>
+        Or
+<variablelist>
+<varlistentry>
+<term>
+        Byte1('t')
+</term>
+<listitem>
+<para>
+                Identifies the data as text formatted value.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32
+</term>
+<listitem>
+<para>
+                Length of the column value.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Byte<replaceable>n</replaceable>
+</term>
+<listitem>
+<para>
+                The value of the column, in text format.  (A future release
+                might support additional formats.)
+                <replaceable>n</replaceable> is the above length.
+
+</para>
+</listitem>
+</varlistentry>
+
+</variablelist>
+</para>
+</listitem>
+</varlistentry>
+
+</variablelist>
 
 </sect1>
 

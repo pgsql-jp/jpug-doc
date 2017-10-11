@@ -20,8 +20,8 @@ chdir "../../.." if (-d "../../../src/tools/msvc");
 my $topdir         = getcwd();
 my $tmp_installdir = "$topdir/tmp_install";
 
-require 'src/tools/msvc/config_default.pl';
-require 'src/tools/msvc/config.pl' if (-f 'src/tools/msvc/config.pl');
+do 'src/tools/msvc/config_default.pl';
+do 'src/tools/msvc/config.pl' if (-f 'src/tools/msvc/config.pl');
 
 # buildenv.pl is for specifying the build environment settings
 # it should contain lines like:
@@ -29,7 +29,7 @@ require 'src/tools/msvc/config.pl' if (-f 'src/tools/msvc/config.pl');
 
 if (-e "src/tools/msvc/buildenv.pl")
 {
-	require "src/tools/msvc/buildenv.pl";
+	do "src/tools/msvc/buildenv.pl";
 }
 
 my $what = shift || "";
@@ -134,8 +134,9 @@ sub check
 
 sub ecpgcheck
 {
+	my $msbflags = $ENV{MSBFLAGS} || "";
 	chdir $startdir;
-	system("msbuild ecpg_regression.proj /p:config=$Config");
+	system("msbuild ecpg_regression.proj $msbflags /p:config=$Config");
 	my $status = $? >> 8;
 	exit $status if $status;
 	InstallTemp();
@@ -182,7 +183,7 @@ sub tap_check
 	{
 		next unless $_[$arg] =~ /^PROVE_FLAGS=(.*)/;
 		@flags = split(/\s+/, $1);
-		splice(@_,$arg,1);
+		splice(@_, $arg, 1);
 		last;
 	}
 
@@ -236,7 +237,7 @@ sub taptest
 
 	die "no tests found!" unless -d "$topdir/$dir/t";
 
-	push(@args,"$topdir/$dir");
+	push(@args, "$topdir/$dir");
 
 	InstallTemp();
 	my $status = tap_check(@args);
@@ -472,7 +473,7 @@ sub upgradecheck
 	print "\nRunning initdb on old cluster\n\n";
 	standard_initdb() or exit 1;
 	print "\nStarting old cluster\n\n";
-	my @args = ('pg_ctl', 'start', '-l', "$logdir/postmaster1.log", '-w');
+	my @args = ('pg_ctl', 'start', '-l', "$logdir/postmaster1.log");
 	system(@args) == 0 or exit 1;
 
 	print "\nCreating databases with names covering most ASCII bytes\n\n";
@@ -489,7 +490,7 @@ sub upgradecheck
 	@args = ('pg_dumpall', '-f', "$tmp_root/dump1.sql");
 	system(@args) == 0 or exit 1;
 	print "\nStopping old cluster\n\n";
-	system("pg_ctl -m fast stop") == 0 or exit 1;
+	system("pg_ctl stop") == 0 or exit 1;
 	$ENV{PGDATA} = "$data";
 	print "\nSetting up new cluster\n\n";
 	standard_initdb() or exit 1;
@@ -499,7 +500,7 @@ sub upgradecheck
 		$bindir,      '-B', $bindir);
 	system(@args) == 0 or exit 1;
 	print "\nStarting new cluster\n\n";
-	@args = ('pg_ctl', '-l', "$logdir/postmaster2.log", '-w', 'start');
+	@args = ('pg_ctl', '-l', "$logdir/postmaster2.log", 'start');
 	system(@args) == 0 or exit 1;
 	print "\nSetting up stats on new cluster\n\n";
 	system(".\\analyze_new_cluster.bat") == 0 or exit 1;
@@ -507,7 +508,7 @@ sub upgradecheck
 	@args = ('pg_dumpall', '-f', "$tmp_root/dump2.sql");
 	system(@args) == 0 or exit 1;
 	print "\nStopping new cluster\n\n";
-	system("pg_ctl -m fast stop") == 0 or exit 1;
+	system("pg_ctl stop") == 0 or exit 1;
 	print "\nDeleting old cluster\n\n";
 	system(".\\delete_old_cluster.bat") == 0 or exit 1;
 	print "\nComparing old and new cluster dumps\n\n";
@@ -529,8 +530,8 @@ sub upgradecheck
 sub fetchRegressOpts
 {
 	my $handle;
-	open($handle, "<GNUmakefile")
-	  || open($handle, "<Makefile")
+	open($handle, '<', "GNUmakefile")
+	  || open($handle, '<', "Makefile")
 	  || die "Could not open Makefile";
 	local ($/) = undef;
 	my $m = <$handle>;
@@ -540,13 +541,13 @@ sub fetchRegressOpts
 	$m =~ s{\\\r?\n}{}g;
 	if ($m =~ /^\s*REGRESS_OPTS\s*\+?=(.*)/m)
 	{
+
 		# Substitute known Makefile variables, then ignore options that retain
 		# an unhandled variable reference.  Ignore anything that isn't an
 		# option starting with "--".
-		@opts = grep {
-			s/\Q$(top_builddir)\E/\"$topdir\"/;
-			$_ !~ /\$\(/ && $_ =~ /^--/
-		} split(/\s+/, $1);
+		@opts = grep { !/\$\(/ && /^--/ }
+		  map { (my $x = $_) =~ s/\Q$(top_builddir)\E/\"$topdir\"/; $x; }
+		  split(/\s+/, $1);
 	}
 	if ($m =~ /^\s*ENCODING\s*=\s*(\S+)/m)
 	{
@@ -563,8 +564,8 @@ sub fetchTests
 {
 
 	my $handle;
-	open($handle, "<GNUmakefile")
-	  || open($handle, "<Makefile")
+	open($handle, '<', "GNUmakefile")
+	  || open($handle, '<', "Makefile")
 	  || die "Could not open Makefile";
 	local ($/) = undef;
 	my $m = <$handle>;

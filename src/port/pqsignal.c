@@ -4,7 +4,7 @@
  *	  reliable BSD-style signal(2) routine stolen from RWW who stole it
  *	  from Stevens...
  *
- * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -85,6 +85,6 @@ pqsignal_no_restart(int signo, pqsigfunc func)
 	return oact.sa_handler;
 }
 
-#endif   /* !WIN32 */
+#endif							/* !WIN32 */
 
-#endif   /* !defined(WIN32) || defined(FRONTEND) */
+#endif							/* !defined(WIN32) || defined(FRONTEND) */

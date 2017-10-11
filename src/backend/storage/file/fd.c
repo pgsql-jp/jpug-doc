@@ -3,7 +3,7 @@
  * fd.c
  *	  Virtual file descriptor code.
  *
- * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -522,7 +522,7 @@ pg_flush_data(int fd, off_t offset, off_t nbytes)
 				/* FATAL error because mapping would remain */
 				ereport(FATAL,
 						(errcode_for_file_access(),
-					  errmsg("could not munmap() while flushing data: %m")));
+						 errmsg("could not munmap() while flushing data: %m")));
 			}
 
 			return;
@@ -658,6 +658,43 @@ durable_rename(const char *oldfile, const char *newfile, int elevel)
 }
 
 /*
+ * durable_unlink -- remove a file in a durable manner
+ *
+ * This routine ensures that, after returning, the effect of removing file
+ * persists in case of a crash. A crash while this routine is running will
+ * leave the system in no mixed state.
+ *
+ * It does so by using fsync on the parent directory of the file after the
+ * actual removal is done.
+ *
+ * Log errors with the severity specified by caller.
+ *
+ * Returns 0 if the operation succeeded, -1 otherwise. Note that errno is not
+ * valid upon return.
+ */
+int
+durable_unlink(const char *fname, int elevel)
+{
+	if (unlink(fname) < 0)
+	{
+		ereport(elevel,
+				(errcode_for_file_access(),
+				 errmsg("could not remove file \"%s\": %m",
+						fname)));
+		return -1;
+	}
+
+	/*
+	 * To guarantee that the removal of the file is persistent, fsync its
+	 * parent directory.
+	 */
+	if (fsync_parent_path(fname, elevel) != 0)
+		return -1;
+
+	return 0;
+}
+
+/*
  * durable_link_or_rename -- rename a file in a durable manner.
  *
  * Similar to durable_rename(), except that this routine tries (but does not
@@ -778,10 +815,10 @@ count_usable_fds(int max_to_probe, int *usable_fds, int *already_open)
 	getrlimit_status = getrlimit(RLIMIT_NOFILE, &rlim);
 #else							/* but BSD doesn't ... */
 	getrlimit_status = getrlimit(RLIMIT_OFILE, &rlim);
-#endif   /* RLIMIT_NOFILE */
+#endif							/* RLIMIT_NOFILE */
 	if (getrlimit_status != 0)
 		ereport(WARNING, (errmsg("getrlimit failed: %m")));
-#endif   /* HAVE_GETRLIMIT */
+#endif							/* HAVE_GETRLIMIT */
 
 	/* dup until failure or probe limit reached */
 	for (;;)
@@ -941,7 +978,7 @@ _dump_lru(void)
 	snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf), "LEAST");
 	elog(LOG, "%s", buf);
 }
-#endif   /* FDDEBUG */
+#endif							/* FDDEBUG */
 
 static void
 Delete(File file)
@@ -1550,7 +1587,7 @@ FileClose(File file)
  * to read into.
  */
 int
-FilePrefetch(File file, off_t offset, int amount)
+FilePrefetch(File file, off_t offset, int amount, uint32 wait_event_info)
 {
 #if defined(USE_POSIX_FADVISE) && defined(POSIX_FADV_WILLNEED)
 	int			returnCode;
@@ -1565,8 +1602,10 @@ FilePrefetch(File file, off_t offset, int amount)
 	if (returnCode < 0)
 		return returnCode;
 
+	pgstat_report_wait_start(wait_event_info);
 	returnCode = posix_fadvise(VfdCache[file].fd, offset, amount,
 							   POSIX_FADV_WILLNEED);
+	pgstat_report_wait_end();
 
 	return returnCode;
 #else
@@ -1576,7 +1615,7 @@ FilePrefetch(File file, off_t offset, int amount)
 }
 
 void
-FileWriteback(File file, off_t offset, off_t nbytes)
+FileWriteback(File file, off_t offset, off_t nbytes, uint32 wait_event_info)
 {
 	int			returnCode;
 
@@ -1597,11 +1636,13 @@ FileWriteback(File file, off_t offset, off_t nbytes)
 	if (returnCode < 0)
 		return;
 
+	pgstat_report_wait_start(wait_event_info);
 	pg_flush_data(VfdCache[file].fd, offset, nbytes);
+	pgstat_report_wait_end();
 }
 
 int
-FileRead(File file, char *buffer, int amount)
+FileRead(File file, char *buffer, int amount, uint32 wait_event_info)
 {
 	int			returnCode;
 	Vfd		   *vfdP;
@@ -1620,7 +1661,9 @@ FileRead(File file, char *buffer, int amount)
 	vfdP = &VfdCache[file];
 
 retry:
+	pgstat_report_wait_start(wait_event_info);
 	returnCode = read(vfdP->fd, buffer, amount);
+	pgstat_report_wait_end();
 
 	if (returnCode >= 0)
 	{
@@ -1663,7 +1706,7 @@ retry:
 }
 
 int
-FileWrite(File file, char *buffer, int amount)
+FileWrite(File file, char *buffer, int amount, uint32 wait_event_info)
 {
 	int			returnCode;
 	Vfd		   *vfdP;
@@ -1714,14 +1757,16 @@ FileWrite(File file, char *buffer, int amount)
 			if (newTotal > (uint64) temp_file_limit * (uint64) 1024)
 				ereport(ERROR,
 						(errcode(ERRCODE_CONFIGURATION_LIMIT_EXCEEDED),
-				 errmsg("temporary file size exceeds temp_file_limit (%dkB)",
-						temp_file_limit)));
+						 errmsg("temporary file size exceeds temp_file_limit (%dkB)",
+								temp_file_limit)));
 		}
 	}
 
 retry:
 	errno = 0;
+	pgstat_report_wait_start(wait_event_info);
 	returnCode = write(vfdP->fd, buffer, amount);
+	pgstat_report_wait_end();
 
 	/* if write didn't set errno, assume problem is no disk space */
 	if (returnCode != amount && errno == 0)
@@ -1782,7 +1827,7 @@ retry:
 }
 
 int
-FileSync(File file)
+FileSync(File file, uint32 wait_event_info)
 {
 	int			returnCode;
 
@@ -1795,7 +1840,11 @@ FileSync(File file)
 	if (returnCode < 0)
 		return returnCode;
 
-	return pg_fsync(VfdCache[file].fd);
+	pgstat_report_wait_start(wait_event_info);
+	returnCode = pg_fsync(VfdCache[file].fd);
+	pgstat_report_wait_end();
+
+	return returnCode;
 }
 
 off_t
@@ -1887,7 +1936,7 @@ FileTell(File file)
 #endif
 
 int
-FileTruncate(File file, off_t offset)
+FileTruncate(File file, off_t offset, uint32 wait_event_info)
 {
 	int			returnCode;
 
@@ -1900,7 +1949,9 @@ FileTruncate(File file, off_t offset)
 	if (returnCode < 0)
 		return returnCode;
 
+	pgstat_report_wait_start(wait_event_info);
 	returnCode = ftruncate(VfdCache[file].fd, offset);
+	pgstat_report_wait_end();
 
 	if (returnCode == 0 && VfdCache[file].fileSize > offset)
 	{
@@ -2451,7 +2502,7 @@ closeAllVfds(void)
 
 	if (SizeVfdCache > 0)
 	{
-		Assert(FileIsNotOpen(0));		/* Make sure ring not corrupted */
+		Assert(FileIsNotOpen(0));	/* Make sure ring not corrupted */
 		for (i = 1; i < SizeVfdCache; i++)
 		{
 			if (!FileIsNotOpen(i))
@@ -2602,7 +2653,7 @@ CleanupTempFiles(bool isProcExit)
 	 */
 	if (isProcExit || have_xact_temporary_files)
 	{
-		Assert(FileIsNotOpen(0));		/* Make sure ring not corrupted */
+		Assert(FileIsNotOpen(0));	/* Make sure ring not corrupted */
 		for (i = 1; i < SizeVfdCache; i++)
 		{
 			unsigned short fdstate = VfdCache[i].fdstate;
@@ -2677,7 +2728,7 @@ RemovePgTempFiles(void)
 			continue;
 
 		snprintf(temp_path, sizeof(temp_path), "pg_tblspc/%s/%s/%s",
-			spc_de->d_name, TABLESPACE_VERSION_DIRECTORY, PG_TEMP_FILES_DIR);
+				 spc_de->d_name, TABLESPACE_VERSION_DIRECTORY, PG_TEMP_FILES_DIR);
 		RemovePgTempFilesInDir(temp_path);
 
 		snprintf(temp_path, sizeof(temp_path), "pg_tblspc/%s/%s",
@@ -2864,7 +2915,7 @@ looks_like_temp_rel_name(const char *name)
  * Issue fsync recursively on PGDATA and all its contents.
  *
  * We fsync regular files and directories wherever they are, but we
- * follow symlinks only for pg_xlog and immediately under pg_tblspc.
+ * follow symlinks only for pg_wal and immediately under pg_tblspc.
  * Other symlinks are presumed to point at files we're not responsible
  * for fsyncing, and might not have privileges to write at all.
  *
@@ -2888,7 +2939,7 @@ SyncDataDirectory(void)
 		return;
 
 	/*
-	 * If pg_xlog is a symlink, we'll need to recurse into it separately,
+	 * If pg_wal is a symlink, we'll need to recurse into it separately,
 	 * because the first walkdir below will ignore it.
 	 */
 	xlog_is_symlink = false;
@@ -2897,16 +2948,16 @@ SyncDataDirectory(void)
 	{
 		struct stat st;
 
-		if (lstat("pg_xlog", &st) < 0)
+		if (lstat("pg_wal", &st) < 0)
 			ereport(LOG,
 					(errcode_for_file_access(),
 					 errmsg("could not stat file \"%s\": %m",
-							"pg_xlog")));
+							"pg_wal")));
 		else if (S_ISLNK(st.st_mode))
 			xlog_is_symlink = true;
 	}
 #else
-	if (pgwin32_is_junction("pg_xlog"))
+	if (pgwin32_is_junction("pg_wal"))
 		xlog_is_symlink = true;
 #endif
 
@@ -2918,7 +2969,7 @@ SyncDataDirectory(void)
 #ifdef PG_FLUSH_DATA_WORKS
 	walkdir(".", pre_sync_fname, false, DEBUG1);
 	if (xlog_is_symlink)
-		walkdir("pg_xlog", pre_sync_fname, false, DEBUG1);
+		walkdir("pg_wal", pre_sync_fname, false, DEBUG1);
 	walkdir("pg_tblspc", pre_sync_fname, true, DEBUG1);
 #endif
 
@@ -2926,14 +2977,14 @@ SyncDataDirectory(void)
 	 * Now we do the fsync()s in the same order.
 	 *
 	 * The main call ignores symlinks, so in addition to specially processing
-	 * pg_xlog if it's a symlink, pg_tblspc has to be visited separately with
+	 * pg_wal if it's a symlink, pg_tblspc has to be visited separately with
 	 * process_symlinks = true.  Note that if there are any plain directories
 	 * in pg_tblspc, they'll get fsync'd twice.  That's not an expected case
 	 * so we don't worry about optimizing it.
 	 */
 	walkdir(".", datadir_fsync_fname, false, LOG);
 	if (xlog_is_symlink)
-		walkdir("pg_xlog", datadir_fsync_fname, false, LOG);
+		walkdir("pg_wal", datadir_fsync_fname, false, LOG);
 	walkdir("pg_tblspc", datadir_fsync_fname, true, LOG);
 }
 
@@ -3051,7 +3102,7 @@ pre_sync_fname(const char *fname, bool isdir, int elevel)
 	(void) CloseTransientFile(fd);
 }
 
-#endif   /* PG_FLUSH_DATA_WORKS */
+#endif							/* PG_FLUSH_DATA_WORKS */
 
 static void
 datadir_fsync_fname(const char *fname, bool isdir, int elevel)
