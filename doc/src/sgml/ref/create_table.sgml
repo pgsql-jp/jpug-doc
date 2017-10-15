@@ -99,7 +99,10 @@ CREATE [ [ GLOBAL | LOCAL ] { TEMPORARY | TEMP } | UNLOGGED ] TABLE [ IF NOT EXI
 
 { INCLUDING | EXCLUDING } { DEFAULTS | CONSTRAINTS | IDENTITY | INDEXES | STORAGE | COMMENTS | ALL }
 
+<!--
 <phrase>and <replaceable class="PARAMETER">partition_bound_spec</replaceable> is:</phrase>
+-->
+<phrase>また<replaceable class="PARAMETER">partition_bound_spec</replaceable>は、以下の通りです。</phrase>
 
 IN ( { <replaceable class="PARAMETER">numeric_literal</replaceable> | <replaceable class="PARAMETER">string_literal</replaceable> | NULL } [, ...] ) |
 FROM ( { <replaceable class="PARAMETER">numeric_literal</replaceable> | <replaceable class="PARAMETER">string_literal</replaceable> | MINVALUE | MAXVALUE } [, ...] )
@@ -355,37 +358,54 @@ FROM ( { <replaceable class="PARAMETER">numeric_literal</replaceable> | <replace
     <term><literal>PARTITION OF <replaceable class="PARAMETER">parent_table</replaceable> FOR VALUES <replaceable class="PARAMETER">partition_bound_spec</replaceable></literal></term>
     <listitem>
      <para>
+<!--
       Creates the table as a <firstterm>partition</firstterm> of the specified
       parent table.
+-->
+指定した親テーブルの<firstterm>パーティション</firstterm>としてテーブルを作成します。
      </para>
 
      <para>
+<!--
       The <replaceable class="PARAMETER">partition_bound_spec</replaceable>
       must correspond to the partitioning method and partition key of the
       parent table, and must not overlap with any existing partition of that
       parent.  The form with <literal>IN</> is used for list partitioning,
       while the form with <literal>FROM</> and <literal>TO</> is used for
       range partitioning.
+-->
+<replaceable class="PARAMETER">partition_bound_spec</replaceable>は親テーブルのパーティショニング方法とパーティションキーに対応していなければならず、またそのテーブルのどの既存のパーティションとも重なり合ってはいけません。
+<literal>IN</>の構文はリストパーティショニングで使用され、<literal>FROM</>と<literal>TO</>の構文は範囲パーティショニングで使用されます。
      </para>
 
      <para>
+<!--
       Each of the values specified in
       the <replaceable class="PARAMETER">partition_bound_spec</> is
       a literal, <literal>NULL</literal>, <literal>MINVALUE</literal>, or
       <literal>MAXVALUE</literal>.  Each literal value must be either a
       numeric constant that is coercible to the corresponding partition key
       column's type, or a string literal that is valid input for that type.
+-->
+<replaceable class="PARAMETER">partition_bound_spec</>で指定される各値はリテラル、<literal>NULL</literal>、<literal>MINVALUE</literal>あるいは<literal>MAXVALUE</literal>です。
+各リテラル値はパーティションキー列の型に変換可能な数値定数か、その列の型として有効な入力である文字列リテラルのいずれかです。
      </para>
 
      <para>
+<!--
       When creating a list partition, <literal>NULL</literal> can be
       specified to signify that the partition allows the partition key
       column to be null.  However, there cannot be more than one such
       list partition for a given parent table.  <literal>NULL</literal>
       cannot be specified for range partitions.
+-->
+リストパーティションを作るときは、<literal>NULL</literal>を指定することができて、それはそのパーティションではパーティションキーの列をNULLにすることができるということを意味します。
+しかし、1つの親テーブルで2つ以上、そのようなリストパーティションを作ることはできません。
+範囲パーティションでは<literal>NULL</literal>を指定することはできません。
      </para>
 
      <para>
+<!--
       When creating a range partition, the lower bound specified with
       <literal>FROM</literal> is an inclusive bound, whereas the upper
       bound specified with <literal>TO</literal> is an exclusive bound.
@@ -399,9 +419,15 @@ FROM ( { <replaceable class="PARAMETER">numeric_literal</replaceable> | <replace
       allows <literal>x=1</> with any <literal>y&gt;=2</>,
       <literal>x=2</> with any non-null <literal>y</>,
       and <literal>x=3</> with any <literal>y&lt;4</>.
+-->
+範囲パーティションを作るとき、<literal>FROM</literal>で指定する下限はそれを含む境界、<literal>TO</literal>で指定する上限はそれを含まない境界になります。
+つまり、<literal>FROM</literal>リストで指定される値は、そのパーティションの対応するパーティションキー列において有効な値ですが、<literal>TO</literal>リストで指定される値はそうではない、ということです。
+この文の意味は行単位の比較の規則（<xref linkend="row-wise-comparison">）に従って理解しなければならないことに注意してください。
+例えば、<literal>PARTITION BY RANGE (x,y)</>について、パーティション境界<literal>FROM (1, 2) TO (3, 4)</literal>には、<literal>x=1</>で<literal>y&gt;=2</>の任意の値のもの、<literal>x=2</>でNULLでない任意の<literal>y</>のもの、<literal>x=3</>で<literal>y&lt;4</>の任意の値のものが入ります。
      </para>
 
      <para>
+<!--
       The special values <literal>MINVALUE</> and <literal>MAXVALUE</>
       may be used when creating a range partition to indicate that there
       is no lower or upper bound on the column's value. For example, a
@@ -409,9 +435,13 @@ FROM ( { <replaceable class="PARAMETER">numeric_literal</replaceable> | <replace
       any values less than 10, and a partition defined using
       <literal>FROM (10) TO (MAXVALUE)</> allows any values greater than
       or equal to 10.
+-->
+範囲パーティションを作るとき、<literal>MINVALUE</>および<literal>MAXVALUE</>という特別な値を使用することができて、これらはそれぞれ列の値に下限と上限がないことを示します。
+例えば、<literal>FROM (MINVALUE) TO (10)</>で定義されたパーティションには10より小さいすべての値が入り、<literal>FROM (10) TO (MAXVALUE)</>で定義されたパーティションには10以上のすべての値が入ります。
      </para>
 
      <para>
+<!--
       When creating a range partition involving more than one column, it
       can also make sense to use <literal>MAXVALUE</> as part of the lower
       bound, and <literal>MINVALUE</> as part of the upper bound. For
@@ -421,16 +451,26 @@ FROM ( { <replaceable class="PARAMETER">numeric_literal</replaceable> | <replace
       or equal to 10. Similarly, a partition defined using
       <literal>FROM ('a', MINVALUE) TO ('b', MINVALUE)</> allows any rows
       where the first partition key column starts with "a".
+-->
+2つ以上の列を含む範囲パーティションを作るとき、<literal>MAXVALUE</>を下限の一部として使うことや、<literal>MINVALUE</>を上限の一部として使うことも意味を持ちえます。
+例えば、<literal>FROM (0, MAXVALUE) TO (10, MAXVALUE)</>で定義されたパーティションには、パーティションキーの第1列が0より大きく、かつ10以下であるものが入ります。
+同様に、<literal>FROM ('a', MINVALUE) TO ('b', MINVALUE)</>で定義されたパーティションには、パーティションキーの第1列が"a"で始まるすべての行が入ります。
      </para>
 
      <para>
+<!--
       Note that if <literal>MINVALUE</> or <literal>MAXVALUE</> is used for
       one column of a partitioning bound, the same value must be used for all
       subsequent columns.  For example, <literal>(10, MINVALUE, 0)</> is not
       a valid bound; you should write <literal>(10, MINVALUE, MINVALUE)</>.
+-->
+<literal>MINVALUE</>または<literal>MAXVALUE</>をパーティション境界の1つの列で使用する場合、それより後の列では同じ値を使用しなければならないことに注意してください。
+例えば、<literal>(10, MINVALUE, 0)</>は有効な境界ではありません。
+<literal>(10, MINVALUE, MINVALUE)</>とします。
      </para>
 
      <para>
+<!--
       Also note that some element types, such as <literal>timestamp</>,
       have a notion of "infinity", which is just another value that can
       be stored. This is different from <literal>MINVALUE</> and
@@ -441,10 +481,16 @@ FROM ( { <replaceable class="PARAMETER">numeric_literal</replaceable> | <replace
       less than any other value, including "minus infinity". Thus the range
       <literal>FROM ('infinity') TO (MAXVALUE)</> is not an empty range; it
       allows precisely one value to be stored &mdash; "infinity".
+-->
+<literal>timestamp</>,など一部の要素型では、"infinity"（無限）の概念があり、それも保存できる値であることにも注意してください。
+<literal>MINVALUE</>と<literal>MAXVALUE</>は保存できる真の値ではなく、値に境界がないということを表現するための方法に過ぎないため、これとは違います。
+<literal>MAXVALUE</>は"infinity"も含め、他のすべての値より大きいものと考えることができ、また<literal>MINVALUE</>は"minus infinity"も含め、他のすべての値より小さいものと考えることができます。
+従って、境界<literal>FROM ('infinity') TO (MAXVALUE)</>は空の範囲ではなく、たった1つの値、つまり"infinity"だけを保存します。
      </para>
 
      <para>
       A partition must have the same column names and types as the partitioned
+<!--
       table to which it belongs.  If the parent is specified <literal>WITH
       OIDS</literal> then all partitions must have OIDs; the parent's OID
       column will be inherited by all partitions just like any other column.
@@ -456,22 +502,39 @@ FROM ( { <replaceable class="PARAMETER">numeric_literal</replaceable> | <replace
       the same name and condition as in the parent will be merged with the
       parent constraint.  Defaults may be specified separately for each
       partition.
+-->
+パーティションは、それが属するパーティションテーブルと同じ列名および型を持っていなければなりません。
+親が<literal>WITH OIDS</literal>を指定している場合は、すべてのパーティションがOIDを持っていなければならず、親のOIDは他の列と同様にすべてのパーティションに継承されます。
+パーティションテーブルの列名や型の変更や、OID列の追加や削除は自動的にすべてのパーティションに反映されます。
+<literal>CHECK</>制約はすべてのパーティションで自動的に継承されますが、個々のパーティションで追加の<literal>CHECK</>制約を指定することができます。
+親の制約と同じ名前と条件を持つ追加制約は親の制約と統合されます。
+デフォルト制約は各パーティションで別々に指定できます。
      </para>
 
      <para>
+<!--
       Rows inserted into a partitioned table will be automatically routed to
       the correct partition.  If no suitable partition exists, an error will
       occur.  Also, if updating a row in a given partition would require it
       to move to another partition due to new partition key values, an error
       will occur.
+-->
+パーティションテーブルに挿入された行は、自動的に正しいパーティションに回されます。
+適当なパーティションが存在しないときは、エラーが発生します。
+また、パーティション内の行の更新で、パーティションキーの値が新しくなることにより他のパーティションに移動する必要がある場合も、エラーが発生します。
+      will occur.
      </para>
 
      <para>
+<!--
       Operations such as TRUNCATE which normally affect a table and all of its
       inheritance children will cascade to all partitions, but may also be
       performed on an individual partition.  Note that dropping a partition
       with <literal>DROP TABLE</literal> requires taking an <literal>ACCESS
       EXCLUSIVE</literal> lock on the parent table.
+-->
+TRUNCATEのように通常はテーブルとそれを継承するすべての子テーブルに影響を及ぼす操作は、すべてのパーティションに対しても適用されますが、個別のパーティションに対して操作することも可能です。
+<literal>DROP TABLE</literal>でパーティションを削除するには、親テーブルについて<literal>ACCESS EXCLUSIVE</literal>のロックを取得する必要があることに注意してください。
      </para>
     </listitem>
    </varlistentry>
@@ -597,9 +660,13 @@ FROM ( { <replaceable class="PARAMETER">numeric_literal</replaceable> | <replace
      </para>
 
      <para>
+<!--
       If a column in the parent table is an identity column, that property is
       not inherited.  A column in the child table can be declared identity
       column if desired.
+-->
+親テーブルのある列がIDENTITY列の場合、その属性は継承されません。
+望むなら子テーブルの列をIDENTY列と宣言することができます。
      </para>
     </listitem>
    </varlistentry>
@@ -608,6 +675,7 @@ FROM ( { <replaceable class="PARAMETER">numeric_literal</replaceable> | <replace
     <term><literal>PARTITION BY { RANGE | LIST } ( { <replaceable class="parameter">column_name</replaceable> | ( <replaceable class="parameter">expression</replaceable> ) } [ <replaceable class="parameter">opclass</replaceable> ] [, ...] ) </literal></term>
     <listitem>
      <para>
+<!--
       The optional <literal>PARTITION BY</literal> clause specifies a strategy
       of partitioning the table.  The table thus created is called a
       <firstterm>partitioned</firstterm> table.  The parenthesized list of
@@ -619,22 +687,38 @@ FROM ( { <replaceable class="PARAMETER">numeric_literal</replaceable> | <replace
       expression.  If no B-tree operator class is specified when creating a
       partitioned table, the default B-tree operator class for the datatype will
       be used.  If there is none, an error will be reported.
+-->
+オプションの<literal>PARTITION BY</literal>句により、テーブルのパーティショニングの戦略を指定できます。
+このようにして作られたテーブルを<firstterm>パーティション</firstterm>テーブルと呼びます。
+括弧に囲まれた列や式のリストはテーブルの<firstterm>パーティションキー</firstterm>を構成します。
+範囲パーティションを使うときは、パーティションキーは複数の列または式にまたがることができます（最大で32ですが、この制限は<productname>PostgreSQL</productname>をビルドする時に変更できます）が、リストパーティションでは、パーティションキーは1つだけの列または式で構成されなければなりません。
+パーティションテーブルの作成時にBツリー演算子クラスを指定しない場合は、そのデータ型のデフォルトのBツリー演算子クラスが使用されます。
+Bツリー演算子クラスがない場合はエラーが報告されます。
      </para>
 
      <para>
+<!--
       A partitioned table is divided into sub-tables (called partitions),
       which are created using separate <literal>CREATE TABLE</> commands.
       The partitioned table is itself empty.  A data row inserted into the
       table is routed to a partition based on the value of columns or
       expressions in the partition key.  If no existing partition matches
       the values in the new row, an error will be reported.
+-->
+パーティションテーブルは（パーティションと呼ばれる）副テーブルに分割され、それらは別の<literal>CREATE TABLE</>コマンドにより作成されます。
+パーティションテーブルそれ自体は空になります。
+テーブルに挿入されるデータ行は、パーティションキーの列あるいは式の値に基づいて、1つのパーティションに回されます。
+新しい行の値に適合するパーティションが存在しないときは、エラーが報告されます。
      </para>
 
      <para>
+<!--
       Partitioned tables do not support <literal>UNIQUE</literal>,
       <literal>PRIMARY KEY</literal>, <literal>EXCLUDE</literal>, or
       <literal>FOREIGN KEY</literal> constraints; however, you can define
       these constraints on individual partitions.
+-->
+パーティションテーブルは<literal>UNIQUE</literal>、<literal>PRIMARY KEY</literal>、<literal>EXCLUDE</literal>、<literal>FOREIGN KEY</literal>の各制約をサポートしませんが、個々のパーティションでこれらの制約を定義することはできます。
      </para>
 
     </listitem>
@@ -683,16 +767,20 @@ FROM ( { <replaceable class="PARAMETER">numeric_literal</replaceable> | <replace
       sequence is created for each identity column of the new table, separate
       from the sequences associated with the old table.
 -->
-非NULL制約は常に新しいテーブルにコピーされます。
-<literal>CHECK</literal>制約は、<literal>INCLUDING CONSTRAINTS</literal>が指定された場合にのみコピーされます。
-列制約とテーブル制約は区別されません。
+コピーされる列定義のIDENTITYの指定は、<literal>INCLUDING IDENTITY</literal>が指定された場合にのみコピーされます。
+新しいテーブルの各IDENTITY列には新しいシーケンスが作られ、古いテーブルに紐付けられたシーケンスとは別になります。
      </para>
      <para>
+<!--
       Not-null constraints are always copied to the new table.
       <literal>CHECK</literal> constraints will be copied only if
       <literal>INCLUDING CONSTRAINTS</literal> is specified.
       No distinction is made between column constraints and table
       constraints.
+-->
+非NULL制約は常に新しいテーブルにコピーされます。
+<literal>CHECK</literal>制約は、<literal>INCLUDING CONSTRAINTS</literal>が指定された場合にのみコピーされます。
+列制約とテーブル制約は区別されません。
      </para>
      <para>
 <!--
@@ -736,7 +824,7 @@ FROM ( { <replaceable class="PARAMETER">numeric_literal</replaceable> | <replace
       <literal>INCLUDING ALL</literal> is an abbreviated form of
       <literal>INCLUDING DEFAULTS INCLUDING IDENTITY INCLUDING CONSTRAINTS INCLUDING INDEXES INCLUDING STORAGE INCLUDING COMMENTS</literal>.
 -->
-<literal>INCLUDING ALL</literal>は<literal>INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES INCLUDING STORAGE INCLUDING COMMENTS</literal>の省略形です。
+<literal>INCLUDING ALL</literal>は<literal>INCLUDING DEFAULTS INCLUDING IDENTITY INCLUDING CONSTRAINTS INCLUDING INDEXES INCLUDING STORAGE INCLUDING COMMENTS</literal>の省略形です。
      </para>
      <para>
 <!--
@@ -907,13 +995,18 @@ TRUEまたはUNKNOWNと評価される式は成功します。
     <term><literal>GENERATED { ALWAYS | BY DEFAULT } AS IDENTITY [ ( <replaceable>sequence_options</replaceable> ) ]</literal></term>
     <listitem>
      <para>
+<!--
       This clause creates the column as an <firstterm>identity
       column</firstterm>.  It will have an implicit sequence attached to it
       and the column in new rows will automatically have values from the
       sequence assigned to it.
+-->
+この句は列を<firstterm>IDENTITY列</firstterm>として作成します。
+それには暗示的なシーケンスが紐付けられ、新しい行のその列には紐付けられたシーケンスから取られた値が自動的に入ります。
      </para>
 
      <para>
+<!--
       The clauses <literal>ALWAYS</literal> and <literal>BY DEFAULT</literal>
       determine how the sequence value is given precedence over a
       user-specified value in an <command>INSERT</command> statement.
@@ -924,12 +1017,22 @@ TRUEまたはUNKNOWNと評価される式は成功します。
       precedence.  See <xref linkend="sql-insert"> for details.  (In
       the <command>COPY</command> command, user-specified values are always
       used regardless of this setting.)
+-->
+<literal>ALWAYS</literal>と<literal>BY DEFAULT</literal>の句は、ユーザが<command>INSERT</command>文で指定した値に対するシーケンスの値の優先度がどうなるかを決定します。
+<literal>ALWAYS</literal>が指定された場合、ユーザが指定した値は<command>INSERT</command>文で<literal>OVERRIDING SYSTEM VALUE</literal>を指定した場合にのみ受け付けられます。
+<literal>BY DEFAULT</literal>が指定された場合は、ユーザが指定した値が優先します。
+詳細は<xref linkend="sql-insert">を参照してください。
+（<command>COPY</command>コマンドでは、この設定と関係なく、ユーザが指定した値が常に使用されます。）
      </para>
 
      <para>
+<!--
       The optional <replaceable>sequence_options</replaceable> clause can be
       used to override the options of the sequence.
       See <xref linkend="sql-createsequence"> for details.
+-->
+オプションで<replaceable>sequence_options</replaceable>句を指定することにより、シーケンスのオプションを変更できます。
+詳しくは<xref linkend="sql-createsequence">を参照してください。
      </para>
     </listitem>
    </varlistentry>
@@ -1136,6 +1239,7 @@ predicateの前後に括弧が必要であることに注意して下さい。
 外部キー制約は、新しいテーブルの1つまたは複数の列の集合が、被参照テーブルの一部の行の被参照列に一致する値を持たなければならないことを指定するものです。
 <replaceable class="parameter">refcolumn</replaceable>リストが省略された場合、<replaceable class="parameter">reftable</replaceable>の主キーが使用されます。
 被参照列は、被参照テーブルにおいて遅延不可の一意性制約もしくは主キー制約を持った列でなければなりません。
+ユーザは被参照テーブル（テーブル全体または特定の被参照列）について<literal>REFERENCES</>権限を持っていなければなりません。
 一時テーブルと永続テーブルとの間で外部キー制約を定義できないことに注意してください。
      </para>
 
@@ -1541,6 +1645,7 @@ predicateの前後に括弧が必要であることに注意して下さい。
 これはもしあれば、テーブルの補助<acronym>TOAST</>テーブルの動作を制御します。
 (TOASTに関する詳細については<xref linkend="storage-toast">を参照してください。)
 テーブルのパラメータ値が設定され、それと同等の<literal>toast.</literal>パラメータが設定されていない場合、TOASTテーブルはテーブルのパラメータ値を利用します。
+これらのパラメータをパーティションテーブルについて指定することはサポートされませんが、個々の末端のパーティションについて指定することはできます。
    </para>
 
    <variablelist>
@@ -1852,7 +1957,7 @@ falseの場合、トランザクションIDの周回問題を回避するため�
      purpose.
 -->
 新規のアプリケーションでOIDを使用するのはお勧めしません。
-可能であれば、テーブルの主キーとして<literal>SERIAL</literal>や他のシーケンスジェネレータを使用する方が望ましいです。
+可能であれば、テーブルの主キーとしてIDENTITY列や他のシーケンスジェネレータを使用する方が望ましいです。
 しかし、アプリケーションがテーブルの特定の行を識別するためにOIDを使用する場合は、そのテーブルの<structfield>oid</>列に一意性制約を作成することを推奨します。
 これにより、カウンタが一周してしまった場合でも、テーブル内のOIDで一意に行を識別できることが保証されるからです。
 OIDがテーブルをまたがって一意であると考えるのは止めてください。
@@ -2171,7 +2276,10 @@ CREATE TABLE employees OF employee_type (
 </programlisting></para>
 
   <para>
+<!--
    Create a range partitioned table:
+-->
+範囲パーティションテーブルを作成します。
 <programlisting>
 CREATE TABLE measurement (
     logdate         date not null,
@@ -2181,7 +2289,10 @@ CREATE TABLE measurement (
 </programlisting></para>
 
   <para>
+<!--
    Create a range partitioned table with multiple columns in the partition key:
+-->
+パーティションキーに複数の列がある範囲パーティションテーブルを作成します。
 <programlisting>
 CREATE TABLE measurement_year_month (
     logdate         date not null,
@@ -2191,7 +2302,10 @@ CREATE TABLE measurement_year_month (
 </programlisting></para>
 
   <para>
+<!--
    Create a list partitioned table:
+-->
+リストパーティションテーブルを作成します。
 <programlisting>
 CREATE TABLE cities (
     city_id      bigserial not null,
@@ -2201,7 +2315,10 @@ CREATE TABLE cities (
 </programlisting></para>
 
   <para>
+<!--
    Create partition of a range partitioned table:
+-->
+範囲パーティションテーブルのパーティションを作成します。
 <programlisting>
 CREATE TABLE measurement_y2016m07
     PARTITION OF measurement (
@@ -2212,6 +2329,7 @@ CREATE TABLE measurement_y2016m07
   <para>
    Create a few partitions of a range partitioned table with multiple
    columns in the partition key:
+パーティションキーに複数の列がある範囲パーティションテーブルに、パーティションをいくつか作成します。
 <programlisting>
 CREATE TABLE measurement_ym_older
     PARTITION OF measurement_year_month
@@ -2231,7 +2349,10 @@ CREATE TABLE measurement_ym_y2017m01
 </programlisting></para>
 
   <para>
+<!--
    Create partition of a list partitioned table:
+-->
+リストパーティションテーブルのパーティションを作成します。
 <programlisting>
 CREATE TABLE cities_ab
     PARTITION OF cities (
@@ -2242,6 +2363,7 @@ CREATE TABLE cities_ab
   <para>
    Create partition of a list partitioned table that is itself further
    partitioned and then add a partition to it:
+リストパーティションテーブルにパーティションを作成しますが、それ自体がさらにパーティションになり、それにパーティションを追加します。
 <programlisting>
 CREATE TABLE cities_ab
     PARTITION OF cities (
@@ -2476,9 +2598,13 @@ SQL:1999以降では、異なる構文と意味体系による単一継承を定
   </refsect2>
 
   <refsect2>
+<!--
    <title>Multiple Identity Columns</title>
+-->
+   <title>複数のIDENTITY列</title>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> allows a table to have more than one
     identity column.  The standard specifies that a table can have at most one
     identity column.  This is relaxed mainly to give more flexibility for
@@ -2486,6 +2612,11 @@ SQL:1999以降では、異なる構文と意味体系による単一継承を定
     the <command>INSERT</command> command supports only one override clause
     that applies to the entire statement, so having multiple identity columns
     with different behaviors is not well supported.
+-->
+<productname>PostgreSQL</productname>ではテーブルに2つ以上のIDENTITY列を持つことを許しています。
+標準SQLでは、1つのテーブルは最大で1つのIDENTITY列を持つことができると規定しています。
+主にスキーマの変更や移行でより柔軟性を持たせるために、この制約を緩和しています。
+<command>INSERT</command>コマンドはOVERRIDING句を1つだけしかサポートせず、これが文全体に適用されるため、複数のIDENTITY列があり、これらの動作が異なる場合は正しくサポートされないことに注意してください。
    </para>
   </refsect2>
 
@@ -2562,20 +2693,32 @@ PostgreSQLはこうした自己参照列を明示的にサポートしません�
   </refsect2>
 
   <refsect2>
+<!--
    <title><literal>PARTITION BY</> Clause</title>
+-->
+   <title><literal>PARTITION BY</>句</title>
 
    <para>
+<!--
     The <literal>PARTITION BY</> clause is a
     <productname>PostgreSQL</productname> extension.
+-->
+<literal>PARTITION BY</>は<productname>PostgreSQL</productname>の拡張です。
    </para>
   </refsect2>
 
   <refsect2>
+<!--
    <title><literal>PARTITION OF</> Clause</title>
+-->
+   <title><literal>PARTITION OF</>句</title>
 
    <para>
+<!--
     The <literal>PARTITION OF</> clause is a
     <productname>PostgreSQL</productname> extension.
+-->
+<literal>PARTITION OF</>句は<productname>PostgreSQL</productname>の拡張です。
    </para>
   </refsect2>
 
