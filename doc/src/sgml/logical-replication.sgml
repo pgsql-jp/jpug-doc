@@ -16,7 +16,7 @@
   replication allows fine-grained control over both data replication and
   security.
 -->
-論理レプリケーションとは、レプリケーションアイデンティティ(replication identity)（通常主キー）に基づき、データオブジェクトと、それに対する変更を複製する手法です。
+論理レプリケーションとは、レプリケーションアイデンティティ(replication identity)（通常は主キーです）に基づき、データオブジェクトと、それに対する変更を複製する手法です。
 この論理という用語は、正確なブロックアドレスを使い、バイト同士の複製を行う物理レプリケーションと対比的に使用しています。
 PostgreSQLは両方の仕組みを同時にサポートします。
 <xref linkend="high-availability">をご覧ください。
@@ -34,7 +34,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
   configurations.
 -->
 論理レプリケーションは、ひとつの<firstterm>パブリッシャー(publisher)</firstterm>ノード上の一つ以上の<firstterm>パブリケーション(publications)</firstterm>を購読する一つ以上の<firstterm>サブスクライバー(subscribers)</firstterm>を伴う、<firstterm>パブリッシュ(publish)</firstterm>と<firstterm>サブスクライブ(subscribe)</firstterm>モデルを使用します。
-サブスクライバーは、購読するパブリケーションからデータを取得し、再パブリッシュしてカスケードレプリケーションや、更に複雑な構成を構築することができます。
+サブスクライバーは、サブスクライブするパブリケーションからデータを取得し、再パブリッシュしてカスケードレプリケーションや、更に複雑な構成を構築することができます。
  </para>
 
  <para>
@@ -58,7 +58,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
 <!--
   The typical use-cases for logical replication are:
 -->
-典型的なロジカルレプリケーションのユースケースには、以下のようなものがあります。
+典型的なロジカルレプリケーションの利用例には、以下のようなものがあります。
   <itemizedlist>
    <listitem>
     <para>
@@ -129,6 +129,8 @@ PostgreSQLは両方の仕組みを同時にサポートします。
   subscribers to the same set of tables, conflicts can arise.
 -->
 サブスクライバーのデータベースは、他のPostgreSQLインスタンスと同様に振る舞い、自分用のパブリケーションを定義することにより、他のデータベースに対するパブリッシャーとして利用できます。
+アプリケーションがそのサブスクライバーを読み取り専用として取り扱うときには、単独のサブスクリプションからはコンフリクトは発生しません。
+一方、アプリケーションあるいは他のサブスクライバーから同じテーブルに書き込みが起こるとすると、コンフリクトが発生する可能性があります。
  </para>
 
  <sect1 id="logical-replication-publication">
@@ -148,7 +150,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
 <firstterm>パブリケーション</firstterm>は、どのような物理レプリケーションのマスターにも定義できます。
 パブリケーションが定義されたノードは、<firstterm>パブリッシャー</firstterm>と呼ばれます。
 パブリケーションは、テーブルか、テーブルのグループから生成された更新の集合であると同時に、更新セットあるいはレプリケーションセットであるとも言えます。
-パブリケーションは一つのデータベースにのみ存在します。
+一つのパブリケーションは一つのデータベースにのみ存在します。
   </para>
 
   <para>
@@ -277,7 +279,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
    that the subscribed publication objects don't overlap.
 -->
 サブスクライバーノードは、必要ならば複数のサブスクリプションを持つことができます。
-一つのパブリッシャーとサブスクライバーの間で複数のサブスクリプションを定義することもできますが、サブスクライブしたパブリケーションオブジェクトが重複しないように注意が必要です。
+一組のパブリッシャーとサブスクライバーの間で複数のサブスクリプションを定義することもできますが、サブスクライブしたパブリケーションオブジェクトが重複しないように注意が必要です。
   </para>
 
   <para>
@@ -312,7 +314,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
    from the <structname>pg_subscription</structname> catalog.
 -->
 現在のユーザがスーパーユーザーならば、サブスクリプションは<command>pg_dump</command>でダンプできます。
-そうでない場合には、ワーニングが出力され、サブスクリプションはスキップされます。
+そうでない場合には、警告が出力され、サブスクリプションはスキップされます。
 非スーパーユーザーはすべてのサブスクリプション情報を、<structname>pg_subscription</structname>カタログから読み出せないからです。
   </para>
 
@@ -323,9 +325,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
    <xref linkend="sql-altersubscription"> command and removed using
    <xref linkend="sql-dropsubscription">.
 -->
-サブスクリプションは<xref linkend="sql-createsubscription">で追加し、
-<xref linkend="sql-altersubscription">を使って、いつでも停止、再開、
-そして<xref linkend="sql-dropsubscription">で削除できます。
+サブスクリプションは<xref linkend="sql-createsubscription">で追加し、<xref linkend="sql-altersubscription">を使って、いつでも停止、再開でき、そして<xref linkend="sql-dropsubscription">で削除できます。
   </para>
 
   <para>
@@ -437,7 +437,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
 -->
 サブスクリプションを削除する際に、レプリケーションスロットを維持する必要があります。
 サブスクライバーのデータベースが別のホストに移動中で、移動後にそこからデータベースを起動するときに有効です。
-この場合、サブスクリプションを削除する前に、<command>ALTER SUBSCRIPTION</command>コマンドでそのスロットを切り離します。
+この場合、サブスクリプションを削除する前に、<command>ALTER SUBSCRIPTION</command>でそのスロットを切り離します。
       </para>
      </listitem>
 
@@ -455,7 +455,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
        investigated.
 -->
 サブスクリプションを削除する際に、リモートホストに接続できません。
-この場合、サブスクリプションを削除する前に、<command>ALTER SUBSCRIPTION</command>コマンドでそのスロットを切り離しを試みます。
+この場合、サブスクリプションを削除する前に、<command>ALTER SUBSCRIPTION</command>でそのスロットを切り離しを試みます。
 リモートデータベースインスタンスが存在しない場合は、これ以上の操作は必要ありません。
 しかし、単にリモートデータベースに接続できない状態ならば、レプリケーションスロットを手動で削除する必要があります。
 そうでしなければ、WALが保存され続け、いずれディスクを埋め尽くすかもしれません。
@@ -483,7 +483,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
    operations, missing data will not produce a conflict and such operations
    will simply be skipped.
 -->
-サブスクライバーノードでローカルにデータが変更されたとはいえ、データが更新されるという点では、論理レプリケーションは通常のDML操作と同じように振る舞います。
+サブスクライバーノードでローカルにデータが変更された場合でも、データが更新されるという点では、論理レプリケーションは通常のDML操作と同じように振る舞います。
 到着したデータが制約に違反すると、レプリケーションは停止します。
 これは、<firstterm>コンフリクト</firstterm>と呼ばれます。
 <command>UPDATE</command>あるいは<command>DELETE</command>操作をレプリケーションする場合は、存在しないデータによってコンフリクトは起こらず、そのような操作は単にスキップされます。
@@ -497,7 +497,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
 -->
 コンフリクトはエラーを生じさせ、レプリケーションを停止させます。
 コンフリクトはユーザが手動で解消しなければなりません。
-コンフリクトの詳細については、サブスクライバーのサーバーログをご覧ください。
+コンフリクトの詳細は、サブスクライバーのサーバーログに出力されます。
   </para>
 
   <para>
@@ -539,7 +539,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
 <!--
      The database schema and DDL commands are not replicated.  The initial
      schema can be copied by hand using <literal>pg_dump
-     &#045;&#045schema-only</literal>.  Subsequent schema changes would need to be kept
+     &#045;&#045;schema-only</literal>.  Subsequent schema changes would need to be kept
      in sync manually.  (Note, however, that there is no need for the schemas
      to be absolutely the same on both sides.)  Logical replication is robust
      when schema definitions change in a live database: When the schema is
@@ -553,8 +553,8 @@ PostgreSQLは両方の仕組みを同時にサポートします。
 以後のスキーマ変更の同期は手動で行ないます。
 （なお、両者でスキーマ名は完全に同じである必要はないことに留意してください。）
 稼働中のスキーマ定義変更に対して、論理レプリケーションは頑健です。
-スキーマがパブリッシャー側で変更され、複製データがサブスクライバー側に到着し始めたものの、データがテーブルスキーマ合致しない場合は、スキーマが変更されるまではレプリケーションはエラーとなります。
-多くの場合、完結的なエラーは、まずサブスクライバーに追加的にスキーマ変更を行うことで避けることができます。
+スキーマがパブリッシャー側で変更され、複製データがサブスクライバー側に到着し始めたものの、データがテーブルスキーマに合致しない場合は、スキーマが変更されるまではレプリケーションはエラーとなります。
+多くの場合、間欠的なエラーは、サブスクライバーに先に追加的なスキーマ変更を行うことで避けることができます。
     </para>
    </listitem>
 
@@ -573,7 +573,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
      value from the tables themselves.
 -->
 シーケンスデータはレプリケーションされません。
-SERIAL型のデータやシーケンスによって裏付けされた識別列は、もちろんテーブルの一部としてレプリケーションされます。
+シーケンスによって裏付けされたSERIAL型や識別列のデータは、もちろんテーブルの一部としてレプリケーションされます。
 しかし、シーケンス自体は、サブスクライバーがスタートした時の値のままです。
 サブスクライバーが読み取り専用のデータベースとして使われているなら、通常は問題になりません。
 しかし、サブスクライバーのデータベースをスイッチオーバーやフェイルオーバーするつもりなら、パブリッシャーから現在のデータをコピーするか（おそらく<command>pg_dump</command>を使います）、テーブル自身から十分に大きな値を決定し、シーケンスを最新の値に更新しなければなりません。
@@ -644,7 +644,7 @@ SERIAL型のデータやシーケンスによって裏付けされた識別列�
 論理レプリケーションは、パブリッシャー側のデータベース上のデータのスナップショットをコピーすることから始まります。
 それが完了したあとは、パブリッシャーにおける変更は、発生した時にリアルタイムでサブスクライバーに送られます。
 サブスクライバーはパブリッシャーでコミットが発生した順にデータを適用します。
-そのため、一つのサブスクリプション内のパブリケーションに対するトランザクションの一貫性が保証されます。
+そのため、どの単一のサブスクリプションにおいても、パブリケーションに対するトランザクションの一貫性が保証されます。
   </para>
 
   <para>
@@ -663,7 +663,7 @@ SERIAL型のデータやシーケンスによって裏付けされた識別列�
    they are received, in correct transactional order.
 -->
 論理レプリケーションは物理ストリーミングレプリケーション(<xref linkend="streaming-replication">参照)と似たアーキテクチャで構成されています。
-<quote>walsender</quote>と<quote>適用</quote>プロセスで実装されています。
+<quote>WAL送信</quote>プロセスと<quote>適用</quote>プロセスで実装されています。
 walsenderプロセスはWALのロジカルデコーディング（<xref linkend="logicaldecoding">に記載）を開始し、標準のロジカルデコーディングプラグイン（pgoutput）をロードします。
 このプラグインは、WALから読み込んだ更新を論理レプリケーションプロトコル（<xref linkend="protocol-logical-replication">参照）に変換します。
 そして、パブリケーションの指定にしたがってフィルターします。
@@ -689,7 +689,7 @@ walsenderプロセスはWALのロジカルデコーディング（<xref linkend=
    implemented like a <command>COPY</command> command and thus fires both row
    and statement triggers for <command>INSERT</command>.
 -->
-今のところ、論理レプリケーション適用プロセスは行トリガーだけを起動します。
+今のところ、論理レプリケーション適用プロセスは行トリガーだけを起動し、文トリガーは起動しません。
 ただし、初期テーブル同期は<command>COPY</command>コマンドのように実装されているので、<command>INSERT</command>の行と文トリガーの両方を起動します。
   </para>
 
@@ -714,7 +714,7 @@ walsenderプロセスはWALのロジカルデコーディング（<xref linkend=
 既存のサブスクライブされたテーブル中の初期データのスナップショットが取得され、特殊な適用プロセスの並列インスタンスにコピーされます。
 このプロセスは自身の一時レプリケーションスロットを作成し、既存のデータをコピーします。
 既存のデータのコピーが終わると、ワーカーは同期モードに入ります。
-このモードでは、初期データのコピー中に起こった更新を標準の論理レプリケーションを使ってストリーミングすることにより、テーブルが主適用プロセスと同期状態になることを保障します。
+このモードでは、初期データのコピー中に起こった更新を標準の論理レプリケーションを使ってストリーミングすることにより、テーブルが主適用プロセスと同期状態になることを保証します。
 ひとたび同期が完了すれば、テーブルのレプリケーションの制御は主適用プロセスに戻され、レプリケーションは通常通り継続されます。
     </para>
   </sect2>
@@ -776,7 +776,7 @@ walsenderプロセスはWALのロジカルデコーディング（<xref linkend=
    configured in <filename>pg_hba.conf</filename>.
 -->
 レプリケーション接続用のロールは、<literal>REPLICATION</literal>属性（あるいはスーパーユーザー属性）を備えていなければなりません。
-そのロールへのアクセスが<filename>pg_hba.conf</filename>で設定されなければなりません。
+そのロールによるアクセスが<filename>pg_hba.conf</filename>で設定されなければなりません。
   </para>
 
   <para>
@@ -864,9 +864,9 @@ walsenderプロセスはWALのロジカルデコーディング（<xref linkend=
    + <literal>1</literal>).  Note that some extensions and parallel queries
    also take worker slots from <varname>max_worker_processes</varname>.
 -->
-また、サブスクライバーには<varname>max_replication_slots</varname>が必要です。
-この場合、サブスクライバーに追加する予定のサブスクリプション数が設定されている必要があります。
-同様に、<varname>max_logical_replication_workers</varname>は、少なくともサブスクリプション数に加えてテーブル同期のための予備が設定されていなければなりません。
+また、サブスクライバーでは<varname>max_replication_slots</varname>の設定が必要です。
+この場合、少なくともサブスクライバーに追加する予定のサブスクリプション数が設定されている必要があります。
+パブリッシャーと同様に、<varname>max_logical_replication_workers</varname>は、少なくともサブスクリプション数に加えてテーブル同期のための予備が設定されていなければなりません。
 加えて、少なくとも（<varname>max_logical_replication_workers</varname> + <literal>1</literal>）のレプリケーションワーカーを収容するために、<varname>max_worker_processes</varname>を調整する必要があるかもしれません。
 ある種の拡張とパラレルクエリは、 <varname>max_worker_processes</varname>からワーカースロットを使うことに留意してください。
   </para>
@@ -900,7 +900,7 @@ wal_level = logical
    want to use for connecting):
 -->
 <filename>pg_hba.conf</filename>はレプリケーションを許可するために調整が必要です。
-（ここで示した値は、実際のネットワーク設定接続に使用するユーザにより異なります。）
+（ここで示した値は、実際のネットワーク設定と、接続に使用するユーザにより異なります。）
 <programlisting>
 host     all     repuser     0.0.0.0/0     md5
 </programlisting>
