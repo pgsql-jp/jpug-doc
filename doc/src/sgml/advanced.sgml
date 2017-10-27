@@ -490,8 +490,8 @@ COMMIT;
 -->
 <firstterm>ウィンドウ関数</>は現在の行に何らかとも関係するテーブル行の集合に渡って計算を行います。
 これは集約関数により行われる計算の形式と似たようなものです。
-とは言っても、通常の集約関数とは異なり、ウィンドウ関数の使用は単一出力行に行をグループ化しません。
-行はそれぞれ個別の身元を維持します。
+とは言っても、非ウィンドウ集約呼び出しのように、ウィンドウ関数により行が単一出力行にグループ化されることはありません。
+その代わり、行はそれぞれ個別の身元を維持します。
 裏側では、ウィンドウ関数は問い合わせ結果による現在行だけでなく、それ以上の行にアクセスすることができます。
    </para>
 
@@ -531,7 +531,8 @@ SELECT depname, empno, salary, avg(salary) OVER (PARTITION BY depname) FROM emps
     aggregate, but the <literal>OVER</> clause causes it to be
     treated as a window function and computed across the window frame.)
 -->
-最初の３つの出力列は、テーブル<structname>empsalary</>から直接もたらされ、テーブル内のそれぞれの行に対し１つの出力行が存在します。４番目の列は、現行の行と同じ<structfield>depname</>の値を持つ全てのテーブル行に渡って取得した平均値を表わしています。（これは実際、通常の<function>avg</>集約関数と同じですが、<literal>OVER</>句によりウィンドウ関数として扱われ、行の適切な集合に渡り計算されます。）
+最初の３つの出力列は、テーブル<structname>empsalary</>から直接もたらされ、テーブル内のそれぞれの行に対し１つの出力行が存在します。４番目の列は、現行の行と同じ<structfield>depname</>の値を持つ全てのテーブル行に渡って取得した平均値を表わしています。
+（これは実際、非ウィンドウ<function>avg</>集約関数と同じですが、<literal>OVER</>句によりウィンドウ関数として扱われ、ウィンドウフレームに渡り計算されます。）
    </para>
 
    <para>
@@ -548,9 +549,9 @@ SELECT depname, empno, salary, avg(salary) OVER (PARTITION BY depname) FROM emps
     same partition as the current row.
 -->
 ウィンドウ関数呼び出しは常に、ウィンドウ関数名と引数の直後に続く<literal>OVER</>句を含みます。
-これが通常の関数、または集約関数と構文的に区別されるところです。
+これが通常の関数、または非ウィンドウ集約関数と構文的に区別されるところです。
 <literal>OVER</>句は、ウィンドウ関数により処理のため問い合わせの行がどのように分解されるかを厳密に決定します。
-<literal>OVER</>内の<literal>PARTITION BY</>リストは、行を<literal>PARTITION BY</>式の同じ値を共有するグループ、すなわちパーティションに分割する指定を行います。
+<literal>OVER</>内の<literal>PARTITION BY</>句は、行を<literal>PARTITION BY</>式の同じ値を共有するグループ、すなわちパーティションに分割します。
 それぞれの行に対し、ウィンドウ関数は現在行と同じパーティションに分類される行に渡って計算されます。
    </para>
 
@@ -594,7 +595,7 @@ FROM empsalary;
     <function>rank</> needs no explicit parameter, because its behavior
     is entirely determined by the <literal>OVER</> clause.
 -->
-ここで示されたように、<function>rank</>関数は、それぞれの別々の<literal>ORDER BY</>の値に対する現在行のパーティション内における順位を、<literal>ORDER BY</>句で定義された順序で生成します。
+ここで示されたように、<function>rank</>関数は、それぞれの別々の<literal>ORDER BY</>の値に対する現在行のパーティション内における順位を、<literal>ORDER BY</>句で定義された順序を使って生成します。
 <function>rank</>は明示的なパラメータを必要としません。この動作は<literal>OVER</>句により完全に決定されるためです。
    </para>
 
@@ -623,7 +624,7 @@ FROM empsalary;
 -->
 <literal>ORDER BY</>は、行の順序付けが重要でない場合、省略可能であることを見てきました。
 <literal>PARTITION BY</>も同様に割愛することができます。
-この場合、全ての行を含むたった一つのパーティションが存在します。
+この場合、全ての行を含む単一のパーティションが存在します。
    </para>
 
    <para>
@@ -640,7 +641,7 @@ FROM empsalary;
 -->
 ウィンドウ関数に関連した別の重要な概念があります。
 それぞれの行に対して、その<firstterm>ウィンドウフレーム</>と呼ばれる、そのパーティション内の行の集合が存在します。
-多くの（しかしすべてではありません）ウィンドウ関数は、パーティション全体ではなく、ウィンドウフレームの行のみに対して作用します。
+ウィンドウ関数の中には、パーティション全体ではなく、ウィンドウフレームの行のみに対して作用するものもあります。
 デフォルトでは、<literal>ORDER BY</>が指定されると、フレームは、パーティションの始めから現在の行までのすべての行、およびそれより後にあるが<literal>ORDER BY</>句に従うと現在の行とおなじ順序になるすべての行から構成されます。
 <literal>ORDER BY</>が省略された場合、デフォルトのフレームはそのパーティション内のすべての行を含みます。
      <footnote>
@@ -734,7 +735,7 @@ SELECT salary, sum(salary) OVER (ORDER BY salary) FROM empsalary;
 ウィンドウ関数は問い合わせの<literal>SELECT</literal>リストと<literal>ORDER BY</>句に限って許可されます。
 <literal>GROUP BY</>、<literal>HAVING</>、および<literal>WHERE</literal>句などその他の場所では禁止されています。
 その理由は、ウィンドウ関数は論理的に、ここに挙げたような句が処理された後に実行されるからです。
-またウィンドウ関数は通常の集約関数の後に実行されます。
+またウィンドウ関数は非ウィンドウ集約関数の後に実行されます。
 これが意味する所は、ウィンドウ関数の引数に集約関数呼び出しを含めても有効ですが、その逆は成り立たないと言うことです。
    </para>
 
