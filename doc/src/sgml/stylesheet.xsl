@@ -41,6 +41,7 @@ Customization of header
 
 (overrides html/chunk-common.xsl)
 -->
+<!-- 日本語版では stylesheet-custom.xsl を使用
 <xsl:template name="header.navigation">
   <xsl:param name="prev" select="/foo"/>
   <xsl:param name="next" select="/foo"/>
@@ -170,6 +171,7 @@ Customization of header
     </div>
   </xsl:if>
 </xsl:template>
+-->
 
 <!-- pgsql-docs -->
 <xsl:template match="indexterm" mode="index-div-quicklinks">
