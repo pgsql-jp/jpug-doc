@@ -162,6 +162,7 @@ ALTER TABLE [ IF EXISTS ] <replaceable class="PARAMETER">name</replaceable>
 -->
 この構文を使用すると、テーブルから列を削除できます。
 削除する列を含んでいるインデックスおよびテーブル制約も自動的に削除されます。
+削除する列を参照する多変量統計がある場合、列の削除の結果、その統計が1つの列のデータしか含まないようになるなら、それも削除されます。
 また、削除する列にテーブル以外が依存（例えば、外部キー制約、ビューなど）している場合、<literal>CASCADE</>を付ける必要があります。
 <literal>IF EXISTS</literal>が指定されている場合、もしその列がなかったとしてもエラーにはなりません。
 この場合は代わりに注意が出力されます。
@@ -231,6 +232,7 @@ ALTER TABLE [ IF EXISTS ] <replaceable class="PARAMETER">name</replaceable>
      </para>
 
      <para>
+<!--
       If this table is a partition, one cannot perform <literal>DROP NOT NULL</literal>
       on a column if it is marked <literal>NOT NULL</literal> in the parent
       table.  To drop the <literal>NOT NULL</literal> constraint from all the
@@ -239,6 +241,11 @@ ALTER TABLE [ IF EXISTS ] <replaceable class="PARAMETER">name</replaceable>
       parent, such a constraint can still be added to individual partitions,
       if desired; that is, the children can disallow nulls even if the parent
       allows them, but not the other way around.
+-->
+このテーブルがパーティションの場合、親テーブルで<literal>NOT NULL</literal>の印がつけられている列について<literal>DROP NOT NULL</literal>を実行することはできません。
+すべてのパーティションから<literal>NOT NULL</literal>制約を削除するには、親テーブルで<literal>DROP NOT NULL</literal>を実行してください。
+親テーブルに<literal>NOT NULL</>制約がない場合でも、望むなら各パーティションにそのような制約を追加することができます。
+つまり、親テーブルがNULLを許していても子テーブルでNULLを禁止することができますが、その逆はできません。
      </para>
     </listitem>
    </varlistentry>
@@ -249,15 +256,23 @@ ALTER TABLE [ IF EXISTS ] <replaceable class="PARAMETER">name</replaceable>
     <term><literal>DROP IDENTITY [ IF EXISTS ]</literal></term>
     <listitem>
      <para>
+<!--
       These forms change whether a column is an identity column or change the
       generation attribute of an existing identity column.
       See <xref linkend="sql-createtable"> for details.
+-->
+この構文では、列がIDENTITY列であるかどうか、または既存のIDENTITY列の生成属性を変更することができます。
+詳細は<xref linkend="sql-createtable">を参照してください。
      </para>
 
      <para>
+<!--
       If <literal>DROP IDENTITY IF EXISTS</literal> is specified and the
       column is not an identity column, no error is thrown.  In this case a
       notice is issued instead.
+-->
+<literal>DROP IDENTITY IF EXISTS</literal>が指定され、その列がIDENTITY列でない場合は、エラーを発生させません。
+この場合、注意メッセージが発行されます。
      </para>
     </listitem>
    </varlistentry>
@@ -267,10 +282,14 @@ ALTER TABLE [ IF EXISTS ] <replaceable class="PARAMETER">name</replaceable>
     <term><literal>RESTART</literal></term>
     <listitem>
      <para>
+<!--
       These forms alter the sequence that underlies an existing identity
       column.  <replaceable>sequence_option</replaceable> is an option
       supported by <xref linkend="sql-altersequence"> such
       as <literal>INCREMENT BY</literal>.
+-->
+この構文では、既存のIDENTITY列に紐付けられているシーケンスを変更します。
+<replaceable>sequence_option</replaceable>は<literal>INCREMENT BY</literal>など<xref linkend="sql-altersequence">がサポートするオプションです。
      </para>
     </listitem>
    </varlistentry>
@@ -844,18 +863,22 @@ clusterオプションの変更は<literal>SHARE UPDATE EXCLUSIVE</literal>ロ�
       affected.
 -->
 この構文は、1つ以上のテーブルの格納パラメータを変更します。
-設定可能なパラメータに関しては<xref linkend="SQL-CREATETABLE-storage-parameters" endterm="SQL-CREATETABLE-storage-parameters-title">を参照してください。
+設定可能なパラメータの詳細に関しては<xref linkend="SQL-CREATETABLE-storage-parameters" endterm="SQL-CREATETABLE-storage-parameters-title">を参照してください。
 このコマンドによってテーブルの内容が即座に変更されない点に注意してください。
 パラメータによりますが、期待する効果を得るためにテーブルを書き換える必要がある場合があります。
 このためには、<link linkend="SQL-VACUUM">VACUUM FULL</>、<xref linkend="SQL-CLUSTER">またはテーブルを強制的に書き換える<command>ALTER TABLE</>の構文のいずれかを使用してください。
+プランナに関連するパラメータについては、次にテーブルがロックされた時に変更が有効になるため、現在実行中の問い合わせは影響を受けません。
      </para>
 
      <para>
+<!--
       <literal>SHARE UPDATE EXCLUSIVE</literal> lock will be taken for
       fillfactor and autovacuum storage parameters, as well as the
       following planner related parameters:
       <varname>effective_io_concurrency</>, <varname>parallel_workers</>, <varname>seq_page_cost</>,
       <varname>random_page_cost</>, <varname>n_distinct</> and <varname>n_distinct_inherited</>.
+-->
+fillfactorおよびautovacuumのストレージパラメータおよびプランナに関連するパラメータ<varname>effective_io_concurrency</>、<varname>parallel_workers</>、<varname>seq_page_cost</>、<varname>random_page_cost</>、<varname>n_distinct</>、<varname>n_distinct_inherited</>については<literal>SHARE UPDATE EXCLUSIVE</literal>ロックが獲得されます。
      </para>
 
      <note>
@@ -1059,6 +1082,7 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</>お�
     <term><literal>ATTACH PARTITION <replaceable class="PARAMETER">partition_name</replaceable> FOR VALUES <replaceable class="PARAMETER">partition_bound_spec</replaceable></literal></term>
     <listitem>
      <para>
+<!--
       This form attaches an existing table (which might itself be partitioned)
       as a partition of the target table using the same syntax for
       <replaceable class="PARAMETER">partition_bound_spec</replaceable> as
@@ -1074,9 +1098,18 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</>お�
       attached is marked <literal>NO INHERIT</literal>, the command will fail;
       such a constraint must be recreated without the <literal>NO INHERIT</literal>
       clause.
+-->
+この構文では、既存のテーブル（それ自体がパーティションテーブルのこともあります）を対象テーブルのパーティションとして、<xref linkend="sql-createtable">の<replaceable class="PARAMETER">partition_bound_spec</replaceable>と同じ形式を使って追加します。
+パーティション境界の指定は、対象テーブルのパーティション戦略とパーティションキーに対応していなければなりません。
+パーティションとして追加されるテーブルは、対象テーブルと同じ列を持っており、余分な列があってはならず、さらに列の型も一致しなければなりません。
+また、対象テーブルの<literal>NOT NULL</literal>制約と<literal>CHECK</literal>をすべて持っていなければなりません。
+現在のところ、<literal>UNIQUE</literal>、<literal>PRIMARY KEY</literal>、<literal>FOREIGN KEY</literal>の制約については考慮されていません。
+追加されるテーブルの<literal>CHECK</literal>制約に<literal>NO INHERIT</literal>の印がつけられているものがあれば、コマンドは失敗します。
+そのような制約は<literal>NO INHERIT</literal>句なしに再作成しなければなりません。
      </para>
 
      <para>
+<!--
       If the new partition is a regular table, a full table scan is performed
       to check that no existing row in the table violates the partition
       constraint.  It is possible to avoid this scan by adding a valid
@@ -1089,13 +1122,23 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</>お�
       a list partition that will not accept <literal>NULL</literal> values,
       also add <literal>NOT NULL</literal> constraint to the partition key
       column, unless it's an expression.
+-->
+新しいパーティションが通常のテーブルの場合、パーティションの制約に違反する行がテーブルに存在しないことを確認するため、テーブルの全件走査が行われます。
+このコマンドを実行するより前に、望まれるパーティションの制約を満たす行だけしか許さないような有効な<literal>CHECK</literal>制約をテーブルに追加すれば、この全件走査を避けることができます。
+パーティションの制約を確認するためにテーブルをスキャンしなくても良いことは、そのような制約を使って決定されます。
+しかし、パーティションキーに式が一つでもあり、それが<literal>NULL</literal>値を受け付けないときは、この仕組みは機能しません。
+<literal>NULL</literal>値を受け付けないリストパーティションに追加するときも、それが式でないなら、パーティションキーの列に<literal>NOT NULL</literal>制約を追加してください。
      </para>
 
      <para>
+<!--
       If the new partition is a foreign table, nothing is done to verify
       that all the rows in the foreign table obey the partition constraint.
       (See the discussion in <xref linkend="SQL-CREATEFOREIGNTABLE"> about
       constraints on the foreign table.)
+-->
+新しいパーティションが外部テーブルの場合、外部テーブルのすべての行がパーティションの制約に従うかどうかの確認は何も行われません。
+（外部テーブルの制約については<xref linkend="SQL-CREATEFOREIGNTABLE">の議論を参照してください。）
      </para>
     </listitem>
    </varlistentry>
@@ -1104,9 +1147,13 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</>お�
     <term><literal>DETACH PARTITION</literal> <replaceable class="PARAMETER">partition_name</replaceable></term>
     <listitem>
      <para>
+<!--
       This form detaches specified partition of the target table.  The detached
       partition continues to exist as a standalone table, but no longer has any
       ties to the table from which it was detached.
+-->
+この構文は、指定したパーティションを対象のテーブルから切り離します。
+切り離されたパーティションは単独のテーブルとして存在し続けますが、切り離される前のテーブルとの紐付けはなくなります。
      </para>
     </listitem>
    </varlistentry>
@@ -1125,7 +1172,7 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</>お�
    columns in a single command.  This is particularly useful with large
    tables, since only one pass over the table need be made.
 -->
-<literal>RENAME</literal>および<literal>SET SCHEMA</>は、複数の変更リストに結合して、まとめて処理することができますが、それらを除き、ALTER TABLEのすべての構文は１つだけのテーブルに対して作用します。
+<literal>RENAME</literal>、<literal>SET SCHEMA</>、<literal>ATTACH PARTITION</literal>、<literal>DETACH PARTITION</literal>は、複数の変更リストに結合して、まとめて処理することができますが、それらを除き、ALTER TABLEのすべての構文は１つだけのテーブルに対して作用します。
 例えば、複数の列の追加、型の変更を単一のコマンドで実行することができます。
 これは特に巨大なテーブルでは便利です。変更のために必要なテーブル全体の走査が1回で済むからです。
   </para>
@@ -1150,6 +1197,7 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</>お�
 <command>ALTER TABLE</>コマンドを使用するには、変更するテーブルを所有している必要があります。
 テーブルのスキーマあるいはテーブル空間を変更するには、新しいスキーマあるいはテーブル空間における<literal>CREATE</literal>権限も持っていなければなりません。
 テーブルを親テーブルの新しい子テーブルとして追加するには、親テーブルも所有している必要があります。
+またテーブルをテーブルのパーティションとして追加する場合、追加されるテーブルを所有している必要があります。
 また、所有者を変更するには、新しい所有ロールの直接あるいは間接的なメンバでなければならず、かつ、そのロールがテーブルのスキーマにおける<literal>CREATE</literal>権限を持たなければなりません
 （この制限により、テーブルの削除と再作成を行ってもできないことが、所有者の変更によってもできないようにしています。
 ただし、スーパーユーザはすべてのテーブルの所有者を変更することができます）。
@@ -1436,7 +1484,10 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</>お�
       <term><replaceable class="PARAMETER">partition_name</replaceable></term>
       <listitem>
        <para>
+<!--
         The name of the table to attach as a new partition or to detach from this table.
+-->
+新しいパーティションとして追加する、またはテーブルから切り離すテーブルの名前です。
        </para>
       </listitem>
      </varlistentry>
@@ -1445,8 +1496,12 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</>お�
       <term><replaceable class="PARAMETER">partition_bound_spec</replaceable></term>
       <listitem>
        <para>
+<!--
         The partition bound specification for a new partition.  Refer to
         <xref linkend="sql-createtable"> for more details on the syntax of the same.
+-->
+新しいパーティションのパーティション境界の指定です。
+その構文の詳細については<xref linkend="sql-createtable">を参照してください。
        </para>
       </listitem>
      </varlistentry>
@@ -1515,6 +1570,8 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</>お�
    <para>
     Similarly, when attaching a new partition it may be scanned to verify that
     existing rows meet the partition constraint.
+-->
+同様に、新しいパーティションを追加するときは、既存の行がパーティションの制約を満たすかどうかを確認するため、テーブルが走査されるかもしれません。
    </para>
 
    <para>
@@ -1610,9 +1667,11 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</>お�
     valid for those descendants.  In all of these cases, <command>ALTER TABLE
     ONLY</command> will be rejected.
 -->
-そのテーブルを継承するテーブルがある場合、子テーブルに同じ処理を実行しなければ、親テーブルに対する列の追加、列の名前、列の型、継承された制約の名前の変更を実行することはできません。
-つまり、<command>ALTER TABLE ONLY</command>コマンドは受け付けられません。
+そのテーブルを継承するテーブルがある場合、子テーブルに同じ処理を実行しなければ、親テーブルに対する列の追加、列の名前、列の型の変更を実行することはできません。
 この制限により、子テーブルの列が常に親テーブルと一致していることが保証されます。
+同様に、すべての子テーブルで制約の名前を変更し、それが親と子の間で一致するようにしなければ、親テーブルの制約の名前を変更することはできません。
+また、親テーブルからSELECTすると、その子テーブルからもSELECTすることになるため、親テーブルの制約は、それが子テーブルでも有効であると印を付けられるまで、有効であると印を付けられません
+これらのすべての場合において、<command>ALTER TABLE ONLY</command>は受け付けられません。
    </para>
 
    <para>
@@ -1631,6 +1690,8 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</>お�
 再帰的な<literal>DROP COLUMN</literal>操作では、子テーブルが他の親テーブルからその列を継承しておらず、かつ、その列について独立した定義を持っていない場合のみ、その子テーブルの列を削除します。
 再帰的でない<literal>DROP COLUMN</literal>（つまり、<command>ALTER TABLE ONLY ... DROP COLUMN</command>）操作では、継承された列は削除されません。
 削除する代わりに、その列は継承されておらず独立して定義されているという印を付けます。
+再帰的でない<literal>DROP COLUMN</literal>コマンドは、パーティションテーブルでは失敗します。
+テーブルのすべてのパーティションは、パーティションの最上位と同じ列を持っていなければならないからです。
    </para>
 
    <para>
@@ -1640,16 +1701,13 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</>お�
     IDENTITY</literal>), as well as the actions
     <literal>TRIGGER</>, <literal>CLUSTER</>, <literal>OWNER</>,
     and <literal>TABLESPACE</> never recurse to descendant tables;
--->
-<literal>TRIGGER</>、<literal>CLUSTER</>、<literal>OWNER</>および<literal>TABLESPACE</>は子テーブルに再帰的に伝わりません。
-つまり、常に<literal>ONLY</>が指定されているかのように動作します。
-制約の追加は、<literal>NO INHERIT</>印がない<literal>CHECK</>制約に関してのみ再帰的に伝わります。
-   </para>
-
-   <para>
     that is, they always act as though <literal>ONLY</> were specified.
     Adding a constraint recurses only for <literal>CHECK</> constraints
     that are not marked <literal>NO INHERIT</>.
+-->
+IDENTITY列についての操作（<literal>ADD GENERATED</literal>、<literal>SET</literal>、<literal>DROP IDENTITY</literal>など）および<literal>TRIGGER</>、<literal>CLUSTER</>、<literal>OWNER</>および<literal>TABLESPACE</>の操作は子テーブルに再帰的に伝わりません。
+つまり、常に<literal>ONLY</>が指定されているかのように動作します。
+制約の追加は、<literal>NO INHERIT</>印がない<literal>CHECK</>制約に関してのみ再帰的に伝わります。
    </para>
 
    <para>
@@ -1911,21 +1969,30 @@ ALTER TABLE distributors DROP CONSTRAINT distributors_pkey,
 </programlisting></para>
 
   <para>
+<!--
    Attach a partition to range partitioned table:
+-->
+範囲パーティションテーブルにパーティションを追加します。
 <programlisting>
 ALTER TABLE measurement
     ATTACH PARTITION measurement_y2016m07 FOR VALUES FROM ('2016-07-01') TO ('2016-08-01');
 </programlisting></para>
 
   <para>
+<!--
    Attach a partition to list partitioned table:
+-->
+リストパーティションテーブルにパーティションを追加します。
 <programlisting>
 ALTER TABLE cities
     ATTACH PARTITION cities_ab FOR VALUES IN ('a', 'b');
 </programlisting></para>
 
   <para>
+<!--
    Detach a partition from partitioned table:
+-->
+パーティションテーブルからパーティションを切り離します。
 <programlisting>
 ALTER TABLE measurement
     DETACH PARTITION measurement_y2015m12;
@@ -1950,7 +2017,7 @@ ALTER TABLE measurement
    Also, the ability to specify more than one manipulation in a single
    <command>ALTER TABLE</> command is an extension.
 -->
-（<literal>USING INDEX</literal>がない）<literal>ADD</literal>、<literal>DROP</>、<literal>SET DEFAULT</>、（<literal>USING</literal>がない）<literal>SET DATA TYPE</literal>構文は標準SQLに従います。
+（<literal>USING INDEX</literal>がない）<literal>ADD</literal>、<literal>DROP [COLUMN]</>、<literal>DROP IDENTITY</literal>、<literal>RESTART</literal>、<literal>SET DEFAULT</>、（<literal>USING</literal>のない）<literal>SET DATA TYPE</literal>、<literal>SET GENERATED</literal>、<literal>SET <replaceable>sequence_option</replaceable></literal>構文は標準SQLに従います。
 他の構文は標準SQLに対する<productname>PostgreSQL</productname>の拡張です。
 また、単一の<command>ALTER TABLE</>コマンド内に複数の操作を指定する機能も<productname>PostgreSQL</productname>の拡張です。
   </para>
