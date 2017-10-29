@@ -19,7 +19,10 @@ PostgreSQL documentation
 
  <refnamediv>
   <refname>pg_receivewal</refname>
+<!--
   <refpurpose>stream write-ahead logs from a <productname>PostgreSQL</productname> server</refpurpose>
+-->
+  <refpurpose><productname>PostgreSQL</productname>サーバから先行書き込みログをストリームする</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -45,8 +48,8 @@ PostgreSQL documentation
    location for doing a restore using point-in-time recovery (see
    <xref linkend="continuous-archiving">).
 -->
-<application>pg_receivexlog</application>は実行中の<productname>PostgreSQL</productname>クラスタからトランザクションログをストリームするために使用されます。
-トランザクションログはストリーミングレプリケーションプロトコルを使用してストリームされ、ローカルディレクトリのファイルとして書き出されます。
+<application>pg_receivewal</application>は実行中の<productname>PostgreSQL</productname>クラスタから先行書き込みログをストリームするために使用されます。
+先行書き込みログはストリーミングレプリケーションプロトコルを使用してストリームされ、ローカルディレクトリのファイルとして書き出されます。
 このディレクトリはポイントインタイムリカバリ（<xref linkend="continuous-archiving">参照）を用いてリストアする際のアーカイブ場所として使用することができます。
   </para>
 
@@ -58,15 +61,19 @@ PostgreSQL documentation
    For this reason, it is not necessary to set
    <xref linkend="guc-archive-timeout"> when using
     <application>pg_receivewal</application>.
+-->
+<application>pg_receivewal</application>は先行書き込みログをサーバで生成に合わせてリアルタイムでストリームし、<xref linkend="guc-archive-command">とは異なり、セグメントが完了するまで待機することはありません。
+このため、<application>pg_receivewal</application>を使用する場合には<xref linkend="guc-archive-timeout">を設定する必要はありません。
   </para>
 
   <para>
+<!--
    Unlike the WAL receiver of a PostgreSQL standby server, <application>pg_receivewal</>
    by default flushes WAL data only when a WAL file is closed.
    The option <option>&#045;-synchronous</> must be specified to flush WAL data
    in real time.
 -->
-PostgreSQLのスタンバイサーバのWALレシーバと異なり、<application>pg_receivexlog</>はデフォルトでは、WALファイルがクローズされた時にのみ、WALデータをフラッシュします。
+PostgreSQLのスタンバイサーバのWALレシーバと異なり、<application>pg_receivewal</>はデフォルトでは、WALファイルがクローズされた時にのみ、WALデータをフラッシュします。
 WALデータをリアルタイムでフラッシュするには<option>--synchronous</>オプションを指定する必要があります。
   </para>
 
@@ -81,7 +88,7 @@ WALデータをリアルタイムでフラッシュするには<option>--synchro
    configured with <xref linkend="guc-max-wal-senders"> set high enough to
    leave at least one session available for the stream.
 -->
-トランザクションログは通常の<productname>PostgreSQL</productname>接続を経由して、そしてレプリケーションプロトコルを使用して、ストリームされます。
+先行書き込みログは通常の<productname>PostgreSQL</productname>接続を経由して、そしてレプリケーションプロトコルを使用して、ストリームされます。
 この接続はスーパーユーザまたは<literal>REPLICATION</literal>権限（<xref linkend="role-attributes">参照）を持つユーザで確立されなければなりません。
 そして<filename>pg_hba.conf</filename>でレプリケーション用の接続を許可しなければなりません。
 またサーバではストリーム用に利用できるセッションが少なくとも１つ存在できるために<xref linkend="guc-max-wal-senders">を十分大きく設定しなければなりません。
@@ -95,7 +102,7 @@ WALデータをリアルタイムでフラッシュするには<option>--synchro
    as possible. To avoid this behavior, use the <literal>-n</literal>
    parameter.
 -->
-接続が失われた場合、または、致命的ではないエラーで初期確立ができなかった場合、<application>pg_receivexlog</application>は無期限に接続を再試行しできるだけ早くストリーミングを再確立します。
+接続が失われた場合、または、致命的ではないエラーで初期確立ができなかった場合、<application>pg_receivewal</application>は無期限に接続を再試行しできるだけ早くストリーミングを再確立します。
 この動作を止めるためには<literal>-n</literal>パラメータを使用してください。
   </para>
  </refsect1>
@@ -188,8 +195,8 @@ WALデータをリアルタイムでフラッシュするには<option>--synchro
          synchronized to disk so that the server can remove that segment if it
          is not otherwise needed.
 -->
-<application>pg_receivexlog</application>が既存のレプリケーションスロットを使うようにします(<xref linkend="streaming-replication-slots">を参照してください)。
-このオプションが使われると、<application>pg_receivexlog</>はフラッシュ位置をサーバに報告します。
+<application>pg_receivewal</application>が既存のレプリケーションスロットを使うようにします(<xref linkend="streaming-replication-slots">を参照してください)。
+このオプションが使われると、<application>pg_receivewal</>はフラッシュ位置をサーバに報告します。
 これは、各セグメントがいつディスクに同期されたかを示し、それによりサーバが必要のなくなったセグメントを削除できるようになります。
         </para>
 
@@ -204,7 +211,7 @@ WALデータをリアルタイムでフラッシュするには<option>--synchro
          satisfactorily.  The option <literal>&#045;-synchronous</literal> (see
          below) must be specified in addition to make this work correctly.
 -->
-<application>pg_receivexlog</application>のレプリケーションクライアントが同期スタンバイとしてサーバ上で構成されている場合、レプリケーションスロットを利用するとフラッシュ位置がサーバに報告されますが、それはWALファイルがクローズされる時のみです。
+<application>pg_receivewal</application>のレプリケーションクライアントが同期スタンバイとしてサーバ上で構成されている場合、レプリケーションスロットを利用するとフラッシュ位置がサーバに報告されますが、それはWALファイルがクローズされる時のみです。
 したがって、その構成ではプライマリ上のトランザクションが長時間待たされることになり、結果的に満足する動作を得られません。
 これを正しく動作させるには、追加で<literal>--synchronous</literal>オプション（以下を参照）を指定する必要があります。
         </para>
@@ -231,7 +238,7 @@ WALデータを受け取ると即座にディスクにフラッシュします�
         server as a synchronous standby, to ensure that timely feedback is
         sent to the server.
 -->
-<application>pg_receivexlog</application>のレプリケーションクライアントが同期スタンバイとしてサーバ上で構成されている場合、フィードバックが遅延なくサーバに送り返されることを確実にするため、このオプションを指定すべきです。
+<application>pg_receivewal</application>のレプリケーションクライアントが同期スタンバイとしてサーバ上で構成されている場合、フィードバックが遅延なくサーバに送り返されることを確実にするため、このオプションを指定すべきです。
        </para>
       </listitem>
      </varlistentry>
@@ -254,10 +261,14 @@ WALデータを受け取ると即座にディスクにフラッシュします�
       <term><option>--compress=<replaceable class="parameter">level</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Enables gzip compression of write-ahead logs, and specifies the
         compression level (0 through 9, 0 being no compression and 9 being best
         compression).  The suffix <filename>.gz</filename> will
         automatically be added to all filenames.
+-->
+先行書き込みログのgzip圧縮を有効にし、圧縮レベルを指定します（0から9まで、0は圧縮なし、9が最大圧縮）。
+すべてのファイル名に、拡張子<filename>.gz</filename>が自動的に追加されます。
        </para>
       </listitem>
      </varlistentry>
@@ -290,7 +301,7 @@ WALデータを受け取ると即座にディスクにフラッシュします�
         name in the connection string will be ignored.
 -->
 このオプションは他のクライアントアプリケーションとの整合性のために<literal>--dbname</>と呼ばれます。
-しかし、<application>pg_receivexlog</application>はクラスタ内のどの特定のデータベースにも接続しませんので、接続文字列内のデータベース名は無視されます。
+しかし、<application>pg_receivewal</application>はクラスタ内のどの特定のデータベースにも接続しませんので、接続文字列内のデータベース名は無視されます。
        </para>
       </listitem>
      </varlistentry>
@@ -373,7 +384,7 @@ WALデータを受け取ると即座にディスクにフラッシュします�
         Force <application>pg_receivewal</application> to prompt for a
         password before connecting to a database.
 -->
-<application>pg_receivexlog</application>はデータベースに接続する前にパスワード入力を強制的に促します。
+<application>pg_receivewal</application>はデータベースに接続する前にパスワード入力を強制的に促します。
        </para>
 
        <para>
@@ -387,8 +398,8 @@ WALデータを受け取ると即座にディスクにフラッシュします�
         connection attempt.
 -->
 このオプションは重要ではありません。
-<application>pg_receivexlog</application>は、サーバがパスワード認証を要求した場合に自動的にパスワードを促すためです。
-しかし<application>pg_receivexlog</application>は、サーバがパスワードを要求するかどうかを確認するために接続試行を浪費します。
+<application>pg_receivewal</application>は、サーバがパスワード認証を要求した場合に自動的にパスワードを促すためです。
+しかし<application>pg_receivewal</application>は、サーバがパスワードを要求するかどうかを確認するために接続試行を浪費します。
 <option>-W</>と入力して無駄な接続試行を防止することが有意である場合があります。
        </para>
       </listitem>
@@ -401,7 +412,7 @@ WALデータを受け取ると即座にディスクにフラッシュします�
     <application>pg_receivewal</application> can perform one of the two
     following actions in order to control physical replication slots:
 -->
-<application>pg_receivexlog</application>は物理的なレプリケーションスロットを制御するため、以下の2つの動作のうちの1つを実行できます。
+<application>pg_receivewal</application>は物理的なレプリケーションスロットを制御するため、以下の2つの動作のうちの1つを実行できます。
 
     <variablelist>
      <varlistentry>
@@ -447,7 +458,7 @@ WALデータを受け取ると即座にディスクにフラッシュします�
 <!--
        Print the <application>pg_receivewal</application> version and exit.
 -->
-<application>pg_receivexlog</application>のバージョンを表示し、終了します。
+<application>pg_receivewal</application>のバージョンを表示し、終了します。
        </para>
        </listitem>
      </varlistentry>
@@ -461,7 +472,7 @@ WALデータを受け取ると即座にディスクにフラッシュします�
        Show help about <application>pg_receivewal</application> command line
        arguments, and exit.
 -->
-<application>pg_receivexlog</application>コマンドライン引数についてのヘルプを表示し、終了します。
+<application>pg_receivewal</application>コマンドライン引数についてのヘルプを表示し、終了します。
        </para>
        </listitem>
      </varlistentry>
@@ -506,8 +517,8 @@ WALデータを受け取ると即座にディスクにフラッシュします�
    replication slot will fill up the server's disk space if the receiver does
    not keep up with fetching the WAL data.
 -->
-<xref linkend="guc-archive-command">の代わりに<application>pg_receivexlog</application>をWALのバックアップのメインの方法として使用する場合、レプリケーションスロットを使用することを強く推奨します。
-そうしなければ、サーバは<xref linkend="guc-archive-command">とレプリケーションスロットのいずれからもWALのストリームがどこまでアーカイブされているかの情報を得られないため、トランザクションログファイルがバックアップされる前にそれを再利用または削除するかもしれないのです。
+<xref linkend="guc-archive-command">の代わりに<application>pg_receivewal</application>をWALのバックアップのメインの方法として使用する場合、レプリケーションスロットを使用することを強く推奨します。
+そうしなければ、サーバは<xref linkend="guc-archive-command">とレプリケーションスロットのいずれからもWALのストリームがどこまでアーカイブされているかの情報を得られないため、先行書き込みログファイルがバックアップされる前にそれを再利用または削除するかもしれないのです。
 しかし、WALデータを受け取る側がそのフェッチに追いつけない場合、レプリケーションスロットがサーバのディスクスペースを一杯にしてしまうかもしれないことに注意してください。
   </para>
 
@@ -525,7 +536,7 @@ WALデータを受け取ると即座にディスクにフラッシュします�
    <literal>mydbserver</literal> and store it in the local directory
    <filename>/usr/local/pgsql/archive</filename>:
 -->
-トランザクションログを<literal>mydbserver</literal>にあるサーバからストリームし、それをローカルディレクトリ<filename>/usr/local/pgsql/archive</filename>に格納します。
+先行書き込みログを<literal>mydbserver</literal>にあるサーバからストリームし、それをローカルディレクトリ<filename>/usr/local/pgsql/archive</filename>に格納します。
 <screen>
 <prompt>$</prompt> <userinput>pg_receivewal -h mydbserver -D /usr/local/pgsql/archive</userinput>
 </screen></para>
