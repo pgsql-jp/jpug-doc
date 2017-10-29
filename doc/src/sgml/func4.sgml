@@ -1359,11 +1359,11 @@ SELECT * FROM pg_ls_dir('.') WITH ORDINALITY AS t(ls,n);
  postmaster.pid  |  9
  pg_ident.conf   | 10
  global          | 11
- pg_clog         | 12
+ pg_xact         | 12
  pg_snapshots    | 13
  pg_multixact    | 14
  PG_VERSION      | 15
- pg_xlog         | 16
+ pg_wal          | 16
  pg_hba.conf     | 17
  pg_stat_tmp     | 18
  pg_subtrans     | 19
@@ -1450,6 +1450,12 @@ SELECT * FROM pg_ls_dir('.') WITH ORDINALITY AS t(ls,n);
       </row>
 
       <row>
+       <entry><literal><function>current_role</function></literal></entry>
+       <entry><type>name</type></entry>
+       <entry>equivalent to <function>current_user</function></entry>
+      </row>
+
+      <row>
        <entry><literal><function>current_schema</function>[()]</literal></entry>
        <entry><type>name</type></entry>
 <!--
@@ -1529,7 +1535,7 @@ SELECT * FROM pg_ls_dir('.') WITH ORDINALITY AS t(ls,n);
        <entry><literal><function>pg_blocking_pids(<type>int</type>)</function></literal></entry>
        <entry><type>int[]</type></entry>
 <!--
-       <entry>Process ID(s) that are blocking specified server process ID</entry>
+       <entry>Process ID(s) that are blocking specified server process ID from acquiring a lock</entry>
 -->
        <entry>指定のサーバプロセスIDをブロックしているプロセスID</entry>
       </row>
@@ -1541,6 +1547,13 @@ SELECT * FROM pg_ls_dir('.') WITH ORDINALITY AS t(ls,n);
        <entry>configuration load time</entry>
 -->
        <entry>設定を読み込んだ時刻</entry>
+      </row>
+
+      <row>
+       <entry><literal><function>pg_current_logfile(<optional><type>text</></optional>)</function></literal></entry>
+       <entry><type>text</type></entry>
+       <entry>Primary log file name, or log in the requested format,
+       currently in use by the logging collector</entry>
       </row>
 
       <row>
@@ -1586,6 +1599,12 @@ SELECT * FROM pg_ls_dir('.') WITH ORDINALITY AS t(ls,n);
        <entry>server start time</entry>
 -->
        <entry>サーバの起動時刻</entry>
+      </row>
+
+      <row>
+       <entry><literal><function>pg_safe_snapshot_blocking_pids(<type>int</type>)</function></literal></entry>
+       <entry><type>int[]</type></entry>
+       <entry>Process ID(s) that are blocking specified server process ID from acquiring a safe snapshot</entry>
       </row>
 
       <row>
@@ -1855,6 +1874,45 @@ SET search_path TO <replaceable>schema</> <optional>, <replaceable>schema</>, ..
    </para>
 
    <indexterm>
+    <primary>pg_current_logfile</primary>
+   </indexterm>
+
+   <indexterm>
+    <primary>Logging</primary>
+    <secondary>pg_current_logfile function</secondary>
+   </indexterm>
+
+   <indexterm>
+     <primary>current_logfiles</primary>
+     <secondary>and the pg_current_logfile function</secondary>
+   </indexterm>
+
+   <indexterm>
+    <primary>Logging</primary>
+    <secondary>current_logfiles file and the pg_current_logfile
+    function</secondary>
+   </indexterm>
+
+   <para>
+    <function>pg_current_logfile</function> returns, as <type>text</type>,
+    the path of the log file(s) currently in use by the logging collector.
+    The path includes the <xref linkend="guc-log-directory"> directory
+    and the log file name.  Log collection must be enabled or the return value
+    is <literal>NULL</literal>.  When multiple log files exist, each in a
+    different format, <function>pg_current_logfile</function> called
+    without arguments returns the path of the file having the first format
+    found in the ordered list: <systemitem>stderr</>, <systemitem>csvlog</>.
+    <literal>NULL</literal> is returned when no log file has any of these
+    formats.  To request a specific file format supply, as <type>text</type>,
+    either <systemitem>csvlog</> or <systemitem>stderr</> as the value of the
+    optional parameter. The return value is <literal>NULL</literal> when the
+    log format requested is not a configured
+    <xref linkend="guc-log-destination">.  The
+    <function>pg_current_logfiles</function> reflects the contents of the
+    <filename>current_logfiles</> file.
+   </para>
+
+   <indexterm>
     <primary>pg_my_temp_schema</primary>
    </indexterm>
 
@@ -1914,6 +1972,25 @@ SET search_path TO <replaceable>schema</> <optional>, <replaceable>schema</>, ..
 <function>pg_postmaster_start_time</function>は、サーバが起動したときの<type>timestamp with time zone</type>を返します。
    </para>
 
+   <indexterm>
+    <primary>pg_safe_snapshot_blocking_pids</primary>
+   </indexterm>
+
+   <para>
+    <function>pg_safe_snapshot_blocking_pids</function> returns an array of
+    the process IDs of the sessions that are blocking the server process with
+    the specified process ID from acquiring a safe snapshot, or an empty array
+    if there is no such server process or it is not blocked.  A session
+    running a <literal>SERIALIZABLE</literal> transaction blocks
+    a <literal>SERIALIZABLE READ ONLY DEFERRABLE</literal> transaction from
+    acquiring a snapshot until the latter determines that it is safe to avoid
+    taking any predicate locks.  See <xref linkend="xact-serializable"> for
+    more information about serializable and deferrable transactions.  Frequent
+    calls to this function could have some impact on database performance,
+    because it needs access to the predicate lock manager's shared
+    state for a short time.
+   </para>
+   
    <indexterm>
     <primary>version</primary>
    </indexterm>
@@ -2220,6 +2297,21 @@ SET search_path TO <replaceable>schema</> <optional>, <replaceable>schema</>, ..
        <entry>does current user have privilege for type</entry>
 -->
        <entry>現在のユーザに型に対する権限があるのか</entry>
+      </row>
+      <row>
+       <entry><literal><function>has_type_privilege</function>(<parameter>user</parameter>,
+                                  <parameter>type</parameter>,
+                                  <parameter>privilege</parameter>)</literal>
+       </entry>
+       <entry><type>boolean</type></entry>
+       <entry>does user have privilege for type</entry>
+      </row>
+      <row>
+       <entry><literal><function>has_type_privilege</function>(<parameter>type</parameter>,
+                                  <parameter>privilege</parameter>)</literal>
+       </entry>
+       <entry><type>boolean</type></entry>
+       <entry>does current user have privilege for type</entry>
       </row>
       <row>
        <entry><literal><function>pg_has_role</function>(<parameter>user</parameter>,
@@ -2532,6 +2624,18 @@ SELECT has_function_privilege('joeuser', 'myfunc(int, text)', 'execute');
    </para>
 
    <para>
+    <function>has_type_privilege</function> checks whether a user
+    can access a type in a particular way.
+    Its argument possibilities
+    are analogous to <function>has_table_privilege</function>.
+    When specifying a type by a text string rather than by OID,
+    the allowed input is the same as for the <type>regtype</> data type
+    (see <xref linkend="datatype-oid">).
+    The desired access privilege type must evaluate to
+    <literal>USAGE</literal>.
+   </para>
+
+   <para>
 <!--
     <function>pg_has_role</function> checks whether a user
     can access a role in a particular way.
@@ -2661,6 +2765,12 @@ SELECT relname FROM pg_class WHERE pg_table_is_visible(oid);
        <entry>演算子族が検索パスにおいて可視であるか</entry>
       </row>
       <row>
+       <entry><literal><function>pg_statistics_obj_is_visible(<parameter>stat_oid</parameter>)</function></literal>
+       </entry>
+       <entry><type>boolean</type></entry>
+       <entry>is statistics object visible in search path</entry>
+      </row>
+      <row>
        <entry><literal><function>pg_table_is_visible(<parameter>table_oid</parameter>)</function></literal>
        </entry>
        <entry><type>boolean</type></entry>
@@ -2735,6 +2845,9 @@ SELECT relname FROM pg_class WHERE pg_table_is_visible(oid);
    </indexterm>
    <indexterm>
     <primary>pg_opfamily_is_visible</primary>
+   </indexterm>
+   <indexterm>
+    <primary>pg_statistics_obj_is_visible</primary>
    </indexterm>
    <indexterm>
     <primary>pg_table_is_visible</primary>
@@ -2836,6 +2949,10 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
 
    <indexterm>
     <primary>pg_get_serial_sequence</primary>
+   </indexterm>
+
+   <indexterm>
+    <primary>pg_get_statisticsobjdef</primary>
    </indexterm>
 
    <indexterm>
@@ -3056,10 +3173,14 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
        <entry><literal><function>pg_get_serial_sequence(<parameter>table_name</parameter>, <parameter>column_name</parameter>)</function></literal></entry>
        <entry><type>text</type></entry>
 <!--
-       <entry>get name of the sequence that a <type>serial</type>, <type>smallserial</type> or <type>bigserial</type> column
-       uses</entry>
+       <entry>get name of the sequence that a serial or identity column uses</entry>
 -->
        <entry><type>serial</type>、<type>smallserial</type>、または<type>bigserial</type>列が使用するシーケンス名の取得</entry>
+      </row>
+      <row>
+       <entry><literal><function>pg_get_statisticsobjdef(<parameter>statobj_oid</parameter>)</function></literal></entry>
+       <entry><type>text</type></entry>
+       <entry>get <command>CREATE STATISTICS</> command for extended statistics object</entry>
       </row>
       <row>
        <entry><function>pg_get_triggerdef</function>(<parameter>trigger_oid</parameter>)</entry>
@@ -3291,19 +3412,20 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
 <!--
    <function>pg_get_constraintdef</function>,
    <function>pg_get_indexdef</function>, <function>pg_get_ruledef</function>,
-   and <function>pg_get_triggerdef</function>, respectively reconstruct the
-   creating command for a constraint, index, rule, or trigger. (Note that this
-   is a decompiled reconstruction, not the original text of the command.)
-   <function>pg_get_expr</function> decompiles the internal form of an
-   individual expression, such as the default value for a column.  It can be
-   useful when examining the contents of system catalogs.  If the expression
-   might contain Vars, specify the OID of the relation they refer to as the
-   second parameter; if no Vars are expected, zero is sufficient.
-   <function>pg_get_viewdef</function> reconstructs the <command>SELECT</>
-   query that defines a view. Most of these functions come in two variants,
-   one of which can optionally <quote>pretty-print</> the result.  The
-   pretty-printed format is more readable, but the default format is more
-   likely to be interpreted the same way by future versions of
+   <function>pg_get_statisticsobjdef</function>, and
+   <function>pg_get_triggerdef</function>, respectively reconstruct the
+   creating command for a constraint, index, rule, extended statistics object,
+   or trigger. (Note that this is a decompiled reconstruction, not the
+   original text of the command.) <function>pg_get_expr</function> decompiles
+   the internal form of an individual expression, such as the default value
+   for a column.  It can be useful when examining the contents of system
+   catalogs.  If the expression might contain Vars, specify the OID of the
+   relation they refer to as the second parameter; if no Vars are expected,
+   zero is sufficient. <function>pg_get_viewdef</function> reconstructs the
+   <command>SELECT</> query that defines a view. Most of these functions come
+   in two variants, one of which can optionally <quote>pretty-print</> the
+   result.  The pretty-printed format is more readable, but the default format
+   is more likely to be interpreted the same way by future versions of
    <productname>PostgreSQL</>; avoid using pretty-printed output for dump
    purposes.  Passing <literal>false</> for the pretty-print parameter yields
    the same result as the variant that does not have the parameter at all.
@@ -3344,19 +3466,24 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
 <!--
    <function>pg_get_serial_sequence</function> returns the name of the
    sequence associated with a column, or NULL if no sequence is associated
-   with the column.  The first input parameter is a table name with
-   optional schema, and the second parameter is a column name.  Because
-   the first parameter is potentially a schema and table, it is not treated
-   as a double-quoted identifier, meaning it is lower cased by default,
-   while the second parameter, being just a column name, is treated as
-   double-quoted and has its case preserved.  The function returns a value
-   suitably formatted for passing to sequence functions (see <xref
-   linkend="functions-sequence">).  This association can be modified or
-   removed with <command>ALTER SEQUENCE OWNED BY</>.  (The function
-   probably should have been called
-   <function>pg_get_owned_sequence</function>; its current name reflects the fact
-   that it's typically used with <type>serial</> or <type>bigserial</>
-   columns.)
+   with the column.  If the column is an identity column, the associated
+   sequence is the sequence internally created for the identity column.  For
+   columns created using one of the serial types
+   (<type>serial</type>, <type>smallserial</type>, <type>bigserial</type>), it
+   is the sequence created for that serial column definition.  In the latter
+   case, this association can be modified or removed with <command>ALTER
+   SEQUENCE OWNED BY</>.  (The function probably should have been called
+   <function>pg_get_owned_sequence</function>; its current name reflects the
+   fact that it has typically been used with <type>serial</>
+   or <type>bigserial</> columns.)  The first input parameter is a table name
+   with optional schema, and the second parameter is a column name.  Because
+   the first parameter is potentially a schema and table, it is not treated as
+   a double-quoted identifier, meaning it is lower cased by default, while the
+   second parameter, being just a column name, is treated as double-quoted and
+   has its case preserved.  The function returns a value suitably formatted
+   for passing to sequence functions
+   (see <xref linkend="functions-sequence">).  A typical use is in reading the
+   current value of a sequence for an identity or serial column, for example:
 -->
 <function>pg_get_serial_sequence</function>は、列に関連したシーケンスの名前を返します。もし、列に関連したシーケンスが存在しなければ、NULLを返します。
 最初の入力パラメータはテーブル名です。スキーマを付けることもできます。２番目のパラメータは列名です。
@@ -3364,6 +3491,9 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
 この関数は、シーケンス関数に渡すことができるよう適切な書式で値を返します（<xref linkend="functions-sequence">を参照）。
 この関連付けは<command>ALTER SEQUENCE OWNED BY</>により変更、削除することができます。
 （この関数はおそらく<function>pg_get_owned_sequence</function>と呼ばれるべきでした。現在の名前は、通常は<type>serial</>や<type>bigserial</>列で使われることからきています。）
+<programlisting>
+SELECT currval(pg_get_serial_sequence('sometable', 'id'));
+</programlisting>
   </para>
 
   <para>
@@ -3982,6 +4112,10 @@ SELECT collation for ('foo' COLLATE "de_DE");
    </indexterm>
 
    <indexterm>
+    <primary>txid_current_if_assigned</primary>
+   </indexterm>
+
+   <indexterm>
     <primary>txid_current_snapshot</primary>
    </indexterm>
 
@@ -3999,6 +4133,10 @@ SELECT collation for ('foo' COLLATE "de_DE");
 
    <indexterm>
     <primary>txid_visible_in_snapshot</primary>
+   </indexterm>
+
+   <indexterm>
+    <primary>txid_status</primary>
    </indexterm>
 
    <para>
@@ -4033,6 +4171,11 @@ SELECT collation for ('foo' COLLATE "de_DE");
        <entry>get current transaction ID, assigning a new one if the current transaction does not have one</entry>
 -->
        <entry>現在のトランザクションIDの取得、現在のトランザクションにIDがなければ新規に割り当てる</entry>
+      </row>
+      <row>
+       <entry><literal><function>txid_current_if_assigned()</function></literal></entry>
+       <entry><type>bigint</type></entry>
+       <entry>same as <function>txid_current()</function> but returns null instead of assigning a new transaction ID if none is already assigned</entry>
       </row>
       <row>
        <entry><literal><function>txid_current_snapshot()</function></literal></entry>
@@ -4074,6 +4217,11 @@ SELECT collation for ('foo' COLLATE "de_DE");
        <entry>is transaction ID visible in snapshot? (do not use with subtransaction ids)</entry>
 -->
        <entry>スナップショットにあるトランザクションIDは可視か？（サブトランザクションIDで使用しないこと）</entry>
+      </row>
+      <row>
+       <entry><literal><function>txid_status(<parameter>bigint</parameter>)</function></literal></entry>
+       <entry><type>txid_status</type></entry>
+       <entry>report the status of the given transaction: <literal>committed</literal>, <literal>aborted</literal>, <literal>in progress</literal>, or null if the transaction ID is too old</entry>
       </row>
      </tbody>
     </tgroup>
@@ -4174,6 +4322,24 @@ SELECT collation for ('foo' COLLATE "de_DE");
 -->
 <type>txid_snapshot</>のテキスト表現は<literal><replaceable>xmin</>:<replaceable>xmax</>:<replaceable>xip_list</></literal>です。
 例えば、<literal>10:20:10,14,15</literal>は<literal>xmin=10, xmax=20, xip_list=10, 14, 15</literal>を意味します。
+   </para>
+
+   <para>
+    <function>txid_status(bigint)</> reports the commit status of a recent
+    transaction.  Applications may use it to determine whether a transaction
+    committed or aborted when the application and database server become
+    disconnected while a <literal>COMMIT</literal> is in progress.
+    The status of a transaction will be reported as either
+    <literal>in progress</>,
+    <literal>committed</>, or <literal>aborted</>, provided that the
+    transaction is recent enough that the system retains the commit status
+    of that transaction.  If is old enough that no references to that
+    transaction survive in the system and the commit status information has
+    been discarded, this function will return NULL.  Note that prepared
+    transactions are reported as <literal>in progress</>; applications must
+    check <link
+    linkend="view-pg-prepared-xacts"><literal>pg_prepared_xacts</></> if they
+    need to determine whether the txid is a prepared transaction.
    </para>
 
    <para>
@@ -4350,17 +4516,17 @@ SELECT collation for ('foo' COLLATE "de_DE");
      <tbody>
 
       <row>
-       <entry><literal>checkpoint_location</literal></entry>
+       <entry><literal>checkpoint_lsn</literal></entry>
        <entry><type>pg_lsn</type></entry>
       </row>
 
       <row>
-       <entry><literal>prior_location</literal></entry>
+       <entry><literal>prior_lsn</literal></entry>
        <entry><type>pg_lsn</type></entry>
       </row>
 
       <row>
-       <entry><literal>redo_location</literal></entry>
+       <entry><literal>redo_lsn</literal></entry>
        <entry><type>pg_lsn</type></entry>
       </row>
 
@@ -4572,11 +4738,6 @@ SELECT collation for ('foo' COLLATE "de_DE");
       </row>
 
       <row>
-       <entry><literal>bigint_timestamps</literal></entry>
-       <entry><type>boolean</type></entry>
-      </row>
-
-      <row>
        <entry><literal>float4_pass_by_value</literal></entry>
        <entry><type>boolean</type></entry>
       </row>
@@ -4623,7 +4784,7 @@ SELECT collation for ('foo' COLLATE "de_DE");
      <tbody>
 
       <row>
-       <entry><literal>min_recovery_end_location</literal></entry>
+       <entry><literal>min_recovery_end_lsn</literal></entry>
        <entry><type>pg_lsn</type></entry>
       </row>
 
@@ -4633,12 +4794,12 @@ SELECT collation for ('foo' COLLATE "de_DE");
       </row>
 
       <row>
-       <entry><literal>backup_start_location</literal></entry>
+       <entry><literal>backup_start_lsn</literal></entry>
        <entry><type>pg_lsn</type></entry>
       </row>
 
       <row>
-       <entry><literal>backup_end_location</literal></entry>
+       <entry><literal>backup_end_lsn</literal></entry>
        <entry><type>pg_lsn</type></entry>
       </row>
 
@@ -4839,7 +5000,7 @@ SELECT set_config('log_statement_stats', 'off', false);
     The functions shown in <xref
     linkend="functions-admin-signal-table"> send control signals to
     other server processes.  Use of these functions is restricted to
-    superusers by default but access may be granted to others with the
+    superusers by default but access may be granted to others using
     <command>GRANT</command>, with noted exceptions.
 -->
 <xref linkend="functions-admin-signal-table">に示す関数は、制御用シグナルを他のサーバプロセスに送信します。
@@ -4983,13 +5144,13 @@ SELECT set_config('log_statement_stats', 'off', false);
     <primary>pg_create_restore_point</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_current_xlog_flush_location</primary>
+    <primary>pg_current_wal_flush_lsn</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_current_xlog_insert_location</primary>
+    <primary>pg_current_wal_insert_lsn</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_current_xlog_location</primary>
+    <primary>pg_current_wal_lsn</primary>
    </indexterm>
    <indexterm>
     <primary>pg_start_backup</primary>
@@ -5004,16 +5165,16 @@ SELECT set_config('log_statement_stats', 'off', false);
     <primary>pg_backup_start_time</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_switch_xlog</primary>
+    <primary>pg_switch_wal</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_xlogfile_name</primary>
+    <primary>pg_walfile_name</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_xlogfile_name_offset</primary>
+    <primary>pg_walfile_name_offset</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_xlog_location_diff</primary>
+    <primary>pg_wal_lsn_diff</primary>
    </indexterm>
 
    <para>
@@ -5022,7 +5183,7 @@ SELECT set_config('log_statement_stats', 'off', false);
     linkend="functions-admin-backup-table"> assist in making on-line backups.
     These functions cannot be executed during recovery (except
     <function>pg_is_in_backup</function>, <function>pg_backup_start_time</function>
-    and <function>pg_xlog_location_diff</function>).
+    and <function>pg_wal_lsn_diff</function>).
 -->
 <xref linkend="functions-admin-backup-table">に示す関数はオンラインバックアップの作成を支援するものです。
 これらの関数は、リカバリ中には実行できません(<function>pg_is_in_backup</function>、<function>pg_backup_start_time</function>、および<function>pg_xlog_location_diff</function>は除く)。
@@ -5055,31 +5216,31 @@ SELECT set_config('log_statement_stats', 'off', false);
       </row>
       <row>
        <entry>
-        <literal><function>pg_current_xlog_flush_location()</function></literal>
+        <literal><function>pg_current_wal_flush_lsn()</function></literal>
         </entry>
        <entry><type>pg_lsn</type></entry>
 <!--
-       <entry>Get current transaction log flush location</entry>
+       <entry>Get current write-ahead log flush location</entry>
 -->
        <entry>トランザクションログの現在のフラッシュ位置を取得する</entry>
       </row>
       <row>
        <entry>
-        <literal><function>pg_current_xlog_insert_location()</function></literal>
+        <literal><function>pg_current_wal_insert_lsn()</function></literal>
         </entry>
        <entry><type>pg_lsn</type></entry>
 <!--
-       <entry>Get current transaction log insert location</entry>
+       <entry>Get current write-ahead log insert location</entry>
 -->
        <entry>現在のトランザクションログの挿入位置の取得</entry>
       </row>
       <row>
        <entry>
-        <literal><function>pg_current_xlog_location()</function></literal>
+        <literal><function>pg_current_wal_lsn()</function></literal>
         </entry>
        <entry><type>pg_lsn</type></entry>
 <!--
-       <entry>Get current transaction log write location</entry>
+       <entry>Get current write-ahead log write location</entry>
 -->
        <entry>現在のトランザクションログの書き込み位置を取得</entry>
       </row>
@@ -5105,7 +5266,7 @@ SELECT set_config('log_statement_stats', 'off', false);
       </row>
       <row>
        <entry>
-        <literal><function>pg_stop_backup(<parameter>exclusive</> <type>boolean</>)</function></literal>
+        <literal><function>pg_stop_backup(<parameter>exclusive</> <type>boolean</> <optional>, <parameter>wait_for_archive</> <type>boolean</> </optional>)</function></literal>
         </entry>
        <entry><type>setof record</type></entry>
 <!--
@@ -5135,41 +5296,41 @@ SELECT set_config('log_statement_stats', 'off', false);
       </row>
       <row>
        <entry>
-        <literal><function>pg_switch_xlog()</function></literal>
+        <literal><function>pg_switch_wal()</function></literal>
         </entry>
        <entry><type>pg_lsn</type></entry>
 <!--
-       <entry>Force switch to a new transaction log file (restricted to superusers by default, but other users can be granted EXECUTE to run the function)</entry>
+       <entry>Force switch to a new write-ahead log file (restricted to superusers by default, but other users can be granted EXECUTE to run the function)</entry>
 -->
        <entry>新しいトランザクションログファイルへの強制移行(デフォルトではスーパーユーザのみ実行可能、ただし他のユーザにも関数を実行するEXECUTE権限を与えることができる)</entry>
       </row>
       <row>
        <entry>
-        <literal><function>pg_xlogfile_name(<parameter>location</> <type>pg_lsn</>)</function></literal>
+        <literal><function>pg_walfile_name(<parameter>lsn</> <type>pg_lsn</>)</function></literal>
         </entry>
        <entry><type>text</type></entry>
 <!--
-       <entry>Convert transaction log location string to file name</entry>
+       <entry>Convert write-ahead log location to file name</entry>
 -->
        <entry>トランザクションログの位置を表す文字列をファイル名に変換</entry>
       </row>
       <row>
        <entry>
-        <literal><function>pg_xlogfile_name_offset(<parameter>location</> <type>pg_lsn</>)</function></literal>
+        <literal><function>pg_walfile_name_offset(<parameter>lsn</> <type>pg_lsn</>)</function></literal>
         </entry>
        <entry><type>text</>, <type>integer</></entry>
 <!--
-       <entry>Convert transaction log location string to file name and decimal byte offset within file</entry>
+       <entry>Convert write-ahead log location to file name and decimal byte offset within file</entry>
 -->
        <entry>トランザクションログの位置を表す文字列を、ファイル名とファイル内の10進のバイトオフセットに変換</entry>
       </row>
       <row>
        <entry>
-        <literal><function>pg_xlog_location_diff(<parameter>location</> <type>pg_lsn</>, <parameter>location</> <type>pg_lsn</>)</function></literal>
+        <literal><function>pg_wal_lsn_diff(<parameter>lsn</> <type>pg_lsn</>, <parameter>lsn</> <type>pg_lsn</>)</function></literal>
        </entry>
        <entry><type>numeric</></entry>
 <!--
-       <entry>Calculate the difference between two transaction log locations</entry>
+       <entry>Calculate the difference between two write-ahead log locations</entry>
 -->
        <entry>2つのトランザクションログの位置差分を算出</entry>
       </row>
@@ -5185,7 +5346,7 @@ SELECT set_config('log_statement_stats', 'off', false);
     backup label file (<filename>backup_label</>) and, if there are any links
     in the <filename>pg_tblspc/</> directory, a tablespace map file
     (<filename>tablespace_map</>) into the database cluster's data directory,
-    performs a checkpoint, and then returns the backup's starting transaction
+    performs a checkpoint, and then returns the backup's starting write-ahead
     log location as text.  The user can ignore this result value, but it is
     provided in case it is useful. When used in non-exclusive mode, the
     contents of these files are instead returned by the
@@ -5223,23 +5384,47 @@ postgres=# select pg_start_backup('label_goes_here');
     <function>pg_start_backup</>. In a non-exclusive backup, the contents of
     the <filename>backup_label</> and <filename>tablespace_map</> are returned
     in the result of the function, and should be written to files in the
-    backup (and not in the data directory).
+    backup (and not in the data directory).  There is an optional second
+    parameter of type <type>boolean</type>.  If false, the <function>pg_stop_backup</>
+    will return immediately after the backup is completed without waiting for
+    WAL to be archived.  This behavior is only useful for backup
+    software which independently monitors WAL archiving. Otherwise, WAL
+    required to make the backup consistent might be missing and make the backup
+    useless.  When this parameter is set to true, <function>pg_stop_backup</>
+    will wait for WAL to be archived when archiving is enabled; on the standby,
+    this means that it will wait only when <varname>archive_mode = always</>.
+    If write activity on the primary is low, it may be useful to run
+    <function>pg_switch_wal</> on the primary in order to trigger
+    an immediate segment switch.
 -->
 排他的バックアップでは、<function>pg_stop_backup</>は、<function>pg_start_backup</>で作成されたラベルファイルおよび、もしあれば<filename>tablespace_map</>ファイルを削除します。
 非排他的バックアップでは、<filename>backup_label</>および<filename>tablespace_map</>の内容が関数の結果として返され、それをバックアップ内のファイルに書き込む必要があります（データディレクトリ内のファイルに書いてはいけません）。
    </para>
 
    <para>
-<!--
-    The function also creates a backup history file in the transaction log
+    When executed on a primary, the function also creates a backup history file
+    in the write-ahead log
     archive area. The history file includes the label given to
-    <function>pg_start_backup</>, the starting and ending transaction log locations for
+    <function>pg_start_backup</>, the starting and ending write-ahead log locations for
     the backup, and the starting and ending times of the backup.  The return
-    value is the backup's ending transaction log location (which again
+    value is the backup's ending write-ahead log location (which again
     can be ignored).  After recording the ending location, the current
-    transaction log insertion
-    point is automatically advanced to the next transaction log file, so that the
-    ending transaction log file can be archived immediately to complete the backup.
+    write-ahead log insertion
+    point is automatically advanced to the next write-ahead log file, so that the
+    ending write-ahead log file can be archived immediately to complete the backup.
+   </para>
+
+   <para>
+    <function>pg_switch_wal</> moves to the next write-ahead log file, allowing the
+    current file to be archived (assuming you are using continuous archiving).
+    The return value is the ending write-ahead log location + 1 within the just-completed write-ahead log file.
+    If there has been no write-ahead log activity since the last write-ahead log switch,
+    <function>pg_switch_wal</> does nothing and returns the start location
+    of the write-ahead log file currently in use.
+   </para>
+
+   <para>
+    <function>pg_create_restore_point</> creates a named write-ahead log
 -->
 この関数はまた、トランザクションログ格納領域にバックアップ履歴ファイルを作成します。
 履歴ファイルには<function>pg_start_backup</>で付与されたラベル、バックアップのトランザクションログの位置の開始位置、終了位置、バックアップ開始時刻、終了時刻が含まれます。
@@ -5249,23 +5434,8 @@ postgres=# select pg_start_backup('label_goes_here');
 
    <para>
 <!--
-    <function>pg_switch_xlog</> moves to the next transaction log file, allowing the
-    current file to be archived (assuming you are using continuous archiving).
-    The return value is the ending transaction log location + 1 within the just-completed transaction log file.
-    If there has been no transaction log activity since the last transaction log switch,
-    <function>pg_switch_xlog</> does nothing and returns the start location
-    of the transaction log file currently in use.
--->
-<function>pg_switch_xlog</>は、次のトランザクションログファイルに移動し、現在のファイルをアーカイブできるようにします（継続的アーカイブを使用することを前提とします）。
-戻り値は、完了した現在のトランザクションログファイル内の終了トランザクションログの位置に1を加えたものです。
-前回のトランザクションログファイルの切り替えからトランザクションログに変化がなければ、<function>pg_switch_xlog</>は何もせずに、現在使用中のトランザクションログファイルの開始位置を返します。
-   </para>
-
-   <para>
-<!--
-    <function>pg_create_restore_point</> creates a named transaction log
     record that can be used as recovery target, and returns the corresponding
-    transaction log location.  The given name can then be used with
+    write-ahead log location.  The given name can then be used with
     <xref linkend="recovery-target-name"> to specify the point up to which
     recovery will proceed.  Avoid creating multiple restore points with the
     same name, since recovery will stop at the first one whose name matches
@@ -5278,17 +5448,17 @@ postgres=# select pg_start_backup('label_goes_here');
 
    <para>
 <!--
-    <function>pg_current_xlog_location</> displays the current transaction log write
+    <function>pg_current_wal_lsn</> displays the current write-ahead log write
     location in the same format used by the above functions.  Similarly,
-    <function>pg_current_xlog_insert_location</> displays the current transaction log
-    insertion point and <function>pg_current_xlog_flush_location</> displays the
-    current transaction log flush point. The insertion point is the <quote>logical</>
-    end of the transaction log at any instant, while the write location is the end of
+    <function>pg_current_wal_insert_lsn</> displays the current write-ahead log
+    insertion location and <function>pg_current_wal_flush_lsn</> displays the
+    current write-ahead log flush location. The insertion location is the <quote>logical</>
+    end of the write-ahead log at any instant, while the write location is the end of
     what has actually been written out from the server's internal buffers and flush
     location is the location guaranteed to be written to durable storage. The write
     location is the end of what can be examined from outside the server, and is usually
-    what you want if you are interested in archiving partially-complete transaction log
-    files.  The insertion and flush points are made available primarily for server
+    what you want if you are interested in archiving partially-complete write-ahead log
+    files.  The insertion and flush locations are made available primarily for server
     debugging purposes.  These are both read-only operations and do not
     require superuser permissions.
 -->
@@ -5303,24 +5473,24 @@ postgres=# select pg_start_backup('label_goes_here');
 
    <para>
 <!--
-    You can use <function>pg_xlogfile_name_offset</> to extract the
-    corresponding transaction log file name and byte offset from the results of any of the
+    You can use <function>pg_walfile_name_offset</> to extract the
+    corresponding write-ahead log file name and byte offset from the results of any of the
     above functions.  For example:
 -->
 <function>pg_xlogfile_name_offset</>を使用して、上記いずれの関数の結果からも、対応するトランザクションログファイルとバイトオフセットを取り出すことができます。
 以下に例を示します。
 <programlisting>
-postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
+postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
         file_name         | file_offset 
 --------------------------+-------------
  00000001000000000000000D |     4039624
 (1 row)
 </programlisting>
 <!--
-    Similarly, <function>pg_xlogfile_name</> extracts just the transaction log file name.
-    When the given transaction log location is exactly at a transaction log file boundary, both
-    these functions return the name of the preceding transaction log file.
-    This is usually the desired behavior for managing transaction log archiving
+    Similarly, <function>pg_walfile_name</> extracts just the write-ahead log file name.
+    When the given write-ahead log location is exactly at a write-ahead log file boundary, both
+    these functions return the name of the preceding write-ahead log file.
+    This is usually the desired behavior for managing write-ahead log archiving
     behavior, since the preceding file is the last one that currently
     needs to be archived.
 -->
@@ -5331,8 +5501,8 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
 
    <para>
 <!--
-    <function>pg_xlog_location_diff</> calculates the difference in bytes
-    between two transaction log locations. It can be used with
+    <function>pg_wal_lsn_diff</> calculates the difference in bytes
+    between two write-ahead log locations. It can be used with
     <structname>pg_stat_replication</structname> or some functions shown in
     <xref linkend="functions-admin-backup-table"> to get the replication lag.
 -->
@@ -5360,10 +5530,10 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
     <primary>pg_is_in_recovery</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_last_xlog_receive_location</primary>
+    <primary>pg_last_wal_receive_lsn</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_last_xlog_replay_location</primary>
+    <primary>pg_last_wal_replay_lsn</primary>
    </indexterm>
    <indexterm>
     <primary>pg_last_xact_replay_timestamp</primary>
@@ -5408,11 +5578,11 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
       </row>
       <row>
        <entry>
-        <literal><function>pg_last_xlog_receive_location()</function></literal>
+        <literal><function>pg_last_wal_receive_lsn()</function></literal>
         </entry>
        <entry><type>pg_lsn</type></entry>
 <!--
-       <entry>Get last transaction log location received and synced to disk by
+       <entry>Get last write-ahead log location received and synced to disk by
         streaming replication. While streaming replication is in progress
         this will increase monotonically. If recovery has completed this will
         remain static at
@@ -5425,11 +5595,11 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
       </row>
       <row>
        <entry>
-        <literal><function>pg_last_xlog_replay_location()</function></literal>
+        <literal><function>pg_last_wal_replay_lsn()</function></literal>
         </entry>
        <entry><type>pg_lsn</type></entry>
 <!--
-       <entry>Get last transaction log location replayed during recovery.
+       <entry>Get last write-ahead log location replayed during recovery.
         If recovery is still in progress this will increase monotonically.
         If recovery has completed then this value will remain static at
         the value of the last WAL record applied during that recovery.
@@ -5469,13 +5639,13 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
    </table>
 
    <indexterm>
-    <primary>pg_is_xlog_replay_paused</primary>
+    <primary>pg_is_wal_replay_paused</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_xlog_replay_pause</primary>
+    <primary>pg_wal_replay_pause</primary>
    </indexterm>
    <indexterm>
-    <primary>pg_xlog_replay_resume</primary>
+    <primary>pg_wal_replay_resume</primary>
    </indexterm>
 
    <para>
@@ -5505,7 +5675,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
      <tbody>
       <row>
        <entry>
-        <literal><function>pg_is_xlog_replay_paused()</function></literal>
+        <literal><function>pg_is_wal_replay_paused()</function></literal>
         </entry>
        <entry><type>bool</type></entry>
 <!--
@@ -5517,7 +5687,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
       </row>
       <row>
        <entry>
-        <literal><function>pg_xlog_replay_pause()</function></literal>
+        <literal><function>pg_wal_replay_pause()</function></literal>
         </entry>
        <entry><type>void</type></entry>
 <!--
@@ -5528,7 +5698,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
       </row>
       <row>
        <entry>
-        <literal><function>pg_xlog_replay_resume()</function></literal>
+        <literal><function>pg_wal_replay_resume()</function></literal>
         </entry>
        <entry><type>void</type></entry>
 <!--
@@ -5746,10 +5916,10 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         <indexterm>
          <primary>pg_create_physical_replication_slot</primary>
         </indexterm>
-        <literal><function>pg_create_physical_replication_slot(<parameter>slot_name</parameter> <type>name</type> <optional>, <parameter>immediately_reserve</> <type>boolean</> </optional>)</function></literal>
+        <literal><function>pg_create_physical_replication_slot(<parameter>slot_name</parameter> <type>name</type> <optional>, <parameter>immediately_reserve</> <type>boolean</>, <parameter>temporary</> <type>boolean</></optional>)</function></literal>
        </entry>
        <entry>
-        (<parameter>slot_name</parameter> <type>name</type>, <parameter>xlog_position</parameter> <type>pg_lsn</type>)
+        (<parameter>slot_name</parameter> <type>name</type>, <parameter>lsn</parameter> <type>pg_lsn</type>)
        </entry>
        <entry>
 <!--
@@ -5760,7 +5930,11 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         the <acronym>LSN</> is reserved on first connection from a streaming
         replication client. Streaming changes from a physical slot is only
         possible with the streaming-replication protocol &mdash;
-        see <xref linkend="protocol-replication">. This function corresponds
+        see <xref linkend="protocol-replication">. The optional third
+        parameter, <parameter>temporary</>, when set to true, specifies that
+        the slot should not be permanently stored to disk and is only meant
+        for use by current session. Temporary slots are also
+        released upon any error. This function corresponds
         to the replication protocol command <literal>CREATE_REPLICATION_SLOT
         ... PHYSICAL</literal>.
 -->
@@ -5786,7 +5960,8 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
 <!--
         Drops the physical or logical replication slot
         named <parameter>slot_name</parameter>. Same as replication protocol
-        command <literal>DROP_REPLICATION_SLOT</>.
+        command <literal>DROP_REPLICATION_SLOT</>. For logical slots, this must
+        be called when connected to the same database the slot was created on.
 -->
 <parameter>slot_name</parameter>という名前の物理もしくは論理レプリケーションスロットを削除します。
 レプリケーションプロトコルコマンド<literal>DROP_REPLICATION_SLOT</>と同じです。
@@ -5798,16 +5973,20 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         <indexterm>
          <primary>pg_create_logical_replication_slot</primary>
         </indexterm>
-        <literal><function>pg_create_logical_replication_slot(<parameter>slot_name</parameter> <type>name</type>, <parameter>plugin</parameter> <type>name</type>)</function></literal>
+        <literal><function>pg_create_logical_replication_slot(<parameter>slot_name</parameter> <type>name</type>, <parameter>plugin</parameter> <type>name</type> <optional>, <parameter>temporary</> <type>boolean</></optional>)</function></literal>
        </entry>
        <entry>
-        (<parameter>slot_name</parameter> <type>name</type>, <parameter>xlog_position</parameter> <type>pg_lsn</type>)
+        (<parameter>slot_name</parameter> <type>name</type>, <parameter>lsn</parameter> <type>pg_lsn</type>)
        </entry>
        <entry>
 <!--
         Creates a new logical (decoding) replication slot named
         <parameter>slot_name</parameter> using the output plugin
-        <parameter>plugin</parameter>.  A call to this function has the same
+        <parameter>plugin</parameter>. The optional third
+        parameter, <parameter>temporary</>, when set to true, specifies that
+        the slot should not be permanently stored to disk and is only meant
+        for use by current session. Temporary slots are also
+        released upon any error. A call to this function has the same
         effect as the replication protocol command
         <literal>CREATE_REPLICATION_SLOT ... LOGICAL</literal>.
 -->
@@ -5824,7 +6003,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         <literal><function>pg_logical_slot_get_changes(<parameter>slot_name</parameter> <type>name</type>, <parameter>upto_lsn</parameter> <type>pg_lsn</type>, <parameter>upto_nchanges</parameter> <type>int</type>, VARIADIC <parameter>options</parameter> <type>text[]</type>)</function></literal>
        </entry>
        <entry>
-        (<parameter>location</parameter> <type>pg_lsn</type>, <parameter>xid</parameter> <type>xid</type>, <parameter>data</parameter> <type>text</type>)
+        (<parameter>lsn</parameter> <type>pg_lsn</type>, <parameter>xid</parameter> <type>xid</type>, <parameter>data</parameter> <type>text</type>)
        </entry>
        <entry>
 <!--
@@ -5856,7 +6035,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         <literal><function>pg_logical_slot_peek_changes(<parameter>slot_name</parameter> <type>name</type>, <parameter>upto_lsn</parameter> <type>pg_lsn</type>, <parameter>upto_nchanges</parameter> <type>int</type>, VARIADIC <parameter>options</parameter> <type>text[]</type>)</function></literal>
        </entry>
        <entry>
-        (<parameter>location</parameter> <type>text</type>, <parameter>xid</parameter> <type>xid</type>, <parameter>data</parameter> <type>text</type>)
+        (<parameter>lsn</parameter> <type>pg_lsn</type>, <parameter>xid</parameter> <type>xid</type>, <parameter>data</parameter> <type>text</type>)
        </entry>
        <entry>
 <!--
@@ -5877,7 +6056,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         <literal><function>pg_logical_slot_get_binary_changes(<parameter>slot_name</parameter> <type>name</type>, <parameter>upto_lsn</parameter> <type>pg_lsn</type>, <parameter>upto_nchanges</parameter> <type>int</type>, VARIADIC <parameter>options</parameter> <type>text[]</type>)</function></literal>
        </entry>
        <entry>
-        (<parameter>location</parameter> <type>pg_lsn</type>, <parameter>xid</parameter> <type>xid</type>, <parameter>data</parameter> <type>bytea</type>)
+        (<parameter>lsn</parameter> <type>pg_lsn</type>, <parameter>xid</parameter> <type>xid</type>, <parameter>data</parameter> <type>bytea</type>)
        </entry>
        <entry>
 <!--
@@ -5897,7 +6076,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
         <literal><function>pg_logical_slot_peek_binary_changes(<parameter>slot_name</parameter> <type>name</type>, <parameter>upto_lsn</parameter> <type>pg_lsn</type>, <parameter>upto_nchanges</parameter> <type>int</type>, VARIADIC <parameter>options</parameter> <type>text[]</type>)</function></literal>
        </entry>
        <entry>
-        (<parameter>location</parameter> <type>pg_lsn</type>, <parameter>xid</parameter> <type>xid</type>, <parameter>data</parameter> <type>bytea</type>)
+        (<parameter>lsn</parameter> <type>pg_lsn</type>, <parameter>xid</parameter> <type>xid</type>, <parameter>data</parameter> <type>bytea</type>)
        </entry>
        <entry>
 <!--
@@ -6041,7 +6220,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
        </entry>
        <entry>
 <!--
-        Return the replay position for the replication origin configured in
+        Return the replay location for the replication origin configured in
         the current session. The parameter <parameter>flush</parameter>
         determines whether the corresponding local transaction will be
         guaranteed to have been flushed to disk or not.
@@ -6094,11 +6273,11 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
       </row>
 
       <row>
-       <entry>
+       <entry id="pg-replication-origin-advance">
         <indexterm>
          <primary>pg_replication_origin_advance</primary>
         </indexterm>
-        <literal>pg_replication_origin_advance<function>(<parameter>node_name</parameter> <type>text</type>, <parameter>pos</parameter> <type>pg_lsn</type>)</function></literal>
+        <literal>pg_replication_origin_advance<function>(<parameter>node_name</parameter> <type>text</type>, <parameter>lsn</parameter> <type>pg_lsn</type>)</function></literal>
        </entry>
        <entry>
         <type>void</>
@@ -6106,8 +6285,8 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
        <entry>
 <!--
         Set replication progress for the given node to the given
-        position. This primarily is useful for setting up the initial position
-        or a new position after configuration changes and similar. Be aware
+        location. This primarily is useful for setting up the initial location
+        or a new location after configuration changes and similar. Be aware
         that careless use of this function can lead to inconsistently
         replicated data.
 -->
@@ -6129,7 +6308,7 @@ postgres=# SELECT * FROM pg_xlogfile_name_offset(pg_stop_backup());
        </entry>
        <entry>
 <!--
-        Return the replay position for the given replication origin. The
+        Return the replay location for the given replication origin. The
         parameter <parameter>flush</parameter> determines whether the
         corresponding local transaction will be guaranteed to have been
         flushed to disk or not.
@@ -6457,9 +6636,11 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
     accept the OID or name of a database or tablespace, and return the total
     disk space used therein.  To use <function>pg_database_size</function>,
     you must have <literal>CONNECT</> permission on the specified database
-    (which is granted by default).  To use <function>pg_tablespace_size</>,
-    you must have <literal>CREATE</> permission on the specified tablespace,
-    unless it is the default tablespace for the current database.
+    (which is granted by default), or be a member of the <literal>pg_read_all_stats</>
+    role. To use <function>pg_tablespace_size</>, you must have
+    <literal>CREATE</> permission on the specified tablespace, or be a member
+    of the <literal>pg_read_all_stats</> role unless it is the default tablespace for
+    the current database.
 -->
 <function>pg_database_size</>と<function>pg_tablespace_size</>はデータベースまたはテーブル空間の名前またはOIDを受付け、そこで使用される総容量を返します。
 <function>pg_database_size</function>を使うためには、指定されたデータベースに<literal>CONNECT</>権限(デフォルトで付与されている)を持っていなければなりません。
@@ -6692,6 +6873,65 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
 データベースのデフォルトテーブル空間内のテーブルに対しては、テーブル空間は0と指定できます。
    </para>
 
+   <para>
+    <xref linkend="functions-admin-collation"> lists functions used to manage
+    collations.
+   </para>
+
+   <table id="functions-admin-collation">
+    <title>Collation Management Functions</title>
+    <tgroup cols="3">
+     <thead>
+      <row><entry>Name</entry> <entry>Return Type</entry> <entry>Description</entry></row>
+     </thead>
+
+     <tbody>
+      <row>
+       <entry>
+        <indexterm><primary>pg_collation_actual_version</primary></indexterm>
+        <literal><function>pg_collation_actual_version(<type>oid</>)</function></literal>
+       </entry>
+       <entry><type>text</type></entry>
+       <entry>Return actual version of collation from operating system</entry>
+      </row>
+      <row>
+       <entry>
+        <indexterm><primary>pg_import_system_collations</primary></indexterm>
+        <literal><function>pg_import_system_collations(<parameter>schema</> <type>regnamespace</>)</function></literal>
+       </entry>
+       <entry><type>integer</type></entry>
+       <entry>Import operating system collations</entry>
+      </row>
+     </tbody>
+    </tgroup>
+   </table>
+
+   <para>
+    <function>pg_collation_actual_version</function> returns the actual
+    version of the collation object as it is currently installed in the
+    operating system.  If this is different from the value
+    in <literal>pg_collation.collversion</literal>, then objects depending on
+    the collation might need to be rebuilt.  See also
+    <xref linkend="sql-altercollation">.
+   </para>
+
+   <para>
+    <function>pg_import_system_collations</> adds collations to the system
+    catalog <literal>pg_collation</literal> based on all the
+    locales it finds in the operating system.  This is
+    what <command>initdb</command> uses;
+    see <xref linkend="collation-managing"> for more details.  If additional
+    locales are installed into the operating system later on, this function
+    can be run again to add collations for the new locales.  Locales that
+    match existing entries in <literal>pg_collation</literal> will be skipped.
+    (But collation objects based on locales that are no longer
+    present in the operating system are not removed by this function.)
+    The <parameter>schema</parameter> parameter would typically
+    be <literal>pg_catalog</literal>, but that is not a requirement;
+    the collations could be installed into some other schema as well.
+    The function returns the number of new collation objects it created.
+   </para>
+
   </sect2>
 
   <sect2 id="functions-admin-index">
@@ -6706,6 +6946,14 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
 
    <indexterm>
     <primary>gin_clean_pending_list</primary>
+   </indexterm>
+
+   <indexterm>
+    <primary>brin_summarize_range</primary>
+   </indexterm>
+
+   <indexterm>
+    <primary>brin_desummarize_range</primary>
    </indexterm>
 
    <para>
@@ -6747,6 +6995,20 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
       </row>
       <row>
        <entry>
+        <literal><function>brin_summarize_range(<parameter>index</> <type>regclass</>, <parameter>blockNumber</> <type>bigint</type>)</function></literal>
+       </entry>
+       <entry><type>integer</type></entry>
+       <entry>summarize the page range covering the given block, if not already summarized</entry>
+      </row>
+      <row>
+       <entry>
+        <literal><function>brin_desummarize_range(<parameter>index</> <type>regclass</>, <parameter>blockNumber</> <type>bigint</type>)</function></literal>
+       </entry>
+       <entry><type>integer</type></entry>
+       <entry>de-summarize the page range covering the given block, if summarized</entry>
+      </row>
+      <row>
+       <entry>
         <literal><function>gin_clean_pending_list(<parameter>index</> <type>regclass</>)</function></literal>
        </entry>
        <entry><type>bigint</type></entry>
@@ -6766,7 +7028,8 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
     that are not currently summarized by the index; for any such range
     it creates a new summary index tuple by scanning the table pages.
     It returns the number of new page range summaries that were inserted
-    into the index.
+    into the index.  <function>brin_summarize_range</> does the same, except
+    it only summarizes the range that covers the given block number.
 -->
 <function>brin_summarize_new_values</>はBRINインデックスのOIDまたは名前を受け取り、インデックスを検査してベーステーブル内のインデックスによって現在要約されていないページ範囲を探します。
 そのような範囲があれば、テーブルのページをスキャンして新しい要約インデックスタプルを作成します。
@@ -6807,7 +7070,8 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
     database cluster directory and the <varname>log_directory</> can be
     accessed.  Use a relative path for files in the cluster directory,
     and a path matching the <varname>log_directory</> configuration setting
-    for log files.  Use of these functions is restricted to superusers.
+    for log files.  Use of these functions is restricted to superusers
+    except where stated otherwise.
 -->
 <xref linkend="functions-admin-genfile-table">で示されている関数はサーバをホスティングしているマシン上のファイルに対し、ネイティブのアクセスを提供します。
 データベースクラスタディレクトリと<varname>log_directory</>に存在するファイルのみがアクセス可能です。
@@ -6840,6 +7104,28 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
         List the contents of a directory.
 -->
 ディレクトリの内容を一覧表示する
+       </entry>
+      </row>
+      <row>
+       <entry>
+        <literal><function>pg_ls_logdir()</function></literal>
+       </entry>
+       <entry><type>setof record</type></entry>
+       <entry>
+        List the name, size, and last modification time of files in the log
+        directory. Access is granted to members of the <literal>pg_monitor</>
+        role and may be granted to other non-superuser roles.
+       </entry>
+      </row>
+      <row>
+       <entry>
+        <literal><function>pg_ls_waldir()</function></literal>
+       </entry>
+       <entry><type>setof record</type></entry>
+       <entry>
+        List the name, size, and last modification time of files in the WAL
+        directory. Access is granted to members of the <literal>pg_monitor</>
+        role and may be granted to other non-superuser roles.
        </entry>
       </row>
       <row>
@@ -6884,7 +7170,7 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
 
    <para>
 <!--
-    All of these functions take an optional <parameter>missing_ok</> parameter,
+    Some of these functions take an optional <parameter>missing_ok</> parameter,
     which specifies the behavior when the file or directory does not exist.
     If <literal>true</literal>, the function returns NULL (except
     <function>pg_ls_dir</>, which returns an empty result set). If
@@ -6912,6 +7198,27 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
 <function>pg_ls_dir</>は、指定されたディレクトリ内のすべてのファイル（およびディレクトリと他の特殊ファイル）の名前を返します。
 <parameter>include_dot_dirs</>は<quote>.</>と<quote>..</>が結果集合に含まれるかどうかを指定します。
 デフォルト(<literal>false</>)ではそれらを除外しますが、それらを含めると、<parameter>missing_ok</>が<literal>true</literal>の場合は、空のディレクトリと存在しないディレクトリを区別するために役立つでしょう。
+   </para>
+
+   <indexterm>
+    <primary>pg_ls_logdir</primary>
+   </indexterm>
+   <para>
+    <function>pg_ls_logdir</> returns the name, size, and last modified time
+    (mtime) of each file in the log directory. By default, only superusers
+    and members of the <literal>pg_monitor</> role can use this function.
+    Access may be granted to others using <command>GRANT</command>.
+   </para>
+
+   <indexterm>
+    <primary>pg_ls_waldir</primary>
+   </indexterm>
+   <para>
+    <function>pg_ls_waldir</> returns the name, size, and last modified time
+    (mtime) of each file in the write ahead log (WAL) directory. By
+    default only superusers and members of the <literal>pg_monitor</> role
+    can use this function. Access may be granted to others using
+    <command>GRANT</command>.
    </para>
 
    <indexterm>

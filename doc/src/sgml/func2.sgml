@@ -166,6 +166,17 @@
     </para>
    </note>
 
+   <tip>
+    <para>
+     <function>to_timestamp</function> and <function>to_date</function>
+     exist to handle input formats that cannot be converted by
+     simple casting.  For most standard date/time formats, simply casting the
+     source string to the required data type works, and is much easier.
+     Similarly, <function>to_number</> is unnecessary for standard numeric
+     representations.
+    </para>
+   </tip>
+
    <para>
 <!--
     In a <function>to_char</> output template string, there are certain
@@ -536,7 +547,7 @@
        <row>
         <entry><literal>Q</literal></entry>
 <!--
-        <entry>quarter (ignored by <function>to_date</> and <function>to_timestamp</>)</entry>
+        <entry>quarter</entry>
 -->
         <entry>四半期（<function>to_date</>と<function>to_timestamp</>は無視します）</entry>
        </row>
@@ -749,27 +760,6 @@
      <listitem>
       <para>
 <!--
-       <function>to_timestamp</function> and <function>to_date</function>
-       exist to handle input formats that cannot be converted by
-       simple casting.  These functions interpret input liberally,
-       with minimal error checking.  While they produce valid output,
-       the conversion can yield unexpected results.  For example,
-       input to these functions is not restricted by normal ranges,
-       thus <literal>to_date('20096040','YYYYMMDD')</literal> returns
-       <literal>2014-01-17</literal> rather than causing an error.
-       Casting does not have this behavior.
--->
-<function>to_timestamp</function>と<function>to_date</function>は単純なキャストでは変換できない入力書式を扱うために存在します。
-この関数は最低限のエラー検査で入力を自由に解釈します。
-有効な出力を生成しますが、変換は思わぬ結果を生じることがあります。
-例えば、この関数への入力は通常の範囲で制限されてはいませんので、<literal>to_date('20096040','YYYYMMDD')</literal>はエラーを起こすのではなく、<literal>2014-01-17</literal>を返します。
-キャストにはこのような動作はありません。
-      </para>
-     </listitem>
-
-     <listitem>
-      <para>
-<!--
        Ordinary text is allowed in <function>to_char</function>
        templates and will be output literally.  You can put a substring
        in double quotes to force it to be interpreted as literal text
@@ -802,7 +792,8 @@
      <listitem>
       <para>
 <!--
-       If the year format specification is less than four digits, e.g.
+       In <function>to_timestamp</function> and <function>to_date</function>,
+       if the year format specification is less than four digits, e.g.
        <literal>YYY</>, and the supplied year is less than four digits,
        the year will be adjusted to be nearest to the year 2020, e.g.
        <literal>95</> becomes 1995.
@@ -814,8 +805,9 @@
      <listitem>
       <para>
 <!--
-       The <literal>YYYY</literal> conversion from string to <type>timestamp</type> or
-       <type>date</type> has a restriction when processing years with more than 4 digits. You must
+       In <function>to_timestamp</function> and <function>to_date</function>,
+       the <literal>YYYY</literal> conversion has a restriction when
+       processing years with more than 4 digits. You must
        use some non-digit character or template after <literal>YYYY</literal>,
        otherwise the year is always interpreted as 4 digits. For example
        (with the year 20000):
@@ -834,12 +826,12 @@
      <listitem>
       <para>
 <!--
-       In conversions from string to <type>timestamp</type> or
-       <type>date</type>, the <literal>CC</literal> (century) field is ignored
+       In <function>to_timestamp</function> and <function>to_date</function>,
+       the <literal>CC</literal> (century) field is accepted but ignored
        if there is a <literal>YYY</literal>, <literal>YYYY</literal> or
        <literal>Y,YYY</literal> field. If <literal>CC</literal> is used with
-       <literal>YY</literal> or <literal>Y</literal> then the year is computed
-       as the year in the specified century.  If the century is
+       <literal>YY</literal> or <literal>Y</literal> then the result is
+       computed as that year in the specified century.  If the century is
        specified but the year is not, the first year of the century
        is assumed.
 -->
@@ -851,10 +843,20 @@
 
      <listitem>
       <para>
+       In <function>to_timestamp</function> and <function>to_date</function>,
+       weekday names or numbers (<literal>DAY</literal>, <literal>D</literal>,
+       and related field types) are accepted but are ignored for purposes of
+       computing the result.  The same is true for quarter
+       (<literal>Q</literal>) fields.
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
 <!--
-       An ISO 8601 week-numbering date (as distinct from a Gregorian date)
-       can be specified to <function>to_timestamp</function> and
-       <function>to_date</function> in one of two ways:
+       In <function>to_timestamp</function> and <function>to_date</function>,
+       an ISO 8601 week-numbering date (as distinct from a Gregorian date)
+       can be specified in one of two ways:
 -->
 ISO 8601週番号日は（グレゴリオ暦の日付とは異なって）<function>to_timestamp</function>と<function>to_date</function>で２つの方法のうちのひとつで指定できます。
        <itemizedlist>
@@ -917,16 +919,17 @@ ISO 8601週番号年の文脈では、<quote>月</>、あるいは<quote>月内�
      <listitem>
       <para>
 <!--
-       In a conversion from string to <type>timestamp</type>, millisecond
+       In <function>to_timestamp</function>, millisecond
        (<literal>MS</literal>) or microsecond (<literal>US</literal>)
-       values are used as the
+       fields are used as the
        seconds digits after the decimal point. For example
-       <literal>to_timestamp('12:3', 'SS:MS')</literal> is not 3 milliseconds,
-       but 300, because the conversion counts it as 12 + 0.3 seconds.
-       This means for the format <literal>SS:MS</literal>, the input values
-       <literal>12:3</literal>, <literal>12:30</literal>, and <literal>12:300</literal> specify the
-       same number of milliseconds. To get three milliseconds, one must use
-       <literal>12:003</literal>, which the conversion counts as
+       <literal>to_timestamp('12.3', 'SS.MS')</literal> is not 3 milliseconds,
+       but 300, because the conversion treats it as 12 + 0.3 seconds.
+       So, for the format <literal>SS.MS</literal>, the input values
+       <literal>12.3</literal>, <literal>12.30</literal>,
+       and <literal>12.300</literal> specify the
+       same number of milliseconds. To get three milliseconds, one must write
+       <literal>12.003</literal>, which the conversion treats as
        12 + 0.003 = 12.003 seconds.
 -->
 文字列型から<type>timestamp</type>型への変換に際し、ミリ秒(<literal>MS</literal>)またはマイクロ秒(<literal>US</literal>)の値は小数点の位置の後の秒の桁として使用されます。
@@ -964,9 +967,10 @@ ISO 8601週番号年の文脈では、<quote>月</>、あるいは<quote>月内�
       <para>
 <!--
         <function>to_char(interval)</function> formats <literal>HH</> and
-        <literal>HH12</> as shown on a 12-hour clock, i.e. zero hours
-        and 36 hours output as <literal>12</>, while <literal>HH24</>
-        outputs the full hour value, which can exceed 23 for intervals.
+        <literal>HH12</> as shown on a 12-hour clock, for example zero hours
+        and 36 hours both output as <literal>12</>, while <literal>HH24</>
+        outputs the full hour value, which can exceed 23 in
+        an <type>interval</> value.
 -->
 <function>to_char(interval)</function>関数は、<literal>HH</>と<literal>HH12</>を12時間の時計に表示されるように整形します。
 すなわち0時間と36時間を<literal>12</>として出力します。
@@ -1004,17 +1008,11 @@ ISO 8601週番号年の文脈では、<quote>月</>、あるいは<quote>月内�
       <tbody>
        <row>
         <entry><literal>9</literal></entry>
-<!--
-        <entry>value with the specified number of digits</entry>
--->
-        <entry>指定された桁数での値</entry>
+        <entry>digit position (can be dropped if insignificant)</entry>
        </row>
        <row>
         <entry><literal>0</literal></entry>
-<!--
-        <entry>value with leading zeros</entry>
--->
-        <entry>前にゼロが付いた値</entry>
+        <entry>digit position (will not be dropped, even if insignificant)</entry>
        </row>
        <row>
 <!--
@@ -1027,7 +1025,7 @@ ISO 8601週番号年の文脈では、<quote>月</>、あるいは<quote>月内�
        <row>
 <!--
         <entry><literal>,</literal> (comma)</entry>
-        <entry>group (thousand) separator</entry>
+        <entry>group (thousands) separator</entry>
 -->
         <entry><literal>,</literal> (コンマ)</entry>
         <entry>千単位で区切る符号</entry>
@@ -1130,32 +1128,53 @@ ISO 8601週番号年の文脈では、<quote>月</>、あるいは<quote>月内�
     <itemizedlist>
      <listitem>
       <para>
-<!--
-       A sign formatted using <literal>SG</literal>, <literal>PL</literal>, or
-       <literal>MI</literal> is not anchored to
-       the number; for example,
-       <literal>to_char(-12, 'MI9999')</literal> produces <literal>'-&nbsp;&nbsp;12'</literal>
-       but <literal>to_char(-12, 'S9999')</literal> produces <literal>'&nbsp;&nbsp;-12'</literal>.
-       The Oracle implementation does not allow the use of
-       <literal>MI</literal> before <literal>9</literal>, but rather
-       requires that <literal>9</literal> precede
-       <literal>MI</literal>.
--->
-<literal>SG</literal>、<literal>PL</literal>、または<literal>MI</literal>で整形された符号は、数値と関連付けられません。
-例えば、<literal>to_char(-12, 'MI9999')</literal>は<literal>'-&nbsp;&nbsp;12'</literal>となる一方、<literal>to_char(-12, 'S9999')</literal>は<literal>'&nbsp;&nbsp;-12'</literal>となります。
-Oracleの実装では<literal>9</literal>の前に<literal>MI</literal>が置かれてはならず、<literal>9</literal>の後に<literal>MI</literal>が置かれることを要求しています。
+       <literal>0</> specifies a digit position that will always be printed,
+       even if it contains a leading/trailing zero.  <literal>9</> also
+       specifies a digit position, but if it is a leading zero then it will
+       be replaced by a space, while if it is a trailing zero and fill mode
+       is specified then it will be deleted.  (For <function>to_number()</>,
+       these two pattern characters are equivalent.)
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+       The pattern characters <literal>S</>, <literal>L</>, <literal>D</>,
+       and <literal>G</> represent the sign, currency symbol, decimal point,
+       and thousands separator characters defined by the current locale
+       (see <xref linkend="guc-lc-monetary">
+       and <xref linkend="guc-lc-numeric">).  The pattern characters period
+       and comma represent those exact characters, with the meanings of
+       decimal point and thousands separator, regardless of locale.
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+       If no explicit provision is made for a sign
+       in <function>to_char()</>'s pattern, one column will be reserved for
+       the sign, and it will be anchored to (appear just left of) the
+       number.  If <literal>S</> appears just left of some <literal>9</>'s,
+       it will likewise be anchored to the number.
       </para>
      </listitem>
 
      <listitem>
       <para>
 <!--
-       <literal>9</literal> results in a value with the same number of
-       digits as there are <literal>9</literal>s. If a digit is
-       not available it outputs a space.
+       A sign formatted using <literal>SG</literal>, <literal>PL</literal>, or
+       <literal>MI</literal> is not anchored to
+       the number; for example,
+       <literal>to_char(-12, 'MI9999')</literal> produces <literal>'-&nbsp;&nbsp;12'</literal>
+       but <literal>to_char(-12, 'S9999')</literal> produces <literal>'&nbsp;&nbsp;-12'</literal>.
+       (The Oracle implementation does not allow the use of
+       <literal>MI</literal> before <literal>9</literal>, but rather
+       requires that <literal>9</literal> precede
+       <literal>MI</literal>.)
 -->
-<literal>9</literal>は<literal>9</literal>が並んでいる数と同じ桁数の値を出力します。
-桁が使用可能でない場合、スペースを出力します。
+<literal>SG</literal>、<literal>PL</literal>、または<literal>MI</literal>で整形された符号は、数値と関連付けられません。
+例えば、<literal>to_char(-12, 'MI9999')</literal>は<literal>'-&nbsp;&nbsp;12'</literal>となる一方、<literal>to_char(-12, 'S9999')</literal>は<literal>'&nbsp;&nbsp;-12'</literal>となります。
+Oracleの実装では<literal>9</literal>の前に<literal>MI</literal>が置かれてはならず、<literal>9</literal>の後に<literal>MI</literal>が置かれることを要求しています。
       </para>
      </listitem>
 
@@ -1218,8 +1237,8 @@ Oracleの実装では<literal>9</literal>の前に<literal>MI</literal>が置か
    <para>
 <!--
     Certain modifiers can be applied to any template pattern to alter its
-    behavior.  For example, <literal>FM9999</literal>
-    is the <literal>9999</literal> pattern with the
+    behavior.  For example, <literal>FM99.99</literal>
+    is the <literal>99.99</literal> pattern with the
     <literal>FM</literal> modifier.
     <xref linkend="functions-formatting-numericmod-table"> shows the
     modifier patterns for numeric formatting.
@@ -1254,7 +1273,8 @@ Oracleの実装では<literal>9</literal>の前に<literal>MI</literal>が置か
 -->
         <entry><literal>FM</literal>添え字</entry>
 <!--
-        <entry>fill mode (suppress leading zeroes and padding blanks)</entry>
+        <entry>fill mode (suppress trailing zeroes and padding blanks)</entry>
+        <entry><literal>FM99.99</literal></entry>
 -->
         <entry>字詰めモード（先頭の0、および空白の埋め字を無効）</entry>
         <entry><literal>FM9999</literal></entry>
@@ -1325,6 +1345,10 @@ Oracleの実装では<literal>9</literal>の前に<literal>MI</literal>が置か
        <row>
         <entry><literal>to_char(-0.1, 'FM9.99')</literal></entry>
         <entry><literal>'-.1'</literal></entry>
+       </row>
+       <row>
+        <entry><literal>to_char(-0.1, 'FM90.99')</literal></entry>
+        <entry><literal>'-0.1'</literal></entry>
        </row>
        <row>
         <entry><literal>to_char(0.1, '0.9')</literal></entry>
@@ -4861,6 +4885,62 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
 <type>macaddr</type>型は（<literal>&gt;</literal>、<literal>&lt;=</literal>等の）辞書編集順に並べる標準関係演算子とNOT、AND、ORのビット演算子(<literal>~</literal>、<literal>&amp;</literal>、<literal>|</literal>)もサポートしています。
    </para>
 
+   <para>
+   <xref linkend="macaddr8-functions-table"> shows the functions
+   available for use with the <type>macaddr8</type> type.  The function
+   <literal><function>trunc(<type>macaddr8</type>)</function></literal> returns a MAC
+   address with the last 5 bytes set to zero.  This can be used to
+   associate the remaining prefix with a manufacturer.
+  </para>
+
+    <table id="macaddr8-functions-table">
+     <title><type>macaddr8</type> Functions</title>
+     <tgroup cols="5">
+      <thead>
+       <row>
+        <entry>Function</entry>
+        <entry>Return Type</entry>
+        <entry>Description</entry>
+        <entry>Example</entry>
+        <entry>Result</entry>
+       </row>
+      </thead>
+      <tbody>
+       <row>
+        <entry>
+         <indexterm>
+          <primary>trunc</primary>
+         </indexterm>
+         <literal><function>trunc(<type>macaddr8</type>)</function></literal>
+        </entry>
+        <entry><type>macaddr8</type></entry>
+        <entry>set last 5 bytes to zero</entry>
+        <entry><literal>trunc(macaddr8 '12:34:56:78:90:ab:cd:ef')</literal></entry>
+        <entry><literal>12:34:56:00:00:00:00:00</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <indexterm>
+          <primary>macaddr8_set7bit</primary>
+         </indexterm>
+         <literal><function>macaddr8_set7bit(<type>macaddr8</type>)</function></literal>
+        </entry>
+        <entry><type>macaddr8</type></entry>
+        <entry>set 7th bit to one, also known as modified EUI-64, for inclusion in an IPv6 address</entry>
+        <entry><literal>macaddr8_set7bit(macaddr8 '00:34:56:ab:cd:ef')</literal></entry>
+        <entry><literal>02:34:56:ff:fe:ab:cd:ef</literal></entry>
+       </row>
+      </tbody>
+     </tgroup>
+    </table>
+
+   <para>
+    The <type>macaddr8</type> type also supports the standard relational
+    operators (<literal>&gt;</literal>, <literal>&lt;=</literal>, etc.) for
+    ordering, and the bitwise arithmetic operators (<literal>~</literal>,
+    <literal>&amp;</literal> and <literal>|</literal>) for NOT, AND and OR.
+   </para>
+
   </sect1>
 
 
@@ -5256,6 +5336,18 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
        </row>
        <row>
         <entry>
+         <literal><function>to_tsvector(<optional> <replaceable class="PARAMETER">config</> <type>regconfig</> , </optional> <replaceable class="PARAMETER">document</> <type>json(b)</type>)</function></literal>
+        </entry>
+        <entry><type>tsvector</type></entry>
+        <entry>
+          reduce each string value in the document to a <type>tsvector</>, and then
+          concatenate those in document order to produce a single <type>tsvector</>
+        </entry>
+        <entry><literal>to_tsvector('english', '{"a": "The Fat Rats"}'::json)</literal></entry>
+        <entry><literal>'fat':2 'rat':3</literal></entry>
+       </row>
+       <row>
+        <entry>
          <indexterm>
           <primary>ts_delete</primary>
          </indexterm>
@@ -5311,6 +5403,15 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry>問い合わせによるマッチを表示</entry>
         <entry><literal>ts_headline('x y z', 'z'::tsquery)</literal></entry>
         <entry><literal>x y &lt;b&gt;z&lt;/b&gt;</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal><function>ts_headline(<optional> <replaceable class="PARAMETER">config</replaceable> <type>regconfig</>, </optional> <replaceable class="PARAMETER">document</replaceable> <type>json(b)</>, <replaceable class="PARAMETER">query</replaceable> <type>tsquery</> <optional>, <replaceable class="PARAMETER">options</replaceable> <type>text</> </optional>)</function></literal>
+        </entry>
+        <entry><type>text</type></entry>
+        <entry>display a query match</entry>
+        <entry><literal>ts_headline('{"a":"x y z"}'::json, 'z'::tsquery)</literal></entry>
+        <entry><literal>{"a":"x y &lt;b&gt;z&lt;/b&gt;"}</literal></entry>
        </row>
        <row>
         <entry>
@@ -5456,7 +5557,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         </entry>
         <entry><type>setof record</type></entry>
 <!--
-        <entry>expand a tsvector to a set of rows</entry>
+        <entry>expand a <type>tsvector</type> to a set of rows</entry>
 -->
         <entry>tsvectorを行の集合に展開する</entry>
         <entry><literal>unnest('fat:2,4 cat:3 rat:5A'::tsvector)</literal></entry>
@@ -6312,67 +6413,71 @@ SELECT xml_is_well_formed_document('<pg:foo xmlns:pg="http://postgresql.org/stuf
 -->
    <title>XMLの処理</title>
 
-   <indexterm>
-    <primary>XPath</primary>
-   </indexterm>
-
    <para>
 <!--
     To process values of data type <type>xml</type>, PostgreSQL offers
     the functions <function>xpath</function> and
     <function>xpath_exists</function>, which evaluate XPath 1.0
-    expressions.
+    expressions, and the <function>XMLTABLE</function>
+    table function.
 -->
 データ型<type>xml</type>の値を処理するため、PostgreSQLは関数<function>xpath</function>と<function>xpath_exists</function>を提供しており、それはXPath 1.0式を評価します。
    </para>
+
+   <sect3 id="functions-xml-processing-xpath">
+    <title><literal>xpath</literal></title>
+
+    <indexterm>
+     <primary>XPath</primary>
+    </indexterm>
 
 <synopsis>
 <function>xpath</function>(<replaceable>xpath</replaceable>, <replaceable>xml</replaceable> <optional>, <replaceable>nsarray</replaceable></optional>)
 </synopsis>
 
-   <para>
+    <para>
 <!--
-    The function <function>xpath</function> evaluates the XPath
-    expression <replaceable>xpath</replaceable> (a <type>text</> value)
-    against the XML value
-    <replaceable>xml</replaceable>.  It returns an array of XML values
-    corresponding to the node set produced by the XPath expression.
-    If the XPath expression returns a scalar value rather than a node set,
-    a single-element array is returned.
+     The function <function>xpath</function> evaluates the XPath
+     expression <replaceable>xpath</replaceable> (a <type>text</> value)
+     against the XML value
+     <replaceable>xml</replaceable>.  It returns an array of XML values
+     corresponding to the node set produced by the XPath expression.
+     If the XPath expression returns a scalar value rather than a node set,
+     a single-element array is returned.
 -->
 関数<function>xpath</function>は、XML値<replaceable>xml</replaceable>に対し、XPath式<replaceable>xpath</replaceable>(ひとつの<type>text</>値)を評価します。そして、XPath式で作成されたノードセットに対応するXML値の配列を返します。
 もし、XPath式がノードセットではなくスカラー値を返す場合、単一要素の配列が返されます。
-   </para>
+    </para>
 
-  <para>
+    <para>
 <!--
-    The second argument must be a well formed XML document. In particular,
-    it must have a single root node element.
+     The second argument must be a well formed XML document. In particular,
+     it must have a single root node element.
 -->
 2番目の引数は整形済XML文書でなければなりません。特に、単一のルートノード要素を持たなければなりません。
-  </para>
+    </para>
 
-   <para>
+    <para>
 <!--
-    The optional third argument of the function is an array of namespace
-    mappings.  This array should be a two-dimensional <type>text</> array with
-    the length of the second axis being equal to 2 (i.e., it should be an
-    array of arrays, each of which consists of exactly 2 elements).
-    The first element of each array entry is the namespace name (alias), the
-    second the namespace URI. It is not required that aliases provided in
-    this array be the same as those being used in the XML document itself (in
-    other words, both in the XML document and in the <function>xpath</function>
-    function context, aliases are <emphasis>local</>).
+     The optional third argument of the function is an array of namespace
+     mappings.  This array should be a two-dimensional <type>text</> array with
+     the length of the second axis being equal to 2 (i.e., it should be an
+     array of arrays, each of which consists of exactly 2 elements).
+     The first element of each array entry is the namespace name (alias), the
+     second the namespace URI. It is not required that aliases provided in
+     this array be the same as those being used in the XML document itself (in
+     other words, both in the XML document and in the <function>xpath</function>
+     function context, aliases are <emphasis>local</>).
 -->
 オプショナルな関数の３番目の引数は名前空間マッピング配列です。
 この配列は、第２軸が２に等しい長さをもつ２次元<type>text</>配列です（つまり、それは配列の配列で、それぞれは正確に２つの要素からなります）。
 それぞれの配列のエントリの最初の要素は名前空間の名前（別名）で、２番目は名前空間のURIです。
 この配列内で提供される別名がXML文書自身で使用されるものと同じであることは必要ではありません（言い換えると、XML文書内および<function>xpath</function>関数の両方の文脈の中で、別名は<emphasis>ローカル</>です）。
-   </para>
+    </para>
 
-   <para>
+    <para>
 <!--
-    Example:
+     Example:
 -->
 例：
 <screen><![CDATA[
@@ -6384,11 +6489,11 @@ SELECT xpath('/my:a/text()', '<my:a xmlns:my="http://example.com">test</my:a>',
  {test}
 (1 row)
 ]]></screen>
-   </para>
+    </para>
 
-   <para>
+    <para>
 <!--
-    To deal with default (anonymous) namespaces, do something like this:
+     To deal with default (anonymous) namespaces, do something like this:
 -->
 デフォルト(匿名)名前空間を取り扱うためには、以下のようなことを実施してください。
 <screen><![CDATA[
@@ -6400,32 +6505,36 @@ SELECT xpath('//mydefns:b/text()', '<a xmlns="http://example.com"><b>test</b></a
  {test}
 (1 row)
 ]]></screen>
-   </para>
+    </para>
+   </sect3>
 
-   <indexterm>
-    <primary>xpath_exists</primary>
-   </indexterm>
+   <sect3 id="functions-xml-processing-xpath-exists">
+    <title><literal>xpath_exists</literal></title>
+
+    <indexterm>
+     <primary>xpath_exists</primary>
+    </indexterm>
 
 <synopsis>
 <function>xpath_exists</function>(<replaceable>xpath</replaceable>, <replaceable>xml</replaceable> <optional>, <replaceable>nsarray</replaceable></optional>)
 </synopsis>
 
-   <para>
+    <para>
 <!--
-    The function <function>xpath_exists</function> is a specialized form
-    of the <function>xpath</function> function.  Instead of returning the
-    individual XML values that satisfy the XPath, this function returns a
-    Boolean indicating whether the query was satisfied or not.  This
-    function is equivalent to the standard <literal>XMLEXISTS</> predicate,
-    except that it also offers support for a namespace mapping argument.
+     The function <function>xpath_exists</function> is a specialized form
+     of the <function>xpath</function> function.  Instead of returning the
+     individual XML values that satisfy the XPath, this function returns a
+     Boolean indicating whether the query was satisfied or not.  This
+     function is equivalent to the standard <literal>XMLEXISTS</> predicate,
+     except that it also offers support for a namespace mapping argument.
 -->
 関数<function>xpath_exists</function>は、<function>xpath</function>関数の特別な形式です。この関数は、XPathを満足する個別のXML値を返す代わりに、問い合わせがそれを満足するかどうかを論理値で返します。
 この関数は、名前空間にマッピングされた引数をもサポートする点を除き、標準の<literal>XMLEXISTS</>述語と同じです。
-   </para>
 
-   <para>
+    </para>
+    <para>
 <!--
-    Example:
+     Example:
 -->
 例:
 <screen><![CDATA[
@@ -6437,7 +6546,238 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
  t
 (1 row)
 ]]></screen>
-   </para>
+    </para>
+   </sect3>
+
+   <sect3 id="functions-xml-processing-xmltable">
+    <title><literal>xmltable</literal></title>
+
+    <indexterm>
+     <primary>xmltable</primary>
+    </indexterm>
+
+    <indexterm zone="functions-xml-processing-xmltable">
+     <primary>table function</primary>
+     <secondary>XMLTABLE</secondary>
+    </indexterm>
+
+<synopsis>
+<function>xmltable</function>( <optional>XMLNAMESPACES(<replaceable>namespace uri</replaceable> AS <replaceable>namespace name</replaceable><optional>, ...</optional>), </optional>
+          <replaceable>row_expression</replaceable> PASSING <optional>BY REF</optional> <replaceable>document_expression</replaceable> <optional>BY REF</optional>
+          COLUMNS <replaceable>name</replaceable> { <replaceable>type</replaceable> <optional>PATH <replaceable>column_expression</replaceable></optional> <optional>DEFAULT <replaceable>default_expression</replaceable></optional> <optional>NOT NULL | NULL</optional>
+                        | FOR ORDINALITY }
+                   <optional>, ...</optional>
+)
+</synopsis>
+
+    <para>
+     The <function>xmltable</function> function produces a table based
+     on the given XML value, an XPath filter to extract rows, and an
+     optional set of column definitions.
+    </para>
+
+    <para>
+     The optional <literal>XMLNAMESPACES</> clause is a comma-separated
+     list of namespaces.  It specifies the XML namespaces used in
+     the document and their aliases. A default namespace specification
+     is not currently supported.
+    </para>
+
+    <para>
+     The required <replaceable>row_expression</> argument is an XPath
+     expression that is evaluated against the supplied XML document to
+     obtain an ordered sequence of XML nodes. This sequence is what
+     <function>xmltable</> transforms into output rows.
+    </para>
+
+    <para>
+     <replaceable>document_expression</> provides the XML document to
+     operate on.
+     The <literal>BY REF</literal> clauses have no effect in PostgreSQL,
+     but are allowed for SQL conformance and compatibility with other
+     implementations.
+     The argument must be a well-formed XML document; fragments/forests
+     are not accepted.
+    </para>
+
+    <para>
+     The mandatory <literal>COLUMNS</literal> clause specifies the list
+     of columns in the output table.
+     If the <literal>COLUMNS</> clause is omitted, the rows in the result
+     set contain a single column of type <literal>xml</> containing the
+     data matched by <replaceable>row_expression</>.
+     If <literal>COLUMNS</literal> is specified, each entry describes a
+     single column.
+     See the syntax summary above for the format.
+     The column name and type are required; the path, default and
+     nullability clauses are optional.
+    </para>
+
+    <para>
+     A column marked <literal>FOR ORDINALITY</literal> will be populated
+     with row numbers matching the order in which the
+     output rows appeared in the original input XML document.
+     At most one column may be marked <literal>FOR ORDINALITY</literal>.
+    </para>
+
+    <para>
+     The <literal>column_expression</> for a column is an XPath expression
+     that is evaluated for each row, relative to the result of the
+     <replaceable>row_expression</>, to find the value of the column.
+     If no <literal>column_expression</> is given, then the column name
+     is used as an implicit path.
+    </para>
+
+    <para>
+     If a column's XPath expression returns multiple elements, an error
+     is raised.
+     If the expression matches an empty tag, the result is an
+     empty string (not <literal>NULL</>).
+     Any <literal>xsi:nil</> attributes are ignored.
+    </para>
+
+    <para>
+     The text body of the XML matched by the <replaceable>column_expression</>
+     is used as the column value. Multiple <literal>text()</literal> nodes
+     within an element are concatenated in order. Any child elements,
+     processing instructions, and comments are ignored, but the text contents
+     of child elements are concatenated to the result.
+     Note that the whitespace-only <literal>text()</> node between two non-text
+     elements is preserved, and that leading whitespace on a <literal>text()</>
+     node is not flattened.
+    </para>
+
+    <para>
+     If the path expression does not match for a given row but
+     <replaceable>default_expression</> is specified, the value resulting
+     from evaluating that expression is used.
+     If no <literal>DEFAULT</> clause is given for the column,
+     the field will be set to <literal>NULL</>.
+     It is possible for a <replaceable>default_expression</> to reference
+     the value of output columns that appear prior to it in the column list,
+     so the default of one column may be based on the value of another
+     column.
+    </para>
+
+    <para>
+     Columns may be marked <literal>NOT NULL</>. If the
+     <replaceable>column_expression</> for a <literal>NOT NULL</> column
+     does not match anything and there is no <literal>DEFAULT</> or the
+     <replaceable>default_expression</> also evaluates to null, an error
+     is reported.
+    </para>
+
+    <para>
+     Unlike regular PostgreSQL functions, <replaceable>column_expression</>
+     and <replaceable>default_expression</> are not evaluated to a simple
+     value before calling the function.
+     <replaceable>column_expression</> is normally evaluated
+     exactly once per input row, and <replaceable>default_expression</>
+     is evaluated each time a default is needed for a field.
+     If the expression qualifies as stable or immutable the repeat
+     evaluation may be skipped.
+     Effectively <function>xmltable</> behaves more like a subquery than a
+     function call.
+     This means that you can usefully use volatile functions like
+     <function>nextval</> in <replaceable>default_expression</>, and
+     <replaceable>column_expression</> may depend on other parts of the
+     XML document.
+    </para>
+
+    <para>
+     Examples:
+  <screen><![CDATA[
+CREATE TABLE xmldata AS SELECT
+xml $$
+<ROWS>
+  <ROW id="1">
+    <COUNTRY_ID>AU</COUNTRY_ID>
+    <COUNTRY_NAME>Australia</COUNTRY_NAME>
+  </ROW>
+  <ROW id="5">
+    <COUNTRY_ID>JP</COUNTRY_ID>
+    <COUNTRY_NAME>Japan</COUNTRY_NAME>
+    <PREMIER_NAME>Shinzo Abe</PREMIER_NAME>
+    <SIZE unit="sq_mi">145935</SIZE>
+  </ROW>
+  <ROW id="6">
+    <COUNTRY_ID>SG</COUNTRY_ID>
+    <COUNTRY_NAME>Singapore</COUNTRY_NAME>
+    <SIZE unit="sq_km">697</SIZE>
+  </ROW>
+</ROWS>
+$$ AS data;
+
+SELECT xmltable.*
+  FROM xmldata,
+       XMLTABLE('//ROWS/ROW'
+                PASSING data
+                COLUMNS id int PATH '@id',
+                        ordinality FOR ORDINALITY,
+                        "COUNTRY_NAME" text,
+                        country_id text PATH 'COUNTRY_ID',
+                        size_sq_km float PATH 'SIZE[@unit = "sq_km"]',
+                        size_other text PATH
+                             'concat(SIZE[@unit!="sq_km"], " ", SIZE[@unit!="sq_km"]/@unit)',
+                        premier_name text PATH 'PREMIER_NAME' DEFAULT 'not specified') ;
+
+ id | ordinality | COUNTRY_NAME | country_id | size_sq_km |  size_other  | premier_name  
+----+------------+--------------+------------+------------+--------------+---------------
+  1 |          1 | Australia    | AU         |            |              | not specified
+  5 |          2 | Japan        | JP         |            | 145935 sq_mi | Shinzo Abe
+  6 |          3 | Singapore    | SG         |        697 |              | not specified
+]]></screen>
+
+     The following example shows concatenation of multiple text() nodes,
+     usage of the column name as XPath filter, and the treatment of whitespace,
+     XML comments and processing instructions:
+
+  <screen><![CDATA[
+CREATE TABLE xmlelements AS SELECT
+xml $$
+  <root>
+   <element>  Hello<!-- xyxxz -->2a2<?aaaaa?> <!--x-->  bbb<x>xxx</x>CC  </element>
+  </root>
+$$ AS data;
+
+SELECT xmltable.*
+  FROM xmlelements, XMLTABLE('/root' PASSING data COLUMNS element text);
+       element        
+----------------------
+   Hello2a2   bbbCC  
+]]></screen>
+    </para>
+
+    <para>
+     The following example illustrates how
+     the <literal>XMLNAMESPACES</literal> clause can be used to specify
+     the default namespace, and a list of additional namespaces
+     used in the XML document as well as in the XPath expressions:
+
+  <screen><![CDATA[
+WITH xmldata(data) AS (VALUES ('
+<example xmlns="http://example.com/myns" xmlns:B="http://example.com/b">
+ <item foo="1" B:bar="2"/>
+ <item foo="3" B:bar="4"/>
+ <item foo="4" B:bar="5"/>
+</example>'::xml)
+)
+SELECT xmltable.*
+  FROM XMLTABLE(XMLNAMESPACES('http://example.com/myns' AS x,
+                              'http://example.com/b' AS "B"),
+             '/x:example/x:item'
+                PASSING (SELECT data FROM xmldata)
+                COLUMNS foo int PATH '@foo',
+                  bar int PATH '@B:bar');
+ foo | bar
+-----+-----
+   1 |   2
+   3 |   4
+   4 |   5
+(3 rows)
+]]></screen>
+    </para>
+   </sect3>
   </sect2>
 
   <sect2 id="functions-xml-mapping">
