@@ -1772,7 +1772,7 @@ NULL値が入力されると、<quote>不明</>という論理値として扱わ
     transformation functions <literal><function>radians()</function></literal>
     and <literal><function>degrees()</function></literal> shown earlier.
     However, using the degree-based trigonometric functions is preferred,
-    as that way avoids roundoff error for special cases such
+    as that way avoids round-off error for special cases such
     as <literal>sind(30)</>.
 -->
 度単位の角度を扱う別の方法は、前に示した単位変換関数<literal><function>radians()</function></literal>と<literal><function>degrees()</function></literal>を使うことです。
@@ -2744,6 +2744,23 @@ NULLの引数は無視されます。
       <row>
        <entry>
         <indexterm>
+         <primary>regexp_match</primary>
+        </indexterm>
+        <literal><function>regexp_match(<parameter>string</parameter> <type>text</type>, <parameter>pattern</parameter> <type>text</type> [, <parameter>flags</parameter> <type>text</type>])</function></literal>
+       </entry>
+       <entry><type>text[]</type></entry>
+       <entry>
+        Return captured substring(s) resulting from the first match of a POSIX
+        regular expression to the <parameter>string</parameter>. See
+        <xref linkend="functions-posix-regexp"> for more information.
+       </entry>
+       <entry><literal>regexp_match('foobarbequebaz', '(bar)(beque)')</literal></entry>
+       <entry><literal>{bar,beque}</literal></entry>
+      </row>
+
+      <row>
+       <entry>
+        <indexterm>
          <primary>regexp_matches</primary>
         </indexterm>
         <literal><function>regexp_matches(<parameter>string</parameter> <type>text</type>, <parameter>pattern</parameter> <type>text</type> [, <parameter>flags</parameter> <type>text</type>])</function></literal>
@@ -2751,15 +2768,15 @@ NULLの引数は無視されます。
        <entry><type>setof text[]</type></entry>
        <entry>
 <!--
-        Return all captured substrings resulting from matching a POSIX regular
-        expression against the <parameter>string</parameter>. See
+        Return captured substring(s) resulting from matching a POSIX regular
+        expression to the <parameter>string</parameter>. See
         <xref linkend="functions-posix-regexp"> for more information.
 -->
 <parameter>string</parameter>に対してPOSIX正規表現でマッチし、捕捉されたすべての部分文字列を返します。
 より詳細は<xref linkend="functions-posix-regexp">を参照してください。
        </entry>
-       <entry><literal>regexp_matches('foobarbequebaz', '(bar)(beque)')</literal></entry>
-       <entry><literal>{bar,beque}</literal></entry>
+       <entry><literal>regexp_matches('foobarbequebaz', 'ba.', 'g')</literal></entry>
+       <entry><literal>{bar}</literal><para><literal>{baz}</literal></para> (2 rows)</entry>
       </row>
 
       <row>
@@ -5294,6 +5311,9 @@ substring('foobar' from '#"o_b#"%' for '#')    <lineannotation>NULL</lineannotat
     <primary>regexp_replace</primary>
    </indexterm>
    <indexterm>
+    <primary>regexp_match</primary>
+   </indexterm>
+   <indexterm>
     <primary>regexp_matches</primary>
    </indexterm>
    <indexterm>
@@ -5517,29 +5537,25 @@ regexp_replace('foobarbaz', 'b(..)', E'X\\1Y', 'g')
 
     <para>
 <!--
-     The <function>regexp_matches</> function returns a text array of
-     all of the captured substrings resulting from matching a POSIX
-     regular expression pattern.  It has the syntax
-     <function>regexp_matches</function>(<replaceable>string</>, <replaceable>pattern</>
-     <optional>, <replaceable>flags</> </optional>).
-     The function can return no rows, one row, or multiple rows (see
-     the <literal>g</> flag below).  If the <replaceable>pattern</>
-     does not match, the function returns no rows.  If the pattern
-     contains no parenthesized subexpressions, then each row
-     returned is a single-element text array containing the substring
-     matching the whole pattern.  If the pattern contains parenthesized
-     subexpressions, the function returns a text array whose
-     <replaceable>n</>'th element is the substring matching the
-     <replaceable>n</>'th parenthesized subexpression of the pattern
-     (not counting <quote>non-capturing</> parentheses; see below for
-     details).
-     The <replaceable>flags</> parameter is an optional text
-     string containing zero or more single-letter flags that change the
-     function's behavior.  Flag <literal>g</> causes the function to find
-     each match in the string, not only the first one, and return a row for
-     each such match.  Supported flags (though
-     not <literal>g</>)
-     are described in <xref linkend="posix-embedded-options-table">.
+     The <function>regexp_match</> function returns a text array of
+     captured substring(s) resulting from the first match of a POSIX
+     regular expression pattern to a string.  It has the syntax
+     <function>regexp_match</function>(<replaceable>string</>,
+     <replaceable>pattern</> <optional>, <replaceable>flags</> </optional>).
+     If there is no match, the result is <literal>NULL</>.
+     If a match is found, and the <replaceable>pattern</> contains no
+     parenthesized subexpressions, then the result is a single-element text
+     array containing the substring matching the whole pattern.
+     If a match is found, and the <replaceable>pattern</> contains
+     parenthesized subexpressions, then the result is a text array
+     whose <replaceable>n</>'th element is the substring matching
+     the <replaceable>n</>'th parenthesized subexpression of
+     the <replaceable>pattern</> (not counting <quote>non-capturing</>
+     parentheses; see below for details).
+     The <replaceable>flags</> parameter is an optional text string
+     containing zero or more single-letter flags that change the function's
+     behavior.  Supported flags are described
+     in <xref linkend="posix-embedded-options-table">.
 -->
 <function>regexp_matches</>関数はPOSIX正規表現パターンマッチの結果捕捉された全ての部分文字列のテキスト配列を返します。
 <function>regexp_matches</function>(<replaceable>string</>, <replaceable>pattern</> <optional>, <replaceable>flags</> </optional>)の構文になります。
@@ -5558,40 +5574,86 @@ regexp_replace('foobarbaz', 'b(..)', E'X\\1Y', 'g')
 -->
 例：
 <programlisting>
-SELECT regexp_matches('foobarbequebaz', '(bar)(beque)');
- regexp_matches 
-----------------
- {bar,beque}
+SELECT regexp_match('foobarbequebaz', 'bar.*que');
+ regexp_match
+--------------
+ {barbeque}
 (1 row)
 
-SELECT regexp_matches('foobarbequebazilbarfbonk', '(b[^b]+)(b[^b]+)', 'g');
- regexp_matches 
-----------------
+SELECT regexp_match('foobarbequebaz', '(bar)(beque)');
+ regexp_match
+--------------
  {bar,beque}
- {bazil,barf}
-(2 rows)
-
-SELECT regexp_matches('foobarbequebaz', 'barbeque');
- regexp_matches 
-----------------
- {barbeque}
+(1 row)
+</programlisting>
+    In the common case where you just want the whole matching substring
+    or <literal>NULL</> for no match, write something like
+<programlisting>
+SELECT (regexp_match('foobarbequebaz', 'bar.*que'))[1];
+ regexp_match
+--------------
+ barbeque
 (1 row)
 </programlisting>
    </para>
 
+    <para>
+     The <function>regexp_matches</> function returns a set of text arrays
+     of captured substring(s) resulting from matching a POSIX regular
+     expression pattern to a string.  It has the same syntax as
+     <function>regexp_match</function>.
+     This function returns no rows if there is no match, one row if there is
+     a match and the <literal>g</> flag is not given, or <replaceable>N</>
+     rows if there are <replaceable>N</> matches and the <literal>g</> flag
+     is given.  Each returned row is a text array containing the whole
+     matched substring or the substrings matching parenthesized
+     subexpressions of the <replaceable>pattern</>, just as described above
+     for <function>regexp_match</function>.
+     <function>regexp_matches</> accepts all the flags shown
+     in <xref linkend="posix-embedded-options-table">, plus
+     the <literal>g</> flag which commands it to return all matches, not
+     just the first one.
+    </para>
+
+   <para>
+    Some examples:
+<programlisting>
+SELECT regexp_matches('foo', 'not there');
+ regexp_matches
+----------------
+(0 rows)
+
+SELECT regexp_matches('foobarbequebazilbarfbonk', '(b[^b]+)(b[^b]+)', 'g');
+ regexp_matches
+----------------
+ {bar,beque}
+ {bazil,barf}
+(2 rows)
+</programlisting>
+   </para>
+
+   <tip>
    <para>
 <!--
-    It is possible to force <function>regexp_matches()</> to always
-    return one row by using a sub-select;  this is particularly useful
-    in a <literal>SELECT</> target list when you want all rows
-    returned, even non-matching ones:
+     In most cases <function>regexp_matches()</> should be used with
+     the <literal>g</> flag, since if you only want the first match, it's
+     easier and more efficient to use <function>regexp_match()</>.
+     However, <function>regexp_match()</> only exists
+     in <productname>PostgreSQL</> version 10 and up.  When working in older
+     versions, a common trick is to place a <function>regexp_matches()</>
+     call in a sub-select, for example:
 -->
 副問い合わせを使用することで、<function>regexp_matches()</>が常に1行を返すように強制することが可能です。
 これは、<literal>SELECT</>の対象リスト内で、マッチするものが無い行も含めて全ての行を返して欲しい場合に特に有用です。
 <programlisting>
 SELECT col1, (SELECT regexp_matches(col2, '(bar)(beque)')) FROM tab;
 </programlisting>
-   </para>
+     This produces a text array if there's a match, or <literal>NULL</> if
+     not, the same as <function>regexp_match()</> would do.  Without the
+     sub-select, this query would produce no output at all for table rows
+     without a match, which is typically not the desired behavior.
+    </para>
+   </tip>
 
     <para>
 <!--
@@ -5687,6 +5749,7 @@ SELECT foo FROM regexp_split_to_table('the quick brown fox', E'\\s*') AS foo;
     zero-length matches that occur at the start or end of the string
     or immediately after a previous match.  This is contrary to the strict
     definition of regexp matching that is implemented by
+    <function>regexp_match</> and
     <function>regexp_matches</>, but is usually the most convenient behavior
     in practice.  Other software systems such as Perl use similar definitions.
 -->
@@ -7294,7 +7357,7 @@ RE全体に対してはその要素から推論されるものと異なる欲張
 例として、数字をいくつか含む文字列を数字とその前後の部分に分けようとしているとします。
 次のようにしてみるかもしれません。
 <screen>
-SELECT regexp_matches('abc01234xyz', '(.*)(\d+)(.*)');
+SELECT regexp_match('abc01234xyz', '(.*)(\d+)(.*)');
 <lineannotation>Result: </lineannotation><computeroutput>{abc0123,4,xyz}</computeroutput>
 </screen>
 <!--
@@ -7306,7 +7369,7 @@ SELECT regexp_matches('abc01234xyz', '(.*)(\d+)(.*)');
 上手くいきませんでした。最初の<literal>.*</>が欲張りで、可能なだけ<quote>消費</>してしまい、<literal>\d+</>は最後の可能な場所で最後の数字にマッチします。
 欲張りでなくすることで直そうとするかもしれません。
 <screen>
-SELECT regexp_matches('abc01234xyz', '(.*?)(\d+)(.*)');
+SELECT regexp_match('abc01234xyz', '(.*?)(\d+)(.*)');
 <lineannotation>Result: </lineannotation><computeroutput>{abc,0,""}</computeroutput>
 </screen>
 <!--
@@ -7317,7 +7380,7 @@ SELECT regexp_matches('abc01234xyz', '(.*?)(\d+)(.*)');
 またもや上手くいきませんでした。今度は、REが全体として欲張りでなくなってしまい、できる限り早く全体に渡るマッチを終わらせてしまうからです。
 RE全体として欲張りにすることで欲しいものが得られます。
 <screen>
-SELECT regexp_matches('abc01234xyz', '(?:(.*?)(\d+)(.*)){1,1}');
+SELECT regexp_match('abc01234xyz', '(?:(.*?)(\d+)(.*)){1,1}');
 <lineannotation>Result: </lineannotation><computeroutput>{abc,01234,xyz}</computeroutput>
 </screen>
 <!--

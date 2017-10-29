@@ -264,6 +264,14 @@ JSON配列の添字を整数で受け取り、フィールド、要素、パス�
        </row>
        <row>
         <entry><literal>-</literal></entry>
+        <entry><type>text[]</type></entry>
+        <entry>Delete multiple key/value pairs or <emphasis>string</emphasis>
+        elements from left operand.  Key/value pairs are matched based
+        on their key value.</entry>
+        <entry><literal>'{"a": "b", "c": "d"}'::jsonb - '{a,c}'::text[] </literal></entry>
+       </row>
+       <row>
+        <entry><literal>-</literal></entry>
         <entry><type>integer</type></entry>
 <!--
         <entry>Delete the array element with specified index (Negative
@@ -766,12 +774,12 @@ variadic引数リストからJSONオブジェクトを作成。
 -->
 <replaceable>from_json</replaceable>内のオブジェクトを行を<replaceable>base</>で定義されたレコード型に一致する列に拡張する(以下の注意書きを参照)。
        </entry>
-       <entry><literal>select * from json_populate_record(null::myrowtype, '{"a":1,"b":2}')</literal></entry>
+       <entry><literal>select * from json_populate_record(null::myrowtype, '{"a": 1, "b": ["2", "a b"], "c": {"d": 4, "e": "a  b c"}}')</literal></entry>
        <entry>
 <programlisting>
- a | b
----+---
- 1 | 2
+ a |   b       |      c
+---+-----------+-------------
+ 1 | {2,"a b"} | (4,"a b c")
 </programlisting>
        </entry>
       </row>
@@ -877,12 +885,12 @@ JSON配列を<type>text</>値の集合に展開する。
 JSONオブジェクトから任意のレコードを作成する（下記の注釈を参照）。
 <type>record</>を返す関数すべてと同様、呼び出し側が<literal>AS</>句でレコードの構造を明示的に決める必要がある。
        </entry>
-       <entry><literal>select * from json_to_record('{"a":1,"b":[1,2,3],"c":"bar"}') as x(a int, b text, d text) </literal></entry>
+       <entry><literal>select * from json_to_record('{"a":1,"b":[1,2,3],"c":[1,2,3],"e":"bar","r": {"a": 123, "b": "a b c"}}') as x(a int, b text, c int[], d text, r myrowtype) </literal></entry>
        <entry>
 <programlisting>
- a |    b    | d
----+---------+---
- 1 | [1,2,3] |
+ a |    b    |    c    | d |       r
+---+---------+---------+---+---------------
+ 1 | [1,2,3] | {1,2,3} |   | (123,"a b c")
 </programlisting>
        </entry>
       </row>
@@ -1396,6 +1404,10 @@ nextval('foo'::text)      <lineannotation>実行時に<literal>foo</literal>を�
         </para>
        </important>
 
+       <para>
+        This function requires <literal>USAGE</literal>
+        or <literal>UPDATE</literal> privilege on the sequence.
+       </para>
       </listitem>
      </varlistentry>
 
@@ -1415,6 +1427,11 @@ nextval('foo'::text)      <lineannotation>実行時に<literal>foo</literal>を�
 現在のセッションにおいて、そのシーケンスから<function>nextval</function>によって取得された直近の値を返します。
 （セッション内でそのシーケンスに対し<function>nextval</function>が呼ばれていない場合には、エラーが報告されます。）
 これはセッションごとの個別の値を返すので、現在のセッションが<function>nextval</function>を実行した後、他のセッションが<function>nextval</function>を実行したかどうかに関わらず、期待通りの回答をもたらします。
+       </para>
+
+       <para>
+        This function requires <literal>USAGE</literal>
+        or <literal>SELECT</literal> privilege on the sequence.
        </para>
       </listitem>
      </varlistentry>
@@ -1436,6 +1453,11 @@ nextval('foo'::text)      <lineannotation>実行時に<literal>foo</literal>を�
 現在のセッションの<function>nextval</>で直近に戻された値を返します。
 この関数は<function>currval</function>と同等ですが、引数としてシーケンス名をとる代わりに、現在のセッションで最後に<function>nextval</function>で使用されたシーケンスを参照するところが異なります。
 現在のセッションで<function>nextval</function>が未だ呼ばれていなければエラーになります。
+       </para>
+
+       <para>
+        This function requires <literal>USAGE</literal>
+        or <literal>SELECT</literal> privilege on the last used sequence.
        </para>
       </listitem>
      </varlistentry>
@@ -1497,6 +1519,11 @@ SELECT setval('foo', 42, false);    <lineannotation>次の<function>nextval</>�
 シーケンスはトランザクションとは異なる扱いを受けるため、<function>setval</function>による変更は、そのトランザクションがロールバックされたとしても元に戻りません。
         </para>
        </important>
+
+       <para>
+        This function requires <literal>UPDATE</literal> privilege on the
+        sequence.
+       </para>
       </listitem>
      </varlistentry>
     </variablelist>
@@ -2941,13 +2968,14 @@ NULL baz</literallayout>(3 rows)</entry>
   <para>
 <!--
    <firstterm>Aggregate functions</firstterm> compute a single result
-   from a set of input values.  The built-in normal aggregate functions
-   are listed in
-   <xref linkend="functions-aggregate-table"> and
-   <xref linkend="functions-aggregate-statistics-table">.
-   The built-in ordered-set aggregate functions
-   are listed in <xref linkend="functions-orderedset-table"> and
-   <xref linkend="functions-hypothetical-table">.  Grouping operations,
+   from a set of input values.  The built-in general-purpose aggregate
+   functions are listed in <xref linkend="functions-aggregate-table">
+   and statistical aggregates in <xref
+   linkend="functions-aggregate-statistics-table">.
+   The built-in within-group ordered-set aggregate functions
+   are listed in <xref linkend="functions-orderedset-table">
+   while the built-in within-group hypothetical-set ones are in <xref
+   linkend="functions-hypothetical-table">.  Grouping operations,
    which are closely related to aggregate functions, are listed in
    <xref linkend="functions-grouping-table">.
    The special syntax considerations for aggregate
@@ -4290,8 +4318,6 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
         <primary>percentile</primary>
         <secondary>continuous</secondary>
 -->
-        <primary>百分位数</primary>
-        <secondary>連続</secondary>
        </indexterm>
        <function>percentile_cont(<replaceable class="parameter">fraction</replaceable>) WITHIN GROUP (ORDER BY <replaceable class="parameter">sort_expression</replaceable>)</function>
       </entry>
@@ -4763,7 +4789,7 @@ NULL値は<literal>ORDER BY</>節で指定されるルールに従って並べ�
 <!--
    The built-in window functions are listed in
    <xref linkend="functions-window-table">.  Note that these functions
-   <emphasis>must</> be invoked using window function syntax; that is an
+   <emphasis>must</> be invoked using window function syntax, i.e., an
    <literal>OVER</> clause is required.
 -->
 組み込みウィンドウ関数は<xref linkend="functions-window-table">に一覧されています。
@@ -4772,12 +4798,14 @@ NULL値は<literal>ORDER BY</>節で指定されるルールに従って並べ�
 
   <para>
 <!--
-   In addition to these functions, any built-in or user-defined normal
-   aggregate function (but not ordered-set or hypothetical-set aggregates)
+   In addition to these functions, any built-in or user-defined
+   general-purpose or statistical
+   aggregate (i.e., not ordered-set or hypothetical-set aggregates)
    can be used as a window function; see
    <xref linkend="functions-aggregate"> for a list of the built-in aggregates.
    Aggregate functions act as window functions only when an <literal>OVER</>
-   clause follows the call; otherwise they act as regular aggregates.
+   clause follows the call; otherwise they act as non-window aggregates
+   and return a single row for the entire set.
 -->
 これらの関数に加え、どんな組み込み、またはユーザ定義の通常の集約関数もウィンドウ関数として使用できます(ただし順序集合や仮想集合集約はそうではありません)。組み込み集約関数一覧は<xref linkend="functions-aggregate">を参照してください。
 集約関数は、呼び出しの後に<literal>OVER</>句が続いた場合のみウィンドウ関数として動作します。それ以外の場合は、通常の集約関数として動作します。
@@ -4863,7 +4891,7 @@ NULL値は<literal>ORDER BY</>節で指定されるルールに従って並べ�
        <type>double precision</type>
       </entry>
 <!--
-      <entry>relative rank of the current row: (<function>rank</> - 1) / (total rows - 1)</entry>
+      <entry>relative rank of the current row: (<function>rank</> - 1) / (total partition rows - 1)</entry>
 -->
       <entry>現在行の相対順位。 (<function>rank</> - 1) / (総行数 - 1)</entry>
      </row>
@@ -4879,7 +4907,7 @@ NULL値は<literal>ORDER BY</>節で指定されるルールに従って並べ�
        <type>double precision</type>
       </entry>
 <!--
-      <entry>relative rank of the current row: (number of rows preceding or peer with current row) / (total rows)</entry>
+      <entry>cumulative distribution: (number of partition rows preceding or peer with current row) / total partition rows</entry>
 -->
       <entry>現在行の相対順位。 (現在行より先行する行およびピアの行数) / (総行数)</entry>
      </row>
@@ -5054,9 +5082,10 @@ NULL値は<literal>ORDER BY</>節で指定されるルールに従って並べ�
    All of the functions listed in
    <xref linkend="functions-window-table"> depend on the sort ordering
    specified by the <literal>ORDER BY</> clause of the associated window
-   definition.  Rows that are not distinct in the <literal>ORDER BY</>
-   ordering are said to be <firstterm>peers</>; the four ranking functions
-   are defined so that they give the same answer for any two peer rows.
+   definition.  Rows that are not distinct when considering only the
+   <literal>ORDER BY</> columns are said to be <firstterm>peers</>.
+   The four ranking functions (including <function>cume_dist</>) are
+   defined so that they give the same answer for all peer rows.
 -->
 <xref linkend="functions-window-table">に列挙された関数はすべて、対応するウィンドウ定義の<literal>ORDER BY</>句で指定されるソート順に依存します。
 <literal>ORDER BY</>順で重複する行は<firstterm>ピア</>と呼ばれます。
@@ -5120,6 +5149,14 @@ SQL標準は、<function>lead</>、<function>lag</>、<function>first_value</>�
 （<literal>ORDER BY</>順序付けを逆に行うことで、<literal>FROM LAST</>の結果を得ることができます。）
    </para>
   </note>
+
+  <para>
+   <function>cume_dist</> computes the fraction of partition rows that
+   are less than or equal to the current row and its peers, while
+   <function>percent_rank</> computes the fraction of partition rows that
+   are less than the current row, assuming the current row does not exist
+   in the partition.
+  </para>
 
  </sect1>
 
