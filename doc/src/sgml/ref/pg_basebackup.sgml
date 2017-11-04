@@ -82,7 +82,7 @@ PostgreSQL documentation
 バックアップは通常の<productname>PostgreSQL</productname>接続を経由して、レプリケーションプロトコルを用いて、作成されます。
 この接続はスーパーユーザまたは<literal>REPLICATION</literal>権限（<xref linkend="role-attributes">参照）を持つユーザが確立しなければなりません。
 さらにレプリケーション用の接続には<filename>pg_hba.conf</filename>における明示的な権限が許されていなければなりません。
-またサーバで<xref linkend="guc-max-wal-senders">を、バックアップ用に少なくとも１つのセッションを残すように十分大きく設定する必要があります。
+またサーバで<xref linkend="guc-max-wal-senders">を、バックアップ用に少なくとも１つのセッションとWALストリーミング用にもう一つ（使用する場合）を残すように十分大きく設定する必要があります。
   </para>
 
   <para>
@@ -126,8 +126,11 @@ PostgreSQL documentation
     </listitem>
     <listitem>
      <para>
+<!--
       If you are using <literal>-X none</>, there is no guarantee that all
       WAL files required for the backup are archived at the end of backup.
+-->
+<literal>-X none</>を使用している場合、バックアップ終了時にバックアップに必要なすべてのWALファイルがアーカイブされているという保証はありません。
      </para>
     </listitem>
     <listitem>
@@ -265,7 +268,7 @@ PostgreSQL documentation
 -->
 対象ディレクトリとして<literal>-</literal>（ダッシュ）という値が指定された場合、tarの内容は標準出力に書き出されます。
 これは例えば<productname>gzip</productname>へのパイプ処理に適しています。
-これはクラスタが追加テーブル空間を持たない場合のみ行うことができます。
+これはクラスタが追加テーブル空間を持たず、WALストリーミングを使用していない場合のみ行うことができます。
            </para>
            </listitem>
          </varlistentry>
@@ -351,9 +354,12 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
 そうすることで、ベースバックアップの終了とストリーミングレプリケーションの開始の間の時間に、サーバが必要なWALデータを一切削除しないことが保証されます。
        </para>
        <para>
+<!--
         If this option is not specified and the server supports temporary
         replication slots (version 10 and later), then a temporary replication
         slot is automatically used for WAL streaming.
+-->
+このオプションが指定されず、サーバが一時レプリケーションスロットをサポートしている場合（バージョン10以上）、WALストリーミングには一時レプリケーションスロットが自動的に使用されます。
        </para>
       </listitem>
      </varlistentry>
@@ -362,18 +368,29 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
       <term><option>--no-slot</option></term>
       <listitem>
        <para>
+<!--
         This option prevents the creation of a temporary replication slot
         during the backup even if it's supported by the server.
+-->
+このオプションは、サーバが一時レプリケーションスロットをサポートしていたとしても、バックアップ時にそれを作らないようにします。
        </para>
        <para>
+<!--
         Temporary replication slots are created by default if no slot name
         is given with the option <option>-S</option> when using log streaming.
+-->
+ログストリームを使う場合、オプション<option>-S</option>でスロット名を指定しなければ、デフォルトで一時レプリケーションスロットが作られます。
        </para>
        <para>
+<!--
         The main purpose of this option is to allow taking a base backup when
         the server is out of free replication slots.  Using replication slots
         is almost always preferred, because it prevents needed WAL from being
         removed by the server during the backup.
+-->
+このオプションの主要な目的は、サーバに空いているレプリケーションスロットがない時にベースバックアップの取得を可能にすることです。
+ほぼすべての場合において、レプリケーションスロットの使用が望ましいです。
+なぜなら、必要なWALがバックアップ中にサーバによって削除されることを防止できるからです。
        </para>
       </listitem>
      </varlistentry>
@@ -427,9 +444,9 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
         The write-ahead log directory can only be specified when
         the backup is in plain mode.
 -->
-トランザクションログのディレクトリの場所を指定します。
-<replaceable>xlogdir</replaceable>は絶対パスでなければなりません。
-トランザクションログのディレクトリは、バックアップがplainモードの場合にのみ指定できます。
+先行書き込みログのディレクトリの場所を指定します。
+<replaceable>waldir</replaceable>は絶対パスでなければなりません。
+先行書き込みログのディレクトリは、バックアップがplainモードの場合にのみ指定できます。
        </para>
       </listitem>
      </varlistentry>
@@ -447,9 +464,9 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
         directory without the need to consult the log archive, thus
         making this a completely standalone backup.
   -->
-必要なトランザクションログファイル（WALファイル）をバックアップに含めます。
-これはバックアップ中に生成されたトランザクションログをすべて含みます。
-このオプションが指定された場合、ログアーカイブを考慮することなく展開したディレクトリ内でそのままpostmasterを起動することができます。
+必要な先行書き込みログファイル（WALファイル）をバックアップに含めます。
+これはバックアップ中に生成された先行書き込みログをすべて含みます。
+方法<literal>none</literal>を指定しない場合、ログアーカイブを考慮することなく展開したディレクトリ内でそのままpostmasterを起動することができます。
 つまりこれは完全なスタンドアローンバックアップを作成します。
        </para>
        <para>
@@ -457,7 +474,7 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
         The following methods for collecting the write-ahead logs are
         supported:
 -->
-以下のトランザクションログを収集するための方法がサポートされます。
+以下の先行書き込みログを収集するための方法がサポートされます。
 
         <variablelist>
          <varlistentry>
@@ -465,7 +482,10 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
           <term><literal>none</literal></term>
           <listitem>
            <para>
+<!--
             Don't include write-ahead log in the backup.
+-->
+先行書き込みログをバックアップに含めません。
            </para>
           </listitem>
          </varlistentry>
@@ -483,13 +503,16 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
              If the log has been rotated when it's time to transfer it, the
              backup will fail and be unusable.
 -->
-トランザクションログファイルはバックアップの最後に収集されます。
+先行書き込みログファイルはバックアップの最後に収集されます。
 したがって、<xref linkend="guc-wal-keep-segments">パラメータを、バックアップの最後までログが削除されない程度に十分大きくする必要があります。
 ログの転送時点でそのログがローテートされていた場合、バックアップは失敗し、使用することができません。
            </para>
            <para>
+<!--
             The write-ahead log files will be written to
             the <filename>base.tar</filename> file.
+-->
+先行書き込みログファイルは<filename>base.tar</filename>ファイルに書き込まれます。
            </para>
           </listitem>
          </varlistentry>
@@ -508,18 +531,24 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
              client can keep up with write-ahead log received, using this mode
              requires no extra write-ahead logs to be saved on the master.
 -->
-バックアップを作成する時にトランザクションログをストリームします。
-これは第二のサーバ接続を開き、バックアップを実行している間、並行してトランザクションログのストリーミングを始めます。
+バックアップを作成する時に先行書き込みログをストリームします。
+これは第二のサーバ接続を開き、バックアップを実行している間、並行して先行書き込みログのストリーミングを始めます。
 したがって、これは<xref linkend="guc-max-wal-senders">で設定される接続を２つ使用します。
-クライアントが受け取ったトランザクションログに追従している限り、このモードを使用すれば、マスタ上に余分に保管されるトランザクションログは必要ありません。
+クライアントが受け取った先行書き込みログに追従している限り、このモードを使用すれば、マスタ上に余分に保管される先行書き込みログは必要ありません。
            </para>
            <para>
+<!--
             The write-ahead log files are written to a separate file
             named <filename>pg_wal.tar</filename> (if the server is a version
             earlier than 10, the file will be named <filename>pg_xlog.tar</filename>).
+-->
+先行書き込みログファイルは<filename>pg_wal.tar</filename>という名前の別のファイルに書き込まれます（サーバのバージョンが10よりも古い場合は、ファイルの名前は<filename>pg_xlog.tar</filename>になります）。
            </para>
            <para>
+<!--
             This value is the default.
+-->
+この値がデフォルトです。
            </para>
           </listitem>
          </varlistentry>
@@ -540,7 +569,7 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
         automatically be added to all tar filenames.
 -->
 tarファイル出力のデフォルトの圧縮レベルによるgzip圧縮を有効にします。
-tarファイルを生成する場合のみ圧縮を利用することができます。
+tarファイルを生成する場合のみ圧縮を利用することができ、すべてのtarファイルの名前に拡張子<filename>.gz</filename>が自動的に付加されます。
        </para>
       </listitem>
      </varlistentry>
@@ -559,7 +588,7 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
 -->
 tarファイル出力のgzip圧縮を有効にします。
 また圧縮レベル（0から9まで、0は圧縮なし、9が最高の圧縮レベル）を指定します。
-tarファイルを生成する場合のみ圧縮を利用することができます。
+tarファイルを生成する場合のみ圧縮を利用することができ、すべてのtarファイルの名前に拡張子<filename>.gz</filename>が自動的に付加されます。
        </para>
       </listitem>
      </varlistentry>
@@ -606,15 +635,22 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
       <term><option>--no-clean</option></term>
       <listitem>
        <para>
+<!--
         By default, when <command>pg_basebackup</command> aborts with an
         error, it removes any directories it might have created before
         discovering that it cannot finish the job (for example, data directory
         and write-ahead log directory). This option inhibits tidying-up and is
         thus useful for debugging.
+-->
+デフォルトでは、<command>pg_basebackup</command>がエラーでアボートするとき、ジョブを完了できないことがわかるより前に作成したすべてのディレクトリ（例えば、データディレクトリと先行書き込みログのディレクトリ）を削除します。
+このオプションはきれいに片付けることを禁止するので、デバッグのために有用です。
        </para>
 
        <para>
+<!--
         Note that tablespace directories are not cleaned up either way.
+-->
+テーブル空間のディレクトリはいずれにせよ削除されないことに注意してください。
        </para>
       </listitem>
      </varlistentry>
@@ -657,12 +693,17 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
       <term><option>--no-sync</option></term>
       <listitem>
        <para>
+<!--
         By default, <command>pg_basebackup</command> will wait for all files
         to be written safely to disk.  This option causes
         <command>pg_basebackup</command> to return without waiting, which is
         faster, but means that a subsequent operating system crash can leave
         the base backup corrupt.  Generally, this option is useful for testing
         but should not be used when creating a production installation.
+-->
+デフォルトでは、<command>pg_basebackup</command>は全てのファイルがディスクに安全に書き込まれるまで待機します。
+このオプションは、<command>pg_basebackup</command>が待機せずに戻るようにするため、より高速になりますが、その後でOSがクラッシュするとベースバックアップの破損に繋がるかもしれません。
+一般的に言って、このオプションはテスト用には有用ですが、実運用の環境を作成するときには使わない方が良いでしょう。
        </para>
       </listitem>
      </varlistentry>
@@ -926,9 +967,10 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
    Other symbolic links and special device files are skipped.
    See <xref linkend="protocol-replication"> for the precise details.
 -->
-このバックアップには、設定ファイルやサードパーティによりディレクトリに格納された追加ファイルを含め、データディレクトリとテーブル空間内のすべてのファイルが含まれます。
-しかし、通常ファイルとディレクトリのみがコピーされます。
-シンボリックリンク(テーブル空間で利用されているものを除く)および特殊デバイスファイルはスキップされます。
+このバックアップには、設定ファイルやサードパーティによりディレクトリに格納された追加ファイルを含め、データディレクトリとテーブル空間内のすべてのファイルが含まれますが、PostgreSQLによって管理される一部の一時ファイルは含まれません。
+ただし、テーブル空間に使われるシンボリックリンクが保存されることを除くと、通常のファイルとディレクトリのみがコピーされます。
+PostgreSQLが認識している一部のディレクトリを指すシンボリックリンクは空のディレクトリとしてコピーされます。
+その他のシンボリックリンクおよび特殊デバイスファイルはスキップされます。
 (正確な詳細については<xref linkend="protocol-replication">を参照してください。)
   </para>
 
