@@ -4658,12 +4658,11 @@ WAL送出プロセスは接続の総数カウントに考慮されるため、<x
         availability and protection against data loss.
        </para>
        -->
-<xref linkend="synchronous-replication">で説明されているように、<firstterm>同期レプリケーション</>をサポート可能なスタンバイサーバの名前をコンマで区切られたリストで指定します。
+<xref linkend="synchronous-replication">で説明されているように、<firstterm>同期レプリケーション</>をサポート可能なスタンバイサーバのリストを指定します。
 活動中の同期スタンバイサーバは1つまたはそれ以上です。
 コミットを待機しているトランザクションは、このスタンバイサーバがそのデータの受信を確認してから処理の継続が許可されます。
 同期スタンバイサーバはこのリストに名前が挙げられていており、現時点で接続され、そしてデータをリアルタイムでストリーミングしているものです（<link linkend="monitoring-stats-views-table"><literal>pg_stat_replication</></link> ビューにおいて<literal>streaming</literal>状態として示されています）。
 このリストの後の方に記載されているその他のスタンバイサーバは潜在的に同期スタンバイサーバになることを示しています。
-もし現在の同期スタンバイサーバが理由にかかわらず切断された場合、次に順位の高いスタンバイサーバがすぐに取って代わります。
 二つ以上の同期スタンバイサーバ名を指定することで、かなりの高可用性とデータ損失に対する保護が得られます。
        </para>
        <para>
@@ -4726,8 +4725,8 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
         reason, it will be replaced immediately with the next-highest-priority
         standby. The keyword <literal>FIRST</> is optional.
 -->
-<replaceable class="parameter">num_sync</replaceable>と組み合わされたキーワード<literal>FIRST</>は、優先度に基づく同期レプリケーションを指定し、優先度に基づいて選ばれた<replaceable class="parameter">num_sync</replaceable>個の同期スタンバイにWALレコードがレプリケーションされるまでトランザクションのコミットは待機します。
-たとえば<literal>FIRST 3 (s1, s2, s3, s4)</>とすると、<literal>s1</>、<literal>s2</>、<literal>s3</>、<literal>s4</>の中から選ばれた優先順位の高い3つのスタンバイサーバがWALレコードを受信するまでコミットは待機します。
+キーワード<literal>FIRST</>を<replaceable class="parameter">num_sync</replaceable>と組み合わせると、優先度に基づく同期レプリケーションを指定し、優先度に基づいて選ばれた<replaceable class="parameter">num_sync</replaceable>個の同期スタンバイにWALレコードがレプリケーションされるまで、トランザクションのコミットは待機します。
+たとえば<literal>FIRST 3 (s1, s2, s3, s4)</>とすると、<literal>s1</>、<literal>s2</>、<literal>s3</>、<literal>s4</>の中から選ばれた優先順位の高い3つのスタンバイサーバが応答を返すまでコミットは待機します。
 リストの中で前の方に名前が出現するスタンバイには高い優先度が与えられ、同期と見なされます。
 それ以外のリストの中で後の方に名前が上がっているスタンバイサーバーは、潜在的な同期スタンバイであることを表しています。
 どんな理由であれ、現在の同期スタンバイが切断されると、次に高い優先度を持つスタンバイに直ちに取って代わられます。
@@ -4745,7 +4744,7 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
         <literal>s1</>, <literal>s2</>, <literal>s3</> and <literal>s4</>
         reply.
 -->
-<replaceable class="parameter">num_sync</replaceable>と組み合わされたキーワード<literal>ANY</>は、クォーラムに基づく同期レプリケーションを指定し、優先度に基づいて選ばれた<emphasis>少なくとも</><replaceable class="parameter">num_sync</replaceable>個の同期スタンバイにWALレコードがレプリケーションされるまで、トランザクションのコミットを待たせます。
+キーワード<literal>ANY</>と組わせると、<replaceable class="parameter">num_sync</replaceable>はクォーラムに基づく同期レプリケーションを指定し、優先度に基づいて選ばれた<emphasis>少なくとも</><replaceable class="parameter">num_sync</replaceable>個の同期スタンバイにWALレコードがレプリケーションされるまで、トランザクションのコミットを待たせます。
 たとえば<literal>ANY 3 (s1, s2, s3, s4)</>とすると、<literal>s1</>、<literal>s2</>、<literal>s3</>の3つのうちのどれかが応答を返した時点でコミットが進行します。
        </para>
        <para>
@@ -5134,7 +5133,7 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
         the <filename>postgresql.conf</> file or on the server command line.
         The default value is 60 seconds.
        -->
-指定されたミリ秒より長い活動していないレプリケーション接続は停止します。
+指定されたミリ秒より長い間、活動していないレプリケーション接続は停止します。
 このことは受信するスタンバイサーバがプライマリノードの機能停止、またはネットワーク停止を検出するのに便利です。
 値ゼロは時間切れメカニズムを無効にします。
 このパラメータは<filename>postgresql.conf</>ファイルまたはサーバのコマンドラインのみで設定可能です。
@@ -5273,7 +5272,7 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
 <!--
         Currently, there can be only one synchronization worker per table.
 -->
-今のところ、テーブルごとの同期ワーカーはただ一つだけが許されます。
+今のところ、一つのテーブルにつき、同期ワーカーは一つだけです。
        </para>
        <para>
 <!--
@@ -5899,7 +5898,7 @@ RAM内に存在するページの取り出しコストは通常よりもかな�
         scanned will normally be less.  The default is 8
         megabytes (<literal>8MB</>).
 -->
-パラレルスキャンを考慮する最小のリレーションサイズを指定します。
+パラレルスキャンを考慮する最小のテーブルデータのサイズを指定します。
 パラレル順スキャンでは、スキャンされるテーブルのデータ量は、常にテーブルのサイズと同じです。
 しかし、インデックスが使われる場合は、スキャンされるテーブルの量は通常少なくなるでしょう。
 デフォルトは8メガバイト（ <literal>8MB</>）です。
@@ -6595,7 +6594,7 @@ CSV書式のログ出力を生成するためには<xref linkend="guc-logging-co
         find the logs currently in use by the instance. Here is an example of
         this file's content:
 -->
-<systemitem>stderr</systemitem>あるいは<systemitem>csvlog</systemitem>が含まれる場合、ログ収集機構が使用しているログファイルと、その出力先を記録する<filename>current_logfiles</>が作られます。
+<systemitem>stderr</systemitem>あるいは<systemitem>csvlog</systemitem>が含まれる場合、ログ収集機構が使用しているログファイルの場所と、その出力先を記録する<filename>current_logfiles</>が作られます。
 これにより、現在のインスタンスが使っているログを簡単に見つけることができます。
 このファイルの内容の例を示します。
 <programlisting>
@@ -6612,7 +6611,7 @@ csvlog log/postgresql.csv
         in <varname>log_destination</>, and when the logging collector is
         disabled.
 -->
-ログローテーションの効果で新しいログファイルが作られると、<filename>current_logfiles</filename>は再作成されます。
+ログローテーションの効果で新しいログファイルが作られると、<filename>current_logfiles</filename>は再作成され、<varname>log_destination</>は再ロードされます。
 このファイルは、<systemitem>stderr</systemitem>も<systemitem>csvlog</systemitem>も<varname>log_destination</>に含まれなくなり、かつログ収集機構が無効になったときに削除されます。
        </para>
 
@@ -7830,7 +7829,7 @@ linkend="guc-log-timezone">で指定された時間帯で計算が行われま�
 数字が負ならば状態情報を右側に空白を詰めて最小限の幅にし、正の値は左に空白を詰めます。
 ログファイルではパディングは人間の視認性を向上させるので有用です。
 このパラメータは、<filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定することができます。
-デフォルトは、時刻印とプロセスIDをログする<literal>'%m [%p] '</>です。
+デフォルトは、タイムスタンプとプロセスIDをログ出力する<literal>'%m [%p] '</>です。
 
          <informaltable>
           <tgroup cols="3">
@@ -8050,7 +8049,7 @@ FROM pg_stat_activity;
          only available in session (backend) context like user or database
          name.  For example:
 -->
-<literal>%q</>エスケープは、ユーザやデータベース名のように、セッション（バックエンド）コンテキストでのみ存在すｒる情報を含める場合に有用です。
+<literal>%q</>エスケープは、ユーザやデータベース名のように、セッション（バックエンド）コンテキストでのみ存在する情報を含める場合に有用です。
 <literal>%q</>
 <programlisting>
 log_line_prefix = '%m [%p] %q%u@%d/%a '
@@ -10598,13 +10597,12 @@ SET XML OPTION { DOCUMENT | CONTENT };
         found, the connection attempt will fail.
 -->
 この変数は、接続時に事前読み込みされる、1つまたは複数の共有ライブラリを指定します。
-ここにはカンマ区切りでライブラリ名のリストを格納し、各々の名前は<xref linkend="SQL-LOAD">コマンドで解釈されます。
+ここにはカンマ区切りでライブラリ名のリストを格納し、各々の名前は<xref linkend="SQL-LOAD">コマンドと同じように解釈されます。
 項目の間の空白は無視されます。
 名前の中に空白あるいはカンマを含める場合は、二重引用符で囲ってください。
 このパラメータは、接続の開始時にのみ効果があります。
 以降の変更は効果がありません。
 もし指定したライブラリが見つからない場合は、接続は失敗します。
-スーパーユーザだけがこの設定を変えられます。
        </para>
 
        <para>
@@ -11105,7 +11103,7 @@ dynamic_library_path = 'C:\tools\postgresql;H:\my_project\lib;$libdir'
         This parameter can only be set in the <filename>postgresql.conf</>
         file or on the server command line.
 -->
-リレーション全体をカバーするロックに昇格する前に、リレーションの中に含めることのできるページ数とタプル数を指定します。
+リレーション全体をカバーするロックに昇格する前に、一つリレーションの中で述語ロックできるページ数あるいはタプル数を指定します。
 0以上の値は、絶対的な制限を表し、負の数は<xref linkend="guc-max-pred-locks-per-transaction">をその絶対値で割ったものを表します。
   デフォルトは-2で、以前のバージョンの<productname>PostgreSQL</>の振る舞いを維持します。
 このパラメータは<filename>postgresql.conf</>ファイル、または、サーバのコマンドラインのみで設定可能です。
@@ -11127,7 +11125,7 @@ dynamic_library_path = 'C:\tools\postgresql;H:\my_project\lib;$libdir'
         is 2.  This parameter can only be set in
         the <filename>postgresql.conf</> file or on the server command line.
 -->
-リレーション全体をカバーするロックに昇格する前に、一つのページの中に含めることのできる行数を指定します。
+リレーション全体をカバーするロックに昇格する前に、一つページの中で述語ロックできる行数を指定します。
 デフォルトは2です。
 このパラメータは<filename>postgresql.conf</>ファイル、または、サーバのコマンドラインのみで設定可能です。
        </para>
@@ -12540,7 +12538,7 @@ LOG:  CleanUpLock: deleting: lock(0xb7acd844) id(24688,24696,0,0,0,1)
 有効にすると、WALレコードと一緒に変更されたバッファのフルページイメージをレコードに追加します。
 後でそのレコードがリプレイされるときは、システムはまず各々のレコードを適用し、次にレコードによって変更されたバッファが、格納したイメージと一致するかどうかをテストします。
 ある種のケース（たとえばヒントビット）では、些細な変化は許容され、無視されます。
-予期しない際は、フェイタルエラーを引き起こし、リカバリが中断されます。
+予期しない差異は、致命的エラーを引き起こし、リカバリが中断されます。
        </para>
 
        <para>
@@ -12555,7 +12553,7 @@ LOG:  CleanUpLock: deleting: lock(0xb7acd844) id(24688,24696,0,0,0,1)
         <literal>spgist</>, <literal>brin</>, and <literal>generic</>. Only
         superusers can change this setting.
 -->
-デフォルト値は空白文字で、この機能を無効にします。
+デフォルト値は空文字で、この機能を無効にします。
 すべてのレコードをチェックするために、<literal>all</literal>にすることができます。
 カンマ区切りのリストにすると、対応するリソースマネージャに由来するレコードのみをチェックします。
 今のところ、サポートされているリソースマネージャは、<literal>heap</>、<literal>heap2</>、<literal>btree</>、<literal>hash</>、<literal>gin</>、<literal>gist</>、<literal>sequence</>、<literal>spgist</>、<literal>brin</>、<literal>generic</>です。
