@@ -3398,26 +3398,42 @@ PostgreSQLサーバの操作中に、種々の一時ファイルが作成され�
 </sect1>
 
 <sect1 id="protocol-logical-replication">
+<!--
  <title>Logical Streaming Replication Protocol</title>
+-->
+ <title>論理ストリーミングレプリケーションのプロトコル</title>
 
  <para>
+<!--
   This section describes the logical replication protocol, which is the message
   flow started by the <literal>START_REPLICATION</literal>
   <literal>SLOT</literal> <replaceable class="parameter">slot_name</>
   <literal>LOGICAL</literal> replication command.
+-->
+この節では論理レプリケーションのプロトコルについて説明します。
+このプロトコルはレプリケーションコマンド<literal>START_REPLICATION</literal> <literal>SLOT</literal> <replaceable class="parameter">slot_name</> <literal>LOGICAL</literal>で始まるメッセージフローです。
  </para>
 
  <para>
+<!--
   The logical streaming replication protocol builds on the primitives of
   the physical streaming replication protocol.
+-->
+論理ストリーミングレプリケーションのプロトコルは、物理レプリケーションプロトコルの基本要素の上に構築されています。
  </para>
 
  <sect2 id="protocol-logical-replication-params">
+<!--
   <title>Logical Streaming Replication Parameters</title>
+-->
+  <title>論理ストリーミングレプリケーションのパラメータ</title>
 
   <para>
+<!--
    The logical replication <literal>START_REPLICATION</literal> command
    accepts following parameters:
+-->
+論理レプリケーションの<literal>START_REPLICATION</literal>コマンドは以下のパラメータを受け付けます。
 
    <variablelist>
     <varlistentry>
@@ -3426,7 +3442,12 @@ PostgreSQLサーバの操作中に、種々の一時ファイルが作成され�
      </term>
      <listitem>
       <para>
+<!--
        Protocol version. Currently only version <literal>1</literal> is
+       supported.
+-->
+プロトコルのバージョンです。
+現在はバージョン<literal>1</literal>のみが受け付けられます。
        supported.
       </para>
      </listitem>
@@ -3438,9 +3459,13 @@ PostgreSQLサーバの操作中に、種々の一時ファイルが作成され�
      </term>
      <listitem>
       <para>
+<!--
        Comma separated list of publication names for which to subscribe
        (receive changes). The individual publication names are treated
        as standard objects names and can be quoted the same as needed.
+-->
+サブスクライブする（変更を受け取る）対象となるパブリケーション名をカンマで区切ったリストです。
+個々のパブリケーション名は標準的なオブジェクト名と扱われ、必要に応じて引用符で括ることができます。
       </para>
      </listitem>
     </varlistentry>
@@ -3450,44 +3475,69 @@ PostgreSQLサーバの操作中に、種々の一時ファイルが作成され�
  </sect2>
 
  <sect2 id="protocol-logical-messages">
+<!--
   <title>Logical Replication Protocol Messages</title>
+-->
+  <title>論理レプリケーションのプロトコルのメッセージ</title>
 
   <para>
+<!--
    The individual protocol messages are discussed in the following
    subsections. Individual messages are described in
    <xref linkend="protocol-logicalrep-message-formats">.
+-->
+個々のプロトコルのメッセージについては以降の副節で説明します。
+個々のメッセージについては<xref linkend="protocol-logicalrep-message-formats">で説明されています。
   </para>
 
   <para>
+<!--
    All top-level protocol messages begin with a message type byte.
    While represented in code as a character, this is a signed byte with no
    associated encoding.
+-->
+トップレベルのプロトコルのメッセージはすべてメッセージタイプのバイトで始まります。
+コード内では文字として表現されますが、これは文字符号化のないバイト（符号付き）です。
   </para>
 
   <para>
+<!--
    Since the streaming replication protocol supplies a message length there
    is no need for top-level protocol messages to embed a length in their
    header.
+-->
+ストリーミングレプリケーションのプロトコルはメッセージ長を含むため、トップレベルのプロトコルのメッセージはそのヘッダに長さを埋め込む必要がありません。
   </para>
 
  </sect2>
 
  <sect2 id="protocol-logical-messages-flow">
+<!--
   <title>Logical Replication Protocol Message Flow</title>
+-->
+  <title>論理レプリケーションのプロトコルのメッセージフロー</title>
 
   <para>
+<!--
    With the exception of the <literal>START_REPLICATION</literal> command and
    the replay progress messages, all information flows only from the backend
    to the frontend.
+-->
+<literal>START_REPLICATION</literal>コマンドと再生進捗のメッセージを除き、すべての情報はバックエンド側からフロントエンド側にのみ流れます。
   </para>
 
   <para>
+<!--
    The logical replication protocol sends individual transactions one by one.
    This means that all messages between a pair of Begin and Commit messages
    belong to the same transaction.
+-->
+論理レプリケーションのプロトコルは、個々のトランザクションを一つずつ送信します。
+これはつまり、BeginとCommitのメッセージの対の間にある全てのメッセージは同じトランザクションに属するということです。
   </para>
 
   <para>
+<!--
    Every sent transaction contains zero or more DML messages (Insert,
    Update, Delete). In case of a cascaded setup it can also contain Origin
    messages. The origin message indicated that the transaction originated on
@@ -3496,9 +3546,22 @@ PostgreSQLサーバの操作中に、種々の一時ファイルが作成され�
    is the origin name. It's downstream's responsibility to handle this as
    needed (if needed). The Origin message is always sent before any DML
    messages in the transaction.
+-->
+送信されるすべてのトランザクションにはゼロ個以上のDMLメッセージ（Insert、Update、Delete）が含まれます。
+カスケードの設定がされている場合は、Originメッセージを含めることができます。
+Originメッセージはトランザクションの起点が別のレプリケーションノードであることを示します。
+<!--
+訳注：原文が文法的におかしく、構文解析不能でした。
+   "indicated"は"indicates"、"originated"は"originates"であるとして、
+   また、 different"の前に"a"があるものとして訳しました。
+-->
+論理レプリケーションのプロトコルという観点では、レプリケーションノードはほぼ何でも良いため、唯一の識別子はOriginの名前です。
+（必要なら）必要に応じてこれを処理するのは下流側の責任です。
+Originメッセージは必ずトランザクション内のどのDMLよりも前に送信されます。
   </para>
 
   <para>
+<!--
    Every DML message contains an arbitrary relation ID, which can be mapped to
    an ID in the Relation messages. The Relation messages describe the schema of the
    given relation. The Relation message is sent for a given relation either
@@ -3506,6 +3569,11 @@ PostgreSQLサーバの操作中に、種々の一時ファイルが作成され�
    current session or because the relation definition has changed since the
    last Relation message was sent for it. The protocol assumes that the client
    is capable of caching the metadata for as many relations as needed.
+-->
+すべてのDMLメッセージは任意のリレーションIDを含んでおり、これをRelationメッセージ内のIDと関連付けることができます。
+Relationメッセージはあるリレーションのスキーマを記述します。
+あるリレーションについてのRelationメッセージは、現在のセッションでそのリレーションについて初めてDMLメッセージを送信する場合、あるいはRelationメッセージが最後に送信された後でリレーションの定義が変更された場合に送信されます。
+このプロトコルは、クライアントが必要なだけ多くのリレーションについて、メタデータをキャッシュできることを前提としています。
   </para>
  </sect2>
 </sect1>
@@ -4127,8 +4195,7 @@ AuthenticationSASL (B)
 <!--
                 Identifies the message as an authentication request.
 -->
-メッセージが取消用キーデータであることを識別します。
-もし、後でCancelRequestメッセージを発行する可能性があれば、フロントエンドはこの値を保存しなければなりません。
+メッセージが認証要求であることを識別します。
 </para>
 </listitem>
 </varlistentry>
@@ -4151,15 +4218,23 @@ AuthenticationSASL (B)
 </term>
 <listitem>
 <para>
+<!--
                 Specifies that SASL authentication is required.
+-->
+SASL認証が必要であることを指定します。
 </para>
 </listitem>
 </varlistentry>
 </variablelist>
+<!--
 The message body is a list of SASL authentication mechanisms, in the
 server's order of preference. A zero byte is required as terminator after
 the last authentication mechanism name. For each mechanism, there is the
 following:
+-->
+メッセージ本体はSASL認証機構をサーバにとって望ましい順に並べたリストです。
+最後の認証機構名の後に終端子としてゼロのバイトを置く必要があります。
+各機構は以下のようになります。
 <variablelist>
 <varlistentry>
 <term>
@@ -4167,7 +4242,10 @@ following:
 </term>
 <listitem>
 <para>
+<!--
                 Name of a SASL authentication mechanism.
+-->
+SASL認証機構の名前です。
 </para>
 </listitem>
 </varlistentry>
@@ -4195,7 +4273,7 @@ AuthenticationSASLContinue (B)
 <!--
                 Identifies the message as an authentication request.
 -->
-このメッセージがBindコマンドであることを識別します。
+このメッセージが認証要求であることを識別します。
 </para>
 </listitem>
 </varlistentry>
@@ -4218,7 +4296,10 @@ AuthenticationSASLContinue (B)
 </term>
 <listitem>
 <para>
+<!--
                 Specifies that this message contains a SASL challenge.
+-->
+このメッセージがSASLのチャレンジを含むことを指定します。
 </para>
 </listitem>
 </varlistentry>
@@ -4228,7 +4309,10 @@ AuthenticationSASLContinue (B)
 </term>
 <listitem>
 <para>
+<!--
                 SASL data, specific to the SASL mechanism being used.
+-->
+使用するSASL機構に固有のSASLデータです。
 </para>
 </listitem>
 </varlistentry>
@@ -4253,7 +4337,10 @@ AuthenticationSASLFinal (B)
 </term>
 <listitem>
 <para>
+<!--
                 Identifies the message as an authentication request.
+-->
+このメッセージが認証要求であることを識別します。
 </para>
 </listitem>
 </varlistentry>
@@ -4263,7 +4350,10 @@ AuthenticationSASLFinal (B)
 </term>
 <listitem>
 <para>
+<!--
                 Length of message contents in bytes, including self.
+-->
+自身を含む、メッセージ内容の長さ（バイト単位）。
 </para>
 </listitem>
 </varlistentry>
@@ -4273,7 +4363,10 @@ AuthenticationSASLFinal (B)
 </term>
 <listitem>
 <para>
+<!--
                 Specifies that SASL authentication has completed.
+-->
+SASL認証が完了したことを指定します。
 </para>
 </listitem>
 </varlistentry>
@@ -4283,8 +4376,11 @@ AuthenticationSASLFinal (B)
 </term>
 <listitem>
 <para>
+<!--
                 SASL outcome "additional data", specific to the SASL mechanism
                 being used.
+-->
+SASLの結果の「追加データ」で使用するSASL機構に固有のものです。
 </para>
 </listitem>
 </varlistentry>
@@ -4309,9 +4405,13 @@ BackendKeyData (B)
 </term>
 <listitem>
 <para>
+<!--
                 Identifies the message as cancellation key data.
                 The frontend must save these values if it wishes to be
                 able to issue CancelRequest messages later.
+-->
+メッセージが取り消しのキーデータであることを識別します。
+フロントエンドが後でCancelRequestメッセージを発行できるようにするためには、これらの値を保存しておかなければなりません。
 </para>
 </listitem>
 </varlistentry>
@@ -4321,7 +4421,10 @@ BackendKeyData (B)
 </term>
 <listitem>
 <para>
+<!--
                 Length of message contents in bytes, including self.
+-->
+自身を含む、メッセージ内容の長さ（バイト単位）。
 </para>
 </listitem>
 </varlistentry>
@@ -4331,7 +4434,10 @@ BackendKeyData (B)
 </term>
 <listitem>
 <para>
+<!--
                 The process ID of this backend.
+-->
+このバックエンドのプロセスIDです。
 </para>
 </listitem>
 </varlistentry>
@@ -4341,7 +4447,10 @@ BackendKeyData (B)
 </term>
 <listitem>
 <para>
+<!--
                 The secret key of this backend.
+-->
+このバックエンドの秘密鍵です。
 </para>
 </listitem>
 </varlistentry>
@@ -4366,7 +4475,10 @@ Bind (F)
 </term>
 <listitem>
 <para>
+<!--
                 Identifies the message as a Bind command.
+-->
+このメッセージがBindコマンドであることを識別します。
 </para>
 </listitem>
 </varlistentry>
@@ -4376,7 +4488,10 @@ Bind (F)
 </term>
 <listitem>
 <para>
+<!--
                 Length of message contents in bytes, including self.
+-->
+自身を含む、メッセージ内容の長さ（バイト単位）。
 </para>
 </listitem>
 </varlistentry>
@@ -4386,8 +4501,11 @@ Bind (F)
 </term>
 <listitem>
 <para>
+<!--
                 The name of the destination portal
                 (an empty string selects the unnamed portal).
+-->
+宛先ポータルの名前（空文字列にすると無名ポータルを選択します）。
 </para>
 </listitem>
 </varlistentry>
@@ -4397,8 +4515,11 @@ Bind (F)
 </term>
 <listitem>
 <para>
+<!--
                 The name of the source prepared statement
                 (an empty string selects the unnamed prepared statement).
+-->
+入力元のプリペアド文の名前（空文字列にすると無名のプリペアド文を選択します）。
 </para>
 </listitem>
 </varlistentry>
@@ -4408,6 +4529,7 @@ Bind (F)
 </term>
 <listitem>
 <para>
+<!--
                 The number of parameter format codes that follow
                 (denoted <replaceable>C</> below).
                 This can be zero to indicate that there are no parameters
@@ -4415,6 +4537,10 @@ Bind (F)
                 or one, in which case the specified format code is applied
                 to all parameters; or it can equal the actual number of
                 parameters.
+-->
+その後に続くパラメータ書式コードの数（以下では<replaceable>C</>で表します）。
+これは、パラメータがない、またはパラメータはすべてデフォルトの書式（テキスト）を使うことを示す0、あるいは指定の書式コードがすべてのパラメータに適用されることを示す1にすることができます。
+そうでなければ、実際のパラメータの数と同じになります。
 </para>
 </listitem>
 </varlistentry>
@@ -4424,8 +4550,12 @@ Bind (F)
 </term>
 <listitem>
 <para>
+<!--
                 The parameter format codes.  Each must presently be
                 zero (text) or one (binary).
+-->
+パラメータ書式コードです。
+現在はそれぞれが0（テキスト）あるいは1（バイナリ）でなければなりません。
 </para>
 </listitem>
 </varlistentry>
@@ -6005,9 +6135,14 @@ GSSResponse (F)
 </term>
 <listitem>
 <para>
+<!--
                 Identifies the message as a GSSAPI or SSPI response. Note that
                 this is also used for SASL and password response messages.
                 The exact message type can be deduced from the context.
+-->
+このメッセージがGSSAPIまたはSSPI応答であることを識別します。
+これはSASLおよびパスワードの応答メッセージにも使用されることに注意してください。
+厳密なメッセージ種別は、その状況から推論できます。
 </para>
 </listitem>
 </varlistentry>
@@ -6017,7 +6152,10 @@ GSSResponse (F)
 </term>
 <listitem>
 <para>
+<!--
                 Length of message contents in bytes, including self.
+-->
+自身を含む、メッセージ内容の長さ（バイト単位）。
 </para>
 </listitem>
 </varlistentry>
@@ -6027,7 +6165,10 @@ GSSResponse (F)
 </term>
 <listitem>
 <para>
+<!--
                 GSSAPI/SSPI specific message data.
+-->
+GSSAPI/SSPIに固有のメッセージデータ。
 </para>
 </listitem>
 </varlistentry>
@@ -6555,8 +6696,8 @@ PasswordMessage (F)
                 The exact message type can be deduced from the context.
 -->
 メッセージがパスワード応答であることを識別します。
-これがGSSAPIまたはSSPI応答メッセージでも使用されることに注意してください。
-（これは本当は設計エラーです。こうした場合含まれるデータはヌル終端の文字列ではなく、任意のバイナリデータを取り得るためです。）
+これがGSSAPI、SSPIまたはSASL応答メッセージでも使用されることに注意してください。
+厳密なメッセージ種別は、その状況から推論できます。
 </para>
 </listitem>
 </varlistentry>
@@ -6931,9 +7072,14 @@ SASLInitialResponse (F)
 </term>
 <listitem>
 <para>
+<!--
                 Identifies the message as an initial SASL response. Note that
                 this is also used for GSSAPI, SSPI and password response messages.
                 The exact message type is deduced from the context.
+-->
+メッセージが最初のSASL応答であることを識別します。
+これがGSSAPI、SSPIまたはパスワード応答メッセージでも使用されることに注意してください。
+厳密なメッセージ種別は、その状況から推論できます。
 </para>
 </listitem>
 </varlistentry>
@@ -6943,7 +7089,10 @@ SASLInitialResponse (F)
 </term>
 <listitem>
 <para>
+<!--
                 Length of message contents in bytes, including self.
+-->
+自身を含む、メッセージ内容の長さ（バイト単位）。
 </para>
 </listitem>
 </varlistentry>
@@ -6953,8 +7102,11 @@ SASLInitialResponse (F)
 </term>
 <listitem>
 <para>
+<!--
                 Name of the SASL authentication mechanism that the client
                 selected.
+-->
+クライアントが選択したSASL認証機構の名前。
 </para>
 </listitem>
 </varlistentry>
@@ -6964,8 +7116,11 @@ SASLInitialResponse (F)
 </term>
 <listitem>
 <para>
+<!--
                 Length of SASL mechanism specific "Initial Client Response" that
                 follows, or -1 if there is no Initial Response.
+-->
+それに続くSASLの機構固有の「Initial Client Response（最初のクライアントの応答）」の長さ、またはInitial Responseがなければ-1。
 </para>
 </listitem>
 </varlistentry>
@@ -6975,7 +7130,10 @@ SASLInitialResponse (F)
 </term>
 <listitem>
 <para>
+<!--
                 SASL mechanism specific "Initial Response".
+-->
+SASLの機構固有の「Initial Response（最初の応答）」。
 </para>
 </listitem>
 </varlistentry>
@@ -6999,9 +7157,14 @@ SASLResponse (F)
 </term>
 <listitem>
 <para>
+<!--
                 Identifies the message as a SASL response. Note that
                 this is also used for GSSAPI, SSPI and password response messages.
                 The exact message type can be deduced from the context.
+-->
+メッセージがSASL応答であることを識別します。
+これがGSSAPI、SSPIまたはパスワード応答メッセージでも使用されることに注意してください。
+厳密なメッセージ種別は、その状況から推論できます。
 </para>
 </listitem>
 </varlistentry>
@@ -7011,7 +7174,10 @@ SASLResponse (F)
 </term>
 <listitem>
 <para>
+<!--
                 Length of message contents in bytes, including self.
+-->
+自身を含む、メッセージ内容の長さ（バイト単位）。
 </para>
 </listitem>
 </varlistentry>
@@ -7021,7 +7187,10 @@ SASLResponse (F)
 </term>
 <listitem>
 <para>
+<!--
                 SASL mechanism specific message data.
+-->
+SASLの機構固有のメッセージデータ
 </para>
 </listitem>
 </varlistentry>
@@ -7045,7 +7214,10 @@ SSLRequest (F)
 </term>
 <listitem>
 <para>
+<!--
                 Length of message contents in bytes, including self.
+-->
+自身を含む、メッセージ内容の長さ（バイト単位）。
 </para>
 </listitem>
 </varlistentry>
@@ -7055,10 +7227,15 @@ SSLRequest (F)
 </term>
 <listitem>
 <para>
+<!--
                 The <acronym>SSL</acronym> request code.  The value is chosen to contain
                 <literal>1234</> in the most significant 16 bits, and <literal>5679</> in the
                 least significant 16 bits.  (To avoid confusion, this code
                 must not be the same as any protocol version number.)
+-->
+<acronym>SSL</acronym>要求コードです。
+この値は最上位の16ビットに<literal>1234</>が、最下位の16ビットに<literal>5679</>が含まれるように選択されます。
+（混乱を防ぐため、このコードはどのプロトコルのバージョン番号とも同じになってはいけません。）
 </para>
 </listitem>
 </varlistentry>
@@ -7083,7 +7260,10 @@ StartupMessage (F)
 </term>
 <listitem>
 <para>
+<!--
                 Length of message contents in bytes, including self.
+-->
+自身を含む、メッセージ内容の長さ（バイト単位）。
 </para>
 </listitem>
 </varlistentry>
@@ -7093,20 +7273,32 @@ StartupMessage (F)
 </term>
 <listitem>
 <para>
+<!--
                 The protocol version number.  The most significant 16 bits are
                 the major version number (3 for the protocol described here).
                 The least significant 16 bits are the minor version number
                 (0 for the protocol described here).
+-->
+プロトコルのバージョン番号です。
+最上位の16ビットはメジャーバージョン番号（ここで説明しているプロトコルでは3）です。
+最下位の16ビットはマイナーバージョン番号（ここで説明しているプロトコルでは0）です。
 </para>
 </listitem>
 </varlistentry>
 </variablelist>
+<!--
         The protocol version number is followed by one or more pairs of
         parameter name and value strings.  A zero byte is required as a
         terminator after the last name/value pair.
         Parameters can appear in any
         order.  <literal>user</> is required, others are optional.
         Each parameter is specified as:
+-->
+プロトコルのバージョン番号の後には、パラメータ名と値文字列の対が1つ以上続きます。
+最後の名前／値の対の後に終端子としてゼロのバイトが必要です。
+パラメータは任意の順番に並べることができます。
+<literal>user</>が必須、他はオプションです。
+各パラメータは以下のように指定します。
 <variablelist>
 <varlistentry>
 <term>
@@ -7178,6 +7370,7 @@ StartupMessage (F)
 </term>
 <listitem>
 <para>
+<!--
                         Used to connect in streaming replication mode, where
                         a small set of replication commands can be issued
                         instead of SQL statements. Value can be
@@ -7185,6 +7378,10 @@ StartupMessage (F)
                         <literal>database</>, and the default is
                         <literal>false</>. See
                         <xref linkend="protocol-replication"> for details.
+-->
+ストリーミングレプリケーションモードで接続するのに使用され、SQL文の代わりにレプリケーションコマンドの小さな集合を発行することができます。
+値は<literal>true</>、<literal>false</>または<literal>database</>をとることができ、デフォルトは<literal>false</>です。
+詳細は<xref linkend="protocol-replication">を参照してください。
 </para>
 </listitem>
 </varlistentry>
@@ -7372,25 +7569,6 @@ message.
 フィールドの内容は<literal>ERROR</>、<literal>FATAL</>、<literal>PANIC</>（エラーメッセージ内）、<literal>WARNING</>、<literal>NOTICE</>、<literal>DEBUG</>、<literal>INFO</>、<literal>LOG</>（警報メッセージ内）です。
 これは、その内容が決して地域化されないという点以外は<literal>S</>フィールドと同一です。
 これは<productname>PostgreSQL</>バージョン9.6以降で生成されたメッセージにだけあります。
-</para>
-</listitem>
-</varlistentry>
-
-<varlistentry>
-<term>
-<literal>V</>
-</term>
-<listitem>
-<para>
-        Severity: the field contents are
-        <literal>ERROR</>, <literal>FATAL</>, or
-        <literal>PANIC</> (in an error message), or
-        <literal>WARNING</>, <literal>NOTICE</>, <literal>DEBUG</>,
-        <literal>INFO</>, or <literal>LOG</> (in a notice message).
-        This is identical to the <literal>S</> field except
-        that the contents are never localized.  This is present only in
-        messages generated by <productname>PostgreSQL</> versions 9.6
-        and later.
 </para>
 </listitem>
 </varlistentry>
