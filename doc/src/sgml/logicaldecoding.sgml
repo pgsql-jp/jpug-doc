@@ -320,20 +320,6 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
     </para>
 
     <para>
-     A logical slot will emit each change just once in normal operation.
-     The current position of each slot is persisted only at checkpoint, so in
-     the case of a crash the slot may return to an earlier LSN, which will
-     then cause recent changes to be resent when the server restarts.
-     Logical decoding clients are responsible for avoiding ill effects from
-     handling the same message more than once.  Clients may wish to record
-     the last LSN they saw when decoding and skip over any repeated data or
-     (when using the replication protocol) request that decoding start from
-     that LSN rather than letting the server determine the start point.
-     The Replication Progress Tracking feature is designed for this purpose,
-     refer to <link linkend="replication-origins">replication origins</link>.
-    </para>
-
-    <para>
 <!--
      Multiple independent slots may exist for a single database. Each slot has
      its own state, allowing different consumers to receive changes from
@@ -407,17 +393,22 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
      database's state at that point in time, which afterwards can be updated
      using the slot's contents without losing any changes.
 -->
-ストリーミングレプリケーションのインターフェイスを使って新しいスロットを作ると、スナップショットがエクスポートされます(<xref linkend="functions-snapshot-synchronization">参照)。
+ストリーミングレプリケーションのインターフェイスを使って新しいスロットを作ると(<xref linkend="protocol-replication-create-slot">参照)、スナップショットがエクスポートされます(<xref linkend="functions-snapshot-synchronization">参照)。
 このスナップショットはまさにその時点でのデータベースの状態を示しており、スナップショット以後のすべての変更は更新ストリームに含まれるようになります。
 このことを利用して、スロットが作られた際のデータベースの状態を<link linkend="sql-set-transaction"><literal>SET TRANSACTION SNAPSHOT</literal></link>を使って読み込むことにより、新しいレプリカを作ることができます。
 このトランザクションは、その時点のデータベースの状態をダンプするために使用することができます。
 また、スロットに含まれるデータを使って、ダンプした後で行われた更新を失うことなくデータベースを更新できます。
     </para>
     <para>
+<!--
      Creation of a snapshot is not always possible.  In particular, it will
      fail when connected to a hot standby.  Applications that do not require
      snapshot export may suppress it with the <literal>NOEXPORT_SNAPSHOT</>
      option.
+-->
+スナップショットの作成はいつでも可能なわけではありません。
+とりわけ、ホットスタンバイに接続するときは失敗します。
+スナップショットのエクスポートが必要ないアプリケーションは、<literal>NOEXPORT_SNAPSHOT</>オプションを使ってスナップショットのエクスポートを抑止できます。
     </para>
    </sect2>
   </sect1>
@@ -456,7 +447,7 @@ $ pg_recvlogical -d postgres --slot test --drop-slot
      </listitem>
 
      <listitem>
-      <para><literal>DROP_REPLICATION_SLOT <replaceable>slot_name</replaceable></literal></para>
+      <para><literal>DROP_REPLICATION_SLOT <replaceable>slot_name</replaceable></literal> <optional> <literal>WAIT</> </></para>
      </listitem>
 
      <listitem>
