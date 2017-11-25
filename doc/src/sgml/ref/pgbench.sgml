@@ -502,7 +502,7 @@ pgbench <optional> <replaceable>options</> </optional> <replaceable>dbname</>
         Write information about each transaction to a log file.
         See below for details.
 -->
-各トランザクションで費やした時間をログファイルに書き出します。
+各トランザクションに関する情報をログファイルに書き出します。
 後で詳細を説明します。
        </para>
       </listitem>
@@ -798,7 +798,7 @@ pgbench <optional> <replaceable>options</> </optional> <replaceable>dbname</>
         <structname>pgbench_tellers</> and <structname>pgbench_branches</>
         tables, and will truncate <structname>pgbench_history</>.
 -->
-試験前に4つの標準テーブルすべてをバキュームを行います。
+試験前に4つの標準テーブルすべてをバキュームします。
 <option>-n</>も<option>-v</>もなければ、pgbenchは<structname>pgbench_tellers</>と<structname>pgbench_branches</>テーブルをバキュームし、<structname>pgbench_history</>内のデータをすべて消去します。
        </para>
       </listitem>
@@ -814,9 +814,8 @@ pgbench <optional> <replaceable>options</> </optional> <replaceable>dbname</>
         per-interval summary data, as described below.
 -->
 集約間隔の長さ（秒単位）です。
-これは<application>-l</application>と一緒でのみ使用される可能性があります。
-このオプションを付けると、ログには指定間隔単位の要約（トランザクション数、最大レイテンシ、最小レイテンシ、分散の推定に役に立つ2つの追加フィールド）が含まれます。
-
+これは<application>-l</application>と一緒でのみ使用できます。
+このオプションを付けると、ログには以下で説明するような指定間隔単位の要約が含まれます。
        </para>
       </listitem>
      </varlistentry>
@@ -829,7 +828,8 @@ pgbench <optional> <replaceable>options</> </optional> <replaceable>dbname</>
         Set the filename prefix for the log files created by
         <option>&#045;&#045;log</>.  The default is <literal>pgbench_log</>.
 -->
-現在このオプションはWindowsではサポートされていません。
+<option>--log</>により作成されるログファイルのファイル名の先頭につける文字列を設定します。
+デフォルトは<literal>pgbench_log</>です。
        </para>
       </listitem>
      </varlistentry>
@@ -1158,7 +1158,7 @@ pgbench <optional> <replaceable>options</> </optional> <replaceable>dbname</>
    Arguments to a meta command are separated by white space.
    These meta commands are supported:
 -->
-スクリプトファイルメタコマンドはバックスラッシュ（<literal>\</>）から始まり、行末まで続きます。
+スクリプトファイルのメタコマンドはバックスラッシュ（<literal>\</>）から始まり、通常は行末まで続きますが、バックスラッシュと改行を書くことで、追加の行に続けることができます。
 メタコマンドへの引数は空白文字で区切られます。
 以下のメタコマンドがサポートされています。
   </para>
@@ -1628,14 +1628,12 @@ END;
    where <replaceable>mmm</> is a sequential number for each worker starting
    with 1.
 -->
-<option>--aggregate-interval</option>を付けずに<option>-l</>オプションを使用すると、
-<application>pgbench</>は各トランザクションで要した時間をログファイルに書き出します。
-ログファイルの名前は<filename>pgbench_log.<replaceable>nnn</></filename>です。
-ここで<replaceable>nnn</>はpgbenchプロセスのPIDです。
-<option>-j</>オプションが2以上の場合、それぞれ独自のログファイルを持つ複数のワーカスレッドが生成されます。
+（<option>--aggregate-interval</option>オプションなしで）<option>-l</>オプションを使用すると、<application>pgbench</>は各トランザクションに関する情報をログファイルに書き出します。
+ログファイルの名前は<filename><replaceable>prefix</>.<replaceable>nnn</></filename>で、<replaceable>prefix</>のデフォルトは<literal>pgbench_log</>、<replaceable>nnn</>は<application>pgbench</application>プロセスのPIDです。
+ファイル名の先頭の文字列は<option>--log-prefix</>オプションを使って変更することができます。
+<option>-j</>オプションが2以上で複数のワーカスレッドがある場合、それぞれが独自のログファイルを持つことになります。
 最初のワーカは標準的な単一ワーカの場合と同じ名前を持つログファイルを使用します。
-他のワーカ用の追加のログファイルは<filename>pgbench_log.<replaceable>nnn</>.<replaceable>mmm</></filename>のように命名されます。
-ここで<replaceable>mmm</>は1から始まる各ワーカの連番です。
+他のワーカ用の追加のログファイルは<filename><replaceable>prefix</>.<replaceable>nnn</>.<replaceable>mmm</></filename>と命名され、ここで<replaceable>mmm</>は1から始まる各ワーカの連番です。
   </para>
 
   <para>
@@ -1668,11 +1666,12 @@ END;
    the <replaceable>time</> for a skipped transaction will be reported as
    <literal>skipped</>.
 -->
-ここで<replaceable>time</>はマイクロ秒単位の総トランザクション処理時間、
-<replaceable>script_no</>は使用されたスクリプトファイルを識別するもの（<option>-f</>または<option>-b</>により複数のスクリプトが指定された場合に有用）、
-<replaceable>time_epoch</>/<replaceable>time_us</>はマイクロ秒のオフセットを持つUNIXエポック書式のタイムスタンプ（小数秒付きのISO 8601タイムスタンプの作成に適します）
-でトランザクションの完了時刻を示します。
-フィールド<replaceable>schedule_lag</>は、マイクロ秒単位のトランザクションの予定開始時刻と実開始時刻の差です。
+<replaceable>client_id</>はどのクライアントセッションがそのトランザクションを実行したかを示します。
+<replaceable>transaction_no</>はそのセッションで何個のトランザクションが実行されたかを示します。
+<replaceable>time</>はトランザクションの合計消費時間をミリ秒単位で示します。
+<replaceable>script_no</>はどのスクリプトファイルが使用されたかを識別するものです（<option>-f</>または<option>-b</>で複数のスクリプトが指定された場合に有用です）。
+<replaceable>time_epoch</>/<replaceable>time_us</>はトランザクション完了時のUnixエポック時間とマイクロ秒単位のオフセットです（小数秒付きのISO 8601タイムスタンプの作成に適します）。
+<replaceable>schedule_lag</>フィールドは、マイクロ秒単位のトランザクションの予定開始時刻と実開始時刻の差です。
 これは<option>--rate</>オプションを使用した時だけ表示されます。
 <option>--rate</>と<option>--latency-limit</>の両方のオプションを使用した時は、スキップされたトランザクションの<replaceable>time</>が<literal>skipped</>として表示されます。
   </para>
@@ -1681,7 +1680,7 @@ END;
 <!--
    Here is a snippet of a log file generated in a single-client run:
 -->
-生成されたログファイルの一部を示します。
+単一クライアントでの実行で生成されたログファイルの一部を示します。
 <screen>
 0 199 2241 0 1175850568 995598
 0 200 2465 0 1175850568 998079
@@ -1694,7 +1693,7 @@ END;
    and <literal>&#045;&#045;latency-limit=5</> (note the additional
    <replaceable>schedule_lag</> column):
 -->
---rate=100 と --latency-limit=5 を指定した例を示します。(<replaceable>schedule_lag</>列が追加されていることに注意)
+<literal>--rate=100</>と<literal>--latency-limit=5</>を指定した例を示します。(<replaceable>schedule_lag</>列が追加されていることに注意)
 <screen>
 0 81 4621 0 1412881037 912698 3005
 0 82 6173 0 1412881037 914578 4304
@@ -1735,7 +1734,7 @@ END;
    With the <option>&#045;&#045;aggregate-interval</option> option, a different
    format is used for the log files:
 -->
-<option>--aggregate-interval</option>オプションを付ける場合、以下のようにログの書式が多少異なります。
+<option>--aggregate-interval</option>オプションを付ける場合、以下のようにログの書式が異なります。
 
 <synopsis>
 <replaceable>interval_start</> <replaceable>num_transactions</> <replaceable>sum_latency</> <replaceable>sum_latency_2</> <replaceable>min_latency</> <replaceable>max_latency</> <optional> <replaceable>sum_lag</> <replaceable>sum_lag_2</> <replaceable>min_lag</> <replaceable>max_lag</> <optional> <replaceable>skipped</> </optional> </optional>
@@ -1767,22 +1766,24 @@ END;
    started too late.
    Each transaction is counted in the interval when it was committed.
 -->
-ここで、<replaceable>interval_start</>はインターバルの開始時刻（Unixエポック書式のタイムスタンプ）、
-<replaceable>num_of_transactions</>はインターバル内のトランザクション数、
-<replaceable>latency_sum</replaceable>はレイテンシの総和です（これらを使って簡単に平均レイテンシを計算できます）。
-以下２つのフィールドは分散推定の際に有用です。
-<replaceable>latency_sum</>はレイテンシの総和であり、<replaceable>latency_2_sum</>はレイテンシの二乗の総和です。
-次の２つのフィールドは、インターバル内の最小レイテンシである<replaceable>min_latency</>と、インターバル内の最大レイテンシである<replaceable>max_latency</>です。
-インターバル内でコミットされた時点でトランザクションとしてカウントされます。
-最後の方のフィールド<replaceable>lag_sum</>、<replaceable>lag_2_sum</>、<replaceable>min_lag</>と<replaceable>max_lag</>は<option>--rate</>オプションが使われた時だけ表示されます。
-最後の<replaceable>skipped_transactions</>もやはり<option>--latency-limit</>が指定された時だけ表示されます。
-これらは、各トランザクションが前のトランザクション終了を待つ時間、つまり各トランザクションの予定開始時刻と実開始時刻の差から算出されます。
+<replaceable>interval_start</>はインターバルの開始時刻（Unixエポック時間）です。
+<replaceable>num_of_transactions</>はインターバル内のトランザクション数です。
+<replaceable>latency_sum</replaceable>はインターバル内のトランザクションレイテンシの総和です。
+<replaceable>sum_latency_2</replaceable>はインターバル内のトランザクションレイテンシの2乗の総和です。
+<replaceable>min_latency</>はインターバル内の最小レイテンシです。
+<replaceable>max_latency</>はインターバル内の最大レイテンシです。
+これに続くフィールド<replaceable>sum_lag</>、<replaceable>sum_lag_2</>、<replaceable>min_lag</>、<replaceable>max_lag</>は<option>--rate</>オプションが指定された場合にのみ表示されます。
+これらは、各トランザクションが直前のトランザクションの終了を待機しなければならなかった時間、つまりトランザクションの予定開始時刻と実際の開始時刻の差に関する統計を提供します。
+一番最後のフィールド<replaceable>skipped</>は<option>--latency-limit</>オプションも使用されたときにのみ表示されます。
+これは開始時刻が遅くなったためにスキップされたトランザクションの数を数えます。
+各トランザクションはインターバル内でコミットされた時に数えられます。
   </para>
 
   <para>
 <!--
    Here is some example output:
 -->
+いくつか出力例を示します。
 <screen>
 1345828501 5601 1542744 483552416 61 2573
 1345828503 7884 1979812 565806736 60 1479
@@ -1797,8 +1798,8 @@ END;
    was used for each transaction, the aggregated log does not. Therefore if
    you need per-script data, you need to aggregate the data on your own.
 -->
-通常の（集約されていない）ログファイルには、カスタムスクリプトファイルへの参照が含まれますが、集約されたログには含まれません。
-このためスクリプト単位のデータが必要な場合は、自身でデータを集約しなければなりません。
+通常の（集約されていない）ログファイルは、各トランザクションについてどのスクリプトファイルが使用されたかを示しますが、集約されたログにはそれがないことに注意してください。
+このためスクリプト単位のデータが必要な場合は、自身でデータを集約する必要があります。
   </para>
 
  </refsect2>
