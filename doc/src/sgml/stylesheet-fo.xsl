@@ -192,7 +192,9 @@
       </xsl:call-template>
     </xsl:when>
     <xsl:otherwise>
-      <xsl:value-of select="."/>
+      <xsl:call-template name="ideographic-comma">
+        <xsl:with-param name="str" select="."/>
+      </xsl:call-template>
     </xsl:otherwise>
   </xsl:choose>
 </xsl:template>
@@ -220,6 +222,21 @@
       <xsl:with-param name="str" select="substring($str, 2)"/>
     </xsl:call-template>
   </xsl:if>
+</xsl:template>
+
+<xsl:template name="ideographic-comma">
+  <xsl:param name="str"/>
+  <xsl:choose>
+    <xsl:when test="contains($str, '&#x3001;')">
+      <xsl:value-of select="substring-before($str, '&#x3001;')" />&#x3001;&#x200B;
+      <xsl:call-template name="ideographic-comma">
+        <xsl:with-param name="str" select="substring-after($str, '&#x3001;')"/>
+      </xsl:call-template>
+    </xsl:when>
+    <xsl:otherwise>
+      <xsl:value-of select="$str" />
+    </xsl:otherwise>
+  </xsl:choose>
 </xsl:template>
 
 <!-- header settings -->
