@@ -316,7 +316,7 @@ BeginForeignScan (ForeignScanState *node,
 この関数はエグゼキュータの起動中に呼び出されます。
 スキャンを開始できるようになる前に、あらゆる必要な初期化を実行するべきですが、実際のスキャンの実行を始めるべきではありません(それは最初の<function>IterateForeignScan</>呼び出しにおいて行われるべきです)。
 <structname>ForeignScanState</>ノードは作成されていますが、その<structfield>fdw_state</>フィールドはNULLのままです。
-スキャンするテーブルの情報は、<structname>ForeignScanState</>ノード(実際にはその先にある、<function>PlanForeignScan</>から返された<structname>FdwPlan</>構造体へのポインタを含む、<structname>ForeignScan</>プランノード)を通じてアクセス可能です。
+スキャンするテーブルの情報は、<structname>ForeignScanState</>ノード(特に、その先にある<function>GetForeignPlan</>から提供されたFDWプライベート情報を含む、<structname>ForeignScan</>プランノード)を通じてアクセス可能です。
 <literal>eflags</>は、このプランノードに関するエグゼキュータの操作モードを表すフラグビットを含みます。
     </para>
 
@@ -348,7 +348,7 @@ IterateForeignScan (ForeignScanState *node);
      in <function>BeginForeignScan</> if you need longer-lived storage, or use
      the <structfield>es_query_cxt</> of the node's <structname>EState</>.
 -->
-外部ソースから一行を取り出して、それをタプルテーブルスロットに入れて返します(この用途にはnodeの<structfield>ScanTupleSlot</>を使うべきです)。
+外部ソースから一行を取り出して、それをタプルテーブルスロットに入れて返します(この用途にはノードの<structfield>ScanTupleSlot</>を使うべきです)。
 利用可能な行がない場合は、NULLを返します。
 タプルテーブルスロット機構を使うと、物理タプルと仮想タプルのどちらでも返せます。
 ほとんどの場合、パフォーマンスの観点から後者を選ぶのが良いでしょう。
@@ -639,7 +639,7 @@ FDWは、更新や削除の対象行を厳密に識別できるように行IDや
      <literal>target_relation</> describe the target foreign table.
 -->
 この関数はプランナでなくリライタで呼ばれるので、利用可能な情報はプラン生成ルーチンで利用可能なものとは少し異なります。
-<literal>parsetree</>は<command>UPDATE</>や<command>DELETE</>コマンドのパース木で、<literal>target_rte</>と<literal>target_relation</>は対象の外部テーブルを表します。
+<literal>parsetree</>は<command>UPDATE</>や<command>DELETE</>コマンドの解析ツリーで、<literal>target_rte</>と<literal>target_relation</>は対象の外部テーブルを表します。
     </para>
 
     <para>
@@ -706,7 +706,7 @@ PlanForeignModify (PlannerInfo *root,
      <literal>fdw_private</> list delivered to
      <function>BeginForeignModify</> will be NIL.
 -->
-もし<function>AddForeignUpdateTargets</>ポインタが<literal>NULL</>に設定されている場合は、追加のプラン作成時処理は実行されず、<function>BeginForeignModify</>に渡される<literal>fdw_private</>リストはNILになります。
+もし<function>PlanForeignModify</>ポインタが<literal>NULL</>に設定されている場合は、追加のプラン作成時処理は実行されず、<function>BeginForeignModify</>に渡される<literal>fdw_private</>リストはNILになります。
     </para>
 
     <para>
@@ -750,8 +750,10 @@ BeginForeignModify (ModifyTableState *mtstate,
      operating mode for this plan node.
 -->
 <literal>mtstate</>は実行されている<structname>ModifyTable</>プランノード全体の状態です。プランに関する全般的なデータと実行状態はこの構造体経由で利用可能です。
-<literal>rinfo</>は対象の外部テーブルを表す<structname>ResultRelInfo</>構造体です。(<structname>ResultRelInfo</>の<structfield>ri_FdwState</>フィールドはこの操作で必要となる固有の状態をFDWが格納するのに利用できます。)
-<literal>fdw_private</>はもしあれば<function>PlanForeignModify</>で生成された固有データを含みます。
+<literal>rinfo</>は対象の外部テーブルを表す<structname>ResultRelInfo</>構造体です。
+(<structname>ResultRelInfo</>の<structfield>ri_FdwState</>フィールドはこの操作で必要となる固有の状態をFDWが格納するのに利用できます。)
+<literal>fdw_private</>は、もしあれば<function>PlanForeignModify</>で生成された固有データを含みます。
+<literal>subplan_index</>は、これが<structname>ModifyTable</>プランノードのどのターゲットであるかを識別します。
 <literal>eflags</>は、このプランノードに関するエグゼキュータの操作モードを表すフラグビットを含みます。
     </para>
 
@@ -800,7 +802,7 @@ ExecForeignInsert (EState *estate,
 <literal>estate</>はそのクエリのグローバルな実行状態です。
 <literal>rinfo</>は対象の外部テーブルを表す<structname>ResultRelInfo</>構造体です。
 <literal>slot</>には挿入されるタプルが含まれます。その行型定義は外部テーブルと一致します。
-<literal>planSlot</>には<structname>ModifyTable</>プランノードのサブプランが生成したタプルが含まれます。追加の<quote>ジャンク</>列を含みうる点において、<literal>slot</>とは異なります。(<literal>planSlot</>は一般的に<command>INSERT</command>のケースにおいてはそれほど意味を持ちませんが、完全さのために提供されます。)
+<literal>planSlot</>には<structname>ModifyTable</>プランノードのサブプランが生成したタプルが含まれます。追加の<quote>ジャンク</>列を含みうる点において、<literal>slot</>とは異なります。(<literal>planSlot</>は一般的に<command>INSERT</command>のケースにおいてはそれほど意味を持ちませんが、完全性のために提供されます。)
     </para>
 
     <para>
@@ -1556,7 +1558,7 @@ ExplainDirectModify (ForeignScanState *node,
      <literal>NULL</>, no additional information is printed during
      <command>EXPLAIN</>.
 -->
-<function>ExplainForeignScan</>ポインタが<literal>NULL</>に設定されている場合は、<command>EXPLAIN</>中に追加情報は表示されません。
+<function>ExplainDirectModify</>ポインタが<literal>NULL</>に設定されている場合は、<command>EXPLAIN</>中に追加情報は表示されません。
     </para>
 
    </sect2>
@@ -1593,7 +1595,7 @@ AnalyzeForeignTable (Relation relation,
      If the FDW does not support collecting statistics for any tables, the
      <function>AnalyzeForeignTable</> pointer can be set to <literal>NULL</>.
 -->
-もしFDWが統計情報の収集をどのテーブルについてもサポートしない場合は、<function>AnalyzeForeignTable</>ポインタをNULLにすることもできます。
+もしFDWが統計情報の収集をどのテーブルについてもサポートしない場合は、<function>AnalyzeForeignTable</>ポインタを<literal>NULL</>にすることもできます。
     </para>
 
     <para>
@@ -1844,7 +1846,7 @@ InitializeWorkerForeignScan(ForeignScanState *node, shm_toc *toc,
     set up by the leader during <function>InitializeDSMForeignScan</>.
     This function is optional, and can be omitted if not needed.
 -->
-<literal>InitializeDSMForeignScan</>でリーダーがセットアップした共有状態に基づくパラレルワーカーのローカル状態を初期化します。
+<function>InitializeDSMForeignScan</>でリーダーがセットアップした共有状態に基づくパラレルワーカーのローカル状態を初期化します。
 この関数はオプションであり、必要でない場合は省略することができます。
    </para>
 
