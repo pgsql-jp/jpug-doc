@@ -51,7 +51,7 @@
     a <firstterm>Gather</firstterm> or <firstterm>Gather Merge</firstterm>
     node.  Here is a simple example:
 -->
-あるクエリの最速の実行戦略がパラレルクエリであるとオプティマイザが決定すると、<firstterm>Gather ノード</firstterm>を含むクエリプランを作成します。
+あるクエリの最速の実行戦略がパラレルクエリであるとオプティマイザが決定すると、<firstterm>Gather</firstterm>または<firstterm>Gather Merge</firstterm>ノードを含むクエリプランを作成します。
 単純な例を示します。
 
 <screen>
@@ -79,15 +79,16 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
     the <literal>Gather</> node itself; since that plan node is a child of the
     <literal>Gather</> node, it will run in parallel.
 -->
-どの場合でも、<literal>Gather</literal>ノードは正確に一つの子ノードを持ちます。
+どの場合でも、<literal>Gather</literal>または<literal>Gather Merge</literal>ノードは、正確に一つの子ノードを持ちます。
 子プランは、プランの中で並列に実行される部分です。
-<literal>Gather</>ノードがプランツリーの中で最上位にある場合は、クエリ全体が並列に実行されます。
-<literal>Gather</>ノードがプランツリーの他の部分にある場合は、その部分だけが並列に実行されます。
+<literal>Gather</>または<literal>Gather Merge</literal>ノードがプランツリーの中で最上位にある場合は、クエリ全体が並列に実行されます。
+<literal>Gather</>または<literal>Gather Merge</literal>ノードがプランツリーの他の部分にある場合は、その部分だけが並列に実行されます。
 上の例では、クエリはただ一つのテーブルにアクセスするので、<literal>Gather</>ノード自身以外では、たった一つのプランノードだけが存在します。
 そのプランノードは<literal>Gather</>ノードの子ノードなので、並列に実行されます。
    </para>
 
    <para>
+<!--
     <link linkend="using-explain">Using EXPLAIN</>, you can see the number of
     workers chosen by the planner.  When the <literal>Gather</> node is reached
     during query execution, the process which is implementing the user's
@@ -107,9 +108,18 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
     so that more workers can be run simultaneously or alternatively reducing
     <varname>max_parallel_workers_per_gather</varname> so that the planner
     requests fewer workers.
+-->
+<link linkend="using-explain">EXPLAINを使って</>、プランナが選択したワーカーの数を見ることができます。
+クエリの実行中に<literal>Gather</>ノードに到達すると、ユーザのセッションに対応しているプロセスは、プランナが選択したワーカーと同じ数の<link linkend="bgworker">バックグラウンドワーカープロセス</link>を要求します。
+プランナが使用を検討するバックグラウンドワーカーの数は、最大でも<xref linkend="guc-max-parallel-workers-per-gather">に制限されます。
+ある時点で存在できるバックグラウンドワーカーの数は、<xref linkend="guc-max-worker-processes">と<xref linkend="guc-max-parallel-workers">の両方を満たすように制限されます。
+ですから、あるパラレルクエリが、プラン時よりも少ない数のワーカープロセスによって実行されたり、まったくワーカープロセスなしに実行されることがあり得ます。
+最適なプランは利用可能なワーカーの数に依存することもあるので、これは低い性能をもたらす結果になるかもしれません。
+これがしばしば起こるようなら、<varname>max_worker_processes</>と<varname>max_parallel_workers</>を増やしてより多くのワーカーが同時に実行できるようにするか、 <varname>max_parallel_workers_per_gather</varname>を減らして、プランナがより少ない数のワーカーを要求するようにすることを考慮してください。
    </para>
 
    <para>
+<!--
     Every background worker process which is successfully started for a given
     parallel query will execute the parallel portion of the plan.  The leader
     will also execute that portion of the plan, but it has an additional
@@ -123,9 +133,17 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
     above the level of the <literal>Gather</literal> node or
     <literal>Gather Merge</literal> node.  In such cases, the leader will
     do very little of the work of executing the parallel portion of the plan.
+-->
+与えられたパラレルクエリから起動されたすべてのバックグラウンドワーカープロセスは、<literal>Gather</>ノードの子孫であるプランの一部を実行します。
+リーダーはそうしたプランの部分を実行するだけでなく、追加の任務が与えられます。
+ワーカーが生成したすべてのタプルを読み込まなければなりません。
+プラン中のパラレル部分が少数のタプルを生成する場合は、リーダーは追加のワーカーとほぼ同じように振る舞い、クエリの実行を高速化します。
+反対にプラン中のパラレル部分が大量のタプルを生成する場合は、リーダーはワーカーが生成したタプルの読み込みと、<literal>Gather</literal>ノードあるいは<literal>Gather Merge</literal>より上位のプランノードが要求する追加の処理ステップに忙殺されるかもしれません。
+そのような場合は、リーダーはプランの並列実行部分のごく一部しか処理しません。
    </para>
 
    <para>
+<!--
     When the node at the top of the parallel portion of the plan is
     <literal>Gather Merge</> rather than <literal>Gather</>, it indicates that
     each process executing the parallel portion of the plan is producing
@@ -133,11 +151,17 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
     order-preserving merge.  In contrast, <literal>Gather</> reads tuples
     from the workers in whatever order is convenient, destroying any sort
     order that may have existed.
+-->
+プランの並列部分の最上位ノードが<literal>Gather</>ではなくて<literal>Gather Merge</>なら、プランの並列部分を実行する各プロセスはタプルをソート順に生成し、リーダーはソート順を保存するマージを実行していることを意味します。
+対象的に、<literal>Gather</>は、ワーカーから都合の良い順でタプルを読み込むので、ソート順が存在しているとしても、それを壊してしまいます。
    </para>   
  </sect1>
 
  <sect1 id="when-can-parallel-query-be-used">
+<!--
   <title>When Can Parallel Query Be Used?</title>
+  -->
+  <title>どのような時にパラレルクエリは使用できるのか？</title>
 
   <para>
 <!--
@@ -306,9 +330,12 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
 
     <listitem>
       <para>
+<!--
         No background workers can be obtained because of the limitation that
         the total number of background workers launched for purposes of
         parallel query cannot exceed <xref linkend="guc-max-parallel-workers">.
+-->
+パラレルクエリ目的で起動されたバックグラウンドワーカー数の合計が<xref linkend="guc-max-parallel-workers">を超えてはいけない、という制限によってバックグラウンドワーカーが得られない場合。
       </para>
     </listitem>
 
@@ -329,7 +356,7 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
 クライアントが0ではないフェッチカウント付きのExecuteメッセージを送信した場合。
 <link linkend="protocol-flow-ext-query">拡張問い合わせプロトコル</link>の議論をご覧ください。
 現在の<link linkend="libpq">libpq</link>にはそのようなメッセージを送る方法がないため、これはlibpqに依存しないクライアントを使った時にだけ起こります。
-これが頻繁に起こるようなら、順次実行したときに最適ではないプランが生成されるのを防ぐために、それが起こりそうなセッションの中で、<xref linkend="guc-max-parallel-workers-per-gather">を設定すると良いかもしれません。
+これが頻繁に起こるようなら、順次実行したときに最適ではないプランが生成されるのを防ぐために、それが起こりそうなセッションの中で、<xref linkend="guc-max-parallel-workers-per-gather">を0に設定すると良いかもしれません。
       </para>
     </listitem>
 
@@ -389,6 +416,7 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
 それぞれのワーカーが結果セットの全体のコピーを生成するので、クエリは通常よりも決して速くなりませんし、不正な結果を生成してしまいます。
 そうではなくて、プランのパラレル部分は、クエリオプティマイザの内部で<firstterm>部分プラン</>として知られているものでなくてはなりません。
 すなわち、プランを実行する各プロセスが、要求される個々の出力行が、協調動作するプロセスの正確に１個だけによって生成されることが保証されているような方法で、出力行の一部だけを生成します。
+一般に、これはクエリの処理対象のテーブルに対するスキャンは、パラレル対応のスキャンでなければならないことを意味します。
   </para>
 
  <sect2 id="parallel-scans">
@@ -398,28 +426,42 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
   <title>パラレルスキャン</title>
 
   <para>
+<!--
     The following types of parallel-aware table scans are currently supported.
+-->
+今のところ、次に示すパラレル対応のテーブルスキャンがサポートされています。
 
   <itemizedlist>
     <listitem>
       <para>
+<!--
         In a <emphasis>parallel sequential scan</>, the table's blocks will
         be divided among the cooperating processes.  Blocks are handed out one
         at a time, so that access to the table remains sequential.
+-->
+<emphasis>パラレル順スキャン</>では、テーブルのブロックは、協調するプロセスに分割して割り当てられます。
+ブロックは一度に１個ずつ処理され、テーブルへのアクセスは逐次のままです。
       </para>
     </listitem>
     <listitem>
       <para>
+<!--
         In a <emphasis>parallel bitmap heap scan</>, one process is chosen
         as the leader.  That process performs a scan of one or more indexes
         and builds a bitmap indicating which table blocks need to be visited.
         These blocks are then divided among the cooperating processes as in
         a parallel sequential scan.  In other words, the heap scan is performed
         in parallel, but the underlying index scan is not.
+-->
+<emphasis>パラレルビットマップヒープスキャン</>では、一つのプロセスがリーダーに選ばれます。
+そのプロセスは、一つ以上のインデックスをスキャンし、アクセスする必要のあるブロックを示すビットマップを作成します。
+次にこれらのブロックは、パラレルシーケンススキャン同様、協調するプロセスに割り当てられます。
+つまり、ヒープスキャンは並列であるものの、対応するインデックスのスキャンは並列ではありません。
       </para>
     </listitem>
     <listitem>
       <para>
+<!--
         In a <emphasis>parallel index scan</> or <emphasis>parallel index-only
         scan</>, the cooperating processes take turns reading data from the
         index.  Currently, parallel index scans are supported only for
@@ -428,12 +470,21 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
         at the same time be returning tuples from a different index block.
         The results of a parallel btree scan are returned in sorted order
         within each worker process.
+-->
+<emphasis>パラレルインデックススキャン</>あるいは<emphasis>パラレルindex-onlyスキャン</>では、協調するプロセスは、交代でインデックスからデータを読み込みます。
+今のところ、パラレルインデックススキャンは、btreeインデックスのみでサポートされています。
+個々のプロセスは単一のインデックスブロックを要求し、スキャンしてそのブロックから参照されているすべてのタプルを返却します。
+他のプロセスは同時に他のインデックスからタプルを返却することができます。
+並列btreeスキャンの結果は、ワーカー内におけるソート順の結果で返却されます。
       </para>
     </listitem>
   </itemizedlist>
 
+<!--
     Other scan types, such as scans of non-btree indexes, may support
     parallel scans in the future.
+-->
+btree以外のインデックススキャンのような他のスキャンタイプは、将来パラレルスキャンをサポートするかもしれません。
   </para>
  </sect2>
 
@@ -444,6 +495,7 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
   <title>パラレルジョイン</title>
 
   <para>
+<!--
     Just as in a non-parallel plan, the driving table may be joined to one or
     more other tables using a nested loop, hash join, or merge join.  The
     inner side of the join may be any kind of non-parallel plan that is
@@ -451,9 +503,14 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
     a parallel worker.  For example, if a nested loop join is chosen, the
     inner plan may be an index scan which looks up a value taken from the outer
     side of the join.
+-->
+非パラレルプラント同様、処理対象のテーブルは、1個以上の他のテーブルとネステッドループ、ハッシュ結合、マージ結合で結合することができます。
+結合の内側は、パラレルワーカー中で実行しても安全だという条件下で、プランナがサポートするどのような非パラレルプランであっても構いません。
+たとえば、ネステッドループ結合が選択されると、内側のプランは結合の外側から取得された値を参照するインデックススキャンかもしれません。
   </para>
 
   <para>
+<!--
     Each worker will execute the inner side of the join in full.  This is
     typically not a problem for nested loops, but may be inefficient for
     cases involving hash or merge joins.  For example, for a hash join, this
@@ -464,6 +521,13 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
     could be slow.  Of course, in cases where a parallel plan of this type
     would be inefficient, the query planner will normally choose some other
     plan (possibly one which does not use parallelism) instead.
+-->
+個々のワーカーは、内側の結合をフルで実行します。
+典型的にはこれはネステッドループでは問題ではありません。
+しかし、ハッシュあるいはマージ結合が関わる場合には非常率的かもしれません。
+たとえば、ハッシュ結合では、同一のハッシュテーブルが個々のワーカープロセス内で作成されるので、小さなテーブルの結合では良くても、内側のテーブルが大きい場合には非効率的であることを、この制約は意味します。
+マージ結合では、個々のワーカーが別々に内側のリレーションのソートを実行するので遅いかもしれないことを、これは意味します。
+もちろん、このタイプのパラレルプランが非効率的な場合には、クエリプランナは通常別のプランを代わりに選択します。（パラレル処理を使わないプランである可能性があります。）
   </para>
  </sect2>
 
@@ -487,7 +551,7 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
 <productname>PostgreSQL</>は、ふたつのステージで集約処理を行うことによってパラレル集約処理をサポートします。
 まず、クエリのパラレル部分に参加している個々のプロセスが集約ステップを実行し、それぞれのプロセスが認識しているグループに対する部分的な結果を生成します。
 これは<literal>Partial Aggregate</>ノードとしてプラン中に反映されています。
-次に、<literal>Gather</>ノードを通じて部分的な結果がリーダーに転送されます。
+次に、<literal>Gather</>または<literal>Gather Merge</>ノードを通じて部分的な結果がリーダーに転送されます。
 最後に、リーダーは、すべてのワーカーにまたがる結果を再集約して、最終的な結果を生成します。
 これは、<literal>Finalize Aggregate</>ノードとしてプラン中に反映されています。
   </para>
@@ -599,7 +663,7 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
 プランナは、クエリ中に実行される操作を<firstterm>パラレル安全（parallel safe）</>、<firstterm>パラレル制限（parallel restricted）</>、<firstterm>パラレル非安全（parallel unsafe）</>に分類します。
 パラレル安全操作は、パラレルクエリとコンフリクトしない操作です。
 パラレル制限操作は、パラレルクエリを利用中に、パラレルワーカー中では実行できないが、リーダーによって実行できる操作です。
-したがって、パラレル制限操作は、<literal>Gather</>ノードより下では決して実行されませんが、<literal>Gather</>ノードを含むプランの別の場所では実行されるかもしれません。
+したがって、パラレル制限操作は、<literal>Gather</>あるいは<literal>Gather Merge</>ノードより下では決して実行されませんが、<literal>Gather</>ノードを含むプランの別の場所では実行されるかもしれません。
 パラレル非安全操作は、パラレルクエリ利用中に、リーダも含めて実行できない操作です。
 クエリがパラレル非安全なものを含む場合は、クエリ中でのパラレルクエリの利用は全くできなくなります。
   </para>
@@ -646,7 +710,7 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
 <!--
         Access to an <literal>InitPlan</> or correlated <literal>SubPlan</>.
 -->
-<literal>InitPlan</>あるいは<literal>SubPlan</>へのアクセス。
+<literal>InitPlan</>あるいは関連する<literal>SubPlan</>へのアクセス。
       </para>
     </listitem>
   </itemizedlist>
@@ -699,7 +763,7 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
     <literal>setseed</> and <literal>random</> are parallel restricted for
     this last reason.
 -->
-データベースに書き込むか、シーケンスにアクセスするか、あるいはトランザクションの状態を一時的にであっても変更する（たとえばエラーを捕捉するために<literal>EXCEPTION</>ブロック確立するPL/pgsql関数）、恒久的な設定変更を行う関数あるいは集約は、<literal>PARALLEL UNSAFE</>とマークされなければなりません。
+データベースに書き込むか、シーケンスにアクセスするか、あるいはトランザクションの状態を一時的にであっても変更する（たとえばエラーを捕捉するために<literal>EXCEPTION</>ブロック確立するPL/pgSQL関数）、恒久的な設定変更を行う関数あるいは集約は、<literal>PARALLEL UNSAFE</>とマークされなければなりません。
 同様に、一時テーブル、クライアントの接続状態、カーソル、準備された文、システムがワーカーの間で同期できないその他のバックエンドローカルな状態にアクセスする関数あるいは集約は、<literal>PARALLEL RESTRICTED</>とマークされなければなりません。
 たとえば、<literal>setseed</>と<literal>random</>は、最後の理由により、パラレル制限です。
   </para>
@@ -750,7 +814,7 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
     node.  However, the planner does not do this.
 -->
 より良いプランを得るために、プランナがクエリの中で実行されるパラレル制限な関数や集約の評価の遅延を考慮することはないことに注意してください。
-したがって、たとえばあるテーブルに適用される<literal>WHERE</>句がパラレル制限であるときに、クエリプランナは<literal>Gather</>ノードの下にそのテーブルのスキャンを配置することを考慮しません。
+したがって、たとえばあるテーブルに適用される<literal>WHERE</>句がパラレル制限であるときに、クエリプランナはプランの並列実行部分中のテーブルに対してスキャンを実行をすることを考慮しません。
 ある場合においては、クエリ中のパラレル部分におけるテーブルのスキャンを含むようにして、<literal>WHERE</>句の評価を遅らせ、<literal>Gather</>ノード上で実行されるようにすることも可能でしょう（そしてその方が効率が良いことさえあります）。
 しかし、プランナはそうしたことは行いません。
   </para>
