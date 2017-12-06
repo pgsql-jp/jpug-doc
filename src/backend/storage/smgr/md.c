@@ -499,12 +499,6 @@ mdextend(SMgrRelation reln, ForkNumber forknum, BlockNumber blocknum,
 	int			nbytes;
 	MdfdVec    *v;
 
-	TRACE_POSTGRESQL_SMGR_MD_EXTEND_START(forknum, blocknum,
-										reln->smgr_rnode.node.spcNode,
-										reln->smgr_rnode.node.dbNode,
-										reln->smgr_rnode.node.relNode,
-										reln->smgr_rnode.backend);
-
 	/* This assert is too expensive to have on normally ... */
 #ifdef CHECK_WRITE_VS_EXTEND
 	Assert(blocknum >= mdnblocks(reln, forknum));
@@ -562,14 +556,6 @@ mdextend(SMgrRelation reln, ForkNumber forknum, BlockNumber blocknum,
 
 	if (!skipFsync && !SmgrIsTemp(reln))
 		register_dirty_segment(reln, forknum, v);
-
-	TRACE_POSTGRESQL_SMGR_MD_EXTEND_DONE(forknum, blocknum,
-										reln->smgr_rnode.node.spcNode,
-										reln->smgr_rnode.node.dbNode,
-										reln->smgr_rnode.node.relNode,
-										reln->smgr_rnode.backend,
-										nbytes,
-										BLCKSZ);
 
 	Assert(_mdnblocks(reln, forknum, v) <= ((BlockNumber) RELSEG_SIZE));
 }
