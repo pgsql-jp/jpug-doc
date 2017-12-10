@@ -24,7 +24,7 @@
   <literal>CREATE EXTENSION plpythonu</> (but
   see also <xref linkend="plpython-python23">).
 -->
-PL/Pythonを特定のデータベースにインストールするには、<literal>CREATE EXTENSION plpythonu</>を使用するか、またはシェルのコマンドラインから<literal>createlang plpython <replaceable>dbname</></literal>を使用してください
+PL/Pythonを特定のデータベースにインストールするには、<literal>CREATE EXTENSION plpythonu</>を使用してください
 (ただし<xref linkend="plpython-python23">も参照してください)。
  </para>
 
@@ -669,7 +669,7 @@ $$ LANGUAGE plpythonu;
    Python list:
 -->
 SQL配列値はPythonのリストとしてPL/Pythonに渡されます。
-PL/Python関数の外部にSQL配列値を返すためには、Pythonのシーケンス、例えばリストかタプルを返します。
+PL/Python関数の外部にSQL配列値を返すためには、Pythonのリストを返します。
 
 <programlisting>
 CREATE FUNCTION return_arr()
@@ -685,10 +685,16 @@ SELECT return_arr();
 (1 row)
 </programlisting>
 
+<!--
    Multidimensional arrays are passed into PL/Python as nested Python lists.
    A 2-dimensional array is a list of lists, for example. When returning
    a multi-dimensional SQL array out of a PL/Python function, the inner
    lists at each level must all be of the same size. For example:
+-->
+多次元配列はPL/Pythonに入れ子のPythonのリストとして渡されます。
+例えば、2次元配列はリストのリストです。
+PL/Pythonから多次元のSQLの配列を返す場合には、各レベルの内側のリストはすべて同じ大きさでなければなりません。
+例えば、
 
 <programlisting>
 CREATE FUNCTION test_type_conversion_array_int4(x int4[]) RETURNS int4[] AS $$
@@ -704,6 +710,7 @@ INFO:  ([[1, 2, 3], [4, 5, 6]], &lt;type 'list'&gt;)
 (1 row)
 </programlisting>
 
+<!--
    Other Python sequences, like tuples, are also accepted for
    backwards-compatibility with PostgreSQL versions 9.6 and below, when
    multi-dimensional arrays were not supported. However, they are always
@@ -711,6 +718,10 @@ INFO:  ([[1, 2, 3], [4, 5, 6]], &lt;type 'list'&gt;)
    composite types. For the same reason, when a composite type is used in a
    multi-dimensional array, it must be represented by a tuple, rather than a
    list.
+-->
+タプル等のその他のPythonのシーケンスも、PostgreSQLバージョン9.6以下との後方互換性のために受け入れられます。当時は、多次元配列はサポートされていませんでした。
+しかしながら、複合型と区別できないため、常に1次元配列として扱われます。
+同じ理由で、複合型を多次元配列内で使う場合、リストではなくタプルとして表現しなければなりません。
   </para>
   <para>
 <!--
@@ -817,7 +828,10 @@ CREATE FUNCTION make_pair (name text, value integer)
   RETURNS named_value
 AS $$
   return ( name, value )
+<!--
   # or alternatively, as tuple: return [ name, value ]
+-->
+  # もしくは、タプルとして返すなら: return [ name, value ]
 $$ LANGUAGE plpythonu;
 </programlisting>
 
@@ -828,9 +842,12 @@ $$ LANGUAGE plpythonu;
 任意の列でSQL NULL値を返すには、対応する位置に<symbol>None</symbol>を挿入します。
       </para>
       <para>
+<!--
        When an array of composite types is returned, it cannot be returned as a list,
        because it is ambiguous whether the Python list represents a composite type,
        or another array dimension.
+-->
+複合型の配列を返す場合、Pythonのリストが複合型を表しているのか、また別の配列の次元を表しているのかあいまいですので、リストとして返すことはできません。
       </para>
      </listitem>
     </varlistentry>
@@ -1491,8 +1508,11 @@ rv = plpy.execute(plan, ["name"], 5)
      </para>
 
      <para>
+<!--
       Alternatively, you can call the <function>execute</function> method on
       the plan object:
+-->
+代わりに、計画オブジェクトの<function>execute</function>メソッドを呼び出すことができます。
 <programlisting>
 rv = plan.execute(["name"], 5)
 </programlisting>
@@ -1549,7 +1569,7 @@ $$ LANGUAGE plpythonu;
 -->
 <literal>plpy.cursor</literal>関数は<literal>plpy.execute</literal>と同じ引数を受け取り（行数制限引数を除いた）カーソルオブジェクトとして返します。
 これにより大規模な結果セットをより小さな塊の中で処理することができます。
-<literal>plpy.execute</literal>の場合と同様、問い合わせ文字列または引数リスト付きの計画オブジェクトを使用することができます。
+<literal>plpy.execute</literal>の場合と同様、問い合わせ文字列または引数リスト付きの計画オブジェクトを使用できますし、計画オブジェクトのメソッドとして<function>cursor</function>関数を呼ぶことができます。
      </para>
 
      <para>
@@ -1604,7 +1624,10 @@ $$ LANGUAGE plpythonu;
 CREATE FUNCTION count_odd_prepared() RETURNS integer AS $$
 odd = 0
 plan = plpy.prepare("select num from largetable where num % $1 &lt;&gt; 0", ["integer"])
+<!--
 rows = list(plpy.cursor(plan, [2]))  # or: = list(plan.cursor([2]))
+-->
+rows = list(plpy.cursor(plan, [2]))  # または = list(plan.cursor([2]))
 
 return len(rows)
 $$ LANGUAGE plpythonu;
@@ -1962,7 +1985,7 @@ $$ LANGUAGE plpythonu;
 -->
 <function>plpy.error</function>および<function>plpy.fatal</function>は、実際にPythonの例外を発生させます。
 これが捕捉されない場合、呼び出し中の問い合わせに伝わり、その結果、現在のトランザクションもしくはサブトランザクションがアボートします。
-<literal>raise plpy.Error(<replaceable>msg</>)</literal>および<literal>raise plpy.Fatal(<replaceable>msg</>)</literal>は、それぞれ<function>plpy.error</function>および<function>plpy.fatal</function>の呼び出しと同じですが、<literal>raise</literal>形式ではキーワード引数を渡すことがことができません。
+<literal>raise plpy.Error(<replaceable>msg</>)</literal>および<literal>raise plpy.Fatal(<replaceable>msg</>)</literal>は、それぞれ<function>plpy.error</function>および<function>plpy.fatal</function>の呼び出しと同じですが、<literal>raise</literal>形式ではキーワード引数を渡すことができません。
 他の関数は異なる重要度のメッセージを生成するだけです。
 <xref linkend="guc-log-min-messages">と<xref linkend="guc-client-min-messages">設定変数は、特定の重要度のメッセージをクライアントに報告するか、サーバのログに書き出すか、あるいはその両方かを制御します。
 詳細は<xref linkend="runtime-config">を参照してください。
