@@ -134,10 +134,10 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
     <literal>Gather Merge</literal> node.  In such cases, the leader will
     do very little of the work of executing the parallel portion of the plan.
 -->
-与えられたパラレルクエリから起動されたすべてのバックグラウンドワーカープロセスは、<literal>Gather</>ノードの子孫であるプランの一部を実行します。
+与えられたパラレルクエリから起動されたすべてのバックグラウンドワーカープロセスは、そのプランの一部を実行します。
 リーダーはそうしたプランの部分を実行するだけでなく、追加の任務が与えられます。
-ワーカーが生成したすべてのタプルを読み込まなければなりません。
-プラン中のパラレル部分が少数のタプルを生成する場合は、リーダーは追加のワーカーとほぼ同じように振る舞い、クエリの実行を高速化します。
+つまり、ワーカーが生成したすべてのタプルを読み込まなければなりません。
+プラン中のパラレル部分が少数のタプルしか生成しない場合は、リーダーは追加のワーカーとほぼ同じように振る舞い、クエリの実行を高速化します。
 反対にプラン中のパラレル部分が大量のタプルを生成する場合は、リーダーはワーカーが生成したタプルの読み込みと、<literal>Gather</literal>ノードあるいは<literal>Gather Merge</literal>より上位のプランノードが要求する追加の処理ステップに忙殺されるかもしれません。
 そのような場合は、リーダーはプランの並列実行部分のごく一部しか処理しません。
    </para>
@@ -153,7 +153,7 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
     order that may have existed.
 -->
 プランの並列部分の最上位ノードが<literal>Gather</>ではなくて<literal>Gather Merge</>なら、プランの並列部分を実行する各プロセスはタプルをソート順に生成し、リーダーはソート順を保存するマージを実行していることを意味します。
-対象的に、<literal>Gather</>は、ワーカーから都合の良い順でタプルを読み込むので、ソート順が存在しているとしても、それを壊してしまいます。
+対照的に、<literal>Gather</>は、ワーカーから都合の良い順でタプルを読み込むので、ソート順が存在しているとしても、それを壊してしまいます。
    </para>   
  </sect1>
 
@@ -439,7 +439,7 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
         be divided among the cooperating processes.  Blocks are handed out one
         at a time, so that access to the table remains sequential.
 -->
-<emphasis>パラレル順スキャン</>では、テーブルのブロックは、協調するプロセスに分割して割り当てられます。
+<emphasis>パラレルシーケンシャルスキャン</>では、テーブルのブロックは、協調するプロセスに分割して割り当てられます。
 ブロックは一度に１個ずつ処理され、テーブルへのアクセスは逐次のままです。
       </para>
     </listitem>
@@ -471,7 +471,7 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
         The results of a parallel btree scan are returned in sorted order
         within each worker process.
 -->
-<emphasis>パラレルインデックススキャン</>あるいは<emphasis>パラレルindex-onlyスキャン</>では、協調するプロセスは、交代でインデックスからデータを読み込みます。
+<emphasis>パラレルインデックススキャン</>あるいは<emphasis>パラレルインデックスオンリースキャン</>では、協調するプロセスは、交代でインデックスからデータを読み込みます。
 今のところ、パラレルインデックススキャンは、btreeインデックスのみでサポートされています。
 個々のプロセスは単一のインデックスブロックを要求し、スキャンしてそのブロックから参照されているすべてのタプルを返却します。
 他のプロセスは同時に他のインデックスからタプルを返却することができます。
@@ -522,9 +522,9 @@ btree以外のインデックススキャンのような他のスキャンタイ
     would be inefficient, the query planner will normally choose some other
     plan (possibly one which does not use parallelism) instead.
 -->
-個々のワーカーは、内側の結合をフルで実行します。
+個々のワーカーは、内側の結合をフル結合で実行します。
 典型的にはこれはネステッドループでは問題ではありません。
-しかし、ハッシュあるいはマージ結合が関わる場合には非常率的かもしれません。
+しかし、ハッシュあるいはマージ結合が関わる場合には非効率かもしれません。
 たとえば、ハッシュ結合では、同一のハッシュテーブルが個々のワーカープロセス内で作成されるので、小さなテーブルの結合では良くても、内側のテーブルが大きい場合には非効率的であることを、この制約は意味します。
 マージ結合では、個々のワーカーが別々に内側のリレーションのソートを実行するので遅いかもしれないことを、これは意味します。
 もちろん、このタイプのパラレルプランが非効率的な場合には、クエリプランナは通常別のプランを代わりに選択します。（パラレル処理を使わないプランである可能性があります。）
