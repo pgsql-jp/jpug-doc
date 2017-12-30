@@ -57,7 +57,7 @@
     views, and foreign tables.
 -->
 トリガとは、データベースが、ある特定の操作が行われた時に常に自動的に実行しなければならない特定の機能に関する規定です。
-トリガはテーブル、ビュー、外部テーブルに付与することができます。
+トリガはテーブル（パーティション化されているかどうかにかかわらず）、ビュー、外部テーブルに付与することができます。
   </para>
 
   <para>
@@ -75,9 +75,9 @@
 -->
 テーブルおよび外部テーブル上では、トリガを<command>INSERT</command>、<command>UPDATE</command>または<command>DELETE</command>操作の前後に、行を変更する度、あるいは<acronym>SQL</acronym>文ごとに実行するように定義することができます。
 <command>INSERT</command>が<literal>ON CONFLICT DO UPDATE</>句を含む場合、<varname>EXCLUDED</>列への参照があるなら、BEFORE INSERTトリガとBEFORE UPDATEトリガの両方が適用されることもあります。
-UPDATEトリガについては、特定のカラムがUPDATE文のSET句の対象になった時のみ発動するよう設定することができます。また、トリガはTRUNCATE文についても実行できます。
+さらに、UPDATEトリガについては、特定のカラムがUPDATE文のSET句の対象になった時のみ発動するよう設定することができます。
+また、トリガはTRUNCATE文についても発動できます。
 トリガイベントが起こると、トリガ関数がそのイベントを扱う適切な時点で呼び出されます。
-外部テーブルはTRUNCATEを全くサポートしません。
    </para>
 
    <para>
@@ -143,8 +143,8 @@ UPDATEトリガについては、特定のカラムがUPDATE文のSET句の対�
 行単位のトリガでは、トリガを発行した文によって影響を受ける行ごとにトリガ関数が呼び出されます。
 反対に、文単位のトリガでは、適切な文が実行された時に、その文で何行が影響を受けたかどうかは関係なく、一度だけ呼び出されます。
 特に、行に影響を与えない文であっても、適切な文単位のトリガがあれば実行されます。
-この2種類のトリガはそれぞれ<firstterm>行レベル</>トリガと<firstterm>文レベル</>トリガと呼ばれることがあります。<command>TRUNCATE</command>に対するトリガは文レベルトリガのみに定義することができます。
-ビューでは、文レベルでのみ、処理の前後での実行をするよう定義することができるでしょう。一方、<command>INSERT</command>、<command>UPDATE</command>または<command>DELETE</command>の代わりに実行するトリガは行レベルでのみ定義できるでしょう。
+この2種類のトリガはそれぞれ<firstterm>行レベル</>トリガと<firstterm>文レベル</>トリガと呼ばれることがあります。
+<command>TRUNCATE</command>に対するトリガは、行単位ではなく、文レベルにのみに定義することができます。
    </para>
 
    <para>
@@ -169,18 +169,24 @@ UPDATEトリガについては、特定のカラムがUPDATE文のSET句の対�
 また、トリガはそれらが操作の<firstterm>前</>、<firstterm>後</>または<firstterm>代わり</>のどれで実行されるかに応じて分けられます。
 これらはそれぞれ<literal>BEFORE</>トリガ、<literal>AFTER</>トリガ、そして<literal>INSTEAD OF</>トリガと呼ばれます。
 文レベルの<literal>BEFORE</>トリガは、もちろん文が何かを始める前に発行され、文レベルの<literal>AFTER</>トリガは文の本当に最後に発行されます。
-これらのタイプのトリガはテーブルまたはビューで定義されるでしょう。
+これらのタイプのトリガはテーブル、ビュー、あるいは外部テーブルに定義できます。
 行レベルの<literal>BEFORE</>トリガは、特定の行が操作される直前に発行され、行レベルの<literal>AFTER</>トリガは文の終わり（ただし、全ての文レベルの<literal>AFTER</>トリガの前）に発行されます。
-これらのタイプのトリガはテーブルと外部テーブルにのみ定義されるでしょう。
-行レベルの<literal>INSTEAD OF</>トリガはビューにのみ定義され、ビュー上の行ごとに操作が必要と判断された場合に即座に発行されます。
+これらのタイプのトリガは、非パーティションテーブル、外部テーブルに定義できますが、ビューには定義できません。
+<literal>INSTEAD OF</>トリガはビューにのみ定義され、行レベルのみが許されます。
+つまり、ビュー上のそれぞれの行で処理が必要と判断された場合には、即座に発動します。
    </para>
 
    <para>
+<!--
     A statement that targets a parent table in an inheritance or partitioning
     hierarchy does not cause the statement-level triggers of affected child
     tables to be fired; only the parent table's statement-level triggers are
     fired.  However, row-level triggers of any affected child tables will be
     fired.
+-->
+継承あるいはパーティション階層において、親テーブルをターゲットとする文は、影響を受けた子テーブルの行レベルトリガを発動しません。
+すなわち、親テーブルの行レベルトリガのみが発動します。
+しかし、影響を受けた子テーブルの行レベルトリガは発動します。
    </para>
 
    <para>
@@ -213,7 +219,7 @@ UPDATEトリガについては、特定のカラムがUPDATE文のSET句の対�
     statement-level <literal>AFTER</> <command>INSERT</command>
     triggers.
 -->
-<command>INSERT</command>が<literal>ON CONFLICT DO UPDATE</>句を含む場合、<varname>EXCLUDED</>列が参照されていると、すべての行単位<literal>BEFORE</> <command>INSERT</command>トリガおよびすべての行単位<literal>BEFORE</> <command>UPDATE</command>トリガの両方が適用され、それが更新後の行の最後の状態から明らかな場合がありえます。
+<command>INSERT</command>が<literal>ON CONFLICT DO UPDATE</>句を含む場合、<varname>EXCLUDED</>列が参照されていると、行単位<literal>BEFORE</> <command>INSERT</command>トリガおよび行単位<literal>BEFORE</> <command>UPDATE</command>トリガの両方の効果が適用され、それが更新後の行の最後の状態から明らかな場合がありえます。
 ただし、両方の行レベルの<literal>BEFORE</literal>トリガを実行するために<varname>EXCLUDED</>の参照が必要なわけではありません。
 驚くような結果の可能性について、<literal>BEFORE</> <command>INSERT</command>と<literal>BEFORE</> <command>UPDATE</command>の両方の文単位トリガーがあり、それらがいずれも挿入あるいは更新対象の行に影響を与える場合に考慮すべきです（これは更新が冪等ではないが、ほぼ同等であるときには、それでも問題になります）。
 文単位の<command>UPDATE</command>トリガは<literal>ON CONFLICT DO UPDATE</>が指定されたとき、その<command>UPDATE</command>によって行が影響を受けたかどうかに関わらず（そしてその代替である<command>UPDATE</command>部分が実行されたかどうかに関わらず）実行されることに注意してください。
@@ -441,10 +447,10 @@ UPDATEトリガについては、特定のカラムがUPDATE文のSET句の対�
 トリガをサポートするプログラミング言語はそれぞれ独自の方法で、トリガ関数で利用できるトリガの入力データを作成します。
 この入力データにはトリガイベント種類（例えば<command>INSERT</command>や<command>UPDATE</command>など、<command>CREATE TRIGGER</>で指定された全ての引数）が含まれます。
 行レベルトリガの入力データには、<command>INSERT</command>および<command>UPDATE</command>トリガの場合は<varname>NEW</varname>行が、<command>UPDATE</command>および<command>DELETE</command>トリガの場合は<varname>OLD</varname>行が含まれます。
-文レベルトリガには現在、文によって変更される個々の行を検査するための手段がありません。
    </para>
 
    <para>
+<!--
     By default, statement-level triggers do not have any way to examine the
     individual row(s) modified by the statement.  But an <literal>AFTER
     STATEMENT</> trigger can request that <firstterm>transition tables</>
@@ -456,6 +462,11 @@ UPDATEトリガについては、特定のカラムがUPDATE文のSET句の対�
     that is being used, but the typical approach is to make the transition
     tables act like read-only temporary tables that can be accessed by SQL
     commands issued within the trigger function.
+-->
+デフォルトでは、文レベルトリガには文によって変更された個々の行を検査するための手段がありません。
+しかし、トリガがアクセスできる影響を受けた行の集合を作成するために、<literal>AFTER STATEMENT</>トリガは、<firstterm>遷移テーブル(transition tables)</>の作成を依頼することができます。
+<literal>AFTER ROW</>トリガも遷移テーブルを依頼できるので、発動中の個々の行における変更だけでなく、テーブル全体におけるすべての変更を見ることができます。
+遷移テーブルを検査する方法も使用中のプログラミング言語に依存しますが、典型的な方法は、トリガ関数の中で発行するSQLコマンドでアクセスできる、読み込み専用の一時テーブルのように振る舞う遷移テーブルを作成することです。
    </para>
 
   </sect1>
@@ -960,10 +971,14 @@ typedef struct Trigger
       <term><structfield>tg_oldtable</></term>
       <listitem>
        <para>
+<!--
         A pointer to a structure of type <structname>Tuplestorestate</structname>
         containing zero or more rows in the format specified by
         <structfield>tg_relation</structfield>, or a <symbol>NULL</> pointer
         if there is no <literal>OLD TABLE</literal> transition relation.
+-->
+<structfield>tg_relation</structfield>で指定するフォーマットの0以上の行を含む<structname>Tuplestorestate</structname>型の構造体へのポインタです。
+<literal>OLD TABLE</literal>遷移リレーションが存在しない場合は<symbol>NULL</>ポインタです。
        </para>
       </listitem>
      </varlistentry>
@@ -972,10 +987,15 @@ typedef struct Trigger
       <term><structfield>tg_newtable</></term>
       <listitem>
        <para>
+<!--
         A pointer to a structure of type <structname>Tuplestorestate</structname>
         containing zero or more rows in the format specified by
         <structfield>tg_relation</structfield>, or a <symbol>NULL</> pointer
         if there is no <literal>NEW TABLE</literal> transition relation.
+-->
+<structfield>tg_relation</structfield>で指定するフォーマットの0以上の行を含む<structname>Tuplestorestate</structname>型の構造体へのポインタです。
+<literal>NEW TABLE</literal>遷移リレーションが存在しない場合は<symbol>NULL</>ポインタです。
+
        </para>
       </listitem>
      </varlistentry>
@@ -984,8 +1004,11 @@ typedef struct Trigger
    </para>
 
    <para>
+<!--
     To allow queries issued through SPI to reference transition tables, see
     <xref linkend="spi-spi-register-trigger-data">.
+-->
+SPIを使って遷移テーブルを参照するクエリを発行する方法については、<xref linkend="spi-spi-register-trigger-data">を参照してください。
    </para>
 
    <para>
