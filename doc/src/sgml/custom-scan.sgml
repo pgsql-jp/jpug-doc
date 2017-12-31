@@ -474,7 +474,7 @@ void (*InitializeDSMCustomScan) (CustomScanState *node,
     scan provider supports parallel execution.
 -->
 並列操作に要求される動的共有メモリを初期化します。
-<literal>coordinate</>は、<function>EstimateDSMCustomScan</>の返り値と一致する、割り当て済み領域の量を示しています。
+<literal>coordinate</>は、<function>EstimateDSMCustomScan</>の返り値と大きさが一致する動的共有メモリ領域を指します。
 このコールバックは必須ではなく、カスタムスキャンプロバイダが並列実行をサポートする場合にのみ提供される必要があります。
    </para>
 
@@ -484,6 +484,7 @@ void (*ReInitializeDSMCustomScan) (CustomScanState *node,
                                    ParallelContext *pcxt,
                                    void *coordinate);
 </programlisting>
+<!--
     Re-initialize the dynamic shared memory required for parallel operation
     when the custom-scan plan node is about to be re-scanned.
     This callback is optional, and need only be supplied if this custom
@@ -493,6 +494,11 @@ void (*ReInitializeDSMCustomScan) (CustomScanState *node,
     state.  Currently, this callback will be called
     before <function>ReScanCustomScan</>, but it's best not to rely on
     that ordering.
+-->
+カスタムスキャンプランノードが再スキャンしようとするときに、並列操作に必要な動的共有メモリを再初期化します。
+このコールバックは必須ではなく、カスタムスキャンプロバイダが並列実行をサポートする場合にのみ提供される必要があります。
+推奨する使い方としては、<function>ReScanCustomScan</>コールバックはローカル状態だけをリセットし、このコールバックは共有状態だけをリセットするようにします。
+今のところ、このコールバックは<function>ReScanCustomScan</>の前に呼ばれますが、この順序関係には依存しない方が良いです。
    </para>
 
    <para>
@@ -507,7 +513,7 @@ void (*InitializeWorkerCustomScan) (CustomScanState *node,
     This callback is optional, and need only be supplied if this custom
     scan provider supports parallel execution.
 -->
-<literal>InitializeDSMCustomScan</>によりリーダーにて設定された共有状態を元に、並列ワーカーのカスタム状態を初期化します。
+<literal>InitializeDSMCustomScan</>によりリーダーにて設定された共有状態を元に、並列ワーカーのローカル状態を初期化します。
 このコールバックは必須ではなく、カスタムスキャンプロバイダが並列実行をサポートする場合にのみ提供される必要があります。
    </para>
 
@@ -515,6 +521,7 @@ void (*InitializeWorkerCustomScan) (CustomScanState *node,
 <programlisting>
 void (*ShutdownCustomScan) (CustomScanState *node);
 </programlisting>
+<!--
     Release resources when it is anticipated the node will not be executed
     to completion.  This is not called in all cases; sometimes,
     <literal>EndCustomScan</> may be called without this function having
@@ -522,6 +529,11 @@ void (*ShutdownCustomScan) (CustomScanState *node);
     destroyed just after this callback is invoked, custom scan providers that
     wish to take some action before the DSM segment goes away should implement
     this method.
+-->
+ノードが実行を完了しないと思われるときに、リソースを解放します。
+これはすべての場合に呼ばれるわけではありません。
+ときには、この関数がまず呼ばれることなしに、<literal>EndCustomScan</>が呼ばれるかもしれません。
+パラレルクエリで使用されるDSMセグメントは、このコールバックが呼ばれた直後に削除されるので、DSMセグメントが削除される前に何らかのアクションを起こしたいカスタムスキャンプロバイダは、このメソッドを実装すべきです。
    </para>
 
    <para>
