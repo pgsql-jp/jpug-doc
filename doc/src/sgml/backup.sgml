@@ -608,9 +608,9 @@ tar -cf backup.tar /usr/local/pgsql/data
       backup and restoration of an entire database cluster.
 -->
 データベースのファイルシステムレイアウトの詳細を熟知している場合、ある個別のテーブルやデータベースをそれぞれのファイルやディレクトリからバックアップしたり復元したりすることを試みたいと思うかもしれません。
-しかし、それらのファイル内の情報はすべてのトランザクションのコミット状態を保持するコミットログファイル<filename>pg_clog/*</filename>なしでは使えないため、この方法では正常なバックアップは<emphasis>行えません</>。
+しかし、それらのファイル内の情報はすべてのトランザクションのコミット状態を保持するコミットログファイル<filename>pg_xact/*</filename>なしでは使えないため、この方法では正常なバックアップは<emphasis>行えません</>。
 テーブルファイルはこの情報があって初めて意味をなします。
-もちろんテーブルとそれに付帯する<filename>pg_clog</filename>データだけで復元することも、データベースクラスタにある他のテーブルを無効としてしまうのでできません。
+もちろんテーブルとそれに付帯する<filename>pg_xact</filename>データだけで復元することも、データベースクラスタにある他のテーブルを無効としてしまうのでできません。
 ですので、ファイルシステムバックアップは、データベースクラスタ全体の完全なバックアップとリストア処理にのみ動作します。
      </para>
     </listitem>
@@ -752,7 +752,7 @@ CHECKPOINTコマンドをスナップショット取得前に発行すること�
    either of the previous approaches, but it has some significant
    benefits:
 -->
-<productname>PostgreSQL</>は常に、クラスタのデータディレクトリ以下の<filename>pg_xlog/</>ディレクトリ内で<firstterm>先行書き込みログ</>（WAL）を管理しています。
+<productname>PostgreSQL</>は常に、クラスタのデータディレクトリ以下の<filename>pg_wal/</>ディレクトリ内で<firstterm>先行書き込みログ</>（WAL）を管理しています。
 このログはデータベースのデータファイルに行われた全ての変更を記録します。
 このログは主にクラッシュ時の安全性を目的としています。
 システムがクラッシュしたとしても、最後のチェックポイント以降に作成されたログ項目を<quote>やり直し</>することで、データベースを整合性を維持した状態にリストアすることができます。
@@ -1047,8 +1047,8 @@ test ! -f /mnt/server/archivedir/00000001000000A900000065 &amp;&amp; cp pg_wal/0
 例えば、これはオートチェンジャ機能のないテープに書き出している場合に発生する可能性があります。
 テープが一杯になった場合、テープを交換するまでアーカイブを行うことができなくなります。
 こうした状況を相応の早さで解消できるよう、適切に操作者に対しエラーや要求を確実に連絡できるようにしなければなりません。
-この状況が解消するまで、WALセグメントファイルは<filename>pg_xlog/</>ディレクトリ内に格納され続けます。
-（<filename>pg_xlog/</>を含むファイルシステムがいっぱいになると、<productname>PostgreSQL</>はパニック停止します。コミットされたトランザクションは失われませんが、データベースはいくらかの容量を開放するまでオフラインのままです。）
+この状況が解消するまで、WALセグメントファイルは<filename>pg_wal/</>ディレクトリ内に格納され続けます。
+（<filename>pg_wal/</>を含むファイルシステムがいっぱいになると、<productname>PostgreSQL</>はパニック停止します。コミットされたトランザクションは失われませんが、データベースはいくらかの容量を開放するまでオフラインのままです。）
    </para>
 
    <para>
@@ -1066,7 +1066,7 @@ test ! -f /mnt/server/archivedir/00000001000000A900000065 &amp;&amp; cp pg_wal/0
 サーバのWALデータの生成に要する平均速度に追いついている限り、アーカイブ用コマンドの処理速度は重要ではありません。
 アーカイブプロセスが多少遅れたとしても通常の操作は続けられます。
 アーカイブ処理がかなり遅くれると、災害時に損失するデータの量が増加することになります。
-また、これは<filename>pg_xlog/</>ディレクトリ内に多くのアーカイブ処理待ちのセグメントファイルが格納され、ディスク容量が不足する状況になる可能性があることを意味します。
+また、これは<filename>pg_wal/</>ディレクトリ内に多くのアーカイブ処理待ちのセグメントファイルが格納され、ディスク容量が不足する状況になる可能性があることを意味します。
 アーカイブ処理が確実に意図通りに動作しているかを監視することを推奨します。
    </para>
 
@@ -1156,7 +1156,7 @@ WALアーカイブによって<productname>PostgreSQL</>データベースでな
 このことにより、<varname>wal_level</>はサーバの起動時のみ変更可能です。
 とは言っても、<varname>archive_command</>は構成ファイルを再読み込みすることで変更できます。
 一時的にアーカイビングを停止したい場合、１つの方法は<varname>archive_command</>を空文字列（<literal>''</>）に設定することです。
-このようにすると、動作する<varname>archive_command</>が再構築されるまでWALファイルは<filename>pg_xlog/</>に蓄積します。
+このようにすると、動作する<varname>archive_command</>が再構築されるまでWALファイルは<filename>pg_wal/</>に蓄積します。
    </para>
   </sect2>
 
@@ -1431,7 +1431,8 @@ SELECT * FROM pg_stop_backup(false, true);
 -->
 バックアップ中に使用されたWALセグメントファイルがアーカイブされれば完了です。
 <function>pg_stop_backup</>の返り値の1番目の値で識別されるファイルは、バックアップファイル一式を完結させるのに必要となる最終セグメントです。
-<varname>archive_mode</>が有効であれば<function>pg_stop_backup</> は最終セグメントがアーカイブされるまで戻りません。
+<varname>archive_mode</>が有効で、かつ<literal>wait_for_archive</>パラメータが<literal>true</>であれば、<function>pg_stop_backup</> は最終セグメントがアーカイブされるまで戻りません。
+スタンバイでは、<function>pg_stop_backup</>がアーカイブ完了を待つためには、<varname>archive_mode</>は<literal>always</>でなければなりません。
 すでに<varname>archive_command</>を設定していますので、これらのファイルのアーカイブ操作は自動的に発生します。
 ほとんどの場合、これは瞬時に行われます。
 しかし、バックアップの完了を確認できるよう、アーカイブシステムを監視し、遅延が無いことの確認をお勧めします。
@@ -1439,6 +1440,7 @@ SELECT * FROM pg_stop_backup(false, true);
 <function>pg_stop_backup</>実行においての時間期限を設けたい場合、適切な<varname>statement_timeout</varname>の値を設定できますが、この設定値によって<function>pg_stop_backup</>が中断したときにバックアップが正当ではない可能性があるということを肝に銘じてください。
     </para>
     <para>
+<!--
      If the backup process monitors and ensures that all WAL segment files
      required for the backup are successfully archived then the
      <literal>wait_for_archive</> parameter (which defaults to true) can be set
@@ -1449,6 +1451,12 @@ SELECT * FROM pg_stop_backup(false, true);
      must be used with caution: if WAL archiving is not monitored correctly
      then the backup might not include all of the WAL files and will
      therefore be incomplete and not able to be restored.
+-->
+バックアップに必要なすべてのWALセグメントファイルのアーカイブが成功したことを、バックアップ作業の中で監視して確認するのであれば、<literal>wait_for_archive</>パラメータ(デフォルトでtrueです)をfalseに設定し、バックアップレコードがWALに書き込まれたら即座に<function>pg_stop_backup</>が戻るようにすることができます。
+デフォルトでは、<function>pg_stop_backup</>はすべてのがアーカイブされるのを待つので、少し時間がかかることがあります。
+このオプションは慎重に使わなければなりません。
+WALのアーカイブを適切に監視していない場合、バックアップにはすべてのWALファイルが含まれず、不完全かもしれません。
+そうなると、リストアできません。
     </para>
    </listitem>
   </orderedlist>
@@ -1576,7 +1584,7 @@ SELECT pg_stop_backup();
      switch is to arrange for the last WAL segment written during the backup
      interval to be ready to archive.
 -->
-これはバックアップモードを終了し、次のWALセグメントへの自動切換えを行います。
+この関数はバックアップモードを終了し、次のWALセグメントへの自動切換えを行います。
 この切換えの理由は、バックアップ期間中に書き出された最後のWALファイルがアーカイブできるよう準備することです。
     </para>
    </listitem>
@@ -1677,9 +1685,9 @@ GNUの <application>tar</>で1.23以降のバージョンを使用している�
     <application>postmaster</> which will eventually use this backup.
     (These files can confuse <application>pg_ctl</>.)
 -->
-しかし、クラスタの<filename>pg_xlog/</>サブディレクトリにあるファイルをバックアップから省いてください。
+しかし、クラスタの<filename>pg_wal/</>サブディレクトリにあるファイルをバックアップから省いてください。
 このちょっとした調整は、リストア処理中の失敗の危険性を低減できますので、行う価値があります。
-<filename>pg_xlog/</>がクラスタディレクトリ外のどこかを指し示すシンボリックリンクの場合は調整が簡単です。
+<filename>pg_wal/</>がクラスタディレクトリ外のどこかを指し示すシンボリックリンクの場合は調整が簡単です。
 これは性能上の理由でよく使用される設定です。
 また、いずれこのバックアップを使う<application>postmaster</>ではなく、今起動している<application>postmaster</>の情報を記録している<filename>postmaster.pid</>と<filename>postmaster.opts</>も除外できます。
 (これらのファイルは<application>pg_ctl</>を誤作動させる可能性があります。)
@@ -1708,6 +1716,7 @@ GNUの <application>tar</>で1.23以降のバージョンを使用している�
    </para>
 
    <para>
+<!--
     The contents of the directories <filename>pg_dynshmem/</>,
     <filename>pg_notify/</>, <filename>pg_serial/</>,
     <filename>pg_snapshots/</>, <filename>pg_stat_tmp/</>,
@@ -1715,12 +1724,20 @@ GNUの <application>tar</>で1.23以降のバージョンを使用している�
     omitted from the backup as they will be initialized on postmaster startup.
     If <xref linkend="guc-stats-temp-directory"> is set and is under the data
     directory then the contents of that directory can also be omitted.
+-->
+ディレクトリ<filename>pg_dynshmem/</>、<filename>pg_notify/</>、<filename>pg_serial/</>、<filename>pg_snapshots/</>、<filename>pg_stat_tmp/</>、<filename>pg_subtrans/</>の中身はバックアップから除外できます。（ただし、ディレクトリ自体は除外できません。）
+というのも、postmaster起動時に初期化されるからです。
+<xref linkend="guc-stats-temp-directory">が設定されていて、それがデータディレクトリの下にあるのであれば、そのディレクトリの中身も除外できます。
    </para>
 
    <para>
+<!--
     Any file or directory beginning with <filename>pgsql_tmp</filename> can be
     omitted from the backup.  These files are removed on postmaster start and
     the directories will be recreated as needed.
+-->
+<filename>pgsql_tmp</filename>で始まるすべてのファイルとディレクトリはバックアップから除外できます。
+これらのファイルはpostmasterの起動時に削除されますし、ディレクトリも必要なら再作成されます。
    </para>
 
    <para>
@@ -1797,7 +1814,7 @@ GNUの <application>tar</>で1.23以降のバージョンを使用している�
 -->
 もし容量があるのであれば、後で必要になる場合に備えてクラスタデータディレクトリ全体とテーブル空間を全て一時的な場所にコピーしてください。
 この予防措置は、既存のデータベースを2つ分保持できるだけの空き領域を必要とします。
-十分な領域がない場合でも、少なくともクラスタの<filename>pg_xlog</>サブディレクトリの内容は保存すべきです。
+十分な領域がない場合でも、少なくともクラスタの<filename>pg_wal</>サブディレクトリの内容は保存すべきです。
 ここには、システムが停止する前にアーカイブされなかったログファイルが含まれているかも知れないからです。
     </para>
    </listitem>
@@ -1835,9 +1852,9 @@ GNUの <application>tar</>で1.23以降のバージョンを使用している�
      being careful to ensure that you re-establish it as a symbolic link
      if you had it set up that way before.
 -->
-<filename>pg_xlog/</>内にあるファイルをすべて削除してください。
+<filename>pg_wal/</>内にあるファイルをすべて削除してください。
 これらはファイルシステムバックアップから生成されたものであり、おそらく現在のものより古く使用できないものです。
-<filename>pg_xlog/</>をまったくアーカイブしていなければ、適切な権限で再作成してください。
+<filename>pg_wal/</>をまったくアーカイブしていなければ、適切な権限で再作成してください。
 以前シンボリックリンクとして設定していたのであれば、そのように確実に再構築するように注意してください。
     </para>
    </listitem>
@@ -1849,7 +1866,7 @@ GNUの <application>tar</>で1.23以降のバージョンを使用している�
      not move them, so you still have the unmodified files if a
      problem occurs and you have to start over.)
 -->
-手順2で退避させた未アーカイブのWALセグメントファイルがあるのであれば、<filename>pg_xlog/</>にコピーしてください。
+手順2で退避させた未アーカイブのWALセグメントファイルがあるのであれば、<filename>pg_wal/</>にコピーしてください。
 （問題が発生し、初めからやり直さなければならない場合に未変更のファイルが残るように、移動させるのではなくコピーすることが最善です。）
     </para>
    </listitem>
@@ -1979,9 +1996,9 @@ restore_command = 'cp /mnt/server/archivedir/%f %p'
     However, segments that are available from the archive will be used in
     preference to files in <filename>pg_wal/</>.
 -->
-アーカイブ場所で見つけられなかったWALセグメントは<filename>pg_xlog/</>から検索されます。
+アーカイブ場所で見つけられなかったWALセグメントは<filename>pg_wal/</>から検索されます。
 これにより、最近の未アーカイブのセグメントを使用することができます。
-しかし、アーカイブ場所から利用できるセグメントは<filename>pg_xlog/</>内のファイルよりも優先的に使用されます。
+しかし、アーカイブ場所から利用できるセグメントは<filename>pg_wal/</>内のファイルよりも優先的に使用されます。
    </para>
 
    <para>
@@ -2213,7 +2230,7 @@ restore_command = 'cp /mnt/server/archivedir/%f %p'
       required to restore the backup.
 -->
 ベースバックアップと同様に、スタンドアローンホットバックアップを作成する最も簡単な方法は <xref linkend="app-pgbasebackup">ツールを使用する方法です。
-実行時に<literal>-X</>オプションをつけることでバックアップに必要な全てのトランザクションログを自動的にバックアップに含めることができ、リストアするときには特に特別な作業を行う必要がありません。
+実行時に<literal>-X</>オプションをつけることでバックアップに必要な全ての先行書き込みログを自動的にバックアップに含めることができ、リストアするときには特に特別な作業を行う必要がありません。
      </para>
 
      <para>
@@ -2227,7 +2244,8 @@ restore_command = 'cp /mnt/server/archivedir/%f %p'
       archiving only when a <emphasis>switch file</> exists.  For example:
 -->
 バックアップファイルをコピーするのにより柔軟性が必要な場合、スタンドアローンホットバックアップのために低レベルのプロセスを使うこともできます。
-低レベルのスタンドアローンホットバックアップを取得するためには、準備として<varname>wal_level</>を<literal>replica</>以上にセットし、<varname>archive_mode</>を<literal>on</>にセットし、<emphasis>switch ファイル</>が存在する時のみに実行される<varname>archive_command</>をセットします。
+低レベルのスタンドアローンホットバックアップを準備するために、次のことを確実に行ってください。
+<varname>wal_level</>を<literal>replica</>以上にセットし、<varname>archive_mode</>を<literal>on</>にセットし、<emphasis>switch ファイル</>が存在する時のみに実行される<varname>archive_command</>をセットします。
 例：
 <programlisting>
 archive_command = 'test ! -f /var/lib/pgsql/backup_in_progress || (test ! -f /var/lib/pgsql/archive/%f &amp;&amp; cp %p /var/lib/pgsql/archive/%f)'
