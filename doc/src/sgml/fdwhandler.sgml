@@ -25,9 +25,9 @@
     tables is to be supported, the wrapper must handle that, too.
     This chapter outlines how to write a new foreign data wrapper.
 -->
-外部テーブルへの全ての操作は、コアサーバの呼び出しを処理する関数のセットで構成される、外部データラッパによって扱われます。
-リモートデータソースからデータを取り出し、そのデータを<productname>PostgreSQL</productname>エグゼキュータに返却する責任は外部データラッパにあります。
-もし外部テーブルの更新をサポートするのであれば、ラッパはそれも扱わなければなりません。
+外部テーブルへの全ての操作は、コアサーバから呼び出される関数のセットで構成される、外部データラッパで処理されます。
+外部データラッパは、リモートデータソースからデータを取り出し、そのデータを<productname>PostgreSQL</productname>エグゼキュータに返却することを担当します。
+外部テーブルの更新をサポートする場合、ラッパはそれも扱わなければなりません。
 本章では、新しい外部データラッパを作成する方法の概要を示します。
    </para>
 
@@ -52,7 +52,7 @@
      accommodate it into PostgreSQL would be large, and the standard API hasn't
      gained wide adoption anyway.
 -->
-標準SQLでは外部データラッパを作成するインターフェースを定義しています。
+標準SQLでは外部データラッパを作成するインタフェースを定義しています。
 しかしながら、PostgreSQLに適応させる労力が大きく、また標準のAPIが広く採用されているわけでもないので、PostgreSQLはそのAPIを実装していません。
     </para>
    </note>
@@ -72,7 +72,7 @@
      see <xref linkend="xfunc-c">.
 -->
 FDWの作者は、ハンドラ関数と、オプションで検証関数を実装する必要があります。
-両関数とも、version-1インターフェースを使用して、Cなどのコンパイル言語で作成しなければなりません。
+両関数とも、version-1インタフェースを使用して、Cなどのコンパイル言語で作成しなければなりません。
 C言語の呼び出し規約と動的ロードについては<xref linkend="xfunc-c">を参照してください。
     </para>
 
@@ -90,7 +90,7 @@ C言語の呼び出し規約と動的ロードについては<xref linkend="xfun
      callable at the SQL level.  The callback functions are described in
      <xref linkend="fdw-callbacks">.
 -->
-ハンドラ関数は単に、プランナやエグゼキュータ、様々なメンテナンスコマンドから呼び出されるコールバック関数のポインタを保持する構造体を返します。
+ハンドラ関数は単に、プランナやエグゼキュータ、様々なメンテナンスコマンドから呼び出されるコールバックの関数ポインタを含む構造体を返します。
 FDWを作成するための労力のほとんどは、これらのコールバック関数を実装することに費やされます。
 ハンドラ関数は、引数を取らず特殊な仮想型である<type>fdw_handler</type>を返す関数として<productname>PostgreSQL</productname>に登録しなければなりません。
 コールバック関数は通常のC言語関数で、SQLレベルでは参照も呼び出しもできません。コールバック関数の説明は<xref linkend="fdw-callbacks">にあります。
@@ -114,8 +114,8 @@ FDWを作成するための労力のほとんどは、これらのコールバ�
      If no validator function is supplied, options are not checked at object
      creation time or object alteration time.
 -->
-検証関数は、そのラッパを使用する外部サーバ、ユーザマッピング、外部テーブルだけでなく、外部データラッパ自身の<command>CREATE</command>や<command>ALTER</command>といったコマンドで指定されたオプションの妥当性を検証する責任があります。
-検証関数は、検証するオプションを含むtext配列と、オプションを関連付けるオブジェクトの種類を表すOID(そのオブジェクトが格納されるシステムカタログのOIDで<literal>ForeignDataWrapperRelationId</>または<literal>ForeignServerRelationId</>または<literal>UserMappingRelationId</>または<literal>ForeignTableRelationId</>のいずれか)という二つの引数を取るものとして登録しなければなりません。
+検証関数は、そのラッパを使用する外部サーバ、ユーザマッピング、外部テーブルだけでなく、外部データラッパ自身の<command>CREATE</command>や<command>ALTER</command>といったコマンドで指定されたオプションの妥当性の検証を担当します。
+検証関数は、検証するオプションを含むtext配列と、オプションを関連付けるオブジェクトの種類を表すOID（そのオブジェクトが格納されるシステムカタログのOIDで次のいずれか、<literal>ForeignDataWrapperRelationId</>、<literal>ForeignServerRelationId</>、<literal>UserMappingRelationId</>、<literal>ForeignTableRelationId</>）という二つの引数を取るものとして登録しなければなりません。
 検証関数が指定されなかった場合、オブジェクト作成時やオブジェクト変更時にオプションはチェックされません。
     </para>
 
@@ -133,7 +133,7 @@ FDWを作成するための労力のほとんどは、これらのコールバ�
      struct containing pointers to the callback functions described below.
      The scan-related functions are required, the rest are optional.
 -->
-FDWハンドラ関数は、以下で説明するコールバック関数へのポインタを含む、pallocされた<structname>FdwRoutine</>構造体を返します。
+FDWハンドラ関数は、以下で説明するコールバックの関数ポインタを含む、pallocされた<structname>FdwRoutine</>構造体を返します。
 スキャンに関連した関数は必須で、それ以外は省略可能です。
     </para>
 
@@ -143,7 +143,7 @@ FDWハンドラ関数は、以下で説明するコールバック関数への�
      <filename>src/include/foreign/fdwapi.h</>, which see for additional
      details.
 -->
-     <structname>FdwRoutine</>構造体は<filename>src/include/foreign/fdwapi.h</>で宣言されていますので、追加情報はそちらを参照してください。
+<structname>FdwRoutine</>構造体は<filename>src/include/foreign/fdwapi.h</>で宣言されていますので、追加情報はそちらを参照してください。
     </para>
 
    <sect2 id="fdw-callbacks-scan">
@@ -169,7 +169,12 @@ GetForeignRelSize (PlannerInfo *root,
      foreign table.  (<literal>foreigntableid</> could be obtained from the
      planner data structures, but it's passed explicitly to save effort.)
 -->
-外部テーブルのリレーションサイズ見積もりを取得します。この関数は、ある外部テーブルをスキャンするクエリのプラン作成の開始時に呼び出されます。<literal>root</>はそのクエリに関するプランナのグローバル情報です。<literal>baserel</>はそのテーブルに関するプランナの情報です。そして、<literal>foreigntableid</>はその外部テーブルの<structname>pg_class</> OIDです。(<literal>foreigntableid</>はプランナデータ構造体からも取得できますが、手間を省くために明示的に渡されます。)
+外部テーブルのリレーションサイズ見積もりを取得します。
+この関数は、ある外部テーブルをスキャンするクエリのプラン作成の開始時に呼び出されます。
+<literal>root</>はそのクエリに関するプランナのグローバル情報です。
+<literal>baserel</>はそのテーブルに関するプランナの情報です。
+そして、<literal>foreigntableid</>はその外部テーブルの<structname>pg_class</> OIDです。
+(<literal>foreigntableid</>はプランナデータ構造体からも取得できますが、手間を省くために明示的に渡されます。)
     </para>
 
     <para>
@@ -182,7 +187,7 @@ GetForeignRelSize (PlannerInfo *root,
      update <literal>baserel-&gt;width</> if it can compute a better estimate
      of the average result row width.
 -->
-この関数は、制約条件によるフィルタリングも考慮に入れた、そのテーブルスキャンが返すと見込まれる件数に<literal>baserel-&gt;rows</>を更新するべきです。
+この関数は、検索条件によるフィルタリングも考慮に入れた、そのテーブルスキャンが返すと見込まれる件数に<literal>baserel-&gt;rows</>を更新するべきです。
 <literal>baserel-&gt;rows</>の初期値は固定のデフォルト見積もりなので、可能な限り置き換えられるべきです。この関数は、行の幅のよりよい見積もりを計算できるのであれば、<literal>baserel-&gt;width</>を更新することも選択出来ます。
     </para>
 
@@ -207,7 +212,7 @@ GetForeignPaths (PlannerInfo *root,
      The parameters are the same as for <function>GetForeignRelSize</>,
      which has already been called.
 -->
-外部テーブル対するスキャンとしてありえるアクセスパスを作成します。
+外部テーブル対するスキャンとして可能なアクセスパスを作成します。
 この関数はクエリのプラン作成中に呼び出されます。
 引数は、先に呼ばれている<function>GetForeignRelSize</>と同じです。
     </para>
@@ -311,7 +316,7 @@ BeginForeignScan (ForeignScanState *node,
 この関数はエグゼキュータの起動中に呼び出されます。
 スキャンを開始できるようになる前に、あらゆる必要な初期化を実行するべきですが、実際のスキャンの実行を始めるべきではありません(それは最初の<function>IterateForeignScan</>呼び出しにおいて行われるべきです)。
 <structname>ForeignScanState</>ノードは作成されていますが、その<structfield>fdw_state</>フィールドはNULLのままです。
-スキャンするテーブルの情報は、<structname>ForeignScanState</>ノード(実際にはその先にある、<function>PlanForeignScan</>から返された<structname>FdwPlan</>構造体へのポインタを含む、<structname>ForeignScan</>プランノード)を通じてアクセス可能です。
+スキャンするテーブルの情報は、<structname>ForeignScanState</>ノード(特に、その先にある<function>GetForeignPlan</>から提供されたFDWプライベート情報を含む、<structname>ForeignScan</>プランノード)を通じてアクセス可能です。
 <literal>eflags</>は、このプランノードに関するエグゼキュータの操作モードを表すフラグビットを含みます。
     </para>
 
@@ -343,7 +348,7 @@ IterateForeignScan (ForeignScanState *node);
      in <function>BeginForeignScan</> if you need longer-lived storage, or use
      the <structfield>es_query_cxt</> of the node's <structname>EState</>.
 -->
-外部ソースから一行を取り出して、それをタプルテーブルスロットに入れて返します(この用途にはnodeの<structfield>ScanTupleSlot</>を使うべきです)。
+外部ソースから一行を取り出して、それをタプルテーブルスロットに入れて返します(この用途にはノードの<structfield>ScanTupleSlot</>を使うべきです)。
 利用可能な行がない場合は、NULLを返します。
 タプルテーブルスロット機構を使うと、物理タプルと仮想タプルのどちらでも返せます。
 ほとんどの場合、パフォーマンスの観点から後者を選ぶのが良いでしょう。
@@ -634,7 +639,7 @@ FDWは、更新や削除の対象行を厳密に識別できるように行IDや
      <literal>target_relation</> describe the target foreign table.
 -->
 この関数はプランナでなくリライタで呼ばれるので、利用可能な情報はプラン生成ルーチンで利用可能なものとは少し異なります。
-<literal>parsetree</>は<command>UPDATE</>や<command>DELETE</>コマンドのパース木で、<literal>target_rte</>と<literal>target_relation</>は対象の外部テーブルを表します。
+<literal>parsetree</>は<command>UPDATE</>や<command>DELETE</>コマンドの解析ツリーで、<literal>target_rte</>と<literal>target_relation</>は対象の外部テーブルを表します。
     </para>
 
     <para>
@@ -701,7 +706,7 @@ PlanForeignModify (PlannerInfo *root,
      <literal>fdw_private</> list delivered to
      <function>BeginForeignModify</> will be NIL.
 -->
-もし<function>AddForeignUpdateTargets</>ポインタが<literal>NULL</>に設定されている場合は、追加のプラン作成時処理は実行されず、<function>BeginForeignModify</>に渡される<literal>fdw_private</>リストはNILになります。
+もし<function>PlanForeignModify</>ポインタが<literal>NULL</>に設定されている場合は、追加のプラン作成時処理は実行されず、<function>BeginForeignModify</>に渡される<literal>fdw_private</>リストはNILになります。
     </para>
 
     <para>
@@ -745,8 +750,10 @@ BeginForeignModify (ModifyTableState *mtstate,
      operating mode for this plan node.
 -->
 <literal>mtstate</>は実行されている<structname>ModifyTable</>プランノード全体の状態です。プランに関する全般的なデータと実行状態はこの構造体経由で利用可能です。
-<literal>rinfo</>は対象の外部テーブルを表す<structname>ResultRelInfo</>構造体です。(<structname>ResultRelInfo</>の<structfield>ri_FdwState</>フィールドはこの操作で必要となる固有の状態をFDWが格納するのに利用できます。)
-<literal>fdw_private</>はもしあれば<function>PlanForeignModify</>で生成された固有データを含みます。
+<literal>rinfo</>は対象の外部テーブルを表す<structname>ResultRelInfo</>構造体です。
+(<structname>ResultRelInfo</>の<structfield>ri_FdwState</>フィールドはこの操作で必要となる固有の状態をFDWが格納するのに利用できます。)
+<literal>fdw_private</>は、もしあれば<function>PlanForeignModify</>で生成された固有データを含みます。
+<literal>subplan_index</>は、これが<structname>ModifyTable</>プランノードのどのターゲットであるかを識別します。
 <literal>eflags</>は、このプランノードに関するエグゼキュータの操作モードを表すフラグビットを含みます。
     </para>
 
@@ -758,7 +765,7 @@ BeginForeignModify (ModifyTableState *mtstate,
      for <function>ExplainForeignModify</> and <function>EndForeignModify</>.
 -->
 <literal>(eflags &amp; EXEC_FLAG_EXPLAIN_ONLY)</>が真の場合、この関数は外部に見える処理を実行すべきではないことに注意してください。
-<function>ExplainForeignModify</>や<function>EndForeignModify</>用にノード状態を有効するのに必要な最小限のことだけを実行するべきです。
+<function>ExplainForeignModify</>や<function>EndForeignModify</>用にノード状態を有効にするのに必要な最小限のことだけを実行するべきです。
     </para>
 
     <para>
@@ -795,7 +802,7 @@ ExecForeignInsert (EState *estate,
 <literal>estate</>はそのクエリのグローバルな実行状態です。
 <literal>rinfo</>は対象の外部テーブルを表す<structname>ResultRelInfo</>構造体です。
 <literal>slot</>には挿入されるタプルが含まれます。その行型定義は外部テーブルと一致します。
-<literal>planSlot</>には<structname>ModifyTable</>プランノードのサブプランが生成したタプルが含まれます。追加の<quote>ジャンク</>列を含みうる点において、<literal>slot</>とは異なります。(<literal>planSlot</>は一般的に<command>INSERT</command>のケースにおいてはそれほど意味を持ちませんが、完全さのために提供されます。)
+<literal>planSlot</>には<structname>ModifyTable</>プランノードのサブプランが生成したタプルが含まれます。追加の<quote>ジャンク</>列を含みうる点において、<literal>slot</>とは異なります。(<literal>planSlot</>は一般的に<command>INSERT</command>のケースにおいてはそれほど意味を持ちませんが、完全性のために提供されます。)
     </para>
 
     <para>
@@ -1035,11 +1042,11 @@ IsForeignRelUpdatable (Relation rel);
      arrange things so that the entire operation is performed on the remote
      server.  The interfaces described below make this possible.
 -->
-外部テーブルへの挿入、更新、削除は、代替インターフェイス一式を実装することで最適化できます。
-通常の挿入、更新、削除のインターフェイスは行をリモートサーバから取得し、その後、それらの行を一つずつ変更します。
+外部テーブルへの挿入、更新、削除は、代替インタフェース一式を実装することで最適化できます。
+通常の挿入、更新、削除のインタフェースは行をリモートサーバから取得し、その後、それらの行を一つずつ変更します。
 一部の場合にはこの一行ごとのやり方は必要ですが、非効率とも言えます。
 外部サーバについて行が本当はそれらを引き出すことなしに変更されるべきと判断できて、操作に影響を与えるローカルトリガーが無いならば、操作全体がリモートサーバで実行されるように計画することができます。
-以下に示すインターフェイスはこれを可能にします。
+以下に示すインタフェースはこれを可能にします。
     </para>
 
     <para>
@@ -1141,7 +1148,7 @@ BeginDirectModify (ForeignScanState *node,
      for <function>ExplainDirectModify</> and <function>EndDirectModify</>.
 -->
 <literal>(eflags &amp; EXEC_FLAG_EXPLAIN_ONLY)</>が真の場合、この関数は外部に見える処理を実行すべきではないことに注意してください。
-<function>ExplainDirectModify</>や<function>EndDirectModify</>用にノード状態を有効するのに必要な最小限のことだけを実行するべきです。
+<function>ExplainDirectModify</>や<function>EndDirectModify</>用にノード状態を有効にするのに必要な最小限のことだけを実行するべきです。
     </para>
 
     <para>
@@ -1551,7 +1558,7 @@ ExplainDirectModify (ForeignScanState *node,
      <literal>NULL</>, no additional information is printed during
      <command>EXPLAIN</>.
 -->
-<function>ExplainForeignScan</>ポインタが<literal>NULL</>に設定されている場合は、<command>EXPLAIN</>中に追加情報は表示されません。
+<function>ExplainDirectModify</>ポインタが<literal>NULL</>に設定されている場合は、<command>EXPLAIN</>中に追加情報は表示されません。
     </para>
 
    </sect2>
@@ -1588,7 +1595,7 @@ AnalyzeForeignTable (Relation relation,
      If the FDW does not support collecting statistics for any tables, the
      <function>AnalyzeForeignTable</> pointer can be set to <literal>NULL</>.
 -->
-もしFDWが統計情報の収集をどのテーブルについてもサポートしない場合は、<function>AnalyzeForeignTable</>ポインタをNULLにすることもできます。
+もしFDWが統計情報の収集をどのテーブルについてもサポートしない場合は、<function>AnalyzeForeignTable</>ポインタを<literal>NULL</>にすることもできます。
     </para>
 
     <para>
@@ -1730,9 +1737,9 @@ FDWがテーブル定義のインポートをサポートしない場合は、<f
      but most are required if parallel execution is to be supported.
 -->
 <structname>ForeignScan</>ノードは、オプションとして、パラレル実行をサポートします。
-並列<structname>ForeignScan</>は複数プロセスで実行され、全ての協調プロセスにわたって各行が一度だけ返るべきです。
+並列<structname>ForeignScan</>は複数プロセスで実行され、全ての協調プロセスにわたって各行が一度だけ返るようにしなければなりません。
 これを行うため、プロセスは動的共有メモリの固定サイズチャンクを通して調整をはかることができます。
-この共有メモリは全プロセスで同じアドレスに割り当てされることが保証されませんので、ポインタはおそらく使えません。
+この共有メモリは全プロセスで同じアドレスに割り当てされることが保証されませんので、ポインタを含まないようにしなければなりません。
 以下のコールバックは一般に全て省略可能ですが、パラレル実行をサポートするためには必要です。
     </para>
 
@@ -1764,7 +1771,7 @@ IsForeignScanParallelSafe(PlannerInfo *root, RelOptInfo *rel,
     performed within a parallel worker.  Therefore, it can be useful to define
     this method even when parallel execution is not supported.
 -->
-このコールバックが定義されていない場合、スキャンはパラレルリーダー内で実行しなければならないと想定されます。
+この関数が定義されていない場合、スキャンはパラレルリーダー内で実行しなければならないと想定されます。
 真を返すことは、スキャンがパラレルワーカーで実行可能であるだけで、パラレルに実行可能であることを意味するのでは無いことに注意してください。
 そのため、この関数を定義することはパラレル実行がサポートされていないときでも役立つ可能性があります。
     </para>
@@ -1785,6 +1792,8 @@ EstimateDSMForeignScan(ForeignScanState *node, ParallelContext *pcxt);
 並列操作に必要とされるであろう動的共有メモリ量を推定します。
 これは実際に使われる量よりも大きくてよいですが、小さくてはいけません。
 戻り値はバイト単位です。
+この関数はオプションであり、必要でない場合は省略することができます。
+しかし省略された場合、FDWの使用のために共有メモリが割り当てられないため、次の3つの関数も省略しなければなりません。
     </para>
 
     <para>
@@ -1800,7 +1809,8 @@ InitializeDSMForeignScan(ForeignScanState *node, ParallelContext *pcxt,
     This function is optional, and can be omitted if not needed.
 -->
 並列処理で必要とされる動的共有メモリを初期化します。
-<literal>coordinate</>は<function>EstimateDSMForeignScan</>の戻り値に等しいサイズだけ割り当てられた領域へのポインタです。
+<literal>coordinate</>は<function>EstimateDSMForeignScan</>の戻り値に等しいサイズの共有メモリ領域へのポインタです。
+この関数はオプションであり、必要でない場合は省略することができます。
    </para>
 
     <para>
@@ -1809,6 +1819,7 @@ void
 ReInitializeDSMForeignScan(ForeignScanState *node, ParallelContext *pcxt,
                            void *coordinate);
 </programlisting>
+<!--
     Re-initialize the dynamic shared memory required for parallel operation
     when the foreign-scan plan node is about to be re-scanned.
     This function is optional, and can be omitted if not needed.
@@ -1817,6 +1828,11 @@ ReInitializeDSMForeignScan(ForeignScanState *node, ParallelContext *pcxt,
     state.  Currently, this function will be called
     before <function>ReScanForeignScan</>, but it's best not to rely on
     that ordering.
+-->
+外部スキャンプランノードが再スキャンされようとしているときに、並列操作に必要な動的共有メモリーを再初期化します。
+この関数はオプションであり、必要でない場合は省略することができます。
+<function>ReScanForeignScan</>関数はローカル状態のみをリセットし、この関数は共有状態のみをリセットすることをお勧めします。
+現在、この関数は<function>ReScanForeignScan</>より前に呼び出されますが、その順序に依存しないようにする方が良いでしょう。
    </para>
 
    <para>
@@ -1830,8 +1846,8 @@ InitializeWorkerForeignScan(ForeignScanState *node, shm_toc *toc,
     set up by the leader during <function>InitializeDSMForeignScan</>.
     This function is optional, and can be omitted if not needed.
 -->
-<literal>InitializeDSMForeignScan</>でリーダーがセットアップした共有状態に基づくパラレルワーカーのカスタム状態を初期化します。
-このコールバックは省略可能で、このカスタムパスがパラレル実行をサポートする場合だけ用意する必要があります。
+<function>InitializeDSMForeignScan</>でリーダーがセットアップした共有状態に基づくパラレルワーカーのローカル状態を初期化します。
+この関数はオプションであり、必要でない場合は省略することができます。
    </para>
 
    <para>
@@ -1839,6 +1855,7 @@ InitializeWorkerForeignScan(ForeignScanState *node, shm_toc *toc,
 void
 ShutdownForeignScan(ForeignScanState *node);
 </programlisting>
+<!--
     Release resources when it is anticipated the node will not be executed
     to completion.  This is not called in all cases; sometimes,
     <literal>EndForeignScan</> may be called without this function having
@@ -1846,6 +1863,11 @@ ShutdownForeignScan(ForeignScanState *node);
     destroyed just after this callback is invoked, foreign data wrappers that
     wish to take some action before the DSM segment goes away should implement
     this method.
+-->
+ノードが完了するまで実行されないことが予想されるときにリソースを解放します。
+これはすべてのケースで呼ばれるわけではありません。
+<literal>EndForeignScan</>は、この関数が最初に呼び出されなくても呼び出されることがあります。
+このコールバックが呼び出された直後に、並列クエリで使用されるDSM(動的共有メモリ）セグメントが破棄されるため、DSMセグメントがなくなる前に何らかのアクションを実行する外部データラッパーがこのメソッドを実装する必要があります。
    </para>
    </sect2>
 
@@ -2022,7 +2044,7 @@ FDWコールバック関数の<function>GetForeignRelSize</>、<function>GetFore
      columns that are used in qual evaluation but not output by the query.
 -->
 <literal>root</>と<literal>baserel</>に含まれる情報は、外部テーブルから取得する必要のある情報の量(とそれによるコスト)を削減するために使用できます。
-<literal>baserel-&gt;baserestrictinfo</>は、取得される行をフィルタリングする制約条件(<literal>WHERE</>句)を含んでいるため、特に興味深いものです。(コアのエグゼキュータが代わりにそれらをチェックできるので、FDW自身がこれらの制約を適用しなければならないわけではありません。)
+<literal>baserel-&gt;baserestrictinfo</>は、取得される行をフィルタリングする検索条件(<literal>WHERE</>句)を含んでいるため、特に興味深いものです。(コアのエグゼキュータが代わりにそれらをチェックできるので、FDW自身がこれらの制約を適用しなければならないわけではありません。)
 <literal>baserel-&gt;reltarget-&gt;exprs</>はどの列が取得される必要があるかを決定するのに使用できます。ただし、このリストは<structname>ForeignScan</>プランノードから出力すべき列しか含んでおらず、条件検査には必要だがクエリからは出力されない列は含まないことに注意してください。
     </para>
 
@@ -2395,7 +2417,7 @@ FDWの元になる記憶機構が、行の同時更新を防ぐために個々�
 結合条件を再検査するには、前回取得対象のタプルと結合された、取得対象外の行の複製を再取得する必要があります。
 <productname>PostgreSQL</>の標準テーブルを使うときは、結合を通じて生成される列リストに対象でないテーブルのTIDを含めて、必要な時には対象でない行を再フェッチすることで解決しています。
 この方法は結合のデータセットを小さくできますが、安価な再フェッチ機能と再フェッチすべきバージョンの行を一意に特定できるTIDが必要になります。
-そのためデフォルトで外部テーブルに対して使われる方法は、外部テーブルからフェッチされた凝然体を結合を通じて生成した列リストに含めるというものです。
+そのためデフォルトで外部テーブルに対して使われる方法は、外部テーブルからフェッチされた行全体を結合を通じて生成した列リストに含めるというものです。
 これによりFDWに対する特別な要請はなくなりますが、マージ結合およびハッシュ結合に置いてパフォーマンスが低下する結果となるかもしれません。
 再フェッチの要求を満たすことができるFDWでは最初の方法を選択するのも良いでしょう。
     </para>
@@ -2442,7 +2464,7 @@ FDWはテーブルが<command>UPDATE</>または<command>DELETE</>の対象か�
 <function>GetForeignRowMarkType</>では、要求されたロックの強度に応じて、rowmarkのオプション<literal>ROW_MARK_EXCLUSIVE</>、<literal>ROW_MARK_NOKEYEXCLUSIVE</>、<literal>ROW_MARK_SHARE</>または<literal>ROW_MARK_KEYSHARE</>を選択して下さい。
 （コアのコードは、この4つのオプションのどれが選ばれたかに関係なく、同じ動作をします。）
 その他には、この種のコマンドによって外部テーブルのロックが指定されたかどうかを、計画時に<function>get_plan_rowmark</>を使うことで、あるいは実行時に<function>ExecFindRowMark</>を使うことで検知できます。
-このとき、nullでないrowmark構造体が戻されるかどうかだけでなく、その<structfield>strength</>フィールドが<literal>LCS_NONE</>でないことも確認しなければなりません。
+このとき、NULLでないrowmark構造体が戻されるかどうかだけでなく、その<structfield>strength</>フィールドが<literal>LCS_NONE</>でないことも確認しなければなりません。
     </para>
 
     <para>
