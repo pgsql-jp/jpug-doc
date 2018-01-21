@@ -240,6 +240,7 @@ hostnossl  <replaceable>database</replaceable>  <replaceable>user</replaceable> 
 -->
 このオプションを使用するためには、サーバは<acronym>SSL</acronym>サポートができるように構築されていなければいけません。
 また、 <acronym>SSL</acronym>は<xref linkend="guc-ssl">パラメータを設定することによりサーバの起動時に有効になっていなくてはなりません（詳細は<xref linkend="ssl-tcp">を参照してください）。
+そうでなければ、どのような接続にも対応していないという警告が表示されることを除き、<literal>hostssl</literal>レコードは無視されます。
       </para>
      </listitem>
     </varlistentry>
@@ -291,7 +292,7 @@ hostnossl  <replaceable>database</replaceable>  <replaceable>user</replaceable> 
 （以前は<literal>samegroup</>と書いていましたが、<literal>samerole</>と記述してください）
 スーパーユーザは、直接的であれ間接的であれ、明示的にsameroleのメンバでない限りsameroleのメンバとはみなされません。
 また、スーパーユーザであるからといって<literal>samerole</>のメンバとはみなされません。
-<literal>replication</>の値は、もしレプリケーション接続が要求された場合（レプリケーション接続は特定のデータベースを指定しないことに注意して下さい）にレコードが一致することを指定します。
+<literal>replication</>の値は、もし物理レプリケーション接続が要求された場合（レプリケーション接続は特定のデータベースを指定しないことに注意して下さい）にレコードが一致することを指定します。
 それ以外の場合には、特定の<productname>PostgreSQL</productname>データベースの名前になります。
 データベースの名前はカンマで区切ることで複数指定できます。
 データベース名を含む別のファイルを、そのファイル名の前に<literal>@</>を付けることで指定できます。
@@ -610,8 +611,12 @@ IPv6書式の項目は、システムのCライブラリがIPv6アドレスを�
         <term><literal>scram-sha-256</></term>
         <listitem>
          <para>
+<!--
           Perform SCRAM-SHA-256 authentication to verify the user's
           password. See <xref linkend="auth-password"> for details.
+-->
+ユーザのパスワードを検証するためにSCRAM-SHA-256認証を実行します。
+詳細は<xref linkend="auth-password">をご覧ください。
          </para>
         </listitem>
        </varlistentry>
@@ -625,7 +630,7 @@ IPv6書式の項目は、システムのCライブラリがIPv6アドレスを�
           user's password. See <xref linkend="auth-password">
           for details.
 -->
-クライアントに対して認証時に二重MD5ハッシュ化パスワードを要求します。
+ユーザのパスワードを検証するために、SCRAM-SHA-256あるいはMD5認証を実行します。
 詳細は<xref linkend="auth-password">を参照してください。
          </para>
         </listitem>
@@ -877,13 +882,18 @@ SSLクライアント証明書を使用して認証します。
 
   <note>
    <para>
+<!--
     The preceding statement is not true on Microsoft Windows: there, any
     changes in the <filename>pg_hba.conf</filename> file are immediately
     applied by subsequent new connections.
+-->
+上記はマイクロソフトWindowsに対しては当てはまりません。
+つまり、<filename>pg_hba.conf</filename>に対する変更は、ただちにそれ以降の新しい接続に反映されます。
    </para>
   </note>
 
   <para>
+<!--
    The system view
    <link linkend="view-pg-hba-file-rules"><structname>pg_hba_file_rules</structname></link>
    can be helpful for pre-testing changes to the <filename>pg_hba.conf</>
@@ -891,6 +901,10 @@ SSLクライアント証明書を使用して認証します。
    desired effects.  Rows in the view with
    non-null <structfield>error</structfield> fields indicate problems in the
    corresponding lines of the file.
+-->
+<filename>pg_hba.conf</>に対する変更をテストする際、あるいはそのファイルをロードしても期待していた結果が得られなかった場合には、
+システムビュー<link linkend="view-pg-hba-file-rules"><structname>pg_hba_file_rules</structname></link>が役に立ちます。
+そのビューの<structfield>error</structfield>フィールドがNULLでない行は、そのファイルの該当行に問題があることを示しています。
   </para>
  
   <tip>
@@ -1369,10 +1383,14 @@ TCP/IP接続における<literal>trust</>認証は、<literal>trust</>を指定�
    </indexterm>
 
    <para>
+<!--
     There are several password-based authentication methods.  These methods
     operate similarly but differ in how the users' passwords are stored on the
     server and how the password provided by a client is sent across the
     connection.
+-->
+複数のパスワードに基づく認証方式があります。
+これらは似たような方法で使用されますが、ユーザのパスワードをサーバに格納する方法と、接続を通じてパスワードがクライアントに提供される方法が異なります
    </para>
 
    <variablelist>
@@ -1380,17 +1398,24 @@ TCP/IP接続における<literal>trust</>認証は、<literal>trust</>を指定�
      <term><literal>scram-sha-256</literal></term>
      <listitem>
       <para>
+<!--
        The method <literal>scram-sha-256</> performs SCRAM-SHA-256
        authentication, as described in
        <ulink url="https://tools.ietf.org/html/rfc7677">RFC 7677</ulink>.  It
        is a challenge-response scheme that prevents password sniffing on
        untrusted connections and supports storing passwords on the server in a
        cryptographically hashed form that is thought to be secure.
+-->
+<literal>scram-sha-256</>方式は、<ulink url="https://tools.ietf.org/html/rfc7677">RFC 7677</ulink>に記述された方法でSCRAM-SHA-256認証を実行します。
+これはチャレンジ／レスポンス方式のひとつであり、信頼できない接続におけるパスワードの漏洩を防ぎ、安全だと見なされる暗号化ハッシュ形式でパスワードをサーバに格納するのを支援します。
       </para>
 
       <para>
+<!--
        This is the most secure of the currently provided methods, but it is
        not supported by older client libraries.
+-->
+これは、現在実装されている認証方式の中では最も安全ですが、古いクライアントライブラリではサポートされていません。
       </para>
      </listitem>
     </varlistentry>
@@ -1399,25 +1424,36 @@ TCP/IP接続における<literal>trust</>認証は、<literal>trust</>を指定�
      <term><literal>md5</literal></term>
      <listitem>
       <para>
+<!--
        The method <literal>md5</> uses a custom less secure challenge-response
        mechanism.  It prevents password sniffing and avoids storing passwords
        on the server in plain text but provides no protection if an attacker
        manages to steal the password hash from the server.  Also, the MD5 hash
        algorithm is nowadays no longer consider secure against determined
        attacks.
+-->
+<literal>md5</>方式は、独自のより安全性の低いチャレンジ／レスポンス機構を使います。
+パスワードの漏洩を防ぎ、平文でパスワードをサーバに格納するのを避けることができますが、攻撃者がサーバからパスワードハッシュを盗むことを防ぐのを防ぐことはできません。
+また、MD5ハッシュアルゴリズムは、昨今では強い意志をもった攻撃に対しては安全ではないと考えられています。
       </para>
 
       <para>
+<!--
        The <literal>md5</literal> method cannot be used with
        the <xref linkend="guc-db-user-namespace"> feature.
+-->
+<literal>md5</literal>は、<xref linkend="guc-db-user-namespace">機能と一緒に使用することはできません。
       </para>
 
       <para>
+<!--
        To ease transition from the <literal>md5</literal> method to the newer
        SCRAM method, if <literal>md5</literal> is specified as a method
        in <filename>pg_hba.conf</filename> but the user's password on the
        server is encrypted for SCRAM (see below), then SCRAM-based
        authentication will automatically be chosen instead.
+-->
+<literal>md5</literal>方式からより新しいSCRAM方式への移行を容易にするため、<filename>pg_hba.conf</filename>で<literal>md5</literal>が指定されているにもかかわらず、パスワードがSCRAM（下記参照）で暗号化されている場合には、自動的にSCRAMに基づく認証が代わりに使用されます。
       </para>
      </listitem>
     </varlistentry>
@@ -1426,12 +1462,18 @@ TCP/IP接続における<literal>trust</>認証は、<literal>trust</>を指定�
      <term><literal>password</literal></term>
      <listitem>
       <para>
+<!--
        The method <literal>password</> sends the password in clear-text and is
        therefore vulnerable to password <quote>sniffing</> attacks. It should
        always be avoided if possible. If the connection is protected by SSL
        encryption then <literal>password</> can be used safely, though.
        (Though SSL certificate authentication might be a better choice if one
        is depending on using SSL).
+-->
+<literal>password</>方式は、パスワードを平文で送信するので、パスワード<quote>盗聴</>攻撃に対して脆弱です。
+可能ならば、常に避けるようにしてください。
+しかしながら、接続がSSL暗号で保護されていれば、<literal>password</>は安全に使用できます。
+（もっとも、SSLの利用に依存するのであれば、SSL証明書認証がより良い選択かもしれません。）
       </para>
      </listitem>
     </varlistentry>
@@ -1454,10 +1496,12 @@ TCP/IP接続における<literal>trust</>認証は、<literal>trust</>を指定�
 <productname>PostgreSQL</productname>データベースパスワードはオペレーティングシステムのユーザパスワードとも別のものです。
 各データベースユーザのパスワードは<literal>pg_authid</>システムカタログテーブルの中に格納されます。
 <userinput>CREATE USER foo WITH PASSWORD 'secret';</userinput>のように、パスワードはSQLコマンド<xref linkend="sql-createuser">と<xref linkend="sql-alterrole">を使って管理できます。
+あるいは、<application>psql</application>の<literal>\password</literal>コマンドでも管理できます。
 もしユーザに対してパスワードが設定されない場合、格納されるパスワードはNULLとなり、そのユーザのパスワード認証は常に失敗します。
    </para>
 
    <para>
+<!--
     The availability of the different password-based authentication methods
     depends on how a user's password on the server is encrypted (or hashed,
     more accurately).  This is controlled by the configuration
@@ -1477,9 +1521,21 @@ TCP/IP接続における<literal>trust</>認証は、<literal>trust</>を指定�
     password on the server in plain text.  This is no longer possible.)  To
     check the currently stored password hashes, see the system
     catalog <literal>pg_authid</literal>.
+-->
+パスワードにもとづく異なる認証方式が利用可能かどうかは、サーバ上でユーザのパスワードがどのように暗号化（正確には、ハッシュ化）されるのかに依存します。
+これは、パスワードが設定されたときに、設定パラメータの<xref linkend="guc-password-encryption">によって制御されます。
+パスワードが<literal>scram-sha-256</literal>によって暗号化されていれば、認証方式の<literal>scram-sha-256</literal>と<literal>password</literal>で利用できます。
+（ただし、後者の場合にはパスワードの転送は平文になります。）
+前述のように、ここで認証方式の<literal>md5</literal>を指定すると、<literal>scram-sha-256</literal>方式に自動的に切り替わります。
+パスワードが<literal>md5</literal>で暗号化されていると、<literal>md5</literal>と<literal>password</literal>でのみ使用されます。
+（ここでも、後者の場合にはパスワードは平文で転送されます。）
+  （以前のPostgreSQLのリリースでは、パスワードを平文で格納することをサポートしていました。
+  これはもはや不可能です。）
+現在格納されているパスワードのハッシュを確認するには、システムカタログ<literal>pg_authid</literal>を参照してください。
    </para>
 
    <para>
+<!--
     To upgrade an existing installation from <literal>md5</literal>
     to <literal>scram-sha-256</literal>, after having ensured that all client
     libraries in use are new enough to support SCRAM,
@@ -1487,6 +1543,8 @@ TCP/IP接続における<literal>trust</>認証は、<literal>trust</>を指定�
     in <filename>postgresql.conf</filename>, make all users set new passwords,
     and change the authentication method specifications
     in <filename>pg_hba.conf</filename> to <literal>scram-sha-256</literal>.
+-->
+既存のインストールにおいて、<literal>md5</literal>から<literal>scram-sha-256</literal>にアップグレードするには、すべてのクライアントライブラリが十分新しく、SCRAMをサポートをできることを確認してから、<filename>postgresql.conf</filename>で<literal>password_encryption = 'scram-sha-256'</literal>を設定し、すべてのユーザに新しいパスワードを設定してもらい、<filename>pg_hba.conf</filename>の認証方式を<literal>scram-sha-256</literal>に変更してください。
    </para>
   </sect2>
 
@@ -2441,6 +2499,7 @@ RADIUSアカウントのサポートはありません。
    </para>
 
    <para>
+<!--
     Multiple RADIUS servers can be specified, in which case they will
     be tried sequentially. If a negative response is received from
     a server, the authentication will fail. If no response is received,
@@ -2450,6 +2509,13 @@ RADIUSアカウントのサポートはありません。
     options can also be given as a comma separate list, to apply
     individual values to each server. They can also be specified as
     a single value, in which case this value will apply to all servers.
+-->
+複数のRADIUSサーバを指定することができ、その場合には各々が順に試行されます。
+サーバから負の応答があると、認証は失敗します。
+サーバから応答がない場合は、リスト内の次のサーバが試されます。
+複数のサーバを指定するには、サーバ名を引用符の中に入れ、各々をカンマで区切ってください。
+複数のサーバが指定されると、他のすべてのRADIUSオプションもカンマで区切って指定することが可能で、それぞれ各々のサーバに対して適用されます。
+オプションは単一の値としても指定でき、その場合にはこの値がすべてのサーバに対して適用されます。
    </para>
 
    <para>
@@ -2466,7 +2532,8 @@ RADIUSのために次の設定オプションがサポートされています�
          The name or IP addresses of the RADIUS servers to connect to.
          This parameter is required.
 -->
-接続するRADIUSサーバの名称もしくはIPアドレス。このパラメータは必要です。
+接続するRADIUSサーバの名称もしくはIPアドレス。
+このパラメータは必須です。
         </para>
        </listitem>
       </varlistentry>
@@ -2481,8 +2548,10 @@ RADIUSのために次の設定オプションがサポートされています�
          and RADIUS servers. It is recommended that this be a string of
          at least 16 characters. This parameter is required.
 -->
-RADIUSサーバとのやり取りに使用される共有の秘密。これはPostgreSQLとRADIUSサーバにおいて
-厳密に同じ値にする必要があります。少なくとも16文字以上の文字列が推奨されます。このパラメータは必要です。
+RADIUSサーバと安全なやり取りに使用される共有の秘密データ。
+これはPostgreSQLとRADIUSサーバにおいて厳密に同じ値にする必要があります。
+少なくとも16文字以上の文字列が推奨されます。
+このパラメータは必須です。
          <note>
          <para>
 <!--
@@ -2493,7 +2562,7 @@ RADIUSサーバとのやり取りに使用される共有の秘密。これはPo
           external security measures should be applied if necessary.
 -->
 使用されている暗号化ベクターは<productname>PostgreSQL</>が<productname>OpenSSL</>をサポートするよう構築している場合にのみ暗号論的に強力です。
-他の場合にはRADIUSサーバへの伝送は難読化されているだけで、安全ではなく必要な場合は外部のセキュリティ方法を適用すべきです。
+他の場合にはRADIUSサーバへの伝送は難読化されているだけで安全ではなく、必要ならば外部のセキュリティ方法を適用すべきです。
          </para>
          </note>
         </para>
@@ -2508,7 +2577,8 @@ RADIUSサーバとのやり取りに使用される共有の秘密。これはPo
          The port number on the RADIUS servers to connect to. If no port
          is specified, the default port <literal>1812</> will be used.
 -->
-接続するRADIUSサーバのポート番号。もしポート番号が指定されていない場合は、デフォルトポートである<literal>1812</>が使用されます。
+接続するRADIUSサーバのポート番号。
+もしポート番号が指定されていない場合は、デフォルトポートである<literal>1812</>が使用されます。
         </para>
        </listitem>
       </varlistentry>
@@ -2567,7 +2637,8 @@ RADIUSリクエスト内で<literal>NAS Identifier</>として使用されてい
 この認証方法を使用する際は、サーバはクライアントが有効かつ信頼された証明書を提供することを要求します。
 パスワードのプロンプトはクライアントに送信されません。
 証明書の<literal>cn</literal>（Common Name）属性は、要求されたデータベースユーザ名と比較されます。
-もしそれらが一致した場合はログインが許可されます。ユーザ名マッピングは、<literal>cn</literal>がデータベースユーザ名と異なるものであることを許可するために使用されます。
+もしそれらが一致した場合はログインが許可されます。
+ユーザ名マッピングは、<literal>cn</literal>がデータベースユーザ名と異なるものであることを許可するために使用されます。
    </para>
 
    <para>
