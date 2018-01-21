@@ -1276,7 +1276,10 @@ EXPLAIN ANALYZE SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND unique2 &gt; 9000
   </indexterm>
 
   <sect2>
+<!--
    <title>Single-Column Statistics</title>
+-->
+   <title>単一列統計情報</title>
   <para>
 <!--
    As we saw in the previous section, the query planner needs to estimate
@@ -1462,16 +1465,27 @@ WHERE tablename = 'road';
   </sect2>
 
   <sect2 id="planner-stats-extended">
+<!--
    <title>Extended Statistics</title>
+-->
+   <title>拡張統計情報</title>
 
    <indexterm zone="planner-stats-extended">
+<!--
     <primary>statistics</primary>
     <secondary>of the planner</secondary>
+-->
+    <primary>統計情報</primary>
+    <secondary>プランナの</secondary>
    </indexterm>
 
    <indexterm>
+<!--
     <primary>correlation</primary>
     <secondary>in the query planner</secondary>
+-->
+    <primary>相関関係</primary>
+    <secondary>クエリプランナにおける</secondary>
    </indexterm>
 
    <indexterm>
@@ -1479,6 +1493,7 @@ WHERE tablename = 'road';
    </indexterm>
 
    <para>
+<!--
     It is common to see slow queries running bad execution plans because
     multiple columns used in the query clauses are correlated.
     The planner normally assumes that multiple conditions
@@ -1489,17 +1504,27 @@ WHERE tablename = 'road';
     However, <productname>PostgreSQL</> has the ability to compute
     <firstterm>multivariate statistics</firstterm>, which can capture
     such information.
+-->
+問い合わせ句で使われている複数列に相関性があることにより、悪い実行計画を実行する遅いクエリがしばしば観察されます。
+プランナは通常複数の条件がお互いに独立あるとみなしますが、列の値に相関性がある場合はそれは成り立ちません。
+通常の列ごとの統計情報は、それが個々の列ごとであるという性質上、列をまたがる相関性に関する知識を把握することはできません。
+しかしながら、<productname>PostgreSQL</>は、<firstterm>多変量統計情報</firstterm>を計算することができ、それによってそうした情報を把握することができます。
    </para>
 
    <para>
+<!--
     Because the number of possible column combinations is very large,
     it's impractical to compute multivariate statistics automatically.
     Instead, <firstterm>extended statistics objects</firstterm>, more often
     called just <firstterm>statistics objects</>, can be created to instruct
     the server to obtain statistics across interesting sets of columns.
+-->
+列の組み合わせの数は非常に大きいため、自動的に多変量統計情報を計算するのは現実的ではありません。
+代わりに、サーバが興味のある列の集合にまたがる統計情報を得るように指示する目的で、<firstterm>拡張統計情報オブジェクト</firstterm>（しばしば単に<firstterm>統計情報オブジェクト</>と呼ばれます）を作成することができます。
    </para>
 
    <para>
+<!--
     Statistics objects are created using
     <xref linkend="sql-createstatistics">, which see for more details.
     Creation of such an object merely creates a catalog entry expressing
@@ -1508,9 +1533,16 @@ WHERE tablename = 'road';
     auto-analyze).  The collected values can be examined in the
     <link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>
     catalog.
+-->
+統計情報オブジェクトは<xref linkend="sql-createstatistics">で作成します。
+詳細はそちらを参照してください。
+そうしたオブジェクトを作っても、単に統計情報として興味があることを示すカタログエントリが作られるだけです。
+実際のデータ収集は、<command>ANALYZE</command> （手動のコマンドを起動あるいはバックグラウンドでの自動ANALYZE）が行います。
+収集したデータは、<link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>カタログで参照することができます。
    </para>
 
    <para>
+<!--
     <command>ANALYZE</command> computes extended statistics based on the same
     sample of table rows that it takes for computing regular single-column
     statistics.  Since the sample size is increased by increasing the
@@ -1518,17 +1550,27 @@ WHERE tablename = 'road';
     the previous section), a larger statistics target will normally result in
     more accurate extended statistics, as well as more time spent calculating
     them.
+-->
+通常の単一列統計情報の計算に使うのと同じテーブル行のサンプルに基づき、<command>ANALYZE</command>は、拡張統計情報を計算します。
+（前節で述べたように）テーブルあるいはそのテーブルの対象となる列統計情報の増やすと、サンプルのサイズも増えるので、より大きな統計情報の対象を使うと、通常、より精度の高い拡張統計情報を得られますが、計算に費やす時間も増えます。
    </para>
 
    <para>
+<!--
     The following subsections describe the kinds of extended statistics
     that are currently supported.
+-->
+次の節では、現在サポートしている拡張統計情報の種類を説明します。
    </para>
 
    <sect3>
+<!--
     <title>Functional Dependencies</title>
+-->
+    <title>関数従属性</title>
 
     <para>
+<!--
      The simplest kind of extended statistics tracks <firstterm>functional
      dependencies</>, a concept used in definitions of database normal forms.
      We say that column <structfield>b</> is functionally dependent on
@@ -1543,9 +1585,18 @@ WHERE tablename = 'road';
      Even in a fully normalized database, there may be partial correlation
      between some columns, which can be expressed as partial functional
      dependency.
+-->
+もっとも単純な拡張統計情報は、データベースの正規形の定義で使われる考え方である、<firstterm>関数従属性</>を追跡します。
+<structfield>a</>の値に関する知識が<structfield>b</>の値を決定するのに十分であるとき、列<structfield>b</>は列<structfield>a</>に関数的に従属していると言います。
+これはすなわち、同じ<structfield>a</>の値を持ちながら、異なる<structfield>b</>の値を持つ二つの行は存在しないということです。
+完全に正規化されたデータベースでは、関数従属性は主キーと超キーにのみ存在します。
+実際には様々な理由でデータの集合は完全には正規化されません。
+性能上の理由により非正規化するというのが典型的な例です。
+完全に正規化されたデータベースにおいても、ある列の間に部分的な相関関係が存在することがあり、これは部分的関数従属性として表現されます。
     </para>
 
     <para>
+<!--
      The existence of functional dependencies directly affects the accuracy
      of estimates in certain queries.  If a query contains conditions on
      both the independent and the dependent column(s), the
@@ -1553,9 +1604,14 @@ WHERE tablename = 'road';
      size; but without knowledge of the functional dependency, the query
      planner will assume that the conditions are independent, resulting
      in underestimating the result size.
+-->
+ある問い合わせでは、関数従属性が存在することが見積もりの精度に直接影響を与えます。
+問い合わせに独立した列と依存する列の両方に関する条件が含まれていると、依存する列に関する条件はそれ以上結果サイズを小さくしません。
+しかし関数従属性に関する知識がなければ、クエリプランナはそれらの条件が独立であると見なし、結果サイズの過少見積もりすることになります。
     </para>
 
     <para>
+<!--
      To inform the planner about functional dependencies, <command>ANALYZE</>
      can collect measurements of cross-column dependency. Assessing the
      degree of dependency between all sets of columns would be prohibitively
@@ -1565,10 +1621,18 @@ WHERE tablename = 'road';
      <literal>dependencies</> statistics only for column groups that are
      strongly correlated, to avoid unnecessary overhead in both
      <command>ANALYZE</> and later query planning.
+-->
+プランナに関数従属性について知らせるために、<command>ANALYZE</>は列をまたがる依存性の強さを収集することができます。
+すべての列の集合間の依存性度合いを調査するのは、受け入れられないほど高価になります。
+そこでデータ収集は、<literal>dependencies</>オプションで定義された統計情報オブジェクトの中に一緒に現れた列のグループに制限されます。
+<command>ANALYZE</>および後々のクエリプランニングにおける不必要なオーバーヘッドを避けるために、強い相関関係のある列のグループのみを対象に、<literal>dependencies</>統計情報を作成することをお勧めします。
     </para>
 
     <para>
+<!--
      Here is an example of collecting functional-dependency statistics:
+-->
+関数従属性統計情報の収集例です。
 <programlisting>
 CREATE STATISTICS stts (dependencies) ON zip, city FROM zipcodes;
 
@@ -1582,71 +1646,110 @@ SELECT stxname, stxkeys, stxdependencies
  stts    | 1 5     | {"1 => 5": 1.000000, "5 => 1": 0.423130}
 (1 row)
 </programlisting>
+<!--
      Here it can be seen that column 1 (zip code) fully determines column
      5 (city) so the coefficient is 1.0, while city only determines zip code
      about 42% of the time, meaning that there are many cities (58%) that are
      represented by more than a single ZIP code.
+-->
+ここでは、列1（zip code）が完全に列5（city）を決定しているので、係数は1.0です。
+一方、cityはzip codeを42%しか決定していないので、一つ以上のzip codeで表現されている多くのcity(58%)が存在するということになります。
     </para>
 
     <para>
+<!--
      When computing the selectivity for a query involving functionally
      dependent columns, the planner adjusts the per-condition selectivity
      estimates using the dependency coefficients so as not to produce
      an underestimate.
+-->
+関数従属する列を伴うクエリの選択率を計算する際、過小評価を行わないように、プランナは依存性係数を使って条件ごとの選択率を調整します。
     </para>
 
     <sect4>
+<!--
      <title>Limitations of Functional Dependencies</title>
+-->
+     <title>関数従属性の制限事項</title>
 
      <para>
+<!--
       Functional dependencies are currently only applied when considering
       simple equality conditions that compare columns to constant values.
       They are not used to improve estimates for equality conditions
       comparing two columns or comparing a column to an expression, nor for
       range clauses, <literal>LIKE</> or any other type of condition.
+-->
+今のところ、列と定数を比較する単純な等価条件を考慮する際にしか関数従属性は適用されません。
+二つの列を比較する、あるいは列を式と比較する等価条件、範囲句、<literal>LIKE</>その他の条件の見積もりを改善するのには使われません。
      </para>
 
      <para>
+<!--
       When estimating with functional dependencies, the planner assumes that
       conditions on the involved columns are compatible and hence redundant.
       If they are incompatible, the correct estimate would be zero rows, but
       that possibility is not considered.  For example, given a query like
+-->
+関数従属性による見積もりでは、プランナは関係する列は両立で、冗長であると見なします。
+それらが両立でなければ、正しい見積もりは0行となりますが、その可能性は考慮されません。
+たとえば次のクエリを見てください。
 <programlisting>
 SELECT * FROM zipcodes WHERE city = 'San Francisco' AND zip = '94105';
 </programlisting>
+<!--
       the planner will disregard the <structfield>city</> clause as not
       changing the selectivity, which is correct.  However, it will make
       the same assumption about
+-->
+プランナは、選択率が変わらないという正しい推定に基づき<structfield>city</>句を無視します。
+しかし、これを満たす行が0行であるにもかかわらず、次の問い合わせでも同じ推測をします。
 <programlisting>
 SELECT * FROM zipcodes WHERE city = 'San Francisco' AND zip = '90210';
 </programlisting>
+<!--
       even though there will really be zero rows satisfying this query.
       Functional dependency statistics do not provide enough information
       to conclude that, however.
+-->
+関数従属性統計情報は、これを結論付けるだけの十分な情報を提供しません。
      </para>
 
      <para>
+<!--
       In many practical situations, this assumption is usually satisfied;
       for example, there might be a GUI in the application that only allows
       selecting compatible city and ZIP code values to use in a query.
       But if that's not the case, functional dependencies may not be a viable
       option.
+-->
+多くの実用的な場合には、この前提は通常満たされます。
+たとえば、あるアプリケーションには、クエリの中で両立するcityとZIP codeだけを許すGUIが備わっているかもしれません。
+もしそうでなければ、関数従属性は実行可能なオプションではないかもしれません。
      </para>
     </sect4>
    </sect3>
 
    <sect3>
+<!--
     <title>Multivariate N-Distinct Counts</title>
+-->
+    <title>多変量N個別値計数</title>
 
     <para>
+<!--
      Single-column statistics store the number of distinct values in each
      column.  Estimates of the number of distinct values when combining more
      than one column (for example, for <literal>GROUP BY a, b</literal>) are
      frequently wrong when the planner only has single-column statistical
      data, causing it to select bad plans.
+-->
+単一列統計情報は、それぞれの列で異なる値の数を保持します。
+たとえば、<literal>GROUP BY a, b</literal>のように、一つ以上の列を組み合わせての異なる値の数の見積もりは、プランナに単一列の統計情報だけしか与えられない場合は、しばしば間違ったものになり、プランナは悪いプランの選択をしてしまいます。
     </para>
 
     <para>
+<!--
      To improve such estimates, <command>ANALYZE</> can collect n-distinct
      statistics for groups of columns.  As before, it's impractical to do
      this for every possible column grouping, so data is collected only for
@@ -1654,11 +1757,20 @@ SELECT * FROM zipcodes WHERE city = 'San Francisco' AND zip = '90210';
      defined with the <literal>ndistinct</> option.  Data will be collected
      for each possible combination of two or more columns from the set of
      listed columns.
+-->
+見積もり改善のために、列のグループに対して<command>ANALYZE</>はN個別統計情報を収集することができます。
+以前述べたのと同様に、可能なすべての列のグループに対してこれを行なうのは現実的ではありません。
+<literal>ndistinct</>オプションで定義された統計オブジェクト中に一緒に現れる列のグループに対してのみデータを
+収集します。
+列リストの中から、可能な二つ以上の列の組み合わせそれぞれに対してデータが収集されます。
     </para>
 
     <para>
+<!--
      Continuing the previous example, the n-distinct counts in a
      table of ZIP codes might look like the following:
+-->
+先ほどの例の続きで、ZIP codeのテーブルのN個別値計数は次のようになります。
 <programlisting>
 CREATE STATISTICS stts2 (ndistinct) ON zip, state, city FROM zipcodes;
 
@@ -1672,19 +1784,28 @@ k  | 1 2 5
 nd | {"1, 2": 33178, "1, 5": 33178, "2, 5": 27435, "1, 2, 5": 33178}
 (1 row)
 </programlisting>
+<!--
      This indicates that there are three combinations of columns that
      have 33178 distinct values: ZIP code and state; ZIP code and city;
      and ZIP code, city and state (the fact that they are all equal is
      expected given that ZIP code alone is unique in this table).  On the
      other hand, the combination of city and state has only 27435 distinct
      values.
+-->
+この例では、33178の異なる値を持つ列の組み合わせが三つあることを示しています。
+ZIP codeとstate、ZIP codeとcity、cityとstateです。（これらが等しいという事実は、ZIP codeだけがテーブル中でユニークであることから期待されます。）
+一方、cityとstateの組み合わせには、27435だけの異なる値があります。
     </para>
 
     <para>
+<!--
      It's advisable to create <literal>ndistinct</> statistics objects only
      on combinations of columns that are actually used for grouping, and
      for which misestimation of the number of groups is resulting in bad
      plans.  Otherwise, the <command>ANALYZE</> cycles are just wasted.
+-->
+グループ化で実際に使用する列の組み合わせで、かつグループ数の見積もり間違いによって悪いプランをもたらすものに対してだけ、<literal>ndistinct</>統計情報オブジェクトを作ることをお勧めします。
+さもないと、<command>ANALYZE</>サイクルは単に無駄になります。
     </para>
    </sect3>
   </sect2>
@@ -2580,7 +2701,7 @@ WALアーカイブ処理またはストリーミングレプリケーション�
        <filename>/pg_wal</>.
 -->
 <xref linkend="guc-max-wal-size">および<xref linkend="guc-checkpoint-timeout">を増加させます。
-これによりチェックポイントの頻度が減少しますが、<filename>/pg_xlog</>で必要とする容量が増加します。
+これによりチェックポイントの頻度が減少しますが、<filename>/pg_wal</>で必要とする容量が増加します。
       </para>
      </listitem>
 
