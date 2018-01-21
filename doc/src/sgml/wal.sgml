@@ -181,7 +181,7 @@ SCSIドライブであれば<ulink url="http://sg.danny.cz/sg/sdparm.html"><appl
         On <productname>macOS</productname>, write caching can be prevented by
         setting <varname>wal_sync_method</> to <literal>fsync_writethrough</>.
 -->
-<productname>OS X</productname>では、<varname>wal_sync_method</>を<literal>fsync_writethrough</>に設定することで書き込みキャッシュを使用しないようにします。
+<productname>macOS</productname>では、<varname>wal_sync_method</>を<literal>fsync_writethrough</>に設定することで書き込みキャッシュを使用しないようにします。
       </para>
     </listitem>
   </itemizedlist>
@@ -317,7 +317,7 @@ CRCの値はそれぞれのWALレコードを書き込み、クラッシュ回�
       recent changes to be accurately rebuilt at crash recovery and those
       WAL records are protected as discussed above.
 -->
-<filename>pg_clog</filename>、<filename>pg_subtrans</filename>、<filename>pg_multixact</filename>、<filename>pg_serial</filename>、<filename>pg_notify</filename>、<filename>pg_stat</filename>、<filename>pg_snapshots</filename>のような内部データ構造は直接チェックサム計算もされず、全ページ書き込みによる保護もされていません。
+<filename>pg_xact</filename>、<filename>pg_subtrans</filename>、<filename>pg_multixact</filename>、<filename>pg_serial</filename>、<filename>pg_notify</filename>、<filename>pg_stat</filename>、<filename>pg_snapshots</filename>のような内部データ構造は直接チェックサム計算もされず、全ページ書き込みによる保護もされていません。
 しかし、そのようなデータ構造が持続する場所は、WALレコードはクラッシュ回復時に正確に最新の変更を行えるようWALレコードが書き出され、それらのWALレコードは上記のように保護されます。
      </para>
     </listitem>
@@ -866,7 +866,7 @@ LinuxおよびPOSIXプラットフォームでは、チェックポイントに�
    even if the system is idle and the WAL usage estimate suggests that little
    WAL is needed.
 -->
-<filename>pg_xlog</>ディレクトリ内のWALセグメントファイルの数は、<varname>min_wal_size</>、<varname>max_wal_size</>、それに前回のチェックポイントで生成されたWALの量に依存します。
+<filename>pg_wal</>ディレクトリ内のWALセグメントファイルの数は、<varname>min_wal_size</>、<varname>max_wal_size</>、それに前回のチェックポイントで生成されたWALの量に依存します。
 古いログセグメントファイルが不要になると、削除または再利用(連番のうち、今後利用される予定の番号に名前が変更されます)されます。
 ログの出力レートが短期間にピークを迎えたために<varname>max_wal_size</>を超えた場合、この制限以下になるまで不要なセグメントファイルが削除されます。
 この制限以下になると、次のチェックポイントまでは、システムは見積もりを満たすだけのWALファイルを再利用します。
@@ -891,7 +891,7 @@ LinuxおよびPOSIXプラットフォームでは、チェックポイントに�
 -->
 <varname>max_wal_size</varname>とは無関係に、WALファイルのうち、常に最新の(<xref linkend="guc-wal-keep-segments"> + 1)個が維持されます。
 また、WALアーカイブを利用している場合は、古いセグメントは、アーカイブされるまでは削除も再利用もされません。
-WALが生成されるペースにWALのアーカイブ処理が追いつかなかったり、<varname>archive_command</varname>が連続して失敗すると、事態が解決するまでWALファイルは<filename>pg_xlog</>の下に蓄積されていきます。
+WALが生成されるペースにWALのアーカイブ処理が追いつかなかったり、<varname>archive_command</varname>が連続して失敗すると、事態が解決するまでWALファイルは<filename>pg_wal</>の下に蓄積されていきます。
 レプリケーションスロットを使用しているスタンバイサーバが低速だったり、失敗すると、同じ現象が起きます(<xref linkend="streaming-replication-slots">を参照のこと)
   </para>
 
@@ -915,7 +915,7 @@ WALが生成されるペースにWALのアーカイブ処理が追いつかな�
    (<varname>max_wal_size</> is never a hard limit anyway, so you should
    always leave plenty of headroom to avoid running out of disk space.)
 -->
-アーカイブからのリカバリもしくはスタンバイモードにおいて、サーバでは定期的に通常運用でのチェックポイント処理と似た<firstterm>再開始点</><indexterm><primary>restartpoint</></>処理を行います。これは、すでに再生されたWALを再度読み込む必要がないよう、ディスクに現在の状態を強制的に書き込み、<filename>pg_control</>ファイルを更新します。また<filename>pg_xlog</>ディレクトリの中の古いログセグメントを再利用できるようにします。
+アーカイブからのリカバリもしくはスタンバイモードにおいて、サーバでは定期的に通常運用でのチェックポイント処理と似た<firstterm>再開始点</><indexterm><primary>restartpoint</></>処理を行います。これは、すでに再生されたWALを再度読み込む必要がないよう、ディスクに現在の状態を強制的に書き込み、<filename>pg_control</>ファイルを更新します。また<filename>pg_wal</>ディレクトリの中の古いログセグメントを再利用できるようにします。
 再開始点処理はチェックポイントレコードに対してしか実施されないので、マスタ側のチェックポイント処理よりも発生頻度が多いということはありません。
 再開始点は、最後の再開始点より少なくとも<varname>checkpoint_timeout</>秒が経過しているか、あるいは<varname>max_wal_size</>を超えそうな場合に起動されます。
 しかし、再開始点が実施できるための制約事項により、リカバリの際には1回のチェックポイント分のWALを上限に、<varname>max_wal_size</>を超えてしまいがちです。
@@ -1112,6 +1112,7 @@ WALログが高遅延の回転ディスクに格納されているときは、<v
   </para>
 
   <para>
+<!--
    <acronym>WAL</acronym> records are appended to the <acronym>WAL</acronym>
    logs as each new record is written. The insert position is described by
    a Log Sequence Number (<acronym>LSN</acronym>) that is a byte offset into
@@ -1121,6 +1122,11 @@ WALログが高遅延の回転ディスクに格納されているときは、<v
    compared to calculate the volume of <acronym>WAL</acronym> data that
    separates them, so they are used to measure the progress of replication
    and recovery.
+-->
+新しいレコードが作成されるごとに、<acronym>WAL</acronym>レコードが<acronym>WAL</acronym>ログに追加されます。
+挿入位置はログシーケンス番号(<acronym>LSN</acronym>)によって記録されます。LSNはログのバイトオフセットで、単調増加します。
+<acronym>LSN</acronym>値は、<link linkend="datatype-pg-lsn"><type>pg_lsn</></link>データ型として返されます。
+2つの<acronym>LSN</acronym>値を比較することで<acronym>WAL</acronym>データの差分量を計算することができるので、レプリケーションやリカバリーの進捗状況を測定できます。
   </para>
 
   <para>
@@ -1139,7 +1145,7 @@ WALログが高遅延の回転ディスクに格納されているときは、<v
    but it will take a very, very long time to exhaust the
    available stock of numbers.
 -->
-<acronym>WAL</acronym>ログは、データディレクトリ以下の<filename>pg_xlog</filename>ディレクトリに、通常16メガバイトのサイズを持つセグメントファイルの集合として格納されています(ただし、このサイズはサーバ構築時の<option>--with-wal-segsize</>というconfigureオプションで変更できます)。各セグメントは通常8キロバイトのページに分割されます(このサイズは<option>--with-wal-blocksize</>というconfigureオプションで変更できます)。
+<acronym>WAL</acronym>ログは、データディレクトリ以下の<filename>pg_wal</filename>ディレクトリに、通常16メガバイトのサイズを持つセグメントファイルの集合として格納されています(ただし、このサイズはサーバ構築時の<option>--with-wal-segsize</>というconfigureオプションで変更できます)。各セグメントは通常8キロバイトのページに分割されます(このサイズは<option>--with-wal-blocksize</>というconfigureオプションで変更できます)。
 ログレコード用のヘッダは<filename>access/xlogrcord.h</filename>に記述されています。
 レコードの内容は、ログの対象となる事象の種類によって異なります。
 セグメントファイルは名前として<filename>000000010000000000000000</filename>から始まる、常に増加する数が与えられています。
@@ -1155,7 +1161,7 @@ WALログが高遅延の回転ディスクに格納されているときは、<v
    original location in the main data directory to the new location.
 -->
 主要なデータベースファイルが置いてあるディスクとは別のディスクにログを置くと利点があります。
-これは<filename>pg_xlog</filename>ディレクトリを別の場所に（もちろんサーバを終了しておいてから）移動し、主データディレクトリ以下の元々の場所から新しい場所へのシンボリックリンクを張ることによって可能となります。
+これは<filename>pg_wal</filename>ディレクトリを別の場所に（もちろんサーバを終了しておいてから）移動し、主データディレクトリ以下の元々の場所から新しい場所へのシンボリックリンクを張ることによって可能となります。
   </para>
 
   <para>
