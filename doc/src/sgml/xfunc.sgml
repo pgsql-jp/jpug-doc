@@ -232,7 +232,7 @@ SELECT clean_emp();
 SQL関数の本体全体は、その一部が実行される前に解析されます。
 SQL関数はシステムカタログを変更するコマンド(例えば<command>CREATE TABLE</>)を含むことができますので、そのようなコマンドの効果は関数の以降のコマンドの解析中は可視ではありません。
 それゆえ、例えば、<literal>CREATE TABLE foo (...); INSERT INTO foo VALUES(...);</literal>は単一のSQL関数にまとめられていると期待したようには動作しません。<command>INSERT</>コマンドが解析されている時には<structname>foo</>がまだ存在しないからです。
-このような場合にはSQL関数の代わりに<application>PL/PgSQL</>を使うことを薦めます。
+このような場合にはSQL関数の代わりに<application>PL/pgSQL</>を使うことを薦めます。
      </para>
    </note>
 
@@ -1370,9 +1370,8 @@ SELECT name, child FROM nodes, LATERAL listchildren(name) AS child;
      The previous example could also be done with queries like
      these:
 -->
-現在、集合を返す関数は問い合わせの選択リスト内でも呼び出すことができます。
+集合を返す関数は問い合わせの選択リスト内でも呼び出すことができます。
 問い合わせ自身によって生成する各行に対し、集合を返す関数が呼び出され、関数の結果集合の各要素に対して出力行が生成されます。
-ただし、この機能は現在では推奨されておらず、今後のリリースでは削除される可能性があります。
 上の例は以下のような問い合わせでも実現することができます。
 
 <screen>
@@ -1409,17 +1408,26 @@ SELECT name, listchildren(name) FROM nodes;
     </para>
 
     <para>
+<!--
      <productname>PostgreSQL</>'s behavior for a set-returning function in a
      query's select list is almost exactly the same as if the set-returning
      function had been written in a <literal>LATERAL FROM</>-clause item
      instead.  For example,
+-->
+選択リストにある集合を返す関数に対する<productname>PostgreSQL</>の振舞いは、集合を返す関数が<literal>LATERAL FROM</>句に書かれている場合とほとんど同じです。
+例えば
 <programlisting>
 SELECT x, generate_series(1,5) AS g FROM tab;
 </programlisting>
+<!--
      is almost equivalent to
+-->
+は
 <programlisting>
 SELECT x, g FROM tab, LATERAL generate_series(1,5) AS g;
 </programlisting>
+とほぼ同じです。
+<!--
      It would be exactly the same, except that in this specific example,
      the planner could choose to put <structname>g</> on the outside of the
      nestloop join, since <structname>g</> has no actual lateral dependency
@@ -1429,9 +1437,14 @@ SELECT x, g FROM tab, LATERAL generate_series(1,5) AS g;
      the <literal>FROM</> clause, so that the function(s) are run to
      completion before the next row from the <literal>FROM</> clause is
      considered.
+-->
+この特定の例では、<structname>g</>は実際には<structname>tab</>にLATERALには依存しませんので、プランナがネステッドループ結合の外に<structname>g</>を置くことを選ぶかもしれないという点を除いて、全く同じです。
+そのため、出力行の順番が異なる結果になるかもしれません。
+選択リスト内の集合を返す関数は、<literal>FROM</>句からの次の行が考慮される前に関数の実行が完了するよう、<literal>FROM</>句の残りとのネステッドループ結合の中にあるかのように必ず評価されます。
     </para>
 
     <para>
+<!--
      If there is more than one set-returning function in the query's select
      list, the behavior is similar to what you get from putting the functions
      into a single <literal>LATERAL ROWS FROM( ... )</> <literal>FROM</>-clause
@@ -1444,30 +1457,49 @@ SELECT x, g FROM tab, LATERAL generate_series(1,5) AS g;
      produced the most outputs.  Thus the set-returning functions
      run <quote>in lockstep</> until they are all exhausted, and then
      execution continues with the next underlying row.
+-->
+問い合わせの選択リスト内に集合を返す関数が2つ以上ある場合には、振舞いは一つの<literal>LATERAL ROWS FROM( ... )</> <literal>FROM</>句に関数を置いた場合に得られるものと似ています。
+元となる問い合わせからの各行に対して、各関数からの最初の結果を使った出力行、2番目の結果を使った出力行、と続きます。
+集合を返す関数の中に他のものより出力の数が少ないものがある場合には、欠けたデータの代わりにNULL値が使われますので、1つの元となる行から作られる行の合計の数は、一番多くの出力を出力する集合を返す関数に対するのと同じだけになります。
+そのため、集合を返す関数はすべてが尽きるまで<quote>歩調を合わせて</>実行され、それから次の元となる行へと実行が続きます。
     </para>
 
     <para>
+<!--
      Set-returning functions can be nested in a select list, although that is
      not allowed in <literal>FROM</>-clause items.  In such cases, each level
      of nesting is treated separately, as though it were
      a separate <literal>LATERAL ROWS FROM( ... )</> item.  For example, in
+-->
+集合を返す関数は、<literal>FROM</>句内では許されていませんが、選択リスト内では入れ子にできます。
+その場合、入れ子の各階層は、別々の<literal>LATERAL ROWS FROM( ... )</>であるかのように別々に扱われます。
+例えば、
 <programlisting>
 SELECT srf1(srf2(x), srf3(y)), srf4(srf5(z)) FROM tab;
 </programlisting>
+<!--
      the set-returning functions <function>srf2</>, <function>srf3</>,
      and <function>srf5</> would be run in lockstep for each row
      of <structname>tab</>, and then <function>srf1</> and <function>srf4</>
      would be applied in lockstep to each row produced by the lower
      functions.
+-->
+では、集合を返す関数<function>srf2</>、<function>srf3</>、<function>srf5</>は<structname>tab</>の各行に対して歩調を合わせて実行され、次に階層の低い関数が生成した各行に対して<function>srf1</>と<function>srf4</>が歩調を合わせて適用されます。
     </para>
 
     <para>
+<!--
      Set-returning functions cannot be used within conditional-evaluation
      constructs, such as <literal>CASE</> or <literal>COALESCE</>.  For
      example, consider
+-->
+集合を返す関数は<literal>CASE</>や<literal>COALESCE</>のような条件を評価する構成の中では使えません。
+例えば、
 <programlisting>
 SELECT x, CASE WHEN x &gt; 0 THEN generate_series(1, 5) ELSE 0 END FROM tab;
 </programlisting>
+を考えてください。
+<!--
      It might seem that this should produce five repetitions of input rows
      that have <literal>x &gt; 0</>, and a single repetition of those that do
      not; but actually, because <function>generate_series(1, 5)</> would be
@@ -1475,6 +1507,9 @@ SELECT x, CASE WHEN x &gt; 0 THEN generate_series(1, 5) ELSE 0 END FROM tab;
      the <literal>CASE</> expression is ever evaluated, it would produce five
      repetitions of every input row.  To reduce confusion, such cases produce
      a parse-time error instead.
+-->
+これは、<literal>x &gt; 0</>である入力行の5回の繰り返しとそうでないものの1回の繰り返しを生成するように思えるかもしれません。しかし、実際には、<function>generate_series(1, 5)</>は<literal>CASE</>が評価される前に暗黙の<literal>LATERAL FROM</>の中で実行されますので、各入力行に対して5回の繰り返しを生成します。
+混乱を減らすため、そのような場合にはその代わりに解析時エラーになります。
     </para>
 
     <note>
@@ -1495,6 +1530,7 @@ SELECT x, CASE WHEN x &gt; 0 THEN generate_series(1, 5) ELSE 0 END FROM tab;
 
     <note>
      <para>
+<!--
       Before <productname>PostgreSQL</> 10, putting more than one
       set-returning function in the same select list did not behave very
       sensibly unless they always produced equal numbers of rows.  Otherwise,
@@ -1512,10 +1548,21 @@ SELECT x, CASE WHEN x &gt; 0 THEN generate_series(1, 5) ELSE 0 END FROM tab;
       If you have a query that is relying on conditional execution of a
       set-returning function, you may be able to fix it by moving the
       conditional test into a custom set-returning function.  For example,
+-->
+<productname>PostgreSQL</> 10より前では、集合を返す関数を2つ以上同じ選択リストに置くと常に等しい数の行を生成しない限りあまり賢くは振舞いませんでした。
+そうでなければ、得られるのは、集合を返す関数が生成する行の数の最小公倍数に等しい数の出力行でした。
+また、入れ子の集合を返す関数は上に書いたようには動作しませんでした。代わりに、集合を返す関数は多くても1つの集合を返す引数を持ち、集合を返す関数の各入れ子は独立に実行されました。
+また、条件実行(<literal>CASE</>等の内側にある集合を返す関数)は以前は認められており、事態をより複雑にしていました。
+<productname>PostgreSQL</>の古いバージョンで動作することが必要な問い合わせを書く場合には、バージョンが異なっても一貫した結果を返しますので、<literal>LATERAL</>構文を使うことを勧めます。
+集合を返す関数の条件実行に頼った問い合わせがあるのなら、条件確認を独自の集合を返す関数の中に移動することで修正できます。
+例えば
 <programlisting>
 SELECT x, CASE WHEN y &gt; 0 THEN generate_series(1, z) ELSE 5 END FROM tab;
 </programlisting>
+<!--
       could become
+-->
+は
 <programlisting>
 CREATE FUNCTION case_generate_series(cond bool, start int, fin int, els int)
   RETURNS SETOF int AS $$
@@ -1529,8 +1576,12 @@ END$$ LANGUAGE plpgsql;
 
 SELECT x, case_generate_series(y &gt; 0, 1, z, 5) FROM tab;
 </programlisting>
+になります。
+<!--
       This formulation will work the same in all versions
       of <productname>PostgreSQL</>.
+-->
+この定式化は<productname>PostgreSQL</>のバージョンすべてで同じように動作します。
      </para>
     </note>
    </sect2>
@@ -2317,12 +2368,8 @@ SQLで作成された定義済み関数もあります。
     indicated by writing a <literal>PG_FUNCTION_INFO_V1()</literal> macro
     call for the function, as illustrated below.
 -->
-現在、2つの異なる呼び出し規約がC関数で使用されています。
-より新しい<quote>Version 1</quote>呼び出し規約は、以下に示すように、その関数用に呼び出しマクロ<literal>PG_FUNCTION_INFO_V1()</literal>を書くことで示されます。
-このマクロが存在しなければ、旧形式（<quote>Version 0</quote>）の関数であることを示します。
-どちらの場合も<command>CREATE FUNCTION</command>で指定する言語名は<literal>C</literal>です。
-旧形式の関数は移植性の問題と機能の不足のために勧められません。
-これは現在、互換性の理由のために存在しています。
+現在、1つの呼び出し規約だけがC関数で使用されています(<quote>version 1</quote>)。
+その呼び出し規約をサポートしていることは、以下に示すように、その関数用に呼び出しマクロ<literal>PG_FUNCTION_INFO_V1()</literal>を書くことで示されます。
    </para>
 
   <sect2 id="xfunc-c-dynload">
@@ -2654,7 +2701,6 @@ C言語関数の作成方法を理解するためには、<productname>PostgreSQ
 例えば、<literal>long</literal>型はマシンによっては4バイトであったり、8バイトであったりして危険ですが、<type>int</type>型はほとんどのUnixマシンでは4バイトです。
 Unixマシンにおける<type>int4</type>の理論的な実装は以下のようになります。
 
-     
 <programlisting>
 <!--
 /* 4-byte integer, passed by value */
@@ -3097,7 +3143,9 @@ PG_FUNCTION_INFO_V1(funcname);
      <function>PG_RETURN_<replaceable>xxx</replaceable>()</function>
      takes as its argument the actual value to return.
 -->
-Version-1関数では、それぞれの実引数は、引数のデータ型に合った<function>PG_GETARG_<replaceable>xxx</replaceable>()</function>マクロを使用して取り出され、結果は戻り値の型に合った<function>PG_RETURN_<replaceable>xxx</replaceable>()</function>マクロを使用して返されます。
+Version-1関数では、それぞれの実引数は、引数のデータ型に合った<function>PG_GETARG_<replaceable>xxx</replaceable>()</function>マクロを使用して取り出されます。
+厳格でない関数では、<function>PG_ARGNULL_<replaceable>xxx</replaceable>()</function>を使って引数がNULLかどうか事前に確認することが必要です。
+結果は戻り値の型に合った<function>PG_RETURN_<replaceable>xxx</replaceable>()</function>マクロを使用して返されます。
 <function>PG_GETARG_<replaceable>xxx</replaceable>()</function>は、その引数として、取り出す関数引数の番号（ゼロから始まります）を取ります。
 <function>PG_RETURN_<replaceable>xxx</replaceable>()</function>は、その引数として、実際に返す値を取ります。
     </para>
@@ -3106,7 +3154,7 @@ Version-1関数では、それぞれの実引数は、引数のデータ型に�
 <!--
      Here are some examples using the version-1 calling convention:
 -->
-上記と同じ関数をVersion-1形式で記述したものを以下に示します。
+Version-1呼出し規約を使った例をいくつか以下に示します。
     </para>
 
 <programlisting><![CDATA[
@@ -3185,16 +3233,25 @@ copytext(PG_FUNCTION_ARGS)
     text     *t = PG_GETARG_TEXT_PP(0);
 
     /*
+]]><!--
      * VARSIZE_ANY_EXHDR is the size of the struct in bytes, minus the
      * VARHDRSZ or VARHDRSZ_SHORT of its header.  Construct the copy with a
      * full-length header.
+--><![CDATA[
+     * VARSIZEは、そのヘッダのVARHDRSZまたはVARHDRSZ_SHORTを引いた
+     * 構造体の総長をバイト数で表したものです。
+     * 完全な長さのヘッダと合わせたコピーを作成します。
      */
     text     *new_t = (text *) palloc(VARSIZE_ANY_EXHDR(t) + VARHDRSZ);
     SET_VARSIZE(new_t, VARSIZE_ANY_EXHDR(t) + VARHDRSZ);
 
     /*
+]]><!--
      * VARDATA is a pointer to the data region of the new struct.  The source
      * could be a short datum, so retrieve its data through VARDATA_ANY.
+--><![CDATA[
+     * VARDATAは新しい構造体のデータ領域へのポインタです。
+     * コピー元はshortデータかもしれませんので、VARDATA_ANYでデータを取り出します。
      */
 ]]><!--
     memcpy((void *) VARDATA(new_t), /* destination */
@@ -3202,8 +3259,8 @@ copytext(PG_FUNCTION_ARGS)
            VARSIZE_ANY_EXHDR(t));   /* how many bytes */
 --><![CDATA[
     memcpy((void *) VARDATA(new_t), /* コピー先 */
-           (void *) VARDATA(t),     /* コピー元 */
-           VARSIZE(t) - VARHDRSZ);  /* バイト数 */
+           (void *) VARDATA_ANY(t), /* コピー元 */
+           VARSIZE_ANY_EXHDR(t));   /* バイト数 */
     PG_RETURN_TEXT_P(new_t);
 }
 
@@ -3228,10 +3285,13 @@ concat_text(PG_FUNCTION_ARGS)
 </programlisting>
 
     <para>
+<!--
      Supposing that the above code has been prepared in file
      <filename>funcs.c</filename> and compiled into a shared object,
      we could define the functions to <productname>PostgreSQL</productname>
      with commands like this:
+-->
+上のコードがファイル<filename>funcs.c</filename>に用意されていて、共有オブジェクトにコンパイルされているとしたら、以下のように<productname>PostgreSQL</productname>にコマンドで関数を定義できます。
     </para>
 
 <programlisting>
@@ -3239,7 +3299,10 @@ CREATE FUNCTION add_one(integer) RETURNS integer
      AS '<replaceable>DIRECTORY</replaceable>/funcs', 'add_one'
      LANGUAGE C STRICT;
 
--- note overloading of SQL function name "add_one"
+<!--
+&#45;- note overloading of SQL function name "add_one"
+-->
+-- SQL関数名"add_one"のオーバーロードに注意
 CREATE FUNCTION add_one(double precision) RETURNS double precision
      AS '<replaceable>DIRECTORY</replaceable>/funcs', 'add_one_float8'
      LANGUAGE C STRICT;
@@ -3258,6 +3321,7 @@ CREATE FUNCTION concat_text(text, text) RETURNS text
 </programlisting>
 
     <para>
+<!--
      Here, <replaceable>DIRECTORY</replaceable> stands for the
      directory of the shared library file (for instance the
      <productname>PostgreSQL</productname> tutorial directory, which
@@ -3267,15 +3331,24 @@ CREATE FUNCTION concat_text(text, text) RETURNS text
      <replaceable>DIRECTORY</replaceable> to the search path.  In any
      case, we can omit the system-specific extension for a shared
      library, commonly <literal>.so</literal>.)
+-->
+ここでは、<replaceable>DIRECTORY</replaceable>は共有ライブラリファイルのディレクトリ(例えば<productname>PostgreSQL</productname>のチュートリアルのディレクトリ、そこにはこの節で使われている例のコードがあります)を表しています。
+(<replaceable>DIRECTORY</replaceable>を検索パスに追加した後に<literal>AS</>句で<literal>'funcs'</>だけを使うのがより良いやり方でしょう。
+どの場合でも、共有ライブラリを表すシステムに特有の拡張子、普通は<literal>.so</literal>を省略できます。)
     </para>
 
     <para>
+<!--
      Notice that we have specified the functions as <quote>strict</quote>,
      meaning that
      the system should automatically assume a null result if any input
      value is null.  By doing this, we avoid having to check for null inputs
      in the function code.  Without this, we'd have to check for null values
      explicitly, using <function>PG_ARGISNULL()</function>.
+-->
+関数を<quote>strict</quote>と指定したことに注意してください。これは入力値のいずれかがNULLだった場合、システムが自動的に結果をNULLと決めてしまうことを意味します。
+こうすることで、関数のコード内でNULLの入力を確認しなければならないことを避けています。
+これがなければ、<function>PG_ARGISNULL()</function>を使ってNULL値を明示的に確認しなければなりません。
     </para>
 
     <para>
@@ -3286,10 +3359,8 @@ CREATE FUNCTION concat_text(text, text) RETURNS text
      arguments/return values, and <quote>toasted</quote> (compressed or
      out-of-line) values.
 -->
-一見Version-1のコーディング規約は無意味なものに見えるかもしれません。
-しかし、マクロが必要のない情報を隠蔽しているので、多数の改良が行われています。
-例えば、<function>add_one_float8</>のコードでは、<type>float8</type>が参照渡しであることを意識する必要がなくなっています。
-また別の例としては、可変長型の<literal>GETARG</>マクロは<quote>TOASTされた</quote>（圧縮または行外）値をより効率的に取り出すことができます。
+一見、Version-1のコーディング規約は無意味なもの、普通の<literal>C</>の呼出し規約の使い過ぎに見えるかもしれません。
+しかし、<literal>NULL</>になりうる引数や戻り値、<quote>TOASTされた</quote>（圧縮または行外）値を扱うことができます。
     </para>
 
     <para>
@@ -3306,7 +3377,6 @@ CREATE FUNCTION concat_text(text, text) RETURNS text
      To return a null result, execute <function>PG_RETURN_NULL()</function>;
      this works in both strict and nonstrict functions.
 -->
-Version-1関数の1つの大きな改善点は、NULLの入力/結果の処理能力です。
 <function>PG_ARGISNULL(<replaceable>n</>)</function>マクロにより関数は各入力がNULLであるかどうかの検査を行うことができます。
 （もちろんこれは、<quote>厳密</>と宣言されていない関数でのみ必要です。）
 <function>PG_GETARG_<replaceable>xxx</replaceable>()</function>マクロと同様、入力引数の番号はゼロから始まります。
@@ -3343,7 +3413,7 @@ Version-1関数の1つの大きな改善点は、NULLの入力/結果の処理�
     <literal>plain</>, <literal>external</>, <literal>extended</literal>,
      or <literal>main</>.)
 -->
-新しい形式のインタフェースでは、その他のオプションとして<function>PG_GETARG_<replaceable>xxx</replaceable>()</function>マクロの変形を2つ提供しています。
+Version 1のインタフェースでは、その他のオプションとして<function>PG_GETARG_<replaceable>xxx</replaceable>()</function>マクロの変形を2つ提供しています。
 1つ目の<function>PG_GETARG_<replaceable>xxx</replaceable>_COPY()</function>によって、安全に書き込むことができる指定引数のコピーが確実に返されます。
 （通常のマクロは、物理的にテーブルに格納されている値へのポインタを返すことがあるので、書き込んではなりません。
 <function>PG_GETARG_<replaceable>xxx</replaceable>_COPY()</function>マクロの結果は書き込み可能であることが保証されています。）
@@ -3367,7 +3437,6 @@ Version-1関数の1つの大きな改善点は、NULLの入力/結果の処理�
      source distribution.
 -->
 最後に、Version-1関数呼び出し規約では、結果集合（<xref linkend="xfunc-c-return-set">）を返すこと、およびトリガ関数（<xref linkend="triggers">）と手続型言語の呼び出しハンドラ（<xref linkend="plhandler">）を実装することができます。
-また、Version-1コードは、標準Cの関数呼び出しプロトコルの制約を守りますので、Version-0よりも移植性があります。
 詳細についてはソース配布物内の<filename>src/backend/utils/fmgr/README</filename>を参照してください。
     </para>
    </sect2>
@@ -3564,7 +3633,7 @@ SELECT name, c_overpaid(emp, 1500) AS overpaid
      Using the version-1 calling conventions, we can define
      <function>c_overpaid</> as:
 -->
-Version 0呼び出し規約を使用すると、<function>c_overpaid</>は以下のように定義できます。
+Version 1呼び出し規約を使用すると、<function>c_overpaid</>は以下のように定義できます。
 
 <programlisting><![CDATA[
 #include "postgres.h"
@@ -4388,7 +4457,7 @@ CREATE OR REPLACE FUNCTION retcomposite(IN integer, IN integer,
      module in the source distribution contains more examples of
      set-returning functions.
 -->
-ソース配布物内の<link linkend="tablefunc">contrib/tablefunc</>モジュールのディレクトリには、集合を返す関数のより多くの例があります。
+ソース配布物内の<link linkend="tablefunc"><filename>contrib/tablefunc</filename></>モジュールのディレクトリには、集合を返す関数のより多くの例があります。
     </para>
    </sect2>
 
