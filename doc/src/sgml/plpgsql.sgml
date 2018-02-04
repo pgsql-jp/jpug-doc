@@ -6157,18 +6157,27 @@ SELECT * FROM sales_summary_bytime;
    </example>
 
    <para>
+<!--
     <literal>AFTER</> triggers can also make use of <firstterm>transition
     tables</> to inspect the entire set of rows changed by the triggering
     statement.  The <command>CREATE TRIGGER</> command assigns names to one
     or both transition tables, and then the function can refer to those names
     as though they were read-only temporary tables.
     <xref linkend="plpgsql-trigger-audit-transition-example"> shows an example.
+-->
+<literal>AFTER</>トリガは、トリガ文により変更された行の集合全体を調べるために<firstterm>遷移テーブル</>を使うこともできます。
+<command>CREATE TRIGGER</>コマンドで名前を1つまたは2つの遷移テーブルに割り当てると、関数はその名前を読み込み専用の一時テーブルであるかのように参照できます。
+<xref linkend="plpgsql-trigger-audit-transition-example">に例を示します。
    </para>
 
    <example id="plpgsql-trigger-audit-transition-example">
+<!--
     <title>Auditing with Transition Tables</title>
+-->
+    <title>遷移テーブルでの監査</title>
 
     <para>
+<!--
      This example produces the same results as
      <xref linkend="plpgsql-trigger-audit-example">, but instead of using a
      trigger that fires for every row, it uses a trigger that fires once
@@ -6180,6 +6189,12 @@ SELECT * FROM sales_summary_bytime;
      this does not stop us from using a single trigger function if we choose.
      (In practice, it might be better to use three separate functions and
      avoid the run-time tests on <varname>TG_OP</>.)
+-->
+この例は<xref linkend="plpgsql-trigger-audit-example">と同じ結果になりますが、行毎に起動するトリガを使う代わりに、関係のある情報を遷移テーブルに集めた後に文毎に1回起動するトリガを使っています。
+これは、呼び出された文が多くの行を変更する場合には行トリガの方法よりとても速くなる場合があります。
+<literal>REFERENCING</>句はそれぞれの場合で異ならなければなりませんので、それぞれの種類のイベントに対して別々のトリガ宣言をしなければならないことに注意してください。
+ですが、もし選ぶのなら、このために単一のトリガ関数が使えなくなることはありません。
+(実際には、3つに別れた関数を使い、実行時の<varname>TG_OP</>の確認を避ける方が良いでしょう。)
     </para>
 
 <programlisting>
@@ -6199,8 +6214,12 @@ CREATE TABLE emp_audit(
 CREATE OR REPLACE FUNCTION process_emp_audit() RETURNS TRIGGER AS $emp_audit$
     BEGIN
         --
-        -- Create rows in emp_audit to reflect the operations performed on emp,
-        -- making use of the special variable TG_OP to work out the operation.
+<!--
+        &#45;- Create rows in emp_audit to reflect the operations performed on emp,
+        &#45;- making use of the special variable TG_OP to work out the operation.
+-->
+        -- empで実行された操作を反映するためにemp_auditに行を作り、
+        -- 操作を完了するために特殊な変数TG_OPを使う。
         --
         IF (TG_OP = 'DELETE') THEN
             INSERT INTO emp_audit
@@ -6212,7 +6231,10 @@ CREATE OR REPLACE FUNCTION process_emp_audit() RETURNS TRIGGER AS $emp_audit$
             INSERT INTO emp_audit
                 SELECT 'I', now(), user, n.* FROM new_table n;
         END IF;
-        RETURN NULL; -- result is ignored since this is an AFTER trigger
+<!--
+        RETURN NULL; &#45;- result is ignored since this is an AFTER trigger
+-->
+        RETURN NULL; -- これはAFTERトリガなので結果は無視される
     END;
 $emp_audit$ LANGUAGE plpgsql;
 
