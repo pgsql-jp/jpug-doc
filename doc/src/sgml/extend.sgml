@@ -101,7 +101,7 @@
     procedures in the source code or by loading modules
     specially written by the <acronym>DBMS</acronym> vendor.
 -->
-<productname>PostgreSQL</productname>は、自分自身の操作がカタログに定義された方法で駆動されているため拡張が可能です。
+<productname>PostgreSQL</productname>の動作は、カタログに定義された方法で駆動されているため拡張が可能です。
 もし標準のリレーショナルデータベースシステムに慣れ親しんでいるのであれば、システムカタログとして一般に知られている中に、データベース、テーブル、列などの情報が格納されていることは知っていると思います。
 （システムによってはデータディクショナリと呼ぶものもあります。）
 このカタログはユーザの目には他のテーブルと同じように見えますが、<acronym>DBMS</acronym>は内部情報をそこに格納しているのです。
@@ -614,12 +614,17 @@
    </para>
 
    <para>
+<!--
     If an extension's script creates any temporary objects (such as temp
     tables), those objects are treated as extension members for the
     remainder of the current session, but are automatically dropped at
     session end, as any temporary object would be.  This is an exception
     to the rule that extension member objects cannot be dropped without
     dropping the whole extension.
+-->
+ある拡張のスクリプトが（一時テーブルのような）一時オブジェクトを作成する場合、現在のセッションで、以降そのオブジェクトは拡張のメンバーとして扱われます。
+しかしすべての一時オブジェクト同様、セッションの終わりに削除されます。
+これは、拡張全体を削除することなしに、拡張のメンバーオブジェクトは削除できない、という規則の例外です。
    </para>
 
    <sect2>
@@ -1237,6 +1242,7 @@ SELECT pg_catalog.pg_extension_config_dump('my_config', 'WHERE NOT standard_entr
 適切な更新スクリプトが利用可能である場合、<command>ALTER EXTENSION UPDATE</>コマンドはインストール済みの拡張を指定した新しいバージョンへ更新します。
 更新スクリプトは、<command>CREATE EXTENSION</>がインストール用スクリプト向けに提供する環境と同じ環境で実行されます。
 具体的には<varname>search_path</>は同じ方法で設定され、スクリプトにより作成される新しいオブジェクトはすべて自動的に拡張に追加されます。
+また、スクリプトが拡張のメンバーオブジェクトを削除する場合には、それらのメンバーオブジェクトは拡張から自動的に分離されます。
     </para>
 
     <para>
@@ -1359,25 +1365,29 @@ SELECT * FROM pg_extension_update_paths('<replaceable>extension_name</>');
    </sect2>
 
    <sect2>
+<!--
     <title>Installing Extensions using Update Scripts</title>
+-->
+    <title>更新スクリプトを利用した拡張のインストール</title>
 
     <para>
+<!--
      An extension that has been around for awhile will probably exist in
      several versions, for which the author will need to write update scripts.
      For example, if you have released a <literal>foo</> extension in
      versions <literal>1.0</>, <literal>1.1</>, and <literal>1.2</>, there
-     should be update scripts <filename>foo--1.0--1.1.sql</>
-     and <filename>foo--1.1--1.2.sql</>.
+     should be update scripts <filename>foo&#045;&#045;1.0&#045;&#045;1.1.sql</>
+     and <filename>foo&#045;&#045;1.1&#045;&#045;1.2.sql</>.
      Before <productname>PostgreSQL</> 10, it was necessary to also create
-     new script files <filename>foo--1.1.sql</> and <filename>foo--1.2.sql</>
+     new script files <filename>foo&#045;&#045;1.1.sql</> and <filename>foo&#045;&#045;1.2.sql</>
      that directly build the newer extension versions, or else the newer
      versions could not be installed directly, only by
      installing <literal>1.0</> and then updating.  That was tedious and
      duplicative, but now it's unnecessary, because <command>CREATE
      EXTENSION</> can follow update chains automatically.
      For example, if only the script
-     files <filename>foo--1.0.sql</>, <filename>foo--1.0--1.1.sql</>,
-     and <filename>foo--1.1--1.2.sql</> are available then a request to
+     files <filename>foo&#045;&#045;1.0.sql</>, <filename>foo&#045;&#045;1.0&#045;&#045;1.1.sql</>,
+     and <filename>foo&#045;&#045;1.1&#045;&#045;1.2.sql</> are available then a request to
      install version <literal>1.2</> is honored by running those three
      scripts in sequence.  The processing is the same as if you'd first
      installed <literal>1.0</> and then updated to <literal>1.2</>.
@@ -1385,17 +1395,33 @@ SELECT * FROM pg_extension_update_paths('<replaceable>extension_name</>');
      available then the shortest is preferred.)  Arranging an extension's
      script files in this style can reduce the amount of maintenance effort
      needed to produce small updates.
+-->
+以前から存在している拡張は、おそらく複数のバージョンに渡って存在しているので、拡張の作者は更新スクリプトを開発する必要性が出てきます。
+たとえば、拡張<literal>foo</>がバージョン<literal>1.0</>、<literal>1.1</>、<literal>1.2</>をリリースしていたとすると、更新スクリプト<filename>foo--1.0--1.1.sql</>と<filename>foo--1.1--1.2.sql</>が存在しなければなりません。
+<productname>PostgreSQL</> 10より前では、新しい拡張のバージョンを直接作成するスクリプトファイル<filename>foo--1.1.sql</>と<filename>foo--1.2.sql</>も新規に作る必要がありました。
+これらがないと、新しいバージョンの拡張を直接インストールすることはできず、<literal>1.0</>をインストールしてから更新するしかありませんでした。
+それにはうんざりしますし、また冗長です。
+しかし、今では<command>CREATE EXTENSION</>が自動的に更新連鎖を追跡してくるので、それは不要になりました。
+たとえば、<filename>foo--1.0.sql</>、<filename>foo--1.0--1.1.sql</>、<filename>foo--1.1--1.2.sql</>だけしかない場合、バージョン<literal>1.2</>のインストールのリクエストは、これらのスクリプトを順に実行することによって達成されます。
+この手順は、最初に<literal>1.0</>をインストールして、<literal>1.2</>にアップデートする場合でも同じです。
+（<command>ALTER EXTENSION UPDATE</>は、複数の手順がある場合には、最短の手順を選びます。）
+この方法で拡張のスクリプトを調整することにより、小さな更新を複数作成するための保守の手間を減らすことができます。
     </para>
 
     <para>
+<!--
      If you use secondary (version-specific) control files with an extension
      maintained in this style, keep in mind that each version needs a control
      file even if it has no stand-alone installation script, as that control
      file will determine how the implicit update to that version is performed.
-     For example, if <filename>foo--1.0.control</> specifies <literal>requires
+     For example, if <filename>foo&#045;&#045;1.0.control</> specifies <literal>requires
      = 'bar'</> but <literal>foo</>'s other control files do not, the
      extension's dependency on <literal>bar</> will be dropped when updating
      from <literal>1.0</> to another version.
+-->
+この方法で保守している拡張に二次的な（バージョン固有の）制御ファイルがある場合は、スタンドアローンのインストールスクリプトがない場合でも、各バージョンで制御ファイルが必要になることに注意してください。
+そのバージョンへと更新する暗黙的な方法を、制御ファイルが決定するからです。
+たとえば、<filename>foo--1.0.control</>が<literal>requires = 'bar'</>を指定しているのに、<literal>foo</>の他の制御ファイルが指定していないとすると、<literal>1.0</>から他のバージョンに更新した際に<literal>bar</>への依存性が削除されてしまうでしょう。
     </para>
    </sect2>
 
@@ -1769,7 +1795,11 @@ DATAおよびDOCSファイルのインストール先となるはずの<literal>
       <term><varname>NO_INSTALLCHECK</varname></term>
       <listitem>
        <para>
+<!--
         don't define an <literal>installcheck</literal> target, useful e.g. if tests require special configuration, or don't use <application>pg_regress</application>
+-->
+<literal>installcheck</literal>ターゲットを定義しません。
+テストの際に特殊な設定が必要、あるいは<application>pg_regress</application>を使用しない場合などに有用です。
        </para>
       </listitem>
      </varlistentry>
