@@ -377,9 +377,9 @@
 -->
 サーバはその後、適切な認証要求メッセージを送信します。
 フロントエンドはこれに適切な認証応答メッセージ（パスワードなど）で答えなければなりません。
-GSSAPIとSSPIを除くすべての認証方式では、多くても１つの要求と１つの応答が存在します。
+GSSAPI、SSPI、SASLを除くすべての認証方式では、多くても１つの要求と１つの応答が存在します。
 認証方式の中には、フロントエンドからの応答をまったく必要としないものもあり、その場合、認証要求も発生しません。
-GSSAPIとSSPIでは認証を完了するために複数のパケットの交換が必要となるかもしれません。
+GSSAPI、SSPI、SASLでは認証を完了するために複数のパケットの交換が必要となるかもしれません。
    </para>
 
    <para>
@@ -524,7 +524,7 @@ GSSAPIとSSPIでは認証を完了するために複数のパケットの交換�
         the server will respond with AuthenticationGSSContinue.
 -->
 ここでフロントエンドはGSSAPIの調停を開始しなければなりません。
-これに対する応答におけるGSSAPIデータストリームの最初の部分で、フロントエンドはPasswordMessageを送信します。
+これに対する応答におけるGSSAPIデータストリームの最初の部分で、フロントエンドはGSSResponseを送信します。
 さらにメッセージが必要となる場合、サーバはAuthenticationGSSContinueで応答します。
        </para>
       </listitem>
@@ -541,7 +541,7 @@ GSSAPIとSSPIでは認証を完了するために複数のパケットの交換�
         the server will respond with AuthenticationGSSContinue.
 -->
 ここでフロントエンドはSSPI調停を開始しなければなりません。
-これに対する応答におけるSSPIデータストリームの最初の部分で、フロントエンドはPasswordMessageを送信します。
+これに対する応答におけるSSPIデータストリームの最初の部分で、フロントエンドはGSSResponseを送信します。
 さらにメッセージが必要となる場合、サーバはAuthenticationGSSContinueで応答します。
        </para>
       </listitem>
@@ -563,7 +563,7 @@ GSSAPIとSSPIでは認証を完了するために複数のパケットの交換�
         or ErrorResponse to indicate failure.
 -->
 このメッセージには、GSSAPIまたはSSPI調停の直前の段階（AuthenticationGSS、AuthenticationSSPIまたは前回のAuthenticationGSSContinue）についての応答データが含まれます。
-このメッセージ内のGSSAPIまたはSSPIデータが認証を完結させるため、更なる追加データが必要であることを指示している場合、フロントエンドは他のPasswordMessageとしてデータを送信しなければなりません。
+このメッセージ内のGSSAPIまたはSSPIデータが認証を完結させるため、更なる追加データが必要であることを指示している場合、フロントエンドは他のGSSResponseとしてデータを送信しなければなりません。
 このメッセージでGSSAPIまたはSSPI認証が完了すれば、次にサーバはAuthenticationOkを送信して認証が成功したことを示すか、あるいはErrorResponseを送信して失敗したことを示します。
        </para>
       </listitem>
@@ -573,6 +573,7 @@ GSSAPIとSSPIでは認証を完了するために複数のパケットの交換�
       <term>AuthenticationSASL</term>
       <listitem>
        <para>
+<!--
         The frontend must now initiate a SASL negotiation, using one of the
         SASL mechanisms listed in the message. The frontend will send a
         SASLInitialResponse with the name of the selected mechanism, and the
@@ -580,6 +581,11 @@ GSSAPIとSSPIでは認証を完了するために複数のパケットの交換�
         messages are needed, the server will respond with
         AuthenticationSASLContinue. See <xref linkend="sasl-authentication">
         for details.
+-->
+ここでフロントエンドはメッセージ内に列挙されているSASL機構の1つを使ってSASL調停を開始しなければなりません。
+これに応答するSASLデータストリームの最初の部分で、フロントエンドはSASLInitialResponseと選択した機構の名前を送信します。
+さらにメッセージが必要な場合、サーバはAuthenticationSASLContinueで応答します。
+詳細については<xref linkend="sasl-authentication">を参照してください。
        </para>
       </listitem>
      </varlistentry>
@@ -588,10 +594,14 @@ GSSAPIとSSPIでは認証を完了するために複数のパケットの交換�
       <term>AuthenticationSASLContinue</term>
       <listitem>
        <para>
+<!--
         This message contains challenge data from the previous step of SASL
         negotiation (AuthenticationSASL, or a previous
         AuthenticationSASLContinue). The frontend must respond with a
         SASLResponse message.
+-->
+このメッセージには、SASL調停における直前の段階（AuthenticationSASLまたは以前のAuthenticationSASLContinue）のチャレンジデータが含まれます。
+フロントエンドはSASLResponseメッセージで応答しなければなりません。
        </para>
       </listitem>
      </varlistentry>
@@ -600,11 +610,16 @@ GSSAPIとSSPIでは認証を完了するために複数のパケットの交換�
       <term>AuthenticationSASLFinal</term>
       <listitem>
        <para>
+<!--
         SASL authentication has completed with additional mechanism-specific
         data for the client. The server will next send AuthenticationOk to
         indicate successful authentication, or an ErrorResponse to indicate
         failure. This message is sent only if the SASL mechanism specifies
         additional data to be sent from server to client at completion.
+-->
+機構固有のクライアント用の追加データを伴ってSASL認証が完了します。
+サーバは次に認証成功を示すAuthenticationOkを送信するか、あるいは失敗を示すErrorResponseを送信します。
+このメッセージはSASLの機構が完了時にサーバからクライアントに送信する追加データを指定しているときにのみ送信されます。
        </para>
       </listitem>
      </varlistentry>
@@ -2012,47 +2027,72 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
  </sect1>
 
 <sect1 id="sasl-authentication">
+<!--
 <title>SASL Authentication</title>
+-->
+<title>SASL認証</title>
 
 <para>
+<!--
 <firstterm>SASL</> is a framework for authentication in connection-oriented
 protocols. At the moment, <productname>PostgreSQL</> implements only one SASL
 authentication mechanism, SCRAM-SHA-256, but more might be added in the
 future. The below steps illustrate how SASL authentication is performed in
 general, while the next subsection gives more details on SCRAM-SHA-256.
+-->
+<firstterm>SASL</>は接続指向のプロトコルでの認証のためのフレームワークです。
+現時点では<productname>PostgreSQL</>はSASLの認証機構を１つだけ、SCRAM-SHA-256を実装しているだけですが、将来には他の機構が追加されるかもしれません。
+以下の手順は、SASLの認証が一般的にどのように行われるかを示したものですが、次の副節ではSCRAM-SHA-256におけるより詳細について説明します。
 </para>
 
 <procedure>
+<!--
 <title>SASL Authentication Message Flow</title>
+-->
+<title>SASL認証のメッセージフロー</title>
 
 <step id="sasl-auth-begin">
 <para>
+<!--
   To begin a SASL authentication exchange, the server sends an
   AuthenticationSASL message. It includes a list of SASL authentication
   mechanisms that the server can accept, in the server's preferred order.
+-->
+SASL認証の交換を開始するため、サーバはAuthenticationSASLメッセージを送信します。
+これにはサーバが受け付けることができるSASLの認証機構を、サーバにとって望ましいものから順に並べたリストが含まれます。
 </para>
 </step>
 
 <step id="sasl-auth-initial-response">
 <para>
+<!--
   The client selects one of the supported mechanisms from the list, and sends
   a SASLInitialResponse message to the server. The message includes the name
   of the selected mechanism, and an optional Initial Client Response, if the
   selected mechanism uses that.
+-->
+クライアントはリストからサポートされる機構を1つ選択し、サーバにSASLInitialResponseメッセージを送信します。
+このメッセージには選択された機構の名前が含まれ、また選択した機構がInitial Client Response（最初のクライアントの応答）を使用するなら、オプションでそれも含まれます。
 </para>
 </step>
 
 <step id="sasl-auth-continue">
 <para>
+<!--
   One or more server-challenge and client-response message will follow. Each
   server-challenge is sent in an AuthenticationSASLContinue message, followed
   by a response from client in an SASLResponse message. The particulars of
   the messages are mechanism specific.
+-->
+サーバのチャレンジメッセージおよびクライアントのレスポンスメッセージが1つ以上続きます。
+サーバのチャレンジはそれぞれがAuthenticationSASLContinueメッセージで送信され、それにクライアントからのレスポンスがSASLResponseメッセージで続きます。
+メッセージの詳細は機構に固有のものです。
 </para>
 </step>
 
 <step id="sasl-auth-end">
 <para>
+<!--
   Finally, when the authentication exchange is completed successfully, the
   server sends an AuthenticationSASLFinal message, followed
   immediately by an AuthenticationOk message. The AuthenticationSASLFinal
@@ -2060,34 +2100,54 @@ general, while the next subsection gives more details on SCRAM-SHA-256.
   selected authentication mechanism. If the authentication mechanism doesn't
   use additional data that's sent at completion, the AuthenticationSASLFinal
   message is not sent.
+-->
+最後に、認証の交換が成功裏に終了すると、サーバはAuthenticationSASLFinalメッセージを送信し、その直後にAuthenticationOkメッセージを送信します。
+AuthenticationSASLFinalにはサーバからクライアントへの追加のデータが含まれ、その内容は選択した認証機構毎に異なります。
+完了時に送信する追加データを認証機構が使用していない場合、AuthenticationSASLFinalメッセージは送信されません。
 </para>
 </step>
 </procedure>
 
 <para>
+<!--
 On error, the server can abort the authentication at any stage, and send an
 ErrorMessage.
+-->
+エラーが発生したときは、サーバは認証を任意の段階で終了してErrorMessageを送信することができます。
 </para>
 
  <sect2 id="sasl-scram-sha256">
+<!--
   <title>SCRAM-SHA-256 authentication</title>
+-->
+  <title>SCRAM-SHA-256 認証</title>
 
   <para>
+<!--
     <firstterm>SCRAM-SHA-256</> (called just <firstterm>SCRAM</> from now on) is
     the only implemented SASL mechanism, at the moment. It is described in detail
     in RFC 7677 and RFC 5802.
+-->
+<firstterm>SCRAM-SHA-256</>（以下では単に<firstterm>SCRAM</>と呼びます）は現時点で実装されている唯一のSASL機構です。
+詳細はRFC 7677およびRFC 5802で説明されています。
   </para>
 
   <para>
+<!--
 When SCRAM-SHA-256 is used in PostgreSQL, the server will ignore the user name
 that the client sends in the <structname>client-first-message</>. The user name
 that was already sent in the startup message is used instead.
 <productname>PostgreSQL</> supports multiple character encodings, while SCRAM
 dictates UTF-8 to be used for the user name, so it might be impossible to
 represent the PostgreSQL user name in UTF-8.
+-->
+PostgreSQLでSCRAM-SHA-256を使用する場合、クライアントが<structname>client-first-message</>で送信するユーザ名をサーバは無視します。
+その代わりに、開始メッセージで送信済みのユーザ名が使用されます。
+SCRAMはユーザ名としてUTF-8の使用を指示していますが、<productname>PostgreSQL</>は複数の文字符号化方式をサポートするため、PostgreSQLのユーザ名をUTF-8で表現できないかもしれません。
   </para>
 
   <para>
+<!--
 The SCRAM specification dictates that the password is also in UTF-8, and is
 processed with the <firstterm>SASLprep</> algorithm.
 <productname>PostgreSQL</>, however, does not require UTF-8 to be used for
@@ -2099,45 +2159,77 @@ without SASLprep processing, instead of throwing an error. This allows the
 password to be normalized when it is in UTF-8, but still allows a non-UTF-8
 password to be used, and doesn't require the system to know which encoding
 the password is in.
+-->
+SCRAMの使用ではパスワードもUTF-8であり、<firstterm>SASLprep</>アルゴリズムで処理されることが規定されています。
+しかし<productname>PostgreSQL</>ではパスワードにUTF-8が使用されることを必須としていません。
+ユーザのパスワードが設定されたとき、実際に使用された符号化方式に関わらず、それがUTF-8であるかのようにSASLprepで処理されます。
+しかし、それが正当なUTF-8バイト列でない場合、あるいはSASLprepが禁止するUTF-8バイト列を含む場合、エラーを発生させるのではなく、SASLprep処理のない生のパスワードが使用されます。
+これにより、パスワードがUTF-8であればそれを正規化できる一方で、UTF-8以外のパスワードを使用することもでき、またシステムもパスワードがどの符号化であるかを知る必要もありません。
   </para>
 
   <para>
+<!--
 <firstterm>Channel binding</> has not been implemented yet.
+-->
+<firstterm>チャネル結合</>はまだ実装されていません。
   </para>
 
 <procedure>
+<!--
 <title>Example</title>
+-->
+<title>例</title>
   <step id="scram-begin">
 <para>
+<!--
   The server sends an AuthenticationSASL message. It includes a list of
   SASL authentication mechanisms that the server can accept.
+-->
+サーバがAuthenticationSASLメッセージを送信します。
+それにはサーバが受け付けることができるSASL認証機構のリストが含まれます。
 </para>
 </step>
 <step id="scram-client-first">
 <para>
+<!--
   The client responds by sending a SASLInitialResponse message, which
   indicates the chosen mechanism, <literal>SCRAM-SHA-256</>. In the Initial
   Client response field, the message contains the SCRAM
   <structname>client-first-message</>.
+-->
+クライアントがSASLInitialResponseメッセージを送信することで応答します。
+これは選択した機構<literal>SCRAM-SHA-256</>を示します。
+Initial Clientの応答フィールドでは、メッセージにSCRAMの<structname>client-first-message</>が含まれます。
 </para>
 </step>
 <step id="scram-server-first">
 <para>
+<!--
   Server sends an AuthenticationSASLContinue message, with a SCRAM
   <structname>server-first message</> as the content.
+-->
+サーバがAuthenticationSASLContinueメッセージを送信します。
+その内容はSCRAMの<structname>server-first message</>です。
 </para>
 </step>
 <step id="scram-client-final">
 <para>
+<!--
   Client sends a SASLResponse message, with SCRAM
   <structname>client-final-message</> as the content.
+-->
+クライアントがSASLResponseメッセージを送信します。
+その内容はSCRAMの<structname>client-final-message</>です。
 </para>
 </step>
 <step id="scram-server-final">
 <para>
+<!--
   Server sends an AuthenticationSASLFinal message, with the SCRAM
   <structname>server-final-message</>, followed immediately by
   an AuthenticationOk message.
+-->
+サーバがSCRAMの<structname>server-final-message</>を含むAuthenticationSASLFinalメッセージを送信し、その直後にAuthenticationOkメッセージを送信します。
 </para>
 </step>
 </procedure>
@@ -2256,8 +2348,8 @@ walsenderモードで受け付けられるコマンドは以下の通りです�
        Current WAL flush location. Useful to get a known location in the
        write-ahead log where streaming can start.
 -->
-現在のxlogの吐き出し位置です。
-ストリーミングを開始できるトランザクションログの既知の位置を得る際に有用です。
+現在のWALの吐き出し位置です。
+ストリーミングを開始できる先行書き込みログの既知の位置を得る際に有用です。
       </para>
       </listitem>
       </varlistentry>
@@ -2287,8 +2379,12 @@ walsenderモードで受け付けられるコマンドは以下の通りです�
     </term>
     <listitem>
      <para>
+<!--
       Requests the server to send the current setting of a run-time parameter.
       This is similar to the SQL command <xref linkend="sql-show">.
+-->
+実行時パラメータの現在の設定を送信するようサーバに要求します。
+これはSQLコマンド<xref linkend="sql-show">と同等です。
      </para>
 
      <variablelist>
@@ -2296,8 +2392,12 @@ walsenderモードで受け付けられるコマンドは以下の通りです�
        <term><replaceable class="parameter">name</></term>
        <listitem>
          <para>
+<!--
           The name of a run-time parameter. Available parameters are documented
           in <xref linkend="runtime-config">.
+-->
+実行時パラメータの名前です。
+利用できるパラメータは<xref linkend="runtime-config">に記述されています。
          </para>
        </listitem>
       </varlistentry>
@@ -2403,9 +2503,13 @@ walsenderモードで受け付けられるコマンドは以下の通りです�
        <term><literal>TEMPORARY</></term>
        <listitem>
         <para>
+<!--
          Specify that this replication slot is a temporary one. Temporary
          slots are not saved to disk and are automatically dropped on error
          or when the session has finished.
+-->
+このレプリケーションスロットが一時スロットであることを指定します。
+一時スロットはディスクに保存されず、エラー発生時またはセッション終了時に自動で機に削除されます。
         </para>
        </listitem>
       </varlistentry>
@@ -2431,6 +2535,7 @@ walsenderモードで受け付けられるコマンドは以下の通りです�
        <term><literal>USE_SNAPSHOT</></term>
        <listitem>
         <para>
+<!--
          Decides what to do with the snapshot created during logical slot
          initialization. <literal>EXPORT_SNAPSHOT</>, which is the default,
          will export the snapshot for use in other sessions. This option can't
@@ -2441,21 +2546,34 @@ walsenderモードで受け付けられるコマンドは以下の通りです�
          run in that transaction.  Finally, <literal>NOEXPORT_SNAPSHOT</> will
          just use the snapshot for logical decoding as normal but won't do
          anything else with it.
+-->
+論理スロットの初期化時に作成されたスナップショットの処理について決定します。
+デフォルトの<literal>EXPORT_SNAPSHOT</>はスナップショットが他のセッションで利用できるようエクスポートします。
+このオプションはトランザクションの内側で使用することはできません。
+<literal>USE_SNAPSHOT</>はこのコマンドを実行している現在のトランザクションでスナップショットを利用します。
+このオプションはトランザクション内で使用しなければならず、<literal>CREATE_REPLICATION_SLOT</literal>がそのトランザクション内で実行される最初のコマンドでなければなりません。
+最後に、<literal>NOEXPORT_SNAPSHOT</>は論理デコーディングで通常通りにスナップショットを使用するだけで、他には何もしません。
         </para>
        </listitem>
       </varlistentry>
      </variablelist>
 
      <para>
+<!--
       In response to this command, the server will send a one-row result set
       containing the following fields:
+-->
+このコマンドへの応答として、サーバは以下のフィールドを含む1行の結果集合を送信します。
 
       <variablelist>
        <varlistentry>
         <term><literal>slot_name</literal> (<type>text</type>)</term>
         <listitem>
          <para>
+<!--
           The name of the newly-created replication slot.
+-->
+新しく作成されたレプリケーションスロットの名前です。
          </para>
         </listitem>
        </varlistentry>
@@ -2464,9 +2582,13 @@ walsenderモードで受け付けられるコマンドは以下の通りです�
         <term><literal>consistent_point</literal> (<type>text</type>)</term>
         <listitem>
          <para>
+<!--
           The WAL location at which the slot became consistent.  This is the
           earliest location from which streaming can start on this replication
           slot.
+-->
+スロットが一貫性のある状態になった時点のWAL位置です。
+これが、このスロット上でストリーミングを開始できる最も早い場所となります。
          </para>
         </listitem>
        </varlistentry>
@@ -2475,10 +2597,15 @@ walsenderモードで受け付けられるコマンドは以下の通りです�
         <term><literal>snapshot_name</literal> (<type>text</type>)</term>
         <listitem>
          <para>
+<!--
           The identifier of the snapshot exported by the command.  The
           snapshot is valid until a new command is executed on this connection
           or the replication connection is closed.  Null if the created slot
           is physical.
+-->
+このコマンドでエクスポートされるスナップショットの識別子です。
+スナップショットは、この接続上で新しいコマンドが実行されるか、レプリケーション接続が閉じられるまで有効です。
+作成されたのが物理スロットの場合はNULLになります。
          </para>
         </listitem>
        </varlistentry>
@@ -2487,8 +2614,12 @@ walsenderモードで受け付けられるコマンドは以下の通りです�
         <term><literal>output_plugin</literal> (<type>text</type>)</term>
         <listitem>
          <para>
+<!--
           The name of the output plugin used by the newly-created replication
           slot.  Null if the created slot is physical.
+-->
+新しく作成されたレプリケーションスロットが使用する出力プラグインの名前です。
+作成されたのが物理スロットの場合はNULLになります。
          </para>
         </listitem>
        </varlistentry>
@@ -2904,11 +3035,16 @@ WALデータストリームの断片。
       </term>
       <listitem>
       <para>
+<!--
           The standby's current global xmin, excluding the catalog_xmin from any
           replication slots. If both this value and the following
           catalog_xmin are 0 this is treated as a notification that Hot Standby
           feedback will no longer be sent on this connection. Later non-zero
           messages may reinitiate the feedback mechanism.
+-->
+スタンバイの現在のグローバルのxminですが、すべてのレプリケーションスロットのcatalog_xminは除きます。
+この値と次のcatalog_xminがいずれも0なら、この接続ではホットスタンバイのフィードバックはもう送信されないという通知として扱われます。
+後でゼロでないメッセージによりフィードバック機構を再開することができます。
       </para>
       </listitem>
       </varlistentry>
@@ -2918,7 +3054,10 @@ WALデータストリームの断片。
       </term>
       <listitem>
       <para>
+<!--
           The epoch of the global xmin xid on the standby.
+-->
+スタンバイのグローバルのxmin xidのエポックです。
       </para>
       </listitem>
       </varlistentry>
@@ -2928,9 +3067,13 @@ WALデータストリームの断片。
       </term>
       <listitem>
       <para>
+<!--
           The lowest catalog_xmin of any replication slots on the standby. Set to 0
           if no catalog_xmin exists on the standby or if hot standby feedback is being
           disabled.
+-->
+スタンバイのすべてのレプリケーションスロットのcatalog_xminの最小値です。
+スタンバイ上にcatalog_xminが存在しない、あるいはホットスタンバイのフィードバックが無効化されている場合は0に設定します。
       </para>
       </listitem>
       </varlistentry>
@@ -2943,7 +3086,7 @@ WALデータストリームの断片。
 <!--
           The epoch of the catalog_xmin xid on the standby.
 -->
-スタンバイの現在のエポックです。
+スタンバイのcatalog_xmin xidのエポックです。
       </para>
       </listitem>
       </varlistentry>
@@ -3056,7 +3199,7 @@ CopyBothResponse内部のメッセージは、<literal>START_REPLICATION ... PHY
       the database the walsender is connected to, this command fails.
 -->
 レプリケーションスロットを削除し、サーバ側で準備した資源を解放します。
-実行中の接続に現在スロットが使用中の場合、このコマンドは失敗します。
+このスロットが、walsenderが接続しているデータベース以外のデータベースで作成された論理スロットの場合、このコマンドは失敗します。
      </para>
      <variablelist>
       <varlistentry>
@@ -3075,9 +3218,13 @@ CopyBothResponse内部のメッセージは、<literal>START_REPLICATION ... PHY
        <term><literal>WAIT</literal></term>
        <listitem>
         <para>
+<!--
          This option causes the command to wait if the slot is active until
          it becomes inactive, instead of the default behavior of raising an
          error.
+-->
+このオプションを使用すると、スロットが使用中の時に、スロットの使用が終わるまでコマンドを待機させます。
+デフォルトの動作ではエラーを発生させます。
         </para>
        </listitem>
       </varlistentry>
@@ -3166,7 +3313,7 @@ CopyBothResponse内部のメッセージは、<literal>START_REPLICATION ... PHY
           file.
 -->
 バックアップ内に必要なWALセグメントを含めます。
-ベースディレクトリtarファイルの<filename>pg_xlog</filename>ディレクトリにある、バックアップの開始から終了までのすべてのファイルが含まれます。
+ベースディレクトリtarファイルの<filename>pg_wal</filename>ディレクトリにある、バックアップの開始から終了までのすべてのファイルが含まれます。
          </para>
         </listitem>
        </varlistentry>
@@ -3342,7 +3489,7 @@ CopyResponse結果内のデータは、テーブル空間の内容のtar形式�
          of the PostgreSQL server, such as any file or directory beginning
          with <filename>pgsql_tmp</>.
 -->
-PostgreSQLサーバの操作中に、種々の一時ファイルが作成されます。
+PostgreSQLサーバの操作中に作成される種々の一時ファイルおよびディレクトリで、<filename>pgsql_tmp</>で始まるすべてのファイルおよびディレクトリなど。
         </para>
        </listitem>
        <listitem>
@@ -3353,8 +3500,8 @@ PostgreSQLサーバの操作中に、種々の一時ファイルが作成され�
          included, but it will only contain the files necessary for the
          backup to work, not the rest of the contents.
 -->
-サブディレクトリを含む<filename>pg_xlog</>。
-バックアップがwalファイルを含めて実行される場合、合成された版の<filename>pg_xlog</filename>が含まれます。
+サブディレクトリを含む<filename>pg_wal</>。
+バックアップがwalファイルを含めて実行される場合、合成された版の<filename>pg_wal</filename>が含まれます。
 これにはバックアップが動作するために必要なファイルのみが含まれ、残りの内容は含まれません。
         </para>
        </listitem>
@@ -3367,7 +3514,7 @@ PostgreSQLサーバの操作中に、種々の一時ファイルが作成され�
          <filename>pg_subtrans</> are copied as empty directories (even if
          they are symbolic links).
 -->
-<filename>pg_replslot</>が空ディレクトリとしてコピーされます。
+<filename>pg_dynshmem</>、<filename>pg_notify</>、<filename>pg_replslot</>、<filename>pg_serial</>、<filename>pg_snapshots</>、<filename>pg_stat_tmp</>、<filename>pg_subtrans</>は（それがシンボリックリンクであったとしても）空のディレクトリとしてコピーされます。
         </para>
        </listitem>
        <listitem>
@@ -3378,7 +3525,7 @@ PostgreSQLサーバの操作中に、種々の一時ファイルが作成され�
          device files, are skipped.  (Symbolic links
          in <filename>pg_tblspc</filename> are maintained.)
 -->
-通常のファイルとディレクトリ以外のもの、シンボリックリンクや特殊なデバイスファイルは省略されます。
+シンボリックリンク（上記で列挙したディレクトリは除きます）や特殊デバイスファイルなど、通常のファイルとディレクトリ以外のものは省略されます。
 （<filename>pg_tblspc</filename>中のシンボリックリンクは保持されます。）
         </para>
        </listitem>
