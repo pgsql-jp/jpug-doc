@@ -477,9 +477,14 @@ WAL送信プロセス毎に１行の形式で、送信サーバが接続した�
 
      <row>
       <entry><structname>pg_stat_subscription</><indexterm><primary>pg_stat_subscription</primary></indexterm></entry>
+<!--
       <entry>At least one row per subscription, showing information about
        the subscription workers.
        See <xref linkend="pg-stat-subscription"> for details.
+-->
+      <entry>
+1つのサブスクリプションにつき少なくとも1行の形式で、サブスクリプションワーカに関する情報を表示します。
+詳細については<xref linkend="pg-stat-subscription">を参照してください。
       </entry>
      </row>
 
@@ -506,14 +511,6 @@ WAL送信プロセス毎に１行の形式で、送信サーバが接続した�
       <entry>
 VACUUMを実行している（自動バキュームワーカプロセスを含んだ）それぞれのバックエンドごとに１行の形で、現在の進捗を示します。
 <xref linkend='vacuum-progress-reporting'>を参照してください。
-      </entry>
-     </row>
-
-     <row>
-      <entry><structname>pg_stat_progress_vacuum</><indexterm><primary>pg_stat_progress_vacuum</primary></indexterm></entry>
-      <entry>One row for each backend (including autovacuum worker processes) running
-       <command>VACUUM</>, showing current progress.
-       See <xref linkend='vacuum-progress-reporting'>.
       </entry>
      </row>
 
@@ -995,7 +992,8 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
       this is the time the client connected to the server.
 -->
      <entry>
-プロセスが開始、つまりクライアントがサーバに接続した時刻です。
+プロセスが開始した時刻です。
+クライアントのバックエンドについては、クライアントがサーバに接続した時刻です。
      </entry>
     </row>
     <row>
@@ -1042,8 +1040,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
        otherwise NULL. Possible values are:
 -->
       <entry>
-値が取りえる場合はバックエンドが待機しているイベントの型。
-さもなければNULLとなります。
+バックエンドが待機しているイベントがあれば、その型、なければNULLとなります。
 以下のいずれかの値を取ることができます。
        <itemizedlist>
         <listitem>
@@ -1055,9 +1052,10 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
           of the lightweight lock.  (Some locks have specific names; others
           are part of a group of locks each with a similar purpose.)
 -->
-<literal>LWLockNamed</>: バックエンドは、特定の名前が付けられた軽量ロックを待っています。
+<literal>LWLock</>: バックエンドは軽量ロックを待っています。
 このようなそれぞれのロックは、共有メモリ内の特定のデータ構造を保護します。
-<literal>wait_event</>は軽量ロックの名称を含みます。
+<literal>wait_event</>には軽量ロックの目的を特定する名前が入ります。
+（特定の名前がついたロックもあれば、似たような目的のロックのグループの一部となっているものもあります。）
          </para>
         </listitem>
         <listitem>
@@ -1091,44 +1089,69 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
         </listitem>
         <listitem>
          <para>
+<!--
           <literal>Activity</>: The server process is idle.  This is used by
           system processes waiting for activity in their main processing loop.
           <literal>wait_event</> will identify the specific wait point.
+-->
+<literal>Activity</>: サーバプロセスはアイドル状態です。
+システムプロセスがメインの処理ループ内で活動を待機している時に使用されます。
+<literal>wait_event</>によりその待機点が特定できます。
          </para>
         </listitem>
         <listitem>
          <para>
+<!--
           <literal>Extension</>: The server process is waiting for activity
           in an extension module.  This category is useful for modules to
           track custom waiting points.
+-->
+<literal>Extension</>: サーバプロセスは拡張モジュール内で活動を待機しています。
+この分類は、カスタム待機点を追跡するモジュールで役に立ちます。
          </para>
         </listitem>
         <listitem>
          <para>
+<!--
           <literal>Client</>: The server process is waiting for some activity
           on a socket from user applications, and that the server expects
           something to happen that is independent from its internal processes.
           <literal>wait_event</> will identify the specific wait point.
+-->
+<literal>Client</>: サーバプロセスはユーザアプリケーションによるソケット上での何らかの活動を待機しており、またサーバはその内部プロセスとは無関係の何かが起きることを期待しています。
+<literal>wait_event</>によりその待機点が特定できます。
          </para>
         </listitem>
         <listitem>
          <para>
+<!--
           <literal>IPC</>: The server process is waiting for some activity
           from another process in the server.  <literal>wait_event</> will
           identify the specific wait point.
+-->
+<literal>IPC</>: サーバプロセスは、サーバ内の別のプロセスによる何らかの活動を待機しています。
+<literal>wait_event</>によりその待機点が特定できます。
          </para>
         </listitem>
         <listitem>
          <para>
+<!--
           <literal>Timeout</>: The server process is waiting for a timeout
           to expire.  <literal>wait_event</> will identify the specific wait
           point.
+-->
+<literal>Timeout</>: サーバプロセスはタイムアウトが満了するのを待機しています。
+<literal>wait_event</>によりその待機点が特定できます。
          </para>
         </listitem>
         <listitem>
          <para>
+<!--
           <literal>IO</>: The server process is waiting for a IO to complete.
           <literal>wait_event</> will identify the specific wait point.
+-->
+<literal>IO</>: サーバプロセスは入出力が完了するのを待機しています。
+<literal>wait_event</>によりその待機点が特定できます。
          </para>
         </listitem>
        </itemizedlist>
@@ -1248,17 +1271,23 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
 バックエンドの最も最近の問い合わせテキストです。
 <structfield>state</>が<literal>active</>の場合、現在実行中の問い合わせを意味します。
 その他のすべての状態では、実行済みの最後の問い合わせを示します。
+デフォルトでは問い合わせのテキストは1024文字で切り捨てられますが、この値はパラメータ<xref linkend="guc-track-activity-query-size">により変更できます。
      </entry>
     </row>
     <row>
      <entry><structfield>backend_type</structfield></entry>
      <entry><type>text</type></entry>
+<!--
      <entry>Type of current backend. Possible types are
       <literal>autovacuum launcher</>, <literal>autovacuum worker</>,
       <literal>background worker</>, <literal>background writer</>,
       <literal>client backend</>, <literal>checkpointer</>,
       <literal>startup</>, <literal>walreceiver</>,
       <literal>walsender</> and <literal>walwriter</>.
+-->
+     <entry>
+現在のバックエンドの種別です。
+取り得る値は<literal>autovacuum launcher</>、<literal>autovacuum worker</>、<literal>background worker</>、<literal>background writer</>、<literal>client backend</>、<literal>checkpointer</>、<literal>startup</>、<literal>walreceiver</>、<literal>walsender</>、<literal>walwriter</>です。
      </entry>
     </row>
    </tbody>
@@ -1627,15 +1656,24 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
         </row>
         <row>
          <entry><literal>BackendRandomLock</></entry>
+<!--
          <entry>Waiting to generate a random number.</entry>
+-->
+         <entry>乱数の生成を待機しています。</entry>
         </row>
         <row>
          <entry><literal>LogicalRepWorkerLock</></entry>
+<!--
          <entry>Waiting for action on logical replication worker to finish.</entry>
+-->
+         <entry>論理レプリケーションワーカの動作が完了するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>CLogTruncationLock</></entry>
+<!--
          <entry>Waiting to truncate the write-ahead log or waiting for write-ahead log truncation to finish.</entry>
+-->
+         <entry>先行書き込みログの切り捨てを待機しているか、あるいは先行書き込みログの切り捨てが完了するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>clog</></entry>
@@ -1754,11 +1792,17 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
         </row>
         <row>
          <entry><literal>parallel_query_dsa</></entry>
+<!--
          <entry>Waiting for parallel query dynamic shared memory allocation lock.</entry>
+-->
+         <entry>パラレルクエリの動的共有メモリ割り当てロックを待機しています。</entry>
         </row>
         <row>
          <entry><literal>tbm</></entry>
+<!--
          <entry>Waiting for TBM shared iterator lock.</entry>
+-->
+         <entry>TBM共有イテレータロックを待機しています。</entry>
         </row>
         <row>
          <entry morerows="9"><literal>Lock</></entry>
@@ -1842,444 +1886,768 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
         <row>
          <entry morerows="13"><literal>Activity</></entry>
          <entry><literal>ArchiverMain</></entry>
+<!--
          <entry>Waiting in main loop of the archiver process.</entry>
+-->
+         <entry>アーカイバプロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
          <entry><literal>AutoVacuumMain</></entry>
+<!--
          <entry>Waiting in main loop of autovacuum launcher process.</entry>
+-->
+         <entry>自動バキュームのランチャプロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
          <entry><literal>BgWriterHibernate</></entry>
+<!--
          <entry>Waiting in background writer process, hibernating.</entry>
+-->
+         <entry>バックグラウンドライタプロセス内で待機し、休止状態になっています。</entry>
         </row>
         <row>
          <entry><literal>BgWriterMain</></entry>
+<!--
          <entry>Waiting in main loop of background writer process background worker.</entry>
+-->
+         <entry>バックグラウンドライタプロセスのバックグラウンドワーカのメインループ内で待機しています。</entry>
         </row>
         <row>
          <entry><literal>CheckpointerMain</></entry>
+<!--
          <entry>Waiting in main loop of checkpointer process.</entry>
+-->
+         <entry>チェックポインタプロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
          <entry><literal>LogicalLauncherMain</></entry>
+<!--
          <entry>Waiting in main loop of logical launcher process.</entry>
+-->
+         <entry>ロジカルランチャプロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
          <entry><literal>LogicalApplyMain</></entry>
+<!--
          <entry>Waiting in main loop of logical apply process.</entry>
+-->
+         <entry>ロジカルアプライプロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
          <entry><literal>PgStatMain</></entry>
+<!--
          <entry>Waiting in main loop of the statistics collector process.</entry>
+-->
+         <entry>統計情報収集プロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
          <entry><literal>RecoveryWalAll</></entry>
+<!--
          <entry>Waiting for WAL from any kind of source (local, archive or stream) at recovery.</entry>
+-->
+         <entry>リカバリ時にあらゆる種類のソース（ローカル、アーカイブ、またはストリーム）からのWALを待機しています。</entry>
         </row>
         <row>
          <entry><literal>RecoveryWalStream</></entry>
+<!--
          <entry>Waiting for WAL from a stream at recovery.</entry>
+-->
+         <entry>リカバリ時にストリームからのWALを待機しています。</entry>
         </row>
         <row>
          <entry><literal>SysLoggerMain</></entry>
+<!--
          <entry>Waiting in main loop of syslogger process.</entry>
+-->
+         <entry>sysloggerプロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
          <entry><literal>WalReceiverMain</></entry>
+<!--
          <entry>Waiting in main loop of WAL receiver process.</entry>
+-->
+         <entry>WAL受信プロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
          <entry><literal>WalSenderMain</></entry>
+<!--
          <entry>Waiting in main loop of WAL sender process.</entry>
+-->
+         <entry>WAL送信プロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
          <entry><literal>WalWriterMain</></entry>
+<!--
          <entry>Waiting in main loop of WAL writer process.</entry>
+-->
+         <entry>WAL書き込みプロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
          <entry morerows="7"><literal>Client</></entry>
          <entry><literal>ClientRead</></entry>
+<!--
          <entry>Waiting to read data from the client.</entry>
+-->
+         <entry>クライアントからのデータの読み込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ClientWrite</></entry>
+<!--
          <entry>Waiting to write data from the client.</entry>
+-->
+         <entry>クライアントからのデータの書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>LibPQWalReceiverConnect</></entry>
+<!--
          <entry>Waiting in WAL receiver to establish connection to remote server.</entry>
+-->
+         <entry>WAL受信プロセス内でリモートサーバへの接続が確立するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>LibPQWalReceiverReceive</></entry>
+<!--
          <entry>Waiting in WAL receiver to receive data from remote server.</entry>
+-->
+         <entry>WAL受信プロセス内でリモートサーバからデータを受信するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>SSLOpenServer</></entry>
+<!--
          <entry>Waiting for SSL while attempting connection.</entry>
+-->
+         <entry>接続試行中にSSLを待機しています。</entry>
         </row>
         <row>
          <entry><literal>WalReceiverWaitStart</></entry>
+<!--
          <entry>Waiting for startup process to send initial data for streaming replication.</entry>
+-->
+         <entry>起動プロセスがストリーミングレプリケーションの初期データを送信するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>WalSenderWaitForWAL</></entry>
+<!--
          <entry>Waiting for WAL to be flushed in WAL sender process.</entry>
+-->
+         <entry>WALがWAL送信プロセス内でフラッシュされるのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>WalSenderWriteData</></entry>
+<!--
          <entry>Waiting for any activity when processing replies from WAL receiver in WAL sender process.</entry>
+-->
+         <entry>WAL送信プロセス内でWAL受信者からの応答を処理している時に、何らかの活動を待機しています。</entry>
         </row>
         <row>
          <entry><literal>Extension</></entry>
          <entry><literal>Extension</></entry>
+<!--
          <entry>Waiting in an extension.</entry>
+-->
+         <entry>拡張内で待機しています。</entry>
         </row>
         <row>
          <entry morerows="16"><literal>IPC</></entry>
          <entry><literal>BgWorkerShutdown</></entry>
+<!--
          <entry>Waiting for background worker to shut down.</entry>
+-->
+         <entry>バックグラウンドワーカがシャットダウンするのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>BgWorkerStartup</></entry>
+<!--
          <entry>Waiting for background worker to start up.</entry>
+-->
+         <entry>バックグラウンドワーカが起動するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>BtreePage</></entry>
+<!--
          <entry>Waiting for the page number needed to continue a parallel B-tree scan to become available.</entry>
+-->
+         <entry>パラレルBツリースキャンに必要なページ番号が利用可能になるのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ExecuteGather</></entry>
+<!--
          <entry>Waiting for activity from child process when executing <literal>Gather</> node.</entry>
+-->
+         <entry><literal>Gather</>ノードの実行時に子プロセスの活動を待機しています。</entry>
         </row>
         <row>
          <entry><literal>LogicalSyncData</></entry>
+<!--
          <entry>Waiting for logical replication remote server to send data for initial table synchronization.</entry>
+-->
+         <entry>論理レプリケーションのリモートサーバが最初のテーブル同期のためのデータを送信するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>LogicalSyncStateChange</></entry>
+<!--
          <entry>Waiting for logical replication remote server to change state.</entry>
+-->
+         <entry>論理レプリケーションのリモートサーバが状態を変更するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>MessageQueueInternal</></entry>
+<!--
          <entry>Waiting for other process to be attached in shared message queue.</entry>
+-->
+         <entry>他のプロセスが共有メッセージキューにアタッチされるのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>MessageQueuePutMessage</></entry>
+<!--
          <entry>Waiting to write a protocol message to a shared message queue.</entry>
+-->
+         <entry>共有メッセージキューにプロトコルのメッセージを書くのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>MessageQueueReceive</></entry>
+<!--
          <entry>Waiting to receive bytes from a shared message queue.</entry>
+-->
+         <entry>共有メッセージキューからバイトを受信するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>MessageQueueSend</></entry>
+<!--
          <entry>Waiting to send bytes to a shared message queue.</entry>
+-->
+         <entry>共有メッセージキューにバイトを送信するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ParallelFinish</></entry>
+<!--
          <entry>Waiting for parallel workers to finish computing.</entry>
+-->
+         <entry>パラレルワーカが計算を完了するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ParallelBitmapScan</></entry>
+<!--
          <entry>Waiting for parallel bitmap scan to become initialized.</entry>
+-->
+         <entry>パラレルビットマップスキャンが初期化されるのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ProcArrayGroupUpdate</></entry>
+<!--
          <entry>Waiting for group leader to clear transaction id at transaction end.</entry>
+-->
+         <entry>トランザクション終了時にグループリーダがトランザクションIDをクリアするのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ReplicationOriginDrop</></entry>
+<!--
          <entry>Waiting for a replication origin to become inactive to be dropped.</entry>
+-->
+         <entry>レプリケーションオリジンが削除できるよう非活動状態になるのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ReplicationSlotDrop</></entry>
+<!--
          <entry>Waiting for a replication slot to become inactive to be dropped.</entry>
+-->
+         <entry>レプリケーションスロットが削除できるよう非活動状態になるのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>SafeSnapshot</></entry>
+<!--
          <entry>Waiting for a snapshot for a <literal>READ ONLY DEFERRABLE</> transaction.</entry>
+-->
+         <entry><literal>READ ONLY DEFERRABLE</>のトランザクションのスナップショットを待機しています。</entry>
         </row>
         <row>
          <entry><literal>SyncRep</></entry>
+<!--
          <entry>Waiting for confirmation from remote server during synchronous replication.</entry>
+-->
+         <entry>同期レプリケーション中に、リモートサーバからの確認を待機しています。</entry>
         </row>
         <row>
          <entry morerows="2"><literal>Timeout</></entry>
          <entry><literal>BaseBackupThrottle</></entry>
+<!--
          <entry>Waiting during base backup when throttling activity.</entry>
+-->
+         <entry>スロットル活動時にベースバックアップで待機しています。</entry>
         </row>
         <row>
          <entry><literal>PgSleep</></entry>
+<!--
          <entry>Waiting in process that called <function>pg_sleep</>.</entry>
+-->
+         <entry><function>pg_sleep</>を呼び出したプロセス内で待機しています。</entry>
         </row>
         <row>
          <entry><literal>RecoveryApplyDelay</></entry>
+<!--
          <entry>Waiting to apply WAL at recovery because it is delayed.</entry>
+-->
+         <entry>リカバリ時のWAL適用が遅延させられたため待機しています。</entry>
         </row>
         <row>
          <entry morerows="65"><literal>IO</></entry>
          <entry><literal>BufFileRead</></entry>
+<!--
          <entry>Waiting for a read from a buffered file.</entry>
+-->
+         <entry>バッファファイルからの読み取りを待機しています。</entry>
         </row>
         <row>
          <entry><literal>BufFileWrite</></entry>
+<!--
          <entry>Waiting for a write to a buffered file.</entry>
+-->
+         <entry>バッファファイルへの書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ControlFileRead</></entry>
+<!--
          <entry>Waiting for a read from the control file.</entry>
+-->
+         <entry>制御ファイルからの読み取りを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ControlFileSync</></entry>
+<!--
          <entry>Waiting for the control file to reach stable storage.</entry>
+-->
+         <entry>制御ファイルが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ControlFileSyncUpdate</></entry>
+<!--
          <entry>Waiting for an update to the control file to reach stable storage.</entry>
+-->
+         <entry>制御ファイルの更新が安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ControlFileWrite</></entry>
+<!--
          <entry>Waiting for a write to the control file.</entry>
+-->
+         <entry>制御ファイルへの書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ControlFileWriteUpdate</></entry>
+<!--
          <entry>Waiting for a write to update the control file.</entry>
+-->
+         <entry>制御ファイルの更新の書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>CopyFileRead</></entry>
+<!--
          <entry>Waiting for a read during a file copy operation.</entry>
+-->
+         <entry>ファイルコピーの操作の間、読み込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>CopyFileWrite</></entry>
+<!--
          <entry>Waiting for a write during a file copy operation.</entry>
+-->
+         <entry>ファイルコピーの操作の間、書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>DataFileExtend</></entry>
+<!--
          <entry>Waiting for a relation data file to be extended.</entry>
+-->
+         <entry>リレーションのデータファイルが拡張されるのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>DataFileFlush</></entry>
+<!--
          <entry>Waiting for a relation data file to reach stable storage.</entry>
+-->
+         <entry>リレーションのデータファイルが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>DataFileImmediateSync</></entry>
+<!--
          <entry>Waiting for an immediate synchronization of a relation data file to stable storage.</entry>
+-->
+         <entry>リレーションのデータファイルが安定したストレージに即座に動悸されるのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>DataFilePrefetch</></entry>
+<!--
          <entry>Waiting for an asynchronous prefetch from a relation data file.</entry>
+-->
+         <entry>リレーションのデータファイルからの非同期プリフェッチを待機しています。</entry>
         </row>
         <row>
          <entry><literal>DataFileRead</></entry>
+<!--
          <entry>Waiting for a read from a relation data file.</entry>
+-->
+         <entry>リレーションのデータファイルからの読み込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>DataFileSync</></entry>
+<!--
          <entry>Waiting for changes to a relation data file to reach stable storage.</entry>
+-->
+         <entry>リレーションのデータファイルへの変更が安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>DataFileTruncate</></entry>
+<!--
          <entry>Waiting for a relation data file to be truncated.</entry>
+-->
+         <entry>リレーションのデータファイルが切り詰められるのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>DataFileWrite</></entry>
+<!--
          <entry>Waiting for a write to a relation data file.</entry>
+-->
+         <entry>リレーションのデータファイルへの書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>DSMFillZeroWrite</></entry>
+<!--
          <entry>Waiting to write zero bytes to a dynamic shared memory backing file.</entry>
+-->
+         <entry>動的共有メモリの背後のファイルにゼロのバイトを書き込むのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>LockFileAddToDataDirRead</></entry>
+<!--
          <entry>Waiting for a read while adding a line to the data directory lock file.</entry>
+-->
+         <entry>データディレクトリのロックファイルに行を追加する間の読み込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>LockFileAddToDataDirSync</></entry>
+<!--
          <entry>Waiting for data to reach stable storage while adding a line to the data directory lock file.</entry>
+-->
+         <entry>データディレクトリのロックファイルに行を追加する間、データが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>LockFileAddToDataDirWrite</></entry>
+<!--
          <entry>Waiting for a write while adding a line to the data directory lock file.</entry>
+-->
+         <entry>データディレクトリのロックファイルに行を追加する間、書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>LockFileCreateRead</></entry>
+<!--
          <entry>Waiting to read while creating the data directory lock file.</entry>
+-->
+         <entry>データディレクトリのロックファイルを作成する間、読み込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>LockFileCreateSync</></entry>
+<!--
          <entry>Waiting for data to reach stable storage while creating the data directory lock file.</entry>
+-->
+         <entry>データディレクトリのロックファイルを作成する間、データが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>LockFileCreateWrite</></entry>
+<!--
          <entry>Waiting for a write while creating the data directory lock file.</entry>
+-->
+         <entry>データディレクトリのロックファイルを作成する間、書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>LockFileReCheckDataDirRead</></entry>
+<!--
          <entry>Waiting for a read during recheck of the data directory lock file.</entry>
+-->
+         <entry>データディレクトリのロックファイルを再検査する間に読み込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>LogicalRewriteCheckpointSync</></entry>
+<!--
          <entry>Waiting for logical rewrite mappings to reach stable storage during a checkpoint.</entry>
+-->
+         <entry>チェックポイントの間に、論理的な再書き込みのマッピングがストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>LogicalRewriteMappingSync</></entry>
+<!--
          <entry>Waiting for mapping data to reach stable storage during a logical rewrite.</entry>
+-->
+         <entry>論理的な再書き込みの間に、マッピングデータが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>LogicalRewriteMappingWrite</></entry>
+<!--
          <entry>Waiting for a write of mapping data during a logical rewrite.</entry>
+-->
+         <entry>論理的な再書き込みの間に、マッピングデータの書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>LogicalRewriteSync</></entry>
+<!--
          <entry>Waiting for logical rewrite mappings to reach stable storage.</entry>
+-->
+         <entry>論理的な再書き込みのマッピングが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>LogicalRewriteWrite</></entry>
+<!--
          <entry>Waiting for a write of logical rewrite mappings.</entry>
+-->
+         <entry>論理的な再書き込みのマッピングの書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>RelationMapRead</></entry>
+<!--
          <entry>Waiting for a read of the relation map file.</entry>
+-->
+         <entry>リレーションのマップファイルの読み込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>RelationMapSync</></entry>
+<!--
          <entry>Waiting for the relation map file to reach stable storage.</entry>
+-->
+         <entry>リレーションのマップファイルが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>RelationMapWrite</></entry>
+<!--
          <entry>Waiting for a write to the relation map file.</entry>
+-->
+         <entry>リレーションのマップファイルの書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ReorderBufferRead</></entry>
+<!--
          <entry>Waiting for a read during reorder buffer management.</entry>
+-->
+         <entry>並べ替えのバッファ管理の間に読み込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ReorderBufferWrite</></entry>
+<!--
          <entry>Waiting for a write during reorder buffer management.</entry>
+-->
+         <entry>並べ替えのバッファ管理の間に書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ReorderLogicalMappingRead</></entry>
-         <entry>Waiting for a read of a logical mapping during reorder buffer management.</entry>
+         <entry>並べ替えのバッファ管理の間に、論理マッピングの読み込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ReplicationSlotRead</></entry>
+<!--
          <entry>Waiting for a read from a replication slot control file.</entry>
+-->
+         <entry>レプリケーションスロットの制御ファイルからの読み込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ReplicationSlotRestoreSync</></entry>
+<!--
          <entry>Waiting for a replication slot control file to reach stable storage while restoring it to memory.</entry>
+-->
+         <entry>レプリケーションスロットの制御ファイルをメモリにリストアする間、それが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ReplicationSlotSync</></entry>
+<!--
          <entry>Waiting for a replication slot control file to reach stable storage.</entry>
+-->
+         <entry>レプリケーションスロットの制御ファイルが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ReplicationSlotWrite</></entry>
+<!--
          <entry>Waiting for a write to a replication slot control file.</entry>
+-->
+         <entry>レプリケーションスロットの制御ファイルへの書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>SLRUFlushSync</></entry>
+<!--
          <entry>Waiting for SLRU data to reach stable storage during a checkpoint or database shutdown.</entry>
+-->
+         <entry>チェックポイントまたはデータベースのシャットダウン中に、SLRUデータが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>SLRURead</></entry>
+<!--
          <entry>Waiting for a read of an SLRU page.</entry>
+-->
+         <entry>SLRUページの読み込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>SLRUSync</></entry>
+<!--
          <entry>Waiting for SLRU data to reach stable storage following a page write.</entry>
+-->
+         <entry>ページ書き込みの後、SLRUデータが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>SLRUWrite</></entry>
+<!--
          <entry>Waiting for a write of an SLRU page.</entry>
+-->
+         <entry>SLRUページの書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>SnapbuildRead</></entry>
+<!--
          <entry>Waiting for a read of a serialized historical catalog snapshot.</entry>
+-->
+         <entry>シリアライズされた通時的カタログのスナップショットの読み込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>SnapbuildSync</></entry>
+<!--
          <entry>Waiting for a serialized historical catalog snapshot to reach stable storage.</entry>
+-->
+         <entry>シリアライズされた通時的カタログのスナップショットが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>SnapbuildWrite</></entry>
+<!--
          <entry>Waiting for a write of a serialized historical catalog snapshot.</entry>
+-->
+         <entry>シリアライズされた通時的スナップショットの書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>TimelineHistoryFileSync</></entry>
+<!--
          <entry>Waiting for a timeline history file received via streaming replication to reach stable storage.</entry>
+-->
+         <entry>ストリーミングレプリケーションを経由して受け取ったタイムラインの履歴ファイルが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>TimelineHistoryFileWrite</></entry>
+<!--
          <entry>Waiting for a write of a timeline history file received via streaming replication.</entry>
+-->
+         <entry>ストリーミングレプリケーションを経由して受け取ったタイムラインの履歴ファイルの書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>TimelineHistoryRead</></entry>
+<!--
          <entry>Waiting for a read of a timeline history file.</entry>
+-->
+         <entry>タイムラインの履歴ファイルの読み込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>TimelineHistorySync</></entry>
+<!--
          <entry>Waiting for a newly created timeline history file to reach stable storage.</entry>
+-->
+         <entry>新しく作成されたタイムラインの履歴ファイルが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>TimelineHistoryWrite</></entry>
+<!--
          <entry>Waiting for a write of a newly created timeline history file.</entry>
+-->
+         <entry>新しくタイムラインの履歴ファイルの書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>TwophaseFileRead</></entry>
+<!--
          <entry>Waiting for a read of a two phase state file.</entry>
+-->
+         <entry>二相の状態ファイルの読み込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>TwophaseFileSync</></entry>
+<!--
          <entry>Waiting for a two phase state file to reach stable storage.</entry>
+-->
+         <entry>二相の状態ファイルが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>TwophaseFileWrite</></entry>
+<!--
          <entry>Waiting for a write of a two phase state file.</entry>
+-->
+         <entry>二相の状態ファイルの書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>WALBootstrapSync</></entry>
+<!--
          <entry>Waiting for WAL to reach stable storage during bootstrapping.</entry>
+-->
+         <entry>ブートストラップ時にWALが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>WALBootstrapWrite</></entry>
+<!--
          <entry>Waiting for a write of a WAL page during bootstrapping.</entry>
+-->
+         <entry>ブートストラップ時にWALページの書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>WALCopyRead</></entry>
+<!--
          <entry>Waiting for a read when creating a new WAL segment by copying an existing one.</entry>
+-->
+         <entry>既存のWALセグメントをコピーして新しいWALセグメントを作成する時に読み込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>WALCopySync</></entry>
+<!--
          <entry>Waiting a new WAL segment created by copying an existing one to reach stable storage.</entry>
+-->
+         <entry>既存のWALセグメントをコピーして作成した新しいWALセグメントが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>WALCopyWrite</></entry>
+<!--
          <entry>Waiting for a write when creating a new WAL segment by copying an existing one.</entry>
+-->
+         <entry>既存のWALセグメントをコピーして新しいWALセグメントを作成する時に書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>WALInitSync</></entry>
+<!--
          <entry>Waiting for a newly initialized WAL file to reach stable storage.</entry>
+-->
+         <entry>新しく初期化されたWALファイルが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>WALInitWrite</></entry>
+<!--
          <entry>Waiting for a write while initializing a new WAL file.</entry>
+-->
+         <entry>新しいWALファイルを初期化している時に書き込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>WALRead</></entry>
+<!--
          <entry>Waiting for a read from a WAL file.</entry>
+-->
+         <entry>WALファイルからの読み込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>WALSenderTimelineHistoryRead</></entry>
+<!--
          <entry>Waiting for a read from a timeline history file during walsender timeline command.</entry>
+-->
+         <entry>WAL送信サーバのタイムラインコマンドで、タイムラインの履歴ファイルの読み込みを待機しています。</entry>
         </row>
         <row>
          <entry><literal>WALSyncMethodAssign</></entry>
+<!--
          <entry>Waiting for data to reach stable storage while assigning WAL sync method.</entry>
+-->
+         <entry>WALの同期方法を割り当てている時にデータが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>WALWrite</></entry>
+<!--
          <entry>Waiting for a write to a WAL file.</entry>
+-->
+         <entry>WALファイルへの書き込みを待機しています。</entry>
         </row>
       </tbody>
      </tgroup>
@@ -2428,34 +2796,54 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
     <row>
      <entry><structfield>state</></entry>
      <entry><type>text</></entry>
+<!--
      <entry>Current WAL sender state.
        Possible values are:
+-->
+     <entry>
+WAL送信サーバの現在の状態です。
+取り得る値は以下の通りです。
        <itemizedlist>
          <listitem>
           <para>
+<!--
            <literal>startup</>: This WAL sender is starting up.
+-->
+           <literal>startup</>: このWAL送信サーバは起動するところです。
           </para>
          </listitem>
          <listitem>
           <para>
+<!--
            <literal>catchup</>: This WAL sender's connected standby is
            catching up with the primary.
+-->
+           <literal>catchup</>: このWAL送信サーバが接続しているスタンバイはプライマリに追いつこうとしています。
           </para>
          </listitem>
          <listitem>
           <para>
+<!--
            <literal>streaming</>: This WAL sender is streaming changes
            after its connected standby server has caught up with the primary.
+-->
+           <literal>streaming</>: このWAL送信サーバは、接続先のスタンバイサーバがプライマリに追いついた後、変更をストリーミングしています。
           </para>
          </listitem>
          <listitem>
           <para>
+<!--
            <literal>backup</>: This WAL sender is sending a backup.
+-->
+           <literal>backup</>: このWAL送信サーバはバックアップを送信しています。
           </para>
          </listitem>
          <listitem>
           <para>
+<!--
            <literal>stopping</>: This WAL sender is stopping.
+-->
+           <literal>stopping</>: このWAL送信サーバは停止するところです。
           </para>
          </listitem>
        </itemizedlist>
@@ -2467,7 +2855,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
 <!--
      <entry>Last write-ahead log location sent on this connection</entry>
 -->
-     <entry>現在のWAL送信処理の状態です。</entry>
+     <entry>この接続で送信された最後の先行書き込みログの位置です。</entry>
     </row>
     <row>
      <entry><structfield>write_lsn</></entry>
@@ -2476,7 +2864,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
      <entry>Last write-ahead log location written to disk by this standby
       server</entry>
 -->
-     <entry>スタンバイサーバによってディスクに書き出された最後のトランザクションログ位置です。</entry>
+     <entry>このスタンバイサーバによってディスクに書き出された最後の先行書き込みログ位置です。</entry>
     </row>
     <row>
      <entry><structfield>flush_lsn</></entry>
@@ -2485,7 +2873,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
      <entry>Last write-ahead log location flushed to disk by this standby
       server</entry>
 -->
-     <entry>スタンバイサーバによってディスクに吐き出された最後のトランザクションログ位置です。</entry>
+     <entry>このスタンバイサーバによってディスクに吐き出された最後の先行書き込みログ位置です。</entry>
     </row>
     <row>
      <entry><structfield>replay_lsn</></entry>
@@ -2494,37 +2882,55 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
      <entry>Last write-ahead log location replayed into the database on this
       standby server</entry>
 -->
-     <entry>スタンバイサーバ上のデータベースに再生された最後のトランザクションログ位置です。</entry>
+     <entry>このスタンバイサーバ上のデータベースに再生された最後の先行書き込みログ位置です。</entry>
     </row>
     <row>
      <entry><structfield>write_lag</></entry>
      <entry><type>interval</></entry>
+<!--
      <entry>Time elapsed between flushing recent WAL locally and receiving
       notification that this standby server has written it (but not yet
       flushed it or applied it).  This can be used to gauge the delay that
       <literal>synchronous_commit</literal> level
       <literal>remote_write</literal> incurred while committing if this
       server was configured as a synchronous standby.</entry>
+-->
+     <entry>
+最近のWALをローカルに吐き出してから、このスタンバイサーバがそれを書き出した（が、まだ吐き出したり適用したりしていない）ことの通知を受け取るまでの経過時間です。
+このサーバが同期スタンバイとして設定されているとして、コミット時に<literal>synchronous_commit</literal>レベルの<literal>remote_write</literal>が起こした遅延を正確に測定するために、これを使用することができます。
+     </entry>
     </row>
     <row>
      <entry><structfield>flush_lag</></entry>
      <entry><type>interval</></entry>
+<!--
      <entry>Time elapsed between flushing recent WAL locally and receiving
       notification that this standby server has written and flushed it
       (but not yet applied it).  This can be used to gauge the delay that
       <literal>synchronous_commit</literal> level
       <literal>remote_flush</literal> incurred while committing if this
       server was configured as a synchronous standby.</entry>
+-->
+     <entry>
+最近のWALをローカルに吐き出してから、このスタンバイサーバがそれを書き出して吐き出した（が、まだ適用していない）ことの通知を受け取るまでの経過時間です。
+このサーバが同期スタンバイとして設定されているとして、コミット時に<literal>synchronous_commit</literal>レベルの<literal>remote_flush</literal>が起こした遅延を正確に測定するために、これを使用することができます。
+     </entry>
     </row>
     <row>
      <entry><structfield>replay_lag</></entry>
      <entry><type>interval</></entry>
+<!--
      <entry>Time elapsed between flushing recent WAL locally and receiving
       notification that this standby server has written, flushed and
       applied it.  This can be used to gauge the delay that
       <literal>synchronous_commit</literal> level
       <literal>remote_apply</literal> incurred while committing if this
       server was configured as a synchronous standby.</entry>
+-->
+     <entry>
+最近のWALをローカルに吐き出してから、このスタンバイサーバがそれを書き出し、吐き出し、そして適用したことの通知を受け取るまでの経過時間です。
+このサーバが同期スタンバイとして設定されているとして、コミット時に<literal>synchronous_commit</literal>レベルの<literal>remote_apply</literal>が起こした遅延を正確に測定するために、これを使用することができます。
+     </entry>
     </row>
     <row>
      <entry><structfield>sync_priority</></entry>
@@ -2534,35 +2940,55 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
       synchronous standby in a priority-based synchronous replication.
       This has no effect in a quorum-based synchronous replication.</entry>
 -->
-     <entry>このスタンバイサーバが同期スタンバイとして選択される優先度です。</entry>
+     <entry>
+優先度に基づくの同期レプリケーションで、このスタンバイサーバが同期スタンバイとして選択される優先度です。
+クォーラムに基づくの同期レプリケーションでは効果がありません。
+     </entry>
     </row>
     <row>
      <entry><structfield>sync_state</></entry>
      <entry><type>text</></entry>
+<!--
      <entry>Synchronous state of this standby server.
        Possible values are:
+-->
+     <entry>
+このスタンバイサーバの同期状態です。
+取り得る値は以下の通りです。
        <itemizedlist>
          <listitem>
           <para>
+<!--
            <literal>async</>: This standby server is asynchronous.
+-->
+           <literal>async</>: このスタンバイサーバは非同期です。
           </para>
          </listitem>
          <listitem>
           <para>
+<!--
            <literal>potential</>: This standby server is now asynchronous,
            but can potentially become synchronous if one of current
            synchronous ones fails.
+-->
+           <literal>potential</>: このスタンバイサーバは現在非同期ですが、現在同期中のサーバの一つが故障すると同期になる可能性があります。
           </para>
          </listitem>
          <listitem>
           <para>
+<!--
            <literal>sync</>: This standby server is synchronous.
+-->
+           <literal>sync</>: このスタンバイサーバは同期です。
           </para>
          </listitem>
          <listitem>
           <para>
+<!--
            <literal>quorum</>: This standby server is considered as a candidate
            for quorum standbys.
+-->
+           <literal>quorum</>: このサーバはクォーラムのスタンバイの候補とみなされています。
           </para>
          </listitem>
        </itemizedlist>
@@ -2585,6 +3011,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
   </para>
 
   <para>
+<!--
    The lag times reported in the <structname>pg_stat_replication</structname>
    view are measurements of the time taken for recent WAL to be written,
    flushed and replayed and for the sender to know about it.  These times
@@ -2596,16 +3023,26 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
    server has entirely caught up with the sending server and there is no more
    WAL activity, the most recently measured lag times will continue to be
    displayed for a short time and then show NULL.
+-->
+<structname>pg_stat_replication</structname>ビューで報告される経過時間は、最近のWALが書き込まれ、吐き出され、再生されるのに要した時間の測定結果であり、また、送信サーバがそれを知るためのものです。
+リモートサーバが同期スタンバイとして設定されている場合、これらの時間は、同期コミットの各レベルによって引き起こされた（あるいは引き起こされたであろう）コミットの遅延を表します。
+非同期スタンバイの場合は、<structfield>replay_lag</structfield>列は最近のトランザクションが問い合わせに対して可視になったときまでの遅延を近似します。
+スタンバイサーバが送信サーバに完全に追いつき、WALの活動がなくなった状態のときは、最も直近に測定された経過時間が短い間、表示され続け、その後はNULLとなります。
   </para>
 
   <para>
+<!--
    Lag times work automatically for physical replication. Logical decoding
    plugins may optionally emit tracking messages; if they do not, the tracking
    mechanism will simply display NULL lag.
+-->
+経過時間は物理レプリケーションの場合は自動的に機能します。
+ロジカルデコーディングのプラグインはオプションで追跡メッセージを発することができますが、そうしなければ追跡機能は単にNULLの経過時間を表示します。
   </para>
 
   <note>
    <para>
+<!--
     The reported lag times are not predictions of how long it will take for
     the standby to catch up with the sending server assuming the current
     rate of replay.  Such a system would show similar times while new WAL is
@@ -2620,6 +3057,13 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
     lag columns revert to NULL after a short time on a fully replayed idle
     system. Monitoring systems should choose whether to represent this
     as missing data, zero or continue to display the last known value.
+-->
+報告される経過時間は、現在の再生速度の前提でスタンバイが送信サーバに追いつくのに要する時間を予測するものではありません。
+そのようなシステムでは、新しいWALが生成されている間は類似した時間を示しますが、送信サーバがアイドル状態になると異なるものになるでしょう。
+特に、スタンバイが完全に追いついたとき、<structname>pg_stat_replication</structname>は、一部のユーザが期待するゼロではなく、最も最近に報告されたWAL位置を書き込み、吐き出し、再生するのに要した時間を示します。
+これは最近の書き込みトランザクションについて同期コミットおよびトランザクションの可視性の遅延を測定するという目的と首尾一貫しています。
+経過時間について異なるモデルを期待するユーザの混乱を抑えるため、完全に再生されてアイドルになったシステムでは、経過時間の列は短い時間の後、NULLに戻ります。
+監視システムでは、これをデータなしとする、ゼロとする、あるいは最後の既知の値を表示し続けるという選択をすることになります。
    </para>
   </note>
 
@@ -2666,7 +3110,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
      <entry>First write-ahead log location used when WAL receiver is
       started</entry>
 -->
-     <entry>WALレシーバが開始された時に使われるトランザクションログの最初の位置</entry>
+     <entry>WALレシーバが開始された時に使われる先行書き込みログの最初の位置</entry>
     </row>
     <row>
      <entry><structfield>receive_start_tli</></entry>
@@ -2684,7 +3128,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
       disk, the initial value of this field being the first log location used
       when WAL receiver is started</entry>
 -->
-     <entry>すでに受信し、ディスクにフラッシュされたトランザクションログの最新位置。
+     <entry>すでに受信し、ディスクにフラッシュされた先行書き込みログの最新位置。
      この列の初期値は、WALレシーバが開始された時に使用される、最初のログ位置です。</entry>
     </row>
     <row>
@@ -2696,7 +3140,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
       number of the first log location used when WAL receiver is started
 -->
      <entry>
-受信済みでディスクにフラッシュされたトランザクションログの最新位置のタイムライン番号。
+受信済みでディスクにフラッシュされた先行書き込みログの最新位置のタイムライン番号。
 この列の初期値は、WALレシーバが開始された時に使用される、最初のログ位置のタイムライン番号です。
      </entry>
     </row>
@@ -2722,7 +3166,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
 <!--
      <entry>Last write-ahead log location reported to origin WAL sender</entry>
 -->
-     <entry>オリジンWALセンダへ報告された最新のトランザクションログ位置</entry>
+     <entry>オリジンWALセンダへ報告された最新の先行書き込みログ位置</entry>
     </row>
     <row>
      <entry><structfield>latest_end_time</></entry>
@@ -2730,7 +3174,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
 <!--
      <entry>Time of last write-ahead log location reported to origin WAL sender</entry>
 -->
-     <entry>オリジンWALセンダへ最新のトランザクションログ位置が報告された時間</entry>
+     <entry>オリジンWALセンダへ最新の先行書き込みログ位置が報告された時間</entry>
     </row>
     <row>
      <entry><structfield>slot_name</></entry>
@@ -2769,9 +3213,14 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
    <tgroup cols="3">
     <thead>
     <row>
+<!--
       <entry>Column</entry>
       <entry>Type</entry>
       <entry>Description</entry>
+-->
+      <entry>列</entry>
+      <entry>型</entry>
+      <entry>説明</entry>
      </row>
     </thead>
 
@@ -2779,62 +3228,92 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
     <row>
      <entry><structfield>subid</></entry>
      <entry><type>oid</></entry>
+<!--
      <entry>OID of the subscription</entry>
+-->
+     <entry>サブスクリプションのOID</entry>
     </row>
     <row>
      <entry><structfield>subname</></entry>
      <entry><type>text</></entry>
+<!--
      <entry>Name of the subscription</entry>
+-->
+     <entry>サブスクリプションの名前</entry>
     </row>
     <row>
      <entry><structfield>pid</></entry>
      <entry><type>integer</></entry>
+<!--
      <entry>Process ID of the subscription worker process</entry>
+-->
+     <entry>サブスクリプションのワーカプロセスのプロセスID</entry>
     </row>
     <row>
      <entry><structfield>relid</></entry>
      <entry><type>Oid</></entry>
+<!--
      <entry>OID of the relation that the worker is synchronizing; null for the
      main apply worker</entry>
+-->
+     <entry>ワーカが同期しているリレーションのOID、メインの適用ワーカの場合はNULL</entry>
     </row>
     <row>
      <entry><structfield>received_lsn</></entry>
      <entry><type>pg_lsn</></entry>
+<!--
      <entry>Last write-ahead log location received, the initial value of
       this field being 0</entry>
+-->
+     <entry>最後に受け取った先行書き込みログ位置、このフィールドの初期値は0</entry>
     </row>
     <row>
      <entry><structfield>last_msg_send_time</></entry>
      <entry><type>timestamp with time zone</></entry>
+<!--
      <entry>Send time of last message received from origin WAL sender</entry>
+-->
+     <entry>オリジンWAL送信サーバから受け取った最後のメッセージの送信時刻</entry>
     </row>
     <row>
      <entry><structfield>last_msg_receipt_time</></entry>
      <entry><type>timestamp with time zone</></entry>
+<!--
      <entry>Receipt time of last message received from origin WAL sender
+-->
+     <entry>オリジンWAL送信サーバから受け取った最後のメッセージの受信時刻
      </entry>
     </row>
     <row>
      <entry><structfield>latest_end_lsn</></entry>
      <entry><type>pg_lsn</></entry>
+<!--
      <entry>Last write-ahead log location reported to origin WAL sender
+-->
+     <entry>オリジンWAL送信サーバに最後に報告された先行書き込みログ位置
      </entry>
     </row>
     <row>
      <entry><structfield>latest_end_time</></entry>
      <entry><type>timestamp with time zone</></entry>
+<!--
      <entry>Time of last write-ahead log location reported to origin WAL
       sender</entry>
+-->
+     <entry>オリジンWAL送信サーバかに最後の先行書き込みログ位置が報告された時刻</entry>
     </row>
    </tbody>
    </tgroup>
   </table>
 
   <para>
+<!--
    The <structname>pg_stat_subscription</structname> view will contain one
    row per subscription for main worker (with null PID if the worker is
    not running), and additional rows for workers handling the initial data
    copy of the subscribed tables.
+-->
+<structname>pg_stat_subscription</structname>には、各サブスクリプションのメインワーカに対して1行が含まれ（ワーカが実行中でないときはPIDがNULLになります）、さらにサブスクライブされたテーブルの初期データコピーを処理するワーカについて別の行があります。
   </para>
 
   <table id="pg-stat-ssl-view" xreflabel="pg_stat_ssl">
@@ -5059,7 +5538,7 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
    tracing utilities is theoretically possible by changing the definitions for
    the macros in <filename>src/include/utils/probes.h</>.
 -->
-現在、これを書いている時点ではSolaris、OS X、FreeBSD、NetBSD、Oracle Linuxで利用可能な<ulink url="http://opensolaris.org/os/community/dtrace/">DTrace</ulink>ユーティリティがサポートされています。
+現在、これを書いている時点ではSolaris、macOS、FreeBSD、NetBSD、Oracle Linuxで利用可能な<ulink url="http://opensolaris.org/os/community/dtrace/">DTrace</ulink>ユーティリティがサポートされています。
 <ulink url="http://sourceware.org/systemtap/">SystemTap</ulink>プロジェクトではDTrace相当の機能をLinux向けに提供しており、それを使うこともできます。
 他の動的追跡ユーティリティのサポートは、<filename>src/include/utils/probes.h</>内の<literal>PG_TRACE</>マクロ定義を変更することで、理論上は可能です。
   </para>
@@ -5712,48 +6191,89 @@ arg1は外部ソートで使用されたディスクブロック数、もしく�
     <row>
      <entry><literal>lwlock-acquire</literal></entry>
      <entry><literal>(char *, LWLockMode)</literal></entry>
+<!--
      <entry>Probe that fires when an LWLock has been acquired.
       arg0 is the LWLock's tranche.
       arg1 is the requested lock mode, either exclusive or shared.</entry>
+-->
+     <entry>
+LWLockの獲得を捕捉するプローブ。
+arg0はLWLockのトランシェを示します。
+arg1は要求されたロックモード（排他または共有）を示します。
+     </entry>
     </row>
     <row>
      <entry><literal>lwlock-release</literal></entry>
      <entry><literal>(char *)</literal></entry>
+<!--
      <entry>Probe that fires when an LWLock has been released (but note
       that any released waiters have not yet been awakened).
       arg0 is the LWLock's tranche.</entry>
+-->
+     <entry>
+LWLockの解放を捕捉するプローブ（ただし、解放された待機状態のものにはまだ通知されていないことに注意してください）。
+arg0はLWLockのトランシェを示します。
+     </entry>
     </row>
     <row>
      <entry><literal>lwlock-wait-start</literal></entry>
      <entry><literal>(char *, LWLockMode)</literal></entry>
+<!--
      <entry>Probe that fires when an LWLock was not immediately available and
       a server process has begun to wait for the lock to become available.
       arg0 is the LWLock's tranche.
       arg1 is the requested lock mode, either exclusive or shared.</entry>
+-->
+     <entry>
+LWLockが即座には獲得できず、ロックが利用可能になるまでサーバプロセスが待機を開始したことを捕捉するプローブ。
+arg0はLWLockのトランシェを示します。
+arg1は要求されたロックモード（排他または共有）を示します。
+     </entry>
     </row>
     <row>
      <entry><literal>lwlock-wait-done</literal></entry>
      <entry><literal>(char *, LWLockMode)</literal></entry>
+<!--
      <entry>Probe that fires when a server process has been released from its
       wait for an LWLock (it does not actually have the lock yet).
       arg0 is the LWLock's tranche.
       arg1 is the requested lock mode, either exclusive or shared.</entry>
+-->
+     <entry>
+サーバプロセスがLWLockの待機から解放されたことを捕捉するプローブ（まだ実際にはロックを取得していません）。
+arg0はLWLockのトランシェを示します。
+arg1は要求されたロックモード（排他または共有）を示します。
+     </entry>
     </row>
     <row>
      <entry><literal>lwlock-condacquire</literal></entry>
      <entry><literal>(char *, LWLockMode)</literal></entry>
+<!--
      <entry>Probe that fires when an LWLock was successfully acquired when the
       caller specified no waiting.
       arg0 is the LWLock's tranche.
       arg1 is the requested lock mode, either exclusive or shared.</entry>
+-->
+     <entry>
+呼び出し元が待機しないことを指定した際の、LWLockの獲得成功を捕捉するプローブ。
+arg0はLWLockのトランシェを示します。
+arg1は要求されたロックモード（排他または共有）を示します。
+     </entry>
     </row>
     <row>
      <entry><literal>lwlock-condacquire-fail</literal></entry>
      <entry><literal>(char *, LWLockMode)</literal></entry>
+<!--
      <entry>Probe that fires when an LWLock was not successfully acquired when
       the caller specified no waiting.
       arg0 is the LWLock's tranche.
       arg1 is the requested lock mode, either exclusive or shared.</entry>
+-->
+     <entry>
+呼び出し元が待機しないことを指定した際の、LWLockの獲得失敗を捕捉するプローブ。
+arg0はLWLockのトランシェを示します。
+arg1は要求されたロックモード（排他または共有）を示します。
+     </entry>
     </row>
     <row>
      <entry><literal>lock-wait-start</literal></entry>
