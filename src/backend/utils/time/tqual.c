@@ -79,8 +79,6 @@
 SnapshotData SnapshotSelfData = {HeapTupleSatisfiesSelf};
 SnapshotData SnapshotAnyData = {HeapTupleSatisfiesAny};
 
-/* local functions */
-static bool XidInMVCCSnapshot(TransactionId xid, Snapshot snapshot);
 
 /*
  * SetHintBits()
@@ -1311,49 +1309,40 @@ HeapTupleSatisfiesVacuum(HeapTuple htup, TransactionId OldestXmin,
 
 	if (tuple->t_infomask & HEAP_XMAX_IS_MULTI)
 	{
-		TransactionId xmax;
+		TransactionId xmax = HeapTupleGetUpdateXid(tuple);
 
-		if (MultiXactIdIsRunning(HeapTupleHeaderGetRawXmax(tuple), false))
-		{
-			/* already checked above */
-			Assert(!HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask));
-
-			xmax = HeapTupleGetUpdateXid(tuple);
-
-			/* not LOCKED_ONLY, so it has to have an xmax */
-			Assert(TransactionIdIsValid(xmax));
-
-			if (TransactionIdIsInProgress(xmax))
-				return HEAPTUPLE_DELETE_IN_PROGRESS;
-			else if (TransactionIdDidCommit(xmax))
-				/* there are still lockers around -- can't return DEAD here */
-				return HEAPTUPLE_RECENTLY_DEAD;
-			/* updating transaction aborted */
-			return HEAPTUPLE_LIVE;
-		}
-
-		Assert(!(tuple->t_infomask & HEAP_XMAX_COMMITTED));
-
-		xmax = HeapTupleGetUpdateXid(tuple);
+		/* already checked above */
+		Assert(!HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask));
 
 		/* not LOCKED_ONLY, so it has to have an xmax */
 		Assert(TransactionIdIsValid(xmax));
 
-		/* multi is not running -- updating xact cannot be */
-		Assert(!TransactionIdIsInProgress(xmax));
-		if (TransactionIdDidCommit(xmax))
+		if (TransactionIdIsInProgress(xmax))
+			return HEAPTUPLE_DELETE_IN_PROGRESS;
+		else if (TransactionIdDidCommit(xmax))
 		{
+			/*
+			 * The multixact might still be running due to lockers.  If the
+			 * updater is below the xid horizon, we have to return DEAD
+			 * regardless -- otherwise we could end up with a tuple where the
+			 * updater has to be removed due to the horizon, but is not pruned
+			 * away.  It's not a problem to prune that tuple, because any
+			 * remaining lockers will also be present in newer tuple versions.
+			 */
 			if (!TransactionIdPrecedes(xmax, OldestXmin))
 				return HEAPTUPLE_RECENTLY_DEAD;
-			else
-				return HEAPTUPLE_DEAD;
+
+			return HEAPTUPLE_DEAD;
+		}
+		else if (!MultiXactIdIsRunning(HeapTupleHeaderGetRawXmax(tuple), false))
+		{
+			/*
+			 * Not in Progress, Not Committed, so either Aborted or crashed.
+			 * Mark the Xmax as invalid.
+			 */
+			SetHintBits(tuple, buffer, HEAP_XMAX_INVALID, InvalidTransactionId);
 		}
 
-		/*
-		 * Not in Progress, Not Committed, so either Aborted or crashed.
-		 * Remove the Xmax.
-		 */
-		SetHintBits(tuple, buffer, HEAP_XMAX_INVALID, InvalidTransactionId);
 		return HEAPTUPLE_LIVE;
 	}
 
@@ -1457,10 +1446,10 @@ HeapTupleIsSurelyDead(HeapTuple htup, TransactionId OldestXmin)
  * Note: GetSnapshotData never stores either top xid or subxids of our own
  * backend into a snapshot, so these xids will not be reported as "running"
  * by this function.  This is OK for current uses, because we always check
- * TransactionIdIsCurrentTransactionId first, except for known-committed
- * XIDs which could not be ours anyway.
+ * TransactionIdIsCurrentTransactionId first, except when it's known the
+ * XID could not be ours anyway.
  */
-static bool
+bool
 XidInMVCCSnapshot(TransactionId xid, Snapshot snapshot)
 {
 	uint32		i;

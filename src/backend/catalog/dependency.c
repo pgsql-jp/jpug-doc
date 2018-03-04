@@ -1713,6 +1713,51 @@ find_expr_references_walker(Node *node,
 		/* Extra work needed here if we ever need this case */
 		elog(ERROR, "already-planned subqueries not supported");
 	}
+	else if (IsA(node, FieldSelect))
+	{
+		FieldSelect *fselect = (FieldSelect *) node;
+		Oid			argtype = exprType((Node *) fselect->arg);
+		Oid			reltype = get_typ_typrelid(argtype);
+
+		/*
+		 * We need a dependency on the specific column named in FieldSelect,
+		 * assuming we can identify the pg_class OID for it.  (Probably we
+		 * always can at the moment, but in future it might be possible for
+		 * argtype to be RECORDOID.)  If we can make a column dependency then
+		 * we shouldn't need a dependency on the column's type; but if we
+		 * can't, make a dependency on the type, as it might not appear
+		 * anywhere else in the expression.
+		 */
+		if (OidIsValid(reltype))
+			add_object_address(OCLASS_CLASS, reltype, fselect->fieldnum,
+							   context->addrs);
+		else
+			add_object_address(OCLASS_TYPE, fselect->resulttype, 0,
+							   context->addrs);
+		/* the collation might not be referenced anywhere else, either */
+		if (OidIsValid(fselect->resultcollid) &&
+			fselect->resultcollid != DEFAULT_COLLATION_OID)
+			add_object_address(OCLASS_COLLATION, fselect->resultcollid, 0,
+							   context->addrs);
+	}
+	else if (IsA(node, FieldStore))
+	{
+		FieldStore *fstore = (FieldStore *) node;
+		Oid			reltype = get_typ_typrelid(fstore->resulttype);
+
+		/* similar considerations to FieldSelect, but multiple column(s) */
+		if (OidIsValid(reltype))
+		{
+			ListCell   *l;
+
+			foreach(l, fstore->fieldnums)
+				add_object_address(OCLASS_CLASS, reltype, lfirst_int(l),
+								   context->addrs);
+		}
+		else
+			add_object_address(OCLASS_TYPE, fstore->resulttype, 0,
+							   context->addrs);
+	}
 	else if (IsA(node, RelabelType))
 	{
 		RelabelType *relab = (RelabelType *) node;
@@ -1733,6 +1778,11 @@ find_expr_references_walker(Node *node,
 		/* since there is no exposed function, need to depend on type */
 		add_object_address(OCLASS_TYPE, iocoerce->resulttype, 0,
 						   context->addrs);
+		/* the collation might not be referenced anywhere else, either */
+		if (OidIsValid(iocoerce->resultcollid) &&
+			iocoerce->resultcollid != DEFAULT_COLLATION_OID)
+			add_object_address(OCLASS_COLLATION, iocoerce->resultcollid, 0,
+							   context->addrs);
 	}
 	else if (IsA(node, ArrayCoerceExpr))
 	{

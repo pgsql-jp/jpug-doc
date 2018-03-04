@@ -360,7 +360,7 @@ void		generate_old_dump(void);
 #define EXEC_PSQL_ARGS "--echo-queries --set ON_ERROR_STOP=on --no-psqlrc --dbname=template1"
 
 bool exec_prog(const char *log_file, const char *opt_log_file,
-		  bool throw_error, const char *fmt,...) pg_attribute_printf(4, 5);
+		  bool report_error, bool exit_on_error, const char *fmt,...) pg_attribute_printf(5, 6);
 void		verify_directories(void);
 bool		pid_lock_file_exists(const char *datadir);
 
@@ -374,7 +374,9 @@ void linkFile(const char *src, const char *dst,
 void rewriteVisibilityMap(const char *fromfile, const char *tofile,
 					 const char *schemaName, const char *relName);
 void		check_hard_link(void);
-FILE	   *fopen_priv(const char *path, const char *mode);
+
+/* fopen_priv() is no longer different from fopen() */
+#define fopen_priv(path, mode)	fopen(path, mode)
 
 /* function.c */
 
@@ -416,8 +418,8 @@ PGresult   *executeQueryOrDie(PGconn *conn, const char *fmt,...) pg_attribute_pr
 
 char	   *cluster_conn_opts(ClusterInfo *cluster);
 
-bool		start_postmaster(ClusterInfo *cluster, bool throw_error);
-void		stop_postmaster(bool fast);
+bool		start_postmaster(ClusterInfo *cluster, bool report_and_exit_on_error);
+void		stop_postmaster(bool in_atexit);
 uint32		get_major_server_version(ClusterInfo *cluster);
 void		check_pghost_envvar(void);
 

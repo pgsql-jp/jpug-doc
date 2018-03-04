@@ -244,10 +244,11 @@ extern bool log_btree_build_stats;
 
 extern PGDLLIMPORT bool check_function_bodies;
 extern bool default_with_oids;
+extern bool	session_auth_is_superuser;
 
 extern int	log_min_error_statement;
-extern int	log_min_messages;
-extern int	client_min_messages;
+extern PGDLLIMPORT int log_min_messages;
+extern PGDLLIMPORT int client_min_messages;
 extern int	log_min_duration_statement;
 extern int	log_temp_files;
 
@@ -256,12 +257,12 @@ extern int	temp_file_limit;
 extern int	num_temp_buffers;
 
 extern char *cluster_name;
-extern char *ConfigFileName;
+extern PGDLLIMPORT char *ConfigFileName;
 extern char *HbaFileName;
 extern char *IdentFileName;
 extern char *external_pid_file;
 
-extern char *application_name;
+extern PGDLLIMPORT char *application_name;
 
 extern int	tcp_keepalives_idle;
 extern int	tcp_keepalives_interval;

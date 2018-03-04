@@ -722,7 +722,9 @@ hash_aclitem(PG_FUNCTION_ARGS)
  * acldefault()  --- create an ACL describing default access permissions
  *
  * Change this routine if you want to alter the default access policy for
- * newly-created objects (or any object with a NULL acl entry).
+ * newly-created objects (or any object with a NULL acl entry).  When
+ * you make a change here, don't forget to update the GRANT man page,
+ * which explains all the default permissions.
  *
  * Note that these are the hard-wired "defaults" that are used in the
  * absence of any pg_default_acl entry.
@@ -2225,8 +2227,11 @@ convert_sequence_priv_string(text *priv_type_text)
 {
 	static const priv_map sequence_priv_map[] = {
 		{"USAGE", ACL_USAGE},
+		{"USAGE WITH GRANT OPTION", ACL_GRANT_OPTION_FOR(ACL_USAGE)},
 		{"SELECT", ACL_SELECT},
+		{"SELECT WITH GRANT OPTION", ACL_GRANT_OPTION_FOR(ACL_SELECT)},
 		{"UPDATE", ACL_UPDATE},
+		{"UPDATE WITH GRANT OPTION", ACL_GRANT_OPTION_FOR(ACL_UPDATE)},
 		{NULL, 0}
 	};
 

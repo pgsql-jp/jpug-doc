@@ -196,6 +196,7 @@ WalReceiverMain(void)
 	bool		first_stream;
 	WalRcvData *walrcv = WalRcv;
 	TimestampTz last_recv_timestamp;
+	TimestampTz now;
 	bool		ping_sent;
 	char	   *err;
 
@@ -204,6 +205,8 @@ WalReceiverMain(void)
 	 * by fork() or EXEC_BACKEND mechanism from the postmaster).
 	 */
 	Assert(walrcv != NULL);
+
+	now = GetCurrentTimestamp();
 
 	/*
 	 * Mark walreceiver as running in shared memory.
@@ -235,6 +238,7 @@ WalReceiverMain(void)
 		case WALRCV_RESTARTING:
 		default:
 			/* Shouldn't happen */
+			SpinLockRelease(&walrcv->mutex);
 			elog(PANIC, "walreceiver still running according to shared memory state");
 	}
 	/* Advertise our PID so that the startup process can kill us */
@@ -249,14 +253,16 @@ WalReceiverMain(void)
 	startpointTLI = walrcv->receiveStartTLI;
 
 	/* Initialise to a sanish value */
-	walrcv->lastMsgSendTime = walrcv->lastMsgReceiptTime = walrcv->latestWalEndTime = GetCurrentTimestamp();
+	walrcv->lastMsgSendTime =
+		walrcv->lastMsgReceiptTime = walrcv->latestWalEndTime = now;
+
+	/* Report the latch to use to awaken this process */
+	walrcv->latch = &MyProc->procLatch;
 
 	SpinLockRelease(&walrcv->mutex);
 
 	/* Arrange to clean up at walreceiver exit */
 	on_shmem_exit(WalRcvDie, 0);
-
-	walrcv->latch = &MyProc->procLatch;
 
 	/* Properly accept or ignore signals the postmaster might send us */
 	pqsignal(SIGHUP, WalRcvSigHupHandler);	/* set flag to read config file */
@@ -308,12 +314,12 @@ WalReceiverMain(void)
 	SpinLockAcquire(&walrcv->mutex);
 	memset(walrcv->conninfo, 0, MAXCONNINFO);
 	if (tmp_conninfo)
-	{
 		strlcpy((char *) walrcv->conninfo, tmp_conninfo, MAXCONNINFO);
-		pfree(tmp_conninfo);
-	}
 	walrcv->ready_to_display = true;
 	SpinLockRelease(&walrcv->mutex);
+
+	if (tmp_conninfo)
+		pfree(tmp_conninfo);
 
 	first_stream = true;
 	for (;;)
@@ -772,8 +778,7 @@ WalRcvDie(int code, Datum arg)
 	/* Ensure that all WAL records received are flushed to disk */
 	XLogWalRcvFlush(true);
 
-	walrcv->latch = NULL;
-
+	/* Mark ourselves inactive in shared memory */
 	SpinLockAcquire(&walrcv->mutex);
 	Assert(walrcv->walRcvState == WALRCV_STREAMING ||
 		   walrcv->walRcvState == WALRCV_RESTARTING ||
@@ -784,6 +789,7 @@ WalRcvDie(int code, Datum arg)
 	walrcv->walRcvState = WALRCV_STOPPED;
 	walrcv->pid = 0;
 	walrcv->ready_to_display = false;
+	walrcv->latch = NULL;
 	SpinLockRelease(&walrcv->mutex);
 
 	/* Terminate the connection gracefully. */
@@ -1339,9 +1345,15 @@ ProcessWalSndrMessage(XLogRecPtr walEnd, TimestampTz sendTime)
 void
 WalRcvForceReply(void)
 {
+	Latch	   *latch;
+
 	WalRcv->force_reply = true;
-	if (WalRcv->latch)
-		SetLatch(WalRcv->latch);
+	/* fetching the latch pointer might not be atomic, so use spinlock */
+	SpinLockAcquire(&WalRcv->mutex);
+	latch = WalRcv->latch;
+	SpinLockRelease(&WalRcv->mutex);
+	if (latch)
+		SetLatch(latch);
 }
 
 /*
@@ -1390,8 +1402,8 @@ pg_stat_get_wal_receiver(PG_FUNCTION_ARGS)
 	TimestampTz last_receipt_time;
 	XLogRecPtr	latest_end_lsn;
 	TimestampTz latest_end_time;
-	char	   *slotname;
-	char	   *conninfo;
+	char		slotname[NAMEDATALEN];
+	char		conninfo[MAXCONNINFO];
 
 	/* Take a lock to ensure value consistency */
 	SpinLockAcquire(&WalRcv->mutex);
@@ -1406,8 +1418,8 @@ pg_stat_get_wal_receiver(PG_FUNCTION_ARGS)
 	last_receipt_time = WalRcv->lastMsgReceiptTime;
 	latest_end_lsn = WalRcv->latestWalEnd;
 	latest_end_time = WalRcv->latestWalEndTime;
-	slotname = pstrdup(WalRcv->slotname);
-	conninfo = pstrdup(WalRcv->conninfo);
+	strlcpy(slotname, (char *) WalRcv->slotname, sizeof(slotname));
+	strlcpy(conninfo, (char *) WalRcv->conninfo, sizeof(conninfo));
 	SpinLockRelease(&WalRcv->mutex);
 
 	/*
@@ -1430,7 +1442,8 @@ pg_stat_get_wal_receiver(PG_FUNCTION_ARGS)
 	if (!is_member_of_role(GetUserId(), DEFAULT_ROLE_READ_ALL_STATS))
 	{
 		/*
-		 * Only superusers can see details. Other users only get the pid value
+		 * Only superusers and members of pg_read_all_stats can see details.
+		 * Other users only get the pid value
 		 * to know whether it is a WAL receiver, but no details.
 		 */
 		MemSet(&nulls[1], true, sizeof(bool) * (tupdesc->natts - 1));

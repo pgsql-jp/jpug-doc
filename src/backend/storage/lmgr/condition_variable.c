@@ -55,21 +55,35 @@ ConditionVariablePrepareToSleep(ConditionVariable *cv)
 	int			pgprocno = MyProc->pgprocno;
 
 	/*
-	 * It's not legal to prepare a sleep until the previous sleep has been
-	 * completed or canceled.
+	 * If first time through in this process, create a WaitEventSet, which
+	 * we'll reuse for all condition variable sleeps.
 	 */
-	Assert(cv_sleep_target == NULL);
+	if (cv_wait_event_set == NULL)
+	{
+		WaitEventSet *new_event_set;
+
+		new_event_set = CreateWaitEventSet(TopMemoryContext, 2);
+		AddWaitEventToSet(new_event_set, WL_LATCH_SET, PGINVALID_SOCKET,
+						  MyLatch, NULL);
+		AddWaitEventToSet(new_event_set, WL_POSTMASTER_DEATH, PGINVALID_SOCKET,
+						  NULL, NULL);
+		/* Don't set cv_wait_event_set until we have a correct WES. */
+		cv_wait_event_set = new_event_set;
+	}
+
+	/*
+	 * If some other sleep is already prepared, cancel it; this is necessary
+	 * because we have just one static variable tracking the prepared sleep,
+	 * and also only one cvWaitLink in our PGPROC.  It's okay to do this
+	 * because whenever control does return to the other test-and-sleep loop,
+	 * its ConditionVariableSleep call will just re-establish that sleep as
+	 * the prepared one.
+	 */
+	if (cv_sleep_target != NULL)
+		ConditionVariableCancelSleep();
 
 	/* Record the condition variable on which we will sleep. */
 	cv_sleep_target = cv;
-
-	/* Create a reusable WaitEventSet. */
-	if (cv_wait_event_set == NULL)
-	{
-		cv_wait_event_set = CreateWaitEventSet(TopMemoryContext, 1);
-		AddWaitEventToSet(cv_wait_event_set, WL_LATCH_SET, PGINVALID_SOCKET,
-						  MyLatch, NULL);
-	}
 
 	/*
 	 * Reset my latch before adding myself to the queue and before entering
@@ -114,25 +128,34 @@ ConditionVariableSleep(ConditionVariable *cv, uint32 wait_event_info)
 	 * allows you to skip manipulation of the wait list, or not met initially,
 	 * in which case preparing first allows you to skip a spurious test of the
 	 * caller's exit condition.
+	 *
+	 * If we are currently prepared to sleep on some other CV, we just cancel
+	 * that and prepare this one; see ConditionVariablePrepareToSleep.
 	 */
-	if (cv_sleep_target == NULL)
+	if (cv_sleep_target != cv)
 	{
 		ConditionVariablePrepareToSleep(cv);
 		return;
 	}
-
-	/* Any earlier condition variable sleep must have been canceled. */
-	Assert(cv_sleep_target == cv);
 
 	while (!done)
 	{
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * Wait for latch to be set.  We don't care about the result because
-		 * our contract permits spurious returns.
+		 * Wait for latch to be set.  (If we're awakened for some other
+		 * reason, the code below will cope anyway.)
 		 */
 		WaitEventSetWait(cv_wait_event_set, -1, &event, 1, wait_event_info);
+
+		if (event.events & WL_POSTMASTER_DEATH)
+		{
+			/*
+			 * Emergency bailout if postmaster has died.  This is to avoid the
+			 * necessity for manual cleanup of all postmaster children.
+			 */
+			exit(1);
+		}
 
 		/* Reset latch before testing whether we can return. */
 		ResetLatch(MyLatch);
@@ -214,15 +237,88 @@ int
 ConditionVariableBroadcast(ConditionVariable *cv)
 {
 	int			nwoken = 0;
+	int			pgprocno = MyProc->pgprocno;
+	PGPROC	   *proc = NULL;
+	bool		have_sentinel = false;
 
 	/*
-	 * Let's just do this the dumbest way possible.  We could try to dequeue
-	 * all the sleepers at once to save spinlock cycles, but it's a bit hard
-	 * to get that right in the face of possible sleep cancelations, and we
-	 * don't want to loop holding the mutex.
+	 * In some use-cases, it is common for awakened processes to immediately
+	 * re-queue themselves.  If we just naively try to reduce the wakeup list
+	 * to empty, we'll get into a potentially-indefinite loop against such a
+	 * process.  The semantics we really want are just to be sure that we have
+	 * wakened all processes that were in the list at entry.  We can use our
+	 * own cvWaitLink as a sentinel to detect when we've finished.
+	 *
+	 * A seeming flaw in this approach is that someone else might signal the
+	 * CV and in doing so remove our sentinel entry.  But that's fine: since
+	 * CV waiters are always added and removed in order, that must mean that
+	 * every previous waiter has been wakened, so we're done.  We'll get an
+	 * extra "set" on our latch from the someone else's signal, which is
+	 * slightly inefficient but harmless.
+	 *
+	 * We can't insert our cvWaitLink as a sentinel if it's already in use in
+	 * some other proclist.  While that's not expected to be true for typical
+	 * uses of this function, we can deal with it by simply canceling any
+	 * prepared CV sleep.  The next call to ConditionVariableSleep will take
+	 * care of re-establishing the lost state.
 	 */
-	while (ConditionVariableSignal(cv))
+	if (cv_sleep_target != NULL)
+		ConditionVariableCancelSleep();
+
+	/*
+	 * Inspect the state of the queue.  If it's empty, we have nothing to do.
+	 * If there's exactly one entry, we need only remove and signal that
+	 * entry.  Otherwise, remove the first entry and insert our sentinel.
+	 */
+	SpinLockAcquire(&cv->mutex);
+	/* While we're here, let's assert we're not in the list. */
+	Assert(!proclist_contains(&cv->wakeup, pgprocno, cvWaitLink));
+
+	if (!proclist_is_empty(&cv->wakeup))
+	{
+		proc = proclist_pop_head_node(&cv->wakeup, cvWaitLink);
+		if (!proclist_is_empty(&cv->wakeup))
+		{
+			proclist_push_tail(&cv->wakeup, pgprocno, cvWaitLink);
+			have_sentinel = true;
+		}
+	}
+	SpinLockRelease(&cv->mutex);
+
+	/* Awaken first waiter, if there was one. */
+	if (proc != NULL)
+	{
+		SetLatch(&proc->procLatch);
 		++nwoken;
+	}
+
+	while (have_sentinel)
+	{
+		/*
+		 * Each time through the loop, remove the first wakeup list entry, and
+		 * signal it unless it's our sentinel.  Repeat as long as the sentinel
+		 * remains in the list.
+		 *
+		 * Notice that if someone else removes our sentinel, we will waken one
+		 * additional process before exiting.  That's intentional, because if
+		 * someone else signals the CV, they may be intending to waken some
+		 * third process that added itself to the list after we added the
+		 * sentinel.  Better to give a spurious wakeup (which should be
+		 * harmless beyond wasting some cycles) than to lose a wakeup.
+		 */
+		proc = NULL;
+		SpinLockAcquire(&cv->mutex);
+		if (!proclist_is_empty(&cv->wakeup))
+			proc = proclist_pop_head_node(&cv->wakeup, cvWaitLink);
+		have_sentinel = proclist_contains(&cv->wakeup, pgprocno, cvWaitLink);
+		SpinLockRelease(&cv->mutex);
+
+		if (proc != NULL && proc != MyProc)
+		{
+			SetLatch(&proc->procLatch);
+			++nwoken;
+		}
+	}
 
 	return nwoken;
 }

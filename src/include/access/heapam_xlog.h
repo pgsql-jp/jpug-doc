@@ -339,13 +339,7 @@ typedef struct xl_heap_new_cid
 	TransactionId top_xid;
 	CommandId	cmin;
 	CommandId	cmax;
-
-	/*
-	 * don't really need the combocid since we have the actual values right in
-	 * this struct, but the padding makes it free and its useful for
-	 * debugging.
-	 */
-	CommandId	combocid;
+	CommandId	combocid;		/* just for debugging */
 
 	/*
 	 * Store the relfilenode/ctid pair to facilitate lookups.
@@ -390,6 +384,8 @@ extern XLogRecPtr log_heap_freeze(Relation reln, Buffer buffer,
 				TransactionId cutoff_xid, xl_heap_freeze_tuple *tuples,
 				int ntuples);
 extern bool heap_prepare_freeze_tuple(HeapTupleHeader tuple,
+						  TransactionId relfrozenxid,
+						  TransactionId relminmxid,
 						  TransactionId cutoff_xid,
 						  TransactionId cutoff_multi,
 						  xl_heap_freeze_tuple *frz,
