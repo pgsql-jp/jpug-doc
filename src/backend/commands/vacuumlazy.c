@@ -462,6 +462,8 @@ lazy_scan_heap(Relation onerel, int options, LVRelStats *vacrelstats,
 				blkno;
 	HeapTupleData tuple;
 	char	   *relname;
+	TransactionId relfrozenxid = onerel->rd_rel->relfrozenxid;
+	TransactionId relminmxid = onerel->rd_rel->relminmxid;
 	BlockNumber empty_pages,
 				vacuumed_pages;
 	double		num_tuples,
@@ -993,6 +995,13 @@ lazy_scan_heap(Relation onerel, int options, LVRelStats *vacrelstats,
 					 * tuple, we choose to keep it, because it'll be a lot
 					 * cheaper to get rid of it in the next pruning pass than
 					 * to treat it like an indexed tuple.
+					 *
+					 * If this were to happen for a tuple that actually needed
+					 * to be deleted, we'd be in trouble, because it'd
+					 * possibly leave a tuple below the relation's xmin
+					 * horizon alive.  heap_prepare_freeze_tuple() is prepared
+					 * to detect that case and abort the transaction,
+					 * preventing corruption.
 					 */
 					if (HeapTupleIsHotUpdated(&tuple) ||
 						HeapTupleIsHeapOnly(&tuple))
@@ -1084,8 +1093,10 @@ lazy_scan_heap(Relation onerel, int options, LVRelStats *vacrelstats,
 				 * Each non-removable tuple must be checked to see if it needs
 				 * freezing.  Note we already have exclusive buffer lock.
 				 */
-				if (heap_prepare_freeze_tuple(tuple.t_data, FreezeLimit,
-											  MultiXactCutoff, &frozen[nfrozen],
+				if (heap_prepare_freeze_tuple(tuple.t_data,
+											  relfrozenxid, relminmxid,
+											  FreezeLimit, MultiXactCutoff,
+											  &frozen[nfrozen],
 											  &tuple_totally_frozen))
 					frozen[nfrozen++].offset = offnum;
 
@@ -2018,17 +2029,17 @@ lazy_record_dead_tuple(LVRelStats *vacrelstats,
 					   ItemPointer itemptr)
 {
 	/*
-	 * The array must never overflow, since we rely on all deletable tuples
-	 * being removed; inability to remove a tuple might cause an old XID to
-	 * persist beyond the freeze limit, which could be disastrous later on.
+	 * The array shouldn't overflow under normal behavior, but perhaps it
+	 * could if we are given a really small maintenance_work_mem. In that
+	 * case, just forget the last few tuples (we'll get 'em next time).
 	 */
-	if (vacrelstats->num_dead_tuples >= vacrelstats->max_dead_tuples)
-		elog(ERROR, "dead tuple array overflow");
-
-	vacrelstats->dead_tuples[vacrelstats->num_dead_tuples] = *itemptr;
-	vacrelstats->num_dead_tuples++;
-	pgstat_progress_update_param(PROGRESS_VACUUM_NUM_DEAD_TUPLES,
-								 vacrelstats->num_dead_tuples);
+	if (vacrelstats->num_dead_tuples < vacrelstats->max_dead_tuples)
+	{
+		vacrelstats->dead_tuples[vacrelstats->num_dead_tuples] = *itemptr;
+		vacrelstats->num_dead_tuples++;
+		pgstat_progress_update_param(PROGRESS_VACUUM_NUM_DEAD_TUPLES,
+									 vacrelstats->num_dead_tuples);
+	}
 }
 
 /*

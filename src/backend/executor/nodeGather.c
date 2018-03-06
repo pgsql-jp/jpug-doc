@@ -149,7 +149,7 @@ ExecGather(PlanState *pstate)
 		 * Sometimes we might have to run without parallelism; but if parallel
 		 * mode is active then we can try to fire up some workers.
 		 */
-		if (gather->num_workers > 0 && IsInParallelMode())
+		if (gather->num_workers > 0 && estate->es_use_parallel_mode)
 		{
 			ParallelContext *pcxt;
 
@@ -278,7 +278,13 @@ gather_getnext(GatherState *gatherstate)
 
 		if (gatherstate->need_to_scan_locally)
 		{
+			EState *estate = gatherstate->ps.state;
+
+			/* Install our DSA area while executing the plan. */
+			estate->es_query_dsa =
+				gatherstate->pei ? gatherstate->pei->area : NULL;
 			outerTupleSlot = ExecProcNode(outerPlan);
+			estate->es_query_dsa = NULL;
 
 			if (!TupIsNull(outerTupleSlot))
 				return outerTupleSlot;

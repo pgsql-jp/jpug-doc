@@ -70,10 +70,11 @@ ALLSGML := $(wildcard $(srcdir)/*.sgml $(srcdir)/ref/*.sgml) $(GENERATED_SGML)
 # Enable some extra warnings
 # -wfully-tagged needed to throw a warning on missing tags
 # for older tool chains, 2007-08-31
+# -wnet catches XML-style empty-element tags like <xref linkend="abc"/>.
 # Note: try "make SPFLAGS=-wxml" to catch a lot of other dubious constructs,
 # in particular < and & that haven't been made into entities.  It's far too
 # noisy to turn on by default, unfortunately.
-override SPFLAGS += -wall -wno-unused-param -wno-empty -wfully-tagged
+override SPFLAGS += -wall -wno-unused-param -wno-empty -wfully-tagged -wnet
 
 
 ##
@@ -311,7 +312,7 @@ endif # sqlmansectnum != 7
 
 # tabs are harmless, but it is best to avoid them in SGML files
 check-tabs:
-	@( ! grep '	' $(wildcard $(srcdir)/*.sgml $(srcdir)/ref/*.sgml $(srcdir)/*.dsl $(srcdir)/*.xsl) ) || (echo "Tabs appear in SGML/XML files" 1>&2;  exit 1)
+	@( ! grep '	' $(wildcard $(srcdir)/*.sgml $(srcdir)/ref/*.sgml $(srcdir)/*.xsl) ) || (echo "Tabs appear in SGML/XML files" 1>&2;  exit 1)
 
 ##
 ## Clean
@@ -319,7 +320,7 @@ check-tabs:
 
 # This allows removing some files from the distribution tarballs while
 # keeping the dependencies satisfied.
-.SECONDARY: postgres.xml $(GENERATED_SGML) HTML.index
+.SECONDARY: postgres.xml $(GENERATED_SGML)
 .SECONDARY: INSTALL.html INSTALL.xml
 .SECONDARY: postgres-A4.fo postgres-US.fo
 

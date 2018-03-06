@@ -141,6 +141,37 @@ select a, d, grouping(a,b,c)
   from gstest3
  group by grouping sets ((a,b), (a,c));
 
+-- check that distinct grouping columns are kept separate
+-- even if they are equal()
+explain (costs off)
+select g as alias1, g as alias2
+  from generate_series(1,3) g
+ group by alias1, rollup(alias2);
+
+select g as alias1, g as alias2
+  from generate_series(1,3) g
+ group by alias1, rollup(alias2);
+
+-- check that pulled-up subquery outputs still go to null when appropriate
+select four, x
+  from (select four, ten, 'foo'::text as x from tenk1) as t
+  group by grouping sets (four, x)
+  having x = 'foo';
+
+select four, x || 'x'
+  from (select four, ten, 'foo'::text as x from tenk1) as t
+  group by grouping sets (four, x)
+  order by four;
+
+select (x+y)*1, sum(z)
+ from (select 1 as x, 2 as y, 3 as z) s
+ group by grouping sets (x+y, x);
+
+select x, not x as not_x, q2 from
+  (select *, q1 = 1 as x from int8_tbl i1) as t
+  group by grouping sets(x, q2)
+  order by x, q2;
+
 -- simple rescan tests
 
 select a, b, sum(v.x)
@@ -311,12 +342,13 @@ explain (costs off)
 
 select a, b, sum(v.x)
   from (values (1),(2)) v(x), gstest_data(v.x)
- group by grouping sets (a,b);
+ group by grouping sets (a,b)
+ order by 1, 2, 3;
 explain (costs off)
   select a, b, sum(v.x)
     from (values (1),(2)) v(x), gstest_data(v.x)
-   group by grouping sets (a,b);
-
+   group by grouping sets (a,b)
+   order by 3, 1, 2;
 select *
   from (values (1),(2)) v(x),
        lateral (select a, b, sum(v.x) from gstest_data(v.x) group by grouping sets (a,b)) s;

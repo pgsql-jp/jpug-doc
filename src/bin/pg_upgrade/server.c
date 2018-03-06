@@ -9,6 +9,7 @@
 
 #include "postgres_fe.h"
 
+#include "fe_utils/connect.h"
 #include "fe_utils/string_utils.h"
 #include "pg_upgrade.h"
 
@@ -39,6 +40,8 @@ connectToServer(ClusterInfo *cluster, const char *db_name)
 		printf(_("Failure, exiting\n"));
 		exit(1);
 	}
+
+	PQclear(executeQueryOrDie(conn, ALWAYS_SECURE_SEARCH_PATH_SQL));
 
 	return conn;
 }
@@ -156,8 +159,8 @@ get_major_server_version(ClusterInfo *cluster)
 {
 	FILE	   *version_fd;
 	char		ver_filename[MAXPGPATH];
-	int			integer_version = 0;
-	int			fractional_version = 0;
+	int			v1 = 0,
+				v2 = 0;
 
 	snprintf(ver_filename, sizeof(ver_filename), "%s/PG_VERSION",
 			 cluster->pgdata);
@@ -165,13 +168,21 @@ get_major_server_version(ClusterInfo *cluster)
 		pg_fatal("could not open version file: %s\n", ver_filename);
 
 	if (fscanf(version_fd, "%63s", cluster->major_version_str) == 0 ||
-		sscanf(cluster->major_version_str, "%d.%d", &integer_version,
-			   &fractional_version) < 1)
+		sscanf(cluster->major_version_str, "%d.%d", &v1, &v2) < 1)
 		pg_fatal("could not parse PG_VERSION file from %s\n", cluster->pgdata);
 
 	fclose(version_fd);
 
-	return (100 * integer_version + fractional_version) * 100;
+	if (v1 < 10)
+	{
+		/* old style, e.g. 9.6.1 */
+		return v1 * 10000 + v2 * 100;
+	}
+	else
+	{
+		/* new style, e.g. 10.1 */
+		return v1 * 10000;
+	}
 }
 
 
@@ -183,7 +194,7 @@ stop_postmaster_atexit(void)
 
 
 bool
-start_postmaster(ClusterInfo *cluster, bool throw_error)
+start_postmaster(ClusterInfo *cluster, bool report_and_exit_on_error)
 {
 	char		cmd[MAXPGPATH * 4 + 1000];
 	PGconn	   *conn;
@@ -249,11 +260,11 @@ start_postmaster(ClusterInfo *cluster, bool throw_error)
 							  (strcmp(SERVER_LOG_FILE,
 									  SERVER_START_LOG_FILE) != 0) ?
 							  SERVER_LOG_FILE : NULL,
-							  false,
+							  report_and_exit_on_error, false,
 							  "%s", cmd);
 
 	/* Did it fail and we are just testing if the server could be started? */
-	if (!pg_ctl_return && !throw_error)
+	if (!pg_ctl_return && !report_and_exit_on_error)
 		return false;
 
 	/*
@@ -297,9 +308,9 @@ start_postmaster(ClusterInfo *cluster, bool throw_error)
 	PQfinish(conn);
 
 	/*
-	 * If pg_ctl failed, and the connection didn't fail, and throw_error is
-	 * enabled, fail now.  This could happen if the server was already
-	 * running.
+	 * If pg_ctl failed, and the connection didn't fail, and
+	 * report_and_exit_on_error is enabled, fail now.  This
+	 * could happen if the server was already running.
 	 */
 	if (!pg_ctl_return)
 	{
@@ -314,7 +325,7 @@ start_postmaster(ClusterInfo *cluster, bool throw_error)
 
 
 void
-stop_postmaster(bool fast)
+stop_postmaster(bool in_atexit)
 {
 	ClusterInfo *cluster;
 
@@ -325,11 +336,11 @@ stop_postmaster(bool fast)
 	else
 		return;					/* no cluster running */
 
-	exec_prog(SERVER_STOP_LOG_FILE, NULL, !fast,
+	exec_prog(SERVER_STOP_LOG_FILE, NULL, !in_atexit, !in_atexit,
 			  "\"%s/pg_ctl\" -w -D \"%s\" -o \"%s\" %s stop",
 			  cluster->bindir, cluster->pgconfig,
 			  cluster->pgopts ? cluster->pgopts : "",
-			  fast ? "-m fast" : "-m smart");
+			  in_atexit ? "-m fast" : "-m smart");
 
 	os_info.running_cluster = NULL;
 }

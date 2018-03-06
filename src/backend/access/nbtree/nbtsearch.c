@@ -1224,7 +1224,7 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum)
 	 * safe to apply LP_DEAD hints to the page later.  This allows us to drop
 	 * the pin for MVCC scans, which allows vacuum to avoid blocking.
 	 */
-	so->currPos.lsn = PageGetLSN(page);
+	so->currPos.lsn = BufferGetLSNAtomic(so->currPos.buf);
 
 	/*
 	 * we must save the page's right-link while scanning it; this tells us
@@ -1486,6 +1486,11 @@ _bt_readnextpage(IndexScanDesc scan, BlockNumber blkno, ScanDirection dir)
 				if (_bt_readpage(scan, dir, P_FIRSTDATAKEY(opaque)))
 					break;
 			}
+			else if (scan->parallel_scan != NULL)
+			{
+				/* allow next page be processed by parallel worker */
+				_bt_parallel_release(scan, opaque->btpo_next);
+			}
 
 			/* nope, keep going */
 			if (scan->parallel_scan != NULL)
@@ -1580,6 +1585,11 @@ _bt_readnextpage(IndexScanDesc scan, BlockNumber blkno, ScanDirection dir)
 				/* note that this will clear moreLeft if we can stop */
 				if (_bt_readpage(scan, dir, PageGetMaxOffsetNumber(page)))
 					break;
+			}
+			else if (scan->parallel_scan != NULL)
+			{
+				/* allow next page be processed by parallel worker */
+				_bt_parallel_release(scan, BufferGetBlockNumber(so->currPos.buf));
 			}
 
 			/*

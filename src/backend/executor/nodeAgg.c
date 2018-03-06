@@ -268,15 +268,22 @@ typedef struct AggStatePerTransData
 	 */
 	int			numInputs;
 
-	/* offset of input columns in AggState->evalslot */
-	int			inputoff;
-
 	/*
 	 * Number of aggregated input columns to pass to the transfn.  This
 	 * includes the ORDER BY columns for ordered-set aggs, but not for plain
 	 * aggs.  (This doesn't count the transition state value!)
 	 */
 	int			numTransInputs;
+
+	/*
+	 * At each input row, we perform a single ExecProject call to evaluate all
+	 * argument expressions that will certainly be needed at this row; that
+	 * includes this aggregate's filter expression if it has one, or its
+	 * regular argument expressions (including any ORDER BY columns) if it
+	 * doesn't.  inputoff is the starting index of this aggregate's required
+	 * expressions in the resulting tuple.
+	 */
+	int			inputoff;
 
 	/* Oid of the state transition or combine function */
 	Oid			transfn_oid;
@@ -290,9 +297,8 @@ typedef struct AggStatePerTransData
 	/* Oid of state value's datatype */
 	Oid			aggtranstype;
 
-	/* ExprStates of the FILTER and argument expressions. */
-	ExprState  *aggfilter;		/* state of FILTER expression, if any */
-	List	   *aggdirectargs;	/* states of direct-argument expressions */
+	/* ExprStates for any direct-argument expressions */
+	List	   *aggdirectargs;
 
 	/*
 	 * fmgr lookup data for transition function or combine function.  Note in
@@ -348,20 +354,21 @@ typedef struct AggStatePerTransData
 				transtypeByVal;
 
 	/*
-	 * Stuff for evaluation of aggregate inputs in cases where the aggregate
-	 * requires sorted input.  The arguments themselves will be evaluated via
-	 * AggState->evalslot/evalproj for all aggregates at once, but we only
-	 * want to sort the relevant columns for individual aggregates.
+	 * Stuff for evaluation of aggregate inputs, when they must be evaluated
+	 * separately because there's a FILTER expression.  In such cases we will
+	 * create a sortslot and the result will be stored there, whether or not
+	 * we're actually sorting.
 	 */
-	TupleDesc	sortdesc;		/* descriptor of input tuples */
+	ProjectionInfo *evalproj;	/* projection machinery */
 
 	/*
 	 * Slots for holding the evaluated input arguments.  These are set up
-	 * during ExecInitAgg() and then used for each input row requiring
-	 * processing besides what's done in AggState->evalproj.
+	 * during ExecInitAgg() and then used for each input row requiring either
+	 * FILTER or ORDER BY/DISTINCT processing.
 	 */
 	TupleTableSlot *sortslot;	/* current input tuple */
 	TupleTableSlot *uniqslot;	/* used for multi-column DISTINCT */
+	TupleDesc	sortdesc;		/* descriptor of input tuples */
 
 	/*
 	 * These values are working state that is initialized at the start of an
@@ -968,30 +975,36 @@ advance_aggregates(AggState *aggstate, AggStatePerGroup pergroup, AggStatePerGro
 	int			numGroupingSets = Max(aggstate->phase->numsets, 1);
 	int			numHashes = aggstate->num_hashes;
 	int			numTrans = aggstate->numtrans;
-	TupleTableSlot *slot = aggstate->evalslot;
+	TupleTableSlot *combinedslot;
 
-	/* compute input for all aggregates */
-	if (aggstate->evalproj)
-		aggstate->evalslot = ExecProject(aggstate->evalproj);
+	/* compute required inputs for all aggregates */
+	combinedslot = ExecProject(aggstate->combinedproj);
 
 	for (transno = 0; transno < numTrans; transno++)
 	{
 		AggStatePerTrans pertrans = &aggstate->pertrans[transno];
-		ExprState  *filter = pertrans->aggfilter;
 		int			numTransInputs = pertrans->numTransInputs;
-		int			i;
 		int			inputoff = pertrans->inputoff;
+		TupleTableSlot *slot;
+		int			i;
 
 		/* Skip anything FILTERed out */
-		if (filter)
+		if (pertrans->aggref->aggfilter)
 		{
-			Datum		res;
-			bool		isnull;
-
-			res = ExecEvalExprSwitchContext(filter, aggstate->tmpcontext,
-											&isnull);
-			if (isnull || !DatumGetBool(res))
+			/* Check the result of the filter expression */
+			if (combinedslot->tts_isnull[inputoff] ||
+				!DatumGetBool(combinedslot->tts_values[inputoff]))
 				continue;
+
+			/* Now it's safe to evaluate this agg's arguments */
+			slot = ExecProject(pertrans->evalproj);
+			/* There's no offset needed in this slot, of course */
+			inputoff = 0;
+		}
+		else
+		{
+			/* arguments are already evaluated into combinedslot @ inputoff */
+			slot = combinedslot;
 		}
 
 		if (pertrans->numSortCols > 0)
@@ -1025,11 +1038,21 @@ advance_aggregates(AggState *aggstate, AggStatePerGroup pergroup, AggStatePerGro
 					tuplesort_putdatum(pertrans->sortstates[setno],
 									   slot->tts_values[inputoff],
 									   slot->tts_isnull[inputoff]);
+				else if (pertrans->aggref->aggfilter)
+				{
+					/*
+					 * When filtering and ordering, we already have a slot
+					 * containing just the argument columns.
+					 */
+					Assert(slot == pertrans->sortslot);
+					tuplesort_puttupleslot(pertrans->sortstates[setno], slot);
+				}
 				else
 				{
 					/*
-					 * Copy slot contents, starting from inputoff, into sort
-					 * slot.
+					 * Copy argument columns from combined slot, starting at
+					 * inputoff, into sortslot, so that we can store just the
+					 * columns we want.
 					 */
 					ExecClearTuple(pertrans->sortslot);
 					memcpy(pertrans->sortslot->tts_values,
@@ -1038,9 +1061,9 @@ advance_aggregates(AggState *aggstate, AggStatePerGroup pergroup, AggStatePerGro
 					memcpy(pertrans->sortslot->tts_isnull,
 						   &slot->tts_isnull[inputoff],
 						   pertrans->numInputs * sizeof(bool));
-					pertrans->sortslot->tts_nvalid = pertrans->numInputs;
 					ExecStoreVirtualTuple(pertrans->sortslot);
-					tuplesort_puttupleslot(pertrans->sortstates[setno], pertrans->sortslot);
+					tuplesort_puttupleslot(pertrans->sortstates[setno],
+										   pertrans->sortslot);
 				}
 			}
 		}
@@ -1112,7 +1135,7 @@ combine_aggregates(AggState *aggstate, AggStatePerGroup pergroup)
 	Assert(aggstate->phase->numsets <= 1);
 
 	/* compute input for all aggregates */
-	slot = ExecProject(aggstate->evalproj);
+	slot = ExecProject(aggstate->combinedproj);
 
 	for (transno = 0; transno < numTrans; transno++)
 	{
@@ -1213,6 +1236,17 @@ advance_combine_function(AggState *aggstate,
 
 			pergroupstate->transValueIsNull = false;
 			pergroupstate->noTransValue = false;
+			return;
+		}
+
+		if (pergroupstate->transValueIsNull)
+		{
+			/*
+			 * Don't call a strict function with NULL inputs.  Note it is
+			 * possible to get here despite the above tests, if the combinefn
+			 * is strict *and* returned a NULL on a prior cycle. If that
+			 * happens we will propagate the NULL all the way to the end.
+			 */
 			return;
 		}
 	}
@@ -1524,8 +1558,8 @@ finalize_aggregate(AggState *aggstate,
 	{
 		int			numFinalArgs = peragg->numFinalArgs;
 
-		/* set up aggstate->curpertrans for AggGetAggref() */
-		aggstate->curpertrans = pertrans;
+		/* set up aggstate->curperagg for AggGetAggref() */
+		aggstate->curperagg = peragg;
 
 		InitFunctionCallInfoData(fcinfo, &peragg->finalfn,
 								 numFinalArgs,
@@ -1558,7 +1592,7 @@ finalize_aggregate(AggState *aggstate,
 			*resultVal = FunctionCallInvoke(&fcinfo);
 			*resultIsNull = fcinfo.isnull;
 		}
-		aggstate->curpertrans = NULL;
+		aggstate->curperagg = NULL;
 	}
 	else
 	{
@@ -2676,6 +2710,8 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 	int			phase;
 	int			phaseidx;
 	List	   *combined_inputeval;
+	TupleDesc	combineddesc;
+	TupleTableSlot *combinedslot;
 	ListCell   *l;
 	Bitmapset  *all_grouped_cols = NULL;
 	int			numGroupingSets = 1;
@@ -2708,6 +2744,7 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 	aggstate->current_set = 0;
 	aggstate->peragg = NULL;
 	aggstate->pertrans = NULL;
+	aggstate->curperagg = NULL;
 	aggstate->curpertrans = NULL;
 	aggstate->input_done = false;
 	aggstate->agg_done = false;
@@ -2798,10 +2835,11 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 	/*
 	 * initialize child expressions
 	 *
-	 * We rely on the parser to have checked that no aggs contain other agg
-	 * calls in their arguments.  This would make no sense under SQL semantics
-	 * (and it's forbidden by the spec).  Because it is true, we don't need to
-	 * worry about evaluating the aggs in any particular order.
+	 * We expect the parser to have checked that no aggs contain other agg
+	 * calls in their arguments (and just to be sure, we verify it again while
+	 * initializing the plan node).  This would make no sense under SQL
+	 * semantics, and it's forbidden by the spec.  Because it is true, we
+	 * don't need to worry about evaluating the aggs in any particular order.
 	 *
 	 * Note: execExpr.c finds Aggrefs for us, and adds their AggrefExprState
 	 * nodes to aggstate->aggs.  Aggrefs in the qual are found here; Aggrefs
@@ -2840,17 +2878,6 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 	 */
 	numaggs = aggstate->numaggs;
 	Assert(numaggs == list_length(aggstate->aggs));
-	if (numaggs <= 0)
-	{
-		/*
-		 * This is not an error condition: we might be using the Agg node just
-		 * to do hash-based grouping.  Even in the regular case,
-		 * constant-expression simplification could optimize away all of the
-		 * Aggrefs in the targetlist and qual.  So keep going, but force local
-		 * copy of numaggs positive so that palloc()s below don't choke.
-		 */
-		numaggs = 1;
-	}
 
 	/*
 	 * For each phase, prepare grouping set data and fmgr lookup data for
@@ -3056,27 +3083,29 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 	 *
 	 * Scenarios:
 	 *
-	 * 1. An aggregate function appears more than once in query:
+	 * 1. Identical aggregate function calls appear in the query:
 	 *
 	 *	  SELECT SUM(x) FROM ... HAVING SUM(x) > 0
 	 *
-	 *	  Since the aggregates are the identical, we only need to calculate
-	 *	  the calculate it once. Both aggregates will share the same 'aggno'
-	 *	  value.
+	 *	  Since these aggregates are identical, we only need to calculate
+	 *	  the value once. Both aggregates will share the same 'aggno' value.
 	 *
 	 * 2. Two different aggregate functions appear in the query, but the
-	 *	  aggregates have the same transition function and initial value, but
-	 *	  different final function:
+	 *	  aggregates have the same arguments, transition functions and
+	 *	  initial values (and, presumably, different final functions):
 	 *
-	 *	  SELECT SUM(x), AVG(x) FROM ...
+	 *	  SELECT AVG(x), STDDEV(x) FROM ...
 	 *
 	 *	  In this case we must create a new peragg for the varying aggregate,
-	 *	  and need to call the final functions separately, but can share the
-	 *	  same transition state.
+	 *	  and we need to call the final functions separately, but we need
+	 *	  only run the transition function once.  (This requires that the
+	 *	  final functions be nondestructive of the transition state, but
+	 *	  that's required anyway for other reasons.)
 	 *
-	 * For either of these optimizations to be valid, the aggregate's
-	 * arguments must be the same, including any modifiers such as ORDER BY,
-	 * DISTINCT and FILTER, and they mustn't contain any volatile functions.
+	 * For either of these optimizations to be valid, all aggregate properties
+	 * used in the transition phase must be the same, including any modifiers
+	 * such as ORDER BY, DISTINCT and FILTER, and the arguments mustn't
+	 * contain any volatile functions.
 	 * -----------------
 	 */
 	aggno = -1;
@@ -3340,56 +3369,105 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Update numaggs to match the number of unique aggregates found. Also set
-	 * numstates to the number of unique aggregate states found.
+	 * Update aggstate->numaggs to be the number of unique aggregates found.
+	 * Also set numstates to the number of unique transition states found.
 	 */
 	aggstate->numaggs = aggno + 1;
 	aggstate->numtrans = transno + 1;
 
 	/*
-	 * Build a single projection computing the aggregate arguments for all
-	 * aggregates at once, that's considerably faster than doing it separately
-	 * for each.
+	 * Build a single projection computing the required arguments for all
+	 * aggregates at once; if there's more than one, that's considerably
+	 * faster than doing it separately for each.
 	 *
-	 * First create a targetlist combining the targetlist of all the
-	 * transitions.
+	 * First create a targetlist representing the values to compute.
 	 */
 	combined_inputeval = NIL;
 	column_offset = 0;
 	for (transno = 0; transno < aggstate->numtrans; transno++)
 	{
 		AggStatePerTrans pertrans = &pertransstates[transno];
-		ListCell   *arg;
 
+		/*
+		 * Mark this per-trans state with its starting column in the combined
+		 * slot.
+		 */
 		pertrans->inputoff = column_offset;
 
 		/*
-		 * Adjust resno in a copied target entries, to point into the combined
-		 * slot.
+		 * If the aggregate has a FILTER, we can only evaluate the filter
+		 * expression, not the actual input expressions, during the combined
+		 * eval step --- unless we're ignoring the filter because this node is
+		 * running combinefns not transfns.
 		 */
-		foreach(arg, pertrans->aggref->args)
+		if (pertrans->aggref->aggfilter &&
+			!DO_AGGSPLIT_COMBINE(aggstate->aggsplit))
 		{
-			TargetEntry *source_tle = lfirst_node(TargetEntry, arg);
 			TargetEntry *tle;
 
-			tle = flatCopyTargetEntry(source_tle);
-			tle->resno += column_offset;
-
+			tle = makeTargetEntry(pertrans->aggref->aggfilter,
+								  column_offset + 1, NULL, false);
 			combined_inputeval = lappend(combined_inputeval, tle);
-		}
+			column_offset++;
 
-		column_offset += list_length(pertrans->aggref->args);
+			/*
+			 * We'll need separate projection machinery for the real args.
+			 * Arrange to evaluate them into the sortslot previously created.
+			 */
+			Assert(pertrans->sortslot);
+			pertrans->evalproj = ExecBuildProjectionInfo(pertrans->aggref->args,
+														 aggstate->tmpcontext,
+														 pertrans->sortslot,
+														 &aggstate->ss.ps,
+														 NULL);
+		}
+		else
+		{
+			/*
+			 * Add agg's input expressions to combined_inputeval, adjusting
+			 * resnos in the copied target entries to match the combined slot.
+			 */
+			ListCell   *arg;
+
+			foreach(arg, pertrans->aggref->args)
+			{
+				TargetEntry *source_tle = lfirst_node(TargetEntry, arg);
+				TargetEntry *tle;
+
+				tle = flatCopyTargetEntry(source_tle);
+				tle->resno += column_offset;
+
+				combined_inputeval = lappend(combined_inputeval, tle);
+			}
+
+			column_offset += list_length(pertrans->aggref->args);
+		}
 	}
 
-	/* and then create a projection for that targetlist */
-	aggstate->evaldesc = ExecTypeFromTL(combined_inputeval, false);
-	aggstate->evalslot = ExecInitExtraTupleSlot(estate);
-	aggstate->evalproj = ExecBuildProjectionInfo(combined_inputeval,
-												 aggstate->tmpcontext,
-												 aggstate->evalslot,
-												 &aggstate->ss.ps,
-												 NULL);
-	ExecSetSlotDescriptor(aggstate->evalslot, aggstate->evaldesc);
+	/* Now create a projection for the combined targetlist */
+	combineddesc = ExecTypeFromTL(combined_inputeval, false);
+	combinedslot = ExecInitExtraTupleSlot(estate);
+	ExecSetSlotDescriptor(combinedslot, combineddesc);
+	aggstate->combinedproj = ExecBuildProjectionInfo(combined_inputeval,
+													 aggstate->tmpcontext,
+													 combinedslot,
+													 &aggstate->ss.ps,
+													 NULL);
+
+	/*
+	 * Last, check whether any more aggregates got added onto the node while
+	 * we processed the expressions for the aggregate arguments (including not
+	 * only the regular arguments and FILTER expressions handled immediately
+	 * above, but any direct arguments we might've handled earlier).  If so,
+	 * we have nested aggregate functions, which is semantically nonsensical,
+	 * so complain.  (This should have been caught by the parser, so we don't
+	 * need to work hard on a helpful error message; but we defend against it
+	 * here anyway, just to be sure.)
+	 */
+	if (numaggs != list_length(aggstate->aggs))
+		ereport(ERROR,
+				(errcode(ERRCODE_GROUPING_ERROR),
+				 errmsg("aggregate function calls cannot be nested")));
 
 	return aggstate;
 }
@@ -3420,7 +3498,6 @@ build_pertrans_for_aggref(AggStatePerTrans pertrans,
 	List	   *sortlist;
 	int			numSortCols;
 	int			numDistinctCols;
-	int			naggs;
 	int			i;
 
 	/* Begin filling in the pertrans data */
@@ -3445,6 +3522,8 @@ build_pertrans_for_aggref(AggStatePerTrans pertrans,
 		pertrans->numTransInputs = numInputs;
 	else
 		pertrans->numTransInputs = numArguments;
+
+	/* inputoff and evalproj will be set up later, in ExecInitAgg */
 
 	/*
 	 * When combining states, we have no use at all for the aggregate
@@ -3561,22 +3640,9 @@ build_pertrans_for_aggref(AggStatePerTrans pertrans,
 
 	}
 
-	/* Initialize the input and FILTER expressions */
-	naggs = aggstate->numaggs;
-	pertrans->aggfilter = ExecInitExpr(aggref->aggfilter,
-									   (PlanState *) aggstate);
+	/* Initialize any direct-argument expressions */
 	pertrans->aggdirectargs = ExecInitExprList(aggref->aggdirectargs,
 											   (PlanState *) aggstate);
-
-	/*
-	 * Complain if the aggregate's arguments contain any aggregates; nested
-	 * agg functions are semantically nonsensical.  (This should have been
-	 * caught earlier, but we defend against it here anyway.)
-	 */
-	if (naggs != aggstate->numaggs)
-		ereport(ERROR,
-				(errcode(ERRCODE_GROUPING_ERROR),
-				 errmsg("aggregate function calls cannot be nested")));
 
 	/*
 	 * If we're doing either DISTINCT or ORDER BY for a plain agg, then we
@@ -3608,16 +3674,20 @@ build_pertrans_for_aggref(AggStatePerTrans pertrans,
 	pertrans->numSortCols = numSortCols;
 	pertrans->numDistinctCols = numDistinctCols;
 
-	if (numSortCols > 0)
+	/*
+	 * If we have either sorting or filtering to do, create a tupledesc and
+	 * slot corresponding to the aggregated inputs (including sort
+	 * expressions) of the agg.
+	 */
+	if (numSortCols > 0 || aggref->aggfilter)
 	{
-		/*
-		 * Get a tupledesc and slot corresponding to the aggregated inputs
-		 * (including sort expressions) of the agg.
-		 */
 		pertrans->sortdesc = ExecTypeFromTL(aggref->args, false);
 		pertrans->sortslot = ExecInitExtraTupleSlot(estate);
 		ExecSetSlotDescriptor(pertrans->sortslot, pertrans->sortdesc);
+	}
 
+	if (numSortCols > 0)
+	{
 		/*
 		 * We don't implement DISTINCT or ORDER BY aggs in the HASHED case
 		 * (yet)
@@ -3719,7 +3789,7 @@ GetAggInitVal(Datum textInitVal, Oid transtype)
  *
  * As a side-effect, this also collects a list of existing per-Trans structs
  * with matching inputs. If no identical Aggref is found, the list is passed
- * later to find_compatible_perstate, to see if we can at least reuse the
+ * later to find_compatible_pertrans, to see if we can at least reuse the
  * state value of another aggregate.
  */
 static int
@@ -3739,11 +3809,12 @@ find_compatible_peragg(Aggref *newagg, AggState *aggstate,
 
 	/*
 	 * Search through the list of already seen aggregates. If we find an
-	 * existing aggregate with the same aggregate function and input
-	 * parameters as an existing one, then we can re-use that one. While
+	 * existing identical aggregate call, then we can re-use that one. While
 	 * searching, we'll also collect a list of Aggrefs with the same input
 	 * parameters. If no matching Aggref is found, the caller can potentially
-	 * still re-use the transition state of one of them.
+	 * still re-use the transition state of one of them.  (At this stage we
+	 * just compare the parsetrees; whether different aggregates share the
+	 * same transition function will be checked later.)
 	 */
 	for (aggno = 0; aggno <= lastaggno; aggno++)
 	{
@@ -3792,7 +3863,7 @@ find_compatible_peragg(Aggref *newagg, AggState *aggstate,
  * struct
  *
  * Searches the list of transnos for a per-Trans struct with the same
- * transition state and initial condition. (The inputs have already been
+ * transition function and initial condition. (The inputs have already been
  * verified to match.)
  */
 static int
@@ -3803,6 +3874,16 @@ find_compatible_pertrans(AggState *aggstate, Aggref *newagg,
 						 List *transnos)
 {
 	ListCell   *lc;
+
+	/*
+	 * For the moment, never try to share transition states between different
+	 * ordered-set aggregates.  This is necessary because the finalfns of the
+	 * built-in OSAs (see orderedsetaggs.c) are destructive of their
+	 * transition states.  We should fix them so we can allow this, but not
+	 * losing performance in the normal non-shared case will take some work.
+	 */
+	if (AGGKIND_IS_ORDERED_SET(newagg->aggkind))
+		return -1;
 
 	foreach(lc, transnos)
 	{
@@ -3828,16 +3909,16 @@ find_compatible_pertrans(AggState *aggstate, Aggref *newagg,
 			aggdeserialfn != pertrans->deserialfn_oid)
 			continue;
 
-		/* Check that the initial condition matches, too. */
+		/*
+		 * Check that the initial condition matches, too.
+		 */
 		if (initValueIsNull && pertrans->initValueIsNull)
 			return transno;
 
 		if (!initValueIsNull && !pertrans->initValueIsNull &&
 			datumIsEqual(initValue, pertrans->initValue,
 						 pertrans->transtypeByVal, pertrans->transtypeLen))
-		{
 			return transno;
-		}
 	}
 	return -1;
 }
@@ -4056,6 +4137,13 @@ AggCheckCallContext(FunctionCallInfo fcinfo, MemoryContext *aggcontext)
  * If the function is being called as an aggregate support function,
  * return the Aggref node for the aggregate call.  Otherwise, return NULL.
  *
+ * Aggregates sharing the same inputs and transition functions can get
+ * merged into a single transition calculation.  If the transition function
+ * calls AggGetAggref, it will get some one of the Aggrefs for which it is
+ * executing.  It must therefore not pay attention to the Aggref fields that
+ * relate to the final function, as those are indeterminate.  But if a final
+ * function calls AggGetAggref, it will get a precise result.
+ *
  * Note that if an aggregate is being used as a window function, this will
  * return NULL.  We could provide a similar function to return the relevant
  * WindowFunc node in such cases, but it's not needed yet.
@@ -4065,8 +4153,16 @@ AggGetAggref(FunctionCallInfo fcinfo)
 {
 	if (fcinfo->context && IsA(fcinfo->context, AggState))
 	{
+		AggStatePerAgg curperagg;
 		AggStatePerTrans curpertrans;
 
+		/* check curperagg (valid when in a final function) */
+		curperagg = ((AggState *) fcinfo->context)->curperagg;
+
+		if (curperagg)
+			return curperagg->aggref;
+
+		/* check curpertrans (valid when in a transition function) */
 		curpertrans = ((AggState *) fcinfo->context)->curpertrans;
 
 		if (curpertrans)

@@ -2156,6 +2156,91 @@ Foreign-key constraints:
     "check_fk_presence_2_id_fkey" FOREIGN KEY (id) REFERENCES check_fk_presence_1(id)
 
 DROP TABLE check_fk_presence_1, check_fk_presence_2;
+-- check column addition within a view (bug #14876)
+create table at_base_table(id int, stuff text);
+insert into at_base_table values (23, 'skidoo');
+create view at_view_1 as select * from at_base_table bt;
+create view at_view_2 as select *, to_json(v1) as j from at_view_1 v1;
+\d+ at_view_1
+                          View "public.at_view_1"
+ Column |  Type   | Collation | Nullable | Default | Storage  | Description 
+--------+---------+-----------+----------+---------+----------+-------------
+ id     | integer |           |          |         | plain    | 
+ stuff  | text    |           |          |         | extended | 
+View definition:
+ SELECT bt.id,
+    bt.stuff
+   FROM at_base_table bt;
+
+\d+ at_view_2
+                          View "public.at_view_2"
+ Column |  Type   | Collation | Nullable | Default | Storage  | Description 
+--------+---------+-----------+----------+---------+----------+-------------
+ id     | integer |           |          |         | plain    | 
+ stuff  | text    |           |          |         | extended | 
+ j      | json    |           |          |         | extended | 
+View definition:
+ SELECT v1.id,
+    v1.stuff,
+    to_json(v1.*) AS j
+   FROM at_view_1 v1;
+
+explain (verbose, costs off) select * from at_view_2;
+                        QUERY PLAN                        
+----------------------------------------------------------
+ Seq Scan on public.at_base_table bt
+   Output: bt.id, bt.stuff, to_json(ROW(bt.id, bt.stuff))
+(2 rows)
+
+select * from at_view_2;
+ id | stuff  |             j              
+----+--------+----------------------------
+ 23 | skidoo | {"id":23,"stuff":"skidoo"}
+(1 row)
+
+create or replace view at_view_1 as select *, 2+2 as more from at_base_table bt;
+\d+ at_view_1
+                          View "public.at_view_1"
+ Column |  Type   | Collation | Nullable | Default | Storage  | Description 
+--------+---------+-----------+----------+---------+----------+-------------
+ id     | integer |           |          |         | plain    | 
+ stuff  | text    |           |          |         | extended | 
+ more   | integer |           |          |         | plain    | 
+View definition:
+ SELECT bt.id,
+    bt.stuff,
+    2 + 2 AS more
+   FROM at_base_table bt;
+
+\d+ at_view_2
+                          View "public.at_view_2"
+ Column |  Type   | Collation | Nullable | Default | Storage  | Description 
+--------+---------+-----------+----------+---------+----------+-------------
+ id     | integer |           |          |         | plain    | 
+ stuff  | text    |           |          |         | extended | 
+ j      | json    |           |          |         | extended | 
+View definition:
+ SELECT v1.id,
+    v1.stuff,
+    to_json(v1.*) AS j
+   FROM at_view_1 v1;
+
+explain (verbose, costs off) select * from at_view_2;
+                           QUERY PLAN                           
+----------------------------------------------------------------
+ Seq Scan on public.at_base_table bt
+   Output: bt.id, bt.stuff, to_json(ROW(bt.id, bt.stuff, NULL))
+(2 rows)
+
+select * from at_view_2;
+ id | stuff  |                   j                    
+----+--------+----------------------------------------
+ 23 | skidoo | {"id":23,"stuff":"skidoo","more":null}
+(1 row)
+
+drop view at_view_2;
+drop view at_view_1;
+drop table at_base_table;
 --
 -- lock levels
 --
@@ -2682,6 +2767,23 @@ Typed table of type: test_type2
 Inherits: test_tbl2
 
 DROP TABLE test_tbl2_subclass;
+CREATE TYPE test_typex AS (a int, b text);
+CREATE TABLE test_tblx (x int, y test_typex check ((y).a > 0));
+ALTER TYPE test_typex DROP ATTRIBUTE a; -- fails
+ERROR:  cannot drop composite type test_typex column a because other objects depend on it
+DETAIL:  constraint test_tblx_y_check on table test_tblx depends on composite type test_typex column a
+HINT:  Use DROP ... CASCADE to drop the dependent objects too.
+ALTER TYPE test_typex DROP ATTRIBUTE a CASCADE;
+NOTICE:  drop cascades to constraint test_tblx_y_check on table test_tblx
+\d test_tblx
+               Table "public.test_tblx"
+ Column |    Type    | Collation | Nullable | Default 
+--------+------------+-----------+----------+---------
+ x      | integer    |           |          | 
+ y      | test_typex |           |          | 
+
+DROP TABLE test_tblx;
+DROP TYPE test_typex;
 -- This test isn't that interesting on its own, but the purpose is to leave
 -- behind a table to test pg_upgrade with. The table has a composite type
 -- column in it, and the composite type has a dropped attribute.
