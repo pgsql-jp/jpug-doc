@@ -1596,7 +1596,7 @@ describeOneTableDetails(const char *schemaname,
 		else
 		{
 			printfPQExpBuffer(&buf,
-							  "SELECT pg_catalog.format_type('bigint'::regtype, NULL) AS \"%s\",\n"
+							  "SELECT 'bigint' AS \"%s\",\n"
 							  "       start_value AS \"%s\",\n"
 							  "       min_value AS \"%s\",\n"
 							  "       max_value AS \"%s\",\n"
@@ -2417,8 +2417,8 @@ describeOneTableDetails(const char *schemaname,
 							  "   FROM pg_catalog.unnest(stxkeys) s(attnum)\n"
 							  "   JOIN pg_catalog.pg_attribute a ON (stxrelid = a.attrelid AND\n"
 							  "        a.attnum = s.attnum AND NOT attisdropped)) AS columns,\n"
-							  "  (stxkind @> '{d}') AS ndist_enabled,\n"
-							  "  (stxkind @> '{f}') AS deps_enabled\n"
+							  "  'd' = any(stxkind) AS ndist_enabled,\n"
+							  "  'f' = any(stxkind) AS deps_enabled\n"
 							  "FROM pg_catalog.pg_statistic_ext stat "
 							  "WHERE stxrelid = '%s'\n"
 							  "ORDER BY 1;",
@@ -2483,7 +2483,7 @@ describeOneTableDetails(const char *schemaname,
 			{
 				printfPQExpBuffer(&buf,
 								  "SELECT r.rulename, trim(trailing ';' from pg_catalog.pg_get_ruledef(r.oid, true)), "
-								  "'O'::char AS ev_enabled\n"
+								  "'O' AS ev_enabled\n"
 								  "FROM pg_catalog.pg_rewrite r\n"
 								  "WHERE r.ev_class = '%s' ORDER BY 1;",
 								  oid);
@@ -5357,7 +5357,7 @@ describeSubscriptions(const char *pattern, bool verbose)
 						 "FROM pg_catalog.pg_subscription\n"
 						 "WHERE subdbid = (SELECT oid\n"
 						 "                 FROM pg_catalog.pg_database\n"
-						 "                 WHERE datname = current_database())");
+						 "                 WHERE datname = pg_catalog.current_database())");
 
 	processSQLNamePattern(pset.db, &buf, pattern, true, false,
 						  NULL, "subname", NULL,

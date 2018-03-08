@@ -410,7 +410,7 @@ ExecInitParallelPlan(PlanState *planstate, EState *estate, int nworkers)
 
 	/* Estimate space for query text. */
 	query_len = strlen(estate->es_sourceText);
-	shm_toc_estimate_chunk(&pcxt->estimator, query_len);
+	shm_toc_estimate_chunk(&pcxt->estimator, query_len + 1);
 	shm_toc_estimate_keys(&pcxt->estimator, 1);
 
 	/* Estimate space for serialized PlannedStmt. */
@@ -478,8 +478,8 @@ ExecInitParallelPlan(PlanState *planstate, EState *estate, int nworkers)
 	 */
 
 	/* Store query string */
-	query_string = shm_toc_allocate(pcxt->toc, query_len);
-	memcpy(query_string, estate->es_sourceText, query_len);
+	query_string = shm_toc_allocate(pcxt->toc, query_len + 1);
+	memcpy(query_string, estate->es_sourceText, query_len + 1);
 	shm_toc_insert(pcxt->toc, PARALLEL_KEY_QUERY_TEXT, query_string);
 
 	/* Store serialized PlannedStmt. */
@@ -544,12 +544,6 @@ ExecInitParallelPlan(PlanState *planstate, EState *estate, int nworkers)
 	}
 
 	/*
-	 * Make the area available to executor nodes running in the leader.  See
-	 * also ParallelQueryMain which makes it available to workers.
-	 */
-	estate->es_query_dsa = pei->area;
-
-	/*
 	 * Give parallel-aware nodes a chance to initialize their shared data.
 	 * This also initializes the elements of instrumentation->ps_instrument,
 	 * if it exists.
@@ -557,7 +551,11 @@ ExecInitParallelPlan(PlanState *planstate, EState *estate, int nworkers)
 	d.pcxt = pcxt;
 	d.instrumentation = instrumentation;
 	d.nnodes = 0;
+
+	/* Install our DSA area while initializing the plan. */
+	estate->es_query_dsa = pei->area;
 	ExecParallelInitializeDSM(planstate, &d);
+	estate->es_query_dsa = NULL;
 
 	/*
 	 * Make sure that the world hasn't shifted under our feet.  This could
@@ -609,6 +607,8 @@ void
 ExecParallelReinitialize(PlanState *planstate,
 						 ParallelExecutorInfo *pei)
 {
+	EState	   *estate = planstate->state;
+
 	/* Old workers must already be shut down */
 	Assert(pei->finished);
 
@@ -618,7 +618,9 @@ ExecParallelReinitialize(PlanState *planstate,
 	pei->finished = false;
 
 	/* Traverse plan tree and let each child node reset associated state. */
+	estate->es_query_dsa = pei->area;
 	ExecParallelReInitializeDSM(planstate, pei->pcxt);
+	estate->es_query_dsa = NULL;
 }
 
 /*
@@ -721,7 +723,7 @@ ExecParallelRetrieveInstrumentation(PlanState *planstate,
 
 /*
  * Finish parallel execution.  We wait for parallel workers to finish, and
- * accumulate their buffer usage and instrumentation.
+ * accumulate their buffer usage.
  */
 void
 ExecParallelFinish(ParallelExecutorInfo *pei)
@@ -767,23 +769,23 @@ ExecParallelFinish(ParallelExecutorInfo *pei)
 	for (i = 0; i < nworkers; i++)
 		InstrAccumParallelQuery(&pei->buffer_usage[i]);
 
-	/* Finally, accumulate instrumentation, if any. */
-	if (pei->instrumentation)
-		ExecParallelRetrieveInstrumentation(pei->planstate,
-											pei->instrumentation);
-
 	pei->finished = true;
 }
 
 /*
- * Clean up whatever ParallelExecutorInfo resources still exist after
- * ExecParallelFinish.  We separate these routines because someone might
- * want to examine the contents of the DSM after ExecParallelFinish and
- * before calling this routine.
+ * Accumulate instrumentation, and then clean up whatever ParallelExecutorInfo
+ * resources still exist after ExecParallelFinish.  We separate these
+ * routines because someone might want to examine the contents of the DSM
+ * after ExecParallelFinish and before calling this routine.
  */
 void
 ExecParallelCleanup(ParallelExecutorInfo *pei)
 {
+	/* Accumulate instrumentation, if any. */
+	if (pei->instrumentation)
+		ExecParallelRetrieveInstrumentation(pei->planstate,
+											pei->instrumentation);
+
 	if (pei->area != NULL)
 	{
 		dsa_detach(pei->area);

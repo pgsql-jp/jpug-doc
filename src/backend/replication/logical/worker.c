@@ -204,6 +204,8 @@ create_estate_for_relation(LogicalRepRelMapEntry *rel)
 	estate->es_num_result_relations = 1;
 	estate->es_result_relation_info = resultRelInfo;
 
+	estate->es_output_cid = GetCurrentCommandId(true);
+
 	/* Triggers might need a slot */
 	if (resultRelInfo->ri_TrigDesc)
 		estate->es_trig_tuple_slot = ExecInitExtraTupleSlot(estate);
@@ -391,10 +393,13 @@ slot_modify_cstrings(TupleTableSlot *slot, LogicalRepRelMapEntry *rel,
 		Form_pg_attribute att = slot->tts_tupleDescriptor->attrs[i];
 		int			remoteattnum = rel->attrmap[i];
 
-		if (remoteattnum >= 0 && !replaces[remoteattnum])
+		if (remoteattnum < 0)
 			continue;
 
-		if (remoteattnum >= 0 && values[remoteattnum] != NULL)
+		if (!replaces[remoteattnum])
+			continue;
+
+		if (values[remoteattnum] != NULL)
 		{
 			Oid			typinput;
 			Oid			typioparam;

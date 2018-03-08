@@ -3335,6 +3335,20 @@ CREATE TABLE public.products ( ... );
 検索パス内に一致するテーブルがないと、データベースの他のスキーマ内に一致するテーブルがある場合でもエラーが報告されます。
    </para>
 
+  <para>
+    The ability to create like-named objects in different schemas complicates
+    writing a query that references precisely the same objects every time.  It
+    also opens up the potential for users to change the behavior of other
+    users' queries, maliciously or accidentally.  Due to the prevalence of
+    unqualified names in queries and their use
+    in <productname>PostgreSQL</productname> internals, adding a schema
+    to <varname>search_path</varname> effectively trusts all users having
+    <literal>CREATE</literal> privilege on that schema.  When you run an
+    ordinary query, a malicious user able to create objects in a schema of
+    your search path can take control and execute arbitrary SQL functions as
+    though you executed them.
+   </para>
+
    <indexterm>
 <!--
     <primary>schema</primary>
@@ -3526,8 +3540,9 @@ SELECT 3 OPERATOR(pg_catalog.+) 4;
     the schema
     <literal>public</literal>.  This allows all users that are able to
     connect to a given database to create objects in its
-    <literal>public</literal> schema.  If you do
-    not want to allow that, you can revoke that privilege:
+    <literal>public</literal> schema.
+    Some <link linkend="ddl-schemas-patterns">usage patterns</link> call for
+    revoking that privilege:
 -->
 他のユーザのスキーマ内でオブジェクトを作成できるようにすることも可能です。
 それには、スキーマ上で<literal>CREATE</literal>権限が付与されていなければなりません。
@@ -3612,71 +3627,77 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 
    <para>
 <!--
-    Schemas can be used to organize your data in many ways.  There are
-    a few usage patterns that are recommended and are easily supported by
-    the default configuration:
+    Schemas can be used to organize your data in many ways.  There are a few
+    usage patterns easily supported by the default configuration, only one of
+    which suffices when database users mistrust other database users:
 -->
 スキーマは様々な方法でデータの編成に使用できます。
 デフォルト構成で簡単にサポートできるお勧めの使用パターンがいくつかあります。
     <itemizedlist>
      <listitem>
+      <!-- "DROP SCHEMA public" is inferior to this REVOKE, because pg_dump
+           doesn't preserve that DROP. -->
       <para>
-<!--
-       If you do not create any schemas then all users access the
-       public schema implicitly.  This simulates the situation where
-       schemas are not available at all.  This setup is mainly
-       recommended when there is only a single user or a few cooperating
-       users in a database.  This setup also allows smooth transition
-       from the non-schema-aware world.
--->
-スキーマを作成しない場合は、全てのユーザが暗黙にpublicスキーマにアクセスします。
-これはスキーマがまったく使用できない状況と同じです。
-この構成は主に、データベースで作業するのが1人のユーザまたは数人の協働ユーザだけの場合に推奨されます。
-またこの構成では、スキーマを認識しない環境からの移行を容易に行えます。
-      </para>
-     </listitem>
-
-     <listitem>
-      <para>
-<!--
-       You can create a schema for each user with the same name as
-       that user.  Recall that the default search path starts with
-       <literal>$user</literal>, which resolves to the user name.
-       Therefore, if each user has a separate schema, they access their
+       Constrain ordinary users to user-private schemas.  To implement this,
+       issue <literal>REVOKE CREATE ON SCHEMA public FROM PUBLIC</literal>,
+       and create a schema for each user with the same name as that user.  If
+       affected users had logged in before this, consider auditing the public
+       schema for objects named like objects in
+       schema <literal>pg_catalog</literal>.  Recall that the default search
+       path starts with <literal>$user</literal>, which resolves to the user
+       name.  Therefore, if each user has a separate schema, they access their
        own schemas by default.
--->
-それぞれのユーザに、ユーザ名と同じ名前のスキーマを作成することができます。
-デフォルトの検索パスが、ユーザ名として解決される<literal>$user</literal>で始まることを思い出してください。
-つまり、各ユーザが個別のスキーマを持っていると、デフォルトでそれぞれのスキーマにアクセスすることになります。
-      </para>
-
-      <para>
-<!--
-       If you use this setup then you might also want to revoke access
-       to the public schema (or drop it altogether), so users are
-       truly constrained to their own schemas.
--->
-この設定を使用する場合は、publicスキーマへのアクセス権を取り消して（またはスキーマを削除して）、ユーザが完全に自分のスキーマにしかアクセスできないようにすることもできます。
       </para>
      </listitem>
 
      <listitem>
       <para>
-<!--
-       To install shared applications (tables to be used by everyone,
-       additional functions provided by third parties, etc.), put them
-       into separate schemas.  Remember to grant appropriate
-       privileges to allow the other users to access them.  Users can
-       then refer to these additional objects by qualifying the names
-       with a schema name, or they can put the additional schemas into
-       their search path, as they choose.
--->
-共有アプリケーション（共有で使うテーブル、サードパーティ提供の追加関数など）をインストールする際には、それぞれ別のスキーマに入れるようにしてください。
-また他のユーザがこれらにアクセスできるように適切な権限を付与することを忘れないようにしてください。
-それによって他のユーザは、追加のオブジェクトをスキーマ名で修飾することによって参照したり、希望するならば、スキーマをそれぞれの検索パスに追加したりすることができます。
+       Remove the public schema from each user's default search path
+       using <literal>ALTER ROLE <replaceable>user</replaceable> SET
+       search_path = "$user"</literal>.  Everyone retains the ability to
+       create objects in the public schema, but only qualified names will
+       choose those objects.  A user holding the <literal>CREATEROLE</literal>
+       privilege can undo this setting and issue arbitrary queries under the
+       identity of users relying on the setting.  If you
+       grant <literal>CREATEROLE</literal> to users not warranting this
+       almost-superuser ability, use the first pattern instead.
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+       Remove the public schema from <varname>search_path</varname> in
+       <link linkend="config-setting-configuration-file"><filename>postgresql.conf</filename></link>.
+       The ensuing user experience matches the previous pattern.  In addition
+       to that pattern's implications for <literal>CREATEROLE</literal>, this
+       trusts database owners the same way.  If you assign
+       the <literal>CREATEROLE</literal>
+       privilege, <literal>CREATEDB</literal> privilege or individual database
+       ownership to users not warranting almost-superuser access, use the
+       first pattern instead.
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+       Keep the default.  All users access the public schema implicitly.  This
+       simulates the situation where schemas are not available at all, giving
+       a smooth transition from the non-schema-aware world.  However, any user
+       can issue arbitrary queries under the identity of any user not electing
+       to protect itself individually.  This pattern is acceptable only when
+       the database has a single user or a few mutually-trusting users.
       </para>
      </listitem>
     </itemizedlist>
+   </para>
+
+   <para>
+    For any pattern, to install shared applications (tables to be used by
+    everyone, additional functions provided by third parties, etc.), put them
+    into separate schemas.  Remember to grant appropriate privileges to allow
+    the other users to access them.  Users can then refer to these additional
+    objects by qualifying the names with a schema name, or they can put the
+    additional schemas into their search path, as they choose.
    </para>
   </sect2>
 
@@ -3711,7 +3732,7 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 <!--
     Also, there is no concept of a <literal>public</> schema in the
     SQL standard.  For maximum conformance to the standard, you should
-    not use (perhaps even remove) the <literal>public</> schema.
+    not use the <literal>public</> schema.
 -->
 また、標準SQLには、<literal>public</>スキーマという概念もありません。
 標準に最大限従うためには、<literal>public</>スキーマは使用すべきではありません（おそらく削除した方が良いかもしれません）。
@@ -4684,7 +4705,7 @@ CREATE TABLE measurement (
        parent.  Note that specifying bounds such that the new partition's
        values will overlap with those in one or more existing partitions will
        cause an error.  Inserting data into the parent table that does not map
-       to one of the existing partitions will cause an error; appropriate
+       to one of the existing partitions will cause an error; an appropriate
        partition must be added manually.
 -->
 パーティションを作成します。
@@ -4717,14 +4738,14 @@ CREATE TABLE measurement (
 
 <programlisting>
 CREATE TABLE measurement_y2006m02 PARTITION OF measurement
-    FOR VALUES FROM ('2006-02-01') TO ('2006-03-01')
+    FOR VALUES FROM ('2006-02-01') TO ('2006-03-01');
 
 CREATE TABLE measurement_y2006m03 PARTITION OF measurement
-    FOR VALUES FROM ('2006-03-01') TO ('2006-04-01')
+    FOR VALUES FROM ('2006-03-01') TO ('2006-04-01');
 
 ...
 CREATE TABLE measurement_y2007m11 PARTITION OF measurement
-    FOR VALUES FROM ('2007-11-01') TO ('2007-12-01')
+    FOR VALUES FROM ('2007-11-01') TO ('2007-12-01');
 
 CREATE TABLE measurement_y2007m12 PARTITION OF measurement
     FOR VALUES FROM ('2007-12-01') TO ('2008-01-01')
@@ -4732,8 +4753,8 @@ CREATE TABLE measurement_y2007m12 PARTITION OF measurement
 
 CREATE TABLE measurement_y2008m01 PARTITION OF measurement
     FOR VALUES FROM ('2008-01-01') TO ('2008-02-01')
-    TABLESPACE fasttablespace
-    WITH (parallel_workers = 4);
+    WITH (parallel_workers = 4)
+    TABLESPACE fasttablespace;
 </programlisting>
       </para>
 

@@ -56,6 +56,7 @@
 #include "access/xlog_internal.h"
 #include "access/xlogutils.h"
 
+#include "catalog/pg_authid.h"
 #include "catalog/pg_type.h"
 #include "commands/dbcommands.h"
 #include "commands/defrem.h"
@@ -1151,6 +1152,8 @@ static void
 WalSndWriteData(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xid,
 				bool last_write)
 {
+	TimestampTz	now;
+
 	/* output previously gathered data in a CopyData packet */
 	pq_putmessage_noblock('d', ctx->out->data, ctx->out->len);
 
@@ -1160,23 +1163,54 @@ WalSndWriteData(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xid,
 	 * several releases by streaming physical replication.
 	 */
 	resetStringInfo(&tmpbuf);
-	pq_sendint64(&tmpbuf, GetCurrentTimestamp());
+	now = GetCurrentTimestamp();
+	pq_sendint64(&tmpbuf, now);
 	memcpy(&ctx->out->data[1 + sizeof(int64) + sizeof(int64)],
 		   tmpbuf.data, sizeof(int64));
 
-	/* fast path */
+	CHECK_FOR_INTERRUPTS();
+
 	/* Try to flush pending output to the client */
 	if (pq_flush_if_writable() != 0)
 		WalSndShutdown();
 
-	if (!pq_is_send_pending())
+	/* Try taking fast path unless we get too close to walsender timeout. */
+	if (now < TimestampTzPlusMilliseconds(last_reply_timestamp,
+										  wal_sender_timeout / 2) &&
+		!pq_is_send_pending())
+	{
 		return;
+	}
 
+	/* If we have pending write here, go to slow path */
 	for (;;)
 	{
 		int			wakeEvents;
 		long		sleeptime;
-		TimestampTz now;
+
+		/* Check for input from the client */
+		ProcessRepliesIfAny();
+
+		now = GetCurrentTimestamp();
+
+		/* die if timeout was reached */
+		WalSndCheckTimeOut(now);
+
+		/* Send keepalive if the time has come */
+		WalSndKeepaliveIfNecessary(now);
+
+		if (!pq_is_send_pending())
+			break;
+
+		sleeptime = WalSndComputeSleeptime(now);
+
+		wakeEvents = WL_LATCH_SET | WL_POSTMASTER_DEATH |
+			WL_SOCKET_WRITEABLE | WL_SOCKET_READABLE | WL_TIMEOUT;
+
+		/* Sleep until something happens or we time out */
+		WaitLatchOrSocket(MyLatch, wakeEvents,
+						  MyProcPort->sock, sleeptime,
+						  WAIT_EVENT_WAL_SENDER_WRITE_DATA);
 
 		/*
 		 * Emergency bailout if postmaster has died.  This is to avoid the
@@ -1198,34 +1232,9 @@ WalSndWriteData(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xid,
 			SyncRepInitConfig();
 		}
 
-		/* Check for input from the client */
-		ProcessRepliesIfAny();
-
 		/* Try to flush pending output to the client */
 		if (pq_flush_if_writable() != 0)
 			WalSndShutdown();
-
-		/* If we finished clearing the buffered data, we're done here. */
-		if (!pq_is_send_pending())
-			break;
-
-		now = GetCurrentTimestamp();
-
-		/* die if timeout was reached */
-		WalSndCheckTimeOut(now);
-
-		/* Send keepalive if the time has come */
-		WalSndKeepaliveIfNecessary(now);
-
-		sleeptime = WalSndComputeSleeptime(now);
-
-		wakeEvents = WL_LATCH_SET | WL_POSTMASTER_DEATH |
-			WL_SOCKET_WRITEABLE | WL_SOCKET_READABLE | WL_TIMEOUT;
-
-		/* Sleep until something happens or we time out */
-		WaitLatchOrSocket(MyLatch, wakeEvents,
-						  MyProcPort->sock, sleeptime,
-						  WAIT_EVENT_WAL_SENDER_WRITE_DATA);
 	}
 
 	/* reactivate latch so WalSndLoop knows to continue */
@@ -1496,6 +1505,9 @@ exec_replication_command(const char *cmd_string)
 	initStringInfo(&reply_message);
 	initStringInfo(&tmpbuf);
 
+	/* Report to pgstat that this process is running */
+	pgstat_report_activity(STATE_RUNNING, NULL);
+
 	switch (cmd_node->type)
 	{
 		case T_IdentifySystemCmd:
@@ -1547,6 +1559,9 @@ exec_replication_command(const char *cmd_string)
 				ereport(ERROR,
 						(errmsg("cannot execute SQL commands in WAL sender for physical replication")));
 
+			/* Report to pgstat that this process is now idle */
+			pgstat_report_activity(STATE_IDLE, NULL);
+
 			/* Tell the caller that this wasn't a WalSender command. */
 			return false;
 
@@ -1561,6 +1576,9 @@ exec_replication_command(const char *cmd_string)
 
 	/* Send CommandComplete message */
 	EndCommand("SELECT", DestRemote);
+
+	/* Report to pgstat that this process is now idle */
+	pgstat_report_activity(STATE_IDLE, NULL);
 
 	return true;
 }
@@ -2080,9 +2098,6 @@ WalSndLoop(WalSndSendDataCallback send_data)
 	 */
 	last_reply_timestamp = GetCurrentTimestamp();
 	waiting_for_ping_response = false;
-
-	/* Report to pgstat that this process is running */
-	pgstat_report_activity(STATE_RUNNING, NULL);
 
 	/*
 	 * Loop until we reach the end of this timeline or the client requests to
@@ -3228,11 +3243,12 @@ pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
 		memset(nulls, 0, sizeof(nulls));
 		values[0] = Int32GetDatum(pid);
 
-		if (!superuser())
+		if (!is_member_of_role(GetUserId(), DEFAULT_ROLE_READ_ALL_STATS))
 		{
 			/*
-			 * Only superusers can see details. Other users only get the pid
-			 * value to know it's a walsender, but no details.
+			 * Only superusers and members of pg_read_all_stats can see details.
+			 * Other users only get the pid value to know it's a walsender,
+			 * but no details.
 			 */
 			MemSet(&nulls[1], true, PG_STAT_GET_WAL_SENDERS_COLS - 1);
 		}

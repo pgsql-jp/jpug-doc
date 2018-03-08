@@ -93,7 +93,6 @@
 #include "storage/sinvaladt.h"
 #include "storage/smgr.h"
 #include "tcop/tcopprot.h"
-#include "utils/dsa.h"
 #include "utils/fmgroids.h"
 #include "utils/fmgrprotos.h"
 #include "utils/lsyscache.h"
@@ -573,6 +572,12 @@ AutoVacLauncherMain(int argc, char *argv[])
 
 	/* must unblock signals before calling rebuild_database_list */
 	PG_SETMASK(&UnBlockSig);
+
+	/*
+	 * Set always-secure search path.  Launcher doesn't connect to a database,
+	 * so this has no effect.
+	 */
+	SetConfigOption("search_path", "", PGC_SUSET, PGC_S_OVERRIDE);
 
 	/*
 	 * Force zero_damaged_pages OFF in the autovac process, even if it is set
@@ -1585,6 +1590,14 @@ AutoVacWorkerMain(int argc, char *argv[])
 	PG_SETMASK(&UnBlockSig);
 
 	/*
+	 * Set always-secure search path, so malicious users can't redirect user
+	 * code (e.g. pg_index.indexprs).  (That code runs in a
+	 * SECURITY_RESTRICTED_OPERATION sandbox, so malicious users could not
+	 * take control of the entire autovacuum worker in any case.)
+	 */
+	SetConfigOption("search_path", "", PGC_SUSET, PGC_S_OVERRIDE);
+
+	/*
 	 * Force zero_damaged_pages OFF in the autovac process, even if it is set
 	 * in postgresql.conf.  We don't really want such a dangerous option being
 	 * applied non-interactively.
@@ -2444,8 +2457,10 @@ do_autovacuum(void)
 		 */
 		PG_TRY();
 		{
+			/* Use PortalContext for any per-table allocations */
+			MemoryContextSwitchTo(PortalContext);
+
 			/* have at it */
-			MemoryContextSwitchTo(TopTransactionContext);
 			autovacuum_do_vac_analyze(tab, bstrategy);
 
 			/*
@@ -2481,6 +2496,9 @@ do_autovacuum(void)
 			RESUME_INTERRUPTS();
 		}
 		PG_END_TRY();
+
+		/* Make sure we're back in AutovacMemCxt */
+		MemoryContextSwitchTo(AutovacMemCxt);
 
 		did_vacuum = true;
 
@@ -2525,6 +2543,8 @@ deleted:
 			continue;
 		if (workitem->avw_active)
 			continue;
+		if (workitem->avw_database != MyDatabaseId)
+			continue;
 
 		/* claim this one, and release lock while performing it */
 		workitem->avw_active = true;
@@ -2533,8 +2553,7 @@ deleted:
 		perform_work_item(workitem);
 
 		/*
-		 * Check for config changes before acquiring lock for further
-		 * jobs.
+		 * Check for config changes before acquiring lock for further jobs.
 		 */
 		CHECK_FOR_INTERRUPTS();
 		if (got_SIGHUP)
@@ -2601,10 +2620,9 @@ perform_work_item(AutoVacuumWorkItem *workitem)
 	/*
 	 * Save the relation name for a possible error message, to avoid a catalog
 	 * lookup in case of an error.  If any of these return NULL, then the
-	 * relation has been dropped since last we checked; skip it. Note: they
-	 * must live in a long-lived memory context because we call vacuum and
-	 * analyze in different transactions.
+	 * relation has been dropped since last we checked; skip it.
 	 */
+	Assert(CurrentMemoryContext == AutovacMemCxt);
 
 	cur_relname = get_rel_name(workitem->avw_relation);
 	cur_nspname = get_namespace_name(get_rel_namespace(workitem->avw_relation));
@@ -2614,6 +2632,9 @@ perform_work_item(AutoVacuumWorkItem *workitem)
 
 	autovac_report_workitem(workitem, cur_nspname, cur_datname);
 
+	/* clean up memory before each work item */
+	MemoryContextResetAndDeleteChildren(PortalContext);
+
 	/*
 	 * We will abort the current work item if something errors out, and
 	 * continue with the next one; in particular, this happens if we are
@@ -2622,9 +2643,10 @@ perform_work_item(AutoVacuumWorkItem *workitem)
 	 */
 	PG_TRY();
 	{
-		/* have at it */
-		MemoryContextSwitchTo(TopTransactionContext);
+		/* Use PortalContext for any per-work-item allocations */
+		MemoryContextSwitchTo(PortalContext);
 
+		/* have at it */
 		switch (workitem->avw_type)
 		{
 			case AVW_BRINSummarizeRange:
@@ -2667,6 +2689,9 @@ perform_work_item(AutoVacuumWorkItem *workitem)
 		RESUME_INTERRUPTS();
 	}
 	PG_END_TRY();
+
+	/* Make sure we're back in AutovacMemCxt */
+	MemoryContextSwitchTo(AutovacMemCxt);
 
 	/* We intentionally do not set did_vacuum here */
 

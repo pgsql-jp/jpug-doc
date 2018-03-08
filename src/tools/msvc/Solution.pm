@@ -81,6 +81,7 @@ sub DeterminePlatform
 sub IsNewer
 {
 	my ($newfile, $oldfile) = @_;
+	-e $oldfile or warn "source file \"$oldfile\" does not exist";
 	if (   $oldfile ne 'src/tools/msvc/config.pl'
 		&& $oldfile ne 'src/tools/msvc/config_default.pl')
 	{
@@ -327,7 +328,7 @@ s{PG_VERSION_STR "[^"]+"}{PG_VERSION_STR "PostgreSQL $self->{strver}$extraver, c
 	if ($self->{options}->{python}
 		&& IsNewer(
 			'src/pl/plpython/spiexceptions.h',
-			'src/include/backend/errcodes.txt'))
+			'src/backend/utils/errcodes.txt'))
 	{
 		print "Generating spiexceptions.h...\n";
 		system(
@@ -536,10 +537,12 @@ sub AddProject
 		}
 		else
 		{
+			# We don't expect the config-specific library to be here,
+			# so don't ask for it in last parameter
 			$proj->AddLibrary(
-				$self->{options}->{openssl} . '\lib\ssleay32.lib', 1);
+				$self->{options}->{openssl} . '\lib\ssleay32.lib', 0);
 			$proj->AddLibrary(
-				$self->{options}->{openssl} . '\lib\libeay32.lib', 1);
+				$self->{options}->{openssl} . '\lib\libeay32.lib', 0);
 		}
 	}
 	if ($self->{options}->{nls})

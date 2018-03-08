@@ -3083,20 +3083,19 @@ TCPクライアントは<literal>sslmode=verify-ca</>もしくは<literal>verify
   <variablelist>
 
   <varlistentry>
-<!--
-   <term>Password Storage Encryption</term>
--->
-   <term>パスワード格納に関する暗号化</term>
+   <term>Password Encryption</term>
    <listitem>
 
     <para>
 <!--
-     By default, database user passwords are stored as MD5 hashes, so
-     the administrator cannot determine the actual password assigned
-     to the user. If MD5 encryption is used for client authentication,
-     the unencrypted password is never even temporarily present on the
-     server because the client MD5-encrypts it before being sent
-     across the network.
+     Database user passwords are stored as hashes (determined by the setting
+     <xref linkend="guc-password-encryption">), so the administrator cannot
+     determine the actual password assigned to the user. If SCRAM or MD5
+     encryption is used for client authentication, the unencrypted password is
+     never even temporarily present on the server because the client encrypts
+     it before being sent across the network. SCRAM is preferred, because it
+     is an Internet standard and is more secure than the PostgreSQL-specific
+     MD5 authentication protocol.
 -->
 デフォルトでは、データベースユーザのパスワードはMD5ハッシュとして格納されます。
 ですので、ユーザに割り当てられているパスワードは管理者でも分かりません。
@@ -3182,34 +3181,6 @@ Linuxファイルシステムの暗号化オプションには、eCryptfsとEncF
 そのディスク装置をマウントするホストのどこかに暗号化キーを格納している場合もあります。
     </para>
    </listitem>
-  </varlistentry>
-
-  <varlistentry>
-<!--
-   <term>Encrypting Passwords Across A Network</term>
--->
-   <term>ネットワーク越しのパスワード暗号化</term>
-
-   <listitem>
-     <para>
-<!--
-      The <literal>MD5</> authentication method double-encrypts the
-      password on the client before sending it to the server. It first
-      MD5-encrypts it based on the user name, and then encrypts it
-      based on a random salt sent by the server when the database
-      connection was made. It is this double-encrypted value that is
-      sent over the network to the server. Double-encryption not only
-      prevents the password from being discovered, it also prevents
-      another connection from using the same encrypted password to
-      connect to the database server at a later time.
--->
-<literal>MD5</>認証方式は、サーバにパスワードを送信する前に、パスワードを二重に暗号化します。
-まず、ユーザ名を元にパスワードをMD5で暗号化します。
-そして、データベース接続が確立した時に、ランダムなソルトを使用して更に暗号化します。
-この二重に暗号化された値が、ネットワーク越しにサーバへ渡されます。
-二重の暗号化により、パスワードの盗聴を防ぐだけではなく、将来確立する別の接続で同じ暗号化値が使用されなくなります。
-     </para>
-    </listitem>
   </varlistentry>
 
   <varlistentry>
@@ -3427,37 +3398,42 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
 
   <para>
 <!--
-   In some cases, the server certificate might be signed by an
-   <quote>intermediate</> certificate authority, rather than one that is
-   directly trusted by clients.  To use such a certificate, append the
-   certificate of the signing authority to the <filename>server.crt</> file,
-   then its parent authority's certificate, and so on up to a certificate
-   authority, <quote>root</> or <quote>intermediate</>, that is trusted by
-   clients, i.e. signed by a certificate in the clients'
-   <filename>root.crt</filename> files.
+   The first certificate in <filename>server.crt</> must be the
+   server's certificate because it must match the server's private key.
+   The certificates of <quote>intermediate</> certificate authorities
+   can also be appended to the file.  Doing this avoids the necessity of
+   storing intermediate certificates on clients, assuming the root and
+   intermediate certificates were created with <literal>v3_ca</>
+   extensions.  This allows easier expiration of intermediate certificates.
 -->
 サーバ証明書がクライアントで直接信頼している認証局ではなく、<quote>中間</>認証局により署名されている場合があります。
 こうした証明書を使用するために、<filename>server.crt</>ファイルに署名した認証局の証明書を追加し、その後、クライアントが信頼しているルートまたは中間までの認証局証明書を追加します。クライアントが信頼しているとは、クライアントにある<filename>root.crt</filename>ファイルの認証局による署名がある証明書です。
   </para>
 
+  <para>
+   It is not necessary to add the root certificate to
+   <filename>server.crt</>.  Instead, clients must have the root
+   certificate of the server's certificate chain.
+  </para>
+
   <sect2 id="ssl-client-certificates">
-  <!--
+<!--
    <title>Using Client Certificates</title>
-   -->
+-->
    <title>クライアント証明書の使用</title>
 
   <para>
 <!--
-   To require the client to supply a trusted certificate, place
-   certificates of the certificate authorities (<acronym>CA</acronym>s)
-   you trust in the file <filename>root.crt</filename> in the data
+   To require the client to supply a trusted certificate,
+   place certificates of the root certificate authorities
+   (<acronym>CA</>s) you trust in a file in the data
    directory, set the parameter <xref linkend="guc-ssl-ca-file"> in
-   <filename>postgresql.conf</filename> to <literal>root.crt</literal>,
-   and add the authentication option <literal>clientcert=1</literal> to the
-   appropriate <literal>hostssl</> line(s) in <filename>pg_hba.conf</>.
-   A certificate will then be requested from the client during
-   SSL connection startup.  (See <xref linkend="libpq-ssl"> for a
-   description of how to set up certificates on the client.)  The server will
+   <filename>postgresql.conf</> to the new file name, and add the
+   authentication option <literal>clientcert=1</> to the appropriate
+   <literal>hostssl</> line(s) in <filename>pg_hba.conf</>.
+   A certificate will then be requested from the client during SSL
+   connection startup.  (See <xref linkend="libpq-ssl"> for a description
+   of how to set up certificates on the client.)  The server will
    verify that the client's certificate is signed by one of the trusted
    certificate authorities.
 -->
@@ -3469,11 +3445,12 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
 
   <para>
 <!--
-   If intermediate <acronym>CA</>s appear in
-   <filename>root.crt</filename>, the file must also contain certificate
-   chains to their root <acronym>CA</>s.  Certificate Revocation List
-   (CRL) entries
-   are also checked if the parameter <xref linkend="guc-ssl-crl-file"> is set.
+   Intermediate certificates that chain up to existing root certificates
+   can also appear in the file <filename>root.crt</filename> if
+   you wish to avoid storing them on clients (assuming the root and
+   intermediate certificates were created with <literal>v3_ca</>
+   extensions).  Certificate Revocation List (CRL) entries are also
+   checked if the parameter <xref linkend="guc-ssl-crl-file"> is set.
 -->
    <!--原文コメント If this URL changes replace it with a URL to www.archive.org. -->
 <!--
@@ -3497,18 +3474,6 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
 -->
 認証オプション<literal>clientcert</literal>はすべての認証方式について利用可能ですが、<filename>pg_hba.conf</>の<literal>hostssl</>として指定された行でのみ有効です。
 <literal>clientcert</literal>が指定されていない、または0と設定されている場合でも、認証局のリストが設定されていれば、サーバはその認証局に対してクライアント証明書の検証を行いますが、クライアント証明書を提示することを要求しません。
-  </para>
-
-  <para>
-<!--
-   Note that the server's <filename>root.crt</filename> lists the top-level
-   CAs that are considered trusted for signing client certificates.
-   In principle it need
-   not list the CA that signed the server's certificate, though in most cases
-   that CA would also be trusted for client certificates.
--->
-サーバの<filename>root.crt</filename>は、クライアント証明書の署名に対して信頼できるとみなしている最上位のCAを列挙していることに注意してください。
-原理的には、サーバの証明書を署名したCAを列挙する必要はありませんが、ほとんどの場合、そのCAはクライアント証明書でも信頼されています。
   </para>
 
   <para>
@@ -3638,21 +3603,19 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
   </sect2>
 
   <sect2 id="ssl-certificate-creation">
-<!--
-   <title>Creating a Self-signed Certificate</title>
--->
-   <title>自己署名証明書の作成</title>
+   <title>Creating Certificates</title>
 
    <para>
 <!--
-     To create a quick self-signed certificate for the server, valid for 365
+     To create a simple self-signed certificate for the server, valid for 365
      days, use the following <productname>OpenSSL</productname> command,
-     replacing <replaceable>yourdomain.com</> with the server's host name:
+     replacing <replaceable>dbhost.yourdomain.com</> with the
+     server's host name:
 -->
 365日有効なサーバ用の自己署名証明書を簡単に作るためには下記の<productname>OpenSSL</productname>コマンドを実行してください（<replaceable>yourdomain.com</>をサーバのホスト名に置き換えてください）。
 <programlisting>
 openssl req -new -x509 -days 365 -nodes -text -out server.crt \
-  -keyout server.key -subj "/CN=<replaceable>yourdomain.com</>"
+  -keyout server.key -subj "/CN=<replaceable>dbhost.yourdomain.com</>"
 </programlisting>
 <!--
     Then do:
@@ -3672,17 +3635,89 @@ chmod og-rwx server.key
 
    <para>
 <!--
-    A self-signed certificate can be used for testing, but a certificate
-    signed by a certificate authority (<acronym>CA</>) (either one of the
-    global <acronym>CAs</> or a local one) should be used in production
-    so that clients can verify the server's identity. If all the clients
-    are local to the organization, using a local <acronym>CA</> is
-    recommended.
+    While a self-signed certificate can be used for testing, a certificate
+    signed by a certificate authority (<acronym>CA</>) (usually an
+    enterprise-wide root <acronym>CA</>) should be used in production.
 -->
 自己署名証明書を試験のために使用することはできますが、クライアントがサーバの身元を検証できるように、運用時は（グローバルな<acronym>CA</>の1つまたはローカルな認証局のいずれかの）認証局（<acronym>CA</>）により署名された証明書を使用すべきです。
 もしすべてのクライアントが組織においてローカルであれば、ローカル<acronym>CA</>の使用が推奨されます。
    </para>
 
+   <para>
+    To create a server certificate whose identity can be validated
+    by clients, first create a certificate signing request
+    (<acronym>CSR</>) and a public/private key file:
+<programlisting>
+openssl req -new -nodes -text -out root.csr \
+  -keyout root.key -subj "/CN=<replaceable>root.yourdomain.com</>"
+chmod og-rwx root.key
+</programlisting>
+    Then, sign the request with the key to create a root certificate
+    authority (using the default <productname>OpenSSL</>
+    configuration file location on <productname>Linux</>):
+<programlisting>
+openssl x509 -req -in root.csr -text -days 3650 \
+  -extfile /etc/ssl/openssl.cnf -extensions v3_ca \
+  -signkey root.key -out root.crt
+</programlisting>
+    Finally, create a server certificate signed by the new root certificate
+    authority:
+<programlisting>
+openssl req -new -nodes -text -out server.csr \
+  -keyout server.key -subj "/CN=<replaceable>dbhost.yourdomain.com</>"
+chmod og-rwx server.key
+
+openssl x509 -req -in server.csr -text -days 365 \
+  -CA root.crt -CAkey root.key -CAcreateserial \
+  -out server.crt
+</programlisting>
+    <filename>server.crt</> and <filename>server.key</>
+    should be stored on the server, and <filename>root.crt</> should
+    be stored on the client so the client can verify that the server's leaf
+    certificate was signed by its trusted root certificate. 
+    <filename>root.key</> should be stored offline for use in
+    creating future certificates.
+   </para>
+
+   <para>
+    It is also possible to create a chain of trust that includes
+    intermediate certificates:
+<programlisting>
+# root
+openssl req -new -nodes -text -out root.csr \
+  -keyout root.key -subj "/CN=<replaceable>root.yourdomain.com</>"
+chmod og-rwx root.key
+openssl x509 -req -in root.csr -text -days 3650 \
+  -extfile /etc/ssl/openssl.cnf -extensions v3_ca \
+  -signkey root.key -out root.crt
+
+# intermediate
+openssl req -new -nodes -text -out intermediate.csr \
+  -keyout intermediate.key -subj "/CN=<replaceable>intermediate.yourdomain.com</>"
+chmod og-rwx intermediate.key
+openssl x509 -req -in intermediate.csr -text -days 1825 \
+  -extfile /etc/ssl/openssl.cnf -extensions v3_ca \
+  -CA root.crt -CAkey root.key -CAcreateserial \
+  -out intermediate.crt
+
+# leaf
+openssl req -new -nodes -text -out server.csr \
+  -keyout server.key -subj "/CN=<replaceable>dbhost.yourdomain.com</>"
+chmod og-rwx server.key
+openssl x509 -req -in server.csr -text -days 365 \
+  -CA intermediate.crt -CAkey intermediate.key -CAcreateserial \
+  -out server.crt
+</programlisting>
+    <filename>server.crt</> and
+    <filename>intermediate.crt</> should be concatenated
+    into a certificate file bundle and stored on the server.
+    <filename>server.key</> should also be stored on the server.
+    <filename>root.crt</> should be stored on the client so
+    the client can verify that the server's leaf certificate was signed
+    by a chain of certificates linked to its trusted root certificate.
+    <filename>root.key</> and <filename>intermediate.key</>
+    should be stored offline for use in creating future certificates.
+   </para>
   </sect2>
 
  </sect1>

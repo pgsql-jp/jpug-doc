@@ -126,7 +126,7 @@ static const char *const UserAuthName[] =
 	"ident",
 	"password",
 	"md5",
-	"scram-sha256",
+	"scram-sha-256",
 	"gss",
 	"sspi",
 	"pam",
@@ -1721,9 +1721,11 @@ parse_hba_auth_opt(char *name, char *val, HbaLine *hbaline,
 			return false;
 		}
 
-		hbaline->ldapserver = pstrdup(urldata->lud_host);
+		if (urldata->lud_host)
+			hbaline->ldapserver = pstrdup(urldata->lud_host);
 		hbaline->ldapport = urldata->lud_port;
-		hbaline->ldapbasedn = pstrdup(urldata->lud_dn);
+		if (urldata->lud_dn)
+			hbaline->ldapbasedn = pstrdup(urldata->lud_dn);
 
 		if (urldata->lud_attrs)
 			hbaline->ldapsearchattribute = pstrdup(urldata->lud_attrs[0]);	/* only use first one */
