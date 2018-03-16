@@ -98,6 +98,7 @@
 
    <warning>
     <para>
+<!--
      If untrusted users have access to a database that has not adopted a
      <link linkend="ddl-schemas-patterns">secure schema usage pattern</link>,
      begin each session by removing publicly-writable schemas from
@@ -109,6 +110,12 @@
      connecting.  This consideration is not specific
      to <application>libpq</application>; it applies to every interface for
      executing arbitrary SQL commands.
+-->
+信頼できないユーザが、<link linkend="ddl-schemas-patterns">スキーマのセキュアな使用パターン</link>を適用していないデータベースへアクセスする際には、セッション開始時に<varname>search_path</varname>から、第三者が書き込みができるスキーマを削除してください。
+これは<literal>options</literal>パラメータキーワードに値<literal>-csearch_path=</literal>を設定することで可能となります。
+別の方法としては、接続後に<literal>PQexec(<replaceable>conn</replaceable>, "SELECT pg_catalog.set_config('search_path', '', false)")</literal>を発行しても構いません。
+このような配慮は、<application>libpq</application>に限ったことではありません。
+任意のSQLコマンドを実行するすべてのインターフェイスに当てはまります。
     </para>
    </warning>
 
@@ -1492,7 +1499,7 @@ Unixドメインソケットを持たないマシンにおけるデフォルト�
         accepted, in which case each host in the list is tried in order. See
         <xref linkend="libpq-multiple-hosts"> for details.
 -->
-カンマ区切りの<literal>hostaddrs</>のリストも受け付けます。
+カンマ区切りの<literal>hostaddrs</>値のリストも受け付けます。
 この場合、リスト中のホストが順に試されます。
 詳細は<xref linkend="libpq-multiple-hosts">をご覧ください。
        </para>
@@ -10577,11 +10584,14 @@ ldap://ldap.acme.com/cn=dbserver,cn=hosts?pgconnectinfo?base?(objectclass=*)
    certificate and signs leaf certificates.
 -->
 デフォルトでは<productname>PostgreSQL</>はサーバ証明書の検証をまったく行いません。
-これは、（例えば、DNSレコードを変更したり、もしくはサーバのIPアドレスを接収したりして）クライアントに知られずにサーバの属性をなりすませることを意味します。
-なりすましを防止するには<acronym>SSL</>証明書検証を使用しなければなりません。
+これは、（例えば、DNSレコードを変更したり、もしくはサーバのIPアドレスを乗っ取ったりして）クライアントに知られずにサーバの身元をなりすませることを意味します。
+なりすましを防止するには、クライアントは、トラストチェーン(chain of trust)を通じて、サーバの身元を検証できなければなりません。
+トラストチェーンは、ルート（自己署名）認証局（<acronym>CA</>）証明書をあるコンピュータに設置し、そのルート証明書によって署名されたリーフ証明書を他のコンピュータに設置することによって確立されます。
+また、ルート証明書によって署名された<quote>中間</>証明書を使って、リーフ証明書に署名することによっても可能です。
   </para>
 
   <para>
+<!--
    To allow the client to verify the identity of the server, place a root
    certificate on the client and a leaf certificate signed by the root
    certificate on the server.  To allow the server to verify the identity
@@ -10589,9 +10599,14 @@ ldap://ldap.acme.com/cn=dbserver,cn=hosts?pgconnectinfo?base?(objectclass=*)
    certificate signed by the root certificate on the client.  One or more
    intermediate certificates (usually stored with the leaf certificate)
    can also be used to link the leaf certificate to the root certificate.
+-->
+クライアントがサーバの身元を検証するためには、ルート証明書をクライアントに設置し、そのルート証明書によって署名されたリーフ証明書をサーバに設置します。
+サーバがクライアントの身元を検証するためには、ルート証明書をサーバに設置し、そのルート証明書によって署名されたリーフ証明書をクライアントに設置します。
+一つ以上の中間証明書（通常リーフ証明書とともに格納されます）を使って、リーフ証明書をルート証明書につなげることもできます。
   </para>
 
   <para>
+<!--
    Once a chain of trust has been established, there are two ways for
    the client to validate the leaf certificate sent by the server.
    If the parameter <literal>sslmode</> is set to <literal>verify-ca</>,
@@ -10604,7 +10619,8 @@ ldap://ldap.acme.com/cn=dbserver,cn=hosts?pgconnectinfo?base?(objectclass=*)
    verified. <literal>verify-full</> is recommended in most
    security-sensitive environments.
 -->
-パラメータ<literal>sslmode</>が<literal>verify-ca</>に設定されている場合、libpqは信頼される認証局(<acronym>CA</>)までの証明書連鎖を検査することで、サーバが信用に足るかを検証します。
+トラストチェーンがひとたび確立されれば、クライアントがサーバから送信されたリーフ証明書を検証する二つの方法があります。
+パラメータ<literal>sslmode</>が<literal>verify-ca</>に設定されている場合、libpqはクライアントに格納されたルート証明書までの証明書連鎖を検査することで、サーバが信用に足るかを検証します。
 <literal>sslmode</>が<literal>verify-full</>に設定されていると、libpqは<emphasis>同時に</>サーバホスト名が証明書のそれと一致するかを検証します。
 SSL接続はサーバ証明書が検証されない場合失敗します。
 安全性に慎重を期するほとんどのサーバ環境では<literal>verify-full</>を推奨します。
@@ -10638,9 +10654,9 @@ SSL接続はサーバ証明書が検証されない場合失敗します。
    the certificate chain sent by the server to the root certificates
    stored on the client.
 -->
-サーバ証明書の検証を可能にするには、1つ以上の信頼する<acronym>CA</>の証明書を、ユーザのホームディレクトリの<filename>~/.postgresql/root.crt</>ファイルに置かなければなりません。
-中間<acronym>CA</>が<filename>root.crt</filename>にあるのであれば、そのファイルはそのルート<acronym>CA</>への証明書チェーンも含まなければなりません。
+サーバ証明書の検証を可能にするには、1つ以上のルート証明書を、ユーザのホームディレクトリの<filename>~/.postgresql/root.crt</>ファイルに置かなければなりません。
 （Microsoft Windowsの場合、このファイルの名前は<filename>%APPDATA%\postgresql\root.crt</filename>です。）
+中間証明書を、サーバより送信された証明書連鎖から、クライアントに格納されたルート証明書にリンクする必要があるなら、中間証明書もそのファイルに追加する必要があります。
   </para>
 
   <para>
@@ -10708,8 +10724,8 @@ SSL接続はサーバ証明書が検証されない場合失敗します。
    connection parameters <literal>sslcert</> and <literal>sslkey</> or the
    environment variables <envar>PGSSLCERT</> and <envar>PGSSLKEY</>.
 -->
-サーバが信頼できるクライアント証明書を要求する場合、<application>libpq</application>はユーザのホームディレクトリにある<filename>~/.postgresql/postgresql.crt</>ファイルに格納された証明書を送信します。
-証明書はサーバで信頼された認証局（<acronym>CA</acronym>）のいずれかで署名されなければなりません。
+サーバが、リーフ証明書を要求することによってクライアント証明書を検証しようとする場合、<application>libpq</application>はユーザのホームディレクトリにある<filename>~/.postgresql/postgresql.crt</>ファイルに格納された証明書を送信します。
+証明書は、サーバが信頼するルート証明書につながらなければなりません。
 対応する<filename>~/.postgresql/postgresql.key</>秘密キーファイルも存在しなければなりません。
 秘密キーファイルは他者やグループからのアクセスを許可してはいけません。
 <command>chmod 0600 ~/.postgresql/postgresql.key</command>コマンドでこれを実現してください。
@@ -10718,16 +10734,25 @@ Microsoft Windowsでは、このファイルの名前はそれぞれ<filename>%A
   </para>
 
   <para>
+<!--
    The first certificate in <filename>postgresql.crt</> must be the
    client's certificate because it must match the client's private key.
    <quote>Intermediate</> certificates can be optionally appended
    to the file &mdash; doing so avoids requiring storage of intermediate
    certificates on the server's <filename>root.crt</filename> file.
+-->
+<filename>postgresql.crt</>中の最初の証明書は、クライアント証明書でなければなりません。
+クライアントの秘密鍵と一致していなければならないからです。
+オプションで、<quote>中間</>証明書を追加することができます。
+そうすることによって、サーバの<filename>root.crt</filename>ファイル上の中間証明書用の記憶領域が不要になります。
   </para>
 
   <para>
+<!--
    For instructions on creating certificates, see <xref
    linkend="ssl-certificate-creation">.
+-->
+証明書の作成手順については、<xref linkend="ssl-certificate-creation">をご覧ください。
   </para>
  </sect2>
 
