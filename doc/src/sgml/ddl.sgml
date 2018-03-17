@@ -3336,6 +3336,7 @@ CREATE TABLE public.products ( ... );
    </para>
 
   <para>
+<!--
     The ability to create like-named objects in different schemas complicates
     writing a query that references precisely the same objects every time.  It
     also opens up the potential for users to change the behavior of other
@@ -3347,7 +3348,12 @@ CREATE TABLE public.products ( ... );
     ordinary query, a malicious user able to create objects in a schema of
     your search path can take control and execute arbitrary SQL functions as
     though you executed them.
-   </para>
+-->
+同じ名前のオブジェクトを異なるスキーマに作成できる結果、正確に同じオブジェクトを参照する問合せを書く作業が、いつも複雑になります。
+また、ユーザが悪意を持って、あるいは偶然に他のユーザの問合せの挙動を変える可能性をもたらします。
+<productname>PostgreSQL</productname>内部では非修飾名を問合せ中で使うことが一般的なので、<varname>search_path</varname>にスキーマを追加することは、<literal>CREATE</literal>の書き込み権限を持っているすべてのユーザを、実質的に信頼することになります。
+あなたが通常の問合せを実行する際、あなたのサーチパス内のスキーマにオブジェクトを作成できる悪意のあるユーザは、支配権を奪い、あたかもあたが実行したように任意のSQL関数を実行できます。
+  </para>
 
    <indexterm>
 <!--
@@ -3548,7 +3554,7 @@ SELECT 3 OPERATOR(pg_catalog.+) 4;
 それには、スキーマ上で<literal>CREATE</literal>権限が付与されていなければなりません。
 デフォルトでは、<literal>public</literal> スキーマに関しては全てのユーザが<literal>CREATE</literal>と<literal>USAGE</literal>権限を持っていることに注意してください。
 つまり、全てのユーザは、そのユーザが接続できる任意のデータベース上の<literal>public</literal>スキーマにオブジェクトを作成できるということです。
-これが好ましくない場合は、以下のように権限を取り消すことができます。
+<link linkend="ddl-schemas-patterns">利用パターン</link>では、その権限を剥奪することを求めています。
 <programlisting>
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 </programlisting>
@@ -3638,6 +3644,7 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
       <!-- "DROP SCHEMA public" is inferior to this REVOKE, because pg_dump
            doesn't preserve that DROP. -->
       <para>
+<!--
        Constrain ordinary users to user-private schemas.  To implement this,
        issue <literal>REVOKE CREATE ON SCHEMA public FROM PUBLIC</literal>,
        and create a schema for each user with the same name as that user.  If
@@ -3647,11 +3654,18 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
        path starts with <literal>$user</literal>, which resolves to the user
        name.  Therefore, if each user has a separate schema, they access their
        own schemas by default.
+-->
+一般ユーザに、ユーザ個人用のスキーマだけを使わせます。
+これを実現するには、<literal>REVOKE CREATE ON SCHEMA public FROM PUBLIC</literal>を発行し、個々のユーザにユーザと同じ名前でスキーマを作成してください。
+以前からログインしているユーザに対しては、<literal>pg_catalog</literal>スキーマ内にあるのと同じ名前のpublicスキーマ内のオブジェクトを監視することを考慮してください。
+デフォルトサーチパスは、ユーザ名として解釈される<literal>$user</literal>で始まることを思い出してください。
+ですから、デフォルトではユーザは別々のスキーマを所有し、自身のスキーマにアクセスします。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Remove the public schema from each user's default search path
        using <literal>ALTER ROLE <replaceable>user</replaceable> SET
        search_path = "$user"</literal>.  Everyone retains the ability to
@@ -3661,11 +3675,17 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
        identity of users relying on the setting.  If you
        grant <literal>CREATEROLE</literal> to users not warranting this
        almost-superuser ability, use the first pattern instead.
+-->
+<literal>ALTER ROLE <replaceable>user</replaceable> SET search_path = "$user"</literal>を使って個々のユーザのデフォルトサーチパスからpublicスキーマを削除します。
+すべてのユーザは依然としてpublicスキーマにオブジェクトを作ることはできますが、修飾名を使わなければそのオブジェクトを選択できません。
+<literal>CREATEROLE</literal>権限を保持するユーザは、この設定を元に戻して、この設定に依存しているユーザの資格で任意の問合せを発行できます。
+この、ほとんどスーパユーザと言える能力を正当な理由なく<literal>CREATEROLE</literal>をユーザに許可したいというので無い限り、最初に述べたパターンを代わりに使用してください。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Remove the public schema from <varname>search_path</varname> in
        <link linkend="config-setting-configuration-file"><filename>postgresql.conf</filename></link>.
        The ensuing user experience matches the previous pattern.  In addition
@@ -3675,29 +3695,46 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
        privilege, <literal>CREATEDB</literal> privilege or individual database
        ownership to users not warranting almost-superuser access, use the
        first pattern instead.
+-->
+<link linkend="config-setting-configuration-file"><filename>postgresql.conf</filename></link>の<varname>search_path</varname>からpublicスキーマを削除します。
+これによるユーザ体験は一つ前のパターンと合致します。
+<literal>CREATEROLE</literal>のもたらす結果に加え、これはデータベース所有者を同じ方法で信頼することになります。
+<literal>CREATEROLE</literal>権限、<literal>CREATEDB</literal>権限、あるいは個々のデータベース所有権を、ほとんどスーパユーザアクセスと言える能力を正当な理由なく与えたいというので無い限り、最初のパターンを代わりに使用してください。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Keep the default.  All users access the public schema implicitly.  This
        simulates the situation where schemas are not available at all, giving
        a smooth transition from the non-schema-aware world.  However, any user
        can issue arbitrary queries under the identity of any user not electing
        to protect itself individually.  This pattern is acceptable only when
        the database has a single user or a few mutually-trusting users.
+-->
+デフォルトを維持します。
+すべてのユーザがpublicスキーマに暗黙的にアクセスします。
+これはスキーマを考慮しない世界からのスムースな移行を可能にしながら、スキーマがまったく利用できない状況をシミュレートします。
+しかし、ユーザは自分自身を守る気がなく、任意のユーザ権限で任意の問合せを発行できます。
+このパターンは、データベースに一人、あるいは少数のお互いに信頼できるユーザだけが存在する場合にのみ受け入れ可能です。
       </para>
      </listitem>
     </itemizedlist>
    </para>
 
    <para>
+<!--
     For any pattern, to install shared applications (tables to be used by
     everyone, additional functions provided by third parties, etc.), put them
     into separate schemas.  Remember to grant appropriate privileges to allow
     the other users to access them.  Users can then refer to these additional
     objects by qualifying the names with a schema name, or they can put the
     additional schemas into their search path, as they choose.
+-->
+どのパターンでも、共有のアプリケーション（全員が使うテーブル、サードパーティが提供する追加の関数など）をインストールするには、別のスキーマにアプリケーションを入れてください。
+他のユーザがアプリケーションにアクセスするために、適切な権限を与えることを忘れないようにしてください。
+ユーザはスキーマ名で名前を修飾するか、あるいは追加スキーマをサーチパスに入れるかを選択し、これらの追加オブジェクトを参照できます。
    </para>
   </sect2>
 
@@ -3735,7 +3772,7 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
     not use the <literal>public</> schema.
 -->
 また、標準SQLには、<literal>public</>スキーマという概念もありません。
-標準に最大限従うためには、<literal>public</>スキーマは使用すべきではありません（おそらく削除した方が良いかもしれません）。
+標準に最大限従うためには、<literal>public</>スキーマは使用すべきではありません。
    </para>
 
    <para>
