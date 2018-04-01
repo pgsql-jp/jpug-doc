@@ -3083,7 +3083,10 @@ TCPクライアントは<literal>sslmode=verify-ca</>もしくは<literal>verify
   <variablelist>
 
   <varlistentry>
+<!--
    <term>Password Encryption</term>
+-->
+   <term>パスワードの暗号化</term>
    <listitem>
 
     <para>
@@ -3097,10 +3100,9 @@ TCPクライアントは<literal>sslmode=verify-ca</>もしくは<literal>verify
      is an Internet standard and is more secure than the PostgreSQL-specific
      MD5 authentication protocol.
 -->
-デフォルトでは、データベースユーザのパスワードはMD5ハッシュとして格納されます。
-ですので、ユーザに割り当てられているパスワードは管理者でも分かりません。
-MD5暗号化がクライアント認証に使用されている場合、平文のパスワードはサーバ上に一時的にも存在することはありません。
-ネットワーク上に流れる前にクライアントがMD5暗号化を行うからです。
+データベースユーザのパスワードは（<xref linkend="guc-password-encryption">によって決定される）ハッシュとして格納されます。ですので、ユーザに割り当てられているパスワードは管理者でも分かりません。
+SCRAM又はMD5暗号化がクライアント認証に使用されている場合、平文のパスワードはサーバ上に一時的にも存在することはありません。ネットワーク上に流れる前にクライアントが暗号化を行うからです。
+SCRAMは、インターネット標準で、PostgreSQL特有なMD5認証プロトコルよりセキュアであるため、より望ましいです。
     </para>
    </listitem>
   </varlistentry>
@@ -3391,7 +3393,7 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
    Furthermore, passphrase-protected private keys cannot be used at all
    on Windows.
 -->
-秘密キーがパスフレーズで保護されている場合、サーバはパスフレーズの入力を促し、入力されるまでは起動しません。
+秘密鍵がパスフレーズで保護されている場合、サーバはパスフレーズの入力を促し、入力されるまでは起動しません。
 パスフレーズを使用すると、サーバを再起動せずにサーバのSSL設定を変更する機能も無効になります。
 さらに、パスフレーズで保護された秘密鍵は、Windowsではまったく使用できません。
   </para>
@@ -3406,14 +3408,20 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
    intermediate certificates were created with <literal>v3_ca</>
    extensions.  This allows easier expiration of intermediate certificates.
 -->
-サーバ証明書がクライアントで直接信頼している認証局ではなく、<quote>中間</>認証局により署名されている場合があります。
-こうした証明書を使用するために、<filename>server.crt</>ファイルに署名した認証局の証明書を追加し、その後、クライアントが信頼しているルートまたは中間までの認証局証明書を追加します。クライアントが信頼しているとは、クライアントにある<filename>root.crt</filename>ファイルの認証局による署名がある証明書です。
+<filename>server.crt</>の最初の証明書は、サーバ証明書になり、秘密鍵とマッチしなければなりません。
+<quote>中間</>認証局の証明書をファイルに追加することもできます。
+これにより、ルートと中間証明書が<literal>v3_ca</>拡張により作成されていることが前提になりますが、中間証明書をクライアントに保存する必要が無くなります。
+これは、中間証明書の有効期限の扱いをより簡単にします。
   </para>
 
   <para>
+<!--
    It is not necessary to add the root certificate to
    <filename>server.crt</>.  Instead, clients must have the root
    certificate of the server's certificate chain.
+-->
+<filename>server.crt</>にルート証明書を追加する必要はありません。
+代わりに、クライアントはサーバ証明書のチェーンを持つルート証明書を持っていなければなりません。
   </para>
 
   <sect2 id="ssl-client-certificates">
@@ -3437,7 +3445,7 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
    verify that the client's certificate is signed by one of the trusted
    certificate authorities.
 -->
-クライアントに信頼できる証明書を要求するためには、信頼する認証局（<acronym>CA</acronym>）の証明書をデータディレクトリ内の<filename>root.crt</filename>ファイルに置き、<filename>postgresql.conf</filename>の<xref linkend="guc-ssl-ca-file">パラメータを<literal>root.crt</literal>に設定し、認証オプション<literal>clientcert=1</literal>を<filename>pg_hba.conf</>の適切な<literal>hostssl</>行に追加します。
+信頼できる証明書をクライアントに要求するには、信頼するルート認証局（<acronym>CA</acronym>）の証明書をデータディレクトリ内のファイルに置き、<filename>postgresql.conf</filename>の<xref linkend="guc-ssl-ca-file">パラメータを<literal>root.crt</literal>に設定し、認証オプション<literal>clientcert=1</literal>を<filename>pg_hba.conf</>の適切な<literal>hostssl</>行に追加します。
 そうすると、SSL接続の開始時にクライアントへ証明書が要求されます。
 （クライアント上での証明書の設定方法については<xref linkend="libpq-ssl">を参照してください。）
 サーバは、クライアントの証明書が信頼する認証局のいずれかにより署名されていることを検証します。
@@ -3458,7 +3466,7 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
    url="http://h71000.www7.hp.com/doc/83final/ba554_90007/ch04s02.html"></>
    for diagrams showing SSL certificate usage.)
 -->
-中間<acronym>CA</>が<filename>root.crt</filename>に記載されている場合、ファイルにはルート<acronym>CA</>までの証明書チェーンが含まれている必要があります。
+既存のルート証明書に連鎖する中間証明書は、クライアントに保存することを避けたい場合に<filename>root.crt</filename>に含めることができます（ルート証明書と中間証明書が<literal>v3_ca</>拡張で作成されている場合）。
 <xref linkend="guc-ssl-crl-file">パラメータが設定されている場合、証明書失効リスト（CRL）項目も検査されます。
 （SSL証明書の使用方法を示す図については<ulink url="http://h71000.www7.hp.com/doc/83final/ba554_90007/ch04s02.html"></>を参照してください。）
   </para>
@@ -3545,7 +3553,7 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
       <entry>proves server certificate was sent by the owner; does not indicate
       certificate owner is trustworthy</entry>
 -->
-      <entry>サーバの秘密キー</entry>
+      <entry>サーバの秘密鍵</entry>
       <entry>サーバ証明書が所有者によって送られたことを証明します。証明書所有者が信頼できることを意味しません。</entry>
      </row>
 
@@ -3603,7 +3611,10 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
   </sect2>
 
   <sect2 id="ssl-certificate-creation">
+<!--
    <title>Creating Certificates</title>
+-->
+<title>証明書の作成</title>
 
    <para>
 <!--
@@ -3612,7 +3623,7 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
      replacing <replaceable>dbhost.yourdomain.com</> with the
      server's host name:
 -->
-365日有効なサーバ用の自己署名証明書を簡単に作るためには下記の<productname>OpenSSL</productname>コマンドを実行してください（<replaceable>yourdomain.com</>をサーバのホスト名に置き換えてください）。
+365日有効なサーバ用の自己署名証明書を簡単に作るためには下記の<productname>OpenSSL</productname>コマンドを実行してください（<replaceable>dbhost.yourdomain.com</>をサーバのホスト名に置き換えてください）。
 <programlisting>
 openssl req -new -x509 -days 365 -nodes -text -out server.crt \
   -keyout server.key -subj "/CN=<replaceable>dbhost.yourdomain.com</>"
@@ -3630,7 +3641,7 @@ chmod og-rwx server.key
     For more details on how to create your server private key and
     certificate, refer to the <productname>OpenSSL</> documentation.
 -->
-サーバの秘密キーおよび証明書を作成するための詳しい方法については<productname>OpenSSL</>の文書を参照してください。
+サーバの秘密鍵および証明書を作成するための詳しい方法については<productname>OpenSSL</>の文書を参照してください。
    </para>
 
    <para>
@@ -3639,29 +3650,37 @@ chmod og-rwx server.key
     signed by a certificate authority (<acronym>CA</>) (usually an
     enterprise-wide root <acronym>CA</>) should be used in production.
 -->
-自己署名証明書を試験のために使用することはできますが、クライアントがサーバの身元を検証できるように、運用時は（グローバルな<acronym>CA</>の1つまたはローカルな認証局のいずれかの）認証局（<acronym>CA</>）により署名された証明書を使用すべきです。
-もしすべてのクライアントが組織においてローカルであれば、ローカル<acronym>CA</>の使用が推奨されます。
+テストには自己署名証明書を使用できますが、運用時は認証局(<acronym>CA</>)（通常は事業全体の<acronym>CA</>）により署名された証明書を使用する必要があります。
    </para>
 
    <para>
+<!--
     To create a server certificate whose identity can be validated
     by clients, first create a certificate signing request
     (<acronym>CSR</>) and a public/private key file:
+-->
+クライアントが身元を検証できるサーバ証明書を作成するには、まず最初に証明書署名要求(<acronym>CSR</>) と公開／秘密鍵を作成します。
 <programlisting>
 openssl req -new -nodes -text -out root.csr \
   -keyout root.key -subj "/CN=<replaceable>root.yourdomain.com</>"
 chmod og-rwx root.key
 </programlisting>
+<!--
     Then, sign the request with the key to create a root certificate
     authority (using the default <productname>OpenSSL</>
     configuration file location on <productname>Linux</>):
+-->
+その後、鍵を使用して署名要求に署名しルート証明書を作成します（<productname>Linux</>上のデフォルトの<productname>OpenSSL</>設定ファイルの場所を使用）。
 <programlisting>
 openssl x509 -req -in root.csr -text -days 3650 \
   -extfile /etc/ssl/openssl.cnf -extensions v3_ca \
   -signkey root.key -out root.crt
 </programlisting>
+<!--
     Finally, create a server certificate signed by the new root certificate
     authority:
+-->
+最後に、新しいルート証明書によって署名されるサーバ証明書を作成します。
 <programlisting>
 openssl req -new -nodes -text -out server.csr \
   -keyout server.key -subj "/CN=<replaceable>dbhost.yourdomain.com</>"
@@ -3671,17 +3690,25 @@ openssl x509 -req -in server.csr -text -days 365 \
   -CA root.crt -CAkey root.key -CAcreateserial \
   -out server.crt
 </programlisting>
+<!--
     <filename>server.crt</> and <filename>server.key</>
     should be stored on the server, and <filename>root.crt</> should
     be stored on the client so the client can verify that the server's leaf
     certificate was signed by its trusted root certificate. 
     <filename>root.key</> should be stored offline for use in
     creating future certificates.
+-->
+<filename>server.crt</>と<filename>server.key</>をサーバに格納し、<filename>root.crt</>をクライアントに格納します。
+クライアントはサーバのリーフ証明書が信頼されたルート証明書によって署名されたことを確認できます。
+<filename>root.key</>は将来の証明書の作成に使用するために、オフラインで保存する必要があります。
    </para>
 
    <para>
+<!--
     It is also possible to create a chain of trust that includes
     intermediate certificates:
+-->
+中間証明書が含まれる信頼の連鎖を作成することも可能です。
 <programlisting>
 # root
 openssl req -new -nodes -text -out root.csr \
@@ -3708,6 +3735,7 @@ openssl x509 -req -in server.csr -text -days 365 \
   -CA intermediate.crt -CAkey intermediate.key -CAcreateserial \
   -out server.crt
 </programlisting>
+<!--
     <filename>server.crt</> and
     <filename>intermediate.crt</> should be concatenated
     into a certificate file bundle and stored on the server.
@@ -3717,6 +3745,11 @@ openssl x509 -req -in server.csr -text -days 365 \
     by a chain of certificates linked to its trusted root certificate.
     <filename>root.key</> and <filename>intermediate.key</>
     should be stored offline for use in creating future certificates.
+-->
+<filename>server.crt</>と<filename>intermediate.crt</>は証明書ファイルに束ねて連結し、サーバに格納する必要があります。
+<filename>server.key</>もまたサーバーに格納される必要があります。
+サーバのリーフ証明書が信頼されたルート証明書にリンクされた一連の証明書によって署名されていることをクライアントが確認できるように、<filename>root.crt</>をクライアントに格納する必要があります。
+<filename>root.key</>と<filename>intermediate.key</>は将来の証明書を作成に使用するためにオフラインで格納する必要があります。
    </para>
   </sect2>
 
