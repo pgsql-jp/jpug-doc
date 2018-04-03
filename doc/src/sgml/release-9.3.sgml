@@ -2,61 +2,95 @@
 <!-- See header comment in release.sgml about typical markup -->
 
  <sect1 id="release-9-3-22">
+<!--
   <title>Release 9.3.22</title>
+-->
+  <title>リリース9.3.22</title>
 
   <formalpara>
+<!--
   <title>Release date:</title>
+-->
+  <title>リリース日:</title>
   <para>2018-03-01</para>
   </formalpara>
 
   <para>
+<!--
    This release contains a variety of fixes from 9.3.21.
    For information about new features in the 9.3 major release, see
    <xref linkend="release-9-3">.
+-->
+このリリースは9.3.21に対し、各種不具合を修正したものです。
+9.3メジャーリリースにおける新機能については、<xref linkend="release-9-3">を参照してください。
   </para>
 
   <sect2>
+<!--
    <title>Migration to Version 9.3.22</title>
+-->
+   <title>バージョン9.3.22への移行</title>
 
    <para>
+<!--
     A dump/restore is not required for those running 9.3.X.
+-->
+9.3.Xからの移行ではダンプ/リストアは不要です。
    </para>
 
    <para>
+<!--
     However, if you run an installation in which not all users are mutually
     trusting, or if you maintain an application or extension that is
     intended for use in arbitrary situations, it is strongly recommended
     that you read the documentation changes described in the first changelog
     entry below, and take suitable steps to ensure that your installation or
     code is secure.
+-->
+しかしながら、全てのユーザが相互に信頼できるのでないインストレーションを運用しているのであれば、あるいは、任意の状況で使われる想定のアプリケーションや拡張を保守しているなら、下記の変更履歴の1番目で述べている文書の変更箇所を読み、あなたのインストレーションやコードの安全を確実にする適切な手順を行うことを強く推奨します。
    </para>
 
    <para>
+<!--
     Also, the changes described in the second changelog entry below may
     cause functions used in index expressions or materialized views to fail
     during auto-analyze, or when reloading from a dump.  After upgrading,
     monitor the server logs for such problems, and fix affected functions.
+-->
+また、下記変更履歴の2番目の項目で述べられている変更点は、インデックス式やマテリアライズドビューで使われている関数が、自動アナライズやダンプからの再ロードでの失敗をひき起こすかもしれません。
+アップグレード後、これらの問題むけにサーバログを監視して、影響を受ける関数を修正してください。
    </para>
 
    <para>
+<!--
     Also, if you are upgrading from a version earlier than 9.3.18,
     see <xref linkend="release-9-3-18">.
+-->
+また、9.3.18よりも前のバージョンからアップグレードする場合には、<xref linkend="release-9-3-18">を参照してください。
    </para>
   </sect2>
 
   <sect2>
+<!--
    <title>Changes</title>
+-->
+   <title>変更点</title>
 
    <itemizedlist>
 
     <listitem>
      <para>
+<!--
       Document how to configure installations and applications to guard
       against search-path-dependent trojan-horse attacks from other users
       (Noah Misch)
+-->
+サーチパス依存のトロイの木馬攻撃に対して防御するためのインストレーションとアプリケーションの設定方法を文書記載しました。
+(Noah Misch)
      </para>
 
      <para>
+<!--
       Using a <varname>search_path</varname> setting that includes any
       schemas writable by a hostile user enables that user to capture
       control of queries and then run arbitrary SQL code with the
@@ -71,17 +105,28 @@
       <xref linkend="sql-createfunction"> (for authors
       of <literal>SECURITY DEFINER</literal> functions).
       (CVE-2018-1058)
+-->
+敵意のあるユーザから書き込み可能な何らかのスキーマを含む<varname>search_path</varname>設定を使うことは、そのユーザが問い合わせの制御を奪い、攻撃を受けたユーザの権限で任意のSQLコードを実行することを可能にします。
+このようなハイジャックを防ぐような問い合わせを書くことは可能ですが、これは甚だ退屈で、とても見落としをしやすいです。
+そこで、私たちは信用できないスキーマがユーザのサーチパスに現れない設定を推奨します。
+関連する文書は、<xref linkend="ddl-schemas-patterns">（データベースの管理者・ユーザむけ）、<xref linkend="libpq-connect">（アプリケーションの作者むけ）、<xref linkend="extend-extensions-style">（拡張の作者むけ）、<xref linkend="sql-createfunction">（<literal>SECURITY DEFINER</literal>関数の作者むけ）にあります。
+(CVE-2018-1058)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid use of insecure <varname>search_path</varname> settings
       in <application>pg_dump</application> and other client programs
       (Noah Misch, Tom Lane)
+-->
+<application>pg_dump</application>と他のクライアントプログラムで安全でない<varname>search_path</varname>設定の使用を回避しました。
+(Noah Misch, Tom Lane)
      </para>
 
      <para>
+<!--
       <application>pg_dump</application>,
       <application>pg_upgrade</application>,
       <application>vacuumdb</application> and
@@ -93,9 +138,15 @@
       modify them to include only the <structname>pg_catalog</structname>
       schema in their <varname>search_path</varname> settings.
       Autovacuum worker processes now do the same, as well.
+-->
+<application>pg_dump</application>、<application>pg_upgrade</application>、<application>vacuumdb</application>、および他の<productname>PostgreSQL</productname>で提供されるアプリケーションは、それら自身に一つ前の変更点項目に記載された種類のハイジャックの脆弱性がありました。
+これらのアプリケーションは一般にスーパーユーザで実行されるので、特に魅力的なターゲットとなっています。
+インストレーション全体が安全であったか否かによらず、これらを安全にするため<varname>search_path</varname>設定に<structname>pg_catalog</structname>スキーマのみを含むように変更しました。
+自動バキュームワーカプロセスもこれからは同様に動作します。
      </para>
 
      <para>
+<!--
       In cases where user-provided functions are indirectly executed by
       these programs &mdash; for example, user-provided functions in index
       expressions &mdash; the tighter <varname>search_path</varname> may
@@ -104,44 +155,68 @@
       they are invoked under.  That has always been good practice, but now
       it will be necessary for correct behavior.
       (CVE-2018-1058)
+-->
+ユーザ作成関数が間接的にこれらプログラムから実行される場合 &mdash; 例えばインデックス式のユーザ作成関数 &mdash; では、より制限された<varname>search_path</varname>はエラーを起こすかもしれません。
+これらのユーザ作成関数は、実行されるサーチパスに関していかなる想定もしないように調整することによって修正する必要があります。
+このことはいつでも良い習慣でしたが、これからは正しい動作のために不可欠となります。
+(CVE-2018-1058)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix misbehavior of concurrent-update rechecks with CTE references
       appearing in subplans (Tom Lane)
+-->
+サブプランに現れるCTE参照で同時更新の再チェックの誤動作を修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       If a CTE (<literal>WITH</literal> clause reference) is used in an
       InitPlan or SubPlan, and the query requires a recheck due to trying
       to update or lock a concurrently-updated row, incorrect results could
       be obtained.
+-->
+InitPlanかSubPlanでCTE（<literal>WITH</literal>句参照）が使われていて、その問い合わせが同時更新された行の更新やロックを試みるために再チェックを要する場合、誤った結果が得られることがありえました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix planner failures with overlapping mergejoin clauses in an outer
       join (Tom Lane)
+-->
+外部結合での重複しているマージ結合句でのプランナのエラーを修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       These mistakes led to <quote>left and right pathkeys do not match in
       mergejoin</quote> or <quote>outer pathkeys do not match
       mergeclauses</quote> planner errors in corner cases.
+-->
+これらの誤りは稀な場合に<quote>left and right pathkeys do not match in mergejoin（マージ結合で左右のパスキーが不一致）</quote>あるいは<quote>outer pathkeys do not match mergeclauses（外側パスキーがマージ句と不一致）</quote>というプランナエラーをひき起こします。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Repair <application>pg_upgrade</application>'s failure to
       preserve <structfield>relfrozenxid</structfield> for materialized
       views (Tom Lane, Andres Freund)
+-->
+<application>pg_upgrade</application>でマテリアライズドビューの<structfield>relfrozenxid</structfield>を維持するエラーを修復しました。
+(Tom Lane, Andres Freund)
      </para>
 
      <para>
+<!--
       This oversight could lead to data corruption in materialized views
       after an upgrade, manifesting as <quote>could not access status of
       transaction</quote> or <quote>found xmin from before
@@ -149,36 +224,54 @@
       occur in seldom-refreshed materialized views, or ones that were
       maintained only with <command>REFRESH MATERIALIZED VIEW
       CONCURRENTLY</command>.
+-->
+この間違いで<quote>could not access status of transaction（トランザクション状態にアクセスできません）</quote>あるいは<quote>found xmin from before relfrozenxid（relfrozenxidより前のxminが見つかりました）</quote>というエラーが出て、アップグレード後にマテリアライズドビューデータ破損をひき起こすおそれがありました。
+この問題は、ほとんどリフレッシュされていなかったり、<command>REFRESH MATERIALIZED VIEW CONCURRENTLY</command>だけで保守されているマテリアライズドビューでより発生しやすいでしょう。
      </para>
 
      <para>
+<!--
       If such corruption is observed, it can be repaired by refreshing the
       materialized view (without <literal>CONCURRENTLY</literal>).
+-->
+このような破損が見つかった場合、マテリアライズドビューを（<literal>CONCURRENTLY</literal>無しで）リフレッシュして修復できます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix incorrect reporting of PL/Python function names in
       error <literal>CONTEXT</literal> stacks (Tom Lane)
+-->
+エラーの<literal>CONTEXT</literal>スタックでのPL/Python関数名の誤った報告を修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       An error occurring within a nested PL/Python function call (that is,
       one reached via a SPI query from another PL/Python function) would
       result in a stack trace showing the inner function's name twice,
       rather than the expected results.  Also, an error in a nested
       PL/Python <literal>DO</literal> block could result in a null pointer
       dereference crash on some platforms.
+-->
+入れ子のPL/Python関数呼び出し（すなわち、他のPL/Python関数からのSPI問い合わせを通して到達するもの）の中で発生するエラーは、期待された結果ではなく、内側の関数名を2回表示するスタックトレースになりました。
+また、入れ子のPL/Python<literal>DO</literal>ブロック内のエラーは一部のプラットフォームでNULLポインタ参照によるクラッシュをひき起こすおそれがありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Allow <filename>contrib/auto_explain</filename>'s
       <varname>log_min_duration</varname> setting to range up
       to <literal>INT_MAX</literal>, or about 24 days instead of 35 minutes
       (Tom Lane)
+-->
+<filename>contrib/auto_explain</filename>の<varname>log_min_duration</varname>設定を約35分までであったものを<literal>INT_MAX</literal>あるいは約24日間までの範囲に指定できるようにしました。
+(Tom Lane)
      </para>
     </listitem>
 
@@ -188,45 +281,72 @@
  </sect1>
 
  <sect1 id="release-9-3-21">
+<!--
   <title>Release 9.3.21</title>
+-->
+  <title>リリース9.3.21</title>
 
   <formalpara>
+<!--
   <title>Release date:</title>
+-->
+  <title>リリース日:</title>
   <para>2018-02-08</para>
   </formalpara>
 
   <para>
+<!--
    This release contains a variety of fixes from 9.3.20.
    For information about new features in the 9.3 major release, see
    <xref linkend="release-9-3">.
+-->
+このリリースは9.3.20に対し、各種不具合を修正したものです。
+9.3メジャーリリースにおける新機能については、<xref linkend="release-9-3">を参照してください。
   </para>
 
   <sect2>
+<!--
    <title>Migration to Version 9.3.21</title>
+-->
+   <title>バージョン9.3.21への移行</title>
 
    <para>
+<!--
     A dump/restore is not required for those running 9.3.X.
+-->
+9.3.Xからの移行ではダンプ/リストアは不要です。
    </para>
 
    <para>
+<!--
     However, if you are upgrading from a version earlier than 9.3.18,
     see <xref linkend="release-9-3-18">.
+-->
+しかしながら、9.3.18よりも前のバージョンからアップグレードする場合には、<xref linkend="release-9-3-18">を参照してください。
    </para>
   </sect2>
 
   <sect2>
+<!--
    <title>Changes</title>
+-->
+   <title>変更点</title>
 
    <itemizedlist>
 
     <listitem>
      <para>
+<!--
       Ensure that all temporary files made
       by <application>pg_upgrade</application> are non-world-readable
+      (Tom Lane, Noah Misch)
+-->
+<application>pg_upgrade</application>で作られる全ての一時ファイルが全ユーザ読み取り可にならないようにしました。
       (Tom Lane, Noah Misch)
      </para>
 
      <para>
+<!--
       <application>pg_upgrade</application> normally restricts its
       temporary files to be readable and writable only by the calling user.
       But the temporary file containing <literal>pg_dumpall -g</literal>
@@ -238,89 +358,140 @@
       in scenarios where this oversight would permit disclosure of database
       passwords to unfriendly eyes.
       (CVE-2018-1053)
+-->
+<application>pg_upgrade</application>は、通常は一時ファイルを実行ユーザのみ読み書きできるように制限します。
+しかし、ユーザの<literal>umask</literal>設定が許している場合には、<literal>pg_dumpall -g</literal>の出力を含む一時ファイルがグループ読み取り可や全ユーザ読み取り可、さらには書き込み可になっていました。
+複数ユーザがいるマシンでの典型的な使用では、<literal>umask</literal>および作業ディレクトリのパーミッションを本問題を防ぐのに足りるだけ厳しくしているはずですが、本障害でデータベースパスワードを衆目に晒してしまうように<application>pg_upgrade</application>を使う人々もいるでしょう。
+(CVE-2018-1053)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix vacuuming of tuples that were updated while key-share locked
+      (Andres Freund, &Aacute;lvaro Herrera)
+-->
+KEY SHAREロック中に更新されたタプルのバキュームを修正しました。
       (Andres Freund, &Aacute;lvaro Herrera)
      </para>
 
      <para>
+<!--
       In some cases <command>VACUUM</command> would fail to remove such
       tuples even though they are now dead, leading to assorted data
       corruption scenarios.
+-->
+一部のケースで<command>VACUUM</command>は、このようなタプルの除去に、それらが無効なタプルであるのに、失敗していました。これにより様々なデータ破損動作がひき起こされます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix inadequate buffer locking in some LSN fetches (Jacob Champion,
       Asim Praveen, Ashwin Agrawal)
+-->
+一部のLSN取得で不十分なバッファロックを修正しました。
+(Jacob Champion, Asim Praveen, Ashwin Agrawal)
      </para>
 
      <para>
+<!--
       These errors could result in misbehavior under concurrent load.
       The potential consequences have not been characterized fully.
+-->
+これらの誤りにより同時データ読み込みで誤動作のおそれがありました。
+起こりうる結果は完全には解明されていません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid unnecessary failure in a query on an inheritance tree that
       occurs concurrently with some child table being removed from the tree
       by <command>ALTER TABLE NO INHERIT</command> (Tom Lane)
+-->
+<command>ALTER TABLE NO INHERIT</command>でツリーから削除されている幾つかの子テーブルに伴って同時発生する継承ツリー上の問い合わせでの不要な失敗を回避しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Repair failure with correlated sub-<literal>SELECT</literal>
       inside <literal>VALUES</literal> inside a <literal>LATERAL</literal>
       subquery (Tom Lane)
+-->
+<literal>LATERAL</literal>副問い合わせ内の<literal>VALUES</literal>内の相関サブ<literal>SELECT</literal>での失敗を修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <quote>could not devise a query plan for the given query</quote>
       planner failure for some cases involving nested <literal>UNION
       ALL</literal> inside a lateral subquery (Tom Lane)
+-->
+LATERAL副問い合わせ内の入れ子になった<literal>UNION ALL</literal>を伴う一部の場合での<quote>could not devise a query plan for the given query（与えられた問合せに対してクエリプランを生成できませんでした）</quote>プランナエラーを修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <function>has_sequence_privilege()</function> to
       support <literal>WITH GRANT OPTION</literal> tests,
       as other privilege-testing functions do (Joe Conway)
+-->
+他の権限検査関数と同様に、<function>has_sequence_privilege()</function>を<literal>WITH GRANT OPTION</literal>検査をサポートするように修正しました。
+(Joe Conway)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In databases using UTF8 encoding, ignore any XML declaration that
       asserts a different encoding (Pavel Stehule, Noah Misch)
+-->
+UTF8エンコーディングを使ったデータベースで、異なるエンコーディングを主張するあらゆるXML宣言を無視するようにしました。
+(Pavel Stehule, Noah Misch)
      </para>
 
      <para>
+<!--
       We always store XML strings in the database encoding, so allowing
       libxml to act on a declaration of another encoding gave wrong results.
       In encodings other than UTF8, we don't promise to support non-ASCII
       XML data anyway, so retain the previous behavior for bug compatibility.
       This change affects only <function>xpath()</function> and related
       functions; other XML code paths already acted this way.
+-->
+XML文字列は常にデータベースエンコーディングで格納されますので、libxmlを他エンコーディングの宣言で動作させることは誤った結果をもたらします。
+いずれにせよUTF8以外のエンコーディングでは非ASCIIのXMLデータのサポートは保証されませんので、バグ互換のために以前の動作を維持します。
+本変更は<function>xpath()</function>と関連関数のみに影響があります。
+他のXMLコードパスは既にこのように動作します。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Provide for forward compatibility with future minor protocol versions
       (Robert Haas, Badrul Chowdhury)
+-->
+将来のマイナープロトコルバージョンに対する前方互換性を提供します。
+(Robert Haas, Badrul Chowdhury)
      </para>
 
      <para>
+<!--
       Up to now, <productname>PostgreSQL</productname> servers simply
       rejected requests to use protocol versions newer than 3.0, so that
       there was no functional difference between the major and minor parts
@@ -329,32 +500,51 @@
       understands 3.0.  This makes no difference at the moment, but
       back-patching this change should allow speedier introduction of future
       minor protocol upgrades.
+-->
+今まで<productname>PostgreSQL</productname>サーバは3.0より新しいバージョンのプロトコルを使った要求を単に拒絶していました。
+そのため、プロトコルバージョン番号のメジャー部分とマイナー部分に機能的な違いがありませんでした。
+クライアントがエラーにならずにバージョン3.xを要求できるようにしました。
+サーバは3.0しか理解しないことを示すメッセージが返されます。
+現時点では本変更による違いは生じませんが、これをバックパッチすることで将来のマイナープロトコル更新の導入を高速化できるでしょう。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Prevent stack-overflow crashes when planning extremely deeply
       nested set operations
       (<literal>UNION</literal>/<literal>INTERSECT</literal>/<literal>EXCEPT</literal>)
+      (Tom Lane)
+-->
+極端に深く入れ子になった集合演算のプラン作成時のスタックオーバーフローによるクラッシュを防止しました。
       (Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix null-pointer crashes for some types of LDAP URLs appearing
       in <filename>pg_hba.conf</filename> (Thomas Munro)
+-->
+<filename>pg_hba.conf</filename>にあらわれるLDAP URLの一部タイプに対するNULLポインタクラッシュを修正しました。
+(Thomas Munro)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix sample <function>INSTR()</function> functions in the PL/pgSQL
       documentation (Yugo Nagata, Tom Lane)
+-->
+PL/pgSQL文書内の<function>INSTR()</function>関数のサンプルを修正しました。
+(Yugo Nagata, Tom Lane)
      </para>
 
      <para>
+<!--
       These functions are stated to
       be <trademark class="registered">Oracle</trademark> compatible, but
       they weren't exactly.  In particular, there was a discrepancy in the
@@ -363,23 +553,37 @@
       begin, whereas our functions took it as the last place where the
       target can end.  Also, Oracle throws an error for a zero or negative
       fourth parameter, whereas our functions returned zero.
+-->
+これらの関数は<trademark class="registered">Oracle</trademark>互換であると述べられていますが、それは厳密ではありませんでした。
+特に負の第3パラメータの解釈に不一致がありました。
+Oracleは負値は対象部分文字列を開始できる最終位置を示すものと考えますが、サンプル関数は終わりにできる最終位置であると解釈していました。
+また、Oracleは第4パラメータに対するゼロまたは負値でエラーを出しますが、サンプル関数はゼロを返しました。
      </para>
 
      <para>
+<!--
       The sample code has been adjusted to match Oracle's behavior more
       precisely.  Users who have copied this code into their applications
       may wish to update their copies.
+-->
+本サンプルコードはOracleの振る舞いにより正確に一致するように修正されました。
+このコードをアプリケーション内にコピーしていたユーザはそのコピーを更新したいでしょう。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>pg_dump</application> to make ACL (permissions),
       comment, and security label entries reliably identifiable in archive
       output formats (Tom Lane)
+-->
+アーカイブ出力フォーマットでACL（パーミッション）、コメントおよびセキュリティラベルの項目を確実に識別可能にするように<application>pg_dump</application>を修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       The <quote>tag</quote> portion of an ACL archive entry was usually
       just the name of the associated object.  Make it start with the object
       type instead, bringing ACLs into line with the convention already used
@@ -391,116 +595,185 @@
       starts with <literal>LARGE OBJECT</literal>.  That could have resulted
       in misclassifying entries as data rather than schema, with undesirable
       results in a schema-only or data-only dump.
+-->
+ACLアーカイブエントリの<quote>tag</quote>部分は通常は単に関連したオブジェクトの名前です。
+これをそうでなくてオブジェクトタイプで始まるようにして、ACLをコメントとセキュリティラベルのアーカイブ項目で既に使われている慣習に一致させます。
+また、データベース全体に対するコメントとセキュリティラベルの項目を、もし在るなら、これらも習慣に従うように、タグが<literal>DATABASE</literal>で始まるように修正しました。
+これはタグが<literal>LARGE OBJECT</literal>で始まるかどうかでラージオブジェクト関連の項目を識別しようとするコードでの誤った一致を防ぎます。
+スキーマのみ、または、データのみのダンプで、スキーマでなくデータとして項目を誤って分類してしまい、望ましくない結果になる可能性がありました。
      </para>
 
      <para>
+<!--
       Note that this change has user-visible results in the output
-      of <command>pg_restore --list</command>.
+      of <command>pg_restore &#045;-list</command>.
+-->
+この変更により<command>pg_restore --list</command>の出力でユーザに見える違いがある点に注意してください。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In <application>ecpg</application>, detect indicator arrays that do
       not have the correct length and report an error (David Rader)
+-->
+<application>ecpg</application>で正しい長さを持たない指示子の配列を検出してエラーを出すようにしました。
+(David Rader)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid triggering a libc assertion
       in <filename>contrib/hstore</filename>, due to use
       of <function>memcpy()</function> with equal source and destination
       pointers (Tomas Vondra)
+-->
+同一のコピー元と宛先のポインタで<function>memcpy()</function>を使うことで、<filename>contrib/hstore</filename>でlibcアサートが発生するのを回避しました。
+(Tomas Vondra)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Provide modern examples of how to auto-start Postgres on macOS
       (Tom Lane)
+-->
+macOSでPostgresを自動起動する方法の現代的なサンプルを提供しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       The scripts in <filename>contrib/start-scripts/osx</filename> use
       infrastructure that's been deprecated for over a decade, and which no
       longer works at all in macOS releases of the last couple of years.
       Add a new subdirectory <filename>contrib/start-scripts/macos</filename>
       containing scripts that use the newer <application>launchd</application>
       infrastructure.
+-->
+
+<filename>contrib/start-scripts/osx</filename>のスクリプトは10年以上の間、非推奨とされた基盤を使っていて、ここ数年のmacOSリリースではもはや全く動作しません。
+新しい<application>launchd</application>基盤を使ったスクリプトを含む新たなサブディレクトリ<filename>contrib/start-scripts/macos</filename>を追加しました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix incorrect selection of configuration-specific libraries for
       OpenSSL on Windows (Andrew Dunstan)
+-->
+Windowsでビルド時に設定で指定するOpenSSLライブラリの誤選択を修正しました。
+(Andrew Dunstan)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Support linking to MinGW-built versions of libperl (Noah Misch)
+-->
+libperlのMinGWビルドバージョンのリンクに対応しました。
+(Noah Misch)
      </para>
 
      <para>
+<!--
       This allows building PL/Perl with some common Perl distributions for
       Windows.
+-->
+これはいくつかの一般的なWindowsむけPerl配布物でPL/Perlをビルド可能にします。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix MSVC build to test whether 32-bit libperl
       needs <literal>-D_USE_32BIT_TIME_T</literal> (Noah Misch)
+-->
+32bitのlibperlが<literal>-D_USE_32BIT_TIME_T</literal>を要するかを検査するようにMSVCビルドを修正しました。
+(Noah Misch)
      </para>
 
      <para>
+<!--
       Available Perl distributions are inconsistent about what they expect,
       and lack any reliable means of reporting it, so resort to a build-time
       test on what the library being used actually does.
+-->
+利用可能なPerl配布物は何を除いているかについて一貫性に欠けていて、そのことの信頼できる報告手段も不足しています。
+そのため、ビルド時の実際に使われているライブラリが何をするかのテストに依存します。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       On Windows, install the crash dump handler earlier in postmaster
       startup (Takayuki Tsunakawa)
+-->
+Windowsでpostmaster起動にてクラッシュダンプハンドラをより早く導入するようにしました。
+(Takayuki Tsunakawa)
      </para>
 
      <para>
+<!--
       This may allow collection of a core dump for some early-startup
       failures that did not produce a dump before.
+-->
+これにより起動時初期の従来ダンプを生成しなかった障害で、コアダンプ取得が可能になるでしょう。 
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       On Windows, avoid encoding-conversion-related crashes when emitting
       messages very early in postmaster startup (Takayuki Tsunakawa)
+-->
+Windowsでpostmaster起動時の早い時点でメッセージを出力するときの、文字エンコーディング変換関連のクラッシュを回避しました。
+(Takayuki Tsunakawa)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Use our existing Motorola 68K spinlock code on OpenBSD as
       well as NetBSD (David Carlier)
+-->
+既存のNetBSDのMotorola68KのスピンロックのコードをOpenBSDむけにも使用するようにしました。
+(David Carlier)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Add support for spinlocks on Motorola 88K (David Carlier)
+-->
+Motorola 88Kのスピンロック対応を加えました。
+(David Carlier)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Update time zone data files to <application>tzdata</application>
       release 2018c for DST law changes in Brazil, Sao Tome and Principe,
       plus historical corrections for Bolivia, Japan, and South Sudan.
       The <literal>US/Pacific-New</literal> zone has been removed (it was
       only an alias for <literal>America/Los_Angeles</literal> anyway).
+-->
+タイムゾーンデータファイルを<application>tzdata</application> release 2018cに更新しました。
+ブラジル、サントメ・プリンシペの夏時間法の変更、ボリビア、日本、南スーダンの歴史的な修正が含まれます。
+<literal>US/Pacific-New</literal>ゾーンは削除されました（これはいずれにせよ<literal>America/Los_Angeles</literal>の別名にすぎません）。
      </para>
     </listitem>
 
@@ -510,70 +783,111 @@
  </sect1>
 
  <sect1 id="release-9-3-20">
+<!--
   <title>Release 9.3.20</title>
+-->
+  <title>リリース9.3.20</title>
 
   <formalpara>
+<!--
   <title>Release date:</title>
+-->
+  <title>リリース日:</title>
   <para>2017-11-09</para>
   </formalpara>
 
   <para>
+<!--
    This release contains a variety of fixes from 9.3.19.
    For information about new features in the 9.3 major release, see
    <xref linkend="release-9-3">.
+-->
+このリリースは9.3.19に対し、各種不具合を修正したものです。
+9.3メジャーリリースにおける新機能については、<xref linkend="release-9-3">を参照してください。
   </para>
 
   <sect2>
+<!--
    <title>Migration to Version 9.3.20</title>
+-->
+   <title>バージョン9.3.20への移行</title>
 
    <para>
+<!--
     A dump/restore is not required for those running 9.3.X.
+-->
+9.3.Xからの移行ではダンプ/リストアは不要です。
    </para>
 
    <para>
+<!--
     However, if you are upgrading from a version earlier than 9.3.18,
     see <xref linkend="release-9-3-18">.
+-->
+しかしながら、9.3.18よりも前のバージョンからアップグレードする場合には、<xref linkend="release-9-3-18">を参照してください。
    </para>
 
   </sect2>
 
   <sect2>
+<!--
    <title>Changes</title>
+-->
+   <title>変更点</title>
 
    <itemizedlist>
 
     <listitem>
      <para>
+<!--
       Fix crash due to rowtype mismatch
       in <function>json{b}_populate_recordset()</function>
       (Michael Paquier, Tom Lane)
+-->
+<function>json{b}_populate_recordset()</function>での行型の不一致によるクラッシュを修正しました。
+(Michael Paquier, Tom Lane)
      </para>
 
      <para>
+<!--
       These functions used the result rowtype specified in the <literal>FROM
       ... AS</literal> clause without checking that it matched the actual
       rowtype of the supplied tuple value.  If it didn't, that would usually
       result in a crash, though disclosure of server memory contents seems
       possible as well.
       (CVE-2017-15098)
+-->
+これらの関数は<literal>FROM ... AS</literal>句で指定された結果の行型を、それが与えられた行の値の実際の行型と一致しているかの検査なしに使いました。
+一致していなかった場合、これはクラッシュをひき起こしましたが、さらにサーバメモリ内容の露出も起こりうると見られます。
+(CVE-2017-15098)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix sample server-start scripts to become <literal>$PGUSER</literal>
       before opening <literal>$PGLOG</literal> (Noah Misch)
+-->
+<literal>$PGLOG</literal>を開く前に<literal>$PGUSER</literal>になるようにサンプルのサーバ起動スクリプトを修正しました。
+(Noah Misch)
      </para>
 
      <para>
+<!--
       Previously, the postmaster log file was opened while still running as
       root.  The database owner could therefore mount an attack against
       another system user by making <literal>$PGLOG</literal> be a symbolic
       link to some other file, which would then become corrupted by appending
       log messages.
+-->
+これまではpostmasterのログファイルはまだrootとして実行されている間にオープンされました。
+それゆえデータベース所有者は他のシステムユーザに<literal>$PGLOG</literal>を他のファイルに対するシンボリックリンクにすることで攻撃を準備することができました。
+そのファイルはログメッセージが追加されることで破損するでしょう。
      </para>
 
      <para>
+<!--
       By default, these scripts are not installed anywhere.  Users who have
       made use of them will need to manually recopy them, or apply the same
       changes to their modified versions.  If the
@@ -581,106 +895,167 @@
       be removed or renamed out of the way before restarting the server with
       the corrected script.
       (CVE-2017-12172)
+-->
+デフォルトでは、これらのスクリプトはどこにもインストールされません。
+利用しているユーザが手動でこれらを再コピーするか、修正されたバージョンに同じ変更を適用する必要があります。
+もし、存在している<literal>$PGLOG</literal>ファイルがroot所有であるなら、直されたスクリプトでサーバを再起動する前に、それを削除するかファイル名変更をしてどけておく必要があります。
+(CVE-2017-12172)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Properly reject attempts to convert infinite float values to
       type <type>numeric</type> (Tom Lane, KaiGai Kohei)
+-->
+浮動小数点数の無限の値を<type>numeric</type>型に変換しようとする試みを適切に拒絶します。
+(Tom Lane, KaiGai Kohei)
      </para>
 
      <para>
+<!--
       Previously the behavior was platform-dependent.
+-->
+これまで、振舞いはプラットフォーム依存でした。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix corner-case crashes when columns have been added to the end of a
       view (Tom Lane)
+-->
+列をビューの末尾に追加したときに稀な場合でのクラッシュを修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Record proper dependencies when a view or rule
       contains <structname>FieldSelect</structname>
       or <structname>FieldStore</structname> expression nodes (Tom Lane)
+-->
+ビューやルールが<structname>FieldSelect</structname>式または<structname>FieldStore</structname>式のノードを含むとき、適切な依存関係を記録するようにしました。
+<structname>FieldStore</structname>
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Lack of these dependencies could allow a column or data
       type <command>DROP</command> to go through when it ought to fail,
       thereby causing later uses of the view or rule to get errors.
       This patch does not do anything to protect existing views/rules,
       only ones created in the future.
+-->
+これらの依存関係が欠けていると、エラーにすべきときでも列やデータ型を<command>DROP</command>できました。その結果、そのビューやルールの後の使用でエラーをひき起こしました。
+本修正は既存のビュー／ルールを保護するためには何もしません。将来作成されるものを保護するだけです。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Correctly detect hashability of range data types (Tom Lane)
+-->
+範囲データ型がハッシュ可能であるかを正しく検出するようにしました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       The planner mistakenly assumed that any range type could be hashed
       for use in hash joins or hash aggregation, but actually it must check
       whether the range's subtype has hash support.  This does not affect any
       of the built-in range types, since they're all hashable anyway.
+-->
+ハッシュ結合やハッシュ集約を使うにあたりプランナは誤っていかなる範囲型もハッシュ可能であると想定していましたが、実際には範囲の中の型がハッシュに対応しているかの検査が必要です。
+組み込みの範囲型は、どれもハッシュ可能であるのでいずれにせよ影響ありません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix low-probability loss of <command>NOTIFY</command> messages due to
       XID wraparound (Marko Tiikkaja, Tom Lane)
+-->
+XID周回により低確率で起きる<command>NOTIFY</command>メッセージの取りこぼしを修正しました。
+(Marko Tiikkaja, Tom Lane)
      </para>
 
      <para>
+<!--
       If a session executed no queries, but merely listened for
       notifications, for more than 2 billion transactions, it started to miss
       some notifications from concurrently-committing transactions.
+-->
+あるセッションが20億トランザクション以上にわたって一つも問い合わせを実行せず、通知の監視だけ行った場合、同時にコミットするトランザクションからのいくらかの通知を取りこぼし始めました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Prevent low-probability crash in processing of nested trigger firings
       (Tom Lane)
+-->
+入れ子のトリガ駆動を処理する時に、低い確率で起きるクラッシュを防止します。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Correctly restore the umask setting when file creation fails
       in <command>COPY</command> or <function>lo_export()</function>
       (Peter Eisentraut)
+-->
+ファイル作成が<command>COPY</command>または<function>lo_export()</function>で失敗した場合に、umaskの設定を正しく元に戻します。
+(Peter Eisentraut)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Give a better error message for duplicate column names
       in <command>ANALYZE</command> (Nathan Bossart)
+-->
+<command>ANALYZE</command>で重複する列名に対してより良いエラーメッセージを出します。
+(Nathan Bossart)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix mis-parsing of the last line in a
       non-newline-terminated <filename>pg_hba.conf</filename> file
       (Tom Lane)
+-->
+改行で終わっていない<filename>pg_hba.conf</filename>ファイルで最後の行の解析を失敗するのを修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>libpq</application> to not require user's home
       directory to exist (Tom Lane)
+-->
+<application>libpq</application>をユーザのホームディレクトリが存在している必要が無いように修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       In v10, failure to find the home directory while trying to
       read <filename>~/.pgpass</filename> was treated as a hard error,
       but it should just cause that file to not be found.  Both v10 and
@@ -688,53 +1063,79 @@
       reading <filename>~/.pg_service.conf</filename>, though this was less
       obvious since that file is not sought unless a service name is
       specified.
+-->
+v10では<filename>~/.pgpass</filename>を読むときにホームディレクトリを見つけられないと強いエラーとして扱われましたが、ファイルが見つからない原因となるだけであるべきです。
+サービス名が指定されてない限り探されないのでそれほど目につきませんが、v10以前のリリース系列では<filename>~/.pg_service.conf</filename>を読むときに同じ誤りを犯していました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>libpq</application> to guard against integer
       overflow in the row count of a <structname>PGresult</structname>
       (Michael Paquier)
+-->
+<application>libpq</application>を<structname>PGresult</structname>の行数の整数オーバーフローから守るよう修正しました。
+(Michael Paquier)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>ecpg</application>'s handling of out-of-scope cursor
       declarations with pointer or array variables (Michael Meskes)
+-->
+<application>ecpg</application>がポインタや配列変数で範囲外のカーソル宣言を扱うのを修正しました。
+(Michael Meskes)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Make ecpglib's Informix-compatibility mode ignore fractional digits in
       integer input strings, as expected (Gao Zengqi, Michael Meskes)
+-->
+ecpglibのInfomix互換モードにおいて、予期される通りに整数入力文字列で端数桁を無視するようにしました。
+(Gao Zengqi, Michael Meskes)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Sync our copy of the timezone library with IANA release tzcode2017c
       (Tom Lane)
+-->
+私たちのタイムゾーンライブラリのコピーをIANA release tzcode2017cに同期しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This fixes various issues; the only one likely to be user-visible
       is that the default DST rules for a POSIX-style zone name, if
       no <filename>posixrules</filename> file exists in the timezone data
       directory, now match current US law rather than what it was a dozen
       years ago.
+-->
+多数の問題が修正されています。ユーザに見えるであろう唯一のものは、POSIX形式のゾーン名に対するデフォルトの夏時間の規則は、<filename>posixrules</filename>ファイルがタイムゾーンデータディレクトリに存在しない場合、十数年前のものではなく現在の米国の法律に一致することです。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Update time zone data files to <application>tzdata</application>
       release 2017c for DST law changes in Fiji, Namibia, Northern Cyprus,
       Sudan, Tonga, and Turks &amp; Caicos Islands, plus historical
       corrections for Alaska, Apia, Burma, Calcutta, Detroit, Ireland,
       Namibia, and Pago Pago.
+-->
+タイムゾーンデータファイルを<application>tzdata</application> release 2017cに更新しました。
+フィジー、ナミビア、北キプロス、スーダン、トンガ、タークス・カイコス諸島の夏時間法の変更に加え、アラスカ、アピア、ビルマ、カルカッタ、デトロイト、アイルランド、ナミビア、パゴパゴの歴史的修正が含まれます。
      </para>
     </listitem>
 
@@ -1600,8 +2001,12 @@ SSPIは失敗しませんがメモリリークが生じました。
 
     <listitem>
      <para>
-      Fix <application>pg_dump</application> with the <option>--clean</option> option to
+<!--
+      Fix <application>pg_dump</application> with the <option>-&#045;clean</option> option to
       drop event triggers as expected (Tom Lane)
+-->
+<option>--clean</option>オプションを伴う<application>pg_dump</application>が期待どおりにイベントトリガを削除するように修正しました。
+(Tom Lane)
      </para>
 
      <para>

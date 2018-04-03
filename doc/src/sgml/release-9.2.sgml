@@ -2,59 +2,95 @@
 <!-- See header comment in release.sgml about typical markup -->
 
  <sect1 id="release-9-2-24">
+<!--
   <title>Release 9.2.24</title>
+-->
+  <title>リリース9.2.24</title>
 
   <formalpara>
+<!--
   <title>Release date:</title>
+-->
+  <title>リリース日:</title>
   <para>2017-11-09</para>
   </formalpara>
 
   <para>
+<!--
    This release contains a variety of fixes from 9.2.23.
    For information about new features in the 9.2 major release, see
    <xref linkend="release-9-2">.
+-->
+このリリースは9.2.23に対し、各種不具合を修正したものです。
+9.2メジャーリリースにおける新機能については、<xref linkend="release-9-2">を参照してください。
   </para>
 
   <para>
+<!--
    This is expected to be the last <productname>PostgreSQL</productname>
    release in the 9.2.X series.  Users are encouraged to update to a newer
    release branch soon.
+-->
+本リリースは<productname>PostgreSQL</>の9.2.Xシリーズの最後のリリースとなる予定です。
+早めに新しいリリースのブランチに更新することを推奨します。
   </para>
 
   <sect2>
+<!--
    <title>Migration to Version 9.2.24</title>
+-->
+   <title>バージョン9.2.24への移行</title>
 
    <para>
+<!--
     A dump/restore is not required for those running 9.2.X.
+-->
+9.2.Xからの移行ではダンプ/リストアは不要です。
    </para>
 
    <para>
+<!--
     However, if you are upgrading from a version earlier than 9.2.22,
     see <xref linkend="release-9-2-22">.
+-->
+しかしながら、9.2.22よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-2-22">を参照して下さい。
    </para>
 
   </sect2>
 
   <sect2>
+<!--
    <title>Changes</title>
+-->
+   <title>変更点</title>
 
    <itemizedlist>
 
     <listitem>
      <para>
+<!--
       Fix sample server-start scripts to become <literal>$PGUSER</literal>
       before opening <literal>$PGLOG</literal> (Noah Misch)
+-->
+<literal>$PGLOG</literal>を開く前に<literal>$PGUSER</literal>になるようにサンプルのサーバ起動スクリプトを修正しました。
+(Noah Misch)
      </para>
 
      <para>
+<!--
       Previously, the postmaster log file was opened while still running as
       root.  The database owner could therefore mount an attack against
       another system user by making <literal>$PGLOG</literal> be a symbolic
       link to some other file, which would then become corrupted by appending
       log messages.
+-->
+これまではpostmasterのログファイルはまだrootとして実行されている間にオープンされました。
+それゆえデータベース所有者は他のシステムユーザに<literal>$PGLOG</literal>を他のファイルに対するシンボリックリンクにすることで攻撃を準備することができました。
+そのファイルはログメッセージが追加されることで破損するでしょう。
      </para>
 
      <para>
+<!--
       By default, these scripts are not installed anywhere.  Users who have
       made use of them will need to manually recopy them, or apply the same
       changes to their modified versions.  If the
@@ -62,98 +98,155 @@
       be removed or renamed out of the way before restarting the server with
       the corrected script.
       (CVE-2017-12172)
+-->
+デフォルトでは、これらのスクリプトはどこにもインストールされません。
+利用しているユーザが手動でこれらを再コピーするか、修正されたバージョンに同じ変更を適用する必要があります。
+もし、存在している<literal>$PGLOG</literal>ファイルがroot所有であるなら、直されたスクリプトでサーバを再起動する前に、それを削除するかファイル名変更をしてどけておく必要があります。
+(CVE-2017-12172)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Properly reject attempts to convert infinite float values to
       type <type>numeric</type> (Tom Lane, KaiGai Kohei)
+-->
+浮動小数点数の無限の値を<type>numeric</type>型に変換しようとする試みを適切に拒絶します。
+(Tom Lane, KaiGai Kohei)
      </para>
 
      <para>
+<!--
       Previously the behavior was platform-dependent.
+-->
+これまで、振舞いはプラットフォーム依存でした。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix corner-case crashes when columns have been added to the end of a
       view (Tom Lane)
+-->
+列をビューの末尾に追加したときに稀な場合でのクラッシュを修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Record proper dependencies when a view or rule
       contains <structname>FieldSelect</structname>
       or <structname>FieldStore</structname> expression nodes (Tom Lane)
+-->
+ビューやルールが<structname>FieldSelect</structname>式または<structname>FieldStore</structname>式のノードを含むとき、適切な依存関係を記録するようにしました。
+<structname>FieldStore</structname>
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Lack of these dependencies could allow a column or data
       type <command>DROP</command> to go through when it ought to fail,
       thereby causing later uses of the view or rule to get errors.
       This patch does not do anything to protect existing views/rules,
       only ones created in the future.
+-->
+これらの依存関係が欠けていると、エラーにすべきときでも列やデータ型を<command>DROP</command>できました。その結果、そのビューやルールの後の使用でエラーをひき起こしました。
+本修正は既存のビュー／ルールを保護するためには何もしません。将来作成されるものを保護するだけです。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Correctly detect hashability of range data types (Tom Lane)
+-->
+範囲データ型がハッシュ可能であるかを正しく検出するようにしました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       The planner mistakenly assumed that any range type could be hashed
       for use in hash joins or hash aggregation, but actually it must check
       whether the range's subtype has hash support.  This does not affect any
       of the built-in range types, since they're all hashable anyway.
+-->
+ハッシュ結合やハッシュ集約を使うにあたりプランナは誤っていかなる範囲型もハッシュ可能であると想定していましたが、実際には範囲の中の型がハッシュに対応しているかの検査が必要です。
+組み込みの範囲型は、どれもハッシュ可能であるのでいずれにせよ影響ありません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix low-probability loss of <command>NOTIFY</command> messages due to
       XID wraparound (Marko Tiikkaja, Tom Lane)
+-->
+XID周回により低確率で起きる<command>NOTIFY</command>メッセージの取りこぼしを修正しました。
+(Marko Tiikkaja, Tom Lane)
      </para>
 
      <para>
+<!--
       If a session executed no queries, but merely listened for
       notifications, for more than 2 billion transactions, it started to miss
       some notifications from concurrently-committing transactions.
+-->
+あるセッションが20億トランザクション以上にわたって一つも問い合わせを実行せず、通知の監視だけ行った場合、同時にコミットするトランザクションからのいくらかの通知を取りこぼし始めました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Prevent low-probability crash in processing of nested trigger firings
       (Tom Lane)
+-->
+入れ子のトリガ駆動を処理する時に、低い確率で起きるクラッシュを防止します。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Correctly restore the umask setting when file creation fails
       in <command>COPY</command> or <function>lo_export()</function>
       (Peter Eisentraut)
+-->
+ファイル作成が<command>COPY</command>または<function>lo_export()</function>で失敗した場合に、umaskの設定を正しく元に戻します。
+(Peter Eisentraut)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Give a better error message for duplicate column names
       in <command>ANALYZE</command> (Nathan Bossart)
+-->
+<command>ANALYZE</command>で重複する列名に対してより良いエラーメッセージを出します。
+(Nathan Bossart)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>libpq</application> to not require user's home
       directory to exist (Tom Lane)
+-->
+<application>libpq</application>をユーザのホームディレクトリが存在している必要が無いように修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       In v10, failure to find the home directory while trying to
       read <filename>~/.pgpass</filename> was treated as a hard error,
       but it should just cause that file to not be found.  Both v10 and
@@ -161,39 +254,57 @@
       reading <filename>~/.pg_service.conf</filename>, though this was less
       obvious since that file is not sought unless a service name is
       specified.
+-->
+v10では<filename>~/.pgpass</filename>を読むときにホームディレクトリを見つけられないと強いエラーとして扱われましたが、ファイルが見つからない原因となるだけであるべきです。
+サービス名が指定されてない限り探されないのでそれほど目につきませんが、v10以前のリリース系列では<filename>~/.pg_service.conf</filename>を読むときに同じ誤りを犯していました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>libpq</application> to guard against integer
       overflow in the row count of a <structname>PGresult</structname>
       (Michael Paquier)
+-->
+<application>libpq</application>を<structname>PGresult</structname>の行数の整数オーバーフローから守るよう修正しました。
+(Michael Paquier)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Sync our copy of the timezone library with IANA release tzcode2017c
       (Tom Lane)
+-->
+私たちのタイムゾーンライブラリのコピーをIANA release tzcode2017cに同期しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This fixes various issues; the only one likely to be user-visible
       is that the default DST rules for a POSIX-style zone name, if
       no <filename>posixrules</filename> file exists in the timezone data
       directory, now match current US law rather than what it was a dozen
       years ago.
+-->
+多数の問題が修正されています。ユーザに見えるであろう唯一のものは、POSIX形式のゾーン名に対するデフォルトの夏時間の規則は、<filename>posixrules</filename>ファイルがタイムゾーンデータディレクトリに存在しない場合、十数年前のものではなく現在の米国の法律に一致することです。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Update time zone data files to <application>tzdata</application>
       release 2017c for DST law changes in Fiji, Namibia, Northern Cyprus,
       Sudan, Tonga, and Turks &amp; Caicos Islands, plus historical
       corrections for Alaska, Apia, Burma, Calcutta, Detroit, Ireland,
       Namibia, and Pago Pago.
+-->
+タイムゾーンデータファイルを<application>tzdata</application> release 2017cに更新しました。
+フィジー、ナミビア、北キプロス、スーダン、トンガ、タークス・カイコス諸島の夏時間法の変更に加え、アラスカ、アピア、ビルマ、カルカッタ、デトロイト、アイルランド、ナミビア、パゴパゴの歴史的修正が含まれます。
      </para>
     </listitem>
 
