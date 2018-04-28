@@ -15,6 +15,14 @@
       <l:template name="sect4" text="%n. %t"/>
       <l:template name="sect5" text="%n. %t"/>
     </l:context>
+    <l:context name="styles">
+      <l:template name="person-name" text="first-last"/>
+    </l:context>
+    <l:context name="authorgroup">
+      <l:template name="sep" text=", "/>
+      <l:template name="sep2" text=", "/>
+      <l:template name="seplast" text=", "/>
+    </l:context>
   </l:l10n>
 </l:i18n>
 
