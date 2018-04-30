@@ -156,11 +156,18 @@
 <xsl:attribute-set name="table.properties" use-attribute-sets="normal.para.spacing">
   <xsl:attribute name="font-size">80%</xsl:attribute>
 </xsl:attribute-set>
+<xsl:param name="table.cell.border.color">#999999</xsl:param>
 
 <xsl:template name="table.row.properties">
+  <xsl:variable name="rownum">
+    <xsl:number from="tgroup" count="row"/>
+  </xsl:variable>
   <xsl:if test="ancestor::thead">
     <xsl:attribute name="font-size">100%</xsl:attribute>
-    <xsl:attribute name="background-color">#EFEFEF</xsl:attribute>
+    <xsl:attribute name="background-color">#a7c6df</xsl:attribute>
+  </xsl:if>
+  <xsl:if test="$rownum mod 2 = 0">
+    <xsl:attribute name="background-color">#F4F4F4</xsl:attribute>
   </xsl:if>
 </xsl:template>
 
