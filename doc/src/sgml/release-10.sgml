@@ -2,45 +2,72 @@
 <!-- See header comment in release.sgml about typical markup -->
 
  <sect1 id="release-10-4">
+<!--
   <title>Release 10.4</title>
+-->
+  <title>リリース 10.4</title>
 
   <formalpara>
+<!--
   <title>Release date:</title>
+-->
+  <title>リリース日:</title>
   <para>2018-05-10</para>
   </formalpara>
 
   <para>
+<!--
    This release contains a variety of fixes from 10.3.
    For information about new features in major release 10, see
    <xref linkend="release-10">.
+-->
+このリリースは10.3に対し、様々な不具合を修正したものです。 10メジャーリリースにおける新機能については、<xref linkend="release-10">を参照してください。
   </para>
 
   <sect2>
+<!--
    <title>Migration to Version 10.4</title>
+-->
+   <title>バージョン10.4への移行</title>
 
    <para>
+<!--
     A dump/restore is not required for those running 10.X.
+-->
+10.Xからの移行ではダンプ/リストアは不要です。
    </para>
 
    <para>
+<!--
     However, if you use the <filename>adminpack</filename> extension,
     you should update it as per the first changelog entry below.
+-->
+しかしながら、<filename>adminpack</filename>拡張を使っているなら、下記の1番目の変更履歴項目にしたがって、それをアップデートするべきです。
    </para>
 
    <para>
+<!--
     Also, if the function marking mistakes mentioned in the second and
     third changelog entries below affect you, you will want to take steps
     to correct your database catalogs.
+-->
+また、2番目と3番目の変更履歴項目で言及されている誤った印付けの関数の影響があるなら、データベースカタログを補正する手順を行うのが望ましいです。
    </para>
 
    <para>
+<!--
     Also, if you are upgrading from a version earlier than 10.3,
     see <xref linkend="release-10-3">.
+-->
+また、10.3より前のバージョンからアップグレードする場合には<xref linkend="release-10-3">を参照してください。
    </para>
   </sect2>
 
   <sect2>
+<!--
    <title>Changes</title>
+-->
+   <title>変更点</title>
 
    <itemizedlist>
 
@@ -52,12 +79,17 @@ Branch: REL_10_STABLE [20f01fc45] 2018-05-07 10:10:41 -0400
 Branch: REL9_6_STABLE [53b79ab4f] 2018-05-07 10:10:45 -0400
 -->
      <para>
+<!--
       Remove public execute privilege
       from <filename>contrib/adminpack</filename>'s
       <function>pg_logfile_rotate()</function> function (Stephen Frost)
+-->
+<filename>contrib/adminpack</filename>の<function>pg_logfile_rotate()</function>関数からパブリック実行権限を取り除きました。
+(Stephen Frost)
      </para>
 
      <para>
+<!--
       <function>pg_logfile_rotate()</function> is a deprecated wrapper
       for the core function <function>pg_rotate_logfile()</function>.
       When that function was changed to rely on SQL privileges for access
@@ -66,14 +98,22 @@ Branch: REL9_6_STABLE [53b79ab4f] 2018-05-07 10:10:45 -0400
       updated as well, but the need for this was missed.  Hence,
       if <filename>adminpack</filename> is installed, any user could
       request a logfile rotation, creating a minor security issue.
+-->
+<function>pg_logfile_rotate()</function>はコア関数<function>pg_rotate_logfile()</function>の廃れたラッパーです。
+ハードコードされたスーパーユーザ検査ではなくアクセス制御のためのSQL権限に依存するように関数が変更されたとき、<function>pg_logfile_rotate()</function>も同様に更新されるべきでしたが、その必要性が見逃されました。
+そのために、<filename>adminpack</filename>がインストールされていると、任意のユーザがログファイルのローテーションを要求できてしまい、小さいセキュリティ問題が生じていました
      </para>
 
      <para>
+<!--
       After installing this update, administrators should
       update <filename>adminpack</filename> by performing
       <literal>ALTER EXTENSION adminpack UPDATE</literal> in each
       database in which <filename>adminpack</filename> is installed.
       (CVE-2018-1115)
+-->
+本アップデートをインストール後、管理者は、<literal>ALTER EXTENSION adminpack UPDATE</literal>を<filename>adminpack</filename>がインストールされた各データベースで実行することで、<filename>adminpack</filename>をアップデートすべきです。
+(CVE-2018-1115)
      </para>
     </listitem>
 
@@ -88,11 +128,16 @@ Branch: REL9_4_STABLE [b7537ffb1] 2018-03-30 18:14:51 -0400
 Branch: REL9_3_STABLE [485857d44] 2018-03-30 18:14:51 -0400
 -->
      <para>
+<!--
       Fix incorrect volatility markings on a few built-in functions
       (Thomas Munro, Tom Lane)
+-->
+いくつかの組み込み関数での誤った変動性区分を修正しました。
+(Thomas Munro, Tom Lane)
      </para>
 
      <para>
+<!--
       The functions
       <function>query_to_xml</function>,
       <function>cursor_to_xml</function>,
@@ -112,6 +157,14 @@ Branch: REL9_3_STABLE [485857d44] 2018-03-30 18:14:51 -0400
       done in each database of the installation.)  Another option is
       to <application>pg_upgrade</application> the database to a version
       containing the corrected initial data.
+-->
+関数<function>query_to_xml</function>、<function>cursor_to_xml</function>、<function>cursor_to_xmlschema</function>、<function>query_to_xmlschema</function>、<function>query_to_xml_and_xmlschema</function>は、ユーザから供給される不安定な操作を含むかもしれない問い合わせを実行するため、揮発性(volatile)と印付けすべきです。
+これらはそうなっておらず、誤った問い合わせ最適化が行われる危険をもたらしました。
+これは新たなインストレーションでは補正された初期カタログデータにより修正されますが、既存のインストレーションは誤った印付けを含んだ状態のままとなります。
+これら関数の実際の使用ではほとんど害は生じないと見られますが、用心のため、手動でこれら関数の<structname>pg_proc</structname>エントリを更新することで修正できます。
+例えば<literal>ALTER FUNCTION pg_catalog.query_to_xml(text, boolean, boolean, text) VOLATILE</literal>と実行します。
+（インストレーションの各データベース上で行う必要があることに注意してください）。
+他の選択肢はそのデータベースを正しい初期データを持つバージョンに<application>pg_upgrade</application>することです。
      </para>
     </listitem>
 
@@ -123,11 +176,16 @@ Branch: REL_10_STABLE [283262cd9] 2018-03-30 18:14:51 -0400
 Branch: REL9_6_STABLE [91d82317d] 2018-03-30 18:14:51 -0400
 -->
      <para>
+<!--
       Fix incorrect parallel-safety markings on a few built-in functions
       (Thomas Munro, Tom Lane)
+-->
+いくらかの組み込み関数での誤ったパラレルセーフの印付けが修正されました。
+(Thomas Munro, Tom Lane)
      </para>
 
      <para>
+<!--
       The functions
       <function>brin_summarize_new_values</function>,
       <function>brin_summarize_range</function>,
@@ -154,6 +212,16 @@ Branch: REL9_6_STABLE [91d82317d] 2018-03-30 18:14:51 -0400
       each database of the installation.)  Another option is
       to <application>pg_upgrade</application> the database to a version
       containing the corrected initial data.
+-->
+関数<function>brin_summarize_new_values</function>、<function>brin_summarize_range</function>、<function>brin_desummarize_range</function>、<function>gin_clean_pending_list</function>、<function>cursor_to_xml</function>、<function>cursor_to_xmlschema</function>、<function>ts_rewrite</function>、<function>ts_stat</function>、<function>binary_upgrade_create_empty_extension</function>、<function>pg_import_system_collations</function>は、パラレル非安全(parallel unsafe)と印付けされるべきでした。
+これらの一部は直接データベース変更を行い、また、他はユーザから供給された同様の直接変更を行うかもしれない問い合わせを実行するためです。
+これらはパラレル制限(parallel restricted)と印付けされていて、予期せぬ問い合わせエラーの危険をもたらしました。
+これは新たなインストレーションでは補正された初期カタログデータにより修正されますが、既存のインストレーションは誤った印付けを含んだ状態のままとなります。
+<varname>force_parallel_mode</varname>がonになっていいない限り、これら関数の実際の使用ではほとんど害は生じないと見られます。
+用心のため、手動でこれら関数の<structname>pg_proc</structname>エントリを更新することで修正できます。
+例えば<literal>ALTER FUNCTION pg_catalog.brin_summarize_new_values(regclass) PARALLEL UNSAFE</literal>と実行します。
+（インストレーションの各データベース上で行う必要があることに注意してください）。
+他の選択肢はそのデータベースを正しい初期データを持つバージョンに<application>pg_upgrade</application>することです。
      </para>
     </listitem>
 
@@ -175,11 +243,16 @@ Branch: REL9_4_STABLE [6943fb927] 2018-04-11 18:11:30 -0400
 Branch: REL9_3_STABLE [66d4b6bb8] 2018-04-11 18:11:30 -0400
 -->
      <para>
+<!--
       Avoid re-using TOAST value OIDs that match dead-but-not-yet-vacuumed
       TOAST entries (Pavan Deolasee)
+-->
+削除済みで未バキュームのTOASTエントリと一致するTOAST値のOIDの再使用を回避しました。
+(Pavan Deolasee)
      </para>
 
      <para>
+<!--
       Once the OID counter has wrapped around, it's possible to assign a
       TOAST value whose OID matches a previously deleted entry in the same
       TOAST table.  If that entry were not yet vacuumed away, this resulted
@@ -188,6 +261,11 @@ Branch: REL9_3_STABLE [66d4b6bb8] 2018-04-11 18:11:30 -0400
       persist until the dead entry was removed
       by <command>VACUUM</command>.  Fix by not selecting such OIDs when
       creating a new TOAST entry.
+-->
+一度OIDカウンタが周回すると、同じTOASTテーブルで以前に削除済みのエントリとOIDが一致するTOAST値を割り当てする可能性があります。
+そのエントリが未だバキュームされていないと、<quote>unexpected chunk number 0 (expected 1) for toast value <replaceable>nnnnn</replaceable>（TOAST値nnnnnに対する予期せぬチャンク番号0、(1が期待された)）</quote>というエラーをひき起こします。
+これはデッドエントリが<command>VACUUM</command>で除去されるまで持続します。
+新たなTOASTエントリを作るときにそのようなOIDを選択しないようにして修正しました。
      </para>
     </listitem>
 
@@ -198,14 +276,21 @@ Branch: master [cfbecf810] 2018-04-06 11:42:28 -0400
 Branch: REL_10_STABLE [29ab1e24a] 2018-04-06 11:52:38 -0400
 -->
      <para>
+<!--
       Correctly enforce any <literal>CHECK</literal> constraints on
       individual partitions during <command>COPY</command> to a partitioned
       table (Etsuro Fujita)
+-->
+パーティションテーブルへの<command>COPY</command>中に、個々のパーティションで正しくあらゆる<literal>CHECK</literal>制約を強制するようにしました。
+(Etsuro Fujita)
      </para>
 
      <para>
+<!--
       Previously, only constraints declared for the partitioned table as a
       whole were checked.
+-->
+これまでは、パーティションテーブル全体に対して宣言された制約のみが検査されていました。
      </para>
     </listitem>
 
@@ -216,15 +301,23 @@ Branch: master [4df58f7ed] 2018-04-23 15:29:11 -0400
 Branch: REL_10_STABLE [1222db999] 2018-04-23 15:29:12 -0400
 -->
      <para>
+<!--
       Accept <literal>TRUE</literal> and <literal>FALSE</literal> as
       partition bound values (Amit Langote)
+-->
+<literal>TRUE</literal>と<literal>FALSE</literal>をパーティション境界値として受け入れるようにしました。
+(Amit Langote)
      </para>
 
      <para>
+<!--
       Previously, only string-literal values were accepted for a boolean
       partitioning column.  But then <application>pg_dump</application>
       would print such values as <literal>TRUE</literal>
       or <literal>FALSE</literal>, leading to dump/reload failures.
+-->
+これまでは、booleanのパーティション列に文字列リテラル値だけが受け入れられました。
+しかし、<application>pg_dump</application>はそのような値を<literal>TRUE</literal>や<literal>FALSE</literal>として出力していて、ダンプ/再読み込みの失敗をもたらしていました。
      </para>
     </listitem>
 
@@ -235,13 +328,20 @@ Branch: master [a4d56f583] 2018-04-12 15:08:10 -0300
 Branch: REL_10_STABLE [5f11c6ec6] 2018-04-12 15:08:25 -0300
 -->
      <para>
+<!--
       Fix memory management for partition key comparison functions
       (&Aacute;lvaro Herrera, Amit Langote)
+-->
+パーティションキーの比較関数に対するメモリ管理を修正しました。
+(&Aacute;lvaro Herrera, Amit Langote)
      </para>
 
      <para>
+<!--
       This error could lead to crashes when using user-defined operator
       classes for partition keys.
+-->
+ユーザ定義演算子クラスをパーティションキーに使っているとき、この誤りはクラッシュをもたらすかもしれません。
      </para>
     </listitem>
 
@@ -252,9 +352,13 @@ Branch: master [6666ee49f] 2018-03-19 17:45:53 -0300
 Branch: REL_10_STABLE [e3faddf53] 2018-03-19 17:43:55 -0300
 -->
      <para>
+<!--
       Fix possible crash when a query inserts tuples in several partitions
       of a partitioned table, and those partitions don't have identical row
       types (Etsuro Fujita, Amit Langote)
+-->
+パーティションテーブル内のいくつかのパーティションが同一の行型を持たず、問い合わせがそれらパーティションにタプルを挿入するとき、起こりうるクラッシュを修正しました。
+(Etsuro Fujita, Amit Langote)
      </para>
     </listitem>
 
@@ -269,12 +373,17 @@ Branch: REL9_4_STABLE [25a2ba35e] 2018-03-13 13:24:27 -0400
 Branch: REL9_3_STABLE [d44ce7b1a] 2018-03-13 13:24:27 -0400
 -->
      <para>
+<!--
       Change <command>ANALYZE</command>'s algorithm for updating
       <structname>pg_class</structname>.<structfield>reltuples</structfield>
       (David Gould)
+-->
+<command>ANALYZE</command>の<structname>pg_class</structname>.<structfield>reltuples</structfield>を更新するアルゴリズムを変更しました。
+(David Gould)
      </para>
 
      <para>
+<!--
       Previously, pages not actually scanned by <command>ANALYZE</command>
       were assumed to retain their old tuple density.  In a large table
       where <command>ANALYZE</command> samples only a small fraction of the
@@ -288,6 +397,11 @@ Branch: REL9_3_STABLE [d44ce7b1a] 2018-03-13 13:24:27 -0400
       that <command>ANALYZE</command>'s sample is a statistically unbiased
       sample of the table (as it should be), and just extrapolate the
       density observed within those pages to the whole table.
+-->
+これまでは、<command>ANALYZE</command>で実際にはスキャンされないページは、以前のタプル密度を維持していると見做されました。
+<command>ANALYZE</command>のサンプル取得が全体のごく一部分となる大きなテーブルにおいては、これは全体のタプル密度見積が決して大きくは変更されないこと意味し、そのため、実際にテーブルに起きていることは無視されて、<structfield>reltuples</structfield>はテーブルの物理サイズ（<structfield>relpages</structfield>）の変化にほぼ比例して変化していました。
+これは、事実上自動バキュームを遮断するほどに<structfield>reltuples</structfield>が実際より大きくなる結果としてあらわれました。
+<command>ANALYZE</command>のサンプルがテーブルの統計的に偏りがないサンプルと見做し（そうであるべきなので）、観測されたページ内の密度を単にテーブル全体に外挿することで、修正しました。
      </para>
     </listitem>
 
@@ -298,14 +412,21 @@ Branch: master [5564c1181] 2018-03-05 19:37:19 -0300
 Branch: REL_10_STABLE [911e6236b] 2018-03-05 19:37:19 -0300
 -->
      <para>
+<!--
       Include extended-statistics objects in the set of table properties
       duplicated by <command>CREATE TABLE ... LIKE ... INCLUDING
       ALL</command> (David Rowley)
+-->
+<command>CREATE TABLE ... LIKE ... INCLUDING ALL</command>で複製されたテーブル属性の集合に拡張統計オブジェクトを含めました。
+(David Rowley)
      </para>
 
      <para>
+<!--
       Also add an <literal>INCLUDING STATISTICS</literal> option, to allow
       finer-grained control over whether this happens.
+-->
+これを行うかどうかを細かに制御ができる<literal>INCLUDING STATISTICS</literal>オプションも追加しました。
      </para>
     </listitem>
 
@@ -316,14 +437,21 @@ Branch: master [377b5ac48] 2018-03-13 09:41:30 -0400
 Branch: REL_10_STABLE [c32f44c4a] 2018-03-13 09:41:36 -0400
 -->
      <para>
+<!--
       Fix <command>CREATE TABLE ... LIKE</command> with <type>bigint</type>
       identity columns (Peter Eisentraut)
+-->
+<type>bigint</type>のIDENTITYを伴う<command>CREATE TABLE ... LIKE</command>を修正しました。
+(Peter Eisentraut)
      </para>
 
      <para>
+<!--
       On platforms where <type>long</type> is 32 bits (which includes
       64-bit Windows as well as most 32-bit machines), copied sequence
       parameters would be truncated to 32 bits.
+-->
+<type>long</type>が32ビットのプラットフォーム（大部分の32ビットマシンのみならず64ビットWindowsも含まれます）で、コピーされたシーケンスパラメータが32ビットに切り捨てされていました。
      </para>
     </listitem>
 
@@ -337,10 +465,14 @@ Branch: REL9_5_STABLE [82acf3eb7] 2018-04-18 12:07:38 -0400
 Branch: REL9_4_STABLE [7490ce725] 2018-04-18 12:07:38 -0400
 -->
      <para>
+<!--
       Avoid deadlocks in concurrent <command>CREATE INDEX
       CONCURRENTLY</command> commands that are run
       under <literal>SERIALIZABLE</literal> or <literal>REPEATABLE
       READ</literal> transaction isolation (Tom Lane)
+-->
+<literal>SERIALIZABLE</literal>または<literal>REPEATABLE READ</literal>トランザクション隔離で実行される同時実行の<command>CREATE INDEX CONCURRENTLY</command>コマンドのデッドロックを回避しました。
+(Tom Lane)
      </para>
     </listitem>
 
@@ -354,8 +486,12 @@ Branch: REL9_5_STABLE [c553e4a50] 2018-03-19 17:23:07 -0400
 Branch: REL9_4_STABLE [b6ba94ec4] 2018-03-19 17:23:07 -0400
 -->
      <para>
+<!--
       Fix possible slow execution of <command>REFRESH MATERIALIZED VIEW
       CONCURRENTLY</command> (Thomas Munro)
+-->
+<command>REFRESH MATERIALIZED VIEW CONCURRENTLY</command>の実行が遅くなる可能性があり、修正しました。
+(Thomas Munro)
      </para>
     </listitem>
 
@@ -370,9 +506,13 @@ Branch: REL9_4_STABLE [0a0721f84] 2018-03-17 14:59:31 -0400
 Branch: REL9_3_STABLE [5b77c11da] 2018-03-17 14:59:31 -0400
 -->
      <para>
+<!--
       Fix <literal>UPDATE/DELETE ... WHERE CURRENT OF</literal> to not fail
       when the referenced cursor uses an index-only-scan plan (Yugo Nagata,
       Tom Lane)
+-->
+参照されるカーソルがインデックスオンリースキャンプランを使うときに<literal>UPDATE/DELETE ... WHERE CURRENT OF</literal>が失敗しないように修正しました。
+(Yugo Nagata, Tom Lane)
      </para>
     </listitem>
 
@@ -395,15 +535,22 @@ Branch: REL9_4_STABLE [58fec9526] 2018-04-20 15:19:17 -0400
 Branch: REL9_3_STABLE [9680c120e] 2018-04-20 15:19:17 -0400
 -->
      <para>
+<!--
       Fix incorrect planning of join clauses pushed into parameterized
       paths (Andrew Gierth, Tom Lane)
+-->
+パラメタライズドパスにプッシュされたJOIN句の誤ったプラン作成を修正しました。
+(Andrew Gierth, Tom Lane)
      </para>
 
      <para>
+<!--
       This error could result in misclassifying a condition as
       a <quote>join filter</quote> for an outer join when it should be a
       plain <quote>filter</quote> condition, leading to incorrect join
       output.
+-->
+この障害により、<quote>filter</quote>条件のプランであるべきときに、条件が外部結合に対する<quote>join filter</quote>であると誤った分別がされ、間違った結合結果をもたらす可能性がありました。
      </para>
     </listitem>
 
@@ -416,10 +563,14 @@ Branch: REL9_6_STABLE [3f26be83e] 2018-03-01 15:35:03 -0500
 Branch: REL9_5_STABLE [be55bfc93] 2018-03-01 15:35:03 -0500
 -->
      <para>
+<!--
       Fix possibly incorrect generation of an index-only-scan plan when the
       same table column appears in multiple index columns, and only some of
       those index columns use operator classes that can return the column
       value (Kyotaro Horiguchi)
+-->
+複合インデックスの列に同じテーブル列が現れ、一部のこれらインデックス列だけが列の値を返すことができる演算子クラスを使うときに、起こりうる誤ったインデックスオンリースキャンプランの生成が修正されました。
+(Kyotaro Horiguchi)
      </para>
     </listitem>
 
@@ -434,15 +585,22 @@ Branch: REL9_4_STABLE [e556fb137] 2018-03-11 18:10:42 -0400
 Branch: REL9_3_STABLE [925581d89] 2018-03-11 18:10:43 -0400
 -->
      <para>
+<!--
       Fix misoptimization of <literal>CHECK</literal> constraints having
       provably-NULL subclauses of
       top-level <literal>AND</literal>/<literal>OR</literal> conditions
       (Tom Lane, Dean Rasheed)
+-->
+おそらくNULLであるトップレベルの<literal>AND</literal>/<literal>OR</literal>条件の副句を持つ<literal>CHECK</literal>制約の誤った最適化が修正されました。
+(Tom Lane, Dean Rasheed)
      </para>
 
      <para>
+<!--
       This could, for example, allow constraint exclusion to exclude a
       child table that should not be excluded from a query.
+-->
+これにより、例えば、制約による除外が、問い合わせから除外すべきでない子テーブルを除外することを許してしまうおそれがありました。
      </para>
     </listitem>
 
@@ -453,9 +611,13 @@ Branch: master [d2d79887e] 2018-03-21 11:39:28 +0000
 Branch: REL_10_STABLE [cf21c4649] 2018-03-21 11:41:53 +0000
 -->
      <para>
+<!--
       Prevent planner crash when a query has multiple <literal>GROUPING
       SETS</literal>, none of which can be implemented by sorting (Andrew
       Gierth)
+-->
+問い合わせが複数<literal>GROUPING SETS</literal>を持ち、それらのいずれもソートによる実現ができないときのプランナのクラッシュを防止しました。
+(Andrew Gierth)
      </para>
     </listitem>
 
@@ -468,8 +630,12 @@ Branch: REL9_6_STABLE [90decdba3] 2018-03-28 13:26:43 -0400
 Branch: REL9_5_STABLE [e4ff71158] 2018-03-28 13:26:43 -0400
 -->
      <para>
+<!--
       Fix executor crash due to double free in some <literal>GROUPING
       SET</literal> usages (Peter Geoghegan)
+-->
+一部の<literal>GROUPING SET</literal>使用方法における二重解放によるエグゼキュータのクラッシュを修正しました。
+(Peter Geoghegan)
      </para>
     </listitem>
 
@@ -480,7 +646,11 @@ Branch: master [e98a4de7d] 2018-02-27 15:56:51 -0500
 Branch: REL_10_STABLE [b9dac4a6e] 2018-02-27 15:56:51 -0500
 -->
      <para>
+<!--
       Fix misexecution of self-joins on transition tables (Thomas Munro)
+-->
+遷移テーブルの自己結合の誤った実行を修正しました。
+(Thomas Munro)
      </para>
     </listitem>
 
@@ -493,9 +663,13 @@ Branch: REL9_6_STABLE [c76d0eed2] 2018-04-20 17:15:31 -0400
 Branch: REL9_5_STABLE [168df1b84] 2018-04-20 17:15:31 -0400
 -->
      <para>
+<!--
       Avoid crash if a table rewrite event trigger is added concurrently
       with a command that could call such a trigger (&Aacute;lvaro Herrera,
       Andrew Gierth, Tom Lane)
+-->
+テーブル書き換えイベントトリガが同時にそのようなトリガを呼び出すかもしれなコマンドで追加された場合のクラッシュを回避しました。
+(&Aacute;lvaro Herrera, Andrew Gierth, Tom Lane)
      </para>
     </listitem>
 
@@ -510,8 +684,12 @@ Branch: REL9_4_STABLE [6bd659f19] 2018-05-03 20:10:11 +0300
 Branch: REL9_3_STABLE [540e7a6e5] 2018-05-03 20:10:34 +0300
 -->
      <para>
+<!--
       Avoid failure if a query-cancel or session-termination interrupt
       occurs while committing a prepared transaction (Stas Kelvich)
+-->
+準備されたトランザクションをコミットする間に、問い合わせキャンセルやセッション終了の割り込みが生じた場合の失敗を回避しました。
+(Stas Kelvich)
      </para>
     </listitem>
 
@@ -526,8 +704,12 @@ Branch: REL9_4_STABLE [2709549ec] 2018-03-16 16:03:45 -0400
 Branch: REL9_3_STABLE [574386ddc] 2018-03-16 16:03:45 -0400
 -->
      <para>
+<!--
       Fix query-lifespan memory leakage in repeatedly executed hash joins
       (Tom Lane)
+-->
+繰り返し実行されたハッシュ結合での問い合わせの間のメモリリークを修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
@@ -539,8 +721,12 @@ Branch: REL_10_STABLE [76ec45756] 2018-03-02 17:40:48 -0500
 Branch: REL9_6_STABLE [96d2df840] 2018-03-02 17:40:48 -0500
 -->
      <para>
+<!--
       Fix possible leak or double free of visibility map buffer pins
       (Amit Kapila)
+-->
+可視性マップのバッファピンのメモリリークまたは二重解放の可能性があり、修正しました。
+(Amit Kapila)
      </para>
     </listitem>
 
@@ -552,17 +738,26 @@ Branch: REL_10_STABLE [e1d634758] 2018-05-04 18:23:58 -0300
 Branch: REL9_6_STABLE [3a11485a5] 2018-05-04 18:23:30 -0300
 -->
      <para>
+<!--
       Avoid spuriously marking pages as all-visible (Dan Wood,
       Pavan Deolasee, &Aacute;lvaro Herrera)
+-->
+ページが全て可視であるという偽性の印付けを回避しました。
+(Dan Wood, Pavan Deolasee, &Aacute;lvaro Herrera)
      </para>
 
      <para>
+<!--
       This could happen if some tuples were locked (but not deleted).  While
       queries would still function correctly, vacuum would normally ignore
       such pages, with the long-term effect that the tuples were never
       frozen.  In recent releases this would eventually result in errors
       such as <quote>found multixact <replaceable>nnnnn</replaceable> from
       before relminmxid <replaceable>nnnnn</replaceable></quote>.
+-->
+これは一部タプルがロックされている（しかし削除されていない）場合に発生するおそれがありました。
+問い合わせが未だ正しく動作している間、バキュームは通常そのようなページを無視し、タプルがずっと凍結されないという長期の影響が伴います。
+最近のリリースではこれは、<quote>found multixact <replaceable>nnnnn</replaceable> from before relminmxid <replaceable>nnnnn</replaceable></quote>といったエラーに帰着するでしょう。
      </para>
     </listitem>
 
@@ -577,15 +772,22 @@ Branch: REL9_4_STABLE [3ee23834e] 2018-03-01 18:07:46 -0300
 Branch: REL9_3_STABLE [650f3863f] 2018-03-01 18:07:46 -0300
 -->
      <para>
+<!--
       Fix overly strict sanity check
       in <function>heap_prepare_freeze_tuple</function>
       (&Aacute;lvaro Herrera)
+-->
+<function>heap_prepare_freeze_tuple</function>の厳格すぎる整合性検査を修正しました。
+(&Aacute;lvaro Herrera)
      </para>
 
      <para>
+<!--
       This could result in incorrect <quote>cannot freeze committed
       xmax</quote> failures in databases that have
       been <application>pg_upgrade</application>'d from 9.2 or earlier.
+-->
+これは、9.2以前から<application>pg_upgrade</application>されたデータベースで間違った<quote>cannot freeze committed xmax</quote>エラーになる可能性がありました。
      </para>
     </listitem>
 
@@ -600,8 +802,12 @@ Branch: REL9_4_STABLE [5ccb77586] 2018-02-27 13:27:38 -0500
 Branch: REL9_3_STABLE [9bc33ef5e] 2018-02-27 13:27:38 -0500
 -->
      <para>
+<!--
       Prevent dangling-pointer dereference when a C-coded before-update row
       trigger returns the <quote>old</quote> tuple (Rushabh Lathia)
+-->
+Cで書かれた更新前実行の行トリガが<quote>old</quote>タプルを返すときの、ダングリングポインタ参照を防止しました。
+(Rushabh Lathia)
      </para>
     </listitem>
 
@@ -616,12 +822,18 @@ Branch: REL9_4_STABLE [95f08d32d] 2018-03-13 12:28:39 -0400
 Branch: REL9_3_STABLE [5328b6135] 2018-03-13 12:28:40 -0400
 -->
      <para>
+<!--
       Reduce locking during autovacuum worker scheduling (Jeff Janes)
+-->
+自動バキュームワーカのスケジューリング中のロックを減らしました。
      </para>
 
      <para>
+<!--
       The previous behavior caused drastic loss of potential worker
       concurrency in databases with many tables.
+-->
+これまでの振る舞いは、多数のテーブルを持つデータベースで潜在的なワーカの同時実行性の大幅な損失をひき起こしました。
      </para>
     </listitem>
 
@@ -636,15 +848,22 @@ Branch: REL9_4_STABLE [310d1379d] 2018-04-11 23:40:27 +0300
 Branch: REL9_3_STABLE [dfc383cf3] 2018-04-11 23:40:31 +0300
 -->
      <para>
+<!--
       Ensure client hostname is copied while copying
       <structname>pg_stat_activity</structname> data to local memory
       (Edmund Horner)
+-->
+<structname>pg_stat_activity</structname>のデータをローカルメモリにコピーするときに、確実にクライアントホスト名がコピーされるようにしました。
+(Edmund Horner)
      </para>
 
      <para>
+<!--
       Previously the supposedly-local snapshot contained a pointer into
       shared memory, allowing the client hostname column to change
       unexpectedly if any existing session disconnected.
+-->
+これまではおそらくローカルのスナップショットが共有メモリへのポインタを含んでいて、何らか存在するセッションが切断した場合に、クライアントホスト名の列が予期せず変化することがありました。
      </para>
     </listitem>
 
@@ -655,15 +874,22 @@ Branch: master [811969b21] 2018-04-11 23:39:49 +0300
 Branch: REL_10_STABLE [93b3d43dc] 2018-04-11 23:52:11 +0300
 -->
      <para>
+<!--
       Handle <structname>pg_stat_activity</structname> information for
       auxiliary processes correctly (Edmund Horner)
+-->
+<structname>pg_stat_activity</structname>の情報を補助プロセスに対して正しく扱うようにしました。
+(Edmund Horner)
      </para>
 
      <para>
+<!--
        The <structfield>application_name</structfield>,
        <structfield>client_hostname</structfield>,
        and <structfield>query</structfield> fields might show incorrect
        data for such processes.
+-->
+このようなプロセスについて<structfield>application_name</structfield>、<structfield>client_hostname</structfield>、および<structfield>query</structfield>フィールドが誤ったデータを見せるかもしれませんでした。
      </para>
     </listitem>
 
@@ -678,8 +904,12 @@ Branch: REL9_4_STABLE [f71d803c8] 2018-04-12 18:39:51 -0400
 Branch: REL9_3_STABLE [ac8ea0f27] 2018-04-12 18:39:52 -0400
 -->
      <para>
+<!--
       Fix incorrect processing of multiple compound affixes
       in <literal>ispell</literal> dictionaries (Arthur Zakirov)
+-->
+<literal>ispell</literal>辞書で複合接辞の誤った処理を修正しました。
+(Arthur Zakirov)
      </para>
     </listitem>
 
@@ -694,13 +924,20 @@ Branch: REL9_4_STABLE [608d1f971] 2018-04-16 16:06:47 -0400
 Branch: REL9_3_STABLE [cf73a5b34] 2018-04-16 16:06:47 -0400
 -->
      <para>
+<!--
       Fix collation-aware searches (that is, indexscans using inequality
       operators) in SP-GiST indexes on text columns (Tom Lane)
+-->
+テキスト列のSP-GiSTインデックスでの照合を伴う検索（すなわち、不等演算子を使うインデックススキャン）を修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Such searches would return the wrong set of rows in most non-C
       locales.
+-->
+このような検索は大部分の非Cロケールで誤った行集合を返しました。
      </para>
     </listitem>
 
@@ -712,8 +949,12 @@ Branch: REL_10_STABLE [d18a88acf] 2018-03-19 23:59:17 -0400
 Branch: REL9_6_STABLE [57ef2da43] 2018-03-19 23:59:17 -0400
 -->
      <para>
+<!--
       Prevent query-lifespan memory leakage with SP-GiST operator classes
       that use traversal values (Anton Dign&ouml;s)
+-->
+横断値を使うSP-GiST演算子クラスでの問い合わせの間のメモリリークを防止しました。
+(Anton Dign&ouml;s)
      </para>
     </listitem>
 
@@ -728,13 +969,20 @@ Branch: REL9_4_STABLE [7f6f8ccd9] 2018-03-22 13:23:48 -0400
 Branch: REL9_3_STABLE [46f80803a] 2018-03-22 13:23:48 -0400
 -->
      <para>
+<!--
       Count the number of index tuples correctly during initial build of an
       SP-GiST index (Tomas Vondra)
+-->
+SP-GiSTインデックスの初期ビルドの際にインデックスのタプル数を正しく数えるようにしました。
+(Tomas Vondra)
      </para>
 
      <para>
+<!--
       Previously, the tuple count was reported to be the same as that of
       the underlying table, which is wrong if the index is partial.
+-->
+これまでは、タプル数は元となるテーブルと同じと報告されましたが、これは部分インデックスの場合には誤りです。
      </para>
     </listitem>
 
@@ -749,14 +997,21 @@ Branch: REL9_4_STABLE [947f06c62] 2018-03-02 11:22:42 -0500
 Branch: REL9_3_STABLE [6b56f0752] 2018-03-02 11:22:42 -0500
 -->
      <para>
+<!--
       Count the number of index tuples correctly during vacuuming of a
       GiST index (Andrey Borodin)
+-->
+GiSTインデックスのバキュームの際にインデックスタプルの数を正しく数えるようにしました。
+ (Andrey Borodin)
      </para>
 
      <para>
+<!--
       Previously it reported the estimated number of heap tuples,
       which might be inaccurate, and is certainly wrong if the
       index is partial.
+-->
+これまでは見積られたヒープタプルの数が報告されましたが、それは不正確かもしれず、部分インデックスでは確実に誤っています。
      </para>
     </listitem>
 
@@ -770,8 +1025,12 @@ Branch: REL9_5_STABLE [4ea8f7d45] 2018-05-05 01:35:15 +0300
 Branch: REL9_4_STABLE [c06380e97] 2018-05-05 01:35:18 +0300
 -->
      <para>
+<!--
       Fix a corner case where a streaming standby gets stuck at a WAL
       continuation record (Kyotaro Horiguchi)
+-->
+WALの継続レコードでストリーミングスタンバイが詰まる稀な場合が修正されました。
+(Kyotaro Horiguchi)
      </para>
     </listitem>
 
@@ -785,8 +1044,12 @@ Branch: REL9_5_STABLE [d4429d50a] 2018-03-06 16:20:03 -0300
 Branch: REL9_4_STABLE [6d30e3a2b] 2018-03-06 16:10:23 -0300
 -->
      <para>
+<!--
       In logical decoding, avoid possible double processing of WAL data
       when a walsender restarts (Craig Ringer)
+-->
+ロジカルデコーディングでwalsenderが再起動したときに起こりうるWALデータの二重処理を回避しました。
+(Craig Ringer)
      </para>
     </listitem>
 
@@ -797,8 +1060,12 @@ Branch: master [24c0a6c64] 2018-03-14 21:34:26 -0300
 Branch: REL_10_STABLE [3c3450e74] 2018-03-14 21:34:21 -0300
 -->
      <para>
+<!--
       Fix logical replication to not assume that type OIDs match between
       the local and remote servers (Masahiko Sawada)
+-->
+ローカルとリモートのサーバでOIDが一致すると仮定しないようにロジカルレプリケーションを修正しました。
+(Masahiko Sawada)
      </para>
     </listitem>
 
@@ -813,9 +1080,13 @@ Branch: REL9_4_STABLE [165fa27fe] 2018-03-03 20:31:35 -0500
 Branch: REL9_3_STABLE [0bea99bd9] 2018-03-03 20:31:35 -0500
 -->
      <para>
+<!--
       Allow <function>scalarltsel</function>
       and <function>scalargtsel</function> to be used on non-core datatypes
       (Tomas Vondra)
+-->
+<function>scalarltsel</function>と<function>scalargtsel</function>を非コアのデータ型で使用できるようにしました。
+(Tomas Vondra)
      </para>
     </listitem>
 
@@ -830,15 +1101,23 @@ Branch: REL9_4_STABLE [3dd36aa4b] 2018-04-13 12:53:46 -0400
 Branch: REL9_3_STABLE [bbec33c2d] 2018-04-13 12:53:46 -0400
 -->
      <para>
+<!--
       Reduce <application>libpq</application>'s memory consumption when a
       server error is reported after a large amount of query output has
       been collected (Tom Lane)
+-->
+大量の問い合わせ出力が収集された後にサーバエラーが報告されたときの<application>libpq</application>のメモリ消費を減らしました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Discard the previous output before, not after, processing the error
       message.  On some platforms, notably Linux, this can make a
       difference in the application's subsequent memory footprint.
+-->
+以前の出力を後でなく先に廃棄して、エラーメッセージを処理します。
+一部のプラットフォーム、とりわけLinuxでは、これによりアプリケーションの次のメモリフットプリントに違いを出すことができます。
      </para>
     </listitem>
 
@@ -860,8 +1139,12 @@ Branch: REL9_4_STABLE [fcc15bf38] 2018-03-14 00:52:21 +0100
 Branch: REL9_3_STABLE [09f4ca92b] 2018-03-14 00:52:45 +0100
 -->
      <para>
+<!--
       Fix double-free crashes in <application>ecpg</application>
       (Patrick Krecker, Jeevan Ladhe)
+-->
+<application>ecpg</application>で二重解放のクラッシュを修正しました。
+(Patrick Krecker, Jeevan Ladhe)
      </para>
     </listitem>
 
@@ -876,9 +1159,13 @@ Branch: REL9_4_STABLE [49f9014c8] 2018-02-27 16:46:52 -0500
 Branch: REL9_3_STABLE [87b7e1e88] 2018-02-27 16:46:52 -0500
 -->
      <para>
+<!--
       Fix <application>ecpg</application> to handle <type>long long
       int</type> variables correctly in MSVC builds (Michael Meskes,
       Andrew Gierth)
+-->
+MSVCビルドで<type>long long int</type>変数を正しく扱うように<application>ecpg</application>を修正しました。
+(Michael Meskes, Andrew Gierth)
      </para>
     </listitem>
 
@@ -893,11 +1180,16 @@ Branch: REL9_4_STABLE [67e02cde7] 2018-03-21 20:03:28 -0400
 Branch: REL9_3_STABLE [be677bb5a] 2018-03-21 20:03:29 -0400
 -->
      <para>
+<!--
       Fix mis-quoting of values for list-valued GUC variables in dumps
       (Michael Paquier, Tom Lane)
+-->
+ダンプでリスト値になったGUC変数に対する誤った値のクォート付けを修正しました。
+(Michael Paquier, Tom Lane)
      </para>
 
      <para>
+<!--
       The <varname>local_preload_libraries</varname>,
       <varname>session_preload_libraries</varname>,
       <varname>shared_preload_libraries</varname>,
@@ -906,6 +1198,9 @@ Branch: REL9_3_STABLE [be677bb5a] 2018-03-21 20:03:29 -0400
       cause problems if settings for these variables appeared in
       <command>CREATE FUNCTION ... SET</command> or <command>ALTER
       DATABASE/ROLE ... SET</command> clauses.
+-->
+<varname>local_preload_libraries</varname>、<varname>session_preload_libraries</varname>、<varname>shared_preload_libraries</varname>、および<varname>temp_tablespaces</varname>変数は、<application>pg_dump</application>出力で正しくクォート付けされませんでした。
+これら変数に対する設定が<command>CREATE FUNCTION ... SET</command>や<command>ALTER DATABASE/ROLE ... SET</command>句にあるとき、問題を起こしました。
      </para>
     </listitem>
 
@@ -925,15 +1220,22 @@ Branch: REL9_5_STABLE [24f1e9ca0] 2018-04-25 18:50:33 -0700
 Branch: REL9_4_STABLE [bb532859f] 2018-04-25 18:50:34 -0700
 -->
      <para>
+<!--
       Fix <application>pg_recvlogical</application> to not fail against
       pre-v10 <productname>PostgreSQL</productname> servers
       (Michael Paquier)
+-->
+<application>pg_recvlogical</application>をv10より前の<productname>PostgreSQL</productname>に対して失敗しないように修正しました。
+(Michael Paquier)
      </para>
 
      <para>
+<!--
       A previous fix caused <application>pg_recvlogical</application> to
       issue a command regardless of server version, but it should only be
       issued to v10 and later servers.
+-->
+前の修正は<application>pg_recvlogical</application>がサーババージョンにかかわらずコマンドを発行する動作を起こしていましたが、v10以降のサーバにだけ発行されるべきです。
      </para>
     </listitem>
 
@@ -946,14 +1248,20 @@ Branch: REL9_6_STABLE [52c32d8d8] 2018-03-29 04:02:08 +0900
 Branch: REL9_5_STABLE [b33e38cb1] 2018-03-29 04:02:34 +0900
 -->
      <para>
+<!--
       Ensure that <application>pg_rewind</application> deletes files on the
       target server if they are deleted from the source server during the
       run (Takayuki Tsunakawa)
+-->
+<application>pg_rewind</application>が実行中にファイルがソースサーバで削除されている場合、確実にターゲットサーバのそれらファイルを削除するようにしました。
      </para>
 
      <para>
+<!--
       Failure to do this could result in data inconsistency on the target,
       particularly if the file in question is a WAL segment.
+-->
+これを行うのに失敗することで、特に問題のファイルがWALセグメントである場合に、ターゲットでデータ不整合が生じる可能性がありました。
      </para>
     </listitem>
 
@@ -966,8 +1274,12 @@ Branch: REL9_6_STABLE [7aba4f23f] 2018-03-06 02:10:41 +0900
 Branch: REL9_5_STABLE [cb5c141ed] 2018-03-06 02:12:06 +0900
 -->
      <para>
+<!--
       Fix <application>pg_rewind</application> to handle tables in
       non-default tablespaces correctly (Takayuki Tsunakawa)
+-->
+デフォルトでないテーブルスペースにあるテーブルを正しく扱うように<application>pg_rewind</application>を修正しました。
+(Takayuki Tsunakawa)
      </para>
     </listitem>
 
@@ -982,13 +1294,19 @@ Branch: REL9_4_STABLE [092401b14] 2018-03-17 15:38:15 -0400
 Branch: REL9_3_STABLE [f1f7a85d8] 2018-03-17 15:38:15 -0400
 -->
      <para>
+<!--
       Fix overflow handling in <application>PL/pgSQL</application>
       integer <command>FOR</command> loops (Tom Lane)
+-->
+<application>PL/pgSQL</application>の整数<command>FOR</command>ループでオーバーフローの扱いを修正しました。
      </para>
 
      <para>
+<!--
       The previous coding failed to detect overflow of the loop variable
       on some non-gcc compilers, leading to an infinite loop.
+-->
+以前のコーディングは一部の非gccコンパイラでループ変数のオーバーフローを検知するのに失敗していて、無限ループをもたらしました。
      </para>
     </listitem>
 
@@ -1004,8 +1322,12 @@ Branch: REL9_4_STABLE [af9e0d5cd] 2018-05-05 23:53:05 -0400
 Branch: REL9_3_STABLE [e7f904715] 2018-05-05 23:54:04 -0400
 -->
      <para>
+<!--
       Adjust <application>PL/Python</application> regression tests to pass
       under Python 3.7 (Peter Eisentraut)
+-->
+<application>PL/Python</application>のリグレッションテストをPython 3.7でパスするように修正しました。
+(Peter Eisentraut)
      </para>
     </listitem>
 
@@ -1027,8 +1349,11 @@ Branch: REL9_4_STABLE [1eb24720c] 2018-05-06 07:40:04 -0400
 Branch: REL9_3_STABLE [a75b01c61] 2018-05-06 07:40:25 -0400
 -->
      <para>
+<!--
       Support testing <application>PL/Python</application> and related
       modules when building with Python 3 and MSVC (Andrew Dunstan)
+-->
+Python 3とMSVCでビルドするときに<application>PL/Python</application>と関連モジュールのテストをサポートしました。
      </para>
     </listitem>
 
@@ -1040,14 +1365,22 @@ Branch: REL_10_STABLE [76e2b5ae4] 2018-03-22 13:13:58 -0400
 Branch: REL9_6_STABLE [df9040155] 2018-03-22 13:13:58 -0400
 -->
      <para>
+<!--
       Fix errors in initial build of <filename>contrib/bloom</filename>
       indexes (Tomas Vondra, Tom Lane)
+-->
+<filename>contrib/bloom</filename>のインデックスの初期ビルドでのエラーを修正しました。
+(Tomas Vondra, Tom Lane)
      </para>
 
      <para>
+<!--
       Fix possible omission of the table's last tuple from the index.
       Count the number of index tuples correctly, in case it is a partial
       index.
+-->
+テーブルの最後のタプルがインデックスで無視される可能性があり、修正しました。
+部分インデックスの場合にインデックスのタプル数を正しく数えるようにしました。
      </para>
     </listitem>
 
@@ -1062,9 +1395,13 @@ Branch: REL9_4_STABLE [d07f79a9c] 2018-02-28 18:33:45 -0500
 Branch: REL9_3_STABLE [10102c91e] 2018-02-28 18:33:45 -0500
 -->
      <para>
+<!--
       Rename internal <function>b64_encode</function>
       and <function>b64_decode</function> functions to avoid conflict with
       Solaris 11.4 built-in functions (Rainer Orth)
+-->
+Solaris 11.4 の組み込み関数との衝突を避けるため内部の<function>b64_encode</function>および<function>b64_decode</function>関数を改名しました。
+(Rainer Orth)
      </para>
     </listitem>
 
@@ -1079,17 +1416,25 @@ Branch: REL9_4_STABLE [2d123b310] 2018-05-04 12:26:48 -0400
 Branch: REL9_3_STABLE [9469ebc71] 2018-05-04 12:26:52 -0400
 -->
      <para>
+<!--
       Sync our copy of the timezone library with IANA tzcode release 2018e
       (Tom Lane)
+-->
+タイムゾーンライブラリのコピーをIANA tzcode release 2018eに同期しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This fixes the <application>zic</application> timezone data compiler
       to cope with negative daylight-savings offsets.  While
       the <productname>PostgreSQL</productname> project will not
       immediately ship such timezone data, <application>zic</application>
       might be used with timezone data obtained directly from IANA, so it
       seems prudent to update <application>zic</application> now.
+-->
+これは<application>zic</application>タイムゾーンコンパイラを、負の夏時間オフセットを処理できるように修正します。
+<productname>PostgreSQL</productname>プロジェクトが直ちにそのようなタイムゾーンデータを使えるようにすることはありませんが、<application>zic</application>はIANAから直に取得したタイムゾーンデータで使われるかもしれませんので、確実を期してここで<application>zic</application>をアップデートしました。
      </para>
     </listitem>
 
@@ -1104,11 +1449,14 @@ Branch: REL9_4_STABLE [37c02b2b0] 2018-04-29 15:50:43 -0400
 Branch: REL9_3_STABLE [adcd0c2be] 2018-04-29 15:50:50 -0400
 -->
      <para>
+<!--
       Update time zone data files to <application>tzdata</application>
       release 2018d for DST law changes in Palestine and Antarctica (Casey
       Station), plus historical corrections for Portugal and its colonies,
       as well as Enderbury, Jamaica, Turks &amp; Caicos Islands, and
       Uruguay.
+-->
+タイムゾーンデータファイルを<application>tzdata</application> release 2018dに更新しました。パレスチナと南極（ケーシー基地）の DST 法の変更、ポルトガルとその植民地、エンダーベリー島、ジャマイカ、タークス・カイコス諸島、ウルグアイの歴史的修正が加えました。
      </para>
     </listitem>
 
