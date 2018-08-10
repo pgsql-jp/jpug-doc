@@ -2580,11 +2580,11 @@ drop cascades to operator family alter2.ctype_hash_ops for access method hash
 drop cascades to type alter2.ctype
 drop cascades to function alter2.same(alter2.ctype,alter2.ctype)
 drop cascades to operator alter2.=(alter2.ctype,alter2.ctype)
-drop cascades to conversion ascii_to_utf8
-drop cascades to text search parser prs
-drop cascades to text search configuration cfg
-drop cascades to text search template tmpl
-drop cascades to text search dictionary dict
+drop cascades to conversion alter2.ascii_to_utf8
+drop cascades to text search parser alter2.prs
+drop cascades to text search configuration alter2.cfg
+drop cascades to text search template alter2.tmpl
+drop cascades to text search dictionary alter2.dict
 --
 -- composite types
 --
@@ -3653,3 +3653,19 @@ create table parted_validate_test_1 partition of parted_validate_test for values
 alter table parted_validate_test add constraint parted_validate_test_chka check (a > 0) not valid;
 alter table parted_validate_test validate constraint parted_validate_test_chka;
 drop table parted_validate_test;
+-- check combinations of temporary and permanent relations when attaching
+-- partitions.
+create table perm_part_parent (a int) partition by list (a);
+create temp table temp_part_parent (a int) partition by list (a);
+create table perm_part_child (a int);
+create temp table temp_part_child (a int);
+alter table temp_part_parent attach partition perm_part_child
+  for values in (1, 2); -- error
+ERROR:  cannot attach a permanent relation as partition of temporary relation "temp_part_parent"
+alter table perm_part_parent attach partition temp_part_child
+  for values in (1, 2); -- error
+ERROR:  cannot attach a temporary relation as partition of permanent relation "perm_part_parent"
+alter table temp_part_parent attach partition temp_part_child
+  for values in (1, 2); -- ok
+drop table perm_part_parent cascade;
+drop table temp_part_parent cascade;
