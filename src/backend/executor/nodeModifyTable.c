@@ -947,9 +947,7 @@ lreplace:;
 								 resultRelInfo, slot, estate);
 
 		/*
-		 * Check the constraints of the tuple.  Note that we pass the same
-		 * slot for the orig_slot argument, because unlike ExecInsert(), no
-		 * tuple-routing is performed here, hence the slot remains unchanged.
+		 * Check the constraints of the tuple
 		 */
 		if (resultRelationDesc->rd_att->constr || resultRelInfo->ri_PartitionCheck)
 			ExecConstraints(resultRelInfo, slot, estate);
@@ -1099,7 +1097,7 @@ lreplace:;
  * (but still lock row, even though it may not satisfy estate's
  * snapshot).
  *
- * Returns true if if we're done (with or without an update), or false if
+ * Returns true if we're done (with or without an update), or false if
  * the caller must retry the INSERT from scratch.
  */
 static bool

@@ -376,10 +376,22 @@ search path position.
 <!--
 Check for an operator accepting exactly the input argument types.
 If one exists (there can be only one exact match in the set of
-operators considered), use it.
+operators considered), use it.  Lack of an exact match creates a security
+hazard when calling, via qualified name
 -->
 正確に入力引数型を受け付ける演算子があるかどうか検査します。
 該当する演算子があれば（調査される演算子の集合内で正確に一致するものは1つしかあり得ません）、それを使用します。
+  <footnote id="op-qualified-security">
+   <!-- If you edit this, consider editing func-qualified-security. -->
+   <para>
+    The hazard does not arise with a non-schema-qualified name, because a
+    search path containing schemas that permit untrusted users to create
+    objects is not a <link linkend="ddl-schemas-patterns">secure schema usage
+    pattern</link>.
+   </para>
+  </footnote>
+(not typical), any operator found in a schema that permits untrusted users to
+create objects.  In such situations, cast arguments to force an exact match.
 </para>
 
 <substeps>
@@ -884,6 +896,26 @@ preferred.
 もし関数が<literal>VARIADIC</>型の配列パラメータを伴って定義されており、そして<literal>VARIADIC</>キーワードを用いずに呼ばれた場合は、呼び出しに適合するよう、一つかそれ以上の要素の型に配列のパラメータを置き換えた形で扱われます。
 このような拡張後は、その関数は実際の引数の型を持つので、他の非可変長の引数を持つ関数と同一になるかもしれません。この場合、検索パスで先に見つかった関数が使われます。また、同じスキーマに2つの関数が見つかった場合は非可変長の関数が優先されます。
 </para>
+<para>
+This creates a security hazard when calling, via qualified name
+  <footnote id="func-qualified-security">
+   <!-- If you edit this, consider editing op-qualified-security. -->
+   <para>
+    The hazard does not arise with a non-schema-qualified name, because a
+    search path containing schemas that permit untrusted users to create
+    objects is not a <link linkend="ddl-schemas-patterns">secure schema usage
+    pattern</link>.
+   </para>
+  </footnote>,
+a variadic function found in a schema that permits untrusted users to create
+objects.  A malicious user can take control and execute arbitrary SQL
+functions as though you executed them.  Substitute a call bearing
+the <literal>VARIADIC</literal> keyword, which bypasses this hazard.  Calls
+populating <literal>VARIADIC "any"</literal> parameters often have no
+equivalent formulation containing the <literal>VARIADIC</literal> keyword.  To
+issue those calls safely, the function's schema must permit only trusted users
+to create objects.
+</para>
 </step>
 <step performance="optional">
 <para>
@@ -902,6 +934,15 @@ found.
 もし呼び出し時にこのような関数が2つ以上適合した場合、検索パスで先に見つかったものが使用されます。
 もし、デフォルト指定のない位置に同じパラメータ型を持つ関数(もしそれらが異なるデフォルト指定のあるパラメータのセットを持っていればあり得ます)が同じスキーマに2つ以上あった時は、システムはどの関数を使うべきか決定できず、呼出しにより適合するものが見つからなければ<quote>ambiguous function call</>エラーが結果として返るでしょう。
 </para>
+<para>
+This creates an availability hazard when calling, via qualified
+name<footnoteref linkend="func-qualified-security">, any function found in a
+schema that permits untrusted users to create objects.  A malicious user can
+create a function with the name of an existing function, replicating that
+function's parameters and appending novel parameters having default values.
+This precludes new calls to the original function.  To forestall this hazard,
+place functions in schemas that permit only trusted users to create objects.
+</para>
 </step>
 </substeps>
 </step>
@@ -911,9 +952,12 @@ found.
 <!--
 Check for a function accepting exactly the input argument types.
 If one exists (there can be only one exact match in the set of
-functions considered), use it.
-(Cases involving <type>unknown</type> will never find a match at
-this step.)
+functions considered), use it.  Lack of an exact match creates a security
+hazard when calling, via qualified
+name<footnoteref linkend="func-qualified-security">, a function found in a
+schema that permits untrusted users to create objects.  In such situations,
+cast arguments to force an exact match.  (Cases involving <type>unknown</type>
+will never find a match at this step.)
 -->
 正確に入力引数型を受け付ける関数があるかどうか検査します。
 該当する関数があれば（調査される関数の集合内で正確に一致するものは1つしかあり得ません）、それを使用します
@@ -1128,9 +1172,58 @@ SELECT round(4.0, 4);
 </example>
 
 <example>
-<!--
+<title>Variadic Function Resolution</title>
+
+<para>
+<screen>
+CREATE FUNCTION public.variadic_example(VARIADIC numeric[]) RETURNS int
+  LANGUAGE sql AS 'SELECT 1';
+CREATE FUNCTION
+</screen>
+
+This function accepts, but does not require, the VARIADIC keyword.  It
+tolerates both integer and numeric arguments:
+
+<screen>
+SELECT public.variadic_example(0),
+       public.variadic_example(0.0),
+       public.variadic_example(VARIADIC array[0.0]);
+ variadic_example | variadic_example | variadic_example
+------------------+------------------+------------------
+                1 |                1 |                1
+(1 row)
+</screen>
+
+However, the first and second calls will prefer more-specific functions, if
+available:
+
+<screen>
+CREATE FUNCTION public.variadic_example(numeric) RETURNS int
+  LANGUAGE sql AS 'SELECT 2';
+CREATE FUNCTION
+
+CREATE FUNCTION public.variadic_example(int) RETURNS int
+  LANGUAGE sql AS 'SELECT 3';
+CREATE FUNCTION
+
+SELECT public.variadic_example(0),
+       public.variadic_example(0.0),
+       public.variadic_example(VARIADIC array[0.0]);
+ variadic_example | variadic_example | variadic_example
+------------------+------------------+------------------
+                3 |                2 |                1
+(1 row)
+</screen>
+
+Given the default configuration and only the first function existing, the
+first and second calls are insecure.  Any user could intercept them by
+creating the second or third function.  By matching the argument type exactly
+and using the <literal>VARIADIC</literal> keyword, the third call is secure.
+</para>
+</example>
+
+<example>
 <title>Substring Function Type Resolution</title>
--->
 <title>部分文字列関数の型解決</title>
 
 <para>

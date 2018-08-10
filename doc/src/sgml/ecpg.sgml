@@ -2344,7 +2344,7 @@ while (1)
 <!--
      Here is an example using the data type <type>complex</type> from
      the example in <xref linkend="xtypes">.  The external string
-     representation of that type is <literal>(%lf,%lf)</literal>,
+     representation of that type is <literal>(%f,%f)</literal>,
      which is defined in the
      functions <function>complex_in()</function>
      and <function>complex_out()</function> functions
@@ -2716,10 +2716,22 @@ EXEC SQL SELECT started, duration INTO :ts1, :iv1 FROM datetbl WHERE d=:date1;
 PGTYPEStimestamp_add_interval(&ts1, &iv1, &tsout);
 out = PGTYPEStimestamp_to_asc(&tsout);
 printf("Started + duration: %s\n", out);
-free(out);
+PGTYPESchar_free(out);
 ]]>
 </programlisting>
   </para>
+
+  <sect2 id="ecpg-pgtypes-cstrings">
+   <title>Character Strings</title>
+   <para>
+   Some functions such as <function>PGTYPESnumeric_to_asc</function> return
+   a pointer to a freshly allocated character string. These results should be
+   freed with <function>PGTYPESchar_free</function> instead of
+   <function>free</function>. (This is important only on Windows, where
+   memory allocation and release sometimes need to be done by the same
+   library.)
+   </para>
+  </sect2>
 
   <sect2 id="ecpg-pgtypes-numeric">
 <!--
@@ -2828,6 +2840,7 @@ char *PGTYPESnumeric_to_asc(numeric *num, int dscale);
 <!--
        The numeric value will be printed with <literal>dscale</literal> decimal
        digits, with rounding applied if necessary.
+       The result must be freed with <function>PGTYPESchar_free()</function>.
 -->
 numeric の値は、必要に応じて四捨五入され、<literal>dscale</literal> 桁の十進数で出力されます。
       </para>
@@ -3384,9 +3397,10 @@ date PGTYPESdate_from_asc(char *str, char **endptr);
 char *PGTYPESdate_to_asc(date dDate);
 </synopsis>
 <!--
-        The function receives the date <literal>dDate</> as its only parameter.
-        It will output the date in the form <literal>1999-01-18</>, i.e., in the
-        <literal>YYYY-MM-DD</> format.
+        The function receives the date <literal>dDate</literal> as its only parameter.
+        It will output the date in the form <literal>1999-01-18</literal>, i.e., in the
+        <literal>YYYY-MM-DD</literal> format.
+        The result must be freed with <function>PGTYPESchar_free()</function>.
 -->
 この関数は唯一の引数として日付型<literal>dDate</>を受付けます。
 この関数は<literal>1999-01-18</>、つまり<literal>YYYY-MM-DD</>書式で日付を出力します。
@@ -3973,6 +3987,7 @@ char *PGTYPEStimestamp_to_asc(timestamp tstamp);
         The function receives the timestamp <literal>tstamp</> as
         its only argument and returns an allocated string that contains the
         textual representation of the timestamp.
+        The result must be freed with <function>PGTYPESchar_free()</function>.
 -->
 この関数はtimestamp型の<literal>tstamp</>を唯一の引数として受付け、timestamp型のテキスト表現を含む割り当てられた文字列を返します。
        </para>
@@ -4745,6 +4760,7 @@ char *PGTYPESinterval_to_asc(interval *span);
         The function converts the interval variable that <literal>span</>
         points to into a C char*. The output looks like this example:
         <literal>@ 1 day 12 hours 59 mins 10 secs</literal>.
+        The result must be freed with <function>PGTYPESchar_free()</function>.
 -->
 この関数は<literal>span</>が指し示すinterval型変数をC char*に変換します。
 出力は<literal>@ 1 day 12 hours 59 mins 10 secs</literal>のようになります。

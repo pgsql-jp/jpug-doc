@@ -305,11 +305,6 @@ CREATE TABLE partitioned (
 ERROR:  exclusion constraints are not supported on partitioned tables
 LINE 3:  EXCLUDE USING gist (a WITH &&)
          ^
--- prevent column from being used twice in the partition key
-CREATE TABLE partitioned (
-	a int
-) PARTITION BY RANGE (a, a);
-ERROR:  column "a" appears more than once in partition key
 -- prevent using prohibited expressions in the key
 CREATE FUNCTION retset (a int) RETURNS SETOF int AS $$ SELECT 1; $$ LANGUAGE SQL IMMUTABLE;
 CREATE TABLE partitioned (
@@ -808,7 +803,7 @@ CREATE TABLE arrlp12 PARTITION OF arrlp FOR VALUES IN ('{1}', '{2}');
 --------+-----------+-----------+----------+---------+----------+--------------+-------------
  a      | integer[] |           |          |         | extended |              | 
 Partition of: arrlp FOR VALUES IN ('{1}', '{2}')
-Partition constraint: ((a IS NOT NULL) AND (((a)::anyarray OPERATOR(pg_catalog.=) '{1}'::integer[]) OR ((a)::anyarray OPERATOR(pg_catalog.=) '{2}'::integer[])))
+Partition constraint: ((a IS NOT NULL) AND ((a = '{1}'::integer[]) OR (a = '{2}'::integer[])))
 
 DROP TABLE arrlp;
 -- partition on boolean column
@@ -825,3 +820,13 @@ Partitions: boolspart_f FOR VALUES IN (false),
             boolspart_t FOR VALUES IN (true)
 
 drop table boolspart;
+-- partitions mixing temporary and permanent relations
+create table perm_parted (a int) partition by list (a);
+create temporary table temp_parted (a int) partition by list (a);
+create table perm_part partition of temp_parted for values in (1, 2); -- error
+ERROR:  cannot create a permanent relation as partition of temporary relation "temp_parted"
+create temp table temp_part partition of perm_parted for values in (1, 2); -- error
+ERROR:  cannot create a temporary relation as partition of permanent relation "perm_parted"
+create temp table temp_part partition of temp_parted for values in (1, 2); -- ok
+drop table perm_parted cascade;
+drop table temp_parted cascade;
