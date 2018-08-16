@@ -1357,7 +1357,7 @@ postgresql://%2Fvar%2Flib%2Fpostgresql/dbname
        usernames for different hosts.
 -->
 パスワードファイルが使用される場合は、異なるホストに対して異なるパスワードを使用できます。
-他の接続オプションはすべてのホストで同じです。
+他の接続オプションは、リスト中のすべてのホストで同じです。
 たとえば、異なるユーザ名を異なるホストに指定することはできません。
      </para>
    </sect3>
@@ -1397,7 +1397,7 @@ postgresql://%2Fvar%2Flib%2Fpostgresql/dbname
 <indexterm><primary>ホスト名</></> ホスト名がスラッシュで始まるならば、TCP/IPによる通信ではなく、Unixドメインの通信を明示することになります。
 その場合、この値はソケットファイルを格納するディレクトリの名前になります。
 複数のホスト名が指定されると、指定された順に各々が試されます。
-<literal>host</literal>が指定されなかった場合のデフォルトは、<filename>/tmp</filename>にあるUnixドメインのソケットに接続することです。
+<literal>host</literal>が指定されなかった場合や、空の場合のデフォルトは、<filename>/tmp</filename>にあるUnixドメインのソケットに接続することです。
 <indexterm><primary>Unixドメインソケット</></> （または、<productname>PostgreSQL</>の構築時に指定した別のディレクトリにあるソケットです。）
 Unixドメインソケットを持たないマシンにおけるデフォルトは、<literal>localhost</>に接続することです。
        </para>
@@ -1410,6 +1410,7 @@ Unixドメインソケットを持たないマシンにおけるデフォルト�
 -->
 カンマで区切ったホスト名も受け付けます。
 この場合、リスト中のホスト名が順に試されます。
+リスト中の空の項目には、上で説明したデフォルトの挙動が適用されます。
 詳細は<xref linkend="libpq-multiple-hosts">をご覧ください。
        </para>
       </listitem>
@@ -1491,7 +1492,7 @@ Unixドメインソケットを持たないマシンにおけるデフォルト�
         <xref linkend="libpq-pgpass">).
 -->
 <literal>host</>が<literal>hostaddr</>ネットワークアドレスに対応するマシンの名前と一致しない場合は、認証に失敗する可能性があるので注意してください。
-また、<literal>hostaddr</>ではなく<literal>host</>がパスワードファイル(<xref linkend="libpq-pgpass">を参照)での接続の識別に使用されます。
+また、<literal>host</>と<literal>hostaddr</>の両方が指定されると、<literal>host</>がパスワードファイル(<xref linkend="libpq-pgpass">を参照)での接続の識別に使用されます。
        </para>
 
        <para>
@@ -1504,6 +1505,8 @@ Unixドメインソケットを持たないマシンにおけるデフォルト�
 -->
 カンマ区切りの<literal>hostaddrs</>値のリストも受け付けます。
 この場合、リスト中のホストが順に試されます。
+リスト中の空の項目には、対応するホスト名が使用されます。
+そのホスト名も空の場合は、デフォルトのホスト名が使用されます。
 詳細は<xref linkend="libpq-multiple-hosts">をご覧ください。
        </para>
        <para>
@@ -1539,6 +1542,7 @@ Unixドメインソケットを持たないマシンにおけるデフォルト�
 <indexterm><primary>port</></>
 もし複数のホストが<literal>host</literal>あるいは<literal>hostaddr</>パラメータで与えられると、このパラメータで同じ長さのポートのリストを与えることができます。
 あるいは、一つのポート番号をすべてのホストに指定することもできます。
+空文字、あるいはカンマ区切りリスト中の空の項目は、<productname>PostgreSQL</productname>が構築されたときに設定されたデフォルトポート番号を指定します。
        </para>
       </listitem>
      </varlistentry>
@@ -2284,6 +2288,7 @@ char *PQpass(const PGconn *conn);
       </para>
 
       <para>
+<!--
        <function>PQpass</function> will return either the password specified
        in the connection parameters, or if there was none and the password
        was obtained from the <link linkend="libpq-pgpass">password
@@ -2292,6 +2297,11 @@ char *PQpass(const PGconn *conn);
        not possible to rely on the result of <function>PQpass</function> until
        the connection is established.  The status of the connection can be
        checked using the function <function>PQstatus</function>.
+-->
+<function>PQpass</function>は、接続パラメーターで指定されたパスワードを返します。
+もし接続パラメータにパスワードがなくて、<link linkend="libpq-pgpass">パスワードファイル</link>からパスワードを取得できる場合には、そのパスワードを返します。
+この場合、接続パラメータに複数のホストが指定されていると、接続が確立するまでは、<function>PQpass</function>の結果を当てにすることはできません。
+接続の状態は、関数<function>PQstatus</function>で確認できます。
       </para>
      </listitem>
     </varlistentry>
@@ -2313,7 +2323,7 @@ char *PQpass(const PGconn *conn);
        because it will always be an absolute path, beginning
        with <literal>/</>.)
 -->
-接続したサーバホスト名を返します。
+実際に接続したサーバホスト名を返します。
 これはホスト名、IPアドレス、あるいはUnixソケット経由で接続している場合はディレクトリパスになります。
 （パスの場合は必ず<literal>/</>で始まる絶対パスになるので、他と区別できます。）
 <synopsis>
@@ -2322,27 +2332,40 @@ char *PQhost(const PGconn *conn);
       </para>
 
       <para>
+<!--
        If the connection parameters specified both <literal>host</literal> and
        <literal>hostaddr</literal>, then <function>PQhost</function> will
        return the <literal>host</literal> information.  If only
        <literal>hostaddr</literal> was specified, then that is returned.
        If multiple hosts were specified in the connection parameters,
        <function>PQhost</function> returns the host actually connected to.
+-->
+<literal>host</literal>と<literal>hostaddr</literal>の両方が指定されると、<function>PQhost</function>は、その<literal>host</literal>情報を返します。
+<literal>hostaddr</literal>だけが指定されると、それが返されます。
+接続パラメータ中に複数のホストが指定された場合には、<function>PQhost</function>は実際に接続しているホストの情報を返します。
       </para>
 
       <para>
+<!--
        <function>PQhost</function> returns <symbol>NULL</symbol> if the
        <parameter>conn</parameter> argument is <symbol>NULL</symbol>.
        Otherwise, if there is an error producing the host information (perhaps
        if the connection has not been fully established or there was an
        error), it returns an empty string.
+-->
+<parameter>conn</parameter>引数が<symbol>NULL</symbol>ならば、<function>PQhost</function>は<symbol>NULL</symbol>を返します。
+そうでない場合、もしホスト情報の生成中エラーとなったら（おそらくコネクションまだ完全には確立されていないか、なんらかのエラーがある場合です）、空文字が返ります。
       </para>
 
       <para>
+<!--
        If multiple hosts were specified in the connection parameters, it is
        not possible to rely on the result of <function>PQhost</function> until
        the connection is established.  The status of the connection can be
        checked using the function <function>PQstatus</function>.
+-->
+接続パラメーター中に複数のホストが指定されると、接続が確立するまでは<function>PQhost</function>の結果を当てにすることはできません。
+接続の状態は、<function>PQstatus</function>関数で確認できます。
       </para>
      </listitem>
     </varlistentry>
@@ -2360,7 +2383,7 @@ char *PQhost(const PGconn *conn);
 <!--
        Returns the port of the active connection.
 -->
-接続したポートを返します。
+実際に接続したポートを返します。
 
 <synopsis>
 char *PQport(const PGconn *conn);
@@ -2368,23 +2391,34 @@ char *PQport(const PGconn *conn);
       </para>
 
       <para>
+<!--
        If multiple ports were specified in the connection parameters,
        <function>PQport</function> returns the port actually connected to.
+-->
+接続パラメータ中に複数のポートが指定された場合には、<function>PQport</function>は実際に接続しているポートを返します。
       </para>
 
       <para>
+<!--
        <function>PQport</function> returns <symbol>NULL</symbol> if the
        <parameter>conn</parameter> argument is <symbol>NULL</symbol>.
        Otherwise, if there is an error producing the port information (perhaps
        if the connection has not been fully established or there was an
        error), it returns an empty string.
+-->
+<parameter>conn</parameter>引数が<symbol>NULL</symbol>ならば、<function>PQport</function>は<symbol>NULL</symbol>を返します。
+そうでない場合、もしホスト情報の生成がエラーとなったら（おそらくコネクションまだ完全には確立されていないか、なんらかのエラーがある場合です）、空文字が返ります。
       </para>
 
       <para>
+<!--
        If multiple ports were specified in the connection parameters, it is
        not possible to rely on the result of <function>PQport</function> until
        the connection is established.  The status of the connection can be
        checked using the function <function>PQstatus</function>.
+-->
+接続パラメーター中に複数のポートが指定されると、接続が確立するまでは<function>PQport</function>の結果を当てにすることはできません。
+接続の状態は、<function>PQstatus</function>関数で確認できます。
       </para>
      </listitem>
     </varlistentry>
@@ -10373,9 +10407,11 @@ Microsoft Windowsでは、このファイルの名前は<filename>%APPDATA%\post
 最初に現在の接続パラメータと一致した行のパスワードフィールドが使用されます。
 (従って、ワイルドカードを使用する場合は、始めの方により具体的な項目を入力してください。)
 項目内に<literal>:</literal>または<literal>\</literal>を含める必要があれば、<literal>\</literal>でこれらの文字をエスケープする必要があります。
-<literal>localhost</>ホスト名は、ローカルマシンからのTCP接続（ホスト名が<literal>localhost</>）とUnixドメインソケット接続（<literal>pghost</>が空またはデフォルトのソケットディレクトリ）の両方に一致します。
+ホスト名フィールドは、<literal>host</literal>接続パラメータか、もし指定されていれば、<literal>hostaddr</literal>パラメーターと一致します。
+どちらも指定されていなければ、ホスト名<literal>localhost</literal>が検索されます。
+接続がUnixドメインソケット接続で、<literal>host</literal>パラメーターが<application>libpq</application>のデフォルトソケットディレクトリパスに一致した場合も、ホスト名<literal>localhost</literal>が検索されます。
 スタンバイサーバでは、<literal>replication</>という名称のデータベースは、マスタサーバとの間でなされるストリーミングレプリケーション用の接続に一致します。
-同一のクラスタ内のすべてのデータベースに対するパスワードは同じものですので、<literal>database</>フィールドの有用性は限定的なものです。
+同一のクラスタ内のすべてのデータベースに対するパスワードは同じものですので、データベースフィールドの有用性は限定的なものです。
   </para>
 
   <para>
