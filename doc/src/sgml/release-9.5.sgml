@@ -2,44 +2,71 @@
 <!-- See header comment in release.sgml about typical markup -->
 
  <sect1 id="release-9-5-14">
+<!--
   <title>Release 9.5.14</title>
+-->
+  <title>リリース9.5.14</title>
 
   <formalpara>
+<!--
   <title>Release date:</title>
+-->
+  <title>リリース日:</title>
   <para>2018-08-09</para>
   </formalpara>
 
   <para>
+<!--
    This release contains a variety of fixes from 9.5.13.
    For information about new features in the 9.5 major release, see
    <xref linkend="release-9-5">.
+-->
+このリリースは9.5.13に対し、各種不具合を修正したものです。
+9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5">を参照してください。
   </para>
 
   <sect2>
+<!--
    <title>Migration to Version 9.5.14</title>
+-->
+   <title>バージョン9.5.14への移行</title>
 
    <para>
+<!--
     A dump/restore is not required for those running 9.5.X.
+-->
+9.5.Xからの移行ではダンプ/リストアは不要です。
    </para>
 
    <para>
+<!--
     However, if you are upgrading from a version earlier than 9.5.13,
     see <xref linkend="release-9-5-13">.
+-->
+しかしながら、9.5.13より前のバージョンからアップグレードする場合には<xref linkend="release-9-5-13">を参照してください。
    </para>
   </sect2>
 
   <sect2>
+<!--
    <title>Changes</title>
+-->
+   <title>変更点</title>
 
    <itemizedlist>
 
     <listitem>
      <para>
+<!--
       Fix failure to reset <application>libpq</application>'s state fully
       between connection attempts (Tom Lane)
+-->
+接続試行の間で<application>libpq</application>の状態の完全リセットに失敗していたものを修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       An unprivileged user of <filename>dblink</filename>
       or <filename>postgres_fdw</filename> could bypass the checks intended
       to prevent use of server-side credentials, such as
@@ -58,17 +85,30 @@
       harder to think of.
       Our thanks to Andrew Krasichkov for reporting this issue.
       (CVE-2018-10915)
+-->
+<filename>dblink</filename>や<filename>postgres_fdw</filename>の権限の無いユーザが、サーバ実行OSユーザが所有する<filename>~/.pgpass</filename>ファイルなどのサーバ側認証情報を利用するのを防ぐ狙いの検査をすり抜けるおそれがありました。
+ローカル接続上のpeer認証を許可しているサーバは特に攻撃されやすいです。
+<filename>postgres_fdw</filename>セッションに対するSQLインジェクションなどの他の攻撃も可能です。
+この方法による<filename>postgres_fdw</filename>への攻撃には指定の接続パラメータで外部サーバオブジェクトを作れることが必要ですが、<filename>dblink</filename>に対してはアクセス可能な任意のユーザがこの問題を悪用できます。
+他のありえそうな攻撃シナリオは考えにくいですが、一般には<application>libpq</application>を使ったアプリケーションに対して接続パラメータを指定できる攻撃者は悪さをすることが可能です。
+この問題を報告したAndrew Krasichkovに感謝します。
+(CVE-2018-10915)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <literal>INSERT ... ON CONFLICT UPDATE</literal> through a view
       that isn't just <literal>SELECT * FROM ...</literal>
       (Dean Rasheed, Amit Langote)
+-->
+単純な<literal>SELECT * FROM ...</literal>でないビューへの<literal>INSERT ... ON CONFLICT UPDATE</literal>を修正しました。
+(Dean Rasheed, Amit Langote)
      </para>
 
      <para>
+<!--
       Erroneous expansion of an updatable view could lead to crashes
       or <quote>attribute ... has the wrong type</quote> errors, if the
       view's <literal>SELECT</literal> list doesn't match one-to-one with
@@ -79,208 +119,327 @@
       privileges for some other column(s) of the table.
       Any user could also use it for disclosure of server memory.
       (CVE-2018-10925)
+-->
+ビューの<literal>SELECT</literal>リストが元テーブルの列と１対１対応していない場合、誤った更新可能ビューの展開がクラッシュや<quote>attribute ... has the wrong type（属性...は誤ったデータ型です）</quote>エラーをひき起こす可能性がありました。
+さらに、このバグで攻撃者がテーブルに<literal>INSERT</literal>権限と他のいくつかの列に対する<literal>UPDATE</literal>権限を持つ場合に、対象列に<literal>UPDATE</literal>権限が無くともその列の更新を可能にできるおそれがありました。
+また、任意ユーザがサーバメモリを露出させるのにこの障害を利用できます。
+(CVE-2018-10925)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Ensure that updates to the <structfield>relfrozenxid</structfield>
       and <structfield>relminmxid</structfield> values
       for <quote>nailed</quote> system catalogs are processed in a timely
       fashion (Andres Freund)
+-->
+<quote>nailed</quote>な（固定された）システムカタログに対する<structfield>relfrozenxid</structfield>値および<structfield>relminmxid</structfield>値の更新が適時に処理されるようにしました。
+(Andres Freund)
      </para>
 
      <para>
+<!--
       Overoptimistic caching rules could prevent these updates from being
       seen by other sessions, leading to spurious errors and/or data
       corruption.  The problem was significantly worse for shared catalogs,
       such as <structname>pg_authid</structname>, because the stale cache
       data could persist into new sessions as well as existing ones.
+-->
+過度に楽観的なキャッシュ方式は、これらの更新が他のセッションから参照されることを妨げるおそれがあり、偽性のエラー、および/または、データ破損をひき起こしました。
+古くなったキャッシュデータが既存セッションのみならず新たなセッションにまで持続する可能性があるため、この問題は<structname>pg_authid</structname>などの共有カタログにおいて著しくより悪質です。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix case where a freshly-promoted standby crashes before having
       completed its first post-recovery checkpoint (Michael Paquier, Kyotaro
       Horiguchi, Pavan Deolasee, &Aacute;lvaro Herrera)
+-->
+昇格したばかりのスタンバイがリカバリ後の最初のチェックポイントを完了する前にクラッシュする場合について修正しました。
+(Michael Paquier, Kyotaro Horiguchi, Pavan Deolasee, &Aacute;lvaro Herrera)
      </para>
 
      <para>
+<!--
       This led to a situation where the server did not think it had reached
       a consistent database state during subsequent WAL replay, preventing
       restart.
+-->
+本障害により、続くWALをリプレイする際にサーバが一貫性をもったデータベース状態に到達していないと認識する状態になって、再起動を妨げました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Avoid emitting a bogus WAL record when recycling an all-zero btree
       page (Amit Kapila)
+-->
+全てゼロのBツリーのページを再利用するときに、でたらめなWALレコードの出力を回避しました。
+(Amit Kapila)
      </para>
 
      <para>
+<!--
       This mistake has been seen to cause assertion failures, and
       potentially it could result in unnecessary query cancellations on hot
       standby servers.
+-->
+この誤りはアサート失敗としてあらわれました。また、潜在的にホットスタンバイサーバで不要な問い合わせキャンセルをひき起こす可能性がありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       During WAL replay, guard against corrupted record lengths exceeding
       1GB (Michael Paquier)
+-->
+WALリプレイの際に1GBを超える長さの破損したレコードに対して保護しました。
+(Michael Paquier)
      </para>
 
      <para>
+<!--
       Treat such a case as corrupt data.  Previously, the code would try to
       allocate space and get a hard error, making recovery impossible.
+-->
+このような場合に破損データとして扱います。
+これまでは当該コードは空間を確保しようとして強いエラーになり、リカバリを不可能にしていました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       When ending recovery, delay writing the timeline history file as long
       as possible (Heikki Linnakangas)
+-->
+リカバリの最後にタイムラインヒストリファイルを書くのをできるだけ遅延しました。
+(Heikki Linnakangas)
      </para>
 
      <para>
+<!--
       This avoids some situations where a failure during recovery cleanup
       (such as a problem with a two-phase state file) led to inconsistent
       timeline state on-disk.
+-->
+これにより（２相状態ファイルの問題などの）リカバリクリーンアップ中のエラーがディスク上に一貫性に欠けたタイムライン状態をもたらす状況を回避します。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Improve performance of WAL replay for transactions that drop many
       relations (Fujii Masao)
+-->
+多数のリレーションを削除するトランザクションに対するWALリプレイ性能を改善しました。
+(Fujii Masao)
      </para>
 
      <para>
+<!--
       This change reduces the number of times that shared buffers are
       scanned, so that it is of most benefit when that setting is large.
+-->
+この変更は共有バッファをスキャンする回数を減らすので、共有バッファ設定が大きいときに最も恩恵があります。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Improve performance of lock releasing in standby server WAL replay
       (Thomas Munro)
+-->
+スタンバイサーバのWALリプレイにてロック解放の性能を改善しました。
+(Thomas Munro)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Make logical WAL senders report streaming state correctly (Simon
       Riggs, Sawada Masahiko)
+-->
+ロジカルWAL senderがストリーミング状態を正しく報告するようにしました。
+(Simon Riggs, Sawada Masahiko)
      </para>
 
      <para>
+<!--
       The code previously mis-detected whether or not it had caught up with
       the upstream server.
+-->
+これまでのコードは上流サーバに追いついているかどうかを誤判断していました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix bugs in snapshot handling during logical decoding, allowing wrong
       decoding results in rare cases (Arseny Sher, &Aacute;lvaro Herrera)
+-->
+ロジカルデコーディング中のスナップショット処理でのバグを修正しました。
+稀な場合に誤ったデコーディング結果があり得ました。
+(Arseny Sher, &Aacute;lvaro Herrera)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Ensure a table's cached index list is correctly rebuilt after an index
       creation fails partway through (Peter Geoghegan)
+-->
+インデックス作成が途中で失敗した後に、テーブルのキャッシュされたインデックスリストが正しく再構築されるようにしました。
+(Peter Geoghegan)
      </para>
 
      <para>
+<!--
       Previously, the failed index's OID could remain in the list, causing
       problems later in the same session.
+-->
+これまでは、失敗したインデックスのOIDがリストに残る可能性があり、同セッション内で後に問題をひき起こしました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix mishandling of empty uncompressed posting list pages in GIN
       indexes (Sivasubramanian Ramasubramanian, Alexander Korotkov)
+-->
+GINインデックスにおける空で圧縮されていないポスティングリストページの誤った処理を修正しました。
+(Sivasubramanian Ramasubramanian, Alexander Korotkov)
      </para>
 
      <para>
+<!--
       This could result in an assertion failure after pg_upgrade of a
       pre-9.4 GIN index (9.4 and later will not create such pages).
+-->
+この障害で、9.4より前のGINインデックスからのpg_upgrade後にアサート失敗をひき起こす可能性があります（9.4以降ではこのようなページを作りません）。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Ensure that <command>VACUUM</command> will respond to signals
       within btree page deletion loops (Andres Freund)
+-->
+<command>VACUUM</command>がBツリーページの削除ループの中で確実にシグナルに応答するようにしました。
+(Andres Freund)
      </para>
 
      <para>
+<!--
       Corrupted btree indexes could result in an infinite loop here, and
       that previously wasn't interruptible without forcing a crash.
+-->
+破損したBツリーインデックスはそこで無限ループする可能性があり、これまではクラッシュを強制する以外では割り込みができませんでした。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix misoptimization of equivalence classes involving composite-type
       columns (Tom Lane)
+-->
+複合型列に関する同値クラスの誤った最適化を修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This resulted in failure to recognize that an index on a composite
       column could provide the sort order needed for a mergejoin on that
       column.
+-->
+この障害により、複合列のインデックスがその列でのマージ結合に対してソート順を提供できることが認識できませんでした。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix SQL-standard <literal>FETCH FIRST</literal> syntax to allow
       parameters (<literal>$<replaceable>n</replaceable></literal>), as the
       standard expects (Andrew Gierth)
+-->
+SQL標準の<literal>FETCH FIRST</literal>構文を、標準で期待されている通り、パラメータ（<literal>$<replaceable>n</replaceable></literal>）が使えるように修正しました。
+(Andrew Gierth)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix failure to schema-qualify some object names
       in <function>getObjectDescription</function> output
       (Kyotaro Horiguchi, Tom Lane)
+-->
+<function>getObjectDescription</function>の出力で、一部のオブジェクト名をスキーマ修飾するのに失敗していたものを修正しました。
+(Kyotaro Horiguchi, Tom Lane)
      </para>
 
      <para>
+<!--
       Names of collations, conversions, and text search objects
       were not schema-qualified when they should be.
+-->
+照合順序、符号化方式変換、および、テキスト検索オブジェクトの名前が、されるべきケースでスキーマ修飾されませんでした。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Widen <command>COPY FROM</command>'s current-line-number counter
       from 32 to 64 bits (David Rowley)
+-->
+<command>COPY FROM</command>の現在行番号カウンタを32ビットから64ビットに拡張しました。
+(David Rowley)
      </para>
 
      <para>
+<!--
       This avoids two problems with input exceeding 4G lines: <literal>COPY
       FROM WITH HEADER</literal> would drop a line every 4G lines, not only
       the first line, and error reports could show a wrong line number.
+-->
+これは4G行を超える入力に対して二つの問題を回避します。
+<literal>COPY FROM WITH HEADER</literal>が先頭行のみならず4G行毎に1行を捨ててしまっていました。
+また、エラー報告が誤った行番号を示す可能性がありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Add a string freeing function
       to <application>ecpg</application>'s <filename>pgtypes</filename>
       library, so that cross-module memory management problems can be
       avoided on Windows (Takayuki Tsunakawa)
+-->
+<application>ecpg</application>の<filename>pgtypes</filename>ライブラリに文字列解放関数を追加しました。
+これにより、Windowsにおけるモジュールにまたがるメモリ管理の問題が回避できます。
+(Takayuki Tsunakawa)
      </para>
 
      <para>
+<!--
       On Windows, crashes can ensue if the <function>free</function> call
       for a given chunk of memory is not made from the same DLL
       that <function>malloc</function>'ed the memory.
@@ -289,122 +448,188 @@
       this rule.  Add a <function>PGTYPESchar_free()</function> function
       that just wraps <function>free</function>, allowing applications
       to follow this rule.
+-->
+Windowsでは、与えられたメモリチャンクに対する<function>free</function>呼び出しがメモリを<function>malloc</function>した同じDLLから行われているのではない場合、クラッシュが起こりえます。
+<filename>pgtypes</filename>ライブラリはときどき呼び出し側が解放することを想定した文字列を返しますが、この使い方に従うことが不可能になっていました。
+<function>free</function>をラップする<function>PGTYPESchar_free()</function>関数を追加して、アプリケーションがこの使い方に従えるようにしました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>ecpg</application>'s support for <type>long
       long</type> variables on Windows, as well as other platforms that
       declare <function>strtoll</function>/<function>strtoull</function>
       nonstandardly or not at all (Dang Minh Huong, Tom Lane)
+-->
+Windowsで<application>ecpg</application>の<type>long long</type>変数対応を修正しました。
+<function>strtoll</function>/<function>strtoull</function>を非標準に宣言する、あるいは全く宣言しない、他のプラットフォームにおいても修正しました。
+(Dang Minh Huong, Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix misidentification of SQL statement type in PL/pgSQL, when a rule
       change causes a change in the semantics of a statement intra-session
       (Tom Lane)
+-->
+PL/pgSQLでSQLステートメントタイプの誤識別を修正しました。
+RULEの変更がステートメント内部セッションの文脈の変化をひき起こすときに該当します。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This error led to assertion failures, or in rare cases, failure to
       enforce the <literal>INTO STRICT</literal> option as expected.
+-->
+この誤りはアサート失敗、あるいは稀な場合に<literal>INTO STRICT</literal>オプションでの期待される強制の失敗をもたらします。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix password prompting in client programs so that echo is properly
       disabled on Windows when <literal>stdin</literal> is not the
       terminal (Matthew Stickney)
+-->
+<literal>stdin</literal>がターミナルでないときWindowsでエコー出力が適切に無効化されるように、クライアントプログラムでのパスワードプロンプト表示を修正しました。
+(Matthew Stickney)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Further fix mis-quoting of values for list-valued GUC variables in
       dumps (Tom Lane)
+-->
+ダンプでのリスト値になっているGUC変数値のクォート間違いをさらに修正しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       The previous fix for quoting of <varname>search_path</varname> and
       other list-valued variables in <application>pg_dump</application>
       output turned out to misbehave for empty-string list elements, and it
       risked truncation of long file paths.
+-->
+以前の<application>pg_dump</application>出力における<varname>search_path</varname>および他のリスト値変数のクォート処理の修正は、空文字列リスト要素に対して誤動作をして、長いファイルパスが切り捨てられる危険性がありました。 
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <application>pg_dump</application>'s failure to
       dump <literal>REPLICA IDENTITY</literal> properties for constraint
       indexes (Tom Lane)
+-->
+<application>pg_dump</application>が制約インデックスに対する<literal>REPLICA IDENTITY</literal>属性のダンプに失敗していたものが修正されました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       Manually created unique indexes were properly marked, but not those
       created by declaring <literal>UNIQUE</literal> or <literal>PRIMARY
       KEY</literal> constraints.
+-->
+手動で作成したユニークインデックスには適切に属性が付与されますが、<literal>UNIQUE</literal>や<literal>PRIMARY KEY</literal>制約を宣言することで作られたものはそうなりませんでした。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Make <application>pg_upgrade</application> check that the old server
       was shut down cleanly (Bruce Momjian)
+-->
+<application>pg_upgrade</application>が古いサーバがクリーンにシャットダウンされたことを検査するようにしました。
+(Bruce Momjian)
      </para>
 
      <para>
+<!--
       The previous check could be fooled by an immediate-mode shutdown.
+-->
+これまでの検査ではimmediateモードでのシャットダウンについてだまされる可能性がありました。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix <filename>contrib/hstore_plperl</filename> to look through Perl
       scalar references, and to not crash if it doesn't find a hash
       reference where it expects one (Tom Lane)
+-->
+Perlスカラ参照を一通り調べて、期待されたハッシュ参照が見つからない場合にクラッシュしないように、<filename>contrib/hstore_plperl</filename>を修正しました。
+(Tom Lane)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix crash in <filename>contrib/ltree</filename>'s
       <function>lca()</function> function when the input array is empty
       (Pierre Ducroquet)
+-->
+<filename>contrib/ltree</filename>の<function>lca()</function>関数での入力配列が空であったときのクラッシュを修正しました。
+(Pierre Ducroquet)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Fix various error-handling code paths in which an incorrect error code
       might be reported (Michael Paquier, Tom Lane, Magnus Hagander)
+-->
+不適切なエラーコードが報告されるかもしれない様々なエラー処理コードパスを修正しました。
+(Michael Paquier, Tom Lane, Magnus Hagander)
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Rearrange makefiles to ensure that programs link to freshly-built
       libraries (such as <filename>libpq.so</filename>) rather than ones
       that might exist in the system library directories (Tom Lane)
+-->
+プログラムが既存のシステムライブラリディレクトリにあるものではなく、ビルドされたばかりのライブラリ（<filename>libpq.so</filename>など）に確実にリンクするように、Makefileを調整しました。
+(Tom Lane)
      </para>
 
      <para>
+<!--
       This avoids problems when building on platforms that supply old copies
       of <productname>PostgreSQL</productname> libraries.
+-->
+これにより、<productname>PostgreSQL</productname>ライブラリの古いコピーを提供するプラットフォームでビルドするときの問題を回避します。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Update time zone data files to <application>tzdata</application>
       release 2018e for DST law changes in North Korea, plus historical
       corrections for Czechoslovakia.
+-->
+タイムゾーンデータファイルを<application>tzdata</application> release 2018eに更新しました。
+北朝鮮の夏時間(DST)法の変更に加え、チェコスロバキアの歴史的修正が含まれます。
      </para>
 
      <para>
+<!--
       This update includes a redefinition of <quote>daylight savings</quote>
       in Ireland, as well as for some past years in Namibia and
       Czechoslovakia.  In those jurisdictions, legally standard time is
@@ -415,6 +640,10 @@
       the <structfield>is_dst</structfield> column in
       the <structname>pg_timezone_names</structname> view will now be true
       in winter and false in summer in these cases.
+-->
+この更新には、アイルランドおよび過去の何年間かのでのナミビアやチェコスロバキアにおける<quote>daylight savings</quote>の再定義が含まれます。
+これらの管区では法律上、夏に標準時間、冬にDST（訳注：daylight saving timeを通常「夏時間」としているがここでは文脈上DSTとする）であると述べられていて、そのためDSTオフセットは標準時間の1時間後でなく1時間前です。
+このことは、実際のUTCオフセットや使われるタイムゾーン略記法のいずれにも影響を与えませんが、唯一の影響として、これらの場合は<structname>pg_timezone_names</structname>ビューの<structfield>is_dst</structfield>が冬に真、夏に偽となります。
      </para>
     </listitem>
 
