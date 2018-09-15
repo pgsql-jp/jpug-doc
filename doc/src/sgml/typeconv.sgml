@@ -381,17 +381,25 @@ hazard when calling, via qualified name
 -->
 正確に入力引数型を受け付ける演算子があるかどうか検査します。
 該当する演算子があれば（調査される演算子の集合内で正確に一致するものは1つしかあり得ません）、それを使用します。
+正確に一致するものがない場合、信用できないユーザにオブジェクトの作成を許可しているスキーマで見つかる演算子を、(典型的なものではないですが)修飾された名前で
   <footnote id="op-qualified-security">
-   <!-- If you edit this, consider editing func-qualified-security. -->
+   <!-- 原文コメント If you edit this, consider editing func-qualified-security. -->
    <para>
+<!--
     The hazard does not arise with a non-schema-qualified name, because a
     search path containing schemas that permit untrusted users to create
     objects is not a <link linkend="ddl-schemas-patterns">secure schema usage
     pattern</link>.
+-->
+信用できないユーザにオブジェクトの作成を許可するスキーマを含む検索パスは、<link linkend="ddl-schemas-patterns">安全なスキーマ使用パターン</link>ではありませんので、スキーマで修飾されていない名前では危険は起こりません。
    </para>
   </footnote>
+<!--
 (not typical), any operator found in a schema that permits untrusted users to
 create objects.  In such situations, cast arguments to force an exact match.
+-->
+呼び出す時にセキュリティの危険が発生します。
+そのような状況では、強制的に正確に一致するように引数をキャストしてください。
 </para>
 
 <substeps>
@@ -897,16 +905,22 @@ preferred.
 このような拡張後は、その関数は実際の引数の型を持つので、他の非可変長の引数を持つ関数と同一になるかもしれません。この場合、検索パスで先に見つかった関数が使われます。また、同じスキーマに2つの関数が見つかった場合は非可変長の関数が優先されます。
 </para>
 <para>
+<!--
 This creates a security hazard when calling, via qualified name
+-->
+信用できないユーザにオブジェクトの作成を許可しているスキーマで見つかる可変長引数の関数を、修飾された名前で
   <footnote id="func-qualified-security">
-   <!-- If you edit this, consider editing op-qualified-security. -->
+   <!-- 原文コメント If you edit this, consider editing op-qualified-security. -->
    <para>
+<!--
     The hazard does not arise with a non-schema-qualified name, because a
     search path containing schemas that permit untrusted users to create
     objects is not a <link linkend="ddl-schemas-patterns">secure schema usage
     pattern</link>.
+-->
+信用できないユーザにオブジェクトの作成を許可するスキーマを含む検索パスは、<link linkend="ddl-schemas-patterns">安全なスキーマ使用パターン</link>ではありませんので、スキーマで修飾されていない名前では危険は起こりません。
    </para>
-  </footnote>,
+  </footnote><!-- ,
 a variadic function found in a schema that permits untrusted users to create
 objects.  A malicious user can take control and execute arbitrary SQL
 functions as though you executed them.  Substitute a call bearing
@@ -915,6 +929,12 @@ populating <literal>VARIADIC "any"</literal> parameters often have no
 equivalent formulation containing the <literal>VARIADIC</literal> keyword.  To
 issue those calls safely, the function's schema must permit only trusted users
 to create objects.
+-->
+呼び出す時にセキュリティの危険が発生します。
+悪意のあるユーザは、支配権を奪い、あたかもあなたが実行したかのように任意のSQL関数を実行できます。
+<literal>VARIADIC</literal>キーワードを持つ呼び出しを代わりに使ってください。そうすればこの危険は避けられます。
+<literal>VARIADIC "any"</literal>パラメータにデータを入れての呼び出しには、しばしば同等の<literal>VARIADIC</literal>キーワード含む定式化がありません。
+この呼び出しを安全に行なうには、関数のスキーマは信用できるユーザだけがオブジェクトを作成できるようにしなければなりません。
 </para>
 </step>
 <step performance="optional">
@@ -932,9 +952,10 @@ found.
 -->
 パラメータにデフォルト値を持つ関数は、デフォルト指定可能なパラメータ位置のうち、0以上が省略されたどのような呼び出しに対しても適合すると見なされます。
 もし呼び出し時にこのような関数が2つ以上適合した場合、検索パスで先に見つかったものが使用されます。
-もし、デフォルト指定のない位置に同じパラメータ型を持つ関数(もしそれらが異なるデフォルト指定のあるパラメータのセットを持っていればあり得ます)が同じスキーマに2つ以上あった時は、システムはどの関数を使うべきか決定できず、呼出しにより適合するものが見つからなければ<quote>ambiguous function call</>エラーが結果として返るでしょう。
+もし、デフォルト指定のない位置に同じパラメータ型を持つ関数(もしそれらが異なるデフォルト指定のあるパラメータのセットを持っていればあり得ます)が同じスキーマに2つ以上あった時は、システムはどの関数を使うべきか決定できず、呼び出しにより適合するものが見つからなければ<quote>ambiguous function call</>エラーが結果として返るでしょう。
 </para>
 <para>
+<!--
 This creates an availability hazard when calling, via qualified
 name<footnoteref linkend="func-qualified-security">, any function found in a
 schema that permits untrusted users to create objects.  A malicious user can
@@ -942,6 +963,11 @@ create a function with the name of an existing function, replicating that
 function's parameters and appending novel parameters having default values.
 This precludes new calls to the original function.  To forestall this hazard,
 place functions in schemas that permit only trusted users to create objects.
+-->
+信用できないユーザにオブジェクトの作成を許可しているスキーマで見つかる関数を修飾された名前で<footnoteref linkend="func-qualified-security">呼び出す時に、これは可用性の危険を起こします。
+悪意のあるユーザは、既存の関数の名前で、その関数のパラメータを複製し、デフォルト値を持つ新しいパラメータを追加した関数を作成できます。
+これは元の関数への新しい呼び出しを妨げます。
+この危険を未然に防ぐには、関数を信用できるユーザだけがオブジェクトを作成できるスキーマに置いてください。
 </para>
 </step>
 </substeps>
@@ -960,8 +986,10 @@ cast arguments to force an exact match.  (Cases involving <type>unknown</type>
 will never find a match at this step.)
 -->
 正確に入力引数型を受け付ける関数があるかどうか検査します。
-該当する関数があれば（調査される関数の集合内で正確に一致するものは1つしかあり得ません）、それを使用します
-（<type>unknown</type>を含む場合は、この段階で一致するものは決して見つかりません）。
+該当する関数があれば（調査される関数の集合内で正確に一致するものは1つしかあり得ません）、それを使用します。
+正確に一致するものがない場合、信用できないユーザにオブジェクトの作成を許可しているスキーマで見つかる関数を、修飾された名前で<footnoteref linkend="func-qualified-security">呼び出す時にセキュリティの危険が発生します。
+そのような状況では、強制的に正確に一致するように引数をキャストしてください。
+（<type>unknown</type>を含む場合は、この段階で一致するものは決して見つかりません。）
 </para>
 </step>
 
@@ -1172,7 +1200,10 @@ SELECT round(4.0, 4);
 </example>
 
 <example>
+<!--
 <title>Variadic Function Resolution</title>
+-->
+<title>可変長引数の関数の解決</title>
 
 <para>
 <screen>
@@ -1181,8 +1212,12 @@ CREATE FUNCTION public.variadic_example(VARIADIC numeric[]) RETURNS int
 CREATE FUNCTION
 </screen>
 
+<!--
 This function accepts, but does not require, the VARIADIC keyword.  It
 tolerates both integer and numeric arguments:
+-->
+この関数は、必須ではないですがVARIADICキーワードを受け付けます。
+整数の引数と数値の引数の両方を許容します。
 
 <screen>
 SELECT public.variadic_example(0),
@@ -1194,8 +1229,11 @@ SELECT public.variadic_example(0),
 (1 row)
 </screen>
 
+<!--
 However, the first and second calls will prefer more-specific functions, if
 available:
+-->
+しかしながら、1番目と2番目の呼び出しは、もし利用可能なら、より特定の関数を優先します。
 
 <screen>
 CREATE FUNCTION public.variadic_example(numeric) RETURNS int
@@ -1215,10 +1253,15 @@ SELECT public.variadic_example(0),
 (1 row)
 </screen>
 
+<!--
 Given the default configuration and only the first function existing, the
 first and second calls are insecure.  Any user could intercept them by
 creating the second or third function.  By matching the argument type exactly
 and using the <literal>VARIADIC</literal> keyword, the third call is secure.
+-->
+もしデフォルトの設定で最初の関数だけが存在しているなら、1番目と2番目の呼び出しは安全ではありません。
+ユーザは、2番目や3番目の関数を作成することで、それらを妨害できます。
+引数の型を厳密に一致させ<literal>VARIADIC</literal>キーワードを使うのなら、3番目の呼び出しは安全です。
 </para>
 </example>
 
