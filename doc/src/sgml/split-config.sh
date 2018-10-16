@@ -1,5 +1,5 @@
 #! /bin/sh
-# This script splits config.sgml into 3 files: namely config[0-3].sgml.
+# This script splits config.sgml into 4 files: namely config[0-3].sgml.
 # config.sgml remains untouched. config0.sgml should be included by
 # postgres.sgml instead of config.sgml.
 # "<!-- split-config1-start --> and <!-- split-config1-end --> etc. must be in config.sgml
