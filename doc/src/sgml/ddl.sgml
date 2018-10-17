@@ -2514,15 +2514,18 @@ CREATE POLICY account_managers ON accounts TO managers
    different manager cannot be created via <command>INSERT</command>
    or <command>UPDATE</command>).
 -->
-ロールが指定されなかった場合、あるいは特別なユーザ名<literal>PUBLIC</literal>が指定された場合、ポリシーはシステム上の全ユーザに適用されます。
-すべてのユーザが<literal>users</>テーブルの自分自身の行にだけアクセスできるようにするためには、次の簡単なポリシーが使用できます。
+上記のポリシーは、上記の<literal>USING</literal>句と同じ<literal>WITH CHECK</literal>句を暗黙的に提供するので、制約は、コマンドが選択した行にも適用されますし（ですから、マネージャは、違うマネージャに属する既存の行に対して<command>SELECT</command>、<command>UPDATE</command>、<command>DELETE</command>を発行することはできません）、コマンドが変更した行にも適用されます（ですから、違うマネージャに属する行を、<command>INSERT</command>あるいは<command>UPDATE</command>で作ることはできません）。
   </para>
 
   <para>
+<!--
    If no role is specified, or the special user name
    <literal>PUBLIC</literal> is used, then the policy applies to all
    users on the system.  To allow all users to access only their own row in
    a <literal>users</literal> table, a simple policy can be used:
+-->
+ロールが指定されなかった場合、あるいは特別なユーザ名<literal>PUBLIC</literal>が指定された場合、ポリシーはシステム上の全ユーザに適用されます。
+すべてのユーザが<literal>users</>テーブルの自分自身の行にだけアクセスできるようにするためには、次の簡単なポリシーが使用できます。
   </para>
 
 <programlisting>
@@ -2531,7 +2534,10 @@ CREATE POLICY user_policy ON users
 </programlisting>
 
   <para>
+<!--
    This works similarly to the previous example.
+-->
+これは前の例と同じように動きます。
   </para>
 
   <para>
@@ -2541,8 +2547,8 @@ CREATE POLICY user_policy ON users
    combined.  This pair of policies would allow all users to view all rows
    in the <literal>users</literal> table, but only modify their own:
 -->
-テーブルに追加される行に対し、可視である行とは異なるポリシーを使用する場合は、<literal>WITH CHECK</>句を使うことができます。
-次のポリシーでは、すべてのユーザが<literal>users</>テーブルのすべての行を見ることができますが、自分自身の行だけしか更新できません。
+テーブルに追加される行に対し、可視である行とは異なるポリシーを使用する場合は、複数のポリシーを組み合わせることができます。
+組み合わせたポリシーにより、すべてのユーザが<literal>users</>テーブルのすべての行を見ることができますが、自分自身の行だけしか更新できません。
   </para>
 
 <programlisting>
@@ -2554,10 +2560,14 @@ CREATE POLICY user_mod_policy ON users
 </programlisting>
 
   <para>
+<!--
    In a <command>SELECT</command> command, these two policies are combined
    using <literal>OR</literal>, with the net effect being that all rows
    can be selected.  In other command types, only the second policy applies,
    so that the effects are the same as before.
+-->
+<command>SELECT</command>コマンドでは、<literal>OR</literal>を使って2つのポリシーが組み合わされ、すべての行を検索できる効果をもたらします。
+他のコマンドに対しては、二番目のポリシーだけが適用され、以前と効果は同じです。
   </para>
 
   <para>
@@ -2570,7 +2580,7 @@ CREATE POLICY user_mod_policy ON users
 -->
 行セキュリティは<command>ALTER TABLE</>で無効にすることもできます。
 行セキュリティを無効にしても、テーブルに定義されているポリシーは削除されず、単に無視されるだけになります。
-このときは標準的なSQLの権限システムに従って、すべての行が可視で更新可能になります。
+このときはSQL標準の権限システムに従って、すべての行が可視で更新可能になります。
   </para>
 
   <para>
@@ -3705,8 +3715,9 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 -->
 <literal>ALTER ROLE <replaceable>user</replaceable> SET search_path = "$user"</literal>を使って個々のユーザのデフォルトサーチパスからpublicスキーマを削除します。
 すべてのユーザは依然としてpublicスキーマにオブジェクトを作ることはできますが、修飾名を使わなければそのオブジェクトを選択できません。
-<literal>CREATEROLE</literal>権限を保持するユーザは、この設定を元に戻して、この設定に依存しているユーザの資格で任意の問合せを発行できます。
-この、ほとんどスーパユーザと言える能力を与えずに<literal>CREATEROLE</literal>をユーザに許可したいのであれば、最初に述べたパターンを代わりに使用してください。
+修飾してテーブルを参照するのは問題ありませんが、publicスキーマ中の関数の呼び出しは<link linkend="typeconv-func">安全ではないか、あるいは信頼できません</link>。
+また、<literal>CREATEROLE</literal>権限を保持するユーザは、この設定を元に戻して、この設定に依存しているユーザの資格で任意の問合せを発行できます。
+この、ほとんどスーパユーザと言える能力を与えずに関数や拡張をpublicスキーマに作成する、あるいは<literal>CREATEROLE</literal>をユーザに許可したいのであれば、最初に述べたパターンを代わりに使用してください。
       </para>
      </listitem>
 
@@ -3727,8 +3738,8 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 -->
 <link linkend="config-setting-configuration-file"><filename>postgresql.conf</filename></link>の<varname>search_path</varname>からpublicスキーマを削除します。
 これによるユーザ体験は一つ前のパターンと合致します。
-<literal>CREATEROLE</literal>のもたらす結果に加え、これはデータベース所有者を同じ方法で信頼することになります。
-ほとんどスーパユーザアクセスと言えるアクセス権を与えずに、<literal>CREATEROLE</literal>権限、<literal>CREATEDB</literal>権限、あるいは個々のデータベース所有権をユーザに割り当てるには、最初のパターンを代わりに使用してください。
+関数を利用するパターンと<literal>CREATEROLE</literal>の結果のもたらすところは、データベース所有者を<literal>CREATEROLE</literal>のように信頼するということです。
+関数あるいは拡張をpublicスキーマに作成するか、<literal>CREATEROLE</literal>権限を与えるときに、ほとんどスーパユーザアクセスと言えるアクセス権を与えずに、<literal>CREATEROLE</literal>権限、<literal>CREATEDB</literal>権限、あるいは個々のデータベース所有権をユーザに割り当てるには、最初のパターンを代わりに使用してください。
       </para>
      </listitem>
 
@@ -5107,11 +5118,17 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
 
      <listitem>
       <para>
+<!--
        Mixing temporary and permanent relations in the same partition tree is
        not allowed.  Hence, if the partitioned table is permanent, so must be
        its partitions and likewise if the partitioned table is temporary.  When
        using temporary relations, all members of the partition tree have to be
        from the same session.
+-->
+一時リレーションと永続的リレーションを同じパーティションツリーに混合することはできません。
+ですから、パーティション化されたテーブルが永続的なら、パーティションも永続的でなければなりません。
+同様にパーティション化されたテーブルが一時的なら、パーティションも一時的でなければなりません。
+一時リレーションを使う場合は、パーティションツリーのすべてのメンバーは同じセッションに由来しなければなりません。
       </para>
      </listitem>
     </itemizedlist>
