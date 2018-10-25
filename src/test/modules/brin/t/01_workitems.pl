@@ -15,7 +15,12 @@ $node->start;
 $node->safe_psql('postgres', 'create extension pageinspect');
 
 # Create a table with an autosummarizing BRIN index
+<<<<<<< HEAD
 $node->safe_psql('postgres',
+=======
+$node->safe_psql(
+	'postgres',
+>>>>>>> REL_11_0
 	'create table brin_wi (a int) with (fillfactor = 10);
 	 create index brin_wi_idx on brin_wi using brin (a) with (pages_per_range=1, autosummarize=on);
 	 '
@@ -28,7 +33,12 @@ is($count, '1', "initial index state is correct");
 $node->safe_psql('postgres',
 	'insert into brin_wi select * from generate_series(1, 100)');
 
+<<<<<<< HEAD
 $node->poll_query_until('postgres',
+=======
+$node->poll_query_until(
+	'postgres',
+>>>>>>> REL_11_0
 	"select count(*) > 1 from brin_page_items(get_raw_page('brin_wi_idx', 2), 'brin_wi_idx'::regclass)",
 	't');
 

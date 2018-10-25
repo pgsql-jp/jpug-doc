@@ -4,7 +4,7 @@
  *
  *
  *
- * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/executor/nodeSeqscan.h
@@ -25,6 +25,11 @@ extern void ExecReScanSeqScan(SeqScanState *node);
 extern void ExecSeqScanEstimate(SeqScanState *node, ParallelContext *pcxt);
 extern void ExecSeqScanInitializeDSM(SeqScanState *node, ParallelContext *pcxt);
 extern void ExecSeqScanReInitializeDSM(SeqScanState *node, ParallelContext *pcxt);
+<<<<<<< HEAD
 extern void ExecSeqScanInitializeWorker(SeqScanState *node, shm_toc *toc);
+=======
+extern void ExecSeqScanInitializeWorker(SeqScanState *node,
+							ParallelWorkerContext *pwcxt);
+>>>>>>> REL_11_0
 
 #endif							/* NODESEQSCAN_H */

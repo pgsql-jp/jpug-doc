@@ -5,6 +5,7 @@ use PostgresNode;
 use TestLib;
 use Test::More tests => 1;
 
+<<<<<<< HEAD
 sub wait_for_caught_up
 {
 	my ($node, $appname) = @_;
@@ -14,6 +15,8 @@ sub wait_for_caught_up
 	) or die "Timed out while waiting for subscriber to catch up";
 }
 
+=======
+>>>>>>> REL_11_0
 my $node_publisher = get_new_node('publisher');
 $node_publisher->init(allows_streaming => 'logical');
 $node_publisher->start;
@@ -32,12 +35,22 @@ my $appname           = 'replication_test';
 $node_publisher->safe_psql('postgres',
 	"CREATE PUBLICATION mypub FOR ALL TABLES;");
 $node_subscriber->safe_psql('postgres',
+<<<<<<< HEAD
 "CREATE SUBSCRIPTION mysub CONNECTION '$publisher_connstr application_name=$appname' PUBLICATION mypub;"
 );
 
 wait_for_caught_up($node_publisher, $appname);
 
 $node_subscriber->safe_psql('postgres', q{
+=======
+	"CREATE SUBSCRIPTION mysub CONNECTION '$publisher_connstr application_name=$appname' PUBLICATION mypub;"
+);
+
+$node_publisher->wait_for_catchup($appname);
+
+$node_subscriber->safe_psql(
+	'postgres', q{
+>>>>>>> REL_11_0
 BEGIN;
 ALTER SUBSCRIPTION mysub DISABLE;
 ALTER SUBSCRIPTION mysub SET (slot_name = NONE);

@@ -5,7 +5,7 @@
  *	  commands.  At one time acted as an interface between the Lisp and C
  *	  systems.
  *
- * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -23,6 +23,7 @@
 #include "access/xlog.h"
 #include "catalog/catalog.h"
 #include "catalog/namespace.h"
+#include "catalog/pg_inherits.h"
 #include "catalog/toasting.h"
 #include "commands/alter.h"
 #include "commands/async.h"
@@ -66,7 +67,9 @@
 #include "tcop/utility.h"
 #include "utils/acl.h"
 #include "utils/guc.h"
+#include "utils/lsyscache.h"
 #include "utils/syscache.h"
+#include "utils/rel.h"
 
 
 /* Hook for plugins to get control in ProcessUtility() */
@@ -381,7 +384,11 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 {
 	Node	   *parsetree = pstmt->utilityStmt;
 	bool		isTopLevel = (context == PROCESS_UTILITY_TOPLEVEL);
+	bool		isAtomicContext = (!(context == PROCESS_UTILITY_TOPLEVEL || context == PROCESS_UTILITY_QUERY_NONATOMIC) || IsTransactionBlock());
 	ParseState *pstate;
+
+	/* This can recurse, so check for excessive recursion */
+	check_stack_depth();
 
 	check_xact_readonly(parsetree);
 
@@ -452,13 +459,13 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 						break;
 
 					case TRANS_STMT_COMMIT_PREPARED:
-						PreventTransactionChain(isTopLevel, "COMMIT PREPARED");
+						PreventInTransactionBlock(isTopLevel, "COMMIT PREPARED");
 						PreventCommandDuringRecovery("COMMIT PREPARED");
 						FinishPreparedTransaction(stmt->gid, true);
 						break;
 
 					case TRANS_STMT_ROLLBACK_PREPARED:
-						PreventTransactionChain(isTopLevel, "ROLLBACK PREPARED");
+						PreventInTransactionBlock(isTopLevel, "ROLLBACK PREPARED");
 						PreventCommandDuringRecovery("ROLLBACK PREPARED");
 						FinishPreparedTransaction(stmt->gid, false);
 						break;
@@ -468,34 +475,18 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 						break;
 
 					case TRANS_STMT_SAVEPOINT:
-						{
-							ListCell   *cell;
-							char	   *name = NULL;
-
-							RequireTransactionChain(isTopLevel, "SAVEPOINT");
-
-							foreach(cell, stmt->options)
-							{
-								DefElem    *elem = lfirst(cell);
-
-								if (strcmp(elem->defname, "savepoint_name") == 0)
-									name = strVal(elem->arg);
-							}
-
-							Assert(PointerIsValid(name));
-
-							DefineSavepoint(name);
-						}
+						RequireTransactionBlock(isTopLevel, "SAVEPOINT");
+						DefineSavepoint(stmt->savepoint_name);
 						break;
 
 					case TRANS_STMT_RELEASE:
-						RequireTransactionChain(isTopLevel, "RELEASE SAVEPOINT");
-						ReleaseSavepoint(stmt->options);
+						RequireTransactionBlock(isTopLevel, "RELEASE SAVEPOINT");
+						ReleaseSavepoint(stmt->savepoint_name);
 						break;
 
 					case TRANS_STMT_ROLLBACK_TO:
-						RequireTransactionChain(isTopLevel, "ROLLBACK TO SAVEPOINT");
-						RollbackToSavepoint(stmt->options);
+						RequireTransactionBlock(isTopLevel, "ROLLBACK TO SAVEPOINT");
+						RollbackToSavepoint(stmt->savepoint_name);
 
 						/*
 						 * CommitTransactionCommand is in charge of
@@ -529,18 +520,18 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 			break;
 
 		case T_DoStmt:
-			ExecuteDoStmt((DoStmt *) parsetree);
+			ExecuteDoStmt((DoStmt *) parsetree, isAtomicContext);
 			break;
 
 		case T_CreateTableSpaceStmt:
 			/* no event triggers for global objects */
-			PreventTransactionChain(isTopLevel, "CREATE TABLESPACE");
+			PreventInTransactionBlock(isTopLevel, "CREATE TABLESPACE");
 			CreateTableSpace((CreateTableSpaceStmt *) parsetree);
 			break;
 
 		case T_DropTableSpaceStmt:
 			/* no event triggers for global objects */
-			PreventTransactionChain(isTopLevel, "DROP TABLESPACE");
+			PreventInTransactionBlock(isTopLevel, "DROP TABLESPACE");
 			DropTableSpace((DropTableSpaceStmt *) parsetree);
 			break;
 
@@ -590,7 +581,7 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 
 		case T_CreatedbStmt:
 			/* no event triggers for global objects */
-			PreventTransactionChain(isTopLevel, "CREATE DATABASE");
+			PreventInTransactionBlock(isTopLevel, "CREATE DATABASE");
 			createdb(pstate, (CreatedbStmt *) parsetree);
 			break;
 
@@ -609,7 +600,7 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 				DropdbStmt *stmt = (DropdbStmt *) parsetree;
 
 				/* no event triggers for global objects */
-				PreventTransactionChain(isTopLevel, "DROP DATABASE");
+				PreventInTransactionBlock(isTopLevel, "DROP DATABASE");
 				dropdb(stmt->dbname, stmt->missing_ok);
 			}
 			break;
@@ -657,6 +648,10 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 			}
 			break;
 
+		case T_CallStmt:
+			ExecuteCallStmt(castNode(CallStmt, parsetree), params, isAtomicContext, dest);
+			break;
+
 		case T_ClusterStmt:
 			/* we choose to allow this during "read only" transactions */
 			PreventCommandDuringRecovery("CLUSTER");
@@ -682,7 +677,7 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 			break;
 
 		case T_AlterSystemStmt:
-			PreventTransactionChain(isTopLevel, "ALTER SYSTEM");
+			PreventInTransactionBlock(isTopLevel, "ALTER SYSTEM");
 			AlterSystemSetConfigFile((AlterSystemStmt *) parsetree);
 			break;
 
@@ -748,13 +743,13 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 			 * Since the lock would just get dropped immediately, LOCK TABLE
 			 * outside a transaction block is presumed to be user error.
 			 */
-			RequireTransactionChain(isTopLevel, "LOCK TABLE");
+			RequireTransactionBlock(isTopLevel, "LOCK TABLE");
 			/* forbidden in parallel mode due to CommandIsReadOnly */
 			LockTableCommand((LockStmt *) parsetree);
 			break;
 
 		case T_ConstraintsSetStmt:
-			WarnNoTransactionChain(isTopLevel, "SET CONSTRAINTS");
+			WarnNoTransactionBlock(isTopLevel, "SET CONSTRAINTS");
 			AfterTriggerSetState((ConstraintsSetStmt *) parsetree);
 			break;
 
@@ -800,10 +795,10 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 						 * start-transaction-command calls would not have the
 						 * intended effect!
 						 */
-						PreventTransactionChain(isTopLevel,
-												(stmt->kind == REINDEX_OBJECT_SCHEMA) ? "REINDEX SCHEMA" :
-												(stmt->kind == REINDEX_OBJECT_SYSTEM) ? "REINDEX SYSTEM" :
-												"REINDEX DATABASE");
+						PreventInTransactionBlock(isTopLevel,
+												  (stmt->kind == REINDEX_OBJECT_SCHEMA) ? "REINDEX SCHEMA" :
+												  (stmt->kind == REINDEX_OBJECT_SYSTEM) ? "REINDEX SYSTEM" :
+												  "REINDEX DATABASE");
 						ReindexMultipleTables(stmt->name, stmt->kind, stmt->options);
 						break;
 					default:
@@ -823,7 +818,7 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 			{
 				GrantStmt  *stmt = (GrantStmt *) parsetree;
 
-				if (EventTriggerSupportsGrantObjectType(stmt->objtype))
+				if (EventTriggerSupportsObjectType(stmt->objtype))
 					ProcessUtilitySlow(pstate, pstmt, queryString,
 									   context, params, queryEnv,
 									   dest, completionTag);
@@ -1298,8 +1293,8 @@ ProcessUtilitySlow(ParseState *pstate,
 					LOCKMODE	lockmode;
 
 					if (stmt->concurrent)
-						PreventTransactionChain(isTopLevel,
-												"CREATE INDEX CONCURRENTLY");
+						PreventInTransactionBlock(isTopLevel,
+												  "CREATE INDEX CONCURRENTLY");
 
 					/*
 					 * Look up the relation OID just once, right here at the
@@ -1314,9 +1309,42 @@ ProcessUtilitySlow(ParseState *pstate,
 						: ShareLock;
 					relid =
 						RangeVarGetRelidExtended(stmt->relation, lockmode,
-												 false, false,
+												 0,
 												 RangeVarCallbackOwnsRelation,
 												 NULL);
+
+					/*
+					 * CREATE INDEX on partitioned tables (but not regular
+					 * inherited tables) recurses to partitions, so we must
+					 * acquire locks early to avoid deadlocks.
+					 *
+					 * We also take the opportunity to verify that all
+					 * partitions are something we can put an index on, to
+					 * avoid building some indexes only to fail later.
+					 */
+					if (stmt->relation->inh &&
+						get_rel_relkind(relid) == RELKIND_PARTITIONED_TABLE)
+					{
+						ListCell   *lc;
+						List	   *inheritors = NIL;
+
+						inheritors = find_all_inheritors(relid, lockmode, NULL);
+						foreach(lc, inheritors)
+						{
+							char		relkind = get_rel_relkind(lfirst_oid(lc));
+
+							if (relkind != RELKIND_RELATION &&
+								relkind != RELKIND_MATVIEW &&
+								relkind != RELKIND_PARTITIONED_TABLE)
+								ereport(ERROR,
+										(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
+										 errmsg("cannot create index on partitioned table \"%s\"",
+												stmt->relation->relname),
+										 errdetail("Table \"%s\" contains partitions that are foreign tables.",
+												   stmt->relation->relname)));
+						}
+						list_free(inheritors);
+					}
 
 					/* Run parse analysis ... */
 					stmt = transformIndexStmt(relid, stmt, queryString);
@@ -1327,6 +1355,8 @@ ProcessUtilitySlow(ParseState *pstate,
 						DefineIndex(relid,	/* OID of heap relation */
 									stmt,
 									InvalidOid, /* no predefined OID */
+									InvalidOid, /* no parent index */
+									InvalidOid, /* no parent constraint */
 									false,	/* is_alter_table */
 									true,	/* check_rights */
 									true,	/* check_not_in_use */
@@ -1478,7 +1508,8 @@ ProcessUtilitySlow(ParseState *pstate,
 			case T_CreateTrigStmt:
 				address = CreateTrigger((CreateTrigStmt *) parsetree,
 										queryString, InvalidOid, InvalidOid,
-										InvalidOid, InvalidOid, false);
+										InvalidOid, InvalidOid, InvalidOid,
+										InvalidOid, NULL, false, false);
 				break;
 
 			case T_CreatePLangStmt:
@@ -1685,8 +1716,8 @@ ExecDropStmt(DropStmt *stmt, bool isTopLevel)
 	{
 		case OBJECT_INDEX:
 			if (stmt->concurrent)
-				PreventTransactionChain(isTopLevel,
-										"DROP INDEX CONCURRENTLY");
+				PreventInTransactionBlock(isTopLevel,
+										  "DROP INDEX CONCURRENTLY");
 			/* fall through */
 
 		case OBJECT_TABLE:
@@ -1716,6 +1747,12 @@ UtilityReturnsTuples(Node *parsetree)
 {
 	switch (nodeTag(parsetree))
 	{
+		case T_CallStmt:
+			{
+				CallStmt   *stmt = (CallStmt *) parsetree;
+
+				return (stmt->funcexpr->funcresulttype == RECORDOID);
+			}
 		case T_FetchStmt:
 			{
 				FetchStmt  *stmt = (FetchStmt *) parsetree;
@@ -1766,6 +1803,9 @@ UtilityTupleDescriptor(Node *parsetree)
 {
 	switch (nodeTag(parsetree))
 	{
+		case T_CallStmt:
+			return CallStmtResultDesc((CallStmt *) parsetree);
+
 		case T_FetchStmt:
 			{
 				FetchStmt  *stmt = (FetchStmt *) parsetree;
@@ -1957,8 +1997,14 @@ AlterObjectTypeCommandTag(ObjectType objtype)
 		case OBJECT_POLICY:
 			tag = "ALTER POLICY";
 			break;
+		case OBJECT_PROCEDURE:
+			tag = "ALTER PROCEDURE";
+			break;
 		case OBJECT_ROLE:
 			tag = "ALTER ROLE";
+			break;
+		case OBJECT_ROUTINE:
+			tag = "ALTER ROUTINE";
 			break;
 		case OBJECT_RULE:
 			tag = "ALTER RULE";
@@ -2261,6 +2307,12 @@ CreateCommandTag(Node *parsetree)
 				case OBJECT_FUNCTION:
 					tag = "DROP FUNCTION";
 					break;
+				case OBJECT_PROCEDURE:
+					tag = "DROP PROCEDURE";
+					break;
+				case OBJECT_ROUTINE:
+					tag = "DROP ROUTINE";
+					break;
 				case OBJECT_AGGREGATE:
 					tag = "DROP AGGREGATE";
 					break;
@@ -2359,7 +2411,20 @@ CreateCommandTag(Node *parsetree)
 			break;
 
 		case T_AlterFunctionStmt:
-			tag = "ALTER FUNCTION";
+			switch (((AlterFunctionStmt *) parsetree)->objtype)
+			{
+				case OBJECT_FUNCTION:
+					tag = "ALTER FUNCTION";
+					break;
+				case OBJECT_PROCEDURE:
+					tag = "ALTER PROCEDURE";
+					break;
+				case OBJECT_ROUTINE:
+					tag = "ALTER ROUTINE";
+					break;
+				default:
+					tag = "???";
+			}
 			break;
 
 		case T_GrantStmt:
@@ -2438,7 +2503,10 @@ CreateCommandTag(Node *parsetree)
 			break;
 
 		case T_CreateFunctionStmt:
-			tag = "CREATE FUNCTION";
+			if (((CreateFunctionStmt *) parsetree)->is_procedure)
+				tag = "CREATE PROCEDURE";
+			else
+				tag = "CREATE FUNCTION";
 			break;
 
 		case T_IndexStmt:
@@ -2491,6 +2559,10 @@ CreateCommandTag(Node *parsetree)
 
 		case T_LoadStmt:
 			tag = "LOAD";
+			break;
+
+		case T_CallStmt:
+			tag = "CALL";
 			break;
 
 		case T_ClusterStmt:
@@ -3113,6 +3185,10 @@ GetCommandLogLevel(Node *parsetree)
 			break;
 
 		case T_LoadStmt:
+			lev = LOGSTMT_ALL;
+			break;
+
+		case T_CallStmt:
 			lev = LOGSTMT_ALL;
 			break;
 

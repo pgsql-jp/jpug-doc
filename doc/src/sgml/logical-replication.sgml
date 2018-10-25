@@ -12,7 +12,7 @@
   changes, based upon their replication identity (usually a primary key).  We
   use the term logical in contrast to physical replication, which uses exact
   block addresses and byte-by-byte replication.  PostgreSQL supports both
-  mechanisms concurrently, see <xref linkend="high-availability">.  Logical
+  mechanisms concurrently, see <xref linkend="high-availability"/>.  Logical
   replication allows fine-grained control over both data replication and
   security.
 -->
@@ -111,7 +111,17 @@ PostgreSQLは両方の仕組みを同時にサポートします。
 
    <listitem>
     <para>
+<<<<<<< HEAD
 <!--
+=======
+     Replicating between PostgreSQL instances on different platforms (for
+     example Linux to Windows)
+    </para>
+   </listitem>
+
+   <listitem>
+    <para>
+>>>>>>> REL_11_0
      Giving access to replicated data to different groups of users.
 -->
 異なるユーザのグループに対して、複製されたデータにアクセスさせる。
@@ -180,8 +190,8 @@ PostgreSQLは両方の仕組みを同時にサポートします。
   <para>
 <!--
    Publications can choose to limit the changes they produce to
-   any combination of <command>INSERT</command>, <command>UPDATE</command>, and
-   <command>DELETE</command>, similar to how triggers are fired by
+   any combination of <command>INSERT</command>, <command>UPDATE</command>,
+   <command>DELETE</command>, and <command>TRUNCATE</command>, similar to how triggers are fired by
    particular event types.  By default, all operation types are replicated.
 -->
 パブリケーションは、生成される更新を、<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>のうちのどのような組み合わせにも制限することができます。
@@ -203,7 +213,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
    fallback if no other solution is possible.  If a replica identity other
    than <quote>full</quote> is set on the publisher side, a replica identity
    comprising the same or fewer columns must also be set on the subscriber
-   side.  See <xref linkend="SQL-CREATETABLE-REPLICA-IDENTITY"> for details on
+   side.  See <xref linkend="sql-createtable-replica-identity"/> for details on
    how to set the replica identity.  If a table without a replica identity is
    added to a publication that replicates <command>UPDATE</command>
    or <command>DELETE</command> operations then
@@ -232,8 +242,12 @@ PostgreSQLは両方の仕組みを同時にサポートします。
   </para>
 
   <para>
+<<<<<<< HEAD
 <!--
    A publication is created using the <xref linkend="sql-createpublication">
+=======
+   A publication is created using the <xref linkend="sql-createpublication"/>
+>>>>>>> REL_11_0
    command and may later be altered or dropped using corresponding commands.
 -->
 パブリケーションは、<xref linkend="sql-createpublication">コマンドで作成し、対応するコマンドで変更や削除ができます。
@@ -242,7 +256,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
   <para>
 <!--
    The individual tables can be added and removed dynamically using
-   <xref linkend="sql-alterpublication">.  Both the <literal>ADD
+   <xref linkend="sql-alterpublication"/>.  Both the <literal>ADD
    TABLE</literal> and <literal>DROP TABLE</literal> operations are
    transactional; so the table will start or stop replicating at the correct
    snapshot once the transaction has committed.
@@ -295,7 +309,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
   <para>
 <!--
    Each subscription will receive changes via one replication slot (see
-   <xref linkend="streaming-replication-slots">).  Additional temporary
+   <xref linkend="streaming-replication-slots"/>).  Additional temporary
    replication slots may be required for the initial data synchronization
    of pre-existing table data.
 -->
@@ -306,7 +320,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
   <para>
 <!--
    A logical replication subscription can be a standby for synchronous
-   replication (see <xref linkend="synchronous-replication">).  The standby
+   replication (see <xref linkend="synchronous-replication"/>).  The standby
    name is by default the subscription name.  An alternative name can be
    specified as <literal>application_name</literal> in the connection
    information of the subscription.
@@ -329,6 +343,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
   </para>
 
   <para>
+<<<<<<< HEAD
 <!--
    The subscription is added using <xref linkend="sql-createsubscription"> and
    can be stopped/resumed at any time using the
@@ -336,6 +351,12 @@ PostgreSQLは両方の仕組みを同時にサポートします。
    <xref linkend="sql-dropsubscription">.
 -->
 サブスクリプションは<xref linkend="sql-createsubscription">で追加し、<xref linkend="sql-altersubscription">を使って、いつでも停止、再開でき、そして<xref linkend="sql-dropsubscription">で削除できます。
+=======
+   The subscription is added using <xref linkend="sql-createsubscription"/> and
+   can be stopped/resumed at any time using the
+   <xref linkend="sql-altersubscription"/> command and removed using
+   <xref linkend="sql-dropsubscription"/>.
+>>>>>>> REL_11_0
   </para>
 
   <para>
@@ -592,6 +613,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
 
    <listitem>
     <para>
+<<<<<<< HEAD
 <!--
      <command>TRUNCATE</command> commands are not replicated.  This can, of
      course, be worked around by using <command>DELETE</command> instead.  To
@@ -601,13 +623,30 @@ PostgreSQLは両方の仕組みを同時にサポートします。
 <command>TRUNCATE</command>コマンドはレプリケーションされません。
 もちろん<command>DELETE</command>を代わりに使ってこれは回避できます。
 誤って<command>TRUNCATE</command>を起動しないように、テーブルから<literal>TRUNCATE</literal>権限を剥奪できます。
+=======
+     Replication of <command>TRUNCATE</command> commands is supported, but
+     some care must be taken when truncating groups of tables connected by
+     foreign keys.  When replicating a truncate action, the subscriber will
+     truncate the same group of tables that was truncated on the publisher,
+     either explictly specified or implicitly collected via
+     <literal>CASCADE</literal>, minus tables that are not part of the
+     subscription.  This will work correctly if all affected tables are part
+     of the same subscription.  But if some tables to be truncated on the
+     subscriber have foreign-key links to tables that are not part of the same
+     (or any) subscription, then the application of the truncate action on the
+     subscriber will fail.
+>>>>>>> REL_11_0
     </para>
    </listitem>
 
    <listitem>
     <para>
+<<<<<<< HEAD
 <!--
      Large objects (see <xref linkend="largeobjects">) are not replicated.
+=======
+     Large objects (see <xref linkend="largeobjects"/>) are not replicated.
+>>>>>>> REL_11_0
      There is no workaround for that, other than storing data in normal
      tables.
 -->
@@ -660,13 +699,13 @@ PostgreSQLは両方の仕組みを同時にサポートします。
   <para>
 <!--
    Logical replication is built with an architecture similar to physical
-   streaming replication (see <xref linkend="streaming-replication">).  It is
+   streaming replication (see <xref linkend="streaming-replication"/>).  It is
    implemented by <quote>walsender</quote> and <quote>apply</quote>
    processes.  The walsender process starts logical decoding (described
-   in <xref linkend="logicaldecoding">) of the WAL and loads the standard
+   in <xref linkend="logicaldecoding"/>) of the WAL and loads the standard
    logical decoding plugin (pgoutput).  The plugin transforms the changes read
    from WAL to the logical replication protocol
-   (see <xref linkend="protocol-logical-replication">) and filters the data
+   (see <xref linkend="protocol-logical-replication"/>) and filters the data
    according to the publication specification.  The data is then continuously
    transferred using the streaming replication protocol to the apply worker,
    which maps the data to local tables and applies the individual changes as
@@ -742,9 +781,13 @@ walsenderプロセスはWALのロジカルデコーディング（<xref linkend=
    <link linkend="streaming-replication">physical streaming replication</link>,
    the monitoring on a publication node is similar to monitoring of a
    physical replication master
+<<<<<<< HEAD
    (see <xref linkend="streaming-replication-monitoring">).
 -->
 論理レプリケーションは<link linkend="streaming-replication">物理ストリーミングレプリケーション</link>と類似のアーキテクチャに基づいているので、パブリケーションノードの監視は、物理レプリケーションのマスター（<xref linkend="streaming-replication-monitoring">参照）の監視と似ています。
+=======
+   (see <xref linkend="streaming-replication-monitoring"/>).
+>>>>>>> REL_11_0
   </para>
 
   <para>
@@ -785,6 +828,7 @@ walsenderプロセスはWALのロジカルデコーディング（<xref linkend=
    the <literal>REPLICATION</literal> attribute (or be a superuser).  Access for the role must be
    configured in <filename>pg_hba.conf</filename> and it must have the
    <literal>LOGIN</literal> attribute.
+<<<<<<< HEAD
 -->
 レプリケーション接続用のロールは、<literal>REPLICATION</literal>属性（あるいはスーパーユーザー属性）を備えていなければなりません。
 そのロールによるアクセスは<filename>pg_hba.conf</filename>で設定されなければならず、また<literal>LOGIN</literal>属性を備えていなければなりません。
@@ -798,6 +842,14 @@ walsenderプロセスはWALのロジカルデコーディング（<xref linkend=
 -->
 テーブルの初期データをコピーできるためには、レプリケーション接続に使用されるロールは、パブリッシュされるテーブルに対して<literal>SELECT</literal>権限を持っていなければなりません。
 （あるいはスーパーユーザーでなければなりません。）
+=======
+  </para>
+
+  <para>
+   In order to be able to copy the initial table data, the role used for the
+   replication connection must have the <literal>SELECT</literal> privilege on
+   a published table (or be a superuser).
+>>>>>>> REL_11_0
   </para>
 
   <para>

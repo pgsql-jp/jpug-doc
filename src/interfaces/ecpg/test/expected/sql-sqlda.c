@@ -537,5 +537,5 @@ if (sqlca.sqlcode < 0) exit (1);}
 #line 257 "sqlda.pgc"
 
 
-	return (0);
+	return 0;
 }

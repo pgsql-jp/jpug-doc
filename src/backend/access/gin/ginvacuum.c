@@ -4,7 +4,7 @@
  *	  delete & vacuum routines for the postgres GIN
  *
  *
- * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -22,6 +22,7 @@
 #include "postmaster/autovacuum.h"
 #include "storage/indexfsm.h"
 #include "storage/lmgr.h"
+#include "storage/predicate.h"
 #include "utils/memutils.h"
 
 struct GinVacuumState
@@ -153,12 +154,18 @@ ginDeletePage(GinVacuumState *gvs, BlockNumber deleteBlkno, BlockNumber leftBlkn
 
 	LockBuffer(lBuffer, GIN_EXCLUSIVE);
 
-	START_CRIT_SECTION();
-
-	/* Unlink the page by changing left sibling's rightlink */
 	page = BufferGetPage(dBuffer);
 	rightlink = GinPageGetOpaque(page)->rightlink;
 
+	/*
+	 * Any insert which would have gone on the leaf block will now go to its
+	 * right sibling.
+	 */
+	PredicateLockPageCombine(gvs->index, deleteBlkno, rightlink);
+
+	START_CRIT_SECTION();
+
+	/* Unlink the page by changing left sibling's rightlink */
 	page = BufferGetPage(lBuffer);
 	GinPageGetOpaque(page)->rightlink = rightlink;
 
@@ -235,7 +242,7 @@ ginScanToDelete(GinVacuumState *gvs, BlockNumber blkno, bool isRoot,
 	DataPageDeleteStack *me;
 	Buffer		buffer;
 	Page		page;
-	bool		meDelete = FALSE;
+	bool		meDelete = false;
 	bool		isempty;
 
 	if (isRoot)
@@ -274,7 +281,7 @@ ginScanToDelete(GinVacuumState *gvs, BlockNumber blkno, bool isRoot,
 		{
 			PostingItem *pitem = GinDataPageGetPostingItem(page, i);
 
-			if (ginScanToDelete(gvs, PostingItemGetBlockNumber(pitem), FALSE, me, i))
+			if (ginScanToDelete(gvs, PostingItemGetBlockNumber(pitem), false, me, i))
 				i--;
 		}
 	}
@@ -291,7 +298,7 @@ ginScanToDelete(GinVacuumState *gvs, BlockNumber blkno, bool isRoot,
 		{
 			Assert(!isRoot);
 			ginDeletePage(gvs, blkno, me->leftBlkno, me->parent->blkno, myoff, me->parent->isRoot);
-			meDelete = TRUE;
+			meDelete = true;
 		}
 	}
 
@@ -319,7 +326,7 @@ ginVacuumPostingTreeLeaves(GinVacuumState *gvs, BlockNumber blkno, bool isRoot)
 {
 	Buffer		buffer;
 	Page		page;
-	bool		hasVoidPage = FALSE;
+	bool		hasVoidPage = false;
 	MemoryContext oldCxt;
 
 	buffer = ReadBufferExtended(gvs->index, MAIN_FORKNUM, blkno,
@@ -339,7 +346,7 @@ ginVacuumPostingTreeLeaves(GinVacuumState *gvs, BlockNumber blkno, bool isRoot)
 
 		/* if root is a leaf page, we don't desire further processing */
 		if (GinDataLeafPageIsEmpty(page))
-			hasVoidPage = TRUE;
+			hasVoidPage = true;
 
 		UnlockReleaseBuffer(buffer);
 
@@ -348,8 +355,8 @@ ginVacuumPostingTreeLeaves(GinVacuumState *gvs, BlockNumber blkno, bool isRoot)
 	else
 	{
 		OffsetNumber i;
-		bool		hasEmptyChild = FALSE;
-		bool		hasNonEmptyChild = FALSE;
+		bool		hasEmptyChild = false;
+		bool		hasNonEmptyChild = false;
 		OffsetNumber maxoff = GinPageGetOpaque(page)->maxoff;
 		BlockNumber *children = palloc(sizeof(BlockNumber) * (maxoff + 1));
 
@@ -369,10 +376,10 @@ ginVacuumPostingTreeLeaves(GinVacuumState *gvs, BlockNumber blkno, bool isRoot)
 
 		for (i = FirstOffsetNumber; i <= maxoff; i++)
 		{
-			if (ginVacuumPostingTreeLeaves(gvs, children[i], FALSE))
-				hasEmptyChild = TRUE;
+			if (ginVacuumPostingTreeLeaves(gvs, children[i], false))
+				hasEmptyChild = true;
 			else
-				hasNonEmptyChild = TRUE;
+				hasNonEmptyChild = true;
 		}
 
 		pfree(children);
@@ -380,12 +387,12 @@ ginVacuumPostingTreeLeaves(GinVacuumState *gvs, BlockNumber blkno, bool isRoot)
 		vacuum_delay_point();
 
 		/*
-		 * All subtree is empty - just return TRUE to indicate that parent
-		 * must do a cleanup. Unless we are ROOT an there is way to go upper.
+		 * All subtree is empty - just return true to indicate that parent
+		 * must do a cleanup, unless we are ROOT and there is way to go upper.
 		 */
 
 		if (hasEmptyChild && !hasNonEmptyChild && !isRoot)
-			return TRUE;
+			return true;
 
 		if (hasEmptyChild)
 		{
@@ -399,9 +406,9 @@ ginVacuumPostingTreeLeaves(GinVacuumState *gvs, BlockNumber blkno, bool isRoot)
 
 			memset(&root, 0, sizeof(DataPageDeleteStack));
 			root.leftBlkno = InvalidBlockNumber;
-			root.isRoot = TRUE;
+			root.isRoot = true;
 
-			ginScanToDelete(gvs, blkno, TRUE, &root, InvalidOffsetNumber);
+			ginScanToDelete(gvs, blkno, true, &root, InvalidOffsetNumber);
 
 			ptr = root.child;
 
@@ -416,14 +423,14 @@ ginVacuumPostingTreeLeaves(GinVacuumState *gvs, BlockNumber blkno, bool isRoot)
 		}
 
 		/* Here we have deleted all empty subtrees */
-		return FALSE;
+		return false;
 	}
 }
 
 static void
 ginVacuumPostingTree(GinVacuumState *gvs, BlockNumber rootBlkno)
 {
-	ginVacuumPostingTreeLeaves(gvs, rootBlkno, TRUE);
+	ginVacuumPostingTreeLeaves(gvs, rootBlkno, true);
 }
 
 /*

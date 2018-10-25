@@ -3,7 +3,7 @@
  * origin.c
  *	  Logical replication progress tracking support.
  *
- * Copyright (c) 2013-2017, PostgreSQL Global Development Group
+ * Copyright (c) 2013-2018, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/replication/logical/origin.c
@@ -60,7 +60,7 @@
  *	 all our platforms, but it also simplifies memory ordering concerns
  *	 between the remote and local lsn. We use a lwlock instead of a spinlock
  *	 so it's less harmful to hold the lock over a WAL write
- *	 (c.f. AdvanceReplicationProgress).
+ *	 (cf. AdvanceReplicationProgress).
  *
  * ---------------------------------------------------------------------------
  */
@@ -341,7 +341,11 @@ replorigin_drop(RepOriginId roident, bool nowait)
 
 	/*
 	 * To interlock against concurrent drops, we hold ExclusiveLock on
+<<<<<<< HEAD
 	 * pg_replication_origin throughout this funcion.
+=======
+	 * pg_replication_origin throughout this function.
+>>>>>>> REL_11_0
 	 */
 	rel = heap_open(ReplicationOriginRelationId, ExclusiveLock);
 
@@ -567,9 +571,8 @@ CheckPointReplicationOrigin(void)
 	 * no other backend can perform this at the same time, we're protected by
 	 * CheckpointLock.
 	 */
-	tmpfd = OpenTransientFile((char *) tmppath,
-							  O_CREAT | O_EXCL | O_WRONLY | PG_BINARY,
-							  S_IRUSR | S_IWUSR);
+	tmpfd = OpenTransientFile(tmppath,
+							  O_CREAT | O_EXCL | O_WRONLY | PG_BINARY);
 	if (tmpfd < 0)
 		ereport(PANIC,
 				(errcode_for_file_access(),
@@ -699,7 +702,7 @@ StartupReplicationOrigin(void)
 
 	elog(DEBUG2, "starting up replication origin progress state");
 
-	fd = OpenTransientFile((char *) path, O_RDONLY | PG_BINARY, 0);
+	fd = OpenTransientFile(path, O_RDONLY | PG_BINARY);
 
 	/*
 	 * might have had max_replication_slots == 0 last run, or we just brought

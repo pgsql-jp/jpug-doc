@@ -10,6 +10,7 @@ use Cwd;
 use File::Basename;
 use File::Copy;
 use File::Find ();
+use File::Path qw(rmtree);
 
 use Install qw(Install);
 
@@ -34,7 +35,7 @@ if (-e "src/tools/msvc/buildenv.pl")
 
 my $what = shift || "";
 if ($what =~
-/^(check|installcheck|plcheck|contribcheck|modulescheck|ecpgcheck|isolationcheck|upgradecheck|bincheck|recoverycheck|taptest)$/i
+	/^(check|installcheck|plcheck|contribcheck|modulescheck|ecpgcheck|isolationcheck|upgradecheck|bincheck|recoverycheck|taptest)$/i
   )
 {
 	$what = uc $what;
@@ -104,12 +105,14 @@ sub installcheck
 		"--dlpath=.",
 		"--bindir=../../../$Config/psql",
 		"--schedule=${schedule}_schedule",
+		"--max-concurrent-tests=20",
 		"--encoding=SQL_ASCII",
 		"--no-locale");
 	push(@args, $maxconn) if $maxconn;
 	system(@args);
 	my $status = $? >> 8;
 	exit $status if $status;
+	return;
 }
 
 sub check
@@ -122,6 +125,7 @@ sub check
 		"--dlpath=.",
 		"--bindir=",
 		"--schedule=${schedule}_schedule",
+		"--max-concurrent-tests=20",
 		"--encoding=SQL_ASCII",
 		"--no-locale",
 		"--temp-instance=./tmp_check");
@@ -130,6 +134,7 @@ sub check
 	system(@args);
 	my $status = $? >> 8;
 	exit $status if $status;
+	return;
 }
 
 sub ecpgcheck
@@ -155,6 +160,7 @@ sub ecpgcheck
 	system(@args);
 	$status = $? >> 8;
 	exit $status if $status;
+	return;
 }
 
 sub isolationcheck
@@ -171,6 +177,7 @@ sub isolationcheck
 	system(@args);
 	my $status = $? >> 8;
 	exit $status if $status;
+	return;
 }
 
 sub tap_check
@@ -199,6 +206,7 @@ sub tap_check
 
 	$ENV{TESTDIR} = "$dir";
 
+	rmtree('tmp_check');
 	system(@args);
 	my $status = $? >> 8;
 	return $status;
@@ -222,6 +230,7 @@ sub bincheck
 		$mstat ||= $status;
 	}
 	exit $mstat if $mstat;
+	return;
 }
 
 sub taptest
@@ -242,6 +251,57 @@ sub taptest
 	InstallTemp();
 	my $status = tap_check(@args);
 	exit $status if $status;
+	return;
+}
+
+sub mangle_plpython3
+{
+	my $tests = shift;
+	mkdir "results" unless -d "results";
+	mkdir "sql/python3";
+	mkdir "results/python3";
+	mkdir "expected/python3";
+
+	foreach my $test (@$tests)
+	{
+		local $/ = undef;
+		foreach my $dir ('sql', 'expected')
+		{
+			my $extension = ($dir eq 'sql' ? 'sql' : 'out');
+
+			my @files =
+			  glob("$dir/$test.$extension $dir/${test}_[0-9].$extension");
+			foreach my $file (@files)
+			{
+				open(my $handle, '<', $file)
+				  || die "test file $file not found";
+				my $contents = <$handle>;
+				close($handle);
+				do
+				{
+					s/except ([[:alpha:]][[:alpha:].]*), *([[:alpha:]][[:alpha:]]*):/except $1 as $2:/g;
+					s/<type 'exceptions\.([[:alpha:]]*)'>/<class '$1'>/g;
+					s/<type 'long'>/<class 'int'>/g;
+					s/([0-9][0-9]*)L/$1/g;
+					s/([ [{])u"/$1"/g;
+					s/([ [{])u'/$1'/g;
+					s/def next/def __next__/g;
+					s/LANGUAGE plpython2?u/LANGUAGE plpython3u/g;
+					s/EXTENSION ([^ ]*_)*plpython2?u/EXTENSION $1plpython3u/g;
+					s/installing required extension "plpython2u"/installing required extension "plpython3u"/g;
+				  }
+				  for ($contents);
+				my $base = basename $file;
+				open($handle, '>', "$dir/python3/$base")
+				  || die "opening python 3 file for $file";
+				print $handle $contents;
+				close($handle);
+			}
+		}
+	}
+	do { s!^!python3/!; }
+	  foreach (@$tests);
+	return @$tests;
 }
 
 sub mangle_plpython3
@@ -292,27 +352,49 @@ sub mangle_plpython3
 
 sub plcheck
 {
-	chdir "../../pl";
+	chdir "$topdir/src/pl";
 
-	foreach my $pl (glob("*"))
+	foreach my $dir (glob("*/src *"))
 	{
-		next unless -d "$pl/sql" && -d "$pl/expected";
-		my $lang = $pl eq 'tcl' ? 'pltcl' : $pl;
+		next unless -d "$dir/sql" && -d "$dir/expected";
+		my $lang;
+		if ($dir eq 'plpgsql/src')
+		{
+			$lang = 'plpgsql';
+		}
+		elsif ($dir eq 'tcl')
+		{
+			$lang = 'pltcl';
+		}
+		else
+		{
+			$lang = $dir;
+		}
 		if ($lang eq 'plpython')
 		{
+<<<<<<< HEAD
 			next unless -d "$topdir/$Config/plpython2" ||
 				-d "$topdir/$Config/plpython3";
+=======
+			next
+			  unless -d "$topdir/$Config/plpython2"
+			  || -d "$topdir/$Config/plpython3";
+>>>>>>> REL_11_0
 			$lang = 'plpythonu';
 		}
 		else
 		{
-			next unless -d "../../$Config/$lang";
+			next unless -d "$topdir/$Config/$lang";
 		}
 		my @lang_args = ("--load-extension=$lang");
-		chdir $pl;
+		chdir $dir;
 		my @tests = fetchTests();
 		@tests = mangle_plpython3(\@tests)
+<<<<<<< HEAD
 			if $lang eq 'plpythonu' && -d "$topdir/$Config/plpython3";
+=======
+		  if $lang eq 'plpythonu' && -d "$topdir/$Config/plpython3";
+>>>>>>> REL_11_0
 		if ($lang eq 'plperl')
 		{
 
@@ -336,16 +418,17 @@ sub plcheck
 		  "============================================================\n";
 		print "Checking $lang\n";
 		my @args = (
-			"../../../$Config/pg_regress/pg_regress",
-			"--bindir=../../../$Config/psql",
+			"$topdir/$Config/pg_regress/pg_regress",
+			"--bindir=$topdir/$Config/psql",
 			"--dbname=pl_regression", @lang_args, @tests);
 		system(@args);
 		my $status = $? >> 8;
 		exit $status if $status;
-		chdir "..";
+		chdir "$topdir/src/pl";
 	}
 
-	chdir "../../..";
+	chdir "$topdir";
+	return;
 }
 
 sub subdircheck
@@ -366,7 +449,11 @@ sub subdircheck
 	# Special processing for python transform modules, see their respective
 	# Makefiles for more details regarding Python-version specific
 	# dependencies.
+<<<<<<< HEAD
 	if ( $module =~ /_plpython$/ )
+=======
+	if ($module =~ /_plpython$/)
+>>>>>>> REL_11_0
 	{
 		die "Python not enabled in configuration"
 		  if !defined($config->{python});
@@ -391,9 +478,14 @@ sub subdircheck
 		"$topdir/$Config/pg_regress/pg_regress",
 		"--bindir=${topdir}/${Config}/psql",
 		"--dbname=contrib_regression", @opts, @tests);
+<<<<<<< HEAD
 	print join(' ',@args),"\n";
+=======
+	print join(' ', @args), "\n";
+>>>>>>> REL_11_0
 	system(@args);
 	chdir "..";
+	return;
 }
 
 sub contribcheck
@@ -403,11 +495,19 @@ sub contribcheck
 	foreach my $module (glob("*"))
 	{
 		# these configuration-based exclusions must match Install.pm
+<<<<<<< HEAD
 		next if ($module eq "uuid-ossp"     && !defined($config->{uuid}));
 		next if ($module eq "sslinfo"       && !defined($config->{openssl}));
 		next if ($module eq "xml2"          && !defined($config->{xml}));
 		next if ($module =~ /_plperl$/      && !defined($config->{perl}));
 		next if ($module =~ /_plpython$/    && !defined($config->{python}));
+=======
+		next if ($module eq "uuid-ossp"  && !defined($config->{uuid}));
+		next if ($module eq "sslinfo"    && !defined($config->{openssl}));
+		next if ($module eq "xml2"       && !defined($config->{xml}));
+		next if ($module =~ /_plperl$/   && !defined($config->{perl}));
+		next if ($module =~ /_plpython$/ && !defined($config->{python}));
+>>>>>>> REL_11_0
 		next if ($module eq "sepgsql");
 
 		subdircheck($module);
@@ -415,6 +515,7 @@ sub contribcheck
 		$mstat ||= $status;
 	}
 	exit $mstat if $mstat;
+	return;
 }
 
 sub modulescheck
@@ -428,6 +529,7 @@ sub modulescheck
 		$mstat ||= $status;
 	}
 	exit $mstat if $mstat;
+	return;
 }
 
 sub recoverycheck
@@ -438,6 +540,7 @@ sub recoverycheck
 	my $dir    = "$topdir/src/test/recovery";
 	my $status = tap_check($dir);
 	exit $status if $status;
+	return;
 }
 
 # Run "initdb", then reconfigure authentication.
@@ -482,6 +585,7 @@ sub generate_db
 	system('createdb', quote_system_arg($dbname));
 	my $status = $? >> 8;
 	exit $status if $status;
+	return;
 }
 
 sub upgradecheck
@@ -567,6 +671,7 @@ sub upgradecheck
 		print "dumps not identical!\n";
 		exit(1);
 	}
+	return;
 }
 
 sub fetchRegressOpts
@@ -661,6 +766,7 @@ sub InstallTemp
 		Install("$tmp_installdir", "all", $config);
 	}
 	$ENV{PATH} = "$tmp_installdir/bin;$ENV{PATH}";
+	return;
 }
 
 sub usage

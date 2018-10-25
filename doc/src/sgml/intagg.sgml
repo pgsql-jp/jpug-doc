@@ -37,10 +37,10 @@
  <para>
 <!--
   The aggregator is an aggregate function
-  <function>int_array_aggregate(integer)</>
+  <function>int_array_aggregate(integer)</function>
   that produces an integer array
   containing exactly the integers it is fed.
-  This is a wrapper around <function>array_agg</>,
+  This is a wrapper around <function>array_agg</function>,
   which does the same thing for any array type.
 -->
 集約子は、正確に提供する整数のみを含む整数型配列を生成する<function>int_array_aggregate(integer)</>集約関数です。
@@ -54,10 +54,10 @@
  <para>
 <!--
   The enumerator is a function
-  <function>int_array_enum(integer[])</>
-  that returns <type>setof integer</>.  It is essentially the reverse
+  <function>int_array_enum(integer[])</function>
+  that returns <type>setof integer</type>.  It is essentially the reverse
   operation of the aggregator: given an array of integers, expand it
-  into a set of rows.  This is a wrapper around <function>unnest</>,
+  into a set of rows.  This is a wrapper around <function>unnest</function>,
   which does the same thing for any array type.
 -->
 列挙子は、<type>setof integer</>を返す<function>int_array_enum(integer[])</>関数です。
@@ -95,7 +95,7 @@ CREATE TABLE one_to_many(left INT REFERENCES left, right INT REFERENCES right);
 
 <programlisting>
 SELECT right.* from right JOIN one_to_many ON (right.id = one_to_many.right)
-  WHERE one_to_many.left = <replaceable>item</>;
+  WHERE one_to_many.left = <replaceable>item</replaceable>;
 </programlisting>
 
 <!--
@@ -109,7 +109,7 @@ SELECT right.* from right JOIN one_to_many ON (right.id = one_to_many.right)
  <para>
 <!--
   Now, this methodology can be cumbersome with a very large number of
-  entries in the <structname>one_to_many</> table.  Often,
+  entries in the <structname>one_to_many</structname> table.  Often,
   a join like this would result in an index scan
   and a fetch for each right hand entry in the table for a particular
   left hand entry. If you have a very dynamic system, there is not much you
@@ -139,22 +139,27 @@ CREATE TABLE summary AS
 以下を行うことができます。
 
 <programlisting>
-SELECT left, int_array_enum(right) FROM summary WHERE left = <replaceable>item</>;
+SELECT left, int_array_enum(right) FROM summary WHERE left = <replaceable>item</replaceable>;
 </programlisting>
 
+<<<<<<< HEAD
 <!--
   The above query using <function>int_array_enum</> produces the same results
+=======
+  The above query using <function>int_array_enum</function> produces the same results
+>>>>>>> REL_11_0
   as
 -->
 上の<function>int_array_enum</>を使用した問い合わせは、以下と同じ結果を生成します。
 
 <programlisting>
-SELECT left, right FROM one_to_many WHERE left = <replaceable>item</>;
+SELECT left, right FROM one_to_many WHERE left = <replaceable>item</replaceable>;
 </programlisting>
 
 <!--
   The difference is that the query against the summary table has to get
   only one row from the table, whereas the direct query against
+<<<<<<< HEAD
   <structname>one_to_many</> must index scan and fetch a row for each entry.
 -->
 違いは、要約テーブルに対する問い合わせはテーブルから1行だけを取り出す必要があるのに対し、直接<structname>one_to_many</>に問い合わせる場合はインデックススキャンと各項目に対し行を取り出さなければならないという点です。
@@ -168,11 +173,20 @@ SELECT left, right FROM one_to_many WHERE left = <replaceable>item</>;
 -->
 あるシステムでは<command>EXPLAIN</>を行うと8488というコストを持つ問い合わせが329というコストまで減少しました。
 元の問い合わせは<structname>one_to_many</>テーブルを含む結合でしたが、以下のように置き換えられました。
+=======
+  <structname>one_to_many</structname> must index scan and fetch a row for each entry.
+ </para>
+
+ <para>
+  On one system, an <command>EXPLAIN</command> showed a query with a cost of 8488 was
+  reduced to a cost of 329.  The original query was a join involving the
+  <structname>one_to_many</structname> table, which was replaced by:
+>>>>>>> REL_11_0
 
 <programlisting>
 SELECT right, count(right) FROM
   ( SELECT left, int_array_enum(right) AS right
-    FROM summary JOIN (SELECT left FROM left_table WHERE left = <replaceable>item</>) AS lefts
+    FROM summary JOIN (SELECT left FROM left_table WHERE left = <replaceable>item</replaceable>) AS lefts
          ON (summary.left = lefts.left)
   ) AS list
   GROUP BY right

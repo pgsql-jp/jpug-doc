@@ -28,7 +28,7 @@ PostgreSQL documentation
  <refsynopsisdiv>
   <cmdsynopsis>
    <command>pg_receivewal</command>
-   <arg rep="repeat"><replaceable>option</></arg>
+   <arg rep="repeat"><replaceable>option</replaceable></arg>
   </cmdsynopsis>
  </refsynopsisdiv>
 
@@ -46,20 +46,24 @@ PostgreSQL documentation
    log is streamed using the streaming replication protocol, and is written
    to a local directory of files. This directory can be used as the archive
    location for doing a restore using point-in-time recovery (see
+<<<<<<< HEAD
    <xref linkend="continuous-archiving">).
 -->
 <application>pg_receivewal</application>は実行中の<productname>PostgreSQL</productname>クラスタから先行書き込みログをストリームするために使用されます。
 先行書き込みログはストリーミングレプリケーションプロトコルを使用してストリームされ、ローカルディレクトリのファイルとして書き出されます。
 このディレクトリはポイントインタイムリカバリ（<xref linkend="continuous-archiving">参照）を用いてリストアする際のアーカイブ場所として使用することができます。
+=======
+   <xref linkend="continuous-archiving"/>).
+>>>>>>> REL_11_0
   </para>
 
   <para>
 <!--
    <application>pg_receivewal</application> streams the write-ahead
    log in real time as it's being generated on the server, and does not wait
-   for segments to complete like <xref linkend="guc-archive-command"> does.
+   for segments to complete like <xref linkend="guc-archive-command"/> does.
    For this reason, it is not necessary to set
-   <xref linkend="guc-archive-timeout"> when using
+   <xref linkend="guc-archive-timeout"/> when using
     <application>pg_receivewal</application>.
 -->
 <application>pg_receivewal</application>は先行書き込みログをサーバで生成に合わせてリアルタイムでストリームし、<xref linkend="guc-archive-command">とは異なり、セグメントが完了するまで待機することはありません。
@@ -67,10 +71,16 @@ PostgreSQL documentation
   </para>
 
   <para>
+<<<<<<< HEAD
 <!--
    Unlike the WAL receiver of a PostgreSQL standby server, <application>pg_receivewal</>
    by default flushes WAL data only when a WAL file is closed.
    The option <option>&#045;-synchronous</> must be specified to flush WAL data
+=======
+   Unlike the WAL receiver of a PostgreSQL standby server, <application>pg_receivewal</application>
+   by default flushes WAL data only when a WAL file is closed.
+   The option <option>--synchronous</option> must be specified to flush WAL data
+>>>>>>> REL_11_0
    in real time.
 -->
 PostgreSQLのスタンバイサーバのWALレシーバと異なり、<application>pg_receivewal</>はデフォルトでは、WALファイルがクローズされた時にのみ、WALデータをフラッシュします。
@@ -83,9 +93,9 @@ WALデータをリアルタイムでフラッシュするには<option>--synchro
    <productname>PostgreSQL</productname> connection and uses the replication
    protocol. The connection must be made with a superuser or a user
    having <literal>REPLICATION</literal> permissions (see
-   <xref linkend="role-attributes">), and <filename>pg_hba.conf</filename>
+   <xref linkend="role-attributes"/>), and <filename>pg_hba.conf</filename>
    must permit the replication connection. The server must also be
-   configured with <xref linkend="guc-max-wal-senders"> set high enough to
+   configured with <xref linkend="guc-max-wal-senders"/> set high enough to
    leave at least one session available for the stream.
 -->
 先行書き込みログは通常の<productname>PostgreSQL</productname>接続を経由して、そしてレプリケーションプロトコルを使用して、ストリームされます。
@@ -104,6 +114,12 @@ WALデータをリアルタイムでフラッシュするには<option>--synchro
 -->
 接続が失われた場合、または、致命的ではないエラーで初期確立ができなかった場合、<application>pg_receivewal</application>は無期限に接続を再試行しできるだけ早くストリーミングを再確立します。
 この動作を止めるためには<literal>-n</literal>パラメータを使用してください。
+  </para>
+
+  <para>
+   In the absence of fatal errors, <application>pg_receivewal</application>
+   will run until terminated by the <systemitem>SIGINT</systemitem> signal
+   (<keycombo action="simul"><keycap>Control</keycap><keycap>C</keycap></keycombo>).
   </para>
  </refsect1>
 
@@ -129,6 +145,22 @@ WALデータをリアルタイムでフラッシュするには<option>--synchro
         This parameter is required.
 -->
 このパラメータは必須です。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>-E <replaceable>lsn</replaceable></option></term>
+      <term><option>--endpos=<replaceable>lsn</replaceable></option></term>
+      <listitem>
+       <para>
+        Automatically stop replication and exit with normal exit status 0 when
+        receiving reaches the specified LSN.
+       </para>
+
+       <para>
+        If there is a record with LSN exactly equal to <replaceable>lsn</replaceable>,
+        the record will be processed.
        </para>
       </listitem>
      </varlistentry>
@@ -162,6 +194,23 @@ WALデータをリアルタイムでフラッシュするには<option>--synchro
      </varlistentry>
 
      <varlistentry>
+      <term><option>--no-sync</option></term>
+      <listitem>
+       <para>
+        This option causes <command>pg_receivewal</command> to not force WAL
+        data to be flushed to disk.  This is faster, but means that a
+        subsequent operating system crash can leave the WAL segments corrupt.
+        Generally, this option is useful for testing but should not be used
+        when doing WAL archiving on a production deployment.
+       </para>
+
+       <para>
+        This option is incompatible with <literal>--synchronous</literal>.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
       <term><option>-s <replaceable class="parameter">interval</replaceable></option></term>
       <term><option>--status-interval=<replaceable class="parameter">interval</replaceable></option></term>
       <listitem>
@@ -189,8 +238,8 @@ WALデータをリアルタイムでフラッシュするには<option>--synchro
         <para>
 <!--
          Require <application>pg_receivewal</application> to use an existing
-         replication slot (see <xref linkend="streaming-replication-slots">).
-         When this option is used, <application>pg_receivewal</> will report
+         replication slot (see <xref linkend="streaming-replication-slots"/>).
+         When this option is used, <application>pg_receivewal</application> will report
          a flush position to the server, indicating when each segment has been
          synchronized to disk so that the server can remove that segment if it
          is not otherwise needed.
@@ -225,10 +274,14 @@ WALデータをリアルタイムでフラッシュするには<option>--synchro
 <!--
         Flush the WAL data to disk immediately after it has been received. Also
         send a status packet back to the server immediately after flushing,
+<<<<<<< HEAD
         regardless of <literal>&#045;-status-interval</>.
 -->
 WALデータを受け取ると即座にディスクにフラッシュします。
 またフラッシュした直後に、<literal>--status-interval</>の値が何であれ、ステータスパケットをサーバに送り返します。
+=======
+        regardless of <literal>--status-interval</literal>.
+>>>>>>> REL_11_0
        </para>
 
        <para>
@@ -288,6 +341,7 @@ WALデータを受け取ると即座にディスクにフラッシュします�
        <para>
 <!--
         Specifies parameters used to connect to the server, as a connection
+<<<<<<< HEAD
         string. See <xref linkend="libpq-connstring"> for more information.
 -->
 サーバに接続するために使用するパラメータを、接続文字列として指定します。
@@ -296,6 +350,12 @@ WALデータを受け取ると即座にディスクにフラッシュします�
        <para>
 <!--
         The option is called <literal>&#045;&#045;dbname</> for consistency with other
+=======
+        string. See <xref linkend="libpq-connstring"/> for more information.
+       </para>
+       <para>
+        The option is called <literal>--dbname</literal> for consistency with other
+>>>>>>> REL_11_0
         client applications, but because <application>pg_receivewal</application>
         doesn't connect to any particular database in the cluster, database
         name in the connection string will be ignored.
@@ -356,8 +416,8 @@ WALデータを受け取ると即座にディスクにフラッシュします�
      </varlistentry>
 
      <varlistentry>
-      <term><option>-w</></term>
-      <term><option>--no-password</></term>
+      <term><option>-w</option></term>
+      <term><option>--no-password</option></term>
       <listitem>
        <para>
 <!--
@@ -394,7 +454,7 @@ WALデータを受け取ると即座にディスクにフラッシュします�
         for a password if the server demands password authentication.
         However, <application>pg_receivewal</application> will waste a
         connection attempt finding out that the server wants a password.
-        In some cases it is worth typing <option>-W</> to avoid the extra
+        In some cases it is worth typing <option>-W</option> to avoid the extra
         connection attempt.
 -->
 このオプションは重要ではありません。
@@ -451,8 +511,8 @@ WALデータを受け取ると即座にディスクにフラッシュします�
 
     <variablelist>
      <varlistentry>
-       <term><option>-V</></term>
-       <term><option>--version</></term>
+       <term><option>-V</option></term>
+       <term><option>--version</option></term>
        <listitem>
        <para>
 <!--
@@ -464,8 +524,8 @@ WALデータを受け取ると即座にディスクにフラッシュします�
      </varlistentry>
 
      <varlistentry>
-       <term><option>-?</></term>
-       <term><option>--help</></term>
+       <term><option>-?</option></term>
+       <term><option>--help</option></term>
        <listitem>
        <para>
 <!--
@@ -483,18 +543,39 @@ WALデータを受け取ると即座にディスクにフラッシュします�
  </refsect1>
 
  <refsect1>
+<<<<<<< HEAD
 <!--
+=======
+  <title>Exit Status</title>
+
+  <para>
+   <application>pg_receivewal</application> will exit with status 0 when
+   terminated by the <systemitem>SIGINT</systemitem> signal.  (That is the
+   normal way to end it.  Hence it is not an error.)  For fatal errors or
+   other signals, the exit status will be nonzero.
+  </para>
+
+ </refsect1>
+
+ <refsect1>
+>>>>>>> REL_11_0
   <title>Environment</title>
 -->
   <title>環境</title>
 
   <para>
+<<<<<<< HEAD
 <!--
    This utility, like most other <productname>PostgreSQL</> utilities,
    uses the environment variables supported by <application>libpq</>
    (see <xref linkend="libpq-envars">).
 -->
 他のほとんどの<productname>PostgreSQL</>ユーティリティと同様、このユーティリティは<application>libpq</>でサポートされる環境変数（<xref linkend="libpq-envars">参照）を使用します。
+=======
+   This utility, like most other <productname>PostgreSQL</productname> utilities,
+   uses the environment variables supported by <application>libpq</application>
+   (see <xref linkend="libpq-envars"/>).
+>>>>>>> REL_11_0
   </para>
 
  </refsect1>
@@ -508,11 +589,11 @@ WALデータを受け取ると即座にディスクにフラッシュします�
   <para>
 <!--
    When using <application>pg_receivewal</application> instead of
-   <xref linkend="guc-archive-command"> as the main WAL backup method, it is
+   <xref linkend="guc-archive-command"/> as the main WAL backup method, it is
    strongly recommended to use replication slots.  Otherwise, the server is
    free to recycle or remove write-ahead log files before they are backed up,
    because it does not have any information, either
-   from <xref linkend="guc-archive-command"> or the replication slots, about
+   from <xref linkend="guc-archive-command"/> or the replication slots, about
    how far the WAL stream has been archived.  Note, however, that a
    replication slot will fill up the server's disk space if the receiver does
    not keep up with fetching the WAL data.
@@ -520,6 +601,12 @@ WALデータを受け取ると即座にディスクにフラッシュします�
 <xref linkend="guc-archive-command">の代わりに<application>pg_receivewal</application>をWALのバックアップのメインの方法として使用する場合、レプリケーションスロットを使用することを強く推奨します。
 そうしなければ、サーバは<xref linkend="guc-archive-command">とレプリケーションスロットのいずれからもWALのストリームがどこまでアーカイブされているかの情報を得られないため、先行書き込みログファイルがバックアップされる前にそれを再利用または削除するかもしれないのです。
 しかし、WALデータを受け取る側がそのフェッチに追いつけない場合、レプリケーションスロットがサーバのディスクスペースを一杯にしてしまうかもしれないことに注意してください。
+  </para>
+
+  <para>
+   <application>pg_receivewal</application> will preserve group permissions on
+   the received WAL files if group permissions are enabled on the source
+   cluster.
   </para>
 
  </refsect1>
@@ -549,7 +636,7 @@ WALデータを受け取ると即座にディスクにフラッシュします�
   <title>関連項目</title>
 
   <simplelist type="inline">
-   <member><xref linkend="APP-PGBASEBACKUP"></member>
+   <member><xref linkend="app-pgbasebackup"/></member>
   </simplelist>
  </refsect1>
 

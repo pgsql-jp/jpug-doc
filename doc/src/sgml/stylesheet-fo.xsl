@@ -95,6 +95,7 @@
   </fo:bookmark>
 </xsl:template>
 
+<<<<<<< HEAD
 <!-- Setting for jpug-doc -->
 <xsl:param name="l10n.gentext.default.language">ja</xsl:param>
 <xsl:param name="alignment">left</xsl:param>
@@ -291,4 +292,6 @@
   </xsl:choose>
 </xsl:template>
 
+=======
+>>>>>>> REL_11_0
 </xsl:stylesheet>

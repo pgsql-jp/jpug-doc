@@ -40,8 +40,13 @@ override CPPFLAGS += -DVAL_LIBS="\"$(LIBS)\""
 override CPPFLAGS := -DFRONTEND $(CPPFLAGS)
 LIBS += $(PTHREAD_LIBS)
 
+<<<<<<< HEAD
 OBJS_COMMON = base64.o config_info.o controldata_utils.o exec.o ip.o \
 	keywords.o md5.o pg_lzcompress.o pgfnames.o psprintf.o relpath.o \
+=======
+OBJS_COMMON = base64.o config_info.o controldata_utils.o exec.o file_perm.o \
+	ip.o keywords.o md5.o pg_lzcompress.o pgfnames.o psprintf.o relpath.o \
+>>>>>>> REL_11_0
 	rmtree.o saslprep.o scram-common.o string.o unicode_norm.o \
 	username.o wait_error.o
 
@@ -87,13 +92,6 @@ libpgcommon_srv.a: $(OBJS_SRV)
 # corresponding *.o, but it works for now.
 %_srv.o: %.c %.o
 	$(CC) $(CFLAGS) $(subst -DFRONTEND ,, $(CPPFLAGS)) -c $< -o $@
-
-$(OBJS_SRV): | submake-errcodes
-
-.PHONY: submake-errcodes
-
-submake-errcodes:
-	$(MAKE) -C ../backend submake-errcodes
 
 # Dependencies of keywords.o need to be managed explicitly to make sure
 # that you don't get broken parsing code, even in a non-enable-depend build.

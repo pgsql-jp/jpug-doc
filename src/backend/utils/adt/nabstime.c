@@ -5,7 +5,7 @@
  *	  Functions for the built-in type "RelativeTime".
  *	  Functions for the built-in type "TimeInterval".
  *
- * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -315,7 +315,7 @@ abstimesend(PG_FUNCTION_ARGS)
 	StringInfoData buf;
 
 	pq_begintypsend(&buf);
-	pq_sendint(&buf, time, sizeof(time));
+	pq_sendint32(&buf, time);
 	PG_RETURN_BYTEA_P(pq_endtypsend(&buf));
 }
 
@@ -674,7 +674,7 @@ reltimesend(PG_FUNCTION_ARGS)
 	StringInfoData buf;
 
 	pq_begintypsend(&buf);
-	pq_sendint(&buf, time, sizeof(time));
+	pq_sendint32(&buf, time);
 	PG_RETURN_BYTEA_P(pq_endtypsend(&buf));
 }
 
@@ -694,7 +694,7 @@ reltime2tm(RelativeTime time, struct pg_tm *tm)
 
 
 /*
- *		tintervalin		- converts an tinterval string to internal format
+ *		tintervalin		- converts a tinterval string to internal format
  */
 Datum
 tintervalin(PG_FUNCTION_ARGS)
@@ -794,9 +794,9 @@ tintervalsend(PG_FUNCTION_ARGS)
 	StringInfoData buf;
 
 	pq_begintypsend(&buf);
-	pq_sendint(&buf, tinterval->status, sizeof(tinterval->status));
-	pq_sendint(&buf, tinterval->data[0], sizeof(tinterval->data[0]));
-	pq_sendint(&buf, tinterval->data[1], sizeof(tinterval->data[1]));
+	pq_sendint32(&buf, tinterval->status);
+	pq_sendint32(&buf, tinterval->data[0]);
+	pq_sendint32(&buf, tinterval->data[1]);
 	PG_RETURN_BYTEA_P(pq_endtypsend(&buf));
 }
 

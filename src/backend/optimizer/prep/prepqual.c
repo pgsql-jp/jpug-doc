@@ -19,7 +19,7 @@
  * tree after local transformations that might introduce nested AND/ORs.
  *
  *
- * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -269,6 +269,7 @@ negate_clause(Node *node)
  * canonicalize_qual
  *	  Convert a qualification expression to the most useful form.
  *
+<<<<<<< HEAD
  * Backwards-compatibility wrapper for use by external code that hasn't
  * been updated.
  */
@@ -282,6 +283,8 @@ canonicalize_qual(Expr *qual)
  * canonicalize_qual_ext
  *	  Convert a qualification expression to the most useful form.
  *
+=======
+>>>>>>> REL_11_0
  * This is primarily intended to be used on top-level WHERE (or JOIN/ON)
  * clauses.  It can also be used on top-level CHECK constraints, for which
  * pass is_check = true.  DO NOT call it on any expression that is not known
@@ -301,13 +304,20 @@ canonicalize_qual(Expr *qual)
  * Returns the modified qualification.
  */
 Expr *
+<<<<<<< HEAD
 canonicalize_qual_ext(Expr *qual, bool is_check)
+=======
+canonicalize_qual(Expr *qual, bool is_check)
+>>>>>>> REL_11_0
 {
 	Expr	   *newqual;
 
 	/* Quick exit for empty qual */
 	if (qual == NULL)
 		return NULL;
+
+	/* This should not be invoked on quals in implicit-AND format */
+	Assert(!IsA(qual, List));
 
 	/*
 	 * Pull up redundant subclauses in OR-of-AND trees.  We do this only

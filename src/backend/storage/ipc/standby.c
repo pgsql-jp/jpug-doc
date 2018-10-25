@@ -7,7 +7,7 @@
  *	AccessExclusiveLocks and starting snapshots for Hot Standby mode.
  *	Plus conflict recovery processing.
  *
- * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -53,8 +53,13 @@ static void LogAccessExclusiveLocks(int nlocks, xl_standby_lock *locks);
  */
 typedef struct RecoveryLockListsEntry
 {
+<<<<<<< HEAD
 	TransactionId	xid;
 	List		   *locks;
+=======
+	TransactionId xid;
+	List	   *locks;
+>>>>>>> REL_11_0
 } RecoveryLockListsEntry;
 
 /*
@@ -73,7 +78,11 @@ void
 InitRecoveryTransactionEnvironment(void)
 {
 	VirtualTransactionId vxid;
+<<<<<<< HEAD
 	HASHCTL			hash_ctl;
+=======
+	HASHCTL		hash_ctl;
+>>>>>>> REL_11_0
 
 	/*
 	 * Initialize the hash table for tracking the list of locks held by each
@@ -661,7 +670,7 @@ StandbyAcquireAccessExclusiveLock(TransactionId xid, Oid dbOid, Oid relOid)
 
 	SET_LOCKTAG_RELATION(locktag, newlock->dbOid, newlock->relOid);
 
-	LockAcquireExtended(&locktag, AccessExclusiveLock, true, false, false);
+	(void) LockAcquire(&locktag, AccessExclusiveLock, true, false);
 }
 
 static void
@@ -671,6 +680,7 @@ StandbyReleaseLockList(List *locks)
 	{
 		xl_standby_lock *lock = (xl_standby_lock *) linitial(locks);
 		LOCKTAG		locktag;
+<<<<<<< HEAD
 		elog(trace_recovery(DEBUG4),
 			 "releasing recovery lock: xid %u db %u rel %u",
 			 lock->xid, lock->dbOid, lock->relOid);
@@ -696,6 +706,34 @@ StandbyReleaseLocks(TransactionId xid)
 	{
 		if ((entry = hash_search(RecoveryLockLists, &xid, HASH_FIND, NULL)))
 		{
+=======
+
+		elog(trace_recovery(DEBUG4),
+			 "releasing recovery lock: xid %u db %u rel %u",
+			 lock->xid, lock->dbOid, lock->relOid);
+		SET_LOCKTAG_RELATION(locktag, lock->dbOid, lock->relOid);
+		if (!LockRelease(&locktag, AccessExclusiveLock, true))
+		{
+			elog(LOG,
+				 "RecoveryLockLists contains entry for lock no longer recorded by lock manager: xid %u database %u relation %u",
+				 lock->xid, lock->dbOid, lock->relOid);
+			Assert(false);
+		}
+		pfree(lock);
+		locks = list_delete_first(locks);
+	}
+}
+
+static void
+StandbyReleaseLocks(TransactionId xid)
+{
+	RecoveryLockListsEntry *entry;
+
+	if (TransactionIdIsValid(xid))
+	{
+		if ((entry = hash_search(RecoveryLockLists, &xid, HASH_FIND, NULL)))
+		{
+>>>>>>> REL_11_0
 			StandbyReleaseLockList(entry->locks);
 			hash_search(RecoveryLockLists, entry, HASH_REMOVE, NULL);
 		}
@@ -728,7 +766,11 @@ StandbyReleaseLockTree(TransactionId xid, int nsubxids, TransactionId *subxids)
 void
 StandbyReleaseAllLocks(void)
 {
+<<<<<<< HEAD
 	HASH_SEQ_STATUS	status;
+=======
+	HASH_SEQ_STATUS status;
+>>>>>>> REL_11_0
 	RecoveryLockListsEntry *entry;
 
 	elog(trace_recovery(DEBUG2), "release all standby locks");
@@ -747,7 +789,7 @@ StandbyReleaseAllLocks(void)
  *		as long as they're not prepared transactions.
  */
 void
-StandbyReleaseOldLocks(int nxids, TransactionId *xids)
+StandbyReleaseOldLocks(TransactionId oldxid)
 {
 	HASH_SEQ_STATUS status;
 	RecoveryLockListsEntry *entry;
@@ -755,6 +797,7 @@ StandbyReleaseOldLocks(int nxids, TransactionId *xids)
 	hash_seq_init(&status, RecoveryLockLists);
 	while ((entry = hash_seq_search(&status)))
 	{
+<<<<<<< HEAD
 		bool		remove = false;
 
 		Assert(TransactionIdIsValid(entry->xid));
@@ -787,6 +830,21 @@ StandbyReleaseOldLocks(int nxids, TransactionId *xids)
 			StandbyReleaseLockList(entry->locks);
 			hash_search(RecoveryLockLists, entry, HASH_REMOVE, NULL);
 		}
+=======
+		Assert(TransactionIdIsValid(entry->xid));
+
+		/* Skip if prepared transaction. */
+		if (StandbyTransactionIdIsPrepared(entry->xid))
+			continue;
+
+		/* Skip if >= oldxid. */
+		if (!TransactionIdPrecedes(entry->xid, oldxid))
+			continue;
+
+		/* Remove all locks and hash table entry. */
+		StandbyReleaseLockList(entry->locks);
+		hash_search(RecoveryLockLists, entry, HASH_REMOVE, NULL);
+>>>>>>> REL_11_0
 	}
 }
 
@@ -1060,11 +1118,6 @@ LogAccessExclusiveLock(Oid dbOid, Oid relOid)
 
 	xlrec.xid = GetCurrentTransactionId();
 
-	/*
-	 * Decode the locktag back to the original values, to avoid sending lots
-	 * of empty bytes with every message.  See lock.h to check how a locktag
-	 * is defined for LOCKTAG_RELATION
-	 */
 	xlrec.dbOid = dbOid;
 	xlrec.relOid = relOid;
 

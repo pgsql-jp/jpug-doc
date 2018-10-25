@@ -2,7 +2,7 @@
  * execParallel.h
  *		POSTGRES parallel execution interface
  *
- * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -27,7 +27,13 @@ typedef struct ParallelExecutorInfo
 	ParallelContext *pcxt;		/* parallel context we're using */
 	BufferUsage *buffer_usage;	/* points to bufusage area in DSM */
 	SharedExecutorInstrumentation *instrumentation; /* optional */
+<<<<<<< HEAD
 	dsa_area   *area;			/* points to DSA area in DSM */
+=======
+	struct SharedJitInstrumentation *jit_instrumentation; /* optional */
+	dsa_area   *area;			/* points to DSA area in DSM */
+	dsa_pointer param_exec;		/* serialized PARAM_EXEC parameters */
+>>>>>>> REL_11_0
 	bool		finished;		/* set true by ExecParallelFinish */
 	/* These two arrays have pcxt->nworkers_launched entries: */
 	shm_mq_handle **tqueue;		/* tuple queues for worker output */
@@ -35,6 +41,7 @@ typedef struct ParallelExecutorInfo
 } ParallelExecutorInfo;
 
 extern ParallelExecutorInfo *ExecInitParallelPlan(PlanState *planstate,
+<<<<<<< HEAD
 					 EState *estate, int nworkers);
 extern void ExecParallelCreateReaders(ParallelExecutorInfo *pei,
 						  TupleDesc tupDesc);
@@ -42,6 +49,15 @@ extern void ExecParallelFinish(ParallelExecutorInfo *pei);
 extern void ExecParallelCleanup(ParallelExecutorInfo *pei);
 extern void ExecParallelReinitialize(PlanState *planstate,
 						 ParallelExecutorInfo *pei);
+=======
+					 EState *estate, Bitmapset *sendParam, int nworkers,
+					 int64 tuples_needed);
+extern void ExecParallelCreateReaders(ParallelExecutorInfo *pei);
+extern void ExecParallelFinish(ParallelExecutorInfo *pei);
+extern void ExecParallelCleanup(ParallelExecutorInfo *pei);
+extern void ExecParallelReinitialize(PlanState *planstate,
+						 ParallelExecutorInfo *pei, Bitmapset *sendParam);
+>>>>>>> REL_11_0
 
 extern void ParallelQueryMain(dsm_segment *seg, shm_toc *toc);
 

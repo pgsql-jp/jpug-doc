@@ -8,7 +8,7 @@
  * pager open/close functions, all that stuff came with it.
  *
  *
- * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/fe_utils/print.c
@@ -32,7 +32,7 @@
 
 #include "fe_utils/print.h"
 
-#include "catalog/pg_type.h"
+#include "catalog/pg_type_d.h"
 #include "fe_utils/mbprint.h"
 
 
@@ -2870,7 +2870,9 @@ PageOutput(int lines, const printTableOpt *topt)
 			const char *pagerprog;
 			FILE	   *pagerpipe;
 
-			pagerprog = getenv("PAGER");
+			pagerprog = getenv("PSQL_PAGER");
+			if (!pagerprog)
+				pagerprog = getenv("PAGER");
 			if (!pagerprog)
 				pagerprog = DEFAULT_PAGER;
 			else

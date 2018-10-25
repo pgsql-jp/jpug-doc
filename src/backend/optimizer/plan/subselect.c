@@ -3,7 +3,7 @@
  * subselect.c
  *	  Planning routines for subselects and parameters.
  *
- * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -131,7 +131,9 @@ assign_param_for_var(PlannerInfo *root, Var *var)
 
 	pitem = makeNode(PlannerParamItem);
 	pitem->item = (Node *) var;
-	pitem->paramId = root->glob->nParamExec++;
+	pitem->paramId = list_length(root->glob->paramExecTypes);
+	root->glob->paramExecTypes = lappend_oid(root->glob->paramExecTypes,
+											 var->vartype);
 
 	root->plan_params = lappend(root->plan_params, pitem);
 
@@ -234,7 +236,9 @@ assign_param_for_placeholdervar(PlannerInfo *root, PlaceHolderVar *phv)
 
 	pitem = makeNode(PlannerParamItem);
 	pitem->item = (Node *) phv;
-	pitem->paramId = root->glob->nParamExec++;
+	pitem->paramId = list_length(root->glob->paramExecTypes);
+	root->glob->paramExecTypes = lappend_oid(root->glob->paramExecTypes,
+											 exprType((Node *) phv->phexpr));
 
 	root->plan_params = lappend(root->plan_params, pitem);
 
@@ -323,7 +327,9 @@ replace_outer_agg(PlannerInfo *root, Aggref *agg)
 
 	pitem = makeNode(PlannerParamItem);
 	pitem->item = (Node *) agg;
-	pitem->paramId = root->glob->nParamExec++;
+	pitem->paramId = list_length(root->glob->paramExecTypes);
+	root->glob->paramExecTypes = lappend_oid(root->glob->paramExecTypes,
+											 agg->aggtype);
 
 	root->plan_params = lappend(root->plan_params, pitem);
 
@@ -348,6 +354,7 @@ replace_outer_grouping(PlannerInfo *root, GroupingFunc *grp)
 	Param	   *retval;
 	PlannerParamItem *pitem;
 	Index		levelsup;
+	Oid			ptype;
 
 	Assert(grp->agglevelsup > 0 && grp->agglevelsup < root->query_level);
 
@@ -362,17 +369,20 @@ replace_outer_grouping(PlannerInfo *root, GroupingFunc *grp)
 	grp = copyObject(grp);
 	IncrementVarSublevelsUp((Node *) grp, -((int) grp->agglevelsup), 0);
 	Assert(grp->agglevelsup == 0);
+	ptype = exprType((Node *) grp);
 
 	pitem = makeNode(PlannerParamItem);
 	pitem->item = (Node *) grp;
-	pitem->paramId = root->glob->nParamExec++;
+	pitem->paramId = list_length(root->glob->paramExecTypes);
+	root->glob->paramExecTypes = lappend_oid(root->glob->paramExecTypes,
+											 ptype);
 
 	root->plan_params = lappend(root->plan_params, pitem);
 
 	retval = makeNode(Param);
 	retval->paramkind = PARAM_EXEC;
 	retval->paramid = pitem->paramId;
-	retval->paramtype = exprType((Node *) grp);
+	retval->paramtype = ptype;
 	retval->paramtypmod = -1;
 	retval->paramcollid = InvalidOid;
 	retval->location = grp->location;
@@ -385,7 +395,8 @@ replace_outer_grouping(PlannerInfo *root, GroupingFunc *grp)
  *
  * This is used to create Params representing subplan outputs.
  * We don't need to build a PlannerParamItem for such a Param, but we do
- * need to record the PARAM_EXEC slot number as being allocated.
+ * need to make sure we record the type in paramExecTypes (otherwise,
+ * there won't be a slot allocated for it).
  */
 static Param *
 generate_new_param(PlannerInfo *root, Oid paramtype, int32 paramtypmod,
@@ -395,7 +406,9 @@ generate_new_param(PlannerInfo *root, Oid paramtype, int32 paramtypmod,
 
 	retval = makeNode(Param);
 	retval->paramkind = PARAM_EXEC;
-	retval->paramid = root->glob->nParamExec++;
+	retval->paramid = list_length(root->glob->paramExecTypes);
+	root->glob->paramExecTypes = lappend_oid(root->glob->paramExecTypes,
+											 paramtype);
 	retval->paramtype = paramtype;
 	retval->paramtypmod = paramtypmod;
 	retval->paramcollid = paramcollation;
@@ -415,7 +428,11 @@ generate_new_param(PlannerInfo *root, Oid paramtype, int32 paramtypmod,
 int
 SS_assign_special_param(PlannerInfo *root)
 {
-	return root->glob->nParamExec++;
+	int			paramId = list_length(root->glob->paramExecTypes);
+
+	root->glob->paramExecTypes = lappend_oid(root->glob->paramExecTypes,
+											 InvalidOid);
+	return paramId;
 }
 
 /*
@@ -1563,7 +1580,7 @@ convert_EXISTS_sublink_to_join(PlannerInfo *root, SubLink *sublink,
  * won't occur, nor will other side-effects of volatile functions.  This seems
  * unlikely to bother anyone in practice.
  *
- * Returns TRUE if was able to discard the targetlist, else FALSE.
+ * Returns true if was able to discard the targetlist, else false.
  */
 static bool
 simplify_EXISTS_query(PlannerInfo *root, Query *query)
@@ -1723,7 +1740,11 @@ convert_EXISTS_to_ANY(PlannerInfo *root, Query *subselect,
 	 * subroot.
 	 */
 	whereClause = eval_const_expressions(root, whereClause);
+<<<<<<< HEAD
 	whereClause = (Node *) canonicalize_qual_ext((Expr *) whereClause, false);
+=======
+	whereClause = (Node *) canonicalize_qual((Expr *) whereClause, false);
+>>>>>>> REL_11_0
 	whereClause = (Node *) make_ands_implicit((Expr *) whereClause);
 
 	/*
@@ -2098,7 +2119,7 @@ SS_identify_outer_params(PlannerInfo *root)
 	 * If no parameters have been assigned anywhere in the tree, we certainly
 	 * don't need to do anything here.
 	 */
-	if (root->glob->nParamExec == 0)
+	if (root->glob->paramExecTypes == NIL)
 		return;
 
 	/*
@@ -2184,6 +2205,13 @@ SS_charge_for_initplans(PlannerInfo *root, RelOptInfo *final_rel)
 		path->total_cost += initplan_cost;
 		path->parallel_safe = false;
 	}
+
+	/*
+	 * Forget about any partial paths and clear consider_parallel, too;
+	 * they're not usable if we attached an initPlan.
+	 */
+	final_rel->partial_pathlist = NIL;
+	final_rel->consider_parallel = false;
 
 	/* We needn't do set_cheapest() here, caller will do it */
 }
@@ -2390,10 +2418,16 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 			{
 				SubqueryScan *sscan = (SubqueryScan *) plan;
 				RelOptInfo *rel;
+				Bitmapset  *subquery_params;
 
-				/* We must run SS_finalize_plan on the subquery */
+				/* We must run finalize_plan on the subquery */
 				rel = find_base_rel(root, sscan->scan.scanrelid);
-				SS_finalize_plan(rel->subroot, sscan->subplan);
+				subquery_params = rel->subroot->outer_params;
+				if (gather_param >= 0)
+					subquery_params = bms_add_member(bms_copy(subquery_params),
+													 gather_param);
+				finalize_plan(rel->subroot, sscan->subplan, gather_param,
+							  subquery_params, NULL);
 
 				/* Now we can add its extParams to the parent's params */
 				context.paramids = bms_add_members(context.paramids,

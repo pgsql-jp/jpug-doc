@@ -5,7 +5,7 @@
  * Basically this is stuff that is useful in both pg_dump and pg_dumpall.
  *
  *
- * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/bin/pg_dump/dumputils.h
@@ -61,4 +61,12 @@ extern bool variable_is_guc_list_quote(const char *name);
 extern bool SplitGUCList(char *rawstring, char separator,
 			 char ***namelist);
 
+<<<<<<< HEAD
+=======
+extern void makeAlterConfigCommand(PGconn *conn, const char *configitem,
+					   const char *type, const char *name,
+					   const char *type2, const char *name2,
+					   PQExpBuffer buf);
+
+>>>>>>> REL_11_0
 #endif							/* DUMPUTILS_H */

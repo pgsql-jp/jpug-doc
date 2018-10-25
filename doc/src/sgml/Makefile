@@ -17,6 +17,8 @@
 # to want to use.
 html:
 
+# We don't need the tree-wide headers or install support here.
+NO_GENERATED_HEADERS=yes
 NO_TEMP_INSTALL=yes
 
 subdir = doc/src/sgml
@@ -37,15 +39,7 @@ ifndef FOP
 FOP = $(missing) fop
 endif
 
-SGMLINCLUDE = -D . -D $(srcdir)
-
-ifndef NSGMLS
-NSGMLS = $(missing) nsgmls
-endif
-
-ifndef OSX
-OSX = $(missing) osx
-endif
+XMLINCLUDE = --path .
 
 ifndef XMLLINT
 XMLLINT = $(missing) xmllint
@@ -67,6 +61,7 @@ GENERATED_SGML = version.sgml \
 
 ALLSGML := $(wildcard $(srcdir)/*.sgml $(srcdir)/ref/*.sgml) $(GENERATED_SGML)
 
+<<<<<<< HEAD
 # Enable some extra warnings
 # -wfully-tagged needed to throw a warning on missing tags
 # for older tool chains, 2007-08-31
@@ -76,6 +71,8 @@ ALLSGML := $(wildcard $(srcdir)/*.sgml $(srcdir)/ref/*.sgml) $(GENERATED_SGML)
 # noisy to turn on by default, unfortunately.
 override SPFLAGS += -wall -wno-unused-param -wno-empty -wfully-tagged -wnet
 
+=======
+>>>>>>> REL_11_0
 
 ##
 ## Man pages
@@ -83,9 +80,9 @@ override SPFLAGS += -wall -wno-unused-param -wno-empty -wfully-tagged -wnet
 
 man distprep-man: man-stamp
 
-man-stamp: stylesheet-man.xsl postgres.xml
-	$(XMLLINT) --noout --valid postgres.xml
-	$(XSLTPROC) $(XSLTPROCFLAGS) $(XSLTPROC_MAN_FLAGS) $^
+man-stamp: stylesheet-man.xsl postgres.sgml $(ALLSGML)
+	$(XMLLINT) $(XMLINCLUDE) --noout --valid $(word 2,$^)
+	$(XSLTPROC) $(XMLINCLUDE) $(XSLTPROCFLAGS) $(XSLTPROC_MAN_FLAGS) $(wordlist 1,2,$^)
 	touch $@
 
 
@@ -136,6 +133,7 @@ INSTALL.html: %.html : stylesheet-text.xsl %.xml
 	$(XMLLINT) --noout --valid $*.xml
 	$(XSLTPROC) $(XSLTPROCFLAGS) $(XSLTPROC_HTML_FLAGS) $^ >$@
 
+<<<<<<< HEAD
 INSTALL.xml: standalone-install.sgml installation.sgml version.sgml
 	SP_CHARSET_FIXED=1 SP_ENCODING=UTF-8 \
 	$(OSX) $(SPFLAGS) $(SGMLINCLUDE) -x lower $(filter-out version.sgml,$^) >$@.tmp
@@ -160,6 +158,10 @@ $(PERL) -p -e 's/\[(aacute|acirc|aelig|agrave|amp|aring|atilde|auml|bull|copy|ea
   <$@.tmp > $@
 rm $@.tmp
 endef
+=======
+INSTALL.xml: standalone-profile.xsl standalone-install.xml postgres.sgml $(ALLSGML)
+	$(XSLTPROC) $(XMLINCLUDE) $(XSLTPROCFLAGS) --xinclude $(wordlist 1,2,$^) >$@
+>>>>>>> REL_11_0
 
 
 ##
@@ -176,20 +178,20 @@ endif
 
 html: html-stamp
 
-html-stamp: stylesheet.xsl postgres.xml
-	$(XMLLINT) --noout --valid postgres.xml
-	$(XSLTPROC) $(XSLTPROCFLAGS) $(XSLTPROC_HTML_FLAGS) $^
+html-stamp: stylesheet.xsl postgres.sgml $(ALLSGML)
+	$(XMLLINT) $(XMLINCLUDE) --noout --valid $(word 2,$^)
+	$(XSLTPROC) $(XMLINCLUDE) $(XSLTPROCFLAGS) $(XSLTPROC_HTML_FLAGS) $(wordlist 1,2,$^)
 	cp $(srcdir)/stylesheet.css html/
 	touch $@
 
-htmlhelp: stylesheet-hh.xsl postgres.xml
-	$(XMLLINT) --noout --valid postgres.xml
-	$(XSLTPROC) $(XSLTPROCFLAGS) $^
+htmlhelp: stylesheet-hh.xsl postgres.sgml $(ALLSGML)
+	$(XMLLINT) $(XMLINCLUDE) --noout --valid $(word 2,$^)
+	$(XSLTPROC) $(XMLINCLUDE) $(XSLTPROCFLAGS) $(wordlist 1,2,$^)
 
 # single-page HTML
-postgres.html: stylesheet-html-nochunk.xsl postgres.xml
-	$(XMLLINT) --noout --valid postgres.xml
-	$(XSLTPROC) $(XSLTPROCFLAGS) $(XSLTPROC_HTML_FLAGS) -o $@ $^
+postgres.html: stylesheet-html-nochunk.xsl postgres.sgml $(ALLSGML)
+	$(XMLLINT) $(XMLINCLUDE) --noout --valid $(word 2,$^)
+	$(XSLTPROC) $(XMLINCLUDE) $(XSLTPROCFLAGS) $(XSLTPROC_HTML_FLAGS) -o $@ $(wordlist 1,2,$^)
 
 # single-page text
 postgres.txt: postgres.html
@@ -203,13 +205,13 @@ postgres.txt: postgres.html
 postgres.pdf:
 	$(error Invalid target;  use postgres-A4.pdf or postgres-US.pdf as targets)
 
-%-A4.fo: stylesheet-fo.xsl %.xml
-	$(XMLLINT) --noout --valid $*.xml
-	$(XSLTPROC) $(XSLTPROCFLAGS) --stringparam paper.type A4 -o $@ $^
+%-A4.fo: stylesheet-fo.xsl %.sgml $(ALLSGML)
+	$(XMLLINT) $(XMLINCLUDE) --noout --valid $(word 2,$^)
+	$(XSLTPROC) $(XMLINCLUDE) $(XSLTPROCFLAGS) --stringparam paper.type A4 -o $@ $(wordlist 1,2,$^)
 
-%-US.fo: stylesheet-fo.xsl %.xml
-	$(XMLLINT) --noout --valid $*.xml
-	$(XSLTPROC) $(XSLTPROCFLAGS) --stringparam paper.type USletter -o $@ $^
+%-US.fo: stylesheet-fo.xsl %.sgml $(ALLSGML)
+	$(XMLLINT) $(XMLINCLUDE) --noout --valid $(word 2,$^)
+	$(XSLTPROC) $(XMLINCLUDE) $(XSLTPROCFLAGS) --stringparam paper.type USletter -o $@ $(wordlist 1,2,$^)
 
 %.pdf: %.fo
 	$(FOP) -c $(FOPCONF) -fo $< -pdf $@
@@ -220,7 +222,7 @@ postgres.pdf:
 ##
 
 epub: postgres.epub
-postgres.epub: postgres.xml
+postgres.epub: postgres.sgml $(ALLSGML)
 	$(XMLLINT) --noout --valid $<
 	$(DBTOEPUB) $<
 
@@ -233,7 +235,8 @@ DB2X_TEXIXML = db2x_texixml
 DB2X_XSLTPROC = db2x_xsltproc
 MAKEINFO = makeinfo
 
-%.texixml: %.xml
+%.texixml: %.sgml $(ALLSGML)
+	$(XMLLINT) --noout --valid $<
 	$(DB2X_XSLTPROC) -s texi -g output-file=$(basename $@) $< -o $@
 
 %.texi: %.texixml
@@ -249,8 +252,12 @@ MAKEINFO = makeinfo
 
 # Quick syntax check without style processing
 check: postgres.sgml $(ALLSGML) check-tabs
+<<<<<<< HEAD
 	SP_CHARSET_FIXED=1 SP_ENCODING=UTF-8 \
 	$(NSGMLS) $(SPFLAGS) $(SGMLINCLUDE) -s $<
+=======
+	$(XMLLINT) $(XMLINCLUDE) --noout --valid $<
+>>>>>>> REL_11_0
 
 
 ##
@@ -320,7 +327,11 @@ check-tabs:
 
 # This allows removing some files from the distribution tarballs while
 # keeping the dependencies satisfied.
+<<<<<<< HEAD
 .SECONDARY: postgres.xml $(GENERATED_SGML)
+=======
+.SECONDARY: $(GENERATED_SGML)
+>>>>>>> REL_11_0
 .SECONDARY: INSTALL.html INSTALL.xml
 .SECONDARY: postgres-A4.fo postgres-US.fo
 
@@ -334,8 +345,6 @@ clean:
 	rm -f *.fo *.pdf
 # generated SGML files
 	rm -f $(GENERATED_SGML)
-# SGML->XML conversion
-	rm -f postgres.xml *.tmp
 # HTML Help
 	rm -f htmlhelp.hhp toc.hhc index.hhk
 # EPUB

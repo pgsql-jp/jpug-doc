@@ -741,13 +741,26 @@ select my_avg(one) filter (where one > 1),my_sum(one) from (values(1),(3)) t(one
 -- this should not share the state due to different input columns.
 select my_avg(one),my_sum(two) from (values(1,2),(3,4)) t(one,two);
 
+<<<<<<< HEAD
 -- ideally these would share state, but we have to fix the OSAs first.
+=======
+-- exercise cases where OSAs share state
+>>>>>>> REL_11_0
 select
   percentile_cont(0.5) within group (order by a),
   percentile_disc(0.5) within group (order by a)
 from (values(1::float8),(3),(5),(7)) t(a);
 
 select
+<<<<<<< HEAD
+=======
+  percentile_cont(0.25) within group (order by a),
+  percentile_disc(0.5) within group (order by a)
+from (values(1::float8),(3),(5),(7)) t(a);
+
+-- these can't share state currently
+select
+>>>>>>> REL_11_0
   rank(4) within group (order by a),
   dense_rank(4) within group (order by a)
 from (values(1),(3),(5),(7)) t(a);
@@ -855,12 +868,22 @@ BEGIN
     RETURN NULL;
 END$$;
 
+<<<<<<< HEAD
 CREATE AGGREGATE balk(
     BASETYPE = int4,
     SFUNC = balkifnull(int8, int4),
     STYPE = int8,
     "PARALLEL" = SAFE,
     INITCOND = '0');
+=======
+CREATE AGGREGATE balk(int4)
+(
+    SFUNC = balkifnull(int8, int4),
+    STYPE = int8,
+    PARALLEL = SAFE,
+    INITCOND = '0'
+);
+>>>>>>> REL_11_0
 
 SELECT balk(hundred) FROM tenk1;
 
@@ -882,12 +905,21 @@ BEGIN
     RETURN NULL;
 END$$;
 
+<<<<<<< HEAD
 CREATE AGGREGATE balk(
     BASETYPE = int4,
     SFUNC = int4_sum(int8, int4),
     STYPE = int8,
     COMBINEFUNC = balkifnull(int8, int8),
     "PARALLEL" = SAFE,
+=======
+CREATE AGGREGATE balk(int4)
+(
+    SFUNC = int4_sum(int8, int4),
+    STYPE = int8,
+    COMBINEFUNC = balkifnull(int8, int8),
+    PARALLEL = SAFE,
+>>>>>>> REL_11_0
     INITCOND = '0'
 );
 
@@ -918,3 +950,9 @@ EXPLAIN (COSTS OFF)
 SELECT variance(unique1::int4), sum(unique1::int8) FROM tenk1;
 
 ROLLBACK;
+<<<<<<< HEAD
+=======
+
+-- test coverage for dense_rank
+SELECT dense_rank(x) WITHIN GROUP (ORDER BY x) FROM (VALUES (1),(1),(2),(2),(3),(3)) v(x) GROUP BY (x) ORDER BY 1;
+>>>>>>> REL_11_0

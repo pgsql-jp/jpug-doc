@@ -8,9 +8,14 @@
  </indexterm>
 
  <para>
+<<<<<<< HEAD
 <!--
   The <filename>amcheck</> module provides functions that allow you to
   verify the logical consistency of the structure of indexes.  If the
+=======
+  The <filename>amcheck</filename> module provides functions that allow you to
+  verify the logical consistency of the structure of relations.  If the
+>>>>>>> REL_11_0
   structure appears to be valid, no error is raised.
 -->
 <filename>amcheck</>モジュールは、インデックスの構造の論理的な一貫性を検査する機能を提供します。
@@ -18,14 +23,19 @@
  </para>
 
  <para>
+<<<<<<< HEAD
 <!--
   The functions verify various <emphasis>invariants</> in the
   structure of the representation of particular indexes.  The
+=======
+  The functions verify various <emphasis>invariants</emphasis> in the
+  structure of the representation of particular relations.  The
+>>>>>>> REL_11_0
   correctness of the access method functions behind index scans and
   other important operations relies on these invariants always
   holding.  For example, certain functions verify, among other things,
-  that all B-Tree pages have items in <quote>logical</> order (e.g.,
-  for B-Tree indexes on <type>text</>, index tuples should be in
+  that all B-Tree pages have items in <quote>logical</quote> order (e.g.,
+  for B-Tree indexes on <type>text</type>, index tuples should be in
   collated lexical order).  If that particular invariant somehow fails
   to hold, we can expect binary searches on the affected page to
   incorrectly guide index scans, resulting in wrong answers to SQL
@@ -42,7 +52,7 @@
   index scans themselves, which may be user-defined operator class
   code.  For example, B-Tree index verification relies on comparisons
   made with one or more B-Tree support function 1 routines.  See <xref
-  linkend="xindex-support"> for details of operator class support
+  linkend="xindex-support"/> for details of operator class support
   functions.
 -->
 検証は、インデックス走査自身で使われるのと同じ手続きを用いて行われます。
@@ -51,10 +61,14 @@
 演算子クラスサポート関数の詳細については<xref linkend="xindex-support">をご覧ください。
  </para>
  <para>
+<<<<<<< HEAD
 <!--
   <filename>amcheck</> functions may be used only by superusers.
 -->
   <filename>amcheck</>関数はスーパーユーザだけが使用できます。
+=======
+  <filename>amcheck</filename> functions may only be used by superusers.
+>>>>>>> REL_11_0
  </para>
 
  <sect2>
@@ -66,7 +80,7 @@
   <variablelist>
    <varlistentry>
     <term>
-     <function>bt_index_check(index regclass) returns void</function>
+     <function>bt_index_check(index regclass, heapallindexed boolean) returns void</function>
      <indexterm>
       <primary>bt_index_check</primary>
      </indexterm>
@@ -81,7 +95,9 @@
 <function>bt_index_check</function>は対象となるB-Treeインデックスが、様々な不変量を維持していることをテストします。
 例を示します。
 <screen>
-test=# SELECT bt_index_check(c.oid), c.relname, c.relpages
+test=# SELECT bt_index_check(index =&gt; c.oid, heapallindexed =&gt; i.indisunique),
+               c.relname,
+               c.relpages
 FROM pg_index i
 JOIN pg_opclass op ON i.indclass[0] = op.oid
 JOIN pg_am am ON op.opcmethod = am.oid
@@ -91,7 +107,7 @@ WHERE am.amname = 'btree' AND n.nspname = 'pg_catalog'
 -- Don't check temp tables, which may be from another session:
 AND c.relpersistence != 't'
 -- Function may throw an error when this is omitted:
-AND i.indisready AND i.indisvalid
+AND c.relkind = 'i' AND i.indisready AND i.indisvalid
 ORDER BY c.relpages DESC LIMIT 10;
  bt_index_check |             relname             | relpages 
 ----------------+---------------------------------+----------
@@ -107,6 +123,7 @@ ORDER BY c.relpages DESC LIMIT 10;
                 | pg_amop_fam_strat_index         |        5
 (10 rows)
 </screen>
+<<<<<<< HEAD
 <!--
       This example shows a session that performs verification of every
       catalog index in the database <quote>test</>.  Details of just
@@ -114,6 +131,15 @@ ORDER BY c.relpages DESC LIMIT 10;
       is raised, all indexes tested appear to be logically consistent.
       Naturally, this query could easily be changed to call
       <function>bt_index_check</function> for every index in the
+=======
+      This example shows a session that performs verification of the
+      10 largest catalog indexes in the database <quote>test</quote>.
+      Verification of the presence of heap tuples as index tuples is
+      requested for the subset that are unique indexes.  Since no
+      error is raised, all indexes tested appear to be logically
+      consistent.  Naturally, this query could easily be changed to
+      call <function>bt_index_check</function> for every index in the
+>>>>>>> REL_11_0
       database where verification is supported.
 -->
 この例では、データベース<quote>test</>中のすべてのカタログインデックスの検証を行うセッションを示しています。
@@ -122,16 +148,21 @@ ORDER BY c.relpages DESC LIMIT 10;
 当然のことながら、この問い合わせは、検証可能なデータベース中のすべてのインデックスに対して<function>bt_index_check</function>を呼び出すように変更できます。
      </para>
      <para>
+<<<<<<< HEAD
 <!--
       <function>bt_index_check</function> acquires an <literal>AccessShareLock</>
+=======
+      <function>bt_index_check</function> acquires an <literal>AccessShareLock</literal>
+>>>>>>> REL_11_0
       on the target index and the heap relation it belongs to. This lock mode
       is the same lock mode acquired on relations by simple
-      <literal>SELECT</> statements.
+      <literal>SELECT</literal> statements.
       <function>bt_index_check</function> does not verify invariants
-      that span child/parent relationships, nor does it verify that
-      the target index is consistent with its heap relation.  When a
-      routine, lightweight test for corruption is required in a live
-      production environment, using
+      that span child/parent relationships, but will verify the
+      presence of all heap tuples as index tuples within the index
+      when <parameter>heapallindexed</parameter> is
+      <literal>true</literal>.  When a routine, lightweight test for
+      corruption is required in a live production environment, using
       <function>bt_index_check</function> often provides the best
       trade-off between thoroughness of verification and limiting the
       impact on application performance and availability.
@@ -146,7 +177,7 @@ ORDER BY c.relpages DESC LIMIT 10;
 
    <varlistentry>
     <term>
-     <function>bt_index_parent_check(index regclass) returns void</function>
+     <function>bt_index_parent_check(index regclass, heapallindexed boolean) returns void</function>
      <indexterm>
       <primary>bt_index_parent_check</primary>
      </indexterm>
@@ -156,14 +187,19 @@ ORDER BY c.relpages DESC LIMIT 10;
      <para>
 <!--
       <function>bt_index_parent_check</function> tests that its
-      target, a B-Tree index, respects a variety of invariants.  The
-      checks performed by <function>bt_index_parent_check</function>
-      are a superset of the checks performed by
-      <function>bt_index_check</function>.
+      target, a B-Tree index, respects a variety of invariants.
+      Optionally, when the <parameter>heapallindexed</parameter>
+      argument is <literal>true</literal>, the function verifies the
+      presence of all heap tuples that should be found within the
+      index, and that there are no missing downlinks in the index
+      structure.  The checks that can be performed by
+      <function>bt_index_parent_check</function> are a superset of the
+      checks that can be performed by <function>bt_index_check</function>.
       <function>bt_index_parent_check</function> can be thought of as
       a more thorough variant of <function>bt_index_check</function>:
       unlike <function>bt_index_check</function>,
       <function>bt_index_parent_check</function> also checks
+<<<<<<< HEAD
       invariants that span parent/child relationships.  However, it
       does not verify that the target index is consistent with its
       heap relation.  <function>bt_index_parent_check</function>
@@ -180,12 +216,21 @@ ORDER BY c.relpages DESC LIMIT 10;
      <para>
 <!--
       A <literal>ShareLock</> is required on the target index by
+=======
+      invariants that span parent/child relationships.
+      <function>bt_index_parent_check</function> follows the general
+      convention of raising an error if it finds a logical
+      inconsistency or other problem.
+     </para>
+     <para>
+      A <literal>ShareLock</literal> is required on the target index by
+>>>>>>> REL_11_0
       <function>bt_index_parent_check</function> (a
-      <literal>ShareLock</> is also acquired on the heap relation).
+      <literal>ShareLock</literal> is also acquired on the heap relation).
       These locks prevent concurrent data modification from
-      <command>INSERT</>, <command>UPDATE</>, and <command>DELETE</>
+      <command>INSERT</command>, <command>UPDATE</command>, and <command>DELETE</command>
       commands.  The locks also prevent the underlying relation from
-      being concurrently processed by <command>VACUUM</>, as well as
+      being concurrently processed by <command>VACUUM</command>, as well as
       all other utility commands.  Note that the function holds locks
       only while running, not for the entire transaction.
 -->
@@ -217,6 +262,7 @@ ORDER BY c.relpages DESC LIMIT 10;
  </sect2>
 
  <sect2>
+<<<<<<< HEAD
 <!--
   <title>Using <filename>amcheck</> effectively</title>
 -->
@@ -231,6 +277,57 @@ ORDER BY c.relpages DESC LIMIT 10;
 -->
 <filename>amcheck</>は、<link linkend="app-initdb-data-checksums"><application>データページチェックサム</></link>が検知できないような、様々なタイプの障害モードを効果的に検知できます。
 以下のようなものがあります。
+=======
+  <title>Optional <parameter>heapallindexed</parameter> verification</title>
+ <para>
+  When the <parameter>heapallindexed</parameter> argument to
+  verification functions is <literal>true</literal>, an additional
+  phase of verification is performed against the table associated with
+  the target index relation.  This consists of a <quote>dummy</quote>
+  <command>CREATE INDEX</command> operation, which checks for the
+  presence of all hypothetical new index tuples against a temporary,
+  in-memory summarizing structure (this is built when needed during
+  the basic first phase of verification).  The summarizing structure
+  <quote>fingerprints</quote> every tuple found within the target
+  index.  The high level principle behind
+  <parameter>heapallindexed</parameter> verification is that a new
+  index that is equivalent to the existing, target index must only
+  have entries that can be found in the existing structure.
+ </para>
+ <para>
+  The additional <parameter>heapallindexed</parameter> phase adds
+  significant overhead: verification will typically take several times
+  longer.  However, there is no change to the relation-level locks
+  acquired when <parameter>heapallindexed</parameter> verification is
+  performed.
+ </para>
+ <para>
+  The summarizing structure is bound in size by
+  <varname>maintenance_work_mem</varname>.  In order to ensure that
+  there is no more than a 2% probability of failure to detect an
+  inconsistency for each heap tuple that should be represented in the
+  index, approximately 2 bytes of memory are needed per tuple.  As
+  less memory is made available per tuple, the probability of missing
+  an inconsistency slowly increases.  This approach limits the
+  overhead of verification significantly, while only slightly reducing
+  the probability of detecting a problem, especially for installations
+  where verification is treated as a routine maintenance task.  Any
+  single absent or malformed tuple has a new opportunity to be
+  detected with each new verification attempt.
+ </para>
+
+ </sect2>
+
+ <sect2>
+  <title>Using <filename>amcheck</filename> effectively</title>
+
+ <para>
+  <filename>amcheck</filename> can be effective at detecting various types of
+  failure modes that <link
+  linkend="app-initdb-data-checksums"><application>data page
+  checksums</application></link> will always fail to catch.  These include:
+
+>>>>>>> REL_11_0
   <itemizedlist>
    <listitem>
     <para>
@@ -244,13 +341,13 @@ ORDER BY c.relpages DESC LIMIT 10;
 <!--
      This includes issues caused by the comparison rules of operating
      system collations changing. Comparisons of datums of a collatable
-     type like <type>text</> must be immutable (just as all
+     type like <type>text</type> must be immutable (just as all
      comparisons used for B-Tree index scans must be immutable), which
      implies that operating system collation rules must never change.
      Though rare, updates to operating system collation rules can
      cause these issues. More commonly, an inconsistency in the
      collation order between a master server and a standby server is
-     implicated, possibly because the <emphasis>major</> operating
+     implicated, possibly because the <emphasis>major</emphasis> operating
      system version in use is inconsistent.  Such inconsistencies will
      generally only arise on standby servers, and so can generally
      only be detected on standby servers.
@@ -266,10 +363,10 @@ ORDER BY c.relpages DESC LIMIT 10;
 <!--
      If a problem like this arises, it may not affect each individual
      index that is ordered using an affected collation, simply because
-     <emphasis>indexed</> values might happen to have the same
+     <emphasis>indexed</emphasis> values might happen to have the same
      absolute ordering regardless of the behavioral inconsistency. See
-     <xref linkend="locale"> and <xref linkend="collation"> for
-     further details about how <productname>PostgreSQL</> uses
+     <xref linkend="locale"/> and <xref linkend="collation"/> for
+     further details about how <productname>PostgreSQL</productname> uses
      operating system locales and collations.
 -->
 そうした問題が起きても、影響を受けた照合順を使って順序付けられた個々のインデックスには影響ないかもしれません。
@@ -279,26 +376,49 @@ ORDER BY c.relpages DESC LIMIT 10;
    </listitem>
    <listitem>
     <para>
+<<<<<<< HEAD
 <!--
      Corruption caused by hypothetical undiscovered bugs in the
      underlying <productname>PostgreSQL</> access method code or sort
      code.
 -->
 依拠する<productname>PostgreSQL</>のアクセスメソッド、あるいはソートコードにおける、潜在的なまだ見つかっていないバグによる破損。
+=======
+     Structural inconsistencies between indexes and the heap relations
+     that are indexed (when <parameter>heapallindexed</parameter>
+     verification is performed).
+    </para>
+    <para>
+     There is no cross-checking of indexes against their heap relation
+     during normal operation.  Symptoms of heap corruption can be subtle.
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     Corruption caused by hypothetical undiscovered bugs in the
+     underlying <productname>PostgreSQL</productname> access method
+     code, sort code, or transaction management code.
+>>>>>>> REL_11_0
     </para>
     <para>
 <!--
      Automatic verification of the structural integrity of indexes
      plays a role in the general testing of new or proposed
-     <productname>PostgreSQL</> features that could plausibly allow a
-     logical inconsistency to be introduced.  One obvious testing
-     strategy is to call <filename>amcheck</> functions continuously
+     <productname>PostgreSQL</productname> features that could plausibly allow a
+     logical inconsistency to be introduced.  Verification of table
+     structure and associated visibility and transaction status
+     information plays a similar role.  One obvious testing strategy
+     is to call <filename>amcheck</filename> functions continuously
      when running the standard regression tests.  See <xref
+<<<<<<< HEAD
      linkend="regress-run"> for details on running the tests.
 -->
 新規、あるいは提案中の <productname>PostgreSQL</>の機能が、論理的な非一貫性をもたらしかねないかどうか全般的にテストする際に、インデックスの構造的な一貫性の自動検証が役立ちます。
 わかりやすいテスト戦略の一つは、関数標準の回帰テストを実行中に、<filename>amcheck</>を継続的に呼び出すことです。
 テストの実行に関する詳細は、<xref linkend="regress-run">をご覧ください。
+=======
+     linkend="regress-run"/> for details on running the tests.
+>>>>>>> REL_11_0
     </para>
    </listitem>
    <listitem>
@@ -310,13 +430,17 @@ ORDER BY c.relpages DESC LIMIT 10;
 単にチェックサムが有効になっていないファイルシステムあるいはストレージサブシステムの障害。
     </para>
     <para>
+<<<<<<< HEAD
 <!--
      Note that <filename>amcheck</> examines a page as represented in some
+=======
+     Note that <filename>amcheck</filename> examines a page as represented in some
+>>>>>>> REL_11_0
      shared memory buffer at the time of verification if there is only a
      shared buffer hit when accessing the block. Consequently,
-     <filename>amcheck</> does not necessarily examine data read from the
+     <filename>amcheck</filename> does not necessarily examine data read from the
      file system at the time of verification. Note that when checksums are
-     enabled, <filename>amcheck</> may raise an error due to a checksum
+     enabled, <filename>amcheck</filename> may raise an error due to a checksum
      failure when a corrupt block is read into a buffer.
 -->
 <filename>amcheck</>は、ブロックをアクセスする際に共有バッファがヒットした場合、検査時に共有メモリバッファ上に表現されたページを調査します。
@@ -326,6 +450,7 @@ ORDER BY c.relpages DESC LIMIT 10;
    </listitem>
    <listitem>
     <para>
+<<<<<<< HEAD
 <!--
      Corruption caused by faulty RAM, and the broader memory subsystem
      and operating system.
@@ -335,6 +460,12 @@ RAMおよび、広範囲に渡るメモリサブシステムとオペレーテ�
     <para>
 <!--
      <productname>PostgreSQL</> does not protect against correctable
+=======
+     Corruption caused by faulty RAM, or the broader memory subsystem.
+    </para>
+    <para>
+     <productname>PostgreSQL</productname> does not protect against correctable
+>>>>>>> REL_11_0
      memory errors and it is assumed you will operate using RAM that
      uses industry standard Error Correcting Codes (ECC) or better
      protection.  However, ECC memory is typically only immune to
@@ -345,10 +476,20 @@ RAMおよび、広範囲に渡るメモリサブシステムとオペレーテ�
 <productname>PostgreSQL</>は、訂正可能なメモリーエラーからは身を守らないので、業界標準のエラー訂正コード(ECC)、あるいはもっと優れた保護機構を使ったRAMを使って運用する前提となっています。
 しかし、ECCメモリは典型的には単一ビットエラーに対してのみ耐性があり、メモリ破損に起因する障害に対して<emphasis>完全な</emphasis>保護を提供すると考えるべきではありません。
     </para>
+    <para>
+     When <parameter>heapallindexed</parameter> verification is
+     performed, there is generally a greatly increased chance of
+     detecting single-bit errors, since strict binary equality is
+     tested, and the indexed attributes within the heap are tested.
+    </para>
    </listitem>
   </itemizedlist>
+<<<<<<< HEAD
 <!--
   In general, <filename>amcheck</> can only prove the presence of
+=======
+  In general, <filename>amcheck</filename> can only prove the presence of
+>>>>>>> REL_11_0
   corruption; it cannot prove its absence.
 -->
 一般的に、<filename>amcheck</>は破損の存在を証明することはできますが、破損がないことを証明することはできません。
@@ -361,6 +502,7 @@ RAMおよび、広範囲に渡るメモリサブシステムとオペレーテ�
 -->
   <title>破損の修復</title>
  <para>
+<<<<<<< HEAD
 <!--
   No error concerning corruption raised by <filename>amcheck</> should
   ever be a false positive.  In practice, <filename>amcheck</> is more
@@ -372,14 +514,21 @@ RAMおよび、広範囲に渡るメモリサブシステムとオペレーテ�
 <filename>amcheck</>が報告するエラーが関与する破損で、擬陽性のものはありません。
 実用的には、<filename>amcheck</>はハードウェアの問題よりも、ソフトウェアバグを発見する可能性が高いです。
 <filename>amcheck</>は、定義により発生してはならないはずの条件下で発生したエラーを報告するので、<filename>amcheck</>の報告するエラーを注意深く解析することがしばしば求められます。
+=======
+  No error concerning corruption raised by <filename>amcheck</filename> should
+  ever be a false positive.  <filename>amcheck</filename> raises
+  errors in the event of conditions that, by definition, should never
+  happen, and so careful analysis of <filename>amcheck</filename>
+  errors is often required.
+>>>>>>> REL_11_0
  </para>
  <para>
 <!--
   There is no general method of repairing problems that
-  <filename>amcheck</> detects.  An explanation for the root cause of
+  <filename>amcheck</filename> detects.  An explanation for the root cause of
   an invariant violation should be sought.  <xref
-  linkend="pageinspect"> may play a useful role in diagnosing
-  corruption that <filename>amcheck</> detects.  A <command>REINDEX</>
+  linkend="pageinspect"/> may play a useful role in diagnosing
+  corruption that <filename>amcheck</filename> detects.  A <command>REINDEX</command>
   may not be effective in repairing corruption.
 -->
 <filename>amcheck</>が検出した問題を修復する一般的な方法はありません。
