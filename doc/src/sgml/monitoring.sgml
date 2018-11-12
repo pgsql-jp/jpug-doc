@@ -43,22 +43,22 @@
    <command>ps</>, <command>top</>, <command>iostat</>, and <command>vmstat</>.
    Also, once one has identified a
    poorly-performing query, further investigation might be needed using
-   <productname>PostgreSQL</productname>'s <xref linkend="sql-explain"> command.
-   <xref linkend="using-explain"> discusses <command>EXPLAIN</>
+   <productname>PostgreSQL</productname>'s <xref linkend="sql-explain"/> command.
+   <xref linkend="using-explain"/> discusses <command>EXPLAIN</>
    and other methods for understanding the behavior of an individual
    query.
 -->
 データベース活動状況の監視と性能解析用のツールは多く存在します。
-本章の大部分は<productname>PostgreSQL</productname>の統計情報コレクタの説明に費されていますが、<command>ps</>や<command>top</>、<command>iostat</>、<command>vmstat</>などの通常のUnix監視プログラムを無視すべきではありません。
-また、性能が悪い問い合わせであると認知された問い合わせは、その後、<productname>PostgreSQL</productname>の<xref linkend="sql-explain">コマンドを使用して調査を行う必要が発生します。
-<xref linkend="using-explain">では、個々の問い合わせの振舞いを理解するための、<command>EXPLAIN</>やその他の方法について記載しています。
+本章の大部分は<productname>PostgreSQL</productname>の統計情報コレクタの説明に費されていますが、<command>ps</command>や<command>top</command>、<command>iostat</command>、<command>vmstat</command>などの通常のUnix監視プログラムを無視すべきではありません。
+また、性能が悪い問い合わせであると認知された問い合わせは、その後、<productname>PostgreSQL</productname>の<xref linkend="sql-explain"/>コマンドを使用して調査を行う必要が発生します。
+<xref linkend="using-explain"/>では、個々の問い合わせの振舞いを理解するための、<command>EXPLAIN</command>やその他の方法について記載しています。
   </para>
 
  <sect1 id="monitoring-ps">
 <!--
   <title>Standard Unix Tools</title>
 -->
-<title>標準的なUnixツール</Title>
+<title>標準的なUnixツール</title>
 
   <indexterm zone="monitoring-ps">
    <primary>ps</primary>
@@ -74,7 +74,7 @@
    command title as reported by <command>ps</>, so that individual server
    processes can readily be identified.  A sample display is
 -->
-ほとんどのUNIXプラットフォームでは、<productname>PostgreSQL</productname>は、個々のサーバプロセスが容易に識別できるように、<command>ps</>によって報告されるコマンドタイトル部分を変更します。
+ほとんどのUNIXプラットフォームでは、<productname>PostgreSQL</productname>は、個々のサーバプロセスが容易に識別できるように、<command>ps</command>によって報告されるコマンドタイトル部分を変更します。
 以下に表示例を示します。
 
 <screen>
@@ -104,18 +104,18 @@ postgres  15610  0.0  0.0  58772  3056 ?        Ss   18:07   0:00 postgres: tgl 
    processes is a server process handling one client connection.  Each such
    process sets its command line display in the form
 -->
-（<command>ps</>の適切な呼び出し方はプラットフォームによって異なります。
+（<command>ps</command>の適切な呼び出し方はプラットフォームによって異なります。
 同様に、何が詳細に表示されるのかも異なります。
 この例は最近のLinuxシステムのものです。）
 この一覧の最初のプロセスはマスタサーバプロセスです。
 表示されているコマンド引数は、起動時に使用されたものと同じものです。
 次の5つのプロセスは、マスタプロセスから自動的に起動されるバックグラウンドワーカープロセスです。
-（システムを統計情報コレクタが起動しないように設定していた場合は<quote>統計情報コレクタ</>はありません。同様に<quote>自動バキュームランチャ</>を無効にできます。）
+（システムを統計情報コレクタが起動しないように設定していた場合は<quote>統計情報コレクタ</quote>はありません。同様に<quote>自動バキュームランチャ</quote>を無効にできます。）
 残るプロセスはそれぞれ、1つのクライアント接続を取り扱うサーバプロセスです。
 それぞれのプロセスは、次の形式のコマンドライン表示を設定します。
 
 <screen>
-postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <replaceable>activity</>
+postgres: <replaceable>user</replaceable> <replaceable>database</replaceable> <replaceable>host</replaceable> <replaceable>activity</replaceable>
 </screen>
 
 <!--
@@ -134,8 +134,8 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
   system view to determine who is blocking whom.)
 -->
 ユーザ、データベース、(クライアント)ホストという項目はクライアントの存続期間中変更されることはありませんが、活動状況を示す部分は変わります。
-活動状況は、<literal>idle</>（つまり、クライアントからのコマンド待ち状態）、<literal>idle in transaction</>（<command>BEGIN</>ブロックの内側でのクライアントの待ち状態）、または<literal>SELECT</>のようなコマンド種類名のいずれかとなります。
-また、そのサーバプロセスが他のセッションによって保持されたロックを待っている状態の場合は、<literal>waiting</>が追加されます。
+活動状況は、<literal>idle</literal>（つまり、クライアントからのコマンド待ち状態）、<literal>idle in transaction</literal>（<command>BEGIN</command>ブロックの内側でのクライアントの待ち状態）、または<literal>SELECT</literal>のようなコマンド種類名のいずれかとなります。
+また、そのサーバプロセスが他のセッションによって保持されたロックを待っている状態の場合は、<literal>waiting</literal>が追加されます。
 上の例では、プロセス15606はプロセス15610におけるトランザクションの完了とそれに伴うロックの解放を待っていると推測することができます。
 （他に実行中のセッションがありませんので、プロセス15610がブロックしている側であるはずです。
 もっと複雑な場合では<link linkend="view-pg-locks"><structname>pg_locks</structname></link>システムビューを検索し、どのプロセスがどのプロセスをブロックしているか決定しなければなりません。）
@@ -143,10 +143,10 @@ postgres: <replaceable>user</> <replaceable>database</> <replaceable>host</> <re
 
   <para>
 <!--
-   If <xref linkend="guc-cluster-name"> has been configured the
+   If <xref linkend="guc-cluster-name"/> has been configured the
    cluster name will also be shown in <command>ps</> output:
 -->
-<xref linkend="guc-cluster-name">が設定されていれば、<command>ps</>の出力でクラスタ名も表示されます。
+<xref linkend="guc-cluster-name"/>が設定されていれば、<command>ps</command>の出力でクラスタ名も表示されます。
 <screen>
 $ psql -c 'SHOW cluster_name'
  cluster_name
@@ -162,12 +162,12 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
 
   <para>
 <!--
-   If you have turned off <xref linkend="guc-update-process-title"> then the
+   If you have turned off <xref linkend="guc-update-process-title"/> then the
    activity indicator is not updated; the process title is set only once
    when a new process is launched.  On some platforms this saves a measurable
    amount of per-command overhead;  on others it's insignificant.
 -->
-<xref linkend="guc-update-process-title">を無効にした場合、活動情報を示す部分は更新されません。
+<xref linkend="guc-update-process-title"/>を無効にした場合、活動情報を示す部分は更新されません。
 新しいプロセスが起動した時に一度、プロセスの表題は設定されます。
 プラットフォームの中には、これによりコマンドごとのオーバヘッドをかなり抑えられるものもありますし、まったく意味がないものもあります。
   </para>
@@ -189,7 +189,7 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
 <command>/bin/ps</command>ではなく、<command>/usr/ucb/ps</command>を使用しなければなりません。
 また、<command>w</command>フラグを1つではなく2つ使用しなければなりません。
 さらに、元の<command>postgres</command>の呼び出しに関する<command>ps</command>のステータス表示は、各サーバプロセスに関するステータス表示よりも短くなければなりません。
-この3条件を全て満たさないと、各サーバプロセスの<command>ps</>の出力は、元の<application>postgres</>のコマンドラインのものになってしまいます。
+この3条件を全て満たさないと、各サーバプロセスの<command>ps</command>の出力は、元の<application>postgres</application>のコマンドラインのものになってしまいます。
   </para>
   </tip>
  </sect1>
@@ -198,7 +198,7 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
 <!--
   <title>The Statistics Collector</title>
 -->
-<title>統計情報コレクタ</Title>
+<title>統計情報コレクタ</title>
 
   <indexterm zone="monitoring-stats">
 <!--
@@ -217,7 +217,7 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    analyze actions for each table.  It can also count calls to user-defined
    functions and the total time spent in each one.
 -->
-<productname>PostgreSQL</productname>の<firstterm>統計情報コレクタ</>はサーバの活動状況に関する情報を収集し、報告するサブシステムです。
+<productname>PostgreSQL</productname>の<firstterm>統計情報コレクタ</firstterm>はサーバの活動状況に関する情報を収集し、報告するサブシステムです。
 現在、コレクタはテーブルとインデックスへのアクセスをディスクブロックおよび個々の行単位で数えることができます。
 またこれは、各テーブル内の総行数、および、各テーブルでのバキュームやアナライズの実施情報を追跡します。
 また、ユーザ定義関数の呼ばれた回数、それぞれの消費した総時間をカウントします。
@@ -239,51 +239,51 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
 <!--
   <title>Statistics Collection Configuration</title>
 -->
-<title>統計情報収集のための設定</Title>
+<title>統計情報収集のための設定</title>
 
   <para>
 <!--
    Since collection of statistics adds some overhead to query execution,
    the system can be configured to collect or not collect information.
    This is controlled by configuration parameters that are normally set in
-   <filename>postgresql.conf</>.  (See <xref linkend="runtime-config"> for
+   <filename>postgresql.conf</>.  (See <xref linkend="runtime-config"/> for
    details about setting configuration parameters.)
 -->
 統計情報の収集によって問い合わせの実行に少しオーバーヘッドが加わりますので、システムは情報を収集するようにもしないようにも設定することができます。
-これは通常は<filename>postgresql.conf</>内で設定される、設定パラメータによって制御されます
-（設定パラメータの設定についての詳細は<xref linkend="runtime-config">を参照してください）。
+これは通常は<filename>postgresql.conf</filename>内で設定される、設定パラメータによって制御されます
+（設定パラメータの設定についての詳細は<xref linkend="runtime-config"/>を参照してください）。
   </para>
 
   <para>
 <!--
-   The parameter <xref linkend="guc-track-activities"> enables monitoring
+   The parameter <xref linkend="guc-track-activities"/> enables monitoring
    of the current command being executed by any server process.
 -->
-<xref linkend="guc-track-activities">パラメータにより、すべてのサーバプロセスで現在実行されているコマンドを監視することができます。
+<xref linkend="guc-track-activities"/>パラメータにより、すべてのサーバプロセスで現在実行されているコマンドを監視することができます。
   </para>
 
   <para>
 <!--
-   The parameter <xref linkend="guc-track-counts"> controls whether
+   The parameter <xref linkend="guc-track-counts"/> controls whether
    statistics are collected about table and index accesses.
 -->
-<xref linkend="guc-track-counts">パラメータは、テーブルおよびインデックスアクセスに関する統計情報を収集するかどうか制御します。
+<xref linkend="guc-track-counts"/>パラメータは、テーブルおよびインデックスアクセスに関する統計情報を収集するかどうか制御します。
   </para>
 
   <para>
 <!--
-   The parameter <xref linkend="guc-track-functions"> enables tracking of
+   The parameter <xref linkend="guc-track-functions"/> enables tracking of
    usage of user-defined functions.
 -->
-<xref linkend="guc-track-functions">パラメータは、ユーザ定義関数の使用状況を追跡するかどうかを指定できます。
+<xref linkend="guc-track-functions"/>パラメータは、ユーザ定義関数の使用状況を追跡するかどうかを指定できます。
   </para>
 
   <para>
 <!--
-   The parameter <xref linkend="guc-track-io-timing"> enables monitoring
+   The parameter <xref linkend="guc-track-io-timing"/> enables monitoring
    of block read and write times.
 -->
-<xref linkend="guc-track-io-timing">パラメータは、ブロック読み取りおよび書き込み回数の監視するかどうかを指定できます。
+<xref linkend="guc-track-io-timing"/>パラメータは、ブロック読み取りおよび書き込み回数の監視するかどうかを指定できます。
   </para>
 
   <para>
@@ -291,14 +291,14 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    Normally these parameters are set in <filename>postgresql.conf</> so
    that they apply to all server processes, but it is possible to turn
    them on or off in individual sessions using the <xref
-   linkend="sql-set"> command. (To prevent
+   linkend="sql-set"/> command. (To prevent
    ordinary users from hiding their activity from the administrator,
    only superusers are allowed to change these parameters with
    <command>SET</>.)
 -->
-通常、これらの変数は全てのサーバプロセスに適用できるように<filename>postgresql.conf</>内で設定されます。
-しかし、<xref linkend="sql-set">コマンドを使用して、個別のセッションで有効または無効にできます。
-（一般ユーザがその活動を管理者に隠すことを防止するために、スーパーユーザのみが<command>SET</>を使用してこれらのパラメータを変更できます。）
+通常、これらの変数は全てのサーバプロセスに適用できるように<filename>postgresql.conf</filename>内で設定されます。
+しかし、<xref linkend="sql-set"/>コマンドを使用して、個別のセッションで有効または無効にできます。
+（一般ユーザがその活動を管理者に隠すことを防止するために、スーパーユーザのみが<command>SET</command>を使用してこれらのパラメータを変更できます。）
   </para>
 
   <para>
@@ -306,7 +306,7 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    The statistics collector transmits the collected information to other
    <productname>PostgreSQL</productname> processes through temporary files.
    These files are stored in the directory named by the
-   <xref linkend="guc-stats-temp-directory"> parameter,
+   <xref linkend="guc-stats-temp-directory"/> parameter,
    <filename>pg_stat_tmp</filename> by default.
    For better performance, <varname>stats_temp_directory</> can be
    pointed at a RAM-based file system, decreasing physical I/O requirements.
@@ -317,8 +317,8 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    and point-in-time recovery), all statistics counters are reset.
 -->
 統計情報コレクタは収集した情報を他の<productname>PostgreSQL</productname>プロセスに一時ファイルを介して送信します。
-これらのファイルは<xref linkend="guc-stats-temp-directory">で指名されたディレクトリ、デフォルトは<filename>pg_stat_tmp</filename>内に格納されます。
-性能を向上させるために、<varname>stats_temp_directory</>をRAMベースのファイルシステムを指し示すようにして、物理的なI/O要求を減らすことができます。
+これらのファイルは<xref linkend="guc-stats-temp-directory"/>で指名されたディレクトリ、デフォルトは<filename>pg_stat_tmp</filename>内に格納されます。
+性能を向上させるために、<varname>stats_temp_directory</varname>をRAMベースのファイルシステムを指し示すようにして、物理的なI/O要求を減らすことができます。
 サーバが正しくシャットダウンした際は、統計情報がサーバの再起動を跨がって保持されるように、統計情報データの永続的なコピーが<filename>pg_stat</filename>サブディレクトリに格納されます。
 サーバ起動時にリカバリが実施される場合(例えば、即時シャットダウンやサーバクラッシュ、ポイントインタイムリカバリ)、統計カウンタをすべてリセットします。
   </para>
@@ -329,22 +329,22 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
 <!--
   <title>Viewing Statistics</title>
 -->
-<title>統計情報の表示</Title>
+<title>統計情報の表示</title>
 
   <para>
 <!--
    Several predefined views, listed in <xref
-   linkend="monitoring-stats-dynamic-views-table">, are available to show
+   linkend="monitoring-stats-dynamic-views-table"/>, are available to show
    the current state of the system. There are also several other
    views, listed in <xref
-   linkend="monitoring-stats-views-table">, available to show the results
+   linkend="monitoring-stats-views-table"/>, available to show the results
    of statistics collection.  Alternatively, one can
    build custom views using the underlying statistics functions, as discussed
-   in <xref linkend="monitoring-stats-functions">.
+   in <xref linkend="monitoring-stats-functions"/>.
 -->
-システムの現在の状態を表示するために、いくつかの定義済みのビューがあり、<xref linkend="monitoring-stats-dynamic-views-table">に一覧されています。
-また、統計情報の収集結果を表示するために、他にもいくつかのビューがあり、<xref linkend="monitoring-stats-views-table">に一覧されています。
-他にも、<xref linkend="monitoring-stats-functions">で説明する、基礎的な統計情報関数を使用した独自のビューを構築することもできます。
+システムの現在の状態を表示するために、いくつかの定義済みのビューがあり、<xref linkend="monitoring-stats-dynamic-views-table"/>に一覧されています。
+また、統計情報の収集結果を表示するために、他にもいくつかのビューがあり、<xref linkend="monitoring-stats-views-table"/>に一覧されています。
+他にも、<xref linkend="monitoring-stats-functions"/>で説明する、基礎的な統計情報関数を使用した独自のビューを構築することもできます。
   </para>
 
   <para>
@@ -410,7 +410,7 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    <structname>pg_stat_xact_user_functions</>.  These numbers do not act as
    stated above; instead they update continuously throughout the transaction.
 -->
-トランザクションからは、<structname>pg_stat_xact_all_tables</>、<structname>pg_stat_xact_sys_tables</>、<structname>pg_stat_xact_user_tables</>、<structname>pg_stat_xact_user_functions</>、およびこれらのビューの元となっている関数を通じて、自身の統計情報(まだコレクタに送られていない)も参照することができます。
+トランザクションからは、<structname>pg_stat_xact_all_tables</structname>、<structname>pg_stat_xact_sys_tables</structname>、<structname>pg_stat_xact_user_tables</structname>、<structname>pg_stat_xact_user_functions</structname>、およびこれらのビューの元となっている関数を通じて、自身の統計情報(まだコレクタに送られていない)も参照することができます。
    これらの数値はトランザクション中に継続的に更新されていくため上記の様な(静的な情報を示す)振る舞いとはなりません。
   </para>
 
@@ -442,75 +442,75 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
 <!--
        One row per server process, showing information related to
        the current activity of that process, such as state and current query.
-       See <xref linkend="pg-stat-activity-view"> for details.
+       See <xref linkend="pg-stat-activity-view"/> for details.
 -->
 サーバ当たり１行の形式で、状態や現在の問い合わせ等のプロセスの現在の活動状況に関連した情報を表示します。
-詳細については<xref linkend="pg-stat-activity-view">を参照してください。
+詳細については<xref linkend="pg-stat-activity-view"/>を参照してください。
       </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_replication</><indexterm><primary>pg_stat_replication</primary></indexterm></entry>
+      <entry><structname>pg_stat_replication</structname><indexterm><primary>pg_stat_replication</primary></indexterm></entry>
 <!--
       <entry>One row per WAL sender process, showing statistics about
        replication to that sender's connected standby server.
-       See <xref linkend="pg-stat-replication-view"> for details.
+       See <xref linkend="pg-stat-replication-view"/> for details.
 -->
       <entry>
 WAL送信プロセス毎に１行の形式で、送信サーバが接続したスタンバイサーバへのレプリケーションに関する統計情報を表示します。
-詳細については<xref linkend="pg-stat-replication-view">を参照して下さい。
+詳細については<xref linkend="pg-stat-replication-view"/>を参照して下さい。
       </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_wal_receiver</><indexterm><primary>pg_stat_wal_receiver</primary></indexterm></entry>
+      <entry><structname>pg_stat_wal_receiver</structname><indexterm><primary>pg_stat_wal_receiver</primary></indexterm></entry>
 <!--
       <entry>Only one row, showing statistics about the WAL receiver from
        that receiver's connected server.
-       See <xref linkend="pg-stat-wal-receiver-view"> for details.
+       See <xref linkend="pg-stat-wal-receiver-view"/> for details.
 -->
       <entry>
 １行の形式で、受信サーバが接続したサーバからWALレシーバに関する統計情報を表示します。
-詳細については<xref linkend="pg-stat-wal-receiver-view">を参照してください。
+詳細については<xref linkend="pg-stat-wal-receiver-view"/>を参照してください。
       </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_subscription</><indexterm><primary>pg_stat_subscription</primary></indexterm></entry>
+      <entry><structname>pg_stat_subscription</structname><indexterm><primary>pg_stat_subscription</primary></indexterm></entry>
 <!--
       <entry>At least one row per subscription, showing information about
        the subscription workers.
-       See <xref linkend="pg-stat-subscription"> for details.
+       See <xref linkend="pg-stat-subscription"/> for details.
 -->
       <entry>
 1つのサブスクリプションにつき少なくとも1行の形式で、サブスクリプションワーカに関する情報を表示します。
-詳細については<xref linkend="pg-stat-subscription">を参照してください。
+詳細については<xref linkend="pg-stat-subscription"/>を参照してください。
       </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_ssl</><indexterm><primary>pg_stat_ssl</primary></indexterm></entry>
+      <entry><structname>pg_stat_ssl</structname><indexterm><primary>pg_stat_ssl</primary></indexterm></entry>
 <!--
       <entry>One row per connection (regular and replication), showing information about
        SSL used on this connection.
-       See <xref linkend="pg-stat-ssl-view"> for details.
+       See <xref linkend="pg-stat-ssl-view"/> for details.
 -->
       <entry>
 接続（通常およびレプリケーション）あたり1行の形式で、接続に使われるSSLの情報を表示します。
-詳しくは<xref linkend="pg-stat-ssl-view">を参照して下さい。
+詳しくは<xref linkend="pg-stat-ssl-view"/>を参照して下さい。
       </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_progress_vacuum</><indexterm><primary>pg_stat_progress_vacuum</primary></indexterm></entry>
+      <entry><structname>pg_stat_progress_vacuum</structname><indexterm><primary>pg_stat_progress_vacuum</primary></indexterm></entry>
 <!--
       <entry>One row for each backend (including autovacuum worker processes) running
        <command>VACUUM</>, showing current progress.
-       See <xref linkend='vacuum-progress-reporting'>.
+       See <xref linkend='vacuum-progress-reporting'/>.
 -->
       <entry>
 VACUUMを実行している（自動バキュームワーカプロセスを含んだ）それぞれのバックエンドごとに１行の形で、現在の進捗を示します。
-<xref linkend='vacuum-progress-reporting'>を参照してください。
+<xref linkend='vacuum-progress-reporting'/>を参照してください。
       </entry>
      </row>
 
@@ -538,93 +538,93 @@ VACUUMを実行している（自動バキュームワーカプロセスを含�
 
     <tbody>
      <row>
-      <entry><structname>pg_stat_archiver</><indexterm><primary>pg_stat_archiver</primary></indexterm></entry>
+      <entry><structname>pg_stat_archiver</structname><indexterm><primary>pg_stat_archiver</primary></indexterm></entry>
 <!--
       <entry>One row only, showing statistics about the
        WAL archiver process's activity. See
-       <xref linkend="pg-stat-archiver-view"> for details.
+       <xref linkend="pg-stat-archiver-view"/> for details.
 -->
       <entry>
 WALアーカイバプロセスの活動状況に関する統計情報を１行のみで表示します
-詳細については<xref linkend="pg-stat-archiver-view">を参照してください。
+詳細については<xref linkend="pg-stat-archiver-view"/>を参照してください。
       </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_bgwriter</><indexterm><primary>pg_stat_bgwriter</primary></indexterm></entry>
+      <entry><structname>pg_stat_bgwriter</structname><indexterm><primary>pg_stat_bgwriter</primary></indexterm></entry>
 <!--
       <entry>One row only, showing statistics about the
        background writer process's activity. See
-       <xref linkend="pg-stat-bgwriter-view"> for details.
+       <xref linkend="pg-stat-bgwriter-view"/> for details.
 -->
       <entry>
 バックグラウンドライタプロセスの活動状況に関する統計情報を１行のみで表示します。
-詳細については<xref linkend="pg-stat-bgwriter-view">を参照してください。
+詳細については<xref linkend="pg-stat-bgwriter-view"/>を参照してください。
      </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_database</><indexterm><primary>pg_stat_database</primary></indexterm></entry>
+      <entry><structname>pg_stat_database</structname><indexterm><primary>pg_stat_database</primary></indexterm></entry>
 <!--
       <entry>One row per database, showing database-wide statistics. See
-       <xref linkend="pg-stat-database-view"> for details.
+       <xref linkend="pg-stat-database-view"/> for details.
 -->
       <entry>
 データベース当たり１行の形で、データベース全体の情報を表示します。
-詳細については<xref linkend="pg-stat-database-view">を参照してください。
+詳細については<xref linkend="pg-stat-database-view"/>を参照してください。
       </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_database_conflicts</><indexterm><primary>pg_stat_database_conflicts</primary></indexterm></entry>
+      <entry><structname>pg_stat_database_conflicts</structname><indexterm><primary>pg_stat_database_conflicts</primary></indexterm></entry>
       <entry>
 <!--
        One row per database, showing database-wide statistics about
        query cancels due to conflict with recovery on standby servers.
-       See <xref linkend="pg-stat-database-conflicts-view"> for details.
+       See <xref linkend="pg-stat-database-conflicts-view"/> for details.
 -->
 データベース毎に１行の形式で、スタンバイサーバにおける復旧との競合のためにキャンセルされた問い合わせについてのデータベース全体の統計情報を表示します。
-詳細については<xref linkend="pg-stat-database-conflicts-view">を参照して下さい。
+詳細については<xref linkend="pg-stat-database-conflicts-view"/>を参照して下さい。
       </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_all_tables</><indexterm><primary>pg_stat_all_tables</primary></indexterm></entry>
+      <entry><structname>pg_stat_all_tables</structname><indexterm><primary>pg_stat_all_tables</primary></indexterm></entry>
       <entry>
 <!--
        One row for each table in the current database, showing statistics
        about accesses to that specific table.
-       See <xref linkend="pg-stat-all-tables-view"> for details.
+       See <xref linkend="pg-stat-all-tables-view"/> for details.
 -->
 現在のデータベースの各テーブルごとに１行の形で、特定のテーブルへのアクセスに関する統計情報を示します。
-詳細については<xref linkend="pg-stat-all-tables-view">を参照してください。
+詳細については<xref linkend="pg-stat-all-tables-view"/>を参照してください。
       </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_sys_tables</><indexterm><primary>pg_stat_sys_tables</primary></indexterm></entry>
+      <entry><structname>pg_stat_sys_tables</structname><indexterm><primary>pg_stat_sys_tables</primary></indexterm></entry>
 <!--
       <entry>Same as <structname>pg_stat_all_tables</>, except that only
       system tables are shown.</entry>
 -->
       <entry>
-システムテーブルのみが表示される点を除き、<structname>pg_stat_all_tables</>と同じです。
+システムテーブルのみが表示される点を除き、<structname>pg_stat_all_tables</structname>と同じです。
 </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_user_tables</><indexterm><primary>pg_stat_user_tables</primary></indexterm></entry>
+      <entry><structname>pg_stat_user_tables</structname><indexterm><primary>pg_stat_user_tables</primary></indexterm></entry>
 <!--
       <entry>Same as <structname>pg_stat_all_tables</>, except that only user
       tables are shown.</entry>
 -->
 <entry>
-ユーザテーブルのみが表示される点を除き、<structname>pg_stat_all_tables</>と同じです。
+ユーザテーブルのみが表示される点を除き、<structname>pg_stat_all_tables</structname>と同じです。
 </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_xact_all_tables</><indexterm><primary>pg_stat_xact_all_tables</primary></indexterm></entry>
+      <entry><structname>pg_stat_xact_all_tables</structname><indexterm><primary>pg_stat_xact_all_tables</primary></indexterm></entry>
       <!--
       <entry>Similar to <structname>pg_stat_all_tables</>, but counts actions
       taken so far within the current transaction (which are <emphasis>not</>
@@ -633,198 +633,198 @@ WALアーカイバプロセスの活動状況に関する統計情報を１行�
       analyze actions are not present in this view.</entry>
       -->
      <entry>
-<structname>pg_stat_all_tables</>と似ていますが、現在のトランザクションにて実施された処理結果をカウントします。(数値が見える時点では、これらの数値は<structname>pg_stat_all_tables</>と関連するビューに含まれて<emphasis>いません</>。)
+<structname>pg_stat_all_tables</structname>と似ていますが、現在のトランザクションにて実施された処理結果をカウントします。(数値が見える時点では、これらの数値は<structname>pg_stat_all_tables</structname>と関連するビューに含まれて<emphasis>いません</emphasis>。)
 このビューでは、有効行数、無効行数、およびバキュームやアナライズの活動は表示しません。
      </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_xact_sys_tables</><indexterm><primary>pg_stat_xact_sys_tables</primary></indexterm></entry>
+      <entry><structname>pg_stat_xact_sys_tables</structname><indexterm><primary>pg_stat_xact_sys_tables</primary></indexterm></entry>
       <!--
       <entry>Same as <structname>pg_stat_xact_all_tables</>, except that only
       system tables are shown.</entry>
       -->
       <entry>
-      システムテーブルのみが表示される点を除き、<structname>pg_stat_xact_all_tables</>と同じです。
+      システムテーブルのみが表示される点を除き、<structname>pg_stat_xact_all_tables</structname>と同じです。
       </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_xact_user_tables</><indexterm><primary>pg_stat_xact_user_tables</primary></indexterm></entry>
+      <entry><structname>pg_stat_xact_user_tables</structname><indexterm><primary>pg_stat_xact_user_tables</primary></indexterm></entry>
       <!--
       <entry>Same as <structname>pg_stat_xact_all_tables</>, except that only
       user tables are shown.</entry>
       -->
       <entry>
-      ユーザテーブルのみが表示される点を除き、<structname>pg_stat_xact_all_tables</>と同じです。
+      ユーザテーブルのみが表示される点を除き、<structname>pg_stat_xact_all_tables</structname>と同じです。
       </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_all_indexes</><indexterm><primary>pg_stat_all_indexes</primary></indexterm></entry>
+      <entry><structname>pg_stat_all_indexes</structname><indexterm><primary>pg_stat_all_indexes</primary></indexterm></entry>
       <entry>
 <!--
        One row for each index in the current database, showing statistics
        about accesses to that specific index.
-       See <xref linkend="pg-stat-all-indexes-view"> for details.
+       See <xref linkend="pg-stat-all-indexes-view"/> for details.
 -->
 現在のデータベースのインデックスごとに１行の形で、特定のインデックスへのアクセスに関する統計情報を示します。
-詳細については<xref linkend="pg-stat-all-indexes-view">を参照してください。
+詳細については<xref linkend="pg-stat-all-indexes-view"/>を参照してください。
       </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_sys_indexes</><indexterm><primary>pg_stat_sys_indexes</primary></indexterm></entry>
+      <entry><structname>pg_stat_sys_indexes</structname><indexterm><primary>pg_stat_sys_indexes</primary></indexterm></entry>
 <!--
       <entry>Same as <structname>pg_stat_all_indexes</>, except that only
       indexes on system tables are shown.</entry>
 -->
       <entry>
-システムテーブルのインデックスのみが表示される点を除き、<structname>pg_stat_all_indexes</>と同じです。
+システムテーブルのインデックスのみが表示される点を除き、<structname>pg_stat_all_indexes</structname>と同じです。
 </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_user_indexes</><indexterm><primary>pg_stat_user_indexes</primary></indexterm></entry>
+      <entry><structname>pg_stat_user_indexes</structname><indexterm><primary>pg_stat_user_indexes</primary></indexterm></entry>
 <!--
       <entry>Same as <structname>pg_stat_all_indexes</>, except that only
       indexes on user tables are shown.</entry>
 -->
       <entry>
-ユーザテーブルのインデックスのみが表示される点を除き、<structname>pg_stat_all_indexes</>と同じです。
+ユーザテーブルのインデックスのみが表示される点を除き、<structname>pg_stat_all_indexes</structname>と同じです。
 </entry>
      </row>
 
      <row>
-      <entry><structname>pg_statio_all_tables</><indexterm><primary>pg_statio_all_tables</primary></indexterm></entry>
+      <entry><structname>pg_statio_all_tables</structname><indexterm><primary>pg_statio_all_tables</primary></indexterm></entry>
       <entry>
 <!--
        One row for each table in the current database, showing statistics
        about I/O on that specific table.
-       See <xref linkend="pg-statio-all-tables-view"> for details.
+       See <xref linkend="pg-statio-all-tables-view"/> for details.
 -->
 現在のデータベース内のテーブルごとに１行の形で、特定のテーブルに対するI/Oに関する統計情報を示します。
-詳細については<xref linkend="pg-statio-all-tables-view">を参照してください。
+詳細については<xref linkend="pg-statio-all-tables-view"/>を参照してください。
       </entry>
      </row>
 
      <row>
-      <entry><structname>pg_statio_sys_tables</><indexterm><primary>pg_statio_sys_tables</primary></indexterm></entry>
+      <entry><structname>pg_statio_sys_tables</structname><indexterm><primary>pg_statio_sys_tables</primary></indexterm></entry>
 <!--
       <entry>Same as <structname>pg_statio_all_tables</>, except that only
       system tables are shown.</entry>
 -->
       <entry>
-システムテーブルのみが表示される点を除き、<structname>pg_statio_all_tables</>と同じです。
+システムテーブルのみが表示される点を除き、<structname>pg_statio_all_tables</structname>と同じです。
 </entry>
      </row>
 
      <row>
-      <entry><structname>pg_statio_user_tables</><indexterm><primary>pg_statio_user_tables</primary></indexterm></entry>
+      <entry><structname>pg_statio_user_tables</structname><indexterm><primary>pg_statio_user_tables</primary></indexterm></entry>
 <!--
       <entry>Same as <structname>pg_statio_all_tables</>, except that only
       user tables are shown.</entry>
 -->
       <entry>
-ユーザテーブルのみが表示される点を除き、<structname>pg_statio_all_tables</>と同じです。
+ユーザテーブルのみが表示される点を除き、<structname>pg_statio_all_tables</structname>と同じです。
 </entry>
      </row>
 
      <row>
-      <entry><structname>pg_statio_all_indexes</><indexterm><primary>pg_statio_all_indexes</primary></indexterm></entry>
+      <entry><structname>pg_statio_all_indexes</structname><indexterm><primary>pg_statio_all_indexes</primary></indexterm></entry>
       <entry>
 <!--
        One row for each index in the current database,
        showing statistics about I/O on that specific index.
-       See <xref linkend="pg-statio-all-indexes-view"> for details.
+       See <xref linkend="pg-statio-all-indexes-view"/> for details.
 -->
 現在のデータベース内のインデックスごとに１行の形で、特定のインデックスに対するI/Oに関する統計情報を示します。
-詳細については<xref linkend="pg-statio-all-indexes-view">を示します。
+詳細については<xref linkend="pg-statio-all-indexes-view"/>を示します。
       </entry>
      </row>
 
      <row>
-      <entry><structname>pg_statio_sys_indexes</><indexterm><primary>pg_statio_sys_indexes</primary></indexterm></entry>
+      <entry><structname>pg_statio_sys_indexes</structname><indexterm><primary>pg_statio_sys_indexes</primary></indexterm></entry>
 <!--
       <entry>Same as <structname>pg_statio_all_indexes</>, except that only
       indexes on system tables are shown.</entry>
 -->
       <entry>
-システムテーブルのインデックスのみが表示される点を除き、<structname>pg_statio_all_indexes</> と同じです。
+システムテーブルのインデックスのみが表示される点を除き、<structname>pg_statio_all_indexes</structname> と同じです。
 </entry>
      </row>
 
      <row>
-      <entry><structname>pg_statio_user_indexes</><indexterm><primary>pg_statio_user_indexes</primary></indexterm></entry>
+      <entry><structname>pg_statio_user_indexes</structname><indexterm><primary>pg_statio_user_indexes</primary></indexterm></entry>
 <!--
       <entry>Same as <structname>pg_statio_all_indexes</>, except that only
       indexes on user tables are shown.</entry>
 -->
       <entry>
-ユーザテーブルのインデックスのみが表示される点を除き、<structname>pg_statio_all_indexes</>と同じです。
+ユーザテーブルのインデックスのみが表示される点を除き、<structname>pg_statio_all_indexes</structname>と同じです。
 </entry>
      </row>
 
      <row>
-      <entry><structname>pg_statio_all_sequences</><indexterm><primary>pg_statio_all_sequences</primary></indexterm></entry>
+      <entry><structname>pg_statio_all_sequences</structname><indexterm><primary>pg_statio_all_sequences</primary></indexterm></entry>
      <entry>
 <!--
        One row for each sequence in the current database,
        showing statistics about I/O on that specific sequence.
-       See <xref linkend="pg-statio-all-sequences-view"> for details.
+       See <xref linkend="pg-statio-all-sequences-view"/> for details.
 -->
 現在のデータベース内のシーケンスごとに１行の形で、特定のシーケンスに対するI/Oに関する統計情報を示します。
-詳細については<xref linkend="pg-statio-all-sequences-view">を参照してください。
+詳細については<xref linkend="pg-statio-all-sequences-view"/>を参照してください。
      </entry>
      </row>
 
      <row>
-      <entry><structname>pg_statio_sys_sequences</><indexterm><primary>pg_statio_sys_sequences</primary></indexterm></entry>
+      <entry><structname>pg_statio_sys_sequences</structname><indexterm><primary>pg_statio_sys_sequences</primary></indexterm></entry>
 <!--
       <entry>Same as <structname>pg_statio_all_sequences</>, except that only
       system sequences are shown.  (Presently, no system sequences are defined,
       so this view is always empty.)</entry>
 -->
 <entry>
-システムシーケンスのみが表示される点を除き、<structname>pg_statio_all_sequences</>と同じです
+システムシーケンスのみが表示される点を除き、<structname>pg_statio_all_sequences</structname>と同じです
 （現時点では、システムシーケンスは定義されていませんので、このビューは常に空です）。
 </entry>
      </row>
 
      <row>
-      <entry><structname>pg_statio_user_sequences</><indexterm><primary>pg_statio_user_sequences</primary></indexterm></entry>
+      <entry><structname>pg_statio_user_sequences</structname><indexterm><primary>pg_statio_user_sequences</primary></indexterm></entry>
 <!--
       <entry>Same as <structname>pg_statio_all_sequences</>, except that only
       user sequences are shown.</entry>
 -->
       <entry>
-ユーザシーケンスのみが表示される点を除き、<structname>pg_statio_all_sequences</>と同じです。
+ユーザシーケンスのみが表示される点を除き、<structname>pg_statio_all_sequences</structname>と同じです。
 </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_user_functions</><indexterm><primary>pg_stat_user_functions</primary></indexterm></entry>
+      <entry><structname>pg_stat_user_functions</structname><indexterm><primary>pg_stat_user_functions</primary></indexterm></entry>
       <entry>
 <!--
        One row for each tracked function, showing statistics
        about executions of that function. See
-       <xref linkend="pg-stat-user-functions-view"> for details.
+       <xref linkend="pg-stat-user-functions-view"/> for details.
 -->
 追跡された関数ごとに１行の形で、関数の実行に関する統計情報を示します。
-詳細については<xref linkend="pg-stat-user-functions-view">を参照してください。
+詳細については<xref linkend="pg-stat-user-functions-view"/>を参照してください。
       </entry>
      </row>
 
      <row>
-      <entry><structname>pg_stat_xact_user_functions</><indexterm><primary>pg_stat_xact_user_functions</primary></indexterm></entry>
+      <entry><structname>pg_stat_xact_user_functions</structname><indexterm><primary>pg_stat_xact_user_functions</primary></indexterm></entry>
 <!--
       <entry>Similar to <structname>pg_stat_user_functions</>, but counts only
       calls during the current transaction (which are <emphasis>not</>
       yet included in <structname>pg_stat_user_functions</>).</entry>
 -->
       <entry>
-<structname>pg_stat_user_functions</>と似ていますが、現在のトランザクション中に呼び出されたものだけをカウントします。
-(数値が見える時点では、これらの数値は<structname>pg_stat_user_functions</>に含まれて<emphasis>いません</>。)
+<structname>pg_stat_user_functions</structname>と似ていますが、現在のトランザクション中に呼び出されたものだけをカウントします。
+(数値が見える時点では、これらの数値は<structname>pg_stat_user_functions</structname>に含まれて<emphasis>いません</emphasis>。)
       </entry>
      </row>
 
@@ -857,10 +857,10 @@ WALアーカイバプロセスの活動状況に関する統計情報を１行�
    in combination with operating system utilities that allow insight
    into the kernel's handling of I/O.
 -->
-<structname>pg_statio_</>ビューは主に、バッファキャッシュの効率を評価する際に有用です。
+<structname>pg_statio_</structname>ビューは主に、バッファキャッシュの効率を評価する際に有用です。
 実ディスク読み取りの数がバッファヒットの数よりもかなり少ないのであれば、そのキャッシュはカーネル呼び出しを行うことなく、ほとんどの読み取り要求を満足させています。
-しかし、<productname>PostgreSQL</>バッファキャッシュに存在しないデータはカーネルのI/Oキャッシュにある可能性があり、そのため、物理的な読み取りを行うことなく取り出される可能性があるという<productname>PostgreSQL</>のディスクI/Oの取り扱いのため、これらの統計情報は、完全な論拠を提供しません。
-<productname>PostgreSQL</>のI/O動作に関するより詳細な情報を入手したいのであれば、<productname>PostgreSQL</>統計情報コレクタとカーネルのI/Oの取り扱いの監視を行うオペレーティングシステムユーティリティを組み合わせることを勧めます。
+しかし、<productname>PostgreSQL</productname>バッファキャッシュに存在しないデータはカーネルのI/Oキャッシュにある可能性があり、そのため、物理的な読み取りを行うことなく取り出される可能性があるという<productname>PostgreSQL</productname>のディスクI/Oの取り扱いのため、これらの統計情報は、完全な論拠を提供しません。
+<productname>PostgreSQL</productname>のI/O動作に関するより詳細な情報を入手したいのであれば、<productname>PostgreSQL</productname>統計情報コレクタとカーネルのI/Oの取り扱いの監視を行うオペレーティングシステムユーティリティを組み合わせることを勧めます。
   </para>
 
 
@@ -887,8 +887,8 @@ WALアーカイバプロセスの活動状況に関する統計情報を１行�
 
    <tbody>
     <row>
-     <entry><structfield>datid</></entry>
-     <entry><type>oid</></entry>
+     <entry><structfield>datid</structfield></entry>
+     <entry><type>oid</type></entry>
 <!--
      <entry>OID of the database this backend is connected to</entry>
 -->
@@ -897,8 +897,8 @@ WALアーカイバプロセスの活動状況に関する統計情報を１行�
      </entry>
     </row>
     <row>
-     <entry><structfield>datname</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>datname</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of the database this backend is connected to</entry>
 -->
@@ -907,8 +907,8 @@ WALアーカイバプロセスの活動状況に関する統計情報を１行�
      </entry>
     </row>
     <row>
-     <entry><structfield>pid</></entry>
-     <entry><type>integer</></entry>
+     <entry><structfield>pid</structfield></entry>
+     <entry><type>integer</type></entry>
 <!--
      <entry>Process ID of this backend</entry>
 -->
@@ -917,8 +917,8 @@ WALアーカイバプロセスの活動状況に関する統計情報を１行�
      </entry>
     </row>
     <row>
-     <entry><structfield>usesysid</></entry>
-     <entry><type>oid</></entry>
+     <entry><structfield>usesysid</structfield></entry>
+     <entry><type>oid</type></entry>
 <!--
      <entry>OID of the user logged into this backend</entry>
 -->
@@ -927,16 +927,16 @@ WALアーカイバプロセスの活動状況に関する統計情報を１行�
      </entry>
     </row>
     <row>
-     <entry><structfield>usename</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>usename</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of the user logged into this backend</entry>
 -->
      <entry>バックエンドに接続したユーザの名前です。</entry>
     </row>
     <row>
-     <entry><structfield>application_name</></entry>
-     <entry><type>text</></entry>
+     <entry><structfield>application_name</structfield></entry>
+     <entry><type>text</type></entry>
 <!--
      <entry>Name of the application that is connected
       to this backend</entry>
@@ -946,8 +946,8 @@ WALアーカイバプロセスの活動状況に関する統計情報を１行�
      </entry>
     </row>
     <row>
-     <entry><structfield>client_addr</></entry>
-     <entry><type>inet</></entry>
+     <entry><structfield>client_addr</structfield></entry>
+     <entry><type>inet</type></entry>
 <!--
      <entry>IP address of the client connected to this backend.
       If this field is null, it indicates either that the client is
@@ -960,33 +960,33 @@ WALアーカイバプロセスの活動状況に関する統計情報を１行�
      </entry>
     </row>
     <row>
-     <entry><structfield>client_hostname</></entry>
-     <entry><type>text</></entry>
+     <entry><structfield>client_hostname</structfield></entry>
+     <entry><type>text</type></entry>
      <entry>
 <!--
      <entry>Host name of the connected client, as reported by a
       reverse DNS lookup of <structfield>client_addr</>. This field will
       only be non-null for IP connections, and only when <xref
-      linkend="guc-log-hostname"> is enabled.
+      linkend="guc-log-hostname"/> is enabled.
 -->
-<structfield>client_addr</>の逆引き検索により報告された、接続クライアントのホスト名です。
-IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にのみこのフィールドは非NULLになります。
+<structfield>client_addr</structfield>の逆引き検索により報告された、接続クライアントのホスト名です。
+IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合にのみこのフィールドは非NULLになります。
      </entry>
     </row>
     <row>
-     <entry><structfield>client_port</></entry>
-     <entry><type>integer</></entry>
+     <entry><structfield>client_port</structfield></entry>
+     <entry><type>integer</type></entry>
 <!--
      <entry>TCP port number that the client is using for communication
       with this backend, or <literal>-1</> if a Unix socket is used
 -->
      <entry>
-クライアントがバックエンドとの通信に使用するTCPポート、もしUnixソケットを使用する場合は<literal>-1</>です。
+クライアントがバックエンドとの通信に使用するTCPポート、もしUnixソケットを使用する場合は<literal>-1</literal>です。
      </entry>
     </row>
     <row>
-     <entry><structfield>backend_start</></entry>
-     <entry><type>timestamp with time zone</></entry>
+     <entry><structfield>backend_start</structfield></entry>
+     <entry><type>timestamp with time zone</type></entry>
 <!--
      <entry>Time when this process was started.  For client backends,
       this is the time the client connected to the server.
@@ -997,8 +997,8 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
      </entry>
     </row>
     <row>
-     <entry><structfield>xact_start</></entry>
-     <entry><type>timestamp with time zone</></entry>
+     <entry><structfield>xact_start</structfield></entry>
+     <entry><type>timestamp with time zone</type></entry>
 <!--
      <entry>Time when this process' current transaction was started, or null
       if no transaction is active. If the current
@@ -1008,12 +1008,12 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
      <entry>
 プロセスの現在のトランザクションが開始した時刻です。
 活動中のトランザクションがない場合はNULLです。
-現在の問い合わせがトランザクションの先頭である場合、この列は<structfield>query_start</>列と同じです。
+現在の問い合わせがトランザクションの先頭である場合、この列は<structfield>query_start</structfield>列と同じです。
      </entry>
     </row>
     <row>
-     <entry><structfield>query_start</></entry>
-     <entry><type>timestamp with time zone</></entry>
+     <entry><structfield>query_start</structfield></entry>
+     <entry><type>timestamp with time zone</type></entry>
 <!--
      <entry>Time when the currently active query was started, or if
       <structfield>state</> is not <literal>active</>, when the last query
@@ -1021,20 +1021,20 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
 -->
      <entry>
 現在有効な問い合わせが開始した時刻です。
-もし<structfield>state</>が<literal>active</>でない場合は直前の問い合わせが開始した時刻です。
+もし<structfield>state</structfield>が<literal>active</literal>でない場合は直前の問い合わせが開始した時刻です。
      </entry>
     </row>
     <row>
-     <entry><structfield>state_change</></entry>
-     <entry><type>timestamp with time zone</></entry>
+     <entry><structfield>state_change</structfield></entry>
+     <entry><type>timestamp with time zone</type></entry>
 <!--
      <entry>Time when the <structfield>state</> was last changed</entry>
 -->
-     <entry><structfield>state</>の最終変更時刻です。</entry>
+     <entry><structfield>state</structfield>の最終変更時刻です。</entry>
     </row>
      <row>
-      <entry><structfield>wait_event_type</></entry>
-      <entry><type>text</></entry>
+      <entry><structfield>wait_event_type</structfield></entry>
+      <entry><type>text</type></entry>
 <!--
       <entry>The type of event for which the backend is waiting, if any;
        otherwise NULL. Possible values are:
@@ -1052,9 +1052,9 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
           of the lightweight lock.  (Some locks have specific names; others
           are part of a group of locks each with a similar purpose.)
 -->
-<literal>LWLock</>: バックエンドは軽量ロックを待っています。
+<literal>LWLock</literal>: バックエンドは軽量ロックを待っています。
 このようなそれぞれのロックは、共有メモリ内の特定のデータ構造を保護します。
-<literal>wait_event</>には軽量ロックの目的を特定する名前が入ります。
+<literal>wait_event</literal>には軽量ロックの目的を特定する名前が入ります。
 （特定の名前がついたロックもあれば、似たような目的のロックのグループの一部となっているものもあります。）
          </para>
         </listitem>
@@ -1068,10 +1068,10 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
           operations such as relation extension.  <literal>wait_event</> will
           identify the type of lock awaited.
 -->
-<literal>Lock</>: バックエンドは重量ロックを待っています。
+<literal>Lock</literal>: バックエンドは重量ロックを待っています。
 ロックマネージャロックや単にロックとしても知られている重量ロックは、主にテーブルのようなSQLで可視なオブジェクトを保護します。
 しかし、それらはリレーション拡張のような、なんらかの内部操作のために相互排他的に確保するためにも使用されます。
-<literal>wait_event</>は、待たせているロックの型を識別します。
+<literal>wait_event</literal>は、待たせているロックの型を識別します。
          </para>
         </listitem>
         <listitem>
@@ -1083,7 +1083,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
           another process holds an open cursor which last read data from the
           buffer in question.
 -->
-<literal>BufferPin</>: サーバプロセスは、ほかのどのプロセスもデータバッファを調べることができない期間に、データバッファにアクセスするために待機しています。
+<literal>BufferPin</literal>: サーバプロセスは、ほかのどのプロセスもデータバッファを調べることができない期間に、データバッファにアクセスするために待機しています。
 バッファピン待機は、他のプロセスが該当のバッファから最後に読み込んだデータのオープンカーソルを保持している場合に長引かされることがあります。
          </para>
         </listitem>
@@ -1094,9 +1094,9 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
           system processes waiting for activity in their main processing loop.
           <literal>wait_event</> will identify the specific wait point.
 -->
-<literal>Activity</>: サーバプロセスはアイドル状態です。
+<literal>Activity</literal>: サーバプロセスはアイドル状態です。
 システムプロセスがメインの処理ループ内で活動を待機している時に使用されます。
-<literal>wait_event</>によりその待機点が特定できます。
+<literal>wait_event</literal>によりその待機点が特定できます。
          </para>
         </listitem>
         <listitem>
@@ -1106,7 +1106,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
           in an extension module.  This category is useful for modules to
           track custom waiting points.
 -->
-<literal>Extension</>: サーバプロセスは拡張モジュール内で活動を待機しています。
+<literal>Extension</literal>: サーバプロセスは拡張モジュール内で活動を待機しています。
 この分類は、カスタム待機点を追跡するモジュールで役に立ちます。
          </para>
         </listitem>
@@ -1118,8 +1118,8 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
           something to happen that is independent from its internal processes.
           <literal>wait_event</> will identify the specific wait point.
 -->
-<literal>Client</>: サーバプロセスはユーザアプリケーションによるソケット上での何らかの活動を待機しており、またサーバはその内部プロセスとは無関係の何かが起きることを期待しています。
-<literal>wait_event</>によりその待機点が特定できます。
+<literal>Client</literal>: サーバプロセスはユーザアプリケーションによるソケット上での何らかの活動を待機しており、またサーバはその内部プロセスとは無関係の何かが起きることを期待しています。
+<literal>wait_event</literal>によりその待機点が特定できます。
          </para>
         </listitem>
         <listitem>
@@ -1129,8 +1129,8 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
           from another process in the server.  <literal>wait_event</> will
           identify the specific wait point.
 -->
-<literal>IPC</>: サーバプロセスは、サーバ内の別のプロセスによる何らかの活動を待機しています。
-<literal>wait_event</>によりその待機点が特定できます。
+<literal>IPC</literal>: サーバプロセスは、サーバ内の別のプロセスによる何らかの活動を待機しています。
+<literal>wait_event</literal>によりその待機点が特定できます。
          </para>
         </listitem>
         <listitem>
@@ -1140,8 +1140,8 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
           to expire.  <literal>wait_event</> will identify the specific wait
           point.
 -->
-<literal>Timeout</>: サーバプロセスはタイムアウトが満了するのを待機しています。
-<literal>wait_event</>によりその待機点が特定できます。
+<literal>Timeout</literal>: サーバプロセスはタイムアウトが満了するのを待機しています。
+<literal>wait_event</literal>によりその待機点が特定できます。
          </para>
         </listitem>
         <listitem>
@@ -1150,28 +1150,28 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
           <literal>IO</>: The server process is waiting for a IO to complete.
           <literal>wait_event</> will identify the specific wait point.
 -->
-<literal>IO</>: サーバプロセスは入出力が完了するのを待機しています。
-<literal>wait_event</>によりその待機点が特定できます。
+<literal>IO</literal>: サーバプロセスは入出力が完了するのを待機しています。
+<literal>wait_event</literal>によりその待機点が特定できます。
          </para>
         </listitem>
        </itemizedlist>
       </entry>
      </row>
     <row>
-     <entry><structfield>wait_event</></entry>
-     <entry><type>text</></entry>
+     <entry><structfield>wait_event</structfield></entry>
+     <entry><type>text</type></entry>
 <!--
      <entry>Wait event name if backend is currently waiting, otherwise NULL.
-     See <xref linkend="wait-event-table"> for details.
+     See <xref linkend="wait-event-table"/> for details.
 -->
      <entry>
 バックエンドが現在待機している場合は待機イベント名、その他はNULL。
-詳細は<xref linkend="wait-event-table">を参照してください。
+詳細は<xref linkend="wait-event-table"/>を参照してください。
      </entry>
     </row>
     <row>
-     <entry><structfield>state</></entry>
-     <entry><type>text</></entry>
+     <entry><structfield>state</structfield></entry>
+     <entry><type>text</type></entry>
 <!--
      <entry>Current overall state of this backend.
        Possible values are:
@@ -1185,7 +1185,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
 <!--
            <literal>active</>: The backend is executing a query.
 -->
-           <literal>active</>: バックエンドは問い合わせを実行中です。
+           <literal>active</literal>: バックエンドは問い合わせを実行中です。
           </para>
          </listitem>
          <listitem>
@@ -1193,7 +1193,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
 <!--
            <literal>idle</>: The backend is waiting for a new client command.
 -->
-           <literal>idle</>: バックエンドは新しいクライアントからのコマンドを待機しています。
+           <literal>idle</literal>: バックエンドは新しいクライアントからのコマンドを待機しています。
           </para>
          </listitem>
          <listitem>
@@ -1202,7 +1202,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
            <literal>idle in transaction</>: The backend is in a transaction,
            but is not currently executing a query.
 -->
-           <literal>idle in transaction</>: バックエンドはトランザクションの内部にいますが、現在実行中の問い合わせがありません。
+           <literal>idle in transaction</literal>: バックエンドはトランザクションの内部にいますが、現在実行中の問い合わせがありません。
           </para>
          </listitem>
          <listitem>
@@ -1212,7 +1212,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
            <literal>idle in transaction</>, except one of the statements in
            the transaction caused an error.
 -->
-           <literal>idle in transaction (aborted)</>: この状態は<literal>idle in transaction</>と似ていますが、トランザクション内のある文がエラーになっている点が異なります。
+           <literal>idle in transaction (aborted)</literal>: この状態は<literal>idle in transaction</literal>と似ていますが、トランザクション内のある文がエラーになっている点が異なります。
           </para>
          </listitem>
          <listitem>
@@ -1221,16 +1221,16 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
            <literal>fastpath function call</>: The backend is executing a
            fast-path function.
 -->
-           <literal>fastpath function call</>: バックエンドは近道関数を実行中です。
+           <literal>fastpath function call</literal>: バックエンドは近道関数を実行中です。
           </para>
          </listitem>
          <listitem>
            <para>
 <!--
            <literal>disabled</>: This state is reported if <xref
-           linkend="guc-track-activities"> is disabled in this backend.
+           linkend="guc-track-activities"/> is disabled in this backend.
 -->
-           <literal>disabled</>: この状態は、このバックエンドで<xref linkend="guc-track-activities">が無効である場合に報告されます。
+           <literal>disabled</literal>: この状態は、このバックエンドで<xref linkend="guc-track-activities"/>が無効である場合に報告されます。
           </para>
          </listitem>
        </itemizedlist>
@@ -1253,25 +1253,25 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
      <entry>The current backend's <literal>xmin</> horizon.</entry>
 -->
      <entry>
-現在のバックエンドの<literal>xmin</>。
+現在のバックエンドの<literal>xmin</literal>。
      </entry>
     </row>
     <row>
-     <entry><structfield>query</></entry>
-     <entry><type>text</></entry>
+     <entry><structfield>query</structfield></entry>
+     <entry><type>text</type></entry>
 <!--
      <entry>Text of this backend's most recent query. If
       <structfield>state</> is <literal>active</> this field shows the
       currently executing query. In all other states, it shows the last query
       that was executed. By default the query text is truncated at 1024
       characters; this value can be changed via the parameter
-      <xref linkend="guc-track-activity-query-size">.
+      <xref linkend="guc-track-activity-query-size"/>.
 -->
 <entry>
 バックエンドの最も最近の問い合わせテキストです。
-<structfield>state</>が<literal>active</>の場合、現在実行中の問い合わせを意味します。
+<structfield>state</structfield>が<literal>active</literal>の場合、現在実行中の問い合わせを意味します。
 その他のすべての状態では、実行済みの最後の問い合わせを示します。
-デフォルトでは問い合わせのテキストは1024文字で切り捨てられますが、この値はパラメータ<xref linkend="guc-track-activity-query-size">により変更できます。
+デフォルトでは問い合わせのテキストは1024文字で切り捨てられますが、この値はパラメータ<xref linkend="guc-track-activity-query-size"/>により変更できます。
      </entry>
     </row>
     <row>
@@ -1287,7 +1287,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
 -->
      <entry>
 現在のバックエンドの種別です。
-取り得る値は<literal>autovacuum launcher</>、<literal>autovacuum worker</>、<literal>background worker</>、<literal>background writer</>、<literal>client backend</>、<literal>checkpointer</>、<literal>startup</>、<literal>walreceiver</>、<literal>walsender</>、<literal>walwriter</>です。
+取り得る値は<literal>autovacuum launcher</literal>、<literal>autovacuum worker</literal>、<literal>background worker</literal>、<literal>background writer</literal>、<literal>client backend</literal>、<literal>checkpointer</literal>、<literal>startup</literal>、<literal>walreceiver</literal>、<literal>walsender</literal>、<literal>walwriter</literal>です。
      </entry>
     </row>
    </tbody>
@@ -1313,9 +1313,9 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
     means that a query is being executed, but is being blocked somewhere
     in the system.
 -->
-<structfield>wait_event</>と<structfield>state</>列は独立しています。
-バックエンドが<literal>active</>状態である場合、いくつかのイベントでは<literal>waiting</>かもしれませんし、そうでないかもしれません。
-状態が<literal>active</>であり、<structfield>wait_event</>がNULLでない場合、問い合わせは実行中ですが、システム内のどこかでブロックされていることを意味します。
+<structfield>wait_event</structfield>と<structfield>state</structfield>列は独立しています。
+バックエンドが<literal>active</literal>状態である場合、いくつかのイベントでは<literal>waiting</literal>かもしれませんし、そうでないかもしれません。
+状態が<literal>active</literal>であり、<structfield>wait_event</structfield>がNULLでない場合、問い合わせは実行中ですが、システム内のどこかでブロックされていることを意味します。
    </para>
   </note>
 
@@ -1341,29 +1341,29 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
 
       <tbody>
        <row>
-        <entry morerows="62"><literal>LWLock</></entry>
-        <entry><literal>ShmemIndexLock</></entry>
+        <entry morerows="62"><literal>LWLock</literal></entry>
+        <entry><literal>ShmemIndexLock</literal></entry>
 <!--
         <entry>Waiting to find or allocate space in shared memory.</entry>
 -->
         <entry>共有メモリ内に領域を発見する、もしくは割り当てるのを待っています。</entry>
        </row>
        <row>
-        <entry><literal>OidGenLock</></entry>
+        <entry><literal>OidGenLock</literal></entry>
 <!--
         <entry>Waiting to allocate or assign an OID.</entry>
 -->
         <entry>OIDを割り当て、または付与するのを待っています。</entry>
        </row>
         <row>
-         <entry><literal>XidGenLock</></entry>
+         <entry><literal>XidGenLock</literal></entry>
 <!--
          <entry>Waiting to allocate or assign a transaction id.</entry>
 -->
         <entry>トランザクションIDを割り当て、または付与するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>ProcArrayLock</></entry>
+         <entry><literal>ProcArrayLock</literal></entry>
 <!--
          <entry>Waiting to get a snapshot or clearing a transaction id at
          transaction end.</entry>
@@ -1371,7 +1371,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
          <entry>トランザクションの終了にてスナップショットを取得、またはトランザクションIDを消去するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>SInvalReadLock</></entry>
+         <entry><literal>SInvalReadLock</literal></entry>
 <!--
          <entry>Waiting to retrieve or remove messages from shared invalidation
          queue.</entry>
@@ -1379,28 +1379,28 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
          <entry>共有無効化キュー内のメッセージを検索、もしくは削除するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>SInvalWriteLock</></entry>
+         <entry><literal>SInvalWriteLock</literal></entry>
 <!--
          <entry>Waiting to add a message in shared invalidation queue.</entry>
 -->
          <entry>共有無効化キュー内のメッセージを追加するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>WALBufMappingLock</></entry>
+         <entry><literal>WALBufMappingLock</literal></entry>
 <!--
          <entry>Waiting to replace a page in WAL buffers.</entry>
 -->
          <entry>WALバッファ内のページの置き換えを待っています。</entry>
         </row>
         <row>
-         <entry><literal>WALWriteLock</></entry>
+         <entry><literal>WALWriteLock</literal></entry>
 <!--
          <entry>Waiting for WAL buffers to be written to disk.</entry>
 -->
          <entry>WALバッファがディスクに書き込まれるのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>ControlFileLock</></entry>
+         <entry><literal>ControlFileLock</literal></entry>
 <!--
          <entry>Waiting to read or update the control file or creation of a
          new WAL file.</entry>
@@ -1408,49 +1408,49 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
          <entry>制御ファイルの読み込みもしくは更新、または新しいWALファイルの作成を待っています。</entry>
         </row>
         <row>
-         <entry><literal>CheckpointLock</></entry>
+         <entry><literal>CheckpointLock</literal></entry>
 <!--
          <entry>Waiting to perform checkpoint.</entry>
 -->
          <entry>チェックポイントを処理することを待っています。</entry>
         </row>
         <row>
-         <entry><literal>CLogControlLock</></entry>
+         <entry><literal>CLogControlLock</literal></entry>
 <!--
          <entry>Waiting to read or update transaction status.</entry>
 -->
          <entry>トランザクションの状態を読み込み、または更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>SubtransControlLock</></entry>
+         <entry><literal>SubtransControlLock</literal></entry>
 <!--
          <entry>Waiting to read or update sub-transaction information.</entry>
 -->
          <entry>サブトランザクション情報の読み込み、または更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>MultiXactGenLock</></entry>
+         <entry><literal>MultiXactGenLock</literal></entry>
 <!--
          <entry>Waiting to read or update shared multixact state.</entry>
 -->
          <entry>共有マルチトランザクション状態の読み込み、または更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>MultiXactOffsetControlLock</></entry>
+         <entry><literal>MultiXactOffsetControlLock</literal></entry>
 <!--
          <entry>Waiting to read or update multixact offset mappings.</entry>
 -->
          <entry>マルチトランザクションオフセットマッピングの読み込み、または更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>MultiXactMemberControlLock</></entry>
+         <entry><literal>MultiXactMemberControlLock</literal></entry>
 <!--
          <entry>Waiting to read or update multixact member mappings.</entry>
 -->
          <entry>マルチトランザクションメンバーマッピングの読み込み、または更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>RelCacheInitLock</></entry>
+         <entry><literal>RelCacheInitLock</literal></entry>
 <!--
          <entry>Waiting to read or write relation cache initialization
          file.</entry>
@@ -1458,28 +1458,28 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
          <entry>リレーションキャッシュ初期化ファイルの読み込み、または書き込みするのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>CheckpointerCommLock</></entry>
+         <entry><literal>CheckpointerCommLock</literal></entry>
 <!--
          <entry>Waiting to manage fsync requests.</entry>
 -->
          <entry>fsyncリクエストを管理するために待機しています。</entry>
         </row>
         <row>
-         <entry><literal>TwoPhaseStateLock</></entry>
+         <entry><literal>TwoPhaseStateLock</literal></entry>
 <!--
          <entry>Waiting to read or update the state of prepared transactions.</entry>
 -->
          <entry>プリペアードトランザクションの状態を読み込み、または更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>TablespaceCreateLock</></entry>
+         <entry><literal>TablespaceCreateLock</literal></entry>
 <!--
          <entry>Waiting to create or drop the tablespace.</entry>
 -->
          <entry>テーブルスペースの作成、または削除するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>BtreeVacuumLock</></entry>
+         <entry><literal>BtreeVacuumLock</literal></entry>
 <!--
           <entry>Waiting to read or update vacuum-related information for a
           B-tree index.</entry>
@@ -1487,14 +1487,14 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
           <entry>B-Treeインデックスのバキュームに関連した情報の読み込み、または更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>AddinShmemInitLock</></entry>
+         <entry><literal>AddinShmemInitLock</literal></entry>
 <!--
          <entry>Waiting to manage space allocation in shared memory.</entry>
 -->
          <entry>共有メモリの領域確保を管理するために待機しています。</entry>
         </row>
         <row>
-         <entry><literal>AutovacuumLock</></entry>
+         <entry><literal>AutovacuumLock</literal></entry>
 <!--
          <entry>Autovacuum worker or launcher waiting to update or
          read the current state of autovacuum workers.</entry>
@@ -1502,7 +1502,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
          <entry>自動バキュームワーカの現在の状態を更新、または読み込むために待機している自動バキュームワーカまたはランチャ。</entry>
         </row>
         <row>
-         <entry><literal>AutovacuumScheduleLock</></entry>
+         <entry><literal>AutovacuumScheduleLock</literal></entry>
 <!--
          <entry>Waiting to ensure that the table it has selected for a vacuum
          still needs vacuuming.
@@ -1512,7 +1512,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
          </entry>
         </row>
         <row>
-         <entry><literal>SyncScanLock</></entry>
+         <entry><literal>SyncScanLock</literal></entry>
 <!--
          <entry>Waiting to get the start location of a scan on a table for
          synchronized scans.</entry>
@@ -1520,7 +1520,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
          <entry>同期スキャンのためにテーブル上のスキャン開始位置を取得するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>RelationMappingLock</></entry>
+         <entry><literal>RelationMappingLock</literal></entry>
 <!--
          <entry>Waiting to update the relation map file used to store catalog
          to filenode mapping.
@@ -1530,21 +1530,21 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
          </entry>
         </row>
         <row>
-         <entry><literal>AsyncCtlLock</></entry>
+         <entry><literal>AsyncCtlLock</literal></entry>
 <!--
          <entry>Waiting to read or update shared notification state.</entry>
 -->
          <entry>共有通知状態の読み込み、または更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>AsyncQueueLock</></entry>
+         <entry><literal>AsyncQueueLock</literal></entry>
 <!--
           <entry>Waiting to read or update notification messages.</entry>
 -->
          <entry>通知メッセージの読み込み、または更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>SerializableXactHashLock</></entry>
+         <entry><literal>SerializableXactHashLock</literal></entry>
 <!--
          <entry>Waiting to retrieve or store information about serializable
          transactions.</entry>
@@ -1552,7 +1552,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
          <entry>シリアライザブルトランザクションに関する情報を検索、または格納するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>SerializableFinishedListLock</></entry>
+         <entry><literal>SerializableFinishedListLock</literal></entry>
 <!--
          <entry>Waiting to access the list of finished serializable
          transactions.</entry>
@@ -1560,7 +1560,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
          <entry>完了したシリアライザブルトランザクションの一覧へアクセスするのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>SerializablePredicateLockListLock</></entry>
+         <entry><literal>SerializablePredicateLockListLock</literal></entry>
 <!--
          <entry>Waiting to perform an operation on a list of locks held by
          serializable transactions.</entry>
@@ -1568,7 +1568,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
          <entry>シリアライザブルトランザクションによって保持されたロックの一覧への操作を処理するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>OldSerXidLock</></entry>
+         <entry><literal>OldSerXidLock</literal></entry>
 <!--
          <entry>Waiting to read or record conflicting serializable
          transactions.</entry>
@@ -1576,7 +1576,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
          <entry>衝突しているシリアライザブルトランザクションの読み込み、または記録するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>SyncRepLock</></entry>
+         <entry><literal>SyncRepLock</literal></entry>
 <!--
          <entry>Waiting to read or update information about synchronous
          replicas.</entry>
@@ -1584,49 +1584,49 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
          <entry>同期レプリカに関する情報の読み込み、または更新のために待機しています。</entry>
         </row>
         <row>
-         <entry><literal>BackgroundWorkerLock</></entry>
+         <entry><literal>BackgroundWorkerLock</literal></entry>
 <!--
          <entry>Waiting to read or update background worker state.</entry>
 -->
          <entry>バックグラウンドワーカ状態の読み込み、または更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>DynamicSharedMemoryControlLock</></entry>
+         <entry><literal>DynamicSharedMemoryControlLock</literal></entry>
 <!--
          <entry>Waiting to read or update dynamic shared memory state.</entry>
 -->
          <entry>動的共有メモリ状態の読み込み、または更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>AutoFileLock</></entry>
+         <entry><literal>AutoFileLock</literal></entry>
 <!--
          <entry>Waiting to update the <filename>postgresql.auto.conf</> file.</entry>
 -->
-         <entry><filename>postgresql.auto.conf</>ファイルの更新するのを待っています。</entry>
+         <entry><filename>postgresql.auto.conf</filename>ファイルの更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>ReplicationSlotAllocationLock</></entry>
+         <entry><literal>ReplicationSlotAllocationLock</literal></entry>
 <!--
          <entry>Waiting to allocate or free a replication slot.</entry>
 -->
          <entry>レプリケーションスロットの割り当て、または解放するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>ReplicationSlotControlLock</></entry>
+         <entry><literal>ReplicationSlotControlLock</literal></entry>
 <!--
          <entry>Waiting to read or update replication slot state.</entry>
 -->
          <entry>レプリケーションスロット状態の読み込み、または更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>CommitTsControlLock</></entry>
+         <entry><literal>CommitTsControlLock</literal></entry>
 <!--
          <entry>Waiting to read or update transaction commit timestamps.</entry>
 -->
          <entry>トランザクションコミットタイムスタンプの読み込み、または更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>CommitTsLock</></entry>
+         <entry><literal>CommitTsLock</literal></entry>
 <!--
          <entry>Waiting to read or update the last value set for the
          transaction timestamp.</entry>
@@ -1634,140 +1634,140 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
          <entry>トランザクションタイムスタンプのために設定された最新の値を読み込み、または更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>ReplicationOriginLock</></entry>
+         <entry><literal>ReplicationOriginLock</literal></entry>
 <!--
          <entry>Waiting to setup, drop or use replication origin.</entry>
 -->
          <entry>レプリケーションオリジンのセットアップ、削除、または使用を待っています。</entry>
         </row>
         <row>
-         <entry><literal>MultiXactTruncationLock</></entry>
+         <entry><literal>MultiXactTruncationLock</literal></entry>
 <!--
          <entry>Waiting to read or truncate multixact information.</entry>
 -->
          <entry>マルチトランザクション情報の読み込み、またはトランケートを行うのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>OldSnapshotTimeMapLock</></entry>
+         <entry><literal>OldSnapshotTimeMapLock</literal></entry>
 <!--
          <entry>Waiting to read or update old snapshot control information.</entry>
 -->
          <entry>古いスナップショット制御情報の読み込み、または更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>BackendRandomLock</></entry>
+         <entry><literal>BackendRandomLock</literal></entry>
 <!--
          <entry>Waiting to generate a random number.</entry>
 -->
          <entry>乱数の生成を待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LogicalRepWorkerLock</></entry>
+         <entry><literal>LogicalRepWorkerLock</literal></entry>
 <!--
          <entry>Waiting for action on logical replication worker to finish.</entry>
 -->
          <entry>論理レプリケーションワーカの動作が完了するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>CLogTruncationLock</></entry>
+         <entry><literal>CLogTruncationLock</literal></entry>
 <!--
          <entry>Waiting to truncate the write-ahead log or waiting for write-ahead log truncation to finish.</entry>
 -->
          <entry>先行書き込みログの切り捨てを待機しているか、あるいは先行書き込みログの切り捨てが完了するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>clog</></entry>
+         <entry><literal>clog</literal></entry>
 <!--
          <entry>Waiting for I/O on a clog (transaction status) buffer.</entry>
 -->
          <entry>clog（トランザクション状態）バッファのI/Oを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>commit_timestamp</></entry>
+         <entry><literal>commit_timestamp</literal></entry>
 <!--
          <entry>Waiting for I/O on commit timestamp buffer.</entry>
 -->
          <entry>コミットタイムスタンプバッファのI/Oを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>subtrans</></entry>
+         <entry><literal>subtrans</literal></entry>
 <!--
          <entry>Waiting for I/O a subtransaction buffer.</entry>
 -->
          <entry>サブトランザクションバッファのI/Oを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>multixact_offset</></entry>
+         <entry><literal>multixact_offset</literal></entry>
 <!--
          <entry>Waiting for I/O on a multixact offset buffer.</entry>
 -->
          <entry>マルチトランザクションオフセットバッファのI/Oを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>multixact_member</></entry>
+         <entry><literal>multixact_member</literal></entry>
 <!--
          <entry>Waiting for I/O on a multixact_member buffer.</entry>
 -->
          <entry>マルチトランザクションメンバーバッファのI/Oを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>async</></entry>
+         <entry><literal>async</literal></entry>
 <!--
          <entry>Waiting for I/O on an async (notify) buffer.</entry>
 -->
          <entry>非同期（通知）バッファのI/Oを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>oldserxid</></entry>
+         <entry><literal>oldserxid</literal></entry>
 <!--
          <entry>Waiting to I/O on an oldserxid buffer.</entry>
 -->
          <entry>oldserxidバッファのI/Oを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>wal_insert</></entry>
+         <entry><literal>wal_insert</literal></entry>
 <!--
          <entry>Waiting to insert WAL into a memory buffer.</entry>
 -->
          <entry>メモリバッファにWALを挿入するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>buffer_content</></entry>
+         <entry><literal>buffer_content</literal></entry>
 <!--
          <entry>Waiting to read or write a data page in memory.</entry>
 -->
          <entry>メモリ内のデータページを読み込み、または書き込むのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>buffer_io</></entry>
+         <entry><literal>buffer_io</literal></entry>
 <!--
          <entry>Waiting for I/O on a data page.</entry>
 -->
          <entry>データページのI/Oを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>replication_origin</></entry>
+         <entry><literal>replication_origin</literal></entry>
 <!--
          <entry>Waiting to read or update the replication progress.</entry>
 -->
          <entry>レプリケーション進捗の読み込み、または更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>replication_slot_io</></entry>
+         <entry><literal>replication_slot_io</literal></entry>
 <!--
          <entry>Waiting for I/O on a replication slot.</entry>
 -->
          <entry>レプリケーションスロットのI/Oを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>proc</></entry>
+         <entry><literal>proc</literal></entry>
 <!--
          <entry>Waiting to read or update the fast-path lock information.</entry>
 -->
          <entry>ファストパスロック情報の読み込み、または更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>buffer_mapping</></entry>
+         <entry><literal>buffer_mapping</literal></entry>
 <!--
          <entry>Waiting to associate a data block with a buffer in the buffer
          pool.</entry>
@@ -1775,7 +1775,7 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
          <entry>データブロックをバッファプール内のバッファと関連付けるのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>lock_manager</></entry>
+         <entry><literal>lock_manager</literal></entry>
 <!--
          <entry>Waiting to add or examine locks for backends, or waiting to
          join or exit a locking group (used by parallel query).</entry>
@@ -1784,869 +1784,869 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
          または、（並列問い合わせによって使用される）ロッキンググループへ加わる、または抜けるのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>predicate_lock_manager</></entry>
+         <entry><literal>predicate_lock_manager</literal></entry>
 <!--
          <entry>Waiting to add or examine predicate lock information.</entry>
 -->
          <entry>述語ロック情報の追加、もしくは検査するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>parallel_query_dsa</></entry>
+         <entry><literal>parallel_query_dsa</literal></entry>
 <!--
          <entry>Waiting for parallel query dynamic shared memory allocation lock.</entry>
 -->
          <entry>パラレルクエリの動的共有メモリ割り当てロックを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>tbm</></entry>
+         <entry><literal>tbm</literal></entry>
 <!--
          <entry>Waiting for TBM shared iterator lock.</entry>
 -->
          <entry>TBM共有イテレータロックを待機しています。</entry>
         </row>
         <row>
-         <entry morerows="9"><literal>Lock</></entry>
-         <entry><literal>relation</></entry>
+         <entry morerows="9"><literal>Lock</literal></entry>
+         <entry><literal>relation</literal></entry>
 <!--
          <entry>Waiting to acquire a lock on a relation.</entry>
 -->
          <entry>リレーション上のロックを獲得するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>extend</></entry>
+         <entry><literal>extend</literal></entry>
 <!--
          <entry>Waiting to extend a relation.</entry>
 -->
          <entry>リレーションを拡張するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>page</></entry>
+         <entry><literal>page</literal></entry>
 <!--
          <entry>Waiting to acquire a lock on page of a relation.</entry>
 -->
          <entry>リレーションのページ上のロックを獲得するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>tuple</></entry>
+         <entry><literal>tuple</literal></entry>
 <!--
          <entry>Waiting to acquire a lock on a tuple.</entry>
 -->
          <entry>タプル上のロックを獲得するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>transactionid</></entry>
+         <entry><literal>transactionid</literal></entry>
 <!--
          <entry>Waiting for a transaction to finish.</entry>
 -->
          <entry>トランザクションが終了するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>virtualxid</></entry>
+         <entry><literal>virtualxid</literal></entry>
 <!--
          <entry>Waiting to acquire a virtual xid lock.</entry>
 -->
          <entry>仮想xidロックを獲得するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>speculative token</></entry>
+         <entry><literal>speculative token</literal></entry>
 <!--
          <entry>Waiting to acquire a speculative insertion lock.</entry>
 -->
          <entry>推論的挿入ロックを獲得するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>object</></entry>
+         <entry><literal>object</literal></entry>
 <!--
          <entry>Waiting to acquire a lock on a non-relation database object.</entry>
 -->
          <entry>非リレーションデータベースオブジェクト上のロックを獲得するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>userlock</></entry>
+         <entry><literal>userlock</literal></entry>
 <!--
          <entry>Waiting to acquire a user lock.</entry>
 -->
          <entry>ユーザロックを獲得するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>advisory</></entry>
+         <entry><literal>advisory</literal></entry>
 <!--
          <entry>Waiting to acquire an advisory user lock.</entry>
 -->
          <entry>助言ユーザロックを獲得するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>BufferPin</></entry>
-         <entry><literal>BufferPin</></entry>
+         <entry><literal>BufferPin</literal></entry>
+         <entry><literal>BufferPin</literal></entry>
 <!--
          <entry>Waiting to acquire a pin on a buffer.</entry>
 -->
          <entry>バッファ上のピンを獲得するのを待っています。</entry>
         </row>
         <row>
-         <entry morerows="13"><literal>Activity</></entry>
-         <entry><literal>ArchiverMain</></entry>
+         <entry morerows="13"><literal>Activity</literal></entry>
+         <entry><literal>ArchiverMain</literal></entry>
 <!--
          <entry>Waiting in main loop of the archiver process.</entry>
 -->
          <entry>アーカイバプロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
-         <entry><literal>AutoVacuumMain</></entry>
+         <entry><literal>AutoVacuumMain</literal></entry>
 <!--
          <entry>Waiting in main loop of autovacuum launcher process.</entry>
 -->
          <entry>自動バキュームのランチャプロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
-         <entry><literal>BgWriterHibernate</></entry>
+         <entry><literal>BgWriterHibernate</literal></entry>
 <!--
          <entry>Waiting in background writer process, hibernating.</entry>
 -->
          <entry>バックグラウンドライタプロセス内で待機し、休止状態になっています。</entry>
         </row>
         <row>
-         <entry><literal>BgWriterMain</></entry>
+         <entry><literal>BgWriterMain</literal></entry>
 <!--
          <entry>Waiting in main loop of background writer process background worker.</entry>
 -->
          <entry>バックグラウンドライタプロセスのバックグラウンドワーカのメインループ内で待機しています。</entry>
         </row>
         <row>
-         <entry><literal>CheckpointerMain</></entry>
+         <entry><literal>CheckpointerMain</literal></entry>
 <!--
          <entry>Waiting in main loop of checkpointer process.</entry>
 -->
          <entry>チェックポインタプロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LogicalLauncherMain</></entry>
+         <entry><literal>LogicalLauncherMain</literal></entry>
 <!--
          <entry>Waiting in main loop of logical launcher process.</entry>
 -->
          <entry>ロジカルランチャプロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LogicalApplyMain</></entry>
+         <entry><literal>LogicalApplyMain</literal></entry>
 <!--
          <entry>Waiting in main loop of logical apply process.</entry>
 -->
          <entry>ロジカルアプライプロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
-         <entry><literal>PgStatMain</></entry>
+         <entry><literal>PgStatMain</literal></entry>
 <!--
          <entry>Waiting in main loop of the statistics collector process.</entry>
 -->
          <entry>統計情報収集プロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
-         <entry><literal>RecoveryWalAll</></entry>
+         <entry><literal>RecoveryWalAll</literal></entry>
 <!--
          <entry>Waiting for WAL from any kind of source (local, archive or stream) at recovery.</entry>
 -->
          <entry>リカバリ時にあらゆる種類のソース（ローカル、アーカイブ、またはストリーム）からのWALを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>RecoveryWalStream</></entry>
+         <entry><literal>RecoveryWalStream</literal></entry>
 <!--
          <entry>Waiting for WAL from a stream at recovery.</entry>
 -->
          <entry>リカバリ時にストリームからのWALを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>SysLoggerMain</></entry>
+         <entry><literal>SysLoggerMain</literal></entry>
 <!--
          <entry>Waiting in main loop of syslogger process.</entry>
 -->
          <entry>sysloggerプロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
-         <entry><literal>WalReceiverMain</></entry>
+         <entry><literal>WalReceiverMain</literal></entry>
 <!--
          <entry>Waiting in main loop of WAL receiver process.</entry>
 -->
          <entry>WAL受信プロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
-         <entry><literal>WalSenderMain</></entry>
+         <entry><literal>WalSenderMain</literal></entry>
 <!--
          <entry>Waiting in main loop of WAL sender process.</entry>
 -->
          <entry>WAL送信プロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
-         <entry><literal>WalWriterMain</></entry>
+         <entry><literal>WalWriterMain</literal></entry>
 <!--
          <entry>Waiting in main loop of WAL writer process.</entry>
 -->
          <entry>WAL書き込みプロセスのメインループ内で待機しています。</entry>
         </row>
         <row>
-         <entry morerows="7"><literal>Client</></entry>
-         <entry><literal>ClientRead</></entry>
+         <entry morerows="7"><literal>Client</literal></entry>
+         <entry><literal>ClientRead</literal></entry>
 <!--
          <entry>Waiting to read data from the client.</entry>
 -->
          <entry>クライアントからのデータの読み込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ClientWrite</></entry>
+         <entry><literal>ClientWrite</literal></entry>
 <!--
          <entry>Waiting to write data to the client.</entry>
 -->
          <entry>クライアントへのデータの書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LibPQWalReceiverConnect</></entry>
+         <entry><literal>LibPQWalReceiverConnect</literal></entry>
 <!--
          <entry>Waiting in WAL receiver to establish connection to remote server.</entry>
 -->
          <entry>WAL受信プロセス内でリモートサーバへの接続が確立するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LibPQWalReceiverReceive</></entry>
+         <entry><literal>LibPQWalReceiverReceive</literal></entry>
 <!--
          <entry>Waiting in WAL receiver to receive data from remote server.</entry>
 -->
          <entry>WAL受信プロセス内でリモートサーバからデータを受信するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>SSLOpenServer</></entry>
+         <entry><literal>SSLOpenServer</literal></entry>
 <!--
          <entry>Waiting for SSL while attempting connection.</entry>
 -->
          <entry>接続試行中にSSLを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>WalReceiverWaitStart</></entry>
+         <entry><literal>WalReceiverWaitStart</literal></entry>
 <!--
          <entry>Waiting for startup process to send initial data for streaming replication.</entry>
 -->
          <entry>起動プロセスがストリーミングレプリケーションの初期データを送信するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>WalSenderWaitForWAL</></entry>
+         <entry><literal>WalSenderWaitForWAL</literal></entry>
 <!--
          <entry>Waiting for WAL to be flushed in WAL sender process.</entry>
 -->
          <entry>WALがWAL送信プロセス内でフラッシュされるのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>WalSenderWriteData</></entry>
+         <entry><literal>WalSenderWriteData</literal></entry>
 <!--
          <entry>Waiting for any activity when processing replies from WAL receiver in WAL sender process.</entry>
 -->
          <entry>WAL送信プロセス内でWAL受信者からの応答を処理している時に、何らかの活動を待機しています。</entry>
         </row>
         <row>
-         <entry><literal>Extension</></entry>
-         <entry><literal>Extension</></entry>
+         <entry><literal>Extension</literal></entry>
+         <entry><literal>Extension</literal></entry>
 <!--
          <entry>Waiting in an extension.</entry>
 -->
          <entry>拡張内で待機しています。</entry>
         </row>
         <row>
-         <entry morerows="16"><literal>IPC</></entry>
-         <entry><literal>BgWorkerShutdown</></entry>
+         <entry morerows="16"><literal>IPC</literal></entry>
+         <entry><literal>BgWorkerShutdown</literal></entry>
 <!--
          <entry>Waiting for background worker to shut down.</entry>
 -->
          <entry>バックグラウンドワーカがシャットダウンするのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>BgWorkerStartup</></entry>
+         <entry><literal>BgWorkerStartup</literal></entry>
 <!--
          <entry>Waiting for background worker to start up.</entry>
 -->
          <entry>バックグラウンドワーカが起動するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>BtreePage</></entry>
+         <entry><literal>BtreePage</literal></entry>
 <!--
          <entry>Waiting for the page number needed to continue a parallel B-tree scan to become available.</entry>
 -->
          <entry>パラレルBツリースキャンに必要なページ番号が利用可能になるのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ExecuteGather</></entry>
+         <entry><literal>ExecuteGather</literal></entry>
 <!--
          <entry>Waiting for activity from child process when executing <literal>Gather</> node.</entry>
 -->
-         <entry><literal>Gather</>ノードの実行時に子プロセスの活動を待機しています。</entry>
+         <entry><literal>Gather</literal>ノードの実行時に子プロセスの活動を待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LogicalSyncData</></entry>
+         <entry><literal>LogicalSyncData</literal></entry>
 <!--
          <entry>Waiting for logical replication remote server to send data for initial table synchronization.</entry>
 -->
          <entry>論理レプリケーションのリモートサーバが最初のテーブル同期のためのデータを送信するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LogicalSyncStateChange</></entry>
+         <entry><literal>LogicalSyncStateChange</literal></entry>
 <!--
          <entry>Waiting for logical replication remote server to change state.</entry>
 -->
          <entry>論理レプリケーションのリモートサーバが状態を変更するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>MessageQueueInternal</></entry>
+         <entry><literal>MessageQueueInternal</literal></entry>
 <!--
          <entry>Waiting for other process to be attached in shared message queue.</entry>
 -->
          <entry>他のプロセスが共有メッセージキューにアタッチされるのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>MessageQueuePutMessage</></entry>
+         <entry><literal>MessageQueuePutMessage</literal></entry>
 <!--
          <entry>Waiting to write a protocol message to a shared message queue.</entry>
 -->
          <entry>共有メッセージキューにプロトコルのメッセージを書くのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>MessageQueueReceive</></entry>
+         <entry><literal>MessageQueueReceive</literal></entry>
 <!--
          <entry>Waiting to receive bytes from a shared message queue.</entry>
 -->
          <entry>共有メッセージキューからバイトを受信するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>MessageQueueSend</></entry>
+         <entry><literal>MessageQueueSend</literal></entry>
 <!--
          <entry>Waiting to send bytes to a shared message queue.</entry>
 -->
          <entry>共有メッセージキューにバイトを送信するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ParallelFinish</></entry>
+         <entry><literal>ParallelFinish</literal></entry>
 <!--
          <entry>Waiting for parallel workers to finish computing.</entry>
 -->
          <entry>パラレルワーカが計算を完了するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ParallelBitmapScan</></entry>
+         <entry><literal>ParallelBitmapScan</literal></entry>
 <!--
          <entry>Waiting for parallel bitmap scan to become initialized.</entry>
 -->
          <entry>パラレルビットマップスキャンが初期化されるのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ProcArrayGroupUpdate</></entry>
+         <entry><literal>ProcArrayGroupUpdate</literal></entry>
 <!--
          <entry>Waiting for group leader to clear transaction id at transaction end.</entry>
 -->
          <entry>トランザクション終了時にグループリーダがトランザクションIDをクリアするのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ReplicationOriginDrop</></entry>
+         <entry><literal>ReplicationOriginDrop</literal></entry>
 <!--
          <entry>Waiting for a replication origin to become inactive to be dropped.</entry>
 -->
          <entry>レプリケーションオリジンが削除できるよう非活動状態になるのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ReplicationSlotDrop</></entry>
+         <entry><literal>ReplicationSlotDrop</literal></entry>
 <!--
          <entry>Waiting for a replication slot to become inactive to be dropped.</entry>
 -->
          <entry>レプリケーションスロットが削除できるよう非活動状態になるのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>SafeSnapshot</></entry>
+         <entry><literal>SafeSnapshot</literal></entry>
 <!--
          <entry>Waiting for a snapshot for a <literal>READ ONLY DEFERRABLE</> transaction.</entry>
 -->
-         <entry><literal>READ ONLY DEFERRABLE</>のトランザクションのスナップショットを待機しています。</entry>
+         <entry><literal>READ ONLY DEFERRABLE</literal>のトランザクションのスナップショットを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>SyncRep</></entry>
+         <entry><literal>SyncRep</literal></entry>
 <!--
          <entry>Waiting for confirmation from remote server during synchronous replication.</entry>
 -->
          <entry>同期レプリケーション中に、リモートサーバからの確認を待機しています。</entry>
         </row>
         <row>
-         <entry morerows="2"><literal>Timeout</></entry>
-         <entry><literal>BaseBackupThrottle</></entry>
+         <entry morerows="2"><literal>Timeout</literal></entry>
+         <entry><literal>BaseBackupThrottle</literal></entry>
 <!--
          <entry>Waiting during base backup when throttling activity.</entry>
 -->
          <entry>スロットル活動時にベースバックアップで待機しています。</entry>
         </row>
         <row>
-         <entry><literal>PgSleep</></entry>
+         <entry><literal>PgSleep</literal></entry>
 <!--
          <entry>Waiting in process that called <function>pg_sleep</>.</entry>
 -->
-         <entry><function>pg_sleep</>を呼び出したプロセス内で待機しています。</entry>
+         <entry><function>pg_sleep</function>を呼び出したプロセス内で待機しています。</entry>
         </row>
         <row>
-         <entry><literal>RecoveryApplyDelay</></entry>
+         <entry><literal>RecoveryApplyDelay</literal></entry>
 <!--
          <entry>Waiting to apply WAL at recovery because it is delayed.</entry>
 -->
          <entry>リカバリ時のWAL適用が遅延させられたため待機しています。</entry>
         </row>
         <row>
-         <entry morerows="65"><literal>IO</></entry>
-         <entry><literal>BufFileRead</></entry>
+         <entry morerows="65"><literal>IO</literal></entry>
+         <entry><literal>BufFileRead</literal></entry>
 <!--
          <entry>Waiting for a read from a buffered file.</entry>
 -->
          <entry>バッファファイルからの読み取りを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>BufFileWrite</></entry>
+         <entry><literal>BufFileWrite</literal></entry>
 <!--
          <entry>Waiting for a write to a buffered file.</entry>
 -->
          <entry>バッファファイルへの書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ControlFileRead</></entry>
+         <entry><literal>ControlFileRead</literal></entry>
 <!--
          <entry>Waiting for a read from the control file.</entry>
 -->
          <entry>制御ファイルからの読み取りを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ControlFileSync</></entry>
+         <entry><literal>ControlFileSync</literal></entry>
 <!--
          <entry>Waiting for the control file to reach stable storage.</entry>
 -->
          <entry>制御ファイルが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ControlFileSyncUpdate</></entry>
+         <entry><literal>ControlFileSyncUpdate</literal></entry>
 <!--
          <entry>Waiting for an update to the control file to reach stable storage.</entry>
 -->
          <entry>制御ファイルの更新が安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ControlFileWrite</></entry>
+         <entry><literal>ControlFileWrite</literal></entry>
 <!--
          <entry>Waiting for a write to the control file.</entry>
 -->
          <entry>制御ファイルへの書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ControlFileWriteUpdate</></entry>
+         <entry><literal>ControlFileWriteUpdate</literal></entry>
 <!--
          <entry>Waiting for a write to update the control file.</entry>
 -->
          <entry>制御ファイルの更新の書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>CopyFileRead</></entry>
+         <entry><literal>CopyFileRead</literal></entry>
 <!--
          <entry>Waiting for a read during a file copy operation.</entry>
 -->
          <entry>ファイルコピーの操作の間、読み込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>CopyFileWrite</></entry>
+         <entry><literal>CopyFileWrite</literal></entry>
 <!--
          <entry>Waiting for a write during a file copy operation.</entry>
 -->
          <entry>ファイルコピーの操作の間、書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>DataFileExtend</></entry>
+         <entry><literal>DataFileExtend</literal></entry>
 <!--
          <entry>Waiting for a relation data file to be extended.</entry>
 -->
          <entry>リレーションのデータファイルが拡張されるのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>DataFileFlush</></entry>
+         <entry><literal>DataFileFlush</literal></entry>
 <!--
          <entry>Waiting for a relation data file to reach stable storage.</entry>
 -->
          <entry>リレーションのデータファイルが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>DataFileImmediateSync</></entry>
+         <entry><literal>DataFileImmediateSync</literal></entry>
 <!--
          <entry>Waiting for an immediate synchronization of a relation data file to stable storage.</entry>
 -->
          <entry>リレーションのデータファイルが安定したストレージに即座に同期されるのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>DataFilePrefetch</></entry>
+         <entry><literal>DataFilePrefetch</literal></entry>
 <!--
          <entry>Waiting for an asynchronous prefetch from a relation data file.</entry>
 -->
          <entry>リレーションのデータファイルからの非同期プリフェッチを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>DataFileRead</></entry>
+         <entry><literal>DataFileRead</literal></entry>
 <!--
          <entry>Waiting for a read from a relation data file.</entry>
 -->
          <entry>リレーションのデータファイルからの読み込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>DataFileSync</></entry>
+         <entry><literal>DataFileSync</literal></entry>
 <!--
          <entry>Waiting for changes to a relation data file to reach stable storage.</entry>
 -->
          <entry>リレーションのデータファイルへの変更が安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>DataFileTruncate</></entry>
+         <entry><literal>DataFileTruncate</literal></entry>
 <!--
          <entry>Waiting for a relation data file to be truncated.</entry>
 -->
          <entry>リレーションのデータファイルが切り詰められるのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>DataFileWrite</></entry>
+         <entry><literal>DataFileWrite</literal></entry>
 <!--
          <entry>Waiting for a write to a relation data file.</entry>
 -->
          <entry>リレーションのデータファイルへの書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>DSMFillZeroWrite</></entry>
+         <entry><literal>DSMFillZeroWrite</literal></entry>
 <!--
          <entry>Waiting to write zero bytes to a dynamic shared memory backing file.</entry>
 -->
          <entry>動的共有メモリの背後のファイルにゼロのバイトを書き込むのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LockFileAddToDataDirRead</></entry>
+         <entry><literal>LockFileAddToDataDirRead</literal></entry>
 <!--
          <entry>Waiting for a read while adding a line to the data directory lock file.</entry>
 -->
          <entry>データディレクトリのロックファイルに行を追加する間の読み込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LockFileAddToDataDirSync</></entry>
+         <entry><literal>LockFileAddToDataDirSync</literal></entry>
 <!--
          <entry>Waiting for data to reach stable storage while adding a line to the data directory lock file.</entry>
 -->
          <entry>データディレクトリのロックファイルに行を追加する間、データが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LockFileAddToDataDirWrite</></entry>
+         <entry><literal>LockFileAddToDataDirWrite</literal></entry>
 <!--
          <entry>Waiting for a write while adding a line to the data directory lock file.</entry>
 -->
          <entry>データディレクトリのロックファイルに行を追加する間、書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LockFileCreateRead</></entry>
+         <entry><literal>LockFileCreateRead</literal></entry>
 <!--
          <entry>Waiting to read while creating the data directory lock file.</entry>
 -->
          <entry>データディレクトリのロックファイルを作成する間、読み込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LockFileCreateSync</></entry>
+         <entry><literal>LockFileCreateSync</literal></entry>
 <!--
          <entry>Waiting for data to reach stable storage while creating the data directory lock file.</entry>
 -->
          <entry>データディレクトリのロックファイルを作成する間、データが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LockFileCreateWrite</></entry>
+         <entry><literal>LockFileCreateWrite</literal></entry>
 <!--
          <entry>Waiting for a write while creating the data directory lock file.</entry>
 -->
          <entry>データディレクトリのロックファイルを作成する間、書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LockFileReCheckDataDirRead</></entry>
+         <entry><literal>LockFileReCheckDataDirRead</literal></entry>
 <!--
          <entry>Waiting for a read during recheck of the data directory lock file.</entry>
 -->
          <entry>データディレクトリのロックファイルを再検査する間に読み込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LogicalRewriteCheckpointSync</></entry>
+         <entry><literal>LogicalRewriteCheckpointSync</literal></entry>
 <!--
          <entry>Waiting for logical rewrite mappings to reach stable storage during a checkpoint.</entry>
 -->
          <entry>チェックポイントの間に、論理的な再書き込みのマッピングがストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LogicalRewriteMappingSync</></entry>
+         <entry><literal>LogicalRewriteMappingSync</literal></entry>
 <!--
          <entry>Waiting for mapping data to reach stable storage during a logical rewrite.</entry>
 -->
          <entry>論理的な再書き込みの間に、マッピングデータが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LogicalRewriteMappingWrite</></entry>
+         <entry><literal>LogicalRewriteMappingWrite</literal></entry>
 <!--
          <entry>Waiting for a write of mapping data during a logical rewrite.</entry>
 -->
          <entry>論理的な再書き込みの間に、マッピングデータの書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LogicalRewriteSync</></entry>
+         <entry><literal>LogicalRewriteSync</literal></entry>
 <!--
          <entry>Waiting for logical rewrite mappings to reach stable storage.</entry>
 -->
          <entry>論理的な再書き込みのマッピングが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>LogicalRewriteWrite</></entry>
+         <entry><literal>LogicalRewriteWrite</literal></entry>
 <!--
          <entry>Waiting for a write of logical rewrite mappings.</entry>
 -->
          <entry>論理的な再書き込みのマッピングの書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>RelationMapRead</></entry>
+         <entry><literal>RelationMapRead</literal></entry>
 <!--
          <entry>Waiting for a read of the relation map file.</entry>
 -->
          <entry>リレーションのマップファイルの読み込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>RelationMapSync</></entry>
+         <entry><literal>RelationMapSync</literal></entry>
 <!--
          <entry>Waiting for the relation map file to reach stable storage.</entry>
 -->
          <entry>リレーションのマップファイルが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>RelationMapWrite</></entry>
+         <entry><literal>RelationMapWrite</literal></entry>
 <!--
          <entry>Waiting for a write to the relation map file.</entry>
 -->
          <entry>リレーションのマップファイルの書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ReorderBufferRead</></entry>
+         <entry><literal>ReorderBufferRead</literal></entry>
 <!--
          <entry>Waiting for a read during reorder buffer management.</entry>
 -->
          <entry>並べ替えのバッファ管理の間に読み込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ReorderBufferWrite</></entry>
+         <entry><literal>ReorderBufferWrite</literal></entry>
 <!--
          <entry>Waiting for a write during reorder buffer management.</entry>
 -->
          <entry>並べ替えのバッファ管理の間に書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ReorderLogicalMappingRead</></entry>
+         <entry><literal>ReorderLogicalMappingRead</literal></entry>
 <!--
          <entry>Waiting for a read of a logical mapping during reorder buffer management.</entry>
 -->
          <entry>並べ替えのバッファ管理の間に、論理マッピングの読み込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ReplicationSlotRead</></entry>
+         <entry><literal>ReplicationSlotRead</literal></entry>
 <!--
          <entry>Waiting for a read from a replication slot control file.</entry>
 -->
          <entry>レプリケーションスロットの制御ファイルからの読み込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ReplicationSlotRestoreSync</></entry>
+         <entry><literal>ReplicationSlotRestoreSync</literal></entry>
 <!--
          <entry>Waiting for a replication slot control file to reach stable storage while restoring it to memory.</entry>
 -->
          <entry>レプリケーションスロットの制御ファイルをメモリにリストアする間、それが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ReplicationSlotSync</></entry>
+         <entry><literal>ReplicationSlotSync</literal></entry>
 <!--
          <entry>Waiting for a replication slot control file to reach stable storage.</entry>
 -->
          <entry>レプリケーションスロットの制御ファイルが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>ReplicationSlotWrite</></entry>
+         <entry><literal>ReplicationSlotWrite</literal></entry>
 <!--
          <entry>Waiting for a write to a replication slot control file.</entry>
 -->
          <entry>レプリケーションスロットの制御ファイルへの書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>SLRUFlushSync</></entry>
+         <entry><literal>SLRUFlushSync</literal></entry>
 <!--
          <entry>Waiting for SLRU data to reach stable storage during a checkpoint or database shutdown.</entry>
 -->
          <entry>チェックポイントまたはデータベースのシャットダウン中に、SLRUデータが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>SLRURead</></entry>
+         <entry><literal>SLRURead</literal></entry>
 <!--
          <entry>Waiting for a read of an SLRU page.</entry>
 -->
          <entry>SLRUページの読み込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>SLRUSync</></entry>
+         <entry><literal>SLRUSync</literal></entry>
 <!--
          <entry>Waiting for SLRU data to reach stable storage following a page write.</entry>
 -->
          <entry>ページ書き込みの後、SLRUデータが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>SLRUWrite</></entry>
+         <entry><literal>SLRUWrite</literal></entry>
 <!--
          <entry>Waiting for a write of an SLRU page.</entry>
 -->
          <entry>SLRUページの書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>SnapbuildRead</></entry>
+         <entry><literal>SnapbuildRead</literal></entry>
 <!--
          <entry>Waiting for a read of a serialized historical catalog snapshot.</entry>
 -->
          <entry>シリアライズされた通時的カタログのスナップショットの読み込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>SnapbuildSync</></entry>
+         <entry><literal>SnapbuildSync</literal></entry>
 <!--
          <entry>Waiting for a serialized historical catalog snapshot to reach stable storage.</entry>
 -->
          <entry>シリアライズされた通時的カタログのスナップショットが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>SnapbuildWrite</></entry>
+         <entry><literal>SnapbuildWrite</literal></entry>
 <!--
          <entry>Waiting for a write of a serialized historical catalog snapshot.</entry>
 -->
          <entry>シリアライズされた通時的スナップショットの書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>TimelineHistoryFileSync</></entry>
+         <entry><literal>TimelineHistoryFileSync</literal></entry>
 <!--
          <entry>Waiting for a timeline history file received via streaming replication to reach stable storage.</entry>
 -->
          <entry>ストリーミングレプリケーションを経由して受け取ったタイムラインの履歴ファイルが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>TimelineHistoryFileWrite</></entry>
+         <entry><literal>TimelineHistoryFileWrite</literal></entry>
 <!--
          <entry>Waiting for a write of a timeline history file received via streaming replication.</entry>
 -->
          <entry>ストリーミングレプリケーションを経由して受け取ったタイムラインの履歴ファイルの書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>TimelineHistoryRead</></entry>
+         <entry><literal>TimelineHistoryRead</literal></entry>
 <!--
          <entry>Waiting for a read of a timeline history file.</entry>
 -->
          <entry>タイムラインの履歴ファイルの読み込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>TimelineHistorySync</></entry>
+         <entry><literal>TimelineHistorySync</literal></entry>
 <!--
          <entry>Waiting for a newly created timeline history file to reach stable storage.</entry>
 -->
          <entry>新しく作成されたタイムラインの履歴ファイルが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>TimelineHistoryWrite</></entry>
+         <entry><literal>TimelineHistoryWrite</literal></entry>
 <!--
          <entry>Waiting for a write of a newly created timeline history file.</entry>
 -->
          <entry>新しく作成されたタイムラインの履歴ファイルの書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>TwophaseFileRead</></entry>
+         <entry><literal>TwophaseFileRead</literal></entry>
 <!--
          <entry>Waiting for a read of a two phase state file.</entry>
 -->
          <entry>二相の状態ファイルの読み込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>TwophaseFileSync</></entry>
+         <entry><literal>TwophaseFileSync</literal></entry>
 <!--
          <entry>Waiting for a two phase state file to reach stable storage.</entry>
 -->
          <entry>二相の状態ファイルが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>TwophaseFileWrite</></entry>
+         <entry><literal>TwophaseFileWrite</literal></entry>
 <!--
          <entry>Waiting for a write of a two phase state file.</entry>
 -->
          <entry>二相の状態ファイルの書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>WALBootstrapSync</></entry>
+         <entry><literal>WALBootstrapSync</literal></entry>
 <!--
          <entry>Waiting for WAL to reach stable storage during bootstrapping.</entry>
 -->
          <entry>ブートストラップ時にWALが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>WALBootstrapWrite</></entry>
+         <entry><literal>WALBootstrapWrite</literal></entry>
 <!--
          <entry>Waiting for a write of a WAL page during bootstrapping.</entry>
 -->
          <entry>ブートストラップ時にWALページの書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>WALCopyRead</></entry>
+         <entry><literal>WALCopyRead</literal></entry>
 <!--
          <entry>Waiting for a read when creating a new WAL segment by copying an existing one.</entry>
 -->
          <entry>既存のWALセグメントをコピーして新しいWALセグメントを作成する時に読み込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>WALCopySync</></entry>
+         <entry><literal>WALCopySync</literal></entry>
 <!--
          <entry>Waiting a new WAL segment created by copying an existing one to reach stable storage.</entry>
 -->
          <entry>既存のWALセグメントをコピーして作成した新しいWALセグメントが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>WALCopyWrite</></entry>
+         <entry><literal>WALCopyWrite</literal></entry>
 <!--
          <entry>Waiting for a write when creating a new WAL segment by copying an existing one.</entry>
 -->
          <entry>既存のWALセグメントをコピーして新しいWALセグメントを作成する時に書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>WALInitSync</></entry>
+         <entry><literal>WALInitSync</literal></entry>
 <!--
          <entry>Waiting for a newly initialized WAL file to reach stable storage.</entry>
 -->
          <entry>新しく初期化されたWALファイルが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>WALInitWrite</></entry>
+         <entry><literal>WALInitWrite</literal></entry>
 <!--
          <entry>Waiting for a write while initializing a new WAL file.</entry>
 -->
          <entry>新しいWALファイルを初期化している時に書き込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>WALRead</></entry>
+         <entry><literal>WALRead</literal></entry>
 <!--
          <entry>Waiting for a read from a WAL file.</entry>
 -->
          <entry>WALファイルからの読み込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>WALSenderTimelineHistoryRead</></entry>
+         <entry><literal>WALSenderTimelineHistoryRead</literal></entry>
 <!--
          <entry>Waiting for a read from a timeline history file during walsender timeline command.</entry>
 -->
          <entry>WAL送信サーバのタイムラインコマンドで、タイムラインの履歴ファイルの読み込みを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>WALSyncMethodAssign</></entry>
+         <entry><literal>WALSyncMethodAssign</literal></entry>
 <!--
          <entry>Waiting for data to reach stable storage while assigning WAL sync method.</entry>
 -->
          <entry>WALの同期方法を割り当てている時にデータが安定したストレージに到達するのを待機しています。</entry>
         </row>
         <row>
-         <entry><literal>WALWrite</></entry>
+         <entry><literal>WALWrite</literal></entry>
 <!--
          <entry>Waiting for a write to a WAL file.</entry>
 -->
@@ -2666,8 +2666,8 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
      won't have that information, so we display <literal>extension</> for such
      cases.
 -->
-拡張によって登録されたトランシェでは、名称が拡張によって指定され、それが<structfield>wait_event</>として表示されます。
-ユーザが（動的共有メモリ内に割り当てを持つことにより）バックエンドの一つの中で、そのトランシェを登録することは十分考えられますが、その場合は他のバックエンドはその情報を持たないので、このような場合には<literal>extension</>と表示します。
+拡張によって登録されたトランシェでは、名称が拡張によって指定され、それが<structfield>wait_event</structfield>として表示されます。
+ユーザが（動的共有メモリ内に割り当てを持つことにより）バックエンドの一つの中で、そのトランシェを登録することは十分考えられますが、その場合は他のバックエンドはその情報を持たないので、このような場合には<literal>extension</literal>と表示します。
     </para>
    </note>
 
@@ -2708,32 +2708,32 @@ SELECT pid, wait_event_type, wait_event FROM pg_stat_activity WHERE wait_event i
 
    <tbody>
     <row>
-     <entry><structfield>pid</></entry>
-     <entry><type>integer</></entry>
+     <entry><structfield>pid</structfield></entry>
+     <entry><type>integer</type></entry>
 <!--
      <entry>Process ID of a WAL sender process</entry>
 -->
      <entry>WAL送信プロセスのプロセスIDです。</entry>
     </row>
     <row>
-     <entry><structfield>usesysid</></entry>
-     <entry><type>oid</></entry>
+     <entry><structfield>usesysid</structfield></entry>
+     <entry><type>oid</type></entry>
 <!--
      <entry>OID of the user logged into this WAL sender process</entry>
 -->
      <entry>WAL送信プロセスにログインしたユーザのOIDです。</entry>
     </row>
     <row>
-     <entry><structfield>usename</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>usename</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of the user logged into this WAL sender process</entry>
 -->
      <entry>WAL送信プロセスにログインしたユーザの名前です。</entry>
     </row>
     <row>
-     <entry><structfield>application_name</></entry>
-     <entry><type>text</></entry>
+     <entry><structfield>application_name</structfield></entry>
+     <entry><type>text</type></entry>
 <!--
      <entry>Name of the application that is connected
       to this WAL sender</entry>
@@ -2741,8 +2741,8 @@ SELECT pid, wait_event_type, wait_event FROM pg_stat_activity WHERE wait_event i
      <entry>WAL送信処理に接続したアプリケーションの名前です。</entry>
     </row>
     <row>
-     <entry><structfield>client_addr</></entry>
-     <entry><type>inet</></entry>
+     <entry><structfield>client_addr</structfield></entry>
+     <entry><type>inet</type></entry>
 <!--
      <entry>IP address of the client connected to this WAL sender.
       If this field is null, it indicates that the client is
@@ -2754,32 +2754,32 @@ WAL送信処理に接続したクライアントのIPアドレスです。
      </entry>
     </row>
     <row>
-     <entry><structfield>client_hostname</></entry>
-     <entry><type>text</></entry>
+     <entry><structfield>client_hostname</structfield></entry>
+     <entry><type>text</type></entry>
 <!--
      <entry>Host name of the connected client, as reported by a
       reverse DNS lookup of <structfield>client_addr</>. This field will
       only be non-null for IP connections, and only when <xref
-      linkend="guc-log-hostname"> is enabled.
+      linkend="guc-log-hostname"/> is enabled.
 -->
      <entry>
-<structfield>client_addr</>のDNS逆引き検索により報告された、接続クライアントのホスト名です。
-IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にのみこのフィールドは非NULLになります。
+<structfield>client_addr</structfield>のDNS逆引き検索により報告された、接続クライアントのホスト名です。
+IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合にのみこのフィールドは非NULLになります。
      </entry>
     </row>
     <row>
-     <entry><structfield>client_port</></entry>
-     <entry><type>integer</></entry>
+     <entry><structfield>client_port</structfield></entry>
+     <entry><type>integer</type></entry>
 <!--
      <entry>TCP port number that the client is using for communication
       with this WAL sender, or <literal>-1</> if a Unix socket is used
 -->
-     <entry>クライアントがWAL送信処理との通信に使用するTCPポート番号、もしUnixソケットを使用する場合は<literal>-1</>です。
+     <entry>クライアントがWAL送信処理との通信に使用するTCPポート番号、もしUnixソケットを使用する場合は<literal>-1</literal>です。
      </entry>
     </row>
     <row>
-     <entry><structfield>backend_start</></entry>
-     <entry><type>timestamp with time zone</></entry>
+     <entry><structfield>backend_start</structfield></entry>
+     <entry><type>timestamp with time zone</type></entry>
 <!--
      <entry>Time when this process was started, i.e., when the
       client connected to this WAL sender
@@ -2792,13 +2792,13 @@ IP接続、かつ<xref linkend="guc-log-hostname">が有効である場合にの
      <entry><type>xid</type></entry>
 <!--
      <entry>This standby's <literal>xmin</> horizon reported
-     by <xref linkend="guc-hot-standby-feedback">.</entry>
+     by <xref linkend="guc-hot-standby-feedback"/>.</entry>
 -->
-     <entry><xref linkend="guc-hot-standby-feedback">により報告されたこのスタンバイの<literal>xmin</>です。</entry>
+     <entry><xref linkend="guc-hot-standby-feedback"/>により報告されたこのスタンバイの<literal>xmin</literal>です。</entry>
     </row>
     <row>
-     <entry><structfield>state</></entry>
-     <entry><type>text</></entry>
+     <entry><structfield>state</structfield></entry>
+     <entry><type>text</type></entry>
 <!--
      <entry>Current WAL sender state.
        Possible values are:
@@ -2812,7 +2812,7 @@ WAL送信サーバの現在の状態です。
 <!--
            <literal>startup</>: This WAL sender is starting up.
 -->
-           <literal>startup</>: このWAL送信サーバは起動するところです。
+           <literal>startup</literal>: このWAL送信サーバは起動するところです。
           </para>
          </listitem>
          <listitem>
@@ -2821,7 +2821,7 @@ WAL送信サーバの現在の状態です。
            <literal>catchup</>: This WAL sender's connected standby is
            catching up with the primary.
 -->
-           <literal>catchup</>: このWAL送信サーバが接続しているスタンバイはプライマリに追いつこうとしています。
+           <literal>catchup</literal>: このWAL送信サーバが接続しているスタンバイはプライマリに追いつこうとしています。
           </para>
          </listitem>
          <listitem>
@@ -2830,7 +2830,7 @@ WAL送信サーバの現在の状態です。
            <literal>streaming</>: This WAL sender is streaming changes
            after its connected standby server has caught up with the primary.
 -->
-           <literal>streaming</>: このWAL送信サーバは、接続先のスタンバイサーバがプライマリに追いついた後、変更をストリーミングしています。
+           <literal>streaming</literal>: このWAL送信サーバは、接続先のスタンバイサーバがプライマリに追いついた後、変更をストリーミングしています。
           </para>
          </listitem>
          <listitem>
@@ -2838,7 +2838,7 @@ WAL送信サーバの現在の状態です。
 <!--
            <literal>backup</>: This WAL sender is sending a backup.
 -->
-           <literal>backup</>: このWAL送信サーバはバックアップを送信しています。
+           <literal>backup</literal>: このWAL送信サーバはバックアップを送信しています。
           </para>
          </listitem>
          <listitem>
@@ -2846,23 +2846,23 @@ WAL送信サーバの現在の状態です。
 <!--
            <literal>stopping</>: This WAL sender is stopping.
 -->
-           <literal>stopping</>: このWAL送信サーバは停止するところです。
+           <literal>stopping</literal>: このWAL送信サーバは停止するところです。
           </para>
          </listitem>
        </itemizedlist>
      </entry>
     </row>
     <row>
-     <entry><structfield>sent_lsn</></entry>
-     <entry><type>pg_lsn</></entry>
+     <entry><structfield>sent_lsn</structfield></entry>
+     <entry><type>pg_lsn</type></entry>
 <!--
      <entry>Last write-ahead log location sent on this connection</entry>
 -->
      <entry>この接続で送信された最後の先行書き込みログの位置です。</entry>
     </row>
     <row>
-     <entry><structfield>write_lsn</></entry>
-     <entry><type>pg_lsn</></entry>
+     <entry><structfield>write_lsn</structfield></entry>
+     <entry><type>pg_lsn</type></entry>
 <!--
      <entry>Last write-ahead log location written to disk by this standby
       server</entry>
@@ -2870,8 +2870,8 @@ WAL送信サーバの現在の状態です。
      <entry>このスタンバイサーバによってディスクに書き出された最後の先行書き込みログ位置です。</entry>
     </row>
     <row>
-     <entry><structfield>flush_lsn</></entry>
-     <entry><type>pg_lsn</></entry>
+     <entry><structfield>flush_lsn</structfield></entry>
+     <entry><type>pg_lsn</type></entry>
 <!--
      <entry>Last write-ahead log location flushed to disk by this standby
       server</entry>
@@ -2879,8 +2879,8 @@ WAL送信サーバの現在の状態です。
      <entry>このスタンバイサーバによってディスクに吐き出された最後の先行書き込みログ位置です。</entry>
     </row>
     <row>
-     <entry><structfield>replay_lsn</></entry>
-     <entry><type>pg_lsn</></entry>
+     <entry><structfield>replay_lsn</structfield></entry>
+     <entry><type>pg_lsn</type></entry>
 <!--
      <entry>Last write-ahead log location replayed into the database on this
       standby server</entry>
@@ -2888,8 +2888,8 @@ WAL送信サーバの現在の状態です。
      <entry>このスタンバイサーバ上のデータベースに再生された最後の先行書き込みログ位置です。</entry>
     </row>
     <row>
-     <entry><structfield>write_lag</></entry>
-     <entry><type>interval</></entry>
+     <entry><structfield>write_lag</structfield></entry>
+     <entry><type>interval</type></entry>
 <!--
      <entry>Time elapsed between flushing recent WAL locally and receiving
       notification that this standby server has written it (but not yet
@@ -2904,8 +2904,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>flush_lag</></entry>
-     <entry><type>interval</></entry>
+     <entry><structfield>flush_lag</structfield></entry>
+     <entry><type>interval</type></entry>
 <!--
      <entry>Time elapsed between flushing recent WAL locally and receiving
       notification that this standby server has written and flushed it
@@ -2920,8 +2920,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>replay_lag</></entry>
-     <entry><type>interval</></entry>
+     <entry><structfield>replay_lag</structfield></entry>
+     <entry><type>interval</type></entry>
 <!--
      <entry>Time elapsed between flushing recent WAL locally and receiving
       notification that this standby server has written, flushed and
@@ -2936,8 +2936,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>sync_priority</></entry>
-     <entry><type>integer</></entry>
+     <entry><structfield>sync_priority</structfield></entry>
+     <entry><type>integer</type></entry>
 <!--
      <entry>Priority of this standby server for being chosen as the
       synchronous standby in a priority-based synchronous replication.
@@ -2949,8 +2949,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>sync_state</></entry>
-     <entry><type>text</></entry>
+     <entry><structfield>sync_state</structfield></entry>
+     <entry><type>text</type></entry>
 <!--
      <entry>Synchronous state of this standby server.
        Possible values are:
@@ -2964,7 +2964,7 @@ WAL送信サーバの現在の状態です。
 <!--
            <literal>async</>: This standby server is asynchronous.
 -->
-           <literal>async</>: このスタンバイサーバは非同期です。
+           <literal>async</literal>: このスタンバイサーバは非同期です。
           </para>
          </listitem>
          <listitem>
@@ -2974,7 +2974,7 @@ WAL送信サーバの現在の状態です。
            but can potentially become synchronous if one of current
            synchronous ones fails.
 -->
-           <literal>potential</>: このスタンバイサーバは現在非同期ですが、現在同期中のサーバの一つが故障すると同期になる可能性があります。
+           <literal>potential</literal>: このスタンバイサーバは現在非同期ですが、現在同期中のサーバの一つが故障すると同期になる可能性があります。
           </para>
          </listitem>
          <listitem>
@@ -2982,7 +2982,7 @@ WAL送信サーバの現在の状態です。
 <!--
            <literal>sync</>: This standby server is synchronous.
 -->
-           <literal>sync</>: このスタンバイサーバは同期です。
+           <literal>sync</literal>: このスタンバイサーバは同期です。
           </para>
          </listitem>
          <listitem>
@@ -2991,7 +2991,7 @@ WAL送信サーバの現在の状態です。
            <literal>quorum</>: This standby server is considered as a candidate
            for quorum standbys.
 -->
-           <literal>quorum</>: このサーバはクォーラムのスタンバイの候補とみなされています。
+           <literal>quorum</literal>: このサーバはクォーラムのスタンバイの候補とみなされています。
           </para>
          </listitem>
        </itemizedlist>
@@ -3091,24 +3091,24 @@ WAL送信サーバの現在の状態です。
 
    <tbody>
     <row>
-     <entry><structfield>pid</></entry>
-     <entry><type>integer</></entry>
+     <entry><structfield>pid</structfield></entry>
+     <entry><type>integer</type></entry>
 <!--
      <entry>Process ID of the WAL receiver process</entry>
 -->
      <entry>WALレシーバプロセスのプロセスID</entry>
     </row>
     <row>
-     <entry><structfield>status</></entry>
-     <entry><type>text</></entry>
+     <entry><structfield>status</structfield></entry>
+     <entry><type>text</type></entry>
 <!--
      <entry>Activity status of the WAL receiver process</entry>
 -->
      <entry>WALレシーバプロセスの活動状態</entry>
     </row>
     <row>
-     <entry><structfield>receive_start_lsn</></entry>
-     <entry><type>pg_lsn</></entry>
+     <entry><structfield>receive_start_lsn</structfield></entry>
+     <entry><type>pg_lsn</type></entry>
 <!--
      <entry>First write-ahead log location used when WAL receiver is
       started</entry>
@@ -3116,16 +3116,16 @@ WAL送信サーバの現在の状態です。
      <entry>WALレシーバが開始された時に使われる先行書き込みログの最初の位置</entry>
     </row>
     <row>
-     <entry><structfield>receive_start_tli</></entry>
-     <entry><type>integer</></entry>
+     <entry><structfield>receive_start_tli</structfield></entry>
+     <entry><type>integer</type></entry>
 <!--
      <entry>First timeline number used when WAL receiver is started</entry>
 -->
      <entry>WALレシーバが開始された時に使われる初期タイムライン番号</entry>
     </row>
     <row>
-     <entry><structfield>received_lsn</></entry>
-     <entry><type>pg_lsn</></entry>
+     <entry><structfield>received_lsn</structfield></entry>
+     <entry><type>pg_lsn</type></entry>
 <!--
      <entry>Last write-ahead log location already received and flushed to
       disk, the initial value of this field being the first log location used
@@ -3135,8 +3135,8 @@ WAL送信サーバの現在の状態です。
      この列の初期値は、WALレシーバが開始された時に使用される、最初のログ位置です。</entry>
     </row>
     <row>
-     <entry><structfield>received_tli</></entry>
-     <entry><type>integer</></entry>
+     <entry><structfield>received_tli</structfield></entry>
+     <entry><type>integer</type></entry>
 <!--
      <entry>Timeline number of last write-ahead log location received and
       flushed to disk, the initial value of this field being the timeline
@@ -3148,48 +3148,48 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>last_msg_send_time</></entry>
-     <entry><type>timestamp with time zone</></entry>
+     <entry><structfield>last_msg_send_time</structfield></entry>
+     <entry><type>timestamp with time zone</type></entry>
 <!--
      <entry>Send time of last message received from origin WAL sender</entry>
 -->
      <entry>オリジンWALセンダから受信した最新メッセージの送信時間</entry>
     </row>
     <row>
-     <entry><structfield>last_msg_receipt_time</></entry>
-     <entry><type>timestamp with time zone</></entry>
+     <entry><structfield>last_msg_receipt_time</structfield></entry>
+     <entry><type>timestamp with time zone</type></entry>
 <!--
      <entry>Receipt time of last message received from origin WAL sender</entry>
 -->
      <entry>オリジンWALセンダから受信した最新メッセージの受信時間</entry>
     </row>
     <row>
-     <entry><structfield>latest_end_lsn</></entry>
-     <entry><type>pg_lsn</></entry>
+     <entry><structfield>latest_end_lsn</structfield></entry>
+     <entry><type>pg_lsn</type></entry>
 <!--
      <entry>Last write-ahead log location reported to origin WAL sender</entry>
 -->
      <entry>オリジンWALセンダへ報告された最新の先行書き込みログ位置</entry>
     </row>
     <row>
-     <entry><structfield>latest_end_time</></entry>
-     <entry><type>timestamp with time zone</></entry>
+     <entry><structfield>latest_end_time</structfield></entry>
+     <entry><type>timestamp with time zone</type></entry>
 <!--
      <entry>Time of last write-ahead log location reported to origin WAL sender</entry>
 -->
      <entry>オリジンWALセンダへ最新の先行書き込みログ位置が報告された時間</entry>
     </row>
     <row>
-     <entry><structfield>slot_name</></entry>
-     <entry><type>text</></entry>
+     <entry><structfield>slot_name</structfield></entry>
+     <entry><type>text</type></entry>
 <!--
      <entry>Replication slot name used by this WAL receiver</entry>
 -->
      <entry>WALレシーバによって使用されたレプリケーションスロット名</entry>
     </row>
     <row>
-     <entry><structfield>conninfo</></entry>
-     <entry><type>text</></entry>
+     <entry><structfield>conninfo</structfield></entry>
+     <entry><type>text</type></entry>
      <entry>
 <!--
       Connection string used by this WAL receiver,
@@ -3229,32 +3229,32 @@ WAL送信サーバの現在の状態です。
 
    <tbody>
     <row>
-     <entry><structfield>subid</></entry>
-     <entry><type>oid</></entry>
+     <entry><structfield>subid</structfield></entry>
+     <entry><type>oid</type></entry>
 <!--
      <entry>OID of the subscription</entry>
 -->
      <entry>サブスクリプションのOID</entry>
     </row>
     <row>
-     <entry><structfield>subname</></entry>
-     <entry><type>text</></entry>
+     <entry><structfield>subname</structfield></entry>
+     <entry><type>text</type></entry>
 <!--
      <entry>Name of the subscription</entry>
 -->
      <entry>サブスクリプションの名前</entry>
     </row>
     <row>
-     <entry><structfield>pid</></entry>
-     <entry><type>integer</></entry>
+     <entry><structfield>pid</structfield></entry>
+     <entry><type>integer</type></entry>
 <!--
      <entry>Process ID of the subscription worker process</entry>
 -->
      <entry>サブスクリプションのワーカプロセスのプロセスID</entry>
     </row>
     <row>
-     <entry><structfield>relid</></entry>
-     <entry><type>Oid</></entry>
+     <entry><structfield>relid</structfield></entry>
+     <entry><type>Oid</type></entry>
 <!--
      <entry>OID of the relation that the worker is synchronizing; null for the
      main apply worker</entry>
@@ -3262,8 +3262,8 @@ WAL送信サーバの現在の状態です。
      <entry>ワーカが同期しているリレーションのOID、メインの適用ワーカの場合はNULL</entry>
     </row>
     <row>
-     <entry><structfield>received_lsn</></entry>
-     <entry><type>pg_lsn</></entry>
+     <entry><structfield>received_lsn</structfield></entry>
+     <entry><type>pg_lsn</type></entry>
 <!--
      <entry>Last write-ahead log location received, the initial value of
       this field being 0</entry>
@@ -3271,16 +3271,16 @@ WAL送信サーバの現在の状態です。
      <entry>最後に受け取った先行書き込みログ位置、このフィールドの初期値は0</entry>
     </row>
     <row>
-     <entry><structfield>last_msg_send_time</></entry>
-     <entry><type>timestamp with time zone</></entry>
+     <entry><structfield>last_msg_send_time</structfield></entry>
+     <entry><type>timestamp with time zone</type></entry>
 <!--
      <entry>Send time of last message received from origin WAL sender</entry>
 -->
      <entry>オリジンWAL送信サーバから受け取った最後のメッセージの送信時刻</entry>
     </row>
     <row>
-     <entry><structfield>last_msg_receipt_time</></entry>
-     <entry><type>timestamp with time zone</></entry>
+     <entry><structfield>last_msg_receipt_time</structfield></entry>
+     <entry><type>timestamp with time zone</type></entry>
 <!--
      <entry>Receipt time of last message received from origin WAL sender
 -->
@@ -3288,8 +3288,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>latest_end_lsn</></entry>
-     <entry><type>pg_lsn</></entry>
+     <entry><structfield>latest_end_lsn</structfield></entry>
+     <entry><type>pg_lsn</type></entry>
 <!--
      <entry>Last write-ahead log location reported to origin WAL sender
 -->
@@ -3297,8 +3297,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>latest_end_time</></entry>
-     <entry><type>timestamp with time zone</></entry>
+     <entry><structfield>latest_end_time</structfield></entry>
+     <entry><type>timestamp with time zone</type></entry>
 <!--
      <entry>Time of last write-ahead log location reported to origin WAL
       sender</entry>
@@ -3340,24 +3340,24 @@ WAL送信サーバの現在の状態です。
 
    <tbody>
     <row>
-     <entry><structfield>pid</></entry>
-     <entry><type>integer</></entry>
+     <entry><structfield>pid</structfield></entry>
+     <entry><type>integer</type></entry>
 <!--
      <entry>Process ID of a backend or WAL sender process</entry>
 -->
      <entry>バックエンドプロセスまたはWAL送信プロセスのプロセスIDです。</entry>
     </row>
     <row>
-     <entry><structfield>ssl</></entry>
-     <entry><type>boolean</></entry>
+     <entry><structfield>ssl</structfield></entry>
+     <entry><type>boolean</type></entry>
 <!--
      <entry>True if SSL is used on this connection</entry>
 -->
      <entry>この接続でSSLが使用されていれば真になります。</entry>
     </row>
     <row>
-     <entry><structfield>version</></entry>
-     <entry><type>text</></entry>
+     <entry><structfield>version</structfield></entry>
+     <entry><type>text</type></entry>
 <!--
      <entry>Version of SSL in use, or NULL if SSL is not in use
       on this connection</entry>
@@ -3365,8 +3365,8 @@ WAL送信サーバの現在の状態です。
      <entry>使用されているSSLのバージョン、この接続でSSLが使用されていなければNULLになります。</entry>
     </row>
     <row>
-     <entry><structfield>cipher</></entry>
-     <entry><type>text</></entry>
+     <entry><structfield>cipher</structfield></entry>
+     <entry><type>text</type></entry>
 <!--
      <entry>Name of SSL cipher in use, or NULL if SSL is not in use
       on this connection</entry>
@@ -3374,8 +3374,8 @@ WAL送信サーバの現在の状態です。
      <entry>使用されているSSL暗号の名前、この接続でSSLが使用されていなければNULLになります。</entry>
     </row>
     <row>
-     <entry><structfield>bits</></entry>
-     <entry><type>integer</></entry>
+     <entry><structfield>bits</structfield></entry>
+     <entry><type>integer</type></entry>
 <!--
      <entry>Number of bits in the encryption algorithm used, or NULL
      if SSL is not used on this connection</entry>
@@ -3383,8 +3383,8 @@ WAL送信サーバの現在の状態です。
      <entry>使用されている暗号アルゴリズムのビット数、この接続でSSLが使用されていなければNULLになります。</entry>
     </row>
     <row>
-     <entry><structfield>compression</></entry>
-     <entry><type>boolean</></entry>
+     <entry><structfield>compression</structfield></entry>
+     <entry><type>boolean</type></entry>
 <!--
      <entry>True if SSL compression is in use, false if not,
       or NULL if SSL is not in use on this connection</entry>
@@ -3392,8 +3392,8 @@ WAL送信サーバの現在の状態です。
      <entry>SSL圧縮が使用されていれば真、使用されていなければ偽、この接続でSSLが使用されていなければNULLになります。</entry>
     </row>
     <row>
-     <entry><structfield>clientdn</></entry>
-     <entry><type>text</></entry>
+     <entry><structfield>clientdn</structfield></entry>
+     <entry><type>text</type></entry>
 <!--
      <entry>Distinguished Name (DN) field from the client certificate
       used, or NULL if no client certificate was supplied or if SSL
@@ -3446,7 +3446,7 @@ WAL送信サーバの現在の状態です。
 
     <tbody>
      <row>
-      <entry><structfield>archived_count</></entry>
+      <entry><structfield>archived_count</structfield></entry>
       <entry><type>bigint</type></entry>
 <!--
       <entry>Number of WAL files that have been successfully archived</entry>
@@ -3454,7 +3454,7 @@ WAL送信サーバの現在の状態です。
       <entry>アーカイブに成功したWALファイルの数</entry>
      </row>
      <row>
-      <entry><structfield>last_archived_wal</></entry>
+      <entry><structfield>last_archived_wal</structfield></entry>
       <entry><type>text</type></entry>
 <!--
       <entry>Name of the last WAL file successfully archived</entry>
@@ -3462,7 +3462,7 @@ WAL送信サーバの現在の状態です。
       <entry>アーカイブに成功した最後のWALファイルの名前</entry>
      </row>
      <row>
-      <entry><structfield>last_archived_time</></entry>
+      <entry><structfield>last_archived_time</structfield></entry>
       <entry><type>timestamp with time zone</type></entry>
 <!--
       <entry>Time of the last successful archive operation</entry>
@@ -3470,7 +3470,7 @@ WAL送信サーバの現在の状態です。
       <entry>最後に成功したアーカイブ操作の時刻</entry>
      </row>
      <row>
-      <entry><structfield>failed_count</></entry>
+      <entry><structfield>failed_count</structfield></entry>
       <entry><type>bigint</type></entry>
 <!--
       <entry>Number of failed attempts for archiving WAL files</entry>
@@ -3478,7 +3478,7 @@ WAL送信サーバの現在の状態です。
       <entry>WALファイルのアーカイブに失敗した回数</entry>
      </row>
      <row>
-      <entry><structfield>last_failed_wal</></entry>
+      <entry><structfield>last_failed_wal</structfield></entry>
       <entry><type>text</type></entry>
 <!--
       <entry>Name of the WAL file of the last failed archival operation</entry>
@@ -3486,7 +3486,7 @@ WAL送信サーバの現在の状態です。
       <entry>最後にアーカイブ操作に失敗したWALファイルの名前</entry>
      </row>
      <row>
-      <entry><structfield>last_failed_time</></entry>
+      <entry><structfield>last_failed_time</structfield></entry>
       <entry><type>timestamp with time zone</type></entry>
 <!--
       <entry>Time of the last failed archival operation</entry>
@@ -3494,7 +3494,7 @@ WAL送信サーバの現在の状態です。
       <entry>最後にアーカイブ操作に失敗した時刻</entry>
      </row>
      <row>
-      <entry><structfield>stats_reset</></entry>
+      <entry><structfield>stats_reset</structfield></entry>
       <entry><type>timestamp with time zone</type></entry>
 <!--
       <entry>Time at which these statistics were last reset</entry>
@@ -3536,7 +3536,7 @@ WAL送信サーバの現在の状態です。
 
     <tbody>
      <row>
-      <entry><structfield>checkpoints_timed</></entry>
+      <entry><structfield>checkpoints_timed</structfield></entry>
       <entry><type>bigint</type></entry>
 <!--
       <entry>Number of scheduled checkpoints that have been performed</entry>
@@ -3546,7 +3546,7 @@ WAL送信サーバの現在の状態です。
       </entry>
      </row>
      <row>
-      <entry><structfield>checkpoints_req</></entry>
+      <entry><structfield>checkpoints_req</structfield></entry>
       <entry><type>bigint</type></entry>
 <!--
       <entry>Number of requested checkpoints that have been performed</entry>
@@ -3556,7 +3556,7 @@ WAL送信サーバの現在の状態です。
       </entry>
      </row>
      <row>
-      <entry><structfield>checkpoint_write_time</></entry>
+      <entry><structfield>checkpoint_write_time</structfield></entry>
       <entry><type>double precision</type></entry>
       <entry>
 <!--
@@ -3567,7 +3567,7 @@ WAL送信サーバの現在の状態です。
       </entry>
      </row>
      <row>
-      <entry><structfield>checkpoint_sync_time</></entry>
+      <entry><structfield>checkpoint_sync_time</structfield></entry>
       <entry><type>double precision</type></entry>
       <entry>
 <!--
@@ -3579,7 +3579,7 @@ WAL送信サーバの現在の状態です。
       </entry>
      </row>
      <row>
-      <entry><structfield>buffers_checkpoint</></entry>
+      <entry><structfield>buffers_checkpoint</structfield></entry>
       <entry><type>bigint</type></entry>
 <!--
       <entry>Number of buffers written during checkpoints</entry>
@@ -3589,7 +3589,7 @@ WAL送信サーバの現在の状態です。
       </entry>
      </row>
      <row>
-      <entry><structfield>buffers_clean</></entry>
+      <entry><structfield>buffers_clean</structfield></entry>
       <entry><type>bigint</type></entry>
 <!--
       <entry>Number of buffers written by the background writer</entry>
@@ -3599,7 +3599,7 @@ WAL送信サーバの現在の状態です。
       </entry>
      </row>
      <row>
-      <entry><structfield>maxwritten_clean</></entry>
+      <entry><structfield>maxwritten_clean</structfield></entry>
       <entry><type>bigint</type></entry>
 <!--
       <entry>Number of times the background writer stopped a cleaning
@@ -3610,7 +3610,7 @@ WAL送信サーバの現在の状態です。
       </entry>
      </row>
      <row>
-      <entry><structfield>buffers_backend</></entry>
+      <entry><structfield>buffers_backend</structfield></entry>
       <entry><type>bigint</type></entry>
 <!--
       <entry>Number of buffers written directly by a backend</entry>
@@ -3620,7 +3620,7 @@ WAL送信サーバの現在の状態です。
       </entry>
      </row>
      <row>
-      <entry><structfield>buffers_backend_fsync</></entry>
+      <entry><structfield>buffers_backend_fsync</structfield></entry>
       <entry><type>bigint</type></entry>
 <!--
       <entry>Number of times a backend had to execute its own
@@ -3628,13 +3628,13 @@ WAL送信サーバの現在の状態です。
        even when the backend does its own write)</entry>
 -->
       <entry>
-バックエンドが独自に<function>fsync</>呼び出しを実行しなければならなかった回数です。
+バックエンドが独自に<function>fsync</function>呼び出しを実行しなければならなかった回数です。
 （通常は、バックエンドが独自に書き込んだ場合であっても、バックグラウンドライタがこれらを扱います。）
       </entry>
      </row>
 
      <row>
-      <entry><structfield>buffers_alloc</></entry>
+      <entry><structfield>buffers_alloc</structfield></entry>
       <entry><type>bigint</type></entry>
 <!--
       <entry>Number of buffers allocated</entry>
@@ -3644,7 +3644,7 @@ WAL送信サーバの現在の状態です。
       </entry>
      </row>
      <row>
-      <entry><structfield>stats_reset</></entry>
+      <entry><structfield>stats_reset</structfield></entry>
       <entry><type>timestamp with time zone</type></entry>
 <!--
       <entry>Time at which these statistics were last reset</entry>
@@ -3686,24 +3686,24 @@ WAL送信サーバの現在の状態です。
 
    <tbody>
     <row>
-     <entry><structfield>datid</></entry>
-     <entry><type>oid</></entry>
+     <entry><structfield>datid</structfield></entry>
+     <entry><type>oid</type></entry>
 <!--
      <entry>OID of a database</entry>
 -->
      <entry>データベースのOIDです。</entry>
     </row>
     <row>
-     <entry><structfield>datname</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>datname</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of this database</entry>
 -->
      <entry>データベースの名前です。</entry>
     </row>
     <row>
-     <entry><structfield>numbackends</></entry>
-     <entry><type>integer</></entry>
+     <entry><structfield>numbackends</structfield></entry>
+     <entry><type>integer</type></entry>
 <!--
      <entry>Number of backends currently connected to this database.
      This is the only column in this view that returns a value reflecting
@@ -3717,8 +3717,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>xact_commit</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>xact_commit</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of transactions in this database that have been
       committed</entry>
@@ -3728,8 +3728,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>xact_rollback</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>xact_rollback</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of transactions in this database that have been
       rolled back</entry>
@@ -3739,8 +3739,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>blks_read</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>blks_read</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of disk blocks read in this database</entry>
 -->
@@ -3749,8 +3749,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>blks_hit</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>blks_hit</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of times disk blocks were found already in the buffer
       cache, so that a read was not necessary (this only includes hits in the
@@ -3762,8 +3762,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>tup_returned</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>tup_returned</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of rows returned by queries in this database</entry>
 -->
@@ -3772,8 +3772,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>tup_fetched</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>tup_fetched</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of rows fetched by queries in this database</entry>
 -->
@@ -3782,8 +3782,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>tup_inserted</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>tup_inserted</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of rows inserted by queries in this database</entry>
 -->
@@ -3792,8 +3792,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>tup_updated</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>tup_updated</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of rows updated by queries in this database</entry>
 -->
@@ -3802,8 +3802,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>tup_deleted</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>tup_deleted</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of rows deleted by queries in this database</entry>
 -->
@@ -3812,49 +3812,49 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>conflicts</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>conflicts</structfield></entry>
+     <entry><type>bigint</type></entry>
      <entry>
 <!--
      <entry>Number of queries canceled due to conflicts with recovery
       in this database. (Conflicts occur only on standby servers; see
-      <xref linkend="pg-stat-database-conflicts-view"> for details.)
+      <xref linkend="pg-stat-database-conflicts-view"/> for details.)
 -->
 データベース内のリカバリで競合したためキャンセルされた問い合わせ数です。
-（競合はスタンバイサーバ上でのみ起こります。詳細については<xref linkend="pg-stat-database-conflicts-view">を参照してください。）
+（競合はスタンバイサーバ上でのみ起こります。詳細については<xref linkend="pg-stat-database-conflicts-view"/>を参照してください。）
      </entry>
     </row>
     <row>
-     <entry><structfield>temp_files</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>temp_files</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of temporary files created by queries in this database.
       All temporary files are counted, regardless of why the temporary file
       was created (e.g., sorting or hashing), and regardless of the
-      <xref linkend="guc-log-temp-files"> setting.
+      <xref linkend="guc-log-temp-files"/> setting.
 -->
      <entry>
 データベース内の問い合わせによって書き出された一時ファイルの個数です。
-一時ファイルが作成された理由（ソート処理やハッシュ処理）や<xref linkend="guc-log-temp-files">の設定に関わらず、すべての一時ファイルが計上されます。
+一時ファイルが作成された理由（ソート処理やハッシュ処理）や<xref linkend="guc-log-temp-files"/>の設定に関わらず、すべての一時ファイルが計上されます。
      </entry>
     </row>
     <row>
-     <entry><structfield>temp_bytes</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>temp_bytes</structfield></entry>
+     <entry><type>bigint</type></entry>
      <entry>
 <!--
      <entry>Total amount of data written to temporary files by queries in
       this database. All temporary files are counted, regardless of why
       the temporary file was created, and
-      regardless of the <xref linkend="guc-log-temp-files"> setting.
+      regardless of the <xref linkend="guc-log-temp-files"/> setting.
 -->
 データベース内の問い合わせによって一時ファイルに書き出されたデータ量です。
-一時ファイルが作成された理由や<xref linkend="guc-log-temp-files">の設定に関わらず、すべての一時ファイルが計上されます。
+一時ファイルが作成された理由や<xref linkend="guc-log-temp-files"/>の設定に関わらず、すべての一時ファイルが計上されます。
      </entry>
     </row>
     <row>
-     <entry><structfield>deadlocks</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>deadlocks</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of deadlocks detected in this database</entry>
 -->
@@ -3863,8 +3863,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>blk_read_time</></entry>
-     <entry><type>double precision</></entry>
+     <entry><structfield>blk_read_time</structfield></entry>
+     <entry><type>double precision</type></entry>
 <!--
      <entry>Time spent reading data file blocks by backends in this database,
       in milliseconds</entry>
@@ -3875,8 +3875,8 @@ WAL送信サーバの現在の状態です。
 
     </row>
     <row>
-     <entry><structfield>blk_write_time</></entry>
-     <entry><type>double precision</></entry>
+     <entry><structfield>blk_write_time</structfield></entry>
+     <entry><type>double precision</type></entry>
 <!--
      <entry>Time spent writing data file blocks by backends in this database,
       in milliseconds</entry>
@@ -3886,8 +3886,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>stats_reset</></entry>
-     <entry><type>timestamp with time zone</></entry>
+     <entry><structfield>stats_reset</structfield></entry>
+     <entry><type>timestamp with time zone</type></entry>
 <!--
      <entry>Time at which these statistics were last reset</entry>
 -->
@@ -3928,24 +3928,24 @@ WAL送信サーバの現在の状態です。
 
    <tbody>
     <row>
-     <entry><structfield>datid</></entry>
-     <entry><type>oid</></entry>
+     <entry><structfield>datid</structfield></entry>
+     <entry><type>oid</type></entry>
 <!--
      <entry>OID of a database</entry>
 -->
      <entry>データベースのOIDです。</entry>
     </row>
     <row>
-     <entry><structfield>datname</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>datname</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of this database</entry>
 -->
      <entry>データベースの名前です。</entry>
     </row>
     <row>
-     <entry><structfield>confl_tablespace</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>confl_tablespace</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of queries in this database that have been canceled due to
       dropped tablespaces</entry>
@@ -3953,8 +3953,8 @@ WAL送信サーバの現在の状態です。
      <entry>データベースにおいて、削除されたテーブル空間のためにキャンセルされた問い合わせの個数です。</entry>
     </row>
     <row>
-     <entry><structfield>confl_lock</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>confl_lock</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of queries in this database that have been canceled due to
       lock timeouts</entry>
@@ -3962,8 +3962,8 @@ WAL送信サーバの現在の状態です。
      <entry>データベースにおいて、ロック時間切れのためにキャンセルされた問い合わせの個数です。</entry>
     </row>
     <row>
-     <entry><structfield>confl_snapshot</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>confl_snapshot</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of queries in this database that have been canceled due to
       old snapshots</entry>
@@ -3971,8 +3971,8 @@ WAL送信サーバの現在の状態です。
      <entry>データベースにおいて、古いスナップショットのためにキャンセルされた問い合わせの個数です。</entry>
     </row>
     <row>
-     <entry><structfield>confl_bufferpin</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>confl_bufferpin</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of queries in this database that have been canceled due to
       pinned buffers</entry>
@@ -3980,8 +3980,8 @@ WAL送信サーバの現在の状態です。
      <entry>データベースにおいて、ピンが付いたバッファのためにキャンセルされた問い合わせの個数です。</entry>
     </row>
     <row>
-     <entry><structfield>confl_deadlock</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>confl_deadlock</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of queries in this database that have been canceled due to
       deadlocks</entry>
@@ -4025,32 +4025,32 @@ WAL送信サーバの現在の状態です。
 
    <tbody>
     <row>
-     <entry><structfield>relid</></entry>
-     <entry><type>oid</></entry>
+     <entry><structfield>relid</structfield></entry>
+     <entry><type>oid</type></entry>
 <!--
      <entry>OID of a table</entry>
 -->
      <entry>テーブルのOIDです。</entry>
     </row>
     <row>
-     <entry><structfield>schemaname</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>schemaname</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of the schema that this table is in</entry>
 -->
      <entry>テーブルが存在するスキーマの名前です。</entry>
     </row>
     <row>
-     <entry><structfield>relname</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>relname</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of this table</entry>
 -->
      <entry>テーブルの名前です。</entry>
     </row>
     <row>
-     <entry><structfield>seq_scan</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>seq_scan</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of sequential scans initiated on this table</entry>
 -->
@@ -4059,8 +4059,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>seq_tup_read</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>seq_tup_read</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of live rows fetched by sequential scans</entry>
 -->
@@ -4069,8 +4069,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>idx_scan</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>idx_scan</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of index scans initiated on this table</entry>
 -->
@@ -4079,40 +4079,40 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>idx_tup_fetch</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>idx_tup_fetch</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of live rows fetched by index scans</entry>
 -->
 <entry>インデックススキャンによって取り出された有効行の個数です。</entry>
     </row>
     <row>
-     <entry><structfield>n_tup_ins</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>n_tup_ins</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of rows inserted</entry>
 -->
      <entry>挿入された行数です。</entry>
     </row>
     <row>
-     <entry><structfield>n_tup_upd</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>n_tup_upd</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of rows updated (includes HOT updated rows)</entry>
 -->
      <entry>更新された行数です。（HOT更新された行数を含みます）</entry>
     </row>
     <row>
-     <entry><structfield>n_tup_del</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>n_tup_del</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of rows deleted</entry>
 -->
      <entry>削除された行数です。</entry>
     </row>
     <row>
-     <entry><structfield>n_tup_hot_upd</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>n_tup_hot_upd</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of rows HOT updated (i.e., with no separate index
       update required)</entry>
@@ -4120,43 +4120,43 @@ WAL送信サーバの現在の状態です。
      <entry>HOT更新（つまりインデックスの更新を別途必要としない）された行数です。</entry>
     </row>
     <row>
-     <entry><structfield>n_live_tup</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>n_live_tup</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Estimated number of live rows</entry>
 -->
      <entry>有効行の推定値です。</entry>
     </row>
     <row>
-     <entry><structfield>n_dead_tup</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>n_dead_tup</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Estimated number of dead rows</entry>
 -->
      <entry>不要行の推定値です。</entry>
     </row>
     <row>
-     <entry><structfield>n_mod_since_analyze</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>n_mod_since_analyze</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Estimated number of rows modified since this table was last analyzed</entry>
 -->
      <entry>このテーブルが最後に解析されてから変更された行の推定値</entry>
     </row>
     <row>
-     <entry><structfield>last_vacuum</></entry>
-     <entry><type>timestamp with time zone</></entry>
+     <entry><structfield>last_vacuum</structfield></entry>
+     <entry><type>timestamp with time zone</type></entry>
 <!--
      <entry>Last time at which this table was manually vacuumed
       (not counting <command>VACUUM FULL</>)</entry>
 -->
      <entry>
-テーブルが手作業でバキュームされた最終時刻です（<command>VACUUM FULL</>は含まれません）。
+テーブルが手作業でバキュームされた最終時刻です（<command>VACUUM FULL</command>は含まれません）。
      </entry>
     </row>
     <row>
-     <entry><structfield>last_autovacuum</></entry>
-     <entry><type>timestamp with time zone</></entry>
+     <entry><structfield>last_autovacuum</structfield></entry>
+     <entry><type>timestamp with time zone</type></entry>
 <!--
      <entry>Last time at which this table was vacuumed by the autovacuum
       daemon</entry>
@@ -4166,8 +4166,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>last_analyze</></entry>
-     <entry><type>timestamp with time zone</></entry>
+     <entry><structfield>last_analyze</structfield></entry>
+     <entry><type>timestamp with time zone</type></entry>
 <!--
      <entry>Last time at which this table was manually analyzed</entry>
 -->
@@ -4176,8 +4176,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>last_autoanalyze</></entry>
-     <entry><type>timestamp with time zone</></entry>
+     <entry><structfield>last_autoanalyze</structfield></entry>
+     <entry><type>timestamp with time zone</type></entry>
 <!--
      <entry>Last time at which this table was analyzed by the autovacuum
       daemon</entry>
@@ -4187,17 +4187,17 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>vacuum_count</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>vacuum_count</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of times this table has been manually vacuumed
       (not counting <command>VACUUM FULL</>)</entry>
 -->
-     <entry>テーブルが手作業でバキュームされた回数です。（<command>VACUUM FULL</>は含まれません）。</entry>
+     <entry>テーブルが手作業でバキュームされた回数です。（<command>VACUUM FULL</command>は含まれません）。</entry>
     </row>
     <row>
-     <entry><structfield>autovacuum_count</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>autovacuum_count</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of times this table has been vacuumed by the autovacuum
       daemon</entry>
@@ -4205,16 +4205,16 @@ WAL送信サーバの現在の状態です。
      <entry>テーブルが自動バキュームデーモンによりバキュームされた回数です。</entry>
     </row>
     <row>
-     <entry><structfield>analyze_count</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>analyze_count</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of times this table has been manually analyzed</entry>
 -->
      <entry>テーブルが手作業で解析された回数です。</entry>
     </row>
     <row>
-     <entry><structfield>autoanalyze_count</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>autoanalyze_count</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of times this table has been analyzed by the autovacuum
       daemon</entry>
@@ -4260,48 +4260,48 @@ WAL送信サーバの現在の状態です。
 
    <tbody>
     <row>
-     <entry><structfield>relid</></entry>
-     <entry><type>oid</></entry>
+     <entry><structfield>relid</structfield></entry>
+     <entry><type>oid</type></entry>
 <!--
      <entry>OID of the table for this index</entry>
 -->
      <entry>インデックス対象のテーブルのOIDです。</entry>
     </row>
     <row>
-     <entry><structfield>indexrelid</></entry>
-     <entry><type>oid</></entry>
+     <entry><structfield>indexrelid</structfield></entry>
+     <entry><type>oid</type></entry>
 <!--
      <entry>OID of this index</entry>
 -->
      <entry>インデックスのOIDです。</entry>
     </row>
     <row>
-     <entry><structfield>schemaname</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>schemaname</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of the schema this index is in</entry>
 -->
      <entry>インデックスが存在するスキーマの名前です。</entry>
     </row>
     <row>
-     <entry><structfield>relname</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>relname</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of the table for this index</entry>
 -->
      <entry>インデックス対象のテーブルの名前です。</entry>
     </row>
     <row>
-     <entry><structfield>indexrelname</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>indexrelname</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of this index</entry>
 -->
      <entry>インデックスの名前です。</entry>
     </row>
     <row>
-     <entry><structfield>idx_scan</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>idx_scan</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of index scans initiated on this index</entry>
 -->
@@ -4310,8 +4310,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>idx_tup_read</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>idx_tup_read</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of index entries returned by scans on this index</entry>
 -->
@@ -4320,8 +4320,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>idx_tup_fetch</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>idx_tup_fetch</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of live table rows fetched by simple index scans using this
       index</entry>
@@ -4365,10 +4365,10 @@ WAL送信サーバの現在の状態です。
    whose values are outside the recorded range of the optimizer statistics
    because the optimizer statistics might be stale.
 -->
-単純なインデックススキャン、<quote>ビットマップ</>インデックススキャン、あるいはオプティマイザによりインデックスが使用されることがあります。
+単純なインデックススキャン、<quote>ビットマップ</quote>インデックススキャン、あるいはオプティマイザによりインデックスが使用されることがあります。
 ビットマップスキャンでは、複数のインデックスの出力をANDやOR規則で組み合わせることができます。
 このため、ビットマップスキャンが使用される場合、特定インデックスと個々のヒープ行の取り出しとを関連づけることが困難です。
-したがってビットマップスキャンでは、使用したインデックスの<structname>pg_stat_all_indexes</>.<structfield>idx_tup_read</>個数を増やし、そのテーブルの<structname>pg_stat_all_tables</>.<structfield>idx_tup_fetch</>個数を増やしますが、<structname>pg_stat_all_indexes</>.<structfield>idx_tup_fetch</>を変更しません。
+したがってビットマップスキャンでは、使用したインデックスの<structname>pg_stat_all_indexes</structname>.<structfield>idx_tup_read</structfield>個数を増やし、そのテーブルの<structname>pg_stat_all_tables</structname>.<structfield>idx_tup_fetch</structfield>個数を増やしますが、<structname>pg_stat_all_indexes</structname>.<structfield>idx_tup_fetch</structfield>を変更しません。
 オプティマイザもインデックスにアクセスし、提供された定数値がオプティマイザの統計情報に記録された範囲の外側にあるときに、それを検査します。
 これはオプティマイザの統計情報が古いかもしれないからです。
   </para>
@@ -4384,8 +4384,8 @@ WAL送信サーバの現在の状態です。
     dead or not-yet-committed rows are fetched using the index, or if any
     heap fetches are avoided by means of an index-only scan.
 -->
-<structfield>idx_tup_read</>と<structfield>idx_tup_fetch</>個数は、ビットマップスキャンがまったく使用されていない場合でも異なります。
-<structfield>idx_tup_read</>はインデックスから取り出したインデックス項目を計上し、<structfield>idx_tup_fetch</>はテーブルから取り出した有効行を計上するからです。
+<structfield>idx_tup_read</structfield>と<structfield>idx_tup_fetch</structfield>個数は、ビットマップスキャンがまったく使用されていない場合でも異なります。
+<structfield>idx_tup_read</structfield>はインデックスから取り出したインデックス項目を計上し、<structfield>idx_tup_fetch</structfield>はテーブルから取り出した有効行を計上するからです。
 インデックスを用いて不要行やまだコミットされていない行が取り出された場合やインデックスオンリースキャン法によりヒープの取り出しが回避された場合に、後者は減少します。
    </para>
   </note>
@@ -4411,88 +4411,88 @@ WAL送信サーバの現在の状態です。
 
    <tbody>
     <row>
-     <entry><structfield>relid</></entry>
-     <entry><type>oid</></entry>
+     <entry><structfield>relid</structfield></entry>
+     <entry><type>oid</type></entry>
 <!--
      <entry>OID of a table</entry>
 -->
      <entry>テーブルのOIDです。</entry>
     </row>
     <row>
-     <entry><structfield>schemaname</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>schemaname</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of the schema that this table is in</entry>
 -->
      <entry>テーブルが存在するスキーマの名前です。</entry>
     </row>
     <row>
-     <entry><structfield>relname</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>relname</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of this table</entry>
 -->
      <entry>テーブルの名前です。</entry>
     </row>
     <row>
-     <entry><structfield>heap_blks_read</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>heap_blks_read</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of disk blocks read from this table</entry>
 -->
      <entry>テーブルから読み取られたディスクブロック数です。</entry>
     </row>
     <row>
-     <entry><structfield>heap_blks_hit</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>heap_blks_hit</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of buffer hits in this table</entry>
 -->
      <entry>テーブル内のバッファヒット数です。</entry>
     </row>
     <row>
-     <entry><structfield>idx_blks_read</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>idx_blks_read</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of disk blocks read from all indexes on this table</entry>
 -->
      <entry>テーブル上のすべてのインデックスから読み取られたディスクブロック数です。</entry>
     </row>
     <row>
-     <entry><structfield>idx_blks_hit</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>idx_blks_hit</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of buffer hits in all indexes on this table</entry>
 -->
      <entry>テーブル上のすべてのインデックス内のバッファヒット数です。</entry>
     </row>
     <row>
-     <entry><structfield>toast_blks_read</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>toast_blks_read</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of disk blocks read from this table's TOAST table (if any)</entry>
 -->
      <entry>テーブルのTOASTテーブル（もしあれば）から読み取られたディスクブロック数です。</entry>
     </row>
     <row>
-     <entry><structfield>toast_blks_hit</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>toast_blks_hit</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of buffer hits in this table's TOAST table (if any)</entry>
 -->
      <entry>テーブルのTOASTテーブル（もしあれば）におけるバッファヒット数です。</entry>
     </row>
     <row>
-     <entry><structfield>tidx_blks_read</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>tidx_blks_read</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of disk blocks read from this table's TOAST table indexes (if any)</entry>
 -->
      <entry>テーブルのTOASTテーブルのインデックス（もしあれば）から読み取られたディスクブロック数です。</entry>
     </row>
     <row>
-     <entry><structfield>tidx_blks_hit</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>tidx_blks_hit</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of buffer hits in this table's TOAST table indexes (if any)</entry>
 -->
@@ -4537,56 +4537,56 @@ WAL送信サーバの現在の状態です。
 
    <tbody>
     <row>
-     <entry><structfield>relid</></entry>
-     <entry><type>oid</></entry>
+     <entry><structfield>relid</structfield></entry>
+     <entry><type>oid</type></entry>
 <!--
      <entry>OID of the table for this index</entry>
 -->
      <entry>このインデックスに対応するテーブルのOIDです。</entry>
     </row>
     <row>
-     <entry><structfield>indexrelid</></entry>
-     <entry><type>oid</></entry>
+     <entry><structfield>indexrelid</structfield></entry>
+     <entry><type>oid</type></entry>
 <!--
      <entry>OID of this index</entry>
 -->
      <entry>インデックスのOIDです。</entry>
     </row>
     <row>
-     <entry><structfield>schemaname</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>schemaname</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of the schema this index is in</entry>
 -->
      <entry>インデックスが存在するスキーマの名前です。</entry>
     </row>
     <row>
-     <entry><structfield>relname</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>relname</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of the table for this index</entry>
 -->
      <entry>このインデックスに対応するテーブルの名前です。</entry>
     </row>
     <row>
-     <entry><structfield>indexrelname</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>indexrelname</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of this index</entry>
 -->
      <entry>インデックスの名前です。</entry>
     </row>
     <row>
-     <entry><structfield>idx_blks_read</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>idx_blks_read</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of disk blocks read from this index</entry>
 -->
      <entry>インデックスから読み取られたディスクブロック数です。</entry>
     </row>
     <row>
-     <entry><structfield>idx_blks_hit</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>idx_blks_hit</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of buffer hits in this index</entry>
 -->
@@ -4631,40 +4631,40 @@ WAL送信サーバの現在の状態です。
 
    <tbody>
     <row>
-     <entry><structfield>relid</></entry>
-     <entry><type>oid</></entry>
+     <entry><structfield>relid</structfield></entry>
+     <entry><type>oid</type></entry>
 <!--
      <entry>OID of a sequence</entry>
 -->
      <entry>シーケンスのOIDです。</entry>
     </row>
     <row>
-     <entry><structfield>schemaname</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>schemaname</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of the schema this sequence is in</entry>
 -->
      <entry>シーケンスが存在するスキーマの名前です。</entry>
     </row>
     <row>
-     <entry><structfield>relname</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>relname</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of this sequence</entry>
 -->
      <entry>シーケンスの名前です。</entry>
     </row>
     <row>
-     <entry><structfield>blks_read</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>blks_read</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of disk blocks read from this sequence</entry>
 -->
      <entry>シーケンスから読み取られたディスクブロック数です。</entry>
     </row>
     <row>
-     <entry><structfield>blks_hit</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>blks_hit</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of buffer hits in this sequence</entry>
 -->
@@ -4704,40 +4704,40 @@ WAL送信サーバの現在の状態です。
 
    <tbody>
     <row>
-     <entry><structfield>funcid</></entry>
-     <entry><type>oid</></entry>
+     <entry><structfield>funcid</structfield></entry>
+     <entry><type>oid</type></entry>
 <!--
      <entry>OID of a function</entry>
 -->
      <entry>関数のOIDです。</entry>
     </row>
     <row>
-     <entry><structfield>schemaname</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>schemaname</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of the schema this function is in</entry>
 -->
      <entry>関数が存在するスキーマの名前です。</entry>
     </row>
     <row>
-     <entry><structfield>funcname</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>funcname</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of this function</entry>
 -->
      <entry>関数の名前です。</entry>
     </row>
     <row>
-     <entry><structfield>calls</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>calls</structfield></entry>
+     <entry><type>bigint</type></entry>
 <!--
      <entry>Number of times this function has been called</entry>
 -->
      <entry>関数が呼び出された回数です。</entry>
     </row>
     <row>
-     <entry><structfield>total_time</></entry>
-     <entry><type>double precision</></entry>
+     <entry><structfield>total_time</structfield></entry>
+     <entry><type>double precision</type></entry>
 <!--
      <entry>Total time spent in this function and all other functions
      called by it, in milliseconds</entry>
@@ -4747,8 +4747,8 @@ WAL送信サーバの現在の状態です。
      </entry>
     </row>
     <row>
-     <entry><structfield>self_time</></entry>
-     <entry><type>double precision</></entry>
+     <entry><structfield>self_time</structfield></entry>
+     <entry><type>double precision</type></entry>
 <!--
      <entry>Total time spent in this function itself, not including
      other functions called by it, in milliseconds</entry>
@@ -4765,11 +4765,11 @@ WAL送信サーバの現在の状態です。
 <!--
    The <structname>pg_stat_user_functions</structname> view will contain
    one row for each tracked function, showing statistics about executions of
-   that function.  The <xref linkend="guc-track-functions"> parameter
+   that function.  The <xref linkend="guc-track-functions"/> parameter
    controls exactly which functions are tracked.
 -->
 <structname>pg_stat_user_functions</structname>ビューは追跡された関数毎に、その関数の実行に関する統計情報を１行保持します。
-<xref linkend="guc-track-functions">パラメータは関数が追跡されるかどうかを正確に制御します。
+<xref linkend="guc-track-functions"/>パラメータは関数が追跡されるかどうかを正確に制御します。
   </para>
 
  </sect2>
@@ -4796,7 +4796,7 @@ WAL送信サーバの現在の状態です。
 -->
 統計情報を参照する他の方法は、上述の標準ビューによって使用される基礎的な統計情報アクセス関数と同じ関数を使用した問い合わせを作成することで設定することができます。
 こうした関数の名前などに関する詳細については、標準ビューの定義を参照してください。
-（例えば<application>psql</>では<literal>\d+ pg_stat_activity</>を発行してください。）
+（例えば<application>psql</application>では<literal>\d+ pg_stat_activity</literal>を発行してください。）
 データベースごとの統計情報についてのアクセス関数は、どのデータベースに対して報告するのかを識別するためにデータベースのOIDを取ります。
 テーブルごと、インデックスごとの関数はテーブルの、もしくはインデックスのOIDを取ります。
 関数ごとの統計情報の関数は、関数のOIDを取ります。
@@ -4806,9 +4806,9 @@ WAL送信サーバの現在の状態です。
   <para>
 <!--
    Additional functions related to statistics collection are listed in <xref
-   linkend="monitoring-stats-funcs-table">.
+   linkend="monitoring-stats-funcs-table"/>.
 -->
-その他の統計情報収集に関連した関数を<xref linkend="monitoring-stats-funcs-table">に示します。
+その他の統計情報収集に関連した関数を<xref linkend="monitoring-stats-funcs-table"/>に示します。
   </para>
 
   <table id="monitoring-stats-funcs-table">
@@ -4910,8 +4910,8 @@ PIDが指定された場合、それに該当するバックエンドの情報�
        counters shown in the <structname>pg_stat_archiver</> view.
 -->
 引数に応じて、クラスタ全体の統計情報カウンタの一部をゼロに戻します（デフォルトでスーパーユーザ権限が必要ですが、この関数のEXCUTE権限は他のユーザに付与することができます）。
-<literal>pg_stat_reset_shared('bgwriter')</>を呼び出すと、<structname>pg_stat_bgwriter</>ビューで示される値すべてがゼロになります。
-<literal>pg_stat_reset_shared('archiver')</>を呼び出すと、<structname>pg_stat_archiver</>ビューで示される値すべてがゼロになります。
+<literal>pg_stat_reset_shared('bgwriter')</literal>を呼び出すと、<structname>pg_stat_bgwriter</structname>ビューで示される値すべてがゼロになります。
+<literal>pg_stat_reset_shared('archiver')</literal>を呼び出すと、<structname>pg_stat_archiver</structname>ビューで示される値すべてがゼロになります。
       </entry>
      </row>
 
@@ -4952,7 +4952,7 @@ PIDが指定された場合、それに該当するバックエンドの情報�
    Sometimes it may be more convenient to obtain just a subset of this
    information.  In such cases, an older set of per-backend statistics
    access functions can be used; these are shown in <xref
-   linkend="monitoring-stats-backend-funcs-table">.
+   linkend="monitoring-stats-backend-funcs-table"/>.
    These access functions use a backend ID number, which ranges from one
    to the number of currently active backends.
    The function <function>pg_stat_get_backend_idset</function> provides a
@@ -4960,13 +4960,13 @@ PIDが指定された場合、それに該当するバックエンドの情報�
    invoking these functions.  For example, to show the <acronym>PID</>s and
    current queries of all backends:
 -->
-<structname>pg_stat_activity</>ビューの基礎となる<function>pg_stat_get_activity</function>関数は、
+<structname>pg_stat_activity</structname>ビューの基礎となる<function>pg_stat_get_activity</function>関数は、
 各バックエンドプロセスに関して利用可能な情報をすべて含むレコード集合を返します。
 この情報の一部のみを入手することがより簡便である場合があるかもしれません。
-このような場合、<xref linkend="monitoring-stats-backend-funcs-table">に示す、古めのバックエンド単位の統計情報アクセス関数を使用することができます。
+このような場合、<xref linkend="monitoring-stats-backend-funcs-table"/>に示す、古めのバックエンド単位の統計情報アクセス関数を使用することができます。
 これらのアクセス関数は、１から現在活動中のバックエンドの個数までの値を取る、バックエンドID番号を使用します。
 <function>pg_stat_get_backend_idset</function>関数は、これらの関数を呼び出すために、活動中のバックエンド毎に１行を生成する簡便な方法を提供します。
-例えば以下はすべてのバックエンドについて<acronym>PID</>と現在の問い合わせを示します。
+例えば以下はすべてのバックエンドについて<acronym>PID</acronym>と現在の問い合わせを示します。
 
 <programlisting>
 SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
@@ -5013,7 +5013,7 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
 <!--
       <entry>Text of this backend's most recent query</>
 -->
-      <entry>バックエンドが最後に行った問い合わせテキストです。</>
+      <entry>バックエンドが最後に行った問い合わせテキストです。</entry>
      </row>
 
      <row>
@@ -5084,11 +5084,11 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
        <entry><type>text</type></entry>
 <!--
         <entry>Wait event type name if backend is currently waiting, otherwise NULL.
-        See <xref linkend="wait-event-table"> for details.
+        See <xref linkend="wait-event-table"/> for details.
 -->
         <entry>
 バックエンドが現在待機中であれば、待機イベント型名、さもなくばNULL。
-詳細は<xref linkend="wait-event-table">を参照してください。
+詳細は<xref linkend="wait-event-table"/>を参照してください。
         </entry>
       </row>
 
@@ -5097,11 +5097,11 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
       <entry><type>text</type></entry>
 <!--
        <entry>Wait event name if backend is currently waiting, otherwise NULL.
-       See <xref linkend="wait-event-table"> for details.
+       See <xref linkend="wait-event-table"/> for details.
 -->
         <entry>
 バックエンドが現在待機中であれば、待機イベント名、さもなくばNULL。
-詳細は<xref linkend="wait-event-table">を参照してください。
+詳細は<xref linkend="wait-event-table"/>を参照してください。
        </entry>
      </row>
 
@@ -5184,12 +5184,12 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
 
 <!--
    Details of the <structname>pg_locks</structname> view appear in
-   <xref linkend="view-pg-locks">.
+   <xref linkend="view-pg-locks"/>.
    For more information on locking and managing concurrency with
-   <productname>PostgreSQL</productname>, refer to <xref linkend="mvcc">.
+   <productname>PostgreSQL</productname>, refer to <xref linkend="mvcc"/>.
 -->
-<structname>pg_locks</structname>ビューの詳細は、<xref linkend="view-pg-locks">にあります。
-<productname>PostgreSQL</productname>のロックと同時実行性についての詳細は、<xref linkend="mvcc">を参照してください。
+<structname>pg_locks</structname>ビューの詳細は、<xref linkend="view-pg-locks"/>にあります。
+<productname>PostgreSQL</productname>のロックと同時実行性についての詳細は、<xref linkend="mvcc"/>を参照してください。
   </para>
  </sect1>
 
@@ -5206,8 +5206,8 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
    which supports progress reporting is <command>VACUUM</>.  This may be
    expanded in the future.
 -->
-<productname>PostgreSQL</>は、何らかのコマンドの実行中に進捗状況をレポートする能力があります。
-現在、進捗状況のレポートを唯一サポートしているのは<command>VACUUM</>です。
+<productname>PostgreSQL</productname>は、何らかのコマンドの実行中に進捗状況をレポートする能力があります。
+現在、進捗状況のレポートを唯一サポートしているのは<command>VACUUM</command>です。
 将来的にサポートされるコマンドが拡大される可能性があります。
   </para>
 
@@ -5228,9 +5228,9 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
    and backends running <command>VACUUM FULL</> will not be listed in this
    view.
 -->
-<command>VACUUM</>を実行するときはいつでも、<structname>pg_stat_progress_vacuum</structname>ビューは、現在バキューム処理している（自動バキュームワーカプロセスを含む）それぞれのバックエンドごとに１行を格納します。
+<command>VACUUM</command>を実行するときはいつでも、<structname>pg_stat_progress_vacuum</structname>ビューは、現在バキューム処理している（自動バキュームワーカプロセスを含む）それぞれのバックエンドごとに１行を格納します。
 その情報を説明している以下のテーブルにおいて、何がレポートされ、どのように解釈するかについての情報を提供します。
-進捗状況のレポートは、現在<command>VACUUM FULL</>はサポートされておらず、<command>VACUUM FULL</>を実行しているバックエンドはこのビューの一覧に表示されません。
+進捗状況のレポートは、現在<command>VACUUM FULL</command>はサポートされておらず、<command>VACUUM FULL</command>を実行しているバックエンドはこのビューの一覧に表示されません。
   </para>
 
   <table id="pg-stat-progress-vacuum-view" xreflabel="pg_stat_progress_vacuum">
@@ -5254,50 +5254,50 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
 
    <tbody>
     <row>
-     <entry><structfield>pid</></entry>
-     <entry><type>integer</></entry>
+     <entry><structfield>pid</structfield></entry>
+     <entry><type>integer</type></entry>
 <!--
      <entry>Process ID of backend.</entry>
 -->
      <entry>バックエンドのプロセスID。</entry>
     </row>
     <row>
-     <entry><structfield>datid</></entry>
-     <entry><type>oid</></entry>
+     <entry><structfield>datid</structfield></entry>
+     <entry><type>oid</type></entry>
 <!--
      <entry>OID of the database to which this backend is connected.</entry>
 -->
      <entry>このバックエンドが接続されたデータベースのOID。</entry>
     </row>
     <row>
-     <entry><structfield>datname</></entry>
-     <entry><type>name</></entry>
+     <entry><structfield>datname</structfield></entry>
+     <entry><type>name</type></entry>
 <!--
      <entry>Name of the database to which this backend is connected.</entry>
 -->
      <entry>このバックエンドが接続されたデータベース名。</entry>
     </row>
     <row>
-     <entry><structfield>relid</></entry>
-     <entry><type>oid</></entry>
+     <entry><structfield>relid</structfield></entry>
+     <entry><type>oid</type></entry>
 <!--
      <entry>OID of the table being vacuumed.</entry>
 -->
      <entry>バキューム処理が行われているテーブルのOID。</entry>
     </row>
     <row>
-     <entry><structfield>phase</></entry>
-     <entry><type>text</></entry>
+     <entry><structfield>phase</structfield></entry>
+     <entry><type>text</type></entry>
      <entry>
 <!--
-       Current processing phase of vacuum.  See <xref linkend='vacuum-phases'>.
+       Current processing phase of vacuum.  See <xref linkend='vacuum-phases'/>.
 -->
-現在のバキュームの処理フェーズ。<xref linkend='vacuum-phases'>を参照してください。
+現在のバキュームの処理フェーズ。<xref linkend='vacuum-phases'/>を参照してください。
      </entry>
     </row>
     <row>
-     <entry><structfield>heap_blks_total</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>heap_blks_total</structfield></entry>
+     <entry><type>bigint</type></entry>
      <entry>
 <!--
        Total number of heap blocks in the table.  This number is reported
@@ -5306,12 +5306,12 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
 -->
 テーブルのヒープブロックの総数。
 この数字は、スキャンの開始を基点としてレポートされます。
-後に追加されるブロックは、この<command>VACUUM</>によって処理されません（必要もありません）。
+後に追加されるブロックは、この<command>VACUUM</command>によって処理されません（必要もありません）。
      </entry>
     </row>
     <row>
-     <entry><structfield>heap_blks_scanned</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>heap_blks_scanned</structfield></entry>
+     <entry><type>bigint</type></entry>
      <entry>
 <!--
        Number of heap blocks scanned.  Because the
@@ -5322,14 +5322,14 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
        This counter only advances when the phase is <literal>scanning heap</>.
 -->
 スキャンされたヒープブロックの数。
-<link linkend="storage-vm">可視性マップ</>がスキャンを最適化するために使用されるため、いくつかのブロックが検査されずに読み飛ばされます。
-読み飛ばされたブロックはこの総数に含まれ、そのためこの数字はバキューム処理が完了した時に、最終的に<structfield>heap_blks_total</>と同じになります。
-このカウンタは、フェーズが<literal>scanning heap</>の時にのみ増加します。
+<link linkend="storage-vm">可視性マップ</link>がスキャンを最適化するために使用されるため、いくつかのブロックが検査されずに読み飛ばされます。
+読み飛ばされたブロックはこの総数に含まれ、そのためこの数字はバキューム処理が完了した時に、最終的に<structfield>heap_blks_total</structfield>と同じになります。
+このカウンタは、フェーズが<literal>scanning heap</literal>の時にのみ増加します。
      </entry>
     </row>
     <row>
-     <entry><structfield>heap_blks_vacuumed</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>heap_blks_vacuumed</structfield></entry>
+     <entry><type>bigint</type></entry>
      <entry>
 <!--
        Number of heap blocks vacuumed.  Unless the table has no indexes, this
@@ -5338,13 +5338,13 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
        sometimes skip forward in large increments.
 -->
 バキューム処理されたヒープブロックの数。
-テーブルにインデックスが１つでも存在するなら、このカウンタはフェーズが<literal>vacuuming heap</>の時にのみ増加します。
+テーブルにインデックスが１つでも存在するなら、このカウンタはフェーズが<literal>vacuuming heap</literal>の時にのみ増加します。
 無効なタプルが含まれていないブロックは読み飛ばされ、それゆえカウンタは時々大きな増加量で早送りされます。
      </entry>
     </row>
     <row>
-     <entry><structfield>index_vacuum_count</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>index_vacuum_count</structfield></entry>
+     <entry><type>bigint</type></entry>
      <entry>
 <!--
        Number of completed index vacuum cycles.
@@ -5353,20 +5353,20 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
      </entry>
     </row>
     <row>
-     <entry><structfield>max_dead_tuples</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>max_dead_tuples</structfield></entry>
+     <entry><type>bigint</type></entry>
      <entry>
 <!--
       Number of dead tuples that we can store before needing to perform
       an index vacuum cycle, based on
-      <xref linkend="guc-maintenance-work-mem">.
+      <xref linkend="guc-maintenance-work-mem"/>.
 -->
-インデックスバキュームサイクルの実行に必要となる前に格納することが出来る、<xref linkend="guc-maintenance-work-mem">に基づいた、無効なタプルの数。
+インデックスバキュームサイクルの実行に必要となる前に格納することが出来る、<xref linkend="guc-maintenance-work-mem"/>に基づいた、無効なタプルの数。
      </entry>
     </row>
     <row>
-     <entry><structfield>num_dead_tuples</></entry>
-     <entry><type>bigint</></entry>
+     <entry><structfield>num_dead_tuples</structfield></entry>
+     <entry><type>bigint</type></entry>
      <entry>
 <!--
        Number of dead tuples collected since the last index vacuum cycle.
@@ -5403,7 +5403,7 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
        <command>VACUUM</> is preparing to begin scanning the heap.  This
        phase is expected to be very brief.
 -->
-<command>VACUUM</>は、ヒープをスキャンし始める準備をしています。
+<command>VACUUM</command>は、ヒープをスキャンし始める準備をしています。
 このフェーズは、非常に短時間であると予想されます。
      </entry>
     </row>
@@ -5416,9 +5416,9 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
        activity.  The <structfield>heap_blks_scanned</> column can be used
        to monitor the progress of the scan.
 -->
-<command>VACUUM</>は、現在ヒープをスキャン中です。
+<command>VACUUM</command>は、現在ヒープをスキャン中です。
 必要であればそれぞれのページを切り取り、デフラグし、場合によってはフリーズ活動を実行します。
-スキャンの進捗状況の監視に<structfield>heap_blks_scanned</>列が使用できます。
+スキャンの進捗状況の監視に<structfield>heap_blks_scanned</structfield>列が使用できます。
      </entry>
     </row>
     <row>
@@ -5428,12 +5428,12 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
        <command>VACUUM</> is currently vacuuming the indexes.  If a table has
        any indexes, this will happen at least once per vacuum, after the heap
        has been completely scanned.  It may happen multiple times per vacuum
-       if <xref linkend="guc-maintenance-work-mem"> is insufficient to
+       if <xref linkend="guc-maintenance-work-mem"/> is insufficient to
        store the number of dead tuples found.
 -->
-<command>VACUUM</>は、現在インデックスをバキューム処理中です。
+<command>VACUUM</command>は、現在インデックスをバキューム処理中です。
 テーブルにインデックスが存在する場合、ヒープが完全にスキャンされた後に、バキューム実行ごとに少なくとも１回発生します。
-<xref linkend="guc-maintenance-work-mem">が、発見された無効タプルの数量を格納するのに不十分な場合は、バキューム実行ごとに複数回発生する可能性があります。
+<xref linkend="guc-maintenance-work-mem"/>が、発見された無効タプルの数量を格納するのに不十分な場合は、バキューム実行ごとに複数回発生する可能性があります。
      </entry>
     </row>
     <row>
@@ -5447,9 +5447,9 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
        the heap after this phase is completed; otherwise, it will begin
        cleaning up indexes after this phase is completed.
 -->
-<command>VACUUM</>は、現在ヒープをバキューム処理中です。
+<command>VACUUM</command>は、現在ヒープをバキューム処理中です。
 ヒープのバキュームは、ヒープのスキャンと異なり、インデックスをバキューム処理するそれぞれのインスタンスの後に発生します。
-<structfield>heap_blks_scanned</>が<structfield>heap_blks_total</>より少ない場合、システムはこのフェーズの完了後にヒープのスキャン処理に戻ります。
+<structfield>heap_blks_scanned</structfield>が<structfield>heap_blks_total</structfield>より少ない場合、システムはこのフェーズの完了後にヒープのスキャン処理に戻ります。
 さもなければ、このフェーズの完了後にインデックスの整理を始めます。
      </entry>
     </row>
@@ -5461,7 +5461,7 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
        the heap has been completely scanned and all vacuuming of the indexes
        and the heap has been completed.
 -->
-<command>VACUUM</>は、現在インデックスの整理処理中です。
+<command>VACUUM</command>は、現在インデックスの整理処理中です。
 これは、ヒープが完全にスキャンされ、インデックスとヒープが完全にすべてバキューム処理された後に発生します。
      </entry>
     </row>
@@ -5473,7 +5473,7 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
        empty pages at the end of the relation to the operating system.  This
        occurs after cleaning up indexes.
 -->
-<command>VACUUM</>は、現在リレーションの終点の空のページをオペレーティングシステムに戻すためにヒープを削除しています。
+<command>VACUUM</command>は、現在リレーションの終点の空のページをオペレーティングシステムに戻すためにヒープを削除しています。
 これは、インデックスの整理処理後に発生します。
      </entry>
     </row>
@@ -5486,9 +5486,9 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
        in <literal>pg_class</>, and report statistics to the statistics
        collector.  When this phase is completed, <command>VACUUM</> will end.
 -->
-<command>VACUUM</>は、最終クリーンアップ処理をしています。
-このフェーズの間、<command>VACUUM</>空き領域マップをバキュームし、<literal>pg_class</>の統計情報を更新し、統計情報コレクタに統計情報を報告します。
-このフェーズが完了した時、<command>VACUUM</>は終了します。
+<command>VACUUM</command>は、最終クリーンアップ処理をしています。
+このフェーズの間、<command>VACUUM</command>空き領域マップをバキュームし、<literal>pg_class</literal>の統計情報を更新し、統計情報コレクタに統計情報を報告します。
+このフェーズが完了した時、<command>VACUUM</command>は終了します。
      </entry>
     </row>
    </tbody>
@@ -5543,7 +5543,7 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
 -->
 現在、これを書いている時点ではSolaris、macOS、FreeBSD、NetBSD、Oracle Linuxで利用可能な<ulink url="https://en.wikipedia.org/wiki/DTrace">DTrace</ulink>ユーティリティがサポートされています。
 <ulink url="http://sourceware.org/systemtap/">SystemTap</ulink>プロジェクトではDTrace相当の機能をLinux向けに提供しており、それを使うこともできます。
-他の動的追跡ユーティリティのサポートは、<filename>src/include/utils/probes.h</>内のマクロ定義を変更することで、理論上は可能です。
+他の動的追跡ユーティリティのサポートは、<filename>src/include/utils/probes.h</filename>内のマクロ定義を変更することで、理論上は可能です。
   </para>
 
   <sect2 id="compiling-for-trace">
@@ -5558,9 +5558,9 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
    explicitly tell the configure script to make the probes available
    in <productname>PostgreSQL</productname>. To include DTrace support
    specify <option>&#045;-enable-dtrace</> to configure.  See <xref
-   linkend="install-procedure"> for further information.
+   linkend="install-procedure"/> for further information.
 -->
-デフォルトでは、プローブは有効ではありません。そのため、<productname>PostgreSQL</productname>でプローブが利用できるようにするためにconfigureスクリプトで明示的に設定しなければなりません。DTraceサポートを含めるには、configureに<option>--enable-dtrace</>を指定します。詳細は<xref linkend="install-procedure">を参照してください。
+デフォルトでは、プローブは有効ではありません。そのため、<productname>PostgreSQL</productname>でプローブが利用できるようにするためにconfigureスクリプトで明示的に設定しなければなりません。DTraceサポートを含めるには、configureに<option>--enable-dtrace</option>を指定します。詳細は<xref linkend="install-procedure"/>を参照してください。
   </para>
   </sect2>
 
@@ -5573,12 +5573,12 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
   <para>
 <!--
    A number of standard probes are provided in the source code,
-   as shown in <xref linkend="dtrace-probe-point-table">;
-   <xref linkend="typedefs-table">
+   as shown in <xref linkend="dtrace-probe-point-table"/>;
+   <xref linkend="typedefs-table"/>
    shows the types used in the probes.  More probes can certainly be
    added to enhance <productname>PostgreSQL</>'s observability.
 -->
-<xref linkend="dtrace-probe-point-table">で示されるように、多くの標準的なプローブがソースコード内で提供されています。<xref linkend="typedefs-table">はプローブで使用している型を示しています。また、<productname>PostgreSQL</>内の可観測性を強化するためのプローブ追加が可能です。
+<xref linkend="dtrace-probe-point-table"/>で示されるように、多くの標準的なプローブがソースコード内で提供されています。<xref linkend="typedefs-table"/>はプローブで使用している型を示しています。また、<productname>PostgreSQL</productname>内の可観測性を強化するためのプローブ追加が可能です。
   </para>
 
  <table id="dtrace-probe-point-table">
@@ -5724,7 +5724,7 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
       arg0 is the new status string.</entry>
 -->
      <entry>
-サーバプロセスによる<structname>pg_stat_activity</>.<structfield>status</>の状態の更新を捕捉するプローブ。
+サーバプロセスによる<structname>pg_stat_activity</structname>.<structfield>status</structfield>の状態の更新を捕捉するプローブ。
 arg0は新しい状態の文字列です。
      </entry>
     </row>
@@ -6010,7 +6010,7 @@ arg2、arg3、arg4は対象のリレーションを識別するテーブル空�
 <!--
      <entry>Probe that fires when a server process begins to write a dirty
       buffer.  (If this happens often, it implies that
-      <xref linkend="guc-shared-buffers"> is too
+      <xref linkend="guc-shared-buffers"/> is too
       small or the background writer control parameters need adjustment.)
       arg0 and arg1 contain the fork and block numbers of the page.
       arg2, arg3, and arg4 contain the tablespace, database, and relation OIDs
@@ -6018,7 +6018,7 @@ arg2、arg3、arg4は対象のリレーションを識別するテーブル空�
 -->
      <entry>
 サーバプロセスによるダーティバッファの書き出し開始を捕捉するプローブ。
-(もしこれが頻発するようでしたら、<xref linkend="guc-shared-buffers">が少な過ぎるか、バックグラウンドライタ制御のパラメータの調節が必要なことを意味します。)
+(もしこれが頻発するようでしたら、<xref linkend="guc-shared-buffers"/>が少な過ぎるか、バックグラウンドライタ制御のパラメータの調節が必要なことを意味します。)
 arg0とarg1はそのページのフォーク番号とブロック番号です。
 arg2、arg3、arg4は対象のリレーションを識別するテーブル空間、データベース、そしてリレーションのOIDです。
      </entry>
@@ -6042,11 +6042,11 @@ arg2、arg3、arg4は対象のリレーションを識別するテーブル空�
      <entry>Probe that fires when a server process begins to write a
       dirty WAL buffer because no more WAL buffer space is available.
       (If this happens often, it implies that
-      <xref linkend="guc-wal-buffers"> is too small.)</entry>
+      <xref linkend="guc-wal-buffers"/> is too small.)</entry>
 -->
      <entry>
 WALバッファ領域の不足によるサーバプロセスのダーティなWALバッファの書き出しを捕捉するプローブ。
-(もしこれが頻発するようでしたら、<xref linkend="guc-wal-buffers">が小さすぎることを意味します。)
+(もしこれが頻発するようでしたら、<xref linkend="guc-wal-buffers"/>が小さすぎることを意味します。)
      </entry>
     </row>
     <row>
@@ -6389,7 +6389,7 @@ arg5は要求されたロックの種類を示します。
    counts in the system, as an alternative to snapshotting
    <structname>pg_stat_database</> before and after a performance test:
 -->
-以下の例では、システムにおけるトランザクション数を解析するDTraceスクリプトを示します。性能試験前後で<structname>pg_stat_database</>のスナップショットを取ることで代替可能です。
+以下の例では、システムにおけるトランザクション数を解析するDTraceスクリプトを示します。性能試験前後で<structname>pg_stat_database</structname>のスナップショットを取ることで代替可能です。
 <programlisting>
 #!/usr/sbin/dtrace -qs
 
@@ -6484,7 +6484,7 @@ DTraceスクリプトの作成には注意が必要であり、デバッグが�
 <!--
      Add the probe definitions to <filename>src/backend/utils/probes.d</>
 -->
-<filename>src/backend/utils/probes.d</>にプローブの定義を追加します
+<filename>src/backend/utils/probes.d</filename>にプローブの定義を追加します
     </para>
    </step>
 
@@ -6496,7 +6496,7 @@ DTraceスクリプトの作成には注意が必要であり、デバッグが�
      <literal>TRACE_POSTGRESQL</> probe macros at the desired locations
      in the source code
 -->
-もし、プローブポイントを含むモジュールが<filename>pg_trace.h</>をインクルードしてなければそれをインクルードし、ソースコード中のプローブを行いたい場所に<literal>TRACE_POSTGRESQL</>マクロを挿入します
+もし、プローブポイントを含むモジュールが<filename>pg_trace.h</filename>をインクルードしてなければそれをインクルードし、ソースコード中のプローブを行いたい場所に<literal>TRACE_POSTGRESQL</literal>マクロを挿入します
     </para>
    </step>
 
@@ -6531,7 +6531,7 @@ DTraceスクリプトの作成には注意が必要であり、デバッグが�
      Decide that the probe will be named <literal>transaction-start</> and
      requires a parameter of type <type>LocalTransactionId</type>
 -->
-プローブ名を<literal>transaction-start</>とし、パラメータとして<type>LocalTransactionId</type>型を必要とすることを決めます。
+プローブ名を<literal>transaction-start</literal>とし、パラメータとして<type>LocalTransactionId</type>型を必要とすることを決めます。
     </para>
    </step>
 
@@ -6540,7 +6540,7 @@ DTraceスクリプトの作成には注意が必要であり、デバッグが�
 <!--
      Add the probe definition to <filename>src/backend/utils/probes.d</>:
 -->
-<filename>src/backend/utils/probes.d</>にプローブの定義を追加します:
+<filename>src/backend/utils/probes.d</filename>にプローブの定義を追加します:
 <programlisting>
 probe transaction__start(LocalTransactionId);
 </programlisting>
@@ -6551,7 +6551,7 @@ probe transaction__start(LocalTransactionId);
      users.
 -->
 プローブ名に二重のアンダースコアを使用する場合は注意して下さい。
-DTraceスクリプトでプローブを用いる場合、二重のアンダースコアをハイフンに置き換える必要があります。そのため、<literal>transaction-start</>がユーザ向けの文書に記載される名前となります。
+DTraceスクリプトでプローブを用いる場合、二重のアンダースコアをハイフンに置き換える必要があります。そのため、<literal>transaction-start</literal>がユーザ向けの文書に記載される名前となります。
     </para>
    </step>
 
@@ -6564,7 +6564,7 @@ DTraceスクリプトでプローブを用いる場合、二重のアンダー�
      <filename>pg_trace.h</>.  Add the macro call to the appropriate location
      in the source code.  In this case, it looks like the following:
 -->
-コンパイル時に、<literal>transaction__start</>は<literal>TRACE_POSTGRESQL_TRANSACTION_START</>と呼ばれるマクロに変換されます(ここではアンダースコアはひとつになります)。このマクロは、<filename>pg_trace.h</>をインクルードすることにより使用可能となります。
+コンパイル時に、<literal>transaction__start</literal>は<literal>TRACE_POSTGRESQL_TRANSACTION_START</literal>と呼ばれるマクロに変換されます(ここではアンダースコアはひとつになります)。このマクロは、<filename>pg_trace.h</filename>をインクルードすることにより使用可能となります。
 このマクロをソースコード中の適切な箇所へ追加していきます。
 この場合、以下の様になります。
 
@@ -6628,7 +6628,7 @@ Cのソースコードに追跡用のマクロを追加する際、いくつか�
       consider protecting the macro with a check to see if the trace
       is actually enabled:
 -->
-ほとんどのプラットフォームでは、もし<productname>PostgreSQL</productname>が<option>--enable-dtrace</>付きでビルドされた場合、<emphasis>何の追跡がされなかった</>としても、制御がマクロを通過する際はいつでも追跡用マクロの引数が評価されます。
+ほとんどのプラットフォームでは、もし<productname>PostgreSQL</productname>が<option>--enable-dtrace</option>付きでビルドされた場合、<emphasis>何の追跡がされなかった</emphasis>としても、制御がマクロを通過する際はいつでも追跡用マクロの引数が評価されます。
 ごく少数のローカルな変数を報告するような場合はそれほど心配はいりません。
 ただし、高価な関数呼び出しを引数にする場合は注意して下さい。
 もしそのようにする必要がある場合、追跡が実際に有効かどうかをチェックしてマクロを保護することを考慮してください:
@@ -6641,7 +6641,7 @@ if (TRACE_POSTGRESQL_TRANSACTION_START_ENABLED())
 <!--
       Each trace macro has a corresponding <literal>ENABLED</> macro.
 -->
-各追跡マクロは対応する<literal>ENABLED</>マクロを持っています。
+各追跡マクロは対応する<literal>ENABLED</literal>マクロを持っています。
      </para>
     </listitem>
    </itemizedlist>

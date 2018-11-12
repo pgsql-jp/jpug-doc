@@ -27,8 +27,8 @@
   system, such as caching or some form of hardware acceleration.  This chapter
   outlines how to write a new custom scan provider.
 -->
-<productname>PostgreSQL</>では、システムに新しいスキャン方式を追加する拡張モジュールを可能にするためのいくつかの実験的機構をサポートしています。
-<link linkend="fdwhandler">外部データラッパ</>が自分の外部テーブルのスキャン方法を知っていることだけを担当するのと異なり、カスタムスキャンプロバイダはシステム内のリレーションをスキャンする代替方式を提供することができます。
+<productname>PostgreSQL</productname>では、システムに新しいスキャン方式を追加する拡張モジュールを可能にするためのいくつかの実験的機構をサポートしています。
+<link linkend="fdwhandler">外部データラッパ</link>が自分の外部テーブルのスキャン方法を知っていることだけを担当するのと異なり、カスタムスキャンプロバイダはシステム内のリレーションをスキャンする代替方式を提供することができます。
 典型的には、カスタムスキャンプロバイダを作成する理由は、キャッシュの利用や何らかの形式のハードウェアアクセラレーションといったコアシステムによってサポートされない最適化を利用可能にすることでしょう。
 本章では新しいカスタムスキャンプロバイダの作成方法について概要を説明します。
  </para>
@@ -83,8 +83,8 @@ extern PGDLLIMPORT set_rel_pathlist_hook_type set_rel_pathlist_hook;
     provider is responsible for initializing the <structname>CustomPath</>
     object, which is declared like this:
 -->
-このフックはコアシステムが生成したパスを検査し、修正し、あるいは削除するために使うことができますが、カスタムスキャンプロバイダは、典型的には<structname>CustomPath</>オブジェクトを生成し、<function>add_path</>を使ってそれを<literal>rel</>に追加することのみを行います。
-カスタムスキャンプロバイダは<structname>CustomPath</>オブジェクトの初期化を担当します。
+このフックはコアシステムが生成したパスを検査し、修正し、あるいは削除するために使うことができますが、カスタムスキャンプロバイダは、典型的には<structname>CustomPath</structname>オブジェクトを生成し、<function>add_path</function>を使ってそれを<literal>rel</literal>に追加することのみを行います。
+カスタムスキャンプロバイダは<structname>CustomPath</structname>オブジェクトの初期化を担当します。
 このオブジェクトは以下のように宣言されています。
 <programlisting>
 typedef struct CustomPath
@@ -119,16 +119,16 @@ typedef struct CustomPath
     be initialized so that the dynamic loader can resolve them to locate the
     method table.
 -->
-<structfield>path</>は、他のすべてのパスと同じく、行数の推定値、開始とトータルのコスト、このパスで提供されるソート順を含めて初期化される必要があります。
-<structfield>flags</>はビットマスクで、カスタムパスが逆向きスキャンをサポートできるなら<literal>CUSTOMPATH_SUPPORT_BACKWARD_SCAN</>を、マークとリストアがサポートできるなら<literal>CUSTOMPATH_SUPPORT_MARK_RESTORE</>を含めます。
+<structfield>path</structfield>は、他のすべてのパスと同じく、行数の推定値、開始とトータルのコスト、このパスで提供されるソート順を含めて初期化される必要があります。
+<structfield>flags</structfield>はビットマスクで、カスタムパスが逆向きスキャンをサポートできるなら<literal>CUSTOMPATH_SUPPORT_BACKWARD_SCAN</literal>を、マークとリストアがサポートできるなら<literal>CUSTOMPATH_SUPPORT_MARK_RESTORE</literal>を含めます。
 いずれの機能も必須ではありません。
-オプションの<structfield>custom_paths</>はこのカスタムパスのノードで使用される<structname>Path</>のノードのリストです。
-プランナがこれを<structname>Plan</>のノードに変換します。
-<structfield>custom_private</>はカスタムパスのプライベートデータを格納するために使うことができます。
-プライベートデータは<literal>nodeToString</>が処理できるような形式で格納してください。
+オプションの<structfield>custom_paths</structfield>はこのカスタムパスのノードで使用される<structname>Path</structname>のノードのリストです。
+プランナがこれを<structname>Plan</structname>のノードに変換します。
+<structfield>custom_private</structfield>はカスタムパスのプライベートデータを格納するために使うことができます。
+プライベートデータは<literal>nodeToString</literal>が処理できるような形式で格納してください。
 そうすることで、カスタムパスを出力するデバッグルーチンが設計通りに動作します。
-<structfield>methods</>は要求されるカスタムパスのメソッドのオブジェクト（通常は静的に割り当てられる）を指している必要があり、現在は1つのみとなります。
-<structfield>LibraryName</>フィールドと<structfield>SymbolName</>フィールドは、動的ローダがそれらのメソッドテーブルの位置を解決できるように、初期化されていなければなりません。
+<structfield>methods</structfield>は要求されるカスタムパスのメソッドのオブジェクト（通常は静的に割り当てられる）を指している必要があり、現在は1つのみとなります。
+<structfield>LibraryName</structfield>フィールドと<structfield>SymbolName</structfield>フィールドは、動的ローダがそれらのメソッドテーブルの位置を解決できるように、初期化されていなければなりません。
   </para>
 
   <para>
@@ -141,7 +141,7 @@ typedef struct CustomPath
 -->
 カスタムスキャンプロバイダは結合(join)のパスを提供することもできます。
 ベースのリレーションの場合と同様、そのようなパスは置換される結合が普通に生成したであろうものと同じ結果を生成しなければなりません。
-そのために、結合のプロバイダは以下のフックをセットし、フック関数内で結合リレーション用に<structname>CustomPath</>のパスを作成します。
+そのために、結合のプロバイダは以下のフックをセットし、フック関数内で結合リレーション用に<structname>CustomPath</structname>のパスを作成します。
 <programlisting>
 typedef void (*set_join_pathlist_hook_type) (PlannerInfo *root,
                                              RelOptInfo *joinrel,
@@ -179,11 +179,11 @@ Plan *(*PlanCustomPath) (PlannerInfo *root,
 <!--
     Convert a custom path to a finished plan.  The return value will generally
     be a <literal>CustomScan</> object, which the callback must allocate and
-    initialize.  See <xref linkend="custom-scan-plan"> for more details.
+    initialize.  See <xref linkend="custom-scan-plan"/> for more details.
 -->
 カスタムパスを完成した計画に変換します。
-戻り値は一般的には<literal>CustomScan</>オブジェクトで、その領域はコールバックが割り当てて初期化しなければなりません。
-詳しくは<xref linkend="custom-scan-plan">を参照してください。
+戻り値は一般的には<literal>CustomScan</literal>オブジェクトで、その領域はコールバックが割り当てて初期化しなければなりません。
+詳しくは<xref linkend="custom-scan-plan"/>を参照してください。
    </para>
   </sect2>
  </sect1>
@@ -241,19 +241,19 @@ typedef struct CustomScan
     object implementing the required custom scan methods, which are further
     detailed below.
 -->
-<structfield>scan</>は他のすべてのスキャンと同じく、推定コスト、対象のリスト、制約などを含めて初期化される必要があります。
-<structfield>flags</>は<structname>CustomPath</>と同じ意味のビットマスクです。
-<structfield>custom_plans</>は子の<structname>Plan</>ノードを格納するために使うことができます。
-<structfield>custom_exprs</>は<filename>setrefs.c</>および<filename>subselect.c</>によって作成される必要がある式のツリーを格納するために使われます。
-一方で<structfield>custom_private</>はカスタムスキャンプロバイダ自体によってのみ使用されるその他のプライベートデータを格納するために使われます。
-<structfield>custom_scan_tlist</>はベースリレーションをスキャンするときはNILとすることができます。
+<structfield>scan</structfield>は他のすべてのスキャンと同じく、推定コスト、対象のリスト、制約などを含めて初期化される必要があります。
+<structfield>flags</structfield>は<structname>CustomPath</structname>と同じ意味のビットマスクです。
+<structfield>custom_plans</structfield>は子の<structname>Plan</structname>ノードを格納するために使うことができます。
+<structfield>custom_exprs</structfield>は<filename>setrefs.c</filename>および<filename>subselect.c</filename>によって作成される必要がある式のツリーを格納するために使われます。
+一方で<structfield>custom_private</structfield>はカスタムスキャンプロバイダ自体によってのみ使用されるその他のプライベートデータを格納するために使われます。
+<structfield>custom_scan_tlist</structfield>はベースリレーションをスキャンするときはNILとすることができます。
 これはカスタムスキャンがベースリレーションの行の型と一致するスキャンタプルを返すことを意味します。
 それ以外の場合は、実際のスキャンタプルを表現する対象のリストとなります。
-<structfield>custom_scan_tlist</>は結合の場合には提供される必要があります。
+<structfield>custom_scan_tlist</structfield>は結合の場合には提供される必要があります。
 また、カスタムスキャンプロバイダがVarでない式を計算できる場合はスキャン用に提供することができます。
-<structfield>custom_relids</>は、コアコードにより、このスキャンノードが処理するリレーションの集合（範囲テーブルのインデックス）にセットされます。
+<structfield>custom_relids</structfield>は、コアコードにより、このスキャンノードが処理するリレーションの集合（範囲テーブルのインデックス）にセットされます。
 ただし、このスキャンが結合を置換する場合は例外で、ただ1つのメンバーだけになります。
-<structfield>methods</>は必要なカスタムスキャンメソッドを実装しているオブジェクト（通常は静的に割り当てられる）を指していなければなりません。
+<structfield>methods</structfield>は必要なカスタムスキャンメソッドを実装しているオブジェクト（通常は静的に割り当てられる）を指していなければなりません。
 これについては以下で詳しく説明します。
   </para>
 
@@ -264,8 +264,8 @@ typedef struct CustomScan
    to be scanned.  When it replaces a join, <structfield>scan.scanrelid</>
    should be zero.
 -->
-<structname>CustomScan</>がリレーションを1つだけスキャンするときは、<structfield>scan.scanrelid</>はスキャンされるテーブルの範囲テーブルのインデックスである必要があります。
-結合を置換するときは<structfield>scan.scanrelid</>はゼロになります。
+<structname>CustomScan</structname>がリレーションを1つだけスキャンするときは、<structfield>scan.scanrelid</structfield>はスキャンされるテーブルの範囲テーブルのインデックスである必要があります。
+結合を置換するときは<structfield>scan.scanrelid</structfield>はゼロになります。
   </para>
 
   <para>
@@ -277,9 +277,9 @@ typedef struct CustomScan
    a <structname>CustomScan</> for the structure itself, as would be possible
    for a <structname>CustomPath</> or <structname>CustomScanState</>.
 -->
-計画ツリーは<function>copyObject</>により複製できる必要があるので、<quote>custom</>フィールド内に格納されるすべてのデータは、その関数が処理できるノードから構成されていなければなりません。
-また、カスタムスキャンプロバイダは<structname>CustomScan</>を組み込んでいる大きな構造体を<structname>CustomScan</>の構造体で代替することができません。
-<structname>CustomPath</>や<structname>CustomScanState</>に対してはこれが可能です。
+計画ツリーは<function>copyObject</function>により複製できる必要があるので、<quote>custom</quote>フィールド内に格納されるすべてのデータは、その関数が処理できるノードから構成されていなければなりません。
+また、カスタムスキャンプロバイダは<structname>CustomScan</structname>を組み込んでいる大きな構造体を<structname>CustomScan</structname>の構造体で代替することができません。
+<structname>CustomPath</structname>や<structname>CustomScanState</structname>に対してはこれが可能です。
   </para>
 
   <sect2 id="custom-scan-plan-callbacks">
@@ -302,10 +302,10 @@ Node *(*CreateCustomScanState) (CustomScan *cscan);
     the <function>BeginCustomScan</> callback will be invoked to give the
     custom scan provider a chance to do whatever else is needed.
 -->
-この<structname>CustomScan</>に<structname>CustomScanState</>の領域を割り当てます。
-多くのプロバイダは、より大きな構造体の最初のフィールドとしてこれを組み込もうとするので、実際の割り当ては通常の<structname>CustomScanState</>が必要とするよりも多くくなることが多いでしょう。
-戻り値では、ノードのタグと<structfield>methods</>が適切に設定されている必要がありますが、その他のフィールドはこの段階ではゼロのままになっています。
-<function>ExecInitCustomScan</>が基本的な初期化をした後、<function>BeginCustomScan</>コールバックが呼び出されることで、カスタムスキャンプロバイダがその他の必要なことを実行する機会が与えられます。
+この<structname>CustomScan</structname>に<structname>CustomScanState</structname>の領域を割り当てます。
+多くのプロバイダは、より大きな構造体の最初のフィールドとしてこれを組み込もうとするので、実際の割り当ては通常の<structname>CustomScanState</structname>が必要とするよりも多くくなることが多いでしょう。
+戻り値では、ノードのタグと<structfield>methods</structfield>が適切に設定されている必要がありますが、その他のフィールドはこの段階ではゼロのままになっています。
+<function>ExecInitCustomScan</function>が基本的な初期化をした後、<function>BeginCustomScan</function>コールバックが呼び出されることで、カスタムスキャンプロバイダがその他の必要なことを実行する機会が与えられます。
    </para>
   </sect2>
  </sect1>
@@ -322,7 +322,7 @@ Node *(*CreateCustomScanState) (CustomScan *cscan);
    represented by a <structfield>CustomScanState</>, which is declared as
    follows:
 -->
-<structfield>CustomScan</>が実行されるとき、その実行状態は<structfield>CustomScanState</>で表現されます。
+<structfield>CustomScan</structfield>が実行されるとき、その実行状態は<structfield>CustomScanState</structfield>で表現されます。
 これは次のように宣言されています。
 <programlisting>
 typedef struct CustomScanState
@@ -347,11 +347,11 @@ typedef struct CustomScanState
    need not support <function>copyObject</>, will actually be a larger
    structure embedding the above as its first member.
 -->
-<structfield>ss</>は他のすべてのスキャン状態と同じく初期化されますが、スキャンがベースリレーションではなく結合を対象にしているときは例外で、<literal>ss.ss_currentRelation</>はNULLのままになります。
-<structfield>flags</>は<structname>CustomPath</>および<structname>CustomScan</>と同じ意味のビットマスクです。
-<structfield>methods</>は必要なカスタムスキャン状態のメソッドを実装するオブジェクト（通常は静的に割り当てられる）を指していなければなりません。
+<structfield>ss</structfield>は他のすべてのスキャン状態と同じく初期化されますが、スキャンがベースリレーションではなく結合を対象にしているときは例外で、<literal>ss.ss_currentRelation</literal>はNULLのままになります。
+<structfield>flags</structfield>は<structname>CustomPath</structname>および<structname>CustomScan</structname>と同じ意味のビットマスクです。
+<structfield>methods</structfield>は必要なカスタムスキャン状態のメソッドを実装するオブジェクト（通常は静的に割り当てられる）を指していなければなりません。
 これについては以下で詳しく説明します。
-<structname>CustomScanState</>は<function>copyObject</>をサポートしなくてもよく、典型的には上記を先頭のメンバーとして組み込んだより大きな構造体になっています。
+<structname>CustomScanState</structname>は<function>copyObject</function>をサポートしなくてもよく、典型的には上記を先頭のメンバーとして組み込んだより大きな構造体になっています。
   </para>
 
   <sect2 id="custom-scan-execution-callbacks">
@@ -371,8 +371,8 @@ void (*BeginCustomScan) (CustomScanState *node,
     Standard fields have been initialized by <function>ExecInitCustomScan</>,
     but any private fields should be initialized here.
 -->
-提供された<structname>CustomScanState</>の初期化を完了します。
-標準的なフィールドは<function>ExecInitCustomScan</>で初期化が済んでいますが、プライベートフィールドはここで初期化されます。
+提供された<structname>CustomScanState</structname>の初期化を完了します。
+標準的なフィールドは<function>ExecInitCustomScan</function>で初期化が済んでいますが、プライベートフィールドはここで初期化されます。
    </para>
 
    <para>
@@ -386,8 +386,8 @@ TupleTableSlot *(*ExecCustomScan) (CustomScanState *node);
     <literal>NULL</> or an empty slot should be returned.
 -->
 次のスキャンタプルをフェッチします。
-タプルが残っている場合は、現在のスキャン方向で次にあるタプルを<literal>ps_ResultTupleSlot</>に入れます。
-タプルが残っていないときは、<literal>NULL</>または空のスロットが戻されます。
+タプルが残っている場合は、現在のスキャン方向で次にあるタプルを<literal>ps_ResultTupleSlot</literal>に入れます。
+タプルが残っていないときは、<literal>NULL</literal>または空のスロットが戻されます。
    </para>
 
    <para>
@@ -399,7 +399,7 @@ void (*EndCustomScan) (CustomScanState *node);
     This method is required, but it does not need to do anything if there is
     no associated data or it will be cleaned up automatically.
 -->
-<literal>CustomScanState</>に関連付けられたプライベートデータを整理します。
+<literal>CustomScanState</literal>に関連付けられたプライベートデータを整理します。
 このメソッドは必須ですが、関連付けられたデータがない場合、あるいはそれが自動的に整理される場合は、このメソッドは何もする必要はありません。
    </para>
 
@@ -424,8 +424,8 @@ void (*MarkPosCustomScan) (CustomScanState *node);
     optional, and need only be supplied if the
     <literal>CUSTOMPATH_SUPPORT_MARK_RESTORE</> flag is set.
 -->
-現在のスキャン位置を保存し、後で<function>RestrPosCustomScan</>コールバックでリストアできるようにします。
-このコールバックは必須ではなく、<literal>CUSTOMPATH_SUPPORT_MARK_RESTORE</>フラグがセットされている場合にのみ、提供する必要があります。
+現在のスキャン位置を保存し、後で<function>RestrPosCustomScan</function>コールバックでリストアできるようにします。
+このコールバックは必須ではなく、<literal>CUSTOMPATH_SUPPORT_MARK_RESTORE</literal>フラグがセットされている場合にのみ、提供する必要があります。
    </para>
 
    <para>
@@ -438,8 +438,8 @@ void (*RestrPosCustomScan) (CustomScanState *node);
     and need only be supplied if the
     <literal>CUSTOMPATH_SUPPORT_MARK_RESTORE</> flag is set.
 -->
-<function>MarkPosCustomScan</>コールバックで保存された以前のスキャン位置をリストアします。
-このコールバックは必須ではなく、<literal>CUSTOMPATH_SUPPORT_MARK_RESTORE</>フラグがセットされている場合にのみ、提供する必要があります。
+<function>MarkPosCustomScan</function>コールバックで保存された以前のスキャン位置をリストアします。
+このコールバックは必須ではなく、<literal>CUSTOMPATH_SUPPORT_MARK_RESTORE</literal>フラグがセットされている場合にのみ、提供する必要があります。
    </para>
 
    <para>
@@ -474,7 +474,7 @@ void (*InitializeDSMCustomScan) (CustomScanState *node,
     scan provider supports parallel execution.
 -->
 並列操作に要求される動的共有メモリを初期化します。
-<literal>coordinate</>は、<function>EstimateDSMCustomScan</>の返り値と大きさが一致する動的共有メモリ領域を指します。
+<literal>coordinate</literal>は、<function>EstimateDSMCustomScan</function>の返り値と大きさが一致する動的共有メモリ領域を指します。
 このコールバックは必須ではなく、カスタムスキャンプロバイダが並列実行をサポートする場合にのみ提供される必要があります。
    </para>
 
@@ -497,8 +497,8 @@ void (*ReInitializeDSMCustomScan) (CustomScanState *node,
 -->
 カスタムスキャンプランノードが再スキャンしようとするときに、並列操作に必要な動的共有メモリを再初期化します。
 このコールバックは必須ではなく、カスタムスキャンプロバイダが並列実行をサポートする場合にのみ提供される必要があります。
-推奨する使い方としては、<function>ReScanCustomScan</>コールバックはローカル状態だけをリセットし、このコールバックは共有状態だけをリセットするようにします。
-今のところ、このコールバックは<function>ReScanCustomScan</>の前に呼ばれますが、この順序関係には依存しない方が良いです。
+推奨する使い方としては、<function>ReScanCustomScan</function>コールバックはローカル状態だけをリセットし、このコールバックは共有状態だけをリセットするようにします。
+今のところ、このコールバックは<function>ReScanCustomScan</function>の前に呼ばれますが、この順序関係には依存しない方が良いです。
    </para>
 
    <para>
@@ -513,7 +513,7 @@ void (*InitializeWorkerCustomScan) (CustomScanState *node,
     This callback is optional, and need only be supplied if this custom
     scan provider supports parallel execution.
 -->
-<literal>InitializeDSMCustomScan</>によりリーダーにて設定された共有状態を元に、並列ワーカーのローカル状態を初期化します。
+<literal>InitializeDSMCustomScan</literal>によりリーダーにて設定された共有状態を元に、並列ワーカーのローカル状態を初期化します。
 このコールバックは必須ではなく、カスタムスキャンプロバイダが並列実行をサポートする場合にのみ提供される必要があります。
    </para>
 
@@ -532,7 +532,7 @@ void (*ShutdownCustomScan) (CustomScanState *node);
 -->
 ノードが実行を完了しないと思われるときに、リソースを解放します。
 これはすべての場合に呼ばれるわけではありません。
-ときには、この関数がまず呼ばれることなしに、<literal>EndCustomScan</>が呼ばれるかもしれません。
+ときには、この関数がまず呼ばれることなしに、<literal>EndCustomScan</literal>が呼ばれるかもしれません。
 パラレルクエリで使用されるDSMセグメントは、このコールバックが呼ばれた直後に削除されるので、DSMセグメントが削除される前に何らかのアクションを起こしたいカスタムスキャンプロバイダは、このメソッドを実装すべきです。
    </para>
 
@@ -549,9 +549,9 @@ void (*ExplainCustomScan) (CustomScanState *node,
     be shown even without this callback, but the callback allows the display
     of additional, private state.
 -->
-カスタムスキャンの計画ノードの<command>EXPLAIN</>について追加情報を出力します。
+カスタムスキャンの計画ノードの<command>EXPLAIN</command>について追加情報を出力します。
 このコールバックは必須ではありません。
-対象のリストやスキャンのリレーションなど<structname>ScanState</>に格納される共通データは、このコールバックがなくても表示されますが、このコールバックにより、追加のプライベートな状態が表示できるようになります。
+対象のリストやスキャンのリレーションなど<structname>ScanState</structname>に格納される共通データは、このコールバックがなくても表示されますが、このコールバックにより、追加のプライベートな状態が表示できるようになります。
    </para>
   </sect2>
  </sect1>
