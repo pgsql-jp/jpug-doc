@@ -173,7 +173,7 @@
      exist to handle input formats that cannot be converted by
      simple casting.  For most standard date/time formats, simply casting the
      source string to the required data type works, and is much easier.
-     Similarly, <function>to_number</> is unnecessary for standard numeric
+     Similarly, <function>to_number</function> is unnecessary for standard numeric
      representations.
 -->
 <function>to_timestamp</function>と<function>to_date</function>は、単純なキャストでは変換できない入力フォーマットを処理するために存在します。
@@ -184,12 +184,15 @@
 
    <para>
 <!--
-    In a <function>to_char</> output template string, there are certain
+    In a <function>to_char</function> output template string, there are certain
     patterns that are recognized and replaced with appropriately-formatted
     data based on the given value.  Any text that is not a template pattern is
     simply copied verbatim.  Similarly, in an input template string (for the
     other functions), template patterns identify the values to be supplied by
-    the input data string.
+    the input data string.  If there are characters in the template string
+    that are not template patterns, the corresponding characters in the input
+    data string are simply skipped over (whether or not they are equal to the
+    template string characters).
 -->
 <function>to_char</function>用の出力テンプレート文字列には、値に基づいて認識され、適切に整形されたデータで置き換えられるパターンがあります。
 テンプレートパターンではない全てのテキストは単にそのままコピーされます。
@@ -503,14 +506,16 @@
        <row>
         <entry><literal>D</literal></entry>
 <!--
-        <entry>day of the week, Sunday (<literal>1</>) to Saturday (<literal>7</>)</entry>
+        <entry>day of the week, Sunday (<literal>1</literal>) to Saturday (<literal>7</literal>)</entry>
 -->
         <entry>曜日番号、日曜日（<literal>1</literal>）から土曜日（<literal>7</literal>）まで</entry>
        </row>
        <row>
         <entry><literal>ID</literal></entry>
+       </row>
+       <row>
 <!--
-        <entry>ISO 8601 day of the week, Monday (<literal>1</>) to Sunday (<literal>7</>)</entry>
+        <entry>ISO 8601 day of the week, Monday (<literal>1</literal>) to Sunday (<literal>7</literal>)</entry>
 -->
         <entry>ISO 8601の曜日番号、月曜日（<literal>1</literal>）から日曜日（<literal>7</literal>）まで</entry>
        </row>
@@ -574,7 +579,7 @@
         <entry><literal>TZ</literal></entry>
 <!--
         <entry>upper case time-zone abbreviation
-         (only supported in <function>to_char</>)</entry>
+         (only supported in <function>to_char</function>)</entry>
 -->
         <entry>大文字による時間帯省略名（<function>to_char</function>内でのみサポートされる）</entry>
        </row>
@@ -582,15 +587,23 @@
         <entry><literal>tz</literal></entry>
 <!--
         <entry>lower case time-zone abbreviation
-         (only supported in <function>to_char</>)</entry>
+         (only supported in <function>to_char</function>)</entry>
 -->
         <entry>小文字による時間帯省略名（<function>to_char</function>内でのみサポートされる）</entry>
+       </row>
+       <row>
+       <entry><literal>TZH</literal></entry>
+        <entry>time-zone hours</entry>
+       </row>
+       <row>
+       <entry><literal>TZM</literal></entry>
+        <entry>time-zone minutes</entry>
        </row>
        <row>
         <entry><literal>OF</literal></entry>
 <!--
         <entry>time-zone offset from UTC
-         (only supported in <function>to_char</>)</entry>
+         (only supported in <function>to_char</function>)</entry>
 -->
         <entry>UTCからの時間帯オフセット（<function>to_char</function>内でのみサポートされる）</entry>
        </row>
@@ -649,10 +662,7 @@
         <entry><literal>TH</literal>接尾辞</entry>
 <!--
         <entry>upper case ordinal number suffix</entry>
--->
-        <entry>大文字の序数を追加</entry>
-<!--
-        <entry><literal>DDTH</literal>, e.g., <literal>12TH</></entry>
+        <entry><literal>DDTH</literal>, e.g., <literal>12TH</literal></entry>
 -->
         <entry><literal>DDTH</literal>、例えば<literal>12TH</literal></entry>
        </row>
@@ -663,10 +673,7 @@
         <entry><literal>th</literal>接尾辞</entry>
 <!--
         <entry>lower case ordinal number suffix</entry>
--->
-        <entry>小文字の序数を追加</entry>
-<!--
-        <entry><literal>DDth</literal>, e.g., <literal>12th</></entry>
+        <entry><literal>DDth</literal>, e.g., <literal>12th</literal></entry>
 -->
         <entry><literal>DDth</literal>、例えば<literal>12th</literal></entry>
        </row>
@@ -735,7 +742,7 @@
       <para>
 <!--
        <literal>TM</literal> does not include trailing blanks.
-       <function>to_timestamp</> and <function>to_date</> ignore
+       <function>to_timestamp</function> and <function>to_date</function> ignore
        the <literal>TM</literal> modifier.
 -->
 <literal>TM</literal>には末尾の空白は含まれません。
@@ -768,13 +775,15 @@
        Ordinary text is allowed in <function>to_char</function>
        templates and will be output literally.  You can put a substring
        in double quotes to force it to be interpreted as literal text
-       even if it contains pattern key words.  For example, in
+       even if it contains template patterns.  For example, in
        <literal>'"Hello Year "YYYY'</literal>, the <literal>YYYY</literal>
        will be replaced by the year data, but the single <literal>Y</literal> in <literal>Year</literal>
-       will not be.  In <function>to_date</>, <function>to_number</>,
-       and <function>to_timestamp</>, double-quoted strings skip the number of
-       input characters contained in the string, e.g. <literal>"XX"</>
-       skips two input characters.
+       will not be.
+       In <function>to_date</function>, <function>to_number</function>,
+       and <function>to_timestamp</function>, literal text and double-quoted
+       strings result in skipping the number of characters contained in the
+       string; for example <literal>"XX"</literal> skips two input characters
+       (whether or not they are <literal>XX</literal>).
 -->
 <function>to_char</function>テンプレートには、通常のテキストを入れることができ、それはそのまま出力されます。
 部分文字列を二重引用符で括ることで、部分文字列にパターン用のキーワードがあったとしても、強制的にリテラルテキストとして解釈させることができます。
@@ -788,7 +797,12 @@
 <!--
        If you want to have a double quote in the output you must
        precede it with a backslash, for example <literal>'\"YYYY
-       Month\"'</literal>. <!&#045;- 原文コメント "" font-lock sanity :-) &#045;->
+       Month\"'</literal>. <!&#045;&#045; 原文コメント "" font-lock sanity :-) &#045;&#045;>
+       Backslashes are not otherwise special outside of double-quoted
+       strings.  Within a double-quoted string, a backslash causes the
+       next character to be taken literally, whatever it is (but this
+       has no special effect unless the next character is a double quote
+       or another backslash).
 -->
 出力に二重引用符を付けたい場合、<literal>'\"YYYY Month\"'</literal>のようにその前にバックスラッシュを付けなければなりません。
       </para>
@@ -799,9 +813,9 @@
 <!--
        In <function>to_timestamp</function> and <function>to_date</function>,
        if the year format specification is less than four digits, e.g.
-       <literal>YYY</>, and the supplied year is less than four digits,
+       <literal>YYY</literal>, and the supplied year is less than four digits,
        the year will be adjusted to be nearest to the year 2020, e.g.
-       <literal>95</> becomes 1995.
+       <literal>95</literal> becomes 1995.
 -->
 <function>to_timestamp</function>において<function>to_date</function>、<literal>YYY</literal>の様に4桁未満の年書式が指定され、かつ与えられる年が4桁未満だった場合、年は2020年に最も近くなるよう調整されます。例えば、<literal>95</literal>の場合は1995年になります。
       </para>
@@ -899,7 +913,7 @@ ISO 8601週番号日は（グレゴリオ暦の日付とは異なって）以下
        Attempting to enter a date using a mixture of ISO 8601 week-numbering
        fields and Gregorian date fields is nonsensical, and will cause an
        error.  In the context of an ISO 8601 week-numbering year, the
-       concept of a <quote>month</> or <quote>day of month</> has no
+       concept of a <quote>month</quote> or <quote>day of month</quote> has no
        meaning.  In the context of a Gregorian year, the ISO week has no
        meaning.
 -->
@@ -913,8 +927,8 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
         While <function>to_date</function> will reject a mixture of
         Gregorian and ISO week-numbering date
         fields, <function>to_char</function> will not, since output format
-        specifications like <literal>YYYY-MM-DD (IYYY-IDDD)</> can be
-        useful.  But avoid writing something like <literal>IYYY-MM-DD</>;
+        specifications like <literal>YYYY-MM-DD (IYYY-IDDD)</literal> can be
+        useful.  But avoid writing something like <literal>IYYY-MM-DD</literal>;
         that would yield surprising results near the start of the year.
         (See <xref linkend="functions-datetime-extract"/> for more
         information.)
@@ -976,11 +990,11 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
      <listitem>
       <para>
 <!--
-        <function>to_char(interval)</function> formats <literal>HH</> and
-        <literal>HH12</> as shown on a 12-hour clock, for example zero hours
-        and 36 hours both output as <literal>12</>, while <literal>HH24</>
+        <function>to_char(interval)</function> formats <literal>HH</literal> and
+        <literal>HH12</literal> as shown on a 12-hour clock, for example zero hours
+        and 36 hours both output as <literal>12</literal>, while <literal>HH24</literal>
         outputs the full hour value, which can exceed 23 in
-        an <type>interval</> value.
+        an <type>interval</type> value.
 -->
 <function>to_char(interval)</function>関数は、<literal>HH</literal>と<literal>HH12</literal>を12時間の時計に表示されるように整形します。
 例えば0時間と36時間はいずれも<literal>12</literal>として出力します。
@@ -1144,25 +1158,20 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
     <itemizedlist>
      <listitem>
       <para>
-<!--
-       <literal>0</> specifies a digit position that will always be printed,
-       even if it contains a leading/trailing zero.  <literal>9</> also
+       <literal>0</literal> specifies a digit position that will always be printed,
+       even if it contains a leading/trailing zero.  <literal>9</literal> also
        specifies a digit position, but if it is a leading zero then it will
        be replaced by a space, while if it is a trailing zero and fill mode
-       is specified then it will be deleted.  (For <function>to_number()</>,
+       is specified then it will be deleted.  (For <function>to_number()</function>,
        these two pattern characters are equivalent.)
--->
-<literal>0</literal>は、それが先頭あるいは末尾のゼロであっても必ず表示する数字の位置を指定します。
-<literal>9</literal>も数字の位置を指定しますが、先頭のゼロであればそれは空白で置換され、また末尾のゼロで字詰めモードが指定されているときは削除されます。
-（<function>to_number()</function>では、これら2つのパターン文字は同じ意味になります。）
       </para>
      </listitem>
 
      <listitem>
       <para>
 <!--
-       The pattern characters <literal>S</>, <literal>L</>, <literal>D</>,
-       and <literal>G</> represent the sign, currency symbol, decimal point,
+       The pattern characters <literal>S</literal>, <literal>L</literal>, <literal>D</literal>,
+       and <literal>G</literal> represent the sign, currency symbol, decimal point,
        and thousands separator characters defined by the current locale
        (see <xref linkend="guc-lc-monetary"/>
        and <xref linkend="guc-lc-numeric"/>).  The pattern characters period
@@ -1178,9 +1187,9 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
       <para>
 <!--
        If no explicit provision is made for a sign
-       in <function>to_char()</>'s pattern, one column will be reserved for
+       in <function>to_char()</function>'s pattern, one column will be reserved for
        the sign, and it will be anchored to (appear just left of) the
-       number.  If <literal>S</> appears just left of some <literal>9</>'s,
+       number.  If <literal>S</literal> appears just left of some <literal>9</literal>'s,
        it will likewise be anchored to the number.
 -->
 <function>to_char()</function>のパターンで符号について明示的な条件付けがない場合、符号のために一桁が予約され、それは数に繋げられます（すぐ左側に置かれます）。
@@ -1225,6 +1234,17 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
        extensions.
 -->
 <literal>PL</literal>、<literal>SG</literal>、および<literal>TH</literal>は<productname>PostgreSQL</productname>の拡張です。
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+       In <function>to_number</function>, if non-data template patterns such
+       as <literal>L</literal> or <literal>TH</literal> are used, the
+       corresponding number of input characters are skipped, whether or not
+       they match the template pattern, unless they are data characters
+       (that is, digits, sign, decimal point, or comma).  For
+       example, <literal>TH</literal> would skip two non-data characters.
       </para>
      </listitem>
 
@@ -1548,7 +1568,7 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
    inputs actually come in two variants: one that takes <type>time with time zone</type> or <type>timestamp
    with time zone</type>, and one that takes <type>time without time zone</type> or <type>timestamp without time zone</type>.
    For brevity, these variants are not shown separately.  Also, the
-   <literal>+</> and <literal>*</> operators come in commutative pairs (for
+   <literal>+</literal> and <literal>*</literal> operators come in commutative pairs (for
    example both date + integer and integer + date); we show only one of each
    such pair.
 -->
@@ -1732,7 +1752,7 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
         </entry>
         <entry><type>interval</type></entry>
 <!--
-        <entry>Subtract arguments, producing a <quote>symbolic</> result that
+        <entry>Subtract arguments, producing a <quote>symbolic</quote> result that
         uses years and months, rather than just days</entry>
 -->
         <entry>引数間の減算。日数だけでなく年と月を使用した<quote>言葉による</quote>結果を生成</entry>
@@ -1993,7 +2013,7 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
         </entry>
         <entry><type>interval</type></entry>
 <!--
-        <entry>Adjust interval using <function>justify_days</> and <function>justify_hours</>, with additional sign adjustments</entry>
+        <entry>Adjust interval using <function>justify_days</function> and <function>justify_hours</function>, with additional sign adjustments</entry>
 -->
         <entry><function>justify_days</function>および<function>justify_hours</function>を使用し、さらに符号による調整を行っての時間間隔の調整</entry>
         <entry><literal>justify_interval(interval '1 mon -1 hour')</literal></entry>
@@ -2218,7 +2238,7 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
         <entry><type>text</type></entry>
 <!--
         <entry>Current date and time
-         (like <function>clock_timestamp</>, but as a <type>text</> string);
+         (like <function>clock_timestamp</function>, but as a <type>text</type> string);
          see <xref linkend="functions-datetime-current"/>
 -->
         <entry>現在の日付と時刻（<function>clock_timestamp</function>と似ているが、<type>text</type>型文字列として返す）。<xref linkend="functions-datetime-current"/>を参照。
@@ -2270,7 +2290,7 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
       <primary>OVERLAPS</primary>
     </indexterm>
 <!--
-    In addition to these functions, the SQL <literal>OVERLAPS</> operator is
+    In addition to these functions, the SQL <literal>OVERLAPS</literal> operator is
     supported:
 -->
 これらの関数に加え、<literal>OVERLAPS</literal> SQL演算子がサポートされています。
@@ -2284,11 +2304,11 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
     can be specified as pairs of dates, times, or time stamps; or as
     a date, time, or time stamp followed by an interval.  When a pair
     of values is provided, either the start or the end can be written
-    first; <literal>OVERLAPS</> automatically takes the earlier value
+    first; <literal>OVERLAPS</literal> automatically takes the earlier value
     of the pair as the start.  Each time period is considered to
-    represent the half-open interval <replaceable>start</> <literal>&lt;=</>
-    <replaceable>time</> <literal>&lt;</> <replaceable>end</>, unless
-    <replaceable>start</> and <replaceable>end</> are equal in which case it
+    represent the half-open interval <replaceable>start</replaceable> <literal>&lt;=</literal>
+    <replaceable>time</replaceable> <literal>&lt;</literal> <replaceable>end</replaceable>, unless
+    <replaceable>start</replaceable> and <replaceable>end</replaceable> are equal in which case it
     represents that single time instant.  This means for instance that two
     time periods with only an endpoint in common do not overlap.
 -->
@@ -2339,13 +2359,13 @@ SELECT (DATE '2001-10-30', DATE '2001-10-30') OVERLAPS
 
   <para>
 <!--
-   Note there can be ambiguity in the <literal>months</> field returned by
-   <function>age</> because different months have different numbers of
-   days.  <productname>PostgreSQL</>'s approach uses the month from the
+   Note there can be ambiguity in the <literal>months</literal> field returned by
+   <function>age</function> because different months have different numbers of
+   days.  <productname>PostgreSQL</productname>'s approach uses the month from the
    earlier of the two dates when calculating partial months.  For example,
-   <literal>age('2004-06-01', '2004-04-30')</> uses April to yield
-   <literal>1 mon 1 day</>, while using May would yield <literal>1 mon 2
-   days</> because May has 31 days, while April has only 30.
+   <literal>age('2004-06-01', '2004-04-30')</literal> uses April to yield
+   <literal>1 mon 1 day</literal>, while using May would yield <literal>1 mon 2
+   days</literal> because May has 31 days, while April has only 30.
 -->
 異なる月では日数が異なりますので<function>age</function>で返される<literal>months</literal>フィールドにはあいまいさがあります。
 <productname>PostgreSQL</productname>のやり方は月をまたがる２つの日付の計算において、日付の早いほうの月を使用します。
@@ -2356,19 +2376,19 @@ SELECT (DATE '2001-10-30', DATE '2001-10-30') OVERLAPS
 <!--
    Subtraction of dates and timestamps can also be complex.  One conceptually
    simple way to perform subtraction is to convert each value to a number
-   of seconds using <literal>EXTRACT(EPOCH FROM ...)</>, then subtract the
+   of seconds using <literal>EXTRACT(EPOCH FROM ...)</literal>, then subtract the
    results; this produces the
-   number of <emphasis>seconds</> between the two values.  This will adjust
+   number of <emphasis>seconds</emphasis> between the two values.  This will adjust
    for the number of days in each month, timezone changes, and daylight
    saving time adjustments.  Subtraction of date or timestamp
-   values with the <quote><literal>-</></quote> operator
+   values with the <quote><literal>-</literal></quote> operator
    returns the number of days (24-hours) and hours/minutes/seconds
-   between the values, making the same adjustments.  The <function>age</>
+   between the values, making the same adjustments.  The <function>age</function>
    function returns years, months, days, and hours/minutes/seconds,
    performing field-by-field subtraction and then adjusting for negative
    field values.  The following queries illustrate the differences in these
    approaches.  The sample results were produced with <literal>timezone
-   = 'US/Eastern'</>; there is a daylight saving time change between the
+   = 'US/Eastern'</literal>; there is a daylight saving time change between the
    two dates used:
 -->
 日付とタイムスタンプの引き算は複雑になることがあります。
@@ -2523,8 +2543,8 @@ SELECT EXTRACT(DECADE FROM TIMESTAMP '2001-02-16 20:38:40');
       <listitem>
        <para>
 <!--
-        The day of the week as Sunday (<literal>0</>) to
-        Saturday (<literal>6</>)
+        The day of the week as Sunday (<literal>0</literal>) to
+        Saturday (<literal>6</literal>)
 -->
 日曜日（<literal>0</literal>）から土曜日（<literal>6</literal>）までの曜日
        </para>
@@ -2588,7 +2608,7 @@ SELECT EXTRACT(EPOCH FROM INTERVAL '5 days 3 hours');
        <para>
 <!--
         You can convert an epoch value back to a time stamp
-        with <function>to_timestamp</>:
+        with <function>to_timestamp</function>:
 -->
 <function>to_timestamp</function>で経過秒数をタイムスタンプ値に変換することができます。
        </para>
@@ -2621,8 +2641,8 @@ SELECT EXTRACT(HOUR FROM TIMESTAMP '2001-02-16 20:38:40');
       <listitem>
        <para>
 <!--
-        The day of the week as Monday (<literal>1</>) to
-        Sunday (<literal>7</>)
+        The day of the week as Monday (<literal>1</literal>) to
+        Sunday (<literal>7</literal>)
 -->
 月曜日（<literal>1</literal>）から日曜日（<literal>7</literal>）までの曜日
        </para>
@@ -2633,8 +2653,8 @@ SELECT EXTRACT(ISODOW FROM TIMESTAMP '2001-02-18 20:38:40');
 </screen>
        <para>
 <!--
-        This is identical to <literal>dow</> except for Sunday.  This
-        matches the <acronym>ISO</> 8601 day of the week numbering.
+        This is identical to <literal>dow</literal> except for Sunday.  This
+        matches the <acronym>ISO</acronym> 8601 day of the week numbering.
 -->
 日曜日を除き<literal>dow</literal>と同一です。
 これは<acronym>ISO</acronym> 8601曜日番号付けに一致します。
@@ -2882,11 +2902,11 @@ SELECT EXTRACT(SECOND FROM TIME '17:12:28.5');
         In the ISO week-numbering system, it is possible for early-January
         dates to be part of the 52nd or 53rd week of the previous year, and for
         late-December dates to be part of the first week of the next year.
-        For example, <literal>2005-01-01</> is part of the 53rd week of year
-        2004, and <literal>2006-01-01</> is part of the 52nd week of year
-        2005, while <literal>2012-12-31</> is part of the first week of 2013.
-        It's recommended to use the <literal>isoyear</> field together with
-        <literal>week</> to get consistent results.
+        For example, <literal>2005-01-01</literal> is part of the 53rd week of year
+        2004, and <literal>2006-01-01</literal> is part of the 52nd week of year
+        2005, while <literal>2012-12-31</literal> is part of the first week of 2013.
+        It's recommended to use the <literal>isoyear</literal> field together with
+        <literal>week</literal> to get consistent results.
 -->
 ISO週番号システムでは、1月の早い日にちは前年の第52週もしくは第53週となることがあり、12月の遅い日にちには次年の最初の週の一部となることがあります。
 例えば、<literal>2005-01-01</literal>は2004年の第53週であり、<literal>2006-01-01</literal>は2005年の第52週の一部です、一方<literal>2012-12-31</literal>は2013年の第1週の一部となります。
@@ -2905,8 +2925,8 @@ SELECT EXTRACT(WEEK FROM TIMESTAMP '2001-02-16 20:38:40');
       <listitem>
        <para>
 <!--
-        The year field.  Keep in mind there is no <literal>0 AD</>, so subtracting
-        <literal>BC</> years from <literal>AD</> years should be done with care.
+        The year field.  Keep in mind there is no <literal>0 AD</literal>, so subtracting
+        <literal>BC</literal> years from <literal>AD</literal> years should be done with care.
 -->
 年フィールド。<literal>AD零年</literal>が存在しないことは忘れないでください。このため<literal>AD</literal>の年から<literal>BC</literal>の年を減ずる時には注意が必要です。
        </para>
@@ -2924,11 +2944,11 @@ SELECT EXTRACT(YEAR FROM TIMESTAMP '2001-02-16 20:38:40');
    <note>
     <para>
 <!--
-     When the input value is +/-Infinity, <function>extract</> returns
-     +/-Infinity for monotonically-increasing fields (<literal>epoch</>,
-     <literal>julian</>, <literal>year</>, <literal>isoyear</>,
-     <literal>decade</>, <literal>century</>, and <literal>millennium</>).
-     For other fields, NULL is returned.  <productname>PostgreSQL</>
+     When the input value is +/-Infinity, <function>extract</function> returns
+     +/-Infinity for monotonically-increasing fields (<literal>epoch</literal>,
+     <literal>julian</literal>, <literal>year</literal>, <literal>isoyear</literal>,
+     <literal>decade</literal>, <literal>century</literal>, and <literal>millennium</literal>).
+     For other fields, NULL is returned.  <productname>PostgreSQL</productname>
      versions before 9.6 returned zero for all cases of infinite input.
 -->
 入力値が+/-無限大の場合、<function>extract</function>は単調増加するフィールド（<literal>epoch</literal>、<literal>julian</literal>、<literal>year</literal>、<literal>isoyear</literal>、<literal>decade</literal>、<literal>century</literal>、<literal>millennium</literal>）に対し、+/-無限大を返します。
@@ -2998,13 +3018,13 @@ date_trunc('<replaceable>field</replaceable>', <replaceable>source</replaceable>
 </synopsis>
 <!--
     <replaceable>source</replaceable> is a value expression of type
-    <type>timestamp</type> or <type>interval</>.
+    <type>timestamp</type> or <type>interval</type>.
     (Values of type <type>date</type> and
     <type>time</type> are cast automatically to <type>timestamp</type> or
-    <type>interval</>, respectively.)
+    <type>interval</type>, respectively.)
     <replaceable>field</replaceable> selects to which precision to
     truncate the input value.  The return value is of type
-    <type>timestamp</type> or <type>interval</>
+    <type>timestamp</type> or <type>interval</type>
     with all fields that are less significant than the
     selected one set to zero (or one, for day and month).
 -->
@@ -3069,10 +3089,11 @@ SELECT date_trunc('year', TIMESTAMP '2001-02-16 20:38:40');
 
    <para>
 <!--
-    The <literal>AT TIME ZONE</literal> construct allows conversions
-    of time stamps to different time zones.  <xref
-    linkend="functions-datetime-zoneconvert-table"/> shows its
-    variants.
+    The <literal>AT TIME ZONE</literal> converts time
+    stamp <emphasis>without time zone</emphasis> to/from
+    time stamp <emphasis>with time zone</emphasis>, and
+    <emphasis>time</emphasis> values to different time zones. <xref
+    linkend="functions-datetime-zoneconvert-table"/> shows its variants.
 -->
 <function>AT TIME ZONE</function>構文を使用することにより、タイムスタンプを異なる時間帯に変換することができます。
 <xref linkend="functions-datetime-zoneconvert-table"/>にその種類を示します。
@@ -3104,7 +3125,7 @@ SELECT date_trunc('year', TIMESTAMP '2001-02-16 20:38:40');
         </entry>
         <entry><type>timestamp with time zone</type></entry>
 <!--
-        <entry>Treat given time stamp <emphasis>without time zone</> as located in the specified time zone</entry>
+        <entry>Treat given time stamp <emphasis>without time zone</emphasis> as located in the specified time zone</entry>
 -->
         <entry>与えられた<emphasis>時間帯なし</emphasis>タイムスタンプを指定された時間帯にあるとして取り扱います。</entry>
        </row>
@@ -3115,7 +3136,7 @@ SELECT date_trunc('year', TIMESTAMP '2001-02-16 20:38:40');
         </entry>
         <entry><type>timestamp without time zone</type></entry>
 <!--
-        <entry>Convert given time stamp <emphasis>with time zone</> to the new time
+        <entry>Convert given time stamp <emphasis>with time zone</emphasis> to the new time
         zone, with no time zone designation</entry>
 -->
         <entry>与えられた<emphasis>時間帯付き</emphasis>タイムスタンプを新規の時間帯に、時間帯の指定なく変換します。</entry>
@@ -3127,7 +3148,7 @@ SELECT date_trunc('year', TIMESTAMP '2001-02-16 20:38:40');
         </entry>
         <entry><type>time with time zone</type></entry>
 <!--
-        <entry>Convert given time <emphasis>with time zone</> to the new time zone</entry>
+        <entry>Convert given time <emphasis>with time zone</emphasis> to the new time zone</entry>
 -->
         <entry>与えられた時刻<emphasis>with time zone</emphasis>を新しい時間帯に変換します。</entry>
        </row>
@@ -3137,8 +3158,8 @@ SELECT date_trunc('year', TIMESTAMP '2001-02-16 20:38:40');
 
    <para>
 <!--
-    In these expressions, the desired time zone <replaceable>zone</> can be
-    specified either as a text string (e.g., <literal>'PST'</literal>)
+    In these expressions, the desired time zone <replaceable>zone</replaceable> can be
+    specified either as a text string (e.g., <literal>'America/Los_Angeles'</literal>)
     or as an interval (e.g., <literal>INTERVAL '-08:00'</literal>).
     In the text case, a time zone name can be specified in any of the ways
     described in <xref linkend="datatype-timezones"/>.
@@ -3149,20 +3170,29 @@ SELECT date_trunc('year', TIMESTAMP '2001-02-16 20:38:40');
 
    <para>
 <!--
-    Examples (assuming the local time zone is <literal>PST8PDT</>):
+    Examples (assuming the local time zone is <literal>America/Los_Angeles</literal>):
 -->
 以下に例を示します（ローカル時間帯を<literal>PST8PDT</literal>と想定しています）。
 <screen>
-SELECT TIMESTAMP '2001-02-16 20:38:40' AT TIME ZONE 'MST';
+SELECT TIMESTAMP '2001-02-16 20:38:40' AT TIME ZONE 'America/Denver';
 <lineannotation>Result: </lineannotation><computeroutput>2001-02-16 19:38:40-08</computeroutput>
 
-SELECT TIMESTAMP WITH TIME ZONE '2001-02-16 20:38:40-05' AT TIME ZONE 'MST';
+SELECT TIMESTAMP WITH TIME ZONE '2001-02-16 20:38:40-05' AT TIME ZONE 'America/Denver';
 <lineannotation>Result: </lineannotation><computeroutput>2001-02-16 18:38:40</computeroutput>
+
+SELECT TIMESTAMP '2001-02-16 20:38:40-05' AT TIME ZONE 'Asia/Tokyo' AT TIME ZONE 'America/Chicago';
+<lineannotation>Result: </lineannotation><computeroutput>2001-02-16 05:38:40</computeroutput>
 </screen>
 <!--
-    The first example takes a time stamp without time zone and interprets it as MST time
-    (UTC-7), which is then converted to PST (UTC-8) for display.  The second example takes
-    a time stamp specified in EST (UTC-5) and converts it to local time in MST (UTC-7).
+    The first example adds a time zone to a value that lacks it, and
+    displays the value using the current <varname>TimeZone</varname>
+    setting.  The second example shifts the time stamp with time zone value
+    to the specified time zone, and returns the value without a time zone.
+    This allows storage and display of values different from the current
+    <varname>TimeZone</varname> setting.  The third example converts
+    Tokyo time to Chicago time.   Converting <emphasis>time</emphasis>
+    values to other time zones uses the currently active time zone rules
+    since no date is supplied.
 -->
 最初の例は、時間帯のないタイムスタンプを使用し、それをMST時間（UTC-7）として解釈し、そして表示用にPST（UTC-7）に変換します。
 2番目の例は、EST（UTC-5）で指定されたタイムスタンプを使用し、MST（UTC-7）でのローカル時間に変換しています。
@@ -3170,10 +3200,10 @@ SELECT TIMESTAMP WITH TIME ZONE '2001-02-16 20:38:40-05' AT TIME ZONE 'MST';
 
    <para>
 <!--
-    The function <literal><function>timezone</function>(<replaceable>zone</>,
-    <replaceable>timestamp</>)</literal> is equivalent to the SQL-conforming construct
-    <literal><replaceable>timestamp</> AT TIME ZONE
-    <replaceable>zone</></literal>.
+    The function <literal><function>timezone</function>(<replaceable>zone</replaceable>,
+    <replaceable>timestamp</replaceable>)</literal> is equivalent to the SQL-conforming construct
+    <literal><replaceable>timestamp</replaceable> AT TIME ZONE
+    <replaceable>zone</replaceable></literal>.
 -->
 関数<function>timezone</function>(<replaceable>zone</replaceable>, <replaceable>timestamp</replaceable>)は、SQL準拠の構文<literal><replaceable>timestamp</replaceable> AT TIME ZONE <replaceable>zone</replaceable></literal>と等価です。
    </para>
@@ -3317,23 +3347,23 @@ now()
 
    <para>
 <!--
-    <function>transaction_timestamp()</> is equivalent to
+    <function>transaction_timestamp()</function> is equivalent to
     <function>CURRENT_TIMESTAMP</function>, but is named to clearly reflect
     what it returns.
-    <function>statement_timestamp()</> returns the start time of the current
+    <function>statement_timestamp()</function> returns the start time of the current
     statement (more specifically, the time of receipt of the latest command
     message from the client).
-    <function>statement_timestamp()</> and <function>transaction_timestamp()</>
+    <function>statement_timestamp()</function> and <function>transaction_timestamp()</function>
     return the same value during the first command of a transaction, but might
     differ during subsequent commands.
-    <function>clock_timestamp()</> returns the actual current time, and
+    <function>clock_timestamp()</function> returns the actual current time, and
     therefore its value changes even within a single SQL command.
-    <function>timeofday()</> is a historical
+    <function>timeofday()</function> is a historical
     <productname>PostgreSQL</productname> function.  Like
-    <function>clock_timestamp()</>, it returns the actual current time,
-    but as a formatted <type>text</> string rather than a <type>timestamp
-    with time zone</> value.
-    <function>now()</> is a traditional <productname>PostgreSQL</productname>
+    <function>clock_timestamp()</function>, it returns the actual current time,
+    but as a formatted <type>text</type> string rather than a <type>timestamp
+    with time zone</type> value.
+    <function>now()</function> is a traditional <productname>PostgreSQL</productname>
     equivalent to <function>transaction_timestamp()</function>.
 -->
 <function>transaction_timestamp()</function>は<function>CURRENT_TIMESTAMP</function>と等価ですが、明確に何を返すかを反映する名前になっています。
@@ -3366,7 +3396,7 @@ SELECT TIMESTAMP 'now';  -- DEFAULTで使用するのは正しくない
     <tip>
      <para>
 <!--
-      You do not want to use the third form when specifying a <literal>DEFAULT</>
+      You do not want to use the third form when specifying a <literal>DEFAULT</literal>
       clause while creating a table.  The system will convert <literal>now</literal>
       to a <type>timestamp</type> as soon as the constant is parsed, so that when
       the default value is needed,
@@ -3425,9 +3455,9 @@ pg_sleep_until(<type>timestamp with time zone</type>)
     <function>pg_sleep</function> makes the current session's process
     sleep until <replaceable>seconds</replaceable> seconds have
     elapsed.  <replaceable>seconds</replaceable> is a value of type
-    <type>double precision</>, so fractional-second delays can be specified.
+    <type>double precision</type>, so fractional-second delays can be specified.
     <function>pg_sleep_for</function> is a convenience function for larger
-    sleep times specified as an <type>interval</>.
+    sleep times specified as an <type>interval</type>.
     <function>pg_sleep_until</function> is a convenience function for when
     a specific wake-up time is desired.
     For example:
@@ -3598,7 +3628,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
 
    <para>
 <!--
-    Notice that except for the two-argument form of <function>enum_range</>,
+    Notice that except for the two-argument form of <function>enum_range</function>,
     these functions disregard the specific value passed to them; they care
     only about its declared data type.  Either null or a specific value of
     the type can be passed, with the same result.  It is more common to
@@ -3633,13 +3663,13 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
    <caution>
     <para>
 <!--
-     Note that the <quote>same as</> operator, <literal>~=</>, represents
+     Note that the <quote>same as</quote> operator, <literal>~=</literal>, represents
      the usual notion of equality for the <type>point</type>,
      <type>box</type>, <type>polygon</type>, and <type>circle</type> types.
-     Some of these types also have an <literal>=</> operator, but
-     <literal>=</> compares
-     for equal <emphasis>areas</> only.  The other scalar comparison operators
-     (<literal>&lt;=</> and so on) likewise compare areas for these types.
+     Some of these types also have an <literal>=</literal> operator, but
+     <literal>=</literal> compares
+     for equal <emphasis>areas</emphasis> only.  The other scalar comparison operators
+     (<literal>&lt;=</literal> and so on) likewise compare areas for these types.
 -->
 <quote>同じを示す</quote><literal>~=</literal>演算子は<type>point</type>、<type>box</type>、<type>polygon</type>、および<type>circle</type>型に対し通常の等価概念を示すことに注意してください。これらのいくつかの型は<literal>=</literal>演算子を持ちますが、<literal>=</literal>は<emphasis>面積</emphasis>の等しさのみを比較します。その他のスカラー比較演算子（<literal>&lt;=</literal>など）は同様にこれらの型の面積を比較します。
     </para>
@@ -3920,8 +3950,8 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
     <para>
 <!--
      Before <productname>PostgreSQL</productname> 8.2, the containment
-     operators <literal>@&gt;</> and <literal>&lt;@</> were respectively
-     called <literal>~</> and <literal>@</>.  These names are still
+     operators <literal>@&gt;</literal> and <literal>&lt;@</literal> were respectively
+     called <literal>~</literal> and <literal>@</literal>.  These names are still
      available, but are deprecated and will eventually be removed.
 -->
 <productname>PostgreSQL</productname>の8.2より前では、包含演算子<literal>@&gt;</literal>および<literal>&lt;@</literal>はそれぞれ<literal>~</literal>および<literal>@</literal>という名前でした。
@@ -4077,8 +4107,6 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry>閉経路に変換</entry>
         <entry><literal>pclose(path '[(0,0),(1,1),(2,0)]')</literal></entry>
        </row>
-<![IGNORE[
-<!-- Not defined by this name. Implements the intersection operator '#' -->
        <row>
         <entry><literal><function>point(<type>lseg</type>, <type>lseg</type>)</function></literal></entry>
         <entry><type>point</type></entry>
@@ -4088,7 +4116,6 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry>交点</entry>
         <entry><literal>point(lseg '((-1,0),(1,0))',lseg '((-2,-2),(2,2))')</literal></entry>
        </row>
-]]>
        <row>
         <entry><literal><function>popen(<type>path</type>)</function></literal></entry>
         <entry><type>path</type></entry>
@@ -4367,13 +4394,13 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
 
     <para>
 <!--
-     It is possible to access the two component numbers of a <type>point</>
+     It is possible to access the two component numbers of a <type>point</type>
      as though the point were an array with indexes 0 and 1.  For example, if
-     <literal>t.p</> is a <type>point</> column then
-     <literal>SELECT p[0] FROM t</> retrieves the X coordinate and
-     <literal>UPDATE t SET p[1] = ...</> changes the Y coordinate.
-     In the same way, a value of type <type>box</> or <type>lseg</> can be treated
-     as an array of two <type>point</> values.
+     <literal>t.p</literal> is a <type>point</type> column then
+     <literal>SELECT p[0] FROM t</literal> retrieves the X coordinate and
+     <literal>UPDATE t SET p[1] = ...</literal> changes the Y coordinate.
+     In the same way, a value of type <type>box</type> or <type>lseg</type> can be treated
+     as an array of two <type>point</type> values.
 -->
 あたかもpointは添字0、1を有する配列であるかのように、<type>point</type>の２つの構成要素にアクセスすることができます。
 例えば、<literal>t.p</literal>が<type>point</type>列の場合、<literal>SELECT p[0] FROM t</literal>という式でX座標を抽出できます。また、<literal>UPDATE t SET p[1] = ...</literal>でY座標を変更できます。
@@ -4830,19 +4857,19 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
 
   <para>
 <!--
-   Any <type>cidr</> value can be cast to <type>inet</> implicitly
+   Any <type>cidr</type> value can be cast to <type>inet</type> implicitly
    or explicitly; therefore, the functions shown above as operating on
-   <type>inet</> also work on <type>cidr</> values.  (Where there are
-   separate functions for <type>inet</> and <type>cidr</>, it is because
+   <type>inet</type> also work on <type>cidr</type> values.  (Where there are
+   separate functions for <type>inet</type> and <type>cidr</type>, it is because
    the behavior should be different for the two cases.)
-   Also, it is permitted to cast an <type>inet</> value to <type>cidr</>.
+   Also, it is permitted to cast an <type>inet</type> value to <type>cidr</type>.
    When this is done, any bits to the right of the netmask are silently zeroed
-   to create a valid <type>cidr</> value.
+   to create a valid <type>cidr</type> value.
    In addition,
-   you can cast a text value to <type>inet</> or <type>cidr</>
+   you can cast a text value to <type>inet</type> or <type>cidr</type>
    using normal casting syntax: for example,
-   <literal>inet(<replaceable>expression</>)</literal> or
-   <literal><replaceable>colname</>::cidr</literal>.
+   <literal>inet(<replaceable>expression</replaceable>)</literal> or
+   <literal><replaceable>colname</replaceable>::cidr</literal>.
 -->
 <type>cidr</type>値はすべて、暗黙的または明示的に<type>inet</type>型にキャスト可能です。
 したがって、上で示した<type>inet</type>に対する操作を行う関数は<type>cidr</type>値でも動作します。
@@ -5064,7 +5091,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry> <literal>@@</literal> </entry>
         <entry><type>boolean</type></entry>
 <!--
-        <entry><type>tsvector</> matches <type>tsquery</> ?</entry>
+        <entry><type>tsvector</type> matches <type>tsquery</type> ?</entry>
 -->
         <entry><type>tsvector</type>が<type>tsquery</type>の条件に合うか？</entry>
         <entry><literal>to_tsvector('fat cats ate rats') @@ to_tsquery('cat &amp; rat')</literal></entry>
@@ -5074,7 +5101,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry> <literal>@@@</literal> </entry>
         <entry><type>boolean</type></entry>
 <!--
-        <entry>deprecated synonym for <literal>@@</></entry>
+        <entry>deprecated synonym for <literal>@@</literal></entry>
 -->
         <entry><literal>@@</literal>に対する廃止予定の同義語</entry>
         <entry><literal>to_tsvector('fat cats ate rats') @@@ to_tsquery('cat &amp; rat')</literal></entry>
@@ -5084,7 +5111,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry> <literal>||</literal> </entry>
         <entry><type>tsvector</type></entry>
 <!--
-        <entry>concatenate <type>tsvector</>s</entry>
+        <entry>concatenate <type>tsvector</type>s</entry>
 -->
         <entry><type>tsvector</type>を連結</entry>
         <entry><literal>'a:1 b:2'::tsvector || 'c:1 d:2 b:3'::tsvector</literal></entry>
@@ -5094,7 +5121,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry> <literal>&amp;&amp;</literal> </entry>
         <entry><type>tsquery</type></entry>
 <!--
-        <entry>AND <type>tsquery</>s together</entry>
+        <entry>AND <type>tsquery</type>s together</entry>
 -->
         <entry><type>tsquery</type>にAND演算を行う</entry>
         <entry><literal>'fat | rat'::tsquery &amp;&amp; 'cat'::tsquery</literal></entry>
@@ -5104,7 +5131,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry> <literal>||</literal> </entry>
         <entry><type>tsquery</type></entry>
 <!--
-        <entry>OR <type>tsquery</>s together</entry>
+        <entry>OR <type>tsquery</type>s together</entry>
 -->
         <entry><type>tsquery</type>にOR演算を行う</entry>
         <entry><literal>'fat | rat'::tsquery || 'cat'::tsquery</literal></entry>
@@ -5114,7 +5141,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry> <literal>!!</literal> </entry>
         <entry><type>tsquery</type></entry>
 <!--
-        <entry>negate a <type>tsquery</></entry>
+        <entry>negate a <type>tsquery</type></entry>
 -->
         <entry><type>tsquery</type>を否定</entry>
         <entry><literal>!! 'cat'::tsquery</literal></entry>
@@ -5124,7 +5151,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry> <literal>&lt;-&gt;</literal> </entry>
         <entry><type>tsquery</type></entry>
 <!--
-        <entry><type>tsquery</> followed by <type>tsquery</></entry>
+        <entry><type>tsquery</type> followed by <type>tsquery</type></entry>
 -->
         <entry><type>tsquery</type>に続く<type>tsquery</type></entry>
         <entry><literal>to_tsquery('fat') &lt;-&gt; to_tsquery('rat')</literal></entry>
@@ -5134,7 +5161,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry> <literal>@&gt;</literal> </entry>
         <entry><type>boolean</type></entry>
 <!--
-        <entry><type>tsquery</> contains another ?</entry>
+        <entry><type>tsquery</type> contains another ?</entry>
 -->
         <entry><type>tsquery</type>は他方を包含するか？</entry>
         <entry><literal>'cat'::tsquery @&gt; 'cat &amp; rat'::tsquery</literal></entry>
@@ -5144,7 +5171,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry> <literal>&lt;@</literal> </entry>
         <entry><type>boolean</type></entry>
 <!--
-        <entry><type>tsquery</> is contained in ?</entry>
+        <entry><type>tsquery</type> is contained in ?</entry>
 -->
         <entry><type>tsquery</type>は他方に包含されるか？</entry>
         <entry><literal>'cat'::tsquery &lt;@ 'cat &amp; rat'::tsquery</literal></entry>
@@ -5157,7 +5184,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
     <note>
      <para>
 <!--
-      The <type>tsquery</> containment operators consider only the lexemes
+      The <type>tsquery</type> containment operators consider only the lexemes
       listed in the two queries, ignoring the combining operators.
 -->
 <type>tsquery</type>の包含演算子は２つの問い合わせで列挙された語彙素のみを対象とし、結合演算子を無視します。
@@ -5167,8 +5194,8 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
     <para>
 <!--
      In addition to the operators shown in the table, the ordinary B-tree
-     comparison operators (<literal>=</>, <literal>&lt;</>, etc) are defined
-     for types <type>tsvector</> and <type>tsquery</>.  These are not very
+     comparison operators (<literal>=</literal>, <literal>&lt;</literal>, etc) are defined
+     for types <type>tsvector</type> and <type>tsquery</type>.  These are not very
      useful for text searching but allow, for example, unique indexes to be
      built on columns of these types.
 -->
@@ -5240,7 +5267,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         </entry>
         <entry><type>integer</type></entry>
 <!--
-        <entry>number of lexemes in <type>tsvector</></entry>
+        <entry>number of lexemes in <type>tsvector</type></entry>
 -->
         <entry><type>tsvector</type>にある語彙素の数</entry>
         <entry><literal>length('fat:2,4 cat:3 rat:5A'::tsvector)</literal></entry>
@@ -5255,7 +5282,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         </entry>
         <entry><type>integer</type></entry>
 <!--
-        <entry>number of lexemes plus operators in <type>tsquery</></entry>
+        <entry>number of lexemes plus operators in <type>tsquery</type></entry>
 -->
         <entry>
          <type>tsquery</type>にある語彙素の数と演算子の数の和
@@ -5272,7 +5299,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         </entry>
         <entry><type>tsquery</type></entry>
 <!--
-        <entry>produce <type>tsquery</> ignoring punctuation</entry>
+        <entry>produce <type>tsquery</type> ignoring punctuation</entry>
 -->
         <entry>句読点を無視して、<type>tsquery</type>を作成</entry>
         <entry><literal>plainto_tsquery('english', 'The Fat Rats')</literal></entry>
@@ -5287,12 +5314,24 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         </entry>
         <entry><type>tsquery</type></entry>
 <!--
-        <entry>produce <type>tsquery</> that searches for a phrase,
+        <entry>produce <type>tsquery</type> that searches for a phrase,
          ignoring punctuation</entry>
 -->
         <entry>句読点を無視して、語句を検索する<type>tsquery</type>を生成</entry>
         <entry><literal>phraseto_tsquery('english', 'The Fat Rats')</literal></entry>
         <entry><literal>'fat' &lt;-&gt; 'rat'</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <indexterm>
+          <primary>websearch_to_tsquery</primary>
+         </indexterm>
+          <literal><function>websearch_to_tsquery(<optional> <replaceable class="parameter">config</replaceable> <type>regconfig</type> , </optional> <replaceable class="parameter">query</replaceable> <type>text</type>)</function></literal>
+         </entry>
+        <entry><type>tsquery</type></entry>
+        <entry>produce <type>tsquery</type> from a web search style query</entry>
+        <entry><literal>websearch_to_tsquery('english', '"fat rat" or rat')</literal></entry>
+        <entry><literal>'fat' &lt;-&gt; 'rat' | 'rat'</literal></entry>
        </row>
        <row>
         <entry>
@@ -5303,7 +5342,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         </entry>
         <entry><type>text</type></entry>
 <!--
-        <entry>get indexable part of a <type>tsquery</></entry>
+        <entry>get indexable part of a <type>tsquery</type></entry>
 -->
         <entry><type>tsquery</type>のインデックス付け可能部分の取得</entry>
         <entry><literal>querytree('foo &amp; ! bar'::tsquery)</literal></entry>
@@ -5352,7 +5391,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         </entry>
         <entry><type>tsvector</type></entry>
 <!--
-        <entry>remove positions and weights from <type>tsvector</></entry>
+        <entry>remove positions and weights from <type>tsvector</type></entry>
 -->
         <entry><type>tsvector</type>から位置と重みを削除</entry>
         <entry><literal>strip('fat:2,4 cat:3 rat:5A'::tsvector)</literal></entry>
@@ -5367,7 +5406,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         </entry>
         <entry><type>tsquery</type></entry>
 <!--
-        <entry>normalize words and convert to <type>tsquery</></entry>
+        <entry>normalize words and convert to <type>tsquery</type></entry>
 -->
         <entry>単語（複数）を正規化し<type>tsquery</type>に変換</entry>
         <entry><literal>to_tsquery('english', 'The &amp; Fat &amp; Rats')</literal></entry>
@@ -5382,7 +5421,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         </entry>
         <entry><type>tsvector</type></entry>
 <!--
-        <entry>reduce document text to <type>tsvector</></entry>
+        <entry>reduce document text to <type>tsvector</type></entry>
 -->
         <entry>ドキュメントテキストを<type>tsvector</type>に縮小</entry>
         <entry><literal>to_tsvector('english', 'The Fat Rats')</literal></entry>
@@ -5395,13 +5434,33 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry><type>tsvector</type></entry>
         <entry>
 <!--
-          reduce each string value in the document to a <type>tsvector</>, and then
-          concatenate those in document order to produce a single <type>tsvector</>
+          reduce each string value in the document to a <type>tsvector</type>, and then
+          concatenate those in document order to produce a single <type>tsvector</type>
 -->
 ドキュメント内の各文字列の値を<type>tsvector</type>に縮小し、それを繋げて一つの<type>tsvector</type>にする
         </entry>
         <entry><literal>to_tsvector('english', '{"a": "The Fat Rats"}'::json)</literal></entry>
         <entry><literal>'fat':2 'rat':3</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal><function>json(b)_to_tsvector(<optional> <replaceable class="parameter">config</replaceable> <type>regconfig</type>,
+         </optional> <replaceable class="parameter">document</replaceable> <type>json(b)</type>,
+         <replaceable class="parameter">filter</replaceable> <type>json(b)</type>)</function></literal>
+        </entry>
+        <entry><type>tsvector</type></entry>
+        <entry>
+          reduce each value in the document, specified by <replaceable class="parameter">filter</replaceable> to a <type>tsvector</type>,
+          and then concatenate those in document order to produce a single <type>tsvector</type>.
+          <replaceable class="parameter">filter</replaceable> is a <type>jsonb</type> array, that enumerates what kind of elements need to be included
+          into the resulting <type>tsvector</type>. Possible values for <replaceable class="parameter">filter</replaceable> are
+          <literal>"string"</literal> (to include all string values), <literal>"numeric"</literal> (to include all numeric values in the string format),
+          <literal>"boolean"</literal> (to include all Boolean values in the string format <literal>"true"</literal>/<literal>"false"</literal>),
+          <literal>"key"</literal> (to include all keys) or <literal>"all"</literal> (to include all above). These values
+          can be combined together to include, e.g. all string and numeric values.
+        </entry>
+        <entry><literal>json_to_tsvector('english', '{"a": "The Fat Rats", "b": 123}'::json, '["string", "numeric"]')</literal></entry>
+        <entry><literal>'123':5 'fat':2 'rat':3</literal></entry>
        </row>
        <row>
         <entry>
@@ -5512,7 +5571,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         </entry>
         <entry><type>tsquery</type></entry>
 <!--
-        <entry>replace <replaceable>target</> with <replaceable>substitute</>
+        <entry>replace <replaceable>target</replaceable> with <replaceable>substitute</replaceable>
          within query</entry>
 -->
         <entry>問い合わせ内の<replaceable>target</replaceable>を<replaceable>substitute</replaceable>で置換する</entry>
@@ -5523,7 +5582,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <entry><literal><function>ts_rewrite(<replaceable class="parameter">query</replaceable> <type>tsquery</type>, <replaceable class="parameter">select</replaceable> <type>text</type>)</function></literal></entry>
         <entry><type>tsquery</type></entry>
 <!--
-        <entry>replace using targets and substitutes from a <command>SELECT</> command</entry>
+        <entry>replace using targets and substitutes from a <command>SELECT</command> command</entry>
 -->
         <entry><command>SELECT</command>から対象と代替を使用して置換</entry>
         <entry><literal>SELECT ts_rewrite('a &amp; b'::tsquery, 'SELECT t,s FROM aliases')</literal></entry>
@@ -5538,8 +5597,8 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         </entry>
         <entry><type>tsquery</type></entry>
 <!--
-        <entry>make query that searches for <replaceable>query1</> followed
-         by <replaceable>query2</> (same as <literal>&lt;-&gt;</>
+        <entry>make query that searches for <replaceable>query1</replaceable> followed
+         by <replaceable>query2</replaceable> (same as <literal>&lt;-&gt;</literal>
          operator)</entry>
 -->
         <entry><replaceable>query1</replaceable>の後に<replaceable>query2</replaceable>が続くものを検索する問い合わせを作成する（<literal>&lt;-&gt;</literal>演算子と同じ）</entry>
@@ -5552,8 +5611,8 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         </entry>
         <entry><type>tsquery</type></entry>
 <!--
-        <entry>make query that searches for <replaceable>query1</> followed by
-         <replaceable>query2</> at distance <replaceable>distance</></entry>
+        <entry>make query that searches for <replaceable>query1</replaceable> followed by
+         <replaceable>query2</replaceable> at distance <replaceable>distance</replaceable></entry>
 -->
         <entry><replaceable>query1</replaceable>の後に<replaceable>distance</replaceable>の距離で<replaceable>query2</replaceable>があるものを検索する問い合わせを作成する</entry>
         <entry><literal>tsquery_phrase(to_tsquery('fat'), to_tsquery('cat'), 10)</literal></entry>
@@ -5568,7 +5627,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         </entry>
         <entry><type>text[]</type></entry>
 <!--
-        <entry>convert <type>tsvector</> to array of lexemes</entry>
+        <entry>convert <type>tsvector</type> to array of lexemes</entry>
 -->
         <entry><type>tsvector</type>を語彙素の配列に変換する</entry>
         <entry><literal>tsvector_to_array('fat:2,4 cat:3 rat:5A'::tsvector)</literal></entry>
@@ -5583,7 +5642,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         </entry>
         <entry><type>trigger</type></entry>
 <!--
-        <entry>trigger function for automatic <type>tsvector</> column update</entry>
+        <entry>trigger function for automatic <type>tsvector</type> column update</entry>
 -->
         <entry><type>tsvector</type>列の自動更新のためのトリガ関数</entry>
         <entry><literal>CREATE TRIGGER ... tsvector_update_trigger(tsvcol, 'pg_catalog.swedish', title, body)</literal></entry>
@@ -5598,7 +5657,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         </entry>
         <entry><type>trigger</type></entry>
 <!--
-        <entry>trigger function for automatic <type>tsvector</> column update</entry>
+        <entry>trigger function for automatic <type>tsvector</type> column update</entry>
 -->
         <entry><type>tsvector</type>列の自動更新のためのトリガ関数</entry>
         <entry><literal>CREATE TRIGGER ... tsvector_update_trigger_column(tsvcol, configcol, title, body)</literal></entry>
@@ -5630,7 +5689,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
   <note>
    <para>
 <!--
-    All the text search functions that accept an optional <type>regconfig</>
+    All the text search functions that accept an optional <type>regconfig</type>
     argument will use the configuration specified by
     <xref linkend="guc-default-text-search-config"/>
     when that argument is omitted.
@@ -5763,7 +5822,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         </entry>
         <entry><type>setof record</type></entry>
 <!--
-        <entry>get statistics of a <type>tsvector</> column</entry>
+        <entry>get statistics of a <type>tsvector</type> column</entry>
 -->
         <entry><type>tsvector</type>列の統計情報を入手</entry>
         <entry><literal>ts_stat('SELECT vector from apod')</literal></entry>
@@ -5791,7 +5850,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
    and <function>xmlserialize</function> for converting to and from
    type <type>xml</type> are not repeated here.  Use of most of these
    functions requires the installation to have been built
-   with <command>configure &#045;-with-libxml</>.
+   with <command>configure &#045;&#045;with-libxml</command>.
 -->
 この節で説明される関数および擬似関数式は、<type>xml</type>型の値に対して機能します。
 <type>xml</type>型についての情報は<xref linkend="datatype-xml"/>を点検してください。
@@ -6251,7 +6310,7 @@ SELECT xmlagg(x) FROM test;
 
     <para>
 <!--
-     To determine the order of the concatenation, an <literal>ORDER BY</>
+     To determine the order of the concatenation, an <literal>ORDER BY</literal>
      clause may be added to the aggregate call as described in
      <xref linkend="syntax-aggregates"/>. For example:
 -->
@@ -6417,18 +6476,18 @@ SQL標準では1つ目の<literal>BY REF</literal>を必要としており、2�
 
     <para>
 <!--
-     These functions check whether a <type>text</> string is well-formed XML,
+     These functions check whether a <type>text</type> string is well-formed XML,
      returning a Boolean result.
      <function>xml_is_well_formed_document</function> checks for a well-formed
      document, while <function>xml_is_well_formed_content</function> checks
      for well-formed content.  <function>xml_is_well_formed</function> does
      the former if the <xref linkend="guc-xmloption"/> configuration
-     parameter is set to <literal>DOCUMENT</>, or the latter if it is set to
-     <literal>CONTENT</>.  This means that
+     parameter is set to <literal>DOCUMENT</literal>, or the latter if it is set to
+     <literal>CONTENT</literal>.  This means that
      <function>xml_is_well_formed</function> is useful for seeing whether
-     a simple cast to type <type>xml</> will succeed, whereas the other two
+     a simple cast to type <type>xml</type> will succeed, whereas the other two
      functions are useful for seeing whether the corresponding variants of
-     <function>XMLPARSE</> will succeed.
+     <function>XMLPARSE</function> will succeed.
 -->
 これらの関数は<type>text</type>文字列が整形式かどうかをチェックし、論理値で結果を返します。
 <function>xml_is_well_formed_document</function>は文書が整形式かをチェックし、一方<function>xml_is_well_formed_content</function>は内容が整形式かをチェックします。
@@ -6516,7 +6575,7 @@ SELECT xml_is_well_formed_document('<pg:foo xmlns:pg="http://postgresql.org/stuf
     <para>
 <!--
      The function <function>xpath</function> evaluates the XPath
-     expression <replaceable>xpath</replaceable> (a <type>text</> value)
+     expression <replaceable>xpath</replaceable> (a <type>text</type> value)
      against the XML value
      <replaceable>xml</replaceable>.  It returns an array of XML values
      corresponding to the node set produced by the XPath expression.
@@ -6538,14 +6597,14 @@ SELECT xml_is_well_formed_document('<pg:foo xmlns:pg="http://postgresql.org/stuf
     <para>
 <!--
      The optional third argument of the function is an array of namespace
-     mappings.  This array should be a two-dimensional <type>text</> array with
+     mappings.  This array should be a two-dimensional <type>text</type> array with
      the length of the second axis being equal to 2 (i.e., it should be an
      array of arrays, each of which consists of exactly 2 elements).
      The first element of each array entry is the namespace name (alias), the
      second the namespace URI. It is not required that aliases provided in
      this array be the same as those being used in the XML document itself (in
      other words, both in the XML document and in the <function>xpath</function>
-     function context, aliases are <emphasis>local</>).
+     function context, aliases are <emphasis>local</emphasis>).
 -->
 オプショナルな関数の３番目の引数は名前空間マッピング配列です。
 この配列は、第２軸が２に等しい長さをもつ２次元<type>text</type>配列です（つまり、それは配列の配列で、それぞれは正確に２つの要素からなります）。
@@ -6603,13 +6662,13 @@ SELECT xpath('//mydefns:b/text()', '<a xmlns="http://example.com"><b>test</b></a
      of the <function>xpath</function> function.  Instead of returning the
      individual XML values that satisfy the XPath, this function returns a
      Boolean indicating whether the query was satisfied or not.  This
-     function is equivalent to the standard <literal>XMLEXISTS</> predicate,
+     function is equivalent to the standard <literal>XMLEXISTS</literal> predicate,
      except that it also offers support for a namespace mapping argument.
 -->
 関数<function>xpath_exists</function>は、<function>xpath</function>関数の特別な形式です。この関数は、XPathを満足する個別のXML値を返す代わりに、問い合わせがそれを満足するかどうかを論理値で返します。
 この関数は、名前空間にマッピングされた引数をもサポートする点を除き、標準の<literal>XMLEXISTS</literal>述語と同じです。
-
     </para>
+
     <para>
 <!--
      Example:
@@ -6662,7 +6721,7 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
 
     <para>
 <!--
-     The optional <literal>XMLNAMESPACES</> clause is a comma-separated
+     The optional <literal>XMLNAMESPACES</literal> clause is a comma-separated
      list of namespaces.  It specifies the XML namespaces used in
      the document and their aliases. A default namespace specification
      is not currently supported.
@@ -6674,10 +6733,10 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
 
     <para>
 <!--
-     The required <replaceable>row_expression</> argument is an XPath
+     The required <replaceable>row_expression</replaceable> argument is an XPath
      expression that is evaluated against the supplied XML document to
      obtain an ordered sequence of XML nodes. This sequence is what
-     <function>xmltable</> transforms into output rows.
+     <function>xmltable</function> transforms into output rows.
 -->
 必須の<replaceable>row_expression</replaceable>引数はXPath式で、指定のXML文書に対して評価され、XMLノードの順序付きシーケンスが取得されます。
 このシーケンスが<function>xmltable</function>により出力行に変換されます。
@@ -6685,7 +6744,7 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
 
     <para>
 <!--
-     <replaceable>document_expression</> provides the XML document to
+     <replaceable>document_expression</replaceable> provides the XML document to
      operate on.
      The <literal>BY REF</literal> clauses have no effect in PostgreSQL,
      but are allowed for SQL conformance and compatibility with other
@@ -6702,9 +6761,9 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
 <!--
      The mandatory <literal>COLUMNS</literal> clause specifies the list
      of columns in the output table.
-     If the <literal>COLUMNS</> clause is omitted, the rows in the result
-     set contain a single column of type <literal>xml</> containing the
-     data matched by <replaceable>row_expression</>.
+     If the <literal>COLUMNS</literal> clause is omitted, the rows in the result
+     set contain a single column of type <literal>xml</literal> containing the
+     data matched by <replaceable>row_expression</replaceable>.
      If <literal>COLUMNS</literal> is specified, each entry describes a
      single column.
      See the syntax summary above for the format.
@@ -6731,10 +6790,10 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
 
     <para>
 <!--
-     The <literal>column_expression</> for a column is an XPath expression
+     The <literal>column_expression</literal> for a column is an XPath expression
      that is evaluated for each row, relative to the result of the
-     <replaceable>row_expression</>, to find the value of the column.
-     If no <literal>column_expression</> is given, then the column name
+     <replaceable>row_expression</replaceable>, to find the value of the column.
+     If no <literal>column_expression</literal> is given, then the column name
      is used as an implicit path.
 -->
 列の<literal>column_expression</literal>はXPath式で、<replaceable>row_expression</replaceable>の結果に対応する各行について評価されて、列の値を得ます。
@@ -6746,8 +6805,8 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
      If a column's XPath expression returns multiple elements, an error
      is raised.
      If the expression matches an empty tag, the result is an
-     empty string (not <literal>NULL</>).
-     Any <literal>xsi:nil</> attributes are ignored.
+     empty string (not <literal>NULL</literal>).
+     Any <literal>xsi:nil</literal> attributes are ignored.
 -->
 列のXPath式が複数の要素を戻した場合、エラーが発生します。
 式が空のタグとマッチした場合、結果は空文字列となります（<literal>NULL</literal>ではありません）。
@@ -6756,13 +6815,13 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
 
     <para>
 <!--
-     The text body of the XML matched by the <replaceable>column_expression</>
+     The text body of the XML matched by the <replaceable>column_expression</replaceable>
      is used as the column value. Multiple <literal>text()</literal> nodes
      within an element are concatenated in order. Any child elements,
      processing instructions, and comments are ignored, but the text contents
      of child elements are concatenated to the result.
-     Note that the whitespace-only <literal>text()</> node between two non-text
-     elements is preserved, and that leading whitespace on a <literal>text()</>
+     Note that the whitespace-only <literal>text()</literal> node between two non-text
+     elements is preserved, and that leading whitespace on a <literal>text()</literal>
      node is not flattened.
 -->
 <replaceable>column_expression</replaceable>にマッチしたXMLのテキスト本体が列の値として使用されます。
@@ -6774,11 +6833,11 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
     <para>
 <!--
      If the path expression does not match for a given row but
-     <replaceable>default_expression</> is specified, the value resulting
+     <replaceable>default_expression</replaceable> is specified, the value resulting
      from evaluating that expression is used.
-     If no <literal>DEFAULT</> clause is given for the column,
-     the field will be set to <literal>NULL</>.
-     It is possible for a <replaceable>default_expression</> to reference
+     If no <literal>DEFAULT</literal> clause is given for the column,
+     the field will be set to <literal>NULL</literal>.
+     It is possible for a <replaceable>default_expression</replaceable> to reference
      the value of output columns that appear prior to it in the column list,
      so the default of one column may be based on the value of another
      column.
@@ -6790,10 +6849,10 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
 
     <para>
 <!--
-     Columns may be marked <literal>NOT NULL</>. If the
-     <replaceable>column_expression</> for a <literal>NOT NULL</> column
-     does not match anything and there is no <literal>DEFAULT</> or the
-     <replaceable>default_expression</> also evaluates to null, an error
+     Columns may be marked <literal>NOT NULL</literal>. If the
+     <replaceable>column_expression</replaceable> for a <literal>NOT NULL</literal> column
+     does not match anything and there is no <literal>DEFAULT</literal> or the
+     <replaceable>default_expression</replaceable> also evaluates to null, an error
      is reported.
 -->
 列には<literal>NOT NULL</literal>の印をつけることができます。
@@ -6802,19 +6861,19 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
 
     <para>
 <!--
-     Unlike regular PostgreSQL functions, <replaceable>column_expression</>
-     and <replaceable>default_expression</> are not evaluated to a simple
+     Unlike regular PostgreSQL functions, <replaceable>column_expression</replaceable>
+     and <replaceable>default_expression</replaceable> are not evaluated to a simple
      value before calling the function.
-     <replaceable>column_expression</> is normally evaluated
-     exactly once per input row, and <replaceable>default_expression</>
+     <replaceable>column_expression</replaceable> is normally evaluated
+     exactly once per input row, and <replaceable>default_expression</replaceable>
      is evaluated each time a default is needed for a field.
      If the expression qualifies as stable or immutable the repeat
      evaluation may be skipped.
-     Effectively <function>xmltable</> behaves more like a subquery than a
+     Effectively <function>xmltable</function> behaves more like a subquery than a
      function call.
      This means that you can usefully use volatile functions like
-     <function>nextval</> in <replaceable>default_expression</>, and
-     <replaceable>column_expression</> may depend on other parts of the
+     <function>nextval</function> in <replaceable>default_expression</replaceable>, and
+     <replaceable>column_expression</replaceable> may depend on other parts of the
      XML document.
 -->
 PostgreSQLの通常の関数とは異なり、<replaceable>column_expression</replaceable>と<replaceable>default_expression</replaceable>は関数を呼び出す前には単純な値に評価されません。
