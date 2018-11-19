@@ -5,7 +5,7 @@
 #include "fmgr.h"
 #include "plperl.h"
 #include "plperl_helpers.h"
-#include "hstore.h"
+#include "hstore/hstore.h"
 
 PG_MODULE_MAGIC;
 
@@ -68,7 +68,7 @@ Datum
 hstore_to_plperl(PG_FUNCTION_ARGS)
 {
 	dTHX;
-	HStore	   *in = PG_GETARG_HS(0);
+	HStore	   *in = PG_GETARG_HSTORE_P(0);
 	int			i;
 	int			count = HS_COUNT(in);
 	char	   *base = STRPTR(in);

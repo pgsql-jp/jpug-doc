@@ -43,7 +43,7 @@
  * overflow.)
  *
  *
- * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -226,7 +226,7 @@ err_gettext(const char *str)
  * the stack entry.  Finally, errfinish() will be called to actually process
  * the error report.
  *
- * Returns TRUE in normal case.  Returns FALSE to short-circuit the error
+ * Returns true in normal case.  Returns false to short-circuit the error
  * report (if it's a warning or lower and not to be reported anywhere).
  */
 bool
@@ -285,7 +285,7 @@ errstart(int elevel, const char *filename, int lineno,
 
 	/*
 	 * Now decide whether we need to process this report at all; if it's
-	 * warning or less and not enabled for logging, just return FALSE without
+	 * warning or less and not enabled for logging, just return false without
 	 * starting up any error logging machinery.
 	 */
 
@@ -435,7 +435,7 @@ errfinish(int dummy,...)
 	for (econtext = error_context_stack;
 		 econtext != NULL;
 		 econtext = econtext->previous)
-		(*econtext->callback) (econtext->arg);
+		econtext->callback(econtext->arg);
 
 	/*
 	 * If ERROR (not more nor less) we pass it off to the current handler.
@@ -1837,7 +1837,7 @@ GetErrorContextStack(void)
 	for (econtext = error_context_stack;
 		 econtext != NULL;
 		 econtext = econtext->previous)
-		(*econtext->callback) (econtext->arg);
+		econtext->callback(econtext->arg);
 
 	/*
 	 * Clean ourselves off the stack, any allocations done should have been

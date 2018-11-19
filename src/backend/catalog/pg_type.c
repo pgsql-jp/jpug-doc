@@ -3,7 +3,7 @@
  * pg_type.c
  *	  routines to support manipulation of the pg_type relation
  *
- * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -25,7 +25,6 @@
 #include "catalog/pg_namespace.h"
 #include "catalog/pg_proc.h"
 #include "catalog/pg_type.h"
-#include "catalog/pg_type_fn.h"
 #include "commands/typecmds.h"
 #include "miscadmin.h"
 #include "parser/scansup.h"
@@ -380,7 +379,7 @@ TypeCreate(Oid newTypeOid,
 	else
 		nulls[Anum_pg_type_typdefault - 1] = true;
 
-	typacl = get_user_default_acl(ACL_OBJECT_TYPE, ownerId,
+	typacl = get_user_default_acl(OBJECT_TYPE, ownerId,
 								  typeNamespace);
 	if (typacl != NULL)
 		values[Anum_pg_type_typacl - 1] = PointerGetDatum(typacl);
@@ -413,7 +412,7 @@ TypeCreate(Oid newTypeOid,
 		 * shell type must have been created by same owner
 		 */
 		if (((Form_pg_type) GETSTRUCT(tup))->typowner != ownerId)
-			aclcheck_error(ACLCHECK_NOT_OWNER, ACL_KIND_TYPE, typeName);
+			aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_TYPE, typeName);
 
 		/* trouble if caller wanted to force the OID */
 		if (OidIsValid(newTypeOid))
@@ -821,9 +820,9 @@ makeArrayTypeName(const char *typeName, Oid typeNamespace)
  * determine the new type's own array type name; else the latter will
  * certainly pick the same name.
  *
- * Returns TRUE if successfully moved the type, FALSE if not.
+ * Returns true if successfully moved the type, false if not.
  *
- * We also return TRUE if the given type is a shell type.  In this case
+ * We also return true if the given type is a shell type.  In this case
  * the type has not been renamed out of the way, but nonetheless it can
  * be expected that TypeCreate will succeed.  This behavior is convenient
  * for most callers --- those that need to distinguish the shell-type case

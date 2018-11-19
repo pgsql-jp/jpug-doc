@@ -4,7 +4,7 @@
  *	  page utilities routines for the postgres inverted index access method.
  *
  *
- * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -17,6 +17,7 @@
 #include "access/gin_private.h"
 #include "access/ginxlog.h"
 #include "access/xloginsert.h"
+#include "storage/predicate.h"
 #include "miscadmin.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
@@ -41,7 +42,7 @@ ginTraverseLock(Buffer buffer, bool searchMode)
 	page = BufferGetPage(buffer);
 	if (GinPageIsLeaf(page))
 	{
-		if (searchMode == FALSE)
+		if (searchMode == false)
 		{
 			/* we should relock our page */
 			LockBuffer(buffer, GIN_UNLOCK);
@@ -83,6 +84,9 @@ ginFindLeafPage(GinBtree btree, bool searchMode, Snapshot snapshot)
 	stack->parent = NULL;
 	stack->predictNumber = 1;
 
+	if (!searchMode)
+		CheckForSerializableConflictIn(btree->index, NULL, stack->buffer);
+
 	for (;;)
 	{
 		Page		page;
@@ -107,7 +111,7 @@ ginFindLeafPage(GinBtree btree, bool searchMode, Snapshot snapshot)
 		 * ok, page is correctly locked, we should check to move right ..,
 		 * root never has a right link, so small optimization
 		 */
-		while (btree->fullScan == FALSE && stack->blkno != btree->rootBlkno &&
+		while (btree->fullScan == false && stack->blkno != btree->rootBlkno &&
 			   btree->isMoveRight(btree, page))
 		{
 			BlockNumber rightlink = GinPageGetOpaque(page)->rightlink;
@@ -515,6 +519,19 @@ ginPlaceToPage(GinBtree btree, GinBtreeStack *stack,
 			btree->fillRoot(btree, newrootpg,
 							BufferGetBlockNumber(lbuffer), newlpage,
 							BufferGetBlockNumber(rbuffer), newrpage);
+
+			if (GinPageIsLeaf(BufferGetPage(stack->buffer)))
+			{
+
+				PredicateLockPageSplit(btree->index,
+									   BufferGetBlockNumber(stack->buffer),
+									   BufferGetBlockNumber(lbuffer));
+
+				PredicateLockPageSplit(btree->index,
+									   BufferGetBlockNumber(stack->buffer),
+									   BufferGetBlockNumber(rbuffer));
+			}
+
 		}
 		else
 		{
@@ -524,6 +541,14 @@ ginPlaceToPage(GinBtree btree, GinBtreeStack *stack,
 			GinPageGetOpaque(newrpage)->rightlink = savedRightLink;
 			GinPageGetOpaque(newlpage)->flags |= GIN_INCOMPLETE_SPLIT;
 			GinPageGetOpaque(newlpage)->rightlink = BufferGetBlockNumber(rbuffer);
+
+			if (GinPageIsLeaf(BufferGetPage(stack->buffer)))
+			{
+
+				PredicateLockPageSplit(btree->index,
+									   BufferGetBlockNumber(stack->buffer),
+									   BufferGetBlockNumber(rbuffer));
+			}
 		}
 
 		/*

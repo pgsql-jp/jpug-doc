@@ -40,7 +40,7 @@ inner_int_contains(ArrayType *a, ArrayType *b)
 			break;				/* db[j] is not in da */
 	}
 
-	return (n == nb) ? TRUE : FALSE;
+	return (n == nb) ? true : false;
 }
 
 /* arguments are assumed sorted */
@@ -65,12 +65,12 @@ inner_int_overlap(ArrayType *a, ArrayType *b)
 		if (da[i] < db[j])
 			i++;
 		else if (da[i] == db[j])
-			return TRUE;
+			return true;
 		else
 			j++;
 	}
 
-	return FALSE;
+	return false;
 }
 
 ArrayType *
@@ -220,7 +220,16 @@ ArrayType *
 new_intArrayType(int num)
 {
 	ArrayType  *r;
-	int			nbytes = ARR_OVERHEAD_NONULLS(1) + sizeof(int) * num;
+	int			nbytes;
+
+	/* if no elements, return a zero-dimensional array */
+	if (num <= 0)
+	{
+		r = construct_empty_array(INT4OID);
+		return r;
+	}
+
+	nbytes = ARR_OVERHEAD_NONULLS(1) + sizeof(int) * num;
 
 	r = (ArrayType *) palloc0(nbytes);
 
@@ -237,11 +246,11 @@ new_intArrayType(int num)
 ArrayType *
 resize_intArrayType(ArrayType *a, int num)
 {
-	int			nbytes = ARR_DATA_OFFSET(a) + sizeof(int) * num;
+	int			nbytes;
 	int			i;
 
 	/* if no elements, return a zero-dimensional array */
-	if (num == 0)
+	if (num <= 0)
 	{
 		ARR_NDIM(a) = 0;
 		return a;
@@ -249,6 +258,8 @@ resize_intArrayType(ArrayType *a, int num)
 
 	if (num == ARRNELEMS(a))
 		return a;
+
+	nbytes = ARR_DATA_OFFSET(a) + sizeof(int) * num;
 
 	a = (ArrayType *) repalloc(a, nbytes);
 

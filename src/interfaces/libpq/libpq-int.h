@@ -9,7 +9,7 @@
  *	  more likely to break across PostgreSQL releases than code that uses
  *	  only the official API.
  *
- * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/interfaces/libpq/libpq-int.h
@@ -312,7 +312,7 @@ typedef struct pg_conn_host
 	char	   *password;		/* password for this host, read from the
 								 * password file; NULL if not sought or not
 								 * found in password file. */
-	struct addrinfo *addrlist;	/* list of possible backend addresses */
+	struct addrinfo *was_addrlist;	/* dummy for ABI compatibility */
 } pg_conn_host;
 
 /*
@@ -406,7 +406,6 @@ struct pg_conn
 	int			sversion;		/* server version, e.g. 70401 for 7.4.1 */
 	bool		auth_req_received;	/* true if any type of auth req received */
 	bool		password_needed;	/* true if server demanded a password */
-	bool		was_pgpassfile_used;	/* no longer used, here for padding */
 	bool		sigpipe_so;		/* have we masked SIGPIPE via SO_NOSIGPIPE? */
 	bool		sigpipe_flag;	/* can we mask SIGPIPE via MSG_NOSIGNAL? */
 
@@ -456,11 +455,13 @@ struct pg_conn
 	/* Assorted state for SASL, SSL, GSS, etc */
 	void	   *sasl_state;
 
+	/* SSL structures */
+	bool		ssl_in_use;
+
 #ifdef USE_SSL
 	bool		allow_ssl_try;	/* Allowed to try SSL negotiation */
 	bool		wait_ssl_try;	/* Delay SSL negotiation until after
 								 * attempting normal connection */
-	bool		ssl_in_use;
 #ifdef USE_OPENSSL
 	SSL		   *ssl;			/* SSL status, if have SSL connection */
 	X509	   *peer;			/* X509 cert of server */
@@ -495,6 +496,10 @@ struct pg_conn
 
 	/* Buffer for receiving various parts of messages */
 	PQExpBufferData workBuffer; /* expansible string */
+
+	/* Placed at the end, in this branch, to minimize ABI breakage */
+	struct addrinfo *addrlist;	/* list of addresses for current connhost */
+	int			addrlist_family;	/* needed to know how to free addrlist */
 };
 
 /* PGcancel stores all data necessary to cancel a connection. A copy of this
@@ -661,16 +666,89 @@ extern void pq_reset_sigpipe(sigset_t *osigset, bool sigpipe_pending,
 				 bool got_epipe);
 #endif
 
+/* === SSL === */
+
 /*
- * The SSL implementation provides these functions (fe-secure-openssl.c)
+ * The SSL implementation provides these functions.
+ */
+
+/*
+ *	Implementation of PQinitSSL().
  */
 extern void pgtls_init_library(bool do_ssl, int do_crypto);
+
+/*
+ * Initialize SSL library.
+ *
+ * The conn parameter is only used to be able to pass back an error
+ * message - no connection-local setup is made here.
+ *
+ * Returns 0 if OK, -1 on failure (with a message in conn->errorMessage).
+ */
 extern int	pgtls_init(PGconn *conn);
+
+/*
+ *	Begin or continue negotiating a secure session.
+ */
 extern PostgresPollingStatusType pgtls_open_client(PGconn *conn);
+
+/*
+ *	Close SSL connection.
+ */
 extern void pgtls_close(PGconn *conn);
+
+/*
+ *	Read data from a secure connection.
+ *
+ * On failure, this function is responsible for putting a suitable message
+ * into conn->errorMessage.  The caller must still inspect errno, but only
+ * to determine whether to continue/retry after error.
+ */
 extern ssize_t pgtls_read(PGconn *conn, void *ptr, size_t len);
+
+/*
+ *	Is there unread data waiting in the SSL read buffer?
+ */
 extern bool pgtls_read_pending(PGconn *conn);
+
+/*
+ *	Write data to a secure connection.
+ *
+ * On failure, this function is responsible for putting a suitable message
+ * into conn->errorMessage.  The caller must still inspect errno, but only
+ * to determine whether to continue/retry after error.
+ */
 extern ssize_t pgtls_write(PGconn *conn, const void *ptr, size_t len);
+
+/*
+ * Get the hash of the server certificate, for SCRAM channel binding type
+ * tls-server-end-point.
+ *
+ * NULL is sent back to the caller in the event of an error, with an
+ * error message for the caller to consume.
+ *
+ * This is not supported with old versions of OpenSSL that don't have
+ * the X509_get_signature_nid() function.
+ */
+#if defined(USE_OPENSSL) && defined(HAVE_X509_GET_SIGNATURE_NID)
+#define HAVE_PGTLS_GET_PEER_CERTIFICATE_HASH
+extern char *pgtls_get_peer_certificate_hash(PGconn *conn, size_t *len);
+#endif
+
+/*
+ * Verify that the server certificate matches the host name we connected to.
+ *
+ * The certificate's Common Name and Subject Alternative Names are considered.
+ *
+ * Returns 1 if the name matches, and 0 if it does not. On error, returns
+ * -1, and sets the libpq error message.
+ *
+ */
+extern int pgtls_verify_peer_name_matches_certificate_guts(PGconn *conn,
+												int *names_examined,
+												char **first_name);
+
+/* === miscellaneous macros === */
 
 /*
  * this is so that we can check if a connection is non-blocking internally

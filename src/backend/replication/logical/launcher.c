@@ -2,7 +2,7 @@
  * launcher.c
  *	   PostgreSQL logical replication worker launcher process
  *
- * Copyright (c) 2016-2017, PostgreSQL Global Development Group
+ * Copyright (c) 2016-2018, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/replication/logical/launcher.c
@@ -434,6 +434,7 @@ retry:
 	else
 		snprintf(bgw.bgw_name, BGW_MAXLEN,
 				 "logical replication worker for subscription %u", subid);
+	snprintf(bgw.bgw_type, BGW_MAXLEN, "logical replication worker");
 
 	bgw.bgw_restart_time = BGW_NEVER_RESTART;
 	bgw.bgw_notify_pid = MyProcPid;
@@ -811,6 +812,8 @@ ApplyLauncherRegister(void)
 	snprintf(bgw.bgw_function_name, BGW_MAXLEN, "ApplyLauncherMain");
 	snprintf(bgw.bgw_name, BGW_MAXLEN,
 			 "logical replication launcher");
+	snprintf(bgw.bgw_type, BGW_MAXLEN,
+			 "logical replication launcher");
 	bgw.bgw_restart_time = 5;
 	bgw.bgw_notify_pid = 0;
 	bgw.bgw_main_arg = (Datum) 0;
@@ -998,7 +1001,7 @@ ApplyLauncherMain(Datum main_arg)
 	 * Establish connection to nailed catalogs (we only ever access
 	 * pg_subscription).
 	 */
-	BackgroundWorkerInitializeConnection(NULL, NULL);
+	BackgroundWorkerInitializeConnection(NULL, NULL, 0);
 
 	/* Enter main loop */
 	for (;;)
@@ -1022,9 +1025,7 @@ ApplyLauncherMain(Datum main_arg)
 			/* Use temporary context for the database list and worker info. */
 			subctx = AllocSetContextCreate(TopMemoryContext,
 										   "Logical Replication Launcher sublist",
-										   ALLOCSET_DEFAULT_MINSIZE,
-										   ALLOCSET_DEFAULT_INITSIZE,
-										   ALLOCSET_DEFAULT_MAXSIZE);
+										   ALLOCSET_DEFAULT_SIZES);
 			oldctx = MemoryContextSwitchTo(subctx);
 
 			/* search for subscriptions to start or stop. */

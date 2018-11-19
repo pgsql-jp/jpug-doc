@@ -85,7 +85,7 @@
  *	problems can be overcome cheaply.
  *
  *
- * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -590,7 +590,7 @@ LocalExecuteInvalidationMessage(SharedInvalidationMessage *msg)
 			{
 				struct RELCACHECALLBACK *ccitem = relcache_callback_list + i;
 
-				(*ccitem->function) (ccitem->arg, msg->rc.relId);
+				ccitem->function(ccitem->arg, msg->rc.relId);
 			}
 		}
 	}
@@ -650,14 +650,14 @@ InvalidateSystemCaches(void)
 	{
 		struct SYSCACHECALLBACK *ccitem = syscache_callback_list + i;
 
-		(*ccitem->function) (ccitem->arg, ccitem->id, 0);
+		ccitem->function(ccitem->arg, ccitem->id, 0);
 	}
 
 	for (i = 0; i < relcache_callback_count; i++)
 	{
 		struct RELCACHECALLBACK *ccitem = relcache_callback_list + i;
 
-		(*ccitem->function) (ccitem->arg, InvalidOid);
+		ccitem->function(ccitem->arg, InvalidOid);
 	}
 }
 
@@ -708,7 +708,17 @@ AcceptInvalidationMessages(void)
 		}
 	}
 #elif defined(CLOBBER_CACHE_RECURSIVELY)
-	InvalidateSystemCaches();
+	{
+		static int	recursion_depth = 0;
+
+		/* Maximum depth is arbitrary depending on your threshold of pain */
+		if (recursion_depth < 3)
+		{
+			recursion_depth++;
+			InvalidateSystemCaches();
+			recursion_depth--;
+		}
+	}
 #endif
 }
 
@@ -1468,7 +1478,7 @@ CallSyscacheCallbacks(int cacheid, uint32 hashvalue)
 		struct SYSCACHECALLBACK *ccitem = syscache_callback_list + i;
 
 		Assert(ccitem->id == cacheid);
-		(*ccitem->function) (ccitem->arg, cacheid, hashvalue);
+		ccitem->function(ccitem->arg, cacheid, hashvalue);
 		i = ccitem->link - 1;
 	}
 }

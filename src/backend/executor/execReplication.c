@@ -3,7 +3,7 @@
  * execReplication.c
  *	  miscellaneous executor routines for logical replication
  *
- * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -63,7 +63,7 @@ build_replindex_scan_key(ScanKey skey, Relation rel, Relation idxrel,
 	opclass = (oidvector *) DatumGetPointer(indclassDatum);
 
 	/* Build scankey for every attribute in the index. */
-	for (attoff = 0; attoff < RelationGetNumberOfAttributes(idxrel); attoff++)
+	for (attoff = 0; attoff < IndexRelationGetNumberOfKeyAttributes(idxrel); attoff++)
 	{
 		Oid			operator;
 		Oid			opfamily;
@@ -131,7 +131,7 @@ RelationFindReplTupleByIndex(Relation rel, Oid idxoid,
 	/* Start an index scan. */
 	InitDirtySnapshot(snap);
 	scan = index_beginscan(rel, idxrel, &snap,
-						   RelationGetNumberOfAttributes(idxrel),
+						   IndexRelationGetNumberOfKeyAttributes(idxrel),
 						   0);
 
 	/* Build scan key. */
@@ -140,7 +140,7 @@ RelationFindReplTupleByIndex(Relation rel, Oid idxoid,
 retry:
 	found = false;
 
-	index_rescan(scan, skey, RelationGetNumberOfAttributes(idxrel), NULL, 0);
+	index_rescan(scan, skey, IndexRelationGetNumberOfKeyAttributes(idxrel), NULL, 0);
 
 	/* Try to find the tuple */
 	if ((scantuple = index_getnext(scan, ForwardScanDirection)) != NULL)
@@ -191,12 +191,18 @@ retry:
 				break;
 			case HeapTupleUpdated:
 				/* XXX: Improve handling here */
-				ereport(LOG,
-						(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
-						 errmsg("concurrent update, retrying")));
+				if (ItemPointerIndicatesMovedPartitions(&hufd.ctid))
+					ereport(LOG,
+							(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
+							 errmsg("tuple to be locked was already moved to another partition due to concurrent update, retrying")));
+				else
+					ereport(LOG,
+							(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
+							 errmsg("concurrent update, retrying")));
 				goto retry;
 			case HeapTupleInvisible:
 				elog(ERROR, "attempted to lock invisible tuple");
+				break;
 			default:
 				elog(ERROR, "unexpected heap_lock_tuple status: %u", res);
 				break;
@@ -247,7 +253,7 @@ tuple_equals_slot(TupleDesc desc, HeapTuple tup, TupleTableSlot *slot)
 		if (isnull[attrnum])
 			continue;
 
-		att = desc->attrs[attrnum];
+		att = TupleDescAttr(desc, attrnum);
 
 		typentry = lookup_type_cache(att->atttypid, TYPECACHE_EQ_OPR_FINFO);
 		if (!OidIsValid(typentry->eq_opr_finfo.fn_oid))
@@ -349,12 +355,18 @@ retry:
 				break;
 			case HeapTupleUpdated:
 				/* XXX: Improve handling here */
-				ereport(LOG,
-						(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
-						 errmsg("concurrent update, retrying")));
+				if (ItemPointerIndicatesMovedPartitions(&hufd.ctid))
+					ereport(LOG,
+							(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
+							 errmsg("tuple to be locked was already moved to another partition due to concurrent update, retrying")));
+				else
+					ereport(LOG,
+							(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
+							 errmsg("concurrent update, retrying")));
 				goto retry;
 			case HeapTupleInvisible:
 				elog(ERROR, "attempted to lock invisible tuple");
+				break;
 			default:
 				elog(ERROR, "unexpected heap_lock_tuple status: %u", res);
 				break;
@@ -402,6 +414,8 @@ ExecSimpleRelationInsert(EState *estate, TupleTableSlot *slot)
 		/* Check the constraints of the tuple */
 		if (rel->rd_att->constr)
 			ExecConstraints(resultRelInfo, slot, estate);
+		if (resultRelInfo->ri_PartitionCheck)
+			ExecPartitionCheck(resultRelInfo, slot, estate, true);
 
 		/* Materialize slot into a tuple that we can scribble upon. */
 		tuple = ExecMaterializeSlot(slot);
@@ -467,6 +481,8 @@ ExecSimpleRelationUpdate(EState *estate, EPQState *epqstate,
 		/* Check the constraints of the tuple */
 		if (rel->rd_att->constr)
 			ExecConstraints(resultRelInfo, slot, estate);
+		if (resultRelInfo->ri_PartitionCheck)
+			ExecPartitionCheck(resultRelInfo, slot, estate, true);
 
 		/* Materialize slot into a tuple that we can scribble upon. */
 		tuple = ExecMaterializeSlot(slot);
@@ -515,7 +531,7 @@ ExecSimpleRelationDelete(EState *estate, EPQState *epqstate,
 	{
 		skip_tuple = !ExecBRDeleteTriggers(estate, epqstate, resultRelInfo,
 										   &searchslot->tts_tuple->t_self,
-										   NULL);
+										   NULL, NULL);
 	}
 
 	if (!skip_tuple)

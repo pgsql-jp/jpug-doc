@@ -1,6 +1,646 @@
 <!-- doc/src/sgml/release-9.5.sgml -->
 <!-- See header comment in release.sgml about typical markup -->
 
+ <sect1 id="release-9-5-15">
+  <title>Release 9.5.15</title>
+
+  <formalpara>
+  <title>Release date:</title>
+  <para>2018-11-08</para>
+  </formalpara>
+
+  <para>
+   This release contains a variety of fixes from 9.5.14.
+   For information about new features in the 9.5 major release, see
+   <xref linkend="release-9-5"/>.
+  </para>
+
+  <sect2>
+   <title>Migration to Version 9.5.15</title>
+
+   <para>
+    A dump/restore is not required for those running 9.5.X.
+   </para>
+
+   <para>
+    However, if you are upgrading from a version earlier than 9.5.13,
+    see <xref linkend="release-9-5-13"/>.
+   </para>
+  </sect2>
+
+  <sect2>
+   <title>Changes</title>
+
+   <itemizedlist>
+
+    <listitem>
+     <para>
+      Fix corner-case failures
+      in <function>has_<replaceable>foo</replaceable>_privilege()</function>
+      family of functions (Tom Lane)
+     </para>
+
+     <para>
+      Return NULL rather than throwing an error when an invalid object OID
+      is provided.  Some of these functions got that right already, but not
+      all.  <function>has_column_privilege()</function> was additionally
+      capable of crashing on some platforms.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Avoid O(N^2) slowdown in regular expression match/split functions on
+      long strings (Andrew Gierth)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix parsing of standard multi-character operators that are immediately
+      followed by a comment or <literal>+</literal> or <literal>-</literal>
+      (Andrew Gierth)
+     </para>
+
+     <para>
+      This oversight could lead to parse errors, or to incorrect assignment
+      of precedence.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Avoid O(N^3) slowdown in lexer for long strings
+      of <literal>+</literal> or <literal>-</literal> characters
+      (Andrew Gierth)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix mis-execution of SubPlans when the outer query is being scanned
+      backwards (Andrew Gierth)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix failure of <command>UPDATE/DELETE ... WHERE CURRENT OF ...</command>
+      after rewinding the referenced cursor (Tom Lane)
+     </para>
+
+     <para>
+      A cursor that scans multiple relations (particularly an inheritance
+      tree) could produce wrong behavior if rewound to an earlier relation.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix <function>EvalPlanQual</function> to handle conditionally-executed
+      InitPlans properly (Andrew Gierth, Tom Lane)
+     </para>
+
+     <para>
+      This resulted in hard-to-reproduce crashes or wrong answers in
+      concurrent updates, if they contained code such as an uncorrelated
+      sub-<literal>SELECT</literal> inside a <literal>CASE</literal>
+      construct.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix character-class checks to not fail on Windows for Unicode
+      characters above U+FFFF (Tom Lane, Kenji Uno)
+     </para>
+
+     <para>
+      This bug affected full-text-search operations, as well
+      as <filename>contrib/ltree</filename>
+      and <filename>contrib/pg_trgm</filename>.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Ensure that sequences owned by a foreign table are processed
+      by <literal>ALTER OWNER</literal> on the table (Peter Eisentraut)
+     </para>
+
+     <para>
+      The ownership change should propagate to such sequences as well, but
+      this was missed for foreign tables.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Ensure that the server will process
+      already-received <literal>NOTIFY</literal>
+      and <literal>SIGTERM</literal> interrupts before waiting for client
+      input (Jeff Janes, Tom Lane)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix over-allocation of space for <function>array_out()</function>'s
+      result string (Keiichi Hirobe)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix memory leak in repeated SP-GiST index scans (Tom Lane)
+     </para>
+
+     <para>
+      This is only known to amount to anything significant in cases where
+      an exclusion constraint using SP-GiST receives many new index entries
+      in a single command.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Ensure that <function>ApplyLogicalMappingFile()</function> closes the
+      mapping file when done with it (Tomas Vondra)
+     </para>
+
+     <para>
+      Previously, the file descriptor was leaked, eventually resulting in
+      failures during logical decoding.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix logical decoding to handle cases where a mapped catalog table is
+      repeatedly rewritten, e.g. by <literal>VACUUM FULL</literal>
+      (Andres Freund)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Prevent starting the server with <varname>wal_level</varname> set
+      to too low a value to support an existing replication slot (Andres
+      Freund)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Avoid crash if a utility command causes infinite recursion (Tom Lane)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      When initializing a hot standby, cope with duplicate XIDs caused by
+      two-phase transactions on the master
+      (Michael Paquier, Konstantin Knizhnik)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix event triggers to handle nested <command>ALTER TABLE</command>
+      commands (Michael Paquier, &Aacute;lvaro Herrera)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Propagate parent process's transaction and statement start timestamps
+      to parallel workers (Konstantin Knizhnik)
+     </para>
+
+     <para>
+      This prevents misbehavior of functions such
+      as <function>transaction_timestamp()</function> when executed in a
+      worker.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix WAL file recycling logic to work correctly on standby servers
+      (Michael Paquier)
+     </para>
+
+     <para>
+      Depending on the setting of <varname>archive_mode</varname>, a standby
+      might fail to remove some WAL files that could be removed.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix handling of commit-timestamp tracking during recovery
+      (Masahiko Sawasa, Michael Paquier)
+     </para>
+
+     <para>
+      If commit timestamp tracking has been turned on or off, recovery might
+      fail due to trying to fetch the commit timestamp for a transaction
+      that did not record it.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Randomize the <function>random()</function> seed in bootstrap and
+      standalone backends, and in <application>initdb</application>
+      (Noah Misch)
+     </para>
+
+     <para>
+      The main practical effect of this change is that it avoids a scenario
+      where <application>initdb</application> might mistakenly conclude that
+      POSIX shared memory is not available, due to name collisions caused by
+      always using the same random seed.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Allow DSM allocation to be interrupted (Chris Travers)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Properly handle turning <varname>full_page_writes</varname> on
+      dynamically (Kyotaro Horiguchi)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Avoid possible buffer overrun when replaying GIN page recompression
+      from WAL (Alexander Korotkov, Sivasubramanian Ramasubramanian)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix missed fsync of a replication slot's directory (Konstantin
+      Knizhnik, Michael Paquier)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix unexpected timeouts when
+      using <varname>wal_sender_timeout</varname> on a slow server
+      (Noah Misch)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Ensure that hot standby processes use the correct WAL consistency
+      point (Alexander Kukushkin, Michael Paquier)
+     </para>
+
+     <para>
+      This prevents possible misbehavior just after a standby server has
+      reached a consistent database state during WAL replay.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Ensure background workers are stopped properly when the postmaster
+      receives a fast-shutdown request before completing database startup
+      (Alexander Kukushkin)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Don't run atexit callbacks when servicing <literal>SIGQUIT</literal>
+      (Heikki Linnakangas)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Don't record foreign-server user mappings as members of extensions
+      (Tom Lane)
+     </para>
+
+     <para>
+      If <command>CREATE USER MAPPING</command> is executed in an extension
+      script, an extension dependency was created for the user mapping,
+      which is unexpected.  Roles can't be extension members, so user
+      mappings shouldn't be either.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Make syslogger more robust against failures in opening CSV log files
+      (Tom Lane)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix <application>psql</application>, as well as documentation
+      examples, to call <function>PQconsumeInput()</function> before
+      each <function>PQnotifies()</function> call (Tom Lane)
+     </para>
+
+     <para>
+      This fixes cases in which <application>psql</application> would not
+      report receipt of a <literal>NOTIFY</literal> message until after the
+      next command.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix possible inconsistency in <application>pg_dump</application>'s
+      sorting of dissimilar object names (Jacob Champion)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Ensure that <application>pg_restore</application> will schema-qualify
+      the table name when
+      emitting <literal>DISABLE</literal>/<literal>ENABLE TRIGGER</literal>
+      commands (Tom Lane)
+     </para>
+
+     <para>
+      This avoids failures due to the new policy of running restores with
+      restrictive search path.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix <application>pg_upgrade</application> to handle event triggers in
+      extensions correctly (Haribabu Kommi)
+     </para>
+
+     <para>
+      <application>pg_upgrade</application> failed to preserve an event
+      trigger's extension-membership status.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix <application>pg_upgrade</application>'s cluster state check to
+      work correctly on a standby server (Bruce Momjian)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Enforce type <type>cube</type>'s dimension limit in
+      all <filename>contrib/cube</filename> functions (Andrey Borodin)
+     </para>
+
+     <para>
+      Previously, some cube-related functions could construct values that
+      would be rejected by <function>cube_in()</function>, leading to
+      dump/reload failures.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix <filename>contrib/unaccent</filename>'s
+      <function>unaccent()</function> function to use
+      the <literal>unaccent</literal> text search dictionary that is in the
+      same schema as the function (Tom Lane)
+     </para>
+
+     <para>
+      Previously it tried to look up the dictionary using the search path,
+      which could fail if the search path has a restrictive value.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix build problems on macOS 10.14 (Mojave) (Tom Lane)
+     </para>
+
+     <para>
+      Adjust <application>configure</application> to add
+      an <option>-isysroot</option> switch to <varname>CPPFLAGS</varname>;
+      without this, PL/Perl and PL/Tcl fail to configure or build on macOS
+      10.14.  The specific sysroot used can be overridden at configure time
+      or build time by setting the <varname>PG_SYSROOT</varname> variable in
+      the arguments of <application>configure</application>
+      or <application>make</application>.
+     </para>
+
+     <para>
+      It is now recommended that Perl-related extensions
+      write <literal>$(perl_includespec)</literal> rather
+      than <literal>-I$(perl_archlibexp)/CORE</literal> in their compiler
+      flags.  The latter continues to work on most platforms, but not recent
+      macOS.
+     </para>
+
+     <para>
+      Also, it should no longer be necessary to
+      specify <option>--with-tclconfig</option> manually to get PL/Tcl to
+      build on recent macOS releases.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix MSVC build and regression-test scripts to work on recent Perl
+      versions (Andrew Dunstan)
+     </para>
+
+     <para>
+      Perl no longer includes the current directory in its search path
+      by default; work around that.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      On Windows, allow the regression tests to be run by an Administrator
+      account (Andrew Dunstan)
+     </para>
+
+     <para>
+      To do this safely, <application>pg_regress</application> now gives up
+      any such privileges at startup.
+     </para>
+    </listitem>
+
+    <listitem>
+<!--
+Author: Andrew Dunstan <andrew@dunslane.net>
+Branch: REL9_5_STABLE [f6c268c48] 2018-09-11 16:09:46 -0400
+Branch: REL9_4_STABLE [19acfd652] 2018-09-11 16:03:42 -0400
+Branch: REL9_3_STABLE [48c978f3e] 2018-09-11 16:05:20 -0400
+Branch: REL9_4_STABLE [9ca32a6eb] 2018-09-11 15:44:42 -0400
+Branch: REL9_3_STABLE [048257832] 2018-09-11 15:46:35 -0400
+Branch: REL9_4_STABLE [86e247583] 2018-09-12 12:24:11 -0400
+Branch: REL9_3_STABLE [520711d6e] 2018-09-12 12:25:57 -0400
+-->
+     <para>
+      Support building on Windows with Visual Studio 2015 or Visual Studio 2017
+      (Michael Paquier, Haribabu Kommi)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Allow btree comparison functions to return <literal>INT_MIN</literal>
+      (Tom Lane)
+     </para>
+
+     <para>
+      Up to now, we've forbidden datatype-specific comparison functions from
+      returning <literal>INT_MIN</literal>, which allows callers to invert
+      the sort order just by negating the comparison result.  However, this
+      was never safe for comparison functions that directly return the
+      result of <function>memcmp()</function>, <function>strcmp()</function>,
+      etc, as POSIX doesn't place any such restriction on those functions.
+      At least some recent versions of <function>memcmp()</function> can
+      return <literal>INT_MIN</literal>, causing incorrect sort ordering.
+      Hence, we've removed this restriction.  Callers must now use
+      the <literal>INVERT_COMPARE_RESULT()</literal> macro if they wish to
+      invert the sort order.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix recursion hazard in shared-invalidation message processing
+      (Tom Lane)
+     </para>
+
+     <para>
+      This error could, for example, result in failure to access a system
+      catalog or index that had just been processed by <command>VACUUM
+      FULL</command>.
+     </para>
+
+     <para>
+      This change adds a new result code
+      for <function>LockAcquire</function>, which might possibly affect
+      external callers of that function, though only very unusual usage
+      patterns would have an issue with it.  The API
+      of <function>LockAcquireExtended</function> is also changed.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Save and restore SPI's global variables
+      during <function>SPI_connect()</function>
+      and <function>SPI_finish()</function> (Chapman Flack, Tom Lane)
+     </para>
+
+     <para>
+      This prevents possible interference when one SPI-using function calls
+      another.
+     </para>
+    </listitem>
+
+    <listitem>
+<!--
+Author: Tom Lane <tgl@sss.pgh.pa.us>
+Branch: REL9_5_STABLE [1245561df] 2018-10-12 14:49:33 -0400
+Branch: REL9_4_STABLE [ec185747a] 2018-10-12 14:49:33 -0400
+Branch: REL9_3_STABLE [01187f32c] 2018-10-12 14:49:33 -0400
+-->
+     <para>
+      Provide <literal>ALLOCSET_DEFAULT_SIZES</literal> and sibling macros
+      in back branches (Tom Lane)
+     </para>
+
+     <para>
+      These macros have existed since 9.6, but there were requests to add
+      them to older branches to allow extensions to rely on them without
+      branch-specific coding.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Avoid using potentially-under-aligned page buffers (Tom Lane)
+     </para>
+
+     <para>
+      Invent new union types <type>PGAlignedBlock</type>
+      and <type>PGAlignedXLogBlock</type>, and use these in place of plain
+      char arrays, ensuring that the compiler can't place the buffer at a
+      misaligned start address.  This fixes potential core dumps on
+      alignment-picky platforms, and may improve performance even on
+      platforms that allow misalignment.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Make <filename>src/port/snprintf.c</filename> follow the C99
+      standard's definition of <function>snprintf()</function>'s result
+      value (Tom Lane)
+     </para>
+
+     <para>
+      On platforms where this code is used (mostly Windows), its pre-C99
+      behavior could lead to failure to detect buffer overrun, if the
+      calling code assumed C99 semantics.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      When building on i386 with the <application>clang</application>
+      compiler, require <option>-msse2</option> to be used (Andres Freund)
+     </para>
+
+     <para>
+      This avoids problems with missed floating point overflow checks.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Fix <application>configure</application>'s detection of the result
+      type of <function>strerror_r()</function> (Tom Lane)
+     </para>
+
+     <para>
+      The previous coding got the wrong answer when building
+      with <application>icc</application> on Linux (and perhaps in other
+      cases), leading to <application>libpq</application> not returning
+      useful error messages for system-reported errors.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      Update time zone data files to <application>tzdata</application>
+      release 2018g for DST law changes in Chile, Fiji, Morocco, and Russia
+      (Volgograd), plus historical corrections for China, Hawaii, Japan,
+      Macau, and North Korea.
+     </para>
+    </listitem>
+
+   </itemizedlist>
+
+  </sect2>
+ </sect1>
+
  <sect1 id="release-9-5-14">
 <!--
   <title>Release 9.5.14</title>
@@ -19,10 +659,10 @@
 <!--
    This release contains a variety of fixes from 9.5.13.
    For information about new features in the 9.5 major release, see
-   <xref linkend="release-9-5">.
+   <xref linkend="release-9-5"/>.
 -->
 このリリースは9.5.13に対し、各種不具合を修正したものです。
-9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5">を参照してください。
+9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5"/>を参照してください。
   </para>
 
   <sect2>
@@ -41,9 +681,9 @@
    <para>
 <!--
     However, if you are upgrading from a version earlier than 9.5.13,
-    see <xref linkend="release-9-5-13">.
+    see <xref linkend="release-9-5-13"/>.
 -->
-しかしながら、9.5.13より前のバージョンからアップグレードする場合には<xref linkend="release-9-5-13">を参照してください。
+しかしながら、9.5.13より前のバージョンからアップグレードする場合には<xref linkend="release-9-5-13"/>を参照してください。
    </para>
   </sect2>
 
@@ -670,10 +1310,10 @@ Perlスカラ参照を一通り調べて、期待されたハッシュ参照が�
 <!--
    This release contains a variety of fixes from 9.5.12.
    For information about new features in the 9.5 major release, see
-   <xref linkend="release-9-5">.
+   <xref linkend="release-9-5"/>.
 -->
 このリリースは9.5.12に対し、各種不具合を修正したものです。
-9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5">を参照してください。
+9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5"/>を参照してください。
   </para>
 
   <sect2>
@@ -701,9 +1341,9 @@ Perlスカラ参照を一通り調べて、期待されたハッシュ参照が�
    <para>
 <!--
     Also, if you are upgrading from a version earlier than 9.5.12,
-    see <xref linkend="release-9-5-12">.
+    see <xref linkend="release-9-5-12"/>.
 -->
-また、9.5.12より前のバージョンからアップグレードする場合には<xref linkend="release-9-5-12">を参照してください。
+また、9.5.12より前のバージョンからアップグレードする場合には<xref linkend="release-9-5-12"/>を参照してください。
    </para>
   </sect2>
 
@@ -1388,10 +2028,10 @@ Solaris 11.4 の組み込み関数との衝突を避けるため内部の<functi
 <!--
    This release contains a variety of fixes from 9.5.11.
    For information about new features in the 9.5 major release, see
-   <xref linkend="release-9-5">.
+   <xref linkend="release-9-5"/>.
 -->
 このリリースは9.5.11に対し、各種不具合を修正したものです。
-9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5">を参照してください。
+9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5"/>を参照してください。
   </para>
 
   <sect2>
@@ -1433,9 +2073,9 @@ Solaris 11.4 の組み込み関数との衝突を避けるため内部の<functi
    <para>
 <!--
     Also, if you are upgrading from a version earlier than 9.5.10,
-    see <xref linkend="release-9-5-10">.
+    see <xref linkend="release-9-5-10"/>.
 -->
-また、9.5.10よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-10">を参照して下さい。
+また、9.5.10よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-10"/>を参照して下さい。
    </para>
   </sect2>
 
@@ -1468,17 +2108,17 @@ Solaris 11.4 の組み込み関数との衝突を避けるため内部の<functi
       tedious, and it's very easy to overlook holes.  Therefore, we now
       recommend configurations in which no untrusted schemas appear in
       one's search path.  Relevant documentation appears in
-      <xref linkend="ddl-schemas-patterns"> (for database administrators and users),
-      <xref linkend="libpq-connect"> (for application authors),
-      <xref linkend="extend-extensions-style">  (for extension authors), and
-      <xref linkend="sql-createfunction"> (for authors
+      <xref linkend="ddl-schemas-patterns"/> (for database administrators and users),
+      <xref linkend="libpq-connect"/> (for application authors),
+      <xref linkend="extend-extensions-style"/>  (for extension authors), and
+      <xref linkend="sql-createfunction"/> (for authors
       of <literal>SECURITY DEFINER</literal> functions).
       (CVE-2018-1058)
 -->
 敵意のあるユーザから書き込み可能な何らかのスキーマを含む<varname>search_path</varname>設定を使うことは、そのユーザが問い合わせの制御を奪い、攻撃を受けたユーザの権限で任意のSQLコードを実行することを可能にします。
 このようなハイジャックを防ぐような問い合わせを書くことは可能ですが、これは甚だ退屈で、とても見落としをしやすいです。
 そこで、私たちは信用できないスキーマがユーザのサーチパスに現れない設定を推奨します。
-関連する文書は、<xref linkend="ddl-schemas-patterns">（データベースの管理者・ユーザむけ）、<xref linkend="libpq-connect">（アプリケーションの作者むけ）、<xref linkend="extend-extensions-style">（拡張の作者むけ）、<xref linkend="sql-createfunction">（<literal>SECURITY DEFINER</literal>関数の作者むけ）にあります。
+関連する文書は、<xref linkend="ddl-schemas-patterns"/>（データベースの管理者・ユーザむけ）、<xref linkend="libpq-connect"/>（アプリケーションの作者むけ）、<xref linkend="extend-extensions-style"/>（拡張の作者むけ）、<xref linkend="sql-createfunction"/>（<literal>SECURITY DEFINER</literal>関数の作者むけ）にあります。
 (CVE-2018-1058)
      </para>
     </listitem>
@@ -1667,10 +2307,10 @@ InitPlanかSubPlanでCTE（<literal>WITH</literal>句参照）が使われてい
 <!--
    This release contains a variety of fixes from 9.5.10.
    For information about new features in the 9.5 major release, see
-   <xref linkend="release-9-5">.
+   <xref linkend="release-9-5"/>.
 -->
 このリリースは9.5.10に対し、各種不具合を修正したものです。
-9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5">を参照してください。
+9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5"/>を参照してください。
   </para>
 
   <sect2>
@@ -1689,9 +2329,9 @@ InitPlanかSubPlanでCTE（<literal>WITH</literal>句参照）が使われてい
    <para>
 <!--
     However, if you are upgrading from a version earlier than 9.5.10,
-    see <xref linkend="release-9-5-10">.
+    see <xref linkend="release-9-5-10"/>.
 -->
-しかしながら、9.5.10よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-10">を参照して下さい。
+しかしながら、9.5.10よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-10"/>を参照して下さい。
    </para>
   </sect2>
 
@@ -2314,10 +2954,10 @@ Motorola 88Kのスピンロック対応を加えました。
 <!--
    This release contains a variety of fixes from 9.5.9.
    For information about new features in the 9.5 major release, see
-   <xref linkend="release-9-5">.
+   <xref linkend="release-9-5"/>.
 -->
 このリリースは9.5.9に対し、各種不具合を修正したものです。
-9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5">を参照してください。
+9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5"/>を参照してください。
   </para>
 
   <sect2>
@@ -2343,9 +2983,9 @@ Motorola 88Kのスピンロック対応を加えました。
    <para>
 <!--
     Also, if you are upgrading from a version earlier than 9.5.8,
-    see <xref linkend="release-9-5-8">.
+    see <xref linkend="release-9-5-8"/>.
 -->
-また、9.5.8よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-8">を参照して下さい。
+また、9.5.8よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-8"/>を参照して下さい。
    </para>
   </sect2>
 
@@ -2874,10 +3514,10 @@ ecpglibのInformix互換モードにおいて、予期される通りに整数�
 <!--
    This release contains a small number of fixes from 9.5.8.
    For information about new features in the 9.5 major release, see
-   <xref linkend="release-9-5">.
+   <xref linkend="release-9-5"/>.
 -->
 このリリースは9.5.8に対し、少数の不具合を修正したものです。
-9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5">を参照してください。
+9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5"/>を参照してください。
   </para>
 
   <sect2>
@@ -2896,9 +3536,9 @@ ecpglibのInformix互換モードにおいて、予期される通りに整数�
    <para>
 <!--
     However, if you are upgrading from a version earlier than 9.5.8,
-    see <xref linkend="release-9-5-8">.
+    see <xref linkend="release-9-5-8"/>.
 -->
-しかしながら、9.5.8よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-8">を参照して下さい。
+しかしながら、9.5.8よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-8"/>を参照して下さい。
    </para>
   </sect2>
 
@@ -3131,10 +3771,10 @@ Windows上のPL/Perlに対するコンパイラフラグの選択を改善しま
 <!--
    This release contains a variety of fixes from 9.5.7.
    For information about new features in the 9.5 major release, see
-   <xref linkend="release-9-5">.
+   <xref linkend="release-9-5"/>.
 -->
 このリリースは9.5.7に対し、各種不具合を修正したものです。
-9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5">を参照してください。
+9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5"/>を参照してください。
   </para>
 
   <sect2>
@@ -3161,9 +3801,9 @@ Windows上のPL/Perlに対するコンパイラフラグの選択を改善しま
    <para>
 <!--
     Also, if you are upgrading from a version earlier than 9.5.7,
-    see <xref linkend="release-9-5-7">.
+    see <xref linkend="release-9-5-7"/>.
 -->
-また、9.5.7よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-7">を参照して下さい。
+また、9.5.7よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-7"/>を参照して下さい。
    </para>
   </sect2>
 
@@ -3495,10 +4135,10 @@ SSLセッションチケットをクライアントに送るのを防止しま�
     <listitem>
      <para>
 <!--
-      Fix code for setting <xref linkend="guc-tcp-keepalives-idle"> on
+      Fix code for setting <xref linkend="guc-tcp-keepalives-idle"/> on
       Solaris (Tom Lane)
 -->
-Solaris上の設定<xref linkend="guc-tcp-keepalives-idle">に対するコードを修正しました。
+Solaris上の設定<xref linkend="guc-tcp-keepalives-idle"/>に対するコードを修正しました。
 (Tom Lane)
      </para>
     </listitem>
@@ -4026,11 +4666,11 @@ Windows上で<application>pg_basebackup</application>の標準出力への出力
      <para>
 <!--
       Fix <application>pg_upgrade</application> to ensure that the ending WAL record
-      does not have <xref linkend="guc-wal-level"> = <literal>minimum</literal>
+      does not have <xref linkend="guc-wal-level"/> = <literal>minimum</literal>
       (Bruce Momjian)
 -->
-末尾のWALレコードが<xref linkend="guc-wal-level"> = <literal>minimum</literal>でないことを保証するように<application>pg_upgrade</application>を修正しました。
-<xref linkend="guc-wal-level"> = <literal>minimum</literal>
+末尾のWALレコードが<xref linkend="guc-wal-level"/> = <literal>minimum</literal>でないことを保証するように<application>pg_upgrade</application>を修正しました。
+<xref linkend="guc-wal-level"/> = <literal>minimum</literal>
 (Bruce Momjian)
      </para>
 
@@ -4145,10 +4785,10 @@ Perlの最近のバージョンで警告またはエラーになるのを回避�
     <listitem>
      <para>
 <!--
-      In MSVC builds, handle the case where the <application>openssl</application>
+      In MSVC builds, handle the case where the <application>OpenSSL</application>
       library is not within a <filename>VC</filename> subdirectory (Andrew Dunstan)
 -->
-MSVCビルドで<application>openssl</application>ライブラリが<filename>VC</filename>サブディレクトリ内に無い場合を処理するようにしました。
+MSVCビルドで<application>OpenSSL</application>ライブラリが<filename>VC</filename>サブディレクトリ内に無い場合を処理するようにしました。
 (Andrew Dunstan)
      </para>
     </listitem>
@@ -4217,10 +4857,10 @@ MSVCビルドで、<filename>vcregress.pl</filename>のコマンドライン上�
 <!--
    This release contains a variety of fixes from 9.5.6.
    For information about new features in the 9.5 major release, see
-   <xref linkend="release-9-5">.
+   <xref linkend="release-9-5"/>.
 -->
 このリリースは9.5.6に対し、各種不具合を修正したものです。
-9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5">を参照してください。
+9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5"/>を参照してください。
   </para>
 
   <sect2>
@@ -4255,9 +4895,9 @@ MSVCビルドで、<filename>vcregress.pl</filename>のコマンドライン上�
    <para>
 <!--
     Also, if you are upgrading from a version earlier than 9.5.6,
-    see <xref linkend="release-9-5-6">.
+    see <xref linkend="release-9-5-6"/>.
 -->
-また、9.5.6よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-6">を参照して下さい。
+また、9.5.6よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-6"/>を参照して下さい。
    </para>
   </sect2>
 
@@ -4305,10 +4945,10 @@ MSVCビルドで、<filename>vcregress.pl</filename>のコマンドライン上�
       By itself, this patch will only fix the behavior in newly initdb'd
       databases.  If you wish to apply this change in an existing database,
       follow the corrected procedure shown in the changelog entry for
-      CVE-2017-7547, in <xref linkend="release-9-5-8">.
+      CVE-2017-7547, in <xref linkend="release-9-5-8"/>.
 -->
 このパッチのみでは新たにinitdbされたデータベースでの動作しか修正しません。
-この変更を既存のデータベースに適用するには、<xref linkend="release-9-5-8">にあるCVE-2017-7547に対する変更点に示した正しい手順に従ってください。
+この変更を既存のデータベースに適用するには、<xref linkend="release-9-5-8"/>にあるCVE-2017-7547に対する変更点に示した正しい手順に従ってください。
      </para>
     </listitem>
 
@@ -5054,7 +5694,7 @@ MSVC ビルドにおいて、POSIX形式のタイムゾーン名に対して正�
       will use the current and historical DST transition dates of
       the <literal>US/Eastern</literal> zone.  If you don't want that, remove
       the <filename>posixrules</filename> file, or replace it with a copy of some
-      other zone file (see <xref linkend="datatype-timezones">).  Note that
+      other zone file (see <xref linkend="datatype-timezones"/>).  Note that
       due to caching, you may need to restart the server to get such changes
       to take effect.
 -->
@@ -5062,7 +5702,7 @@ MicrosoftのMSVCビルドスクリプトは<filename>posixrules</filename>ファ
 この結果、POSIX形式のタイムゾーン名に対し想定される夏時間の振る舞いについて、タイムゾーンコードがビルトインの規則に退行してしまっていました。
 歴史的な理由により、その組み込み規則は、米国が2007年より前に使っていた夏時間規則（すなわち、4月最初の日曜日と 10月最終の日曜日の変更）に引き続き対応しています。
 この修正にともない、POSIX形式のゾーン名は<literal>US/Eastern</literal>ゾーンの現在および歴史的な夏時間遷移日を使います。
-そのようにしたくない場合には、<filename>posixrules</filename>ファイルを削除するか、他のゾーンファイルのコピーで置き換えてください（<xref linkend="datatype-timezones">参照）。
+そのようにしたくない場合には、<filename>posixrules</filename>ファイルを削除するか、他のゾーンファイルのコピーで置き換えてください（<xref linkend="datatype-timezones"/>参照）。
 キャッシュ利用のため、このような変更を反映させるにはサーバの再起動が必要であることに注意してください。
      </para>
     </listitem>
@@ -5090,10 +5730,10 @@ MicrosoftのMSVCビルドスクリプトは<filename>posixrules</filename>ファ
 <!--
    This release contains a variety of fixes from 9.5.5.
    For information about new features in the 9.5 major release, see
-   <xref linkend="release-9-5">.
+   <xref linkend="release-9-5"/>.
 -->
 このリリースは9.5.5に対し、各種不具合を修正したものです。
-9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5">を参照してください。
+9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5"/>を参照してください。
   </para>
 
   <sect2>
@@ -5121,9 +5761,9 @@ MicrosoftのMSVCビルドスクリプトは<filename>posixrules</filename>ファ
    <para>
 <!--
     Also, if you are upgrading from a version earlier than 9.5.5,
-    see <xref linkend="release-9-5-5">.
+    see <xref linkend="release-9-5-5"/>.
 -->
-また、9.5.5よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-5">を参照して下さい。
+また、9.5.5よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-5"/>を参照して下さい。
    </para>
   </sect2>
 
@@ -5215,12 +5855,12 @@ BRINインデックスの誤ったWALログ出力を修正しました。
 
      <para>
 <!--
-      Previously, this was skipped when <xref linkend="guc-wal-level">
+      Previously, this was skipped when <xref linkend="guc-wal-level"/>
       = <literal>minimal</literal>, but actually it's necessary even in that case
       to ensure that the unlogged table is properly reset to empty after a
       crash.
 -->
-これまで<xref linkend="guc-wal-level"> = <literal>minimal</literal>のときには省略されていましたが、ログをとらないテーブルがクラッシュ後に適切に空に初期化されることを保証するために、実際にはその場合でも必要でした。
+これまで<xref linkend="guc-wal-level"/> = <literal>minimal</literal>のときには省略されていましたが、ログをとらないテーブルがクラッシュ後に適切に空に初期化されることを保証するために、実際にはその場合でも必要でした。
      </para>
     </listitem>
 
@@ -5333,10 +5973,10 @@ Btreeインデックスのバキューム操作の再生中のスタンバイサ
      <para>
 <!--
       Previously, non-default settings
-      of <xref linkend="guc-default-tablespace"> could result in broken
+      of <xref linkend="guc-default-tablespace"/> could result in broken
       indexes.
 -->
-これまでは<xref linkend="guc-default-tablespace">のデフォルト以外の設定によりインデックス破壊をもたらす可能性がありました。
+これまでは<xref linkend="guc-default-tablespace"/>のデフォルト以外の設定によりインデックス破壊をもたらす可能性がありました。
      </para>
     </listitem>
 
@@ -6109,10 +6749,10 @@ Windowsで環境変数の変更がデバッグオプションを有効にして�
 <!--
    This release contains a variety of fixes from 9.5.4.
    For information about new features in the 9.5 major release, see
-   <xref linkend="release-9-5">.
+   <xref linkend="release-9-5"/>.
 -->
 このリリースは9.5.4に対し、各種不具合を修正したものです。
-9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5">を参照してください。
+9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5"/>を参照してください。
   </para>
 
   <sect2>
@@ -6140,9 +6780,9 @@ Windowsで環境変数の変更がデバッグオプションを有効にして�
    <para>
 <!--
     Also, if you are upgrading from a version earlier than 9.5.2,
-    see <xref linkend="release-9-5-2">.
+    see <xref linkend="release-9-5-2"/>.
 -->
-また、9.5.2よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-2">を参照して下さい。
+また、9.5.2よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-2"/>を参照して下さい。
    </para>
   </sect2>
 
@@ -6374,9 +7014,9 @@ Branch: REL9_4_STABLE [566afa15c] 2016-08-24 22:20:01 -0400
      <para>
 <!--
       Fix <command>EXPLAIN</command> to emit valid XML when
-      <xref linkend="guc-track-io-timing"> is on (Markus Winand)
+      <xref linkend="guc-track-io-timing"/> is on (Markus Winand)
 -->
-<xref linkend="guc-track-io-timing">がonのとき、有効なXMLを出力するように<command>EXPLAIN</command>を修正しました。
+<xref linkend="guc-track-io-timing"/>がonのとき、有効なXMLを出力するように<command>EXPLAIN</command>を修正しました。
 (Markus Winand)
      </para>
 
@@ -6552,10 +7192,10 @@ Branch: REL9_1_STABLE [7e01c8ef3] 2016-08-14 15:06:02 -0400
 
      <para>
 <!--
-      With <xref linkend="guc-track-commit-timestamp"> turned on, old
+      With <xref linkend="guc-track-commit-timestamp"/> turned on, old
       commit timestamps became inaccessible after a clean server restart.
 -->
-<xref linkend="guc-track-commit-timestamp">がonのとき、クリーンなサーバ再起動の後に古いコミットタイムスタンプがアクセス不能になっていました。
+<xref linkend="guc-track-commit-timestamp"/>がonのとき、クリーンなサーバ再起動の後に古いコミットタイムスタンプがアクセス不能になっていました。
      </para>
     </listitem>
 
@@ -7229,10 +7869,10 @@ IANAは英語の省略形が現実に使われている形跡がないゾーン�
 <!--
    This release contains a variety of fixes from 9.5.3.
    For information about new features in the 9.5 major release, see
-   <xref linkend="release-9-5">.
+   <xref linkend="release-9-5"/>.
 -->
 このリリースは9.5.3に対し、各種不具合を修正したものです。
-9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5">を参照してください。
+9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5"/>を参照してください。
   </para>
 
   <sect2>
@@ -7251,9 +7891,9 @@ IANAは英語の省略形が現実に使われている形跡がないゾーン�
    <para>
 <!--
     However, if you are upgrading from a version earlier than 9.5.2,
-    see <xref linkend="release-9-5-2">.
+    see <xref linkend="release-9-5-2"/>.
 -->
-しかしながら、9.5.2よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-2">を参照して下さい。
+しかしながら、9.5.2よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-2"/>を参照して下さい。
    </para>
   </sect2>
 
@@ -8653,10 +9293,10 @@ Branch: REL9_1_STABLE [a44388ffe] 2016-08-05 12:59:02 -0400
 <!--
    This release contains a variety of fixes from 9.5.2.
    For information about new features in the 9.5 major release, see
-   <xref linkend="release-9-5">.
+   <xref linkend="release-9-5"/>.
 -->
 このリリースは9.5.2に対し、各種不具合を修正したものです。
-9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5">
+9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5"/>
 を参照してください。
   </para>
 
@@ -8676,9 +9316,9 @@ Branch: REL9_1_STABLE [a44388ffe] 2016-08-05 12:59:02 -0400
    <para>
 <!--
     However, if you are upgrading from a version earlier than 9.5.2,
-    see <xref linkend="release-9-5-2">.
+    see <xref linkend="release-9-5-2"/>.
 -->
-しかしながら、9.5.2よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-2">を参照して下さい。
+しかしながら、9.5.2よりも前のリリースからアップグレードする場合は、<xref linkend="release-9-5-2"/>を参照して下さい。
    </para>
   </sect2>
 
@@ -8793,10 +9433,10 @@ Branch: REL9_5_STABLE [81deadd31] 2016-04-21 23:17:36 -0400
      <para>
 <!--
       Fix corner-case parser failures occurring
-      when <xref linkend="guc-operator-precedence-warning"> is turned on
+      when <xref linkend="guc-operator-precedence-warning"/> is turned on
       (Tom Lane)
 -->
-<xref linkend="guc-operator-precedence-warning">がonのときに生じる、稀な場合のパーサのエラーを修正しました。
+<xref linkend="guc-operator-precedence-warning"/>がonのときに生じる、稀な場合のパーサのエラーを修正しました。
 (Tom Lane)
      </para>
 
@@ -9325,10 +9965,10 @@ Branch: REL9_1_STABLE [bfc39da64] 2016-05-05 20:09:32 -0400
 <!--
    This release contains a variety of fixes from 9.5.1.
    For information about new features in the 9.5 major release, see
-   <xref linkend="release-9-5">.
+   <xref linkend="release-9-5"/>.
 -->
 このリリースは9.5.1に対し、各種不具合を修正したものです。
-9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5">
+9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5"/>
 を参照してください。
   </para>
 
@@ -9715,10 +10355,10 @@ Branch: REL9_4_STABLE [a9613ee69] 2016-03-06 02:43:26 +0900
     <listitem>
      <para>
 <!--
-      Ignore <xref linkend="recovery-min-apply-delay"> parameter until
+      Ignore <xref linkend="recovery-min-apply-delay"/> parameter until
       recovery has reached a consistent state (Michael Paquier)
 -->
-リカバリが一貫性のある状態に達するまで<xref linkend="recovery-min-apply-delay">パラメータを無視するようにしました。
+リカバリが一貫性のある状態に達するまで<xref linkend="recovery-min-apply-delay"/>パラメータを無視するようにしました。
 (Michael Paquier)
      </para>
 
@@ -10268,10 +10908,10 @@ Branch: REL9_1_STABLE [e5fd35cc5] 2016-03-25 19:03:54 -0400
 <!--
    This release contains a variety of fixes from 9.5.0.
    For information about new features in the 9.5 major release, see
-   <xref linkend="release-9-5">.
+   <xref linkend="release-9-5"/>.
 -->
 このリリースは9.5.0に対し、各種不具合を修正したものです。
-9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5">
+9.5メジャーリリースにおける新機能については、<xref linkend="release-9-5"/>
 を参照してください。
   </para>
 
@@ -10958,13 +11598,13 @@ Branch: REL9_1_STABLE [6887d72d0] 2016-02-05 10:59:39 -0500
 
    <para>
 <!--
-    A dump/restore using <xref linkend="app-pg-dumpall">, or use
-    of <xref linkend="pgupgrade">, is required for those wishing to migrate
+    A dump/restore using <xref linkend="app-pg-dumpall"/>, or use
+    of <xref linkend="pgupgrade"/>, is required for those wishing to migrate
     data from any previous release.
 -->
 以前のリリースからデータを移行したい時は、どのリリースについても、
-<xref linkend="app-pg-dumpall">を利用したダンプとリストア、
-あるいは<xref linkend="pgupgrade">の利用が必要です。
+<xref linkend="app-pg-dumpall"/>を利用したダンプとリストア、
+あるいは<xref linkend="pgupgrade"/>の利用が必要です。
 
    </para>
 
@@ -11006,7 +11646,7 @@ Branch: REL9_1_STABLE [6887d72d0] 2016-02-05 10:59:39 -0500
       before they had inconsistent precedence, behaving like <literal>NOT</literal>
       with respect to their left operand but like their base operator with
       respect to their right operand.  The new configuration
-      parameter <xref linkend="guc-operator-precedence-warning"> can be
+      parameter <xref linkend="guc-operator-precedence-warning"/> can be
       enabled to warn about queries in which these precedence changes result
       in different parsing choices.
 -->
@@ -11015,7 +11655,7 @@ Branch: REL9_1_STABLE [6887d72d0] 2016-02-05 10:59:39 -0500
 <literal>IS</literal>検査（例: <replaceable>x</replaceable> <literal>IS NULL</literal>）の優先順位がこれら6つの比較演算子のすぐ下まで下げられました。
 また、<literal>NOT</literal>で始まる複数キーワード演算子はその基底演算子と同じ優先順位を持つようになります（例えば、<literal>NOT BETWEEN</literal>は<literal>BETWEEN</literal>と同じ優先順位となります）。
 <literal>NOT</literal>は左辺要素を尊重するけれどもその基底演算子は右辺要素を尊重するといったように、これまで一貫性に欠けた優先順位になっていました。
-新たな設定パラメータ<xref linkend="guc-operator-precedence-warning">で本優先順位変更で異なった解析結果になる問い合わせについての警告を有効にできます。
+新たな設定パラメータ<xref linkend="guc-operator-precedence-warning"/>で本優先順位変更で異なった解析結果になる問い合わせについての警告を有効にできます。
      </para>
     </listitem>
 
@@ -11025,10 +11665,10 @@ Branch: REL9_1_STABLE [6887d72d0] 2016-02-05 10:59:39 -0500
 -->
      <para>
 <!--
-      Change <xref linkend="app-pg-ctl">'s default shutdown mode from
+      Change <xref linkend="app-pg-ctl"/>'s default shutdown mode from
       <literal>smart</literal> to <literal>fast</literal> (Bruce Momjian)
 -->
-<xref linkend="app-pg-ctl">のデフォルトシャットダウンモードを<literal>smart</literal>から<literal>fast</literal>に変更しました。
+<xref linkend="app-pg-ctl"/>のデフォルトシャットダウンモードを<literal>smart</literal>から<literal>fast</literal>に変更しました。
 (Bruce Momjian)
      </para>
 
@@ -11123,10 +11763,10 @@ GSSAPIの<link linkend="gssapi-auth"><varname>include_realm</varname></link>パ�
      <para>
 <!--
       Replace configuration parameter <varname>checkpoint_segments</varname>
-      with <xref linkend="guc-min-wal-size">
-      and <xref linkend="guc-max-wal-size"> (Heikki Linnakangas)
+      with <xref linkend="guc-min-wal-size"/>
+      and <xref linkend="guc-max-wal-size"/> (Heikki Linnakangas)
 -->
-設定パラメータ<varname>checkpoint_segments</varname>を<xref linkend="guc-min-wal-size">と<xref linkend="guc-max-wal-size">で置き換えました。
+設定パラメータ<varname>checkpoint_segments</varname>を<xref linkend="guc-min-wal-size"/>と<xref linkend="guc-max-wal-size"/>で置き換えました。
 (Heikki Linnakangas)
      </para>
 
@@ -11378,10 +12018,10 @@ Add GUC and storage parameter to set the maximum size of GIN pending list.
 -->
        <para>
 <!--
-        Add configuration parameter <xref linkend="guc-gin-pending-list-limit">
+        Add configuration parameter <xref linkend="guc-gin-pending-list-limit"/>
         to control the size of <acronym>GIN</acronym> pending lists (Fujii Masao)
 -->
-<acronym>GIN</acronym>の待機リストのサイズを制御する設定パラメータ<xref linkend="guc-gin-pending-list-limit">を追加しました。
+<acronym>GIN</acronym>の待機リストのサイズを制御する設定パラメータ<xref linkend="guc-gin-pending-list-limit"/>を追加しました。
 (Fujii Masao)
        </para>
 
@@ -11389,11 +12029,11 @@ Add GUC and storage parameter to set the maximum size of GIN pending list.
 <!--
         This value can also be set on a per-index basis as an index storage
         parameter.  Previously the pending-list size was controlled
-        by <xref linkend="guc-work-mem">, which was awkward because
+        by <xref linkend="guc-work-mem"/>, which was awkward because
         appropriate values for <varname>work_mem</varname> are often much too large
         for this purpose.
 -->
-本パラメータはインデックスごとにインデックスのストレージパラメータとして設定することも可能です。これまで待機リストサイズは<xref linkend="guc-work-mem">で制御されていましたが、適切な<varname>work_mem</varname>値が待機リストサイズむけには大きすぎることがよくあり、扱いにくいものとなっていました。
+本パラメータはインデックスごとにインデックスのストレージパラメータとして設定することも可能です。これまで待機リストサイズは<xref linkend="guc-work-mem"/>で制御されていましたが、適切な<varname>work_mem</varname>値が待機リストサイズむけには大きすぎることがよくあり、扱いにくいものとなっていました。
        </para>
       </listitem>
 
@@ -11718,10 +12358,10 @@ LEAKPROOFでない関数を、その関数がビューの出力列を受け取�
 -->
        <para>
 <!--
-        Add new configuration parameter <xref linkend="guc-cluster-name">
+        Add new configuration parameter <xref linkend="guc-cluster-name"/>
         (Thomas Munro)
 -->
-新たな設定パラメータ<xref linkend="guc-cluster-name">を追加しました。
+新たな設定パラメータ<xref linkend="guc-cluster-name"/>を追加しました。
 (Thomas Munro)
        </para>
 
@@ -11745,9 +12385,9 @@ LEAKPROOFでない関数を、その関数がビューの出力列を受け取�
        <para>
 <!--
         Prevent non-superusers from changing <xref
-        linkend="guc-log-disconnections"> on connection startup (Fujii Masao)
+        linkend="guc-log-disconnections"/> on connection startup (Fujii Masao)
 -->
-スーパーユーザ以外が<xref linkend="guc-log-disconnections">を接続当初に変更することを防ぎました。
+スーパーユーザ以外が<xref linkend="guc-log-disconnections"/>を接続当初に変更することを防ぎました。
 (Fujii Masao)
        </para>
       </listitem>
@@ -11873,10 +12513,10 @@ LEAKPROOFでない関数を、その関数がビューの出力列を受け取�
        <para>
 <!--
         Replace configuration parameter <varname>checkpoint_segments</varname>
-        with <xref linkend="guc-min-wal-size">
-        and <xref linkend="guc-max-wal-size"> (Heikki Linnakangas)
+        with <xref linkend="guc-min-wal-size"/>
+        and <xref linkend="guc-max-wal-size"/> (Heikki Linnakangas)
 -->
-設定パラメータ<varname>checkpoint_segments</varname>を<xref linkend="guc-min-wal-size">と<xref linkend="guc-max-wal-size">で置き換えました。
+設定パラメータ<varname>checkpoint_segments</varname>を<xref linkend="guc-min-wal-size"/>と<xref linkend="guc-max-wal-size"/>で置き換えました。
 (Heikki Linnakangas)
        </para>
 
@@ -11933,10 +12573,10 @@ Linuxの<acronym>OOM</acronym> killerを新たな環境変数<link linkend="linu
 <!--
         Allow recording of transaction
         commit time stamps when configuration parameter <xref
-        linkend="guc-track-commit-timestamp">
+        linkend="guc-track-commit-timestamp"/>
         is enabled (&Aacute;lvaro Herrera, Petr Jel&iacute;nek)
 -->
-設定パラメータ<xref linkend="guc-track-commit-timestamp">を有効にすることで、トランザクションコミットのタイムスタンプを記録できるようにしました。
+設定パラメータ<xref linkend="guc-track-commit-timestamp"/>を有効にすることで、トランザクションコミットのタイムスタンプを記録できるようにしました。
 (&Aacute;lvaro Herrera, Petr Jel&iacute;nek)
        </para>
 
@@ -11956,10 +12596,10 @@ Linuxの<acronym>OOM</acronym> killerを新たな環境変数<link linkend="linu
 -->
        <para>
 <!--
-        Allow <xref linkend="guc-local-preload-libraries"> to be set
+        Allow <xref linkend="guc-local-preload-libraries"/> to be set
         by <command>ALTER ROLE SET</command> (Peter Eisentraut, Kyotaro Horiguchi)
 -->
-<xref linkend="guc-local-preload-libraries">を<command>ALTER ROLE SET</command>から設定できるようにしました。
+<xref linkend="guc-local-preload-libraries"/>を<command>ALTER ROLE SET</command>から設定できるようにしました。
 (Peter Eisentraut, Kyotaro Horiguchi)
        </para>
       </listitem>
@@ -11985,10 +12625,10 @@ Linuxの<acronym>OOM</acronym> killerを新たな環境変数<link linkend="linu
 -->
        <para>
 <!--
-        Make configuration parameter <xref linkend="guc-debug-assertions">
+        Make configuration parameter <xref linkend="guc-debug-assertions"/>
         read-only (Andres Freund)
 -->
-設定パラメータ<xref linkend="guc-debug-assertions">を読み取り専用にしました。
+設定パラメータ<xref linkend="guc-debug-assertions"/>を読み取り専用にしました。
 (Andres Freund)
        </para>
 
@@ -12010,10 +12650,10 @@ Linuxの<acronym>OOM</acronym> killerを新たな環境変数<link linkend="linu
 -->
        <para>
 <!--
-        Allow setting <xref linkend="guc-effective-io-concurrency"> on
+        Allow setting <xref linkend="guc-effective-io-concurrency"/> on
         systems where it has no effect (Peter Eisentraut)
 -->
-<xref linkend="guc-effective-io-concurrency">を効果の無いシステムにおいても設定できるようにしました。
+<xref linkend="guc-effective-io-concurrency"/>を効果の無いシステムにおいても設定できるようにしました。
 (Peter Eisentraut)
        </para>
       </listitem>
@@ -12166,11 +12806,11 @@ Linuxの<acronym>OOM</acronym> killerを新たな環境変数<link linkend="linu
 -->
        <para>
 <!--
-        Add new <xref linkend="guc-archive-mode"> value
+        Add new <xref linkend="guc-archive-mode"/> value
         <literal>always</literal> to allow standbys to always archive received
         <acronym>WAL</acronym> files (Fujii Masao)
 -->
-<xref linkend="guc-archive-mode">の新しい値<literal>always</literal>を追加しました。
+<xref linkend="guc-archive-mode"/>の新しい値<literal>always</literal>を追加しました。
 スタンバイで受け取った<acronym>WAL</acronym>ファイルを常にアーカイブできるようになります。
 (Fujii Masao)
        </para>
@@ -12183,11 +12823,11 @@ Linuxの<acronym>OOM</acronym> killerを新たな環境変数<link linkend="linu
        <para>
 <!--
         Add configuration
-        parameter <xref linkend="guc-wal-retrieve-retry-interval"> to
+        parameter <xref linkend="guc-wal-retrieve-retry-interval"/> to
         control <acronym>WAL</acronym> read retry after failure
         (Alexey Vasiliev, Michael Paquier)
 -->
-<acronym>WAL</acronym>読み込みの失敗したあとのリトライを制御する設定パラメータ<xref linkend="guc-wal-retrieve-retry-interval">を追加しました。
+<acronym>WAL</acronym>読み込みの失敗したあとのリトライを制御する設定パラメータ<xref linkend="guc-wal-retrieve-retry-interval"/>を追加しました。
 (Alexey Vasiliev, Michael Paquier)
        </para>
 
@@ -12216,10 +12856,10 @@ Linuxの<acronym>OOM</acronym> killerを新たな環境変数<link linkend="linu
 <!--
         This feature reduces WAL volume, at the cost of more CPU time spent
         on WAL logging and WAL replay.  It is controlled by a new
-        configuration parameter <xref linkend="guc-wal-compression">, which
+        configuration parameter <xref linkend="guc-wal-compression"/>, which
         currently is off by default.
 -->
-この機能は、WAL記録とWAL再生によりCPU時間を費やすことで、WAL量を減らします。新たな設定パラメータ<xref linkend="guc-wal-compression">で制御します。今のところデフォルトはoffです。
+この機能は、WAL記録とWAL再生によりCPU時間を費やすことで、WAL量を減らします。新たな設定パラメータ<xref linkend="guc-wal-compression"/>で制御します。今のところデフォルトはoffです。
        </para>
       </listitem>
 
@@ -12244,10 +12884,10 @@ Linuxの<acronym>OOM</acronym> killerを新たな環境変数<link linkend="linu
        <para>
 <!--
         Add configuration parameter <xref
-        linkend="guc-log-replication-commands">
+        linkend="guc-log-replication-commands"/>
         to log replication commands (Fujii Masao)
 -->
-レプリケーションコマンドをログ記録する設定パラメータ<xref linkend="guc-log-replication-commands">を追加しました。
+レプリケーションコマンドをログ記録する設定パラメータ<xref linkend="guc-log-replication-commands"/>を追加しました。
 (Fujii Masao)
        </para>
 
@@ -12255,10 +12895,10 @@ Linuxの<acronym>OOM</acronym> killerを新たな環境変数<link linkend="linu
 <!--
         By default, replication commands, e.g. <link
         linkend="protocol-replication"><literal>IDENTIFY_SYSTEM</literal></link>,
-        are not logged, even when <xref linkend="guc-log-statement"> is set
+        are not logged, even when <xref linkend="guc-log-statement"/> is set
         to <literal>all</literal>.
 -->
-デフォルトでは<link linkend="protocol-replication"><literal>IDENTIFY_SYSTEM</literal></link>などのレプリケーションコマンドはたとえ<xref linkend="guc-log-statement">を<literal>all</literal>に設定してもログ記録されません
+デフォルトでは<link linkend="protocol-replication"><literal>IDENTIFY_SYSTEM</literal></link>などのレプリケーションコマンドはたとえ<xref linkend="guc-log-statement"/>を<literal>all</literal>に設定してもログ記録されません
        </para>
       </listitem>
 
@@ -12505,7 +13145,7 @@ Linuxの<acronym>OOM</acronym> killerを新たな環境変数<link linkend="linu
        </itemizedlist>
 
        <sect4>
-        <title><xref linkend="sql-reindex"></title>
+        <title><xref linkend="sql-reindex"/></title>
 
         <itemizedlist>
 
@@ -12676,11 +13316,11 @@ Linuxの<acronym>OOM</acronym> killerを新たな環境変数<link linkend="linu
        <para>
 <!--
         This feature is now supported in
-        <xref linkend="sql-alteruser">, <xref linkend="sql-altergroup">,
-        <xref linkend="sql-alterrole">, <xref linkend="sql-grant">,
+        <xref linkend="sql-alteruser"/>, <xref linkend="sql-altergroup"/>,
+        <xref linkend="sql-alterrole"/>, <xref linkend="sql-grant"/>,
         and <command>ALTER <replaceable>object</replaceable> OWNER TO</command> commands.
 -->
-現在、<xref linkend="sql-alteruser">、<xref linkend="sql-altergroup">、<xref linkend="sql-alterrole">、<xref linkend="sql-grant">、および、<command>ALTER <replaceable>object</replaceable> OWNER TO</command>の各コマンドにて対応しています。
+現在、<xref linkend="sql-alteruser"/>、<xref linkend="sql-altergroup"/>、<xref linkend="sql-alterrole"/>、<xref linkend="sql-grant"/>、および、<command>ALTER <replaceable>object</replaceable> OWNER TO</command>の各コマンドにて対応しています。
        </para>
       </listitem>
 
@@ -12802,10 +13442,10 @@ Linuxの<acronym>OOM</acronym> killerを新たな環境変数<link linkend="linu
 -->
        <para>
 <!--
-        Add support for <xref linkend="sql-importforeignschema">
+        Add support for <xref linkend="sql-importforeignschema"/>
         (Ronan Dunklau, Michael Paquier, Tom Lane)
 -->
-<xref linkend="sql-importforeignschema">コマンドを追加しました。
+<xref linkend="sql-importforeignschema"/>コマンドを追加しました。
 (Ronan Dunklau, Michael Paquier, Tom Lane)
        </para>
 
@@ -13829,7 +14469,7 @@ PostgreSQLによる丸め関数を使うプラットフォームに<acronym>POSI
     </itemizedlist>
 
      <sect4>
-      <title><xref linkend="app-psql"></title>
+      <title><xref linkend="app-psql"/></title>
 
       <itemizedlist>
 
@@ -13966,9 +14606,9 @@ PostgreSQLによる丸め関数を使うプラットフォームに<acronym>POSI
         <para>
 <!--
          Add <application>psql</application> tab completion when setting the
-         <xref linkend="guc-search-path"> variable (Jeff Janes)
+         <xref linkend="guc-search-path"/> variable (Jeff Janes)
 -->
-<xref linkend="guc-search-path">変数を設定するときの<application>psql</application>タブ補完を追加しました。
+<xref linkend="guc-search-path"/>変数を設定するときの<application>psql</application>タブ補完を追加しました。
 (Jeff Janes)
         </para>
 
@@ -14129,7 +14769,7 @@ PostgreSQLによる丸め関数を使うプラットフォームに<acronym>POSI
     </sect4>
 
     <sect4>
-     <title><xref linkend="app-pgdump"></title>
+     <title><xref linkend="app-pgdump"/></title>
 
      <itemizedlist>
 
@@ -14223,7 +14863,7 @@ tarフォーマットのPOSIX標準では8GBを超えるtarアーカイブの要
     </sect4>
 
     <sect4>
-     <title><xref linkend="app-pg-ctl"></title>
+     <title><xref linkend="app-pg-ctl"/></title>
 
      <itemizedlist>
 
@@ -14293,7 +14933,7 @@ tarフォーマットのPOSIX標準では8GBを超えるtarアーカイブの要
     </sect4>
 
     <sect4>
-     <title><xref linkend="pgupgrade"></title>
+     <title><xref linkend="pgupgrade"/></title>
 
      <itemizedlist>
 
@@ -14367,7 +15007,7 @@ tarフォーマットのPOSIX標準では8GBを超えるtarアーカイブの要
     </sect4>
 
     <sect4>
-     <title><xref linkend="pgbench"></title>
+     <title><xref linkend="pgbench"/></title>
 
      <itemizedlist>
 

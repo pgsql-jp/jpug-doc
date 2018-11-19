@@ -3,7 +3,7 @@
  *
  *	controldata functions
  *
- *	Copyright (c) 2010-2017, PostgreSQL Global Development Group
+ *	Copyright (c) 2010-2018, PostgreSQL Global Development Group
  *	src/bin/pg_upgrade/controldata.c
  */
 
@@ -150,7 +150,14 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 				/* remove leading spaces */
 				while (*p == ' ')
 					p++;
-				if (strcmp(p, "shut down\n") != 0)
+				if (strcmp(p, "shut down in recovery\n") == 0)
+				{
+					if (cluster == &old_cluster)
+						pg_fatal("The source cluster was shut down while in recovery mode.  To upgrade, use \"rsync\" as documented or shut it down as a primary.\n");
+					else
+						pg_fatal("The target cluster was shut down while in recovery mode.  To upgrade, use \"rsync\" as documented or shut it down as a primary.\n");
+				}
+				else if (strcmp(p, "shut down\n") != 0)
 				{
 					if (cluster == &old_cluster)
 						pg_fatal("The source cluster was not shut down cleanly.\n");

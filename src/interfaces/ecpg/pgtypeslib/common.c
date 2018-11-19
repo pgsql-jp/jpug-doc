@@ -13,7 +13,7 @@ pgtypes_alloc(long size)
 
 	if (!new)
 		errno = ENOMEM;
-	return (new);
+	return new;
 }
 
 char *
@@ -23,7 +23,7 @@ pgtypes_strdup(const char *str)
 
 	if (!new)
 		errno = ENOMEM;
-	return (new);
+	return new;
 }
 
 int
@@ -110,7 +110,7 @@ pgtypes_fmt_replace(union un_fmt_comb replace_val, int replace_type, char **outp
 						break;
 				}
 
-				if (i < 0)
+				if (i < 0 || i >= PGTYPES_FMT_NUM_MAX_DIGITS)
 				{
 					free(t);
 					return -1;
