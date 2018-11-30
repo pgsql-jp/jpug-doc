@@ -13,7 +13,7 @@
   verify the logical consistency of the structure of relations.  If the
   structure appears to be valid, no error is raised.
 -->
-<filename>amcheck</filename>モジュールは、インデックスの構造の論理的な一貫性を検査する機能を提供します。
+<filename>amcheck</filename>モジュールは、リレーションの構造の論理的な一貫性を検査する機能を提供します。
 構造が適正であると見なされれば、エラーは報告されません。
  </para>
 
@@ -31,7 +31,7 @@
   incorrectly guide index scans, resulting in wrong answers to SQL
   queries.
 -->
-この関数は、特定のインデックスの構造表現における様々な<emphasis>不変量</emphasis>を検査します。
+この関数は、特定のリレーションの構造表現における様々な<emphasis>不変量</emphasis>を検査します。
 インデックスの走査や、その他の重要な操作を担うアクセスメソッド関数の正しさは、これらの不変量を常に保つことに依存しています。
 たとえば、ある関数は、とりわけすべてのB-Treeページの中の項目が<quote>論理的な</quote>順序になっていることを検査します。（たとえば<type>text</type>のB-Treeインデックスでは、インデックスタプルは語句の照合順になっていなければなりません。）
 その特定の不変量が何らかの理由で保たれなければ、該当するページで二分探索が不正なインデックス走査をもたらし、SQL問い合わせに誤った答えを返すことになるでしょう。
@@ -119,8 +119,8 @@ ORDER BY c.relpages DESC LIMIT 10;
       call <function>bt_index_check</function> for every index in the
       database where verification is supported.
 -->
-この例では、データベース<quote>test</quote>中のすべてのカタログインデックスの検証を行うセッションを示しています。
-検証したもっとも大きな10個のインデックスの詳細だけが表示されています。
+この例では、データベース<quote>test</quote>中のもっとも大きな10個のカタログインデックスの検証を行うセッションを示しています。
+インデックスタプルに対応するヒープタプルの存在の検証が、ユニークインデックスであるインデックスの一部に対して要求されています。
 エラーは出ていないので、テストしたすべてのインデックスは論理的に一貫していることがわかります。
 当然のことながら、この問い合わせは、検証可能なデータベース中のすべてのインデックスに対して<function>bt_index_check</function>を呼び出すように変更できます。
      </para>
@@ -142,7 +142,7 @@ ORDER BY c.relpages DESC LIMIT 10;
 -->
 <function>bt_index_check</function>は、ターゲットとなるインデックスと、それが所属するヒープリレーションに対して<literal>AccessShareLock</literal>を獲得します。
 このロックモードは、単純な<literal>SELECT</literal>文がリレーションに対して獲得するのと同じものです。
-<function>bt_index_check</function>は、子／親関係に渡る不変量も、ターゲットのインデックスがヒープリレーションと一貫性があることも検査しません。
+<function>bt_index_check</function>は、子／親関係に渡る不変量を検査しませんが、<parameter>heapallindexed</parameter>が<literal>true</literal>の場合には、インデックス中のインデックスタプルに対応するすべてのヒープタプルの存在が検証されます、
 実行中のプロダクション環境で定期的、軽量なデータ破損検査が必要な場合、<function>bt_index_check</function>を使うのが、検査の完全性と、アプリケーションの性能と稼働への影響を限定することとの間の最良のトレードオフになることがしばしばあります。
      </para>
     </listitem>
@@ -178,10 +178,10 @@ ORDER BY c.relpages DESC LIMIT 10;
       inconsistency or other problem.
 -->
 <function>bt_index_parent_check</function>は、ターゲットとなるB-Treeインデックスが様々な不変量を保っていることを検査します。
+オプションとして、<parameter>heapallindexed</parameter>引数が<literal>true</literal>の場合、インデックスに対応して存在すべきすべてのヒープタプルの存在と、インデックス構造中のダウンリンクに漏れがないことを検証します。
 <function>bt_index_parent_check</function>により実施される検査は、<function>bt_index_check</function>により実施される検査のスーパーセットになっています。
 <function>bt_index_parent_check</function>は、<function>bt_index_check</function>の更なる完璧版であると考えることができます。
 つまり、<function>bt_index_check</function>と違って<function>bt_index_parent_check</function>は、子／親関係に渡る不変量も検査します。
-しかし、ターゲットのインデックスがヒープリレーションと一貫性があることは検査しません。
 <function>bt_index_parent_check</function>は、論理的な非一貫性やその他の問題を発見した場合、一般的な習慣に従ってエラーを報告します。
      </para>
      <para>
@@ -224,8 +224,12 @@ ORDER BY c.relpages DESC LIMIT 10;
  </sect2>
 
  <sect2>
+<!--
   <title>Optional <parameter>heapallindexed</parameter> verification</title>
+-->
+  <title>オプション<parameter>heapallindexed</parameter>検証</title>
  <para>
+<!--
   When the <parameter>heapallindexed</parameter> argument to
   verification functions is <literal>true</literal>, an additional
   phase of verification is performed against the table associated with
@@ -239,15 +243,26 @@ ORDER BY c.relpages DESC LIMIT 10;
   <parameter>heapallindexed</parameter> verification is that a new
   index that is equivalent to the existing, target index must only
   have entries that can be found in the existing structure.
+-->
+検証関数の<parameter>heapallindexed</parameter>引数が<literal>true</literal>ならば、ターゲットのインデックスリレーションと関連付けられたテーブルに対して追加の検証フェーズが実施されます。
+これは<quote>ダミー</quote>の<command>CREATE INDEX</command>操作から構成され、インメモリ上の一時的なサマリー構造（これは必要に応じて基礎的な最初の検証フェーズで構築されます）に対する仮想的な新しいインデックスタプルがすべて存在することをチェックします。
+サマリー構造はターゲットのインデックスで見つかったすべてのタプルに対して<quote>指紋採取(fingerprint)</quote>を行います。
+<parameter>heapallindexed</parameter>検証の背後にある高レベルの原理は、新しいインデックスが既存のインデックスと等しいこと、ターゲットインデックスが既存の構造中に見つかったエントリーのみを含むことです。
  </para>
  <para>
+<!--
   The additional <parameter>heapallindexed</parameter> phase adds
   significant overhead: verification will typically take several times
   longer.  However, there is no change to the relation-level locks
   acquired when <parameter>heapallindexed</parameter> verification is
   performed.
+-->
+追加の<parameter>heapallindexed</parameter>フェーズは大きなオーバーヘッドをもたらします。
+典型的には、検証に数倍時間かかるようになります。
+しかし、取得されたリレーションレベルのロックに対して、<parameter>heapallindexed</parameter>検証が実施されるときに変更はありません。
  </para>
  <para>
+<!--
   The summarizing structure is bound in size by
   <varname>maintenance_work_mem</varname>.  In order to ensure that
   there is no more than a 2% probability of failure to detect an
@@ -260,6 +275,12 @@ ORDER BY c.relpages DESC LIMIT 10;
   where verification is treated as a routine maintenance task.  Any
   single absent or malformed tuple has a new opportunity to be
   detected with each new verification attempt.
+-->
+サマライズ構造は、<varname>maintenance_work_mem</varname>によってその大きさが制限されます。
+インデックス中に存在すべきヒープタプルの非一貫性の検出失敗の確率が2%を超えないことを保証するために、タプルごとに約2バイトのメモリが必要です。
+タプルごとに利用可能なメモリが少ないほど、非一貫性を見逃す可能性が徐々に増えていきます。
+この手法によって検証のオーバーヘッドを大幅に減らせる一方、とりわけ検証を日常的な保守作業として行うシステムでは、問題を検出できる確率が少し減少するだけです。
+失われた、あるいは不正なタプルは次の検証の機会に検出されます。
  </para>
 
  </sect2>
@@ -327,13 +348,20 @@ ORDER BY c.relpages DESC LIMIT 10;
    </listitem>
    <listitem>
     <para>
+<!--
      Structural inconsistencies between indexes and the heap relations
      that are indexed (when <parameter>heapallindexed</parameter>
      verification is performed).
+-->
+インデックスとインデックス付されたヒープリレーションの間の構造的な非一貫性（<parameter>heapallindexed</parameter>検証が実施される場合）
     </para>
     <para>
+<!--
      There is no cross-checking of indexes against their heap relation
      during normal operation.  Symptoms of heap corruption can be subtle.
+-->
+通常の操作においてはインデックスとそのヒープリレーションの間にはクロスチェックはありません。
+ヒープの破壊による症状は些細なものかもしれません。
     </para>
    </listitem>
    <listitem>
@@ -343,7 +371,7 @@ ORDER BY c.relpages DESC LIMIT 10;
      underlying <productname>PostgreSQL</productname> access method
      code, sort code, or transaction management code.
 -->
-依拠する<productname>PostgreSQL</productname>のアクセスメソッド、あるいはソートコードにおける、潜在的なまだ見つかっていないバグによる破損。
+依拠する<productname>PostgreSQL</productname>のアクセスメソッド、あるいはソート、トランザクション管理コードにおける、潜在的なまだ見つかっていないバグによる破損。
     </para>
     <para>
 <!--
@@ -358,6 +386,7 @@ ORDER BY c.relpages DESC LIMIT 10;
      linkend="regress-run"/> for details on running the tests.
 -->
 新規、あるいは提案中の <productname>PostgreSQL</productname>の機能が、論理的な非一貫性をもたらしかねないかどうか全般的にテストする際に、インデックスの構造的な一貫性の自動検証が役立ちます。
+テーブル構造と、関連する可視性およびトランザクション状態情報の検証も同じような役割を果たします。
 わかりやすいテスト戦略の一つは、関数標準の回帰テストを実行中に、<filename>amcheck</filename>を継続的に呼び出すことです。
 テストの実行に関する詳細は、<xref linkend="regress-run"/>をご覧ください。
     </para>
@@ -390,7 +419,7 @@ ORDER BY c.relpages DESC LIMIT 10;
 <!--
      Corruption caused by faulty RAM, or the broader memory subsystem.
 -->
-RAMおよび、広範囲に渡るメモリサブシステムとオペレーティングシステムの障害による破損。
+欠陥のあるRAMあるいは、広範囲に渡るメモリサブシステムによる破損。
     </para>
     <para>
 <!--
@@ -406,10 +435,14 @@ RAMおよび、広範囲に渡るメモリサブシステムとオペレーテ�
 しかし、ECCメモリは典型的には単一ビットエラーに対してのみ耐性があり、メモリ破損に起因する障害に対して<emphasis>完全な</emphasis>保護を提供すると考えるべきではありません。
     </para>
     <para>
+<!--
      When <parameter>heapallindexed</parameter> verification is
      performed, there is generally a greatly increased chance of
      detecting single-bit errors, since strict binary equality is
      tested, and the indexed attributes within the heap are tested.
+-->
+<parameter>heapallindexed</parameter>検証が実施されると、一般に1ビットエラーを検出する可能性が非常に高くなります。
+これは、バイナリ一致を厳密にテストすることと、またヒープ内のインデックス付けされたアトリビュートをテストすることによります。
     </para>
    </listitem>
   </itemizedlist>
@@ -435,7 +468,6 @@ RAMおよび、広範囲に渡るメモリサブシステムとオペレーテ�
   errors is often required.
 -->
 <filename>amcheck</filename>が報告するエラーが関与する破損で、擬陽性のものはありません。
-実用的には、<filename>amcheck</filename>はハードウェアの問題よりも、ソフトウェアバグを発見する可能性が高いです。
 <filename>amcheck</filename>は、定義により発生してはならないはずの条件下で発生したエラーを報告するので、<filename>amcheck</filename>の報告するエラーを注意深く解析することがしばしば求められます。
  </para>
  <para>
