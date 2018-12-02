@@ -957,7 +957,7 @@ WALライタがWALを吐き出す頻度を指定します。
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
        -->
-チェックポイントセグメントファイルが溢れることが原因で起きるチェックポイントが、ここで指定した秒数よりも短い間隔で発生したとき、サーバログにメッセージを書き出します
+WALセグメントファイルが溢れることが原因で起きるチェックポイントが、ここで指定した秒数よりも短い間隔で発生したとき、サーバログにメッセージを書き出します
 （これは、<varname>max_wal_size</varname>を増やす必要があることを示唆しています）。
 デフォルトは30秒（<literal>30s</literal>）です。
 零の場合は警告を出しません。
@@ -1264,11 +1264,11 @@ WALライタがWALを吐き出す頻度を指定します。
 複数のスタンバイサーバあるいは、ストリーミングを使ったベースバックアップクライアントからの同時接続を受ける接続最大値を設定します（つまり、同時に稼動するWAL送信プロセスの最大値です）。
 デフォルトは10です。
 0ならば、レプリケーションは無効であるという意味になります。
-WAL送出プロセスは接続の総数カウントに考慮されるため、パラメータは<xref linkend="guc-max-connections"/>より大きくは設定できません。
+WAL送出プロセスは接続の総数カウントに考慮されるため、パラメータは<xref linkend="guc-max-connections"/>から<xref linkend="guc-superuser-reserved-connections"/>を引いたものより小さくなければなりません。
 クライアント接続が突然切断されると、タイムアウトするまで孤児接続スロットが残ってしまうかもしれません。
 ですから、このパラメータは想定されるクライアント数の最大値よりも少し大きめにして、切断されたクライアントが直ちに再接続できるようにした方が良いでしょう。
 このパラメータはサーバ起動時のみ設定可能です。
-スタンバイサーバからの接続を許可するには、<varname>wal_level</varname>を<literal>replica</literal>以上に設定しておかなければなりません。
+また、スタンバイサーバからの接続を許可するには、<varname>wal_level</varname>を<literal>replica</literal>以上に設定しておかなければなりません。
        </para>
        </listitem>
       </varlistentry>
@@ -1298,8 +1298,8 @@ WAL送出プロセスは接続の総数カウントに考慮されるため、�
 サーバが使用できるレプリケーションスロット(<xref linkend="streaming-replication-slots"/>参照)の最大数を指定します。
 デフォルトは10です。
 このパラメータはサーバ起動時のみ設定可能です。
-レプリケーションスロットが使用できるためには、<varname>wal_level</varname>を<literal>replica</literal>以上に設定しなければなりません。
 現在存在しているレプリケーションスロットの数よりも少ない値を設定すると、サーバは起動しません。
+また、レプリケーションスロットが使用できるためには、<varname>wal_level</varname>を<literal>replica</literal>以上に設定しなければなりません。
         </para>
        </listitem>
       </varlistentry>
@@ -2348,13 +2348,20 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
      <varlistentry id="guc-enable-parallel-append" xreflabel="enable_parallel_append">
       <term><varname>enable_parallel_append</varname> (<type>boolean</type>)
       <indexterm>
+<!--
        <primary><varname>enable_parallel_append</varname> configuration parameter</primary>
+-->
+       <primary><varname>enable_parallel_append</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Enables or disables the query planner's use of parallel-aware
         append plan types. The default is <literal>on</literal>.
+-->
+問い合わせププランナによるパラレル認識なアペンド計画型の利用を有効あるいは無効にします。
+デフォルトは<literal>on</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -2362,14 +2369,21 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
      <varlistentry id="guc-enable-parallel-hash" xreflabel="enable_parallel_hash">
       <term><varname>enable_parallel_hash</varname> (<type>boolean</type>)
        <indexterm>
+<!--
         <primary><varname>enable_parallel_hash</varname> configuration parameter</primary>
+-->
+        <primary><varname>enable_parallel_hash</varname>設定パラメータ</primary>
        </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Enables or disables the query planner's use of hash-join plan
         types with parallel hash. Has no effect if hash-join plans are not
         also enabled. The default is <literal>on</literal>.
+-->
+クエリププランナによる、パラレルハッシュを使ったハッシュジョイン計画型の利用を有効あるいは無効にします。
+デフォルトは<literal>on</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -2377,17 +2391,26 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
      <varlistentry id="guc-enable-partition-pruning" xreflabel="enable_partition_pruning">
       <term><varname>enable_partition_pruning</varname> (<type>boolean</type>)
        <indexterm>
+<!--
         <primary><varname>enable_partition_pruning</varname> configuration parameter</primary>
+-->
+        <primary><varname>enable_partition_pruning</varname>設定パラメータ</primary>
        </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Enables or disables the query planner's ability to eliminate a
         partitioned table's partitions from query plans.  This also controls
         the planner's ability to generate query plans which allow the query
         executor to remove (ignore) partitions during query execution.  The
         default is <literal>on</literal>.
         See <xref linkend="ddl-partition-pruning"/> for details.
+-->
+問い合わせププランナが、クエリプランからパーティション化テーブルのパーティションを除く機能を有効あるいは無効にします。
+これはまた、クエリエグゼキュータがクエリ実行中にパーティションを削除（無視）することができるプランを生成するプランナの機能を制御します。
+デフォルトは<literal>on</literal>です。
+詳細は<xref linkend="ddl-partition-pruning"/>をご覧ください。
        </para>
       </listitem>
      </varlistentry>
@@ -2396,10 +2419,14 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
       <term><varname>enable_partitionwise_join</varname> (<type>boolean</type>)
       <indexterm>
        <primary><varname>enable_partitionwise_join</varname> configuration parameter</primary>
+<!--
+       <primary><varname>enable_partitionwise_join</varname>設定パラメータ</primary>
+-->
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Enables or disables the query planner's use of partitionwise join,
         which allows a join between partitioned tables to be performed by
         joining the matching partitions.  Partitionwise join currently applies
@@ -2408,6 +2435,11 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         partitions.  Because partitionwise join planning can use significantly
         more CPU time and memory during planning, the default is
         <literal>off</literal>.
+-->
+パーティション同士の結合(partitionwise join)を問い合わせププランナが使用するのを有効あるいは無効にします。
+パーティション同士の結合は、適合するパーティションを結合することによって実行される、パーティション化テーブルにまたがる結合を可能にします。
+今の所、パーティション同士の結合は、すべてのパーティションキーを含んでいて、かつパーティションキーの型が同じで、正確に一致する子パーティションの集合を持つ結合条件のときだけに適用されます。
+パーティション同士の結合のプランニングには大量のCPU時間とメモリが使用されることがあるので、デフォルトは<literal>off</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -2415,11 +2447,15 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
      <varlistentry id="guc-enable-partitionwise-aggregate" xreflabel="enable_partitionwise_aggregate">
       <term><varname>enable_partitionwise_aggregate</varname> (<type>boolean</type>)
       <indexterm>
+<!--
        <primary><varname>enable_partitionwise_aggregate</varname> configuration parameter</primary>
+-->
+       <primary><varname>enable_partitionwise_aggregate</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Enables or disables the query planner's use of partitionwise grouping
         or aggregation, which allows grouping or aggregation on a partitioned
         tables performed separately for each partition.  If the <literal>GROUP
@@ -2428,6 +2464,11 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         finalization must be performed later.  Because partitionwise grouping
         or aggregation can use significantly more CPU time and memory during
         planning, the default is <literal>off</literal>.
+-->
+パーティション同士（partitionwise）のグループ化、あるいは集約を、問い合わせププランナが使用するのを有効あるいは無効にします。
+パーティション同士のグループ化、あるいは集約は、個々のパーティション毎にパーティション化されたテーブルに対して、グループ化あるいは集約を実行するのを可能にします。
+<literal>GROUP BY</literal>句がパーティションキーを含まない場合は、パーティション単位で部分集約だけが実行でき、最終結果の算出は後で行われます。
+パーティション同士のグループ化あるいは集約には大量のCPU時間とメモリが使用されることがあるので、デフォルトは<literal>off</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -2457,7 +2498,8 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         default is <literal>on</literal>.
 -->
 問い合わせプランナがシーケンシャル走査計画を選択することを有効もしくは無効にします。
-シーケンシャル走査を完全に禁止することは不可能ですが、この変数をオフにすると、もし他の方法が利用できるのであれば、プランナはその使用を行わないようになります。デフォルトは<literal>on</literal>です。
+シーケンシャル走査を完全に禁止することは不可能ですが、この変数をオフにすると、もし他の方法が利用できるのであれば、プランナはその使用を行わないようになります。
+デフォルトは<literal>on</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -2481,7 +2523,8 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         is <literal>on</literal>.
 -->
 問い合わせプランナが明示的並び替え手順を選択することを有効もしくは無効にします。
-明示的並び替えを完全に禁止することは不可能ですが、この変数をオフにすると、もし他の方法が利用できるのであれば、プランナはその使用を行わないようになります。デフォルトは<literal>on</literal>です。
+明示的並び替えを完全に禁止することは不可能ですが、この変数をオフにすると、もし他の方法が利用できるのであれば、プランナはその使用を行わないようになります。
+デフォルトは<literal>on</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -2501,7 +2544,8 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         Enables or disables the query planner's use of <acronym>TID</acronym>
         scan plan types. The default is <literal>on</literal>.
 -->
-問い合わせプランナが<acronym>TID</acronym>走査計画型を選択することを有効もしくは無効にします。デフォルトは<literal>on</literal>です。
+問い合わせプランナが<acronym>TID</acronym>走査計画型を選択することを有効もしくは無効にします。
+デフォルトは<literal>on</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -2861,7 +2905,7 @@ RAM内に存在するページの取り出しコストは通常よりもかな�
 単一の問い合わせで利用できるディスクキャッシュの実効容量に関するプランナの条件を設定します。
 これは、インデックスを使用するコスト推定値の要素となります。
 より高い値にすれば、よりインデックススキャンが使用されるようになり、より小さく設定すれば、シーケンシャルスキャンがより使用されるようになります。
-このパラメータを設定する時には、<productname>PostgreSQL</productname>の共有バッファと<productname>PostgreSQL</productname>データファイルに使用されるカーネルのディスクキャッシュの量の両方を考慮しなければなりません。
+このパラメータを設定する時には、<productname>PostgreSQL</productname>の共有バッファと<productname>PostgreSQL</productname>データファイルに使用されるカーネルのディスクキャッシュの量の両方を考慮しなければなりませんが、データは両方に存在することもあります。
 また、利用可能な領域を共有しますので、異なるテーブルに対して同時に実行される問い合わせの想定数も考慮してください。
 このパラメータは、<productname>PostgreSQL</productname>で割り当てられる共有メモリの大きさには影響を与えません。また、カーネルのディスクキャッシュを予約したりもしません。
 これは推定目的のみで使用されます。
@@ -2874,17 +2918,26 @@ RAM内に存在するページの取り出しコストは通常よりもかな�
      <varlistentry id="guc-jit-above-cost" xreflabel="jit_above_cost">
       <term><varname>jit_above_cost</varname> (<type>floating point</type>)
       <indexterm>
+<!--
        <primary><varname>jit_above_cost</varname> configuration parameter</primary>
+-->
+       <primary><varname>jit_above_cost</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Sets the query cost above which JIT compilation is activated, if
         enabled (see <xref linkend="jit"/>).
         Performing <acronym>JIT</acronym> costs planning time but can
         accelerate query execution.
         Setting this to <literal>-1</literal> disables JIT compilation.
         The default is <literal>100000</literal>.
+-->
+JITが有効な場合（<xref linkend="jit"/>参照）、それ以上ならJITコンパイルが起動する問い合わせコストを設定します。
+<acronym>JIT</acronym>を実行するとプラン時間がかかりますが、問い合わせの実行を高速化することができます。
+これを<literal>-1</literal>にすると、JITコンパイルは無効になります。
+デフォルトは<literal>100000</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -2892,17 +2945,27 @@ RAM内に存在するページの取り出しコストは通常よりもかな�
      <varlistentry id="guc-jit-inline-above-cost" xreflabel="jit_inline_above_cost">
       <term><varname>jit_inline_above_cost</varname> (<type>floating point</type>)
       <indexterm>
+<!--
        <primary><varname>jit_inline_above_cost</varname> configuration parameter</primary>
+-->
+       <primary><varname>jit_inline_above_cost</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Sets the query cost above which JIT compilation attempts to inline
         functions and operators.  Inlining adds planning time, but can
         improve execution speed.  It is not meaningful to set this to less
         than <varname>jit_above_cost</varname>.
         Setting this to <literal>-1</literal> disables inlining.
         The default is <literal>500000</literal>.
+-->
+それ以上ならJITコンパイルが関数と演算子のインライン化を試みる問い合わせコストを設定します。
+インライン化するとプラン時間がかかりますが、問い合わせの実行速度を改善できます。
+これを<varname>jit_above_cost</varname>よりも小さくするのは意味がありません。
+これを<literal>-1</literal>にすると、インライン化は無効になります。
+デフォルトは<literal>500000</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -2910,11 +2973,15 @@ RAM内に存在するページの取り出しコストは通常よりもかな�
      <varlistentry id="guc-jit-optimize-above-cost" xreflabel="jit_optimize_above_cost">
       <term><varname>jit_optimize_above_cost</varname> (<type>floating point</type>)
       <indexterm>
+<!--
        <primary><varname>jit_optimize_above_cost</varname> configuration parameter</primary>
+-->
+       <primary><varname>jit_optimize_above_cost</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Sets the query cost above which JIT compilation applies expensive
         optimizations.  Such optimization adds planning time, but can improve
         execution speed.  It is not meaningful to set this to less
@@ -2923,6 +2990,12 @@ RAM内に存在するページの取り出しコストは通常よりもかな�
         than <varname>jit_inline_above_cost</varname>.
         Setting this to <literal>-1</literal> disables expensive optimizations.
         The default is <literal>500000</literal>.
+-->
+それ以上ならJITコンパイルが高価な最適化を実行する問い合わせコストを設定します。
+そうした最適化にはプラン時間がかかりますが、問い合わせの実行速度を改善できます。
+これを<varname>jit_above_cost</varname>よりも小さくするのは意味がなく、また<varname>jit_inline_above_cost</varname>よりも大きくしても利益はないでしょう。
+これを<literal>-1</literal>にすると、高価な最適化は無効になります
+デフォルトは<literal>500000</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -3253,7 +3326,7 @@ SELECT * FROM parent WHERE key = 2400;
         often will yield no benefit for simple queries.  If you have no
         inheritance partitioned tables you might prefer to turn it off entirely.
 -->
-       現在<varname>constraint_exclusion</varname>はデフォルトで、テーブルパーティショニングを実装するためによく使用される場合のみで有効です。
+       現在<varname>constraint_exclusion</varname>はデフォルトで有効ですが、継承テーブルを使ってテーブルパーティショニングを実装するためによく使用される場合のみで有効です。
        すべてのテーブルを有効にすることは、計画作成において単純な問い合わせでは無視できない程の余計なオーバーヘッドをもたらします。
        パーティショニングされたテーブルがない場合、完全に無効にする方が良いでしょう。
        </para>
@@ -3339,15 +3412,22 @@ SELECT * FROM parent WHERE key = 2400;
      <varlistentry id="guc-jit" xreflabel="jit">
       <term><varname>jit</varname> (<type>boolean</type>)
       <indexterm>
+<!--
        <primary><varname>jit</varname> configuration parameter</primary>
+-->
+       <primary><varname>jit</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Determines whether <acronym>JIT</acronym> compilation may be used by
         <productname>PostgreSQL</productname>, if available (see <xref
         linkend="jit"/>).
         The default is <literal>off</literal>.
+-->
+<productname>PostgreSQL</productname>が、可能ならば<acronym>JIT</acronym>コンパイルを使うかどうかを決定します。
+デフォルトは<literal>off</literal>です。
        </para>
       </listitem>
      </varlistentry>
