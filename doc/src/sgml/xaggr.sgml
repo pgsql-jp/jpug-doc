@@ -702,6 +702,8 @@ SELECT percentile_disc(0.5) WITHIN GROUP (ORDER BY income) FROM households;
 この設計は、最終関数がソートされるデータに追加の<quote>架空</quote>行を注入するなどの特別な操作を実行するのを可能にします。
 通常の集約は多くの場合、<application>PL/pgSQL</application>または別のPL言語で書かれたサポート関数で実装することができますが、順序集合集約は状態値が任意のSQLデータ型のように定義可能ではないため一般的にC言語で書かれます。
 (上の例では、状態値が<type>内部</type>型 &mdash; として宣言されていることに気づくでしょう。これは典型的なものです。）
+また、最終関数がソートを実行しますので、遷移関数を後で再び実行し、引き続き入力行を追加することはできません。
+これは最終関数が<literal>READ_ONLY</literal>ではないことを意味します。追加の最終関数呼び出しで既にソートされた状態を使えるのなら、<xref linkend="sql-createaggregate"/>で<literal>READ_WRITE</literal>または<literal>SHAREABLE</literal>と宣言しなければなりません。
   </para>
 
   <para>
@@ -917,11 +919,10 @@ if (AggCheckCallContext(fcinfo, NULL))
    when creating the aggregate.  See <xref linkend="sql-createaggregate"/>
    for more detail.)
 -->
-この検査を行う理由の１つとして、遷移関数に対してこれが真の場合、先頭の入力は一時的な状態値でなければなりませんので、新規に割り当ててコピーを持つことなくそのまま変更しても安全であることが分かることがあります。
+この検査を行う理由の１つは、これが真の場合、先頭の入力は一時的な状態値でなければなりませんので、新規に割り当ててコピーを持つことなくそのまま変更しても安全だからです。
 例として<function>int8inc()</function>を参照してください。
-（これは関数内で参照渡しの入力を安全に変更できる<emphasis>唯一の</emphasis>場合です。
-特に通常の集約のための最終関数はいかなる場合でもそれらの入力を変更してはなりません。
-なぜならいくつかのケースでは、同じ最終状態の値から再実行されることがあるからです。）
+（集約遷移関数は常に遷移値をその場で変更できますが、集約最終関数ではそのようなことをするのは一般には勧められません。もし、そうするなら集約を定義する時にその振舞いを宣言しなければなりません。
+より詳しくは<xref linkend="sql-createaggregate"/>を見てください。）
   </para>
 
   <para>
