@@ -129,7 +129,7 @@ CREATE TABLE inventory_item (
 テーブルを作成すると、上述のものと同じ<literal>inventory_item</literal>という複合型が副次的に作成され、同様に使用することができるようになります。
 しかし、現在の実装には、次のような重要な制限があることに注意してください。
 複合型には制約が関連付けられませんので、テーブル定義に含まれる制約は、テーブルの外部に作成される複合型には<emphasis>適用されません</emphasis>。
-（部分的な回避方法は、複合型のメンバとしてドメイン型を使用することです。）
+（これを回避するためには、複合型を含むドメインを作成し、ドメインの<literal>CHECK</literal>制約として望みの制約を適用します。）
  </para>
  </sect2>
 
@@ -508,6 +508,7 @@ SELECT (myfunc(x)).a, (myfunc(x)).b, (myfunc(x)).c FROM some_table;
 <programlisting>
 SELECT m.* FROM some_table, LATERAL myfunc(x) AS m;
 </programlisting>
+<!--
     Placing the function in
     a <literal>LATERAL</literal> <literal>FROM</literal> item keeps it from
     being invoked more than once per row.  <literal>m.*</literal> is still
@@ -516,6 +517,10 @@ SELECT m.* FROM some_table, LATERAL myfunc(x) AS m;
     (The <literal>LATERAL</literal> keyword is optional here, but we show it
     to clarify that the function is getting <structfield>x</structfield>
     from <structname>some_table</structname>.)
+-->
+<literal>LATERAL</literal> <literal>FROM</literal>項目の中に関数を置くと、関数は1行につき2度以上は呼び出されません。
+<literal>m.*</literal>はまだ<literal>m.a, m.b, m.c</literal>に展開されますが、その変数は<literal>FROM</literal>項目の出力の単なる参照です。
+(<literal>LATERAL</literal>キーワードはここでは省略可能ですが、関数が<structname>some_table</structname>から<structfield>x</structfield>を入手していることを明確にするために書きました。)
    </para>
   </tip>
 
@@ -672,7 +677,8 @@ SELECT c.somefunc FROM inventory_item c;
     <literal><replaceable>schema</replaceable>.<replaceable>func</replaceable>(<replaceable>compositevalue</replaceable>)</literal>.
 -->
 このような動作になるため、複合型の引数を一つだけとる関数に、その複合型に含まれるフィールドと同じ名前をつけることは賢明ではありません。
-曖昧なときにはフィールド名の解釈が優先されるため、何かの仕掛けをしないと関数を呼び出すことができません。
+曖昧なときにはフィールド名の構文が使われていれば、フィールド名の解釈が選ばれ、関数呼び出しの構文が使われていれば、関数が選ばれます。
+しかしながら、11より前の<productname>PostgreSQL</productname>のバージョンでは、呼び出し構文が関数呼び出しとしてしか扱えない場合を除いて、常にフィールド名の解釈を選んでいました。
 関数としての解釈を強制する一つの方法は、関数名をスキーマ修飾する、つまり<literal><replaceable>schema</replaceable>.<replaceable>func</replaceable>(<replaceable>compositevalue</replaceable>)</literal>とすることです。
    </para>
   </tip>
