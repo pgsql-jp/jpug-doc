@@ -64,7 +64,7 @@ PostgreSQLはユーザ提供のコードを別のプロセスとして実行で�
 バックグラウンドワーカは、モジュールを<varname>shared_preload_libraries</varname>に記すことによって、<productname>PostgreSQL</productname>スタート時に初期化できます。
 バックグラウンドワーカとして実行したいモジュールは、<function>_PG_init()</function>から<function>RegisterBackgroundWorker(<type>BackgroundWorker *worker</type>)</function>を呼び出すことで登録できます。
 バックグラウンドワーカはシステム起動後も<function>RegisterDynamicBackgroundWorker(<type>BackgroundWorker *worker, BackgroundWorkerHandle **handle</type>)</function>を呼び出すことによって開始することができます。
-postmasterからのみ呼び出すことができる<function>RegisterBackgroundWorker</function>とは異なり、<function>RegisterDynamicBackgroundWorker</function>は通常のバックエンドから呼び出す必要があります。
+postmasterからのみ呼び出すことができる<function>RegisterBackgroundWorker</function>とは異なり、<function>RegisterDynamicBackgroundWorker</function>は通常のバックエンドまたは他のバックグラウンドワーカから呼び出す必要があります。
  </para>
 
  <para>
@@ -91,6 +91,7 @@ typedef struct BackgroundWorker
   </para>
 
   <para>
+<!--
    <structfield>bgw_name</structfield> and <structfield>bgw_type</structfield> are
    strings to be used in log messages, process listings and similar contexts.
    <structfield>bgw_type</structfield> should be the same for all background
@@ -99,6 +100,11 @@ typedef struct BackgroundWorker
    other hand can contain additional information about the specific process.
    (Typically, the string for <structfield>bgw_name</structfield> will contain
    the type somehow, but that is not strictly required.)
+-->
+<structfield>bgw_name</structfield>や<structfield>bgw_type</structfield>は、ログメッセージ、プロセス一覧等で使用される文字列です。
+<structfield>bgw_type</structfield>は、同じ種類のバックグラウンドワーカで全て同じになるため、例えば同じ種類のワーカをプロセス一覧でグループ化することができます。
+一方で<structfield>bgw_name</structfield>は、特定のプロセスに関する追加情報を含むことができます。
+（通常、<structfield>bgw_name</structfield>の文字列は何らかの形で種類に関する情報を含んでいますが、厳密には必要ではありません。）
   </para>
 
   <para>
@@ -288,10 +294,11 @@ Windowsの（どこか他の場所で<literal>EXEC_BACKEND</literal>が定義さ
   </para>
 -->
   <para>
-ひとたび実行すると、このプロセスは<function>BackgroundWorkerInitializeConnection(<parameter>char *dbname</parameter>, <parameter>char *username</parameter>)</function>または<function>BackgroundWorkerInitializeConnectionByOid(<parameter>Oid dboid</parameter>, <parameter>Oid useroid</parameter>)</function>を呼び出すことによって、データベースに接続できます。
+ひとたび実行すると、このプロセスは<function>BackgroundWorkerInitializeConnection(<parameter>char *dbname</parameter>, <parameter>char *username</parameter>, <parameter>uint32 flags</parameter>)</function>または<function>BackgroundWorkerInitializeConnectionByOid(<parameter>Oid dboid</parameter>, <parameter>Oid useroid</parameter>, <parameter>uint32 flags</parameter>)</function>を呼び出すことによって、データベースに接続できます。
 これはプロセスに<literal>SPI</literal>インタフェースを使用してのトランザクションとクエリの実行を許します。
 もし、<varname>dbname</varname>がNULLであった場合、または<varname>dboid</varname>が<literal>InvalidOid</literal>であった場合には、そのセッションは特定のデータベースに接続しません。しかし、共有カタログにはアクセス出来ます。
 もし、<varname>username</varname>がNULLの場合、または<varname>useroid</varname>が<literal>InvalidOid</literal>の場合には、そのプロセスは<command>initdb</command>時に作成されたスーパーユーザとして実行されます。
+<varname>flags</varname>として<literal>BGWORKER_BYPASS_ALLOWCONN</literal>が設定されている場合、データベースへ接続する際のユーザ接続を許可しない制約を回避することが出来ます。 
 バックグラウンドワーカはこれら２つの関数をどちらかを一度だけ呼ぶことが出来ます。
 データベースを切り替えることができません。
   </para>
@@ -386,11 +393,12 @@ Windowsの（どこか他の場所で<literal>EXEC_BACKEND</literal>が定義さ
 場合によっては、バックグラウンドワーカが起動するのを待ってから、ワーカを登録したい場合もあるでしょう。
 これは <structfield>bgw_notify_pid</structfield>を<literal>MyProcPid</literal>で初期化し、登録時に得られた<type>BackgroundWorkerHandle *</type>を使用して<function>WaitForBackgroundWorkerStartup(<parameter>BackgroundWorkerHandle *handle</parameter>,<parameter>pid_t *</parameter>)</function>関数を呼び出すことで実現します。
 postmasterがバックグラウンドワーカを開始しようと試みたか、postmasterが死ぬまで、この関数はブロックします。
-バックグラウンドランナーが実行されている場合、戻り値は<literal>BGWH_STARTED</literal>、およびPIDが提供されたアドレスに書き込まれます。
+バックグラウンドワーカが実行されている場合、戻り値は<literal>BGWH_STARTED</literal>、およびPIDが提供されたアドレスに書き込まれます。
 そうでない場合、戻り値は<literal>BGWH_STOPPED</literal>または<literal>BGWH_POSTMASTER_DIED</literal>になります。
   </para>
 
   <para>
+<!--
    A process can also wait for a background worker to shut down, by using the
    <function>WaitForBackgroundWorkerShutdown(<parameter>BackgroundWorkerHandle
    *handle</parameter>)</function> function and passing the
@@ -399,6 +407,10 @@ postmasterがバックグラウンドワーカを開始しようと試みたか�
    When the background worker exits, the return value is
    <literal>BGWH_STOPPED</literal>, if postmaster dies it will return
    <literal>BGWH_POSTMASTER_DIED</literal>.
+-->
+登録時に得られた<type>BackgroundWorkerHandle *</type>を使用して<function>WaitForBackgroundWorkerShutdown(<parameter>BackgroundWorkerHandle *handle</parameter>)</function>関数を呼び出すことで、バックグラウンドワーカがシャットダウンするのを待つこともできます。
+バックグラウンドワーカが終了するか、postmasterが死ぬまで、この関数はブロックします。
+バックグラウンドワーカが終了した場合の戻り値は<literal>BGWH_STOPPED</literal>、postmasterが死んだ場合の戻り値は<literal>BGWH_POSTMASTER_DIED</literal>になります。
   </para>
 
   <para>
