@@ -567,6 +567,7 @@ GetForeignUpperPaths(PlannerInfo *root,
 -->
 <literal>stage</literal>パラメータはどのスキャン/結合後の処理が現在考慮されているかを定めます。
 <literal>output_rel</literal>は本処理の計算方法をあらわすパスを受け取るであろう上位リレーションで、<literal>input_rel</literal>は本処理への入力をあらわすリレーションです。
+<literal>extra</literal>パラメータは追加の詳細を指定し、今のところ<literal>UPPERREL_PARTIAL_GROUP_AGG</literal>か<literal>UPPERREL_GROUP_AGG</literal>が指定でき、<literal>GroupPathExtraData</literal>構造体へのポインタになります。
 （注意：これらの処理は外部で実行されると考えられるため、<literal>output_rel</literal>に加えられる<structname>ForeignPath</structname>パスは、一般的に<literal>input_rel</literal>のパスへの直接の依存を全く持たないでしょう。
 しかしながら、手前の処理段階のために以前に生成されたパスを検査することは、冗長なプラン作成活動を回避するのに役立ちます。）
     </para>
@@ -1007,11 +1008,16 @@ EndForeignModify(EState *estate,
     </para>
 
     <para>
+<!--
      Tuples inserted into a partitioned table by <command>INSERT</command> or
      <command>COPY FROM</command> are routed to partitions.  If an FDW
      supports routable foreign-table partitions, it should also provide the
      following callback functions.  These functions are also called when
      <command>COPY FROM</command> is executed on a foreign table.
+-->
+<command>INSERT</command>あるいは<command>COPY FROM</command>でパーティション化テーブルに挿入されたタプルはパーティションに転送されます。
+FDWが外部テーブルのパーティションへの転送をサポートしているなら、以下のコールバック関数も提供すべきです。
+これらの関数は、外部テーブルで<command>COPY FROM</command>が実行された時に呼び出されます。
     </para>
 
     <para>
@@ -1021,6 +1027,7 @@ BeginForeignInsert(ModifyTableState *mtstate,
                    ResultRelInfo *rinfo);
 </programlisting>
 
+<!--
      Begin executing an insert operation on a foreign table.  This routine is
      called right before the first tuple is inserted into the foreign table
      in both cases when it is the partition chosen for tuple routing and the
@@ -1028,9 +1035,15 @@ BeginForeignInsert(ModifyTableState *mtstate,
      perform any initialization needed prior to the actual insertion.
      Subsequently, <function>ExecForeignInsert</function> will be called for
      each tuple to be inserted into the foreign table.
+-->
+外部テーブルへの挿入操作の実行を開始します。
+この関数は、タプル転送のためにパーティションが選択された場合か、<command>COPY FROM</command>コマンドでターゲットが指定された場合に、最初の行が外部テーブルに挿入される直前に呼び出されます。
+この関数は、実際の挿入に先立つすべての必要な初期化を実行すべきです。
+続いて、<function>ExecForeignInsert</function>が外部テーブルに挿入される個々のタブル毎に呼び出されます。
     </para>
 
     <para>
+<!--
      <literal>mtstate</literal> is the overall state of the
      <structname>ModifyTable</structname> plan node being executed; global data about
      the plan and execution state is available via this structure.
@@ -1038,9 +1051,15 @@ BeginForeignInsert(ModifyTableState *mtstate,
      the target foreign table.  (The <structfield>ri_FdwState</structfield> field of
      <structname>ResultRelInfo</structname> is available for the FDW to store any
      private state it needs for this operation.)
+-->
+<literal>mtstate</literal>は、実行中の<structname>ModifyTable</structname>プランノードの全体的な状態です。
+プランのグローバルデータと実行状態がこの構造体を通じて得られます。
+<literal>rinfo</literal>は<structname>ResultRelInfo</structname>構造体で、ターゲットの外部テーブルを記述します。
+（この操作中に必要なFDWのプライベート状態を保存するために<structname>ResultRelInfo</structname>の<structfield>ri_FdwState</structfield>フィールドが利用可能です。）
     </para>
 
     <para>
+<!--
      When this is called by a <command>COPY FROM</command> command, the
      plan-related global data in <literal>mtstate</literal> is not provided
      and the <literal>planSlot</literal> parameter of
@@ -1048,11 +1067,16 @@ BeginForeignInsert(ModifyTableState *mtstate,
      inserted tuple is <literal>NULL</literal>, whether the foreign table is
      the partition chosen for tuple routing or the target specified in the
      command.
+-->
+この関数が<command>COPY FROM</command>コマンドで呼ばれると、外部テーブルがタプル転送で選択された対象なのか、あるいはコマンドがターゲットを指定したのかに関わらず、<literal>mtstate</literal>中のプランに関係するグローバルデータは提供されず、次に個々の挿入されるタプルに対して呼び出される<function>ExecForeignInsert</function>の<literal>planSlot</literal>パラメータは<literal>NULL</literal>となります。
     </para>
 
     <para>
+<!--
      If the <function>BeginForeignInsert</function> pointer is set to
      <literal>NULL</literal>, no action is taken for the initialization.
+-->
+<function>BeginForeignInsert</function>ポインターが<literal>NULL</literal>なら、初期化処理は実施されません。
     </para>
 
     <para>
@@ -1062,14 +1086,21 @@ EndForeignInsert(EState *estate,
                  ResultRelInfo *rinfo);
 </programlisting>
 
+<!--
      End the insert operation and release resources.  It is normally not important
      to release palloc'd memory, but for example open files and connections
      to remote servers should be cleaned up.
+-->
+挿入操作を終了してリソースを解放します。
+pallocされたメモリの解放は通常重要ではありませんが、開いたファイルやリモートサーバへの接続はクリーンアップするべきです。
     </para>
 
     <para>
+<!--
      If the <function>EndForeignInsert</function> pointer is set to
      <literal>NULL</literal>, no action is taken for the termination.
+-->
+<function>EndForeignInsert</function>ポインターが<literal>NULL</literal>なら、終了処理は実施されません。
     </para>
 
     <para>
@@ -1955,7 +1986,10 @@ ShutdownForeignScan(ForeignScanState *node);
    </sect2>
 
    <sect2 id="fdw-callbacks-reparameterize-paths">
+<!--
     <title>FDW Routines For reparameterization of paths</title>
+-->
+    <title>パスの再パラメータ化のためのFDWルーチン</title>
 
     <para>
 <programlisting>
@@ -1963,6 +1997,7 @@ List *
 ReparameterizeForeignPathByChild(PlannerInfo *root, List *fdw_private,
                                  RelOptInfo *child_rel);
 </programlisting>
+<!--
     This function is called while converting a path parameterized by the
     top-most parent of the given child relation <literal>child_rel</literal> to be
     parameterized by the child relation. The function is used to reparameterize
@@ -1971,6 +2006,10 @@ ReparameterizeForeignPathByChild(PlannerInfo *root, List *fdw_private,
     callback may use <literal>reparameterize_path_by_child</literal>,
     <literal>adjust_appendrel_attrs</literal> or
     <literal>adjust_appendrel_attrs_multilevel</literal> as required.
+-->
+この関数は、<literal>child_rel</literal>で指定された子リレーションの最上位の親によってパラメータ化されたパスを、子リレーションによってパラメータ化されたパスに変換する際に呼び出されます。
+この関数はパスをパラメータ化する、あるいは<structname>ForeignPath</structname>の<literal>fdw_private</literal>メンバーに保存されている式ノードを変換するために使用されます。
+このコールバックは必要に応じて、<literal>reparameterize_path_by_child</literal>、<literal>adjust_appendrel_attrs</literal>あるいは<literal>adjust_appendrel_attrs_multilevel</literal>を呼び出すことができます。
     </para>
    </sect2>
 
