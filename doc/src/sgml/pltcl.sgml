@@ -22,7 +22,7 @@
    Tcl language</ulink> to be used to write
    <productname>PostgreSQL</productname> functions.
 -->
-PL/Tclとは、<productname>PostgreSQL</productname>データベースシステムにロード可能な手続き言語で、<ulink url="http://www.tcl.tk/">Tcl言語</ulink>を使った関数とトリガプロシージャを作成できます。
+PL/Tclとは、<productname>PostgreSQL</productname>データベースシステムにロード可能な手続き言語で、<ulink url="http://www.tcl.tk/">Tcl言語</ulink>を使った<productname>PostgreSQL</productname>関数を作成できます。
   </para>
 
   <!-- 原文コメント**** PL/Tcl overview **** -->
@@ -152,6 +152,7 @@ $$ LANGUAGE pltcl;
 関数本体は、単なる小さなTclスクリプトです。
 関数が呼び出された時、引数の値はTclスクリプトに<literal>1</literal> ... <literal><replaceable>n</replaceable></literal>という名前の変数として渡されます。
 結果は通常通り<literal>return</literal>文を使用してTclのコードから返されます。
+プロシージャでは、Tclコードからの戻り値は無視されます。
     </para>
 
     <para>
@@ -269,7 +270,10 @@ $$ LANGUAGE pltcl;
     </para>
 
     <para>
+<!--
      Output arguments of procedures are returned in the same way, for example:
+-->
+プロシージャの出力引数は同様に返されます。以下に例を示します。
 
 <programlisting>
 CREATE PROCEDURE tcl_triple(INOUT a integer, INOUT b integer) AS $$
@@ -867,7 +871,7 @@ SELECT 'doesn''t' AS ret
 <!--
     <title>Trigger Functions in PL/Tcl</title>
 -->
-<title>PL/Tclのトリガプロシージャ</title>
+<title>PL/Tclのトリガ関数</title>
 
     <indexterm>
 <!--
@@ -885,15 +889,15 @@ SELECT 'doesn''t' AS ret
      as a trigger must be declared as a function with no arguments
      and a return type of <literal>trigger</literal>.
 -->
-トリガプロシージャをPL/Tclで作成することができます。
-<productname>PostgreSQL</productname>では、トリガとして呼び出されるプロシージャは、<literal>trigger</literal>型の戻り値を返す引数のない関数として宣言する必要があります。
+トリガ関数をPL/Tclで作成することができます。
+<productname>PostgreSQL</productname>では、トリガとして呼び出される関数は、<literal>trigger</literal>型の戻り値を返す引数のない関数として宣言する必要があります。
     </para>
     <para>
 <!--
      The information from the trigger manager is passed to the function body
      in the following variables:
 -->
-トリガマネージャからの情報は、以下の変数内に格納されてプロシージャ本体に渡されます。
+トリガマネージャからの情報は、以下の変数内に格納されて関数本体に渡されます。
 
      <variablelist>
 
@@ -917,7 +921,7 @@ SELECT 'doesn''t' AS ret
          The object ID of the table that caused the trigger function
          to be invoked.
 -->
-そのトリガプロシージャ呼び出しが発生したテーブルのオブジェクトID。
+そのトリガ関数の呼び出しを発生させたテーブルのオブジェクトID。
         </para>
        </listitem>
       </varlistentry>
@@ -930,7 +934,7 @@ SELECT 'doesn''t' AS ret
          The name of the table that caused the trigger function
          to be invoked.
 -->
-そのトリガプロシージャ呼び出しが発生したテーブルの名前。
+そのトリガ関数の呼び出しを発生させたテーブルの名前。
         </para>
        </listitem>
       </varlistentry>
@@ -1057,8 +1061,8 @@ NULLの列はこの配列内には現れません。
          <command>CREATE TRIGGER</command> statement. These arguments are also accessible as
          <literal>$1</literal> ... <literal>$<replaceable>n</replaceable></literal> in the function body.
 -->
-<command>CREATE TRIGGER</command>文で指定された、プロシージャへの引数のTclリスト。
-この引数は、プロシージャ本体から<literal>$1</literal> ... <literal>$<replaceable>n</replaceable></literal>としてもアクセスすることができます。
+<command>CREATE TRIGGER</command>文で指定された、関数への引数のTclリスト。
+この引数は、関数本体から<literal>$1</literal> ... <literal>$<replaceable>n</replaceable></literal>としてもアクセスすることができます。
         </para>
        </listitem>
       </varlistentry>
@@ -1090,7 +1094,7 @@ NULLの列はこの配列内には現れません。
      effect as returning <literal>OK</literal>, that is the operation proceeds.
      The trigger return value is ignored for all other types of triggers.
 -->
-トリガプロシージャからの戻り値は、<literal>OK</literal>という文字列、<literal>SKIP</literal>という文字列、列名/値の組のリスト、の内の1つを取ることができます。
+トリガ関数からの戻り値は、<literal>OK</literal>という文字列、<literal>SKIP</literal>という文字列、列名/値の組のリスト、の内の1つを取ることができます。
 戻り値が<literal>OK</literal>の場合、トリガを発行した操作（<command>INSERT</command>/<command>UPDATE</command>/<command>DELETE</command>）は正常に処理されます。
 <literal>SKIP</literal>はトリガマネージャにこの行に対する操作を何も出力せずに中止するように通知します。
 リストが返された場合は、PL/Tclに対し、変更した行をトリガマネージャに返すことを通知します。変更行の内容はリスト内の列名と値により指定されます。
@@ -1148,9 +1152,9 @@ CREATE TRIGGER trig_mytab_modcount BEFORE INSERT OR UPDATE ON mytab
      name; that's supplied from the trigger arguments.  This lets the
      trigger function be reused with different tables.
 -->
-トリガプロシージャ自身は列名を認識していない点に注目してください。
+トリガ関数自身は列名を認識していない点に注目してください。
 これはトリガの引数として与えられます。
-これにより、このトリガプロシージャを別のテーブルで再利用することができます。
+これにより、このトリガ関数を別のテーブルで再利用することができます。
     </para>
    </sect1>
 
@@ -1158,7 +1162,7 @@ CREATE TRIGGER trig_mytab_modcount BEFORE INSERT OR UPDATE ON mytab
 <!--
     <title>Event Trigger Functions in PL/Tcl</title>
 -->
-    <title>PL/Tclにおけるイベントトリガプロシージャ</title>
+    <title>PL/Tclにおけるイベントトリガ関数</title>
 
     <indexterm>
 <!--
@@ -1176,16 +1180,15 @@ CREATE TRIGGER trig_mytab_modcount BEFORE INSERT OR UPDATE ON mytab
      to be called as an event trigger must be declared as a function with no
      arguments and a return type of <literal>event_trigger</literal>.
 -->
-イベントトリガプロシージャをPL/Tclで作成することができます。
-<productname>PostgreSQL</productname>では、イベントトリガとして呼び出されるプロシージャは、<literal>event_trigger</literal>型の戻り値を返す引数のない関数として宣言する必要があります。
+イベントトリガ関数をPL/Tclで作成することができます。
+<productname>PostgreSQL</productname>では、イベントトリガとして呼び出される関数は、<literal>event_trigger</literal>型の戻り値を返す引数のない関数として宣言する必要があります。
     </para>
     <para>
 <!--
      The information from the trigger manager is passed to the function body
      in the following variables:
 -->
-トリガマネージャからの情報は、以下の変数内に格納されてプロシージャ本体に渡されます。
-
+トリガマネージャからの情報は、以下の変数内に格納されて関数本体に渡されます。
      <variablelist>
 
       <varlistentry>
@@ -1218,7 +1221,7 @@ CREATE TRIGGER trig_mytab_modcount BEFORE INSERT OR UPDATE ON mytab
 <!--
      The return value of the trigger function is ignored.
 -->
-トリガプロシージャの戻り値は無視されます。
+トリガ関数の戻り値は無視されます。
     </para>
 
     <para>
@@ -1227,7 +1230,7 @@ CREATE TRIGGER trig_mytab_modcount BEFORE INSERT OR UPDATE ON mytab
      a <literal>NOTICE</literal> message each time a supported command is
      executed:
 -->
-サポートするコマンドが実行される度に、単に<literal>NOTICE</literal>メッセージを発行するイベントトリガプロシージャの例を、以下に示します。
+サポートするコマンドが実行される度に、単に<literal>NOTICE</literal>メッセージを発行するイベントトリガ関数の例を、以下に示します。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION tclsnitch() RETURNS event_trigger AS $$
@@ -1459,9 +1462,13 @@ $$ LANGUAGE pltcl;
    </sect1>
 
    <sect1 id="pltcl-transactions">
+<!--
     <title>Transaction Management</title>
+-->
+    <title>トランザクション制御</title>
 
     <para>
+<!--
      In a procedure called from the top level or an anonymous code block
      (<command>DO</command> command) called from the top level it is possible
      to control transactions.  To commit the current transaction, call the
@@ -1472,10 +1479,19 @@ $$ LANGUAGE pltcl;
      It has to be done using these functions.)  After a transaction is ended,
      a new transaction is automatically started, so there is no separate
      command for that.
+-->
+トップレベル、あるいは、トップレベルから呼ばれた無名コードブロック（<command>DO</command>コマンド）から呼ばれたプロシージャでは、トランザクション制御が可能です。
+現在のトランザクションをコミットするには、<literal>commit</literal>コマンドを呼びます。
+現在のトランザクションをロールバックするには、<literal>rollback</literal>コマンドを呼びます。
+（SQLコマンドの<command>COMMIT</command>や<command>ROLLBACK</command>を<function>spi_exec</function>などを通して実行することはできない点に注意してください。前述の関数を使って行う必要があります。）
+トランザクションが終了した後、新たなトランザクションが自動的に開始されますので、開始するための別途のコマンドはありません。
     </para>
 
     <para>
+<!--
      Here is an example:
+-->
+以下に例を示します。
 <programlisting>
 CREATE PROCEDURE transaction_test1()
 LANGUAGE pltcl
@@ -1495,7 +1511,10 @@ CALL transaction_test1();
     </para>
 
     <para>
+<!--
      Transactions cannot be ended when an explicit subtransaction is active.
+-->
+明示的なサブトランザクションの中ではトランザクションを終了することはできません。
     </para>
    </sect1>
 
