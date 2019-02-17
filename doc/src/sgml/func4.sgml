@@ -370,7 +370,7 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
 左辺の式は副問い合わせの結果のそれぞれの行に対し、与えられた<replaceable>operator</replaceable>を使用して行に関する評価、比較が行われます。
 比較の結果、副問い合わせの行のどれかに対して真となる場合、<token>ANY</token>の結果は<quote>true（真）</quote>です。
 比較の結果、副問い合わせの全ての行に対して偽となる場合（副問い合わせが行を返さないという場合も含む）、結果は<quote>false（偽）</quote>です。
-比較の結果、いかなる行でも真を返さず、かつ、少なくとも１つの行がNULLを返す場合、結果はNULLになります。
+いかなる副問合せ行との比較の結果も偽を返さず、かつ、少なくとも１つの比較がNULLを返す場合、結果はNULLになります。
   </para>
 
   <para>
@@ -1573,9 +1573,13 @@ SELECT * FROM pg_ls_dir('.') WITH ORDINALITY AS t(ls,n);
       <row>
        <entry><literal><function>pg_jit_available()</function></literal></entry>
        <entry><type>boolean</type></entry>
+<!--
        <entry>is <acronym>JIT</acronym> compilation available in this session
        (see <xref linkend="jit"/>)? Returns <literal>false</literal> if <xref
        linkend="guc-jit"/> is set to false.</entry>
+-->
+<entry>is <acronym>JIT</acronym>コンパイルがこのセッションで可能か？(<xref linkend="jit"/>参照)
+<xref linkend="guc-jit"/>がfalseなら、<literal>false</literal>を返します。</entry>
       </row>
 
       <row>
@@ -2894,6 +2898,7 @@ SELECT relname FROM pg_class WHERE pg_table_is_visible(oid);
 -->
 それぞれの関数はデータベースオブジェクトの１つの型に対して可視性の検査を行います。
 <function>pg_table_is_visible</function>がビュー、マテリアライズドビュー、インデックス、シーケンス、外部テーブルに対しても使用できること、<function>pg_type_is_visible</function>がドメインに対しても使用できることに注意してください。
+<function>pg_function_is_visible</function>は手続きと集約にも使えます。
 関数および演算子では、パスの前方に同じ名前かつ同じ<emphasis>引数のデータ型</emphasis>を持つオブジェクトが存在しなければ、検索パス内のオブジェクトは可視です。
 演算子クラスでは、名前と関連するインデックスアクセスメソッドが考慮されます。
    </para>
@@ -3114,7 +3119,7 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
 <!--
        <entry>get definition of a function or procedure</entry>
 -->
-       <entry>関数定義の取得</entry>
+       <entry>関数あるいは手続きの定義の取得</entry>
       </row>
       <row>
        <entry><literal><function>pg_get_function_arguments(<parameter>func_oid</parameter>)</function></literal></entry>
@@ -3122,7 +3127,7 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
 <!--
        <entry>get argument list of function's or procedure's definition (with default values)</entry>
 -->
-       <entry>関数定義の引数リスト（デフォルト値付き）を取得</entry>
+       <entry>関数あるいは手続きの定義の引数リスト（デフォルト値付き）を取得</entry>
       </row>
       <row>
        <entry><literal><function>pg_get_function_identity_arguments(<parameter>func_oid</parameter>)</function></literal></entry>
@@ -3130,7 +3135,7 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
 <!--
        <entry>get argument list to identify a function or procedure (without default values)</entry>
 -->
-       <entry>関数を特定するための引数リスト（デフォルト値なし）を取得</entry>
+       <entry>関数あるいは手続きを特定するための引数リスト（デフォルト値なし）を取得</entry>
       </row>
       <row>
        <entry><literal><function>pg_get_function_result(<parameter>func_oid</parameter>)</function></literal></entry>
@@ -3138,7 +3143,7 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
 <!--
        <entry>get <literal>RETURNS</literal> clause for function (returns null for a procedure)</entry>
 -->
-       <entry>関数に対する<literal>RETURNS</literal>句の取得</entry>
+       <entry>関数に対する<literal>RETURNS</literal>句の取得（プロシージャに対してはNULLを返します）</entry>
       </row>
       <row>
        <entry><literal><function>pg_get_indexdef(<parameter>index_oid</parameter>)</function></literal></entry>
@@ -3740,9 +3745,12 @@ SELECT currval(pg_get_serial_sequence('sometable', 'id'));
      </row>
      <row>
       <entry><literal>can_include</literal></entry>
+<!--
       <entry>Does the access method support the <literal>INCLUDE</literal>
         clause of <literal>CREATE INDEX</literal>?
       </entry>
+-->
+      <entry>アクセスメソッドが<literal>CREATE INDEX</literal>の<literal>INCLUDE</literal>句をサポートしているか</entry>
      </row>
     </tbody>
    </tgroup>
@@ -3942,7 +3950,7 @@ SELECT collation for ('foo' COLLATE "de_DE");
    This is useful to determine the identity of an object as stored in the
    <structname>pg_depend</structname> catalog.
 -->
-<function>pg_describe_object</function>はカタログOID、オブジェクトOID、もしくはサブオブジェクトOID（0のこともある）で指定されたデータベースオブジェクトのテキストによる説明を返します。
+<function>pg_describe_object</function>はカタログOID、オブジェクトOID、もしくはサブオブジェクトOID（たとえばテーブル中の列番号。オブジェクト全体を参照している場合は0）で指定されたデータベースオブジェクトのテキストによる説明を返します。
 この説明はサーバの設定に依存しますが、人が読んでわかる、そして翻訳も可能になることを目的としたのもです。
 これは<structname>pg_depend</structname>カタログに格納されたオブジェクトの識別判断の際に有用です。
   </para>
@@ -3963,7 +3971,7 @@ SELECT collation for ('foo' COLLATE "de_DE");
    precise format depending on object type, and each name within the format
    being schema-qualified and quoted as necessary.
 -->
-<function>pg_identify_object</function>はカタログOID、オブジェクトOID、そしてサブオブジェクトID（0のこともある）により指定されるデータベースオブジェクトを一意に特定するために十分な情報を含む行を返します。
+<function>pg_identify_object</function>はカタログOID、オブジェクトOID、そしてサブオブジェクトIDにより指定されるデータベースオブジェクトを一意に特定するために十分な情報を含む行を返します。
 この情報は機械による読み取りを目的としており、決して翻訳されません。
 <parameter>type</parameter>はデータベースオブジェクトの型を識別するものです。
 <parameter>schema</parameter>はオブジェクトが所属するスキーマの名前ですが、スキーマに所属しないオブジェクト型の場合は<literal>NULL</literal>になります。
@@ -3987,12 +3995,12 @@ SELECT collation for ('foo' COLLATE "de_DE");
    of the object.
    This function is the inverse of <function>pg_get_object_address</function>.
 -->
-<function>pg_identify_object_as_address</function>はカタログOID、オブジェクトOID、そしてサブオブジェクトID（0のこともある）により指定されるデータベースオブジェクトを一意に特定するために充分な情報を含む行を返します。
+<function>pg_identify_object_as_address</function>はカタログOID、オブジェクトOID、そしてサブオブジェクトIDにより指定されるデータベースオブジェクトを一意に特定するために充分な情報を含む行を返します。
 返される情報は現在のサーバに依存しません。
 つまり、他のサーバで全く同じ名前を付けられたオブジェクトを識別するために使うことができます。
 <parameter>type</parameter>はデータベースオブジェクトの型を識別するものです。
-<parameter>name</parameter>と<parameter>args</parameter>は文字列の配列で、それらが組み合わされてオブジェクトへの参照を構成します。
-これらの3つの列は、オブジェクトの内部アドレスを取得するために<function>pg_get_object_address</function>に渡すことができます。
+<parameter>object_names</parameter>と<parameter>object_args</parameter>は文字列の配列で、それらが組み合わされてオブジェクトへの参照を構成します。
+これらの3つの値は、オブジェクトの内部アドレスを取得するために<function>pg_get_object_address</function>に渡すことができます。
 この関数は<function>pg_get_object_address</function>の逆関数です。
   </para>
 
@@ -4012,9 +4020,9 @@ SELECT collation for ('foo' COLLATE "de_DE");
 -->
 <function>pg_get_object_address</function>は、型、オブジェクト名および引数の配列で指定されたデータベースオブジェクトを一意に特定するために十分な情報を含む行を返します。
 返される値は、<structname>pg_depend</structname>などのシステムカタログで使用されるもので、<function>pg_identify_object</function>や<function>pg_describe_object</function>など他のシステム関数に渡すことができます。
-<parameter>catalog_id</parameter>はオブジェクトを含むシステムカタログのOIDです。
-<parameter>object_id</parameter>はオブジェクト自体のOIDです。
-<parameter>object_sub_id</parameter>はオブジェクトのサブID、なければ0です。
+<parameter>classid</parameter>はオブジェクトを含むシステムカタログのOIDです。
+<parameter>objid</parameter>はオブジェクト自体のOIDです。
+<parameter>objsubid</parameter>はオブジェクトのサブID、なければ0です。
 この関数は<function>pg_identify_object_as_address</function>の逆関数です。
   </para>
 
@@ -6160,10 +6168,15 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
         <type>bool</type>
        </entry>
        <entry>
+<!--
         Advances the current confirmed position of a replication slot named
         <parameter>slot_name</parameter>. The slot will not be moved backwards,
         and it will not be moved beyond the current insert location.  Returns
         name of the slot and real position to which it was advanced to.
+-->
+<parameter>slot_name</parameter>という名前のレプリケーションスロットの現在の確認された位置を進めます。
+スロットは後方には動きませんし、現在の挿入位置を超えて進むこともありません。
+スロットの名前と前に進んだ実際の位置を返します。
        </entry>
       </row>
 
@@ -7187,12 +7200,13 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
     configuration setting for log files.
 -->
 <xref linkend="functions-admin-genfile-table"/>で示されている関数はサーバをホスティングしているマシン上のファイルに対し、ネイティブのアクセスを提供します。
-データベースクラスタディレクトリと<varname>log_directory</varname>に存在するファイルのみがアクセス可能です。
+ユーザが<literal>pg_read_server_files</literal>ロールを与えられていない限り、データベースクラスタディレクトリと<varname>log_directory</varname>に存在するファイルのみがアクセス可能です。
 クラスタディレクトリ内のファイルに対して相対パスを、そしてログファイルに対しては<varname>log_directory</varname>構成設定に一致するパスを使用してください。
 これらの関数は特に記述がある場合を除き、スーパーユーザだけが使用できます。
    </para>
 
    <para>
+<!--
     Note that granting users the EXECUTE privilege on the
     <function>pg_read_file()</function>, or related, functions allows them the
     ability to read any file on the server which the database can read and
@@ -7201,6 +7215,10 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
     <literal>pg_authid</literal> table where authentication information is contained,
     as well as read any file in the database.  Therefore, granting access to these
     functions should be carefully considered.
+-->
+ユーザに対して<function>pg_read_file()</function>あるいは関連する関数へのEXECUTE権限を許可することは、サーバ上のデータベースが読むことのできるすべてのファイルに対して読み出し許可を与えることになること、こうした読み出しについてはデータベース内のあらゆる権限チェックがすり抜けられることに注意してください。
+これはつまり、この権限を持っているユーザは、とりわけ認証情報が含まれる<literal>pg_authid</literal>テーブルの内容を読むことができることを意味します。
+ですから、これらの関数には注意深くアクセス許可を与えるべきです。
    </para>
 
    <table id="functions-admin-genfile-table">
@@ -7227,7 +7245,7 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
 <!--
         List the contents of a directory.  Restricted to superusers by default, but other users can be granted EXECUTE to run the function.
 -->
-ディレクトリの内容を一覧表示する
+ディレクトリの内容を一覧表示する。デフォルトではスーパーユーザに制限されるが、他のユーザにEXECUTEを許可することによりこの関数を実行できる
        </entry>
       </row>
       <row>
@@ -7269,7 +7287,7 @@ WALディレクトリ内のファイルの名前、サイズ、最終更新時�
 <!--
         Return the contents of a text file.  Restricted to superusers by default, but other users can be granted EXECUTE to run the function.
 -->
-テキストファイルの内容を返す
+テキストファイルの内容を返す。デフォルトではスーパーユーザに制限されるが、他のユーザにEXECUTEを許可することによりこの関数を実行できる
        </entry>
       </row>
       <row>
@@ -7281,7 +7299,7 @@ WALディレクトリ内のファイルの名前、サイズ、最終更新時�
 <!--
         Return the contents of a file.  Restricted to superusers by default, but other users can be granted EXECUTE to run the function.
 -->
-ファイルの内容を返す
+ファイルの内容を返す。デフォルトではスーパーユーザに制限されるが、他のユーザにEXECUTEを許可することによりこの関数を実行できる
        </entry>
       </row>
       <row>
@@ -7293,7 +7311,7 @@ WALディレクトリ内のファイルの名前、サイズ、最終更新時�
 <!--
         Return information about a file.  Restricted to superusers by default, but other users can be granted EXECUTE to run the function.
 -->
-ファイルについての情報を返す
+ファイルについての情報を返す。デフォルトではスーパーユーザに制限されるが、他のユーザにEXECUTEを許可することによりこの関数を実行できる
        </entry>
       </row>
      </tbody>
@@ -8032,7 +8050,7 @@ FOR EACH ROW EXECUTE FUNCTION suppress_redundant_updates_trigger();
          identifier included in the identity is quoted if necessary.
 -->
 オブジェクトの識別をテキスト表現したもので、スキーマ修飾される。
-識別内に存在するすべての識別子は、必要なら引用符で括られる。
+識別内に存在する各識別子は、必要なら引用符で括られる。
         </entry>
        </row>
        <row>
@@ -8041,7 +8059,7 @@ FOR EACH ROW EXECUTE FUNCTION suppress_redundant_updates_trigger();
 <!--
         <entry>True if the command is part of an extension script</entry>
 -->
-        <entry>コマンドが拡張のスクリプトの一部かどうか</entry>
+        <entry>コマンドが拡張のスクリプトの一部なら真</entry>
        </row>
        <row>
         <entry><literal>command</literal></entry>
@@ -8131,7 +8149,7 @@ FOR EACH ROW EXECUTE FUNCTION suppress_redundant_updates_trigger();
 <!--
         <entry>True if this was one of the root object(s) of the deletion</entry>
 -->
-        <entry>削除のルートオブジェクトを特定するために使われるフラグ</entry>
+        <entry>これが削除のルートオブジェクトの一つなら真</entry>
        </row>
        <row>
         <entry><literal>normal</literal></entry>
@@ -8141,7 +8159,7 @@ FOR EACH ROW EXECUTE FUNCTION suppress_redundant_updates_trigger();
          True if there was a normal dependency relationship
          in the dependency graph leading to this object
 -->
-このオブジェクトへと至る依存関係グラフで、通常の依存があることを示すフラグ
+このオブジェクトへと至る依存関係グラフで、通常の依存があるなら真
         </entry>
        </row>
        <row>
@@ -8151,7 +8169,7 @@ FOR EACH ROW EXECUTE FUNCTION suppress_redundant_updates_trigger();
 <!--
          True if this was a temporary object
 -->
-オブジェクトが一時オブジェクトであったことを示すフラグ
+オブジェクトが一時オブジェクトであったなら真
         </entry>
        </row>
        <row>
@@ -8197,7 +8215,7 @@ FOR EACH ROW EXECUTE FUNCTION suppress_redundant_updates_trigger();
          identifier included in the identity is quoted if necessary.
 -->
 オブジェクト識別のテキスト表現で、スキーマ修飾される。
-権限のなかにあるそれぞれ全ての識別子は必要であれば引用符で括られる。
+識別内に存在する各識別子は必要であれば引用符で括られる。
         </entry>
        </row>
        <row>
@@ -8221,7 +8239,7 @@ FOR EACH ROW EXECUTE FUNCTION suppress_redundant_updates_trigger();
 <!--
          Complement for <literal>address_names</literal>
 -->
-上記<literal>address_names</literal>の補足。
+<literal>address_names</literal>の補足。
         </entry>
        </row>
       </tbody>
