@@ -62,7 +62,7 @@
 -->
 <classname>pg_am</classname>テーブルには各インデックスメソッド（内部ではアクセスメソッドとして知られています）に対して1つの行が含まれています。
 テーブルへの通常のアクセスのサポートは<productname>PostgreSQL</productname>に組み込まれていますが、すべてのインデックスメソッドは、<classname>pg_am</classname>で記述されています。
-必要なコードを書いた後、<classname>pg_am</classname>に行を作成することによって、新しいインデックスアクセスメソッドを追加することができます。
+必要なコードを書いた後、<classname>pg_am</classname>にエントリを作成することによって、新しいインデックスアクセスメソッドを追加することができます。
 しかし、この方法についての説明は本章での範囲を超えています（<xref linkend="indexam"/>を参照してください）。
   </para>
 
@@ -86,7 +86,7 @@
 代わりに、<firstterm>演算子クラス</firstterm>が、特定のデータ型の操作においてインデックスメソッドを使用する必要がある演算の集合を識別します。
 <indexterm><primary>演算子クラス</primary></indexterm>
 演算子クラスという名前の由来は、それらが指定するものの1つにインデックスで使用できる（つまり、インデックススキャン条件に変換できる）<literal>WHERE</literal>句演算子の集合があるからです。
-また、演算子クラスは、インデックスメソッドの内部演算で必要な、しかしインデックスで使用できる<literal>WHERE</literal>句演算子には直接的には対応しない、<firstterm>サポートプロシージャ</firstterm>をいくつか指定することができます。
+また、演算子クラスは、インデックスメソッドの内部演算で必要な、しかしインデックスで使用できる<literal>WHERE</literal>句演算子には直接的には対応しない、<firstterm>サポート関数</firstterm>をいくつか指定することができます。
   </para>
 
   <para>
@@ -660,7 +660,8 @@ BRINインデックスは、いずれも固定のストラテジ群を持たな�
    The requirements for these support functions are explained further in
    <xref linkend="btree-support-funcs"/>.
 -->
-<xref linkend="xindex-btree-support-table"/>に示すように、B-treeでは１つのサポート関数が必須ですが、演算子クラス作成者のオプションとして提供されるもう１つのサポート関数を持つことができます。
+<xref linkend="xindex-btree-support-table"/>に示すように、B-treeは比較サポート関数を必須とし、演算子クラスの作者が望めば二つの追加サポート関数を与えることができます。
+これらのサポート関数の要件は<xref linkend="btree-support-funcs"/>でさらに詳しく解説されています。
   </para>
 
    <table tocentry="1" id="xindex-btree-support-table">
@@ -697,14 +698,17 @@ BRINインデックスは、いずれも固定のストラテジ群を持たな�
         Return the addresses of C-callable sort support function(s)
         (optional)
 -->
-<filename>utils/sortsupport.h</filename>に記載した、C言語から呼び出し可能なソートサポート関数のアドレスを返します(省略可能)。
+C言語から呼び出し可能なソートサポート関数のアドレスを返します(省略可能)。
        </entry>
        <entry>2</entry>
       </row>
       <row>
        <entry>
+<!--
         Compare a test value to a base value plus/minus an offset, and return
         true or false according to the comparison result (optional)
+-->
+テスト値をベース値にオフセットを加減算したものと比較して、比較結果に従って真または偽を返します(省略可能)。
        </entry>
        <entry>3</entry>
       </row>
@@ -718,7 +722,7 @@ BRINインデックスは、いずれも固定のストラテジ群を持たな�
    supplied at the operator class author's option, as shown in <xref
    linkend="xindex-hash-support-table"/>.
 -->
-<xref linkend="xindex-hash-support-table"/>に示すように、ハッシュインデックスでは単一のサポート関数が必要です。
+<xref linkend="xindex-hash-support-table"/>に示すようにハッシュインデックスでは一つのサポート関数が必須で、演算子クラス作者が望むなら、もう一つのサポート関数を与えることができます。
   </para>
 
    <table tocentry="1" id="xindex-hash-support-table">
@@ -742,15 +746,19 @@ BRINインデックスは、いずれも固定のストラテジ群を持たな�
 <!--
        <entry>Compute the 32-bit hash value for a key</entry>
 -->
-       <entry>キーのハッシュ値を計算</entry>
+       <entry>キーの32ビットハッシュ値を計算</entry>
        <entry>1</entry>
       </row>
       <row>
        <entry>
+<!--
          Compute the 64-bit hash value for a key given a 64-bit salt; if
          the salt is 0, the low 32 bits of the result must match the value
          that would have been computed by function 1
          (optional)
+-->
+64bitソルトが与えられたキーに対する64ビットハッシュ値を計算します。
+ソルトが0なら結果の下位32ビットは関数1で計算された値と一致しなければなりません。(省略可能)
        </entry>
        <entry>2</entry>
       </row>
@@ -1268,9 +1276,7 @@ CREATE OPERATOR &lt; (
    functions, otherwise the optimizer will be unable to make effective
    use of the index.
 -->
-正しく交代演算子と否定演算子を指定する他、適切な制限選択性関数と結合関数を指定することが重要です。
-さもないと、オプティマイザはインデックスを効率的に使用することができません。
-小なり、等価、大なりの場合に異なる選択性関数を使用しなければならないことに注意してください。
+正しく交代演算子と否定演算子を指定する他、適切な制限選択性関数と結合関数を指定することが重要です。さもないと、オプティマイザはインデックスを効率的に使用することができません。
   </para>
 
   <para>
@@ -1650,8 +1656,7 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
    included.  Each operator class should include just the non-cross-type
    operators and support function for its data type.
 -->
-B-tree演算子族では、演算子族内のすべての演算子はソート互換、つまり、演算子族でサポートされるデータ型すべてに渡って推移規則、<quote>A = BかつB = CならばA = C</quote>および<quote>A &lt; BかつB &lt; CならばA &lt; C</quote>を維持しなければなりません。
-さらに、演算子族内で表現される型の間の暗黙的キャストとバイナリキャストは、関連するソート順序を変更してはいけません。
+詳細が<xref linkend="btree-behavior"/>で示されている通り、B-tree演算子族では演算子族内のすべての演算子は互換性をもってソートしなければなりません。
 演算子族内の各演算子では、演算子と同じデータ型の2つのデータ型を取るサポート関数が存在しなければなりません。
 演算子族を完結させること、つまり、データ型の組み合わせそれぞれに対する演算子をすべて含めることを推奨します。
 各演算子クラスは、自身のデータ型に対してデータ型を跨らない演算子とサポート関数だけを含めなければなりません。
@@ -1775,7 +1780,7 @@ BRINでは、要求は演算子クラスを提供するフレームワークに�
    not sorting.
 -->
 データ型用のデフォルトのB-tree演算子クラスが存在しないと、システムはデフォルトのハッシュ演算子クラスを検索します。
-しかし、この種類の演算子クラスは等価性のみを提供しますので、実際にこれは、配列等価性のサポートだけに対して十分です。
+しかし、この種類の演算子クラスは等価性のみを提供しますので、ソートではなくグループ化のみサポートできます。
   </para>
 
   <para>
@@ -1802,33 +1807,49 @@ BRINでは、要求は演算子クラスを提供するフレームワークに�
    </note>
 
   <para>
+<!--
    Sorting by a non-default B-tree operator class is possible by specifying
    the class's less-than operator in a <literal>USING</literal> option,
    for example
+-->
+演算子クラスの小なり演算子を<literal>USING</literal>オプションに指定することで、デフォルトでないB-tree演算子クラスによるソートが可能です。
+以下に例を示します。
 <programlisting>
 SELECT * FROM mytable ORDER BY somecol USING ~&lt;~;
 </programlisting>
+<!--
    Alternatively, specifying the class's greater-than operator
    in <literal>USING</literal> selects a descending-order sort.
+-->
+代わりに<literal>USING</literal>で演算子クラスの大なり演算子を指定すると降順ソートが行われます。
   </para>
 
   <para>
+<!--
    Comparison of arrays of a user-defined type also relies on the semantics
    defined by the type's default B-tree operator class.  If there is no
    default B-tree operator class, but there is a default hash operator class,
    then array equality is supported, but not ordering comparisons.
+-->
+ユーザ定義型の配列の比較も型のデフォルトB-tree演算子クラスで定義された意味に依存します。
+デフォルトのB-tree演算子クラスが無く、しかしデフォルトのハッシュ演算子クラスがある場合、配列の順比較ではなく同等比較がサポートされます。
   </para>
 
   <para>
+<!--
    Another SQL feature that requires even more data-type-specific knowledge
    is the <literal>RANGE</literal> <replaceable>offset</replaceable>
    <literal>PRECEDING</literal>/<literal>FOLLOWING</literal> framing option
    for window functions (see <xref linkend="syntax-window-functions"/>).
    For a query such as
+-->
+データ型特有の知識をさらに必要とする他のSQL仕様としては、ウィンドウ関数（<xref linkend="syntax-window-functions"/>を参照してください）の<literal>RANGE</literal> <replaceable>offset</replaceable> <literal>PRECEDING</literal>/<literal>FOLLOWING</literal>フレームオプションがあります。
+下記のような問い合わせに対して、
 <programlisting>
 SELECT sum(x) OVER (ORDER BY x RANGE BETWEEN 5 PRECEDING AND 10 FOLLOWING)
   FROM mytable;
 </programlisting>
+<!--
    it is not sufficient to know how to order by <literal>x</literal>;
    the database must also understand how to <quote>subtract 5</quote> or
    <quote>add 10</quote> to the current row's value of <literal>x</literal>
@@ -1850,6 +1871,15 @@ SELECT sum(x) OVER (ORDER BY x RANGE BETWEEN 5 PRECEDING AND 10 FOLLOWING)
    the <literal>RANGE</literal> <replaceable>offset</replaceable>
    <literal>PRECEDING</literal>/<literal>FOLLOWING</literal>
    option is not supported.
+-->
+これはどのように<literal>x</literal>で整列するかを知るのに十分ではありません。
+データベースは現在のウィンドウフレームの境界を識別するためにどのように現在行の<literal>x</literal>の値に<quote>5を減算</quote>や<quote>10を加算</quote>を行うかを理解する必要もあります。
+<literal>ORDER BY</literal>整列を定義するB-tree演算子クラスで提供される比較演算子を使って結果として生じる他の行の<literal>x</literal>値への範囲を比較することは可能です。
+しかし、加算、減算演算子は演算子クラスの一部ではありません。では、どの演算子が使われるべきでしょうか。
+異なるソート順序（異なるB-tree演算子クラス）では異なる振る舞いを要するかもしれないため、選択を決め打ちすることは望ましくありません。
+そのため、B-tree演算子クラスはそのソート順に意味がある加算と減算の振る舞いをカプセル化する<firstterm>in_range</firstterm>サポート関数を指定することができます。
+<literal>RANGE</literal>句のオフセットとして使う意味のある複数のデータ型がある場合にむけて、複数のin_rangeサポート関数を提供することもできます。
+ウィンドウの<literal>ORDER BY</literal>句と関連しているB-tree演算子クラスが、一致するin_rangeサポート関数を持たない場合、<literal>PRECEDING</literal>/<literal>FOLLOWING</literal>オプションはサポートされません。
   </para>
 
   <para>
@@ -1859,7 +1889,7 @@ SELECT sum(x) OVER (ORDER BY x RANGE BETWEEN 5 PRECEDING AND 10 FOLLOWING)
    hash aggregation, and related optimizations.  The hash operator family
    is essential here since it identifies the hash function(s) to use.
 -->
-他の重要な点として、ハッシュ演算子族内に現れる演算子がハッシュ結合、ハッシュ集約、関連する最適化の候補となることがあります。
+他の重要な点として、ハッシュ演算子族内に現れる等価性演算子がハッシュ結合、ハッシュ集約、関連する最適化の候補となることがあります。
 使用するハッシュ関数を識別するため、ここでのハッシュ演算子族は基本的なものです。
   </para>
  </sect2>
