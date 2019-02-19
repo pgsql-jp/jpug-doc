@@ -361,17 +361,17 @@ CREATE INDEX ON my_table USING GIST (my_inet_column inet_ops);
    operator class wishes to support index-only scans, except when the
    <function>compress</function> method is omitted.
 -->
-<acronym>GiST</acronym>用の演算子クラスが提供しなければならないメソッドが7つ、オプションで提供可能なメソッドが2つあります。
+<acronym>GiST</acronym>用の演算子クラスが提供しなければならないメソッドが5つ、オプションで提供可能なメソッドが4つあります。
 インデックスの正確性は、<function>same</function>、<function>consistent</function>、<function>union</function>メソッドを適切に実装することで保証されます。
 一方、インデックスの効率（容量と速度）は<function>penalty</function>と<function>picksplit</function>メソッドに依存します。
-残る２つの基本メソッドは<function>compress</function>と<function>decompress</function>ですが、これによりインデックスはインデックス付けするデータと異なるデータ型のツリーデータを内部で持つことができるようになります。
+オプションのメソッドの２つは、<function>compress</function>と<function>decompress</function>です。これによりインデックスはインデックス付けするデータと異なるデータ型のツリーデータを内部で持つことができるようになります。
 リーフはインデックス付けするデータ型となりますが、他のツリーノードは何らかのC構造体を取ることができます。
 （しかしここでも<productname>PostgreSQL</productname>のデータ型規約に従わなければなりません。
 容量が可変のデータに関しては<literal>varlena</literal>を参照してください。）
 ツリーの内部データ型がSQLレベルで存在する場合、<command>CREATE OPERATOR CLASS</command>コマンドの<literal>STORAGE</literal>オプションを使用することができます。
 オプションの８番目のメソッドは<function>distance</function>です。
 これは演算子クラスに順序付けスキャン（最近傍検索）をサポートさせたい場合に必要です。
-オプションの9番目のメソッド<function>fetch</function>は演算子クラスがインデックスオンリースキャンをサポートしたい場合に必要になります。
+オプションの9番目のメソッド<function>fetch</function>は、<function>compress</function>メソッドが省略されている場合を除き、演算子クラスがインデックスオンリースキャンをサポートしたい場合に必要になります。
  </para>
 
  <variablelist>
@@ -622,6 +622,7 @@ my_union(PG_FUNCTION_ARGS)
        in the index without modification.
 -->
 データ項目をインデックスページ内の物理的な格納に適した形式に変換します。
+<function>compress</function>メソッドが省略されている場合、データ項目は変更されずにインデックスに格納されます。
       </para>
 
       <para>
@@ -697,6 +698,7 @@ my_compress(PG_FUNCTION_ARGS)
      <term><function>decompress</function></term>
      <listitem>
       <para>
+<!--
        Converts the stored representation of a data item into a format that
        can be manipulated by the other GiST methods in the operator class.
        If the <function>decompress</function> method is omitted, it is assumed that
@@ -708,10 +710,19 @@ my_compress(PG_FUNCTION_ARGS)
        data.  <function>decompress</function> is not necessarily equivalent
        to <function>fetch</function>, either, since the other GiST methods might not
        require full reconstruction of the data.)
+-->
+データ項目の格納された表現を、演算子クラスの他のGiSTメソッドで操作できる形式に変換します。
+<function>decompress</function>メソッドが省略された場合、他のGiSTメソッドが直接操作出来るデータ形式で格納されると想定されます。
+（<function>decompress</function>は、必ずしも<function>compress</function>メソッドの逆になるわけではありません。
+特に、<function>compress</function>が不可逆な場合、<function>decompress</function>で元のデータを正確に再構築するのが不可能になります。
+他のGiSTメソッドはすべてのデータを再構築することは必要としないかもしれないので、<function>decompress</function>は<function>fetch</function>と等価であるとは限りません。）
       </para>
 
       <para>
+<!--
         The <acronym>SQL</acronym> declaration of the function must look like this:
+-->
+この関数の<acronym>SQL</acronym>宣言は以下のようになります。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION my_decompress(internal)
@@ -954,6 +965,7 @@ my_picksplit(PG_FUNCTION_ARGS)
       </para>
 
       <para>
+<!--
         Like <function>penalty</function>, the <function>picksplit</function> function
         is crucial to good performance of the index.  Designing suitable
         <function>penalty</function> and <function>picksplit</function> implementations
