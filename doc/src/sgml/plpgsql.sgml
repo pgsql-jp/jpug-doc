@@ -32,7 +32,7 @@
 <!--
        can be used to create functions and triggers,
 -->
-関数とトリガプロシージャを作成するために使用できること
+関数とトリガを作成するために使用できること
       </para>
      </listitem>
      <listitem>
@@ -207,7 +207,7 @@
 -->
 <application>PL/pgSQL</application>で作成された関数は、サーバでサポートされる任意のスカラデータ型や配列データ型を引数として受け付けることができ、また、これらの型を結果として返すことができます。
 また、任意の、名前で指定された複合型（行型）を受け付けたり、返したりすることもできます。
-さらに、<xref linkend="queries-tablefunctions"/>で説明されているように、<application>PL/pgSQL</application>関数が<type>record</type>を返すように宣言することも可能で、この場合、結果は行型で、その列は呼び出す問い合わせの中での指定で決まります。
+さらに、<xref linkend="queries-tablefunctions"/>で説明されているように、<application>PL/pgSQL</application>関数が<type>record</type>を受け入れるように、すなわち、任意の複合型を入力としたり<type>record</type>を返すように宣言することも可能です。<type>record</type>を返す場合の結果は、その各列が呼び出す問い合わせの中での指定で決まる行型です。
     </para>
 
     <para>
@@ -256,6 +256,7 @@
      could be written as a procedure in that case.)
 -->
 最後に、有用な戻り値を持たない場合、<application>PL/pgSQL</application>関数は、<type>void</type>を返すように宣言することができます。
+（あるいは、この場合はプロシージャとして書くこともできます）
     </para>
 
     <para>
@@ -861,7 +862,7 @@ $$ LANGUAGE plpgsql;
 -->
 <literal>ALIAS</literal>構文は前節で示したものより一般的です。
 関数の引数だけではなく、任意の変数に別名を宣言することができます。
-この現実的な使用は主に、トリガプロシージャにおける<varname>NEW</varname>や<varname>OLD</varname>など、前もって決まった名前の変数に別の名前を割り当てることです。
+この現実的な使用は主に、トリガ関数における<varname>NEW</varname>や<varname>OLD</varname>など、前もって決まった名前の変数に別の名前を割り当てることです。
    </para>
 
    <para>
@@ -2755,25 +2756,40 @@ SELECT * FROM get_available_flightid(CURRENT_DATE);
    </sect2>
 
    <sect2 id="plpgsql-statements-returning-procedure">
+<!--
     <title>Returning From a Procedure</title>
+-->
+    <title>プロシージャからの戻り</title>
 
     <para>
+<!--
      A procedure does not have a return value.  A procedure can therefore end
      without a <command>RETURN</command> statement.  If you wish to use
      a <command>RETURN</command> statement to exit the code early, write
      just <command>RETURN</command> with no expression.
+-->
+プロシージャは戻り値を持ちません。
+したがって、プロシージャは<command>RETURN</command>文なしで終了できます。
+早期にコードを抜けるために<command>RETURN</command>文を使いたいときには、式を伴わない<command>RETURN</command>だけを書いてください。
     </para>
 
     <para>
+<!--
      If the procedure has output parameters, the final values of the output
      parameter variables will be returned to the caller.
+-->
+プロシージャが出力パラメータを持っている場合、出力パラメータ変数の最終の値が呼び出し元に返されます。
     </para>
    </sect2>
 
    <sect2 id="plpgsql-statements-calling-procedure">
+<!--
     <title>Calling a Procedure</title>
+-->
+    <title>プロシージャを呼び出す</title>
 
     <para>
+<!--
      A <application>PL/pgSQL</application> function, procedure,
      or <command>DO</command> block can call a procedure
      using <command>CALL</command>.  Output parameters are handled
@@ -2782,6 +2798,11 @@ SELECT * FROM get_available_flightid(CURRENT_DATE);
      correspond to a variable in the <command>CALL</command> statement, and
      whatever the procedure returns is assigned back to that variable after
      it returns.  For example:
+-->
+<application>PL/pgSQL</application>の関数、プロシージャ、<command>DO</command>ブロックは、<command>CALL</command>を使ってプロシージャを呼び出しできます。
+<command>CALL</command>を普通のSQLで実行する場合とは、出力パラメータの扱いが異なります。
+プロシージャの各<literal>INOUT</literal>パラメータは<command>CALL</command>文の変数と対応しなければならず、プロシージャが返すものは全て、<command>CALL</command>文が返った後にこの変数に書き戻されます。
+以下に例を示します。
 <programlisting>
 CREATE PROCEDURE triple(INOUT x int)
 LANGUAGE plpgsql
@@ -5016,9 +5037,13 @@ END LOOP <optional> <replaceable>label</replaceable> </optional>;
   </sect1>
 
   <sect1 id="plpgsql-transactions">
+<!--
    <title>Transaction Management</title>
+-->
+   <title>トランザクション制御</title>
 
    <para>
+<!--
     In procedures invoked by the <command>CALL</command> command
     as well as in anonymous code blocks (<command>DO</command> command),
     it is possible to end transactions using the
@@ -5027,10 +5052,17 @@ END LOOP <optional> <replaceable>label</replaceable> </optional>;
     these commands, so there is no separate <command>START
     TRANSACTION</command> command.  (Note that <command>BEGIN</command> and
     <command>END</command> have different meanings in PL/pgSQL.)
+-->
+<command>CALL</command>コマンドで呼び出されたプロシージャ、また同様に無名コードブロック（<command>DO</command>コマンド）では、<command>COMMIT</command>および<command>ROLLBACK</command>コマンドを使ってトランザクションを終えることができます。
+トランザクションをこれらコマンドで終了した後、新たなトランザクションが自動的に開始されます。そのため、別途の<command>START TRANSACTION</command>はありません。
+（PL/pgSQLでは<command>BEGIN</command>と<command>END</command>は別の意味を持つことに注意してください。）
    </para>
 
    <para>
+<!--
     Here is a simple example:
+-->
+以下に例を示します。
 <programlisting>
 CREATE PROCEDURE transaction_test1()
 LANGUAGE plpgsql
@@ -5052,6 +5084,7 @@ CALL transaction_test1();
    </para>
 
    <para>
+<!--
     Transaction control is only possible in <command>CALL</command> or
     <command>DO</command> invocations from the top level or nested
     <command>CALL</command> or <command>DO</command> invocations without any
@@ -5063,10 +5096,18 @@ CALL transaction_test1();
     func2()</command> &rarr; <command>CALL proc3()</command>, then the last
     procedure cannot do transaction control, because of the
     <command>SELECT</command> in between.
+-->
+トランザクション制御は、トップレベル、または、他の干渉するコマンドを伴わない入れ子の<command>CALL</command>または<command>DO</command>呼び出しからの、<command>CALL</command>または<command>DO</command>による呼び出しのみで可能です。
+例えば、呼び出しスタックが<command>CALL proc1()</command> &rarr; <command>CALL proc2()</command> &rarr; <command>CALL proc3()</command>である場合、二番目と三番目のプロシージャはトランザクション制御を実行できます。
+しかし、呼び出しスタックが<command>CALL proc1()</command> &rarr; <command>SELECT func2()</command> &rarr; <command>CALL proc3()</command>である場合、間の<command>SELECT</command>のため、最後のプロシージャはトランザクション制御を実行できません。
    </para>
 
    <para>
+<!--
     Special considerations apply to cursor loops.  Consider this example:
+-->
+カーソルループには特別な考慮事項が当てはまります。
+以下の例をよく確認してください。
 <programlisting>
 CREATE PROCEDURE transaction_test2()
 LANGUAGE plpgsql
@@ -5083,6 +5124,7 @@ $$;
 
 CALL transaction_test2();
 </programlisting>
+<!--
     Normally, cursors are automatically closed at transaction commit.
     However, a cursor created as part of a loop like this is automatically
     converted to a holdable cursor by the first <command>COMMIT</command> or
@@ -5091,16 +5133,27 @@ CALL transaction_test2();
     <command>ROLLBACK</command> rather than row by row.  The cursor is still
     removed automatically after the loop, so this is mostly invisible to the
     user.
+-->
+通常、カーソルはトランザクションのコミット時に自動的に閉じられます。
+しかしながら、このようにループの一部として作られたカーソルは、最初の<command>COMMIT</command>または<command>ROLLBACK</command>から自動的にホールドカーソルに変換されます。
+このことは、今や、最初の<command>COMMIT</command>や<command>ROLLBACK</command>の時点でカーソルが行ごとではなく完全に評価されることを意味します。
+従来通りカーソルはループ後に自動で削除されるので、このことはユーザにほとんど認識されません。
    </para>
 
    <para>
+<!--
     Transaction commands are not allowed in cursor loops driven by commands
     that are not read-only (for example <command>UPDATE
     ... RETURNING</command>).
+-->
+トランザクションコマンドは、読み込み専用でないコマンド（例えば<command>UPDATE ... RETURNING</command>）で駆動されるカーソルループ内では許可されません。
    </para>
 
    <para>
+<!--
     A transaction cannot be ended inside a block with exception handlers.
+-->
+例外ハンドラを伴うブロック内ではトランザクションを終了できません。
    </para>
   </sect1>
 
@@ -5497,7 +5550,7 @@ ASSERT <replaceable class="parameter">condition</replaceable> <optional> , <repl
 <!--
   <title>Trigger Functions</title>
 -->
-<title>トリガプロシージャ</title>
+<title>トリガ関数</title>
 
   <indexterm zone="plpgsql-trigger">
 <!--
@@ -5519,8 +5572,8 @@ ASSERT <replaceable class="parameter">condition</replaceable> <optional> , <repl
    Special local variables named <varname>TG_<replaceable>something</replaceable></varname> are
    automatically defined to describe the condition that triggered the call.
 -->
-<application>PL/pgSQL</application>はデータ変更やデータベースのイベントによるトリガプロシージャの定義に使用できます。
-トリガプロシージャは、<command>CREATE FUNCTION</command>コマンドを使って、(データ変更トリガには)<type>trigger</type>、(データベースイベントトリガには)<type>event_trigger</type>という戻り値の型を持った引数のない関数として作成されます。
+<application>PL/pgSQL</application>はデータ変更やデータベースのイベントによるトリガ関数の定義に使用できます。
+トリガ関数は、<command>CREATE FUNCTION</command>コマンドを使って、(データ変更トリガには)<type>trigger</type>、(データベースイベントトリガには)<type>event_trigger</type>という戻り値の型を持った引数のない関数として作成されます。
 その呼出しのトリガの原因となった条件を記述するため、<varname>TG_<replaceable>something</replaceable></varname>という名前の特別な局所変数が自動的に定義されます。
   </para>
 
@@ -5716,7 +5769,7 @@ ASSERT <replaceable class="parameter">condition</replaceable> <optional> , <repl
        function in the <command>CREATE TRIGGER</command> statement.
 -->
 <type>integer</type>型。
-<command>CREATE TRIGGER</command>文におけるトリガプロシージャに与えられる引数の数。
+<command>CREATE TRIGGER</command>文におけるトリガ関数に与えられる引数の数。
       </para>
      </listitem>
     </varlistentry>
@@ -5830,14 +5883,14 @@ NULLとしても構いません。
     <xref linkend="plpgsql-trigger-example"/> shows an example of a
     trigger function in <application>PL/pgSQL</application>.
 -->
-<xref linkend="plpgsql-trigger-example"/>に<application>PL/pgSQL</application>のトリガプロシージャの例を示します。
+<xref linkend="plpgsql-trigger-example"/>に<application>PL/pgSQL</application>のトリガ関数の例を示します。
    </para>
 
    <example id="plpgsql-trigger-example">
 <!--
     <title>A <application>PL/pgSQL</application> Trigger Function</title>
 -->
-<title><application>PL/pgSQL</application>トリガプロシージャ</title>
+<title><application>PL/pgSQL</application>トリガ関数</title>
 
     <para>
 <!--
@@ -5904,14 +5957,14 @@ CREATE TRIGGER emp_stamp BEFORE INSERT OR UPDATE ON emp
 -->
 テーブルにおける変更のログを取る他の方法は、挿入、更新または削除の各々に対する行を保有する新テーブルを作成することです。
 この方法はテーブルにおける変更の監査と考えることができます。
-<xref linkend="plpgsql-trigger-audit-example"/>は<application>PL/pgSQL</application>による監査用トリガプロシージャの一例を示します。
+<xref linkend="plpgsql-trigger-audit-example"/>は<application>PL/pgSQL</application>による監査用トリガ関数の一例を示します。
    </para>
 
    <example id="plpgsql-trigger-audit-example">
 <!--
     <title>A <application>PL/pgSQL</application> Trigger Function For Auditing</title>
 -->
-<title><application>PL/pgSQL</application>による監査用のトリガプロシージャ</title>
+<title><application>PL/pgSQL</application>による監査用のトリガ関数</title>
 
     <para>
 <!--
@@ -5987,7 +6040,7 @@ AFTER INSERT OR UPDATE OR DELETE ON emp
 <!--
     <title>A <application>PL/pgSQL</application> View Trigger Function For Auditing</title>
 -->
-<title>監査のための<application>PL/pgSQL</application>ビュートリガプロシージャ</title>
+<title>監査のための<application>PL/pgSQL</application>ビュートリガ関数</title>
 
     <para>
 <!--
@@ -6081,7 +6134,7 @@ INSTEAD OF INSERT OR UPDATE OR DELETE ON emp_view
 トリガの使用目的の1つは、あるテーブルのサマリテーブルを維持することです。
 結果のサマリテーブルは、元のテーブルに代わって、ある種の問い合わせに対して使用でき、しばしば実行時間を大幅に縮小します。
 通常この手法は、計測または観測データ（ファクトテーブルと言います）が非常に大きくなるかもしれない、データウェアハウスに使用されます。
-データウェアハウス内のファクトテーブルに対してサマリテーブルを維持する<application>PL/pgSQL</application>のトリガプロシージャの例を<xref linkend="plpgsql-trigger-summary-example"/>に示します。
+データウェアハウス内のファクトテーブルに対してサマリテーブルを維持する<application>PL/pgSQL</application>のトリガ関数の例を<xref linkend="plpgsql-trigger-summary-example"/>に示します。
    </para>
 
 
@@ -6089,7 +6142,7 @@ INSTEAD OF INSERT OR UPDATE OR DELETE ON emp_view
 <!--
     <title>A <application>PL/pgSQL</application> Trigger Function For Maintaining A Summary Table</title>
 -->
-<title>サマリテーブルを維持するための<application>PL/pgSQL</application>トリガプロシージャ</title>
+<title>サマリテーブルを維持するための<application>PL/pgSQL</application>トリガ関数</title>
 
     <para>
 <!--
@@ -6370,7 +6423,7 @@ CREATE TRIGGER emp_audit_del
     no arguments and a return type of <literal>event_trigger</literal>.
 -->
 <application>PL/pgSQL</application>は<link linkend="event-triggers">イベントトリガ</link>の定義に使用できます。
-イベントトリガとして呼び出されるプロシージャは、引数のない関数として宣言され、戻り値の型は<literal>event_trigger</literal>となることが<productname>PostgreSQL</productname>では必須です。
+イベントトリガとして呼び出される関数は、引数のない関数として宣言され、戻り値の型は<literal>event_trigger</literal>となることが<productname>PostgreSQL</productname>では必須です。
    </para>
 
    <para>
@@ -6418,14 +6471,14 @@ CREATE TRIGGER emp_audit_del
     <xref linkend="plpgsql-event-trigger-example"/> shows an example of an
     event trigger function in <application>PL/pgSQL</application>.
 -->
-<xref linkend="plpgsql-event-trigger-example"/>は<application>PL/pgSQL</application>におけるイベントトリガプロシージャの一例を示します。
+<xref linkend="plpgsql-event-trigger-example"/>は<application>PL/pgSQL</application>におけるイベントトリガ関数の一例を示します。
    </para>
 
    <example id="plpgsql-event-trigger-example">
 <!--
     <title>A <application>PL/pgSQL</application> Event Trigger Function</title>
 -->
-<title><application>PL/pgSQL</application>イベントトリガプロシージャ</title>
+<title><application>PL/pgSQL</application>イベントトリガ関数</title>
 
     <para>
 <!--
