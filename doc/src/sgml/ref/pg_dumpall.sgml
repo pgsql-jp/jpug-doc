@@ -54,11 +54,9 @@ PostgreSQL documentation
 <application>pg_dumpall</application>はクラスタの全ての<productname>PostgreSQL</productname>データベースを、1つのスクリプトファイルに書き出す（<quote>ダンプする</quote>）ためのユーティリティです。
 スクリプトファイルには、データベースのリストアのために<xref linkend="app-psql"/>への入力として使うことのできる<acronym>SQL</acronym>コマンドが含まれています。
 これはクラスタ内の各データベースに対して<xref linkend="app-pgdump"/>を呼び出すことで行われます。
-さらに、<application>pg_dumpall</application>は、全てのデータベースに共通するグローバルオブジェクトもダンプします
+さらに、<application>pg_dumpall</application>は、全てのデータベースに共通するグローバルオブジェクト、すなわちデータベースロールとテーブルペースもダンプします
 （<application>pg_dump</application>はこれらのオブジェクトを保存しません）。
-現時点では、これにはデータベースユーザとグループ、テーブル空間、データベース全体に適用するアクセス制限などの属性に関する情報が含まれています。
   </para>
-
 
   <para>
 <!--
@@ -69,7 +67,7 @@ PostgreSQL documentation
    allowed to add roles and create databases.
 -->
 <application>pg_dumpall</application>は全てのデータベースからテーブルを読み込むため、完全なダンプを作成するには、おそらくデータベーススーパーユーザとして接続する必要がある可能性が高いでしょう。
-さらに、保存されたスクリプトを実行する時には、ユーザとグループを追加したり、データベースを作成したりするので、スーパーユーザ権限が必要になるでしょう。
+さらに、保存されたスクリプトを実行する時には、ロールを追加したり、データベースを作成したりするので、スーパーユーザ権限が必要になるでしょう。
   </para>
 
   <para>
@@ -146,10 +144,15 @@ SQLスクリプトは標準出力に書き込まれます。
       <term><option>--encoding=<replaceable class="parameter">encoding</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Create the dump in the specified character set encoding. By default,
         the dump is created in the database encoding.  (Another way to get the
         same result is to set the <envar>PGCLIENTENCODING</envar> environment
         variable to the desired dump encoding.)
+-->
+指定された文字エンコーディングでダンプを作ります。
+デフォルトでは、ダンプはデータベースエンコーディングで作られます。
+（同じ結果を得る他の方法は<envar>PGCLIENTENCODING</envar>環境変数を望みのダンプエンコーディングに設定することです。）
        </para>
       </listitem>
      </varlistentry>
@@ -451,6 +454,7 @@ SQLスクリプトは標準出力に書き込まれます。
       <term><option>--load-via-partition-root</option></term>
       <listitem>
        <para>
+<!--
         When dumping data for a table partition, make
         the <command>COPY</command> or <command>INSERT</command> statements
         target the root of the partitioning hierarchy that contains it, rather
@@ -461,6 +465,11 @@ SQLスクリプトは標準出力に書き込まれます。
         could happen, for example, if the partitioning column is of type text
         and the two systems have different definitions of the collation used
         to sort the partitioning column.
+-->
+テーブルパーティションに対するデータをダンプするとき、<command>COPY</command>や<command>INSERT</command>文をパーティション自体ではなく、それを含むパーティション階層のルートに向けさせます。
+これにより、データが読み込まれるときに各行に対して適切なパーティションが再判断されるようになります。
+これは、行が必ずしも元のサーバと同じパーティションに落ちないようなサーバにデータを再読み込みするときに有用でしょう。
+例えば、パーティション列がtext型で二つのシステムがパーティション列をソートするのに使われる照合順序の異なった定義を持っている場合に、これは起こりえることです。
        </para>
 
        <!-- Currently, we don't need pg_dump's warning about parallelism here,
@@ -497,7 +506,10 @@ SQLスクリプトは標準出力に書き込まれます。
       <term><option>--no-comments</option></term>
       <listitem>
        <para>
+<!--
         Do not dump comments.
+-->
+コメントをダンプしません。
        </para>
       </listitem>
      </varlistentry>
@@ -912,14 +924,19 @@ SQLスクリプトは標準出力に書き込まれます。
   </para>
 
   <para>
-   The <option>--clean</option> option can be useful even when your
+<!--
+   The <option>-&#045;clean</option> option can be useful even when your
    intention is to restore the dump script into a fresh cluster.  Use of
-   <option>--clean</option> authorizes the script to drop and re-create the
+   <option>-&#045;clean</option> authorizes the script to drop and re-create the
    built-in <literal>postgres</literal> and <literal>template1</literal>
    databases, ensuring that those databases will retain the same properties
    (for instance, locale and encoding) that they had in the source cluster.
    Without the option, those databases will retain their existing
    database-level properties, as well as any pre-existing contents.
+-->
+<option>--clean</option>オプションは、ダンプスクリプトを新しいクラスタにリストアする意図のときであっても、有用なことがあります。
+<option>--clean</option>の使用は、スクリプトに組み込みの<literal>postgres</literal>および<literal>template1</literal>データベースを削除して再作成する権限を与え、これらのデータベースが元のクラスタに持っていたものと同じ属性（例えばロケールやエンコーディング）を保つことを保証します。
+このオプションが無いと、これらのデータベースは既存のデータベースレベルの属性を維持します。
   </para>
 
   <para>
@@ -934,15 +951,21 @@ SQLスクリプトは標準出力に書き込まれます。
   </para>
 
   <para>
+<!--
    The dump script should not be expected to run completely without errors.
    In particular, because the script will issue <command>CREATE ROLE</command>
    for every role existing in the source cluster, it is certain to get a
    <quote>role already exists</quote> error for the bootstrap superuser,
    unless the destination cluster was initialized with a different bootstrap
    superuser name.  This error is harmless and should be ignored.  Use of
-   the <option>--clean</option> option is likely to produce additional
+   the <option>-&#045;clean</option> option is likely to produce additional
    harmless error messages about non-existent objects, although you can
-   minimize those by adding <option>--if-exists</option>.
+   minimize those by adding <option>-&#045;if-exists</option>.
+-->
+ダンプスクリプトはエラー無しに完全に実行すると期待すべきではありません。
+特にスクリプトは存在する全てのロールに対して<command>CREATE ROLE</command>を発行するので、宛先のクラスタが異なるベースストラップスーパーユーザ名で初期化されていない限り、ブートストラップスーパーユーザについて<quote>role already exists</quote>エラーを受け取ることは確実です。
+このエラーは無害であり、無視してください。
+<option>--clean</option>オプションの使用は、追加で無害な存在しないオブジェクトについてのエラーメッセージを発生させますが、<option>--if-exists</option>を加えることでエラー発生を最小化できます。
   </para>
 
   <para>
@@ -992,8 +1015,9 @@ SQLスクリプトは標準出力に書き込まれます。
    the script will attempt to drop other databases immediately, and that
    will fail for the database you are connected to.
 -->
-（ここではどのデータベースに接続するかということは重要ではありません。
-なぜなら<application>pg_dumpall</application>が作成するスクリプトファイルには、保存されたデータベースの作成および接続のためのコマンドが含まれているからです。）
+ここではどのデータベースに接続するかということは重要ではありません。なぜなら<application>pg_dumpall</application>が作成するスクリプトファイルには、保存されたデータベースの作成および接続のための適切なコマンドが含まれているからです。
+例外は<option>--clean</option>を指定した場合で、最初に<literal>postgres</literal>データベースに接続しなければなりません。
+このときのスクリプトは即座に他のデータベースを削除しようとし、接続中のデータベースに対しては失敗するでしょう。
   </para>
  </refsect1>
 

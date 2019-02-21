@@ -67,7 +67,7 @@ PostgreSQL documentation
    use <xref linkend="app-pg-dumpall"/>.
 -->
 <application>pg_dump</application>は単一のデータベースしかダンプしません。
-ロールやテーブル空間など、クラスタ内の全データベースに共通のグローバルオブジェクトをダンプするには<xref linkend="app-pg-dumpall"/>を使用してください。
+クラスタ全体、あるいは、クラスタ内の全データベースに共通のグローバルオブジェクト（ロールやテーブル空間など）をダンプするには<xref linkend="app-pg-dumpall"/>を使用してください。
   </para>
 
   <para>
@@ -283,14 +283,18 @@ blobはデータとみなされるため、--data-onlyが使われたときは�
        </para>
 
        <para>
-        With <option>--create</option>, the output also includes the
+<!--
+        With <option>-&#045;create</option>, the output also includes the
         database's comment if any, and any configuration variable settings
         that are specific to this database, that is,
         any <command>ALTER DATABASE ... SET ...</command>
         and <command>ALTER ROLE ... IN DATABASE ... SET ...</command>
         commands that mention this database.
         Access privileges for the database itself are also dumped,
-        unless <option>--no-acl</option> is specified.
+        unless <option>-&#045;no-acl</option> is specified.
+-->
+<option>--create</option>では出力に、もしあるならデータベースのコメントも含まれます。また、あらゆる設定変数の設定、すなわち、このデーベースを対象としている<command>ALTER DATABASE ... SET ...</command>と<command>ALTER ROLE ... IN DATABASE ... SET ...</command>コマンドも含まれます。
+<option>--no-acl</option>が指定されていない限り、データベースに対するアクセス権限自体もダンプされます。
        </para>
 
        <para>
@@ -1128,6 +1132,7 @@ tarアーカイブ形式では現在圧縮を全くサポートしていませ�
       <term><option>--load-via-partition-root</option></term>
       <listitem>
        <para>
+<!--
         When dumping data for a table partition, make
         the <command>COPY</command> or <command>INSERT</command> statements
         target the root of the partitioning hierarchy that contains it, rather
@@ -1138,9 +1143,15 @@ tarアーカイブ形式では現在圧縮を全くサポートしていませ�
         could happen, for example, if the partitioning column is of type text
         and the two systems have different definitions of the collation used
         to sort the partitioning column.
+-->
+テーブルパーティションのデータをダンプするときには、<command>COPY</command>あるいは<command>INSERT</command>文の対象を、そのパーティションではなく、それを含むパーティション階層のルートにします。
+これにより、データが読み込まれるときに各行に対して適切なパーティションが再判断されます。
+これは行が元のサーバ上と同じパーティションに必ずしも落ちないようなサーバ上にデータを再読み込みするときに有用でしょう。
+例えば、パーティション列がtext型で二つのシステムがパーティション列のソートで使われる照合順序の異なる定義を持っている場合に、これはあり得ます。
        </para>
 
        <para>
+<!--
         It is best not to use parallelism when restoring from an archive made
         with this option, because <application>pg_restore</application> will
         not know exactly which partition(s) a given archive data item will
@@ -1148,6 +1159,9 @@ tarアーカイブ形式では現在圧縮を全くサポートしていませ�
         conflicts between parallel jobs, or perhaps even reload failures due
         to foreign key constraints being set up before all the relevant data
         is loaded.
+-->
+<application>pg_restore</application>は与えられたアーカイブデータ要素がデータを投入するパーティションがどれであるかを正確に知ることがないため、このオプションで作られたアーカイブからリストアを行うときには並列化しない方が良いです。
+並行ジョブ間でのロック競合のため、これは非効率になります。また、全ての関連データが読み込まれる前に外部キー制約が設定されることにより、場合によってはリロード失敗も起こります。
        </para>
       </listitem>
      </varlistentry>
@@ -1180,7 +1194,7 @@ tarアーカイブ形式では現在圧縮を全くサポートしていませ�
 <!--
         Do not dump comments.
 -->
-パブリケーションをダンプしません。
+コメントをダンプしません。
        </para>
       </listitem>
      </varlistentry>
@@ -1920,8 +1934,11 @@ CREATE DATABASE foo WITH TEMPLATE template0;
   </para>
 
   <para>
+<!--
    To reload an archive file into the same database it was dumped from,
    discarding the current contents of that database:
+-->
+アーカイブファイルをダンプ元と同じデータベースに再ロードし、そのデータベースの現在の内容を捨てます。
 
 <screen>
 <prompt>$</prompt> <userinput>pg_restore -d postgres --clean --create db.dump</userinput>
