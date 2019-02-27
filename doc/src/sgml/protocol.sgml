@@ -1051,26 +1051,40 @@ RowDescriptionメッセージ内で与えられる書式コードは、どの書
    </para>
 
    <sect3 id="protocol-flow-multi-statement">
+<!--
     <title>Multiple Statements in a Simple Query</title>
+-->
+    <title>簡易問い合わせでの複文</title>
 
     <para>
+<!--
      When a simple Query message contains more than one SQL statement
      (separated by semicolons), those statements are executed as a single
      transaction, unless explicit transaction control commands are included
      to force a different behavior.  For example, if the message contains
+-->
+簡易Queryメッセージが二つ以上の（セミコロンで区切られた）SQL文を含むとき、振る舞いを変えるように明示的なトランザクション制御コマンドが含まれていない限り、これらの文は単一トランザクションで実行されます。
+例えばメッセージが以下を含む場合、
 <programlisting>
 INSERT INTO mytable VALUES(1);
 SELECT 1/0;
 INSERT INTO mytable VALUES(2);
 </programlisting>
+<!--
      then the divide-by-zero failure in the <command>SELECT</command> will force
      rollback of the first <command>INSERT</command>.  Furthermore, because
      execution of the message is abandoned at the first error, the second
      <command>INSERT</command> is never attempted at all.
+-->
+<command>SELECT</command>でのゼロ除算エラーは最初の<command>INSERT</command>のロールバックを強制します。
+さらに、メッセージの実行が最初のエラー時点で中止されるので、二番目の<command>INSERT</command>は全く試みられません。
     </para>
 
     <para>
+<!--
      If instead the message contains
+-->
+代わりにメッセージが以下を含んでいる場合、
 <programlisting>
 BEGIN;
 INSERT INTO mytable VALUES(1);
@@ -1078,14 +1092,19 @@ COMMIT;
 INSERT INTO mytable VALUES(2);
 SELECT 1/0;
 </programlisting>
+<!--
      then the first <command>INSERT</command> is committed by the
      explicit <command>COMMIT</command> command.  The second <command>INSERT</command>
      and the <command>SELECT</command> are still treated as a single transaction,
      so that the divide-by-zero failure will roll back the
      second <command>INSERT</command>, but not the first one.
+-->
+最初の<command>INSERT</command>は明示的な<command>COMMIT</command>コマンドによりコミットされます。
+二番目の<command>INSERT</command>と<command>SELECT</command>は、やはり単一トランザクションとして処理されます。
     </para>
 
     <para>
+<!--
      This behavior is implemented by running the statements in a
      multi-statement Query message in an <firstterm>implicit transaction
      block</firstterm> unless there is some explicit transaction block for them to
@@ -1095,9 +1114,14 @@ SELECT 1/0;
      error, or an implicit rollback if there was an error.  This is similar
      to the implicit commit or rollback that happens for a statement
      executed by itself (when not in a transaction block).
+-->
+この振る舞いは、<firstterm>暗黙トランザクションブロック</firstterm>で複文Queryメッセージ内の文を実行することで、その中に明示的なトランザクションブロックがある場合を除き、発現します。
+暗黙トランザクションブロックと通常のトラザクションブロックとの主な違いは、暗黙ブロックは自動的にQueryメッセージの最後にて、エラーが無いなら暗黙のコミット、エラーがあるなら暗黙のロールバックで、自動的に閉じられることです。
+これは（トランザクションブロック内に無いときの）文の単体実行に対して生じる暗黙のコミットあるいはロールバックに似ています。
     </para>
 
     <para>
+<!--
      If the session is already in a transaction block, as a result of
      a <command>BEGIN</command> in some previous message, then the Query message
      simply continues that transaction block, whether the message contains
@@ -1113,39 +1137,61 @@ SELECT 1/0;
      an implicit transaction block, those statements are not immediately
      committed; in effect, they are retroactively included into the new
      regular transaction block.
+-->
+何らか手前のメッセージでの<command>BEGIN</command>の結果として、セッションが既にトランザクションブロック内である場合、Queryメッセージは、含まれるのが単一文でもいくつかの文でも、単にそのトランザクションを継続します。
+しかしながら、Queryメッセージが既存トランザクションブロックを閉じる<command>COMMIT</command>や<command>ROLLBACK</command>を含む場合、続く全ての文は暗黙トランザクションブロックで実行されます。
+逆に言えば、複文Queryメッセージで<command>BEGIN</command>が現れたなら、このQueryメッセージ内または後のメッセージのいずれかにあらわれる明示的な<command>COMMIT</command>や<command>ROLLBACK</command>でのみ終了する、通常のトランザクションブロックが開始されます。
+<command>BEGIN</command>が暗黙トランザクションブロックとして実行されたいくつかの文に続く場合、これらの文が直ちにコミットされることはありません。
+結果として、これらは遡って新たな通常のトランザクションブロックに含められます。
     </para>
 
     <para>
+<!--
      A <command>COMMIT</command> or <command>ROLLBACK</command> appearing in an implicit
      transaction block is executed as normal, closing the implicit block;
      however, a warning will be issued since a <command>COMMIT</command>
      or <command>ROLLBACK</command> without a previous <command>BEGIN</command> might
      represent a mistake.  If more statements follow, a new implicit
      transaction block will be started for them.
+-->
+暗黙トランザクションブロック内に現れた<command>COMMIT</command>や<command>ROLLBACK</command>は通常通り実行され、暗黙ブロックを閉じますが、手前の<command>BEGIN</command>無しの<command>COMMIT</command>や<command>ROLLBACK</command>は誤りであるかもしれないので警告が発行されます。
+さらに文が続く場合、それらに対して新たな暗黙トランザクションブロックが開始されます。
     </para>
 
     <para>
+<!--
      Savepoints are not allowed in an implicit transaction block, since
      they would conflict with the behavior of automatically closing the
      block upon any error.
+-->
+エラー時の自動ブロッククローズの振る舞いと競合するので暗黙トランザクションブロックでセーブポイントは使えません。
     </para>
 
     <para>
+<!--
      Remember that, regardless of any transaction control commands that may
      be present, execution of the Query message stops at the first error.
      Thus for example given
+-->
+現状のいかなるトランザクション制御コマンドでも、Queryメッセージの実行は最初のエラー時点で打ち切られることに留意してください。
+例を示します。
 <programlisting>
 BEGIN;
 SELECT 1/0;
 ROLLBACK;
 </programlisting>
+<!--
      in a single Query message, the session will be left inside a failed
      regular transaction block, since the <command>ROLLBACK</command> is not
      reached after the divide-by-zero error.  Another <command>ROLLBACK</command>
      will be needed to restore the session to a usable state.
+-->
+上記が単一Queryメッセージにあるとして、ゼロ除算エラーの後に<command>ROLLBACK</command>に達することがないため、このセッションは失敗した通常のトランザクション内のままとなります。
+このセッションを通常の状態に回復させるには別の<command>ROLLBACK</command>が必要となります。
     </para>
 
     <para>
+<!--
      Another behavior of note is that initial lexical and syntactic
      analysis is done on the entire query string before any of it is
      executed.  Thus simple errors (such as a misspelled keyword) in later
@@ -1155,6 +1201,12 @@ ROLLBACK;
      it can be visible when attempting to do multiple transactions within a
      multi-statement Query.  For instance, if a typo turned our previous
      example into
+-->
+その他の注意すべき振る舞いは、初期の字句および構文解析が少しも実行されない段階で問い合わせ文字列全体に対して行われることです。
+従って、後ろの分にある（スペルミスしたキーワードなどの）単純なエラーは全ての文の実行を妨げることがあります。
+暗黙トランザクションブロックとして起きたとき、いずれにせよ全ての文はロールバックされるので、これは通常はユーザに見えません。
+しかしながら、複文問い合わせの中で複数のトランザクションを実行しようとするとき、この挙動が明らかになることがあります。
+例えば、タイプミスで先の例を以下のようにします。
 <programlisting>
 BEGIN;
 INSERT INTO mytable VALUES(1);
@@ -1162,10 +1214,14 @@ COMMIT;
 INSERT INTO mytable VALUES(2);
 SELCT 1/0;
 </programlisting>
+<!--
      then none of the statements would get run, resulting in the visible
      difference that the first <command>INSERT</command> is not committed.
      Errors detected at semantic analysis or later, such as a misspelled
      table or column name, do not have this effect.
+-->
+そうすると、含まれる文は一つも実行されず、最初の<command>INSERT</command>がコミットされないという違いが明らかになります。
+エラーは、ミススペルしたテーブルやカラム名など、語彙の解析かその後に検出され、コマンドの効力はありません。
     </para>
    </sect3>
   </sect2>
@@ -2195,8 +2251,9 @@ authentication is performed in general, while the next subsection gives
 more details on SCRAM-SHA-256 and SCRAM-SHA-256-PLUS.
 -->
 <firstterm>SASL</firstterm>は接続指向のプロトコルでの認証のためのフレームワークです。
-現時点では<productname>PostgreSQL</productname>はSASLの認証機構を１つだけ、SCRAM-SHA-256を実装しているだけですが、将来には他の機構が追加されるかもしれません。
-以下の手順は、SASLの認証が一般的にどのように行われるかを示したものですが、次の副節ではSCRAM-SHA-256におけるより詳細について説明します。
+現時点では<productname>PostgreSQL</productname>は2つのSASLの認証機構、SCRAM-SHA-256とSCRAM-SHA-256-PLUSを実装しています。
+将来には他の機構が追加されるかもしれません。
+以下の手順は、SASLの認証が一般的にどのように行われるかを示したものですが、次の副節ではSCRAM-SHA-256とSCRAM-SHA-256-PLUSにおけるより詳細について説明します。
 </para>
 
 <procedure>
@@ -2283,11 +2340,12 @@ ErrorMessage.
    binding <literal>SCRAM-SHA-256-PLUS</literal>. They are described in
    detail in RFC 7677 and RFC 5802.
 -->
-<firstterm>SCRAM-SHA-256</firstterm>（以下では単に<firstterm>SCRAM</firstterm>と呼びます）は現時点で実装されている唯一のSASL機構です。
+今のところ実装されているSASL機構は<firstterm>SCRAM-SHA-256</firstterm>とチャンネルバインディングを伴う変種の<literal>SCRAM-SHA-256-PLUS</literal>です。
 詳細はRFC 7677およびRFC 5802で説明されています。
   </para>
 
   <para>
+<!--
 When SCRAM-SHA-256 is used in PostgreSQL, the server will ignore the user name
 that the client sends in the <structname>client-first-message</structname>. The user name
 that was already sent in the startup message is used instead.
@@ -2322,13 +2380,19 @@ SCRAMの使用ではパスワードもUTF-8であり、<firstterm>SASLprep</firs
   </para>
 
   <para>
+<!--
 <firstterm>Channel binding</firstterm> is supported in PostgreSQL builds with
 SSL support. The SASL mechanism name for SCRAM with channel binding is
 <literal>SCRAM-SHA-256-PLUS</literal>.  The channel binding type used by
 PostgreSQL is <literal>tls-server-end-point</literal>.
+-->
+SSLをサポートするPostgreSQLビルドで<firstterm>チャンネルバインディング</firstterm>がサポートされます。
+チャンネルバインディングを伴うSCRAMに対するSASL機構名は<literal>SCRAM-SHA-256-PLUS</literal>です。
+PostgreSQLで使われるチャンネルバインディングのタイプは<literal>tls-server-end-point</literal>です。
   </para>
 
   <para>
+<!--
    In <acronym>SCRAM</acronym> without channel binding, the server chooses
    a random number that is transmitted to the client to be mixed with the
    user-supplied password in the transmitted password hash.  While this
@@ -2336,15 +2400,22 @@ PostgreSQL is <literal>tls-server-end-point</literal>.
    a later session, it does not prevent a fake server between the real
    server and client from passing through the server's random value 
    and successfully authenticating.
+-->
+チャンネルバインディングを伴わない<acronym>SCRAM</acronym>ではサーバは、送信されるパスワードハッシュの中でユーザに応じたパスワードと混合してクライアントに送る乱数を選びます。
+これはパスワードハッシュが後のセッションで再送信されて認証に成功してしまうことを防止しますが、真のサーバとクライアントの間の偽サーバがサーバのランダム値を中継して認証に成功してしまうことを防止しません。
   </para>
 
   <para>
+<!--
    <acronym>SCRAM</acronym> with channel binding prevents such
    man-in-the-middle attacks by mixing the signature of the server's
    certificate into the transmitted password hash. While a fake server can
    retransmit the real server's certificate, it doesn't have access to the
    private key matching that certificate, and therefore cannot prove it is
    the owner, causing SSL connection failure.
+-->
+チャンネルバインディングを伴う<acronym>SCRAM</acronym>はこのような中間者攻撃をサーバ証明書のシグネチャを送信されるパスワードハッシュと混合することで防止します。
+偽サーバは真のサーバの証明書を再送信できますが、その証明書に一致する秘密鍵にアクセスできず、それゆえ所有者であることを証明できず、結果としてSSL接続は失敗します。
   </para>
 
 <procedure>
@@ -2361,8 +2432,9 @@ PostgreSQL is <literal>tls-server-end-point</literal>.
   and <literal>SCRAM-SHA-256</literal> if the server is built with SSL
   support, or else just the latter.
 -->
-サーバがAuthenticationSASLメッセージを送信します。
+サーバはAuthenticationSASLメッセージを送信します。
 それにはサーバが受け付けることができるSASL認証機構のリストが含まれます。
+サーバがSSLサポート有でビルドされていれば、これは<literal>SCRAM-SHA-256-PLUS</literal>と<literal>SCRAM-SHA-256</literal>になり、そうでなければ後者のみとなります。
 </para>
 </step>
 <step id="scram-client-first">
@@ -2377,9 +2449,11 @@ PostgreSQL is <literal>tls-server-end-point</literal>.
   The <structname>client-first-message</structname> also contains the channel
   binding type chosen by the client.
 -->
-クライアントがSASLInitialResponseメッセージを送信することで応答します。
-これは選択した機構<literal>SCRAM-SHA-256</literal>を示します。
+クライアントはSASLInitialResponseメッセージを送信することで応答します。
+これは選択した機構、すなわち<literal>SCRAM-SHA-256</literal>または<literal>SCRAM-SHA-256-PLUS</literal>を示します。
+（クライアントは何れかの機構を自由に選びますが、より良いセキュリティのためサポートされているならチャンネルバインディングを伴うものを選ぶべきです。）
 Initial Clientの応答フィールドでは、メッセージにSCRAMの<structname>client-first-message</structname>が含まれます。
+<structname>client-first-message</structname>にはクライアントが選んだチャンネルバインディングのタイプも含まれます。
 </para>
 </step>
 <step id="scram-server-first">
@@ -2432,26 +2506,28 @@ physical replication walsender mode, wherein a small set of replication
 commands, shown below, can be issued instead of SQL statements.
 -->
 ストリーミングレプリケーションを初期化するために、フロントエンドは開始メッセージにて<literal>replication</literal>パラメータを送信します。
-ブール値の<literal>true</literal>がバックエンドに対して、SQL文ではなく小規模なレプリケーションコマンド群を発行できるようになる、walsenderモードに入るように伝えます。
-walsenderモードでは簡易問い合わせプロトコルのみを使用することができます。
-<xref linkend="guc-log-replication-commands"/>が有効であれば、レプリケーションコマンドはサーバログにログが残ります。
-<literal>database</literal>を値として渡すことにより、
-<literal>dbname</literal>パラメータに指定したデータベースに接続することをwalsenderに教えます。
-それにより、そのデータベースからの論理的レプリケーションとして使用する接続が可能となります。
+ブール値の<literal>true</literal>（または<literal>on</literal>、<literal>yes</literal>、<literal>1</literal>）がバックエンドに対して、SQL文ではなく小規模なレプリケーションコマンド群を発行できるようになる、物理レプリケーションのwalsenderモードに入るように伝えます。
 </para>
 
 <para>
+<!--
 Passing <literal>database</literal> as the value for the
 <literal>replication</literal> parameter instructs the backend to go into
 logical replication walsender mode, connecting to the database specified in
 the <literal>dbname</literal> parameter.  In logical replication walsender
 mode, the replication commands shown below as well as normal SQL commands can
 be issued.
+-->
+<literal>replication</literal>パラメータに対する値として<literal>database</literal>を渡すことは、バックエンドにロジカルレプリケーションのwalsendeモードに入ることを指示します。
+ロジカルレプリケーションwalsenderモードでは、以下に示すレプリケーションコマンドを通常のSQLコマンドと同様に実行できます。
 </para>
 
 <para>
+<!--
 In either physical replication or logical replication walsender mode, only the
 simple query protocol can be used.
+-->
+物理レプリケーション、ロジカルレプリケーションいずれかのwalsenderモードでは、簡易問い合わせプロトコルのみ使用できます。
 </para>
 
 <para>
@@ -2475,15 +2551,18 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
 </para>
 
 <para>
+<!--
 Replication commands are logged in the server log when
 <xref linkend="guc-log-replication-commands"/> is enabled.
+-->
+<xref linkend="guc-log-replication-commands"/>が有効であるとき、サーバログにレプリケーションコマンドが記録されます。
 </para>
 
 <para>
 <!--
 The commands accepted in replication mode are:
 -->
-walsenderモードで受け付けられるコマンドは以下の通りです。
+レプリケーションモードで受け付けられるコマンドは以下の通りです。
 <variablelist>
   <varlistentry>
     <term><literal>IDENTIFY_SYSTEM</literal>
@@ -3573,9 +3652,13 @@ CopyBothResponse内部のメッセージは、<literal>START_REPLICATION ... PHY
         <term><literal>NOVERIFY_CHECKSUMS</literal></term>
         <listitem>
          <para>
+<!--
           By default, checksums are verified during a base backup if they are
           enabled. Specifying <literal>NOVERIFY_CHECKSUMS</literal> disables
           this verification.
+-->
+デフォルトでは、チェックサムが有効である場合、ベースバックアップ中にチェックサムが検証されます。
+<literal>NOVERIFY_CHECKSUMS</literal>を指定すると、この検証を無効にします。
          </para>
         </listitem>
        </varlistentry>
@@ -3691,7 +3774,10 @@ CopyResponse結果内のデータは、テーブル空間の内容のtar形式�
        </listitem>
        <listitem>
         <para>
+<!--
          <filename>pg_internal.init</filename> (found in multiple directories)
+-->
+         <filename>pg_internal.init</filename>（複数のディレクトリに在ります）
         </para>
        </listitem>
        <listitem>
@@ -3701,13 +3787,16 @@ CopyResponse結果内のデータは、テーブル空間の内容のtar形式�
          of the PostgreSQL server, such as any file or directory beginning
          with <filename>pgsql_tmp</filename> and temporary relations.
 -->
-PostgreSQLサーバの操作中に作成される種々の一時ファイルおよびディレクトリで、<filename>pgsql_tmp</filename>で始まるすべてのファイルおよびディレクトリなど。
+PostgreSQLサーバの操作中に作成される種々の一時ファイルおよびディレクトリで、<filename>pgsql_tmp</filename>で始まるすべてのファイルおよびディレクトリ、および一時リレーション。
         </para>
        </listitem>
        <listitem>
         <para>
+<!--
          Unlogged relations, except for the init fork which is required to
          recreate the (empty) unlogged relation on recovery.
+-->
+ログを取らないリレーション。ただし、リカバリでログを取らないリレーションの再作成に必要なinitフォークは除かれない。
         </para>
        </listitem>
        <listitem>
@@ -9111,7 +9200,10 @@ Truncate
 </term>
 <listitem>
 <para>
+<!--
                 Identifies the message as a truncate message.
+-->
+メッセージをTruncateメッセージと識別します。
 </para>
 </listitem>
 </varlistentry>
@@ -9121,7 +9213,10 @@ Truncate
 </term>
 <listitem>
 <para>
+<!--
                 Number of relations
+-->
+リレーション数
 </para>
 </listitem>
 </varlistentry>
@@ -9131,8 +9226,11 @@ Truncate
 </term>
 <listitem>
 <para>
+<!--
                 Option bits for <command>TRUNCATE</command>:
                 1 for <literal>CASCADE</literal>, 2 for <literal>RESTART IDENTITY</literal>
+-->
+<command>TRUNCATE</command>に対するオプションビット。1は<literal>CASCADE</literal>、2は<literal>RESTART IDENTITY</literal>
 </para>
 </listitem>
 </varlistentry>
@@ -9142,8 +9240,12 @@ Truncate
 </term>
 <listitem>
 <para>
+<!--
                 ID of the relation corresponding to the ID in the relation
                 message.  This field is repeated for each relation.
+-->
+リレーションメッセージのIDに一致するリレーションのID。
+このフィールドは各リレーション毎に繰り返されます。
 </para>
 </listitem>
 </varlistentry>
