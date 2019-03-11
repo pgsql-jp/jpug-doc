@@ -1276,7 +1276,10 @@ CURRENT ROW
 UNBOUNDED FOLLOWING
 </synopsis>
 
+<!--
     and <replaceable>frame_exclusion</replaceable> can be one of
+-->
+また、<replaceable>frame_exclusion</replaceable>には以下のいずれかを取ることができます。
 
 <synopsis>
 EXCLUDE CURRENT ROW
@@ -1297,9 +1300,9 @@ EXCLUDE NO OTHERS
     <literal>RANGE BETWEEN CURRENT ROW AND <replaceable>offset</replaceable>
     PRECEDING</literal> is not allowed.
 -->
-<replaceable>frame_end</replaceable>が省略された場合デフォルトで<literal>CURRENT ROW</literal>となります。
-<replaceable>frame_start</replaceable>は<literal>UNBOUNDED FOLLOWING</literal>とすることができない、<replaceable>frame_end</replaceable>は<literal>UNBOUNDED PRECEDING</literal>とすることができない、および、上のリストで<replaceable>frame_end</replaceable>の選択を<replaceable>frame_start</replaceable>の選択より前に置くことができないという制限があります。
-例えば<literal>RANGE BETWEEN CURRENT ROW AND <replaceable>value</replaceable> PRECEDING</literal>は許されません。
+<replaceable>frame_end</replaceable>が省略された場合、デフォルトで<literal>CURRENT ROW</literal>となります。
+<replaceable>frame_start</replaceable>は<literal>UNBOUNDED FOLLOWING</literal>とすることができない、<replaceable>frame_end</replaceable>は<literal>UNBOUNDED PRECEDING</literal>とすることができない、また、<replaceable>frame_start</replaceable>と<replaceable>frame_end</replaceable>のオプションの上記リストで<replaceable>frame_end</replaceable>の選択を<replaceable>frame_start</replaceable>の選択よりも手前に現れるものにはできない、という制限があります。
+例えば<literal>RANGE BETWEEN CURRENT ROW AND <replaceable>offset</replaceable> PRECEDING</literal>は許されません。
    </para>
 
    <para>
@@ -1353,17 +1356,23 @@ EXCLUDE NO OTHERS
 -->
 デフォルトのフレーム化オプションは<literal>RANGE UNBOUNDED PRECEDING</literal>です。
 これは<literal>RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</literal>と同じで、
-パーティションの先頭から<literal>ORDER BY</literal>順序における現在の行の最後のピア(<literal>ORDER BY</literal>が現在の行の同等であるとみなす行、あるいは<literal>ORDER BY</literal>がなければすべての行)までのすべての行をフレームとします。
-一般的に<literal>UNBOUNDED PRECEDING</literal>はフレームがパーティションの先頭から始まることを意味し、同様に<literal>UNBOUNDED FOLLOWING</literal>はフレームがパーティションの最終行で終わることを意味します(<literal>RANGE</literal>モードか<literal>ROWS</literal>かは関係ありません)。
-<literal>ROWS</literal>モードでは、<literal>CURRENT ROW</literal>はフレームが現在の行で始まる、または終わることを意味しますが、<literal>RANGE</literal>モードでは、フレームが現在の行の<literal>ORDER BY</literal>順序における最初のピアまたは最後のピアで始まる、または終わることを意味します。
-現時点では<replaceable>value</replaceable> <literal>PRECEDING</literal>および<replaceable>value</replaceable> <literal>FOLLOWING</literal>という場合わけは<literal>ROWS</literal>モードだけで許されます。
-これらは、現在の行の何行前または何行後にフレームが始まるまたは終わることを示します。
-<replaceable>value</replaceable>は整数式でなければならず、変数、集約関数、ウィンドウ関数を含めることはできません。
-この値はNULLまたは負を取ることはできません。
-しかし、現在の行自身を選択するゼロを取ることができます。
+パーティションの先頭から現在の行の最後の<firstterm>ピア</firstterm>（ウィンドウの<literal>ORDER BY</literal>句が現在行と同等とみなす行、<literal>ORDER BY</literal>が無ければ全ての行がピア）までのすべての行をフレームとします。
+一般的に、<literal>RANGE</literal>や<literal>ROWS</literal>、<literal>GROUPS</literal>のモードにかかわらず、<literal>UNBOUNDED PRECEDING</literal>はフレームがパーティションの先頭行から開始することを意味し、同様に<literal>UNBOUNDED FOLLOWING</literal>はフレームがパーティションの最終行で終了することを意味します。
+<literal>ROWS</literal>モードでは<literal>CURRENT ROW</literal>はフレームが現在の行で開始または終了することを意味しますが、<literal>RANGE</literal>あるいは<literal>GROUPS</literal>モードではフレームが<literal>ORDER BY</literal>順序における現在行の最初または最後のピアで開始または終了することを意味します。
+<replaceable>offset</replaceable> <literal>PRECEDING</literal>および<replaceable>offset</replaceable> <literal>FOLLOWING</literal>オプションの意味はフレームのモードによって異なります。
+<literal>ROWS</literal>モードでは、<replaceable>offset</replaceable>はフレームが現在行の何行前または何行後に開始または終了するかを示す整数です。
+<literal>GROUPS</literal>モードでは、<replaceable>offset</replaceable>はフレームが現在行のピアグループからピアグループ何個、前または後で開始または終了するかを示す整数です。
+ここで<firstterm>ピアグループ</firstterm>とはウィンドウの<literal>ORDER BY</literal>句において等価の行のグループです。
+<literal>RANGE</literal>モードでは、<replaceable>offset</replaceable>オプションを使うには、ウィンドウ定義に一つだけ<literal>ORDER BY</literal>列があることが必要です。
+それで、整列する列の値が<replaceable>offset</replaceable>を超えないだけ、現在行の整列する列の値より小さい（<literal>PRECEDING</literal>に対して）、あるいは、より大きい（<literal>FOLLOWING</literal>に対して）行がフレームに含まれます。
+この場合、<replaceable>offset</replaceable>式のデータ型は整列する列のデータ型によって決まります。
+数値の整列する列に対する<replaceable>offset</replaceable>は一般的に整列する列と同じ型ですが、日付時刻の整列する列に対しては<type>interval</type>になります。
+これら全ての場合で、<replaceable>offset</replaceable>の値は非NULLかつ非負でなければなりません。
+また、<replaceable>offset</replaceable>が単純な定数である必要はありませんが、変数や集約関数、ウィンドウ関数を含めることはできません。
    </para>
 
    <para>
+<!--
     The <replaceable>frame_exclusion</replaceable> option allows rows around
     the current row to be excluded from the frame, even if they would be
     included according to the frame start and frame end options.
@@ -1375,6 +1384,12 @@ EXCLUDE NO OTHERS
     row from the frame, but not the current row itself.
     <literal>EXCLUDE NO OTHERS</literal> simply specifies explicitly the
     default behavior of not excluding the current row or its peers.
+-->
+<replaceable>frame_exclusion</replaceable>オブションは現在行の周辺の行を、フレーム開始とフレーム終了のオプションにより含まれるものであっても、フレームから除外することができます。
+<literal>EXCLUDE CURRENT ROW</literal>はフレームから現在行を除外します。
+<literal>EXCLUDE GROUP</literal>はフレームから現在行とその整列ピアを除外します。
+<literal>EXCLUDE TIES</literal>は現在行自身を除いた現在行のピアをフレームから除外します。
+<literal>EXCLUDE NO OTHERS</literal>は単に、現在行もそのピアも除外しないというデフォルトの振る舞いを明示的に指定します。
    </para>
 
    <para>
@@ -1386,8 +1401,8 @@ EXCLUDE NO OTHERS
     the <literal>ORDER BY</literal> ordering are treated alike: all rows of
     a given peer group will be in the frame or excluded from it.
 -->
-<literal>ORDER BY</literal>順序によりその行を一意に順序付けできない場合、<literal>ROWS</literal>が予期できない結果をもたらす可能性があることに注意して下さい。
-<literal>RANGE</literal>は、<literal>ORDER BY</literal>順序におけるピアとなる行が同等に扱われる、つまりすべてのピアは同じフレーム内に両方とも存在することが確実になるように設計されています。
+<literal>ORDER BY</literal>順序によりその行を一意に順序付けできない場合、<literal>ROWS</literal>モードが予期できない結果をもたらす可能性があることに注意して下さい。
+<literal>RANGE</literal>および<literal>GROUPS</literal>モードは、<literal>ORDER BY</literal>順序におけるピアとなる行が同等に扱われる、すなわち、与えられたピアグループの全行がフレームに入るか除外されるように設計されています。
    </para>
 
    <para>
