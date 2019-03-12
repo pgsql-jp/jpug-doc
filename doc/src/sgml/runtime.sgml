@@ -223,10 +223,13 @@ postgres$ <userinput>initdb -D /usr/local/pgsql/data</userinput>
    cluster data or perform other operations that only require read access.
 -->
 データディレクトリにはデータベースの中のすべてのデータが保持されるため、権限を持たない人からのアクセスを確実に制限することが不可欠です。
-ですから、<command>initdb</command>は<productname>PostgreSQL</productname>ユーザ以外からアクセス権を剥奪します。
+ですから、<command>initdb</command>は<productname>PostgreSQL</productname>ユーザ、更にオプションでグループ以外からのアクセス権を剥奪します。
+許可されている場合には、グループアクセスは読み出し専用になります。
+これにより、クラスタの所有者と同じグループに所属する非特権ユーザが、そのクラスタのデータをバックアップすることや、読み出し権限だけが必要なその他の操作を実行することが可能になります。
   </para>
 
   <para>
+<!--
    Note that enabling or disabling group access on an existing cluster requires
    the cluster to be shut down and the appropriate mode to be set on all
    directories and files before restarting
@@ -236,6 +239,11 @@ postgres$ <userinput>initdb -D /usr/local/pgsql/data</userinput>
    and <literal>0600</literal> for files.  For clusters that also allow
    reads by the group, the appropriate modes are <literal>0750</literal>
    for directories and <literal>0640</literal> for files.
+-->
+既存のクラスタに対してグループアクセスを有効にする、あるいは無効にするには、<productname>PostgreSQL</productname>を再起動する前に、クラスタが停止済みの状態で、すべてのディレクトリとファイルに適切なモードが設定されている必要があることに注意してください。
+そうでないと、データディレクトリ内に異なるモードが混在してしまうかもしれません。
+所有者のみにアクセスを許可するクラスタでは、適切なディレクトリのモードは<literal>0700</literal>で、ファイルモードは<literal>0600</literal>です。
+加えてグループに対して読み出しを許可するクラスタでは、適切なディレクトリのモードは<literal>0750</literal>で、ファイルモードは<literal>0640</literal>です。
   </para>
 
   <para>
@@ -400,7 +408,7 @@ postgres$ <userinput>initdb -D /usr/local/pgsql/data</userinput>
 <productname>PostgreSQL</productname>は<acronym>NFS</acronym>ファイルシステムに特別なことを何も行いません。
 つまり<acronym>NFS</acronym>はローカル接続のドライブとまったく同様に振る舞うという前提です。
 クライアントとサーバの<acronym>NFS</acronym>実装が標準ファイルシステム・セマンティックスを持たないならば、信頼性の問題を引き起こす可能性があります。
-（<ulink url="http://www.time-travellers.org/shane/papers/NFS_considered_harmful.html"></ulink>参照）。
+（<ulink url="https://www.time-travellers.org/shane/papers/NFS_considered_harmful.html"></ulink>参照）。
 具体的には、<acronym>NFS</acronym>サーバへの遅延（非同期）書きこみがデータ破損の問題を引き起こす可能性があります。
 可能ならば<acronym>NFS</acronym>ファイルシステムを（キャッシュ無しで）同期マウントし、この危険を防止してください。更に、<acronym>NFS</acronym>をソフトマウントすることは薦められません。
    </para>
@@ -698,8 +706,10 @@ WantedBy=multi-user.target
       the following line:
 -->
 <productname>Solaris</productname>では、<filename>/etc/init.d/postgresql</filename>というファイルを作成し、そこに以下の1行を記述してください。
-<indexterm><primary>Solaris</primary><secondary>の起動スクリプト</secondary></indexterm>
+<!--
       <indexterm><primary>Solaris</primary><secondary>start script</secondary></indexterm>
+-->
+<indexterm><primary>Solaris</primary><secondary>の起動スクリプト</secondary></indexterm>
 <programlisting>
 su - postgres -c "/usr/local/pgsql/bin/pg_ctl start -l logfile -D /usr/local/pgsql/data"
 </programlisting>
@@ -2130,7 +2140,7 @@ Out of Memory: Killed process 12345 (postgres).
     overcommit mode via <command>sysctl</command>:
 -->
 Linux 2.6以降では、メモリを<quote>オーバーコミット</quote>させないようにカーネルの動作を変更することができます。
-この設定は完全に<ulink url="http://lwn.net/Articles/104179/">OOM killer</ulink>の発生を防ぐことはできませんが、その発生頻度をかなり軽減しますので、システム動作の堅牢性をより高めます。
+この設定は完全に<ulink url="https://lwn.net/Articles/104179/">OOM killer</ulink>の発生を防ぐことはできませんが、その発生頻度をかなり軽減しますので、システム動作の堅牢性をより高めます。
 これは、以下のように<command>sysctl</command>を使用して厳密なオーバーコミットモードを選択すること、もしくは、<filename>/etc/sysctl.conf</filename>に同等の項目を記述することで実施されます。
 <programlisting>
 sysctl -w vm.overcommit_memory=2
@@ -2251,7 +2261,7 @@ Linux 2.4カーネルのベンダの中には、2.6のオーバーコミット<c
 <productname>PostgreSQL</productname>のように、メモリの大きな連続チャンクを使用するとき、特に<xref linkend="guc-shared-buffers"/>の値が大きい場合に、huge pagesを使用するとオーバーヘッドが減少します。
 <productname>PostgreSQL</productname>でこの機能を有効にするには、<varname>CONFIG_HUGETLBFS=y</varname>および<varname>CONFIG_HUGETLB_PAGE=y</varname>としたカーネルが必要です。
 またカーネル設定<varname>vm.nr_hugepages</varname>を調整する必要もあるでしょう。
-必要なhuge pages数を見積もるには、huge pagesを有効にせずに、<productname>PostgreSQL</productname>を起動し、procファイルシステムを使用してpostmasterの<varname>VmPeak</varname>の値をチェックします。
+必要なhuge pages数を見積もるには、huge pagesを有効にせずに<productname>PostgreSQL</productname>を起動し、procファイルシステムを使用してpostmasterの無名共有セグメントサイズとシステムのhuge pageサイズの値をチェックします。
 これは以下のような感じになるでしょう。
 <programlisting>
 $ <userinput>head -1 $PGDATA/postmaster.pid</userinput>
@@ -2964,19 +2974,22 @@ pg_dumpall -p 5432 | psql -d postgres -p 5433
     database instance.  Such a switch-over results in only several seconds
     of downtime for an upgrade.
 -->
-更新対象のバージョンの<productname>PostgreSQL</productname>をスタンバイサーバとして作成して、<productname>Slony</productname>などの特定のレプリケーション方式を使用することもできます。
-Slonyが異なるメジャーバージョンの<productname>PostgreSQL</productname>との間でレプリケーションすることができるため、これが実現できます。
+論理レプリケーションを使って更新対象のバージョンの<productname>PostgreSQL</productname>をスタンバイサーバとして作成することもできます。
+論理レプリケーションが異なるメジャーバージョンの<productname>PostgreSQL</productname>の間でレプリケーションすることができるため、これが実現できます。
 スタンバイは同じコンピュータで作成することも異なるコンピュータで作成することもできます。
 （古いバージョンの<productname>PostgreSQL</productname>で実行している）マスタサーバと同期した後、マスタを切り替え、スタンバイをマスタにし、古いデータベースインスタンスを停止することができます。
 このようなスイッチオーバの結果、数秒の停止時間でアップグレードされます。
    </para>
 
    <para>
+<!--
     This method of upgrading can be performed using the built-in logical
     replication facilities as well as using external logical replication
     systems such as <productname>pglogical</productname>,
     <productname>Slony</productname>, <productname>Londiste</productname>, and
     <productname>Bucardo</productname>.
+-->
+この方法によるアップグレードは、組み込みの論理レプリケーション機能か、あるいは<productname>pglogical</productname>、<productname>Slony</productname>、<productname>Londiste</productname>、<productname>Bucardo</productname>などの外部の論理レプリケーションシステムを使うことで実施できます。
    </para>
   </sect2>
  </sect1>
@@ -3295,7 +3308,10 @@ SSL接続により、ネットワーク越しに送信されるデータ（パ�
   </para>
 
   <sect2 id="ssl-setup">
+<!--
    <title>Basic Setup</title>
+-->
+   <title>基本的な設定</title>
 
   <para>
 <!--
@@ -3347,12 +3363,17 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
   </para>
 
   <para>
+<!--
     If the data directory allows group read access then certificate files may
     need to be located outside of the data directory in order to conform to the
     security requirements outlined above.  Generally, group access is enabled
     to allow an unprivileged user to backup the database, and in that case the
     backup software will not be able to read the certificate files and will
     likely error.
+-->
+データディレクトリがグループアクセスを許可している場合、証明書ファイルは上記のセキュリティ上の要求を満たすためにデータディレクトリ外に置く必要があるかも知れません。
+一般に、グループアクセスは権限を持たないユーザがデータベースをバックアップできるように有効化されます。
+この場合、バックアップソフトウェアは証明書を読むことができず、おそらくエラーとなるでしょう。
   </para>
 
   <para>
@@ -3387,41 +3408,63 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
   </para>
 
   <para>
+<!--
    It is not necessary to add the root certificate to
    <filename>server.crt</filename>.  Instead, clients must have the root
    certificate of the server's certificate chain.
+-->
+<filename>server.crt</filename>にルート証明書を追加する必要はありません。
+代わりに、クライアントはサーバ証明書のチェーンのルート証明書を持っていなければなりません。
   </para>
   </sect2>
 
   <sect2 id="ssl-openssl-config">
+<!--
    <title>OpenSSL Configuration</title>
+-->
+   <title>OpenSSLの設定</title>
 
   <para>
+<!--
    <productname>PostgreSQL</productname> reads the system-wide
    <productname>OpenSSL</productname> configuration file. By default, this
    file is named <filename>openssl.cnf</filename> and is located in the
    directory reported by <literal>openssl version -d</literal>.
    This default can be overridden by setting environment variable
    <envar>OPENSSL_CONF</envar> to the name of the desired configuration file.
+-->
+<productname>PostgreSQL</productname>はシステム全体の<productname>OpenSSL</productname>設定ファイルを読み込みます。
+デフォルトでは、このファイルは<filename>openssl.cnf</filename>という名前で、<literal>openssl version -d</literal>が報告するディレクトリに設置されます。
+このデフォルトは<envar>OPENSSL_CONF</envar>環境変数を設定することによって希望の名前に置き換えることができます。
   </para>
 
   <para>
+<!--
    <productname>OpenSSL</productname> supports a wide range of ciphers
    and authentication algorithms, of varying strength.  While a list of
    ciphers can be specified in the <productname>OpenSSL</productname>
    configuration file, you can specify ciphers specifically for use by
    the database server by modifying <xref linkend="guc-ssl-ciphers"/> in
    <filename>postgresql.conf</filename>.
+-->
+<productname>OpenSSL</productname>は様々な強度を持つ、多様な暗号と認証アルゴリズムをサポートしています。
+暗号のリストは<productname>OpenSSL</productname>の設定ファイルで指定できますが、使用するデータベースサーバ用に<filename>postgresql.conf</filename>の<xref linkend="guc-ssl-ciphers"/>で指定することができます。
   </para>
 
   <note>
    <para>
+<!--
     It is possible to have authentication without encryption overhead by
     using <literal>NULL-SHA</literal> or <literal>NULL-MD5</literal> ciphers.  However,
     a man-in-the-middle could read and pass communications between client
     and server.  Also, encryption overhead is minimal compared to the
     overhead of authentication.  For these reasons NULL ciphers are not
     recommended.
+-->
+<literal>NULL-SHA</literal>あるいは<literal>NULL-MD5</literal>暗号を使って暗号化のオーバーヘッドがない認証を行うことができます。
+しかし、中間者がクライアントとサーバの間のコミュニケーションを読んで転送することができます。
+また、認証のオーバーヘッドに比べると暗号化のオーバーヘッドは最小限です。
+これらの理由から、NULL暗号はお勧めできません。
    </para>
   </note>
   </sect2>
@@ -3467,7 +3510,7 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
 -->
 既存のルート証明書に連鎖する中間証明書は、クライアントに保存することを避けたい場合に<filename>root.crt</filename>に含めることができます（ルート証明書と中間証明書が<literal>v3_ca</literal>拡張で作成されている場合）。
 <xref linkend="guc-ssl-crl-file"/>パラメータが設定されている場合、証明書失効リスト（CRL）項目も検査されます。
-（SSL証明書の使用方法を示す図については<ulink url="http://h71000.www7.hp.com/doc/83final/ba554_90007/ch04s02.html"></ulink>を参照してください。）
+（SSL証明書の使用方法を示す図については<ulink url="http://h41379.www7.hp.com/doc/83final/ba554_90007/ch04s02.html"></ulink>を参照してください。）
   </para>
 
   <para>
@@ -3557,8 +3600,8 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
      </row>
 
      <row>
-<!--
       <entry><xref linkend="guc-ssl-ca-file"/></entry>
+<!--
       <entry>trusted certificate authorities</entry>
       <entry>checks that client certificate is
       signed by a trusted certificate authority</entry>
