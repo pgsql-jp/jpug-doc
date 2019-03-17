@@ -34,7 +34,7 @@
    based on SPI, so this documentation might be of use for users
    of those languages as well.
 -->
-利用可能な手続き言語は、プロシージャからSQLコマンドを実行するための各種手段を提供します。
+利用可能な手続き言語は、関数からSQLコマンドを実行するための各種手段を提供します。
 これらのほとんどは、SPIを基にしていますので、この文書はこれらの言語のユーザにとっても有用な場合があります。
   </para>
  </note>
@@ -50,7 +50,7 @@
   It is possible to recover control after an error by establishing your own
   subtransaction surrounding SPI calls that might fail.
 -->
-コマンドがSPIの失敗を起こした場合、その制御はプロシージャには戻らないことに注意してください。
+コマンドがSPIの失敗を起こした場合、その制御はC関数には戻らないことに注意してください。
 それどころか、プロシージャを実行していたトランザクションもしくは副トランザクションはロールバックされます
 （これはSPI関数のほとんどでエラーを返す規約があることから奇妙に思われるかもしれません。
 しかし、こうした規約はSPI関数自身でエラーを検知した時にのみ適用されるものです）。
@@ -98,7 +98,7 @@ SPIを使用するソースコードファイルでは<filename>executor/spi.h</
    <refname>SPI_connect_ext</refname>
    <refpurpose>connect a C function to the SPI manager</refpurpose>
 -->
-   <refpurpose>SPIマネージャにプロシージャを接続する</refpurpose>
+   <refpurpose>SPIマネージャにC関数を接続する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -124,25 +124,34 @@ int SPI_connect_ext(int <parameter>options</parameter>)
    function if you want to execute commands through SPI.  Some utility
    SPI functions can be called from unconnected C functions.
 -->
-<function>SPI_connect</function>はプロシージャ呼び出しからSPIマネージャへの接続を開きます。
+<function>SPI_connect</function>はC関数の呼び出しからSPIマネージャへの接続を開きます。
 SPIを経由してコマンドを実行させる場合、この関数を呼び出さなければなりません。
-SPIユーティリティ関数の中には、未接続のプロシージャから呼び出し可能なものがあります。
+SPIユーティリティ関数の中には、未接続のC関数から呼び出し可能なものがあります。
   </para>
 
   <para>
+<!--
    <function>SPI_connect_ext</function> does the same but has an argument that
    allows passing option flags.  Currently, the following option values are
    available:
+-->
+<function>SPI_connect_ext</function>は同様に動作しますが、オプションフラグを渡せる引数を一つもちます。
+今のところ以下のオプション値が使えます。
    <variablelist>
     <varlistentry>
      <term><symbol>SPI_OPT_NONATOMIC</symbol></term>
      <listitem>
       <para>
+<!--
        Sets the SPI connection to be <firstterm>nonatomic</firstterm>, which
        means that transaction control calls <function>SPI_commit</function>,
        <function>SPI_rollback</function>, and
        <function>SPI_start_transaction</function> are allowed.  Otherwise,
        calling these functions will result in an immediate error.
+-->
+SPI接続を<firstterm>非原子的</firstterm>になるように設定します。
+これはトランザクション制御呼び出しの<function>SPI_commit</function>、<function>SPI_rollback</function>、および、<function>SPI_start_transaction</function>が可能であることを意味します。
+このフラグなしで、これら関数を呼び出すと即座にエラーになります。
       </para>
      </listitem>
     </varlistentry>
@@ -150,8 +159,11 @@ SPIユーティリティ関数の中には、未接続のプロシージャか�
   </para>
 
   <para>
+<!--
    <literal>SPI_connect()</literal> is equivalent to
    <literal>SPI_connect_ext(0)</literal>.
+-->
+<literal>SPI_connect()</literal>は<literal>SPI_connect_ext(0)</literal>と同義です。
   </para>
  </refsect1>
 
@@ -204,7 +216,7 @@ SPIユーティリティ関数の中には、未接続のプロシージャか�
 <!--
   <refpurpose>disconnect a C function from the SPI manager</refpurpose>
 -->
-  <refpurpose>プロシージャをSPIマネージャから切断する</refpurpose>
+  <refpurpose>C関数をSPIマネージャから切断する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -229,7 +241,7 @@ int SPI_finish(void)
    case SPI will clean itself up automatically.
 -->
 <function>SPI_finish</function>は既存のSPIマネージャへの接続を切断します。
-プロシージャの現在の呼び出し期間内で必要なSPI操作が完了した後この関数を呼び出さなければなりません。
+C関数の現在の呼び出し期間内で必要なSPI操作が完了した後この関数を呼び出さなければなりません。
 しかし、<literal>elog(ERROR)</literal>経由でトランザクションを中断させる場合は、この関数が何を行うかを気にする必要はありません。
 その場合、SPIは自動的に自身を整理します。
   </para>
@@ -261,7 +273,7 @@ int SPI_finish(void)
 <!--
       if called from an unconnected C function
 -->
-未接続のプロシージャから呼び出された場合。
+未接続のC関数から呼び出された場合。
      </para>
     </listitem>
    </varlistentry>
@@ -314,7 +326,7 @@ int SPI_execute(const char * <parameter>command</parameter>, bool <parameter>rea
 <!--
    This function can only be called from a connected C function.
 -->
-この関数は接続済みのプロシージャからのみ呼び出し可能です。
+この関数は接続済みのC関数からのみ呼び出し可能です。
   </para>
 
   <para>
@@ -490,7 +502,7 @@ typedef struct
    C function.  You can free a particular result table earlier, if you
    are done with it, by calling <function>SPI_freetuptable</function>.
 -->
-<function>SPI_finish</function>は、現在のプロシージャで割り当てられた<structname>SPITupleTable</structname>をすべて解放します。
+<function>SPI_finish</function>は、現在のC関数で割り当てられた<structname>SPITupleTable</structname>をすべて解放します。
 <function>SPI_freetuptable</function>を呼び出して解放する場合、特定の結果テーブルを早めに解放することができます。
   </para>
  </refsect1>
@@ -752,7 +764,7 @@ typedef struct
 <!--
        if called from an unconnected C function
 -->
-未接続なプロシージャから呼び出された場合。
+未接続なC関数から呼び出された場合。
       </para>
      </listitem>
     </varlistentry>
@@ -1168,7 +1180,7 @@ SPIPlanPtr SPI_prepare(const char * <parameter>command</parameter>, int <paramet
    statement.  But the statement can be saved for longer using the functions
    <function>SPI_keepplan</function> or <function>SPI_saveplan</function>.
 -->
-<function>SPI_finish</function>は文用に割り当てられたメモリを解放しますので、<function>SPI_prepare</function>で返される文は、そのプロシージャの現在の呼び出し内でのみ使用することができます。
+<function>SPI_finish</function>が文のために割り当てられたメモリを解放しますので、<function>SPI_prepare</function>で返される文は、そのC関数の現在の呼び出し内でのみ使用することができます。
 しかし、関数<function>SPI_keepplan</function>や<function>SPI_saveplan</function>を使用して長期間文を保存することもできます。
   </para>
  </refsect1>
@@ -1296,7 +1308,7 @@ SPIPlanPtr SPI_prepare(const char * <parameter>command</parameter>, int <paramet
 <!--
    This function should only be called from a connected C function.
 -->
-この関数は接続済みのプロシージャからのみ呼び出してください。
+この関数は接続済みのC関数からのみ呼び出してください。
   </para>
 
   <para>
@@ -2386,8 +2398,8 @@ Portal SPI_cursor_open(const char * <parameter>name</parameter>, SPIPlanPtr <par
 -->
 文を直接実行するのではなくカーソルを使用することには2つの利点があります。
 1つ目は、結果行を一度に少なく取り出し、多くの行を返す問い合わせでのメモリの過使用を防ぐことができる点です。
-2つ目は、ポータルは現在のプロシージャの外部でも有効である点です（実際、現在のトランザクションの終端まで有効とすることができます）。
-プロシージャの呼び出し元にポータルの名前を返すことで、結果として行セットを返す手段を提供します。
+2つ目は、ポータルは現在のC関数の外部でも有効である点です（実際、現在のトランザクションの終端まで有効とすることができます）。
+C関数の呼び出し元にポータルの名前を返すことで、結果として行セットを返す手段を提供します。
   </para>
 
   <para>
@@ -3554,7 +3566,7 @@ int SPI_keepplan(SPIPlanPtr <parameter>plan</parameter>)
    invocations of your C function in the current session.
 -->
 <function>SPI_keepplan</function>は渡された（<function>SPI_prepare</function>で準備された）文を<function>SPI_finish</function>とトランザクションマネージャで解放されないメモリ内に保存します。
-これは、現在のセッションにおける、その後のプロシージャの呼び出しで準備済み文を再利用できる機能を提供します。
+これは、現在のセッションにおける、その後のC関数の呼び出しで準備済み文を再利用できる機能を提供します。
   </para>
  </refsect1>
 
@@ -3655,7 +3667,7 @@ SPIPlanPtr SPI_saveplan(SPIPlanPtr <parameter>plan</parameter>)
 -->
 <function>SPI_saveplan</function>は渡された（<function>SPI_prepare</function>で準備された）文を<function>SPI_finish</function>とトランザクションマネージャで解放されないメモリ内にコピーします。
 そして、コピーした文のポインタを返します。
-これは、現在のセッションにおける、その後のプロシージャの呼び出しで準備済み文を再利用できる機能を提供します。
+これは、現在のセッションにおける、その後のC関数の呼び出しで準備済み文を再利用できる機能を提供します。
   </para>
  </refsect1>
 
@@ -3715,7 +3727,7 @@ SPIPlanPtr SPI_saveplan(SPIPlanPtr <parameter>plan</parameter>)
 <!--
        if called from an unconnected C function
 -->
-未接続のプロシージャから呼び出された場合
+未接続のC関数から呼び出された場合
       </para>
      </listitem>
     </varlistentry>
@@ -3875,7 +3887,7 @@ int SPI_register_relation(EphemeralNamedRelation <parameter>enr</parameter>)
 <!--
        if called from an unconnected C function
 -->
-接続されていないプロシージャから呼び出された場合
+接続されていないC関数から呼び出された場合
       </para>
      </listitem>
     </varlistentry>
@@ -4020,7 +4032,7 @@ int SPI_unregister_relation(const char * <parameter>name</parameter>)
 <!--
        if called from an unconnected C function
 -->
-接続されていないプロシージャから呼び出された場合
+接続されていないC関数から呼び出された場合
       </para>
      </listitem>
     </varlistentry>
@@ -4181,7 +4193,7 @@ int SPI_register_trigger_data(TriggerData *<parameter>tdata</parameter>)
 <!--
        if called from an unconnected C function
 -->
-接続されていないプロシージャから呼び出された場合
+接続されていないC関数から呼び出された場合
       </para>
      </listitem>
     </varlistentry>
@@ -4227,7 +4239,7 @@ int SPI_register_trigger_data(TriggerData *<parameter>tdata</parameter>)
   All functions described in this section can be used by both
   connected and unconnected C functions.
 -->
-本節で説明する関数は全て、接続、未接続のプロシージャのどちらからでも使用することができます。
+本節で説明する関数は全て、接続、未接続のC関数のどちらからでも使用することができます。
  </para>
 
 <!-- *********************************************** -->
@@ -5029,7 +5041,10 @@ char * SPI_getnspname(Relation <parameter>rel</parameter>)
 
  <refnamediv>
   <refname>SPI_result_code_string</refname>
+<!--
   <refpurpose>return error code as string</refpurpose>
+-->
+  <refpurpose>文字列でエラーコードを返します</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -5042,9 +5057,12 @@ const char * SPI_result_code_string(int <parameter>code</parameter>);
   <title>Description</title>
 
   <para>
+<!--
    <function>SPI_result_code_string</function> returns a string representation
    of the result code returned by various SPI functions or stored
    in <varname>SPI_result</varname>.
+-->
+<function>SPI_result_code_string</function>は、様々なSPI関数から返されたか、<varname>SPI_result</varname>に格納された結果コードの文字列表現を返します。
   </para>
  </refsect1>
 
@@ -5056,7 +5074,10 @@ const char * SPI_result_code_string(int <parameter>code</parameter>);
     <term><literal>int <parameter>code</parameter></literal></term>
     <listitem>
      <para>
+<!--
       result code
+-->
+結果コード
      </para>
     </listitem>
    </varlistentry>
@@ -5064,10 +5085,16 @@ const char * SPI_result_code_string(int <parameter>code</parameter>);
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>結果値</title>
 
   <para>
+<!--
    A string representation of the result code.
+-->
+結果コードの文字列表現
   </para>
  </refsect1>
 </refentry>
@@ -5119,7 +5146,7 @@ const char * SPI_result_code_string(int <parameter>code</parameter>);
 -->
 <function>SPI_connect</function>は新しくメモリコンテキストを作成し、それを現在のコンテキストとします。
 <function>SPI_finish</function>は直前の現在のメモリコンテキストを戻し、<function>SPI_connect</function>で作成されたコンテキストを破壊します。
-これらの動作により、プロシージャ内で割り当てが行われる一時的なメモリがプロシージャの終了時に回収され、メモリリークが防止されることが保証されます。
+これらの動作により、C関数内で割り当てが行われる一時的なメモリがC関数の終了時に回収され、メモリリークが防止されることが保証されます。
   </para>
 
   <para>
@@ -5138,12 +5165,12 @@ const char * SPI_result_code_string(int <parameter>code</parameter>);
    C function.  Several of the other utility functions described in
    this section also return objects created in the upper executor context.
 -->
-しかし、（参照渡しのデータ型の値といった）プロシージャが割り当てられたメモリ内のオブジェクトを返す必要がある場合、少なくともSPIに接続していない期間は、<function>palloc</function>を使用してメモリを確保することができません。
-これを試行すると、そのオブジェクトは<function>SPI_finish</function>で解放されてしまい、プロシージャは正しく動作しないでしょう。
+しかし、（参照渡しのデータ型の値といった）C関数が割り当てられたメモリ内のオブジェクトを返す必要がある場合、少なくともSPIに接続していない期間は、<function>palloc</function>を使用してメモリを確保することができません。
+これを試行すると、そのオブジェクトは<function>SPI_finish</function>で解放されてしまい、C関数は正しく動作しないでしょう。
 この問題を解決するには、<function>SPI_palloc</function>を使用して、戻り値となるオブジェクト用のメモリを確保してください。
 <function>SPI_palloc</function>は<quote>上位エクゼキュータコンテキスト</quote>内にメモリを割り当てます。
-このメモリコンテキストは、<function>SPI_connect</function>が呼び出された時点において現在のコンテキストだったものであり、プロシージャの戻り値用のコンテキストとしてまさに正しいものです。
-この章で説明されているほかのユーティリティプロシージャのいくつかも、上位エクゼキュータコンテキスト内で作成されたオブジェクトを返します。
+このメモリコンテキストは、<function>SPI_connect</function>が呼び出された時点において現在のコンテキストだったものであり、C関数の戻り値用のコンテキストとしてまさに正しいものです。
+この章で説明されているほかのユーティリティ関数のいくつかも、上位エクゼキュータコンテキスト内で作成されたオブジェクトを返します。
   </para>
 
   <para>
@@ -5159,9 +5186,9 @@ const char * SPI_result_code_string(int <parameter>code</parameter>);
    the upper executor context, and all allocations made in the
    C function memory context are freed and cannot be used any more.
 -->
-<function>SPI_connect</function>が呼び出されると、<function>SPI_connect</function>によって作成されるプロシージャ固有のコンテキストが現在のコンテキストに作成されます。
+<function>SPI_connect</function>が呼び出されると、<function>SPI_connect</function>によって作成されるC関数固有のコンテキストが現在のコンテキストに作成されます。
 <function>palloc</function>、<function>repalloc</function>、SPIユーティリティ関数（この章で説明されているものは除きます）によって作成される割り当ては全て、このコンテキスト内に作成されます。
-プロシージャがSPIマネージャから（<function>SPI_finish</function>経由で）切断した時、現在のコンテキストは上位エクゼキュータコンテキストに戻され、プロシージャメモリコンテキスト内で割り当てられたメモリは全て解放され、二度と使用することができません。
+C関数がSPIマネージャから（<function>SPI_finish</function>経由で）切断した時、現在のコンテキストは上位エクゼキュータコンテキストに戻され、C関数のメモリコンテキスト内で割り当てられたメモリは全て解放され、二度と使用することができません。
   </para>
 
 <!-- *********************************************** -->
@@ -6099,16 +6126,24 @@ int SPI_freeplan(SPIPlanPtr <parameter>plan</parameter>)
  </sect1>
 
  <sect1 id="spi-transaction">
+<!--
   <title>Transaction Management</title>
+-->
+  <title>トランザクション管理</title>
 
   <para>
+<!--
    It is not possible to run transaction control commands such
    as <command>COMMIT</command> and <command>ROLLBACK</command> through SPI
    functions such as <function>SPI_execute</function>.  There are, however,
    separate interface functions that allow transaction control through SPI.
+-->
+<command>COMMIT</command>や<command>ROLLBACK</command>といったトランザクション制御コマンドを<function>SPI_execute</function>などのSPI関数を通して実行することはできません。
+しかしながら、SPIを通してトランザクション制御ができる別のインタフェース関数があります。
   </para>
 
   <para>
+<!--
    It is not generally safe and sensible to start and end transactions in
    arbitrary user-defined SQL-callable functions without taking into account
    the context in which they are called.  For example, a transaction boundary
@@ -6120,6 +6155,11 @@ int SPI_freeplan(SPIPlanPtr <parameter>plan</parameter>)
    command, taking the context of the <command>CALL</command> invocation into
    account.  SPI-using procedures implemented in C can implement the same logic, but
    the details of that are beyond the scope of this documentation.
+-->
+どこで呼び出されるかという文脈を考慮することなく、ユーザ定義された任意のSQL呼び出し可能な関数でトランザクションを開始・終了することは、一般的に安全でも思慮のあることではありません。
+例えば、SQLコマンドの一部の複雑なSQL式の一部である関数中のトランザクションブロックは、おそらく不明瞭な内部エラーやクラッシュになります。
+ここに示されるインタフェース関数は、<command>CALL</command>起動の文脈を考慮しており、主として<command>CALL</command>コマンドから起動される手続き言語から使われることを意図しています。
+SPIを使ったCで実装されたプロシージャは同じロジックを実装できますが、その詳細は本文書の範囲を超えます。
   </para>
 
 <!-- *********************************************** -->
@@ -6134,7 +6174,10 @@ int SPI_freeplan(SPIPlanPtr <parameter>plan</parameter>)
 
  <refnamediv>
   <refname>SPI_commit</refname>
+<!--
   <refpurpose>commit the current transaction</refpurpose>
+-->
+  <refpurpose>現在のトランザクションをコミットします。</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -6144,20 +6187,31 @@ void SPI_commit(void)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_commit</function> commits the current transaction.  It is
    approximately equivalent to running the SQL
    command <command>COMMIT</command>.  After a transaction is committed, a new
    transaction has to be started
    using <function>SPI_start_transaction</function> before further database
    actions can be executed.
+-->
+<function>SPI_commit</function>は現在のトランザクションをコミットします。
+これはSQLコマンドの<command>COMMIT</command>を実行することと概ね同等です。
+トランザクションがコミットされた後には、続くデータベース操作を実行する前に<function>SPI_start_transaction</function>を使って新たなトランザクションを開始しなければなりません。
   </para>
 
   <para>
+<!--
    This function can only be executed if the SPI connection has been set as
    nonatomic in the call to <function>SPI_connect_ext</function>.
+-->
+この関数はSPI接続が<function>SPI_connect_ext</function>の呼び出しで非原子的と設定されている場合のみ、実行できます。
   </para>
  </refsect1>
 </refentry>
@@ -6174,7 +6228,10 @@ void SPI_commit(void)
 
  <refnamediv>
   <refname>SPI_rollback</refname>
+<!--
   <refpurpose>abort the current transaction</refpurpose>
+-->
+  <refpurpose>現在のトランザクションを中断します。</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -6185,19 +6242,30 @@ void SPI_rollback(void)
 
  <refsect1>
   <title>Description</title>
+<!--
+  <title>説明</title>
+-->
 
   <para>
+<!--
    <function>SPI_rollback</function> rolls back the current transaction.  It
    is approximately equivalent to running the SQL
    command <command>ROLLBACK</command>.  After a transaction is rolled back, a
    new transaction has to be started
    using <function>SPI_start_transaction</function> before further database
    actions can be executed.
+-->
+<function>SPI_rollback</function>は現在のトランザクションをロールバックします。
+これはSQLコマンドの<command>ROLLBACK</command>を実行することと概ね同等です。
+トランザクションをロールバックした後、続くデータベース操作を実行する前に<function>SPI_start_transaction</function>を使用して新たなトランザクションを開始しなければなりません。
   </para>
 
   <para>
+<!--
    This function can only be executed if the SPI connection has been set as
    nonatomic in the call to <function>SPI_connect_ext</function>.
+-->
+この関数はSPI接続が<function>SPI_connect_ext</function>の呼び出しで非原子的と設定されている場合のみ、実行できます。
   </para>
  </refsect1>
 </refentry>
@@ -6214,7 +6282,10 @@ void SPI_rollback(void)
 
  <refnamediv>
   <refname>SPI_start_transaction</refname>
+<!--
   <refpurpose>start a new transaction</refpurpose>
+-->
+  <refpurpose>新たなトランザクションを開始します</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -6224,20 +6295,31 @@ void SPI_start_transaction(void)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_start_transaction</function> starts a new transaction.  It
    can only be called after <function>SPI_commit</function>
    or <function>SPI_rollback</function>, as there is no transaction active at
    that point.  Normally, when an SPI-using procedure is called, there is already a
    transaction active, so attempting to start another one before closing out
    the current one will result in an error.
+-->
+<function>SPI_start_transaction</function>は新たなトランザクションを開始します。
+そこがトランザクション内では無いように、<function>SPI_commit</function>または<function>SPI_rollback</function>の後でのみ呼び出しできます。
+通常は、何らかSPIを使ったプロシージャが呼ばれたとき、トランザクションは既に開始済みです。そのため、現在のトランザクションを閉じる前に別のトランザクションを開始しようとするとエラーになります。
   </para>
 
   <para>
+<!--
    This function can only be executed if the SPI connection has been set as
    nonatomic in the call to <function>SPI_connect_ext</function>.
+-->
+この関数はSPI接続が<function>SPI_connect_ext</function>の呼び出しで非原子的と設定されている場合のみ、実行できます。
   </para>
  </refsect1>
 </refentry>
@@ -6352,7 +6434,7 @@ C言語関数の作者はこの規約を無視することができますが、�
    <xref linkend="contrib-spi"/> module.
 -->
 本節には、SPIを使用する非常に簡単な例があります。
-<function>execq</function> プロシージャは1つ目の引数としてSQLコマンドを、2つ目の引数として行数を取り、<function>SPI_exec</function>コマンドを実行し、そのコマンドで処理された行数を返します。
+C関数<function>execq</function>は1つ目の引数としてSQLコマンドを、2つ目の引数として行数を取り、<function>SPI_exec</function>コマンドを実行し、そのコマンドで処理された行数を返します。
 SPIのより複雑な例はソースツリー内の<filename>src/test/regress/regress.c</filename>と<xref linkend="contrib-spi"/>モジュールにあります。
   </para>
 
