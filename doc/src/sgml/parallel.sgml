@@ -235,7 +235,7 @@ EXPLAIN SELECT * FROM pgbench_accounts WHERE filler LIKE '%x%';
 -->
 クエリがデータを書き込むか、データベースの行をロックする場合。
 クエリがデータ更新操作をトップレベルあるいはCTE内で含むと、そのクエリに対するパラレルプランは生成されません。
-これは現在の実装の制限で、将来のリリースでは解除される可能性があります。
+例外として、新たなテーブルを作ってデータ投入するコマンド<literal>CREATE TABLE ... AS</literal>、<literal>SELECT INTO</literal>、および、<literal>CREATE MATERIALIZED VIEW</literal>ではパラレルプランを使用できます。
       </para>
     </listitem>
 
@@ -495,29 +495,38 @@ btree以外のインデックススキャンのような他のスキャンタイ
 -->
 非パラレルプランと同様、処理対象のテーブルは、1個以上の他のテーブルとネステッドループ、ハッシュ結合、マージ結合で結合することができます。
 結合の内側は、パラレルワーカー中で実行しても安全だという条件下で、プランナがサポートするどのような非パラレルプランであっても構いません。
-たとえば、ネステッドループ結合が選択されると、内側のプランは結合の外側から取得された値を参照するインデックススキャンかもしれません。
+結合タイプによっては内側がパラレルプランであってもよいです。
   </para>
 
   <itemizedlist>
     <listitem>
       <para>
+<!--
         In a <emphasis>nested loop join</emphasis>, the inner side is always
         non-parallel.  Although it is executed in full, this is efficient if
         the inner side is an index scan, because the outer tuples and thus
         the loops that look up values in the index are divided over the
         cooperating processes.
+-->
+<emphasis>ネステッドループ結合</emphasis>では、内側は常に非パラレルです。
+外側タプルとこのようなインデックスで値を探すループは共同するプロセス間で分割されるので、全体で実行されても内側がインデックススキャンであるなら、これは効率的です。
       </para>
     </listitem>
     <listitem>
       <para>
+<!--
         In a <emphasis>merge join</emphasis>, the inner side is always
         a non-parallel plan and therefore executed in full.  This may be
         inefficient, especially if a sort must be performed, because the work
         and resulting data are duplicated in every cooperating process.
+-->
+<emphasis>マージ結合</emphasis>では、内側は常に非パラレルプランで、それゆえに全体で実行されます。
+特にソート実行を要する場合、全ての共同プロセスで処理と結果データが重複するので、これは非効率的と考えられます。
       </para>
     </listitem>
     <listitem>
       <para>
+<!--
         In a <emphasis>hash join</emphasis> (without the "parallel" prefix),
         the inner side is executed in full by every cooperating process
         to build identical copies of the hash table.  This may be inefficient
@@ -525,6 +534,10 @@ btree以外のインデックススキャンのような他のスキャンタイ
         <emphasis>parallel hash join</emphasis>, the inner side is a
         <emphasis>parallel hash</emphasis> that divides the work of building
         a shared hash table over the cooperating processes.
+-->
+（parallelが付かない）<emphasis>ハッシュ結合</emphasis>では、内側は全ての共同プロセスがハッシュテーブルの同じコピーを作ることで、全体で実行されます。
+ハッシュテーブルが大きかったり、そのプランが高価である場合、これは非効率的と考えられます。
+<emphasis>パラレルハッシュ結合</emphasis>では、内側は共有ハッシュテーブルの構築処理を共同プロセス間で分割する<emphasis>パラレルハッシュ</emphasis>です。
       </para>
     </listitem>
   </itemizedlist>
@@ -588,7 +601,7 @@ btree以外のインデックススキャンのような他のスキャンタイ
     the query are also part of the parallel portion of the plan.
 -->
 どんな状況でもパラレル集約がサポートされているわけではありません。
-個々の集約は並列処理<link linkend="parallel-safety">安全</link>で、合同関数(combine function)を持っていなければなりません。
+個々の集約は並列処理<link linkend="parallel-safety">安全</link>で、結合関数(combine function)を持っていなければなりません。
 その集約が<literal>internal</literal>型の遷移状態を持っているならば、シリアライズ関数とデシリアライズ関数を持っていなければなりません。
 更なる詳細は<xref linkend="sql-createaggregate"/>をご覧ください。
 パラレル集約は、集約関数呼び出しが<literal>DISTINCT</literal>あるいは<literal>ORDER BY</literal>句を含む場合、また 順序集合集約、あるいはクエリが<literal>GROUPING SETS</literal>を実行する場合にはサポートされません。
@@ -598,9 +611,13 @@ btree以外のインデックススキャンのような他のスキャンタイ
  </sect2>
 
  <sect2 id="parallel-append">
+<!--
   <title>Parallel Append</title>
+-->
+  <title>パラレルアペンド</title>
 
   <para>
+<!--
     Whenever <productname>PostgreSQL</productname> needs to combine rows
     from multiple sources into a single result set, it uses an
     <literal>Append</literal> or <literal>MergeAppend</literal> plan node.
@@ -608,9 +625,14 @@ btree以外のインデックススキャンのような他のスキャンタイ
     when scanning a partitioned table.  Such nodes can be used in parallel
     plans just as they can in any other plan.  However, in a parallel plan,
     the planner may instead use a <literal>Parallel Append</literal> node.
+-->
+<productname>PostgreSQL</productname>が複数のソースから一つの結果セットへの行の連結を必要とするときはいつでも、<literal>Append</literal>または<literal>MergeAppend</literal>プランノードが使われます。
+これは一般に<literal>UNION ALL</literal>を実施するときや、パーティションテーブルをスキャンするときに発生します。
+他のプランと同様にこのようなノードをパラレルプランで使うことができます。
+しかしながら、パラレルプランではプランナは代わりに<literal>Parallel Append</literal>ノードを使ってもよいです。
   </para>
-
   <para>
+<!--
     When an <literal>Append</literal> node is used in a parallel plan, each
     process will execute the child plans in the order in which they appear,
     so that all participating processes cooperate to execute the first child
@@ -620,9 +642,14 @@ btree以外のインデックススキャンのような他のスキャンタイ
     possible across its child plans, so that multiple child plans are executed
     simultaneously.  This avoids contention, and also avoids paying the startup
     cost of a child plan in those processes that never execute it.
+-->
+<literal>Append</literal>ノードがパラレルプランで使われるとき、各プロセスは子プランをそれらの出現順に実行します。そのため、全ての参加しているプロセスは共同して最初の子プランを完了するまで実行して、その後、一斉に次プランに移ります。
+代わりに<literal>Parallel Append</literal>が使われるときには、エグゼキュータは逆に参加しているプロセスを各子プランにできるだけ均等に分散させます。そのため、複数の子プランは同時並行に実行されます。
+これは競合を回避し、また、プランを実行することのないプロセスで子プランの開始コストが生じることも回避します。
   </para>
 
   <para>
+<!--
     Also, unlike a regular <literal>Append</literal> node, which can only have
     partial children when used within a parallel plan, a <literal>Parallel
     Append</literal> node can have both partial and non-partial child plans.
@@ -637,11 +664,21 @@ btree以外のインデックススキャンのような他のスキャンタイ
     individual index scan would have to be executed to completion by a single
     process, but different scans could be performed at the same time by
     different processes.
+-->
+また、パラレルプランの中で使われるときだけ部分的な子プランを持てる、通常の<literal>Append</literal>ノードと違い、<literal>Parallel Append</literal>ノードは部分的、非部分的のどちらの子プランも持つことができます。
+複数回のスキャンは重複した結果をもたらすため、非部分的な子プランは単一プロセスのみからスキャンされます。
+複数の結果セットの連結に関わるプランは、効率的なパラレルプランが不可能なときでも、それゆえ粗い並列性を実現できます。
+例えば、パラレルスキャンをサポートしないインデックスを使うことでのみ効率的に実行できるパーティションテーブルに対する問い合わせを考えてください。
+プランナは通常の<literal>Index Scan</literal>プランの<literal>Parallel Append</literal>を選ぶことができます。
+個々のインデックススキャンは単一プロセスで最後まで実行しなければなりませんが、別のスキャンは同時に別プロセスで実行することができます。
   </para>
 
   <para>
+<!--
     <xref linkend="guc-enable-parallel-append" /> can be used to disable
     this feature.
+-->
+本機能を無効にするために<xref linkend="guc-enable-parallel-append" />を使用できます。
   </para>
  </sect2>
 
@@ -746,15 +783,18 @@ btree以外のインデックススキャンのような他のスキャンタイ
 <!--
         Scans of foreign tables, unless the foreign data wrapper has
         an <literal>IsForeignScanParallelSafe</literal> API which indicates otherwise.
+-->
+外部テーブルのスキャン。
+外部データラッパが<literal>IsForeignScanParallelSafe</literal>APIを持ち、パラレル安全を返す場合を除く。
       </para>
     </listitem>
 
     <listitem>
+<!--
       <para>
         Plan nodes to which an <literal>InitPlan</literal> is attached.
 -->
-外部テーブルのスキャン。
-外部データラッパが<literal>IsForeignScanParallelSafe</literal>APIを持ち、パラレル安全を返す場合を除く。
+<literal>InitPlan</literal>が付加されたプランノード
       </para>
     </listitem>
 
@@ -763,7 +803,7 @@ btree以外のインデックススキャンのような他のスキャンタイ
 <!--
         Plan nodes which reference a correlated <literal>SubPlan</literal>.
 -->
-<literal>InitPlan</literal>あるいは関連する<literal>SubPlan</literal>へのアクセス。
+関連する<literal>SubPlan</literal>を参照するプランノード
       </para>
     </listitem>
   </itemizedlist>
@@ -795,8 +835,7 @@ btree以外のインデックススキャンのような他のスキャンタイ
 プランナは、自動的にはユーザ定義関数や集約がパラレル安全か、パラレル制限か、あるいはパラレル非安全かを決定することはできません。
 この関数が潜在的に実行する可能性のあるすべての操作を予測することが、このために要求されるからです。
 一般的には、これは停止性問題と同等で、それ故に不可能です。
-思いつく限りにおいては、終了すると思われる単純な関数においてさえ、私達は予測をしようとは思いません。
-なぜなら、そうした予測は高価でエラーを起こしやすいからです。
+おそらく終了できると思われる単純な関数においてさえ、私達は試みません。なぜなら、そうした予測は高価でエラーを起こしやすいからです。
 その代わりに、そうではないとマークされない限り、すべてのユーザ定義関数は、パラレル非安全と見なされます。
 <xref linkend="sql-createfunction"/>あるいは<xref linkend="sql-alterfunction"/>を使用するときは、
 適当な<literal>PARALLEL SAFE</literal>、<literal>PARALLEL RESTRICTED</literal>、<literal>PARALLEL UNSAFE</literal>を指定することによってマーキングを行うことができます。
