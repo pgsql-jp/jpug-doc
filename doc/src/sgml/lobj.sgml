@@ -463,6 +463,7 @@ int lo_open(PGconn *conn, Oid lobjId, int mode);
     </para>
 
     <para>
+<!--
      <function>lo_open</function> will fail if <literal>SELECT</literal>
      privilege is not available for the large object, or
      if <symbol>INV_WRITE</symbol> is specified and <literal>UPDATE</literal>
@@ -472,6 +473,10 @@ int lo_open(PGconn *conn, Oid lobjId, int mode);
      using the descriptor.)
      These privilege checks can be disabled with the
      <xref linkend="guc-lo-compat-privileges"/> run-time parameter.
+-->
+ラージオブジェクトに<literal>SELECT</literal>権限が与えられていなかったり、<symbol>INV_WRITE</symbol>が指定されていて、かつ<literal>UPDATE</literal>権限が与えられていないと、<function>lo_open</function>は失敗します。
+（<productname>PostgreSQL</productname> 11よりも前では、こうした権限チェックはディスクリプタを使って最初に読み出し、あるいは書き込みの呼び出しを実際に行う際に実施されていました。）
+この権限チェックは、<xref linkend="guc-lo-compat-privileges"/>実行時パラメータで無効にすることができます。
     </para>
 
     <para>
@@ -1004,13 +1009,14 @@ SELECT lo_export(image.raster, '/tmp/motd') FROM image
 -->
 サーバ側の<function>lo_import</function>および<function>lo_export</function>関数の動作はクライアント側の関数とかなり異なります。
 この2つの関数はサーバのファイルシステム上のファイルの読み書きを、データベースを所有するユーザの権限で行います。
-したがって、これらの使用はスーパーユーザに限定されています。
+したがって、デフォルトではこれらの使用はスーパーユーザに限定されています。
 対照的に、クライアント側のインポート関数とエクスポート関数はクライアントのファイルシステム上のファイルをクライアントプログラムの権限で読み書きします。
-このクライアント側の関数はスーパーユーザ権限を必要としません。
+このクライアント側の関数は、対象となるラージオブジェクトの読み出し、書き込み権限を除き、データベース権限を必要としません。
   </para>
 
   <caution>
    <para>
+<!--
     It is possible to <xref linkend="sql-grant"/> use of the
     server-side <function>lo_import</function>
     and <function>lo_export</function> functions to non-superusers, but
@@ -1026,6 +1032,13 @@ SELECT lo_export(image.raster, '/tmp/motd') FROM image
     safer to use a role with such privileges than one with full superuser
     privileges, as that helps to reduce the risk of damage from accidental
     errors.
+-->
+サーバサイド<function>lo_import</function>と<function>lo_export</function>関数に対して<xref linkend="sql-grant"/>を非スーパーユーザに適用することは可能ですが、その結果が意味することについて慎重な考慮が必要です。
+そうした権限を持つ悪意のあるユーザは、（たとえば、サーバ設定ファイルを書き換えることによって）容易にその権限を拡張してスーパーユーザになることができるでしょう。
+あるいは、そのようにしてデータベーススーパーユーザ権限を取得することなく、サーバのファイルシステムを攻撃することができるでしょう。
+<emphasis>したがって、そうした権限を持つロールへのアクセスは、スーパーユーザロールへのアクセスとまったく同様に、注意深く防御されなければなりません。</emphasis>
+にもかかわらず、サーバサイドの<function>lo_import</function>あるいは<function>lo_export</function>を定形業務に使う必要があるなら、完全なスーパーユーザ権限よりは、そうした権限を持つロールを使う方が安全です。
+偶発的な間違いから来る被害のリスクを減らすのに役立つからです。
    </para>
   </caution>
 
