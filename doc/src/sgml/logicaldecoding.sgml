@@ -357,6 +357,7 @@ $ pg_recvlogical -d postgres --slot=test --drop-slot
 レプリケーションスロットは、クラッシュをまたがって永続し、消費者の状態については関知しません。
 スロットを使う接続がない場合でも、消費者が必要としているリソースが削除されることを防ぎます。
 これによりストレージが消費されます。何故ならば、関連するWALもシステムカタログの行も、レプリケーションスロットが必要とする限り<command>VACUUM</command>によって削除されないからです。
+極端な場合、トランザクションIDの周回（<xref linkend="vacuum-for-wraparound"/>を参照）を防ぐためのデータベース停止をもたらす可能性があります。
 したがって、必要でなくなったスロットは削除すべきです。
      </para>
     </caution>
@@ -560,9 +561,8 @@ typedef void (*LogicalOutputPluginInit) (struct OutputPluginCallbacks *cb);
      If <function>truncate_cb</function> is not set but a
      <command>TRUNCATE</command> is to be decoded, the action will be ignored.
 -->
-     コールバック関数の<function>begin_cb</function>、<function>change_cb</function>
-     <function>commit_cb</function>は必須ですが、
-     <function>startup_cb</function>、     <function>filter_by_origin_cb</function>、それに<function>shutdown_cb</function>必須ではありません。
+コールバック関数の<function>begin_cb</function>、<function>change_cb</function>、および、<function>commit_cb</function>は必須ですが、<function>startup_cb</function>、<function>filter_by_origin_cb</function>、<function>truncate_cb</function>、および、<function>shutdown_cb</function>は必須ではありません。
+<function>truncate_cb</function>が設定されていないけれども、<command>TRUNCATE</command>がデコードされることになった場合、この動作は無視されます。
     </para>
    </sect2>
 
@@ -716,7 +716,9 @@ typedef struct OutputPluginOptions
       replication, but they require special handling.
 -->
       <literal>output_type</literal>は<literal>OUTPUT_PLUGIN_TEXTUAL_OUTPUT</literal>か<literal>OUTPUT_PLUGIN_BINARY_OUTPUT</literal>のどちらかです。
-      <xref linkend="logicaldecoding-output-mode"/>を参照してください。
+      <xref linkend="logicaldecoding-output-mode"/>も参照してください。
+<literal>receive_rewrites</literal>が真なら、何らかDDL操作時のヒープ書き換えで生じた変更に対して、出力プラグインも呼ばれます。
+これはDDLレプリケーションを処理するプラグインを対象としていますが、これらは特別な処理を必要とします。
      </para>
 
      <para>
@@ -855,11 +857,17 @@ unloggedテーブル(<xref linkend="sql-createtable-unlogged"/>参照)と(<xref 
     </sect3>
 
     <sect3 id="logicaldecoding-output-plugin-truncate">
+<!--
      <title>Truncate Callback</title>
+-->
+     <title>TRUNCATEコールバック</title>
 
      <para>
+<!--
       The <function>truncate_cb</function> callback is called for a
       <command>TRUNCATE</command> command.
+-->
+<function>truncate_cb</function>コールバックは、<command>TRUNCATE</command>コマンドに対して呼ばれます。
 <programlisting>
 typedef void (*LogicalDecodeTruncateCB) (struct LogicalDecodingContext *ctx,
                                          ReorderBufferTXN *txn,
@@ -867,12 +875,17 @@ typedef void (*LogicalDecodeTruncateCB) (struct LogicalDecodingContext *ctx,
                                          Relation relations[],
                                          ReorderBufferChange *change);
 </programlisting>
+<!--
       The parameters are analogous to the <function>change_cb</function>
       callback.  However, because <command>TRUNCATE</command> actions on
       tables connected by foreign keys need to be executed together, this
       callback receives an array of relations instead of just a single one.
       See the description of the <xref linkend="sql-truncate"/> statement for
       details.
+-->
+パラメータは<function>change_cb</function>コールバックと似ています。
+しかしながら、外部キーで結びついたテーブル群の<command>TRUNCATE</command>動作は一緒に実行される必要があるため、このコールバックは単一リレーションではなく、リレーションの配列を受け取ります。
+詳しくは<xref linkend="sql-truncate"/>文の説明を参照してください。
      </para>
     </sect3>
 
