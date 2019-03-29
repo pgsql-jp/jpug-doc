@@ -441,8 +441,8 @@ PostgresPollingStatusType PQconnectPoll(PGconn *conn);
           to prevent DNS queries from being made.  See the documentation of
           this parameter in <xref linkend="libpq-paramkeywords"/> for details.
 -->
-<literal>hostaddr</literal>と<literal>host</literal>パラメータは、ホスト名からのIPアドレス検索やホスト名の逆引きが起こらないように適切に使用されなければいけません。
-詳細に付いては<xref linkend="libpq-paramkeywords"/>内のパラメータ説明を参照してください。
+<literal>hostaddr</literal>パラメータは、DNS問い合わせが発生するのを防ぐように適切に使用されなければいけません。
+詳細については<xref linkend="libpq-paramkeywords"/>内のパラメータ説明を参照してください。
          </para>
         </listitem>
 
@@ -481,12 +481,12 @@ PostgresPollingStatusType PQconnectPoll(PGconn *conn);
        is <symbol>CONNECTION_BAD</symbol>, the connection attempt has already
        failed, typically because of invalid connection parameters.
 -->
-非ブロック接続要求を始めるにはまず、<literal>conn=PQconnectStart("<replaceable>connection_info_string</replaceable>")</literal>を呼び出します。
-<varname>conn</varname>がNULLの場合、<application>libpq</application>が新たに<structname>PGconn</structname>構造体を割り当てられなかったことを表します。
+非ブロック接続要求を始めるにはまず、<literal>PQconnectStart</literal>か<function>PQconnectStartParams</function>を呼び出します。
+その結果がNULLの場合、<application>libpq</application>は新たな<structname>PGconn</structname>構造体を割り当てられませんでした。
 そうでない場合は、適切な<structname>PGconn</structname>へのポインタが返されます
-（ただし、データベースに正しく接続されていることを表しているわけではありません）。
-<function>PQconnectStart</function>から値が返ってきた段階で、<literal>status=PQstatus(conn)</literal>を呼び出します。
-もし、<varname>status</varname>が<symbol>CONNECTION_BAD</symbol>と等しい場合には、<function>PQconnectStart</function>が失敗しています。
+（ただし、未だデータベースへの有効な接続を示しているわけではありません）。
+次に<literal>PQstatus(conn)</literal>を呼び出します。
+もし、結果が<symbol>CONNECTION_BAD</symbol>であった場合、接続の試みは失敗しています。典型的には無効な接続パラメータに因ります。
       </para>
 
       <para>
@@ -515,14 +515,14 @@ PostgresPollingStatusType PQconnectPoll(PGconn *conn);
        has failed, or <symbol>PGRES_POLLING_OK</symbol>, indicating the connection
        has been successfully made.
 -->
-<function>PQconnectStart</function>が成功したら、次は接続シーケンスを進めるために、<application>libpq</application>をポーリングします。
+<function>PQconnectStart</function>あるいは<function>PQconnectStartParams</function>が成功したら、次は接続シーケンスを進めるために、<application>libpq</application>をポーリングします。
 データベース接続の背後にあるソケットの記述子を取り出すには、<function>PQsocket(conn)</function>を使用します。
+（注意：複数の<function>PQconnectPoll</function>呼び出しでソケットが同じままであると思わないでください。）
 以下の繰り返しです。
-直前の<function>PQconnectPoll(conn)</function>が<symbol>PGRES_POLLING_READING</symbol>の場合、ソケットの読み込み準備が整うまで待機します。
-（<function>select()</function>や<function>poll()</function>などのシステム関数で示されます。）
+直前の<function>PQconnectPoll(conn)</function>が<symbol>PGRES_POLLING_READING</symbol>の場合、（<function>select()</function>や<function>poll()</function>などのシステム関数で示されて）ソケットの読み込み準備が整うまで待機します。
 そして、再度<function>PQconnectPoll(conn)</function>を呼び出します。
 反対に直前の<function>PQconnectPoll(conn)</function>が<symbol>PGRES_POLLING_WRITING</symbol>の場合、ソケットの書き込み準備が整うまで待機し、その後、<function>PQconnectPoll(conn)</function>を再度呼び出します。
-まだ<function>PQconnectPoll</function>を呼び出していない場合、つまり、<function>PQconnectStart</function>の呼び出し直後では、直前が<symbol>PGRES_POLLING_WRITING</symbol>であった場合と同様の処理を行ないます。
+繰り返しの最初、すなわち、未だ<function>PQconnectPoll</function>を呼び出していない場合、最後に<symbol>PGRES_POLLING_WRITING</symbol>を返したかのように振舞います。
 この繰り返しを<function>PQconnectPoll(conn)</function>が、接続手続きの失敗を示す<symbol>PGRES_POLLING_FAILED</symbol>、もしくは、接続確立に成功したことを示す<symbol>PGRES_POLLING_OK</symbol>を返すまで継続します。
       </para>
 
@@ -693,7 +693,7 @@ switch(PQstatus(conn))
        associated memory blocks.  This must be done even if the connection
        attempt fails or is abandoned.
 -->
-<function>PQconnectStart</function>が非NULLポインタを返した場合、処理を終了する際には、構造体や関連するメモリブロックを始末するために、<function>PQfinish</function>を呼び出さなくてはならないことに注意してください。
+<function>PQconnectStart</function>や<function>PQconnectStartParams</function>が非NULLポインタを返した場合、処理を終了する際には、構造体や関連するメモリブロックを始末するために、<function>PQfinish</function>を呼び出さなくてはならないことに注意してください。
 この処理は、接続試行が失敗した場合やその試行を中断する場合にも、必ず実行されなければいけません。
       </para>
      </listitem>
@@ -1321,7 +1321,7 @@ postgresql://%2Fvar%2Flib%2Fpostgresql/dbname
 -->
 接続先に複数のホストを指定することができ、指定された順に試されます。
 キーワード/値形式では、<literal>host</literal>、<literal>hostaddr</literal>、<literal>port</literal>オプションは、カンマで区切った値のリストを受け付けます。
-各々のオプションでは、同じ数の要素を与えなければなりません。
+指定された各々のオプションでは、同じ数の要素を与えなければなりません。
 たとえば、最初の<literal>hostaddr</literal>は最初のホスト名に関連付けられ、二番目の<literal>hostaddr</literal>は二番目のホスト名に関連付けられる、という具合です。
 例外として、一つの<literal>port</literal>だけが指定された場合には、すべてのホストにそれが適用されます。
      </para>
@@ -1332,14 +1332,16 @@ postgresql://%2Fvar%2Flib%2Fpostgresql/dbname
        separated by commas, in the <literal>host</literal> component of the URI.
 -->
 接続URI形式では、<literal>host</literal>要素中にカンマで区切って複数の<literal>host:port</literal>ペアを指定できます。
-いずれの形式においても、単一のホスト名は複数のネットワークアドレスに変換されることがあります。
-よくある例としては、ホストがIPv4とIPv6アドレスの両方を持つ場合です。
      </para>
 
      <para>
+<!--
        In either format, a single host name can translate to multiple network
        addresses. A common example of this is a host that has both an IPv4 and
        an IPv6 address.
+-->
+いずれの形式でも、単一ホスト名は複数のネットワークアドレスに変換されることがあります。
+これの一般的な例はIPv4とIPv6のアドレスを両方持つホストです。
      </para>
 
      <para>
@@ -1399,11 +1401,10 @@ postgresql://%2Fvar%2Flib%2Fpostgresql/dbname
         Unix-domain sockets, the default is to connect to <literal>localhost</literal>.
 -->
 接続するホスト名を指定します。
-<indexterm><primary>ホスト名</primary></indexterm> ホスト名がスラッシュで始まるならば、TCP/IPによる通信ではなく、Unixドメインの通信を明示することになります。
+<indexterm><primary>ホスト名</primary></indexterm> ホスト名がスラッシュで始まるならば、それはTCP/IPによる通信ではなく、Unixドメインの通信を示します。
 その場合、この値はソケットファイルを格納するディレクトリの名前になります。
-複数のホスト名が指定されると、指定された順に各々が試されます。
-<literal>host</literal>が指定されなかった場合や、空の場合のデフォルトは、<filename>/tmp</filename>にあるUnixドメインのソケットに接続することです。
-<indexterm><primary>Unixドメインソケット</primary></indexterm> （または、<productname>PostgreSQL</productname>の構築時に指定した別のディレクトリにあるソケットです。）
+<literal>host</literal>が指定されなかったり、空の場合のデフォルトの振る舞いは、<filename>/tmp</filename>（または、<productname>PostgreSQL</productname>の構築時に指定したソケットディレクトリ）にあるUnixドメインのソケットに接続することです。
+<indexterm><primary>Unixドメインソケット</primary></indexterm>
 Unixドメインソケットを持たないマシンにおけるデフォルトは、<literal>localhost</literal>に接続することです。
        </para>
        <para>
@@ -1464,6 +1465,7 @@ Unixドメインソケットを持たないマシンにおけるデフォルト�
            for a significant amount of time.)
 -->
 <literal>hostaddr</literal>を使わずに<literal>host</literal>を指定した場合は、ホスト名の検索が発生します。
+（<function>PQconnectPoll</function>を使う場合、<function>PQconnectPoll</function>が最初にホスト名を考慮するときに、<function>PQconnectPoll</function>をかなり長い時間、ブロックさせてしまうかもしれません。）
           </para>
          </listitem>
          <listitem>
@@ -1634,9 +1636,12 @@ Unixドメインソケットを持たないマシンにおけるデフォルト�
        seconds, so the total time spent waiting for a connection might be
        up to 10 seconds.
 -->
-接続用の最大待機時間を秒単位(10進数整数で表した文字列として記述してください)で指定します。
-ゼロもしくは未設定は、無限時間の待機を意味します。
-2秒未満の待機時間を使用することは勧めません。
+接続用の最大待機を秒単位（10進整数で記述してください、<literal>10</literal>など）で指定します。
+ゼロ、負値、もしくは未設定は、無期限の待機を意味します。
+許容される最小のタイムアウトは2秒です。
+したがって、<literal>1</literal>は<literal>2</literal>と解釈されます。
+このタイムアウトは各ホスト名やIPアドレスに別々に適用されます。
+例えば、二つのホストを指定して、<literal>connect_timeout</literal>が5であるなら、各ホストが5秒以内に接続できないときにタイムアウトして、接続を待つ合計所要時間は10秒近くになるかもしれません。
       </para>
       </listitem>
      </varlistentry>
@@ -1817,16 +1822,24 @@ Unixドメインソケット経由でなされた接続の場合、またはキ�
       <term><literal>replication</literal></term>
       <listitem>
       <para>
+<!--
        This option determines whether the connection should use the
        replication protocol instead of the normal protocol.  This is what
        PostgreSQL replication connections as well as tools such as
        <application>pg_basebackup</application> use internally, but it can
        also be used by third-party applications.  For a description of the
        replication protocol, consult <xref linkend="protocol-replication"/>.
+-->
+このオプションは接続が通常プロトコルの代わりにレプリケーションプロトコルで使われるかどうかを決めます。
+これは<application>pg_basebackup</application>などのツールが内部的に使うPostgreSQLのレプリケーション接続ですが、サードパーティアプリケーションからも使われることがあります。
+レプリケーションプロトコルについての説明は<xref linkend="protocol-replication"/>を参照してください。
       </para>
 
       <para>
+<!--
        The following values, which are case-insensitive, are supported:
+-->
+以下の値がサポートされます。これらは大文字小文字を区別しません。
        <variablelist>
         <varlistentry>
          <term>
@@ -1835,7 +1848,10 @@ Unixドメインソケット経由でなされた接続の場合、またはキ�
          </term>
          <listitem>
           <para>
+<!--
            The connection goes into physical replication mode.
+-->
+接続は物理レプリケーションモードになります。
           </para>
          </listitem>
         </varlistentry>
@@ -1844,8 +1860,11 @@ Unixドメインソケット経由でなされた接続の場合、またはキ�
          <term><literal>database</literal></term>
          <listitem>
           <para>
+<!--
            The connection goes into logical replication mode, connecting to
            the database specified in the <literal>dbname</literal> parameter.
+-->
+接続はロジカルレプリケーションモードになり、<literal>dbname</literal>パラメータで指定されたデータベースに接続します。
           </para>
          </listitem>
         </varlistentry>
@@ -1857,7 +1876,10 @@ Unixドメインソケット経由でなされた接続の場合、またはキ�
          </term>
          <listitem>
           <para>
+<!--
            The connection is a regular one, which is the default behavior.
+-->
+接続は通常のものになります。これがデフォルトの振る舞いです。
           </para>
          </listitem>
         </varlistentry>
@@ -1865,8 +1887,11 @@ Unixドメインソケット経由でなされた接続の場合、またはキ�
       </para>
 
       <para>
+<!--
        In physical or logical replication mode, only the simple query protocol
        can be used.
+-->
+物理あるいは論理レプリケーションモードでは、簡易問い合わせプロトコルのみが使用できます。
       </para>
       </listitem>
      </varlistentry>
@@ -2040,12 +2065,14 @@ SSLサポート付きで<productname>PostgreSQL</productname>をコンパイル�
         set to 0, compression will be disabled.  The default is 0.  This
         parameter is ignored if a connection without SSL is made.
 -->
-１（デフォルト）に設定することで、SSL接続越えで送信されるデータは圧縮されます（これには<productname>OpenSSL</productname>バージョン0.9.8以降が必要です）。
-０に設定すると、圧縮が無効になります（これには<productname>OpenSSL</productname>1.0.0以降が必要です）。
-このパラメータはSSLが確立していない接続や使用される<productname>OpenSSL</productname>がサポートしていない場合は無視されます。
+1に設定することで、SSL接続越えで送信されるデータは圧縮されます。
+0に設定すると、圧縮が無効になります。
+デフォルトは0です。
+このパラメータはSSLを使わない接続では無視されます。
        </para>
 
        <para>
+<!--
         SSL compression is nowadays considered insecure and its use is no
         longer recommended.  <productname>OpenSSL</productname> 1.1.0 disables
         compression by default, and many operating system distributions
@@ -2055,13 +2082,21 @@ SSLサポート付きで<productname>PostgreSQL</productname>をコンパイル�
         does not support disabling compression, so this parameter is ignored
         with those versions, and whether compression is used depends on the
         server.
+-->
+SSL圧縮は今日では安全ではないと考えられていて、もはや使用は推奨されません。
+<productname>OpenSSL</productname> 1.1.0はデフォルトでは圧縮を無効にしており、多くのOSディストリビューションでもこれまでのバージョンで無効化しています。そのため、サーバが圧縮を受け付けない場合、本パラメータをonに設定しても効果がありません。
+一方で、1.0.0以前の<productname>OpenSSL</productname>は圧縮の無効化をサポートしていませんので、これらのバージョンでは本パラメータは無視されて、圧縮が使用されるかはサーバ次第です。
        </para>
 
        <para>
+<!--
         If security is not a primary concern, compression can improve
         throughput if the network is the bottleneck.  Disabling compression
         can improve response time and throughput if CPU performance is the
         limiting factor.
+-->
+セキュリティが主要な関心でないなら、ネットワークがボトルネックであるとき圧縮でスループットを改善できます。
+CPU性能が律速要素であるなら、圧縮を無効化することで応答時間とスループットを改善できます。
        </para>
       </listitem>
      </varlistentry>
@@ -3333,10 +3368,11 @@ PGresult *PQexec(PGconn *conn, const char *command);
     commands fail, processing of the string stops with it and the returned
     <structname>PGresult</structname> describes the error condition.
 -->
-コマンド文字列には(セミコロンで区切った)複数のSQLコマンドを含めることができます。
+コマンド文字列には（セミコロンで区切られた）複数のSQLコマンドを含めることができます。
 単一の<function>PQexec</function>呼び出しで送信された複数の問い合わせは、単一トランザクションで処理されます。
-ただし、問い合わせ文字列内に明示的な<command>BEGIN</command>/<command>COMMIT</command>がある場合は、複数のトランザクションに分離されます。
-しかし、返される<structname>PGresult</structname>構造体はその文字列内で最後に実行されたコマンドの結果のみが含まれることに注意してください。
+ただし、問い合わせ文字列内に明示的な<command>BEGIN</command>/<command>COMMIT</command>コマンドがある場合は、複数のトランザクションに分離されます。
+（サーバがどのように複数問い合わせを処理するかの更なる詳細は<xref linkend="protocol-flow-multi-statement"/>を参照してください。）
+しかし、返される<structname>PGresult</structname>構造体には、その文字列内で最後に実行されたコマンドの結果のみが含まれることに注意してください。
 そのコマンドの1つが失敗したとすると、文字列の処理はそこで中断し、エラー条件が含まれる<structname>PGresult</structname>が返されます。
    </para>
 
@@ -4968,7 +5004,7 @@ Oid PQftype(const PGresult *res,
        in the source tree.
 -->
 <literal>pg_type</literal>システムテーブルに問い合わせて、各種データ型の名前や属性を得ることができます。
-組み込みデータ型の<acronym>OID</acronym>は、ソースツリー内の<filename>src/include/catalog/pg_type.h</filename>ファイル内で定義されています。
+組み込みデータ型の<acronym>OID</acronym>は、ソースツリー内の<filename>src/include/catalog/pg_type_d.h</filename>ファイル内で定義されています。
       </para>
      </listitem>
     </varlistentry>
@@ -7359,7 +7395,7 @@ typedef struct pgNotify
 -->
 <function>PQnotifies()</function>は実際にサーバのデータを読み出すわけではありません。
 これは単に、他の<application>libpq</application>関数が吸収してしまっていた通知メッセージを返すだけです。
-<application>libpq</application>の以前のリリースでは、通知メッセージを適切な時点で確実に受け取るには、空の問い合わせでも何でも、とにかく一定時間ごとに問い合わせを送り、そして<function>PQexec()</function>を実行するたびに<function>PQnotifies()</function>を検査するしかありませんでした。
+<application>libpq</application>の古いリリースでは、通知メッセージを適切な時点で確実に受け取るには、空の問い合わせでも何でも、とにかく一定時間ごとに問い合わせを送り、そして<function>PQexec()</function>を実行するたびに<function>PQnotifies()</function>を検査するしかありませんでした。
 今でもこの方法は動作しますが、処理能力の無駄使いをすることになるのでやめておくべきでしょう。
   </para>
 
@@ -10918,8 +10954,8 @@ Microsoft Windowsでは、このファイルの名前はそれぞれ<filename>%A
 -->
 <filename>postgresql.crt</filename>中の最初の証明書は、クライアント証明書でなければなりません。
 クライアントの秘密鍵と一致していなければならないからです。
-オプションで、<quote>中間</quote>証明書を追加することができます。
-そうすることによって、サーバの<filename>root.crt</filename>ファイル上の中間証明書用の記憶領域が不要になります。
+オプションで、ファイルに<quote>中間</quote>証明書を追加することができます。
+そうすることによって、サーバ上に中間証明書（<xref linkend="guc-ssl-ca-file"/>）の格納が不要になります。
   </para>
 
   <para>
@@ -11836,7 +11872,10 @@ main(int argc, char **argv)
         exit_nicely(conn);
     }
 
+]]><!--
     /* Set always-secure search path, so malicious users can't take control. */
+--><![CDATA[
+    /* 悪意のユーザによる乗っ取りを防ぐように常に安全なサーチパスを設定 */
     res = PQexec(conn,
                  "SELECT pg_catalog.set_config('search_path', '', false)");
     if (PQresultStatus(res) != PGRES_TUPLES_OK)
@@ -11847,8 +11886,12 @@ main(int argc, char **argv)
     }
 
     /*
+]]><!--
      * Should PQclear PGresult whenever it is no longer needed to avoid memory
      * leaks
+--><![CDATA[
+     * メモリリークを避けるため、必要なくなったときにはいつでもPGresultを 
+     * PQclearすべき
      */
     PQclear(res);
 
@@ -12058,7 +12101,10 @@ main(int argc, char **argv)
                 PQerrorMessage(conn));
         exit_nicely(conn);
     }
+]]><!--
     /* Set always-secure search path, so malicious users can't take control. */
+--><![CDATA[
+    /* 悪意のユーザによる乗っ取りを防ぐように常に安全なサーチパスを設定 */
     res = PQexec(conn,
                  "SELECT pg_catalog.set_config('search_path', '', false)");
     if (PQresultStatus(res) != PGRES_TUPLES_OK)
@@ -12357,7 +12403,10 @@ main(int argc, char **argv)
         exit_nicely(conn);
     }
 
+]]><!--
     /* Set always-secure search path, so malicious users can't take control. */
+--><![CDATA[
+    /* 悪意のユーザによる乗っ取りを防ぐように常に安全なサーチパスを設定 */
     res = PQexec(conn, "SET search_path = testlibpq3");
     if (PQresultStatus(res) != PGRES_COMMAND_OK)
     {
