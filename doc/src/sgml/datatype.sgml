@@ -1952,7 +1952,7 @@ SELECT b, char_length(b) FROM test2;
 -->
 バイナリ列はオクテット（またはバイト）の連続です。
 バイナリ列は２つの点で文字列と区別されます。
-1点目は、バイナリ列はゼロの値のオクテットと他の<quote>表示できない</quote>オクテット（通常32から126の範囲外のオクテット）を保存できるということです。
+1点目は、バイナリ列はゼロの値のオクテットと他の<quote>表示できない</quote>オクテット（通常10進数表記で32から126の範囲外のオクテット）を保存できるということです。
 文字列ではゼロというオクテットは使用できません。
 また、データベースで選択している文字セット符号化方式で無効なオクテット値やオクテット値の並びも使用できません。
 2点目は、バイナリ列を演算すると実際のバイトが処理されるのに対して、文字列の処理はロケール設定に従うということです。
@@ -1971,7 +1971,7 @@ SELECT b, char_length(b) FROM test2;
     <productname>PostgreSQL</productname> 9.0; earlier versions and some
     tools don't understand it.)
 -->
-<type>bytea</type>型は入出力用に2つの外部書式をサポートします。
+<type>bytea</type>型は入出力用に2つの書式をサポートします。
 <productname>PostgreSQL</productname>の歴史的な<quote>エスケープ</quote>書式と<quote>hex</quote>です。
 入力ではこれらの両方とも常に受け入れられます。
 出力書式は<xref linkend="guc-bytea-output"/>設定パラメータに依存し、デフォルトではhexです。
@@ -2084,7 +2084,7 @@ SELECT '\xDEADBEEF';
 エスケープ書式で<type>bytea</type>値を入力する際に、特定の値のオクテットをエスケープする<emphasis>必要</emphasis>があります。
 なお、すべてのオクテットの値をエスケープすることが<emphasis>できます</emphasis>。
 一般的にあるオクテットをエスケープするには、それをその3桁の8進数に変換し、バックスラッシュ(エスケープ文字列構文を使用してリテラルとして値を記述する場合は2つのバックスラッシュ)を前に付けます。
-他にもバックスラッシュ自体(オクテット値92)を二重のバックスラッシュとして表現することができます。
+他にもバックスラッシュ自体(10進数表記のオクテットで92)を二重のバックスラッシュとして表現することができます。
 <xref linkend="datatype-binary-sqlesc"/>には、エスケープする必要がある文字と、その適用可能な代替エスケープシーケンスを示しています。
    </para>
 
@@ -2121,9 +2121,9 @@ SELECT '\xDEADBEEF';
        <entry><literal>\x00</literal></entry>
 -->
 <entry>ゼロオクテット</entry>
-       <entry><literal>E'\\000'</literal></entry>
-       <entry><literal>SELECT E'\\000'::bytea;</literal></entry>
-       <entry><literal>\000</literal></entry>
+       <entry><literal>'\000'</literal></entry>
+       <entry><literal>SELECT '\000'::bytea;</literal></entry>
+       <entry><literal>\x00</literal></entry>
       </row>
 
       <row>
@@ -2213,7 +2213,7 @@ SELECT '\xDEADBEEF';
 各組み合わせの最初のバックスラッシュは文字列リテラル用パーサでエスケープ文字と解釈（エスケープ文字列構文の使用を前提）され、2番目のバックスラッシュを残して、そこで消費されます。
 （この段階のエスケープを避けるためにドル引用符による文字列を使用することができます。）
 残りのバックスラッシュは、<type>bytea</type>入力関数が3桁のオクテット値の先頭に付く記号、もしくは、他のバックスラッシュをエスケープする記号として認識します。
-例えば、<literal>E'\\001'</literal>としてサーバに渡された文字列リテラルは、エスケープ文字列パーサを通過した後<literal>\001</literal>のようになります。
+例えば、<literal>'\\001'</literal>としてサーバに渡された文字列リテラルは、エスケープ文字列パーサを通過した後<literal>\001</literal>のようになります。
 <literal>\001</literal>はその後<type>bytea</type>入力関数に送られ、10進数値1の1つのオクテットに変換されます。
 単一引用符文字は<type>bytea</type>では特別に扱われず、通常の文字列リテラルの規則に従うことに注意してください。
 （<xref linkend="sql-syntax-strings"/>も参照してください。）
@@ -2229,11 +2229,9 @@ SELECT '\xDEADBEEF';
     Most <quote>printable</quote> octets are output by their standard
     representation in the client character set, e.g.:
 -->
-また、<type>Bytea</type>オクテットは出力時も時々エスケープされます。
-一般的には、各<quote>表示できない</quote>オクテットは、1つのバックスラッシュの後に等価な3桁8進数という形に変換されます。
-ほとんどの<quote>表示できる</quote>オクテットは、クライアント文字セットにおける標準表現で表されます。
-10進数で92となるオクテット（バックスラッシュ）は出力では二重になります。
-詳細は<xref linkend="datatype-binary-resesc"/>に示します。
+<type>Bytea</type>オクテットはデフォルトでは<literal>hex</literal>フォーマットで出力されます。
+<xref linkend="guc-bytea-output"/>を<literal>escape</literal>に変えると、<quote>表示できない</quote>オクテットは先頭にバックスラッシュがついた3桁のオクテットの値に変換されます。
+ほとんどの<quote>表示可能な</quote>オクテットはクライアントキャラクタセットの標準的な表示で出力されます。例:
 
 <programlisting>
 SET bytea_output = 'escape';
@@ -2244,8 +2242,12 @@ SELECT 'abc \153\154\155 \052\251\124'::bytea;
  abc klm *\251T
 </programlisting>
 
+<!--
     The octet with decimal value 92 (backslash) is doubled in the output.
     Details are in <xref linkend="datatype-binary-resesc"/>.
+-->
+10進数で92(バックスラッシュ)を持つオクテットは出力時に二重になります。
+詳細は<xref linkend="datatype-binary-resesc"/>を参照してください。
    </para>
 
    <table id="datatype-binary-resesc">
@@ -2305,6 +2307,7 @@ SELECT 'abc \153\154\155 \052\251\124'::bytea;
        <entry><quote>printable</quote> octets</entry>
        <entry>client character set representation</entry>
        <entry><literal>SELECT '\176'::bytea;</literal></entry>
+       <entry><literal>~</literal></entry>
 -->
        <entry>32から126</entry>
        <entry><quote>表示できる</quote>オクテット</entry>
@@ -6568,18 +6571,29 @@ PostgreSQLのテキスト検索機能を使用して、XMLデータの全文検�
   &rangetypes;
 
   <sect1 id="domains">
+<!--
    <title>Domain Types</title>
+-->
+   <title>ドメイン型</title>
 
    <indexterm zone="domains">
+<!--
     <primary>domain</primary>
+-->
+    <primary>ドメイン</primary>
    </indexterm>
 
    <indexterm zone="domains">
+<!--
     <primary>data type</primary>
     <secondary>domain</secondary>
+-->
+    <primary>データ型</primary>
+    <secondary>ドメイン</secondary>
    </indexterm>
 
    <para>
+<!--
     A <firstterm>domain</firstterm> is a user-defined data type that is
     based on another <firstterm>underlying type</firstterm>.  Optionally,
     it can have constraints that restrict its valid values to a subset of
@@ -6588,11 +6602,19 @@ PostgreSQLのテキスト検索機能を使用して、XMLデータの全文検�
     can be applied to the underlying type will work on the domain type.
     The underlying type can be any built-in or user-defined base type,
     enum type, array type, composite type, range type, or another domain.
+-->
+<firstterm>ドメイン</firstterm>は他の<firstterm>基となる型</firstterm>を元にしたユーザ定義のデータ型です。
+オプションとして基となる型が許可する型のサブセットの有効な値を制限する制約を持つことができます。
+他は基となる型のように振る舞います。&mdash;例えば、基となる型に適用できる演算子や関数はドメイン型でも動作します。
+ビルトインもしくはユーザが定義した基本型や列挙型、配列型、複合化型、範囲型もしくは他のドメインが基となる型になれます。
    </para>
 
    <para>
+<!--
     For example, we could create a domain over integers that accepts only
     positive integers:
+-->
+例として正の整数のみを許容する整数型のドメインを作成します。
 <programlisting>
 CREATE DOMAIN posint AS integer CHECK (VALUE &gt; 0);
 CREATE TABLE mytable (id posint);
@@ -6602,6 +6624,7 @@ INSERT INTO mytable VALUES(-1);  -- fails
    </para>
 
    <para>
+<!--
     When an operator or function of the underlying type is applied to a
     domain value, the domain is automatically down-cast to the underlying
     type.  Thus, for example, the result of <literal>mytable.id - 1</literal>
@@ -6613,10 +6636,19 @@ INSERT INTO mytable VALUES(-1);  -- fails
     1.  Assigning a value of the underlying type to a field or variable of
     the domain type is allowed without writing an explicit cast, but the
     domain's constraints will be checked.
+-->
+基となる型の演算子や関数にドメインの値が適用されると、ドメインは自動的に基となる型にダウンキャストされます。
+このため、例えば、<literal>mytable.id - 1</literal>の結果は<type>posint</type>ではなく、<type>integer</type>型として考えられます。
+ドメイン制約の再チェックが発生するので<type>posint</type>型にキャストするために<literal>(mytable.id - 1)::posint</literal>と記述することができます。
+このケースでは、式に<structfield>id</structfield>の値として1が与えられると結果はエラーになるでしょう。
+明確なキャストを書かずにドメイン型の変数やフィールドに基となる型の値を代入することが許容されていますが、ドメインの制約はチェックされます。
    </para>
 
    <para>
+<!--
     For additional information see <xref linkend="sql-createdomain"/>.
+-->
+より詳細な情報は<xref linkend="sql-createdomain"/>を確認ください。
    </para>
   </sect1>
 
