@@ -167,8 +167,11 @@ CREATE [ UNIQUE ] INDEX [ CONCURRENTLY ] [ [ IF NOT EXISTS ] <replaceable class=
        </para>
 
        <para>
+<!--
         Additional restrictions apply when unique indexes are applied to
         partitioned tables; see <xref linkend="sql-createtable" />.
+-->
+一意性インデックスがパーティションテーブルに適用されるときには、追加的な制限が適用されます。<xref linkend="sql-createtable" />を参照してください。
        </para>
       </listitem>
      </varlistentry>
@@ -216,6 +219,7 @@ CREATE [ UNIQUE ] INDEX [ CONCURRENTLY ] [ [ IF NOT EXISTS ] <replaceable class=
       <term><literal>INCLUDE</literal></term>
       <listitem>
        <para>
+<!--
         The optional <literal>INCLUDE</literal> clause specifies a
         list of columns which will be included in the index
         as <firstterm>non-key</firstterm> columns.  A non-key column cannot
@@ -226,34 +230,53 @@ CREATE [ UNIQUE ] INDEX [ CONCURRENTLY ] [ [ IF NOT EXISTS ] <replaceable class=
         they are available directly from the index entry.  Thus, addition of
         non-key columns allows index-only scans to be used for queries that
         otherwise could not use them.
+-->
+オプションの<literal>INCLUDE</literal>句は<firstterm>非キー</firstterm>列としてインデックスに含める列のリストを指定します。
+非キー列をインデックススキャンの検索条件に使うことはできません。また、インデックスで何であれ一意性制約や排他制約を強制する目的に対しても無視されます。
+しかしながら、インデックスオンリースキャンは、インデックスのテーブルを見に行く必要なく、非キー列の内容を返すことができます。
        </para>
 
        <para>
+<!--
         It's wise to be conservative about adding non-key columns to an
         index, especially wide columns.  If an index tuple exceeds the
         maximum size allowed for the index type, data insertion will fail.
         In any case, non-key columns duplicate data from the index's table
         and bloat the size of the index, thus potentially slowing searches.
+-->
+インデックスに非キー列を加えることには、特に幅広の列については、保守的であるのが賢明です。
+インデックス列がインデックス型で許される最大サイズを超えた場合、データ挿入は失敗してしまいます。
+いかなる場合でも、非キー列はインデックスのテーブルからデータを複製して、インデックスのサイズを膨張させます。よって、潜在的に検索を遅くします。
        </para>
 
        <para>
+<!--
         Columns listed in the <literal>INCLUDE</literal> clause don't need
         appropriate operator classes; the clause can include
         columns whose data types don't have operator classes defined for
         a given access method.
+-->
+<literal>INCLUDE</literal>句にある列リストは適合した演算子クラスを必要としません。ここには与えられたアクセスメソッドに対して定義された演算子クラスを持たないデータ型の列を含めることができます。
        </para>
 
        <para>
+<!--
         Expressions are not supported as included columns since they cannot be
         used in index-only scans.
+-->
+インデックスオンリースキャンで使うことができないため、INCLUDEする列に式は対応していません。
        </para>
 
        <para>
+<!--
         Currently, only the B-tree index access method supports this feature.
         In B-tree indexes, the values of columns listed in the
         <literal>INCLUDE</literal> clause are included in leaf tuples which
         correspond to heap tuples, but are not included in upper-level
         index entries used for tree navigation.
+-->
+今のところ本機能はB-treeインデックスアクセスメソッドにのみ対応しています。
+B-treeインデックスでは<literal>INCLUDE</literal>句にリストされた列の値は、ヒープタプルに対応するリーフタプルに含まれますが、ツリーを辿るのに使われる上位レベルのインデックスエントリには含まれません。
        </para>
       </listitem>
      </varlistentry>
@@ -281,8 +304,12 @@ CREATE [ UNIQUE ] INDEX [ CONCURRENTLY ] [ [ IF NOT EXISTS ] <replaceable class=
       <term><literal>ONLY</literal></term>
       <listitem>
        <para>
+<!--
         Indicates not to recurse creating indexes on partitions, if the
         table is partitioned.  The default is to recurse.
+-->
+テーブルがパーティションテーブルであっても、パーティションにインデックス作成を再帰的に実行しないことを示します。
+デフォルトでは再帰実行します。
        </para>
       </listitem>
      </varlistentry>
@@ -525,7 +552,10 @@ B-treeのデフォルトのフィルファクタは90ですが、10から100ま�
    </variablelist>
 
    <para>
+<!--
     B-tree indexes additionally accept this parameter:
+-->
+B-treeインデックスは以下パラメータを追加的に受け付けます。
    </para>
 
    <variablelist>
@@ -533,7 +563,10 @@ B-treeのデフォルトのフィルファクタは90ですが、10から100ま�
     <term><literal>vacuum_cleanup_index_scale_factor</literal></term>
     <listitem>
     <para>
+<!--
       Per-index value for <xref linkend="guc-vacuum-cleanup-index-scale-factor"/>.
+-->
+<xref linkend="guc-vacuum-cleanup-index-scale-factor"/>のインデックス毎の値です。
     </para>
     </listitem>
    </varlistentry>
@@ -821,7 +854,7 @@ Indexes:
 -->
 同一テーブルに対する通常のインデックス作成処理は複数並行して行うことができます。
 しかし、あるテーブルに対するインデックスの同時作成は一度に1つしか行うことができません。
-また、どの場合でもインデックス作成中はテーブルスキーマの変更はできません。
+また、どちらの場合でも居ネック素作成中のテーブルのスキーマ変更はできません。
 この他に、通常の<command>CREATE INDEX</command>コマンドはトランザクションブロック内で実行させることができますが、<command>CREATE INDEX CONCURRENTLY</command>は実行させることができないという相違点があります。
    </para>
   </refsect2>
@@ -884,6 +917,7 @@ Indexes:
   </para>
 
   <para>
+<!--
    When <literal>CREATE INDEX</literal> is invoked on a partitioned
    table, the default behavior is to recurse to all partitions to ensure
    they all have matching indexes.
@@ -903,6 +937,13 @@ Indexes:
    <command>CREATE TABLE ... PARTITION OF</command> will automatically
    have a matching index, regardless of whether <literal>ONLY</literal> is
    specified.
+-->
+<literal>CREATE INDEX</literal>がパーティションテーブルに実行されたときのデフォルトの振る舞いは、全パーティションが一致するインデックスを持つようにする全パーティションへの再帰的な実行です。
+各パーティションは最初に同等のインデックスが既に存在するかどうか決めるため検査され、存在するならそのインデックスは、親インデックスとなる作ろうとしているインデックスに対するパーティションインデックスとして、アタッチされます。
+一致するインデックスが存在しない場合、新たなインデックスが作られて、自動的にアタッチされます。各パーティションの新たなインデックス名は、コマンドでインデックスが指定されなかった場合と同様に決定されます。
+<literal>ONLY</literal>オプションが指定された場合、再帰処理は行われず、そのインデックスは無効と印付けされます。
+（<command>ALTER INDEX ... ATTACH PARTITION</command>は、ひとたび全パーティションが一致するインデックスを得たなら、インデックスを有効に印付けします）
+しかしながら、<literal>ONLY</literal>が指定されたとしても、将来に<command>CREATE TABLE ... PARTITION OF</command>を使って作成されるあらゆるパーティションは自動的に一致するインデックスを持つことに注意してください。
   </para>
 
   <para>
@@ -942,6 +983,7 @@ Indexes:
   </para>
 
   <para>
+<!--
    <productname>PostgreSQL</productname> can build indexes while
    leveraging multiple CPUs in order to process the table rows faster.
    This feature is known as <firstterm>parallel index
@@ -952,9 +994,15 @@ Indexes:
    a whole, regardless of how many worker processes were started.
    Generally, a cost model automatically determines how many worker
    processes should be requested, if any.
+-->
+<productname>PostgreSQL</productname>はテーブルの行をより高速に処理するために複数CPUを効かせてインデックスを作成できます。
+この機能は<firstterm>パラレルインデックス作成</firstterm>と呼ばれています。
+パラレルでのインデックス作成をサポートしているインデックスメソッド（今のところB-Treeのみ）に対して、<varname>maintenance_work_mem</varname>では、いくつのワーカプロセスが実行されているかに拘らず、各インデックス作成操作で使うことができる全体のメモリの最大量を指定します。
+一般にコストモデルは、もしあるなら、どれだけの数のワーカプロセスを要求すべきかを自動的に決定します。
   </para>
 
   <para>
+<!--
    Parallel index builds may benefit from increasing
    <varname>maintenance_work_mem</varname> where an equivalent serial
    index build will see little or no benefit.  Note that
@@ -968,9 +1016,16 @@ Indexes:
    needed for index creation, so long as the index build is not
    already I/O bound.  Of course, there should also be sufficient
    CPU capacity that would otherwise lie idle.
+-->
+パラレルインデックス作成では<varname>maintenance_work_mem</varname>を増やすことで、同様の逐次インデックス作成ではほとんど恩恵がみられないところ、おそらく恩恵を受けます。
+パラレルワーカは<varname>maintenance_work_mem</varname>全体の内、少なくとも<literal>32MB</literal>の割り当て分を持たなければならないため、<varname>maintenance_work_mem</varname>は要求されるワーカプロセス数に影響を及ぼすかもしれないことに注意してください。
+また、リーダープロセスに対しても<literal>32MB</literal>の割り当てを残さなければなりません。
+<xref linkend="guc-max-parallel-workers-maintenance"/>を増やすことで、より多くのワーカが使用できるようになるかもしれません。これは、インデックス作成が既にI/Oバウンドであるのでない限り、インデックス作成の所要時間を減らすでしょう。
+もちろん、使わなければ休止している十分なCPU容量もある前提です。
   </para>
 
   <para>
+<!--
    Setting a value for <literal>parallel_workers</literal> via <xref
    linkend="sql-altertable"/> directly controls how many parallel
    worker processes will be requested by a <command>CREATE
@@ -980,23 +1035,34 @@ Indexes:
    <literal>parallel_workers</literal> to 0 via <command>ALTER
    TABLE</command> will disable parallel index builds on the table in
    all cases.
+-->
+<xref linkend="sql-altertable"/>を通して<literal>parallel_workers</literal>の値を設定することで、テーブルに対して<command>CREATE INDEX</command>でどれだけのワーカプロセス数が要求されるかを、直接に調整できます。
+これはコストモデルを完全に無視して、<varname>maintenance_work_mem</varname>がパラレルワーカの要求数に影響を与えることを回避します。
+<command>ALTER TABLE</command>を通して<literal>parallel_workers</literal>を0に設定することは、そのテーブルに対するパラレルインデックス作成を全ての場合に無効化します。
   </para>
 
   <tip>
    <para>
+<!--
     You might want to reset <literal>parallel_workers</literal> after
     setting it as part of tuning an index build.  This avoids
     inadvertent changes to query plans, since
     <literal>parallel_workers</literal> affects
     <emphasis>all</emphasis> parallel table scans.
+-->
+インデックス作成のチューニング一部として<literal>parallel_workers</literal>を設定した後、これをリセットしたいかもしれません。
+<literal>parallel_workers</literal>は<emphasis>全ての</emphasis>パラレルテーブルスキャンに影響を与えますので、これは不注意な問い合わせプランの変更を回避します。
    </para>
   </tip>
 
   <para>
+<!--
    While <command>CREATE INDEX</command> with the
    <literal>CONCURRENTLY</literal> option supports parallel builds
    without special restrictions, only the first table scan is actually
    performed in parallel.
+-->
+<literal>CONCURRENTLY</literal>オプションを伴う<command>CREATE INDEX</command>は特に制限なくパラレル作成をサポートしますが、実際には最初のテーブルスキャンだけがパラレルに実行されます。
   </para>
 
   <para>
@@ -1033,16 +1099,19 @@ GiSTメソッドに比べて大きな利点がありませんでしたので、�
    To create a unique B-tree index on the column <literal>title</literal> in
    the table <literal>films</literal>:
 -->
-テーブル<literal>films</literal>の列<literal>title</literal>にB-treeインデックスを作成します。
+テーブル<literal>films</literal>の列<literal>title</literal>に一意性のB-treeインデックスを作成します。
 <programlisting>
 CREATE UNIQUE INDEX title_idx ON films (title);
 </programlisting>
   </para>
 
   <para>
+<!--
    To create a unique B-tree index on the column <literal>title</literal>
    with included columns <literal>director</literal>
    and <literal>rating</literal> in the table <literal>films</literal>:
+-->
+テーブル<literal>films</literal>の列<literal>title</literal>に、列<literal>director</literal>と列<literal>rating</literal>を含めて、一意性のB-treeインデックスを作成します。
 <programlisting>
 CREATE UNIQUE INDEX title_idx ON films (title) INCLUDE (director, rating);
 </programlisting>
