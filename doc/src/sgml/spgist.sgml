@@ -78,8 +78,8 @@
 <!--
   <ulink url="http://www.sai.msu.su/~megera/wiki/spgist_dev">web site</ulink>.
 -->
-ここで記述する情報の一部はPurdue大学のSP-GiSTインデックスプロジェクト<ulink url="http://www.cs.purdue.edu/spgist/">WEBサイト</ulink>によるものです。
-<productname>PostgreSQL</productname>での<acronym>SP-GiST</acronym>の実装は、おもにTeodor SigaevとOleg Bartunovによって保守されており、詳しい情報は彼らの<ulink url="http://www.sai.msu.su/~megera/wiki/spgist_dev">WEBサイト</ulink>にあります。
+ここで記述する情報の一部はPurdue大学のSP-GiSTインデックスプロジェクト<ulink url="https://www.cs.purdue.edu/spgist/">WEBサイト</ulink>によるものです。
+<productname>PostgreSQL</productname>での<acronym>SP-GiST</acronym>の実装は、おもにTeodor SigaevとOleg Bartunovによって保守されており、詳しい情報は彼らの<ulink url="https://www.sai.msu.su/~megera/wiki/spgist_dev">WEBサイト</ulink>にあります。
  </para>
 
 </sect1>
@@ -362,18 +362,19 @@
   accepts datum to be indexed as the only argument and returns value suitable
   for physical storage in leaf tuple.
 -->
-<acronym>SP-GiST</acronym>のインデックス演算子クラスが提供しなければならないユーザ定義メソッドが5つあります。
-5つのメソッドはいずれも2つの<type>internal</type>引数をとり、1番目の引数はサポートメソッドの入力値を含むCの構造体へのポインタ、2番目の引数は出力値が置かれるCの構造体へのポインタという形式に従っています。
-メソッドのうち4つは、その結果がすべて出力構造体の中にあるので、単に<type>void</type>を返しますが、<function>leaf_consistent</function>は、さらに<type>boolean</type>の結果を返します。
+<acronym>SP-GiST</acronym>のインデックス演算子クラスが提供しなければならないユーザ定義メソッドは5つあり、加えて、オプションのメソッドが1つあります。
+5つの必須メソッド全ては2つの<type>internal</type>引数を受け付けるというしきたりに従い、1つ目はサポートメソッドへの入力値を含むC構造体へのポインタで、一方2つ目は出力値が配置されるであろうC構造体へのポインタです。
+4つの必須メソッドでは、その結果がすべて出力構造体の中にあるので、単に<type>void</type>を返します。<function>leaf_consistent</function>は、さらに<type>boolean</type>の結果を返します。
 メソッドは、その入力構造体のどのフィールドも変更してはいけません。
 どんな場合でも、出力構造体はユーザ定義メソッドを呼び出す前にゼロに初期化されます。
+オプションの6番目のメソッド<function>compress</function>は、唯一の引数および戻り値として、リーフタプルの物理格納に適したインデックス付けされるデータを受け付けます。
  </para>
 
  <para>
 <!--
   The five mandatory user-defined methods are:
 -->
-5つのユーザ定義メソッドは以下のとおりです。
+5つの必須ユーザ定義メソッドは以下のとおりです。
  </para>
 
  <variablelist>
@@ -423,6 +424,7 @@ typedef struct spgConfigOut
 -->
     Oid         prefixType;     /* 内部タプルの接頭辞のデータ型 */
     Oid         labelType;      /* 内部タプルのノードのラベルのデータ型 */
+    Oid         leafType;       /* リーフタプル値のデータ型 */
     bool        canReturnData;  /* 演算子クラスは元のデータを再構築できる */
     bool        longValuesOK;   /* 演算子クラスは1ページより大きな値を扱える */
 } spgConfigOut;
@@ -457,6 +459,7 @@ typedef struct spgConfigOut
      </para>
 
      <para>
+<!--
       <structfield>leafType</structfield> is typically the same as
       <structfield>attType</structfield>.  For the reasons of backward
       compatibility, method <function>config</function> can
@@ -470,6 +473,13 @@ typedef struct spgConfigOut
       to <structfield>leafType</structfield>.
       Note: both consistent functions will get <structfield>scankeys</structfield>
       unchanged, without transformation using <function>compress</function>.
+-->
+<structfield>leafType</structfield>は一般的には<structfield>attType</structfield>と同じです。
+後方互換性のため、<function>config</function>メソッドは<structfield>leafType</structfield>を初期化しないままにすることができます。
+このことは<structfield>leafType</structfield>を<structfield>attType</structfield>と同一に設定するのと同じ効果をもたらすでしょう。
+<structfield>attType</structfield>と<structfield>leafType</structfield>が異なるときには、オプションメソッド<function>compress</function>が提供されなければなりません。
+メソッド<function>compress</function>は<structfield>attType</structfield>から<structfield>leafType</structfield>へのインデックス付けされたデータの変換に責任を持ちます。
+注意: 両consistent関数は、<function>compress</function>を使った変換を伴わない、変更されていない<structfield>scankeys</structfield>を取得します。
      </para>
      </listitem>
     </varlistentry>
@@ -636,9 +646,10 @@ typedef struct spgChooseOut
        <structfield>nodeLabels</structfield> is an array of their label values, or
        NULL if there are no labels.
 -->
-<structfield>datum</structfield>はインデックスに挿入される元のデータです。
-<structfield>leafDatum</structfield>は最初は<structfield>datum</structfield>と同じですが、<function>choose</function>あるいは<function>picksplit</function>メソッドがそれを変更すると、ツリーのより低いレベルで変更されることがあります。
-挿入の探索がリーフのページに到達したとき、<structfield>leafDatum</structfield>の現在値が、新しく作成されるリーフタプルに格納される値となります。
+<structfield>datum</structfield>はインデックスに挿入できた<structname>spgConfigIn</structname>.<structfield>attType</structfield>型の元データです。
+<structfield>leafDatum</structfield>は<structname>spgConfigOut</structname>.<structfield>leafType</structfield>型の値です。これは最初は、メソッド<function>compress</function>が提供されているなら<structfield>datum</structfield>に適用されたメソッド<function>compress</function>の結果で、さもなくば<structfield>datum</structfield>と同じ値です。
+<structfield>leafDatum</structfield>は、<function>choose</function>や<function>picksplit</function>メソッドがこれを変更すると、ツリーのより低いレベルで変化することがあります。
+挿入の探索がリーフページに到達するとき、<structfield>leafDatum</structfield>の現在値は、新しく作成されるリーフタプルに格納される値です。
 <structfield>level</structfield>は、ルートレベルを0として、現在の内部タプルのレベルを示します。
 現在の内部タプルが複数の同等なノードを含むとして印を付けられているとき、<structfield>allTheSame</structfield>をtrueにします(<xref linkend="spgist-all-the-same"/>参照)。
 現在の内部タプルが接頭辞を含むとき、<structfield>hasPrefix</structfield>をtrueにします。
@@ -815,9 +826,9 @@ typedef struct spgPickSplitOut
        <structfield>level</structfield> is the current level that all the leaf tuples
        share, which will become the level of the new inner tuple.
 -->
-<structfield>nTuples</structfield>は入力されるリーフタプルの個数です。
-<structfield>datums</structfield>はデータの値の配列です。
-<structfield>level</structfield>はすべてのリーフタプルの現在のレベルで、これが新しい内部タプルのレベルになります。
+<structfield>nTuples</structfield>は与えられるリーフタプルの個数です。
+<structfield>datums</structfield>は<structname>spgConfigOut</structname>.<structfield>leafType</structfield>型のそれらのデータ値の配列です。
+<structfield>level</structfield>はすべてのリーフタプルが共有する現在のレベルで、これが新しい内部タプルのレベルになります。
       </para>
 
       <para>
@@ -1013,17 +1024,18 @@ typedef struct spgInnerConsistentOut
 -->
 配列<structfield>scankeys</structfield>は長さが<structfield>nkeys</structfield>で、インデックス検索の条件を記述します。
 複数の条件はANDで結合されます。つまり、条件のすべてを満たすインデックスエントリのみが対象となります。
-(<structfield>nkeys</structfield>が0ならば、すべてのエントリが検索条件を満たすことになる、ということに注意してください。)
+(<structfield>nkeys</structfield> = 0 は全インデックスエントリが問い合わせを満たす意味になる、ということに注意してください。)
 通常、consistent関数では、配列のそれぞれのエントリの<structfield>sk_strategy</structfield>および<structfield>sk_argument</structfield>フィールドのみが問題となります。これらのフィールドにはそれぞれインデックス付け可能な演算子と比較値が入ります。
-なお、比較値がNULLかどうかを確認するために<structfield>sk_flags</structfield>を検査する必要はありません。なぜならSP-GiSTのコアのコードがそのような条件を除外するからです。
+とりわけ、比較値がNULLかどうかを確認するために<structfield>sk_flags</structfield>を検査する必要はありません。なぜならSP-GiSTのコアのコードがそのような条件を除外するからです。
 <structfield>reconstructedValue</structfield>は親タプルのために再構築された値で、ルートレベルの場合、あるいは親レベルの<function>inner_consistent</function>関数が値を返さなかった場合は<literal>(Datum) 0</literal>となります。
+<structfield>reconstructedValue</structfield>は常に<structname>spgConfigOut</structname>.<structfield>leafType</structfield>型です。
 <structfield>traversalValue</structfield>は親インデックスのタプルの<function>inner_consistent</function>の前の呼び出しから渡された探索データへのポインタで、ルートレベルならNULLです。
 <structfield>traversalMemoryContext</structfield>は出力探索値が格納されるメモリコンテキストです（以下を参照）。
 <structfield>level</structfield>は現在の内部タプルのレベルを、ルートレベルを0として数えたものです。
-<structfield>returnData</structfield>は、この問い合わせで再構築されたデータが必要な場合に<literal>true</literal>となりますが、これは<function>config</function>関数が<structfield>canReturnData</structfield>を確認した場合にのみ、そうなります。
-<structfield>allTheSame</structfield>は、現在の内部タプルに<quote>all-the-same</quote>の印が付いている場合にtrueになります。この場合、すべてのノードは(ラベルがあれば)同じラベルを持っていますから、そのすべてが問い合わせにマッチするか、いずれもマッチしないかのいずれかになります(<xref linkend="spgist-all-the-same"/>参照)。
-<structfield>hasPrefix</structfield>は現在の内部タプルが接頭辞を持っている場合にtrueとなり、このとき<structfield>prefixDatum</structfield>がその値となります。
-<structfield>nNodes</structfield>は内部タプルが含む子ノードの数です。<structfield>nodeLabels</structfield>はそれらのラベル値の配列で、ノードにラベルがないときはNULLになります。
+<structfield>returnData</structfield>は、この問い合わせで再構築されたデータが必要な場合に<literal>true</literal>となりますが、これは<function>config</function>関数が<structfield>canReturnData</structfield>であると主張した場合にのみ、そうなります。
+現在の内部タプルが<quote>all-the-same</quote>と印付けされているなら、<structfield>allTheSame</structfield>は真になります。この場合、（もしあるなら）全てのノードが同じラベルを持ち、問い合わせに全てが一致するか、全く一致しないかのいずれかになります（<xref linkend="spgist-all-the-same"/>を参照）。
+現在の内部タプルがプレフィックスを含んでいるなら<structfield>hasPrefix</structfield>は真になります。その場合、<structfield>prefixDatum</structfield>がその値です。
+<structfield>nNodes</structfield>は内部タプルに含まれる子ノードの数で、<structfield>nodeLabels</structfield>はそれらのラベル値の配列、あるいは、ノードがラベルを持たないならNULLです。
       </para>
 
       <para>
@@ -1085,13 +1097,13 @@ typedef struct spgInnerConsistentOut
 <programlisting>
 CREATE FUNCTION my_leaf_consistent(internal, internal) RETURNS bool ...
 </programlisting>
-      The first argument is a pointer to a <structname>spgLeafConsistentIn</structname>
 -->
 関数の<acronym>SQL</acronym>宣言は以下のようになります。
 <programlisting>
 CREATE FUNCTION my_leaf_consistent(internal, internal) RETURNS bool ...
 </programlisting>
 <!--
+      The first argument is a pointer to a <structname>spgLeafConsistentIn</structname>
       C struct, containing input data for the function.
       The second argument is a pointer to a <structname>spgLeafConsistentOut</structname>
       C struct, which the function must fill with result data.
@@ -1171,6 +1183,7 @@ typedef struct spgLeafConsistentOut
 通常、consistent関数では、配列のそれぞれのエントリの<structfield>sk_strategy</structfield>および<structfield>sk_argument</structfield>フィールドのみが問題となります。これらのフィールドにはそれぞれインデックス付け可能な演算子と比較値が入ります。
 なお、比較値がNULLかどうかを確認するために<structfield>sk_flags</structfield>を検査する必要はありません。なぜならSP-GiSTのコアのコードがそのような条件を除外するからです。
 <structfield>reconstructedValue</structfield>は親タプルのために再構築された値で、ルートレベルの場合、あるいは親レベルの<function>inner_consistent</function>関数が値を返さなかった場合は<literal>(Datum) 0</literal>となります。
+<structfield>reconstructedValue</structfield>は常に<structname>spgConfigOut</structname>.<structfield>leafType</structfield>型です。
 <structfield>traversalValue</structfield>は親インデックスのタプルの<function>inner_consistent</function>の前の呼び出しから渡された探索データへのポインタで、ルートレベルならNULLです。
 <structfield>level</structfield>は現在のリーフタプルのレベルを、ルートレベルを0として数えたものです。
 <structfield>returnData</structfield>は、この問い合わせで再構築されたデータが必要な場合に<literal>true</literal>となりますが、これは<function>config</function>関数が<structfield>canReturnData</structfield>を確認した場合にのみ、そうなります。
@@ -1190,7 +1203,7 @@ typedef struct spgLeafConsistentOut
        heap tuple to verify the match.
 -->
 この関数は、リーフタプルが問い合わせにマッチすれば<literal>true</literal>を返し、マッチしなければ<literal>false</literal>を返します。
-<literal>true</literal>の場合、<structfield>returnData</structfield>が<literal>true</literal>であれば、<structfield>leafValue</structfield>は、このリーフタプルにインデックス付けするために元々提供された値にセットされなければなりません。
+<literal>true</literal>の場合、<structfield>returnData</structfield>が<literal>true</literal>であれば、<structfield>leafValue</structfield>は、このリーフタプルにインデックス付けするために元々提供された<structname>spgConfigIn</structname>.<structfield>attType</structfield>型の値にセットされなければなりません。
 また、マッチするかどうかが不確実で、マッチするかの確認のために実際のヒープタプルに演算子を再適用しなければならないときは、<structfield>recheck</structfield>が<literal>true</literal>にセットされることがあります。
       </para>
      </listitem>
@@ -1198,7 +1211,10 @@ typedef struct spgLeafConsistentOut
    </variablelist>
 
  <para>
+<!--
   The optional user-defined method is:
+-->
+オプションのユーザ定義メソッドは以下です。
  </para>
 
  <variablelist>
@@ -1206,12 +1222,17 @@ typedef struct spgLeafConsistentOut
      <term><function>Datum compress(Datum in)</function></term>
      <listitem>
       <para>
+<!--
        Converts the data item into a format suitable for physical storage in
        a leaf tuple of index page.  It accepts
        <structname>spgConfigIn</structname>.<structfield>attType</structfield>
        value and return
        <structname>spgConfigOut</structname>.<structfield>leafType</structfield>
        value.  Output value should not be toasted.
+-->
+インデックページのリーフタプルでデータ項目を物理ストレージに適した形式に変換します。
+<structname>spgConfigIn</structname>.<structfield>attType</structfield>の値を受け付け、<structname>spgConfigOut</structname>.<structfield>leafType</structfield>の値を返します。
+出力値はTOASTされていないべきです。
       </para>
      </listitem>
     </varlistentry>
@@ -1280,7 +1301,7 @@ SP-GiSTのすべてのサポートメソッドは、通常は短期間有効な�
 -->
 それぞれのリーフタプルおよび内部タプルは1つのインデックスページ内(デフォルトで8kB)に収まらなければなりません。
 従って、可変長のデータ型の値をインデックス付けするときは、長い値は基数木のようなメソッドによってのみサポートされます。つまり、ツリーのそれぞれのレベルではページに収まる短さの接頭辞を含み、最後のリーフレベルでは、やはりページに収まる短さの接尾辞を含む、というようなものです。
-このようなことが発生する場合の対応の準備ができている場合のみ、演算子クラスは<structfield>longValuesOK</structfield>をTRUEにセットするべきです。
+このようなことが発生する場合の対応の準備ができている場合のみ、演算子クラスは<structfield>longValuesOK</structfield>を真にセットするべきです。
 そうでなければ、<acronym>SP-GiST</acronym>のコアは、インデックスページに収めるには大きすぎる値についてのインデックス付け要求を拒絶します。
   </para>
 
