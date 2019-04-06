@@ -1117,8 +1117,9 @@ UPDATE tt SET ti =
     of <function>to_tsquery</function> with an alternative syntax, similar
     to the one used by web search engines.
 -->
-<productname>PostgreSQL</productname>は、問い合わせを<type>tsquery</type>に変換する関数<function>to_tsquery</function>、<function>plainto_tsquery</function>、<function>phraseto_tsquery</function>を提供しています。
+<productname>PostgreSQL</productname>は、問い合わせを<type>tsquery</type>に変換する関数<function>to_tsquery</function>、<function>plainto_tsquery</function>、<function>phraseto_tsquery</function>、<function>websearch_to_tsquery</function>を提供しています。
 <function>to_tsquery</function>は、<function>plainto_tsquery</function>と<function>phraseto_tsquery</function>のいずれよりも多くの機能を提供していますが、入力のチェックはより厳格です。
+<function>websearch_to_tsquery</function>は、webサーチエンジンで使われているものに似た別の構文を使う<function>to_tsquery</function>の簡易バージョンです。
    </para>
 
    <indexterm>
@@ -1330,6 +1331,7 @@ websearch_to_tsquery(<optional> <replaceable class="parameter">config</replaceab
 </synopsis>
 
    <para>
+<!--
     <function>websearch_to_tsquery</function> creates a <type>tsquery</type>
     value from <replaceable>querytext</replaceable> using an alternative
     syntax in which simple unformatted text is a valid query.
@@ -1338,38 +1340,58 @@ websearch_to_tsquery(<optional> <replaceable class="parameter">config</replaceab
     operators. Moreover, this function should never raise syntax errors,
     which makes it possible to use raw user-supplied input for search.
     The following syntax is supported:
+-->
+<function>websearch_to_tsquery</function>は、問い合わせとして、単純で整形されていないテキストが代わりに使えるような構文を使って<replaceable>querytext</replaceable>から<type>tsquery</type>を作り出します。
+<function>plainto_tsquery</function>および<function>phraseto_tsquery</function>と違って、ある種の演算子を理解します。
+更にこの関数は決して構文エラーを引き起こさないので、ユーザ入力をそのまま検索で使用することができます。
+以下の構文をサポートします。
     <itemizedlist  spacing="compact" mark="bullet">
      <listitem>
        <para>
+<!--
         <literal>unquoted text</literal>: text not inside quote marks will be
         converted to terms separated by <literal>&amp;</literal> operators, as
         if processed by
         <function>plainto_tsquery</function>.
+-->
+<literal>引用符なしのテキスト</literal>:引用符の内側にないテキストは、あたかも<function>plainto_tsquery</function>で処理されたように<literal>&amp;</literal>演算子で区切られます。
       </para>
      </listitem>
      <listitem>
        <para>
+<!--
         <literal>"quoted text"</literal>: text inside quote marks will be
         converted to terms separated by <literal>&lt;-&gt;</literal>
         operators, as if processed by <function>phraseto_tsquery</function>.
+-->
+<literal>"引用符内のテキスト"</literal>:引用符内のテキストは、あたかも<function>phraseto_tsquery</function>で処理されたように<literal>&lt;-&gt;</literal>で区切られた表現に変換されます。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <literal>OR</literal>: logical or will be converted to
        the <literal>|</literal> operator.
+-->
+<literal>OR</literal>:論理和は<literal>|</literal>演算子に変換されます。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <literal>-</literal>: the logical not operator, converted to the
        the <literal>!</literal> operator.
+-->
+<literal>-</literal>:論理否定演算子。<literal>!</literal>演算子に変換されます。
       </para>
      </listitem>
     </itemizedlist>
    </para>
    <para>
+<!--
     Examples:
+  -->
+例を示します。
 <screen>
 SELECT websearch_to_tsquery('english', 'The fat rats');
  websearch_to_tsquery
@@ -3834,9 +3856,9 @@ SELECT plainto_tsquery('supernova star');
     Wiki</ulink>.
 -->
 <productname>PostgreSQL</productname>の標準配布には、<application>Ispell</application>の設定ファイルは含まれていません。
-多くの言語用の辞書が<ulink url="http://ficus-www.cs.ucla.edu/geoff/ispell.html">Ispell</ulink>で入手できます。
-また、より新しい辞書のフォーマットもサポートされています &mdash; <ulink url="http://en.wikipedia.org/wiki/MySpell">MySpell</ulink>(OO &lt; 2.0.1)と<ulink url="http://sourceforge.net/projects/hunspell/">Hunspell</ulink>(OO &gt;= 2.0.2)。
-多数の辞書のリストが <ulink url="http://wiki.services.openoffice.org/wiki/Dictionaries">OpenOffice Wiki</ulink>で入手できます。
+多くの言語用の辞書が<ulink url="https://ficus-www.cs.ucla.edu/geoff/ispell.html">Ispell</ulink>で入手できます。
+また、より新しい辞書のフォーマットもサポートされています &mdash; <ulink url="https://en.wikipedia.org/wiki/MySpell">MySpell</ulink>(OO &lt; 2.0.1)と<ulink url="https://sourceforge.net/projects/hunspell/">Hunspell</ulink>(OO &gt;= 2.0.2)。
+多数の辞書のリストが <ulink url="https://wiki.openoffice.org/wiki/Dictionaries">OpenOffice Wiki</ulink>で入手できます。
    </para>
 
    <para>
@@ -4919,7 +4941,7 @@ GiSTインデックスが非可逆なのは、インデックス中の各文書�
    only local information.
 -->
 大きなデータをパーティショニングし、GIN、GiSTインデックスを適切に使うことによってオンラインの更新を伴いながら、非常に高速な検索を実現することができます。
-パーティショニングは、以下のどちらかの方法でデータベースレベルで実現できます。(1)テーブルの継承を使う。(2)文書を複数のサーバに分散させ、<xref linkend="dblink"/>モジュールを使って検索結果を集約する。
+パーティショニングは、以下のどちらかの方法でデータベースレベルで実現できます。(1)テーブルの継承を使う。(2)文書を複数のサーバに分散させ、外部の検索結果を集約する。たとえば<link linkend="ddl-foreign-data">外部データ</link>アクセスを使います。
 2の方法は、ランキング関数がローカルな情報しか使わないため可能です。
   </para>
 
