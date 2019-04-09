@@ -1781,23 +1781,16 @@ SELECT (5 !) - 6;
 <!--
     When a schema-qualified operator name is used in the
     <literal>OPERATOR</literal> syntax, as for example in:
-<programlisting>
-SELECT 3 OPERATOR(pg_catalog.+) 4;
-</programlisting>
-    the <literal>OPERATOR</literal> construct is taken to have the default precedence
-    shown in <xref linkend="sql-precedence-table"/> for
-    <quote>any other operator</quote>.  This is true no matter
-    which specific operator appears inside <literal>OPERATOR()</literal>.
 -->
 次の例のように、<literal>OPERATOR</literal>構文でスキーマで修飾された演算子名を使用する場合、
 <programlisting>
 SELECT 3 OPERATOR(pg_catalog.+) 4;
 </programlisting>
 <!--
-    the <literal>OPERATOR</> construct is taken to have the default precedence
+    the <literal>OPERATOR</literal> construct is taken to have the default precedence
     shown in <xref linkend="sql-precedence-table"/> for
-    <quote>any other operator</>.  This is true no matter
-    which specific operator appears inside <literal>OPERATOR()</>.
+    <quote>any other operator</quote>.  This is true no matter
+    which specific operator appears inside <literal>OPERATOR()</literal>.
 -->
 <literal>OPERATOR</literal>構文は、<xref linkend="sql-precedence-table"/>の<quote>その他の演算子</quote>で示されているデフォルトの優先順位を持つとみなされます。
 これは、<literal>OPERATOR()</literal>にどの特定の演算子が入る場合でも変わりません。
@@ -2411,11 +2404,6 @@ sqrt(2)
    </para>
 
    <para>
-    The arguments can optionally have names attached.
-    See <xref linkend="sql-syntax-calling-funcs"/> for details.
-   </para>
-
-   <para>
 <!--
     The arguments can optionally have names attached.
     See <xref linkend="sql-syntax-calling-funcs"/> for details.
@@ -2854,7 +2842,10 @@ CURRENT ROW
 <replaceable>offset</replaceable> FOLLOWING
 UNBOUNDED FOLLOWING
 </synopsis>
+<!--
     and <replaceable>frame_exclusion</replaceable> can be one of
+-->
+そして、<replaceable>frame_exclusion</replaceable>は以下のいずれかです。
 <synopsis>
 EXCLUDE CURRENT ROW
 EXCLUDE GROUP
@@ -2930,6 +2921,7 @@ EXCLUDE NO OTHERS
 -->
 <replaceable class="parameter">frame_clause</replaceable>は、パーティション全体ではなくフレーム上で作動するウィンドウ関数に対して、<firstterm>ウィンドウフレーム</firstterm>を構成する行の集合を指定します。
 ウィンドウフレームは現在のパーティションの部分集合になります。
+フレームの中の行の集合は、どの行が現在の行であるかによって変わります。
 フレームは<literal>RANGE</literal>モードでも<literal>ROWS</literal>モードでも指定できます。
 どちらの場合でも<replaceable>frame_start</replaceable>から<replaceable>frame_end</replaceable>までです。
 <replaceable>frame_end</replaceable>を省略した場合のデフォルトは<literal>CURRENT ROW</literal>です。
@@ -2942,7 +2934,7 @@ EXCLUDE NO OTHERS
     a <replaceable>frame_end</replaceable> of <literal>UNBOUNDED FOLLOWING</literal> means
     that the frame ends with the last row of the partition.
 -->
-<replaceable>frame_start</replaceable>が<literal>UNBOUNDED PRECEDING</literal>であるのはフレームがパーティションの最初の行から始まること意味し、同様に、<replaceable>frame_end</replaceable>が<literal>UNBOUNDED FOLLOWING</literal>であるのはフレームがパーティションの最後の行で終わること意味します。
+<replaceable>frame_start</replaceable>が<literal>UNBOUNDED PRECEDING</literal>ならばフレームがパーティションの最初の行から始まること意味し、同様に、<replaceable>frame_end</replaceable>が<literal>UNBOUNDED FOLLOWING</literal>ならばフレームがパーティションの最後の行で終わること意味します。
    </para>
 
    <para>
@@ -2958,28 +2950,36 @@ EXCLUDE NO OTHERS
     In <literal>ROWS</literal> mode, <literal>CURRENT ROW</literal> simply
     means the current row.
 -->
-<literal>RANGE</literal>モードでは、<replaceable>frame_start</replaceable>が<literal>CURRENT ROW</literal>であるのは、フレームが現在行の最初の<firstterm>ピア</firstterm>行（<literal>ORDER BY</literal>が現在行と同じ順序とみなす行）から始まることを意味し、一方、<replaceable>frame_end</replaceable>が<literal>CURRENT ROW</literal>であるのはフレームが現在行の最後の同等な<literal>ORDER BY</literal>ピア行で終わることを意味します。
+<literal>RANGE</literal>あるいは<literal>GROUPS</literal>モードでは、<replaceable>frame_start</replaceable>が<literal>CURRENT ROW</literal>ならば、フレームが現在行の最初の<firstterm>ピア</firstterm>行（ウィンドウの<literal>ORDER BY</literal>句が現在行と同じ順序とみなす行）から始まることを意味し、一方、<replaceable>frame_end</replaceable>が<literal>CURRENT ROW</literal>ならばフレームが現在行の最後の同等な<literal>ORDER BY</literal>ピア行で終わることを意味します。
 <literal>ROWS</literal>モードでは、<literal>CURRENT ROW</literal>は単に現在行を意味します。
    </para>
 
    <para>
+<!--
     In the <replaceable>offset</replaceable> <literal>PRECEDING</literal>
     and <replaceable>offset</replaceable> <literal>FOLLOWING</literal> frame
     options, the <replaceable>offset</replaceable> must be an expression not
     containing any variables, aggregate functions, or window functions.
     The meaning of the <replaceable>offset</replaceable> depends on the
     frame mode:
+-->
+<replaceable>offset</replaceable> <literal>PRECEDING</literal>と<replaceable>offset</replaceable> <literal>FOLLOWING</literal>フレームオプションでは、<replaceable>offset</replaceable>は一切の変数、集計関数、あるいはウィンドウ関数を含まない式でなければなりません。
+<replaceable>offset</replaceable>の意味はフレームモードに依存します。
     <itemizedlist>
      <listitem>
       <para>
+<!--
        In <literal>ROWS</literal> mode,
        the <replaceable>offset</replaceable> must yield a non-null,
        non-negative integer, and the option means that the frame starts or
        ends the specified number of rows before or after the current row.
+-->
+<literal>ROWS</literal>モードでは、<replaceable>offset</replaceable>の評価値は非NULL、非負の整数でなければならず、このオプションは現在行の前あるいは後の指定した数の行でフレームが開始あるいは終了することを意味します。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        In <literal>GROUPS</literal> mode,
        the <replaceable>offset</replaceable> again must yield a non-null,
        non-negative integer, and the option means that the frame starts or
@@ -2988,10 +2988,15 @@ EXCLUDE NO OTHERS
        set of rows that are equivalent in the <literal>ORDER BY</literal>
        ordering.  (There must be an <literal>ORDER BY</literal> clause
        in the window definition to use <literal>GROUPS</literal> mode.)
+-->
+<literal>GROUPS</literal>モードでも、<replaceable>offset</replaceable>の評価値は非NULL、非負の整数でなければならず、このオプションは現在行のピアグループ(peer group)の前あるいは後の指定した数の<firstterm>ピアグループ</firstterm>でフレームが開始あるいは終了することを意味します。
+ここでピアグループは、<literal>ORDER BY</literal>による順序付け中で等しい行の集合です。
+（ウィンドウ定義で<literal>GROUPS</literal>モードを使うには、<literal>ORDER BY</literal>句が存在しなければなりません。）
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        In <literal>RANGE</literal> mode, these options require that
        the <literal>ORDER BY</literal> clause specify exactly one column.
        The <replaceable>offset</replaceable> specifies the maximum
@@ -3007,23 +3012,40 @@ EXCLUDE NO OTHERS
        The <replaceable>offset</replaceable> is still required to be
        non-null and non-negative, though the meaning
        of <quote>non-negative</quote> depends on its data type.
+-->
+<literal>RANGE</literal>モードでは、<literal>ORDER BY</literal>句が正確に一つの列を指定することがこれらのオプションによって要求されます。
+<replaceable>offset</replaceable>は現在行の列の値と、フレーム中の前あるいは後ろの行の値の最大の差を指定します。
+<replaceable>offset</replaceable>式のデータ型は、順序付けをしている列のデータ型に依存して変わります。
+数値型の順序付け列では、典型的には順序付け列と同じですが、日付時間の順序付け列では、<type>interval</type>になります。
+たとえば、順序付け列の型が<type>date</type>あるいは<type>timestamp</type>なら、<literal>RANGE BETWEEN　'1 day' PRECEDING AND '10 days' FOLLOWING</literal>と書くことができるでしょう。
+ここでも<replaceable>offset</replaceable>は非NULLかつ非負である必要があります。
+ただし、<quote>非負</quote>の意味はデータ型に依存します。
       </para>
      </listitem>
     </itemizedlist>
+<!--
     In any case, the distance to the end of the frame is limited by the
     distance to the end of the partition, so that for rows near the partition
     ends the frame might contain fewer rows than elsewhere.
+-->
+どの場合でも、フレームの最後までの距離はパーティションの最後までの距離に制限されます。
+ですからパーティションの最後近くの行では他の場合に比べてフレームには少ない行が含まれるかも知れません。
    </para>
 
    <para>
+<!--
     Notice that in both <literal>ROWS</literal> and <literal>GROUPS</literal>
     mode, <literal>0 PRECEDING</literal> and <literal>0 FOLLOWING</literal>
     are equivalent to <literal>CURRENT ROW</literal>.  This normally holds
     in <literal>RANGE</literal> mode as well, for an appropriate
     data-type-specific meaning of <quote>zero</quote>.
+-->
+<literal>ROWS</literal>と<literal>GROUPS</literal>モードでは、<literal>0 PRECEDING</literal>と<literal>0 FOLLOWING</literal>は<literal>CURRENT ROW</literal>と同じであることに注意してください。
+データ型固有の意味で<quote>0</quote>が適切ならば、通常<literal>RANGE</literal>においても同様です。
    </para>
 
    <para>
+<!--
     The <replaceable>frame_exclusion</replaceable> option allows rows around
     the current row to be excluded from the frame, even if they would be
     included according to the frame start and frame end options.
@@ -3035,6 +3057,11 @@ EXCLUDE NO OTHERS
     row from the frame, but not the current row itself.
     <literal>EXCLUDE NO OTHERS</literal> simply specifies explicitly the
     default behavior of not excluding the current row or its peers.
+-->
+フレームの開始、終了オプションで含まれることになる行であっても、<replaceable>frame_exclusion</replaceable>オプションで現在行周辺の行がフレームに含まれないようにすることができます。
+<literal>EXCLUDE GROUP</literal>は、現在行とその順序付ピアをフレームから除外します。
+<literal>EXCLUDE TIES</literal>は、現在行そのものを除き、フレームにおける現在行のピアをフレームから除外します。
+<literal>EXCLUDE NO OTHERS</literal>は、現在の行あるいはそのピアを除外しないというデフォルトの挙動を明示的に指定するだけです。
    </para>
 
    <para>
@@ -3049,7 +3076,7 @@ EXCLUDE NO OTHERS
 -->
 デフォルトのフレーム化オプションは<literal>RANGE UNBOUNDED PRECEDING</literal>で、<literal>RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</literal>と同じです。
 <literal>ORDER BY</literal>があると、フレームはパーティションの開始から現在行の最後の<literal>ORDER BY</literal>ピア行までのすべての行になります。
-<literal>ORDER BY</literal>が無い場合は、すべての行が現在行のピアとなるので、パーティションのすべての行がウィンドウフレームに含まれます。
+<literal>ORDER BY</literal>が無い場合は、すべての行が現在行のピアとなるので、パーティションのすべての行がウィンドウフレームに含まれることを意味することになります。
    </para>
 
    <para>
@@ -3067,7 +3094,9 @@ EXCLUDE NO OTHERS
     PRECEDING</literal> is allowed, even though it would never select any
     rows.
 -->
-制限は、<replaceable>frame_start</replaceable>を<literal>UNBOUNDED FOLLOWING</literal>とすることができない点、<replaceable>frame_end</replaceable>を<literal>UNBOUNDED PRECEDING</literal>とすることができない点、および<replaceable>frame_end</replaceable>の選択は上のリストの中で<replaceable>frame_start</replaceable>の選択より先に記述することができない点です。例えば、<literal>RANGE BETWEEN CURRENT ROW AND <replaceable>value</replaceable> PRECEDING</literal>は許されません。
+制限は、<replaceable>frame_start</replaceable>を<literal>UNBOUNDED FOLLOWING</literal>とすることができない点、<replaceable>frame_end</replaceable>を<literal>UNBOUNDED PRECEDING</literal>とすることができない点、および、上記の<replaceable>frame_start</replaceable>と<replaceable>frame_end</replaceable>のオプションのリストで、<replaceable>frame_end</replaceable>の選択が<replaceable>frame_start</replaceable>の選択よりも先に現れるものであってはならない点です。
+例えば、<literal>RANGE BETWEEN CURRENT ROW AND <replaceable>offset</replaceable> PRECEDING</literal>は許されません。
+しかし、例えば、決してどの行も選択しないとしても、<literal>ROWS BETWEEN 7 PRECEDING AND 8 PRECEDING</literal>は許されます。
    </para>
 
    <para>
@@ -3883,6 +3912,7 @@ SELECT CASE WHEN x &gt; 0 THEN x ELSE 1/0 END FROM tab;
    </para>
 
    <para>
+<!--
     While that particular example might seem silly, related cases that don't
     obviously involve constants can occur in queries executed within
     functions, since the values of function arguments and local variables
@@ -3891,6 +3921,9 @@ SELECT CASE WHEN x &gt; 0 THEN x ELSE 1/0 END FROM tab;
     <literal>IF</literal>-<literal>THEN</literal>-<literal>ELSE</literal> statement to protect
     a risky computation is much safer than just nesting it in a
     <literal>CASE</literal> expression.
+-->
+この特別な例は馬鹿げたものに見えるかもしれませんが、定数を含むことが明らかではない関連する場合が関数の中で実行される問い合わせで起こり得ます。関数の引数とローカル変数は計画作成の都合で定数として問い合わせに入れられることがあるからです。
+例えば、<application>PL/pgSQL</application>関数の中では、<literal>IF</literal>-<literal>THEN</literal>-<literal>ELSE</literal>文を使って危険な計算を保護する方が<literal>CASE</literal>式の中で入れ子にするよりもずっと安全です。
    </para>
 
    <para>
