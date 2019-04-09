@@ -185,8 +185,9 @@ echo '\x \\ SELECT * FROM foo;' | psql
        because then <application>psql</application> sends
        each <acronym>SQL</acronym> command separately.
 -->
-<option>-c</option>に渡される各<acronym>SQL</acronym>のコマンド文字列は、単一の問い合わせとしてサーバに送信されます。
+<option>-c</option>に渡される各<acronym>SQL</acronym>のコマンド文字列は、単一の要求としてサーバに送信されます。
 このため、トランザクションを複数に分ける<command>BEGIN</command>/<command>COMMIT</command>コマンドが明示的に文字列内に含まれない限り、文字列内に複数の<acronym>SQL</acronym>コマンドが含まれていたとしても、サーバはそれを1つのトランザクションとして実行します。
+（複数問い合わせの文字列をどのようにサーバが処理するかについて、詳しくは<xref linkend="protocol-flow-multi-statement"/>を参照してください。）
 また、<application>psql</application>は文字列内の最後の<acronym>SQL</acronym>コマンドの結果しか出力しません。
 同じ文字列をファイル、あるいは<application>psql</application>の標準入力として渡した場合、<application>psql</application>は各<acronym>SQL</acronym>コマンドを別々に送信しますので、この場合とは動作が異なります。
       </para>
@@ -199,7 +200,7 @@ echo '\x \\ SELECT * FROM foo;' | psql
        either using <application>echo</application> as illustrated above, or
        via a shell here-document, for example:
 -->
-この動作のため、1つの<option>-c</option>の文字列に2つ以上のコマンドを指定すると、予期しない結果をもたらすことがあります。
+この動作のため、1つの<option>-c</option>の文字列に2つ以上のSQLコマンドを指定すると、予期しない結果をもたらすことがあります。
 <option>-c</option>のコマンドを繰り返し使うか、あるいは、上記のように<application>echo</application>を使うか、以下の例のようにシェルのヒアドキュメントを使うことで、<application>psql</application>の標準入力に複数のコマンドを入力する方が良いでしょう。
 <programlisting>
 psql &lt;&lt;EOF
@@ -1139,6 +1140,9 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
 -->
 <xref linkend="app-psql-interpolation" endterm="app-psql-interpolation-title"/>で説明されているとおり、引数の中に引用符で囲まれていないコロン（ <literal>:</literal>）とそれに続く<application>psql</application>変数がある場合、その部分は変数の値で置換されます。
 そこで説明されている<literal>:'<replaceable>variable_name</replaceable>'</literal>および<literal>:"<replaceable>variable_name</replaceable>"</literal>という形式も同様に機能します。
+<literal>:{?<replaceable>variable_name</replaceable>}</literal>構文は、変数が定義済みかどうかをテストできます。
+これはTRUEかFALSEに置き換えられます。
+コロンをバックスラッシュでエスケープすると置換が防止されます。
     </para>
 
     <para>
@@ -2013,7 +2017,6 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         To display only functions
         of specific type(s), add the corresponding letters <literal>a</literal>,
         <literal>n</literal>, <literal>p</literal>, <literal>t</literal>, or <literal>w</literal> to the command.
-        <literal>n</literal>, <literal>t</literal>, or <literal>w</literal> to the command.
         If <replaceable
         class="parameter">pattern</replaceable> is specified, only
         functions whose names match the pattern are shown.
@@ -2025,8 +2028,8 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         parallel safety, owner, security classification, access privileges,
         language, source code and description.
 -->
-関数とその結果のデータ型、引数のデータ型、および、<quote>agg</quote> (集約)、<quote>normal</quote>、<quote>trigger</quote>、<quote>window</quote>で分類される関数の種類の一覧を表示します。
-特定種類の関数のみを表示させるには、対応する文字<literal>a</literal>、<literal>n</literal>、<literal>t</literal>、<literal>w</literal>をコマンドに付けて下さい。
+関数とその結果のデータ型、引数のデータ型、および、<quote>agg</quote> (集約)、<quote>normal</quote>、<quote>procedure</quote>、<quote>trigger</quote>、<quote>window</quote>で分類される関数の種類の一覧を表示します。
+特定種類の関数のみを表示させるには、対応する文字<literal>a</literal>、<literal>n</literal>、<literal>p</literal>、<literal>t</literal>、<literal>w</literal>をコマンドに付けて下さい。
 <replaceable class="parameter">pattern</replaceable>が指定されている場合は、そのパターンに名前がマッチする関数のみが表示されます。
 デフォルトではユーザが作成したオブジェクトのみが表示されます。
 システムオブジェクトを含めるためには、パターンまたは<literal>S</literal>修飾子を付与してください。
@@ -2580,7 +2583,7 @@ Tue Oct 26 21:40:57 CEST 1999
          type semicolon or <literal>\g</literal> to send it, or <literal>\r</literal>
          to cancel.
 -->
-このコマンドは指定された関数の定義を<command>CREATE OR REPLACE FUNCTION</command>コマンド構文で取り出し、編集します。
+このコマンドは指定された関数やプロシージャの定義を<command>CREATE OR REPLACE FUNCTION</command>や<command>CREATE OR REPLACE PROCEDURE</command>コマンド構文で取り出し、編集します。
 編集は<literal>\edit</literal>と同様の方法で行われます。
 エディタ終了後、更新されたコマンドは問い合わせバッファ内で待機しています。
 セミコロンか<literal>\g</literal>を入力して送信するか、<literal>\r</literal>を入力して取り消すかしてください。
@@ -2790,15 +2793,22 @@ Tue Oct 26 21:40:57 CEST 1999
 
         <listitem>
         <para>
+<!--
          Shows the description (that is, the column names and data types)
          of the result of the current query buffer.  The query is not
          actually executed; however, if it contains some type of syntax
          error, that error will be reported in the normal way.
+-->
+現在の問い合わせバッファの結果の説明（列名とデータ型）を表示します。
+問い合わせは実際には実行されませんが、ある種の構文エラーが含まれている場合、そのエラーは通常の方法で報告されます。
         </para>
 
         <para>
+<!--
          If the current query buffer is empty, the most recently sent query
          is described instead.
+-->
+現在の問い合わせバッファが空の場合、直近に送った問い合わせの説明が代わりに出力されます。
         </para>
         </listitem>
       </varlistentry>
@@ -3839,8 +3849,8 @@ null値の代わりに表示する文字列を設定します。
           (such as <filename>more</filename>) is used.
 -->
 問い合わせおよび<application>psql</application>のヘルプを出力する際の、ページャプログラムの使用を制御します。
-環境変数<envar>PAGER</envar>が設定されている場合、出力は指定したプログラムにパイプで渡されます。
-<envar>PAGER</envar>が設定されていない場合は、プラットフォーム依存のデフォルト（<filename>more</filename>など）が使用されます。
+環境変数<envar>PSQL_PAGER</envar>または<envar>PAGER</envar>が設定されている場合、出力は指定したプログラムにパイプで渡されます。
+設定されていない場合は、プラットフォーム依存のデフォルト（<filename>more</filename>など）が使用されます。
           </para>
 
           <para>
@@ -4230,7 +4240,7 @@ testdb=&gt; <userinput>\setenv LESS -imx4F</userinput>
          The definition is printed to the current query output channel,
          as set by <command>\o</command>.
 -->
-このコマンドは、<command>CREATE OR REPLACE FUNCTION</command>コマンドの形式で、指定された関数の定義を抽出し表示します。
+このコマンドは、<command>CREATE OR REPLACE FUNCTION</command>コマンドや<command>CREATE OR REPLACE PROCEDURE</command>コマンドの形式で、指定された関数やプロシージャの定義を抽出し表示します。
 この定義は、<command>\o</command>で設定された現在の問い合わせ出力チャネルに出力されます。
         </para>
 
@@ -4542,15 +4552,23 @@ testdb=&gt; <userinput>\setenv LESS -imx4F</userinput>
         <term><literal>\;</literal></term>
         <listitem>
         <para>
+<!--
         Backslash-semicolon is not a meta-command in the same way as the
         preceding commands; rather, it simply causes a semicolon to be
         added to the query buffer without any further processing.
+-->
+バックスラッシュ-セミコロンは前述のコマンドと同じ位置づけのメタコマンドではありません。そうではなく単にセミコロンを追加処理無しで問い合わせバッファに加えます。
         </para>
 
         <para>
+<!--
         Normally, <application>psql</application> will dispatch a SQL command to the
         server as soon as it reaches the command-ending semicolon, even if
         more input remains on the current line.  Thus for example entering
+-->
+通常、<application>psql</application>は、コマンド終了のセミコロンに到達したら、更なる入力が現在行に残っていても、SQLコマンドをすぐにサーバに送ります。
+よって、例えば、
+<!--
 <programlisting>
 select 1; select 2; select 3;
 </programlisting>
@@ -4560,9 +4578,14 @@ select 1; select 2; select 3;
         as <literal>\;</literal> will not trigger command processing, so that the
         command before it and the one after are effectively combined and
         sent to the server in one request.  So for example
+-->     
+上記は3つのSQLコマンドが個々にサーバに送られることになり、各々の結果は続く次コマンドの前に表示されます。
+しかしながら、<literal>\;</literal>として挿入されたセミコロンはコマンド処理を誘発せず、その後、そのさらに後のコマンドは事実上結合されて、サーバに一つのリクエストとして送られます。
+したがって、例えば、
 <programlisting>
 select 1\; select 2\; select 3;
 </programlisting>
+<!--
         results in sending the three SQL commands to the server in a single
         request, when the non-backslashed semicolon is reached.
         The server executes such a request as a single transaction,
@@ -4574,6 +4597,12 @@ select 1\; select 2\; select 3;
         it receives for each request; in this example, although all
         three <command>SELECT</command>s are indeed executed, <application>psql</application>
         only prints the <literal>3</literal>.
+-->
+上記は、バックスラッシュの無いセミコロンに達したときに、3つのSQLコマンドがサーバに単一リクエストでサーバに送られます。
+文字列にそれを複数トランザクションに分けるための明示的な<command>BEGIN</command>/<command>COMMIT</command>が含まれているのでない限り、サーバはこのようなリクエストを単一トランザクションとして実行します。
+（複数問い合わせの文字列をどのようにサーバが処理するかについて、詳しくは<xref linkend="protocol-flow-multi-statement"/>を参照してください。）
+<application>psql</application>は各リクエストに対して受け取った最後の問い合わせ結果だけを出力します。
+この例では、3つ全ての<command>SELECT</command>が実際に実行されますが、<application>psql</application>は<literal>3</literal>だけ出力します。
         </para>
         </listitem>
       </varlistentry>
@@ -5021,8 +5050,12 @@ SQLキーワードを補完する時に大文字小文字のどちらを使用�
        <term><varname>ERROR</varname></term>
        <listitem>
         <para>
+<!--
          <literal>true</literal> if the last SQL query failed, <literal>false</literal> if
          it succeeded.  See also <varname>SQLSTATE</varname>.
+-->
+最後のSQL問い合わせが失敗したなら<literal>true</literal>、成功したなら<literal>false</literal>。
+<varname>SQLSTATE</varname>も参照してください。
         </para>
        </listitem>
       </varlistentry>
@@ -5224,10 +5257,13 @@ SQLキーワードを補完する時に大文字小文字のどちらを使用�
        <term><varname>LAST_ERROR_SQLSTATE</varname></term>
        <listitem>
         <para>
+<!--
          The primary error message and associated SQLSTATE code for the most
          recent failed query in the current <application>psql</application> session, or
          an empty string and <literal>00000</literal> if no error has occurred in
          the current session.
+-->
+現在の<application>psql</application>セッションの直近の失敗した問い合わせに対する主エラーメッセージと関連するSQLSTATEコード。あるいは、現在セッションでエラーが無い場合、空文字列と<literal>00000</literal>。
         </para>
        </listitem>
       </varlistentry>
@@ -5344,8 +5380,11 @@ SQLキーワードを補完する時に大文字小文字のどちらを使用�
        <term><varname>ROW_COUNT</varname></term>
        <listitem>
         <para>
+<!--
          The number of rows returned or affected by the last SQL query, or 0
          if the query failed or did not report a row count.
+-->
+最後のSQL問い合わせにより、返された、あるいは、影響をうけた行数。あるいは、問い合わせが失敗したか行数が報告されていない場合、0。
         </para>
        </listitem>
       </varlistentry>
@@ -5422,9 +5461,12 @@ SQLキーワードを補完する時に大文字小文字のどちらを使用�
        <term><varname>SQLSTATE</varname></term>
        <listitem>
         <para>
+<!--
          The error code (see <xref linkend="errcodes-appendix"/>) associated
          with the last SQL query's failure, or <literal>00000</literal> if it
          succeeded.
+-->
+最後のSQL問い合わせの失敗に関するエラーコード（<xref linkend="errcodes-appendix"/>を参照）、あるいは、SQLが成功した場合には<literal>00000</literal>。
         </para>
        </listitem>
       </varlistentry>
@@ -5593,9 +5635,12 @@ testdb=&gt; <userinput>INSERT INTO my_table VALUES (:'content');</userinput>
     </para>
 
     <para>
+<!--
     The <literal>:{?<replaceable>name</replaceable>}</literal> special syntax returns TRUE
     or FALSE depending on whether the variable exists or not, and is thus
     always substituted, unless the colon is backslash-escaped.
+-->
+<literal>:{?<replaceable>name</replaceable>}</literal>特別構文は、その変数が存在しているかどうかに応じてTRUEかFALSEを返します。従って、コロンがバックスラッシュでエスケープされていない限り、常に置き換えられます。
     </para>
 
     <para>
@@ -6014,6 +6059,7 @@ $endif
 -->
 <command>\e</command>コマンド、<command>\ef</command>コマンド、<command>\ev</command>コマンドで使用されるエディタです。
 変数はこの順に検索され、設定された最初のものが使用されます。
+いずれも設定されていない場合、デフォルトでUnixシステムでは<filename>vi</filename>を、Windowsシステムでは<filename>notepad.exe</filename>を使用します。
      </para>
 
     </listitem>
@@ -6092,8 +6138,9 @@ Unixシステム上のデフォルトは<literal>+</literal>です。
 -->
 問い合わせ結果が画面に入り切らない場合、このコマンドによって結果をパイプします。
 一般的に指定される値は、<literal>more</literal>、または<literal>less</literal>です。
-デフォルトはプラットフォームによって異なります。
-ページャの使用を無効にするには<envar>PAGER</envar>を空にするか、<command>\pset</command>コマンドのページャ関連のオプションを使用します。
+ページャの使用を無効にするには<envar>PSQL_PAGER</envar>や<envar>PAGER</envar>を空文字列にするか、<command>\pset</command>コマンドのページャ関連のオプションを調整します。
+これらの変数は列挙した順で検査され、最初の設定されているものが使われます。
+いずれも設定されていない場合、デフォルトで大部分のプラットフォームでは<literal>more</literal>が使われ、しかし、Cygwinでは<literal>less</literal>が使われます。
      </para>
 
     </listitem>
