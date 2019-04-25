@@ -285,7 +285,7 @@ NULL入力値を持つ行は無視されます。
    aggregate that includes an inverse transition function.
 -->
 集約は、<xref linkend="xaggr-moving-aggregates"/>に記述されているように<firstterm>移動集約モード</firstterm>をサポートすることができます。
-このためには、<literal>MSFUNC</literal>、<literal>MINVFUNC</literal>、<literal>MSTYPE</literal>のパラメータを指定する必要があり、またオプションで<literal>MSPACE</literal>、<literal>MFINALFUNC</literal>、<literal>MFINALFUNC_EXTRA</literal>、<literal>MINITCOND</literal>のパラメータを指定できます。
+このためには、<literal>MSFUNC</literal>、<literal>MINVFUNC</literal>、<literal>MSTYPE</literal>のパラメータを指定する必要があり、またオプションで<literal>MSPACE</literal>、<literal>MFINALFUNC</literal>、<literal>MFINALFUNC_EXTRA</literal>、<literal>MFINALFUNC_MODIFY</literal>、<literal>MINITCOND</literal>のパラメータを指定できます。
 <literal>MINVFUNC</literal>を除き、これらのパラメータは、<literal>M</literal>のない単純集約の対応するパラメータのように動作しますが、集約について逆変換関数を含む別の実装を定義します。
   </para>
 
@@ -597,6 +597,7 @@ SELECT col FROM tab ORDER BY col USING sortop LIMIT 1;
     <term><literal>FINALFUNC_MODIFY</literal> = { <literal>READ_ONLY</literal> | <literal>SHAREABLE</literal> | <literal>READ_WRITE</literal> }</term>
     <listitem>
      <para>
+<!--
       This option specifies whether the final function is a pure function
       that does not modify its arguments.  <literal>READ_ONLY</literal> indicates
       it does not; the other two values indicate that it may change the
@@ -604,6 +605,11 @@ SELECT col FROM tab ORDER BY col USING sortop LIMIT 1;
       endterm="sql-createaggregate-notes-title"/> below for more detail.  The
       default is <literal>READ_ONLY</literal>, except for ordered-set aggregates,
       for which the default is <literal>READ_WRITE</literal>.
+-->
+このオプションは、最終関数が引数を変更しない純粋な関数であるかどうかを指定します。
+<literal>READ_ONLY</literal>は変更しないことを示します。他の2つの値は遷移状態値を変更するかもしれないことを示します。
+さらなる詳細は以下の<xref linkend="sql-createaggregate-notes" endterm="sql-createaggregate-notes-title"/>をご覧ください。
+順序集合集約ではデフォルトが<literal>READ_WRITE</literal>であることを除き、デフォルトは<literal>READ_ONLY</literal>です。
      </para>
     </listitem>
    </varlistentry>
@@ -814,8 +820,11 @@ SELECT col FROM tab ORDER BY col USING sortop LIMIT 1;
     <term><literal>MFINALFUNC_MODIFY</literal> = { <literal>READ_ONLY</literal> | <literal>SHAREABLE</literal> | <literal>READ_WRITE</literal> }</term>
     <listitem>
      <para>
+<!--
       This option is like <literal>FINALFUNC_MODIFY</literal>, but it describes
       the behavior of the moving-aggregate final function.
+-->
+このオプションは<literal>FINALFUNC_MODIFY</literal>と似ていますが、移動集約最終関数の挙動を記述します。
      </para>
     </listitem>
    </varlistentry>
@@ -905,7 +914,10 @@ SELECT col FROM tab ORDER BY col USING sortop LIMIT 1;
  </refsect1>
 
  <refsect1 id="sql-createaggregate-notes">
+<!--
   <title id="sql-createaggregate-notes-title">Notes</title>
+-->
+  <title id="sql-createaggregate-notes-title">注釈</title>
 
    <para>
 <!--
@@ -920,15 +932,21 @@ SELECT col FROM tab ORDER BY col USING sortop LIMIT 1;
    </para>
 
    <para>
+<!--
     Ordinarily, PostgreSQL functions are expected to be true functions that
     do not modify their input values.  However, an aggregate transition
     function, <emphasis>when used in the context of an aggregate</emphasis>,
     is allowed to cheat and modify its transition-state argument in place.
     This can provide substantial performance benefits compared to making
     a fresh copy of the transition state each time.
+-->
+通常PostgreSQL関数は入力値を変更しない純粋な関数であることが期待されます。
+しかし<emphasis>集約のコンテキストで使用される場合には</emphasis>、集約遷移関数は、これを偽ってその状態遷移引数を直接変更することが許されます。
+これにより、遷移状態の新しいコピーを都度作るのに比べると、かなりの性能上の利点が期待できます。
    </para>
 
    <para>
+<!--
     Likewise, while an aggregate final function is normally expected not to
     modify its input values, sometimes it is impractical to avoid modifying
     the transition-state argument.  Such behavior must be declared using
@@ -946,6 +964,16 @@ SELECT col FROM tab ORDER BY col USING sortop LIMIT 1;
     applying the same final function repeatedly, but applying different final
     functions to the same ending transition state value.  This is allowed as
     long as none of the final functions are marked <literal>READ_WRITE</literal>.)
+-->
+同様に、集約最終関数は入力値を変更しない純粋な関数であることが期待されますが、状態遷移引数を変更するのを避けることが実用的でないことがあります。
+そうした挙動は<literal>FINALFUNC_MODIFY</literal>引数を使って宣言しなければなりません。
+<literal>READ_WRITE</literal>値は、最終関数が遷移状態を明示されていない方法で変更することを示します。
+この値はwindow関数として集約を使うことを回避します。
+また、同じ入力値と遷移関数を共有する集約の遷移状態をマージすることを回避します。
+<literal>SHAREABLE</literal>値は、遷移関数が最終関数の後に適用できないが、最終関数の複数回の呼び出しを終了遷移状態値に適用できることを示します。
+この値はwindow関数として集約を使うことを回避しますが、遷移状態のマージを許容します。
+（つまり、ここでの最適化の眼目は、同じ最終関数を繰り返し適用することではなく、異なる最終関数を同じ終了遷移状態値に適用することです。
+これは最終関数のうち<literal>READ_WRITE</literal>と印付けられているものが一つもない限り許容されます。）
    </para>
 
    <para>
@@ -1008,6 +1036,7 @@ SELECT col FROM tab ORDER BY col USING sortop LIMIT 1;
 移動集約が実装されていない場合でも、集約は移動フレームを使うことができますが、フレームの開始が移動した場合、<productname>PostgreSQL</productname>は必ず集約全体を再計算します。
 集約が移動集約モードをサポートするかどうかに関わらず、<productname>PostgreSQL</productname>は移動フレームの終了を再計算なしに処理することができます。
 これは、集約の状態に新しい値を追加し続けることで処理できます。
+これがwindow関数として集約を利用するためには最終関数が読み出し専用でなければならない理由です。
 最終関数は集約の状態値を破壊しないものとされるので、フレームの境界の集合に対して集約結果の値が得られた後でも、集約を続行することが可能です。
    </para>
 
