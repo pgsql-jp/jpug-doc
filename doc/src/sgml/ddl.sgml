@@ -3369,7 +3369,7 @@ CREATE TABLE public.products ( ... );
 検索パス内に一致するテーブルがないと、データベースの他のスキーマ内に一致するテーブルがある場合でもエラーが報告されます。
    </para>
 
-  <para>
+   <para>
 <!--
     The ability to create like-named objects in different schemas complicates
     writing a query that references precisely the same objects every time.  It
@@ -4512,14 +4512,21 @@ VALUES ('Albany', NULL, NULL, 'NY');
       </varlistentry>
 
       <varlistentry>
+<!--
        <term>Hash Partitioning</term>
+-->
+       <term>ハッシュパーティション</term>
 
        <listitem>
         <para>
+<!--
          The table is partitioned by specifying a modulus and a remainder for
          each partition. Each partition will hold the rows for which the hash
          value of the partition key divided by the specified modulus will
          produce the specified remainder.
+-->
+各パーティションに対して法と剰余を指定することでテーブルをパーティションに分割します。
+各パーティションは、パーティションキーのハッシュ値を指定された法で割った際に指定された剰余となる行を保持します。
         </para>
        </listitem>
       </varlistentry>
@@ -4567,7 +4574,7 @@ VALUES ('Albany', NULL, NULL, 'NY');
 -->
 パーティションテーブルに挿入されるすべての行は、パーティションキーの値に基づいて<firstterm>パーティション</firstterm>の一つに振り向けられます。
 各パーティションはその<firstterm>パーティション境界</firstterm>によって定義されるデータの部分集合を持ちます。
-現在サポートされるパーティション方式には範囲とリストがあり、各パーティションにはそれぞれキーの範囲、あるいはキーのリストが割り当てられます。
+現在サポートされるパーティション方式には範囲、リスト、ハッシュがあります。
    </para>
 
    <para>
@@ -4580,7 +4587,6 @@ VALUES ('Albany', NULL, NULL, 'NY');
 -->
 <firstterm>サブパーティショニング</firstterm>と呼ばれる方法を使って、パーティションそれ自体をパーティションテーブルとして定義することができます。
 パーティションには、他のパーティションとは別に独自のインデックス、制約、デフォルト値を定義できます。
-インデックスは各パーティションで別々に作成されなければなりません。
 パーティションテーブルおよびパーティションの作成についての更なる詳細については<xref linkend="sql-createtable"/>を参照してください。
    </para>
 
@@ -4614,9 +4620,9 @@ VALUES ('Albany', NULL, NULL, 'NY');
     inheritance apply as described in <xref linkend="ddl-inherit"/> with
     some exceptions, most notably:
 -->
-個々のパーティションは継承を背景にパーティションテーブルに紐付けられていますが、前節で説明した継承の機能のうちの一部はパーティションテーブルおよびパーティションでは使用できません。
+個々のパーティションは継承を背景にパーティションテーブルに紐付けられていますが、宣言的パーティションテーブルもしくはそれらのパーティションでは継承の一般的な機能の一部（後述）を使用することはできません。
 例えば、パーティションテーブルのパーティションは、そのパーティションテーブル以外の親を持つことができませんし、また一般のテーブルはパーティションテーブルをその親にしてパーティションテーブルから継承することはできません。
-これはつまり、パーティションテーブルおよびパーティションは一般のテーブルと継承によって繋がることができないということです。
+これはつまり、パーティションテーブルおよびそれらのパーティションは一般のテーブルと継承によって繋がることができないということです。
 パーティションテーブルとそのパーティションを構成するパーティションの階層は継承の階層でもあるので、継承におけるすべての通常の規則が<xref linkend="ddl-inherit"/>で説明したとおりに適用されますが、いくつか例外があります。
 最も重要な例外を以下に示します。
 
@@ -4646,18 +4652,20 @@ VALUES ('Albany', NULL, NULL, 'NY');
        partitions themselves can be added and (if they are not present in the
        parent table) dropped.
 -->
-<literal>ONLY</literal>を使ってパーティションテーブルについてのみ制約を追加または削除することは、パーティションが存在しない場合にのみサポートされます。
+<literal>ONLY</literal>を使ってパーティションテーブルについてのみ制約を追加または削除することは、パーティションが存在しない場合はサポートされます。
 パーティションが存在する時にパーティションテーブルについてのみ制約を追加または削除することはサポートされないため、一度パーティションが存在すれば、<literal>ONLY</literal>の使用はエラーになります。
-その代わりに、パーティションに直接、制約を追加または削除することは、それが親テーブルに存在するのでなければ可能です。
-パーティションテーブルは直接にデータを所有することはまったくないため、<command>TRUNCATE</command> <literal>ONLY</literal>をパーティションテーブルに対して使用しようとすると、必ずエラーが返されます。
+その代わりに、パーティション自身の制約を追加することや（親テーブルに存在しない場合）削除することが可能です。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        As a partitioned table does not have any data directly, attempts to use
        <command>TRUNCATE</command> <literal>ONLY</literal> on a partitioned
        table will always return an error.
+-->
+パーティションテーブルは直接データを所有することはないため、<command>TRUNCATE</command> <literal>ONLY</literal>をパーティションテーブルに対して使用しようとすると、必ずエラーが返されます。
       </para>
      </listitem>
 
@@ -4696,13 +4704,17 @@ VALUES ('Albany', NULL, NULL, 'NY');
     that normal tables do not; see <xref linkend="sql-createforeigntable"/> for
     more information.
 -->
-パーティションを外部テーブルとすることもできます（<xref linkend="sql-createforeigntable"/>参照）が、その場合、通常のテーブルにはない制限がいくつかあります。
+通常のテーブルにない制限がいくつかありますが、パーティションを外部テーブルとすることができます。
+詳細は<xref linkend="sql-createforeigntable"/>を参照してください。
 例えば、パーティションテーブルに挿入されるデータは外部テーブルのパーティションには振り向けられません。
    </para>
 
    <para>
+<!--
     Updating the partition key of a row might cause it to be moved into a
     different partition where this row satisfies the partition bounds.
+-->
+行のパーティションキーを更新することは、その行がパーティション境界を満たす異なるパーティションに移動される原因となるかもしれません。
    </para>
 
    <sect3 id="ddl-partitioning-declarative-example">
@@ -4898,9 +4910,10 @@ CREATE TABLE measurement_y2006m02 PARTITION OF measurement
        one index on each partition, and any partitions you create or attach
        later will also contain the index.
 -->
-キー列にインデックスを作成し、またその他のインデックスも必要に応じて各パーティションに作成します。
-（厳密に言えば、キー列のインデックスは必要なわけではありませんが、ほとんどの場合に役に立つでしょう。
-キーの値が一意であることを意図している場合は、各パーティションに一意制約または主キー制約を必ず作成すべきです。）
+キー列にインデックスを作成し、またその他のインデックスも必要に応じてパーティションテーブル上に作成します。
+（厳密に言えば、キー列のインデックスは必要なわけではありませんが、ほとんどの場合に役に立つでしょう。）
+これは各パーティション上に1つのインデックスを自動的に作ります。
+後から作成もしくは追加したパーティションにもインデックスが含まれます。
 
 <programlisting>
 CREATE INDEX ON measurement (logdate);
@@ -4915,7 +4928,7 @@ CREATE INDEX ON measurement (logdate);
         configuration parameter is not disabled in <filename>postgresql.conf</filename>.
         If it is, queries will not be optimized as desired.
 -->
-<filename>postgresql.conf</filename>で設定パラメータ<xref linkend="guc-constraint-exclusion"/>が無効になっていないことを確認します。
+<filename>postgresql.conf</filename>で設定パラメータ<xref linkend="guc-enable-partition-pruning"/>が無効になっていないことを確認します。
 これが無効になっていると、問い合わせが期待通りには最適化されません。
        </para>
       </listitem>
@@ -5075,9 +5088,7 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
        exclusion constraint spanning all partitions; it is only possible
        to constrain each leaf partition individually.
 -->
-すべてのパーティションに適合するインデックスを自動的に作成する機能はありません。
-インデックスは個々のパーティションについて別々のコマンドで追加しなければなりません。
-これは全パーティションにまたがる主キー、一意制約、あるいは排他制約を作成する方法がないということも意味します。
+すべてのパーティションにまたがる排他制約を作成する方法はありません。
 それぞれの末端のパーティションについて別々に制約をつけることしかできません。
       </para>
      </listitem>
@@ -5089,12 +5100,14 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
        keys referencing partitioned tables are not supported.  (Foreign key
        references from a partitioned table to some other table are supported.)
 -->
-パーティションテーブルでは主キーがサポートされないため、パーティションテーブルを参照する外部キーはサポートされませんし、パーティションテーブルから他のテーブルを参照する外部キー参照もできません。
+パーティションテーブルにて主キーがサポートされている一方で、パーティションテーブルを参照する外部キーはサポートされていません。
+（パーティションテーブルから他のテーブルの外部キー参照はサポートされています。）
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        When an <command>UPDATE</command> causes a row to move from one
        partition to another, there is a chance that another concurrent
        <command>UPDATE</command> or <command>DELETE</command> misses this row.
@@ -5111,13 +5124,22 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
        session 2 would have identified the newly updated row and carried out
        the <command>UPDATE</command>/<command>DELETE</command> on this new row
        version.
+-->
+<command>UPDATE</command>により行があるパーティションから別のパーティションに移動したとき、別の同時実行の<command>UPDATE</command>や<command>DELETE</command>がこの行を見逃す可能性があります。
+セッション1はパーティションキーに対して<command>UPDATE</command>を実行し、その一方で同時にこの行が可視であるセッション2ではこの行に<command>UPDATE</command>もしくは<command>DELETE</command>操作を実行すると仮定します。
+もしセッション1の動作が原因によりその行がパーティションから削除された場合、セッション2は暗黙にその行を見逃すことがありえます。
+そのような場合、セッション2の<command>UPDATE</command>もしくは<command>DELETE</command>は行の移動に気付かず、その行が削除されたばかりであると考え何もすることがないと判断します。
+テーブルが分割されていないもしくは行の移動がない通常の場合、セッション2は新しい更新行とこの新しい行バージョンで<command>UPDATE</command>/<command>DELETE</command>が実行されたことを特定するでしょう。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        <literal>BEFORE ROW</literal> triggers, if necessary, must be defined
        on individual partitions, not the partitioned table.
+-->
+<literal>BEFORE ROW</literal>トリガーが必要であれば、パーティションテーブルではなく、個々のパーティションに定義されなければなりなません。
       </para>
      </listitem>
 
@@ -5165,7 +5187,8 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
         of columns as the partitioned table, whereas with table inheritance,
         child tables may have extra columns not present in the parent.
 -->
-パーティショニングでは、すべてのパーティションが列の集合が親と完全に一致していなければならないという規則が強制されますが、テーブルの継承では、子テーブルは親テーブルに存在しない追加の列を持つことができます。
+宣言的パーティショニングの場合、パーティションは正確にパーティションテーブルと同じ列の集合を持たなければなりません。
+一方テーブルの継承では、子テーブルは親テーブルに存在しない追加の列を持つかもしれません。
        </para>
       </listitem>
 
@@ -5187,8 +5210,8 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
         exclusion is unable to prune child tables effectively, query performance
         might be poor.)
 -->
-宣言的パーティショニングではリストパーティショニングと範囲パーティショニングしかサポートされませんが、テーブルの継承ではユーザが選択した方法に従ってデータを分割することができます。
-（ただし、制約の排他がパーティションを効果的に分離できない場合、問い合わせのパフォーマンスが非常に悪くなることに注意してください。）
+宣言的パーティショニングではリストパーティショニング、範囲パーティショニングとハッシュパーティショニングしかサポートされませんが、テーブルの継承ではユーザが選択した方法に従ってデータを分割することができます。
+（ただし、制約による除外が子テーブルを効果的に分離できない場合、問い合わせのパフォーマンスが悪くなるかもしれないことに注意してください。）
        </para>
       </listitem>
 
@@ -5222,7 +5245,7 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
       the following steps:
 -->
 上で使用したのと同じ<structname>measurement</structname>テーブルを使用します。
-継承を使用したパーティションテーブルとして実装するには、以下の手順に従います。
+継承を使用したパーティショニングを実装するには、以下の手順に従います。
 
       <orderedlist spacing="compact">
        <listitem>
@@ -5237,9 +5260,9 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
          table as originally defined.
 -->
 <quote>マスター</quote>テーブルを作成します。
-すべてのパーティションはこれを継承します。
+すべての<quote>子</quote>テーブルはこれを継承します。
 このテーブルにはデータは含まれません。
-すべてのパーティションに同じように適用されるのでなければ、このテーブルにチェック制約を定義しないでください。
+子テーブルに同じように適用されるのでなければ、このテーブルにチェック制約を定義しないでください。
 このテーブル上にインデックスや一意制約を定義することにも意味はありません。
 以下の例では、マスターテーブルは最初に定義したのと同じ<structname>measurement</structname>テーブルです。
         </para>
@@ -5256,7 +5279,7 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
 -->
 いくつかの<quote>子</quote>テーブルを作成し、それぞれマスターテーブルを継承するものにします。
 通常、これらのテーブルはマスターから継承したものに列を追加しません。
-宣言的パーティショニングの場合と同じく、これらのパーティションはすべての点で普通の<productname>PostgreSQL</productname>のテーブル（あるいは外部テーブル）と同じです。
+宣言的パーティショニングの場合と同じく、これらのテーブルはすべての点で普通の<productname>PostgreSQL</productname>のテーブル（あるいは外部テーブル）と同じです。
         </para>
 
         <para>
@@ -5277,7 +5300,7 @@ CREATE TABLE measurement_y2008m01 () INHERITS (measurement);
          Add non-overlapping table constraints to the child tables to
          define the allowed key values in each.
 -->
-パーティションテーブルに、重なり合わないテーブル制約を追加し、各パーティションに許されるキー値を定義します。
+子テーブルに、重なり合わないテーブル制約を追加し、各テーブルに許されるキー値を定義します。
         </para>
 
         <para>
@@ -5295,7 +5318,7 @@ CHECK ( outletID &gt;= 100 AND outletID &lt; 200 )
          between the key values permitted in different child tables.  A common
          mistake is to set up range constraints like:
 -->
-制約により、異なるパーティションで許されるキー値に重なりがないことが保証されるようにします。
+制約により、異なる子テーブルで許されるキー値に重なりがないことが保証されるようにします。
 よくある誤りは、次のような範囲制約を設定することです。
 <programlisting>
 CHECK ( outletID BETWEEN 100 AND 200 )
@@ -5305,14 +5328,14 @@ CHECK ( outletID BETWEEN 200 AND 300 )
          This is wrong since it is not clear which child table the key
          value 200 belongs in.
 -->
-キー値200がどちらのパーティションに属するか明らかではないため、これは誤っています。
+キー値200がどちらの子テーブルに属するか明らかではないため、これは誤っています。
         </para>
 
         <para>
 <!--
          It would be better to instead create child tables as follows:
 -->
-その代わりに以下のようにパーティションを作る方が良いでしょう。
+その代わりに以下のように子テーブルを作る方が良いでしょう。
 
 <programlisting>
 CREATE TABLE measurement_y2006m02 (
@@ -5345,7 +5368,7 @@ CREATE TABLE measurement_y2008m01 (
          For each child table, create an index on the key column(s),
          as well as any other indexes you might want.
 -->
-各パーティションについて、キー列にインデックスを作成し、またその他のインデックスも必要に応じて作成します。
+各子テーブルについて、キー列にインデックスを作成し、またその他のインデックスも必要に応じて作成します。
 <programlisting>
 CREATE INDEX measurement_y2006m02_logdate ON measurement_y2006m02 (logdate);
 CREATE INDEX measurement_y2006m03_logdate ON measurement_y2006m03 (logdate);
@@ -5366,9 +5389,9 @@ CREATE INDEX measurement_y2008m01_logdate ON measurement_y2008m01 (logdate);
          If data will be added only to the latest child, we can
          use a very simple trigger function:
 -->
-アプリケーションで<literal>INSERT INTO measurement ...</literal>を実行することができ、そのときにデータが適切なパーティションテーブルにリダイレクトされることが望ましいです。
+アプリケーションで<literal>INSERT INTO measurement ...</literal>を実行することができ、そのときにデータが適切な子テーブルにリダイレクトされることが望ましいです。
 マスターテーブルに適当なトリガー関数を追加することでそのような設定にすることができます。
-データが最後のパーティションにしか追加されないなら、次のような非常に単純なトリガー関数を使うことができます。
+データが最後の子テーブルにしか追加されないなら、次のような非常に単純なトリガー関数を使うことができます。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION measurement_insert_trigger()
@@ -5400,7 +5423,7 @@ CREATE TRIGGER insert_measurement_trigger
          points to the current child table.  The trigger definition does
          not need to be updated, however.
 -->
-トリガが常に現在のパーティションを指すようにするためには、毎月、トリガ関数を再定義しなくてはいけません。
+トリガが常に現在の子テーブルを指すようにするためには、毎月、トリガ関数を再定義しなくてはいけません。
 しかし、トリガ定義を更新する必要はありません。
         </para>
 
@@ -5410,7 +5433,7 @@ CREATE TRIGGER insert_measurement_trigger
          locate the child table into which the row should be added. We
          could do this with a more complex trigger function, for example:
 -->
-データを挿入したら、サーバが行を追加すべきパーティションを自動的に決定するようにしたいかもしれません。
+データを挿入したら、サーバが行を追加すべき子テーブルを自動的に決定するようにしたいかもしれません。
 これは以下のようなもっと複雑なトリガ関数を作成することにより可能です。
 
 <programlisting>
@@ -5442,7 +5465,7 @@ LANGUAGE plpgsql;
          <literal>CHECK</literal> constraint for its child table.
 -->
 トリガ定義は前と同じです。
-それぞれの<literal>IF</literal>テストをパーティションの<literal>CHECK</literal>制約と正確に一致させなければならないことに注意してください。
+それぞれの<literal>IF</literal>テストを子テーブルの<literal>CHECK</literal>制約と正確に一致させなければならないことに注意してください。
         </para>
 
         <para>
@@ -5462,7 +5485,7 @@ LANGUAGE plpgsql;
           shown the trigger's tests in the same order as in other parts
           of this example.
 -->
-実際には、ほとんどの挿入が一番新しいパーティションに入る場合は、そのパーティションを最初に検査することが最善です。
+実際には、ほとんどの挿入が一番新しい子テーブルに入る場合は、その子を最初に検査することが最善です。
 簡単にするため、この例でのほかの部分と同じ順番でのトリガのテストを示しました。
          </para>
         </note>
@@ -5473,7 +5496,7 @@ LANGUAGE plpgsql;
          child table is to set up rules, instead of a trigger, on the
          master table.  For example:
 -->
-挿入を適切なパーティションテーブルにリダイレクトする別の方法は、マスターテーブルにトリガーではなくルールを設定することです。
+挿入を適切な子テーブルにリダイレクトする別の方法は、マスターテーブルにトリガーではなくルールを設定することです。
 例えば次のようにします。
 
 <programlisting>
@@ -5509,7 +5532,7 @@ DO INSTEAD
          approach.
 -->
 <command>COPY</command>はルールを無視することに注意してください。
-データの挿入に<command>COPY</command>を使いたい場合は、マスターではなく正しいパーティションテーブルにコピーする必要があります。
+データの挿入に<command>COPY</command>を使いたい場合は、マスターではなく正しい子テーブルにコピーする必要があります。
 トリガーであれば<command>COPY</command>でも起動されるので、トリガーを使う方法であれば通常通りに使用することができます。
         </para>
 
@@ -5533,7 +5556,7 @@ DO INSTEAD
          child tables may be accessed unnecessarily.
 -->
 設定パラメータ<xref linkend="guc-constraint-exclusion"/>が<filename>postgresql.conf</filename>で無効にされないようにしてください。
-向こうになっていると、問い合わせが期待通りに最適化されません。
+他の子テーブルが不要にアクセスされるかもしれません。
         </para>
        </listitem>
       </orderedlist>
@@ -5546,8 +5569,8 @@ DO INSTEAD
       a new child table each month, so it might be wise to write a script that
       generates the required DDL automatically.
 -->
-以上のように、複雑なパーティション化の計画はたくさんのDDLが必要となります。
-上記の例では、毎月新しいパーティションを作成することになりますが、必要となるDDLを自動的に生成するスクリプトを書くのが賢明です。
+以上のように、複雑なテーブルの階層はたくさんのDDLが必要となります。
+上記の例では、毎月新しい子テーブルを作成することになりますが、必要となるDDLを自動的に生成するスクリプトを書くのが賢明です。
      </para>
     </sect3>
 
@@ -5555,13 +5578,13 @@ DO INSTEAD
 <!--
      <title>Maintenance for Inheritance Partitioning</title>
 -->
-     <title>パーティションの保守</title>
+     <title>継承パーティショニングの保守</title>
      <para>
 <!--
       To remove old data quickly, simply drop the child table that is no longer
       necessary:
 -->
-古いデータを高速に削除するには、不要になったパーティションを単に削除します。
+古いデータを高速に削除するには、不要になった子テーブルを単に削除します。
 <programlisting>
 DROP TABLE measurement_y2006m02;
 </programlisting>
@@ -5572,7 +5595,7 @@ DROP TABLE measurement_y2006m02;
      To remove the child table from the inheritance hierarchy table but retain access to
      it as a table in its own right:
 -->
-パーティションをパーティションテーブルから削除するものの、それ自体をテーブルとしてアクセスできるようにするには、次のようにします。
+子テーブルを継承階層テーブルから削除するものの、それ自体をテーブルとしてアクセスできるようにするには、次のようにします。
 
 <programlisting>
 ALTER TABLE measurement_y2006m02 NO INHERIT measurement;
@@ -5584,7 +5607,7 @@ ALTER TABLE measurement_y2006m02 NO INHERIT measurement;
      To add a new child table to handle new data, create an empty child table
      just as the original children were created above:
 -->
-新しいデータを扱う新しいパーティションを追加するには、上で最初のパーティションを作成したときと同じように空のパーティションを作成します。
+新しいデータを扱う新しい子テーブルを追加するには、上で最初の子テーブルを作成したときと同じように空の子テーブルを作成します。
 
 <programlisting>
 CREATE TABLE measurement_y2008m02 (
@@ -5598,7 +5621,8 @@ CREATE TABLE measurement_y2008m02 (
      loaded, checked, and transformed before being made visible to queries on
      the parent table.
 -->
-あるいは、新しいテーブルをパーティション構造の外側で作成し、データのロード、確認、変換をした後でそれをパーティションにしたい場合もあるでしょう。
+あるいは、新たな子テーブルをテーブル階層に追加する前に作成してデータ投入したい場合もあるでしょう。
+これは、親テーブルのクエリから見えるようになる前にデータのロード、確認、変換できるでしょう。
 
 <programlisting>
 CREATE TABLE measurement_y2008m02
@@ -5626,7 +5650,7 @@ ALTER TABLE measurement_y2008m02 INHERIT measurement;
      The following caveats apply to partitioning implemented using
      inheritance:
 -->
-継承を使用して実装したパーティションテーブルには以下の注意事項があります。
+継承を使用して実装したパーティショニングには以下の注意事項があります。
      <itemizedlist>
       <listitem>
        <para>
@@ -5638,7 +5662,7 @@ ALTER TABLE measurement_y2008m02 INHERIT measurement;
         to write each by hand.
 -->
 すべての<literal>CHECK</literal>制約が相互に排他的であることを自動的に確認する手段はありません。
-各パーティションを手作業で作成するよりも、パーティションを生成し、関連オブジェクトを作成、更新するコードを作成するのが安全でしょう。
+各子テーブルを手作業で作成するよりも、子テーブルを生成し、関連オブジェクトを作成、更新するコードを作成するのが安全でしょう。
        </para>
       </listitem>
 
@@ -5653,9 +5677,9 @@ ALTER TABLE measurement_y2008m02 INHERIT measurement;
         on the child tables, but it makes management of the structure
         much more complicated.
 -->
-ここで示した方法は、パーティションのキー列の値が変わらないか、あるいは、少なくとも他のパーティションへの移動が必要になるような変更はないということを前提としています。
+ここで示した方法は、行のキー列の値が変わらないか、あるいは、少なくとも他のパーティションへの移動が必要になるような変更はないということを前提としています。
 そのような変更をしようとする<command>UPDATE</command>は<literal>CHECK</literal>制約のためにエラーになります。
-このような場合を処理できる必要があるなら、パーティションテーブルに適切なUPDATEトリガーを設定することもできますが、構造の管理がずっと複雑になります。
+このような場合を処理できる必要があるなら、子テーブルに適切なUPDATEトリガーを設定することもできますが、構造の管理がずっと複雑になります。
        </para>
       </listitem>
 
@@ -5666,7 +5690,7 @@ ALTER TABLE measurement_y2008m02 INHERIT measurement;
         <command>ANALYZE</command> commands, don't forget that
         you need to run them on each child table individually. A command like:
 -->
-手作業で<command>VACUUM</command>あるいは<command>ANALYZE</command>コマンドを実行している場合、それを個々のパーティションに対して実行する必要があることを忘れないで下さい。
+手作業で<command>VACUUM</command>あるいは<command>ANALYZE</command>コマンドを実行している場合、それを個々の子テーブルに対して実行する必要があることを忘れないで下さい。
 次のようなコマンドはマスターテーブルしか処理しません。
 <programlisting>
 ANALYZE measurement;
@@ -5699,7 +5723,7 @@ ANALYZE measurement;
         be much slower than the tuple routing performed internally by
         declarative partitioning.
 -->
-アプリケーションがパーティショニングのスキームについて明示的に意識しているのでなければ、トリガーまたはルールで行を適切なパーティションに振り向ける必要があります。
+アプリケーションがパーティショニングのスキームについて明示的に意識しているのでなければ、トリガーまたはルールで行を適切な子テーブルに振り向ける必要があります。
 トリガーを書くのは複雑であり、また宣言的パーティショニングによって内部的に実行されるタプルの振り向けよりずっと遅いでしょう。
        </para>
       </listitem>
@@ -5712,20 +5736,23 @@ ANALYZE measurement;
 <!--
    <title>Partition Pruning</title>
 -->
-   <title>パーティショニングと制約による除外</title>
+   <title>パーティション除去</title>
 
    <indexterm>
 <!--
     <primary>partition pruning</primary>
 -->
-    <primary>制約による除外</primary>
+    <primary>パーティション除去</primary>
    </indexterm>
 
    <para>
+<!--
     <firstterm>Partition pruning</firstterm> is a query optimization technique
     that improves performance for declaratively partitioned tables.
     As an example:
-
+-->
+<firstterm>パーティション除去</firstterm>は、宣言的パーティショニングテーブルに対するパフォーマンスを向上させる問い合わせの最適化技術です。
+例えば、
 <programlisting>
 SET enable_partition_pruning = on;                 -- the default
 SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
@@ -5741,164 +5768,207 @@ SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
     excludes (<firstterm>prunes</firstterm>) the partition from the query
     plan.
 -->
-制約による除外がなければ、上記の問い合わせは<structname>measurement</structname>テーブルの各パーティションをスキャンするでしょう。
-制約による除外が有効になっているとき、プランナはそれぞれのパーティションの制約を検証し、パーティションが問い合わせの<literal>WHERE</literal>に一致する行を含んでいないためにスキャンされる必要が無いことを証明しようとします。
-プランナはこれを証明すると、問い合わせ計画からそのパーティションを除外します。
-   </para>
+パーティション除去がなければ、上記の問い合わせは<structname>measurement</structname>テーブルの各パーティションをスキャンするでしょう。
+パーティション除去が有効になっているとき、プランナはそれぞれのパーティションの定義を検証し、パーティションが問い合わせの<literal>WHERE</literal>に一致する行を含んでいないためにスキャンされる必要が無いことを証明します。
+プランナはこれを証明すると、問い合わせ計画からそのパーティションを除外（<firstterm>除去</firstterm>）します。
+</para>
 
-   <para>
+<para>
 <!--
-    By using the EXPLAIN command and the <xref
-    linkend="guc-enable-partition-pruning"/> configuration parameter, it's
-    possible to show the difference between a plan for which partitions have
-    been pruned and one for which they have not.  A typical unoptimized
-    plan for this type of table setup is:
+By using the EXPLAIN command and the <xref
+linkend="guc-enable-partition-pruning"/> configuration parameter, it's
+possible to show the difference between a plan for which partitions have
+been pruned and one for which they have not.  A typical unoptimized
+plan for this type of table setup is:
 -->
-<varname>constraint_exclusion</varname>を有効とした時の計画と無効にした時の計画の違いを明らかにするため、<command>EXPLAIN</command>コマンドを使用できます。
+EXPLAINコマンドと設定パラメータ<xref linkend="guc-enable-partition-pruning"/> を使用することによって、パーティションの除去をした計画とそうでない計画の違いを明らかにすることを可能とします。
 この種類のテーブル設定に対する典型的な最適化されない計画は以下のようになります。
 <programlisting>
 SET enable_partition_pruning = off;
 EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
                                     QUERY PLAN
 -----------------------------------------------------------------------------------
- Aggregate  (cost=188.76..188.77 rows=1 width=8)
-   -&gt;  Append  (cost=0.00..181.05 rows=3085 width=0)
-         -&gt;  Seq Scan on measurement_y2006m02  (cost=0.00..33.12 rows=617 width=0)
-               Filter: (logdate &gt;= '2008-01-01'::date)
-         -&gt;  Seq Scan on measurement_y2006m03  (cost=0.00..33.12 rows=617 width=0)
-               Filter: (logdate &gt;= '2008-01-01'::date)
+Aggregate  (cost=188.76..188.77 rows=1 width=8)
+-&gt;  Append  (cost=0.00..181.05 rows=3085 width=0)
+ -&gt;  Seq Scan on measurement_y2006m02  (cost=0.00..33.12 rows=617 width=0)
+       Filter: (logdate &gt;= '2008-01-01'::date)
+ -&gt;  Seq Scan on measurement_y2006m03  (cost=0.00..33.12 rows=617 width=0)
+       Filter: (logdate &gt;= '2008-01-01'::date)
 ...
-         -&gt;  Seq Scan on measurement_y2007m11  (cost=0.00..33.12 rows=617 width=0)
-               Filter: (logdate &gt;= '2008-01-01'::date)
-         -&gt;  Seq Scan on measurement_y2007m12  (cost=0.00..33.12 rows=617 width=0)
-               Filter: (logdate &gt;= '2008-01-01'::date)
-         -&gt;  Seq Scan on measurement_y2008m01  (cost=0.00..33.12 rows=617 width=0)
-               Filter: (logdate &gt;= '2008-01-01'::date)
+ -&gt;  Seq Scan on measurement_y2007m11  (cost=0.00..33.12 rows=617 width=0)
+       Filter: (logdate &gt;= '2008-01-01'::date)
+ -&gt;  Seq Scan on measurement_y2007m12  (cost=0.00..33.12 rows=617 width=0)
+       Filter: (logdate &gt;= '2008-01-01'::date)
+ -&gt;  Seq Scan on measurement_y2008m01  (cost=0.00..33.12 rows=617 width=0)
+       Filter: (logdate &gt;= '2008-01-01'::date)
 </programlisting>
 
 <!--
-    Some or all of the partitions might use index scans instead of
-    full-table sequential scans, but the point here is that there
-    is no need to scan the older partitions at all to answer this query.
-    When we enable partition pruning, we get a significantly
-    cheaper plan that will deliver the same answer:
+Some or all of the partitions might use index scans instead of
+full-table sequential scans, but the point here is that there
+is no need to scan the older partitions at all to answer this query.
+When we enable partition pruning, we get a significantly
+cheaper plan that will deliver the same answer:
 -->
 一部のパーティション、もしくはすべてのパーティションで、テーブル全体に対するシーケンシャルスキャンではなく、インデックススキャンが使用される可能性があります。
 しかしここで重要なことは、この問い合わせに対する回答のために古いパーティションをスキャンする必要はまったく無いということです。
-制約による除外を有効にしたとき、同じ回答を返す計画で、大幅に安価なものを得ることができます。
+パーティション除去を有効にしたとき、同じ回答を返す計画で、大幅に安価なものを得ることができます。
 
 <programlisting>
 SET enable_partition_pruning = on;
 EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
                                     QUERY PLAN
 -----------------------------------------------------------------------------------
- Aggregate  (cost=37.75..37.76 rows=1 width=8)
-   -&gt;  Append  (cost=0.00..36.21 rows=617 width=0)
-         -&gt;  Seq Scan on measurement_y2008m01  (cost=0.00..33.12 rows=617 width=0)
-               Filter: (logdate &gt;= '2008-01-01'::date)
+Aggregate  (cost=37.75..37.76 rows=1 width=8)
+-&gt;  Append  (cost=0.00..36.21 rows=617 width=0)
+ -&gt;  Seq Scan on measurement_y2008m01  (cost=0.00..33.12 rows=617 width=0)
+       Filter: (logdate &gt;= '2008-01-01'::date)
 </programlisting>
+</para>
+
+<para>
+<!--
+Note that partition pruning is driven only by the constraints defined
+implicitly by the partition keys, not by the presence of indexes.
+Therefore it isn't necessary to define indexes on the key columns.
+Whether an index needs to be created for a given partition depends on
+whether you expect that queries that scan the partition will
+generally scan a large part of the partition or just a small part.
+An index will be helpful in the latter case but not the former.
+-->
+パーティション除去はパーティションキーによって暗黙的に定義された制約のみで動作し、インデックスの有無では動作しないことに注意してください。よってキー列のインデックスを定義することは必要ではありません。
+あるパーティションでインデックスが必要かどうかは、パーティションをスキャンする問い合わせが通常はパーティションの大部分をスキャンするのか、あるいは小さな部分をスキャンするのかによります。
+インデックスは後者において役立ちますが、前者では役立ちません。
+</para>
+
+<para>
+<!--
+Partition pruning can be performed not only during the planning of a
+given query, but also during its execution.  This is useful as it can
+allow more partitions to be pruned when clauses contain expressions
+whose values are not known at query planning time; for example,
+parameters defined in a <command>PREPARE</command> statement, using a
+value obtained from a subquery or using a parameterized value on the
+inner side of a nested loop join.  Partition pruning during execution
+can be performed at any of the following times:
+-->
+パーティション除去は与えられた問い合わせの計画時だけでなく、問い合わせの実行時にも可能です。
+問い合わせの計画時、句が値のわからない式を含むときにより多くのパーティションを除去できるため便利です。
+例えば、<command>PREPARE</command>文中に定義されたパラメータや、副問い合わせから取得される値の利用、ネステッドループ結合の内側でパラメータ化された値の利用です。
+実行中のパーティション除去は、次のいずれかの時点で可能です。
+
+<itemizedlist>
+<listitem>
+<para>
+<!--
+During initialization of the query plan.  Partition pruning can be
+performed here for parameter values which are known during the
+initialization phase of execution.  Partitions which are pruned
+during this stage will not show up in the query's
+<command>EXPLAIN</command> or <command>EXPLAIN ANALYZE</command>.
+It is possible to determine the number of partitions which were
+removed during this phase by observing the
+<quote>Subplans Removed</quote> property in the
+<command>EXPLAIN</command> output.
+-->
+問い合わせ計画の初期化時。
+パーティション除去は、パラメータの値が分かる実行の初期化段階時に可能です。
+この段階で除去されたパーティションは、問い合わせの<command>EXPLAIN</command>や<command>EXPLAIN ANALYZE</command>中に姿を見せることはないでしょう。
+<command>EXPLAIN</command>出力中に<quote>Subplans removed</quote>プロパティを観察することによってこの段階で削除されるパーティションの数を特定することが可能です。
+</para>
+</listitem>
+
+<listitem>
+<para>
+<!--
+During actual execution of the query plan.  Partition pruning may
+also be performed here to remove partitions using values which are
+only known during actual query execution.  This includes values
+from subqueries and values from execution-time parameters such as
+those from parameterized nested loop joins.  Since the value of
+these parameters may change many times during the execution of the
+query, partition pruning is performed whenever one of the
+execution parameters being used by partition pruning changes.
+Determining if partitions were pruned during this phase requires
+careful inspection of the <literal>nloops</literal> property in
+the <command>EXPLAIN ANALYZE</command> output.
+-->
+問い合わせ計画の実行時。
+パーティション除去では実際に問い合わせの実行をする際にのみ分かる値を用いてパーティションを取り除くことも同様に可能でしょう。
+これは、副問い合わせからの値やネステッドループ結合でパラメータ化されたような実行時のパラメータからの値を含みます。
+それらのパラメータの値は問い合わせの実行時に何回も変わるかもしれないため、パーティション除去はパーティション除去に使われる実行パラメータの値が変るたびに行われます。
+この段階で除去されたパーティションを特定するには、<command>EXPLAIN ANALYZE</command>出力中の<quote>nloops</quote>プロパティの慎重な調査が必要です。
+</para>
+</listitem>
+</itemizedlist>
+</para>
+
+<para>
+<!--
+Partition pruning can be disabled using the
+<xref linkend="guc-enable-partition-pruning"/> setting.
+-->
+パーティション除去は<xref linkend="guc-enable-partition-pruning"/>設定を使うことにより無効化できます。
+</para>
+
+<note>
+<para>
+<!--
+Currently, pruning of partitions during the planning of an
+<command>UPDATE</command> or <command>DELETE</command> command is
+implemented using the constraint exclusion method (however, it is
+controlled by the <literal>enable_partition_pruning</literal> rather than
+<literal>constraint_exclusion</literal>) &mdash; see the following section
+for details and caveats that apply.
+-->
+現在、<command>UPDATE</command>もしくは<command>DELETE</command>の計画時のパーティションの除去は、制約による除外を用いて実装されています（しかしながら<literal>constraint_exclusion</literal>ではなく<literal>enable_partition_pruning</literal>によって制御されます）。
+適用される詳細および注意事項は次の節を参照してください。
+</para>
+
+<para>
+<!--
+Also, execution-time partition pruning currently only occurs for the
+<literal>Append</literal> node type, not <literal>MergeAppend</literal>.
+-->
+また、実行時のパーティション除去は現在<literal>MergeAppend</literal>ではなく<literal>Append</literal>ノードタイプに対してのみ発生します。
+</para>
+
+<para>
+<!--
+Both of these behaviors are likely to be changed in a future release
+of <productname>PostgreSQL</productname>.
+-->
+<productname>PostgreSQL</productname>の将来のリリースではこれらの両方の動きが変更されるかもしれません。
+</para>
+</note>
+</sect2>
+
+<sect2 id="ddl-partitioning-constraint-exclusion">
+<!--
+<title>Partitioning and Constraint Exclusion</title>
+-->
+<title>パーティショニングと制約による除外</title>
+<indexterm>
+<!--
+<primary>constraint exclusion</primary>
+-->
+<primary>制約による除外</primary>
+</indexterm>
+
+<para>
+<!--
+<firstterm>Constraint exclusion</firstterm> is a query optimization
+    technique similar to partition pruning.  While it is primarily used
+    for partitioning implemented using the legacy inheritance method, it can be
+    used for other purposes, including with declarative partitioning.
+-->
+<firstterm>制約による除外</firstterm>はパーティション除去と同様に問い合わせ最適化技術です。
+主に従来の継承方法を使用して実装されたパーティショニングのために使用されると同時に
+宣言的パーティショニングを含む他の目的に使うことができます。
    </para>
 
    <para>
 <!--
-    Note that partition pruning is driven only by the constraints defined
-    implicitly by the partition keys, not by the presence of indexes.
-    Therefore it isn't necessary to define indexes on the key columns.
-    Whether an index needs to be created for a given partition depends on
-    whether you expect that queries that scan the partition will
-    generally scan a large part of the partition or just a small part.
-    An index will be helpful in the latter case but not the former.
--->
-制約による除外は<literal>CHECK</literal>制約のみで動作し、インデックスの有無では動作しないことに注意してください。よってキー列のインデックスを定義することは必要ではありません。
-あるパーティションでインデックスが必要かどうかは、パーティションをスキャンする問い合わせが通常はパーティションの大部分をスキャンするのか、あるいは小さな部分をスキャンするのかによります。
-インデックスは後者において役立ちますが、前者では役立ちません。
-   </para>
-
-   <para>
-    Partition pruning can be performed not only during the planning of a
-    given query, but also during its execution.  This is useful as it can
-    allow more partitions to be pruned when clauses contain expressions
-    whose values are not known at query planning time; for example,
-    parameters defined in a <command>PREPARE</command> statement, using a
-    value obtained from a subquery or using a parameterized value on the
-    inner side of a nested loop join.  Partition pruning during execution
-    can be performed at any of the following times:
-
-    <itemizedlist>
-     <listitem>
-      <para>
-       During initialization of the query plan.  Partition pruning can be
-       performed here for parameter values which are known during the
-       initialization phase of execution.  Partitions which are pruned
-       during this stage will not show up in the query's
-       <command>EXPLAIN</command> or <command>EXPLAIN ANALYZE</command>.
-       It is possible to determine the number of partitions which were
-       removed during this phase by observing the
-       <quote>Subplans Removed</quote> property in the
-       <command>EXPLAIN</command> output.
-      </para>
-     </listitem>
-
-     <listitem>
-      <para>
-       During actual execution of the query plan.  Partition pruning may
-       also be performed here to remove partitions using values which are
-       only known during actual query execution.  This includes values
-       from subqueries and values from execution-time parameters such as
-       those from parameterized nested loop joins.  Since the value of
-       these parameters may change many times during the execution of the
-       query, partition pruning is performed whenever one of the
-       execution parameters being used by partition pruning changes.
-       Determining if partitions were pruned during this phase requires
-       careful inspection of the <literal>nloops</literal> property in
-       the <command>EXPLAIN ANALYZE</command> output.
-      </para>
-     </listitem>
-    </itemizedlist>
-   </para>
-
-   <para>
-    Partition pruning can be disabled using the
-    <xref linkend="guc-enable-partition-pruning"/> setting.
-   </para>
-
-   <note>
-    <para>
-     Currently, pruning of partitions during the planning of an
-     <command>UPDATE</command> or <command>DELETE</command> command is
-     implemented using the constraint exclusion method (however, it is
-     controlled by the <literal>enable_partition_pruning</literal> rather than
-     <literal>constraint_exclusion</literal>) &mdash; see the following section
-     for details and caveats that apply.
-    </para>
-
-    <para>
-     Also, execution-time partition pruning currently only occurs for the
-     <literal>Append</literal> node type, not <literal>MergeAppend</literal>.
-    </para>
-
-    <para>
-     Both of these behaviors are likely to be changed in a future release
-     of <productname>PostgreSQL</productname>.
-    </para>
-   </note>
-  </sect2>
-
-  <sect2 id="ddl-partitioning-constraint-exclusion">
-   <title>Partitioning and Constraint Exclusion</title>
-
-   <indexterm>
-    <primary>constraint exclusion</primary>
-   </indexterm>
-
-   <para>
-    <firstterm>Constraint exclusion</firstterm> is a query optimization
-    technique similar to partition pruning.  While it is primarily used
-    for partitioning implemented using the legacy inheritance method, it can be
-    used for other purposes, including with declarative partitioning.
-   </para>
-
-   <para>
     Constraint exclusion works in a very similar way to partition
     pruning, except that it uses each table's <literal>CHECK</literal>
     constraints &mdash; which gives it its name &mdash; whereas partition
@@ -5906,15 +5976,22 @@ EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
     case of declarative partitioning.  Another difference is that
     constraint exclusion is only applied at plan time; there is no attempt
     to remove partitions at execution time.
+-->
+各テーブルの名前の付いた<literal>CHECK</literal>制約を使用すること（一方でパーティション除去は宣言的パーティショニングの場合にのみ存在するテーブルのパーティション境界を使用します）を除いて、制約による除外はパーティション除去と極めて同様な方法で動作します。
+その他の違いは、制約による除外は計画時にのみ適用され実行時にパーティションの削除を試しません。
    </para>
 
    <para>
+<!--
     The fact that constraint exclusion uses <literal>CHECK</literal>
     constraints, which makes it slow compared to partition pruning, can
     sometimes be used as an advantage: because constraints can be defined
     even on declaratively-partitioned tables, in addition to their internal
     partition bounds, constraint exclusion may be able
     to elide additional partitions from the query plan.
+-->
+制約による除外は<literal>CHECK</literal>制約を使用しているためパーティション除去と比べて遅いですが、ときどき利点として使うことができます。
+なぜなら、内部のパーティション境界に加えて宣言的パーティションテーブルにも制約は定義することができるため、制約による除外は問い合わせ計画から追加のパーティションを取り除けるかもしれません。
    </para>
 
    <para>
@@ -5929,7 +6006,7 @@ EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
     are unlikely to benefit.
 -->
 実のところ、<xref linkend="guc-constraint-exclusion"/>のデフォルト（かつ推奨）の設定は、<literal>on</literal>でも<literal>off</literal>でもなく、<literal>partition</literal>という中間の設定です。
-これによりこの技法は、パーティションテーブルに対して動作することになる問い合わせのみに適用されるようになります。
+これによりこの技法は、継承パーティションテーブルに対して動作することになる問い合わせのみに適用されるようになります。
 <literal>on</literal>設定にすると、プランナは、効果のなさそうな単純な問い合わせを含め、すべての問い合わせで<literal>CHECK</literal>制約を検証するようになります。
    </para>
 
@@ -5937,13 +6014,17 @@ EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
 <!--
     The following caveats apply to constraint exclusion:
 -->
-制約による除外には以下の注意事項があり、これは継承とパーティションテーブルの両方に当てはまります。
+制約による除外には以下の注意事項が適用されます。
 
    <itemizedlist>
     <listitem>
      <para>
+<!--
       Constraint exclusion is only applied during query planning; unlike
       partition pruning, it cannot be applied during query execution.
+-->
+制約による除外は問い合わせ計画時にのみ適用されます。
+パーティション除去とは違い、問い合わせの実行時には適用できません。
      </para>
     </listitem>
 
@@ -5957,7 +6038,7 @@ EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
       planner cannot know which child table the function's value might fall
       into at run time.
 -->
-制約による除外は問い合わせの<literal>WHERE</literal>句が定数(または外部から供給されたパラメータ)を含んでいたときにのみ動作します。例えば、<function>CURRENT_TIMESTAMP</function>のような非immutable関数に対する比較は、関数の結果値がどのパーティションに該当するかを実行時にプランナが知ることが出来ないため、最適化できません。
+制約による除外は問い合わせの<literal>WHERE</literal>句が定数(または外部から供給されたパラメータ)を含んでいたときにのみ動作します。例えば、<function>CURRENT_TIMESTAMP</function>のような非immutable関数に対する比較は、関数の結果値がどの子テーブルに該当するかを実行時にプランナが知ることが出来ないため、最適化できません。
      </para>
     </listitem>
 
@@ -5973,13 +6054,10 @@ EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
       using B-tree-indexable operators, because only B-tree-indexable
       column(s) are allowed in the partition key.
 -->
-パーティション制約を簡単にしておいてください。そうしないとプランナは、パーティションを使う必要がないことを立証できません。
+パーティション制約を簡単にしておいてください。そうしないとプランナは、子テーブルを使う必要がないことを立証できないでしょう。
 前述の例で示したとおり、リスト分割のために簡単な等号条件を使用してください。また範囲分割のために簡単な範囲テストを使用してください。
 手っ取り早い良い方法は、パーティショニングの制約がパーティション列とB-treeインデックス作成可能な演算子を用いた定数の比較のみを含んでいることです。
-これはパーティションテーブルにも当てはまります。
 なぜならパーティションキーにはB-treeでインデックス可能な列だけが使用できるからです。
-（宣言的パーティショニングを使用する場合は、これは問題にはなりません。
-なぜなら、自動的に生成される制約は非常に単純で、プランナが理解できるものだからです。）
      </para>
     </listitem>
 
@@ -5992,10 +6070,10 @@ EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
       inheritance based partitioning will work well with up to perhaps a
       hundred child tables; don't try to use many thousands of children.
 -->
-マスタテーブルのすべてのパーティションのすべての制約は、制約による除外で試験されます。
-よってパーティションの数が多くなれば問い合わせ計画の時間がかなり増加します。
-これらの技術を使用したパーティショニングは、おそらく100個までのパーティションでうまく動作します。
-何千ものパーティションを使用することは避けてください。
+親テーブルのすべての子テーブルのすべての制約は、制約による除外で試験されます。
+よって子テーブルの数が多くなれば問い合わせ計画の時間がかなり増加します。
+そのため、従来の継承を基にしたパーティショニングはおそらく100個までの子でうまく動作します。
+何千もの子テーブルを使用することは避けてください。
      </para>
     </listitem>
 
@@ -6133,7 +6211,7 @@ EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
 <!--
      Functions, procedures, and operators
 -->
-関数および演算子
+関数、プロシージャおよび演算子
     </para>
    </listitem>
 
@@ -6242,12 +6320,18 @@ DROP TABLE products CASCADE;
   </para>
 
   <para>
+<!--
    Almost all <command>DROP</command> commands in <productname>PostgreSQL</productname> support
    specifying <literal>CASCADE</literal>.  Of course, the nature of
    the possible dependencies varies with the type of the object.  You
    can also write <literal>RESTRICT</literal> instead of
    <literal>CASCADE</literal> to get the default behavior, which is to
    prevent dropping objects that any other objects depend on.
+-->
+<productname>PostgreSQL</productname>では、ほぼ全ての<command>DROP</command>コマンドに<literal>CASCADE</literal>を指定することができます。
+もちろん、どのような依存関係が存在するかは、オブジェクトの種類によって異なります。
+また、<literal>CASCADE</literal>ではなく<literal>RESTRICT</literal>と記述することもできます。
+これは、他のオブジェクトが依存しているオブジェクトの削除を禁止するというデフォルトの振舞いになります。
   </para>
 
   <note>
