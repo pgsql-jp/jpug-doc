@@ -548,8 +548,11 @@ Bツリー演算子クラスがない場合はエラーが報告されます。
      </para>
 
      <para>
+<!--
       See <xref linkend="ddl-partitioning"/> for more discussion on table
       partitioning.
+-->
+テーブルパーティショニングの更なる議論は<xref linkend="ddl-partitioning"/>を参照してください。
      </para>
 
     </listitem>
@@ -567,6 +570,8 @@ Bツリー演算子クラスがない場合はエラーが報告されます。
       hash-partitioned tables.
 -->
 指定した親テーブルの<firstterm>パーティション</firstterm>としてテーブルを作成します。
+<literal>FOR VALUES</literal>を用いて特定の値のパーティションとして、あるいは、<literal>DEFAULT</literal>を用いてデフォルトパーティションとしてテーブルを作成できます。
+本オプションはハッシュパーティションされたテーブルには使用できません。
      </para>
 
      <para>
@@ -580,7 +585,7 @@ Bツリー演算子クラスがない場合はエラーが報告されます。
       for hash partitioning.
 -->
 <replaceable class="parameter">partition_bound_spec</replaceable>は親テーブルのパーティショニング方法とパーティションキーに対応していなければならず、またそのテーブルのどの既存のパーティションとも重なり合ってはいけません。
-<literal>IN</literal>の構文はリストパーティショニングで使用され、<literal>FROM</literal>と<literal>TO</literal>の構文は範囲パーティショニングで使用されます。
+<literal>IN</literal>の構文はリストパーティショニングで、<literal>FROM</literal>と<literal>TO</literal>の構文は範囲パーティショニングで、<literal>WITH</literal>の構文はハッシュパーティショニングで、使用されます。
      </para>
 
      <para>
@@ -694,15 +699,22 @@ Bツリー演算子クラスがない場合はエラーが報告されます。
      </para>
 
      <para>
+<!--
       If <literal>DEFAULT</literal> is specified, the table will be
       created as a default partition of the parent table. The parent can
       either be a list or range partitioned table. A partition key value
       not fitting into any other partition of the given parent will be
       routed to the default partition. There can be only one default
       partition for a given parent table.
+-->
+<literal>DEFAULT</literal>が指定された場合、テーブルは親テーブルのデフォルトパーティションとして作成されます。
+親はリストパーティションテーブルか範囲パーティションテーブルのいずれかがありえます。
+親の他のどのパーティションにも当てはまらないパーティションキー値はデフォルトパーティションに送られます。
+ある親テーブルに対してデフォルトパーティションは一つだけ存在できます。
      </para>
 
      <para>
+<!--
       When a table has an existing <literal>DEFAULT</literal> partition and
       a new partition is added to it, the existing default partition must
       be scanned to verify that it does not contain any rows which properly
@@ -711,9 +723,14 @@ Bツリー演算子クラスがない場合はエラーが報告されます。
       the default partition is a foreign table or if it has a constraint which
       proves that it cannot contain rows which should be placed in the new
       partition.
+-->
+テーブルが既存の<literal>DEFAULT</literal>パーティションを持っていて、新たなパーティションが追加された場合、既存のデフォルトパーティションは、新たなパーティションに属すのがふさわしい行が含まれていないことを確かめるために、検査されなければなりません。
+デフォルトパーティションに多数の行が含まれている場合、これは時間を要すかもしれません。
+デフォルトパーティションが、外部テーブルであるか、新パーティションに置くべき行を含むことができないことを証明する制約を持つ場合、この検査は省略されます。
      </para>
 
      <para>
+<!--
       When creating a hash partition, a modulus and remainder must be specified.
       The modulus must be a positive integer, and the remainder must be a
       non-negative integer less than the modulus.  Typically, when initially
@@ -730,10 +747,20 @@ Bツリー演算子クラスがない場合はエラーが報告されます。
       modulus-16 partitions covering the same portion of the key space (one with
       a remainder equal to the remainder of the detached partition, and the
       other with a remainder equal to that value plus 8), and repopulate them
-      with data.  You can then repeat this -- perhaps at a later time -- for
+      with data.  You can then repeat this -&#045;perhaps at a later time &#045;- for
       each modulus-8 partition until none remain.  While this may still involve
       a large amount of data movement at each step, it is still better than
       having to create a whole new table and move all the data at once.
+-->
+ハッシュパーティションを作るときには法と残余を指定しなければなりません。
+法は正の整数でなければならず、残余は法よりも小さい非負整数でなければなりません。
+典型的にはハッシュパーティションテーブル初期設定をするとき、パーティションの数と等しい法を選び、全てのテーブルに同じ法と異なる残余を割り当てます（後述の例を参照）。
+しかしながら、全てのパーティションが同じ法を持つ必要はなく、あるハッシュパーティションテーブルのパーティションに存在する全ての法が次に大きい法の因子であることだけ必要です。
+このことは、全データを一度に移すことなくパーティション数を徐々に増やすことを可能にします。
+例えば、各々の法が8である8パーティションのハッシュパーティションテーブルがあるとして、パーティション数を16に増やさなければならなくなったとします。
+私たちは8を法とするパーティションの一つをデタッチして、新たに16を法とするキー空間の同じ部分（一つはデタッチしたパーティションと等しい残余を持ち、一つはその値に8を加えたのと等しい残余を持つ）を対象とする二つのパーティションを追加して、データを再配置することができます。
+これを（おそらくはより後に）8を法とする各パーティションがなくなるまで、繰り返すことができます。
+これは依然として各ステップで大きなデータ移動を伴いますが、全体の新テーブルを作って全データを一度に移さなければならないというよりは、まだ良いです。
      </para>
 
      <para>
@@ -767,7 +794,6 @@ Bツリー演算子クラスがない場合はエラーが報告されます。
 -->
 パーティションテーブルに挿入された行は、自動的に正しいパーティションに回されます。
 適当なパーティションが存在しないときは、エラーが発生します。
-また、パーティション内の行の更新で、パーティションキーの値が新しくなることにより他のパーティションに移動する必要がある場合も、エラーが発生します。
      </para>
 
      <para>
@@ -891,7 +917,7 @@ TRUNCATEのように通常はテーブルとそれを継承するすべての子
       <literal>INCLUDING ALL</literal> is an abbreviated form of
       <literal>INCLUDING COMMENTS INCLUDING CONSTRAINTS INCLUDING DEFAULTS INCLUDING IDENTITY INCLUDING INDEXES INCLUDING STATISTICS INCLUDING STORAGE</literal>.
 -->
-<literal>INCLUDING ALL</literal>は<literal>INCLUDING DEFAULTS INCLUDING IDENTITY INCLUDING CONSTRAINTS INCLUDING INDEXES INCLUDING STORAGE INCLUDING COMMENTS</literal>の省略形です。
+<literal>INCLUDING ALL</literal>は<literal>INCLUDING COMMENTS INCLUDING CONSTRAINTS INCLUDING DEFAULTS INCLUDING IDENTITY INCLUDING INDEXES INCLUDING STATISTICS INCLUDING STORAGE</literal>の省略形です。
      </para>
      <para>
 <!--
@@ -1148,13 +1174,17 @@ TRUEまたはUNKNOWNと評価される式は成功します。
      </para>
 
      <para>
+<!--
       When establishing a unique constraint for a multi-level partition
       hierarchy, all the columns in the partition key of the target
       partitioned table, as well as those of all its descendant partitioned
       tables, must be included in the constraint definition.
+-->
+複数レベルのパーティション階層に一意性制約を設定するとき、対象パーティションテーブル、および全ての子孫のパーティションテーブルの、パーティションキー内の全ての列が制約定義に含まれなくてはなりません。
      </para>
 
      <para>
+<!--
       Adding a unique constraint will automatically create a unique btree
       index on the column or group of columns used in the constraint.
       The optional clause <literal>INCLUDE</literal> adds to that index
@@ -1163,6 +1193,11 @@ TRUEまたはUNKNOWNと評価される式は成功します。
       it still depends on them.  Consequently, some operations on these columns
       (e.g. <literal>DROP COLUMN</literal>) can cause cascaded constraint and
       index deletion.
+-->
+一意性制約を加えると、制約で使われている列や列のグループに一意性btreeインデックスが自動的に作られます。
+省略可能な<literal>INCLUDE</literal>句はインデックスに一意性を強要されない列を1つまたは複数、追加します。
+含めた（INCLUDEした）列に制約は強制されませんが、依存はしていることに注意してください。
+このため、これらの列に対する一部の操作（例えば<literal>DROP COLUMN</literal>）は制約の連鎖とインデックスの削除をひき起こすことがあります。
      </para>
     </listitem>
    </varlistentry>
@@ -1213,12 +1248,16 @@ TRUEまたはUNKNOWNと評価される式は成功します。
      </para>
 
      <para>
+<!--
       <literal>PRIMARY KEY</literal> constraints share the restrictions that
       <literal>UNIQUE</literal> constraints have when placed on partitioned
       tables.
+-->
+<literal>PRIMARY KEY</literal>制約は、パーティションテーブルに設定するときに<literal>UNIQUE</literal>制約が持つ制限を共有します。
      </para>
 
      <para>
+<!--
       Adding a <literal>PRIMARY KEY</literal> constraint will automatically
       create a unique btree index on the column or group of columns used in the
       constraint.  The optional <literal>INCLUDE</literal> clause allows a list
@@ -1227,6 +1266,11 @@ TRUEまたはUNKNOWNと評価される式は成功します。
       the constraint still depends on them. Consequently, some operations on the
       included columns (e.g. <literal>DROP COLUMN</literal>) can cause cascaded
       constraint and index deletion.
+-->
+<literal>PRIMARY KEY</literal>制約を追加すると、制約で使用する列や列のグループに一意性のbtreeインデックスが自動的に作られます。
+省略可能な<literal>INCLUDE</literal>句はインデックスの非キー部分に含める列のリストを指定できます。
+含めた列に一意性は強制されませんが、制約はこれらに依存はしています。
+このため、これらの含められた列に対する一部の操作（例えば<literal>DROP COLUMN</literal>）は制約の連鎖とインデックスの削除をひき起こすことがあります。
      </para>
     </listitem>
    </varlistentry>
@@ -1348,7 +1392,9 @@ predicateの前後に括弧が必要であることに注意して下さい。
 <replaceable class="parameter">refcolumn</replaceable>リストが省略された場合、<replaceable class="parameter">reftable</replaceable>の主キーが使用されます。
 被参照列は、被参照テーブルにおいて遅延不可の一意性制約もしくは主キー制約を持った列でなければなりません。
 ユーザは被参照テーブル（テーブル全体または特定の被参照列）について<literal>REFERENCES</literal>権限を持っていなければなりません。
+外部キー制約の追加は被参照テーブルに<literal>SHARE ROW EXCLUSIVE</literal>ロックを必要とします。
 一時テーブルと永続テーブルとの間で外部キー制約を定義できないことに注意してください。
+パーティションテーブルに外部キーを定義できる一方、外部キーテーブルを参照する外部キーは定義できないことにも注意してください。
      </para>
 
      <para>
@@ -1790,6 +1836,7 @@ TOASTテーブルではこのパラメータを設定できません。
     <term><literal>toast_tuple_target</literal> (<type>integer</type>)</term>
     <listitem>
      <para>
+<!--
       The toast_tuple_target specifies the minimum tuple length required before
       we try to move long column values into TOAST tables, and is also the
       target length we try to reduce the length below once toasting begins.
@@ -1803,6 +1850,13 @@ TOASTテーブルではこのパラメータを設定できません。
       it is possible that setting this parameter could have negative
       effects in some cases.
       This parameter cannot be set for TOAST tables.
+-->
+toast_tuple_targetは、長い列値をTOASTテーブルに移動する前に必要とされる最小タプル長を指定します。また、これはTOAST化を開始したときに長さをそれ未満に減らそうとする目標にもなります。
+これはEXTERNALかEXTENDEDと印付けされた列にのみ影響があり、また、新たなタプルにのみ適用されます。既存の行には影響ありません。
+デフォルトでは、このパラメータは1ブロックあたり少なくとも4タプルが可能であるように設定されます。これはデフォルトブロックサイズであれば2040バイトになります。
+有効な値は128バイトから、ブロックサイズ - ヘッダ（デフォルトでは8160バイト）の間です。
+非常に短いあるいは長い行に対して、この値を変更することはおそらく有用ではありません。
+時にはデフォルト設定が最適に近く、本パラメータを設定することで場合によっては悪影響があるかもしれないことに注意してください。
      </para>
     </listitem>
    </varlistentry>
@@ -1820,7 +1874,7 @@ TOASTテーブルではこのパラメータを設定できません。
 -->
 このテーブルの並列スキャンを支援するために使用されるワーカの数を設定します。
 設定されなければ、リレーションのサイズに基づいてシステムが値を決定します。
-プランナが選ぶ実際のワーカの数は、例えば<xref linkend="guc-max-worker-processes"/>の設定によって、それより少なくなるかもしれません。
+プランナやパラレルスキャンを使うユーティリティ文により選ばれるワーカの数は、例えば<xref linkend="guc-max-worker-processes"/>の設定によって、より少なくなるかもしれません。
      </para>
     </listitem>
    </varlistentry>
@@ -2444,7 +2498,10 @@ CREATE TABLE cities (
 </programlisting></para>
 
   <para>
+<!--
    Create a hash partitioned table:
+-->
+ハッシュパーティションテーブルを作成します。
 <programlisting>
 CREATE TABLE orders (
     order_id     bigint not null,
@@ -2518,7 +2575,10 @@ CREATE TABLE cities_ab_10000_to_100000
 </programlisting></para>
 
   <para>
+<!--
    Create partitions of a hash partitioned table:
+-->
+ハッシュパーティションテーブルのパーティションを作成します。
 <programlisting>
 CREATE TABLE orders_p1 PARTITION OF orders
     FOR VALUES WITH (MODULUS 4, REMAINDER 0);
@@ -2716,9 +2776,13 @@ CREATE TABLE cities_partdef
   </refsect2>
 
   <refsect2>
+<!--
    <title>Constraint Naming</title>
+-->
+   <title>制約の命名</title>
 
    <para>
+<!--
     The SQL standard says that table and domain constraints must have names
     that are unique across the schema containing the table or domain.
     <productname>PostgreSQL</productname> is laxer: it only requires
@@ -2729,13 +2793,21 @@ CREATE TABLE cities_partdef
     constraints), because the associated index is named the same as the
     constraint, and index names must be unique across all relations within
     the same schema.
+-->
+SQL標準ではテーブルとドメインの制約はテーブルやドメインを含むスキーマ中で一意な名前を持たなければなりません。
+<productname>PostgreSQL</productname>はより緩やかで、制約名は特定のテーブルやドメインに付加された制約の中で一意であることだけが求められます。
+しかしながら、この追加的な自由はインデックスに基づく制約（<literal>UNIQUE</literal>、<literal>PRIMARY KEY</literal>、および<literal>EXCLUDE</literal>制約）にはありません。なぜなら、関連付けられたインデックスは制約と同じに命名されて、インデックス名は同スキーマ内の全てのリレーションの中で一意でなければならないからです。
    </para>
 
    <para>
+<!--
     Currently, <productname>PostgreSQL</productname> does not record names
     for <literal>NOT NULL</literal> constraints at all, so they are not
     subject to the uniqueness restriction.  This might change in a future
     release.
+-->
+今のところ、<productname>PostgreSQL</productname>は<literal>NOT NULL</literal>制約の名前を全く記録しませんので、これらは一意性の制限の対象ではありません。
+これは将来のリリースで変更されるかもしれません。
    </para>
   </refsect2>
 
