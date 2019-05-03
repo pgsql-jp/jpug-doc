@@ -17,6 +17,7 @@
                    use-attribute-sets="verbatim.properties monospace.properties">
   <xsl:attribute name="wrap-option">wrap</xsl:attribute>
   <xsl:attribute name="font-size">90%</xsl:attribute>
+  <xsl:attribute name="keep-together.within-column">always</xsl:attribute>
 </xsl:attribute-set>
 
 <xsl:attribute-set name="nongraphical.admonition.properties">
@@ -154,6 +155,7 @@
 </xsl:attribute-set>
 
 <xsl:attribute-set name="table.properties" use-attribute-sets="normal.para.spacing">
+  <xsl:attribute name="line-height">110%</xsl:attribute>
   <xsl:attribute name="font-size">80%</xsl:attribute>
 </xsl:attribute-set>
 <xsl:param name="table.cell.border.color">#999999</xsl:param>
@@ -178,6 +180,9 @@
   <xsl:attribute name="margin-right">0</xsl:attribute>
   <xsl:attribute name="padding">5pt</xsl:attribute>
   <xsl:attribute name="background-color">#EFEFEF</xsl:attribute>
+  <xsl:attribute name="font-size">90%</xsl:attribute>
+  <xsl:attribute name="line-height">110%</xsl:attribute>
+  <xsl:attribute name="padding-top">-4pt</xsl:attribute>
 </xsl:attribute-set>
 
 <xsl:attribute-set name="xref.properties">
