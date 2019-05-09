@@ -246,6 +246,23 @@
   </xsl:choose>
 </xsl:template>
 
+<!-- Remove the first and last extra line breaks in programlisting etc -->
+<xsl:template match="node()[parent::programlisting|parent::screen|parent::literallayout|parent::synopsis][1][self::text()][following-sibling::node()]">
+  <xsl:call-template name="trim-left">
+    <xsl:with-param name="contents" select="."/>
+  </xsl:call-template>
+</xsl:template>
+<xsl:template match="node()[parent::programlisting|parent::screen|parent::literallayout|parent::synopsis][position() = last()][self::text()][preceding-sibling::node()]">
+  <xsl:call-template name="trim-right">
+    <xsl:with-param name="contents" select="."/>
+  </xsl:call-template>
+</xsl:template>
+<xsl:template match="node()[parent::programlisting|parent::screen|parent::literallayout|parent::synopsis][position() = 1 and position() = last()][self::text()]" priority="1">
+  <xsl:call-template name="trim.text">
+    <xsl:with-param name="contents" select="."/>
+  </xsl:call-template>
+</xsl:template>
+
 <!-- header settings -->
 <xsl:param name="header.column.widths">2 5 2</xsl:param>
 <xsl:template name="header.content">
