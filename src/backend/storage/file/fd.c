@@ -145,6 +145,8 @@ int			max_files_per_process = 1000;
  */
 int			max_safe_fds = 32;	/* default if not changed */
 
+/* Whether it is safe to continue running after fsync() fails. */
+bool		data_sync_retry = false;
 
 /* Debugging.... */
 
@@ -430,6 +432,10 @@ pg_flush_data(int fd, off_t offset, off_t nbytes)
 #if defined(HAVE_SYNC_FILE_RANGE)
 	{
 		int			rc;
+		static bool not_implemented_by_kernel = false;
+
+		if (not_implemented_by_kernel)
+			return;
 
 		/*
 		 * sync_file_range(SYNC_FILE_RANGE_WRITE), currently linux specific,
@@ -442,11 +448,24 @@ pg_flush_data(int fd, off_t offset, off_t nbytes)
 		 */
 		rc = sync_file_range(fd, offset, nbytes,
 							 SYNC_FILE_RANGE_WRITE);
-
-		/* don't error out, this is just a performance optimization */
 		if (rc != 0)
 		{
-			ereport(WARNING,
+			int			elevel;
+
+			/*
+			 * For systems that don't have an implementation of
+			 * sync_file_range() such as Windows WSL, generate only one
+			 * warning and then suppress all further attempts by this process.
+			 */
+			if (errno == ENOSYS)
+			{
+				elevel = WARNING;
+				not_implemented_by_kernel = true;
+			}
+			else
+				elevel = data_sync_elevel(WARNING);
+
+			ereport(elevel,
 					(errcode_for_file_access(),
 					 errmsg("could not flush dirty data: %m")));
 		}
@@ -518,7 +537,7 @@ pg_flush_data(int fd, off_t offset, off_t nbytes)
 			rc = msync(p, (size_t) nbytes, MS_ASYNC);
 			if (rc != 0)
 			{
-				ereport(WARNING,
+				ereport(data_sync_elevel(WARNING),
 						(errcode_for_file_access(),
 						 errmsg("could not flush dirty data: %m")));
 				/* NB: need to fall through to munmap()! */
@@ -574,7 +593,7 @@ pg_flush_data(int fd, off_t offset, off_t nbytes)
 void
 fsync_fname(const char *fname, bool isdir)
 {
-	fsync_fname_ext(fname, isdir, false, ERROR);
+	fsync_fname_ext(fname, isdir, false, data_sync_elevel(ERROR));
 }
 
 /*
@@ -1050,7 +1069,8 @@ LruDelete(File file)
 	 * to leak the FD than to mess up our internal state.
 	 */
 	if (close(vfdP->fd))
-		elog(LOG, "could not close file \"%s\": %m", vfdP->fileName);
+		elog(vfdP->fdstate & FD_TEMP_FILE_LIMIT ? LOG : data_sync_elevel(LOG),
+			 "could not close file \"%s\": %m", vfdP->fileName);
 	vfdP->fd = VFD_CLOSED;
 	--nfile;
 
@@ -1754,7 +1774,14 @@ FileClose(File file)
 	{
 		/* close the file */
 		if (close(vfdP->fd))
-			elog(LOG, "could not close file \"%s\": %m", vfdP->fileName);
+		{
+			/*
+			 * We may need to panic on failure to close non-temporary files;
+			 * see LruDelete.
+			 */
+			elog(vfdP->fdstate & FD_TEMP_FILE_LIMIT ? LOG : data_sync_elevel(LOG),
+				"could not close file \"%s\": %m", vfdP->fileName);
+		}
 
 		--nfile;
 		vfdP->fd = VFD_CLOSED;
@@ -2430,11 +2457,16 @@ OpenTransientFilePerm(const char *fileName, int fileFlags, mode_t fileMode)
  * Routines that want to initiate a pipe stream should use OpenPipeStream
  * rather than plain popen().  This lets fd.c deal with freeing FDs if
  * necessary.  When done, call ClosePipeStream rather than pclose.
+ *
+ * This function also ensures that the popen'd program is run with default
+ * SIGPIPE processing, rather than the SIG_IGN setting the backend normally
+ * uses.  This ensures desirable response to, eg, closing a read pipe early.
  */
 FILE *
 OpenPipeStream(const char *command, const char *mode)
 {
 	FILE	   *file;
+	int			save_errno;
 
 	DO_DB(elog(LOG, "OpenPipeStream: Allocated %d (%s)",
 			   numAllocatedDescs, command));
@@ -2452,8 +2484,13 @@ OpenPipeStream(const char *command, const char *mode)
 TryAgain:
 	fflush(stdout);
 	fflush(stderr);
+	pqsignal(SIGPIPE, SIG_DFL);
 	errno = 0;
-	if ((file = popen(command, mode)) != NULL)
+	file = popen(command, mode);
+	save_errno = errno;
+	pqsignal(SIGPIPE, SIG_IGN);
+	errno = save_errno;
+	if (file != NULL)
 	{
 		AllocateDesc *desc = &allocatedDescs[numAllocatedDescs];
 
@@ -2466,12 +2503,9 @@ TryAgain:
 
 	if (errno == EMFILE || errno == ENFILE)
 	{
-		int			save_errno = errno;
-
 		ereport(LOG,
 				(errcode(ERRCODE_INSUFFICIENT_RESOURCES),
 				 errmsg("out of file descriptors: %m; release and retry")));
-		errno = 0;
 		if (ReleaseLruFile())
 			goto TryAgain;
 		errno = save_errno;
@@ -3250,6 +3284,9 @@ looks_like_temp_rel_name(const char *name)
  * harmless cases such as read-only files in the data directory, and that's
  * not good either.
  *
+ * Note that if we previously crashed due to a PANIC on fsync(), we'll be
+ * rewriting all changes again during recovery.
+ *
  * Note we assume we're chdir'd into PGDATA to begin with.
  */
 void
@@ -3501,7 +3538,7 @@ fsync_fname_ext(const char *fname, bool isdir, bool ignore_perm, int elevel)
 	 * Some OSes don't allow us to fsync directories at all, so we can ignore
 	 * those errors. Anything else needs to be logged.
 	 */
-	if (returncode != 0 && !(isdir && errno == EBADF))
+	if (returncode != 0 && !(isdir && (errno == EBADF || errno == EINVAL)))
 	{
 		int			save_errno;
 
@@ -3571,4 +3608,27 @@ int
 MakePGDirectory(const char *directoryName)
 {
 	return mkdir(directoryName, pg_dir_create_mode);
+}
+
+/*
+ * Return the passed-in error level, or PANIC if data_sync_retry is off.
+ *
+ * Failure to fsync any data file is cause for immediate panic, unless
+ * data_sync_retry is enabled.  Data may have been written to the operating
+ * system and removed from our buffer pool already, and if we are running on
+ * an operating system that forgets dirty data on write-back failure, there
+ * may be only one copy of the data remaining: in the WAL.  A later attempt to
+ * fsync again might falsely report success.  Therefore we must not allow any
+ * further checkpoints to be attempted.  data_sync_retry can in theory be
+ * enabled on systems known not to drop dirty buffered data on write-back
+ * failure (with the likely outcome that checkpoints will continue to fail
+ * until the underlying problem is fixed).
+ *
+ * Any code that reports a failure from fsync() or related functions should
+ * filter the error level with this function.
+ */
+int
+data_sync_elevel(int elevel)
+{
+	return data_sync_retry ? elevel : PANIC;
 }

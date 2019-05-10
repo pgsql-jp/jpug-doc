@@ -1326,15 +1326,19 @@ ReorderBufferBuildTupleCidHash(ReorderBuffer *rb, ReorderBufferTXN *txn)
 		}
 		else
 		{
+			/*
+			 * Maybe we already saw this tuple before in this transaction,
+			 * but if so it must have the same cmin.
+			 */
 			Assert(ent->cmin == change->data.tuplecid.cmin);
-			Assert(ent->cmax == InvalidCommandId ||
-				   ent->cmax == change->data.tuplecid.cmax);
 
 			/*
-			 * if the tuple got valid in this transaction and now got deleted
-			 * we already have a valid cmin stored. The cmax will be
-			 * InvalidCommandId though.
+			 * cmax may be initially invalid, but once set it can only grow,
+			 * and never become invalid again.
 			 */
+			Assert((ent->cmax == InvalidCommandId) ||
+				   ((change->data.tuplecid.cmax != InvalidCommandId) &&
+					(change->data.tuplecid.cmax > ent->cmax)));
 			ent->cmax = change->data.tuplecid.cmax;
 		}
 	}
@@ -1598,17 +1602,12 @@ ReorderBufferCommit(ReorderBuffer *rb, TransactionId xid,
 						 * transaction's changes. Otherwise it will get
 						 * freed/reused while restoring spooled data from
 						 * disk.
-						 *
-						 * But skip doing so if there's no tuple-data. That
-						 * happens if a non-mapped system catalog with a toast
-						 * table is rewritten.
 						 */
-						if (change->data.tp.newtuple != NULL)
-						{
-							dlist_delete(&change->node);
-							ReorderBufferToastAppendChunk(rb, txn, relation,
-														  change);
-						}
+						Assert(change->data.tp.newtuple != NULL);
+
+						dlist_delete(&change->node);
+						ReorderBufferToastAppendChunk(rb, txn, relation,
+													  change);
 					}
 
 			change_done:

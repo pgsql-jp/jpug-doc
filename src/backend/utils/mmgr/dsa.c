@@ -650,7 +650,7 @@ dsa_pin_mapping(dsa_area *area)
  * will result in an ERROR.
  *
  * DSA_ALLOC_NO_OOM causes this function to return InvalidDsaPointer when
- * no memory is available or a size limit established by set_dsa_size_limit
+ * no memory is available or a size limit established by dsa_set_size_limit
  * would be exceeded.  Otherwise, such allocations will result in an ERROR.
  *
  * DSA_ALLOC_ZERO causes the allocated memory to be zeroed.  Otherwise, the
@@ -693,7 +693,16 @@ dsa_allocate_extended(dsa_area *area, size_t size, int flags)
 		/* Obtain a span object. */
 		span_pointer = alloc_object(area, DSA_SCLASS_BLOCK_OF_SPANS);
 		if (!DsaPointerIsValid(span_pointer))
+		{
+			/* Raise error unless asked not to. */
+			if ((flags & DSA_ALLOC_NO_OOM) == 0)
+				ereport(ERROR,
+						(errcode(ERRCODE_OUT_OF_MEMORY),
+						 errmsg("out of memory"),
+						 errdetail("Failed on DSA request of size %zu.",
+								   size)));
 			return InvalidDsaPointer;
+		}
 
 		LWLockAcquire(DSA_AREA_LOCK(area), LW_EXCLUSIVE);
 
@@ -790,12 +799,10 @@ dsa_allocate_extended(dsa_area *area, size_t size, int flags)
 	{
 		/* Raise error unless asked not to. */
 		if ((flags & DSA_ALLOC_NO_OOM) == 0)
-		{
 			ereport(ERROR,
 					(errcode(ERRCODE_OUT_OF_MEMORY),
 					 errmsg("out of memory"),
 					 errdetail("Failed on DSA request of size %zu.", size)));
-		}
 		return InvalidDsaPointer;
 	}
 
@@ -1669,13 +1676,14 @@ ensure_active_superblock(dsa_area *area, dsa_area_pool *pool,
 			return false;
 		}
 	}
+	/*
+	 * This shouldn't happen: get_best_segment() or make_new_segment()
+	 * promised that we can successfully allocate npages.
+	 */
 	if (!FreePageManagerGet(segment_map->fpm, npages, &first_page))
-	{
-		LWLockRelease(DSA_AREA_LOCK(area));
-		if (size_class != DSA_SCLASS_BLOCK_OF_SPANS)
-			dsa_free(area, span_pointer);
-		return false;
-	}
+		elog(FATAL,
+			 "dsa_allocate could not find %zu free pages for superblock",
+			 npages);
 	LWLockRelease(DSA_AREA_LOCK(area));
 
 	/* Compute the start of the superblock. */

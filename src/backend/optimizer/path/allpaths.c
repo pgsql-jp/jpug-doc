@@ -480,8 +480,19 @@ set_rel_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	}
 
 	/*
+	 * Allow a plugin to editorialize on the set of Paths for this base
+	 * relation.  It could add new paths (such as CustomPaths) by calling
+	 * add_path(), or add_partial_path() if parallel aware.  It could also
+	 * delete or modify paths added by the core code.
+	 */
+	if (set_rel_pathlist_hook)
+		(*set_rel_pathlist_hook) (root, rel, rti, rte);
+
+	/*
 	 * If this is a baserel, we should normally consider gathering any partial
-	 * paths we may have created for it.
+	 * paths we may have created for it.  We have to do this after calling the
+	 * set_rel_pathlist_hook, else it cannot add partial paths to be included
+	 * here.
 	 *
 	 * However, if this is an inheritance child, skip it.  Otherwise, we could
 	 * end up with a very large number of gather nodes, each trying to grab
@@ -489,20 +500,12 @@ set_rel_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	 * paths for the parent appendrel.
 	 *
 	 * Also, if this is the topmost scan/join rel (that is, the only baserel),
-	 * we postpone this until the final scan/join targelist is available (see
-	 * grouping_planner).
+	 * we postpone gathering until the final scan/join targetlist is available
+	 * (see grouping_planner).
 	 */
 	if (rel->reloptkind == RELOPT_BASEREL &&
 		bms_membership(root->all_baserels) != BMS_SINGLETON)
 		generate_gather_paths(root, rel, false);
-
-	/*
-	 * Allow a plugin to editorialize on the set of Paths for this base
-	 * relation.  It could add new paths (such as CustomPaths) by calling
-	 * add_path(), or delete or modify paths added by the core code.
-	 */
-	if (set_rel_pathlist_hook)
-		(*set_rel_pathlist_hook) (root, rel, rti, rte);
 
 	/* Now find the cheapest of the paths for this rel */
 	set_cheapest(rel);
@@ -981,42 +984,11 @@ set_append_rel_size(PlannerInfo *root, RelOptInfo *rel,
 		Assert(childrel->reloptkind == RELOPT_OTHER_MEMBER_REL);
 
 		/*
-		 * Copy/Modify targetlist. Even if this child is deemed empty, we need
-		 * its targetlist in case it falls on nullable side in a child-join
-		 * because of partitionwise join.
-		 *
-		 * NB: the resulting childrel->reltarget->exprs may contain arbitrary
-		 * expressions, which otherwise would not occur in a rel's targetlist.
-		 * Code that might be looking at an appendrel child must cope with
-		 * such.  (Normally, a rel's targetlist would only include Vars and
-		 * PlaceHolderVars.)  XXX we do not bother to update the cost or width
-		 * fields of childrel->reltarget; not clear if that would be useful.
-		 */
-		childrel->reltarget->exprs = (List *)
-			adjust_appendrel_attrs(root,
-								   (Node *) rel->reltarget->exprs,
-								   1, &appinfo);
-
-		/*
-		 * We have to make child entries in the EquivalenceClass data
-		 * structures as well.  This is needed either if the parent
-		 * participates in some eclass joins (because we will want to consider
-		 * inner-indexscan joins on the individual children) or if the parent
-		 * has useful pathkeys (because we should try to build MergeAppend
-		 * paths that produce those sort orderings). Even if this child is
-		 * deemed dummy, it may fall on nullable side in a child-join, which
-		 * in turn may participate in a MergeAppend, where we will need the
-		 * EquivalenceClass data structures.
-		 */
-		if (rel->has_eclass_joins || has_useful_pathkeys(root, rel))
-			add_child_rel_equivalences(root, appinfo, rel, childrel);
-		childrel->has_eclass_joins = rel->has_eclass_joins;
-
-		/*
-		 * We have to copy the parent's quals to the child, with appropriate
-		 * substitution of variables.  However, only the baserestrictinfo
-		 * quals are needed before we can check for constraint exclusion; so
-		 * do that first and then check to see if we can disregard this child.
+		 * We have to copy the parent's targetlist and quals to the child,
+		 * with appropriate substitution of variables.  However, only the
+		 * baserestrictinfo quals are needed before we can check for
+		 * constraint exclusion; so do that first and then check to see if we
+		 * can disregard this child.
 		 *
 		 * The child rel's targetlist might contain non-Var expressions, which
 		 * means that substitution into the quals could produce opportunities
@@ -1150,11 +1122,36 @@ set_append_rel_size(PlannerInfo *root, RelOptInfo *rel,
 			continue;
 		}
 
-		/* CE failed, so finish copying/modifying join quals. */
+		/*
+		 * CE failed, so finish copying/modifying targetlist and join quals.
+		 *
+		 * NB: the resulting childrel->reltarget->exprs may contain arbitrary
+		 * expressions, which otherwise would not occur in a rel's targetlist.
+		 * Code that might be looking at an appendrel child must cope with
+		 * such.  (Normally, a rel's targetlist would only include Vars and
+		 * PlaceHolderVars.)  XXX we do not bother to update the cost or width
+		 * fields of childrel->reltarget; not clear if that would be useful.
+		 */
 		childrel->joininfo = (List *)
 			adjust_appendrel_attrs(root,
 								   (Node *) rel->joininfo,
 								   1, &appinfo);
+		childrel->reltarget->exprs = (List *)
+			adjust_appendrel_attrs(root,
+								   (Node *) rel->reltarget->exprs,
+								   1, &appinfo);
+
+		/*
+		 * We have to make child entries in the EquivalenceClass data
+		 * structures as well.  This is needed either if the parent
+		 * participates in some eclass joins (because we will want to consider
+		 * inner-indexscan joins on the individual children) or if the parent
+		 * has useful pathkeys (because we should try to build MergeAppend
+		 * paths that produce those sort orderings).
+		 */
+		if (rel->has_eclass_joins || has_useful_pathkeys(root, rel))
+			add_child_rel_equivalences(root, appinfo, rel, childrel);
+		childrel->has_eclass_joins = rel->has_eclass_joins;
 
 		/*
 		 * Note: we could compute appropriate attr_needed data for the child's
@@ -1167,9 +1164,15 @@ set_append_rel_size(PlannerInfo *root, RelOptInfo *rel,
 		/*
 		 * If we consider partitionwise joins with the parent rel, do the same
 		 * for partitioned child rels.
+		 *
+		 * Note: here we abuse the consider_partitionwise_join flag by setting
+		 * it for child rels that are not themselves partitioned.  We do so to
+		 * tell try_partitionwise_join() that the child rel is sufficiently
+		 * valid to be used as a per-partition input, even if it later gets
+		 * proven to be dummy.  (It's not usable until we've set up the
+		 * reltarget and EC entries, which we just did.)
 		 */
-		if (rel->consider_partitionwise_join &&
-			childRTE->relkind == RELKIND_PARTITIONED_TABLE)
+		if (rel->consider_partitionwise_join)
 			childrel->consider_partitionwise_join = true;
 
 		/*
@@ -1604,7 +1607,7 @@ add_paths_to_append_rel(PlannerInfo *root, RelOptInfo *rel,
 	 * Consider an append of unordered, unparameterized partial paths.  Make
 	 * it parallel-aware if possible.
 	 */
-	if (partial_subpaths_valid)
+	if (partial_subpaths_valid && partial_subpaths != NIL)
 	{
 		AppendPath *appendpath;
 		ListCell   *lc;
@@ -2001,9 +2004,11 @@ accumulate_append_subpath(Path *path, List **subpaths, List **special_subpaths)
  *	  Build a dummy path for a relation that's been excluded by constraints
  *
  * Rather than inventing a special "dummy" path type, we represent this as an
- * AppendPath with no members (see also IS_DUMMY_PATH/IS_DUMMY_REL macros).
+ * AppendPath with no members (see also IS_DUMMY_APPEND/IS_DUMMY_REL macros).
  *
- * This is exported because inheritance_planner() has need for it.
+ * (See also mark_dummy_rel, which does basically the same thing, but is
+ * typically used to change a rel into dummy state after we already made
+ * paths for it.)
  */
 void
 set_dummy_rel_pathlist(RelOptInfo *rel)
@@ -2016,14 +2021,16 @@ set_dummy_rel_pathlist(RelOptInfo *rel)
 	rel->pathlist = NIL;
 	rel->partial_pathlist = NIL;
 
-	add_path(rel, (Path *) create_append_path(NULL, rel, NIL, NIL, NULL,
+	/* Set up the dummy path */
+	add_path(rel, (Path *) create_append_path(NULL, rel, NIL, NIL,
+											  rel->lateral_relids,
 											  0, false, NIL, -1));
 
 	/*
-	 * We set the cheapest path immediately, to ensure that IS_DUMMY_REL()
-	 * will recognize the relation as dummy if anyone asks.  This is redundant
-	 * when we're called from set_rel_size(), but not when called from
-	 * elsewhere, and doing it twice is harmless anyway.
+	 * We set the cheapest-path fields immediately, just in case they were
+	 * pointing at some discarded path.  This is redundant when we're called
+	 * from set_rel_size(), but not when called from elsewhere, and doing it
+	 * twice is harmless anyway.
 	 */
 	set_cheapest(rel);
 }
@@ -3544,16 +3551,18 @@ generate_partitionwise_join_paths(PlannerInfo *root, RelOptInfo *rel)
 	{
 		RelOptInfo *child_rel = part_rels[cnt_parts];
 
-		Assert(child_rel != NULL);
+		/* If it's been pruned entirely, it's certainly dummy. */
+		if (child_rel == NULL)
+			continue;
 
 		/* Add partitionwise join paths for partitioned child-joins. */
 		generate_partitionwise_join_paths(root, child_rel);
 
+		set_cheapest(child_rel);
+
 		/* Dummy children will not be scanned, so ignore those. */
 		if (IS_DUMMY_REL(child_rel))
 			continue;
-
-		set_cheapest(child_rel);
 
 #ifdef OPTIMIZER_DEBUG
 		debug_print_rel(root, child_rel);

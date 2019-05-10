@@ -278,6 +278,24 @@ CREATE TABLE as_select1 AS SELECT * FROM pg_class WHERE relkind = 'r';
 CREATE TABLE IF NOT EXISTS as_select1 AS SELECT * FROM pg_class WHERE relkind = 'r';
 DROP TABLE as_select1;
 
+PREPARE select1 AS SELECT 1 as a;
+CREATE TABLE as_select1 AS EXECUTE select1;
+CREATE TABLE as_select1 AS EXECUTE select1;
+SELECT * FROM as_select1;
+CREATE TABLE IF NOT EXISTS as_select1 AS EXECUTE select1;
+DROP TABLE as_select1;
+DEALLOCATE select1;
+
+-- create an extra wide table to test for issues related to that
+-- (temporarily hide query, to avoid the long CREATE TABLE stmt)
+\set ECHO none
+SELECT 'CREATE TABLE extra_wide_table(firstc text, '|| array_to_string(array_agg('c'||i||' bool'),',')||', lastc text);'
+FROM generate_series(1, 1100) g(i)
+\gexec
+\set ECHO all
+INSERT INTO extra_wide_table(firstc, lastc) VALUES('first col', 'last col');
+SELECT firstc, lastc FROM extra_wide_table;
+
 -- check that the oid column is added before the primary key is checked
 CREATE TABLE oid_pk (f1 INT, PRIMARY KEY(oid)) WITH OIDS;
 DROP TABLE oid_pk;
@@ -653,6 +671,25 @@ CREATE TABLE part_c PARTITION OF parted (b WITH OPTIONS NOT NULL DEFAULT 0) FOR 
 
 -- create a level-2 partition
 CREATE TABLE part_c_1_10 PARTITION OF part_c FOR VALUES FROM (1) TO (10);
+
+-- check that NOT NULL and default value are inherited correctly
+create table parted_notnull_inh_test (a int default 1, b int not null default 0) partition by list (a);
+create table parted_notnull_inh_test1 partition of parted_notnull_inh_test (a not null, b default 1) for values in (1);
+insert into parted_notnull_inh_test (b) values (null);
+-- note that while b's default is overriden, a's default is preserved
+\d parted_notnull_inh_test1
+drop table parted_notnull_inh_test;
+
+-- check for a conflicting COLLATE clause
+create table parted_collate_must_match (a text collate "C", b text collate "C")
+  partition by range (a);
+-- on the partition key
+create table parted_collate_must_match1 partition of parted_collate_must_match
+  (a collate "POSIX") for values from ('a') to ('m');
+-- on another column
+create table parted_collate_must_match2 partition of parted_collate_must_match
+  (b collate "POSIX") for values from ('m') to ('z');
+drop table parted_collate_must_match;
 
 -- Partition bound in describe output
 \d+ part_b

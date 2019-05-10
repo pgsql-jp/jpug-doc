@@ -3396,6 +3396,11 @@ ltrmark:;
 		LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
 	}
 
+	/*
+	 * While this is not necessary anymore after 297d627e, as a defense
+	 * against C code that has not recompiled for minor releases after the
+	 * fix, continue to expand the tuple.
+	 */
 	if (HeapTupleHeaderGetNatts(tuple.t_data) < relation->rd_att->natts)
 		result = heap_expand_tuple(&tuple, relation->rd_att);
 	else
@@ -5758,7 +5763,7 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 		bool		delete_old_table = transition_capture->tcs_delete_old_table;
 		bool		update_old_table = transition_capture->tcs_update_old_table;
 		bool		update_new_table = transition_capture->tcs_update_new_table;
-		bool		insert_new_table = transition_capture->tcs_insert_new_table;;
+		bool		insert_new_table = transition_capture->tcs_insert_new_table;
 
 		/*
 		 * For INSERT events newtup should be non-NULL, for DELETE events

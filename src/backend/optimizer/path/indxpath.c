@@ -67,6 +67,7 @@ typedef struct
 	List	   *quals;			/* the WHERE clauses it uses */
 	List	   *preds;			/* predicates of its partial index(es) */
 	Bitmapset  *clauseids;		/* quals+preds represented as a bitmapset */
+	bool		unclassifiable; /* has too many quals+preds to process? */
 } PathClauseUsage;
 
 /* Callback argument for ec_member_matches_indexcol */
@@ -251,7 +252,7 @@ create_index_paths(PlannerInfo *root, RelOptInfo *rel)
 		IndexOptInfo *index = (IndexOptInfo *) lfirst(lc);
 
 		/* Protect limited-size array in IndexClauseSets */
-		Assert(index->ncolumns <= INDEX_MAX_KEYS);
+		Assert(index->nkeycolumns <= INDEX_MAX_KEYS);
 
 		/*
 		 * Ignore partial indexes that do not match the query.
@@ -466,7 +467,7 @@ consider_index_join_clauses(PlannerInfo *root, RelOptInfo *rel,
 	 * relation itself is also included in the relids set.  considered_relids
 	 * lists all relids sets we've already tried.
 	 */
-	for (indexcol = 0; indexcol < index->ncolumns; indexcol++)
+	for (indexcol = 0; indexcol < index->nkeycolumns; indexcol++)
 	{
 		/* Consider each applicable simple join clause */
 		considered_clauses += list_length(jclauseset->indexclauses[indexcol]);
@@ -620,7 +621,7 @@ get_join_index_paths(PlannerInfo *root, RelOptInfo *rel,
 	/* Identify indexclauses usable with this relids set */
 	MemSet(&clauseset, 0, sizeof(clauseset));
 
-	for (indexcol = 0; indexcol < index->ncolumns; indexcol++)
+	for (indexcol = 0; indexcol < index->nkeycolumns; indexcol++)
 	{
 		ListCell   *lc;
 
@@ -920,7 +921,7 @@ build_index_paths(PlannerInfo *root, RelOptInfo *rel,
 	clause_columns = NIL;
 	found_lower_saop_clause = false;
 	outer_relids = bms_copy(rel->lateral_relids);
-	for (indexcol = 0; indexcol < index->ncolumns; indexcol++)
+	for (indexcol = 0; indexcol < index->nkeycolumns; indexcol++)
 	{
 		ListCell   *lc;
 
@@ -1447,9 +1448,18 @@ choose_bitmap_and(PlannerInfo *root, RelOptInfo *rel, List *paths)
 		Path	   *ipath = (Path *) lfirst(l);
 
 		pathinfo = classify_index_clause_usage(ipath, &clauselist);
+
+		/* If it's unclassifiable, treat it as distinct from all others */
+		if (pathinfo->unclassifiable)
+		{
+			pathinfoarray[npaths++] = pathinfo;
+			continue;
+		}
+
 		for (i = 0; i < npaths; i++)
 		{
-			if (bms_equal(pathinfo->clauseids, pathinfoarray[i]->clauseids))
+			if (!pathinfoarray[i]->unclassifiable &&
+				bms_equal(pathinfo->clauseids, pathinfoarray[i]->clauseids))
 				break;
 		}
 		if (i < npaths)
@@ -1484,6 +1494,10 @@ choose_bitmap_and(PlannerInfo *root, RelOptInfo *rel, List *paths)
 	 * For each surviving index, consider it as an "AND group leader", and see
 	 * whether adding on any of the later indexes results in an AND path with
 	 * cheaper total cost than before.  Then take the cheapest AND group.
+	 *
+	 * Note: paths that are either clauseless or unclassifiable will have
+	 * empty clauseids, so that they will not be rejected by the clauseids
+	 * filter here, nor will they cause later paths to be rejected by it.
 	 */
 	for (i = 0; i < npaths; i++)
 	{
@@ -1711,6 +1725,21 @@ classify_index_clause_usage(Path *path, List **clauselist)
 	result->preds = NIL;
 	find_indexpath_quals(path, &result->quals, &result->preds);
 
+	/*
+	 * Some machine-generated queries have outlandish numbers of qual clauses.
+	 * To avoid getting into O(N^2) behavior even in this preliminary
+	 * classification step, we want to limit the number of entries we can
+	 * accumulate in *clauselist.  Treat any path with more than 100 quals +
+	 * preds as unclassifiable, which will cause calling code to consider it
+	 * distinct from all other paths.
+	 */
+	if (list_length(result->quals) + list_length(result->preds) > 100)
+	{
+		result->clauseids = NULL;
+		result->unclassifiable = true;
+		return result;
+	}
+
 	/* Build up a bitmapset representing the quals and preds */
 	clauseids = NULL;
 	foreach(lc, result->quals)
@@ -1728,6 +1757,7 @@ classify_index_clause_usage(Path *path, List **clauselist)
 								   find_list_position(node, clauselist));
 	}
 	result->clauseids = clauseids;
+	result->unclassifiable = false;
 
 	return result;
 }
@@ -2619,11 +2649,12 @@ match_pathkeys_to_index(IndexOptInfo *index, List *pathkeys,
 			/*
 			 * We allow any column of the index to match each pathkey; they
 			 * don't have to match left-to-right as you might expect.  This is
-			 * correct for GiST, which is the sole existing AM supporting
-			 * amcanorderbyop.  We might need different logic in future for
-			 * other implementations.
+			 * correct for GiST, and it doesn't matter for SP-GiST because
+			 * that doesn't handle multiple columns anyway, and no other
+			 * existing AMs support amcanorderbyop.  We might need different
+			 * logic in future for other implementations.
 			 */
-			for (indexcol = 0; indexcol < index->ncolumns; indexcol++)
+			for (indexcol = 0; indexcol < index->nkeycolumns; indexcol++)
 			{
 				Expr	   *expr;
 
@@ -3054,7 +3085,7 @@ relation_has_unique_index_for(PlannerInfo *root, RelOptInfo *rel,
 		 * Try to find each index column in the lists of conditions.  This is
 		 * O(N^2) or worse, but we expect all the lists to be short.
 		 */
-		for (c = 0; c < ind->ncolumns; c++)
+		for (c = 0; c < ind->nkeycolumns; c++)
 		{
 			bool		matched = false;
 			ListCell   *lc;
@@ -3129,8 +3160,8 @@ relation_has_unique_index_for(PlannerInfo *root, RelOptInfo *rel,
 				break;			/* no match; this index doesn't help us */
 		}
 
-		/* Matched all columns of this index? */
-		if (c == ind->ncolumns)
+		/* Matched all key columns of this index? */
+		if (c == ind->nkeycolumns)
 			return true;
 	}
 
@@ -3936,7 +3967,7 @@ adjust_rowcompare_for_index(RowCompareExpr *clause,
 			break;				/* no good, volatile comparison value */
 
 		/*
-		 * The Var side can match any column of the index.
+		 * The Var side can match any key column of the index.
 		 */
 		for (i = 0; i < index->nkeycolumns; i++)
 		{
@@ -3948,7 +3979,7 @@ adjust_rowcompare_for_index(RowCompareExpr *clause,
 
 				break;
 		}
-		if (i >= index->ncolumns)
+		if (i >= index->nkeycolumns)
 			break;				/* no match found */
 
 		/* Add column number to returned list */

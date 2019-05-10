@@ -17,7 +17,7 @@ dnl Read the Autoconf manual for details.
 dnl
 m4_pattern_forbid(^PGAC_)dnl to catch undefined macros
 
-AC_INIT([PostgreSQL], [11.1], [pgsql-bugs@postgresql.org])
+AC_INIT([PostgreSQL], [11.3], [pgsql-bugs@postgresql.org])
 
 m4_if(m4_defn([m4_PACKAGE_VERSION]), [2.69], [], [m4_fatal([Autoconf version 2.69 is required.
 Untested combinations of 'autoconf' and PostgreSQL versions are not
@@ -383,9 +383,10 @@ AC_SUBST(SUN_STUDIO_CC)
 PGAC_ARG_BOOL(with, llvm, no, [build with LLVM based JIT support],
               [AC_DEFINE([USE_LLVM], 1, [Define to 1 to build with LLVM based JIT support. (--with-llvm)])])
 AC_SUBST(with_llvm)
-if test "$with_llvm" = yes ; then
-   PGAC_LLVM_SUPPORT()
-fi
+dnl must use AS_IF here, else AC_REQUIRES inside PGAC_LLVM_SUPPORT malfunctions
+AS_IF([test "$with_llvm" = yes], [
+  PGAC_LLVM_SUPPORT()
+]) # fi
 
 
 unset CFLAGS
@@ -1009,7 +1010,6 @@ AC_SUBST(install_bin)
 
 PGAC_PATH_PROGS(TAR, tar)
 AC_PROG_LN_S
-AC_PROG_AWK
 AC_PROG_MKDIR_P
 # When Autoconf chooses install-sh as mkdir -p program it tries to generate
 # a relative path to it in each makefile where it substitutes it. This clashes
@@ -1568,7 +1568,31 @@ PGAC_FUNC_WCSTOMBS_L
 LIBS_including_readline="$LIBS"
 LIBS=`echo "$LIBS" | sed -e 's/-ledit//g' -e 's/-lreadline//g'`
 
-AC_CHECK_FUNCS([cbrt clock_gettime dlopen fdatasync getifaddrs getpeerucred getrlimit mbstowcs_l memmove poll posix_fallocate pstat pthread_is_threaded_np readlink setproctitle setsid shm_open symlink sync_file_range utime utimes wcstombs_l])
+AC_CHECK_FUNCS(m4_normalize([
+	cbrt
+	clock_gettime
+	dlopen
+	fdatasync
+	getifaddrs
+	getpeerucred
+	getrlimit
+	mbstowcs_l
+	memmove
+	poll
+	posix_fallocate
+	pstat
+	pthread_is_threaded_np
+	readlink
+	setproctitle
+	setsid
+	shm_open
+	symlink
+	sync_file_range
+	uselocale
+	utime
+	utimes
+	wcstombs_l
+]))
 
 AC_REPLACE_FUNCS(fseeko)
 case $host_os in
@@ -1584,10 +1608,11 @@ esac
 # posix_fadvise() is a no-op on Solaris, so don't incur function overhead
 # by calling it, 2009-04-02
 # http://src.opensolaris.org/source/xref/onnv/onnv-gate/usr/src/lib/libc/port/gen/posix_fadvise.c
-if test "$PORTNAME" != "solaris"; then
+dnl must use AS_IF here, else AC_REQUIRES inside AC_CHECK_DECLS malfunctions
+AS_IF([test "$PORTNAME" != "solaris"], [
 AC_CHECK_FUNCS(posix_fadvise)
 AC_CHECK_DECLS(posix_fadvise, [], [], [#include <fcntl.h>])
-fi
+]) # fi
 
 AC_CHECK_DECLS(fdatasync, [], [], [#include <unistd.h>])
 AC_CHECK_DECLS([strlcat, strlcpy, strnlen])
@@ -1716,9 +1741,9 @@ else
   AC_LIBOBJ(getopt_long)
 fi
 
-# Solaris' getopt() doesn't do what we want for long options, so always use
-# our version on that platform.
-if test "$PORTNAME" = "solaris"; then
+# On OpenBSD and Solaris, getopt() doesn't do what we want for long options
+# (i.e., allow '-' as a flag character), so use our version on those platforms.
+if test "$PORTNAME" = "openbsd" -o "$PORTNAME" = "solaris"; then
   AC_LIBOBJ(getopt)
 fi
 
@@ -1731,6 +1756,7 @@ fi
 
 # Win32 (really MinGW) support
 if test "$PORTNAME" = "win32"; then
+  AC_CHECK_FUNCS(_configthreadlocale)
   AC_REPLACE_FUNCS(gettimeofday)
   AC_LIBOBJ(dirmod)
   AC_LIBOBJ(kill)
@@ -1803,6 +1829,10 @@ if test "$with_icu" = yes; then
         [AC_MSG_ERROR([header file <unicode/ucol.h> is required for ICU])])
 
   CPPFLAGS=$ac_save_CPPFLAGS
+fi
+
+if test "$with_llvm" = yes; then
+  PGAC_CHECK_LLVM_FUNCTIONS()
 fi
 
 # Lastly, restore full LIBS list and check for readline/libedit symbols

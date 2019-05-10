@@ -19,7 +19,6 @@
 #include <limits.h>
 #include <math.h>
 
-#include "access/stratnum.h"
 #include "access/sysattr.h"
 #include "catalog/pg_class.h"
 #include "foreign/fdwapi.h"
@@ -29,11 +28,11 @@
 #include "nodes/nodeFuncs.h"
 #include "optimizer/clauses.h"
 #include "optimizer/cost.h"
+#include "optimizer/paramassign.h"
 #include "optimizer/paths.h"
 #include "optimizer/placeholder.h"
 #include "optimizer/plancat.h"
 #include "optimizer/planmain.h"
-#include "optimizer/planner.h"
 #include "optimizer/predtest.h"
 #include "optimizer/restrictinfo.h"
 #include "optimizer/subselect.h"
@@ -152,8 +151,6 @@ static MergeJoin *create_mergejoin_plan(PlannerInfo *root, MergePath *best_path)
 static HashJoin *create_hashjoin_plan(PlannerInfo *root, HashPath *best_path);
 static Node *replace_nestloop_params(PlannerInfo *root, Node *expr);
 static Node *replace_nestloop_params_mutator(Node *node, PlannerInfo *root);
-static void process_subquery_nestloop_params(PlannerInfo *root,
-								 List *subplan_params);
 static List *fix_indexqual_references(PlannerInfo *root, IndexPath *index_path);
 static List *fix_indexorderby_references(PlannerInfo *root, IndexPath *index_path);
 static Node *fix_indexqual_operand(Node *node, IndexOptInfo *index, int indexcol);
@@ -312,7 +309,7 @@ create_plan(PlannerInfo *root, Path *best_path)
 	/* plan_params should not be in use in current query level */
 	Assert(root->plan_params == NIL);
 
-	/* Initialize this module's private workspace in PlannerInfo */
+	/* Initialize this module's workspace in PlannerInfo */
 	root->curOuterRels = NULL;
 	root->curOuterParams = NIL;
 
@@ -1041,7 +1038,7 @@ create_append_plan(PlannerInfo *root, AppendPath *best_path)
 	 *
 	 * Note that an AppendPath with no members is also generated in certain
 	 * cases where there was no appending construct at all, but we know the
-	 * relation is empty (see set_dummy_rel_pathlist).
+	 * relation is empty (see set_dummy_rel_pathlist and mark_dummy_rel).
 	 */
 	if (best_path->subpaths == NIL)
 	{
@@ -1384,20 +1381,10 @@ create_unique_plan(PlannerInfo *root, UniquePath *best_path, int flags)
 		}
 	}
 
+	/* Use change_plan_targetlist in case we need to insert a Result node */
 	if (newitems || best_path->umethod == UNIQUE_PATH_SORT)
-	{
-		/*
-		 * If the top plan node can't do projections and its existing target
-		 * list isn't already what we need, we need to add a Result node to
-		 * help it along.
-		 */
-		if (!is_projection_capable_plan(subplan) &&
-			!tlist_same_exprs(newtlist, subplan->targetlist))
-			subplan = inject_projection_plan(subplan, newtlist,
-											 best_path->path.parallel_safe);
-		else
-			subplan->targetlist = newtlist;
-	}
+		subplan = change_plan_targetlist(subplan, newtlist,
+										 best_path->path.parallel_safe);
 
 	/*
 	 * Build control information showing which subplan output columns are to
@@ -1541,7 +1528,7 @@ create_gather_plan(PlannerInfo *root, GatherPath *best_path)
 	gather_plan = make_gather(tlist,
 							  NIL,
 							  best_path->num_workers,
-							  SS_assign_special_param(root),
+							  assign_special_exec_param(root),
 							  best_path->single_copy,
 							  subplan);
 
@@ -1577,7 +1564,7 @@ create_gather_merge_plan(PlannerInfo *root, GatherMergePath *best_path)
 	copy_generic_path_info(&gm_plan->plan, &best_path->path);
 
 	/* Assign the rescan Param. */
-	gm_plan->rescan_param = SS_assign_special_param(root);
+	gm_plan->rescan_param = assign_special_exec_param(root);
 
 	/* Gather Merge is pointless with no pathkeys; use Gather instead. */
 	Assert(pathkeys != NIL);
@@ -1737,6 +1724,40 @@ inject_projection_plan(Plan *subplan, List *tlist, bool parallel_safe)
 	plan->parallel_safe = parallel_safe;
 
 	return plan;
+}
+
+/*
+ * change_plan_targetlist
+ *	  Externally available wrapper for inject_projection_plan.
+ *
+ * This is meant for use by FDW plan-generation functions, which might
+ * want to adjust the tlist computed by some subplan tree.  In general,
+ * a Result node is needed to compute the new tlist, but we can optimize
+ * some cases.
+ *
+ * In most cases, tlist_parallel_safe can just be passed as the parallel_safe
+ * flag of the FDW's own Path node.
+ */
+Plan *
+change_plan_targetlist(Plan *subplan, List *tlist, bool tlist_parallel_safe)
+{
+	/*
+	 * If the top plan node can't do projections and its existing target list
+	 * isn't already what we need, we need to add a Result node to help it
+	 * along.
+	 */
+	if (!is_projection_capable_plan(subplan) &&
+		!tlist_same_exprs(tlist, subplan->targetlist))
+		subplan = inject_projection_plan(subplan, tlist,
+										 subplan->parallel_safe &&
+										 tlist_parallel_safe);
+	else
+	{
+		/* Else we can just replace the plan node's tlist */
+		subplan->targetlist = tlist;
+		subplan->parallel_safe &= tlist_parallel_safe;
+	}
+	return subplan;
 }
 
 /*
@@ -3682,9 +3703,6 @@ create_nestloop_plan(PlannerInfo *root,
 	Relids		outerrelids;
 	List	   *nestParams;
 	Relids		saveOuterRels = root->curOuterRels;
-	ListCell   *cell;
-	ListCell   *prev;
-	ListCell   *next;
 
 	/* NestLoop can project, so no need to be picky about child tlists */
 	outer_plan = create_plan_recurse(root, best_path->outerjoinpath, 0);
@@ -3728,38 +3746,10 @@ create_nestloop_plan(PlannerInfo *root,
 
 	/*
 	 * Identify any nestloop parameters that should be supplied by this join
-	 * node, and move them from root->curOuterParams to the nestParams list.
+	 * node, and remove them from root->curOuterParams.
 	 */
 	outerrelids = best_path->outerjoinpath->parent->relids;
-	nestParams = NIL;
-	prev = NULL;
-	for (cell = list_head(root->curOuterParams); cell; cell = next)
-	{
-		NestLoopParam *nlp = (NestLoopParam *) lfirst(cell);
-
-		next = lnext(cell);
-		if (IsA(nlp->paramval, Var) &&
-			bms_is_member(nlp->paramval->varno, outerrelids))
-		{
-			root->curOuterParams = list_delete_cell(root->curOuterParams,
-													cell, prev);
-			nestParams = lappend(nestParams, nlp);
-		}
-		else if (IsA(nlp->paramval, PlaceHolderVar) &&
-				 bms_overlap(((PlaceHolderVar *) nlp->paramval)->phrels,
-							 outerrelids) &&
-				 bms_is_subset(find_placeholder_info(root,
-													 (PlaceHolderVar *) nlp->paramval,
-													 false)->ph_eval_at,
-							   outerrelids))
-		{
-			root->curOuterParams = list_delete_cell(root->curOuterParams,
-													cell, prev);
-			nestParams = lappend(nestParams, nlp);
-		}
-		else
-			prev = cell;
-	}
+	nestParams = identify_current_nestloop_params(root, outerrelids);
 
 	join_plan = make_nestloop(tlist,
 							  joinclauses,
@@ -4259,42 +4249,18 @@ replace_nestloop_params_mutator(Node *node, PlannerInfo *root)
 	if (IsA(node, Var))
 	{
 		Var		   *var = (Var *) node;
-		Param	   *param;
-		NestLoopParam *nlp;
-		ListCell   *lc;
 
 		/* Upper-level Vars should be long gone at this point */
 		Assert(var->varlevelsup == 0);
 		/* If not to be replaced, we can just return the Var unmodified */
 		if (!bms_is_member(var->varno, root->curOuterRels))
 			return node;
-		/* Create a Param representing the Var */
-		param = assign_nestloop_param_var(root, var);
-		/* Is this param already listed in root->curOuterParams? */
-		foreach(lc, root->curOuterParams)
-		{
-			nlp = (NestLoopParam *) lfirst(lc);
-			if (nlp->paramno == param->paramid)
-			{
-				Assert(equal(var, nlp->paramval));
-				/* Present, so we can just return the Param */
-				return (Node *) param;
-			}
-		}
-		/* No, so add it */
-		nlp = makeNode(NestLoopParam);
-		nlp->paramno = param->paramid;
-		nlp->paramval = var;
-		root->curOuterParams = lappend(root->curOuterParams, nlp);
-		/* And return the replacement Param */
-		return (Node *) param;
+		/* Replace the Var with a nestloop Param */
+		return (Node *) replace_nestloop_param_var(root, var);
 	}
 	if (IsA(node, PlaceHolderVar))
 	{
 		PlaceHolderVar *phv = (PlaceHolderVar *) node;
-		Param	   *param;
-		NestLoopParam *nlp;
-		ListCell   *lc;
 
 		/* Upper-level PlaceHolderVars should be long gone at this point */
 		Assert(phv->phlevelsup == 0);
@@ -4331,116 +4297,12 @@ replace_nestloop_params_mutator(Node *node, PlannerInfo *root)
 												root);
 			return (Node *) newphv;
 		}
-		/* Create a Param representing the PlaceHolderVar */
-		param = assign_nestloop_param_placeholdervar(root, phv);
-		/* Is this param already listed in root->curOuterParams? */
-		foreach(lc, root->curOuterParams)
-		{
-			nlp = (NestLoopParam *) lfirst(lc);
-			if (nlp->paramno == param->paramid)
-			{
-				Assert(equal(phv, nlp->paramval));
-				/* Present, so we can just return the Param */
-				return (Node *) param;
-			}
-		}
-		/* No, so add it */
-		nlp = makeNode(NestLoopParam);
-		nlp->paramno = param->paramid;
-		nlp->paramval = (Var *) phv;
-		root->curOuterParams = lappend(root->curOuterParams, nlp);
-		/* And return the replacement Param */
-		return (Node *) param;
+		/* Replace the PlaceHolderVar with a nestloop Param */
+		return (Node *) replace_nestloop_param_placeholdervar(root, phv);
 	}
 	return expression_tree_mutator(node,
 								   replace_nestloop_params_mutator,
 								   (void *) root);
-}
-
-/*
- * process_subquery_nestloop_params
- *	  Handle params of a parameterized subquery that need to be fed
- *	  from an outer nestloop.
- *
- * Currently, that would be *all* params that a subquery in FROM has demanded
- * from the current query level, since they must be LATERAL references.
- *
- * The subplan's references to the outer variables are already represented
- * as PARAM_EXEC Params, so we need not modify the subplan here.  What we
- * do need to do is add entries to root->curOuterParams to signal the parent
- * nestloop plan node that it must provide these values.
- */
-static void
-process_subquery_nestloop_params(PlannerInfo *root, List *subplan_params)
-{
-	ListCell   *ppl;
-
-	foreach(ppl, subplan_params)
-	{
-		PlannerParamItem *pitem = (PlannerParamItem *) lfirst(ppl);
-
-		if (IsA(pitem->item, Var))
-		{
-			Var		   *var = (Var *) pitem->item;
-			NestLoopParam *nlp;
-			ListCell   *lc;
-
-			/* If not from a nestloop outer rel, complain */
-			if (!bms_is_member(var->varno, root->curOuterRels))
-				elog(ERROR, "non-LATERAL parameter required by subquery");
-			/* Is this param already listed in root->curOuterParams? */
-			foreach(lc, root->curOuterParams)
-			{
-				nlp = (NestLoopParam *) lfirst(lc);
-				if (nlp->paramno == pitem->paramId)
-				{
-					Assert(equal(var, nlp->paramval));
-					/* Present, so nothing to do */
-					break;
-				}
-			}
-			if (lc == NULL)
-			{
-				/* No, so add it */
-				nlp = makeNode(NestLoopParam);
-				nlp->paramno = pitem->paramId;
-				nlp->paramval = copyObject(var);
-				root->curOuterParams = lappend(root->curOuterParams, nlp);
-			}
-		}
-		else if (IsA(pitem->item, PlaceHolderVar))
-		{
-			PlaceHolderVar *phv = (PlaceHolderVar *) pitem->item;
-			NestLoopParam *nlp;
-			ListCell   *lc;
-
-			/* If not from a nestloop outer rel, complain */
-			if (!bms_is_subset(find_placeholder_info(root, phv, false)->ph_eval_at,
-							   root->curOuterRels))
-				elog(ERROR, "non-LATERAL parameter required by subquery");
-			/* Is this param already listed in root->curOuterParams? */
-			foreach(lc, root->curOuterParams)
-			{
-				nlp = (NestLoopParam *) lfirst(lc);
-				if (nlp->paramno == pitem->paramId)
-				{
-					Assert(equal(phv, nlp->paramval));
-					/* Present, so nothing to do */
-					break;
-				}
-			}
-			if (lc == NULL)
-			{
-				/* No, so add it */
-				nlp = makeNode(NestLoopParam);
-				nlp->paramno = pitem->paramId;
-				nlp->paramval = (Var *) copyObject(phv);
-				root->curOuterParams = lappend(root->curOuterParams, nlp);
-			}
-		}
-		else
-			elog(ERROR, "unexpected type of subquery parameter");
-	}
 }
 
 /*
@@ -6644,12 +6506,11 @@ is_projection_capable_path(Path *path)
 		case T_Append:
 
 			/*
-			 * Append can't project, but if it's being used to represent a
-			 * dummy path, claim that it can project.  This prevents us from
-			 * converting a rel from dummy to non-dummy status by applying a
-			 * projection to its dummy path.
+			 * Append can't project, but if an AppendPath is being used to
+			 * represent a dummy path, what will actually be generated is a
+			 * Result which can project.
 			 */
-			return IS_DUMMY_PATH(path);
+			return IS_DUMMY_APPEND(path);
 		case T_ProjectSet:
 
 			/*

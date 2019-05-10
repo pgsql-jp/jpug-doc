@@ -39,6 +39,7 @@
 #endif
 #include "optimizer/clauses.h"
 #include "optimizer/cost.h"
+#include "optimizer/paramassign.h"
 #include "optimizer/pathnode.h"
 #include "optimizer/paths.h"
 #include "optimizer/plancat.h"
@@ -625,7 +626,7 @@ subquery_planner(PlannerGlobal *glob, Query *parse,
 	root->inhTargetKind = INHKIND_NONE;
 	root->hasRecursion = hasRecursion;
 	if (hasRecursion)
-		root->wt_param_id = SS_assign_special_param(root);
+		root->wt_param_id = assign_special_exec_param(root);
 	else
 		root->wt_param_id = -1;
 	root->non_recursive_path = NULL;
@@ -1323,8 +1324,9 @@ inheritance_planner(PlannerInfo *root)
 		parent_rte->securityQuals = NIL;
 
 		/*
-		 * Mark whether we're planning a query to a partitioned table or an
-		 * inheritance parent.
+		 * HACK: setting this to a value other than INHKIND_NONE signals to
+		 * relation_excluded_by_constraints() to treat the result relation as
+		 * being an appendrel member.
 		 */
 		subroot->inhTargetKind =
 			partitioned_relids ? INHKIND_PARTITIONED : INHKIND_INHERITED;
@@ -1494,7 +1496,7 @@ inheritance_planner(PlannerInfo *root)
 		 * If this child rel was excluded by constraint exclusion, exclude it
 		 * from the result plan.
 		 */
-		if (IS_DUMMY_PATH(subpath))
+		if (IS_DUMMY_REL(sub_final_rel))
 			continue;
 
 		/*
@@ -1569,34 +1571,67 @@ inheritance_planner(PlannerInfo *root)
 	 * to get control here.
 	 */
 
-	/*
-	 * If we managed to exclude every child rel, return a dummy plan; it
-	 * doesn't even need a ModifyTable node.
-	 */
 	if (subpaths == NIL)
 	{
-		set_dummy_rel_pathlist(final_rel);
-		return;
+		/*
+		 * We managed to exclude every child rel, so generate a dummy path
+		 * representing the empty set.  Although it's clear that no data will
+		 * be updated or deleted, we will still need to have a ModifyTable
+		 * node so that any statement triggers are executed.  (This could be
+		 * cleaner if we fixed nodeModifyTable.c to support zero child nodes,
+		 * but that probably wouldn't be a net win.)
+		 */
+		List	   *tlist;
+		Path	   *dummy_path;
+
+		/* tlist processing never got done, either */
+		tlist = root->processed_tlist = preprocess_targetlist(root);
+		final_rel->reltarget = create_pathtarget(root, tlist);
+
+		/* Make a dummy path, cf set_dummy_rel_pathlist() */
+		dummy_path = (Path *) create_append_path(NULL, final_rel, NIL, NIL,
+												 NULL, 0, false, NIL, -1);
+
+		/* These lists must be nonempty to make a valid ModifyTable node */
+		subpaths = list_make1(dummy_path);
+		subroots = list_make1(root);
+		resultRelations = list_make1_int(parse->resultRelation);
+		if (parse->withCheckOptions)
+			withCheckOptionLists = list_make1(parse->withCheckOptions);
+		if (parse->returningList)
+			returningLists = list_make1(parse->returningList);
+
+		/*
+		 * Since no tuples will be updated, don't require ModifyTable to
+		 * create tuple-routing info that will be left unused.  In fact it's
+		 * necessary to do so, because we're cheating here by putting the root
+		 * table into resultRelations list, which the tuple-routing code is
+		 * not expecting to be there.
+		 */
+		root->partColsUpdated = false;
 	}
-
-	/*
-	 * Put back the final adjusted rtable into the master copy of the Query.
-	 * (We mustn't do this if we found no non-excluded children.)
-	 */
-	parse->rtable = final_rtable;
-	root->simple_rel_array_size = save_rel_array_size;
-	root->simple_rel_array = save_rel_array;
-	root->append_rel_array = save_append_rel_array;
-
-	/* Must reconstruct master's simple_rte_array, too */
-	root->simple_rte_array = (RangeTblEntry **)
-		palloc0((list_length(final_rtable) + 1) * sizeof(RangeTblEntry *));
-	rti = 1;
-	foreach(lc, final_rtable)
+	else
 	{
-		RangeTblEntry *rte = lfirst_node(RangeTblEntry, lc);
+		/*
+		 * Put back the final adjusted rtable into the master copy of the
+		 * Query.  (We mustn't do this if we found no non-excluded children,
+		 * since we never saved an adjusted rtable at all.)
+		 */
+		parse->rtable = final_rtable;
+		root->simple_rel_array_size = save_rel_array_size;
+		root->simple_rel_array = save_rel_array;
+		root->append_rel_array = save_append_rel_array;
 
-		root->simple_rte_array[rti++] = rte;
+		/* Must reconstruct master's simple_rte_array, too */
+		root->simple_rte_array = (RangeTblEntry **)
+			palloc0((list_length(final_rtable) + 1) * sizeof(RangeTblEntry *));
+		rti = 1;
+		foreach(lc, final_rtable)
+		{
+			RangeTblEntry *rte = lfirst_node(RangeTblEntry, lc);
+
+			root->simple_rte_array[rti++] = rte;
+		}
 	}
 
 	/*
@@ -1640,7 +1675,7 @@ inheritance_planner(PlannerInfo *root)
 									 returningLists,
 									 rowMarks,
 									 NULL,
-									 SS_assign_special_param(root)));
+									 assign_special_exec_param(root)));
 }
 
 /*--------------------
@@ -1967,7 +2002,7 @@ grouping_planner(PlannerInfo *root, bool inheritance_update,
 		{
 			scanjoin_target = make_group_input_target(root, final_target);
 			scanjoin_target_parallel_safe =
-				is_parallel_safe(root, (Node *) grouping_target->exprs);
+				is_parallel_safe(root, (Node *) scanjoin_target->exprs);
 		}
 		else
 		{
@@ -2155,7 +2190,7 @@ grouping_planner(PlannerInfo *root, bool inheritance_update,
 		{
 			path = (Path *) create_lockrows_path(root, final_rel, path,
 												 root->rowMarks,
-												 SS_assign_special_param(root));
+												 assign_special_exec_param(root));
 		}
 
 		/*
@@ -2217,7 +2252,7 @@ grouping_planner(PlannerInfo *root, bool inheritance_update,
 										returningLists,
 										rowMarks,
 										parse->onConflict,
-										SS_assign_special_param(root));
+										assign_special_exec_param(root));
 		}
 
 		/* And shove it into final_rel */
@@ -3962,12 +3997,10 @@ create_ordinary_grouping_paths(PlannerInfo *root, RelOptInfo *input_rel,
 	 * If this is the topmost grouping relation or if the parent relation is
 	 * doing some form of partitionwise aggregation, then we may be able to do
 	 * it at this level also.  However, if the input relation is not
-	 * partitioned, partitionwise aggregate is impossible, and if it is dummy,
-	 * partitionwise aggregate is pointless.
+	 * partitioned, partitionwise aggregate is impossible.
 	 */
 	if (extra->patype != PARTITIONWISE_AGGREGATE_NONE &&
-		input_rel->part_scheme && input_rel->part_rels &&
-		!IS_DUMMY_REL(input_rel))
+		IS_PARTITIONED_REL(input_rel))
 	{
 		/*
 		 * If this is the topmost relation or if the parent relation is doing
@@ -6792,11 +6825,33 @@ apply_scanjoin_target_to_paths(PlannerInfo *root,
 							   bool scanjoin_target_parallel_safe,
 							   bool tlist_same_exprs)
 {
-	ListCell   *lc;
+	bool		rel_is_partitioned = IS_PARTITIONED_REL(rel);
 	PathTarget *scanjoin_target;
-	bool		is_dummy_rel = IS_DUMMY_REL(rel);
+	ListCell   *lc;
 
+	/* This recurses, so be paranoid. */
 	check_stack_depth();
+
+	/*
+	 * If the rel is partitioned, we want to drop its existing paths and
+	 * generate new ones.  This function would still be correct if we kept the
+	 * existing paths: we'd modify them to generate the correct target above
+	 * the partitioning Append, and then they'd compete on cost with paths
+	 * generating the target below the Append.  However, in our current cost
+	 * model the latter way is always the same or cheaper cost, so modifying
+	 * the existing paths would just be useless work.  Moreover, when the cost
+	 * is the same, varying roundoff errors might sometimes allow an existing
+	 * path to be picked, resulting in undesirable cross-platform plan
+	 * variations.  So we drop old paths and thereby force the work to be done
+	 * below the Append, except in the case of a non-parallel-safe target.
+	 *
+	 * Some care is needed, because we have to allow generate_gather_paths to
+	 * see the old partial paths in the next stanza.  Hence, zap the main
+	 * pathlist here, then allow generate_gather_paths to add path(s) to the
+	 * main list, and finally zap the partial pathlist.
+	 */
+	if (rel_is_partitioned)
+		rel->pathlist = NIL;
 
 	/*
 	 * If the scan/join target is not parallel-safe, partial paths cannot
@@ -6805,14 +6860,13 @@ apply_scanjoin_target_to_paths(PlannerInfo *root,
 	if (!scanjoin_target_parallel_safe)
 	{
 		/*
-		 * Since we can't generate the final scan/join target, this is our
-		 * last opportunity to use any partial paths that exist.  We don't do
-		 * this if the case where the target is parallel-safe, since we will
-		 * be able to generate superior paths by doing it after the final
-		 * scan/join target has been applied.
-		 *
-		 * Note that this may invalidate rel->cheapest_total_path, so we must
-		 * not rely on it after this point without first calling set_cheapest.
+		 * Since we can't generate the final scan/join target in parallel
+		 * workers, this is our last opportunity to use any partial paths that
+		 * exist; so build Gather path(s) that use them and emit whatever the
+		 * current reltarget is.  We don't do this in the case where the
+		 * target is parallel-safe, since we will be able to generate superior
+		 * paths by doing it after the final scan/join target has been
+		 * applied.
 		 */
 		generate_gather_paths(root, rel, false);
 
@@ -6821,79 +6875,25 @@ apply_scanjoin_target_to_paths(PlannerInfo *root,
 		rel->consider_parallel = false;
 	}
 
-	/*
-	 * Update the reltarget.  This may not be strictly necessary in all cases,
-	 * but it is at least necessary when create_append_path() gets called
-	 * below directly or indirectly, since that function uses the reltarget as
-	 * the pathtarget for the resulting path.  It seems like a good idea to do
-	 * it unconditionally.
-	 */
-	rel->reltarget = llast_node(PathTarget, scanjoin_targets);
-
-	/* Special case: handle dummy relations separately. */
-	if (is_dummy_rel)
-	{
-		/*
-		 * Since this is a dummy rel, it's got a single Append path with no
-		 * child paths.  Replace it with a new path having the final scan/join
-		 * target.  (Note that since Append is not projection-capable, it
-		 * would be bad to handle this using the general purpose code below;
-		 * we'd end up putting a ProjectionPath on top of the existing Append
-		 * node, which would cause this relation to stop appearing to be a
-		 * dummy rel.)
-		 */
-		rel->pathlist = list_make1(create_append_path(root, rel, NIL, NIL,
-													  NULL, 0, false, NIL,
-													  -1));
+	/* Finish dropping old paths for a partitioned rel, per comment above */
+	if (rel_is_partitioned)
 		rel->partial_pathlist = NIL;
-		set_cheapest(rel);
-		Assert(IS_DUMMY_REL(rel));
-
-		/*
-		 * Forget about any child relations.  There's no point in adjusting
-		 * them and no point in using them for later planning stages (in
-		 * particular, partitionwise aggregate).
-		 */
-		rel->nparts = 0;
-		rel->part_rels = NULL;
-		rel->boundinfo = NULL;
-
-		return;
-	}
 
 	/* Extract SRF-free scan/join target. */
 	scanjoin_target = linitial_node(PathTarget, scanjoin_targets);
 
 	/*
-	 * Adjust each input path.  If the tlist exprs are the same, we can just
-	 * inject the sortgroupref information into the existing pathtarget.
-	 * Otherwise, replace each path with a projection path that generates the
-	 * SRF-free scan/join target.  This can't change the ordering of paths
-	 * within rel->pathlist, so we just modify the list in place.
+	 * Apply the SRF-free scan/join target to each existing path.
+	 *
+	 * If the tlist exprs are the same, we can just inject the sortgroupref
+	 * information into the existing pathtargets.  Otherwise, replace each
+	 * path with a projection path that generates the SRF-free scan/join
+	 * target.  This can't change the ordering of paths within rel->pathlist,
+	 * so we just modify the list in place.
 	 */
 	foreach(lc, rel->pathlist)
 	{
 		Path	   *subpath = (Path *) lfirst(lc);
-		Path	   *newpath;
-
-		Assert(subpath->param_info == NULL);
-
-		if (tlist_same_exprs)
-			subpath->pathtarget->sortgrouprefs =
-				scanjoin_target->sortgrouprefs;
-		else
-		{
-			newpath = (Path *) create_projection_path(root, rel, subpath,
-													  scanjoin_target);
-			lfirst(lc) = newpath;
-		}
-	}
-
-	/* Same for partial paths. */
-	foreach(lc, rel->partial_pathlist)
-	{
-		Path	   *subpath = (Path *) lfirst(lc);
-		Path	   *newpath;
 
 		/* Shouldn't have any parameterized paths anymore */
 		Assert(subpath->param_info == NULL);
@@ -6903,39 +6903,79 @@ apply_scanjoin_target_to_paths(PlannerInfo *root,
 				scanjoin_target->sortgrouprefs;
 		else
 		{
-			newpath = (Path *) create_projection_path(root,
-													  rel,
-													  subpath,
+			Path	   *newpath;
+
+			newpath = (Path *) create_projection_path(root, rel, subpath,
 													  scanjoin_target);
 			lfirst(lc) = newpath;
 		}
 	}
 
-	/* Now fix things up if scan/join target contains SRFs */
+	/* Likewise adjust the targets for any partial paths. */
+	foreach(lc, rel->partial_pathlist)
+	{
+		Path	   *subpath = (Path *) lfirst(lc);
+
+		/* Shouldn't have any parameterized paths anymore */
+		Assert(subpath->param_info == NULL);
+
+		if (tlist_same_exprs)
+			subpath->pathtarget->sortgrouprefs =
+				scanjoin_target->sortgrouprefs;
+		else
+		{
+			Path	   *newpath;
+
+			newpath = (Path *) create_projection_path(root, rel, subpath,
+													  scanjoin_target);
+			lfirst(lc) = newpath;
+		}
+	}
+
+	/*
+	 * Now, if final scan/join target contains SRFs, insert ProjectSetPath(s)
+	 * atop each existing path.  (Note that this function doesn't look at the
+	 * cheapest-path fields, which is a good thing because they're bogus right
+	 * now.)
+	 */
 	if (root->parse->hasTargetSRFs)
 		adjust_paths_for_srfs(root, rel,
 							  scanjoin_targets,
 							  scanjoin_targets_contain_srfs);
 
 	/*
-	 * If the relation is partitioned, recursively apply the same changes to
-	 * all partitions and generate new Append paths.  Since Append is not
-	 * projection-capable, that might save a separate Result node, and it also
-	 * is important for partitionwise aggregate.
+	 * Update the rel's target to be the final (with SRFs) scan/join target.
+	 * This now matches the actual output of all the paths, and we might get
+	 * confused in createplan.c if they don't agree.  We must do this now so
+	 * that any append paths made in the next part will use the correct
+	 * pathtarget (cf. create_append_path).
 	 */
-	if (rel->part_scheme && rel->part_rels)
+	rel->reltarget = llast_node(PathTarget, scanjoin_targets);
+
+	/*
+	 * If the relation is partitioned, recursively apply the scan/join target
+	 * to all partitions, and generate brand-new Append paths in which the
+	 * scan/join target is computed below the Append rather than above it.
+	 * Since Append is not projection-capable, that might save a separate
+	 * Result node, and it also is important for partitionwise aggregate.
+	 */
+	if (rel_is_partitioned)
 	{
-		int			partition_idx;
 		List	   *live_children = NIL;
+		int			partition_idx;
 
 		/* Adjust each partition. */
 		for (partition_idx = 0; partition_idx < rel->nparts; partition_idx++)
 		{
 			RelOptInfo *child_rel = rel->part_rels[partition_idx];
-			ListCell   *lc;
 			AppendRelInfo **appinfos;
 			int			nappinfos;
 			List	   *child_scanjoin_targets = NIL;
+			ListCell   *lc;
+
+			/* Pruned or dummy children can be ignored. */
+			if (child_rel == NULL || IS_DUMMY_REL(child_rel))
+				continue;
 
 			/* Translate scan/join targets for this child. */
 			appinfos = find_appinfos_by_relids(root, child_rel->relids,
@@ -6967,8 +7007,7 @@ apply_scanjoin_target_to_paths(PlannerInfo *root,
 		}
 
 		/* Build new paths for this relation by appending child paths. */
-		if (live_children != NIL)
-			add_paths_to_append_rel(root, rel, live_children);
+		add_paths_to_append_rel(root, rel, live_children);
 	}
 
 	/*
@@ -7038,8 +7077,9 @@ create_partitionwise_grouping_paths(PlannerInfo *root,
 		RelOptInfo *child_grouped_rel;
 		RelOptInfo *child_partially_grouped_rel;
 
-		/* Input child rel must have a path */
-		Assert(child_input_rel->pathlist != NIL);
+		/* Pruned or dummy children can be ignored. */
+		if (child_input_rel == NULL || IS_DUMMY_REL(child_input_rel))
+			continue;
 
 		/*
 		 * Copy the given "extra" structure as is and then override the
@@ -7080,14 +7120,6 @@ create_partitionwise_grouping_paths(PlannerInfo *root,
 											  child_target,
 											  extra->target_parallel_safe,
 											  child_extra.havingQual);
-
-		/* Ignore empty children. They contribute nothing. */
-		if (IS_DUMMY_REL(child_input_rel))
-		{
-			mark_dummy_rel(child_grouped_rel);
-
-			continue;
-		}
 
 		/* Create grouping paths for this child relation. */
 		create_ordinary_grouping_paths(root, child_input_rel,
