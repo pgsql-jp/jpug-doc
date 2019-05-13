@@ -1295,7 +1295,7 @@ CREATE TABLE <replaceable class="parameter">tablename</replaceable> (
 は以下を指定することと同じです。
 
 <programlisting>
-CREATE SEQUENCE <replaceable class="parameter">tablename</replaceable>_<replaceable class="parameter">colname</replaceable>_seq;
+CREATE SEQUENCE <replaceable class="parameter">tablename</replaceable>_<replaceable class="parameter">colname</replaceable>_seq AS integer;
 CREATE TABLE <replaceable class="parameter">tablename</replaceable> (
     <replaceable class="parameter">colname</replaceable> integer NOT NULL DEFAULT nextval('<replaceable class="parameter">tablename</replaceable>_<replaceable class="parameter">colname</replaceable>_seq')
 );
@@ -2003,9 +2003,9 @@ SELECT b, char_length(b) FROM test2;
     per byte, most significant nibble first.  The entire string is
     preceded by the sequence <literal>\x</literal> (to distinguish it
     from the escape format).  In some contexts, the initial backslash may
-    need to be escaped by doubling it, in the same cases in which backslashes
-    have to be doubled in escape format; details appear below.
-    The hexadecimal digits can
+    need to be escaped by doubling it
+    (see <xref linkend="sql-syntax-strings"/>).
+    For input, the hexadecimal digits can
     be either upper or lower case, and whitespace is permitted between
     digit pairs (but not within a digit pair nor in the starting
     <literal>\x</literal> sequence).
@@ -2072,9 +2072,7 @@ SELECT '\xDEADBEEF';
     values <emphasis>must</emphasis> be escaped, while all octet
     values <emphasis>can</emphasis> be escaped.  In
     general, to escape an octet, convert it into its three-digit
-    octal value and precede it
-    by a backslash (or two backslashes, if writing the value as a
-    literal using escape string syntax).
+    octal value and precede it by a backslash.
     Backslash itself (octet decimal value 92) can alternatively be represented by
     double backslashes.
     <xref linkend="datatype-binary-sqlesc"/>
@@ -2101,7 +2099,7 @@ SELECT '\xDEADBEEF';
        <entry>Description</entry>
        <entry>Escaped Input Representation</entry>
        <entry>Example</entry>
-       <entry>Output Representation</entry>
+       <entry>Hex Representation</entry>
 -->
 <entry>10進オクテット値</entry>
 <entry>説明</entry>
@@ -2147,9 +2145,9 @@ SELECT '\xDEADBEEF';
 -->
 <entry>バックスラッシュ</entry>
 <!--
-       <entry><literal>'\'</literal> or <literal>'\\134'</literal></entry>
+       <entry><literal>'\\'</literal> or <literal>'\134'</literal></entry>
 -->
-       <entry><literal>'\'</literal>もしくは<literal>'\\134'</literal></entry>
+       <entry><literal>'\\'</literal>もしくは<literal>'\\134'</literal></entry>
        <entry><literal>SELECT '\\'::bytea;</literal></entry>
        <entry><literal>\x5c</literal></entry>
       </row>
@@ -2177,10 +2175,7 @@ SELECT '\xDEADBEEF';
 <!--
     The requirement to escape <emphasis>non-printable</emphasis> octets
     varies depending on locale settings. In some instances you can get away
-    with leaving them unescaped. Note that the result in each of the examples
-    in <xref linkend="datatype-binary-sqlesc"/> was exactly one octet in
-    length, even though the output representation is sometimes
-    more than one character.
+    with leaving them unescaped.
 -->
 実際には、<emphasis>表示できない</emphasis>オクテットに対するエスケープ要求はロケールの設定に依存して異なります。
 ロケールの設定によっては、エスケープをしないで済むこともあります。
@@ -2221,10 +2216,42 @@ SELECT '\xDEADBEEF';
 
    <para>
 <!--
+    The reason that single quotes must be doubled, as shown
+    in <xref linkend="datatype-binary-sqlesc"/>, is that this
+    is true for any string literal in a SQL command.  The generic
+    string-literal parser consumes the outermost single quotes
+    and reduces any pair of single quotes to one data character.
+    What the <type>bytea</type> input function sees is just one
+    single quote, which it treats as a plain data character.
+    However, the <type>bytea</type> input function treats
+    backslashes as special, and the other behaviors shown in
+    <xref linkend="datatype-binary-sqlesc"/> are implemented by
+    that function.
+-->
+<xref linkend="datatype-binary-sqlesc"/>で示したように、複数バックスラッシュが必要な理由は、文字列リテラルとして記述された入力文字列は、<productname>PostgreSQL</productname>サーバ上で2つの解析>段階を通過する必要があることです。
+各組み合わせの最初のバックスラッシュは文字列リテラル用パーサでエスケープ文字と解釈（エスケープ文字列構文の使用を前提）され、2番目のバックスラッシュを残して、そこで消費されます。
+（この段階のエスケープを避けるためにドル引用符による文字列を使用することができます。）
+残りのバックスラッシュは、<type>bytea</type>入力関数が3桁のオクテット値の先頭に付く記号、もしくは、他のバックスラッシュをエスケープする記号として認識します。
+例えば、<literal>'\\001'</literal>としてサーバに渡された文字列リテラルは、エスケープ文字列パーサを通過した後<literal>\001</literal>のようになります。
+<literal>\001</literal>はその後<type>bytea</type>入力関数に送られ、10進数値1の1つのオクテットに変換されます。
+単一引用符文字は<type>bytea</type>では特別に扱われず、通常の文字列リテラルの規則に従うことに注意してください。
+（<xref linkend="sql-syntax-strings"/>も参照してください。）
+
+   </para>
+
+   <para>
+    In some contexts, backslashes must be doubled compared to what is
+    shown above, because the generic string-literal parser will also
+    reduce pairs of backslashes to one data character;
+    see <xref linkend="sql-syntax-strings"/>.
+   </para>
+
+   <para>
+<!--
     <type>Bytea</type> octets are output in <literal>hex</literal>
     format by default.  If you change <xref linkend="guc-bytea-output"/>
     to <literal>escape</literal>,
-    <quote>non-printable</quote> octet are converted to
+    <quote>non-printable</quote> octets are converted to their
     equivalent three-digit octal value and preceded by one backslash.
     Most <quote>printable</quote> octets are output by their standard
     representation in the client character set, e.g.:
@@ -3667,7 +3694,7 @@ ISO 8601の仕様では日付と時刻を区切るために大文字の<literal>
         linkend="view-pg-timezone-names"/>).
         <productname>PostgreSQL</productname> uses the widely-used IANA
         time zone data for this purpose, so the same time zone
-        names are also recognized by much other software.
+        names are also recognized by other software.
 -->
 <literal>America/New_York</literal>などの完全な時間帯名称。
 認識できる時間帯名称は<literal>pg_timezone_names</literal>ビューに列挙されています（<xref linkend="view-pg-timezone-names"/>を参照してください）。
@@ -6277,9 +6304,11 @@ a0ee-bc99-9c0b-4ef8-bb6d-6bb9-bd38-0a11
 <!--
     The <type>xml</type> type can store well-formed
     <quote>documents</quote>, as defined by the XML standard, as well
-    as <quote>content</quote> fragments, which are defined by the
-    production <literal>XMLDecl? content</literal> in the XML
-    standard.  Roughly, this means that content fragments can have
+    as <quote>content</quote> fragments, which are defined by reference
+    to the more permissive
+    <ulink url="https://www.w3.org/TR/2010/REC-xpath-datamodel-20101214/#DocumentNode"><quote>document node</quote></ulink>
+    of the XQuery and XPath data model.
+    Roughly, this means that content fragments can have
     more than one top-level element or character node.  The expression
     <literal><replaceable>xmlvalue</replaceable> IS DOCUMENT</literal>
     can be used to evaluate whether a particular <type>xml</type>
@@ -6398,21 +6427,6 @@ SET xmloption TO { DOCUMENT | CONTENT };
 -->
 デフォルトは<literal>CONTENT</literal>ですので、すべての書式のXMLデータを扱うことができます。
    </para>
-
-   <note>
-    <para>
-<!--
-     With the default XML option setting, you cannot directly cast
-     character strings to type <type>xml</type> if they contain a
-     document type declaration, because the definition of XML content
-     fragment does not accept them.  If you need to do that, either
-     use <literal>XMLPARSE</literal> or change the XML option.
--->
-デフォルトのXMLオプション設定では、文書型宣言を含む文字列を<type>xml</type>に直接キャストすることはできません。
-XMLコンテンツフラグメントの定義が受け付けないためです。
-この操作を行う必要がある場合、<literal>XMLPARSE</literal>を使用するかXMLオプションを変更してください。
-    </para>
-   </note>
 
    </sect2>
 

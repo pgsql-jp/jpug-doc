@@ -104,7 +104,8 @@ our @EXPORT = qw(
   get_new_node
 );
 
-our ($test_localhost, $test_pghost, $last_port_assigned, @all_nodes, $died);
+our ($use_tcp, $test_localhost, $test_pghost, $last_host_assigned,
+	$last_port_assigned, @all_nodes, $died);
 
 # Windows path to virtual file system root
 
@@ -118,13 +119,14 @@ if ($Config{osname} eq 'msys')
 INIT
 {
 
-	# PGHOST is set once and for all through a single series of tests when
-	# this module is loaded.
-	$test_localhost = "127.0.0.1";
-	$test_pghost =
-	  $TestLib::windows_os ? $test_localhost : TestLib::tempdir_short;
-	$ENV{PGHOST}     = $test_pghost;
-	$ENV{PGDATABASE} = 'postgres';
+	# Set PGHOST for backward compatibility.  This doesn't work for own_host
+	# nodes, so prefer to not rely on this when writing new tests.
+	$use_tcp            = $TestLib::windows_os;
+	$test_localhost     = "127.0.0.1";
+	$last_host_assigned = 1;
+	$test_pghost        = $use_tcp ? $test_localhost : TestLib::tempdir_short;
+	$ENV{PGHOST}        = $test_pghost;
+	$ENV{PGDATABASE}    = 'postgres';
 
 	# Tracking of last port value assigned to accelerate free port lookup.
 	$last_port_assigned = int(rand() * 16384) + 49152;
@@ -155,7 +157,9 @@ sub new
 		_host    => $pghost,
 		_basedir => "$TestLib::tmp_check/t_${testname}_${name}_data",
 		_name    => $name,
-		_logfile => "$TestLib::log_path/${testname}_${name}.log"
+		_logfile_generation => 0,
+		_logfile_base       => "$TestLib::log_path/${testname}_${name}",
+		_logfile            => "$TestLib::log_path/${testname}_${name}.log"
 	};
 
 	bless $self, $class;
@@ -437,7 +441,8 @@ sub init
 
 	TestLib::system_or_bail('initdb', '-D', $pgdata, '-A', 'trust', '-N',
 		@{ $params{extra} });
-	TestLib::system_or_bail($ENV{PG_REGRESS}, '--config-auth', $pgdata);
+	TestLib::system_or_bail($ENV{PG_REGRESS}, '--config-auth', $pgdata,
+		@{ $params{auth_extra} });
 
 	open my $conf, '>>', "$pgdata/postgresql.conf";
 	print $conf "\n# Added by PostgresNode.pm\n";
@@ -473,8 +478,9 @@ sub init
 		print $conf "max_wal_senders = 0\n";
 	}
 
-	if ($TestLib::windows_os)
+	if ($use_tcp)
 	{
+		print $conf "unix_socket_directories = ''\n";
 		print $conf "listen_addresses = '$host'\n";
 	}
 	else
@@ -536,12 +542,11 @@ sub backup
 {
 	my ($self, $backup_name) = @_;
 	my $backup_path = $self->backup_dir . '/' . $backup_name;
-	my $port        = $self->port;
 	my $name        = $self->name;
 
 	print "# Taking pg_basebackup $backup_name from node \"$name\"\n";
-	TestLib::system_or_bail('pg_basebackup', '-D', $backup_path, '-p', $port,
-		'--no-sync');
+	TestLib::system_or_bail('pg_basebackup', '-D', $backup_path, '-h',
+		$self->host, '-p', $self->port, '--no-sync');
 	print "# Backup finished\n";
 	return;
 }
@@ -653,6 +658,7 @@ sub init_from_backup
 {
 	my ($self, $root_node, $backup_name, %params) = @_;
 	my $backup_path = $root_node->backup_dir . '/' . $backup_name;
+	my $host        = $self->host;
 	my $port        = $self->port;
 	my $node_name   = $self->name;
 	my $root_name   = $root_node->name;
@@ -679,6 +685,15 @@ sub init_from_backup
 		qq(
 port = $port
 ));
+	if ($use_tcp)
+	{
+		$self->append_conf('postgresql.conf', "listen_addresses = '$host'");
+	}
+	else
+	{
+		$self->append_conf('postgresql.conf',
+			"unix_socket_directories = '$host'");
+	}
 	$self->enable_streaming($root_node) if $params{has_streaming};
 	$self->enable_restoring($root_node) if $params{has_restoring};
 	return;
@@ -686,17 +701,45 @@ port = $port
 
 =pod
 
-=item $node->start()
+=item $node->rotate_logfile()
+
+Switch to a new PostgreSQL log file.  This does not alter any running
+PostgreSQL process.  Subsequent method calls, including pg_ctl invocations,
+will use the new name.  Return the new name.
+
+=cut
+
+sub rotate_logfile
+{
+	my ($self) = @_;
+	$self->{_logfile} = sprintf('%s_%d.log',
+		$self->{_logfile_base},
+		++$self->{_logfile_generation});
+	return $self->{_logfile};
+}
+
+=pod
+
+=item $node->start(%params) => success_or_failure
 
 Wrapper for pg_ctl start
 
 Start the node and wait until it is ready to accept connections.
 
+=over
+
+=item fail_ok => 1
+
+By default, failure terminates the entire F<prove> invocation.  If given,
+instead return a true or false value to indicate success or failure.
+
+=back
+
 =cut
 
 sub start
 {
-	my ($self) = @_;
+	my ($self, %params) = @_;
 	my $port   = $self->port;
 	my $pgdata = $self->data_dir;
 	my $name   = $self->name;
@@ -709,10 +752,36 @@ sub start
 	{
 		print "# pg_ctl start failed; logfile:\n";
 		print TestLib::slurp_file($self->logfile);
-		BAIL_OUT("pg_ctl start failed");
+		BAIL_OUT("pg_ctl start failed") unless $params{fail_ok};
+		return 0;
 	}
 
 	$self->_update_pid(1);
+	return 1;
+}
+
+=pod
+
+=item $node->kill9()
+
+Send SIGKILL (signal 9) to the postmaster.
+
+Note: if the node is already known stopped, this does nothing.
+However, if we think it's running and it's not, it's important for
+this to fail.  Otherwise, tests might fail to detect server crashes.
+
+=cut
+
+sub kill9
+{
+	my ($self) = @_;
+	my $name = $self->name;
+	return unless defined $self->{_pid};
+	print "### Killing node \"$name\" using signal 9\n";
+	# kill(9, ...) fails under msys Perl 5.8.8, so fall back on pg_ctl.
+	kill(9, $self->{_pid})
+	  or TestLib::system_or_bail('pg_ctl', 'kill', 'KILL', $self->{_pid});
+	$self->{_pid} = undef;
 	return;
 }
 
@@ -908,7 +977,7 @@ sub _update_pid
 
 =pod
 
-=item PostgresNode->get_new_node(node_name)
+=item PostgresNode->get_new_node(node_name, %params)
 
 Build a new object of class C<PostgresNode> (or of a subclass, if you have
 one), assigning a free port number.  Remembers the node, to prevent its port
@@ -916,6 +985,22 @@ number from being reused for another node, and to ensure that it gets
 shut down when the test script exits.
 
 You should generally use this instead of C<PostgresNode::new(...)>.
+
+=over
+
+=item port => [1,65535]
+
+By default, this function assigns a port number to each node.  Specify this to
+force a particular port number.  The caller is responsible for evaluating
+potential conflicts and privilege requirements.
+
+=item own_host => 1
+
+By default, all nodes use the same PGHOST value.  If specified, generate a
+PGHOST specific to this node.  This allows multiple nodes to use the same
+port.
+
+=back
 
 For backwards compatibility, it is also exported as a standalone function,
 which can only create objects of class C<PostgresNode>.
@@ -925,10 +1010,11 @@ which can only create objects of class C<PostgresNode>.
 sub get_new_node
 {
 	my $class = 'PostgresNode';
-	$class = shift if 1 < scalar @_;
-	my $name  = shift;
-	my $found = 0;
-	my $port  = $last_port_assigned;
+	$class = shift if scalar(@_) % 2 != 1;
+	my ($name, %params) = @_;
+	my $port_is_forced = defined $params{port};
+	my $found          = $port_is_forced;
+	my $port = $port_is_forced ? $params{port} : $last_port_assigned;
 
 	while ($found == 0)
 	{
@@ -945,40 +1031,81 @@ sub get_new_node
 			$found = 0 if ($node->port == $port);
 		}
 
-		# Check to see if anything else is listening on this TCP port.
-		# This is *necessary* on Windows, and seems like a good idea
-		# on Unixen as well, even though we don't ask the postmaster
-		# to open a TCP port on Unix.
+		# Check to see if anything else is listening on this TCP port.  This
+		# is *necessary* on $use_tcp (Windows) configurations.  Seek a port
+		# available for all possible listen_addresses values, for own_host
+		# nodes and so the caller can harness this port for the widest range
+		# of purposes.  The 0.0.0.0 test achieves that for post-2006 Cygwin,
+		# which automatically sets SO_EXCLUSIVEADDRUSE.  The same holds for
+		# MSYS (a Cygwin fork).  Testing 0.0.0.0 is insufficient for Windows
+		# native Perl (https://stackoverflow.com/a/14388707), so we also test
+		# individual addresses.
+		#
+		# This seems like a good idea on Unixen as well, even though we don't
+		# ask the postmaster to open a TCP port on Unix.  On Non-Linux,
+		# non-Windows kernels, binding to 127.0.0.1/24 addresses other than
+		# 127.0.0.1 fails with EADDRNOTAVAIL.
+		#
+		# XXX A port available now may become unavailable by the time we start
+		# the postmaster.
 		if ($found == 1)
 		{
-			my $iaddr = inet_aton($test_localhost);
-			my $paddr = sockaddr_in($port, $iaddr);
-			my $proto = getprotobyname("tcp");
-
-			socket(SOCK, PF_INET, SOCK_STREAM, $proto)
-			  or die "socket failed: $!";
-
-			# As in postmaster, don't use SO_REUSEADDR on Windows
-			setsockopt(SOCK, SOL_SOCKET, SO_REUSEADDR, pack("l", 1))
-			  unless $TestLib::windows_os;
-			(bind(SOCK, $paddr) && listen(SOCK, SOMAXCONN))
-			  or $found = 0;
-			close(SOCK);
+			foreach my $addr (qw(127.0.0.1 0.0.0.0),
+				$use_tcp ? qw(127.0.0.2 127.0.0.3) : ())
+			{
+				can_bind($addr, $port) or $found = 0;
+			}
 		}
 	}
 
-	print "# Found free port $port\n";
+	print "# Found port $port\n";
+
+	# Select a host.
+	my $host = $test_pghost;
+	if ($params{own_host})
+	{
+		if ($use_tcp)
+		{
+			$last_host_assigned++;
+			$last_host_assigned > 254 and BAIL_OUT("too many own_host nodes");
+			$host = '127.0.0.' . $last_host_assigned;
+		}
+		else
+		{
+			$host = "$test_pghost/$name"; # Assume $name =~ /^[-_a-zA-Z0-9]+$/
+			mkdir $host;
+		}
+	}
 
 	# Lock port number found by creating a new node
-	my $node = $class->new($name, $test_pghost, $port);
+	my $node = $class->new($name, $host, $port);
 
 	# Add node to list of nodes
 	push(@all_nodes, $node);
 
 	# And update port for next time
-	$last_port_assigned = $port;
+	$port_is_forced or $last_port_assigned = $port;
 
 	return $node;
+}
+
+# Internal routine to check whether a host:port is available to bind
+sub can_bind
+{
+	my ($host, $port) = @_;
+	my $iaddr = inet_aton($host);
+	my $paddr = sockaddr_in($port, $iaddr);
+	my $proto = getprotobyname("tcp");
+
+	socket(SOCK, PF_INET, SOCK_STREAM, $proto)
+	  or die "socket failed: $!";
+
+	# As in postmaster, don't use SO_REUSEADDR on Windows
+	setsockopt(SOCK, SOL_SOCKET, SO_REUSEADDR, pack("l", 1))
+	  unless $TestLib::windows_os;
+	my $ret = bind(SOCK, $paddr) && listen(SOCK, SOMAXCONN);
+	close(SOCK);
+	return $ret;
 }
 
 # Retain the errno on die() if set, else assume a generic errno of 1.
@@ -1367,9 +1494,8 @@ $stderr);
 
 =item $node->command_ok(...)
 
-Runs a shell command like TestLib::command_ok, but with PGPORT
-set so that the command will default to connecting to this
-PostgresNode.
+Runs a shell command like TestLib::command_ok, but with PGHOST and PGPORT set
+so that the command will default to connecting to this PostgresNode.
 
 =cut
 
@@ -1377,6 +1503,7 @@ sub command_ok
 {
 	my $self = shift;
 
+	local $ENV{PGHOST} = $self->host;
 	local $ENV{PGPORT} = $self->port;
 
 	TestLib::command_ok(@_);
@@ -1387,7 +1514,7 @@ sub command_ok
 
 =item $node->command_fails(...)
 
-TestLib::command_fails with our PGPORT. See command_ok(...)
+TestLib::command_fails with our connection parameters. See command_ok(...)
 
 =cut
 
@@ -1395,6 +1522,7 @@ sub command_fails
 {
 	my $self = shift;
 
+	local $ENV{PGHOST} = $self->host;
 	local $ENV{PGPORT} = $self->port;
 
 	TestLib::command_fails(@_);
@@ -1405,7 +1533,7 @@ sub command_fails
 
 =item $node->command_like(...)
 
-TestLib::command_like with our PGPORT. See command_ok(...)
+TestLib::command_like with our connection parameters. See command_ok(...)
 
 =cut
 
@@ -1413,6 +1541,7 @@ sub command_like
 {
 	my $self = shift;
 
+	local $ENV{PGHOST} = $self->host;
 	local $ENV{PGPORT} = $self->port;
 
 	TestLib::command_like(@_);
@@ -1423,7 +1552,8 @@ sub command_like
 
 =item $node->command_checks_all(...)
 
-TestLib::command_checks_all with our PGPORT. See command_ok(...)
+TestLib::command_checks_all with our connection parameters. See
+command_ok(...)
 
 =cut
 
@@ -1431,6 +1561,7 @@ sub command_checks_all
 {
 	my $self = shift;
 
+	local $ENV{PGHOST} = $self->host;
 	local $ENV{PGPORT} = $self->port;
 
 	TestLib::command_checks_all(@_);
@@ -1453,6 +1584,7 @@ sub issues_sql_like
 {
 	my ($self, $cmd, $expected_sql, $test_name) = @_;
 
+	local $ENV{PGHOST} = $self->host;
 	local $ENV{PGPORT} = $self->port;
 
 	truncate $self->logfile, 0;
@@ -1467,8 +1599,8 @@ sub issues_sql_like
 
 =item $node->run_log(...)
 
-Runs a shell command like TestLib::run_log, but with PGPORT set so
-that the command will default to connecting to this PostgresNode.
+Runs a shell command like TestLib::run_log, but with connection parameters set
+so that the command will default to connecting to this PostgresNode.
 
 =cut
 
@@ -1476,6 +1608,7 @@ sub run_log
 {
 	my $self = shift;
 
+	local $ENV{PGHOST} = $self->host;
 	local $ENV{PGPORT} = $self->port;
 
 	TestLib::run_log(@_);

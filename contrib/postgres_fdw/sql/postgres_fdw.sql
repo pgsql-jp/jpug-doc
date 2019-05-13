@@ -674,6 +674,16 @@ select count(*) from (select c5, count(c1) from ft1 group by c5, sqrt(c2) having
 explain (verbose, costs off)
 select sum(c1) from ft1 group by c2 having avg(c1 * (random() <= 1)::int) > 100 order by 1;
 
+-- Remote aggregate in combination with a local Param (for the output
+-- of an initplan) can be trouble, per bug #15781
+explain (verbose, costs off)
+select exists(select 1 from pg_enum), sum(c1) from ft1;
+select exists(select 1 from pg_enum), sum(c1) from ft1;
+
+explain (verbose, costs off)
+select exists(select 1 from pg_enum), sum(c1) from ft1 group by 1;
+select exists(select 1 from pg_enum), sum(c1) from ft1 group by 1;
+
 
 -- Testing ORDER BY, DISTINCT, FILTER, Ordered-sets and VARIADIC within aggregates
 
@@ -883,6 +893,32 @@ explain (verbose, costs off)
 select c2, sum from "S 1"."T 1" t1, lateral (select sum(t2.c1 + t1."C 1") sum from ft2 t2 group by t2.c1) qry where t1.c2 * 2 = qry.sum and t1.c2 < 3 and t1."C 1" < 100 order by 1;
 select c2, sum from "S 1"."T 1" t1, lateral (select sum(t2.c1 + t1."C 1") sum from ft2 t2 group by t2.c1) qry where t1.c2 * 2 = qry.sum and t1.c2 < 3 and t1."C 1" < 100 order by 1;
 reset enable_hashagg;
+
+-- bug #15613: bad plan for foreign table scan with lateral reference
+EXPLAIN (VERBOSE, COSTS OFF)
+SELECT ref_0.c2, subq_1.*
+FROM
+    "S 1"."T 1" AS ref_0,
+    LATERAL (
+        SELECT ref_0."C 1" c1, subq_0.*
+        FROM (SELECT ref_0.c2, ref_1.c3
+              FROM ft1 AS ref_1) AS subq_0
+             RIGHT JOIN ft2 AS ref_3 ON (subq_0.c3 = ref_3.c3)
+    ) AS subq_1
+WHERE ref_0."C 1" < 10 AND subq_1.c3 = '00001'
+ORDER BY ref_0."C 1";
+
+SELECT ref_0.c2, subq_1.*
+FROM
+    "S 1"."T 1" AS ref_0,
+    LATERAL (
+        SELECT ref_0."C 1" c1, subq_0.*
+        FROM (SELECT ref_0.c2, ref_1.c3
+              FROM ft1 AS ref_1) AS subq_0
+             RIGHT JOIN ft2 AS ref_3 ON (subq_0.c3 = ref_3.c3)
+    ) AS subq_1
+WHERE ref_0."C 1" < 10 AND subq_1.c3 = '00001'
+ORDER BY ref_0."C 1";
 
 -- Check with placeHolderVars
 explain (verbose, costs off)
@@ -1917,6 +1953,51 @@ update utrtest set a = 1 where a = 2 returning *;
 
 drop trigger loct_br_insert_trigger on loct;
 
+-- We can move rows to a foreign partition that has been updated already,
+-- but can't move rows to a foreign partition that hasn't been updated yet
+
+delete from utrtest;
+insert into utrtest values (1, 'foo');
+insert into utrtest values (2, 'qux');
+
+-- Test the former case:
+-- with a direct modification plan
+explain (verbose, costs off)
+update utrtest set a = 1 returning *;
+update utrtest set a = 1 returning *;
+
+delete from utrtest;
+insert into utrtest values (1, 'foo');
+insert into utrtest values (2, 'qux');
+
+-- with a non-direct modification plan
+explain (verbose, costs off)
+update utrtest set a = 1 from (values (1), (2)) s(x) where a = s.x returning *;
+update utrtest set a = 1 from (values (1), (2)) s(x) where a = s.x returning *;
+
+-- Change the definition of utrtest so that the foreign partition get updated
+-- after the local partition
+delete from utrtest;
+alter table utrtest detach partition remp;
+drop foreign table remp;
+alter table loct drop constraint loct_a_check;
+alter table loct add check (a in (3));
+create foreign table remp (a int check (a in (3)), b text) server loopback options (table_name 'loct');
+alter table utrtest attach partition remp for values in (3);
+insert into utrtest values (2, 'qux');
+insert into utrtest values (3, 'xyzzy');
+
+-- Test the latter case:
+-- with a direct modification plan
+explain (verbose, costs off)
+update utrtest set a = 3 returning *;
+update utrtest set a = 3 returning *; -- ERROR
+
+-- with a non-direct modification plan
+explain (verbose, costs off)
+update utrtest set a = 3 from (values (2), (3)) s(x) where a = s.x returning *;
+update utrtest set a = 3 from (values (2), (3)) s(x) where a = s.x returning *; -- ERROR
+
 drop table utrtest;
 drop table loct;
 
@@ -2084,6 +2165,20 @@ drop trigger rem2_trig_row_after on rem2;
 drop trigger loc2_trig_row_before_insert on loc2;
 
 delete from rem2;
+
+-- test COPY FROM with foreign table created in the same transaction
+create table loc3 (f1 int, f2 text);
+begin;
+create foreign table rem3 (f1 int, f2 text)
+	server loopback options(table_name 'loc3');
+copy rem3 from stdin;
+1	foo
+2	bar
+\.
+commit;
+select * from rem3;
+drop foreign table rem3;
+drop table loc3;
 
 -- ===================================================================
 -- test IMPORT FOREIGN SCHEMA

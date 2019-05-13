@@ -426,17 +426,13 @@ ltsConcatWorkerTapes(LogicalTapeSet *lts, TapeShare *shared,
 	{
 		char		filename[MAXPGPATH];
 		BufFile    *file;
-		off_t		filesize;
+		int64		filesize;
 
 		lt = &lts->tapes[i];
 
 		pg_itoa(i, filename);
 		file = BufFileOpenShared(fileset, filename);
 		filesize = BufFileSize(file);
-		if (filesize < 0)
-			ereport(ERROR,
-					(errcode_for_file_access(),
-					 errmsg("could not determine size of temporary file \"%s\"", filename)));
 
 		/*
 		 * Stash first BufFile, and concatenate subsequent BufFiles to that.

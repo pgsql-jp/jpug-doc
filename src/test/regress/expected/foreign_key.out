@@ -1775,9 +1775,158 @@ CREATE TABLE fk_partitioned_fk_2_2 PARTITION OF fk_partitioned_fk_2 FOR VALUES F
 INSERT INTO fk_partitioned_fk_2 VALUES (1600, 601), (1600, 1601);
 ALTER TABLE fk_partitioned_fk ATTACH PARTITION fk_partitioned_fk_2
   FOR VALUES IN (1600);
-ERROR:  insert or update on table "fk_partitioned_fk_2" violates foreign key constraint "fk_partitioned_fk_a_fkey"
+ERROR:  insert or update on table "fk_partitioned_fk_2_1" violates foreign key constraint "fk_partitioned_fk_a_fkey"
 DETAIL:  Key (a, b)=(1600, 601) is not present in table "fk_notpartitioned_pk".
 INSERT INTO fk_notpartitioned_pk VALUES (1600, 601), (1600, 1601);
 ALTER TABLE fk_partitioned_fk ATTACH PARTITION fk_partitioned_fk_2
   FOR VALUES IN (1600);
 -- leave these tables around intentionally
+-- test the case when the referenced table is owned by a different user
+create role regress_other_partitioned_fk_owner;
+grant references on fk_notpartitioned_pk to regress_other_partitioned_fk_owner;
+set role regress_other_partitioned_fk_owner;
+create table other_partitioned_fk(a int, b int) partition by list (a);
+create table other_partitioned_fk_1 partition of other_partitioned_fk
+  for values in (2048);
+insert into other_partitioned_fk
+  select 2048, x from generate_series(1,10) x;
+-- this should fail
+alter table other_partitioned_fk add foreign key (a, b)
+  references fk_notpartitioned_pk(a, b);
+ERROR:  insert or update on table "other_partitioned_fk_1" violates foreign key constraint "other_partitioned_fk_a_fkey"
+DETAIL:  Key (a, b)=(2048, 1) is not present in table "fk_notpartitioned_pk".
+-- add the missing keys and retry
+reset role;
+insert into fk_notpartitioned_pk (a, b)
+  select 2048, x from generate_series(1,10) x;
+set role regress_other_partitioned_fk_owner;
+alter table other_partitioned_fk add foreign key (a, b)
+  references fk_notpartitioned_pk(a, b);
+-- clean up
+drop table other_partitioned_fk;
+reset role;
+revoke all on fk_notpartitioned_pk from regress_other_partitioned_fk_owner;
+drop role regress_other_partitioned_fk_owner;
+-- Test creating a constraint at the parent that already exists in partitions.
+-- There should be no duplicated constraints, and attempts to drop the
+-- constraint in partitions should raise appropriate errors.
+create schema fkpart0
+  create table pkey (a int primary key)
+  create table fk_part (a int) partition by list (a)
+  create table fk_part_1 partition of fk_part
+      (foreign key (a) references fkpart0.pkey) for values in (1)
+  create table fk_part_23 partition of fk_part
+      (foreign key (a) references fkpart0.pkey) for values in (2, 3)
+      partition by list (a)
+  create table fk_part_23_2 partition of fk_part_23 for values in (2);
+alter table fkpart0.fk_part add foreign key (a) references fkpart0.pkey;
+\d fkpart0.fk_part_1	\\ -- should have only one FK
+             Table "fkpart0.fk_part_1"
+ Column |  Type   | Collation | Nullable | Default 
+--------+---------+-----------+----------+---------
+ a      | integer |           |          | 
+Partition of: fkpart0.fk_part FOR VALUES IN (1)
+Foreign-key constraints:
+    "fk_part_1_a_fkey" FOREIGN KEY (a) REFERENCES fkpart0.pkey(a)
+
+alter table fkpart0.fk_part_1 drop constraint fk_part_1_a_fkey;
+ERROR:  cannot drop inherited constraint "fk_part_1_a_fkey" of relation "fk_part_1"
+\d fkpart0.fk_part_23	\\ -- should have only one FK
+            Table "fkpart0.fk_part_23"
+ Column |  Type   | Collation | Nullable | Default 
+--------+---------+-----------+----------+---------
+ a      | integer |           |          | 
+Partition of: fkpart0.fk_part FOR VALUES IN (2, 3)
+Partition key: LIST (a)
+Foreign-key constraints:
+    "fk_part_23_a_fkey" FOREIGN KEY (a) REFERENCES fkpart0.pkey(a)
+Number of partitions: 1 (Use \d+ to list them.)
+
+\d fkpart0.fk_part_23_2	\\ -- should have only one FK
+           Table "fkpart0.fk_part_23_2"
+ Column |  Type   | Collation | Nullable | Default 
+--------+---------+-----------+----------+---------
+ a      | integer |           |          | 
+Partition of: fkpart0.fk_part_23 FOR VALUES IN (2)
+Foreign-key constraints:
+    "fk_part_23_a_fkey" FOREIGN KEY (a) REFERENCES fkpart0.pkey(a)
+
+alter table fkpart0.fk_part_23 drop constraint fk_part_23_a_fkey;
+ERROR:  cannot drop inherited constraint "fk_part_23_a_fkey" of relation "fk_part_23"
+alter table fkpart0.fk_part_23_2 drop constraint fk_part_23_a_fkey;
+ERROR:  cannot drop inherited constraint "fk_part_23_a_fkey" of relation "fk_part_23_2"
+create table fkpart0.fk_part_4 partition of fkpart0.fk_part for values in (4);
+\d fkpart0.fk_part_4
+             Table "fkpart0.fk_part_4"
+ Column |  Type   | Collation | Nullable | Default 
+--------+---------+-----------+----------+---------
+ a      | integer |           |          | 
+Partition of: fkpart0.fk_part FOR VALUES IN (4)
+Foreign-key constraints:
+    "fk_part_a_fkey" FOREIGN KEY (a) REFERENCES fkpart0.pkey(a)
+
+alter table fkpart0.fk_part_4 drop constraint fk_part_a_fkey;
+ERROR:  cannot drop inherited constraint "fk_part_a_fkey" of relation "fk_part_4"
+create table fkpart0.fk_part_56 partition of fkpart0.fk_part
+    for values in (5,6) partition by list (a);
+create table fkpart0.fk_part_56_5 partition of fkpart0.fk_part_56
+    for values in (5);
+\d fkpart0.fk_part_56
+            Table "fkpart0.fk_part_56"
+ Column |  Type   | Collation | Nullable | Default 
+--------+---------+-----------+----------+---------
+ a      | integer |           |          | 
+Partition of: fkpart0.fk_part FOR VALUES IN (5, 6)
+Partition key: LIST (a)
+Foreign-key constraints:
+    "fk_part_a_fkey" FOREIGN KEY (a) REFERENCES fkpart0.pkey(a)
+Number of partitions: 1 (Use \d+ to list them.)
+
+alter table fkpart0.fk_part_56 drop constraint fk_part_a_fkey;
+ERROR:  cannot drop inherited constraint "fk_part_a_fkey" of relation "fk_part_56"
+alter table fkpart0.fk_part_56_5 drop constraint fk_part_a_fkey;
+ERROR:  cannot drop inherited constraint "fk_part_a_fkey" of relation "fk_part_56_5"
+-- verify that attaching and detaching partitions maintains the right set of
+-- triggers
+create schema fkpart1
+  create table pkey (a int primary key)
+  create table fk_part (a int) partition by list (a)
+  create table fk_part_1 partition of fk_part for values in (1) partition by list (a)
+  create table fk_part_1_1 partition of fk_part_1 for values in (1);
+alter table fkpart1.fk_part add foreign key (a) references fkpart1.pkey;
+insert into fkpart1.fk_part values (1);		-- should fail
+ERROR:  insert or update on table "fk_part_1_1" violates foreign key constraint "fk_part_a_fkey"
+DETAIL:  Key (a)=(1) is not present in table "pkey".
+insert into fkpart1.pkey values (1);
+insert into fkpart1.fk_part values (1);
+delete from fkpart1.pkey where a = 1;		-- should fail
+ERROR:  update or delete on table "pkey" violates foreign key constraint "fk_part_a_fkey" on table "fk_part"
+DETAIL:  Key (a)=(1) is still referenced from table "fk_part".
+alter table fkpart1.fk_part detach partition fkpart1.fk_part_1;
+create table fkpart1.fk_part_1_2 partition of fkpart1.fk_part_1 for values in (2);
+insert into fkpart1.fk_part_1 values (2);	-- should fail
+ERROR:  insert or update on table "fk_part_1_2" violates foreign key constraint "fk_part_a_fkey"
+DETAIL:  Key (a)=(2) is not present in table "pkey".
+delete from fkpart1.pkey where a = 1;
+ERROR:  update or delete on table "pkey" violates foreign key constraint "fk_part_a_fkey" on table "fk_part_1"
+DETAIL:  Key (a)=(1) is still referenced from table "fk_part_1".
+-- verify that attaching and detaching partitions manipulates the inheritance
+-- properties of their FK constraints correctly
+create schema fkpart2
+  create table pkey (a int primary key)
+  create table fk_part (a int, constraint fkey foreign key (a) references fkpart2.pkey) partition by list (a)
+  create table fk_part_1 partition of fkpart2.fk_part for values in (1) partition by list (a)
+  create table fk_part_1_1 (a int, constraint my_fkey foreign key (a) references fkpart2.pkey);
+alter table fkpart2.fk_part_1 attach partition fkpart2.fk_part_1_1 for values in (1);
+alter table fkpart2.fk_part_1 drop constraint fkey;	-- should fail
+ERROR:  cannot drop inherited constraint "fkey" of relation "fk_part_1"
+alter table fkpart2.fk_part_1_1 drop constraint my_fkey;	-- should fail
+ERROR:  cannot drop inherited constraint "my_fkey" of relation "fk_part_1_1"
+alter table fkpart2.fk_part detach partition fkpart2.fk_part_1;
+alter table fkpart2.fk_part_1 drop constraint fkey;	-- ok
+alter table fkpart2.fk_part_1_1 drop constraint my_fkey;	-- doesn't exist
+ERROR:  constraint "my_fkey" of relation "fk_part_1_1" does not exist
+\set VERBOSITY terse	\\ -- suppress cascade details
+drop schema fkpart0, fkpart1, fkpart2 cascade;
+NOTICE:  drop cascades to 8 other objects
+\set VERBOSITY default

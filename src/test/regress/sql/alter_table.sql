@@ -301,6 +301,20 @@ DROP TABLE constraint_rename_test;
 ALTER TABLE IF EXISTS constraint_not_exist RENAME CONSTRAINT con3 TO con3foo; -- ok
 ALTER TABLE IF EXISTS constraint_rename_test ADD CONSTRAINT con4 UNIQUE (a);
 
+-- renaming constraints with cache reset of target relation
+CREATE TABLE constraint_rename_cache (a int,
+  CONSTRAINT chk_a CHECK (a > 0),
+  PRIMARY KEY (a));
+ALTER TABLE constraint_rename_cache
+  RENAME CONSTRAINT chk_a TO chk_a_new;
+ALTER TABLE constraint_rename_cache
+  RENAME CONSTRAINT constraint_rename_cache_pkey TO constraint_rename_pkey_new;
+CREATE TABLE like_constraint_rename_cache
+  (LIKE constraint_rename_cache INCLUDING ALL);
+\d like_constraint_rename_cache
+DROP TABLE constraint_rename_cache;
+DROP TABLE like_constraint_rename_cache;
+
 -- FOREIGN KEY CONSTRAINT adding TEST
 
 CREATE TABLE attmp2 (a int primary key);
@@ -1379,6 +1393,69 @@ alter table at_partitioned attach partition at_part_2 for values from (1000) to 
 alter table at_partitioned alter column b type numeric using b::numeric;
 \d at_part_1
 \d at_part_2
+drop table at_partitioned;
+
+-- Alter column type when no table rewrite is required
+-- Also check that comments are preserved
+create table at_partitioned(id int, name varchar(64), unique (id, name))
+  partition by hash(id);
+comment on constraint at_partitioned_id_name_key on at_partitioned is 'parent constraint';
+comment on index at_partitioned_id_name_key is 'parent index';
+create table at_partitioned_0 partition of at_partitioned
+  for values with (modulus 2, remainder 0);
+comment on constraint at_partitioned_0_id_name_key on at_partitioned_0 is 'child 0 constraint';
+comment on index at_partitioned_0_id_name_key is 'child 0 index';
+create table at_partitioned_1 partition of at_partitioned
+  for values with (modulus 2, remainder 1);
+comment on constraint at_partitioned_1_id_name_key on at_partitioned_1 is 'child 1 constraint';
+comment on index at_partitioned_1_id_name_key is 'child 1 index';
+insert into at_partitioned values(1, 'foo');
+insert into at_partitioned values(3, 'bar');
+
+create temp table old_oids as
+  select relname, oid as oldoid, relfilenode as oldfilenode
+  from pg_class where relname like 'at_partitioned%';
+
+select relname,
+  c.oid = oldoid as orig_oid,
+  case relfilenode
+    when 0 then 'none'
+    when c.oid then 'own'
+    when oldfilenode then 'orig'
+    else 'OTHER'
+    end as storage,
+  obj_description(c.oid, 'pg_class') as desc
+  from pg_class c left join old_oids using (relname)
+  where relname like 'at_partitioned%'
+  order by relname;
+
+select conname, obj_description(oid, 'pg_constraint') as desc
+  from pg_constraint where conname like 'at_partitioned%'
+  order by conname;
+
+alter table at_partitioned alter column name type varchar(127);
+
+-- Note: these tests currently show the wrong behavior for comments :-(
+
+select relname,
+  c.oid = oldoid as orig_oid,
+  case relfilenode
+    when 0 then 'none'
+    when c.oid then 'own'
+    when oldfilenode then 'orig'
+    else 'OTHER'
+    end as storage,
+  obj_description(c.oid, 'pg_class') as desc
+  from pg_class c left join old_oids using (relname)
+  where relname like 'at_partitioned%'
+  order by relname;
+
+select conname, obj_description(oid, 'pg_constraint') as desc
+  from pg_constraint where conname like 'at_partitioned%'
+  order by conname;
+
+-- Don't remove this DROP, it exposes bug #15672
+drop table at_partitioned;
 
 -- disallow recursive containment of row types
 create temp table recur1 (f1 int);
@@ -2040,8 +2117,12 @@ ALTER TABLE test_add_column
 \d test_add_column
 ALTER TABLE test_add_column
 	ADD COLUMN c2 integer; -- fail because c2 already exists
+ALTER TABLE ONLY test_add_column
+	ADD COLUMN c2 integer; -- fail because c2 already exists
 \d test_add_column
 ALTER TABLE test_add_column
+	ADD COLUMN IF NOT EXISTS c2 integer; -- skipping because c2 already exists
+ALTER TABLE ONLY test_add_column
 	ADD COLUMN IF NOT EXISTS c2 integer; -- skipping because c2 already exists
 \d test_add_column
 ALTER TABLE test_add_column

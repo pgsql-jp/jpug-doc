@@ -23,8 +23,8 @@ chdir "../../.." if (-d "../../../src/tools/msvc");
 my $topdir         = getcwd();
 my $tmp_installdir = "$topdir/tmp_install";
 
-do 'src/tools/msvc/config_default.pl';
-do 'src/tools/msvc/config.pl' if (-f 'src/tools/msvc/config.pl');
+do './src/tools/msvc/config_default.pl';
+do './src/tools/msvc/config.pl' if (-f 'src/tools/msvc/config.pl');
 
 # buildenv.pl is for specifying the build environment settings
 # it should contain lines like:
@@ -32,7 +32,7 @@ do 'src/tools/msvc/config.pl' if (-f 'src/tools/msvc/config.pl');
 
 if (-e "src/tools/msvc/buildenv.pl")
 {
-	do "src/tools/msvc/buildenv.pl";
+	do "./src/tools/msvc/buildenv.pl";
 }
 
 my $what = shift || "";
@@ -205,6 +205,7 @@ sub tap_check
 	local %ENV = %ENV;
 	$ENV{PERL5LIB}   = "$topdir/src/test/perl;$ENV{PERL5LIB}";
 	$ENV{PG_REGRESS} = "$topdir/$Config/pg_regress/pg_regress";
+	$ENV{REGRESS_SHLIB} = "$topdir/src/test/regress/regress.dll";
 
 	$ENV{TESTDIR} = "$dir";
 

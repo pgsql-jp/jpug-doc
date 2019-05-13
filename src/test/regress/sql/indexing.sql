@@ -720,6 +720,11 @@ alter index idxpart2_a_idx attach partition idxpart22_a_idx;
 create index on idxpart (a);
 create table idxpart_another (a int, b int, primary key (a, b)) partition by range (a);
 create table idxpart_another_1 partition of idxpart_another for values from (0) to (100);
+create table idxpart3 (c int, b int, a int) partition by range (a);
+alter table idxpart3 drop column b, drop column c;
+create table idxpart31 partition of idxpart3 for values from (1000) to (1200);
+create table idxpart32 partition of idxpart3 for values from (1200) to (1400);
+alter table idxpart attach partition idxpart3 for values from (1000) to (2000);
 
 -- Test that covering partitioned indexes work in various cases
 create table covidxpart (a int, b int) partition by list (a);
@@ -739,3 +744,18 @@ create unique index on covidxpart4 (a);
 alter table covidxpart attach partition covidxpart4 for values in (4);
 insert into covidxpart values (4, 1);
 insert into covidxpart values (4, 1);
+create unique index on covidxpart (b) include (a); -- should fail
+
+-- check that detaching a partition also detaches the primary key constraint
+create table parted_pk_detach_test (a int primary key) partition by list (a);
+create table parted_pk_detach_test1 partition of parted_pk_detach_test for values in (1);
+alter table parted_pk_detach_test1 drop constraint parted_pk_detach_test1_pkey;	-- should fail
+alter table parted_pk_detach_test detach partition parted_pk_detach_test1;
+alter table parted_pk_detach_test1 drop constraint parted_pk_detach_test1_pkey;
+drop table parted_pk_detach_test, parted_pk_detach_test1;
+create table parted_uniq_detach_test (a int unique) partition by list (a);
+create table parted_uniq_detach_test1 partition of parted_uniq_detach_test for values in (1);
+alter table parted_uniq_detach_test1 drop constraint parted_uniq_detach_test1_a_key;	-- should fail
+alter table parted_uniq_detach_test detach partition parted_uniq_detach_test1;
+alter table parted_uniq_detach_test1 drop constraint parted_uniq_detach_test1_a_key;
+drop table parted_uniq_detach_test, parted_uniq_detach_test1;

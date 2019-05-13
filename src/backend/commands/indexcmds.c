@@ -85,6 +85,7 @@ static List *ChooseIndexColumnNames(List *indexElems);
 static void RangeVarCallbackForReindexIndex(const RangeVar *relation,
 								Oid relId, Oid oldRelId, void *arg);
 static void ReindexPartitionedIndex(Relation parentIdx);
+static void update_relispartition(Oid relationId, bool newval);
 
 /*
  * CheckIndexCompatible
@@ -722,7 +723,7 @@ DefineIndex(Oid relationId,
 						 errdetail("%s constraints cannot be used when partition keys include expressions.",
 								   constraint_type)));
 
-			for (j = 0; j < indexInfo->ii_NumIndexAttrs; j++)
+			for (j = 0; j < indexInfo->ii_NumIndexKeyAttrs; j++)
 			{
 				if (key->partattrs[i] == indexInfo->ii_IndexAttrNumbers[j])
 				{
@@ -834,8 +835,18 @@ DefineIndex(Oid relationId,
 		flags |= INDEX_CREATE_PARTITIONED;
 	if (stmt->primary)
 		flags |= INDEX_CREATE_IS_PRIMARY;
+
+	/*
+	 * If the table is partitioned, and recursion was declined but partitions
+	 * exist, mark the index as invalid.
+	 */
 	if (partitioned && stmt->relation && !stmt->relation->inh)
-		flags |= INDEX_CREATE_INVALID;
+	{
+		PartitionDesc	pd = RelationGetPartitionDesc(rel);
+
+		if (pd->nparts != 0)
+			flags |= INDEX_CREATE_INVALID;
+	}
 
 	if (stmt->deferrable)
 		constr_flags |= INDEX_CONSTR_CREATE_DEFERRABLE;
@@ -918,7 +929,6 @@ DefineIndex(Oid relationId,
 											   gettext_noop("could not convert row type"));
 				maplen = parentDesc->natts;
 
-
 				foreach(cell, childidxs)
 				{
 					Oid			cldidxid = lfirst_oid(cell);
@@ -992,6 +1002,19 @@ DefineIndex(Oid relationId,
 					ListCell   *lc;
 
 					/*
+					 * We can't use the same index name for the child index,
+					 * so clear idxname to let the recursive invocation choose
+					 * a new name.  Likewise, the existing target relation
+					 * field is wrong, and if indexOid or oldNode are set,
+					 * they mustn't be applied to the child either.
+					 */
+					childStmt->idxname = NULL;
+					childStmt->relation = NULL;
+					childStmt->relationId = childRelid;
+					childStmt->indexOid = InvalidOid;
+					childStmt->oldNode = InvalidOid;
+
+					/*
 					 * Adjust any Vars (both in expressions and in the index's
 					 * WHERE clause) to match the partition's column numbering
 					 * in case it's different from the parent's.
@@ -1022,8 +1045,6 @@ DefineIndex(Oid relationId,
 					if (found_whole_row)
 						elog(ERROR, "cannot convert whole-row table reference");
 
-					childStmt->idxname = NULL;
-					childStmt->relationId = childRelid;
 					DefineIndex(childRelid, childStmt,
 								InvalidOid, /* no predefined OID */
 								indexRelationId,	/* this is our child */
@@ -1048,7 +1069,7 @@ DefineIndex(Oid relationId,
 
 				tup = SearchSysCache1(INDEXRELID,
 									  ObjectIdGetDatum(indexRelationId));
-				if (!tup)
+				if (!HeapTupleIsValid(tup))
 					elog(ERROR, "cache lookup failed for index %u",
 						 indexRelationId);
 				newtup = heap_copytuple(tup);
@@ -2608,6 +2629,9 @@ IndexSetParentIndex(Relation partitionIdx, Oid parentOid)
 	systable_endscan(scan);
 	relation_close(pg_inherits, RowExclusiveLock);
 
+	/* set relispartition correctly on the partition */
+	update_relispartition(partRelid, OidIsValid(parentOid));
+
 	if (fix_dependencies)
 	{
 		ObjectAddress partIdx;
@@ -2644,4 +2668,25 @@ IndexSetParentIndex(Relation partitionIdx, Oid parentOid)
 		/* make our updates visible */
 		CommandCounterIncrement();
 	}
+}
+
+/*
+ * Subroutine of IndexSetParentIndex to update the relispartition flag of the
+ * given index to the given value.
+ */
+static void
+update_relispartition(Oid relationId, bool newval)
+{
+	HeapTuple	tup;
+	Relation	classRel;
+
+	classRel = heap_open(RelationRelationId, RowExclusiveLock);
+	tup = SearchSysCacheCopy1(RELOID, ObjectIdGetDatum(relationId));
+	if (!HeapTupleIsValid(tup))
+		elog(ERROR, "cache lookup failed for relation %u", relationId);
+	Assert(((Form_pg_class) GETSTRUCT(tup))->relispartition != newval);
+	((Form_pg_class) GETSTRUCT(tup))->relispartition = newval;
+	CatalogTupleUpdate(classRel, &tup->t_self, tup);
+	heap_freetuple(tup);
+	heap_close(classRel, RowExclusiveLock);
 }

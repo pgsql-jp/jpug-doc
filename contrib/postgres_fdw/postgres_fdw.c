@@ -183,6 +183,10 @@ typedef struct PgFdwModifyState
 
 	/* working memory context */
 	MemoryContext temp_cxt;		/* context for per-tuple temporary data */
+
+	/* for update row movement if subplan result rel */
+	struct PgFdwModifyState *aux_fmstate;	/* foreign-insert state, if
+											 * created */
 } PgFdwModifyState;
 
 /*
@@ -930,6 +934,9 @@ postgresGetForeignPaths(PlannerInfo *root,
 	 * baserestrict conditions we were able to send to remote, there might
 	 * actually be an indexscan happening there).  We already did all the work
 	 * to estimate cost and size of this path.
+	 *
+	 * Although this path uses no join clauses, it could still have required
+	 * parameterization due to LATERAL refs in its tlist.
 	 */
 	path = create_foreignscan_path(root, baserel,
 								   NULL,	/* default pathtarget */
@@ -937,7 +944,7 @@ postgresGetForeignPaths(PlannerInfo *root,
 								   fpinfo->startup_cost,
 								   fpinfo->total_cost,
 								   NIL, /* no pathkeys */
-								   NULL,	/* no outer rel either */
+								   baserel->lateral_relids,
 								   NULL,	/* no extra plan */
 								   NIL);	/* no fdw_private list */
 	add_path(baserel, (Path *) path);
@@ -1228,11 +1235,9 @@ postgresGetForeignPlan(PlannerInfo *root,
 
 		/*
 		 * Ensure that the outer plan produces a tuple whose descriptor
-		 * matches our scan tuple slot. This is safe because all scans and
-		 * joins support projection, so we never need to insert a Result node.
-		 * Also, remove the local conditions from outer plan's quals, lest
-		 * they will be evaluated twice, once by the local plan and once by
-		 * the scan.
+		 * matches our scan tuple slot.  Also, remove the local conditions
+		 * from outer plan's quals, lest they be evaluated twice, once by the
+		 * local plan and once by the scan.
 		 */
 		if (outer_plan)
 		{
@@ -1245,23 +1250,42 @@ postgresGetForeignPlan(PlannerInfo *root,
 			 */
 			Assert(!IS_UPPER_REL(foreignrel));
 
-			outer_plan->targetlist = fdw_scan_tlist;
-
+			/*
+			 * First, update the plan's qual list if possible.  In some cases
+			 * the quals might be enforced below the topmost plan level, in
+			 * which case we'll fail to remove them; it's not worth working
+			 * harder than this.
+			 */
 			foreach(lc, local_exprs)
 			{
-				Join	   *join_plan = (Join *) outer_plan;
 				Node	   *qual = lfirst(lc);
 
 				outer_plan->qual = list_delete(outer_plan->qual, qual);
 
 				/*
 				 * For an inner join the local conditions of foreign scan plan
-				 * can be part of the joinquals as well.
+				 * can be part of the joinquals as well.  (They might also be
+				 * in the mergequals or hashquals, but we can't touch those
+				 * without breaking the plan.)
 				 */
-				if (join_plan->jointype == JOIN_INNER)
-					join_plan->joinqual = list_delete(join_plan->joinqual,
-													  qual);
+				if (IsA(outer_plan, NestLoop) ||
+					IsA(outer_plan, MergeJoin) ||
+					IsA(outer_plan, HashJoin))
+				{
+					Join	   *join_plan = (Join *) outer_plan;
+
+					if (join_plan->jointype == JOIN_INNER)
+						join_plan->joinqual = list_delete(join_plan->joinqual,
+														  qual);
+				}
 			}
+
+			/*
+			 * Now fix the subplan's tlist --- this might result in inserting
+			 * a Result node atop the plan tree.
+			 */
+			outer_plan = change_plan_targetlist(outer_plan, fdw_scan_tlist,
+												best_path->path.parallel_safe);
 		}
 	}
 
@@ -1753,6 +1777,13 @@ postgresExecForeignInsert(EState *estate,
 	PGresult   *res;
 	int			n_rows;
 
+	/*
+	 * If the fmstate has aux_fmstate set, use the aux_fmstate (see
+	 * postgresBeginForeignInsert())
+	 */
+	if (fmstate->aux_fmstate)
+		fmstate = fmstate->aux_fmstate;
+
 	/* Set up the prepared statement on the remote server, if we didn't yet */
 	if (!fmstate->p_name)
 		prepare_foreign_modify(fmstate);
@@ -1993,6 +2024,22 @@ postgresBeginForeignInsert(ModifyTableState *mtstate,
 	List	   *retrieved_attrs = NIL;
 	bool		doNothing = false;
 
+	/*
+	 * If the foreign table we are about to insert routed rows into is also
+	 * an UPDATE subplan result rel that will be updated later, proceeding
+	 * with the INSERT will result in the later UPDATE incorrectly modifying
+	 * those routed rows, so prevent the INSERT --- it would be nice if we
+	 * could handle this case; but for now, throw an error for safety.
+	 */
+	if (plan && plan->operation == CMD_UPDATE &&
+		(resultRelInfo->ri_usesFdwDirectModify ||
+		 resultRelInfo->ri_FdwState) &&
+		resultRelInfo > mtstate->resultRelInfo + mtstate->mt_whichplan)
+		ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				 errmsg("cannot route tuples into foreign table to be updated \"%s\"",
+						RelationGetRelationName(rel))));
+
 	initStringInfo(&sql);
 
 	/* We transmit all columns that are defined in the foreign table. */
@@ -2059,7 +2106,19 @@ postgresBeginForeignInsert(ModifyTableState *mtstate,
 									retrieved_attrs != NIL,
 									retrieved_attrs);
 
-	resultRelInfo->ri_FdwState = fmstate;
+	/*
+	 * If the given resultRelInfo already has PgFdwModifyState set, it means
+	 * the foreign table is an UPDATE subplan result rel; in which case, store
+	 * the resulting state into the aux_fmstate of the PgFdwModifyState.
+	 */
+	if (resultRelInfo->ri_FdwState)
+	{
+		Assert(plan && plan->operation == CMD_UPDATE);
+		Assert(resultRelInfo->ri_usesFdwDirectModify == false);
+		((PgFdwModifyState *) resultRelInfo->ri_FdwState)->aux_fmstate = fmstate;
+	}
+	else
+		resultRelInfo->ri_FdwState = fmstate;
 }
 
 /*
@@ -2073,6 +2132,13 @@ postgresEndForeignInsert(EState *estate,
 	PgFdwModifyState *fmstate = (PgFdwModifyState *) resultRelInfo->ri_FdwState;
 
 	Assert(fmstate != NULL);
+
+	/*
+	 * If the fmstate has aux_fmstate set, get the aux_fmstate (see
+	 * postgresBeginForeignInsert())
+	 */
+	if (fmstate->aux_fmstate)
+		fmstate = fmstate->aux_fmstate;
 
 	/* Destroy the execution state */
 	finish_foreign_modify(fmstate);
@@ -2879,7 +2945,7 @@ estimate_path_cost_size(PlannerInfo *root,
 
 			/*-----
 			 * Startup cost includes:
-			 *	  1. Startup cost for underneath input * relation
+			 *	  1. Startup cost for underneath input relation
 			 *	  2. Cost of performing aggregation, per cost_agg()
 			 *	  3. Startup cost for PathTarget eval
 			 *-----
@@ -3369,6 +3435,9 @@ create_foreign_modify(EState *estate,
 	}
 
 	Assert(fmstate->p_nums <= n_params);
+
+	/* Initialize auxiliary state */
+	fmstate->aux_fmstate = NULL;
 
 	return fmstate;
 }
@@ -4961,7 +5030,7 @@ add_paths_with_pathkeys_for_rel(PlannerInfo *root, RelOptInfo *rel,
 										 startup_cost,
 										 total_cost,
 										 useful_pathkeys,
-										 NULL,
+										 rel->lateral_relids,
 										 sorted_epq_path,
 										 NIL));
 	}
@@ -5099,6 +5168,13 @@ postgresGetForeignJoinPaths(PlannerInfo *root,
 		return;
 
 	/*
+	 * This code does not work for joins with lateral references, since those
+	 * must have parameterized paths, which we don't generate yet.
+	 */
+	if (!bms_is_empty(joinrel->lateral_relids))
+		return;
+
+	/*
 	 * Create unfinished PgFdwRelationInfo entry which is used to indicate
 	 * that the join relation is already considered, so that we won't waste
 	 * time in judging safety of join pushdown and adding the same paths again
@@ -5189,7 +5265,7 @@ postgresGetForeignJoinPaths(PlannerInfo *root,
 									   startup_cost,
 									   total_cost,
 									   NIL, /* no pathkeys */
-									   NULL,	/* no required_outer */
+									   joinrel->lateral_relids,
 									   epq_path,
 									   NIL);	/* no fdw_private */
 
@@ -5215,7 +5291,6 @@ foreign_grouping_ok(PlannerInfo *root, RelOptInfo *grouped_rel,
 	PgFdwRelationInfo *fpinfo = (PgFdwRelationInfo *) grouped_rel->fdw_private;
 	PathTarget *grouping_target = grouped_rel->reltarget;
 	PgFdwRelationInfo *ofpinfo;
-	List	   *aggvars;
 	ListCell   *lc;
 	int			i;
 	List	   *tlist = NIL;
@@ -5241,6 +5316,15 @@ foreign_grouping_ok(PlannerInfo *root, RelOptInfo *grouped_rel,
 	 * server.  All GROUP BY expressions will be part of the grouping target
 	 * and thus there is no need to search for them separately.  Add grouping
 	 * expressions into target list which will be passed to foreign server.
+	 *
+	 * A tricky fine point is that we must not put any expression into the
+	 * target list that is just a foreign param (that is, something that
+	 * deparse.c would conclude has to be sent to the foreign server).  If we
+	 * do, the expression will also appear in the fdw_exprs list of the plan
+	 * node, and setrefs.c will get confused and decide that the fdw_exprs
+	 * entry is actually a reference to the fdw_scan_tlist entry, resulting in
+	 * a broken plan.  Somewhat oddly, it's OK if the expression contains such
+	 * a node, as long as it's not at top level; then no match is possible.
 	 */
 	i = 0;
 	foreach(lc, grouping_target->exprs)
@@ -5262,6 +5346,13 @@ foreign_grouping_ok(PlannerInfo *root, RelOptInfo *grouped_rel,
 				return false;
 
 			/*
+			 * If it would be a foreign param, we can't put it into the tlist,
+			 * so we have to fail.
+			 */
+			if (is_foreign_param(root, grouped_rel, expr))
+				return false;
+
+			/*
 			 * Pushable, so add to tlist.  We need to create a TLE for this
 			 * expression and apply the sortgroupref to it.  We cannot use
 			 * add_to_flat_tlist() here because that avoids making duplicate
@@ -5276,9 +5367,11 @@ foreign_grouping_ok(PlannerInfo *root, RelOptInfo *grouped_rel,
 		else
 		{
 			/*
-			 * Non-grouping expression we need to compute.  Is it shippable?
+			 * Non-grouping expression we need to compute.  Can we ship it
+			 * as-is to the foreign server?
 			 */
-			if (is_foreign_expr(root, grouped_rel, expr))
+			if (is_foreign_expr(root, grouped_rel, expr) &&
+				!is_foreign_param(root, grouped_rel, expr))
 			{
 				/* Yes, so add to tlist as-is; OK to suppress duplicates */
 				tlist = add_to_flat_tlist(tlist, list_make1(expr));
@@ -5286,12 +5379,16 @@ foreign_grouping_ok(PlannerInfo *root, RelOptInfo *grouped_rel,
 			else
 			{
 				/* Not pushable as a whole; extract its Vars and aggregates */
+				List	   *aggvars;
+
 				aggvars = pull_var_clause((Node *) expr,
 										  PVC_INCLUDE_AGGREGATES);
 
 				/*
 				 * If any aggregate expression is not shippable, then we
-				 * cannot push down aggregation to the foreign server.
+				 * cannot push down aggregation to the foreign server.  (We
+				 * don't have to check is_foreign_param, since that certainly
+				 * won't return true for any such expression.)
 				 */
 				if (!is_foreign_expr(root, grouped_rel, (Expr *) aggvars))
 					return false;
@@ -5378,7 +5475,8 @@ foreign_grouping_ok(PlannerInfo *root, RelOptInfo *grouped_rel,
 			 * If aggregates within local conditions are not safe to push
 			 * down, then we cannot push down the query.  Vars are already
 			 * part of GROUP BY clause which are checked above, so no need to
-			 * access them again here.
+			 * access them again here.  Again, we need not check
+			 * is_foreign_param for a foreign aggregate.
 			 */
 			if (IsA(expr, Aggref))
 			{
@@ -5517,7 +5615,7 @@ add_foreign_grouping_paths(PlannerInfo *root, RelOptInfo *input_rel,
 										startup_cost,
 										total_cost,
 										NIL,	/* no pathkeys */
-										NULL,	/* no required_outer */
+										grouped_rel->lateral_relids,
 										NULL,
 										NIL);	/* no fdw_private */
 

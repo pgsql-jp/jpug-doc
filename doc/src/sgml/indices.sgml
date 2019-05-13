@@ -992,8 +992,7 @@ CREATE INDEX test3_desc_index ON test3 (id DESC NULLS LAST);
 -->
 インデックスは、列値の一意性や、複数列を組み合わせた値の一意性を強制するためにも使用できます。
 <synopsis>
-CREATE UNIQUE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable> (<replaceable>column</replaceable> <optional>, ...</optional>)
-<optional> INCLUDE (<replaceable>column</replaceable> <optional>, ...</optional>) </optional>;
+CREATE UNIQUE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable> (<replaceable>column</replaceable> <optional>, ...</optional>);
 </synopsis>
 <!--
    Currently, only B-tree indexes can be declared unique.
@@ -1002,18 +1001,10 @@ CREATE UNIQUE INDEX <replaceable>name</replaceable> ON <replaceable>table</repla
   </para>
 
   <para>
-<!--
    When an index is declared unique, multiple table rows with equal
    indexed values are not allowed.  Null values are not considered
    equal.  A multicolumn unique index will only reject cases where all
-   indexed columns are equal.  Columns listed in
-   the <literal>INCLUDE</literal> clause, if any, aren't considered when
-   determining whether index entries are equal.
--->
-一意インデックスが宣言された場合、同じインデックス値を有する複数のテーブル行は許されなくなります。
-NULL 値は同じ値とはみなされません。
-複数列の一意インデックスは、インデックス列の全てが同一の場合のみ拒絶されます。
-<literal>INCLUDE</literal>句に列がリストされていても、インデックスが同一かどうかの判断時には考慮されません。
+   indexed columns are equal in multiple rows.
   </para>
 
   <para>
@@ -1506,6 +1497,255 @@ CREATE UNIQUE INDEX tests_success_constraint ON tests (subject, target)
  </sect1>
 
 
+ <sect1 id="indexes-index-only-scans">
+  <title>Index-Only Scans and Covering Indexes</title>
+
+  <indexterm zone="indexes-index-only-scans">
+   <primary>index</primary>
+   <secondary>index-only scans</secondary>
+  </indexterm>
+  <indexterm zone="indexes-index-only-scans">
+   <primary>index-only scan</primary>
+  </indexterm>
+  <indexterm zone="indexes-index-only-scans">
+   <primary>index</primary>
+   <secondary>covering</secondary>
+  </indexterm>
+  <indexterm zone="indexes-index-only-scans">
+   <primary>covering index</primary>
+  </indexterm>
+
+  <para>
+   All indexes in <productname>PostgreSQL</productname>
+   are <firstterm>secondary</firstterm> indexes, meaning that each index is
+   stored separately from the table's main data area (which is called the
+   table's <firstterm>heap</firstterm>
+   in <productname>PostgreSQL</productname> terminology).  This means that
+   in an ordinary index scan, each row retrieval requires fetching data from
+   both the index and the heap.  Furthermore, while the index entries that
+   match a given indexable <literal>WHERE</literal> condition are usually
+   close together in the index, the table rows they reference might be
+   anywhere in the heap.  The heap-access portion of an index scan thus
+   involves a lot of random access into the heap, which can be slow,
+   particularly on traditional rotating media.  (As described in
+   <xref linkend="indexes-bitmap-scans"/>, bitmap scans try to alleviate
+   this cost by doing the heap accesses in sorted order, but that only goes
+   so far.)
+  </para>
+
+  <para>
+   To solve this performance problem, <productname>PostgreSQL</productname>
+   supports <firstterm>index-only scans</firstterm>, which can answer
+   queries from an index alone without any heap access.  The basic idea is
+   to return values directly out of each index entry instead of consulting
+   the associated heap entry.  There are two fundamental restrictions on
+   when this method can be used:
+
+   <orderedlist>
+    <listitem>
+     <para>
+      The index type must support index-only scans.  B-tree indexes always
+      do.  GiST and SP-GiST indexes support index-only scans for some
+      operator classes but not others.  Other index types have no support.
+      The underlying requirement is that the index must physically store, or
+      else be able to reconstruct, the original data value for each index
+      entry.  As a counterexample, GIN indexes cannot support index-only
+      scans because each index entry typically holds only part of the
+      original data value.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      The query must reference only columns stored in the index.  For
+      example, given an index on columns <literal>x</literal>
+      and <literal>y</literal> of a table that also has a
+      column <literal>z</literal>, these queries could use index-only scans:
+<programlisting>
+SELECT x, y FROM tab WHERE x = 'key';
+SELECT x FROM tab WHERE x = 'key' AND y &lt; 42;
+</programlisting>
+      but these queries could not:
+<programlisting>
+SELECT x, z FROM tab WHERE x = 'key';
+SELECT x FROM tab WHERE x = 'key' AND z &lt; 42;
+</programlisting>
+      (Expression indexes and partial indexes complicate this rule,
+      as discussed below.)
+     </para>
+    </listitem>
+   </orderedlist>
+  </para>
+
+  <para>
+   If these two fundamental requirements are met, then all the data values
+   required by the query are available from the index, so an index-only scan
+   is physically possible.  But there is an additional requirement for any
+   table scan in <productname>PostgreSQL</productname>: it must verify that
+   each retrieved row be <quote>visible</quote> to the query's MVCC
+   snapshot, as discussed in <xref linkend="mvcc"/>.  Visibility information
+   is not stored in index entries, only in heap entries; so at first glance
+   it would seem that every row retrieval would require a heap access
+   anyway.  And this is indeed the case, if the table row has been modified
+   recently.  However, for seldom-changing data there is a way around this
+   problem.  <productname>PostgreSQL</productname> tracks, for each page in
+   a table's heap, whether all rows stored in that page are old enough to be
+   visible to all current and future transactions.  This information is
+   stored in a bit in the table's <firstterm>visibility map</firstterm>.  An
+   index-only scan, after finding a candidate index entry, checks the
+   visibility map bit for the corresponding heap page.  If it's set, the row
+   is known visible and so the data can be returned with no further work.
+   If it's not set, the heap entry must be visited to find out whether it's
+   visible, so no performance advantage is gained over a standard index
+   scan.  Even in the successful case, this approach trades visibility map
+   accesses for heap accesses; but since the visibility map is four orders
+   of magnitude smaller than the heap it describes, far less physical I/O is
+   needed to access it.  In most situations the visibility map remains
+   cached in memory all the time.
+  </para>
+
+  <para>
+   In short, while an index-only scan is possible given the two fundamental
+   requirements, it will be a win only if a significant fraction of the
+   table's heap pages have their all-visible map bits set.  But tables in
+   which a large fraction of the rows are unchanging are common enough to
+   make this type of scan very useful in practice.
+  </para>
+
+  <para>
+   <indexterm>
+    <primary><literal>INCLUDE</literal></primary>
+    <secondary>in index definitions</secondary>
+   </indexterm>
+   To make effective use of the index-only scan feature, you might choose to
+   create a <firstterm>covering index</firstterm>, which is an index
+   specifically designed to include the columns needed by a particular
+   type of query that you run frequently.  Since queries typically need to
+   retrieve more columns than just the ones they search
+   on, <productname>PostgreSQL</productname> allows you to create an index
+   in which some columns are just <quote>payload</quote> and are not part
+   of the search key.  This is done by adding an <literal>INCLUDE</literal>
+   clause listing the extra columns.  For example, if you commonly run
+   queries like
+<programlisting>
+SELECT y FROM tab WHERE x = 'key';
+</programlisting>
+   the traditional approach to speeding up such queries would be to create
+   an index on <literal>x</literal> only.  However, an index defined as
+<programlisting>
+CREATE INDEX tab_x_y ON tab(x) INCLUDE (y);
+</programlisting>
+   could handle these queries as index-only scans,
+   because <literal>y</literal> can be obtained from the index without
+   visiting the heap.
+  </para>
+
+  <para>
+   Because column <literal>y</literal> is not part of the index's search
+   key, it does not have to be of a data type that the index can handle;
+   it's merely stored in the index and is not interpreted by the index
+   machinery.  Also, if the index is a unique index, that is
+<programlisting>
+CREATE UNIQUE INDEX tab_x_y ON tab(x) INCLUDE (y);
+</programlisting>
+   the uniqueness condition applies to just column <literal>x</literal>,
+   not to the combination of <literal>x</literal> and <literal>y</literal>.
+   (An <literal>INCLUDE</literal> clause can also be written
+   in <literal>UNIQUE</literal> and <literal>PRIMARY KEY</literal>
+   constraints, providing alternative syntax for setting up an index like
+   this.)
+  </para>
+
+  <para>
+   It's wise to be conservative about adding non-key payload columns to an
+   index, especially wide columns.  If an index tuple exceeds the
+   maximum size allowed for the index type, data insertion will fail.
+   In any case, non-key columns duplicate data from the index's table
+   and bloat the size of the index, thus potentially slowing searches.
+   And remember that there is little point in including payload columns in an
+   index unless the table changes slowly enough that an index-only scan is
+   likely to not need to access the heap.  If the heap tuple must be visited
+   anyway, it costs nothing more to get the column's value from there.
+   Other restrictions are that expressions are not currently supported as
+   included columns, and that only B-tree indexes currently support included
+   columns.
+  </para>
+
+  <para>
+   Before <productname>PostgreSQL</productname> had
+   the <literal>INCLUDE</literal> feature, people sometimes made covering
+   indexes by writing the payload columns as ordinary index columns,
+   that is writing
+<programlisting>
+CREATE INDEX tab_x_y ON tab(x, y);
+</programlisting>
+   even though they had no intention of ever using <literal>y</literal> as
+   part of a <literal>WHERE</literal> clause.  This works fine as long as
+   the extra columns are trailing columns; making them be leading columns is
+   unwise for the reasons explained in <xref linkend="indexes-multicolumn"/>.
+   However, this method doesn't support the case where you want the index to
+   enforce uniqueness on the key column(s).  Also, explicitly marking
+   non-searchable columns as <literal>INCLUDE</literal> columns makes the
+   index slightly smaller, because such columns need not be stored in upper
+   B-tree levels.
+  </para>
+
+  <para>
+   In principle, index-only scans can be used with expression indexes.
+   For example, given an index on <literal>f(x)</literal>
+   where <literal>x</literal> is a table column, it should be possible to
+   execute
+<programlisting>
+SELECT f(x) FROM tab WHERE f(x) &lt; 1;
+</programlisting>
+   as an index-only scan; and this is very attractive
+   if <literal>f()</literal> is an expensive-to-compute function.
+   However, <productname>PostgreSQL</productname>'s planner is currently not
+   very smart about such cases.  It considers a query to be potentially
+   executable by index-only scan only when all <emphasis>columns</emphasis>
+   needed by the query are available from the index.  In this
+   example, <literal>x</literal> is not needed except in the
+   context <literal>f(x)</literal>, but the planner does not notice that and
+   concludes that an index-only scan is not possible.  If an index-only scan
+   seems sufficiently worthwhile, this can be worked around by
+   adding <literal>x</literal> as an included column, for example
+<programlisting>
+CREATE INDEX tab_f_x ON tab (f(x)) INCLUDE (x);
+</programlisting>
+   An additional caveat, if the goal is to avoid
+   recalculating <literal>f(x)</literal>, is that the planner won't
+   necessarily match uses of <literal>f(x)</literal> that aren't in
+   indexable <literal>WHERE</literal> clauses to the index column.  It will
+   usually get this right in simple queries such as shown above, but not in
+   queries that involve joins.  These deficiencies may be remedied in future
+   versions of <productname>PostgreSQL</productname>.
+  </para>
+
+  <para>
+   Partial indexes also have interesting interactions with index-only scans.
+   Consider the partial index shown in <xref linkend="indexes-partial-ex3"/>:
+<programlisting>
+CREATE UNIQUE INDEX tests_success_constraint ON tests (subject, target)
+    WHERE success;
+</programlisting>
+   In principle, we could do an index-only scan on this index to satisfy a
+   query like
+<programlisting>
+SELECT target FROM tests WHERE subject = 'some-subject' AND success;
+</programlisting>
+   But there's a problem: the <literal>WHERE</literal> clause refers
+   to <literal>success</literal> which is not available as a result column
+   of the index.  Nonetheless, an index-only scan is possible because the
+   plan does not need to recheck that part of the <literal>WHERE</literal>
+   clause at run time: all entries found in the index necessarily
+   have <literal>success = true</literal> so this need not be explicitly
+   checked in the plan.  <productname>PostgreSQL</productname> versions 9.6
+   and later will recognize such cases and allow index-only scans to be
+   generated, but older versions will not.
+  </para>
+ </sect1>
+
+
  <sect1 id="indexes-opclass">
 <!--
   <title>Operator Classes and Operator Families</title>
@@ -1746,285 +1986,6 @@ CREATE INDEX test1c_content_y_index ON test1c (content COLLATE "y");
 </programlisting>
   </para>
  </sect1>
-
-
- <sect1 id="indexes-index-only-scans">
-<!--
-  <title>Index-Only Scans</title>
--->
-  <title>インデックスオンリースキャン</title>
-
-  <indexterm zone="indexes-index-only-scans">
-<!--
-   <primary>index</primary>
-   <secondary>index-only scans</secondary>
--->
-   <primary>インデックス</primary>
-   <secondary>インデックスオンリースキャン</secondary>
-  </indexterm>
-  <indexterm zone="indexes-index-only-scans">
-<!--
-   <primary>index-only scan</primary>
--->
-   <primary>インデックスオンリースキャン</primary>
-  </indexterm>
-
-  <para>
-<!--
-   All indexes in <productname>PostgreSQL</productname> are <firstterm>secondary</firstterm>
-   indexes, meaning that each index is stored separately from the table's
-   main data area (which is called the table's <firstterm>heap</firstterm>
-   in <productname>PostgreSQL</productname> terminology).  This means that in an
-   ordinary index scan, each row retrieval requires fetching data from both
-   the index and the heap.  Furthermore, while the index entries that match a
-   given indexable <literal>WHERE</literal> condition are usually close together in
-   the index, the table rows they reference might be anywhere in the heap.
-   The heap-access portion of an index scan thus involves a lot of random
-   access into the heap, which can be slow, particularly on traditional
-   rotating media.  (As described in <xref linkend="indexes-bitmap-scans"/>,
-   bitmap scans try to alleviate this cost by doing the heap accesses in
-   sorted order, but that only goes so far.)
--->
-<productname>PostgreSQL</productname>におけるすべてのインデックスは<firstterm>二次的な</firstterm>インデックス、つまり各インデックスはテーブルの主要なデータ領域（<productname>PostgreSQL</productname>の用語ではテーブルの<firstterm>ヒープ</firstterm>と呼ばれます）とは別に格納されています。
-このことは、通常のインデックススキャンにおいて、各行の検索にはインデックスとヒープの両方からデータを取得する必要があることを意味します。
-さらに、指定のインデックス可能な<literal>WHERE</literal>条件に適合するインデックスのエントリは、通常、インデックス内の近い位置にあるのに対し、そこから参照されるテーブルの行はヒープ内のあらゆるところにあるかもしれません。
-このため、インデックススキャンにおけるヒープアクセスの部分では、ヒープに対する多くのランダムアクセスがありますが、これは遅い可能性があり、特に伝統的な回転型メディアでは遅くなります。
-（<xref linkend="indexes-bitmap-scans"/>で説明したように、ビットマップインデックスはヒープアクセスをソートした順で行うことでこのコストを緩和しようとするものですが、それはある程度までしかできません。）
-  </para>
-
-  <para>
-<!--
-   To solve this performance problem, <productname>PostgreSQL</productname>
-   supports <firstterm>index-only scans</firstterm>, which can answer queries from an
-   index alone without any heap access.  The basic idea is to return values
-   directly out of each index entry instead of consulting the associated heap
-   entry.  There are two fundamental restrictions on when this method can be
-   used:
--->
-このパフォーマンス問題を解決するため、<productname>PostgreSQL</productname>は<firstterm>インデックスオンリースキャン</firstterm>をサポートします。
-これは、問い合わせに対してヒープアクセスをせずにインデックスのみで回答できるものです。
-基本的な考え方は、関連するヒープのエントリを参照せずに、各インデクスエントリから直接に値を返すというものです。
-この方法が使用できるためには2つの基本的な制限があります。
-
-   <orderedlist>
-    <listitem>
-     <para>
-<!--
-      The index type must support index-only scans.  B-tree indexes always
-      do.  GiST and SP-GiST indexes support index-only scans for some
-      operator classes but not others.  Other index types have no support.
-      The underlying requirement is that the index must physically store, or
-      else be able to reconstruct, the original data value for each index
-      entry.  As a counterexample, GIN indexes cannot support index-only
-      scans because each index entry typically holds only part of the
-      original data value.
--->
-インデックスの種類がインデックスオンリースキャンをサポートする必要があります。
-Bツリーインデックスはいつでもインデックスオンリースキャンをサポートします。
-GiSTとSP-GiSTは一部の演算子クラスでインデックスオンリースキャンをサポートしますが、サポートしない演算子クラスもあります。
-他のインデックスの種類はインデックスオンリースキャンをサポートしません。
-根本的な必要条件は、インデックスが各インデックスのエントリに対応する元のデータ値を物理的に格納していなければならない、あるいはそれを再構築できる必要がある、ということです。
-その反例として、GINインデックスでは、各インデックスエントリが通常は元のデータ値の一部しか保持していないため、インデックスオンリースキャンをサポートすることができません。
-     </para>
-    </listitem>
-
-    <listitem>
-     <para>
-<!--
-      The query must reference only columns stored in the index.  For
-      example, given an index on columns <literal>x</literal> and <literal>y</literal> of a
-      table that also has a column <literal>z</literal>, these queries could use
-      index-only scans:
--->
-問い合わせはインデックスに格納されている列だけを参照しなければなりません。
-例えばテーブルの列<literal>x</literal>と<literal>y</literal>にインデックスがあり、そのテーブルにはさらに列<literal>z</literal>がある場合、次の問い合わせはインデックスオンリースキャンを使用できます。
-<programlisting>
-SELECT x, y FROM tab WHERE x = 'key';
-SELECT x FROM tab WHERE x = 'key' AND y &lt; 42;
-</programlisting>
-<!--
-      but these queries could not:
--->
-しかし、以下の問い合わせはインデックスオンリースキャンを使用できません。
-<programlisting>
-SELECT x, z FROM tab WHERE x = 'key';
-SELECT x FROM tab WHERE x = 'key' AND z &lt; 42;
-</programlisting>
-<!--
-      (Expression indexes and partial indexes complicate this rule,
-      as discussed below.)
--->
-（以下で説明するように、式によるインデックスや部分インデックスは、この規則を複雑にします。）
-     </para>
-    </listitem>
-   </orderedlist>
-  </para>
-
-  <para>
-<!--
-   If these two fundamental requirements are met, then all the data values
-   required by the query are available from the index, so an index-only scan
-   is physically possible.  But there is an additional requirement for any
-   table scan in <productname>PostgreSQL</productname>: it must verify that each
-   retrieved row be <quote>visible</quote> to the query's MVCC snapshot, as
-   discussed in <xref linkend="mvcc"/>.  Visibility information is not stored
-   in index entries, only in heap entries; so at first glance it would seem
-   that every row retrieval would require a heap access anyway.  And this is
-   indeed the case, if the table row has been modified recently.  However,
-   for seldom-changing data there is a way around this
-   problem.  <productname>PostgreSQL</productname> tracks, for each page in a table's
-   heap, whether all rows stored in that page are old enough to be visible to
-   all current and future transactions.  This information is stored in a bit
-   in the table's <firstterm>visibility map</firstterm>.  An index-only scan, after
-   finding a candidate index entry, checks the visibility map bit for the
-   corresponding heap page.  If it's set, the row is known visible and so the
-   data can be returned with no further work.  If it's not set, the heap
-   entry must be visited to find out whether it's visible, so no performance
-   advantage is gained over a standard index scan.  Even in the successful
-   case, this approach trades visibility map accesses for heap accesses; but
-   since the visibility map is four orders of magnitude smaller than the heap
-   it describes, far less physical I/O is needed to access it.  In most
-   situations the visibility map remains cached in memory all the time.
--->
-この2つの基本的な要件が満たされるなら、問い合わせで要求されるすべてのデータ値はインデックスから利用できるので、インデックスオンリースキャンが物理的に可能になります。
-しかし、<productname>PostgreSQL</productname>のすべてのテーブルスキャンにおいて、さらなる必要条件があります。
-それは、<xref linkend="mvcc"/>で説明するように、検索された各行が問い合わせのMVCCスナップショットに対して<quote>可視</quote>であることを確認しなければならない、ということです。
-可視性の情報はインデックスのエントリには格納されず、ヒープのエントリにのみあります。
-そのため、一見すると、すべての行検索はいずれにせよヒープアクセスが必要なように思われます。
-そして、テーブルの行が最近に更新された場合は、まさにその通りなのです。
-しかし、あまり更新されないデータについてはこの問題を回避する方法があります。
-<productname>PostgreSQL</productname>ではテーブルのヒープの各ページについて、そのページに格納されているすべての行が、十分に古く、すべての現在および将来のトランザクションに対して可視であるかどうかを追跡しています。
-この情報はテーブルの<firstterm>可視性マップ</firstterm>のビットに格納されます。
-インデックスオンリースキャンでは、候補となるインデックスのエントリを見つけた後、対応するヒープページの可視性マップのビットを検査します。
-それがセットされていれば、行が可視であることがわかるので、それ以上の作業をすることなく、データを返すことができます。
-セットされていない場合は、それが可視かどうかを調べるためにヒープエントリにアクセスする必要があり、そのため標準的なインデックススキャンに対するパフォーマンス上の利点はありません。
-うまくいく場合であっても、この方法はヒープアクセスと引き換えに可視性マップにアクセスします。
-しかし、可視性マップはヒープに比べ、4桁の規模で小さいため、アクセスに必要な物理的I/Oははるかに少ないです。
-ほとんどの状況では、可視性マップは常にメモリ内にキャッシュされて残っています。
-  </para>
-
-  <para>
-<!--
-   In short, while an index-only scan is possible given the two fundamental
-   requirements, it will be a win only if a significant fraction of the
-   table's heap pages have their all-visible map bits set.  But tables in
-   which a large fraction of the rows are unchanging are common enough to
-   make this type of scan very useful in practice.
--->
-要するに、2つの基本的条件が満たされていればインデックスオンリースキャンが可能ですが、テーブルのヒープページのかなりの部分に対し、その全可視のビットがセットされている場合にのみ、性能が向上します。
-しかし大部分の行が変化しないテーブルは一般的であり、現実にはこの種のスキャンは非常に有効です。
-  </para>
-
-  <para>
-<!--
-   To make effective use of the index-only scan feature, you might choose to
-   create indexes in which only the leading columns are meant to
-   match <literal>WHERE</literal> clauses, while the trailing columns
-   hold <quote>payload</quote> data to be returned by a query.  For example, if
-   you commonly run queries like
--->
-インデックスオンリースキャンの機能を有効に利用するため、先頭の列のみが<literal>WHERE</literal>句に適合し、残りの列は問い合わせによって返される<quote>ペイロード</quote>データとなっているインデックスを作成することを選択するかもしれません。
-例えば、次のような問い合わせをよく実行する場合を考えます。
-<programlisting>
-SELECT y FROM tab WHERE x = 'key';
-</programlisting>
-<!--
-   the traditional approach to speeding up such queries would be to create an
-   index on <literal>x</literal> only.  However, an index on <literal>(x, y)</literal>
-   would offer the possibility of implementing this query as an index-only
-   scan.  As previously discussed, such an index would be larger and hence
-   more expensive than an index on <literal>x</literal> alone, so this is attractive
-   only if the table is known to be mostly static.  Note it's important that
-   the index be declared on <literal>(x, y)</literal> not <literal>(y, x)</literal>, as for
-   most index types (particularly B-trees) searches that do not constrain the
-   leading index columns are not very efficient.
--->
-このような問い合わせを高速化する伝統的な手法は、<literal>x</literal>のみにインデックスを作成することです。
-しかし<literal>(x, y)</literal>にインデックスを作ることで、この問い合わせをインデックスオンリースキャンとして実現できる可能性が出てきます。
-前に説明した通り、そのようなインデックスは大きくなり、<literal>x</literal>だけのインデックスよりも高価になるため、このテーブルがほぼ静的であることがわかっている場合にのみ魅力的です。
-インデックスを<literal>(y, x)</literal>ではなく<literal>(x, y)</literal>と宣言するのが重要であることに注意してください。
-ほとんどの種類のインデックス（特にBツリー）において、先頭のインデックスによる制約がない検索はあまり効率的ではないからです。
-  </para>
-
-  <para>
-<!--
-   In principle, index-only scans can be used with expression indexes.
-   For example, given an index on <literal>f(x)</literal> where <literal>x</literal> is a
-   table column, it should be possible to execute
--->
-原則として、インデックスオンリースキャンは式によるインデックスでも使うことができます。
-例えば、<literal>x</literal>がテーブルの列で、<literal>f(x)</literal>上にインデックスがある場合、次の問い合わせをインデックスオンリースキャンとして実行できるはずです。
-<programlisting>
-SELECT f(x) FROM tab WHERE f(x) &lt; 1;
-</programlisting>
-<!--
-   as an index-only scan; and this is very attractive if <literal>f()</literal> is
-   an expensive-to-compute function.  However, <productname>PostgreSQL</productname>'s
-   planner is currently not very smart about such cases.  It considers a
-   query to be potentially executable by index-only scan only when
-   all <emphasis>columns</emphasis> needed by the query are available from the index.
-   In this example, <literal>x</literal> is not needed except in the
-   context <literal>f(x)</literal>, but the planner does not notice that and
-   concludes that an index-only scan is not possible.  If an index-only scan
-   seems sufficiently worthwhile, this can be worked around by declaring the
-   index to be on <literal>(f(x), x)</literal>, where the second column is not
-   expected to be used in practice but is just there to convince the planner
-   that an index-only scan is possible.  An additional caveat, if the goal is
-   to avoid recalculating <literal>f(x)</literal>, is that the planner won't
-   necessarily match uses of <literal>f(x)</literal> that aren't in
-   indexable <literal>WHERE</literal> clauses to the index column.  It will usually
-   get this right in simple queries such as shown above, but not in queries
-   that involve joins.  These deficiencies may be remedied in future versions
-   of <productname>PostgreSQL</productname>.
--->
-そして、関数<literal>f()</literal>の計算が高価なら、この方法は非常に魅力的です。
-しかし<productname>PostgreSQL</productname>のプランナは現在のところ、このような場合についてあまり賢くありません。
-プランナは、問い合わせで必要となるすべての<emphasis>列</emphasis>がインデックスから利用可能な場合にのみ、その問い合わせが潜在的にインデックスオンリースキャンで実行可能と考えます。
-この例では、<literal>f(x)</literal>という文脈でしか<literal>x</literal>は必要になりませんが、プランナはそのことに気付かないため、インデックスオンリースキャンは不可能であると結論します。
-インデックスオンリースキャンは十分に価値があると思われるなら、これはインデックスを<literal>(f(x), x)</literal>上に宣言することで回避できます。
-ここで2番目の列は現実には使用されないでしょうが、プランナにインデックスオンリースキャンが可能であると確信させるためだけに存在しています。
-目的が<literal>f(x)</literal>の再計算を避けることの場合、さらなる注意として、プランナはインデックス可能な<literal>WHERE</literal>句にない<literal>f(x)</literal>の使用を必ずしもインデックス列とマッチしないという事があります。
-上記のような単純な問い合わせの場合は通常は正しく処理できるでしょうが、結合を含む問い合わせでは駄目でしょう。
-これらの欠点は<productname>PostgreSQL</productname>の将来のバージョンで解決されるかもしれません。
-  </para>
-
-  <para>
-<!--
-   Partial indexes also have interesting interactions with index-only scans.
-   Consider the partial index shown in <xref linkend="indexes-partial-ex3"/>:
--->
-部分インデックスもインデックスオンリースキャンとの間に興味深い関係があります。
-<xref linkend="indexes-partial-ex3"/>に示す部分インデックスを考えます。
-<programlisting>
-CREATE UNIQUE INDEX tests_success_constraint ON tests (subject, target)
-    WHERE success;
-</programlisting>
-<!--
-   In principle, we could do an index-only scan on this index to satisfy a
-   query like
--->
-原則として、次のような問い合わせに対して、このインデックスを使ったインデックスオンリースキャンが可能です。
-<programlisting>
-SELECT target FROM tests WHERE subject = 'some-subject' AND success;
-</programlisting>
-<!--
-   But there's a problem: the <literal>WHERE</literal> clause refers
-   to <literal>success</literal> which is not available as a result column of the
-   index.  Nonetheless, an index-only scan is possible because the plan does
-   not need to recheck that part of the <literal>WHERE</literal> clause at run time:
-   all entries found in the index necessarily have <literal>success = true</literal>
-   so this need not be explicitly checked in the
-   plan.  <productname>PostgreSQL</productname> versions 9.6 and later will recognize
-   such cases and allow index-only scans to be generated, but older versions
-   will not.
--->
-しかし、<literal>WHERE</literal>句で参照される<literal>success</literal>がインデックスの結果列として利用できないという問題があります。
-それにも関わらず、インデックスオンリースキャンが可能です。
-なぜなら、このプランでは<literal>WHERE</literal>句のその部分を実行時に再検査する必要がない、つまりインデックス内にあるすべてのエントリは必ず<literal>success = true</literal>なので、プラン内でこれを明示的に検査する必要がないからです。
-<productname>PostgreSQL</productname>のバージョン9.6およびそれ以降ではこのような場合を認識し、インデックスオンリースキャンを生成可能ですが、それより古いバージョンではできません。
-  </para>
- </sect1>
-
 
  <sect1 id="indexes-examine">
 <!--
