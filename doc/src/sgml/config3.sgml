@@ -2167,6 +2167,55 @@ onの場合、演算子の優先順位の変更の結果、<productname>PostgreS
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-data-sync-retry" xreflabel="data_sync_retry">
+      <term><varname>data_sync_retry</varname> (<type>boolean</type>)
+      <indexterm>
+<!--
+       <primary><varname>data_sync_retry</varname> configuration parameter</primary>
+-->
+       <primary><varname>data_sync_retry</varname>設定パラメータ</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+<!--
+        When set to false, which is the default, <productname>PostgreSQL</productname>
+        will raise a PANIC-level error on failure to flush modified data files
+        to the filesystem.  This causes the database server to crash.  This
+        parameter can only be set at server start.
+-->
+デフォルトである偽に設定すると、<productname>PostgreSQL</productname>はファイルシステムに変更されたデータファイルを吐き出す際の失敗に対してPANICレベルのエラーを発生させます。
+これによりデータベースサーバのクラッシュを引き起こします。
+このパラメータはサーバ起動時のみ設定可能です。
+       </para>
+       <para>
+<!--
+        On some operating systems, the status of data in the kernel's page
+        cache is unknown after a write-back failure.  In some cases it might
+        have been entirely forgotten, making it unsafe to retry; the second
+        attempt may be reported as successful, when in fact the data has been
+        lost.  In these circumstances, the only way to avoid data loss is to
+        recover from the WAL after any failure is reported, preferably
+        after investigating the root cause of the failure and replacing any
+        faulty hardware.
+-->
+オペレーティングシステムによっては、カーネルキャッシュのページ内のデータの状態は、書き戻しの失敗の後は不明です。
+このような状況では、データロスを避ける唯一の方法は、失敗が報告された後、可能ならば失敗の根本原因を調査して故障したハードウェアを交換したのち、WALからの回復することだけです。
+       </para>
+       <para>
+<!--
+        If set to true, <productname>PostgreSQL</productname> will instead
+        report an error but continue to run so that the data flushing
+        operation can be retried in a later checkpoint.  Only set it to true
+        after investigating the operating system's treatment of buffered data
+        in case of write-back failure.
+-->
+真に設定すると、代わりに<productname>PostgreSQL</productname>はエラーを報告して実行を継続し、後のチェックポイントでデータの吐き出しをリトライします。
+書き込みの吐き出し失敗が起きたときのオペレーティングシステムのバッファデータの扱いを調査した後でのみ真に設定してください。
+       </para>
+      </listitem>
+     </varlistentry>
+
     </variablelist>
 
    </sect1>
@@ -2565,16 +2614,13 @@ onの場合、演算子の優先順位の変更の結果、<productname>PostgreS
       </term>
       <listitem>
        <para>
-       <!--
-        Reports the number of blocks (pages) in a WAL segment file.
-        The total size of a WAL segment file in bytes is equal to
-        <varname>wal_segment_size</varname> multiplied by <varname>wal_block_size</varname>;
-        by default this is 16MB.  See <xref linkend="wal-configuration"/> for
-        more information.
-       -->
-       WALセグメントファイルのブロック数（ページ数）を報告します。
-       バイト単位のWALセグメント総容量は<varname>wal_block_size</varname>倍の<varname>wal_segment_size</varname>に等しくなります。
-       デフォルトでは16MBです。より詳細は<xref linkend="wal-configuration"/>を参照してください。
+<!--
+        Reports the size of write ahead log segments.  The default value is
+        16MB. See <xref linkend="wal-configuration"/> for more information.
+-->
+ログ先行書き込みのセグメントの大きさを報告します。
+デフォルト値は16MBです。
+さらなる詳細については<xref linkend="wal-configuration"/>をご覧ください。
        </para>
       </listitem>
      </varlistentry>
