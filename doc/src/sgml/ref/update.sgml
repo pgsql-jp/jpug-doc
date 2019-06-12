@@ -414,12 +414,10 @@ UPDATE <replaceable class="parameter">count</replaceable>
 その場合、この行がそのパーティション制約を満たす他のパーティションがパーティションツリー内にあれば、行はそのパーティションに移されます。
 もし、そのようなパーティションがなければ、エラーが発生します。
 舞台裏では、行の移動は実際は<command>DELETE</command>と<command>INSERT</command>操作です。
-しかしながら、同じ行に対して同時に実行される<command>UPDATE</command>や<command>DELETE</command>のためにこの行が見つからない可能性があります。
-詳細は<xref linkend="ddl-partitioning-declarative-limitations"/>を参照してください。
-現在、外部テーブルであるパーティションから別のパーティションに行を移動することはできませんが、外部データラッパが対応していれば外部テーブルへの移動はできます。
   </para>
 
   <para>
+<!--
    There is a possibility that a concurrent <command>UPDATE</command> or
    <command>DELETE</command> on the row being moved will get a serialization
    failure error.  Suppose session 1 is performing an <command>UPDATE</command>
@@ -434,12 +432,21 @@ UPDATE <replaceable class="parameter">count</replaceable>
    have identified the newly updated row and carried out the
    <command>UPDATE</command>/<command>DELETE</command> on this new row
     version.
+-->
+移される行に対して同時に実行される<command>UPDATE</command>や<command>DELETE</command>のために直列化の失敗エラーになる可能性があります。
+セッション1がパーティションキーに対して<command>UPDATE</command>を実行中であるとしましょう。一方、同時に実行しているセッション2に対してこの行は可視であり、セッション2はこの行に対して<command>UPDATE</command>または<command>DELETE</command>操作をするとしましょう。
+その場合、セッション2の<command>UPDATE</command>または<command>DELETE</command>は、行の移動を検出し、直列化の失敗エラー(常にSQLSTATE値が'40001'で返る)を発生させます。
+これが起きた場合には、アプリケーションはトランザクションを再試行したいかもしれません。
+テーブルがパーティション化されていない、または、行の移動がない通常の場合には、セッション2は新しく更新された行を特定し、この新しい行のバージョンに対して<command>UPDATE</command>/<command>DELETE</command>を実行します。
   </para>
 
   <para>
+<!--
    Note that while rows can be moved from local partitions to a foreign-table
    partition (provided the foreign data wrapper supports tuple routing), they
    cannot be moved from a foreign-table partition to another partition.
+-->
+(外部データラッパがタプルルーティングをサポートしていれば)行をローカルパーティションから外部テーブルパーティションへ移動できますが、外部テーブルパーティションから別のパーティションに移動できないことに注意してください。
   </para>
  </refsect1>
 
