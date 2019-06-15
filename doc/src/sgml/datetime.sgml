@@ -39,7 +39,10 @@
    <title>日付/時刻入力の解釈</title>
 
    <para>
+<!--
     Date/time input strings are decoded using the following procedure.
+-->
+日付/時刻入力文字列は以下の手続きを使って解読します。
    </para>
 
    <procedure>
@@ -105,15 +108,22 @@
 
     <step>
      <para>
+<!--
       If the token is an alphabetic string, match up with possible strings:
+-->
+もしトークンがアルファベット文字列の場合、以下のように可能性のある文字列と照合されます。
      </para>
 
      <substeps>
       <step>
        <para>
+<!--
         See if the token matches any known time zone abbreviation.
         These abbreviations are supplied by the configuration file
         described in <xref linkend="datetime-config-files"/>.
+-->
+トークンが既知の時間帯短縮形と一致するかどうかを調べます。
+これらの短縮形は<xref linkend="datetime-config-files"/>で記述する設定ファイルで提供されます。
        </para>
       </step>
 
@@ -126,7 +136,7 @@
         month (e.g., <literal>January</literal>),
         or noise word (e.g., <literal>at</literal>, <literal>on</literal>).
 -->
-探索できなかった場合は同様にそのトークンに対し特殊文字（たとえば<literal>today</literal>）、曜日（たとえば<literal>Thursday</literal>）、月（たとえば<literal>January</literal>）、ノイズ（たとえば<literal>at</literal>、<literal>on</literal>）に一致するかどうか、参照テーブルにバイナリ検索をかけます。
+見つからなかった場合は、そのトークンに対し特殊文字（たとえば<literal>today</literal>）、曜日（たとえば<literal>Thursday</literal>）、月（たとえば<literal>January</literal>）、ノイズ（たとえば<literal>at</literal>、<literal>on</literal>）に一致するかどうか、内部テーブルを検索します。
        </para>
       </step>
 
@@ -248,21 +258,33 @@ BCが指定されず年フィールドの長さが2桁の場合、年は4桁に�
 
 
   <sect1 id="datetime-invalid-input">
+<!--
    <title>Handling of Invalid or Ambiguous Timestamps</title>
+-->
+   <title>不正あるいは曖昧なタイムスタンプの扱い</title>
 
    <para>
+<!--
     Ordinarily, if a date/time string is syntactically valid but contains
     out-of-range field values, an error will be thrown.  For example, input
     specifying the 31st of February will be rejected.
+-->
+日付/時刻文字列が構文的に正しいが、フィールドの範囲外の値を含んでいる場合、通常、エラーとなります。
+たとえば、2月31日を指定した入力は受け付けられません。
    </para>
 
    <para>
+<!--
     During a daylight-savings-time transition, it is possible for a
     seemingly valid timestamp string to represent a nonexistent or ambiguous
     timestamp.  Such cases are not rejected; the ambiguity is resolved by
     determining which UTC offset to apply.  For example, supposing that the
     <xref linkend="guc-timezone"/> parameter is set
     to <literal>America/New_York</literal>, consider
+-->
+夏時間の移行期間では、一見正しく見えるタイムスタンプ文字列が、存在しない、あるいは曖昧なタイムスタンプを表現してしまうことがあります。
+そのような場合はエラーで弾くことはせず、どのUTCオフセットを適用するかを決定する過程で曖昧さが解消されます。
+たとえば<xref linkend="guc-timezone"/>パラメータが<literal>America/New_York</literal>に設定されているとして、以下の例を考えてみましょう。
 <programlisting>
 =&gt; SELECT '2018-03-11 02:30'::timestamptz;
       timestamptz
@@ -270,15 +292,23 @@ BCが指定されず年フィールドの長さが2桁の場合、年は4桁に�
  2018-03-11 03:30:00-04
 (1 row)
 </programlisting>
+<!--
     Because that day was a spring-forward transition date in that time zone,
     there was no civil time instant 2:30AM; clocks jumped forward from 2AM
     EST to 3AM EDT.  <productname>PostgreSQL</productname> interprets the
     given time as if it were standard time (UTC-5), which then renders as
     3:30AM EDT (UTC-4).
+-->
+その時間帯では、その日は春に時刻を進める(spring-forward transition)日なので、標準時で2:30AMは存在しません。
+2AM ESTから3AM EDTに時計がジャンプするからです。
+<productname>PostgreSQL</productname>はあたかも標準時(UTC-5)で時刻を与えられたかのように解釈し、続いて3:30AM EDT (UTC-4)として表示しました。
    </para>
 
    <para>
+<!--
     Conversely, consider the behavior during a fall-back transition:
+-->
+逆に、秋に時刻を戻す移行期間(fall-back transition)の振る舞いを考えます。
 <programlisting>
 =&gt; SELECT '2018-11-04 02:30'::timestamptz;
       timestamptz
@@ -286,12 +316,18 @@ BCが指定されず年フィールドの長さが2桁の場合、年は4桁に�
  2018-11-04 02:30:00-05
 (1 row)
 </programlisting>
+<!--
     On that date, there were two possible interpretations of 2:30AM; there
     was 2:30AM EDT, and then an hour later after the reversion to standard
     time, there was 2:30AM EST.
     Again, <productname>PostgreSQL</productname> interprets the given time
     as if it were standard time (UTC-5).  We can force the matter by
     specifying daylight-savings time:
+-->
+その日は、2:30AMに対してふた通りの解釈が可能でした。
+まず2:30AM EDTがあり、1時間後の標準時への遡行ののち、2:30AM ESTとなりました。
+ここでも<productname>PostgreSQL</productname>はあたかも標準時(UTC-5)で時刻を与えられたかのように解釈しました。
+夏時間を指定することにより、動作を強制できます。
 <programlisting>
 =&gt; SELECT '2018-11-04 02:30 EDT'::timestamptz;
       timestamptz
@@ -299,11 +335,16 @@ BCが指定されず年フィールドの長さが2桁の場合、年は4桁に�
  2018-11-04 01:30:00-05
 (1 row)
 </programlisting>
+<!--
     This timestamp could validly be rendered as either 2:30 UTC-4 or
     1:30 UTC-5; the timestamp output code chooses the latter.
+-->
+このタイムスタンプは2:30 UTC-4あるいは1:30 UTC-5のどちらでも正しく表示できます。
+タイムスタンプの出力コードは後者を選びました。
    </para>
 
    <para>
+<!--
     The precise rule that is applied in such cases is that an invalid
     timestamp that appears to fall within a jump-forward daylight savings
     transition is assigned the UTC offset that prevailed in the time zone
@@ -312,14 +353,23 @@ BCが指定されず年フィールドの長さが2桁の場合、年は4桁に�
     prevailed just after the transition.  In most time zones this is
     equivalent to saying that <quote>the standard-time interpretation is
     preferred when in doubt</quote>.
+-->
+このような場合に適用される正確なルールは次のようなものです。
+夏時間で時刻を進める移行期間に入る不正なタイムスタンプは、移行期間の直前の時間帯に適用されるUTCオフセットが割り当てられます。
+一方、時刻を戻す移行期間の前あるいは後のどちらでにでも入る可能性のある不正なタイムスタンプは、移行期間の後に相当するUTCオフセットが割り当てられます。
+ほとんどの時間帯にとってこれは<quote>疑わしければ標準時間として解釈する</quote>と言うのと同じです。
    </para>
 
    <para>
+<!--
     In all cases, the UTC offset associated with a timestamp can be
     specified explicitly, using either a numeric UTC offset or a time zone
     abbreviation that corresponds to a fixed UTC offset.  The rule just
     given applies only when it is necessary to infer a UTC offset for a time
     zone in which the offset varies.
+-->
+どんな場合でも、数字のUTCオフセットを使うか、あるいは時間帯短縮形に関連する固定のUTCオフセットを使って、タイムスタンプに付随するUTCオフセットを明示的に指定できます。
+ここで説明したルールは、ある時間帯のUTCオフセットが変動し、UTCオフセットを推測する必要がある場合にのみ適用されます。
    </para>
   </sect1>
 
