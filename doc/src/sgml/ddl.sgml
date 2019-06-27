@@ -4461,7 +4461,7 @@ VALUES ('Albany', NULL, NULL, 'NY');
      rule of thumb is that the size of the table should exceed the physical
      memory of the database server.
 -->
-この利益は通常は、そうしなければテーブルが非常に大きくなる場合にのみ価値があります。
+この利益は通常、そうしなければテーブルが非常に大きくなる場合にのみ価値があります。
 テーブルがパーティショニングから利益を得られるかどうかの正確な分岐点はアプリケーションに依存しますが、重要なことはテーブルのサイズがデータベースサーバの物理メモリより大きいことです。
     </para>
 
@@ -5799,6 +5799,7 @@ Aggregate  (cost=37.75..37.76 rows=1 width=8)
    </para>
 
    <para>
+<!--
     Note that partition pruning is driven only by the constraints defined
     implicitly by the partition keys, not by the presence of indexes.
     Therefore it isn't necessary to define indexes on the key columns.
@@ -5806,9 +5807,15 @@ Aggregate  (cost=37.75..37.76 rows=1 width=8)
     whether you expect that queries that scan the partition will
     generally scan a large part of the partition or just a small part.
     An index will be helpful in the latter case but not the former.
+-->
+パーティション除去はパーティションキーによって暗黙的に定義された制約のみで動作し、インデックスの有無では動作しないことに注意してください。
+よってキー列のインデックスを定義することは必要ではありません。
+あるパーティションでインデックスが必要かどうかは、パーティションをスキャンする問い合わせが通常はパーティションの大部分をスキャンするのか、あるいは小さな部分をスキャンするのかによります。
+インデックスは後者において役立ちますが、前者では役立ちません。
    </para>
 
    <para>
+<!--
     Partition pruning can be performed not only during the planning of a
     given query, but also during its execution.  This is useful as it can
     allow more partitions to be pruned when clauses contain expressions
@@ -5817,10 +5824,16 @@ Aggregate  (cost=37.75..37.76 rows=1 width=8)
     value obtained from a subquery or using a parameterized value on the
     inner side of a nested loop join.  Partition pruning during execution
     can be performed at any of the following times:
+-->
+パーティション除去は与えられた問い合わせの計画時だけでなく、問い合わせの実行時にも可能です。
+問い合わせの計画時、句が値のわからない式を含むときにより多くのパーティションを除去できるため便利です。
+例えば、<command>PREPARE</command>文中に定義されたパラメータや、副問い合わせから取得される値の利用、ネステッドループ結合の内側でパラメータ化された値の利用です。
+実行中のパーティション除去は、次のいずれかの時点で可能です。
 
     <itemizedlist>
      <listitem>
       <para>
+<!--
        During initialization of the query plan.  Partition pruning can be
        performed here for parameter values which are known during the
        initialization phase of execution.  Partitions which are pruned
@@ -5830,11 +5843,17 @@ Aggregate  (cost=37.75..37.76 rows=1 width=8)
        removed during this phase by observing the
        <quote>Subplans Removed</quote> property in the
        <command>EXPLAIN</command> output.
+-->
+問い合わせ計画の初期化時。
+パーティション除去は、パラメータの値が分かる実行の初期化段階時に可能です。
+この段階で除去されたパーティションは、問い合わせの<command>EXPLAIN</command>や<command>EXPLAIN ANALYZE</command>中に姿を見せることはないでしょう。
+<command>EXPLAIN</command>出力中に<quote>Subplans removed</quote>プロパティを観察することによってこの段階で削除されるパーティションの数を特定することが可能です。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        During actual execution of the query plan.  Partition pruning may
        also be performed here to remove partitions using values which are
        only known during actual query execution.  This includes values
@@ -5850,32 +5869,53 @@ Aggregate  (cost=37.75..37.76 rows=1 width=8)
        for it depending on how many times each of them was pruned during
        execution.  Some may be shown as <literal>(never executed)</literal>
        if they were pruned every time.
+-->
+問い合わせ計画の実行時。
+パーティション除去では実際に問い合わせの実行をする際にのみ分かる値を用いてパーティションを取り除くことも同様に可能でしょう。
+これは、副問い合わせからの値やネステッドループ結合でパラメータ化されたような実行時のパラメータからの値を含みます。
+それらのパラメータの値は問い合わせの実行時に何回も変わるかもしれないため、パーティション除去はパーティション除去に使われる実行パラメータの値が変るたびに行われます。
+この段階で除去されたパーティションを特定するには、<command>EXPLAIN ANALYZE</command>出力中の<quote>loops</quote>プロパティの慎重な調査が必要です。
+異なるパーティションに対応するサブプランは、それぞれ実行時に除去された回数に応じて異なる値を持っているかもしれません。
+毎回パーティションが除去される場合、一部は<literal>(never executed)</literal>と表示されるでしょう。
       </para>
      </listitem>
     </itemizedlist>
    </para>
 
    <para>
+<!--
     Partition pruning can be disabled using the
     <xref linkend="guc-enable-partition-pruning"/> setting.
+-->
+パーティション除去は<xref linkend="guc-enable-partition-pruning"/>設定を使うことにより無効化できます。
    </para>
 
    <note>
     <para>
+<!--
      Execution-time partition pruning currently only occurs for the
      <literal>Append</literal> node type, not
      for <literal>MergeAppend</literal> or <literal>ModifyTable</literal>
      nodes.  That is likely to be changed in a future release of
      <productname>PostgreSQL</productname>.
+-->
+実行時のパーティション除去は現在<literal>MergeAppend</literal>や<literal>ModifyTable</literal>ではなく<literal>Append</literal>ノードタイプに対してのみ発生します。
+これは<productname>PostgreSQL</productname>の将来のリリースで変更される可能性があります。
     </para>
    </note>
   </sect2>
 
   <sect2 id="ddl-partitioning-constraint-exclusion">
+<!--
    <title>Partitioning and Constraint Exclusion</title>
+-->
+   <title>パーティショニングと制約による除外</title>
 
    <indexterm>
+<!--
     <primary>constraint exclusion</primary>
+-->
+    <primary>制約による除外</primary>
    </indexterm>
 
    <para>
@@ -5946,8 +5986,7 @@ Aggregate  (cost=37.75..37.76 rows=1 width=8)
       Constraint exclusion is only applied during query planning, unlike
       partition pruning, which can also be applied during query execution.
 -->
-制約による除外は問い合わせ計画時にのみ適用されます。
-パーティション除去とは違い、問い合わせの実行時には適用できません。
+問い合わせの実行中にも適用できるパーティション除去とは違い、制約による除外は問い合わせ計画時にのみ適用されます。
      </para>
     </listitem>
 
