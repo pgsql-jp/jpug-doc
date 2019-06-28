@@ -3369,7 +3369,7 @@ CREATE TABLE public.products ( ... );
 検索パス内に一致するテーブルがないと、データベースの他のスキーマ内に一致するテーブルがある場合でもエラーが報告されます。
    </para>
 
-   <para>
+  <para>
 <!--
     The ability to create like-named objects in different schemas complicates
     writing a query that references precisely the same objects every time.  It
@@ -5725,6 +5725,7 @@ ANALYZE measurement;
 -->
 <firstterm>パーティション除去</firstterm>は、宣言的パーティショニングテーブルに対するパフォーマンスを向上させる問い合わせの最適化技術です。
 例えば、
+
 <programlisting>
 SET enable_partition_pruning = on;                 -- the default
 SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
@@ -5743,15 +5744,15 @@ SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
 パーティション除去がなければ、上記の問い合わせは<structname>measurement</structname>テーブルの各パーティションをスキャンするでしょう。
 パーティション除去が有効になっているとき、プランナはそれぞれのパーティションの定義を検証し、パーティションが問い合わせの<literal>WHERE</literal>に一致する行を含んでいないためにスキャンされる必要が無いことを証明します。
 プランナはこれを証明すると、問い合わせ計画からそのパーティションを除外（<firstterm>除去</firstterm>）します。
-</para>
+   </para>
 
-<para>
+   <para>
 <!--
-By using the EXPLAIN command and the <xref
-linkend="guc-enable-partition-pruning"/> configuration parameter, it's
-possible to show the difference between a plan for which partitions have
-been pruned and one for which they have not.  A typical unoptimized
-plan for this type of table setup is:
+    By using the EXPLAIN command and the <xref
+    linkend="guc-enable-partition-pruning"/> configuration parameter, it's
+    possible to show the difference between a plan for which partitions have
+    been pruned and one for which they have not.  A typical unoptimized
+    plan for this type of table setup is:
 -->
 EXPLAINコマンドと設定パラメータ<xref linkend="guc-enable-partition-pruning"/> を使用することによって、パーティションの除去をした計画とそうでない計画の違いを明らかにすることを可能とします。
 この種類のテーブル設定に対する典型的な最適化されない計画は以下のようになります。
@@ -5760,27 +5761,27 @@ SET enable_partition_pruning = off;
 EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
                                     QUERY PLAN
 -----------------------------------------------------------------------------------
-Aggregate  (cost=188.76..188.77 rows=1 width=8)
--&gt;  Append  (cost=0.00..181.05 rows=3085 width=0)
- -&gt;  Seq Scan on measurement_y2006m02  (cost=0.00..33.12 rows=617 width=0)
-       Filter: (logdate &gt;= '2008-01-01'::date)
- -&gt;  Seq Scan on measurement_y2006m03  (cost=0.00..33.12 rows=617 width=0)
-       Filter: (logdate &gt;= '2008-01-01'::date)
+ Aggregate  (cost=188.76..188.77 rows=1 width=8)
+   -&gt;  Append  (cost=0.00..181.05 rows=3085 width=0)
+         -&gt;  Seq Scan on measurement_y2006m02  (cost=0.00..33.12 rows=617 width=0)
+               Filter: (logdate &gt;= '2008-01-01'::date)
+         -&gt;  Seq Scan on measurement_y2006m03  (cost=0.00..33.12 rows=617 width=0)
+               Filter: (logdate &gt;= '2008-01-01'::date)
 ...
- -&gt;  Seq Scan on measurement_y2007m11  (cost=0.00..33.12 rows=617 width=0)
-       Filter: (logdate &gt;= '2008-01-01'::date)
- -&gt;  Seq Scan on measurement_y2007m12  (cost=0.00..33.12 rows=617 width=0)
-       Filter: (logdate &gt;= '2008-01-01'::date)
- -&gt;  Seq Scan on measurement_y2008m01  (cost=0.00..33.12 rows=617 width=0)
-       Filter: (logdate &gt;= '2008-01-01'::date)
+         -&gt;  Seq Scan on measurement_y2007m11  (cost=0.00..33.12 rows=617 width=0)
+               Filter: (logdate &gt;= '2008-01-01'::date)
+         -&gt;  Seq Scan on measurement_y2007m12  (cost=0.00..33.12 rows=617 width=0)
+               Filter: (logdate &gt;= '2008-01-01'::date)
+         -&gt;  Seq Scan on measurement_y2008m01  (cost=0.00..33.12 rows=617 width=0)
+               Filter: (logdate &gt;= '2008-01-01'::date)
 </programlisting>
 
 <!--
-Some or all of the partitions might use index scans instead of
-full-table sequential scans, but the point here is that there
-is no need to scan the older partitions at all to answer this query.
-When we enable partition pruning, we get a significantly
-cheaper plan that will deliver the same answer:
+    Some or all of the partitions might use index scans instead of
+    full-table sequential scans, but the point here is that there
+    is no need to scan the older partitions at all to answer this query.
+    When we enable partition pruning, we get a significantly
+    cheaper plan that will deliver the same answer:
 -->
 一部のパーティション、もしくはすべてのパーティションで、テーブル全体に対するシーケンシャルスキャンではなく、インデックススキャンが使用される可能性があります。
 しかしここで重要なことは、この問い合わせに対する回答のために古いパーティションをスキャンする必要はまったく無いということです。
@@ -5791,10 +5792,10 @@ SET enable_partition_pruning = on;
 EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
                                     QUERY PLAN
 -----------------------------------------------------------------------------------
-Aggregate  (cost=37.75..37.76 rows=1 width=8)
--&gt;  Append  (cost=0.00..36.21 rows=617 width=0)
- -&gt;  Seq Scan on measurement_y2008m01  (cost=0.00..33.12 rows=617 width=0)
-       Filter: (logdate &gt;= '2008-01-01'::date)
+ Aggregate  (cost=37.75..37.76 rows=1 width=8)
+   -&gt;  Append  (cost=0.00..36.21 rows=617 width=0)
+         -&gt;  Seq Scan on measurement_y2008m01  (cost=0.00..33.12 rows=617 width=0)
+               Filter: (logdate &gt;= '2008-01-01'::date)
 </programlisting>
    </para>
 
