@@ -2015,10 +2015,10 @@ SELECT b, char_length(b) FROM test2;
 -->
 <quote>hex</quote>書式ではバイナリデータの各バイトを上位4ビット、下位4ビットの順で2桁の16進数に符号化します。
 （エスケープ書式と区別するために）文字列全体は<literal>\x</literal>という並びの後に付けられます。
-一部の文脈では、先頭のバックスラッシュを二重にしてエスケープさせる必要があるかもしれません。
+一部の文脈では、先頭のバックスラッシュを二重にしてエスケープさせる必要があるかもしれません(以下を参照 <xref linkend="sql-syntax-strings"/>)。
 これはエスケープ書式でバックスラッシュを二重にしなければならない場合と同じで、詳細は以下に示します。
-16進数の桁は大文字でも小文字でも構いません。
-桁の組み合わせと次の組み合わせの間に空白文字を入れることができます。
+入力する16進数の桁は大文字でも小文字でも構いません。
+数字のペアの間に空白文字を入れることができます。
 （しかし桁の組み合わせの間や先頭の<literal>\x</literal>の間には入れることはできません。）
 hex書式は外部のアプリケーションおよびプロトコルの間で広く互換性を持ち、また、エスケープ書式と比べ変換が高速になる傾向があります。
 このため使用が好まれます。
@@ -2081,7 +2081,7 @@ SELECT '\xDEADBEEF';
 -->
 エスケープ書式で<type>bytea</type>値を入力する際に、特定の値のオクテットをエスケープする<emphasis>必要</emphasis>があります。
 なお、すべてのオクテットの値をエスケープすることが<emphasis>できます</emphasis>。
-一般的にあるオクテットをエスケープするには、それをその3桁の8進数に変換し、バックスラッシュ(エスケープ文字列構文を使用してリテラルとして値を記述する場合は2つのバックスラッシュ)を前に付けます。
+一般的にあるオクテットをエスケープするには、それをその3桁の8進数に変換し、バックスラッシュを前に付けます。
 他にもバックスラッシュ自体(10進数表記のオクテットで92)を二重のバックスラッシュとして表現することができます。
 <xref linkend="datatype-binary-sqlesc"/>には、エスケープする必要がある文字と、その適用可能な代替エスケープシーケンスを示しています。
    </para>
@@ -2179,7 +2179,6 @@ SELECT '\xDEADBEEF';
 -->
 実際には、<emphasis>表示できない</emphasis>オクテットに対するエスケープ要求はロケールの設定に依存して異なります。
 ロケールの設定によっては、エスケープをしないで済むこともあります。
-<xref linkend="datatype-binary-sqlesc"/>の例の各結果は、出力表現が時として2文字以上であっても、長さは正確に1オクテットであることに注意してください。
    </para>
 
    <para>
@@ -2228,22 +2227,21 @@ SELECT '\xDEADBEEF';
     <xref linkend="datatype-binary-sqlesc"/> are implemented by
     that function.
 -->
-<xref linkend="datatype-binary-sqlesc"/>で示したように、複数バックスラッシュが必要な理由は、文字列リテラルとして記述された入力文字列は、<productname>PostgreSQL</productname>サーバ上で2つの解析>段階を通過する必要があることです。
-各組み合わせの最初のバックスラッシュは文字列リテラル用パーサでエスケープ文字と解釈（エスケープ文字列構文の使用を前提）され、2番目のバックスラッシュを残して、そこで消費されます。
-（この段階のエスケープを避けるためにドル引用符による文字列を使用することができます。）
-残りのバックスラッシュは、<type>bytea</type>入力関数が3桁のオクテット値の先頭に付く記号、もしくは、他のバックスラッシュをエスケープする記号として認識します。
-例えば、<literal>'\\001'</literal>としてサーバに渡された文字列リテラルは、エスケープ文字列パーサを通過した後<literal>\001</literal>のようになります。
-<literal>\001</literal>はその後<type>bytea</type>入力関数に送られ、10進数値1の1つのオクテットに変換されます。
-単一引用符文字は<type>bytea</type>では特別に扱われず、通常の文字列リテラルの規則に従うことに注意してください。
-（<xref linkend="sql-syntax-strings"/>も参照してください。）
-
+<xref linkend="datatype-binary-sqlesc"/>で示したように、シングルクオートが二重に必要な理由は、SQLコマンド中のあらゆる文字列に当てはまるためです。
+一般的な文字列パーサは最も外側のシングルクォートを消費し、一つの文字データのシングルクォートのペアを減らします。
+<type>bytea</type>を入力する関数で単純なデータ文字を扱うために単に一つのシングルクォートを入力するケースが見られます。
+しかし、<type>bytea</type>を入力する関数はバックスラッシュを特別なものとして扱うため、この関数で実装された<xref linkend="datatype-binary-sqlesc"/>では異なる動作が見られます。
    </para>
 
    <para>
+<!--
     In some contexts, backslashes must be doubled compared to what is
     shown above, because the generic string-literal parser will also
     reduce pairs of backslashes to one data character;
     see <xref linkend="sql-syntax-strings"/>.
+-->
+一般的な文字列パーサは一つの文字データのバックスラッシュのペアを減らすため、文脈によってはバックスラッシュは上記に見らるように、重ねる必要があります。
+<xref linkend="sql-syntax-strings"/>も参照ください。
    </para>
 
    <para>
@@ -3699,7 +3697,7 @@ ISO 8601の仕様では日付と時刻を区切るために大文字の<literal>
 <literal>America/New_York</literal>などの完全な時間帯名称。
 認識できる時間帯名称は<literal>pg_timezone_names</literal>ビューに列挙されています（<xref linkend="view-pg-timezone-names"/>を参照してください）。
 <productname>PostgreSQL</productname>はこの目的のためによく使用されているIANA時間帯データを使用します。
-したがって、多くの他のソフトウェアでも同じ名前が認識されます。
+したがって、他のソフトウェアでも同じ名前が認識されます。
        </para>
       </listitem>
       <listitem>
@@ -6314,7 +6312,7 @@ a0ee-bc99-9c0b-4ef8-bb6d-6bb9-bd38-0a11
     can be used to evaluate whether a particular <type>xml</type>
     value is a full document or only a content fragment.
 -->
-<type>xml</type>型は、XML標準で定義された整形式の<quote>文書</quote>およびXML標準による<literal>XMLDecl? content</literal>生成規則で定義された<quote>コンテンツ</quote>フラグメントを格納することができます。
+<type>xml</type>型は、XML標準で定義された整形式の<quote>文書</quote>およびXQueryとXPathデータモデルのより寛容な<ulink url="https://www.w3.org/TR/2010/REC-xpath-datamodel-20101214/#DocumentNode"><quote>文書ノード</quote>を参照して定義される<quote>content</quote>フラグメントを格納できます。
 大雑把に言うと、これは、コンテンツフラグメントが2つ以上の最上位要素や文字ノードを持つことができることを意味します。
 <literal><replaceable>xmlvalue</replaceable> IS DOCUMENT</literal>という式を使用して、特定の<type>xml</type>値が完全な文書か単なるコンテンツフラグメントか評価することができます。
    </para>
