@@ -9785,6 +9785,9 @@ ATExecAlterColumnType(AlteredTableInfo *tab, Relation rel,
 	SysScanDesc scan;
 	HeapTuple	depTup;
 	ObjectAddress address;
+	ListCell   *lc;
+	ListCell   *prev;
+	ListCell   *next;
 
 	/*
 	 * Clear all the missing values if we're rewriting the table, since this
@@ -9915,14 +9918,20 @@ ATExecAlterColumnType(AlteredTableInfo *tab, Relation rel,
 					if (relKind == RELKIND_INDEX ||
 						relKind == RELKIND_PARTITIONED_INDEX)
 					{
+						/*
+						 * Indexes that are directly dependent on the table
+						 * might be regular indexes or constraint indexes.
+						 * Constraint indexes typically have only indirect
+						 * dependencies; but there are exceptions, notably
+						 * partial exclusion constraints.  Hence we must check
+						 * whether the index depends on any constraint that's
+						 * due to be rebuilt, which we'll do below after we've
+						 * found all such constraints.
+						 */
 						Assert(foundObject.objectSubId == 0);
-						if (!list_member_oid(tab->changedIndexOids, foundObject.objectId))
-						{
-							tab->changedIndexOids = lappend_oid(tab->changedIndexOids,
-																foundObject.objectId);
-							tab->changedIndexDefs = lappend(tab->changedIndexDefs,
-															pg_get_indexdef_string(foundObject.objectId));
-						}
+						tab->changedIndexOids =
+							list_append_unique_oid(tab->changedIndexOids,
+												   foundObject.objectId);
 					}
 					else if (relKind == RELKIND_SEQUENCE)
 					{
@@ -10072,6 +10081,41 @@ ATExecAlterColumnType(AlteredTableInfo *tab, Relation rel,
 	}
 
 	systable_endscan(scan);
+
+	/*
+	 * Check the collected index OIDs to see which ones belong to the
+	 * constraint(s) of the table, and drop those from the list of indexes
+	 * that we need to process; rebuilding the constraints will handle them.
+	 */
+	prev = NULL;
+	for (lc = list_head(tab->changedIndexOids); lc; lc = next)
+	{
+		Oid			indexoid = lfirst_oid(lc);
+		Oid			conoid;
+
+		next = lnext(lc);
+
+		conoid = get_index_constraint(indexoid);
+		if (OidIsValid(conoid) &&
+			list_member_oid(tab->changedConstraintOids, conoid))
+			tab->changedIndexOids = list_delete_cell(tab->changedIndexOids,
+													 lc, prev);
+		else
+			prev = lc;
+	}
+
+	/*
+	 * Now collect the definitions of the indexes that must be rebuilt.  (We
+	 * could merge this into the previous loop, but it'd be more complicated
+	 * for little gain.)
+	 */
+	foreach(lc, tab->changedIndexOids)
+	{
+		Oid			indexoid = lfirst_oid(lc);
+
+		tab->changedIndexDefs = lappend(tab->changedIndexDefs,
+										pg_get_indexdef_string(indexoid));
+	}
 
 	/*
 	 * Now scan for dependencies of this column on other things.  The only
@@ -15082,8 +15126,7 @@ CloneRowTriggersToPartition(Relation parent, Relation partition)
 	ScanKeyData key;
 	SysScanDesc scan;
 	HeapTuple	tuple;
-	MemoryContext oldcxt,
-				perTupCxt;
+	MemoryContext perTupCxt;
 
 	ScanKeyInit(&key, Anum_pg_trigger_tgrelid, BTEqualStrategyNumber,
 				F_OIDEQ, ObjectIdGetDatum(RelationGetRelid(parent)));
@@ -15093,18 +15136,16 @@ CloneRowTriggersToPartition(Relation parent, Relation partition)
 
 	perTupCxt = AllocSetContextCreate(CurrentMemoryContext,
 									  "clone trig", ALLOCSET_SMALL_SIZES);
-	oldcxt = MemoryContextSwitchTo(perTupCxt);
 
 	while (HeapTupleIsValid(tuple = systable_getnext(scan)))
 	{
-		Form_pg_trigger trigForm;
+		Form_pg_trigger trigForm = (Form_pg_trigger) GETSTRUCT(tuple);
 		CreateTrigStmt *trigStmt;
 		Node	   *qual = NULL;
 		Datum		value;
 		bool		isnull;
 		List	   *cols = NIL;
-
-		trigForm = (Form_pg_trigger) GETSTRUCT(tuple);
+		MemoryContext oldcxt;
 
 		/*
 		 * Ignore statement-level triggers; those are not cloned.
@@ -15122,6 +15163,9 @@ CloneRowTriggersToPartition(Relation parent, Relation partition)
 		if (!TRIGGER_FOR_AFTER(trigForm->tgtype))
 			elog(ERROR, "unexpected trigger \"%s\" found",
 				 NameStr(trigForm->tgname));
+
+		/* Use short-lived context for CREATE TRIGGER */
+		oldcxt = MemoryContextSwitchTo(perTupCxt);
 
 		/*
 		 * If there is a WHEN clause, generate a 'cooked' version of it that's
@@ -15186,10 +15230,10 @@ CloneRowTriggersToPartition(Relation parent, Relation partition)
 					  trigForm->tgfoid, HeapTupleGetOid(tuple), qual,
 					  false, true);
 
+		MemoryContextSwitchTo(oldcxt);
 		MemoryContextReset(perTupCxt);
 	}
 
-	MemoryContextSwitchTo(oldcxt);
 	MemoryContextDelete(perTupCxt);
 
 	systable_endscan(scan);
