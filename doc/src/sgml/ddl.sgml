@@ -4336,8 +4336,9 @@ VALUES ('Albany', NULL, NULL, 'NY');
    </itemizedlist>
 
 <!--
-   These deficiencies will probably be fixed in some future release,
-   but in the meantime considerable care is needed in deciding whether
+   Some functionality not implemented for inheritance hierarchies is
+   implemented for declarative partitioning.
+   Considerable care is needed in deciding whether partitioning with legacy
    inheritance is useful for your application.
 -->
 これらの機能の不足は、今後のリリースでおそらく改善されるでしょう。
@@ -5066,6 +5067,44 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
 こうすることで、システムは暗示的なパーティション制約を検証するための走査を省略することができます。
 このような制約がなければ、親テーブルに<literal>ACCESS EXCLUSIVE</literal>ロックを保持したままで、パーティション制約を検証するためにテーブルを走査することになります。
 この制約は<command>ATTACH PARTITION</command>が終わった後は不要ですので削除することができます。
+    </para>
+
+    <para>
+     As explained above, it is possible to create indexes on partitioned tables
+     and they are applied automatically to the entire hierarchy.  This is very
+     convenient, as not only the existing partitions will become indexed, but
+     also any partitions that are created in the future will.  One limitation is
+     that it's not possible to use the <literal>CONCURRENTLY</literal>
+     qualifier when creating such a partitioned index.  To overcome long lock
+     times, it is possible to use <command>CREATE INDEX ON ONLY</command>
+     the partitioned table; such an index is marked invalid, and the partitions
+     do not get the index applied automatically.  The indexes on partitions can
+     be created separately using <literal>CONCURRENTLY</literal>, and later
+     <firstterm>attached</firstterm> to the index on the parent using
+     <command>ALTER INDEX .. ATTACH PARTITION</command>.  Once indexes for all
+     partitions are attached to the parent index, the parent index is marked
+     valid automatically.  Example:
+<programlisting>
+CREATE INDEX measurement_usls_idx ON ONLY measurement (unitsales);
+
+CREATE INDEX measurement_usls_200602_idx
+    ON measurement_y2006m02 (unitsales);
+ALTER INDEX measurement_usls_idx
+    ATTACH PARTITION measurement_usls_200602_idx;
+...
+</programlisting>
+
+     This technique can be used with <literal>UNIQUE</literal> and
+     <literal>PRIMARY KEY</literal> constraints too; the indexes are created
+     implicitly when the constraint is created.  Example:
+<programlisting>
+ALTER TABLE ONLY measurement ADD UNIQUE (city_id, logdate);
+
+ALTER TABLE measurement_y2006m02 ADD UNIQUE (city_id, logdate);
+ALTER INDEX measurement_city_id_logdate_key
+    ATTACH PARTITION measurement_y2006m02_city_id_logdate_key;
+...
+</programlisting>
     </para>
    </sect3>
 
@@ -6043,6 +6082,87 @@ EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
    </itemizedlist>
    </para>
   </sect2>
+  
+  <sect2 id="ddl-partitioning-declarative-best-practices">
+   <title>Declarative Partitioning Best Practices</title>
+
+   <para>
+    The choice of how to partition a table should be made carefully as the
+    performance of query planning and execution can be negatively affected by
+    poor design.
+   </para>
+
+   <para>
+    One of the most critical design decisions will be the column or columns
+    by which you partition your data.  Often the best choice will be to
+    partition by the column or set of columns which most commonly appear in
+    <literal>WHERE</literal> clauses of queries being executed on the
+    partitioned table.  <literal>WHERE</literal> clause items that match and
+    are compatible with the partition key can be used to prune unneeded
+    partitions.  However, you may be forced into making other decisions by
+    requirements for the <literal>PRIMARY KEY</literal> or a
+    <literal>UNIQUE</literal> constraint.  Removal of unwanted data is also a
+    factor to consider when planning your partitioning strategy.  An entire
+    partition can be detached fairly quickly, so it may be beneficial to
+    design the partition strategy in such a way that all data to be removed
+    at once is located in a single partition.
+   </para>
+
+   <para>
+    Choosing the target number of partitions that the table should be divided
+    into is also a critical decision to make.  Not having enough partitions
+    may mean that indexes remain too large and that data locality remains poor
+    which could result in low cache hit ratios.  However, dividing the table
+    into too many partitions can also cause issues.  Too many partitions can
+    mean longer query planning times and higher memory consumption during both
+    query planning and execution.  When choosing how to partition your table,
+    it's also important to consider what changes may occur in the future.  For
+    example, if you choose to have one partition per customer and you
+    currently have a small number of large customers, consider the
+    implications if in several years you instead find yourself with a large
+    number of small customers.  In this case, it may be better to choose to
+    partition by <literal>HASH</literal> and choose a reasonable number of
+    partitions rather than trying to partition by <literal>LIST</literal> and
+    hoping that the number of customers does not increase beyond what it is
+    practical to partition the data by.
+   </para>
+
+   <para>
+    Sub-partitioning can be useful to further divide partitions that are
+    expected to become larger than other partitions, although excessive
+    sub-partitioning can easily lead to large numbers of partitions and can
+    cause the same problems mentioned in the preceding paragraph.
+   </para>
+
+   <para>
+    It is also important to consider the overhead of partitioning during
+    query planning and execution.  The query planner is generally able to
+    handle partition hierarchies with up to a few hundred partitions fairly
+    well, provided that typical queries allow the query planner to prune all
+    but a small number of partitions.  Planning times become longer and memory
+    consumption becomes higher as more partitions are added.  This is
+    particularly true for the <command>UPDATE</command> and
+    <command>DELETE</command> commands.  Another reason to be concerned about
+    having a large number of partitions is that the server's memory
+    consumption may grow significantly over a period of time, especially if
+    many sessions touch large numbers of partitions.  That's because each
+    partition requires its metadata to be loaded into the local memory of
+    each session that touches it.
+   </para>
+
+   <para>
+    With data warehouse type workloads, it can make sense to use a larger
+    number of partitions than with an <acronym>OLTP</acronym> type workload.
+    Generally, in data warehouses, query planning time is less of a concern as
+    the majority of processing time is spent during query execution.  With
+    either of these two types of workload, it is important to make the right
+    decisions early, as re-partitioning large quantities of data can be
+    painfully slow.  Simulations of the intended workload are often beneficial
+    for optimizing the partitioning strategy.  Never assume that more
+    partitions are better than fewer partitions and vice-versa.
+   </para>
+  </sect2>
+
  </sect1>
 
  <sect1 id="ddl-foreign-data">

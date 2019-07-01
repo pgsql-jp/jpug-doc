@@ -2971,6 +2971,159 @@ select * from listp where a = (select null::int);
 (7 rows)
 
 drop table listp;
+--
+-- check that stable query clauses are only used in run-time pruning
+--
+create table stable_qual_pruning (a timestamp) partition by range (a);
+create table stable_qual_pruning1 partition of stable_qual_pruning
+  for values from ('2000-01-01') to ('2000-02-01');
+create table stable_qual_pruning2 partition of stable_qual_pruning
+  for values from ('2000-02-01') to ('2000-03-01');
+create table stable_qual_pruning3 partition of stable_qual_pruning
+  for values from ('3000-02-01') to ('3000-03-01');
+-- comparison against a stable value requires run-time pruning
+explain (analyze, costs off, summary off, timing off)
+select * from stable_qual_pruning where a < localtimestamp;
+                           QUERY PLAN                           
+----------------------------------------------------------------
+ Append (actual rows=0 loops=1)
+   Subplans Removed: 1
+   ->  Seq Scan on stable_qual_pruning1 (actual rows=0 loops=1)
+         Filter: (a < LOCALTIMESTAMP)
+   ->  Seq Scan on stable_qual_pruning2 (actual rows=0 loops=1)
+         Filter: (a < LOCALTIMESTAMP)
+(6 rows)
+
+-- timestamp < timestamptz comparison is only stable, not immutable
+explain (analyze, costs off, summary off, timing off)
+select * from stable_qual_pruning where a < '2000-02-01'::timestamptz;
+                                   QUERY PLAN                                   
+--------------------------------------------------------------------------------
+ Append (actual rows=0 loops=1)
+   Subplans Removed: 2
+   ->  Seq Scan on stable_qual_pruning1 (actual rows=0 loops=1)
+         Filter: (a < 'Tue Feb 01 00:00:00 2000 PST'::timestamp with time zone)
+(4 rows)
+
+-- check ScalarArrayOp cases
+explain (analyze, costs off, summary off, timing off)
+select * from stable_qual_pruning
+  where a = any(array['2010-02-01', '2020-01-01']::timestamp[]);
+           QUERY PLAN           
+--------------------------------
+ Result (actual rows=0 loops=1)
+   One-Time Filter: false
+(2 rows)
+
+explain (analyze, costs off, summary off, timing off)
+select * from stable_qual_pruning
+  where a = any(array['2000-02-01', '2010-01-01']::timestamp[]);
+                                                      QUERY PLAN                                                      
+----------------------------------------------------------------------------------------------------------------------
+ Append (actual rows=0 loops=1)
+   ->  Seq Scan on stable_qual_pruning2 (actual rows=0 loops=1)
+         Filter: (a = ANY ('{"Tue Feb 01 00:00:00 2000","Fri Jan 01 00:00:00 2010"}'::timestamp without time zone[]))
+(3 rows)
+
+explain (analyze, costs off, summary off, timing off)
+select * from stable_qual_pruning
+  where a = any(array['2000-02-01', localtimestamp]::timestamp[]);
+                                                 QUERY PLAN                                                 
+------------------------------------------------------------------------------------------------------------
+ Append (actual rows=0 loops=1)
+   Subplans Removed: 2
+   ->  Seq Scan on stable_qual_pruning2 (actual rows=0 loops=1)
+         Filter: (a = ANY (ARRAY['Tue Feb 01 00:00:00 2000'::timestamp without time zone, LOCALTIMESTAMP]))
+(4 rows)
+
+explain (analyze, costs off, summary off, timing off)
+select * from stable_qual_pruning
+  where a = any(array['2010-02-01', '2020-01-01']::timestamptz[]);
+                                                        QUERY PLAN                                                         
+---------------------------------------------------------------------------------------------------------------------------
+ Append (actual rows=0 loops=1)
+   Subplans Removed: 2
+   ->  Seq Scan on stable_qual_pruning1 (never executed)
+         Filter: (a = ANY ('{"Mon Feb 01 00:00:00 2010 PST","Wed Jan 01 00:00:00 2020 PST"}'::timestamp with time zone[]))
+(4 rows)
+
+explain (analyze, costs off, summary off, timing off)
+select * from stable_qual_pruning
+  where a = any(array['2000-02-01', '2010-01-01']::timestamptz[]);
+                                                        QUERY PLAN                                                         
+---------------------------------------------------------------------------------------------------------------------------
+ Append (actual rows=0 loops=1)
+   Subplans Removed: 2
+   ->  Seq Scan on stable_qual_pruning2 (actual rows=0 loops=1)
+         Filter: (a = ANY ('{"Tue Feb 01 00:00:00 2000 PST","Fri Jan 01 00:00:00 2010 PST"}'::timestamp with time zone[]))
+(4 rows)
+
+drop table stable_qual_pruning;
+--
+-- Check that pruning with composite range partitioning works correctly when
+-- it must ignore clauses for trailing keys once it has seen a clause with
+-- non-inclusive operator for an earlier key
+--
+create table mc3p (a int, b int, c int) partition by range (a, abs(b), c);
+create table mc3p0 partition of mc3p
+  for values from (0, 0, 0) to (0, maxvalue, maxvalue);
+create table mc3p1 partition of mc3p
+  for values from (1, 1, 1) to (2, minvalue, minvalue);
+create table mc3p2 partition of mc3p
+  for values from (2, minvalue, minvalue) to (3, maxvalue, maxvalue);
+insert into mc3p values (0, 1, 1), (1, 1, 1), (2, 1, 1);
+explain (analyze, costs off, summary off, timing off)
+select * from mc3p where a < 3 and abs(b) = 1;
+                   QUERY PLAN                    
+-------------------------------------------------
+ Append (actual rows=3 loops=1)
+   ->  Seq Scan on mc3p0 (actual rows=1 loops=1)
+         Filter: ((a < 3) AND (abs(b) = 1))
+   ->  Seq Scan on mc3p1 (actual rows=1 loops=1)
+         Filter: ((a < 3) AND (abs(b) = 1))
+   ->  Seq Scan on mc3p2 (actual rows=1 loops=1)
+         Filter: ((a < 3) AND (abs(b) = 1))
+(7 rows)
+
+--
+-- Check that pruning with composite range partitioning works correctly when
+-- a combination of runtime parameters is specified, not all of whose values
+-- are available at the same time
+--
+-- Note: this test doesn't actually prove much in v11, for lack of a way
+-- to force use of a generic plan.
+--
+prepare ps1 as
+  select * from mc3p where a = $1 and abs(b) < (select 3);
+explain (analyze, costs off, summary off, timing off)
+execute ps1(1);
+                   QUERY PLAN                    
+-------------------------------------------------
+ Append (actual rows=1 loops=1)
+   InitPlan 1 (returns $0)
+     ->  Result (actual rows=1 loops=1)
+   ->  Seq Scan on mc3p1 (actual rows=1 loops=1)
+         Filter: ((a = 1) AND (abs(b) < $0))
+(5 rows)
+
+deallocate ps1;
+prepare ps2 as
+  select * from mc3p where a <= $1 and abs(b) < (select 3);
+explain (analyze, costs off, summary off, timing off)
+execute ps2(1);
+                   QUERY PLAN                    
+-------------------------------------------------
+ Append (actual rows=2 loops=1)
+   InitPlan 1 (returns $0)
+     ->  Result (actual rows=1 loops=1)
+   ->  Seq Scan on mc3p0 (actual rows=1 loops=1)
+         Filter: ((a <= 1) AND (abs(b) < $0))
+   ->  Seq Scan on mc3p1 (actual rows=1 loops=1)
+         Filter: ((a <= 1) AND (abs(b) < $0))
+(7 rows)
+
+deallocate ps2;
+drop table mc3p;
 -- Ensure runtime pruning works with initplans params with boolean types
 create table boolvalues (value bool not null);
 insert into boolvalues values('t'),('f');

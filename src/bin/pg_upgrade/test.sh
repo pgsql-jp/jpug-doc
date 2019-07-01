@@ -68,6 +68,8 @@ export PGHOST
 
 # don't rely on $PWD here, as old shells don't set it
 temp_root=`pwd`/tmp_check
+rm -rf "$temp_root"
+mkdir "$temp_root"
 
 if [ "$1" = '--install' ]; then
 	temp_install=$temp_root/install
@@ -86,14 +88,6 @@ if [ "$1" = '--install' ]; then
 	SHLIB_PATH=$libdir:$SHLIB_PATH
 	export SHLIB_PATH
 	PATH=$libdir:$PATH
-
-	# We need to make it use psql from our temporary installation,
-	# because otherwise the installcheck run below would try to
-	# use psql from the proper installation directory, which might
-	# be outdated or missing. But don't override anything else that's
-	# already in EXTRA_REGRESS_OPTS.
-	EXTRA_REGRESS_OPTS="$EXTRA_REGRESS_OPTS --bindir='$bindir'"
-	export EXTRA_REGRESS_OPTS
 fi
 
 : ${oldbindir=$bindir}
@@ -102,13 +96,31 @@ fi
 oldsrc=`cd "$oldsrc" && pwd`
 newsrc=`cd ../../.. && pwd`
 
+# We need to make pg_regress use psql from the desired installation
+# (likely a temporary one), because otherwise the installcheck run
+# below would try to use psql from the proper installation directory
+# of the target version, which might be outdated or not exist. But
+# don't override anything else that's already in EXTRA_REGRESS_OPTS.
+EXTRA_REGRESS_OPTS="$EXTRA_REGRESS_OPTS --bindir='$oldbindir'"
+export EXTRA_REGRESS_OPTS
+
 PATH=$bindir:$PATH
 export PATH
 
 BASE_PGDATA="$temp_root/data"
 PGDATA="${BASE_PGDATA}.old"
 export PGDATA
-rm -rf "$BASE_PGDATA" "$PGDATA"
+
+# Send installcheck outputs to a private directory.  This avoids conflict when
+# check-world runs pg_upgrade check concurrently with src/test/regress check.
+# To retrieve interesting files after a run, use pattern tmp_check/*/*.diffs.
+outputdir="$temp_root/regress"
+EXTRA_REGRESS_OPTS="$EXTRA_REGRESS_OPTS --outputdir=$outputdir"
+export EXTRA_REGRESS_OPTS
+mkdir "$outputdir"
+mkdir "$outputdir"/sql
+mkdir "$outputdir"/expected
+mkdir "$outputdir"/testtablespace
 
 logdir=`pwd`/log
 rm -rf "$logdir"
