@@ -776,7 +776,7 @@ variadic引数リストからJSONオブジェクトを作成。
          whose columns match the record type defined by <replaceable>base</replaceable>
          (see note below).
 -->
-<replaceable>from_json</replaceable>内のオブジェクトを行を<replaceable>base</replaceable>で定義されたレコード型に一致する列に拡張する(以下の注意書きを参照)。
+<replaceable>from_json</replaceable>内のオブジェクト行を<replaceable>base</replaceable>で定義されたレコード型に一致する列に拡張する(以下の注意書きを参照)。
        </entry>
        <entry><literal>select * from json_populate_record(null::myrowtype, '{"a": 1, "b": ["2", "a b"], "c": {"d": 4, "e": "a  b c"}}')</literal></entry>
        <entry>
@@ -1054,6 +1054,7 @@ pathについての演算子について言うと、<replaceable>new_value</repl
 
   <note>
    <para>
+<!--
     The functions
     <function>json[b]_populate_record</function>,
     <function>json[b]_populate_recordset</function>,
@@ -1067,49 +1068,72 @@ pathについての演算子について言うと、<replaceable>new_value</repl
     filled with nulls.
     To convert a JSON value to the SQL type of an output column, the
     following rules are applied in sequence:
+-->
+関数<function>json[b]_populate_record</function>、<function>json[b]_populate_recordset</function>、<function>json[b]_to_record</function>、<function>json[b]_to_recordset</function>はJSONオブジェクトあるいはJSONオブジェクトの配列を操作し、出力行型の列名と一致する名前を持つキーに関連付けられた値を取り出します。
+出力列名と関連付けられないオブジェクトのフィールドは無視され、どのオブジェクトフィールドとも一致しない出力列はNULLで満たされます。
+JSON値を出力列のSQL型に変換する際に以下のルールが順番に適用されます。
     <itemizedlist spacing="compact">
      <listitem>
       <para>
+<!--
        A JSON null value is converted to a SQL null in all cases.
+-->
+すべての場合にJSONのNULL値はSQLのNULLに変換されます。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        If the output column is of type <type>json</type>
        or <type>jsonb</type>, the JSON value is just reproduced exactly.
+-->
+出力列が<type>json</type>型あるいは<type>jsonb</type>型なら、JSON値は単にそのまま複製されます。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        If the output column is a composite (row) type, and the JSON value is
        a JSON object, the fields of the object are converted to columns of
        the output row type by recursive application of these rules.
+-->
+出力行が複合(行)型でJSON値がJSONオブジェクトなら、これらのルールを再帰的に適用することによって、オブジェクトのフィールドが出力行型の列に変換されます。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Likewise, if the output column is an array type and the JSON value is
        a JSON array, the elements of the JSON array are converted to elements
        of the output array by recursive application of these rules.
+-->
+同様に、出力行が配列型でJSON値がJSON配列なら、これらのルールを再帰的に適用することによって、JSON配列の要素が出力配列の要素に変換されます。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Otherwise, if the JSON value is a string literal, the contents of the
        string are fed to the input conversion function for the column's data
        type.
+-->
+それ以外の場合で、JSON値が文字列リテラルなら、その文字列の内容が列のデータ型に対応する入力変換関数に送られます。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Otherwise, the ordinary text representation of the JSON value is fed
        to the input conversion function for the column's data type.
+-->
+さもなければ、通常のJSON値のテキスト表現が列のデータ型に対応する入力変換関数に送られます。
       </para>
      </listitem>
     </itemizedlist>
    </para>
 
    <para>
+<!--
     While the examples for these functions use constants, the typical use
     would be to reference a table in the <literal>FROM</literal> clause
     and use one of its <type>json</type> or <type>jsonb</type> columns
@@ -1118,6 +1142,10 @@ pathについての演算子について言うと、<replaceable>new_value</repl
     clauses and target lists.  Extracting multiple values in this
     way can improve performance over extracting them separately with
     per-key operators.
+  -->
+これらの関数の例では定数を使用していますが、典型的な使用法は<literal>FROM</literal>句でテーブルを参照し、その<type>json</type>または<type>jsonb</type>列を関数の引数として使用することです。
+<literal>WHERE</literal>句やターゲットリストのように、抽出されたキー値はクエリの他の部分で参照することができます。
+この方法で複数の値を抽出すると、キー単位の演算子で個別に抽出するよりもパフォーマンスが向上します。
    </para>
   </note>
 
