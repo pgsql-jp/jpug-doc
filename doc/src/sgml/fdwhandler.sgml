@@ -26,7 +26,7 @@
     This chapter outlines how to write a new foreign data wrapper.
 -->
 外部テーブルへの全ての操作は、コアサーバから呼び出される関数のセットで構成される、外部データラッパで処理されます。
-外部データラッパは、リモートデータソースからデータを取り出し、そのデータを<productname>PostgreSQL</productname>エグゼキュータに返却することを担当します。
+外部データラッパは、リモートデータソースからデータを取り出し、そのデータを<productname>PostgreSQL</productname>エクゼキュータに返却することを担当します。
 外部テーブルの更新をサポートする場合、ラッパはそれも扱わなければなりません。
 本章では、新しい外部データラッパを作成する方法の概要を示します。
    </para>
@@ -90,7 +90,7 @@ C言語の呼び出し規約と動的ロードについては<xref linkend="xfun
      callable at the SQL level.  The callback functions are described in
      <xref linkend="fdw-callbacks"/>.
 -->
-ハンドラ関数は単に、プランナやエグゼキュータ、様々なメンテナンスコマンドから呼び出されるコールバックの関数ポインタを含む構造体を返します。
+ハンドラ関数は単に、プランナやエクゼキュータ、様々なメンテナンスコマンドから呼び出されるコールバックの関数ポインタを含む構造体を返します。
 FDWを作成するための労力のほとんどは、これらのコールバック関数を実装することに費やされます。
 ハンドラ関数は、引数を取らず特殊な仮想型である<type>fdw_handler</type>を返す関数として<productname>PostgreSQL</productname>に登録しなければなりません。
 コールバック関数は通常のC言語関数で、SQLレベルでは参照も呼び出しもできません。コールバック関数の説明は<xref linkend="fdw-callbacks"/>にあります。
@@ -313,11 +313,11 @@ BeginForeignScan(ForeignScanState *node,
      operating mode for this plan node.
 -->
 外部テーブルスキャンの実行を開始します。
-この関数はエグゼキュータの起動中に呼び出されます。
+この関数はエクゼキュータの起動中に呼び出されます。
 スキャンを開始できるようになる前に、あらゆる必要な初期化を実行するべきですが、実際のスキャンの実行を始めるべきではありません(それは最初の<function>IterateForeignScan</function>呼び出しにおいて行われるべきです)。
 <structname>ForeignScanState</structname>ノードは作成されていますが、その<structfield>fdw_state</structfield>フィールドはNULLのままです。
 スキャンするテーブルの情報は、<structname>ForeignScanState</structname>ノード(特に、その先にある<function>GetForeignPlan</function>から提供されたFDWプライベート情報を含む、<structname>ForeignScan</structname>プランノード)を通じてアクセス可能です。
-<literal>eflags</literal>は、このプランノードに関するエグゼキュータの操作モードを表すフラグビットを含みます。
+<literal>eflags</literal>は、このプランノードに関するエクゼキュータの操作モードを表すフラグビットを含みます。
     </para>
 
     <para>
@@ -380,7 +380,7 @@ IterateForeignScan(ForeignScanState *node);
      appropriate to raise an error (just as you would need to do in the case
      of a data type mismatch).
 -->
-<productname>PostgreSQL</productname>のエグゼキュータは返された行が外部テーブルに定義された制約に違反しているかどうかは気にしません。
+<productname>PostgreSQL</productname>のエクゼキュータは返された行が外部テーブルに定義された制約に違反しているかどうかは気にしません。
 しかし、プランナはそれに着目するので、宣言された制約に反する行が外部テーブル上にあった場合に、不正な最適化をするかもしれません。
 ユーザが制約が成り立つと宣言したのに制約に違反した場合は(データ型が一致しなかった場合にする必要があるのと同様に)エラーを発生させるのが適切でしょう。
     </para>
@@ -743,7 +743,7 @@ BeginForeignModify(ModifyTableState *mtstate,
      inserted, updated, or deleted.
 -->
 外部テーブルへの変更操作の実行を開始します。
-このルーチンはエグゼキュータの起動中に呼び出されます。
+このルーチンはエクゼキュータの起動中に呼び出されます。
 実際のテーブル変更に先立って必要なあらゆる初期化処理を実行する必要があります。
 その後、各タプルが挿入、更新、削除されるように<function>ExecForeignInsert</function>、<function>ExecForeignUpdate</function>、<function>ExecForeignDelete</function>のいずれかが呼ばれます。
     </para>
@@ -769,7 +769,7 @@ BeginForeignModify(ModifyTableState *mtstate,
 (<structname>ResultRelInfo</structname>の<structfield>ri_FdwState</structfield>フィールドはこの操作で必要となる固有の状態をFDWが格納するのに利用できます。)
 <literal>fdw_private</literal>は、もしあれば<function>PlanForeignModify</function>で生成された固有データを含みます。
 <literal>subplan_index</literal>は、これが<structname>ModifyTable</structname>プランノードのどのターゲットであるかを識別します。
-<literal>eflags</literal>は、このプランノードに関するエグゼキュータの操作モードを表すフラグビットを含みます。
+<literal>eflags</literal>は、このプランノードに関するエクゼキュータの操作モードを表すフラグビットを含みます。
     </para>
 
     <para>
@@ -788,7 +788,7 @@ BeginForeignModify(ModifyTableState *mtstate,
      If the <function>BeginForeignModify</function> pointer is set to
      <literal>NULL</literal>, no action is taken during executor startup.
 -->
-もし<function>BeginForeignModify</function>ポインタが<literal>NULL</literal>に設定されている場合は、エグゼキュータ起動時には追加処理は何も実行されません。
+もし<function>BeginForeignModify</function>ポインタが<literal>NULL</literal>に設定されている場合は、エクゼキュータ起動時には追加処理は何も実行されません。
     </para>
 
     <para>
@@ -1018,7 +1018,7 @@ EndForeignModify(EState *estate,
      If the <function>EndForeignModify</function> pointer is set to
      <literal>NULL</literal>, no action is taken during executor shutdown.
 -->
-もし<function>EndForeignModify</function>ポインタが<literal>NULL</literal>に設定されている場合は、エグゼキュータ終了時には追加処理は何も実行されません。
+もし<function>EndForeignModify</function>ポインタが<literal>NULL</literal>に設定されている場合は、エクゼキュータ終了時には追加処理は何も実行されません。
     </para>
 
     <para>
@@ -1268,11 +1268,11 @@ BeginDirectModify(ForeignScanState *node,
      operating mode for this plan node.
 -->
 リモートサーバでの直接変更を実行する準備をします。
-この関数はエグゼキュータが開始するときに呼び出されます。
+この関数はエクゼキュータが開始するときに呼び出されます。
 この関数は（最初の<function>IterateDirectModify</function>呼び出しで実行されるであろう）直接変更より前に必要とされる全ての初期化を実行するべきです。
 <structname>ForeignScanState</structname>ノードはすでに作られていますが、<structfield>fdw_state</structfield>がフィールドはまだNULLです。
 変更するテーブルに関する情報は<structname>ForeignScanState</structname>ノードを通して（具体的には<function>PlanDirectModify</function>で提供されるFDWプライベート情報を含む、元となる<structname>ForeignScan</structname>プランノードから）入手可能です。
-<literal>eflags</literal>は、このプランノードに関するエグゼキュータの操作モードを表すフラグビットを含みます。
+<literal>eflags</literal>は、このプランノードに関するエクゼキュータの操作モードを表すフラグビットを含みます。
     </para>
 
     <para>
@@ -2210,7 +2210,7 @@ FDWコールバック関数の<function>GetForeignRelSize</function>、<function
      columns that are used in qual evaluation but not output by the query.
 -->
 <literal>root</literal>と<literal>baserel</literal>に含まれる情報は、外部テーブルから取得する必要のある情報の量(とそれによるコスト)を削減するために使用できます。
-<literal>baserel-&gt;baserestrictinfo</literal>は、取得される行をフィルタリングする検索条件(<literal>WHERE</literal>句)を含んでいるため、特に興味深いものです。(コアのエグゼキュータが代わりにそれらをチェックできるので、FDW自身がこれらの制約を適用しなければならないわけではありません。)
+<literal>baserel-&gt;baserestrictinfo</literal>は、取得される行をフィルタリングする検索条件(<literal>WHERE</literal>句)を含んでいるため、特に興味深いものです。(コアのエクゼキュータが代わりにそれらをチェックできるので、FDW自身がこれらの制約を適用しなければならないわけではありません。)
 <literal>baserel-&gt;reltarget-&gt;exprs</literal>はどの列が取得される必要があるかを決定するのに使用できます。ただし、このリストは<structname>ForeignScan</structname>プランノードから出力すべき列しか含んでおらず、条件検査には必要だがクエリからは出力されない列は含まないことに注意してください。
     </para>
 
@@ -2293,8 +2293,8 @@ FDWコールバック関数の<function>GetForeignRelSize</function>、<function
 -->
 <function>GetForeignPlan</function>では、一般的に渡されたターゲットリストはそのままプランノードにコピーできます。
 渡された<literal>scan_clauses</literal>リストは<literal>baserel-&gt;baserestrictinfo</literal>と同じ句を含みますが、実行効率のよい別の順番に並べ替えることもできます。
-FDWにできるのが<structname>RestrictInfo</structname>ノードを<literal>scan_clauses</literal>リストから(<function>extract_actual_clauses</function>を使って)抜き出して、全ての句をプランノードの条件リストに入れるだけ、といった単純なケースでは、全ての句は実行時にエグゼキュータによってチェックされます。
-より複雑なFDWは内部で一部の句をチェックできるかもしれませんが、そのような場合には、エグゼキュータが再チェックのために時間を無駄にしないように、それらの句はプランノードの条件リストから削除できます。
+FDWにできるのが<structname>RestrictInfo</structname>ノードを<literal>scan_clauses</literal>リストから(<function>extract_actual_clauses</function>を使って)抜き出して、全ての句をプランノードの条件リストに入れるだけ、といった単純なケースでは、全ての句は実行時にエクゼキュータによってチェックされます。
+より複雑なFDWは内部で一部の句をチェックできるかもしれませんが、そのような場合には、エクゼキュータが再チェックのために時間を無駄にしないように、それらの句はプランノードの条件リストから削除できます。
     </para>
 
     <para>
@@ -2342,7 +2342,7 @@ FDWにできるのが<structname>RestrictInfo</structname>ノードを<literal>s
      tuple entirely.
 -->
 <literal>READ COMMITTED</literal>分離レベルでの正しい動作を保証するため、プランノードの条件リストから除かれた句はすべて、代わりに<literal>fdw_recheck_quals</literal>に追加されるか、<literal>RecheckForeignScan</literal>で再検査される必要があります。
-問い合わせに含まれる他のテーブルで同時更新があった場合、エグゼキュータはタプルが元の条件を、それも場合によっては異なるパラメータ値の組み合わせに対して満たすことを確認する必要があるかもしれません。
+問い合わせに含まれる他のテーブルで同時更新があった場合、エクゼキュータはタプルが元の条件を、それも場合によっては異なるパラメータ値の組み合わせに対して満たすことを確認する必要があるかもしれません。
 <literal>fdw_recheck_quals</literal>を使うのは、<literal>RecheckForeignScan</literal>の内部で検査を実装するより、通常は簡単でしょう。
 しかしこの方法は、外部結合がプッシュダウンされる場合は不十分です。
 なぜなら、この場合の結合タプルはタプル全体を拒絶せずに、一部のフィールドをNULLにしてしまうからです。
