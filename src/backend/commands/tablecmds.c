@@ -353,6 +353,7 @@ static void ATSimplePermissions(Relation rel, int allowed_targets);
 static void ATWrongRelkindError(Relation rel, int allowed_targets);
 static void ATSimpleRecursion(List **wqueue, Relation rel,
 				  AlterTableCmd *cmd, bool recurse, LOCKMODE lockmode);
+static void ATCheckPartitionsNotInUse(Relation rel, LOCKMODE lockmode);
 static void ATTypedTableRecursion(List **wqueue, Relation rel, AlterTableCmd *cmd,
 					  LOCKMODE lockmode);
 static List *find_typed_table_dependencies(Oid typeOid, const char *typeName,
@@ -425,6 +426,8 @@ static void ATPrepAlterColumnType(List **wqueue,
 static bool ATColumnChangeRequiresRewrite(Node *expr, AttrNumber varattno);
 static ObjectAddress ATExecAlterColumnType(AlteredTableInfo *tab, Relation rel,
 					  AlterTableCmd *cmd, LOCKMODE lockmode);
+static void RememberConstraintForRebuilding(Oid conoid, AlteredTableInfo *tab);
+static void RememberIndexForRebuilding(Oid indoid, AlteredTableInfo *tab);
 static ObjectAddress ATExecAlterColumnGenericOptions(Relation rel, const char *colName,
 								List *options, LOCKMODE lockmode);
 static void ATPostAlterTypeCleanup(List **wqueue, AlteredTableInfo *tab,
@@ -936,6 +939,22 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
 			AttrNumber *attmap;
 			IndexStmt  *idxstmt;
 			Oid			constraintOid;
+
+			if (rel->rd_rel->relkind == RELKIND_FOREIGN_TABLE)
+			{
+				if (idxRel->rd_index->indisunique)
+					ereport(ERROR,
+							(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+							 errmsg("cannot create foreign partition of partitioned table \"%s\"",
+									RelationGetRelationName(parent)),
+							 errdetail("Table \"%s\" contains indexes that are unique.",
+									RelationGetRelationName(parent))));
+				else
+				{
+					index_close(idxRel, AccessShareLock);
+					continue;
+				}
+			}
 
 			attmap = convert_tuples_by_name_map(RelationGetDescr(rel),
 												RelationGetDescr(parent),
@@ -3251,8 +3270,7 @@ CheckTableNotInUse(Relation rel, const char *stmt)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_IN_USE),
 		/* translator: first %s is a SQL command, eg ALTER TABLE */
-				 errmsg("cannot %s \"%s\" because "
-						"it is being used by active queries in this session",
+				 errmsg("cannot %s \"%s\" because it is being used by active queries in this session",
 						stmt, RelationGetRelationName(rel))));
 
 	if (rel->rd_rel->relkind != RELKIND_INDEX &&
@@ -3261,8 +3279,7 @@ CheckTableNotInUse(Relation rel, const char *stmt)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_IN_USE),
 		/* translator: first %s is a SQL command, eg ALTER TABLE */
-				 errmsg("cannot %s \"%s\" because "
-						"it has pending trigger events",
+				 errmsg("cannot %s \"%s\" because it has pending trigger events",
 						stmt, RelationGetRelationName(rel))));
 }
 
@@ -3728,15 +3745,18 @@ ATPrepCmd(List **wqueue, Relation rel, AlterTableCmd *cmd,
 			break;
 		case AT_AddIdentity:
 			ATSimplePermissions(rel, ATT_TABLE | ATT_VIEW | ATT_FOREIGN_TABLE);
+			/* This command never recurses */
 			pass = AT_PASS_ADD_CONSTR;
-			break;
-		case AT_DropIdentity:
-			ATSimplePermissions(rel, ATT_TABLE | ATT_VIEW | ATT_FOREIGN_TABLE);
-			pass = AT_PASS_DROP;
 			break;
 		case AT_SetIdentity:
 			ATSimplePermissions(rel, ATT_TABLE | ATT_VIEW | ATT_FOREIGN_TABLE);
+			/* This command never recurses */
 			pass = AT_PASS_COL_ATTRS;
+			break;
+		case AT_DropIdentity:
+			ATSimplePermissions(rel, ATT_TABLE | ATT_VIEW | ATT_FOREIGN_TABLE);
+			/* This command never recurses */
+			pass = AT_PASS_DROP;
 			break;
 		case AT_DropNotNull:	/* ALTER COLUMN DROP NOT NULL */
 			ATSimplePermissions(rel, ATT_TABLE | ATT_FOREIGN_TABLE);
@@ -3799,7 +3819,8 @@ ATPrepCmd(List **wqueue, Relation rel, AlterTableCmd *cmd,
 			break;
 		case AT_DropConstraint: /* DROP CONSTRAINT */
 			ATSimplePermissions(rel, ATT_TABLE | ATT_FOREIGN_TABLE);
-			/* Recursion occurs during execution phase */
+			ATCheckPartitionsNotInUse(rel, lockmode);
+			/* Other recursion occurs during execution phase */
 			/* No command-specific prep needed except saving recurse flag */
 			if (recurse)
 				cmd->subtype = AT_DropConstraintRecurse;
@@ -5067,8 +5088,9 @@ ATSimpleRecursion(List **wqueue, Relation rel,
 				  AlterTableCmd *cmd, bool recurse, LOCKMODE lockmode)
 {
 	/*
-	 * Propagate to children if desired.  Only plain tables and foreign tables
-	 * have children, so no need to search for other relkinds.
+	 * Propagate to children if desired.  Only plain tables, foreign tables
+	 * and partitioned tables have children, so no need to search for other
+	 * relkinds.
 	 */
 	if (recurse &&
 		(rel->rd_rel->relkind == RELKIND_RELATION ||
@@ -5099,6 +5121,36 @@ ATSimpleRecursion(List **wqueue, Relation rel,
 			ATPrepCmd(wqueue, childrel, cmd, false, true, lockmode);
 			relation_close(childrel, NoLock);
 		}
+	}
+}
+
+/*
+ * Obtain list of partitions of the given table, locking them all at the given
+ * lockmode and ensuring that they all pass CheckTableNotInUse.
+ *
+ * This function is a no-op if the given relation is not a partitioned table;
+ * in particular, nothing is done if it's a legacy inheritance parent.
+ */
+static void
+ATCheckPartitionsNotInUse(Relation rel, LOCKMODE lockmode)
+{
+	if (rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
+	{
+		List	   *inh;
+		ListCell   *cell;
+
+		inh = find_all_inheritors(RelationGetRelid(rel), lockmode, NULL);
+		/* first element is the parent rel; must ignore it */
+		for_each_cell(cell, lnext(list_head(inh)))
+		{
+			Relation	childrel;
+
+			/* find_all_inheritors already got lock */
+			childrel = heap_open(lfirst_oid(cell), NoLock);
+			CheckTableNotInUse(childrel, "ALTER TABLE");
+			heap_close(childrel, NoLock);
+		}
+		list_free(inh);
 	}
 }
 
@@ -6807,27 +6859,28 @@ ATExecDropColumn(List **wqueue, Relation rel, const char *colName,
 				 errmsg("cannot drop system column \"%s\"",
 						colName)));
 
-	/* Don't drop inherited columns */
+	/*
+	 * Don't drop inherited columns, unless recursing (presumably from a drop
+	 * of the parent column)
+	 */
 	if (targetatt->attinhcount > 0 && !recursing)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
 				 errmsg("cannot drop inherited column \"%s\"",
 						colName)));
 
-	/* Don't drop columns used in the partition key */
+	/*
+	 * Don't drop columns used in the partition key, either.  (If we let this
+	 * go through, the key column's dependencies would cause a cascaded drop
+	 * of the whole table, which is surely not what the user expected.)
+	 */
 	if (has_partition_attrs(rel,
 							bms_make_singleton(attnum - FirstLowInvalidHeapAttributeNumber),
 							&is_expr))
-	{
-		if (!is_expr)
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
-					 errmsg("cannot drop column named in partition key")));
-		else
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
-					 errmsg("cannot drop column referenced in partition key expression")));
-	}
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
+				 errmsg("cannot drop column \"%s\" because it is part of the partition key of relation \"%s\"",
+						colName, RelationGetRelationName(rel))));
 
 	ReleaseSysCache(tuple);
 
@@ -7679,7 +7732,6 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
 							new_castfunc == old_castfunc &&
 							(!IsPolymorphicType(pfeqop_right) ||
 							 new_fktype == old_fktype));
-
 		}
 
 		pfeqoperators[i] = pfeqop;
@@ -9537,16 +9589,10 @@ ATPrepAlterColumnType(List **wqueue,
 	if (has_partition_attrs(rel,
 							bms_make_singleton(attnum - FirstLowInvalidHeapAttributeNumber),
 							&is_expr))
-	{
-		if (!is_expr)
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
-					 errmsg("cannot alter type of column named in partition key")));
-		else
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
-					 errmsg("cannot alter type of column referenced in partition key expression")));
-	}
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
+				 errmsg("cannot alter column \"%s\" because it is part of the partition key of relation \"%s\"",
+						colName, RelationGetRelationName(rel))));
 
 	/* Look up the target type */
 	typenameTypeIdAndMod(NULL, typeName, &targettype, &targettypmod);
@@ -9785,9 +9831,6 @@ ATExecAlterColumnType(AlteredTableInfo *tab, Relation rel,
 	SysScanDesc scan;
 	HeapTuple	depTup;
 	ObjectAddress address;
-	ListCell   *lc;
-	ListCell   *prev;
-	ListCell   *next;
 
 	/*
 	 * Clear all the missing values if we're rewriting the table, since this
@@ -9872,11 +9915,6 @@ ATExecAlterColumnType(AlteredTableInfo *tab, Relation rel,
 	 * performed all the individual ALTER TYPE operations.  We have to save
 	 * the info before executing ALTER TYPE, though, else the deparser will
 	 * get confused.
-	 *
-	 * There could be multiple entries for the same object, so we must check
-	 * to ensure we process each one only once.  Note: we assume that an index
-	 * that implements a constraint will not show a direct dependency on the
-	 * column.
 	 */
 	depRel = heap_open(DependRelationId, RowExclusiveLock);
 
@@ -9918,20 +9956,8 @@ ATExecAlterColumnType(AlteredTableInfo *tab, Relation rel,
 					if (relKind == RELKIND_INDEX ||
 						relKind == RELKIND_PARTITIONED_INDEX)
 					{
-						/*
-						 * Indexes that are directly dependent on the table
-						 * might be regular indexes or constraint indexes.
-						 * Constraint indexes typically have only indirect
-						 * dependencies; but there are exceptions, notably
-						 * partial exclusion constraints.  Hence we must check
-						 * whether the index depends on any constraint that's
-						 * due to be rebuilt, which we'll do below after we've
-						 * found all such constraints.
-						 */
 						Assert(foundObject.objectSubId == 0);
-						tab->changedIndexOids =
-							list_append_unique_oid(tab->changedIndexOids,
-												   foundObject.objectId);
+						RememberIndexForRebuilding(foundObject.objectId, tab);
 					}
 					else if (relKind == RELKIND_SEQUENCE)
 					{
@@ -9952,18 +9978,7 @@ ATExecAlterColumnType(AlteredTableInfo *tab, Relation rel,
 
 			case OCLASS_CONSTRAINT:
 				Assert(foundObject.objectSubId == 0);
-				if (!list_member_oid(tab->changedConstraintOids,
-									 foundObject.objectId))
-				{
-					char	   *defstring = pg_get_constraintdef_command(foundObject.objectId);
-
-					tab->changedConstraintOids =
-						lappend_oid(tab->changedConstraintOids,
-									foundObject.objectId);
-					tab->changedConstraintDefs =
-						lappend(tab->changedConstraintDefs,
-								defstring);
-				}
+				RememberConstraintForRebuilding(foundObject.objectId, tab);
 				break;
 
 			case OCLASS_REWRITE:
@@ -10081,41 +10096,6 @@ ATExecAlterColumnType(AlteredTableInfo *tab, Relation rel,
 	}
 
 	systable_endscan(scan);
-
-	/*
-	 * Check the collected index OIDs to see which ones belong to the
-	 * constraint(s) of the table, and drop those from the list of indexes
-	 * that we need to process; rebuilding the constraints will handle them.
-	 */
-	prev = NULL;
-	for (lc = list_head(tab->changedIndexOids); lc; lc = next)
-	{
-		Oid			indexoid = lfirst_oid(lc);
-		Oid			conoid;
-
-		next = lnext(lc);
-
-		conoid = get_index_constraint(indexoid);
-		if (OidIsValid(conoid) &&
-			list_member_oid(tab->changedConstraintOids, conoid))
-			tab->changedIndexOids = list_delete_cell(tab->changedIndexOids,
-													 lc, prev);
-		else
-			prev = lc;
-	}
-
-	/*
-	 * Now collect the definitions of the indexes that must be rebuilt.  (We
-	 * could merge this into the previous loop, but it'd be more complicated
-	 * for little gain.)
-	 */
-	foreach(lc, tab->changedIndexOids)
-	{
-		Oid			indexoid = lfirst_oid(lc);
-
-		tab->changedIndexDefs = lappend(tab->changedIndexDefs,
-										pg_get_indexdef_string(indexoid));
-	}
 
 	/*
 	 * Now scan for dependencies of this column on other things.  The only
@@ -10283,6 +10263,75 @@ ATExecAlterColumnType(AlteredTableInfo *tab, Relation rel,
 	heap_freetuple(heapTup);
 
 	return address;
+}
+
+/*
+ * Subroutine for ATExecAlterColumnType: remember that a constraint needs
+ * to be rebuilt (which we might already know).
+ */
+static void
+RememberConstraintForRebuilding(Oid conoid, AlteredTableInfo *tab)
+{
+	/*
+	 * This de-duplication check is critical for two independent reasons: we
+	 * mustn't try to recreate the same constraint twice, and if a constraint
+	 * depends on more than one column whose type is to be altered, we must
+	 * capture its definition string before applying any of the column type
+	 * changes.  ruleutils.c will get confused if we ask again later.
+	 */
+	if (!list_member_oid(tab->changedConstraintOids, conoid))
+	{
+		/* OK, capture the constraint's existing definition string */
+		char	   *defstring = pg_get_constraintdef_command(conoid);
+
+		tab->changedConstraintOids = lappend_oid(tab->changedConstraintOids,
+												 conoid);
+		tab->changedConstraintDefs = lappend(tab->changedConstraintDefs,
+											 defstring);
+	}
+}
+
+/*
+ * Subroutine for ATExecAlterColumnType: remember that an index needs
+ * to be rebuilt (which we might already know).
+ */
+static void
+RememberIndexForRebuilding(Oid indoid, AlteredTableInfo *tab)
+{
+	/*
+	 * This de-duplication check is critical for two independent reasons: we
+	 * mustn't try to recreate the same index twice, and if an index depends
+	 * on more than one column whose type is to be altered, we must capture
+	 * its definition string before applying any of the column type changes.
+	 * ruleutils.c will get confused if we ask again later.
+	 */
+	if (!list_member_oid(tab->changedIndexOids, indoid))
+	{
+		/*
+		 * Before adding it as an index-to-rebuild, we'd better see if it
+		 * belongs to a constraint, and if so rebuild the constraint instead.
+		 * Typically this check fails, because constraint indexes normally
+		 * have only dependencies on their constraint.  But it's possible for
+		 * such an index to also have direct dependencies on table columns,
+		 * for example with a partial exclusion constraint.
+		 */
+		Oid			conoid = get_index_constraint(indoid);
+
+		if (OidIsValid(conoid))
+		{
+			RememberConstraintForRebuilding(conoid, tab);
+		}
+		else
+		{
+			/* OK, capture the index's existing definition string */
+			char	   *defstring = pg_get_indexdef_string(indoid);
+
+			tab->changedIndexOids = lappend_oid(tab->changedIndexOids,
+												indoid);
+			tab->changedIndexDefs = lappend(tab->changedIndexDefs,
+											defstring);
+		}
+	}
 }
 
 /*
@@ -10785,7 +10834,7 @@ TryReuseForeignKey(Oid oldId, Constraint *con)
 
 	/* stash a List of the operator Oids in our Constraint node */
 	for (i = 0; i < numkeys; i++)
-		con->old_conpfeqop = lcons_oid(rawarr[i], con->old_conpfeqop);
+		con->old_conpfeqop = lappend_oid(con->old_conpfeqop, rawarr[i]);
 
 	ReleaseSysCache(tup);
 }
@@ -14952,6 +15001,13 @@ ATExecAttachPartition(List **wqueue, Relation rel, PartitionCmd *cmd)
 		defaultrel = heap_open(defaultPartOid, NoLock);
 		defPartConstraint =
 			get_proposed_default_constraint(partBoundConstraint);
+		/*
+		 * Map the Vars in the constraint expression from rel's attnos to
+		 * defaultrel's.
+		 */
+		defPartConstraint =
+			map_partition_varattnos(defPartConstraint,
+									1, defaultrel, rel, NULL);
 		QueuePartitionConstraintValidation(wqueue, defaultrel,
 										   defPartConstraint, true);
 
@@ -15006,6 +15062,34 @@ AttachPartitionEnsureIndexes(Relation rel, Relation attachrel)
 		attachrelIdxRels[i] = index_open(cldIdxId, AccessShareLock);
 		attachInfos[i] = BuildIndexInfo(attachrelIdxRels[i]);
 		i++;
+	}
+
+	/*
+	 * If we're attaching a foreign table, we must fail if any of the indexes
+	 * is a constraint index; otherwise, there's nothing to do here.  Do this
+	 * before starting work, to avoid wasting the effort of building a few
+	 * non-unique indexes before coming across a unique one.
+	 */
+	if (attachrel->rd_rel->relkind == RELKIND_FOREIGN_TABLE)
+	{
+		foreach(cell, idxes)
+		{
+			Oid			idx = lfirst_oid(cell);
+			Relation	idxRel = index_open(idx, AccessShareLock);
+
+			if (idxRel->rd_index->indisunique ||
+				idxRel->rd_index->indisprimary)
+				ereport(ERROR,
+						(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+						 errmsg("cannot attach foreign table \"%s\" as partition of partitioned table \"%s\"",
+								RelationGetRelationName(attachrel),
+								RelationGetRelationName(rel)),
+						 errdetail("Table \"%s\" contains unique indexes.",
+								   RelationGetRelationName(rel))));
+			index_close(idxRel, AccessShareLock);
+		}
+
+		goto out;
 	}
 
 	/*
@@ -15107,6 +15191,7 @@ AttachPartitionEnsureIndexes(Relation rel, Relation attachrel)
 		index_close(idxRel, AccessShareLock);
 	}
 
+out:
 	/* Clean up. */
 	for (i = 0; i < list_length(attachRelIdxs); i++)
 		index_close(attachrelIdxRels[i], AccessShareLock);
@@ -15145,6 +15230,7 @@ CloneRowTriggersToPartition(Relation parent, Relation partition)
 		Datum		value;
 		bool		isnull;
 		List	   *cols = NIL;
+		List	   *trigargs = NIL;
 		MemoryContext oldcxt;
 
 		/*
@@ -15209,11 +15295,32 @@ CloneRowTriggersToPartition(Relation parent, Relation partition)
 			}
 		}
 
+		/* Reconstruct trigger arguments list. */
+		if (trigForm->tgnargs > 0)
+		{
+			char	   *p;
+			int			i;
+
+			value = heap_getattr(tuple, Anum_pg_trigger_tgargs,
+								 RelationGetDescr(pg_trigger), &isnull);
+			if (isnull)
+				elog(ERROR, "tgargs is null for trigger \"%s\" in partition \"%s\"",
+					 NameStr(trigForm->tgname), RelationGetRelationName(partition));
+
+			p = (char *) VARDATA_ANY(DatumGetByteaPP(value));
+
+			for (i = 0; i < trigForm->tgnargs; i++)
+			{
+				trigargs = lappend(trigargs, makeString(pstrdup(p)));
+				p += strlen(p) + 1;
+			}
+		}
+
 		trigStmt = makeNode(CreateTrigStmt);
 		trigStmt->trigname = NameStr(trigForm->tgname);
 		trigStmt->relation = NULL;
 		trigStmt->funcname = NULL;	/* passed separately */
-		trigStmt->args = NULL;	/* passed separately */
+		trigStmt->args = trigargs;
 		trigStmt->row = true;
 		trigStmt->timing = trigForm->tgtype & TRIGGER_TYPE_TIMING_MASK;
 		trigStmt->events = trigForm->tgtype & TRIGGER_TYPE_EVENT_MASK;

@@ -83,6 +83,7 @@ explain (costs off) select * from rlp where a = 1 or b = 'ab';
 explain (costs off) select * from rlp where a > 20 and a < 27;
 explain (costs off) select * from rlp where a = 29;
 explain (costs off) select * from rlp where a >= 29;
+explain (costs off) select * from rlp where a < 1 or (a > 20 and a < 25);
 
 -- redundant clauses are eliminated
 explain (costs off) select * from rlp where a > 1 and a = 10;	/* only default */
@@ -158,6 +159,15 @@ explain (costs off) select * from boolpart where a is not true;
 explain (costs off) select * from boolpart where a is not true and a is not false;
 explain (costs off) select * from boolpart where a is unknown;
 explain (costs off) select * from boolpart where a is not unknown;
+
+create table boolrangep (a bool, b bool, c int) partition by range (a,b,c);
+create table boolrangep_tf partition of boolrangep for values from ('true', 'false', 0) to ('true', 'false', 100);
+create table boolrangep_ft partition of boolrangep for values from ('false', 'true', 0) to ('false', 'true', 100);
+create table boolrangep_ff1 partition of boolrangep for values from ('false', 'false', 0) to ('false', 'false', 50);
+create table boolrangep_ff2 partition of boolrangep for values from ('false', 'false', 50) to ('false', 'false', 100);
+
+-- try a more complex case that's been known to trip up pruning in the past
+explain (costs off)  select * from boolrangep where not a and not b and c = 25;
 
 -- test scalar-to-array operators
 create table coercepart (a varchar) partition by list (a);
@@ -264,7 +274,7 @@ create table rparted_by_int2_maxvalue partition of rparted_by_int2 for values fr
 -- all partitions but rparted_by_int2_maxvalue pruned
 explain (costs off) select * from rparted_by_int2 where a > 100000000000000;
 
-drop table lp, coll_pruning, rlp, mc3p, mc2p, boolpart, rp, coll_pruning_multi, like_op_noprune, lparted_by_int2, rparted_by_int2;
+drop table lp, coll_pruning, rlp, mc3p, mc2p, boolpart, boolrangep, rp, coll_pruning_multi, like_op_noprune, lparted_by_int2, rparted_by_int2;
 
 --
 -- Test Partition pruning for HASH partitioning
