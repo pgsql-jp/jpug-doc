@@ -114,7 +114,7 @@ PANDOC = pandoc
 
 INSTALL: % : %.html
 	$(PANDOC) -t plain -o $@.tmp $<
-	$(ICONV) -f utf8 -t us-ascii//TRANSLIT $@.tmp > $@
+	$(ICONV) -f utf8 -t utf8//TRANSLIT $@.tmp > $@
 	rm $@.tmp
 
 INSTALL.html: %.html : stylesheet-text.xsl %.xml
