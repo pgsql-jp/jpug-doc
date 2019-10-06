@@ -1,29 +1,50 @@
 <!-- doc/src/sgml/rowtypes.sgml -->
 
 <sect1 id="rowtypes">
+<!--
  <title>Composite Types</title>
+-->
+ <title>複合型</title>
 
  <indexterm>
+<!--
   <primary>composite type</primary>
+-->
+  <primary>複合型</primary>
  </indexterm>
 
  <indexterm>
+<!--
   <primary>row type</primary>
+-->
+  <primary>行型</primary>
  </indexterm>
 
  <para>
+<!--
   A <firstterm>composite type</firstterm> represents the structure of a row or record;
   it is essentially just a list of field names and their data types.
   <productname>PostgreSQL</productname> allows  composite types to be
   used in many of the same ways that simple types can be used.  For example, a
   column of a table can be declared to be of a composite type.
+-->
+<firstterm>複合型</firstterm>は、行もしくはレコードの構造を表現します。
+本質的には、これは単なるフィールド名とそのデータ型のリストです。
+<productname>PostgreSQL</productname>では、単純な型において使用される方法と多くは同じ方法で複合型を使用できます。
+例えば、テーブルの列は複合型の型のものとして宣言することができます。
  </para>
 
  <sect2 id="rowtypes-declaring">
+<!--
   <title>Declaration of Composite Types</title>
+-->
+  <title>複合型の宣言</title>
 
  <para>
+<!--
   Here are two simple examples of defining composite types:
+-->
+複合型の宣言の例を以下に2つ示します。
 <programlisting>
 CREATE TYPE complex AS (
     r       double precision,
@@ -36,16 +57,25 @@ CREATE TYPE inventory_item AS (
     price           numeric
 );
 </programlisting>
+<!--
   The syntax is comparable to <command>CREATE TABLE</command>, except that only
   field names and types can be specified; no constraints (such as <literal>NOT
   NULL</literal>) can presently be included.  Note that the <literal>AS</literal> keyword
   is essential; without it, the system will think a different kind
   of <command>CREATE TYPE</command> command is meant, and you will get odd syntax
   errors.
+-->
+この構文は、フィールド名とその型のみを指定できるという点を除き、<command>CREATE TABLE</command>と同等です。
+現在は、制約（<literal>NOT NULL</literal>など）を含めることはできません。
+<literal>AS</literal>キーワードが重要であることに注意してください。
+これがないと、システムは<command>CREATE TYPE</command>の意味を異なって解釈し、おかしな構文エラーを引き起こします。
  </para>
 
  <para>
+<!--
   Having defined the types, we can use them to create tables:
+-->
+定義済みの型を使用して、以下のようにテーブルや関数を生成することができます。
 
 <programlisting>
 CREATE TABLE on_hand (
@@ -56,7 +86,10 @@ CREATE TABLE on_hand (
 INSERT INTO on_hand VALUES (ROW('fuzzy dice', 42, 1.99), 1000);
 </programlisting>
 
+<!--
   or functions:
+-->
+また、関数においては以下のように利用できます。
 
 <programlisting>
 CREATE FUNCTION price_extension(inventory_item, integer) RETURNS numeric
@@ -68,9 +101,13 @@ SELECT price_extension(item, 10) FROM on_hand;
  </para>
 
  <para>
+<!--
   Whenever you create a table, a composite type is also automatically
   created, with the same name as the table, to represent the table's
   row type.  For example, had we said:
+-->
+テーブルを生成する時には、テーブルの行型を表現するために、テーブル名と同じ名前の複合型も自動的に生成されます。
+例えば、以下のように
 <programlisting>
 CREATE TABLE inventory_item (
     name            text,
@@ -78,6 +115,7 @@ CREATE TABLE inventory_item (
     price           numeric CHECK (price &gt; 0)
 );
 </programlisting>
+<!--
   then the same <literal>inventory_item</literal> composite type shown above would
   come into being as a
   byproduct, and could be used just as above.  Note however an important
@@ -87,134 +125,218 @@ CREATE TABLE inventory_item (
   outside the table.  (To work around this, create a domain over the composite
   type, and apply the desired constraints as <literal>CHECK</literal>
   constraints of the domain.)
+-->
+テーブルを作成すると、上述のものと同じ<literal>inventory_item</literal>という複合型が副次的に作成され、同様に使用することができるようになります。
+しかし、現在の実装には、次のような重要な制限があることに注意してください。
+複合型には制約が関連付けられませんので、テーブル定義に含まれる制約は、テーブルの外部に作成される複合型には<emphasis>適用されません</emphasis>。
+（これを回避するためには、複合型を含むドメインを作成し、ドメインの<literal>CHECK</literal>制約として望みの制約を適用します。）
  </para>
  </sect2>
 
  <sect2>
+<!--
   <title>Constructing Composite Values</title>
+-->
+  <title>複合型の値の構成</title>
 
   <indexterm>
+<!--
    <primary>composite type</primary>
    <secondary>constant</secondary>
+-->
+   <primary>複合型</primary>
+   <secondary>の定数</secondary>
   </indexterm>
 
   <para>
+<!--
    To write a composite value as a literal constant, enclose the field
    values within parentheses and separate them by commas.  You can put double
    quotes around any field value, and must do so if it contains commas or
    parentheses.  (More details appear <link
    linkend="rowtypes-io-syntax">below</link>.)  Thus, the general format of
    a composite constant is the following:
+-->
+複合型をリテラル定数として記述するには、フィールド値をカンマで区切り、それらを括弧で括ります。
+フィールド値を二重引用符で括ることができ、また、値にカンマや括弧を含む場合は二重引用符で括らなければなりません
+（より詳細については<link linkend="rowtypes-io-syntax">後</link>で説明します）。
+したがって、複合型の定数の一般的な書式は以下のようになります。
 <synopsis>
 '( <replaceable>val1</replaceable> , <replaceable>val2</replaceable> , ... )'
 </synopsis>
+<!--
    An example is:
+-->
+以下に例を示します。
 <programlisting>
 '("fuzzy dice",42,1.99)'
 </programlisting>
+<!--
    which would be a valid value of the <literal>inventory_item</literal> type
    defined above.  To make a field be NULL, write no characters at all
    in its position in the list.  For example, this constant specifies
    a NULL third field:
+-->
+これは、上述の<literal>inventory_item</literal>型の値として有効なものです。
+フィールドをNULLにするには、リスト中の該当位置を空にします。
+例えば、以下の定数は3番目のフィールドにNULLを指定しています。
 <programlisting>
 '("fuzzy dice",42,)'
 </programlisting>
+<!--
    If you want an empty string rather than NULL, write double quotes:
+-->
+NULLではなく空文字列にしたいのであれば、以下のように引用符を二重に記述します。
 <programlisting>
 '("",42,)'
 </programlisting>
+<!--
    Here the first field is a non-NULL empty string, the third is NULL.
+-->
+これにより、最初のフィールドは非NULLの空文字列に、3番目のフィールドはNULLになります。
   </para>
 
   <para>
+<!--
    (These constants are actually only a special case of
    the generic type constants discussed in <xref
    linkend="sql-syntax-constants-generic"/>.  The constant is initially
    treated as a string and passed to the composite-type input conversion
    routine.  An explicit type specification might be necessary to tell
    which type to convert the constant to.)
+-->
+（実際には、こうした定数は<xref linkend="sql-syntax-constants-generic"/>で説明した、一般的な型の定数の特殊な場合に過ぎません。
+定数はまず、文字列として扱われ、複合型の入力変換処理に渡されます。
+定数をどの型に変換するかを示すため、明示的な型指定が必要になることもあります。）
   </para>
 
  <para>
+<!--
   The <literal>ROW</literal> expression syntax can also be used to
   construct composite values.  In most cases this is considerably
   simpler to use than the string-literal syntax since you don't have
   to worry about multiple layers of quoting.  We already used this
   method above:
+-->
+また、<literal>ROW</literal>式構文も、複合値を生成する際に使用することができます。
+複数の階層に渡る引用符について考慮する必要がないため、おそらくほとんどの場合、これは文字列リテラル構文よりも簡単に使用できます。
+上記において、既にこの方法を使用しています。
 <programlisting>
 ROW('fuzzy dice', 42, 1.99)
 ROW('', 42, NULL)
 </programlisting>
+<!--
   The ROW keyword is actually optional as long as you have more than one
   field in the expression, so these can be simplified to:
+-->
+式の中に2つ以上のフィールドがある場合には、ROWキーワードは実際には省略することができます。
+ですので、以下のように簡略化することができます。
 <programlisting>
 ('fuzzy dice', 42, 1.99)
 ('', 42, NULL)
 </programlisting>
+<!--
   The <literal>ROW</literal> expression syntax is discussed in more detail in <xref
   linkend="sql-syntax-row-constructors"/>.
+-->
+<literal>ROW</literal>構文については<xref linkend="sql-syntax-row-constructors"/>でより詳細に説明します。
  </para>
  </sect2>
 
  <sect2 id="rowtypes-accessing">
+<!--
   <title>Accessing Composite Types</title>
+-->
+  <title>複合型へのアクセス</title>
 
  <para>
+<!--
   To access a field of a composite column, one writes a dot and the field
   name, much like selecting a field from a table name.  In fact, it's so
   much like selecting from a table name that you often have to use parentheses
   to keep from confusing the parser.  For example, you might try to select
   some subfields from our <literal>on_hand</literal> example table with something
   like:
+-->
+複合型の列のフィールドにアクセスするには、テーブル名からフィールドを選択する場合とほぼ同様に、ドットとフィールド名を記述します。
+実際、テーブル名からの選択とかなり似ていますので、パーサを混乱させないように括弧を使用しなければならないことがしばしばあります。
+例えば、<literal>on_hand</literal>というテーブルの例からサブフィールドを選択しようとした場合、以下のように書くかもしれません。
 
 <programlisting>
 SELECT item.name FROM on_hand WHERE item.price &gt; 9.99;
 </programlisting>
 
+<!--
   This will not work since the name <literal>item</literal> is taken to be a table
   name, not a column name of <literal>on_hand</literal>, per SQL syntax rules.
   You must write it like this:
+-->
+これは、SQLの構文規則に従って<literal>item</literal>が<literal>on_hand</literal>の列名ではなくテーブル名として解釈されるため、動作しません。
+以下のように記述しなければなりません。
 
 <programlisting>
 SELECT (item).name FROM on_hand WHERE (item).price &gt; 9.99;
 </programlisting>
 
+<!--
   or if you need to use the table name as well (for instance in a multitable
   query), like this:
+-->
+また、テーブル名も使用しなければならない場合（例えば複数テーブルに対する問い合わせ）、以下のようになります。
 
 <programlisting>
 SELECT (on_hand.item).name FROM on_hand WHERE (on_hand.item).price &gt; 9.99;
 </programlisting>
 
+<!--
   Now the parenthesized object is correctly interpreted as a reference to
   the <literal>item</literal> column, and then the subfield can be selected from it.
+-->
+これで、括弧で括られたオブジェクトは正しく<literal>item</literal>列への参照として解釈され、サブフィールドはそこから選択できるようになります。
  </para>
 
  <para>
+<!--
   Similar syntactic issues apply whenever you select a field from a composite
   value.  For instance, to select just one field from the result of a function
   that returns a composite value, you'd need to write something like:
+-->
+似たような構文上の問題は、複合型からフィールドを選択する時、常に発生します。
+例えば、複合型の値を返す関数の結果から1つだけフィールドを選択する場合、以下のように記述しなければなりません。
 
 <programlisting>
 SELECT (my_func(...)).field FROM ...
 </programlisting>
 
+<!--
   Without the extra parentheses, this will generate a syntax error.
+-->
+追加の括弧がないと、これは構文エラーを生成します。
  </para>
 
  <para>
+<!--
   The special field name <literal>*</literal> means <quote>all fields</quote>, as
   further explained in <xref linkend="rowtypes-usage"/>.
+-->
+<xref linkend="rowtypes-usage"/>でより詳細に説明する通り、<literal>*</literal>という特別なフィールド名は<quote>すべてのフィールド</quote>を意味します。
  </para>
  </sect2>
 
  <sect2>
+<!--
   <title>Modifying Composite Types</title>
+-->
+  <title>複合型の変更</title>
 
  <para>
+<!--
   Here are some examples of the proper syntax for inserting and updating
   composite columns.
   First, inserting or updating a whole column:
+-->
+複合型の列への挿入と更新についての適切な構文の例をいくつか示します。
+まず、列全体を挿入、更新する例です。
 
 <programlisting>
 INSERT INTO mytab (complex_col) VALUES((1.1,2.2));
@@ -222,91 +344,137 @@ INSERT INTO mytab (complex_col) VALUES((1.1,2.2));
 UPDATE mytab SET complex_col = ROW(1.1,2.2) WHERE ...;
 </programlisting>
 
+<!--
   The first example omits <literal>ROW</literal>, the second uses it; we
   could have done it either way.
+-->
+最初の例では<literal>ROW</literal>を省略し、2番目の例では<literal>ROW</literal>を使用しています。
+どちらの方法でも行うことができます。
  </para>
 
  <para>
+<!--
   We can update an individual subfield of a composite column:
+-->
+以下のようにして、複合型の列の個々のサブフィールドを更新することができます。
 
 <programlisting>
 UPDATE mytab SET complex_col.r = (complex_col).r + 1 WHERE ...;
 </programlisting>
 
+<!--
   Notice here that we don't need to (and indeed cannot)
   put parentheses around the column name appearing just after
   <literal>SET</literal>, but we do need parentheses when referencing the same
   column in the expression to the right of the equal sign.
+-->
+ここで、<literal>SET</literal>直後の列名の周りに括弧を記述する必要がないこと（実際には記述できないこと）、しかし、等号の右で同じ列を参照する場合には括弧が必要なことに注意してください。
  </para>
 
  <para>
+<!--
   And we can specify subfields as targets for <command>INSERT</command>, too:
+-->
+また、<command>INSERT</command>の対象としてサブフィールドを指定することもできます。
 
 <programlisting>
 INSERT INTO mytab (complex_col.r, complex_col.i) VALUES(1.1, 2.2);
 </programlisting>
 
+<!--
   Had we not supplied values for all the subfields of the column, the
   remaining subfields would have been filled with null values.
+-->
+列のサブフィールド全ての値を与えていなければ、残りのサブフィールドはNULL値になります。
  </para>
  </sect2>
 
  <sect2 id="rowtypes-usage">
+<!--
   <title>Using Composite Types in Queries</title>
+-->
+  <title>問い合わせでの複合型の使用</title>
 
   <para>
+<!--
    There are various special syntax rules and behaviors associated with
    composite types in queries.  These rules provide useful shortcuts,
    but can be confusing if you don't know the logic behind them.
+-->
+問い合わせ内での複合型に関連して様々な特別な構文規則や動作があります。
+これらの規則により便利なショートカットが提供されますが、その背後にある論理を知らないと混乱を招くかもしれません。
   </para>
 
   <para>
+<!--
    In <productname>PostgreSQL</productname>, a reference to a table name (or alias)
    in a query is effectively a reference to the composite value of the
    table's current row.  For example, if we had a table
    <structname>inventory_item</structname> as shown
    <link linkend="rowtypes-declaring">above</link>, we could write:
+-->
+<productname>PostgreSQL</productname>では、問い合わせでのテーブル名（または別名）の参照は、実質的にはテーブルの現在行の複合型の値への参照と同じになります。
+例えば、<link linkend="rowtypes-declaring">前に</link>示した<structname>inventory_item</structname>というテーブルがあるとして、次のように記述することができます。
 <programlisting>
 SELECT c FROM inventory_item c;
 </programlisting>
+<!--
    This query produces a single composite-valued column, so we might get
    output like:
+-->
+この問い合わせは単一の複合型の値の列を生成するので、出力は以下のようになります。
 <programlisting>
            c
 ------------------------
  ("fuzzy dice",42,1.99)
 (1 row)
 </programlisting>
+<!--
    Note however that simple names are matched to column names before table
    names, so this example works only because there is no column
    named <structfield>c</structfield> in the query's tables.
+-->
+ただし、単純な名前はテーブル名より先に列名に対してマッチさせられるので、この例は問い合わせのテーブルに<structfield>c</structfield>という名前の列がないから動作したに過ぎないことに注意してください。
   </para>
 
   <para>
+<!--
    The ordinary qualified-column-name
    syntax <replaceable>table_name</replaceable><literal>.</literal><replaceable>column_name</replaceable>
    can be understood as applying <link linkend="field-selection">field
    selection</link> to the composite value of the table's current row.
    (For efficiency reasons, it's not actually implemented that way.)
+-->
+通常の<replaceable>table_name</replaceable><literal>.</literal><replaceable>column_name</replaceable>という列名修飾の構文は、<link linkend="field-selection">フィールド選択</link>をテーブルの現在行の複合型の値に対して適用していると考えることもできます。
+（効率の問題から、実際にはそのような実装にはなっていません。）
   </para>
 
   <para>
+<!--
    When we write
+-->
 <programlisting>
 SELECT c.* FROM inventory_item c;
 </programlisting>
+<!--
    then, according to the SQL standard, we should get the contents of the
    table expanded into separate columns:
+-->
+上記のSQLについて、標準SQLではテーブルの内容が別々の列に展開されて、次のような結果になることを定めています。
 <programlisting>
     name    | supplier_id | price
 ------------+-------------+-------
  fuzzy dice |          42 |  1.99
 (1 row)
 </programlisting>
+<!--
    as if the query were
+-->
+つまりこれは、問い合わせが以下であったかのように動作するということです。
 <programlisting>
 SELECT c.name, c.supplier_id, c.price FROM inventory_item c;
 </programlisting>
+<!--
    <productname>PostgreSQL</productname> will apply this expansion behavior to
    any composite-valued expression, although as shown <link
    linkend="rowtypes-accessing">above</link>, you need to write parentheses
@@ -315,6 +483,10 @@ SELECT c.name, c.supplier_id, c.price FROM inventory_item c;
    returning a composite type with columns <structfield>a</structfield>,
    <structfield>b</structfield>, and <structfield>c</structfield>, then these two queries have the
    same result:
+-->
+<productname>PostgreSQL</productname>では、この展開の動作をすべての複合型の値の式に適用します。
+ただし、<link linkend="rowtypes-accessing">前に</link>説明したように、<literal>.*</literal>をつける値が単純なテーブル名でないときは、必ずそれを括弧で括る必要があります。
+例えば、<function>myfunc()</function>が列<structfield>a</structfield>、<structfield>b</structfield>、<structfield>c</structfield>からなる複合型を返す関数だとすると、次の２つの問い合わせは同じ結果を返します。
 <programlisting>
 SELECT (myfunc(x)).* FROM some_table;
 SELECT (myfunc(x)).a, (myfunc(x)).b, (myfunc(x)).c FROM some_table;
@@ -323,14 +495,20 @@ SELECT (myfunc(x)).a, (myfunc(x)).b, (myfunc(x)).c FROM some_table;
 
   <tip>
    <para>
+<!--
     <productname>PostgreSQL</productname> handles column expansion by
     actually transforming the first form into the second.  So, in this
     example, <function>myfunc()</function> would get invoked three times per row
     with either syntax.  If it's an expensive function you may wish to
     avoid that, which you can do with a query like:
+-->
+<productname>PostgreSQL</productname>では、上の１番目の構文を２番目の構文に実際に変換することで列の展開を処理します。
+従って、この例ではどちらの構文を使っても<function>myfunc()</function>は各行に対して３回ずつ呼び出されます。
+それが高価な関数でそのような事態を避けたいなら、次のような問い合わせにすることもできます。
 <programlisting>
 SELECT m.* FROM some_table, LATERAL myfunc(x) AS m;
 </programlisting>
+<!--
     Placing the function in
     a <literal>LATERAL</literal> <literal>FROM</literal> item keeps it from
     being invoked more than once per row.  <literal>m.*</literal> is still
@@ -339,10 +517,15 @@ SELECT m.* FROM some_table, LATERAL myfunc(x) AS m;
     (The <literal>LATERAL</literal> keyword is optional here, but we show it
     to clarify that the function is getting <structfield>x</structfield>
     from <structname>some_table</structname>.)
+-->
+<literal>LATERAL</literal> <literal>FROM</literal>項目の中に関数を置くと、関数は1行につき2度以上は呼び出されません。
+<literal>m.*</literal>はまだ<literal>m.a, m.b, m.c</literal>に展開されますが、その変数は<literal>FROM</literal>項目の出力の単なる参照です。
+(<literal>LATERAL</literal>キーワードはここでは省略可能ですが、関数が<structname>some_table</structname>から<structfield>x</structfield>を入手していることを明確にするために書きました。)
    </para>
   </tip>
 
   <para>
+<!--
    The <replaceable>composite_value</replaceable><literal>.*</literal> syntax results in
    column expansion of this kind when it appears at the top level of
    a <link linkend="queries-select-lists"><command>SELECT</command> output
@@ -356,12 +539,18 @@ SELECT m.* FROM some_table, LATERAL myfunc(x) AS m;
    same composite value is produced again.  For example,
    if <function>somefunc()</function> accepts a composite-valued argument,
    these queries are the same:
+-->
+<replaceable>composite_value</replaceable><literal>.*</literal>の構文は、それが<link linkend="queries-select-lists"><command>SELECT</command>の出力リスト</link>、<command>INSERT</command>/<command>UPDATE</command>/<command>DELETE</command>の<link linkend="dml-returning"><literal>RETURNING</literal>リスト</link>、<link linkend="queries-values"><literal>VALUES</literal>句</link>あるいは<link linkend="sql-syntax-row-constructors">行コンストラクタ</link>の最上位に記述された場合、この種の列展開がされます。
+それ以外の場合（これらの構文の内側に入れ子になっている場合を含みます）は、複合型の値に<literal>.*</literal>を付加しても、値は変わりません。
+なぜなら、それは<quote>すべての列</quote>を意味するため、同じ複合型の値が繰り返し生成されるからです。
+例えば、<function>somefunc()</function>が複合型の値の引数をとるとして、以下の問い合わせは同じです。
 
 <programlisting>
 SELECT somefunc(c.*) FROM inventory_item c;
 SELECT somefunc(c) FROM inventory_item c;
 </programlisting>
 
+<!--
    In both cases, the current row of <structname>inventory_item</structname> is
    passed to the function as a single composite-valued argument.
    Even though <literal>.*</literal> does nothing in such cases, using it is good
@@ -372,16 +561,24 @@ SELECT somefunc(c) FROM inventory_item c;
    whether <literal>c</literal> means a table name or a column name, and in fact
    the column-name interpretation will be preferred if there is a column
    named <literal>c</literal>.
+-->
+どちらの場合も<structname>inventory_item</structname>の現在行が単一の複合型の値の引数として関数に渡されます。
+このような場合に<literal>.*</literal>は何もしませんが、それをつけることにより、複合型の値であることを意図しているのが明確になるので、つけるのは良い習慣です。
+特に、パーサが<literal>c.*</literal>の<literal>c</literal>を列名ではなくテーブル名あるいは別名を参照するものとみなす一方、<literal>.*</literal>がないと<literal>c</literal>がテーブル名なのか列名なのか明らかではなく、実際には、<literal>c</literal>という名前の列があれば列名としての解釈が優先されてしまいます。
   </para>
 
   <para>
+<!--
    Another example demonstrating these concepts is that all these queries
    mean the same thing:
+-->
+これらの考え方を示す別の例をあげると、以下の３つの問い合わせは同じ意味になります。
 <programlisting>
 SELECT * FROM inventory_item c ORDER BY c;
 SELECT * FROM inventory_item c ORDER BY c.*;
 SELECT * FROM inventory_item c ORDER BY ROW(c.*);
 </programlisting>
+<!--
    All of these <literal>ORDER BY</literal> clauses specify the row's composite
    value, resulting in sorting the rows according to the rules described
    in <xref linkend="composite-type-comparison"/>.  However,
@@ -389,30 +586,46 @@ SELECT * FROM inventory_item c ORDER BY ROW(c.*);
    named <structfield>c</structfield>, the first case would be different from the
    others, as it would mean to sort by that column only.  Given the column
    names previously shown, these queries are also equivalent to those above:
+-->
+これらの<literal>ORDER BY</literal>句はすべて行の複合型の値を指定しており、<xref linkend="composite-type-comparison"/>で説明される規則に従って行を並べ替えた結果になります。
+ただし、<structname>inventory_item</structname>に<structfield>c</structfield>という名前の列がある場合は、最初の例はその列によってのみ並べ替えられるので、他の２つとは異なるものになります。
+以前に示したのと同じ列名であるとしたら、以下の問い合わせも上記のものと同じになります。
 <programlisting>
 SELECT * FROM inventory_item c ORDER BY ROW(c.name, c.supplier_id, c.price);
 SELECT * FROM inventory_item c ORDER BY (c.name, c.supplier_id, c.price);
 </programlisting>
+<!--
    (The last case uses a row constructor with the key word <literal>ROW</literal>
    omitted.)
+-->
+（最後の例はキーワード<literal>ROW</literal>を省略した行コンストラクタを使用しています。）
   </para>
 
   <para>
+<!--
    Another special syntactical behavior associated with composite values is
    that we can use <firstterm>functional notation</firstterm> for extracting a field
    of a composite value.  The simple way to explain this is that
    the notations <literal><replaceable>field</replaceable>(<replaceable>table</replaceable>)</literal>
    and <literal><replaceable>table</replaceable>.<replaceable>field</replaceable></literal>
    are interchangeable.  For example, these queries are equivalent:
+-->
+複合型の値に関連したもう一つの特別な構文的動作は、複合型の値のフィールドを取り出す時に<firstterm>関数的記法</firstterm>を使用できることです。
+これを簡単に説明するなら、<literal><replaceable>field</replaceable>(<replaceable>table</replaceable>)</literal>という記法と<literal><replaceable>table</replaceable>.<replaceable>field</replaceable></literal>という記法は相互に交換可能です。
+例えば、以下の問い合わせは同等です。
 
 <programlisting>
 SELECT c.name FROM inventory_item c WHERE c.price &gt; 1000;
 SELECT name(c) FROM inventory_item c WHERE price(c) &gt; 1000;
 </programlisting>
 
+<!--
    Moreover, if we have a function that accepts a single argument of a
    composite type, we can call it with either notation.  These queries are
    all equivalent:
+-->
+さらに、複合型の引数を１つだけとる関数があるとして、それをどちらの記法でも呼び出すことができます。
+以下の問い合わせはすべて同等です。
 
 <programlisting>
 SELECT somefunc(c) FROM inventory_item c;
@@ -422,22 +635,36 @@ SELECT c.somefunc FROM inventory_item c;
   </para>
 
   <para>
+<!--
    This equivalence between functional notation and field notation
    makes it possible to use functions on composite types to implement
    <quote>computed fields</quote>.
+-->
+この関数的記法とフィールド記法の同等性により、複合型に対する関数を使用して<quote>計算されたフィールド</quote>を実装することができます。
    <indexterm>
+<!--
     <primary>computed field</primary>
+-->
+    <primary>計算されたフィールド</primary>
    </indexterm>
    <indexterm>
+<!--
     <primary>field</primary>
     <secondary>computed</secondary>
+-->
+    <primary>フィールド</primary>
+    <secondary>計算された</secondary>
    </indexterm>
+<!--
    An application using the last query above wouldn't need to be directly
    aware that <literal>somefunc</literal> isn't a real column of the table.
+-->
+上の最後の問い合わせを使用するアプリケーションは、<literal>somefunc</literal>がテーブルの真の列ではないことを直接には意識する必要がありません。
   </para>
 
   <tip>
    <para>
+<!--
     Because of this behavior, it's unwise to give a function that takes a
     single composite-type argument the same name as any of the fields of
     that composite type.  If there is ambiguity, the field-name
@@ -448,14 +675,23 @@ SELECT c.somefunc FROM inventory_item c;
     be a function call.  One way to force the function interpretation in
     older versions is to schema-qualify the function name, that is, write
     <literal><replaceable>schema</replaceable>.<replaceable>func</replaceable>(<replaceable>compositevalue</replaceable>)</literal>.
+-->
+このような動作になるため、複合型の引数を一つだけとる関数に、その複合型に含まれるフィールドと同じ名前をつけることは賢明ではありません。
+曖昧なときには、フィールド名の構文が使われていれば、フィールド名の解釈が選ばれ、関数呼び出しの構文が使われていれば、関数が選ばれます。
+しかしながら、11より前の<productname>PostgreSQL</productname>のバージョンでは、呼び出し構文が関数呼び出しとしてしか扱えない場合を除いて、常にフィールド名の解釈を選んでいました。
+関数としての解釈を強制する一つの方法は、関数名をスキーマ修飾する、つまり<literal><replaceable>schema</replaceable>.<replaceable>func</replaceable>(<replaceable>compositevalue</replaceable>)</literal>とすることです。
    </para>
   </tip>
  </sect2>
 
  <sect2 id="rowtypes-io-syntax">
+<!--
   <title>Composite Type Input and Output Syntax</title>
+-->
+  <title>複合型の入出力構文</title>
 
   <para>
+<!--
    The external text representation of a composite value consists of items that
    are interpreted according to the I/O conversion rules for the individual
    field types, plus decoration that indicates the composite structure.
@@ -465,14 +701,24 @@ SELECT c.somefunc FROM inventory_item c;
    parentheses it is considered part of the field value, and might or might not be
    significant depending on the input conversion rules for the field data type.
    For example, in:
+-->
+複合型の外部テキスト表現は、個々のフィールド用のI/O変換規則に従って解釈される項目群と、複合構造を意味する修飾から構成されます。
+この修飾は、値全体を括る括弧（<literal>(</literal>および<literal>)</literal>）と隣接した項目間のカンマ（<literal>,</literal>）で構成されます。
+括弧の外側の空白文字は無視されますが、括弧の内部ではフィールド値の一部とみなされます。
+ただし、空白に意味があるかないかについては、そのフィールドのデータ型用の入力変換規則に従います。
+例えば、
 <programlisting>
 '(  42)'
 </programlisting>
+<!--
    the whitespace will be ignored if the field type is integer, but not if
    it is text.
+-->
+括弧内の空白文字は、そのフィールド型が整数の場合は無視されますが、テキストの場合は無視されません。
   </para>
 
   <para>
+<!--
    As shown previously, when writing a composite value you can write double
    quotes around any individual field value.
    You <emphasis>must</emphasis> do so if the field value would otherwise
@@ -485,33 +731,56 @@ SELECT c.somefunc FROM inventory_item c;
    Alternatively, you can avoid quoting and use backslash-escaping to
    protect all data characters
    that would otherwise be taken as composite syntax.
+-->
+前述の通り、複合型の値を記述する時には、個々のフィールド値を二重引用符で括ることができます。
+もし、フィールド値が複合型値用のパーサを混乱させる場合には、これは<emphasis>必須</emphasis>です。
+具体的には、括弧、カンマ、二重引用符、バックスラッシュを含むフィールドの場合、二重引用符で括る必要があります。
+引用符で括った複合型のフィールド値内に二重引用符やバックスラッシュが存在する場合、その前にバックスラッシュを付けてください
+（また、引用符で括った複合型のフィールド値内に二重の引用符の組み合わせがあると、これは二重引用符を表す文字として解釈されます。
+これは、SQLリテラル文字列内の単一引用符の規則と同じです）。
+そのままでは複合型に対する構文として解釈されてしまう、全てのデータ文字を保護する他の方法として、引用符付けをせずにバックスラッシュによるエスケープを使用することができます。
   </para>
 
   <para>
+<!--
    A completely empty field value (no characters at all between the commas
    or parentheses) represents a NULL.  To write a value that is an empty
    string rather than NULL, write <literal>""</literal>.
+-->
+完全な空フィールド値（カンマや括弧の間にまったく文字がないもの）はNULLを表します。
+NULLではなく空文字列を値として記述するには <literal>""</literal> と記述してください。
   </para>
 
   <para>
+<!--
    The composite output routine will put double quotes around field values
    if they are empty strings or contain parentheses, commas,
    double quotes, backslashes, or white space.  (Doing so for white space
    is not essential, but aids legibility.)  Double quotes and backslashes
    embedded in field values will be doubled.
+-->
+複合型の出力処理では、もしフィールド値が空文字列の場合や括弧、カンマ、二重引用符、バックスラッシュ、空白文字を含む場合には、そのフィールド値を二重引用符で括って出力します
+（空白文字に対するこの処理は重要ではありませんが、可読性を高めます）。
+フィールド値内に埋め込まれた二重引用符やバックスラッシュは二重化されます。
   </para>
 
  <note>
   <para>
+<!--
    Remember that what you write in an SQL command will first be interpreted
    as a string literal, and then as a composite.  This doubles the number of
    backslashes you need (assuming escape string syntax is used).
    For example, to insert a <type>text</type> field
    containing a double quote and a backslash in a composite
    value, you'd need to write:
+-->
+SQLコマンド内部に記述したものは、まず文字列リテラルとして、その後、複合型として解釈されることを覚えておいてください。
+これは必要なバックスラッシュの数を倍にします（エスケープ文字列構文が使用されることを仮定しています）。
+例えば、複合型の値の中に二重引用符とバックスラッシュを持つ<type>text</type>フィールドに挿入するには、以下のように書かなければなりません。
 <programlisting>
 INSERT ... VALUES ('("\"\\")');
 </programlisting>
+<!--
    The string-literal processor removes one level of backslashes, so that
    what arrives at the composite-value parser looks like
    <literal>("\"\\")</literal>.  In turn, the string
@@ -522,16 +791,25 @@ INSERT ... VALUES ('("\"\\")');
    in the command to get one backslash into the stored composite field.)
    Dollar quoting (see <xref linkend="sql-syntax-dollar-quoting"/>) can be
    used to avoid the need to double backslashes.
+-->
+文字列リテラルプロセッサが第1レベルのバックスラッシュを取り除くため、複合型値のパーサに渡されるものは <literal>("\"\\")</literal> のようになります。
+そして、<type>text</type>データ型の入力関数に渡される文字列は<literal>"\</literal>になります
+（もし、例えば<type>bytea</type>といった、その入力関数もバックスラッシュを特別に扱うデータ型を扱っている場合、1つのバックスラッシュを複合型のフィールドに格納するためにコマンド内に8個ものバックスラッシュが必要になります）。
+ドル引用符付け（<xref linkend="sql-syntax-dollar-quoting"/>を参照）を使用して、このバックスラッシュの二重化を防ぐことができます。
   </para>
  </note>
 
  <tip>
   <para>
+<!--
    The <literal>ROW</literal> constructor syntax is usually easier to work with
    than the composite-literal syntax when writing composite values in SQL
    commands.
    In <literal>ROW</literal>, individual field values are written the same way
    they would be written when not members of a composite.
+-->
+SQLコマンド内に複合型の値を書く時、通常、<literal>ROW</literal>生成構文の方が複合型のリテラル構文より作業が簡単です。
+<literal>ROW</literal>による記述では、複合型のメンバ以外の記述方法と同じ方法で個々のフィールド値を記述することができます。
   </para>
  </tip>
  </sect2>

@@ -8,80 +8,136 @@
  </indexterm>
 
  <para>
+<!--
   This module implements a data type <type>ltree</type> for representing
   labels of data stored in a hierarchical tree-like structure.
   Extensive facilities for searching through label trees are provided.
+-->
+本モジュールは階層ツリーを模擬した構造に格納されたデータのラベルを表現する <type>ltree</type>データ型を実装します。
+ラベルツリー全体を検索する高度な機能を提供します。
  </para>
 
  <sect2>
+<!--
   <title>Definitions</title>
+-->
+  <title>定義</title>
 
   <para>
+<!--
    A <firstterm>label</firstterm> is a sequence of alphanumeric characters
    and underscores (for example, in C locale the characters
    <literal>A-Za-z0-9_</literal> are allowed).  Labels must be less than 256 bytes
    long.
+-->
+<firstterm>ラベル</firstterm>は、アルファベット文字とアンダースコア（例えばCロケールでは<literal>A-Za-z0-9_</literal>文字が許されます。）の並びです。
+ラベルの長さは256バイト未満でなければなりません。
   </para>
 
   <para>
+<!--
    Examples: <literal>42</literal>, <literal>Personal_Services</literal>
+-->
+例えば<literal>42</literal>、<literal>Personal_Services</literal>です。
   </para>
 
   <para>
+<!--
    A <firstterm>label path</firstterm> is a sequence of zero or more
    labels separated by dots, for example <literal>L1.L2.L3</literal>, representing
    a path from the root of a hierarchical tree to a particular node.  The
    length of a label path must be less than 65kB, but keeping it under 2kB is
    preferable.
+-->
+<firstterm>ラベル経路</firstterm>は、例えば<literal>L1.L2.L3</literal>のようなドットで区切られた0個以上のラベルの並びであり、階層ツリーのルートから特定のノードまでの経路を表します。
+ラベル経路の長さは65キロバイト未満に制限されていますが、2キロバイト未満にしておくことをお勧めします。
   </para>
 
   <para>
+<!--
    Example: <literal>Top.Countries.Europe.Russia</literal>
+-->
+例：<literal>'Top.Countries.Europe.Russia'</literal>
   </para>
 
   <para>
+<!--
    The <filename>ltree</filename> module provides several data types:
+-->
+<filename>ltree</filename>モジュールは以下の複数のデータ型を提供します。
   </para>
 
   <itemizedlist>
    <listitem>
     <para>
+<!--
      <type>ltree</type> stores a label path.
+-->
+<type>ltree</type>はラベル経路を格納します。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      <type>lquery</type> represents a regular-expression-like pattern
      for matching <type>ltree</type> values.  A simple word matches that
      label within a path.  A star symbol (<literal>*</literal>) matches zero
      or more labels.  For example:
+-->
+<type>lquery</type>は、<type>ltree</type>値に一致する正規表現のようなパターンを表現します。
+単一の単語は経路内のラベルに一致します。
+スター記号（<literal>*</literal>）は0個以上のラベルに一致します。
+以下に例を示します。
 <synopsis>
+<!--
 foo         <lineannotation>Match the exact label path <literal>foo</literal></lineannotation>
 *.foo.*     <lineannotation>Match any label path containing the label <literal>foo</literal></lineannotation>
 *.foo       <lineannotation>Match any label path whose last label is <literal>foo</literal></lineannotation>
+-->
+foo         <lineannotation>正確に<literal>foo</literal>というラベル経路に一致します。</lineannotation>
+*.foo.*     <lineannotation><literal>foo</literal>というラベルを含むラベル経路すべてに一致します。</lineannotation>
+*.foo       <lineannotation><literal>foo</literal>というラベルで終わるラベル経路すべてに一致します。</lineannotation>
 </synopsis>
     </para>
 
     <para>
+<!--
      Star symbols can also be quantified to restrict how many labels
      they can match:
+-->
+スター印は一致可能なラベル数を制限するために量指定を行うことができます。
 <synopsis>
+<!--
 *{<replaceable>n</replaceable>}        <lineannotation>Match exactly <replaceable>n</replaceable> labels</lineannotation>
 *{<replaceable>n</replaceable>,}       <lineannotation>Match at least <replaceable>n</replaceable> labels</lineannotation>
 *{<replaceable>n</replaceable>,<replaceable>m</replaceable>}      <lineannotation>Match at least <replaceable>n</replaceable> but not more than <replaceable>m</replaceable> labels</lineannotation>
 *{,<replaceable>m</replaceable>}       <lineannotation>Match at most <replaceable>m</replaceable> labels &mdash; same as </lineannotation> *{0,<replaceable>m</replaceable>}
+-->
+*{<replaceable>n</replaceable>}        <lineannotation>正確に<replaceable>n</replaceable>個のラベルに一致します。</lineannotation>
+*{<replaceable>n</replaceable>,}       <lineannotation>少なくとも<replaceable>n</replaceable>個のラベルに一致します。</lineannotation>
+*{<replaceable>n</replaceable>,<replaceable>m</replaceable>}      <lineannotation>少なくとも<replaceable>n</replaceable>個に一致し、多くても<replaceable>m</replaceable>個を超えないラベルに一致します。</lineannotation>
+*{,<replaceable>m</replaceable>}       <lineannotation>最大<replaceable>m</replaceable>個のラベルに一致します。つまり</lineannotation> *{0,<replaceable>m</replaceable>}と同じです。
 </synopsis>
     </para>
 
     <para>
+<!--
      There are several modifiers that can be put at the end of a non-star
      label in <type>lquery</type> to make it match more than just the exact match:
+-->
+単なる正確な一致以上の一致を行うために、<type>lquery</type>の非スターラベルの終端に記述することができる複数の修飾子が存在します。
 <synopsis>
+<!--
 @           <lineannotation>Match case-insensitively, for example <literal>a@</literal> matches <literal>A</literal></lineannotation>
 *           <lineannotation>Match any label with this prefix, for example <literal>foo*</literal> matches <literal>foobar</literal></lineannotation>
 %           <lineannotation>Match initial underscore-separated words</lineannotation>
+-->
+@           <lineannotation>大文字小文字を区別しない一致。例えば<literal>a@</literal>は<literal>A</literal>に一致します。</lineannotation>
+*           <lineannotation>この接頭辞を持つすべてのラベルに一致。例えば<literal>foo*</literal>は<literal>foobar</literal>に一致します。</lineannotation>
+%           <lineannotation>最初のアンダースコアで区切られた単語に一致。</lineannotation>
 </synopsis>
+<!--
      The behavior of <literal>%</literal> is a bit complicated.  It tries to match
      words rather than the entire label.  For example
      <literal>foo_bar%</literal> matches <literal>foo_bar_baz</literal> but not
@@ -89,55 +145,87 @@ foo         <lineannotation>Match the exact label path <literal>foo</literal></l
      matching applies to each word separately, for example
      <literal>foo_bar%*</literal> matches <literal>foo1_bar2_baz</literal> but
      not <literal>foo1_br2_baz</literal>.
+-->
+<literal>%</literal>の動作は多少複雑です。
+ラベル全体ではなく単語一致を試みます。
+例えば<literal>foo_bar%</literal>は<literal>foo_bar_baz</literal>に一致しますが<literal>foo_barbaz</literal>に一致しません。
+<literal>*</literal>と組み合わせる場合、接頭辞一致が各単語ごとに適用されます。
+例えば<literal>foo_bar%*</literal>は<literal>foo1_bar2_baz</literal>に一致しますが、<literal>foo1_br2_baz</literal>に一致しません。
     </para>
 
     <para>
+<!--
      Also, you can write several possibly-modified labels separated with
      <literal>|</literal> (OR) to match any of those labels, and you can put
      <literal>!</literal> (NOT) at the start to match any label that doesn't
      match any of the alternatives.
+-->
+また、ラベルのいずれかに一致させるために<literal>|</literal>（論理和）で区切って、複数のおそらく修飾子が付いたラベルを記述することもできます。
+さらに、先頭に<literal>!</literal> (否定)を記述して選択肢のいずれかにも一致しないすべてのラベルに一致させることもできます。
     </para>
 
     <para>
+<!--
      Here's an annotated example of <type>lquery</type>:
+-->
+以下に注釈付きの<type>lquery</type>の例を示します。
 <programlisting>
 Top.*{0,2}.sport*@.!football|tennis.Russ*|Spain
 a.  b.     c.      d.               e.
 </programlisting>
+<!--
      This query will match any label path that:
+-->
+この問い合わせは以下のようなラベルに一致します。
     </para>
     <orderedlist numeration="loweralpha">
      <listitem>
       <para>
+<!--
        begins with the label <literal>Top</literal>
+-->
+<literal>Top</literal>ラベルから始まる。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        and next has zero to two labels before
+-->
+次いで0から2個のラベルを持つ。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        a label beginning with the case-insensitive prefix <literal>sport</literal>
+-->
+直後に<literal>sport</literal>接頭辞（大文字小文字の区別無）から始まるラベルを持つ。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        then a label not matching <literal>football</literal> nor
        <literal>tennis</literal>
+-->
+そして、<literal>football</literal>と<literal>tennis</literal>に一致しないラベルを持つ。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        and then ends with a label beginning with <literal>Russ</literal> or
        exactly matching <literal>Spain</literal>.
+-->
+<literal>Russ</literal>から始まる、または、正確に<literal>Spain</literal>に一致するラベルで終わる。
       </para>
      </listitem>
     </orderedlist>
    </listitem>
 
    <listitem>
+<!--
     <para><type>ltxtquery</type> represents a full-text-search-like
     pattern for matching <type>ltree</type> values.  An
     <type>ltxtquery</type> value contains words, possibly with the
@@ -148,51 +236,86 @@ a.  b.     c.      d.               e.
     The key difference from
     <type>lquery</type> is that <type>ltxtquery</type> matches words without
     regard to their position in the label path.
+-->
+    <para>
+<type>ltxtquery</type>は<type>ltree</type>値に対する全文検索のようなパターンを表します。
+<type>ltxtquery</type>値は、おそらく最後に<literal>@</literal>、<literal>*</literal>、<literal>%</literal>修飾子を持った単語からなります。
+修飾子の意味は<type>lquery</type>と同じです。
+単語は<literal>&amp;</literal> (論理積)、<literal>|</literal> (論理和)、<literal>!</literal> (否定)、括弧を組み合わせることが可能です。
+主な<type>lquery</type>との違いは、<type>ltxtquery</type>はラベル経路上の位置を考慮せずに単語に一致することです。
     </para>
 
     <para>
+<!--
      Here's an example <type>ltxtquery</type>:
+-->
+<type>ltxtquery</type>の例を示します。
 <programlisting>
 Europe &amp; Russia*@ &amp; !Transportation
 </programlisting>
+<!--
      This will match paths that contain the label <literal>Europe</literal> and
      any label beginning with <literal>Russia</literal> (case-insensitive),
      but not paths containing the label <literal>Transportation</literal>.
      The location of these words within the path is not important.
      Also, when <literal>%</literal> is used, the word can be matched to any
      underscore-separated word within a label, regardless of position.
+-->
+これは<literal>Europe</literal>ラベルと<literal>Russia</literal>（大文字小文字の区別無）から始まるラベルを含む経路に一致します。
+しかし、<literal>Transportation</literal>ラベルを含む経路は一致しません。
+経路内の単語の位置は重要ではありません。
+また、<literal>%</literal>が使用された場合、位置に関係なく、単語をラベル内のアンダースコアで区切られた何らかの単語に一致させることができます。
     </para>
    </listitem>
 
   </itemizedlist>
 
   <para>
+<!--
    Note: <type>ltxtquery</type> allows whitespace between symbols, but
    <type>ltree</type> and <type>lquery</type> do not.
+-->
+注意：<type>ltxtquery</type>ではシンボルの間に空白を入れることができますが、<type>ltree</type>と<type>lquery</type>ではできません。
   </para>
  </sect2>
 
  <sect2>
+<!--
   <title>Operators and Functions</title>
+-->
+  <title>演算子と関数</title>
 
   <para>
+<!--
    Type <type>ltree</type> has the usual comparison operators
    <literal>=</literal>, <literal>&lt;&gt;</literal>,
    <literal>&lt;</literal>, <literal>&gt;</literal>, <literal>&lt;=</literal>, <literal>&gt;=</literal>.
    Comparison sorts in the order of a tree traversal, with the children
    of a node sorted by label text.  In addition, the specialized
    operators shown in <xref linkend="ltree-op-table"/> are available.
+-->
+<type>ltree</type>型は、通常の比較演算子<literal>=</literal>、<literal>&lt;&gt;</literal>、<literal>&lt;</literal>、<literal>&gt;</literal>、<literal>&lt;=</literal>、<literal>&gt;=</literal>を持ちます。
+比較では、ツリーの巡回順でソートされ、ノードの子要素はラベルテキストでソートされます。
+さらに、<xref linkend="ltree-op-table"/>に示す特殊な演算子が使用可能です。
   </para>
 
   <table id="ltree-op-table">
+<!--
    <title><type>ltree</type> Operators</title>
+-->
+   <title><type>ltree</type>演算子</title>
 
    <tgroup cols="3">
     <thead>
      <row>
+<!--
       <entry>Operator</entry>
       <entry>Returns</entry>
       <entry>Description</entry>
+-->
+      <entry>演算子</entry>
+      <entry>戻り値</entry>
+      <entry>説明</entry>
      </row>
     </thead>
 
@@ -200,151 +323,226 @@ Europe &amp; Russia*@ &amp; !Transportation
      <row>
       <entry><type>ltree</type> <literal>@&gt;</literal> <type>ltree</type></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>is left argument an ancestor of right (or equal)?</entry>
+-->
+      <entry>左辺の引数が右辺の祖先要素（か同じ）かどうか</entry>
      </row>
 
      <row>
       <entry><type>ltree</type> <literal>&lt;@</literal> <type>ltree</type></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>is left argument a descendant of right (or equal)?</entry>
+-->
+      <entry>左辺の引数が右辺の子孫要素（か同じ）かどうか</entry>
      </row>
 
      <row>
       <entry><type>ltree</type> <literal>~</literal> <type>lquery</type></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>does <type>ltree</type> match <type>lquery</type>?</entry>
+-->
+      <entry><type>ltree</type>が<type>lquery</type>に一致するかどうか</entry>
      </row>
 
      <row>
       <entry><type>lquery</type> <literal>~</literal> <type>ltree</type></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>does <type>ltree</type> match <type>lquery</type>?</entry>
+-->
+      <entry><type>ltree</type>が<type>lquery</type>に一致するかどうか</entry>
      </row>
 
      <row>
       <entry><type>ltree</type> <literal>?</literal> <type>lquery[]</type></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>does <type>ltree</type> match any <type>lquery</type> in array?</entry>
+-->
+      <entry><type>ltree</type>が配列内のいずれかの<type>lquery</type>に一致するかどうか</entry>
      </row>
 
      <row>
       <entry><type>lquery[]</type> <literal>?</literal> <type>ltree</type></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>does <type>ltree</type> match any <type>lquery</type> in array?</entry>
+-->
+      <entry><type>ltree</type>が配列内のいずれかの<type>lquery</type>に一致するかどうか</entry>
      </row>
 
      <row>
       <entry><type>ltree</type> <literal>@</literal> <type>ltxtquery</type></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>does <type>ltree</type> match <type>ltxtquery</type>?</entry>
+-->
+      <entry><type>ltree</type>が<type>ltxtquery</type>に一致するかどうか</entry>
      </row>
 
      <row>
       <entry><type>ltxtquery</type> <literal>@</literal> <type>ltree</type></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>does <type>ltree</type> match <type>ltxtquery</type>?</entry>
+-->
+      <entry><type>ltree</type>が<type>ltxtquery</type>に一致するかどうか</entry>
      </row>
 
      <row>
       <entry><type>ltree</type> <literal>||</literal> <type>ltree</type></entry>
       <entry><type>ltree</type></entry>
+<!--
       <entry>concatenate <type>ltree</type> paths</entry>
+-->
+      <entry><type>ltree</type>経路を連結します</entry>
      </row>
 
      <row>
       <entry><type>ltree</type> <literal>||</literal> <type>text</type></entry>
       <entry><type>ltree</type></entry>
+<!--
       <entry>convert text to <type>ltree</type> and concatenate</entry>
+-->
+      <entry>テキストを<type>ltree</type>に変換し、連結します</entry>
      </row>
 
      <row>
       <entry><type>text</type> <literal>||</literal> <type>ltree</type></entry>
       <entry><type>ltree</type></entry>
+<!--
       <entry>convert text to <type>ltree</type> and concatenate</entry>
+-->
+      <entry>テキストを<type>ltree</type>に変換し、連結します</entry>
      </row>
 
      <row>
       <entry><type>ltree[]</type> <literal>@&gt;</literal> <type>ltree</type></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>does array contain an ancestor of <type>ltree</type>?</entry>
+-->
+      <entry>配列に<type>ltree</type>の祖先要素が含まれるかどうか</entry>
      </row>
 
      <row>
       <entry><type>ltree</type> <literal>&lt;@</literal> <type>ltree[]</type></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>does array contain an ancestor of <type>ltree</type>?</entry>
+-->
+      <entry>配列に<type>ltree</type>の祖先要素が含まれるかどうか</entry>
      </row>
 
      <row>
       <entry><type>ltree[]</type> <literal>&lt;@</literal> <type>ltree</type></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>does array contain a descendant of <type>ltree</type>?</entry>
+-->
+      <entry>配列に<type>ltree</type>の子孫要素が含まれるかどうか</entry>
      </row>
 
      <row>
       <entry><type>ltree</type> <literal>@&gt;</literal> <type>ltree[]</type></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>does array contain a descendant of <type>ltree</type>?</entry>
+-->
+      <entry>配列に<type>ltree</type>の子孫要素が含まれるかどうか</entry>
      </row>
 
      <row>
       <entry><type>ltree[]</type> <literal>~</literal> <type>lquery</type></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>does array contain any path matching <type>lquery</type>?</entry>
+-->
+      <entry>配列に<type>lquery</type>に一致する経路が含まれるかどうか</entry>
      </row>
 
      <row>
       <entry><type>lquery</type> <literal>~</literal> <type>ltree[]</type></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>does array contain any path matching <type>lquery</type>?</entry>
+-->
+      <entry>配列に<type>lquery</type>に一致する経路が含まれるかどうか</entry>
      </row>
 
      <row>
       <entry><type>ltree[]</type> <literal>?</literal> <type>lquery[]</type></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>does <type>ltree</type> array contain any path matching any <type>lquery</type>?</entry>
+-->
+      <entry><type>ltree</type>配列にいずれかの<type>lquery</type>に一致する経路が含まれるかどうか</entry>
      </row>
 
      <row>
       <entry><type>lquery[]</type> <literal>?</literal> <type>ltree[]</type></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>does <type>ltree</type> array contain any path matching any <type>lquery</type>?</entry>
+-->
+      <entry><type>ltree</type>配列にいずれかの<type>lquery</type>に一致する経路が含まれるかどうか</entry>
      </row>
 
      <row>
       <entry><type>ltree[]</type> <literal>@</literal> <type>ltxtquery</type></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>does array contain any path matching <type>ltxtquery</type>?</entry>
+-->
+      <entry>配列に<type>ltxtquery</type>に一致する経路が含まれるかどうか</entry>
      </row>
 
      <row>
       <entry><type>ltxtquery</type> <literal>@</literal> <type>ltree[]</type></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>does array contain any path matching <type>ltxtquery</type>?</entry>
+-->
+      <entry>配列に<type>ltxtquery</type>に一致する経路が含まれるかどうか</entry>
      </row>
 
      <row>
       <entry><type>ltree[]</type> <literal>?@&gt;</literal> <type>ltree</type></entry>
       <entry><type>ltree</type></entry>
+<!--
       <entry>first array entry that is an ancestor of <type>ltree</type>; NULL if none</entry>
+-->
+      <entry><type>ltree</type>の祖先要素となる配列内の最初の要素。存在しなければNULL</entry>
      </row>
 
      <row>
       <entry><type>ltree[]</type> <literal>?&lt;@</literal> <type>ltree</type></entry>
       <entry><type>ltree</type></entry>
+<!--
       <entry>first array entry that is a descendant of <type>ltree</type>; NULL if none</entry>
+-->
+      <entry><type>ltree</type>の子孫要素となる配列内の最初の要素。存在しなければNULL</entry>
      </row>
 
      <row>
       <entry><type>ltree[]</type> <literal>?~</literal> <type>lquery</type></entry>
       <entry><type>ltree</type></entry>
+<!--
       <entry>first array entry that matches <type>lquery</type>; NULL if none</entry>
+-->
+      <entry><type>lquery</type>に一致する配列内の最初の要素。存在しなければNULL</entry>
      </row>
 
      <row>
       <entry><type>ltree[]</type> <literal>?@</literal> <type>ltxtquery</type></entry>
       <entry><type>ltree</type></entry>
+<!--
       <entry>first array entry that matches <type>ltxtquery</type>; NULL if none</entry>
+-->
+      <entry><type>ltxtquery</type>に一致する配列内の最初の要素。存在しなければNULL</entry>
      </row>
 
     </tbody>
@@ -352,28 +550,46 @@ Europe &amp; Russia*@ &amp; !Transportation
   </table>
 
   <para>
+<!--
    The operators <literal>&lt;@</literal>, <literal>@&gt;</literal>,
    <literal>@</literal> and <literal>~</literal> have analogues
    <literal>^&lt;@</literal>, <literal>^@&gt;</literal>, <literal>^@</literal>,
    <literal>^~</literal>, which are the same except they do not use
    indexes.  These are useful only for testing purposes.
+-->
+演算子<literal>&lt;@</literal>、<literal>@&gt;</literal>、<literal>@</literal>、<literal>~</literal>には類似の演算子<literal>^&lt;@</literal>、<literal>^@&gt;</literal>、<literal>^@</literal>、<literal>^~</literal>があります。
+後者はインデックスを使用しない点を除き、同一です。
+後者は試験の際にだけ役に立ちます。
   </para>
 
   <para>
+<!--
    The available functions are shown in <xref linkend="ltree-func-table"/>.
+-->
+使用可能な関数を<xref linkend="ltree-func-table"/>に示します。
   </para>
 
   <table id="ltree-func-table">
+<!--
    <title><type>ltree</type> Functions</title>
+-->
+   <title><type>ltree</type>関数</title>
 
    <tgroup cols="5">
     <thead>
      <row>
+<!--
       <entry>Function</entry>
       <entry>Return Type</entry>
       <entry>Description</entry>
       <entry>Example</entry>
       <entry>Result</entry>
+-->
+      <entry>関数</entry>
+      <entry>戻り値型</entry>
+      <entry>説明</entry>
+      <entry>例</entry>
+      <entry>結果</entry>
      </row>
     </thead>
 
@@ -381,8 +597,13 @@ Europe &amp; Russia*@ &amp; !Transportation
      <row>
       <entry><function>subltree(ltree, int start, int end)</function><indexterm><primary>subltree</primary></indexterm></entry>
       <entry><type>ltree</type></entry>
+<!--
       <entry>subpath of <type>ltree</type> from position <parameter>start</parameter> to
        position <parameter>end</parameter>-1 (counting from 0)</entry>
+-->
+      <entry>
+<parameter>start</parameter>位置から<parameter>end</parameter>-1位置までの<type>ltree</type>の部分経路（位置は0から始まります）。
+      </entry>
       <entry><literal>subltree('Top.Child1.Child2',1,2)</literal></entry>
       <entry><literal>Child1</literal></entry>
      </row>
@@ -390,11 +611,18 @@ Europe &amp; Russia*@ &amp; !Transportation
      <row>
       <entry><function>subpath(ltree, int offset, int len)</function><indexterm><primary>subpath</primary></indexterm></entry>
       <entry><type>ltree</type></entry>
+<!--
       <entry>subpath of <type>ltree</type> starting at position
        <parameter>offset</parameter>, length <parameter>len</parameter>.
        If <parameter>offset</parameter> is negative, subpath starts that far from the
        end of the path.  If <parameter>len</parameter> is negative, leaves that many
        labels off the end of the path.</entry>
+-->
+      <entry>
+<parameter>offset</parameter>位置から<parameter>len</parameter>個の<type>ltree</type>の部分経路（位置は0から始まります）。
+<parameter>offset</parameter>が負の場合、部分経路は経路の終端から数えた位置から始まります。
+<parameter>len</parameter>が負の場合、経路の終端から指定個のラベルを除きます。
+      </entry>
       <entry><literal>subpath('Top.Child1.Child2',0,2)</literal></entry>
       <entry><literal>Top.Child1</literal></entry>
      </row>
@@ -402,10 +630,15 @@ Europe &amp; Russia*@ &amp; !Transportation
      <row>
       <entry><function>subpath(ltree, int offset)</function></entry>
       <entry><type>ltree</type></entry>
+<!--
       <entry>subpath of <type>ltree</type> starting at position
        <parameter>offset</parameter>, extending to end of path.
        If <parameter>offset</parameter> is negative, subpath starts that far from the
        end of the path.</entry>
+-->
+      <entry>
+<parameter>offset</parameter>位置から経路の終端までの<type>ltree</type>の部分経路（位置は0から始まります）。
+<parameter>offset</parameter>が負の場合、部分経路は経路の終端から数えた位置から始まります。</entry>
       <entry><literal>subpath('Top.Child1.Child2',1)</literal></entry>
       <entry><literal>Child1.Child2</literal></entry>
      </row>
@@ -413,7 +646,10 @@ Europe &amp; Russia*@ &amp; !Transportation
      <row>
       <entry><function>nlevel(ltree)</function><indexterm><primary>nlevel</primary></indexterm></entry>
       <entry><type>integer</type></entry>
+<!--
       <entry>number of labels in path</entry>
+-->
+      <entry>経路内のラベル数</entry>
       <entry><literal>nlevel('Top.Child1.Child2')</literal></entry>
       <entry><literal>3</literal></entry>
      </row>
@@ -421,8 +657,13 @@ Europe &amp; Russia*@ &amp; !Transportation
      <row>
       <entry><function>index(ltree a, ltree b)</function><indexterm><primary>index</primary></indexterm></entry>
       <entry><type>integer</type></entry>
+<!--
       <entry>position of first occurrence of <parameter>b</parameter> in
        <parameter>a</parameter>; -1 if not found</entry>
+-->
+      <entry>
+<parameter>a</parameter>内で<parameter>b</parameter>が最初に出現する位置。存在しなければ-1
+      </entry>
       <entry><literal>index('0.1.2.3.5.4.5.6.8.5.6.8','5.6')</literal></entry>
       <entry><literal>6</literal></entry>
      </row>
@@ -430,10 +671,16 @@ Europe &amp; Russia*@ &amp; !Transportation
      <row>
       <entry><function>index(ltree a, ltree b, int offset)</function></entry>
       <entry><type>integer</type></entry>
+<!--
       <entry>position of first occurrence of <parameter>b</parameter> in
        <parameter>a</parameter>, searching starting at <parameter>offset</parameter>;
        negative <parameter>offset</parameter> means start <parameter>-offset</parameter>
        labels from the end of the path</entry>
+-->
+      <entry>
+<parameter>a</parameter>内で<parameter>offset</parameter>から検索を始めて<parameter>b</parameter>が最初に出現する位置。
+負の<parameter>offset</parameter>は経路終端から<parameter>-offset</parameter>ラベルから検索を始めることを意味します。
+      </entry>
       <entry><literal>index('0.1.2.3.5.4.5.6.8.5.6.8','5.6',-4)</literal></entry>
       <entry><literal>9</literal></entry>
      </row>
@@ -441,7 +688,10 @@ Europe &amp; Russia*@ &amp; !Transportation
      <row>
       <entry><function>text2ltree(text)</function><indexterm><primary>text2ltree</primary></indexterm></entry>
       <entry><type>ltree</type></entry>
+<!--
       <entry>cast <type>text</type> to <type>ltree</type></entry>
+-->
+      <entry><type>text</type>を<type>ltree</type>にキャスト</entry>
       <entry><literal></literal></entry>
       <entry><literal></literal></entry>
      </row>
@@ -449,7 +699,10 @@ Europe &amp; Russia*@ &amp; !Transportation
      <row>
       <entry><function>ltree2text(ltree)</function><indexterm><primary>ltree2text</primary></indexterm></entry>
       <entry><type>text</type></entry>
+<!--
       <entry>cast <type>ltree</type> to <type>text</type></entry>
+-->
+      <entry><type>ltree</type>を<type>text</type>にキャスト</entry>
       <entry><literal></literal></entry>
       <entry><literal></literal></entry>
      </row>
@@ -457,8 +710,13 @@ Europe &amp; Russia*@ &amp; !Transportation
      <row>
       <entry><function>lca(ltree, ltree, ...)</function><indexterm><primary>lca</primary></indexterm></entry>
       <entry><type>ltree</type></entry>
+<!--
       <entry>longest common ancestor of paths
        (up to 8 arguments supported)</entry>
+-->
+      <entry>
+経路で共通する最長接頭辞。（最大8個の引数をサポート）
+      </entry>
       <entry><literal>lca('1.2.3','1.2.3.4.5.6')</literal></entry>
       <entry><literal>1.2</literal></entry>
      </row>
@@ -466,7 +724,12 @@ Europe &amp; Russia*@ &amp; !Transportation
      <row>
       <entry><function>lca(ltree[])</function></entry>
       <entry><type>ltree</type></entry>
+<!--
       <entry>longest common ancestor of paths in array</entry>
+-->
+      <entry>
+経路で共通する配列内の最長接頭辞。
+      </entry>
       <entry><literal>lca(array['1.2.3'::ltree,'1.2.3.4'])</literal></entry>
       <entry><literal>1.2</literal></entry>
      </row>
@@ -477,30 +740,46 @@ Europe &amp; Russia*@ &amp; !Transportation
  </sect2>
 
  <sect2>
+<!--
   <title>Indexes</title>
+-->
+  <title>インデックス</title>
   <para>
+<!--
    <filename>ltree</filename> supports several types of indexes that can speed
    up the indicated operators:
+-->
+<filename>ltree</filename>は、以下で示された演算子を高速化できる、複数種類のインデックスをサポートします。
   </para>
 
   <itemizedlist>
    <listitem>
     <para>
+<!--
      B-tree index over <type>ltree</type>:
      <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>,
      <literal>&gt;=</literal>, <literal>&gt;</literal>
+-->
+<type>ltree</type>に対するB-treeインデックス：<literal>&lt;</literal>、<literal>&lt;=</literal>、<literal>=</literal>、<literal>&gt;=</literal>、<literal>&gt;</literal>
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      GiST index over <type>ltree</type>:
      <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>,
      <literal>&gt;=</literal>, <literal>&gt;</literal>,
      <literal>@&gt;</literal>, <literal>&lt;@</literal>,
      <literal>@</literal>, <literal>~</literal>, <literal>?</literal>
+-->
+<type>ltree</type>に対するGiSTインデックス：
+<literal>&lt;</literal>、<literal>&lt;=</literal>、<literal>=</literal>、<literal>&gt;=</literal>、<literal>&gt;</literal>、<literal>@&gt;</literal>、<literal>&lt;@</literal>、<literal>@</literal>、<literal>~</literal>、<literal>?</literal>
     </para>
     <para>
+<!--
      Example of creating such an index:
+-->
+インデックスの作成例を以下に示します。
     </para>
 <programlisting>
 CREATE INDEX path_gist_idx ON test USING GIST (path);
@@ -508,29 +787,44 @@ CREATE INDEX path_gist_idx ON test USING GIST (path);
    </listitem>
    <listitem>
     <para>
+<!--
      GiST index over <type>ltree[]</type>:
      <literal>ltree[] &lt;@ ltree</literal>, <literal>ltree @&gt; ltree[]</literal>,
      <literal>@</literal>, <literal>~</literal>, <literal>?</literal>
+-->
+<type>ltree[]</type>に対するGiSTインデックス：<literal>ltree[] &lt;@ ltree</literal>、<literal>ltree @&gt; ltree[]</literal>、<literal>@</literal>、<literal>~</literal>、<literal>?</literal>
     </para>
     <para>
+<!--
      Example of creating such an index:
+-->
+インデックスの作成例を以下に示します。
     </para>
 <programlisting>
 CREATE INDEX path_gist_idx ON test USING GIST (array_path);
 </programlisting>
     <para>
+<!--
      Note: This index type is lossy.
+-->
+注意：この種類のインデックスは非可逆です。
     </para>
    </listitem>
   </itemizedlist>
  </sect2>
 
  <sect2>
+<!--
   <title>Example</title>
+-->
+  <title>例</title>
 
   <para>
+<!--
    This example uses the following data (also available in file
    <filename>contrib/ltree/ltreetest.sql</filename> in the source distribution):
+-->
+この例は、後述のデータを使用します（ソース配布内の<filename>contrib/ltree/ltreetest.sql</filename>ファイルでも利用可能です）。
   </para>
 
 <programlisting>
@@ -553,8 +847,11 @@ CREATE INDEX path_idx ON test USING BTREE (path);
 </programlisting>
 
   <para>
+<!--
    Now, we have a table <structname>test</structname> populated with data describing
    the hierarchy shown below:
+-->
+これで、以下の階層を記述するデータが投入された<structname>test</structname>テーブルができます。
   </para>
 
 <literallayout class="monospaced">
@@ -570,7 +867,10 @@ Astrophysics  Cosmology                Astronomy
 </literallayout>
 
   <para>
+<!--
    We can do inheritance:
+-->
+継承を行うことができます。
 <screen>
 ltreetest=&gt; SELECT path FROM test WHERE path &lt;@ 'Top.Science';
                 path
@@ -584,7 +884,10 @@ ltreetest=&gt; SELECT path FROM test WHERE path &lt;@ 'Top.Science';
   </para>
 
   <para>
+<!--
    Here are some examples of path matching:
+-->
+経路一致の例をいくつか示します。
 <screen>
 ltreetest=&gt; SELECT path FROM test WHERE path ~ '*.Astronomy.*';
                      path
@@ -609,7 +912,10 @@ ltreetest=&gt; SELECT path FROM test WHERE path ~ '*.!pictures@.*.Astronomy.*';
   </para>
 
   <para>
+<!--
    Here are some examples of full text search:
+-->
+全文検索の例をいくつか示します。
 <screen>
 ltreetest=&gt; SELECT path FROM test WHERE path @ 'Astro*% &amp; !pictures@';
                 path
@@ -631,7 +937,10 @@ ltreetest=&gt; SELECT path FROM test WHERE path @ 'Astro* &amp; !pictures@';
   </para>
 
   <para>
+<!--
    Path construction using functions:
+-->
+関数を使用した経路構築の例です。
 <screen>
 ltreetest=&gt; SELECT subpath(path,0,2)||'Space'||subpath(path,2) FROM test WHERE path &lt;@ 'Top.Science.Astronomy';
                  ?column?
@@ -644,8 +953,11 @@ ltreetest=&gt; SELECT subpath(path,0,2)||'Space'||subpath(path,2) FROM test WHER
   </para>
 
   <para>
+<!--
    We could simplify this by creating a SQL function that inserts a label
    at a specified position in a path:
+-->
+経路内の位置にラベルを挿入するSQL関数を作成することで、これを簡略化することができます。
 <screen>
 CREATE FUNCTION ins_label(ltree, int, text) RETURNS ltree
     AS 'select subpath($1,0,$2) || $3 || subpath($1,$2);'
@@ -663,9 +975,13 @@ ltreetest=&gt; SELECT ins_label(path,2,'Space') FROM test WHERE path &lt;@ 'Top.
  </sect2>
 
  <sect2>
+<!--
   <title>Transforms</title>
+-->
+  <title>変換</title>
 
   <para>
+<!--
    Additional extensions are available that implement transforms for
    the <type>ltree</type> type for PL/Python.  The extensions are
    called <literal>ltree_plpythonu</literal>, <literal>ltree_plpython2u</literal>,
@@ -674,18 +990,32 @@ ltreetest=&gt; SELECT ins_label(path,2,'Space') FROM test WHERE path &lt;@ 'Top.
    convention).  If you install these transforms and specify them when
    creating a function, <type>ltree</type> values are mapped to Python lists.
    (The reverse is currently not supported, however.)
+-->
+PL/Python言語向けに<type>ltree</type>型の変換を実装した追加の拡張が入手可能です。
+その拡張は、<literal>ltree_plpythonu</literal>、<literal>ltree_plpython2u</literal>、<literal>ltree_plpython3u</literal>という名前です(PL/Pythonの命名規約については<xref linkend="plpython-python23"/>を参照してください)。
+関数を作成するときにこの変換をインストールして指定していれば、<type>ltree</type>の値はPythonのリストにマップされます。
+(しかしながら、その逆は今のところサポートされていません。)
   </para>
  </sect2>
 
  <sect2>
+<!--
   <title>Authors</title>
+-->
+  <title>作者</title>
 
   <para>
+<!--
    All work was done by Teodor Sigaev (<email>teodor@stack.net</email>) and
    Oleg Bartunov (<email>oleg@sai.msu.su</email>). See
    <ulink url="http://www.sai.msu.su/~megera/postgres/gist/"></ulink> for
    additional information. Authors would like to thank Eugeny Rodichev for
    helpful discussions. Comments and bug reports are welcome.
+-->
+開発はすべてTeodor Sigaev (<email>teodor@stack.net</email>)とOleg Bartunov (<email>oleg@sai.msu.su</email>)によりなされました。
+さらなる情報については<ulink url="http://www.sai.msu.su/~megera/postgres/gist/"></ulink>を参照してください。
+作者は有用な議論を行ったEugeny Rodichevに感謝しています。
+コメントや不具合報告を歓迎します。
   </para>
  </sect2>
 

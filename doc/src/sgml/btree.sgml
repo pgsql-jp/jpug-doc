@@ -1,26 +1,41 @@
 <!-- doc/src/sgml/btree.sgml -->
 
 <chapter id="btree">
+<!--
 <title>B-Tree Indexes</title>
+-->
+<title>B-Treeインデックス</title>
 
    <indexterm>
+<!--
     <primary>index</primary>
+-->
+    <primary>インデックス</primary>
     <secondary>B-Tree</secondary>
    </indexterm>
 
 <sect1 id="btree-intro">
+<!--
  <title>Introduction</title>
+-->
+ <title>はじめに</title>
 
  <para>
+<!--
   <productname>PostgreSQL</productname> includes an implementation of the
   standard <acronym>btree</acronym> (multi-way balanced tree) index data
   structure.  Any data type that can be sorted into a well-defined linear
   order can be indexed by a btree index.  The only limitation is that an
   index entry cannot exceed approximately one-third of a page (after TOAST
   compression, if applicable).
+-->
+<productname>PostgreSQL</productname>は、標準的な<acronym>btree</acronym>（multi-way balanced tree）インデックスデータ構造を実装しています。
+明確に定義された線形順にソート可能なデータ型は、すべてbtreeインデックスで索引付できます。
+唯一の制限は、一つのインデックスエントリが（適用可能であれば、TOAST圧縮後）ページの約1/3を超えられないことです。
  </para>
 
  <para>
+<!--
   Because each btree operator class imposes a sort order on its data type,
   btree operator classes (or, really, operator families) have come to be
   used as <productname>PostgreSQL</productname>'s general representation
@@ -28,14 +43,21 @@
   some features that go beyond what would be needed just to support btree
   indexes, and parts of the system that are quite distant from the
   btree AM make use of them.
+-->
+btree演算子クラスはそのデータ型がソート順を持つことが必要なので、btree演算子クラス（実際には演算子族）は、<productname>PostgreSQL</productname>の一般的表現として、およびソートセマンティクスを理解するものとして利用されてきました。
+ですから、単にbtreeインデックスをサポートするだけに必要なもの以上の機能と、btree AMが使用するものからはかけ離れたシステムの部品を備えなければなりません。
  </para>
 
 </sect1>
 
 <sect1 id="btree-behavior">
+<!--
  <title>Behavior of B-Tree Operator Classes</title>
+-->
+ <title>B-Tree演算子クラスの振る舞い</title>
 
  <para>
+<!--
   As shown in <xref linkend="xindex-btree-strat-table"/>, a btree operator
   class must provide five comparison operators,
   <literal>&lt;</literal>,
@@ -50,9 +72,17 @@
   as associated with a btree operator class; but it finds that operator via
   the <literal>=</literal> operator's negator link, rather than
   from <structname>pg_amop</structname>.)
+-->
+<xref linkend="xindex-btree-strat-table"/>で示すように、btree演算子クラスは次の5つの比較演算子を提供しなければなりません。
+<literal>&lt;</literal>、<literal>&lt;=</literal>、<literal>=</literal>、<literal>&gt;=</literal>、そして<literal>&gt;</literal>です。
+<literal>&lt;&gt;</literal>も演算子クラスの一部であると期待する方もいるかもしれませんが、そうではありません。
+インデックス検索のWHERE句で<literal>&lt;&gt;</literal>を使うのは、ほとんど常に役に立たないからです。
+（ある種の目的のためにプランナは<literal>&lt;&gt;</literal>をbtree演算子クラスに関連しているものとして扱います。
+しかし、プランナは<structname>pg_amop</structname>から検索するのではなく<literal>=</literal>の否定子リンクから検索します。）
  </para>
 
  <para>
+<!--
   When several data types share near-identical sorting semantics, their
   operator classes can be grouped into an operator family.  Doing so is
   advantageous because it allows the planner to make deductions about
@@ -63,46 +93,69 @@
   recommendable that a complete set of cross-type operators be included
   in the family, thus ensuring that the planner can represent any
   comparison conditions that it deduces from transitivity.
+-->
+複数のデータ型がほとんど同じソートセマンティクスを共有している場合、それらの演算子クラスは演算子族にまとめることができます。
+そうすることによりプランナが型をまたがる比較を推論できるので、これはメリットがあります。
+ファミリー中の演算子クラスには、入力データ型のための単一型演算子（および関連するサポート関数）が含まれます。
+一方型をまたがる比較演算子とサポート関数は演算子族中で<quote>ゆるやか</quote>です。
+プランナが推移関係から推論するすべての比較条件を提示できるように、型をまたがる演算子の完全な集合を演算子族に入れておくことをお勧めします。
  </para>
 
  <para>
+<!--
   There are some basic assumptions that a btree operator family must
   satisfy:
+-->
+btree演算子族が満たさなければならない基本的な前提条件があります。
  </para>
 
  <itemizedlist>
   <listitem>
    <para>
+<!--
     An <literal>=</literal> operator must be an equivalence relation; that
     is, for all non-null values <replaceable>A</replaceable>,
     <replaceable>B</replaceable>, <replaceable>C</replaceable> of the
     data type:
+-->
+<literal>=</literal>演算子は等号関係でなければなりません。
+つまり、そのデータ型のすべての非NULL値<replaceable>A</replaceable>、<replaceable>B</replaceable>、<replaceable>C</replaceable>について、
 
     <itemizedlist>
      <listitem>
       <para>
+<!--
        <replaceable>A</replaceable> <literal>=</literal>
        <replaceable>A</replaceable> is true
        (<firstterm>reflexive law</firstterm>)
+-->
+<replaceable>A</replaceable> <literal>=</literal> <replaceable>A</replaceable>が真である（<firstterm>反射律</firstterm>)
+
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        if <replaceable>A</replaceable> <literal>=</literal>
        <replaceable>B</replaceable>,
        then <replaceable>B</replaceable> <literal>=</literal>
        <replaceable>A</replaceable>
        (<firstterm>symmetric law</firstterm>)
+-->
+<replaceable>A</replaceable> <literal>=</literal> <replaceable>B</replaceable>なら、<replaceable>B</replaceable> <literal>=</literal> <replaceable>A</replaceable>である（<firstterm>対称律</firstterm>）
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        if <replaceable>A</replaceable> <literal>=</literal>
        <replaceable>B</replaceable> and <replaceable>B</replaceable>
        <literal>=</literal> <replaceable>C</replaceable>,
        then <replaceable>A</replaceable> <literal>=</literal>
        <replaceable>C</replaceable>
        (<firstterm>transitive law</firstterm>)
+-->
+<replaceable>A</replaceable> <literal>=</literal> <replaceable>B</replaceable>かつ<replaceable>B</replaceable><literal>=</literal> <replaceable>C</replaceable>なら、<replaceable>A</replaceable> <literal>=</literal> <replaceable>C</replaceable>である（<firstterm>推移律</firstterm>）
       </para>
      </listitem>
     </itemizedlist>
@@ -111,20 +164,27 @@
 
   <listitem>
    <para>
+<!--
     A <literal>&lt;</literal> operator must be a strong ordering relation;
     that is, for all non-null values <replaceable>A</replaceable>,
     <replaceable>B</replaceable>, <replaceable>C</replaceable>:
+-->
+<literal>&lt;</literal>は強順序関係でなければなりません。つまり、すべての非NULL値<replaceable>A</replaceable>、<replaceable>B</replaceable>、<replaceable>C</replaceable>に対して、
 
     <itemizedlist>
      <listitem>
       <para>
+<!--
        <replaceable>A</replaceable> <literal>&lt;</literal>
        <replaceable>A</replaceable> is false
        (<firstterm>irreflexive law</firstterm>)
+-->
+<replaceable>A</replaceable> <literal>&lt;</literal> <replaceable>A</replaceable>は偽である（<firstterm>非反射律</firstterm>）
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        if <replaceable>A</replaceable> <literal>&lt;</literal>
        <replaceable>B</replaceable>
        and <replaceable>B</replaceable> <literal>&lt;</literal>
@@ -132,6 +192,8 @@
        then <replaceable>A</replaceable> <literal>&lt;</literal>
        <replaceable>C</replaceable>
        (<firstterm>transitive law</firstterm>)
+-->
+<replaceable>A</replaceable> <literal>&lt;</literal> <replaceable>B</replaceable>かつ<replaceable>B</replaceable> <literal>&lt;</literal> <replaceable>C</replaceable>なら、<replaceable>A</replaceable> <literal>&lt;</literal> <replaceable>C</replaceable>である（<firstterm>推移律</firstterm>）
       </para>
      </listitem>
     </itemizedlist>
@@ -140,35 +202,48 @@
 
   <listitem>
    <para>
+<!--
     Furthermore, the ordering is total; that is, for all non-null
     values <replaceable>A</replaceable>, <replaceable>B</replaceable>:
+-->
+更に、順序は全である。すなわち、すべての非NULL値<replaceable>A</replaceable>、<replaceable>B</replaceable>に対して、
 
     <itemizedlist>
      <listitem>
       <para>
+<!--
        exactly one of <replaceable>A</replaceable> <literal>&lt;</literal>
        <replaceable>B</replaceable>, <replaceable>A</replaceable>
        <literal>=</literal> <replaceable>B</replaceable>, and
        <replaceable>B</replaceable> <literal>&lt;</literal>
        <replaceable>A</replaceable> is true
        (<firstterm>trichotomy law</firstterm>)
+-->
+厳密に<replaceable>A</replaceable> <literal>&lt;</literal> <replaceable>B</replaceable>、<replaceable>A</replaceable> <literal>=</literal> <replaceable>B</replaceable>、<replaceable>B</replaceable> <literal>&lt;</literal> <replaceable>A</replaceable>のうちどれか一つが真（<firstterm>三分律</firstterm>）
       </para>
      </listitem>
     </itemizedlist>
 
+<!--
     (The trichotomy law justifies the definition of the comparison support
     function, of course.)
+-->
+（もちろん、三分律は比較サポート関数の定義を正当化します。）
    </para>
   </listitem>
  </itemizedlist>
 
  <para>
+<!--
   The other three operators are defined in terms of <literal>=</literal>
   and <literal>&lt;</literal> in the obvious way, and must act consistently
   with them.
+-->
+他の3つの演算子は<literal>=</literal>と<literal>&lt;</literal>に沿って自明に定義され、それらと一貫していなければなりません。
  </para>
 
  <para>
+<!--
   For an operator family supporting multiple data types, the above laws must
   hold when <replaceable>A</replaceable>, <replaceable>B</replaceable>,
   <replaceable>C</replaceable> are taken from any data types in the family.
@@ -182,15 +257,25 @@
   of the limited accuracy of <type>float8</type>, this means there are
   distinct <type>numeric</type> values that will compare equal to the
   same <type>float8</type> value, and thus the transitive law would fail.
+-->
+複数のデータ型をサポートする演算子族について、演算子族中のデータ型であるどんな<replaceable>A</replaceable>、<replaceable>B</replaceable>、<replaceable>C</replaceable>も上記の法則を満たさなければなりません。
+型をまたがる際に2つあるいは3つの異なる演算子が一貫していることを表明することになるので、推移律を満たすことはもっとも困難です。
+例をあげると、少なくとも<type>float8</type>と比較するために<type>numeric</type>値を<type>float8</type>に変換する現在の意味論のもとでは、<type>float8</type>と<type>numeric</type>を同じ演算子族に加えるのはうまくいかないでしょう。
+<type>float8</type>の精度に限りがあるからです。
+これは同じ<type>float8</type>値に対して等号比較する複数の異なる<type>numeric</type>値が存在することを意味し、したがって推移律は満たされません。
  </para>
 
  <para>
+<!--
   Another requirement for a multiple-data-type family is that any implicit
   or binary-coercion casts that are defined between data types included in
   the operator family must not change the associated sort ordering.
+-->
+複数データ型ファミリーに関する別な要件は、演算子族に含まれるデータ型間に定義される暗黙的あるいは二値型強制(binary-coercion)キャストは、関係するソート順を変更してはならないことです。
  </para>
 
  <para>
+<!--
   It should be fairly clear why a btree index requires these laws to hold
   within a single data type: without them there is no ordering to arrange
   the keys with.  Also, index searches using a comparison key of a
@@ -198,19 +283,31 @@
   data types.  The extensions to three or more data types within a family
   are not strictly required by the btree index mechanism itself, but the
   planner relies on them for optimization purposes.
+-->
+単一のデータ型において、btreeインデックスがこれらの法則を守ることを要求するのはかなり明確です。
+これらの法則なしにはキー並べる順序がなくなってしまうからです。
+また、異なるデータ型の比較キーを使うインデックス検索では、2つのデータ型またがる比較が正常に動作することが必要です。
+演算子族中で3つ以上のデータ型に対する拡張はbtreeインデックスの機構自体では要求されませんが、プランナは最適化の目的でそれらに依存します。
  </para>
 
 </sect1>
 
 <sect1 id="btree-support-funcs">
+<!--
  <title>B-Tree Support Functions</title>
+-->
+ <title>B-Treeサポート関数</title>
 
  <para>
+<!--
   As shown in <xref linkend="xindex-btree-support-table"/>, btree defines
   one required and two optional support functions.
+-->
+<xref linkend="xindex-btree-support-table"/>で示すように、btreeでは一つの必須サポート関数と、２つの省略可能なサポート関数を定義します。
  </para>
 
  <para>
+<!--
   For each combination of data types that a btree operator family provides
   comparison operators for, it must provide a comparison support function,
   registered in <structname>pg_amproc</structname> with support function
@@ -232,33 +329,54 @@
   A null result is disallowed: all values of the data type must be comparable.
   See <filename>src/backend/access/nbtree/nbtcompare.c</filename> for
   examples.
+-->
+btree演算子族が比較演算子を提供するそれぞれのデータ型の組において、<structname>pg_amproc</structname>でサポート関数番号1と、<structfield>amproclefttype</structfield>/<structfield>amprocrighttype</structfield>と等しい比較用の左と右のデータ型（つまり<structname>pg_amop</structname>中に定義されている演算子に該当する同じデータ型）が必要です。
+比較関数は、２つの非NULL値<replaceable>A</replaceable>と<replaceable>B</replaceable>を取り、それぞれ<replaceable>A</replaceable> <literal>&lt;</literal><replaceable>B</replaceable>、<replaceable>A</replaceable><literal>=</literal><replaceable>B</replaceable>、あるいは<replaceable>A</replaceable><literal>&gt;</literal><replaceable>B</replaceable>であるときに、<literal>&lt;</literal><literal>0</literal>、<literal>0</literal>あるいは<literal>&gt;</literal><literal>0</literal>である<type>int32</type>値を返さなければなりません。
+NULLの結果は許されません。
+そのデータ型のすべての値が比較可能でなければなりません。
+<filename>src/backend/access/nbtree/nbtcompare.c</filename>に例があります。
  </para>
 
  <para>
+<!--
   If the compared values are of a collatable data type, the appropriate
   collation OID will be passed to the comparison support function, using
   the standard <function>PG_GET_COLLATION()</function> mechanism.
+-->
+比較される値の型が照合可能データ型なら、標準の<function>PG_GET_COLLATION()</function>機構を使って、適切な照合OIDが比較サポート関数に渡されます。
  </para>
 
  <para>
+<!--
   Optionally, a btree operator family may provide <firstterm>sort
   support</firstterm> function(s), registered under support function number
   2.  These functions allow implementing comparisons for sorting purposes
   in a more efficient way than naively calling the comparison support
   function.  The APIs involved in this are defined in
   <filename>src/include/utils/sortsupport.h</filename>.
+-->
+btree演算子族はオプションで、サポート関数番号2の<firstterm>sort support</firstterm>関数を提供することができます。
+これらの関数により、ネィティブの比較サポート関数を呼び出すよりも効率の良いソートを目的とする比較を実装することができます。
+このためのAPIは、<filename>src/include/utils/sortsupport.h</filename>で定義されています。
  </para>
 
  <indexterm>
+<!--
   <primary>in_range support functions</primary>
+-->
+  <primary>in_rangeサポート関数</primary>
  </indexterm>
 
  <indexterm>
+<!--
   <primary>support functions</primary>
+-->
+  <primary>サポート関数</primary>
   <secondary>in_range</secondary>
  </indexterm>
 
  <para>
+<!--
   Optionally, a btree operator family may
   provide <firstterm>in_range</firstterm> support function(s), registered
   under support function number 3.  These are not used during btree index
@@ -272,9 +390,14 @@
   information provided is how to add or subtract
   an <replaceable>offset</replaceable> value in a way that is compatible
   with the family's data ordering.
+-->
+オプションで、btree演算子族は、サポート関数番号3で登録される<firstterm>in_range</firstterm>サポート関数を提供することができます。
+これらはbtreeインデックス操作中には使われませんが、演算子族の意味を拡張し、<literal>RANGE</literal> <replaceable>offset</replaceable>  <literal>PRECEDING</literal>と<literal>RANGE</literal> <replaceable>offset</replaceable> <literal>FOLLOWING</literal>フレーム境界型などのwindow句をサポートします（<xref linkend="syntax-window-functions"/>参照）。
+基本的に余分に追加された情報は、演算子族のデータ順に適合するやりで、<replaceable>offset</replaceable>値を加算あるいは減算する方法です。
  </para>
 
  <para>
+<!--
   An <function>in_range</function> function must have the signature
 <synopsis>
 in_range(<replaceable>val</replaceable> type1, <replaceable>base</replaceable> type1, <replaceable>offset</replaceable> type2, <replaceable>sub</replaceable> bool, <replaceable>less</replaceable> bool)
@@ -294,51 +417,80 @@ returns bool
   in <structname>pg_amproc</structname>
   with <structfield>amproclefttype</structfield> equal to <type>type1</type>
   and <structfield>amprocrighttype</structfield> equal to <type>type2</type>.
+-->
+<function>in_range</function>関数は次のシグネチャーを持たなければなりません。
+<synopsis>
+in_range(<replaceable>val</replaceable> type1, <replaceable>base</replaceable> type1, <replaceable>offset</replaceable> type2, <replaceable>sub</replaceable> bool, <replaceable>less</replaceable> bool)
+returns bool
+</synopsis>
+<replaceable>val</replaceable>と<replaceable>base</replaceable>は演算子族がサポートする同じ型（つまり、順序を提供する型）でなければなりません。
+しかし、<replaceable>offset</replaceable>は演算子族がサポートしない異なる型でも構いません。
+一例として、組み込みの<literal>time_ops</literal>族は<type>interval</type>型の<replaceable>offset</replaceable>を持つ<function>in_range</function>関数を提供します。
+演算子族は、サポートするすべての型のための<function>in_range</function>関数と、複数の<replaceable>offset</replaceable>型を提供できます。
+個々の<function>in_range</function>関数は、<type>type1</type>と等しい<structfield>amproclefttype</structfield>と、<type>type2</type>と等しい<structfield>amprocrighttype</structfield>とともに<structname>pg_amproc</structname>に登録すべきです。
  </para>
 
  <para>
+<!--
   The essential semantics of an <function>in_range</function> function
   depend on the two Boolean flag parameters.  It should add or
   subtract <replaceable>base</replaceable>
   and <replaceable>offset</replaceable>, then
   compare <replaceable>val</replaceable> to the result, as follows:
+-->
+<function>in_range</function>関数の本質的な意味は、２つの論理値型フラグ引数に依存しています。
+それは<replaceable>base</replaceable>に<replaceable>offset</replaceable>を加算あるいは減算し、次のように結果を<replaceable>val</replaceable>と比較します。
   <itemizedlist>
    <listitem>
     <para>
+<!--
      if <literal>!</literal><replaceable>sub</replaceable> and
      <literal>!</literal><replaceable>less</replaceable>,
      return <replaceable>val</replaceable> <literal>&gt;=</literal>
      (<replaceable>base</replaceable> <literal>+</literal>
      <replaceable>offset</replaceable>)
+-->
+<literal>!</literal><replaceable>sub</replaceable>かつ<literal>!</literal><replaceable>less</replaceable>なら、<replaceable>val</replaceable> <literal>&gt;=</literal>(<replaceable>base</replaceable> <literal>+</literal><replaceable>offset</replaceable>)を返します。
+
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      if <literal>!</literal><replaceable>sub</replaceable>
      and <replaceable>less</replaceable>,
      return <replaceable>val</replaceable> <literal>&lt;=</literal>
      (<replaceable>base</replaceable> <literal>+</literal>
      <replaceable>offset</replaceable>)
+-->
+<literal>!</literal><replaceable>sub</replaceable>かつ<replaceable>less</replaceable>なら、<replaceable>val</replaceable> <literal>&lt;=</literal>(<replaceable>base</replaceable> <literal>+</literal> <replaceable>offset</replaceable>)を返します。
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      if <replaceable>sub</replaceable>
      and <literal>!</literal><replaceable>less</replaceable>,
      return <replaceable>val</replaceable> <literal>&gt;=</literal>
      (<replaceable>base</replaceable> <literal>-</literal>
      <replaceable>offset</replaceable>)
+-->
+<replaceable>sub</replaceable>かつ<literal>!</literal><replaceable>less</replaceable>なら、<replaceable>val</replaceable> <literal>&gt;=</literal>(<replaceable>base</replaceable> <literal>-</literal> <replaceable>offset</replaceable>)を返します。
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      if <replaceable>sub</replaceable> and <replaceable>less</replaceable>,
      return <replaceable>val</replaceable> <literal>&lt;=</literal>
      (<replaceable>base</replaceable> <literal>-</literal>
      <replaceable>offset</replaceable>)
+-->
+<replaceable>sub</replaceable>かつ<replaceable>less</replaceable>なら、<replaceable>val</replaceable> <literal>&lt;=</literal>(<replaceable>base</replaceable> <literal>-</literal> <replaceable>offset</replaceable>)を返します。
     </para>
    </listitem>
   </itemizedlist>
+<!--
   Before doing so, the function should check the sign
   of <replaceable>offset</replaceable>: if it is less than zero, raise
   error <literal>ERRCODE_INVALID_PRECEDING_OR_FOLLOWING_SIZE</literal> (22013)
@@ -349,9 +501,15 @@ returns bool
   This requirement is delegated to the <function>in_range</function>
   function so that the core code needn't understand what <quote>less than
   zero</quote> means for a particular data type.
+-->
+関数は実行する前に<replaceable>offset</replaceable>の符号を検査します。
+0より小さければ、<literal>ERRCODE_INVALID_PRECEDING_OR_FOLLOWING_SIZE</literal> (22013)をエラー文字列<quote>invalid preceding or following size in window function</quote>で引き起こします。
+（これはSQL標準によって要求されていますが、非標準の演算子族はおそらくこの制限を無視するかも知れません。意味的に必要性が低いからです。）
+この要件は、<function>in_range</function>関数に委任され、あるデータ型にとって<quote>0より小さい</quote>ということをコアコードが理解せずに済むようになります。
  </para>
 
  <para>
+<!--
   An additional expectation is that <function>in_range</function> functions
   should, if practical, avoid throwing an error
   if <replaceable>base</replaceable> <literal>+</literal>
@@ -363,79 +521,114 @@ returns bool
   concepts such as <quote>infinity</quote> or <quote>NaN</quote>, extra care
   may be needed to ensure that <function>in_range</function>'s results agree
   with the normal sort order of the operator family.
+-->
+他に期待されることとして、<replaceable>base</replaceable> <literal>+</literal> <replaceable>offset</replaceable>あるいは<replaceable>base</replaceable> <literal>-</literal> <replaceable>offset</replaceable>がオーバーフローしたときに、<function>in_range</function>関数が実用上その方がよければエラーを引き起こすことを防ぐということがあります。
+値がデータ型の許す範囲を逸脱していても、正しい比較結果を決定することができます。
+データ型に<quote>infinity</quote>あるいは<quote>NaN</quote>の概念が含まれていると、<function>in_range</function>の結果が演算子族の通常のソート順と矛盾しないように追加の考慮が必要になるかも知れません。
  </para>
 
  <para>
+<!--
   The results of the <function>in_range</function> function must be
   consistent with the sort ordering imposed by the operator family.
   To be precise, given any fixed values of <replaceable>offset</replaceable>
   and <replaceable>sub</replaceable>, then:
+-->
+<function>in_range</function>関数の結果は、演算子族が課するソート順と矛盾がないようにしなければなりません。
+もっと正確に言うと、<replaceable>offset</replaceable>と<replaceable>sub</replaceable>のどんな値に対しても次のようになります。
   <itemizedlist>
    <listitem>
     <para>
+<!--
      If <function>in_range</function> with <replaceable>less</replaceable> =
      true is true for some <replaceable>val1</replaceable>
      and <replaceable>base</replaceable>, it must be true for
      every <replaceable>val2</replaceable> <literal>&lt;=</literal>
      <replaceable>val1</replaceable> with the
      same <replaceable>base</replaceable>.
+-->
+ある<replaceable>val1</replaceable>と<replaceable>base</replaceable>に対して、<replaceable>less</replaceable> = trueである<function>in_range</function>がtrueならば、ある<replaceable>base</replaceable>のすべての<replaceable>val2</replaceable><literal>&lt;=</literal><replaceable>val1</replaceable>に対してtrueでなければなりません。
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      If <function>in_range</function> with <replaceable>less</replaceable> =
      true is false for some <replaceable>val1</replaceable>
      and <replaceable>base</replaceable>, it must be false for
      every <replaceable>val2</replaceable> <literal>&gt;=</literal>
      <replaceable>val1</replaceable> with the
      same <replaceable>base</replaceable>.
+-->
+ある<replaceable>val1</replaceable>と<replaceable>base</replaceable>に対して、<replaceable>less</replaceable> = trueである<function>in_range</function>がfalseならば、ある<replaceable>base</replaceable>のすべての<replaceable>val2</replaceable><literal>&gt;=</literal><replaceable>val1</replaceable>に対してfalseでなければなりません。
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      If <function>in_range</function> with <replaceable>less</replaceable> =
      true is true for some <replaceable>val</replaceable>
      and <replaceable>base1</replaceable>, it must be true for
      every <replaceable>base2</replaceable> <literal>&gt;=</literal>
      <replaceable>base1</replaceable> with the
      same <replaceable>val</replaceable>.
+-->
+ある<replaceable>val</replaceable>と<replaceable>base1</replaceable>に対して、<replaceable>less</replaceable> = trueである<function>in_range</function>がtrueならば、ある<replaceable>val</replaceable>のすべての<replaceable>val2</replaceable><literal>&gt;=</literal><replaceable>base1</replaceable>に対してtrueでなければなりません。
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      If <function>in_range</function> with <replaceable>less</replaceable> =
      true is false for some <replaceable>val</replaceable>
      and <replaceable>base1</replaceable>, it must be false for
      every <replaceable>base2</replaceable> <literal>&lt;=</literal>
      <replaceable>base1</replaceable> with the
      same <replaceable>val</replaceable>.
+-->
+ある<replaceable>val</replaceable>と<replaceable>base1</replaceable>に対して、<replaceable>less</replaceable> = trueである<function>in_range</function>がfalseならば、ある<replaceable>val</replaceable>のすべての<replaceable>base2</replaceable><literal>&lt;=</literal><replaceable>base1</replaceable>に対してfalseでなければなりません。
     </para>
    </listitem>
   </itemizedlist>
+<!--
   Analogous statements with inverted conditions hold
   when <replaceable>less</replaceable> = false.
+-->
+<replaceable>less</replaceable> = falseのときには、逆の条件のもとで類似の表明が成り立ちます。
  </para>
 
  <para>
+<!--
   If the type being ordered (<type>type1</type>) is collatable,
   the appropriate collation OID will be passed to
   the <function>in_range</function> function, using the standard
   PG_GET_COLLATION() mechanism.
+-->
+順序付けされている型(<type>type1</type>)が照合可能ならば、標準の<function>PG_GET_COLLATION()</function>機構を使って、適切な照合OIDが<function>in_range</function>関数に渡されます。
  </para>
 
  <para>
+<!--
   <function>in_range</function> functions need not handle NULL inputs, and
   typically will be marked strict.
+-->
+<function>in_range</function>関数はNULL入力を扱う必要がなく、典型的にはstrictとマークされます。
  </para>
 
 </sect1>
 
 <sect1 id="btree-implementation">
+<!--
  <title>Implementation</title>
+-->
+ <title>実装</title>
 
   <para>
+<!--
    An introduction to the btree index implementation can be found in
    <filename>src/backend/access/nbtree/README</filename>.
+-->
+btreeインデックス実装の導入紹介が<filename>src/backend/access/nbtree/README</filename>にあります。
   </para>
 
 </sect1>

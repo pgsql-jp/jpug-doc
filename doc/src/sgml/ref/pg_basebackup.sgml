@@ -11,12 +11,18 @@ PostgreSQL documentation
  <refmeta>
   <refentrytitle>pg_basebackup</refentrytitle>
   <manvolnum>1</manvolnum>
+<!--
   <refmiscinfo>Application</refmiscinfo>
+-->
+  <refmiscinfo>アプリケーション</refmiscinfo>
  </refmeta>
 
  <refnamediv>
   <refname>pg_basebackup</refname>
+<!--
   <refpurpose>take a base backup of a <productname>PostgreSQL</productname> cluster</refpurpose>
+-->
+  <refpurpose><productname>PostgreSQL</productname>クラスタのベースバックアップを取得する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -28,27 +34,42 @@ PostgreSQL documentation
 
  <refsect1>
   <title>
+<!--
    Description
+-->
+説明
   </title>
   <para>
+<!--
    <application>pg_basebackup</application> is used to take base backups of
    a running <productname>PostgreSQL</productname> database cluster. These
    are taken without affecting other clients to the database, and can be used
    both for point-in-time recovery (see <xref linkend="continuous-archiving"/>)
    and as the starting point for a log shipping or streaming replication standby
    servers (see <xref linkend="warm-standby"/>).
+-->
+<application>pg_basebackup</application>は、稼動中の<productname>PostgreSQL</productname>のデータベースクラスタのベースバックアップを取るために使用されます。
+データベースへの他のクライアントに影響することなく、バックアップが取られます。
+またこのバックアップはポイントインタイムリカバリ（<xref linkend="continuous-archiving"/>参照）とログシッピングやストリーミングレプリケーションスタンバイサーバ用の開始点（<xref linkend="warm-standby"/>参照）としても使用することができます。
   </para>
 
   <para>
+<!--
    <application>pg_basebackup</application> makes a binary copy of the database
    cluster files, while making sure the system is put in and
    out of backup mode automatically. Backups are always taken of the entire
    database cluster; it is not possible to back up individual databases or
    database objects. For individual database backups, a tool such as
    <xref linkend="app-pgdump"/> must be used.
+-->
+<application>pg_basebackup</application>は、システムをバックアップモードに入れ、また戻すことを自動的に行い、データベースクラスタファイルのバイナリコピーを作成します。
+バックアップは常にデータベースクラスタ全体のバックアップを取ります。
+個々のデータベースや個々のデータベースオブジェクトをバックアップすることはできません。
+個々のデータベースバックアップに関しては<xref linkend="app-pgdump"/>などのツールを使用しなければなりません。
   </para>
 
   <para>
+<!--
    The backup is made over a regular <productname>PostgreSQL</productname>
    connection, and uses the replication protocol. The connection must be made
    with a superuser or a user having <literal>REPLICATION</literal>
@@ -57,49 +78,79 @@ PostgreSQL documentation
    connection. The server must also be configured
    with <xref linkend="guc-max-wal-senders"/> set high enough to leave at least
    one session available for the backup and one for WAL streaming (if used).
+-->
+バックアップは通常の<productname>PostgreSQL</productname>接続を経由して、レプリケーションプロトコルを用いて、作成されます。
+この接続はスーパーユーザまたは<literal>REPLICATION</literal>権限（<xref linkend="role-attributes"/>参照）を持つユーザが確立しなければなりません。
+さらにレプリケーション用の接続には<filename>pg_hba.conf</filename>における明示的な権限が許されていなければなりません。
+またサーバで<xref linkend="guc-max-wal-senders"/>を、バックアップ用に少なくとも１つのセッションとWALストリーミング用にもう一つ（使用する場合）を残すように十分大きく設定する必要があります。
   </para>
 
   <para>
+<!--
    There can be multiple <command>pg_basebackup</command>s running at the same time, but it is
    better from a performance point of view to take only one backup, and copy
    the result.
+-->
+同時に<command>pg_basebackup</command>を複数実行することができます。
+しかし性能の観点からは、１つのバックアップのみを取り結果をコピーする方が優れています。
   </para>
 
   <para>
+<!--
    <application>pg_basebackup</application> can make a base backup from
    not only the master but also the standby. To take a backup from the standby,
    set up the standby so that it can accept replication connections (that is, set
    <varname>max_wal_senders</varname> and <xref linkend="guc-hot-standby"/>,
    and configure <link linkend="auth-pg-hba-conf">host-based authentication</link>).
    You will also need to enable <xref linkend="guc-full-page-writes"/> on the master.
+-->
+<application>pg_basebackup</application>は、マスタからだけではなくスタンバイからもベースバックアップを作成することができます。
+スタンバイからバックアップを取得するためには、レプリケーション接続を受け付けられるようにスタンバイを設定してください（つまり<varname>max_wal_senders</varname>と<xref linkend="guc-hot-standby"/>を設定し、<link linkend="auth-pg-hba-conf">host-based authentication</link>を設定してください）。
+またマスタで<xref linkend="guc-full-page-writes"/>を有効にする必要があります。
   </para>
 
   <para>
+<!--
    Note that there are some limitations in an online backup from the standby:
+-->
+スタンバイからのオンラインバックアップではいくつかの制限があることに注意してください。
 
    <itemizedlist>
     <listitem>
      <para>
+<!--
       The backup history file is not created in the database cluster backed up.
+-->
+バックアップ履歴ファイルはバックアップされるデータベースクラスタ内に作成されません。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       If you are using <literal>-X none</literal>, there is no guarantee that all
       WAL files required for the backup are archived at the end of backup.
+-->
+<literal>-X none</literal>を使用している場合、バックアップ終了時にバックアップに必要なすべてのWALファイルがアーカイブされているという保証はありません。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       If the standby is promoted to the master during online backup, the backup fails.
+-->
+オンラインバックアップ中にスタンバイがマスタに昇格した場合、バックアップは失敗します。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       All WAL records required for the backup must contain sufficient full-page writes,
       which requires you to enable <varname>full_page_writes</varname> on the master and
       not to use a tool like <application>pg_compresslog</application> as
       <varname>archive_command</varname> to remove full-page writes from WAL files.
+-->
+バックアップに必要なすべてのWALレコードは、必要なだけの完全ページ書き出しを含んでいなければなりません。
+つまりこれは、マスタで<varname>full_page_writes</varname>を有効にし、<varname>archive_command</varname>としてWALファイルから完全ページ書き出しを取り除く<application>pg_compresslog</application>のようなツールを使用しないことが要求されます。
      </para>
     </listitem>
    </itemizedlist>
@@ -107,11 +158,17 @@ PostgreSQL documentation
  </refsect1>
 
  <refsect1>
+<!--
   <title>Options</title>
+-->
+  <title>オプション</title>
 
    <para>
+<!--
     The following command-line options control the location and format of the
     output.
+-->
+以下のコマンドラインオプションは出力の場所と書式を制御します。
 
     <variablelist>
      <varlistentry>
@@ -119,18 +176,29 @@ PostgreSQL documentation
       <term><option>--pgdata=<replaceable class="parameter">directory</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Directory to write the output to.
         <application>pg_basebackup</application> will create the directory and
         any parent directories if necessary.  The directory may already exist,
         but it is an error if the directory already exists and is not empty.
+-->
+出力を書き出すディレクトリです。
+<application>pg_basebackup</application>は必要ならば、このディレクトリとその親ディレクトリすべてを作成します。
+ディレクトリはすでに存在してもかまいませんが、存在しかつ空でない場合はエラーになります。
        </para>
        <para>
+<!--
         When the backup is in tar mode, and the directory is specified as
         <literal>-</literal> (dash), the tar file will be written to
         <literal>stdout</literal>.
+-->
+バックアップがtarモードであり、かつ、指定したディレクトリが<literal>-</literal>（ダッシュ）の場合、tarファイルは<literal>stdout</literal>に書き出されます。
        </para>
        <para>
+<!--
         This option is required.
+-->
+このオプションは必須です。
        </para>
       </listitem>
      </varlistentry>
@@ -140,8 +208,12 @@ PostgreSQL documentation
       <term><option>--format=<replaceable class="parameter">format</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Selects the format for the output. <replaceable>format</replaceable>
         can be one of the following:
+-->
+出力形式を選択します。
+<replaceable>format</replaceable>には以下のいずれかを取ることができます。
 
         <variablelist>
          <varlistentry>
@@ -149,6 +221,7 @@ PostgreSQL documentation
           <term><literal>plain</literal></term>
           <listitem>
            <para>
+<!--
             Write the output as plain files, with the same layout as the
             current data directory and tablespaces. When the cluster has
             no additional tablespaces, the whole database will be placed in
@@ -156,9 +229,16 @@ PostgreSQL documentation
             tablespaces, the main data directory will be placed in the
             target directory, but all other tablespaces will be placed
             in the same absolute path as they have on the server.
+-->
+普通のファイルとして、現在のデータディレクトリとテーブル空間と同じレイアウトで、出力を書き出します。
+クラスタがテーブル空間を追加で持たない場合、データベース全体が指定したディレクトリに格納されます。
+クラスタが追加のテーブル空間を持つ場合は、主データディレクトリは指定したディレクトリ内に格納されますが、他のテーブル空間はすべて、サーバ上の同じ絶対パスに格納されます。
            </para>
            <para>
+<!--
             This is the default format.
+-->
+これがデフォルトの書式です。
            </para>
           </listitem>
          </varlistentry>
@@ -168,18 +248,27 @@ PostgreSQL documentation
           <term><literal>tar</literal></term>
           <listitem>
            <para>
+<!--
             Write the output as tar files in the target directory. The main
             data directory will be written to a file named
             <filename>base.tar</filename>, and all other tablespaces will
             be named after the tablespace OID.
+-->
+指定したディレクトリ内にtarファイルとして出力を書き出します。
+主データディレクトリは<filename>base.tar</filename>という名前のファイルに書き出され、他のテーブル空間はすべてテーブル空間のOIDに因んだ名前のファイルに書き出されます。
             </para>
            <para>
+<!--
             If the value <literal>-</literal> (dash) is specified as
             target directory, the tar contents will be written to
             standard output, suitable for piping to for example
             <productname>gzip</productname>. This is only possible if
             the cluster has no additional tablespaces and WAL
             streaming is not used.
+-->
+対象ディレクトリとして<literal>-</literal>（ダッシュ）という値が指定された場合、tarの内容は標準出力に書き出されます。
+これは例えば<productname>gzip</productname>へのパイプ処理に適しています。
+これはクラスタが追加テーブル空間を持たず、WALストリーミングを使用していない場合のみ行うことができます。
            </para>
            </listitem>
          </varlistentry>
@@ -192,18 +281,32 @@ PostgreSQL documentation
       <term><option>--max-rate=<replaceable class="parameter">rate</replaceable></option></term>
       <listitem>
        <para>
+<!--
         The maximum transfer rate of data transferred from the server.  Values are
         in kilobytes per second.  Use a suffix of <literal>M</literal> to indicate megabytes
         per second.  A suffix of <literal>k</literal> is also accepted, and has no effect.
         Valid values are between 32 kilobytes per second and 1024 megabytes per second.
+-->
+サーバから転送されるデータの最大転送速度です。
+値は秒あたりのキロバイト数です。
+添字<literal>M</literal>を使うと秒あたりのメガバイト数を指定できます。
+添字<literal>k</literal>を使うこともできますが、効果はありません。
+有効な値は秒あたり32キロバイトから秒あたり1024メガバイトまでです。
        </para>
        <para>
+<!--
         The purpose is to limit the impact of <application>pg_basebackup</application>
         on the running server.
+-->
+この目的は、実行中のサーバに対する<application>pg_basebackup</application>の影響を制限することです。
        </para>
        <para>
+<!--
         This option always affects transfer of the data directory. Transfer of
         WAL files is only affected if the collection method is <literal>fetch</literal>.
+-->
+このオプションはデータディレクトリの転送に対しては、常に影響があります。
+WALファイルの転送については、収集方法が<literal>fetch</literal>の場合にのみ影響があります。
        </para>
       </listitem>
      </varlistentry>
@@ -214,6 +317,7 @@ PostgreSQL documentation
       <listitem>
 
        <para>
+<!--
         Create <filename>standby.signal</filename> and append connection settings
         to <filename>postgresql.auto.conf</filename> in the output
         directory (or into the base archive file when using tar format) to
@@ -222,6 +326,9 @@ PostgreSQL documentation
         settings and, if specified, the replication slot
         that <application>pg_basebackup</application> is using, so that the
         streaming replication will use the same settings later on.
+-->
+スタンバイサーバの設定を容易にするために、出力ディレクトリ（tar形式の場合はベースアーカイブファイルの中）に最低限の<filename>recovery.conf</filename>を書き出します。
+<filename>recovery.conf</filename>ファイルは接続設定の情報、また、指定があれば<application>pg_basebackup</application>が使用しているレプリケーションスロットの情報を記録するので、ストリーミングレプリケーションは後で同じ設定を使用します。
        </para>
 
       </listitem>
@@ -232,6 +339,7 @@ PostgreSQL documentation
       <term><option>--tablespace-mapping=<replaceable class="parameter">olddir</replaceable>=<replaceable class="parameter">newdir</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Relocate the tablespace in directory <replaceable>olddir</replaceable>
         to <replaceable>newdir</replaceable> during the backup.  To be
         effective, <replaceable>olddir</replaceable> must exactly match the
@@ -243,13 +351,24 @@ PostgreSQL documentation
         path happens to contain a <literal>=</literal> sign, escape it with a
         backslash.  This option can be specified multiple times for multiple
         tablespaces.  See examples below.
+-->
+ディレクトリ<replaceable>olddir</replaceable>にあるテーブル空間を、バックアップ中に<replaceable>newdir</replaceable>に再配置します。
+これが有効であるためには、<replaceable>olddir</replaceable>が、現在のテーブル空間のパス定義と完全に一致している必要があります(ただし、バックアップに含まれる<replaceable>olddir</replaceable>内にテーブル空間がなくてもエラーにはなりません)。
+<replaceable>olddir</replaceable>と<replaceable>newdir</replaceable>はいずれも絶対パスでなければなりません。
+パス名に<literal>=</literal>記号が含まれるときは、バックスラッシュでエスケープしてください。
+このオプションは、複数のテーブル空間に対して複数回指定することができます。
+以下の例を参照してください。
        </para>
 
        <para>
+<!--
         If a tablespace is relocated in this way, the symbolic links inside
         the main data directory are updated to point to the new location.  So
         the new data directory is ready to be used for a new server instance
         with all tablespaces in the updated locations.
+-->
+この方法でテーブル空間を再配置すると、メインのデータディレクトリ内のシンボリックリンクは、新しい場所を指すように更新されます。
+このため、新しいデータディレクトリは、すべてのテーブル空間が更新された場所にあり、新しいサーバインスタンスがすぐに使える状態になっています。
         </para>
       </listitem>
      </varlistentry>
@@ -258,10 +377,15 @@ PostgreSQL documentation
       <term><option>--waldir=<replaceable class="parameter">waldir</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Specifies the location for the write-ahead log directory.
         <replaceable>waldir</replaceable> must be an absolute path.
         The write-ahead log directory can only be specified when
         the backup is in plain mode.
+-->
+先行書き込みログのディレクトリの場所を指定します。
+<replaceable>waldir</replaceable>は絶対パスでなければなりません。
+先行書き込みログのディレクトリは、バックアップがplainモードの場合にのみ指定できます。
        </para>
       </listitem>
      </varlistentry>
@@ -271,16 +395,25 @@ PostgreSQL documentation
       <term><option>--wal-method=<replaceable class="parameter">method</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Includes the required write-ahead log files (WAL files) in the
         backup. This will include all write-ahead logs generated during
         the backup. Unless the method <literal>none</literal> is specified,
         it is possible to start a postmaster directly in the extracted
         directory without the need to consult the log archive, thus
         making this a completely standalone backup.
+  -->
+必要な先行書き込みログファイル（WALファイル）をバックアップに含めます。
+これはバックアップ中に生成された先行書き込みログをすべて含みます。
+方法<literal>none</literal>を指定しない場合、ログアーカイブを考慮することなく展開したディレクトリ内でそのままpostmasterを起動することができます。
+つまりこれは完全なスタンドアローンバックアップを作成します。
        </para>
        <para>
+<!--
         The following methods for collecting the write-ahead logs are
         supported:
+-->
+以下の先行書き込みログを収集するための方法がサポートされます。
 
         <variablelist>
          <varlistentry>
@@ -288,7 +421,10 @@ PostgreSQL documentation
           <term><literal>none</literal></term>
           <listitem>
            <para>
+<!--
             Don't include write-ahead log in the backup.
+-->
+先行書き込みログをバックアップに含めません。
            </para>
           </listitem>
          </varlistentry>
@@ -298,16 +434,24 @@ PostgreSQL documentation
           <term><literal>fetch</literal></term>
           <listitem>
            <para>
+<!--
             The write-ahead log files are collected at the end of the backup.
             Therefore, it is necessary for the
             <xref linkend="guc-wal-keep-segments"/> parameter to be set high
              enough that the log is not removed before the end of the backup.
              If the log has been rotated when it's time to transfer it, the
              backup will fail and be unusable.
+-->
+先行書き込みログファイルはバックアップの最後に収集されます。
+したがって、<xref linkend="guc-wal-keep-segments"/>パラメータを、バックアップの最後までログが削除されない程度に十分大きくする必要があります。
+ログの転送時点でそのログがローテートされていた場合、バックアップは失敗し、使用することができません。
            </para>
            <para>
+<!--
             When tar format mode is used, the write-ahead log files will be
             written to the <filename>base.tar</filename> file.
+-->
+tarフォーマットモードが使われたとき、先行書き込みログファイルは<filename>base.tar</filename>ファイルに書きこまれます。
            </para>
           </listitem>
          </varlistentry>
@@ -317,6 +461,7 @@ PostgreSQL documentation
           <term><literal>stream</literal></term>
           <listitem>
            <para>
+<!--
             Stream the write-ahead log while the backup is created. This will
             open a second connection to the server and start streaming the
             write-ahead log in parallel while running the backup. Therefore,
@@ -324,15 +469,26 @@ PostgreSQL documentation
             <xref linkend="guc-max-wal-senders"/> parameter. As long as the
              client can keep up with write-ahead log received, using this mode
              requires no extra write-ahead logs to be saved on the master.
+-->
+バックアップを作成する時に先行書き込みログをストリームします。
+これは第二のサーバ接続を開き、バックアップを実行している間、並行して先行書き込みログのストリーミングを始めます。
+したがって、これは<xref linkend="guc-max-wal-senders"/>で設定される接続を２つ使用します。
+クライアントが受け取った先行書き込みログに追従している限り、このモードを使用すれば、マスタ上に余分に保管される先行書き込みログは必要ありません。
            </para>
            <para>
+<!--
             When tar format mode is used, the write-ahead log files will be
             written to a separate file named <filename>pg_wal.tar</filename>
             (if the server is a version earlier than 10, the file will be named
             <filename>pg_xlog.tar</filename>).
+-->
+tarフォーマットモードが使われるとき、先行書き込みログファイルは<filename>pg_wal.tar</filename>という別のファイル名で書き込まれます（サーバが10より前のバージョンの場合、<filename>pg_xlog.tar</filename>というファイル名になります）。
            </para>
            <para>
+<!--
             This value is the default.
+-->
+この値がデフォルトです。
            </para>
           </listitem>
          </varlistentry>
@@ -346,10 +502,14 @@ PostgreSQL documentation
       <term><option>--gzip</option></term>
       <listitem>
        <para>
+<!--
         Enables gzip compression of tar file output, with the default
         compression level. Compression is only available when using
         the tar format, and the suffix <filename>.gz</filename> will
         automatically be added to all tar filenames.
+-->
+tarファイル出力のデフォルトの圧縮レベルによるgzip圧縮を有効にします。
+tarファイルを生成する場合のみ圧縮を利用することができ、すべてのtarファイルの名前に拡張子<filename>.gz</filename>が自動的に付加されます。
        </para>
       </listitem>
      </varlistentry>
@@ -359,19 +519,27 @@ PostgreSQL documentation
       <term><option>--compress=<replaceable class="parameter">level</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Enables gzip compression of tar file output, and specifies the
         compression level (0 through 9, 0 being no compression and 9 being best
         compression). Compression is only available when using the tar
         format, and the suffix <filename>.gz</filename> will
         automatically be added to all tar filenames.
+-->
+tarファイル出力のgzip圧縮を有効にします。
+また圧縮レベル（0から9まで、0は圧縮なし、9が最高の圧縮レベル）を指定します。
+tarファイルを生成する場合のみ圧縮を利用することができ、すべてのtarファイルの名前に拡張子<filename>.gz</filename>が自動的に付加されます。
        </para>
       </listitem>
      </varlistentry>
     </variablelist>
    </para>
    <para>
+<!--
     The following command-line options control the generation of the
     backup and the running of the program.
+-->
+以下のコマンドラインオプションはバックアップの生成とこのプログラムの実行を制御します。
 
     <variablelist>
      <varlistentry>
@@ -389,9 +557,13 @@ PostgreSQL documentation
       <term><option>--create-slot</option></term>
       <listitem>
        <para>
+<!--
         This option causes creation of a replication slot named by the
         <literal>--slot</literal> option before starting the backup.
         An error is raised if the slot already exists.
+-->
+このオプションにより、バックアップ開始前に<literal>--slot</literal>オプションで名づけられたレプリケーションスロットが作成されます。
+スロットが既に存在する場合、エラーが生じます。
        </para>
       </listitem>
      </varlistentry>
@@ -401,8 +573,12 @@ PostgreSQL documentation
       <term><option>--label=<replaceable class="parameter">label</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Sets the label for the backup. If none is specified, a default value of
         <quote><literal>pg_basebackup base backup</literal></quote> will be used.
+-->
+バックアップのラベルを設定します。
+何も指定がない場合、<quote><literal>pg_basebackup base backup</literal></quote>というデフォルト値が使用されます。
        </para>
       </listitem>
      </varlistentry>
@@ -412,15 +588,22 @@ PostgreSQL documentation
       <term><option>--no-clean</option></term>
       <listitem>
        <para>
+<!--
         By default, when <command>pg_basebackup</command> aborts with an
         error, it removes any directories it might have created before
         discovering that it cannot finish the job (for example, data directory
         and write-ahead log directory). This option inhibits tidying-up and is
         thus useful for debugging.
+-->
+デフォルトでは、<command>pg_basebackup</command>がエラーでアボートするとき、ジョブを完了できないことがわかるより前に作成したすべてのディレクトリ（例えば、データディレクトリと先行書き込みログのディレクトリ）を削除します。
+このオプションはきれいに片付けることを禁止するので、デバッグのために有用です。
        </para>
 
        <para>
+<!--
         Note that tablespace directories are not cleaned up either way.
+-->
+テーブル空間のディレクトリはいずれにせよ削除されないことに注意してください。
        </para>
       </listitem>
      </varlistentry>
@@ -430,12 +613,17 @@ PostgreSQL documentation
       <term><option>--no-sync</option></term>
       <listitem>
        <para>
+<!--
         By default, <command>pg_basebackup</command> will wait for all files
         to be written safely to disk.  This option causes
         <command>pg_basebackup</command> to return without waiting, which is
         faster, but means that a subsequent operating system crash can leave
         the base backup corrupt.  Generally, this option is useful for testing
         but should not be used when creating a production installation.
+-->
+デフォルトでは<command>pg_basebackup</command>は全てのファイルがディスクに安全に書き出されるのを待ちます。
+このオプションで<command>pg_basebackup</command>は待つことなく返ります。これは高速ですが、その後のオペレーションシステムのクラッシュでベースバックアップの破損が残るかもしれないことを意味します。
+一般にこのオプションはテスト用に有用なのであって、本番導入の際に使うべきではありません。
        </para>
       </listitem>
      </varlistentry>
@@ -445,6 +633,7 @@ PostgreSQL documentation
       <term><option>--progress</option></term>
       <listitem>
        <para>
+<!--
         Enables progress reporting. Turning this on will deliver an approximate
         progress report during the backup. Since the database may change during
         the backup, this is only an approximation and may not end at exactly
@@ -452,12 +641,22 @@ PostgreSQL documentation
         backup, the total amount of data cannot be estimated in advance, and
         in this case the estimated target size will increase once it passes the
         total estimate without WAL.
+-->
+進行状況報告を有効にします。
+これを有効にすると、バックアップ中におおよその進行状況が報告されます。
+データベースはバックアップ中に変更があるかもしれませんので、これはおおよそでしかなくちょうど<literal>100%</literal>では終わらないかもしれません。
+特に、WALログがバックアップに含まれる場合、データ総量は前もって予測することはできません。
+このためこの場合、推定対象容量はWALなしの総推定量を過ぎた後増加します。
        </para>
        <para>
+<!--
         When this is enabled, the backup will start by enumerating the size of
         the entire database, and then go back and send the actual contents.
         This may make the backup take slightly longer, and in particular it
         will take longer before the first data is sent.
+-->
+これが有効な場合、バックアップはまずデータベース全体容量を計算し、その後バックアップに戻り、実際の内容を送信します。
+バックアップに要する時間は少し長くなるかもしれません。特に最初のデータが送られるようになるまでの時間がより長くなります。
        </para>
       </listitem>
      </varlistentry>
@@ -467,6 +666,7 @@ PostgreSQL documentation
       <term><option>--slot=<replaceable class="parameter">slotname</replaceable></option></term>
       <listitem>
        <para>
+<!--
         This option can only be used together with <literal>-X
         stream</literal>.  It causes the WAL streaming to use the specified
         replication slot.  If the base backup is intended to be used as a
@@ -475,15 +675,26 @@ PostgreSQL documentation
         in <xref linkend="guc-primary-slot-name"/>.  That way, it is ensured that
         the server does not remove any necessary WAL data in the time between
         the end of the base backup and the start of streaming replication.
+-->
+このオプションは<literal>-X stream</literal>と一緒でのみ使用できます。
+これはWALストリーミングに指定したレプリケーションスロットを使用させます。
+ベースバックアップをストリーミングレプリケーションのスタンバイとして使用するつもりであるなら、その後、<filename>recovery.conf</filename>でも同じレプリケーションスロット名を使うべきです。
+その方が、ベースバックアップ終了とストリーミングレプリケーション開始の間の時間にサーバが必要なWALデータを削除しないことを確実にします。
        </para>
        <para>
+<!--
         The specified replication slot has to exist unless the
         option <option>-C</option> is also used.
+-->
+指定されたレプリケーションスロットは、オプション<option>-C</option>も使われている場合を除き、存在していなければなりません。
        </para>
        <para>
+<!--
         If this option is not specified and the server supports temporary
         replication slots (version 10 and later), then a temporary replication
         slot is automatically used for WAL streaming.
+-->
+このオプションが指定されておらず、サーバが一時レプリケーションスロットに対応している（バージョン10以降）場合、WALストリーミングに対して一時レプリケーションスロットが自動的に使われます。
        </para>
       </listitem>
      </varlistentry>
@@ -493,9 +704,14 @@ PostgreSQL documentation
       <term><option>--verbose</option></term>
       <listitem>
        <para>
+<!--
         Enables verbose mode. Will output some extra steps during startup and
         shutdown, as well as show the exact file name that is currently being
         processed if progress reporting is also enabled.
+-->
+冗長モードを有効にします。
+開始時および終了段階でいくつか追加の段階が出力されます。
+また進行状況報告も有効な場合、現在処理中のファイル名も正しく出力されます。
        </para>
       </listitem>
      </varlistentry>
@@ -504,18 +720,28 @@ PostgreSQL documentation
       <term><option>--no-slot</option></term>
       <listitem>
        <para>
+<!--
         This option prevents the creation of a temporary replication slot
         during the backup even if it's supported by the server.
+-->
+このオプションは、サーバによりサポートされている場合であってもバックアップ時に一時レプリケーションスロットを作成しないようにします。
        </para>
        <para>
+<!--
         Temporary replication slots are created by default if no slot name
         is given with the option <option>-S</option> when using log streaming.
+-->
+ログストリーミングを使うときにオプション<option>-S</option>でスロット名が与えられなかった場合、一時レプリケーションスロットはデフォルトで作成されます。
        </para>
        <para>
+<!--
         The main purpose of this option is to allow taking a base backup when
         the server is out of free replication slots.  Using replication slots
         is almost always preferred, because it prevents needed WAL from being
         removed by the server during the backup.
+-->
+このオプションの主な目的は、サーバにレプリケーションスロットの空きが無いときにベースバックアップを取得できるようにすることです。
+レプリケーションスロットを使うことは、必要とされるWALがバックアップ中のサーバにより削除されることを防止するため、ほとんどの場合に好ましいです。
        </para>
       </listitem>
      </varlistentry>
@@ -524,15 +750,22 @@ PostgreSQL documentation
       <term><option>--no-verify-checksums</option></term>
       <listitem>
        <para>
+<!--
         Disables verification of checksums, if they are enabled on the server
         the base backup is taken from.
+-->
+ベースバックアップ取得元のサーバでチェックサムの検証が有効になっている場合に、チェックサムの検証を無効化します。
        </para>
        <para>
+<!--
         By default, checksums are verified and checksum failures will result
         in a non-zero exit status. However, the base backup will not be
         removed in such a case, as if the <option>--no-clean</option> option
         had been used.  Checksum verifications failures will also be reported
         in the <xref linkend="pg-stat-database-view"/> view.
+-->
+デフォルトでは、チェックサムは検証され、チェックサムエラーは非ゼロの終了ステータスをもたらします。
+とはいえ、このような場合には、<option>--no-clean</option>オプションが使われていたかのように、ベースバックアップは削除されません。
        </para>
       </listitem>
      </varlistentry>
@@ -540,7 +773,10 @@ PostgreSQL documentation
    </para>
 
    <para>
+<!--
     The following command-line options control the database connection parameters.
+-->
+以下のオプションはデータベース接続パラメータを制御します。
 
     <variablelist>
      <varlistentry>
@@ -548,14 +784,22 @@ PostgreSQL documentation
       <term><option>--dbname=<replaceable class="parameter">connstr</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Specifies parameters used to connect to the server, as a connection
         string. See <xref linkend="libpq-connstring"/> for more information.
+-->
+サーバとの接続のために使用するパラメータを、接続文字列として指定します。
+詳細については<xref linkend="libpq-connstring"/>を参照してください。
        </para>
        <para>
-        The option is called <literal>--dbname</literal> for consistency with other
+<!--
+        The option is called <literal>&#045;&#045;dbname</literal> for consistency with other
         client applications, but because <application>pg_basebackup</application>
         doesn't connect to any particular database in the cluster, database
         name in the connection string will be ignored.
+-->
+このオプションは他のクライアントアプリケーションとの整合性のために<literal>--dbname</literal>と呼ばれます。
+しかし、<application>pg_basebackup</application>はクラスタ内の何らかの特定のデータベースに接続しませんので、接続文字列内のデータベース名は無視されます。
        </para>
       </listitem>
      </varlistentry>
@@ -565,11 +809,17 @@ PostgreSQL documentation
       <term><option>--host=<replaceable class="parameter">host</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Specifies the host name of the machine on which the server is
         running.  If the value begins with a slash, it is used as the
         directory for the Unix domain socket. The default is taken
         from the <envar>PGHOST</envar> environment variable, if set,
         else a Unix domain socket connection is attempted.
+-->
+サーバが稼働しているマシンのホスト名を指定します。
+この値がスラッシュから始まる場合、Unixドメインソケット用のディレクトリとして使用されます。
+デフォルトは、設定されていれば環境変数<envar>PGHOST</envar>から取得されます。
+設定されていなければ、Unixドメインソケット接続とみなされます。
        </para>
       </listitem>
      </varlistentry>
@@ -579,10 +829,14 @@ PostgreSQL documentation
       <term><option>--port=<replaceable class="parameter">port</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Specifies the TCP port or local Unix domain socket file
         extension on which the server is listening for connections.
         Defaults to the <envar>PGPORT</envar> environment variable, if
         set, or a compiled-in default.
+-->
+サーバが接続を監視するTCPポートもしくはローカルUnixドメインソケットファイルの拡張子を指定します。
+デフォルトは、設定されている場合、環境変数<envar>PGPORT</envar>の値となります。設定されていなければ、コンパイル時のデフォルト値となります。
        </para>
       </listitem>
      </varlistentry>
@@ -592,11 +846,18 @@ PostgreSQL documentation
       <term><option>--status-interval=<replaceable class="parameter">interval</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Specifies the number of seconds between status packets sent back to the
         server. This allows for easier monitoring of the progress from server.
         A value of zero disables the periodic status updates completely,
         although an update will still be sent when requested by the server, to
         avoid timeout disconnect. The default value is 10 seconds.
+-->
+状態パケットがサーバに返送される間隔を秒単位で指定します。
+これにより簡単にサーバから進行状況を監視することができます。
+ゼロという値は定期的な状態更新を完全に無効にします。
+しかし、タイムアウトによる切断を防止するために、サーバにより要求された場合に更新は送信されます。
+デフォルト値は１０秒です。
        </para>
       </listitem>
      </varlistentry>
@@ -606,7 +867,10 @@ PostgreSQL documentation
       <term><option>--username=<replaceable class="parameter">username</replaceable></option></term>
       <listitem>
        <para>
+<!--
         User name to connect as.
+-->
+接続ユーザ名です。
        </para>
       </listitem>
      </varlistentry>
@@ -616,12 +880,17 @@ PostgreSQL documentation
       <term><option>--no-password</option></term>
       <listitem>
        <para>
+<!--
         Never issue a password prompt.  If the server requires
         password authentication and a password is not available by
         other means such as a <filename>.pgpass</filename> file, the
         connection attempt will fail.  This option can be useful in
         batch jobs and scripts where no user is present to enter a
         password.
+-->
+パスワードの入力を促しません。
+サーバがパスワード認証を必要とし、かつ、<filename>.pgpass</filename>ファイルなどの他の方法が利用できない場合、接続試行は失敗します。
+バッチジョブやスクリプトなどパスワードを入力するユーザが存在しない場合にこのオプションは有用かもしれません。
        </para>
       </listitem>
      </varlistentry>
@@ -631,11 +900,15 @@ PostgreSQL documentation
       <term><option>--password</option></term>
       <listitem>
        <para>
+<!--
         Force <application>pg_basebackup</application> to prompt for a
         password before connecting to a database.
+-->
+データベースに接続する前に、<application>pg_basebackup</application>は強制的にパスワード入力を促します。
        </para>
 
        <para>
+<!--
         This option is never essential, since
         <application>pg_basebackup</application> will automatically prompt
         for a password if the server demands password authentication.
@@ -643,6 +916,10 @@ PostgreSQL documentation
         connection attempt finding out that the server wants a password.
         In some cases it is worth typing <option>-W</option> to avoid the extra
         connection attempt.
+-->
+サーバがパスワード認証を要求する場合<application>pg_basebackup</application>は自動的にパスワード入力を促しますので、これが重要になることはありません。
+しかし、<application>pg_basebackup</application>は、サーバにパスワードが必要かどうかを判断するための接続試行を無駄に行います。
+こうした余計な接続試行を防ぐために<option>-W</option>の入力が有意となる場合もあります。
        </para>
       </listitem>
      </varlistentry>
@@ -650,7 +927,10 @@ PostgreSQL documentation
    </para>
 
    <para>
+<!--
     Other options are also available:
+-->
+以下のその他のオプションも使用することができます。
 
     <variablelist>
      <varlistentry>
@@ -658,7 +938,10 @@ PostgreSQL documentation
        <term><option>--version</option></term>
        <listitem>
        <para>
+<!--
        Print the <application>pg_basebackup</application> version and exit.
+-->
+<application>pg_basebackup</application>のバージョンを表示し終了します。
        </para>
        </listitem>
      </varlistentry>
@@ -668,8 +951,11 @@ PostgreSQL documentation
        <term><option>--help</option></term>
        <listitem>
        <para>
+<!--
        Show help about <application>pg_basebackup</application> command line
        arguments, and exit.
+-->
+<application>pg_basebackup</application>コマンドライン引数の使用方法を表示し、終了します。
        </para>
        </listitem>
      </varlistentry>
@@ -680,12 +966,18 @@ PostgreSQL documentation
  </refsect1>
 
  <refsect1>
+<!--
   <title>Environment</title>
+-->
+  <title>環境</title>
 
   <para>
+<!--
    This utility, like most other <productname>PostgreSQL</productname> utilities,
    uses the environment variables supported by <application>libpq</application>
    (see <xref linkend="libpq-envars"/>).
+-->
+他のほとんどの<productname>PostgreSQL</productname>ユーティリティと同様このユーティリティは<application>libpq</application>でサポートされる環境変数（<xref linkend="libpq-envars"/>参照）を使用します。
   </para>
 
   <para>
@@ -697,17 +989,25 @@ PostgreSQL documentation
  </refsect1>
 
  <refsect1>
+<!--
   <title>Notes</title>
+-->
+  <title>注意</title>
 
   <para>
+<!--
    At the beginning of the backup, a checkpoint needs to be written on the
    server the backup is taken from.  Especially if the option
-   <literal>--checkpoint=fast</literal> is not used, this can take some time
+   <literal>&#045;&#045;checkpoint=fast</literal> is not used, this can take some time
    during which <application>pg_basebackup</application> will be appear
    to be idle.
+-->
+バックアップの開始時に、バックアップを取得するサーバ上でチェックポイントを書き込む必要があります。
+特にオプション <literal>--checkpoint=fast</literal> を使用していない場合、これには少し時間を要する場合があり、その間 <application>pg_basebackup</application> はアイドル状態であるように見えます。
   </para>
 
   <para>
+<!--
    The backup will include all files in the data directory and tablespaces,
    including the configuration files and any additional files placed in the
    directory by third parties, except certain temporary files managed by
@@ -716,78 +1016,120 @@ PostgreSQL documentation
    to certain directories known to PostgreSQL are copied as empty directories.
    Other symbolic links and special device files are skipped.
    See <xref linkend="protocol-replication"/> for the precise details.
+-->
+このバックアップには、設定ファイルやサードパーティによりディレクトリに格納された追加ファイルを含め、データディレクトリとテーブル空間内のすべてのファイルが含まれますが、PostgreSQLによって管理される一部の一時ファイルは含まれません。
+ただし、テーブル空間に使われるシンボリックリンクが保存されることを除くと、通常のファイルとディレクトリのみがコピーされます。
+PostgreSQLが認識している一部のディレクトリを指すシンボリックリンクは空のディレクトリとしてコピーされます。
+その他のシンボリックリンクおよび特殊デバイスファイルはスキップされます。
+(正確な詳細については<xref linkend="protocol-replication"/>を参照してください。)
   </para>
 
   <para>
+<!--
    Tablespaces will in plain format by default be backed up to the same path
    they have on the server, unless the
-   option <literal>--tablespace-mapping</literal> is used.  Without
+   option <literal>&#045;&#045;tablespace-mapping</literal> is used.  Without
    this option, running a plain format base backup on the same host as the
    server will not work if tablespaces are in use, because the backup would
    have to be written to the same directory locations as the original
    tablespaces.
+-->
+オプション<literal>--tablespace-mapping</literal>が使われなければ、テーブル空間はデフォルトでサーバ上のと同じパスでplain形式でバックアップされます。
+このオプションがないと、サーバと同じホスト上でのplain形式のベースバックアップの実行は動作しません、というのは、バックアップを元のテーブル空間と同じディレクトリに書き込まなければならないからです。
   </para>
 
   <para>
+<!--
    When tar format mode is used, it is the user's responsibility to unpack each
    tar file before starting the PostgreSQL server. If there are additional tablespaces, the
    tar files for them need to be unpacked in the correct locations. In this
    case the symbolic links for those tablespaces will be created by the server
    according to the contents of the <filename>tablespace_map</filename> file that is
    included in the <filename>base.tar</filename> file.
+-->
+tar形式モードを使う場合、PostgreSQLサーバを起動する前に各tarファイルを解凍するのはユーザの責任です。
+追加のテーブル空間がある場合、それについてのtarファイルは、正しい場所に解凍される必要があります。
+この場合、テーブル空間へのシンボリックリンクは、<filename>base.tar</filename>ファイルに含まれる<filename>tablespace_map</filename>ファイルの内容に基づいて、サーバが作成します。
   </para>
 
   <para>
+<!--
    <application>pg_basebackup</application> works with servers of the same
    or an older major version, down to 9.1. However, WAL streaming mode (<literal>-X
    stream</literal>) only works with server version 9.3 and later, and tar format mode
-   (<literal>--format=tar</literal>) of the current version only works with server version 9.5
+   (<literal>&#045;-format=tar</literal>) of the current version only works with server version 9.5
    or later.
+-->
+<application>pg_basebackup</application>は同じまたは9.1以降のより古いメジャーバージョンのサーバで動作します。
+しかしWALストリーミングモード（<literal>-X stream</literal>）はバージョン9.3およびそれ以降のサーバでのみ動作します。
+また、現在のバージョンのtar形式モード（<literal>--format=tar</literal>）はバージョン9.5およびそれ以降のサーバでのみ動作します。
   </para>
 
   <para>
+<!--
    <application>pg_basebackup</application> will preserve group permissions in
    both the <literal>plain</literal> and <literal>tar</literal> formats if group
    permissions are enabled on the source cluster.
+-->
+<application>pg_basebackup</application>は、取得元のクラスタでグループパーミッションが有効になっている場合、<literal>plain</literal>と<literal>tar</literal>の両形式てグループパーミッションを維持します。
   </para>
 
  </refsect1>
 
  <refsect1>
+<!--
   <title>Examples</title>
+-->
+  <title>例</title>
 
   <para>
+<!--
    To create a base backup of the server at <literal>mydbserver</literal>
    and store it in the local directory
    <filename>/usr/local/pgsql/data</filename>:
+-->
+<literal>mydbserver</literal>で稼動するサーバのベースバックアップを作成し、ローカルディレクトリ<filename>/usr/local/pgsql/data</filename>に保管します。
 <screen>
 <prompt>$</prompt> <userinput>pg_basebackup -h mydbserver -D /usr/local/pgsql/data</userinput>
 </screen>
   </para>
 
   <para>
+<!--
    To create a backup of the local server with one compressed
    tar file for each tablespace, and store it in the directory
    <filename>backup</filename>, showing a progress report while running:
+-->
+各テーブル空間につき圧縮したtarファイルを1つ作成するようにローカルサーバをバックアップし、<filename>backup</filename>ディレクトリに保管します。
+同時に実行時に進行状況を表示します。
 <screen>
 <prompt>$</prompt> <userinput>pg_basebackup -D backup -Ft -z -P</userinput>
 </screen>
   </para>
 
   <para>
+<!--
    To create a backup of a single-tablespace local database and compress
    this with <productname>bzip2</productname>:
+-->
+単一のテーブル空間を持つローカルデータベースのバックアップを作成し、それを<productname>bzip2</productname>で圧縮します。
 <screen>
 <prompt>$</prompt> <userinput>pg_basebackup -D - -Ft -X fetch | bzip2 &gt; backup.tar.bz2</userinput>
 </screen>
+<!--
    (This command will fail if there are multiple tablespaces in the
    database.)
+-->
+（データベース内に複数のテーブル空間が存在する場合このコマンドは失敗します。）
   </para>
 
   <para>
+<!--
    To create a backup of a local database where the tablespace in
    <filename>/opt/ts</filename> is relocated
    to <filename>./backup/ts</filename>:
+-->
+<filename>/opt/ts</filename>にあるテーブル空間を<filename>./backup/ts</filename>に再配置してローカルデータベースのバックアップを作成します。
 <screen>
 <prompt>$</prompt> <userinput>pg_basebackup -D backup/data -T /opt/ts=$(pwd)/backup/ts</userinput>
 </screen>
@@ -795,7 +1137,10 @@ PostgreSQL documentation
  </refsect1>
 
  <refsect1>
+<!--
   <title>See Also</title>
+-->
+  <title>関連項目</title>
 
   <simplelist type="inline">
    <member><xref linkend="app-pgdump"/></member>

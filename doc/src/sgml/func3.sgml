@@ -1,0 +1,5262 @@
+<!-- 警告：このファイルは直接編集しないでください！
+1. func.sgmlを編集したら、split.shを起動します。
+2. するとfunc[0-4].sgmlが生成されます。
+3. func.sgmlとともにfunc[0-4].sgmlのうち変更されたファイルをcommit/pushしてpull requestを作成してください。
+4. レビューはfunc[0-4].sgmlに対して行います。
+5. 指摘された点があればfunc.sgmlに反映し、1に戻ります。
+6. func.sgmlの変更がなければ、pull requestをマージして終了です。お疲れ様でした！
+-->
+<!-- split-func3-start -->
+
+ <sect1 id="functions-json">
+<!--
+  <title>JSON Functions and Operators</title>
+-->
+  <title>JSON関数と演算子</title>
+
+  <indexterm zone="functions-json">
+    <primary>JSON</primary>
+<!--
+    <secondary>functions and operators</secondary>
+-->
+    <secondary>関数と演算子</secondary>
+  </indexterm>
+
+   <para>
+<!--
+   <xref linkend="functions-json-op-table"/> shows the operators that
+   are available for use with the two JSON data types (see <xref
+   linkend="datatype-json"/>).
+-->
+<xref linkend="functions-json-op-table"/>に2つのJSONデータ型(<xref linkend="datatype-json"/>を参照)で使用可能な演算子を示します。
+  </para>
+
+  <table id="functions-json-op-table">
+<!--
+     <title><type>json</type> and <type>jsonb</type> Operators</title>
+-->
+     <title><type>json</type>と<type>jsonb</type>演算子</title>
+     <tgroup cols="5">
+      <thead>
+       <row>
+<!--
+        <entry>Operator</entry>
+        <entry>Right Operand Type</entry>
+        <entry>Description</entry>
+        <entry>Example</entry>
+        <entry>Example Result</entry>
+-->
+        <entry>演算子</entry>
+        <entry>右オペランド型</entry>
+        <entry>説明</entry>
+        <entry>例</entry>
+        <entry>例の結果</entry>
+       </row>
+      </thead>
+      <tbody>
+       <row>
+        <entry><literal>-&gt;</literal></entry>
+        <entry><type>int</type></entry>
+<!--
+        <entry>Get JSON array element (indexed from zero, negative
+        integers count from the end)</entry>
+-->
+        <entry>JSON配列要素を取得（添字はゼロから、負数なら後ろから数える）</entry>
+        <entry><literal>'[{"a":"foo"},{"b":"bar"},{"c":"baz"}]'::json-&gt;2</literal></entry>
+        <entry><literal>{"c":"baz"}</literal></entry>
+       </row>
+       <row>
+        <entry><literal>-&gt;</literal></entry>
+        <entry><type>text</type></entry>
+<!--
+        <entry>Get JSON object field by key</entry>
+-->
+        <entry>キーに依るJSONオブジェクトフィールド取得</entry>
+        <entry><literal>'{"a": {"b":"foo"}}'::json-&gt;'a'</literal></entry>
+        <entry><literal>{"b":"foo"}</literal></entry>
+       </row>
+        <row>
+        <entry><literal>-&gt;&gt;</literal></entry>
+        <entry><type>int</type></entry>
+<!--
+        <entry>Get JSON array element as <type>text</type></entry>
+-->
+        <entry>JSON 配列要素を<type>text</type>として取得</entry>
+        <entry><literal>'[1,2,3]'::json-&gt;&gt;2</literal></entry>
+        <entry><literal>3</literal></entry>
+       </row>
+       <row>
+        <entry><literal>-&gt;&gt;</literal></entry>
+        <entry><type>text</type></entry>
+<!--
+        <entry>Get JSON object field as <type>text</type></entry>
+-->
+        <entry>JSON オブジェクトフィールドを<type>text</type>として取得</entry>
+        <entry><literal>'{"a":1,"b":2}'::json-&gt;&gt;'b'</literal></entry>
+        <entry><literal>2</literal></entry>
+       </row>
+       <row>
+        <entry><literal>#&gt;</literal></entry>
+        <entry><type>text[]</type></entry>
+<!--
+        <entry>Get JSON object at specified path</entry>
+-->
+        <entry>指定されたパスにあるJSONオブジェクトを取得</entry>
+        <entry><literal>'{"a": {"b":{"c": "foo"}}}'::json#&gt;'{a,b}'</literal></entry>
+        <entry><literal>{"c": "foo"}</literal></entry>
+       </row>
+       <row>
+        <entry><literal>#&gt;&gt;</literal></entry>
+        <entry><type>text[]</type></entry>
+<!--
+        <entry>Get JSON object at specified path as <type>text</type></entry>
+-->
+        <entry>指定されたパスにあるJSONオブジェクトを<type>text</type>として取得</entry>
+        <entry><literal>'{"a":[1,2,3],"b":[4,5,6]}'::json#&gt;&gt;'{a,2}'</literal></entry>
+        <entry><literal>3</literal></entry>
+       </row>
+      </tbody>
+     </tgroup>
+   </table>
+
+  <note>
+   <para>
+<!--
+    There are parallel variants of these operators for both the
+    <type>json</type> and <type>jsonb</type> types.
+    The field/element/path extraction operators
+    return the same type as their left-hand input (either <type>json</type>
+    or <type>jsonb</type>), except for those specified as
+    returning <type>text</type>, which coerce the value to text.
+    The field/element/path extraction operators return NULL, rather than
+    failing, if the JSON input does not have the right structure to match
+    the request; for example if no such element exists.  The
+    field/element/path extraction operators that accept integer JSON
+    array subscripts all support negative subscripting from the end of
+    arrays.
+-->
+<type>json</type>と<type>jsonb</type>型の両方に対して、以上の演算子の対応するものがあります。
+フィールド/要素/パス抽出演算子は左辺の入力と同じ型（<type>json</type>または<type>jsonb</type>）を返します。
+ただし、<type>text</type>を返すと明示してあるものは、値をテキストに変換して返します。
+JSON入力が要求と一致する正しい構造をしていなければ、フィールド/要素/パス抽出演算子は失敗するのではなくNULLを返します。例えばそのような要素が存在しない場合です。
+JSON配列の添字を整数で受け取り、フィールド、要素、パスを返す演算子はすべて、配列の終わりから数える負の添字をサポートします。
+   </para>
+  </note>
+  <para>
+<!--
+   The standard comparison operators shown in  <xref
+   linkend="functions-comparison-op-table"/> are available for
+   <type>jsonb</type>, but not for <type>json</type>. They follow the
+   ordering rules for B-tree operations outlined at <xref
+   linkend="json-indexing"/>.
+-->
+<xref linkend="functions-comparison-op-table"/>に示されている標準の比較演算子が<type>jsonb</type>で利用可能ですが、<type>json</type>ではそうではありません。
+それらは<xref linkend="json-indexing"/>で概略を述べたB-tree演算子の順序規則に従います。
+  </para>
+  <para>
+<!--
+   Some further operators also exist only for <type>jsonb</type>, as shown
+   in <xref linkend="functions-jsonb-op-table"/>.
+   Many of these operators can be indexed by
+   <type>jsonb</type> operator classes.  For a full description of
+   <type>jsonb</type> containment and existence semantics, see <xref
+   linkend="json-containment"/>.  <xref linkend="json-indexing"/>
+   describes how these operators can be used to effectively index
+   <type>jsonb</type> data.
+-->
+ほかに<type>jsonb</type>だけで利用可能な演算子もいくつか存在します。
+それらを<xref linkend="functions-jsonb-op-table"/>に示します。
+これらのうち多くの演算子は<type>jsonb</type>演算子クラスでインデックス付けすることが可能です。
+<type>jsonb</type>の包含と存在の意味に関する完全な記述は<xref linkend="json-containment"/>を参照してください。
+<xref linkend="json-indexing"/>には、<type>jsonb</type>データを効率的にインデックス付けするためにこれらの演算子をどのように利用できるかについて書いてあります。
+  </para>
+  <table id="functions-jsonb-op-table">
+<!--
+     <title>Additional <type>jsonb</type> Operators</title>
+-->
+     <title>追加<type>jsonb</type>演算子</title>
+     <tgroup cols="4">
+      <thead>
+       <row>
+<!--
+        <entry>Operator</entry>
+        <entry>Right Operand Type</entry>
+        <entry>Description</entry>
+        <entry>Example</entry>
+-->
+        <entry>演算子</entry>
+        <entry>右オペランド型</entry>
+        <entry>説明</entry>
+        <entry>例</entry>
+       </row>
+      </thead>
+      <tbody>
+       <row>
+        <entry><literal>@&gt;</literal></entry>
+        <entry><type>jsonb</type></entry>
+<!--
+        <entry>Does the left JSON value contain the right JSON
+        path/value entries at the top level?</entry>
+-->
+        <entry>左のJSON値はトップレベルにおいて右のJSONパスまたは値を包含するか</entry>
+        <entry><literal>'{"a":1, "b":2}'::jsonb &#64;&gt; '{"b":2}'::jsonb</literal></entry>
+       </row>
+       <row>
+        <entry><literal>&lt;@</literal></entry>
+        <entry><type>jsonb</type></entry>
+<!--
+        <entry>Are the left JSON path/value entries contained at the top level within
+        the right JSON value?</entry>
+-->
+        <entry>左のJSONパスまたは値は右のJSON値にトップレベルで包含されるか</entry>
+        <entry><literal>'{"b":2}'::jsonb &lt;@ '{"a":1, "b":2}'::jsonb</literal></entry>
+       </row>
+       <row>
+        <entry><literal>?</literal></entry>
+        <entry><type>text</type></entry>
+<!--
+        <entry>Does the <emphasis>string</emphasis> exist as a top-level
+        key within the JSON value?</entry>
+-->
+        <entry><emphasis>文字列</emphasis>はJSON値のトップレベルのキーとして存在するか</entry>
+        <entry><literal>'{"a":1, "b":2}'::jsonb ? 'b'</literal></entry>
+       </row>
+       <row>
+        <entry><literal>?|</literal></entry>
+        <entry><type>text[]</type></entry>
+<!--
+        <entry>Do any of these array <emphasis>strings</emphasis>
+        exist as top-level keys?</entry>
+-->
+        <entry>配列の<emphasis>文字列</emphasis>のいずれかがトップレベルのキーとして存在するか。</entry>
+        <entry><literal>'{"a":1, "b":2, "c":3}'::jsonb ?| array['b', 'c']</literal></entry>
+       </row>
+       <row>
+        <entry><literal>?&amp;</literal></entry>
+        <entry><type>text[]</type></entry>
+<!--
+        <entry>Do all of these array <emphasis>strings</emphasis> exist
+        as top-level keys?</entry>
+-->
+        <entry>配列の<emphasis>文字列</emphasis>のすべてがトップレベルのキーとして存在するか。</entry>
+        <entry><literal>'["a", "b"]'::jsonb ?&amp; array['a', 'b']</literal></entry>
+       </row>
+       <row>
+        <entry><literal>||</literal></entry>
+        <entry><type>jsonb</type></entry>
+<!--
+        <entry>Concatenate two <type>jsonb</type> values into a new <type>jsonb</type> value</entry>
+-->
+        <entry>2つの<type>jsonb</type>値を結合して、新しい<type>jsonb</type>値を作る</entry>
+        <entry><literal>'["a", "b"]'::jsonb || '["c", "d"]'::jsonb</literal></entry>
+       </row>
+       <row>
+        <entry><literal>-</literal></entry>
+        <entry><type>text</type></entry>
+<!--
+        <entry>Delete key/value pair or <emphasis>string</emphasis>
+        element from left operand.  Key/value pairs are matched based
+        on their key value.</entry>
+-->
+        <entry>左のオペランドからキー／値のペア、あるいは<emphasis>文字列</emphasis>要素を削除する。
+キー／値のペアはキーの値に基づいてマッチされる。</entry>
+        <entry><literal>'{"a": "b"}'::jsonb - 'a' </literal></entry>
+       </row>
+       <row>
+        <entry><literal>-</literal></entry>
+        <entry><type>text[]</type></entry>
+<!--
+        <entry>Delete multiple key/value pairs or <emphasis>string</emphasis>
+        elements from left operand.  Key/value pairs are matched based
+        on their key value.</entry>
+-->
+        <entry>左のオペランドから複数のキー／値のペア、あるいは<emphasis>文字列</emphasis>要素を削除する。
+キー／値のペアはキーの値に基づいてマッチされる。</entry>
+        <entry><literal>'{"a": "b", "c": "d"}'::jsonb - '{a,c}'::text[] </literal></entry>
+       </row>
+       <row>
+        <entry><literal>-</literal></entry>
+        <entry><type>integer</type></entry>
+<!--
+        <entry>Delete the array element with specified index (Negative
+        integers count from the end).  Throws an error if top level
+        container is not an array.</entry>
+-->
+        <entry>指定した添字の配列要素を削除する（負数の場合は後ろから数えます）。
+トップレベルのコンテナが配列でないときはエラーが発生する。</entry>
+        <entry><literal>'["a", "b"]'::jsonb - 1 </literal></entry>
+       </row>
+       <row>
+        <entry><literal>#-</literal></entry>
+        <entry><type>text[]</type></entry>
+<!--
+        <entry>Delete the field or element with specified path (for
+        JSON arrays, negative integers count from the end)</entry>
+-->
+        <entry>指定したパスのフィールドまたは要素を削除する（JSON配列では、負数は後ろから数えます）</entry>
+        <entry><literal>'["a", {"b":1}]'::jsonb #- '{1,b}'</literal></entry>
+       </row>
+      </tbody>
+     </tgroup>
+   </table>
+
+  <note>
+   <para>
+<!--
+    The <literal>||</literal> operator concatenates the elements at the top level of
+    each of its operands. It does not operate recursively. For example, if
+    both operands are objects with a common key field name, the value of the
+    field in the result will just be the value from the right hand operand.
+-->
+<literal>||</literal>演算子は、両オペランドのトップレベルで要素を結合します。
+再帰的には作用しません。
+例えば、両方のオペランドが同じキーフィールド名のオブジェクトの場合、そのフィールドの値は、単に右側のオペランドの値になります。
+   </para>
+  </note>
+
+  <para>
+<!--
+   <xref linkend="functions-json-creation-table"/> shows the functions that are
+   available for creating <type>json</type> and <type>jsonb</type> values.
+   (There are no equivalent functions for <type>jsonb</type>, of the <literal>row_to_json</literal>
+   and <literal>array_to_json</literal> functions. However, the <literal>to_jsonb</literal>
+   function supplies much the same functionality as these functions would.)
+-->
+<xref linkend="functions-json-creation-table"/>に、JSON値および<type>jsonb</type>値を作成するために利用可能な関数を示します。
+（<literal>row_to_json</literal>関数および<literal>array_to_json</literal>関数と同等な<type>jsonb</type>の関数はありません。
+しかし、<literal>to_jsonb</literal>を使えば、これらの関数と同じ機能を提供できるでしょう。）
+  </para>
+
+  <indexterm>
+   <primary>to_json</primary>
+  </indexterm>
+  <indexterm>
+   <primary>array_to_json</primary>
+  </indexterm>
+  <indexterm>
+   <primary>row_to_json</primary>
+  </indexterm>
+  <indexterm>
+   <primary>json_build_array</primary>
+  </indexterm>
+  <indexterm>
+   <primary>json_build_object</primary>
+  </indexterm>
+  <indexterm>
+   <primary>json_object</primary>
+  </indexterm>
+  <indexterm>
+   <primary>to_jsonb</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_build_array</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_build_object</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_object</primary>
+  </indexterm>
+
+  <table id="functions-json-creation-table">
+<!--
+    <title>JSON Creation Functions</title>
+-->
+    <title>JSON作成関数</title>
+    <tgroup cols="4">
+     <thead>
+      <row>
+<!--
+       <entry>Function</entry>
+       <entry>Description</entry>
+       <entry>Example</entry>
+       <entry>Example Result</entry>
+-->
+       <entry>関数</entry>
+       <entry>説明</entry>
+       <entry>例</entry>
+       <entry>例の結果</entry>
+      </row>
+     </thead>
+     <tbody>
+      <row>
+       <entry><para><literal>to_json(anyelement)</literal>
+          </para><para><literal>to_jsonb(anyelement)</literal>
+       </para></entry>
+       <entry>
+<!--
+         Returns the value as <type>json</type> or <type>jsonb</type>.
+         Arrays and composites are converted
+         (recursively) to arrays and objects; otherwise, if there is a cast
+         from the type to <type>json</type>, the cast function will be used to
+         perform the conversion; otherwise, a scalar value is produced.
+         For any scalar type other than a number, a Boolean, or a null value,
+         the text representation will be used, in such a fashion that it is a
+         valid <type>json</type> or <type>jsonb</type> value.
+-->
+<type>json</type>あるいは<type>jsonb</type>として値を返す。
+配列と複合型は（再帰的に）配列とオブジェクトに変換される。
+あるいは、その型から<type>json</type>にキャストがあれば、キャスト関数が変換のために用いられる。
+そうでなければ、スカラ値が生成される。
+数値、論理値、またはNULL値以外のスカラ型に対しては、有効な<type>json</type>値あるいは<type>jsonb</type>値となる形式の文字列表現が使用される。
+       </entry>
+       <entry><literal>to_json('Fred said "Hi."'::text)</literal></entry>
+       <entry><literal>"Fred said \"Hi.\""</literal></entry>
+      </row>
+      <row>
+       <entry>
+         <literal>array_to_json(anyarray [, pretty_bool])</literal>
+       </entry>
+       <entry>
+<!--
+         Returns the array as a JSON array. A PostgreSQL multidimensional array
+         becomes a JSON array of arrays. Line feeds will be added between
+         dimension-1 elements if <parameter>pretty_bool</parameter> is true.
+-->
+配列をJSON配列として返す。
+PostgreSQLの多次元配列はJSON配列の配列となる。
+<parameter>pretty_bool</parameter>が真の場合、次元数-1の要素の間に改行が加えられる。
+       </entry>
+       <entry><literal>array_to_json('{{1,5},{99,100}}'::int[])</literal></entry>
+       <entry><literal>[[1,5],[99,100]]</literal></entry>
+      </row>
+      <row>
+       <entry>
+         <literal>row_to_json(record [, pretty_bool])</literal>
+       </entry>
+       <entry>
+<!--
+         Returns the row as a JSON object. Line feeds will be added between
+         level-1 elements if <parameter>pretty_bool</parameter> is true.
+-->
+行をJSONオブジェクトとして返す。
+<parameter>pretty_bool</parameter>が真の場合、レベル-1の要素の間に改行が加えられる。
+       </entry>
+       <entry><literal>row_to_json(row(1,'foo'))</literal></entry>
+       <entry><literal>{"f1":1,"f2":"foo"}</literal></entry>
+      </row>
+      <row>
+       <entry><para><literal>json_build_array(VARIADIC "any")</literal>
+          </para><para><literal>jsonb_build_array(VARIADIC "any")</literal>
+       </para></entry>
+       <entry>
+<!--
+         Builds a possibly-heterogeneously-typed JSON array out of a variadic
+         argument list.
+-->
+異なる型から構成される可能性のあるJSON配列をvariadic引数リストから作成。
+       </entry>
+       <entry><literal>json_build_array(1,2,'3',4,5)</literal></entry>
+       <entry><literal>[1, 2, "3", 4, 5]</literal></entry>
+      </row>
+      <row>
+       <entry><para><literal>json_build_object(VARIADIC "any")</literal>
+          </para><para><literal>jsonb_build_object(VARIADIC "any")</literal>
+       </para></entry>
+       <entry>
+<!--
+         Builds a JSON object out of a variadic argument list.  By
+         convention, the argument list consists of alternating
+         keys and values.
+-->
+variadic引数リストからJSONオブジェクトを作成。
+慣例により引数リストはキーと値が交互に並んだもの。
+       </entry>
+       <entry><literal>json_build_object('foo',1,'bar',2)</literal></entry>
+       <entry><literal>{"foo": 1, "bar": 2}</literal></entry>
+      </row>
+      <row>
+       <entry><para><literal>json_object(text[])</literal>
+          </para><para><literal>jsonb_object(text[])</literal>
+       </para></entry>
+       <entry>
+<!--
+         Builds a JSON object out of a text array.  The array must have either
+         exactly one dimension with an even number of members, in which case
+         they are taken as alternating key/value pairs, or two dimensions
+         such that each inner array has exactly two elements, which
+         are taken as a key/value pair.
+-->
+テキスト配列からJSONオブジェクトを作成。
+配列は、偶数個の要素からなる1次元（キー／値の対が交互に並んでいるものと扱われる)）あるいは内側の配列が2つの要素を持つ2次元（2つの要素がキー／値の対として扱われる）のいずれかでなければならない。
+       </entry>
+       <entry><para><literal>json_object('{a, 1, b, "def", c, 3.5}')</literal></para>
+        <para><literal>json_object('{{a, 1},{b, "def"},{c, 3.5}}')</literal></para></entry>
+       <entry><literal>{"a": "1", "b": "def", "c": "3.5"}</literal></entry>
+      </row>
+      <row>
+       <entry><para><literal>json_object(keys text[], values text[])</literal>
+          </para><para><literal>jsonb_object(keys text[], values text[])</literal>
+       </para></entry>
+       <entry>
+<!--
+         This form of <function>json_object</function> takes keys and values pairwise from two separate
+         arrays. In all other respects it is identical to the one-argument form.
+-->
+この形の<function>json_object</function>は2つの別々の配列からキーと値の対を取る。
+他の点ではすべて、引数1つの形と同じ。
+       </entry>
+       <entry><literal>json_object('{a, b}', '{1,2}')</literal></entry>
+       <entry><literal>{"a": "1", "b": "2"}</literal></entry>
+      </row>
+     </tbody>
+    </tgroup>
+   </table>
+
+  <note>
+    <para>
+<!--
+     <function>array_to_json</function> and <function>row_to_json</function> have the same
+     behavior as <function>to_json</function> except for offering a pretty-printing
+     option.  The behavior described for <function>to_json</function> likewise applies
+     to each individual value converted by the other JSON creation functions.
+-->
+<function>array_to_json</function>と<function>row_to_json</function>は表示を整えるオプションを提供する以外は<function>to_json</function>と同様の振舞いをします。
+同様に<function>to_json</function>に書かれた振舞いはJSON作成関数により変換された個々の値に適用されます。
+    </para>
+  </note>
+
+  <note>
+    <para>
+<!--
+     The <xref linkend="hstore"/> extension has a cast
+     from <type>hstore</type> to <type>json</type>, so that
+     <type>hstore</type> values converted via the JSON creation functions
+     will be represented as JSON objects, not as primitive string values.
+-->
+<xref linkend="hstore"/>拡張は<type>hstore</type>から<type>json</type>へのキャストを含みます。従って、JSON作成関数で変換された<type>hstore</type>値は元の文字列値ではなくJSONオブジェクトとして示されます。
+    </para>
+  </note>
+
+  <para>
+<!--
+   <xref linkend="functions-json-processing-table"/> shows the functions that
+   are available for processing <type>json</type> and <type>jsonb</type> values.
+-->
+<xref linkend="functions-json-processing-table"/>に<type>json</type>と<type>jsonb</type>値を処理するのに使える関数を示します。
+  </para>
+
+  <indexterm>
+   <primary>json_array_length</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_array_length</primary>
+  </indexterm>
+  <indexterm>
+   <primary>json_each</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_each</primary>
+  </indexterm>
+  <indexterm>
+   <primary>json_each_text</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_each_text</primary>
+  </indexterm>
+  <indexterm>
+   <primary>json_extract_path</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_extract_path</primary>
+  </indexterm>
+  <indexterm>
+   <primary>json_extract_path_text</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_extract_path_text</primary>
+  </indexterm>
+  <indexterm>
+   <primary>json_object_keys</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_object_keys</primary>
+  </indexterm>
+  <indexterm>
+   <primary>json_populate_record</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_populate_record</primary>
+  </indexterm>
+  <indexterm>
+   <primary>json_populate_recordset</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_populate_recordset</primary>
+  </indexterm>
+  <indexterm>
+   <primary>json_array_elements</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_array_elements</primary>
+  </indexterm>
+  <indexterm>
+   <primary>json_array_elements_text</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_array_elements_text</primary>
+  </indexterm>
+  <indexterm>
+   <primary>json_typeof</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_typeof</primary>
+  </indexterm>
+  <indexterm>
+   <primary>json_to_record</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_to_record</primary>
+  </indexterm>
+  <indexterm>
+   <primary>json_to_recordset</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_to_recordset</primary>
+  </indexterm>
+  <indexterm>
+   <primary>json_strip_nulls</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_strip_nulls</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_set</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_insert</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_pretty</primary>
+  </indexterm>
+
+  <table id="functions-json-processing-table">
+<!--
+    <title>JSON Processing Functions</title>
+-->
+    <title>JSON処理関数</title>
+    <tgroup cols="5">
+     <thead>
+      <row>
+<!--
+       <entry>Function</entry>
+       <entry>Return Type</entry>
+       <entry>Description</entry>
+       <entry>Example</entry>
+       <entry>Example Result</entry>
+-->
+       <entry>関数</entry>
+       <entry>戻り値型</entry>
+       <entry>説明</entry>
+       <entry>例</entry>
+       <entry>例の結果</entry>
+      </row>
+     </thead>
+     <tbody>
+      <row>
+       <entry><para><literal>json_array_length(json)</literal>
+         </para><para><literal>jsonb_array_length(jsonb)</literal>
+       </para></entry>
+       <entry><type>int</type></entry>
+       <entry>
+<!--
+         Returns the number of elements in the outermost JSON array.
+-->
+         JSON配列の最も外側の要素の数を返す。
+       </entry>
+       <entry><literal>json_array_length('[1,2,3,{"f1":1,"f2":[5,6]},4]')</literal></entry>
+       <entry><literal>5</literal></entry>
+      </row>
+      <row>
+       <entry><para><literal>json_each(json)</literal>
+         </para><para><literal>jsonb_each(jsonb)</literal>
+       </para></entry>
+       <entry><para><literal>setof key text, value json</literal>
+         </para><para><literal>setof key text, value jsonb</literal>
+       </para></entry>
+       <entry>
+<!--
+         Expands the outermost JSON object into a set of key/value pairs.
+-->
+         JSONオブジェクトの最も外側をkey/valueの組み合わせに拡張する。
+       </entry>
+       <entry><literal>select * from json_each('{"a":"foo", "b":"bar"}')</literal></entry>
+       <entry>
+<programlisting>
+ key | value
+-----+-------
+ a   | "foo"
+ b   | "bar"
+</programlisting>
+       </entry>
+      </row>
+      <row>
+       <entry><para><literal>json_each_text(json)</literal>
+         </para><para><literal>jsonb_each_text(jsonb)</literal>
+       </para></entry>
+       <entry><type>setof key text, value text</type></entry>
+       <entry>
+<!--
+         Expands the outermost JSON object into a set of key/value pairs. The
+         returned values will be of type <type>text</type>.
+-->
+        JSONオブジェクトの最も外側をkey/valueの組み合わせに拡張する。返り値は型<type>text</type>。
+       </entry>
+       <entry><literal>select * from json_each_text('{"a":"foo", "b":"bar"}')</literal></entry>
+       <entry>
+<programlisting>
+ key | value
+-----+-------
+ a   | foo
+ b   | bar
+</programlisting>
+       </entry>
+      </row>
+      <row>
+       <entry><para><literal>json_extract_path(from_json json, VARIADIC path_elems text[])</literal>
+        </para><para><literal>jsonb_extract_path(from_json jsonb, VARIADIC path_elems text[])</literal>
+       </para></entry>
+       <entry><para><type>json</type></para><para><type>jsonb</type>
+       </para></entry>
+       <entry>
+<!--
+         Returns JSON value pointed to by <replaceable>path_elems</replaceable>
+         (equivalent to <literal>#&gt;</literal> operator).
+-->
+        <replaceable>path_elems</replaceable>で示されたJSONオブジェクトを返す(<literal>#&gt;</literal>と同じ)。
+       </entry>
+       <entry><literal>json_extract_path('{"f2":{"f3":1},"f4":{"f5":99,"f6":"foo"}}','f4')</literal></entry>
+       <entry><literal>{"f5":99,"f6":"foo"}</literal></entry>
+      </row>
+      <row>
+       <entry><para><literal>json_extract_path_text(from_json json, VARIADIC path_elems text[])</literal>
+         </para><para><literal>jsonb_extract_path_text(from_json jsonb, VARIADIC path_elems text[])</literal>
+       </para></entry>
+       <entry><type>text</type></entry>
+       <entry>
+<!--
+         Returns JSON value pointed to by <replaceable>path_elems</replaceable>
+         as <type>text</type>
+         (equivalent to <literal>#&gt;&gt;</literal> operator).
+-->
+        <replaceable>path_elems</replaceable>で示されたJSONオブジェクトを<type>text</type>として返す(<literal>#&gt;&gt;</literal>演算子と同じ)。
+       </entry>
+       <entry><literal>json_extract_path_text('{"f2":{"f3":1},"f4":{"f5":99,"f6":"foo"}}','f4', 'f6')</literal></entry>
+       <entry><literal>foo</literal></entry>
+      </row>
+      <row>
+       <entry><para><literal>json_object_keys(json)</literal>
+         </para><para><literal>jsonb_object_keys(jsonb)</literal>
+       </para></entry>
+       <entry><type>setof text</type></entry>
+       <entry>
+<!--
+          Returns set of keys in the outermost JSON object.
+-->
+        最も外側のJSONオブジェクトの中のキーの集合を返す。
+       </entry>
+       <entry><literal>json_object_keys('{"f1":"abc","f2":{"f3":"a", "f4":"b"}}')</literal></entry>
+       <entry>
+<programlisting>
+ json_object_keys
+------------------
+ f1
+ f2
+</programlisting>
+       </entry>
+      </row>
+      <row>
+       <entry><para><literal>json_populate_record(base anyelement, from_json json)</literal>
+         </para><para><literal>jsonb_populate_record(base anyelement, from_json jsonb)</literal>
+       </para></entry>
+       <entry><type>anyelement</type></entry>
+       <entry>
+<!--
+         Expands the object in <replaceable>from_json</replaceable> to a row
+         whose columns match the record type defined by <replaceable>base</replaceable>
+         (see note below).
+-->
+<replaceable>from_json</replaceable>内のオブジェクト行を<replaceable>base</replaceable>で定義されたレコード型に一致する列に拡張する(以下の注意書きを参照)。
+       </entry>
+       <entry><literal>select * from json_populate_record(null::myrowtype, '{"a": 1, "b": ["2", "a b"], "c": {"d": 4, "e": "a  b c"}}')</literal></entry>
+       <entry>
+<programlisting>
+ a |   b       |      c
+---+-----------+-------------
+ 1 | {2,"a b"} | (4,"a b c")
+</programlisting>
+       </entry>
+      </row>
+      <row>
+       <entry><para><literal>json_populate_recordset(base anyelement, from_json json)</literal>
+         </para><para><literal>jsonb_populate_recordset(base anyelement, from_json jsonb)</literal>
+       </para></entry>
+       <entry><type>setof anyelement</type></entry>
+       <entry>
+<!--
+         Expands the outermost array of objects
+         in <replaceable>from_json</replaceable> to a set of rows whose
+         columns match the record type defined by <replaceable>base</replaceable> (see
+         note below).
+-->
+<replaceable>from_json</replaceable>におけるオブジェクトの最も外側の配列を<replaceable>base</replaceable>で定義されたレコード型に一致する列を持つ行の集合に展開する(以下の注意書き参照)。
+       </entry>
+       <entry><literal>select * from json_populate_recordset(null::myrowtype, '[{"a":1,"b":2},{"a":3,"b":4}]')</literal></entry>
+       <entry>
+<programlisting>
+ a | b
+---+---
+ 1 | 2
+ 3 | 4
+</programlisting>
+       </entry>
+      </row>
+      <row>
+       <entry><para><literal>json_array_elements(json)</literal>
+         </para><para><literal>jsonb_array_elements(jsonb)</literal>
+       </para></entry>
+       <entry><para><type>setof json</type>
+         </para><para><type>setof jsonb</type>
+       </para></entry>
+       <entry>
+<!--
+         Expands a JSON array to a set of JSON values.
+-->
+JSON配列をJSON値の集合に展開する。
+       </entry>
+       <entry><literal>select * from json_array_elements('[1,true, [2,false]]')</literal></entry>
+       <entry>
+<programlisting>
+   value
+-----------
+ 1
+ true
+ [2,false]
+</programlisting>
+       </entry>
+      </row>
+      <row>
+       <entry><para><literal>json_array_elements_text(json)</literal>
+         </para><para><literal>jsonb_array_elements_text(jsonb)</literal>
+       </para></entry>
+       <entry><type>setof text</type></entry>
+       <entry>
+<!--
+         Expands a JSON array to a set of <type>text</type> values.
+-->
+JSON配列を<type>text</type>値の集合に展開する。
+       </entry>
+       <entry><literal>select * from json_array_elements_text('["foo", "bar"]')</literal></entry>
+       <entry>
+<programlisting>
+   value
+-----------
+ foo
+ bar
+</programlisting>
+       </entry>
+      </row>
+      <row>
+       <entry><para><literal>json_typeof(json)</literal>
+         </para><para><literal>jsonb_typeof(jsonb)</literal>
+       </para></entry>
+       <entry><type>text</type></entry>
+       <entry>
+<!--
+         Returns the type of the outermost JSON value as a text string.
+         Possible types are
+         <literal>object</literal>, <literal>array</literal>, <literal>string</literal>, <literal>number</literal>,
+         <literal>boolean</literal>, and <literal>null</literal>.
+-->
+最も外側のJSON値の型をテキスト文字列として返す。
+取りうる型は<literal>object</literal>、 <literal>array</literal>、 <literal>string</literal>、 <literal>number</literal>、<literal>boolean</literal>、<literal>null</literal>である。
+       </entry>
+       <entry><literal>json_typeof('-123.4')</literal></entry>
+       <entry><literal>number</literal></entry>
+      </row>
+      <row>
+       <entry><para><literal>json_to_record(json)</literal>
+          </para><para><literal>jsonb_to_record(jsonb)</literal>
+       </para></entry>
+       <entry><type>record</type></entry>
+       <entry>
+<!--
+         Builds an arbitrary record from a JSON object (see note below).  As
+         with all functions returning <type>record</type>, the caller must
+         explicitly define the structure of the record with an <literal>AS</literal>
+         clause.
+-->
+JSONオブジェクトから任意のレコードを作成する（下記の注釈を参照）。
+<type>record</type>を返す関数すべてと同様、呼び出し側が<literal>AS</literal>句でレコードの構造を明示的に決める必要がある。
+       </entry>
+       <entry><literal>select * from json_to_record('{"a":1,"b":[1,2,3],"c":[1,2,3],"e":"bar","r": {"a": 123, "b": "a b c"}}') as x(a int, b text, c int[], d text, r myrowtype) </literal></entry>
+       <entry>
+<programlisting>
+ a |    b    |    c    | d |       r
+---+---------+---------+---+---------------
+ 1 | [1,2,3] | {1,2,3} |   | (123,"a b c")
+</programlisting>
+       </entry>
+      </row>
+      <row>
+       <entry><para><literal>json_to_recordset(json)</literal>
+         </para><para><literal>jsonb_to_recordset(jsonb)</literal>
+       </para></entry>
+       <entry><type>setof record</type></entry>
+       <entry>
+<!--
+         Builds an arbitrary set of records from a JSON array of objects (see
+         note below).  As with all functions returning <type>record</type>, the
+         caller must explicitly define the structure of the record with
+         an <literal>AS</literal> clause.
+-->
+オブジェクトの配列のJSONから任意のレコードの集合を作成する（下記の注釈を参照）。
+<type>record</type>を返す関数すべてと同様、呼び出し側が<literal>AS</literal>句でレコードの構造を明示的に決める必要がある。
+       </entry>
+       <entry><literal>select * from json_to_recordset('[{"a":1,"b":"foo"},{"a":"2","c":"bar"}]') as x(a int, b text);</literal></entry>
+       <entry>
+<programlisting>
+ a |  b
+---+-----
+ 1 | foo
+ 2 |
+</programlisting>
+       </entry>
+      </row>
+      <row>
+       <entry><para><literal>json_strip_nulls(from_json json)</literal>
+         </para><para><literal>jsonb_strip_nulls(from_json jsonb)</literal>
+       </para></entry>
+       <entry><para><type>json</type></para><para><type>jsonb</type></para></entry>
+       <entry>
+<!--
+         Returns <replaceable>from_json</replaceable>
+         with all object fields that have null values omitted. Other null values
+         are untouched.
+-->
+NULL値を持つオブジェクトフィールドを削除した<replaceable>from_json</replaceable>を返す。
+他のNULL値はそのまま残る。
+       </entry>
+       <entry><literal>json_strip_nulls('[{"f1":1,"f2":null},2,null,3]')</literal></entry>
+       <entry><literal>[{"f1":1},2,null,3]</literal></entry>
+       </row>
+      <row>
+       <entry><para><literal>jsonb_set(target jsonb, path text[], new_value jsonb<optional>, <parameter>create_missing</parameter> <type>boolean</type></optional>)</literal>
+         </para></entry>
+       <entry><para><type>jsonb</type></para></entry>
+       <entry>
+<!--
+         Returns <replaceable>target</replaceable>
+         with the section designated by <replaceable>path</replaceable>
+         replaced by <replaceable>new_value</replaceable>, or with
+         <replaceable>new_value</replaceable> added if
+         <replaceable>create_missing</replaceable> is true ( default is
+         <literal>true</literal>) and the item
+         designated by <replaceable>path</replaceable> does not exist.
+         As with the path orientated operators, negative integers that
+         appear in <replaceable>path</replaceable> count from the end
+         of JSON arrays.
+-->
+<replaceable>path</replaceable>で指定した部分を<replaceable>new_value</replaceable>で置換、
+あるいは<replaceable>create_missing</replaceable>が真（デフォルトは<literal>true</literal>）で<replaceable>path</replaceable>で指定した項目が存在しないなら<replaceable>new_value</replaceable>を追加して、
+<replaceable>target</replaceable>を返す。
+パスの位置についての演算子について、<replaceable>path</replaceable>の中にある負の整数はJSON配列の終わりから数える。
+       </entry>
+       <entry><para><literal>jsonb_set('[{"f1":1,"f2":null},2,null,3]', '{0,f1}','[2,3,4]', false)</literal>
+         </para><para><literal>jsonb_set('[{"f1":1,"f2":null},2]', '{0,f3}','[2,3,4]')</literal>
+         </para></entry>
+       <entry><para><literal>[{"f1":[2,3,4],"f2":null},2,null,3]</literal>
+         </para><para><literal>[{"f1": 1, "f2": null, "f3": [2, 3, 4]}, 2]</literal>
+        </para></entry>
+       </row>
+      <row>
+       <entry>
+           <para><literal>
+           jsonb_insert(target jsonb, path text[], new_value jsonb, <optional><parameter>insert_after</parameter> <type>boolean</type></optional>)
+           </literal></para>
+       </entry>
+       <entry><para><type>jsonb</type></para></entry>
+       <entry>
+<!--
+         Returns <replaceable>target</replaceable> with
+         <replaceable>new_value</replaceable> inserted. If
+         <replaceable>target</replaceable> section designated by
+         <replaceable>path</replaceable> is in a JSONB array,
+         <replaceable>new_value</replaceable> will be inserted before target or
+         after if <replaceable>insert_after</replaceable> is true (default is
+         <literal>false</literal>). If <replaceable>target</replaceable> section
+         designated by <replaceable>path</replaceable> is in JSONB object,
+         <replaceable>new_value</replaceable> will be inserted only if
+         <replaceable>target</replaceable> does not exist. As with the path
+         orientated operators, negative integers that appear in
+         <replaceable>path</replaceable> count from the end of JSON arrays.
+-->
+<replaceable>new_value</replaceable>を挿入して<replaceable>target</replaceable>を返す。
+<replaceable>path</replaceable>で指定した<replaceable>target</replaceable>の部分がJSONB配列内にある場合は、<replaceable>new_value</replaceable>はtargetの前に挿入されるか、あるいは、<replaceable>insert_after</replaceable>が真であれば（デフォルトは<literal>false</literal>）、後に挿入される。
+<replaceable>path</replaceable>で指定した<replaceable>target</replaceable>の部分がJSONBオブジェクト内にある場合は、<replaceable>new_value</replaceable>は<replaceable>target</replaceable>が存在しない場合にのみ挿入される。
+pathについての演算子について言うと、<replaceable>new_value</replaceable>内の負の整数はJSON配列の終わりから数える。
+       </entry>
+       <entry>
+           <para><literal>
+               jsonb_insert('{"a": [0,1,2]}', '{a, 1}', '"new_value"')
+           </literal></para>
+           <para><literal>
+               jsonb_insert('{"a": [0,1,2]}', '{a, 1}', '"new_value"', true)
+           </literal></para>
+       </entry>
+       <entry><para><literal>{"a": [0, "new_value", 1, 2]}</literal>
+         </para><para><literal>{"a": [0, 1, "new_value", 2]}</literal>
+        </para></entry>
+       </row>
+      <row>
+       <entry><para><literal>jsonb_pretty(from_json jsonb)</literal>
+         </para></entry>
+       <entry><para><type>text</type></para></entry>
+       <entry>
+<!--
+         Returns <replaceable>from_json</replaceable>
+         as indented JSON text.
+-->
+<replaceable>from_json</replaceable>をインデントしたJSON文字列にして返す。
+       </entry>
+       <entry><literal>jsonb_pretty('[{"f1":1,"f2":null},2,null,3]')</literal></entry>
+       <entry>
+<programlisting>
+[
+    {
+        "f1": 1,
+        "f2": null
+    },
+    2,
+    null,
+    3
+]
+</programlisting>
+        </entry>
+       </row>
+     </tbody>
+    </tgroup>
+   </table>
+
+  <note>
+    <para>
+<!--
+      Many of these functions and operators will convert Unicode escapes in
+      JSON strings to the appropriate single character.  This is a non-issue
+      if the input is type <type>jsonb</type>, because the conversion was already
+      done; but for <type>json</type> input, this may result in throwing an error,
+      as noted in <xref linkend="datatype-json"/>.
+-->
+これらの多くの関数や演算子は、JSON文字列のUnicodeのエスケープを適切な一文字に変換します。
+これは入力が<type>jsonb</type>型であれば、変換は既に行なわれていますので、重要な問題ではありません。しかし、<type>json</type>の入力に対しては、<xref linkend="datatype-json"/>で言及したようにこれはエラーを発生させる結果になるかもしれません．
+    </para>
+  </note>
+
+  <note>
+   <para>
+<!--
+    The functions
+    <function>json[b]_populate_record</function>,
+    <function>json[b]_populate_recordset</function>,
+    <function>json[b]_to_record</function> and
+    <function>json[b]_to_recordset</function>
+    operate on a JSON object, or array of objects, and extract the values
+    associated with keys whose names match column names of the output row
+    type.
+    Object fields that do not correspond to any output column name are
+    ignored, and output columns that do not match any object field will be
+    filled with nulls.
+    To convert a JSON value to the SQL type of an output column, the
+    following rules are applied in sequence:
+-->
+関数<function>json[b]_populate_record</function>、<function>json[b]_populate_recordset</function>、<function>json[b]_to_record</function>、<function>json[b]_to_recordset</function>はJSONオブジェクトあるいはJSONオブジェクトの配列を操作し、出力行型の列名と一致する名前を持つキーに関連付けられた値を取り出します。
+出力列名と関連付けられないオブジェクトのフィールドは無視され、どのオブジェクトフィールドとも一致しない出力列はNULLで満たされます。
+JSON値を出力列のSQL型に変換する際に以下のルールが順番に適用されます。
+    <itemizedlist spacing="compact">
+     <listitem>
+      <para>
+<!--
+       A JSON null value is converted to a SQL null in all cases.
+-->
+すべての場合にJSONのNULL値はSQLのNULLに変換されます。
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+<!--
+       If the output column is of type <type>json</type>
+       or <type>jsonb</type>, the JSON value is just reproduced exactly.
+-->
+出力列が<type>json</type>型あるいは<type>jsonb</type>型なら、JSON値は単にそのまま複製されます。
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+<!--
+       If the output column is a composite (row) type, and the JSON value is
+       a JSON object, the fields of the object are converted to columns of
+       the output row type by recursive application of these rules.
+-->
+出力行が複合(行)型でJSON値がJSONオブジェクトなら、これらのルールを再帰的に適用することによって、オブジェクトのフィールドが出力行型の列に変換されます。
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+<!--
+       Likewise, if the output column is an array type and the JSON value is
+       a JSON array, the elements of the JSON array are converted to elements
+       of the output array by recursive application of these rules.
+-->
+同様に、出力行が配列型でJSON値がJSON配列なら、これらのルールを再帰的に適用することによって、JSON配列の要素が出力配列の要素に変換されます。
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+<!--
+       Otherwise, if the JSON value is a string literal, the contents of the
+       string are fed to the input conversion function for the column's data
+       type.
+-->
+それ以外の場合で、JSON値が文字列リテラルなら、その文字列の内容が列のデータ型に対応する入力変換関数に送られます。
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+<!--
+       Otherwise, the ordinary text representation of the JSON value is fed
+       to the input conversion function for the column's data type.
+-->
+さもなければ、通常のJSON値のテキスト表現が列のデータ型に対応する入力変換関数に送られます。
+      </para>
+     </listitem>
+    </itemizedlist>
+   </para>
+
+   <para>
+<!--
+    While the examples for these functions use constants, the typical use
+    would be to reference a table in the <literal>FROM</literal> clause
+    and use one of its <type>json</type> or <type>jsonb</type> columns
+    as an argument to the function.  Extracted key values can then be
+    referenced in other parts of the query, like <literal>WHERE</literal>
+    clauses and target lists.  Extracting multiple values in this
+    way can improve performance over extracting them separately with
+    per-key operators.
+  -->
+これらの関数の例では定数を使用していますが、典型的な使用法は<literal>FROM</literal>句でテーブルを参照し、その<type>json</type>または<type>jsonb</type>列を関数の引数として使用することです。
+<literal>WHERE</literal>句やターゲットリストのように、抽出されたキー値はクエリの他の部分で参照することができます。
+この方法で複数の値を抽出すると、キー単位の演算子で個別に抽出するよりもパフォーマンスが向上します。
+   </para>
+  </note>
+
+  <note>
+    <para>
+<!--
+      All the items of the <literal>path</literal> parameter of <literal>jsonb_set</literal>
+      as well as <literal>jsonb_insert</literal> except the last item must be present
+      in the <literal>target</literal>. If <literal>create_missing</literal> is false, all
+      items of the <literal>path</literal> parameter of <literal>jsonb_set</literal> must be
+      present. If these conditions are not met the <literal>target</literal> is
+      returned unchanged.
+-->
+<literal>jsonb_set</literal>および<literal>jsonb_insert</literal>の<literal>path</literal>パラメータは、最後の項目を除き、すべての項目が<literal>target</literal>内に存在しなければなりません。
+<literal>create_missing</literal>が偽なら、<literal>jsonb_set</literal>の<literal>path</literal>パラメータのすべての項目が存在しなければなりません。
+これらの条件が満たされなければ、<literal>target</literal>が変更されずに返されます。
+    </para>
+    <para>
+<!--
+      If the last path item is an object key, it will be created if it
+      is absent and given the new value. If the last path item is an array
+      index, if it is positive the item to set is found by counting from
+      the left, and if negative by counting from the right - <literal>-1</literal>
+      designates the rightmost element, and so on.
+      If the item is out of the range -array_length .. array_length -1,
+      and create_missing is true, the new value is added at the beginning
+      of the array if the item is negative, and at the end of the array if
+      it is positive.
+-->
+パスの最後の要素がオブジェクトのキーの場合、それが存在しなければ作成されて、新しい値が与えられます。
+パスの最後の項目が配列の添字の場合、それが正ならセットすべき項目は左から数えられ、負なら右から数えられます（<literal>-1</literal>は最も右側の要素を指す、という具合です）。
+項目が[-array_length .. array_length -1]の範囲外にあり、かつcreate_missingが真なら、新しい値が配列の先頭（項目が負数のとき）あるいは配列の終わり（項目が正数のとき）に追加されます。
+    </para>
+  </note>
+
+  <note>
+    <para>
+<!--
+      The <literal>json_typeof</literal> function's <literal>null</literal> return value
+      should not be confused with a SQL NULL.  While
+      calling <literal>json_typeof('null'::json)</literal> will
+      return <literal>null</literal>, calling <literal>json_typeof(NULL::json)</literal>
+      will return a SQL NULL.
+-->
+<literal>json_typeof</literal>の<literal>null</literal>戻り値をSQLのNULLと混同してはいけません。
+<literal>json_typeof('null'::json)</literal>を呼び出すと<literal>null</literal>が返りますが、<literal>json_typeof(NULL::json)</literal>を呼び出すとSQLのNULLが返ります。
+    </para>
+  </note>
+
+  <note>
+    <para>
+<!--
+      If the argument to <literal>json_strip_nulls</literal> contains duplicate
+      field names in any object, the result could be semantically somewhat
+      different, depending on the order in which they occur. This is not an
+      issue for <literal>jsonb_strip_nulls</literal> since <type>jsonb</type> values never have
+      duplicate object field names.
+-->
+<literal>json_strip_nulls</literal>の引数で、オブジェクト内にフィールド名が重複しているものがある場合、それが発生している順序によって、結果は意味的にやや異なるものになることがあります。
+<type>jsonb</type>値はオブジェクトのフィールド名が重複することがないので、<literal>jsonb_strip_nulls</literal>にはこのような問題はありません。
+    </para>
+  </note>
+
+  <para>
+<!--
+    See also <xref linkend="functions-aggregate"/> for the aggregate
+    function <function>json_agg</function> which aggregates record
+    values as JSON, and the aggregate function
+    <function>json_object_agg</function> which aggregates pairs of values
+    into a JSON object, and their <type>jsonb</type> equivalents,
+    <function>jsonb_agg</function> and <function>jsonb_object_agg</function>.
+-->
+レコードの値をJSONに集約する<function>json_agg</function>集約関数、値の対をJSONオブジェクトに集約する<function>json_object_agg</function>集約関数、およびそれらの<type>jsonb</type>版の<function>jsonb_agg</function>と<function>jsonb_object_agg</function>については<xref linkend="functions-aggregate"/>を参照して下さい。
+  </para>
+
+ </sect1>
+
+ <sect1 id="functions-sequence">
+<!--
+  <title>Sequence Manipulation Functions</title>
+-->
+  <title>シーケンス操作関数</title>
+
+  <indexterm>
+   <primary>sequence</primary>
+  </indexterm>
+  <indexterm>
+   <primary>nextval</primary>
+  </indexterm>
+  <indexterm>
+   <primary>currval</primary>
+  </indexterm>
+  <indexterm>
+   <primary>lastval</primary>
+  </indexterm>
+  <indexterm>
+   <primary>setval</primary>
+  </indexterm>
+
+  <para>
+<!--
+   This section describes functions for operating on <firstterm>sequence
+   objects</firstterm>, also called sequence generators or just sequences.
+   Sequence objects are special single-row tables created with <xref
+   linkend="sql-createsequence"/>.
+   Sequence objects are commonly used to generate unique identifiers
+   for rows of a table.  The sequence functions, listed in <xref
+   linkend="functions-sequence-table"/>, provide simple, multiuser-safe
+   methods for obtaining successive sequence values from sequence
+   objects.
+-->
+本節では<firstterm>シーケンスオブジェクト</firstterm>に対し演算を行う関数について説明します。
+シーケンスオブジェクトは、シーケンスジェネレータ、あるいは単にシーケンスとも呼ばれます。
+シーケンスオブジェクトは特殊な一行だけのテーブルで、<xref linkend="sql-createsequence"/>で作成されます。
+シーケンスオブジェクトは一般的にテーブルの行に一意の識別子を生成するために使用されます。
+<xref linkend="functions-sequence-table"/>に列挙されているシーケンス関数は、シーケンスオブジェクトから連続したシーケンス値を取得するための、簡易でマルチユーザに対応した関数です。
+  </para>
+
+   <table id="functions-sequence-table">
+<!--
+    <title>Sequence Functions</title>
+-->
+    <title>シーケンス関数</title>
+    <tgroup cols="3">
+     <thead>
+<!--
+      <row><entry>Function</entry> <entry>Return Type</entry> <entry>Description</entry></row>
+-->
+      <row><entry>関数</entry> <entry>戻り値</entry> <entry>説明</entry></row>
+     </thead>
+
+     <tbody>
+      <row>
+        <entry><literal><function>currval(<type>regclass</type>)</function></literal></entry>
+        <entry><type>bigint</type></entry>
+<!--
+        <entry>Return value most recently obtained with
+        <function>nextval</function> for specified sequence</entry>
+-->
+        <entry>指定されたシーケンスに対し<function>nextval</function>で得られた最新の値を返す</entry>
+      </row>
+      <row>
+        <entry><literal><function>lastval()</function></literal></entry>
+        <entry><type>bigint</type></entry>
+<!--
+        <entry>Return value most recently obtained with
+        <function>nextval</function> for any sequence</entry>
+-->
+        <entry>すべてのシーケンスに対して<function>nextval</function>により最も最近取得された値を返す</entry>
+      </row>
+      <row>
+        <entry><literal><function>nextval(<type>regclass</type>)</function></literal></entry>
+        <entry><type>bigint</type></entry>
+<!--
+        <entry>Advance sequence and return new value</entry>
+-->
+        <entry>シーケンスを進め、新しい値を返す</entry>
+      </row>
+      <row>
+        <entry><literal><function>setval(<type>regclass</type>, <type>bigint</type>)</function></literal></entry>
+        <entry><type>bigint</type></entry>
+<!--
+        <entry>Set sequence's current value</entry>
+-->
+        <entry>シーケンスの現在値を設定する</entry>
+      </row>
+      <row>
+        <entry><literal><function>setval(<type>regclass</type>, <type>bigint</type>, <type>boolean</type>)</function></literal></entry>
+        <entry><type>bigint</type></entry>
+<!--
+        <entry>Set sequence's current value and <literal>is_called</literal> flag</entry>
+-->
+        <entry>シーケンスの現在値と<literal>is_called</literal>フラグを設定する</entry>
+      </row>
+     </tbody>
+    </tgroup>
+   </table>
+
+  <para>
+<!--
+   The sequence to be operated on by a sequence function is specified by
+   a <type>regclass</type> argument, which is simply the OID of the sequence in the
+   <structname>pg_class</structname> system catalog.  You do not have to look up the
+   OID by hand, however, since the <type>regclass</type> data type's input
+   converter will do the work for you.  Just write the sequence name enclosed
+   in single quotes so that it looks like a literal constant.  For
+   compatibility with the handling of ordinary
+   <acronym>SQL</acronym> names, the string will be converted to lower case
+   unless it contains double quotes around the sequence name.  Thus:
+-->
+シーケンス関数により操作されるシーケンスは<type>regclass</type>引数で指定されますが、それは<structname>pg_class</structname>システムカタログ内にある、そのシーケンスの単なるOIDです。
+しかしながら、手作業でOIDを検索する必要はなく、<type>regclass</type>データ型の入力変換器が代わってその作業を行ってくれます。
+単一引用符で括られたシーケンス名を記述するだけで良いので、リテラル定数のように見えます。
+通常の<acronym>SQL</acronym>の名称での操作との互換のため、文字列はシーケンス名が二重引用符で括られていなければ、小文字に変換されます。
+よって、以下のようになります。
+<programlisting>
+<!--
+nextval('foo')      <lineannotation>operates on sequence <literal>foo</literal></lineannotation>
+nextval('FOO')      <lineannotation>operates on sequence <literal>foo</literal></lineannotation>
+nextval('"Foo"')    <lineannotation>operates on sequence <literal>Foo</literal></lineannotation>
+-->
+nextval('foo')      <lineannotation>シーケンス<literal>foo</literal>の操作</lineannotation>
+nextval('FOO')      <lineannotation>シーケンス<literal>foo</literal>の操作</lineannotation>
+nextval('"Foo"')    <lineannotation>シーケンス<literal>Foo</literal>の操作</lineannotation>
+</programlisting>
+<!--
+   The sequence name can be schema-qualified if necessary:
+-->
+必要であれば、以下のようにシーケンス名をスキーマで修飾することができます。
+<programlisting>
+<!--
+nextval('myschema.foo')     <lineannotation>operates on <literal>myschema.foo</literal></lineannotation>
+nextval('"myschema".foo')   <lineannotation>same as above</lineannotation>
+nextval('foo')              <lineannotation>searches search path for <literal>foo</literal></lineannotation>
+-->
+nextval('myschema.foo')     <lineannotation><literal>myschema.foo</literal>の操作</lineannotation>
+nextval('"myschema".foo')   <lineannotation>上と同じ</lineannotation>
+nextval('foo')              <lineannotation><literal>foo</literal>を検索パスで探す</lineannotation>
+</programlisting>
+<!--
+   See <xref linkend="datatype-oid"/> for more information about
+   <type>regclass</type>.
+-->
+<type>regclass</type>に関してのより詳細な情報は<xref linkend="datatype-oid"/>を参照してください。
+  </para>
+
+  <note>
+   <para>
+<!--
+    Before <productname>PostgreSQL</productname> 8.1, the arguments of the
+    sequence functions were of type <type>text</type>, not <type>regclass</type>, and
+    the above-described conversion from a text string to an OID value would
+    happen at run time during each call.  For backward compatibility, this
+    facility still exists, but internally it is now handled as an implicit
+    coercion from <type>text</type> to <type>regclass</type> before the function is
+    invoked.
+-->
+<productname>PostgreSQL</productname>の8.1より前においては、シーケンス関数の引数は<type>regclass</type>型ではなく、<type>text</type>型で、そして上記のテキスト文字列からOID値への変換はそれぞれの呼び出し実行時に起こりました。
+後方互換性のため、この仕組みはまだ存在しますが、内部的には関数が実行される前に<type>text</type>から<type>regclass</type>への暗黙的強制型変換として現在処理されています。
+   </para>
+
+   <para>
+<!--
+    When you write the argument of a sequence function as an unadorned
+    literal string, it becomes a constant of type <type>regclass</type>.
+    Since this is really just an OID, it will track the originally
+    identified sequence despite later renaming, schema reassignment,
+    etc.  This <quote>early binding</quote> behavior is usually desirable for
+    sequence references in column defaults and views.  But sometimes you might
+    want <quote>late binding</quote> where the sequence reference is resolved
+    at run time.  To get late-binding behavior, force the constant to be
+    stored as a <type>text</type> constant instead of <type>regclass</type>:
+-->
+ありのままのリテラル文字列としてシーケンス関数の引数を記述すると、<type>regclass</type>データ型の定数になります。
+これは単なるOIDなので、後で名前付けが再び行われたとか、スキーマの再割り振りとかに関わらず、最初に特定されたシーケンスを引き継ぎます。
+この<quote>初期束縛</quote>の動作は、列のデフォルトやビューからシーケンスを参照する場合は望ましいことが多いでしょう。
+しかし、実行時にシーケンス参照が解決されるような<quote>動的束縛</quote>が望まれる場合もあります。
+動的束縛の動作を得るには、その定数を<type>regclass</type>ではなく<type>text</type>定数として保存させます。
+<programlisting>
+nextval('foo'::text)      <lineannotation><literal>foo</literal> is looked up at runtime</lineannotation>
+</programlisting>
+<!--
+    Note that late binding was the only behavior supported in
+    <productname>PostgreSQL</productname> releases before 8.1, so you
+    might need to do this to preserve the semantics of old applications.
+-->
+<productname>PostgreSQL</productname>のリリース8.1より前では動的束縛のみがサポートされる動作だったので、旧来のアプリケーションのセマンティクスを保ちたい場合このようにする必要があるかもしれません。
+   </para>
+
+   <para>
+<!--
+    Of course, the argument of a sequence function can be an expression
+    as well as a constant.  If it is a text expression then the implicit
+    coercion will result in a run-time lookup.
+-->
+もちろん、シーケンス関数の引数は定数だけでなく、評価式とすることも可能です。
+テキスト式の場合は暗黙的型変換により、実行時検索が行われます。
+   </para>
+  </note>
+
+  <para>
+<!--
+   The available sequence functions are:
+-->
+使用できるシーケンス関数には以下のものがあります。
+
+    <variablelist>
+     <varlistentry>
+      <term><function>nextval</function></term>
+      <listitem>
+       <para>
+<!--
+        Advance the sequence object to its next value and return that
+        value.  This is done atomically: even if multiple sessions
+        execute <function>nextval</function> concurrently, each will safely receive
+        a distinct sequence value.
+-->
+シーケンスオブジェクトをその次の値に進め、その値を返します。
+これは原子的に処理され、複数のセッションが同時に<function>nextval</function>を実行したとしても、それぞれのセッションは異なるシーケンス値を安全に受け取ります。
+       </para>
+
+       <para>
+<!--
+        If a sequence object has been created with default parameters,
+        successive <function>nextval</function> calls will return successive
+        values beginning with 1.  Other behaviors can be obtained by using
+        special parameters in the <xref linkend="sql-createsequence"/> command;
+        see its command reference page for more information.
+-->
+デフォルトのパラメータによってシーケンスオブジェクトが作成されているなら、引き続く<function>nextval</function>呼び出しは１から始まる連続的な値を返します。
+その他の動作を<xref linkend="sql-createsequence"/>コマンドの特別なパラメータを使用してさせることが可能です。より詳しくはコマンドのリファレンスガイドを参照ください。
+       </para>
+
+       <important>
+        <para>
+<!--
+         To avoid blocking concurrent transactions that obtain numbers from
+         the same sequence, a <function>nextval</function> operation is never
+         rolled back; that is, once a value has been fetched it is considered
+         used and will not be returned again.  This is true even if the
+         surrounding transaction later aborts, or if the calling query ends
+         up not using the value.  For example an <command>INSERT</command> with
+         an <literal>ON CONFLICT</literal> clause will compute the to-be-inserted
+         tuple, including doing any required <function>nextval</function>
+         calls, before detecting any conflict that would cause it to follow
+         the <literal>ON CONFLICT</literal> rule instead.  Such cases will leave
+         unused <quote>holes</quote> in the sequence of assigned values.
+         Thus, <productname>PostgreSQL</productname> sequence objects <emphasis>cannot
+         be used to obtain <quote>gapless</quote> sequences</emphasis>.
+-->
+同一のシーケンスから数値を取得する同時実行トランザクション同士のブロックを防止するため、<function>nextval</function>演算は決してロールバックされません。
+つまり、値が一度取り出されたら、それは使用されたものと見なされ、同じ値が再び返されることはありません。
+これは、それを取り囲むトランザクションが後にアボートした場合でも、あるいは呼び出し側の問い合わせがその値を使用せずに終わった場合でも当てはまります。
+例えば<literal>ON CONFLICT</literal>句のある<command>INSERT</command>では、挿入される予定のタプルについて、必要となるすべての<function>nextval</function>の呼び出しも含めて計算し、その後で<literal>ON CONFLICT</literal>のルールを代わりに使用することになる競合について検知します。
+このような場合には、割り当てられた値のシーケンス内に未使用の<quote>欠損</quote>を残すことになります。
+従って、<productname>PostgreSQL</productname>のシーケンスオブジェクトは<emphasis><quote>欠番のない</quote>シーケンスを得るために使うことはできません</emphasis>。
+        </para>
+       </important>
+
+       <para>
+<!--
+        This function requires <literal>USAGE</literal>
+        or <literal>UPDATE</literal> privilege on the sequence.
+-->
+この関数はシーケンスについて<literal>USAGE</literal>または<literal>UPDATE</literal>権限を必要とします。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><function>currval</function></term>
+      <listitem>
+       <para>
+<!--
+        Return the value most recently obtained by <function>nextval</function>
+        for this sequence in the current session.  (An error is
+        reported if <function>nextval</function> has never been called for this
+        sequence in this session.)  Because this is returning
+        a session-local value, it gives a predictable answer whether or not
+        other sessions have executed <function>nextval</function> since the
+        current session did.
+-->
+現在のセッションにおいて、そのシーケンスから<function>nextval</function>によって取得された直近の値を返します。
+（セッション内でそのシーケンスに対し<function>nextval</function>が呼ばれていない場合には、エラーが報告されます。）
+これはセッションごとの個別の値を返すので、現在のセッションが<function>nextval</function>を実行した後、他のセッションが<function>nextval</function>を実行したかどうかに関わらず、期待通りの回答をもたらします。
+       </para>
+
+       <para>
+<!--
+        This function requires <literal>USAGE</literal>
+        or <literal>SELECT</literal> privilege on the sequence.
+-->
+この関数はシーケンスについて<literal>USAGE</literal>または<literal>SELECT</literal>権限を必要とします。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><function>lastval</function></term>
+      <listitem>
+       <para>
+<!--
+        Return the value most recently returned by
+        <function>nextval</function> in the current session. This function is
+        identical to <function>currval</function>, except that instead
+        of taking the sequence name as an argument it refers to whichever
+        sequence <function>nextval</function> was most recently applied to
+        in the current session. It is an error to call
+        <function>lastval</function> if <function>nextval</function>
+        has not yet been called in the current session.
+-->
+現在のセッションの<function>nextval</function>で直近に戻された値を返します。
+この関数は<function>currval</function>と同等ですが、引数としてシーケンス名をとる代わりに、現在のセッションで最後に<function>nextval</function>で使用されたシーケンスを参照するところが異なります。
+現在のセッションで<function>nextval</function>が未だ呼ばれていなければエラーになります。
+       </para>
+
+       <para>
+<!--
+        This function requires <literal>USAGE</literal>
+        or <literal>SELECT</literal> privilege on the last used sequence.
+-->
+この関数は、最後に使用したシーケンスについて<literal>USAGE</literal>または<literal>SELECT</literal>権限を必要とします。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><function>setval</function></term>
+      <listitem>
+       <para>
+<!--
+        Reset the sequence object's counter value.  The two-parameter
+        form sets the sequence's <literal>last_value</literal> field to the
+        specified value and sets its <literal>is_called</literal> field to
+        <literal>true</literal>, meaning that the next
+        <function>nextval</function> will advance the sequence before
+        returning a value.  The value reported by <function>currval</function> is
+        also set to the specified value.  In the three-parameter form,
+        <literal>is_called</literal> can be set to either <literal>true</literal>
+        or <literal>false</literal>.  <literal>true</literal> has the same effect as
+        the two-parameter form. If it is set to <literal>false</literal>, the
+        next <function>nextval</function> will return exactly the specified
+        value, and sequence advancement commences with the following
+        <function>nextval</function>.  Furthermore, the value reported by
+        <function>currval</function> is not changed in this case.  For example,
+-->
+シーケンスオブジェクトの計数値をリセットします。
+パラメータが２つの形式では、シーケンスの<literal>last_value</literal>フィールドを指定された値に設定し、<literal>is_called</literal>フィールドを<literal>true</literal>（真）に設定します。
+この意味は、次の<function>nextval</function>が値を返す前にシーケンスを進めるということです。
+<function>currval</function>で報告される値も指定された値に設定されます。
+３パラメータ形式の場合、<literal>is_called</literal>を<literal>true</literal>（真）もしくは<literal>false</literal>（偽）に設定することができます。
+<literal>true</literal>（真）は２パラメータ形式と同じ効果があります。
+<literal>false</literal>（偽）に設定された場合、次の<function>nextval</function>は指定されたその値を返し、シーケンスの進行は引き続く<function>nextval</function>から始まります。
+さらにこの場合、<function>currval</function>で報告される値は変更されません。
+例えば、次の例です。
+
+<screen>
+<!--
+SELECT setval('foo', 42);           <lineannotation>Next <function>nextval</function> will return 43</lineannotation>
+SELECT setval('foo', 42, true);     <lineannotation>Same as above</lineannotation>
+SELECT setval('foo', 42, false);    <lineannotation>Next <function>nextval</function> will return 42</lineannotation>
+-->
+SELECT setval('foo', 42);           <lineannotation>次の<function>nextval</function>は43を返す</lineannotation>
+SELECT setval('foo', 42, true);     <lineannotation>上と同じ</lineannotation>
+SELECT setval('foo', 42, false);    <lineannotation>次の<function>nextval</function>は42を返す</lineannotation>
+</screen>
+
+<!--
+        The result returned by <function>setval</function> is just the value of its
+        second argument.
+-->
+<function>setval</function>によって返される結果は単にその第2番目の引数の値です。
+       </para>
+       <important>
+        <para>
+<!--
+         Because sequences are non-transactional, changes made by
+         <function>setval</function> are not undone if the transaction rolls
+         back.
+-->
+シーケンスはトランザクションとは異なる扱いを受けるため、<function>setval</function>による変更は、そのトランザクションがロールバックされたとしても元に戻りません。
+        </para>
+       </important>
+
+       <para>
+<!--
+        This function requires <literal>UPDATE</literal> privilege on the
+        sequence.
+-->
+この関数はシーケンスについて<literal>UPDATE</literal>権限を必要とします。
+       </para>
+      </listitem>
+     </varlistentry>
+    </variablelist>
+  </para>
+
+ </sect1>
+
+
+ <sect1 id="functions-conditional">
+<!--
+  <title>Conditional Expressions</title>
+-->
+  <title>条件式</title>
+
+  <indexterm>
+   <primary>CASE</primary>
+  </indexterm>
+
+  <indexterm>
+<!--
+   <primary>conditional expression</primary>
+-->
+   <primary>条件式</primary>
+  </indexterm>
+
+  <para>
+<!--
+   This section describes the <acronym>SQL</acronym>-compliant conditional expressions
+   available in <productname>PostgreSQL</productname>.
+-->
+本節では<productname>PostgreSQL</productname>で使用可能な<acronym>SQL</acronym>準拠の条件式について説明します。
+  </para>
+
+  <tip>
+   <para>
+<!--
+    If your needs go beyond the capabilities of these conditional
+    expressions, you might want to consider writing a server-side function
+    in a more expressive programming language.
+-->
+ここで説明する条件式より発展した機能を求める場合は、より表現の豊富なプログラム言語でストアドプロシージャを記述することで解決されます。
+   </para>
+  </tip>
+
+  <sect2 id="functions-case">
+   <title><literal>CASE</literal></title>
+
+  <para>
+<!--
+   The <acronym>SQL</acronym> <token>CASE</token> expression is a
+   generic conditional expression, similar to if/else statements in
+   other programming languages:
+-->
+<acronym>SQL</acronym>の<token>CASE</token>式は他のプログラミング言語のif/else構文に類似した汎用条件式です。
+
+<synopsis>
+CASE WHEN <replaceable>condition</replaceable> THEN <replaceable>result</replaceable>
+     <optional>WHEN ...</optional>
+     <optional>ELSE <replaceable>result</replaceable></optional>
+END
+</synopsis>
+
+<!--
+   <token>CASE</token> clauses can be used wherever
+   an expression is valid.  Each <replaceable>condition</replaceable> is an
+   expression that returns a <type>boolean</type> result.  If the condition's
+   result is true, the value of the <token>CASE</token> expression is the
+   <replaceable>result</replaceable> that follows the condition, and the
+   remainder of the <token>CASE</token> expression is not processed.  If the
+   condition's result is not true, any subsequent <token>WHEN</token> clauses
+   are examined in the same manner.  If no <token>WHEN</token>
+   <replaceable>condition</replaceable> yields true, the value of the
+   <token>CASE</token> expression is the <replaceable>result</replaceable> of the
+   <token>ELSE</token> clause.  If the <token>ELSE</token> clause is
+   omitted and no condition is true, the result is null.
+-->
+<token>CASE</token>句は式が有効な位置であればどこでも使用可能です。
+それぞれの<replaceable>condition</replaceable>とは<type>boolean</type>型の結果を返す式です。
+もしconditionの結果が真であれば、<token>CASE</token>式の値は、conditionに続く<replaceable>result</replaceable>となります。そして、<token>CASE</token>式の残りは処理されません。
+もしconditionの結果が偽であれば後に続く全ての<token>WHEN</token>句が同じようにして調べられます。
+<token>WHEN</token>の<replaceable>condition</replaceable>の1つも真でない場合、CASE式の値は<token>ELSE</token>句の<replaceable>result</replaceable>になります。
+<token>ELSE</token>句が省略され、どのconditionも真でない場合、結果はNULLです。
+  </para>
+
+   <para>
+<!--
+    An example:
+-->
+以下に例を示します。
+<screen>
+SELECT * FROM test;
+
+ a
+---
+ 1
+ 2
+ 3
+
+
+SELECT a,
+       CASE WHEN a=1 THEN 'one'
+            WHEN a=2 THEN 'two'
+            ELSE 'other'
+       END
+    FROM test;
+
+ a | case
+---+-------
+ 1 | one
+ 2 | two
+ 3 | other
+</screen>
+   </para>
+
+  <para>
+<!--
+   The data types of all the <replaceable>result</replaceable>
+   expressions must be convertible to a single output type.
+   See <xref linkend="typeconv-union-case"/> for more details.
+-->
+全ての<replaceable>result</replaceable>式のデータ型は単一の出力型に変換可能でなければなりません。
+詳細は<xref linkend="typeconv-union-case"/>を参照してください。
+  </para>
+
+  <para>
+<!--
+   There is a <quote>simple</quote> form of <token>CASE</token> expression
+   that is a variant of the general form above:
+-->
+以下のように、上記の一般的な形式と異なる<token>CASE</token>式の<quote>単純な</quote>形式が存在します。
+
+<synopsis>
+CASE <replaceable>expression</replaceable>
+    WHEN <replaceable>value</replaceable> THEN <replaceable>result</replaceable>
+    <optional>WHEN ...</optional>
+    <optional>ELSE <replaceable>result</replaceable></optional>
+END
+</synopsis>
+
+<!--
+   The first
+   <replaceable>expression</replaceable> is computed, then compared to
+   each of the <replaceable>value</replaceable> expressions in the
+   <token>WHEN</token> clauses until one is found that is equal to it.  If
+   no match is found, the <replaceable>result</replaceable> of the
+   <token>ELSE</token> clause (or a null value) is returned.  This is similar
+   to the <function>switch</function> statement in C.
+-->
+最初の<replaceable>expression</replaceable>が計算され、そしてそれに等しいものが見つかるまで<token>WHEN</token>句のそれぞれの<replaceable>value</replaceable>式と比較されます。
+等しいものが見つからない場合、<token>ELSE</token>句の<replaceable>result</replaceable>（もしくはNULL値）が返されます。
+これはC言語の<function>switch</function>文に似ています。
+  </para>
+
+   <para>
+<!--
+    The example above can be written using the simple
+    <token>CASE</token> syntax:
+-->
+上の例は簡略形<token>CASE</token>構文を使って次のように書くことができます。
+<screen>
+SELECT a,
+       CASE a WHEN 1 THEN 'one'
+              WHEN 2 THEN 'two'
+              ELSE 'other'
+       END
+    FROM test;
+
+ a | case
+---+-------
+ 1 | one
+ 2 | two
+ 3 | other
+</screen>
+   </para>
+
+   <para>
+<!--
+    A <token>CASE</token> expression does not evaluate any subexpressions
+    that are not needed to determine the result.  For example, this is a
+    possible way of avoiding a division-by-zero failure:
+-->
+<token>CASE</token>式は、結果を決定するために不必要などんな副式をも評価しません。
+例えば、以下は0除算エラーを防ぐための方法です。
+<programlisting>
+SELECT ... WHERE CASE WHEN x &lt;&gt; 0 THEN y/x &gt; 1.5 ELSE false END;
+</programlisting>
+   </para>
+
+   <note>
+    <para>
+<!--
+     As described in <xref linkend="syntax-express-eval"/>, there are various
+     situations in which subexpressions of an expression are evaluated at
+     different times, so that the principle that <quote><token>CASE</token>
+     evaluates only necessary subexpressions</quote> is not ironclad.  For
+     example a constant <literal>1/0</literal> subexpression will usually result in
+     a division-by-zero failure at planning time, even if it's within
+     a <token>CASE</token> arm that would never be entered at run time.
+-->
+<xref linkend="syntax-express-eval"/>で説明したとおり、式の副式が異なる時点で評価される様々な状況があります。そのため<quote><token>CASE</token>は必要な副式のみを評価する</quote>という原則は厳格なものではありません。
+例えば、定数<literal>1/0</literal>副式は、実行時には決して入らない<token>CASE</token>節の中にあったとしても、通常は計画時にゼロによる除算での失敗という結果に終わります。
+    </para>
+   </note>
+  </sect2>
+
+  <sect2 id="functions-coalesce-nvl-ifnull">
+   <title><literal>COALESCE</literal></title>
+
+  <indexterm>
+   <primary>COALESCE</primary>
+  </indexterm>
+
+  <indexterm>
+   <primary>NVL</primary>
+  </indexterm>
+
+  <indexterm>
+   <primary>IFNULL</primary>
+  </indexterm>
+
+<synopsis>
+<function>COALESCE</function>(<replaceable>value</replaceable> <optional>, ...</optional>)
+</synopsis>
+
+  <para>
+<!--
+   The <function>COALESCE</function> function returns the first of its
+   arguments that is not null.  Null is returned only if all arguments
+   are null.  It is often used to substitute a default value for
+   null values when data is retrieved for display, for example:
+-->
+<function>COALESCE</function>関数は、NULLでない自身の最初の引数を返します。
+全ての引数がNULLの場合にのみNULLが返されます。データを表示目的で取り出す際、NULL値をデフォルト値で置き換えるためによく使用されています。以下に例を示します。
+<programlisting>
+SELECT COALESCE(description, short_description, '(none)') ...
+</programlisting>
+<!--
+   This returns <varname>description</varname> if it is not null, otherwise
+   <varname>short_description</varname> if it is not null, otherwise <literal>(none)</literal>.
+-->
+これは<varname>description</varname>がNULLでなければそれを返します。
+そうでない場合（NULLの場合）は、<varname>short_description</varname>がNULLでなければそれを返します。
+それ以外の場合（short_descriptionもNULLの場合）は<literal>(none)</literal>が返ります。
+  </para>
+
+   <para>
+<!--
+    Like a <token>CASE</token> expression, <function>COALESCE</function> only
+    evaluates the arguments that are needed to determine the result;
+    that is, arguments to the right of the first non-null argument are
+    not evaluated.  This SQL-standard function provides capabilities similar
+    to <function>NVL</function> and <function>IFNULL</function>, which are used in some other
+    database systems.
+-->
+<token>CASE</token>式同様、<function>COALESCE</function>は結果を決定するために必要な引数のみを評価します。つまり、非NULL引数が見つかれば、その右側にある引数は評価されません。
+このSQL標準関数は、他のいくつかのデータベースで使用されている<function>NVL</function>および<function>IFNULL</function>と類似の機能を提供します。
+   </para>
+  </sect2>
+
+  <sect2 id="functions-nullif">
+   <title><literal>NULLIF</literal></title>
+
+  <indexterm>
+   <primary>NULLIF</primary>
+  </indexterm>
+
+<synopsis>
+<function>NULLIF</function>(<replaceable>value1</replaceable>, <replaceable>value2</replaceable>)
+</synopsis>
+
+  <para>
+<!--
+   The <function>NULLIF</function> function returns a null value if
+   <replaceable>value1</replaceable> equals <replaceable>value2</replaceable>;
+   otherwise it returns <replaceable>value1</replaceable>.
+   This can be used to perform the inverse operation of the
+   <function>COALESCE</function> example given above:
+-->
+<function>NULLIF</function>関数は、<replaceable>value1</replaceable>が<replaceable>value2</replaceable>と等しい場合、NULL値を返します。
+その他の場合は<replaceable>value1</replaceable>を返します。
+これを使って、上記の<function>COALESCE</function>の例の逆演算を実行できます
+<programlisting>
+SELECT NULLIF(value, '(none)') ...
+</programlisting>
+  </para>
+  <para>
+<!--
+   In this example, if <literal>value</literal> is <literal>(none)</literal>,
+   null is returned, otherwise the value of <literal>value</literal>
+   is returned.
+-->
+この例では、<replaceable>value1</replaceable>が<literal>(none)</literal>ならばNULLが返ります。
+さもなくば<replaceable>value1</replaceable>を返します
+  </para>
+
+  </sect2>
+
+  <sect2 id="functions-greatest-least">
+<!--
+   <title><literal>GREATEST</literal> and <literal>LEAST</literal></title>
+-->
+   <title><literal>GREATEST</literal>および<literal>LEAST</literal></title>
+
+  <indexterm>
+   <primary>GREATEST</primary>
+  </indexterm>
+  <indexterm>
+   <primary>LEAST</primary>
+  </indexterm>
+
+<synopsis>
+<function>GREATEST</function>(<replaceable>value</replaceable> <optional>, ...</optional>)
+</synopsis>
+<synopsis>
+<function>LEAST</function>(<replaceable>value</replaceable> <optional>, ...</optional>)
+</synopsis>
+
+   <para>
+<!--
+    The <function>GREATEST</function> and <function>LEAST</function> functions select the
+    largest or smallest value from a list of any number of expressions.
+    The expressions must all be convertible to a common data type, which
+    will be the type of the result
+    (see <xref linkend="typeconv-union-case"/> for details).  NULL values
+    in the list are ignored.  The result will be NULL only if all the
+    expressions evaluate to NULL.
+-->
+<function>GREATEST</function>と<function>LEAST</function>関数は任意の数の式のリストから最大値もしくは最小値を選択します。
+評価される全ての式は共通の型に変換できる必要があり、それが結果の型になります（詳細は<xref linkend="typeconv-union-case"/>を参照してください）。
+リストの中のNULL値は無視されます。
+全ての式がNULLと評価された場合に限って結果はNULLになります。
+   </para>
+
+   <para>
+<!--
+    Note that <function>GREATEST</function> and <function>LEAST</function> are not in
+    the SQL standard, but are a common extension.  Some other databases
+    make them return NULL if any argument is NULL, rather than only when
+    all are NULL.
+-->
+<function>GREATEST</function>および<function>LEAST</function>はSQL標準に載っていませんが、共通した拡張です。
+他のいくつかのデータベースでは、全てがNULLの場合に限定せず、いずれかの引数がNULLである場合にNULLを返すようにしているものもあります。
+   </para>
+  </sect2>
+ </sect1>
+
+ <sect1 id="functions-array">
+<!--
+  <title>Array Functions and Operators</title>
+-->
+  <title>配列関数と演算子</title>
+
+  <para>
+<!--
+   <xref linkend="array-operators-table"/> shows the operators
+   available for array types.
+-->
+<xref linkend="array-operators-table"/>に、配列型で使用可能な演算子を示します。
+  </para>
+
+    <table id="array-operators-table">
+<!--
+     <title>Array Operators</title>
+-->
+     <title>配列演算子</title>
+     <tgroup cols="4">
+      <thead>
+       <row>
+<!--
+        <entry>Operator</entry>
+        <entry>Description</entry>
+        <entry>Example</entry>
+        <entry>Result</entry>
+-->
+        <entry>演算子</entry>
+        <entry>説明</entry>
+        <entry>例</entry>
+        <entry>結果</entry>
+       </row>
+      </thead>
+      <tbody>
+       <row>
+        <entry> <literal>=</literal> </entry>
+<!--
+        <entry>equal</entry>
+-->
+        <entry>等しい</entry>
+        <entry><literal>ARRAY[1.1,2.1,3.1]::int[] = ARRAY[1,2,3]</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&lt;&gt;</literal> </entry>
+<!--
+        <entry>not equal</entry>
+-->
+        <entry>等しくない</entry>
+        <entry><literal>ARRAY[1,2,3] &lt;&gt; ARRAY[1,2,4]</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&lt;</literal> </entry>
+<!--
+        <entry>less than</entry>
+-->
+        <entry>未満</entry>
+        <entry><literal>ARRAY[1,2,3] &lt; ARRAY[1,2,4]</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&gt;</literal> </entry>
+<!--
+        <entry>greater than</entry>
+-->
+        <entry>より大きい</entry>
+        <entry><literal>ARRAY[1,4,3] &gt; ARRAY[1,2,4]</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&lt;=</literal> </entry>
+<!--
+        <entry>less than or equal</entry>
+-->
+        <entry>以下</entry>
+        <entry><literal>ARRAY[1,2,3] &lt;= ARRAY[1,2,3]</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&gt;=</literal> </entry>
+<!--
+        <entry>greater than or equal</entry>
+-->
+        <entry>以上</entry>
+        <entry><literal>ARRAY[1,4,3] &gt;= ARRAY[1,4,3]</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>@&gt;</literal> </entry>
+<!--
+        <entry>contains</entry>
+-->
+        <entry>包含する</entry>
+        <entry><literal>ARRAY[1,4,3] @&gt; ARRAY[3,1]</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&lt;@</literal> </entry>
+<!--
+        <entry>is contained by</entry>
+-->
+        <entry>・・・により包含される</entry>
+        <entry><literal>ARRAY[2,7] &lt;@ ARRAY[1,7,4,2,6]</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&amp;&amp;</literal> </entry>
+<!--
+        <entry>overlap (have elements in common)</entry>
+-->
+        <entry>重複する(共通要素を持つ)</entry>
+        <entry><literal>ARRAY[1,4,3] &amp;&amp; ARRAY[2,1]</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>||</literal> </entry>
+<!--
+        <entry>array-to-array concatenation</entry>
+-->
+        <entry>配列と配列を連結</entry>
+        <entry><literal>ARRAY[1,2,3] || ARRAY[4,5,6]</literal></entry>
+        <entry><literal>{1,2,3,4,5,6}</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>||</literal> </entry>
+<!--
+        <entry>array-to-array concatenation</entry>
+-->
+        <entry>配列と配列を連結</entry>
+        <entry><literal>ARRAY[1,2,3] || ARRAY[[4,5,6],[7,8,9]]</literal></entry>
+        <entry><literal>{{1,2,3},{4,5,6},{7,8,9}}</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>||</literal> </entry>
+<!--
+        <entry>element-to-array concatenation</entry>
+-->
+        <entry>要素と配列を連結</entry>
+        <entry><literal>3 || ARRAY[4,5,6]</literal></entry>
+        <entry><literal>{3,4,5,6}</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>||</literal> </entry>
+<!--
+        <entry>array-to-element concatenation</entry>
+-->
+        <entry>配列と要素を連結</entry>
+        <entry><literal>ARRAY[4,5,6] || 7</literal></entry>
+        <entry><literal>{4,5,6,7}</literal></entry>
+       </row>
+      </tbody>
+     </tgroup>
+    </table>
+
+  <para>
+<!--
+   Array comparisons compare the array contents element-by-element,
+   using the default B-tree comparison function for the element data type.
+   In multidimensional arrays the elements are visited in row-major order
+   (last subscript varies most rapidly).
+   If the contents of two arrays are equal but the dimensionality is
+   different, the first difference in the dimensionality information
+   determines the sort order.  (This is a change from versions of
+   <productname>PostgreSQL</productname> prior to 8.2: older versions would claim
+   that two arrays with the same contents were equal, even if the
+   number of dimensions or subscript ranges were different.)
+-->
+配列比較では、配列要素ごとに、要素のデータ型のデフォルトのB-tree比較関数を使用して、その内容が比較されます。
+多次元配列では、行番号を優先して取り出します（最後の添え字が最も速く変わる順序で比較します）。
+2つの配列の内容が同じで次元数が異なる場合、どの次元で最初に違いがあったかによってソート順が決まります。
+（これは8.2より前の<productname>PostgreSQL</productname>では異なります。古いバージョンでは、次数や添え字範囲が異なっていたとしても、内容が同じであれば、2つの配列は同じものとしていました。）
+  </para>
+
+  <para>
+<!--
+   See <xref linkend="arrays"/> for more details about array operator
+   behavior.  See <xref linkend="indexes-types"/> for more details about
+   which operators support indexed operations.
+-->
+配列演算子の振舞いの詳細は<xref linkend="arrays"/>を参照してください。
+どの演算子がインデックス付きの操作をサポートしているかのより詳細については<xref linkend="indexes-types"/>を参照してください。
+  </para>
+
+  <para>
+<!--
+   <xref linkend="array-functions-table"/> shows the functions
+   available for use with array types. See <xref linkend="arrays"/>
+   for more information  and examples of the use of these functions.
+-->
+<xref linkend="array-functions-table"/>に配列型で使用可能な関数を示します。
+これらの関数の情報と例については<xref linkend="arrays"/>を参照してください。
+  </para>
+
+  <indexterm>
+    <primary>array_append</primary>
+  </indexterm>
+  <indexterm>
+    <primary>array_cat</primary>
+  </indexterm>
+  <indexterm>
+    <primary>array_ndims</primary>
+  </indexterm>
+  <indexterm>
+    <primary>array_dims</primary>
+  </indexterm>
+  <indexterm>
+    <primary>array_fill</primary>
+  </indexterm>
+  <indexterm>
+    <primary>array_length</primary>
+  </indexterm>
+  <indexterm>
+    <primary>array_lower</primary>
+  </indexterm>
+  <indexterm>
+    <primary>array_position</primary>
+  </indexterm>
+  <indexterm>
+    <primary>array_positions</primary>
+  </indexterm>
+  <indexterm>
+    <primary>array_prepend</primary>
+  </indexterm>
+  <indexterm>
+    <primary>array_remove</primary>
+  </indexterm>
+  <indexterm>
+    <primary>array_replace</primary>
+  </indexterm>
+  <indexterm>
+    <primary>array_to_string</primary>
+  </indexterm>
+ <indexterm>
+    <primary>array_upper</primary>
+  </indexterm>
+  <indexterm>
+    <primary>cardinality</primary>
+  </indexterm>
+  <indexterm>
+    <primary>string_to_array</primary>
+  </indexterm>
+  <indexterm>
+    <primary>unnest</primary>
+  </indexterm>
+
+    <table id="array-functions-table">
+<!--
+     <title>Array Functions</title>
+-->
+     <title>配列関数</title>
+     <tgroup cols="5">
+      <thead>
+       <row>
+<!--
+        <entry>Function</entry>
+        <entry>Return Type</entry>
+        <entry>Description</entry>
+        <entry>Example</entry>
+        <entry>Result</entry>
+-->
+        <entry>関数</entry>
+        <entry>戻り値型</entry>
+        <entry>説明</entry>
+        <entry>例</entry>
+        <entry>結果</entry>
+       </row>
+      </thead>
+      <tbody>
+       <row>
+        <entry>
+         <literal>
+          <function>array_append</function>(<type>anyarray</type>, <type>anyelement</type>)
+         </literal>
+        </entry>
+        <entry><type>anyarray</type></entry>
+<!--
+        <entry>append an element to the end of an array</entry>
+-->
+        <entry>配列の末尾に要素を追加</entry>
+        <entry><literal>array_append(ARRAY[1,2], 3)</literal></entry>
+        <entry><literal>{1,2,3}</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>array_cat</function>(<type>anyarray</type>, <type>anyarray</type>)
+         </literal>
+        </entry>
+        <entry><type>anyarray</type></entry>
+<!--
+        <entry>concatenate two arrays</entry>
+-->
+        <entry>２つの配列を連結</entry>
+        <entry><literal>array_cat(ARRAY[1,2,3], ARRAY[4,5])</literal></entry>
+        <entry><literal>{1,2,3,4,5}</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>array_ndims</function>(<type>anyarray</type>)
+         </literal>
+        </entry>
+        <entry><type>int</type></entry>
+<!--
+        <entry>returns the number of dimensions of the array</entry>
+-->
+        <entry>配列の次元数を返す</entry>
+        <entry><literal>array_ndims(ARRAY[[1,2,3], [4,5,6]])</literal></entry>
+        <entry><literal>2</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>array_dims</function>(<type>anyarray</type>)
+         </literal>
+        </entry>
+        <entry><type>text</type></entry>
+<!--
+        <entry>returns a text representation of array's dimensions</entry>
+-->
+        <entry>配列の次元をテキスト表現で返す</entry>
+        <entry><literal>array_dims(ARRAY[[1,2,3], [4,5,6]])</literal></entry>
+        <entry><literal>[1:2][1:3]</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>array_fill</function>(<type>anyelement</type>, <type>int[]</type>
+          <optional>, <type>int[]</type></optional>)
+         </literal>
+        </entry>
+        <entry><type>anyarray</type></entry>
+<!--
+        <entry>returns an array initialized with supplied value and
+         dimensions, optionally with lower bounds other than 1</entry>
+-->
+         <entry>提供された値と次元で初期化された配列を返す。オプションで１以外の添字の下限を指定する。</entry>
+        <entry><literal>array_fill(7, ARRAY[3], ARRAY[2])</literal></entry>
+        <entry><literal>[2:4]={7,7,7}</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>array_length</function>(<type>anyarray</type>, <type>int</type>)
+         </literal>
+        </entry>
+        <entry><type>int</type></entry>
+<!--
+        <entry>returns the length of the requested array dimension</entry>
+-->
+        <entry>指定次数での配列の長さを返す</entry>
+        <entry><literal>array_length(array[1,2,3], 1)</literal></entry>
+        <entry><literal>3</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>array_lower</function>(<type>anyarray</type>, <type>int</type>)
+         </literal>
+        </entry>
+        <entry><type>int</type></entry>
+<!--
+        <entry>returns lower bound of the requested array dimension</entry>
+-->
+        <entry>指定次数での配列の添字の下限を返す</entry>
+        <entry><literal>array_lower('[0:2]={1,2,3}'::int[], 1)</literal></entry>
+        <entry><literal>0</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>array_position</function>(<type>anyarray</type>, <type>anyelement</type> <optional>, <type>int</type></optional>)
+         </literal>
+        </entry>
+        <entry><type>int</type></entry>
+<!--
+        <entry>returns the subscript of the first occurrence of the second
+        argument in the array, starting at the element indicated by the third
+        argument or at the first element (array must be one-dimensional)</entry>
+-->
+        <entry>配列を第3引数で指定された要素、省略時は最初の要素から調べて、第2引数が最初に現れる添字を返す（配列は1次元であること）</entry>
+        <entry><literal>array_position(ARRAY['sun','mon','tue','wed','thu','fri','sat'], 'mon')</literal></entry>
+        <entry><literal>2</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>array_positions</function>(<type>anyarray</type>, <type>anyelement</type>)
+         </literal>
+        </entry>
+        <entry><type>int[]</type></entry>
+<!--
+        <entry>returns an array of subscripts of all occurrences of the second
+        argument in the array given as first argument (array must be
+        one-dimensional)</entry>
+-->
+        <entry>第1引数の配列内で第2引数が現れるすべての添字からなる配列を返す（配列は1次元であること）</entry>
+        <entry><literal>array_positions(ARRAY['A','A','B','A'], 'A')</literal></entry>
+        <entry><literal>{1,2,4}</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>array_prepend</function>(<type>anyelement</type>, <type>anyarray</type>)
+         </literal>
+        </entry>
+        <entry><type>anyarray</type></entry>
+<!--
+        <entry>append an element to the beginning of an array</entry>
+-->
+        <entry>配列の先頭に要素を追加</entry>
+        <entry><literal>array_prepend(1, ARRAY[2,3])</literal></entry>
+        <entry><literal>{1,2,3}</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>array_remove</function>(<type>anyarray</type>, <type>anyelement</type>)
+         </literal>
+        </entry>
+        <entry><type>anyarray</type></entry>
+<!--
+        <entry>remove all elements equal to the given value from the array
+         (array must be one-dimensional)</entry>
+-->
+        <entry>配列から指定の値と等しい要素をすべて削除（配列は一次元であること）</entry>
+        <entry><literal>array_remove(ARRAY[1,2,3,2], 2)</literal></entry>
+        <entry><literal>{1,3}</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>array_replace</function>(<type>anyarray</type>, <type>anyelement</type>, <type>anyelement</type>)
+         </literal>
+        </entry>
+        <entry><type>anyarray</type></entry>
+<!--
+        <entry>replace each array element equal to the given value with a new value</entry>
+-->
+        <entry>指定の値と等しい各要素を新しい値で置換</entry>
+        <entry><literal>array_replace(ARRAY[1,2,5,4], 5, 3)</literal></entry>
+        <entry><literal>{1,2,3,4}</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>array_to_string</function>(<type>anyarray</type>, <type>text</type> <optional>, <type>text</type></optional>)
+         </literal>
+        </entry>
+        <entry><type>text</type></entry>
+<!--
+        <entry>concatenates array elements using supplied delimiter and
+         optional null string</entry>
+-->
+        <entry>配列の要素を提供された区切り文字、およびオプションで指定するNULL文字列を使用して連結</entry>
+        <entry><literal>array_to_string(ARRAY[1, 2, 3, NULL, 5], ',', '*')</literal></entry>
+        <entry><literal>1,2,3,*,5</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>array_upper</function>(<type>anyarray</type>, <type>int</type>)
+         </literal>
+        </entry>
+        <entry><type>int</type></entry>
+<!--
+        <entry>returns upper bound of the requested array dimension</entry>
+-->
+        <entry>指定次数での配列の添字の上限を返す</entry>
+        <entry><literal>array_upper(ARRAY[1,8,3,7], 1)</literal></entry>
+        <entry><literal>4</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>cardinality</function>(<type>anyarray</type>)
+         </literal>
+        </entry>
+        <entry><type>int</type></entry>
+<!--
+        <entry>returns the total number of elements in the array, or 0 if the array is empty</entry>
+-->
+        <entry>配列の中の要素の総数を返す。配列が空であれば0</entry>
+        <entry><literal>cardinality(ARRAY[[1,2],[3,4]])</literal></entry>
+        <entry><literal>4</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>string_to_array</function>(<type>text</type>, <type>text</type> <optional>, <type>text</type></optional>)
+         </literal>
+        </entry>
+        <entry><type>text[]</type></entry>
+<!--
+        <entry>splits string into array elements using supplied delimiter and
+         optional null string</entry>
+-->
+        <entry>提供された区切り文字、およびオプションで指定するNULL文字列を使用して、文字列を配列の要素に分割</entry>
+        <entry><literal>string_to_array('xx~^~yy~^~zz', '~^~', 'yy')</literal></entry>
+        <entry><literal>{xx,NULL,zz}</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>unnest</function>(<type>anyarray</type>)
+         </literal>
+        </entry>
+        <entry><type>setof anyelement</type></entry>
+<!--
+        <entry>expand an array to a set of rows</entry>
+-->
+        <entry>配列を行集合に展開</entry>
+        <entry><literal>unnest(ARRAY[1,2])</literal></entry>
+        <entry><literallayout class="monospaced">1
+2</literallayout>(2 rows)</entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>unnest</function>(<type>anyarray</type>, <type>anyarray</type> [, ...])
+         </literal>
+        </entry>
+        <entry><type>setof anyelement, anyelement [, ...]</type></entry>
+<!--
+        <entry>expand multiple arrays (possibly of different types) to a set
+         of rows.  This is only allowed in the FROM clause; see
+         <xref linkend="queries-tablefunctions"/></entry>
+-->
+        <entry>複数の配列(型が異なっているかもしれない)を行の集合に展開。これはFROM句の中でのみ使用可能。<xref linkend="queries-tablefunctions"/>を参照</entry>
+        <entry><literal>unnest(ARRAY[1,2],ARRAY['foo','bar','baz'])</literal></entry>
+        <entry><literallayout class="monospaced">1    foo
+2    bar
+NULL baz</literallayout>(3 rows)</entry>
+       </row>
+      </tbody>
+     </tgroup>
+    </table>
+
+   <para>
+<!--
+    In <function>array_position</function> and <function>array_positions</function>,
+    each array element is compared to the searched value using
+    <literal>IS NOT DISTINCT FROM</literal> semantics.
+-->
+<function>array_position</function>および<function>array_positions</function>では、各配列要素は検索する値と<literal>IS NOT DISTINCT FROM</literal>の意味を用いて比較されます。
+   </para>
+
+   <para>
+<!--
+    In <function>array_position</function>, <literal>NULL</literal> is returned
+    if the value is not found.
+-->
+<function>array_position</function>で値が見つからない時は<literal>NULL</literal>が返されます。
+   </para>
+
+   <para>
+<!--
+    In <function>array_positions</function>, <literal>NULL</literal> is returned
+    only if the array is <literal>NULL</literal>; if the value is not found in
+    the array, an empty array is returned instead.
+-->
+<function>array_positions</function>で<literal>NULL</literal>が返されるのは配列が<literal>NULL</literal>のときだけで、配列内に値が見つからない時は、空の配列が返されます。
+   </para>
+
+   <para>
+<!--
+    In <function>string_to_array</function>, if the delimiter parameter is
+    NULL, each character in the input string will become a separate element in
+    the resulting array.  If the delimiter is an empty string, then the entire
+    input string is returned as a one-element array.  Otherwise the input
+    string is split at each occurrence of the delimiter string.
+-->
+<function>string_to_array</function>では、区切り文字列がNULLの場合、入力された文字列の各々の文字が別々の要素となった配列を返します。
+区切り文字列が空文字列の場合、入力された文字列全体が一つの要素となる配列を返します。
+それ以外の場合、入力された文字列が区切り文字列のある箇所で分割されます。
+   </para>
+
+   <para>
+<!--
+    In <function>string_to_array</function>, if the null-string parameter
+    is omitted or NULL, none of the substrings of the input will be replaced
+    by NULL.
+    In <function>array_to_string</function>, if the null-string parameter
+    is omitted or NULL, any null elements in the array are simply skipped
+    and not represented in the output string.
+-->
+<function>string_to_array</function>では、NULL文字列パラメータが省略、もしくはNULLの指定がされた場合、入力文字列中の部分文字列がNULLに置換されることはありません。
+<function>array_to_string</function>では、NULL文字列パラメータが省略、もしくはNULLの指定がされた場合、配列中のNULL要素はスキップされ、出力文字列に現れません。
+   </para>
+
+   <note>
+    <para>
+<!--
+     There are two differences in the behavior of <function>string_to_array</function>
+     from pre-9.1 versions of <productname>PostgreSQL</productname>.
+     First, it will return an empty (zero-element) array rather than NULL when
+     the input string is of zero length.  Second, if the delimiter string is
+     NULL, the function splits the input into individual characters, rather
+     than returning NULL as before.
+-->
+<function>string_to_array</function>は、<productname>PostgreSQL</productname>9.1から、前のバージョンとは2つの異なる振る舞いするようになりました。
+1つ目は、入力した文字列長が0の場合、NULLを返すのではなく空の(要素数が0の)配列を返すようになりました。
+2つ目は区切り文字列がNULLの場合、以前はNULLを返していましたが9.1からは入力文字列を個別の文字に分割するようになりました。
+    </para>
+   </note>
+
+   <para>
+<!--
+    See also <xref linkend="functions-aggregate"/> about the aggregate
+    function <function>array_agg</function> for use with arrays.
+-->
+配列を使用する集約関数<function>array_agg</function>について、<xref linkend="functions-aggregate"/>も参照してください。
+   </para>
+  </sect1>
+
+ <sect1 id="functions-range">
+<!--
+  <title>Range Functions and Operators</title>
+-->
+  <title>範囲関数と演算子</title>
+
+  <para>
+<!--
+   See <xref linkend="rangetypes"/> for an overview of range types.
+-->
+範囲型の概要に関しては<xref linkend="rangetypes"/>を参照してください。
+  </para>
+
+  <para>
+<!--
+   <xref linkend="range-operators-table"/> shows the operators
+   available for range types.
+-->
+範囲型に対して利用可能な演算子を<xref linkend="range-operators-table"/>に示します。
+  </para>
+
+    <table id="range-operators-table">
+<!--
+     <title>Range Operators</title>
+-->
+     <title>範囲演算子</title>
+     <tgroup cols="4">
+      <thead>
+       <row>
+<!--
+        <entry>Operator</entry>
+        <entry>Description</entry>
+        <entry>Example</entry>
+        <entry>Result</entry>
+-->
+        <entry>演算子</entry>
+        <entry>説明</entry>
+        <entry>例</entry>
+        <entry>結果</entry>
+       </row>
+      </thead>
+      <tbody>
+       <row>
+        <entry> <literal>=</literal> </entry>
+<!--
+        <entry>equal</entry>
+-->
+        <entry>等しい</entry>
+        <entry><literal>int4range(1,5) = '[1,4]'::int4range</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&lt;&gt;</literal> </entry>
+<!--
+        <entry>not equal</entry>
+-->
+        <entry>等しくない</entry>
+        <entry><literal>numrange(1.1,2.2) &lt;&gt; numrange(1.1,2.3)</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&lt;</literal> </entry>
+<!--
+        <entry>less than</entry>
+-->
+        <entry>未満</entry>
+        <entry><literal>int4range(1,10) &lt; int4range(2,3)</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&gt;</literal> </entry>
+<!--
+        <entry>greater than</entry>
+-->
+        <entry>より大きい</entry>
+        <entry><literal>int4range(1,10) &gt; int4range(1,5)</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&lt;=</literal> </entry>
+<!--
+        <entry>less than or equal</entry>
+-->
+        <entry>以下</entry>
+        <entry><literal>numrange(1.1,2.2) &lt;= numrange(1.1,2.2)</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&gt;=</literal> </entry>
+<!--
+        <entry>greater than or equal</entry>
+-->
+        <entry>以上</entry>
+        <entry><literal>numrange(1.1,2.2) &gt;= numrange(1.1,2.0)</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>@&gt;</literal> </entry>
+<!--
+        <entry>contains range</entry>
+-->
+        <entry>範囲を包含する</entry>
+        <entry><literal>int4range(2,4) @&gt; int4range(2,3)</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>@&gt;</literal> </entry>
+<!--
+        <entry>contains element</entry>
+-->
+        <entry>要素を包含する</entry>
+        <entry><literal>'[2011-01-01,2011-03-01)'::tsrange @&gt; '2011-01-10'::timestamp</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&lt;@</literal> </entry>
+<!--
+        <entry>range is contained by</entry>
+-->
+        <entry>・・・により範囲が包含される</entry>
+        <entry><literal>int4range(2,4) &lt;@ int4range(1,7)</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&lt;@</literal> </entry>
+<!--
+        <entry>element is contained by</entry>
+-->
+        <entry>・・・により要素が包含される</entry>
+        <entry><literal>42 &lt;@ int4range(1,7)</literal></entry>
+        <entry><literal>f</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&amp;&amp;</literal> </entry>
+<!--
+        <entry>overlap (have points in common)</entry>
+-->
+        <entry>重複する(共通点を持つ)</entry>
+        <entry><literal>int8range(3,7) &amp;&amp; int8range(4,12)</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&lt;&lt;</literal> </entry>
+<!--
+        <entry>strictly left of</entry>
+-->
+        <entry>厳密に左に位置する</entry>
+        <entry><literal>int8range(1,10) &lt;&lt; int8range(100,110)</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&gt;&gt;</literal> </entry>
+<!--
+        <entry>strictly right of</entry>
+-->
+        <entry>厳密に右に位置する</entry>
+        <entry><literal>int8range(50,60) &gt;&gt; int8range(20,30)</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&amp;&lt;</literal> </entry>
+<!--
+        <entry>does not extend to the right of</entry>
+-->
+        <entry>右側を越えない</entry>
+        <entry><literal>int8range(1,20) &amp;&lt; int8range(18,20)</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>&amp;&gt;</literal> </entry>
+<!--
+        <entry>does not extend to the left of</entry>
+-->
+        <entry>左側を越えない</entry>
+        <entry><literal>int8range(7,20) &amp;&gt; int8range(5,10)</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>-|-</literal> </entry>
+<!--
+        <entry>is adjacent to</entry>
+-->
+        <entry>隣接する</entry>
+        <entry><literal>numrange(1.1,2.2) -|- numrange(2.2,3.3)</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>+</literal> </entry>
+<!--
+        <entry>union</entry>
+-->
+        <entry>範囲の結合</entry>
+        <entry><literal>numrange(5,15) + numrange(10,20)</literal></entry>
+        <entry><literal>[5,20)</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>*</literal> </entry>
+<!--
+        <entry>intersection</entry>
+-->
+        <entry>範囲の共通部分</entry>
+        <entry><literal>int8range(5,15) * int8range(10,20)</literal></entry>
+        <entry><literal>[10,15)</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>-</literal> </entry>
+<!--
+        <entry>difference</entry>
+-->
+        <entry>範囲の差分</entry>
+        <entry><literal>int8range(5,15) - int8range(10,20)</literal></entry>
+        <entry><literal>[5,10)</literal></entry>
+       </row>
+
+      </tbody>
+     </tgroup>
+    </table>
+
+  <para>
+<!--
+   The simple comparison operators <literal>&lt;</literal>,
+   <literal>&gt;</literal>, <literal>&lt;=</literal>, and
+   <literal>&gt;=</literal> compare the lower bounds first, and only if those
+   are equal, compare the upper bounds.  These comparisons are not usually
+   very useful for ranges, but are provided to allow B-tree indexes to be
+   constructed on ranges.
+-->
+単純な比較演算子である<literal>&lt;</literal>、<literal>&gt;</literal>、<literal>&lt;=</literal>そして<literal>&gt;=</literal>は、最初に下限の境界を比較し、それらが等しい場合のみ上限の境界を比較します。
+これらの比較演算子は、範囲型のデータに関しては大抵便利なものではありませんが、範囲型へB-treeインデックスを付与するのに必要なため提供されています。
+  </para>
+
+  <para>
+<!--
+   The left-of/right-of/adjacent operators always return false when an empty
+   range is involved; that is, an empty range is not considered to be either
+   before or after any other range.
+-->
+左に位置する/右に位置する/隣接する、の演算子は、範囲の一方が空の時は常に偽を返します。つまり、空の範囲に対しては、他のどの範囲の前後のどちらであるともみなされない、ということです。
+  </para>
+
+  <para>
+<!--
+   The union and difference operators will fail if the resulting range would
+   need to contain two disjoint sub-ranges, as such a range cannot be
+   represented.
+-->
+結合範囲と差分範囲演算子は、もし得られる結果が互いに離れた2つの範囲を含む必要がある場合、このような範囲を表現することができないためエラーとなります。
+  </para>
+
+  <para>
+<!--
+   <xref linkend="range-functions-table"/> shows the functions
+   available for use with range types.
+-->
+範囲型に対して利用可能な関数を<xref linkend="range-functions-table"/>に示します。
+  </para>
+
+  <indexterm>
+    <primary>lower</primary>
+  </indexterm>
+  <indexterm>
+    <primary>upper</primary>
+  </indexterm>
+  <indexterm>
+    <primary>isempty</primary>
+  </indexterm>
+  <indexterm>
+    <primary>lower_inc</primary>
+  </indexterm>
+  <indexterm>
+    <primary>upper_inc</primary>
+  </indexterm>
+  <indexterm>
+    <primary>lower_inf</primary>
+  </indexterm>
+  <indexterm>
+    <primary>upper_inf</primary>
+  </indexterm>
+
+    <table id="range-functions-table">
+<!--
+     <title>Range Functions</title>
+-->
+     <title>範囲関数</title>
+     <tgroup cols="5">
+      <thead>
+       <row>
+<!--
+        <entry>Function</entry>
+        <entry>Return Type</entry>
+        <entry>Description</entry>
+        <entry>Example</entry>
+        <entry>Result</entry>
+-->
+        <entry>関数</entry>
+        <entry>戻り値型</entry>
+        <entry>説明</entry>
+        <entry>例</entry>
+        <entry>結果</entry>
+       </row>
+      </thead>
+      <tbody>
+       <row>
+        <entry>
+         <literal>
+          <function>lower</function>(<type>anyrange</type>)
+         </literal>
+        </entry>
+<!--
+        <entry>range's element type</entry>
+        <entry>lower bound of range</entry>
+-->
+        <entry>範囲の要素の型</entry>
+        <entry>範囲の下限</entry>
+        <entry><literal>lower(numrange(1.1,2.2))</literal></entry>
+        <entry><literal>1.1</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>upper</function>(<type>anyrange</type>)
+         </literal>
+        </entry>
+<!--
+        <entry>range's element type</entry>
+        <entry>upper bound of range</entry>
+-->
+        <entry>範囲の要素の型</entry>
+        <entry>範囲の上限</entry>
+        <entry><literal>upper(numrange(1.1,2.2))</literal></entry>
+        <entry><literal>2.2</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>isempty</function>(<type>anyrange</type>)
+         </literal>
+        </entry>
+        <entry><type>boolean</type></entry>
+<!--
+        <entry>is the range empty?</entry>
+-->
+        <entry>空の範囲か？</entry>
+        <entry><literal>isempty(numrange(1.1,2.2))</literal></entry>
+        <entry><literal>false</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>lower_inc</function>(<type>anyrange</type>)
+         </literal>
+        </entry>
+        <entry><type>boolean</type></entry>
+<!--
+        <entry>is the lower bound inclusive?</entry>
+-->
+        <entry>下限は範囲に含まれるか？</entry>
+        <entry><literal>lower_inc(numrange(1.1,2.2))</literal></entry>
+        <entry><literal>true</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>upper_inc</function>(<type>anyrange</type>)
+         </literal>
+        </entry>
+        <entry><type>boolean</type></entry>
+<!--
+        <entry>is the upper bound inclusive?</entry>
+-->
+        <entry>上限は範囲に含まれるか？</entry>
+        <entry><literal>upper_inc(numrange(1.1,2.2))</literal></entry>
+        <entry><literal>false</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>lower_inf</function>(<type>anyrange</type>)
+         </literal>
+        </entry>
+        <entry><type>boolean</type></entry>
+<!--
+        <entry>is the lower bound infinite?</entry>
+-->
+        <entry>下限は無限大か？</entry>
+        <entry><literal>lower_inf('(,)'::daterange)</literal></entry>
+        <entry><literal>true</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>upper_inf</function>(<type>anyrange</type>)
+         </literal>
+        </entry>
+        <entry><type>boolean</type></entry>
+<!--
+        <entry>is the upper bound infinite?</entry>
+-->
+        <entry>上限は無限大か？</entry>
+        <entry><literal>upper_inf('(,)'::daterange)</literal></entry>
+        <entry><literal>true</literal></entry>
+       </row>
+       <row>
+        <entry>
+         <literal>
+          <function>range_merge</function>(<type>anyrange</type>, <type>anyrange</type>)
+         </literal>
+        </entry>
+        <entry><type>anyrange</type></entry>
+<!--
+        <entry>the smallest range which includes both of the given ranges</entry>
+-->
+        <entry>両方の範囲を含む最小の範囲</entry>
+        <entry><literal>range_merge('[1,2)'::int4range, '[3,4)'::int4range)</literal></entry>
+        <entry><literal>[1,4)</literal></entry>
+       </row>
+      </tbody>
+     </tgroup>
+    </table>
+
+  <para>
+<!--
+   The <function>lower</function> and  <function>upper</function> functions return null
+   if the range is empty or the requested bound is infinite.
+   The <function>lower_inc</function>, <function>upper_inc</function>,
+   <function>lower_inf</function>, and <function>upper_inf</function>
+   functions all return false for an empty range.
+-->
+<function>lower</function>と<function>upper</function>関数は、範囲が空の場合および対象の境界が無限大の場合は、NULLを返します。
+<function>lower_inc</function>、<function>upper_inc</function>、<function>lower_inf</function>、そして<function>upper_inf</function>関数は、空の範囲に対しては全て偽を返します。
+  </para>
+  </sect1>
+
+ <sect1 id="functions-aggregate">
+<!--
+  <title>Aggregate Functions</title>
+-->
+  <title>集約関数</title>
+
+  <indexterm zone="functions-aggregate">
+<!--
+   <primary>aggregate function</primary>
+   <secondary>built-in</secondary>
+-->
+   <primary>集約関数</primary>
+   <secondary>組み込み</secondary>
+  </indexterm>
+
+  <para>
+<!--
+   <firstterm>Aggregate functions</firstterm> compute a single result
+   from a set of input values.  The built-in general-purpose aggregate
+   functions are listed in <xref linkend="functions-aggregate-table"/>
+   and statistical aggregates in <xref
+   linkend="functions-aggregate-statistics-table"/>.
+   The built-in within-group ordered-set aggregate functions
+   are listed in <xref linkend="functions-orderedset-table"/>
+   while the built-in within-group hypothetical-set ones are in <xref
+   linkend="functions-hypothetical-table"/>.  Grouping operations,
+   which are closely related to aggregate functions, are listed in
+   <xref linkend="functions-grouping-table"/>.
+   The special syntax considerations for aggregate
+   functions are explained in <xref linkend="syntax-aggregates"/>.
+   Consult <xref linkend="tutorial-agg"/> for additional introductory
+   information.
+-->
+<firstterm>集約関数</firstterm>は入力値の集合から単一の結果を計算します。
+<xref linkend="functions-aggregate-table"/>に組み込みの汎用的な集約関数を、<xref linkend="functions-aggregate-statistics-table"/>に統計集約関数を示します。
+<xref linkend="functions-orderedset-table"/>には組み込みのグループ内順序集合集約関数を、一方<xref linkend="functions-hypothetical-table"/>には組み込みのグループ内仮想集合用の順序集約関数を示します。
+<xref linkend="functions-grouping-table"/>には、集約関数と密接に関係するグループ化演算を示します。
+集約関数の特殊な構文に関する考察は<xref linkend="syntax-aggregates"/>で説明されています。
+また、初歩的な情報については<xref linkend="tutorial-agg"/>を参照して下さい。
+  </para>
+
+  <table id="functions-aggregate-table">
+<!--
+   <title>General-Purpose Aggregate Functions</title>
+-->
+   <title>汎用集約関数</title>
+
+   <tgroup cols="5">
+    <thead>
+     <row>
+<!--
+      <entry>Function</entry>
+      <entry>Argument Type(s)</entry>
+      <entry>Return Type</entry>
+      <entry>Partial Mode</entry>
+      <entry>Description</entry>
+-->
+      <entry>関数</entry>
+      <entry>引数のデータ型</entry>
+      <entry>戻り値型</entry>
+      <entry>部分モード</entry>
+      <entry>説明</entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry>
+       <indexterm>
+        <primary>array_agg</primary>
+       </indexterm>
+       <function>array_agg(<replaceable class="parameter">expression</replaceable>)</function>
+      </entry>
+      <entry>
+<!--
+       any non-array type
+-->
+配列以外の任意の型
+      </entry>
+      <entry>
+<!--
+       array of the argument type
+-->
+       引数の型の配列
+      </entry>
+<!--
+      <entry>No</entry>
+      <entry>input values, including nulls, concatenated into an array</entry>
+-->
+      <entry>不可</entry>
+      <entry>NULLを含めて入力値が結合された配列</entry>
+     </row>
+
+     <row>
+      <entry>
+       <function>array_agg(<replaceable class="parameter">expression</replaceable>)</function>
+      </entry>
+      <entry>
+<!--
+       any array type
+-->
+任意の配列型
+      </entry>
+      <entry>
+<!--
+       same as argument data type
+-->
+引数と同じデータ型
+      </entry>
+<!--
+      <entry>No</entry>
+      <entry>input arrays concatenated into array of one higher dimension
+       (inputs must all have same dimensionality,
+        and cannot be empty or NULL)</entry>
+-->
+      <entry>不可</entry>
+      <entry>入力配列が結合された、1次元高い配列（入力はすべて同じ次元であり、空やNULLではないこと）</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>average</primary>
+       </indexterm>
+       <indexterm>
+        <primary>avg</primary>
+       </indexterm>
+       <function>avg(<replaceable class="parameter">expression</replaceable>)</function>
+      </entry>
+      <entry>
+<!--
+       <type>smallint</type>, <type>int</type>,
+       <type>bigint</type>, <type>real</type>, <type>double
+       precision</type>, <type>numeric</type>, or <type>interval</type>
+-->
+       <type>smallint</type>、<type>int</type>、<type>bigint</type>、<type>real</type>、<type>double precision</type>、<type>numeric</type>、または<type>interval</type>
+      </entry>
+      <entry>
+<!--
+       <type>numeric</type> for any integer-type argument,
+       <type>double precision</type> for a floating-point argument,
+       otherwise the same as the argument data type
+-->
+       整数型の引数であれば全て<type>numeric</type>、浮動小数点の引数であれば<type>double precision</type>、それ以外は引数のデータ型と同じ
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>the average (arithmetic mean) of all input values</entry>
+-->
+      <entry>可</entry>
+      <entry>全ての入力値の平均値（算術平均）</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>bit_and</primary>
+       </indexterm>
+       <function>bit_and(<replaceable class="parameter">expression</replaceable>)</function>
+      </entry>
+      <entry>
+<!--
+       <type>smallint</type>, <type>int</type>, <type>bigint</type>, or
+       <type>bit</type>
+-->
+       <type>smallint</type>、<type>int</type>、<type>bigint</type>、または<type>bit</type>
+      </entry>
+      <entry>
+<!--
+        same as argument data type
+-->
+        引数のデータ型と同じ
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>the bitwise AND of all non-null input values, or null if none</entry>
+-->
+      <entry>可</entry>
+      <entry>全ての非NULLの入力値のビット積、非NULLの入力値がなければNULL</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>bit_or</primary>
+       </indexterm>
+       <function>bit_or(<replaceable class="parameter">expression</replaceable>)</function>
+      </entry>
+      <entry>
+<!--
+       <type>smallint</type>, <type>int</type>, <type>bigint</type>, or
+       <type>bit</type>
+-->
+       <type>smallint</type>、<type>int</type>、<type>bigint</type>、または
+       <type>bit</type>
+      </entry>
+      <entry>
+<!--
+        same as argument data type
+-->
+        引数のデータ型と同じ
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>the bitwise OR of all non-null input values, or null if none</entry>
+-->
+      <entry>可</entry>
+      <entry>全ての非NULLの入力値のビット和、非NULLの入力値がなければNULL</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>bool_and</primary>
+       </indexterm>
+       <function>bool_and(<replaceable class="parameter">expression</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>bool</type>
+      </entry>
+      <entry>
+       <type>bool</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>true if all input values are true, otherwise false</entry>
+-->
+      <entry>可</entry>
+      <entry>全ての入力が真ならば真、そうでなければ偽</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>bool_or</primary>
+       </indexterm>
+       <function>bool_or(<replaceable class="parameter">expression</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>bool</type>
+      </entry>
+      <entry>
+       <type>bool</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>true if at least one input value is true, otherwise false</entry>
+-->
+      <entry>可</entry>
+      <entry>少なくとも1つの入力値が真ならば真。そうでなければ偽</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>count</primary>
+       </indexterm>
+       <function>count(*)</function>
+      </entry>
+      <entry></entry>
+      <entry><type>bigint</type></entry>
+<!--
+      <entry>Yes</entry>
+      <entry>number of input rows</entry>
+-->
+      <entry>可</entry>
+      <entry>入力行の数</entry>
+     </row>
+
+     <row>
+      <entry><function>count(<replaceable class="parameter">expression</replaceable>)</function></entry>
+<!--
+      <entry>any</entry>
+-->
+      <entry>任意の型</entry>
+      <entry><type>bigint</type></entry>
+<!--
+      <entry>Yes</entry>
+-->
+      <entry>可</entry>
+      <entry>
+<!--
+       number of input rows for which the value of <replaceable
+       class="parameter">expression</replaceable> is not null
+-->
+       <replaceable class="parameter">expression</replaceable>が非NULL値を持つ入力行の個数
+      </entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>every</primary>
+       </indexterm>
+       <function>every(<replaceable class="parameter">expression</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>bool</type>
+      </entry>
+      <entry>
+       <type>bool</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>equivalent to <function>bool_and</function></entry>
+-->
+      <entry>可</entry>
+      <entry><function>bool_and</function>と等価</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>json_agg</primary>
+       </indexterm>
+       <function>json_agg(<replaceable class="parameter">expression</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>any</type>
+      </entry>
+      <entry>
+       <type>json</type>
+      </entry>
+<!--
+      <entry>No</entry>
+      <entry>aggregates values as a JSON array</entry>
+-->
+      <entry>不可</entry>
+      <entry>JSON配列として値を集約</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>jsonb_agg</primary>
+       </indexterm>
+       <function>jsonb_agg(<replaceable class="parameter">expression</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>any</type>
+      </entry>
+      <entry>
+       <type>jsonb</type>
+      </entry>
+<!--
+      <entry>No</entry>
+      <entry>aggregates values as a JSON array</entry>
+-->
+      <entry>不可</entry>
+      <entry>値をJSON配列として集約する</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>json_object_agg</primary>
+       </indexterm>
+       <function>json_object_agg(<replaceable class="parameter">name</replaceable>, <replaceable class="parameter">value</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>(any, any)</type>
+      </entry>
+      <entry>
+       <type>json</type>
+      </entry>
+<!--
+      <entry>No</entry>
+      <entry>aggregates name/value pairs as a JSON object</entry>
+-->
+      <entry>不可</entry>
+      <entry>名前／値の対をJSONオブジェクトとして集約</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>jsonb_object_agg</primary>
+       </indexterm>
+       <function>jsonb_object_agg(<replaceable class="parameter">name</replaceable>, <replaceable class="parameter">value</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>(any, any)</type>
+      </entry>
+      <entry>
+       <type>jsonb</type>
+      </entry>
+<!--
+      <entry>No</entry>
+      <entry>aggregates name/value pairs as a JSON object</entry>
+-->
+      <entry>不可</entry>
+      <entry>名前／値のペアをJSONオブジェクトとして集約</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>max</primary>
+       </indexterm>
+       <function>max(<replaceable class="parameter">expression</replaceable>)</function>
+      </entry>
+<!--
+      <entry>any numeric, string, date/time, network, or enum type,
+             or arrays of these types</entry>
+-->
+      <entry>任意の数値型、文字列型、日付時刻型、ネットワーク型、列挙型、あるいはそれらの配列</entry>
+<!--
+      <entry>same as argument type</entry>
+      <entry>Yes</entry>
+-->
+      <entry>引数の型と同じ</entry>
+      <entry>可</entry>
+      <entry>
+<!--
+       maximum value of <replaceable
+       class="parameter">expression</replaceable> across all input
+       values
+-->
+       全ての入力値にわたり<replaceable class="parameter">expression</replaceable>の最大値
+      </entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>min</primary>
+       </indexterm>
+       <function>min(<replaceable class="parameter">expression</replaceable>)</function>
+      </entry>
+<!--
+      <entry>any numeric, string, date/time, network, or enum type,
+             or arrays of these types</entry>
+-->
+      <entry>任意の数値型、文字列型、日付時刻型、ネットワーク型、列挙型、あるいはそれらの配列</entry>
+<!--
+      <entry>same as argument type</entry>
+      <entry>Yes</entry>
+-->
+      <entry>引数の型と同じ</entry>
+      <entry>可</entry>
+      <entry>
+<!--
+       minimum value of <replaceable
+       class="parameter">expression</replaceable> across all input
+       values
+-->
+       全ての入力値にわたり<replaceable class="parameter">expression</replaceable>の最小値
+      </entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>string_agg</primary>
+       </indexterm>
+       <function>
+         string_agg(<replaceable class="parameter">expression</replaceable>,
+                    <replaceable class="parameter">delimiter</replaceable>)
+       </function>
+      </entry>
+      <entry>
+<!--
+       (<type>text</type>, <type>text</type>) or (<type>bytea</type>, <type>bytea</type>)
+-->
+       (<type>text</type>, <type>text</type>)または(<type>bytea</type>, <type>bytea</type>)
+      </entry>
+      <entry>
+<!--
+       same as argument types
+-->
+       引数と同じ型
+      </entry>
+<!--
+      <entry>No</entry>
+      <entry>input values concatenated into a string, separated by delimiter</entry>
+-->
+      <entry>不可</entry>
+      <entry>入力された値が指定したデリミタで区切られた一つの文字列に連結されます。</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>sum</primary>
+       </indexterm>
+       <function>sum(<replaceable class="parameter">expression</replaceable>)</function>
+      </entry>
+      <entry>
+<!--
+       <type>smallint</type>, <type>int</type>,
+       <type>bigint</type>, <type>real</type>, <type>double
+       precision</type>, <type>numeric</type>,
+       <type>interval</type>, or <type>money</type>
+-->
+       <type>smallint</type>、<type>int</type>、<type>bigint</type>、<type>real</type>、<type>double precision</type>、<type>numeric</type>、<type>interval</type>または<type>money</type>
+      </entry>
+      <entry>
+<!--
+       <type>bigint</type> for <type>smallint</type> or
+       <type>int</type> arguments, <type>numeric</type> for
+       <type>bigint</type> arguments, otherwise the same as the
+       argument data type
+-->
+       <type>smallint</type>または<type>int</type>型の引数であれば<type>bigint</type>、<type>bigint</type>型の引数であれば<type>numeric</type>、それ以外は引数のデータ型と同じ
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>sum of <replaceable class="parameter">expression</replaceable> across all input values</entry>
+-->
+      <entry>可</entry>
+      <entry>全ての入力値に渡り<replaceable class="parameter">expression</replaceable>の和</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>xmlagg</primary>
+       </indexterm>
+       <function>xmlagg(<replaceable class="parameter">expression</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>xml</type>
+      </entry>
+      <entry>
+       <type>xml</type>
+      </entry>
+<!--
+      <entry>No</entry>
+      <entry>concatenation of XML values (see also <xref linkend="functions-xml-xmlagg"/>)</entry>
+-->
+      <entry>不可</entry>
+      <entry>XML値の連結（ <xref linkend="functions-xml-xmlagg"/>も参照）</entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+<!--
+   It should be noted that except for <function>count</function>,
+   these functions return a null value when no rows are selected.  In
+   particular, <function>sum</function> of no rows returns null, not
+   zero as one might expect, and <function>array_agg</function>
+   returns null rather than an empty array when there are no input
+   rows.  The <function>coalesce</function> function can be used to
+   substitute zero or an empty array for null when necessary.
+-->
+上記の関数は、<function>count</function>関数を除き、1行も選択されなかった場合NULL値を返すことに注意してください。
+特に、行の選択がない<function>sum</function>関数は、予想されるであろうゼロではなくNULLを返し、そして<function>array_agg</function>は、入力行が存在しない場合に、空配列ではなくNULLを返します。
+必要であれば、NULLをゼロまたは空配列と置換する目的で<function>coalesce</function>関数を使うことができます。
+  </para>
+
+  <para>
+<!--
+   Aggregate functions which support <firstterm>Partial Mode</firstterm>
+   are eligible to participate in various optimizations, such as parallel
+   aggregation.
+-->
+<firstterm>部分モード</firstterm>をサポートする集約関数は並列集約など、様々な最適化に参加することができます。
+  </para>
+
+  <note>
+    <indexterm>
+      <primary>ANY</primary>
+    </indexterm>
+    <indexterm>
+      <primary>SOME</primary>
+    </indexterm>
+    <para>
+<!--
+      Boolean aggregates <function>bool_and</function> and
+      <function>bool_or</function> correspond to standard SQL aggregates
+      <function>every</function> and <function>any</function> or
+      <function>some</function>.
+      As for <function>any</function> and <function>some</function>,
+      it seems that there is an ambiguity built into the standard syntax:
+-->
+<function>bool_and</function>、<function>bool_or</function>論理集約関数は標準SQLの集約関数<function>every</function>、<function>any</function>または<function>some</function>に対応します。
+<function>any</function>と<function>some</function>についてですが、標準の構文には曖昧さがあるようです。
+<programlisting>
+SELECT b1 = ANY((SELECT b2 FROM t2 ...)) FROM t1 ...;
+</programlisting>
+<!--
+      Here <function>ANY</function> can be considered either as introducing
+      a subquery, or as being an aggregate function, if the subquery
+      returns one row with a Boolean value.
+      Thus the standard name cannot be given to these aggregates.
+-->
+ここで、副問い合わせが論理値での１行を返す場合、<function>ANY</function>は副問い合わせを導入するもの、もしくは集約関数であるものいずれかとみなすことができます。
+従って、これらの集約関数に標準の名前を付けることはできません。
+    </para>
+  </note>
+
+  <note>
+   <para>
+<!--
+    Users accustomed to working with other SQL database management
+    systems might be disappointed by the performance of the
+    <function>count</function> aggregate when it is applied to the
+    entire table. A query like:
+-->
+他のSQLデータベース管理システムでの作業に親しんだユーザは、<function>count</function>集約関数がテーブル全体に適用される場合の性能に失望するかも知れません。
+<programlisting>
+SELECT count(*) FROM sometable;
+</programlisting>
+<!--
+    will require effort proportional to the size of the table:
+    <productname>PostgreSQL</productname> will need to scan either the
+    entire table or the entirety of an index which includes all rows in
+    the table.
+-->
+のような問い合わせはテーブルサイズに比例した労力が必要です。<productname>PostgreSQL</productname>はテーブル全体か、そのテーブルの全ての行を含んだインデックス全体のスキャンを必要とします。
+
+   </para>
+  </note>
+
+  <para>
+<!--
+   The aggregate functions <function>array_agg</function>,
+   <function>json_agg</function>, <function>jsonb_agg</function>,
+   <function>json_object_agg</function>, <function>jsonb_object_agg</function>,
+   <function>string_agg</function>,
+   and <function>xmlagg</function>, as well as similar user-defined
+   aggregate functions, produce meaningfully different result values
+   depending on the order of the input values.  This ordering is
+   unspecified by default, but can be controlled by writing an
+   <literal>ORDER BY</literal> clause within the aggregate call, as shown in
+   <xref linkend="syntax-aggregates"/>.
+   Alternatively, supplying the input values from a sorted subquery
+   will usually work.  For example:
+-->
+集約関数<function>array_agg</function>、<function>json_agg</function>、<function>jsonb_agg</function>、<function>json_object_agg</function>、<function>jsonb_object_agg</function>、<function>string_agg</function>、および<function>xmlagg</function>、そして類似のユーザ定義の集約関数は、入力値の順序に依存した意味のある別の結果値を生成します。
+この並び順はデフォルトでは指定されませんが、<xref linkend="syntax-aggregates"/>に記述されているように、集計呼び出し中に<literal>ORDER BY</literal>句を書くことで制御可能となります。別の方法として、並び替えられた副問い合わせから入力値を供給することでも上手くいきます。
+例をあげます。
+
+<screen><![CDATA[
+SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
+]]></screen>
+
+<!--
+   Beware that this approach can fail if the outer query level contains
+   additional processing, such as a join, because that might cause the
+   subquery's output to be reordered before the aggregate is computed.
+-->
+外側の問い合わせのレベルで結合などの追加処理がある場合、この方法は失敗するかもしれないことに注意して下さい。
+なぜなら、集約の計算の前に副問い合わせの出力を並べ替える必要があるかも知れないからです。
+  </para>
+
+  <para>
+<!--
+   <xref linkend="functions-aggregate-statistics-table"/> shows
+   aggregate functions typically used in statistical analysis.
+   (These are separated out merely to avoid cluttering the listing
+   of more-commonly-used aggregates.)  Where the description mentions
+   <replaceable class="parameter">N</replaceable>, it means the
+   number of input rows for which all the input expressions are non-null.
+   In all cases, null is returned if the computation is meaningless,
+   for example when <replaceable class="parameter">N</replaceable> is zero.
+-->
+統計解析処理によく使用される集約関数を<xref linkend="functions-aggregate-statistics-table"/>に示します。
+（これらは、より一般的に使用される集約関数との混乱を防ぐために別出ししました。）
+説明の部分における<replaceable class="parameter">N</replaceable>は、すべての入力式が非NULLの入力行の個数を表します。
+すべての場合にて、例えば<replaceable class="parameter">N</replaceable>が0の時など計算が無意味である場合にはNULLが返されます。
+  </para>
+
+  <indexterm>
+<!--
+   <primary>statistics</primary>
+-->
+   <primary>統計処理</primary>
+  </indexterm>
+  <indexterm>
+<!--
+   <primary>linear regression</primary>
+-->
+   <primary>線形リグレッション</primary>
+  </indexterm>
+
+  <table id="functions-aggregate-statistics-table">
+<!--
+   <title>Aggregate Functions for Statistics</title>
+-->
+   <title>統計処理用の集約関数</title>
+
+   <tgroup cols="5">
+    <thead>
+     <row>
+<!--
+      <entry>Function</entry>
+      <entry>Argument Type</entry>
+      <entry>Return Type</entry>
+      <entry>Partial Mode</entry>
+      <entry>Description</entry>
+-->
+      <entry>関数</entry>
+      <entry>引数の型</entry>
+      <entry>戻り値の型</entry>
+      <entry>部分モード</entry>
+      <entry>説明</entry>
+     </row>
+    </thead>
+
+    <tbody>
+
+     <row>
+      <entry>
+       <indexterm>
+<!--
+        <primary>correlation</primary>
+-->
+        <primary>相関</primary>
+       </indexterm>
+       <indexterm>
+        <primary>corr</primary>
+       </indexterm>
+       <function>corr(<replaceable class="parameter">Y</replaceable>, <replaceable class="parameter">X</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>correlation coefficient</entry>
+-->
+      <entry>可</entry>
+      <entry>相関係数</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+<!--
+        <primary>covariance</primary>
+        <secondary>population</secondary>
+-->
+        <primary>共分散</primary>
+        <secondary>母集団</secondary>
+       </indexterm>
+       <indexterm>
+        <primary>covar_pop</primary>
+       </indexterm>
+       <function>covar_pop(<replaceable class="parameter">Y</replaceable>, <replaceable class="parameter">X</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>population covariance</entry>
+-->
+      <entry>可</entry>
+      <entry>母共分散</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+<!--
+        <primary>covariance</primary>
+        <secondary>sample</secondary>
+-->
+        <primary>共分散</primary>
+        <secondary>標本</secondary>
+       </indexterm>
+       <indexterm>
+        <primary>covar_samp</primary>
+       </indexterm>
+       <function>covar_samp(<replaceable class="parameter">Y</replaceable>, <replaceable class="parameter">X</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>sample covariance</entry>
+-->
+      <entry>可</entry>
+      <entry>標本共分散</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>regr_avgx</primary>
+       </indexterm>
+       <function>regr_avgx(<replaceable class="parameter">Y</replaceable>, <replaceable class="parameter">X</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>average of the independent variable
+      (<literal>sum(<replaceable class="parameter">X</replaceable>)/<replaceable class="parameter">N</replaceable></literal>)</entry>
+-->
+      <entry>可</entry>
+      <entry>独立変数の平均値
+      (<literal>sum(<replaceable class="parameter">X</replaceable>)/<replaceable class="parameter">N</replaceable></literal>)</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>regr_avgy</primary>
+       </indexterm>
+       <function>regr_avgy(<replaceable class="parameter">Y</replaceable>, <replaceable class="parameter">X</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>average of the dependent variable
+      (<literal>sum(<replaceable class="parameter">Y</replaceable>)/<replaceable class="parameter">N</replaceable></literal>)</entry>
+-->
+      <entry>可</entry>
+      <entry>従属変数の平均値
+      (<literal>sum(<replaceable class="parameter">Y</replaceable>)/<replaceable class="parameter">N</replaceable></literal>)</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>regr_count</primary>
+       </indexterm>
+       <function>regr_count(<replaceable class="parameter">Y</replaceable>, <replaceable class="parameter">X</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+      <entry>
+       <type>bigint</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>number of input rows in which both expressions are nonnull</entry>
+-->
+      <entry>可</entry>
+      <entry>両式が非NULLとなる入力行の個数</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+<!--
+        <primary>regression intercept</primary>
+-->
+        <primary>回帰切片</primary>
+       </indexterm>
+       <indexterm>
+        <primary>regr_intercept</primary>
+       </indexterm>
+       <function>regr_intercept(<replaceable class="parameter">Y</replaceable>, <replaceable class="parameter">X</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>y-intercept of the least-squares-fit linear equation
+      determined by the (<replaceable
+      class="parameter">X</replaceable>, <replaceable
+      class="parameter">Y</replaceable>) pairs</entry>
+-->
+      <entry>可</entry>
+      <entry>(<replaceable class="parameter">X</replaceable>, <replaceable class="parameter">Y</replaceable>)の組み合わせで決まる、最小二乗法による線形方程式のY切片</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>regr_r2</primary>
+       </indexterm>
+       <function>regr_r2(<replaceable class="parameter">Y</replaceable>, <replaceable class="parameter">X</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>square of the correlation coefficient</entry>
+-->
+      <entry>可</entry>
+      <entry>相関係数の二乗</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+<!--
+        <primary>regression slope</primary>
+-->
+        <primary>回帰勾配</primary>
+       </indexterm>
+       <indexterm>
+        <primary>regr_slope</primary>
+       </indexterm>
+       <function>regr_slope(<replaceable class="parameter">Y</replaceable>, <replaceable class="parameter">X</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>slope of the least-squares-fit linear equation determined
+      by the (<replaceable class="parameter">X</replaceable>,
+      <replaceable class="parameter">Y</replaceable>) pairs</entry>
+-->
+      <entry>可</entry>
+      <entry><replaceable class="parameter">X</replaceable>, <replaceable class="parameter">Y</replaceable>)の組み合わせで決まる、最小二乗法による線型方程式の傾き</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>regr_sxx</primary>
+       </indexterm>
+       <function>regr_sxx(<replaceable class="parameter">Y</replaceable>, <replaceable class="parameter">X</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry><literal>sum(<replaceable
+      class="parameter">X</replaceable>^2) - sum(<replaceable
+      class="parameter">X</replaceable>)^2/<replaceable
+      class="parameter">N</replaceable></literal> (<quote>sum of
+      squares</quote> of the independent variable)</entry>
+-->
+      <entry>可</entry>
+      <entry><literal>sum(<replaceable
+      class="parameter">X</replaceable>^2) - sum(<replaceable
+      class="parameter">X</replaceable>)^2/<replaceable
+      class="parameter">N</replaceable></literal>
+     （従属変数の<quote>二乗和</quote>）
+     </entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>regr_sxy</primary>
+       </indexterm>
+       <function>regr_sxy(<replaceable class="parameter">Y</replaceable>, <replaceable class="parameter">X</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry><literal>sum(<replaceable
+      class="parameter">X</replaceable>*<replaceable
+      class="parameter">Y</replaceable>) - sum(<replaceable
+      class="parameter">X</replaceable>) * sum(<replaceable
+      class="parameter">Y</replaceable>)/<replaceable
+      class="parameter">N</replaceable></literal> (<quote>sum of
+      products</quote> of independent times dependent
+      variable)</entry>
+-->
+      <entry>可</entry>
+      <entry><literal>sum(<replaceable
+      class="parameter">X</replaceable>*<replaceable
+      class="parameter">Y</replaceable>) - sum(<replaceable
+      class="parameter">X</replaceable>) * sum(<replaceable
+      class="parameter">Y</replaceable>)/<replaceable
+      class="parameter">N</replaceable></literal>
+     （従属変数と独立変数の<quote>積の和</quote>）
+      </entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>regr_syy</primary>
+       </indexterm>
+       <function>regr_syy(<replaceable class="parameter">Y</replaceable>, <replaceable class="parameter">X</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry><literal>sum(<replaceable
+      class="parameter">Y</replaceable>^2) - sum(<replaceable
+      class="parameter">Y</replaceable>)^2/<replaceable
+      class="parameter">N</replaceable></literal> (<quote>sum of
+      squares</quote> of the dependent variable)</entry>
+-->
+      <entry>可</entry>
+      <entry><literal>sum(<replaceable
+      class="parameter">Y</replaceable>^2) - sum(<replaceable
+      class="parameter">Y</replaceable>)^2/<replaceable
+      class="parameter">N</replaceable></literal>
+     （独立変数の<quote>二乗和</quote>）</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+<!--
+        <primary>standard deviation</primary>
+-->
+        <primary>標準偏差</primary>
+       </indexterm>
+       <indexterm>
+        <primary>stddev</primary>
+       </indexterm>
+       <function>stddev(<replaceable class="parameter">expression</replaceable>)</function>
+      </entry>
+      <entry>
+<!--
+       <type>smallint</type>, <type>int</type>,
+       <type>bigint</type>, <type>real</type>, <type>double
+       precision</type>, or <type>numeric</type>
+-->
+       <type>smallint</type>、<type>int</type>、
+       <type>bigint</type>、<type>real</type>、<type>double
+       precision</type>、または<type>numeric</type>
+      </entry>
+      <entry>
+<!--
+       <type>double precision</type> for floating-point arguments,
+       otherwise <type>numeric</type>
+-->
+       浮動小数点型の引数では<type>double precision</type>。それ以外では<type>numeric</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>historical alias for <function>stddev_samp</function></entry>
+-->
+      <entry>可</entry>
+      <entry><function>stddev_samp</function>の歴史的な別名</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+<!--
+        <primary>standard deviation</primary>
+-->
+    <primary>標準偏差</primary>
+<!--
+        <secondary>population</secondary>
+-->
+    <secondary>母集団</secondary>
+       </indexterm>
+       <indexterm>
+        <primary>stddev_pop</primary>
+       </indexterm>
+       <function>stddev_pop(<replaceable class="parameter">expression</replaceable>)</function>
+      </entry>
+      <entry>
+<!--
+       <type>smallint</type>, <type>int</type>,
+       <type>bigint</type>, <type>real</type>, <type>double
+       precision</type>, or <type>numeric</type>
+-->
+       <type>smallint</type>、<type>int</type>、
+       <type>bigint</type>、<type>real</type>、<type>double
+       precision</type>、または<type>numeric</type>
+      </entry>
+      <entry>
+<!--
+       <type>double precision</type> for floating-point arguments,
+       otherwise <type>numeric</type>
+-->
+       浮動小数点型の引数では<type>double precision</type>。それ以外では<type>numeric</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>population standard deviation of the input values</entry>
+-->
+      <entry>可</entry>
+      <entry>入力値に対する母標準偏差</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+<!--
+        <primary>standard deviation</primary>
+        <secondary>sample</secondary>
+-->
+        <primary>標準偏差</primary>
+        <secondary>標本</secondary>
+       </indexterm>
+       <indexterm>
+        <primary>stddev_samp</primary>
+       </indexterm>
+       <function>stddev_samp(<replaceable class="parameter">expression</replaceable>)</function>
+      </entry>
+      <entry>
+<!--
+       <type>smallint</type>, <type>int</type>,
+       <type>bigint</type>, <type>real</type>, <type>double
+       precision</type>, or <type>numeric</type>
+-->
+       <type>smallint</type>、<type>int</type>、
+       <type>bigint</type>、<type>real</type>、<type>double
+       precision</type>、または<type>numeric</type>
+      </entry>
+      <entry>
+<!--
+       <type>double precision</type> for floating-point arguments,
+       otherwise <type>numeric</type>
+-->
+       浮動小数点型の引数では<type>double precision</type>。それ以外では<type>numeric</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>sample standard deviation of the input values</entry>
+-->
+      <entry>可</entry>
+      <entry>入力値に対する標本標準偏差</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+<!--
+        <primary>variance</primary>
+-->
+        <primary>分散</primary>
+       </indexterm>
+       <function>variance</function>(<replaceable class="parameter">expression</replaceable>)
+      </entry>
+      <entry>
+<!--
+       <type>smallint</type>, <type>int</type>,
+       <type>bigint</type>, <type>real</type>, <type>double
+       precision</type>, or <type>numeric</type>
+-->
+       <type>smallint</type>、<type>int</type>、
+       <type>bigint</type>、<type>real</type>、<type>double
+       precision</type>、または<type>numeric</type>
+      </entry>
+      <entry>
+<!--
+       <type>double precision</type> for floating-point arguments,
+       otherwise <type>numeric</type>
+-->
+       浮動小数点型の引数では<type>double precision</type>。それ以外では<type>numeric</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>historical alias for <function>var_samp</function></entry>
+-->
+      <entry>可</entry>
+      <entry><function>var_samp</function>の歴史的な別名</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+<!--
+        <primary>variance</primary>
+        <secondary>population</secondary>
+-->
+        <primary>分散</primary>
+        <secondary>母集団</secondary>
+       </indexterm>
+       <indexterm>
+        <primary>var_pop</primary>
+       </indexterm>
+       <function>var_pop</function>(<replaceable class="parameter">expression</replaceable>)
+      </entry>
+      <entry>
+<!--
+       <type>smallint</type>, <type>int</type>,
+       <type>bigint</type>, <type>real</type>, <type>double
+       precision</type>, or <type>numeric</type>
+-->
+       <type>smallint</type>、<type>int</type>、
+       <type>bigint</type>、<type>real</type>、<type>double
+       precision</type>、または<type>numeric</type>
+      </entry>
+      <entry>
+<!--
+       <type>double precision</type> for floating-point arguments,
+       otherwise <type>numeric</type>
+-->
+       浮動小数点型の引数では<type>double precision</type>。それ以外では<type>numeric</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>population variance of the input values (square of the population standard deviation)</entry>
+-->
+      <entry>可</entry>
+      <entry>入力値に対する母分散（母標準偏差の二乗）</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+<!--
+        <primary>variance</primary>
+        <secondary>sample</secondary>
+-->
+        <primary>分散</primary>
+        <secondary>標本</secondary>
+       </indexterm>
+       <indexterm>
+        <primary>var_samp</primary>
+       </indexterm>
+       <function>var_samp</function>(<replaceable class="parameter">expression</replaceable>)
+      </entry>
+      <entry>
+<!--
+       <type>smallint</type>, <type>int</type>,
+       <type>bigint</type>, <type>real</type>, <type>double
+       precision</type>, or <type>numeric</type>
+-->
+       <type>smallint</type>、<type>int</type>、
+       <type>bigint</type>、<type>real</type>、<type>double
+       precision</type>、または<type>numeric</type>
+      </entry>
+      <entry>
+<!--
+       <type>double precision</type> for floating-point arguments,
+       otherwise <type>numeric</type>
+-->
+       浮動小数点型の引数では<type>double precision</type>。それ以外では<type>numeric</type>
+      </entry>
+<!--
+      <entry>Yes</entry>
+      <entry>sample variance of the input values (square of the sample standard deviation)</entry>
+-->
+      <entry>可</entry>
+      <entry>入力値に対する標本分散（標本標準偏差の二乗）</entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+<!--
+   <xref linkend="functions-orderedset-table"/> shows some
+   aggregate functions that use the <firstterm>ordered-set aggregate</firstterm>
+   syntax.  These functions are sometimes referred to as <quote>inverse
+   distribution</quote> functions.
+-->
+<xref linkend="functions-orderedset-table"/>に<firstterm>順序集合集約</firstterm>構文を使う集約関数を示します。
+これらの関数は<quote>逆分散</quote>関数として参照されることがあります。
+  </para>
+
+  <indexterm>
+<!--
+   <primary>ordered-set aggregate</primary>
+   <secondary>built-in</secondary>
+-->
+   <primary>順序集合集約</primary>
+   <secondary>組み込み</secondary>
+  </indexterm>
+  <indexterm>
+<!--
+   <primary>inverse distribution</primary>
+-->
+   <primary>逆分散</primary>
+  </indexterm>
+
+  <table id="functions-orderedset-table">
+<!--
+   <title>Ordered-Set Aggregate Functions</title>
+-->
+   <title>順序集合集約関数</title>
+
+   <tgroup cols="6">
+    <thead>
+     <row>
+<!--
+      <entry>Function</entry>
+      <entry>Direct Argument Type(s)</entry>
+      <entry>Aggregated Argument Type(s)</entry>
+      <entry>Return Type</entry>
+      <entry>Partial Mode</entry>
+      <entry>Description</entry>
+-->
+      <entry>関数</entry>
+      <entry>直接引数型</entry>
+      <entry>集約された引数型</entry>
+      <entry>戻り値型</entry>
+      <entry>部分モード</entry>
+      <entry>説明</entry>
+     </row>
+    </thead>
+
+    <tbody>
+
+     <row>
+      <entry>
+       <indexterm>
+<!--
+        <primary>mode</primary>
+        <secondary>statistical</secondary>
+-->
+        <primary>最頻値(モード)</primary>
+        <secondary>統計</secondary>
+       </indexterm>
+       <function>mode() WITHIN GROUP (ORDER BY <replaceable class="parameter">sort_expression</replaceable>)</function>
+      </entry>
+      <entry>
+      </entry>
+      <entry>
+<!--
+       any sortable type
+-->
+       ソート可能な型
+      </entry>
+      <entry>
+<!--
+       same as sort expression
+-->
+       ソート式と同じ
+      </entry>
+<!--
+      <entry>No</entry>
+-->
+      <entry>不可</entry>
+      <entry>
+<!--
+       returns the most frequent input value (arbitrarily choosing the first
+       one if there are multiple equally-frequent results)
+-->
+       入力の最頻値を返す(複数の同じ度数の結果があれば、任意に選んだ最初のもの)
+      </entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+<!--
+        <primary>percentile</primary>
+        <secondary>continuous</secondary>
+-->
+        <primary>百分位数</primary>
+        <secondary>連続</secondary>
+       </indexterm>
+       <function>percentile_cont(<replaceable class="parameter">fraction</replaceable>) WITHIN GROUP (ORDER BY <replaceable class="parameter">sort_expression</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+      <entry>
+<!--
+       <type>double precision</type> or <type>interval</type>
+-->
+       <type>double precision</type>または<type>interval</type>
+      </entry>
+      <entry>
+<!--
+       same as sort expression
+-->
+       ソート式と同じ
+      </entry>
+<!--
+      <entry>No</entry>
+-->
+      <entry>不可</entry>
+      <entry>
+<!--
+       continuous percentile: returns a value corresponding to the specified
+       fraction in the ordering, interpolating between adjacent input items if
+       needed
+-->
+       連続百分位数: 入力項目を並べて必要であれば隣り合うものを補間して指定された割合に対応する値を返す
+      </entry>
+     </row>
+
+     <row>
+      <entry>
+       <function>percentile_cont(<replaceable class="parameter">fractions</replaceable>) WITHIN GROUP (ORDER BY <replaceable class="parameter">sort_expression</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>double precision[]</type>
+      </entry>
+      <entry>
+<!--
+       <type>double precision</type> or <type>interval</type>
+-->
+       <type>double precision</type>または<type>interval</type>
+      </entry>
+      <entry>
+<!--
+       array of sort expression's type
+-->
+       ソート式の型の配列
+      </entry>
+<!--
+      <entry>No</entry>
+-->
+      <entry>不可</entry>
+      <entry>
+<!--
+       multiple continuous percentile: returns an array of results matching
+       the shape of the <replaceable>fractions</replaceable> parameter, with each
+       non-null element replaced by the value corresponding to that percentile
+-->
+       複数の連続百分位数: 各非NULL要素をその百分位数に対応する値で置き換えて、<replaceable>fractions</replaceable>パラメータの形に一致する結果の配列を返す
+      </entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+<!--
+        <primary>percentile</primary>
+        <secondary>discrete</secondary>
+-->
+        <primary>百分位数</primary>
+        <secondary>離散</secondary>
+       </indexterm>
+       <function>percentile_disc(<replaceable class="parameter">fraction</replaceable>) WITHIN GROUP (ORDER BY <replaceable class="parameter">sort_expression</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+      <entry>
+<!--
+       any sortable type
+-->
+       ソート可能な型
+      </entry>
+      <entry>
+<!--
+       same as sort expression
+-->
+       ソート式と同じ
+      </entry>
+<!--
+      <entry>No</entry>
+-->
+      <entry>不可</entry>
+      <entry>
+<!--
+       discrete percentile: returns the first input value whose position in
+       the ordering equals or exceeds the specified fraction
+-->
+       離散百分位数: 並べた時のその位置が指定された割合と等しいもしくは越える最初の入力値を返す
+      </entry>
+     </row>
+
+     <row>
+      <entry>
+       <function>percentile_disc(<replaceable class="parameter">fractions</replaceable>) WITHIN GROUP (ORDER BY <replaceable class="parameter">sort_expression</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>double precision[]</type>
+      </entry>
+      <entry>
+<!--
+       any sortable type
+-->
+       ソート可能な型
+      </entry>
+      <entry>
+<!--
+       array of sort expression's type
+-->
+       ソート式の型の配列
+      </entry>
+<!--
+      <entry>No</entry>
+-->
+      <entry>不可</entry>
+      <entry>
+<!--
+       multiple discrete percentile: returns an array of results matching the
+       shape of the <replaceable>fractions</replaceable> parameter, with each non-null
+       element replaced by the input value corresponding to that percentile
+-->
+       複数の離散百分位数: 各非NULL要素をその百分位数に対応する値で置き換えて、<replaceable>fractions</replaceable>パラメータの形に一致する結果の配列を返す
+      </entry>
+     </row>
+
+    </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+<!--
+   All the aggregates listed in <xref linkend="functions-orderedset-table"/>
+   ignore null values in their sorted input.  For those that take
+   a <replaceable>fraction</replaceable> parameter, the fraction value must be
+   between 0 and 1; an error is thrown if not.  However, a null fraction value
+   simply produces a null result.
+-->
+<xref linkend="functions-orderedset-table"/>に列挙された集約はすべて整列された入力内のNULL値を無視します。
+<replaceable>fraction</replaceable>パラメータを取るものでは、fraction（割合）の値は0と1の間でなければなりません。そうでなければエラーが投げられます。
+しかしながら、franctionの値がNULLなら単にNULLという結果になります。
+  </para>
+
+  <indexterm>
+<!--
+   <primary>hypothetical-set aggregate</primary>
+   <secondary>built-in</secondary>
+-->
+   <primary>仮想集合集約</primary>
+   <secondary>組み込み</secondary>
+  </indexterm>
+
+  <para>
+<!--
+   Each of the aggregates listed in
+   <xref linkend="functions-hypothetical-table"/> is associated with a
+   window function of the same name defined in
+   <xref linkend="functions-window"/>.  In each case, the aggregate result
+   is the value that the associated window function would have
+   returned for the <quote>hypothetical</quote> row constructed from
+   <replaceable>args</replaceable>, if such a row had been added to the sorted
+   group of rows computed from the <replaceable>sorted_args</replaceable>.
+-->
+<xref linkend="functions-hypothetical-table"/>に列挙されている集約は、それぞれ<xref linkend="functions-window"/>で定義されている同じ名前のウィンドウ関数と関連します。
+どの場合も、集約結果は、<replaceable>args</replaceable>から構築される<quote>仮想的な</quote>行に対して、関連するウィンドウ関数が返す値で、そのような行が<replaceable>sorted_args</replaceable>から計算されるソートされた行のグループに追加される場合を想定します。
+  </para>
+
+  <table id="functions-hypothetical-table">
+<!--
+   <title>Hypothetical-Set Aggregate Functions</title>
+-->
+   <title>仮想集合集約関数</title>
+
+   <tgroup cols="6">
+    <thead>
+     <row>
+<!--
+      <entry>Function</entry>
+      <entry>Direct Argument Type(s)</entry>
+      <entry>Aggregated Argument Type(s)</entry>
+      <entry>Return Type</entry>
+      <entry>Partial Mode</entry>
+      <entry>Description</entry>
+-->
+      <entry>関数</entry>
+      <entry>直接引数型</entry>
+      <entry>集約された引数型</entry>
+      <entry>戻り値型</entry>
+      <entry>部分モード</entry>
+      <entry>説明</entry>
+     </row>
+    </thead>
+
+    <tbody>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>rank</primary>
+<!--
+        <secondary>hypothetical</secondary>
+-->
+        <secondary>仮想の</secondary>
+       </indexterm>
+       <function>rank(<replaceable class="parameter">args</replaceable>) WITHIN GROUP (ORDER BY <replaceable class="parameter">sorted_args</replaceable>)</function>
+      </entry>
+      <entry>
+       <literal>VARIADIC</literal> <type>"any"</type>
+      </entry>
+      <entry>
+       <literal>VARIADIC</literal> <type>"any"</type>
+      </entry>
+      <entry>
+       <type>bigint</type>
+      </entry>
+<!--
+      <entry>No</entry>
+-->
+      <entry>不可</entry>
+      <entry>
+<!--
+       rank of the hypothetical row, with gaps for duplicate rows
+-->
+       重複する行のギャップを含む仮想の行の順位
+      </entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>dense_rank</primary>
+<!--
+        <secondary>hypothetical</secondary>
+-->
+        <secondary>仮想の</secondary>
+       </indexterm>
+       <function>dense_rank(<replaceable class="parameter">args</replaceable>) WITHIN GROUP (ORDER BY <replaceable class="parameter">sorted_args</replaceable>)</function>
+      </entry>
+      <entry>
+       <literal>VARIADIC</literal> <type>"any"</type>
+      </entry>
+      <entry>
+       <literal>VARIADIC</literal> <type>"any"</type>
+      </entry>
+      <entry>
+       <type>bigint</type>
+      </entry>
+<!--
+      <entry>No</entry>
+-->
+      <entry>不可</entry>
+      <entry>
+<!--
+       rank of the hypothetical row, without gaps
+-->
+       ギャップを含まない仮想の行の順位
+      </entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>percent_rank</primary>
+<!--
+        <secondary>hypothetical</secondary>
+-->
+        <secondary>仮想の</secondary>
+       </indexterm>
+       <function>percent_rank(<replaceable class="parameter">args</replaceable>) WITHIN GROUP (ORDER BY <replaceable class="parameter">sorted_args</replaceable>)</function>
+      </entry>
+      <entry>
+       <literal>VARIADIC</literal> <type>"any"</type>
+      </entry>
+      <entry>
+       <literal>VARIADIC</literal> <type>"any"</type>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+<!--
+      <entry>No</entry>
+-->
+      <entry>不可</entry>
+      <entry>
+<!--
+       relative rank of the hypothetical row, ranging from 0 to 1
+-->
+       仮想の行の相対順位、0から1まで
+      </entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>cume_dist</primary>
+<!--
+        <secondary>hypothetical</secondary>
+-->
+        <secondary>仮想の</secondary>
+       </indexterm>
+       <function>cume_dist(<replaceable class="parameter">args</replaceable>) WITHIN GROUP (ORDER BY <replaceable class="parameter">sorted_args</replaceable>)</function>
+      </entry>
+      <entry>
+       <literal>VARIADIC</literal> <type>"any"</type>
+      </entry>
+      <entry>
+       <literal>VARIADIC</literal> <type>"any"</type>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+<!--
+      <entry>No</entry>
+-->
+      <entry>不可</entry>
+      <entry>
+<!--
+       relative rank of the hypothetical row, ranging from
+       1/<replaceable>N</replaceable> to 1
+-->
+       仮想の行の相対順位、1/<replaceable>N</replaceable>から1まで
+      </entry>
+     </row>
+
+    </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+<!--
+   For each of these hypothetical-set aggregates, the list of direct arguments
+   given in <replaceable>args</replaceable> must match the number and types of
+   the aggregated arguments given in <replaceable>sorted_args</replaceable>.
+   Unlike most built-in aggregates, these aggregates are not strict, that is
+   they do not drop input rows containing nulls.  Null values sort according
+   to the rule specified in the <literal>ORDER BY</literal> clause.
+-->
+各仮想集合集約に対して<replaceable>args</replaceable>で与えられる直接引数のリストは、<replaceable>sorted_args</replaceable>で与えられる集約された引数の数と型に一致しなければなりません。
+ほとんどの組み込み集約とは異なり、この集約はSTRICTではありません、すなわち、NULLを含む入力行を落としません。
+NULL値は<literal>ORDER BY</literal>節で指定されるルールに従って並べられます。
+  </para>
+
+  <table id="functions-grouping-table">
+<!--
+   <title>Grouping Operations</title>
+-->
+   <title>グループ化演算</title>
+
+   <tgroup cols="3">
+    <thead>
+     <row>
+<!--
+      <entry>Function</entry>
+      <entry>Return Type</entry>
+      <entry>Description</entry>
+-->
+      <entry>関数</entry>
+      <entry>戻り値型</entry>
+      <entry>説明</entry>
+     </row>
+    </thead>
+
+    <tbody>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>GROUPING</primary>
+       </indexterm>
+       <function>GROUPING(<replaceable class="parameter">args...</replaceable>)</function>
+      </entry>
+      <entry>
+       <type>integer</type>
+      </entry>
+      <entry>
+<!--
+       Integer bit mask indicating which arguments are not being included in the current
+       grouping set
+-->
+どの引数が現在のグループ化セットに含まれないかを示す整数のビットマスク
+      </entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+   <para>
+<!--
+    Grouping operations are used in conjunction with grouping sets (see
+    <xref linkend="queries-grouping-sets"/>) to distinguish result rows.  The
+    arguments to the <literal>GROUPING</literal> operation are not actually evaluated,
+    but they must match exactly expressions given in the <literal>GROUP BY</literal>
+    clause of the associated query level.  Bits are assigned with the rightmost
+    argument being the least-significant bit; each bit is 0 if the corresponding
+    expression is included in the grouping criteria of the grouping set generating
+    the result row, and 1 if it is not.  For example:
+-->
+グループ化演算はグループ化セット（<xref linkend="queries-grouping-sets"/>参照）と一緒に使われ、結果の行を区別するものです。
+<literal>GROUPING</literal>演算の引数は実際には評価されませんが、関連する問い合わせの<literal>GROUP BY</literal>句にある式と正確に一致する必要があります。
+最も右側の引数が最下位ビットになるようにビットが割り当てられます。
+各ビットは、対応する式が結果の行を生成するグループ化セットのグループ化条件に含まれていれば0、そうでなければ1です。
+例えば以下のようになります。
+<screen>
+<prompt>=&gt;</prompt> <userinput>SELECT * FROM items_sold;</userinput>
+ make  | model | sales
+-------+-------+-------
+ Foo   | GT    |  10
+ Foo   | Tour  |  20
+ Bar   | City  |  15
+ Bar   | Sport |  5
+(4 rows)
+
+<prompt>=&gt;</prompt> <userinput>SELECT make, model, GROUPING(make,model), sum(sales) FROM items_sold GROUP BY ROLLUP(make,model);</userinput>
+ make  | model | grouping | sum
+-------+-------+----------+-----
+ Foo   | GT    |        0 | 10
+ Foo   | Tour  |        0 | 20
+ Bar   | City  |        0 | 15
+ Bar   | Sport |        0 | 5
+ Foo   |       |        1 | 30
+ Bar   |       |        1 | 20
+       |       |        3 | 50
+(7 rows)
+</screen>
+   </para>
+
+ </sect1>
+
+ <sect1 id="functions-window">
+<!--
+  <title>Window Functions</title>
+-->
+  <title>ウィンドウ関数</title>
+
+  <indexterm zone="functions-window">
+<!--
+   <primary>window function</primary>
+   <secondary>built-in</secondary>
+-->
+   <primary>ウィンドウ関数</primary>
+   <secondary>組み込み</secondary>
+  </indexterm>
+
+  <para>
+<!--
+   <firstterm>Window functions</firstterm> provide the ability to perform
+   calculations across sets of rows that are related to the current query
+   row.  See <xref linkend="tutorial-window"/> for an introduction to this
+   feature, and <xref linkend="syntax-window-functions"/> for syntax
+   details.
+-->
+<firstterm>ウィンドウ関数</firstterm>は現在の問い合わせ行に関連した行集合に渡っての計算処理機能を提供します。
+この機能の手引きは<xref linkend="tutorial-window"/>を、文法の詳細は<xref linkend="syntax-window-functions"/>を参照してください。
+  </para>
+
+  <para>
+<!--
+   The built-in window functions are listed in
+   <xref linkend="functions-window-table"/>.  Note that these functions
+   <emphasis>must</emphasis> be invoked using window function syntax, i.e., an
+   <literal>OVER</literal> clause is required.
+-->
+組み込みウィンドウ関数は<xref linkend="functions-window-table"/>に一覧されています。
+これらの関数は<emphasis>必ず</emphasis>ウィンドウ関数構文で呼び出されなければなりません。つまり、<literal>OVER</literal>句が必要です。
+  </para>
+
+  <para>
+<!--
+   In addition to these functions, any built-in or user-defined
+   general-purpose or statistical
+   aggregate (i.e., not ordered-set or hypothetical-set aggregates)
+   can be used as a window function; see
+   <xref linkend="functions-aggregate"/> for a list of the built-in aggregates.
+   Aggregate functions act as window functions only when an <literal>OVER</literal>
+   clause follows the call; otherwise they act as non-window aggregates
+   and return a single row for the entire set.
+-->
+これらの関数に加え、どんな組み込み、またはユーザ定義の汎用集約関数または統計集約関数もウィンドウ関数として使用できます(ただし順序集合や仮想集合集約はそうではありません)。組み込み集約関数一覧は<xref linkend="functions-aggregate"/>を参照してください。
+集約関数は、呼び出しの後に<literal>OVER</literal>句が続いた場合のみウィンドウ関数として動作します。それ以外の場合は、非ウィンドウの集約関数として動作し、集合全体に対して1行だけを返します。
+  </para>
+
+  <table id="functions-window-table">
+<!--
+   <title>General-Purpose Window Functions</title>
+-->
+   <title>汎用ウィンドウ関数</title>
+
+   <tgroup cols="3">
+    <thead>
+     <row>
+<!--
+      <entry>Function</entry>
+      <entry>Return Type</entry>
+      <entry>Description</entry>
+-->
+      <entry>関数</entry>
+      <entry>戻り値</entry>
+      <entry>説明</entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry>
+       <indexterm>
+        <primary>row_number</primary>
+       </indexterm>
+       <function>row_number()</function>
+      </entry>
+      <entry>
+       <type>bigint</type>
+      </entry>
+<!--
+      <entry>number of the current row within its partition, counting from 1</entry>
+-->
+      <entry>現在行のパーティション内での行番号（１から数える）</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>rank</primary>
+       </indexterm>
+       <function>rank()</function>
+      </entry>
+      <entry>
+       <type>bigint</type>
+      </entry>
+<!--
+      <entry>rank of the current row with gaps; same as <function>row_number</function> of its first peer</entry>
+-->
+      <entry>ギャップを含んだ現在行の順位。先頭ピアの<function>row_number</function>と同じになる。</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>dense_rank</primary>
+       </indexterm>
+       <function>dense_rank()</function>
+      </entry>
+      <entry>
+       <type>bigint</type>
+      </entry>
+<!--
+      <entry>rank of the current row without gaps; this function counts peer groups</entry>
+-->
+      <entry>ギャップを含まない現在行の順位。この関数はピアのグループ数を数える。</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>percent_rank</primary>
+       </indexterm>
+       <function>percent_rank()</function>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+<!--
+      <entry>relative rank of the current row: (<function>rank</function> - 1) / (total partition rows - 1)</entry>
+-->
+      <entry>現在行の相対順位。 (<function>rank</function> - 1) / (パーティションの総行数 - 1)</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>cume_dist</primary>
+       </indexterm>
+       <function>cume_dist()</function>
+      </entry>
+      <entry>
+       <type>double precision</type>
+      </entry>
+<!--
+      <entry>cumulative distribution: (number of partition rows preceding or peer with current row) / total partition rows</entry>
+-->
+      <entry>現在行の相対順位。 (現在行より先行する行およびピアの行数) / (パーティションの総行数)</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>ntile</primary>
+       </indexterm>
+       <function>ntile(<replaceable class="parameter">num_buckets</replaceable> <type>integer</type>)</function>
+      </entry>
+      <entry>
+       <type>integer</type>
+      </entry>
+<!--
+      <entry>integer ranging from 1 to the argument value, dividing the
+       partition as equally as possible</entry>
+-->
+       <entry>できるだけ等価にパーティションを分割した、1から引数値までの整数</entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>lag</primary>
+       </indexterm>
+       <function>
+         lag(<replaceable class="parameter">value</replaceable> <type>anyelement</type>
+             [, <replaceable class="parameter">offset</replaceable> <type>integer</type>
+             [, <replaceable class="parameter">default</replaceable> <type>anyelement</type> ]])
+       </function>
+      </entry>
+      <entry>
+<!--
+       <type>same type as <replaceable class="parameter">value</replaceable></type>
+-->
+       <type><replaceable class="parameter">value</replaceable>と同じ型</type>
+      </entry>
+      <entry>
+<!--
+       returns <replaceable class="parameter">value</replaceable> evaluated at
+       the row that is <replaceable class="parameter">offset</replaceable>
+       rows before the current row within the partition; if there is no such
+       row, instead return <replaceable class="parameter">default</replaceable>
+       (which must be of the same type as
+       <replaceable class="parameter">value</replaceable>).
+       Both <replaceable class="parameter">offset</replaceable> and
+       <replaceable class="parameter">default</replaceable> are evaluated
+       with respect to the current row.  If omitted,
+       <replaceable class="parameter">offset</replaceable> defaults to 1 and
+       <replaceable class="parameter">default</replaceable> to null
+-->
+パーティション内の現在行より<replaceable class="parameter">offset</replaceable>行だけ前の行で評価された<replaceable class="parameter">value</replaceable>を返す。
+該当する行がない場合、その代わりとして<replaceable class="parameter">default</replaceable>(<replaceable class="parameter">value</replaceable>と同じ型でなければならない)を返す。
+<replaceable class="parameter">offset</replaceable>と<replaceable class="parameter">default</replaceable>は共に現在行について評価される。
+省略された場合、<replaceable class="parameter">offset</replaceable>は1となり、<replaceable class="parameter">default</replaceable>はNULLになる。
+      </entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>lead</primary>
+       </indexterm>
+       <function>
+         lead(<replaceable class="parameter">value</replaceable> <type>anyelement</type>
+              [, <replaceable class="parameter">offset</replaceable> <type>integer</type>
+              [, <replaceable class="parameter">default</replaceable> <type>anyelement</type> ]])
+       </function>
+      </entry>
+      <entry>
+<!--
+       <type>same type as <replaceable class="parameter">value</replaceable></type>
+-->
+       <type><replaceable class="parameter">value</replaceable>と同じ型</type>
+      </entry>
+      <entry>
+<!--
+       returns <replaceable class="parameter">value</replaceable> evaluated at
+       the row that is <replaceable class="parameter">offset</replaceable>
+       rows after the current row within the partition; if there is no such
+       row, instead return <replaceable class="parameter">default</replaceable>
+       (which must be of the same type as
+       <replaceable class="parameter">value</replaceable>).
+       Both <replaceable class="parameter">offset</replaceable> and
+       <replaceable class="parameter">default</replaceable> are evaluated
+       with respect to the current row.  If omitted,
+       <replaceable class="parameter">offset</replaceable> defaults to 1 and
+       <replaceable class="parameter">default</replaceable> to null
+-->
+パーティション内の現在行より<replaceable class="parameter">offset</replaceable>行だけ後の行で評価された<replaceable class="parameter">value</replaceable>を返す。
+該当する行がない場合、その代わりとして<replaceable class="parameter">default</replaceable>(<replaceable class="parameter">value</replaceable>と同じ型でなければならない)を返す。
+<replaceable class="parameter">offset</replaceable>と<replaceable class="parameter">default</replaceable>は共に現在行について評価される。
+省略された場合、<replaceable class="parameter">offset</replaceable>は1となり、<replaceable class="parameter">default</replaceable>はNULLになる。
+      </entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>first_value</primary>
+       </indexterm>
+       <function>first_value(<replaceable class="parameter">value</replaceable> <type>any</type>)</function>
+      </entry>
+      <entry>
+<!--
+       <type>same type as <replaceable class="parameter">value</replaceable></type>
+-->
+       <type><replaceable class="parameter">value</replaceable>と同じ型</type>
+      </entry>
+      <entry>
+<!--
+       returns <replaceable class="parameter">value</replaceable> evaluated
+       at the row that is the first row of the window frame
+-->
+       ウィンドウフレームの最初の行である行で評価された<replaceable class="parameter">value</replaceable> を返す
+      </entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>last_value</primary>
+       </indexterm>
+       <function>last_value(<replaceable class="parameter">value</replaceable> <type>any</type>)</function>
+      </entry>
+      <entry>
+<!--
+       <type>same type as <replaceable class="parameter">value</replaceable></type>
+-->
+       <type><replaceable class="parameter">value</replaceable>と同じ型</type>
+      </entry>
+      <entry>
+<!--
+       returns <replaceable class="parameter">value</replaceable> evaluated
+       at the row that is the last row of the window frame
+-->
+       ウィンドウフレームの最後の行である行で評価された<replaceable class="parameter">value</replaceable> を返す
+      </entry>
+     </row>
+
+     <row>
+      <entry>
+       <indexterm>
+        <primary>nth_value</primary>
+       </indexterm>
+       <function>
+         nth_value(<replaceable class="parameter">value</replaceable> <type>any</type>, <replaceable class="parameter">nth</replaceable> <type>integer</type>)
+       </function>
+      </entry>
+      <entry>
+<!--
+       <type>same type as <replaceable class="parameter">value</replaceable></type>
+-->
+       <type><replaceable class="parameter">value</replaceable>と同じ型</type>
+      </entry>
+      <entry>
+<!--
+       returns <replaceable class="parameter">value</replaceable> evaluated
+       at the row that is the <replaceable class="parameter">nth</replaceable>
+       row of the window frame (counting from 1); null if no such row
+-->
+       ウィンドウフレームの（１から数えて）<replaceable class="parameter">nth</replaceable>番目の行である行で評価された<replaceable class="parameter">value</replaceable>を返す。行が存在しない場合はNULLを返す
+      </entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+<!--
+   All of the functions listed in
+   <xref linkend="functions-window-table"/> depend on the sort ordering
+   specified by the <literal>ORDER BY</literal> clause of the associated window
+   definition.  Rows that are not distinct when considering only the
+   <literal>ORDER BY</literal> columns are said to be <firstterm>peers</firstterm>.
+   The four ranking functions (including <function>cume_dist</function>) are
+   defined so that they give the same answer for all peer rows.
+-->
+<xref linkend="functions-window-table"/>に列挙された関数はすべて、対応するウィンドウ定義の<literal>ORDER BY</literal>句で指定されるソート順に依存します。
+<literal>ORDER BY</literal>の列だけを考慮した場合に重複する行は<firstterm>ピア</firstterm>と呼ばれます。
+4つの順位付け関数（<function>cume_dist</function>を含む）は、すべてのピア行に対して同じ答えになるように定義されています。
+  </para>
+
+  <para>
+<!--
+   Note that <function>first_value</function>, <function>last_value</function>, and
+   <function>nth_value</function> consider only the rows within the <quote>window
+   frame</quote>, which by default contains the rows from the start of the
+   partition through the last peer of the current row.  This is
+   likely to give unhelpful results for <function>last_value</function> and
+   sometimes also <function>nth_value</function>.  You can redefine the frame by
+   adding a suitable frame specification (<literal>RANGE</literal>,
+   <literal>ROWS</literal> or <literal>GROUPS</literal>) to
+   the <literal>OVER</literal> clause.
+   See <xref linkend="syntax-window-functions"/> for more information
+   about frame specifications.
+-->
+<function>first_value</function>、<function>last_value</function>、<function>nth_value</function>関数は<quote>ウィンドウフレーム</quote>内の行のみを考慮することに注意してください。
+デフォルトで、ウィンドウフレームにはパーティションの先頭から現在の行の最終ピアまでの行が含まれます。
+これは<function>last_value</function>、または時々<function>nth_value</function>では有用ではない結果を得ることになりがちです。
+<literal>OVER</literal>句に適切なフレーム指定(<literal>RANGE</literal>、<literal>GROUP</literal>、もしくは<literal>ROWS</literal>)を加えることで、フレームを再定義することができます。
+フレーム指定についての詳細は<xref linkend="syntax-window-functions"/>を参照してください。
+  </para>
+
+  <para>
+<!--
+   When an aggregate function is used as a window function, it aggregates
+   over the rows within the current row's window frame.
+   An aggregate used with <literal>ORDER BY</literal> and the default window frame
+   definition produces a <quote>running sum</quote> type of behavior, which may or
+   may not be what's wanted.  To obtain
+   aggregation over the whole partition, omit <literal>ORDER BY</literal> or use
+   <literal>ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING</literal>.
+   Other frame specifications can be used to obtain other effects.
+-->
+集約関数をウィンドウ関数として使用する場合、現在の行のウィンドウフレーム内の行に渡って集約処理を行います。
+<literal>ORDER BY</literal>および、デフォルトのウィンドウフレーム定義を使用した集約では、<quote>中間和</quote>のような動作を行います。これが望まれる場合もあれば、望まれない場合もあります。
+パーティション全体に渡る集約処理を行うためには、<literal>ORDER BY</literal>を省略するか<literal>ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING</literal>を使用してください。
+他のフレーム指定を使用することで様々な結果を得ることができます。
+  </para>
+
+  <note>
+   <para>
+<!--
+    The SQL standard defines a <literal>RESPECT NULLS</literal> or
+    <literal>IGNORE NULLS</literal> option for <function>lead</function>, <function>lag</function>,
+    <function>first_value</function>, <function>last_value</function>, and
+    <function>nth_value</function>.  This is not implemented in
+    <productname>PostgreSQL</productname>: the behavior is always the
+    same as the standard's default, namely <literal>RESPECT NULLS</literal>.
+    Likewise, the standard's <literal>FROM FIRST</literal> or <literal>FROM LAST</literal>
+    option for <function>nth_value</function> is not implemented: only the
+    default <literal>FROM FIRST</literal> behavior is supported.  (You can achieve
+    the result of <literal>FROM LAST</literal> by reversing the <literal>ORDER BY</literal>
+    ordering.)
+-->
+SQL標準は、<function>lead</function>、<function>lag</function>、<function>first_value</function>、<function>last_value</function>、および<function>nth_value</function>に対し<literal>RESPECT NULLS</literal>、または<literal>IGNORE NULLS</literal>オプションを定義します。
+これは<productname>PostgreSQL</productname>に実装されていません。動作は常に標準のデフォルトと同一です。つまり、<literal>RESPECT NULLS</literal>です。同様にして、標準の<function>nth_value</function>に対する<literal>FROM FIRST</literal>、または<literal>FROM LAST</literal>オプションは実装されていません。デフォルトの<literal>FROM FIRST</literal>動作のみに対応しています。
+（<literal>ORDER BY</literal>順序付けを逆に行うことで、<literal>FROM LAST</literal>の結果を得ることができます。）
+   </para>
+  </note>
+
+  <para>
+<!--
+   <function>cume_dist</function> computes the fraction of partition rows that
+   are less than or equal to the current row and its peers, while
+   <function>percent_rank</function> computes the fraction of partition rows that
+   are less than the current row, assuming the current row does not exist
+   in the partition.
+-->
+<function>cume_dist</function>が現在行およびそのピアより小さいか等しいパーティション行の割合を計算するのに対し、<function>percent_rank</function>は現在行がそのパーティション内にないものとして、現在行より小さいパーティション行の割合を計算します。
+  </para>
+
+ </sect1>
+
+<!-- split-func3-end -->
