@@ -761,11 +761,12 @@
       <para>
 <!--
        <function>to_timestamp</function> and <function>to_date</function>
-       skip multiple blank spaces in the input string unless the
-       <literal>FX</literal> option is used. For example,
-       <literal>to_timestamp('2000&nbsp;&nbsp;&nbsp;&nbsp;JUN', 'YYYY MON')</literal> works, but
+       skip multiple blank spaces at the beginning of the input string and
+       around date and time values unless the <literal>FX</literal> option is used.  For example,
+       <literal>to_timestamp('&nbsp;2000&nbsp;&nbsp;&nbsp;&nbsp;JUN', 'YYYY MON')</literal> and
+       <literal>to_timestamp('2000 - JUN', 'YYYY-MON')</literal> work, but
        <literal>to_timestamp('2000&nbsp;&nbsp;&nbsp;&nbsp;JUN', 'FXYYYY MON')</literal> returns an error
-       because <function>to_timestamp</function> expects one space only.
+       because <function>to_timestamp</function> expects only a single space.
        <literal>FX</literal> must be specified as the first item in
        the template.
 -->
@@ -773,6 +774,46 @@
 例えば、<literal>to_timestamp('2000&nbsp;&nbsp;&nbsp;&nbsp;JUN', 'YYYY MON')</literal>は動作しますが、<literal>to_timestamp('2000&nbsp;&nbsp;&nbsp;&nbsp;JUN','FXYYYY MON')</literal>はエラーを返します。
 後者の<function>to_timestamp</function>はスペースが1つだけあることを期待するからです。
 <literal>FX</literal>はテンプレートの第1項目として指定される必要があります。
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+       A separator (a space or non-letter/non-digit character) in the template string of
+       <function>to_timestamp</function> and <function>to_date</function>
+       matches any single separator in the input string or is skipped,
+       unless the <literal>FX</literal> option is used.
+       For example, <literal>to_timestamp('2000JUN', 'YYYY///MON')</literal> and
+       <literal>to_timestamp('2000/JUN', 'YYYY MON')</literal> work, but
+       <literal>to_timestamp('2000//JUN', 'YYYY/MON')</literal>
+       returns an error because the number of separators in the input string
+       exceeds the number of separators in the template.
+      </para>
+      <para>
+       If <literal>FX</literal> is specified, a separator in the template string
+       matches exactly one character in the input string.  But note that the
+       input string character is not required to be the same as the separator from the template string.
+       For example, <literal>to_timestamp('2000/JUN', 'FXYYYY MON')</literal>
+       works, but <literal>to_timestamp('2000/JUN', 'FXYYYY&nbsp;&nbsp;MON')</literal>
+       returns an error because the second space in the template string consumes
+       the letter <literal>J</literal> from the input string.
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+       A <literal>TZH</literal> template pattern can match a signed number.
+       Without the <literal>FX</literal> option, minus signs may be ambiguous,
+       and could be interpreted as a separator.
+       This ambiguity is resolved as follows:  If the number of separators before
+       <literal>TZH</literal> in the template string is less than the number of
+       separators before the minus sign in the input string, the minus sign
+       is interpreted as part of <literal>TZH</literal>.
+       Otherwise, the minus sign is considered to be a separator between values.
+       For example, <literal>to_timestamp('2000 -10', 'YYYY TZH')</literal> matches
+       <literal>-10</literal> to <literal>TZH</literal>, but
+       <literal>to_timestamp('2000 -10', 'YYYY&nbsp;&nbsp;TZH')</literal>
+       matches <literal>10</literal> to <literal>TZH</literal>.
       </para>
      </listitem>
 
@@ -797,6 +838,19 @@
 例えば、<literal>'"Hello Year "YYYY'</literal>では<literal>YYYY</literal>は年データに置換されてしまいますが、<literal>Year</literal>内の<literal>Y</literal>は置換されません。
 <function>to_date</function>、<function>to_number</function>、<function>to_timestamp</function>では、二重引用符で括られた文字の数だけ入力された文字をスキップします。例えば<literal>"XX"</literal>は2文字の入力文字（それが<literal>XX</literal>であるかどうかにかかわらず)をスキップします。
       </para>
+      <tip>
+        <para>
+          Prior to <productname>PostgreSQL</productname> 12, it was possible to
+          skip arbitrary text in the input string using non-letter or non-digit
+          characters. For example,
+          <literal>to_timestamp('2000y6m1d', 'yyyy-MM-DD')</literal> used to
+          work.  Now you can only use letter characters for this purpose.  For example,
+          <literal>to_timestamp('2000y6m1d', 'yyyytMMtDDt')</literal> and
+          <literal>to_timestamp('2000y6m1d', 'yyyy"y"MM"m"DD"d"')</literal>
+          skip <literal>y</literal>, <literal>m</literal>, and
+          <literal>d</literal>.
+        </para>
+      </tip>
      </listitem>
 
      <listitem>
@@ -1901,7 +1955,7 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
         </entry>
         <entry><type>timestamp</type></entry>
 <!--
-        <entry>Truncate to specified precision; see also <xref linkend="functions-datetime-trunc"/>
+        <entry>Truncate to specified precision; see <xref linkend="functions-datetime-trunc"/>
 -->
         <entry>指定された精度で切り捨て。<xref linkend="functions-datetime-trunc"/>も参照。
         </entry>
@@ -1910,10 +1964,19 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
        </row>
 
        <row>
+        <entry><literal><function>date_trunc(<type>text</type>, <type>timestamp with time zone</type>, <type>text</type>)</function></literal></entry>
+        <entry><type>timestamp with time zone</type></entry>
+        <entry>Truncate to specified precision in the specified time zone; see <xref linkend="functions-datetime-trunc"/>
+        </entry>
+        <entry><literal>date_trunc('day', timestamptz '2001-02-16 20:38:40+00', 'Australia/Sydney')</literal></entry>
+        <entry><literal>2001-02-16 13:00:00+00</literal></entry>
+       </row>
+
+       <row>
         <entry><literal><function>date_trunc(<type>text</type>, <type>interval</type>)</function></literal></entry>
         <entry><type>interval</type></entry>
 <!--
-        <entry>Truncate to specified precision; see also <xref linkend="functions-datetime-trunc"/>
+        <entry>Truncate to specified precision; see <xref linkend="functions-datetime-trunc"/>
 -->
         <entry>指定された精度で切り捨て。<xref linkend="functions-datetime-trunc"/>も参照。
         </entry>
@@ -3032,18 +3095,20 @@ SELECT date_part('hour', INTERVAL '4 hours 3 minutes');
 
    <para>
 <synopsis>
-date_trunc('<replaceable>field</replaceable>', <replaceable>source</replaceable>)
+date_trunc(<replaceable>field</replaceable>, <replaceable>source</replaceable> [, <replaceable>time_zone</replaceable> ])
 </synopsis>
 <!--
     <replaceable>source</replaceable> is a value expression of type
-    <type>timestamp</type> or <type>interval</type>.
+    <type>timestamp</type>, <type>timestamp with time zone</type>,
+    or <type>interval</type>.
     (Values of type <type>date</type> and
     <type>time</type> are cast automatically to <type>timestamp</type> or
     <type>interval</type>, respectively.)
     <replaceable>field</replaceable> selects to which precision to
-    truncate the input value.  The return value is of type
-    <type>timestamp</type> or <type>interval</type>
-    with all fields that are less significant than the
+    truncate the input value.  The return value is likewise of type
+    <type>timestamp</type>, <type>timestamp with time zone</type>,
+    or <type>interval</type>,
+    and it has all fields that are less significant than the
     selected one set to zero (or one, for day and month).
 -->
 <replaceable>source</replaceable>は、データ型<type>timestamp</type>もしくは<type>interval</type>の評価式です
@@ -3075,8 +3140,25 @@ date_trunc('<replaceable>field</replaceable>', <replaceable>source</replaceable>
    </para>
 
    <para>
+    When the input value is of type <type>timestamp with time zone</type>,
+    the truncation is performed with respect to a particular time zone;
+    for example, truncation to <literal>day</literal> produces a value that
+    is midnight in that zone.  By default, truncation is done with respect
+    to the current <xref linkend="guc-timezone"/> setting, but the
+    optional <replaceable>time_zone</replaceable> argument can be provided
+    to specify a different time zone.  The time zone name can be specified
+    in any of the ways described in <xref linkend="datatype-timezones"/>.
+   </para>
+
+   <para>
+    A time zone cannot be specified when processing <type>timestamp without
+    time zone</type> or <type>interval</type> inputs.  These are always
+    taken at face value.
+   </para>
+
+   <para>
 <!--
-    Examples:
+    Examples (assuming the local time zone is <literal>America/New_York</literal>):
 -->
 例：
 <screen>
@@ -3085,6 +3167,15 @@ SELECT date_trunc('hour', TIMESTAMP '2001-02-16 20:38:40');
 
 SELECT date_trunc('year', TIMESTAMP '2001-02-16 20:38:40');
 <lineannotation>Result: </lineannotation><computeroutput>2001-01-01 00:00:00</computeroutput>
+
+SELECT date_trunc('day', TIMESTAMP WITH TIME ZONE '2001-02-16 20:38:40+00');
+<lineannotation>Result: </lineannotation><computeroutput>2001-02-16 00:00:00-05</computeroutput>
+
+SELECT date_trunc('day', TIMESTAMP WITH TIME ZONE '2001-02-16 20:38:40+00', 'Australia/Sydney');
+<lineannotation>Result: </lineannotation><computeroutput>2001-02-16 08:00:00-05</computeroutput>
+
+SELECT date_trunc('hour', INTERVAL '3 days 02:47:33');
+<lineannotation>Result: </lineannotation><computeroutput>3 days 02:00:00</computeroutput>
 </screen>
    </para>
   </sect2>
@@ -5857,26 +5948,35 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
 
 
  <sect1 id="functions-xml">
+
 <!--
   <title>XML Functions</title>
 -->
   <title>XML関数</title>
 
+  <indexterm>
+   <primary>XML Functions</primary>
+  </indexterm>
+
   <para>
 <!--
    The functions and function-like expressions described in this
-   section operate on values of type <type>xml</type>.  Check <xref
+   section operate on values of type <type>xml</type>.  See <xref
    linkend="datatype-xml"/> for information about the <type>xml</type>
    type.  The function-like expressions <function>xmlparse</function>
    and <function>xmlserialize</function> for converting to and from
-   type <type>xml</type> are not repeated here.  Use of most of these
-   functions requires the installation to have been built
-   with <command>configure &#045;&#045;with-libxml</command>.
+   type <type>xml</type> are documented there, not in this section.
 -->
 この節で説明される関数および擬似関数式は、<type>xml</type>型の値に対して機能します。
 <type>xml</type>型についての情報は<xref linkend="datatype-xml"/>を点検してください。
 <type>xml</type>型のやりとりを変換する<function>xmlparse</function>および<function>xmlserialize</function>擬似関数式はここでは繰り返しません。
 これらの多くの関数を使用するには、インストレーションの際<command>configure --with-libxml</command>付きでビルドされていることが必要です。
+  </para>
+
+  <para>
+   Use of most of these functions
+   requires <productname>PostgreSQL</productname> to have been built
+   with <command>configure &#045;&#045;with-libxml</command>.
   </para>
 
   <sect2 id="functions-producing-xml">
@@ -6129,8 +6229,8 @@ SELECT xmlelement(name foo, xmlattributes('xyz' as bar),
      encoding, depending on the setting of the configuration parameter
      <xref linkend="guc-xmlbinary"/>.  The particular behavior for
      individual data types is expected to evolve in order to align the
-     SQL and PostgreSQL data types with the XML Schema specification,
-     at which point a more precise description will appear.
+     PostgreSQL mappings with those specified in SQL:2006 and later,
+     as discussed in <xref linkend="functions-xml-limits-casts"/>.
 -->
 そのほかの型の内容は有効なXML文字データにフォーマットされます。
 これは特に文字&lt;、&gt;、および&amp;がエンティティに変換されることを意味します。
@@ -6431,15 +6531,18 @@ SELECT xmlagg(x) FROM (SELECT * FROM test ORDER BY y DESC) AS tab;
     </indexterm>
 
 <synopsis>
-<function>XMLEXISTS</function>(<replaceable>text</replaceable> PASSING <optional>BY REF</optional> <replaceable>xml</replaceable> <optional>BY REF</optional>)
+<function>XMLEXISTS</function>(<replaceable>text</replaceable> PASSING <optional>BY { REF | VALUE }</optional> <replaceable>xml</replaceable> <optional>BY { REF | VALUE }</optional>)
 </synopsis>
 
     <para>
 <!--
-     The function <function>xmlexists</function> returns true if the
-     XPath expression in the first argument returns any nodes, and
-     false otherwise.  (If either argument is null, the result is
-     null.)
+     The function <function>xmlexists</function> evaluates an XPath 1.0
+     expression (the first argument), with the passed XML value as its context
+     item.  The function returns false if the result of that evaluation
+     yields an empty node-set, true if it yields any other value.  The
+     function returns null if any argument is null.  A nonnull value
+     passed as the context item must be an XML document, not a content
+     fragment or any non-XML value.
 -->
 関数<function>xmlexists</function>は第一引数のXPath式が何かしらのノードであれば真を返し、そうでなければ偽を返します。
 (もしいずれの引数もNULLであった場合はNULLを返します。)
@@ -6451,7 +6554,7 @@ SELECT xmlagg(x) FROM (SELECT * FROM test ORDER BY y DESC) AS tab;
 -->
 例:
      <screen><![CDATA[
-SELECT xmlexists('//town[text() = ''Toronto'']' PASSING BY REF '<towns><town>Toronto</town><town>Ottawa</town></towns>');
+SELECT xmlexists('//town[text() = ''Toronto'']' PASSING BY VALUE '<towns><town>Toronto</town><town>Ottawa</town></towns>');
 
  xmlexists
 ------------
@@ -6462,14 +6565,14 @@ SELECT xmlexists('//town[text() = ''Toronto'']' PASSING BY REF '<towns><town>Tor
 
     <para>
 <!--
-     The <literal>BY REF</literal> clauses have no effect in
-     PostgreSQL, but are allowed for SQL conformance and compatibility
-     with other implementations.  Per SQL standard, the
-     first <literal>BY REF</literal> is required, the second is
-     optional.  Also note that the SQL standard specifies
-     the <function>xmlexists</function> construct to take an XQuery
-     expression as first argument, but PostgreSQL currently only
-     supports XPath, which is a subset of XQuery.
+     The <literal>BY REF</literal> and <literal>BY VALUE</literal> clauses
+     are accepted in <productname>PostgreSQL</productname>, but are ignored,
+     as discussed in <xref linkend="functions-xml-limits-postgresql"/>.
+     In the SQL standard, the <function>xmlexists</function> function
+     evaluates an expression in the XML Query language,
+     but <productname>PostgreSQL</productname> allows only an XPath 1.0
+     expression, as discussed in
+     <xref linkend="functions-xml-limits-xpath1"/>.
 -->
 <literal>BY REF</literal>句は、PostgreSQLには何の影響も与えませんが、他の実装とのSQL互換性や順応性のため、付与することができます。
 SQL標準では1つ目の<literal>BY REF</literal>を必要としており、2つ目はオプショナルです。
@@ -6598,12 +6701,12 @@ SELECT xml_is_well_formed_document('<pg:foo xmlns:pg="http://postgresql.org/stuf
 
     <para>
 <!--
-     The function <function>xpath</function> evaluates the XPath
+     The function <function>xpath</function> evaluates the XPath 1.0
      expression <replaceable>xpath</replaceable> (a <type>text</type> value)
      against the XML value
      <replaceable>xml</replaceable>.  It returns an array of XML values
-     corresponding to the node set produced by the XPath expression.
-     If the XPath expression returns a scalar value rather than a node set,
+     corresponding to the node-set produced by the XPath expression.
+     If the XPath expression returns a scalar value rather than a node-set,
      a single-element array is returned.
 -->
 関数<function>xpath</function>は、XML値<replaceable>xml</replaceable>に対し、XPath式<replaceable>xpath</replaceable>(ひとつの<type>text</type>値)を評価します。そして、XPath式で作成されたノードセットに対応するXML値の配列を返します。
@@ -6684,9 +6787,10 @@ SELECT xpath('//mydefns:b/text()', '<a xmlns="http://example.com"><b>test</b></a
 <!--
      The function <function>xpath_exists</function> is a specialized form
      of the <function>xpath</function> function.  Instead of returning the
-     individual XML values that satisfy the XPath, this function returns a
-     Boolean indicating whether the query was satisfied or not.  This
-     function is equivalent to the standard <literal>XMLEXISTS</literal> predicate,
+     individual XML values that satisfy the XPath 1.0 expression, this function
+     returns a Boolean indicating whether the query was satisfied or not
+     (specifically, whether it produced any value other than an empty node-set).
+     This function is equivalent to the <literal>XMLEXISTS</literal> predicate,
      except that it also offers support for a namespace mapping argument.
 -->
 関数<function>xpath_exists</function>は、<function>xpath</function>関数の特別な形式です。この関数は、XPathを満足する個別のXML値を返す代わりに、問い合わせがそれを満足するかどうかを論理値で返します。
@@ -6727,7 +6831,7 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
 
 <synopsis>
 <function>xmltable</function>( <optional>XMLNAMESPACES(<replaceable>namespace uri</replaceable> AS <replaceable>namespace name</replaceable><optional>, ...</optional>), </optional>
-          <replaceable>row_expression</replaceable> PASSING <optional>BY REF</optional> <replaceable>document_expression</replaceable> <optional>BY REF</optional>
+          <replaceable>row_expression</replaceable> PASSING <optional>BY { REF | VALUE }</optional> <replaceable>document_expression</replaceable> <optional>BY { REF | VALUE }</optional>
           COLUMNS <replaceable>name</replaceable> { <replaceable>type</replaceable> <optional>PATH <replaceable>column_expression</replaceable></optional> <optional>DEFAULT <replaceable>default_expression</replaceable></optional> <optional>NOT NULL | NULL</optional>
                         | FOR ORDINALITY }
                    <optional>, ...</optional>
@@ -6737,8 +6841,8 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
     <para>
 <!--
      The <function>xmltable</function> function produces a table based
-     on the given XML value, an XPath filter to extract rows, and an
-     optional set of column definitions.
+     on the given XML value, an XPath filter to extract rows, and a
+     set of column definitions.
 -->
 <function>xmltable</function>関数は、与えられたXML値、行を抽出するXPathフィルタ、オプションの列定義の集合に基づいてテーブルを生成します。
     </para>
@@ -6757,10 +6861,14 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
 
     <para>
 <!--
-     The required <replaceable>row_expression</replaceable> argument is an XPath
-     expression that is evaluated against the supplied XML document to
-     obtain an ordered sequence of XML nodes. This sequence is what
-     <function>xmltable</function> transforms into output rows.
+     The required <replaceable>row_expression</replaceable> argument is
+     an XPath 1.0 expression that is evaluated, passing the
+     <replaceable>document_expression</replaceable> as its context item, to
+     obtain a set of XML nodes. These nodes are what
+     <function>xmltable</function> transforms into output rows. No rows
+     will be produced if the <replaceable>document_expression</replaceable>
+     is null, nor if the <replaceable>row_expression</replaceable> produces
+     an empty node-set or any value other than a node-set.
 -->
 必須の<replaceable>row_expression</replaceable>引数はXPath式で、指定のXML文書に対して評価され、XMLノードの順序付きシーケンスが取得されます。
 このシーケンスが<function>xmltable</function>により出力行に変換されます。
@@ -6768,13 +6876,17 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
 
     <para>
 <!--
-     <replaceable>document_expression</replaceable> provides the XML document to
-     operate on.
-     The <literal>BY REF</literal> clauses have no effect in PostgreSQL,
-     but are allowed for SQL conformance and compatibility with other
-     implementations.
-     The argument must be a well-formed XML document; fragments/forests
-     are not accepted.
+     <replaceable>document_expression</replaceable> provides the context
+     item for the <replaceable>row_expression</replaceable>. It must be a
+     well-formed XML document; fragments/forests are not accepted.
+     The <literal>BY REF</literal> and <literal>BY VALUE</literal> clauses
+     are accepted but ignored, as discussed in
+     <xref linkend="functions-xml-limits-postgresql"/>.
+     In the SQL standard, the <function>xmltable</function> function
+     evaluates expressions in the XML Query language,
+     but <productname>PostgreSQL</productname> allows only XPath 1.0
+     expressions, as discussed in
+     <xref linkend="functions-xml-limits-xpath1"/>.
 -->
 <replaceable>document_expression</replaceable>は演算の対象となるXML文書を提供します。
 <literal>BY REF</literal>句はPostgreSQLでは何の効果もありませんが、SQL準拠および他の実装との互換性のために受け入れられます。
@@ -6785,11 +6897,7 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
 <!--
      The mandatory <literal>COLUMNS</literal> clause specifies the list
      of columns in the output table.
-     If the <literal>COLUMNS</literal> clause is omitted, the rows in the result
-     set contain a single column of type <literal>xml</literal> containing the
-     data matched by <replaceable>row_expression</replaceable>.
-     If <literal>COLUMNS</literal> is specified, each entry describes a
-     single column.
+     Each entry describes a single column.
      See the syntax summary above for the format.
      The column name and type are required; the path, default and
      nullability clauses are optional.
@@ -6804,21 +6912,31 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
     <para>
 <!--
      A column marked <literal>FOR ORDINALITY</literal> will be populated
-     with row numbers matching the order in which the
-     output rows appeared in the original input XML document.
+     with row numbers, starting with 1, in the order of nodes retrieved from
+     the <replaceable>row_expression</replaceable>'s result node-set.
      At most one column may be marked <literal>FOR ORDINALITY</literal>.
 -->
 <literal>FOR ORDINALITY</literal>と印がつけられた列には、元の入力XMLドキュメントの中に現れた出力行の順序に対応する行番号が入ります。
 <literal>FOR ORDINALITY</literal>の印が付けられるのは最大でも1列です。
     </para>
 
+    <note>
+     <para>
+      XPath 1.0 does not specify an order for nodes in a node-set, so code
+      that relies on a particular order of the results will be
+      implementation-dependent.  Details can be found in
+      <xref linkend="xml-xpath-1-specifics"/>.
+     </para>
+    </note>
+
     <para>
 <!--
-     The <literal>column_expression</literal> for a column is an XPath expression
-     that is evaluated for each row, relative to the result of the
-     <replaceable>row_expression</replaceable>, to find the value of the column.
-     If no <literal>column_expression</literal> is given, then the column name
-     is used as an implicit path.
+     The <replaceable>column_expression</replaceable> for a column is an
+     XPath 1.0 expression that is evaluated for each row, with the current
+     node from the <replaceable>row_expression</replaceable> result as its
+     context item, to find the value of the column.  If
+     no <replaceable>column_expression</replaceable> is given, then the
+     column name is used as an implicit path.
 -->
 列の<literal>column_expression</literal>はXPath式で、<replaceable>row_expression</replaceable>の結果に対応する各行について評価されて、列の値を得ます。
 <literal>column_expression</literal>が与えられなかった場合は、暗示的なパスとして列名が使用されます。
@@ -6826,11 +6944,14 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
 
     <para>
 <!--
-     If a column's XPath expression returns multiple elements, an error
-     is raised.
-     If the expression matches an empty tag, the result is an
-     empty string (not <literal>NULL</literal>).
-     Any <literal>xsi:nil</literal> attributes are ignored.
+     If a column's XPath expression returns a non-XML value (limited to
+     string, boolean, or double in XPath 1.0) and the column has a
+     PostgreSQL type other than <type>xml</type>, the column will be set
+     as if by assigning the value's string representation to the PostgreSQL
+     type.  (If the value is a boolean, its string representation is taken
+     to be <literal>1</literal> or <literal>0</literal> if the output
+     column's type category is numeric, otherwise <literal>true</literal> or
+     <literal>false</literal>.)
 -->
 列のXPath式が複数の要素を戻した場合、エラーが発生します。
 式が空のタグとマッチした場合、結果は空文字列となります（<literal>NULL</literal>ではありません）。
@@ -6838,15 +6959,45 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
     </para>
 
     <para>
+     If a column's XPath expression returns a non-empty set of XML nodes
+     and the column's PostgreSQL type is <type>xml</type>, the column will
+     be assigned the expression result exactly, if it is of document or
+     content form.
+     <footnote>
+      <para>
+       A result containing more than one element node at the top level, or
+       non-whitespace text outside of an element, is an example of content form.
+       An XPath result can be of neither form, for example if it returns an
+       attribute node selected from the element that contains it. Such a result
+       will be put into content form with each such disallowed node replaced by
+       its string value, as defined for the XPath 1.0
+       <function>string</function> function.
+      </para>
+     </footnote>
+    </para>
+
+    <para>
+     A non-XML result assigned to an <type>xml</type> output column produces
+     content, a single text node with the string value of the result.
+     An XML result assigned to a column of any other type may not have more than
+     one node, or an error is raised. If there is exactly one node, the column
+     will be set as if by assigning the node's string
+     value (as defined for the XPath 1.0 <function>string</function> function)
+     to the PostgreSQL type.
+    </para>
+
+    <para>
 <!--
-     The text body of the XML matched by the <replaceable>column_expression</replaceable>
-     is used as the column value. Multiple <literal>text()</literal> nodes
-     within an element are concatenated in order. Any child elements,
-     processing instructions, and comments are ignored, but the text contents
-     of child elements are concatenated to the result.
+     The string value of an XML element is the concatenation, in document order,
+     of all text nodes contained in that element and its descendants. The string
+     value of an element with no descendant text nodes is an
+     empty string (not <literal>NULL</literal>).
+     Any <literal>xsi:nil</literal> attributes are ignored.
      Note that the whitespace-only <literal>text()</literal> node between two non-text
      elements is preserved, and that leading whitespace on a <literal>text()</literal>
      node is not flattened.
+     The XPath 1.0 <function>string</function> function may be consulted for the
+     rules defining the string value of other XML node types and non-XML values.
 -->
 <replaceable>column_expression</replaceable>にマッチしたXMLのテキスト本体が列の値として使用されます。
 要素内の複数の<literal>text()</literal>ノードは順番に結合されます。
@@ -6855,16 +7006,17 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
     </para>
 
     <para>
+     The conversion rules presented here are not exactly those of the SQL
+     standard, as discussed in <xref linkend="functions-xml-limits-casts"/>.
+    </para>
+
+    <para>
 <!--
-     If the path expression does not match for a given row but
-     <replaceable>default_expression</replaceable> is specified, the value resulting
-     from evaluating that expression is used.
-     If no <literal>DEFAULT</literal> clause is given for the column,
-     the field will be set to <literal>NULL</literal>.
-     It is possible for a <replaceable>default_expression</replaceable> to reference
-     the value of output columns that appear prior to it in the column list,
-     so the default of one column may be based on the value of another
-     column.
+     If the path expression returns an empty node-set
+     (typically, when it does not match)
+     for a given row, the column will be set to <literal>NULL</literal>, unless
+     a <replaceable>default_expression</replaceable> is specified; then the
+     value resulting from evaluating that expression is used.
 -->
 パス式が行とマッチせず、<replaceable>default_expression</replaceable>が指定されている場合は、その式を評価した結果の値が使用されます。
 その列に<literal>DEFAULT</literal>句が指定されていない場合は、そのフィールドは<literal>NULL</literal>に設定されます。
@@ -6885,20 +7037,14 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
 
     <para>
 <!--
-     Unlike regular PostgreSQL functions, <replaceable>column_expression</replaceable>
-     and <replaceable>default_expression</replaceable> are not evaluated to a simple
-     value before calling the function.
-     <replaceable>column_expression</replaceable> is normally evaluated
-     exactly once per input row, and <replaceable>default_expression</replaceable>
-     is evaluated each time a default is needed for a field.
-     If the expression qualifies as stable or immutable the repeat
+     A <replaceable>default_expression</replaceable>, rather than being
+     evaluated immediately when <function>xmltable</function> is called,
+     is evaluated each time a default is needed for the column.
+     If the expression qualifies as stable or immutable, the repeat
      evaluation may be skipped.
-     Effectively <function>xmltable</function> behaves more like a subquery than a
-     function call.
      This means that you can usefully use volatile functions like
-     <function>nextval</function> in <replaceable>default_expression</replaceable>, and
-     <replaceable>column_expression</replaceable> may depend on other parts of the
-     XML document.
+     <function>nextval</function> in
+     <replaceable>default_expression</replaceable>.
 -->
 PostgreSQLの通常の関数とは異なり、<replaceable>column_expression</replaceable>と<replaceable>default_expression</replaceable>は関数を呼び出す前には単純な値に評価されません。
 <replaceable>column_expression</replaceable>は通常は一つの入力行に対してちょうど一度だけ評価され、<replaceable>default_expression</replaceable>はフィールドにデフォルト値が必要になる度に評価されます。
@@ -6971,9 +7117,9 @@ $$ AS data;
 
 SELECT xmltable.*
   FROM xmlelements, XMLTABLE('/root' PASSING data COLUMNS element text);
-       element        
-----------------------
-   Hello2a2   bbbCC  
+         element         
+-------------------------
+   Hello2a2   bbbxxxCC  
 ]]></screen>
     </para>
 

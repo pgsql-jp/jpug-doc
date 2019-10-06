@@ -1635,7 +1635,7 @@ NULL値が入力されると、<quote>不明</quote>という論理値として�
 -->
 <literal><function>random()</function></literal>が返す値の特徴はシステムの実装に依存します。
 暗号への利用は適していません。代わりに<xref linkend="pgcrypto"/>モジュールを参照してください。
-   </para>
+  </para>
 
   <para>
 <!--
@@ -8816,19 +8816,6 @@ BREにおいては、<literal>|</literal>、<literal>+</literal>、<literal>?</l
 <literal>FM</literal>は、先頭にはゼロ、末尾には空白を追加してパターンを固定長にする機能を無効にします。
 <productname>PostgreSQL</productname>では、<literal>FM</literal>はその次に記述されたものだけを変更します。一方Oracleでは、<literal>FM</literal>はそれに続く全ての記述に対して影響し、<literal>FM</literal>修飾詞を繰り返すと、ゼロや空白を埋めるモードのオンとオフが切り替わります。
       </para>
-      <tip>
-        <para>
-          Prior to <productname>PostgreSQL</productname> 12, it was possible to
-          skip arbitrary text in the input string using non-letter or non-digit
-          characters. For example,
-          <literal>to_timestamp('2000y6m1d', 'yyyy-MM-DD')</literal> used to
-          work.  Now you can only use letter characters for this purpose.  For example,
-          <literal>to_timestamp('2000y6m1d', 'yyyytMMtDDt')</literal> and
-          <literal>to_timestamp('2000y6m1d', 'yyyy"y"MM"m"DD"d"')</literal>
-          skip <literal>y</literal>, <literal>m</literal>, and
-          <literal>d</literal>.
-        </para>
-      </tip>
      </listitem>
 
      <listitem>
@@ -8924,6 +8911,19 @@ BREにおいては、<literal>|</literal>、<literal>+</literal>、<literal>?</l
 例えば、<literal>'"Hello Year "YYYY'</literal>では<literal>YYYY</literal>は年データに置換されてしまいますが、<literal>Year</literal>内の<literal>Y</literal>は置換されません。
 <function>to_date</function>、<function>to_number</function>、<function>to_timestamp</function>では、二重引用符で括られた文字の数だけ入力された文字をスキップします。例えば<literal>"XX"</literal>は2文字の入力文字（それが<literal>XX</literal>であるかどうかにかかわらず)をスキップします。
       </para>
+      <tip>
+        <para>
+          Prior to <productname>PostgreSQL</productname> 12, it was possible to
+          skip arbitrary text in the input string using non-letter or non-digit
+          characters. For example,
+          <literal>to_timestamp('2000y6m1d', 'yyyy-MM-DD')</literal> used to
+          work.  Now you can only use letter characters for this purpose.  For example,
+          <literal>to_timestamp('2000y6m1d', 'yyyytMMtDDt')</literal> and
+          <literal>to_timestamp('2000y6m1d', 'yyyy"y"MM"m"DD"d"')</literal>
+          skip <literal>y</literal>, <literal>m</literal>, and
+          <literal>d</literal>.
+        </para>
+      </tip>
      </listitem>
 
      <listitem>
@@ -15115,6 +15115,7 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
      is evaluated each time a default is needed for the column.
      If the expression qualifies as stable or immutable, the repeat
      evaluation may be skipped.
+     This means that you can usefully use volatile functions like
      <function>nextval</function> in
      <replaceable>default_expression</replaceable>.
 -->
@@ -15611,8 +15612,6 @@ table2-mapping
 
   <sect2 id="functions-json-processing">
    <title>Processing and Creating JSON Data</title>
-
-  <para>
 
   <para>
 <!--
@@ -18385,15 +18384,6 @@ SELECT NULLIF(value, '(none)') ...
   <title>配列関数と演算子</title>
 
   <para>
-   The array containment operators (<literal>&lt;@</literal>
-   and <literal>@&gt;</literal>) consider one array to be contained in
-   another one if each of its elements appears in the other one.
-   Duplicates are not treated specially, thus <literal>ARRAY[1]</literal>
-   and <literal>ARRAY[1,1]</literal> are each considered to contain the
-   other.
-  </para>
-
-  <para>
 <!--
    <xref linkend="array-operators-table"/> shows the operators
    available for array types.
@@ -18574,6 +18564,15 @@ SELECT NULLIF(value, '(none)') ...
 多次元配列では、行番号を優先して取り出します（最後の添え字が最も速く変わる順序で比較します）。
 2つの配列の内容が同じで次元数が異なる場合、どの次元で最初に違いがあったかによってソート順が決まります。
 （これは8.2より前の<productname>PostgreSQL</productname>では異なります。古いバージョンでは、次数や添え字範囲が異なっていたとしても、内容が同じであれば、2つの配列は同じものとしていました。）
+  </para>
+
+  <para>
+   The array containment operators (<literal>&lt;@</literal>
+   and <literal>@&gt;</literal>) consider one array to be contained in
+   another one if each of its elements appears in the other one.
+   Duplicates are not treated specially, thus <literal>ARRAY[1]</literal>
+   and <literal>ARRAY[1,1]</literal> are each considered to contain the
+   other.
   </para>
 
   <para>
@@ -19858,7 +19857,8 @@ NULL baz</literallayout>(3 rows)</entry>
       </entry>
 <!--
       <entry>No</entry>
-      <entry>aggregates name/value pairs as a JSON object</entry>
+      <entry>aggregates name/value pairs as a JSON object; values can be
+       null, but not names</entry>
 -->
       <entry>不可</entry>
       <entry>名前／値のペアをJSONオブジェクトとして集約</entry>
@@ -23055,7 +23055,7 @@ SELECT * FROM pg_ls_dir('.') WITH ORDINALITY AS t(ls,n);
 
  <sect1 id="functions-info">
 <!--
-  <title>System Information Functions</title>
+  <title>System Information Functions and Operators</title>
 -->
   <title>システム情報関数</title>
 
@@ -27309,7 +27309,7 @@ falseの場合、<function>pg_stop_backup</function>はバックアップの完�
     the recovery target.
 -->
 <function>pg_create_restore_point</function>はリカバリターゲットとして使用可能な名前付けされた先行書き込みログレコードを生成し、それに該当するログ位置を返します。
-与えられた名前は、どこまでリカバリをするかを明示的に指定する<xref linkend="recovery-target-name"/>パラメータに使用することができます。
+与えられた名前は、どこまでリカバリをするかを明示的に指定する<xref linkend="guc-recovery-target-name"/>パラメータに使用することができます。
 リカバリ処理はリカバリターゲットに指定した名前と一致した最初の時点で終了するため、同じ名前で複数のリストアポイントを作成することは避けてください。
    </para>
 
@@ -27866,6 +27866,29 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
       <row>
        <entry>
         <indexterm>
+         <primary>pg_create_logical_replication_slot</primary>
+        </indexterm>
+        <literal><function>pg_create_logical_replication_slot(<parameter>slot_name</parameter> <type>name</type>, <parameter>plugin</parameter> <type>name</type> <optional>, <parameter>temporary</parameter> <type>boolean</type></optional>)</function></literal>
+       </entry>
+       <entry>
+        (<parameter>slot_name</parameter> <type>name</type>, <parameter>lsn</parameter> <type>pg_lsn</type>)
+       </entry>
+       <entry>
+        Creates a new logical (decoding) replication slot named
+        <parameter>slot_name</parameter> using the output plugin
+        <parameter>plugin</parameter>. The optional third
+        parameter, <parameter>temporary</parameter>, when set to true, specifies that
+        the slot should not be permanently stored to disk and is only meant
+        for use by current session. Temporary slots are also
+        released upon any error. A call to this function has the same
+        effect as the replication protocol command
+        <literal>CREATE_REPLICATION_SLOT ... LOGICAL</literal>.
+       </entry>
+      </row>
+
+      <row>
+       <entry>
+        <indexterm>
          <primary>pg_copy_physical_replication_slot</primary>
         </indexterm>
         <literal><function>pg_copy_physical_replication_slot(<parameter>src_slot_name</parameter> <type>name</type>, <parameter>dst_slot_name</parameter> <type>name</type> <optional>, <parameter>temporary</parameter> <type>boolean</type></optional>)</function></literal>
@@ -27901,35 +27924,6 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
         <parameter>temporary</parameter> and <parameter>plugin</parameter> are optional.
         If <parameter>temporary</parameter> or <parameter>plugin</parameter> are omitted,
         the same values as the source logical slot are used.
-       </entry>
-      </row>
-
-      <row>
-       <entry>
-        <indexterm>
-         <primary>pg_create_logical_replication_slot</primary>
-        </indexterm>
-        <literal><function>pg_create_logical_replication_slot(<parameter>slot_name</parameter> <type>name</type>, <parameter>plugin</parameter> <type>name</type> <optional>, <parameter>temporary</parameter> <type>boolean</type></optional>)</function></literal>
-       </entry>
-       <entry>
-        (<parameter>slot_name</parameter> <type>name</type>, <parameter>lsn</parameter> <type>pg_lsn</type>)
-       </entry>
-       <entry>
-<!--
-        Creates a new logical (decoding) replication slot named
-        <parameter>slot_name</parameter> using the output plugin
-        <parameter>plugin</parameter>. The optional third
-        parameter, <parameter>temporary</parameter>, when set to true, specifies that
-        the slot should not be permanently stored to disk and is only meant
-        for use by current session. Temporary slots are also
-        released upon any error. A call to this function has the same
-        effect as the replication protocol command
-        <literal>CREATE_REPLICATION_SLOT ... LOGICAL</literal>.
--->
-出力プラグイン<parameter>plugin</parameter>を使用して、<parameter>slot_name</parameter>という名前の新しい論理(デコード)レプリケーションスロットを作成します。
-3番目のパラメータ<parameter>temporary</parameter>はオプションで、trueに設定されるとそのスロットは永続的にディスクに保存されるものではなく、現在のセッションによってのみ用いられることを意図していることを指定します。
-一時的なスロットはエラーが発生したときも解放されます。
-この関数を呼び出すのはレプリケーションプロトコルコマンド<literal>CREATE_REPLICATION_SLOT ... LOGICAL</literal>と同じ効果があります。
        </entry>
       </row>
 
@@ -29190,32 +29184,6 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
       </row>
       <row>
        <entry>
-        <literal><function>pg_ls_archive_statusdir()</function></literal>
-       </entry>
-       <entry><type>setof record</type></entry>
-       <entry>
-        List the name, size, and last modification time of files in the WAL
-        archive status directory. Access is granted to members of the
-        <literal>pg_monitor</literal> role and may be granted to other
-        non-superuser roles.
-       </entry>
-      </row>
-      <row>
-       <entry>
-        <literal><function>pg_ls_tmpdir(<optional><parameter>tablespace</parameter> <type>oid</type></optional>)</function></literal>
-       </entry>
-       <entry><type>setof record</type></entry>
-       <entry>
-        List the name, size, and last modification time of files in the
-        temporary directory for <parameter>tablespace</parameter>.  If
-        <parameter>tablespace</parameter> is not provided, the
-        <literal>pg_default</literal> tablespace is used.  Access is granted
-        to members of the <literal>pg_monitor</literal> role and may be
-        granted to other non-superuser roles.
-       </entry>
-      </row>
-      <row>
-       <entry>
         <literal><function>pg_ls_logdir()</function></literal>
        </entry>
        <entry><type>setof record</type></entry>
@@ -29242,6 +29210,32 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
 -->
 WALディレクトリ内のファイルの名前、サイズ、最終更新時刻を一覧表示します。
 <literal>pg_monitor</literal>ロールのメンバーにはアクセス権が付与されており、他の非スーパーユーザのロールにもアクセス権を付与することができます。
+       </entry>
+      </row>
+      <row>
+       <entry>
+        <literal><function>pg_ls_archive_statusdir()</function></literal>
+       </entry>
+       <entry><type>setof record</type></entry>
+       <entry>
+        List the name, size, and last modification time of files in the WAL
+        archive status directory. Access is granted to members of the
+        <literal>pg_monitor</literal> role and may be granted to other
+        non-superuser roles.
+       </entry>
+      </row>
+      <row>
+       <entry>
+        <literal><function>pg_ls_tmpdir(<optional><parameter>tablespace</parameter> <type>oid</type></optional>)</function></literal>
+       </entry>
+       <entry><type>setof record</type></entry>
+       <entry>
+        List the name, size, and last modification time of files in the
+        temporary directory for <parameter>tablespace</parameter>.  If
+        <parameter>tablespace</parameter> is not provided, the
+        <literal>pg_default</literal> tablespace is used.  Access is granted
+        to members of the <literal>pg_monitor</literal> role and may be
+        granted to other non-superuser roles.
        </entry>
       </row>
       <row>
