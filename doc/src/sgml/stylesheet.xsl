@@ -34,6 +34,12 @@
 
 <xsl:include href="stylesheet-custom.xsl" />
 
+<!-- strip directory name from image filerefs -->
+<xsl:template match="imagedata/@fileref">
+ <xsl:value-of select="substring-after(., '/')"/>
+</xsl:template>
+
+
 <!--
 Customization of header
 - add Up and Home links

@@ -3,7 +3,7 @@
  * event_trigger.c
  *	  PostgreSQL EVENT TRIGGER support code.
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -14,7 +14,9 @@
 #include "postgres.h"
 
 #include "access/htup_details.h"
+#include "access/table.h"
 #include "access/xact.h"
+#include "catalog/catalog.h"
 #include "catalog/dependency.h"
 #include "catalog/indexing.h"
 #include "catalog/objectaccess.h"
@@ -43,7 +45,6 @@
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
-#include "utils/tqual.h"
 #include "utils/syscache.h"
 #include "tcop/utility.h"
 
@@ -85,7 +86,7 @@ typedef enum
 } event_trigger_command_tag_check_result;
 
 /* XXX merge this with ObjectTypeMap? */
-static event_trigger_support_data event_trigger_support[] = {
+static const event_trigger_support_data event_trigger_support[] = {
 	{"ACCESS METHOD", true},
 	{"AGGREGATE", true},
 	{"CAST", true},
@@ -147,15 +148,14 @@ typedef struct SQLDropObject
 } SQLDropObject;
 
 static void AlterEventTriggerOwner_internal(Relation rel,
-								HeapTuple tup,
-								Oid newOwnerId);
+											HeapTuple tup,
+											Oid newOwnerId);
 static event_trigger_command_tag_check_result check_ddl_tag(const char *tag);
-static event_trigger_command_tag_check_result check_table_rewrite_ddl_tag(
-							const char *tag);
+static event_trigger_command_tag_check_result check_table_rewrite_ddl_tag(const char *tag);
 static void error_duplicate_filter_variable(const char *defname);
 static Datum filter_list_to_array(List *filterlist);
-static Oid insert_event_trigger_tuple(const char *trigname, const char *eventname,
-						   Oid evtOwner, Oid funcoid, List *tags);
+static Oid	insert_event_trigger_tuple(const char *trigname, const char *eventname,
+									   Oid evtOwner, Oid funcoid, List *tags);
 static void validate_ddl_tags(const char *filtervar, List *taglist);
 static void validate_table_rewrite_tags(const char *filtervar, List *taglist);
 static void EventTriggerInvoke(List *fn_oid_list, EventTriggerData *trigdata);
@@ -282,7 +282,7 @@ static event_trigger_command_tag_check_result
 check_ddl_tag(const char *tag)
 {
 	const char *obtypename;
-	event_trigger_support_data *etsd;
+	const event_trigger_support_data *etsd;
 
 	/*
 	 * Handle some idiosyncratic special cases.
@@ -388,9 +388,12 @@ insert_event_trigger_tuple(const char *trigname, const char *eventname, Oid evtO
 				referenced;
 
 	/* Open pg_event_trigger. */
-	tgrel = heap_open(EventTriggerRelationId, RowExclusiveLock);
+	tgrel = table_open(EventTriggerRelationId, RowExclusiveLock);
 
 	/* Build the new pg_trigger tuple. */
+	trigoid = GetNewOidWithIndex(tgrel, EventTriggerOidIndexId,
+								 Anum_pg_event_trigger_oid);
+	values[Anum_pg_event_trigger_oid - 1] = ObjectIdGetDatum(trigoid);
 	memset(nulls, false, sizeof(nulls));
 	namestrcpy(&evtnamedata, trigname);
 	values[Anum_pg_event_trigger_evtname - 1] = NameGetDatum(&evtnamedata);
@@ -408,7 +411,7 @@ insert_event_trigger_tuple(const char *trigname, const char *eventname, Oid evtO
 
 	/* Insert heap tuple. */
 	tuple = heap_form_tuple(tgrel->rd_att, values, nulls);
-	trigoid = CatalogTupleInsert(tgrel, tuple);
+	CatalogTupleInsert(tgrel, tuple);
 	heap_freetuple(tuple);
 
 	/* Depend on owner. */
@@ -430,7 +433,7 @@ insert_event_trigger_tuple(const char *trigname, const char *eventname, Oid evtO
 	InvokeObjectPostCreateHook(EventTriggerRelationId, trigoid, 0);
 
 	/* Close pg_event_trigger. */
-	heap_close(tgrel, RowExclusiveLock);
+	table_close(tgrel, RowExclusiveLock);
 
 	return trigoid;
 }
@@ -481,7 +484,7 @@ RemoveEventTriggerById(Oid trigOid)
 	Relation	tgrel;
 	HeapTuple	tup;
 
-	tgrel = heap_open(EventTriggerRelationId, RowExclusiveLock);
+	tgrel = table_open(EventTriggerRelationId, RowExclusiveLock);
 
 	tup = SearchSysCache1(EVENTTRIGGEROID, ObjectIdGetDatum(trigOid));
 	if (!HeapTupleIsValid(tup))
@@ -491,7 +494,7 @@ RemoveEventTriggerById(Oid trigOid)
 
 	ReleaseSysCache(tup);
 
-	heap_close(tgrel, RowExclusiveLock);
+	table_close(tgrel, RowExclusiveLock);
 }
 
 /*
@@ -506,7 +509,7 @@ AlterEventTrigger(AlterEventTrigStmt *stmt)
 	Form_pg_event_trigger evtForm;
 	char		tgenabled = stmt->tgenabled;
 
-	tgrel = heap_open(EventTriggerRelationId, RowExclusiveLock);
+	tgrel = table_open(EventTriggerRelationId, RowExclusiveLock);
 
 	tup = SearchSysCacheCopy1(EVENTTRIGGERNAME,
 							  CStringGetDatum(stmt->trigname));
@@ -516,14 +519,14 @@ AlterEventTrigger(AlterEventTrigStmt *stmt)
 				 errmsg("event trigger \"%s\" does not exist",
 						stmt->trigname)));
 
-	trigoid = HeapTupleGetOid(tup);
+	evtForm = (Form_pg_event_trigger) GETSTRUCT(tup);
+	trigoid = evtForm->oid;
 
 	if (!pg_event_trigger_ownercheck(trigoid, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_EVENT_TRIGGER,
 					   stmt->trigname);
 
 	/* tuple is a copy, so we can modify it below */
-	evtForm = (Form_pg_event_trigger) GETSTRUCT(tup);
 	evtForm->evtenabled = tgenabled;
 
 	CatalogTupleUpdate(tgrel, &tup->t_self, tup);
@@ -533,7 +536,7 @@ AlterEventTrigger(AlterEventTrigStmt *stmt)
 
 	/* clean up */
 	heap_freetuple(tup);
-	heap_close(tgrel, RowExclusiveLock);
+	table_close(tgrel, RowExclusiveLock);
 
 	return trigoid;
 }
@@ -546,10 +549,11 @@ AlterEventTriggerOwner(const char *name, Oid newOwnerId)
 {
 	Oid			evtOid;
 	HeapTuple	tup;
+	Form_pg_event_trigger evtForm;
 	Relation	rel;
 	ObjectAddress address;
 
-	rel = heap_open(EventTriggerRelationId, RowExclusiveLock);
+	rel = table_open(EventTriggerRelationId, RowExclusiveLock);
 
 	tup = SearchSysCacheCopy1(EVENTTRIGGERNAME, CStringGetDatum(name));
 
@@ -558,7 +562,8 @@ AlterEventTriggerOwner(const char *name, Oid newOwnerId)
 				(errcode(ERRCODE_UNDEFINED_OBJECT),
 				 errmsg("event trigger \"%s\" does not exist", name)));
 
-	evtOid = HeapTupleGetOid(tup);
+	evtForm = (Form_pg_event_trigger) GETSTRUCT(tup);
+	evtOid = evtForm->oid;
 
 	AlterEventTriggerOwner_internal(rel, tup, newOwnerId);
 
@@ -566,7 +571,7 @@ AlterEventTriggerOwner(const char *name, Oid newOwnerId)
 
 	heap_freetuple(tup);
 
-	heap_close(rel, RowExclusiveLock);
+	table_close(rel, RowExclusiveLock);
 
 	return address;
 }
@@ -580,7 +585,7 @@ AlterEventTriggerOwner_oid(Oid trigOid, Oid newOwnerId)
 	HeapTuple	tup;
 	Relation	rel;
 
-	rel = heap_open(EventTriggerRelationId, RowExclusiveLock);
+	rel = table_open(EventTriggerRelationId, RowExclusiveLock);
 
 	tup = SearchSysCacheCopy1(EVENTTRIGGEROID, ObjectIdGetDatum(trigOid));
 
@@ -593,7 +598,7 @@ AlterEventTriggerOwner_oid(Oid trigOid, Oid newOwnerId)
 
 	heap_freetuple(tup);
 
-	heap_close(rel, RowExclusiveLock);
+	table_close(rel, RowExclusiveLock);
 }
 
 /*
@@ -609,7 +614,7 @@ AlterEventTriggerOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 	if (form->evtowner == newOwnerId)
 		return;
 
-	if (!pg_event_trigger_ownercheck(HeapTupleGetOid(tup), GetUserId()))
+	if (!pg_event_trigger_ownercheck(form->oid, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_EVENT_TRIGGER,
 					   NameStr(form->evtname));
 
@@ -626,11 +631,11 @@ AlterEventTriggerOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 
 	/* Update owner dependency reference */
 	changeDependencyOnOwner(EventTriggerRelationId,
-							HeapTupleGetOid(tup),
+							form->oid,
 							newOwnerId);
 
 	InvokeObjectPostAlterHook(EventTriggerRelationId,
-							  HeapTupleGetOid(tup), 0);
+							  form->oid, 0);
 }
 
 /*
@@ -644,7 +649,8 @@ get_event_trigger_oid(const char *trigname, bool missing_ok)
 {
 	Oid			oid;
 
-	oid = GetSysCacheOid1(EVENTTRIGGERNAME, CStringGetDatum(trigname));
+	oid = GetSysCacheOid1(EVENTTRIGGERNAME, Anum_pg_event_trigger_oid,
+						  CStringGetDatum(trigname));
 	if (!OidIsValid(oid) && !missing_ok)
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_OBJECT),
@@ -1048,9 +1054,9 @@ EventTriggerInvoke(List *fn_oid_list, EventTriggerData *trigdata)
 	/* Call each event trigger. */
 	foreach(lc, fn_oid_list)
 	{
+		LOCAL_FCINFO(fcinfo, 0);
 		Oid			fnoid = lfirst_oid(lc);
 		FmgrInfo	flinfo;
-		FunctionCallInfoData fcinfo;
 		PgStat_FunctionCallUsage fcusage;
 
 		elog(DEBUG1, "EventTriggerInvoke %u", fnoid);
@@ -1070,10 +1076,10 @@ EventTriggerInvoke(List *fn_oid_list, EventTriggerData *trigdata)
 		fmgr_info(fnoid, &flinfo);
 
 		/* Call the function, passing no arguments but setting a context. */
-		InitFunctionCallInfoData(fcinfo, &flinfo, 0,
+		InitFunctionCallInfoData(*fcinfo, &flinfo, 0,
 								 InvalidOid, (Node *) trigdata, NULL);
-		pgstat_init_function_usage(&fcinfo, &fcusage);
-		FunctionCallInvoke(&fcinfo);
+		pgstat_init_function_usage(fcinfo, &fcusage);
+		FunctionCallInvoke(fcinfo);
 		pgstat_end_function_usage(&fcusage, true);
 
 		/* Reclaim memory. */
@@ -1356,8 +1362,10 @@ EventTriggerSQLDropAddObject(const ObjectAddress *object, bool original, bool no
 		Relation	catalog;
 		HeapTuple	tuple;
 
-		catalog = heap_open(obj->address.classId, AccessShareLock);
-		tuple = get_catalog_object_by_oid(catalog, obj->address.objectId);
+		catalog = table_open(obj->address.classId, AccessShareLock);
+		tuple = get_catalog_object_by_oid(catalog,
+										  get_object_attnum_oid(object->classId),
+										  obj->address.objectId);
 
 		if (tuple)
 		{
@@ -1384,7 +1392,7 @@ EventTriggerSQLDropAddObject(const ObjectAddress *object, bool original, bool no
 					else if (isAnyTempNamespace(namespaceId))
 					{
 						pfree(obj);
-						heap_close(catalog, AccessShareLock);
+						table_close(catalog, AccessShareLock);
 						MemoryContextSwitchTo(oldcxt);
 						return;
 					}
@@ -1410,7 +1418,7 @@ EventTriggerSQLDropAddObject(const ObjectAddress *object, bool original, bool no
 			}
 		}
 
-		heap_close(catalog, AccessShareLock);
+		table_close(catalog, AccessShareLock);
 	}
 	else
 	{
@@ -2104,8 +2112,9 @@ pg_event_trigger_ddl_commands(PG_FUNCTION_ARGS)
 							Oid			schema_oid;
 							bool		isnull;
 
-							catalog = heap_open(addr.classId, AccessShareLock);
+							catalog = table_open(addr.classId, AccessShareLock);
 							objtup = get_catalog_object_by_oid(catalog,
+															   get_object_attnum_oid(addr.classId),
 															   addr.objectId);
 							if (!HeapTupleIsValid(objtup))
 								elog(ERROR, "cache lookup failed for object %u/%u",
@@ -2123,7 +2132,7 @@ pg_event_trigger_ddl_commands(PG_FUNCTION_ARGS)
 							else
 								schema = get_namespace_name(schema_oid);
 
-							heap_close(catalog, AccessShareLock);
+							table_close(catalog, AccessShareLock);
 						}
 					}
 

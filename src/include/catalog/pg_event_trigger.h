@@ -4,7 +4,7 @@
  *	  definition of the "event trigger" system catalog (pg_event_trigger)
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_event_trigger.h
@@ -28,6 +28,7 @@
  */
 CATALOG(pg_event_trigger,3466,EventTriggerRelationId)
 {
+	Oid			oid;			/* oid */
 	NameData	evtname;		/* trigger's name */
 	NameData	evtevent;		/* trigger's event */
 	Oid			evtowner;		/* trigger's owner */

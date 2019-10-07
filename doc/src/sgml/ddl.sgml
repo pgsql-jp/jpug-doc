@@ -371,6 +371,124 @@ CREATE TABLE products (
   </para>
  </sect1>
 
+ <sect1 id="ddl-generated-columns">
+  <title>Generated Columns</title>
+
+  <indexterm zone="ddl-generated-columns">
+   <primary>generated column</primary>
+  </indexterm>
+
+  <para>
+   A generated column is a special column that is always computed from other
+   columns.  Thus, it is for columns what a view is for tables.  There are two
+   kinds of generated columns: stored and virtual.  A stored generated column
+   is computed when it is written (inserted or updated) and occupies storage
+   as if it were a normal column.  A virtual generated column occupies no
+   storage and is computed when it is read.  Thus, a virtual generated column
+   is similar to a view and a stored generated column is similar to a
+   materialized view (except that it is always updated automatically).
+   PostgreSQL currently implements only stored generated columns.
+  </para>
+
+  <para>
+   To create a generated column, use the <literal>GENERATED ALWAYS
+   AS</literal> clause in <command>CREATE TABLE</command>, for example:
+<programlisting>
+CREATE TABLE people (
+    ...,
+    height_cm numeric,
+    height_in numeric <emphasis>GENERATED ALWAYS AS (height_cm / 2.54) STORED</emphasis>
+);
+</programlisting>
+   The keyword <literal>STORED</literal> must be specified to choose the
+   stored kind of generated column.  See <xref linkend="sql-createtable"/> for
+   more details.
+  </para>
+
+  <para>
+   A generated column cannot be written to directly.  In
+   <command>INSERT</command> or <command>UPDATE</command> commands, a value
+   cannot be specified for a generated column, but the keyword
+   <literal>DEFAULT</literal> may be specified.
+  </para>
+
+  <para>
+   Consider the differences between a column with a default and a generated
+   column.  The column default is evaluated once when the row is first
+   inserted if no other value was provided; a generated column is updated
+   whenever the row changes and cannot be overridden.  A column default may
+   not refer to other columns of the table; a generation expression would
+   normally do so.  A column default can use volatile functions, for example
+   <literal>random()</literal> or functions referring to the current time;
+   this is not allowed for generated columns.
+  </para>
+
+  <para>
+   Several restrictions apply to the definition of generated columns and
+   tables involving generated columns:
+
+   <itemizedlist>
+    <listitem>
+     <para>
+      The generation expression can only use immutable functions and cannot
+      use subqueries or reference anything other than the current row in any
+      way.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      A generation expression cannot reference another generated column.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      A generation expression cannot reference a system column, except
+      <varname>tableoid</varname>.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      A generated column cannot have a column default or an identity definition.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      A generated column cannot be part of a partition key.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      Foreign tables can have generated columns.  See <xref
+      linkend="sql-createforeigntable"/> for details.
+     </para>
+    </listitem>
+   </itemizedlist>
+  </para>
+
+  <para>
+   Additional considerations apply to the use of generated columns.
+   <itemizedlist>
+    <listitem>
+     <para>
+      Generated columns maintain access privileges separately from their
+      underlying base columns.  So, it is possible to arrange it so that a
+      particular role can read from a generated column but not from the
+      underlying base columns.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      Generated columns are, conceptually, updated after
+      <literal>BEFORE</literal> triggers have run.  Therefore, changes made to
+      base columns in a <literal>BEFORE</literal> trigger will be reflected in
+      generated columns.  But conversely, it is not allowed to access
+      generated columns in <literal>BEFORE</literal> triggers.
+     </para>
+    </listitem>
+   </itemizedlist>
+  </para>
+ </sect1>
+
  <sect1 id="ddl-constraints">
 <!--
   <title>Constraints</title>
@@ -630,6 +748,59 @@ CREATE TABLE products (
 ほとんどの式は、演算項目に一つでもNULLがあればNULLと評価されるので、検査制約では制約対象の列にNULL値が入るのを防げません。
 列がNULL値を含まないようにするために、次節で説明する非NULL制約を使用することができます。
    </para>
+
+   <note>
+    <para>
+     <productname>PostgreSQL</productname> does not support
+     <literal>CHECK</literal> constraints that reference table data other than
+     the new or updated row being checked.  While a <literal>CHECK</literal>
+     constraint that violates this rule may appear to work in simple
+     tests, it cannot guarantee that the database will not reach a state
+     in which the constraint condition is false (due to subsequent changes
+     of the other row(s) involved).  This would cause a database dump and
+     reload to fail.  The reload could fail even when the complete
+     database state is consistent with the constraint, due to rows not
+     being loaded in an order that will satisfy the constraint.  If
+     possible, use <literal>UNIQUE</literal>, <literal>EXCLUDE</literal>,
+     or <literal>FOREIGN KEY</literal> constraints to express
+     cross-row and cross-table restrictions.
+    </para>
+
+    <para>
+     If what you desire is a one-time check against other rows at row
+     insertion, rather than a continuously-maintained consistency
+     guarantee, a custom <link linkend="triggers">trigger</link> can be used
+     to implement that.  (This approach avoids the dump/reload problem because
+     <application>pg_dump</application> does not reinstall triggers until after
+     reloading data, so that the check will not be enforced during a
+     dump/reload.)
+    </para>
+   </note>
+
+   <note>
+    <para>
+     <productname>PostgreSQL</productname> assumes that
+     <literal>CHECK</literal> constraints' conditions are immutable, that
+     is, they will always give the same result for the same input row.
+     This assumption is what justifies examining <literal>CHECK</literal>
+     constraints only when rows are inserted or updated, and not at other
+     times.  (The warning above about not referencing other table data is
+     really a special case of this restriction.)
+    </para>
+
+    <para>
+     An example of a common way to break this assumption is to reference a
+     user-defined function in a <literal>CHECK</literal> expression, and
+     then change the behavior of that
+     function.  <productname>PostgreSQL</productname> does not disallow
+     that, but it will not notice if there are rows in the table that now
+     violate the <literal>CHECK</literal> constraint. That would cause a
+     subsequent database dump and reload to fail.
+     The recommended way to handle such a change is to drop the constraint
+     (using <command>ALTER TABLE</command>), adjust the function definition,
+     and re-add the constraint, thereby rechecking it against all table rows.
+    </para>
+   </note>
   </sect2>
 
   <sect2>
@@ -1441,32 +1612,6 @@ TABLE ... CONSTRAINT ... EXCLUDE</command></link>を参照して下さい。
 
   <variablelist>
    <varlistentry>
-    <term><structfield>oid</structfield></term>
-    <listitem>
-     <para>
-      <indexterm>
-       <primary>OID</primary>
-<!--
-       <secondary>column</secondary>
--->
-       <secondary>列</secondary>
-      </indexterm>
-<!--
-      The object identifier (object ID) of a row. This column is only
-      present if the table was created using <literal>WITH
-      OIDS</literal>, or if the <xref linkend="guc-default-with-oids"/>
-      configuration variable was set at the time. This column is of type
-      <type>oid</type> (same name as the column); see <xref
-      linkend="datatype-oid"/> for more information about the type.
--->
-行のオブジェクト識別子（オブジェクトID）です。
-この列は<literal>WITH OIDS</literal>を付けてテーブルが作成された場合、あるいはテーブル作成時に<xref linkend="guc-default-with-oids"/>設定変数が設定されていた場合にのみ存在します。
-この列の型は<literal>oid</literal>（列名と同じ）です。この型についての詳細は<xref linkend="datatype-oid"/>を参照してください。
-     </para>
-    </listitem>
-   </varlistentry>
-
-   <varlistentry>
     <term><structfield>tableoid</structfield></term>
     <listitem>
      <indexterm>
@@ -1583,8 +1728,7 @@ TABLE ... CONSTRAINT ... EXCLUDE</command></link>を参照して下さい。
       <structfield>ctid</structfield> will change if it is
       updated or moved by <command>VACUUM FULL</command>.  Therefore
       <structfield>ctid</structfield> is useless as a long-term row
-      identifier.  The OID, or even better a user-defined serial
-      number, should be used to identify logical rows.
+      identifier.  A primary key should be used to identify logical rows.
 -->
 テーブル内における、行バージョンの物理的位置を表します。
 <structfield>ctid</structfield>は行バージョンを素早く見つけるために使うことができますが、行の<structfield>ctid</structfield>は<command>VACUUM FULL</command>により更新あるいは移動させられると変わります。
@@ -1594,66 +1738,6 @@ TABLE ... CONSTRAINT ... EXCLUDE</command></link>を参照して下さい。
     </listitem>
    </varlistentry>
   </variablelist>
-
-   <para>
-<!--
-    OIDs are 32-bit quantities and are assigned from a single
-    cluster-wide counter.  In a large or long-lived database, it is
-    possible for the counter to wrap around.  Hence, it is bad
-    practice to assume that OIDs are unique, unless you take steps to
-    ensure that this is the case.  If you need to identify the rows in
-    a table, using a sequence generator is strongly recommended.
-    However, OIDs can be used as well, provided that a few additional
-    precautions are taken:
--->
-OIDは32ビット数であり、クラスタ全体で1つのカウンタです。
-大規模、もしくは長期間使用するデータベースでは、カウンタが一周してしまう可能性があります。
-そのため、一意性を確保するための手順を踏んでいない限り、OIDが一意であると仮定してはなりません。
-もしテーブル内の行を同定する必要がある場合は、シーケンスジェネレータを使用することを強く推奨します。
-しかし、OIDはいくつかの注意を払うことによりシーケンスと同様に使用することができます。
-
-    <itemizedlist>
-     <listitem>
-      <para>
-<!--
-       A unique constraint should be created on the OID column of each
-       table for which the OID will be used to identify rows.  When such
-       a unique constraint (or unique index) exists, the system takes
-       care not to generate an OID matching an already-existing row.
-       (Of course, this is only possible if the table contains fewer
-       than 2<superscript>32</superscript> (4 billion) rows, and in practice the
-       table size had better be much less than that, or performance
-       might suffer.)
--->
-OIDを行の特定のために使用するテーブルについては、OID列に一意性制約を作成するべきです。
-このような一意性制約（もしくは一意インデックス）が存在する場合は、システムは既存の行に一致するようなOIDを生成しません。
-（もちろん、これはテーブルの行数が2<superscript>32</superscript>（40億）より少ない場合に可能となります。性能を考慮すると、実際には行数はそれよりずっと少ない方がよいでしょう。）
-      </para>
-     </listitem>
-     <listitem>
-      <para>
-<!--
-       OIDs should never be assumed to be unique across tables; use
-       the combination of <structfield>tableoid</structfield> and row OID if you
-       need a database-wide identifier.
--->
-OIDは複数のテーブルをまたがって一意であると仮定してはなりません。
-データベース全体での識別子が必要な場合は<structfield>tableoid</structfield>と行OIDを組み合わせて使用してください。
-      </para>
-     </listitem>
-     <listitem>
-      <para>
-<!--
-       Of course, the tables in question must be created <literal>WITH
-       OIDS</literal>.  As of <productname>PostgreSQL</productname> 8.1,
-       <literal>WITHOUT OIDS</literal> is the default.
--->
-もちろん、問題にしているテーブルは、<literal>WITH OIDS</literal>を使用して作成されなくてはいけません。
-<productname>PostgreSQL</productname> 8.1から<literal>WITHOUT OIDS</literal>がデフォルトです。
-      </para>
-     </listitem>
-    </itemizedlist>
-   </para>
 
    <para>
 <!--
@@ -2221,6 +2305,10 @@ ALTER TABLE products RENAME TO items;
    <primary>REVOKE</primary>
   </indexterm>
 
+  <indexterm zone="ddl-priv">
+   <primary>ACL</primary>
+  </indexterm>
+
   <para>
 <!--
    When an object is created, it is assigned an owner. The
@@ -2243,11 +2331,9 @@ ALTER TABLE products RENAME TO items;
    <literal>EXECUTE</literal>, and <literal>USAGE</literal>.
    The privileges applicable to a particular
    object vary depending on the object's type (table, function, etc).
-   For complete information on the different types of privileges
-   supported by <productname>PostgreSQL</productname>, refer to the
-   <xref linkend="sql-grant"/> reference
-   page.  The following sections and chapters will also show you how
-   those privileges are used.
+   More detail about the meanings of these privileges appears below.
+   The following sections and chapters will also show you how
+   these privileges are used.
 -->
 権限にはいくつかの種類があります。
 すなわち<literal>SELECT</literal>、 <literal>INSERT</literal>、<literal>UPDATE</literal>、<literal>DELETE</literal>、<literal>TRUNCATE</literal>、<literal>REFERENCES</literal>、<literal>TRIGGER</literal>、<literal>CREATE</literal>、<literal>CONNECT</literal>、<literal>TEMPORARY</literal>、 <literal>EXECUTE</literal>、<literal>USAGE</literal>です。
@@ -2267,18 +2353,20 @@ ALTER TABLE products RENAME TO items;
   <para>
 <!--
    An object can be assigned to a new owner with an <command>ALTER</command>
-   command of the appropriate kind for the object, e.g. <xref
-   linkend="sql-altertable"/>.  Superusers can always do
-   this; ordinary roles can only do it if they are both the current owner
-   of the object (or a member of the owning role) and a member of the new
-   owning role.
+   command of the appropriate kind for the object, for example
+<programlisting>
+ALTER TABLE <replaceable>table_name</replaceable> OWNER TO <replaceable>new_owner</replaceable>;
+</programlisting>
+   Superusers can always do this; ordinary roles can only do it if they are
+   both the current owner of the object (or a member of the owning role) and
+   a member of the new owning role.
 -->
 <xref linkend="sql-altertable"/>のような適切な種類の<command>ALTER</command>コマンドにより、あるオブジェクトに新しい所有者を割り当てることができます。スーパーユーザはいつでも所有者を変更できます。通常のロールは、対象オブジェクトの現在の所有者(または所有者ロールのメンバー)であり、かつ新しい所有者ロールのメンバーである場合に限り、所有者を変更できます。
   </para>
 
   <para>
 <!--
-   To assign privileges, the <command>GRANT</command> command is
+   To assign privileges, the <xref linkend="sql-grant"/> command is
    used. For example, if <literal>joe</literal> is an existing role, and
    <literal>accounts</literal> is an existing table, the privilege to
    update the table can be granted with:
@@ -2311,7 +2399,7 @@ GRANT UPDATE ON accounts TO joe;
   <para>
 <!--
    To revoke a privilege, use the fittingly named
-   <command>REVOKE</command> command:
+   <xref linkend="sql-revoke"/> command:
 -->
 権限を取り消す(revoke)には、それに相応しい名前の<command>REVOKE</command>コマンドを使用します。
 <programlisting>
@@ -2344,6 +2432,507 @@ REVOKE ALL ON accounts FROM PUBLIC;
 しかし<quote>with grant option</quote>を付けることで、権限を与えられたユーザが、所有者と同様に他のユーザに権限を付与することが可能になります。
 もし後になってグラントオプションが剥奪されると、剥奪されたユーザから（直接もしくは権限付与の連鎖により）権限を与えられていたユーザはすべて、その権限が剥奪されます。
 詳細は、<xref linkend="sql-grant"/>と<xref linkend="sql-revoke"/>を参照してください。
+  </para>
+
+  <para>
+   The available privileges are:
+
+   <variablelist>
+    <varlistentry>
+     <term><literal>SELECT</literal></term>
+     <listitem>
+      <para>
+       Allows <xref linkend="sql-select"/> from
+       any column, or specific column(s), of a table, view, materialized
+       view, or other table-like object.
+       Also allows use of <xref linkend="sql-copy"/> TO.
+       This privilege is also needed to reference existing column values in
+       <xref linkend="sql-update"/> or <xref linkend="sql-delete"/>.
+       For sequences, this privilege also allows use of the
+       <function>currval</function> function.
+       For large objects, this privilege allows the object to be read.
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><literal>INSERT</literal></term>
+     <listitem>
+      <para>
+       Allows <xref linkend="sql-insert"/> of a new row into a table, view,
+       etc.  Can be granted on specific column(s), in which case
+       only those columns may be assigned to in the <command>INSERT</command>
+       command (other columns will therefore receive default values).
+       Also allows use of <xref linkend="sql-copy"/> FROM.
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><literal>UPDATE</literal></term>
+     <listitem>
+      <para>
+       Allows <xref linkend="sql-update"/> of any
+       column, or specific column(s), of a table, view, etc.
+       (In practice, any nontrivial <command>UPDATE</command> command will
+       require <literal>SELECT</literal> privilege as well, since it must
+       reference table columns to determine which rows to update, and/or to
+       compute new values for columns.)
+       <literal>SELECT ... FOR UPDATE</literal>
+       and <literal>SELECT ... FOR SHARE</literal>
+       also require this privilege on at least one column, in addition to the
+       <literal>SELECT</literal> privilege.  For sequences, this
+       privilege allows use of the <function>nextval</function> and
+       <function>setval</function> functions.
+       For large objects, this privilege allows writing or truncating the
+       object.
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><literal>DELETE</literal></term>
+     <listitem>
+      <para>
+       Allows <xref linkend="sql-delete"/> of a row from a table, view, etc.
+       (In practice, any nontrivial <command>DELETE</command> command will
+       require <literal>SELECT</literal> privilege as well, since it must
+       reference table columns to determine which rows to delete.)
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><literal>TRUNCATE</literal></term>
+     <listitem>
+      <para>
+       Allows <xref linkend="sql-truncate"/> on a table, view, etc.
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><literal>REFERENCES</literal></term>
+     <listitem>
+      <para>
+       Allows creation of a foreign key constraint referencing a
+       table, or specific column(s) of a table.
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><literal>TRIGGER</literal></term>
+     <listitem>
+      <para>
+       Allows creation of a trigger on a table, view, etc.
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><literal>CREATE</literal></term>
+     <listitem>
+      <para>
+       For databases, allows new schemas and publications to be created within
+       the database.
+      </para>
+      <para>
+       For schemas, allows new objects to be created within the schema.
+       To rename an existing object, you must own the
+       object <emphasis>and</emphasis> have this privilege for the containing
+       schema.
+      </para>
+      <para>
+       For tablespaces, allows tables, indexes, and temporary files to be
+       created within the tablespace, and allows databases to be created that
+       have the tablespace as their default tablespace.  (Note that revoking
+       this privilege will not alter the placement of existing objects.)
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><literal>CONNECT</literal></term>
+     <listitem>
+      <para>
+       Allows the grantee to connect to the database.  This
+       privilege is checked at connection startup (in addition to checking
+       any restrictions imposed by <filename>pg_hba.conf</filename>).
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><literal>TEMPORARY</literal></term>
+     <listitem>
+      <para>
+       Allows temporary tables to be created while using the database.
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><literal>EXECUTE</literal></term>
+     <listitem>
+      <para>
+       Allows calling a function or procedure, including use of
+       any operators that are implemented on top of the function.  This is the
+       only type of privilege that is applicable to functions and procedures.
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><literal>USAGE</literal></term>
+     <listitem>
+      <para>
+       For procedural languages, allows use of the language for
+       the creation of functions in that language.  This is the only type
+       of privilege that is applicable to procedural languages.
+      </para>
+      <para>
+       For schemas, allows access to objects contained in the
+       schema (assuming that the objects' own privilege requirements are
+       also met).  Essentially this allows the grantee to <quote>look up</quote>
+       objects within the schema.  Without this permission, it is still
+       possible to see the object names, e.g. by querying system catalogs.
+       Also, after revoking this permission, existing sessions might have
+       statements that have previously performed this lookup, so this is not
+       a completely secure way to prevent object access.
+      </para>
+      <para>
+       For sequences, allows use of the
+       <function>currval</function> and <function>nextval</function> functions.
+      </para>
+      <para>
+       For types and domains, allows use of the type or domain in the
+       creation of tables, functions, and other schema objects.  (Note that
+       this privilege does not control all <quote>usage</quote> of the
+       type, such as values of the type appearing in queries.  It only
+       prevents objects from being created that depend on the type.  The
+       main purpose of this privilege is controlling which users can create
+       dependencies on a type, which could prevent the owner from changing
+       the type later.)
+      </para>
+      <para>
+       For foreign-data wrappers, allows creation of new servers using the
+       foreign-data wrapper.
+      </para>
+      <para>
+       For foreign servers, allows creation of foreign tables using the
+       server.  Grantees may also create, alter, or drop their own user
+       mappings associated with that server.
+      </para>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+
+   The privileges required by other commands are listed on the
+   reference page of the respective command.
+  </para>
+
+  <para>
+   PostgreSQL grants privileges on some types of objects to
+   <literal>PUBLIC</literal> by default when the objects are created.
+   No privileges are granted to <literal>PUBLIC</literal> by default on
+   tables,
+   table columns,
+   sequences,
+   foreign data wrappers,
+   foreign servers,
+   large objects,
+   schemas,
+   or tablespaces.
+   For other types of objects, the default privileges
+   granted to <literal>PUBLIC</literal> are as follows:
+   <literal>CONNECT</literal> and <literal>TEMPORARY</literal> (create
+   temporary tables) privileges for databases;
+   <literal>EXECUTE</literal> privilege for functions and procedures; and
+   <literal>USAGE</literal> privilege for languages and data types
+   (including domains).
+   The object owner can, of course, <command>REVOKE</command>
+   both default and expressly granted privileges. (For maximum
+   security, issue the <command>REVOKE</command> in the same transaction that
+   creates the object; then there is no window in which another user
+   can use the object.)
+   Also, these default privilege settings can be overridden using the
+   <xref linkend="sql-alterdefaultprivileges"/> command.
+  </para>
+
+  <para>
+   <xref linkend="privilege-abbrevs-table"/> shows the one-letter
+   abbreviations that are used for these privilege types in
+   <firstterm>ACL</firstterm> (Access Control List) values.
+   You will see these letters in the output of the <xref linkend="app-psql"/>
+   commands listed below, or when looking at ACL columns of system catalogs.
+  </para>
+
+  <table id="privilege-abbrevs-table">
+   <title>ACL Privilege Abbreviations</title>
+   <tgroup cols="3">
+    <thead>
+     <row>
+      <entry>Privilege</entry>
+      <entry>Abbreviation</entry>
+      <entry>Applicable Object Types</entry>
+     </row>
+    </thead>
+    <tbody>
+     <row>
+      <entry><literal>SELECT</literal></entry>
+      <entry><literal>r</literal> (<quote>read</quote>)</entry>
+      <entry>
+       <literal>LARGE OBJECT</literal>,
+       <literal>SEQUENCE</literal>,
+       <literal>TABLE</literal> (and table-like objects),
+       table column
+      </entry>
+     </row>
+     <row>
+      <entry><literal>INSERT</literal></entry>
+      <entry><literal>a</literal> (<quote>append</quote>)</entry>
+      <entry><literal>TABLE</literal>, table column</entry>
+     </row>
+     <row>
+      <entry><literal>UPDATE</literal></entry>
+      <entry><literal>w</literal> (<quote>write</quote>)</entry>
+      <entry>
+       <literal>LARGE OBJECT</literal>,
+       <literal>SEQUENCE</literal>,
+       <literal>TABLE</literal>,
+       table column
+      </entry>
+     </row>
+     <row>
+      <entry><literal>DELETE</literal></entry>
+      <entry><literal>d</literal></entry>
+      <entry><literal>TABLE</literal></entry>
+     </row>
+     <row>
+      <entry><literal>TRUNCATE</literal></entry>
+      <entry><literal>D</literal></entry>
+      <entry><literal>TABLE</literal></entry>
+     </row>
+     <row>
+      <entry><literal>REFERENCES</literal></entry>
+      <entry><literal>x</literal></entry>
+      <entry><literal>TABLE</literal>, table column</entry>
+     </row>
+     <row>
+      <entry><literal>TRIGGER</literal></entry>
+      <entry><literal>t</literal></entry>
+      <entry><literal>TABLE</literal></entry>
+     </row>
+     <row>
+      <entry><literal>CREATE</literal></entry>
+      <entry><literal>C</literal></entry>
+      <entry>
+       <literal>DATABASE</literal>,
+       <literal>SCHEMA</literal>,
+       <literal>TABLESPACE</literal>
+      </entry>
+     </row>
+     <row>
+      <entry><literal>CONNECT</literal></entry>
+      <entry><literal>c</literal></entry>
+      <entry><literal>DATABASE</literal></entry>
+     </row>
+     <row>
+      <entry><literal>TEMPORARY</literal></entry>
+      <entry><literal>T</literal></entry>
+      <entry><literal>DATABASE</literal></entry>
+     </row>
+     <row>
+      <entry><literal>EXECUTE</literal></entry>
+      <entry><literal>X</literal></entry>
+      <entry><literal>FUNCTION</literal>, <literal>PROCEDURE</literal></entry>
+     </row>
+     <row>
+      <entry><literal>USAGE</literal></entry>
+      <entry><literal>U</literal></entry>
+      <entry>
+       <literal>DOMAIN</literal>,
+       <literal>FOREIGN DATA WRAPPER</literal>,
+       <literal>FOREIGN SERVER</literal>,
+       <literal>LANGUAGE</literal>,
+       <literal>SCHEMA</literal>,
+       <literal>SEQUENCE</literal>,
+       <literal>TYPE</literal>
+      </entry>
+     </row>
+     </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+   <xref linkend="privileges-summary-table"/> summarizes the privileges
+   available for each type of SQL object, using the abbreviations shown
+   above.
+   It also shows the <application>psql</application> command
+   that can be used to examine privilege settings for each object type.
+  </para>
+
+  <table id="privileges-summary-table">
+   <title>Summary of Access Privileges</title>
+   <tgroup cols="4">
+    <thead>
+     <row>
+      <entry>Object Type</entry>
+      <entry>All Privileges</entry>
+      <entry>Default <literal>PUBLIC</literal> Privileges</entry>
+      <entry><application>psql</application> Command</entry>
+     </row>
+    </thead>
+    <tbody>
+     <row>
+      <entry><literal>DATABASE</literal></entry>
+      <entry><literal>CTc</literal></entry>
+      <entry><literal>Tc</literal></entry>
+      <entry><literal>\l</literal></entry>
+     </row>
+     <row>
+      <entry><literal>DOMAIN</literal></entry>
+      <entry><literal>U</literal></entry>
+      <entry><literal>U</literal></entry>
+      <entry><literal>\dD+</literal></entry>
+     </row>
+     <row>
+      <entry><literal>FUNCTION</literal> or <literal>PROCEDURE</literal></entry>
+      <entry><literal>X</literal></entry>
+      <entry><literal>X</literal></entry>
+      <entry><literal>\df+</literal></entry>
+     </row>
+     <row>
+      <entry><literal>FOREIGN DATA WRAPPER</literal></entry>
+      <entry><literal>U</literal></entry>
+      <entry>none</entry>
+      <entry><literal>\dew+</literal></entry>
+     </row>
+     <row>
+      <entry><literal>FOREIGN SERVER</literal></entry>
+      <entry><literal>U</literal></entry>
+      <entry>none</entry>
+      <entry><literal>\des+</literal></entry>
+     </row>
+     <row>
+      <entry><literal>LANGUAGE</literal></entry>
+      <entry><literal>U</literal></entry>
+      <entry><literal>U</literal></entry>
+      <entry><literal>\dL+</literal></entry>
+     </row>
+     <row>
+      <entry><literal>LARGE OBJECT</literal></entry>
+      <entry><literal>rw</literal></entry>
+      <entry>none</entry>
+      <entry></entry>
+     </row>
+     <row>
+      <entry><literal>SCHEMA</literal></entry>
+      <entry><literal>UC</literal></entry>
+      <entry>none</entry>
+      <entry><literal>\dn+</literal></entry>
+     </row>
+     <row>
+      <entry><literal>SEQUENCE</literal></entry>
+      <entry><literal>rwU</literal></entry>
+      <entry>none</entry>
+      <entry><literal>\dp</literal></entry>
+     </row>
+     <row>
+      <entry><literal>TABLE</literal> (and table-like objects)</entry>
+      <entry><literal>arwdDxt</literal></entry>
+      <entry>none</entry>
+      <entry><literal>\dp</literal></entry>
+     </row>
+     <row>
+      <entry>Table column</entry>
+      <entry><literal>arwx</literal></entry>
+      <entry>none</entry>
+      <entry><literal>\dp</literal></entry>
+     </row>
+     <row>
+      <entry><literal>TABLESPACE</literal></entry>
+      <entry><literal>C</literal></entry>
+      <entry>none</entry>
+      <entry><literal>\db+</literal></entry>
+     </row>
+     <row>
+      <entry><literal>TYPE</literal></entry>
+      <entry><literal>U</literal></entry>
+      <entry><literal>U</literal></entry>
+      <entry><literal>\dT+</literal></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+   <indexterm>
+    <primary><type>aclitem</type></primary>
+   </indexterm>
+   The privileges that have been granted for a particular object are
+   displayed as a list of <type>aclitem</type> entries, where each
+   <type>aclitem</type> describes the permissions of one grantee that
+   have been granted by a particular grantor.  For example,
+   <literal>calvin=r*w/hobbes</literal> specifies that the role
+   <literal>calvin</literal> has the privilege
+   <literal>SELECT</literal> (<literal>r</literal>) with grant option
+   (<literal>*</literal>) as well as the non-grantable
+   privilege <literal>UPDATE</literal> (<literal>w</literal>), both granted
+   by the role <literal>hobbes</literal>.  If <literal>calvin</literal>
+   also has some privileges on the same object granted by a different
+   grantor, those would appear as a separate <type>aclitem</type> entry.
+   An empty grantee field in an <type>aclitem</type> stands
+   for <literal>PUBLIC</literal>.
+  </para>
+
+  <para>
+   As an example, suppose that user <literal>miriam</literal> creates
+   table <literal>mytable</literal> and does:
+<programlisting>
+GRANT SELECT ON mytable TO PUBLIC;
+GRANT SELECT, UPDATE, INSERT ON mytable TO admin;
+GRANT SELECT (col1), UPDATE (col1) ON mytable TO miriam_rw;
+</programlisting>
+   Then <application>psql</application>'s <literal>\dp</literal> command
+   would show:
+<programlisting>
+=&gt; \dp mytable
+                                  Access privileges
+ Schema |  Name   | Type  |   Access privileges   |   Column privileges   | Policies
+--------+---------+-------+-----------------------+-----------------------+----------
+ public | mytable | table | miriam=arwdDxt/miriam+| col1:                +|
+        |         |       | =r/miriam            +|   miriam_rw=rw/miriam |
+        |         |       | admin=arw/miriam      |                       |
+(1 row)
+</programlisting>
+  </para>
+
+  <para>
+   If the <quote>Access privileges</quote> column is empty for a given
+   object, it means the object has default privileges (that is, its
+   privileges entry in the relevant system catalog is null).  Default
+   privileges always include all privileges for the owner, and can include
+   some privileges for <literal>PUBLIC</literal> depending on the object
+   type, as explained above.  The first <command>GRANT</command>
+   or <command>REVOKE</command> on an object will instantiate the default
+   privileges (producing, for
+   example, <literal>miriam=arwdDxt/miriam</literal>) and then modify them
+   per the specified request.  Similarly, entries are shown in <quote>Column
+   privileges</quote> only for columns with nondefault privileges.
+   (Note: for this purpose, <quote>default privileges</quote> always means
+   the built-in default privileges for the object's type.  An object whose
+   privileges have been affected by an <command>ALTER DEFAULT
+   PRIVILEGES</command> command will always be shown with an explicit
+   privilege entry that includes the effects of
+   the <command>ALTER</command>.)
+  </para>
+
+  <para>
+   Notice that the owner's implicit grant options are not marked in the
+   access privileges display.  A <literal>*</literal> will appear only when
+   grant options have been explicitly granted to someone.
   </para>
  </sect1>
 
@@ -4693,8 +5282,7 @@ VALUES ('Albany', NULL, NULL, 'NY');
        <command>CREATE TABLE</command>, nor is it possible to add columns to
        partitions after-the-fact using <command>ALTER TABLE</command>.  Tables may be
        added as a partition with <command>ALTER TABLE ... ATTACH PARTITION</command>
-       only if their columns exactly match the parent, including any
-       <literal>oid</literal> column.
+       only if their columns exactly match the parent.
 -->
 パーティションは親に存在しない列を持つことができません。
 パーティションを<command>CREATE TABLE</command>で作成する時に列を指定することはできませんし、作成後に<command>ALTER TABLE</command>でパーティションに列を追加することもできません。
@@ -5074,7 +5662,8 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
      the system will be able to skip the scan to validate the implicit
      partition constraint. Without such a constraint, the table will be
      scanned to validate the partition constraint while holding an
-     <literal>ACCESS EXCLUSIVE</literal> lock on the parent table.
+     <literal>ACCESS EXCLUSIVE</literal> lock on that partition
+     and a <literal>SHARE UPDATE EXCLUSIVE</literal> lock on the parent table.
      One may then drop the constraint after <command>ATTACH PARTITION</command>
      is finished, because it is no longer necessary.
 -->
@@ -5172,18 +5761,6 @@ ALTER INDEX measurement_city_id_logdate_key
 -->
 パーティションテーブル上の一意制約は、すべてのパーティションキー列を含んでいなければなりません。
 <productname>PostgreSQL</productname>が各パーティションの一意性を個別に強制するために、この制限は存在します。
-      </para>
-     </listitem>
-
-     <listitem>
-      <para>
-<!--
-       While primary keys are supported on partitioned tables, foreign
-       keys referencing partitioned tables are not supported.  (Foreign key
-       references from a partitioned table to some other table are supported.)
--->
-パーティションテーブルにて主キーがサポートされている一方で、パーティションテーブルを参照する外部キーはサポートされていません。
-（パーティションテーブルから他のテーブルの外部キー参照はサポートされています。）
       </para>
      </listitem>
 
@@ -5722,6 +6299,14 @@ ALTER TABLE measurement_y2008m02 INHERIT measurement;
 
       <listitem>
        <para>
+        Indexes and foreign key constraints apply to single tables and not
+        to their inheritance children, hence they have some
+        <link linkend="ddl-inherit-caveats">caveats</link> to be aware of.
+       </para>
+      </listitem>
+
+      <listitem>
+       <para>
 <!--
         The schemes shown here assume that the values of a row's key column(s)
         never change, or at least do not change enough to require it to move to another partition.
@@ -5875,9 +6460,8 @@ EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
                                     QUERY PLAN
 -----------------------------------------------------------------------------------
  Aggregate  (cost=37.75..37.76 rows=1 width=8)
-   -&gt;  Append  (cost=0.00..36.21 rows=617 width=0)
-         -&gt;  Seq Scan on measurement_y2008m01  (cost=0.00..33.12 rows=617 width=0)
-               Filter: (logdate &gt;= '2008-01-01'::date)
+   -&gt;  Seq Scan on measurement_y2008m01  (cost=0.00..33.12 rows=617 width=0)
+         Filter: (logdate &gt;= '2008-01-01'::date)
 </programlisting>
    </para>
 
@@ -5902,9 +6486,9 @@ EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
     Partition pruning can be performed not only during the planning of a
     given query, but also during its execution.  This is useful as it can
     allow more partitions to be pruned when clauses contain expressions
-    whose values are not known at query planning time; for example,
+    whose values are not known at query planning time, for example,
     parameters defined in a <command>PREPARE</command> statement, using a
-    value obtained from a subquery or using a parameterized value on the
+    value obtained from a subquery, or using a parameterized value on the
     inner side of a nested loop join.  Partition pruning during execution
     can be performed at any of the following times:
 -->
@@ -5977,9 +6561,9 @@ EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
     <para>
 <!--
      Execution-time partition pruning currently only occurs for the
-     <literal>Append</literal> node type, not
-     for <literal>MergeAppend</literal> or <literal>ModifyTable</literal>
-     nodes.  That is likely to be changed in a future release of
+     <literal>Append</literal> and <literal>MergeAppend</literal> node types.
+     It is not yet implemented for the <literal>ModifyTable</literal> node
+     type, but that is likely to be changed in a future release of
      <productname>PostgreSQL</productname>.
 -->
 実行時のパーティション除去は現在<literal>MergeAppend</literal>や<literal>ModifyTable</literal>ではなく<literal>Append</literal>ノードタイプに対してのみ発生します。
@@ -6208,17 +6792,17 @@ EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
 <!--
     It is also important to consider the overhead of partitioning during
     query planning and execution.  The query planner is generally able to
-    handle partition hierarchies with up to a few hundred partitions fairly
+    handle partition hierarchies with up to a few thousand partitions fairly
     well, provided that typical queries allow the query planner to prune all
     but a small number of partitions.  Planning times become longer and memory
-    consumption becomes higher as more partitions are added.  This is
-    particularly true for the <command>UPDATE</command> and
-    <command>DELETE</command> commands.  Another reason to be concerned about
-    having a large number of partitions is that the server's memory
-    consumption may grow significantly over a period of time, especially if
-    many sessions touch large numbers of partitions.  That's because each
-    partition requires its metadata to be loaded into the local memory of
-    each session that touches it.
+    consumption becomes higher when more partitions remain after the planner
+    performs partition pruning.  This is particularly true for the
+    <command>UPDATE</command> and <command>DELETE</command> commands.  Another
+    reason to be concerned about having a large number of partitions is that
+    the server's memory consumption may grow significantly over a period of
+    time, especially if many sessions touch large numbers of partitions.
+    That's because each partition requires its metadata to be loaded into the
+    local memory of each session that touches it.
 -->
 クエリの計画および実行時のパーティショニングのオーバーヘッドを考慮することもまた重要です。
 典型的なクエリではクエリプランナが少数のパーティションを除いて残り全てのパーティションを除外できるという前提に立てば、クエリプランナは通常最大数百パーティションのパーティション階層を適切に操作することができます。

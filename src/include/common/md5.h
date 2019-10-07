@@ -6,7 +6,7 @@
  * These definitions are needed by both frontend and backend code to work
  * with MD5-encrypted passwords.
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/common/md5.h
@@ -22,6 +22,6 @@
 extern bool pg_md5_hash(const void *buff, size_t len, char *hexsum);
 extern bool pg_md5_binary(const void *buff, size_t len, void *outbuf);
 extern bool pg_md5_encrypt(const char *passwd, const char *salt,
-			   size_t salt_len, char *buf);
+						   size_t salt_len, char *buf);
 
 #endif

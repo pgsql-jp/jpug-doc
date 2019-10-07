@@ -3,7 +3,7 @@
  * pg_foreign_server.h
  *	  definition of the "foreign server" system catalog (pg_foreign_server)
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_foreign_server.h
@@ -27,6 +27,7 @@
  */
 CATALOG(pg_foreign_server,1417,ForeignServerRelationId)
 {
+	Oid			oid;			/* oid */
 	NameData	srvname;		/* foreign server name */
 	Oid			srvowner;		/* server owner */
 	Oid			srvfdw;			/* server FDW */

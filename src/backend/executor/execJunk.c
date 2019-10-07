@@ -3,7 +3,7 @@
  * execJunk.c
  *	  Junk attribute support stuff....
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -53,12 +53,11 @@
  * Initialize the Junk filter.
  *
  * The source targetlist is passed in.  The output tuple descriptor is
- * built from the non-junk tlist entries, plus the passed specification
- * of whether to include room for an OID or not.
+ * built from the non-junk tlist entries.
  * An optional resultSlot can be passed as well.
  */
 JunkFilter *
-ExecInitJunkFilter(List *targetList, bool hasoid, TupleTableSlot *slot)
+ExecInitJunkFilter(List *targetList, TupleTableSlot *slot)
 {
 	JunkFilter *junkfilter;
 	TupleDesc	cleanTupType;
@@ -70,7 +69,7 @@ ExecInitJunkFilter(List *targetList, bool hasoid, TupleTableSlot *slot)
 	/*
 	 * Compute the tuple descriptor for the cleaned tuple.
 	 */
-	cleanTupType = ExecCleanTypeFromTL(targetList, hasoid);
+	cleanTupType = ExecCleanTypeFromTL(targetList);
 
 	/*
 	 * Use the given slot, or make a new slot if we weren't given one.
@@ -78,7 +77,7 @@ ExecInitJunkFilter(List *targetList, bool hasoid, TupleTableSlot *slot)
 	if (slot)
 		ExecSetSlotDescriptor(slot, cleanTupType);
 	else
-		slot = MakeSingleTupleTableSlot(cleanTupType);
+		slot = MakeSingleTupleTableSlot(cleanTupType, &TTSOpsVirtual);
 
 	/*
 	 * Now calculate the mapping between the original tuple's attributes and
@@ -149,7 +148,7 @@ ExecInitJunkFilterConversion(List *targetList,
 	if (slot)
 		ExecSetSlotDescriptor(slot, cleanTupType);
 	else
-		slot = MakeSingleTupleTableSlot(cleanTupType);
+		slot = MakeSingleTupleTableSlot(cleanTupType, &TTSOpsVirtual);
 
 	/*
 	 * Calculate the mapping between the original tuple's attributes and the

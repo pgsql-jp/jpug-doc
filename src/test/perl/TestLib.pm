@@ -36,6 +36,7 @@ our @EXPORT = qw(
   system_or_bail
   system_log
   run_log
+  run_command
 
   command_ok
   command_fails
@@ -72,6 +73,7 @@ BEGIN
 	delete $ENV{PGUSER};
 	delete $ENV{PGPORT};
 	delete $ENV{PGHOST};
+	delete $ENV{PG_COLOR};
 
 	$ENV{PGAPPNAME} = basename($0);
 
@@ -191,12 +193,6 @@ sub perl2host
 	return $dir . $leaf;
 }
 
-# For backward compatibility only.
-sub real_dir
-{
-	return perl2host(@_);
-}
-
 sub system_log
 {
 	print("# Running: " . join(" ", @_) . "\n");
@@ -216,6 +212,16 @@ sub run_log
 {
 	print("# Running: " . join(" ", @{ $_[0] }) . "\n");
 	return IPC::Run::run(@_);
+}
+
+sub run_command
+{
+	my ($cmd) = @_;
+	my ($stdout, $stderr);
+	my $result = IPC::Run::run $cmd, '>', \$stdout, '2>', \$stderr;
+	chomp($stdout);
+	chomp($stderr);
+	return ($stdout, $stderr);
 }
 
 # Generate a string made of the given range of ASCII characters
@@ -291,7 +297,7 @@ sub check_mode_recursive
 				unless (defined($file_stat))
 				{
 					my $is_ENOENT = $!{ENOENT};
-					my $msg = "unable to stat $File::Find::name: $!";
+					my $msg       = "unable to stat $File::Find::name: $!";
 					if ($is_ENOENT)
 					{
 						warn $msg;
@@ -382,6 +388,7 @@ sub check_pg_config
 	  \$stdout, '2>', \$stderr
 	  or die "could not execute pg_config";
 	chomp($stdout);
+	$stdout =~ s/\r$//;
 
 	open my $pg_config_h, '<', "$stdout/pg_config.h" or die "$!";
 	my $match = (grep { /^$regexp/ } <$pg_config_h>);
@@ -394,6 +401,7 @@ sub check_pg_config
 #
 sub command_ok
 {
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
 	my ($cmd, $test_name) = @_;
 	my $result = run_log($cmd);
 	ok($result, $test_name);
@@ -402,6 +410,7 @@ sub command_ok
 
 sub command_fails
 {
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
 	my ($cmd, $test_name) = @_;
 	my $result = run_log($cmd);
 	ok(!$result, $test_name);
@@ -410,6 +419,7 @@ sub command_fails
 
 sub command_exit_is
 {
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
 	my ($cmd, $expected, $test_name) = @_;
 	print("# Running: " . join(" ", @{$cmd}) . "\n");
 	my $h = IPC::Run::start $cmd;
@@ -432,6 +442,7 @@ sub command_exit_is
 
 sub program_help_ok
 {
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
 	my ($cmd) = @_;
 	my ($stdout, $stderr);
 	print("# Running: $cmd --help\n");
@@ -445,6 +456,7 @@ sub program_help_ok
 
 sub program_version_ok
 {
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
 	my ($cmd) = @_;
 	my ($stdout, $stderr);
 	print("# Running: $cmd --version\n");
@@ -458,6 +470,7 @@ sub program_version_ok
 
 sub program_options_handling_ok
 {
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
 	my ($cmd) = @_;
 	my ($stdout, $stderr);
 	print("# Running: $cmd --not-a-valid-option\n");
@@ -471,6 +484,7 @@ sub program_options_handling_ok
 
 sub command_like
 {
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
 	my ($cmd, $expected_stdout, $test_name) = @_;
 	my ($stdout, $stderr);
 	print("# Running: " . join(" ", @{$cmd}) . "\n");
@@ -483,6 +497,7 @@ sub command_like
 
 sub command_like_safe
 {
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
 
 	# Doesn't rely on detecting end of file on the file descriptors,
 	# which can fail, causing the process to hang, notably on Msys
@@ -503,6 +518,7 @@ sub command_like_safe
 
 sub command_fails_like
 {
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
 	my ($cmd, $expected_stderr, $test_name) = @_;
 	my ($stdout, $stderr);
 	print("# Running: " . join(" ", @{$cmd}) . "\n");
@@ -521,6 +537,8 @@ sub command_fails_like
 # - test_name: name of test
 sub command_checks_all
 {
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
+
 	my ($cmd, $expected_ret, $out, $err, $test_name) = @_;
 
 	# run command

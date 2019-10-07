@@ -71,7 +71,7 @@
  * There will always be the same number of runs as input tapes, and the same
  * number of input tapes as participants (worker Tuplesortstates).
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -210,7 +210,7 @@ static void ltsReadBlock(LogicalTapeSet *lts, long blocknum, void *buffer);
 static long ltsGetFreeBlock(LogicalTapeSet *lts);
 static void ltsReleaseBlock(LogicalTapeSet *lts, long blocknum);
 static void ltsConcatWorkerTapes(LogicalTapeSet *lts, TapeShare *shared,
-					 SharedFileSet *fileset);
+								 SharedFileSet *fileset);
 
 
 /*

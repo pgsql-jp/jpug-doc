@@ -3,7 +3,7 @@
  * findtimezone.c
  *	  Functions for determining the default timezone to use.
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/bin/initdb/findtimezone.c
@@ -162,10 +162,10 @@ struct tztry
 };
 
 static bool check_system_link_file(const char *linkname, struct tztry *tt,
-					   char *bestzonename);
+								   char *bestzonename);
 static void scan_available_timezones(char *tzdir, char *tzdirsub,
-						 struct tztry *tt,
-						 int *bestscore, char *bestzonename);
+									 struct tztry *tt,
+									 int *bestscore, char *bestzonename);
 
 
 /*
@@ -705,8 +705,9 @@ scan_available_timezones(char *tzdir, char *tzdirsub, struct tztry *tt,
 			else if (score == *bestscore)
 			{
 				/* Consider how to break a tie */
-				int		namepref = (zone_name_pref(tzdirsub) -
-									zone_name_pref(bestzonename));
+				int			namepref = (zone_name_pref(tzdirsub) -
+										zone_name_pref(bestzonename));
+
 				if (namepref > 0 ||
 					(namepref == 0 &&
 					 (strlen(tzdirsub) < strlen(bestzonename) ||

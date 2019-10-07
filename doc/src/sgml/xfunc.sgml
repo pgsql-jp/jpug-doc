@@ -2,7 +2,7 @@
 
  <sect1 id="xfunc">
 <!--
-  <title>User-defined Functions</title>
+  <title>User-Defined Functions</title>
 -->
   <title>ユーザ定義関数</title>
 
@@ -114,7 +114,7 @@ C言語関数（<xref linkend="xfunc-c"/>）
 
   <sect1 id="xproc">
 <!--
-   <title>User-defined Procedures</title>
+   <title>User-Defined Procedures</title>
 -->
    <title>ユーザ定義プロシージャ</title>
 
@@ -1536,10 +1536,10 @@ SELECT x, g FROM tab, LATERAL generate_series(1,5) AS g;
 <!--
      It would be exactly the same, except that in this specific example,
      the planner could choose to put <structname>g</structname> on the outside of the
-     nestloop join, since <structname>g</structname> has no actual lateral dependency
+     nested-loop join, since <structname>g</structname> has no actual lateral dependency
      on <structname>tab</structname>.  That would result in a different output row
      order.  Set-returning functions in the select list are always evaluated
-     as though they are on the inside of a nestloop join with the rest of
+     as though they are on the inside of a nested-loop join with the rest of
      the <literal>FROM</literal> clause, so that the function(s) are run to
      completion before the next row from the <literal>FROM</literal> clause is
      considered.
@@ -3013,16 +3013,6 @@ C 言語型
        </thead>
        <tbody>
         <row>
-         <entry><type>abstime</type></entry>
-         <entry><type>AbsoluteTime</type></entry>
-         <entry><filename>utils/nabstime.h</filename></entry>
-        </row>
-        <row>
-         <entry><type>bigint</type> (<type>int8</type>)</entry>
-         <entry><type>int64</type></entry>
-         <entry><filename>postgres.h</filename></entry>
-        </row>
-        <row>
          <entry><type>boolean</type></entry>
          <entry><type>bool</type></entry>
 <!--
@@ -3129,11 +3119,6 @@ C 言語型
          <entry><filename>postgres.h</filename></entry>
         </row>
         <row>
-         <entry><type>reltime</type></entry>
-         <entry><type>RelativeTime</type></entry>
-         <entry><filename>utils/nabstime.h</filename></entry>
-        </row>
-        <row>
          <entry><type>text</type></entry>
          <entry><type>text*</type></entry>
          <entry><filename>postgres.h</filename></entry>
@@ -3157,11 +3142,6 @@ C 言語型
          <entry><type>timestamp</type></entry>
          <entry><type>Timestamp*</type></entry>
          <entry><filename>datatype/timestamp.h</filename></entry>
-        </row>
-        <row>
-         <entry><type>tinterval</type></entry>
-         <entry><type>TimeInterval</type></entry>
-         <entry><filename>utils/nabstime.h</filename></entry>
         </row>
         <row>
          <entry><type>varchar</type></entry>
@@ -3692,7 +3672,7 @@ C関数の作成と構築の基本規則を以下に示します。
 
    <sect2>
 <!--
-    <title>Composite-type Arguments</title>
+    <title>Composite-Type Arguments</title>
 -->
 <title>複合型引数</title>
 
@@ -4122,20 +4102,6 @@ typedef struct FuncCallContext
      * 用意する必要があります。
      */
     uint64 max_calls;
-
-    /*
-<!--
-     * OPTIONAL pointer to result slot
-     *
-     * This is obsolete and only present for backward compatibility, viz,
-     * user-defined SRFs that use the deprecated TupleDescGetSlot().
--->
-     * 省略可能 : 結果スロットへのポインタ
-     *
-     * これは廃止され、後方互換性、すなわち非推奨のTupleDescGetSlot()を使用する
-     * ユーザ定義のSRFのためにだけ存在します。
-     */
-    TupleTableSlot *slot;
 
     /*
 <!--
@@ -4721,60 +4687,6 @@ C言語関数は最終パラメータが<literal>VARIADIC "any"</literal>であ�
     </para>
    </sect2>
 
-   <sect2 id="xfunc-transform-functions">
-<!--
-    <title>Transform Functions</title>
--->
-    <title>変形関数</title>
-
-    <para>
-<!--
-     Some function calls can be simplified during planning based on
-     properties specific to the function.  For example,
-     <literal>int4mul(n, 1)</literal> could be simplified to just <literal>n</literal>.
-     To define such function-specific optimizations, write a
-     <firstterm>transform function</firstterm> and place its OID in the
-     <structfield>protransform</structfield> field of the primary function's
-     <structname>pg_proc</structname> entry.  The transform function must have the SQL
-     signature <literal>protransform(internal) RETURNS internal</literal>.  The
-     argument, actually <type>FuncExpr *</type>, is a dummy node representing a
-     call to the primary function.  If the transform function's study of the
-     expression tree proves that a simplified expression tree can substitute
-     for all possible concrete calls represented thereby, build and return
-     that simplified expression.  Otherwise, return a <literal>NULL</literal>
-     pointer (<emphasis>not</emphasis> a SQL null).
--->
-一部の関数呼び出しでは、関数固有の属性に基づいて計画作成を単純化できます。
-例えば、<literal>int4mul(n, 1)</literal>は<literal>n</literal>だけに単純化することができます。
-こうした関数固有の最適化を定義するためには、<firstterm>変形関数</firstterm>を作成し、そのOIDを主関数の<structname>pg_proc</structname>項目の<structfield>protransform</structfield>フィールドに格納します。
-変形関数は<literal>protransform(internal) RETURNS internal</literal>というSQLシグネチャを持たなければなりません。
-引数、実際は<type>FuncExpr *</type>は、主関数の呼び出しを表すダミーノードです。
-変形関数の式ツリー学習によって、式ツリーで表されるすべての可能性がある実際の呼び出しを単純化した式ツリーで置き換えられることが証明された場合、単純化した式を構築し返します。
-さもなければ、(SQLのNULLでは<emphasis>なく</emphasis>)<literal>NULL</literal>ポインタを返します。
-    </para>
-
-    <para>
-<!--
-     We make no guarantee that <productname>PostgreSQL</productname> will never call the
-     primary function in cases that the transform function could simplify.
-     Ensure rigorous equivalence between the simplified expression and an
-     actual call to the primary function.
--->
-<productname>PostgreSQL</productname>が変形関数によって単純化できる場合に主関数を呼び出さないことは保証されません。
-単純化した式と実際の主関数の呼び出しとで、厳密に等価であることを確実にしてください。
-    </para>
-
-    <para>
-<!--
-     Currently, this facility is not exposed to users at the SQL level
-     because of security concerns, so it is only practical to use for
-     optimizing built-in functions.
--->
-現在、セキュリティ上の懸念から、この機能がSQLレベルでユーザに見えることはありません。
-このため、これは組み込み関数の最適化での使用のみで実用的です。
-    </para>
-   </sect2>
-
    <sect2>
 <!--
     <title>Shared Memory and LWLocks</title>
@@ -4939,4 +4851,125 @@ C++コードからバックエンド関数を呼び出す場合には、C++呼�
     </para>
    </sect2>
 
+  </sect1>
+
+  <sect1 id="xfunc-optimization">
+   <title>Function Optimization Information</title>
+
+  <indexterm zone="xfunc-optimization">
+   <primary>optimization information</primary>
+   <secondary>for functions</secondary>
+  </indexterm>
+
+   <para>
+    By default, a function is just a <quote>black box</quote> that the
+    database system knows very little about the behavior of.  However,
+    that means that queries using the function may be executed much less
+    efficiently than they could be.  It is possible to supply additional
+    knowledge that helps the planner optimize function calls.
+   </para>
+
+   <para>
+    Some basic facts can be supplied by declarative annotations provided in
+    the <xref linkend="sql-createfunction"/> command.  Most important of
+    these is the function's <link linkend="xfunc-volatility">volatility
+    category</link> (<literal>IMMUTABLE</literal>, <literal>STABLE</literal>,
+    or <literal>VOLATILE</literal>); one should always be careful to
+    specify this correctly when defining a function.
+    The parallel safety property (<literal>PARALLEL
+    UNSAFE</literal>, <literal>PARALLEL RESTRICTED</literal>, or
+    <literal>PARALLEL SAFE</literal>) must also be specified if you hope
+    to use the function in parallelized queries.
+    It can also be useful to specify the function's estimated execution
+    cost, and/or the number of rows a set-returning function is estimated
+    to return.  However, the declarative way of specifying those two
+    facts only allows specifying a constant value, which is often
+    inadequate.
+   </para>
+
+   <para>
+    It is also possible to attach a <firstterm>planner support
+    function</firstterm> to a SQL-callable function (called
+    its <firstterm>target function</firstterm>), and thereby provide
+    knowledge about the target function that is too complex to be
+    represented declaratively.  Planner support functions have to be
+    written in C (although their target functions might not be), so this is
+    an advanced feature that relatively few people will use.
+   </para>
+
+   <para>
+    A planner support function must have the SQL signature
+<programlisting>
+supportfn(internal) returns internal
+</programlisting>
+    It is attached to its target function by specifying
+    the <literal>SUPPORT</literal> clause when creating the target function.
+   </para>
+
+   <para>
+    The details of the API for planner support functions can be found in
+    file <filename>src/include/nodes/supportnodes.h</filename> in the
+    <productname>PostgreSQL</productname> source code.  Here we provide
+    just an overview of what planner support functions can do.
+    The set of possible requests to a support function is extensible,
+    so more things might be possible in future versions.
+   </para>
+
+   <para>
+    Some function calls can be simplified during planning based on
+    properties specific to the function.  For example,
+    <literal>int4mul(n, 1)</literal> could be simplified to
+    just <literal>n</literal>.  This type of transformation can be
+    performed by a planner support function, by having it implement
+    the <literal>SupportRequestSimplify</literal> request type.
+    The support function will be called for each instance of its target
+    function found in a query parse tree.  If it finds that the particular
+    call can be simplified into some other form, it can build and return a
+    parse tree representing that expression.  This will automatically work
+    for operators based on the function, too &mdash; in the example just
+    given, <literal>n * 1</literal> would also be simplified to
+    <literal>n</literal>.
+    (But note that this is just an example; this particular
+    optimization is not actually performed by
+    standard <productname>PostgreSQL</productname>.)
+    We make no guarantee that <productname>PostgreSQL</productname> will
+    never call the target function in cases that the support function could
+    simplify.  Ensure rigorous equivalence between the simplified
+    expression and an actual execution of the target function.
+   </para>
+
+   <para>
+    For target functions that return <type>boolean</type>, it is often useful to estimate
+    the fraction of rows that will be selected by a <literal>WHERE</literal> clause using that
+    function.  This can be done by a support function that implements
+    the <literal>SupportRequestSelectivity</literal> request type.
+   </para>
+
+   <para>
+    If the target function's run time is highly dependent on its inputs,
+    it may be useful to provide a non-constant cost estimate for it.
+    This can be done by a support function that implements
+    the <literal>SupportRequestCost</literal> request type.
+   </para>
+
+   <para>
+    For target functions that return sets, it is often useful to provide
+    a non-constant estimate for the number of rows that will be returned.
+    This can be done by a support function that implements
+    the <literal>SupportRequestRows</literal> request type.
+   </para>
+
+   <para>
+    For target functions that return <type>boolean</type>, it may be possible to
+    convert a function call appearing in <literal>WHERE</literal> into an indexable operator
+    clause or clauses.  The converted clauses might be exactly equivalent
+    to the function's condition, or they could be somewhat weaker (that is,
+    they might accept some values that the function condition does not).
+    In the latter case the index condition is said to
+    be <firstterm>lossy</firstterm>; it can still be used to scan an index,
+    but the function call will have to be executed for each row returned by
+    the index to see if it really passes the <literal>WHERE</literal> condition or not.
+    To create such conditions, the support function must implement
+    the <literal>SupportRequestIndexCondition</literal> request type.
+   </para>
   </sect1>

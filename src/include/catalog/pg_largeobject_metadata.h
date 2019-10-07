@@ -5,7 +5,7 @@
  *	  (pg_largeobject_metadata)
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_largeobject_metadata.h
@@ -29,6 +29,8 @@
  */
 CATALOG(pg_largeobject_metadata,2995,LargeObjectMetadataRelationId)
 {
+	Oid			oid;			/* oid */
+
 	Oid			lomowner;		/* OID of the largeobject owner */
 
 #ifdef CATALOG_VARLEN			/* variable-length fields start here */

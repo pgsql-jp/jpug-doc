@@ -7,7 +7,7 @@
  * type.
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -273,8 +273,8 @@ static void AllocSetDelete(MemoryContext context);
 static Size AllocSetGetChunkSpace(MemoryContext context, void *pointer);
 static bool AllocSetIsEmpty(MemoryContext context);
 static void AllocSetStats(MemoryContext context,
-			  MemoryStatsPrintFunc printfunc, void *passthru,
-			  MemoryContextCounters *totals);
+						  MemoryStatsPrintFunc printfunc, void *passthru,
+						  MemoryContextCounters *totals);
 
 #ifdef MEMORY_CONTEXT_CHECKING
 static void AllocSetCheck(MemoryContext context);
@@ -371,7 +371,7 @@ AllocSetFreeIndex(Size size)
 
 
 /*
- * AllocSetContextCreateExtended
+ * AllocSetContextCreateInternal
  *		Create a new AllocSet context.
  *
  * parent: parent context, or NULL if top-level context
@@ -387,7 +387,7 @@ AllocSetFreeIndex(Size size)
  * AllocSetContextCreate.
  */
 MemoryContext
-AllocSetContextCreateExtended(MemoryContext parent,
+AllocSetContextCreateInternal(MemoryContext parent,
 							  const char *name,
 							  Size minContextSize,
 							  Size initBlockSize,

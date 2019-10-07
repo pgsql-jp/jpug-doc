@@ -104,17 +104,19 @@
    <title>Built-in <acronym>SP-GiST</acronym> Operator Classes</title>
 -->
    <title>組み込み<acronym>SP-GiST</acronym>演算子クラス</title>
-   <tgroup cols="3">
+   <tgroup cols="4">
     <thead>
      <row>
 <!--
       <entry>Name</entry>
       <entry>Indexed Data Type</entry>
       <entry>Indexable Operators</entry>
+      <entry>Ordering Operators</entry>
 -->
       <entry>名前</entry>
       <entry>インデックスされるデータ型</entry>
       <entry>インデックス可能な演算子</entry>
+      <entry>Ordering Operators</entry>
      </row>
     </thead>
     <tbody>
@@ -129,6 +131,9 @@
        <literal>&gt;^</literal>
        <literal>~=</literal>
       </entry>
+      <entry>
+       <literal>&lt;-&gt;</literal>
+      </entry>
      </row>
      <row>
       <entry><literal>quad_point_ops</literal></entry>
@@ -140,6 +145,9 @@
        <literal>&gt;&gt;</literal>
        <literal>&gt;^</literal>
        <literal>~=</literal>
+      </entry>
+      <entry>
+       <literal>&lt;-&gt;</literal>
       </entry>
      </row>
      <row>
@@ -159,6 +167,8 @@
        <literal>&gt;&gt;</literal>
        <literal>@&gt;</literal>
       </entry>
+      <entry>
+      </entry>
      </row>
      <row>
       <entry><literal>box_ops</literal></entry>
@@ -176,6 +186,8 @@
        <literal>&lt;&lt;|</literal>
        <literal>|&gt;&gt;</literal>
        <literal>|&amp;&gt;</literal>
+      </entry>
+      <entry>
       </entry>
      </row>
      <row>
@@ -195,6 +207,9 @@
        <literal>|&gt;&gt;</literal>
        <literal>|&amp;&gt;</literal>
       </entry>
+      <entry>
+        <literal>&lt;-&gt;</literal>
+      </entry>
      </row>
      <row>
       <entry><literal>text_ops</literal></entry>
@@ -210,6 +225,8 @@
        <literal>~&gt;=~</literal>
        <literal>~&gt;~</literal>
        <literal>^@</literal>
+      </entry>
+      <entry>
       </entry>
      </row>
      <row>
@@ -228,6 +245,8 @@
        <literal>&lt;=</literal>
        <literal>=</literal>
       </entry>
+      <entry>
+      </entry>
      </row>
     </tbody>
    </tgroup>
@@ -242,6 +261,12 @@
 -->
 <type>point</type>型の2つの演算子クラスのうち、<literal>quad_point_ops</literal>がデフォルトです。
 <literal>kd_point_ops</literal>は同じ演算子をサポートしますが、異なるインデックスデータ構造を使うため、アプリケーションによってはより良いパフォーマンスを提供することがあります。
+ </para>
+ <para>
+  The <literal>quad_point_ops</literal>, <literal>kd_point_ops</literal> and
+  <literal>poly_ops</literal> operator classes support the <literal>&lt;-&gt;</literal>
+  ordering operator, which enables the k-nearest neighbor (<literal>k-NN</literal>)
+  search over indexed point or polygon data sets.
  </para>
 
 </sect1>
@@ -932,7 +957,10 @@ typedef struct spgInnerConsistentIn
 {
 <!--
     ScanKey     scankeys;       /* array of operators and comparison values */
-    int         nkeys;          /* length of array */
+    ScanKey     orderbys;       /* array of ordering operators and comparison
+                                 * values */
+    int         nkeys;          /* length of scankeys array */
+    int         norderbys;      /* length of orderbys array */
 -->
     ScanKey     scankeys;       /* 演算子と比較する値の配列 */
     int         nkeys;          /* 配列の長さ */
@@ -974,6 +1002,7 @@ typedef struct spgInnerConsistentOut
     int        *levelAdds;      /* increment level by this much for each */
     Datum      *reconstructedValues;    /* associated reconstructed values */
     void      **traversalValues;        /* opclass-specific traverse values */
+    double    **distances;              /* associated distances */
 -->
     int         nNodes;         /* 訪れるべき子ノードの数 */
     int        *nodeNumbers;    /* ノードの配列でのそのインデックス */
@@ -995,6 +1024,8 @@ typedef struct spgInnerConsistentOut
        In particular it is not necessary to check <structfield>sk_flags</structfield> to
        see if the comparison value is NULL, because the SP-GiST core code
        will filter out such conditions.
+       The array <structfield>orderbys</structfield>, of length <structfield>norderbys</structfield>,
+       describes ordering operators (if any) in the same manner.
        <structfield>reconstructedValue</structfield> is the value reconstructed for the
        parent tuple; it is <literal>(Datum) 0</literal> at the root level or if the
        <function>inner_consistent</function> function did not provide a value at the
@@ -1053,6 +1084,10 @@ typedef struct spgInnerConsistentOut
        of <structname>spgConfigOut</structname>.<structfield>leafType</structfield> type
        reconstructed for each child node to be visited; otherwise, leave
        <structfield>reconstructedValues</structfield> as NULL.
+       If ordered search is performed, set <structfield>distances</structfield>
+       to an array of distance values according to <structfield>orderbys</structfield>
+       array (nodes with lowest distances will be processed first).  Leave it
+       NULL otherwise.
        If it is desired to pass down additional out-of-band information
        (<quote>traverse values</quote>) to lower levels of the tree search,
        set <structfield>traversalValues</structfield> to an array of the appropriate
@@ -1061,6 +1096,7 @@ typedef struct spgInnerConsistentOut
        Note that the <function>inner_consistent</function> function is
        responsible for palloc'ing the
        <structfield>nodeNumbers</structfield>, <structfield>levelAdds</structfield>,
+       <structfield>distances</structfield>,
        <structfield>reconstructedValues</structfield>, and
        <structfield>traversalValues</structfield> arrays in the current memory context.
        However, any output traverse values pointed to by
@@ -1115,7 +1151,10 @@ typedef struct spgLeafConsistentIn
 {
 <!--
     ScanKey     scankeys;       /* array of operators and comparison values */
-    int         nkeys;          /* length of array */
+    ScanKey     orderbys;       /* array of ordering operators and comparison
+                                 * values */
+    int         nkeys;          /* length of scankeys array */
+    int         norderbys;      /* length of orderbys array */
 -->
     ScanKey     scankeys;       /* 演算子と比較する値の配列 */
     int         nkeys;          /* 配列の長さ */
@@ -1140,8 +1179,10 @@ typedef struct spgLeafConsistentIn
 typedef struct spgLeafConsistentOut
 {
 <!--
-    Datum       leafValue;      /* reconstructed original data, if any */
-    bool        recheck;        /* set true if operator must be rechecked */
+    Datum       leafValue;        /* reconstructed original data, if any */
+    bool        recheck;          /* set true if operator must be rechecked */
+    bool        recheckDistances; /* set true if distances must be rechecked */
+    double     *distances;        /* associated distances */
 -->
     Datum       leafValue;      /* もしあれば、再構築された元のデータ */
     bool        recheck;        /* 演算子を再チェックする必要があればtrue */
@@ -1160,6 +1201,8 @@ typedef struct spgLeafConsistentOut
        In particular it is not necessary to check <structfield>sk_flags</structfield> to
        see if the comparison value is NULL, because the SP-GiST core code
        will filter out such conditions.
+       The array <structfield>orderbys</structfield>, of length <structfield>norderbys</structfield>,
+       describes the ordering operators in the same manner.
        <structfield>reconstructedValue</structfield> is the value reconstructed for the
        parent tuple; it is <literal>(Datum) 0</literal> at the root level or if the
        <function>inner_consistent</function> function did not provide a value at the
@@ -1201,6 +1244,12 @@ typedef struct spgLeafConsistentOut
        <structfield>recheck</structfield> may be set to <literal>true</literal> if the match
        is uncertain and so the operator(s) must be re-applied to the actual
        heap tuple to verify the match.
+       If ordered search is performed, set <structfield>distances</structfield>
+       to an array of distance values according to <structfield>orderbys</structfield>
+       array.  Leave it NULL otherwise.  If at least one of returned distances
+       is not exact, set <structfield>recheckDistances</structfield> to true.
+       In this case, the executor will calculate the exact distances after
+       fetching the tuple from the heap, and will reorder the tuples if needed.
 -->
 この関数は、リーフタプルが問い合わせにマッチすれば<literal>true</literal>を返し、マッチしなければ<literal>false</literal>を返します。
 <literal>true</literal>の場合、<structfield>returnData</structfield>が<literal>true</literal>であれば、<structfield>leafValue</structfield>は、このリーフタプルにインデックス付けするために元々提供された<structname>spgConfigIn</structname>.<structfield>attType</structfield>型の値にセットされなければなりません。
@@ -1380,7 +1429,7 @@ SP-GiSTのすべてのサポートメソッドは、通常は短期間有効な�
 
  <sect2 id="spgist-all-the-same">
 <!--
-  <title><quote>All-the-same</quote> Inner Tuples</title>
+  <title><quote>All-the-Same</quote> Inner Tuples</title>
 -->
   <title><quote>All-the-same</quote>内部タプル</title>
 

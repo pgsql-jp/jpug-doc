@@ -6,7 +6,7 @@
  *	  All file system operations in POSTGRES dispatch through these
  *	  routines.
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -21,6 +21,7 @@
 #include "lib/ilist.h"
 #include "storage/bufmgr.h"
 #include "storage/ipc.h"
+#include "storage/md.h"
 #include "storage/smgr.h"
 #include "utils/hsearch.h"
 #include "utils/inval.h"
@@ -60,22 +61,29 @@ typedef struct f_smgr
 	void		(*smgr_truncate) (SMgrRelation reln, ForkNumber forknum,
 								  BlockNumber nblocks);
 	void		(*smgr_immedsync) (SMgrRelation reln, ForkNumber forknum);
-	void		(*smgr_pre_ckpt) (void);	/* may be NULL */
-	void		(*smgr_sync) (void);	/* may be NULL */
-	void		(*smgr_post_ckpt) (void);	/* may be NULL */
 } f_smgr;
-
 
 static const f_smgr smgrsw[] = {
 	/* magnetic disk */
-	{mdinit, NULL, mdclose, mdcreate, mdexists, mdunlink, mdextend,
-		mdprefetch, mdread, mdwrite, mdwriteback, mdnblocks, mdtruncate,
-		mdimmedsync, mdpreckpt, mdsync, mdpostckpt
+	{
+		.smgr_init = mdinit,
+		.smgr_shutdown = NULL,
+		.smgr_close = mdclose,
+		.smgr_create = mdcreate,
+		.smgr_exists = mdexists,
+		.smgr_unlink = mdunlink,
+		.smgr_extend = mdextend,
+		.smgr_prefetch = mdprefetch,
+		.smgr_read = mdread,
+		.smgr_write = mdwrite,
+		.smgr_writeback = mdwriteback,
+		.smgr_nblocks = mdnblocks,
+		.smgr_truncate = mdtruncate,
+		.smgr_immedsync = mdimmedsync,
 	}
 };
 
 static const int NSmgr = lengthof(smgrsw);
-
 
 /*
  * Each backend has a hashtable that stores all extant SMgrRelation objects.
@@ -83,7 +91,7 @@ static const int NSmgr = lengthof(smgrsw);
  */
 static HTAB *SMgrRelationHash = NULL;
 
-static dlist_head	unowned_relns;
+static dlist_head unowned_relns;
 
 /* local function prototypes */
 static void smgrshutdown(int code, Datum arg);
@@ -690,52 +698,6 @@ smgrimmedsync(SMgrRelation reln, ForkNumber forknum)
 	smgrsw[reln->smgr_which].smgr_immedsync(reln, forknum);
 }
 
-
-/*
- *	smgrpreckpt() -- Prepare for checkpoint.
- */
-void
-smgrpreckpt(void)
-{
-	int			i;
-
-	for (i = 0; i < NSmgr; i++)
-	{
-		if (smgrsw[i].smgr_pre_ckpt)
-			smgrsw[i].smgr_pre_ckpt();
-	}
-}
-
-/*
- *	smgrsync() -- Sync files to disk during checkpoint.
- */
-void
-smgrsync(void)
-{
-	int			i;
-
-	for (i = 0; i < NSmgr; i++)
-	{
-		if (smgrsw[i].smgr_sync)
-			smgrsw[i].smgr_sync();
-	}
-}
-
-/*
- *	smgrpostckpt() -- Post-checkpoint cleanup.
- */
-void
-smgrpostckpt(void)
-{
-	int			i;
-
-	for (i = 0; i < NSmgr; i++)
-	{
-		if (smgrsw[i].smgr_post_ckpt)
-			smgrsw[i].smgr_post_ckpt();
-	}
-}
-
 /*
  * AtEOXact_SMgr
  *
@@ -751,7 +713,7 @@ smgrpostckpt(void)
 void
 AtEOXact_SMgr(void)
 {
-	dlist_mutable_iter	iter;
+	dlist_mutable_iter iter;
 
 	/*
 	 * Zap all unowned SMgrRelations.  We rely on smgrclose() to remove each
@@ -759,8 +721,8 @@ AtEOXact_SMgr(void)
 	 */
 	dlist_foreach_modify(iter, &unowned_relns)
 	{
-		SMgrRelation	rel = dlist_container(SMgrRelationData, node,
-											  iter.cur);
+		SMgrRelation rel = dlist_container(SMgrRelationData, node,
+										   iter.cur);
 
 		Assert(rel->smgr_owner == NULL);
 

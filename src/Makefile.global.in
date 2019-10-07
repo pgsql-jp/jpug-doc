@@ -203,7 +203,6 @@ enable_dtrace	= @enable_dtrace@
 enable_coverage	= @enable_coverage@
 enable_tap_tests	= @enable_tap_tests@
 enable_thread_safety	= @enable_thread_safety@
-enable_strong_random	= @enable_strong_random@
 
 python_includespec	= @python_includespec@
 python_libdir		= @python_libdir@
@@ -262,6 +261,7 @@ CFLAGS = @CFLAGS@
 CFLAGS_VECTOR = @CFLAGS_VECTOR@
 CFLAGS_SSE42 = @CFLAGS_SSE42@
 CFLAGS_ARMV8_CRC32C = @CFLAGS_ARMV8_CRC32C@
+PERMIT_DECLARATION_AFTER_STATEMENT = @PERMIT_DECLARATION_AFTER_STATEMENT@
 CXXFLAGS = @CXXFLAGS@
 
 LLVM_CPPFLAGS = @LLVM_CPPFLAGS@
@@ -506,9 +506,6 @@ host_tuple = @host@
 host_os = @host_os@
 host_cpu = @host_cpu@
 
-# Make HAVE_IPV6 available for initdb script creation
-HAVE_IPV6= @HAVE_IPV6@
-
 # This is mainly for use on FreeBSD, where we have both a.out and elf
 # systems now.  May be applicable to other systems to?
 ELF_SYSTEM= @ELF_SYS@
@@ -549,21 +546,26 @@ libpq_srcdir = $(top_srcdir)/src/interfaces/libpq
 libpq_builddir = $(top_builddir)/src/interfaces/libpq
 endif
 
-# This macro is for use by libraries linking to libpq.  (Because libpgport
-# isn't created with the same link flags as libpq, it can't be used.)
+# How to link to libpq.  (This macro may be used as-is by backend extensions.
+# Client-side code should go through libpq_pgport or libpq_pgport_shlib,
+# instead.)
 libpq = -L$(libpq_builddir) -lpq
 
-# This macro is for use by client executables (not libraries) that use libpq.
+# libpq_pgport is for use by client executables (not libraries) that use libpq.
 # We force clients to pull symbols from the non-shared libraries libpgport
 # and libpgcommon rather than pulling some libpgport symbols from libpq just
 # because libpq uses those functions too.  This makes applications less
-# dependent on changes in libpq's usage of pgport.  To do this we link to
+# dependent on changes in libpq's usage of pgport (on platforms where we
+# don't have symbol export control for libpq).  To do this we link to
 # pgport before libpq.  This does cause duplicate -lpgport's to appear
-# on client link lines.
+# on client link lines, since that also appears in $(LIBS).
+# libpq_pgport_shlib is the same idea, but for use in client shared libraries.
 ifdef PGXS
 libpq_pgport = -L$(libdir) -lpgcommon -lpgport $(libpq)
+libpq_pgport_shlib = -L$(libdir) -lpgcommon_shlib -lpgport_shlib $(libpq)
 else
 libpq_pgport = -L$(top_builddir)/src/common -lpgcommon -L$(top_builddir)/src/port -lpgport $(libpq)
+libpq_pgport_shlib = -L$(top_builddir)/src/common -lpgcommon_shlib -L$(top_builddir)/src/port -lpgport_shlib $(libpq)
 endif
 
 # Cygwin seems to need ldap libraries to be mentioned here, too
@@ -600,16 +602,20 @@ ifneq ($(USE_MODULE_DB),)
   # Replace this with $(or ...) if we ever require GNU make 3.81.
   ifneq ($(MODULE_big),)
     CONTRIB_TESTDB=contrib_regression_$(MODULE_big)
+    ISOLATION_TESTDB=isolation_regression_$(MODULE_big)
   else
     ifneq ($(MODULES),)
       CONTRIB_TESTDB=contrib_regression_$(word 1,$(MODULES))
+      ISOLATION_TESTDB=isolation_regression_$(word 1,$(MODULES))
     else
       CONTRIB_TESTDB=contrib_regression_$(word 1,$(REGRESS))
+      ISOLATION_TESTDB=isolation_regression_$(word 1,$(ISOLATION))
     endif
   endif
 else
   PL_TESTDB = pl_regression
   CONTRIB_TESTDB = contrib_regression
+  ISOLATION_TESTDB = isolation_regression
 endif
 
 ifdef NO_LOCALE
@@ -753,6 +759,13 @@ endif
 # foo.c -> foo.o -> foo steps.  This also ensures that dependency
 # tracking (see below) is used.
 %: %.c
+
+# Replace gmake's default rule for linking a single .o file to produce an
+# executable.  The main point here is to put LDFLAGS after the .o file,
+# since we put -l switches into LDFLAGS and those are order-sensitive.
+# In addition, include CFLAGS and LDFLAGS_EX per project conventions.
+%: %.o
+	$(CC) $(CFLAGS) $^ $(LDFLAGS) $(LDFLAGS_EX) $(LIBS) -o $@$(X)
 
 ifndef PGXS
 

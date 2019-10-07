@@ -6,6 +6,14 @@
 -->
  <title>インデックスアクセスメソッドのインタフェース定義</title>
 
+ <indexterm>
+  <primary>Index Access Method</primary>
+ </indexterm>
+ <indexterm>
+  <primary>indexam</primary>
+  <secondary>Index Access Method</secondary>
+ </indexterm>
+
   <para>
 <!--
    This chapter defines the interface between the core
@@ -81,8 +89,8 @@ MVCCでは1つの論理的な行に複数の現在のバージョンがあるこ
    Each index access method is described by a row in the
    <link linkend="catalog-pg-am"><structname>pg_am</structname></link>
    system catalog.  The <structname>pg_am</structname> entry
-   specifies a name and a <firstterm>handler function</firstterm> for the access
-   method.  These entries can be created and deleted using the
+   specifies a name and a <firstterm>handler function</firstterm> for the index
+   access method.  These entries can be created and deleted using the
    <xref linkend="sql-create-access-method"/> and
    <xref linkend="sql-drop-access-method"/> SQL commands.
 -->
@@ -174,6 +182,7 @@ typedef struct IndexAmRoutine
     amcostestimate_function amcostestimate;
     amoptions_function amoptions;
     amproperty_function amproperty;     /* can be NULL */
+    ambuildphasename_function ambuildphasename;   /* can be NULL */
     amvalidate_function amvalidate;
     ambeginscan_function ambeginscan;
     amrescan_function amrescan;
@@ -327,7 +336,7 @@ ambuild (Relation heapRelation,
    but is empty.  It must be filled in with whatever fixed data the
    access method requires, plus entries for all tuples already existing
    in the table.  Ordinarily the <function>ambuild</function> function will call
-   <function>IndexBuildHeapScan()</function> to scan the table for existing tuples
+   <function>table_index_build_scan()</function> to scan the table for existing tuples
    and compute the keys that need to be inserted into the index.
    The function must return a palloc'd struct containing statistics about
    the new index.
@@ -658,6 +667,18 @@ amproperty (Oid index_oid, int attno,
 なぜなら、コアコードはそれをどうすれば良いか知らないため、NULLを返すからです。
 コアコードのデフォルトの動作であるインデックスのオープンと<structfield>amcanreturn</structfield>の呼び出しよりも安価にできるのであれば、<literal>AMPROP_RETURNABLE</literal>の検査を実装するのは利点となります。
 その他のすべての標準属性に対しては、デフォルトの動作が満足できるもののはずです。
+  </para>
+
+  <para>
+<programlisting>
+char *
+ambuildphasename (int64 phasenum);
+</programlisting>
+   Return the textual name of the given build phase number.
+   The phase numbers are those reported during an index build via the
+   <function>pgstat_progress_update_param</function> interface.
+   The phase names are then exposed in the
+   <structname>pg_stat_progress_create_index</structname> view.
   </para>
 
   <para>
@@ -1031,7 +1052,7 @@ amparallelrescan (IndexScanDesc scan);
    the TIDs of all the tuples it has been told about that match the
    <firstterm>scan keys</firstterm>.  The access method is <emphasis>not</emphasis> involved in
    actually fetching those tuples from the index's parent table, nor in
-   determining whether they pass the scan's time qualification test or other
+   determining whether they pass the scan's visibility test or other
    conditions.
 -->
 インデックススキャンでは、<firstterm>スキャンキー</firstterm>に一致するものと示したすべてのタプルのTIDを繰り返すことに関する責任をインデックスアクセスメソッドが持ちます。

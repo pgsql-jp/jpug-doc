@@ -4,7 +4,7 @@
  *	  definition of the "constraint" system catalog (pg_constraint)
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_constraint.h
@@ -31,6 +31,8 @@
  */
 CATALOG(pg_constraint,2606,ConstraintRelationId)
 {
+	Oid			oid;			/* oid */
+
 	/*
 	 * conname + connamespace is deliberately not unique; we allow, for
 	 * example, the same name to be used for constraints of different
@@ -142,11 +144,6 @@ CATALOG(pg_constraint,2606,ConstraintRelationId)
 	 * If a check constraint, nodeToString representation of expression
 	 */
 	pg_node_tree conbin;
-
-	/*
-	 * If a check constraint, source-text representation of expression
-	 */
-	text		consrc;
 #endif
 } FormData_pg_constraint;
 
@@ -185,80 +182,67 @@ typedef enum ConstraintCategory
 	CONSTRAINT_ASSERTION		/* for future expansion */
 } ConstraintCategory;
 
-/*
- * Used when cloning a foreign key constraint to a partition, so that the
- * caller can optionally set up a verification pass for it.
- */
-typedef struct ClonedConstraint
-{
-	Oid			relid;
-	Oid			refrelid;
-	Oid			conindid;
-	Oid			conid;
-	Constraint *constraint;
-} ClonedConstraint;
 
-
-extern Oid CreateConstraintEntry(const char *constraintName,
-					  Oid constraintNamespace,
-					  char constraintType,
-					  bool isDeferrable,
-					  bool isDeferred,
-					  bool isValidated,
-					  Oid parentConstrId,
-					  Oid relId,
-					  const int16 *constraintKey,
-					  int constraintNKeys,
-					  int constraintNTotalKeys,
-					  Oid domainId,
-					  Oid indexRelId,
-					  Oid foreignRelId,
-					  const int16 *foreignKey,
-					  const Oid *pfEqOp,
-					  const Oid *ppEqOp,
-					  const Oid *ffEqOp,
-					  int foreignNKeys,
-					  char foreignUpdateType,
-					  char foreignDeleteType,
-					  char foreignMatchType,
-					  const Oid *exclOp,
-					  Node *conExpr,
-					  const char *conBin,
-					  const char *conSrc,
-					  bool conIsLocal,
-					  int conInhCount,
-					  bool conNoInherit,
-					  bool is_internal);
+extern Oid	CreateConstraintEntry(const char *constraintName,
+								  Oid constraintNamespace,
+								  char constraintType,
+								  bool isDeferrable,
+								  bool isDeferred,
+								  bool isValidated,
+								  Oid parentConstrId,
+								  Oid relId,
+								  const int16 *constraintKey,
+								  int constraintNKeys,
+								  int constraintNTotalKeys,
+								  Oid domainId,
+								  Oid indexRelId,
+								  Oid foreignRelId,
+								  const int16 *foreignKey,
+								  const Oid *pfEqOp,
+								  const Oid *ppEqOp,
+								  const Oid *ffEqOp,
+								  int foreignNKeys,
+								  char foreignUpdateType,
+								  char foreignDeleteType,
+								  char foreignMatchType,
+								  const Oid *exclOp,
+								  Node *conExpr,
+								  const char *conBin,
+								  bool conIsLocal,
+								  int conInhCount,
+								  bool conNoInherit,
+								  bool is_internal);
 
 extern void RemoveConstraintById(Oid conId);
 extern void RenameConstraintById(Oid conId, const char *newname);
 
 extern bool ConstraintNameIsUsed(ConstraintCategory conCat, Oid objId,
-					 const char *conname);
+								 const char *conname);
 extern bool ConstraintNameExists(const char *conname, Oid namespaceid);
 extern char *ChooseConstraintName(const char *name1, const char *name2,
-					 const char *label, Oid namespaceid,
-					 List *others);
+								  const char *label, Oid namespaceid,
+								  List *others);
 
 extern void AlterConstraintNamespaces(Oid ownerId, Oid oldNspId,
-						  Oid newNspId, bool isType, ObjectAddresses *objsMoved);
+									  Oid newNspId, bool isType, ObjectAddresses *objsMoved);
 extern void ConstraintSetParentConstraint(Oid childConstrId,
-							  Oid parentConstrId);
+										  Oid parentConstrId,
+										  Oid childTableId);
 extern Oid	get_relation_constraint_oid(Oid relid, const char *conname, bool missing_ok);
 extern Bitmapset *get_relation_constraint_attnos(Oid relid, const char *conname,
-							   bool missing_ok, Oid *constraintOid);
+												 bool missing_ok, Oid *constraintOid);
 extern Oid	get_domain_constraint_oid(Oid typid, const char *conname, bool missing_ok);
 extern Oid	get_relation_idx_constraint_oid(Oid relationId, Oid indexId);
 
 extern Bitmapset *get_primary_key_attnos(Oid relid, bool deferrableOk,
-					   Oid *constraintOid);
+										 Oid *constraintOid);
 extern void DeconstructFkConstraintRow(HeapTuple tuple, int *numfks,
-						   AttrNumber *conkey, AttrNumber *confkey,
-						   Oid *pf_eq_oprs, Oid *pp_eq_oprs, Oid *ff_eq_oprs);
+									   AttrNumber *conkey, AttrNumber *confkey,
+									   Oid *pf_eq_oprs, Oid *pp_eq_oprs, Oid *ff_eq_oprs);
 
 extern bool check_functional_grouping(Oid relid,
-						  Index varno, Index varlevelsup,
-						  List *grouping_columns,
-						  List **constraintDeps);
+									  Index varno, Index varlevelsup,
+									  List *grouping_columns,
+									  List **constraintDeps);
 
 #endif							/* PG_CONSTRAINT_H */

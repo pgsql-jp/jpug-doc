@@ -1,12 +1,11 @@
 /*
  * psql - the PostgreSQL interactive terminal
  *
- * Copyright (c) 2000-2018, PostgreSQL Global Development Group
+ * Copyright (c) 2000-2019, PostgreSQL Global Development Group
  *
  * src/bin/psql/common.c
  */
 #include "postgres_fe.h"
-#include "common.h"
 
 #include <ctype.h>
 #include <limits.h>
@@ -19,14 +18,16 @@
 #include <win32.h>
 #endif
 
+#include "common/logging.h"
+#include "fe_utils/mbprint.h"
 #include "fe_utils/string_utils.h"
 #include "portability/instr_time.h"
 
-#include "settings.h"
 #include "command.h"
+#include "common.h"
 #include "copy.h"
 #include "crosstabview.h"
-#include "fe_utils/mbprint.h"
+#include "settings.h"
 
 
 static bool DescribeQuery(const char *query, double *elapsed_msec);
@@ -67,7 +68,7 @@ openQueryOutputFile(const char *fname, FILE **fout, bool *is_pipe)
 
 	if (*fout == NULL)
 	{
-		psql_error("%s: %s\n", fname, strerror(errno));
+		pg_log_error("%s: %m", fname);
 		return false;
 	}
 
@@ -156,7 +157,7 @@ psql_get_variable(const char *varname, PsqlScanQuoteType quote,
 
 				if (!pset.db)
 				{
-					psql_error("cannot escape without active connection\n");
+					pg_log_error("cannot escape without active connection");
 					return NULL;
 				}
 
@@ -171,7 +172,7 @@ psql_get_variable(const char *varname, PsqlScanQuoteType quote,
 				{
 					const char *error = PQerrorMessage(pset.db);
 
-					psql_error("%s", error);
+					pg_log_info("%s", error);
 					return NULL;
 				}
 
@@ -197,8 +198,8 @@ psql_get_variable(const char *varname, PsqlScanQuoteType quote,
 				initPQExpBuffer(&buf);
 				if (!appendShellStringNoError(&buf, value))
 				{
-					psql_error("shell command argument contains a newline or carriage return: \"%s\"\n",
-							   value);
+					pg_log_error("shell command argument contains a newline or carriage return: \"%s\"",
+								 value);
 					free(buf.data);
 					return NULL;
 				}
@@ -214,35 +215,13 @@ psql_get_variable(const char *varname, PsqlScanQuoteType quote,
 
 
 /*
- * Error reporting for scripts. Errors should look like
- *	 psql:filename:lineno: message
- */
-void
-psql_error(const char *fmt,...)
-{
-	va_list		ap;
-
-	fflush(stdout);
-	if (pset.queryFout && pset.queryFout != stdout)
-		fflush(pset.queryFout);
-
-	if (pset.inputfile)
-		fprintf(stderr, "%s:%s:" UINT64_FORMAT ": ", pset.progname, pset.inputfile, pset.lineno);
-	va_start(ap, fmt);
-	vfprintf(stderr, _(fmt), ap);
-	va_end(ap);
-}
-
-
-
-/*
  * for backend Notice messages (INFO, WARNING, etc)
  */
 void
 NoticeProcessor(void *arg, const char *message)
 {
 	(void) arg;					/* not used */
-	psql_error("%s", message);
+	pg_log_info("%s", message);
 }
 
 
@@ -413,23 +392,37 @@ CheckConnection(void)
 	{
 		if (!pset.cur_cmd_interactive)
 		{
-			psql_error("connection to server was lost\n");
+			pg_log_fatal("connection to server was lost");
 			exit(EXIT_BADCONN);
 		}
 
-		psql_error("The connection to the server was lost. Attempting reset: ");
+		fprintf(stderr, _("The connection to the server was lost. Attempting reset: "));
 		PQreset(pset.db);
 		OK = ConnectionUp();
 		if (!OK)
 		{
-			psql_error("Failed.\n");
+			fprintf(stderr, _("Failed.\n"));
+
+			/*
+			 * Transition to having no connection.  Keep this bit in sync with
+			 * do_connect().
+			 */
 			PQfinish(pset.db);
 			pset.db = NULL;
 			ResetCancelConn();
 			UnsyncVariables();
 		}
 		else
-			psql_error("Succeeded.\n");
+		{
+			fprintf(stderr, _("Succeeded.\n"));
+
+			/*
+			 * Re-sync, just in case anything changed.  Keep this in sync with
+			 * do_connect().
+			 */
+			SyncVariables();
+			connection_warnings(false); /* Must be after SyncVariables */
+		}
 	}
 
 	return OK;
@@ -529,8 +522,8 @@ AcceptResult(const PGresult *result)
 
 			default:
 				OK = false;
-				psql_error("unexpected PQresultStatus: %d\n",
-						   PQresultStatus(result));
+				pg_log_error("unexpected PQresultStatus: %d",
+							 PQresultStatus(result));
 				break;
 		}
 
@@ -539,7 +532,7 @@ AcceptResult(const PGresult *result)
 		const char *error = PQerrorMessage(pset.db);
 
 		if (strlen(error))
-			psql_error("%s", error);
+			pg_log_info("%s", error);
 
 		CheckConnection();
 	}
@@ -693,7 +686,7 @@ PSQLexec(const char *query)
 
 	if (!pset.db)
 	{
-		psql_error("You are currently not connected to a database.\n");
+		pg_log_error("You are currently not connected to a database.");
 		return NULL;
 	}
 
@@ -751,7 +744,7 @@ PSQLexecWatch(const char *query, const printQueryOpt *opt)
 
 	if (!pset.db)
 	{
-		psql_error("You are currently not connected to a database.\n");
+		pg_log_error("You are currently not connected to a database.");
 		return 0;
 	}
 
@@ -799,19 +792,19 @@ PSQLexecWatch(const char *query, const printQueryOpt *opt)
 			break;
 
 		case PGRES_EMPTY_QUERY:
-			psql_error(_("\\watch cannot be used with an empty query\n"));
+			pg_log_error("\\watch cannot be used with an empty query");
 			PQclear(res);
 			return -1;
 
 		case PGRES_COPY_OUT:
 		case PGRES_COPY_IN:
 		case PGRES_COPY_BOTH:
-			psql_error(_("\\watch cannot be used with COPY\n"));
+			pg_log_error("\\watch cannot be used with COPY");
 			PQclear(res);
 			return -1;
 
 		default:
-			psql_error(_("unexpected result status for \\watch\n"));
+			pg_log_error("unexpected result status for \\watch");
 			PQclear(res);
 			return -1;
 	}
@@ -907,12 +900,12 @@ StoreQueryTuple(const PGresult *result)
 
 	if (PQntuples(result) < 1)
 	{
-		psql_error("no rows returned for \\gset\n");
+		pg_log_error("no rows returned for \\gset");
 		success = false;
 	}
 	else if (PQntuples(result) > 1)
 	{
-		psql_error("more than one row returned for \\gset\n");
+		pg_log_error("more than one row returned for \\gset");
 		success = false;
 	}
 	else
@@ -1081,7 +1074,7 @@ ProcessResult(PGresult **results)
 			default:
 				/* AcceptResult() should have caught anything else. */
 				is_copy = false;
-				psql_error("unexpected PQresultStatus: %d\n", result_status);
+				pg_log_error("unexpected PQresultStatus: %d", result_status);
 				break;
 		}
 
@@ -1298,8 +1291,8 @@ PrintQueryResults(PGresult *results)
 
 		default:
 			success = false;
-			psql_error("unexpected PQresultStatus: %d\n",
-					   PQresultStatus(results));
+			pg_log_error("unexpected PQresultStatus: %d",
+						 PQresultStatus(results));
 			break;
 	}
 
@@ -1334,7 +1327,7 @@ SendQuery(const char *query)
 
 	if (!pset.db)
 	{
-		psql_error("You are currently not connected to a database.\n");
+		pg_log_error("You are currently not connected to a database.");
 		goto sendquery_cleanup;
 	}
 
@@ -1380,7 +1373,7 @@ SendQuery(const char *query)
 		results = PQexec(pset.db, "BEGIN");
 		if (PQresultStatus(results) != PGRES_COMMAND_OK)
 		{
-			psql_error("%s", PQerrorMessage(pset.db));
+			pg_log_info("%s", PQerrorMessage(pset.db));
 			ClearOrSaveResult(results);
 			ResetCancelConn();
 			goto sendquery_cleanup;
@@ -1398,9 +1391,9 @@ SendQuery(const char *query)
 		{
 			char		sverbuf[32];
 
-			psql_error("The server (version %s) does not support savepoints for ON_ERROR_ROLLBACK.\n",
-					   formatPGVersionNumber(pset.sversion, false,
-											 sverbuf, sizeof(sverbuf)));
+			pg_log_warning("The server (version %s) does not support savepoints for ON_ERROR_ROLLBACK.",
+						   formatPGVersionNumber(pset.sversion, false,
+												 sverbuf, sizeof(sverbuf)));
 			on_error_rollback_warning = true;
 		}
 		else
@@ -1408,7 +1401,7 @@ SendQuery(const char *query)
 			results = PQexec(pset.db, "SAVEPOINT pg_psql_temporary_savepoint");
 			if (PQresultStatus(results) != PGRES_COMMAND_OK)
 			{
-				psql_error("%s", PQerrorMessage(pset.db));
+				pg_log_info("%s", PQerrorMessage(pset.db));
 				ClearOrSaveResult(results);
 				ResetCancelConn();
 				goto sendquery_cleanup;
@@ -1461,7 +1454,7 @@ SendQuery(const char *query)
 	}
 
 	if (!OK && pset.echo == PSQL_ECHO_ERRORS)
-		psql_error("STATEMENT:  %s\n", query);
+		pg_log_info("STATEMENT:  %s", query);
 
 	/* If we made a temporary savepoint, possibly release/rollback */
 	if (on_error_rollback_savepoint)
@@ -1504,8 +1497,8 @@ SendQuery(const char *query)
 				OK = false;
 				/* PQTRANS_UNKNOWN is expected given a broken connection. */
 				if (transaction_status != PQTRANS_UNKNOWN || ConnectionUp())
-					psql_error("unexpected transaction status (%d)\n",
-							   transaction_status);
+					pg_log_error("unexpected transaction status (%d)",
+								 transaction_status);
 				break;
 		}
 
@@ -1516,7 +1509,7 @@ SendQuery(const char *query)
 			svptres = PQexec(pset.db, svptcmd);
 			if (PQresultStatus(svptres) != PGRES_COMMAND_OK)
 			{
-				psql_error("%s", PQerrorMessage(pset.db));
+				pg_log_info("%s", PQerrorMessage(pset.db));
 				ClearOrSaveResult(svptres);
 				OK = false;
 
@@ -1619,7 +1612,7 @@ DescribeQuery(const char *query, double *elapsed_msec)
 	results = PQprepare(pset.db, "", query, 0, NULL);
 	if (PQresultStatus(results) != PGRES_COMMAND_OK)
 	{
-		psql_error("%s", PQerrorMessage(pset.db));
+		pg_log_info("%s", PQerrorMessage(pset.db));
 		SetResultVariables(results, false);
 		ClearOrSaveResult(results);
 		return false;
@@ -1657,7 +1650,7 @@ DescribeQuery(const char *query, double *elapsed_msec)
 
 				if (escname == NULL)
 				{
-					psql_error("%s", PQerrorMessage(pset.db));
+					pg_log_info("%s", PQerrorMessage(pset.db));
 					PQclear(results);
 					termPQExpBuffer(&buf);
 					return false;
@@ -2192,6 +2185,22 @@ command_no_begin(const char *query)
 			return true;
 		if (wordlen == 10 && pg_strncasecmp(query, "tablespace", 10) == 0)
 			return true;
+		if (wordlen == 5 && (pg_strncasecmp(query, "index", 5) == 0 ||
+							 pg_strncasecmp(query, "table", 5) == 0))
+		{
+			query += wordlen;
+			query = skip_white_space(query);
+			wordlen = 0;
+			while (isalpha((unsigned char) query[wordlen]))
+				wordlen += PQmblen(&query[wordlen], pset.encoding);
+
+			/*
+			 * REINDEX [ TABLE | INDEX ] CONCURRENTLY are not allowed in
+			 * xacts.
+			 */
+			if (wordlen == 12 && pg_strncasecmp(query, "concurrently", 12) == 0)
+				return true;
+		}
 
 		/* DROP INDEX CONCURRENTLY isn't allowed in xacts */
 		if (wordlen == 5 && pg_strncasecmp(query, "index", 5) == 0)

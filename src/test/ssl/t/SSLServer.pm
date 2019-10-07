@@ -14,6 +14,16 @@
 # The server is configured to only accept connections from localhost. If you
 # want to run the client from another host, you'll have to configure that
 # manually.
+#
+# Note: Someone running these test could have key or certificate files
+# in their ~/.postgresql/, which would interfere with the tests.  The
+# way to override that is to specify sslcert=invalid and/or
+# sslrootcert=invalid if no actual certificate is used for a
+# particular test.  libpq will ignore specifications that name
+# nonexisting files.  (sslkey and sslcrl do not need to specified
+# explicitly because an invalid sslcert or sslrootcert, respectively,
+# causes those to be ignored.)
+
 package SSLServer;
 
 use strict;
@@ -38,6 +48,8 @@ our @EXPORT = qw(
 # The second argument is a complementary connection string.
 sub test_connect_ok
 {
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
+
 	my ($common_connstr, $connstr, $test_name) = @_;
 
 	my $cmd = [
@@ -52,6 +64,8 @@ sub test_connect_ok
 
 sub test_connect_fails
 {
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
+
 	my ($common_connstr, $connstr, $expected_stderr, $test_name) = @_;
 
 	my $cmd = [
@@ -89,8 +103,10 @@ sub configure_test_server_for_ssl
 	# Create test users and databases
 	$node->psql('postgres', "CREATE USER ssltestuser");
 	$node->psql('postgres', "CREATE USER anotheruser");
+	$node->psql('postgres', "CREATE USER yetanotheruser");
 	$node->psql('postgres', "CREATE DATABASE trustdb");
 	$node->psql('postgres', "CREATE DATABASE certdb");
+	$node->psql('postgres', "CREATE DATABASE verifydb");
 
 	# Update password of each user as needed.
 	if (defined($password))
@@ -169,11 +185,17 @@ sub configure_hba_for_ssl
 	# When connecting to certdb, also check the client certificate.
 	open my $hba, '>', "$pgdata/pg_hba.conf";
 	print $hba
-	  "# TYPE  DATABASE        USER            ADDRESS                 METHOD\n";
+	  "# TYPE  DATABASE        USER            ADDRESS                 METHOD             OPTIONS\n";
 	print $hba
 	  "hostssl trustdb         all             $serverhost/32            $authmethod\n";
 	print $hba
 	  "hostssl trustdb         all             ::1/128                 $authmethod\n";
+	print $hba
+	  "hostssl verifydb        ssltestuser     $serverhost/32          $authmethod        clientcert=verify-full\n";
+	print $hba
+	  "hostssl verifydb        anotheruser     $serverhost/32          $authmethod        clientcert=verify-full\n";
+	print $hba
+	  "hostssl verifydb        yetanotheruser  $serverhost/32          $authmethod        clientcert=verify-ca\n";
 	print $hba
 	  "hostssl certdb          all             $serverhost/32            cert\n";
 	print $hba

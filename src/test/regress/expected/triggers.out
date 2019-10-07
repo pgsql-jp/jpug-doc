@@ -144,6 +144,76 @@ select * from trigtest;
 ----+----
 (0 rows)
 
+-- Also check what happens when such a trigger runs before or after others
+create function f1_times_10() returns trigger as
+$$ begin new.f1 := new.f1 * 10; return new; end $$ language plpgsql;
+create trigger trigger_alpha
+	before insert or update on trigtest
+	for each row execute procedure f1_times_10();
+insert into trigtest values(1, 'foo');
+select * from trigtest;
+ f1 | f2  
+----+-----
+ 10 | foo
+(1 row)
+
+update trigtest set f2 = f2 || 'bar';
+select * from trigtest;
+ f1 | f2  
+----+-----
+ 10 | foo
+(1 row)
+
+delete from trigtest;
+select * from trigtest;
+ f1 | f2 
+----+----
+(0 rows)
+
+create trigger trigger_zed
+	before insert or update on trigtest
+	for each row execute procedure f1_times_10();
+insert into trigtest values(1, 'foo');
+select * from trigtest;
+ f1  | f2  
+-----+-----
+ 100 | foo
+(1 row)
+
+update trigtest set f2 = f2 || 'bar';
+select * from trigtest;
+  f1  | f2  
+------+-----
+ 1000 | foo
+(1 row)
+
+delete from trigtest;
+select * from trigtest;
+ f1 | f2 
+----+----
+(0 rows)
+
+drop trigger trigger_alpha on trigtest;
+insert into trigtest values(1, 'foo');
+select * from trigtest;
+ f1 | f2  
+----+-----
+ 10 | foo
+(1 row)
+
+update trigtest set f2 = f2 || 'bar';
+select * from trigtest;
+ f1  | f2  
+-----+-----
+ 100 | foo
+(1 row)
+
+delete from trigtest;
+select * from trigtest;
+ f1 | f2 
+----+----
+(0 rows)
+
 drop table trigtest;
 create sequence ttdummy_seq increment 10 start 0 minvalue 0;
 create table tttest (
@@ -417,29 +487,53 @@ SELECT * FROM main_table ORDER BY a, b;
 (8 rows)
 
 SELECT pg_get_triggerdef(oid, true) FROM pg_trigger WHERE tgrelid = 'main_table'::regclass AND tgname = 'modified_a';
-                                                             pg_get_triggerdef                                                              
---------------------------------------------------------------------------------------------------------------------------------------------
- CREATE TRIGGER modified_a BEFORE UPDATE OF a ON main_table FOR EACH ROW WHEN (old.a <> new.a) EXECUTE PROCEDURE trigger_func('modified_a')
+                                                             pg_get_triggerdef                                                             
+-------------------------------------------------------------------------------------------------------------------------------------------
+ CREATE TRIGGER modified_a BEFORE UPDATE OF a ON main_table FOR EACH ROW WHEN (old.a <> new.a) EXECUTE FUNCTION trigger_func('modified_a')
 (1 row)
 
 SELECT pg_get_triggerdef(oid, false) FROM pg_trigger WHERE tgrelid = 'main_table'::regclass AND tgname = 'modified_a';
-                                                                  pg_get_triggerdef                                                                  
------------------------------------------------------------------------------------------------------------------------------------------------------
- CREATE TRIGGER modified_a BEFORE UPDATE OF a ON public.main_table FOR EACH ROW WHEN ((old.a <> new.a)) EXECUTE PROCEDURE trigger_func('modified_a')
+                                                                 pg_get_triggerdef                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------------
+ CREATE TRIGGER modified_a BEFORE UPDATE OF a ON public.main_table FOR EACH ROW WHEN ((old.a <> new.a)) EXECUTE FUNCTION trigger_func('modified_a')
 (1 row)
 
 SELECT pg_get_triggerdef(oid, true) FROM pg_trigger WHERE tgrelid = 'main_table'::regclass AND tgname = 'modified_any';
-                                                                      pg_get_triggerdef                                                                       
---------------------------------------------------------------------------------------------------------------------------------------------------------------
- CREATE TRIGGER modified_any BEFORE UPDATE OF a ON main_table FOR EACH ROW WHEN (old.* IS DISTINCT FROM new.*) EXECUTE PROCEDURE trigger_func('modified_any')
+                                                                      pg_get_triggerdef                                                                      
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+ CREATE TRIGGER modified_any BEFORE UPDATE OF a ON main_table FOR EACH ROW WHEN (old.* IS DISTINCT FROM new.*) EXECUTE FUNCTION trigger_func('modified_any')
 (1 row)
 
-DROP TRIGGER modified_a ON main_table;
+-- Test RENAME TRIGGER
+ALTER TRIGGER modified_a ON main_table RENAME TO modified_modified_a;
+SELECT count(*) FROM pg_trigger WHERE tgrelid = 'main_table'::regclass AND tgname = 'modified_a';
+ count 
+-------
+     0
+(1 row)
+
+SELECT count(*) FROM pg_trigger WHERE tgrelid = 'main_table'::regclass AND tgname = 'modified_modified_a';
+ count 
+-------
+     1
+(1 row)
+
+DROP TRIGGER modified_modified_a ON main_table;
 DROP TRIGGER modified_any ON main_table;
 DROP TRIGGER insert_a ON main_table;
 DROP TRIGGER delete_a ON main_table;
 DROP TRIGGER insert_when ON main_table;
 DROP TRIGGER delete_when ON main_table;
+-- Test WHEN condition accessing system columns.
+create table table_with_oids(a int);
+insert into table_with_oids values (1);
+create trigger oid_unchanged_trig after update on table_with_oids
+	for each row
+	when (new.tableoid = old.tableoid AND new.tableoid <> 0)
+	execute procedure trigger_func('after_upd_oid_unchanged');
+update table_with_oids set a = a + 1;
+NOTICE:  trigger_func(after_upd_oid_unchanged) called: action = UPDATE, when = AFTER, level = ROW
+drop table table_with_oids;
 -- Test column-level triggers
 DROP TRIGGER after_upd_row_trig ON main_table;
 CREATE TRIGGER before_upd_a_row_trig BEFORE UPDATE OF a ON main_table
@@ -453,9 +547,9 @@ FOR EACH STATEMENT EXECUTE PROCEDURE trigger_func('before_upd_a_stmt');
 CREATE TRIGGER after_upd_b_stmt_trig AFTER UPDATE OF b ON main_table
 FOR EACH STATEMENT EXECUTE PROCEDURE trigger_func('after_upd_b_stmt');
 SELECT pg_get_triggerdef(oid) FROM pg_trigger WHERE tgrelid = 'main_table'::regclass AND tgname = 'after_upd_a_b_row_trig';
-                                                                pg_get_triggerdef                                                                 
---------------------------------------------------------------------------------------------------------------------------------------------------
- CREATE TRIGGER after_upd_a_b_row_trig AFTER UPDATE OF a, b ON public.main_table FOR EACH ROW EXECUTE PROCEDURE trigger_func('after_upd_a_b_row')
+                                                                pg_get_triggerdef                                                                
+-------------------------------------------------------------------------------------------------------------------------------------------------
+ CREATE TRIGGER after_upd_a_b_row_trig AFTER UPDATE OF a, b ON public.main_table FOR EACH ROW EXECUTE FUNCTION trigger_func('after_upd_a_b_row')
 (1 row)
 
 UPDATE main_table SET a = 50;
@@ -824,17 +918,9 @@ CREATE TABLE min_updates_test (
 	f1	text,
 	f2 int,
 	f3 int);
-CREATE TABLE min_updates_test_oids (
-	f1	text,
-	f2 int,
-	f3 int) WITH OIDS;
 INSERT INTO min_updates_test VALUES ('a',1,2),('b','2',null);
-INSERT INTO min_updates_test_oids VALUES ('a',1,2),('b','2',null);
 CREATE TRIGGER z_min_update
 BEFORE UPDATE ON min_updates_test
-FOR EACH ROW EXECUTE PROCEDURE suppress_redundant_updates_trigger();
-CREATE TRIGGER z_min_update
-BEFORE UPDATE ON min_updates_test_oids
 FOR EACH ROW EXECUTE PROCEDURE suppress_redundant_updates_trigger();
 \set QUIET false
 UPDATE min_updates_test SET f1 = f1;
@@ -842,12 +928,6 @@ UPDATE 0
 UPDATE min_updates_test SET f2 = f2 + 1;
 UPDATE 2
 UPDATE min_updates_test SET f3 = 2 WHERE f3 is null;
-UPDATE 1
-UPDATE min_updates_test_oids SET f1 = f1;
-UPDATE 0
-UPDATE min_updates_test_oids SET f2 = f2 + 1;
-UPDATE 2
-UPDATE min_updates_test_oids SET f3 = 2 WHERE f3 is null;
 UPDATE 1
 \set QUIET true
 SELECT * FROM min_updates_test;
@@ -857,15 +937,7 @@ SELECT * FROM min_updates_test;
  b  |  3 |  2
 (2 rows)
 
-SELECT * FROM min_updates_test_oids;
- f1 | f2 | f3 
-----+----+----
- a  |  2 |  2
- b  |  3 |  2
-(2 rows)
-
 DROP TABLE min_updates_test;
-DROP TABLE min_updates_test_oids;
 --
 -- Test triggers on views
 --
@@ -1105,15 +1177,15 @@ DELETE 1
  a      | integer |           |          | 
  b      | integer |           |          | 
 Triggers:
-    after_del_stmt_trig AFTER DELETE ON main_view FOR EACH STATEMENT EXECUTE PROCEDURE view_trigger('after_view_del_stmt')
-    after_ins_stmt_trig AFTER INSERT ON main_view FOR EACH STATEMENT EXECUTE PROCEDURE view_trigger('after_view_ins_stmt')
-    after_upd_stmt_trig AFTER UPDATE ON main_view FOR EACH STATEMENT EXECUTE PROCEDURE view_trigger('after_view_upd_stmt')
-    before_del_stmt_trig BEFORE DELETE ON main_view FOR EACH STATEMENT EXECUTE PROCEDURE view_trigger('before_view_del_stmt')
-    before_ins_stmt_trig BEFORE INSERT ON main_view FOR EACH STATEMENT EXECUTE PROCEDURE view_trigger('before_view_ins_stmt')
-    before_upd_stmt_trig BEFORE UPDATE ON main_view FOR EACH STATEMENT EXECUTE PROCEDURE view_trigger('before_view_upd_stmt')
-    instead_of_delete_trig INSTEAD OF DELETE ON main_view FOR EACH ROW EXECUTE PROCEDURE view_trigger('instead_of_del')
-    instead_of_insert_trig INSTEAD OF INSERT ON main_view FOR EACH ROW EXECUTE PROCEDURE view_trigger('instead_of_ins')
-    instead_of_update_trig INSTEAD OF UPDATE ON main_view FOR EACH ROW EXECUTE PROCEDURE view_trigger('instead_of_upd')
+    after_del_stmt_trig AFTER DELETE ON main_view FOR EACH STATEMENT EXECUTE FUNCTION view_trigger('after_view_del_stmt')
+    after_ins_stmt_trig AFTER INSERT ON main_view FOR EACH STATEMENT EXECUTE FUNCTION view_trigger('after_view_ins_stmt')
+    after_upd_stmt_trig AFTER UPDATE ON main_view FOR EACH STATEMENT EXECUTE FUNCTION view_trigger('after_view_upd_stmt')
+    before_del_stmt_trig BEFORE DELETE ON main_view FOR EACH STATEMENT EXECUTE FUNCTION view_trigger('before_view_del_stmt')
+    before_ins_stmt_trig BEFORE INSERT ON main_view FOR EACH STATEMENT EXECUTE FUNCTION view_trigger('before_view_ins_stmt')
+    before_upd_stmt_trig BEFORE UPDATE ON main_view FOR EACH STATEMENT EXECUTE FUNCTION view_trigger('before_view_upd_stmt')
+    instead_of_delete_trig INSTEAD OF DELETE ON main_view FOR EACH ROW EXECUTE FUNCTION view_trigger('instead_of_del')
+    instead_of_insert_trig INSTEAD OF INSERT ON main_view FOR EACH ROW EXECUTE FUNCTION view_trigger('instead_of_ins')
+    instead_of_update_trig INSTEAD OF UPDATE ON main_view FOR EACH ROW EXECUTE FUNCTION view_trigger('instead_of_upd')
 
 -- Test dropping view triggers
 DROP TRIGGER instead_of_insert_trig ON main_view;
@@ -1129,13 +1201,13 @@ View definition:
     main_table.b
    FROM main_table;
 Triggers:
-    after_del_stmt_trig AFTER DELETE ON main_view FOR EACH STATEMENT EXECUTE PROCEDURE view_trigger('after_view_del_stmt')
-    after_ins_stmt_trig AFTER INSERT ON main_view FOR EACH STATEMENT EXECUTE PROCEDURE view_trigger('after_view_ins_stmt')
-    after_upd_stmt_trig AFTER UPDATE ON main_view FOR EACH STATEMENT EXECUTE PROCEDURE view_trigger('after_view_upd_stmt')
-    before_del_stmt_trig BEFORE DELETE ON main_view FOR EACH STATEMENT EXECUTE PROCEDURE view_trigger('before_view_del_stmt')
-    before_ins_stmt_trig BEFORE INSERT ON main_view FOR EACH STATEMENT EXECUTE PROCEDURE view_trigger('before_view_ins_stmt')
-    before_upd_stmt_trig BEFORE UPDATE ON main_view FOR EACH STATEMENT EXECUTE PROCEDURE view_trigger('before_view_upd_stmt')
-    instead_of_update_trig INSTEAD OF UPDATE ON main_view FOR EACH ROW EXECUTE PROCEDURE view_trigger('instead_of_upd')
+    after_del_stmt_trig AFTER DELETE ON main_view FOR EACH STATEMENT EXECUTE FUNCTION view_trigger('after_view_del_stmt')
+    after_ins_stmt_trig AFTER INSERT ON main_view FOR EACH STATEMENT EXECUTE FUNCTION view_trigger('after_view_ins_stmt')
+    after_upd_stmt_trig AFTER UPDATE ON main_view FOR EACH STATEMENT EXECUTE FUNCTION view_trigger('after_view_upd_stmt')
+    before_del_stmt_trig BEFORE DELETE ON main_view FOR EACH STATEMENT EXECUTE FUNCTION view_trigger('before_view_del_stmt')
+    before_ins_stmt_trig BEFORE INSERT ON main_view FOR EACH STATEMENT EXECUTE FUNCTION view_trigger('before_view_ins_stmt')
+    before_upd_stmt_trig BEFORE UPDATE ON main_view FOR EACH STATEMENT EXECUTE FUNCTION view_trigger('before_view_upd_stmt')
+    instead_of_update_trig INSTEAD OF UPDATE ON main_view FOR EACH ROW EXECUTE FUNCTION view_trigger('instead_of_upd')
 
 DROP VIEW main_view;
 --
@@ -1605,7 +1677,7 @@ select * from parent; select * from child;
 (1 row)
 
 delete from parent where aid = 1; -- should fail
-ERROR:  tuple to be updated was already modified by an operation triggered by the current command
+ERROR:  tuple to be deleted was already modified by an operation triggered by the current command
 HINT:  Consider using an AFTER trigger instead of a BEFORE trigger to propagate changes to other rows.
 select * from parent; select * from child;
  aid | val1 | val2 | val3 | val4 | bcnt 
@@ -2634,7 +2706,7 @@ create trigger child_row_trig
 -- but now we're not allowed to make it inherit anymore
 alter table child inherit parent;
 ERROR:  trigger "child_row_trig" prevents table "child" from becoming an inheritance child
-DETAIL:  ROW triggers with transition tables are not supported in inheritance hierarchies
+DETAIL:  ROW triggers with transition tables are not supported in inheritance hierarchies.
 -- drop the trigger, and now we're allowed to make it inherit again
 drop trigger child_row_trig on child;
 alter table child inherit parent;

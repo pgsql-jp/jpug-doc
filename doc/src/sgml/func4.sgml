@@ -464,7 +464,7 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
 
   <sect2>
 <!--
-   <title>Single-row Comparison</title>
+   <title>Single-Row Comparison</title>
 -->
    <title>単独行に関する比較</title>
 
@@ -1375,7 +1375,7 @@ SELECT * FROM pg_ls_dir('.') WITH ORDINALITY AS t(ls,n);
 
  <sect1 id="functions-info">
 <!--
-  <title>System Information Functions</title>
+  <title>System Information Functions and Operators</title>
 -->
   <title>システム情報関数</title>
 
@@ -2030,7 +2030,7 @@ SET search_path TO <replaceable>schema</replaceable> <optional>, <replaceable>sc
 シリアライザブルトランザクションおよび遅延可能トランザクションについてのさらなる情報については<xref linkend="xact-serializable"/>を参照してください。
 この関数を頻繁に呼び出すと、短時間に述語ロックマネージャの共有状態にアクセスする必要があるため、データベースのパフォーマンスに若干の影響が出るかもしれません。
    </para>
-   
+
    <indexterm>
     <primary>version</primary>
    </indexterm>
@@ -2678,6 +2678,130 @@ SELECT has_function_privilege('joeuser', 'myfunc(int, text)', 'execute');
 -->
 <function>row_security_active</function>は<function>current_user</function>と現在の環境において、指定のテーブルで行単位セキュリティが有効かどうかを検査します。
 テーブルは名前またはOIDで指定できます。
+   </para>
+
+  <para>
+   <xref linkend="functions-aclitem-fn-table"/> shows the operators
+   available for the <type>aclitem</type> type, which is the catalog
+   representation of access privileges.  See <xref linkend="ddl-priv"/>
+   for information about how to read access privilege values.
+  </para>
+
+   <indexterm>
+    <primary>acldefault</primary>
+   </indexterm>
+   <indexterm>
+    <primary>aclitemeq</primary>
+   </indexterm>
+   <indexterm>
+    <primary>aclcontains</primary>
+   </indexterm>
+   <indexterm>
+    <primary>aclexplode</primary>
+   </indexterm>
+   <indexterm>
+    <primary>makeaclitem</primary>
+   </indexterm>
+
+    <table id="functions-aclitem-op-table">
+     <title><type>aclitem</type> Operators</title>
+     <tgroup cols="4">
+      <thead>
+       <row>
+        <entry>Operator</entry>
+        <entry>Description</entry>
+        <entry>Example</entry>
+        <entry>Result</entry>
+       </row>
+      </thead>
+      <tbody>
+
+       <row>
+        <entry> <literal>=</literal> </entry>
+        <entry>equal</entry>
+        <entry><literal>'calvin=r*w/hobbes'::aclitem = 'calvin=r*w*/hobbes'::aclitem</literal></entry>
+        <entry><literal>f</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>@&gt;</literal> </entry>
+        <entry>contains element</entry>
+        <entry><literal>'{calvin=r*w/hobbes,hobbes=r*w*/postgres}'::aclitem[] @&gt; 'calvin=r*w/hobbes'::aclitem</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+       <row>
+        <entry> <literal>~</literal> </entry>
+        <entry>contains element</entry>
+        <entry><literal>'{calvin=r*w/hobbes,hobbes=r*w*/postgres}'::aclitem[] ~ 'calvin=r*w/hobbes'::aclitem</literal></entry>
+        <entry><literal>t</literal></entry>
+       </row>
+
+      </tbody>
+     </tgroup>
+    </table>
+
+   <para>
+    <xref linkend="functions-aclitem-fn-table"/> shows some additional
+    functions to manage the <type>aclitem</type> type.
+   </para>
+
+   <table id="functions-aclitem-fn-table">
+    <title><type>aclitem</type> Functions</title>
+    <tgroup cols="3">
+     <thead>
+      <row><entry>Name</entry> <entry>Return Type</entry> <entry>Description</entry></row>
+     </thead>
+     <tbody>
+      <row>
+       <entry><literal><function>acldefault</function>(<parameter>type</parameter>,
+        <parameter>ownerId</parameter>)</literal></entry>
+       <entry><type>aclitem[]</type></entry>
+       <entry>get the default access privileges for an object belonging to <parameter>ownerId</parameter></entry>
+      </row>
+      <row>
+       <entry><literal><function>aclexplode</function>(<parameter>aclitem[]</parameter>)</literal></entry>
+       <entry><type>setof record</type></entry>
+       <entry>get <type>aclitem</type> array as tuples</entry>
+      </row>
+      <row>
+       <entry><literal><function>makeaclitem</function>(<parameter>grantee</parameter>, <parameter>grantor</parameter>, <parameter>privilege</parameter>, <parameter>grantable</parameter>)</literal></entry>
+       <entry><type>aclitem</type></entry>
+       <entry>build an <type>aclitem</type> from input</entry>
+      </row>
+     </tbody>
+    </tgroup>
+   </table>
+
+   <para>
+    <function>acldefault</function> returns the built-in default access
+    privileges for an object of type <parameter>type</parameter> belonging to
+    role <parameter>ownerId</parameter>.  These represent the access
+    privileges that will be assumed when an object's ACL entry is null.
+    (The default access privileges are described in <xref linkend="ddl-priv"/>.)
+    The <parameter>type</parameter> parameter is a <type>CHAR</type>: write
+    'c' for <literal>COLUMN</literal>,
+    'r' for <literal>TABLE</literal> and table-like objects,
+    's' for <literal>SEQUENCE</literal>,
+    'd' for <literal>DATABASE</literal>,
+    'f' for <literal>FUNCTION</literal> or <literal>PROCEDURE</literal>,
+    'l' for <literal>LANGUAGE</literal>,
+    'L' for <literal>LARGE OBJECT</literal>,
+    'n' for <literal>SCHEMA</literal>,
+    't' for <literal>TABLESPACE</literal>,
+    'F' for <literal>FOREIGN DATA WRAPPER</literal>,
+    'S' for <literal>FOREIGN SERVER</literal>,
+    or
+    'T' for <literal>TYPE</literal> or <literal>DOMAIN</literal>.
+   </para>
+
+   <para>
+    <function>aclexplode</function> returns an <type>aclitem</type> array
+    as a set of rows. Output columns are grantor <type>oid</type>,
+    grantee <type>oid</type> (<literal>0</literal> for <literal>PUBLIC</literal>),
+    granted privilege as <type>text</type> (<literal>SELECT</literal>, ...)
+    and whether the privilege is grantable as <type>boolean</type>.
+    <function>makeaclitem</function> performs the inverse operation.
    </para>
 
   <para>
@@ -4413,7 +4537,7 @@ SELECT collation for ('foo' COLLATE "de_DE");
 
    <table id="functions-commit-timestamp">
 <!--
-    <title>Committed transaction information</title>
+    <title>Committed Transaction Information</title>
 -->
     <title>コミットされたトランザクションの情報</title>
     <tgroup cols="3">
@@ -5499,13 +5623,13 @@ falseの場合、<function>pg_stop_backup</function>はバックアップの完�
     <function>pg_create_restore_point</function> creates a named write-ahead log
     record that can be used as recovery target, and returns the corresponding
     write-ahead log location.  The given name can then be used with
-    <xref linkend="recovery-target-name"/> to specify the point up to which
+    <xref linkend="guc-recovery-target-name"/> to specify the point up to which
     recovery will proceed.  Avoid creating multiple restore points with the
     same name, since recovery will stop at the first one whose name matches
     the recovery target.
 -->
 <function>pg_create_restore_point</function>はリカバリターゲットとして使用可能な名前付けされた先行書き込みログレコードを生成し、それに該当するログ位置を返します。
-与えられた名前は、どこまでリカバリをするかを明示的に指定する<xref linkend="recovery-target-name"/>パラメータに使用することができます。
+与えられた名前は、どこまでリカバリをするかを明示的に指定する<xref linkend="guc-recovery-target-name"/>パラメータに使用することができます。
 リカバリ処理はリカバリターゲットに指定した名前と一致した最初の時点で終了するため、同じ名前で複数のリストアポイントを作成することは避けてください。
    </para>
 
@@ -5706,6 +5830,9 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
     <primary>pg_is_wal_replay_paused</primary>
    </indexterm>
    <indexterm>
+    <primary>pg_promote</primary>
+   </indexterm>
+   <indexterm>
     <primary>pg_wal_replay_pause</primary>
    </indexterm>
    <indexterm>
@@ -5747,6 +5874,24 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
        </entry>
 -->
        <entry>リカバリが停止中であれば真を返す
+       </entry>
+      </row>
+      <row>
+       <entry>
+        <literal><function>pg_promote(<parameter>wait</parameter> <type>boolean</type> DEFAULT true, <parameter>wait_seconds</parameter> <type>integer</type> DEFAULT 60)</function></literal>
+        </entry>
+       <entry><type>boolean</type></entry>
+       <entry>
+        Promotes a physical standby server.  With <parameter>wait</parameter>
+        set to <literal>true</literal> (the default), the function waits until
+        promotion is completed or <parameter>wait_seconds</parameter> seconds
+        have passed, and returns <literal>true</literal> if promotion is
+        successful and <literal>false</literal> otherwise.
+        If <parameter>wait</parameter> is set to <literal>false</literal>, the
+        function returns <literal>true</literal> immediately after sending
+        <literal>SIGUSR1</literal> to the postmaster to trigger the promotion.
+        This function is restricted to superusers by default, but other users
+        can be granted EXECUTE to run the function.
        </entry>
       </row>
       <row>
@@ -6049,7 +6194,6 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
         (<parameter>slot_name</parameter> <type>name</type>, <parameter>lsn</parameter> <type>pg_lsn</type>)
        </entry>
        <entry>
-<!--
         Creates a new logical (decoding) replication slot named
         <parameter>slot_name</parameter> using the output plugin
         <parameter>plugin</parameter>. The optional third
@@ -6059,11 +6203,47 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
         released upon any error. A call to this function has the same
         effect as the replication protocol command
         <literal>CREATE_REPLICATION_SLOT ... LOGICAL</literal>.
--->
-出力プラグイン<parameter>plugin</parameter>を使用して、<parameter>slot_name</parameter>という名前の新しい論理(デコード)レプリケーションスロットを作成します。
-3番目のパラメータ<parameter>temporary</parameter>はオプションで、trueに設定されるとそのスロットは永続的にディスクに保存されるものではなく、現在のセッションによってのみ用いられることを意図していることを指定します。
-一時的なスロットはエラーが発生したときも解放されます。
-この関数を呼び出すのはレプリケーションプロトコルコマンド<literal>CREATE_REPLICATION_SLOT ... LOGICAL</literal>と同じ効果があります。
+       </entry>
+      </row>
+
+      <row>
+       <entry>
+        <indexterm>
+         <primary>pg_copy_physical_replication_slot</primary>
+        </indexterm>
+        <literal><function>pg_copy_physical_replication_slot(<parameter>src_slot_name</parameter> <type>name</type>, <parameter>dst_slot_name</parameter> <type>name</type> <optional>, <parameter>temporary</parameter> <type>boolean</type></optional>)</function></literal>
+       </entry>
+       <entry>
+        (<parameter>slot_name</parameter> <type>name</type>, <parameter>lsn</parameter> <type>pg_lsn</type>)
+       </entry>
+       <entry>
+        Copies an existing physical replication slot named <parameter>src_slot_name</parameter>
+        to a physical replication slot named <parameter>dst_slot_name</parameter>.
+        The copied physical slot starts to reserve WAL from the same <acronym>LSN</acronym> as the
+        source slot.
+        <parameter>temporary</parameter> is optional. If <parameter>temporary</parameter>
+        is omitted, the same value as the source slot is used.
+       </entry>
+      </row>
+
+      <row>
+       <entry>
+        <indexterm>
+         <primary>pg_copy_logical_replication_slot</primary>
+        </indexterm>
+        <literal><function>pg_copy_logical_replication_slot(<parameter>src_slot_name</parameter> <type>name</type>, <parameter>dst_slot_name</parameter> <type>name</type> <optional>, <parameter>temporary</parameter> <type>boolean</type> <optional>, <parameter>plugin</parameter> <type>name</type></optional></optional>)</function></literal>
+       </entry>
+       <entry>
+        (<parameter>slot_name</parameter> <type>name</type>, <parameter>lsn</parameter> <type>pg_lsn</type>)
+       </entry>
+       <entry>
+        Copies an existing logical replication slot name <parameter>src_slot_name</parameter>
+        to a logical replication slot named <parameter>dst_slot_name</parameter>
+        while changing the output plugin and persistence. The copied logical slot starts
+        from the same <acronym>LSN</acronym> as the source logical slot. Both
+        <parameter>temporary</parameter> and <parameter>plugin</parameter> are optional.
+        If <parameter>temporary</parameter> or <parameter>plugin</parameter> are omitted,
+        the same values as the source logical slot are used.
        </entry>
       </row>
 
@@ -7057,6 +7237,74 @@ numeric値で表現されたサイズ（バイト数）を、サイズの単位�
 この関数は新しく作成された照合順序オブジェクトの数を返します。
    </para>
 
+   <table id="functions-info-partition">
+    <title>Partitioning Information Functions</title>
+    <tgroup cols="3">
+     <thead>
+      <row><entry>Name</entry> <entry>Return Type</entry> <entry>Description</entry></row>
+     </thead>
+
+     <tbody>
+      <row>
+       <entry>
+        <indexterm><primary>pg_partition_tree</primary></indexterm>
+        <literal><function>pg_partition_tree(<type>regclass</type>)</function></literal>
+       </entry>
+       <entry><type>setof record</type></entry>
+       <entry>
+        List information about tables or indexes in a partition tree for a
+        given partitioned table or partitioned index, with one row for each
+        partition.  Information provided includes the name of the partition,
+        the name of its immediate parent, a boolean value telling if the
+        partition is a leaf, and an integer telling its level in the hierarchy.
+        The value of level begins at <literal>0</literal> for the input table
+        or index in its role as the root of the partition tree,
+        <literal>1</literal> for its partitions, <literal>2</literal> for
+        their partitions, and so on.
+       </entry>
+      </row>
+      <row>
+       <entry>
+        <indexterm><primary>pg_partition_ancestors</primary></indexterm>
+        <literal><function>pg_partition_ancestors(<type>regclass</type>)</function></literal>
+       </entry>
+       <entry><type>setof regclass</type></entry>
+       <entry>
+        List the ancestor relations of the given partition,
+        including the partition itself.
+       </entry>
+      </row>
+      <row>
+       <entry>
+        <indexterm><primary>pg_partition_root</primary></indexterm>
+        <literal><function>pg_partition_root(<type>regclass</type>)</function></literal>
+       </entry>
+       <entry><type>regclass</type></entry>
+       <entry>
+        Return the top-most parent of a partition tree to which the given
+        relation belongs.
+       </entry>
+      </row>
+     </tbody>
+    </tgroup>
+   </table>
+
+   <para>
+    To check the total size of the data contained in
+    <structname>measurement</structname> table described in
+    <xref linkend="ddl-partitioning-declarative-example"/>, one could use the
+    following query:
+   </para>
+
+<programlisting>
+=# SELECT pg_size_pretty(sum(pg_relation_size(relid))) AS total_size
+     FROM pg_partition_tree('measurement');
+ total_size 
+------------
+ 24 kB
+(1 row)
+</programlisting>
+
   </sect2>
 
   <sect2 id="functions-admin-index">
@@ -7286,6 +7534,32 @@ WALディレクトリ内のファイルの名前、サイズ、最終更新時�
       </row>
       <row>
        <entry>
+        <literal><function>pg_ls_archive_statusdir()</function></literal>
+       </entry>
+       <entry><type>setof record</type></entry>
+       <entry>
+        List the name, size, and last modification time of files in the WAL
+        archive status directory. Access is granted to members of the
+        <literal>pg_monitor</literal> role and may be granted to other
+        non-superuser roles.
+       </entry>
+      </row>
+      <row>
+       <entry>
+        <literal><function>pg_ls_tmpdir(<optional><parameter>tablespace</parameter> <type>oid</type></optional>)</function></literal>
+       </entry>
+       <entry><type>setof record</type></entry>
+       <entry>
+        List the name, size, and last modification time of files in the
+        temporary directory for <parameter>tablespace</parameter>.  If
+        <parameter>tablespace</parameter> is not provided, the
+        <literal>pg_default</literal> tablespace is used.  Access is granted
+        to members of the <literal>pg_monitor</literal> role and may be
+        granted to other non-superuser roles.
+       </entry>
+      </row>
+      <row>
+       <entry>
         <literal><function>pg_read_file(<parameter>filename</parameter> <type>text</type> [, <parameter>offset</parameter> <type>bigint</type>, <parameter>length</parameter> <type>bigint</type> [, <parameter>missing_ok</parameter> <type>boolean</type>] ])</function></literal>
        </entry>
        <entry><type>text</type></entry>
@@ -7385,6 +7659,31 @@ WALディレクトリ内のファイルの名前、サイズ、最終更新時�
 <function>pg_ls_waldir</function>は先行書き込みログ（WAL）ディレクトリ内の各ファイルについて、名前、サイズ、最終更新時刻（mtime）を返します。
 デフォルトでは、スーパーユーザと<literal>pg_monitor</literal>ロールのメンバーだけがこの関数を使用できます。
 <command>GRANT</command>を使って他のロールにアクセス権を付与することができます。
+   </para>
+
+   <indexterm>
+    <primary>pg_ls_archive_statusdir</primary>
+   </indexterm>
+   <para>
+    <function>pg_ls_archive_statusdir</function> returns the name, size, and
+    last modified time (mtime) of each file in the WAL archive status
+    directory <filename>pg_wal/archive_status</filename>. By default only
+    superusers and members of the <literal>pg_monitor</literal> role can
+    use this function. Access may be granted to others using
+    <command>GRANT</command>.
+   </para>
+
+   <indexterm>
+    <primary>pg_ls_tmpdir</primary>
+   </indexterm>
+   <para>
+    <function>pg_ls_tmpdir</function> returns the name, size, and last modified
+    time (mtime) of each file in the temporary file directory for the specified
+    <parameter>tablespace</parameter>.  If <parameter>tablespace</parameter> is
+    not provided, the <literal>pg_default</literal> tablespace is used.  By
+    default only superusers and members of the <literal>pg_monitor</literal>
+    role can use this function.  Access may be granted to others using
+    <command>GRANT</command>.
    </para>
 
    <indexterm>
@@ -8303,7 +8602,7 @@ CREATE EVENT TRIGGER test_event_trigger_for_drops
 
    <table id="functions-event-trigger-table-rewrite">
 <!--
-    <title>Table Rewrite information</title>
+    <title>Table Rewrite Information</title>
 -->
     <title>テーブル書き換え情報</title>
     <tgroup cols="3">

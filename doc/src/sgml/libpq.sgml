@@ -1806,6 +1806,20 @@ Unixドメインソケット経由でなされた接続の場合、またはキ�
       </listitem>
      </varlistentry>
 
+     <varlistentry id="libpq-tcp-user-timeout" xreflabel="tcp_user_timeout">
+      <term><literal>tcp_user_timeout</literal></term>
+      <listitem>
+       <para>
+        Controls the number of milliseconds that transmitted data may
+        remain unacknowledged before a connection is forcibly closed.
+        A value of zero uses the system default. This parameter is
+        ignored for connections made via a Unix-domain socket.
+        It is only supported on systems where <symbol>TCP_USER_TIMEOUT</symbol>
+        is available; on other systems, it has no effect.
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="libpq-connect-tty" xreflabel="tty">
       <term><literal>tty</literal></term>
       <listitem>
@@ -1893,6 +1907,63 @@ Unixドメインソケット経由でなされた接続の場合、またはキ�
 -->
 物理あるいは論理レプリケーションモードでは、簡易問い合わせプロトコルのみが使用できます。
       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="libpq-connect-gssencmode" xreflabel="gssencmode">
+      <term><literal>gssencmode</literal></term>
+      <listitem>
+       <para>
+        This option determines whether or with what priority a secure
+        <acronym>GSS</acronym> TCP/IP connection will be negotiated with the
+        server. There are three modes:
+
+        <variablelist>
+         <varlistentry>
+          <term><literal>disable</literal></term>
+          <listitem>
+           <para>
+            only try a non-<acronym>GSSAPI</acronym>-encrypted connection
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry>
+          <term><literal>prefer</literal> (default)</term>
+          <listitem>
+           <para>
+            if there are <acronym>GSSAPI</acronym> credentials present (i.e.,
+            in a credentials cache), first try
+            a <acronym>GSSAPI</acronym>-encrypted connection; if that fails or
+            there are no credentials, try a
+            non-<acronym>GSSAPI</acronym>-encrypted connection.  This is the
+            default when <productname>PostgreSQL</productname> has been
+            compiled with <acronym>GSSAPI</acronym> support.
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry>
+          <term><literal>require</literal></term>
+          <listitem>
+           <para>
+            only try a <acronym>GSSAPI</acronym>-encrypted connection
+           </para>
+          </listitem>
+         </varlistentry>
+        </variablelist>
+       </para>
+
+       <para>
+        <literal>gssencmode</literal> is ignored for Unix domain socket
+        communication.  If <productname>PostgreSQL</productname> is compiled
+        without GSSAPI support, using the <literal>require</literal> option
+        will cause an error, while <literal>prefer</literal> will be accepted
+        but <application>libpq</application> will not actually attempt
+        a <acronym>GSSAPI</acronym>-encrypted
+        connection.<indexterm><primary>GSSAPI</primary><secondary sortas="libpq">with
+        libpq</secondary></indexterm>
+       </para>
       </listitem>
      </varlistentry>
 
@@ -2474,6 +2545,36 @@ char *PQhost(const PGconn *conn);
 -->
 接続パラメーター中に複数のホストが指定されると、接続が確立するまでは<function>PQhost</function>の結果を当てにすることはできません。
 接続の状態は、<function>PQstatus</function>関数で確認できます。
+      </para>
+     </listitem>
+    </varlistentry>
+
+
+    <varlistentry id="libpq-pqhostaddr">
+     <term>
+      <function>PQhostaddr</function>
+      <indexterm>
+       <primary>PQhostaddr</primary>
+      </indexterm>
+     </term>
+
+     <listitem>
+      <para>
+       Returns the server IP address of the active connection.
+       This can be the address that a host name resolved to,
+       or an IP address provided through the <literal>hostaddr</literal>
+       parameter.
+<synopsis>
+char *PQhostaddr(const PGconn *conn);
+</synopsis>
+      </para>
+
+      <para>
+       <function>PQhostaddr</function> returns <symbol>NULL</symbol> if the
+       <parameter>conn</parameter> argument is <symbol>NULL</symbol>.
+       Otherwise, if there is an error producing the host information
+       (perhaps if the connection has not been fully established or
+       there was an error), it returns an empty string.
       </para>
      </listitem>
     </varlistentry>
@@ -6813,7 +6914,7 @@ int PQflush(PGconn *conn);
 
  <sect1 id="libpq-single-row-mode">
 <!--
-  <title>Retrieving Query Results Row-By-Row</title>
+  <title>Retrieving Query Results Row-by-Row</title>
 -->
   <title>１行１行問い合わせ結果を受け取る</title>
 
@@ -8154,7 +8255,7 @@ int PQendcopy(PGconn *conn);
        It should either be issued when the  last  string  has  been sent
        to  the  server using <function>PQputline</function> or when the
        last string has been  received  from  the  server using
-       <function>PGgetline</function>.  It must be issued or the server
+       <function>PQgetline</function>.  It must be issued or the server
        will get <quote>out of sync</quote> with  the client.   Upon return
        from this function, the server is ready to receive the next SQL
        command.  The return value is 0  on  successful  completion,
@@ -8312,24 +8413,25 @@ typedef enum
 {
     PQERRORS_TERSE,
     PQERRORS_DEFAULT,
-    PQERRORS_VERBOSE
+    PQERRORS_VERBOSE,
+    PQERRORS_SQLSTATE
 } PGVerbosity;
 
 PGVerbosity PQsetErrorVerbosity(PGconn *conn, PGVerbosity verbosity);
 </synopsis>
 
 <!--
-      <function>PQsetErrorVerbosity</function> sets the verbosity mode, returning
-      the connection's previous setting.  In <firstterm>TERSE</firstterm> mode,
-      returned messages include severity, primary text, and position only;
-      this will normally fit on a single line.  The default mode produces
-      messages that include the above plus any detail, hint, or context
-      fields (these might span multiple lines).  The <firstterm>VERBOSE</firstterm>
-      mode includes all available fields.  Changing the verbosity does not
-      affect the messages available from already-existing
-      <structname>PGresult</structname> objects, only subsequently-created ones.
-      (But see <function>PQresultVerboseErrorMessage</function> if you
-      want to print a previous error with a different verbosity.)
+      <function>PQsetErrorVerbosity</function> sets the verbosity mode,
+      returning the connection's previous setting.
+      In <firstterm>TERSE</firstterm> mode, returned messages include
+      severity, primary text, and position only; this will normally fit on a
+      single line.  The <firstterm>DEFAULT</firstterm> mode produces messages
+      that include the above plus any detail, hint, or context fields (these
+      might span multiple lines).  The <firstterm>VERBOSE</firstterm> mode
+      includes all available fields.  The <firstterm>SQLSTATE</firstterm>
+      mode includes only the error severity and the <symbol>SQLSTATE</symbol>
+      error code, if one is available (if not, the output is like
+      <firstterm>TERSE</firstterm> mode).
 -->
 <function>PQsetErrorVerbosity</function>は冗長度モードを設定し、接続における以前の状態を返します。
 <firstterm>TERSE</firstterm>モードでは、返されるメッセージには深刻度、主テキスト、位置のみが含まれます。
@@ -8340,6 +8442,14 @@ PGVerbosity PQsetErrorVerbosity(PGconn *conn, PGVerbosity verbosity);
 冗長度の変更は、既に存在する<structname>PGresult</structname>オブジェクト内から取り出せるメッセージには影響を与えません。
 その後に作成されたオブジェクトにのみ影響を与えます。
 （ただし、以前のエラーを異なる冗長さで表示したい場合は<function>PQresultVerboseErrorMessage</function>を参照してください。）
+     </para>
+
+     <para>
+      Changing the verbosity setting does not affect the messages available
+      from already-existing <structname>PGresult</structname> objects, only
+      subsequently-created ones.
+      (But see <function>PQresultVerboseErrorMessage</function> if you
+      want to print a previous error with a different verbosity.)
      </para>
     </listitem>
    </varlistentry>
@@ -8374,13 +8484,19 @@ PGContextVisibility PQsetErrorContextVisibility(PGconn *conn, PGContextVisibilit
 <!--
       <function>PQsetErrorContextVisibility</function> sets the context display mode,
       returning the connection's previous setting.  This mode controls
-      whether the <literal>CONTEXT</literal> field is included in messages
-      (unless the verbosity setting is <firstterm>TERSE</firstterm>, in which
-      case <literal>CONTEXT</literal> is never shown).  The <firstterm>NEVER</firstterm> mode
+      whether the <literal>CONTEXT</literal> field is included in messages.
+      The <firstterm>NEVER</firstterm> mode
       never includes <literal>CONTEXT</literal>, while <firstterm>ALWAYS</firstterm> always
       includes it if available.  In <firstterm>ERRORS</firstterm> mode (the
-      default), <literal>CONTEXT</literal> fields are included only for error
-      messages, not for notices and warnings.  Changing this mode does not
+      default), <literal>CONTEXT</literal> fields are included only in error
+      messages, not in notices and warnings.
+      (However, if the verbosity setting is <firstterm>TERSE</firstterm>
+      or <firstterm>SQLSTATE</firstterm>, <literal>CONTEXT</literal> fields
+      are omitted regardless of the context display mode.)
+     </para>
+
+     <para>
+      Changing this mode does not
       affect the messages available from
       already-existing <structname>PGresult</structname> objects, only
       subsequently-created ones.
@@ -8928,6 +9044,32 @@ void *PQresultAlloc(PGresult *res, size_t nBytes);
 <parameter>res</parameter>が消去された時、この関数で割り付けられたメモリは解放されます。
 関数が失敗すると戻り値は<symbol>NULL</symbol>です。
 <function>malloc</function>と同じように、どのような種類のデータでも結果は適切に整列されることが保証されています。
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="libpq-pqresultmemorysize">
+    <term>
+     <function>PQresultMemorySize</function>
+     <indexterm>
+      <primary>PQresultMemorySize</primary>
+     </indexterm>
+    </term>
+
+    <listitem>
+     <para>
+      Retrieves the number of bytes allocated for
+      a <structname>PGresult</structname> object.
+<synopsis>
+size_t PQresultMemorySize(const PGresult *res);
+</synopsis>
+     </para>
+
+     <para>
+      This value is the sum of all <function>malloc</function> requests
+      associated with the <structname>PGresult</structname> object, that is,
+      all the space that will be freed by <function>PQclear</function>.
+      This information can be useful for managing memory consumption.
      </para>
     </listitem>
    </varlistentry>
@@ -9737,6 +9879,14 @@ void *PQinstanceData(const PGconn *conn, PGEventProc proc);
 int PQresultSetInstanceData(PGresult *res, PGEventProc proc, void *data);
 </synopsis>
       </para>
+
+      <para>
+       Beware that any storage represented by <parameter>data</parameter>
+       will not be accounted for by <function>PQresultMemorySize</function>,
+       unless it is allocated using <function>PQresultAlloc</function>.
+       (Doing so is recommendable because it eliminates the need to free
+       such storage explicitly when the result is destroyed.)
+      </para>
      </listitem>
     </varlistentry>
 
@@ -10143,6 +10293,16 @@ myEventProc(PGEventId evtId, void *evtInfo, void *passThrough)
     <listitem>
      <para>
       <indexterm>
+       <primary><envar>PGGSSENCMODE</envar></primary>
+      </indexterm>
+      <envar>PGGSSENCMODE</envar> behaves the same as the <xref
+      linkend="libpq-connect-gssencmode"/> connection parameter.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      <indexterm>
        <primary><envar>PGOPTIONS</envar></primary>
       </indexterm>
 <!--
@@ -10272,6 +10432,16 @@ myEventProc(PGEventId evtId, void *evtInfo, void *passThrough)
       linkend="libpq-connect-requirepeer"/> connection parameter.
 -->
 <envar>PGREQUIREPEER</envar>は<xref linkend="libpq-connect-requirepeer"/>接続パラメータと同様に動作します。
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      <indexterm>
+       <primary><envar>PGGSSENCMODE</envar></primary>
+      </indexterm>
+      <envar>PGGSSENCMODE</envar> behaves the same as the <xref
+      linkend="libpq-connect-gssencmode"/> connection parameter.
      </para>
     </listitem>
 
@@ -11051,7 +11221,7 @@ SSLは以下の３種類の攻撃に対する保護を提供することがで�
 
   <para>
 <!--
-   For a connection to be known secure, SSL usage must be configured
+   For a connection to be known SSL-secured, SSL usage must be configured
    on <emphasis>both the client and the server</emphasis> before the connection
    is made. If it is only configured on the server, the client may end up
    sending sensitive information (e.g. passwords) before
@@ -12101,6 +12271,7 @@ main(int argc, char **argv)
                 PQerrorMessage(conn));
         exit_nicely(conn);
     }
+
 ]]><!--
     /* Set always-secure search path, so malicious users can't take control. */
 --><![CDATA[

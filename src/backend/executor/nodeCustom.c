@@ -3,7 +3,7 @@
  * nodeCustom.c
  *		Routines to handle execution of custom scan node
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * ------------------------------------------------------------------------
@@ -14,6 +14,7 @@
 #include "executor/executor.h"
 #include "executor/nodeCustom.h"
 #include "nodes/execnodes.h"
+#include "nodes/extensible.h"
 #include "nodes/plannodes.h"
 #include "miscadmin.h"
 #include "parser/parsetree.h"
@@ -55,7 +56,7 @@ ExecInitCustomScan(CustomScan *cscan, EState *estate, int eflags)
 	ExecAssignExprContext(estate, &css->ss.ps);
 
 	/*
-	 * open the base relation, if any, and acquire an appropriate lock on it
+	 * open the scan relation, if any
 	 */
 	if (scanrelid > 0)
 	{
@@ -72,14 +73,15 @@ ExecInitCustomScan(CustomScan *cscan, EState *estate, int eflags)
 	{
 		TupleDesc	scan_tupdesc;
 
-		scan_tupdesc = ExecTypeFromTL(cscan->custom_scan_tlist, false);
-		ExecInitScanTupleSlot(estate, &css->ss, scan_tupdesc);
+		scan_tupdesc = ExecTypeFromTL(cscan->custom_scan_tlist);
+		ExecInitScanTupleSlot(estate, &css->ss, scan_tupdesc, &TTSOpsVirtual);
 		/* Node's targetlist will contain Vars with varno = INDEX_VAR */
 		tlistvarno = INDEX_VAR;
 	}
 	else
 	{
-		ExecInitScanTupleSlot(estate, &css->ss, RelationGetDescr(scan_rel));
+		ExecInitScanTupleSlot(estate, &css->ss, RelationGetDescr(scan_rel),
+							  &TTSOpsVirtual);
 		/* Node's targetlist will contain Vars with varno = scanrelid */
 		tlistvarno = scanrelid;
 	}
@@ -87,7 +89,7 @@ ExecInitCustomScan(CustomScan *cscan, EState *estate, int eflags)
 	/*
 	 * Initialize result slot, type and projection.
 	 */
-	ExecInitResultTupleSlotTL(estate, &css->ss.ps);
+	ExecInitResultTupleSlotTL(&css->ss.ps, &TTSOpsVirtual);
 	ExecAssignScanProjectionInfoWithVarno(&css->ss, tlistvarno);
 
 	/* initialize child expressions */
@@ -126,10 +128,6 @@ ExecEndCustomScan(CustomScanState *node)
 	/* Clean out the tuple table */
 	ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
 	ExecClearTuple(node->ss.ss_ScanTupleSlot);
-
-	/* Close the heap relation */
-	if (node->ss.ss_currentRelation)
-		ExecCloseScanRelation(node->ss.ss_currentRelation);
 }
 
 void

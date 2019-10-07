@@ -8,7 +8,7 @@
  *	  Structs that need to be client-visible are in pqcomm.h.
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/libpq/libpq-be.h
@@ -86,6 +86,10 @@ typedef struct
 	gss_cred_id_t cred;			/* GSSAPI connection cred's */
 	gss_ctx_id_t ctx;			/* GSSAPI connection context */
 	gss_name_t	name;			/* GSSAPI client name */
+	char	   *princ;			/* GSSAPI Principal used for auth, NULL if
+								 * GSSAPI auth was not used */
+	bool		auth;			/* GSSAPI Authentication used */
+	bool		enc;			/* GSSAPI encryption in use */
 #endif
 } pg_gssinfo;
 #endif
@@ -139,19 +143,19 @@ typedef struct Port
 	List	   *guc_options;
 
 	/*
+	 * The startup packet application name, only used here for the "connection
+	 * authorized" log message. We shouldn't use this post-startup, instead
+	 * the GUC should be used as application can change it afterward.
+	 */
+	char	   *application_name;
+
+	/*
 	 * Information that needs to be held during the authentication cycle.
 	 */
 	HbaLine    *hba;
 
 	/*
-	 * Information that really has no business at all being in struct Port,
-	 * but since it gets used by elog.c in the same way as database_name and
-	 * other members of this struct, we may as well keep it here.
-	 */
-	TimestampTz SessionStartTime;	/* backend start time */
-
-	/*
-	 * TCP keepalive settings.
+	 * TCP keepalive and user timeout settings.
 	 *
 	 * default values are 0 if AF_UNIX or not yet known; current values are 0
 	 * if AF_UNIX or using the default. Also, -1 in a default value means we
@@ -160,10 +164,15 @@ typedef struct Port
 	int			default_keepalives_idle;
 	int			default_keepalives_interval;
 	int			default_keepalives_count;
+	int			default_tcp_user_timeout;
 	int			keepalives_idle;
 	int			keepalives_interval;
 	int			keepalives_count;
+	int			tcp_user_timeout;
 
+	/*
+	 * GSSAPI structures.
+	 */
 #if defined(ENABLE_GSS) || defined(ENABLE_SSPI)
 
 	/*
@@ -258,7 +267,9 @@ extern int	be_tls_get_cipher_bits(Port *port);
 extern bool be_tls_get_compression(Port *port);
 extern const char *be_tls_get_version(Port *port);
 extern const char *be_tls_get_cipher(Port *port);
-extern void be_tls_get_peerdn_name(Port *port, char *ptr, size_t len);
+extern void be_tls_get_peer_subject_name(Port *port, char *ptr, size_t len);
+extern void be_tls_get_peer_issuer_name(Port *port, char *ptr, size_t len);
+extern void be_tls_get_peer_serial(Port *port, char *ptr, size_t len);
 
 /*
  * Get the server certificate hash for SCRAM channel binding type
@@ -275,7 +286,20 @@ extern void be_tls_get_peerdn_name(Port *port, char *ptr, size_t len);
 extern char *be_tls_get_certificate_hash(Port *port, size_t *len);
 #endif
 
-#endif	/* USE_SSL */
+#endif							/* USE_SSL */
+
+#ifdef ENABLE_GSS
+/*
+ * Return information about the GSSAPI authenticated connection
+ */
+extern bool be_gssapi_get_auth(Port *port);
+extern bool be_gssapi_get_enc(Port *port);
+extern const char *be_gssapi_get_princ(Port *port);
+
+/* Read and write to a GSSAPI-encrypted connection. */
+extern ssize_t be_gssapi_read(Port *port, void *ptr, size_t len);
+extern ssize_t be_gssapi_write(Port *port, void *ptr, size_t len);
+#endif							/* ENABLE_GSS */
 
 extern ProtocolVersion FrontendProtocol;
 
@@ -284,9 +308,11 @@ extern ProtocolVersion FrontendProtocol;
 extern int	pq_getkeepalivesidle(Port *port);
 extern int	pq_getkeepalivesinterval(Port *port);
 extern int	pq_getkeepalivescount(Port *port);
+extern int	pq_gettcpusertimeout(Port *port);
 
 extern int	pq_setkeepalivesidle(int idle, Port *port);
 extern int	pq_setkeepalivesinterval(int interval, Port *port);
 extern int	pq_setkeepalivescount(int count, Port *port);
+extern int	pq_settcpusertimeout(int timeout, Port *port);
 
 #endif							/* LIBPQ_BE_H */

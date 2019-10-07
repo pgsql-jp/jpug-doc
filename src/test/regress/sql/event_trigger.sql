@@ -106,9 +106,28 @@ create table event_trigger_fire4 (a int);
 reset session_replication_role;
 -- fires all three
 create table event_trigger_fire5 (a int);
+-- non-top-level command
+create function f1() returns int
+language plpgsql
+as $$
+begin
+  create table event_trigger_fire6 (a int);
+  return 0;
+end $$;
+select f1();
+-- non-top-level command
+create procedure p1()
+language plpgsql
+as $$
+begin
+  create table event_trigger_fire7 (a int);
+end $$;
+call p1();
+
 -- clean up
 alter event trigger regress_event_trigger disable;
-drop table event_trigger_fire2, event_trigger_fire3, event_trigger_fire4, event_trigger_fire5;
+drop table event_trigger_fire2, event_trigger_fire3, event_trigger_fire4, event_trigger_fire5, event_trigger_fire6, event_trigger_fire7;
+drop routine f1(), p1();
 
 -- regress_event_trigger_end should fire on these commands
 grant all on table event_trigger_fire1 to public;
@@ -310,7 +329,7 @@ $$;
 create event trigger no_rewrite_allowed on table_rewrite
   execute procedure test_evtrig_no_rewrite();
 
-create table rewriteme (id serial primary key, foo float);
+create table rewriteme (id serial primary key, foo float, bar timestamptz);
 insert into rewriteme
      select x * 1.001 from generate_series(1, 500) as t(x);
 alter table rewriteme alter column foo type numeric;
@@ -333,6 +352,14 @@ alter table rewriteme
 
 -- shouldn't trigger a table_rewrite event
 alter table rewriteme alter column foo type numeric(12,4);
+begin;
+set timezone to 'UTC';
+alter table rewriteme alter column bar type timestamp;
+set timezone to '0';
+alter table rewriteme alter column bar type timestamptz;
+set timezone to 'Europe/London';
+alter table rewriteme alter column bar type timestamp; -- does rewrite
+rollback;
 
 -- typed tables are rewritten when their type changes.  Don't emit table
 -- name, because firing order is not stable.

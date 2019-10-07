@@ -46,9 +46,9 @@
 
    <para>
 <!--
-    Do not use C++ style comments (<literal>//</literal> comments).  Strict ANSI C
-    compilers do not accept them.  For the same reason, do not use C++
-    extensions such as declaring new variables mid-block.
+    To maintain a consistent coding style, do not use C++ style comments
+    (<literal>//</literal> comments).  <application>pgindent</application>
+    will replace them with <literal>/* ... */</literal>.
 -->
 C++形式のコメント（<literal>//</literal>コメント）は使用しないでください。
 厳密なANSI Cコンパイラはそれらを受け付けません。
@@ -1140,8 +1140,8 @@ BETTER: could not open file %s (I/O failure)
 必要に応じて、そのルーチンを見つける他の機構がありますし、また、ほとんどのユーザにとって役に立つ情報ではありません。
 関数名がないと、エラーメッセージにあまり意味がないのであれば、言葉使いを変えてください。
 <programlisting>
-BAD:    pg_atoi: error in "z": cannot parse "z"
-BETTER: invalid input syntax for integer: "z"
+BAD:    pg_strtoint32: error in "z": cannot parse "z"
+BETTER: invalid input syntax for type integer: "z"
 </programlisting>
    </para>
 
@@ -1379,26 +1379,32 @@ BETTER: unrecognized node type: 42
 -->
     <title>標準C</title>
     <para>
-<!--
      Code in <productname>PostgreSQL</productname> should only rely on language
-     features available in the C89 standard. That means a conforming
-     C89 compiler has to be able to compile postgres, at least aside
-     from a few platform dependent pieces. Features from later
-     revision of the C standard or compiler specific features can be
-     used, if a fallback is provided.
--->
-<productname>PostgreSQL</productname>のコードはC89の標準で利用可能な言語機能にのみ依存することになっています。
-つまり、C89に準拠したコンパイラであれば、少数のプラットフォーム依存の部分を除けばpostgresをコンパイルできるはずです。
-代替策が用意されているのであれば、それより後のバージョンの標準Cの機能、あるいはコンパイラに依存した機能を使用することもできます。
+     features available in the C99 standard. That means a conforming
+     C99 compiler has to be able to compile postgres, at least aside
+     from a few platform dependent pieces.
+    </para>
+    <para>
+     A few features included in the C99 standard are, at this time, not
+     permitted to be used in core <productname>PostgreSQL</productname>
+     code. This currently includes variable length arrays, intermingled
+     declarations and code, <literal>//</literal> comments, universal
+     character names. Reasons for that include portability and historical
+     practices.
+    </para>
+    <para>
+     Features from later revision of the C standard or compiler specific
+     features can be used, if a fallback is provided.
     </para>
     <para>
 <!--
-     For example <literal>static inline</literal> and
-     <literal>_StaticAssert()</literal> are currently used, even
-     though they are from newer revisions of the C standard. If not
-     available we respectively fall back to defining the functions
-     without inline, and to using a C89 compatible replacement that
-     performs the same checks, but emits rather cryptic messages.
+     For example <literal>_Static_assert()</literal> and
+     <literal>__builtin_constant_p</literal> are currently used, even though
+     they are from newer revisions of the C standard and a
+     <productname>GCC</productname> extension respectively. If not available
+     we respectively fall back to using a C99 compatible replacement that
+     performs the same checks, but emits rather cryptic messages and do not
+     use <literal>__builtin_constant_p</literal>.
 -->
 例えば、<literal>static inline</literal>と<literal>_StaticAssert()</literal>は標準Cのより新しいバージョンにあるものですが、現在、使用されています。
 それらが利用できない場合は、<literal>static inline</literal>の代わりにインラインを使わない関数を定義し、<literal>_StaticAssert()</literal>については、同じチェックをする（ただし、やや暗号的なメッセージを発する）C89互換のもので代用します。

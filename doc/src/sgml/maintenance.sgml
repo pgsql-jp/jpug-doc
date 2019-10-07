@@ -553,7 +553,7 @@
 
   <sect2 id="vacuum-for-visibility-map">
 <!--
-   <title>Updating The Visibility Map</title>
+   <title>Updating the Visibility Map</title>
 -->
    <title>可視性マップの更新</title>
 
@@ -1270,6 +1270,26 @@ analyze threshold = analyze base threshold + analyze scale factor * number of tu
 このため、ワーカの実稼働数に関らず、システムに与えるI/Oの総影響は変わりありません。
 しかし、テーブル毎の<literal>autovacuum_vacuum_cost_delay</literal>または<literal>autovacuum_vacuum_cost_limit</literal>ストレージパラメータが設定されたテーブルを処理するワーカは振り分けアルゴリズムでは考慮されません。
    </para>
+
+   <para>
+    Autovacuum workers generally don't block other commands.  If a process
+    attempts to acquire a lock that conflicts with the
+    <literal>SHARE UPDATE EXCLUSIVE</literal> lock held by autovacuum, lock
+    acquisition will interrupt the autovacuum.  For conflicting lock modes,
+    see <xref linkend="table-lock-compatibility"/>.  However, if the autovacuum
+    is running to prevent transaction ID wraparound (i.e., the autovacuum query
+    name in the <structname>pg_stat_activity</structname> view ends with
+    <literal>(to prevent wraparound)</literal>), the autovacuum is not
+    automatically interrupted.
+   </para>
+
+   <warning>
+    <para>
+     Regularly running commands that acquire locks conflicting with a
+     <literal>SHARE UPDATE EXCLUSIVE</literal> lock (e.g., ANALYZE) can
+     effectively prevent autovacuums from ever completing.
+    </para>
+   </warning>
   </sect2>
  </sect1>
 
@@ -1341,19 +1361,10 @@ B-tree以外の任意の種類のインデックスを使用する際には、�
   <para>
 <!--
    <xref linkend="sql-reindex"/> can be used safely and easily in all cases.
-   But since the command requires an exclusive table lock, it is
-   often preferable to execute an index rebuild with a sequence of
-   creation and replacement steps.  Index types that support
-   <xref linkend="sql-createindex"/> with the <literal>CONCURRENTLY</literal>
-   option can instead be recreated that way. If that is successful and the
-   resulting index is valid, the original index can then be replaced by
-   the newly built one using a combination of <xref linkend="sql-alterindex"/>
-   and <xref linkend="sql-dropindex"/>. When an index is used to enforce
-   uniqueness or other constraints, <xref linkend="sql-altertable"/> might
-   be necessary to swap the existing constraint with one enforced by
-   the new index. Review this alternate multistep rebuild approach
-   carefully before using it as there are limitations on which
-   indexes can be reindexed this way, and errors must be handled.
+   This command requires an <literal>ACCESS EXCLUSIVE</literal> lock by
+   default, hence it is often preferable to execute it with its
+   <literal>CONCURRENTLY</literal> option, which requires only a
+   <literal>SHARE UPDATE EXCLUSIVE</literal> lock.
 -->
 <xref linkend="sql-reindex"/>はすべての状況で安全に簡単に使うことができます。
 しかし、このコマンドはテーブルの排他ロックを要求しますので、生成と置き換えの処理を続けて行なうことでインデックスの再構築を実行する方が好ましい場合がしばしばあります。
@@ -1435,8 +1446,8 @@ B-tree以外の任意の種類のインデックスを使用する際には、�
    program if you have one that you are already using with other
    server software. For example, the <application>rotatelogs</application>
    tool included in the <productname>Apache</productname> distribution
-   can be used with <productname>PostgreSQL</productname>.  To do this,
-   just pipe the server's
+   can be used with <productname>PostgreSQL</productname>.  One way to
+   do this is to pipe the server's
    <systemitem>stderr</systemitem> output to the desired program.
    If you start the server with
    <command>pg_ctl</command>, then <systemitem>stderr</systemitem>
@@ -1452,6 +1463,36 @@ B-tree以外の任意の種類のインデックスを使用する際には、�
 pg_ctl start | rotatelogs /var/log/pgsql_log 86400
 </programlisting>
   </para>
+
+  <para>
+   You can combine these approaches by setting up <application>logrotate</application>
+   to collect log files produced by <productname>PostgreSQL</productname> built-in
+   logging collector.  In this case, the logging collector defines the names and
+   location of the log files, while <application>logrotate</application>
+   periodically archives these files.  When initiating log rotation,
+   <application>logrotate</application> must ensure that the application
+   sends further output to the new file.  This is commonly done with a
+   <literal>postrotate</literal> script that sends a <literal>SIGHUP</literal>
+   signal to the application, which then reopens the log file.
+   In <productname>PostgreSQL</productname>, you can run <command>pg_ctl</command>
+   with the <literal>logrotate</literal> option instead.  When the server receives
+   this command, the server either switches to a new log file or reopens the
+   existing file, depending on the logging configuration
+   (see <xref linkend="runtime-config-logging-where"/>).
+  </para>
+
+  <note>
+   <para>
+    When using static log file names, the server might fail to reopen the log
+    file if the max open file limit is reached or a file table overflow occurs.
+    In this case, log messages are sent to the old log file until a
+    successful log rotation. If <application>logrotate</application> is
+    configured to compress the log file and delete it, the server may lose
+    the messages logged in this timeframe. To avoid this issue, you can
+    configure the logging collector to dynamically assign log file names
+    and use a <literal>prerotate</literal> script to ignore open log files.
+    </para>
+  </note>
 
   <para>
 <!--

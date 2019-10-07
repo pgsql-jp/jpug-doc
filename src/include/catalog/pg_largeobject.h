@@ -4,7 +4,7 @@
  *	  definition of the "large object" system catalog (pg_largeobject)
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_largeobject.h
@@ -26,7 +26,7 @@
  *		typedef struct FormData_pg_largeobject
  * ----------------
  */
-CATALOG(pg_largeobject,2613,LargeObjectRelationId) BKI_WITHOUT_OIDS
+CATALOG(pg_largeobject,2613,LargeObjectRelationId)
 {
 	Oid			loid;			/* Identifier of large object */
 	int32		pageno;			/* Page number (starting from 0) */

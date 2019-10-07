@@ -17,7 +17,7 @@
  * any database access.
  *
  *
- * Copyright (c) 2006-2018, PostgreSQL Global Development Group
+ * Copyright (c) 2006-2019, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/utils/cache/ts_cache.c
@@ -27,8 +27,8 @@
 #include "postgres.h"
 
 #include "access/genam.h"
-#include "access/heapam.h"
 #include "access/htup_details.h"
+#include "access/table.h"
 #include "access/xact.h"
 #include "catalog/indexing.h"
 #include "catalog/namespace.h"
@@ -48,7 +48,6 @@
 #include "utils/memutils.h"
 #include "utils/regproc.h"
 #include "utils/syscache.h"
-#include "utils/tqual.h"
 
 
 /*
@@ -482,7 +481,7 @@ lookup_ts_config_cache(Oid cfgId)
 					BTEqualStrategyNumber, F_OIDEQ,
 					ObjectIdGetDatum(cfgId));
 
-		maprel = heap_open(TSConfigMapRelationId, AccessShareLock);
+		maprel = table_open(TSConfigMapRelationId, AccessShareLock);
 		mapidx = index_open(TSConfigMapIndexId, AccessShareLock);
 		mapscan = systable_beginscan_ordered(maprel, mapidx,
 											 NULL, 1, &mapskey);
@@ -523,7 +522,7 @@ lookup_ts_config_cache(Oid cfgId)
 
 		systable_endscan_ordered(mapscan);
 		index_close(mapidx, AccessShareLock);
-		heap_close(maprel, AccessShareLock);
+		table_close(maprel, AccessShareLock);
 
 		if (ndicts > 0)
 		{

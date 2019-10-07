@@ -3,7 +3,7 @@
  * test_thread_funcs.c
  *		libc thread test program
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *	src/test/thread/thread_test.c
@@ -22,6 +22,9 @@
 
 #if !defined(IN_CONFIGURE) && !defined(WIN32)
 #include "postgres.h"
+
+/* we want to know what the native strerror does, not pg_strerror */
+#undef strerror
 #endif
 
 #include <stdio.h>
@@ -197,7 +200,7 @@ main(int argc, char *argv[])
 	/* report results */
 
 #ifdef HAVE_STRERROR_R
-	printf("Your system has sterror_r();  it does not need strerror().\n");
+	printf("Your system has strerror_r(); it does not need strerror().\n");
 #else
 	printf("Your system uses strerror() which is ");
 	if (strerror_threadsafe)

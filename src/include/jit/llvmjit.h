@@ -2,7 +2,7 @@
  * llvmjit.h
  *	  LLVM JIT provider.
  *
- * Copyright (c) 2016-2018, PostgreSQL Global Development Group
+ * Copyright (c) 2016-2019, PostgreSQL Global Development Group
  *
  * src/include/jit/llvmjit.h
  *
@@ -64,9 +64,12 @@ extern LLVMTypeRef TypePGFunction;
 extern LLVMTypeRef TypeSizeT;
 extern LLVMTypeRef TypeStorageBool;
 
-extern LLVMTypeRef StructtupleDesc;
+extern LLVMTypeRef StructNullableDatum;
+extern LLVMTypeRef StructTupleDescData;
 extern LLVMTypeRef StructHeapTupleData;
 extern LLVMTypeRef StructTupleTableSlot;
+extern LLVMTypeRef StructHeapTupleTableSlot;
+extern LLVMTypeRef StructMinimalTupleTableSlot;
 extern LLVMTypeRef StructMemoryContextData;
 extern LLVMTypeRef StructFunctionCallInfoData;
 extern LLVMTypeRef StructExprContext;
@@ -79,11 +82,11 @@ extern LLVMTypeRef StructAggStatePerGroupData;
 extern LLVMValueRef AttributeTemplate;
 extern LLVMValueRef FuncStrlen;
 extern LLVMValueRef FuncVarsizeAny;
-extern LLVMValueRef FuncSlotGetsomeattrs;
 extern LLVMValueRef FuncSlotGetmissingattrs;
-extern LLVMValueRef FuncHeapGetsysattr;
+extern LLVMValueRef FuncSlotGetsomeattrsInt;
 extern LLVMValueRef FuncMakeExpandedObjectReadOnlyInternal;
-extern LLVMValueRef FuncExecEvalArrayRefSubscript;
+extern LLVMValueRef FuncExecEvalSubscriptingRef;
+extern LLVMValueRef FuncExecEvalSysVar;
 extern LLVMValueRef FuncExecAggTransReparent;
 extern LLVMValueRef FuncExecAggInitGroup;
 
@@ -113,7 +116,9 @@ extern void llvm_inline(LLVMModuleRef mod);
  ****************************************************************************
  */
 extern bool llvm_compile_expr(struct ExprState *state);
-extern LLVMValueRef slot_compile_deform(struct LLVMJitContext *context, TupleDesc desc, int natts);
+struct TupleTableSlotOps;
+extern LLVMValueRef slot_compile_deform(struct LLVMJitContext *context, TupleDesc desc,
+										const struct TupleTableSlotOps *ops, int natts);
 
 /*
  ****************************************************************************

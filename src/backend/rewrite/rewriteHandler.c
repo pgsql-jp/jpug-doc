@@ -3,7 +3,7 @@
  * rewriteHandler.c
  *		Primary module of query rewriter.
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -20,7 +20,9 @@
  */
 #include "postgres.h"
 
+#include "access/relation.h"
 #include "access/sysattr.h"
+#include "access/table.h"
 #include "catalog/dependency.h"
 #include "catalog/pg_type.h"
 #include "commands/trigger.h"
@@ -53,30 +55,30 @@ typedef struct acquireLocksOnSubLinks_context
 } acquireLocksOnSubLinks_context;
 
 static bool acquireLocksOnSubLinks(Node *node,
-					   acquireLocksOnSubLinks_context *context);
+								   acquireLocksOnSubLinks_context *context);
 static Query *rewriteRuleAction(Query *parsetree,
-				  Query *rule_action,
-				  Node *rule_qual,
-				  int rt_index,
-				  CmdType event,
-				  bool *returning_flag);
+								Query *rule_action,
+								Node *rule_qual,
+								int rt_index,
+								CmdType event,
+								bool *returning_flag);
 static List *adjustJoinTreeList(Query *parsetree, bool removert, int rt_index);
 static List *rewriteTargetListIU(List *targetList,
-					CmdType commandType,
-					OverridingKind override,
-					Relation target_relation,
-					int result_rti);
+								 CmdType commandType,
+								 OverridingKind override,
+								 Relation target_relation,
+								 int result_rti);
 static TargetEntry *process_matched_tle(TargetEntry *src_tle,
-					TargetEntry *prior_tle,
-					const char *attrName);
+										TargetEntry *prior_tle,
+										const char *attrName);
 static Node *get_assignment_input(Node *node);
 static bool rewriteValuesRTE(Query *parsetree, RangeTblEntry *rte, int rti,
-				 Relation target_relation, bool force_nulls);
+							 Relation target_relation, bool force_nulls);
 static void markQueryForLocking(Query *qry, Node *jtnode,
-					LockClauseStrength strength, LockWaitPolicy waitPolicy,
-					bool pushedDown);
+								LockClauseStrength strength, LockWaitPolicy waitPolicy,
+								bool pushedDown);
 static List *matchLocks(CmdType event, RuleLock *rulelocks,
-		   int varno, Query *parsetree, bool *hasUpdate);
+						int varno, Query *parsetree, bool *hasUpdate);
 static Query *fireRIRrules(Query *parsetree, List *activeRIRs);
 static bool view_has_instead_trigger(Relation view, CmdType event);
 static Bitmapset *adjust_view_column_set(Bitmapset *cols, List *targetlist);
@@ -86,13 +88,14 @@ static Bitmapset *adjust_view_column_set(Bitmapset *cols, List *targetlist);
  * AcquireRewriteLocks -
  *	  Acquire suitable locks on all the relations mentioned in the Query.
  *	  These locks will ensure that the relation schemas don't change under us
- *	  while we are rewriting and planning the query.
+ *	  while we are rewriting, planning, and executing the query.
  *
- * forExecute indicates that the query is about to be executed.
- * If so, we'll acquire RowExclusiveLock on the query's resultRelation,
- * RowShareLock on any relation accessed FOR [KEY] UPDATE/SHARE, and
- * AccessShareLock on all other relations mentioned.
+ * Caution: this may modify the querytree, therefore caller should usually
+ * have done a copyObject() to make a writable copy of the querytree in the
+ * current memory context.
  *
+ * forExecute indicates that the query is about to be executed.  If so,
+ * we'll acquire the lock modes specified in the RTE rellockmode fields.
  * If forExecute is false, AccessShareLock is acquired on all relations.
  * This case is suitable for ruleutils.c, for example, where we only need
  * schema stability and we don't intend to actually modify any relations.
@@ -100,13 +103,11 @@ static Bitmapset *adjust_view_column_set(Bitmapset *cols, List *targetlist);
  * forUpdatePushedDown indicates that a pushed-down FOR [KEY] UPDATE/SHARE
  * applies to the current subquery, requiring all rels to be opened with at
  * least RowShareLock.  This should always be false at the top of the
- * recursion.  This flag is ignored if forExecute is false.
+ * recursion.  When it is true, we adjust RTE rellockmode fields to reflect
+ * the higher lock level.  This flag is ignored if forExecute is false.
  *
  * A secondary purpose of this routine is to fix up JOIN RTE references to
- * dropped columns (see details below).  Because the RTEs are modified in
- * place, it is generally appropriate for the caller of this routine to have
- * first done a copyObject() to make a writable copy of the querytree in the
- * current memory context.
+ * dropped columns (see details below).  Such RTEs are modified in-place.
  *
  * This processing can, and for efficiency's sake should, be skipped when the
  * querytree has just been built by the parser: parse analysis already got
@@ -159,23 +160,26 @@ AcquireRewriteLocks(Query *parsetree,
 
 				/*
 				 * Grab the appropriate lock type for the relation, and do not
-				 * release it until end of transaction. This protects the
-				 * rewriter and planner against schema changes mid-query.
+				 * release it until end of transaction.  This protects the
+				 * rewriter, planner, and executor against schema changes
+				 * mid-query.
 				 *
-				 * Assuming forExecute is true, this logic must match what the
-				 * executor will do, else we risk lock-upgrade deadlocks.
+				 * If forExecute is false, ignore rellockmode and just use
+				 * AccessShareLock.
 				 */
 				if (!forExecute)
 					lockmode = AccessShareLock;
-				else if (rt_index == parsetree->resultRelation)
-					lockmode = RowExclusiveLock;
-				else if (forUpdatePushedDown ||
-						 get_parse_rowmark(parsetree, rt_index) != NULL)
-					lockmode = RowShareLock;
+				else if (forUpdatePushedDown)
+				{
+					/* Upgrade RTE's lock mode to reflect pushed-down lock */
+					if (rte->rellockmode == AccessShareLock)
+						rte->rellockmode = RowShareLock;
+					lockmode = rte->rellockmode;
+				}
 				else
-					lockmode = AccessShareLock;
+					lockmode = rte->rellockmode;
 
-				rel = heap_open(rte->relid, lockmode);
+				rel = table_open(rte->relid, lockmode);
 
 				/*
 				 * While we have the relation open, update the RTE's relkind,
@@ -183,7 +187,7 @@ AcquireRewriteLocks(Query *parsetree,
 				 */
 				rte->relkind = rel->rd_rel->relkind;
 
-				heap_close(rel, NoLock);
+				table_close(rel, NoLock);
 				break;
 
 			case RTE_JOIN:
@@ -814,6 +818,13 @@ rewriteTargetListIU(List *targetList,
 
 			if (att_tup->attidentity == ATTRIBUTE_IDENTITY_BY_DEFAULT && override == OVERRIDING_USER_VALUE)
 				apply_default = true;
+
+			if (att_tup->attgenerated && !apply_default)
+				ereport(ERROR,
+						(errcode(ERRCODE_SYNTAX_ERROR),
+						 errmsg("cannot insert into column \"%s\"", NameStr(att_tup->attname)),
+						 errdetail("Column \"%s\" is a generated column.",
+								   NameStr(att_tup->attname))));
 		}
 
 		if (commandType == CMD_UPDATE)
@@ -824,9 +835,23 @@ rewriteTargetListIU(List *targetList,
 						 errmsg("column \"%s\" can only be updated to DEFAULT", NameStr(att_tup->attname)),
 						 errdetail("Column \"%s\" is an identity column defined as GENERATED ALWAYS.",
 								   NameStr(att_tup->attname))));
+
+			if (att_tup->attgenerated && new_tle && !apply_default)
+				ereport(ERROR,
+						(errcode(ERRCODE_SYNTAX_ERROR),
+						 errmsg("column \"%s\" can only be updated to DEFAULT", NameStr(att_tup->attname)),
+						 errdetail("Column \"%s\" is a generated column.",
+								   NameStr(att_tup->attname))));
 		}
 
-		if (apply_default)
+		if (att_tup->attgenerated)
+		{
+			/*
+			 * stored generated column will be fixed in executor
+			 */
+			new_tle = NULL;
+		}
+		else if (apply_default)
 		{
 			Node	   *new_expr;
 
@@ -933,7 +958,7 @@ process_matched_tle(TargetEntry *src_tle,
 
 	/*----------
 	 * Multiple assignments to same attribute.  Allow only if all are
-	 * FieldStore or ArrayRef assignment operations.  This is a bit
+	 * FieldStore or SubscriptingRef assignment operations.  This is a bit
 	 * tricky because what we may actually be looking at is a nest of
 	 * such nodes; consider
 	 *		UPDATE tab SET col.fld1.subfld1 = x, col.fld2.subfld2 = y
@@ -941,7 +966,7 @@ process_matched_tle(TargetEntry *src_tle,
 	 *		FieldStore(col, fld1, FieldStore(placeholder, subfld1, x))
 	 *		FieldStore(col, fld2, FieldStore(placeholder, subfld2, y))
 	 * However, we can ignore the substructure and just consider the top
-	 * FieldStore or ArrayRef from each assignment, because it works to
+	 * FieldStore or SubscriptingRef from each assignment, because it works to
 	 * combine these as
 	 *		FieldStore(FieldStore(col, fld1,
 	 *							  FieldStore(placeholder, subfld1, x)),
@@ -951,15 +976,15 @@ process_matched_tle(TargetEntry *src_tle,
 	 *
 	 * For FieldStore, instead of nesting we can generate a single
 	 * FieldStore with multiple target fields.  We must nest when
-	 * ArrayRefs are involved though.
+	 * SubscriptingRefs are involved though.
 	 *
 	 * As a further complication, the destination column might be a domain,
 	 * resulting in each assignment containing a CoerceToDomain node over a
-	 * FieldStore or ArrayRef.  These should have matching target domains,
-	 * so we strip them and reconstitute a single CoerceToDomain over the
-	 * combined FieldStore/ArrayRef nodes.  (Notice that this has the result
-	 * that the domain's checks are applied only after we do all the field or
-	 * element updates, not after each one.  This is arguably desirable.)
+	 * FieldStore or SubscriptingRef.  These should have matching target
+	 * domains, so we strip them and reconstitute a single CoerceToDomain over
+	 * the combined FieldStore/SubscriptingRef nodes.  (Notice that this has the
+	 * result that the domain's checks are applied only after we do all the
+	 * field or element updates, not after each one.  This is arguably desirable.)
 	 *----------
 	 */
 	src_expr = (Node *) src_tle->expr;
@@ -1030,13 +1055,13 @@ process_matched_tle(TargetEntry *src_tle,
 		}
 		newexpr = (Node *) fstore;
 	}
-	else if (IsA(src_expr, ArrayRef))
+	else if (IsA(src_expr, SubscriptingRef))
 	{
-		ArrayRef   *aref = makeNode(ArrayRef);
+		SubscriptingRef *sbsref = makeNode(SubscriptingRef);
 
-		memcpy(aref, src_expr, sizeof(ArrayRef));
-		aref->refexpr = (Expr *) prior_expr;
-		newexpr = (Node *) aref;
+		memcpy(sbsref, src_expr, sizeof(SubscriptingRef));
+		sbsref->refexpr = (Expr *) prior_expr;
+		newexpr = (Node *) sbsref;
 	}
 	else
 	{
@@ -1073,14 +1098,16 @@ get_assignment_input(Node *node)
 
 		return (Node *) fstore->arg;
 	}
-	else if (IsA(node, ArrayRef))
+	else if (IsA(node, SubscriptingRef))
 	{
-		ArrayRef   *aref = (ArrayRef *) node;
+		SubscriptingRef *sbsref = (SubscriptingRef *) node;
 
-		if (aref->refassgnexpr == NULL)
+		if (sbsref->refassgnexpr == NULL)
 			return NULL;
-		return (Node *) aref->refexpr;
+
+		return (Node *) sbsref->refexpr;
 	}
+
 	return NULL;
 }
 
@@ -1131,13 +1158,12 @@ build_column_default(Relation rel, int attrno)
 		}
 	}
 
-	if (expr == NULL)
-	{
-		/*
-		 * No per-column default, so look for a default for the type itself.
-		 */
+	/*
+	 * No per-column default, so look for a default for the type itself.  But
+	 * not for generated columns.
+	 */
+	if (expr == NULL && !att_tup->attgenerated)
 		expr = get_typdefault(atttype);
-	}
 
 	if (expr == NULL)
 		return NULL;			/* No default anywhere */
@@ -1688,15 +1714,19 @@ ApplyRetrieveRule(Query *parsetree,
 	rule_action = fireRIRrules(rule_action, activeRIRs);
 
 	/*
-	 * Now, plug the view query in as a subselect, replacing the relation's
-	 * original RTE.
+	 * Now, plug the view query in as a subselect, converting the relation's
+	 * original RTE to a subquery RTE.
 	 */
 	rte = rt_fetch(rt_index, parsetree->rtable);
 
 	rte->rtekind = RTE_SUBQUERY;
-	rte->relid = InvalidOid;
-	rte->security_barrier = RelationIsSecurityView(relation);
 	rte->subquery = rule_action;
+	rte->security_barrier = RelationIsSecurityView(relation);
+	/* Clear fields that should not be set in a subquery RTE */
+	rte->relid = InvalidOid;
+	rte->relkind = 0;
+	rte->rellockmode = 0;
+	rte->tablesample = NULL;
 	rte->inh = false;			/* must not be set for a subquery */
 
 	/*
@@ -1710,12 +1740,14 @@ ApplyRetrieveRule(Query *parsetree,
 	subrte->selectedCols = rte->selectedCols;
 	subrte->insertedCols = rte->insertedCols;
 	subrte->updatedCols = rte->updatedCols;
+	subrte->extraUpdatedCols = rte->extraUpdatedCols;
 
 	rte->requiredPerms = 0;		/* no permission check on subquery itself */
 	rte->checkAsUser = InvalidOid;
 	rte->selectedCols = NULL;
 	rte->insertedCols = NULL;
 	rte->updatedCols = NULL;
+	rte->extraUpdatedCols = NULL;
 
 	return parsetree;
 }
@@ -1911,7 +1943,7 @@ fireRIRrules(Query *parsetree, List *activeRIRs)
 		 * We can use NoLock here since either the parser or
 		 * AcquireRewriteLocks should have locked the rel already.
 		 */
-		rel = heap_open(rte->relid, NoLock);
+		rel = table_open(rte->relid, NoLock);
 
 		/*
 		 * Collect the RIR rules that we must apply
@@ -1958,7 +1990,7 @@ fireRIRrules(Query *parsetree, List *activeRIRs)
 			}
 		}
 
-		heap_close(rel, NoLock);
+		table_close(rel, NoLock);
 	}
 
 	/* Recurse into subqueries in WITH */
@@ -2002,7 +2034,7 @@ fireRIRrules(Query *parsetree, List *activeRIRs)
 			 rte->relkind != RELKIND_PARTITIONED_TABLE))
 			continue;
 
-		rel = heap_open(rte->relid, NoLock);
+		rel = table_open(rte->relid, NoLock);
 
 		/*
 		 * Fetch any new security quals that must be applied to this RTE.
@@ -2077,7 +2109,7 @@ fireRIRrules(Query *parsetree, List *activeRIRs)
 		if (hasSubLinks)
 			parsetree->hasSubLinks = true;
 
-		heap_close(rel, NoLock);
+		table_close(rel, NoLock);
 	}
 
 	return parsetree;
@@ -2994,7 +3026,7 @@ rewriteTargetView(Query *parsetree, Relation view)
 	 * already have the right lock!)  Since it will become the query target
 	 * relation, RowExclusiveLock is always the right thing.
 	 */
-	base_rel = heap_open(base_rte->relid, RowExclusiveLock);
+	base_rel = table_open(base_rte->relid, RowExclusiveLock);
 
 	/*
 	 * While we have the relation open, update the RTE's relkind, just in case
@@ -3023,8 +3055,14 @@ rewriteTargetView(Query *parsetree, Relation view)
 	 * very much like what the planner would do to "pull up" the view into the
 	 * outer query.  Perhaps someday we should refactor things enough so that
 	 * we can share code with the planner.)
+	 *
+	 * Be sure to set rellockmode to the correct thing for the target table.
+	 * Since we copied the whole viewquery above, we can just scribble on
+	 * base_rte instead of copying it.
 	 */
-	new_rte = (RangeTblEntry *) base_rte;
+	new_rte = base_rte;
+	new_rte->rellockmode = RowExclusiveLock;
+
 	parsetree->rtable = lappend(parsetree->rtable, new_rte);
 	new_rt_index = list_length(parsetree->rtable);
 
@@ -3204,8 +3242,8 @@ rewriteTargetView(Query *parsetree, Relation view)
 
 		new_exclRte = addRangeTableEntryForRelation(make_parsestate(NULL),
 													base_rel,
-													makeAlias("excluded",
-															  NIL),
+													RowExclusiveLock,
+													makeAlias("excluded", NIL),
 													false, false);
 		new_exclRte->relkind = RELKIND_COMPOSITE_TYPE;
 		new_exclRte->requiredPerms = 0;
@@ -3373,7 +3411,7 @@ rewriteTargetView(Query *parsetree, Relation view)
 		}
 	}
 
-	heap_close(base_rel, NoLock);
+	table_close(base_rel, NoLock);
 
 	return parsetree;
 }
@@ -3485,7 +3523,7 @@ RewriteQuery(Query *parsetree, List *rewrite_events)
 		 * We can use NoLock here since either the parser or
 		 * AcquireRewriteLocks should have locked the rel already.
 		 */
-		rt_entry_relation = heap_open(rt_entry->relid, NoLock);
+		rt_entry_relation = table_open(rt_entry->relid, NoLock);
 
 		/*
 		 * Rewrite the targetlist as needed for the command type.
@@ -3739,7 +3777,7 @@ RewriteQuery(Query *parsetree, List *rewrite_events)
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("INSERT with ON CONFLICT clause cannot be used with table that has INSERT or UPDATE rules")));
 
-		heap_close(rt_entry_relation, NoLock);
+		table_close(rt_entry_relation, NoLock);
 	}
 
 	/*

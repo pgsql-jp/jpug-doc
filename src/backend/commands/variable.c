@@ -4,7 +4,7 @@
  *		Routines for handling specialized SET variables.
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -522,32 +522,9 @@ check_transaction_read_only(bool *newval, void **extra, GucSource source)
  * As in check_transaction_read_only, allow it if not inside a transaction.
  */
 bool
-check_XactIsoLevel(char **newval, void **extra, GucSource source)
+check_XactIsoLevel(int *newval, void **extra, GucSource source)
 {
-	int			newXactIsoLevel;
-
-	if (strcmp(*newval, "serializable") == 0)
-	{
-		newXactIsoLevel = XACT_SERIALIZABLE;
-	}
-	else if (strcmp(*newval, "repeatable read") == 0)
-	{
-		newXactIsoLevel = XACT_REPEATABLE_READ;
-	}
-	else if (strcmp(*newval, "read committed") == 0)
-	{
-		newXactIsoLevel = XACT_READ_COMMITTED;
-	}
-	else if (strcmp(*newval, "read uncommitted") == 0)
-	{
-		newXactIsoLevel = XACT_READ_UNCOMMITTED;
-	}
-	else if (strcmp(*newval, "default") == 0)
-	{
-		newXactIsoLevel = DefaultXactIsoLevel;
-	}
-	else
-		return false;
+	int			newXactIsoLevel = *newval;
 
 	if (newXactIsoLevel != XactIsoLevel && IsTransactionState())
 	{
@@ -574,37 +551,7 @@ check_XactIsoLevel(char **newval, void **extra, GucSource source)
 		}
 	}
 
-	*extra = malloc(sizeof(int));
-	if (!*extra)
-		return false;
-	*((int *) *extra) = newXactIsoLevel;
-
 	return true;
-}
-
-void
-assign_XactIsoLevel(const char *newval, void *extra)
-{
-	XactIsoLevel = *((int *) extra);
-}
-
-const char *
-show_XactIsoLevel(void)
-{
-	/* We need this because we don't want to show "default". */
-	switch (XactIsoLevel)
-	{
-		case XACT_READ_UNCOMMITTED:
-			return "read uncommitted";
-		case XACT_READ_COMMITTED:
-			return "read committed";
-		case XACT_REPEATABLE_READ:
-			return "repeatable read";
-		case XACT_SERIALIZABLE:
-			return "serializable";
-		default:
-			return "bogus";
-	}
 }
 
 /*
@@ -797,6 +744,7 @@ bool
 check_session_authorization(char **newval, void **extra, GucSource source)
 {
 	HeapTuple	roleTup;
+	Form_pg_authid roleform;
 	Oid			roleid;
 	bool		is_superuser;
 	role_auth_extra *myextra;
@@ -823,8 +771,9 @@ check_session_authorization(char **newval, void **extra, GucSource source)
 		return false;
 	}
 
-	roleid = HeapTupleGetOid(roleTup);
-	is_superuser = ((Form_pg_authid) GETSTRUCT(roleTup))->rolsuper;
+	roleform = (Form_pg_authid) GETSTRUCT(roleTup);
+	roleid = roleform->oid;
+	is_superuser = roleform->rolsuper;
 
 	ReleaseSysCache(roleTup);
 
@@ -868,6 +817,7 @@ check_role(char **newval, void **extra, GucSource source)
 	Oid			roleid;
 	bool		is_superuser;
 	role_auth_extra *myextra;
+	Form_pg_authid roleform;
 
 	if (strcmp(*newval, "none") == 0)
 	{
@@ -895,8 +845,9 @@ check_role(char **newval, void **extra, GucSource source)
 			return false;
 		}
 
-		roleid = HeapTupleGetOid(roleTup);
-		is_superuser = ((Form_pg_authid) GETSTRUCT(roleTup))->rolsuper;
+		roleform = (Form_pg_authid) GETSTRUCT(roleTup);
+		roleid = roleform->oid;
+		is_superuser = roleform->rolsuper;
 
 		ReleaseSysCache(roleTup);
 

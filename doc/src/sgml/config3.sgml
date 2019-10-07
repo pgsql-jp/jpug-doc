@@ -414,11 +414,9 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
 
      <varlistentry id="guc-vacuum-cleanup-index-scale-factor" xreflabel="vacuum_cleanup_index_scale_factor">
       <term><varname>vacuum_cleanup_index_scale_factor</varname> (<type>floating point</type>)
-       <indexterm>
-<!--
-       <primary><varname>vacuum_cleanup_index_scale_factor</varname> configuration parameter</primary>
--->
-       <primary><varname>vacuum_cleanup_index_scale_factor</varname>設定パラメータ</primary>
+      <indexterm>
+       <primary><varname>vacuum_cleanup_index_scale_factor</varname></primary>
+       <secondary>configuration parameter</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -597,10 +595,8 @@ SET XML OPTION { DOCUMENT | CONTENT };
      <varlistentry id="guc-gin-pending-list-limit" xreflabel="gin_pending_list_limit">
       <term><varname>gin_pending_list_limit</varname> (<type>integer</type>)
       <indexterm>
-<!--
-       <primary><varname>gin_pending_list_limit</varname> configuration parameter</primary>
--->
-       <primary><varname>gin_pending_list_limit</varname>設定パラメータ</primary>
+       <primary><varname>gin_pending_list_limit</varname></primary>
+       <secondary>configuration parameter</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -807,24 +803,38 @@ SET XML OPTION { DOCUMENT | CONTENT };
       </term>
       <listitem>
        <para>
-       <!--
-        This parameter adjusts the number of digits displayed for
+        This parameter adjusts the number of digits used for textual output of
         floating-point values, including <type>float4</type>, <type>float8</type>,
-        and geometric data types.  The parameter value is added to the
-        standard number of digits (<literal>FLT_DIG</literal> or <literal>DBL_DIG</literal>
-        as appropriate).  The value can be set as high as 3, to include
-        partially-significant digits; this is especially useful for dumping
-        float data that needs to be restored exactly.  Or it can be set
-        negative to suppress unwanted digits.
-        See also <xref linkend="datatype-float"/>.
-       -->
-       このパラメータは、<type>float4</type>、<type>float8</type>、幾何データ型などの浮動小数点値の表示桁数を調整します。
-パラメータ値が標準的な桁数（<literal>FLT_DIG</literal>もしくは<literal>DBL_DIG</literal>どちらか適切な方）に追加されます。
-この値は、部分有効数を含めるために3まで設定することができます。
-これは基本的に、正確にリストアする必要がある浮動小数点データをダンプするために有用です。
-もしくは、不要な桁を抑制するために負の値を設定することもできます。
-       <xref linkend="datatype-float"/>も参照してください。
+        and geometric data types.
        </para>
+       <para>
+        If the value is 1 (the default) or above, float values are output in
+        shortest-precise format; see <xref linkend="datatype-float"/>. The
+        actual number of digits generated depends only on the value being
+        output, not on the value of this parameter. At most 17 digits are
+        required for <type>float8</type> values, and 9 for <type>float4</type>
+        values. This format is both fast and precise, preserving the original
+        binary float value exactly when correctly read. For historical
+        compatibility, values up to 3 are permitted.
+       </para>
+       <para>
+        If the value is zero or negative, then the output is rounded to a
+        given decimal precision. The precision used is the standard number of
+        digits for the type (<literal>FLT_DIG</literal>
+        or <literal>DBL_DIG</literal> as appropriate) reduced according to the
+        value of this parameter. (For example, specifying -1 will cause
+        <type>float4</type> values to be output rounded to 5 significant
+        digits, and <type>float8</type> values
+        rounded to 14 digits.) This format is slower and does not preserve all
+        the bits of the binary float value, but may be more human-readable.
+       </para>
+       <note>
+        <para>
+         The meaning of this parameter, and its default value, changed
+         in <productname>PostgreSQL</productname> 12;
+         see <xref linkend="datatype-float"/> for further discussion.
+        </para>
+       </note>
       </listitem>
      </varlistentry>
 
@@ -1658,7 +1668,10 @@ dynamic_library_path = 'C:\tools\postgresql;H:\my_project\lib;$libdir'
      <varlistentry id="guc-max-pred-locks-per-page" xreflabel="max_pred_locks_per_page">
       <term><varname>max_pred_locks_per_page</varname> (<type>integer</type>)
       <indexterm>
+<!--
        <primary><varname>max_pred_locks_per_page</varname> configuration parameter</primary>
+-->
+       <primary><varname>max_pred_locks_per_page</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
@@ -1785,48 +1798,6 @@ dynamic_library_path = 'C:\tools\postgresql;H:\my_project\lib;$libdir'
        -->
        標準に従った文字列リテラルでは、<literal>\</literal>は単に<literal>\</literal>を意味するものです。
 このパラメータのみが、エスケープ文字列構文（<literal>E'...'</literal>）を含む標準に従わないリテラルの取り扱いに影響します。
-       </para>
-      </listitem>
-     </varlistentry>
-
-     <varlistentry id="guc-default-with-oids" xreflabel="default_with_oids">
-      <term><varname>default_with_oids</varname> (<type>boolean</type>)
-      <indexterm>
-      <!--
-       <primary><varname>default_with_oids</varname> configuration parameter</primary>
-       -->
-       <primary><varname>default_with_oids</varname>設定パラメータ</primary>
-      </indexterm>
-      </term>
-      <listitem>
-       <para>
-       <!--
-        This controls whether <command>CREATE TABLE</command> and
-        <command>CREATE TABLE AS</command> include an OID column in
-        newly-created tables, if neither <literal>WITH OIDS</literal>
-        nor <literal>WITHOUT OIDS</literal> is specified. It also
-        determines whether OIDs will be included in tables created by
-        <command>SELECT INTO</command>. The parameter is <literal>off</literal>
-        by default; in <productname>PostgreSQL</productname> 8.0 and earlier, it
-        was <literal>on</literal> by default.
-       -->
-       もし<literal>WITH OIDS</literal>もしくは<literal>WITHOUT OIDS</literal>のいずれも指定されていない場合、<command>CREATE TABLE</command>および<command>CREATE TABLE AS</command>がオブジェクト識別子（OID）列を新規作成のテーブルに含めるか否かを管理します。
-同時に<command>SELECT INTO</command>で作成されたテーブルにOIDが含まれるか否かも決定します。
-このパラメータはデフォルトで<literal>off</literal>です。<productname>PostgreSQL</productname> 8.0およびそれ以前ではデフォルトで<literal>on</literal>でした。
-       </para>
-
-       <para>
-       <!--
-        The use of OIDs in user tables is considered deprecated, so
-        most installations should leave this variable disabled.
-        Applications that require OIDs for a particular table should
-        specify <literal>WITH OIDS</literal> when creating the
-        table. This variable can be enabled for compatibility with old
-        applications that do not follow this behavior.
-       -->
-       ユーザテーブルでのOID使用は良くないと考えられるため、ほとんどのインストレーションはこの変数を無効にしたままになっています。
-       特定のテーブルに対してOIDを必要とするアプリケーションは、テーブル作成にあたって<literal>WITH OIDS</literal>を指定しなければなりません。
-       この変数は、この動作を行わない古いアプリケーションとの互換性を有効にします。
        </para>
       </listitem>
      </varlistentry>
@@ -2143,8 +2114,8 @@ onの場合、演算子の優先順位の変更の結果、<productname>PostgreS
       <listitem>
        <para>
        <!--
-        If true, any error will terminate the current session.  By default,
-        this is set to false, so that only FATAL errors will terminate the
+        If on, any error will terminate the current session.  By default,
+        this is set to off, so that only FATAL errors will terminate the
         session.
        -->
        真の場合、全てのエラーは現在のセッションを中止させます。
@@ -2165,9 +2136,9 @@ onの場合、演算子の優先順位の変更の結果、<productname>PostgreS
       <listitem>
        <para>
        <!--
-        When set to true, which is the default, <productname>PostgreSQL</productname>
+        When set to on, which is the default, <productname>PostgreSQL</productname>
         will automatically reinitialize after a backend crash.  Leaving this
-        value set to true is normally the best way to maximize the availability
+        value set to on is normally the best way to maximize the availability
         of the database.  However, in some circumstances, such as when
         <productname>PostgreSQL</productname> is being invoked by clusterware, it may be
         useful to disable the restart so that the clusterware can gain
@@ -2192,9 +2163,9 @@ onの場合、演算子の優先順位の変更の結果、<productname>PostgreS
       <listitem>
        <para>
 <!--
-        When set to false, which is the default, <productname>PostgreSQL</productname>
+        When set to off, which is the default, <productname>PostgreSQL</productname>
         will raise a PANIC-level error on failure to flush modified data files
-        to the filesystem.  This causes the database server to crash.  This
+        to the file system.  This causes the database server to crash.  This
         parameter can only be set at server start.
 -->
 デフォルトである偽に設定すると、<productname>PostgreSQL</productname>はファイルシステムに変更されたデータファイルを吐き出す際の失敗に対してPANICレベルのエラーを発生させます。
@@ -2217,9 +2188,9 @@ onの場合、演算子の優先順位の変更の結果、<productname>PostgreS
        </para>
        <para>
 <!--
-        If set to true, <productname>PostgreSQL</productname> will instead
+        If set to on, <productname>PostgreSQL</productname> will instead
         report an error but continue to run so that the data flushing
-        operation can be retried in a later checkpoint.  Only set it to true
+        operation can be retried in a later checkpoint.  Only set it to on
         after investigating the operating system's treatment of buffered data
         in case of write-back failure.
 -->
@@ -2590,6 +2561,22 @@ onの場合、演算子の優先順位の変更の結果、<productname>PostgreS
        -->
        サーバのバージョン番号を整数として返します。
        この値は、サーバ構築時の<literal>PG_VERSION_NUM</literal>の値により決まります。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-ssl-library" xreflabel="ssl_library">
+      <term><varname>ssl_library</varname> (<type>string</type>)
+      <indexterm>
+       <primary><varname>ssl_library</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Reports the name of the SSL library that this
+        <productname>PostgreSQL</productname> server was built with (even if
+        SSL is not currently configured or in use on this instance), for
+        example <literal>OpenSSL</literal>, or an empty string if none.
        </para>
       </listitem>
      </varlistentry>
@@ -3302,10 +3289,10 @@ LLVMに要求された機能がある場合は、生成した関数を<productna
      <varlistentry id="guc-jit-dump-bitcode" xreflabel="jit_dump_bitcode">
       <term><varname>jit_dump_bitcode</varname> (<type>boolean</type>)
       <indexterm>
-       <primary><varname>jit_dump_bitcode</varname> configuration parameter</primary>
 <!--
-       <primary><varname>jit_dump_bitcode</varname>設定パラメータ</primary>
+       <primary><varname>jit_dump_bitcode</varname> configuration parameter</primary>
 -->
+       <primary><varname>jit_dump_bitcode</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
@@ -3351,10 +3338,10 @@ JITコンパイルが有効な時に式がJITコンパイルされるかどう�
      <varlistentry id="guc-jit-profiling-support" xreflabel="jit_profiling_support">
       <term><varname>jit_profiling_support</varname> (<type>boolean</type>)
       <indexterm>
-       <primary><varname>jit_profiling_support</varname> configuration parameter</primary>
 <!--
-       <primary><varname>jit_profiling_support</varname>設定パラメータ</primary>
+       <primary><varname>jit_profiling_support</varname> configuration parameter</primary>
 -->
+       <primary><varname>jit_profiling_support</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>

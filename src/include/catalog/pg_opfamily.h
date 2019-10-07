@@ -4,7 +4,7 @@
  *	  definition of the "operator family" system catalog (pg_opfamily)
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_opfamily.h
@@ -28,6 +28,8 @@
  */
 CATALOG(pg_opfamily,2753,OperatorFamilyRelationId)
 {
+	Oid			oid;			/* oid */
+
 	/* index access method opfamily is for */
 	Oid			opfmethod BKI_LOOKUP(pg_am);
 

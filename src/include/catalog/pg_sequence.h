@@ -3,7 +3,7 @@
  * pg_sequence.h
  *	  definition of the "sequence" system catalog (pg_sequence)
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_sequence.h
@@ -20,7 +20,7 @@
 #include "catalog/genbki.h"
 #include "catalog/pg_sequence_d.h"
 
-CATALOG(pg_sequence,2224,SequenceRelationId) BKI_WITHOUT_OIDS
+CATALOG(pg_sequence,2224,SequenceRelationId)
 {
 	Oid			seqrelid;
 	Oid			seqtypid;

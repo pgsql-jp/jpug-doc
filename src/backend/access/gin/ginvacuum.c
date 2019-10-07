@@ -4,7 +4,7 @@
  *	  delete & vacuum routines for the postgres GIN
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -394,17 +394,17 @@ ginVacuumPostingTree(GinVacuumState *gvs, BlockNumber rootBlkno)
 		 * There is at least one empty page.  So we have to rescan the tree
 		 * deleting empty pages.
 		 */
-		Buffer				buffer;
+		Buffer		buffer;
 		DataPageDeleteStack root,
-						   *ptr,
-						   *tmp;
+				   *ptr,
+				   *tmp;
 
 		buffer = ReadBufferExtended(gvs->index, MAIN_FORKNUM, rootBlkno,
 									RBM_NORMAL, gvs->strategy);
 
 		/*
-		 * Lock posting tree root for cleanup to ensure there are no concurrent
-		 * inserts.
+		 * Lock posting tree root for cleanup to ensure there are no
+		 * concurrent inserts.
 		 */
 		LockBufferForCleanup(buffer);
 
@@ -759,7 +759,7 @@ ginvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats)
 
 	/* Update the metapage with accurate page and entry counts */
 	idxStat.nTotalPages = npages;
-	ginUpdateStats(info->index, &idxStat);
+	ginUpdateStats(info->index, &idxStat, false);
 
 	/* Finally, vacuum the FSM */
 	IndexFreeSpaceMapVacuum(info->index);

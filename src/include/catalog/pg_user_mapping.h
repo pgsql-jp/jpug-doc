@@ -3,7 +3,7 @@
  * pg_user_mapping.h
  *	  definition of the "user mapping" system catalog (pg_user_mapping)
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_user_mapping.h
@@ -27,6 +27,8 @@
  */
 CATALOG(pg_user_mapping,1418,UserMappingRelationId)
 {
+	Oid			oid;			/* oid */
+
 	Oid			umuser;			/* Id of the user, InvalidOid if PUBLIC is
 								 * wanted */
 	Oid			umserver;		/* server of this mapping */

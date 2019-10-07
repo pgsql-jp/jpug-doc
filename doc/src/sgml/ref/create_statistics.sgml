@@ -111,9 +111,10 @@ CREATE STATISTICS [ IF NOT EXISTS ] <replaceable class="parameter">statistics_na
 <!--
       A statistics kind to be computed in this statistics object.
       Currently supported kinds are
-      <literal>ndistinct</literal>, which enables n-distinct statistics, and
+      <literal>ndistinct</literal>, which enables n-distinct statistics,
       <literal>dependencies</literal>, which enables functional
-      dependency statistics.
+      dependency statistics, and <literal>mcv</literal> which enables
+      most-common values lists.
       If this clause is omitted, all supported statistics kinds are
       included in the statistics object.
       For more information, see <xref linkend="planner-stats-extended"/>
@@ -133,7 +134,8 @@ CREATE STATISTICS [ IF NOT EXISTS ] <replaceable class="parameter">statistics_na
      <para>
 <!--
       The name of a table column to be covered by the computed statistics.
-      At least two column names must be given.
+      At least two column names must be given;  the order of the column names
+      is insignificant.
 -->
 統計計算の対象となるテーブル列の名前です。
 少なくとも2つの列名を指定しなければなりません。
@@ -229,6 +231,36 @@ EXPLAIN ANALYZE SELECT * FROM t1 WHERE (a = 1) AND (b = 0);
 -->
 関数的依存統計がなければ、プランナは2つの<literal>WHERE</literal>条件を独立なものとみなすため、それらの選択性を掛け算して、非常に小さな行数見積もりを導きます。
 このような統計があれば、プランナは<literal>WHERE</literal>条件が冗長であることを認識し、行数を低く見積もりません。
+  </para>
+
+  <para>
+   Create table <structname>t2</structname> with two perfectly correlated columns
+   (containing identical data), and a MCV list on those columns:
+
+<programlisting>
+CREATE TABLE t2 (
+    a   int,
+    b   int
+);
+
+INSERT INTO t2 SELECT mod(i,100), mod(i,100)
+                 FROM generate_series(1,1000000) s(i);
+
+CREATE STATISTICS s2 (mcv) ON a, b FROM t2;
+
+ANALYZE t2;
+
+-- valid combination (found in MCV)
+EXPLAIN ANALYZE SELECT * FROM t2 WHERE (a = 1) AND (b = 1);
+
+-- invalid combination (not found in MCV)
+EXPLAIN ANALYZE SELECT * FROM t2 WHERE (a = 1) AND (b = 2);
+</programlisting>
+
+   The MCV list gives the planner more detailed information about the
+   specific values that commonly appear in the table, as well as an upper
+   bound on the selectivities of combinations of values that do not appear
+   in the table, allowing it to generate better estimates in both cases.
   </para>
 
  </refsect1>

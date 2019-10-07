@@ -23,7 +23,8 @@
  *
  * See psqlscan_int.h for additional commentary.
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ *
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -33,12 +34,16 @@
  */
 #include "postgres_fe.h"
 
+#include "common/logging.h"
 #include "fe_utils/psqlscan.h"
 
 #include "libpq-fe.h"
 }
 
 %{
+
+/* LCOV_EXCL_START */
+
 #include "fe_utils/psqlscan_int.h"
 
 /*
@@ -70,8 +75,6 @@ typedef int YYSTYPE;
  */
 extern int	psql_yyget_column(yyscan_t yyscanner);
 extern void psql_yyset_column(int column_no, yyscan_t yyscanner);
-
-/* LCOV_EXCL_START */
 
 %}
 
@@ -128,8 +131,8 @@ extern void psql_yyset_column(int column_no, yyscan_t yyscanner);
 %x xc
 %x xd
 %x xh
-%x xe
 %x xq
+%x xe
 %x xdolq
 %x xui
 %x xuiend
@@ -151,7 +154,7 @@ extern void psql_yyset_column(int column_no, yyscan_t yyscanner);
  * XXX perhaps \f (formfeed) should be treated as a newline as well?
  *
  * XXX if you change the set of whitespace characters, fix scanner_isspace()
- * to agree, and see also the plpgsql lexer.
+ * to agree.
  */
 
 space			[ \t\n\r\f]
@@ -402,14 +405,15 @@ other			.
 					ECHO;
 				}
 
-<xc>{xcstart}	{
+<xc>{
+{xcstart}		{
 					cur_state->xcdepth++;
 					/* Put back any characters past slash-star; see above */
 					yyless(2);
 					ECHO;
 				}
 
-<xc>{xcstop}	{
+{xcstop}		{
 					if (cur_state->xcdepth <= 0)
 						BEGIN(INITIAL);
 					else
@@ -417,17 +421,18 @@ other			.
 					ECHO;
 				}
 
-<xc>{xcinside}	{
+{xcinside}		{
 					ECHO;
 				}
 
-<xc>{op_chars}	{
+{op_chars}		{
 					ECHO;
 				}
 
-<xc>\*+			{
+\*+				{
 					ECHO;
 				}
+} /* <xc> */
 
 {xbstart}		{
 					BEGIN(xb);
@@ -690,7 +695,7 @@ other			.
 	 */
 
 "\\"[;:]		{
-					/* Force a semicolon or colon into the query buffer */
+					/* Force a semi-colon or colon into the query buffer */
 					psqlscan_emit(cur_state, yytext + 1, 1);
 				}
 
@@ -721,7 +726,7 @@ other			.
 						if (psqlscan_var_is_current_source(cur_state, varname))
 						{
 							/* Recursive expansion --- don't go there */
-							cur_state->callbacks->write_error("skipping recursive expansion of variable \"%s\"\n",
+							pg_log_warning("skipping recursive expansion of variable \"%s\"",
 															  varname);
 							/* Instead copy the string as is */
 							ECHO;
@@ -883,10 +888,9 @@ other			.
 				}
 {realfail1}		{
 					/*
-					 * throw back the [Ee], and treat as {decimal}.  Note
-					 * that it is possible the input is actually {integer},
-					 * but since this case will almost certainly lead to a
-					 * syntax error anyway, we don't bother to distinguish.
+					 * throw back the [Ee], and figure out whether what
+					 * remains is an {integer} or {decimal}.
+					 * (in psql, we don't actually care...)
 					 */
 					yyless(yyleng - 1);
 					ECHO;

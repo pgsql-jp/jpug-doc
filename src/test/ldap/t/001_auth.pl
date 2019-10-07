@@ -17,10 +17,17 @@ my ($slapd, $ldap_bin_dir, $ldap_schema_dir);
 
 $ldap_bin_dir = undef;    # usually in PATH
 
-if ($^O eq 'darwin')
+if ($^O eq 'darwin' && -d '/usr/local/opt/openldap')
 {
+	# typical paths for Homebrew
 	$slapd           = '/usr/local/opt/openldap/libexec/slapd';
 	$ldap_schema_dir = '/usr/local/etc/openldap/schema';
+}
+elsif ($^O eq 'darwin' && -d '/opt/local/etc/openldap')
+{
+	# typical paths for MacPorts
+	$slapd           = '/opt/local/libexec/slapd';
+	$ldap_schema_dir = '/opt/local/etc/openldap/schema';
 }
 elsif ($^O eq 'linux')
 {
@@ -45,11 +52,11 @@ my $ldap_datadir  = "${TestLib::tmp_check}/openldap-data";
 my $slapd_certs   = "${TestLib::tmp_check}/slapd-certs";
 my $slapd_conf    = "${TestLib::tmp_check}/slapd.conf";
 my $slapd_pidfile = "${TestLib::tmp_check}/slapd.pid";
-my $slapd_logfile = "${TestLib::tmp_check}/slapd.log";
+my $slapd_logfile = "${TestLib::log_path}/slapd.log";
 my $ldap_conf     = "${TestLib::tmp_check}/ldap.conf";
 my $ldap_server   = 'localhost';
 my $ldap_port     = get_free_port();
-my $ldaps_port    = $ldap_port + 1;
+my $ldaps_port    = get_free_port();
 my $ldap_url      = "ldap://$ldap_server:$ldap_port";
 my $ldaps_url     = "ldaps://$ldap_server:$ldaps_port";
 my $ldap_basedn   = 'dc=example,dc=net';
@@ -95,10 +102,10 @@ mkdir $slapd_certs  or die;
 
 system_or_bail "openssl", "req", "-new", "-nodes", "-keyout",
   "$slapd_certs/ca.key", "-x509", "-out", "$slapd_certs/ca.crt", "-subj",
-  "/cn=CA";
+  "/CN=CA";
 system_or_bail "openssl", "req", "-new", "-nodes", "-keyout",
   "$slapd_certs/server.key", "-out", "$slapd_certs/server.csr", "-subj",
-  "/cn=server";
+  "/CN=server";
 system_or_bail "openssl", "x509", "-req", "-in", "$slapd_certs/server.csr",
   "-CA", "$slapd_certs/ca.crt", "-CAkey", "$slapd_certs/ca.key",
   "-CAcreateserial", "-out", "$slapd_certs/server.crt";

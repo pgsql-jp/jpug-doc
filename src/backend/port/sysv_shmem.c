@@ -9,7 +9,7 @@
  * exist, though, because mmap'd shmem provides no way to find out how
  * many processes are attached, which we need for interlocking purposes.
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -62,10 +62,11 @@
  * to a process after exec().  Since EXEC_BACKEND is intended only for
  * developer use, this shouldn't be a big problem.  Because of this, we do
  * not worry about supporting anonymous shmem in the EXEC_BACKEND cases below.
+ *
+ * As of PostgreSQL 12, we regained the ability to use a large System V shared
+ * memory region even in non-EXEC_BACKEND builds, if shared_memory_type is set
+ * to sysv (though this is not the default).
  */
-#ifndef EXEC_BACKEND
-#define USE_ANONYMOUS_SHMEM
-#endif
 
 
 typedef key_t IpcMemoryKey;		/* shared memory key passed to shmget(2) */
@@ -95,17 +96,15 @@ typedef enum
 unsigned long UsedShmemSegID = 0;
 void	   *UsedShmemSegAddr = NULL;
 
-#ifdef USE_ANONYMOUS_SHMEM
 static Size AnonymousShmemSize;
 static void *AnonymousShmem = NULL;
-#endif
 
 static void *InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size);
 static void IpcMemoryDetach(int status, Datum shmaddr);
 static void IpcMemoryDelete(int status, Datum shmId);
 static IpcMemoryState PGSharedMemoryAttach(IpcMemoryId shmId,
-					 void *attachAt,
-					 PGShmemHeader **addr);
+										   void *attachAt,
+										   PGShmemHeader **addr);
 
 
 /*
@@ -391,9 +390,9 @@ PGSharedMemoryAttach(IpcMemoryId shmId,
 
 	/*
 	 * Try to attach to the segment and see if it matches our data directory.
-	 * This avoids shmid-conflict problems on machines that are running
-	 * several postmasters under the same userid and port number.  (That would
-	 * not ordinarily happen in production, but it can happen during parallel
+	 * This avoids key-conflict problems on machines that are running several
+	 * postmasters under the same userid and port number.  (That would not
+	 * ordinarily happen in production, but it can happen during parallel
 	 * testing.  Since our test setups don't open any TCP ports on Unix, such
 	 * cases don't conflict otherwise.)
 	 */
@@ -444,8 +443,6 @@ PGSharedMemoryAttach(IpcMemoryId shmId,
 	 */
 	return shmStat.shm_nattch == 0 ? SHMSTATE_UNATTACHED : SHMSTATE_ATTACHED;
 }
-
-#ifdef USE_ANONYMOUS_SHMEM
 
 #ifdef MAP_HUGETLB
 
@@ -609,8 +606,6 @@ AnonymousShmemDetach(int status, Datum arg)
 	}
 }
 
-#endif							/* USE_ANONYMOUS_SHMEM */
-
 /*
  * PGSharedMemoryCreate
  *
@@ -637,7 +632,7 @@ PGSharedMemoryCreate(Size size, int port,
 	Size		sysvsize;
 
 	/* Complain if hugepages demanded but we can't possibly support them */
-#if !defined(USE_ANONYMOUS_SHMEM) || !defined(MAP_HUGETLB)
+#if !defined(MAP_HUGETLB)
 	if (huge_pages == HUGE_PAGES_ON)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -647,18 +642,19 @@ PGSharedMemoryCreate(Size size, int port,
 	/* Room for a header? */
 	Assert(size > MAXALIGN(sizeof(PGShmemHeader)));
 
-#ifdef USE_ANONYMOUS_SHMEM
-	AnonymousShmem = CreateAnonymousSegment(&size);
-	AnonymousShmemSize = size;
+	if (shared_memory_type == SHMEM_TYPE_MMAP)
+	{
+		AnonymousShmem = CreateAnonymousSegment(&size);
+		AnonymousShmemSize = size;
 
-	/* Register on-exit routine to unmap the anonymous segment */
-	on_shmem_exit(AnonymousShmemDetach, (Datum) 0);
+		/* Register on-exit routine to unmap the anonymous segment */
+		on_shmem_exit(AnonymousShmemDetach, (Datum) 0);
 
-	/* Now we need only allocate a minimal-sized SysV shmem block. */
-	sysvsize = sizeof(PGShmemHeader);
-#else
-	sysvsize = size;
-#endif
+		/* Now we need only allocate a minimal-sized SysV shmem block. */
+		sysvsize = sizeof(PGShmemHeader);
+	}
+	else
+		sysvsize = size;
 
 	/*
 	 * Loop till we find a free IPC key.  Trust CreateDataDirLockFile() to
@@ -777,14 +773,10 @@ PGSharedMemoryCreate(Size size, int port,
 	 * block. Otherwise, the System V shared memory block is only a shim, and
 	 * we must return a pointer to the real block.
 	 */
-#ifdef USE_ANONYMOUS_SHMEM
 	if (AnonymousShmem == NULL)
 		return hdr;
 	memcpy(AnonymousShmem, hdr, sizeof(PGShmemHeader));
 	return (PGShmemHeader *) AnonymousShmem;
-#else
-	return hdr;
-#endif
 }
 
 #ifdef EXEC_BACKEND
@@ -896,7 +888,6 @@ PGSharedMemoryDetach(void)
 		UsedShmemSegAddr = NULL;
 	}
 
-#ifdef USE_ANONYMOUS_SHMEM
 	if (AnonymousShmem != NULL)
 	{
 		if (munmap(AnonymousShmem, AnonymousShmemSize) < 0)
@@ -904,5 +895,4 @@ PGSharedMemoryDetach(void)
 				 AnonymousShmem, AnonymousShmemSize);
 		AnonymousShmem = NULL;
 	}
-#endif
 }

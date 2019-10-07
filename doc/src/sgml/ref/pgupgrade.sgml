@@ -233,6 +233,14 @@ pg_upgradeは8.4.X以降から現時点の<productname>PostgreSQL</productname>�
      </varlistentry>
 
      <varlistentry>
+      <term><option>-s</option> <replaceable>dir</replaceable></term>
+      <term><option>--socketdir=</option><replaceable>dir</replaceable></term>
+      <listitem><para>directory to use for postmaster sockets during upgrade;
+      default is current working directory; environment
+      variable <envar>PGSOCKETDIR</envar></para></listitem>
+     </varlistentry>
+
+     <varlistentry>
       <term><option>-U</option> <replaceable>username</replaceable></term>
       <term><option>--username=</option><replaceable>username</replaceable></term>
 <!--
@@ -258,6 +266,27 @@ pg_upgradeは8.4.X以降から現時点の<productname>PostgreSQL</productname>�
       <listitem><para>display version information, then exit</para></listitem>
 -->
       <listitem><para>バージョン情報を表示し、終了します。</para></listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>--clone</option></term>
+      <listitem>
+       <para>
+        Use efficient file cloning (also known as <quote>reflinks</quote> on
+        some systems) instead of copying files to the new cluster.  This can
+        result in near-instantaneous copying of the data files, giving the
+        speed advantages of <option>-k</option>/<option>--link</option> while
+        leaving the old cluster untouched.
+       </para>
+
+       <para>
+        File cloning is only supported on some operating systems and file
+        systems.  If it is selected but not supported, the
+        <application>pg_upgrade</application> run will error.  At present, it
+        is supported on Linux (kernel 4.5 or later) with Btrfs and XFS (on
+        file systems created with reflink support), and on macOS with APFS.
+       </para>
+      </listitem>
      </varlistentry>
 
      <varlistentry>
@@ -510,7 +539,7 @@ NET STOP postgresql-&majorversion;
      Always run the <application>pg_upgrade</application> binary of the new server, not the old one.
      <application>pg_upgrade</application> requires the specification of the old and new cluster's
      data and executable (<filename>bin</filename>) directories. You can also specify
-     user and port values, and whether you want the data files linked
+     user and port values, and whether you want the data files linked or cloned
      instead of the default copy behavior.
 -->
 古いサーバのものではなく、常に新しいサーバの<application>pg_upgrade</application>バイナリを実行してください。
@@ -526,8 +555,12 @@ NET STOP postgresql-&majorversion;
      once you start the new cluster after the upgrade.  Link mode also
      requires that the old and new cluster data directories be in the
      same file system.  (Tablespaces and <filename>pg_wal</filename> can be on
-     different file systems.)  See <literal>pg_upgrade &#045;&#045;help</literal> for a full
-     list of options.
+     different file systems.)
+     Clone mode provides the same speed and disk space advantages but
+     does not cause the old cluster to be unusable once the new cluster
+     is started.  Clone mode also requires that the old and new data
+     directories be in the same file system.  This mode is only available
+     on certain operating systems and file systems.
 -->
 リンクモードを使用する場合、アップグレードは非常に高速になり(ファイルのコピーがありません)、ディスク容量が少なくなりますが、アップグレード後に新しいクラスタを一度でも実行してしまうと、古いクラスタにアクセスすることができなくなります。
 リンクモードはまた、古いクラスタと新しいクラスタのデータディレクトリが同じファイルシステムにあることが必要です。
@@ -581,8 +614,9 @@ pg_upgrade.exe
      to perform only the checks, even if the old server is still
      running. <command>pg_upgrade &#045;-check</command> will also outline any
      manual adjustments you will need to make after the upgrade.  If you
-     are going to be using link mode, you should use the <option>&#045;-link</option>
-     option with <option>&#045;-check</option> to enable link-mode-specific checks.
+     are going to be using link or clone mode, you should use the option
+     <option>&#045;-link</option> or <option>&#045;-clone</option> with
+     <option>&#045;-check</option> to enable mode-specific checks.
      <command>pg_upgrade</command> requires write permission in the current directory.
 -->
 起動後、<command>pg_upgrade</command>は2つのクラスタに互換性があるかどうか検証し、その後、アップグレードを行います。
@@ -627,7 +661,7 @@ pg_upgrade.exe
 
    <step id="pgupgrade-step-replicas">
 <!--
-    <title>Upgrade Streaming Replication and Log-Shipping standby servers</title>
+    <title>Upgrade streaming replication and log-shipping standby servers</title>
 -->
     <title>ストリーミングレプリケーションおよびログシッピングのスタンバイサーバのアップグレード</title>
 
@@ -731,7 +765,7 @@ pg_upgrade.exe
 <!--
        Save any configuration files from the old standbys' configuration
        directories you need to keep, e.g.  <filename>postgresql.conf</filename>,
-       <literal>recovery.conf</literal>, because these will be overwritten or
+       <literal>pg_hba.conf</literal>, because these will be overwritten or
        removed in the next step.
 -->
 スタンバイの設定ディレクトリの設定ファイルで保持する必要のあるもの、例えば<filename>postgresql.conf</filename>や<literal>recovery.conf</literal>を保存してください。
@@ -889,7 +923,7 @@ rsync --archive --delete --hard-links --size-only --no-inc-recursive /vol1/pg_tb
 
    <step>
 <!--
-    <title>Post-Upgrade processing</title>
+    <title>Post-upgrade processing</title>
 -->
     <title>移行後の処理</title>
 
@@ -1069,12 +1103,22 @@ psql --username=postgres --file=script.sql postgres
   <title>注釈</title>
 
   <para>
+   <application>pg_upgrade</application> creates various working files, such
+   as schema dumps, in the current working directory.  For security, be sure
+   that that directory is not readable or writable by any other users.
+  </para>
+
+  <para>
 <!--
-   <application>pg_upgrade</application> does not support upgrading of databases
-   containing table columns using these <type>reg*</type> OID-referencing system data types:
-   <type>regproc</type>, <type>regprocedure</type>, <type>regoper</type>,
-   <type>regoperator</type>, <type>regconfig</type>, and
-   <type>regdictionary</type>.  (<type>regtype</type> can be upgraded.)
+   <application>pg_upgrade</application> launches short-lived postmasters in
+   the old and new data directories.  Temporary Unix socket files for
+   communication with these postmasters are, by default, made in the current
+   working directory.  In some situations the path name for the current
+   directory might be too long to be a valid socket name.  In that case you
+   can use the <option>-s</option> option to put the socket files in some
+   directory with a shorter path name.  For security, be sure that that
+   directory is not readable or writable by any other users.
+   (This is not relevant on Windows.)
 -->
 <application>pg_upgrade</application>は次のOIDを参照する<type>reg*</type>システムデータ型を使うテーブル列を含むデータベースのアップグレードをサポートしません。
 <type>regproc</type>、<type>regprocedure</type>、<type>regoper</type>、<type>regoperator</type>、<type>regconfig</type>、<type>regdictionary</type>。（<type>regtype</type>はアップグレード可能です。）
@@ -1107,6 +1151,14 @@ psql --username=postgres --file=script.sql postgres
   </para>
 
   <para>
+   <application>pg_upgrade</application> does not support upgrading of databases
+   containing table columns using these <type>reg*</type> OID-referencing system data types:
+   <type>regproc</type>, <type>regprocedure</type>, <type>regoper</type>,
+   <type>regoperator</type>, <type>regconfig</type>, and
+   <type>regdictionary</type>.  (<type>regtype</type> can be upgraded.)
+  </para>
+
+  <para>
 <!--
    If you are upgrading a pre-<productname>PostgreSQL</productname> 9.2 cluster
    that uses a configuration-file-only directory, you must pass the
@@ -1130,7 +1182,8 @@ psql --username=postgres --file=script.sql postgres
   <para>
 <!--
    If you want to use link mode and you do not want your old cluster
-   to be modified when the new cluster is started, make a copy of the
+   to be modified when the new cluster is started, consider using the clone mode.
+   If that is not available, make a copy of the
    old cluster and upgrade that in link mode. To make a valid copy
    of the old cluster, use <command>rsync</command> to create a dirty
    copy of the old cluster while the server is running, then shut down

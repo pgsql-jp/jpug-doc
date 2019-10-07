@@ -22,14 +22,14 @@ PyObject   *PLy_exc_spi_error = NULL;
 
 
 static void PLy_traceback(PyObject *e, PyObject *v, PyObject *tb,
-			  char **xmsg, char **tbmsg, int *tb_depth);
+						  char **xmsg, char **tbmsg, int *tb_depth);
 static void PLy_get_spi_error_data(PyObject *exc, int *sqlerrcode, char **detail,
-					   char **hint, char **query, int *position,
-					   char **schema_name, char **table_name, char **column_name,
-					   char **datatype_name, char **constraint_name);
+								   char **hint, char **query, int *position,
+								   char **schema_name, char **table_name, char **column_name,
+								   char **datatype_name, char **constraint_name);
 static void PLy_get_error_data(PyObject *exc, int *sqlerrcode, char **detail,
-				   char **hint, char **schema_name, char **table_name, char **column_name,
-				   char **datatype_name, char **constraint_name);
+							   char **hint, char **schema_name, char **table_name, char **column_name,
+							   char **datatype_name, char **constraint_name);
 static char *get_source_line(const char *src, int lineno);
 
 static void get_string_attr(PyObject *obj, char *attrname, char **str);
@@ -46,6 +46,7 @@ static bool set_string_attr(PyObject *obj, char *attrname, char *str);
 void
 PLy_elog_impl(int elevel, const char *fmt,...)
 {
+	int			save_errno = errno;
 	char	   *xmsg;
 	char	   *tbmsg;
 	int			tb_depth;
@@ -96,6 +97,7 @@ PLy_elog_impl(int elevel, const char *fmt,...)
 			va_list		ap;
 			int			needed;
 
+			errno = save_errno;
 			va_start(ap, fmt);
 			needed = appendStringInfoVA(&emsg, dgettext(TEXTDOMAIN, fmt), ap);
 			va_end(ap);

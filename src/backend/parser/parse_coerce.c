@@ -3,7 +3,7 @@
  * parse_coerce.c
  *		handle type coercions/conversions for parser
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -33,22 +33,22 @@
 
 
 static Node *coerce_type_typmod(Node *node,
-				   Oid targetTypeId, int32 targetTypMod,
-				   CoercionContext ccontext, CoercionForm cformat,
-				   int location,
-				   bool hideInputCoercion);
+								Oid targetTypeId, int32 targetTypMod,
+								CoercionContext ccontext, CoercionForm cformat,
+								int location,
+								bool hideInputCoercion);
 static void hide_coercion_node(Node *node);
 static Node *build_coercion_expression(Node *node,
-						  CoercionPathType pathtype,
-						  Oid funcId,
-						  Oid targetTypeId, int32 targetTypMod,
-						  CoercionContext ccontext, CoercionForm cformat,
-						  int location);
+									   CoercionPathType pathtype,
+									   Oid funcId,
+									   Oid targetTypeId, int32 targetTypMod,
+									   CoercionContext ccontext, CoercionForm cformat,
+									   int location);
 static Node *coerce_record_to_complex(ParseState *pstate, Node *node,
-						 Oid targetTypeId,
-						 CoercionContext ccontext,
-						 CoercionForm cformat,
-						 int location);
+									  Oid targetTypeId,
+									  CoercionContext ccontext,
+									  CoercionForm cformat,
+									  int location);
 static bool is_complex_array(Oid typid);
 static bool typeIsOfTypedTable(Oid reltypeId, Oid reloftypeId);
 
@@ -540,7 +540,7 @@ coerce_type(ParseState *pstate, Node *node,
  * as this determines the set of available casts.
  */
 bool
-can_coerce_type(int nargs, Oid *input_typeids, Oid *target_typeids,
+can_coerce_type(int nargs, const Oid *input_typeids, const Oid *target_typeids,
 				CoercionContext ccontext)
 {
 	bool		have_generics = false;
@@ -1472,8 +1472,8 @@ coerce_to_common_type(ParseState *pstate, Node *node,
  * We do not ereport here, but just return false if a rule is violated.
  */
 bool
-check_generic_type_consistency(Oid *actual_arg_types,
-							   Oid *declared_arg_types,
+check_generic_type_consistency(const Oid *actual_arg_types,
+							   const Oid *declared_arg_types,
 							   int nargs)
 {
 	int			j;
@@ -1669,7 +1669,7 @@ check_generic_type_consistency(Oid *actual_arg_types,
  * assume that successive inputs are of the same actual element type.
  */
 Oid
-enforce_generic_type_consistency(Oid *actual_arg_types,
+enforce_generic_type_consistency(const Oid *actual_arg_types,
 								 Oid *declared_arg_types,
 								 int nargs,
 								 Oid rettype,

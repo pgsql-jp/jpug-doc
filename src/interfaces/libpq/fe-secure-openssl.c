@@ -4,7 +4,7 @@
  *	  OpenSSL support
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -62,9 +62,9 @@
 #include <openssl/x509v3.h>
 
 static int	verify_cb(int ok, X509_STORE_CTX *ctx);
-static int openssl_verify_peer_name_matches_certificate_name(PGconn *conn,
-												  ASN1_STRING *name,
-												  char **store_name);
+static int	openssl_verify_peer_name_matches_certificate_name(PGconn *conn,
+															  ASN1_STRING *name,
+															  char **store_name);
 static void destroy_ssl_system(void);
 static int	initialize_SSL(PGconn *conn);
 static PostgresPollingStatusType open_client_SSL(PGconn *);
@@ -142,7 +142,7 @@ pgtls_read(PGconn *conn, void *ptr, size_t len)
 {
 	ssize_t		n;
 	int			result_errno = 0;
-	char		sebuf[256];
+	char		sebuf[PG_STRERROR_R_BUFLEN];
 	int			err;
 	unsigned long ecode;
 
@@ -272,7 +272,7 @@ pgtls_write(PGconn *conn, const void *ptr, size_t len)
 {
 	ssize_t		n;
 	int			result_errno = 0;
-	char		sebuf[256];
+	char		sebuf[PG_STRERROR_R_BUFLEN];
 	int			err;
 	unsigned long ecode;
 
@@ -443,7 +443,7 @@ pgtls_get_peer_certificate_hash(PGconn *conn, size_t *len)
 
 	return cert_hash;
 }
-#endif /* HAVE_X509_GET_SIGNATURE_NID */
+#endif							/* HAVE_X509_GET_SIGNATURE_NID */
 
 /* ------------------------------------------------------------ */
 /*						OpenSSL specific code					*/
@@ -736,7 +736,7 @@ static void
 destroy_ssl_system(void)
 {
 #if defined(ENABLE_THREAD_SAFETY) && defined(HAVE_CRYPTO_LOCK)
-	/* Mutex is created in initialize_ssl_system() */
+	/* Mutex is created in pgtls_init() */
 	if (pthread_mutex_lock(&ssl_config_mutex))
 		return;
 
@@ -780,7 +780,7 @@ initialize_SSL(PGconn *conn)
 	struct stat buf;
 	char		homedir[MAXPGPATH];
 	char		fnbuf[MAXPGPATH];
-	char		sebuf[256];
+	char		sebuf[PG_STRERROR_R_BUFLEN];
 	bool		have_homedir;
 	bool		have_cert;
 	bool		have_rootcert;
@@ -941,7 +941,7 @@ initialize_SSL(PGconn *conn)
 		{
 			printfPQExpBuffer(&conn->errorMessage,
 							  libpq_gettext("could not open certificate file \"%s\": %s\n"),
-							  fnbuf, pqStrerror(errno, sebuf, sizeof(sebuf)));
+							  fnbuf, strerror_r(errno, sebuf, sizeof(sebuf)));
 			SSL_CTX_free(SSL_context);
 			return -1;
 		}
@@ -1212,7 +1212,7 @@ open_client_SSL(PGconn *conn)
 
 			case SSL_ERROR_SYSCALL:
 				{
-					char		sebuf[256];
+					char		sebuf[PG_STRERROR_R_BUFLEN];
 
 					if (r == -1)
 						printfPQExpBuffer(&conn->errorMessage,

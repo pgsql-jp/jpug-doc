@@ -6,7 +6,7 @@
  *	  message integrity and endpoint authentication.
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -221,6 +221,13 @@ pqsecure_read(PGconn *conn, void *ptr, size_t len)
 	}
 	else
 #endif
+#ifdef ENABLE_GSS
+	if (conn->gssenc)
+	{
+		n = pg_GSS_read(conn, ptr, len);
+	}
+	else
+#endif
 	{
 		n = pqsecure_raw_read(conn, ptr, len);
 	}
@@ -233,7 +240,7 @@ pqsecure_raw_read(PGconn *conn, void *ptr, size_t len)
 {
 	ssize_t		n;
 	int			result_errno = 0;
-	char		sebuf[256];
+	char		sebuf[PG_STRERROR_R_BUFLEN];
 
 	n = recv(conn->sock, ptr, len, 0);
 
@@ -298,6 +305,13 @@ pqsecure_write(PGconn *conn, const void *ptr, size_t len)
 	}
 	else
 #endif
+#ifdef ENABLE_GSS
+	if (conn->gssenc)
+	{
+		n = pg_GSS_write(conn, ptr, len);
+	}
+	else
+#endif
 	{
 		n = pqsecure_raw_write(conn, ptr, len);
 	}
@@ -311,7 +325,7 @@ pqsecure_raw_write(PGconn *conn, const void *ptr, size_t len)
 	ssize_t		n;
 	int			flags = 0;
 	int			result_errno = 0;
-	char		sebuf[256];
+	char		sebuf[PG_STRERROR_R_BUFLEN];
 
 	DECLARE_SIGPIPE_INFO(spinfo);
 
@@ -419,6 +433,23 @@ PQsslAttributeNames(PGconn *conn)
 	return result;
 }
 #endif							/* USE_SSL */
+
+/* Dummy version of GSSAPI information functions, when built without GSS support */
+#ifndef ENABLE_GSS
+
+void *
+PQgetgssctx(PGconn *conn)
+{
+	return NULL;
+}
+
+int
+PQgssEncInUse(PGconn *conn)
+{
+	return 0;
+}
+
+#endif							/* ENABLE_GSS */
 
 
 #if defined(ENABLE_THREAD_SAFETY) && !defined(WIN32)

@@ -4,7 +4,7 @@
  *		Functions for archiving WAL files and restoring from the archive.
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/backend/access/transam/xlogarchive.c
@@ -65,7 +65,7 @@ RestoreArchivedFile(char *path, const char *xlogfname,
 	TimeLineID	restartTli;
 
 	/* In standby mode, restore_command might not be supplied */
-	if (recoveryRestoreCommand == NULL)
+	if (recoveryRestoreCommand == NULL || strcmp(recoveryRestoreCommand, "") == 0)
 		goto not_available;
 
 	/*
@@ -400,7 +400,7 @@ ExecuteRecoveryCommand(const char *command, const char *commandName, bool failOn
 		 */
 		ereport((failOnSignal && wait_result_is_any_signal(rc, true)) ? FATAL : WARNING,
 		/*------
-		   translator: First %s represents a recovery.conf parameter name like
+		   translator: First %s represents a postgresql.conf parameter name like
 		  "recovery_end_command", the 2nd is the value of that parameter, the
 		  third an already translated error message. */
 				(errmsg("%s \"%s\": %s", commandName,
@@ -412,7 +412,7 @@ ExecuteRecoveryCommand(const char *command, const char *commandName, bool failOn
 /*
  * A file was restored from the archive under a temporary filename (path),
  * and now we want to keep it. Rename it under the permanent filename in
- * in pg_wal (xlogfname), replacing any existing file with the same name.
+ * pg_wal (xlogfname), replacing any existing file with the same name.
  */
 void
 KeepFileRestoredFromArchive(const char *path, const char *xlogfname)

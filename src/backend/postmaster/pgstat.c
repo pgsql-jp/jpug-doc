@@ -11,7 +11,7 @@
  *			- Add a pgstat config column to pg_database, so this
  *			  entire thing can be enabled/disabled on a per db basis.
  *
- *	Copyright (c) 2001-2018, PostgreSQL Global Development Group
+ *	Copyright (c) 2001-2019, PostgreSQL Global Development Group
  *
  *	src/backend/postmaster/pgstat.c
  * ----------
@@ -36,6 +36,7 @@
 
 #include "access/heapam.h"
 #include "access/htup_details.h"
+#include "access/tableam.h"
 #include "access/transam.h"
 #include "access/twophase_rmgr.h"
 #include "access/xact.h"
@@ -67,7 +68,6 @@
 #include "utils/rel.h"
 #include "utils/snapmgr.h"
 #include "utils/timestamp.h"
-#include "utils/tqual.h"
 
 
 /* ----------
@@ -291,7 +291,7 @@ static void pgstat_sighup_handler(SIGNAL_ARGS);
 
 static PgStat_StatDBEntry *pgstat_get_db_entry(Oid databaseid, bool create);
 static PgStat_StatTabEntry *pgstat_get_tab_entry(PgStat_StatDBEntry *dbentry,
-					 Oid tableoid, bool create);
+												 Oid tableoid, bool create);
 static void pgstat_write_statsfiles(bool permanent, bool allDbs);
 static void pgstat_write_db_statsfile(PgStat_StatDBEntry *dbentry, bool permanent);
 static HTAB *pgstat_read_statsfiles(Oid onlydb, bool permanent, bool deep);
@@ -304,7 +304,7 @@ static bool pgstat_db_requested(Oid databaseid);
 
 static void pgstat_send_tabstat(PgStat_MsgTabstat *tsmsg);
 static void pgstat_send_funcstats(void);
-static HTAB *pgstat_collect_oids(Oid catalogid);
+static HTAB *pgstat_collect_oids(Oid catalogid, AttrNumber anum_oid);
 
 static PgStat_TableStatus *get_tabstat_entry(Oid rel_id, bool isshared);
 
@@ -335,6 +335,7 @@ static void pgstat_recv_funcstat(PgStat_MsgFuncstat *msg, int len);
 static void pgstat_recv_funcpurge(PgStat_MsgFuncpurge *msg, int len);
 static void pgstat_recv_recoveryconflict(PgStat_MsgRecoveryConflict *msg, int len);
 static void pgstat_recv_deadlock(PgStat_MsgDeadlock *msg, int len);
+static void pgstat_recv_checksum_failure(PgStat_MsgChecksumFailure *msg, int len);
 static void pgstat_recv_tempfile(PgStat_MsgTempFile *msg, int len);
 
 /* ------------------------------------------------------------
@@ -1042,7 +1043,7 @@ pgstat_vacuum_stat(void)
 	/*
 	 * Read pg_database and make a list of OIDs of all existing databases
 	 */
-	htab = pgstat_collect_oids(DatabaseRelationId);
+	htab = pgstat_collect_oids(DatabaseRelationId, Anum_pg_database_oid);
 
 	/*
 	 * Search the database hash table for dead databases and tell the
@@ -1076,7 +1077,7 @@ pgstat_vacuum_stat(void)
 	/*
 	 * Similarly to above, make a list of all known relations in this DB.
 	 */
-	htab = pgstat_collect_oids(RelationRelationId);
+	htab = pgstat_collect_oids(RelationRelationId, Anum_pg_class_oid);
 
 	/*
 	 * Initialize our messages table counter to zero
@@ -1140,7 +1141,7 @@ pgstat_vacuum_stat(void)
 	if (dbentry->functions != NULL &&
 		hash_get_num_entries(dbentry->functions) > 0)
 	{
-		htab = pgstat_collect_oids(ProcedureRelationId);
+		htab = pgstat_collect_oids(ProcedureRelationId, Anum_pg_proc_oid);
 
 		pgstat_setheader(&f_msg.m_hdr, PGSTAT_MTYPE_FUNCPURGE);
 		f_msg.m_databaseid = MyDatabaseId;
@@ -1201,12 +1202,12 @@ pgstat_vacuum_stat(void)
  * ----------
  */
 static HTAB *
-pgstat_collect_oids(Oid catalogid)
+pgstat_collect_oids(Oid catalogid, AttrNumber anum_oid)
 {
 	HTAB	   *htab;
 	HASHCTL		hash_ctl;
 	Relation	rel;
-	HeapScanDesc scan;
+	TableScanDesc scan;
 	HeapTuple	tup;
 	Snapshot	snapshot;
 
@@ -1219,20 +1220,24 @@ pgstat_collect_oids(Oid catalogid)
 					   &hash_ctl,
 					   HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 
-	rel = heap_open(catalogid, AccessShareLock);
+	rel = table_open(catalogid, AccessShareLock);
 	snapshot = RegisterSnapshot(GetLatestSnapshot());
-	scan = heap_beginscan(rel, snapshot, 0, NULL);
+	scan = table_beginscan(rel, snapshot, 0, NULL);
 	while ((tup = heap_getnext(scan, ForwardScanDirection)) != NULL)
 	{
-		Oid			thisoid = HeapTupleGetOid(tup);
+		Oid			thisoid;
+		bool		isnull;
+
+		thisoid = heap_getattr(tup, anum_oid, RelationGetDescr(rel), &isnull);
+		Assert(!isnull);
 
 		CHECK_FOR_INTERRUPTS();
 
 		(void) hash_search(htab, (void *) &thisoid, HASH_ENTER, NULL);
 	}
-	heap_endscan(scan);
+	table_endscan(scan);
 	UnregisterSnapshot(snapshot);
-	heap_close(rel, AccessShareLock);
+	table_close(rel, AccessShareLock);
 
 	return htab;
 }
@@ -1515,6 +1520,42 @@ pgstat_report_deadlock(void)
 	pgstat_send(&msg, sizeof(msg));
 }
 
+
+
+/* --------
+ * pgstat_report_checksum_failures_in_db() -
+ *
+ *	Tell the collector about one or more checksum failures.
+ * --------
+ */
+void
+pgstat_report_checksum_failures_in_db(Oid dboid, int failurecount)
+{
+	PgStat_MsgChecksumFailure msg;
+
+	if (pgStatSock == PGINVALID_SOCKET || !pgstat_track_counts)
+		return;
+
+	pgstat_setheader(&msg.m_hdr, PGSTAT_MTYPE_CHECKSUMFAILURE);
+	msg.m_databaseid = dboid;
+	msg.m_failurecount = failurecount;
+	msg.m_failure_time = GetCurrentTimestamp();
+
+	pgstat_send(&msg, sizeof(msg));
+}
+
+/* --------
+ * pgstat_report_checksum_failure() -
+ *
+ *	Tell the collector about a checksum failure.
+ * --------
+ */
+void
+pgstat_report_checksum_failure(void)
+{
+	pgstat_report_checksum_failures_in_db(MyDatabaseId, 1);
+}
+
 /* --------
  * pgstat_report_tempfile() -
  *
@@ -1578,7 +1619,7 @@ pgstat_send_inquiry(TimestampTz clock_time, TimestampTz cutoff_time, Oid databas
  * Called by the executor before invoking a function.
  */
 void
-pgstat_init_function_usage(FunctionCallInfoData *fcinfo,
+pgstat_init_function_usage(FunctionCallInfo fcinfo,
 						   PgStat_FunctionCallUsage *fcu)
 {
 	PgStat_BackendFunctionEntry *htabent;
@@ -2599,6 +2640,9 @@ static Size BackendActivityBufferSize = 0;
 #ifdef USE_SSL
 static PgBackendSSLStatus *BackendSslStatusBuffer = NULL;
 #endif
+#ifdef ENABLE_GSS
+static PgBackendGSSStatus *BackendGssStatusBuffer = NULL;
+#endif
 
 
 /*
@@ -2731,6 +2775,28 @@ CreateSharedBackendStatus(void)
 		}
 	}
 #endif
+
+#ifdef ENABLE_GSS
+	/* Create or attach to the shared GSSAPI status buffer */
+	size = mul_size(sizeof(PgBackendGSSStatus), NumBackendStatSlots);
+	BackendGssStatusBuffer = (PgBackendGSSStatus *)
+		ShmemInitStruct("Backend GSS Status Buffer", size, &found);
+
+	if (!found)
+	{
+		PgBackendGSSStatus *ptr;
+
+		MemSet(BackendGssStatusBuffer, 0, size);
+
+		/* Initialize st_gssstatus pointers. */
+		ptr = BackendGssStatusBuffer;
+		for (i = 0; i < NumBackendStatSlots; i++)
+		{
+			BackendStatusArray[i].st_gssstatus = ptr;
+			ptr++;
+		}
+	}
+#endif
 }
 
 
@@ -2795,6 +2861,9 @@ pgstat_bestart(void)
 #ifdef USE_SSL
 	PgBackendSSLStatus lsslstatus;
 #endif
+#ifdef ENABLE_GSS
+	PgBackendGSSStatus lgssstatus;
+#endif
 
 	/* pgstats state must be initialized from pgstat_initialize() */
 	Assert(vbeentry != NULL);
@@ -2811,12 +2880,15 @@ pgstat_bestart(void)
 	 * maintenance hassle to copy only the needful fields.
 	 */
 	memcpy(&lbeentry,
-		   (char *) vbeentry,
+		   unvolatize(PgBackendStatus *, vbeentry),
 		   sizeof(PgBackendStatus));
 
-	/* This struct can just start from zeroes each time, though */
+	/* These structs can just start from zeroes each time, though */
 #ifdef USE_SSL
 	memset(&lsslstatus, 0, sizeof(lsslstatus));
+#endif
+#ifdef ENABLE_GSS
+	memset(&lgssstatus, 0, sizeof(lgssstatus));
 #endif
 
 	/*
@@ -2880,15 +2952,7 @@ pgstat_bestart(void)
 		}
 	}
 
-	/*
-	 * If we have a MyProcPort, use its session start time (for consistency,
-	 * and to save a kernel call).
-	 */
-	if (MyProcPort)
-		lbeentry.st_proc_start_timestamp = MyProcPort->SessionStartTime;
-	else
-		lbeentry.st_proc_start_timestamp = GetCurrentTimestamp();
-
+	lbeentry.st_proc_start_timestamp = MyStartTimestamp;
 	lbeentry.st_activity_start_timestamp = 0;
 	lbeentry.st_state_start_timestamp = 0;
 	lbeentry.st_xact_start_timestamp = 0;
@@ -2921,7 +2985,9 @@ pgstat_bestart(void)
 		lsslstatus.ssl_compression = be_tls_get_compression(MyProcPort);
 		strlcpy(lsslstatus.ssl_version, be_tls_get_version(MyProcPort), NAMEDATALEN);
 		strlcpy(lsslstatus.ssl_cipher, be_tls_get_cipher(MyProcPort), NAMEDATALEN);
-		be_tls_get_peerdn_name(MyProcPort, lsslstatus.ssl_clientdn, NAMEDATALEN);
+		be_tls_get_peer_subject_name(MyProcPort, lsslstatus.ssl_client_dn, NAMEDATALEN);
+		be_tls_get_peer_serial(MyProcPort, lsslstatus.ssl_client_serial, NAMEDATALEN);
+		be_tls_get_peer_issuer_name(MyProcPort, lsslstatus.ssl_issuer_dn, NAMEDATALEN);
 	}
 	else
 	{
@@ -2929,6 +2995,24 @@ pgstat_bestart(void)
 	}
 #else
 	lbeentry.st_ssl = false;
+#endif
+
+#ifdef ENABLE_GSS
+	if (MyProcPort && MyProcPort->gss != NULL)
+	{
+		lbeentry.st_gss = true;
+		lgssstatus.gss_auth = be_gssapi_get_auth(MyProcPort);
+		lgssstatus.gss_enc = be_gssapi_get_enc(MyProcPort);
+
+		if (lgssstatus.gss_auth)
+			strlcpy(lgssstatus.gss_princ, be_gssapi_get_princ(MyProcPort), NAMEDATALEN);
+	}
+	else
+	{
+		lbeentry.st_gss = false;
+	}
+#else
+	lbeentry.st_gss = false;
 #endif
 
 	lbeentry.st_state = STATE_UNDEFINED;
@@ -2952,7 +3036,7 @@ pgstat_bestart(void)
 	/* make sure we'll memcpy the same st_changecount back */
 	lbeentry.st_changecount = vbeentry->st_changecount;
 
-	memcpy((char *) vbeentry,
+	memcpy(unvolatize(PgBackendStatus *, vbeentry),
 		   &lbeentry,
 		   sizeof(PgBackendStatus));
 
@@ -2974,6 +3058,9 @@ pgstat_bestart(void)
 
 #ifdef USE_SSL
 	memcpy(lbeentry.st_sslstatus, &lsslstatus, sizeof(PgBackendSSLStatus));
+#endif
+#ifdef ENABLE_GSS
+	memcpy(lbeentry.st_gssstatus, &lgssstatus, sizeof(PgBackendGSSStatus));
 #endif
 
 	PGSTAT_END_WRITE_ACTIVITY(vbeentry);
@@ -3185,10 +3272,10 @@ pgstat_progress_end_command(void)
 {
 	volatile PgBackendStatus *beentry = MyBEEntry;
 
-	if (!beentry)
+	if (!beentry || !pgstat_track_activities)
 		return;
-	if (!pgstat_track_activities
-		&& beentry->st_progress_command == PROGRESS_COMMAND_INVALID)
+
+	if (beentry->st_progress_command == PROGRESS_COMMAND_INVALID)
 		return;
 
 	PGSTAT_BEGIN_WRITE_ACTIVITY(beentry);
@@ -3271,6 +3358,9 @@ pgstat_read_current_status(void)
 #ifdef USE_SSL
 	PgBackendSSLStatus *localsslstatus;
 #endif
+#ifdef ENABLE_GSS
+	PgBackendGSSStatus *localgssstatus;
+#endif
 	int			i;
 
 	Assert(!pgStatRunningInCollector);
@@ -3279,6 +3369,14 @@ pgstat_read_current_status(void)
 
 	pgstat_setup_memcxt();
 
+	/*
+	 * Allocate storage for local copy of state data.  We can presume that
+	 * none of these requests overflow size_t, because we already calculated
+	 * the same values using mul_size during shmem setup.  However, with
+	 * probably-silly values of pgstat_track_activity_query_size and
+	 * max_connections, the localactivity buffer could exceed 1GB, so use
+	 * "huge" allocation for that one.
+	 */
 	localtable = (LocalPgBackendStatus *)
 		MemoryContextAlloc(pgStatLocalContext,
 						   sizeof(LocalPgBackendStatus) * NumBackendStatSlots);
@@ -3289,12 +3387,17 @@ pgstat_read_current_status(void)
 		MemoryContextAlloc(pgStatLocalContext,
 						   NAMEDATALEN * NumBackendStatSlots);
 	localactivity = (char *)
-		MemoryContextAlloc(pgStatLocalContext,
-						   pgstat_track_activity_query_size * NumBackendStatSlots);
+		MemoryContextAllocHuge(pgStatLocalContext,
+							   pgstat_track_activity_query_size * NumBackendStatSlots);
 #ifdef USE_SSL
 	localsslstatus = (PgBackendSSLStatus *)
 		MemoryContextAlloc(pgStatLocalContext,
 						   sizeof(PgBackendSSLStatus) * NumBackendStatSlots);
+#endif
+#ifdef ENABLE_GSS
+	localgssstatus = (PgBackendGSSStatus *)
+		MemoryContextAlloc(pgStatLocalContext,
+						   sizeof(PgBackendGSSStatus) * NumBackendStatSlots);
 #endif
 
 	localNumBackends = 0;
@@ -3321,7 +3424,7 @@ pgstat_read_current_status(void)
 			/* Skip all the data-copying work if entry is not in use */
 			if (localentry->backendStatus.st_procpid > 0)
 			{
-				memcpy(&localentry->backendStatus, (char *) beentry, sizeof(PgBackendStatus));
+				memcpy(&localentry->backendStatus, unvolatize(PgBackendStatus *, beentry), sizeof(PgBackendStatus));
 
 				/*
 				 * For each PgBackendStatus field that is a pointer, copy the
@@ -3342,6 +3445,13 @@ pgstat_read_current_status(void)
 				{
 					memcpy(localsslstatus, beentry->st_sslstatus, sizeof(PgBackendSSLStatus));
 					localentry->backendStatus.st_sslstatus = localsslstatus;
+				}
+#endif
+#ifdef ENABLE_GSS
+				if (beentry->st_gss)
+				{
+					memcpy(localgssstatus, beentry->st_gssstatus, sizeof(PgBackendGSSStatus));
+					localentry->backendStatus.st_gssstatus = localgssstatus;
 				}
 #endif
 			}
@@ -3370,6 +3480,9 @@ pgstat_read_current_status(void)
 			localactivity += pgstat_track_activity_query_size;
 #ifdef USE_SSL
 			localsslstatus++;
+#endif
+#ifdef ENABLE_GSS
+			localgssstatus++;
 #endif
 			localNumBackends++;
 		}
@@ -3539,11 +3652,11 @@ pgstat_get_wait_activity(WaitEventActivity w)
 		case WAIT_EVENT_CHECKPOINTER_MAIN:
 			event_name = "CheckpointerMain";
 			break;
-		case WAIT_EVENT_LOGICAL_LAUNCHER_MAIN:
-			event_name = "LogicalLauncherMain";
-			break;
 		case WAIT_EVENT_LOGICAL_APPLY_MAIN:
 			event_name = "LogicalApplyMain";
+			break;
+		case WAIT_EVENT_LOGICAL_LAUNCHER_MAIN:
+			event_name = "LogicalLauncherMain";
 			break;
 		case WAIT_EVENT_PGSTAT_MAIN:
 			event_name = "PgStatMain";
@@ -3609,6 +3722,9 @@ pgstat_get_wait_client(WaitEventClient w)
 		case WAIT_EVENT_WAL_SENDER_WRITE_DATA:
 			event_name = "WalSenderWriteData";
 			break;
+		case WAIT_EVENT_GSS_OPEN_SERVER:
+			event_name = "GSSOpenServer";
+			break;
 			/* no default case, so that compiler will warn */
 	}
 
@@ -3636,6 +3752,15 @@ pgstat_get_wait_ipc(WaitEventIPC w)
 			break;
 		case WAIT_EVENT_BTREE_PAGE:
 			event_name = "BtreePage";
+			break;
+		case WAIT_EVENT_CHECKPOINT_DONE:
+			event_name = "CheckpointDone";
+			break;
+		case WAIT_EVENT_CHECKPOINT_START:
+			event_name = "CheckpointStart";
+			break;
+		case WAIT_EVENT_CLOG_GROUP_UPDATE:
+			event_name = "ClogGroupUpdate";
 			break;
 		case WAIT_EVENT_EXECUTE_GATHER:
 			event_name = "ExecuteGather";
@@ -3703,20 +3828,20 @@ pgstat_get_wait_ipc(WaitEventIPC w)
 		case WAIT_EVENT_MQ_SEND:
 			event_name = "MessageQueueSend";
 			break;
-		case WAIT_EVENT_PARALLEL_FINISH:
-			event_name = "ParallelFinish";
-			break;
 		case WAIT_EVENT_PARALLEL_BITMAP_SCAN:
 			event_name = "ParallelBitmapScan";
 			break;
 		case WAIT_EVENT_PARALLEL_CREATE_INDEX_SCAN:
 			event_name = "ParallelCreateIndexScan";
 			break;
+		case WAIT_EVENT_PARALLEL_FINISH:
+			event_name = "ParallelFinish";
+			break;
 		case WAIT_EVENT_PROCARRAY_GROUP_UPDATE:
 			event_name = "ProcArrayGroupUpdate";
 			break;
-		case WAIT_EVENT_CLOG_GROUP_UPDATE:
-			event_name = "ClogGroupUpdate";
+		case WAIT_EVENT_PROMOTE:
+			event_name = "Promote";
 			break;
 		case WAIT_EVENT_REPLICATION_ORIGIN_DROP:
 			event_name = "ReplicationOriginDrop";
@@ -3971,6 +4096,9 @@ pgstat_get_wait_io(WaitEventIO w)
 			break;
 		case WAIT_EVENT_WAL_READ:
 			event_name = "WALRead";
+			break;
+		case WAIT_EVENT_WAL_SYNC:
+			event_name = "WALSync";
 			break;
 		case WAIT_EVENT_WAL_SYNC_METHOD_ASSIGN:
 			event_name = "WALSyncMethodAssign";
@@ -4316,11 +4444,8 @@ PgstatCollectorMain(int argc, char *argv[])
 	pqsignal(SIGPIPE, SIG_IGN);
 	pqsignal(SIGUSR1, SIG_IGN);
 	pqsignal(SIGUSR2, SIG_IGN);
+	/* Reset some signals that are accepted by postmaster but not here */
 	pqsignal(SIGCHLD, SIG_DFL);
-	pqsignal(SIGTTIN, SIG_DFL);
-	pqsignal(SIGTTOU, SIG_DFL);
-	pqsignal(SIGCONT, SIG_DFL);
-	pqsignal(SIGWINCH, SIG_DFL);
 	PG_SETMASK(&UnBlockSig);
 
 	/*
@@ -4430,76 +4555,83 @@ PgstatCollectorMain(int argc, char *argv[])
 					break;
 
 				case PGSTAT_MTYPE_INQUIRY:
-					pgstat_recv_inquiry((PgStat_MsgInquiry *) &msg, len);
+					pgstat_recv_inquiry(&msg.msg_inquiry, len);
 					break;
 
 				case PGSTAT_MTYPE_TABSTAT:
-					pgstat_recv_tabstat((PgStat_MsgTabstat *) &msg, len);
+					pgstat_recv_tabstat(&msg.msg_tabstat, len);
 					break;
 
 				case PGSTAT_MTYPE_TABPURGE:
-					pgstat_recv_tabpurge((PgStat_MsgTabpurge *) &msg, len);
+					pgstat_recv_tabpurge(&msg.msg_tabpurge, len);
 					break;
 
 				case PGSTAT_MTYPE_DROPDB:
-					pgstat_recv_dropdb((PgStat_MsgDropdb *) &msg, len);
+					pgstat_recv_dropdb(&msg.msg_dropdb, len);
 					break;
 
 				case PGSTAT_MTYPE_RESETCOUNTER:
-					pgstat_recv_resetcounter((PgStat_MsgResetcounter *) &msg,
-											 len);
+					pgstat_recv_resetcounter(&msg.msg_resetcounter, len);
 					break;
 
 				case PGSTAT_MTYPE_RESETSHAREDCOUNTER:
 					pgstat_recv_resetsharedcounter(
-												   (PgStat_MsgResetsharedcounter *) &msg,
+												   &msg.msg_resetsharedcounter,
 												   len);
 					break;
 
 				case PGSTAT_MTYPE_RESETSINGLECOUNTER:
 					pgstat_recv_resetsinglecounter(
-												   (PgStat_MsgResetsinglecounter *) &msg,
+												   &msg.msg_resetsinglecounter,
 												   len);
 					break;
 
 				case PGSTAT_MTYPE_AUTOVAC_START:
-					pgstat_recv_autovac((PgStat_MsgAutovacStart *) &msg, len);
+					pgstat_recv_autovac(&msg.msg_autovacuum_start, len);
 					break;
 
 				case PGSTAT_MTYPE_VACUUM:
-					pgstat_recv_vacuum((PgStat_MsgVacuum *) &msg, len);
+					pgstat_recv_vacuum(&msg.msg_vacuum, len);
 					break;
 
 				case PGSTAT_MTYPE_ANALYZE:
-					pgstat_recv_analyze((PgStat_MsgAnalyze *) &msg, len);
+					pgstat_recv_analyze(&msg.msg_analyze, len);
 					break;
 
 				case PGSTAT_MTYPE_ARCHIVER:
-					pgstat_recv_archiver((PgStat_MsgArchiver *) &msg, len);
+					pgstat_recv_archiver(&msg.msg_archiver, len);
 					break;
 
 				case PGSTAT_MTYPE_BGWRITER:
-					pgstat_recv_bgwriter((PgStat_MsgBgWriter *) &msg, len);
+					pgstat_recv_bgwriter(&msg.msg_bgwriter, len);
 					break;
 
 				case PGSTAT_MTYPE_FUNCSTAT:
-					pgstat_recv_funcstat((PgStat_MsgFuncstat *) &msg, len);
+					pgstat_recv_funcstat(&msg.msg_funcstat, len);
 					break;
 
 				case PGSTAT_MTYPE_FUNCPURGE:
-					pgstat_recv_funcpurge((PgStat_MsgFuncpurge *) &msg, len);
+					pgstat_recv_funcpurge(&msg.msg_funcpurge, len);
 					break;
 
 				case PGSTAT_MTYPE_RECOVERYCONFLICT:
-					pgstat_recv_recoveryconflict((PgStat_MsgRecoveryConflict *) &msg, len);
+					pgstat_recv_recoveryconflict(
+												 &msg.msg_recoveryconflict,
+												 len);
 					break;
 
 				case PGSTAT_MTYPE_DEADLOCK:
-					pgstat_recv_deadlock((PgStat_MsgDeadlock *) &msg, len);
+					pgstat_recv_deadlock(&msg.msg_deadlock, len);
 					break;
 
 				case PGSTAT_MTYPE_TEMPFILE:
-					pgstat_recv_tempfile((PgStat_MsgTempFile *) &msg, len);
+					pgstat_recv_tempfile(&msg.msg_tempfile, len);
+					break;
+
+				case PGSTAT_MTYPE_CHECKSUMFAILURE:
+					pgstat_recv_checksum_failure(
+												 &msg.msg_checksumfailure,
+												 len);
 					break;
 
 				default:
@@ -4601,6 +4733,8 @@ reset_dbentry_counters(PgStat_StatDBEntry *dbentry)
 	dbentry->n_temp_files = 0;
 	dbentry->n_temp_bytes = 0;
 	dbentry->n_deadlocks = 0;
+	dbentry->n_checksum_failures = 0;
+	dbentry->last_checksum_failure = 0;
 	dbentry->n_block_read_time = 0;
 	dbentry->n_block_write_time = 0;
 
@@ -6241,6 +6375,23 @@ pgstat_recv_deadlock(PgStat_MsgDeadlock *msg, int len)
 	dbentry = pgstat_get_db_entry(msg->m_databaseid, true);
 
 	dbentry->n_deadlocks++;
+}
+
+/* ----------
+ * pgstat_recv_checksum_failure() -
+ *
+ *	Process a CHECKSUMFAILURE message.
+ * ----------
+ */
+static void
+pgstat_recv_checksum_failure(PgStat_MsgChecksumFailure *msg, int len)
+{
+	PgStat_StatDBEntry *dbentry;
+
+	dbentry = pgstat_get_db_entry(msg->m_databaseid, true);
+
+	dbentry->n_checksum_failures += msg->m_failurecount;
+	dbentry->last_checksum_failure = msg->m_failure_time;
 }
 
 /* ----------

@@ -4,7 +4,7 @@
  *	  definition of the "text search parser" system catalog (pg_ts_parser)
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_ts_parser.h
@@ -28,6 +28,8 @@
  */
 CATALOG(pg_ts_parser,3601,TSParserRelationId)
 {
+	Oid			oid;			/* oid */
+
 	/* parser's name */
 	NameData	prsname;
 

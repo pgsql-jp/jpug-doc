@@ -4,7 +4,7 @@
  *	  definition of the "type" system catalog (pg_type)
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_type.h
@@ -36,6 +36,8 @@
  */
 CATALOG(pg_type,1247,TypeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(71,TypeRelation_Rowtype_Id) BKI_SCHEMA_MACRO
 {
+	Oid			oid;			/* oid */
+
 	/* type name */
 	NameData	typname;
 
@@ -52,7 +54,7 @@ CATALOG(pg_type,1247,TypeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(71,TypeRelati
 	 * "varlena" type (one that has a length word), -2 to indicate a
 	 * null-terminated C string.
 	 */
-	int16		typlen;
+	int16		typlen BKI_ARRAY_DEFAULT(-1);
 
 	/*
 	 * typbyval determines whether internal Postgres routines pass a value of
@@ -62,7 +64,7 @@ CATALOG(pg_type,1247,TypeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(71,TypeRelati
 	 * typbyval can be false even if the length would allow pass-by-value; for
 	 * example, type macaddr8 is pass-by-ref even when Datum is 8 bytes.
 	 */
-	bool		typbyval;
+	bool		typbyval BKI_ARRAY_DEFAULT(f);
 
 	/*
 	 * typtype is 'b' for a base type, 'c' for a composite type (e.g., a
@@ -71,7 +73,7 @@ CATALOG(pg_type,1247,TypeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(71,TypeRelati
 	 *
 	 * If typtype is 'c', typrelid is the OID of the class' entry in pg_class.
 	 */
-	char		typtype BKI_DEFAULT(b);
+	char		typtype BKI_DEFAULT(b) BKI_ARRAY_DEFAULT(b);
 
 	/*
 	 * typcategory and typispreferred help the parser distinguish preferred
@@ -81,10 +83,10 @@ CATALOG(pg_type,1247,TypeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(71,TypeRelati
 	 */
 
 	/* arbitrary type classification */
-	char		typcategory;
+	char		typcategory BKI_ARRAY_DEFAULT(A);
 
 	/* is type "preferred" within its category? */
-	bool		typispreferred BKI_DEFAULT(f);
+	bool		typispreferred BKI_DEFAULT(f) BKI_ARRAY_DEFAULT(f);
 
 	/*
 	 * If typisdefined is false, the entry is only a placeholder (forward
@@ -97,7 +99,7 @@ CATALOG(pg_type,1247,TypeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(71,TypeRelati
 	char		typdelim BKI_DEFAULT(',');
 
 	/* associated pg_class OID if a composite type, else 0 */
-	Oid			typrelid BKI_DEFAULT(0);
+	Oid			typrelid BKI_DEFAULT(0) BKI_ARRAY_DEFAULT(0) BKI_LOOKUP(pg_class);
 
 	/*
 	 * If typelem is not 0 then it identifies another row in pg_type. The
@@ -116,19 +118,19 @@ CATALOG(pg_type,1247,TypeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(71,TypeRelati
 	 * If there is a "true" array type having this type as element type,
 	 * typarray links to it.  Zero if no associated "true" array type.
 	 */
-	Oid			typarray BKI_DEFAULT(0) BKI_LOOKUP(pg_type);
+	Oid			typarray BKI_DEFAULT(0) BKI_ARRAY_DEFAULT(0) BKI_LOOKUP(pg_type);
 
 	/*
 	 * I/O conversion procedures for the datatype.
 	 */
 
 	/* text format (required) */
-	regproc		typinput BKI_LOOKUP(pg_proc);
-	regproc		typoutput BKI_LOOKUP(pg_proc);
+	regproc		typinput BKI_ARRAY_DEFAULT(array_in) BKI_LOOKUP(pg_proc);
+	regproc		typoutput BKI_ARRAY_DEFAULT(array_out) BKI_LOOKUP(pg_proc);
 
 	/* binary format (optional) */
-	regproc		typreceive BKI_LOOKUP(pg_proc);
-	regproc		typsend BKI_LOOKUP(pg_proc);
+	regproc		typreceive BKI_ARRAY_DEFAULT(array_recv) BKI_LOOKUP(pg_proc);
+	regproc		typsend BKI_ARRAY_DEFAULT(array_send) BKI_LOOKUP(pg_proc);
 
 	/*
 	 * I/O functions for optional type modifiers.
@@ -139,7 +141,7 @@ CATALOG(pg_type,1247,TypeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(71,TypeRelati
 	/*
 	 * Custom ANALYZE procedure for the datatype (0 selects the default).
 	 */
-	regproc		typanalyze BKI_DEFAULT(-) BKI_LOOKUP(pg_proc);
+	regproc		typanalyze BKI_DEFAULT(-) BKI_ARRAY_DEFAULT(array_typanalyze) BKI_LOOKUP(pg_proc);
 
 	/* ----------------
 	 * typalign is the alignment required when storing a value of this
@@ -177,7 +179,7 @@ CATALOG(pg_type,1247,TypeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(71,TypeRelati
 	 * 'm' MAIN		  like 'x' but try to keep in main tuple
 	 * ----------------
 	 */
-	char		typstorage BKI_DEFAULT(p);
+	char		typstorage BKI_DEFAULT(p) BKI_ARRAY_DEFAULT(x);
 
 	/*
 	 * This flag represents a "NOT NULL" constraint against this datatype.
@@ -209,10 +211,11 @@ CATALOG(pg_type,1247,TypeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(71,TypeRelati
 	int32		typndims BKI_DEFAULT(0);
 
 	/*
-	 * Collation: 0 if type cannot use collations, DEFAULT_COLLATION_OID for
-	 * collatable base types, possibly other OID for domains
+	 * Collation: 0 if type cannot use collations, nonzero (typically
+	 * DEFAULT_COLLATION_OID) for collatable base types, possibly some other
+	 * OID for domains over collatable types
 	 */
-	Oid			typcollation BKI_DEFAULT(0);
+	Oid			typcollation BKI_DEFAULT(0) BKI_LOOKUP(pg_collation);
 
 #ifdef CATALOG_VARLEN			/* variable-length fields start here */
 
@@ -221,7 +224,7 @@ CATALOG(pg_type,1247,TypeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(71,TypeRelati
 	 * a default expression for the type.  Currently this is only used for
 	 * domains.
 	 */
-	pg_node_tree typdefaultbin BKI_DEFAULT(_null_);
+	pg_node_tree typdefaultbin BKI_DEFAULT(_null_) BKI_ARRAY_DEFAULT(_null_);
 
 	/*
 	 * typdefault is NULL if the type has no associated default value. If
@@ -231,7 +234,7 @@ CATALOG(pg_type,1247,TypeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(71,TypeRelati
 	 * external representation of the type's default value, which may be fed
 	 * to the type's input converter to produce a constant.
 	 */
-	text		typdefault BKI_DEFAULT(_null_);
+	text		typdefault BKI_DEFAULT(_null_) BKI_ARRAY_DEFAULT(_null_);
 
 	/*
 	 * Access permissions
@@ -288,56 +291,57 @@ typedef FormData_pg_type *Form_pg_type;
 
 
 extern ObjectAddress TypeShellMake(const char *typeName,
-			  Oid typeNamespace,
-			  Oid ownerId);
+								   Oid typeNamespace,
+								   Oid ownerId);
 
 extern ObjectAddress TypeCreate(Oid newTypeOid,
-		   const char *typeName,
-		   Oid typeNamespace,
-		   Oid relationOid,
-		   char relationKind,
-		   Oid ownerId,
-		   int16 internalSize,
-		   char typeType,
-		   char typeCategory,
-		   bool typePreferred,
-		   char typDelim,
-		   Oid inputProcedure,
-		   Oid outputProcedure,
-		   Oid receiveProcedure,
-		   Oid sendProcedure,
-		   Oid typmodinProcedure,
-		   Oid typmodoutProcedure,
-		   Oid analyzeProcedure,
-		   Oid elementType,
-		   bool isImplicitArray,
-		   Oid arrayType,
-		   Oid baseType,
-		   const char *defaultTypeValue,
-		   char *defaultTypeBin,
-		   bool passedByValue,
-		   char alignment,
-		   char storage,
-		   int32 typeMod,
-		   int32 typNDims,
-		   bool typeNotNull,
-		   Oid typeCollation);
+								const char *typeName,
+								Oid typeNamespace,
+								Oid relationOid,
+								char relationKind,
+								Oid ownerId,
+								int16 internalSize,
+								char typeType,
+								char typeCategory,
+								bool typePreferred,
+								char typDelim,
+								Oid inputProcedure,
+								Oid outputProcedure,
+								Oid receiveProcedure,
+								Oid sendProcedure,
+								Oid typmodinProcedure,
+								Oid typmodoutProcedure,
+								Oid analyzeProcedure,
+								Oid elementType,
+								bool isImplicitArray,
+								Oid arrayType,
+								Oid baseType,
+								const char *defaultTypeValue,
+								char *defaultTypeBin,
+								bool passedByValue,
+								char alignment,
+								char storage,
+								int32 typeMod,
+								int32 typNDims,
+								bool typeNotNull,
+								Oid typeCollation);
 
 extern void GenerateTypeDependencies(Oid typeObjectId,
-						 Form_pg_type typeForm,
-						 Node *defaultExpr,
-						 void *typacl,
-						 char relationKind, /* only for relation rowtypes */
-						 bool isImplicitArray,
-						 bool isDependentType,
-						 bool rebuild);
+									 Form_pg_type typeForm,
+									 Node *defaultExpr,
+									 void *typacl,
+									 char relationKind, /* only for relation
+														 * rowtypes */
+									 bool isImplicitArray,
+									 bool isDependentType,
+									 bool rebuild);
 
 extern void RenameTypeInternal(Oid typeOid, const char *newTypeName,
-				   Oid typeNamespace);
+							   Oid typeNamespace);
 
 extern char *makeArrayTypeName(const char *typeName, Oid typeNamespace);
 
 extern bool moveArrayTypeName(Oid typeOid, const char *typeName,
-				  Oid typeNamespace);
+							  Oid typeNamespace);
 
 #endif							/* PG_TYPE_H */

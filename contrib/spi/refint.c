@@ -306,7 +306,7 @@ check_foreign_key(PG_FUNCTION_ARGS)
 		/* internal error */
 		elog(ERROR, "check_foreign_key: too short %d (< 5) list of arguments", nargs);
 
-	nrefs = pg_atoi(args[0], sizeof(int), 0);
+	nrefs = pg_strtoint32(args[0]);
 	if (nrefs < 1)
 		/* internal error */
 		elog(ERROR, "check_foreign_key: %d (< 1) number of references specified", nrefs);
@@ -473,9 +473,12 @@ check_foreign_key(PG_FUNCTION_ARGS)
 						nv = SPI_getvalue(newtuple, tupdesc, fn);
 						type = SPI_gettype(tupdesc, fn);
 
-						if ((strcmp(type, "text") && strcmp(type, "varchar") &&
-							 strcmp(type, "char") && strcmp(type, "bpchar") &&
-							 strcmp(type, "date") && strcmp(type, "timestamp")) == 0)
+						if (strcmp(type, "text") == 0 ||
+							strcmp(type, "varchar") == 0 ||
+							strcmp(type, "char") == 0 ||
+							strcmp(type, "bpchar") == 0 ||
+							strcmp(type, "date") == 0 ||
+							strcmp(type, "timestamp") == 0)
 							is_char_type = 1;
 #ifdef	DEBUG_QUERY
 						elog(DEBUG4, "check_foreign_key Debug value %s type %s %d",

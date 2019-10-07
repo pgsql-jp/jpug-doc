@@ -87,6 +87,7 @@
        In general, enclose the value in single quotes, doubling any single
        quotes within the value.  Quotes can usually be omitted if the value
        is a simple number or identifier, however.
+       (Values that match a SQL keyword require quoting in some contexts.)
 -->
 <emphasis>文字列型:</emphasis>
 一般に、単一引用符の中に値を入れます。
@@ -99,8 +100,14 @@
       <para>
 <!--
        <emphasis>Numeric (integer and floating point):</emphasis>
-       A decimal point is permitted only for floating-point parameters.
-       Do not use thousands separators.  Quotes are not required.
+       Numeric parameters can be specified in the customary integer and
+       floating-point formats; fractional values are rounded to the nearest
+       integer if the parameter is of integer type.  Integer parameters
+       additionally accept hexadecimal input (beginning
+       with <literal>0x</literal>) and octal input (beginning
+       with <literal>0</literal>), but these formats cannot have a fraction.
+       Do not use thousands separators.
+       Quotes are not required, except for hexadecimal input.
 -->
 <emphasis>数値型(整数型と浮動小数点型):</emphasis>
 小数点は浮動小数点型のパラメータでのみ使用できます。
@@ -155,7 +162,9 @@
         <listitem>
          <para>
 <!--
-          Valid time units are <literal>ms</literal> (milliseconds),
+          Valid time units are
+          <literal>us</literal> (microseconds),
+          <literal>ms</literal> (milliseconds),
           <literal>s</literal> (seconds), <literal>min</literal> (minutes),
           <literal>h</literal> (hours), and <literal>d</literal> (days).
 -->
@@ -163,6 +172,13 @@
          </para>
         </listitem>
        </itemizedlist>
+
+       If a fractional value is specified with a unit, it will be rounded
+       to a multiple of the next smaller unit if there is one.
+       For example, <literal>30.1 GB</literal> will be converted
+       to <literal>30822 MB</literal> not <literal>32319628902 B</literal>.
+       If the parameter is of integer type, a final rounding to integer
+       occurs after any units conversion.
       </para>
      </listitem>
 
@@ -218,6 +234,8 @@ shared_buffers = 128MB
      identifiers or numbers must be single-quoted.  To embed a single
      quote in a parameter value, write either two quotes (preferred)
      or backslash-quote.
+     If the file contains multiple entries for the same parameter,
+     all but the last one are ignored.
     -->
 1つの行毎に1つのパラメータが指定されます。
 名前と値の間の等号は省略可能です。
@@ -271,12 +289,13 @@ shared_buffers = 128MB
      In addition to <filename>postgresql.conf</filename>,
      a <productname>PostgreSQL</productname> data directory contains a file
      <filename>postgresql.auto.conf</filename><indexterm><primary>postgresql.auto.conf</primary></indexterm>,
-     which has the same format as <filename>postgresql.conf</filename> but should
-     never be edited manually.  This file holds settings provided through
-     the <xref linkend="sql-altersystem"/> command.  This file is automatically
-     read whenever <filename>postgresql.conf</filename> is, and its settings take
-     effect in the same way.  Settings in <filename>postgresql.auto.conf</filename>
-     override those in <filename>postgresql.conf</filename>.
+     which has the same format as <filename>postgresql.conf</filename> but
+     is intended to be edited automatically, not manually.  This file holds
+     settings provided through the <xref linkend="sql-altersystem"/> command.
+     This file is read whenever <filename>postgresql.conf</filename> is,
+     and its settings take effect in the same way.  Settings
+     in <filename>postgresql.auto.conf</filename> override those
+     in <filename>postgresql.conf</filename>.
 -->
 <filename>postgresql.conf</filename>に加え、<productname>PostgreSQL</productname>のデータディレクトリには <filename>postgresql.auto.conf</filename><indexterm><primary>postgresql.auto.conf</primary></indexterm>というファイルがあります。
 このファイルは <filename>postgresql.conf</filename> と同じフォーマットですが、決して手動で編集してはいけません。
@@ -286,10 +305,20 @@ shared_buffers = 128MB
     </para>
 
     <para>
+     External tools may also
+     modify <filename>postgresql.auto.conf</filename>.  It is not
+     recommended to do this while the server is running, since a
+     concurrent <command>ALTER SYSTEM</command> command could overwrite
+     such changes.  Such tools might simply append new settings to the end,
+     or they might choose to remove duplicate settings and/or comments
+     (as <command>ALTER SYSTEM</command> will).
+    </para>
+
+    <para>
 <!--
      The system view
      <link linkend="view-pg-file-settings"><structname>pg_file_settings</structname></link>
-     can be helpful for pre-testing changes to the configuration file, or for
+     can be helpful for pre-testing changes to the configuration files, or for
      diagnosing problems if a <systemitem>SIGHUP</systemitem> signal did not have the
      desired effects.
 -->
@@ -1069,8 +1098,7 @@ include_dir 'conf.d'
        <para>
        <!--
         The default value is three connections. The value must be less
-        than <varname>max_connections</varname> minus
-        <xref linkend="guc-max-wal-senders"/>.
+        than <varname>max_connections</varname>.
         This parameter can only be set at server start.
        -->
 デフォルトの値は3接続です。
@@ -1406,6 +1434,31 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
          This parameter is not supported on Windows, and must be zero.
           -->
           このパラメータはWindowsではサポートされておらず、ゼロでなければなりません。
+        </para>
+       </note>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-tcp-user-timeout" xreflabel="tcp_user_timeout">
+      <term><varname>tcp_user_timeout</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>tcp_user_timeout</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Specifies the number of milliseconds that transmitted data may
+        remain unacknowledged before a connection is forcibly closed.
+        A value of 0 uses the system default.
+        This parameter is supported only on systems that support
+        <symbol>TCP_USER_TIMEOUT</symbol>; on other systems, it must be zero.
+        In sessions connected via a Unix-domain socket, this parameter is
+        ignored and always reads as zero.
+       </para>
+       <note>
+        <para>
+         This parameter is not supported on Windows and on Linux version
+         2.6.36 or older.
         </para>
        </note>
       </listitem>
@@ -1897,7 +1950,7 @@ OpenSSLのバージョンにより、利用可能な暗号スイートの詳細�
         than the client's.
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
-        The default is <literal>true</literal>.
+        The default is <literal>on</literal>.
 -->
 サーバのSSL暗号設定をクライアントに優先して使うかどうかを指定します。
 このパラメータは、<filename>postgresql.conf</filename>ファイルか、サーバのコマンドラインでのみ設定可能です。
@@ -1960,6 +2013,50 @@ OpenSSLのバージョンにより、利用可能な暗号スイートの詳細�
         are usable in <acronym>TLS</acronym> though.
 -->
         利用できる曲線の完全なリストは<command>openssl ecparam -list_curves</command>で得られます。ただし、<acronym>TLS</acronym>ではこのすべてが利用できるわけではありません。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-ssl-min-protocol-version" xreflabel="ssl_min_protocol_version">
+      <term><varname>ssl_min_protocol_version</varname> (<type>enum</type>)
+      <indexterm>
+       <primary><varname>ssl_min_protocol_version</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Sets the minimum SSL/TLS protocol version to use.  Valid values are
+        currently: <literal>TLSv1</literal>, <literal>TLSv1.1</literal>,
+        <literal>TLSv1.2</literal>, <literal>TLSv1.3</literal>.  Older
+        versions of the <productname>OpenSSL</productname> library do not
+        support all values; an error will be raised if an unsupported setting
+        is chosen.  Protocol versions before TLS 1.0, namely SSL version 2 and
+        3, are always disabled.
+       </para>
+
+       <para>
+        The default is <literal>TLSv1</literal>, mainly to support older
+        versions of the <productname>OpenSSL</productname> library.  You might
+        want to set this to a higher value if all software components can
+        support the newer protocol versions.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-ssl-max-protocol-version" xreflabel="ssl_max_protocol_version">
+      <term><varname>ssl_max_protocol_version</varname> (<type>enum</type>)
+      <indexterm>
+       <primary><varname>ssl_max_protocol_version</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Sets the maximum SSL/TLS protocol version to use.  Valid values are as
+        for <xref linkend="guc-ssl-min-protocol-version"/>, with addition of
+        an empty string, which allows any protocol version.  The default is to
+        allow any version.  Setting the maximum protocol version is mainly
+        useful for testing or if some component has issues working with a
+        newer protocol.
        </para>
       </listitem>
      </varlistentry>
@@ -2071,12 +2168,12 @@ OpenSSLのバージョンにより、利用可能な暗号スイートの詳細�
         This parameter determines whether the passphrase command set by
         <varname>ssl_passphrase_command</varname> will also be called during a
         configuration reload if a key file needs a passphrase.  If this
-        parameter is false (the default), then
+        parameter is off (the default), then
         <varname>ssl_passphrase_command</varname> will be ignored during a
         reload and the SSL configuration will not be reloaded if a passphrase
         is needed.  That setting is appropriate for a command that requires a
         TTY for prompting, which might not be available when the server is
-        running.  Setting this parameter to true might be appropriate if the
+        running.  Setting this parameter to on might be appropriate if the
         passphrase is obtained from a file, for example.
 -->
 このパラメータは、キーにパスフレーズが必要な場合、設定ファイルの再読み込み中に<varname>ssl_passphrase_command</varname>で設定されたパスフレーズコマンドも呼び出されるかどうかを設定します。
@@ -2473,12 +2570,11 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         enforced by the kernel (as set by <literal>ulimit -s</literal> or local
         equivalent), less a safety margin of a megabyte or so.  The safety
         margin is needed because the stack depth is not checked in every
-        routine in the server, but only in key potentially-recursive routines
-        such as expression evaluation.  The default setting is two
-        megabytes (<literal>2MB</literal>), which is conservatively small and
-        unlikely to risk crashes.  However, it might be too small to allow
-        execution of complex functions.  Only superusers can change this
-        setting.
+        routine in the server, but only in key potentially-recursive routines.
+        The default setting is two megabytes (<literal>2MB</literal>), which
+        is conservatively small and unlikely to risk crashes.  However,
+        it might be too small to allow execution of complex functions.
+        Only superusers can change this setting.
        -->
 サーバの実行スタックの最大安全深度を指定します。
 このパラメータの理想的な設定はカーネルにより強要される実際のスタック容量の（<literal>ulimit -s</literal>もしくはそれと同等の機能で設定された）限界から、1メガバイト程度の安全余地を差し引いたものです。
@@ -2506,6 +2602,31 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-shared-memory-type" xreflabel="shared_memory_type">
+      <term><varname>shared_memory_type</varname> (<type>enum</type>)
+      <indexterm>
+       <primary><varname>shared_memory_type</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Specifies the shared memory implementation that the server
+        should use for the main shared memory region that holds
+        <productname>PostgreSQL</productname>'s shared buffers and other
+        shared data.  Possible values are <literal>mmap</literal> (for
+        anonymous shared memory allocated using <function>mmap</function>),
+        <literal>sysv</literal> (for System V shared memory allocated via
+        <function>shmget</function>) and <literal>windows</literal> (for Windows
+        shared memory).  Not all values are supported on all platforms; the
+        first supported option is the default for that platform.  The use of
+        the <literal>sysv</literal> option, which is not the default on any
+        platform, is generally discouraged because it typically requires
+        non-default kernel settings to allow for large allocations (see <xref
+        linkend="sysvipc"/>).
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-dynamic-shared-memory-type" xreflabel="dynamic_shared_memory_type">
       <term><varname>dynamic_shared_memory_type</varname> (<type>enum</type>)
       <indexterm>
@@ -2522,9 +2643,9 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         should use.  Possible values are <literal>posix</literal> (for POSIX shared
         memory allocated using <literal>shm_open</literal>), <literal>sysv</literal>
         (for System V shared memory allocated via <literal>shmget</literal>),
-        <literal>windows</literal> (for Windows shared memory), <literal>mmap</literal>
-        (to simulate shared memory using memory-mapped files stored in the
-        data directory), and <literal>none</literal> (to disable this feature).
+        <literal>windows</literal> (for Windows shared memory),
+        and <literal>mmap</literal> (to simulate shared memory using
+        memory-mapped files stored in the data directory).
         Not all values are supported on all platforms; the first supported
         option is the default for that platform.  The use of the
         <literal>mmap</literal> option, which is not the default on any platform,
@@ -2696,7 +2817,7 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
 
      <variablelist>
       <varlistentry id="guc-vacuum-cost-delay" xreflabel="vacuum_cost_delay">
-       <term><varname>vacuum_cost_delay</varname> (<type>integer</type>)
+       <term><varname>vacuum_cost_delay</varname> (<type>floating point</type>)
        <indexterm>
        <!--
         <primary><varname>vacuum_cost_delay</varname> configuration parameter</primary>
@@ -2711,11 +2832,6 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
          when the cost limit has been exceeded.
          The default value is zero, which disables the cost-based vacuum
          delay feature.  Positive values enable cost-based vacuuming.
-         Note that on many systems, the effective resolution
-         of sleep delays is 10 milliseconds; setting
-         <varname>vacuum_cost_delay</varname> to a value that is
-         not a multiple of 10 might have the same results as setting it
-         to the next higher multiple of 10.
         -->
         コストの限度を越えた場合、プロセスがスリープするミリ秒単位の時間の長さです。
 デフォルトの値は0で、コストに基づいたvacuum遅延機能を無効にします。
@@ -2728,8 +2844,14 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
        <!--
          When using cost-based vacuuming, appropriate values for
          <varname>vacuum_cost_delay</varname> are usually quite small, perhaps
-         10 or 20 milliseconds.  Adjusting vacuum's resource consumption
-         is best done by changing the other vacuum cost parameters.
+         less than 1 millisecond.  While <varname>vacuum_cost_delay</varname>
+         can be set to fractional-millisecond values, such delays may not be
+         measured accurately on older platforms.  On such platforms,
+         increasing <command>VACUUM</command>'s throttled resource consumption
+         above what you get at 1ms will require changing the other vacuum cost
+         parameters.  You should, nonetheless,
+         keep <varname>vacuum_cost_delay</varname> as small as your platform
+         will consistently measure; large delays are not helpful.
         -->
         コストに基づいたバキューム処理を使用する場合、<varname>vacuum_cost_delay</varname>の適切な値は通常かなり小さくなり、たいていは10または20ミリ秒になります。
         バキュームによるリソース消費の調整は、他のバキュームのコストパラメータを変更して行うことが最善です。
@@ -2987,7 +3109,11 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
       <varlistentry id="guc-bgwriter-flush-after" xreflabel="bgwriter_flush_after">
        <term><varname>bgwriter_flush_after</varname> (<type>integer</type>)
        <indexterm>
+<!--
         <primary><varname>bgwriter_flush_after</varname> configuration parameter</primary>
+       </indexterm>
+-->
+        <primary><varname>bgwriter_flush_after</varname>設定パラメータ</primary>
        </indexterm>
        </term>
        <listitem>

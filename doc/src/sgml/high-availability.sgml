@@ -1017,7 +1017,7 @@ WALファイル(16MB)は隣り合うシステム、同じサイトの別シス�
 <!--
     In standby mode, the server continuously applies WAL received from the
     master server. The standby server can read WAL from a WAL archive
-    (see <xref linkend="restore-command"/>) or directly from the master
+    (see <xref linkend="guc-restore-command"/>) or directly from the master
     over a TCP connection (streaming replication). The standby server will
     also attempt to restore any WAL found in the standby cluster's
     <filename>pg_wal</filename> directory. That typically happens after a server
@@ -1026,7 +1026,7 @@ WALファイル(16MB)は隣り合うシステム、同じサイトの別シス�
     <filename>pg_wal</filename> at any time to have them replayed.
 -->
 スタンバイモードでは、サーバは継続的にマスタサーバから受け取ったWALを適用します。
-スタンバイサーバはWALアーカイブ(<xref linkend="restore-command"/>参照)から、または直接TCP接続(ストリーミングレプリケーション)を介してマスタサーバから、WALを読み取ることができます。
+スタンバイサーバはWALアーカイブ(<xref linkend="guc-restore-command"/>参照)から、または直接TCP接続(ストリーミングレプリケーション)を介してマスタサーバから、WALを読み取ることができます。
 またスタンバイサーバはスタンバイクラスタの<filename>pg_wal</filename>ディレクトリにあるすべてのWALをリストアしようと試みます。
 これはよくサーバの再起動後、スタンバイが再起動前にマスタから流れ込んだWALを再生する時に発生します。
 しかしまたファイルを再生する任意の時点で、手作業で<filename>pg_wal</filename>にコピーすることもできます。
@@ -1058,7 +1058,7 @@ WALファイル(16MB)は隣り合うシステム、同じサイトの別シス�
 <!--
     Standby mode is exited and the server switches to normal operation
     when <command>pg_ctl promote</command> is run or a trigger file is found
-    (<varname>trigger_file</varname>). Before failover,
+    (<varname>promote_trigger_file</varname>). Before failover,
     any WAL immediately available in the archive or in <filename>pg_wal</filename> will be
     restored, but no attempt is made to connect to the master.
 -->
@@ -1124,13 +1124,12 @@ WALファイル(16MB)は隣り合うシステム、同じサイトの別シス�
    <para>
 <!--
     To set up the standby server, restore the base backup taken from primary
-    server (see <xref linkend="backup-pitr-recovery"/>). Create a recovery
-    command file <filename>recovery.conf</filename> in the standby's cluster data
-    directory, and turn on <varname>standby_mode</varname>. Set
-    <varname>restore_command</varname> to a simple command to copy files from
+    server (see <xref linkend="backup-pitr-recovery"/>). Create a file
+    <filename>standby.signal</filename> in the standby's cluster data
+    directory. Set <xref linkend="guc-restore-command"/> to a simple command to copy files from
     the WAL archive. If you plan to have multiple standby servers for high
-    availability purposes, set <varname>recovery_target_timeline</varname> to
-    <literal>latest</literal>, to make the standby server follow the timeline change
+    availability purposes, make sure that <varname>recovery_target_timeline</varname> is set to
+    <literal>latest</literal> (the default), to make the standby server follow the timeline change
     that occurs at failover to another standby.
 -->
 スタンバイサーバを設定するためには、プライマリサーバから取得したベースバックアップをリストアしてください(<xref linkend="backup-pitr-recovery"/>参照)。
@@ -1143,7 +1142,7 @@ WALアーカイブからファイルをコピーする簡単なコマンドを<v
      <para>
 <!--
      Do not use pg_standby or similar tools with the built-in standby mode
-     described here. <varname>restore_command</varname> should return immediately
+     described here. <xref linkend="guc-restore-command"/> should return immediately
      if the file does not exist; the server will retry the command again if
      necessary. See <xref linkend="log-shipping-alternative"/>
      for using tools like pg_standby.
@@ -1158,11 +1157,11 @@ pg_standbyのようなツールを使用するためには<xref linkend="log-shi
    <para>
 <!--
      If you want to use streaming replication, fill in
-     <varname>primary_conninfo</varname> with a libpq connection string, including
+     <xref linkend="guc-primary-conninfo"/> with a libpq connection string, including
      the host name (or IP address) and any additional details needed to
      connect to the primary server. If the primary needs a password for
      authentication, the password needs to be specified in
-     <varname>primary_conninfo</varname> as well.
+     <xref linkend="guc-primary-conninfo"/> as well.
 -->
 ストリーミングレプリケーションを使用したい場合には、ホスト名(またはIPアドレス)とプライマリサーバとの接続に必要な追加情報を含む、libpq接続文字列で<varname>primary_conninfo</varname>を記述してください。
 プライマリで認証用のパスワードが必要な場合は<varname>primary_conninfo</varname>にそのパスワードも指定する必要があります。
@@ -1181,7 +1180,7 @@ pg_standbyのようなツールを使用するためには<xref linkend="log-shi
    <para>
 <!--
     If you're using a WAL archive, its size can be minimized using the <xref
-    linkend="archive-cleanup-command"/> parameter to remove files that are no
+    linkend="guc-archive-cleanup-command"/> parameter to remove files that are no
     longer required by the standby server.
     The <application>pg_archivecleanup</application> utility is designed specifically to
     be used with <varname>archive_cleanup_command</varname> in typical single-standby
@@ -1190,19 +1189,18 @@ pg_standbyのようなツールを使用するためには<xref linkend="log-shi
     need to retain files needed to recover from at least the latest base
     backup, even if they're no longer needed by the standby.
 -->
-WALアーカイブを使用している場合、<xref linkend="archive-cleanup-command"/>パラメータを使用してスタンバイサーバで不要となったファイルを削除することで、その容量を最小化することができます。
+WALアーカイブを使用している場合、<xref linkend="guc-archive-cleanup-command"/>パラメータを使用してスタンバイサーバで不要となったファイルを削除することで、その容量を最小化することができます。
 特に<application>pg_archivecleanup</application>ユーティリティは、典型的な単一スタンバイ構成（<xref linkend="pgarchivecleanup"/>参照）における<varname>archive_cleanup_command</varname>と共に使用されるように設計されています。
 しかし、バックアップを目的にアーカイブを使用している場合には、スタンバイから必要とされなくなったファイルであっても、最新のベースバックアップの時点からリカバリするために必要なファイルを保持しなければならないことに注意してください。
    </para>
 
    <para>
 <!--
-    A simple example of a <filename>recovery.conf</filename> is:
+    A simple example of configuration is:
 -->
 <filename>recovery.conf</filename>の簡単な例を以下に示します。
 <programlisting>
-standby_mode = 'on'
-primary_conninfo = 'host=192.168.1.50 port=5432 user=foo password=foopass'
+primary_conninfo = 'host=192.168.1.50 port=5432 user=foo password=foopass options=''-c wal_sender_timeout=5000'''
 restore_command = 'cp /path/to/archive/%f %p'
 archive_cleanup_command = 'pg_archivecleanup /path/to/archive %r'
 </programlisting>
@@ -1282,8 +1280,8 @@ archive_cleanup_command = 'pg_archivecleanup /path/to/archive %r'
     To use streaming replication, set up a file-based log-shipping standby
     server as described in <xref linkend="warm-standby"/>. The step that
     turns a file-based log-shipping standby into streaming replication
-    standby is setting <varname>primary_conninfo</varname> setting in the
-    <filename>recovery.conf</filename> file to point to the primary server. Set
+    standby is setting the <varname>primary_conninfo</varname> setting
+    to point to the primary server. Set
     <xref linkend="guc-listen-addresses"/> and authentication options
     (see <filename>pg_hba.conf</filename>) on the primary so that the standby server
     can connect to the <literal>replication</literal> pseudo-database on the primary
@@ -1376,14 +1374,14 @@ host    replication     foo             192.168.1.100/32        md5
     <para>
 <!--
      The host name and port number of the primary, connection user name,
-     and password are specified in the <filename>recovery.conf</filename> file.
+     and password are specified in the <xref linkend="guc-primary-conninfo"/>.
      The password can also be set in the <filename>~/.pgpass</filename> file on the
      standby (specify <literal>replication</literal> in the <replaceable>database</replaceable>
      field).
      For example, if the primary is running on host IP <literal>192.168.1.50</literal>,
      port <literal>5432</literal>, the account name for replication is
      <literal>foo</literal>, and the password is <literal>foopass</literal>, the administrator
-     can add the following line to the <filename>recovery.conf</filename> file on the
+     can add the following line to the <filename>postgresql.conf</filename> file on the
      standby:
 -->
 プライマリサーバのホスト名とポート番号、接続する利用者名およびパスワードは、<filename>recovery.conf</filename>ファイルで指定します。
@@ -1509,7 +1507,7 @@ primary_conninfo = 'host=192.168.1.50 port=5432 user=foo password=foopass'
    </para>
    <sect3 id="streaming-replication-slots-manipulation">
 <!--
-    <title>Querying and manipulating replication slots</title>
+    <title>Querying and Manipulating Replication Slots</title>
 -->
     <title>レプリケーションスロットへの問い合わせと操作</title>
     <para>
@@ -1561,13 +1559,11 @@ postgres=# SELECT slot_name, slot_type, active FROM pg_replication_slots;
 </programlisting>
 <!--
      To configure the standby to use this slot, <varname>primary_slot_name</varname>
-     should be configured in the standby's <filename>recovery.conf</filename>.
-     Here is a simple example:
+     should be configured on the standby. Here is a simple example:
 -->
 スタンバイのレプリケーションスロットを使用できるように設定するためには、<varname>primary_slot_name</varname>をスタンバイ側の<filename>recovery.conf</filename>に設定します。
 以下は設定例です。：
 <programlisting>
-standby_mode = 'on'
 primary_conninfo = 'host=192.168.1.50 port=5432 user=foo password=foopass'
 primary_slot_name = 'node_a_slot'
 </programlisting>
@@ -1646,7 +1642,7 @@ primary_slot_name = 'node_a_slot'
 <!--
     If an upstream standby server is promoted to become new master, downstream
     servers will continue to stream from the new master if
-    <varname>recovery_target_timeline</varname> is set to <literal>'latest'</literal>.
+    <varname>recovery_target_timeline</varname> is set to <literal>'latest'</literal> (the default).
 -->
 上流スタンバイサーバが昇格し、新しいマスターサーバになった場合、<varname>recovery_target_timeline</varname>が<literal>'latest'</literal>に設定されていれば、下流サーバは新マスターサーバからのストリーミングレプリケーションを継続します。
    </para>
@@ -2110,14 +2106,14 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
 
    <para>
 <!--
-    If primary restarts while commits are waiting for acknowledgement, those
+    If primary restarts while commits are waiting for acknowledgment, those
     waiting transactions will be marked fully committed once the primary
     database recovers.
     There is no way to be certain that all standbys have received all
     outstanding WAL data at time of the crash of the primary. Some
     transactions may not show as committed on the standby, even though
     they show as committed on the primary. The guarantee we offer is that
-    the application will not receive explicit acknowledgement of the
+    the application will not receive explicit acknowledgment of the
     successful commit of a transaction until the WAL data is known to be
     safely received by all the synchronous standbys.
 -->
@@ -2164,7 +2160,7 @@ PostgreSQLは、WALデータをすべてのスタンバイが安全に受信し�
 
   <sect2 id="continuous-archiving-in-standby">
 <!--
-   <title>Continuous archiving in standby</title>
+   <title>Continuous Archiving in Standby</title>
 -->
    <title>スタンバイにおける継続的アーカイビング</title>
 
@@ -2342,14 +2338,16 @@ WALアーカイブがプライマリとスタンバイで共有されるケー�
 
    <para>
 <!--
-    To trigger failover of a log-shipping standby server,
-    run <command>pg_ctl promote</command> or create a trigger
-    file with the file name and path specified by the <varname>trigger_file</varname>
-    setting in <filename>recovery.conf</filename>. If you're planning to use
-    <command>pg_ctl promote</command> to fail over, <varname>trigger_file</varname> is
-    not required. If you're setting up the reporting servers that are
-    only used to offload read-only queries from the primary, not for high
-    availability purposes, you don't need to promote it.
+    To trigger failover of a log-shipping standby server, run
+    <command>pg_ctl promote</command>, call <function>pg_promote</function>,
+    or create a trigger file with the file name and path specified by the
+    <varname>promote_trigger_file</varname>. If you're planning to use
+    <command>pg_ctl promote</command> or to call
+    <function>pg_promote</function> to fail over,
+    <varname>promote_trigger_file</varname> is not required. If you're
+    setting up the reporting servers that are only used to offload read-only
+    queries from the primary, not for high availability purposes, you don't
+    need to promote it.
 -->
 ログシッピングを行うスタンバイサーバのフェイルオーバーを発生させるためには、<command>pg_ctl promote</command>を実行する、あるいは、<filename>recovery.conf</filename>内の<varname>trigger_file</varname>設定によって指定されるファイル名とパスを持つトリガファイルを作成してください。
 フェイルオーバーのために<command>pg_ctl promote</command>を使用するつもりならば、<varname>trigger_file</varname>は必要ありません。
@@ -2367,11 +2365,8 @@ WALアーカイブがプライマリとスタンバイで共有されるケー�
 <!--
     An alternative to the built-in standby mode described in the previous
     sections is to use a <varname>restore_command</varname> that polls the archive location.
-    This was the only option available in versions 8.4 and below. In this
-    setup, set <varname>standby_mode</varname> off, because you are implementing
-    the polling required for standby operation yourself. See the
-    <xref linkend="pgstandby"/> module for a reference
-    implementation of this.
+    This was the only option available in versions 8.4 and below. See the
+    <xref linkend="pgstandby"/> module for a reference implementation of this.
 -->
 これまでの節で説明した組み込みのスタンバイモードの他の方法として、アーカイブ場所を順次問い合わせる<varname>restore_command</varname>を使用する方法があります。
 これはバージョン8.4以前では唯一の利用可能な選択肢でした。
@@ -2418,12 +2413,11 @@ WALアーカイブがプライマリとスタンバイで共有されるケー�
     The magic that makes the two loosely coupled servers work together is
     simply a <varname>restore_command</varname> used on the standby that,
     when asked for the next WAL file, waits for it to become available from
-    the primary. The <varname>restore_command</varname> is specified in the
-    <filename>recovery.conf</filename> file on the standby server. Normal recovery
+    the primary. Normal recovery
     processing would request a file from the WAL archive, reporting failure
     if the file was unavailable.  For standby processing it is normal for
     the next WAL file to be unavailable, so the standby must wait for
-    it to appear. For files ending in 
+    it to appear. For files ending in
     <literal>.history</literal> there is no need to wait, and a non-zero return
     code must be returned. A waiting <varname>restore_command</varname> can be
     written as a custom script that loops after polling for the existence of
@@ -2554,9 +2548,8 @@ if (!triggered)
       <para>
 <!--
        Begin recovery on the standby server from the local WAL
-       archive, using a <filename>recovery.conf</filename> that specifies a
-       <varname>restore_command</varname> that waits as described
-       previously (see <xref linkend="backup-pitr-recovery"/>).
+       archive, using <varname>restore_command</varname> that waits
+       as described previously (see <xref linkend="backup-pitr-recovery"/>).
 -->
 スタンバイサーバで、上記の通り待機を行う<varname>restore_command</varname>を指定した<filename>recovery.conf</filename>を使用して、ローカルなWALアーカイブからリカバリ処理を実行してください（<xref linkend="backup-pitr-recovery"/>を参照してください）。
       </para>
@@ -2591,7 +2584,7 @@ if (!triggered)
 
   <sect2 id="warm-standby-record">
 <!--
-   <title>Record-based Log Shipping</title>
+   <title>Record-Based Log Shipping</title>
 -->
    <title>レコードベースのログシッピング</title>
 
@@ -2816,6 +2809,11 @@ if (!triggered)
        Plugins and extensions - <command>LOAD</command>
 -->
 プラグインと拡張 - <command>LOAD</command>
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+       <command>UNLISTEN</command>
       </para>
      </listitem>
      <listitem>
@@ -3338,7 +3336,7 @@ WALに記録された操作はすでにプライマリで発生したもので�
    <para>
 <!--
     If <varname>hot_standby</varname> is <literal>on</literal> in <filename>postgresql.conf</filename>
-    (the default value) and there is a <filename>recovery.conf</filename>
+    (the default value) and there is a <filename>standby.signal</filename>
     file present, the server will run in Hot Standby mode.
     However, it may take some time for Hot Standby connections to be allowed,
     because the server will not accept connections until it has completed
@@ -3440,6 +3438,11 @@ LOG:  database system is ready to accept read only connections
        <listitem>
         <para>
          <varname>max_locks_per_transaction</varname>
+        </para>
+       </listitem>
+       <listitem>
+        <para>
+         <varname>max_wal_senders</varname>
         </para>
        </listitem>
        <listitem>

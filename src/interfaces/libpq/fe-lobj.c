@@ -3,7 +3,7 @@
  * fe-lobj.c
  *	  Front-end large object interface
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -341,7 +341,7 @@ lo_write(PGconn *conn, int fd, const char *buf, size_t len)
 
 	argv[1].isint = 0;
 	argv[1].len = (int) len;
-	argv[1].u.ptr = (int *) buf;
+	argv[1].u.ptr = (int *) unconstify(char *, buf);
 
 	res = PQfn(conn, conn->lobjfuncs->fn_lo_write,
 			   &retval, &result_len, 1, argv, 2);
@@ -694,7 +694,7 @@ lo_import_internal(PGconn *conn, const char *filename, Oid oid)
 	char		buf[LO_BUFSIZE];
 	Oid			lobjOid;
 	int			lobj;
-	char		sebuf[256];
+	char		sebuf[PG_STRERROR_R_BUFLEN];
 
 	/*
 	 * open the file to be read in
@@ -704,7 +704,7 @@ lo_import_internal(PGconn *conn, const char *filename, Oid oid)
 	{							/* error */
 		printfPQExpBuffer(&conn->errorMessage,
 						  libpq_gettext("could not open file \"%s\": %s\n"),
-						  filename, pqStrerror(errno, sebuf, sizeof(sebuf)));
+						  filename, strerror_r(errno, sebuf, sizeof(sebuf)));
 		return InvalidOid;
 	}
 
@@ -760,7 +760,7 @@ lo_import_internal(PGconn *conn, const char *filename, Oid oid)
 		printfPQExpBuffer(&conn->errorMessage,
 						  libpq_gettext("could not read from file \"%s\": %s\n"),
 						  filename,
-						  pqStrerror(save_errno, sebuf, sizeof(sebuf)));
+						  strerror_r(save_errno, sebuf, sizeof(sebuf)));
 		return InvalidOid;
 	}
 
@@ -789,7 +789,7 @@ lo_export(PGconn *conn, Oid lobjId, const char *filename)
 				tmp;
 	char		buf[LO_BUFSIZE];
 	int			lobj;
-	char		sebuf[256];
+	char		sebuf[PG_STRERROR_R_BUFLEN];
 
 	/*
 	 * open the large object.
@@ -814,7 +814,7 @@ lo_export(PGconn *conn, Oid lobjId, const char *filename)
 		printfPQExpBuffer(&conn->errorMessage,
 						  libpq_gettext("could not open file \"%s\": %s\n"),
 						  filename,
-						  pqStrerror(save_errno, sebuf, sizeof(sebuf)));
+						  strerror_r(save_errno, sebuf, sizeof(sebuf)));
 		return -1;
 	}
 
@@ -834,7 +834,7 @@ lo_export(PGconn *conn, Oid lobjId, const char *filename)
 			printfPQExpBuffer(&conn->errorMessage,
 							  libpq_gettext("could not write to file \"%s\": %s\n"),
 							  filename,
-							  pqStrerror(save_errno, sebuf, sizeof(sebuf)));
+							  strerror_r(save_errno, sebuf, sizeof(sebuf)));
 			return -1;
 		}
 	}
@@ -857,7 +857,7 @@ lo_export(PGconn *conn, Oid lobjId, const char *filename)
 	{
 		printfPQExpBuffer(&conn->errorMessage,
 						  libpq_gettext("could not write to file \"%s\": %s\n"),
-						  filename, pqStrerror(errno, sebuf, sizeof(sebuf)));
+						  filename, strerror_r(errno, sebuf, sizeof(sebuf)));
 		result = -1;
 	}
 

@@ -6,7 +6,7 @@ use strict;
 
 use File::Basename;
 use File::Spec;
-BEGIN  { use lib File::Spec->rel2abs(dirname(__FILE__)); }
+BEGIN { use lib File::Spec->rel2abs(dirname(__FILE__)); }
 
 use Cwd;
 
@@ -52,15 +52,11 @@ elsif (uc($ARGV[0]) ne "RELEASE")
 
 # ... and do it
 
-if ($buildwhat and $vcver >= 10.00)
+if ($buildwhat)
 {
 	system(
 		"msbuild $buildwhat.vcxproj /verbosity:normal $msbflags /p:Configuration=$bconf"
 	);
-}
-elsif ($buildwhat)
-{
-	system("vcbuild $msbflags $buildwhat.vcproj $bconf");
 }
 else
 {

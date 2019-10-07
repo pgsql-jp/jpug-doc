@@ -292,6 +292,14 @@ there.
 </para>
 
 <para>
+ Note that the following sections describe the behavior of the builtin
+ <literal>heap</literal> <link linkend="tableam">table access method</link>,
+ and the builtin <link linkend="indexam">index access methods</link>. Due
+ to the extensible nature of <productname>PostgreSQL</productname>, other
+ access methods might work differently.
+</para>
+
+<para>
 <!--
 Each table and index is stored in a separate file.  For ordinary relations,
 these files are named after the table or index's <firstterm>filenode</firstterm> number,
@@ -611,7 +619,7 @@ of the LZ family of compression techniques.  See
 
 <sect2 id="storage-toast-ondisk">
 <!--
- <title>Out-of-line, on-disk TOAST storage</title>
+ <title>Out-of-Line, On-Disk TOAST Storage</title>
 -->
  <title>行外ディスク上のTOAST格納</title>
 
@@ -790,7 +798,7 @@ comparison table, in which all the HTML pages were cut down to 7 kB to fit.
 
 <sect2 id="storage-toast-inmemory">
 <!--
- <title>Out-of-line, in-memory TOAST storage</title>
+ <title>Out-of-Line, In-Memory TOAST Storage</title>
 -->
  <title>行外インメモリのTOAST格納</title>
 
@@ -1084,9 +1092,10 @@ erased (they will be recreated automatically as needed).
 This section provides an overview of the page format used within
 <productname>PostgreSQL</productname> tables and indexes.<footnote>
   <para>
-    Actually, index access methods need not use this page format.
-    All the existing index methods do use this basic format,
-    but the data kept on index metapages usually doesn't follow
+    Actually, use of this page format is not required for either table or
+    index access methods. The <literal>heap</literal> table access method
+    always uses this format.  All the existing index methods also use the
+    basic format, but the data kept on index metapages usually doesn't follow
     the item layout rules.
   </para>
 </footnote>
@@ -1446,6 +1455,20 @@ data. Empty in ordinary tables.</entry>
 
  </para>
 
+ <para>
+  <xref linkend="storage-page-layout-figure"/> illustrates how these parts are
+  laid out in a page.
+ </para>
+
+ <figure id="storage-page-layout-figure">
+  <title>Page Layout</title>
+  <mediaobject>
+   <imageobject>
+    <imagedata fileref="images/pagelayout.svg" format="SVG" width="100%"/>
+   </imageobject>
+  </mediaobject>
+ </figure>
+
  <sect2 id="storage-tuple-layout">
 
 <!--
@@ -1468,10 +1491,11 @@ data. Empty in ordinary tables.</entry>
   only present if the <firstterm>HEAP_HASNULL</firstterm> bit is set in
   <structfield>t_infomask</structfield>. If it is present it begins just after
   the fixed header and occupies enough bytes to have one bit per data column
-  (that is, <structfield>t_natts</structfield> bits altogether). In this list of bits, a
+  (that is, the number of bits that equals the attribute count in
+  <structfield>t_infomask2</structfield>). In this list of bits, a
   1 bit indicates not-null, a 0 bit is a null.  When the bitmap is not
   present, all columns are assumed not-null.
-  The object ID is only present if the <firstterm>HEAP_HASOID</firstterm> bit
+  The object ID is only present if the <firstterm>HEAP_HASOID_OLD</firstterm> bit
   is set in <structfield>t_infomask</structfield>.  If present, it appears just
   before the <structfield>t_hoff</structfield> boundary.  Any padding needed to make
   <structfield>t_hoff</structfield> a MAXALIGN multiple will appear between the null

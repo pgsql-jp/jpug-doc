@@ -1,12 +1,29 @@
 -- Creating an index on a partitioned table makes the partitions
 -- automatically get the index
 create table idxpart (a int, b int, c text) partition by range (a);
+
+-- relhassubclass of a partitioned index is false before creating any partition.
+-- It will be set after the first partition is created.
+create index idxpart_idx on idxpart (a);
+select relhassubclass from pg_class where relname = 'idxpart_idx';
+
+-- Check that partitioned indexes are present in pg_indexes.
+select indexdef from pg_indexes where indexname like 'idxpart_idx%';
+drop index idxpart_idx;
+
 create table idxpart1 partition of idxpart for values from (0) to (10);
 create table idxpart2 partition of idxpart for values from (10) to (100)
 	partition by range (b);
 create table idxpart21 partition of idxpart2 for values from (0) to (100);
+
+-- Even with partitions, relhassubclass should not be set if a partitioned
+-- index is created only on the parent.
+create index idxpart_idx on only idxpart(a);
+select relhassubclass from pg_class where relname = 'idxpart_idx';
+drop index idxpart_idx;
+
 create index on idxpart (a);
-select relname, relkind, inhparent::regclass
+select relname, relkind, relhassubclass, inhparent::regclass
     from pg_class left join pg_index ix on (indexrelid = oid)
 	left join pg_inherits on (ix.indexrelid = inhrelid)
 	where relname like 'idxpart%' order by relname;
@@ -54,7 +71,7 @@ create table idxpart1 partition of idxpart for values from (0, 0) to (10, 10);
 create index on idxpart1 (a, b);
 create index on idxpart (a, b);
 \d idxpart1
-select relname, relkind, inhparent::regclass
+select relname, relkind, relhassubclass, inhparent::regclass
     from pg_class left join pg_index ix on (indexrelid = oid)
 	left join pg_inherits on (ix.indexrelid = inhrelid)
 	where relname like 'idxpart%' order by relname;
@@ -231,6 +248,16 @@ drop index idxpart_a_idx;
 select relname, relkind from pg_class where relname like 'idxpart%' order by relname;
 drop table idxpart, idxpart1, idxpart2, idxpart3;
 select relname, relkind from pg_class where relname like 'idxpart%' order by relname;
+
+create table idxpart (a int, b int, c int) partition by range(a);
+create index on idxpart(c);
+create table idxpart1 partition of idxpart for values from (0) to (250);
+create table idxpart2 partition of idxpart for values from (250) to (500);
+alter table idxpart detach partition idxpart2;
+\d idxpart2
+alter table idxpart2 drop column c;
+\d idxpart2
+drop table idxpart, idxpart2;
 
 -- Verify that expression indexes inherit correctly
 create table idxpart (a int, b int) partition by range (a);
@@ -551,6 +578,18 @@ select indrelid::regclass, indexrelid::regclass, inhparent::regclass, indisvalid
   order by indexrelid::regclass::text collate "C";
 drop table idxpart;
 
+-- Related to the above scenario: ADD PRIMARY KEY on the parent mustn't
+-- automatically propagate NOT NULL to child columns.
+create table idxpart (a int) partition by range (a);
+create table idxpart0 (like idxpart);
+alter table idxpart0 add unique (a);
+alter table idxpart attach partition idxpart0 default;
+alter table only idxpart add primary key (a);  -- fail, no NOT NULL constraint
+alter table idxpart0 alter column a set not null;
+alter table only idxpart add primary key (a);  -- now it works
+alter table idxpart0 alter column a drop not null;  -- fail, pkey needs it
+drop table idxpart;
+
 -- if a partition has a unique index without a constraint, does not attach
 -- automatically; creates a new index instead.
 create table idxpart (a int, b int) partition by range (a);
@@ -593,120 +632,6 @@ insert into idxpart values (857142, 'six');
 select tableoid::regclass, * from idxpart order by a;
 drop table idxpart;
 
--- test fastpath mechanism for index insertion
-create table fastpath (a int, b text, c numeric);
-create unique index fpindex1 on fastpath(a);
-
-insert into fastpath values (1, 'b1', 100.00);
-insert into fastpath values (1, 'b1', 100.00); -- unique key check
-
-truncate fastpath;
-insert into fastpath select generate_series(1,10000), 'b', 100;
-
--- vacuum the table so as to improve chances of index-only scans. we can't
--- guarantee if index-only scans will be picked up in all cases or not, but
--- that fuzziness actually helps the test.
-vacuum fastpath;
-
-set enable_seqscan to false;
-set enable_bitmapscan to false;
-
-select sum(a) from fastpath where a = 6456;
-select sum(a) from fastpath where a >= 5000 and a < 5700;
-
--- drop the only index on the table and compute hashes for
--- a few queries which orders the results in various different ways.
-drop index fpindex1;
-truncate fastpath;
-insert into fastpath select y.x, 'b' || (y.x/10)::text, 100 from (select generate_series(1,10000) as x) y;
-select md5(string_agg(a::text, b order by a, b asc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-select md5(string_agg(a::text, b order by a desc, b desc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-select md5(string_agg(a::text, b order by b, a desc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-select md5(string_agg(a::text, b order by b, a asc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-
--- now create a multi-column index with both column asc
-create index fpindex2 on fastpath(a, b);
-truncate fastpath;
-insert into fastpath select y.x, 'b' || (y.x/10)::text, 100 from (select generate_series(1,10000) as x) y;
--- again, vacuum here either forces index-only scans or creates fuzziness
-vacuum fastpath;
-select md5(string_agg(a::text, b order by a, b asc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-select md5(string_agg(a::text, b order by a desc, b desc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-select md5(string_agg(a::text, b order by b, a desc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-select md5(string_agg(a::text, b order by b, a asc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-
--- same queries with a different kind of index now. the final result must not
--- change irrespective of what kind of index we have.
-drop index fpindex2;
-create index fpindex3 on fastpath(a desc, b asc);
-truncate fastpath;
-insert into fastpath select y.x, 'b' || (y.x/10)::text, 100 from (select generate_series(1,10000) as x) y;
-vacuum fastpath;
-select md5(string_agg(a::text, b order by a, b asc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-select md5(string_agg(a::text, b order by a desc, b desc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-select md5(string_agg(a::text, b order by b, a desc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-select md5(string_agg(a::text, b order by b, a asc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-
--- repeat again
-drop index fpindex3;
-create index fpindex4 on fastpath(a asc, b desc);
-truncate fastpath;
-insert into fastpath select y.x, 'b' || (y.x/10)::text, 100 from (select generate_series(1,10000) as x) y;
-vacuum fastpath;
-select md5(string_agg(a::text, b order by a, b asc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-select md5(string_agg(a::text, b order by a desc, b desc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-select md5(string_agg(a::text, b order by b, a desc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-select md5(string_agg(a::text, b order by b, a asc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-
--- and again, this time indexing by (b, a). Note that column "b" has non-unique
--- values.
-drop index fpindex4;
-create index fpindex5 on fastpath(b asc, a desc);
-truncate fastpath;
-insert into fastpath select y.x, 'b' || (y.x/10)::text, 100 from (select generate_series(1,10000) as x) y;
-vacuum fastpath;
-select md5(string_agg(a::text, b order by a, b asc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-select md5(string_agg(a::text, b order by a desc, b desc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-select md5(string_agg(a::text, b order by b, a desc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-select md5(string_agg(a::text, b order by b, a asc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-
--- one last time
-drop index fpindex5;
-create index fpindex6 on fastpath(b desc, a desc);
-truncate fastpath;
-insert into fastpath select y.x, 'b' || (y.x/10)::text, 100 from (select generate_series(1,10000) as x) y;
-vacuum fastpath;
-select md5(string_agg(a::text, b order by a, b asc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-select md5(string_agg(a::text, b order by a desc, b desc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-select md5(string_agg(a::text, b order by b, a desc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-select md5(string_agg(a::text, b order by b, a asc)) from fastpath
-	where a >= 1000 and a < 2000 and b > 'b1' and b < 'b3';
-
-drop table fastpath;
-
 -- intentionally leave some objects around
 create table idxpart (a int) partition by range (a);
 create table idxpart1 partition of idxpart for values from (0) to (100);
@@ -725,6 +650,25 @@ alter table idxpart3 drop column b, drop column c;
 create table idxpart31 partition of idxpart3 for values from (1000) to (1200);
 create table idxpart32 partition of idxpart3 for values from (1200) to (1400);
 alter table idxpart attach partition idxpart3 for values from (1000) to (2000);
+
+-- More objects intentionally left behind, to verify some pg_dump/pg_upgrade
+-- behavior; see https://postgr.es/m/20190321204928.GA17535@alvherre.pgsql
+create schema regress_indexing;
+set search_path to regress_indexing;
+create table pk (a int primary key) partition by range (a);
+create table pk1 partition of pk for values from (0) to (1000);
+create table pk2 (b int, a int);
+alter table pk2 drop column b;
+alter table pk2 alter a set not null;
+alter table pk attach partition pk2 for values from (1000) to (2000);
+create table pk3 partition of pk for values from (2000) to (3000);
+create table pk4 (like pk);
+alter table pk attach partition pk4 for values from (3000) to (4000);
+create table pk5 (like pk) partition by range (a);
+create table pk51 partition of pk5 for values from (4000) to (4500);
+create table pk52 partition of pk5 for values from (4500) to (5000);
+alter table pk attach partition pk5 for values from (4000) to (5000);
+reset search_path;
 
 -- Test that covering partitioned indexes work in various cases
 create table covidxpart (a int, b int) partition by list (a);

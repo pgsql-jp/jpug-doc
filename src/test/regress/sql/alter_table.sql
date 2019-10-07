@@ -35,11 +35,7 @@ ALTER TABLE attmp ADD COLUMN f int2;
 
 ALTER TABLE attmp ADD COLUMN g polygon;
 
-ALTER TABLE attmp ADD COLUMN h abstime;
-
 ALTER TABLE attmp ADD COLUMN i char;
-
-ALTER TABLE attmp ADD COLUMN j abstime[];
 
 ALTER TABLE attmp ADD COLUMN k int4;
 
@@ -50,7 +46,7 @@ ALTER TABLE attmp ADD COLUMN m xid;
 ALTER TABLE attmp ADD COLUMN n oidvector;
 
 --ALTER TABLE attmp ADD COLUMN o lock;
-ALTER TABLE attmp ADD COLUMN p smgr;
+ALTER TABLE attmp ADD COLUMN p boolean;
 
 ALTER TABLE attmp ADD COLUMN q point;
 
@@ -59,8 +55,6 @@ ALTER TABLE attmp ADD COLUMN r lseg;
 ALTER TABLE attmp ADD COLUMN s path;
 
 ALTER TABLE attmp ADD COLUMN t box;
-
-ALTER TABLE attmp ADD COLUMN u tinterval;
 
 ALTER TABLE attmp ADD COLUMN v timestamp;
 
@@ -72,13 +66,13 @@ ALTER TABLE attmp ADD COLUMN y float4[];
 
 ALTER TABLE attmp ADD COLUMN z int2[];
 
-INSERT INTO attmp (a, b, c, d, e, f, g, h, i, j, k, l, m, n, p, q, r, s, t, u,
+INSERT INTO attmp (a, b, c, d, e, f, g,    i,    k, l, m, n, p, q, r, s, t,
 	v, w, x, y, z)
    VALUES (4, 'name', 'text', 4.1, 4.1, 2, '(4.1,4.1,3.1,3.1)',
-        'Mon May  1 00:30:30 1995', 'c', '{Mon May  1 00:30:30 1995, Monday Aug 24 14:43:07 1992, epoch}',
+	'c',
 	314159, '(1,1)', '512',
-	'1 2 3 4 5 6 7 8', 'magnetic disk', '(1.1,1.1)', '(4.1,4.1,3.1,3.1)',
-	'(0,2,4.1,4.1,3.1,3.1)', '(4.1,4.1,3.1,3.1)', '["epoch" "infinity"]',
+	'1 2 3 4 5 6 7 8', true, '(1.1,1.1)', '(4.1,4.1,3.1,3.1)',
+	'(0,2,4.1,4.1,3.1,3.1)', '(4.1,4.1,3.1,3.1)',
 	'epoch', '01:00:10', '{1.0,2.0,3.0,4.0}', '{1.0,2.0,3.0,4.0}', '{1,2,3,4}');
 
 SELECT * FROM attmp;
@@ -104,11 +98,7 @@ ALTER TABLE attmp ADD COLUMN f int2;
 
 ALTER TABLE attmp ADD COLUMN g polygon;
 
-ALTER TABLE attmp ADD COLUMN h abstime;
-
 ALTER TABLE attmp ADD COLUMN i char;
-
-ALTER TABLE attmp ADD COLUMN j abstime[];
 
 ALTER TABLE attmp ADD COLUMN k int4;
 
@@ -119,7 +109,7 @@ ALTER TABLE attmp ADD COLUMN m xid;
 ALTER TABLE attmp ADD COLUMN n oidvector;
 
 --ALTER TABLE attmp ADD COLUMN o lock;
-ALTER TABLE attmp ADD COLUMN p smgr;
+ALTER TABLE attmp ADD COLUMN p boolean;
 
 ALTER TABLE attmp ADD COLUMN q point;
 
@@ -128,8 +118,6 @@ ALTER TABLE attmp ADD COLUMN r lseg;
 ALTER TABLE attmp ADD COLUMN s path;
 
 ALTER TABLE attmp ADD COLUMN t box;
-
-ALTER TABLE attmp ADD COLUMN u tinterval;
 
 ALTER TABLE attmp ADD COLUMN v timestamp;
 
@@ -141,13 +129,13 @@ ALTER TABLE attmp ADD COLUMN y float4[];
 
 ALTER TABLE attmp ADD COLUMN z int2[];
 
-INSERT INTO attmp (a, b, c, d, e, f, g, h, i, j, k, l, m, n, p, q, r, s, t, u,
+INSERT INTO attmp (a, b, c, d, e, f, g,    i,   k, l, m, n, p, q, r, s, t,
 	v, w, x, y, z)
    VALUES (4, 'name', 'text', 4.1, 4.1, 2, '(4.1,4.1,3.1,3.1)',
-        'Mon May  1 00:30:30 1995', 'c', '{Mon May  1 00:30:30 1995, Monday Aug 24 14:43:07 1992, epoch}',
+        'c',
 	314159, '(1,1)', '512',
-	'1 2 3 4 5 6 7 8', 'magnetic disk', '(1.1,1.1)', '(4.1,4.1,3.1,3.1)',
-	'(0,2,4.1,4.1,3.1,3.1)', '(4.1,4.1,3.1,3.1)', '["epoch" "infinity"]',
+	'1 2 3 4 5 6 7 8', true, '(1.1,1.1)', '(4.1,4.1,3.1,3.1)',
+	'(0,2,4.1,4.1,3.1,3.1)', '(4.1,4.1,3.1,3.1)',
 	'epoch', '01:00:10', '{1.0,2.0,3.0,4.0}', '{1.0,2.0,3.0,4.0}', '{1,2,3,4}');
 
 SELECT * FROM attmp;
@@ -652,7 +640,7 @@ drop table atacc1;
 
 -- test unique constraint adding
 
-create table atacc1 ( test int ) with oids;
+create table atacc1 ( test int ) ;
 -- add a unique constraint
 alter table atacc1 add constraint atacc_test1 unique (test);
 -- insert first value
@@ -661,8 +649,6 @@ insert into atacc1 (test) values (2);
 insert into atacc1 (test) values (2);
 -- should succeed
 insert into atacc1 (test) values (4);
--- try adding a unique oid constraint
-alter table atacc1 add constraint atacc_oid1 unique(oid);
 -- try to create duplicates via alter table using - should fail
 alter table atacc1 alter column test type integer using 0;
 drop table atacc1;
@@ -708,7 +694,7 @@ drop table atacc1;
 
 -- test primary key constraint adding
 
-create table atacc1 ( test int ) with oids;
+create table atacc1 ( id serial, test int) ;
 -- add a primary key constraint
 alter table atacc1 add constraint atacc_test1 primary key (test);
 -- insert first value
@@ -720,11 +706,11 @@ insert into atacc1 (test) values (4);
 -- inserting NULL should fail
 insert into atacc1 (test) values(NULL);
 -- try adding a second primary key (should fail)
-alter table atacc1 add constraint atacc_oid1 primary key(oid);
+alter table atacc1 add constraint atacc_oid1 primary key(id);
 -- drop first primary key constraint
 alter table atacc1 drop constraint atacc_test1 restrict;
 -- try adding a primary key on oid (should succeed)
-alter table atacc1 add constraint atacc_oid1 primary key(oid);
+alter table atacc1 add constraint atacc_oid1 primary key(id);
 drop table atacc1;
 
 -- let's do one where the primary key constraint fails when added
@@ -761,6 +747,14 @@ insert into atacc1 (test) values (0);
 alter table atacc1 add column test2 int primary key;
 -- now add a primary key column with a default (succeeds).
 alter table atacc1 add column test2 int default 0 primary key;
+drop table atacc1;
+
+-- this combination used to have order-of-execution problems (bug #15580)
+create table atacc1 (a int);
+insert into atacc1 values(1);
+alter table atacc1
+  add column b float8 not null default random(),
+  add primary key(a);
 drop table atacc1;
 
 -- something a little more complicated
@@ -801,7 +795,7 @@ alter table non_existent alter column bar drop not null;
 
 -- test setting columns to null and not null and vice versa
 -- test checking for null values and primary key
-create table atacc1 (test int not null) with oids;
+create table atacc1 (test int not null);
 alter table atacc1 add constraint "atacc1_pkey" primary key (test);
 alter table atacc1 alter column test drop not null;
 alter table atacc1 drop constraint "atacc1_pkey";
@@ -815,16 +809,47 @@ alter table atacc1 alter test set not null;
 alter table atacc1 alter bar set not null;
 alter table atacc1 alter bar drop not null;
 
--- try altering the oid column, should fail
-alter table atacc1 alter oid set not null;
-alter table atacc1 alter oid drop not null;
-
 -- try creating a view and altering that, should fail
 create view myview as select * from atacc1;
 alter table myview alter column test drop not null;
 alter table myview alter column test set not null;
 drop view myview;
 
+drop table atacc1;
+
+-- set not null verified by constraints
+create table atacc1 (test_a int, test_b int);
+insert into atacc1 values (null, 1);
+-- constraint not cover all values, should fail
+alter table atacc1 add constraint atacc1_constr_or check(test_a is not null or test_b < 10);
+alter table atacc1 alter test_a set not null;
+alter table atacc1 drop constraint atacc1_constr_or;
+-- not valid constraint, should fail
+alter table atacc1 add constraint atacc1_constr_invalid check(test_a is not null) not valid;
+alter table atacc1 alter test_a set not null;
+alter table atacc1 drop constraint atacc1_constr_invalid;
+-- with valid constraint
+update atacc1 set test_a = 1;
+alter table atacc1 add constraint atacc1_constr_a_valid check(test_a is not null);
+alter table atacc1 alter test_a set not null;
+delete from atacc1;
+
+insert into atacc1 values (2, null);
+alter table atacc1 alter test_a drop not null;
+-- test multiple set not null at same time
+-- test_a checked by atacc1_constr_a_valid, test_b should fail by table scan
+alter table atacc1 alter test_a set not null, alter test_b set not null;
+-- commands order has no importance
+alter table atacc1 alter test_b set not null, alter test_a set not null;
+
+-- valid one by table scan, one by check constraints
+update atacc1 set test_b = 1;
+alter table atacc1 alter test_b set not null, alter test_a set not null;
+
+alter table atacc1 alter test_a drop not null, alter test_b drop not null;
+-- both column has check constraints
+alter table atacc1 add constraint atacc1_constr_b_valid check(test_b is not null);
+alter table atacc1 alter test_b set not null, alter test_a set not null;
 drop table atacc1;
 
 -- test inheritance
@@ -898,7 +923,7 @@ alter table pg_class drop column relname;
 alter table nosuchtable drop column bar;
 
 -- test dropping columns
-create table atacc1 (a int4 not null, b int4, c int4 not null, d int4) with oids;
+create table atacc1 (a int4 not null, b int4, c int4 not null, d int4);
 insert into atacc1 values (1, 2, 3, 4);
 alter table atacc1 drop a;
 alter table atacc1 drop a;
@@ -948,8 +973,11 @@ delete from atacc1;
 -- try dropping a non-existent column, should fail
 alter table atacc1 drop bar;
 
--- try dropping the oid column, should succeed
-alter table atacc1 drop oid;
+-- try removing an oid column, should succeed (as it's nonexistent)
+alter table atacc1 SET WITHOUT OIDS;
+
+-- try adding an oid column, should fail (not supported)
+alter table atacc1 SET WITH OIDS;
 
 -- try dropping the xmin column, should fail
 alter table atacc1 drop xmin;
@@ -1208,74 +1236,6 @@ select attrelid::regclass, attname, attinhcount, attislocal
 from pg_attribute
 where attnum > 0 and attrelid::regclass in ('depth0', 'depth1', 'depth2')
 order by attrelid::regclass::text, attnum;
-
---
--- Test the ALTER TABLE SET WITH/WITHOUT OIDS command
---
-create table altstartwith (col integer) with oids;
-
-insert into altstartwith values (1);
-
-select oid > 0, * from altstartwith;
-
-alter table altstartwith set without oids;
-
-select oid > 0, * from altstartwith; -- fails
-select * from altstartwith;
-
-alter table altstartwith set with oids;
-
-select oid > 0, * from altstartwith;
-
-drop table altstartwith;
-
--- Check inheritance cases
-create table altwithoid (col integer) with oids;
-
--- Inherits parents oid column anyway
-create table altinhoid () inherits (altwithoid) without oids;
-
-insert into altinhoid values (1);
-
-select oid > 0, * from altwithoid;
-select oid > 0, * from altinhoid;
-
-alter table altwithoid set without oids;
-
-select oid > 0, * from altwithoid; -- fails
-select oid > 0, * from altinhoid; -- fails
-select * from altwithoid;
-select * from altinhoid;
-
-alter table altwithoid set with oids;
-
-select oid > 0, * from altwithoid;
-select oid > 0, * from altinhoid;
-
-drop table altwithoid cascade;
-
-create table altwithoid (col integer) without oids;
-
--- child can have local oid column
-create table altinhoid () inherits (altwithoid) with oids;
-
-insert into altinhoid values (1);
-
-select oid > 0, * from altwithoid; -- fails
-select oid > 0, * from altinhoid;
-
-alter table altwithoid set with oids;
-
-select oid > 0, * from altwithoid;
-select oid > 0, * from altinhoid;
-
--- the child's local definition should remain
-alter table altwithoid set without oids;
-
-select oid > 0, * from altwithoid; -- fails
-select oid > 0, * from altinhoid;
-
-drop table altwithoid cascade;
 
 -- test renumbering of child-table columns in inherited operations
 
@@ -1917,7 +1877,7 @@ CREATE TABLE tt3 (y numeric(8,2), x int);			-- wrong column order
 CREATE TABLE tt4 (x int);							-- too few columns
 CREATE TABLE tt5 (x int, y numeric(8,2), z int);	-- too few columns
 CREATE TABLE tt6 () INHERITS (tt0);					-- can't have a parent
-CREATE TABLE tt7 (x int, q text, y numeric(8,2)) WITH OIDS;
+CREATE TABLE tt7 (x int, q text, y numeric(8,2));
 ALTER TABLE tt7 DROP q;								-- OK
 
 ALTER TABLE tt0 OF tt_t0;
@@ -2067,10 +2027,9 @@ CREATE TABLE pg_catalog.new_system_table();
 -- instead create in public first, move to catalog
 CREATE TABLE new_system_table(id serial primary key, othercol text);
 ALTER TABLE new_system_table SET SCHEMA pg_catalog;
-
--- XXX: it's currently impossible to move relations out of pg_catalog
 ALTER TABLE new_system_table SET SCHEMA public;
--- move back, will be ignored -- already there
+ALTER TABLE new_system_table SET SCHEMA pg_catalog;
+-- will be ignored -- already there:
 ALTER TABLE new_system_table SET SCHEMA pg_catalog;
 ALTER TABLE new_system_table RENAME TO old_system_table;
 CREATE INDEX old_system_table__othercol ON old_system_table (othercol);
@@ -2218,7 +2177,7 @@ ALTER TABLE list_parted ATTACH PARTITION fail_part FOR VALUES FROM (1) TO (10);
 DROP TABLE fail_part;
 
 -- check that the table being attached exists
-ALTER TABLE list_parted ATTACH PARTITION nonexistant FOR VALUES IN (1);
+ALTER TABLE list_parted ATTACH PARTITION nonexistent FOR VALUES IN (1);
 
 -- check ownership of the source table
 CREATE ROLE regress_test_me;
@@ -2253,16 +2212,6 @@ CREATE TYPE mytype AS (a int);
 CREATE TABLE fail_part OF mytype;
 ALTER TABLE list_parted ATTACH PARTITION fail_part FOR VALUES IN (1);
 DROP TYPE mytype CASCADE;
-
--- check existence (or non-existence) of oid column
-ALTER TABLE list_parted SET WITH OIDS;
-CREATE TABLE fail_part (a int);
-ALTER TABLE list_parted ATTACH PARTITION fail_part FOR VALUES IN (1);
-
-ALTER TABLE list_parted SET WITHOUT OIDS;
-ALTER TABLE fail_part SET WITH OIDS;
-ALTER TABLE list_parted ATTACH PARTITION fail_part FOR VALUES IN (1);
-DROP TABLE fail_part;
 
 -- check that the table being attached has only columns present in the parent
 CREATE TABLE fail_part (like list_parted, c int);

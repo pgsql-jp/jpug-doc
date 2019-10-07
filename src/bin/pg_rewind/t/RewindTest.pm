@@ -26,11 +26,7 @@ package RewindTest;
 # still running.
 #
 # The test script can use the helper functions master_psql and standby_psql
-# to run psql against the master and standby servers, respectively. The
-# test script can also use the $connstr_master and $connstr_standby global
-# variables, which contain libpq connection strings for connecting to the
-# master and standby servers. The data directories are also available
-# in paths $test_master_datadir and $test_standby_datadir
+# to run psql against the master and standby servers, respectively.
 
 use strict;
 use warnings;
@@ -89,6 +85,8 @@ sub standby_psql
 # expected
 sub check_query
 {
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
+
 	my ($query, $expected_stdout, $test_name) = @_;
 	my ($stdout, $stderr);
 
@@ -127,7 +125,14 @@ sub setup_cluster
 	# Initialize master, data checksums are mandatory
 	$node_master =
 	  get_new_node('master' . ($extra_name ? "_${extra_name}" : ''));
-	$node_master->init(allows_streaming => 1, extra => $extra);
+
+	# Set up pg_hba.conf and pg_ident.conf for the role running
+	# pg_rewind.  This role is used for all the tests, and has
+	# minimal permissions enough to rewind from an online source.
+	$node_master->init(
+		allows_streaming => 1,
+		extra            => $extra,
+		auth_extra       => [ '--create-role', 'rewind_user' ]);
 
 	# Set wal_keep_segments to prevent WAL segment recycling after enforced
 	# checkpoints in the tests.
@@ -141,6 +146,20 @@ wal_keep_segments = 20
 sub start_master
 {
 	$node_master->start;
+
+	# Create custom role which is used to run pg_rewind, and adjust its
+	# permissions to the minimum necessary.
+	$node_master->psql(
+		'postgres', "
+		CREATE ROLE rewind_user LOGIN;
+		GRANT EXECUTE ON function pg_catalog.pg_ls_dir(text, boolean, boolean)
+		  TO rewind_user;
+		GRANT EXECUTE ON function pg_catalog.pg_stat_file(text, boolean)
+		  TO rewind_user;
+		GRANT EXECUTE ON function pg_catalog.pg_read_binary_file(text)
+		  TO rewind_user;
+		GRANT EXECUTE ON function pg_catalog.pg_read_binary_file(text, bigint, bigint, boolean)
+		  TO rewind_user;");
 
 	#### Now run the test-specific parts to initialize the master before setting
 	# up standby
@@ -159,11 +178,11 @@ sub create_standby
 	my $connstr_master = $node_master->connstr();
 
 	$node_standby->append_conf(
-		"recovery.conf", qq(
-primary_conninfo='$connstr_master application_name=rewind_standby'
-standby_mode=on
-recovery_target_timeline='latest'
+		"postgresql.conf", qq(
+primary_conninfo='$connstr_master'
 ));
+
+	$node_standby->set_standby_mode();
 
 	# Start standby
 	$node_standby->start;
@@ -180,7 +199,7 @@ sub promote_standby
 	# up standby
 
 	# Wait for the standby to receive and write all WAL.
-	$node_master->wait_for_catchup('rewind_standby', 'write');
+	$node_master->wait_for_catchup($node_standby, 'write');
 
 	# Now promote standby and insert some new data on master, this will put
 	# the master out-of-sync with the standby.
@@ -204,6 +223,9 @@ sub run_pg_rewind
 	my $standby_pgdata  = $node_standby->data_dir;
 	my $standby_connstr = $node_standby->connstr('postgres');
 	my $tmp_folder      = TestLib::tempdir;
+
+	# Append the rewind-specific role to the connection string.
+	$standby_connstr = "$standby_connstr user=rewind_user";
 
 	# Stop the master and be ready to perform the rewind
 	$node_master->stop;
@@ -231,7 +253,8 @@ sub run_pg_rewind
 				'pg_rewind',
 				"--debug",
 				"--source-pgdata=$standby_pgdata",
-				"--target-pgdata=$master_pgdata"
+				"--target-pgdata=$master_pgdata",
+				"--no-sync"
 			],
 			'pg_rewind local');
 	}
@@ -241,9 +264,9 @@ sub run_pg_rewind
 		# Do rewind using a remote connection as source
 		command_ok(
 			[
-				'pg_rewind',       "--debug",
-				"--source-server", $standby_connstr,
-				"--target-pgdata=$master_pgdata"
+				'pg_rewind',                      "--debug",
+				"--source-server",                $standby_connstr,
+				"--target-pgdata=$master_pgdata", "--no-sync"
 			],
 			'pg_rewind remote');
 	}
@@ -268,11 +291,11 @@ sub run_pg_rewind
 	# Plug-in rewound node to the now-promoted standby node
 	my $port_standby = $node_standby->port;
 	$node_master->append_conf(
-		'recovery.conf', qq(
+		'postgresql.conf', qq(
 primary_conninfo='port=$port_standby'
-standby_mode=on
-recovery_target_timeline='latest'
 ));
+
+	$node_master->set_standby_mode();
 
 	# Restart the master to check that rewind went correctly
 	$node_master->start;

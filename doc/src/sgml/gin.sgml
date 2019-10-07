@@ -155,6 +155,8 @@
        <literal>?&amp;</literal>
        <literal>?|</literal>
        <literal>@&gt;</literal>
+       <literal>@?</literal>
+       <literal>@@</literal>
       </entry>
      </row>
      <row>
@@ -162,6 +164,8 @@
       <entry><type>jsonb</type></entry>
       <entry>
        <literal>@&gt;</literal>
+       <literal>@?</literal>
+       <literal>@@</literal>
       </entry>
      </row>
      <row>
@@ -328,7 +332,7 @@
 <!--
        <literal>pmatch</literal> is an output argument for use when partial match
        is supported.  To use it, <function>extractQuery</function> must allocate
-       an array of <literal>*nkeys</literal> bools and store its address at
+       an array of <literal>*nkeys</literal> <type>bool</type>s and store its address at
        <literal>*pmatch</literal>.  Each element of the array should be set to true
        if the corresponding key requires partial match, false if not.
        If <literal>*pmatch</literal> is set to <symbol>NULL</symbol> then GIN assumes partial match
@@ -369,12 +373,12 @@
 
 <!--
   An operator class must also provide a function to check if an indexed item
-  matches the query. It comes in two flavors, a boolean <function>consistent</function>
+  matches the query. It comes in two flavors, a Boolean <function>consistent</function>
   function, and a ternary <function>triConsistent</function> function.
   <function>triConsistent</function> covers the functionality of both, so providing
-  <function>triConsistent</function> alone is sufficient. However, if the boolean
+  <function>triConsistent</function> alone is sufficient. However, if the Boolean
   variant is significantly cheaper to calculate, it can be advantageous to
-  provide both.  If only the boolean variant is provided, some optimizations
+  provide both.  If only the Boolean variant is provided, some optimizations
   that depend on refuting index items before fetching all the keys are
   disabled.
 -->
@@ -465,11 +469,11 @@
       <para>
 <!--
        <function>triConsistent</function> is similar to <function>consistent</function>,
-       but instead of booleans in the <literal>check</literal> vector, there are
+       but instead of Booleans in the <literal>check</literal> vector, there are
        three possible values for each
        key: <literal>GIN_TRUE</literal>, <literal>GIN_FALSE</literal> and
        <literal>GIN_MAYBE</literal>. <literal>GIN_FALSE</literal> and <literal>GIN_TRUE</literal>
-       have the same meaning as regular boolean values, while
+       have the same meaning as regular Boolean values, while
        <literal>GIN_MAYBE</literal> means that the presence of that key is not known.
        When <literal>GIN_MAYBE</literal> values are present, the function should only
        return <literal>GIN_TRUE</literal> if the item certainly matches whether or
@@ -491,7 +495,7 @@
        When there are no <literal>GIN_MAYBE</literal> values in the <literal>check</literal>
        vector, a <literal>GIN_MAYBE</literal> return value is the equivalent of
        setting the <literal>recheck</literal> flag in the
-       boolean <function>consistent</function> function.
+       Boolean <function>consistent</function> function.
 -->
 <literal>check</literal>ベクターに<literal>GIN_MAYBE</literal>値がなければ、<literal>GIN_MAYBE</literal>戻り値は論理値の<function>consistent</function>関数で<literal>recheck</literal>フラグを設定することと同じです。
       </para>
@@ -634,7 +638,8 @@ NULLキーがこの関数に渡されることはありません。
   page contains either a pointer to a B-tree of heap pointers (a
   <quote>posting tree</quote>), or a simple list of heap pointers (a <quote>posting
   list</quote>) when the list is small enough to fit into a single index tuple along
-  with the key value.
+  with the key value.  <xref linkend="gin-internals-figure"/> illustrates
+  these components of a GIN index.
 -->
 <acronym>GIN</acronym>インデックスはキー全体に対するB-treeインデックスを持ちます。
 そのキーはそれぞれインデックス対象項目の要素（例えば配列のメンバ）であり、リーフページ内のタプルはそれぞれ、ヒープポインタのB-treeへのポインタ（<quote>ポスティングツリー</quote>）か、もしリストがキー値と共に単一インデックスタプルに合う程度十分に小さければヒープポインタの単純なリスト（<quote>ポスティングリスト</quote>）です。
@@ -662,6 +667,15 @@ NULLキーがこの関数に渡されることはありません。
 複数列に対する<acronym>GIN</acronym>インデックスは複合型の値（列番号、キー値）全体について単一のB-treeを構築することで実装されます。
 異なる列に対するキー値は別の型となるかもしれません。
  </para>
+
+ <figure id="gin-internals-figure">
+  <title>GIN Internals</title>
+  <mediaobject>
+   <imageobject>
+    <imagedata fileref="images/gin.svg" format="SVG" width="100%"/>
+   </imageobject>
+  </mediaobject>
+ </figure>
 
  <sect2 id="gin-fast-update">
 <!--
