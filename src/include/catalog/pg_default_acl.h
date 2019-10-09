@@ -5,7 +5,7 @@
  *	  (pg_default_acl)
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_default_acl.h
@@ -29,12 +29,14 @@
  */
 CATALOG(pg_default_acl,826,DefaultAclRelationId)
 {
+	Oid			oid;			/* oid */
 	Oid			defaclrole;		/* OID of role owning this ACL */
 	Oid			defaclnamespace;	/* OID of namespace, or 0 for all */
 	char		defaclobjtype;	/* see DEFACLOBJ_xxx constants below */
 
 #ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	aclitem		defaclacl[1];	/* permissions to add at CREATE time */
+	aclitem		defaclacl[1] BKI_FORCE_NOT_NULL;	/* permissions to add at
+													 * CREATE time */
 #endif
 } FormData_pg_default_acl;
 

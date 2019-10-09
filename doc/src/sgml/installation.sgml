@@ -21,16 +21,24 @@ documentation.  See standalone-profile.xsl for details.
   <primary>インストール</primary>
  </indexterm>
 
+ <!-- See also the version of this text in standalone-install.xml -->
  <para>
 <!--
   This chapter describes the installation of
   <productname>PostgreSQL</productname> using the source code
-  distribution.  (If you are installing a pre-packaged distribution,
+  distribution.  If you are installing a pre-packaged distribution,
   such as an RPM or Debian package, ignore this chapter
-  and read the packager's instructions instead.)
+  and read the packager's instructions instead.
 -->
 この章では、<productname>PostgreSQL</productname>のソースコード配布物を使用したインストール方法について説明します。
 （RPMやDebianパッケージなどパッケージ済みの配布物をインストールしている場合は、この章を無視し、代わりにパッケージの手順を読んでください。）
+ </para>
+
+ <para>
+  If you are building <productname>PostgreSQL</productname> for Microsoft
+  Windows, read this chapter if you intend to build with MinGW or Cygwin;
+  but if you intend to build with Microsoft's <productname>Visual
+  C++</productname>, see <xref linkend="install-windows"/> instead.
  </para>
 
  <sect1 id="install-short">
@@ -50,7 +58,7 @@ mkdir /usr/local/pgsql/data
 chown postgres /usr/local/pgsql/data
 su - postgres
 /usr/local/pgsql/bin/initdb -D /usr/local/pgsql/data
-/usr/local/pgsql/bin/postgres -D /usr/local/pgsql/data &gt;logfile 2&gt;&amp;1 &amp;
+/usr/local/pgsql/bin/pg_ctl -D /usr/local/pgsql/data -l logfile start
 /usr/local/pgsql/bin/createdb test
 /usr/local/pgsql/bin/psql test
 </synopsis>
@@ -74,10 +82,8 @@ su - postgres
    In general, a modern Unix-compatible platform should be able to run
    <productname>PostgreSQL</productname>.
    The platforms that had received specific testing at the
-   time of release are listed in <xref linkend="supported-platforms"/>
-   below. In the <filename>doc</filename> subdirectory of the distribution
-   there are several platform-specific <acronym>FAQ</acronym> documents you
-   might wish to consult if you are having trouble.
+   time of release are described in <xref linkend="supported-platforms"/>
+   below.
 -->
 通常、最近のUnix互換プラットフォームならば<productname>PostgreSQL</productname>を動作させることができるはずです。
 リリース時に明示的なテストを受けたプラットフォームの一覧を<xref linkend="supported-platforms"/>に示します。
@@ -119,7 +125,7 @@ su - postgres
      <para>
 <!--
       You need an <acronym>ISO</acronym>/<acronym>ANSI</acronym> C compiler (at least
-      C89-compliant). Recent
+      C99-compliant). Recent
       versions of <productname>GCC</productname> are recommended, but
       <productname>PostgreSQL</productname> is known to build using a wide variety
       of compilers from different vendors.
@@ -340,8 +346,10 @@ su - postgres
      <para>
 <!--
       You need <productname>OpenSSL</productname>, if you want to support
-      encrypted client connections. The minimum required version is
-      0.9.8.
+      encrypted client connections.  <productname>OpenSSL</productname> is
+      also required for random number generation on platforms that do not
+      have <filename>/dev/urandom</filename> (except Windows).  The minimum
+      version required is 0.9.8.
 -->
 暗号化されたクライアント接続をサポートする場合には<productname>OpenSSL</productname>が必要です。
 要求される最小のバージョンは0.9.8です。
@@ -464,7 +472,7 @@ Windows上で構築する場合、いずれにしても<application>Perl</applic
 
  <sect1 id="install-getsource">
 <!--
-  <title>Getting The Source</title>
+  <title>Getting the Source</title>
 -->
   <title>ソースの入手</title>
 
@@ -1547,30 +1555,6 @@ float8値の<quote>値</quote>渡しを無効にし、<quote>参照</quote>渡�
 スピンロックのサポートの欠落により、性能は悪化します。
 したがって、このオプションは、構築が失敗し、その原因が使用するプラットフォームでスピンロックサポートが欠落している場合にのみ使用してください。
 使用するプラットフォームにおける<productname>PostgreSQL</productname>の構築にこのオプションが必要とされた場合は、<productname>PostgreSQL</productname>開発者にその問題を報告してください。
-        </para>
-       </listitem>
-      </varlistentry>
-
-      <varlistentry>
-       <term><option>--disable-strong-random</option></term>
-       <listitem>
-        <para>
-<!--
-         Allow the build to succeed even if <productname>PostgreSQL</productname>
-         has no support for strong random numbers on the platform.
-         A source of random numbers is needed for some authentication
-         protocols, as well as some routines in the
-         <xref linkend="pgcrypto"/>
-         module. <option>&#045;&#045;disable-strong-random</option> disables functionality that
-         requires cryptographically strong random numbers, and substitutes
-         a weak pseudo-random-number-generator for the generation of
-         authentication salt values and query cancel keys. It may make
-         authentication less secure.
--->
-そのプラットフォーム上で<productname>PostgreSQL</productname>が強い乱数のサポートを受けられない場合でも、構築には成功するようにします。
-乱数源は、一部の認証プロトコルや<xref linkend="pgcrypto"/>モジュール内の一部のルーチンで必要です。
-<option>--disable-strong-random</option>は暗号論的に強い乱数を必要とする機能を無効にして、認証のソルト値や問い合わせのキャンセル鍵の生成を弱い疑似乱数生成器で置き換えます。
-それにより認証はより安全ではなくなるでしょう。
         </para>
        </listitem>
       </varlistentry>
@@ -2810,7 +2794,7 @@ Linux (最近のディストリビューションすべて), Windows (Win2000 SP
 
  <sect1 id="installation-platform-notes">
 <!--
-  <title>Platform-specific Notes</title>
+  <title>Platform-Specific Notes</title>
 -->
   <title>プラットフォーム特有の覚書</title>
 
@@ -2849,12 +2833,9 @@ Linux (最近のディストリビューションすべて), Windows (Win2000 SP
 
    <para>
 <!--
-    PostgreSQL works on AIX, but getting it installed properly can be
-    challenging.  AIX versions from 4.3.3 to 6.1 are considered supported.
-    You can use GCC or the native IBM compiler <command>xlc</command>.  In
-    general, using recent versions of AIX and PostgreSQL helps.  Check
-    the build farm for up to date information about which versions of
-    AIX are known to work.
+    PostgreSQL works on AIX, but AIX versions before about 6.1 have
+    various issues and are not recommended.
+    You can use GCC or the native IBM compiler <command>xlc</command>.
 -->
 AIX上でPostgreSQLは動作しますが、適切にインストールをやり遂げるのは挑戦でもあります。
 AIXバージョン4.3.3から6.1はサポートされていると考えられます。
@@ -2862,259 +2843,6 @@ GCCまたは在来のIBMコンパイラ<command>xlc</command>が使用できま�
 一般的に、最新のAIXとPostgreSQLバージョンを使用することが手助けになります。
 どのバージョンのAIXが動くと知られているかについての最新情報をビルドファームで見てください。
    </para>
-
-   <para>
-<!--
-    The minimum recommended fix levels for supported AIX versions are:
--->
-    サポートされるAIXバージョンに対する最低限推奨される修正レベルを示します。
-   </para>
-
-   <variablelist>
-    <varlistentry>
-     <term>AIX 4.3.3</term>
-<!--
-     <listitem><para>Maintenance Level 11 + post ML11 bundle</para></listitem>
--->
-     <listitem><para>保守レベル 11 + ML11 バンドル以降</para></listitem>
-    </varlistentry>
-
-    <varlistentry>
-     <term>AIX 5.1</term>
-<!--
-     <listitem><para>Maintenance Level 9 + post ML9 bundle</para></listitem>
--->
-     <listitem><para>保守レベル 9 + ML9 バンドル以降</para></listitem>
-    </varlistentry>
-
-    <varlistentry>
-     <term>AIX 5.2</term>
-<!--
-     <listitem><para>Technology Level 10 Service Pack 3</para></listitem>
--->
-     <listitem><para>技術レベル 10 サービスパック 3</para></listitem>
-    </varlistentry>
-
-    <varlistentry>
-     <term>AIX 5.3</term>
-<!--
-     <listitem><para>Technology Level 7</para></listitem>
--->
-     <listitem><para>技術レベル 7</para></listitem>
-    </varlistentry>
-
-    <varlistentry>
-     <term>AIX 6.1</term>
-<!--
-     <listitem><para>Base Level</para></listitem>
--->
-     <listitem><para>基本レベル</para></listitem>
-    </varlistentry>
-   </variablelist>
-
-   <para>
-<!--
-    To check your current fix level, use
-    <command>oslevel -r</command> in AIX 4.3.3 to AIX 5.2 ML 7, or
-    <command>oslevel -s</command> in later versions.
--->
-使用している修正レベルをチェックするには、AIX 4.3.3 から AIX 5.2 ML 7 までは<command>oslevel -r</command>、またはそれ以降のバージョンでは<command>oslevel -s</command>を使用します。
-   </para>
-
-   <para>
-<!--
-    Use the following <command>configure</command> flags in addition
-    to your own if you have installed Readline or libz in
-    <literal>/usr/local</literal>:
--->
-もし、<literal>/usr/local</literal>にインストール済のreadlineやライブラリがある場合は、次の<command>configure</command>フラグを加えて下さい。
-    <literal>--with-includes=/usr/local/include
-<!--
-    &#045;-with-libraries=/usr/local/lib</literal>.
--->
-    --with-libraries=/usr/local/lib</literal>
-   </para>
-
-   <sect3>
-<!--
-    <title>GCC Issues</title>
--->
-    <title>GCCの問題</title>
-
-    <para>
-<!--
-     On AIX 5.3, there have been some problems getting PostgreSQL to
-     compile and run using GCC.
--->
-AIX 5.3でGCCを使ってPostgreSQLがコンパイルし実行するためには幾つかの問題点があります。
-    </para>
-
-    <para>
-<!--
-     You will want to use a version of GCC subsequent to 3.3.2,
-     particularly if you use a prepackaged version.  We had good
-     success with 4.0.1.  Problems with earlier versions seem to have
-     more to do with the way IBM packaged GCC than with actual issues
-     with GCC, so that if you compile GCC yourself, you might well
-     have success with an earlier version of GCC.
--->
-特にパッケージ版を使用している場合、3.3.2以降のバージョンのGCCの使用が望まれるかもしれません。
-4.0.1ではうまくいきます。
-より早期のバージョンによる諸問題は、GCC自体の問題というよりもIBMがGCCをパッケージした方法に関連があるように見えます。従って、GCCを自身でコンパイルしている場合は、早期のバージョンのGCCを使用しても成功するかもしれません。
-    </para>
-   </sect3>
-
-   <sect3>
-<!--
-    <title>Unix-Domain Sockets Broken</title>
--->
-    <title>Unixドメインソケット破損</title>
-
-    <para>
-<!--
-     AIX 5.3 has a problem
-     where <structname>sockaddr_storage</structname> is not defined to
-     be large enough.  In version 5.3, IBM increased the size of
-     <structname>sockaddr_un</structname>, the address structure for
-     Unix-domain sockets, but did not correspondingly increase the
-     size of <structname>sockaddr_storage</structname>.  The result of
-     this is that attempts to use Unix-domain sockets with PostgreSQL
-     lead to libpq overflowing the data structure.  TCP/IP connections
-     work OK, but not Unix-domain sockets, which prevents the
-     regression tests from working.
--->
-AIX 5.3には<structname>sockaddr_storage</structname>が十分大きく定義されていないという問題があります。
-バージョン5.3でIBMはUnixドメインソケットのアドレス構造体である<structname>sockaddr_un</structname>のサイズを増やしましたが、対応する<structname>sockaddr_storage</structname>のサイズを増やしませんでした。
-この結果、PostgreSQLでUnixドメインソケットを使用しようとすると、libpqでデータ構造体がオーバーフローするようになります。
-Unixドメインソケットを除くTCP/IP接続の動作は正常です。
-これはリグレッションテストの動作を妨害します。
-    </para>
-
-    <para>
-<!--
-     The problem was reported to IBM, and is recorded as bug report
-     PMR29657.  If you upgrade to maintenance level 5300-03 or later,
-     that will include this fix.  A quick workaround
-     is to alter <symbol>_SS_MAXSIZE</symbol> to 1025 in
-     <filename>/usr/include/sys/socket.h</filename>.  In either case,
-     recompile PostgreSQL once you have the corrected header file.
--->
-この問題はIBMに報告済みでバグ報告PMR29657として記録されています。
-メンテナンスレベル5300-03以降に更新していれば、この修正が含まれています。
-すぐに解決させたければ、<filename>/usr/include/sys/socket.h</filename>内で<symbol>_SS_MAXSIZE</symbol>を1025に変更してください。
-どちらの場合でも、ヘッダファイルを修正した後でPostgreSQLを再コンパイルしてください。
-    </para>
-   </sect3>
-
-   <sect3>
-<!--
-    <title>Internet Address Issues</title>
--->
-    <title>インターネットアドレス問題</title>
-
-    <para>
-<!--
-     PostgreSQL relies on the system's <function>getaddrinfo</function> function
-     to parse IP addresses in <varname>listen_addresses</varname>,
-     <filename>pg_hba.conf</filename>, etc.  Older versions of AIX have assorted
-     bugs in this function.  If you have problems related to these settings,
-     updating to the appropriate AIX fix level shown above
-     should take care of it.
--->
-PostgreSQLは<varname>listen_addresses</varname>、<filename>pg_hba.conf</filename>、その他の中のIPアドレスを構文解釈するのにシステムの<function>getaddrinfo</function>関数に頼ります。
-旧バージョンのAIXにはこの関数にさまざまなバグがあります。
-これら設定に関係した問題に遭遇した場合、上記に示されている適切な修正レベルへ更新することが問題解決になります。
-    </para>
-
-    <!-- 原文コメント https://archives.postgresql.org/message-id/6064jt6cfm.fsf_-_@dba2.int.libertyrms.com -->
-
-    <para>
-<!--
-     One user reports:
--->
-あるユーザの報告です。
-    </para>
-
-    <para>
-<!--
-     When implementing PostgreSQL version 8.1 on AIX 5.3, we
-     periodically ran into problems where the statistics collector
-     would <quote>mysteriously</quote> not come up successfully.  This
-     appears to be the result of unexpected behavior in the IPv6
-     implementation.  It looks like PostgreSQL and IPv6 do not play
-     very well together on AIX 5.3.
--->
-PostgreSQLバージョン8.1をAIX 5.3で実装している時、統計情報コレクタが<quote>不思議なことに</quote>正常に起動しないという問題が周期的に起こりました。
-これは、IPv6の実装における想定外の動作という結果で出現します。
-そのため、AIX5.3上ではPostgreSQLとIPv6が一緒にはうまく動作しないように見えました。
-    </para>
-
-    <para>
-<!--
-     Any of the following actions <quote>fix</quote> the problem.
--->
-以下のいずれかの対応でこの問題が<quote>解決できます</quote>。
-     <itemizedlist>
-      <listitem>
-       <para>
-<!--
-        Delete the IPv6 address for localhost:
--->
-localhostに対するIPv6アドレスを削除します。
-<screen>
-(as root)
-# ifconfig lo0 inet6 ::1/0 delete
-</screen>
-       </para>
-      </listitem>
-
-      <listitem>
-       <para>
-<!--
-        Remove IPv6 from net services.  The
-        file <filename>/etc/netsvc.conf</filename> on AIX is roughly
-        equivalent to <filename>/etc/nsswitch.conf</filename> on
-        Solaris/Linux.  The default, on AIX, is thus:
--->
-ネットサービスからIPv6を削除します。
-AIXの<filename>/etc/netsvc.conf</filename>ファイルは大まかに言ってSolaris/Linuxの<filename>/etc/nsswitch.conf</filename>と同等です。
-AIXのデフォルトは、以下のようになっています。
-<programlisting>
-hosts=local,bind
-</programlisting>
-<!--
-        Replace this with:
--->
-これを次で置き換えます。
-<programlisting>
-hosts=local4,bind4
-</programlisting>
-<!--
-        to deactivate searching for IPv6 addresses.
--->
-そうすると、IPv6アドレスの検索が解除されます。
-       </para>
-      </listitem>
-     </itemizedlist>
-    </para>
-
-    <warning>
-    <para>
-<!--
-     This is really a workaround for problems relating
-     to immaturity of IPv6 support, which improved visibly during the
-     course of AIX 5.3 releases.  It has worked with AIX version 5.3,
-     but does not represent an elegant solution to the problem.  It has
-     been reported that this workaround is not only unnecessary, but
-     causes problems on AIX 6.1, where IPv6 support has become more mature.
--->
-これは、実際には未熟なIPv6サポートに関連する問題の回避策です。AIX5.3のリリースから、IPv6サポートが目に見えて改善されています。
-この回避策はAIX5.3上で動きはしますが、この問題に対しての良い解決方法ではありません。
-AIX6.1ではIPv6サポートがさらに改善されたため、この対策は不必要になっただけでなく、問題を引き起こすことが報告されています。
-    </para>
-    </warning>
-
-   </sect3>
 
    <sect3>
 <!--
@@ -3345,9 +3073,9 @@ Windowsに対するLinux的環境である、Cygwinを使ってPostgreSQLを構�
 
    <para>
 <!--
-    When building from source, proceed according to the normal
+    When building from source, proceed according to the Unix-style
     installation procedure (i.e., <literal>./configure;
-    make</literal>; etc.), noting the following-Cygwin specific
+    make</literal>; etc.), noting the following Cygwin-specific
     differences:
 -->
 ソースから構築する場合、以下のCygwin特有の差異に注意し、通常のインストール手順に従って進めます（つまり、<literal>./configure;make</literal>; など）。
@@ -3423,7 +3151,7 @@ OpenSSLはサポートされていません。
         Building might fail on some systems where a locale other than
         C is in use. To fix this, set the locale to C by doing
         <command>export LANG=C.utf8</command> before building, and then
-        setting it back to the previous setting, after you have installed
+        setting it back to the previous setting after you have installed
         PostgreSQL.
 -->
         いくつかのシステムでは、Cロケール以外を使っている場合に構築が失敗するかもしれません。
@@ -3448,7 +3176,7 @@ make MAX_CONNECTIONS=5 check
 </programlisting>
 <!--
        (On some systems you can have up to about 10 simultaneous
-       connections).
+       connections.)
 -->
 （いくつかのシステムでは、同時接続を10まで広げられます。）
       </para>
@@ -3471,137 +3199,6 @@ Windows NTサービスとして<command>cygserver</command>とPostgreSQLサー�
    </para>
   </sect2>
 
-  <sect2 id="installation-notes-hpux">
-   <title>HP-UX</title>
-
-   <indexterm zone="installation-notes-hpux">
-    <primary>HP-UX</primary>
-<!--
-    <secondary>installation on</secondary>
--->
-    <secondary>上へのインストール</secondary>
-   </indexterm>
-
-   <para>
-<!--
-    PostgreSQL 7.3+ should work on Series 700/800 PA-RISC machines
-    running HP-UX 10.X or 11.X, given appropriate system patch levels
-    and build tools.  At least one developer routinely tests on HP-UX
-    10.20, and we have reports of successful installations on HP-UX
-    11.00 and 11.11.
--->
-PostgreSQL 7.3以上は、適切なシステムパッチレベルと構築ツールが与えられているとして、HP-UX 10.Xまたは11.Xが稼動するSeries 700/800 PA-RISCコンピュータで動作します。
-少なくとも１人の開発者が定期的にHP-UX10.20で試験を行っており、HP-UX11.00と11.11上へのインストールが成功していることの報告を受けています。
-   </para>
-
-   <para>
-<!--
-    Aside from the PostgreSQL source distribution, you will need GNU
-    make (HP's make will not do), and either GCC or HP's full ANSI C
-    compiler.  If you intend to build from Git sources rather than a
-    distribution tarball, you will also need Flex (GNU lex) and Bison
-    (GNU yacc).  We also recommend making sure you are fairly
-    up-to-date on HP patches.  At a minimum, if you are building 64
-    bit binaries on HP-UX 11.11 you may need PHSS_30966 (11.11) or a
-    successor patch otherwise <command>initdb</command> may hang:
--->
-PostgreSQLのソース配布物の他に、GNU make（HPのmakeは通りません）と、GCCもしくはHPのANSI Cコンパイラの全部いずれかが必要です。
-配布物tarボールではなくGitソースから構築を行う時は、Flex（GNU lex）とBison（GNU yacc）も必要です。
-同時に、正確に最新のHPパッチが当たっていることの確認を推奨します。
-HP-UX 11.11上で64ビット構築を行うのであれば最小限、PHSS_30966 (11.11)またはその後継パッチが必要です。さもないと、<command>initdb</command>がハングアップします。以下を参考にしてください。
-<literallayout>
-PHSS_30966  s700_800 ld(1) and linker tools cumulative patch
-</literallayout>
-
-<!--
-    On general principles you should be current on libc and ld/dld
-    patches, as well as compiler patches if you are using HP's C
-    compiler.  See HP's support sites such
-    as <ulink url="ftp://us-ffs.external.hp.com/"></ulink> for free
-    copies of their latest patches.
--->
-一般原則として、HPのCコンパイラを使用する場合、libcとld/dldパッチとコンパイラパッチが最新版でなければなりません。
-それらの最新パッチの無償コピーについては、<ulink url="ftp://us-ffs.external.hp.com/"></ulink>のHPサポートサイトを見てください。
-   </para>
-
-   <para>
-<!--
-    If you are building on a PA-RISC 2.0 machine and want to have
-    64-bit binaries using GCC, you must use a GCC 64-bit version.
--->
-PA-RISC 2.0マシン上でGCCを使用して64-ビットバイナリを構築したい場合、GCC 64-ビット版を使用しなければなりません。
-   </para>
-
-   <para>
-<!--
-    If you are building on a PA-RISC 2.0 machine and want the compiled
-    binaries to run on PA-RISC 1.1 machines you will need to specify
-    <option>+DAportable</option> in <envar>CFLAGS</envar>.
--->
-PA-RISC 2.0装置上での構築で、PA-RISC 1.1装置で稼動するコンパイル済みのバイナリが必要な場合、<envar>CFLAGS</envar>で<option>+DAportable</option>を指定する必要があります。
-   </para>
-
-   <para>
-<!--
-    If you are building on a HP-UX Itanium machine, you will need the
-    latest HP ANSI C compiler with its dependent patch or successor
-    patches:
--->
-HP-UX Itaniumマシン上で構築するのであれば、依存するパッチまたはその後継のパッチが当たった最新のHP ANSI Cコンパイラが必要です。以下です。
-<literallayout>
-PHSS_30848  s700_800 HP C Compiler (A.05.57)
-PHSS_30849  s700_800 u2comp/be/plugin library Patch
-</literallayout>
-   </para>
-
-   <para>
-<!--
-    If you have both HP's C compiler and GCC's, then you might want to
-    explicitly select the compiler to use when you
-    run <command>configure</command>:
--->
-HPのCコンパイラとGCCの２つが存在するとき、<command>configure</command>実行時に明示的に使用するコンパイラを指定したい場合、HPのCコンパイラでは、
-<programlisting>
-./configure CC=cc
-</programlisting>
-<!--
-    for HP's C compiler, or
--->
-GCCの場合は、
-<programlisting>
-./configure CC=gcc
-</programlisting>
-<!--
-    for GCC.  If you omit this setting, then configure will
-    pick <command>gcc</command> if it has a choice.
--->
-のようにします。この設定を省略すると、選択できる場合にはconfigureは<command>gcc</command>を選びます。
-   </para>
-
-   <para>
-<!--
-    The default install target location
-    is <filename>/usr/local/pgsql</filename>, which you might want to
-    change to something under <filename>/opt</filename>.  If so, use
-    the
-    <option>&#045;&#045;prefix</option> switch to <command>configure</command>.
--->
-デフォルトのインストール対象配置場所は<filename>/usr/local/pgsql</filename>で、<filename>/opt</filename>のような場所に変更したい場合もあります。
-そのような時は、<command>configure</command>で<option>--prefix</option>スイッチを使用します。
-   </para>
-
-   <para>
-<!--
-    In the regression tests, there might be some low-order-digit
-    differences in the geometry tests, which vary depending on which
-    compiler and math library versions you use.  Any other error is
-    cause for suspicion.
--->
-リグレッションテストにおいて、幾何試験で下位ビット桁の差異があるかもしれません。これはどのコンパイラを使用しているか、使用している数学ライブラリのバージョンは何かに依存し、変化します。
-その他のエラーは原因を疑ってください。
-   </para>
-  </sect2>
-
   <sect2 id="installation-notes-macos">
    <title>macOS</title>
 
@@ -3614,7 +3211,6 @@ GCCの場合は、
    </indexterm>
 
    <para>
-<!--
     On recent <productname>macOS</productname> releases, it's necessary to
     embed the <quote>sysroot</quote> path in the include switches used to
     find some system header files.  This results in the outputs of
@@ -3625,36 +3221,22 @@ GCCの場合は、
     than the server code was built on, you may need to force use of a
     different sysroot path.  To do that, set <varname>PG_SYSROOT</varname>,
     for example
--->
-最近の<productname>macOS</productname>のリリースでは、システムヘッダファイルを見つけるために使われるインクルードスイッチに<quote>sysroot</quote>のパスを埋め込むことが必要です。
-これにより、<application>configure</application>でどのSDKのバージョンが使われたかに依存して、<application>configure</application>スクリプトの出力が変わることになります。
-これは簡単なシナリオでは問題を引き起こさないでしょうが、サーバのコードが構築されたのとは異なるマシンで拡張を構築するなどのようなことを試みているのだとしたら、異なるsysrootのパスを利用するように強制することが必要です。
-そうするには、<varname>PG_SYSROOT</varname>を設定してください。例えば以下のようにです。
 <programlisting>
 make PG_SYSROOT=<replaceable>/desired/path</replaceable> all
 </programlisting>
-<!--
     To find out the appropriate path on your machine, run
--->
-自分のマシンでの適切なパスを見つけるには、以下のようにしてください。
 <programlisting>
 xcodebuild -version -sdk macosx Path
 </programlisting>
-<!--
     Note that building an extension using a different sysroot version than
     was used to build the core server is not really recommended; in the
     worst case it could result in hard-to-debug ABI inconsistencies.
--->
-コアサーバを構築するのに使われたのとは異なるsysrootのバージョンを使って拡張を構築することは、実のところ勧められないことに注意してください。最悪の場合、デバッグの難しいABIの不一致を招くかもしれません。
    </para>
 
    <para>
-<!--
     You can also select a non-default sysroot path when configuring, by
     specifying <varname>PG_SYSROOT</varname>
     to <application>configure</application>:
--->
-<application>configure</application>に<varname>PG_SYSROOT</varname>を指定することで、configureの時にデフォルトでないsysrootのパスを選ぶこともできます。
 <programlisting>
 ./configure ... PG_SYSROOT=<replaceable>/desired/path</replaceable>
 </programlisting>
@@ -3668,7 +3250,7 @@ xcodebuild -version -sdk macosx Path
     of <literal>DYLD_LIBRARY_PATH</literal> down to the executables being
     tested.  You can work around that by doing <literal>make
     install</literal> before <literal>make check</literal>.
-    Most Postgres developers just turn off SIP, though.
+    Most PostgreSQL developers just turn off SIP, though.
 -->
 <productname>macOS</productname>の<quote>System Integrity Protection</quote> (SIP)機能は、<literal>DYLD_LIBRARY_PATH</literal>の必要な設定をテスト対象の実行ファイルに渡すのを妨げますので、<literal>make check</literal>を壊します。
 <literal>make check</literal>の前に<literal>make install</literal>とすることで回避できます。
@@ -3695,12 +3277,9 @@ xcodebuild -version -sdk macosx Path
     PostgreSQL for Windows can be built using MinGW, a Unix-like build
     environment for Microsoft operating systems, or using
     Microsoft's <productname>Visual C++</productname> compiler suite.
-    The MinGW build variant uses the normal build system described in
+    The MinGW build procedure uses the normal build system described in
     this chapter; the Visual C++ build works completely differently
     and is described in <xref linkend="install-windows"/>.
-    It is a fully native build and uses no additional software like
-    MinGW.  A ready-made installer is available on the main
-    PostgreSQL web site.
 -->
 Windows用PostgreSQLは、Microsoftオペレーティングシステム用のUnixに似た構築環境であるMinGW、またはMicrosoftの<productname>Visual C++</productname>コンパイラ一式を使って構築できます。
 MinGW版の構築は本章で記述されている通常の構築システムを使用します。Visual C++構築は、<xref linkend="install-windows"/>で記述するようにまったく異なった動作をします。
@@ -3785,8 +3364,7 @@ MSYSコンソールはバッファリングに問題があるので、すべて�
    <para>
 <!--
     PostgreSQL is well-supported on Solaris.  The more up to date your
-    operating system, the fewer issues you will experience; details
-    below.
+    operating system, the fewer issues you will experience.
 -->
 PostgreSQLはSolaris上でとても良くサポートされています。
 オペレーティングシステムが更新されればされる程、問題点の遭遇は少なくなります。
@@ -3803,8 +3381,7 @@ PostgreSQLはSolaris上でとても良くサポートされています。
 <!--
      You can build with either GCC or Sun's compiler suite.  For
      better code optimization, Sun's compiler is strongly recommended
-     on the SPARC architecture.  We have heard reports of problems
-     when using GCC 2.95.1; GCC 2.95.3 or later is recommended.  If
+     on the SPARC architecture.  If
      you are using Sun's compiler, be careful not to select
      <filename>/usr/ucb/cc</filename>;
      use <filename>/opt/SUNWspro/bin/cc</filename>.
@@ -3819,9 +3396,9 @@ Sunのコンパイラを使用するのであれば、<filename>/usr/ucb/cc</fil
 <!--
      You can download Sun Studio
      from <ulink url="https://www.oracle.com/technetwork/server-storage/solarisstudio/downloads/"></ulink>.
-     Many of GNU tools are integrated into Solaris 10, or they are
-     present on the Solaris companion CD.  If you like packages for
-     older version of Solaris, you can find these tools
+     Many GNU tools are integrated into Solaris 10, or they are
+     present on the Solaris companion CD.  If you need packages for
+     older versions of Solaris, you can find these tools
      at <ulink url="http://www.sunfreeware.com"></ulink>.
      If you prefer
      sources, look
@@ -3865,46 +3442,6 @@ configure ... LDFLAGS="-R /usr/sfw/lib:/opt/sfw/lib:/usr/local/lib"
 
    <sect3>
 <!--
-    <title>64-bit Build Sometimes Crashes</title>
--->
-    <title>時折クラッシュする64-ビット構築</title>
-
-    <para>
-<!--
-     On Solaris 7 and older, the 64-bit version of libc has a buggy
-     <function>vsnprintf</function> routine, which leads to erratic
-     core dumps in PostgreSQL.  The simplest known workaround is to
-     force PostgreSQL to use its own version of <function>vsnprintf</function> rather than
-     the library copy.  To do this, after you
-     run <command>configure</command> edit a file produced by
-     <command>configure</command>:
-     In <filename>src/Makefile.global</filename>, change the line
--->
-Solaris 7以前の64bit版のlibcには不具合のある<function>vsnprintf</function>ルーチンがあり、それはPostgreSQLのエラーコアダンプに繋がります。
-既知の最も単純な回避策は、ライブラリのコピーではなく、自身の<function>vsnprintf</function>バージョンを使うように仕向けることです。
-これを行うためには、<command>configure</command>を実行した後、<command>configure</command>で生成されたファイルを編集します。
-つまり、<filename>src/Makefile.global</filename>の以下の行
-<programlisting>
-LIBOBJS =
-</programlisting>
-<!--
-     to read
--->
-を次のように変更します。
-<programlisting>
-LIBOBJS = snprintf.o
-</programlisting>
-<!--
-     (There might be other files already listed in this variable.
-     Order does not matter.)  Then build as usual.
--->
-（この変数に既に他のファイルが列挙されているかもしれません。その順序は関係ありません。）
-その後、通常通りに構築してください。
-    </para>
-   </sect3>
-
-   <sect3>
-<!--
     <title>Compiling for Optimal Performance</title>
 -->
     <title>最適性能を得るためのコンパイル</title>
@@ -3916,9 +3453,7 @@ LIBOBJS = snprintf.o
      flag to generate significantly faster binaries.  Do not use any
      flags that modify behavior of floating-point operations
      and <varname>errno</varname> processing (e.g.,
-     <option>-fast</option>).  These flags could raise some
-     nonstandard PostgreSQL behavior for example in the date/time
-     computing.
+     <option>-fast</option>).
 -->
 SPARCアーキテクチャにおけるコンパイルでは、Sun Studioを強く推奨します。
 特筆するような速さのバイナリを生成するため、<option>-xO5</option>最適化フラグを使用してみてください。
@@ -3930,10 +3465,9 @@ SPARCアーキテクチャにおけるコンパイルでは、Sun Studioを強�
 <!--
      If you do not have a reason to use 64-bit binaries on SPARC,
      prefer the 32-bit version.  The 64-bit operations are slower and
-     64-bit binaries are slower than the 32-bit variants.  And on
+     64-bit binaries are slower than the 32-bit variants.  On the
      other hand, 32-bit code on the AMD64 CPU family is not native,
-     and that is why 32-bit code is significant slower on this CPU
-     family.
+     so 32-bit code is significantly slower on that CPU family.
 -->
 SPARCで64ビットバイナリを使用する理由がないのであれば、32ビット版を選択してください。
 64ビット操作はより遅く、64ビットバイナリは32ビット版より遅いのです。
@@ -3973,7 +3507,7 @@ make: *** [postgres] Error 1
 </screen>
 <!--
      your DTrace installation is too old to handle probes in static
-     functions.  You need Solaris 10u4 or newer.
+     functions.  You need Solaris 10u4 or newer to use DTrace.
 （訳注: この部分に対応する訳は<screen>の前にあります。）
 -->
     </para>

@@ -208,31 +208,14 @@ insert into d values('test','one','two','three');
 alter table a alter column aa type integer using bit_length(aa);
 select * from d;
 
--- check that oid column is handled properly during alter table inherit
-create table oid_parent (a int) with oids;
-
-create table oid_child () inherits (oid_parent);
-select attinhcount, attislocal from pg_attribute
-  where attrelid = 'oid_child'::regclass and attname = 'oid';
-drop table oid_child;
-
-create table oid_child (a int) without oids;
-alter table oid_child inherit oid_parent;  -- fail
-alter table oid_child set with oids;
-select attinhcount, attislocal from pg_attribute
-  where attrelid = 'oid_child'::regclass and attname = 'oid';
-alter table oid_child inherit oid_parent;
-select attinhcount, attislocal from pg_attribute
-  where attrelid = 'oid_child'::regclass and attname = 'oid';
-alter table oid_child set without oids;  -- fail
-alter table oid_parent set without oids;
-select attinhcount, attislocal from pg_attribute
-  where attrelid = 'oid_child'::regclass and attname = 'oid';
-alter table oid_child set without oids;
-select attinhcount, attislocal from pg_attribute
-  where attrelid = 'oid_child'::regclass and attname = 'oid';
-
-drop table oid_parent cascade;
+-- The above verified that we can change the type of a multiply-inherited
+-- column; but we should reject that if any definition was inherited from
+-- an unrelated parent.
+create temp table parent1(f1 int, f2 int);
+create temp table parent2(f1 int, f3 bigint);
+create temp table childtab(f4 int) inherits(parent1, parent2);
+alter table parent1 alter column f1 type bigint;  -- fail, conflict w/parent2
+alter table parent1 alter column f2 type bigint;  -- ok
 
 -- Test non-inheritable parent constraints
 create table p1(ff1 int);
@@ -255,9 +238,14 @@ drop table p1 cascade;
 -- tables. See the pgsql-hackers thread beginning Dec. 4/04
 create table base (i integer);
 create table derived () inherits (base);
+create table more_derived (like derived, b int) inherits (derived);
 insert into derived (i) values (0);
 select derived::base from derived;
 select NULL::derived::base;
+-- remove redundant conversions.
+explain (verbose on, costs off) select row(i, b)::more_derived::derived::base from more_derived;
+explain (verbose on, costs off) select (1, 2)::more_derived::derived::base;
+drop table more_derived;
 drop table derived;
 drop table base;
 
@@ -275,40 +263,40 @@ drop table p1;
 CREATE TABLE ac (aa TEXT);
 alter table ac add constraint ac_check check (aa is not null);
 CREATE TABLE bc (bb TEXT) INHERITS (ac);
-select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pgc.consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc') order by 1,2;
+select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pg_get_expr(pgc.conbin, pc.oid) as consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc') order by 1,2;
 
 insert into ac (aa) values (NULL);
 insert into bc (aa) values (NULL);
 
 alter table bc drop constraint ac_check;  -- fail, disallowed
 alter table ac drop constraint ac_check;
-select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pgc.consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc') order by 1,2;
+select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pg_get_expr(pgc.conbin, pc.oid) as consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc') order by 1,2;
 
 -- try the unnamed-constraint case
 alter table ac add check (aa is not null);
-select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pgc.consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc') order by 1,2;
+select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pg_get_expr(pgc.conbin, pc.oid) as consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc') order by 1,2;
 
 insert into ac (aa) values (NULL);
 insert into bc (aa) values (NULL);
 
 alter table bc drop constraint ac_aa_check;  -- fail, disallowed
 alter table ac drop constraint ac_aa_check;
-select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pgc.consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc') order by 1,2;
+select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pg_get_expr(pgc.conbin, pc.oid) as consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc') order by 1,2;
 
 alter table ac add constraint ac_check check (aa is not null);
 alter table bc no inherit ac;
-select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pgc.consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc') order by 1,2;
+select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pg_get_expr(pgc.conbin, pc.oid) as consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc') order by 1,2;
 alter table bc drop constraint ac_check;
-select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pgc.consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc') order by 1,2;
+select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pg_get_expr(pgc.conbin, pc.oid) as consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc') order by 1,2;
 alter table ac drop constraint ac_check;
-select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pgc.consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc') order by 1,2;
+select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pg_get_expr(pgc.conbin, pc.oid) as consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc') order by 1,2;
 
 drop table bc;
 drop table ac;
 
 create table ac (a int constraint check_a check (a <> 0));
 create table bc (a int constraint check_a check (a <> 0), b int constraint check_b check (b <> 0)) inherits (ac);
-select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pgc.consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc') order by 1,2;
+select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pg_get_expr(pgc.conbin, pc.oid) as consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc') order by 1,2;
 
 drop table bc;
 drop table ac;
@@ -316,10 +304,10 @@ drop table ac;
 create table ac (a int constraint check_a check (a <> 0));
 create table bc (b int constraint check_b check (b <> 0));
 create table cc (c int constraint check_c check (c <> 0)) inherits (ac, bc);
-select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pgc.consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc', 'cc') order by 1,2;
+select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pg_get_expr(pgc.conbin, pc.oid) as consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc', 'cc') order by 1,2;
 
 alter table cc no inherit bc;
-select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pgc.consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc', 'cc') order by 1,2;
+select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pg_get_expr(pgc.conbin, pc.oid) as consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc', 'cc') order by 1,2;
 
 drop table cc;
 drop table bc;
@@ -654,6 +642,23 @@ select * from cnullparent where f1 = 2;
 drop table cnullparent cascade;
 
 --
+-- Check use of temporary tables with inheritance trees
+--
+create table inh_perm_parent (a1 int);
+create temp table inh_temp_parent (a1 int);
+create temp table inh_temp_child () inherits (inh_perm_parent); -- ok
+create table inh_perm_child () inherits (inh_temp_parent); -- error
+create temp table inh_temp_child_2 () inherits (inh_temp_parent); -- ok
+insert into inh_perm_parent values (1);
+insert into inh_temp_parent values (2);
+insert into inh_temp_child values (3);
+insert into inh_temp_child_2 values (4);
+select tableoid::regclass, a1 from inh_perm_parent;
+select tableoid::regclass, a1 from inh_temp_parent;
+drop table inh_perm_parent cascade;
+drop table inh_temp_parent cascade;
+
+--
 -- Check that constraint exclusion works correctly with partitions using
 -- implicit constraints generated from the partition bound information.
 --
@@ -722,7 +727,6 @@ explain (costs off) select * from mcrparted where abs(b) = 5;	-- scans all parti
 explain (costs off) select * from mcrparted where a > -1;	-- scans all partitions
 explain (costs off) select * from mcrparted where a = 20 and abs(b) = 10 and c > 10;	-- scans mcrparted4
 explain (costs off) select * from mcrparted where a = 20 and c > 20; -- scans mcrparted3, mcrparte4, mcrparte5, mcrparted_def
-drop table mcrparted;
 
 -- check that partitioned table Appends cope with being referenced in
 -- subplans
@@ -733,3 +737,111 @@ insert into parted_minmax values (1,'12345');
 explain (costs off) select min(a), max(a) from parted_minmax where b = '12345';
 select min(a), max(a) from parted_minmax where b = '12345';
 drop table parted_minmax;
+
+-- Test code that uses Append nodes in place of MergeAppend when the
+-- partition ordering matches the desired ordering.
+
+create index mcrparted_a_abs_c_idx on mcrparted (a, abs(b), c);
+
+-- MergeAppend must be used when a default partition exists
+explain (costs off) select * from mcrparted order by a, abs(b), c;
+
+drop table mcrparted_def;
+
+-- Append is used for a RANGE partitioned table with no default
+-- and no subpartitions
+explain (costs off) select * from mcrparted order by a, abs(b), c;
+
+-- Append is used with subpaths in reverse order with backwards index scans
+explain (costs off) select * from mcrparted order by a desc, abs(b) desc, c desc;
+
+-- check that Append plan is used containing a MergeAppend for sub-partitions
+-- that are unordered.
+drop table mcrparted5;
+create table mcrparted5 partition of mcrparted for values from (20, 20, 20) to (maxvalue, maxvalue, maxvalue) partition by list (a);
+create table mcrparted5a partition of mcrparted5 for values in(20);
+create table mcrparted5_def partition of mcrparted5 default;
+
+explain (costs off) select * from mcrparted order by a, abs(b), c;
+
+drop table mcrparted5_def;
+
+-- check that an Append plan is used and the sub-partitions are flattened
+-- into the main Append when the sub-partition is unordered but contains
+-- just a single sub-partition.
+explain (costs off) select a, abs(b) from mcrparted order by a, abs(b), c;
+
+-- check that Append is used when the sub-partitioned tables are pruned
+-- during planning.
+explain (costs off) select * from mcrparted where a < 20 order by a, abs(b), c;
+
+create table mclparted (a int) partition by list(a);
+create table mclparted1 partition of mclparted for values in(1);
+create table mclparted2 partition of mclparted for values in(2);
+create index on mclparted (a);
+
+-- Ensure an Append is used for a list partition with an order by.
+explain (costs off) select * from mclparted order by a;
+
+-- Ensure a MergeAppend is used when a partition exists with interleaved
+-- datums in the partition bound.
+create table mclparted3_5 partition of mclparted for values in(3,5);
+create table mclparted4 partition of mclparted for values in(4);
+
+explain (costs off) select * from mclparted order by a;
+
+drop table mclparted;
+
+-- Ensure subplans which don't have a path with the correct pathkeys get
+-- sorted correctly.
+drop index mcrparted_a_abs_c_idx;
+create index on mcrparted1 (a, abs(b), c);
+create index on mcrparted2 (a, abs(b), c);
+create index on mcrparted3 (a, abs(b), c);
+create index on mcrparted4 (a, abs(b), c);
+
+explain (costs off) select * from mcrparted where a < 20 order by a, abs(b), c limit 1;
+
+set enable_bitmapscan = 0;
+-- Ensure Append node can be used when the partition is ordered by some
+-- pathkeys which were deemed redundant.
+explain (costs off) select * from mcrparted where a = 10 order by a, abs(b), c;
+reset enable_bitmapscan;
+
+drop table mcrparted;
+
+-- Ensure LIST partitions allow an Append to be used instead of a MergeAppend
+create table bool_lp (b bool) partition by list(b);
+create table bool_lp_true partition of bool_lp for values in(true);
+create table bool_lp_false partition of bool_lp for values in(false);
+create index on bool_lp (b);
+
+explain (costs off) select * from bool_lp order by b;
+
+drop table bool_lp;
+
+-- Ensure const bool quals can be properly detected as redundant
+create table bool_rp (b bool, a int) partition by range(b,a);
+create table bool_rp_false_1k partition of bool_rp for values from (false,0) to (false,1000);
+create table bool_rp_true_1k partition of bool_rp for values from (true,0) to (true,1000);
+create table bool_rp_false_2k partition of bool_rp for values from (false,1000) to (false,2000);
+create table bool_rp_true_2k partition of bool_rp for values from (true,1000) to (true,2000);
+create index on bool_rp (b,a);
+explain (costs off) select * from bool_rp where b = true order by b,a;
+explain (costs off) select * from bool_rp where b = false order by b,a;
+explain (costs off) select * from bool_rp where b = true order by a;
+explain (costs off) select * from bool_rp where b = false order by a;
+
+drop table bool_rp;
+
+-- Ensure an Append scan is chosen when the partition order is a subset of
+-- the required order.
+create table range_parted (a int, b int, c int) partition by range(a, b);
+create table range_parted1 partition of range_parted for values from (0,0) to (10,10);
+create table range_parted2 partition of range_parted for values from (10,10) to (20,20);
+create index on range_parted (a,b,c);
+
+explain (costs off) select * from range_parted order by a,b,c;
+explain (costs off) select * from range_parted order by a desc,b desc,c desc;
+
+drop table range_parted;

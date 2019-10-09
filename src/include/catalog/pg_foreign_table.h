@@ -3,7 +3,7 @@
  * pg_foreign_table.h
  *	  definition of the "foreign table" system catalog (pg_foreign_table)
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_foreign_table.h
@@ -25,7 +25,7 @@
  *		typedef struct FormData_pg_foreign_table
  * ----------------
  */
-CATALOG(pg_foreign_table,3118,ForeignTableRelationId) BKI_WITHOUT_OIDS
+CATALOG(pg_foreign_table,3118,ForeignTableRelationId)
 {
 	Oid			ftrelid;		/* OID of foreign table */
 	Oid			ftserver;		/* OID of foreign server */

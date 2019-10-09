@@ -3,7 +3,7 @@
  * pg_subscription.h
  *	  definition of the "subscription" system catalog (pg_subscription)
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_subscription.h
@@ -38,6 +38,8 @@
  */
 CATALOG(pg_subscription,6100,SubscriptionRelationId) BKI_SHARED_RELATION BKI_ROWTYPE_OID(6101,SubscriptionRelation_Rowtype_Id) BKI_SCHEMA_MACRO
 {
+	Oid			oid;			/* oid */
+
 	Oid			subdbid;		/* Database the subscription is in. */
 	NameData	subname;		/* Name of the subscription */
 
@@ -80,7 +82,7 @@ typedef struct Subscription
 extern Subscription *GetSubscription(Oid subid, bool missing_ok);
 extern void FreeSubscription(Subscription *sub);
 extern Oid	get_subscription_oid(const char *subname, bool missing_ok);
-extern char *get_subscription_name(Oid subid);
+extern char *get_subscription_name(Oid subid, bool missing_ok);
 
 extern int	CountDBSubscriptions(Oid dbid);
 

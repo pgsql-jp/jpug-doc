@@ -4,7 +4,7 @@
  * bootscanner.l
  *	  a lexical scanner for the bootstrap parser
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -91,7 +91,6 @@ create			{ yylval.kw = "create"; return XCREATE; }
 OID				{ yylval.kw = "OID"; return OBJ_ID; }
 bootstrap		{ yylval.kw = "bootstrap"; return XBOOTSTRAP; }
 shared_relation	{ yylval.kw = "shared_relation"; return XSHARED_RELATION; }
-without_oids	{ yylval.kw = "without_oids"; return XWITHOUT_OIDS; }
 rowtype_oid		{ yylval.kw = "rowtype_oid"; return XROWTYPE_OID; }
 
 insert			{ yylval.kw = "insert"; return INSERT_TUPLE; }

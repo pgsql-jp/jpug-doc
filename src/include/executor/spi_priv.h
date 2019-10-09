@@ -3,7 +3,7 @@
  * spi_priv.h
  *				Server Programming Interface private declarations
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/executor/spi_priv.h
@@ -23,7 +23,6 @@ typedef struct
 {
 	/* current results */
 	uint64		processed;		/* by Executor */
-	Oid			lastoid;
 	SPITupleTable *tuptable;	/* tuptable currently being built */
 
 	/* subtransaction in which current Executor call was started */
@@ -45,7 +44,6 @@ typedef struct
 
 	/* saved values of API global variables for previous nesting level */
 	uint64		outer_processed;
-	Oid			outer_lastoid;
 	SPITupleTable *outer_tuptable;
 	int			outer_result;
 } _SPI_connection;

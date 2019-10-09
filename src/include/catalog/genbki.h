@@ -9,7 +9,7 @@
  * bootstrap file from these header files.)
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/genbki.h
@@ -25,7 +25,6 @@
 /* Options that may appear after CATALOG (on the same line) */
 #define BKI_BOOTSTRAP
 #define BKI_SHARED_RELATION
-#define BKI_WITHOUT_OIDS
 #define BKI_ROWTYPE_OID(oid,oidmacro)
 #define BKI_SCHEMA_MACRO
 
@@ -34,7 +33,12 @@
 #define BKI_FORCE_NOT_NULL
 /* Specifies a default value for a catalog field */
 #define BKI_DEFAULT(value)
-/* Indicates how to perform name lookups for an OID or OID-array field */
+/* Specifies a default value for auto-generated array types */
+#define BKI_ARRAY_DEFAULT(value)
+/*
+ * Indicates how to perform name lookups, typically for an OID or
+ * OID-array field
+ */
 #define BKI_LOOKUP(catalog)
 
 /* The following are never defined; they are here only for documentation. */

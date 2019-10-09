@@ -23,7 +23,7 @@
  * for example).
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_description.h
@@ -45,7 +45,7 @@
  *		typedef struct FormData_pg_description
  * ----------------
  */
-CATALOG(pg_description,2609,DescriptionRelationId) BKI_WITHOUT_OIDS
+CATALOG(pg_description,2609,DescriptionRelationId)
 {
 	Oid			objoid;			/* OID of object itself */
 	Oid			classoid;		/* OID of table containing object */

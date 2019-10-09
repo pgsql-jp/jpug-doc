@@ -44,10 +44,9 @@ configure_test_server_for_ssl($node, $SERVERHOSTADDR, "scram-sha-256",
 switch_server_cert($node, 'server-cn-only');
 $ENV{PGPASSWORD} = "pass";
 $common_connstr =
-  "user=ssltestuser dbname=trustdb sslmode=require hostaddr=$SERVERHOSTADDR";
+  "user=ssltestuser dbname=trustdb sslmode=require sslcert=invalid sslrootcert=invalid hostaddr=$SERVERHOSTADDR";
 
 # Default settings
-test_connect_ok($common_connstr, '',
-	"Basic SCRAM authentication with SSL");
+test_connect_ok($common_connstr, '', "Basic SCRAM authentication with SSL");
 
 done_testing($number_of_tests);

@@ -30,6 +30,7 @@
 #include "pg_backup_utils.h"
 #include "common/file_utils.h"
 
+
 /*--------
  * Routines in the format interface
  *--------
@@ -59,6 +60,8 @@ static void _StartBlob(ArchiveHandle *AH, TocEntry *te, Oid oid);
 static void _EndBlob(ArchiveHandle *AH, TocEntry *te, Oid oid);
 static void _EndBlobs(ArchiveHandle *AH, TocEntry *te);
 static void _LoadBlobs(ArchiveHandle *AH, bool drop);
+
+static void _PrepParallelRestore(ArchiveHandle *AH);
 static void _Clone(ArchiveHandle *AH);
 static void _DeClone(ArchiveHandle *AH);
 
@@ -88,10 +91,6 @@ static pgoff_t _getFilePos(ArchiveHandle *AH, lclContext *ctx);
 
 static void _CustomWriteFunc(ArchiveHandle *AH, const char *buf, size_t len);
 static size_t _CustomReadFunc(ArchiveHandle *AH, char **buf, size_t *buflen);
-
-/* translator: this is a module name */
-static const char *modulename = gettext_noop("custom archiver");
-
 
 
 /*
@@ -129,6 +128,8 @@ InitArchiveFmt_Custom(ArchiveHandle *AH)
 	AH->StartBlobPtr = _StartBlob;
 	AH->EndBlobPtr = _EndBlob;
 	AH->EndBlobsPtr = _EndBlobs;
+
+	AH->PrepParallelRestorePtr = _PrepParallelRestore;
 	AH->ClonePtr = _Clone;
 	AH->DeClonePtr = _DeClone;
 
@@ -155,15 +156,13 @@ InitArchiveFmt_Custom(ArchiveHandle *AH)
 		{
 			AH->FH = fopen(AH->fSpec, PG_BINARY_W);
 			if (!AH->FH)
-				exit_horribly(modulename, "could not open output file \"%s\": %s\n",
-							  AH->fSpec, strerror(errno));
+				fatal("could not open output file \"%s\": %m", AH->fSpec);
 		}
 		else
 		{
 			AH->FH = stdout;
 			if (!AH->FH)
-				exit_horribly(modulename, "could not open output file: %s\n",
-							  strerror(errno));
+				fatal("could not open output file: %m");
 		}
 
 		ctx->hasSeek = checkSeek(AH->FH);
@@ -174,15 +173,13 @@ InitArchiveFmt_Custom(ArchiveHandle *AH)
 		{
 			AH->FH = fopen(AH->fSpec, PG_BINARY_R);
 			if (!AH->FH)
-				exit_horribly(modulename, "could not open input file \"%s\": %s\n",
-							  AH->fSpec, strerror(errno));
+				fatal("could not open input file \"%s\": %m", AH->fSpec);
 		}
 		else
 		{
 			AH->FH = stdin;
 			if (!AH->FH)
-				exit_horribly(modulename, "could not open input file: %s\n",
-							  strerror(errno));
+				fatal("could not open input file: %m");
 		}
 
 		ctx->hasSeek = checkSeek(AH->FH);
@@ -377,7 +374,7 @@ _StartBlob(ArchiveHandle *AH, TocEntry *te, Oid oid)
 	lclContext *ctx = (lclContext *) AH->formatData;
 
 	if (oid == 0)
-		exit_horribly(modulename, "invalid OID for large object\n");
+		fatal("invalid OID for large object");
 
 	WriteInt(AH, oid);
 
@@ -447,9 +444,8 @@ _PrintTocData(ArchiveHandle *AH, TocEntry *te)
 					break;
 
 				default:		/* Always have a default */
-					exit_horribly(modulename,
-								  "unrecognized data block type (%d) while searching archive\n",
-								  blkType);
+					fatal("unrecognized data block type (%d) while searching archive",
+						  blkType);
 					break;
 			}
 			_readBlockHeader(AH, &blkType, &id);
@@ -459,8 +455,7 @@ _PrintTocData(ArchiveHandle *AH, TocEntry *te)
 	{
 		/* We can just seek to the place we need to be. */
 		if (fseeko(AH->FH, tctx->dataPos, SEEK_SET) != 0)
-			exit_horribly(modulename, "error during file seek: %s\n",
-						  strerror(errno));
+			fatal("error during file seek: %m");
 
 		_readBlockHeader(AH, &blkType, &id);
 	}
@@ -469,25 +464,25 @@ _PrintTocData(ArchiveHandle *AH, TocEntry *te)
 	if (blkType == EOF)
 	{
 		if (tctx->dataState == K_OFFSET_POS_NOT_SET)
-			exit_horribly(modulename, "could not find block ID %d in archive -- "
-						  "possibly due to out-of-order restore request, "
-						  "which cannot be handled due to lack of data offsets in archive\n",
-						  te->dumpId);
+			fatal("could not find block ID %d in archive -- "
+				  "possibly due to out-of-order restore request, "
+				  "which cannot be handled due to lack of data offsets in archive",
+				  te->dumpId);
 		else if (!ctx->hasSeek)
-			exit_horribly(modulename, "could not find block ID %d in archive -- "
-						  "possibly due to out-of-order restore request, "
-						  "which cannot be handled due to non-seekable input file\n",
-						  te->dumpId);
+			fatal("could not find block ID %d in archive -- "
+				  "possibly due to out-of-order restore request, "
+				  "which cannot be handled due to non-seekable input file",
+				  te->dumpId);
 		else					/* huh, the dataPos led us to EOF? */
-			exit_horribly(modulename, "could not find block ID %d in archive -- "
-						  "possibly corrupt archive\n",
-						  te->dumpId);
+			fatal("could not find block ID %d in archive -- "
+				  "possibly corrupt archive",
+				  te->dumpId);
 	}
 
 	/* Are we sane? */
 	if (id != te->dumpId)
-		exit_horribly(modulename, "found unexpected block ID (%d) when reading data -- expected %d\n",
-					  id, te->dumpId);
+		fatal("found unexpected block ID (%d) when reading data -- expected %d",
+			  id, te->dumpId);
 
 	switch (blkType)
 	{
@@ -500,8 +495,8 @@ _PrintTocData(ArchiveHandle *AH, TocEntry *te)
 			break;
 
 		default:				/* Always have a default */
-			exit_horribly(modulename, "unrecognized data block type %d while restoring archive\n",
-						  blkType);
+			fatal("unrecognized data block type %d while restoring archive",
+				  blkType);
 			break;
 	}
 }
@@ -580,11 +575,9 @@ _skipData(ArchiveHandle *AH)
 		if ((cnt = fread(buf, 1, blkLen, AH->FH)) != blkLen)
 		{
 			if (feof(AH->FH))
-				exit_horribly(modulename,
-							  "could not read from input file: end of file\n");
+				fatal("could not read from input file: end of file");
 			else
-				exit_horribly(modulename,
-							  "could not read from input file: %s\n", strerror(errno));
+				fatal("could not read from input file: %m");
 		}
 
 		ctx->filePos += blkLen;
@@ -702,8 +695,7 @@ _CloseArchive(ArchiveHandle *AH)
 		/* Remember TOC's seek position for use below */
 		tpos = ftello(AH->FH);
 		if (tpos < 0 && ctx->hasSeek)
-			exit_horribly(modulename, "could not determine seek position in archive file: %s\n",
-						  strerror(errno));
+			fatal("could not determine seek position in archive file: %m");
 		WriteToc(AH);
 		ctx->dataStart = _getFilePos(AH, ctx);
 		WriteDataChunks(AH, NULL);
@@ -720,11 +712,11 @@ _CloseArchive(ArchiveHandle *AH)
 	}
 
 	if (fclose(AH->FH) != 0)
-		exit_horribly(modulename, "could not close archive file: %s\n", strerror(errno));
+		fatal("could not close archive file: %m");
 
 	/* Sync the output file if one is defined */
 	if (AH->dosync && AH->mode == archModeWrite && AH->fSpec)
-		(void) fsync_fname(AH->fSpec, false, progname);
+		(void) fsync_fname(AH->fSpec, false);
 
 	AH->FH = NULL;
 }
@@ -743,36 +735,91 @@ _ReopenArchive(ArchiveHandle *AH)
 	pgoff_t		tpos;
 
 	if (AH->mode == archModeWrite)
-		exit_horribly(modulename, "can only reopen input archives\n");
+		fatal("can only reopen input archives");
 
 	/*
 	 * These two cases are user-facing errors since they represent unsupported
 	 * (but not invalid) use-cases.  Word the error messages appropriately.
 	 */
 	if (AH->fSpec == NULL || strcmp(AH->fSpec, "") == 0)
-		exit_horribly(modulename, "parallel restore from standard input is not supported\n");
+		fatal("parallel restore from standard input is not supported");
 	if (!ctx->hasSeek)
-		exit_horribly(modulename, "parallel restore from non-seekable file is not supported\n");
+		fatal("parallel restore from non-seekable file is not supported");
 
 	tpos = ftello(AH->FH);
 	if (tpos < 0)
-		exit_horribly(modulename, "could not determine seek position in archive file: %s\n",
-					  strerror(errno));
+		fatal("could not determine seek position in archive file: %m");
 
 #ifndef WIN32
 	if (fclose(AH->FH) != 0)
-		exit_horribly(modulename, "could not close archive file: %s\n",
-					  strerror(errno));
+		fatal("could not close archive file: %m");
 #endif
 
 	AH->FH = fopen(AH->fSpec, PG_BINARY_R);
 	if (!AH->FH)
-		exit_horribly(modulename, "could not open input file \"%s\": %s\n",
-					  AH->fSpec, strerror(errno));
+		fatal("could not open input file \"%s\": %m", AH->fSpec);
 
 	if (fseeko(AH->FH, tpos, SEEK_SET) != 0)
-		exit_horribly(modulename, "could not set seek position in archive file: %s\n",
-					  strerror(errno));
+		fatal("could not set seek position in archive file: %m");
+}
+
+/*
+ * Prepare for parallel restore.
+ *
+ * The main thing that needs to happen here is to fill in TABLE DATA and BLOBS
+ * TOC entries' dataLength fields with appropriate values to guide the
+ * ordering of restore jobs.  The source of said data is format-dependent,
+ * as is the exact meaning of the values.
+ *
+ * A format module might also choose to do other setup here.
+ */
+static void
+_PrepParallelRestore(ArchiveHandle *AH)
+{
+	lclContext *ctx = (lclContext *) AH->formatData;
+	TocEntry   *prev_te = NULL;
+	lclTocEntry *prev_tctx = NULL;
+	TocEntry   *te;
+
+	/*
+	 * Knowing that the data items were dumped out in TOC order, we can
+	 * reconstruct the length of each item as the delta to the start offset of
+	 * the next data item.
+	 */
+	for (te = AH->toc->next; te != AH->toc; te = te->next)
+	{
+		lclTocEntry *tctx = (lclTocEntry *) te->formatData;
+
+		/*
+		 * Ignore entries without a known data offset; if we were unable to
+		 * seek to rewrite the TOC when creating the archive, this'll be all
+		 * of them, and we'll end up with no size estimates.
+		 */
+		if (tctx->dataState != K_OFFSET_POS_SET)
+			continue;
+
+		/* Compute previous data item's length */
+		if (prev_te)
+		{
+			if (tctx->dataPos > prev_tctx->dataPos)
+				prev_te->dataLength = tctx->dataPos - prev_tctx->dataPos;
+		}
+
+		prev_te = te;
+		prev_tctx = tctx;
+	}
+
+	/* If OK to seek, we can determine the length of the last item */
+	if (prev_te && ctx->hasSeek)
+	{
+		pgoff_t		endpos;
+
+		if (fseeko(AH->FH, 0, SEEK_END) != 0)
+			fatal("error during file seek: %m");
+		endpos = ftello(AH->FH);
+		if (endpos > prev_tctx->dataPos)
+			prev_te->dataLength = endpos - prev_tctx->dataPos;
+	}
 }
 
 /*
@@ -789,7 +836,7 @@ _Clone(ArchiveHandle *AH)
 
 	/* sanity check, shouldn't happen */
 	if (ctx->cs != NULL)
-		exit_horribly(modulename, "compressor active\n");
+		fatal("compressor active");
 
 	/*
 	 * Note: we do not make a local lo_buf because we expect at most one BLOBS
@@ -841,11 +888,10 @@ _getFilePos(ArchiveHandle *AH, lclContext *ctx)
 		 */
 		pos = ftello(AH->FH);
 		if (pos < 0)
-			exit_horribly(modulename, "could not determine seek position in archive file: %s\n",
-						  strerror(errno));
+			fatal("could not determine seek position in archive file: %m");
 
 		if (pos != ctx->filePos)
-			write_msg(modulename, "WARNING: ftell mismatch with expected position -- ftell used\n");
+			pg_log_warning("ftell mismatch with expected position -- ftell used");
 	}
 	else
 		pos = ctx->filePos;
@@ -864,11 +910,11 @@ _readBlockHeader(ArchiveHandle *AH, int *type, int *id)
 	int			byt;
 
 	/*
-	 * Note: if we are at EOF with a pre-1.3 input file, we'll exit_horribly
-	 * inside ReadInt rather than returning EOF.  It doesn't seem worth
-	 * jumping through hoops to deal with that case better, because no such
-	 * files are likely to exist in the wild: only some 7.1 development
-	 * versions of pg_dump ever generated such files.
+	 * Note: if we are at EOF with a pre-1.3 input file, we'll fatal() inside
+	 * ReadInt rather than returning EOF.  It doesn't seem worth jumping
+	 * through hoops to deal with that case better, because no such files are
+	 * likely to exist in the wild: only some 7.1 development versions of
+	 * pg_dump ever generated such files.
 	 */
 	if (AH->version < K_VERS_1_3)
 		*type = BLK_DATA;

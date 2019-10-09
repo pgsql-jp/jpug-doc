@@ -29,14 +29,14 @@
  * in the current environment, but that may change if the row_security GUC or
  * the current role changes.
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  */
 #include "postgres.h"
 
-#include "access/heapam.h"
 #include "access/htup_details.h"
 #include "access/sysattr.h"
+#include "access/table.h"
 #include "catalog/pg_class.h"
 #include "catalog/pg_inherits.h"
 #include "catalog/pg_policy.h"
@@ -59,28 +59,28 @@
 #include "tcop/utility.h"
 
 static void get_policies_for_relation(Relation relation,
-						  CmdType cmd, Oid user_id,
-						  List **permissive_policies,
-						  List **restrictive_policies);
+									  CmdType cmd, Oid user_id,
+									  List **permissive_policies,
+									  List **restrictive_policies);
 
 static List *sort_policies_by_name(List *policies);
 
 static int	row_security_policy_cmp(const void *a, const void *b);
 
 static void add_security_quals(int rt_index,
-				   List *permissive_policies,
-				   List *restrictive_policies,
-				   List **securityQuals,
-				   bool *hasSubLinks);
+							   List *permissive_policies,
+							   List *restrictive_policies,
+							   List **securityQuals,
+							   bool *hasSubLinks);
 
 static void add_with_check_options(Relation rel,
-					   int rt_index,
-					   WCOKind kind,
-					   List *permissive_policies,
-					   List *restrictive_policies,
-					   List **withCheckOptions,
-					   bool *hasSubLinks,
-					   bool force_using);
+								   int rt_index,
+								   WCOKind kind,
+								   List *permissive_policies,
+								   List *restrictive_policies,
+								   List **withCheckOptions,
+								   bool *hasSubLinks,
+								   bool force_using);
 
 static bool check_role_for_policy(ArrayType *policy_roles, Oid user_id);
 
@@ -163,7 +163,7 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 	 * for example in UPDATE t1 ... FROM t2 we need to apply t1's UPDATE
 	 * policies and t2's SELECT policies.
 	 */
-	rel = heap_open(rte->relid, NoLock);
+	rel = table_open(rte->relid, NoLock);
 
 	commandType = rt_index == root->resultRelation ?
 		root->commandType : CMD_SELECT;
@@ -380,7 +380,7 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 		}
 	}
 
-	heap_close(rel, NoLock);
+	table_close(rel, NoLock);
 
 	/*
 	 * Copy checkAsUser to the row security quals and WithCheckOption checks,

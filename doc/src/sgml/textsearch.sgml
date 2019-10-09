@@ -878,7 +878,9 @@ CREATE INDEX pgweb_idx ON pgweb USING GIN (to_tsvector('english', title || ' ' |
    <para>
 <!--
     Another approach is to create a separate <type>tsvector</type> column
-    to hold the output of <function>to_tsvector</function>.  This example is a
+    to hold the output of <function>to_tsvector</function>.  To keep this
+    column automatically up to date with its source data, use a stored
+    generated column.  This example is a
     concatenation of <literal>title</literal> and <literal>body</literal>,
     using <function>coalesce</function> to ensure that one field will still be
     indexed when the other is <literal>NULL</literal>:
@@ -886,9 +888,9 @@ CREATE INDEX pgweb_idx ON pgweb USING GIN (to_tsvector('english', title || ' ' |
 別の方法として、<function>to_tsvector</function>の出力を保持する別の<type>tsvector</type>列を作る方法があります。この例では、<literal>title</literal>と<literal>body</literal>を連結、<function>coalesce</function>を使って、一つのフィールドが<literal>NULL</literal>であっても他のフィールドがインデックス付けされることを保証しています。
 
 <programlisting>
-ALTER TABLE pgweb ADD COLUMN textsearchable_index_col tsvector;
-UPDATE pgweb SET textsearchable_index_col =
-     to_tsvector('english', coalesce(title,'') || ' ' || coalesce(body,''));
+ALTER TABLE pgweb
+    ADD COLUMN textsearchable_index_col tsvector
+               GENERATED ALWAYS AS (to_tsvector('english', coalesce(title, '') || ' ' || coalesce(body, ''))) STORED;
 </programlisting>
 
 <!--
@@ -912,17 +914,6 @@ WHERE textsearchable_index_col @@ to_tsquery('create &amp; table')
 ORDER BY last_mod_date DESC
 LIMIT 10;
 </programlisting>
-   </para>
-
-   <para>
-<!--
-    When using a separate column to store the <type>tsvector</type>
-    representation,
-    it is necessary to create a trigger to keep the <type>tsvector</type>
-    column current anytime <literal>title</literal> or <literal>body</literal> changes.
-    <xref linkend="textsearch-update-triggers"/> explains how to do that.
--->
-<type>tsvector</type>形式を保存するために別の列を使う場合、<literal>title</literal>あるいは<literal>body</literal>が変更されたら<type>tsvector</type>列を最新の状態にいつでも維持するためにトリガを作る必要があります。<xref linkend="textsearch-update-triggers"/>にその方法が説明されています。
    </para>
 
    <para>
@@ -2459,6 +2450,14 @@ SELECT ts_rewrite('a &amp; b'::tsquery,
     <primary>トリガ</primary>
     <secondary>tsvectorから派生した列を更新する</secondary>
    </indexterm>
+
+   <note>
+    <para>
+     The method described in this section has been obsoleted by the use of
+     stored generated columns, as described in <xref
+     linkend="textsearch-tables-index"/>.
+    </para>
+   </note>
 
    <para>
 <!--
@@ -4908,6 +4907,12 @@ GiSTインデックスが非可逆なのは、インデックス中の各文書�
   </para>
 
   <para>
+   A GiST index can be covering, i.e. use the <literal>INCLUDE</literal>
+   clause.  Included columns can have data types without any GiST operator
+   class.  Included attributes will be stored uncompressed.
+  </para>
+
+  <para>
 <!--
    Lossiness causes performance degradation due to unnecessary fetches of table
    records that turn out to be false matches.  Since random access to table
@@ -5061,9 +5066,10 @@ Parser: "pg_catalog.default"
 テキスト検索辞書を表示します(<literal>+</literal>追加で詳細表示)。
 <screen>
 =&gt; \dFd
-                            List of text search dictionaries
-   Schema   |      Name       |                        Description                        
+                             List of text search dictionaries
+   Schema   |      Name       |                        Description
 ------------+-----------------+-----------------------------------------------------------
+ pg_catalog | arabic_stem     | snowball stemmer for arabic language
  pg_catalog | danish_stem     | snowball stemmer for danish language
  pg_catalog | dutch_stem      | snowball stemmer for dutch language
  pg_catalog | english_stem    | snowball stemmer for english language
@@ -5071,7 +5077,11 @@ Parser: "pg_catalog.default"
  pg_catalog | french_stem     | snowball stemmer for french language
  pg_catalog | german_stem     | snowball stemmer for german language
  pg_catalog | hungarian_stem  | snowball stemmer for hungarian language
+ pg_catalog | indonesian_stem | snowball stemmer for indonesian language
+ pg_catalog | irish_stem      | snowball stemmer for irish language
  pg_catalog | italian_stem    | snowball stemmer for italian language
+ pg_catalog | lithuanian_stem | snowball stemmer for lithuanian language
+ pg_catalog | nepali_stem     | snowball stemmer for nepali language
  pg_catalog | norwegian_stem  | snowball stemmer for norwegian language
  pg_catalog | portuguese_stem | snowball stemmer for portuguese language
  pg_catalog | romanian_stem   | snowball stemmer for romanian language
@@ -5079,6 +5089,7 @@ Parser: "pg_catalog.default"
  pg_catalog | simple          | simple dictionary: just lower case and check for stopword
  pg_catalog | spanish_stem    | snowball stemmer for spanish language
  pg_catalog | swedish_stem    | snowball stemmer for swedish language
+ pg_catalog | tamil_stem      | snowball stemmer for tamil language
  pg_catalog | turkish_stem    | snowball stemmer for turkish language
 </screen>
      </para>

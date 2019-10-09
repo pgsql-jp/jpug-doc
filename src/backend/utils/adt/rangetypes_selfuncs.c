@@ -6,7 +6,7 @@
  * Estimates are based on histograms of lower and upper bounds, and the
  * fraction of empty ranges.
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -17,45 +17,48 @@
  */
 #include "postgres.h"
 
+#include <math.h>
+
 #include "access/htup_details.h"
 #include "catalog/pg_operator.h"
 #include "catalog/pg_statistic.h"
 #include "catalog/pg_type.h"
-#include "utils/builtins.h"
+#include "utils/float.h"
+#include "utils/fmgrprotos.h"
 #include "utils/lsyscache.h"
 #include "utils/rangetypes.h"
 #include "utils/selfuncs.h"
 #include "utils/typcache.h"
 
 static double calc_rangesel(TypeCacheEntry *typcache, VariableStatData *vardata,
-			  RangeType *constval, Oid operator);
+							RangeType *constval, Oid operator);
 static double default_range_selectivity(Oid operator);
 static double calc_hist_selectivity(TypeCacheEntry *typcache,
-					  VariableStatData *vardata, RangeType *constval,
-					  Oid operator);
+									VariableStatData *vardata, RangeType *constval,
+									Oid operator);
 static double calc_hist_selectivity_scalar(TypeCacheEntry *typcache,
-							 RangeBound *constbound,
-							 RangeBound *hist, int hist_nvalues,
-							 bool equal);
-static int rbound_bsearch(TypeCacheEntry *typcache, RangeBound *value,
-			   RangeBound *hist, int hist_length, bool equal);
+										   RangeBound *constbound,
+										   RangeBound *hist, int hist_nvalues,
+										   bool equal);
+static int	rbound_bsearch(TypeCacheEntry *typcache, RangeBound *value,
+						   RangeBound *hist, int hist_length, bool equal);
 static float8 get_position(TypeCacheEntry *typcache, RangeBound *value,
-			 RangeBound *hist1, RangeBound *hist2);
+						   RangeBound *hist1, RangeBound *hist2);
 static float8 get_len_position(double value, double hist1, double hist2);
 static float8 get_distance(TypeCacheEntry *typcache, RangeBound *bound1,
-			 RangeBound *bound2);
-static int length_hist_bsearch(Datum *length_hist_values,
-					int length_hist_nvalues, double value, bool equal);
+						   RangeBound *bound2);
+static int	length_hist_bsearch(Datum *length_hist_values,
+								int length_hist_nvalues, double value, bool equal);
 static double calc_length_hist_frac(Datum *length_hist_values,
-					  int length_hist_nvalues, double length1, double length2, bool equal);
+									int length_hist_nvalues, double length1, double length2, bool equal);
 static double calc_hist_selectivity_contained(TypeCacheEntry *typcache,
-								RangeBound *lower, RangeBound *upper,
-								RangeBound *hist_lower, int hist_nvalues,
-								Datum *length_hist_values, int length_hist_nvalues);
+											  RangeBound *lower, RangeBound *upper,
+											  RangeBound *hist_lower, int hist_nvalues,
+											  Datum *length_hist_values, int length_hist_nvalues);
 static double calc_hist_selectivity_contains(TypeCacheEntry *typcache,
-							   RangeBound *lower, RangeBound *upper,
-							   RangeBound *hist_lower, int hist_nvalues,
-							   Datum *length_hist_values, int length_hist_nvalues);
+											 RangeBound *lower, RangeBound *upper,
+											 RangeBound *hist_lower, int hist_nvalues,
+											 Datum *length_hist_values, int length_hist_nvalues);
 
 /*
  * Returns a default selectivity estimate for given operator, when we don't
@@ -749,19 +752,19 @@ get_position(TypeCacheEntry *typcache, RangeBound *value, RangeBound *hist1,
 static double
 get_len_position(double value, double hist1, double hist2)
 {
-	if (!is_infinite(hist1) && !is_infinite(hist2))
+	if (!isinf(hist1) && !isinf(hist2))
 	{
 		/*
 		 * Both bounds are finite. The value should be finite too, because it
 		 * lies somewhere between the bounds. If it doesn't, just return
 		 * something.
 		 */
-		if (is_infinite(value))
+		if (isinf(value))
 			return 0.5;
 
 		return 1.0 - (hist2 - value) / (hist2 - hist1);
 	}
-	else if (is_infinite(hist1) && !is_infinite(hist2))
+	else if (isinf(hist1) && !isinf(hist2))
 	{
 		/*
 		 * Lower bin boundary is -infinite, upper is finite. Return 1.0 to
@@ -769,7 +772,7 @@ get_len_position(double value, double hist1, double hist2)
 		 */
 		return 1.0;
 	}
-	else if (is_infinite(hist1) && is_infinite(hist2))
+	else if (isinf(hist1) && isinf(hist2))
 	{
 		/* same as above, but in reverse */
 		return 0.0;
@@ -850,7 +853,7 @@ calc_length_hist_frac(Datum *length_hist_values, int length_hist_nvalues,
 		return 0.0;				/* shouldn't happen, but doesn't hurt to check */
 
 	/* All lengths in the table are <= infinite. */
-	if (is_infinite(length2) && equal)
+	if (isinf(length2) && equal)
 		return 1.0;
 
 	/*----------
@@ -977,7 +980,7 @@ calc_length_hist_frac(Datum *length_hist_values, int length_hist_nvalues,
 	 * length2 is infinite. It's not clear what the correct value would be in
 	 * that case, so 0.5 seems as good as any value.
 	 */
-	if (is_infinite(area) && is_infinite(length2))
+	if (isinf(area) && isinf(length2))
 		frac = 0.5;
 	else
 		frac = area / (length2 - length1);

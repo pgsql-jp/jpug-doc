@@ -7,7 +7,7 @@
  * collation-sensitive, so the code in this file has no support for passing
  * collation settings through from callers.  That may have to change someday.
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -18,7 +18,6 @@
  */
 #include "postgres.h"
 
-#include "access/hash.h"
 #include "access/parallel.h"
 #include "executor/executor.h"
 #include "miscadmin.h"
@@ -59,8 +58,9 @@ static int	TupleHashTableMatch(struct tuplehash_hash *tb, const MinimalTuple tup
 ExprState *
 execTuplesMatchPrepare(TupleDesc desc,
 					   int numCols,
-					   AttrNumber *keyColIdx,
-					   Oid *eqOperators,
+					   const AttrNumber *keyColIdx,
+					   const Oid *eqOperators,
+					   const Oid *collations,
 					   PlanState *parent)
 {
 	Oid		   *eqFunctions = (Oid *) palloc(numCols * sizeof(Oid));
@@ -75,7 +75,8 @@ execTuplesMatchPrepare(TupleDesc desc,
 		eqFunctions[i] = get_opcode(eqOperators[i]);
 
 	/* build actual expression */
-	expr = ExecBuildGroupingEqual(desc, desc, numCols, keyColIdx, eqFunctions,
+	expr = ExecBuildGroupingEqual(desc, desc, NULL, NULL,
+								  numCols, keyColIdx, eqFunctions, collations,
 								  parent);
 
 	return expr;
@@ -93,7 +94,7 @@ execTuplesMatchPrepare(TupleDesc desc,
  */
 void
 execTuplesHashPrepare(int numCols,
-					  Oid *eqOperators,
+					  const Oid *eqOperators,
 					  Oid **eqFuncOids,
 					  FmgrInfo **hashFunctions)
 {
@@ -153,8 +154,9 @@ TupleHashTable
 BuildTupleHashTableExt(PlanState *parent,
 					   TupleDesc inputDesc,
 					   int numCols, AttrNumber *keyColIdx,
-					   Oid *eqfuncoids,
+					   const Oid *eqfuncoids,
 					   FmgrInfo *hashfunctions,
+					   Oid *collations,
 					   long nbuckets, Size additionalsize,
 					   MemoryContext metacxt,
 					   MemoryContext tablecxt,
@@ -164,6 +166,7 @@ BuildTupleHashTableExt(PlanState *parent,
 	TupleHashTable hashtable;
 	Size		entrysize = sizeof(TupleHashEntryData) + additionalsize;
 	MemoryContext oldcontext;
+	bool		allow_jit;
 
 	Assert(nbuckets > 0);
 
@@ -177,6 +180,7 @@ BuildTupleHashTableExt(PlanState *parent,
 	hashtable->numCols = numCols;
 	hashtable->keyColIdx = keyColIdx;
 	hashtable->tab_hash_funcs = hashfunctions;
+	hashtable->tab_collations = collations;
 	hashtable->tablecxt = tablecxt;
 	hashtable->tempcxt = tempcxt;
 	hashtable->entrysize = entrysize;
@@ -204,13 +208,26 @@ BuildTupleHashTableExt(PlanState *parent,
 	 * We copy the input tuple descriptor just for safety --- we assume all
 	 * input tuples will have equivalent descriptors.
 	 */
-	hashtable->tableslot = MakeSingleTupleTableSlot(CreateTupleDescCopy(inputDesc));
+	hashtable->tableslot = MakeSingleTupleTableSlot(CreateTupleDescCopy(inputDesc),
+													&TTSOpsMinimalTuple);
+
+	/*
+	 * If the old reset interface is used (i.e. BuildTupleHashTable, rather
+	 * than BuildTupleHashTableExt), allowing JIT would lead to the generated
+	 * functions to a) live longer than the query b) be re-generated each time
+	 * the table is being reset. Therefore prevent JIT from being used in that
+	 * case, by not providing a parent node (which prevents accessing the
+	 * JitContext in the EState).
+	 */
+	allow_jit = metacxt != tablecxt;
 
 	/* build comparator for all columns */
+	/* XXX: should we support non-minimal tuples for the inputslot? */
 	hashtable->tab_eq_func = ExecBuildGroupingEqual(inputDesc, inputDesc,
+													&TTSOpsMinimalTuple, &TTSOpsMinimalTuple,
 													numCols,
-													keyColIdx, eqfuncoids,
-													NULL);
+													keyColIdx, eqfuncoids, collations,
+													allow_jit ? parent : NULL);
 
 	/*
 	 * While not pretty, it's ok to not shut down this context, but instead
@@ -235,8 +252,9 @@ TupleHashTable
 BuildTupleHashTable(PlanState *parent,
 					TupleDesc inputDesc,
 					int numCols, AttrNumber *keyColIdx,
-					Oid *eqfuncoids,
+					const Oid *eqfuncoids,
 					FmgrInfo *hashfunctions,
+					Oid *collations,
 					long nbuckets, Size additionalsize,
 					MemoryContext tablecxt,
 					MemoryContext tempcxt,
@@ -247,6 +265,7 @@ BuildTupleHashTable(PlanState *parent,
 								  numCols, keyColIdx,
 								  eqfuncoids,
 								  hashfunctions,
+								  collations,
 								  nbuckets, additionalsize,
 								  tablecxt,
 								  tablecxt,
@@ -418,8 +437,9 @@ TupleHashTableHash(struct tuplehash_hash *tb, const MinimalTuple tuple)
 		{
 			uint32		hkey;
 
-			hkey = DatumGetUInt32(FunctionCall1(&hashfunctions[i],
-												attr));
+			hkey = DatumGetUInt32(FunctionCall1Coll(&hashfunctions[i],
+													hashtable->tab_collations[i],
+													attr));
 			hashkey ^= hkey;
 		}
 	}

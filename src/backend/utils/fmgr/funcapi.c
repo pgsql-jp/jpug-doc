@@ -4,7 +4,7 @@
  *	  Utility and convenience functions for fmgr functions that return
  *	  sets and/or composite types, or deal with VARIADIC inputs.
  *
- * Copyright (c) 2002-2018, PostgreSQL Global Development Group
+ * Copyright (c) 2002-2019, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/utils/fmgr/funcapi.c
@@ -14,6 +14,7 @@
 #include "postgres.h"
 
 #include "access/htup_details.h"
+#include "access/relation.h"
 #include "catalog/namespace.h"
 #include "catalog/pg_proc.h"
 #include "catalog/pg_type.h"
@@ -32,13 +33,13 @@
 
 static void shutdown_MultiFuncCall(Datum arg);
 static TypeFuncClass internal_get_result_type(Oid funcid,
-						 Node *call_expr,
-						 ReturnSetInfo *rsinfo,
-						 Oid *resultTypeId,
-						 TupleDesc *resultTupleDesc);
+											  Node *call_expr,
+											  ReturnSetInfo *rsinfo,
+											  Oid *resultTypeId,
+											  TupleDesc *resultTupleDesc);
 static bool resolve_polymorphic_tupdesc(TupleDesc tupdesc,
-							oidvector *declared_args,
-							Node *call_expr);
+										oidvector *declared_args,
+										Node *call_expr);
 static TypeFuncClass get_type_func_class(Oid typid, Oid *base_typeid);
 
 
@@ -88,7 +89,6 @@ init_MultiFuncCall(PG_FUNCTION_ARGS)
 		 */
 		retval->call_cntr = 0;
 		retval->max_calls = 0;
-		retval->slot = NULL;
 		retval->user_fctx = NULL;
 		retval->attinmeta = NULL;
 		retval->tuple_desc = NULL;
@@ -128,21 +128,6 @@ FuncCallContext *
 per_MultiFuncCall(PG_FUNCTION_ARGS)
 {
 	FuncCallContext *retval = (FuncCallContext *) fcinfo->flinfo->fn_extra;
-
-	/*
-	 * Clear the TupleTableSlot, if present.  This is for safety's sake: the
-	 * Slot will be in a long-lived context (it better be, if the
-	 * FuncCallContext is pointing to it), but in most usage patterns the
-	 * tuples stored in it will be in the function's per-tuple context. So at
-	 * the beginning of each call, the Slot will hold a dangling pointer to an
-	 * already-recycled tuple.  We clear it out here.
-	 *
-	 * Note: use of retval->slot is obsolete as of 8.0, and we expect that it
-	 * will always be NULL.  This is just here for backwards compatibility in
-	 * case someone creates a slot anyway.
-	 */
-	if (retval->slot != NULL)
-		ExecClearTuple(retval->slot);
 
 	return retval;
 }
@@ -1317,7 +1302,7 @@ build_function_result_tupdesc_d(char prokind,
 	if (numoutargs < 2 && prokind != PROKIND_PROCEDURE)
 		return NULL;
 
-	desc = CreateTemplateTupleDesc(numoutargs, false);
+	desc = CreateTemplateTupleDesc(numoutargs);
 	for (i = 0; i < numoutargs; i++)
 	{
 		TupleDescInitEntry(desc, i + 1,
@@ -1437,7 +1422,7 @@ TypeGetTupleDesc(Oid typeoid, List *colaliases)
 		/* OK, get the column alias */
 		attname = strVal(linitial(colaliases));
 
-		tupdesc = CreateTemplateTupleDesc(1, false);
+		tupdesc = CreateTemplateTupleDesc(1);
 		TupleDescInitEntry(tupdesc,
 						   (AttrNumber) 1,
 						   attname,

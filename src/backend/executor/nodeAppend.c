@@ -3,7 +3,7 @@
  * nodeAppend.c
  *	  routines to handle append nodes.
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -113,12 +113,6 @@ ExecInitAppend(Append *node, EState *estate, int eflags)
 	Assert(!(eflags & EXEC_FLAG_MARK));
 
 	/*
-	 * Lock the non-leaf tables in the partition tree controlled by this node.
-	 * It's a no-op for non-partitioned parent tables.
-	 */
-	ExecLockNonLeafAppendTables(node->partitioned_rels, estate);
-
-	/*
 	 * create new AppendState for our append node
 	 */
 	appendstate->ps.plan = (Plan *) node;
@@ -202,7 +196,11 @@ ExecInitAppend(Append *node, EState *estate, int eflags)
 	/*
 	 * Initialize result tuple type and slot.
 	 */
-	ExecInitResultTupleSlotTL(estate, &appendstate->ps);
+	ExecInitResultTupleSlotTL(&appendstate->ps, &TTSOpsVirtual);
+
+	/* node returns slots from each of its subnodes, therefore not fixed */
+	appendstate->ps.resultopsset = true;
+	appendstate->ps.resultopsfixed = false;
 
 	appendplanstates = (PlanState **) palloc(nplans *
 											 sizeof(PlanState *));
@@ -335,12 +333,6 @@ ExecEndAppend(AppendState *node)
 	 */
 	for (i = 0; i < nplans; i++)
 		ExecEndNode(appendplans[i]);
-
-	/*
-	 * release any resources associated with run-time pruning
-	 */
-	if (node->as_prune_state)
-		ExecDestroyPartitionPruneState(node->as_prune_state);
 }
 
 void

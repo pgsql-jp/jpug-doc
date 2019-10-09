@@ -6,7 +6,8 @@
  *
  * NOTE NOTE NOTE:
  *
- * The rules in this file must be kept in sync with src/fe_utils/psqlscan.l!
+ * The rules in this file must be kept in sync with src/fe_utils/psqlscan.l
+ * and src/interfaces/ecpg/preproc/pgc.l!
  *
  * The rules are designed so that the scanner never has to backtrack,
  * in the sense that there is always a rule that can match the input
@@ -21,7 +22,7 @@
  * Postgres 9.2, this check is made automatically by the Makefile.)
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -64,6 +65,21 @@ fprintf_to_ereport(const char *fmt, const char *msg)
 int			backslash_quote = BACKSLASH_QUOTE_SAFE_ENCODING;
 bool		escape_string_warning = true;
 bool		standard_conforming_strings = true;
+
+/*
+ * Constant data exported from this file.  This array maps from the
+ * zero-based keyword numbers returned by ScanKeywordLookup to the
+ * Bison token numbers needed by gram.y.  This is exported because
+ * callers need to pass it to scanner_init, if they are using the
+ * standard keyword list ScanKeywords.
+ */
+#define PG_KEYWORD(kwname, value, category) value,
+
+const uint16 ScanKeywordTokens[] = {
+#include "parser/kwlist.h"
+};
+
+#undef PG_KEYWORD
 
 /*
  * Set the type of YYSTYPE.
@@ -168,8 +184,8 @@ extern void core_yyset_column(int column_no, yyscan_t yyscanner);
 %x xc
 %x xd
 %x xh
-%x xe
 %x xq
+%x xe
 %x xdolq
 %x xui
 %x xuiend
@@ -192,7 +208,7 @@ extern void core_yyset_column(int column_no, yyscan_t yyscanner);
  * XXX perhaps \f (formfeed) should be treated as a newline as well?
  *
  * XXX if you change the set of whitespace characters, fix scanner_isspace()
- * to agree, and see also the plpgsql lexer.
+ * to agree.
  */
 
 space			[ \t\n\r\f]
@@ -417,32 +433,36 @@ other			.
 					yyless(2);
 				}
 
-<xc>{xcstart}	{
+<xc>{
+{xcstart}		{
 					(yyextra->xcdepth)++;
 					/* Put back any characters past slash-star; see above */
 					yyless(2);
 				}
 
-<xc>{xcstop}	{
+{xcstop}		{
 					if (yyextra->xcdepth <= 0)
 						BEGIN(INITIAL);
 					else
 						(yyextra->xcdepth)--;
 				}
 
-<xc>{xcinside}	{
+{xcinside}		{
 					/* ignore */
 				}
 
-<xc>{op_chars}	{
+{op_chars}		{
 					/* ignore */
 				}
 
-<xc>\*+			{
+\*+				{
 					/* ignore */
 				}
 
-<xc><<EOF>>		{ yyerror("unterminated /* comment"); }
+<<EOF>>			{
+					yyerror("unterminated /* comment");
+				}
+} /* <xc> */
 
 {xbstart}		{
 					/* Binary bit type.
@@ -499,18 +519,18 @@ other			.
 					 * We will pass this along as a normal character string,
 					 * but preceded with an internally-generated "NCHAR".
 					 */
-					const ScanKeyword *keyword;
+					int		kwnum;
 
 					SET_YYLLOC();
 					yyless(1);	/* eat only 'n' this time */
 
-					keyword = ScanKeywordLookup("nchar",
-												yyextra->keywords,
-												yyextra->num_keywords);
-					if (keyword != NULL)
+					kwnum = ScanKeywordLookup("nchar",
+											  yyextra->keywordlist);
+					if (kwnum >= 0)
 					{
-						yylval->keyword = keyword->name;
-						return keyword->value;
+						yylval->keyword = GetScanKeyword(kwnum,
+														 yyextra->keywordlist);
+						return yyextra->keyword_tokens[kwnum];
 					}
 					else
 					{
@@ -1000,39 +1020,35 @@ other			.
 				}
 {realfail1}		{
 					/*
-					 * throw back the [Ee], and treat as {decimal}.  Note
-					 * that it is possible the input is actually {integer},
-					 * but since this case will almost certainly lead to a
-					 * syntax error anyway, we don't bother to distinguish.
+					 * throw back the [Ee], and figure out whether what
+					 * remains is an {integer} or {decimal}.
 					 */
 					yyless(yyleng - 1);
 					SET_YYLLOC();
-					yylval->str = pstrdup(yytext);
-					return FCONST;
+					return process_integer_literal(yytext, yylval);
 				}
 {realfail2}		{
 					/* throw back the [Ee][+-], and proceed as above */
 					yyless(yyleng - 2);
 					SET_YYLLOC();
-					yylval->str = pstrdup(yytext);
-					return FCONST;
+					return process_integer_literal(yytext, yylval);
 				}
 
 
 {identifier}	{
-					const ScanKeyword *keyword;
+					int			kwnum;
 					char	   *ident;
 
 					SET_YYLLOC();
 
 					/* Is it a keyword? */
-					keyword = ScanKeywordLookup(yytext,
-												yyextra->keywords,
-												yyextra->num_keywords);
-					if (keyword != NULL)
+					kwnum = ScanKeywordLookup(yytext,
+											  yyextra->keywordlist);
+					if (kwnum >= 0)
 					{
-						yylval->keyword = keyword->name;
-						return keyword->value;
+						yylval->keyword = GetScanKeyword(kwnum,
+														 yyextra->keywordlist);
+						return yyextra->keyword_tokens[kwnum];
 					}
 
 					/*
@@ -1141,8 +1157,8 @@ scanner_yyerror(const char *message, core_yyscan_t yyscanner)
 core_yyscan_t
 scanner_init(const char *str,
 			 core_yy_extra_type *yyext,
-			 const ScanKeyword *keywords,
-			 int num_keywords)
+			 const ScanKeywordList *keywordlist,
+			 const uint16 *keyword_tokens)
 {
 	Size		slen = strlen(str);
 	yyscan_t	scanner;
@@ -1152,8 +1168,8 @@ scanner_init(const char *str,
 
 	core_yyset_extra(yyext, scanner);
 
-	yyext->keywords = keywords;
-	yyext->num_keywords = num_keywords;
+	yyext->keywordlist = keywordlist;
+	yyext->keyword_tokens = keyword_tokens;
 
 	yyext->backslash_quote = backslash_quote;
 	yyext->escape_string_warning = escape_string_warning;
@@ -1250,6 +1266,10 @@ litbufdup(core_yyscan_t yyscanner)
 	return new;
 }
 
+/*
+ * Process {integer}.  Note this will also do the right thing with {decimal},
+ * ie digits and a decimal point.
+ */
 static int
 process_integer_literal(const char *token, YYSTYPE *lval)
 {
@@ -1260,7 +1280,7 @@ process_integer_literal(const char *token, YYSTYPE *lval)
 	val = strtoint(token, &endptr, 10);
 	if (*endptr != '\0' || errno == ERANGE)
 	{
-		/* integer too large, treat it as a float */
+		/* integer too large (or contains decimal pt), treat it as a float */
 		lval->str = pstrdup(token);
 		return FCONST;
 	}

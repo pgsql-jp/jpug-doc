@@ -5,7 +5,7 @@
  *	  (pg_partitioned_table)
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_partitioned_table.h
@@ -27,7 +27,7 @@
  *		typedef struct FormData_pg_partitioned_table
  * ----------------
  */
-CATALOG(pg_partitioned_table,3350,PartitionedRelationId) BKI_WITHOUT_OIDS
+CATALOG(pg_partitioned_table,3350,PartitionedRelationId)
 {
 	Oid			partrelid;		/* partitioned table oid */
 	char		partstrat;		/* partitioning strategy */

@@ -157,8 +157,8 @@ ALTER DOMAIN <replaceable class="parameter">name</replaceable>
      <para>
 <!--
       This form validates a constraint previously added as
-      <literal>NOT VALID</literal>, that is, verify that all data in columns using the
-      domain satisfy the specified constraint.
+      <literal>NOT VALID</literal>, that is, it verifies that all values in
+      table columns of the domain type satisfy the specified constraint.
 -->
 この構文は、以前に<literal>NOT VALID</literal>として追加された制約を検証します。
 つまり、そのドメインを使用する列の中のすべてのデータが指定された制約を満たすかどうかを検証します。
@@ -275,7 +275,7 @@ ALTER DOMAIN <replaceable class="parameter">name</replaceable>
       <listitem>
        <para>
 <!--
-        Do not verify existing column data for constraint validity.
+        Do not verify existing stored data for constraint validity.
 -->
 既存の列について制約の妥当性を検証しません。
        </para>
@@ -368,6 +368,21 @@ ALTER DOMAIN <replaceable class="parameter">name</replaceable>
   <title>Notes</title>
 -->
   <title>注釈</title>
+
+  <para>
+   Although <command>ALTER DOMAIN ADD CONSTRAINT</command> attempts to verify
+   that existing stored data satisfies the new constraint, this check is not
+   bulletproof, because the command cannot <quote>see</quote> table rows that
+   are newly inserted or updated and not yet committed.  If there is a hazard
+   that concurrent operations might insert bad data, the way to proceed is to
+   add the constraint using the <literal>NOT VALID</literal> option, commit
+   that command, wait until all transactions started before that commit have
+   finished, and then issue <command>ALTER DOMAIN VALIDATE
+   CONSTRAINT</command> to search for data violating the constraint.  This
+   method is reliable because once the constraint is committed, all new
+   transactions are guaranteed to enforce it against new values of the domain
+   type.
+  </para>
 
   <para>
 <!--

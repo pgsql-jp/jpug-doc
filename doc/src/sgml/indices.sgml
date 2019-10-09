@@ -434,6 +434,13 @@ SP-GiSTインデックスは広域な異なる不均衡でディスクベース�
   </para>
 
   <para>
+   Like GiST, SP-GiST supports <quote>nearest-neighbor</quote> searches.
+   For SP-GiST operator classes that support distance ordering, the
+   corresponding operator is specified in the <quote>Ordering Operators</quote>
+   column in <xref linkend="spgist-builtin-opclasses-table"/>.
+  </para>
+
+  <para>
    <indexterm>
 <!--
     <primary>index</primary>
@@ -767,8 +774,9 @@ GINと同様に、またB-treeやGiSTとは異なり、インデックス検索�
   <para>
 <!--
    By default, B-tree indexes store their entries in ascending order
-   with nulls last.  This means that a forward scan of an index on
-   column <literal>x</literal> produces output satisfying <literal>ORDER BY x</literal>
+   with nulls last (table TID is treated as a tiebreaker column among
+   otherwise equal entries).  This means that a forward scan of an
+   index on column <literal>x</literal> produces output satisfying <literal>ORDER BY x</literal>
    (or more verbosely, <literal>ORDER BY x ASC NULLS LAST</literal>).  The
    index can also be scanned backward, producing output satisfying
    <literal>ORDER BY x DESC</literal>
@@ -1253,13 +1261,15 @@ FROM access_log
 WHERE url = '/index.html' AND client_ip = inet '212.78.10.32';
 </programlisting>
 <!--
-    A query that cannot use this index is:
+    Here the query's IP address is covered by the partial index.  The
+    following query cannot use the partial index, as it uses an IP address
+    that is excluded from the index:
 -->
 また、以下のような問い合わせの場合、このインデックスは使用できません。
 <programlisting>
 SELECT *
 FROM access_log
-WHERE client_ip = inet '192.168.100.23';
+WHERE url = '/index.html' AND client_ip = inet '192.168.100.23';
 </programlisting>
    </para>
 
@@ -1267,7 +1277,7 @@ WHERE client_ip = inet '192.168.100.23';
 <!--
     Observe that this kind of partial index requires that the common
     values be predetermined, so such partial indexes are best used for
-    data distributions that do not change.  The indexes can be recreated
+    data distributions that do not change.  Such indexes can be recreated
     occasionally to adjust for new data distributions, but this adds
     maintenance effort.
 -->
@@ -1769,8 +1779,8 @@ CREATE UNIQUE INDEX tab_x_y ON tab(x) INCLUDE (y);
    likely to not need to access the heap.  If the heap tuple must be visited
    anyway, it costs nothing more to get the column's value from there.
    Other restrictions are that expressions are not currently supported as
-   included columns, and that only B-tree indexes currently support included
-   columns.
+   included columns, and that only B-tree and GiST indexes currently support
+   included columns.
 -->
 キー以外のペイロード列、特に幅の広い列をインデックスに追加することについては慎重になることが賢明です。
 インデックス型の最大サイズを超えるタプルをインサートしようとすると失敗します。
@@ -1797,10 +1807,7 @@ CREATE INDEX tab_x_y ON tab(x, y);
    the extra columns are trailing columns; making them be leading columns is
    unwise for the reasons explained in <xref linkend="indexes-multicolumn"/>.
    However, this method doesn't support the case where you want the index to
-   enforce uniqueness on the key column(s).  Also, explicitly marking
-   non-searchable columns as <literal>INCLUDE</literal> columns makes the
-   index slightly smaller, because such columns need not be stored in upper
-   B-tree levels.
+   enforce uniqueness on the key column(s).
 -->
 これは、<literal>y</literal>を<literal>WHERE</literal>句の一部で使用するつもりがなかったとしても書いています。
 余分な列が末尾の列である限り、これはうまく機能します。
@@ -1808,6 +1815,20 @@ CREATE INDEX tab_x_y ON tab(x, y);
 しかし、この方法では、キー列に一意性を強制するインデックスがサポートされません。
 また、検索列でない列を<literal>INCLUDE</literal>列として明示的にマークするとインデックスがわずかに小さくなります。
 これは、そのような列を上位B-treeレベルに格納する必要がないためです。
+  </para>
+
+  <para>
+   <firstterm>Suffix truncation</firstterm> always removes non-key
+   columns from upper B-Tree levels.  As payload columns, they are
+   never used to guide index scans.  The truncation process also
+   removes one or more trailing key column(s) when the remaining
+   prefix of key column(s) happens to be sufficient to describe tuples
+   on the lowest B-Tree level.  In practice, covering indexes without
+   an <literal>INCLUDE</literal> clause often avoid storing columns
+   that are effectively payload in the upper levels.  However,
+   explicitly defining payload columns as non-key columns
+   <emphasis>reliably</emphasis> keeps the tuples in upper levels
+   small.
   </para>
 
   <para>
@@ -2136,6 +2157,7 @@ CREATE INDEX test1c_content_y_index ON test1c (content COLLATE "y");
 </programlisting>
   </para>
  </sect1>
+
 
  <sect1 id="indexes-examine">
 <!--

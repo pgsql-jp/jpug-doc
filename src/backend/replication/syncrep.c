@@ -63,7 +63,7 @@
  * the standbys which are considered as synchronous at that moment
  * will release waiters from the queue.
  *
- * Portions Copyright (c) 2010-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2010-2019, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/replication/syncrep.c
@@ -102,17 +102,17 @@ static void SyncRepCancelWait(void);
 static int	SyncRepWakeQueue(bool all, int mode);
 
 static bool SyncRepGetSyncRecPtr(XLogRecPtr *writePtr,
-					 XLogRecPtr *flushPtr,
-					 XLogRecPtr *applyPtr,
-					 bool *am_sync);
+								 XLogRecPtr *flushPtr,
+								 XLogRecPtr *applyPtr,
+								 bool *am_sync);
 static void SyncRepGetOldestSyncRecPtr(XLogRecPtr *writePtr,
-						   XLogRecPtr *flushPtr,
-						   XLogRecPtr *applyPtr,
-						   List *sync_standbys);
+									   XLogRecPtr *flushPtr,
+									   XLogRecPtr *applyPtr,
+									   List *sync_standbys);
 static void SyncRepGetNthLatestSyncRecPtr(XLogRecPtr *writePtr,
-							  XLogRecPtr *flushPtr,
-							  XLogRecPtr *applyPtr,
-							  List *sync_standbys, uint8 nth);
+										  XLogRecPtr *flushPtr,
+										  XLogRecPtr *applyPtr,
+										  List *sync_standbys, uint8 nth);
 static int	SyncRepGetStandbyPriority(void);
 static List *SyncRepGetSyncStandbysPriority(bool *am_sync);
 static List *SyncRepGetSyncStandbysQuorum(bool *am_sync);
@@ -214,6 +214,8 @@ SyncRepWaitForLSN(XLogRecPtr lsn, bool commit)
 	 */
 	for (;;)
 	{
+		int			rc;
+
 		/* Must reset the latch before testing state. */
 		ResetLatch(MyLatch);
 
@@ -267,24 +269,23 @@ SyncRepWaitForLSN(XLogRecPtr lsn, bool commit)
 		}
 
 		/*
-		 * If the postmaster dies, we'll probably never get an
-		 * acknowledgement, because all the wal sender processes will exit. So
-		 * just bail out.
+		 * Wait on latch.  Any condition that should wake us up will set the
+		 * latch, so no need for timeout.
 		 */
-		if (!PostmasterIsAlive())
+		rc = WaitLatch(MyLatch, WL_LATCH_SET | WL_POSTMASTER_DEATH, -1,
+					   WAIT_EVENT_SYNC_REP);
+
+		/*
+		 * If the postmaster dies, we'll probably never get an acknowledgment,
+		 * because all the wal sender processes will exit. So just bail out.
+		 */
+		if (rc & WL_POSTMASTER_DEATH)
 		{
 			ProcDiePending = true;
 			whereToSendOutput = DestNone;
 			SyncRepCancelWait();
 			break;
 		}
-
-		/*
-		 * Wait on latch.  Any condition that should wake us up will set the
-		 * latch, so no need for timeout.
-		 */
-		WaitLatch(MyLatch, WL_LATCH_SET | WL_POSTMASTER_DEATH, -1,
-				  WAIT_EVENT_SYNC_REP);
 	}
 
 	/*

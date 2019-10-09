@@ -4,7 +4,7 @@
  *	  definition of the "PL template" system catalog (pg_pltemplate)
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_pltemplate.h
@@ -26,7 +26,7 @@
  *		typedef struct FormData_pg_pltemplate
  * ----------------
  */
-CATALOG(pg_pltemplate,1136,PLTemplateRelationId) BKI_SHARED_RELATION BKI_WITHOUT_OIDS
+CATALOG(pg_pltemplate,1136,PLTemplateRelationId) BKI_SHARED_RELATION
 {
 	NameData	tmplname;		/* name of PL */
 	bool		tmpltrusted;	/* PL is trusted? */

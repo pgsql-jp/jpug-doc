@@ -2,7 +2,7 @@
 
  <chapter id="fdwhandler">
 <!--
-   <title>Writing A Foreign Data Wrapper</title>
+   <title>Writing a Foreign Data Wrapper</title>
 -->
    <title>外部データラッパの作成</title>
 
@@ -148,7 +148,7 @@ FDWハンドラ関数は、以下で説明するコールバックの関数ポ�
 
    <sect2 id="fdw-callbacks-scan">
 <!--
-    <title>FDW Routines For Scanning Foreign Tables</title>
+    <title>FDW Routines for Scanning Foreign Tables</title>
 -->
     <title>外部テーブルスキャンのためのFDWルーチン</title>
 
@@ -419,7 +419,7 @@ EndForeignScan(ForeignScanState *node);
 
    <sect2 id="fdw-callbacks-join-scan">
 <!--
-    <title>FDW Routines For Scanning Foreign Joins</title>
+    <title>FDW Routines for Scanning Foreign Joins</title>
 -->
     <title>外部テーブルの結合をスキャンするためのFDWルーチン</title>
 
@@ -448,7 +448,9 @@ GetForeignJoinPaths(PlannerInfo *root,
      function is called during query planning.  As
      with <function>GetForeignPaths</function>, this function should
      generate <structname>ForeignPath</structname> path(s) for the
-     supplied <literal>joinrel</literal>, and call <function>add_path</function> to add these
+     supplied <literal>joinrel</literal>
+     (use <function>create_foreign_join_path</function> to build them),
+     and call <function>add_path</function> to add these
      paths to the set of paths considered for the join.  But unlike
      <function>GetForeignPaths</function>, it is not necessary that this function
      succeed in creating at least one path, since paths involving local
@@ -507,7 +509,7 @@ GetForeignJoinPaths(PlannerInfo *root,
 
    <sect2 id="fdw-callbacks-upper-planning">
 <!--
-    <title>FDW Routines For Planning Post-Scan/Join Processing</title>
+    <title>FDW Routines for Planning Post-Scan/Join Processing</title>
 -->
     <title>スキャン/結合後の処理をプラン生成するためのFDWルーチン</title>
 
@@ -536,7 +538,9 @@ GetForeignUpperPaths(PlannerInfo *root,
      called only if all base relation(s) involved in the query belong to the
      same FDW.  This function should generate <structname>ForeignPath</structname>
      path(s) for any post-scan/join processing that the FDW knows how to
-     perform remotely, and call <function>add_path</function> to add these paths to
+     perform remotely
+     (use <function>create_foreign_upper_path</function> to build them),
+     and call <function>add_path</function> to add these paths to
      the indicated upper relation.  As with <function>GetForeignJoinPaths</function>,
      it is not necessary that this function succeed in creating any paths,
      since paths involving local processing are always possible.
@@ -557,7 +561,9 @@ GetForeignUpperPaths(PlannerInfo *root,
      step.  The <literal>extra</literal> parameter provides additional details,
      currently, it is set only for <literal>UPPERREL_PARTIAL_GROUP_AGG</literal>
      or <literal>UPPERREL_GROUP_AGG</literal>, in which case it points to a
-     <literal>GroupPathExtraData</literal> structure.
+     <literal>GroupPathExtraData</literal> structure;
+     or for <literal>UPPERREL_FINAL</literal>, in which case it points to a
+     <literal>FinalPathExtraData</literal> structure.
      (Note that <structname>ForeignPath</structname> paths added
      to <literal>output_rel</literal> would typically not have any direct dependency
      on paths of the <literal>input_rel</literal>, since their processing is expected
@@ -582,7 +588,7 @@ GetForeignUpperPaths(PlannerInfo *root,
 
    <sect2 id="fdw-callbacks-update">
 <!--
-    <title>FDW Routines For Updating Foreign Tables</title>
+    <title>FDW Routines for Updating Foreign Tables</title>
 -->
     <title>外部テーブル更新のためのFDWルーチン</title>
 
@@ -835,12 +841,14 @@ ExecForeignInsert(EState *estate,
     <para>
 <!--
      The data in the returned slot is used only if the <command>INSERT</command>
-     query has a <literal>RETURNING</literal> clause or the foreign table has
-     an <literal>AFTER ROW</literal> trigger.  Triggers require all columns, but the
-     FDW could choose to optimize away returning some or all columns depending
-     on the contents of the <literal>RETURNING</literal> clause.  Regardless, some
-     slot must be returned to indicate success, or the query's reported row
-     count will be wrong.
+     statement has a <literal>RETURNING</literal> clause or involves a view
+     <literal>WITH CHECK OPTION</literal>; or if the foreign table has
+     an <literal>AFTER ROW</literal> trigger.  Triggers require all columns,
+     but the FDW could choose to optimize away returning some or all columns
+     depending on the contents of the <literal>RETURNING</literal> clause or
+     <literal>WITH CHECK OPTION</literal> constraints.  Regardless, some slot
+     must be returned to indicate success, or the query's reported row count
+     will be wrong.
 -->
 返却されたスロット内のデータは<command>INSERT</command>クエリが<literal>RETURNING</literal>句を持っていた場合もしくは外部テーブルが<literal>AFTER ROW</literal>トリガを持っていた場合にのみ使われます。
 トリガは全列を必要としますが、FDWは<literal>RETURNING</literal>句の内容に応じて返却する列を一部にするかすべてにするかを最適化する余地があります。
@@ -913,12 +921,14 @@ ExecForeignUpdate(EState *estate,
     <para>
 <!--
      The data in the returned slot is used only if the <command>UPDATE</command>
-     query has a <literal>RETURNING</literal> clause or the foreign table has
-     an <literal>AFTER ROW</literal> trigger.  Triggers require all columns, but the
-     FDW could choose to optimize away returning some or all columns depending
-     on the contents of the <literal>RETURNING</literal> clause.  Regardless, some
-     slot must be returned to indicate success, or the query's reported row
-     count will be wrong.
+     statement has a <literal>RETURNING</literal> clause or involves a view
+     <literal>WITH CHECK OPTION</literal>; or if the foreign table has
+     an <literal>AFTER ROW</literal> trigger.  Triggers require all columns,
+     but the FDW could choose to optimize away returning some or all columns
+     depending on the contents of the <literal>RETURNING</literal> clause or
+     <literal>WITH CHECK OPTION</literal> constraints.  Regardless, some slot
+     must be returned to indicate success, or the query's reported row count
+     will be wrong.
 -->
 返却されたスロット内のデータは<command>UPDATE</command>クエリが<literal>RETURNING</literal>句を持っていた場合もしくは外部テーブルが<literal>AFTER ROW</literal>トリガを持っていた場合にのみ使われます。
 トリガは全列を必要としますが、FDWは<literal>RETURNING</literal>句の内容に応じて返却する列を一部にするか全てにするかを最適化する余地があります。
@@ -1173,9 +1183,11 @@ IsForeignRelUpdatable(Relation rel);
      row-by-row approach is necessary, but it can be inefficient.  If it is
      possible for the foreign server to determine which rows should be
      modified without actually retrieving them, and if there are no local
-     triggers which would affect the operation, then it is possible to
-     arrange things so that the entire operation is performed on the remote
-     server.  The interfaces described below make this possible.
+     structures which would affect the operation (row-level local triggers,
+     stored generated columns, or <literal>WITH CHECK OPTION</literal>
+     constraints from parent views), then it is possible to arrange things
+     so that the entire operation is performed on the remote server.  The
+     interfaces described below make this possible.
 -->
 外部テーブルへの挿入、更新、削除は、代替インタフェース一式を実装することで最適化できます。
 通常の挿入、更新、削除のインタフェースは行をリモートサーバから取得し、その後、それらの行を一つずつ変更します。
@@ -1388,7 +1400,7 @@ EndDirectModify(ForeignScanState *node);
 
    <sect2 id="fdw-callbacks-row-locking">
 <!--
-    <title>FDW Routines For Row Locking</title>
+    <title>FDW Routines for Row Locking</title>
 -->
     <title>行ロックのためのFDWルーチン</title>
 
@@ -1450,20 +1462,22 @@ GetForeignRowMarkType(RangeTblEntry *rte,
 
     <para>
 <programlisting>
-HeapTuple
+void
 RefetchForeignRow(EState *estate,
                   ExecRowMark *erm,
                   Datum rowid,
+                  TupleTableSlot *slot,
                   bool *updated);
 </programlisting>
 
 <!--
-     Re-fetch one tuple from the foreign table, after locking it if required.
+     Re-fetch one tuple slot from the foreign table, after locking it if required.
      <literal>estate</literal> is global execution state for the query.
      <literal>erm</literal> is the <structname>ExecRowMark</structname> struct describing
      the target foreign table and the row lock type (if any) to acquire.
      <literal>rowid</literal> identifies the tuple to be fetched.
-     <literal>updated</literal> is an output parameter.
+     <literal>slot</literal> contains nothing useful upon call, but can be used to
+     hold the returned tuple. <literal>updated</literal> is an output parameter.
 -->
 必要ならロックした後で、外部テーブルから1つのタプルを再フェッチします。
 <literal>estate</literal>は問い合わせのグローバルな実行状態です。
@@ -1474,13 +1488,13 @@ RefetchForeignRow(EState *estate,
 
     <para>
 <!--
-     This function should return a palloc'ed copy of the fetched tuple,
-     or <literal>NULL</literal> if the row lock couldn't be obtained.  The row lock
-     type to acquire is defined by <literal>erm-&gt;markType</literal>, which is the
-     value previously returned by <function>GetForeignRowMarkType</function>.
-     (<literal>ROW_MARK_REFERENCE</literal> means to just re-fetch the tuple without
-     acquiring any lock, and <literal>ROW_MARK_COPY</literal> will never be seen by
-     this routine.)
+     This function should store the tuple into the provided slot, or clear it if
+     the row lock couldn't be obtained.  The row lock type to acquire is
+     defined by <literal>erm-&gt;markType</literal>, which is the value
+     previously returned by <function>GetForeignRowMarkType</function>.
+     (<literal>ROW_MARK_REFERENCE</literal> means to just re-fetch the tuple
+     without acquiring any lock, and <literal>ROW_MARK_COPY</literal> will
+     never be seen by this routine.)
 -->
 この関数は、フェッチしたタプルをpallocして複製したものを返すか、あるいは行ロックが取得できなければ<literal>NULL</literal>を返します。
 獲得する行ロックの種別は<literal>erm-&gt;markType</literal>で指定されますが、この値は事前に<function>GetForeignRowMarkType</function>から返されたものです。
@@ -1501,7 +1515,7 @@ RefetchForeignRow(EState *estate,
     <para>
 <!--
      Note that by default, failure to acquire a row lock should result in
-     raising an error; a <literal>NULL</literal> return is only appropriate if
+     raising an error; returning with an empty slot is only appropriate if
      the <literal>SKIP LOCKED</literal> option is specified
      by <literal>erm-&gt;waitPolicy</literal>.
 -->
@@ -1767,7 +1781,7 @@ AcquireSampleRowsFunc(Relation relation,
 
    <sect2 id="fdw-callbacks-import">
 <!--
-    <title>FDW Routines For <command>IMPORT FOREIGN SCHEMA</command></title>
+    <title>FDW Routines for <command>IMPORT FOREIGN SCHEMA</command></title>
 -->
     <title><command>IMPORT FOREIGN SCHEMA</command>のためのFDWルーチン</title>
 
@@ -2011,7 +2025,7 @@ ShutdownForeignScan(ForeignScanState *node);
 
    <sect2 id="fdw-callbacks-reparameterize-paths">
 <!--
-    <title>FDW Routines For reparameterization of paths</title>
+    <title>FDW Routines for Reparameterization of Paths</title>
 -->
     <title>パスの再パラメータ化のためのFDWルーチン</title>
 
@@ -2063,6 +2077,23 @@ FDWオプションのようなFDW関連オブジェクトの属性に外部デ�
     <para>
 <programlisting>
 ForeignDataWrapper *
+GetForeignDataWrapperExtended(Oid fdwid, bits16 flags);
+</programlisting>
+
+     This function returns a <structname>ForeignDataWrapper</structname>
+     object for the foreign-data wrapper with the given OID.  A
+     <structname>ForeignDataWrapper</structname> object contains properties
+     of the FDW (see <filename>foreign/foreign.h</filename> for details).
+     <structfield>flags</structfield> is a bitwise-or'd bit mask indicating
+     an extra set of options.  It can take the value
+     <literal>FDW_MISSING_OK</literal>, in which case a <literal>NULL</literal>
+     result is returned to the caller instead of an error for an undefined
+     object.
+    </para>
+
+    <para>
+<programlisting>
+ForeignDataWrapper *
 GetForeignDataWrapper(Oid fdwid);
 </programlisting>
 
@@ -2073,6 +2104,23 @@ GetForeignDataWrapper(Oid fdwid);
      of the FDW (see <filename>foreign/foreign.h</filename> for details).
 -->
 この関数は指定されたOIDを持つ外部データラッパの<structname>ForeignDataWrapper</structname>オブジェクトを返します。<structname>ForeignDataWrapper</structname>オブジェクトはFDWのプロパティを含みます(詳細は<filename>foreign/foreign.h</filename>を参照して下さい)。
+    </para>
+
+    <para>
+<programlisting>
+ForeignServer *
+GetForeignServerExtended(Oid serverid, bits16 flags);
+</programlisting>
+
+     This function returns a <structname>ForeignServer</structname> object
+     for the foreign server with the given OID.  A
+     <structname>ForeignServer</structname> object contains properties
+     of the server (see <filename>foreign/foreign.h</filename> for details).
+     <structfield>flags</structfield> is a bitwise-or'd bit mask indicating
+     an extra set of options.  It can take the value
+     <literal>FSV_MISSING_OK</literal>, in which case a <literal>NULL</literal>
+     result is returned to the caller instead of an error for an undefined
+     object.
     </para>
 
     <para>

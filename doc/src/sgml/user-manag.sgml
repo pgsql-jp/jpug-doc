@@ -825,9 +825,16 @@ DROP ROLE doomed_role;
        <entry>潜在的に長時間、テーブルの<literal>ACCESS SHARE</literal>ロックを取得する可能性がある監視機能を実行する</entry>
       </row>
       <row>
+       <entry>pg_monitor</entry>
+       <entry>Read/execute various monitoring views and functions.
+       This role is a member of <literal>pg_read_all_settings</literal>,
+       <literal>pg_read_all_stats</literal> and
+       <literal>pg_stat_scan_tables</literal>.</entry>
+      </row>
+      <row>
        <entry>pg_signal_backend</entry>
 <!--
-       <entry>Send signals to other backends (eg: cancel query, terminate).</entry>
+       <entry>Signal another backend to cancel a query or terminate its session.</entry>
 -->
        <entry>他のバックエンドにシグナルを送信する（例：問い合わせのキャンセル、プロセスの終了）</entry>
       </row>
@@ -855,34 +862,9 @@ DROP ROLE doomed_role;
 -->
        <entry>COPYやサーバ側のプログラムを実行できるその他の関数で、データベースを実行しているユーザとしてデータベースサーバ上でのプログラムの実行を許可する</entry>
       </row>
-      <row>
-       <entry>pg_monitor</entry>
-<!--
-       <entry>Read/execute various monitoring views and functions.
-       This role is a member of <literal>pg_read_all_settings</literal>,
-       <literal>pg_read_all_stats</literal> and
-       <literal>pg_stat_scan_tables</literal>.</entry>
--->
-       <entry>各種の監視ビューや機能を読み取り/実行する。
-       このロールは、<literal>pg_read_all_settings</literal>、<literal>pg_read_all_stats</literal>および<literal>pg_stat_scan_tables</literal>のメンバである。</entry>
-      </row>
      </tbody>
     </tgroup>
    </table>
-
-  <para>
-<!--
-  The <literal>pg_read_server_files</literal>, <literal>pg_write_server_files</literal> and
-  <literal>pg_execute_server_program</literal> roles are intended to allow administrators to have
-  trusted, but non-superuser, roles which are able to access files and run programs on the
-  database server as the user the database runs as.  As these roles are able to access any file on
-  the server file system, they bypass all database-level permission checks when accessing files
-  directly and they could be used to gain superuser-level access, therefore care should be taken
-  when granting these roles to users.
--->
-<literal>pg_read_server_files</literal>、<literal>pg_write_server_files</literal>、<literal>pg_execute_server_program</literal>ロールは、データベースを実行しているユーザとしてデータベースサーバ上でファイルにアクセスしたりプログラムを実行したりする、信頼できるが非スーパーユーザであるロールを管理者が持てるようにすること意図しています。
-これらのロールはサーバファイルシステムの任意のファイルにアクセスできますので、ファイルに直接アクセスする時にはデータベースレベルの権限検査はすべて行なわれず、スーパーユーザレベルのアクセスを得るのに使えます。ですので、これらのロールをユーザに許可する時には注意すべきです。
-  </para>
 
   <para>
 <!--
@@ -898,6 +880,25 @@ DROP ROLE doomed_role;
   </para>
 
   <para>
+  The <literal>pg_signal_backend</literal> role is intended to allow
+  administrators to enable trusted, but non-superuser, roles to send signals
+  to other backends. Currently this role enables sending of signals for
+  canceling a query on another backend or terminating its session. A user
+  granted this role cannot however send signals to a backend owned by a
+  superuser.  See <xref linkend="functions-admin-signal"/>.
+  </para>
+
+  <para>
+  The <literal>pg_read_server_files</literal>, <literal>pg_write_server_files</literal> and
+  <literal>pg_execute_server_program</literal> roles are intended to allow administrators to have
+  trusted, but non-superuser, roles which are able to access files and run programs on the
+  database server as the user the database runs as.  As these roles are able to access any file on
+  the server file system, they bypass all database-level permission checks when accessing files
+  directly and they could be used to gain superuser-level access, therefore
+  great care should be taken when granting these roles to users.
+  </para>
+
+  <para>
 <!--
   Care should be taken when granting these roles to ensure they are only used where
   needed and with the understanding that these roles grant access to privileged
@@ -908,8 +909,8 @@ DROP ROLE doomed_role;
 
   <para>
 <!--
-   Administrators can grant access to these roles to users using the GRANT
-   command:
+   Administrators can grant access to these roles to users using the
+   <xref linkend="sql-grant"/> command, for example:
 -->
 管理者はGRANTコマンドを使って、ユーザにこれらのロールへのアクセスを許可できます。
 

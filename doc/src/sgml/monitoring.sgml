@@ -414,6 +414,18 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    これらの数値はトランザクション中に継続的に更新されていくため上記の様な(静的な情報を示す)振る舞いとはなりません。
   </para>
 
+  <para>
+   Some of the information in the dynamic statistics views shown in <xref
+   linkend="monitoring-stats-dynamic-views-table"/> is security restricted.
+   Ordinary users can only see all the information about their own sessions
+   (sessions belonging to a role that they are a member of).  In rows about
+   other sessions, many columns will be null.  Note, however, that the
+   existence of a session and its general properties such as its sessions user
+   and database are visible to all users.  Superusers and members of the
+   built-in role <literal>pg_read_all_stats</literal> (see also <xref
+   linkend="default-roles"/>) can see all the information about all sessions.
+  </para>
+
   <table id="monitoring-stats-dynamic-views-table">
 <!--
    <title>Dynamic Statistics Views</title>
@@ -502,6 +514,22 @@ WAL送信プロセス毎に１行の形式で、送信サーバが接続した�
      </row>
 
      <row>
+      <entry><structname>pg_stat_gssapi</structname><indexterm><primary>pg_stat_gssapi</primary></indexterm></entry>
+      <entry>One row per connection (regular and replication), showing information about
+       GSSAPI authentication and encryption used on this connection.
+       See <xref linkend="pg-stat-gssapi-view"/> for details.
+      </entry>
+     </row>
+
+     <row>
+      <entry><structname>pg_stat_progress_create_index</structname><indexterm><primary>pg_stat_progress_create_index</primary></indexterm></entry>
+      <entry>One row for each backend running <command>CREATE INDEX</command> or <command>REINDEX</command>, showing
+      current progress.
+      See <xref linkend='create-index-progress-reporting'/>.
+     </entry>
+     </row>
+
+     <row>
       <entry><structname>pg_stat_progress_vacuum</structname><indexterm><primary>pg_stat_progress_vacuum</primary></indexterm></entry>
 <!--
       <entry>One row for each backend (including autovacuum worker processes) running
@@ -511,6 +539,14 @@ WAL送信プロセス毎に１行の形式で、送信サーバが接続した�
       <entry>
 VACUUMを実行している（自動バキュームワーカプロセスを含んだ）それぞれのバックエンドごとに１行の形で、現在の進捗を示します。
 <xref linkend='vacuum-progress-reporting'/>を参照してください。
+      </entry>
+     </row>
+
+     <row>
+      <entry><structname>pg_stat_progress_cluster</structname><indexterm><primary>pg_stat_progress_cluster</primary></indexterm></entry>
+      <entry>One row for each backend running
+       <command>CLUSTER</command> or <command>VACUUM FULL</command>, showing current progress.
+       See <xref linkend='cluster-progress-reporting'/>.
       </entry>
      </row>
 
@@ -1660,13 +1696,6 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
          <entry>古いスナップショット制御情報の読み込み、または更新するのを待っています。</entry>
         </row>
         <row>
-         <entry><literal>BackendRandomLock</literal></entry>
-<!--
-         <entry>Waiting to generate a random number.</entry>
--->
-         <entry>乱数の生成を待機しています。</entry>
-        </row>
-        <row>
          <entry><literal>LogicalRepWorkerLock</literal></entry>
 <!--
          <entry>Waiting for action on logical replication worker to finish.</entry>
@@ -1792,6 +1821,11 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
          <entry>Waiting to add or examine predicate lock information.</entry>
 -->
          <entry>述語ロック情報の追加、もしくは検査するのを待っています。</entry>
+        </row>
+        <row>
+         <entry><literal>serializable_xact</literal></entry>
+         <entry>Waiting to perform an operation on a serializable transaction
+         in a parallel query.</entry>
         </row>
         <row>
          <entry><literal>parallel_query_dsa</literal></entry>
@@ -2068,7 +2102,7 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
          <entry>拡張内で待機しています。</entry>
         </row>
         <row>
-         <entry morerows="33"><literal>IPC</literal></entry>
+         <entry morerows="36"><literal>IPC</literal></entry>
          <entry><literal>BgWorkerShutdown</literal></entry>
 <!--
          <entry>Waiting for background worker to shut down.</entry>
@@ -2088,6 +2122,14 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
          <entry>Waiting for the page number needed to continue a parallel B-tree scan to become available.</entry>
 -->
          <entry>パラレルBツリースキャンに必要なページ番号が利用可能になるのを待機しています。</entry>
+        </row>
+        <row>
+         <entry><literal>CheckpointDone</literal></entry>
+         <entry>Waiting for a checkpoint to complete.</entry>
+        </row>
+        <row>
+         <entry><literal>CheckpointStart</literal></entry>
+         <entry>Waiting for a checkpoint to start.</entry>
         </row>
         <row>
          <entry><literal>ClogGroupUpdate</literal></entry>
@@ -2266,17 +2308,15 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
         </row>
         <row>
          <entry><literal>ParallelFinish</literal></entry>
-<!--
          <entry>Waiting for parallel workers to finish computing.</entry>
--->
-         <entry>パラレルワーカが計算を完了するのを待機しています。</entry>
         </row>
         <row>
          <entry><literal>ProcArrayGroupUpdate</literal></entry>
-<!--
          <entry>Waiting for group leader to clear transaction id at transaction end.</entry>
--->
-         <entry>トランザクション終了時にグループリーダがトランザクションIDをクリアするのを待機しています。</entry>
+        </row>
+        <row>
+         <entry><literal>Promote</literal></entry>
+         <entry>Waiting for standby promotion.</entry>
         </row>
         <row>
          <entry><literal>ReplicationOriginDrop</literal></entry>
@@ -2329,7 +2369,7 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
          <entry>リカバリ時のWAL適用が遅延させられたため待機しています。</entry>
         </row>
         <row>
-         <entry morerows="65"><literal>IO</literal></entry>
+         <entry morerows="66"><literal>IO</literal></entry>
          <entry><literal>BufFileRead</literal></entry>
 <!--
          <entry>Waiting for a read from a buffered file.</entry>
@@ -2778,6 +2818,10 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
          <entry>WAL送信サーバのタイムラインコマンドで、タイムラインの履歴ファイルの読み込みを待機しています。</entry>
         </row>
         <row>
+         <entry><literal>WALSync</literal></entry>
+         <entry>Waiting for a WAL file to reach stable storage.</entry>
+        </row>
+        <row>
          <entry><literal>WALSyncMethodAssign</literal></entry>
 <!--
          <entry>Waiting for data to reach stable storage while assigning WAL sync method.</entry>
@@ -3135,6 +3179,11 @@ WAL送信サーバの現在の状態です。
          </listitem>
        </itemizedlist>
      </entry>
+    </row>
+    <row>
+     <entry><structfield>reply_time</structfield></entry>
+     <entry><type>timestamp with time zone</type></entry>
+     <entry>Send time of last reply message received from standby server</entry>
     </row>
    </tbody>
    </tgroup>
@@ -3558,19 +3607,35 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
      <entry>SSL圧縮が使用されていれば真、使用されていなければ偽、この接続でSSLが使用されていなければNULLになります。</entry>
     </row>
     <row>
-     <entry><structfield>clientdn</structfield></entry>
+     <entry><structfield>client_dn</structfield></entry>
      <entry><type>text</type></entry>
 <!--
      <entry>Distinguished Name (DN) field from the client certificate
       used, or NULL if no client certificate was supplied or if SSL
       is not in use on this connection. This field is truncated if the
       DN field is longer than <symbol>NAMEDATALEN</symbol> (64 characters
-      in a standard build)
+      in a standard build).
 -->
      <entry>
 使用されているクライアント証明書の識別名(DN)フィールド、クライアント証明書が提供されなかった場合、およびこの接続でSSLが使用されていない場合はNULLになります。
 このフィールドは、DNフィールドが<symbol>NAMEDATALEN</symbol>（標準ビルドでは64文字）より長いと切り詰められます。
      </entry>
+    </row>
+    <row>
+     <entry><structfield>client_serial</structfield></entry>
+     <entry><type>numeric</type></entry>
+     <entry>Serial number of the client certificate, or NULL if no client
+     certificate was supplied or if SSL is not in use on this connection.  The
+     combination of certificate serial number and certificate issuer uniquely
+     identifies a certificate (unless the issuer erroneously reuses serial
+     numbers).</entry>
+    </row>
+    <row>
+     <entry><structfield>issuer_dn</structfield></entry>
+     <entry><type>text</type></entry>
+     <entry>DN of the issuer of the client certificate, or NULL if no client
+     certificate was supplied or if SSL is not in use on this connection.
+     This field is truncated like <structfield>client_dn</structfield>.</entry>
     </row>
    </tbody>
    </tgroup>
@@ -3587,6 +3652,55 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
 -->
 <structname>pg_stat_ssl</structname>ビューは、バックエンドプロセスおよびWAL送信プロセスごとに1行を保持し、接続上でのSSLの使用に関する統計情報を示します。
 <structname>pg_stat_activity</structname>または<structname>pg_stat_replication</structname>と<structfield>pid</structfield>列で結合することで、接続に関するより詳細な情報を取得することができます。
+  </para>
+
+  <table id="pg-stat-gssapi-view" xreflabel="pg_stat_gssapi">
+   <title><structname>pg_stat_gssapi</structname> View</title>
+   <tgroup cols="3">
+    <thead>
+    <row>
+      <entry>Column</entry>
+      <entry>Type</entry>
+      <entry>Description</entry>
+     </row>
+    </thead>
+
+   <tbody>
+    <row>
+     <entry><structfield>pid</structfield></entry>
+     <entry><type>integer</type></entry>
+     <entry>Process ID of a backend</entry>
+    </row>
+    <row>
+     <entry><structfield>gss_authenticated</structfield></entry>
+     <entry><type>boolean</type></entry>
+     <entry>True if GSSAPI authentication was used for this connection</entry>
+    </row>
+    <row>
+     <entry><structfield>principal</structfield></entry>
+     <entry><type>text</type></entry>
+     <entry>Principal used to authenticate this connection, or NULL
+      if GSSAPI was not used to authenticate this connection.  This
+      field is truncated if the principal is longer than
+      <symbol>NAMEDATALEN</symbol> (64 characters in a standard build).
+     </entry>
+    </row>
+    <row>
+     <entry><structfield>encrypted</structfield></entry>
+     <entry><type>boolean</type></entry>
+     <entry>True if GSSAPI encryption is in use on this connection</entry>
+    </row>
+   </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+   The <structname>pg_stat_gssapi</structname> view will contain one row per
+   backend, showing information about GSSAPI usage on this connection. It can
+   be joined to <structname>pg_stat_activity</structname> or
+   <structname>pg_stat_replication</structname> on the
+   <structfield>pid</structfield> column to get more details about the
+   connection.
   </para>
 
 
@@ -3854,27 +3968,23 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
     <row>
      <entry><structfield>datid</structfield></entry>
      <entry><type>oid</type></entry>
-<!--
-     <entry>OID of a database</entry>
--->
-     <entry>データベースのOIDです。</entry>
+     <entry>OID of this database, or 0 for objects belonging to a shared
+     relation</entry>
     </row>
     <row>
      <entry><structfield>datname</structfield></entry>
      <entry><type>name</type></entry>
-<!--
-     <entry>Name of this database</entry>
--->
-     <entry>データベースの名前です。</entry>
+     <entry>Name of this database, or <literal>NULL</literal> for the shared
+     objects.</entry>
     </row>
     <row>
      <entry><structfield>numbackends</structfield></entry>
      <entry><type>integer</type></entry>
 <!--
-     <entry>Number of backends currently connected to this database.
-     This is the only column in this view that returns a value reflecting
-     current state; all other columns return the accumulated values since
-     the last reset.</entry>
+     <entry>Number of backends currently connected to this database, or
+     <literal>NULL</literal> for the shared objects.  This is the only column
+     in this view that returns a value reflecting current state; all other
+     columns return the accumulated values since the last reset.</entry>
 -->
      <entry>
 現在データベースに接続しているバックエンドの個数です。
@@ -4029,6 +4139,20 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
      </entry>
     </row>
     <row>
+     <entry><structfield>checksum_failures</structfield></entry>
+     <entry><type>bigint</type></entry>
+     <entry>Number of data page checksum failures detected in this
+      database (or on a shared object), or NULL if data checksums are not
+      enabled.</entry>
+    </row>
+    <row>
+     <entry><structfield>checksum_last_failure</structfield></entry>
+     <entry><type>timestamp with time zone</type></entry>
+     <entry>Time at which the last data page checksum failure was detected in
+      this database (or on a shared object), or NULL if data checksums are not
+      enabled.</entry>
+    </row>
+    <row>
      <entry><structfield>blk_read_time</structfield></entry>
      <entry><type>double precision</type></entry>
 <!--
@@ -4068,7 +4192,8 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
   <para>
 <!--
    The <structname>pg_stat_database</structname> view will contain one row
-   for each database in the cluster, showing database-wide statistics.
+   for each database in the cluster, plus one for the shared objects, showing
+   database-wide statistics.
 -->
 <structname>pg_stat_database</structname>には、クラスタ内のデータベース毎にデータベース全体の統計情報を示す１行が含まれます。
   </para>
@@ -5366,16 +5491,266 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
   <title>進捗状況のレポート</title>
 
   <para>
-<!--
    <productname>PostgreSQL</productname> has the ability to report the progress of
-   certain commands during command execution.  Currently, the only command
-   which supports progress reporting is <command>VACUUM</command>.  This may be
-   expanded in the future.
+   certain commands during command execution.  Currently, the only commands
+   which support progress reporting are <command>CREATE INDEX</command>,
+   <command>VACUUM</command> and
+   <command>CLUSTER</command>. This may be expanded in the future.
 -->
 <productname>PostgreSQL</productname>は、何らかのコマンドの実行中に進捗状況をレポートする能力があります。
 現在、進捗状況のレポートを唯一サポートしているのは<command>VACUUM</command>です。
 将来的にサポートされるコマンドが拡大される可能性があります。
   </para>
+
+ <sect2 id="create-index-progress-reporting">
+  <title>CREATE INDEX Progress Reporting</title>
+
+  <para>
+   Whenever <command>CREATE INDEX</command> or <command>REINDEX</command> is running, the
+   <structname>pg_stat_progress_create_index</structname> view will contain
+   one row for each backend that is currently creating indexes.  The tables
+   below describe the information that will be reported and provide information
+   about how to interpret it.
+  </para>
+
+  <table id="pg-stat-progress-create-index-view" xreflabel="pg_stat_progress_create_index">
+   <title><structname>pg_stat_progress_create_index</structname> View</title>
+   <tgroup cols="3">
+    <thead>
+     <row>
+      <entry>Column</entry>
+      <entry>Type</entry>
+      <entry>Description</entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry><structfield>pid</structfield></entry>
+      <entry><type>integer</type></entry>
+      <entry>Process ID of backend.</entry>
+     </row>
+     <row>
+      <entry><structfield>datid</structfield></entry>
+      <entry><type>oid</type></entry>
+      <entry>OID of the database to which this backend is connected.</entry>
+     </row>
+     <row>
+      <entry><structfield>datname</structfield></entry>
+      <entry><type>name</type></entry>
+      <entry>Name of the database to which this backend is connected.</entry>
+     </row>
+     <row>
+      <entry><structfield>relid</structfield></entry>
+      <entry><type>oid</type></entry>
+      <entry>OID of the table on which the index is being created.</entry>
+     </row>
+     <row>
+      <entry><structfield>index_relid</structfield></entry>
+      <entry><type>oid</type></entry>
+      <entry>OID of the index being created or reindexed.  During a
+      non-concurrent <command>CREATE INDEX</command>, this is 0.</entry>
+     </row>
+     <row>
+      <entry><structfield>command</structfield></entry>
+      <entry><type>text</type></entry>
+      <entry>
+       The command that is running: <literal>CREATE INDEX</literal>,
+       <literal>CREATE INDEX CONCURRENTLY</literal>,
+       <literal>REINDEX</literal>, or <literal>REINDEX CONCURRENTLY</literal>.
+      </entry>
+     </row>
+     <row>
+      <entry><structfield>phase</structfield></entry>
+      <entry><type>text</type></entry>
+      <entry>
+        Current processing phase of index creation.  See <xref linkend='create-index-phases'/>.
+      </entry>
+     </row>
+     <row>
+      <entry><structfield>lockers_total</structfield></entry>
+      <entry><type>bigint</type></entry>
+      <entry>
+        Total number of lockers to wait for, when applicable.
+      </entry>
+     </row>
+     <row>
+      <entry><structfield>lockers_done</structfield></entry>
+      <entry><type>bigint</type></entry>
+      <entry>
+        Number of lockers already waited for.
+      </entry>
+     </row>
+     <row>
+      <entry><structfield>current_locker_pid</structfield></entry>
+      <entry><type>bigint</type></entry>
+      <entry>
+        Process ID of the locker currently being waited for.
+      </entry>
+     </row>
+     <row>
+      <entry><structfield>blocks_total</structfield></entry>
+      <entry><type>bigint</type></entry>
+      <entry>
+        Total number of blocks to be processed in the current phase.
+      </entry>
+     </row>
+     <row>
+      <entry><structfield>blocks_done</structfield></entry>
+      <entry><type>bigint</type></entry>
+      <entry>
+        Number of blocks already processed in the current phase.
+      </entry>
+     </row>
+     <row>
+      <entry><structfield>tuples_total</structfield></entry>
+      <entry><type>bigint</type></entry>
+      <entry>
+        Total number of tuples to be processed in the current phase.
+      </entry>
+     </row>
+     <row>
+      <entry><structfield>tuples_done</structfield></entry>
+      <entry><type>bigint</type></entry>
+      <entry>
+        Number of tuples already processed in the current phase.
+      </entry>
+     </row>
+     <row>
+      <entry><structfield>partitions_total</structfield></entry>
+      <entry><type>bigint</type></entry>
+      <entry>
+       When creating an index on a partitioned table, this column is set to
+       the total number of partitions on which the index is to be created.
+      </entry>
+     </row>
+     <row>
+      <entry><structfield>partitions_done</structfield></entry>
+      <entry><type>bigint</type></entry>
+      <entry>
+       When creating an index on a partitioned table, this column is set to
+       the number of partitions on which the index has been completed.
+      </entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+  <table id="create-index-phases">
+   <title>CREATE INDEX Phases</title>
+   <tgroup cols="2">
+    <thead>
+     <row>
+      <entry>Phase</entry>
+      <entry>Description</entry>
+     </row>
+    </thead>
+    <tbody>
+     <row>
+      <entry><literal>initializing</literal></entry>
+      <entry>
+       <command>CREATE INDEX</command> or <command>REINDEX</command> is preparing to create the index.  This
+       phase is expected to be very brief.
+      </entry>
+     </row>
+     <row>
+      <entry><literal>waiting for writers before build</literal></entry>
+      <entry>
+       <command>CREATE INDEX CONCURRENTLY</command> or <command>REINDEX CONCURRENTLY</command> is waiting for transactions
+       with write locks that can potentially see the table to finish.
+       This phase is skipped when not in concurrent mode.
+       Columns <structname>lockers_total</structname>, <structname>lockers_done</structname>
+       and <structname>current_locker_pid</structname> contain the progress
+       information for this phase.
+      </entry>
+     </row>
+     <row>
+      <entry><literal>building index</literal></entry>
+      <entry>
+       The index is being built by the access method-specific code.  In this phase,
+       access methods that support progress reporting fill in their own progress data,
+       and the subphase is indicated in this column.  Typically,
+       <structname>blocks_total</structname> and <structname>blocks_done</structname>
+       will contain progress data, as well as potentially
+       <structname>tuples_total</structname> and <structname>tuples_done</structname>.
+      </entry>
+     </row>
+     <row>
+      <entry><literal>waiting for writers before validation</literal></entry>
+      <entry>
+       <command>CREATE INDEX CONCURRENTLY</command> or <command>REINDEX CONCURRENTLY</command> is waiting for transactions
+       with write locks that can potentially write into the table to finish.
+       This phase is skipped when not in concurrent mode.
+       Columns <structname>lockers_total</structname>, <structname>lockers_done</structname>
+       and <structname>current_locker_pid</structname> contain the progress
+       information for this phase.
+      </entry>
+     </row>
+     <row>
+      <entry><literal>index validation: scanning index</literal></entry>
+      <entry>
+       <command>CREATE INDEX CONCURRENTLY</command> is scanning the index searching
+       for tuples that need to be validated.
+       This phase is skipped when not in concurrent mode.
+       Columns <structname>blocks_total</structname> (set to the total size of the index)
+       and <structname>blocks_done</structname> contain the progress information for this phase.
+      </entry>
+     </row>
+     <row>
+      <entry><literal>index validation: sorting tuples</literal></entry>
+      <entry>
+       <command>CREATE INDEX CONCURRENTLY</command> is sorting the output of the
+       index scanning phase.
+      </entry>
+     </row>
+     <row>
+      <entry><literal>index validation: scanning table</literal></entry>
+      <entry>
+       <command>CREATE INDEX CONCURRENTLY</command> is scanning the table
+       to validate the index tuples collected in the previous two phases.
+       This phase is skipped when not in concurrent mode.
+       Columns <structname>blocks_total</structname> (set to the total size of the table)
+       and <structname>blocks_done</structname> contain the progress information for this phase.
+      </entry>
+     </row>
+     <row>
+      <entry><literal>waiting for old snapshots</literal></entry>
+      <entry>
+       <command>CREATE INDEX CONCURRENTLY</command> or <command>REINDEX CONCURRENTLY</command> is waiting for transactions
+       that can potentially see the table to release their snapshots.  This
+       phase is skipped when not in concurrent mode.
+       Columns <structname>lockers_total</structname>, <structname>lockers_done</structname>
+       and <structname>current_locker_pid</structname> contain the progress
+       information for this phase.
+      </entry>
+     </row>
+     <row>
+      <entry><literal>waiting for readers before marking dead</literal></entry>
+      <entry>
+       <command>REINDEX CONCURRENTLY</command> is waiting for transactions
+       with read locks on the table to finish, before marking the old index dead.
+       This phase is skipped when not in concurrent mode.
+       Columns <structname>lockers_total</structname>, <structname>lockers_done</structname>
+       and <structname>current_locker_pid</structname> contain the progress
+       information for this phase.
+      </entry>
+     </row>
+     <row>
+      <entry><literal>waiting for readers before dropping</literal></entry>
+      <entry>
+       <command>REINDEX CONCURRENTLY</command> is waiting for transactions
+       with read locks on the table to finish, before dropping the old index.
+       This phase is skipped when not in concurrent mode.
+       Columns <structname>lockers_total</structname>, <structname>lockers_done</structname>
+       and <structname>current_locker_pid</structname> contain the progress
+       information for this phase.
+      </entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+ </sect2>
 
  <sect2 id="vacuum-progress-reporting">
 <!--
@@ -5390,9 +5765,11 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
    one row for each backend (including autovacuum worker processes) that is
    currently vacuuming.  The tables below describe the information
    that will be reported and provide information about how to interpret it.
-   Progress reporting is not currently supported for <command>VACUUM FULL</command>
-   and backends running <command>VACUUM FULL</command> will not be listed in this
-   view.
+   Progress for <command>VACUUM FULL</command> commands is reported via
+   <structname>pg_stat_progress_cluster</structname>
+   because both <command>VACUUM FULL</command> and <command>CLUSTER</command>
+   rewrite the table, while regular <command>VACUUM</command> only modifies it
+   in place. See <xref linkend='cluster-progress-reporting'/>.
 -->
 <command>VACUUM</command>を実行するときはいつでも、<structname>pg_stat_progress_vacuum</structname>ビューは、現在バキューム処理している（自動バキュームワーカプロセスを含む）それぞれのバックエンドごとに１行を格納します。
 その情報を説明している以下のテーブルにおいて、何がレポートされ、どのように解釈するかについての情報を提供します。
@@ -5546,7 +5923,7 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
 
   <table id="vacuum-phases">
 <!--
-   <title>VACUUM phases</title>
+   <title>VACUUM Phases</title>
 -->
    <title>VACUUMのフェーズ</title>
    <tgroup cols="2">
@@ -5655,6 +6032,183 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
 <command>VACUUM</command>は、最終クリーンアップ処理をしています。
 このフェーズの間、<command>VACUUM</command>空き領域マップをバキュームし、<literal>pg_class</literal>の統計情報を更新し、統計情報コレクタに統計情報を報告します。
 このフェーズが完了した時、<command>VACUUM</command>は終了します。
+     </entry>
+    </row>
+   </tbody>
+   </tgroup>
+  </table>
+
+ </sect2>
+
+ <sect2 id="cluster-progress-reporting">
+  <title>CLUSTER Progress Reporting</title>
+
+  <para>
+   Whenever <command>CLUSTER</command> or <command>VACUUM FULL</command> is
+   running, the <structname>pg_stat_progress_cluster</structname> view will
+   contain a row for each backend that is currently running either command.
+   The tables below describe the information that will be reported and
+   provide information about how to interpret it.
+  </para>
+
+  <table id="pg-stat-progress-cluster-view" xreflabel="pg_stat_progress_cluster">
+   <title><structname>pg_stat_progress_cluster</structname> View</title>
+   <tgroup cols="3">
+    <thead>
+    <row>
+      <entry>Column</entry>
+      <entry>Type</entry>
+      <entry>Description</entry>
+     </row>
+    </thead>
+
+   <tbody>
+    <row>
+     <entry><structfield>pid</structfield></entry>
+     <entry><type>integer</type></entry>
+     <entry>Process ID of backend.</entry>
+    </row>
+    <row>
+     <entry><structfield>datid</structfield></entry>
+     <entry><type>oid</type></entry>
+     <entry>OID of the database to which this backend is connected.</entry>
+    </row>
+    <row>
+     <entry><structfield>datname</structfield></entry>
+     <entry><type>name</type></entry>
+     <entry>Name of the database to which this backend is connected.</entry>
+    </row>
+    <row>
+     <entry><structfield>relid</structfield></entry>
+     <entry><type>oid</type></entry>
+     <entry>OID of the table being clustered.</entry>
+    </row>
+    <row>
+     <entry><structfield>command</structfield></entry>
+     <entry><type>text</type></entry>
+     <entry>
+      The command that is running. Either <literal>CLUSTER</literal> or <literal>VACUUM FULL</literal>.
+     </entry>
+    </row>
+    <row>
+     <entry><structfield>phase</structfield></entry>
+     <entry><type>text</type></entry>
+     <entry>
+       Current processing phase. See <xref linkend='cluster-phases' />.
+     </entry>
+    </row>
+    <row>
+     <entry><structfield>cluster_index_relid</structfield></entry>
+     <entry><type>oid</type></entry>
+     <entry>
+       If the table is being scanned using an index, this is the OID of the
+       index being used; otherwise, it is zero.
+     </entry>
+    </row>
+    <row>
+     <entry><structfield>heap_tuples_scanned</structfield></entry>
+     <entry><type>bigint</type></entry>
+     <entry>
+       Number of heap tuples scanned.
+       This counter only advances when the phase is
+       <literal>seq scanning heap</literal>,
+       <literal>index scanning heap</literal>
+       or <literal>writing new heap</literal>.
+     </entry>
+    </row>
+    <row>
+     <entry><structfield>heap_tuples_written</structfield></entry>
+     <entry><type>bigint</type></entry>
+     <entry>
+       Number of heap tuples written.
+       This counter only advances when the phase is
+       <literal>seq scanning heap</literal>,
+       <literal>index scanning heap</literal>
+       or <literal>writing new heap</literal>.
+     </entry>
+    </row>
+    <row>
+     <entry><structfield>heap_blks_total</structfield></entry>
+     <entry><type>bigint</type></entry>
+     <entry>
+       Total number of heap blocks in the table.  This number is reported
+       as of the beginning of <literal>seq scanning heap</literal>.
+     </entry>
+    </row>
+    <row>
+     <entry><structfield>heap_blks_scanned</structfield></entry>
+     <entry><type>bigint</type></entry>
+     <entry>
+       Number of heap blocks scanned.  This counter only advances when the
+       phase is <literal>seq scanning heap</literal>.
+     </entry>
+    </row>
+    <row>
+     <entry><structfield>index_rebuild_count</structfield></entry>
+     <entry><type>bigint</type></entry>
+     <entry>
+       Number of indexes rebuilt.  This counter only advances when the phase
+       is <literal>rebuilding index</literal>.
+     </entry>
+    </row>
+   </tbody>
+   </tgroup>
+  </table>
+
+  <table id="cluster-phases">
+   <title>CLUSTER and VACUUM FULL Phases</title>
+   <tgroup cols="2">
+    <thead>
+    <row>
+      <entry>Phase</entry>
+      <entry>Description</entry>
+     </row>
+    </thead>
+
+   <tbody>
+    <row>
+     <entry><literal>initializing</literal></entry>
+     <entry>
+       The command is preparing to begin scanning the heap.  This phase is
+       expected to be very brief.
+     </entry>
+    </row>
+    <row>
+     <entry><literal>seq scanning heap</literal></entry>
+     <entry>
+       The command is currently scanning the table using a sequential scan.
+     </entry>
+    </row>
+    <row>
+     <entry><literal>index scanning heap</literal></entry>
+     <entry>
+       <command>CLUSTER</command> is currently scanning the table using an index scan.
+     </entry>
+    </row>
+    <row>
+     <entry><literal>sorting tuples</literal></entry>
+     <entry>
+       <command>CLUSTER</command> is currently sorting tuples.
+     </entry>
+    </row>
+    <row>
+     <entry><literal>swapping relation files</literal></entry>
+     <entry>
+       The command is currently swapping newly-built files into place.
+     </entry>
+    </row>
+    <row>
+     <entry><literal>rebuilding index</literal></entry>
+     <entry>
+       The command is currently rebuilding an index.
+     </entry>
+    </row>
+    <row>
+     <entry><literal>performing final cleanup</literal></entry>
+     <entry>
+       The command is performing final cleanup.  When this phase is
+       completed, <command>CLUSTER</command>
+       or <command>VACUUM FULL</command> will end.
      </entry>
     </row>
    </tbody>

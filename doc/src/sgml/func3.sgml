@@ -15,17 +15,44 @@
   <title>JSON関数と演算子</title>
 
   <indexterm zone="functions-json">
-    <primary>JSON</primary>
+   <primary>JSON</primary>
 <!--
-    <secondary>functions and operators</secondary>
+   <secondary>functions and operators</secondary>
 -->
-    <secondary>関数と演算子</secondary>
+   <secondary>関数と演算子</secondary>
   </indexterm>
 
-   <para>
+  <para>
+   This section describes:
+
+   <itemizedlist>
+    <listitem>
+     <para>
+      functions and operators for processing and creating JSON data
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      the SQL/JSON path language
+     </para>
+    </listitem>
+   </itemizedlist>
+  </para>
+
+  <para>
+   To learn more about the SQL/JSON standard, see
+   <xref linkend="sqltr-19075-6"/>. For details on JSON types
+   supported in <productname>PostgreSQL</productname>,
+   see <xref linkend="datatype-json"/>.
+  </para>
+
+  <sect2 id="functions-json-processing">
+   <title>Processing and Creating JSON Data</title>
+
+  <para>
 <!--
    <xref linkend="functions-json-op-table"/> shows the operators that
-   are available for use with the two JSON data types (see <xref
+   are available for use with JSON data types (see <xref
    linkend="datatype-json"/>).
 -->
 <xref linkend="functions-json-op-table"/>に2つのJSONデータ型(<xref linkend="datatype-json"/>を参照)で使用可能な演算子を示します。
@@ -36,18 +63,20 @@
      <title><type>json</type> and <type>jsonb</type> Operators</title>
 -->
      <title><type>json</type>と<type>jsonb</type>演算子</title>
-     <tgroup cols="5">
+     <tgroup cols="6">
       <thead>
        <row>
 <!--
         <entry>Operator</entry>
         <entry>Right Operand Type</entry>
+        <entry>Return type</entry>
         <entry>Description</entry>
         <entry>Example</entry>
         <entry>Example Result</entry>
 -->
         <entry>演算子</entry>
         <entry>右オペランド型</entry>
+        <entry>Return type</entry>
         <entry>説明</entry>
         <entry>例</entry>
         <entry>例の結果</entry>
@@ -57,6 +86,7 @@
        <row>
         <entry><literal>-&gt;</literal></entry>
         <entry><type>int</type></entry>
+        <entry><type>json</type> or <type>jsonb</type></entry>
 <!--
         <entry>Get JSON array element (indexed from zero, negative
         integers count from the end)</entry>
@@ -68,6 +98,7 @@
        <row>
         <entry><literal>-&gt;</literal></entry>
         <entry><type>text</type></entry>
+        <entry><type>json</type> or <type>jsonb</type></entry>
 <!--
         <entry>Get JSON object field by key</entry>
 -->
@@ -78,6 +109,7 @@
         <row>
         <entry><literal>-&gt;&gt;</literal></entry>
         <entry><type>int</type></entry>
+        <entry><type>text</type></entry>
 <!--
         <entry>Get JSON array element as <type>text</type></entry>
 -->
@@ -87,6 +119,7 @@
        </row>
        <row>
         <entry><literal>-&gt;&gt;</literal></entry>
+        <entry><type>text</type></entry>
         <entry><type>text</type></entry>
 <!--
         <entry>Get JSON object field as <type>text</type></entry>
@@ -98,8 +131,9 @@
        <row>
         <entry><literal>#&gt;</literal></entry>
         <entry><type>text[]</type></entry>
+        <entry><type>json</type> or <type>jsonb</type></entry>
 <!--
-        <entry>Get JSON object at specified path</entry>
+        <entry>Get JSON object at the specified path</entry>
 -->
         <entry>指定されたパスにあるJSONオブジェクトを取得</entry>
         <entry><literal>'{"a": {"b":{"c": "foo"}}}'::json#&gt;'{a,b}'</literal></entry>
@@ -108,8 +142,9 @@
        <row>
         <entry><literal>#&gt;&gt;</literal></entry>
         <entry><type>text[]</type></entry>
+        <entry><type>text</type></entry>
 <!--
-        <entry>Get JSON object at specified path as <type>text</type></entry>
+        <entry>Get JSON object at the specified path as <type>text</type></entry>
 -->
         <entry>指定されたパスにあるJSONオブジェクトを<type>text</type>として取得</entry>
         <entry><literal>'{"a":[1,2,3],"b":[4,5,6]}'::json#&gt;&gt;'{a,2}'</literal></entry>
@@ -296,6 +331,20 @@ JSON配列の添字を整数で受け取り、フィールド、要素、パス�
         <entry>指定したパスのフィールドまたは要素を削除する（JSON配列では、負数は後ろから数えます）</entry>
         <entry><literal>'["a", {"b":1}]'::jsonb #- '{1,b}'</literal></entry>
        </row>
+       <row>
+        <entry><literal>@?</literal></entry>
+        <entry><type>jsonpath</type></entry>
+        <entry>Does JSON path return any item for the specified JSON value?</entry>
+        <entry><literal>'{"a":[1,2,3,4,5]}'::jsonb @? '$.a[*] ? (@ > 2)'</literal></entry>
+       </row>
+       <row>
+        <entry><literal>@@</literal></entry>
+        <entry><type>jsonpath</type></entry>
+        <entry>Returns the result of JSON path predicate check for the specified JSON value.
+        Only the first item of the result is taken into account.  If the
+        result is not Boolean, then <literal>null</literal> is returned.</entry>
+        <entry><literal>'{"a":[1,2,3,4,5]}'::jsonb @@ '$.a[*] > 2'</literal></entry>
+       </row>
       </tbody>
      </tgroup>
    </table>
@@ -311,6 +360,16 @@ JSON配列の添字を整数で受け取り、フィールド、要素、パス�
 <literal>||</literal>演算子は、両オペランドのトップレベルで要素を結合します。
 再帰的には作用しません。
 例えば、両方のオペランドが同じキーフィールド名のオブジェクトの場合、そのフィールドの値は、単に右側のオペランドの値になります。
+   </para>
+  </note>
+
+  <note>
+   <para>
+    The <literal>@?</literal> and <literal>@@</literal> operators suppress
+    the following errors: lacking object field or array element, unexpected
+    JSON item type, and numeric errors.
+    This behavior might be helpful while searching over JSON document
+    collections of varying structure.
    </para>
   </note>
 
@@ -629,6 +688,21 @@ variadic引数リストからJSONオブジェクトを作成。
   <indexterm>
    <primary>jsonb_pretty</primary>
   </indexterm>
+  <indexterm>
+   <primary>jsonb_path_exists</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_path_match</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_path_query</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_path_query_array</primary>
+  </indexterm>
+  <indexterm>
+   <primary>jsonb_path_query_first</primary>
+  </indexterm>
 
   <table id="functions-json-processing-table">
 <!--
@@ -941,7 +1015,7 @@ NULL値を持つオブジェクトフィールドを削除した<replaceable>fro
        <entry><literal>[{"f1":1},2,null,3]</literal></entry>
        </row>
       <row>
-       <entry><para><literal>jsonb_set(target jsonb, path text[], new_value jsonb<optional>, <parameter>create_missing</parameter> <type>boolean</type></optional>)</literal>
+       <entry><para><literal>jsonb_set(target jsonb, path text[], new_value jsonb <optional>, create_missing boolean</optional>)</literal>
          </para></entry>
        <entry><para><type>jsonb</type></para></entry>
        <entry>
@@ -950,10 +1024,10 @@ NULL値を持つオブジェクトフィールドを削除した<replaceable>fro
          with the section designated by <replaceable>path</replaceable>
          replaced by <replaceable>new_value</replaceable>, or with
          <replaceable>new_value</replaceable> added if
-         <replaceable>create_missing</replaceable> is true ( default is
+         <replaceable>create_missing</replaceable> is true (default is
          <literal>true</literal>) and the item
          designated by <replaceable>path</replaceable> does not exist.
-         As with the path orientated operators, negative integers that
+         As with the path oriented operators, negative integers that
          appear in <replaceable>path</replaceable> count from the end
          of JSON arrays.
 -->
@@ -972,7 +1046,7 @@ NULL値を持つオブジェクトフィールドを削除した<replaceable>fro
       <row>
        <entry>
            <para><literal>
-           jsonb_insert(target jsonb, path text[], new_value jsonb, <optional><parameter>insert_after</parameter> <type>boolean</type></optional>)
+           jsonb_insert(target jsonb, path text[], new_value jsonb <optional>, insert_after boolean</optional>)
            </literal></para>
        </entry>
        <entry><para><type>jsonb</type></para></entry>
@@ -988,7 +1062,7 @@ NULL値を持つオブジェクトフィールドを削除した<replaceable>fro
          designated by <replaceable>path</replaceable> is in JSONB object,
          <replaceable>new_value</replaceable> will be inserted only if
          <replaceable>target</replaceable> does not exist. As with the path
-         orientated operators, negative integers that appear in
+         oriented operators, negative integers that appear in
          <replaceable>path</replaceable> count from the end of JSON arrays.
 -->
 <replaceable>new_value</replaceable>を挿入して<replaceable>target</replaceable>を返す。
@@ -1034,6 +1108,115 @@ pathについての演算子について言うと、<replaceable>new_value</repl
 </programlisting>
         </entry>
        </row>
+       <row>
+        <entry>
+         <para><literal>
+           jsonb_path_exists(target jsonb, path jsonpath <optional>, vars jsonb <optional>, silent bool</optional></optional>)
+         </literal></para>
+        </entry>
+        <entry><type>boolean</type></entry>
+        <entry>
+          Checks whether JSON path returns any item for the specified JSON
+          value.
+        </entry>
+        <entry>
+         <para><literal>
+           jsonb_path_exists('{"a":[1,2,3,4,5]}', '$.a[*] ? (@ >= $min &amp;&amp; @ &lt;= $max)', '{"min":2,"max":4}')
+         </literal></para>
+        </entry>
+        <entry>
+          <para><literal>true</literal></para>
+        </entry>
+       </row>
+       <row>
+        <entry>
+         <para><literal>
+           jsonb_path_match(target jsonb, path jsonpath <optional>, vars jsonb <optional>, silent bool</optional></optional>)
+         </literal></para>
+        </entry>
+        <entry><type>boolean</type></entry>
+        <entry>
+          Returns the result of JSON path predicate check for the specified JSON value.
+          Only the first item of the result is taken into account.  If the
+          result is not Boolean, then <literal>null</literal> is returned.
+        </entry>
+        <entry>
+         <para><literal>
+           jsonb_path_match('{"a":[1,2,3,4,5]}', 'exists($.a[*] ? (@ >= $min &amp;&amp; @ &lt;= $max))', '{"min":2,"max":4}')
+        </literal></para>
+        </entry>
+        <entry>
+          <para><literal>true</literal></para>
+        </entry>
+       </row>
+       <row>
+        <entry>
+         <para><literal>
+           jsonb_path_query(target jsonb, path jsonpath <optional>, vars jsonb <optional>, silent bool</optional></optional>)
+         </literal></para>
+        </entry>
+        <entry><type>setof jsonb</type></entry>
+        <entry>
+          Gets all JSON items returned by JSON path for the specified JSON
+          value.
+        </entry>
+        <entry>
+         <para><literal>
+           select * from jsonb_path_query('{"a":[1,2,3,4,5]}', '$.a[*] ? (@ >= $min &amp;&amp; @ &lt;= $max)', '{"min":2,"max":4}');
+         </literal></para>
+        </entry>
+        <entry>
+         <para>
+<programlisting>
+ jsonb_path_query
+------------------
+ 2
+ 3
+ 4
+</programlisting>
+         </para>
+        </entry>
+       </row>
+       <row>
+        <entry>
+         <para><literal>
+           jsonb_path_query_array(target jsonb, path jsonpath <optional>, vars jsonb <optional>, silent bool</optional></optional>)
+         </literal></para>
+        </entry>
+        <entry><type>jsonb</type></entry>
+        <entry>
+          Gets all JSON items returned by JSON path for the specified JSON
+          value and wraps result into an array.
+        </entry>
+        <entry>
+         <para><literal>
+           jsonb_path_query_array('{"a":[1,2,3,4,5]}', '$.a[*] ? (@ >= $min &amp;&amp; @ &lt;= $max)', '{"min":2,"max":4}')
+         </literal></para>
+        </entry>
+        <entry>
+          <para><literal>[2, 3, 4]</literal></para>
+        </entry>
+       </row>
+       <row>
+        <entry>
+         <para><literal>
+           jsonb_path_query_first(target jsonb, path jsonpath <optional>, vars jsonb <optional>, silent bool</optional></optional>)
+         </literal></para>
+        </entry>
+        <entry><type>jsonb</type></entry>
+        <entry>
+          Gets the first JSON item returned by JSON path for the specified JSON
+          value.  Returns <literal>NULL</literal> on no results.
+        </entry>
+        <entry>
+         <para><literal>
+           jsonb_path_query_first('{"a":[1,2,3,4,5]}', '$.a[*] ? (@ >= $min &amp;&amp; @ &lt;= $max)', '{"min":2,"max":4}')
+         </literal></para>
+        </entry>
+        <entry>
+          <para><literal>2</literal></para>
+        </entry>
+       </row>
      </tbody>
     </tgroup>
    </table>
@@ -1048,7 +1231,7 @@ pathについての演算子について言うと、<replaceable>new_value</repl
       as noted in <xref linkend="datatype-json"/>.
 -->
 これらの多くの関数や演算子は、JSON文字列のUnicodeのエスケープを適切な一文字に変換します。
-これは入力が<type>jsonb</type>型であれば、変換は既に行なわれていますので、重要な問題ではありません。しかし、<type>json</type>の入力に対しては、<xref linkend="datatype-json"/>で言及したようにこれはエラーを発生させる結果になるかもしれません．
+これは入力が<type>jsonb</type>型であれば、変換は既に行なわれていますので、重要な問題ではありません。しかし、<type>json</type>の入力に対しては、<xref linkend="datatype-json"/>で言及したようにこれはエラーを発生させる結果になるかもしれません。
     </para>
   </note>
 
@@ -1209,6 +1392,26 @@ JSON値を出力列のSQL型に変換する際に以下のルールが順番に�
     </para>
   </note>
 
+  <note>
+   <para>
+    The <literal>jsonb_path_exists</literal>, <literal>jsonb_path_match</literal>,
+    <literal>jsonb_path_query</literal>, <literal>jsonb_path_query_array</literal>, and
+    <literal>jsonb_path_query_first</literal>
+    functions have optional <literal>vars</literal> and <literal>silent</literal>
+    arguments.
+   </para>
+   <para>
+    If the <parameter>vars</parameter> argument is specified, it provides an
+    object containing named variables to be substituted into a
+    <literal>jsonpath</literal> expression.
+   </para>
+   <para>
+    If the <parameter>silent</parameter> argument is specified and has the
+    <literal>true</literal> value, these functions suppress the same errors
+    as the <literal>@?</literal> and <literal>@@</literal> operators.
+   </para>
+  </note>
+
   <para>
 <!--
     See also <xref linkend="functions-aggregate"/> for the aggregate
@@ -1221,6 +1424,644 @@ JSON値を出力列のSQL型に変換する際に以下のルールが順番に�
 レコードの値をJSONに集約する<function>json_agg</function>集約関数、値の対をJSONオブジェクトに集約する<function>json_object_agg</function>集約関数、およびそれらの<type>jsonb</type>版の<function>jsonb_agg</function>と<function>jsonb_object_agg</function>については<xref linkend="functions-aggregate"/>を参照して下さい。
   </para>
 
+ </sect2>
+
+ <sect2 id="functions-sqljson-path">
+  <title>The SQL/JSON Path Language</title>
+
+  <indexterm zone="functions-sqljson-path">
+   <primary>SQL/JSON path language</primary>
+  </indexterm>
+
+  <para>
+   SQL/JSON path expressions specify the items to be retrieved
+   from the JSON data, similar to XPath expressions used
+   for SQL access to XML. In <productname>PostgreSQL</productname>,
+   path expressions are implemented as the <type>jsonpath</type>
+   data type and can use any elements described in
+   <xref linkend="datatype-jsonpath"/>.
+  </para>
+
+  <para>JSON query functions and operators
+   pass the provided path expression to the <firstterm>path engine</firstterm>
+   for evaluation. If the expression matches the queried JSON data,
+   the corresponding SQL/JSON item is returned.
+   Path expressions are written in the SQL/JSON path language
+   and can also include arithmetic expressions and functions.
+   Query functions treat the provided expression as a
+   text string, so it must be enclosed in single quotes.
+  </para>
+
+  <para>
+   A path expression consists of a sequence of elements allowed
+   by the <type>jsonpath</type> data type.
+   The path expression is evaluated from left to right, but
+   you can use parentheses to change the order of operations.
+   If the evaluation is successful, a sequence of SQL/JSON items
+   (<firstterm>SQL/JSON sequence</firstterm>) is produced,
+   and the evaluation result is returned to the JSON query function
+   that completes the specified computation.
+  </para>
+
+  <para>
+   To refer to the JSON data to be queried (the
+   <firstterm>context item</firstterm>), use the <literal>$</literal> sign
+   in the path expression. It can be followed by one or more
+   <link linkend="type-jsonpath-accessors">accessor operators</link>,
+   which go down the JSON structure level by level to retrieve the
+   content of context item. Each operator that follows deals with the
+   result of the previous evaluation step.
+  </para>
+
+  <para>
+   For example, suppose you have some JSON data from a GPS tracker that you
+   would like to parse, such as:
+<programlisting>
+{
+  "track": {
+    "segments": [
+      {
+        "location":   [ 47.763, 13.4034 ],
+        "start time": "2018-10-14 10:05:14",
+        "HR": 73
+      },
+      {
+        "location":   [ 47.706, 13.2635 ],
+        "start time": "2018-10-14 10:39:21",
+        "HR": 135
+      }
+    ]
+  }
+}
+</programlisting>
+  </para>
+
+  <para>
+   To retrieve the available track segments, you need to use the
+   <literal>.<replaceable>key</replaceable></literal> accessor
+   operator for all the preceding JSON objects:
+<programlisting>
+'$.track.segments'
+</programlisting>
+  </para>
+
+  <para>
+   If the item to retrieve is an element of an array, you have
+   to unnest this array using the <literal>[*]</literal> operator. For example,
+   the following path will return location coordinates for all
+   the available track segments:
+<programlisting>
+'$.track.segments[*].location'
+</programlisting>
+  </para>
+
+  <para>
+   To return the coordinates of the first segment only, you can
+   specify the corresponding subscript in the <literal>[]</literal>
+   accessor operator. Note that the SQL/JSON arrays are 0-relative:
+<programlisting>
+'$.track.segments[0].location'
+</programlisting>
+  </para>
+
+  <para>
+   The result of each path evaluation step can be processed
+   by one or more <type>jsonpath</type> operators and methods
+   listed in <xref linkend="functions-sqljson-path-operators"/>.
+   Each method name must be preceded by a dot. For example,
+   you can get an array size:
+<programlisting>
+'$.track.segments.size()'
+</programlisting>
+   For more examples of using <type>jsonpath</type> operators
+   and methods within path expressions, see
+   <xref linkend="functions-sqljson-path-operators"/>.
+  </para>
+
+  <para>
+   When defining the path, you can also use one or more
+   <firstterm>filter expressions</firstterm> that work similar to the
+   <literal>WHERE</literal> clause in SQL. A filter expression begins with
+   a question mark and provides a condition in parentheses:
+
+<programlisting>
+? (<replaceable>condition</replaceable>)
+</programlisting>
+  </para>
+
+  <para>
+   Filter expressions must be specified right after the path evaluation step
+   to which they are applied. The result of this step is filtered to include
+   only those items that satisfy the provided condition. SQL/JSON defines
+   three-valued logic, so the condition can be <literal>true</literal>, <literal>false</literal>,
+   or <literal>unknown</literal>. The <literal>unknown</literal> value
+   plays the same role as SQL <literal>NULL</literal> and can be tested
+   for with the <literal>is unknown</literal> predicate. Further path
+   evaluation steps use only those items for which filter expressions
+   return <literal>true</literal>.
+  </para>
+
+  <para>
+   Functions and operators that can be used in filter expressions are listed
+   in <xref linkend="functions-sqljson-filter-ex-table"/>. The path
+   evaluation result to be filtered is denoted by the <literal>@</literal>
+   variable. To refer to a JSON element stored at a lower nesting level,
+   add one or more accessor operators after <literal>@</literal>.
+  </para>
+
+  <para>
+   Suppose you would like to retrieve all heart rate values higher
+   than 130. You can achieve this using the following expression:
+<programlisting>
+'$.track.segments[*].HR ? (@ &gt; 130)'
+</programlisting>
+  </para>
+
+  <para>
+   To get the start time of segments with such values instead, you have to
+   filter out irrelevant segments before returning the start time, so the
+   filter expression is applied to the previous step, and the path used
+   in the condition is different:
+<programlisting>
+'$.track.segments[*] ? (@.HR &gt; 130)."start time"'
+</programlisting>
+  </para>
+
+  <para>
+   You can use several filter expressions on the same nesting level, if
+   required. For example, the following expression selects all segments
+   that contain locations with relevant coordinates and high heart rate values:
+<programlisting>
+'$.track.segments[*] ? (@.location[1] &lt; 13.4) ? (@.HR &gt; 130)."start time"'
+</programlisting>
+  </para>
+
+  <para>
+   Using filter expressions at different nesting levels is also allowed.
+   The following example first filters all segments by location, and then
+   returns high heart rate values for these segments, if available:
+<programlisting>
+'$.track.segments[*] ? (@.location[1] &lt; 13.4).HR ? (@ &gt; 130)'
+</programlisting>
+  </para>
+
+  <para>
+   You can also nest filter expressions within each other:
+<programlisting>
+'$.track ? (exists(@.segments[*] ? (@.HR &gt; 130))).segments.size()'
+</programlisting>
+   This expression returns the size of the track if it contains any
+   segments with high heart rate values, or an empty sequence otherwise.
+  </para>
+
+  <para>
+   <productname>PostgreSQL</productname>'s implementation of SQL/JSON path
+   language has the following deviations from the SQL/JSON standard:
+  </para>
+
+  <itemizedlist>
+   <listitem>
+    <para>
+     <literal>.datetime()</literal> item method is not implemented yet
+     mainly because immutable <type>jsonpath</type> functions and operators
+     cannot reference session timezone, which is used in some datetime
+     operations.  Datetime support will be added to <type>jsonpath</type>
+     in future versions of <productname>PostgreSQL</productname>.
+    </para>
+   </listitem>
+
+   <listitem>
+    <para>
+     A path expression can be a Boolean predicate, although the SQL/JSON
+     standard allows predicates only in filters.  This is necessary for
+     implementation of the <literal>@@</literal> operator. For example,
+     the following <type>jsonpath</type> expression is valid in
+     <productname>PostgreSQL</productname>:
+<programlisting>
+'$.track.segments[*].HR &lt; 70'
+</programlisting>
+    </para>
+   </listitem>
+
+   <listitem>
+    <para>
+     There are minor differences in the interpretation of regular
+     expression patterns used in <literal>like_regex</literal> filters, as
+     described in <xref linkend="jsonpath-regular-expressions"/>.
+    </para>
+   </listitem>
+  </itemizedlist>
+
+   <sect3 id="strict-and-lax-modes">
+   <title>Strict and Lax Modes</title>
+    <para>
+     When you query JSON data, the path expression may not match the
+     actual JSON data structure. An attempt to access a non-existent
+     member of an object or element of an array results in a
+     structural error. SQL/JSON path expressions have two modes
+     of handling structural errors:
+    </para>
+
+   <itemizedlist>
+    <listitem>
+     <para>
+      lax (default) &mdash; the path engine implicitly adapts
+      the queried data to the specified path.
+      Any remaining structural errors are suppressed and converted
+      to empty SQL/JSON sequences.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      strict &mdash; if a structural error occurs, an error is raised.
+     </para>
+    </listitem>
+   </itemizedlist>
+
+   <para>
+    The lax mode facilitates matching of a JSON document structure and path
+    expression if the JSON data does not conform to the expected schema.
+    If an operand does not match the requirements of a particular operation,
+    it can be automatically wrapped as an SQL/JSON array or unwrapped by
+    converting its elements into an SQL/JSON sequence before performing
+    this operation. Besides, comparison operators automatically unwrap their
+    operands in the lax mode, so you can compare SQL/JSON arrays
+    out-of-the-box. An array of size 1 is considered equal to its sole element.
+    Automatic unwrapping is not performed only when:
+    <itemizedlist>
+     <listitem>
+      <para>
+       The path expression contains <literal>type()</literal> or
+       <literal>size()</literal> methods that return the type
+       and the number of elements in the array, respectively.
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+       The queried JSON data contain nested arrays. In this case, only
+       the outermost array is unwrapped, while all the inner arrays
+       remain unchanged. Thus, implicit unwrapping can only go one
+       level down within each path evaluation step.
+      </para>
+     </listitem>
+    </itemizedlist>
+   </para>
+
+   <para>
+    For example, when querying the GPS data listed above, you can
+    abstract from the fact that it stores an array of segments
+    when using the lax mode:
+<programlisting>
+'lax $.track.segments.location'
+</programlisting>
+   </para>
+
+   <para>
+    In the strict mode, the specified path must exactly match the structure of
+    the queried JSON document to return an SQL/JSON item, so using this
+    path expression will cause an error. To get the same result as in
+    the lax mode, you have to explicitly unwrap the
+    <literal>segments</literal> array:
+<programlisting>
+'strict $.track.segments[*].location'
+</programlisting>
+   </para>
+
+   </sect3>
+
+   <sect3 id="jsonpath-regular-expressions">
+    <title>Regular Expressions</title>
+
+    <indexterm zone="jsonpath-regular-expressions">
+     <primary><literal>LIKE_REGEX</literal></primary>
+     <secondary>in SQL/JSON</secondary>
+    </indexterm>
+
+    <para>
+     SQL/JSON path expressions allow matching text to a regular expression
+     with the <literal>like_regex</literal> filter.  For example, the
+     following SQL/JSON path query would case-insensitively match all
+     strings in an array that start with an English vowel:
+<programlisting>
+'$[*] ? (@ like_regex "^[aeiou]" flag "i")'
+</programlisting>
+    </para>
+
+    <para>
+     The optional <literal>flag</literal> string may include one or more of
+     the characters
+     <literal>i</literal> for case-insensitive match,
+     <literal>m</literal> to allow <literal>^</literal>
+     and <literal>$</literal> to match at newlines,
+     <literal>s</literal> to allow <literal>.</literal> to match a newline,
+     and <literal>q</literal> to quote the whole pattern (reducing the
+     behavior to a simple substring match).
+    </para>
+
+    <para>
+     The SQL/JSON standard borrows its definition for regular expressions
+     from the <literal>LIKE_REGEX</literal> operator, which in turn uses the
+     XQuery standard.  PostgreSQL does not currently support the
+     <literal>LIKE_REGEX</literal> operator.  Therefore,
+     the <literal>like_regex</literal> filter is implemented using the
+     POSIX regular expression engine described in
+     <xref linkend="functions-posix-regexp"/>.  This leads to various minor
+     discrepancies from standard SQL/JSON behavior, which are cataloged in
+     <xref linkend="posix-vs-xquery"/>.
+     Note, however, that the flag-letter incompatibilities described there
+     do not apply to SQL/JSON, as it translates the XQuery flag letters to
+     match what the POSIX engine expects.
+    </para>
+
+    <para>
+     Keep in mind that the pattern argument of <literal>like_regex</literal>
+     is a JSON path string literal, written according to the rules given in
+     <xref linkend="datatype-jsonpath"/>.  This means in particular that any
+     backslashes you want to use in the regular expression must be doubled.
+     For example, to match strings that contain only digits:
+<programlisting>
+'$ ? (@ like_regex "^\\d+$")'
+</programlisting>
+    </para>
+
+   </sect3>
+
+   <sect3 id="functions-sqljson-path-operators">
+   <title>SQL/JSON Path Operators and Methods</title>
+
+   <para>
+    <xref linkend="functions-sqljson-op-table"/> shows the operators and
+    methods available in <type>jsonpath</type>.  <xref
+    linkend="functions-sqljson-filter-ex-table"/> shows the available filter
+    expression elements.
+   </para>
+
+   <table id="functions-sqljson-op-table">
+    <title><type>jsonpath</type> Operators and Methods</title>
+     <tgroup cols="5">
+      <thead>
+       <row>
+        <entry>Operator/Method</entry>
+        <entry>Description</entry>
+        <entry>Example JSON</entry>
+        <entry>Example Query</entry>
+        <entry>Result</entry>
+       </row>
+      </thead>
+      <tbody>
+       <row>
+        <entry><literal>+</literal> (unary)</entry>
+        <entry>Plus operator that iterates over the SQL/JSON sequence</entry>
+        <entry><literal>{"x": [2.85, -14.7, -9.4]}</literal></entry>
+        <entry><literal>+ $.x.floor()</literal></entry>
+        <entry><literal>2, -15, -10</literal></entry>
+       </row>
+       <row>
+        <entry><literal>-</literal> (unary)</entry>
+        <entry>Minus operator that iterates over the SQL/JSON sequence</entry>
+        <entry><literal>{"x": [2.85, -14.7, -9.4]}</literal></entry>
+        <entry><literal>- $.x.floor()</literal></entry>
+        <entry><literal>-2, 15, 10</literal></entry>
+       </row>
+       <row>
+        <entry><literal>+</literal> (binary)</entry>
+        <entry>Addition</entry>
+        <entry><literal>[2]</literal></entry>
+        <entry><literal>2 + $[0]</literal></entry>
+        <entry><literal>4</literal></entry>
+       </row>
+       <row>
+        <entry><literal>-</literal> (binary)</entry>
+        <entry>Subtraction</entry>
+        <entry><literal>[2]</literal></entry>
+        <entry><literal>4 - $[0]</literal></entry>
+        <entry><literal>2</literal></entry>
+       </row>
+       <row>
+        <entry><literal>*</literal></entry>
+        <entry>Multiplication</entry>
+        <entry><literal>[4]</literal></entry>
+        <entry><literal>2 * $[0]</literal></entry>
+        <entry><literal>8</literal></entry>
+       </row>
+       <row>
+        <entry><literal>/</literal></entry>
+        <entry>Division</entry>
+        <entry><literal>[8]</literal></entry>
+        <entry><literal>$[0] / 2</literal></entry>
+        <entry><literal>4</literal></entry>
+       </row>
+       <row>
+        <entry><literal>%</literal></entry>
+        <entry>Modulus</entry>
+        <entry><literal>[32]</literal></entry>
+        <entry><literal>$[0] % 10</literal></entry>
+        <entry><literal>2</literal></entry>
+       </row>
+       <row>
+        <entry><literal>type()</literal></entry>
+        <entry>Type of the SQL/JSON item</entry>
+        <entry><literal>[1, "2", {}]</literal></entry>
+        <entry><literal>$[*].type()</literal></entry>
+        <entry><literal>"number", "string", "object"</literal></entry>
+       </row>
+       <row>
+        <entry><literal>size()</literal></entry>
+        <entry>Size of the SQL/JSON item</entry>
+        <entry><literal>{"m": [11, 15]}</literal></entry>
+        <entry><literal>$.m.size()</literal></entry>
+        <entry><literal>2</literal></entry>
+       </row>
+       <row>
+        <entry><literal>double()</literal></entry>
+        <entry>Approximate floating-point number converted from an SQL/JSON number or a string</entry>
+        <entry><literal>{"len": "1.9"}</literal></entry>
+        <entry><literal>$.len.double() * 2</literal></entry>
+        <entry><literal>3.8</literal></entry>
+       </row>
+       <row>
+        <entry><literal>ceiling()</literal></entry>
+        <entry>Nearest integer greater than or equal to the SQL/JSON number</entry>
+        <entry><literal>{"h": 1.3}</literal></entry>
+        <entry><literal>$.h.ceiling()</literal></entry>
+        <entry><literal>2</literal></entry>
+       </row>
+       <row>
+        <entry><literal>floor()</literal></entry>
+        <entry>Nearest integer less than or equal to the SQL/JSON number</entry>
+        <entry><literal>{"h": 1.3}</literal></entry>
+        <entry><literal>$.h.floor()</literal></entry>
+        <entry><literal>1</literal></entry>
+       </row>
+       <row>
+        <entry><literal>abs()</literal></entry>
+        <entry>Absolute value of the SQL/JSON number</entry>
+        <entry><literal>{"z": -0.3}</literal></entry>
+        <entry><literal>$.z.abs()</literal></entry>
+        <entry><literal>0.3</literal></entry>
+       </row>
+       <row>
+        <entry><literal>keyvalue()</literal></entry>
+        <entry>
+          Sequence of object's key-value pairs represented as array of items
+          containing three fields (<literal>"key"</literal>,
+          <literal>"value"</literal>, and <literal>"id"</literal>).
+          <literal>"id"</literal> is a unique identifier of the object
+          key-value pair belongs to.
+        </entry>
+        <entry><literal>{"x": "20", "y": 32}</literal></entry>
+        <entry><literal>$.keyvalue()</literal></entry>
+        <entry><literal>{"key": "x", "value": "20", "id": 0}, {"key": "y", "value": 32, "id": 0}</literal></entry>
+       </row>
+      </tbody>
+     </tgroup>
+    </table>
+
+    <table id="functions-sqljson-filter-ex-table">
+     <title><type>jsonpath</type> Filter Expression Elements</title>
+     <tgroup cols="5">
+      <thead>
+       <row>
+        <entry>Value/Predicate</entry>
+        <entry>Description</entry>
+        <entry>Example JSON</entry>
+        <entry>Example Query</entry>
+        <entry>Result</entry>
+       </row>
+      </thead>
+      <tbody>
+       <row>
+        <entry><literal>==</literal></entry>
+        <entry>Equality operator</entry>
+        <entry><literal>[1, 2, 1, 3]</literal></entry>
+        <entry><literal>$[*] ? (@ == 1)</literal></entry>
+        <entry><literal>1, 1</literal></entry>
+       </row>
+       <row>
+        <entry><literal>!=</literal></entry>
+        <entry>Non-equality operator</entry>
+        <entry><literal>[1, 2, 1, 3]</literal></entry>
+        <entry><literal>$[*] ? (@ != 1)</literal></entry>
+        <entry><literal>2, 3</literal></entry>
+       </row>
+       <row>
+        <entry><literal>&lt;&gt;</literal></entry>
+        <entry>Non-equality operator (same as <literal>!=</literal>)</entry>
+        <entry><literal>[1, 2, 1, 3]</literal></entry>
+        <entry><literal>$[*] ? (@ &lt;&gt; 1)</literal></entry>
+        <entry><literal>2, 3</literal></entry>
+       </row>
+       <row>
+        <entry><literal>&lt;</literal></entry>
+        <entry>Less-than operator</entry>
+        <entry><literal>[1, 2, 3]</literal></entry>
+        <entry><literal>$[*] ? (@ &lt; 2)</literal></entry>
+        <entry><literal>1</literal></entry>
+       </row>
+       <row>
+        <entry><literal>&lt;=</literal></entry>
+        <entry>Less-than-or-equal-to operator</entry>
+        <entry><literal>[1, 2, 3]</literal></entry>
+        <entry><literal>$[*] ? (@ &lt;= 2)</literal></entry>
+        <entry><literal>1, 2</literal></entry>
+       </row>
+       <row>
+        <entry><literal>&gt;</literal></entry>
+        <entry>Greater-than operator</entry>
+        <entry><literal>[1, 2, 3]</literal></entry>
+        <entry><literal>$[*] ? (@ &gt; 2)</literal></entry>
+        <entry><literal>3</literal></entry>
+       </row>
+       <row>
+        <entry><literal>&gt;=</literal></entry>
+        <entry>Greater-than-or-equal-to operator</entry>
+        <entry><literal>[1, 2, 3]</literal></entry>
+        <entry><literal>$[*] ? (@ &gt;= 2)</literal></entry>
+        <entry><literal>2, 3</literal></entry>
+       </row>
+       <row>
+        <entry><literal>true</literal></entry>
+        <entry>Value used to perform comparison with JSON <literal>true</literal> literal</entry>
+        <entry><literal>[{"name": "John", "parent": false},
+                           {"name": "Chris", "parent": true}]</literal></entry>
+        <entry><literal>$[*] ? (@.parent == true)</literal></entry>
+        <entry><literal>{"name": "Chris", "parent": true}</literal></entry>
+       </row>
+       <row>
+        <entry><literal>false</literal></entry>
+        <entry>Value used to perform comparison with JSON <literal>false</literal> literal</entry>
+        <entry><literal>[{"name": "John", "parent": false},
+                           {"name": "Chris", "parent": true}]</literal></entry>
+        <entry><literal>$[*] ? (@.parent == false)</literal></entry>
+        <entry><literal>{"name": "John", "parent": false}</literal></entry>
+       </row>
+       <row>
+        <entry><literal>null</literal></entry>
+        <entry>Value used to perform comparison with JSON <literal>null</literal> value</entry>
+        <entry><literal>[{"name": "Mary", "job": null},
+                         {"name": "Michael", "job": "driver"}]</literal></entry>
+        <entry><literal>$[*] ? (@.job == null) .name</literal></entry>
+        <entry><literal>"Mary"</literal></entry>
+       </row>
+       <row>
+        <entry><literal>&amp;&amp;</literal></entry>
+        <entry>Boolean AND</entry>
+        <entry><literal>[1, 3, 7]</literal></entry>
+        <entry><literal>$[*] ? (@ &gt; 1 &amp;&amp; @ &lt; 5)</literal></entry>
+        <entry><literal>3</literal></entry>
+       </row>
+       <row>
+        <entry><literal>||</literal></entry>
+        <entry>Boolean OR</entry>
+        <entry><literal>[1, 3, 7]</literal></entry>
+        <entry><literal>$[*] ? (@ &lt; 1 || @ &gt; 5)</literal></entry>
+        <entry><literal>7</literal></entry>
+       </row>
+       <row>
+        <entry><literal>!</literal></entry>
+        <entry>Boolean NOT</entry>
+        <entry><literal>[1, 3, 7]</literal></entry>
+        <entry><literal>$[*] ? (!(@ &lt; 5))</literal></entry>
+        <entry><literal>7</literal></entry>
+       </row>
+       <row>
+        <entry><literal>like_regex</literal></entry>
+        <entry>
+          Tests whether the first operand matches the regular expression
+          given by the second operand, optionally with modifications
+          described by a string of <literal>flag</literal> characters (see
+          <xref linkend="jsonpath-regular-expressions"/>)
+        </entry>
+        <entry><literal>["abc", "abd", "aBdC", "abdacb", "babc"]</literal></entry>
+        <entry><literal>$[*] ? (@ like_regex "^ab.*c" flag "i")</literal></entry>
+        <entry><literal>"abc", "aBdC", "abdacb"</literal></entry>
+       </row>
+       <row>
+        <entry><literal>starts with</literal></entry>
+        <entry>Tests whether the second operand is an initial substring of the first operand</entry>
+        <entry><literal>["John Smith", "Mary Stone", "Bob Johnson"]</literal></entry>
+        <entry><literal>$[*] ? (@ starts with "John")</literal></entry>
+        <entry><literal>"John Smith"</literal></entry>
+       </row>
+       <row>
+        <entry><literal>exists</literal></entry>
+        <entry>Tests whether a path expression matches at least one SQL/JSON item</entry>
+        <entry><literal>{"x": [1, 2], "y": [2, 4]}</literal></entry>
+        <entry><literal>strict $.* ? (exists (@ ? (@[*] > 2)))</literal></entry>
+        <entry><literal>2, 4</literal></entry>
+       </row>
+       <row>
+        <entry><literal>is unknown</literal></entry>
+        <entry>Tests whether a Boolean condition is <literal>unknown</literal></entry>
+        <entry><literal>[-1, 2, 7, "infinity"]</literal></entry>
+        <entry><literal>$[*] ? ((@ > 0) is unknown)</literal></entry>
+        <entry><literal>"infinity"</literal></entry>
+       </row>
+      </tbody>
+     </tgroup>
+    </table>
+   </sect3>
+  </sect2>
  </sect1>
 
  <sect1 id="functions-sequence">
@@ -1661,6 +2502,15 @@ SELECT setval('foo', 42, false);    <lineannotation>次の<function>nextval</fun
    </para>
   </tip>
 
+   <note>
+    <para>
+     Although <token>COALESCE</token>, <token>GREATEST</token>, and
+     <token>LEAST</token> are syntactically similar to functions, they are
+     not ordinary functions, and thus cannot be used with explicit
+     <token>VARIADIC</token> array arguments.
+    </para>
+   </note>
+
   <sect2 id="functions-case">
    <title><literal>CASE</literal></title>
 
@@ -2064,7 +2914,7 @@ SELECT NULLIF(value, '(none)') ...
         <entry>contains</entry>
 -->
         <entry>包含する</entry>
-        <entry><literal>ARRAY[1,4,3] @&gt; ARRAY[3,1]</literal></entry>
+        <entry><literal>ARRAY[1,4,3] @&gt; ARRAY[3,1,3]</literal></entry>
         <entry><literal>t</literal></entry>
        </row>
 
@@ -2074,7 +2924,7 @@ SELECT NULLIF(value, '(none)') ...
         <entry>is contained by</entry>
 -->
         <entry>・・・により包含される</entry>
-        <entry><literal>ARRAY[2,7] &lt;@ ARRAY[1,7,4,2,6]</literal></entry>
+        <entry><literal>ARRAY[2,2,7] &lt;@ ARRAY[1,7,4,2,6]</literal></entry>
         <entry><literal>t</literal></entry>
        </row>
 
@@ -2133,8 +2983,10 @@ SELECT NULLIF(value, '(none)') ...
 
   <para>
 <!--
-   Array comparisons compare the array contents element-by-element,
-   using the default B-tree comparison function for the element data type.
+   The array ordering operators (<literal>&lt;</literal>,
+   <literal>&gt;=</literal>, etc) compare the array contents
+   element-by-element, using the default B-tree comparison function for
+   the element data type, and sort based on the first difference.
    In multidimensional arrays the elements are visited in row-major order
    (last subscript varies most rapidly).
    If the contents of two arrays are equal but the dimensionality is
@@ -2148,6 +3000,15 @@ SELECT NULLIF(value, '(none)') ...
 多次元配列では、行番号を優先して取り出します（最後の添え字が最も速く変わる順序で比較します）。
 2つの配列の内容が同じで次元数が異なる場合、どの次元で最初に違いがあったかによってソート順が決まります。
 （これは8.2より前の<productname>PostgreSQL</productname>では異なります。古いバージョンでは、次数や添え字範囲が異なっていたとしても、内容が同じであれば、2つの配列は同じものとしていました。）
+  </para>
+
+  <para>
+   The array containment operators (<literal>&lt;@</literal>
+   and <literal>@&gt;</literal>) consider one array to be contained in
+   another one if each of its elements appears in the other one.
+   Duplicates are not treated specially, thus <literal>ARRAY[1]</literal>
+   and <literal>ARRAY[1,1]</literal> are each considered to contain the
+   other.
   </para>
 
   <para>
@@ -3156,7 +4017,7 @@ NULL baz</literallayout>(3 rows)</entry>
       <entry>No</entry>
       <entry>input arrays concatenated into array of one higher dimension
        (inputs must all have same dimensionality,
-        and cannot be empty or NULL)</entry>
+        and cannot be empty or null)</entry>
 -->
       <entry>不可</entry>
       <entry>入力配列が結合された、1次元高い配列（入力はすべて同じ次元であり、空やNULLではないこと）</entry>
@@ -3190,7 +4051,7 @@ NULL baz</literallayout>(3 rows)</entry>
       </entry>
 <!--
       <entry>Yes</entry>
-      <entry>the average (arithmetic mean) of all input values</entry>
+      <entry>the average (arithmetic mean) of all non-null input values</entry>
 -->
       <entry>可</entry>
       <entry>全ての入力値の平均値（算術平均）</entry>
@@ -3368,7 +4229,7 @@ NULL baz</literallayout>(3 rows)</entry>
       </entry>
 <!--
       <entry>No</entry>
-      <entry>aggregates values as a JSON array</entry>
+      <entry>aggregates values, including nulls, as a JSON array</entry>
 -->
       <entry>不可</entry>
       <entry>JSON配列として値を集約</entry>
@@ -3389,7 +4250,7 @@ NULL baz</literallayout>(3 rows)</entry>
       </entry>
 <!--
       <entry>No</entry>
-      <entry>aggregates values as a JSON array</entry>
+      <entry>aggregates values, including nulls, as a JSON array</entry>
 -->
       <entry>不可</entry>
       <entry>値をJSON配列として集約する</entry>
@@ -3410,7 +4271,8 @@ NULL baz</literallayout>(3 rows)</entry>
       </entry>
 <!--
       <entry>No</entry>
-      <entry>aggregates name/value pairs as a JSON object</entry>
+      <entry>aggregates name/value pairs as a JSON object; values can be
+       null, but not names</entry>
 -->
       <entry>不可</entry>
       <entry>名前／値の対をJSONオブジェクトとして集約</entry>
@@ -3431,7 +4293,8 @@ NULL baz</literallayout>(3 rows)</entry>
       </entry>
 <!--
       <entry>No</entry>
-      <entry>aggregates name/value pairs as a JSON object</entry>
+      <entry>aggregates name/value pairs as a JSON object; values can be
+       null, but not names</entry>
 -->
       <entry>不可</entry>
       <entry>名前／値のペアをJSONオブジェクトとして集約</entry>
@@ -3458,7 +4321,7 @@ NULL baz</literallayout>(3 rows)</entry>
       <entry>
 <!--
        maximum value of <replaceable
-       class="parameter">expression</replaceable> across all input
+       class="parameter">expression</replaceable> across all non-null input
        values
 -->
        全ての入力値にわたり<replaceable class="parameter">expression</replaceable>の最大値
@@ -3486,7 +4349,7 @@ NULL baz</literallayout>(3 rows)</entry>
       <entry>
 <!--
        minimum value of <replaceable
-       class="parameter">expression</replaceable> across all input
+       class="parameter">expression</replaceable> across all non-null input
        values
 -->
        全ての入力値にわたり<replaceable class="parameter">expression</replaceable>の最小値
@@ -3517,7 +4380,7 @@ NULL baz</literallayout>(3 rows)</entry>
       </entry>
 <!--
       <entry>No</entry>
-      <entry>input values concatenated into a string, separated by delimiter</entry>
+      <entry>non-null input values concatenated into a string, separated by delimiter</entry>
 -->
       <entry>不可</entry>
       <entry>入力された値が指定したデリミタで区切られた一つの文字列に連結されます。</entry>
@@ -3550,7 +4413,8 @@ NULL baz</literallayout>(3 rows)</entry>
       </entry>
 <!--
       <entry>Yes</entry>
-      <entry>sum of <replaceable class="parameter">expression</replaceable> across all input values</entry>
+      <entry>sum of <replaceable class="parameter">expression</replaceable>
+       across all non-null input values</entry>
 -->
       <entry>可</entry>
       <entry>全ての入力値に渡り<replaceable class="parameter">expression</replaceable>の和</entry>
@@ -3571,7 +4435,8 @@ NULL baz</literallayout>(3 rows)</entry>
       </entry>
 <!--
       <entry>No</entry>
-      <entry>concatenation of XML values (see also <xref linkend="functions-xml-xmlagg"/>)</entry>
+      <entry>concatenation of non-null XML values
+       (see also <xref linkend="functions-xml-xmlagg"/>)</entry>
 -->
       <entry>不可</entry>
       <entry>XML値の連結（ <xref linkend="functions-xml-xmlagg"/>も参照）</entry>
@@ -4196,10 +5061,7 @@ SELECT xmlagg(x) FROM (SELECT x FROM test ORDER BY y DESC) AS tab;
      <row>
       <entry>
        <indexterm>
-<!--
         <primary>variance</primary>
--->
-        <primary>分散</primary>
        </indexterm>
        <function>variance</function>(<replaceable class="parameter">expression</replaceable>)
       </entry>

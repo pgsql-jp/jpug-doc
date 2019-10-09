@@ -79,6 +79,7 @@
        In general, enclose the value in single quotes, doubling any single
        quotes within the value.  Quotes can usually be omitted if the value
        is a simple number or identifier, however.
+       (Values that match a SQL keyword require quoting in some contexts.)
 -->
 <emphasis>文字列型:</emphasis>
 一般に、単一引用符の中に値を入れます。
@@ -91,8 +92,14 @@
       <para>
 <!--
        <emphasis>Numeric (integer and floating point):</emphasis>
-       A decimal point is permitted only for floating-point parameters.
-       Do not use thousands separators.  Quotes are not required.
+       Numeric parameters can be specified in the customary integer and
+       floating-point formats; fractional values are rounded to the nearest
+       integer if the parameter is of integer type.  Integer parameters
+       additionally accept hexadecimal input (beginning
+       with <literal>0x</literal>) and octal input (beginning
+       with <literal>0</literal>), but these formats cannot have a fraction.
+       Do not use thousands separators.
+       Quotes are not required, except for hexadecimal input.
 -->
 <emphasis>数値型(整数型と浮動小数点型):</emphasis>
 小数点は浮動小数点型のパラメータでのみ使用できます。
@@ -147,7 +154,9 @@
         <listitem>
          <para>
 <!--
-          Valid time units are <literal>ms</literal> (milliseconds),
+          Valid time units are
+          <literal>us</literal> (microseconds),
+          <literal>ms</literal> (milliseconds),
           <literal>s</literal> (seconds), <literal>min</literal> (minutes),
           <literal>h</literal> (hours), and <literal>d</literal> (days).
 -->
@@ -155,6 +164,13 @@
          </para>
         </listitem>
        </itemizedlist>
+
+       If a fractional value is specified with a unit, it will be rounded
+       to a multiple of the next smaller unit if there is one.
+       For example, <literal>30.1 GB</literal> will be converted
+       to <literal>30822 MB</literal> not <literal>32319628902 B</literal>.
+       If the parameter is of integer type, a final rounding to integer
+       occurs after any units conversion.
       </para>
      </listitem>
 
@@ -210,6 +226,8 @@ shared_buffers = 128MB
      identifiers or numbers must be single-quoted.  To embed a single
      quote in a parameter value, write either two quotes (preferred)
      or backslash-quote.
+     If the file contains multiple entries for the same parameter,
+     all but the last one are ignored.
     -->
 1つの行毎に1つのパラメータが指定されます。
 名前と値の間の等号は省略可能です。
@@ -263,12 +281,13 @@ shared_buffers = 128MB
      In addition to <filename>postgresql.conf</filename>,
      a <productname>PostgreSQL</productname> data directory contains a file
      <filename>postgresql.auto.conf</filename><indexterm><primary>postgresql.auto.conf</primary></indexterm>,
-     which has the same format as <filename>postgresql.conf</filename> but should
-     never be edited manually.  This file holds settings provided through
-     the <xref linkend="sql-altersystem"/> command.  This file is automatically
-     read whenever <filename>postgresql.conf</filename> is, and its settings take
-     effect in the same way.  Settings in <filename>postgresql.auto.conf</filename>
-     override those in <filename>postgresql.conf</filename>.
+     which has the same format as <filename>postgresql.conf</filename> but
+     is intended to be edited automatically, not manually.  This file holds
+     settings provided through the <xref linkend="sql-altersystem"/> command.
+     This file is read whenever <filename>postgresql.conf</filename> is,
+     and its settings take effect in the same way.  Settings
+     in <filename>postgresql.auto.conf</filename> override those
+     in <filename>postgresql.conf</filename>.
 -->
 <filename>postgresql.conf</filename>に加え、<productname>PostgreSQL</productname>のデータディレクトリには <filename>postgresql.auto.conf</filename><indexterm><primary>postgresql.auto.conf</primary></indexterm>というファイルがあります。
 このファイルは <filename>postgresql.conf</filename> と同じフォーマットですが、決して手動で編集してはいけません。
@@ -278,10 +297,20 @@ shared_buffers = 128MB
     </para>
 
     <para>
+     External tools may also
+     modify <filename>postgresql.auto.conf</filename>.  It is not
+     recommended to do this while the server is running, since a
+     concurrent <command>ALTER SYSTEM</command> command could overwrite
+     such changes.  Such tools might simply append new settings to the end,
+     or they might choose to remove duplicate settings and/or comments
+     (as <command>ALTER SYSTEM</command> will).
+    </para>
+
+    <para>
 <!--
      The system view
      <link linkend="view-pg-file-settings"><structname>pg_file_settings</structname></link>
-     can be helpful for pre-testing changes to the configuration file, or for
+     can be helpful for pre-testing changes to the configuration files, or for
      diagnosing problems if a <systemitem>SIGHUP</systemitem> signal did not have the
      desired effects.
 -->
@@ -1061,8 +1090,7 @@ include_dir 'conf.d'
        <para>
        <!--
         The default value is three connections. The value must be less
-        than <varname>max_connections</varname> minus
-        <xref linkend="guc-max-wal-senders"/>.
+        than <varname>max_connections</varname>.
         This parameter can only be set at server start.
        -->
 デフォルトの値は3接続です。
@@ -1398,6 +1426,31 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
          This parameter is not supported on Windows, and must be zero.
           -->
           このパラメータはWindowsではサポートされておらず、ゼロでなければなりません。
+        </para>
+       </note>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-tcp-user-timeout" xreflabel="tcp_user_timeout">
+      <term><varname>tcp_user_timeout</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>tcp_user_timeout</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Specifies the number of milliseconds that transmitted data may
+        remain unacknowledged before a connection is forcibly closed.
+        A value of 0 uses the system default.
+        This parameter is supported only on systems that support
+        <symbol>TCP_USER_TIMEOUT</symbol>; on other systems, it must be zero.
+        In sessions connected via a Unix-domain socket, this parameter is
+        ignored and always reads as zero.
+       </para>
+       <note>
+        <para>
+         This parameter is not supported on Windows and on Linux version
+         2.6.36 or older.
         </para>
        </note>
       </listitem>
@@ -1889,7 +1942,7 @@ OpenSSLのバージョンにより、利用可能な暗号スイートの詳細�
         than the client's.
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
-        The default is <literal>true</literal>.
+        The default is <literal>on</literal>.
 -->
 サーバのSSL暗号設定をクライアントに優先して使うかどうかを指定します。
 このパラメータは、<filename>postgresql.conf</filename>ファイルか、サーバのコマンドラインでのみ設定可能です。
@@ -1952,6 +2005,50 @@ OpenSSLのバージョンにより、利用可能な暗号スイートの詳細�
         are usable in <acronym>TLS</acronym> though.
 -->
         利用できる曲線の完全なリストは<command>openssl ecparam -list_curves</command>で得られます。ただし、<acronym>TLS</acronym>ではこのすべてが利用できるわけではありません。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-ssl-min-protocol-version" xreflabel="ssl_min_protocol_version">
+      <term><varname>ssl_min_protocol_version</varname> (<type>enum</type>)
+      <indexterm>
+       <primary><varname>ssl_min_protocol_version</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Sets the minimum SSL/TLS protocol version to use.  Valid values are
+        currently: <literal>TLSv1</literal>, <literal>TLSv1.1</literal>,
+        <literal>TLSv1.2</literal>, <literal>TLSv1.3</literal>.  Older
+        versions of the <productname>OpenSSL</productname> library do not
+        support all values; an error will be raised if an unsupported setting
+        is chosen.  Protocol versions before TLS 1.0, namely SSL version 2 and
+        3, are always disabled.
+       </para>
+
+       <para>
+        The default is <literal>TLSv1</literal>, mainly to support older
+        versions of the <productname>OpenSSL</productname> library.  You might
+        want to set this to a higher value if all software components can
+        support the newer protocol versions.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-ssl-max-protocol-version" xreflabel="ssl_max_protocol_version">
+      <term><varname>ssl_max_protocol_version</varname> (<type>enum</type>)
+      <indexterm>
+       <primary><varname>ssl_max_protocol_version</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Sets the maximum SSL/TLS protocol version to use.  Valid values are as
+        for <xref linkend="guc-ssl-min-protocol-version"/>, with addition of
+        an empty string, which allows any protocol version.  The default is to
+        allow any version.  Setting the maximum protocol version is mainly
+        useful for testing or if some component has issues working with a
+        newer protocol.
        </para>
       </listitem>
      </varlistentry>
@@ -2063,12 +2160,12 @@ OpenSSLのバージョンにより、利用可能な暗号スイートの詳細�
         This parameter determines whether the passphrase command set by
         <varname>ssl_passphrase_command</varname> will also be called during a
         configuration reload if a key file needs a passphrase.  If this
-        parameter is false (the default), then
+        parameter is off (the default), then
         <varname>ssl_passphrase_command</varname> will be ignored during a
         reload and the SSL configuration will not be reloaded if a passphrase
         is needed.  That setting is appropriate for a command that requires a
         TTY for prompting, which might not be available when the server is
-        running.  Setting this parameter to true might be appropriate if the
+        running.  Setting this parameter to on might be appropriate if the
         passphrase is obtained from a file, for example.
 -->
 このパラメータは、キーにパスフレーズが必要な場合、設定ファイルの再読み込み中に<varname>ssl_passphrase_command</varname>で設定されたパスフレーズコマンドも呼び出されるかどうかを設定します。
@@ -2465,12 +2562,11 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         enforced by the kernel (as set by <literal>ulimit -s</literal> or local
         equivalent), less a safety margin of a megabyte or so.  The safety
         margin is needed because the stack depth is not checked in every
-        routine in the server, but only in key potentially-recursive routines
-        such as expression evaluation.  The default setting is two
-        megabytes (<literal>2MB</literal>), which is conservatively small and
-        unlikely to risk crashes.  However, it might be too small to allow
-        execution of complex functions.  Only superusers can change this
-        setting.
+        routine in the server, but only in key potentially-recursive routines.
+        The default setting is two megabytes (<literal>2MB</literal>), which
+        is conservatively small and unlikely to risk crashes.  However,
+        it might be too small to allow execution of complex functions.
+        Only superusers can change this setting.
        -->
 サーバの実行スタックの最大安全深度を指定します。
 このパラメータの理想的な設定はカーネルにより強要される実際のスタック容量の（<literal>ulimit -s</literal>もしくはそれと同等の機能で設定された）限界から、1メガバイト程度の安全余地を差し引いたものです。
@@ -2498,6 +2594,31 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-shared-memory-type" xreflabel="shared_memory_type">
+      <term><varname>shared_memory_type</varname> (<type>enum</type>)
+      <indexterm>
+       <primary><varname>shared_memory_type</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Specifies the shared memory implementation that the server
+        should use for the main shared memory region that holds
+        <productname>PostgreSQL</productname>'s shared buffers and other
+        shared data.  Possible values are <literal>mmap</literal> (for
+        anonymous shared memory allocated using <function>mmap</function>),
+        <literal>sysv</literal> (for System V shared memory allocated via
+        <function>shmget</function>) and <literal>windows</literal> (for Windows
+        shared memory).  Not all values are supported on all platforms; the
+        first supported option is the default for that platform.  The use of
+        the <literal>sysv</literal> option, which is not the default on any
+        platform, is generally discouraged because it typically requires
+        non-default kernel settings to allow for large allocations (see <xref
+        linkend="sysvipc"/>).
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-dynamic-shared-memory-type" xreflabel="dynamic_shared_memory_type">
       <term><varname>dynamic_shared_memory_type</varname> (<type>enum</type>)
       <indexterm>
@@ -2514,9 +2635,9 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         should use.  Possible values are <literal>posix</literal> (for POSIX shared
         memory allocated using <literal>shm_open</literal>), <literal>sysv</literal>
         (for System V shared memory allocated via <literal>shmget</literal>),
-        <literal>windows</literal> (for Windows shared memory), <literal>mmap</literal>
-        (to simulate shared memory using memory-mapped files stored in the
-        data directory), and <literal>none</literal> (to disable this feature).
+        <literal>windows</literal> (for Windows shared memory),
+        and <literal>mmap</literal> (to simulate shared memory using
+        memory-mapped files stored in the data directory).
         Not all values are supported on all platforms; the first supported
         option is the default for that platform.  The use of the
         <literal>mmap</literal> option, which is not the default on any platform,
@@ -2688,7 +2809,7 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
 
      <variablelist>
       <varlistentry id="guc-vacuum-cost-delay" xreflabel="vacuum_cost_delay">
-       <term><varname>vacuum_cost_delay</varname> (<type>integer</type>)
+       <term><varname>vacuum_cost_delay</varname> (<type>floating point</type>)
        <indexterm>
        <!--
         <primary><varname>vacuum_cost_delay</varname> configuration parameter</primary>
@@ -2703,11 +2824,6 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
          when the cost limit has been exceeded.
          The default value is zero, which disables the cost-based vacuum
          delay feature.  Positive values enable cost-based vacuuming.
-         Note that on many systems, the effective resolution
-         of sleep delays is 10 milliseconds; setting
-         <varname>vacuum_cost_delay</varname> to a value that is
-         not a multiple of 10 might have the same results as setting it
-         to the next higher multiple of 10.
         -->
         コストの限度を越えた場合、プロセスがスリープするミリ秒単位の時間の長さです。
 デフォルトの値は0で、コストに基づいたvacuum遅延機能を無効にします。
@@ -2720,8 +2836,14 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
        <!--
          When using cost-based vacuuming, appropriate values for
          <varname>vacuum_cost_delay</varname> are usually quite small, perhaps
-         10 or 20 milliseconds.  Adjusting vacuum's resource consumption
-         is best done by changing the other vacuum cost parameters.
+         less than 1 millisecond.  While <varname>vacuum_cost_delay</varname>
+         can be set to fractional-millisecond values, such delays may not be
+         measured accurately on older platforms.  On such platforms,
+         increasing <command>VACUUM</command>'s throttled resource consumption
+         above what you get at 1ms will require changing the other vacuum cost
+         parameters.  You should, nonetheless,
+         keep <varname>vacuum_cost_delay</varname> as small as your platform
+         will consistently measure; large delays are not helpful.
         -->
         コストに基づいたバキューム処理を使用する場合、<varname>vacuum_cost_delay</varname>の適切な値は通常かなり小さくなり、たいていは10または20ミリ秒になります。
         バキュームによるリソース消費の調整は、他のバキュームのコストパラメータを変更して行うことが最善です。
@@ -4525,6 +4647,394 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
      </variablelist>
     </sect2>
 
+  <sect2 id="runtime-config-wal-archive-recovery">
+
+    <title>Archive Recovery</title>
+
+    <indexterm>
+     <primary>configuration</primary>
+     <secondary>of recovery</secondary>
+     <tertiary>of a standby server</tertiary>
+    </indexterm>
+
+    <para>
+     This section describes the settings that apply only for the duration of
+     the recovery.  They must be reset for any subsequent recovery you wish to
+     perform.
+    </para>
+
+    <para>
+     <quote>Recovery</quote> covers using the server as a standby or for
+     executing a targeted recovery.  Typically, standby mode would be used to
+     provide high availability and/or read scalability, whereas a targeted
+     recovery is used to recover from data loss.
+    </para>
+
+    <para>
+     To start the server in standby mode, create a file called
+     <filename>standby.signal</filename><indexterm><primary>standby.signal</primary></indexterm>
+     in the data directory.  The server will enter recovery and will not stop
+     recovery when the end of archived WAL is reached, but will keep trying to
+     continue recovery by connecting to the sending server as specified by the
+     <varname>primary_conninfo</varname> setting and/or by fetching new WAL
+     segments using <varname>restore_command</varname>.  For this mode, the
+     parameters from this section and <xref
+     linkend="runtime-config-replication-standby"/> are of interest.
+     Parameters from <xref linkend="runtime-config-wal-recovery-target"/> will
+     also be applied but are typically not useful in this mode.
+    </para>
+
+    <para>
+     To start the server in targeted recovery mode, create a file called
+     <filename>recovery.signal</filename><indexterm><primary>recovery.signal</primary></indexterm>
+     in the data directory.  If both <filename>standby.signal</filename> and
+     <filename>recovery.signal</filename> files are created, standby mode
+     takes precedence.  Targeted recovery mode ends when the archived WAL is
+     fully replayed, or when <varname>recovery_target</varname> is reached.
+     In this mode, the parameters from both this section and <xref
+     linkend="runtime-config-wal-recovery-target"/> will be used.  Parameters
+     from <xref linkend="runtime-config-replication-standby"/> will not be
+     used.
+    </para>
+
+    <variablelist>
+     <varlistentry id="guc-restore-command" xreflabel="restore_command">
+      <term><varname>restore_command</varname> (<type>string</type>)
+      <indexterm>
+        <primary><varname>restore_command</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        The local shell command to execute to retrieve an archived segment of
+        the WAL file series. This parameter is required for archive recovery,
+        but optional for streaming replication.
+        Any <literal>%f</literal> in the string is
+        replaced by the name of the file to retrieve from the archive,
+        and any <literal>%p</literal> is replaced by the copy destination path name
+        on the server.
+        (The path name is relative to the current working directory,
+        i.e., the cluster's data directory.)
+        Any <literal>%r</literal> is replaced by the name of the file containing the
+        last valid restart point. That is the earliest file that must be kept
+        to allow a restore to be restartable, so this information can be used
+        to truncate the archive to just the minimum required to support
+        restarting from the current restore. <literal>%r</literal> is typically only
+        used by warm-standby configurations
+        (see <xref linkend="warm-standby"/>).
+        Write <literal>%%</literal> to embed an actual <literal>%</literal> character.
+       </para>
+
+       <para>
+        It is important for the command to return a zero exit status
+        only if it succeeds.  The command <emphasis>will</emphasis> be asked for file
+        names that are not present in the archive; it must return nonzero
+        when so asked.  Examples:
+<programlisting>
+restore_command = 'cp /mnt/server/archivedir/%f "%p"'
+restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
+</programlisting>
+        An exception is that if the command was terminated by a signal (other
+        than <systemitem>SIGTERM</systemitem>, which is used as part of a
+        database server shutdown) or an error by the shell (such as command
+        not found), then recovery will abort and the server will not start up.
+       </para>
+
+       <para>
+        This parameter can only be set at server start.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-archive-cleanup-command" xreflabel="archive_cleanup_command">
+      <term><varname>archive_cleanup_command</varname> (<type>string</type>)
+      <indexterm>
+        <primary><varname>archive_cleanup_command</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        This optional parameter specifies a shell command that will be executed
+        at every restartpoint.  The purpose of
+        <varname>archive_cleanup_command</varname> is to provide a mechanism for
+        cleaning up old archived WAL files that are no longer needed by the
+        standby server.
+        Any <literal>%r</literal> is replaced by the name of the file containing the
+        last valid restart point.
+        That is the earliest file that must be <emphasis>kept</emphasis> to allow a
+        restore to be restartable, and so all files earlier than <literal>%r</literal>
+        may be safely removed.
+        This information can be used to truncate the archive to just the
+        minimum required to support restart from the current restore.
+        The <xref linkend="pgarchivecleanup"/> module
+        is often used in <varname>archive_cleanup_command</varname> for
+        single-standby configurations, for example:
+<programlisting>archive_cleanup_command = 'pg_archivecleanup /mnt/server/archivedir %r'</programlisting>
+        Note however that if multiple standby servers are restoring from the
+        same archive directory, you will need to ensure that you do not delete
+        WAL files until they are no longer needed by any of the servers.
+        <varname>archive_cleanup_command</varname> would typically be used in a
+        warm-standby configuration (see <xref linkend="warm-standby"/>).
+        Write <literal>%%</literal> to embed an actual <literal>%</literal> character in the
+        command.
+       </para>
+       <para>
+        If the command returns a nonzero exit status then a warning log
+        message will be written.  An exception is that if the command was
+        terminated by a signal or an error by the shell (such as command not
+        found), a fatal error will be raised.
+       </para>
+       <para>
+        This parameter can only be set in the <filename>postgresql.conf</filename>
+        file or on the server command line.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-recovery-end-command" xreflabel="recovery_end_command">
+      <term><varname>recovery_end_command</varname> (<type>string</type>)
+      <indexterm>
+        <primary><varname>recovery_end_command</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        This parameter specifies a shell command that will be executed once only
+        at the end of recovery. This parameter is optional. The purpose of the
+        <varname>recovery_end_command</varname> is to provide a mechanism for cleanup
+        following replication or recovery.
+        Any <literal>%r</literal> is replaced by the name of the file containing the
+        last valid restart point, like in <xref linkend="guc-archive-cleanup-command"/>.
+       </para>
+       <para>
+        If the command returns a nonzero exit status then a warning log
+        message will be written and the database will proceed to start up
+        anyway.  An exception is that if the command was terminated by a
+        signal or an error by the shell (such as command not found), the
+        database will not proceed with startup.
+       </para>
+       <para>
+        This parameter can only be set in the <filename>postgresql.conf</filename>
+        file or on the server command line.
+       </para>
+      </listitem>
+     </varlistentry>
+
+    </variablelist>
+
+  </sect2>
+
+  <sect2 id="runtime-config-wal-recovery-target">
+
+    <title>Recovery Target</title>
+
+     <para>
+      By default, recovery will recover to the end of the WAL log. The
+      following parameters can be used to specify an earlier stopping point.
+      At most one of <varname>recovery_target</varname>,
+      <varname>recovery_target_lsn</varname>, <varname>recovery_target_name</varname>,
+      <varname>recovery_target_time</varname>, or <varname>recovery_target_xid</varname>
+      can be used; if more than one of these is specified in the configuration
+      file, an error will be raised.
+      These parameters can only be set at server start.
+     </para>
+
+     <variablelist>
+     <varlistentry id="guc-recovery-target" xreflabel="recovery_target">
+      <term><varname>recovery_target</varname><literal> = 'immediate'</literal>
+      <indexterm>
+        <primary><varname>recovery_target</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        This parameter specifies that recovery should end as soon as a
+        consistent state is reached, i.e. as early as possible. When restoring
+        from an online backup, this means the point where taking the backup
+        ended.
+       </para>
+       <para>
+        Technically, this is a string parameter, but <literal>'immediate'</literal>
+        is currently the only allowed value.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-recovery-target-name" xreflabel="recovery_target_name">
+      <term><varname>recovery_target_name</varname> (<type>string</type>)
+      <indexterm>
+        <primary><varname>recovery_target_name</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        This parameter specifies the named restore point (created with
+        <function>pg_create_restore_point()</function>) to which recovery will proceed.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-recovery-target-time" xreflabel="recovery_target_time">
+      <term><varname>recovery_target_time</varname> (<type>timestamp</type>)
+      <indexterm>
+        <primary><varname>recovery_target_time</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        This parameter specifies the time stamp up to which recovery
+        will proceed.
+        The precise stopping point is also influenced by
+        <xref linkend="guc-recovery-target-inclusive"/>.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-recovery-target-xid" xreflabel="recovery_target_xid">
+      <term><varname>recovery_target_xid</varname> (<type>string</type>)
+      <indexterm>
+        <primary><varname>recovery_target_xid</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        This parameter specifies the transaction ID up to which recovery
+        will proceed. Keep in mind
+        that while transaction IDs are assigned sequentially at transaction
+        start, transactions can complete in a different numeric order.
+        The transactions that will be recovered are those that committed
+        before (and optionally including) the specified one.
+        The precise stopping point is also influenced by
+        <xref linkend="guc-recovery-target-inclusive"/>.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-recovery-target-lsn" xreflabel="recovery_target_lsn">
+      <term><varname>recovery_target_lsn</varname> (<type>pg_lsn</type>)
+      <indexterm>
+        <primary><varname>recovery_target_lsn</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        This parameter specifies the LSN of the write-ahead log location up
+        to which recovery will proceed. The precise stopping point is also
+        influenced by <xref linkend="guc-recovery-target-inclusive"/>. This
+        parameter is parsed using the system data type
+        <link linkend="datatype-pg-lsn"><type>pg_lsn</type></link>.
+       </para>
+      </listitem>
+     </varlistentry>
+     </variablelist>
+
+     <para>
+       The following options further specify the recovery target, and affect
+       what happens when the target is reached:
+     </para>
+
+     <variablelist>
+     <varlistentry id="guc-recovery-target-inclusive"
+                   xreflabel="recovery_target_inclusive">
+      <term><varname>recovery_target_inclusive</varname> (<type>boolean</type>)
+      <indexterm>
+        <primary><varname>recovery_target_inclusive</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Specifies whether to stop just after the specified recovery target
+        (<literal>on</literal>), or just before the recovery target
+        (<literal>off</literal>).
+        Applies when <xref linkend="guc-recovery-target-lsn"/>,
+        <xref linkend="guc-recovery-target-time"/>, or
+        <xref linkend="guc-recovery-target-xid"/> is specified.
+        This setting controls whether transactions
+        having exactly the target WAL location (LSN), commit time, or transaction ID, respectively, will
+        be included in the recovery.  Default is <literal>on</literal>.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-recovery-target-timeline"
+                   xreflabel="recovery_target_timeline">
+      <term><varname>recovery_target_timeline</varname> (<type>string</type>)
+      <indexterm>
+        <primary><varname>recovery_target_timeline</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Specifies recovering into a particular timeline.  The value can be a
+        numeric timeline ID or a special value.  The value
+        <literal>current</literal> recovers along the same timeline that was
+        current when the base backup was taken.  The
+        value <literal>latest</literal> recovers
+        to the latest timeline found in the archive, which is useful in
+        a standby server.  <literal>latest</literal> is the default.
+       </para>
+
+       <para>
+        You usually only need to set this parameter
+        in complex re-recovery situations, where you need to return to
+        a state that itself was reached after a point-in-time recovery.
+        See <xref linkend="backup-timelines"/> for discussion.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-recovery-target-action"
+                   xreflabel="recovery_target_action">
+      <term><varname>recovery_target_action</varname> (<type>enum</type>)
+      <indexterm>
+        <primary><varname>recovery_target_action</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Specifies what action the server should take once the recovery target is
+        reached. The default is <literal>pause</literal>, which means recovery will
+        be paused. <literal>promote</literal> means the recovery process will finish
+        and the server will start to accept connections.
+        Finally <literal>shutdown</literal> will stop the server after reaching the
+        recovery target.
+       </para>
+       <para>
+        The intended use of the <literal>pause</literal> setting is to allow queries
+        to be executed against the database to check if this recovery target
+        is the most desirable point for recovery.
+        The paused state can be resumed by
+        using <function>pg_wal_replay_resume()</function> (see
+        <xref linkend="functions-recovery-control-table"/>), which then
+        causes recovery to end. If this recovery target is not the
+        desired stopping point, then shut down the server, change the
+        recovery target settings to a later target and restart to
+        continue recovery.
+       </para>
+       <para>
+        The <literal>shutdown</literal> setting is useful to have the instance ready
+        at the exact replay point desired.  The instance will still be able to
+        replay more WAL records (and in fact will have to replay WAL records
+        since the last checkpoint next time it is started).
+       </para>
+       <para>
+        Note that because <filename>recovery.signal</filename> will not be
+        removed when <varname>recovery_target_action</varname> is set to <literal>shutdown</literal>,
+        any subsequent start will end with immediate shutdown unless the
+        configuration is changed or the <filename>recovery.signal</filename>
+        file is removed manually.
+       </para>
+       <para>
+        This setting has no effect if no recovery target is set.
+        If <xref linkend="guc-hot-standby"/> is not enabled, a setting of
+        <literal>pause</literal> will act the same as <literal>shutdown</literal>.
+       </para>
+      </listitem>
+     </varlistentry>
+
+    </variablelist>
+   </sect2>
+
    </sect1>
 
    <sect1 id="runtime-config-replication">
@@ -4583,21 +5093,16 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
        <listitem>
        <para>
 <!--
-        Specifies the maximum number of concurrent connections from
-        standby servers or streaming base backup clients (i.e., the
-        maximum number of simultaneously running WAL sender
-        processes). The default is 10. The value 0 means replication is
-        disabled. WAL sender processes count towards the total number
-        of connections, so this parameter's value must be less than
-        <xref linkend="guc-max-connections"/> minus
-        <xref linkend="guc-superuser-reserved-connections"/>.
-        Abrupt streaming client disconnection might leave an orphaned
-        connection slot behind until
-        a timeout is reached, so this parameter should be set slightly
-        higher than the maximum number of expected clients so disconnected
-        clients can immediately reconnect.  This parameter can only
-        be set at server start.
-        Also, <varname>wal_level</varname> must be set to
+        Specifies the maximum number of concurrent connections from standby
+        servers or streaming base backup clients (i.e., the maximum number of
+        simultaneously running WAL sender processes). The default is
+        <literal>10</literal>.  The value <literal>0</literal> means
+        replication is disabled.  Abrupt streaming client disconnection might
+        leave an orphaned connection slot behind until a timeout is reached,
+        so this parameter should be set slightly higher than the maximum
+        number of expected clients so disconnected clients can immediately
+        reconnect.  This parameter can only be set at server start.  Also,
+        <varname>wal_level</varname> must be set to
         <literal>replica</literal> or higher to allow connections from standby
         servers.
 -->
@@ -4610,6 +5115,12 @@ WAL送出プロセスは接続の総数カウントに考慮されるため、�
 このパラメータはサーバ起動時のみ設定可能です。
 また、スタンバイサーバからの接続を許可するには、<varname>wal_level</varname>を<literal>replica</literal>以上に設定しておかなければなりません。
        </para>
+
+       <para>
+         When running a standby server, you must set this parameter to the
+         same or higher value than on the master server. Otherwise, queries
+         will not be allowed in the standby server.
+        </para>
        </listitem>
       </varlistentry>
 
@@ -4696,6 +5207,41 @@ WAL送出プロセスは接続の総数カウントに考慮されるため、�
        </listitem>
       </varlistentry>
 
+     <varlistentry id="guc-wal-init-zero" xreflabel="wal_init_zero">
+      <term><varname>wal_init_zero</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>wal_init_zero</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        If set to <literal>on</literal> (the default), this option causes new
+        WAL files to be filled with zeroes.  On some file systems, this ensures
+        that space is allocated before we need to write WAL records.  However,
+        <firstterm>Copy-On-Write</firstterm> (COW) file systems may not benefit
+        from this technique, so the option is given to skip the unnecessary
+        work.  If set to <literal>off</literal>, only the final byte is written
+        when the file is created so that it has the expected size.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-wal-recycle" xreflabel="wal_recycle">
+      <term><varname>wal_recycle</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>wal_recycle</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        If set to <literal>on</literal> (the default), this option causes WAL
+        files to be recycled by renaming them, avoiding the need to create new
+        ones.  On COW file systems, it may be faster to create new ones, so the
+        option is given to disable this behavior.
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-wal-sender-timeout" xreflabel="wal_sender_timeout">
       <term><varname>wal_sender_timeout</varname> (<type>integer</type>)
       <indexterm>
@@ -4711,10 +5257,14 @@ WAL送出プロセスは接続の総数カウントに考慮されるため、�
         Terminate replication connections that are inactive longer
         than the specified number of milliseconds. This is useful for
         the sending server to detect a standby crash or network outage.
-        A value of zero disables the timeout mechanism.  This parameter
-        can only be set in
-        the <filename>postgresql.conf</filename> file or on the server command line.
-        The default value is 60 seconds.
+        A value of zero disables the timeout mechanism. The default value
+        is 60 seconds. With a cluster distributed across multiple geographic
+        locations, using different values per location brings more flexibility
+        in the cluster management. A smaller value is useful for faster
+        failure detection with a standby having a low-latency network
+        connection, and a larger value helps in judging better the health
+        of a standby if located on a remote location, with a high-latency
+        network connection.
        -->
        指定されたミリ秒単位の値より長く非活動のレプリケーション接続を停止します。
        スタンバイサーバのクラッシュ、またはネットワークの停止を送出サーバが検出することにこれが役立ちます。
@@ -4817,11 +5367,12 @@ WAL送出プロセスは接続の総数カウントに考慮されるため、�
         <varname>application_name</varname> setting of the standby, as set in the
         standby's connection information.  In case of a physical replication
         standby, this should be set in the <varname>primary_conninfo</varname>
-        setting in <filename>recovery.conf</filename>; the default
-        is <literal>walreceiver</literal>.  For logical replication, this can
-        be set in the connection information of the subscription, and it
-        defaults to the subscription name.  For other replication stream
-        consumers, consult their documentation.
+        setting; the default is the setting of <xref linkend="guc-cluster-name"/>
+        if set, else <literal>walreceiver</literal>.
+        For logical replication, this can be set in the connection
+        information of the subscription, and it defaults to the
+        subscription name.  For other replication stream consumers,
+        consult their documentation.
 -->
 この目的のためのスタンバイサーバ名は、スタンバイの接続情報で指定された、スタンバイの<varname>application_name</varname>設定です。
 物理レプリケーションスタンバイでは、<filename>recovery.conf</filename>中の<varname>primary_conninfo</varname>設定です。
@@ -5041,6 +5592,80 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
      </para>
 
     <variablelist>
+
+       <varlistentry id="guc-primary-conninfo" xreflabel="primary_conninfo">
+        <term><varname>primary_conninfo</varname> (<type>string</type>)
+        <indexterm>
+          <primary><varname>primary_conninfo</varname> configuration parameter</primary>
+        </indexterm>
+        </term>
+        <listitem>
+         <para>
+          Specifies a connection string to be used for the standby server
+          to connect with a sending server. This string is in the format
+          described in <xref linkend="libpq-connstring"/>. If any option is
+          unspecified in this string, then the corresponding environment
+          variable (see <xref linkend="libpq-envars"/>) is checked. If the
+          environment variable is not set either, then
+          defaults are used.
+         </para>
+         <para>
+          The connection string should specify the host name (or address)
+          of the sending server, as well as the port number if it is not
+          the same as the standby server's default.
+          Also specify a user name corresponding to a suitably-privileged role
+          on the sending server (see
+          <xref linkend="streaming-replication-authentication"/>).
+          A password needs to be provided too, if the sender demands password
+          authentication.  It can be provided in the
+          <varname>primary_conninfo</varname> string, or in a separate
+          <filename>~/.pgpass</filename> file on the standby server (use
+          <literal>replication</literal> as the database name).
+          Do not specify a database name in the
+          <varname>primary_conninfo</varname> string.
+         </para>
+         <para>
+          This parameter can only be set at server start.
+          This setting has no effect if the server is not in standby mode.
+         </para>
+        </listitem>
+       </varlistentry>
+       <varlistentry id="guc-primary-slot-name" xreflabel="primary_slot_name">
+        <term><varname>primary_slot_name</varname> (<type>string</type>)
+        <indexterm>
+          <primary><varname>primary_slot_name</varname> configuration parameter</primary>
+        </indexterm>
+        </term>
+        <listitem>
+         <para>
+          Optionally specifies an existing replication slot to be used when
+          connecting to the sending server via streaming replication to control
+          resource removal on the upstream node
+          (see <xref linkend="streaming-replication-slots"/>).
+          This parameter can only be set at server start.
+          This setting has no effect if <varname>primary_conninfo</varname> is not
+          set.
+         </para>
+        </listitem>
+       </varlistentry>
+
+       <varlistentry id="guc-promote-trigger-file" xreflabel="promote_trigger_file">
+        <term><varname>promote_trigger_file</varname> (<type>string</type>)
+        <indexterm>
+          <primary><varname>promote_trigger_file</varname> configuration parameter</primary>
+        </indexterm>
+        </term>
+        <listitem>
+         <para>
+          Specifies a trigger file whose presence ends recovery in the
+          standby.  Even if this value is not set, you can still promote
+          the standby using <command>pg_ctl promote</command> or calling
+          <function>pg_promote</function>.
+          This parameter can only be set in the <filename>postgresql.conf</filename>
+          file or on the server command line.
+         </para>
+        </listitem>
+       </varlistentry>
 
      <varlistentry id="guc-hot-standby" xreflabel="hot_standby">
       <term><varname>hot_standby</varname> (<type>boolean</type>)
@@ -5329,6 +5954,68 @@ WALデータがソース(ストリーミングレプリケーション、ロー�
 たとえば、アーカイブリカバリにおいては、このパラメータの値を小さくすることにより、新しいWALログファイルを検出する際にリカバリの応答を早くすることができます。
 WALの生成頻度が少ないシステムでは、この値を大きくすることにより、WALアーカイブへのアクセス頻度を減らすことができます。
 これは、たとえば基盤へのアクセス回数が課金対象になるクラウド環境において、有用です。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-recovery-min-apply-delay" xreflabel="recovery_min_apply_delay">
+      <term><varname>recovery_min_apply_delay</varname> (<type>integer</type>)
+      <indexterm>
+        <primary><varname>recovery_min_apply_delay</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        By default, a standby server restores WAL records from the
+        sending server as soon as possible. It may be useful to have a time-delayed
+        copy of the data, offering opportunities to correct data loss errors.
+        This parameter allows you to delay recovery by a fixed period of time,
+        measured in milliseconds if no unit is specified.  For example, if
+        you set this parameter to <literal>5min</literal>, the standby will
+        replay each transaction commit only when the system time on the standby
+        is at least five minutes past the commit time reported by the master.
+       </para>
+       <para>
+        It is possible that the replication delay between servers exceeds the
+        value of this parameter, in which case no delay is added.
+        Note that the delay is calculated between the WAL time stamp as written
+        on master and the current time on the standby. Delays in transfer
+        because of network lag or cascading replication configurations
+        may reduce the actual wait time significantly. If the system
+        clocks on master and standby are not synchronized, this may lead to
+        recovery applying records earlier than expected; but that is not a
+        major issue because useful settings of this parameter are much larger
+        than typical time deviations between servers.
+       </para>
+       <para>
+        The delay occurs only on WAL records for transaction commits.
+        Other records are replayed as quickly as possible, which
+        is not a problem because MVCC visibility rules ensure their effects
+        are not visible until the corresponding commit record is applied.
+       </para>
+       <para>
+        The delay occurs once the database in recovery has reached a consistent
+        state, until the standby is promoted or triggered. After that the standby
+        will end recovery without further waiting.
+       </para>
+       <para>
+        This parameter is intended for use with streaming replication deployments;
+        however, if the parameter is specified it will be honored in all cases.
+
+        <varname>hot_standby_feedback</varname> will be delayed by use of this feature
+        which could lead to bloat on the master; use both together with care.
+
+        <warning>
+         <para>
+          Synchronous replication is affected by this setting when <varname>synchronous_commit</varname>
+          is set to <literal>remote_apply</literal>; every <literal>COMMIT</literal>
+          will need to wait to be applied.
+         </para>
+        </warning>
+       </para>
+       <para>
+        This parameter can only be set in the <filename>postgresql.conf</filename>
+        file or on the server command line.
        </para>
       </listitem>
      </varlistentry>
@@ -6772,7 +7459,7 @@ SELECT * FROM parent WHERE key = 2400;
         Determines whether <acronym>JIT</acronym> compilation may be used by
         <productname>PostgreSQL</productname>, if available (see <xref
         linkend="jit"/>).
-        The default is <literal>off</literal>.
+        The default is <literal>on</literal>.
 -->
 <productname>PostgreSQL</productname>が、可能ならば<acronym>JIT</acronym>コンパイルを使うかどうかを決定します。
 デフォルトは<literal>off</literal>です。
@@ -6933,6 +7620,34 @@ SELECT * FROM parent WHERE key = 2400;
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-plan-cache_mode" xreflabel="plan_cache_mode">
+      <term><varname>plan_cache_mode</varname> (<type>enum</type>)
+      <indexterm>
+       <primary><varname>plan_cache_mode</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Prepared statements (either explicitly prepared or implicitly
+        generated, for example by PL/pgSQL) can be executed using custom or
+        generic plans.  Custom plans are made afresh for each execution
+        using its specific set of parameter values, while generic plans do
+        not rely on the parameter values and can be re-used across
+        executions.  Thus, use of a generic plan saves planning time, but if
+        the ideal plan depends strongly on the parameter values then a
+        generic plan may be inefficient.  The choice between these options
+        is normally made automatically, but it can be overridden
+        with <varname>plan_cache_mode</varname>.
+        The allowed values are <literal>auto</literal> (the default),
+        <literal>force_custom_plan</literal> and
+        <literal>force_generic_plan</literal>.
+        This setting is considered when a cached plan is to be executed,
+        not when it is prepared.
+        For more information see <xref linkend="sql-prepare"/>.
+       </para>
+      </listitem>
+     </varlistentry>
+
      </variablelist>
     </sect2>
    </sect1>
@@ -6952,7 +7667,7 @@ SELECT * FROM parent WHERE key = 2400;
 
     <sect2 id="runtime-config-logging-where">
     <!--
-     <title>Where To Log</title>
+     <title>Where to Log</title>
      -->
      <title>ログの出力先</title>
 
@@ -7603,7 +8318,7 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
     </sect2>
      <sect2 id="runtime-config-logging-when">
      <!--
-     <title>When To Log</title>
+     <title>When to Log</title>
      -->
      <title>いつログを取得するか</title>
 
@@ -7745,6 +8460,32 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
        </listitem>
       </varlistentry>
 
+     <varlistentry id="guc-log-transaction-sample-rate" xreflabel="log_transaction_sample_rate">
+      <term><varname>log_transaction_sample_rate</varname> (<type>real</type>)
+      <indexterm>
+       <primary><varname>log_transaction_sample_rate</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+       <listitem>
+        <para>
+         Set the fraction of transactions whose statements are all logged,
+         in addition to statements logged for other reasons.  It applies to
+         each new transaction regardless of its statements' durations.
+         The default is <literal>0</literal>, meaning not to log statements
+         from any additional transaction.  Setting this to <literal>1</literal>
+         logs all statements for all transactions.
+         <varname>log_transaction_sample_rate</varname> is helpful to track a
+         sample of transaction.
+        </para>
+       <note>
+        <para>
+         Like all statement-logging options, this option can add significant
+         overhead.
+        </para>
+       </note>
+       </listitem>
+     </varlistentry>
+
      </variablelist>
 
     <para>
@@ -7878,7 +8619,7 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
     </sect2>
      <sect2 id="runtime-config-logging-what">
      <!--
-     <title>What To Log</title>
+     <title>What to Log</title>
      -->
      <title>何をログに</title>
 
@@ -8111,7 +8852,7 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
        <note>
         <para>
        <!--
-         The difference between setting this option and setting
+         The difference between enabling <varname>log_duration</varname> and setting
          <xref linkend="guc-log-min-duration-statement"/> to zero is that
          exceeding <varname>log_min_duration_statement</varname> forces the text of
          the query to be logged, but this option doesn't.  Thus, if
@@ -8844,9 +9585,16 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
       </term>
       <listitem>
        <para>
+        Sets a name that identifies this database cluster (instance) for
+        various purposes.  The cluster name appears in the process title for
+        all server processes in this cluster.  Moreover, it is the default
+        application name for a standby connection (see <xref
+        linkend="guc-synchronous-standby-names"/>.)
+       </para>
+
+       <para>
 <!--
-        Sets the cluster name that appears in the process title for all
-        server processes in this cluster. The name can be any string of less
+        The name can be any string of less
         than <symbol>NAMEDATALEN</symbol> characters (64 characters in a standard
         build). Only printable ASCII characters may be used in the
         <varname>cluster_name</varname> value. Other characters will be
@@ -9234,10 +9982,8 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
      <varlistentry id="guc-log-autovacuum-min-duration" xreflabel="log_autovacuum_min_duration">
       <term><varname>log_autovacuum_min_duration</varname> (<type>integer</type>)
       <indexterm>
-      <!--
-       <primary><varname>log_autovacuum_min_duration</varname> configuration parameter</primary>
-       -->
-       <primary><varname>log_autovacuum_min_duration</varname>設定パラメータ</primary>
+       <primary><varname>log_autovacuum_min_duration</varname></primary>
+       <secondary>configuration parameter</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -9245,8 +9991,8 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
 <!--
         Causes each action executed by autovacuum to be logged if it ran for at
         least the specified number of milliseconds.  Setting this to zero logs
-        all autovacuum actions. Minus-one (the default) disables logging
-        autovacuum actions.  For example, if you set this to
+        all autovacuum actions. <literal>-1</literal> (the default) disables
+        logging autovacuum actions.  For example, if you set this to
         <literal>250ms</literal> then all automatic vacuums and analyzes that run
         250ms or longer will be logged.  In addition, when this parameter is
         set to any value other than <literal>-1</literal>, a message will be
@@ -9323,10 +10069,8 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
      <varlistentry id="guc-autovacuum-vacuum-threshold" xreflabel="autovacuum_vacuum_threshold">
       <term><varname>autovacuum_vacuum_threshold</varname> (<type>integer</type>)
       <indexterm>
-      <!--
-       <primary><varname>autovacuum_vacuum_threshold</varname> configuration parameter</primary>
-       -->
-       <primary><varname>autovacuum_vacuum_threshold</varname>設定パラメータ</primary>
+       <primary><varname>autovacuum_vacuum_threshold</varname></primary>
+       <secondary>configuration parameter</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -9351,10 +10095,8 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
      <varlistentry id="guc-autovacuum-analyze-threshold" xreflabel="autovacuum_analyze_threshold">
       <term><varname>autovacuum_analyze_threshold</varname> (<type>integer</type>)
       <indexterm>
-      <!--
-       <primary><varname>autovacuum_analyze_threshold</varname> configuration parameter</primary>
-       -->
-       <primary><varname>autovacuum_analyze_threshold</varname>設定パラメータ</primary>
+       <primary><varname>autovacuum_analyze_threshold</varname></primary>
+       <secondary>configuration parameter</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -9379,10 +10121,8 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
      <varlistentry id="guc-autovacuum-vacuum-scale-factor" xreflabel="autovacuum_vacuum_scale_factor">
       <term><varname>autovacuum_vacuum_scale_factor</varname> (<type>floating point</type>)
       <indexterm>
-      <!--
-       <primary><varname>autovacuum_vacuum_scale_factor</varname> configuration parameter</primary>
-       -->
-       <primary><varname>autovacuum_vacuum_scale_factor</varname>設定パラメータ</primary>
+       <primary><varname>autovacuum_vacuum_scale_factor</varname></primary>
+       <secondary>configuration parameter</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -9408,10 +10148,8 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
      <varlistentry id="guc-autovacuum-analyze-scale-factor" xreflabel="autovacuum_analyze_scale_factor">
       <term><varname>autovacuum_analyze_scale_factor</varname> (<type>floating point</type>)
       <indexterm>
-      <!--
-       <primary><varname>autovacuum_analyze_scale_factor</varname> configuration parameter</primary>
-       -->
-       <primary><varname>autovacuum_analyze_scale_factor</varname>設定パラメータ</primary>
+       <primary><varname>autovacuum_analyze_scale_factor</varname></primary>
+       <secondary>configuration parameter</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -9437,10 +10175,8 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
      <varlistentry id="guc-autovacuum-freeze-max-age" xreflabel="autovacuum_freeze_max_age">
       <term><varname>autovacuum_freeze_max_age</varname> (<type>integer</type>)
       <indexterm>
-      <!--
-       <primary><varname>autovacuum_freeze_max_age</varname> configuration parameter</primary>
-       -->
-       <primary><varname>autovacuum_freeze_max_age</varname>設定パラメータ</primary>
+       <primary><varname>autovacuum_freeze_max_age</varname></primary>
+       <secondary>configuration parameter</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -9479,10 +10215,8 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
      <varlistentry id="guc-autovacuum-multixact-freeze-max-age" xreflabel="autovacuum_multixact_freeze_max_age">
       <term><varname>autovacuum_multixact_freeze_max_age</varname> (<type>integer</type>)
       <indexterm>
-<!--
-       <primary><varname>autovacuum_multixact_freeze_max_age</varname> configuration parameter</primary>
--->
-       <primary><varname>autovacuum_multixact_freeze_max_age</varname>設定パラメータ</primary>
+       <primary><varname>autovacuum_multixact_freeze_max_age</varname></primary>
+       <secondary>configuration parameter</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -9519,12 +10253,10 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
      </varlistentry>
 
      <varlistentry id="guc-autovacuum-vacuum-cost-delay" xreflabel="autovacuum_vacuum_cost_delay">
-      <term><varname>autovacuum_vacuum_cost_delay</varname> (<type>integer</type>)
+      <term><varname>autovacuum_vacuum_cost_delay</varname> (<type>floating point</type>)
       <indexterm>
-      <!--
-       <primary><varname>autovacuum_vacuum_cost_delay</varname> configuration parameter</primary>
-       -->
-       <primary><varname>autovacuum_vacuum_cost_delay</varname>設定パラメータ</primary>
+       <primary><varname>autovacuum_vacuum_cost_delay</varname></primary>
+       <secondary>configuration parameter</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -9533,7 +10265,7 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
         Specifies the cost delay value that will be used in automatic
         <command>VACUUM</command> operations.  If -1 is specified, the regular
         <xref linkend="guc-vacuum-cost-delay"/> value will be used.
-        The default value is 20 milliseconds.
+        The default value is 2 milliseconds.
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line;
         but the setting can be overridden for individual tables by
@@ -9551,10 +10283,8 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
      <varlistentry id="guc-autovacuum-vacuum-cost-limit" xreflabel="autovacuum_vacuum_cost_limit">
       <term><varname>autovacuum_vacuum_cost_limit</varname> (<type>integer</type>)
       <indexterm>
-      <!--
-       <primary><varname>autovacuum_vacuum_cost_limit</varname> configuration parameter</primary>
-       -->
-       <primary><varname>autovacuum_vacuum_cost_limit</varname>設定パラメータ</primary>
+       <primary><varname>autovacuum_vacuum_cost_limit</varname></primary>
+       <secondary>configuration parameter</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -9824,6 +10554,23 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-default-table-access-method" xreflabel="default_table_access_method">
+      <term><varname>default_table_access_method</varname> (<type>string</type>)
+      <indexterm>
+       <primary><varname>default_table_access_method</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        This parameter specifies the default table access method to use when
+        creating tables or materialized views if the <command>CREATE</command>
+        command does not explicitly specify an access method, or when
+        <command>SELECT ... INTO</command> is used, which does not allow to
+        specify a table access method. The default is <literal>heap</literal>.
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-default-tablespace" xreflabel="default_tablespace">
       <term><varname>default_tablespace</varname> (<type>string</type>)
       <indexterm>
@@ -9842,7 +10589,8 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
        <!--
         This variable specifies the default tablespace in which to create
         objects (tables and indexes) when a <command>CREATE</command> command does
-        not explicitly specify a tablespace.
+        not explicitly specify a tablespace.  It also determines the tablespace
+        that a partitioned relation will direct future partitions to.
        -->
        この変数は、<command>CREATE</command>コマンドで明示的にテーブル空間を指定していない場合にオブジェクトの作成先となるデフォルトのテーブル空間を指定します。
        </para>
@@ -10453,11 +11201,9 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
 
      <varlistentry id="guc-vacuum-cleanup-index-scale-factor" xreflabel="vacuum_cleanup_index_scale_factor">
       <term><varname>vacuum_cleanup_index_scale_factor</varname> (<type>floating point</type>)
-       <indexterm>
-<!--
-       <primary><varname>vacuum_cleanup_index_scale_factor</varname> configuration parameter</primary>
--->
-       <primary><varname>vacuum_cleanup_index_scale_factor</varname>設定パラメータ</primary>
+      <indexterm>
+       <primary><varname>vacuum_cleanup_index_scale_factor</varname></primary>
+       <secondary>configuration parameter</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -10636,10 +11382,8 @@ SET XML OPTION { DOCUMENT | CONTENT };
      <varlistentry id="guc-gin-pending-list-limit" xreflabel="gin_pending_list_limit">
       <term><varname>gin_pending_list_limit</varname> (<type>integer</type>)
       <indexterm>
-<!--
-       <primary><varname>gin_pending_list_limit</varname> configuration parameter</primary>
--->
-       <primary><varname>gin_pending_list_limit</varname>設定パラメータ</primary>
+       <primary><varname>gin_pending_list_limit</varname></primary>
+       <secondary>configuration parameter</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -10846,24 +11590,38 @@ SET XML OPTION { DOCUMENT | CONTENT };
       </term>
       <listitem>
        <para>
-       <!--
-        This parameter adjusts the number of digits displayed for
+        This parameter adjusts the number of digits used for textual output of
         floating-point values, including <type>float4</type>, <type>float8</type>,
-        and geometric data types.  The parameter value is added to the
-        standard number of digits (<literal>FLT_DIG</literal> or <literal>DBL_DIG</literal>
-        as appropriate).  The value can be set as high as 3, to include
-        partially-significant digits; this is especially useful for dumping
-        float data that needs to be restored exactly.  Or it can be set
-        negative to suppress unwanted digits.
-        See also <xref linkend="datatype-float"/>.
-       -->
-       このパラメータは、<type>float4</type>、<type>float8</type>、幾何データ型などの浮動小数点値の表示桁数を調整します。
-パラメータ値が標準的な桁数（<literal>FLT_DIG</literal>もしくは<literal>DBL_DIG</literal>どちらか適切な方）に追加されます。
-この値は、部分有効数を含めるために3まで設定することができます。
-これは基本的に、正確にリストアする必要がある浮動小数点データをダンプするために有用です。
-もしくは、不要な桁を抑制するために負の値を設定することもできます。
-       <xref linkend="datatype-float"/>も参照してください。
+        and geometric data types.
        </para>
+       <para>
+        If the value is 1 (the default) or above, float values are output in
+        shortest-precise format; see <xref linkend="datatype-float"/>. The
+        actual number of digits generated depends only on the value being
+        output, not on the value of this parameter. At most 17 digits are
+        required for <type>float8</type> values, and 9 for <type>float4</type>
+        values. This format is both fast and precise, preserving the original
+        binary float value exactly when correctly read. For historical
+        compatibility, values up to 3 are permitted.
+       </para>
+       <para>
+        If the value is zero or negative, then the output is rounded to a
+        given decimal precision. The precision used is the standard number of
+        digits for the type (<literal>FLT_DIG</literal>
+        or <literal>DBL_DIG</literal> as appropriate) reduced according to the
+        value of this parameter. (For example, specifying -1 will cause
+        <type>float4</type> values to be output rounded to 5 significant
+        digits, and <type>float8</type> values
+        rounded to 14 digits.) This format is slower and does not preserve all
+        the bits of the binary float value, but may be more human-readable.
+       </para>
+       <note>
+        <para>
+         The meaning of this parameter, and its default value, changed
+         in <productname>PostgreSQL</productname> 12;
+         see <xref linkend="datatype-float"/> for further discussion.
+        </para>
+       </note>
       </listitem>
      </varlistentry>
 
@@ -11831,48 +12589,6 @@ dynamic_library_path = 'C:\tools\postgresql;H:\my_project\lib;$libdir'
       </listitem>
      </varlistentry>
 
-     <varlistentry id="guc-default-with-oids" xreflabel="default_with_oids">
-      <term><varname>default_with_oids</varname> (<type>boolean</type>)
-      <indexterm>
-      <!--
-       <primary><varname>default_with_oids</varname> configuration parameter</primary>
-       -->
-       <primary><varname>default_with_oids</varname>設定パラメータ</primary>
-      </indexterm>
-      </term>
-      <listitem>
-       <para>
-       <!--
-        This controls whether <command>CREATE TABLE</command> and
-        <command>CREATE TABLE AS</command> include an OID column in
-        newly-created tables, if neither <literal>WITH OIDS</literal>
-        nor <literal>WITHOUT OIDS</literal> is specified. It also
-        determines whether OIDs will be included in tables created by
-        <command>SELECT INTO</command>. The parameter is <literal>off</literal>
-        by default; in <productname>PostgreSQL</productname> 8.0 and earlier, it
-        was <literal>on</literal> by default.
-       -->
-       もし<literal>WITH OIDS</literal>もしくは<literal>WITHOUT OIDS</literal>のいずれも指定されていない場合、<command>CREATE TABLE</command>および<command>CREATE TABLE AS</command>がオブジェクト識別子（OID）列を新規作成のテーブルに含めるか否かを管理します。
-同時に<command>SELECT INTO</command>で作成されたテーブルにOIDが含まれるか否かも決定します。
-このパラメータはデフォルトで<literal>off</literal>です。<productname>PostgreSQL</productname> 8.0およびそれ以前ではデフォルトで<literal>on</literal>でした。
-       </para>
-
-       <para>
-       <!--
-        The use of OIDs in user tables is considered deprecated, so
-        most installations should leave this variable disabled.
-        Applications that require OIDs for a particular table should
-        specify <literal>WITH OIDS</literal> when creating the
-        table. This variable can be enabled for compatibility with old
-        applications that do not follow this behavior.
-       -->
-       ユーザテーブルでのOID使用は良くないと考えられるため、ほとんどのインストレーションはこの変数を無効にしたままになっています。
-       特定のテーブルに対してOIDを必要とするアプリケーションは、テーブル作成にあたって<literal>WITH OIDS</literal>を指定しなければなりません。
-       この変数は、この動作を行わない古いアプリケーションとの互換性を有効にします。
-       </para>
-      </listitem>
-     </varlistentry>
-
      <varlistentry id="guc-escape-string-warning" xreflabel="escape_string_warning">
       <term><varname>escape_string_warning</varname> (<type>boolean</type>)
       <!--
@@ -12185,8 +12901,8 @@ onの場合、演算子の優先順位の変更の結果、<productname>PostgreS
       <listitem>
        <para>
        <!--
-        If true, any error will terminate the current session.  By default,
-        this is set to false, so that only FATAL errors will terminate the
+        If on, any error will terminate the current session.  By default,
+        this is set to off, so that only FATAL errors will terminate the
         session.
        -->
        真の場合、全てのエラーは現在のセッションを中止させます。
@@ -12207,9 +12923,9 @@ onの場合、演算子の優先順位の変更の結果、<productname>PostgreS
       <listitem>
        <para>
        <!--
-        When set to true, which is the default, <productname>PostgreSQL</productname>
+        When set to on, which is the default, <productname>PostgreSQL</productname>
         will automatically reinitialize after a backend crash.  Leaving this
-        value set to true is normally the best way to maximize the availability
+        value set to on is normally the best way to maximize the availability
         of the database.  However, in some circumstances, such as when
         <productname>PostgreSQL</productname> is being invoked by clusterware, it may be
         useful to disable the restart so that the clusterware can gain
@@ -12234,9 +12950,9 @@ onの場合、演算子の優先順位の変更の結果、<productname>PostgreS
       <listitem>
        <para>
 <!--
-        When set to false, which is the default, <productname>PostgreSQL</productname>
+        When set to off, which is the default, <productname>PostgreSQL</productname>
         will raise a PANIC-level error on failure to flush modified data files
-        to the filesystem.  This causes the database server to crash.  This
+        to the file system.  This causes the database server to crash.  This
         parameter can only be set at server start.
 -->
 デフォルトである偽に設定すると、<productname>PostgreSQL</productname>はファイルシステムに変更されたデータファイルを吐き出す際の失敗に対してPANICレベルのエラーを発生させます。
@@ -12259,9 +12975,9 @@ onの場合、演算子の優先順位の変更の結果、<productname>PostgreS
        </para>
        <para>
 <!--
-        If set to true, <productname>PostgreSQL</productname> will instead
+        If set to on, <productname>PostgreSQL</productname> will instead
         report an error but continue to run so that the data flushing
-        operation can be retried in a later checkpoint.  Only set it to true
+        operation can be retried in a later checkpoint.  Only set it to on
         after investigating the operating system's treatment of buffered data
         in case of write-back failure.
 -->
@@ -12632,6 +13348,22 @@ onの場合、演算子の優先順位の変更の結果、<productname>PostgreS
        -->
        サーバのバージョン番号を整数として返します。
        この値は、サーバ構築時の<literal>PG_VERSION_NUM</literal>の値により決まります。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-ssl-library" xreflabel="ssl_library">
+      <term><varname>ssl_library</varname> (<type>string</type>)
+      <indexterm>
+       <primary><varname>ssl_library</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Reports the name of the SSL library that this
+        <productname>PostgreSQL</productname> server was built with (even if
+        SSL is not currently configured or in use on this instance), for
+        example <literal>OpenSSL</literal>, or an empty string if none.
        </para>
       </listitem>
      </varlistentry>

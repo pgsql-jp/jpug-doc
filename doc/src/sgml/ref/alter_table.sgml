@@ -81,7 +81,6 @@ ALTER TABLE [ IF EXISTS ] <replaceable class="parameter">name</replaceable>
     NO FORCE ROW LEVEL SECURITY
     CLUSTER ON <replaceable class="parameter">index_name</replaceable>
     SET WITHOUT CLUSTER
-    SET WITH OIDS
     SET WITHOUT OIDS
     SET TABLESPACE <replaceable class="parameter">new_tablespace</replaceable>
     SET { LOGGED | UNLOGGED }
@@ -99,9 +98,9 @@ ALTER TABLE [ IF EXISTS ] <replaceable class="parameter">name</replaceable>
 -->
 <phrase>また、<replaceable class="parameter">partition_bound_spec</replaceable>は以下のいずれかです。</phrase>
 
-IN ( { <replaceable class="parameter">numeric_literal</replaceable> | <replaceable class="parameter">string_literal</replaceable> | TRUE | FALSE | NULL } [, ...] ) |
-FROM ( { <replaceable class="parameter">numeric_literal</replaceable> | <replaceable class="parameter">string_literal</replaceable> | TRUE | FALSE | MINVALUE | MAXVALUE } [, ...] )
-  TO ( { <replaceable class="parameter">numeric_literal</replaceable> | <replaceable class="parameter">string_literal</replaceable> | TRUE | FALSE | MINVALUE | MAXVALUE } [, ...] ) |
+IN ( <replaceable class="parameter">partition_bound_expr</replaceable> [, ...] ) |
+FROM ( { <replaceable class="parameter">partition_bound_expr</replaceable> | MINVALUE | MAXVALUE } [, ...] )
+  TO ( { <replaceable class="parameter">partition_bound_expr</replaceable> | MINVALUE | MAXVALUE } [, ...] ) |
 WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REMAINDER <replaceable class="parameter">numeric_literal</replaceable> )
 
 <!--
@@ -114,11 +113,12 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
   NULL |
   CHECK ( <replaceable class="parameter">expression</replaceable> ) [ NO INHERIT ] |
   DEFAULT <replaceable>default_expr</replaceable> |
+  GENERATED ALWAYS AS ( <replaceable>generation_expr</replaceable> ) STORED |
   GENERATED { ALWAYS | BY DEFAULT } AS IDENTITY [ ( <replaceable>sequence_options</replaceable> ) ] |
   UNIQUE <replaceable class="parameter">index_parameters</replaceable> |
   PRIMARY KEY <replaceable class="parameter">index_parameters</replaceable> |
   REFERENCES <replaceable class="parameter">reftable</replaceable> [ ( <replaceable class="parameter">refcolumn</replaceable> ) ] [ MATCH FULL | MATCH PARTIAL | MATCH SIMPLE ]
-    [ ON DELETE <replaceable class="parameter">action</replaceable> ] [ ON UPDATE <replaceable class="parameter">action</replaceable> ] }
+    [ ON DELETE <replaceable class="parameter">referential_action</replaceable> ] [ ON UPDATE <replaceable class="parameter">referential_action</replaceable> ] }
 [ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ]
 
 <!--
@@ -132,7 +132,7 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
   PRIMARY KEY ( <replaceable class="parameter">column_name</replaceable> [, ... ] ) <replaceable class="parameter">index_parameters</replaceable> |
   EXCLUDE [ USING <replaceable class="parameter">index_method</replaceable> ] ( <replaceable class="parameter">exclude_element</replaceable> WITH <replaceable class="parameter">operator</replaceable> [, ... ] ) <replaceable class="parameter">index_parameters</replaceable> [ WHERE ( <replaceable class="parameter">predicate</replaceable> ) ] |
   FOREIGN KEY ( <replaceable class="parameter">column_name</replaceable> [, ... ] ) REFERENCES <replaceable class="parameter">reftable</replaceable> [ ( <replaceable class="parameter">refcolumn</replaceable> [, ... ] ) ]
-    [ MATCH FULL | MATCH PARTIAL | MATCH SIMPLE ] [ ON DELETE <replaceable class="parameter">action</replaceable> ] [ ON UPDATE <replaceable class="parameter">action</replaceable> ] }
+    [ MATCH FULL | MATCH PARTIAL | MATCH SIMPLE ] [ ON DELETE <replaceable class="parameter">referential_action</replaceable> ] [ ON UPDATE <replaceable class="parameter">referential_action</replaceable> ] }
 [ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ]
 
 <!--
@@ -278,13 +278,18 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
     <term><literal>SET</literal>/<literal>DROP NOT NULL</literal></term>
     <listitem>
      <para>
-<!--
       These forms change whether a column is marked to allow null
-      values or to reject null values.  You can only use <literal>SET
-      NOT NULL</literal> when the column contains no null values.
--->
-これらの構文は、列の値としてNULL値を使用できるかどうか設定します。
-<literal>SET NOT NULL</literal>は、その列にNULL値が1つもない場合にのみ設定可能です。
+      values or to reject null values.
+     </para>
+
+     <para>
+      <literal>SET NOT NULL</literal> may only be applied to a column
+      providing none of the records in the table contain a
+      <literal>NULL</literal> value for the column.  Ordinarily this is
+      checked during the <literal>ALTER TABLE</literal> by scanning the
+      entire table; however, if a valid <literal>CHECK</literal> constraint is
+      found which proves no <literal>NULL</literal> can exist, then the
+      table scan is skipped.
      </para>
 
      <para>
@@ -481,22 +486,10 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
     <term><literal>ADD <replaceable class="parameter">table_constraint</replaceable> [ NOT VALID ]</literal></term>
     <listitem>
      <para>
-<!--
       This form adds a new constraint to a table using the same syntax as
       <xref linkend="sql-createtable"/>, plus the option <literal>NOT
       VALID</literal>, which is currently only allowed for foreign key
       and CHECK constraints.
-      If the constraint is marked <literal>NOT VALID</literal>, the
-      potentially-lengthy initial check to verify that all rows in the table
-      satisfy the constraint is skipped.  The constraint will still be
-      enforced against subsequent inserts or updates (that is, they'll fail
-      unless there is a matching row in the referenced table, in the case
-      of foreign keys; and they'll fail unless the new row matches the
-      specified check constraints).  But the
-      database will not assume that the constraint holds for all rows in
-      the table, until it is validated by using the <literal>VALIDATE
-      CONSTRAINT</literal> option.  Foreign key constraints on partitioned
-      tables may not be declared <literal>NOT VALID</literal> at present.
 -->
 この構文は、<xref linkend="sql-createtable"/>と同じ構文に加え、現時点では外部キー制約と検査制約でのみ許される<literal>NOT VALID</literal>オプションを使って新しい制約をテーブルに追加します。
 制約が<literal>NOT VALID</literal>と印付けされた場合、テーブル内のすべての行が制約を満たすかどうかを検証するための、時間がかかるかもしれない初期検査が飛ばされます。
@@ -506,9 +499,27 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
      </para>
 
      <para>
+      Normally, this form will cause a scan of the table to verify that all
+      existing rows in the table satisfy the new constraint.  But if
+      the <literal>NOT VALID</literal> option is used, this
+      potentially-lengthy scan is skipped.  The constraint will still be
+      enforced against subsequent inserts or updates (that is, they'll fail
+      unless there is a matching row in the referenced table, in the case
+      of foreign keys, or they'll fail unless the new row matches the
+      specified check condition).  But the
+      database will not assume that the constraint holds for all rows in
+      the table, until it is validated by using the <literal>VALIDATE
+      CONSTRAINT</literal> option.
+      See <xref linkend="sql-altertable-notes"
+      endterm="sql-altertable-notes-title"/> below for more information
+      about using the <literal>NOT VALID</literal> option.
+     </para>
+
+     <para>
 <!--
-      The addition of a foreign key constraint requires a
-      <literal>SHARE ROW EXCLUSIVE</literal> lock on the referenced table.
+      Addition of a foreign key constraint requires a
+      <literal>SHARE ROW EXCLUSIVE</literal> lock on the referenced table,
+      in addition to the lock on the table receiving the constraint.
 -->
 外部キー制約の追加には、被参照テーブルに<literal>SHARE ROW EXCLUSIVE</literal>ロックが必要です。
      </para>
@@ -516,7 +527,9 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
      <para>
 <!--
       Additional restrictions apply when unique or primary key constraints
-      are added to partitioned tables; see <xref linkend="sql-createtable" />.
+      are added to partitioned tables; see <xref linkend="sql-createtable"/>.
+      Also, foreign key constraints on partitioned
+      tables may not be declared <literal>NOT VALID</literal> at present.
 -->
 一意性制約や主キー制約がパーティションテーブルに追加されるときには、追加的な制限が適用されます。
 <xref linkend="sql-createtable" />を参照してください。
@@ -629,35 +642,16 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
     <listitem>
      <para>
 <!--
-      This form validates a foreign key or check constraint that was previously created
-      as <literal>NOT VALID</literal>, by scanning the table to ensure there
-      are no rows for which the constraint is not satisfied.
-      Nothing happens if the constraint is already marked valid.
+      This form validates a foreign key or check constraint that was
+      previously created as <literal>NOT VALID</literal>, by scanning the
+      table to ensure there are no rows for which the constraint is not
+      satisfied.  Nothing happens if the constraint is already marked valid.
+      (See <xref linkend="sql-altertable-notes"
+      endterm="sql-altertable-notes-title"/> below for an explanation of the
+      usefulness of this command.)
 -->
 この構文は、以前に<literal>NOT VALID</literal>として作成された外部キー制約または検査制約を、これらの制約を満たさない行が存在しないことを確認するためにテーブルをスキャンして、検証します。
 制約がすでに有効であると記録されている場合は何も起こりません。
-     </para>
-     <para>
-<!--
-      Validation can be a long process on larger tables. The value of separating
-      validation from initial creation is that you can defer validation to less
-      busy times, or can be used to give additional time to correct pre-existing
-      errors while preventing new errors. Note also that validation on its own
-      does not prevent normal write commands against the table while it runs.
--->
-検証は大きなテーブルに対して長いプロセスになることがあります。
-制約の初期生成から検証を分離する利点は、より忙しくない時間まで検証を遅延させることができることや、新しいエラーを防ぎつつ、既存のエラーを修正する時間を用意するために使用することができることです。
-また、検証それ自体は、その実行中に、テーブルに対する通常の書き込みコマンドを妨げないことにも注意してください。
-     </para>
-     <para>
-<!--
-      Validation acquires only a <literal>SHARE UPDATE EXCLUSIVE</literal> lock
-      on the table being altered. If the constraint is a foreign key then
-      a <literal>ROW SHARE</literal> lock is also required on
-      the table referenced by the constraint.
--->
-検証は変更されるテーブルについて<literal>SHARE UPDATE EXCLUSIVE</literal>ロックしか取得しません。
-制約が外部キーの時は、制約が参照するテーブルについて<literal>ROW SHARE</literal>ロックも取得します。
      </para>
     </listitem>
    </varlistentry>
@@ -867,43 +861,12 @@ clusterオプションの変更は<literal>SHARE UPDATE EXCLUSIVE</literal>ロ�
    </varlistentry>
 
    <varlistentry>
-    <term><literal>SET WITH OIDS</literal></term>
-    <listitem>
-     <para>
-<!--
-      This form adds an <literal>oid</literal> system column to the
-      table (see <xref linkend="ddl-system-columns"/>).
-      It does nothing if the table already has OIDs.
--->
-この構文は<literal>oid</literal>システム列をテーブルに追加します（<xref linkend="ddl-system-columns"/>を参照してください）。
-テーブルがすでにOIDを持つ場合は何も行いません。
-     </para>
-
-     <para>
-<!--
-      Note that this is not equivalent to <literal>ADD COLUMN oid oid</literal>;
-      that would add a normal column that happened to be named
-      <literal>oid</literal>, not a system column.
--->
-これが、<literal>ADD COLUMN oid oid</literal>と同じではないことに注意してください。
-後者はシステム列ではなく<literal>oid</literal>という名前が付いただけの通常の列を追加します。
-     </para>
-    </listitem>
-   </varlistentry>
-
-   <varlistentry>
     <term><literal>SET WITHOUT OIDS</literal></term>
     <listitem>
      <para>
-<!--
-      This form removes the <literal>oid</literal> system column from the
-      table.  This is exactly equivalent to
-      <literal>DROP COLUMN oid RESTRICT</literal>,
-      except that it will not complain if there is already no
-      <literal>oid</literal> column.
--->
-この構文は、テーブルから<literal>oid</literal>システム列を削除します。
-既に<literal>oid</literal>列が存在しなくても警告が表示されない点を除けば、<literal>DROP COLUMN oid RESTRICT</literal>とまったく同等です。
+      Backward-compatible syntax for removing the <literal>oid</literal>
+      system column.  As <literal>oid</literal> system columns cannot be
+      added anymore, this never has an effect.
      </para>
     </listitem>
    </varlistentry>
@@ -917,6 +880,13 @@ clusterオプションの変更は<literal>SHARE UPDATE EXCLUSIVE</literal>ロ�
       moves the data file(s) associated with the table to the new tablespace.
       Indexes on the table, if any, are not moved; but they can be moved
       separately with additional <literal>SET TABLESPACE</literal> commands.
+      When applied to a partitioned table, nothing is moved, but any
+      partitions created afterwards with
+      <command>CREATE TABLE PARTITION OF</command> will use that tablespace,
+      unless the <literal>TABLESPACE</literal> clause is used to override it.
+     </para>
+
+     <para>
       All tables in the current database in a tablespace can be moved by using
       the <literal>ALL IN TABLESPACE</literal> form, which will lock all tables
       to be moved first and then move each one.  This form also supports
@@ -924,7 +894,7 @@ clusterオプションの変更は<literal>SHARE UPDATE EXCLUSIVE</literal>ロ�
       roles specified.  If the <literal>NOWAIT</literal> option is specified
       then the command will fail if it is unable to acquire all of the locks
       required immediately.  Note that system catalogs are not moved by this
-      command, use <command>ALTER DATABASE</command> or explicit
+      command; use <command>ALTER DATABASE</command> or explicit
       <command>ALTER TABLE</command> invocations instead if desired.  The
       <literal>information_schema</literal> relations are not considered part
       of the system catalogs and will be moved.
@@ -997,20 +967,6 @@ clusterオプションの変更は<literal>SHARE UPDATE EXCLUSIVE</literal>ロ�
 fillfactor、TOAST、およびautovacuumのストレージパラメータおよびプランナに関連するパラメータ<varname>effective_io_concurrency</varname>、<varname>parallel_workers</varname>、<varname>seq_page_cost</varname>、<varname>random_page_cost</varname>、<varname>n_distinct</varname>、<varname>n_distinct_inherited</varname>については<literal>SHARE UPDATE EXCLUSIVE</literal>ロックが獲得されます。
      </para>
 
-     <note>
-      <para>
-<!--
-       While <command>CREATE TABLE</command> allows <literal>OIDS</literal> to be specified
-       in the <literal>WITH (<replaceable
-       class="parameter">storage_parameter</replaceable>)</literal> syntax,
-       <command>ALTER TABLE</command> does not treat <literal>OIDS</literal> as a
-       storage parameter.  Instead use the <literal>SET WITH OIDS</literal>
-       and <literal>SET WITHOUT OIDS</literal> forms to change OID status.
--->
-<command>CREATE TABLE</command>では<literal>OIDS</literal>を<literal>WITH (<replaceable class="parameter">storage_parameter</replaceable>)</literal>構文で指定することができますが、<command>ALTER TABLE</command>では<literal>OIDS</literal>を格納パラメータとして扱っていません。
-OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</literal>および<literal>SET WITHOUT OIDS</literal>構文を使用してください。
-      </para>
-     </note>
     </listitem>
    </varlistentry>
 
@@ -1095,8 +1051,7 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</liter
 <!--
       This form links the table to a composite type as though <command>CREATE
       TABLE OF</command> had formed it.  The table's list of column names and types
-      must precisely match that of the composite type; the presence of
-      an <literal>oid</literal> system column is permitted to differ.  The table must
+      must precisely match that of the composite type.  The table must
       not inherit from any other table.  These restrictions ensure
       that <command>CREATE TABLE OF</command> would permit an equivalent table
       definition.
@@ -1197,7 +1152,7 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</liter
     </listitem>
    </varlistentry>
 
-   <varlistentry>
+   <varlistentry id="sql-altertable-attach-partition">
     <term><literal>ATTACH PARTITION <replaceable class="parameter">partition_name</replaceable> { FOR VALUES <replaceable class="parameter">partition_bound_spec</replaceable> | DEFAULT }</literal></term>
     <listitem>
      <para>
@@ -1671,11 +1626,8 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</liter
     </variablelist>
  </refsect1>
 
- <refsect1>
-<!--
-  <title>Notes</title>
--->
-   <title>注釈</title>
+ <refsect1 id="sql-altertable-notes">
+  <title id="sql-altertable-notes-title">Notes</title>
 
    <para>
 <!--
@@ -1708,8 +1660,7 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</liter
     the column contents and the old type is either binary coercible to the new
     type or an unconstrained domain over the new type, a table rewrite is not
     needed; but any indexes on the affected columns must still be rebuilt.
-    Adding or removing a system <literal>oid</literal> column also requires
-    rewriting the entire table.  Table and/or index rebuilds may take a
+    Table and/or index rebuilds may take a
     significant amount of time for a large table; and will temporarily require
     as much as double the disk space.
 -->
@@ -1748,6 +1699,32 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</liter
    </para>
 
    <para>
+    Scanning a large table to verify a new foreign key or check constraint
+    can take a long time, and other updates to the table are locked out
+    until the <command>ALTER TABLE ADD CONSTRAINT</command> command is
+    committed.  The main purpose of the <literal>NOT VALID</literal>
+    constraint option is to reduce the impact of adding a constraint on
+    concurrent updates.  With <literal>NOT VALID</literal>,
+    the <command>ADD CONSTRAINT</command> command does not scan the table
+    and can be committed immediately.  After that, a <literal>VALIDATE
+    CONSTRAINT</literal> command can be issued to verify that existing rows
+    satisfy the constraint.  The validation step does not need to lock out
+    concurrent updates, since it knows that other transactions will be
+    enforcing the constraint for rows that they insert or update; only
+    pre-existing rows need to be checked.  Hence, validation acquires only
+    a <literal>SHARE UPDATE EXCLUSIVE</literal> lock on the table being
+    altered.  (If the constraint is a foreign key then a <literal>ROW
+    SHARE</literal> lock is also required on the table referenced by the
+    constraint.)  In addition to improving concurrency, it can be useful to
+    use <literal>NOT VALID</literal> and <literal>VALIDATE
+    CONSTRAINT</literal> in cases where the table is known to contain
+    pre-existing violations.  Once the constraint is in place, no new
+    violations can be inserted, and the existing problems can be corrected
+    at leisure until <literal>VALIDATE CONSTRAINT</literal> finally
+    succeeds.
+   </para>
+
+   <para>
 <!--
     The <literal>DROP COLUMN</literal> form does not physically remove
     the column, but simply makes it invisible to SQL operations.  Subsequent
@@ -1755,9 +1732,7 @@ OIDの状態を変更するためには代わりに<literal>SET WITH OIDS</liter
     column. Thus, dropping a column is quick but it will not immediately
     reduce the on-disk size of your table, as the space occupied
     by the dropped column is not reclaimed.  The space will be
-    reclaimed over time as existing rows are updated.  (These statements do
-    not apply when dropping the system <literal>oid</literal> column; that is done
-    with an immediate rewrite.)
+    reclaimed over time as existing rows are updated.
 -->
 <literal>DROP COLUMN</literal>構文は、列を物理的には削除せず、SQLの操作に対して不可視にします。
 このコマンドを実行した後、テーブルに挿入または更新が行われると、削除した列にはNULLが格納されます。

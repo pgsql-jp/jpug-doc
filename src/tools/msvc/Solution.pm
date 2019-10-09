@@ -55,10 +55,6 @@ sub _new
 	die "Bad wal_blocksize $options->{wal_blocksize}"
 	  unless grep { $_ == $options->{wal_blocksize} }
 	  (1, 2, 4, 8, 16, 32, 64);
-	$options->{wal_segsize} = 16
-	  unless $options->{wal_segsize};      # undef or 0 means default
-	die "Bad wal_segsize $options->{wal_segsize}"
-	  unless grep { $_ == $options->{wal_segsize} } (1, 2, 4, 8, 16, 32, 64);
 
 	return $self;
 }
@@ -311,16 +307,14 @@ sub GenerateFiles
 		"LIBPGTYPES");
 
 	chdir('src/backend/utils');
-	my $pg_language_dat = '../../../src/include/catalog/pg_language.dat';
-	my $pg_proc_dat     = '../../../src/include/catalog/pg_proc.dat';
+	my $pg_proc_dat = '../../../src/include/catalog/pg_proc.dat';
 	if (   IsNewer('fmgr-stamp', 'Gen_fmgrtab.pl')
 		|| IsNewer('fmgr-stamp', '../catalog/Catalog.pm')
-		|| IsNewer('fmgr-stamp', $pg_language_dat)
 		|| IsNewer('fmgr-stamp', $pg_proc_dat)
 		|| IsNewer('fmgr-stamp', '../../../src/include/access/transam.h'))
 	{
 		system(
-			"perl -I ../catalog Gen_fmgrtab.pl -I../../../src/include/ $pg_language_dat $pg_proc_dat"
+			"perl -I ../catalog Gen_fmgrtab.pl --include-path ../../../src/include/ $pg_proc_dat"
 		);
 		open(my $f, '>', 'fmgr-stamp')
 		  || confess "Could not touch fmgr-stamp";
@@ -361,13 +355,6 @@ sub GenerateFiles
 		copyFile(
 			'src/backend/storage/lmgr/lwlocknames.h',
 			'src/include/storage/lwlocknames.h');
-	}
-
-	if (IsNewer(
-			'src/include/dynloader.h', 'src/backend/port/dynloader/win32.h'))
-	{
-		copyFile('src/backend/port/dynloader/win32.h',
-			'src/include/dynloader.h');
 	}
 
 	if (IsNewer('src/include/utils/probes.h', 'src/backend/utils/probes.d'))
@@ -460,6 +447,51 @@ sub GenerateFiles
 		chdir('../../..');
 	}
 
+	if (IsNewer('src/common/kwlist_d.h', 'src/include/parser/kwlist.h'))
+	{
+		print "Generating kwlist_d.h...\n";
+		system(
+			'perl -I src/tools src/tools/gen_keywordlist.pl --extern -o src/common src/include/parser/kwlist.h'
+		);
+	}
+
+	if (IsNewer(
+			'src/pl/plpgsql/src/pl_reserved_kwlist_d.h',
+			'src/pl/plpgsql/src/pl_reserved_kwlist.h')
+		|| IsNewer(
+			'src/pl/plpgsql/src/pl_unreserved_kwlist_d.h',
+			'src/pl/plpgsql/src/pl_unreserved_kwlist.h'))
+	{
+		print
+		  "Generating pl_reserved_kwlist_d.h and pl_unreserved_kwlist_d.h...\n";
+		chdir('src/pl/plpgsql/src');
+		system(
+			'perl -I ../../../tools ../../../tools/gen_keywordlist.pl --varname ReservedPLKeywords pl_reserved_kwlist.h'
+		);
+		system(
+			'perl -I ../../../tools ../../../tools/gen_keywordlist.pl --varname UnreservedPLKeywords pl_unreserved_kwlist.h'
+		);
+		chdir('../../../..');
+	}
+
+	if (IsNewer(
+			'src/interfaces/ecpg/preproc/c_kwlist_d.h',
+			'src/interfaces/ecpg/preproc/c_kwlist.h')
+		|| IsNewer(
+			'src/interfaces/ecpg/preproc/ecpg_kwlist_d.h',
+			'src/interfaces/ecpg/preproc/ecpg_kwlist.h'))
+	{
+		print "Generating c_kwlist_d.h and ecpg_kwlist_d.h...\n";
+		chdir('src/interfaces/ecpg/preproc');
+		system(
+			'perl -I ../../../tools ../../../tools/gen_keywordlist.pl --varname ScanCKeywords --no-case-fold c_kwlist.h'
+		);
+		system(
+			'perl -I ../../../tools ../../../tools/gen_keywordlist.pl --varname ScanECPGKeywords ecpg_kwlist.h'
+		);
+		chdir('../../../..');
+	}
+
 	if (IsNewer(
 			'src/interfaces/ecpg/preproc/preproc.y',
 			'src/backend/parser/gram.y'))
@@ -542,7 +574,9 @@ EOF
 	{
 		chdir('src/backend/catalog');
 		my $bki_srcs = join(' ../../../src/include/catalog/', @bki_srcs);
-		system("perl genbki.pl --set-version=$self->{majorver} $bki_srcs");
+		system(
+			"perl genbki.pl --include-path ../../../src/include/ --set-version=$self->{majorver} $bki_srcs"
+		);
 		open(my $f, '>', 'bki-stamp')
 		  || confess "Could not touch bki-stamp";
 		close($f);
@@ -849,108 +883,6 @@ sub GetFakeConfigure
 	$cfg .= ' --with-python'        if ($self->{options}->{python});
 
 	return $cfg;
-}
-
-package VS2005Solution;
-
-#
-# Package that encapsulates a Visual Studio 2005 solution file
-#
-
-use strict;
-use warnings;
-use base qw(Solution);
-
-no warnings qw(redefine);    ## no critic
-
-sub new
-{
-	my $classname = shift;
-	my $self      = $classname->SUPER::_new(@_);
-	bless($self, $classname);
-
-	$self->{solutionFileVersion} = '9.00';
-	$self->{vcver}               = '8.00';
-	$self->{visualStudioName}    = 'Visual Studio 2005';
-
-	return $self;
-}
-
-package VS2008Solution;
-
-#
-# Package that encapsulates a Visual Studio 2008 solution file
-#
-
-use strict;
-use warnings;
-use base qw(Solution);
-
-no warnings qw(redefine);    ## no critic
-
-sub new
-{
-	my $classname = shift;
-	my $self      = $classname->SUPER::_new(@_);
-	bless($self, $classname);
-
-	$self->{solutionFileVersion} = '10.00';
-	$self->{vcver}               = '9.00';
-	$self->{visualStudioName}    = 'Visual Studio 2008';
-
-	return $self;
-}
-
-package VS2010Solution;
-
-#
-# Package that encapsulates a Visual Studio 2010 solution file
-#
-
-use Carp;
-use strict;
-use warnings;
-use base qw(Solution);
-
-no warnings qw(redefine);    ## no critic
-
-sub new
-{
-	my $classname = shift;
-	my $self      = $classname->SUPER::_new(@_);
-	bless($self, $classname);
-
-	$self->{solutionFileVersion} = '11.00';
-	$self->{vcver}               = '10.00';
-	$self->{visualStudioName}    = 'Visual Studio 2010';
-
-	return $self;
-}
-
-package VS2012Solution;
-
-#
-# Package that encapsulates a Visual Studio 2012 solution file
-#
-
-use Carp;
-use strict;
-use warnings;
-use base qw(Solution);
-
-no warnings qw(redefine);    ## no critic
-
-sub new
-{
-	my $classname = shift;
-	my $self      = $classname->SUPER::_new(@_);
-	bless($self, $classname);
-
-	$self->{solutionFileVersion} = '12.00';
-	$self->{vcver}               = '11.00';
-	$self->{visualStudioName}    = 'Visual Studio 2012';
-
-	return $self;
 }
 
 package VS2013Solution;

@@ -3,7 +3,7 @@
  * libpq_fetch.c
  *	  Functions for fetching files from a remote server.
  *
- * Copyright (c) 2013-2018, PostgreSQL Global Development Group
+ * Copyright (c) 2013-2019, PostgreSQL Global Development Group
  *
  *-------------------------------------------------------------------------
  */
@@ -19,7 +19,6 @@
 #include "fetch.h"
 #include "file_ops.h"
 #include "filemap.h"
-#include "logging.h"
 
 #include "libpq-fe.h"
 #include "catalog/pg_type_d.h"
@@ -40,6 +39,7 @@ static PGconn *conn = NULL;
 static void receiveFileChunks(const char *sql);
 static void execute_pagemap(datapagemap_t *pagemap, const char *path);
 static char *run_simple_query(const char *sql);
+static void run_simple_command(const char *sql);
 
 void
 libpqConnect(const char *connstr)
@@ -52,7 +52,13 @@ libpqConnect(const char *connstr)
 		pg_fatal("could not connect to server: %s",
 				 PQerrorMessage(conn));
 
-	pg_log(PG_PROGRESS, "connected to server\n");
+	if (showprogress)
+		pg_log_info("connected to server");
+
+	/* disable all types of timeouts */
+	run_simple_command("SET statement_timeout = 0");
+	run_simple_command("SET lock_timeout = 0");
+	run_simple_command("SET idle_in_transaction_session_timeout = 0");
 
 	res = PQexec(conn, ALWAYS_SECURE_SEARCH_PATH_SQL);
 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
@@ -68,7 +74,7 @@ libpqConnect(const char *connstr)
 	 */
 	str = run_simple_query("SELECT pg_is_in_recovery()");
 	if (strcmp(str, "f") != 0)
-		pg_fatal("source server must not be in recovery mode\n");
+		pg_fatal("source server must not be in recovery mode");
 	pg_free(str);
 
 	/*
@@ -78,7 +84,7 @@ libpqConnect(const char *connstr)
 	 */
 	str = run_simple_query("SHOW full_page_writes");
 	if (strcmp(str, "on") != 0)
-		pg_fatal("full_page_writes must be enabled in the source server\n");
+		pg_fatal("full_page_writes must be enabled in the source server");
 	pg_free(str);
 
 	/*
@@ -88,11 +94,7 @@ libpqConnect(const char *connstr)
 	 * replication, and replication isn't working for some reason, we don't
 	 * want to get stuck, waiting for it to start working again.
 	 */
-	res = PQexec(conn, "SET synchronous_commit = off");
-	if (PQresultStatus(res) != PGRES_COMMAND_OK)
-		pg_fatal("could not set up connection context: %s",
-				 PQresultErrorMessage(res));
-	PQclear(res);
+	run_simple_command("SET synchronous_commit = off");
 }
 
 /*
@@ -113,13 +115,31 @@ run_simple_query(const char *sql)
 
 	/* sanity check the result set */
 	if (PQnfields(res) != 1 || PQntuples(res) != 1 || PQgetisnull(res, 0, 0))
-		pg_fatal("unexpected result set from query\n");
+		pg_fatal("unexpected result set from query");
 
 	result = pg_strdup(PQgetvalue(res, 0, 0));
 
 	PQclear(res);
 
 	return result;
+}
+
+/*
+ * Runs a command.
+ * In the event of a failure, exit immediately.
+ */
+static void
+run_simple_command(const char *sql)
+{
+	PGresult   *res;
+
+	res = PQexec(conn, sql);
+
+	if (PQresultStatus(res) != PGRES_COMMAND_OK)
+		pg_fatal("error running query (%s) in source server: %s",
+				 sql, PQresultErrorMessage(res));
+
+	PQclear(res);
 }
 
 /*
@@ -136,7 +156,7 @@ libpqGetCurrentXlogInsertLocation(void)
 	val = run_simple_query("SELECT pg_current_wal_insert_lsn()");
 
 	if (sscanf(val, "%X/%X", &hi, &lo) != 2)
-		pg_fatal("unrecognized result \"%s\" for current WAL insert location\n", val);
+		pg_fatal("unrecognized result \"%s\" for current WAL insert location", val);
 
 	result = ((uint64) hi) << 32 | lo;
 
@@ -191,7 +211,7 @@ libpqProcessFileList(void)
 
 	/* sanity check the result set */
 	if (PQnfields(res) != 4)
-		pg_fatal("unexpected result set while fetching file list\n");
+		pg_fatal("unexpected result set while fetching file list");
 
 	/* Read result to local variables */
 	for (i = 0; i < PQntuples(res); i++)
@@ -241,10 +261,10 @@ receiveFileChunks(const char *sql)
 	if (PQsendQueryParams(conn, sql, 0, NULL, NULL, NULL, NULL, 1) != 1)
 		pg_fatal("could not send query: %s", PQerrorMessage(conn));
 
-	pg_log(PG_DEBUG, "getting file chunks\n");
+	pg_log_debug("getting file chunks");
 
 	if (PQsetSingleRowMode(conn) != 1)
-		pg_fatal("could not set libpq connection to single row mode\n");
+		pg_fatal("could not set libpq connection to single row mode");
 
 	while ((res = PQgetResult(conn)) != NULL)
 	{
@@ -271,13 +291,13 @@ receiveFileChunks(const char *sql)
 
 		/* sanity check the result set */
 		if (PQnfields(res) != 3 || PQntuples(res) != 1)
-			pg_fatal("unexpected result set size while fetching remote files\n");
+			pg_fatal("unexpected result set size while fetching remote files");
 
 		if (PQftype(res, 0) != TEXTOID ||
 			PQftype(res, 1) != INT8OID ||
 			PQftype(res, 2) != BYTEAOID)
 		{
-			pg_fatal("unexpected data types in result set while fetching remote files: %u %u %u\n",
+			pg_fatal("unexpected data types in result set while fetching remote files: %u %u %u",
 					 PQftype(res, 0), PQftype(res, 1), PQftype(res, 2));
 		}
 
@@ -285,17 +305,17 @@ receiveFileChunks(const char *sql)
 			PQfformat(res, 1) != 1 &&
 			PQfformat(res, 2) != 1)
 		{
-			pg_fatal("unexpected result format while fetching remote files\n");
+			pg_fatal("unexpected result format while fetching remote files");
 		}
 
 		if (PQgetisnull(res, 0, 0) ||
 			PQgetisnull(res, 0, 1))
 		{
-			pg_fatal("unexpected null values in result while fetching remote files\n");
+			pg_fatal("unexpected null values in result while fetching remote files");
 		}
 
 		if (PQgetlength(res, 0, 1) != sizeof(int64))
-			pg_fatal("unexpected result length while fetching remote files\n");
+			pg_fatal("unexpected result length while fetching remote files");
 
 		/* Read result set to local variables */
 		memcpy(&chunkoff, PQgetvalue(res, 0, 1), sizeof(int64));
@@ -319,9 +339,8 @@ receiveFileChunks(const char *sql)
 		 */
 		if (PQgetisnull(res, 0, 2))
 		{
-			pg_log(PG_DEBUG,
-				   "received null value for chunk for file \"%s\", file has been deleted\n",
-				   filename);
+			pg_log_debug("received null value for chunk for file \"%s\", file has been deleted",
+						 filename);
 			remove_target_file(filename, true);
 			pg_free(filename);
 			PQclear(res);
@@ -333,8 +352,8 @@ receiveFileChunks(const char *sql)
 		 * translatable strings.
 		 */
 		snprintf(chunkoff_str, sizeof(chunkoff_str), INT64_FORMAT, chunkoff);
-		pg_log(PG_DEBUG, "received chunk for file \"%s\", offset %s, size %d\n",
-			   filename, chunkoff_str, chunksize);
+		pg_log_debug("received chunk for file \"%s\", offset %s, size %d",
+					 filename, chunkoff_str, chunksize);
 
 		open_target_file(filename, false);
 
@@ -367,7 +386,7 @@ libpqGetFile(const char *filename, size_t *filesize)
 
 	/* sanity check the result set */
 	if (PQntuples(res) != 1 || PQgetisnull(res, 0, 0))
-		pg_fatal("unexpected result set while fetching remote file \"%s\"\n",
+		pg_fatal("unexpected result set while fetching remote file \"%s\"",
 				 filename);
 
 	/* Read result to local variables */
@@ -378,7 +397,7 @@ libpqGetFile(const char *filename, size_t *filesize)
 
 	PQclear(res);
 
-	pg_log(PG_DEBUG, "fetched file \"%s\", length %d\n", filename, len);
+	pg_log_debug("fetched file \"%s\", length %d", filename, len);
 
 	if (filesize)
 		*filesize = len;
@@ -434,12 +453,7 @@ libpq_executeFileMap(filemap_t *map)
 	 * need to fetch.
 	 */
 	sql = "CREATE TEMPORARY TABLE fetchchunks(path text, begin int8, len int4);";
-	res = PQexec(conn, sql);
-
-	if (PQresultStatus(res) != PGRES_COMMAND_OK)
-		pg_fatal("could not create temporary table: %s",
-				 PQresultErrorMessage(res));
-	PQclear(res);
+	run_simple_command(sql);
 
 	sql = "COPY fetchchunks FROM STDIN";
 	res = PQexec(conn, sql);

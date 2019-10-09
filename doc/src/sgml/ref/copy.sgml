@@ -31,6 +31,7 @@ PostgreSQL documentation
 COPY <replaceable class="parameter">table_name</replaceable> [ ( <replaceable class="parameter">column_name</replaceable> [, ...] ) ]
     FROM { '<replaceable class="parameter">filename</replaceable>' | PROGRAM '<replaceable class="parameter">command</replaceable>' | STDIN }
     [ [ WITH ] ( <replaceable class="parameter">option</replaceable> [, ...] ) ]
+    [ WHERE <replaceable class="parameter">condition</replaceable> ]
 
 COPY { <replaceable class="parameter">table_name</replaceable> [ ( <replaceable class="parameter">column_name</replaceable> [, ...] ) ] | ( <replaceable class="parameter">query</replaceable> ) }
     TO { '<replaceable class="parameter">filename</replaceable>' | PROGRAM '<replaceable class="parameter">command</replaceable>' | STDOUT }
@@ -42,7 +43,6 @@ COPY { <replaceable class="parameter">table_name</replaceable> [ ( <replaceable 
 <phrase>ここで<replaceable class="parameter">option</replaceable>は以下のいずれかです。</phrase>
 
     FORMAT <replaceable class="parameter">format_name</replaceable>
-    OIDS [ <replaceable class="parameter">boolean</replaceable> ]
     FREEZE [ <replaceable class="parameter">boolean</replaceable> ]
     DELIMITER '<replaceable class="parameter">delimiter_character</replaceable>'
     NULL '<replaceable class="parameter">null_string</replaceable>'
@@ -140,7 +140,8 @@ COPY { <replaceable class="parameter">table_name</replaceable> [ ( <replaceable 
      <para>
 <!--
       An optional list of columns to be copied.  If no column list is
-      specified, all columns of the table will be copied.
+      specified, all columns of the table except generated columns will be
+      copied.
 -->
 コピー対象の列リストで、省略可能です。
 列リストが指定されていない場合は、テーブルの全ての列がコピーされます。
@@ -276,22 +277,6 @@ Windowsユーザの場合、<literal>E''</literal>文字列を使用し、パス
 読み取りまたは書き込みに使用するデータ形式を選択します。
 <literal>text</literal>、<literal>csv</literal>（カンマ区切り値）、または<literal>binary</literal>です。
 デフォルトは<literal>text</literal>です。
-     </para>
-    </listitem>
-   </varlistentry>
-
-   <varlistentry>
-    <term><literal>OIDS</literal></term>
-    <listitem>
-     <para>
-<!--
-      Specifies copying the OID for each row.  (An error is raised if
-      <literal>OIDS</literal> is specified for a table that does not
-      have OIDs, or in the case of copying a <replaceable
-      class="parameter">query</replaceable>.)
--->
-各行のOIDをコピーするよう指定します
-（OIDを持たないテーブルに<literal>OIDS</literal>を指定する場合、または、<replaceable class="parameter">query</replaceable>コピーの場合、エラーが発生します）。
      </para>
     </listitem>
    </varlistentry>
@@ -509,6 +494,32 @@ NULL文字列が空であるデフォルトでは、引用符付きの空文字�
 このオプションが省略された場合、現在のクライアント符号化方式が使用されます。
 後述の注釈を参照してください。
      </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>WHERE</literal></term>
+    <listitem>
+   <para>
+    The optional <literal>WHERE</literal> clause has the general form
+<synopsis>
+WHERE <replaceable class="parameter">condition</replaceable>
+</synopsis>
+    where <replaceable class="parameter">condition</replaceable> is
+    any expression that evaluates to a result of type
+    <type>boolean</type>.  Any row that does not satisfy this
+    condition will not be inserted to the table.  A row satisfies the
+    condition if it returns true when the actual row values are
+    substituted for any variable references.
+   </para>
+
+   <para>
+    Currently, subqueries are not allowed in <literal>WHERE</literal>
+    expressions, and the evaluation does not see any changes made by the
+    <command>COPY</command> itself (this matters when the expression
+    contains calls to <literal>VOLATILE</literal> functions).
+   </para>
+
     </listitem>
    </varlistentry>
 
@@ -787,8 +798,6 @@ IDENTITY列については、<command>COPY FROM</command>コマンドは<command
     place of columns that are null.
     <command>COPY FROM</command> will raise an error if any line of the
     input file contains more or fewer columns than are expected.
-    If <literal>OIDS</literal> is specified, the OID is read or written as the first column,
-    preceding the user data columns.
 -->
 <literal>text</literal>形式を使用する場合、読み書きされるデータはテーブルの1つの行を1行で表したテキストファイルとなります。
 行内の列は区切り文字で区切られます。
@@ -1232,7 +1241,9 @@ only one flag bit is defined, and the rest must be zero:
           <listitem>
            <para>
 <!--
-            if 1, OIDs are included in the data; if 0, not
+            If 1, OIDs are included in the data; if 0, not. Oid system columns
+            are not supported in <productname>PostgreSQL</productname>
+            anymore, but the format still contains the indicator.
 -->
 1ならば、OIDがデータに含まれています。
 0ならば、含まれていません。
@@ -1344,10 +1355,9 @@ distribution).
     <para>
 <!--
 If OIDs are included in the file, the OID field immediately follows the
-field-count word.  It is a normal field except that it's not included
-in the field-count.  In particular it has a length word &mdash; this will allow
-handling of 4-byte vs. 8-byte OIDs without too much pain, and will allow
-OIDs to be shown as null if that ever proves desirable.
+field-count word.  It is a normal field except that it's not included in the
+field-count.  Note that oid system columns are not supported in current
+versions of <productname>PostgreSQL</productname>.
 -->
 このファイルにOIDが含まれる場合、OIDフィールドがフィールド数ワードの直後に続きます。
 これは、フィールド数に含まれない点を除いて、通常のフィールドです。
@@ -1502,7 +1512,6 @@ COPY <replaceable class="parameter">table_name</replaceable> [ ( <replaceable cl
     FROM { '<replaceable class="parameter">filename</replaceable>' | STDIN }
     [ [ WITH ]
           [ BINARY ]
-          [ OIDS ]
           [ DELIMITER [ AS ] '<replaceable class="parameter">delimiter</replaceable>' ]
           [ NULL [ AS ] '<replaceable class="parameter">null string</replaceable>' ]
           [ CSV [ HEADER ]
@@ -1514,7 +1523,6 @@ COPY { <replaceable class="parameter">table_name</replaceable> [ ( <replaceable 
     TO { '<replaceable class="parameter">filename</replaceable>' | STDOUT }
     [ [ WITH ]
           [ BINARY ]
-          [ OIDS ]
           [ DELIMITER [ AS ] '<replaceable class="parameter">delimiter</replaceable>' ]
           [ NULL [ AS ] '<replaceable class="parameter">null string</replaceable>' ]
           [ CSV [ HEADER ]
@@ -1539,12 +1547,12 @@ COPY { <replaceable class="parameter">table_name</replaceable> [ ( <replaceable 
 以下の構文は、<productname>PostgreSQL</productname>バージョン7.3より前に使用されていたもので、まだサポートされています。
 
 <synopsis>
-COPY [ BINARY ] <replaceable class="parameter">table_name</replaceable> [ WITH OIDS ]
+COPY [ BINARY ] <replaceable class="parameter">table_name</replaceable>
     FROM { '<replaceable class="parameter">filename</replaceable>' | STDIN }
     [ [USING] DELIMITERS '<replaceable class="parameter">delimiter</replaceable>' ]
     [ WITH NULL AS '<replaceable class="parameter">null string</replaceable>' ]
 
-COPY [ BINARY ] <replaceable class="parameter">table_name</replaceable> [ WITH OIDS ]
+COPY [ BINARY ] <replaceable class="parameter">table_name</replaceable>
     TO { '<replaceable class="parameter">filename</replaceable>' | STDOUT }
     [ [USING] DELIMITERS '<replaceable class="parameter">delimiter</replaceable>' ]
     [ WITH NULL AS '<replaceable class="parameter">null string</replaceable>' ]

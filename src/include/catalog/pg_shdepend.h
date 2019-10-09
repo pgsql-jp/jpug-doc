@@ -12,7 +12,7 @@
  * from a relation to its database.  Currently, only dependencies on roles
  * are explicitly stored in pg_shdepend.
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_shdepend.h
@@ -34,7 +34,7 @@
  *		typedef struct FormData_pg_shdepend
  * ----------------
  */
-CATALOG(pg_shdepend,1214,SharedDependRelationId) BKI_SHARED_RELATION BKI_WITHOUT_OIDS
+CATALOG(pg_shdepend,1214,SharedDependRelationId) BKI_SHARED_RELATION
 {
 	/*
 	 * Identification of the dependent (referencing) object.

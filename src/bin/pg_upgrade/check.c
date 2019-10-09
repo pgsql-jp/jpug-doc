@@ -3,7 +3,7 @@
  *
  *	server checks and output routines
  *
- *	Copyright (c) 2010-2018, PostgreSQL Global Development Group
+ *	Copyright (c) 2010-2019, PostgreSQL Global Development Group
  *	src/bin/pg_upgrade/check.c
  */
 
@@ -23,6 +23,7 @@ static void check_is_install_user(ClusterInfo *cluster);
 static void check_proper_datallowconn(ClusterInfo *cluster);
 static void check_for_prepared_transactions(ClusterInfo *cluster);
 static void check_for_isn_and_int8_passing_mismatch(ClusterInfo *cluster);
+static void check_for_tables_with_oids(ClusterInfo *cluster);
 static void check_for_reg_data_type_usage(ClusterInfo *cluster);
 static void check_for_jsonb_9_4_usage(ClusterInfo *cluster);
 static void check_for_pg_role_prefix(ClusterInfo *cluster);
@@ -101,6 +102,13 @@ check_and_dump_old_cluster(bool live_check)
 	check_for_isn_and_int8_passing_mismatch(&old_cluster);
 
 	/*
+	 * Pre-PG 12 allowed tables to be declared WITH OIDS, which is not
+	 * supported anymore. Verify there are none, iff applicable.
+	 */
+	if (GET_MAJOR_VERSION(old_cluster.major_version) <= 1100)
+		check_for_tables_with_oids(&old_cluster);
+
+	/*
 	 * Pre-PG 10 allowed tables with 'unknown' type columns and non WAL logged
 	 * hash indexes
 	 */
@@ -149,8 +157,17 @@ check_new_cluster(void)
 
 	check_loadable_libraries();
 
-	if (user_opts.transfer_mode == TRANSFER_MODE_LINK)
-		check_hard_link();
+	switch (user_opts.transfer_mode)
+	{
+		case TRANSFER_MODE_CLONE:
+			check_file_clone();
+			break;
+		case TRANSFER_MODE_COPY:
+			break;
+		case TRANSFER_MODE_LINK:
+			check_hard_link();
+			break;
+	}
 
 	check_is_install_user(&new_cluster);
 
@@ -382,8 +399,10 @@ check_new_cluster_is_empty(void)
 		{
 			/* pg_largeobject and its index should be skipped */
 			if (strcmp(rel_arr->rels[relnum].nspname, "pg_catalog") != 0)
-				pg_fatal("New cluster database \"%s\" is not empty\n",
-						 new_cluster.dbarr.dbs[dbnum].db_name);
+				pg_fatal("New cluster database \"%s\" is not empty: found relation \"%s.%s\"\n",
+						 new_cluster.dbarr.dbs[dbnum].db_name,
+						 rel_arr->rels[relnum].nspname,
+						 rel_arr->rels[relnum].relname);
 		}
 	}
 }
@@ -864,6 +883,83 @@ check_for_isn_and_int8_passing_mismatch(ClusterInfo *cluster)
 				 "manually upgrade databases that use \"contrib/isn\" facilities and remove\n"
 				 "\"contrib/isn\" from the old cluster and restart the upgrade.  A list of\n"
 				 "the problem functions is in the file:\n"
+				 "    %s\n\n", output_path);
+	}
+	else
+		check_ok();
+}
+
+
+/*
+ * Verify that no tables are declared WITH OIDS.
+ */
+static void
+check_for_tables_with_oids(ClusterInfo *cluster)
+{
+	int			dbnum;
+	FILE	   *script = NULL;
+	bool		found = false;
+	char		output_path[MAXPGPATH];
+
+	prep_status("Checking for tables WITH OIDS");
+
+	snprintf(output_path, sizeof(output_path),
+			 "tables_with_oids.txt");
+
+	/* Find any tables declared WITH OIDS */
+	for (dbnum = 0; dbnum < cluster->dbarr.ndbs; dbnum++)
+	{
+		PGresult   *res;
+		bool		db_used = false;
+		int			ntups;
+		int			rowno;
+		int			i_nspname,
+					i_relname;
+		DbInfo	   *active_db = &cluster->dbarr.dbs[dbnum];
+		PGconn	   *conn = connectToServer(cluster, active_db->db_name);
+
+		res = executeQueryOrDie(conn,
+								"SELECT n.nspname, c.relname "
+								"FROM	pg_catalog.pg_class c, "
+								"		pg_catalog.pg_namespace n "
+								"WHERE	c.relnamespace = n.oid AND "
+								"		c.relhasoids AND"
+								"       n.nspname NOT IN ('pg_catalog')");
+
+		ntups = PQntuples(res);
+		i_nspname = PQfnumber(res, "nspname");
+		i_relname = PQfnumber(res, "relname");
+		for (rowno = 0; rowno < ntups; rowno++)
+		{
+			found = true;
+			if (script == NULL && (script = fopen_priv(output_path, "w")) == NULL)
+				pg_fatal("could not open file \"%s\": %s\n",
+						 output_path, strerror(errno));
+			if (!db_used)
+			{
+				fprintf(script, "Database: %s\n", active_db->db_name);
+				db_used = true;
+			}
+			fprintf(script, "  %s.%s\n",
+					PQgetvalue(res, rowno, i_nspname),
+					PQgetvalue(res, rowno, i_relname));
+		}
+
+		PQclear(res);
+
+		PQfinish(conn);
+	}
+
+	if (script)
+		fclose(script);
+
+	if (found)
+	{
+		pg_log(PG_REPORT, "fatal\n");
+		pg_fatal("Your installation contains tables declared WITH OIDS, which is not supported\n"
+				 "anymore. Consider removing the oid column using\n"
+				 "    ALTER TABLE ... SET WITHOUT OIDS;\n"
+				 "A list of tables with the problem is in the file:\n"
 				 "    %s\n\n", output_path);
 	}
 	else

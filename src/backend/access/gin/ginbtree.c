@@ -4,7 +4,7 @@
  *	  page utilities routines for the postgres inverted index access method.
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -24,10 +24,10 @@
 
 static void ginFindParents(GinBtree btree, GinBtreeStack *stack);
 static bool ginPlaceToPage(GinBtree btree, GinBtreeStack *stack,
-			   void *insertdata, BlockNumber updateblkno,
-			   Buffer childbuf, GinStatsData *buildStats);
+						   void *insertdata, BlockNumber updateblkno,
+						   Buffer childbuf, GinStatsData *buildStats);
 static void ginFinishSplit(GinBtree btree, GinBtreeStack *stack,
-			   bool freestack, GinStatsData *buildStats);
+						   bool freestack, GinStatsData *buildStats);
 
 /*
  * Lock buffer by needed method for search.
@@ -215,7 +215,7 @@ freeGinBtreeStack(GinBtreeStack *stack)
 /*
  * Try to find parent for current stack position. Returns correct parent and
  * child's offset in stack->parent. The root page is never released, to
- * to prevent conflict with vacuum process.
+ * prevent conflict with vacuum process.
  */
 static void
 ginFindParents(GinBtree btree, GinBtreeStack *stack)
@@ -396,7 +396,7 @@ ginPlaceToPage(GinBtree btree, GinBtreeStack *stack,
 		/* It will fit, perform the insertion */
 		START_CRIT_SECTION();
 
-		if (RelationNeedsWAL(btree->index))
+		if (RelationNeedsWAL(btree->index) && !btree->isBuild)
 		{
 			XLogBeginInsert();
 			XLogRegisterBuffer(0, stack->buffer, REGBUF_STANDARD);
@@ -417,7 +417,7 @@ ginPlaceToPage(GinBtree btree, GinBtreeStack *stack,
 			MarkBufferDirty(childbuf);
 		}
 
-		if (RelationNeedsWAL(btree->index))
+		if (RelationNeedsWAL(btree->index) && !btree->isBuild)
 		{
 			XLogRecPtr	recptr;
 			ginxlogInsert xlrec;
@@ -595,7 +595,7 @@ ginPlaceToPage(GinBtree btree, GinBtreeStack *stack,
 		}
 
 		/* write WAL record */
-		if (RelationNeedsWAL(btree->index))
+		if (RelationNeedsWAL(btree->index) && !btree->isBuild)
 		{
 			XLogRecPtr	recptr;
 

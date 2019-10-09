@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #
 # Generate lwlocknames.h and lwlocknames.c from lwlocknames.txt
-# Copyright (c) 2000-2018, PostgreSQL Global Development Group
+# Copyright (c) 2000-2019, PostgreSQL Global Development Group
 
 use warnings;
 use strict;
@@ -23,7 +23,7 @@ print $h $autogen;
 print $h "/* there is deliberately not an #ifndef LWLOCKNAMES_H here */\n\n";
 print $c $autogen, "\n";
 
-print $c "char *MainLWLockNames[] = {";
+print $c "const char *const MainLWLockNames[] = {";
 
 while (<$lwlocknames>)
 {

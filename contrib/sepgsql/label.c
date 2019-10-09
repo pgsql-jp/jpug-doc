@@ -4,7 +4,7 @@
  *
  * Routines to support SELinux labels (security context)
  *
- * Copyright (c) 2010-2018, PostgreSQL Global Development Group
+ * Copyright (c) 2010-2019, PostgreSQL Global Development Group
  *
  * -------------------------------------------------------------------------
  */
@@ -12,9 +12,9 @@
 
 #include <selinux/label.h>
 
-#include "access/heapam.h"
 #include "access/htup_details.h"
 #include "access/genam.h"
+#include "access/table.h"
 #include "access/xact.h"
 #include "catalog/catalog.h"
 #include "catalog/dependency.h"
@@ -35,7 +35,6 @@
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
-#include "utils/tqual.h"
 
 #include "sepgsql.h"
 
@@ -727,7 +726,7 @@ exec_object_restorecon(struct selabel_handle *sehnd, Oid catalogId)
 	 * Open the target catalog. We don't want to allow writable accesses by
 	 * other session during initial labeling.
 	 */
-	rel = heap_open(catalogId, AccessShareLock);
+	rel = table_open(catalogId, AccessShareLock);
 
 	sscan = systable_beginscan(rel, InvalidOid, false,
 							   NULL, 0, NULL);
@@ -758,7 +757,7 @@ exec_object_restorecon(struct selabel_handle *sehnd, Oid catalogId)
 											NULL, NULL, NULL);
 
 				object.classId = DatabaseRelationId;
-				object.objectId = HeapTupleGetOid(tuple);
+				object.objectId = datForm->oid;
 				object.objectSubId = 0;
 				break;
 
@@ -772,7 +771,7 @@ exec_object_restorecon(struct selabel_handle *sehnd, Oid catalogId)
 											NULL, NULL);
 
 				object.classId = NamespaceRelationId;
-				object.objectId = HeapTupleGetOid(tuple);
+				object.objectId = nspForm->oid;
 				object.objectSubId = 0;
 				break;
 
@@ -797,7 +796,7 @@ exec_object_restorecon(struct selabel_handle *sehnd, Oid catalogId)
 				pfree(namespace_name);
 
 				object.classId = RelationRelationId;
-				object.objectId = HeapTupleGetOid(tuple);
+				object.objectId = relForm->oid;
 				object.objectSubId = 0;
 				break;
 
@@ -838,7 +837,7 @@ exec_object_restorecon(struct selabel_handle *sehnd, Oid catalogId)
 				pfree(namespace_name);
 
 				object.classId = ProcedureRelationId;
-				object.objectId = HeapTupleGetOid(tuple);
+				object.objectId = proForm->oid;
 				object.objectSubId = 0;
 				break;
 
@@ -881,7 +880,7 @@ exec_object_restorecon(struct selabel_handle *sehnd, Oid catalogId)
 	}
 	systable_endscan(sscan);
 
-	heap_close(rel, NoLock);
+	table_close(rel, NoLock);
 }
 
 /*

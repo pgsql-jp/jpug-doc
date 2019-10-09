@@ -1,7 +1,7 @@
 /*
  * psql - the PostgreSQL interactive terminal
  *
- * Copyright (c) 2000-2018, PostgreSQL Global Development Group
+ * Copyright (c) 2000-2019, PostgreSQL Global Development Group
  *
  * src/bin/psql/command.c
  */
@@ -28,6 +28,8 @@
 
 #include "libpq-fe.h"
 #include "pqexpbuffer.h"
+#include "common/logging.h"
+#include "fe_utils/print.h"
 #include "fe_utils/string_utils.h"
 
 #include "common.h"
@@ -38,7 +40,6 @@
 #include "input.h"
 #include "large_obj.h"
 #include "mainloop.h"
-#include "fe_utils/print.h"
 #include "psqlscanslash.h"
 #include "settings.h"
 #include "variables.h"
@@ -54,77 +55,77 @@ typedef enum EditableObjectType
 
 /* local function declarations */
 static backslashResult exec_command(const char *cmd,
-			 PsqlScanState scan_state,
-			 ConditionalStack cstack,
-			 PQExpBuffer query_buf,
-			 PQExpBuffer previous_buf);
+									PsqlScanState scan_state,
+									ConditionalStack cstack,
+									PQExpBuffer query_buf,
+									PQExpBuffer previous_buf);
 static backslashResult exec_command_a(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_C(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_connect(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_cd(PsqlScanState scan_state, bool active_branch,
-				const char *cmd);
+									   const char *cmd);
 static backslashResult exec_command_conninfo(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_copy(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_copyright(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_crosstabview(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_d(PsqlScanState scan_state, bool active_branch,
-			   const char *cmd);
+									  const char *cmd);
 static backslashResult exec_command_edit(PsqlScanState scan_state, bool active_branch,
-				  PQExpBuffer query_buf, PQExpBuffer previous_buf);
+										 PQExpBuffer query_buf, PQExpBuffer previous_buf);
 static backslashResult exec_command_ef_ev(PsqlScanState scan_state, bool active_branch,
-				   PQExpBuffer query_buf, bool is_func);
+										  PQExpBuffer query_buf, bool is_func);
 static backslashResult exec_command_echo(PsqlScanState scan_state, bool active_branch,
-				  const char *cmd);
+										 const char *cmd);
 static backslashResult exec_command_elif(PsqlScanState scan_state, ConditionalStack cstack,
-				  PQExpBuffer query_buf);
+										 PQExpBuffer query_buf);
 static backslashResult exec_command_else(PsqlScanState scan_state, ConditionalStack cstack,
-				  PQExpBuffer query_buf);
+										 PQExpBuffer query_buf);
 static backslashResult exec_command_endif(PsqlScanState scan_state, ConditionalStack cstack,
-				   PQExpBuffer query_buf);
+										  PQExpBuffer query_buf);
 static backslashResult exec_command_encoding(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_errverbose(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_f(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_g(PsqlScanState scan_state, bool active_branch,
-			   const char *cmd);
+									  const char *cmd);
 static backslashResult exec_command_gdesc(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_gexec(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_gset(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_help(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_html(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_include(PsqlScanState scan_state, bool active_branch,
-					 const char *cmd);
+											const char *cmd);
 static backslashResult exec_command_if(PsqlScanState scan_state, ConditionalStack cstack,
-				PQExpBuffer query_buf);
+									   PQExpBuffer query_buf);
 static backslashResult exec_command_list(PsqlScanState scan_state, bool active_branch,
-				  const char *cmd);
+										 const char *cmd);
 static backslashResult exec_command_lo(PsqlScanState scan_state, bool active_branch,
-				const char *cmd);
+									   const char *cmd);
 static backslashResult exec_command_out(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_print(PsqlScanState scan_state, bool active_branch,
-				   PQExpBuffer query_buf, PQExpBuffer previous_buf);
+										  PQExpBuffer query_buf, PQExpBuffer previous_buf);
 static backslashResult exec_command_password(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_prompt(PsqlScanState scan_state, bool active_branch,
-					const char *cmd);
+										   const char *cmd);
 static backslashResult exec_command_pset(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_quit(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_reset(PsqlScanState scan_state, bool active_branch,
-				   PQExpBuffer query_buf);
+										  PQExpBuffer query_buf);
 static backslashResult exec_command_s(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_set(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_setenv(PsqlScanState scan_state, bool active_branch,
-					const char *cmd);
+										   const char *cmd);
 static backslashResult exec_command_sf_sv(PsqlScanState scan_state, bool active_branch,
-				   const char *cmd, bool is_func);
+										  const char *cmd, bool is_func);
 static backslashResult exec_command_t(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_T(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_timing(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_unset(PsqlScanState scan_state, bool active_branch,
-				   const char *cmd);
+										  const char *cmd);
 static backslashResult exec_command_write(PsqlScanState scan_state, bool active_branch,
-				   const char *cmd,
-				   PQExpBuffer query_buf, PQExpBuffer previous_buf);
+										  const char *cmd,
+										  PQExpBuffer query_buf, PQExpBuffer previous_buf);
 static backslashResult exec_command_watch(PsqlScanState scan_state, bool active_branch,
-				   PQExpBuffer query_buf, PQExpBuffer previous_buf);
+										  PQExpBuffer query_buf, PQExpBuffer previous_buf);
 static backslashResult exec_command_x(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_z(PsqlScanState scan_state, bool active_branch);
 static backslashResult exec_command_shell_escape(PsqlScanState scan_state, bool active_branch);
@@ -138,27 +139,28 @@ static void ignore_slash_filepipe(PsqlScanState scan_state);
 static void ignore_slash_whole_line(PsqlScanState scan_state);
 static bool is_branching_command(const char *cmd);
 static void save_query_text_state(PsqlScanState scan_state, ConditionalStack cstack,
-					  PQExpBuffer query_buf);
+								  PQExpBuffer query_buf);
 static void discard_query_text(PsqlScanState scan_state, ConditionalStack cstack,
-				   PQExpBuffer query_buf);
+							   PQExpBuffer query_buf);
 static void copy_previous_query(PQExpBuffer query_buf, PQExpBuffer previous_buf);
 static bool do_connect(enum trivalue reuse_previous_specification,
-		   char *dbname, char *user, char *host, char *port);
+					   char *dbname, char *user, char *host, char *port);
 static bool do_edit(const char *filename_arg, PQExpBuffer query_buf,
-		int lineno, bool *edited);
+					int lineno, bool *edited);
 static bool do_shell(const char *command);
 static bool do_watch(PQExpBuffer query_buf, double sleep);
 static bool lookup_object_oid(EditableObjectType obj_type, const char *desc,
-				  Oid *obj_oid);
+							  Oid *obj_oid);
 static bool get_create_object_cmd(EditableObjectType obj_type, Oid oid,
-					  PQExpBuffer buf);
+								  PQExpBuffer buf);
 static int	strip_lineno_from_objdesc(char *obj);
 static int	count_lines_in_buf(PQExpBuffer buf);
 static void print_with_linenumbers(FILE *output, char *lines,
-					   const char *header_keyword);
+								   const char *header_keyword);
 static void minimal_error_message(PGresult *res);
 
 static void printSSLInfo(void);
+static void printGSSInfo(void);
 static bool printPsetInfo(const char *param, struct printQueryOpt *popt);
 static char *pset_value_string(const char *param, struct printQueryOpt *popt);
 
@@ -216,10 +218,9 @@ HandleSlashCmds(PsqlScanState scan_state,
 
 	if (status == PSQL_CMD_UNKNOWN)
 	{
+		pg_log_error("invalid command \\%s", cmd);
 		if (pset.cur_cmd_interactive)
-			psql_error("Invalid command \\%s. Try \\? for help.\n", cmd);
-		else
-			psql_error("invalid command \\%s\n", cmd);
+			pg_log_info("Try \\? for help.");
 		status = PSQL_CMD_ERROR;
 	}
 
@@ -237,7 +238,7 @@ HandleSlashCmds(PsqlScanState scan_state,
 											 OT_NORMAL, NULL, false)))
 		{
 			if (active_branch)
-				psql_error("\\%s: extra argument \"%s\" ignored\n", cmd, arg);
+				pg_log_warning("\\%s: extra argument \"%s\" ignored", cmd, arg);
 			free(arg);
 		}
 		conditional_stack_pop(cstack);
@@ -289,8 +290,8 @@ exec_command(const char *cmd,
 	if (pset.cur_cmd_interactive && !active_branch &&
 		!is_branching_command(cmd))
 	{
-		psql_error("\\%s command ignored; use \\endif or Ctrl-C to exit current \\if block\n",
-				   cmd);
+		pg_log_warning("\\%s command ignored; use \\endif or Ctrl-C to exit current \\if block",
+					   cmd);
 	}
 
 	if (strcmp(cmd, "a") == 0)
@@ -549,9 +550,9 @@ exec_command_cd(PsqlScanState scan_state, bool active_branch, const char *cmd)
 			pw = getpwuid(user_id);
 			if (!pw)
 			{
-				psql_error("could not get home directory for user ID %ld: %s\n",
-						   (long) user_id,
-						   errno ? strerror(errno) : _("user does not exist"));
+				pg_log_error("could not get home directory for user ID %ld: %s",
+							 (long) user_id,
+							 errno ? strerror(errno) : _("user does not exist"));
 				exit(EXIT_FAILURE);
 			}
 			dir = pw->pw_dir;
@@ -567,8 +568,8 @@ exec_command_cd(PsqlScanState scan_state, bool active_branch, const char *cmd)
 
 		if (chdir(dir) == -1)
 		{
-			psql_error("\\%s: could not change directory to \"%s\": %s\n",
-					   cmd, dir, strerror(errno));
+			pg_log_error("\\%s: could not change directory to \"%s\": %m",
+						 cmd, dir);
 			success = false;
 		}
 
@@ -596,15 +597,32 @@ exec_command_conninfo(PsqlScanState scan_state, bool active_branch)
 		else
 		{
 			char	   *host = PQhost(pset.db);
+			char	   *hostaddr = PQhostaddr(pset.db);
 
-			/* If the host is an absolute path, the connection is via socket */
+			/*
+			 * If the host is an absolute path, the connection is via socket
+			 * unless overridden by hostaddr
+			 */
 			if (is_absolute_path(host))
-				printf(_("You are connected to database \"%s\" as user \"%s\" via socket in \"%s\" at port \"%s\".\n"),
-					   db, PQuser(pset.db), host, PQport(pset.db));
+			{
+				if (hostaddr && *hostaddr)
+					printf(_("You are connected to database \"%s\" as user \"%s\" on address \"%s\" at port \"%s\".\n"),
+						   db, PQuser(pset.db), hostaddr, PQport(pset.db));
+				else
+					printf(_("You are connected to database \"%s\" as user \"%s\" via socket in \"%s\" at port \"%s\".\n"),
+						   db, PQuser(pset.db), host, PQport(pset.db));
+			}
 			else
-				printf(_("You are connected to database \"%s\" as user \"%s\" on host \"%s\" at port \"%s\".\n"),
-					   db, PQuser(pset.db), host, PQport(pset.db));
+			{
+				if (hostaddr && *hostaddr && strcmp(host, hostaddr) != 0)
+					printf(_("You are connected to database \"%s\" as user \"%s\" on host \"%s\" (address \"%s\") at port \"%s\".\n"),
+						   db, PQuser(pset.db), host, hostaddr, PQport(pset.db));
+				else
+					printf(_("You are connected to database \"%s\" as user \"%s\" on host \"%s\" at port \"%s\".\n"),
+						   db, PQuser(pset.db), host, PQport(pset.db));
+			}
 			printSSLInfo();
+			printGSSInfo();
 		}
 	}
 
@@ -766,6 +784,23 @@ exec_command_d(PsqlScanState scan_state, bool active_branch, const char *cmd)
 			case 'p':
 				success = permissionsList(pattern);
 				break;
+			case 'P':
+				{
+					switch (cmd[2])
+					{
+						case '\0':
+						case '+':
+						case 't':
+						case 'i':
+						case 'n':
+							success = listPartitionedTables(&cmd[2], pattern, show_verbose);
+							break;
+						default:
+							status = PSQL_CMD_UNKNOWN;
+							break;
+					}
+				}
+				break;
 			case 'T':
 				success = describeTypes(pattern, show_verbose, show_system);
 				break;
@@ -892,7 +927,7 @@ exec_command_edit(PsqlScanState scan_state, bool active_branch,
 	{
 		if (!query_buf)
 		{
-			psql_error("no query buffer\n");
+			pg_log_error("no query buffer");
 			status = PSQL_CMD_ERROR;
 		}
 		else
@@ -925,7 +960,7 @@ exec_command_edit(PsqlScanState scan_state, bool active_branch,
 				lineno = atoi(ln);
 				if (lineno < 1)
 				{
-					psql_error("invalid line number: %s\n", ln);
+					pg_log_error("invalid line number: %s", ln);
 					status = PSQL_CMD_ERROR;
 				}
 			}
@@ -979,16 +1014,16 @@ exec_command_ef_ev(PsqlScanState scan_state, bool active_branch,
 			formatPGVersionNumber(pset.sversion, false,
 								  sverbuf, sizeof(sverbuf));
 			if (is_func)
-				psql_error("The server (version %s) does not support editing function source.\n",
-						   sverbuf);
+				pg_log_error("The server (version %s) does not support editing function source.",
+							 sverbuf);
 			else
-				psql_error("The server (version %s) does not support editing view definitions.\n",
-						   sverbuf);
+				pg_log_error("The server (version %s) does not support editing view definitions.",
+							 sverbuf);
 			status = PSQL_CMD_ERROR;
 		}
 		else if (!query_buf)
 		{
-			psql_error("no query buffer\n");
+			pg_log_error("no query buffer");
 			status = PSQL_CMD_ERROR;
 		}
 		else
@@ -1141,7 +1176,7 @@ exec_command_encoding(PsqlScanState scan_state, bool active_branch)
 		{
 			/* set encoding */
 			if (PQsetClientEncoding(pset.db, encoding) == -1)
-				psql_error("%s: invalid encoding name or conversion procedure not found\n", encoding);
+				pg_log_error("%s: invalid encoding name or conversion procedure not found", encoding);
 			else
 			{
 				/* save encoding info into psql internal data */
@@ -1176,7 +1211,7 @@ exec_command_errverbose(PsqlScanState scan_state, bool active_branch)
 											  PQSHOW_CONTEXT_ALWAYS);
 			if (msg)
 			{
-				psql_error("%s", msg);
+				pg_log_error("%s", msg);
 				PQfreemem(msg);
 			}
 			else
@@ -1371,7 +1406,7 @@ exec_command_include(PsqlScanState scan_state, bool active_branch, const char *c
 
 		if (!fname)
 		{
-			psql_error("\\%s: missing required argument\n", cmd);
+			pg_log_error("\\%s: missing required argument", cmd);
 			success = false;
 		}
 		else
@@ -1502,12 +1537,12 @@ exec_command_elif(PsqlScanState scan_state, ConditionalStack cstack,
 			break;
 		case IFSTATE_ELSE_TRUE:
 		case IFSTATE_ELSE_FALSE:
-			psql_error("\\elif: cannot occur after \\else\n");
+			pg_log_error("\\elif: cannot occur after \\else");
 			success = false;
 			break;
 		case IFSTATE_NONE:
 			/* no \if to elif from */
-			psql_error("\\elif: no matching \\if\n");
+			pg_log_error("\\elif: no matching \\if");
 			success = false;
 			break;
 	}
@@ -1571,12 +1606,12 @@ exec_command_else(PsqlScanState scan_state, ConditionalStack cstack,
 			break;
 		case IFSTATE_ELSE_TRUE:
 		case IFSTATE_ELSE_FALSE:
-			psql_error("\\else: cannot occur after \\else\n");
+			pg_log_error("\\else: cannot occur after \\else");
 			success = false;
 			break;
 		case IFSTATE_NONE:
 			/* no \if to else from */
-			psql_error("\\else: no matching \\if\n");
+			pg_log_error("\\else: no matching \\if");
 			success = false;
 			break;
 	}
@@ -1616,7 +1651,7 @@ exec_command_endif(PsqlScanState scan_state, ConditionalStack cstack,
 			break;
 		case IFSTATE_NONE:
 			/* no \if to end */
-			psql_error("\\endif: no matching \\if\n");
+			pg_log_error("\\endif: no matching \\if");
 			success = false;
 			break;
 	}
@@ -1676,7 +1711,7 @@ exec_command_lo(PsqlScanState scan_state, bool active_branch, const char *cmd)
 		{
 			if (!opt2)
 			{
-				psql_error("\\%s: missing required argument\n", cmd);
+				pg_log_error("\\%s: missing required argument", cmd);
 				success = false;
 			}
 			else
@@ -1690,7 +1725,7 @@ exec_command_lo(PsqlScanState scan_state, bool active_branch, const char *cmd)
 		{
 			if (!opt1)
 			{
-				psql_error("\\%s: missing required argument\n", cmd);
+				pg_log_error("\\%s: missing required argument", cmd);
 				success = false;
 			}
 			else
@@ -1707,7 +1742,7 @@ exec_command_lo(PsqlScanState scan_state, bool active_branch, const char *cmd)
 		{
 			if (!opt1)
 			{
-				psql_error("\\%s: missing required argument\n", cmd);
+				pg_log_error("\\%s: missing required argument", cmd);
 				success = false;
 			}
 			else
@@ -1798,7 +1833,7 @@ exec_command_password(PsqlScanState scan_state, bool active_branch)
 
 		if (strcmp(pw1, pw2) != 0)
 		{
-			psql_error("Passwords didn't match.\n");
+			pg_log_error("Passwords didn't match.");
 			success = false;
 		}
 		else
@@ -1815,7 +1850,7 @@ exec_command_password(PsqlScanState scan_state, bool active_branch)
 
 			if (!encrypted_password)
 			{
-				psql_error("%s", PQerrorMessage(pset.db));
+				pg_log_info("%s", PQerrorMessage(pset.db));
 				success = false;
 			}
 			else
@@ -1867,7 +1902,7 @@ exec_command_prompt(PsqlScanState scan_state, bool active_branch,
 
 		if (!arg1)
 		{
-			psql_error("\\%s: missing required argument\n", cmd);
+			pg_log_error("\\%s: missing required argument", cmd);
 			success = false;
 		}
 		else
@@ -1897,8 +1932,8 @@ exec_command_prompt(PsqlScanState scan_state, bool active_branch,
 				result = gets_fromFile(stdin);
 				if (!result)
 				{
-					psql_error("\\%s: could not read value for variable\n",
-							   cmd);
+					pg_log_error("\\%s: could not read value for variable",
+								 cmd);
 					success = false;
 				}
 			}
@@ -1941,8 +1976,8 @@ exec_command_pset(PsqlScanState scan_state, bool active_branch)
 
 			int			i;
 			static const char *const my_list[] = {
-				"border", "columns", "expanded", "fieldsep", "fieldsep_zero",
-				"footer", "format", "linestyle", "null",
+				"border", "columns", "csv_fieldsep", "expanded", "fieldsep",
+				"fieldsep_zero", "footer", "format", "linestyle", "null",
 				"numericlocale", "pager", "pager_min_lines",
 				"recordsep", "recordsep_zero",
 				"tableattr", "title", "tuples_only",
@@ -2104,13 +2139,13 @@ exec_command_setenv(PsqlScanState scan_state, bool active_branch,
 
 		if (!envvar)
 		{
-			psql_error("\\%s: missing required argument\n", cmd);
+			pg_log_error("\\%s: missing required argument", cmd);
 			success = false;
 		}
 		else if (strchr(envvar, '=') != NULL)
 		{
-			psql_error("\\%s: environment variable name must not contain \"=\"\n",
-					   cmd);
+			pg_log_error("\\%s: environment variable name must not contain \"=\"",
+						 cmd);
 			success = false;
 		}
 		else if (!envval)
@@ -2170,19 +2205,19 @@ exec_command_sf_sv(PsqlScanState scan_state, bool active_branch,
 			formatPGVersionNumber(pset.sversion, false,
 								  sverbuf, sizeof(sverbuf));
 			if (is_func)
-				psql_error("The server (version %s) does not support showing function source.\n",
-						   sverbuf);
+				pg_log_error("The server (version %s) does not support showing function source.",
+							 sverbuf);
 			else
-				psql_error("The server (version %s) does not support showing view definitions.\n",
-						   sverbuf);
+				pg_log_error("The server (version %s) does not support showing view definitions.",
+							 sverbuf);
 			status = PSQL_CMD_ERROR;
 		}
 		else if (!obj_desc)
 		{
 			if (is_func)
-				psql_error("function name is required\n");
+				pg_log_error("function name is required");
 			else
-				psql_error("view name is required\n");
+				pg_log_error("view name is required");
 			status = PSQL_CMD_ERROR;
 		}
 		else if (!lookup_object_oid(eot, obj_desc, &obj_oid))
@@ -2340,7 +2375,7 @@ exec_command_unset(PsqlScanState scan_state, bool active_branch,
 
 		if (!opt)
 		{
-			psql_error("\\%s: missing required argument\n", cmd);
+			pg_log_error("\\%s: missing required argument", cmd);
 			success = false;
 		}
 		else if (!SetVariable(pset.vars, opt, NULL))
@@ -2373,14 +2408,14 @@ exec_command_write(PsqlScanState scan_state, bool active_branch,
 
 		if (!query_buf)
 		{
-			psql_error("no query buffer\n");
+			pg_log_error("no query buffer");
 			status = PSQL_CMD_ERROR;
 		}
 		else
 		{
 			if (!fname)
 			{
-				psql_error("\\%s: missing required argument\n", cmd);
+				pg_log_error("\\%s: missing required argument", cmd);
 				status = PSQL_CMD_ERROR;
 			}
 			else
@@ -2399,7 +2434,7 @@ exec_command_write(PsqlScanState scan_state, bool active_branch,
 				}
 				if (!fd)
 				{
-					psql_error("%s: %s\n", fname, strerror(errno));
+					pg_log_error("%s: %m", fname);
 					status = PSQL_CMD_ERROR;
 				}
 			}
@@ -2427,7 +2462,7 @@ exec_command_write(PsqlScanState scan_state, bool active_branch,
 
 			if (result == EOF)
 			{
-				psql_error("%s: %s\n", fname, strerror(errno));
+				pg_log_error("%s: %m", fname);
 				status = PSQL_CMD_ERROR;
 			}
 		}
@@ -2835,6 +2870,26 @@ param_is_newly_set(const char *old_val, const char *new_val)
 	return false;
 }
 
+/* return whether the connection has 'hostaddr' in its conninfo */
+static bool
+has_hostaddr(PGconn *conn)
+{
+	bool		used = false;
+	PQconninfoOption *ciopt = PQconninfo(conn);
+
+	for (PQconninfoOption *p = ciopt; p->keyword != NULL; p++)
+	{
+		if (strcmp(p->keyword, "hostaddr") == 0 && p->val != NULL)
+		{
+			used = true;
+			break;
+		}
+	}
+
+	PQconninfoFree(ciopt);
+	return used;
+}
+
 /*
  * do_connect -- handler for \connect
  *
@@ -2854,6 +2909,7 @@ do_connect(enum trivalue reuse_previous_specification,
 	PGconn	   *o_conn = pset.db,
 			   *n_conn;
 	char	   *password = NULL;
+	char	   *hostaddr = NULL;
 	bool		keep_password;
 	bool		has_connection_string;
 	bool		reuse_previous;
@@ -2866,8 +2922,8 @@ do_connect(enum trivalue reuse_previous_specification,
 		 * connect to the wrong database by using defaults, so require all
 		 * parameters to be specified.
 		 */
-		psql_error("All connection parameters must be supplied because no "
-				   "database connection exists\n");
+		pg_log_error("All connection parameters must be supplied because no "
+					 "database connection exists");
 		return false;
 	}
 
@@ -2893,13 +2949,28 @@ do_connect(enum trivalue reuse_previous_specification,
 		port = NULL;
 	}
 
-	/* grab missing values from the old connection */
-	if (!user && reuse_previous)
-		user = PQuser(o_conn);
-	if (!host && reuse_previous)
-		host = PQhost(o_conn);
-	if (!port && reuse_previous)
-		port = PQport(o_conn);
+	/*
+	 * Grab missing values from the old connection.  If we grab host (or host
+	 * is the same as before) and hostaddr was set, grab that too.
+	 */
+	if (reuse_previous)
+	{
+		if (!user)
+			user = PQuser(o_conn);
+		if (host && strcmp(host, PQhost(o_conn)) == 0 &&
+			has_hostaddr(o_conn))
+		{
+			hostaddr = PQhostaddr(o_conn);
+		}
+		if (!host)
+		{
+			host = PQhost(o_conn);
+			if (has_hostaddr(o_conn))
+				hostaddr = PQhostaddr(o_conn);
+		}
+		if (!port)
+			port = PQport(o_conn);
+	}
 
 	/*
 	 * Any change in the parameters read above makes us discard the password.
@@ -2961,13 +3032,18 @@ do_connect(enum trivalue reuse_previous_specification,
 
 	while (true)
 	{
-#define PARAMS_ARRAY_SIZE	8
+#define PARAMS_ARRAY_SIZE	9
 		const char **keywords = pg_malloc(PARAMS_ARRAY_SIZE * sizeof(*keywords));
 		const char **values = pg_malloc(PARAMS_ARRAY_SIZE * sizeof(*values));
 		int			paramnum = -1;
 
 		keywords[++paramnum] = "host";
 		values[paramnum] = host;
+		if (hostaddr && *hostaddr)
+		{
+			keywords[++paramnum] = "hostaddr";
+			values[paramnum] = hostaddr;
+		}
 		keywords[++paramnum] = "port";
 		values[paramnum] = port;
 		keywords[++paramnum] = "user";
@@ -3030,19 +3106,25 @@ do_connect(enum trivalue reuse_previous_specification,
 		 */
 		if (pset.cur_cmd_interactive)
 		{
-			psql_error("%s", PQerrorMessage(n_conn));
+			pg_log_info("%s", PQerrorMessage(n_conn));
 
 			/* pset.db is left unmodified */
 			if (o_conn)
-				psql_error("Previous connection kept\n");
+				pg_log_info("Previous connection kept");
 		}
 		else
 		{
-			psql_error("\\connect: %s", PQerrorMessage(n_conn));
+			pg_log_error("\\connect: %s", PQerrorMessage(n_conn));
 			if (o_conn)
 			{
+				/*
+				 * Transition to having no connection.  Keep this bit in sync
+				 * with CheckConnection().
+				 */
 				PQfinish(o_conn);
 				pset.db = NULL;
+				ResetCancelConn();
+				UnsyncVariables();
 			}
 		}
 
@@ -3056,7 +3138,8 @@ do_connect(enum trivalue reuse_previous_specification,
 
 	/*
 	 * Replace the old connection with the new one, and update
-	 * connection-dependent variables.
+	 * connection-dependent variables.  Keep the resynchronization logic in
+	 * sync with CheckConnection().
 	 */
 	PQsetNoticeProcessor(n_conn, NoticeProcessor, NULL);
 	pset.db = n_conn;
@@ -3071,14 +3154,30 @@ do_connect(enum trivalue reuse_previous_specification,
 			param_is_newly_set(PQport(o_conn), PQport(pset.db)))
 		{
 			char	   *host = PQhost(pset.db);
+			char	   *hostaddr = PQhostaddr(pset.db);
 
-			/* If the host is an absolute path, the connection is via socket */
+			/*
+			 * If the host is an absolute path, the connection is via socket
+			 * unless overridden by hostaddr
+			 */
 			if (is_absolute_path(host))
-				printf(_("You are now connected to database \"%s\" as user \"%s\" via socket in \"%s\" at port \"%s\".\n"),
-					   PQdb(pset.db), PQuser(pset.db), host, PQport(pset.db));
+			{
+				if (hostaddr && *hostaddr)
+					printf(_("You are now connected to database \"%s\" as user \"%s\" on address \"%s\" at port \"%s\".\n"),
+						   PQdb(pset.db), PQuser(pset.db), hostaddr, PQport(pset.db));
+				else
+					printf(_("You are now connected to database \"%s\" as user \"%s\" via socket in \"%s\" at port \"%s\".\n"),
+						   PQdb(pset.db), PQuser(pset.db), host, PQport(pset.db));
+			}
 			else
-				printf(_("You are now connected to database \"%s\" as user \"%s\" on host \"%s\" at port \"%s\".\n"),
-					   PQdb(pset.db), PQuser(pset.db), host, PQport(pset.db));
+			{
+				if (hostaddr && *hostaddr && strcmp(host, hostaddr) != 0)
+					printf(_("You are now connected to database \"%s\" as user \"%s\" on host \"%s\" (address \"%s\") at port \"%s\".\n"),
+						   PQdb(pset.db), PQuser(pset.db), host, hostaddr, PQport(pset.db));
+				else
+					printf(_("You are now connected to database \"%s\" as user \"%s\" on host \"%s\" at port \"%s\".\n"),
+						   PQdb(pset.db), PQuser(pset.db), host, PQport(pset.db));
+			}
 		}
 		else
 			printf(_("You are now connected to database \"%s\" as user \"%s\".\n"),
@@ -3131,9 +3230,11 @@ connection_warnings(bool in_startup)
 										 sverbuf, sizeof(sverbuf)));
 
 #ifdef WIN32
-		checkWin32Codepage();
+		if (in_startup)
+			checkWin32Codepage();
 #endif
 		printSSLInfo();
+		printGSSInfo();
 	}
 }
 
@@ -3164,6 +3265,20 @@ printSSLInfo(void)
 		   cipher ? cipher : _("unknown"),
 		   bits ? bits : _("unknown"),
 		   (compression && strcmp(compression, "off") != 0) ? _("on") : _("off"));
+}
+
+/*
+ * printGSSInfo
+ *
+ * Prints information about the current GSSAPI connection, if GSSAPI encryption is in use
+ */
+static void
+printGSSInfo(void)
+{
+	if (!PQgssEncInUse(pset.db))
+		return;					/* no GSSAPI encryption in use */
+
+	printf(_("GSSAPI-encrypted connection\n"));
 }
 
 
@@ -3287,7 +3402,7 @@ editFile(const char *fname, int lineno)
 #endif
 		if (!editor_lineno_arg)
 		{
-			psql_error("environment variable PSQL_EDITOR_LINENUMBER_ARG must be set to specify a line number\n");
+			pg_log_error("environment variable PSQL_EDITOR_LINENUMBER_ARG must be set to specify a line number");
 			return false;
 		}
 	}
@@ -3316,9 +3431,9 @@ editFile(const char *fname, int lineno)
 #endif
 	result = system(sys);
 	if (result == -1)
-		psql_error("could not start editor \"%s\"\n", editorName);
+		pg_log_error("could not start editor \"%s\"", editorName);
 	else if (result == 127)
-		psql_error("could not start /bin/sh\n");
+		pg_log_error("could not start /bin/sh");
 	free(sys);
 
 	return result == 0;
@@ -3356,8 +3471,8 @@ do_edit(const char *filename_arg, PQExpBuffer query_buf,
 		ret = GetTempPath(MAXPGPATH, tmpdir);
 		if (ret == 0 || ret > MAXPGPATH)
 		{
-			psql_error("could not locate temporary directory: %s\n",
-					   !ret ? strerror(errno) : "");
+			pg_log_error("could not locate temporary directory: %s",
+						 !ret ? strerror(errno) : "");
 			return false;
 		}
 
@@ -3383,7 +3498,7 @@ do_edit(const char *filename_arg, PQExpBuffer query_buf,
 
 		if (fd == -1 || !stream)
 		{
-			psql_error("could not open temporary file \"%s\": %s\n", fname, strerror(errno));
+			pg_log_error("could not open temporary file \"%s\": %m", fname);
 			error = true;
 		}
 		else
@@ -3398,21 +3513,21 @@ do_edit(const char *filename_arg, PQExpBuffer query_buf,
 
 			if (fwrite(query_buf->data, 1, ql, stream) != ql)
 			{
-				psql_error("%s: %s\n", fname, strerror(errno));
+				pg_log_error("%s: %m", fname);
 
 				if (fclose(stream) != 0)
-					psql_error("%s: %s\n", fname, strerror(errno));
+					pg_log_error("%s: %m", fname);
 
 				if (remove(fname) != 0)
-					psql_error("%s: %s\n", fname, strerror(errno));
+					pg_log_error("%s: %m", fname);
 
 				error = true;
 			}
 			else if (fclose(stream) != 0)
 			{
-				psql_error("%s: %s\n", fname, strerror(errno));
+				pg_log_error("%s: %m", fname);
 				if (remove(fname) != 0)
-					psql_error("%s: %s\n", fname, strerror(errno));
+					pg_log_error("%s: %m", fname);
 				error = true;
 			}
 		}
@@ -3420,7 +3535,7 @@ do_edit(const char *filename_arg, PQExpBuffer query_buf,
 
 	if (!error && stat(fname, &before) != 0)
 	{
-		psql_error("%s: %s\n", fname, strerror(errno));
+		pg_log_error("%s: %m", fname);
 		error = true;
 	}
 
@@ -3430,7 +3545,7 @@ do_edit(const char *filename_arg, PQExpBuffer query_buf,
 
 	if (!error && stat(fname, &after) != 0)
 	{
-		psql_error("%s: %s\n", fname, strerror(errno));
+		pg_log_error("%s: %m", fname);
 		error = true;
 	}
 
@@ -3439,7 +3554,7 @@ do_edit(const char *filename_arg, PQExpBuffer query_buf,
 		stream = fopen(fname, PG_BINARY_R);
 		if (!stream)
 		{
-			psql_error("%s: %s\n", fname, strerror(errno));
+			pg_log_error("%s: %m", fname);
 			error = true;
 		}
 		else
@@ -3453,7 +3568,7 @@ do_edit(const char *filename_arg, PQExpBuffer query_buf,
 
 			if (ferror(stream))
 			{
-				psql_error("%s: %s\n", fname, strerror(errno));
+				pg_log_error("%s: %m", fname);
 				error = true;
 			}
 			else if (edited)
@@ -3470,7 +3585,7 @@ do_edit(const char *filename_arg, PQExpBuffer query_buf,
 	{
 		if (remove(fname) == -1)
 		{
-			psql_error("%s: %s\n", fname, strerror(errno));
+			pg_log_error("%s: %m", fname);
 			error = true;
 		}
 	}
@@ -3528,7 +3643,7 @@ process_file(char *filename, bool use_relative_path)
 
 		if (!fd)
 		{
-			psql_error("%s: %s\n", filename, strerror(errno));
+			pg_log_error("%s: %m", filename);
 			return EXIT_FAILURE;
 		}
 	}
@@ -3541,12 +3656,17 @@ process_file(char *filename, bool use_relative_path)
 	oldfilename = pset.inputfile;
 	pset.inputfile = filename;
 
+	pg_logging_config(pset.inputfile ? 0 : PG_LOG_FLAG_TERSE);
+
 	result = MainLoop(fd);
 
 	if (fd != stdin)
 		fclose(fd);
 
 	pset.inputfile = oldfilename;
+
+	pg_logging_config(pset.inputfile ? 0 : PG_LOG_FLAG_TERSE);
+
 	return result;
 }
 
@@ -3560,20 +3680,17 @@ _align2string(enum printFormat in)
 		case PRINT_NOTHING:
 			return "nothing";
 			break;
-		case PRINT_UNALIGNED:
-			return "unaligned";
-			break;
 		case PRINT_ALIGNED:
 			return "aligned";
 			break;
-		case PRINT_WRAPPED:
-			return "wrapped";
+		case PRINT_ASCIIDOC:
+			return "asciidoc";
+			break;
+		case PRINT_CSV:
+			return "csv";
 			break;
 		case PRINT_HTML:
 			return "html";
-			break;
-		case PRINT_ASCIIDOC:
-			return "asciidoc";
 			break;
 		case PRINT_LATEX:
 			return "latex";
@@ -3583,6 +3700,12 @@ _align2string(enum printFormat in)
 			break;
 		case PRINT_TROFF_MS:
 			return "troff-ms";
+			break;
+		case PRINT_UNALIGNED:
+			return "unaligned";
+			break;
+		case PRINT_WRAPPED:
+			return "wrapped";
 			break;
 	}
 	return "unknown";
@@ -3637,28 +3760,60 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 	/* set format */
 	if (strcmp(param, "format") == 0)
 	{
+		static const struct fmt
+		{
+			const char *name;
+			enum printFormat number;
+		}			formats[] =
+		{
+			/* remember to update error message below when adding more */
+			{"aligned", PRINT_ALIGNED},
+			{"asciidoc", PRINT_ASCIIDOC},
+			{"csv", PRINT_CSV},
+			{"html", PRINT_HTML},
+			{"latex", PRINT_LATEX},
+			{"troff-ms", PRINT_TROFF_MS},
+			{"unaligned", PRINT_UNALIGNED},
+			{"wrapped", PRINT_WRAPPED}
+		};
+
 		if (!value)
 			;
-		else if (pg_strncasecmp("unaligned", value, vallen) == 0)
-			popt->topt.format = PRINT_UNALIGNED;
-		else if (pg_strncasecmp("aligned", value, vallen) == 0)
-			popt->topt.format = PRINT_ALIGNED;
-		else if (pg_strncasecmp("wrapped", value, vallen) == 0)
-			popt->topt.format = PRINT_WRAPPED;
-		else if (pg_strncasecmp("html", value, vallen) == 0)
-			popt->topt.format = PRINT_HTML;
-		else if (pg_strncasecmp("asciidoc", value, vallen) == 0)
-			popt->topt.format = PRINT_ASCIIDOC;
-		else if (pg_strncasecmp("latex", value, vallen) == 0)
-			popt->topt.format = PRINT_LATEX;
-		else if (pg_strncasecmp("latex-longtable", value, vallen) == 0)
-			popt->topt.format = PRINT_LATEX_LONGTABLE;
-		else if (pg_strncasecmp("troff-ms", value, vallen) == 0)
-			popt->topt.format = PRINT_TROFF_MS;
 		else
 		{
-			psql_error("\\pset: allowed formats are unaligned, aligned, wrapped, html, asciidoc, latex, latex-longtable, troff-ms\n");
-			return false;
+			int			match_pos = -1;
+
+			for (int i = 0; i < lengthof(formats); i++)
+			{
+				if (pg_strncasecmp(formats[i].name, value, vallen) == 0)
+				{
+					if (match_pos < 0)
+						match_pos = i;
+					else
+					{
+						pg_log_error("\\pset: ambiguous abbreviation \"%s\" matches both \"%s\" and \"%s\"",
+									 value,
+									 formats[match_pos].name, formats[i].name);
+						return false;
+					}
+				}
+			}
+			if (match_pos >= 0)
+				popt->topt.format = formats[match_pos].number;
+			else if (pg_strncasecmp("latex-longtable", value, vallen) == 0)
+			{
+				/*
+				 * We must treat latex-longtable specially because latex is a
+				 * prefix of it; if both were in the table above, we'd think
+				 * "latex" is ambiguous.
+				 */
+				popt->topt.format = PRINT_LATEX_LONGTABLE;
+			}
+			else
+			{
+				pg_log_error("\\pset: allowed formats are aligned, asciidoc, csv, html, latex, latex-longtable, troff-ms, unaligned, wrapped");
+				return false;
+			}
 		}
 	}
 
@@ -3675,7 +3830,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 			popt->topt.line_style = &pg_utf8format;
 		else
 		{
-			psql_error("\\pset: allowed line styles are ascii, old-ascii, unicode\n");
+			pg_log_error("\\pset: allowed line styles are ascii, old-ascii, unicode");
 			return false;
 		}
 	}
@@ -3690,7 +3845,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 			refresh_utf8format(&(popt->topt));
 		else
 		{
-			psql_error("\\pset: allowed Unicode border line styles are single, double\n");
+			pg_log_error("\\pset: allowed Unicode border line styles are single, double");
 			return false;
 		}
 	}
@@ -3705,7 +3860,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 			refresh_utf8format(&(popt->topt));
 		else
 		{
-			psql_error("\\pset: allowed Unicode column line styles are single, double\n");
+			pg_log_error("\\pset: allowed Unicode column line styles are single, double");
 			return false;
 		}
 	}
@@ -3720,7 +3875,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 			refresh_utf8format(&(popt->topt));
 		else
 		{
-			psql_error("\\pset: allowed Unicode header line styles are single, double\n");
+			pg_log_error("\\pset: allowed Unicode header line styles are single, double");
 			return false;
 		}
 	}
@@ -3753,6 +3908,26 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 		}
 		else
 			popt->topt.expanded = !popt->topt.expanded;
+	}
+
+	/* field separator for CSV format */
+	else if (strcmp(param, "csv_fieldsep") == 0)
+	{
+		if (value)
+		{
+			/* CSV separator has to be a one-byte character */
+			if (strlen(value) != 1)
+			{
+				pg_log_error("\\pset: csv_fieldsep must be a single one-byte character");
+				return false;
+			}
+			if (value[0] == '"' || value[0] == '\n' || value[0] == '\r')
+			{
+				pg_log_error("\\pset: csv_fieldsep cannot be a double quote, a newline, or a carriage return");
+				return false;
+			}
+			popt->topt.csvFieldSep[0] = value[0];
+		}
 	}
 
 	/* locale-aware numeric output */
@@ -3885,7 +4060,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 	}
 	else
 	{
-		psql_error("\\pset: unknown option: %s\n", param);
+		pg_log_error("\\pset: unknown option: %s", param);
 		return false;
 	}
 
@@ -3923,6 +4098,13 @@ printPsetInfo(const char *param, struct printQueryOpt *popt)
 			printf(_("Expanded display is used automatically.\n"));
 		else
 			printf(_("Expanded display is off.\n"));
+	}
+
+	/* show field separator for CSV format */
+	else if (strcmp(param, "csv_fieldsep") == 0)
+	{
+		printf(_("Field separator for CSV is \"%s\".\n"),
+			   popt->topt.csvFieldSep);
 	}
 
 	/* show field separator for unaligned text */
@@ -4064,7 +4246,7 @@ printPsetInfo(const char *param, struct printQueryOpt *popt)
 
 	else
 	{
-		psql_error("\\pset: unknown option: %s\n", param);
+		pg_log_error("\\pset: unknown option: %s", param);
 		return false;
 	}
 
@@ -4126,6 +4308,8 @@ pset_value_string(const char *param, struct printQueryOpt *popt)
 		return psprintf("%d", popt->topt.border);
 	else if (strcmp(param, "columns") == 0)
 		return psprintf("%d", popt->topt.columns);
+	else if (strcmp(param, "csv_fieldsep") == 0)
+		return pset_quoted_string(popt->topt.csvFieldSep);
 	else if (strcmp(param, "expanded") == 0)
 		return pstrdup(popt->topt.expanded == 2
 					   ? "auto"
@@ -4218,7 +4402,7 @@ do_shell(const char *command)
 
 	if (result == 127 || result == -1)
 	{
-		psql_error("\\!: failed\n");
+		pg_log_error("\\!: failed");
 		return false;
 	}
 	return true;
@@ -4243,7 +4427,7 @@ do_watch(PQExpBuffer query_buf, double sleep)
 
 	if (!query_buf || query_buf->len <= 0)
 	{
-		psql_error(_("\\watch cannot be used with an empty query\n"));
+		pg_log_error("\\watch cannot be used with an empty query");
 		return false;
 	}
 
@@ -4464,7 +4648,7 @@ get_create_object_cmd(EditableObjectType obj_type, Oid oid,
 				printfPQExpBuffer(query,
 								  "SELECT nspname, relname, relkind, "
 								  "pg_catalog.pg_get_viewdef(c.oid, true), "
-								  "array_remove(array_remove(c.reloptions,'check_option=local'),'check_option=cascaded') AS reloptions, "
+								  "pg_catalog.array_remove(pg_catalog.array_remove(c.reloptions,'check_option=local'),'check_option=cascaded') AS reloptions, "
 								  "CASE WHEN 'check_option=local' = ANY (c.reloptions) THEN 'LOCAL'::text "
 								  "WHEN 'check_option=cascaded' = ANY (c.reloptions) THEN 'CASCADED'::text ELSE NULL END AS checkoption "
 								  "FROM pg_catalog.pg_class c "
@@ -4540,8 +4724,8 @@ get_create_object_cmd(EditableObjectType obj_type, Oid oid,
 							appendPQExpBufferStr(buf, "CREATE OR REPLACE VIEW ");
 							break;
 						default:
-							psql_error("\"%s.%s\" is not a view\n",
-									   nspname, relname);
+							pg_log_error("\"%s.%s\" is not a view",
+										 nspname, relname);
 							result = false;
 							break;
 					}
@@ -4556,7 +4740,7 @@ get_create_object_cmd(EditableObjectType obj_type, Oid oid,
 												   pset.encoding,
 												   standard_strings()))
 						{
-							psql_error("could not parse reloptions array\n");
+							pg_log_error("could not parse reloptions array");
 							result = false;
 						}
 						appendPQExpBufferChar(buf, ')');
@@ -4645,7 +4829,7 @@ strip_lineno_from_objdesc(char *obj)
 	lineno = atoi(c);
 	if (lineno < 1)
 	{
-		psql_error("invalid line number: %s\n", c);
+		pg_log_error("invalid line number: %s", c);
 		return 0;
 	}
 
@@ -4747,7 +4931,7 @@ minimal_error_message(PGresult *res)
 		appendPQExpBufferStr(msg, "(not available)");
 	appendPQExpBufferChar(msg, '\n');
 
-	psql_error("%s", msg->data);
+	pg_log_error("%s", msg->data);
 
 	destroyPQExpBuffer(msg);
 }

@@ -12,7 +12,7 @@ use File::Copy;
 use File::Find ();
 use File::Path qw(rmtree);
 use File::Spec;
-BEGIN  { use lib File::Spec->rel2abs(dirname(__FILE__)); }
+BEGIN { use lib File::Spec->rel2abs(dirname(__FILE__)); }
 
 use Install qw(Install);
 
@@ -207,12 +207,12 @@ sub tap_check
 	my $dir = shift;
 	chdir $dir;
 
-	my @args = ("prove", @flags, "t/*.pl");
+	my @args = ("prove", @flags, glob("t/*.pl"));
 
 	# adjust the environment for just this test
 	local %ENV = %ENV;
-	$ENV{PERL5LIB}   = "$topdir/src/test/perl;$ENV{PERL5LIB}";
-	$ENV{PG_REGRESS} = "$topdir/$Config/pg_regress/pg_regress";
+	$ENV{PERL5LIB}      = "$topdir/src/test/perl;$ENV{PERL5LIB}";
+	$ENV{PG_REGRESS}    = "$topdir/$Config/pg_regress/pg_regress";
 	$ENV{REGRESS_SHLIB} = "$topdir/src/test/regress/regress.dll";
 
 	$ENV{TESTDIR} = "$dir";
@@ -370,6 +370,10 @@ sub plcheck
 		{
 			@lang_args = ();
 		}
+
+		# Move on if no tests are listed.
+		next if (scalar @tests == 0);
+
 		print
 		  "============================================================\n";
 		print "Checking $lang\n";
@@ -400,7 +404,15 @@ sub subdircheck
 
 	chdir $module;
 	my @tests = fetchTests();
-	my @opts  = fetchRegressOpts();
+
+	# Leave if no tests are listed in the module.
+	if (scalar @tests == 0)
+	{
+		chdir "..";
+		return;
+	}
+
+	my @opts = fetchRegressOpts();
 
 	# Special processing for python transform modules, see their respective
 	# Makefiles for more details regarding Python-version specific
@@ -577,7 +589,7 @@ sub upgradecheck
 	generate_db('',       91, 127, '');
 
 	print "\nSetting up data for upgrading\n\n";
-	installcheck_internal('serial', @EXTRA_REGRESS_OPTS);
+	installcheck_internal('parallel', @EXTRA_REGRESS_OPTS);
 
 	# now we can chdir into the source dir
 	chdir "$topdir/src/bin/pg_upgrade";
@@ -656,6 +668,8 @@ sub fetchRegressOpts
 	return @opts;
 }
 
+# Fetch the list of tests by parsing a module's Makefile.  An empty
+# list is returned if the module does not need to run anything.
 sub fetchTests
 {
 
@@ -669,6 +683,14 @@ sub fetchTests
 	my $t = "";
 
 	$m =~ s{\\\r?\n}{}g;
+
+	# A module specifying NO_INSTALLCHECK does not support installcheck,
+	# so bypass its run by returning an empty set of tests.
+	if ($m =~ /^\s*NO_INSTALLCHECK\s*=\s*\S+/m)
+	{
+		return ();
+	}
+
 	if ($m =~ /^REGRESS\s*=\s*(.*)$/gm)
 	{
 		$t = $1;

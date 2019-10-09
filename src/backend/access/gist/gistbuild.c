@@ -4,7 +4,7 @@
  *	  build algorithm for GiST indexes implementation.
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -19,10 +19,11 @@
 #include "access/genam.h"
 #include "access/gist_private.h"
 #include "access/gistxlog.h"
+#include "access/tableam.h"
 #include "access/xloginsert.h"
 #include "catalog/index.h"
 #include "miscadmin.h"
-#include "optimizer/cost.h"
+#include "optimizer/optimizer.h"
 #include "storage/bufmgr.h"
 #include "storage/smgr.h"
 #include "utils/memutils.h"
@@ -79,30 +80,30 @@ typedef struct
 static void gistInitBuffering(GISTBuildState *buildstate);
 static int	calculatePagesPerBuffer(GISTBuildState *buildstate, int levelStep);
 static void gistBuildCallback(Relation index,
-				  HeapTuple htup,
-				  Datum *values,
-				  bool *isnull,
-				  bool tupleIsAlive,
-				  void *state);
+							  HeapTuple htup,
+							  Datum *values,
+							  bool *isnull,
+							  bool tupleIsAlive,
+							  void *state);
 static void gistBufferingBuildInsert(GISTBuildState *buildstate,
-						 IndexTuple itup);
+									 IndexTuple itup);
 static bool gistProcessItup(GISTBuildState *buildstate, IndexTuple itup,
-				BlockNumber startblkno, int startlevel);
+							BlockNumber startblkno, int startlevel);
 static BlockNumber gistbufferinginserttuples(GISTBuildState *buildstate,
-						  Buffer buffer, int level,
-						  IndexTuple *itup, int ntup, OffsetNumber oldoffnum,
-						  BlockNumber parentblk, OffsetNumber downlinkoffnum);
+											 Buffer buffer, int level,
+											 IndexTuple *itup, int ntup, OffsetNumber oldoffnum,
+											 BlockNumber parentblk, OffsetNumber downlinkoffnum);
 static Buffer gistBufferingFindCorrectParent(GISTBuildState *buildstate,
-							   BlockNumber childblkno, int level,
-							   BlockNumber *parentblk,
-							   OffsetNumber *downlinkoffnum);
+											 BlockNumber childblkno, int level,
+											 BlockNumber *parentblk,
+											 OffsetNumber *downlinkoffnum);
 static void gistProcessEmptyingQueue(GISTBuildState *buildstate);
 static void gistEmptyAllBuffers(GISTBuildState *buildstate);
 static int	gistGetMaxLevel(Relation index);
 
 static void gistInitParentMap(GISTBuildState *buildstate);
 static void gistMemorizeParent(GISTBuildState *buildstate, BlockNumber child,
-				   BlockNumber parent);
+							   BlockNumber parent);
 static void gistMemorizeAllDownlinks(GISTBuildState *buildstate, Buffer parent);
 static BlockNumber gistGetParent(GISTBuildState *buildstate, BlockNumber child);
 
@@ -179,19 +180,7 @@ gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	GISTInitBuffer(buffer, F_LEAF);
 
 	MarkBufferDirty(buffer);
-
-	if (RelationNeedsWAL(index))
-	{
-		XLogRecPtr	recptr;
-
-		XLogBeginInsert();
-		XLogRegisterBuffer(0, buffer, REGBUF_WILL_INIT);
-
-		recptr = XLogInsert(RM_GIST_ID, XLOG_GIST_CREATE_INDEX);
-		PageSetLSN(page, recptr);
-	}
-	else
-		PageSetLSN(page, gistGetFakeLSN(heap));
+	PageSetLSN(page, GistBuildLSN);
 
 	UnlockReleaseBuffer(buffer);
 
@@ -204,8 +193,9 @@ gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	/*
 	 * Do the heap scan.
 	 */
-	reltuples = IndexBuildHeapScan(heap, index, indexInfo, true,
-								   gistBuildCallback, (void *) &buildstate, NULL);
+	reltuples = table_index_build_scan(heap, index, indexInfo, true, true,
+									   gistBuildCallback,
+									   (void *) &buildstate, NULL);
 
 	/*
 	 * If buffering was used, flush out all the tuples that are still in the
@@ -223,6 +213,17 @@ gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	MemoryContextDelete(buildstate.giststate->tempCxt);
 
 	freeGISTstate(buildstate.giststate);
+
+	/*
+	 * We didn't write WAL records as we built the index, so if WAL-logging is
+	 * required, write all pages to the WAL now.
+	 */
+	if (RelationNeedsWAL(index))
+	{
+		log_newpage_range(index, MAIN_FORKNUM,
+						  0, RelationGetNumberOfBlocks(index),
+						  true);
+	}
 
 	/*
 	 * Return statistics
@@ -454,7 +455,7 @@ calculatePagesPerBuffer(GISTBuildState *buildstate, int levelStep)
 }
 
 /*
- * Per-tuple callback from IndexBuildHeapScan.
+ * Per-tuple callback for table_index_build_scan.
  */
 static void
 gistBuildCallback(Relation index,
@@ -486,7 +487,7 @@ gistBuildCallback(Relation index,
 		 * locked, we call gistdoinsert directly.
 		 */
 		gistdoinsert(index, itup, buildstate->freespace,
-					 buildstate->giststate, buildstate->heaprel);
+					 buildstate->giststate, buildstate->heaprel, true);
 	}
 
 	/* Update tuple count and total size. */
@@ -693,7 +694,7 @@ gistbufferinginserttuples(GISTBuildState *buildstate, Buffer buffer, int level,
 							   InvalidBuffer,
 							   &splitinfo,
 							   false,
-							   buildstate->heaprel);
+							   buildstate->heaprel, true);
 
 	/*
 	 * If this is a root split, update the root path item kept in memory. This

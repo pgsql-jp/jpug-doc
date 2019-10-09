@@ -39,7 +39,7 @@
  * empty and be returned to the free page manager, and whole segments can
  * become empty and be returned to the operating system.
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -256,7 +256,7 @@ static const uint16 dsa_size_classes[] = {
  * round the size of the object up to the next multiple of 8 bytes, and then
  * index into this array.
  */
-static char dsa_size_class_map[] = {
+static const uint8 dsa_size_class_map[] = {
 	2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13,
 	14, 14, 14, 14, 15, 15, 15, 15, 16, 16, 16, 16, 17, 17, 17, 17,
 	18, 18, 18, 18, 18, 18, 18, 18, 19, 19, 19, 19, 19, 19, 19, 19,
@@ -382,28 +382,28 @@ struct dsa_area
 	(segment_map_ptr - &area->segment_maps[0])
 
 static void init_span(dsa_area *area, dsa_pointer span_pointer,
-		  dsa_area_pool *pool, dsa_pointer start, size_t npages,
-		  uint16 size_class);
+					  dsa_area_pool *pool, dsa_pointer start, size_t npages,
+					  uint16 size_class);
 static bool transfer_first_span(dsa_area *area, dsa_area_pool *pool,
-					int fromclass, int toclass);
+								int fromclass, int toclass);
 static inline dsa_pointer alloc_object(dsa_area *area, int size_class);
 static bool ensure_active_superblock(dsa_area *area, dsa_area_pool *pool,
-						 int size_class);
+									 int size_class);
 static dsa_segment_map *get_segment_by_index(dsa_area *area,
-					 dsa_segment_index index);
+											 dsa_segment_index index);
 static void destroy_superblock(dsa_area *area, dsa_pointer span_pointer);
 static void unlink_span(dsa_area *area, dsa_area_span *span);
 static void add_span_to_fullness_class(dsa_area *area, dsa_area_span *span,
-						   dsa_pointer span_pointer, int fclass);
+									   dsa_pointer span_pointer, int fclass);
 static void unlink_segment(dsa_area *area, dsa_segment_map *segment_map);
 static dsa_segment_map *get_best_segment(dsa_area *area, size_t npages);
 static dsa_segment_map *make_new_segment(dsa_area *area, size_t requested_pages);
 static dsa_area *create_internal(void *place, size_t size,
-				int tranche_id,
-				dsm_handle control_handle,
-				dsm_segment *control_segment);
+								 int tranche_id,
+								 dsm_handle control_handle,
+								 dsm_segment *control_segment);
 static dsa_area *attach_internal(void *place, dsm_segment *segment,
-				dsa_handle handle);
+								 dsa_handle handle);
 static void check_for_freed_segments(dsa_area *area);
 static void check_for_freed_segments_locked(dsa_area *area);
 
@@ -1676,6 +1676,7 @@ ensure_active_superblock(dsa_area *area, dsa_area_pool *pool,
 			return false;
 		}
 	}
+
 	/*
 	 * This shouldn't happen: get_best_segment() or make_new_segment()
 	 * promised that we can successfully allocate npages.
@@ -2257,7 +2258,7 @@ check_for_freed_segments(dsa_area *area)
 }
 
 /*
- * Workhorse for check_for_free_segments(), and also used directly in path
+ * Workhorse for check_for_freed_segments(), and also used directly in path
  * where the area lock is already held.  This should be called after acquiring
  * the lock but before looking up any segment by index number, to make sure we
  * unmap any stale segments that might have previously had the same index as a
@@ -2267,7 +2268,7 @@ static void
 check_for_freed_segments_locked(dsa_area *area)
 {
 	size_t		freed_segment_counter;
-	int		i;
+	int			i;
 
 	Assert(LWLockHeldByMe(DSA_AREA_LOCK(area)));
 	freed_segment_counter = area->control->freed_segment_counter;

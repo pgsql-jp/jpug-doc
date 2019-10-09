@@ -2,7 +2,7 @@
  *
  * PostgreSQL locale utilities
  *
- * Portions Copyright (c) 2002-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2002-2019, PostgreSQL Global Development Group
  *
  * src/backend/utils/adt/pg_locale.c
  *
@@ -59,6 +59,7 @@
 #include "catalog/pg_control.h"
 #include "mb/pg_wchar.h"
 #include "utils/builtins.h"
+#include "utils/formatting.h"
 #include "utils/hsearch.h"
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
@@ -133,6 +134,9 @@ static HTAB *collation_cache = NULL;
 static char *IsoLocaleName(const char *);	/* MSVC specific */
 #endif
 
+#ifdef USE_ICU
+static void icu_set_collation_attributes(UCollator *collator, const char *loc);
+#endif
 
 /*
  * pg_perm_setlocale
@@ -1367,6 +1371,7 @@ pg_newlocale_from_collation(Oid collid)
 		/* We'll fill in the result struct locally before allocating memory */
 		memset(&result, 0, sizeof(result));
 		result.provider = collform->collprovider;
+		result.deterministic = collform->collisdeterministic;
 
 		if (collform->collprovider == COLLPROVIDER_LIBC)
 		{
@@ -1438,6 +1443,9 @@ pg_newlocale_from_collation(Oid collid)
 				ereport(ERROR,
 						(errmsg("could not open collator for locale \"%s\": %s",
 								collcollate, u_errorName(status))));
+
+			if (U_ICU_VERSION_MAJOR_NUM < 54)
+				icu_set_collation_attributes(collator, collcollate);
 
 			/* We will leak this string if we get an error below :-( */
 			result.info.icu.locale = MemoryContextStrdup(TopMemoryContext,
@@ -1595,7 +1603,7 @@ icu_to_uchar(UChar **buff_uchar, const char *buff, size_t nbytes)
 							  buff, nbytes, &status);
 	if (U_FAILURE(status) && status != U_BUFFER_OVERFLOW_ERROR)
 		ereport(ERROR,
-				(errmsg("ucnv_toUChars failed: %s", u_errorName(status))));
+				(errmsg("%s failed: %s", "ucnv_toUChars", u_errorName(status))));
 
 	*buff_uchar = palloc((len_uchar + 1) * sizeof(**buff_uchar));
 
@@ -1604,7 +1612,7 @@ icu_to_uchar(UChar **buff_uchar, const char *buff, size_t nbytes)
 							  buff, nbytes, &status);
 	if (U_FAILURE(status))
 		ereport(ERROR,
-				(errmsg("ucnv_toUChars failed: %s", u_errorName(status))));
+				(errmsg("%s failed: %s", "ucnv_toUChars", u_errorName(status))));
 
 	return len_uchar;
 }
@@ -1633,7 +1641,8 @@ icu_from_uchar(char **result, const UChar *buff_uchar, int32_t len_uchar)
 								 buff_uchar, len_uchar, &status);
 	if (U_FAILURE(status) && status != U_BUFFER_OVERFLOW_ERROR)
 		ereport(ERROR,
-				(errmsg("ucnv_fromUChars failed: %s", u_errorName(status))));
+				(errmsg("%s failed: %s", "ucnv_fromUChars",
+						u_errorName(status))));
 
 	*result = palloc(len_result + 1);
 
@@ -1642,9 +1651,109 @@ icu_from_uchar(char **result, const UChar *buff_uchar, int32_t len_uchar)
 								 buff_uchar, len_uchar, &status);
 	if (U_FAILURE(status))
 		ereport(ERROR,
-				(errmsg("ucnv_fromUChars failed: %s", u_errorName(status))));
+				(errmsg("%s failed: %s", "ucnv_fromUChars",
+						u_errorName(status))));
 
 	return len_result;
+}
+
+/*
+ * Parse collation attributes and apply them to the open collator.  This takes
+ * a string like "und@colStrength=primary;colCaseLevel=yes" and parses and
+ * applies the key-value arguments.
+ *
+ * Starting with ICU version 54, the attributes are processed automatically by
+ * ucol_open(), so this is only necessary for emulating this behavior on older
+ * versions.
+ */
+pg_attribute_unused()
+static void
+icu_set_collation_attributes(UCollator *collator, const char *loc)
+{
+	char	   *str = asc_tolower(loc, strlen(loc));
+
+	str = strchr(str, '@');
+	if (!str)
+		return;
+	str++;
+
+	for (char *token = strtok(str, ";"); token; token = strtok(NULL, ";"))
+	{
+		char	   *e = strchr(token, '=');
+
+		if (e)
+		{
+			char	   *name;
+			char	   *value;
+			UColAttribute uattr;
+			UColAttributeValue uvalue;
+			UErrorCode	status;
+
+			status = U_ZERO_ERROR;
+
+			*e = '\0';
+			name = token;
+			value = e + 1;
+
+			/*
+			 * See attribute name and value lists in ICU i18n/coll.cpp
+			 */
+			if (strcmp(name, "colstrength") == 0)
+				uattr = UCOL_STRENGTH;
+			else if (strcmp(name, "colbackwards") == 0)
+				uattr = UCOL_FRENCH_COLLATION;
+			else if (strcmp(name, "colcaselevel") == 0)
+				uattr = UCOL_CASE_LEVEL;
+			else if (strcmp(name, "colcasefirst") == 0)
+				uattr = UCOL_CASE_FIRST;
+			else if (strcmp(name, "colalternate") == 0)
+				uattr = UCOL_ALTERNATE_HANDLING;
+			else if (strcmp(name, "colnormalization") == 0)
+				uattr = UCOL_NORMALIZATION_MODE;
+			else if (strcmp(name, "colnumeric") == 0)
+				uattr = UCOL_NUMERIC_COLLATION;
+			else
+				/* ignore if unknown */
+				continue;
+
+			if (strcmp(value, "primary") == 0)
+				uvalue = UCOL_PRIMARY;
+			else if (strcmp(value, "secondary") == 0)
+				uvalue = UCOL_SECONDARY;
+			else if (strcmp(value, "tertiary") == 0)
+				uvalue = UCOL_TERTIARY;
+			else if (strcmp(value, "quaternary") == 0)
+				uvalue = UCOL_QUATERNARY;
+			else if (strcmp(value, "identical") == 0)
+				uvalue = UCOL_IDENTICAL;
+			else if (strcmp(value, "no") == 0)
+				uvalue = UCOL_OFF;
+			else if (strcmp(value, "yes") == 0)
+				uvalue = UCOL_ON;
+			else if (strcmp(value, "shifted") == 0)
+				uvalue = UCOL_SHIFTED;
+			else if (strcmp(value, "non-ignorable") == 0)
+				uvalue = UCOL_NON_IGNORABLE;
+			else if (strcmp(value, "lower") == 0)
+				uvalue = UCOL_LOWER_FIRST;
+			else if (strcmp(value, "upper") == 0)
+				uvalue = UCOL_UPPER_FIRST;
+			else
+				status = U_ILLEGAL_ARGUMENT_ERROR;
+
+			if (status == U_ZERO_ERROR)
+				ucol_setAttribute(collator, uattr, uvalue, &status);
+
+			/*
+			 * Pretend the error came from ucol_open(), for consistent error
+			 * message across ICU versions.
+			 */
+			if (U_FAILURE(status))
+				ereport(ERROR,
+						(errmsg("could not open collator for locale \"%s\": %s",
+								loc, u_errorName(status))));
+		}
+	}
 }
 
 #endif							/* USE_ICU */

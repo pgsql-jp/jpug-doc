@@ -3,7 +3,7 @@
  * fd.c
  *	  Virtual file descriptor code.
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -16,8 +16,8 @@
  * including base tables, scratch files (e.g., sort and hash spool
  * files), and random calls to C library routines like system(3); it
  * is quite easy to exceed system limits on the number of open files a
- * single process can have.  (This is around 256 on many modern
- * operating systems, but can be as low as 32 on others.)
+ * single process can have.  (This is around 1024 on many modern
+ * operating systems, but may be lower on others.)
  *
  * VFDs are managed as an LRU pool, with actual OS file descriptors
  * being opened and closed as needed.  Obviously, if a routine is
@@ -169,15 +169,6 @@ bool		data_sync_retry = false;
 
 #define FileIsNotOpen(file) (VfdCache[file].fd == VFD_CLOSED)
 
-/*
- * Note: a VFD's seekPos is normally always valid, but if for some reason
- * an lseek() fails, it might become set to FileUnknownPos.  We can struggle
- * along without knowing the seek position in many cases, but in some places
- * we have to fail if we don't have it.
- */
-#define FileUnknownPos ((off_t) -1)
-#define FilePosIsUnknown(pos) ((pos) < 0)
-
 /* these are the assigned bits in fdstate below: */
 #define FD_DELETE_AT_CLOSE	(1 << 0)	/* T = delete when closed */
 #define FD_CLOSE_AT_EOXACT	(1 << 1)	/* T = close at eoXact */
@@ -191,7 +182,6 @@ typedef struct vfd
 	File		nextFree;		/* link to next free VFD, if in freelist */
 	File		lruMoreRecently;	/* doubly linked recency-of-use list */
 	File		lruLessRecently;
-	off_t		seekPos;		/* current logical file position, or -1 */
 	off_t		fileSize;		/* current size of file (0 if not temporary) */
 	char	   *fileName;		/* name of file, or NULL for unused VFD */
 	/* NB: fileName is malloc'd, and must be free'd when closing the VFD */
@@ -318,14 +308,14 @@ static int	FreeDesc(AllocateDesc *desc);
 static void AtProcExit_Files(int code, Datum arg);
 static void CleanupTempFiles(bool isCommit, bool isProcExit);
 static void RemovePgTempFilesInDir(const char *tmpdirname, bool missing_ok,
-					   bool unlink_all);
+								   bool unlink_all);
 static void RemovePgTempRelationFiles(const char *tsdirname);
 static void RemovePgTempRelationFilesInDbspace(const char *dbspacedirname);
 
 static void walkdir(const char *path,
-		void (*action) (const char *fname, bool isdir, int elevel),
-		bool process_symlinks,
-		int elevel);
+					void (*action) (const char *fname, bool isdir, int elevel),
+					bool process_symlinks,
+					int elevel);
 #ifdef PG_FLUSH_DATA_WORKS
 static void pre_sync_fname(const char *fname, bool isdir, int elevel);
 #endif
@@ -409,9 +399,7 @@ pg_fdatasync(int fd)
 /*
  * pg_flush_data --- advise OS that the described dirty data should be flushed
  *
- * offset of 0 with nbytes 0 means that the entire file should be flushed;
- * in this case, this function may have side-effects on the file's
- * seek position!
+ * offset of 0 with nbytes 0 means that the entire file should be flushed
  */
 void
 pg_flush_data(int fd, off_t offset, off_t nbytes)
@@ -658,7 +646,14 @@ durable_rename(const char *oldfile, const char *newfile, int elevel)
 					 errmsg("could not fsync file \"%s\": %m", newfile)));
 			return -1;
 		}
-		CloseTransientFile(fd);
+
+		if (CloseTransientFile(fd))
+		{
+			ereport(elevel,
+					(errcode_for_file_access(),
+					 errmsg("could not close file \"%s\": %m", newfile)));
+			return -1;
+		}
 	}
 
 	/* Time to do the real deal... */
@@ -1049,22 +1044,6 @@ LruDelete(File file)
 	vfdP = &VfdCache[file];
 
 	/*
-	 * Normally we should know the seek position, but if for some reason we
-	 * have lost track of it, try again to get it.  If we still can't get it,
-	 * we have a problem: we will be unable to restore the file seek position
-	 * when and if the file is re-opened.  But we can't really throw an error
-	 * and refuse to close the file, or activities such as transaction cleanup
-	 * will be broken.
-	 */
-	if (FilePosIsUnknown(vfdP->seekPos))
-	{
-		vfdP->seekPos = lseek(vfdP->fd, (off_t) 0, SEEK_CUR);
-		if (FilePosIsUnknown(vfdP->seekPos))
-			elog(LOG, "could not seek file \"%s\" before closing: %m",
-				 vfdP->fileName);
-	}
-
-	/*
 	 * Close the file.  We aren't expecting this to fail; if it does, better
 	 * to leak the FD than to mess up our internal state.
 	 */
@@ -1132,33 +1111,6 @@ LruInsert(File file)
 		else
 		{
 			++nfile;
-		}
-
-		/*
-		 * Seek to the right position.  We need no special case for seekPos
-		 * equal to FileUnknownPos, as lseek() will certainly reject that
-		 * (thus completing the logic noted in LruDelete() that we will fail
-		 * to re-open a file if we couldn't get its seek position before
-		 * closing).
-		 */
-		if (vfdP->seekPos != (off_t) 0)
-		{
-			if (lseek(vfdP->fd, vfdP->seekPos, SEEK_SET) < 0)
-			{
-				/*
-				 * If we fail to restore the seek position, treat it like an
-				 * open() failure.
-				 */
-				int			save_errno = errno;
-
-				elog(LOG, "could not seek file \"%s\" after re-opening: %m",
-					 vfdP->fileName);
-				(void) close(vfdP->fd);
-				vfdP->fd = VFD_CLOSED;
-				--nfile;
-				errno = save_errno;
-				return -1;
-			}
 		}
 	}
 
@@ -1426,7 +1378,6 @@ PathNameOpenFilePerm(const char *fileName, int fileFlags, mode_t fileMode)
 	/* Saved flags are adjusted to be OK for re-opening file */
 	vfdP->fileFlags = fileFlags & ~(O_CREAT | O_TRUNC | O_EXCL);
 	vfdP->fileMode = fileMode;
-	vfdP->seekPos = 0;
 	vfdP->fileSize = 0;
 	vfdP->fdstate = 0x0;
 	vfdP->resowner = NULL;
@@ -1641,7 +1592,7 @@ OpenTemporaryFileInTablespace(Oid tblspcOid, bool rejectError)
  * If the file is inside the top-level temporary directory, its name should
  * begin with PG_TEMP_FILE_PREFIX so that it can be identified as temporary
  * and deleted at startup by RemovePgTempFiles().  Alternatively, it can be
- * inside a directory created with PathnameCreateTemporaryDir(), in which case
+ * inside a directory created with PathNameCreateTemporaryDir(), in which case
  * the prefix isn't needed.
  */
 File
@@ -1737,7 +1688,7 @@ PathNameDeleteTemporaryFile(const char *path, bool error_on_failure)
 		if (errno != ENOENT)
 			ereport(error_on_failure ? ERROR : LOG,
 					(errcode_for_file_access(),
-					 errmsg("cannot unlink temporary file \"%s\": %m",
+					 errmsg("could not unlink temporary file \"%s\": %m",
 							path)));
 		return false;
 	}
@@ -1780,7 +1731,7 @@ FileClose(File file)
 			 * see LruDelete.
 			 */
 			elog(vfdP->fdstate & FD_TEMP_FILE_LIMIT ? LOG : data_sync_elevel(LOG),
-				"could not close file \"%s\": %m", vfdP->fileName);
+				 "could not close file \"%s\": %m", vfdP->fileName);
 		}
 
 		--nfile;
@@ -1847,7 +1798,6 @@ FileClose(File file)
 
 /*
  * FilePrefetch - initiate asynchronous read of a given range of the file.
- * The logical seek position is unaffected.
  *
  * Currently the only implementation of this function is using posix_fadvise
  * which is the simplest standardized interface that accomplishes this.
@@ -1894,10 +1844,6 @@ FileWriteback(File file, off_t offset, off_t nbytes, uint32 wait_event_info)
 			   file, VfdCache[file].fileName,
 			   (int64) offset, (int64) nbytes));
 
-	/*
-	 * Caution: do not call pg_flush_data with nbytes = 0, it could trash the
-	 * file's seek position.  We prefer to define that as a no-op here.
-	 */
 	if (nbytes <= 0)
 		return;
 
@@ -1911,7 +1857,8 @@ FileWriteback(File file, off_t offset, off_t nbytes, uint32 wait_event_info)
 }
 
 int
-FileRead(File file, char *buffer, int amount, uint32 wait_event_info)
+FileRead(File file, char *buffer, int amount, off_t offset,
+		 uint32 wait_event_info)
 {
 	int			returnCode;
 	Vfd		   *vfdP;
@@ -1920,7 +1867,7 @@ FileRead(File file, char *buffer, int amount, uint32 wait_event_info)
 
 	DO_DB(elog(LOG, "FileRead: %d (%s) " INT64_FORMAT " %d %p",
 			   file, VfdCache[file].fileName,
-			   (int64) VfdCache[file].seekPos,
+			   (int64) offset,
 			   amount, buffer));
 
 	returnCode = FileAccess(file);
@@ -1931,16 +1878,10 @@ FileRead(File file, char *buffer, int amount, uint32 wait_event_info)
 
 retry:
 	pgstat_report_wait_start(wait_event_info);
-	returnCode = read(vfdP->fd, buffer, amount);
+	returnCode = pg_pread(vfdP->fd, buffer, amount, offset);
 	pgstat_report_wait_end();
 
-	if (returnCode >= 0)
-	{
-		/* if seekPos is unknown, leave it that way */
-		if (!FilePosIsUnknown(vfdP->seekPos))
-			vfdP->seekPos += returnCode;
-	}
-	else
+	if (returnCode < 0)
 	{
 		/*
 		 * Windows may run out of kernel buffers and return "Insufficient
@@ -1966,16 +1907,14 @@ retry:
 		/* OK to retry if interrupted */
 		if (errno == EINTR)
 			goto retry;
-
-		/* Trouble, so assume we don't know the file position anymore */
-		vfdP->seekPos = FileUnknownPos;
 	}
 
 	return returnCode;
 }
 
 int
-FileWrite(File file, char *buffer, int amount, uint32 wait_event_info)
+FileWrite(File file, char *buffer, int amount, off_t offset,
+		  uint32 wait_event_info)
 {
 	int			returnCode;
 	Vfd		   *vfdP;
@@ -1984,7 +1923,7 @@ FileWrite(File file, char *buffer, int amount, uint32 wait_event_info)
 
 	DO_DB(elog(LOG, "FileWrite: %d (%s) " INT64_FORMAT " %d %p",
 			   file, VfdCache[file].fileName,
-			   (int64) VfdCache[file].seekPos,
+			   (int64) offset,
 			   amount, buffer));
 
 	returnCode = FileAccess(file);
@@ -2003,26 +1942,13 @@ FileWrite(File file, char *buffer, int amount, uint32 wait_event_info)
 	 */
 	if (temp_file_limit >= 0 && (vfdP->fdstate & FD_TEMP_FILE_LIMIT))
 	{
-		off_t		newPos;
+		off_t		past_write = offset + amount;
 
-		/*
-		 * Normally we should know the seek position, but if for some reason
-		 * we have lost track of it, try again to get it.  Here, it's fine to
-		 * throw an error if we still can't get it.
-		 */
-		if (FilePosIsUnknown(vfdP->seekPos))
-		{
-			vfdP->seekPos = lseek(vfdP->fd, (off_t) 0, SEEK_CUR);
-			if (FilePosIsUnknown(vfdP->seekPos))
-				elog(ERROR, "could not seek file \"%s\": %m", vfdP->fileName);
-		}
-
-		newPos = vfdP->seekPos + amount;
-		if (newPos > vfdP->fileSize)
+		if (past_write > vfdP->fileSize)
 		{
 			uint64		newTotal = temporary_files_size;
 
-			newTotal += newPos - vfdP->fileSize;
+			newTotal += past_write - vfdP->fileSize;
 			if (newTotal > (uint64) temp_file_limit * (uint64) 1024)
 				ereport(ERROR,
 						(errcode(ERRCODE_CONFIGURATION_LIMIT_EXCEEDED),
@@ -2034,7 +1960,7 @@ FileWrite(File file, char *buffer, int amount, uint32 wait_event_info)
 retry:
 	errno = 0;
 	pgstat_report_wait_start(wait_event_info);
-	returnCode = write(vfdP->fd, buffer, amount);
+	returnCode = pg_pwrite(VfdCache[file].fd, buffer, amount, offset);
 	pgstat_report_wait_end();
 
 	/* if write didn't set errno, assume problem is no disk space */
@@ -2043,10 +1969,6 @@ retry:
 
 	if (returnCode >= 0)
 	{
-		/* if seekPos is unknown, leave it that way */
-		if (!FilePosIsUnknown(vfdP->seekPos))
-			vfdP->seekPos += returnCode;
-
 		/*
 		 * Maintain fileSize and temporary_files_size if it's a temp file.
 		 *
@@ -2056,12 +1978,12 @@ retry:
 		 */
 		if (vfdP->fdstate & FD_TEMP_FILE_LIMIT)
 		{
-			off_t		newPos = vfdP->seekPos;
+			off_t		past_write = offset + amount;
 
-			if (newPos > vfdP->fileSize)
+			if (past_write > vfdP->fileSize)
 			{
-				temporary_files_size += newPos - vfdP->fileSize;
-				vfdP->fileSize = newPos;
+				temporary_files_size += past_write - vfdP->fileSize;
+				vfdP->fileSize = past_write;
 			}
 		}
 	}
@@ -2087,9 +2009,6 @@ retry:
 		/* OK to retry if interrupted */
 		if (errno == EINTR)
 			goto retry;
-
-		/* Trouble, so assume we don't know the file position anymore */
-		vfdP->seekPos = FileUnknownPos;
 	}
 
 	return returnCode;
@@ -2117,92 +2036,21 @@ FileSync(File file, uint32 wait_event_info)
 }
 
 off_t
-FileSeek(File file, off_t offset, int whence)
+FileSize(File file)
 {
-	Vfd		   *vfdP;
-
 	Assert(FileIsValid(file));
 
-	DO_DB(elog(LOG, "FileSeek: %d (%s) " INT64_FORMAT " " INT64_FORMAT " %d",
-			   file, VfdCache[file].fileName,
-			   (int64) VfdCache[file].seekPos,
-			   (int64) offset, whence));
-
-	vfdP = &VfdCache[file];
+	DO_DB(elog(LOG, "FileSize %d (%s)",
+			   file, VfdCache[file].fileName));
 
 	if (FileIsNotOpen(file))
 	{
-		switch (whence)
-		{
-			case SEEK_SET:
-				if (offset < 0)
-				{
-					errno = EINVAL;
-					return (off_t) -1;
-				}
-				vfdP->seekPos = offset;
-				break;
-			case SEEK_CUR:
-				if (FilePosIsUnknown(vfdP->seekPos) ||
-					vfdP->seekPos + offset < 0)
-				{
-					errno = EINVAL;
-					return (off_t) -1;
-				}
-				vfdP->seekPos += offset;
-				break;
-			case SEEK_END:
-				if (FileAccess(file) < 0)
-					return (off_t) -1;
-				vfdP->seekPos = lseek(vfdP->fd, offset, whence);
-				break;
-			default:
-				elog(ERROR, "invalid whence: %d", whence);
-				break;
-		}
-	}
-	else
-	{
-		switch (whence)
-		{
-			case SEEK_SET:
-				if (offset < 0)
-				{
-					errno = EINVAL;
-					return (off_t) -1;
-				}
-				if (vfdP->seekPos != offset)
-					vfdP->seekPos = lseek(vfdP->fd, offset, whence);
-				break;
-			case SEEK_CUR:
-				if (offset != 0 || FilePosIsUnknown(vfdP->seekPos))
-					vfdP->seekPos = lseek(vfdP->fd, offset, whence);
-				break;
-			case SEEK_END:
-				vfdP->seekPos = lseek(vfdP->fd, offset, whence);
-				break;
-			default:
-				elog(ERROR, "invalid whence: %d", whence);
-				break;
-		}
+		if (FileAccess(file) < 0)
+			return (off_t) -1;
 	}
 
-	return vfdP->seekPos;
+	return lseek(VfdCache[file].fd, 0, SEEK_END);
 }
-
-/*
- * XXX not actually used but here for completeness
- */
-#ifdef NOT_USED
-off_t
-FileTell(File file)
-{
-	Assert(FileIsValid(file));
-	DO_DB(elog(LOG, "FileTell %d (%s)",
-			   file, VfdCache[file].fileName));
-	return VfdCache[file].seekPos;
-}
-#endif
 
 int
 FileTruncate(File file, off_t offset, uint32 wait_event_info)
@@ -3454,7 +3302,10 @@ pre_sync_fname(const char *fname, bool isdir, int elevel)
 	 */
 	pg_flush_data(fd, 0, 0);
 
-	(void) CloseTransientFile(fd);
+	if (CloseTransientFile(fd))
+		ereport(elevel,
+				(errcode_for_file_access(),
+				 errmsg("could not close file \"%s\": %m", fname)));
 }
 
 #endif							/* PG_FLUSH_DATA_WORKS */
@@ -3477,7 +3328,7 @@ unlink_if_exists_fname(const char *fname, bool isdir, int elevel)
 		if (rmdir(fname) != 0 && errno != ENOENT)
 			ereport(elevel,
 					(errcode_for_file_access(),
-					 errmsg("could not rmdir directory \"%s\": %m", fname)));
+					 errmsg("could not remove directory \"%s\": %m", fname)));
 	}
 	else
 	{
@@ -3553,7 +3404,13 @@ fsync_fname_ext(const char *fname, bool isdir, bool ignore_perm, int elevel)
 		return -1;
 	}
 
-	(void) CloseTransientFile(fd);
+	if (CloseTransientFile(fd))
+	{
+		ereport(elevel,
+				(errcode_for_file_access(),
+				 errmsg("could not close file \"%s\": %m", fname)));
+		return -1;
+	}
 
 	return 0;
 }

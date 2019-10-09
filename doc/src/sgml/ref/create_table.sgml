@@ -35,7 +35,8 @@ CREATE [ [ GLOBAL | LOCAL ] { TEMPORARY | TEMP } | UNLOGGED ] TABLE [ IF NOT EXI
 ] )
 [ INHERITS ( <replaceable>parent_table</replaceable> [, ... ] ) ]
 [ PARTITION BY { RANGE | LIST | HASH } ( { <replaceable class="parameter">column_name</replaceable> | ( <replaceable class="parameter">expression</replaceable> ) } [ COLLATE <replaceable class="parameter">collation</replaceable> ] [ <replaceable class="parameter">opclass</replaceable> ] [, ... ] ) ]
-[ WITH ( <replaceable class="parameter">storage_parameter</replaceable> [= <replaceable class="parameter">value</replaceable>] [, ... ] ) | WITH OIDS | WITHOUT OIDS ]
+[ USING <replaceable class="parameter">method</replaceable> ]
+[ WITH ( <replaceable class="parameter">storage_parameter</replaceable> [= <replaceable class="parameter">value</replaceable>] [, ... ] ) | WITHOUT OIDS ]
 [ ON COMMIT { PRESERVE ROWS | DELETE ROWS | DROP } ]
 [ TABLESPACE <replaceable class="parameter">tablespace_name</replaceable> ]
 
@@ -46,7 +47,8 @@ CREATE [ [ GLOBAL | LOCAL ] { TEMPORARY | TEMP } | UNLOGGED ] TABLE [ IF NOT EXI
     [, ... ]
 ) ]
 [ PARTITION BY { RANGE | LIST | HASH } ( { <replaceable class="parameter">column_name</replaceable> | ( <replaceable class="parameter">expression</replaceable> ) } [ COLLATE <replaceable class="parameter">collation</replaceable> ] [ <replaceable class="parameter">opclass</replaceable> ] [, ... ] ) ]
-[ WITH ( <replaceable class="parameter">storage_parameter</replaceable> [= <replaceable class="parameter">value</replaceable>] [, ... ] ) | WITH OIDS | WITHOUT OIDS ]
+[ USING <replaceable class="parameter">method</replaceable> ]
+[ WITH ( <replaceable class="parameter">storage_parameter</replaceable> [= <replaceable class="parameter">value</replaceable>] [, ... ] ) | WITHOUT OIDS ]
 [ ON COMMIT { PRESERVE ROWS | DELETE ROWS | DROP } ]
 [ TABLESPACE <replaceable class="parameter">tablespace_name</replaceable> ]
 
@@ -57,7 +59,8 @@ CREATE [ [ GLOBAL | LOCAL ] { TEMPORARY | TEMP } | UNLOGGED ] TABLE [ IF NOT EXI
     [, ... ]
 ) ] { FOR VALUES <replaceable class="parameter">partition_bound_spec</replaceable> | DEFAULT }
 [ PARTITION BY { RANGE | LIST | HASH } ( { <replaceable class="parameter">column_name</replaceable> | ( <replaceable class="parameter">expression</replaceable> ) } [ COLLATE <replaceable class="parameter">collation</replaceable> ] [ <replaceable class="parameter">opclass</replaceable> ] [, ... ] ) ]
-[ WITH ( <replaceable class="parameter">storage_parameter</replaceable> [= <replaceable class="parameter">value</replaceable>] [, ... ] ) | WITH OIDS | WITHOUT OIDS ]
+[ USING <replaceable class="parameter">method</replaceable> ]
+[ WITH ( <replaceable class="parameter">storage_parameter</replaceable> [= <replaceable class="parameter">value</replaceable>] [, ... ] ) | WITHOUT OIDS ]
 [ ON COMMIT { PRESERVE ROWS | DELETE ROWS | DROP } ]
 [ TABLESPACE <replaceable class="parameter">tablespace_name</replaceable> ]
 
@@ -71,11 +74,12 @@ CREATE [ [ GLOBAL | LOCAL ] { TEMPORARY | TEMP } | UNLOGGED ] TABLE [ IF NOT EXI
   NULL |
   CHECK ( <replaceable class="parameter">expression</replaceable> ) [ NO INHERIT ] |
   DEFAULT <replaceable>default_expr</replaceable> |
+  GENERATED ALWAYS AS ( <replaceable>generation_expr</replaceable> ) STORED |
   GENERATED { ALWAYS | BY DEFAULT } AS IDENTITY [ ( <replaceable>sequence_options</replaceable> ) ] |
   UNIQUE <replaceable class="parameter">index_parameters</replaceable> |
   PRIMARY KEY <replaceable class="parameter">index_parameters</replaceable> |
   REFERENCES <replaceable class="parameter">reftable</replaceable> [ ( <replaceable class="parameter">refcolumn</replaceable> ) ] [ MATCH FULL | MATCH PARTIAL | MATCH SIMPLE ]
-    [ ON DELETE <replaceable class="parameter">action</replaceable> ] [ ON UPDATE <replaceable class="parameter">action</replaceable> ] }
+    [ ON DELETE <replaceable class="parameter">referential_action</replaceable> ] [ ON UPDATE <replaceable class="parameter">referential_action</replaceable> ] }
 [ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ]
 
 <!--
@@ -89,7 +93,8 @@ CREATE [ [ GLOBAL | LOCAL ] { TEMPORARY | TEMP } | UNLOGGED ] TABLE [ IF NOT EXI
   PRIMARY KEY ( <replaceable class="parameter">column_name</replaceable> [, ... ] ) <replaceable class="parameter">index_parameters</replaceable> |
   EXCLUDE [ USING <replaceable class="parameter">index_method</replaceable> ] ( <replaceable class="parameter">exclude_element</replaceable> WITH <replaceable class="parameter">operator</replaceable> [, ... ] ) <replaceable class="parameter">index_parameters</replaceable> [ WHERE ( <replaceable class="parameter">predicate</replaceable> ) ] |
   FOREIGN KEY ( <replaceable class="parameter">column_name</replaceable> [, ... ] ) REFERENCES <replaceable class="parameter">reftable</replaceable> [ ( <replaceable class="parameter">refcolumn</replaceable> [, ... ] ) ]
-    [ MATCH FULL | MATCH PARTIAL | MATCH SIMPLE ] [ ON DELETE <replaceable class="parameter">action</replaceable> ] [ ON UPDATE <replaceable class="parameter">action</replaceable> ] }
+    [ MATCH FULL | MATCH PARTIAL | MATCH SIMPLE ] [ ON DELETE <replaceable
+class="parameter">referential_action</replaceable> ] [ ON UPDATE <replaceable class="parameter">referential_action</replaceable> ] }
 [ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ]
 
 <!--
@@ -97,16 +102,16 @@ CREATE [ [ GLOBAL | LOCAL ] { TEMPORARY | TEMP } | UNLOGGED ] TABLE [ IF NOT EXI
 -->
 <phrase>また<replaceable class="parameter">like_option</replaceable>は、以下の通りです。</phrase>
 
-{ INCLUDING | EXCLUDING } { COMMENTS | CONSTRAINTS | DEFAULTS | IDENTITY | INDEXES | STATISTICS | STORAGE | ALL }
+{ INCLUDING | EXCLUDING } { COMMENTS | CONSTRAINTS | DEFAULTS | GENERATED | IDENTITY | INDEXES | STATISTICS | STORAGE | ALL }
 
 <!--
 <phrase>and <replaceable class="parameter">partition_bound_spec</replaceable> is:</phrase>
 -->
 <phrase>また<replaceable class="parameter">partition_bound_spec</replaceable>は、以下の通りです。</phrase>
 
-IN ( { <replaceable class="parameter">numeric_literal</replaceable> | <replaceable class="parameter">string_literal</replaceable> | TRUE | FALSE | NULL } [, ...] ) |
-FROM ( { <replaceable class="parameter">numeric_literal</replaceable> | <replaceable class="parameter">string_literal</replaceable> | TRUE | FALSE | MINVALUE | MAXVALUE } [, ...] )
-  TO ( { <replaceable class="parameter">numeric_literal</replaceable> | <replaceable class="parameter">string_literal</replaceable> | TRUE | FALSE | MINVALUE | MAXVALUE } [, ...] ) |
+IN ( <replaceable class="parameter">partition_bound_expr</replaceable> [, ...] ) |
+FROM ( { <replaceable class="parameter">partition_bound_expr</replaceable> | MINVALUE | MAXVALUE } [, ...] )
+  TO ( { <replaceable class="parameter">partition_bound_expr</replaceable> | MINVALUE | MAXVALUE } [, ...] ) |
 WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REMAINDER <replaceable class="parameter">numeric_literal</replaceable> )
 
 <!--
@@ -404,13 +409,9 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
     <term><literal>INHERITS ( <replaceable>parent_table</replaceable> [, ... ] )</literal></term>
     <listitem>
      <para>
-<!--
       The optional <literal>INHERITS</literal> clause specifies a list of
       tables from which the new table automatically inherits all
       columns.  Parent tables can be plain tables or foreign tables.
--->
-オプションの<literal>INHERITS</literal>句でテーブルの一覧を指定すると、新しいテーブルは指定されたテーブルの全ての列を自動的に継承します。
-親テーブルには通常のテーブルまたは外部テーブルを指定できます。
      </para>
 
      <para>
@@ -470,20 +471,13 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
      </para>
 
      <para>
-<!--
       Column <literal>STORAGE</literal> settings are also copied from parent tables.
--->
-列の<literal>STORAGE</literal>設定もまた親テーブルからコピーされます。
      </para>
 
      <para>
-<!--
       If a column in the parent table is an identity column, that property is
       not inherited.  A column in the child table can be declared identity
       column if desired.
--->
-親テーブルのある列がIDENTITY列の場合、その属性は継承されません。
-望むなら子テーブルの列をIDENTY列と宣言することができます。
      </para>
     </listitem>
    </varlistentry>
@@ -537,22 +531,13 @@ Bツリー演算子クラスがない場合はエラーが報告されます。
      </para>
 
      <para>
-<!--
       Partitioned tables do not support <literal>EXCLUDE</literal> constraints;
       however, you can define these constraints on individual partitions.
-      Also, while it's possible to define <literal>PRIMARY KEY</literal>
-      constraints on partitioned tables, creating foreign keys that
-      reference a partitioned table is not yet supported.
--->
-パーティションテーブルは<literal>UNIQUE</literal>、<literal>PRIMARY KEY</literal>、<literal>EXCLUDE</literal>、<literal>FOREIGN KEY</literal>の各制約をサポートしませんが、個々のパーティションでこれらの制約を定義することはできます。
      </para>
 
      <para>
-<!--
       See <xref linkend="ddl-partitioning"/> for more discussion on table
       partitioning.
--->
-テーブルパーティショニングの更なる議論は<xref linkend="ddl-partitioning"/>を参照してください。
      </para>
 
     </listitem>
@@ -566,8 +551,7 @@ Bツリー演算子クラスがない場合はエラーが報告されます。
       Creates the table as a <firstterm>partition</firstterm> of the specified
       parent table. The table can be created either as a partition for specific
       values using <literal>FOR VALUES</literal> or as a default partition
-      using <literal>DEFAULT</literal>.  This option is not available for
-      hash-partitioned tables.
+      using <literal>DEFAULT</literal>.
 -->
 指定した親テーブルの<firstterm>パーティション</firstterm>としてテーブルを作成します。
 <literal>FOR VALUES</literal>を用いて特定の値のパーティションとして、あるいは、<literal>DEFAULT</literal>を用いてデフォルトパーティションとしてテーブルを作成できます。
@@ -589,16 +573,13 @@ Bツリー演算子クラスがない場合はエラーが報告されます。
      </para>
 
      <para>
-<!--
-      Each of the values specified in
-      the <replaceable class="parameter">partition_bound_spec</replaceable> is
-      a literal, <literal>NULL</literal>, <literal>MINVALUE</literal>, or
-      <literal>MAXVALUE</literal>.  Each literal value must be either a
-      numeric constant that is coercible to the corresponding partition key
-      column's type, or a string literal that is valid input for that type.
--->
-<replaceable class="parameter">partition_bound_spec</replaceable>で指定される各値はリテラル、<literal>NULL</literal>、<literal>MINVALUE</literal>あるいは<literal>MAXVALUE</literal>です。
-各リテラル値はパーティションキー列の型に変換可能な数値定数か、その列の型として有効な入力である文字列リテラルのいずれかです。
+      <replaceable class="parameter">partition_bound_expr</replaceable> is
+      any variable-free expression (subqueries, window functions, aggregate
+      functions, and set-returning functions are not allowed).  Its data type
+      must match the data type of the corresponding partition key column.
+      The expression is evaluated once at table creation time, so it can
+      even contain volatile expressions such as
+      <literal><function>CURRENT_TIMESTAMP</function></literal>.
      </para>
 
      <para>
@@ -701,11 +682,10 @@ Bツリー演算子クラスがない場合はエラーが報告されます。
      <para>
 <!--
       If <literal>DEFAULT</literal> is specified, the table will be
-      created as a default partition of the parent table. The parent can
-      either be a list or range partitioned table. A partition key value
+      created as the default partition of the parent table.  This option
+      is not available for hash-partitioned tables.  A partition key value
       not fitting into any other partition of the given parent will be
-      routed to the default partition. There can be only one default
-      partition for a given parent table.
+      routed to the default partition.
 -->
 <literal>DEFAULT</literal>が指定された場合、テーブルは親テーブルのデフォルトパーティションとして作成されます。
 親はリストパーティションテーブルか範囲パーティションテーブルのいずれかがありえます。
@@ -716,7 +696,7 @@ Bツリー演算子クラスがない場合はエラーが報告されます。
      <para>
 <!--
       When a table has an existing <literal>DEFAULT</literal> partition and
-      a new partition is added to it, the existing default partition must
+      a new partition is added to it, the default partition must
       be scanned to verify that it does not contain any rows which properly
       belong in the new partition.  If the default partition contains a
       large number of rows, this may be slow.  The scan will be skipped if
@@ -747,7 +727,7 @@ Bツリー演算子クラスがない場合はエラーが報告されます。
       modulus-16 partitions covering the same portion of the key space (one with
       a remainder equal to the remainder of the detached partition, and the
       other with a remainder equal to that value plus 8), and repopulate them
-      with data.  You can then repeat this -&#045;perhaps at a later time &#045;- for
+      with data.  You can then repeat this &#045;&#045; perhaps at a later time &#045;&#045; for
       each modulus-8 partition until none remain.  While this may still involve
       a large amount of data movement at each step, it is still better than
       having to create a whole new table and move all the data at once.
@@ -766,17 +746,13 @@ Bツリー演算子クラスがない場合はエラーが報告されます。
      <para>
 <!--
       A partition must have the same column names and types as the partitioned
-      table to which it belongs.  If the parent is specified <literal>WITH
-      OIDS</literal> then all partitions must have OIDs; the parent's OID
-      column will be inherited by all partitions just like any other column.
-      Modifications to the column names or types of a partitioned table, or
-      the addition or removal of an OID column, will automatically propagate
-      to all partitions.  <literal>CHECK</literal> constraints will be inherited
-      automatically by every partition, but an individual partition may specify
-      additional <literal>CHECK</literal> constraints; additional constraints with
-      the same name and condition as in the parent will be merged with the
-      parent constraint.  Defaults may be specified separately for each
-      partition.
+      table to which it belongs. Modifications to the column names or types of
+      a partitioned table will automatically propagate to all partitions.
+      <literal>CHECK</literal> constraints will be inherited automatically by
+      every partition, but an individual partition may specify additional
+      <literal>CHECK</literal> constraints; additional constraints with the
+      same name and condition as in the parent will be merged with the parent
+      constraint.  Defaults may be specified separately for each partition.
 -->
 パーティションは、それが属するパーティションテーブルと同じ列名および型を持っていなければなりません。
 親が<literal>WITH OIDS</literal>を指定している場合は、すべてのパーティションがOIDを持っていなければならず、親のOIDは他の列と同様にすべてのパーティションに継承されます。
@@ -832,96 +808,9 @@ TRUNCATEのように通常はテーブルとそれを継承するすべての子
 <literal>INHERITS</literal>とは違い、作成した後、新しいテーブルと元のテーブルが完全に分離されます。
 元のテーブルへの変更は新しいテーブルには適用されません。また、元のテーブルを走査しても新しいテーブルのデータは見つかりません。
      </para>
-     <para>
+      <para>
 <!--
-      Default expressions for the copied column definitions will be copied
-      only if <literal>INCLUDING DEFAULTS</literal> is specified.  The
-      default behavior is to exclude default expressions, resulting in the
-      copied columns in the new table having null defaults.
-      Note that copying defaults that call database-modification functions,
-      such as <function>nextval</function>, may create a functional linkage between
-      the original and new tables.
--->
-コピーする列のデフォルト式は、<literal>INCLUDING DEFAULTS</literal>が指定された場合にのみコピーされます。
-デフォルトの動作では、デフォルト式がコピーされないため、新しいテーブルのコピーされた列はデフォルト値としてNULLを持つことになります。
-<function>nextval</function>のようにデータベースを変更する関数を呼び出すデフォルトをコピーすると、元のテーブルと新しいテーブルの間に関数的なリンクが作成される場合があることに注意してください。
-     </para>
-     <para>
-<!--
-      Any identity specifications of copied column definitions will only be
-      copied if <literal>INCLUDING IDENTITY</literal> is specified.  A new
-      sequence is created for each identity column of the new table, separate
-      from the sequences associated with the old table.
--->
-コピーされる列定義のIDENTITYの指定は、<literal>INCLUDING IDENTITY</literal>が指定された場合にのみコピーされます。
-新しいテーブルの各IDENTITY列には新しいシーケンスが作られ、古いテーブルに紐付けられたシーケンスとは別になります。
-     </para>
-     <para>
-<!--
-      Not-null constraints are always copied to the new table.
-      <literal>CHECK</literal> constraints will be copied only if
-      <literal>INCLUDING CONSTRAINTS</literal> is specified.
-      No distinction is made between column constraints and table
-      constraints.
--->
-非NULL制約は常に新しいテーブルにコピーされます。
-<literal>CHECK</literal>制約は、<literal>INCLUDING CONSTRAINTS</literal>が指定された場合にのみコピーされます。
-列制約とテーブル制約は区別されません。
-     </para>
-     <para>
-<!--
-      Extended statistics are copied to the new table if
-      <literal>INCLUDING STATISTICS</literal> is specified.
--->
-拡張統計情報は<literal>INCLUDING STATISTICS</literal>が指定された場合にのみコピーされます。
-     </para>
-     <para>
-<!--
-      Indexes, <literal>PRIMARY KEY</literal>, <literal>UNIQUE</literal>,
-      and <literal>EXCLUDE</literal> constraints on the original table will be
-      created on the new table only if <literal>INCLUDING INDEXES</literal>
-      is specified.  Names for the new indexes and constraints are
-      chosen according to the default rules, regardless of how the originals
-      were named.  (This behavior avoids possible duplicate-name failures for
-      the new indexes.)
--->
-元のテーブルのインデックス、および<literal>PRIMARY KEY</literal>、<literal>UNIQUE</literal>、<literal>EXCLUDE</literal>の制約は<literal>INCLUDING INDEXES</literal>が指定された場合のみ、新しいテーブル上で作成されます。
-新しいインデックスと制約の名前は、元の名前とは関係なく、デフォルトの規則に従って付けられます。
-（この動作により、新しいインデックスが名前の重複によりエラーになる可能性を回避しています。）
-     </para>
-     <para>
-<!--
-      <literal>STORAGE</literal> settings for the copied column definitions will be
-      copied only if <literal>INCLUDING STORAGE</literal> is specified.  The
-      default behavior is to exclude <literal>STORAGE</literal> settings, resulting
-      in the copied columns in the new table having type-specific default
-      settings.  For more on <literal>STORAGE</literal> settings, see
-      <xref linkend="storage-toast"/>.
--->
-複製された列定義に関する<literal>STORAGE</literal>設定は、<literal>INCLUDING STORAGE</literal>が指定された場合のみコピーされます。
-このデフォルトの動作では、<literal>STORAGE</literal>設定は除外され、新しいテーブルにおけるコピーされた列は型固有のデフォルトの設定を持つようになります。
-<literal>STORAGE</literal>の詳細については<xref linkend="storage-toast"/>を参照してください。
-     </para>
-     <para>
-<!--
-      Comments for the copied columns, constraints, and indexes
-      will be copied only if <literal>INCLUDING COMMENTS</literal>
-      is specified. The default behavior is to exclude comments, resulting in
-      the copied columns and constraints in the new table having no comments.
--->
-コピーされた列、制約、インデックスについてのコメントは<literal>INCLUDING COMMENTS</literal>が指定された場合のみコピーされます。
-このデフォルトの動作では、コメントは除外され、新しいテーブルにおけるコピーされた列や制約はコメントを持ちません。
-     </para>
-     <para>
-<!--
-      <literal>INCLUDING ALL</literal> is an abbreviated form of
-      <literal>INCLUDING COMMENTS INCLUDING CONSTRAINTS INCLUDING DEFAULTS INCLUDING IDENTITY INCLUDING INDEXES INCLUDING STATISTICS INCLUDING STORAGE</literal>.
--->
-<literal>INCLUDING ALL</literal>は<literal>INCLUDING COMMENTS INCLUDING CONSTRAINTS INCLUDING DEFAULTS INCLUDING IDENTITY INCLUDING INDEXES INCLUDING STATISTICS INCLUDING STORAGE</literal>の省略形です。
-     </para>
-     <para>
-<!--
-      Note that unlike <literal>INHERITS</literal>, columns and
+      Also unlike <literal>INHERITS</literal>, columns and
       constraints copied by <literal>LIKE</literal> are not merged with similarly
       named columns and constraints.
       If the same name is specified explicitly or in another
@@ -930,6 +819,127 @@ TRUNCATEのように通常はテーブルとそれを継承するすべての子
 <literal>INHERITS</literal>と異なり、<literal>LIKE</literal>によりコピーされた列や制約は類似の名前の列や制約にまとめられません。
 同じ名前が明示的に、あるいは他の<literal>LIKE</literal>句で指定された場合、エラーが通知されます。
      </para>
+     <para>
+      The optional <replaceable>like_option</replaceable> clauses specify
+      which additional properties of the original table to copy.  Specifying
+      <literal>INCLUDING</literal> copies the property, specifying
+      <literal>EXCLUDING</literal> omits the property.
+      <literal>EXCLUDING</literal> is the default.  If multiple specifications
+      are made for the same kind of object, the last one is used.  The
+      available options are:
+
+      <variablelist>
+       <varlistentry>
+        <term><literal>INCLUDING COMMENTS</literal></term>
+        <listitem>
+         <para>
+          Comments for the copied columns, constraints, and indexes will be
+          copied.  The default behavior is to exclude comments, resulting in
+          the copied columns and constraints in the new table having no
+          comments.
+         </para>
+        </listitem>
+       </varlistentry>
+
+       <varlistentry>
+        <term><literal>INCLUDING CONSTRAINTS</literal></term>
+        <listitem>
+         <para>
+          <literal>CHECK</literal> constraints will be copied.  No distinction
+          is made between column constraints and table constraints.  Not-null
+          constraints are always copied to the new table.
+         </para>
+        </listitem>
+       </varlistentry>
+
+       <varlistentry>
+        <term><literal>INCLUDING DEFAULTS</literal></term>
+        <listitem>
+         <para>
+          Default expressions for the copied column definitions will be
+          copied.  Otherwise, default expressions are not copied, resulting in
+          the copied columns in the new table having null defaults.  Note that
+          copying defaults that call database-modification functions, such as
+          <function>nextval</function>, may create a functional linkage
+          between the original and new tables.
+         </para>
+        </listitem>
+       </varlistentry>
+
+       <varlistentry>
+        <term><literal>INCLUDING GENERATED</literal></term>
+        <listitem>
+         <para>
+          Any generation expressions of copied column definitions will be
+          copied.  By default, new columns will be regular base columns.
+         </para>
+        </listitem>
+       </varlistentry>
+
+       <varlistentry>
+        <term><literal>INCLUDING IDENTITY</literal></term>
+        <listitem>
+         <para>
+          Any identity specifications of copied column definitions will be
+          copied.  A new sequence is created for each identity column of the
+          new table, separate from the sequences associated with the old
+          table.
+         </para>
+        </listitem>
+       </varlistentry>
+
+       <varlistentry>
+        <term><literal>INCLUDING INDEXES</literal></term>
+        <listitem>
+         <para>
+          Indexes, <literal>PRIMARY KEY</literal>, <literal>UNIQUE</literal>,
+          and <literal>EXCLUDE</literal> constraints on the original table
+          will be created on the new table.  Names for the new indexes and
+          constraints are chosen according to the default rules, regardless of
+          how the originals were named.  (This behavior avoids possible
+          duplicate-name failures for the new indexes.)
+         </para>
+        </listitem>
+       </varlistentry>
+
+       <varlistentry>
+        <term><literal>INCLUDING STATISTICS</literal></term>
+        <listitem>
+         <para>
+          Extended statistics are copied to the new table.
+         </para>
+        </listitem>
+       </varlistentry>
+
+       <varlistentry>
+        <term><literal>INCLUDING STORAGE</literal></term>
+        <listitem>
+         <para>
+          <literal>STORAGE</literal> settings for the copied column
+          definitions will be copied.  The default behavior is to exclude
+          <literal>STORAGE</literal> settings, resulting in the copied columns
+          in the new table having type-specific default settings.  For more on
+          <literal>STORAGE</literal> settings, see <xref
+          linkend="storage-toast"/>.
+         </para>
+        </listitem>
+       </varlistentry>
+
+       <varlistentry>
+        <term><literal>INCLUDING ALL</literal></term>
+        <listitem>
+         <para>
+          <literal>INCLUDING ALL</literal> is an abbreviated form selecting
+          all the available individual options.  (It could be useful to write
+          individual <literal>EXCLUDING</literal> clauses after
+          <literal>INCLUDING ALL</literal> to select all but some specific
+          options.)
+         </para>
+        </listitem>
+       </varlistentry>
+      </variablelist>
+     </para>
+
      <para>
 <!--
       The <literal>LIKE</literal> clause can also be used to copy column
@@ -1025,7 +1035,8 @@ TRUEまたはUNKNOWNと評価される式は成功します。
 <!--
       Currently, <literal>CHECK</literal> expressions cannot contain
       subqueries nor refer to variables other than columns of the
-      current row.  The system column <literal>tableoid</literal>
+      current row (see <xref linkend="ddl-constraints-check-constraints"/>).
+      The system column <literal>tableoid</literal>
       may be referenced, but not any other system column.
 -->
 現時点では、<literal>CHECK</literal>式には副問い合わせも現在の行の列以外の変数も含めることはできません。
@@ -1062,10 +1073,10 @@ TRUEまたはUNKNOWNと評価される式は成功します。
 <!--
       The <literal>DEFAULT</literal> clause assigns a default data value for
       the column whose column definition it appears within.  The value
-      is any variable-free expression (subqueries and cross-references
-      to other columns in the current table are not allowed).  The
-      data type of the default expression must match the data type of the
-      column.
+      is any variable-free expression (in particular, cross-references
+      to other columns in the current table are not allowed).  Subqueries
+      are not allowed either.  The data type of the default expression must
+      match the data type of the column.
 -->
 <literal>DEFAULT</literal>句を列定義に付けると、その列にデフォルトデータ値が割り当てられます。
 値として指定するのは、任意の無変数式です（副問い合わせや現在のテーブル内の他の列へ交差参照はできません）。
@@ -1080,6 +1091,28 @@ TRUEまたはUNKNOWNと評価される式は成功します。
 -->
 デフォルト式は、全ての挿入操作において、その列に値が指定されていない場合に使用されます。
 列にデフォルト値がない場合、デフォルト値はNULLになります。
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>GENERATED ALWAYS AS ( <replaceable>generation_expr</replaceable> ) STORED</literal><indexterm><primary>generated column</primary></indexterm></term>
+    <listitem>
+     <para>
+      This clause creates the column as a <firstterm>generated
+      column</firstterm>.  The column cannot be written to, and when read the
+      result of the specified expression will be returned.
+     </para>
+
+     <para>
+      The keyword <literal>STORED</literal> is required to signify that the
+      column will be computed on write and will be stored on disk.
+     </para>
+
+     <para>
+      The generation expression can refer to other columns in the table, but
+      not other generated columns.  Any functions and operators used must be
+      immutable.  References to other tables are not allowed.
      </para>
     </listitem>
    </varlistentry>
@@ -1353,15 +1386,15 @@ predicateの前後に括弧が必要であることに注意して下さい。
 
    <varlistentry>
 <!--
-    <term><literal>REFERENCES <replaceable class="parameter">reftable</replaceable> [ ( <replaceable class="parameter">refcolumn</replaceable> ) ] [ MATCH <replaceable class="parameter">matchtype</replaceable> ] [ ON DELETE <replaceable class="parameter">action</replaceable> ] [ ON UPDATE <replaceable class="parameter">action</replaceable> ]</literal> (column constraint)</term>
+    <term><literal>REFERENCES <replaceable class="parameter">reftable</replaceable> [ ( <replaceable class="parameter">refcolumn</replaceable> ) ] [ MATCH <replaceable class="parameter">matchtype</replaceable> ] [ ON DELETE <replaceable class="parameter">referential_action</replaceable> ] [ ON UPDATE <replaceable class="parameter">referential_action</replaceable> ]</literal> (column constraint)</term>
 -->
     <term><literal>REFERENCES <replaceable class="parameter">reftable</replaceable> [ ( <replaceable class="parameter">refcolumn</replaceable> ) ] [ MATCH <replaceable class="parameter">matchtype</replaceable> ] [ ON DELETE <replaceable class="parameter">action</replaceable> ] [ ON UPDATE <replaceable class="parameter">action</replaceable> ]</literal> （列制約）</term>
 
    <term><literal>FOREIGN KEY ( <replaceable class="parameter">column_name</replaceable> [, ... ] )
     REFERENCES <replaceable class="parameter">reftable</replaceable> [ ( <replaceable class="parameter">refcolumn</replaceable> [, ... ] ) ]
     [ MATCH <replaceable class="parameter">matchtype</replaceable> ]
-    [ ON DELETE <replaceable class="parameter">action</replaceable> ]
-    [ ON UPDATE <replaceable class="parameter">action</replaceable> ]</literal>
+    [ ON DELETE <replaceable class="parameter">referential_action</replaceable> ]
+    [ ON UPDATE <replaceable class="parameter">referential_action</replaceable> ]</literal>
 <!--
     (table constraint)</term>
 -->
@@ -1383,9 +1416,7 @@ predicateの前後に括弧が必要であることに注意して下さい。
       addition of a foreign key constraint requires a
       <literal>SHARE ROW EXCLUSIVE</literal> lock on the referenced table.
       Note that foreign key constraints cannot be defined between temporary
-      tables and permanent tables.  Also note that while it is possible to
-      define a foreign key on a partitioned table, it is not possible to
-      declare a foreign key that references a partitioned table.
+      tables and permanent tables.
 -->
 これらの句は、外部キー制約を指定します。
 外部キー制約は、新しいテーブルの1つまたは複数の列の集合が、被参照テーブルの一部の行の被参照列に一致する値を持たなければならないことを指定するものです。
@@ -1591,72 +1622,43 @@ predicateの前後に括弧が必要であることに注意して下さい。
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>WITH ( <replaceable class="parameter">storage_parameter</replaceable> [= <replaceable class="parameter">value</replaceable>] [, ... ] )</literal></term>
+   <varlistentry id="sql-createtable-method">
+    <term><literal>USING <replaceable class="parameter">method</replaceable></literal></term>
     <listitem>
      <para>
-<!--
-      This clause specifies optional storage parameters for a table or index;
-      see <xref linkend="sql-createtable-storage-parameters"
-      endterm="sql-createtable-storage-parameters-title"/> for more
-      information.  The <literal>WITH</literal> clause for a
-      table can also include <literal>OIDS=TRUE</literal> (or just <literal>OIDS</literal>)
-      to specify that rows of the new table
-      should have OIDs (object identifiers) assigned to them, or
-      <literal>OIDS=FALSE</literal> to specify that the rows should not have OIDs.
-      If <literal>OIDS</literal> is not specified, the default setting depends upon
-      the <xref linkend="guc-default-with-oids"/> configuration parameter.
-      (If the new table inherits from any tables that have OIDs, then
-      <literal>OIDS=TRUE</literal> is forced even if the command says
-      <literal>OIDS=FALSE</literal>.)
--->
-この句は、テーブルまたはインデックスに対して格納パラメータ(省略可能)を指定します。
-詳細は<xref linkend="sql-createtable-storage-parameters" endterm="sql-createtable-storage-parameters-title"/>を参照してください。
-テーブルについての<literal>WITH</literal>には、<literal>OIDS=TRUE</literal>（もしくは単に<literal>OIDS</literal>）を含めて、新しいテーブルの行が行に割り当てられたOID（オブジェクト識別子）を持たなければならないことを指定することもできます。
-また、<literal>OIDS=FALSE</literal>を含めて、OIDを持たないことを指定することもできます。
-<literal>OIDS</literal>が指定されない場合、デフォルトの設定は設定パラメータ<xref linkend="guc-default-with-oids"/>に依存します。
-（新しいテーブルがOIDを持つテーブルから継承する場合、コマンドで<literal>OIDS=FALSE</literal>と指定しても強制的に<literal>OIDS=TRUE</literal> となります。）
-     </para>
-
-     <para>
-<!--
-      If <literal>OIDS=FALSE</literal> is specified or implied, the new
-      table does not store OIDs and no OID will be assigned for a row inserted
-      into it. This is generally considered worthwhile, since it
-      will reduce OID consumption and thereby postpone the wraparound
-      of the 32-bit OID counter. Once the counter wraps around, OIDs
-      can no longer be assumed to be unique, which makes them
-      considerably less useful. In addition, excluding OIDs from a
-      table reduces the space required to store the table on disk by
-      4 bytes per row (on most machines), slightly improving performance.
--->
-<literal>OIDS=FALSE</literal>が明示的または暗黙的に指定されている場合、新しいテーブルはOIDを格納しません。また、挿入される行にはOIDが割り当てられません。
-このような動作は一般的に有益であると考えられます。それは、OIDの使用を抑え、32ビットのOIDカウンタの回転周期を延長できるためです。
-カウンタが一周するとOIDの一意性を保証できなくなるので、その有用性を減少させることになります。
-また、OIDをなくすことで、テーブル1行当たり（ほとんどのマシンで）4バイト分、テーブルをディスクに格納するための容量を軽減するので、多少性能が向上します。
-
-     </para>
-
-     <para>
-<!--
-      To remove OIDs from a table after it has been created, use <xref
-      linkend="sql-altertable"/>.
--->
-テーブルの作成後にOIDを削除するには、<xref linkend="sql-altertable"/>を使用してください。
+      This optional clause specifies the table access method to use to store
+      the contents for the new table; the method needs be an access method of
+      type <literal>TABLE</literal>. See <xref linkend="tableam"/> for more
+      information.  If this option is not specified, the default table access
+      method is chosen for the new table. See <xref
+      linkend="guc-default-table-access-method"/> for more information.
      </para>
     </listitem>
    </varlistentry>
 
    <varlistentry>
-    <term><literal>WITH OIDS</literal></term>
+    <term><literal>WITH ( <replaceable class="parameter">storage_parameter</replaceable> [= <replaceable class="parameter">value</replaceable>] [, ... ] )</literal></term>
+    <listitem>
+     <para>
+      This clause specifies optional storage parameters for a table or index;
+      see <xref linkend="sql-createtable-storage-parameters"
+      endterm="sql-createtable-storage-parameters-title"/> for more
+      information.  For backward-compatibility the <literal>WITH</literal>
+      clause for a table can also include <literal>OIDS=FALSE</literal> to
+      specify that rows of the new table should not contain OIDs (object
+      identifiers), <literal>OIDS=TRUE</literal> is not supported anymore.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
     <term><literal>WITHOUT OIDS</literal></term>
     <listitem>
      <para>
 <!--
-      These are obsolescent syntaxes equivalent to <literal>WITH (OIDS)</literal>
-      and <literal>WITH (OIDS=FALSE)</literal>, respectively.  If you wish to give
-      both an <literal>OIDS</literal> setting and storage parameters, you must use
-      the <literal>WITH ( ... )</literal> syntax; see above.
+      This is backward-compatible syntax for declaring a table
+      <literal>WITHOUT OIDS</literal>, creating a table <literal>WITH
+      OIDS</literal> is not supported anymore.
 -->
 これは古い構文で、それぞれ<literal>WITH (OIDS)</literal>および<literal>WITH (OIDS=FALSE)</literal>と同じです。
 <literal>OIDS</literal>の設定と格納パラメータの設定の両方を指定したい場合は、上述の<literal>WITH ( ... )</literal>を使用しなければなりません。
@@ -1728,7 +1730,7 @@ predicateの前後に括弧が必要であることに注意して下さい。
     </listitem>
    </varlistentry>
 
-   <varlistentry>
+   <varlistentry id="sql-createtable-tablespace">
     <term><literal>TABLESPACE <replaceable class="parameter">tablespace_name</replaceable></literal></term>
     <listitem>
      <para>
@@ -1737,7 +1739,11 @@ predicateの前後に括弧が必要であることに注意して下さい。
       of the tablespace in which the new table is to be created.
       If not specified,
       <xref linkend="guc-default-tablespace"/> is consulted, or
-      <xref linkend="guc-temp-tablespaces"/> if the table is temporary.
+      <xref linkend="guc-temp-tablespaces"/> if the table is temporary.  For
+      partitioned tables, since no storage is required for the table itself,
+      the tablespace specified overrides <literal>default_tablespace</literal>
+      as the default tablespace to use for any newly created partitions when no
+      other tablespace is explicitly specified.
 -->
 <replaceable class="parameter">tablespace_name</replaceable>は、新しいテーブルが作成されるテーブル空間名です。
 指定されていない場合、<xref linkend="guc-default-tablespace"/>が、また一時テーブルの場合は<xref linkend="guc-temp-tablespaces"/>が考慮されます。
@@ -1809,8 +1815,12 @@ predicateの前後に括弧が必要であることに注意して下さい。
 
    <variablelist>
 
-   <varlistentry>
-    <term><literal>fillfactor</literal> (<type>integer</type>)</term>
+    <varlistentry id="reloption-fillfactor" xreflabel="fillfactor">
+    <term><varname>fillfactor</varname> (<type>integer</type>)
+    <indexterm>
+     <primary><varname>fillfactor</varname> storage parameter</primary>
+    </indexterm>
+    </term>
     <listitem>
      <para>
 <!--
@@ -1837,8 +1847,12 @@ TOASTテーブルではこのパラメータを設定できません。
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>toast_tuple_target</literal> (<type>integer</type>)</term>
+   <varlistentry id="reloption-toast-tuple-target" xreflabel="toast_tuple_target">
+    <term><literal>toast_tuple_target</literal> (<type>integer</type>)
+    <indexterm>
+     <primary><varname>toast_tuple_target</varname> storage parameter</primary>
+    </indexterm>
+    </term>
     <listitem>
      <para>
 <!--
@@ -1866,8 +1880,12 @@ toast_tuple_targetは、長い列値をTOASTテーブルに移動する前に必
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>parallel_workers</literal> (<type>integer</type>)</term>
+   <varlistentry id="reloption-parallel-workers" xreflabel="parallel_workers">
+    <term><literal>parallel_workers</literal> (<type>integer</type>)
+     <indexterm>
+     <primary><varname>parallel_workers</varname> storage parameter</primary>
+    </indexterm>
+    </term>
     <listitem>
      <para>
 <!--
@@ -1884,8 +1902,12 @@ toast_tuple_targetは、長い列値をTOASTテーブルに移動する前に必
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>autovacuum_enabled</literal>, <literal>toast.autovacuum_enabled</literal> (<type>boolean</type>)</term>
+   <varlistentry id="reloption-autovacuum-enabled" xreflabel="autovacuum_enabled">
+    <term><literal>autovacuum_enabled</literal>, <literal>toast.autovacuum_enabled</literal> (<type>boolean</type>)
+    <indexterm>
+     <primary><varname>autovacuum_enabled</varname> storage parameter</primary>
+    </indexterm>
+    </term>
     <listitem>
      <para>
 <!--
@@ -1915,8 +1937,53 @@ falseの場合、トランザクションIDの周回問題を回避するため�
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>autovacuum_vacuum_threshold</literal>, <literal>toast.autovacuum_vacuum_threshold</literal> (<type>integer</type>)</term>
+   <varlistentry id="reloption-vacuum-index-cleanup" xreflabel="vacuum_index_cleanup">
+    <term><literal>vacuum_index_cleanup</literal>, <literal>toast.vacuum_index_cleanup</literal> (<type>boolean</type>)
+    <indexterm>
+     <primary><varname>vacuum_index_cleanup</varname> storage parameter</primary>
+    </indexterm>
+    </term>
+    <listitem>
+     <para>
+      Enables or disables index cleanup when <command>VACUUM</command> is
+      run on this table.  The default value is <literal>true</literal>.
+      Disabling index cleanup can speed up <command>VACUUM</command> very
+      significantly, but may also lead to severely bloated indexes if table
+      modifications are frequent.  The <literal>INDEX_CLEANUP</literal>
+      parameter of <xref linkend="sql-vacuum"/>, if specified, overrides
+      the value of this option.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="reloption-vacuum-truncate" xreflabel="vacuum_truncate">
+    <term><literal>vacuum_truncate</literal>, <literal>toast.vacuum_truncate</literal> (<type>boolean</type>)
+    <indexterm>
+     <primary><varname>vacuum_truncate</varname> storage parameter</primary>
+    </indexterm>
+    </term>
+    <listitem>
+     <para>
+      Enables or disables vacuum to try to truncate off any empty pages
+      at the end of this table. The default value is <literal>true</literal>.
+      If <literal>true</literal>, <command>VACUUM</command> and
+      autovacuum do the truncation and the disk space for
+      the truncated pages is returned to the operating system.
+      Note that the truncation requires <literal>ACCESS EXCLUSIVE</literal>
+      lock on the table. The <literal>TRUNCATE</literal> parameter
+      of <xref linkend="sql-vacuum"/>, if specified, overrides the value
+      of this option.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="reloption-autovacuum-vacuum-threshold" xreflabel="autovacuum_vacuum_threshold">
+    <term><literal>autovacuum_vacuum_threshold</literal>, <literal>toast.autovacuum_vacuum_threshold</literal> (<type>integer</type>)
+    <indexterm>
+     <primary><varname>autovacuum_vacuum_threshold</varname></primary>
+     <secondary>storage parameter</secondary>
+    </indexterm>
+    </term>
     <listitem>
      <para>
 <!--
@@ -1928,8 +1995,13 @@ falseの場合、トランザクションIDの周回問題を回避するため�
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>autovacuum_vacuum_scale_factor</literal>, <literal>toast.autovacuum_vacuum_scale_factor</literal> (<type>float4</type>)</term>
+   <varlistentry id="reloption-autovacuum-vauum-scale-factor" xreflabel="autovacuum_vacuum_scale_factor">
+    <term><literal>autovacuum_vacuum_scale_factor</literal>, <literal>toast.autovacuum_vacuum_scale_factor</literal> (<type>float4</type>)
+    <indexterm>
+     <primary><varname>autovacuum_vacuum_scale_factor</varname> </primary>
+     <secondary>storage parameter</secondary>
+    </indexterm>
+    </term>
     <listitem>
      <para>
 <!--
@@ -1941,8 +2013,13 @@ falseの場合、トランザクションIDの周回問題を回避するため�
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>autovacuum_analyze_threshold</literal> (<type>integer</type>)</term>
+   <varlistentry id="reloption-autovacuum-analyze-threshold" xreflabel="autovacuum_analyze_threshold">
+    <term><literal>autovacuum_analyze_threshold</literal> (<type>integer</type>)
+    <indexterm>
+     <primary><varname>autovacuum_analyze_threshold</varname></primary>
+     <secondary>storage parameter</secondary>
+    </indexterm>
+    </term>
     <listitem>
      <para>
 <!--
@@ -1954,8 +2031,13 @@ falseの場合、トランザクションIDの周回問題を回避するため�
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>autovacuum_analyze_scale_factor</literal> (<type>float4</type>)</term>
+   <varlistentry id="reloption-autovacuum-analyze-scale-factor" xreflabel="autovacuum_analyze_scale_factor">
+    <term><literal>autovacuum_analyze_scale_factor</literal> (<type>float4</type>)
+    <indexterm>
+     <primary><varname>autovacuum_analyze_scale_factor</varname></primary>
+     <secondary>storage parameter</secondary>
+    </indexterm>
+    </term>
     <listitem>
      <para>
 <!--
@@ -1967,8 +2049,13 @@ falseの場合、トランザクションIDの周回問題を回避するため�
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>autovacuum_vacuum_cost_delay</literal>, <literal>toast.autovacuum_vacuum_cost_delay</literal> (<type>integer</type>)</term>
+   <varlistentry id="reloption-autovacuum-vacuum-cost-delay" xreflabel="autovacuum_vacuum_cost_delay">
+    <term><literal>autovacuum_vacuum_cost_delay</literal>, <literal>toast.autovacuum_vacuum_cost_delay</literal> (<type>floating point</type>)
+    <indexterm>
+     <primary><varname>autovacuum_vacuum_cost_delay</varname></primary>
+     <secondary>storage parameter</secondary>
+    </indexterm>
+    </term>
     <listitem>
      <para>
 <!--
@@ -1980,8 +2067,13 @@ falseの場合、トランザクションIDの周回問題を回避するため�
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>autovacuum_vacuum_cost_limit</literal>, <literal>toast.autovacuum_vacuum_cost_limit</literal> (<type>integer</type>)</term>
+   <varlistentry id="reloption-autovacuum-vauum-cost-limit" xreflabel="autovacuum_vacuum_cost_limit">
+    <term><literal>autovacuum_vacuum_cost_limit</literal>, <literal>toast.autovacuum_vacuum_cost_limit</literal> (<type>integer</type>)
+    <indexterm>
+     <primary><varname>autovacuum_vacuum_cost_limit</varname></primary>
+     <secondary>storage parameter</secondary>
+    </indexterm>
+    </term>
     <listitem>
      <para>
 <!--
@@ -1993,8 +2085,12 @@ falseの場合、トランザクションIDの周回問題を回避するため�
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>autovacuum_freeze_min_age</literal>, <literal>toast.autovacuum_freeze_min_age</literal> (<type>integer</type>)</term>
+   <varlistentry id="reloption-autovacuum-freeze-min-age" xreflabel="autovacuum_freeze_min_age">
+    <term><literal>autovacuum_freeze_min_age</literal>, <literal>toast.autovacuum_freeze_min_age</literal> (<type>integer</type>)
+    <indexterm>
+     <primary><varname>autovacuum_freeze_min_age</varname> storage parameter</primary>
+    </indexterm>
+    </term>
     <listitem>
      <para>
 <!--
@@ -2010,8 +2106,13 @@ falseの場合、トランザクションIDの周回問題を回避するため�
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>autovacuum_freeze_max_age</literal>, <literal>toast.autovacuum_freeze_max_age</literal> (<type>integer</type>)</term>
+   <varlistentry id="reloption-autovacuum-freeze-max-age" xreflabel="autovacuum_freeze_max_age">
+    <term><literal>autovacuum_freeze_max_age</literal>, <literal>toast.autovacuum_freeze_max_age</literal> (<type>integer</type>)
+    <indexterm>
+     <primary><varname>autovacuum_freeze_max_age</varname></primary>
+     <secondary>storage parameter</secondary>
+    </indexterm>
+    </term>
     <listitem>
      <para>
 <!--
@@ -2026,8 +2127,12 @@ falseの場合、トランザクションIDの周回問題を回避するため�
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>autovacuum_freeze_table_age</literal>, <literal>toast.autovacuum_freeze_table_age</literal> (<type>integer</type>)</term>
+   <varlistentry id="reloption-autovacuum-freeze-table-age" xreflabel="autovacuum_freeze_table_age">
+    <term><literal>autovacuum_freeze_table_age</literal>, <literal>toast.autovacuum_freeze_table_age</literal> (<type>integer</type>)
+    <indexterm>
+     <primary><varname>autovacuum_freeze_table_age</varname> storage parameter</primary>
+    </indexterm>
+    </term>
     <listitem>
      <para>
 <!--
@@ -2040,8 +2145,12 @@ falseの場合、トランザクションIDの周回問題を回避するため�
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>autovacuum_multixact_freeze_min_age</literal>, <literal>toast.autovacuum_multixact_freeze_min_age</literal> (<type>integer</type>)</term>
+   <varlistentry id="reloption-autovacuum-multixact-freeze-min-age" xreflabel="autovacuum_multixact_freeze_min_age">
+    <term><literal>autovacuum_multixact_freeze_min_age</literal>, <literal>toast.autovacuum_multixact_freeze_min_age</literal> (<type>integer</type>)
+    <indexterm>
+     <primary><varname>autovacuum_multixact_freeze_min_age</varname> storage parameter</primary>
+    </indexterm>
+    </term>
     <listitem>
      <para>
 <!--
@@ -2058,8 +2167,13 @@ falseの場合、トランザクションIDの周回問題を回避するため�
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>autovacuum_multixact_freeze_max_age</literal>, <literal>toast.autovacuum_multixact_freeze_max_age</literal> (<type>integer</type>)</term>
+   <varlistentry id="reloption-autovacuum-multixact-freeze-max-age" xreflabel="autovacuum_multixact_freeze_max_age">
+    <term><literal>autovacuum_multixact_freeze_max_age</literal>, <literal>toast.autovacuum_multixact_freeze_max_age</literal> (<type>integer</type>)
+    <indexterm>
+     <primary><varname>autovacuum_multixact_freeze_max_age</varname></primary>
+     <secondary>storage parameter</secondary>
+    </indexterm>
+    </term>
     <listitem>
      <para>
 <!--
@@ -2076,8 +2190,12 @@ falseの場合、トランザクションIDの周回問題を回避するため�
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>autovacuum_multixact_freeze_table_age</literal>, <literal>toast.autovacuum_multixact_freeze_table_age</literal> (<type>integer</type>)</term>
+   <varlistentry id="reloption-autovacuum-multixact-freeze-table-age" xreflabel="autovacuum_multixact_freeze_table_age">
+    <term><literal>autovacuum_multixact_freeze_table_age</literal>, <literal>toast.autovacuum_multixact_freeze_table_age</literal> (<type>integer</type>)
+    <indexterm>
+     <primary><varname>autovacuum_multixact_freeze_table_age</varname> storage parameter</primary>
+    </indexterm>
+    </term>
     <listitem>
      <para>
 <!--
@@ -2089,8 +2207,13 @@ falseの場合、トランザクションIDの周回問題を回避するため�
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>log_autovacuum_min_duration</literal>, <literal>toast.log_autovacuum_min_duration</literal> (<type>integer</type>)</term>
+   <varlistentry id="reloption-log-autovacuum-min-duration" xreflabel="log_autovacuum_min_duration">
+    <term><literal>log_autovacuum_min_duration</literal>, <literal>toast.log_autovacuum_min_duration</literal> (<type>integer</type>)
+    <indexterm>
+     <primary><varname>log_autovacuum_min_duration</varname></primary>
+     <secondary>storage parameter</secondary>
+    </indexterm>
+    </term>
     <listitem>
      <para>
 <!--
@@ -2102,8 +2225,12 @@ falseの場合、トランザクションIDの周回問題を回避するため�
     </listitem>
    </varlistentry>
 
-   <varlistentry>
-    <term><literal>user_catalog_table</literal> (<type>boolean</type>)</term>
+   <varlistentry id="reloption-user-catalog-table" xreflabel="user_catalog_table">
+    <term><literal>user_catalog_table</literal> (<type>boolean</type>)
+    <indexterm>
+     <primary><varname>user_catalog_table</varname> storage parameter</primary>
+    </indexterm>
+    </term>
     <listitem>
      <para>
 <!--
@@ -2125,45 +2252,7 @@ falseの場合、トランザクションIDの周回問題を回避するため�
  </refsect1>
 
  <refsect1 id="sql-createtable-notes">
-<!--
   <title>Notes</title>
--->
-  <title>注釈</title>
-
-    <para>
-<!--
-     Using OIDs in new applications is not recommended: where
-     possible, using an identity column or other sequence
-     generator as the table's primary key is preferred. However, if
-     your application does make use of OIDs to identify specific
-     rows of a table, it is recommended to create a unique constraint
-     on the <structfield>oid</structfield> column of that table, to ensure that
-     OIDs in the table will indeed uniquely identify rows even after
-     counter wraparound.  Avoid assuming that OIDs are unique across
-     tables; if you need a database-wide unique identifier, use the
-     combination of <structfield>tableoid</structfield> and row OID for the
-     purpose.
--->
-新規のアプリケーションでOIDを使用するのはお勧めしません。
-可能であれば、テーブルの主キーとしてIDENTITY列や他のシーケンスジェネレータを使用する方が望ましいです。
-しかし、アプリケーションがテーブルの特定の行を識別するためにOIDを使用する場合は、そのテーブルの<structfield>oid</structfield>列に一意性制約を作成することを推奨します。
-これにより、カウンタが一周してしまった場合でも、テーブル内のOIDで一意に行を識別できることが保証されるからです。
-OIDがテーブルをまたがって一意であると考えるのは止めてください。
-データベース全体で一意な識別子が必要な場合は、<structfield>tableoid</structfield>と行のOIDの組み合わせを使用してください。
-    </para>
-
-    <tip>
-     <para>
-<!--
-      The use of <literal>OIDS=FALSE</literal> is not recommended
-      for tables with no primary key, since without either an OID or a
-      unique data key, it is difficult to identify specific rows.
--->
-<literal>OIDS=FALSE</literal>の使用は、主キーのないテーブルでは推奨されません。
-OIDも一意なデータキーも存在しないと、特定行を識別することが難しくなるからです。
-     </para>
-    </tip>
-
     <para>
 <!--
      <productname>PostgreSQL</productname> automatically creates an
@@ -2700,7 +2789,7 @@ CREATE TABLE cities_partdef
 
   <refsect2>
 <!--
-   <title>Non-deferred Uniqueness Constraints</title>
+   <title>Non-Deferred Uniqueness Constraints</title>
 -->
    <title>非遅延一意性制約</title>
 
@@ -2839,7 +2928,7 @@ SQL:1999以降では、異なる構文と意味体系による単一継承を定
 
   <refsect2>
 <!--
-   <title>Zero-column Tables</title>
+   <title>Zero-Column Tables</title>
 -->
    <title>列を持たないテーブル</title>
 
@@ -2885,6 +2974,16 @@ SQL:1999以降では、異なる構文と意味体系による単一継承を定
   </refsect2>
 
   <refsect2>
+   <title>Generated Columns</title>
+
+   <para>
+    The option <literal>STORED</literal> is not standard but is also used by
+    other SQL implementations.  The SQL standard does not specify the storage
+    of generated columns.
+   </para>
+  </refsect2>
+
+  <refsect2>
 <!--
    <title><literal>LIKE</literal> Clause</title>
 -->
@@ -2910,7 +3009,7 @@ SQL:1999以降では、異なる構文と意味体系による単一継承を定
    <para>
 <!--
     The <literal>WITH</literal> clause is a <productname>PostgreSQL</productname>
-    extension; neither storage parameters nor OIDs are in the standard.
+    extension; storage parameters are not in the standard.
 -->
 <literal>WITH</literal>句は<productname>PostgreSQL</productname>の拡張です。
 格納パラメータもOIDも標準にはありません。
@@ -2945,9 +3044,9 @@ SQL:1999以降では、異なる構文と意味体系による単一継承を定
     Typed tables implement a subset of the SQL standard.  According to
     the standard, a typed table has columns corresponding to the
     underlying composite type as well as one other column that is
-    the <quote>self-referencing column</quote>.  PostgreSQL does not
-    support these self-referencing columns explicitly, but the same
-    effect can be had using the OID feature.
+    the <quote>self-referencing column</quote>.
+    <productname>PostgreSQL</productname> does not support self-referencing
+    columns explicitly.
 -->
 型付きテーブルは標準SQLのサブセットを実装します。
 標準に従うと、型付きテーブルは背後の複合型に対応した列の他に<quote>自己参照列</quote>という列も持ちます。

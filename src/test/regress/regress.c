@@ -6,7 +6,7 @@
  *
  * This code is released under the terms of the PostgreSQL License.
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/test/regress/regress.c
@@ -16,7 +16,6 @@
 
 #include "postgres.h"
 
-#include <float.h>
 #include <math.h>
 #include <signal.h>
 
@@ -24,12 +23,16 @@
 #include "access/transam.h"
 #include "access/tuptoaster.h"
 #include "access/xact.h"
+#include "catalog/pg_operator.h"
 #include "catalog/pg_type.h"
 #include "commands/sequence.h"
 #include "commands/trigger.h"
 #include "executor/executor.h"
 #include "executor/spi.h"
 #include "miscadmin.h"
+#include "nodes/supportnodes.h"
+#include "optimizer/optimizer.h"
+#include "optimizer/plancat.h"
 #include "port/atomics.h"
 #include "utils/builtins.h"
 #include "utils/geo_decls.h"
@@ -149,8 +152,8 @@ widget_in(PG_FUNCTION_ARGS)
 	if (i < NARGS)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-				 errmsg("invalid input syntax for type widget: \"%s\"",
-						str)));
+				 errmsg("invalid input syntax for type %s: \"%s\"",
+						"widget", str)));
 
 	result = (WIDGET *) palloc(sizeof(WIDGET));
 	result->center.x = atof(coord[0]);
@@ -177,8 +180,13 @@ pt_in_widget(PG_FUNCTION_ARGS)
 {
 	Point	   *point = PG_GETARG_POINT_P(0);
 	WIDGET	   *widget = (WIDGET *) PG_GETARG_POINTER(1);
+	float8		distance;
 
-	PG_RETURN_BOOL(point_dt(point, &widget->center) < widget->radius);
+	distance = DatumGetFloat8(DirectFunctionCall2(point_distance,
+												  PointPGetDatum(point),
+												  PointPGetDatum(&widget->center)));
+
+	PG_RETURN_BOOL(distance < widget->radius);
 }
 
 PG_FUNCTION_INFO_V1(reverse_name);
@@ -679,7 +687,7 @@ test_atomic_uint32(void)
 	if (pg_atomic_read_u32(&var) != 3)
 		elog(ERROR, "atomic_read_u32() #2 wrong");
 
-	if (pg_atomic_fetch_add_u32(&var, 1) != 3)
+	if (pg_atomic_fetch_add_u32(&var, pg_atomic_read_u32(&var) - 2) != 3)
 		elog(ERROR, "atomic_fetch_add_u32() #1 wrong");
 
 	if (pg_atomic_fetch_sub_u32(&var, 1) != 4)
@@ -703,6 +711,20 @@ test_atomic_uint32(void)
 
 	if (pg_atomic_fetch_add_u32(&var, INT_MAX) != INT_MAX)
 		elog(ERROR, "pg_atomic_add_fetch_u32() #3 wrong");
+
+	pg_atomic_fetch_add_u32(&var, 2);	/* wrap to 0 */
+
+	if (pg_atomic_fetch_add_u32(&var, PG_INT16_MAX) != 0)
+		elog(ERROR, "pg_atomic_fetch_add_u32() #3 wrong");
+
+	if (pg_atomic_fetch_add_u32(&var, PG_INT16_MAX + 1) != PG_INT16_MAX)
+		elog(ERROR, "pg_atomic_fetch_add_u32() #4 wrong");
+
+	if (pg_atomic_fetch_add_u32(&var, PG_INT16_MIN) != 2 * PG_INT16_MAX + 1)
+		elog(ERROR, "pg_atomic_fetch_add_u32() #5 wrong");
+
+	if (pg_atomic_fetch_add_u32(&var, PG_INT16_MIN - 1) != PG_INT16_MAX)
+		elog(ERROR, "pg_atomic_fetch_add_u32() #6 wrong");
 
 	pg_atomic_fetch_add_u32(&var, 1);	/* top up to UINT_MAX */
 
@@ -779,7 +801,7 @@ test_atomic_uint64(void)
 	if (pg_atomic_read_u64(&var) != 3)
 		elog(ERROR, "atomic_read_u64() #2 wrong");
 
-	if (pg_atomic_fetch_add_u64(&var, 1) != 3)
+	if (pg_atomic_fetch_add_u64(&var, pg_atomic_read_u64(&var) - 2) != 3)
 		elog(ERROR, "atomic_fetch_add_u64() #1 wrong");
 
 	if (pg_atomic_fetch_sub_u64(&var, 1) != 4)
@@ -858,4 +880,77 @@ test_fdw_handler(PG_FUNCTION_ARGS)
 {
 	elog(ERROR, "test_fdw_handler is not implemented");
 	PG_RETURN_NULL();
+}
+
+PG_FUNCTION_INFO_V1(test_support_func);
+Datum
+test_support_func(PG_FUNCTION_ARGS)
+{
+	Node	   *rawreq = (Node *) PG_GETARG_POINTER(0);
+	Node	   *ret = NULL;
+
+	if (IsA(rawreq, SupportRequestSelectivity))
+	{
+		/*
+		 * Assume that the target is int4eq; that's safe as long as we don't
+		 * attach this to any other boolean-returning function.
+		 */
+		SupportRequestSelectivity *req = (SupportRequestSelectivity *) rawreq;
+		Selectivity s1;
+
+		if (req->is_join)
+			s1 = join_selectivity(req->root, Int4EqualOperator,
+								  req->args,
+								  req->inputcollid,
+								  req->jointype,
+								  req->sjinfo);
+		else
+			s1 = restriction_selectivity(req->root, Int4EqualOperator,
+										 req->args,
+										 req->inputcollid,
+										 req->varRelid);
+
+		req->selectivity = s1;
+		ret = (Node *) req;
+	}
+
+	if (IsA(rawreq, SupportRequestCost))
+	{
+		/* Provide some generic estimate */
+		SupportRequestCost *req = (SupportRequestCost *) rawreq;
+
+		req->startup = 0;
+		req->per_tuple = 2 * cpu_operator_cost;
+		ret = (Node *) req;
+	}
+
+	if (IsA(rawreq, SupportRequestRows))
+	{
+		/*
+		 * Assume that the target is generate_series_int4; that's safe as long
+		 * as we don't attach this to any other set-returning function.
+		 */
+		SupportRequestRows *req = (SupportRequestRows *) rawreq;
+
+		if (req->node && IsA(req->node, FuncExpr))	/* be paranoid */
+		{
+			List	   *args = ((FuncExpr *) req->node)->args;
+			Node	   *arg1 = linitial(args);
+			Node	   *arg2 = lsecond(args);
+
+			if (IsA(arg1, Const) &&
+				!((Const *) arg1)->constisnull &&
+				IsA(arg2, Const) &&
+				!((Const *) arg2)->constisnull)
+			{
+				int32		val1 = DatumGetInt32(((Const *) arg1)->constvalue);
+				int32		val2 = DatumGetInt32(((Const *) arg2)->constvalue);
+
+				req->rows = val2 - val1 + 1;
+				ret = (Node *) req;
+			}
+		}
+	}
+
+	PG_RETURN_POINTER(ret);
 }

@@ -9,7 +9,7 @@
  * See utils/resowner/README for more info.
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -20,10 +20,12 @@
  */
 #include "postgres.h"
 
-#include "access/hash.h"
 #include "jit/jit.h"
+#include "storage/bufmgr.h"
+#include "storage/ipc.h"
 #include "storage/predicate.h"
 #include "storage/proc.h"
+#include "utils/hashutils.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
 #include "utils/resowner_private.h"
@@ -140,6 +142,7 @@ typedef struct ResourceOwnerData
 ResourceOwner CurrentResourceOwner = NULL;
 ResourceOwner CurTransactionResourceOwner = NULL;
 ResourceOwner TopTransactionResourceOwner = NULL;
+ResourceOwner AuxProcessResourceOwner = NULL;
 
 /*
  * List of add-on callbacks for resource releasing
@@ -162,9 +165,10 @@ static bool ResourceArrayRemove(ResourceArray *resarr, Datum value);
 static bool ResourceArrayGetAny(ResourceArray *resarr, Datum *value);
 static void ResourceArrayFree(ResourceArray *resarr);
 static void ResourceOwnerReleaseInternal(ResourceOwner owner,
-							 ResourceReleasePhase phase,
-							 bool isCommit,
-							 bool isTopLevel);
+										 ResourceReleasePhase phase,
+										 bool isCommit,
+										 bool isTopLevel);
+static void ReleaseAuxProcessResourcesCallback(int code, Datum arg);
 static void PrintRelCacheLeakWarning(Relation rel);
 static void PrintPlanCacheLeakWarning(CachedPlan *plan);
 static void PrintTupleDescLeakWarning(TupleDesc tupdesc);
@@ -562,7 +566,7 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 			if (owner == TopTransactionResourceOwner)
 			{
 				ProcReleaseLocks(isCommit);
-				ReleasePredicateLocks(isCommit);
+				ReleasePredicateLocks(isCommit, false);
 			}
 		}
 		else
@@ -823,6 +827,60 @@ UnregisterResourceReleaseCallback(ResourceReleaseCallback callback, void *arg)
 	}
 }
 
+/*
+ * Establish an AuxProcessResourceOwner for the current process.
+ */
+void
+CreateAuxProcessResourceOwner(void)
+{
+	Assert(AuxProcessResourceOwner == NULL);
+	Assert(CurrentResourceOwner == NULL);
+	AuxProcessResourceOwner = ResourceOwnerCreate(NULL, "AuxiliaryProcess");
+	CurrentResourceOwner = AuxProcessResourceOwner;
+
+	/*
+	 * Register a shmem-exit callback for cleanup of aux-process resource
+	 * owner.  (This needs to run after, e.g., ShutdownXLOG.)
+	 */
+	on_shmem_exit(ReleaseAuxProcessResourcesCallback, 0);
+
+}
+
+/*
+ * Convenience routine to release all resources tracked in
+ * AuxProcessResourceOwner (but that resowner is not destroyed here).
+ * Warn about leaked resources if isCommit is true.
+ */
+void
+ReleaseAuxProcessResources(bool isCommit)
+{
+	/*
+	 * At this writing, the only thing that could actually get released is
+	 * buffer pins; but we may as well do the full release protocol.
+	 */
+	ResourceOwnerRelease(AuxProcessResourceOwner,
+						 RESOURCE_RELEASE_BEFORE_LOCKS,
+						 isCommit, true);
+	ResourceOwnerRelease(AuxProcessResourceOwner,
+						 RESOURCE_RELEASE_LOCKS,
+						 isCommit, true);
+	ResourceOwnerRelease(AuxProcessResourceOwner,
+						 RESOURCE_RELEASE_AFTER_LOCKS,
+						 isCommit, true);
+}
+
+/*
+ * Shmem-exit callback for the same.
+ * Warn about leaked resources if process exit code is zero (ie normal).
+ */
+static void
+ReleaseAuxProcessResourcesCallback(int code, Datum arg)
+{
+	bool		isCommit = (code == 0);
+
+	ReleaseAuxProcessResources(isCommit);
+}
+
 
 /*
  * Make sure there is room for at least one more entry in a ResourceOwner's
@@ -830,15 +888,12 @@ UnregisterResourceReleaseCallback(ResourceReleaseCallback callback, void *arg)
  *
  * This is separate from actually inserting an entry because if we run out
  * of memory, it's critical to do so *before* acquiring the resource.
- *
- * We allow the case owner == NULL because the bufmgr is sometimes invoked
- * outside any transaction (for example, during WAL recovery).
  */
 void
 ResourceOwnerEnlargeBuffers(ResourceOwner owner)
 {
-	if (owner == NULL)
-		return;
+	/* We used to allow pinning buffers without a resowner, but no more */
+	Assert(owner != NULL);
 	ResourceArrayEnlarge(&(owner->bufferarr));
 }
 
@@ -846,29 +901,19 @@ ResourceOwnerEnlargeBuffers(ResourceOwner owner)
  * Remember that a buffer pin is owned by a ResourceOwner
  *
  * Caller must have previously done ResourceOwnerEnlargeBuffers()
- *
- * We allow the case owner == NULL because the bufmgr is sometimes invoked
- * outside any transaction (for example, during WAL recovery).
  */
 void
 ResourceOwnerRememberBuffer(ResourceOwner owner, Buffer buffer)
 {
-	if (owner == NULL)
-		return;
 	ResourceArrayAdd(&(owner->bufferarr), BufferGetDatum(buffer));
 }
 
 /*
  * Forget that a buffer pin is owned by a ResourceOwner
- *
- * We allow the case owner == NULL because the bufmgr is sometimes invoked
- * outside any transaction (for example, during WAL recovery).
  */
 void
 ResourceOwnerForgetBuffer(ResourceOwner owner, Buffer buffer)
 {
-	if (owner == NULL)
-		return;
 	if (!ResourceArrayRemove(&(owner->bufferarr), BufferGetDatum(buffer)))
 		elog(ERROR, "buffer %d is not owned by resource owner %s",
 			 buffer, owner->name);

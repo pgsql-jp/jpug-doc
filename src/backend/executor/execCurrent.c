@@ -3,7 +3,7 @@
  * execCurrent.c
  *	  executor support for WHERE CURRENT OF cursor
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *	src/backend/executor/execCurrent.c
@@ -12,6 +12,7 @@
  */
 #include "postgres.h"
 
+#include "access/genam.h"
 #include "access/relscan.h"
 #include "access/sysattr.h"
 #include "catalog/pg_type.h"
@@ -24,7 +25,7 @@
 
 static char *fetch_cursor_param_value(ExprContext *econtext, int paramId);
 static ScanState *search_plan_tree(PlanState *node, Oid table_oid,
-				 bool *pending_rescan);
+								   bool *pending_rescan);
 
 
 /*
@@ -91,21 +92,22 @@ execCurrentOf(CurrentOfExpr *cexpr,
 	 * the other code can't, while the non-FOR-UPDATE case allows use of WHERE
 	 * CURRENT OF with an insensitive cursor.
 	 */
-	if (queryDesc->estate->es_rowMarks)
+	if (queryDesc->estate->es_rowmarks)
 	{
 		ExecRowMark *erm;
-		ListCell   *lc;
+		Index		i;
 
 		/*
 		 * Here, the query must have exactly one FOR UPDATE/SHARE reference to
 		 * the target table, and we dig the ctid info out of that.
 		 */
 		erm = NULL;
-		foreach(lc, queryDesc->estate->es_rowMarks)
+		for (i = 0; i < queryDesc->estate->es_range_table_size; i++)
 		{
-			ExecRowMark *thiserm = (ExecRowMark *) lfirst(lc);
+			ExecRowMark *thiserm = queryDesc->estate->es_rowmarks[i];
 
-			if (!RowMarkRequiresRowShareLock(thiserm->markType))
+			if (thiserm == NULL ||
+				!RowMarkRequiresRowShareLock(thiserm->markType))
 				continue;		/* ignore non-FOR UPDATE/SHARE items */
 
 			if (thiserm->relid == table_oid)
@@ -202,7 +204,7 @@ execCurrentOf(CurrentOfExpr *cexpr,
 			 */
 			IndexScanDesc scan = ((IndexOnlyScanState *) scanstate)->ioss_ScanDesc;
 
-			*current_tid = scan->xs_ctup.t_self;
+			*current_tid = scan->xs_heaptid;
 		}
 		else
 		{
@@ -217,27 +219,25 @@ execCurrentOf(CurrentOfExpr *cexpr,
 			ItemPointer tuple_tid;
 
 #ifdef USE_ASSERT_CHECKING
-			if (!slot_getsysattr(scanstate->ss_ScanTupleSlot,
-								 TableOidAttributeNumber,
-								 &ldatum,
-								 &lisnull))
+			ldatum = slot_getsysattr(scanstate->ss_ScanTupleSlot,
+									 TableOidAttributeNumber,
+									 &lisnull);
+			if (lisnull)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_CURSOR_STATE),
 						 errmsg("cursor \"%s\" is not a simply updatable scan of table \"%s\"",
 								cursor_name, table_name)));
-			Assert(!lisnull);
 			Assert(DatumGetObjectId(ldatum) == table_oid);
 #endif
 
-			if (!slot_getsysattr(scanstate->ss_ScanTupleSlot,
-								 SelfItemPointerAttributeNumber,
-								 &ldatum,
-								 &lisnull))
+			ldatum = slot_getsysattr(scanstate->ss_ScanTupleSlot,
+									 SelfItemPointerAttributeNumber,
+									 &lisnull);
+			if (lisnull)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_CURSOR_STATE),
 						 errmsg("cursor \"%s\" is not a simply updatable scan of table \"%s\"",
 								cursor_name, table_name)));
-			Assert(!lisnull);
 			tuple_tid = (ItemPointer) DatumGetPointer(ldatum);
 
 			*current_tid = *tuple_tid;

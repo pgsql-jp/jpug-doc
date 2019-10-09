@@ -4,7 +4,7 @@
  *	  This file contains routines to support indexes defined on system
  *	  catalogs.
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -15,6 +15,8 @@
  */
 #include "postgres.h"
 
+#include "access/genam.h"
+#include "access/heapam.h"
 #include "access/htup_details.h"
 #include "catalog/index.h"
 #include "catalog/indexing.h"
@@ -42,7 +44,7 @@ CatalogOpenIndexes(Relation heapRel)
 	ResultRelInfo *resultRelInfo;
 
 	resultRelInfo = makeNode(ResultRelInfo);
-	resultRelInfo->ri_RangeTableIndex = 1;	/* dummy */
+	resultRelInfo->ri_RangeTableIndex = 0;	/* dummy */
 	resultRelInfo->ri_RelationDesc = heapRel;
 	resultRelInfo->ri_TrigDesc = NULL;	/* we don't fire triggers */
 
@@ -101,8 +103,9 @@ CatalogIndexInsert(CatalogIndexState indstate, HeapTuple heapTuple)
 	heapRelation = indstate->ri_RelationDesc;
 
 	/* Need a slot to hold the tuple being examined */
-	slot = MakeSingleTupleTableSlot(RelationGetDescr(heapRelation));
-	ExecStoreTuple(heapTuple, slot, InvalidBuffer, false);
+	slot = MakeSingleTupleTableSlot(RelationGetDescr(heapRelation),
+									&TTSOpsHeapTuple);
+	ExecStoreHeapTuple(heapTuple, slot, false);
 
 	/*
 	 * for each index, form and insert the index tuple
@@ -176,20 +179,17 @@ CatalogIndexInsert(CatalogIndexState indstate, HeapTuple heapTuple)
  * and building the index info structures is moderately expensive.
  * (Use CatalogTupleInsertWithInfo in such cases.)
  */
-Oid
+void
 CatalogTupleInsert(Relation heapRel, HeapTuple tup)
 {
 	CatalogIndexState indstate;
-	Oid			oid;
 
 	indstate = CatalogOpenIndexes(heapRel);
 
-	oid = simple_heap_insert(heapRel, tup);
+	simple_heap_insert(heapRel, tup);
 
 	CatalogIndexInsert(indstate, tup);
 	CatalogCloseIndexes(indstate);
-
-	return oid;
 }
 
 /*
@@ -200,17 +200,13 @@ CatalogTupleInsert(Relation heapRel, HeapTuple tup)
  * might cache the CatalogIndexState data somewhere (perhaps in the relcache)
  * so that callers needn't trouble over this ... but we don't do so today.
  */
-Oid
+void
 CatalogTupleInsertWithInfo(Relation heapRel, HeapTuple tup,
 						   CatalogIndexState indstate)
 {
-	Oid			oid;
-
-	oid = simple_heap_insert(heapRel, tup);
+	simple_heap_insert(heapRel, tup);
 
 	CatalogIndexInsert(indstate, tup);
-
-	return oid;
 }
 
 /*

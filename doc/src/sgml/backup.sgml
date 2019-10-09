@@ -1279,9 +1279,10 @@ WALアーカイブによって<productname>PostgreSQL</productname>データベ�
 低レベルのベースバックアップは非排他的または排他的な手法で作成することができます。
 非排他的な手法が推奨され、排他的な手法は推奨されず、将来的に削除されます。
    </para>
+
    <sect3 id="backup-lowlevel-base-backup-nonexclusive">
 <!--
-    <title>Making a non-exclusive low level backup</title>
+    <title>Making a Non-Exclusive Low-Level Backup</title>
 -->
     <title>非排他的な低レベルバックアップの作成</title>
     <para>
@@ -1464,17 +1465,30 @@ WALのアーカイブを適切に監視していない場合、バックアッ�
    </sect3>
    <sect3 id="backup-lowlevel-base-backup-exclusive">
 <!--
-    <title>Making an exclusive low level backup</title>
+    <title>Making an Exclusive Low-Level Backup</title>
 -->
     <title>排他的低レベルバックアップの作成</title>
+
+    <note>
+     <para>
+      The exclusive backup method is deprecated and should be avoided.
+      Prior to <productname>PostgreSQL</productname> 9.6, this was the only
+      low-level method available, but it is now recommended that all users
+      upgrade their scripts to use non-exclusive backups.
+     </para>
+    </note>
+
     <para>
 <!--
      The process for an exclusive backup is mostly the same as for a
-     non-exclusive one, but it differs in a few key steps. This type of backup
-     can only be taken on a primary and does not allow concurrent backups.
-     Prior to <productname>PostgreSQL</productname> 9.6, this
-     was the only low-level method available, but it is now recommended that
-     all users upgrade their scripts to use non-exclusive backups if possible.
+     non-exclusive one, but it differs in a few key steps. This type of
+     backup can only be taken on a primary and does not allow concurrent
+     backups.  Moreover, because it creates a backup label file, as
+     described below, it can block automatic restart of the master server
+     after a crash.  On the other hand, the erroneous removal of this
+     file from a backup or standby is a common mistake, which can result
+     in serious data corruption.  If it is necessary to use this method,
+     the following steps may be used.
 -->
 排他的バックアップの手順は、ほぼ非排他的バックアップのものと同様ですが、いくつかのキーとなる手順に違いがあります。
 バックアップの複数同時実行を許可せず、バックアップ中にクラッシュした場合、サーバ上にいくつかの問題が残ります。
@@ -1563,9 +1577,17 @@ SELECT pg_start_backup('label', true);
     </para>
     <para>
 <!--
-      Note that if the server crashes during the backup it may not be
-      possible to restart until the <literal>backup_label</literal> file has been
-      manually deleted from the <envar>PGDATA</envar> directory.
+     As noted above, if the server crashes during the backup it may not be
+     possible to restart until the <filename>backup_label</filename> file has
+     been manually deleted from the <envar>PGDATA</envar> directory.  Note
+     that it is very important to never remove the
+     <filename>backup_label</filename> file when restoring a backup, because
+     this will result in corruption.  Confusion about when it is appropriate
+     to remove this file is a common cause of data corruption when using this
+     method; be very certain that you remove the file only on an existing
+     master and never when building a standby or restoring a backup, even if
+     you are building a standby that will subsequently be promoted to a new
+     master.
 -->
 バックアップ中にサーバがクラッシュした場合は、<envar>PGDATA</envar>ディレクトリから手動で<literal>backup_label</literal>ファイルを削除するまで再起動できない可能性があることに注意してください。
     </para>
@@ -1607,11 +1629,6 @@ SELECT pg_stop_backup();
      If the archive process has fallen behind
      because of failures of the archive command, it will keep retrying
      until the archive succeeds and the backup is complete.
-     If you wish to place a time limit on the execution of
-     <function>pg_stop_backup</function>, set an appropriate
-     <varname>statement_timeout</varname> value, but make note that if
-     <function>pg_stop_backup</function> terminates because of this your backup
-     may not be valid.
 -->
 バックアップ中で使用されたWALセグメントファイルがアーカイブされれば完了です。
 <function>pg_stop_backup</function>の結果で識別されるファイルは、バックアップファイル一式を完結させるのに必要となる最終セグメントです。
@@ -1622,13 +1639,23 @@ SELECT pg_stop_backup();
 アーカイブコマンドの失敗によりアーカイブ処理が遅れてしまったとしても、アーカイブが成功し、そしてバックアップが完了するまで再試行を繰り返すようになっています。
 <function>pg_stop_backup</function>実行においての時間期限を設けたい場合、適切な<varname>statement_timeout</varname>の値を設定できますが、この設定値によって<function>pg_stop_backup</function>が中断したときにバックアップが正当ではない可能性があるということを肝に銘じてください。
     </para>
+
+    <para>
+     When using exclusive backup mode, it is absolutely imperative to ensure
+     that <function>pg_stop_backup</function> completes successfully at the
+     end of the backup.  Even if the backup itself fails, for example due to
+     lack of disk space, failure to call <function>pg_stop_backup</function>
+     will leave the server in backup mode indefinitely, causing future backups
+     to fail and increasing the risk of a restart failure during the time that
+     <filename>backup_label</filename> exists.
+    </para>
    </listitem>
   </orderedlist>
     </para>
    </sect3>
    <sect3 id="backup-lowlevel-base-backup-data">
 <!--
-   <title>Backing up the data directory</title>
+   <title>Backing Up the Data Directory</title>
 -->
    <title>データディレクトリのバックアップ</title>
    <para>
@@ -1885,14 +1912,13 @@ GNUの <application>tar</application>で1.23以降のバージョンを使用し
    </listitem>
    <listitem>
     <para>
-<!--
-     Create a recovery command file <filename>recovery.conf</filename> in the cluster
-     data directory (see <xref linkend="recovery-config"/>). You might
+     Set recovery configuration settings in
+     <filename>postgresql.conf</filename> (see <xref
+     linkend="runtime-config-wal-archive-recovery"/>) and create a file
+     <filename>recovery.signal</filename> in the cluster
+     data directory. You might
      also want to temporarily modify <filename>pg_hba.conf</filename> to prevent
      ordinary users from connecting until you are sure the recovery was successful.
--->
-復旧コマンドファイル<filename>recovery.conf</filename>（<xref linkend="recovery-config"/>を参照）をクラスタデータディレクトリに作成してください。
-また、一時的に<filename>pg_hba.conf</filename>を編集し、復旧の成功を確認できるまで一般ユーザが接続できないようにする必要があるかもしれません。
     </para>
    </listitem>
    <listitem>
@@ -1902,8 +1928,8 @@ GNUの <application>tar</application>で1.23以降のバージョンを使用し
      proceed to read through the archived WAL files it needs.  Should the
      recovery be terminated because of an external error, the server can
      simply be restarted and it will continue recovery.  Upon completion
-     of the recovery process, the server will rename
-     <filename>recovery.conf</filename> to <filename>recovery.done</filename> (to prevent
+     of the recovery process, the server will remove
+     <filename>recovery.signal</filename> (to prevent
      accidentally re-entering recovery mode later) and then
      commence normal database operations.
 -->
@@ -1931,12 +1957,9 @@ GNUの <application>tar</application>で1.23以降のバージョンを使用し
 
    <para>
 <!--
-    The key part of all this is to set up a recovery configuration file that
+    The key part of all this is to set up a recovery configuration that
     describes how you want to recover and how far the recovery should
-    run.  You can use <filename>recovery.conf.sample</filename> (normally
-    located in the installation's <filename>share/</filename> directory) as a
-    prototype.  The one thing that you absolutely must specify in
-    <filename>recovery.conf</filename> is the <varname>restore_command</varname>,
+    run.  The one thing that you absolutely must specify is the <varname>restore_command</varname>,
     which tells <productname>PostgreSQL</productname> how to retrieve archived
     WAL file segments.  Like the <varname>archive_command</varname>, this is
     a shell command string.  It can contain <literal>%f</literal>, which is
@@ -2040,14 +2063,14 @@ restore_command = 'cp /mnt/server/archivedir/%f %p'
 <!--
     If you want to recover to some previous point in time (say, right before
     the junior DBA dropped your main transaction table), just specify the
-    required <link linkend="recovery-target-settings">stopping point</link> in <filename>recovery.conf</filename>.  You can specify
+    required <link linkend="runtime-config-wal-recovery-target">stopping point</link>.  You can specify
     the stop point, known as the <quote>recovery target</quote>, either by
     date/time, named restore point or by completion of a specific transaction
     ID.  As of this writing only the date/time and named restore point options
     are very usable, since there are no tools to help you identify with any
     accuracy which transaction ID to use.
 -->
-もし以前のある時点まで復旧させたい場合（例えば、経験不足のデータベース管理者が主トランザクションテーブルを消去した直前）、<filename>recovery.conf</filename>に要求する<link linkend="recovery-target-settings">停止時点</link>を指定するだけです。
+もし以前のある時点まで復旧させたい場合（例えば、経験不足のデータベース管理者が主トランザクションテーブルを消去した直前）、<filename>recovery.conf</filename>に要求する<link linkend="runtime-config-wal-recovery-target">停止時点</link>を指定するだけです。
 停止時点は、<quote>recovery target</quote>として既知の停止時点で指定することも、日付と時刻で指定することも、リストアポイントか完了した特定のトランザクションIDで指定することもできます。
 本ドキュメントの執筆時点では使用するトランザクションIDの識別を補助するツールがありませんので、ほとんどの場合は日付と時刻による指定のみを使用することになるでしょう。
    </para>
@@ -2191,7 +2214,7 @@ restore_command = 'cp /mnt/server/archivedir/%f %p'
     that was current when the base backup was taken.  If you wish to recover
     into some child timeline (that is, you want to return to some state that
     was itself generated after a recovery attempt), you need to specify the
-    target timeline ID in <filename>recovery.conf</filename>.  You cannot recover into
+    target timeline ID in <xref linkend="guc-recovery-target-timeline"/>. You cannot recover into
     timelines that branched off earlier than the base backup.
 -->
 復旧処理のデフォルトは、ベースバックアップが取得された時点のタイムラインと同一のタイムラインに沿った復旧です。

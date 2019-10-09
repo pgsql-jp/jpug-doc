@@ -51,7 +51,8 @@ CREATE FOREIGN TABLE [ IF NOT EXISTS ] <replaceable class="parameter">table_name
 { NOT NULL |
   NULL |
   CHECK ( <replaceable class="parameter">expression</replaceable> ) [ NO INHERIT ] |
-  DEFAULT <replaceable>default_expr</replaceable> }
+  DEFAULT <replaceable>default_expr</replaceable> |
+  GENERATED ALWAYS AS ( <replaceable>generation_expr</replaceable> ) STORED }
 
 <!--
 <phrase>and <replaceable class="parameter">table_constraint</replaceable> is:</phrase>
@@ -370,6 +371,30 @@ CHECK ( <replaceable class="parameter">expression</replaceable> ) [ NO INHERIT ]
    </varlistentry>
 
    <varlistentry>
+    <term><literal>GENERATED ALWAYS AS ( <replaceable>generation_expr</replaceable> ) STORED</literal><indexterm><primary>generated column</primary></indexterm></term>
+    <listitem>
+     <para>
+      This clause creates the column as a <firstterm>generated
+      column</firstterm>.  The column cannot be written to, and when read the
+      result of the specified expression will be returned.
+     </para>
+
+     <para>
+      The keyword <literal>STORED</literal> is required to signify that the
+      column will be computed on write.  (The computed value will be presented
+      to the foreign-data wrapper for storage and must be returned on
+      reading.)
+     </para>
+
+     <para>
+      The generation expression can refer to other columns in the table, but
+      not other generated columns.  Any functions and operators used must be
+      immutable.  References to other tables are not allowed.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
     <term><replaceable class="parameter">server_name</replaceable></term>
     <listitem>
      <para>
@@ -457,6 +482,16 @@ CHECK ( <replaceable class="parameter">expression</replaceable> ) [ NO INHERIT ]
 <productname>PostgreSQL</productname>では外部テーブルの制約を強制しませんが、問い合わせの最適化という目的のため、制約が正しいということを仮定します。
 外部テーブルで、宣言された制約を満たさない行が可視の状態で存在する場合、そのテーブルに対する問い合わせは誤った結果をもたらすかもしれません。
 制約の定義が現実に即したものであることを保証するのは、ユーザの責任です。
+   </para>
+
+   <para>
+    Similar considerations apply to generated columns.  Stored generated
+    columns are computed on insert or update on the local
+    <productname>PostgreSQL</productname> server and handed to the
+    foreign-data wrapper for writing out to the foreign data store, but it is
+    not enforced that a query of the foreign table returns values for stored
+    generated columns that are consistent with the generation expression.
+    Again, this might result in incorrect query results.
    </para>
 
    <para>

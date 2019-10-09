@@ -4,7 +4,7 @@
  *	  definition of the "policy" system catalog (pg_policy)
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_policy.h
@@ -28,13 +28,15 @@
  */
 CATALOG(pg_policy,3256,PolicyRelationId)
 {
+	Oid			oid;			/* oid */
 	NameData	polname;		/* Policy name. */
 	Oid			polrelid;		/* Oid of the relation with policy. */
 	char		polcmd;			/* One of ACL_*_CHR, or '*' for all */
 	bool		polpermissive;	/* restrictive or permissive policy */
 
 #ifdef CATALOG_VARLEN
-	Oid			polroles[1];	/* Roles associated with policy, not-NULL */
+	Oid			polroles[1] BKI_FORCE_NOT_NULL; /* Roles associated with
+												 * policy */
 	pg_node_tree polqual;		/* Policy quals. */
 	pg_node_tree polwithcheck;	/* WITH CHECK quals. */
 #endif

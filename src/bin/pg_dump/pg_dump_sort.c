@@ -4,7 +4,7 @@
  *	  Sort the items of a dump into a safe order for dumping
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -21,9 +21,6 @@
 
 #include "catalog/pg_class_d.h"
 
-/* translator: this is a module name */
-static const char *modulename = gettext_noop("sorter");
-
 /*
  * Sort priority for database object types.
  * Objects are sorted by type, and within a type by name.
@@ -35,10 +32,6 @@ static const char *modulename = gettext_noop("sorter");
  * pg_dump.c; that is, PRE_DATA objects must sort before DO_PRE_DATA_BOUNDARY,
  * POST_DATA objects must sort after DO_POST_DATA_BOUNDARY, and DATA objects
  * must sort between them.
- *
- * Note: sortDataAndIndexObjectsBySize wants to have all DO_TABLE_DATA and
- * DO_INDEX objects in contiguous chunks, so do not reuse the values for those
- * for other object types.
  */
 static const int dbObjectTypePriority[] =
 {
@@ -94,113 +87,23 @@ static DumpId postDataBoundId;
 
 static int	DOTypeNameCompare(const void *p1, const void *p2);
 static bool TopoSort(DumpableObject **objs,
-		 int numObjs,
-		 DumpableObject **ordering,
-		 int *nOrdering);
+					 int numObjs,
+					 DumpableObject **ordering,
+					 int *nOrdering);
 static void addHeapElement(int val, int *heap, int heapLength);
 static int	removeHeapElement(int *heap, int heapLength);
 static void findDependencyLoops(DumpableObject **objs, int nObjs, int totObjs);
-static int findLoop(DumpableObject *obj,
-		 DumpId startPoint,
-		 bool *processed,
-		 DumpId *searchFailed,
-		 DumpableObject **workspace,
-		 int depth);
+static int	findLoop(DumpableObject *obj,
+					 DumpId startPoint,
+					 bool *processed,
+					 DumpId *searchFailed,
+					 DumpableObject **workspace,
+					 int depth);
 static void repairDependencyLoop(DumpableObject **loop,
-					 int nLoop);
+								 int nLoop);
 static void describeDumpableObject(DumpableObject *obj,
-					   char *buf, int bufsize);
+								   char *buf, int bufsize);
 
-static int	DOSizeCompare(const void *p1, const void *p2);
-
-static int
-findFirstEqualType(DumpableObjectType type, DumpableObject **objs, int numObjs)
-{
-	int			i;
-
-	for (i = 0; i < numObjs; i++)
-		if (objs[i]->objType == type)
-			return i;
-	return -1;
-}
-
-static int
-findFirstDifferentType(DumpableObjectType type, DumpableObject **objs, int numObjs, int start)
-{
-	int			i;
-
-	for (i = start; i < numObjs; i++)
-		if (objs[i]->objType != type)
-			return i;
-	return numObjs - 1;
-}
-
-/*
- * When we do a parallel dump, we want to start with the largest items first.
- *
- * Say we have the objects in this order:
- * ....DDDDD....III....
- *
- * with D = Table data, I = Index, . = other object
- *
- * This sorting function now takes each of the D or I blocks and sorts them
- * according to their size.
- */
-void
-sortDataAndIndexObjectsBySize(DumpableObject **objs, int numObjs)
-{
-	int			startIdx,
-				endIdx;
-	void	   *startPtr;
-
-	if (numObjs <= 1)
-		return;
-
-	startIdx = findFirstEqualType(DO_TABLE_DATA, objs, numObjs);
-	if (startIdx >= 0)
-	{
-		endIdx = findFirstDifferentType(DO_TABLE_DATA, objs, numObjs, startIdx);
-		startPtr = objs + startIdx;
-		qsort(startPtr, endIdx - startIdx, sizeof(DumpableObject *),
-			  DOSizeCompare);
-	}
-
-	startIdx = findFirstEqualType(DO_INDEX, objs, numObjs);
-	if (startIdx >= 0)
-	{
-		endIdx = findFirstDifferentType(DO_INDEX, objs, numObjs, startIdx);
-		startPtr = objs + startIdx;
-		qsort(startPtr, endIdx - startIdx, sizeof(DumpableObject *),
-			  DOSizeCompare);
-	}
-}
-
-static int
-DOSizeCompare(const void *p1, const void *p2)
-{
-	DumpableObject *obj1 = *(DumpableObject **) p1;
-	DumpableObject *obj2 = *(DumpableObject **) p2;
-	int			obj1_size = 0;
-	int			obj2_size = 0;
-
-	if (obj1->objType == DO_TABLE_DATA)
-		obj1_size = ((TableDataInfo *) obj1)->tdtable->relpages;
-	if (obj1->objType == DO_INDEX)
-		obj1_size = ((IndxInfo *) obj1)->relpages;
-
-	if (obj2->objType == DO_TABLE_DATA)
-		obj2_size = ((TableDataInfo *) obj2)->tdtable->relpages;
-	if (obj2->objType == DO_INDEX)
-		obj2_size = ((IndxInfo *) obj2)->relpages;
-
-	/* we want to see the biggest item go first */
-	if (obj1_size > obj2_size)
-		return -1;
-	if (obj2_size > obj1_size)
-		return 1;
-
-	return 0;
-}
 
 /*
  * Sort the given objects into a type/name-based ordering
@@ -414,21 +317,20 @@ TopoSort(DumpableObject **objs,
 	 * We also make a map showing the input-order index of the item with
 	 * dumpId j.
 	 */
-	beforeConstraints = (int *) pg_malloc((maxDumpId + 1) * sizeof(int));
-	memset(beforeConstraints, 0, (maxDumpId + 1) * sizeof(int));
+	beforeConstraints = (int *) pg_malloc0((maxDumpId + 1) * sizeof(int));
 	idMap = (int *) pg_malloc((maxDumpId + 1) * sizeof(int));
 	for (i = 0; i < numObjs; i++)
 	{
 		obj = objs[i];
 		j = obj->dumpId;
 		if (j <= 0 || j > maxDumpId)
-			exit_horribly(modulename, "invalid dumpId %d\n", j);
+			fatal("invalid dumpId %d", j);
 		idMap[j] = i;
 		for (j = 0; j < obj->nDeps; j++)
 		{
 			k = obj->dependencies[j];
 			if (k <= 0 || k > maxDumpId)
-				exit_horribly(modulename, "invalid dependency %d\n", k);
+				fatal("invalid dependency %d", k);
 			beforeConstraints[k]++;
 		}
 	}
@@ -661,7 +563,7 @@ findDependencyLoops(DumpableObject **objs, int nObjs, int totObjs)
 
 	/* We'd better have fixed at least one loop */
 	if (!fixedloop)
-		exit_horribly(modulename, "could not identify dependency loop\n");
+		fatal("could not identify dependency loop");
 
 	free(workspace);
 	free(searchFailed);
@@ -1232,13 +1134,13 @@ repairDependencyLoop(DumpableObject **loop,
 	}
 	if (i >= nLoop)
 	{
-		write_msg(NULL, ngettext("NOTICE: there are circular foreign-key constraints on this table:\n",
-								 "NOTICE: there are circular foreign-key constraints among these tables:\n",
-								 nLoop));
+		pg_log_warning(ngettext("there are circular foreign-key constraints on this table:",
+								"there are circular foreign-key constraints among these tables:",
+								nLoop));
 		for (i = 0; i < nLoop; i++)
-			write_msg(NULL, "  %s\n", loop[i]->name);
-		write_msg(NULL, "You might not be able to restore the dump without using --disable-triggers or temporarily dropping the constraints.\n");
-		write_msg(NULL, "Consider using a full dump instead of a --data-only dump to avoid this problem.\n");
+			pg_log_generic(PG_LOG_INFO, "  %s", loop[i]->name);
+		pg_log_generic(PG_LOG_INFO, "You might not be able to restore the dump without using --disable-triggers or temporarily dropping the constraints.");
+		pg_log_generic(PG_LOG_INFO, "Consider using a full dump instead of a --data-only dump to avoid this problem.");
 		if (nLoop > 1)
 			removeObjectDependency(loop[0], loop[1]->dumpId);
 		else					/* must be a self-dependency */
@@ -1250,13 +1152,13 @@ repairDependencyLoop(DumpableObject **loop,
 	 * If we can't find a principled way to break the loop, complain and break
 	 * it in an arbitrary fashion.
 	 */
-	write_msg(modulename, "WARNING: could not resolve dependency loop among these items:\n");
+	pg_log_warning("could not resolve dependency loop among these items:");
 	for (i = 0; i < nLoop; i++)
 	{
 		char		buf[1024];
 
 		describeDumpableObject(loop[i], buf, sizeof(buf));
-		write_msg(modulename, "  %s\n", buf);
+		pg_log_generic(PG_LOG_INFO, "  %s", buf);
 	}
 
 	if (nLoop > 1)
