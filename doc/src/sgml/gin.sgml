@@ -341,7 +341,7 @@
        not support partial match.
 -->
 <literal>pmatch</literal>は部分一致が提供されている場合に使用する出力引数です。
-使用するには、<function>extractQuery</function>が<literal>*nkeys</literal>論理値の配列を割り当て、そのアドレスを<literal>*pmatch</literal>に格納しなければなりません。
+使用するには、<function>extractQuery</function>が<literal>*nkeys</literal>個の<type>bool</type>の配列を割り当て、そのアドレスを<literal>*pmatch</literal>に格納しなければなりません。
 関連するキーが部分一致を必要とするとき、それぞれの配列要素は真に、そうでなければ偽に設定されなければなりません。
 <literal>*pmatch</literal>が<symbol>NULL</symbol>に設定されている場合、GINは部分一致が必要ないと想定します。
 呼び出し前に変数は<symbol>NULL</symbol>に初期化されますので、この引数は部分一致が提供されていない演算子クラスでは、単に無視できます。
@@ -642,7 +642,8 @@ NULLキーがこの関数に渡されることはありません。
   these components of a GIN index.
 -->
 <acronym>GIN</acronym>インデックスはキー全体に対するB-treeインデックスを持ちます。
-そのキーはそれぞれインデックス対象項目の要素（例えば配列のメンバ）であり、リーフページ内のタプルはそれぞれ、ヒープポインタのB-treeへのポインタ（<quote>ポスティングツリー</quote>）か、もしリストがキー値と共に単一インデックスタプルに合う程度十分に小さければヒープポインタの単純なリスト（<quote>ポスティングリスト</quote>）です。
+そのキーはそれぞれインデックス対象項目の要素（例えば配列のメンバ）であり、リーフページ内のタプルはそれぞれ、ヒープポインタのB-treeへのポインタ（<quote>ポスティングツリー(posting tree)</quote>）か、もしリストがキー値と共に単一インデックスタプルに合う程度十分に小さければヒープポインタの単純なリスト（<quote>ポスティングリスト(posting list)</quote>）です。
+<xref linkend="gin-internals-figure"/>にGINインデックスのこれらのコンポーネントを示します。
  </para>
 
  <para>
@@ -669,7 +670,10 @@ NULLキーがこの関数に渡されることはありません。
  </para>
 
  <figure id="gin-internals-figure">
+<!--
   <title>GIN Internals</title>
+-->
+  <title>GINの内部</title>
   <mediaobject>
    <imageobject>
     <imagedata fileref="images/gin.svg" format="SVG" width="100%"/>
@@ -704,7 +708,7 @@ NULLキーがこの関数に渡されることはありません。
 1つのヒープ行の挿入または更新によりインデックスへの挿入が多く発生するという、転置インデックスの本質的な性質のため<acronym>GIN</acronym>インデックスの更新は低速になりがちです。
 （各キー用のヒープ行はインデックス付けされた項目から取り出されます。）
 <productname>PostgreSQL</productname> 8.4から<acronym>GIN</acronym>は、新しいタプルを一時的なソートされていない、待機中の項目リストに挿入することにより、この作業の大部分を遅延させることができるようになりました。
-テーブルがバキュームまたは自動解析された時、<function>gin_clean_pending_list</function>関数が呼ばれたとき、または、待機中のリストが<xref linkend="guc-gin-pending-list-limit"/>よりも大きくなった時、初期のインデックス作成の際に使用されるものと同様の一括挿入技法を使用して、項目は主<acronym>GIN</acronym>データ構造に移動されます。
+テーブルがバキュームまたは自動解析された時、<function>gin_clean_pending_list</function>関数が呼ばれたとき、または、待機中のリスト(pending list)が<xref linkend="guc-gin-pending-list-limit"/>よりも大きくなった時、初期のインデックス作成の際に使用されるものと同様の一括挿入技法を使用して、項目は主<acronym>GIN</acronym>データ構造に移動されます。
 これは、バキュームのオーバーヘッドが追加されることを考慮したとしても、<acronym>GIN</acronym>インデックスの更新速度を著しく向上します。
 さらに、フォアグラウンドの問い合わせ処理ではなくバックグラウンド処理でこのオーバーヘッド作業を実行することができます。
   </para>
