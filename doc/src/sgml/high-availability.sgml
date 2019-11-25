@@ -1062,7 +1062,7 @@ WALファイル(16MB)は隣り合うシステム、同じサイトの別シス�
     any WAL immediately available in the archive or in <filename>pg_wal</filename> will be
     restored, but no attempt is made to connect to the master.
 -->
-<command>pg_ctl promote</command>が実行された時またはトリガファイル(<varname>trigger_file</varname>)が存在する時、スタンバイモードは終了し、サーバは通常の動作に切り替わります。
+<command>pg_ctl promote</command>が実行された時またはトリガファイル(<varname>promote_trigger_file</varname>)が存在する時、スタンバイモードは終了し、サーバは通常の動作に切り替わります。
 フェイルオーバーの前に、アーカイブまたは<filename>pg_wal</filename>内の即座に利用可能なWALをすべてリストアします。
 しかし、マスタへの接続を行おうとはしません。
    </para>
@@ -1133,9 +1133,9 @@ WALファイル(16MB)は隣り合うシステム、同じサイトの別シス�
     that occurs at failover to another standby.
 -->
 スタンバイサーバを設定するためには、プライマリサーバから取得したベースバックアップをリストアしてください(<xref linkend="backup-pitr-recovery"/>参照)。
-スタンバイのクラスタデータディレクトリ内に<filename>recovery.conf</filename>リカバリコマンドファイルを作成し、<varname>standby_mode</varname>を有効にしてください。
-WALアーカイブからファイルをコピーする簡単なコマンドを<varname>restore_command</varname>に設定してください。
-高可用性のために複数のスタンバイサーバを持たせようとしている場合、<varname>recovery_target_timeline</varname>を<literal>latest</literal>に設定し、スタンバイサーバが他のスタンバイにフェイルオーバーする時に発生するタイムラインの変更に従うようにします。
+スタンバイのクラスタデータディレクトリ内に<filename>standby.signal</filename>ファイルを作成し、<varname>standby_mode</varname>を有効にしてください。
+WALアーカイブからファイルをコピーする簡単なコマンドを<xref linkend="guc-restore-command"/>に設定してください。
+高可用性のために複数のスタンバイサーバを持たせようとしている場合、<varname>recovery_target_timeline</varname>を<literal>latest</literal>に設定し（デフォルト）、スタンバイサーバが他のスタンバイにフェイルオーバーする時に発生するタイムラインの変更に従うようにします。
    </para>
 
    <note>
@@ -1148,7 +1148,7 @@ WALアーカイブからファイルをコピーする簡単なコマンドを<v
      for using tools like pg_standby.
 -->
 ここで説明した組み込みのスタンバイモードといっしょにpg_standbyや類似ツールを使用しないでください。
-<varname>restore_command</varname>はファイルが存在しない場合に即座に終了しなければなりません。
+<xref linkend="guc-restore-command"/>はファイルが存在しない場合に即座に終了しなければなりません。
 サーバが必要に応じてそのコマンドを再度実行します。
 pg_standbyのようなツールを使用するためには<xref linkend="log-shipping-alternative"/>を参照してください。
     </para>
@@ -1163,8 +1163,8 @@ pg_standbyのようなツールを使用するためには<xref linkend="log-shi
      authentication, the password needs to be specified in
      <xref linkend="guc-primary-conninfo"/> as well.
 -->
-ストリーミングレプリケーションを使用したい場合には、ホスト名(またはIPアドレス)とプライマリサーバとの接続に必要な追加情報を含む、libpq接続文字列で<varname>primary_conninfo</varname>を記述してください。
-プライマリで認証用のパスワードが必要な場合は<varname>primary_conninfo</varname>にそのパスワードも指定する必要があります。
+ストリーミングレプリケーションを使用したい場合には、ホスト名(またはIPアドレス)とプライマリサーバとの接続に必要な追加情報を含む、libpq接続文字列で<xref linkend="guc-primary-conninfo"/>を記述してください。
+プライマリで認証用のパスワードが必要な場合は<xref linkend="guc-primary-conninfo"/>にそのパスワードも指定する必要があります。
    </para>
 
    <para>
@@ -1198,7 +1198,7 @@ WALアーカイブを使用している場合、<xref linkend="guc-archive-clean
 <!--
     A simple example of configuration is:
 -->
-<filename>recovery.conf</filename>の簡単な例を以下に示します。
+簡単な設定例を以下に示します。
 <programlisting>
 primary_conninfo = 'host=192.168.1.50 port=5432 user=foo password=foopass options=''-c wal_sender_timeout=5000'''
 restore_command = 'cp /path/to/archive/%f %p'
@@ -1288,7 +1288,7 @@ archive_cleanup_command = 'pg_archivecleanup /path/to/archive %r'
     server (see <xref linkend="streaming-replication-authentication"/>).
 -->
 ストリーミングレプリケーションを使用するためには、<xref linkend="warm-standby"/>の説明のようにファイルベースのログシッピングを行うスタンバイサーバを設定してください。
-ファイルベースのログシッピングを行うスタンバイをストリーミングレプリケーションを行うスタンバイに切り替える手順は、<filename>recovery.conf</filename>内の<varname>primary_conninfo</varname>設定をプライマリサーバを指し示すように設定することです。
+ファイルベースのログシッピングを行うスタンバイをストリーミングレプリケーションを行うスタンバイに切り替える手順は、<varname>primary_conninfo</varname>設定をプライマリサーバを指し示すように設定することです。
 スタンバイサーバがプライマリサーバ上の<literal>replication</literal>疑似データベースに接続できる(<xref linkend="streaming-replication-authentication"/>参照)ように、プライマリで<xref linkend="guc-listen-addresses"/>と認証オプション(<filename>pg_hba.conf</filename>参照)を設定してください。
    </para>
 
@@ -1384,9 +1384,9 @@ host    replication     foo             192.168.1.100/32        md5
      can add the following line to the <filename>postgresql.conf</filename> file on the
      standby:
 -->
-プライマリサーバのホスト名とポート番号、接続する利用者名およびパスワードは、<filename>recovery.conf</filename>ファイルで指定します。
+プライマリサーバのホスト名とポート番号、接続する利用者名およびパスワードは、<xref linkend="guc-primary-conninfo"/>で指定します。
 パスワードはスタンバイサーバの<filename>~/.pgpass</filename>ファイルでも設定できます（<replaceable>database</replaceable>フィールドの<literal>replication</literal>を指定します）。
-例えば、プライマリサーバが稼動するホストの IP アドレスが<literal>192.168.1.50</literal>でポート番号が<literal>5432</literal>であり、レプリケーションのアカウント名が<literal>foo</literal>であり、パスワードが<literal>foopass</literal>である場合、管理者はスタンバイサーバの<filename>recovery.conf</filename>ファイルに次行を追加できます。
+例えば、プライマリサーバが稼動するホストの IP アドレスが<literal>192.168.1.50</literal>でポート番号が<literal>5432</literal>であり、レプリケーションのアカウント名が<literal>foo</literal>であり、パスワードが<literal>foopass</literal>である場合、管理者はスタンバイサーバの<filename>postgresql.conf</filename>ファイルに次行を追加できます。
 
 <programlisting>
 <!--
@@ -1561,8 +1561,8 @@ postgres=# SELECT slot_name, slot_type, active FROM pg_replication_slots;
      To configure the standby to use this slot, <varname>primary_slot_name</varname>
      should be configured on the standby. Here is a simple example:
 -->
-スタンバイのレプリケーションスロットを使用できるように設定するためには、<varname>primary_slot_name</varname>をスタンバイ側の<filename>recovery.conf</filename>に設定します。
-以下は設定例です。：
+スタンバイのレプリケーションスロットを使用できるように設定するためには、<varname>primary_slot_name</varname>をスタンバイ側で設定します。
+以下は単純な設定例です。：
 <programlisting>
 primary_conninfo = 'host=192.168.1.50 port=5432 user=foo password=foopass'
 primary_slot_name = 'node_a_slot'
@@ -1644,7 +1644,7 @@ primary_slot_name = 'node_a_slot'
     servers will continue to stream from the new master if
     <varname>recovery_target_timeline</varname> is set to <literal>'latest'</literal> (the default).
 -->
-上流スタンバイサーバが昇格し、新しいマスターサーバになった場合、<varname>recovery_target_timeline</varname>が<literal>'latest'</literal>に設定されていれば、下流サーバは新マスターサーバからのストリーミングレプリケーションを継続します。
+上流スタンバイサーバが昇格し、新しいマスターサーバになった場合、<varname>recovery_target_timeline</varname>が<literal>'latest'</literal>に設定されていれば、下流サーバは新マスターサーバからのストリーミングレプリケーションを継続します（デフォルトです）。
    </para>
 
    <para>
@@ -2349,8 +2349,8 @@ WALアーカイブがプライマリとスタンバイで共有されるケー�
     queries from the primary, not for high availability purposes, you don't
     need to promote it.
 -->
-ログシッピングを行うスタンバイサーバのフェイルオーバーを発生させるためには、<command>pg_ctl promote</command>を実行する、あるいは、<filename>recovery.conf</filename>内の<varname>trigger_file</varname>設定によって指定されるファイル名とパスを持つトリガファイルを作成してください。
-フェイルオーバーのために<command>pg_ctl promote</command>を使用するつもりならば、<varname>trigger_file</varname>は必要ありません。
+ログシッピングを行うスタンバイサーバのフェイルオーバーを発生させるためには、<command>pg_ctl promote</command>を実行する、<function>pg_promote</function>を呼び出す、あるいは<varname>promote_trigger_file</varname>で指定されるファイル名とパスを持つトリガファイルを作成してください。
+フェイルオーバーのために<command>pg_ctl promote</command>を使用する、あるいは<function>pg_promote</function>を呼び出すつもりならば、<varname>promote_trigger_file</varname>は必要ありません。
 プライマリから読み取り専用の問い合わせによる負荷を軽減させるためだけに使用し、高可用性を目的としていない、報告処理用サーバを構築する場合は、昇格させる必要はありません。
    </para>
   </sect1>
@@ -2370,7 +2370,6 @@ WALアーカイブがプライマリとスタンバイで共有されるケー�
 -->
 これまでの節で説明した組み込みのスタンバイモードの他の方法として、アーカイブ場所を順次問い合わせる<varname>restore_command</varname>を使用する方法があります。
 これはバージョン8.4以前では唯一の利用可能な選択肢でした。
-この設定では、スタンバイ操作で必要とするポーリングを自身で実施しますので、<varname>standby_mode</varname>を無効にします。
 このリファレンス実装として<xref linkend="pgstandby"/>を参照してください。
    </para>
 
@@ -2551,7 +2550,7 @@ if (!triggered)
        archive, using <varname>restore_command</varname> that waits
        as described previously (see <xref linkend="backup-pitr-recovery"/>).
 -->
-スタンバイサーバで、上記の通り待機を行う<varname>restore_command</varname>を指定した<filename>recovery.conf</filename>を使用して、ローカルなWALアーカイブからリカバリ処理を実行してください（<xref linkend="backup-pitr-recovery"/>を参照してください）。
+スタンバイサーバで、上記の通り待機を行う<varname>restore_command</varname>を使用して、ローカルなWALアーカイブからリカバリ処理を実行してください（<xref linkend="backup-pitr-recovery"/>を参照してください）。
       </para>
      </listitem>
     </orderedlist>
@@ -3346,7 +3345,7 @@ WALに記録された操作はすでにプライマリで発生したもので�
     To confirm the server has come up, either loop trying to connect from
     the application, or look for these messages in the server logs:
 -->
-<filename>postgresql.conf</filename>において<varname>hot_standby</varname>が<literal>on</literal>で（これはデフォルトです）、かつ<filename>recovery.conf</filename>が存在すれば、サーバはホットスタンバイモードで稼動します。
+<filename>postgresql.conf</filename>において<varname>hot_standby</varname>が<literal>on</literal>で（これはデフォルトです）、かつ<filename>standby.signal</filename>が存在すれば、サーバはホットスタンバイモードで稼動します。
 しかし、サーバはまず問い合わせが実行できる程度の一貫性を持つ状態を提供するために十分なリカバリを完了させなければなりませんので、ホットスタンバイでの接続が有効になるまでに多少の時間がかかるかもしれません。
 サーバの準備ができたことを確認するために、アプリケーションで接続試行を繰り返すか、サーバログに以下のメッセージがあるかどうかを確認します。
 
