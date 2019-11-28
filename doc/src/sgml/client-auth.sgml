@@ -201,7 +201,7 @@ hostnogssenc <replaceable>database</replaceable>  <replaceable>user</replaceable
        non-<acronym>GSSAPI</acronym> encrypted connection attempts.
 -->
 このレコードは、TCP/IPを使用した接続に対応します。
-<literal>host</literal>レコードは、<acronym>SSL</acronym>もしくは非<acronym>SSL</acronym>接続のいずれかに対応します。
+<literal>host</literal>レコードは、<acronym>SSL</acronym>または非<acronym>SSL</acronym>接続、<acronym>GSSAPI</acronym>暗号化、非<acronym>GSSAPI</acronym>暗号化のいずれかに対応します。
       </para>
      <note>
       <para>
@@ -266,24 +266,34 @@ hostnogssenc <replaceable>database</replaceable>  <replaceable>user</replaceable
      <term><literal>hostgssenc</literal></term>
      <listitem>
       <para>
+<!--
        This record matches connection attempts made using TCP/IP,
        but only when the connection is made with <acronym>GSSAPI</acronym>
        encryption.
+-->
+このレコードは、TCP/IPを使用した接続に対応しますが、<acronym>GSSAPI</acronym>暗号化を使用して接続が行われた場合に限ります。
       </para>
 
       <para>
+<!--
        To make use of this option the server must be built with
        <acronym>GSSAPI</acronym> support.  Otherwise,
        the <literal>hostgssenc</literal> record is ignored except for logging
        a warning that it cannot match any connections.
+-->
+このオプションを使用するためには、サーバは<acronym>GSSAPI</acronym>サポートができるように構築されていなければいけません。
+そうでなければ、どのような接続にも対応していないという警告が表示されることを除き、<literal>hostgssenc</literal>レコードは無視されます。
       </para>
 
       <para>
+<!--
         Note that the only supported
         <link linkend="auth-methods">authentication methods</link> for use
         with <acronym>GSSAPI</acronym> encryption
         are <literal>gss</literal>, <literal>reject</literal>,
         and <literal>trust</literal>.
+-->
+<acronym>GSSAPI</acronym>暗号化で使用できる<link linkend="auth-methods">認証方式</link>は、<literal>gss</literal>、<literal>reject</literal>、および<literal>trust</literal>のみであることに注意してください。
       </para>
      </listitem>
     </varlistentry>
@@ -292,9 +302,12 @@ hostnogssenc <replaceable>database</replaceable>  <replaceable>user</replaceable
      <term><literal>hostnogssenc</literal></term>
      <listitem>
       <para>
+<!--
        This record type has the opposite behavior of <literal>hostgssenc</literal>;
        it only matches connection attempts made over
        TCP/IP that do not use <acronym>GSSAPI</acronym> encryption.
+-->
+このレコードは、<literal>hostgssenc</literal>とは反対の動作で、<acronym>GSSAPI</acronym>暗号化を使用していないTCP/IPの接続のみに対応します。
       </para>
      </listitem>
     </varlistentry>
@@ -709,6 +722,7 @@ IPv6書式の項目は、システムのCライブラリがIPv6アドレスを�
 ユーザの認証にGSSAPIを使用します。
 これはTCP/IP接続を使用するときのみ使用可能です。
 詳細は<xref linkend="gssapi-auth"/>を参照してください。
+GSSAPI暗号化と組み合わせて使用できます。
          </para>
         </listitem>
        </varlistentry>
@@ -873,7 +887,9 @@ SSLクライアント証明書を使用して認証します。
        method that supports <literal>hostssl</literal> entries.
 -->
 以下に示された方式特定のオプションに加えて、方式に依存しないのひとつの認証オプション<literal>clientcert</literal>があり、<literal>hostssl</literal>レコードで指定することができます。
-オプションを<literal>1</literal>にセットした時、このオプションはその認証方式で必要な他の事項を要求することに加えて、クライアントに有効な（信頼された）SSL証明書の提出を要求します。
+このオプションは、<literal>verify-ca</literal>または<literal>verify-full</literal>に設定できます。
+どちらのオプションも、クライアントに有効な（信頼された）SSL証明書の提出を要求し、<literal>verify full</literal>は、証明書の<literal>cn</literal>（Common Name）がユーザー名または適用可能なマッピングと一致することをさらに強制します。
+この動作は<literal>cert</literal>認証方式（詳細は<xref linkend="auth-cert"/>を参照してください）に似ていますが、クライアント証明書の検証を<literal>hostssl</literal>エントリをサポートする任意の認証方式と組み合わせることができます。
       </para>
      </listitem>
     </varlistentry>
@@ -1079,11 +1095,13 @@ host    all             all             .example.com            scram-sha-256
 # (which "fall through" to the third line since "hostgssenc" only matches
 # encrypted GSSAPI connections) are allowed, but only from 192.168.12.10.
 -->
-# 先行する「host」行がなければ、これら2行によって192.168.54.1からの接続
-# の試みを全て拒否（この項目が最初に照合されるため）。
+# 先行する「host」行がなければ、これら3行によって、
+# 192.168.54.1からの接続の試みを全て拒否（この項目が最初に照合されるため）、
 # ただし、インターネット上の他の全ての場所からのGSSAPI接続は許可。
 # ゼロマスクは、ホストIPアドレスのビットが考慮されずに
 # どのホストでも照合できることになる。
+# 暗号化されていないGSSAPI接続（「hostgssenc」は暗号化されたGSSAPI接続
+# にのみに一致するので、3行目までは「通過」）は許可されるが、192.168.12.10からのみ許可。
 #
 # TYPE  DATABASE        USER            ADDRESS                 METHOD
 host    all             all             192.168.54.1/32         reject
@@ -1629,9 +1647,11 @@ TCP/IP接続における<literal>trust</literal>認証は、<literal>trust</lite
     otherwise, it will not.
 -->
 <productname>GSSAPI</productname>は、RFC 2743で定義されている安全な認証のための業界標準のプロトコルです。
-<productname>PostgreSQL</productname>は、RFC 1964により<productname>Kerberos</productname>認証での<productname>GSSAPI</productname>をサポートします。
-<productname>GSSAPI</productname>は、<productname>GSSAPI</productname>をサポートしているシステムに対して自動認証（シングルサインオン）を提供します。
-認証自体は安全ですが、データベース接続を通じて送信されるデータは、<acronym>SSL</acronym>が使用されていない場合は平文となります。
+
+<productname>PostgreSQL</productname>は、<productname>GSSAPI</productname>をサポートしています。このGSSAPIは、暗号化された認証済みレイヤとして使用するか、認証のみに使用します。
+<productname>GSSAPI</productname>は、GSSAPIをサポートするシステムに自動認証(シングルサインオン)を提供します。
+認証自体は安全です。
+<productname>GSSAPI</productname>暗号化（詳細は<literal>hostgssenc</literal>を参照してください）、または<acronym>SSL</acronym>暗号化を使用すると、データベース接続に沿って送信されるデータは暗号化されますが、それ以外の場合は暗号化されません。
    </para>
 
    <para>
@@ -2491,7 +2511,7 @@ ldap[s]://<replaceable>host</replaceable>[:<replaceable>port</replaceable>]/<rep
          LDAP URLs are currently only supported with
          <productname>OpenLDAP</productname>, not on Windows.
 -->
-現在の所、LDAP URLはWindows上ではなく、OpenLDAPのみでサポートされています。
+LDAP URLは現在、<productname>OpenLDAP</productname>のみでサポートされており、Windowsではサポートされていません。
         </para>
        </listitem>
       </varlistentry>
@@ -2523,12 +2543,17 @@ search/bindモードを使用するときは、<literal>ldapsearchattribute</lit
    </para>
 
    <para>
+<!--
      If <productname>PostgreSQL</productname> was compiled with
      <productname>OpenLDAP</productname> as the LDAP client library, the
      <literal>ldapserver</literal> setting may be omitted.  In that case, a
      list of host names and ports is looked up via RFC 2782 DNS SRV records.
      The name <literal>_ldap._tcp.DOMAIN</literal> is looked up, where
      <literal>DOMAIN</literal> is extracted from <literal>ldapbasedn</literal>.
+-->
+<productname>PostgreSQL</productname>が、LDAPクライアントライブラリとして<productname>OpenLDAP</productname>を使用するようにコンパイルされていた場合、<literal>ldapserver</literal>の設定は省略出来ます。
+その場合、ホスト名とポート番号のリストは、RFC 2782 DNS SRVレコードを使用して検索されます。
+<literal>_ldap._tcp.DOMAIN</literal>という名前が検索され、<literal>ldapbasedn</literal>から<literal>DOMAIN</literal>が抽出されます。
    </para>
 
    <para>
@@ -2600,9 +2625,12 @@ host ... ldap ldapserver=ldap.example.net ldapbasedn="dc=example, dc=net" ldapse
    </para>
 
    <para>
+<!--
     Here is an example for a search+bind configuration that uses DNS SRV
     discovery to find the host name(s) and port(s) for the LDAP service for the
     domain name <literal>example.net</literal>:
+-->
+DNS SRV検出を使用してドメイン名<literal>example.net</literal>のLDAPサービスのホスト名とポート番号を検索する、search/bind設定の例です。
 <programlisting>
 host ... ldap ldapbasedn="dc=example,dc=net"
 </programlisting>
@@ -2840,7 +2868,7 @@ RADIUSリクエスト内で<literal>NAS Identifier</literal>として使用さ�
     <literal>clientcert</literal> certificate validity test is a check that the
     <literal>cn</literal> attribute matches the database user name.
 -->
-証明書認証を指定する<filename>pg_hba.conf</filename>のレコードにおいて、認証オプションである<literal>clientcert</literal>は<literal>1</literal>であるとみなされ、クライアント証明書がこの方式のために必要であるゆえに無効にできません。
+証明書認証を指定する<filename>pg_hba.conf</filename>のレコードにおいて、認証オプションである<literal>clientcert</literal>は<literal>verify-ca</literal>か<literal>verify-full</literal>であるとみなされ、クライアント証明書がこの方式には必要なためオフにできません。
 <literal>cert</literal>方式が基本的な<literal>clientcert</literal>証明書の妥当性確認に追加するのは、<literal>cn</literal>属性がデータベースユーザ名と合致することの確認となります。
    </para>
   </sect1>
