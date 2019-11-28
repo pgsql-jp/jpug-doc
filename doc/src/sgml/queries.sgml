@@ -3275,15 +3275,17 @@ SELECT n FROM t LIMIT 100;
    early if the reference(s) to the query demand only a limited number of
    rows.)
 -->
-有用な<literal>WITH</literal>問い合わせの特性は、親問い合わせ、もしくは兄弟<literal>WITH</literal>問い合わせによりたとえ１回以上参照されるとしても、親問い合わせ実行でたった１回だけ評価されることです。
+有用な<literal>WITH</literal>問い合わせの特性は、親問い合わせ、もしくは兄弟<literal>WITH</literal>問い合わせによりたとえ１回以上参照されるとしても、通常は親問い合わせ実行で１回だけ評価されることです。
 したがって、複数の場所で必要な高価な計算は、冗長作業を防止するため<literal>WITH</literal>問い合わせの中に配置することができます。
 他にありうる適用としては、望まれない副作用のある関数の多重評価を避けることです。
-しかし、反対の見方をすれば、親問い合わせからの制約を<literal>WITH</literal>問い合わせに押し下げることについて、オプティマイザの能力は通常の副問い合わせに対するものより劣ります。
-<literal>WITH</literal>問い合わせは一般的に、親問い合わせが後で破棄するであろう行を抑制せずに、書かれた通りに評価されます。
+しかし、反対の見方をすれば、オプティマイザが親クエリから複数参照される<literal>WITH</literal>問い合わせに制約を押し下げることができないことです。
+これは、<literal>WITH</literal>問い合わせの出力が1つのみに影響する場合、その出力のすべての使用に影響する可能性があるためです。
+複数参照される<literal>WITH</literal>問い合わせは、親問い合わせが後で破棄するであろう行を抑制せずに、書かれた通りに評価されます。
 （しかし、上で述べたように、問い合わせの参照が限定された数の行のみを要求する場合、評価は早期に停止します。）
   </para>
 
   <para>
+<!--
    However, if a <literal>WITH</literal> query is non-recursive and
    side-effect-free (that is, it is a <literal>SELECT</literal> containing
    no volatile functions) then it can be folded into the parent query,
@@ -3298,24 +3300,39 @@ SELECT n FROM t LIMIT 100;
    the <literal>WITH</literal> query, but it can still give a net savings if
    each usage of the <literal>WITH</literal> query needs only a small part
    of the <literal>WITH</literal> query's full output.
+-->
+しかし、<literal>WITH</literal>問い合わせが非再帰で副作用がない（つまり、揮発性（volatile）の関数を含まない<literal>SELECT</literal>である）場合は、親問い合わせに組み込むことができ、2つの問い合わせレベルを同時に最適化できます。
+デフォルトでは、親問い合わせが<literal>WITH</literal>問い合わせを1回だけ参照する場合にこれが発生しますが、<literal>WITH</literal>問い合わせを2回以上参照する場合には発生しません。
+この決定を無効にするには、<literal>MATERIALIZED</literal>を指定して<literal>WITH</literal>問い合わせの個別の計算を強制するか、<literal>NOT MATERIALIZED</literal>を指定して親問い合わせにマージするようにします。
+後者を選択すると、<literal>WITH</literal>問い合わせの計算が重複する危険性がありますが、<literal>WITH</literal>問い合わせを使用するたびに<literal>WITH</literal>問い合わせのごく一部しか必要としない場合は、全体の節約になります。
   </para>
 
   <para>
+<!--
    A simple example of these rules is
+-->
+これらのルールの簡単な例を次に示します。
 <programlisting>
 WITH w AS (
     SELECT * FROM big_table
 )
 SELECT * FROM w WHERE key = 123;
 </programlisting>
+<!--
    This <literal>WITH</literal> query will be folded, producing the same
    execution plan as
+-->
+この<literal>WITH</literal>問い合わせは組み込まれ、次のものと同じ実行計画を生成します。
 <programlisting>
 SELECT * FROM big_table WHERE key = 123;
 </programlisting>
+<!--
    In particular, if there's an index on <structfield>key</structfield>,
    it will probably be used to fetch just the rows having <literal>key =
    123</literal>.  On the other hand, in
+-->
+特に、<structfield>key</structfield>インデックスがある場合、<literal>key = 123</literal>を持つ行のみをフェッチするために使用される可能性があります。
+一方で、
 <programlisting>
 WITH w AS (
     SELECT * FROM big_table
@@ -3323,10 +3340,14 @@ WITH w AS (
 SELECT * FROM w AS w1 JOIN w AS w2 ON w1.key = w2.ref
 WHERE w2.key = 123;
 </programlisting>
+<!--
    the <literal>WITH</literal> query will be materialized, producing a
    temporary copy of <structname>big_table</structname> that is then
    joined with itself &mdash; without benefit of any index.  This query
    will be executed much more efficiently if written as
+-->
+この<literal>WITH</literal>問い合わせでは実体化され、<structname>big_table</structname>の一時的なコピーが生成されます。このコピーはインデックスのメリットなしに結合されます。
+この問い合わせは次のように記述すると、より効率的に実行されます。
 <programlisting>
 WITH w AS NOT MATERIALIZED (
     SELECT * FROM big_table
@@ -3334,22 +3355,31 @@ WITH w AS NOT MATERIALIZED (
 SELECT * FROM w AS w1 JOIN w AS w2 ON w1.key = w2.ref
 WHERE w2.key = 123;
 </programlisting>
+<!--
    so that the parent query's restrictions can be applied directly
    to scans of <structname>big_table</structname>.
+-->
+親の問い合わせの制限を<structname>big_table</structname>のスキャンに直接適用することが出来ます。
   </para>
 
   <para>
+<!--
    An example where <literal>NOT MATERIALIZED</literal> could be
    undesirable is
+-->
+<literal>NOT MATERIALIZED</literal>が望ましくない例を次に示します。
 <programlisting>
 WITH w AS (
     SELECT key, very_expensive_function(val) as f FROM some_table
 )
 SELECT * FROM w AS w1 JOIN w AS w2 ON w1.f = w2.f;
 </programlisting>
+<!--
    Here, materialization of the <literal>WITH</literal> query ensures
    that <function>very_expensive_function</function> is evaluated only
    once per table row, not twice.
+-->
+ここで、<literal>WITH</literal>問い合わせを生成すると、<function>very_expensive_function</function>がテーブルの行毎に１回のみ評価され、２回は評価されないことが保証されます。
   </para>
 
   <para>
