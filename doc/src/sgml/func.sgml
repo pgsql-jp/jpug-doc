@@ -1642,7 +1642,7 @@ NULL値が入力されると、<quote>不明</quote>という論理値として�
 -->
 <function>random()</function>関数は単純な線形合同法を使用しています。
 高速ですが、暗号用途には適していません。より安全な代替物として<xref linkend="pgcrypto"/>モジュールを参照してください。
-<function>setseed()</function>が呼び出されると、<function>setseed()</function>を同じ引数で実行することによって現在のセッション内での以後の<function>random()</function>の呼び出し結果は再現可能となります。
+<function>setseed()</function>が呼び出されると、現在のセッション内での以後の<function>random()</function>の呼び出し結果は<function>setseed()</function>を同じ引数で実行することによって再現可能となります。
   </para>
 
   <para>
@@ -5609,7 +5609,7 @@ substring(<replaceable>string</replaceable>, <replaceable>pattern</replaceable>,
 -->
 <literal>SIMILAR TO</literal>と同様、指定したパターンがデータ文字列全体に一致する必要があります。一致しない場合、関数は失敗し、NULLを返します。
 マッチするデータのうちの対象とする部分文字列に対応するパターンの部分を示すために、エスケープ文字の後に二重引用符（<literal>"</literal>）を繋げたものを2つパターンに含める必要があります。<!-- " font-lock sanity -->
-これらの印で括られたパターンの一部に一致するテキストが返されます。
+マッチが成功すると、これらの印で括られたパターンの一部に一致するテキストが返されます。
    </para>
 
    <para>
@@ -9026,6 +9026,7 @@ POSIXはバックスラッシュ以降の空白文字を無視しません。
 <literal>FX</literal>オプションが無い場合、マイナス符号は曖昧で、区切り文字として解釈されるかも知れません。
 この曖昧さは次のようにして解消されます。
 テンプレート文字列中の<literal>TZH</literal>の前の区切り文字の数が入力文字列中のマイナス符号の前の区切り文字の数よりも少なければ、そのマイナス符号は<literal>TZH</literal>の一部として解釈されます。
+そうでない場合、マイナス記号が値の区切り記号と見なされます。
 たとえば、<literal>to_timestamp('2000 -10', 'YYYY TZH')</literal>では<literal>-10</literal>が<literal>TZH</literal>にマッチしますが、<literal>to_timestamp('2000 -10', 'YYYY&nbsp;&nbsp;TZH')</literal>では<literal>10</literal>が<literal>TZH</literal>にマッチします。
       </para>
      </listitem>
@@ -9064,7 +9065,7 @@ POSIXはバックスラッシュ以降の空白文字を無視しません。
           skip <literal>y</literal>, <literal>m</literal>, and
           <literal>d</literal>.
 -->
-<productname>PostgreSQL</productname> 12より前では、記号文字（訳注：原文は"non-letter or non-digit）を使って入力文字列中の任意のテキストをスキップすることが可能でした。
+<productname>PostgreSQL</productname> 12より前では、記号文字（訳注：原文は"non-letter or non-digit"）を使って入力文字列中の任意のテキストをスキップすることが可能でした。
 たとえば、<literal>to_timestamp('2000y6m1d', 'yyyy-MM-DD')</literal>は動作しました。
 現在は、この目的のために非記号文字（訳注：原文は"letter characters"）だけを使うことができます。
 たとえば、<literal>to_timestamp('2000y6m1d', 'yyyytMMtDDt')</literal>と<literal>to_timestamp('2000y6m1d', 'yyyy"y"MM"m"DD"d"')</literal>は、<literal>y</literal>、<literal>m</literal>、<literal>d</literal>をスキップします。
@@ -11391,7 +11392,7 @@ date_trunc(<replaceable>field</replaceable>, <replaceable>source</replaceable> [
 <!--
     Examples (assuming the local time zone is <literal>America/New_York</literal>):
 -->
-例：
+例（現地タイムゾーンは<literal>America/New_York</literal>と仮定します）：
 <screen>
 SELECT date_trunc('hour', TIMESTAMP '2001-02-16 20:38:40');
 <lineannotation>Result: </lineannotation><computeroutput>2001-02-16 20:00:00</computeroutput>
@@ -14199,9 +14200,8 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
    type <type>xml</type> are documented there, not in this section.
 -->
 この節で説明される関数および擬似関数式は、<type>xml</type>型の値に対して機能します。
-<type>xml</type>型についての情報は<xref linkend="datatype-xml"/>を点検してください。
-<type>xml</type>型のやりとりを変換する<function>xmlparse</function>および<function>xmlserialize</function>擬似関数式はここでは繰り返しません。
-これらの多くの関数を使用するには、インストレーションの際<command>configure --with-libxml</command>付きでビルドされていることが必要です。
+<type>xml</type>型についての情報は<xref linkend="datatype-xml"/>を参照してください。
+<type>xml</type>型のやりとりを変換する<function>xmlparse</function>および<function>xmlserialize</function>擬似関数式はこの節ではなく、そこに記載されています。
   </para>
 
   <para>
@@ -14210,7 +14210,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
    requires <productname>PostgreSQL</productname> to have been built
    with <command>configure &#045;&#045;with-libxml</command>.
 -->
-これらの関数の大半は<productname>PostgreSQL</productname>が<command>configure &#045;&#045;with-libxml</command>でビルドされていることを必要としています。
+これらの関数の大半は<productname>PostgreSQL</productname>が<command>configure --with-libxml</command>でビルドされていることを必要としています。
   </para>
 
   <sect2 id="functions-producing-xml">
@@ -14778,8 +14778,10 @@ SELECT xmlagg(x) FROM (SELECT * FROM test ORDER BY y DESC) AS tab;
      passed as the context item must be an XML document, not a content
      fragment or any non-XML value.
 -->
-関数<function>xmlexists</function>は第一引数のXPath式が何かしらのノードであれば真を返し、そうでなければ偽を返します。
-(もしいずれの引数もNULLであった場合はNULLを返します。)
+関数<function>xmlexists</function>は渡されたXML値をコンテキスト項目としてXPath 1.0式（第一引数）を評価します。
+この関数は評価が空のノード集合を生成する場合には偽を返し、それ以外の値を返すならば真を返します。
+もしどれかの引数がNULLであった場合はNULLを返します。
+コンテキスト項目として渡される非NULLの値は、内容の断片や非XML値ではなく、XML文書でなければなりません。
     </para>
 
     <para>
@@ -14942,8 +14944,9 @@ SELECT xml_is_well_formed_document('<pg:foo xmlns:pg="http://postgresql.org/stuf
      If the XPath expression returns a scalar value rather than a node-set,
      a single-element array is returned.
 -->
-関数<function>xpath</function>は、XML値<replaceable>xml</replaceable>に対し、XPath式<replaceable>xpath</replaceable>(ひとつの<type>text</type>値)を評価します。そして、XPath式で作成されたノードセットに対応するXML値の配列を返します。
-もし、XPath式がノードセットではなくスカラー値を返す場合、単一要素の配列が返されます。
+関数<function>xpath</function>は、XML値<replaceable>xml</replaceable>に対し、XPath 1.0式<replaceable>xpath</replaceable>(ひとつの<type>text</type>値)を評価します。
+そして、XPath式で作成されたノード集合に対応するXML値の配列を返します。
+もし、XPath式がノード集合ではなくスカラー値を返す場合、単一要素の配列が返されます。
     </para>
 
     <para>
@@ -15026,7 +15029,8 @@ SELECT xpath('//mydefns:b/text()', '<a xmlns="http://example.com"><b>test</b></a
      This function is equivalent to the <literal>XMLEXISTS</literal> predicate,
      except that it also offers support for a namespace mapping argument.
 -->
-関数<function>xpath_exists</function>は、<function>xpath</function>関数の特別な形式です。この関数は、XPathを満足する個別のXML値を返す代わりに、問い合わせがそれを満足するかどうかを論理値で返します。
+関数<function>xpath_exists</function>は、<function>xpath</function>関数の特別な形式です。
+この関数は、XPath 1.0を満足する個別のXML値を返す代わりに、問い合わせがそれを満足するかどうか（具体的には空のノード集合以外の値を返すかどうか）を論理値で返します。
 この関数は、名前空間にマッピングされた引数をもサポートする点を除き、標準の<literal>XMLEXISTS</literal>述語と同じです。
     </para>
 
@@ -15103,8 +15107,9 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
      is null, nor if the <replaceable>row_expression</replaceable> produces
      an empty node-set or any value other than a node-set.
 -->
-必須の<replaceable>row_expression</replaceable>引数はXPath式で、指定のXML文書に対して評価され、XMLノードの順序付きシーケンスが取得されます。
-このシーケンスが<function>xmltable</function>により出力行に変換されます。
+必須の<replaceable>row_expression</replaceable>引数はXPath 1.0式で、<replaceable>document_expression</replaceable>をそのコンテキスト項目とし渡し、XMLノード集合を得るために評価されます。
+このノードは<function>xmltable</function>が出力行に変換します。
+<replaceable>document_expression</replaceable>がNULLであるか、<replaceable>row_expression</replaceable>が空のノード集合あるいはノード集合以外の値を生成するなら行は出力されません。
     </para>
 
     <para>
@@ -15121,9 +15126,10 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
      expressions, as discussed in
      <xref linkend="functions-xml-limits-xpath1"/>.
 -->
-<replaceable>document_expression</replaceable>は演算の対象となるXML文書を提供します。
-<literal>BY REF</literal>句はPostgreSQLでは何の効果もありませんが、SQL準拠および他の実装との互換性のために受け入れられます。
-引数は整形されたXMLドキュメントでなければならず、フラグメントやフォレストは受け付けられません。
+<replaceable>document_expression</replaceable>は<replaceable>row_expression</replaceable>のためのコンテキスト項目を提供します。
+それは整形式XMLの文書でなければならず、フラグメントやフォレストは受け付けられません。
+<xref linkend="functions-xml-limits-postgresql"/>で議論されているように、<literal>BY REF</literal>句と<literal>BY VALUE</literal>句は受け付けられますが、無視されます。
+SQL標準では<function>xmltable</function>関数はXML問い合わせ言語の式を評価しますが、<xref linkend="functions-xml-limits-xpath1"/>で議論されているように<productname>PostgreSQL</productname>ではXPath 1.0式だけを受け付けます。
     </para>
 
     <para>
@@ -15149,7 +15155,7 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
      the <replaceable>row_expression</replaceable>'s result node-set.
      At most one column may be marked <literal>FOR ORDINALITY</literal>.
 -->
-<literal>FOR ORDINALITY</literal>と印がつけられた列には、元の入力XMLドキュメントの中に現れた出力行の順序に対応する行番号が入ります。
+<literal>FOR ORDINALITY</literal>と印がつけられた列には、<replaceable>row_expression</replaceable>の結果ノード集合から取得されたノードの順序に対応する1から始まる行番号が入ります。
 <literal>FOR ORDINALITY</literal>の印が付けられるのは最大でも1列です。
     </para>
 
@@ -15175,8 +15181,8 @@ XPath 1.0はノード集合内のノードの順序を指定しません。で�
      no <replaceable>column_expression</replaceable> is given, then the
      column name is used as an implicit path.
 -->
-列の<literal>column_expression</literal>はXPath式で、<replaceable>row_expression</replaceable>の結果に対応する各行について評価されて、列の値を得ます。
-<literal>column_expression</literal>が与えられなかった場合は、暗示的なパスとして列名が使用されます。
+列の<literal>column_expression</literal>はXPath 1.0式で、<replaceable>row_expression</replaceable>の結果における現在のノードをそのコンテキスト項目として<replaceable>row_expression</replaceable>の結果に対応する各行について評価されて、列の値を得ます。
+<literal>column_expression</literal>が与えられなかった場合は、暗黙的なパスとして列名が使用されます。
     </para>
 
     <para>
@@ -15251,8 +15257,8 @@ XPath 1.0の<function>string</function>関数で定義されているように�
 -->
 ある要素と、その子孫に含まれるすべてのテキストノードをドキュメントの順に結合したものがXML要素の文字列値です。
 テキストノードの子孫を持たない要素の文字列値は空文字列です。（ <literal>NULL</literal>ではありません。）
-<literal>xsi:nil</literal>属性は無視されます。
-非テキスト要素の間にある空白のみからなる<literal>text()</literal>2つのノードは保存され、<literal>text()</literal>の先頭の空白は平坦化されません。
+すべての<literal>xsi:nil</literal>属性は無視されます。
+非テキスト要素の間にある空白のみからなる<literal>text()</literal>2つのノードは保存され、<literal>text()</literal>の先頭の空白は平坦化されないことに注意してください。
 XPath 1.0 <function>string</function>関数が、他のXMLノード型と非XML値の文字列値を定義するルールのために参照されるかも知れません。
     </para>
 
@@ -15272,9 +15278,8 @@ XPath 1.0 <function>string</function>関数が、他のXMLノード型と非XML�
      a <replaceable>default_expression</replaceable> is specified; then the
      value resulting from evaluating that expression is used.
 -->
-パス式が行とマッチせず、<replaceable>default_expression</replaceable>が指定されている場合は、その式を評価した結果の値が使用されます。
-その列に<literal>DEFAULT</literal>句が指定されていない場合は、そのフィールドは<literal>NULL</literal>に設定されます。
-<replaceable>default_expression</replaceable>は列リスト内でそれより前に現れる出力列の値を参照して、ある列のデフォルト値を他の列の値に基づくものにすることができます。
+パス式がある行に対して空のノード集合（典型的にはマッチしなかった場合）を返した時は、<replaceable>default_expression</replaceable>が指定されている場合を除き、列には<literal>NULL</literal>が設定されます。
+そしてその式を評価した結果から生じる値が使用されます。
     </para>
 
     <para>
@@ -15300,11 +15305,9 @@ XPath 1.0 <function>string</function>関数が、他のXMLノード型と非XML�
      <function>nextval</function> in
      <replaceable>default_expression</replaceable>.
 -->
-PostgreSQLの通常の関数とは異なり、<replaceable>column_expression</replaceable>と<replaceable>default_expression</replaceable>は関数を呼び出す前には単純な値に評価されません。
-<replaceable>column_expression</replaceable>は通常は一つの入力行に対してちょうど一度だけ評価され、<replaceable>default_expression</replaceable>はフィールドにデフォルト値が必要になる度に評価されます。
+<function>xmltable</function>が呼び出されて直ちに評価されるのと異なり、<replaceable>default_expression</replaceable>はその列に対してデフォルトが必要になるたびに評価されます。
 式が安定（stable）または不変（immutable）とみなされる場合、評価は繰り返し行われないかもしれません。
-実際上、<function>xmltable</function>は関数呼び出しとしてよりも、副問合せのように動作します。
-これは<replaceable>default_expression</replaceable>の中で<function>nextval</function>のような揮発性（volatile）の関数を有効に使用できること、また<replaceable>column_expression</replaceable>はXML文書の他の部分に依存するかもしれないということを意味します。
+これは<replaceable>default_expression</replaceable>の中で<function>nextval</function>のような揮発性関数を使用できることを意味します。
     </para>
 
     <para>
@@ -15837,7 +15840,7 @@ SQL/JSON標準を更に学ぶためには、<xref linkend="sqltr-19075-6"/>を�
 -->
         <entry>演算子</entry>
         <entry>右オペランド型</entry>
-        <entry>Return type</entry>
+        <entry>戻り値型</entry>
         <entry>説明</entry>
         <entry>例</entry>
         <entry>例の結果</entry>
