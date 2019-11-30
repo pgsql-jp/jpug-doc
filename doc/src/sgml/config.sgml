@@ -85,6 +85,7 @@
 一般に、単一引用符の中に値を入れます。
 単一引用符を値に含める場合は単一引用符を２つ続けます。
 なお、値が単純な数字や識別子である場合は、通常は引用符を省略できます。
+（使用する場所によっては、SQLキーワードと一致する値に引用符が必要になることがあります。）
       </para>
      </listitem>
 
@@ -102,9 +103,12 @@
        Quotes are not required, except for hexadecimal input.
 -->
 <emphasis>数値型(整数型と浮動小数点型):</emphasis>
-小数点は浮動小数点型のパラメータでのみ使用できます。
+数値パラメータには通常の整数と浮動小数点型が使用できます。
+パラメータが整数型なら、小数値はもっとも近い整数に丸められます。
+加えて整数型パラメータは16進数入力（<literal>0x</literal>で始まります）と8進数入力（<literal>0</literal>で始まります）を受け付けます。
+しかし、これらの形式では小数点以下は使えません。
 1000の位取りの区切り文字は使わないでください。
-引用符は必要ありません。
+16進数入力を除き引用符は必要ありません。
       </para>
      </listitem>
 
@@ -160,17 +164,22 @@
           <literal>s</literal> (seconds), <literal>min</literal> (minutes),
           <literal>h</literal> (hours), and <literal>d</literal> (days).
 -->
-有効な時間の単位は <literal>ms</literal> (ミリ秒)、<literal>s</literal> (秒)、<literal>min</literal> (分)、<literal>h</literal> (時間)、<literal>d</literal> (日数) です。
+有効な時間の単位は <literal>us</literal> (マイクロ秒)、<literal>ms</literal> (ミリ秒)、<literal>s</literal> (秒)、<literal>min</literal> (分)、<literal>h</literal> (時間)、<literal>d</literal> (日数) です。
          </para>
         </listitem>
        </itemizedlist>
 
+<!--
        If a fractional value is specified with a unit, it will be rounded
        to a multiple of the next smaller unit if there is one.
        For example, <literal>30.1 GB</literal> will be converted
        to <literal>30822 MB</literal> not <literal>32319628902 B</literal>.
        If the parameter is of integer type, a final rounding to integer
        occurs after any units conversion.
+-->
+単位に添えて小数点以下が指定された場合、より小さな単位が存在すれば、値はその小さな単位の積に丸められます。
+たとえば、<literal>30.1 GB</literal>は<literal>32319628902 B</literal>ではなく<literal>30822 MB</literal>に変換されます。
+整数型のパラメータでは、単位変換の後で最終的な整数への丸めが行われます。
       </para>
      </listitem>
 
@@ -235,6 +244,7 @@ shared_buffers = 128MB
 ハッシュ記号（<literal>#</literal>）はその行の後の表記がコメントであることを意味します。
 単純でない識別子、または数値でないパラメータ値は単一引用符で括られなければなりません。
 パラメータ値の中に単一引用符を埋め込むには、引用符を2つ（推奨）もしくはバックスラッシュ-引用符を使います。
+ファイル中、同じパラメータに対して複数のエントリが指定されている場合は、最後のエントリ以外は無視されます。
     </para>
 
     <para>
@@ -290,13 +300,14 @@ shared_buffers = 128MB
      in <filename>postgresql.conf</filename>.
 -->
 <filename>postgresql.conf</filename>に加え、<productname>PostgreSQL</productname>のデータディレクトリには <filename>postgresql.auto.conf</filename><indexterm><primary>postgresql.auto.conf</primary></indexterm>というファイルがあります。
-このファイルは <filename>postgresql.conf</filename> と同じフォーマットですが、決して手動で編集してはいけません。
+このファイルは <filename>postgresql.conf</filename> と同じフォーマットですが、手動ではなく自動で編集されることを意図しています。
 このファイルは <xref linkend="sql-altersystem"/> コマンドを使った設定値を保存します。
 このファイルは<filename>postgresql.conf</filename> が読み込まれるときはいつでも自動的に読み込まれ、同じように設定が反映されます。
 <filename>postgresql.auto.conf</filename>は、<filename>postgresql.conf</filename>の設定を上書きします。
     </para>
 
     <para>
+<!--
      External tools may also
      modify <filename>postgresql.auto.conf</filename>.  It is not
      recommended to do this while the server is running, since a
@@ -304,6 +315,10 @@ shared_buffers = 128MB
      such changes.  Such tools might simply append new settings to the end,
      or they might choose to remove duplicate settings and/or comments
      (as <command>ALTER SYSTEM</command> will).
+-->
+外部ツールも<filename>postgresql.auto.conf</filename>を変更するかも知れません。
+<command>ALTER SYSTEM</command>が変更を上書きする可能性があるので、サーバが稼働中は外部ツールによる変更は推奨されません。
+そのようなツールは、単に新しい設定を最後に追加するか、重複した設定あるいはコメント(<command>ALTER SYSTEM</command>が行います)を削除することを選択するかも知れません。
     </para>
 
     <para>
@@ -1094,7 +1109,7 @@ include_dir 'conf.d'
         This parameter can only be set at server start.
        -->
 デフォルトの値は3接続です。
-この値は <varname>max_connections</varname>から<xref linkend="guc-max-wal-senders"/>を引いた値より小さくなくてはなりません。
+この値は <varname>max_connections</varname>より小さくなくてはなりません。
 このパラメータはサーバ起動時のみ設定可能です。
        </para>
       </listitem>
@@ -1434,11 +1449,15 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
      <varlistentry id="guc-tcp-user-timeout" xreflabel="tcp_user_timeout">
       <term><varname>tcp_user_timeout</varname> (<type>integer</type>)
       <indexterm>
+<!--
        <primary><varname>tcp_user_timeout</varname> configuration parameter</primary>
+-->
+       <primary><varname>tcp_user_timeout</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Specifies the number of milliseconds that transmitted data may
         remain unacknowledged before a connection is forcibly closed.
         A value of 0 uses the system default.
@@ -1446,11 +1465,19 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
         <symbol>TCP_USER_TIMEOUT</symbol>; on other systems, it must be zero.
         In sessions connected via a Unix-domain socket, this parameter is
         ignored and always reads as zero.
+-->
+未確認のデータが残ったままの接続が強制的に閉じられるまでの時間をミリ秒単位で指定します。
+値が0ならシステムのデフォルト値を使用します。
+このパラメータは、<symbol>TCP_USER_TIMEOUT</symbol>をサポートするシステムでのみ使用できます。他のシステムでは、0にする必要があります。
+UNIXドメインソケットで接続しているセッションではこのパラメータは無視され、常に0として扱われます。
        </para>
        <note>
         <para>
+<!--
          This parameter is not supported on Windows and on Linux version
          2.6.36 or older.
+-->
+このパラメータはWindowsおよびバージョン2.6.36以前のLinuxではサポートされません。
         </para>
        </note>
       </listitem>
@@ -1946,7 +1973,7 @@ OpenSSLのバージョンにより、利用可能な暗号スイートの詳細�
 -->
 サーバのSSL暗号設定をクライアントに優先して使うかどうかを指定します。
 このパラメータは、<filename>postgresql.conf</filename>ファイルか、サーバのコマンドラインでのみ設定可能です。
-デフォルトは<literal>true</literal>です。
+デフォルトは<literal>on</literal>です。
        </para>
 
        <para>
@@ -2017,6 +2044,7 @@ OpenSSLのバージョンにより、利用可能な暗号スイートの詳細�
       </term>
       <listitem>
        <para>
+<!--
         Sets the minimum SSL/TLS protocol version to use.  Valid values are
         currently: <literal>TLSv1</literal>, <literal>TLSv1.1</literal>,
         <literal>TLSv1.2</literal>, <literal>TLSv1.3</literal>.  Older
@@ -2024,13 +2052,23 @@ OpenSSLのバージョンにより、利用可能な暗号スイートの詳細�
         support all values; an error will be raised if an unsupported setting
         is chosen.  Protocol versions before TLS 1.0, namely SSL version 2 and
         3, are always disabled.
+-->
+使用するSSL/TLSプロトコルバージョンの最小値を設定します。
+今の所使用できる値は<literal>TLSv1</literal>、<literal>TLSv1.1</literal>、<literal>TLSv1.2</literal>、<literal>TLSv1.3</literal>です。
+古いバージョンの<productname>OpenSSL</productname>ライブラリはすべての値をサポートしません。
+サポートしていない値が設定されるとエラーが発生します。
+プロトコルバージョンTLS 1.0、すなわちSSLバージョン2あるいは3は常に無効となります。
        </para>
 
        <para>
+<!--
         The default is <literal>TLSv1</literal>, mainly to support older
         versions of the <productname>OpenSSL</productname> library.  You might
         want to set this to a higher value if all software components can
         support the newer protocol versions.
+-->
+デフォルトは<literal>TLSv1</literal>で、主に古いバージョンの<productname>OpenSSL</productname>ライブラリをサポートするためです。
+すべてのソフトウェアコンポーネントが新しいバージョンのプロトコルをサポートしているなら、より高い値にするのが良いでしょう。
        </para>
       </listitem>
      </varlistentry>
@@ -2038,17 +2076,26 @@ OpenSSLのバージョンにより、利用可能な暗号スイートの詳細�
      <varlistentry id="guc-ssl-max-protocol-version" xreflabel="ssl_max_protocol_version">
       <term><varname>ssl_max_protocol_version</varname> (<type>enum</type>)
       <indexterm>
+<!--
        <primary><varname>ssl_max_protocol_version</varname> configuration parameter</primary>
+-->
+       <primary><varname>ssl_max_protocol_version</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Sets the maximum SSL/TLS protocol version to use.  Valid values are as
         for <xref linkend="guc-ssl-min-protocol-version"/>, with addition of
         an empty string, which allows any protocol version.  The default is to
         allow any version.  Setting the maximum protocol version is mainly
         useful for testing or if some component has issues working with a
         newer protocol.
+-->
+使用するSSL/TLSプロトコルバージョンの最大値を設定します。
+使用できる値は<xref linkend="guc-ssl-min-protocol-version"/>と、すべてのプロトコルバージョンを許可する空文字です。
+デフォルトはすべてのプロトコルバージョンを許可する設定です。
+最大プロトコルバージョンの設定は主にテスト、あるいは新しいプロトコルを使った時にコンポーネントのどこかに問題がある時に有用です。
        </para>
       </listitem>
      </varlistentry>
@@ -2169,9 +2216,9 @@ OpenSSLのバージョンにより、利用可能な暗号スイートの詳細�
         passphrase is obtained from a file, for example.
 -->
 このパラメータは、キーにパスフレーズが必要な場合、設定ファイルの再読み込み中に<varname>ssl_passphrase_command</varname>で設定されたパスフレーズコマンドも呼び出されるかどうかを設定します。
-このパラメータが偽（デフォルト）なら、<varname>ssl_passphrase_command</varname>は再読込の際に無視され、パスフレーズが必要な場合、SSL設定は再読込されません。
+このパラメータがoff（デフォルト）なら、<varname>ssl_passphrase_command</varname>は再読込の際に無視され、パスフレーズが必要な場合、SSL設定は再読込されません。
 この設定は、サーバ実行中は存在しないかもしれないTTYがプロンプトに必要なコマンドに適しています。
-たとえばパスフレーズがファイルから読み込める場合には、この設定を真にするのが適切です。
+たとえばパスフレーズがファイルから読み込める場合には、この設定をonにするのが適切です。
        </para>
        <para>
 <!--
@@ -2569,9 +2616,9 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         Only superusers can change this setting.
        -->
 サーバの実行スタックの最大安全深度を指定します。
-このパラメータの理想的な設定はカーネルにより強要される実際のスタック容量の（<literal>ulimit -s</literal>もしくはそれと同等の機能で設定された）限界から、1メガバイト程度の安全余地を差し引いたものです。
-安全余地は、サーバがすべてのルーチンではスタック深度を検査をせず、式評価などの主要な潜在的に再帰的なルーチンでのみ検査をするために必要となるものです。
-デフォルト設定は2メガバイト（<literal>2MB</literal>）で、かなり控え目で、クラッシュの危険はなさそうです。
+このパラメータの理想的な設定はカーネルにより強要される実際のスタック容量の（<literal>ulimit -s</literal>もしくはそれと同等の機能で設定された）限界から、1メガバイト程度の安全余裕度を差し引いたものです。
+この安全余裕度は、サーバがすべてのルーチンではスタック深度を検査をせず、再帰を行う可能性のある重要なルーチンでのみ検査をするために必要となるものです。
+デフォルト設定は2メガバイト（<literal>2MB</literal>）で、かなり控え目、かつクラッシュの危険がなさそうな設定です。
 しかし、複雑な関数の実行を許容するには小さ過ぎるかも知れません。
 スーパーユーザのみがこの設定を変更することができます。
        </para>
@@ -2597,11 +2644,15 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
      <varlistentry id="guc-shared-memory-type" xreflabel="shared_memory_type">
       <term><varname>shared_memory_type</varname> (<type>enum</type>)
       <indexterm>
+<!--
        <primary><varname>shared_memory_type</varname> configuration parameter</primary>
+-->
+       <primary><varname>shared_memory_type</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Specifies the shared memory implementation that the server
         should use for the main shared memory region that holds
         <productname>PostgreSQL</productname>'s shared buffers and other
@@ -2615,6 +2666,14 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         platform, is generally discouraged because it typically requires
         non-default kernel settings to allow for large allocations (see <xref
         linkend="sysvipc"/>).
+-->
+<productname>PostgreSQL</productname>の共有バッファおよび他の共有データを保持する主共有メモリ領域のためにサーバが使用すべき共有メモリの実装を指定します。
+可能な値は<literal>mmap</literal>（<function>mmap</function>を使って獲得した無名共有メモリ）、<literal>sysv</literal> （<function>shmget</function>を使って獲得したSystem V共有メモリ）、<literal>windows</literal> （Windows共有メモリ）です。
+すべての値がすべてのプラットフォームでサポートされているわけではありません。
+サポートされている最初のオプションがそのプラットフォームのデフォルトです。
+どのプラットフォームでもデフォルトになっていない<literal>sysv</literal>オプションの利用は一般に推奨されません。
+通常、デフォルトではないカーネルの設定が大きなアロケーションでは必要になるからです。
+（<xref linkend="sysvipc"/>参照。）
        </para>
       </listitem>
      </varlistentry>
@@ -2647,17 +2706,11 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         <literal>pg_dynshmem</literal> directory is stored on a RAM disk, or when
         other shared memory facilities are not available.
 -->
-        サーバが使う動的共有メモリの実装を指定します。可能な値は
-        <literal>posix</literal> (<literal>shm_open</literal>で獲得するPOSIX共有メモリ)、
-         <literal>sysv</literal>
-        (<literal>shmget</literal>で獲得するSystem V共有メモリ)、
-        <literal>windows</literal> (Windows共有メモリ)、 <literal>mmap</literal>
-        (データディレクトリ内のメモリマップファイルを使ってシミュレートする共有メモリ)、
-<literal>none</literal> (この機能を使用しない)です。
-       すべての値がすべてのプラットフォームでサポートされているわけではありません。
-       そのプラットフォームでの推奨実装がデフォルトになります。
-       どのプラットフォームでもデフォルトになっていない<literal>mmap</literal>は、オペレーティングシステムが変更されたページをディスクに継続的に書き込み、I/O負荷を増加させるので一般的には利用が推奨されていません。
-       しかし、デバッグ目的のために<literal>pg_dynshmem</literal>ディスクがRAMディスク上にある場合や、他の共有メモリ機能が使えない場合は有用かもしれません。
+サーバが使う動的共有メモリの実装を指定します。可能な値は<literal>posix</literal> (<literal>shm_open</literal>で獲得するPOSIX共有メモリ)、<literal>sysv</literal>(<literal>shmget</literal>で獲得するSystem V共有メモリ)、<literal>windows</literal> (Windows共有メモリ)、 <literal>mmap</literal>(データディレクトリ内のメモリマップファイルを使ってシミュレートする共有メモリ)です。
+すべての値がすべてのプラットフォームでサポートされているわけではありません。
+そのプラットフォームでの推奨実装がデフォルトになります。
+どのプラットフォームでもデフォルトになっていない<literal>mmap</literal>は、オペレーティングシステムが変更されたページをディスクに継続的に書き込み、I/O負荷を増加させるので一般的には利用が推奨されていません。
+しかし、デバッグ目的のために<literal>pg_dynshmem</literal>ディスクがRAMディスク上にある場合や、他の共有メモリ機能が使えない場合は有用かもしれません。
        </para>
       </listitem>
      </varlistentry>
@@ -2825,11 +2878,9 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
          The default value is zero, which disables the cost-based vacuum
          delay feature.  Positive values enable cost-based vacuuming.
         -->
-        コストの限度を越えた場合、プロセスがスリープするミリ秒単位の時間の長さです。
+コストの限度を越えた場合、プロセスがスリープするミリ秒単位の時間の長さです。
 デフォルトの値は0で、コストに基づいたvacuum遅延機能を無効にします。
 正の整数はコストに基づいたvacuumを有効にします。
-多くのシステムで、スリープ遅延の有効な分解能は10ミリ秒です。
-<varname>vacuum_cost_delay</varname>の値の設定を10の倍数としない場合、次に大きい10の倍数に設定した結果と同一になるかもしれないことを覚えておいてください。
         </para>
 
         <para>
@@ -2845,8 +2896,12 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
          keep <varname>vacuum_cost_delay</varname> as small as your platform
          will consistently measure; large delays are not helpful.
         -->
-        コストに基づいたバキューム処理を使用する場合、<varname>vacuum_cost_delay</varname>の適切な値は通常かなり小さくなり、たいていは10または20ミリ秒になります。
-        バキュームによるリソース消費の調整は、他のバキュームのコストパラメータを変更して行うことが最善です。
+コストに基づいたバキューム処理を使用する場合、<varname>vacuum_cost_delay</varname>の適切な値は通常かなり小さくなり、おそらく1ミリ秒以下になります。
+バキュームによるリソース消費の調整は、他のバキュームのコストパラメータを変更して行うことが最善です。
+<varname>vacuum_cost_delay</varname>を1ミリ秒以下に設定することは可能ですが、そうした遅延は古いプラットフォームでは正確には計測されないかも知れません。
+そうしたプラットフォームでは、<command>VACUUM</command>のリソース消費制限を1ミリ秒のときに得られる値以上にするには、他のVACUUMコストパラメータの変更が必要となるでしょう。
+とは言うものの、使用するプラットフォームで常に計測できる範囲で<varname>vacuum_cost_delay</varname>をできるだけ小さくするようにしてください。
+大きな遅延は助けになりません。
         </para>
        </listitem>
       </varlistentry>
@@ -2868,7 +2923,7 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
          the shared hash table and scan the content of the page. The
          default value is one.
         -->
-        共有バッファキャッシュの中のバッファにvacuumを掛ける予測コストです。バッファプールのロック、共有ハッシュテーブルの検索、およびページ内容走査のコストを示します。デフォルトの値は1です。
+共有バッファキャッシュの中のバッファにvacuumを掛ける予測コストです。バッファプールのロック、共有ハッシュテーブルの検索、およびページ内容走査のコストを示します。デフォルトの値は1です。
         </para>
        </listitem>
       </varlistentry>
@@ -2890,7 +2945,7 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
          lookup the shared hash table, read the desired block in from
          the disk and scan its content. The default value is 10.
         -->
-        ディスクから読み込まれなければならないバッファにvacuumを掛ける予測コストです。これが示すものは、バッファプールロックの試み、共有ハッシュテーブルの参照、ディスクから目的ブロックの読み込み、そしてその内容走査です。デフォルトの値は10です。
+ディスクから読み込まれなければならないバッファにvacuumを掛ける予測コストです。これが示すものは、バッファプールロックの試み、共有ハッシュテーブルの参照、ディスクから目的ブロックの読み込み、そしてその内容走査です。デフォルトの値は10です。
         </para>
        </listitem>
       </varlistentry>
@@ -2912,8 +2967,8 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
          flush the dirty block out to disk again. The default value is
          20.
         -->
-        vacuumが、先だって掃除したブロックを変更する時に果たされた予測コストです。
-        ダーティブロックを再度ディスクに吐き出すのに必要な余分なI/Oを表します。デフォルトの値は20です。
+vacuumが、先だって掃除したブロックを変更するのに必要な見積コストです。
+ダーティブロックを再度ディスクに吐き出すのに必要な余分なI/Oを表します。デフォルトの値は20です。
         </para>
        </listitem>
       </varlistentry>
@@ -2933,8 +2988,8 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
          The accumulated cost that will cause the vacuuming process to sleep.
          The default value is 200.
         -->
-        vacuumを掛けるプロセスをスリープさせることになる累計されたコストです。
-        デフォルトの値は200です。
+vacuumを掛けるプロセスをスリープさせることになる累計されたコストです。
+デフォルトの値は200です。
         </para>
        </listitem>
       </varlistentry>
@@ -4571,7 +4626,7 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
 （このパス名はサーバの作業用ディレクトリ、つまり、クラスタのデータディレクトリからの相対パスです。）
 コマンド内に<literal>%</literal>文字そのものを埋め込むには<literal>%%</literal>を使用します。
 コマンドが成功した場合にのみ終了ステータスゼロを返すことが重要です。
-より詳しくは<xref linkend="backup-archiving-wal"/>を参照ください。
+詳しくは<xref linkend="backup-archiving-wal"/>を参照ください。
        </para>
        <para>
        <!--
@@ -4650,6 +4705,9 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
   <sect2 id="runtime-config-wal-archive-recovery">
 
     <title>Archive Recovery</title>
+<!--
+    <title>アーカイブからのリカバリ</title>
+-->
 
     <indexterm>
      <primary>configuration</primary>
@@ -4658,19 +4716,29 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
     </indexterm>
 
     <para>
+<!--
      This section describes the settings that apply only for the duration of
      the recovery.  They must be reset for any subsequent recovery you wish to
      perform.
+-->
+この節では、リカバリの間だけ適用する設定について説明します。
+その後実施するリカバリでは、その設定はリセットしなければなりません。
     </para>
 
     <para>
+<!--
      <quote>Recovery</quote> covers using the server as a standby or for
      executing a targeted recovery.  Typically, standby mode would be used to
      provide high availability and/or read scalability, whereas a targeted
      recovery is used to recover from data loss.
+-->
+<quote>リカバリ</quote>は、サーバをスタンバイとして使用するとき、あるいはターゲットを指定したリカバリで適用されます。
+通常、スタンバイモードは、高可用性または読み出しスケーラビリティ、あるいはその両方を提供するために使用します。
+一方ターゲットを指定したリカバリは失なわれたデータを回復するために使用します。
     </para>
 
     <para>
+<!--
      To start the server in standby mode, create a file called
      <filename>standby.signal</filename><indexterm><primary>standby.signal</primary></indexterm>
      in the data directory.  The server will enter recovery and will not stop
@@ -4682,9 +4750,15 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
      linkend="runtime-config-replication-standby"/> are of interest.
      Parameters from <xref linkend="runtime-config-wal-recovery-target"/> will
      also be applied but are typically not useful in this mode.
+-->
+スタンバイモードでサーバを起動するには、<filename>standby.signal</filename><indexterm><primary>standby.signal</primary></indexterm>と呼ばれるファイルをデータディレクトリに作ります。
+サーバはリカバリモードに入り、アーカイブWALの終端に到着してもリカバリを止めず、<varname>primary_conninfo</varname>の設定で指定された送信サーバに接続するか、<varname>restore_command</varname>を使って新しいWALセグメントを取得するか、あるいはその両方によってリカバリを継続しようとします。
+このモードでは、この節と<xref linkend="runtime-config-replication-standby"/>で説明するパラメータが関係します。
+<xref linkend="runtime-config-wal-recovery-target"/>のパラメータも適用できますが、このモードでは通常有用ではありません。
     </para>
 
     <para>
+<!--
      To start the server in targeted recovery mode, create a file called
      <filename>recovery.signal</filename><indexterm><primary>recovery.signal</primary></indexterm>
      in the data directory.  If both <filename>standby.signal</filename> and
@@ -4695,17 +4769,27 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
      linkend="runtime-config-wal-recovery-target"/> will be used.  Parameters
      from <xref linkend="runtime-config-replication-standby"/> will not be
      used.
+-->
+サーバをターゲットリカバリモードで起動するには、<filename>recovery.signal</filename><indexterm><primary>recovery.signal</primary></indexterm>という名前のファイルをデータディレクトリに作ります。
+<filename>standby.signal</filename>と<filename>recovery.signal</filename>の両方が作られた場合は、スタンバイモードが優先します。
+ターゲットリカバリモードはアーカイブWALが完全に再生されるか、<varname>recovery_target</varname>に到達した時に終了します。
+このモードでは、この節と<xref linkend="runtime-config-wal-recovery-target"/>のパラメータの両方が使用されます。
+<xref linkend="runtime-config-replication-standby"/>のパラメータは使用されません。
     </para>
 
     <variablelist>
      <varlistentry id="guc-restore-command" xreflabel="restore_command">
       <term><varname>restore_command</varname> (<type>string</type>)
       <indexterm>
+<!--
         <primary><varname>restore_command</varname> configuration parameter</primary>
+-->
+        <primary><varname>restore_command</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         The local shell command to execute to retrieve an archived segment of
         the WAL file series. This parameter is required for archive recovery,
         but optional for streaming replication.
@@ -4723,25 +4807,46 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
         used by warm-standby configurations
         (see <xref linkend="warm-standby"/>).
         Write <literal>%%</literal> to embed an actual <literal>%</literal> character.
-       </para>
+-->
+一連のWALファイルからアーカイブセグメントを取り出すために実行するローカルのシェルコマンドです。
+このパラメータはアーカイブリカバリでは必須ですが、ストリーミングレプリケーションではオプションです。
+文字列中の<literal>%f</literal>はアーカイブから取り出すファイルの名前に置換され、<literal>%p</literal>はサーバ上のコピー先のパス名に置換されます。
+（パス名は現在の作業ディレクトリの相対パス、つまりクラスタのデータディレクトリです。）
+<literal>%r</literal>は有効な最後のリスタートポイントを含むファイル名に置換されます。
+これはリストアが再開可能であるために維持しなければならない最古のファイルで、現在のリストアからの再開をサポートするのに最小限必要なアーカイブを残して切り詰めるのに必要な情報として利用できます。
+<literal>%r</literal>は通常ウォームスタンバイ構成でのみ使用されます。
+（<xref linkend="warm-standby"/>参照。）
+<literal>%</literal>文字自体を埋め込むには<literal>%%</literal>と書いてください。
+      </para>
 
        <para>
+<!--
         It is important for the command to return a zero exit status
         only if it succeeds.  The command <emphasis>will</emphasis> be asked for file
         names that are not present in the archive; it must return nonzero
         when so asked.  Examples:
+-->
+コマンドは、成功した時のみ終了コードのゼロを返却することが重要です。
+コマンドはアーカイブにないファイル名を聞かれる<emphasis>ことになります</emphasis>。
+その場合には、非ゼロの値を返却しなければなりません。以下に例を示します。
 <programlisting>
 restore_command = 'cp /mnt/server/archivedir/%f "%p"'
 restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
 </programlisting>
+<!--
         An exception is that if the command was terminated by a signal (other
         than <systemitem>SIGTERM</systemitem>, which is used as part of a
         database server shutdown) or an error by the shell (such as command
         not found), then recovery will abort and the server will not start up.
+-->
+例外は、データベースサーバのシャットダウンの一部として、<systemitem>SIGTERM</systemitem>以外のシグナルでコマンドが終了させられたり、シェルによってエラーが発生した（コマンドが見つからない場合など）場合で、その場合はリカバリは中断され、サーバはスタートアップしなくなります。
        </para>
 
        <para>
+<!--
         This parameter can only be set at server start.
+-->
+このパラメータはサーバ起動時のみ設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -4750,10 +4855,14 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
       <term><varname>archive_cleanup_command</varname> (<type>string</type>)
       <indexterm>
         <primary><varname>archive_cleanup_command</varname> configuration parameter</primary>
+<!--
+        <primary><varname>archive_cleanup_command</varname>設定パラメータ</primary>
+-->
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         This optional parameter specifies a shell command that will be executed
         at every restartpoint.  The purpose of
         <varname>archive_cleanup_command</varname> is to provide a mechanism for
@@ -4777,16 +4886,34 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
         warm-standby configuration (see <xref linkend="warm-standby"/>).
         Write <literal>%%</literal> to embed an actual <literal>%</literal> character in the
         command.
+-->
+オプションのパラメータは、すべてのリスタートポイントで実行されるシェルコマンドを指定します。
+<varname>archive_cleanup_command</varname>の目的は、スタンバイサーバにとって必要とされない古いアーカイブWALファイルをクリーンアップする仕組みを提供することです。
+<literal>%r</literal>は最後の有効なリスタートポイントを含むファイル名に置換されます。
+これはリストアが再開可能であるために<emphasis>保持</emphasis>しなければならない最古のファイルで、<literal>%r</literal>よりも前のすべてのファイルは安全に削除できます。
+これは現在のリストアからの再開をサポートするのに最小限必要なアーカイブを残して切り詰めるのに必要な情報として利用できます。
+単一のスタンバイ構成用の<varname>archive_cleanup_command</varname>で、たとえば<programlisting>archive_cleanup_command = 'pg_archivecleanup /mnt/server/archivedir %r'</programlisting>のようにして、しばしば<xref linkend="pgarchivecleanup"/>モジュールが使われます。
+だたし、複数のスタンバイサーバが同じアーカイブディレクトリからリストアしている場合は、どのサーバにおいてももはや必要がなくなるまでWALファイルが削除されることのないようにする必要があることに留意してください。
+<varname>archive_cleanup_command</varname>は通常ウォームスタンバイ構成で使用されます。
+（<xref linkend="warm-standby"/>参照。）
+<literal>%</literal>文字自体を埋め込むには<literal>%%</literal>と書いてください。
        </para>
        <para>
+<!--
         If the command returns a nonzero exit status then a warning log
         message will be written.  An exception is that if the command was
         terminated by a signal or an error by the shell (such as command not
         found), a fatal error will be raised.
+-->
+コマンドが非ゼロの終了ステータスを返した場合、警告ログメッセージが出力されます。
+例外は、コマンドがシグナルで終了されたとき、あるいはシェルがエラーを起こしたとき（コマンドが見つからないなど）で、その場合致命的エラーが生じます。
        </para>
        <para>
+<!--
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
+-->
+このパラメータは <filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -4794,28 +4921,44 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
      <varlistentry id="guc-recovery-end-command" xreflabel="recovery_end_command">
       <term><varname>recovery_end_command</varname> (<type>string</type>)
       <indexterm>
+<!--
         <primary><varname>recovery_end_command</varname> configuration parameter</primary>
+-->
+        <primary><varname>recovery_end_command</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         This parameter specifies a shell command that will be executed once only
         at the end of recovery. This parameter is optional. The purpose of the
         <varname>recovery_end_command</varname> is to provide a mechanism for cleanup
         following replication or recovery.
         Any <literal>%r</literal> is replaced by the name of the file containing the
         last valid restart point, like in <xref linkend="guc-archive-cleanup-command"/>.
+-->
+このパラメータは、リカバリの終了時に一度だけ起動されるシェルコマンドを指定します。
+このパラメータはオプションです。
+<varname>recovery_end_command</varname>の目的はレプリケーションあるいはリカバリの後のクリーンアップのための機構を提供することにあります。
+<literal>%r</literal>は、<xref linkend="guc-archive-cleanup-command"/>と同じように、有効な最後のリスタートポイントを含むWALファイル名に置換されます。
        </para>
        <para>
+<!--
         If the command returns a nonzero exit status then a warning log
         message will be written and the database will proceed to start up
         anyway.  An exception is that if the command was terminated by a
         signal or an error by the shell (such as command not found), the
         database will not proceed with startup.
+-->
+コマンドが非ゼロの終了ステータスを返した場合、警告ログメッセージが出力されますが、データベースはスタートアップ処理を続けます。
+例外は、コマンドがシグナルによって終了させられたか、シェルによってエラーが発生した（そのようなコマンドは見つからない）場合で、その場合はデータベースはスタートアップ処理を継続させません。
        </para>
        <para>
+<!--
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
+-->
+このパラメータは <filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -4826,9 +4969,13 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
 
   <sect2 id="runtime-config-wal-recovery-target">
 
+<!--
     <title>Recovery Target</title>
+-->
+    <title>リカバリターゲット</title>
 
      <para>
+<!--
       By default, recovery will recover to the end of the WAL log. The
       following parameters can be used to specify an earlier stopping point.
       At most one of <varname>recovery_target</varname>,
@@ -4837,25 +4984,41 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
       can be used; if more than one of these is specified in the configuration
       file, an error will be raised.
       These parameters can only be set at server start.
+-->
+デフォルトではWALログの最後までリカバリを行います。
+次のパラメータがそれより前の時点でリカバリを停止するために利用できます。
+次の<varname>recovery_target</varname>、<varname>recovery_target_lsn</varname>、<varname>recovery_target_name</varname>、<varname>recovery_target_time</varname>、<varname>recovery_target_xid</varname>のどれか一つが使えます。
+設定ファイルの中で２つ以上指定するとエラーとなります。
+これらのパラメータはサーバ起動時のみ設定可能です。
      </para>
 
      <variablelist>
      <varlistentry id="guc-recovery-target" xreflabel="recovery_target">
       <term><varname>recovery_target</varname><literal> = 'immediate'</literal>
       <indexterm>
+<!--
         <primary><varname>recovery_target</varname> configuration parameter</primary>
+-->
+        <primary><varname>recovery_target</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         This parameter specifies that recovery should end as soon as a
         consistent state is reached, i.e. as early as possible. When restoring
         from an online backup, this means the point where taking the backup
         ended.
+-->
+このパラメータは、リカバリが一貫した状態になり次第、すなわちできるだけ早く終了することを指定します。
+オンラインバックアップからリストアした場合、これはバックアップが終了した時点を意味します。
        </para>
        <para>
+<!--
         Technically, this is a string parameter, but <literal>'immediate'</literal>
         is currently the only allowed value.
+-->
+技術的にはこれは文字列型のパラメータですが、現時点では<literal>'immediate'</literal>だけが許容されている値です。
        </para>
       </listitem>
      </varlistentry>
@@ -4863,13 +5026,19 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
      <varlistentry id="guc-recovery-target-name" xreflabel="recovery_target_name">
       <term><varname>recovery_target_name</varname> (<type>string</type>)
       <indexterm>
+<!--
         <primary><varname>recovery_target_name</varname> configuration parameter</primary>
+-->
+        <primary><varname>recovery_target_name</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         This parameter specifies the named restore point (created with
         <function>pg_create_restore_point()</function>) to which recovery will proceed.
+-->
+このパラメータは、指定した（<function>pg_create_restore_point()</function>により作成された）名前付きリストアポイントまでリカバリを進行させます。
        </para>
       </listitem>
      </varlistentry>
@@ -4877,15 +5046,22 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
      <varlistentry id="guc-recovery-target-time" xreflabel="recovery_target_time">
       <term><varname>recovery_target_time</varname> (<type>timestamp</type>)
       <indexterm>
+<!--
         <primary><varname>recovery_target_time</varname> configuration parameter</primary>
+-->
+        <primary><varname>recovery_target_time</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         This parameter specifies the time stamp up to which recovery
         will proceed.
         The precise stopping point is also influenced by
         <xref linkend="guc-recovery-target-inclusive"/>.
+-->
+このパラメータは、指定したタイムスタンプまでリカバリを進行させます。
+正確な停止点は<xref linkend="guc-recovery-target-inclusive"/>にも影響されます。
        </para>
       </listitem>
      </varlistentry>
@@ -4893,11 +5069,15 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
      <varlistentry id="guc-recovery-target-xid" xreflabel="recovery_target_xid">
       <term><varname>recovery_target_xid</varname> (<type>string</type>)
       <indexterm>
+<!--
         <primary><varname>recovery_target_xid</varname> configuration parameter</primary>
+-->
+        <primary><varname>recovery_target_xid</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         This parameter specifies the transaction ID up to which recovery
         will proceed. Keep in mind
         that while transaction IDs are assigned sequentially at transaction
@@ -4906,6 +5086,11 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
         before (and optionally including) the specified one.
         The precise stopping point is also influenced by
         <xref linkend="guc-recovery-target-inclusive"/>.
+-->
+このパラメータは、指定したトランザクションIDまでリカバリを進行させます。
+トランザクションIDはトランザクション起動時に順番に割り当てられますが、トランザクションは数字順によらず完了することがあることに留意してください。
+リカバリされるトランザクションは、指定されたものよりも前 (オプションによっては指定されたものも含まれる) にコミットされたものになります。
+正確な停止点は<xref linkend="guc-recovery-target-inclusive"/>にも影響されます。
        </para>
       </listitem>
      </varlistentry>
@@ -4913,24 +5098,35 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
      <varlistentry id="guc-recovery-target-lsn" xreflabel="recovery_target_lsn">
       <term><varname>recovery_target_lsn</varname> (<type>pg_lsn</type>)
       <indexterm>
+<!--
         <primary><varname>recovery_target_lsn</varname> configuration parameter</primary>
+-->
+        <primary><varname>recovery_target_lsn</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         This parameter specifies the LSN of the write-ahead log location up
         to which recovery will proceed. The precise stopping point is also
         influenced by <xref linkend="guc-recovery-target-inclusive"/>. This
         parameter is parsed using the system data type
         <link linkend="datatype-pg-lsn"><type>pg_lsn</type></link>.
+-->
+このパラメータは、指定した先行書き込みログ(WAL)の場所のLSNまでリカバリを進行させます。
+正確な停止点は、<xref linkend="guc-recovery-target-inclusive"/>の影響も受けます。
+このパラメータは、 システムデータ型<link linkend="datatype-pg-lsn"><type>pg_lsn</type></link>を使用して解析されます。
        </para>
       </listitem>
      </varlistentry>
      </variablelist>
 
      <para>
+<!--
        The following options further specify the recovery target, and affect
        what happens when the target is reached:
+-->
+以下のオプションはリカバリ対象をより詳細に指定し、リカバリが対象に達した時の動作に影響を与えます。
      </para>
 
      <variablelist>
@@ -4938,11 +5134,15 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
                    xreflabel="recovery_target_inclusive">
       <term><varname>recovery_target_inclusive</varname> (<type>boolean</type>)
       <indexterm>
+<!--
         <primary><varname>recovery_target_inclusive</varname> configuration parameter</primary>
+-->
+        <primary><varname>recovery_target_inclusive</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Specifies whether to stop just after the specified recovery target
         (<literal>on</literal>), or just before the recovery target
         (<literal>off</literal>).
@@ -4952,6 +5152,11 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
         This setting controls whether transactions
         having exactly the target WAL location (LSN), commit time, or transaction ID, respectively, will
         be included in the recovery.  Default is <literal>on</literal>.
+-->
+指定したリカバリ対象のちょうど後に停止するか(<literal>true</literal>)、ちょうどその前に停止するか(<literal>false</literal>)を指定します。
+<xref linkend="guc-recovery-target-lsn"/>、<xref linkend="guc-recovery-target-time"/>、又は<xref linkend="guc-recovery-target-xid"/>が指定されている場合は適用されます。
+この設定は、指定した対象のWALの場所(LSN)、コミット時刻、あるいはトランザクションIDが、それぞれ正確に一致するトランザクションをリカバリに含めるかどうかを制御します。
+デフォルトは<literal>on</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -4960,11 +5165,15 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
                    xreflabel="recovery_target_timeline">
       <term><varname>recovery_target_timeline</varname> (<type>string</type>)
       <indexterm>
+<!--
         <primary><varname>recovery_target_timeline</varname> configuration parameter</primary>
+-->
+        <primary><varname>recovery_target_timeline</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Specifies recovering into a particular timeline.  The value can be a
         numeric timeline ID or a special value.  The value
         <literal>current</literal> recovers along the same timeline that was
@@ -4972,13 +5181,23 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
         value <literal>latest</literal> recovers
         to the latest timeline found in the archive, which is useful in
         a standby server.  <literal>latest</literal> is the default.
+-->
+リカバリが作成する個別のタイムラインを指定します。
+値は数値のタイムラインIDか、特殊な値です。
+<literal>current</literal>では、ベースバックアップが取得されたときにカレントだったタイムラインに沿ってリカバリします。
+<literal>latest</literal>では、アーカイブ時に見つけた最新のタイムラインにリカバリします。これはスタンバイサーバで有用です。
+デフォルトは<literal>latest</literal>です。
        </para>
 
        <para>
+<!--
         You usually only need to set this parameter
         in complex re-recovery situations, where you need to return to
         a state that itself was reached after a point-in-time recovery.
         See <xref linkend="backup-timelines"/> for discussion.
+-->
+通常このパラメータの設定が必要となるのは、ポイントインタイムリカバリの実施後に到達した状態に戻す場合など、複雑なリカバリの状況のみです。
+この論考については<xref linkend="backup-timelines"/>を参照してください。
        </para>
       </listitem>
      </varlistentry>
@@ -4987,19 +5206,29 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
                    xreflabel="recovery_target_action">
       <term><varname>recovery_target_action</varname> (<type>enum</type>)
       <indexterm>
+<!--
+        <primary><varname>recovery_target_action</varname> configuration parameter</primary>
+-->
         <primary><varname>recovery_target_action</varname> configuration parameter</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Specifies what action the server should take once the recovery target is
         reached. The default is <literal>pause</literal>, which means recovery will
         be paused. <literal>promote</literal> means the recovery process will finish
         and the server will start to accept connections.
         Finally <literal>shutdown</literal> will stop the server after reaching the
         recovery target.
+-->
+リカバリ対象に到達した場合に、サーバがする動作を指定します。
+デフォルトは<literal>pause</literal>で、リカバリを休止することを意味します。
+<literal>promote</literal>は、リカバリの過程が終われば、サーバは接続の受け付けを始めることを意味します。
+最後に、<literal>shutdown</literal>は、リカバリ対象に到達した後にサーバを停止します。
        </para>
        <para>
+<!--
         The intended use of the <literal>pause</literal> setting is to allow queries
         to be executed against the database to check if this recovery target
         is the most desirable point for recovery.
@@ -5010,24 +5239,41 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
         desired stopping point, then shut down the server, change the
         recovery target settings to a later target and restart to
         continue recovery.
+-->
+<literal>pause</literal>の設定の意図した使い方は、このリカバリ対象がリカバリのための最も望ましいポイントかどうかチェックするために、データベースに対して問い合わせを実行できるようにすることです。
+休止された状態は、<function>pg_wal_replay_resume()</function>(<xref linkend="functions-recovery-control-table"/>参照)の使用により再開することができます。
+その後、それはリカバリを終了させます。
+このリカバリ対象が希望の止まるポイントでない場合、サーバをシャットダウンし、リカバリ対象の設定をより後の対象に変更し、リカバリを継続するために再起動してください。
        </para>
        <para>
+<!--
         The <literal>shutdown</literal> setting is useful to have the instance ready
         at the exact replay point desired.  The instance will still be able to
         replay more WAL records (and in fact will have to replay WAL records
         since the last checkpoint next time it is started).
+-->
+<literal>shutdown</literal>の設定はインスタンスを正確に望ましい再生ポイントで準備するのに有用です。
+インスタンスはさらに多くのWALレコードを再生できます(実際、次に起動するときには最後のチェックポイントからWALレコードを再生しなければなりません)。
        </para>
        <para>
+<!--
         Note that because <filename>recovery.signal</filename> will not be
         removed when <varname>recovery_target_action</varname> is set to <literal>shutdown</literal>,
         any subsequent start will end with immediate shutdown unless the
         configuration is changed or the <filename>recovery.signal</filename>
         file is removed manually.
+-->
+<filename>recovery.signal</filename>は<varname>recovery_target_action</varname>が<literal>shutdown</literal>に設定されていると削除されないことに留意してください。
+設定が変更されるか、<filename>recovery.signal</filename>が手動で削除されない限り、以降起動しても直ちに停止されてしまいます。
        </para>
        <para>
+<!--
         This setting has no effect if no recovery target is set.
         If <xref linkend="guc-hot-standby"/> is not enabled, a setting of
         <literal>pause</literal> will act the same as <literal>shutdown</literal>.
+-->
+この設定はリカバリ対象が設定されていない場合には効果がありません。
+<xref linkend="guc-hot-standby"/>が有効になっていない場合、<literal>pause</literal>の設定は<literal>shutdown</literal>と同じように動作します。
        </para>
       </listitem>
      </varlistentry>
@@ -5107,19 +5353,22 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
         servers.
 -->
 複数のスタンバイサーバあるいは、ストリーミングを使ったベースバックアップクライアントからの同時接続を受ける接続最大値を設定します（つまり、同時に稼動するWAL送信プロセスの最大値です）。
-デフォルトは10です。
-0ならば、レプリケーションは無効であるという意味になります。
-WAL送出プロセスは接続の総数カウントに考慮されるため、パラメータは<xref linkend="guc-max-connections"/>から<xref linkend="guc-superuser-reserved-connections"/>を引いたものより小さくなければなりません。
-クライアント接続が突然切断されると、タイムアウトするまで孤児接続スロットが残ってしまうかもしれません。
+デフォルトは<literal>10</literal>です。
+<literal>0</literal>ならば、レプリケーションは無効であるという意味になります。
+ストリーミングクライアントの突然の切断により、タイムアウトになるまで親のない接続スロットが残ることがあります。
 ですから、このパラメータは想定されるクライアント数の最大値よりも少し大きめにして、切断されたクライアントが直ちに再接続できるようにした方が良いでしょう。
 このパラメータはサーバ起動時のみ設定可能です。
 また、スタンバイサーバからの接続を許可するには、<varname>wal_level</varname>を<literal>replica</literal>以上に設定しておかなければなりません。
        </para>
 
        <para>
+<!--
          When running a standby server, you must set this parameter to the
          same or higher value than on the master server. Otherwise, queries
          will not be allowed in the standby server.
+-->
+スタンバイサーバを実行する際は、このパラメータをマスタサーバと同じか高い値にしなければなりません。
+さもなければ、スタンバイサーバでクエリを実行できなくなります。
         </para>
        </listitem>
       </varlistentry>
@@ -5210,11 +5459,15 @@ WAL送出プロセスは接続の総数カウントに考慮されるため、�
      <varlistentry id="guc-wal-init-zero" xreflabel="wal_init_zero">
       <term><varname>wal_init_zero</varname> (<type>boolean</type>)
       <indexterm>
+<!--
        <primary><varname>wal_init_zero</varname> configuration parameter</primary>
+-->
+       <primary><varname>wal_init_zero</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         If set to <literal>on</literal> (the default), this option causes new
         WAL files to be filled with zeroes.  On some file systems, this ensures
         that space is allocated before we need to write WAL records.  However,
@@ -5222,6 +5475,11 @@ WAL送出プロセスは接続の総数カウントに考慮されるため、�
         from this technique, so the option is given to skip the unnecessary
         work.  If set to <literal>off</literal>, only the final byte is written
         when the file is created so that it has the expected size.
+-->
+このオプションが<literal>on</literal>（デフォルト）に設定されると、新しいWALファイルはゼロで初期化されます。
+システムによっては、このことによってWALレコードを書く必要が出てくる前にスペースが割り当てられることを保証します。
+しかし、<firstterm>Copy-On-Write</firstterm> (COW)ファイルシステムではこの技術は利点がないかもしれず、このオプションはスキップできるようになっています。
+<literal>off</literal>に設定すると、ファイルを作る時に期待する大きさになるように最後のバイトだけが書かれます。
        </para>
       </listitem>
      </varlistentry>
@@ -5229,15 +5487,22 @@ WAL送出プロセスは接続の総数カウントに考慮されるため、�
      <varlistentry id="guc-wal-recycle" xreflabel="wal_recycle">
       <term><varname>wal_recycle</varname> (<type>boolean</type>)
       <indexterm>
+<!--
        <primary><varname>wal_recycle</varname> configuration parameter</primary>
+-->
+       <primary><varname>wal_recycle</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         If set to <literal>on</literal> (the default), this option causes WAL
         files to be recycled by renaming them, avoiding the need to create new
         ones.  On COW file systems, it may be faster to create new ones, so the
         option is given to disable this behavior.
+-->
+このオプションが<literal>on</literal>（デフォルト）に設定されると、新しくファイルを作るのを避けるために、名前を変えてWALファイルが再利用されます。
+COWファイルシステムでは、新しいファイルを作るほうが速いかも知れないので、この挙動を無効にできるようにオプションとなっています。
        </para>
       </listitem>
      </varlistentry>
@@ -5253,7 +5518,7 @@ WAL送出プロセスは接続の総数カウントに考慮されるため、�
       </term>
       <listitem>
        <para>
-       <!--
+<!--
         Terminate replication connections that are inactive longer
         than the specified number of milliseconds. This is useful for
         the sending server to detect a standby crash or network outage.
@@ -5265,12 +5530,14 @@ WAL送出プロセスは接続の総数カウントに考慮されるため、�
         connection, and a larger value helps in judging better the health
         of a standby if located on a remote location, with a high-latency
         network connection.
-       -->
-       指定されたミリ秒単位の値より長く非活動のレプリケーション接続を停止します。
-       スタンバイサーバのクラッシュ、またはネットワークの停止を送出サーバが検出することにこれが役立ちます。
-       値ゼロはタイムアウト機能を無効にします。
-       このパラメータは、<filename>postgresql.conf</filename>ファイル、もしくはサーバコマンドラインでのみ設定可能です。
-       デフォルトの値は60秒です。
+-->
+指定されたミリ秒単位の値より長く非活動のレプリケーション接続を停止します。
+スタンバイサーバのクラッシュ、またはネットワークの停止を送出サーバが検出することにこれが役立ちます。
+値ゼロはタイムアウト機能を無効にします。
+デフォルトの値は60秒です。
+地理的に複数の場所に分散したクラスタでは、場所によって異なる値を使うことでクラスタ管理がより柔軟にできるようになります。
+より小さな値は低遅延ネットワーク接続上のスタンバイの障害検知をより高速にするのに役立ちます。
+遅延の大きなネットワーク接続に設置されたスタンバイの健全性の判断にはより大きな値が助けになるでしょう。
        </para>
       </listitem>
      </varlistentry>
@@ -5375,8 +5642,8 @@ WAL送出プロセスは接続の総数カウントに考慮されるため、�
         consult their documentation.
 -->
 この目的のためのスタンバイサーバ名は、スタンバイの接続情報で指定された、スタンバイの<varname>application_name</varname>設定です。
-物理レプリケーションスタンバイでは、<filename>recovery.conf</filename>中の<varname>primary_conninfo</varname>設定です。
-デフォルトは<literal>walreceiver</literal>です。
+物理レプリケーションスタンバイでは、<varname>primary_conninfo</varname>設定です。
+デフォルトは<xref linkend="guc-cluster-name"/>の設定で、さもなければ<literal>walreceiver</literal>です。
 論理レプリケーションでは、サブスクリプションの接続情報で設定でき、デフォルトはサブスクリプション名です。
 それ以外のレプリケーションストリームコンシューマーについては、それぞれのドキュメントをご覧ください。
        </para>
@@ -5596,11 +5863,15 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
        <varlistentry id="guc-primary-conninfo" xreflabel="primary_conninfo">
         <term><varname>primary_conninfo</varname> (<type>string</type>)
         <indexterm>
+<!--
           <primary><varname>primary_conninfo</varname> configuration parameter</primary>
+-->
+          <primary><varname>primary_conninfo</varname>設定パラメータ</primary>
         </indexterm>
         </term>
         <listitem>
          <para>
+<!--
           Specifies a connection string to be used for the standby server
           to connect with a sending server. This string is in the format
           described in <xref linkend="libpq-connstring"/>. If any option is
@@ -5608,8 +5879,14 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
           variable (see <xref linkend="libpq-envars"/>) is checked. If the
           environment variable is not set either, then
           defaults are used.
+-->
+スタンバイサーバが送信サーバに接続するための接続文字列を指定します。
+この文字列は、<xref linkend="libpq-connstring"/>で説明されている書式で記述されます。
+この文字列に何のオプションも指定されていない場合、これに対応する環境変数 (<xref linkend="libpq-envars"/> 参照) が確認されます。
+環境変数も設定されていなければデフォルトの値が使われます。
          </para>
          <para>
+<!--
           The connection string should specify the host name (or address)
           of the sending server, as well as the port number if it is not
           the same as the standby server's default.
@@ -5623,21 +5900,35 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
           <literal>replication</literal> as the database name).
           Do not specify a database name in the
           <varname>primary_conninfo</varname> string.
+-->
+接続文字列では、プライマリサーバのホスト名（またはアドレス）、スタンバイサーバのデフォルトと異なるのであればポート番号も指定する必要があります。
+また、送信サーバ上で適切な権限を保有するロールのユーザを指定しなければなりません (<xref linkend="streaming-replication-authentication"/> 参照)。
+送信サーバが要求するのであれば、パスワードも記述される必要があります。
+パスワードは <varname>primary_conninfo</varname>に記述することもできますし、スタンバイサーバ上の分離されたファイル<filename>~/.pgpass</filename>に記述することもできます (データベース名には <literal>replication</literal> を使います)。
+<varname>primary_conninfo</varname>文字列の中には、データベース名を指定しないでください。
          </para>
          <para>
+<!--
           This parameter can only be set at server start.
           This setting has no effect if the server is not in standby mode.
+-->
+このパラメータはサーバ起動時のみ設定可能です。
+サーバがスタンバイモードでなければこの設定は無効となります。
          </para>
         </listitem>
        </varlistentry>
        <varlistentry id="guc-primary-slot-name" xreflabel="primary_slot_name">
         <term><varname>primary_slot_name</varname> (<type>string</type>)
         <indexterm>
+<!--
           <primary><varname>primary_slot_name</varname> configuration parameter</primary>
+-->
+          <primary><varname>primary_slot_name</varname>設定パラメータ</primary>
         </indexterm>
         </term>
         <listitem>
          <para>
+<!--
           Optionally specifies an existing replication slot to be used when
           connecting to the sending server via streaming replication to control
           resource removal on the upstream node
@@ -5645,6 +5936,10 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
           This parameter can only be set at server start.
           This setting has no effect if <varname>primary_conninfo</varname> is not
           set.
+-->
+上流ノードのリソース削除を制御するためにストリーミングレプリケーション経由でプライマリに接続した場合、既存のレプリケーションスロットを使うように、必要に応じて指定します（<xref linkend="streaming-replication-slots"/>を参照）。
+このパラメータはサーバ起動時のみ設定可能です。
+<varname>primary_conninfo</varname>が設定されていない場合、この設定は無効です。
          </para>
         </listitem>
        </varlistentry>
@@ -5652,17 +5947,25 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
        <varlistentry id="guc-promote-trigger-file" xreflabel="promote_trigger_file">
         <term><varname>promote_trigger_file</varname> (<type>string</type>)
         <indexterm>
+<!--
+          <primary><varname>promote_trigger_file</varname> configuration parameter</primary>
+-->
           <primary><varname>promote_trigger_file</varname> configuration parameter</primary>
         </indexterm>
         </term>
         <listitem>
          <para>
+<!--
           Specifies a trigger file whose presence ends recovery in the
           standby.  Even if this value is not set, you can still promote
           the standby using <command>pg_ctl promote</command> or calling
           <function>pg_promote</function>.
           This parameter can only be set in the <filename>postgresql.conf</filename>
           file or on the server command line.
+-->
+スタンバイサーバにおいて、リカバリの完了を示すトリガファイルを指定します。
+この値が設定されていなくても、<command>pg_ctl promote</command>あるいは<function>pg_promote</function>を使ってスタンバイサーバを昇格させることができます。
+このパラメータは、<filename>postgresql.conf</filename>ファイル、もしくはサーバコマンドラインでのみ設定可能です。
          </para>
         </listitem>
        </varlistentry>
@@ -5961,11 +6264,15 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
      <varlistentry id="guc-recovery-min-apply-delay" xreflabel="recovery_min_apply_delay">
       <term><varname>recovery_min_apply_delay</varname> (<type>integer</type>)
       <indexterm>
+<!--
         <primary><varname>recovery_min_apply_delay</varname> configuration parameter</primary>
+-->
+        <primary><varname>recovery_min_apply_delay</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         By default, a standby server restores WAL records from the
         sending server as soon as possible. It may be useful to have a time-delayed
         copy of the data, offering opportunities to correct data loss errors.
@@ -5974,8 +6281,14 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         you set this parameter to <literal>5min</literal>, the standby will
         replay each transaction commit only when the system time on the standby
         is at least five minutes past the commit time reported by the master.
+-->
+デフォルトでは、スタンバイサーバは可能な限り早くプライマリからWALレコードをリストアします。
+時間遅れのデータのコピーを持つことで、データ損失エラーを修正する機会を提供するのは有用かもしれません。
+このパラメータを使う事で、決まった時間だけリカバリを遅らせることができます。単位を指定しない場合、ミリ秒として扱われます。
+例えば、パラメータに<literal>5min</literal>と指定した場合、各トランザクションについて、スタンバイのシステム時刻が、マスターから報告されたコミット時刻より5分以上経過している場合のみ、スタンバイサーバはコミットを再生します。
        </para>
        <para>
+<!--
         It is possible that the replication delay between servers exceeds the
         value of this parameter, in which case no delay is added.
         Note that the delay is calculated between the WAL time stamp as written
@@ -5986,36 +6299,61 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         recovery applying records earlier than expected; but that is not a
         major issue because useful settings of this parameter are much larger
         than typical time deviations between servers.
+-->
+サーバ間のレプリケーション遅延はパラメータの値を上回る可能性があり、その場合には遅延は追加されません。
+遅延は、マスタサーバで書かれたWALのタイムスタンプと、スタンバイサーバの現在時刻を使って計算されていることに注意してください。
+ネットワークの遅延やカスケーディングレプリケーション構成によるデータ転送の遅延は、実際の待ち時間を大幅に減らすかもしれません。
+もし、マスタサーバとスタンバイサーバのシステムクロックが同期されていない場合、期待値よりも早くレコードのリカバリを始めるかもしれません。
+しかし、このパラメータの有用な設定値は典型的なサーバ間の時間のずれよりもずっと大きいので、それらは大きな問題ではありません。
        </para>
        <para>
+<!--
         The delay occurs only on WAL records for transaction commits.
         Other records are replayed as quickly as possible, which
         is not a problem because MVCC visibility rules ensure their effects
         are not visible until the corresponding commit record is applied.
+-->
+遅延はトランザクションコミットのWALレコードだけで発生します。
+他のレコードは可能な限り早く再生されるでしょう。
+対応する（トランザクション）コミットレコードが適用されるまではその効果が不可視であることがMVCCの可視ルールによって保証されているため、他のレコードが可能な限り早く再生されることは問題にはなりません。
        </para>
        <para>
+<!--
         The delay occurs once the database in recovery has reached a consistent
         state, until the standby is promoted or triggered. After that the standby
         will end recovery without further waiting.
+-->
+ひとたびリカバリ中のデータベースが整合性のとれた状態になれば、スタンバイサーバが昇格またはトリガーになるまで、遅延が発生します。
+その後、スタンバイサーバはそれ以上待たずにリカバリを終了します。
        </para>
        <para>
+<!--
         This parameter is intended for use with streaming replication deployments;
         however, if the parameter is specified it will be honored in all cases.
 
         <varname>hot_standby_feedback</varname> will be delayed by use of this feature
         which could lead to bloat on the master; use both together with care.
+-->
+このパラメータはストリーミングレプリケーション配信で使われることを目的としていますが、パラメータが指定されていると、すべてのケースで使用されます。
+この機能を使うことによって<varname>hot_standby_feedback</varname>が遅延され、マスタサーバの肥大化に繋がる可能性があります。両方同時に使う場合には注意して使ってください。
 
         <warning>
          <para>
+<!--
           Synchronous replication is affected by this setting when <varname>synchronous_commit</varname>
           is set to <literal>remote_apply</literal>; every <literal>COMMIT</literal>
           will need to wait to be applied.
+-->
+<varname>synchronous_commit</varname>が<literal>remote_apply</literal>に設定されていれば、同期レプリケーションは、この設定に影響を受けます。各<literal>COMMIT</literal>は適用されるのを待つことが必要です。
          </para>
         </warning>
        </para>
        <para>
+<!--
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
+-->
+このパラメータは、<filename>postgresql.conf</filename>ファイル、もしくはサーバコマンドラインでのみ設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -7462,7 +7800,7 @@ SELECT * FROM parent WHERE key = 2400;
         The default is <literal>on</literal>.
 -->
 <productname>PostgreSQL</productname>が、可能ならば<acronym>JIT</acronym>コンパイルを使うかどうかを決定します。
-デフォルトは<literal>off</literal>です。
+デフォルトは<literal>on</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -7623,11 +7961,15 @@ SELECT * FROM parent WHERE key = 2400;
      <varlistentry id="guc-plan-cache_mode" xreflabel="plan_cache_mode">
       <term><varname>plan_cache_mode</varname> (<type>enum</type>)
       <indexterm>
+<!--
        <primary><varname>plan_cache_mode</varname> configuration parameter</primary>
+-->
+       <primary><varname>plan_cache_mode</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Prepared statements (either explicitly prepared or implicitly
         generated, for example by PL/pgSQL) can be executed using custom or
         generic plans.  Custom plans are made afresh for each execution
@@ -7644,6 +7986,15 @@ SELECT * FROM parent WHERE key = 2400;
         This setting is considered when a cached plan is to be executed,
         not when it is prepared.
         For more information see <xref linkend="sql-prepare"/>.
+-->
+準備された文（明示的に準備されたものあるいはPL/pgSQLのように暗黙的に生成されたもののどちらにおいても）は、カスタムあるいは汎用(generic)プランで実行することができます。
+カスタムプランは実行ごとに指定されたパラメータ値の集合で新たに作られます。
+一方汎用プランはパラメータ値に依存せず、複数の実行にまたがって再利用できます。
+したがって、汎用プランはプランニングに要する時間を節約できますが、理想的なプランがパラメータ値に強く依存している場合は、汎用プランは非効率かも知れません。
+通常この両者の選択は自動的に行われますが、<varname>plan_cache_mode</varname>で上書きできます。
+可能な値は<literal>auto</literal>（デフォルト）、<literal>force_custom_plan</literal>、<literal>force_generic_plan</literal>です。
+この設定は、準備するときではなく、キャッシュされたプランを実行する際に考慮されます。
+詳細は<xref linkend="sql-prepare"/>をご覧ください。
        </para>
       </listitem>
      </varlistentry>
@@ -8463,11 +8814,15 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
      <varlistentry id="guc-log-transaction-sample-rate" xreflabel="log_transaction_sample_rate">
       <term><varname>log_transaction_sample_rate</varname> (<type>real</type>)
       <indexterm>
+<!--
        <primary><varname>log_transaction_sample_rate</varname> configuration parameter</primary>
+-->
+       <primary><varname>log_transaction_sample_rate</varname>設定パラメータ</primary>
       </indexterm>
       </term>
        <listitem>
         <para>
+<!--
          Set the fraction of transactions whose statements are all logged,
          in addition to statements logged for other reasons.  It applies to
          each new transaction regardless of its statements' durations.
@@ -8476,11 +8831,20 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
          logs all statements for all transactions.
          <varname>log_transaction_sample_rate</varname> is helpful to track a
          sample of transaction.
+-->
+他の理由に加え、トランザクションの文のうち、ログの対象となる割合を設定します。
+文の実行期間にかかわらず、新しいトランザクションに適用されます。
+デフォルトは<literal>0</literal>で、これは追加のトランザクションのログを取らないことを意味します。
+<literal>1</literal>に設定すると、すべてのトランザクションのすべての文のログを取ります。
+<varname>log_transaction_sample_rate</varname>は、トランザクションのサンプルを調査するのに役立ちます。
         </para>
        <note>
         <para>
+<!--
          Like all statement-logging options, this option can add significant
          overhead.
+-->
+他の文のログを取るオプション同様、このオプションも大きなオーバヘッドを与える可能性があります。
         </para>
        </note>
        </listitem>
@@ -8862,7 +9226,7 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
          statements exceeding the threshold.  This behavior can be useful for
          gathering statistics in high-load installations.
         -->
-        このオプションと<xref linkend="guc-log-min-duration-statement"/>を0に設定する方法との違いは、<varname>log_min_duration_statement</varname>を超えた場合、テキスト版の問い合わせが強制的に出力されるのに対して、このオプションでは出力されないという点です。
+<varname>log_duration</varname>を有効にするのと<xref linkend="guc-log-min-duration-statement"/>を0に設定する方法との違いは、<varname>log_min_duration_statement</varname>を超えた場合、テキスト版の問い合わせが強制的に出力されるのに対して、このオプションでは出力されないという点です。
 したがって、<varname>log_duration</varname>が<literal>on</literal>、かつ、<varname>log_min_duration_statement</varname>が正の値を持つ場合、すべての経過時間がログに記録されますが、閾値を超えた文のみがテキスト版の問い合わせが含められるようになります。
 この動作は、高負荷なインストレーションで統計情報を収集する際に有用です。
         </para>
@@ -9585,11 +9949,17 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
       </term>
       <listitem>
        <para>
+<!--
         Sets a name that identifies this database cluster (instance) for
         various purposes.  The cluster name appears in the process title for
         all server processes in this cluster.  Moreover, it is the default
         application name for a standby connection (see <xref
         linkend="guc-synchronous-standby-names"/>.)
+-->
+様々な目的のために、このデータベースクラスタ（インスタンス）を識別する名前を設定します。
+クラスタ名はこのクラスタのすべてのサーバプロセスのプロセス表題に表れます。
+更に、スタンバイ接続のデフォルトのアプリケーション名となります。
+（<xref linkend="guc-synchronous-standby-names"/>参照。)
        </para>
 
        <para>
@@ -9602,7 +9972,6 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
         if this parameter is set to the empty string <literal>''</literal> (which is
         the default). This parameter can only be set at server start.
 -->
-このクラスタ内のすべてのサーバプロセス表題にクラスタ名を設定します。
 クラスタ名は<symbol>NAMEDATALEN</symbol>文字(標準のビルドでは64文字)より少ない文字列です。
 表示可能なASCII文字だけが<varname>cluster_name</varname>の値として設定できます。
 他の文字は、疑問符(<literal>?</literal>)に置き換えられます。
@@ -9983,7 +10352,10 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
       <term><varname>log_autovacuum_min_duration</varname> (<type>integer</type>)
       <indexterm>
        <primary><varname>log_autovacuum_min_duration</varname></primary>
+<!--
        <secondary>configuration parameter</secondary>
+-->
+       <secondary>設定パラメータ</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -10005,7 +10377,7 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
 -->
 少なくとも指定ミリ秒実行した場合、autovacuumで実行される各活動がログに残るようになります。
 これをゼロに設定すると、すべてのautovacuumの活動がログに残ります。
-マイナス1（デフォルト）はautovacuum活動のログを無効にします。
+<literal>-1</literal>（デフォルト）はautovacuum活動のログを無効にします。
 例えば、これを<literal>250ms</literal>に設定すると、250ms以上かかって実行されたautovacuumや解析はすべてログに残ります。
 さらに、<literal>-1</literal>以外の値にこのパラメータが設定された場合、競合するロックや並行して削除されたリレーションによりautovacuum動作が省略されるとメッセージはログに記録されます。
 このパラメータを有効にすることは、autovacuum活動の追跡に役に立ちます。
@@ -10070,7 +10442,10 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
       <term><varname>autovacuum_vacuum_threshold</varname> (<type>integer</type>)
       <indexterm>
        <primary><varname>autovacuum_vacuum_threshold</varname></primary>
+<!--
        <secondary>configuration parameter</secondary>
+-->
+       <secondary>設定パラメータ</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -10122,7 +10497,10 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
       <term><varname>autovacuum_vacuum_scale_factor</varname> (<type>floating point</type>)
       <indexterm>
        <primary><varname>autovacuum_vacuum_scale_factor</varname></primary>
+<!--
        <secondary>configuration parameter</secondary>
+-->
+       <secondary>設定パラメータ</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -10216,7 +10594,10 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
       <term><varname>autovacuum_multixact_freeze_max_age</varname> (<type>integer</type>)
       <indexterm>
        <primary><varname>autovacuum_multixact_freeze_max_age</varname></primary>
+<!--
        <secondary>configuration parameter</secondary>
+-->
+       <secondary>設定パラメータ</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -10256,7 +10637,10 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
       <term><varname>autovacuum_vacuum_cost_delay</varname> (<type>floating point</type>)
       <indexterm>
        <primary><varname>autovacuum_vacuum_cost_delay</varname></primary>
+<!--
        <secondary>configuration parameter</secondary>
+-->
+       <secondary>設定パラメータ</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -10271,9 +10655,9 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
         but the setting can be overridden for individual tables by
         changing table storage parameters.
        -->
-       自動<command>VACUUM</command>操作に使用されるコスト遅延値を指定します。
-        -1に指定されると、一定の <xref linkend="guc-vacuum-cost-delay"/>の値が使用されます。
-デフォルト値は20ミリ秒です。
+自動<command>VACUUM</command>操作に使用されるコスト遅延値を指定します。
+-1に指定されると、一定の <xref linkend="guc-vacuum-cost-delay"/>の値が使用されます。
+デフォルト値は2ミリ秒です。
 このパラメータは<filename>postgresql.conf</filename>ファイル内、または、サーバのコマンドラインのみで設定可能です。
 この設定はテーブルストレージパラメータの変更により、それぞれのテーブルに対して上書きすることができます。
        </para>
@@ -10284,7 +10668,10 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
       <term><varname>autovacuum_vacuum_cost_limit</varname> (<type>integer</type>)
       <indexterm>
        <primary><varname>autovacuum_vacuum_cost_limit</varname></primary>
+<!--
        <secondary>configuration parameter</secondary>
+-->
+       <secondary>設定パラメータ</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -10557,16 +10944,23 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
      <varlistentry id="guc-default-table-access-method" xreflabel="default_table_access_method">
       <term><varname>default_table_access_method</varname> (<type>string</type>)
       <indexterm>
+<!--
        <primary><varname>default_table_access_method</varname> configuration parameter</primary>
+-->
+       <primary><varname>default_table_access_method</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         This parameter specifies the default table access method to use when
         creating tables or materialized views if the <command>CREATE</command>
         command does not explicitly specify an access method, or when
         <command>SELECT ... INTO</command> is used, which does not allow to
         specify a table access method. The default is <literal>heap</literal>.
+-->
+このパラメータは、テーブルあるいはマテリアライズドビューの作成時に<command>CREATE</command>コマンドが明示的にアクセスメソッドを指定しないか、あるいはテーブルアクセスメソッドを指定できない<command>SELECT ... INTO</command>が利用された時に使われるデフォルトのテーブルアクセスメソッドを指定します。
+デフォルトは<literal>heap</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -10593,6 +10987,7 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
         that a partitioned relation will direct future partitions to.
        -->
        この変数は、<command>CREATE</command>コマンドで明示的にテーブル空間を指定していない場合にオブジェクトの作成先となるデフォルトのテーブル空間を指定します。
+また、パーティション化されたリレーションが将来パーティションを格納するテーブルスペースを決定します。
        </para>
 
        <para>
@@ -11203,7 +11598,10 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
       <term><varname>vacuum_cleanup_index_scale_factor</varname> (<type>floating point</type>)
       <indexterm>
        <primary><varname>vacuum_cleanup_index_scale_factor</varname></primary>
+<!--
        <secondary>configuration parameter</secondary>
+-->
+       <secondary>設定パラメータ</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -11383,7 +11781,10 @@ SET XML OPTION { DOCUMENT | CONTENT };
       <term><varname>gin_pending_list_limit</varname> (<type>integer</type>)
       <indexterm>
        <primary><varname>gin_pending_list_limit</varname></primary>
+<!--
        <secondary>configuration parameter</secondary>
+-->
+       <secondary>設定パラメータ</secondary>
       </indexterm>
       </term>
       <listitem>
@@ -11590,11 +11991,15 @@ SET XML OPTION { DOCUMENT | CONTENT };
       </term>
       <listitem>
        <para>
+<!--
         This parameter adjusts the number of digits used for textual output of
         floating-point values, including <type>float4</type>, <type>float8</type>,
         and geometric data types.
+-->
+このパラメータは、<type>float4</type>、<type>float8</type>、幾何データ型などにおいて、浮動小数点数値のテキスト形式の出力で使用される桁数を調整します。
        </para>
        <para>
+<!--
         If the value is 1 (the default) or above, float values are output in
         shortest-precise format; see <xref linkend="datatype-float"/>. The
         actual number of digits generated depends only on the value being
@@ -11603,8 +12008,16 @@ SET XML OPTION { DOCUMENT | CONTENT };
         values. This format is both fast and precise, preserving the original
         binary float value exactly when correctly read. For historical
         compatibility, values up to 3 are permitted.
+-->
+この値が1（デフォルト）あるいはそれ以上なら、浮動小数点数値の出力は最も短い精度の形式で出力されます。
+<xref linkend="datatype-float"/>を参照してください。
+生成される実際の桁数は出力される値にのみ依存します。
+<type>float8</type>値では最大でも17桁、<type>float4</type>値では最大9桁必要です。
+この形式は高速かつ高精度で、正しく読まれる際には元の2進数における浮動小数点値を正確に保存します。
+歴史的な互換性の理由により、3までの値が許容されています。
        </para>
        <para>
+<!--
         If the value is zero or negative, then the output is rounded to a
         given decimal precision. The precision used is the standard number of
         digits for the type (<literal>FLT_DIG</literal>
@@ -11614,12 +12027,21 @@ SET XML OPTION { DOCUMENT | CONTENT };
         digits, and <type>float8</type> values
         rounded to 14 digits.) This format is slower and does not preserve all
         the bits of the binary float value, but may be more human-readable.
+-->
+この値がゼロまたは負なら、出力は与えられた10進精度に丸められます。
+使用される精度は、各々の型の標準的の桁数（型に応じて<literal>FLT_DIG</literal>あるいは<literal>DBL_DIG</literal>）がこのパラメータの値により制限されたものになります。
+（たとえば、-1にすると<type>float4</type>値は5桁に、<type>float8</type>値では14桁に丸められます。）
+この形式は低速、かつ元の2進数における浮動小数点値のビットを保存しませんが、人間にとってより読みやすいかも知れません。
        </para>
        <note>
         <para>
+<!--
          The meaning of this parameter, and its default value, changed
          in <productname>PostgreSQL</productname> 12;
          see <xref linkend="datatype-float"/> for further discussion.
+-->
+このパラメータの意味とデフォルト値は<productname>PostgreSQL</productname> 12で変更されました。
+更なる議論については<xref linkend="datatype-float"/>をご覧ください。
         </para>
        </note>
       </listitem>
@@ -12905,8 +13327,8 @@ onの場合、演算子の優先順位の変更の結果、<productname>PostgreS
         this is set to off, so that only FATAL errors will terminate the
         session.
        -->
-       真の場合、全てのエラーは現在のセッションを中止させます。
-       デフォルトでこれは偽に設定されますので、 FATALエラーのみがセッションを中止させます。
+onなら、全てのエラーは現在のセッションを中止させます。
+デフォルトではこれはoffに設定されているので、 FATALエラーのみがセッションを中止させます。
        </para>
       </listitem>
      </varlistentry>
@@ -12931,9 +13353,9 @@ onの場合、演算子の優先順位の変更の結果、<productname>PostgreS
         useful to disable the restart so that the clusterware can gain
         control and take any actions it deems appropriate.
        -->
-       真の場合、これがデフォルトですが、<productname>PostgreSQL</productname>はバックエンドのクラッシュの後、自動的に再初期化を行います。
-       この値を真のままにしておくことは通常データベースの可用性を最大化する最適の方法です。
-       しかし、 <productname>PostgreSQL</productname>がクラスタウェアにより起動された時のような状況により、クラスタウェアが制御を獲得し、適切とみなされるいかなる振る舞いをも行えるように再起動を無効にすることも有益です。
+デフォルトであるonの場合、<productname>PostgreSQL</productname>はバックエンドのクラッシュの後、自動的に再初期化を行います。
+この値を真のままにしておくことが、通常データベースの可用性を最大化する最適の方法です。
+しかし、 <productname>PostgreSQL</productname>がクラスタウェアにより起動された時のような状況では、クラスタウェアが制御を獲得して、適切とみなすいかなる振る舞いをも行えるように再起動を無効にすることが有益かもしれません。
        </para>
       </listitem>
      </varlistentry>
@@ -12955,8 +13377,8 @@ onの場合、演算子の優先順位の変更の結果、<productname>PostgreS
         to the file system.  This causes the database server to crash.  This
         parameter can only be set at server start.
 -->
-デフォルトである偽に設定すると、<productname>PostgreSQL</productname>はファイルシステムに変更されたデータファイルを吐き出す際の失敗に対してPANICレベルのエラーを発生させます。
-これによりデータベースサーバのクラッシュを引き起こします。
+デフォルトであるoffに設定すると、<productname>PostgreSQL</productname>は変更されたデータファイルのファイルシステムへの吐き出しの失敗に対してPANICレベルのエラーを発生させます。
+これによりデータベースサーバのクラッシュが引き起こされます。
 このパラメータはサーバ起動時のみ設定可能です。
        </para>
        <para>
@@ -12981,8 +13403,8 @@ onの場合、演算子の優先順位の変更の結果、<productname>PostgreS
         after investigating the operating system's treatment of buffered data
         in case of write-back failure.
 -->
-真に設定すると、代わりに<productname>PostgreSQL</productname>はエラーを報告して実行を継続し、後のチェックポイントでデータの吐き出しをリトライします。
-書き込みの吐き出し失敗が起きたときのオペレーティングシステムのバッファデータの扱いを調査した後でのみ真に設定してください。
+onに設定すると、代わりに<productname>PostgreSQL</productname>はエラーを報告して実行を継続し、後のチェックポイントでデータの吐き出しをリトライします。
+書き戻しの失敗が起きたときのオペレーティングシステムのバッファデータの扱いを調査した後でのみonに設定してください。
        </para>
       </listitem>
      </varlistentry>
@@ -13355,15 +13777,21 @@ onの場合、演算子の優先順位の変更の結果、<productname>PostgreS
      <varlistentry id="guc-ssl-library" xreflabel="ssl_library">
       <term><varname>ssl_library</varname> (<type>string</type>)
       <indexterm>
+<!--
        <primary><varname>ssl_library</varname> configuration parameter</primary>
+-->
+       <primary><varname>ssl_library</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Reports the name of the SSL library that this
         <productname>PostgreSQL</productname> server was built with (even if
         SSL is not currently configured or in use on this instance), for
         example <literal>OpenSSL</literal>, or an empty string if none.
+-->
+（このインスタンスでSSLが設定あるいは使用されていなくても）この<productname>PostgreSQL</productname>サーバの構築時に使用されたSSLライブラリの名前、たとえば<literal>OpenSSL</literal>あるいは空文字列、を報告します。
        </para>
       </listitem>
      </varlistentry>
@@ -13379,13 +13807,13 @@ onの場合、演算子の優先順位の変更の結果、<productname>PostgreS
       </term>
       <listitem>
        <para>
-       <!--
+<!--
         Reports the size of a WAL disk block.  It is determined by the value
         of <literal>XLOG_BLCKSZ</literal> when building the server. The default value
         is 8192 bytes.
-       -->
-       WALディスクブロックの容量を報告します。
-       サーバ構築時に<literal>XLOG_BLCKSZ</literal>の値で決定されます。デフォルトの値は8192バイトです。
+-->
+WALディスクブロックの容量を報告します。
+サーバ構築時に<literal>XLOG_BLCKSZ</literal>の値で決定されます。デフォルトの値は8192バイトです。
        </para>
       </listitem>
      </varlistentry>

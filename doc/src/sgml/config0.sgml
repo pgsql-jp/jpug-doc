@@ -93,6 +93,7 @@
 一般に、単一引用符の中に値を入れます。
 単一引用符を値に含める場合は単一引用符を２つ続けます。
 なお、値が単純な数字や識別子である場合は、通常は引用符を省略できます。
+（使用する場所によっては、SQLキーワードと一致する値に引用符が必要になることがあります。）
       </para>
      </listitem>
 
@@ -110,9 +111,12 @@
        Quotes are not required, except for hexadecimal input.
 -->
 <emphasis>数値型(整数型と浮動小数点型):</emphasis>
-小数点は浮動小数点型のパラメータでのみ使用できます。
+数値パラメータには通常の整数と浮動小数点型が使用できます。
+パラメータが整数型なら、小数値はもっとも近い整数に丸められます。
+加えて整数型パラメータは16進数入力（<literal>0x</literal>で始まります）と8進数入力（<literal>0</literal>で始まります）を受け付けます。
+しかし、これらの形式では小数点以下は使えません。
 1000の位取りの区切り文字は使わないでください。
-引用符は必要ありません。
+16進数入力を除き引用符は必要ありません。
       </para>
      </listitem>
 
@@ -168,17 +172,22 @@
           <literal>s</literal> (seconds), <literal>min</literal> (minutes),
           <literal>h</literal> (hours), and <literal>d</literal> (days).
 -->
-有効な時間の単位は <literal>ms</literal> (ミリ秒)、<literal>s</literal> (秒)、<literal>min</literal> (分)、<literal>h</literal> (時間)、<literal>d</literal> (日数) です。
+有効な時間の単位は <literal>us</literal> (マイクロ秒)、<literal>ms</literal> (ミリ秒)、<literal>s</literal> (秒)、<literal>min</literal> (分)、<literal>h</literal> (時間)、<literal>d</literal> (日数) です。
          </para>
         </listitem>
        </itemizedlist>
 
+<!--
        If a fractional value is specified with a unit, it will be rounded
        to a multiple of the next smaller unit if there is one.
        For example, <literal>30.1 GB</literal> will be converted
        to <literal>30822 MB</literal> not <literal>32319628902 B</literal>.
        If the parameter is of integer type, a final rounding to integer
        occurs after any units conversion.
+-->
+単位に添えて小数点以下が指定された場合、より小さな単位が存在すれば、値はその小さな単位の積に丸められます。
+たとえば、<literal>30.1 GB</literal>は<literal>32319628902 B</literal>ではなく<literal>30822 MB</literal>に変換されます。
+整数型のパラメータでは、単位変換の後で最終的な整数への丸めが行われます。
       </para>
      </listitem>
 
@@ -243,6 +252,7 @@ shared_buffers = 128MB
 ハッシュ記号（<literal>#</literal>）はその行の後の表記がコメントであることを意味します。
 単純でない識別子、または数値でないパラメータ値は単一引用符で括られなければなりません。
 パラメータ値の中に単一引用符を埋め込むには、引用符を2つ（推奨）もしくはバックスラッシュ-引用符を使います。
+ファイル中、同じパラメータに対して複数のエントリが指定されている場合は、最後のエントリ以外は無視されます。
     </para>
 
     <para>
@@ -298,13 +308,14 @@ shared_buffers = 128MB
      in <filename>postgresql.conf</filename>.
 -->
 <filename>postgresql.conf</filename>に加え、<productname>PostgreSQL</productname>のデータディレクトリには <filename>postgresql.auto.conf</filename><indexterm><primary>postgresql.auto.conf</primary></indexterm>というファイルがあります。
-このファイルは <filename>postgresql.conf</filename> と同じフォーマットですが、決して手動で編集してはいけません。
+このファイルは <filename>postgresql.conf</filename> と同じフォーマットですが、手動ではなく自動で編集されることを意図しています。
 このファイルは <xref linkend="sql-altersystem"/> コマンドを使った設定値を保存します。
 このファイルは<filename>postgresql.conf</filename> が読み込まれるときはいつでも自動的に読み込まれ、同じように設定が反映されます。
 <filename>postgresql.auto.conf</filename>は、<filename>postgresql.conf</filename>の設定を上書きします。
     </para>
 
     <para>
+<!--
      External tools may also
      modify <filename>postgresql.auto.conf</filename>.  It is not
      recommended to do this while the server is running, since a
@@ -312,6 +323,10 @@ shared_buffers = 128MB
      such changes.  Such tools might simply append new settings to the end,
      or they might choose to remove duplicate settings and/or comments
      (as <command>ALTER SYSTEM</command> will).
+-->
+外部ツールも<filename>postgresql.auto.conf</filename>を変更するかも知れません。
+<command>ALTER SYSTEM</command>が変更を上書きする可能性があるので、サーバが稼働中は外部ツールによる変更は推奨されません。
+そのようなツールは、単に新しい設定を最後に追加するか、重複した設定あるいはコメント(<command>ALTER SYSTEM</command>が行います)を削除することを選択するかも知れません。
     </para>
 
     <para>
@@ -1102,7 +1117,7 @@ include_dir 'conf.d'
         This parameter can only be set at server start.
        -->
 デフォルトの値は3接続です。
-この値は <varname>max_connections</varname>から<xref linkend="guc-max-wal-senders"/>を引いた値より小さくなくてはなりません。
+この値は <varname>max_connections</varname>より小さくなくてはなりません。
 このパラメータはサーバ起動時のみ設定可能です。
        </para>
       </listitem>
@@ -1442,11 +1457,15 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
      <varlistentry id="guc-tcp-user-timeout" xreflabel="tcp_user_timeout">
       <term><varname>tcp_user_timeout</varname> (<type>integer</type>)
       <indexterm>
+<!--
        <primary><varname>tcp_user_timeout</varname> configuration parameter</primary>
+-->
+       <primary><varname>tcp_user_timeout</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Specifies the number of milliseconds that transmitted data may
         remain unacknowledged before a connection is forcibly closed.
         A value of 0 uses the system default.
@@ -1454,11 +1473,19 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
         <symbol>TCP_USER_TIMEOUT</symbol>; on other systems, it must be zero.
         In sessions connected via a Unix-domain socket, this parameter is
         ignored and always reads as zero.
+-->
+未確認のデータが残ったままの接続が強制的に閉じられるまでの時間をミリ秒単位で指定します。
+値が0ならシステムのデフォルト値を使用します。
+このパラメータは、<symbol>TCP_USER_TIMEOUT</symbol>をサポートするシステムでのみ使用できます。他のシステムでは、0にする必要があります。
+UNIXドメインソケットで接続しているセッションではこのパラメータは無視され、常に0として扱われます。
        </para>
        <note>
         <para>
+<!--
          This parameter is not supported on Windows and on Linux version
          2.6.36 or older.
+-->
+このパラメータはWindowsおよびバージョン2.6.36以前のLinuxではサポートされません。
         </para>
        </note>
       </listitem>
@@ -1954,7 +1981,7 @@ OpenSSLのバージョンにより、利用可能な暗号スイートの詳細�
 -->
 サーバのSSL暗号設定をクライアントに優先して使うかどうかを指定します。
 このパラメータは、<filename>postgresql.conf</filename>ファイルか、サーバのコマンドラインでのみ設定可能です。
-デフォルトは<literal>true</literal>です。
+デフォルトは<literal>on</literal>です。
        </para>
 
        <para>
@@ -2025,6 +2052,7 @@ OpenSSLのバージョンにより、利用可能な暗号スイートの詳細�
       </term>
       <listitem>
        <para>
+<!--
         Sets the minimum SSL/TLS protocol version to use.  Valid values are
         currently: <literal>TLSv1</literal>, <literal>TLSv1.1</literal>,
         <literal>TLSv1.2</literal>, <literal>TLSv1.3</literal>.  Older
@@ -2032,13 +2060,23 @@ OpenSSLのバージョンにより、利用可能な暗号スイートの詳細�
         support all values; an error will be raised if an unsupported setting
         is chosen.  Protocol versions before TLS 1.0, namely SSL version 2 and
         3, are always disabled.
+-->
+使用するSSL/TLSプロトコルバージョンの最小値を設定します。
+今の所使用できる値は<literal>TLSv1</literal>、<literal>TLSv1.1</literal>、<literal>TLSv1.2</literal>、<literal>TLSv1.3</literal>です。
+古いバージョンの<productname>OpenSSL</productname>ライブラリはすべての値をサポートしません。
+サポートしていない値が設定されるとエラーが発生します。
+プロトコルバージョンTLS 1.0、すなわちSSLバージョン2あるいは3は常に無効となります。
        </para>
 
        <para>
+<!--
         The default is <literal>TLSv1</literal>, mainly to support older
         versions of the <productname>OpenSSL</productname> library.  You might
         want to set this to a higher value if all software components can
         support the newer protocol versions.
+-->
+デフォルトは<literal>TLSv1</literal>で、主に古いバージョンの<productname>OpenSSL</productname>ライブラリをサポートするためです。
+すべてのソフトウェアコンポーネントが新しいバージョンのプロトコルをサポートしているなら、より高い値にするのが良いでしょう。
        </para>
       </listitem>
      </varlistentry>
@@ -2046,17 +2084,26 @@ OpenSSLのバージョンにより、利用可能な暗号スイートの詳細�
      <varlistentry id="guc-ssl-max-protocol-version" xreflabel="ssl_max_protocol_version">
       <term><varname>ssl_max_protocol_version</varname> (<type>enum</type>)
       <indexterm>
+<!--
        <primary><varname>ssl_max_protocol_version</varname> configuration parameter</primary>
+-->
+       <primary><varname>ssl_max_protocol_version</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Sets the maximum SSL/TLS protocol version to use.  Valid values are as
         for <xref linkend="guc-ssl-min-protocol-version"/>, with addition of
         an empty string, which allows any protocol version.  The default is to
         allow any version.  Setting the maximum protocol version is mainly
         useful for testing or if some component has issues working with a
         newer protocol.
+-->
+使用するSSL/TLSプロトコルバージョンの最大値を設定します。
+使用できる値は<xref linkend="guc-ssl-min-protocol-version"/>と、すべてのプロトコルバージョンを許可する空文字です。
+デフォルトはすべてのプロトコルバージョンを許可する設定です。
+最大プロトコルバージョンの設定は主にテスト、あるいは新しいプロトコルを使った時にコンポーネントのどこかに問題がある時に有用です。
        </para>
       </listitem>
      </varlistentry>
@@ -2177,9 +2224,9 @@ OpenSSLのバージョンにより、利用可能な暗号スイートの詳細�
         passphrase is obtained from a file, for example.
 -->
 このパラメータは、キーにパスフレーズが必要な場合、設定ファイルの再読み込み中に<varname>ssl_passphrase_command</varname>で設定されたパスフレーズコマンドも呼び出されるかどうかを設定します。
-このパラメータが偽（デフォルト）なら、<varname>ssl_passphrase_command</varname>は再読込の際に無視され、パスフレーズが必要な場合、SSL設定は再読込されません。
+このパラメータがoff（デフォルト）なら、<varname>ssl_passphrase_command</varname>は再読込の際に無視され、パスフレーズが必要な場合、SSL設定は再読込されません。
 この設定は、サーバ実行中は存在しないかもしれないTTYがプロンプトに必要なコマンドに適しています。
-たとえばパスフレーズがファイルから読み込める場合には、この設定を真にするのが適切です。
+たとえばパスフレーズがファイルから読み込める場合には、この設定をonにするのが適切です。
        </para>
        <para>
 <!--
@@ -2577,9 +2624,9 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         Only superusers can change this setting.
        -->
 サーバの実行スタックの最大安全深度を指定します。
-このパラメータの理想的な設定はカーネルにより強要される実際のスタック容量の（<literal>ulimit -s</literal>もしくはそれと同等の機能で設定された）限界から、1メガバイト程度の安全余地を差し引いたものです。
-安全余地は、サーバがすべてのルーチンではスタック深度を検査をせず、式評価などの主要な潜在的に再帰的なルーチンでのみ検査をするために必要となるものです。
-デフォルト設定は2メガバイト（<literal>2MB</literal>）で、かなり控え目で、クラッシュの危険はなさそうです。
+このパラメータの理想的な設定はカーネルにより強要される実際のスタック容量の（<literal>ulimit -s</literal>もしくはそれと同等の機能で設定された）限界から、1メガバイト程度の安全余裕度を差し引いたものです。
+この安全余裕度は、サーバがすべてのルーチンではスタック深度を検査をせず、再帰を行う可能性のある重要なルーチンでのみ検査をするために必要となるものです。
+デフォルト設定は2メガバイト（<literal>2MB</literal>）で、かなり控え目、かつクラッシュの危険がなさそうな設定です。
 しかし、複雑な関数の実行を許容するには小さ過ぎるかも知れません。
 スーパーユーザのみがこの設定を変更することができます。
        </para>
@@ -2605,11 +2652,15 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
      <varlistentry id="guc-shared-memory-type" xreflabel="shared_memory_type">
       <term><varname>shared_memory_type</varname> (<type>enum</type>)
       <indexterm>
+<!--
        <primary><varname>shared_memory_type</varname> configuration parameter</primary>
+-->
+       <primary><varname>shared_memory_type</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Specifies the shared memory implementation that the server
         should use for the main shared memory region that holds
         <productname>PostgreSQL</productname>'s shared buffers and other
@@ -2623,6 +2674,14 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         platform, is generally discouraged because it typically requires
         non-default kernel settings to allow for large allocations (see <xref
         linkend="sysvipc"/>).
+-->
+<productname>PostgreSQL</productname>の共有バッファおよび他の共有データを保持する主共有メモリ領域のためにサーバが使用すべき共有メモリの実装を指定します。
+可能な値は<literal>mmap</literal>（<function>mmap</function>を使って獲得した無名共有メモリ）、<literal>sysv</literal> （<function>shmget</function>を使って獲得したSystem V共有メモリ）、<literal>windows</literal> （Windows共有メモリ）です。
+すべての値がすべてのプラットフォームでサポートされているわけではありません。
+サポートされている最初のオプションがそのプラットフォームのデフォルトです。
+どのプラットフォームでもデフォルトになっていない<literal>sysv</literal>オプションの利用は一般に推奨されません。
+通常、デフォルトではないカーネルの設定が大きなアロケーションでは必要になるからです。
+（<xref linkend="sysvipc"/>参照。）
        </para>
       </listitem>
      </varlistentry>
@@ -2655,17 +2714,11 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         <literal>pg_dynshmem</literal> directory is stored on a RAM disk, or when
         other shared memory facilities are not available.
 -->
-        サーバが使う動的共有メモリの実装を指定します。可能な値は
-        <literal>posix</literal> (<literal>shm_open</literal>で獲得するPOSIX共有メモリ)、
-         <literal>sysv</literal>
-        (<literal>shmget</literal>で獲得するSystem V共有メモリ)、
-        <literal>windows</literal> (Windows共有メモリ)、 <literal>mmap</literal>
-        (データディレクトリ内のメモリマップファイルを使ってシミュレートする共有メモリ)、
-<literal>none</literal> (この機能を使用しない)です。
-       すべての値がすべてのプラットフォームでサポートされているわけではありません。
-       そのプラットフォームでの推奨実装がデフォルトになります。
-       どのプラットフォームでもデフォルトになっていない<literal>mmap</literal>は、オペレーティングシステムが変更されたページをディスクに継続的に書き込み、I/O負荷を増加させるので一般的には利用が推奨されていません。
-       しかし、デバッグ目的のために<literal>pg_dynshmem</literal>ディスクがRAMディスク上にある場合や、他の共有メモリ機能が使えない場合は有用かもしれません。
+サーバが使う動的共有メモリの実装を指定します。可能な値は<literal>posix</literal> (<literal>shm_open</literal>で獲得するPOSIX共有メモリ)、<literal>sysv</literal>(<literal>shmget</literal>で獲得するSystem V共有メモリ)、<literal>windows</literal> (Windows共有メモリ)、 <literal>mmap</literal>(データディレクトリ内のメモリマップファイルを使ってシミュレートする共有メモリ)です。
+すべての値がすべてのプラットフォームでサポートされているわけではありません。
+そのプラットフォームでの推奨実装がデフォルトになります。
+どのプラットフォームでもデフォルトになっていない<literal>mmap</literal>は、オペレーティングシステムが変更されたページをディスクに継続的に書き込み、I/O負荷を増加させるので一般的には利用が推奨されていません。
+しかし、デバッグ目的のために<literal>pg_dynshmem</literal>ディスクがRAMディスク上にある場合や、他の共有メモリ機能が使えない場合は有用かもしれません。
        </para>
       </listitem>
      </varlistentry>
@@ -2833,11 +2886,9 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
          The default value is zero, which disables the cost-based vacuum
          delay feature.  Positive values enable cost-based vacuuming.
         -->
-        コストの限度を越えた場合、プロセスがスリープするミリ秒単位の時間の長さです。
+コストの限度を越えた場合、プロセスがスリープするミリ秒単位の時間の長さです。
 デフォルトの値は0で、コストに基づいたvacuum遅延機能を無効にします。
 正の整数はコストに基づいたvacuumを有効にします。
-多くのシステムで、スリープ遅延の有効な分解能は10ミリ秒です。
-<varname>vacuum_cost_delay</varname>の値の設定を10の倍数としない場合、次に大きい10の倍数に設定した結果と同一になるかもしれないことを覚えておいてください。
         </para>
 
         <para>
@@ -2853,8 +2904,12 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
          keep <varname>vacuum_cost_delay</varname> as small as your platform
          will consistently measure; large delays are not helpful.
         -->
-        コストに基づいたバキューム処理を使用する場合、<varname>vacuum_cost_delay</varname>の適切な値は通常かなり小さくなり、たいていは10または20ミリ秒になります。
-        バキュームによるリソース消費の調整は、他のバキュームのコストパラメータを変更して行うことが最善です。
+コストに基づいたバキューム処理を使用する場合、<varname>vacuum_cost_delay</varname>の適切な値は通常かなり小さくなり、おそらく1ミリ秒以下になります。
+バキュームによるリソース消費の調整は、他のバキュームのコストパラメータを変更して行うことが最善です。
+<varname>vacuum_cost_delay</varname>を1ミリ秒以下に設定することは可能ですが、そうした遅延は古いプラットフォームでは正確には計測されないかも知れません。
+そうしたプラットフォームでは、<command>VACUUM</command>のリソース消費制限を1ミリ秒のときに得られる値以上にするには、他のVACUUMコストパラメータの変更が必要となるでしょう。
+とは言うものの、使用するプラットフォームで常に計測できる範囲で<varname>vacuum_cost_delay</varname>をできるだけ小さくするようにしてください。
+大きな遅延は助けになりません。
         </para>
        </listitem>
       </varlistentry>
@@ -2876,7 +2931,7 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
          the shared hash table and scan the content of the page. The
          default value is one.
         -->
-        共有バッファキャッシュの中のバッファにvacuumを掛ける予測コストです。バッファプールのロック、共有ハッシュテーブルの検索、およびページ内容走査のコストを示します。デフォルトの値は1です。
+共有バッファキャッシュの中のバッファにvacuumを掛ける予測コストです。バッファプールのロック、共有ハッシュテーブルの検索、およびページ内容走査のコストを示します。デフォルトの値は1です。
         </para>
        </listitem>
       </varlistentry>
@@ -2898,7 +2953,7 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
          lookup the shared hash table, read the desired block in from
          the disk and scan its content. The default value is 10.
         -->
-        ディスクから読み込まれなければならないバッファにvacuumを掛ける予測コストです。これが示すものは、バッファプールロックの試み、共有ハッシュテーブルの参照、ディスクから目的ブロックの読み込み、そしてその内容走査です。デフォルトの値は10です。
+ディスクから読み込まれなければならないバッファにvacuumを掛ける予測コストです。これが示すものは、バッファプールロックの試み、共有ハッシュテーブルの参照、ディスクから目的ブロックの読み込み、そしてその内容走査です。デフォルトの値は10です。
         </para>
        </listitem>
       </varlistentry>
@@ -2920,8 +2975,8 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
          flush the dirty block out to disk again. The default value is
          20.
         -->
-        vacuumが、先だって掃除したブロックを変更する時に果たされた予測コストです。
-        ダーティブロックを再度ディスクに吐き出すのに必要な余分なI/Oを表します。デフォルトの値は20です。
+vacuumが、先だって掃除したブロックを変更するのに必要な見積コストです。
+ダーティブロックを再度ディスクに吐き出すのに必要な余分なI/Oを表します。デフォルトの値は20です。
         </para>
        </listitem>
       </varlistentry>
@@ -2941,8 +2996,8 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
          The accumulated cost that will cause the vacuuming process to sleep.
          The default value is 200.
         -->
-        vacuumを掛けるプロセスをスリープさせることになる累計されたコストです。
-        デフォルトの値は200です。
+vacuumを掛けるプロセスをスリープさせることになる累計されたコストです。
+デフォルトの値は200です。
         </para>
        </listitem>
       </varlistentry>
