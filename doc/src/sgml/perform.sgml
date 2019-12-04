@@ -1271,8 +1271,8 @@ EXPLAIN ANALYZE SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND unique2 &gt; 9000
 -->
 一般に、<command>EXPLAIN</command>の出力は、問い合わせプランナが生成したすべてのプランの詳細を表示します。
 しかし、あるノードをエクゼキューターが不要であると判断できるケースがあります。
-今の所、これができるのは<literal>Append</literal>ノードだけです。
-このノード型では、問い合わせで必要となるレコードを下位ノードが含んでいないことを決定し、それらを廃棄することができます。
+今の所、これができるのは<literal>Append</literal>ノードと<literal>MergeAppend</literal>ノードだけです。
+これらのノード型では、問い合わせで必要となるレコードを下位ノードが含んでいないことを決定し、それらを廃棄することができます。
 このようにしてノードが削除されたことを、<command>EXPLAIN</command>出力の中に"Subplans Removed"という属性が存在することによって確認することができます。
    </para>
   </sect2>
@@ -1560,7 +1560,7 @@ WHERE tablename = 'road';
 統計情報オブジェクトは<xref linkend="sql-createstatistics"/>で作成します。
 そうしたオブジェクトを作っても、単に統計情報として興味があることを示すカタログエントリが作られるだけです。
 実際のデータ収集は、<command>ANALYZE</command> （手動のコマンドを起動あるいはバックグラウンドでの自動ANALYZE）が行います。
-収集したデータは、<link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>カタログで参照することができます。
+収集したデータは、<link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>カタログで参照することができます。
    </para>
 
    <para>
@@ -1832,16 +1832,24 @@ ZIP codeとstate、ZIP codeとcity、cityとstateです。（これらが等し�
    </sect3>
 
    <sect3>
+<!--
     <title>Multivariate MCV Lists</title>
+-->
+    <title>多変量MCVリスト</title>
 
     <para>
+<!--
      Another type of statistics stored for each column are most-common value
      lists.  This allows very accurate estimates for individual columns, but
      may result in significant misestimates for queries with conditions on
      multiple columns.
+-->
+列ごとに格納される別なタイプの統計情報は最頻値リスト(most-common value list)です。
+個々の列ごとには非常に正確な推測を可能にしますが、複数列に渡る条件を持つ問い合わせについては重大な誤った推定をもたらすことがあります。
     </para>
 
     <para>
+<!--
      To improve such estimates, <command>ANALYZE</command> can collect MCV
      lists on combinations of columns.  Similarly to functional dependencies
      and n-distinct coefficients, it's impractical to do this for every
@@ -1850,12 +1858,20 @@ ZIP codeとstate、ZIP codeとcity、cityとstateです。（これらが等し�
      the common column values.  So data is collected only for those groups
      of columns appearing together in a statistics object defined with the
      <literal>mcv</literal> option.
+-->
+こうした推定を改善するために、列の組み合わせのMCVリストを<command>ANALYZE</command>で収集することができます。
+関数従属性とN個別値係数同様、考えられるすべての列のグループに対してこれを行うのは実用的ではありません。
+MCVリストでは（関数従属性とN個別値係数と違って）列の頻値を格納するのでなおさらです。
+ですから<literal>mcv</literal>オプションで定義された統計情報オブジェクト中に共通して現れる列のグループのデータだけが収集されます。
     </para>
 
     <para>
+<!--
      Continuing the previous example, the MCV list for a table of ZIP codes
      might look like the following (unlike for simpler types of statistics,
      a function is required for inspection of MCV contents):
+-->
+前述の例を続けましょう。ZIPコードのテーブルのMCVリストは次のようになるでしょう。（単純な形式の統計情報とは違って、MCVの内容を解析する関数が必要になります）
 
 <programlisting>
 CREATE STATISTICS stts3 (mcv) ON city, state FROM zipcodes;
@@ -1880,19 +1896,27 @@ SELECT m.* FROM pg_statistic_ext join pg_statistic_ext_data on (oid = stxoid),
    ...
 (99 rows)
 </programlisting>
+<!--
      This indicates that the most common combination of city and state is
      Washington in DC, with actual frequency (in the sample) about 0.35%.
      The base frequency of the combination (as computed from the simple
      per-column frequencies) is only 0.0027%, resulting in two orders of
      magnitude under-estimates.
+-->
+これによると市と州のもっとも頻度の高い組み合わせはDCのWashingtonで、（サンプルにおける）実際の頻度は約0.35%でした。
+比較対象のこの組み合わせの頻度（単純な列ごとの頻度から計算されたもの）はたった0.0027%で、2桁の過少見積になっています。
     </para>
 
     <para>
+<!--
      It's advisable to create <acronym>MCV</acronym> statistics objects only
      on combinations of columns that are actually used in conditions together,
      and for which misestimation of the number of groups is resulting in bad
      plans.  Otherwise, the <command>ANALYZE</command> and planning cycles
      are just wasted.
+-->
+そのグループの誤推定値が間違った計画をもたらしてしまうような、条件の中で実際に一緒に使われる列の組み合わせがについてのみ<acronym>MCV</acronym>統計情報オブジェクトを作成することが望ましいです。
+さもないと、<command>ANALYZE</command>とプラン処理は単に無駄になってしまいます。
     </para>
    </sect3>
 
