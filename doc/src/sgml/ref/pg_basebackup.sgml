@@ -327,8 +327,8 @@ WALファイルの転送については、収集方法が<literal>fetch</literal
         that <application>pg_basebackup</application> is using, so that the
         streaming replication will use the same settings later on.
 -->
-スタンバイサーバの設定を容易にするために、出力ディレクトリ（tar形式の場合はベースアーカイブファイルの中）に最低限の<filename>recovery.conf</filename>を書き出します。
-<filename>recovery.conf</filename>ファイルは接続設定の情報、また、指定があれば<application>pg_basebackup</application>が使用しているレプリケーションスロットの情報を記録するので、ストリーミングレプリケーションは後で同じ設定を使用します。
+スタンバイサーバの設定を容易にするために、<filename>standby.signal</filename>を作成し、出力ディレクトリ（tar形式の場合はベースアーカイブファイルの中）にある<filename>postgresql.auto.conf</filename>に接続設定を追加します。
+<filename>postgresql.auto.conf</filename>ファイルは接続設定の情報、また、指定があれば<application>pg_basebackup</application>が使用しているレプリケーションスロットの情報を記録するので、ストリーミングレプリケーションは後で同じ設定を使用します。
        </para>
 
       </listitem>
@@ -678,7 +678,7 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
 -->
 このオプションは<literal>-X stream</literal>と一緒でのみ使用できます。
 これはWALストリーミングに指定したレプリケーションスロットを使用させます。
-ベースバックアップをストリーミングレプリケーションのスタンバイとして使用するつもりであるなら、その後、<filename>recovery.conf</filename>でも同じレプリケーションスロット名を使うべきです。
+ベースバックアップをストリーミングレプリケーションのスタンバイとして使用するつもりであるなら、その後、<xref linkend="guc-primary-slot-name"/>でも同じレプリケーションスロット名を使うべきです。
 その方が、ベースバックアップ終了とストリーミングレプリケーション開始の間の時間にサーバが必要なWALデータを削除しないことを確実にします。
        </para>
        <para>
@@ -766,6 +766,7 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
 -->
 デフォルトでは、チェックサムは検証され、チェックサムエラーは非ゼロの終了ステータスをもたらします。
 とはいえ、このような場合には、<option>--no-clean</option>オプションが使われていたかのように、ベースバックアップは削除されません。
+チェックサム検証の失敗は<xref linkend="pg-stat-database-view"/>ビューでも報告されます。
        </para>
       </listitem>
      </varlistentry>
@@ -981,10 +982,14 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
   </para>
 
   <para>
+<!--
    The environment variable <envar>PG_COLOR</envar> specifies whether to use
    color in diagnostics messages.  Possible values are
    <literal>always</literal>, <literal>auto</literal>,
    <literal>never</literal>.
+-->
+環境変数<envar>PG_COLOR</envar>は診断メッセージで色を使うかどうかを指定します。
+可能な値は<literal>always</literal>、<literal>auto</literal>、<literal>never</literal>です。
   </para>
  </refsect1>
 
