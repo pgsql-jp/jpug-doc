@@ -2236,9 +2236,13 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
   </sect2>
 
   <sect2>
+<!--
    <title><acronym>GSSAPI</acronym> Session Encryption</title>
+-->
+   <title><acronym>GSSAPI</acronym>セッション暗号化</title>
 
    <para>
+<!--
     If <productname>PostgreSQL</productname> was built with
     <acronym>GSSAPI</acronym> support, frontend/backend communications
     can be encrypted using <acronym>GSSAPI</acronym>.  This provides
@@ -2246,9 +2250,14 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
     able to capture the session traffic. For more information on
     encrypting <productname>PostgreSQL</productname> sessions with
     <acronym>GSSAPI</acronym>, see <xref linkend="gssapi-enc"/>.
+-->
+<productname>PostgreSQL</productname>が<acronym>GSSAPI</acronym>サポートを有効にして構築されていれば、<acronym>GSSAPI</acronym>を使ってフロントエンド/バックエンド通信を暗号化できます。
+これにより、攻撃者がセッションのやり取りを読み取れるかもしれない環境における通信のセキュリティが提供されます。
+<productname>PostgreSQL</productname>での通信を<acronym>GSSAPI</acronym>で暗号化するための情報に関しては、<xref linkend="gssapi-enc"/>をご覧ください。
    </para>
 
    <para>
+<!--
     To initiate a <acronym>GSSAPI</acronym>-encrypted connection, the
     frontend initially sends a GSSENCRequest message rather than a
     StartupMessage.  The server then responds with a single byte
@@ -2277,9 +2286,23 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
     encrypted packets of larger than 16kB to the client.  To continue after
     <literal>N</literal>, send the usual StartupMessage and proceed without
     encryption.
+-->
+<acronym>GSSAPI</acronym>暗号化接続を開始するには、フロントエンドは最初にStartupMessageではなく、GSSENCRequestメッセージを送ります。
+次にサーバは、それぞれ<acronym>GSSAPI</acronym>暗号化を希望する、しないを意味する<literal>G</literal>または<literal>N</literal>を含む1バイトを送信します。
+このレスポンスに満足できなければ、この時点でフロントエンドは接続を打ち切って構いません。
+<literal>G</literal>の受信後継続するには、RFC2744あるいは同様の文書で議論されているGSSAPI Cバインディングを使い、ループの中で<function>gss_init_sec_context()</function>を呼び出して<acronym>GSSAPI</acronym>を初期化し、結果をサーバに送信し、空の入力を受け取ることから始めて、サーバが出力を返さなくなるまでサーバからの出力を受け取ります。
+<function>gss_init_sec_context()</function>の結果をサーバに送る際には、ネットワークバイトオーダーで4バイトの整数にメッセージ長を先頭に付与します。
+これに成功したら、<function>gss_wrap()</function>を使って通常のStartupMessageと後続のすべてのメッセージを暗号化します。
+実際に暗号化した送信データの前に、<function>gss_wrap()</function>の結果をネットワークバイトオーダーで4バイトの整数にしたものを付与します。
+サーバは16kB未満のクライアントからの暗号化パケットだけを受け付けることに注意してください。
+クライアントは<function>gss_wrap_size_limit()</function>を使って暗号化前のメッセージの大きさがこの制限に収まるかどうかを確認し、それより大きなメッセージは複数の<function>gss_wrap()</function>呼び出しに分解すべきです。
+典型的なセグメントは暗号化前で8kBのデータで、暗号化後のパケットは8kBより少し大きくなりますが、最大長の16kB以内には問題なく収まります。
+サーバは16kBよりも大きな暗号化パケットをクライアントに送らないものと期待することができます。
+<literal>N</literal>の後継続するには、通常のStartupMessageを送信し、暗号化せずに続けてください。
    </para>
 
    <para>
+<!--
     The frontend should also be prepared to handle an ErrorMessage
     response to GSSENCRequest from the server.  This would only occur if
     the server predates the addition of <acronym>GSSAPI</acronym> encryption
@@ -2289,18 +2312,29 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
     encryption.  Given the length limits specified above, the ErrorMessage can
     not be confused with a proper response from the server with an appropriate
     length.
+-->
+また、フロントエンドはサーバからのGSSENCRequestへのErrorMessage応答に備えるべきです。
+これはサーバが<productname>PostgreSQL</productname>への<acronym>GSSAPI</acronym>暗号化サポートを追加する以前だったときにのみ発生します。
+この場合は接続を切断しなければなりませんが、フロントエンドは新しい接続を開いて<acronym>GSSAPI</acronym>暗号化を要求せずに進めることを選択するかもしれません。
+上述の長さ制限により、ErrorMessageがサーバからの適切な長さを持つ正しい応答と混同されることはありません。
    </para>
 
    <para>
+<!--
     An initial GSSENCRequest can also be used in a connection that is being
     opened to send a CancelRequest message.
+-->
+最初のGSSENCRequestは、CancelRequestメッセージを送信するために開いている接続でも利用できます。
    </para>
 
    <para>
+<!--
     While the protocol itself does not provide a way for the server to
     force <acronym>GSSAPI</acronym> encryption, the administrator can
     configure the server to reject unencrypted sessions as a byproduct
     of authentication checking.
+-->
+プロトコル自身はサーバに<acronym>GSSAPI</acronym>暗号化を強制する方法を提供していませんが、管理者は認証チェックの副次的効果として暗号化されていないセッションをサーバが拒否するように設定できます。
    </para>
   </sect2>
  </sect1>
@@ -5476,8 +5510,8 @@ CommandComplete (B)
 -->
 <command>INSERT</command>コマンドの場合、タグは<literal>INSERT <replaceable>oid</replaceable> <replaceable>rows</replaceable></literal>です。
 ここで<replaceable>rows</replaceable>は挿入された行数です。
-<replaceable>oid</replaceable>は、<replaceable>rows</replaceable>が1、かつ、対象テーブルがOIDを持つ場合、挿入された行のオブジェクトIDです。
-さもなければ、<replaceable>oid</replaceable>は0です。
+かつて<replaceable>oid</replaceable>は、<replaceable>rows</replaceable>が1、かつ、対象テーブルがOIDを持つ場合、挿入された行のオブジェクトIDでしたが、もはやOID列はサポートされていません。
+ですから<replaceable>oid</replaceable>は常に0です。
        </para>
 
        <para>
@@ -7869,7 +7903,10 @@ GSSENCRequest (F)
 </term>
 <listitem>
 <para>
+<!--
                 Length of message contents in bytes, including self.
+-->
+自身を含む、メッセージ内容の長さ（バイト単位）。
 </para>
 </listitem>
 </varlistentry>
@@ -7879,10 +7916,15 @@ GSSENCRequest (F)
 </term>
 <listitem>
 <para>
+<!--
                 The <acronym>GSSAPI</acronym> Encryption request code.  The value is chosen to contain
                 <literal>1234</literal> in the most significant 16 bits, and <literal>5680</literal> in the
                 least significant 16 bits.  (To avoid confusion, this code
                 must not be the same as any protocol version number.)
+-->
+<acronym>GSSAPI</acronym>暗号化要求コードです。
+この値は最上位の16ビットに<literal>1234</literal>が、最下位の16ビットに<literal>5680</literal>が含まれるように選択されます。
+（混乱を防ぐため、このコードはどのプロトコルのバージョン番号とも同じになってはいけません。）
 </para>
 </listitem>
 </varlistentry>
@@ -8870,7 +8912,7 @@ Relation
 <!--
         Next, the following message part appears for each column (except generated columns):
 -->
-次に、各列について以下のメッセージ部分があります。
+次に、各列について以下のメッセージ部分があります。（生成列を除く）
 <variablelist>
 <varlistentry>
 <term>
@@ -9401,7 +9443,7 @@ TupleData
 <!--
         Next, one of the following submessages appears for each column (except generated columns):
 -->
-次に各列を表す以下の副メッセージの一つがあります。
+次に各列を表す以下の副メッセージの一つがあります。（生成列を除く）
 <variablelist>
 <varlistentry>
 <term>
