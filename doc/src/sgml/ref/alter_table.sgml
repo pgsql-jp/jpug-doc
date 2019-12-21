@@ -278,11 +278,15 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
     <term><literal>SET</literal>/<literal>DROP NOT NULL</literal></term>
     <listitem>
      <para>
+<!--
       These forms change whether a column is marked to allow null
       values or to reject null values.
+-->
+これらの構文は、列の値としてNULL値を使用できるかどうか設定します。
      </para>
 
      <para>
+<!--
       <literal>SET NOT NULL</literal> may only be applied to a column
       providing none of the records in the table contain a
       <literal>NULL</literal> value for the column.  Ordinarily this is
@@ -290,6 +294,9 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
       entire table; however, if a valid <literal>CHECK</literal> constraint is
       found which proves no <literal>NULL</literal> can exist, then the
       table scan is skipped.
+-->
+<literal>SET NOT NULL</literal>は、テーブルの項目でその列が<literal>NULL</literal>値であるものが1つもない場合にのみ、その列に設定可能です。
+通常これは<literal>ALTER TABLE</literal>がテーブル全体をスキャンする際に確認されます。しかしながら、<literal>NULL</literal>が存在できないことを示す有効な<literal>CHECK</literal>制約が見つかれば、テーブルスキャンは省略されます。
      </para>
 
      <para>
@@ -486,19 +493,17 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
     <term><literal>ADD <replaceable class="parameter">table_constraint</replaceable> [ NOT VALID ]</literal></term>
     <listitem>
      <para>
+<!--
       This form adds a new constraint to a table using the same syntax as
       <xref linkend="sql-createtable"/>, plus the option <literal>NOT
       VALID</literal>, which is currently only allowed for foreign key
       and CHECK constraints.
 -->
 この構文は、<xref linkend="sql-createtable"/>と同じ構文に加え、現時点では外部キー制約と検査制約でのみ許される<literal>NOT VALID</literal>オプションを使って新しい制約をテーブルに追加します。
-制約が<literal>NOT VALID</literal>と印付けされた場合、テーブル内のすべての行が制約を満たすかどうかを検証するための、時間がかかるかもしれない初期検査が飛ばされます。
-しかし、制約はその後の挿入や更新に対して強制されます（つまり、外部キー制約の場合、被参照テーブルに一致する行が存在しない限り失敗します。指定された検査制約に一致する新しい行が存在しない限り失敗します）。
-しかしデータベースは、<literal>VALIDATE CONSTRAINT</literal>オプションを使用して検証されるまで、テーブル内のすべての行で制約が保持されているとみなしません。
-パーティションテーブル上の外部キー制約は今のところ<literal>NOT VALID</literal>と宣言できません。
      </para>
 
      <para>
+<!--
       Normally, this form will cause a scan of the table to verify that all
       existing rows in the table satisfy the new constraint.  But if
       the <literal>NOT VALID</literal> option is used, this
@@ -513,6 +518,12 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
       See <xref linkend="sql-altertable-notes"
       endterm="sql-altertable-notes-title"/> below for more information
       about using the <literal>NOT VALID</literal> option.
+-->
+通常この構文は、テーブルの既存の行が新しい制約を満たすか確認するため、テーブルのスキャンの原因となります。
+しかし、<literal>NOT VALID</literal>オプションが使われていれば、時間がかかるかもしれないこのスキャンは省略されます。
+それでも、制約はその後の挿入や更新に対して強制されます（つまり、外部キー制約の場合、被参照テーブルに一致する行が存在しない限り失敗します。指定された検査制約に一致する新しい行が存在しない限り失敗します）。
+しかしデータベースは、<literal>VALIDATE CONSTRAINT</literal>オプションを使用して検証されるまで、テーブル内のすべての行で制約が保持されているとみなしません。
+<literal>NOT VALID</literal>オブションを使うことに関する更なる情報は<xref linkend="sql-altertable-notes" endterm="sql-altertable-notes-title"/>以下を参照してください。
      </para>
 
      <para>
@@ -521,7 +532,7 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
       <literal>SHARE ROW EXCLUSIVE</literal> lock on the referenced table,
       in addition to the lock on the table receiving the constraint.
 -->
-外部キー制約の追加には、被参照テーブルに<literal>SHARE ROW EXCLUSIVE</literal>ロックが必要です。
+外部キー制約の追加には、制約を受け取るテーブルでのロックに加えて、被参照テーブルに<literal>SHARE ROW EXCLUSIVE</literal>ロックが必要です。
      </para>
 
      <para>
@@ -533,6 +544,7 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
 -->
 一意性制約や主キー制約がパーティションテーブルに追加されるときには、追加的な制限が適用されます。
 <xref linkend="sql-createtable" />を参照してください。
+また、今のところ、パーティションテーブルでの外部キー制約では<literal>NOT VALID</literal>と宣言できません。
      </para>
 
     </listitem>
@@ -652,6 +664,7 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
 -->
 この構文は、以前に<literal>NOT VALID</literal>として作成された外部キー制約または検査制約を、これらの制約を満たさない行が存在しないことを確認するためにテーブルをスキャンして、検証します。
 制約がすでに有効であると記録されている場合は何も起こりません。
+(このコマンドの有用性の説明は<xref linkend="sql-altertable-notes" endterm="sql-altertable-notes-title"/>以下を参照してください。)
      </para>
     </listitem>
    </varlistentry>
@@ -864,9 +877,13 @@ clusterオプションの変更は<literal>SHARE UPDATE EXCLUSIVE</literal>ロ�
     <term><literal>SET WITHOUT OIDS</literal></term>
     <listitem>
      <para>
+<!--
       Backward-compatible syntax for removing the <literal>oid</literal>
       system column.  As <literal>oid</literal> system columns cannot be
       added anymore, this never has an effect.
+-->
+システム列<literal>oid</literal>を削除する、後方互換のための構文です。
+システム列<literal>oid</literal>は今では追加できませんので、これは効果がありません。
      </para>
     </listitem>
    </varlistentry>
@@ -884,9 +901,15 @@ clusterオプションの変更は<literal>SHARE UPDATE EXCLUSIVE</literal>ロ�
       partitions created afterwards with
       <command>CREATE TABLE PARTITION OF</command> will use that tablespace,
       unless the <literal>TABLESPACE</literal> clause is used to override it.
+-->
+この構文を使用すると、テーブルのテーブル空間を指定したテーブル空間に変更し、テーブルに関連するデータファイルを新しいテーブル空間に移動することができます。
+テーブルにインデックスがあっても移動されません。
+インデックスを移動するには、別途<literal>SET TABLESPACE</literal>コマンドを実行します。
+パーティションテーブルに適用された場合には何も移動されませんが、以後<command>CREATE TABLE PARTITION OF</command>で作られるパーティションは、<literal>TABLESPACE</literal>句を使って上書きしない限り、そのテーブル空間を使うようになります。
      </para>
 
      <para>
+<!--
       All tables in the current database in a tablespace can be moved by using
       the <literal>ALL IN TABLESPACE</literal> form, which will lock all tables
       to be moved first and then move each one.  This form also supports
@@ -901,9 +924,6 @@ clusterオプションの変更は<literal>SHARE UPDATE EXCLUSIVE</literal>ロ�
       See also
       <xref linkend="sql-createtablespace"/>.
 -->
-この構文を使用すると、テーブルのテーブル空間を指定したテーブル空間に変更し、テーブルに関連するデータファイルを新しいテーブル空間に移動することができます。
-テーブルにインデックスがあっても移動されません。
-インデックスを移動するには、別途<literal>SET TABLESPACE</literal>コマンドを実行します。
 <literal>ALL IN TABLESPACE</literal>構文を使うことで、テーブル空間内の現在のデータベースのすべてのテーブルを移動することができます。
 この場合、移動されるすべてのテーブルがまずロックされ、それから一つずつ移動されます。
 この構文は<literal>OWNED BY</literal>もサポートしており、これを使うと、指定のロールが所有しているテーブルだけを移動します。
@@ -1058,7 +1078,6 @@ fillfactor、TOAST、およびautovacuumのストレージパラメータおよ�
 -->
 この構文は、<command>CREATE TABLE OF</command>で形成されたかのように、テーブルと複合型とを関連付けします。
 テーブルの列名とその型のリストは、複合型のものと正確に一致していなければなりません。
-ただし<literal>oid</literal>システム列の有無は異なっていても構いません。
 テーブルはどのテーブルも継承していてはいけません。
 これらの制限により<command>CREATE TABLE OF</command>により作成できるテーブル定義と同等になります。
      </para>
@@ -1627,7 +1646,10 @@ fillfactor、TOAST、およびautovacuumのストレージパラメータおよ�
  </refsect1>
 
  <refsect1 id="sql-altertable-notes">
+<!--
   <title id="sql-altertable-notes-title">Notes</title>
+-->
+  <title id="sql-altertable-notes-title">注釈</title>
 
    <para>
 <!--
@@ -1667,7 +1689,6 @@ fillfactor、TOAST、およびautovacuumのストレージパラメータおよ�
 変動性の<literal>DEFAULT</literal>句を持つ列を追加したり、既存の列の型を変更するには、テーブルとインデックス全体の書き換えが必要になります。
 例外として、既存列の型を変更するとき、<literal>USING</literal>句が列の内容を変更せず、かつ、古い型が新しい型とバイナリ変換可能であるか新しい型全体に対する制約のないドメインである場合、テーブルの書き換えは必要ありません。
 しかし、影響を受ける列に対するインデックスはすべて再構築されなければなりません。
-システム<literal>oid</literal>列の追加や削除も同様にテーブル全体の書き換えが必要です。
 テーブルが巨大な場合、テーブル、インデックスまたはその両方の再構築には非常に時間がかかる可能性があります。
 また、一時的に2倍のディスク容量が必要とされます。
    </para>
@@ -1699,6 +1720,7 @@ fillfactor、TOAST、およびautovacuumのストレージパラメータおよ�
    </para>
 
    <para>
+<!--
     Scanning a large table to verify a new foreign key or check constraint
     can take a long time, and other updates to the table are locked out
     until the <command>ALTER TABLE ADD CONSTRAINT</command> command is
@@ -1722,6 +1744,16 @@ fillfactor、TOAST、およびautovacuumのストレージパラメータおよ�
     violations can be inserted, and the existing problems can be corrected
     at leisure until <literal>VALIDATE CONSTRAINT</literal> finally
     succeeds.
+-->
+新しい外部キーや検査制約を検証するために大きなテーブルを走査するのは長い時間が掛かる可能性があり、<command>ALTER TABLE ADD CONSTRAINT</command>コマンドがコミットされるまで、そのテーブルのその他の更新は締め出されます。
+<literal>NOT VALID</literal>制約オプションの主な目的は、同時実行中の更新に制約を追加する影響を減らすことです。
+<literal>NOT VALID</literal>を付ければ、<command>ADD CONSTRAINT</command>コマンドはテーブルを走査せず、すぐにコミットされます。
+その後で、<literal>VALIDATE CONSTRAINT</literal>コマンドを発行して、既存の行が制約を満たすか検証できます。
+他のトランザクションが挿入したり更新したりする行に対しては制約が強制されていることは分かっていますので、この検証操作では同時実行中の更新を締め出す必要はありません。既に存在する行だけ確認する必要があります。
+それゆえ、検証には変更するテーブルの<literal>SHARE UPDATE EXCLUSIVE</literal>ロックのみが必要です。
+(制約が外部キーなら、制約が参照するテーブルの<literal>ROW SHARE</literal>ロックも必要です。)
+同時実行性をさらに向上させるため、テーブルに既に制約違反が存在することを知っている場合に<literal>NOT VALID</literal>と<literal>VALIDATE CONSTRAINT</literal>を使うことは有用かもしれません。
+一度制約が設定されれば、新しい違反は挿入されることはありませんし、既存の問題は、<literal>VALIDATE CONSTRAINT</literal>を最終的に成功するまで使って、余裕のある時に修正できます。
    </para>
 
    <para>
@@ -1739,8 +1771,6 @@ fillfactor、TOAST、およびautovacuumのストレージパラメータおよ�
 したがって、列の削除は短時間で行えます。
 しかし、削除された列が占めていた領域がまだ回収されていないため、テーブルのディスク上のサイズはすぐには小さくなりません。
 この領域は、その後既存の行が更新されるにつれて回収されます。
-（システム<literal>oid</literal>列を削除する場合は上記のことは適用されません。
-これは即座の書き換えが行われます。）
    </para>
 
    <para>
