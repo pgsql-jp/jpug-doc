@@ -116,7 +116,7 @@
       <entry>名前</entry>
       <entry>インデックスされるデータ型</entry>
       <entry>インデックス可能な演算子</entry>
-      <entry>Ordering Operators</entry>
+      <entry>順序付け演算子</entry>
      </row>
     </thead>
     <tbody>
@@ -263,10 +263,13 @@
 <literal>kd_point_ops</literal>は同じ演算子をサポートしますが、異なるインデックスデータ構造を使うため、アプリケーションによってはより良いパフォーマンスを提供することがあります。
  </para>
  <para>
+<!--
   The <literal>quad_point_ops</literal>, <literal>kd_point_ops</literal> and
   <literal>poly_ops</literal> operator classes support the <literal>&lt;-&gt;</literal>
   ordering operator, which enables the k-nearest neighbor (<literal>k-NN</literal>)
   search over indexed point or polygon data sets.
+-->
+<literal>quad_point_ops</literal>、<literal>kd_point_ops</literal>、<literal>poly_ops</literal>演算子クラスは<literal>&lt;-&gt;</literal>順序付け演算子をサポートしますので、インデックス付けされた点や多角形のデータ集合に対してk近傍(<literal>k-NN</literal>)探索が可能です。
  </para>
 
 </sect1>
@@ -963,7 +966,9 @@ typedef struct spgInnerConsistentIn
     int         norderbys;      /* length of orderbys array */
 -->
     ScanKey     scankeys;       /* 演算子と比較する値の配列 */
-    int         nkeys;          /* 配列の長さ */
+    ScanKey     orderbys;       /* 順序付け演算子と比較する値の配列 */
+    int         nkeys;          /* scankeys配列の長さ */
+    int         norderbys;      /* orderbys配列の長さ */
 
 <!--
     Datum       reconstructedValue;     /* value reconstructed at parent */
@@ -1009,6 +1014,7 @@ typedef struct spgInnerConsistentOut
     int        *levelAdds;      /* この分だけそれぞれレベルを挙げる */
     Datum      *reconstructedValues;    /* 関連する再構築された値 */
     void      **traversalValues;        /* 演算子クラスに固有の探索値 */
+    double    **distances;              /* 関連する距離 */
 } spgInnerConsistentOut;
 </programlisting>
 
@@ -1058,6 +1064,7 @@ typedef struct spgInnerConsistentOut
 (<structfield>nkeys</structfield> = 0 は全インデックスエントリが問い合わせを満たす意味になる、ということに注意してください。)
 通常、consistent関数では、配列のそれぞれのエントリの<structfield>sk_strategy</structfield>および<structfield>sk_argument</structfield>フィールドのみが問題となります。これらのフィールドにはそれぞれインデックス付け可能な演算子と比較値が入ります。
 とりわけ、比較値がNULLかどうかを確認するために<structfield>sk_flags</structfield>を検査する必要はありません。なぜならSP-GiSTのコアのコードがそのような条件を除外するからです。
+配列<structfield>orderbys</structfield>は長さが<structfield>norderbys</structfield>で、(もしあれば)順序付け演算子を同じように記述します。
 <structfield>reconstructedValue</structfield>は親タプルのために再構築された値で、ルートレベルの場合、あるいは親レベルの<function>inner_consistent</function>関数が値を返さなかった場合は<literal>(Datum) 0</literal>となります。
 <structfield>reconstructedValue</structfield>は常に<structname>spgConfigOut</structname>.<structfield>leafType</structfield>型です。
 <structfield>traversalValue</structfield>は親インデックスのタプルの<function>inner_consistent</function>の前の呼び出しから渡された探索データへのポインタで、ルートレベルならNULLです。
@@ -1108,9 +1115,11 @@ typedef struct spgInnerConsistentOut
 演算子クラスがレベルを監視しているときは、それぞれのノードへと下って訪れるときに必要なレベルの増分の配列を<structfield>levelAdds</structfield>にセットします。
 (この増分はすべてのノードについて同じになることも多いですが、必ずしもそうなるとは限らないので配列が使われます。)
 値の再構築が必要なときには、訪れるそれぞれの子ノードについて再構築された値の配列を<structfield>reconstructedValues</structfield>にセットします。再構築が必要でなければ、<structfield>reconstructedValues</structfield>をNULLのままにします。
+順序付け検索を実行するなら、<structfield>orderbys</structfield>配列に従って<structfield>distances</structfield>に距離の値の配列を設定します(距離の最も近いノードが最初に処理されます)。
+そうでなければNULLのままにします。
 追加の外部情報（<quote>探索値</quote>）をツリー探索の下位レベルに渡したい場合は、<structfield>traversalValues</structfield>を適切な探索値、訪れるそれぞれの子ノードについて1つの配列にセットします。
 それ以外の場合は<structfield>traversalValues</structfield>をNULLのままにします。
-<function>inner_consistent</function>関数は、現在のメモリコンテキスト内の<structfield>nodeNumbers</structfield>、<structfield>levelAdds</structfield>、<structfield>reconstructedValues</structfield>、<structfield>traversalValues</structfield>の配列についてpallocしなければならないことに注意してください。
+<function>inner_consistent</function>関数は、現在のメモリコンテキスト内の<structfield>nodeNumbers</structfield>、<structfield>levelAdds</structfield>、<structfield>distances</structfield>、<structfield>reconstructedValues</structfield>、<structfield>traversalValues</structfield>の配列についてpallocしなければならないことに注意してください。
 ただし、<structfield>traversalValues</structfield>配列が指すすべての出力探索値は<structfield>traversalMemoryContext</structfield>内に割り当てられます。
 それぞれの探索値は1つのpallocされた塊でなければなりません。
       </para>
@@ -1157,7 +1166,9 @@ typedef struct spgLeafConsistentIn
     int         norderbys;      /* length of orderbys array */
 -->
     ScanKey     scankeys;       /* 演算子と比較する値の配列 */
-    int         nkeys;          /* 配列の長さ */
+    ScanKey     orderbys;       /* 順序付け演算子と比較する値の配列 */
+    int         nkeys;          /* scankeys配列の長さ */
+    int         norderbys;      /* orderbys配列の長さ */
 
 <!--
     Datum       reconstructedValue;     /* value reconstructed at parent */
@@ -1184,8 +1195,10 @@ typedef struct spgLeafConsistentOut
     bool        recheckDistances; /* set true if distances must be rechecked */
     double     *distances;        /* associated distances */
 -->
-    Datum       leafValue;      /* もしあれば、再構築された元のデータ */
-    bool        recheck;        /* 演算子を再チェックする必要があればtrue */
+    Datum       leafValue;        /* もしあれば、再構築された元のデータ */
+    bool        recheck;          /* 演算子を再チェックする必要があればtrue */
+    bool        recheckDistances; /* 距離を再チェックする必要があればtrue */
+    double     *distances;        /* 関連する距離 */
 } spgLeafConsistentOut;
 </programlisting>
 
@@ -1225,6 +1238,7 @@ typedef struct spgLeafConsistentOut
 (<structfield>nkeys</structfield>が0ならば、すべてのエントリが検索条件を満たすことになる、ということに注意してください。)
 通常、consistent関数では、配列のそれぞれのエントリの<structfield>sk_strategy</structfield>および<structfield>sk_argument</structfield>フィールドのみが問題となります。これらのフィールドにはそれぞれインデックス付け可能な演算子と比較値が入ります。
 なお、比較値がNULLかどうかを確認するために<structfield>sk_flags</structfield>を検査する必要はありません。なぜならSP-GiSTのコアのコードがそのような条件を除外するからです。
+配列<structfield>orderbys</structfield>は長さが<structfield>norderbys</structfield>で、順序付け演算子を同じように記述します。
 <structfield>reconstructedValue</structfield>は親タプルのために再構築された値で、ルートレベルの場合、あるいは親レベルの<function>inner_consistent</function>関数が値を返さなかった場合は<literal>(Datum) 0</literal>となります。
 <structfield>reconstructedValue</structfield>は常に<structname>spgConfigOut</structname>.<structfield>leafType</structfield>型です。
 <structfield>traversalValue</structfield>は親インデックスのタプルの<function>inner_consistent</function>の前の呼び出しから渡された探索データへのポインタで、ルートレベルならNULLです。
@@ -1254,6 +1268,10 @@ typedef struct spgLeafConsistentOut
 この関数は、リーフタプルが問い合わせにマッチすれば<literal>true</literal>を返し、マッチしなければ<literal>false</literal>を返します。
 <literal>true</literal>の場合、<structfield>returnData</structfield>が<literal>true</literal>であれば、<structfield>leafValue</structfield>は、このリーフタプルにインデックス付けするために元々提供された<structname>spgConfigIn</structname>.<structfield>attType</structfield>型の値にセットされなければなりません。
 また、マッチするかどうかが不確実で、マッチするかの確認のために実際のヒープタプルに演算子を再適用しなければならないときは、<structfield>recheck</structfield>が<literal>true</literal>にセットされることがあります。
+順序付け検索を実行するなら、<structfield>orderbys</structfield>配列に従って<structfield>distances</structfield>に距離の値の配列を設定します。
+そうでなければNULLのままにします。
+返される距離の少なくとも1つが正確でないのなら、<structfield>recheckDistances</structfield>にtrueを設定します。
+この場合、エクゼキュータはヒープからタプルを取得した後正確な距離を計算し、必要ならタプルを並べ替えます。
       </para>
      </listitem>
     </varlistentry>
@@ -1431,7 +1449,7 @@ SP-GiSTのすべてのサポートメソッドは、通常は短期間有効な�
 <!--
   <title><quote>All-the-Same</quote> Inner Tuples</title>
 -->
-  <title><quote>All-the-same</quote>内部タプル</title>
+  <title><quote>All-the-Same</quote>内部タプル</title>
 
   <para>
 <!--
