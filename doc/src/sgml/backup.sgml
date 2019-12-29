@@ -643,7 +643,7 @@ tar -cf backup.tar /usr/local/pgsql/data
 そのため、このバックアップデータでデータベースサーバを起動する時、直前のサーバインスタンスがクラッシュしたものとみなされ、WALログが取り直されます。
 これは問題ではありません。
 単に注意してください（そして、確実にバックアップにWALファイルを含めてください）。
-CHECKPOINTコマンドをスナップショット取得前に発行することでリカバリ時間を減らすこともできます。
+CHECKPOINTコマンドをスナップショット取得前に発行することで復旧時間を減らすこともできます。
   </para>
 
   <para>
@@ -1218,7 +1218,7 @@ WALアーカイブによって<productname>PostgreSQL</productname>データベ�
 このファイルにはファイルシステムのバックアップに最初に必要とされるWALセグメントの名前が付けられます。
 例えば、最初のWALファイルが <literal>0000000100001234000055CD</literal>である場合、バックアップ履歴ファイルは<literal>0000000100001234000055CD.007C9330.backup</literal>というように名付けられます。
 (ファイル名の2番目のパートはWALファイルの厳密な位置が記載されます。通常は無視することができます。)
-一旦、安全にファイルシステムのバックアップとそのバックアップ中に使用されたWALセグメントファイル(バックアップ履歴ファイルから特定できます)を取得すると、それより数値の小さな全てのWALアーカイブセグメントはファイルシステムのリカバリには必要が無く、削除することができます。
+一旦、安全にファイルシステムのバックアップとそのバックアップ中に使用されたWALセグメントファイル(バックアップ履歴ファイルから特定できます)を取得すると、それより数値の小さな全てのWALアーカイブセグメントはファイルシステムの復旧には必要が無く、削除することができます。
 しかし、データを確実に復旧させるためには数世代のバックアップセットを保持することを考慮すべきです。
 
    </para>
@@ -1248,7 +1248,7 @@ WALアーカイブによって<productname>PostgreSQL</productname>データベ�
     been a long time since the last base backup.
 -->
 最後のベースバックアップ以降のWALアーカイブを保持し続ける必要があるため、通常、ベースバックアップを取得すべき期間は、WALアーカイブを保持するためにどのくらいのストレージを拡張できるかによって決定されます。
-また、リカバリが必要になった場合に、どのくらいの時間をリカバリに使うと覚悟するのかも考慮すべきです。&mdash;
+また、復旧が必要になった場合に、どのくらいの時間を復旧に使うと覚悟するのかも考慮すべきです。&mdash;
 システムは全てのWALセグメントを適用する必要があるため、もし、最後のベースバックアップを取得してから長い時間が経過している場合、適用に時間を要する可能性があります。
    </para>
   </sect2>
@@ -1471,10 +1471,14 @@ WALのアーカイブを適切に監視していない場合、バックアッ�
 
     <note>
      <para>
+<!--
       The exclusive backup method is deprecated and should be avoided.
       Prior to <productname>PostgreSQL</productname> 9.6, this was the only
       low-level method available, but it is now recommended that all users
       upgrade their scripts to use non-exclusive backups.
+-->
+排他的バックアップ方式は非推奨であり避けるべきです。
+これはPostgreSQL 9.6より前では唯一利用可能な低レベル手法でしたが、今日ではすべてのユーザが自身のスクリプトを非排他的バックアップを使用するようにアップグレードすることが推奨されています。
      </para>
     </note>
 
@@ -1491,8 +1495,10 @@ WALのアーカイブを適切に監視していない場合、バックアッ�
      the following steps may be used.
 -->
 排他的バックアップの手順は、ほぼ非排他的バックアップのものと同様ですが、いくつかのキーとなる手順に違いがあります。
-バックアップの複数同時実行を許可せず、バックアップ中にクラッシュした場合、サーバ上にいくつかの問題が残ります。
-PostgreSQL 9.6より前では唯一利用可能な低レベル手法でしたが、今日では可能であればすべてのユーザが自身のスクリプトを非排他的バックアップを使用するようにアップグレードすることが推奨されています。
+このバックアップ方式は、プライマリからしか取得できず、バックアップの複数同時実行を許可しません。
+さらに、後述するようにバックアップラベルファイルを作るため、マスターサーバのクラッシュ後の自動再起動をブロックする可能性があります。
+一方でバックアップラベルファイルのバックアップやスタンバイからの誤った削除はよくあるミスで、これは深刻なデータ破壊をもたらすおそれがあります。
+この方式を使う必要があるのであれば、以下の手順を用いてください。
     </para>
     <para>
   <orderedlist>
@@ -1589,7 +1595,10 @@ SELECT pg_start_backup('label', true);
      you are building a standby that will subsequently be promoted to a new
      master.
 -->
-バックアップ中にサーバがクラッシュした場合は、<envar>PGDATA</envar>ディレクトリから手動で<literal>backup_label</literal>ファイルを削除するまで再起動できない可能性があることに注意してください。
+上記のように、バックアップ中にサーバがクラッシュした場合、<filename>backup_label</filename>ファイルが<envar>PGDATA</envar>ディレクトリから手動で削除されない限り、再起動できないかもしれません。
+破損をもたらすため、バックアップをリストアするときに<filename>backup_label</filename>ファイルを決して削除しないことは重要である点に注意してください。
+このファイルをいつ削除するのが適切かに関する混乱は、この方式を使ったときのデータ破損のよくある原因です。
+確実に、本ファイルは既存マスタでのみ削除して、スタンバイの構築やバックアップのリストアでは決して削除しないでください。たとえ次に新マスタに昇格させるつもりのスタンバイを構築している場合であってもです。
     </para>
    </listitem>
    <listitem>
@@ -1637,10 +1646,10 @@ SELECT pg_stop_backup();
 ほとんどの場合、これは瞬時に行われます。
 しかし、バックアップの完了を確認できるよう、アーカイブシステムを監視し、遅延が無いことの確認をお勧めします。
 アーカイブコマンドの失敗によりアーカイブ処理が遅れてしまったとしても、アーカイブが成功し、そしてバックアップが完了するまで再試行を繰り返すようになっています。
-<function>pg_stop_backup</function>実行においての時間期限を設けたい場合、適切な<varname>statement_timeout</varname>の値を設定できますが、この設定値によって<function>pg_stop_backup</function>が中断したときにバックアップが正当ではない可能性があるということを肝に銘じてください。
     </para>
 
     <para>
+<!--
      When using exclusive backup mode, it is absolutely imperative to ensure
      that <function>pg_stop_backup</function> completes successfully at the
      end of the backup.  Even if the backup itself fails, for example due to
@@ -1648,6 +1657,9 @@ SELECT pg_stop_backup();
      will leave the server in backup mode indefinitely, causing future backups
      to fail and increasing the risk of a restart failure during the time that
      <filename>backup_label</filename> exists.
+-->
+排他的バックアップモードを使ったときは、バックアップ終了時に確実に<function>pg_stop_backup</function>を正常に完了することが絶対的に必要です。
+バックアップ自体が、例えばディスク領域不足で、失敗した場合であっても、<function>pg_stop_backup</function>を実行しそこなうと、サーバが無期限にバックアップモードのままになってしまい、将来のバックアップ失敗と<filename>backup_label</filename>がある間の再起動失敗のリスクの増大を引き起こします。
     </para>
    </listitem>
   </orderedlist>
@@ -1912,6 +1924,7 @@ GNUの <application>tar</application>で1.23以降のバージョンを使用し
    </listitem>
    <listitem>
     <para>
+<!--
      Set recovery configuration settings in
      <filename>postgresql.conf</filename> (see <xref
      linkend="runtime-config-wal-archive-recovery"/>) and create a file
@@ -1919,6 +1932,9 @@ GNUの <application>tar</application>で1.23以降のバージョンを使用し
      data directory. You might
      also want to temporarily modify <filename>pg_hba.conf</filename> to prevent
      ordinary users from connecting until you are sure the recovery was successful.
+-->
+<filename>postgresql.conf</filename>（<xref linkend="runtime-config-wal-archive-recovery"/>を参照してください）に復旧の設定を記述し、クラスタデータディレクトリに<filename>recovery.signal</filename>ファイルを作成します。
+また、一時的に<filename>pg_hba.conf</filename>を変更し、復旧の成功を確認できるまで一般ユーザが接続できないようにする必要があるかもしれません。
     </para>
    </listitem>
    <listitem>
@@ -1936,7 +1952,7 @@ GNUの <application>tar</application>で1.23以降のバージョンを使用し
 サーバを起動してください。
 サーバは復旧モードに入り、必要なアーカイブ済みWALファイル群の読み込みを行います。
 外部的なエラーにより復旧が中断したら、サーバを単に再起動させて、復旧処理を継続してください。
-復旧処理が完了したら、（誤って後で復旧モードに再度入らないように）postmasterは<filename>recovery.conf</filename>の名前を<filename>recovery.done</filename>に変更します。
+復旧処理が完了したら、（誤って後で復旧モードに再度入らないように）サーバは<filename>recovery.signal</filename>を削除します。
 その後通常のデータベース操作を開始します。
     </para>
    </listitem>
@@ -1971,10 +1987,8 @@ GNUの <application>tar</application>で1.23以降のバージョンを使用し
     character in the command.  The simplest useful command is
     something like:
 -->
-ここで重要となるのは、復旧設定ファイルを設定することです。
-このファイルで、どのように復旧させたいのかやどこまで復旧させたいかを記述します。
-<filename>recovery.conf.sample</filename>（通常はインストレーションの<filename>share/</filename>ディレクトリに格納されています）を手本として使用することができます。
-<filename>recovery.conf</filename>で絶対に指定しなければならないことは、アーカイブ済みWALファイルセグメントをどのように戻すかを<productname>PostgreSQL</productname>に通知する<varname>restore_command</varname>です。
+ここで重要となるのは、どのように復旧させたいのかやどこまで復旧させたいかを記述する復旧設定を設定することです。
+絶対に指定しなければならないことは、アーカイブ済みWALファイルセグメントをどのように戻すかを<productname>PostgreSQL</productname>に通知する<varname>restore_command</varname>です。
 <varname>archive_command</varname>同様、これはシェルコマンド文字列です。
 ここには、対象のログファイルの名前で置換される<literal>%f</literal>やログファイルのコピー先を示すパスで置換される<literal>%p</literal>を含めることができます。
 （パス名は現在の作業用ディレクトリ、つまり、クラスタのデータディレクトリから見た相対パスです。）
@@ -2008,7 +2022,7 @@ restore_command = 'cp /mnt/server/archivedir/%f %p'
 このコマンドが失敗した時に非ゼロの終了ステータスを返すことが重要です。
 このコマンドは、アーカイブに存在しないファイルを要求する<emphasis>かもしれません</emphasis>が、その場合でも非ゼロを返さなければなりません。
 これはエラー状態ではありません。
-例外は、コマンドがシグナルによって中断された場合(データベースの停止に使用される<systemitem>SIGTERM</systemitem>以外)か、シェルによるエラー(コマンドが見つかりませんなど)でリカバリが中断され、サーバが起動しない場合です。
+例外は、コマンドがシグナルによって中断された場合(データベースの停止に使用される<systemitem>SIGTERM</systemitem>以外)か、シェルによるエラー(コマンドが見つかりませんなど)で復旧が中断され、サーバが起動しない場合です。
    </para>
 
    <para>
@@ -2070,7 +2084,7 @@ restore_command = 'cp /mnt/server/archivedir/%f %p'
     are very usable, since there are no tools to help you identify with any
     accuracy which transaction ID to use.
 -->
-もし以前のある時点まで復旧させたい場合（例えば、経験不足のデータベース管理者が主トランザクションテーブルを消去した直前）、<filename>recovery.conf</filename>に要求する<link linkend="runtime-config-wal-recovery-target">停止時点</link>を指定するだけです。
+もし以前のある時点まで復旧させたい場合（例えば、経験不足のデータベース管理者が主トランザクションテーブルを消去した直前）、要求する<link linkend="runtime-config-wal-recovery-target">停止時点</link>を指定するだけです。
 停止時点は、<quote>recovery target</quote>として既知の停止時点で指定することも、日付と時刻で指定することも、リストアポイントか完了した特定のトランザクションIDで指定することもできます。
 本ドキュメントの執筆時点では使用するトランザクションIDの識別を補助するツールがありませんので、ほとんどの場合は日付と時刻による指定のみを使用することになるでしょう。
    </para>
@@ -2218,7 +2232,7 @@ restore_command = 'cp /mnt/server/archivedir/%f %p'
     timelines that branched off earlier than the base backup.
 -->
 復旧処理のデフォルトは、ベースバックアップが取得された時点のタイムラインと同一のタイムラインに沿った復旧です。
-別の子タイムラインに沿って復旧させたい（つまり、復旧試行以降に生成されたある状態に戻りたい）場合は<filename>recovery.conf</filename>で対象のタイムラインIDを指定しなければなりません。
+別の子タイムラインに沿って復旧させたい（つまり、復旧試行以降に生成されたある状態に戻りたい）場合は、対象のタイムラインIDを指定しなければなりません。
 ベースバックアップより前に分岐したタイムラインに沿って復旧することはできません。
    </para>
   </sect2>
@@ -2344,7 +2358,7 @@ archive_command = 'gzip &lt; %p &gt; /var/lib/pgsql/archive/%f'
 <!--
       You will then need to use <application>gunzip</application> during recovery:
 -->
-リカバリ中は <application>gunzip</application>を使う必要があります。
+復旧時は <application>gunzip</application>を使う必要があります。
 <programlisting>
 restore_command = 'gunzip &lt; /mnt/server/archivedir/%f &gt; %p'
 </programlisting>
@@ -2408,7 +2422,7 @@ archive_command = 'local_backup_script.sh "%p" "%f"'
 <!--
          Interfacing with other backup and recovery software
 -->
-その他のバックアップとリカバリーソフトウェアとのインタフェース
+その他のバックアップとリカバリのソフトウェアとのインタフェース
         </para>
        </listitem>
        <listitem>
