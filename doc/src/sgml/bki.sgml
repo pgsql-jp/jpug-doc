@@ -102,7 +102,7 @@ SQLコマンドを実行可能な状態にまでシステムを持っていく�
   information about that, and for completeness describes
   the <acronym>BKI</acronym> file format.
 -->
-ほとんどのPostgres開発者は直接<acronym>BKI</acronym>ファイルのことを気にかける必要はありませんが、バックエンドに些細ではない機能を追加する際にはカタログヘッダーファイル、あるいはまた初期データファイルの変更が必要になるでしょう。
+ほとんどのPostgreSQL開発者は直接<acronym>BKI</acronym>ファイルのことを気にかける必要はありませんが、バックエンドに些細ではない機能を追加する際にはカタログヘッダーファイル、あるいはまた初期データファイルの変更が必要になるでしょう。
 この章の残りの部分でそれについての情報をお届けします。
 また網羅性のために、<acronym>BKI</acronym>ファイルのフォーマットも説明します。
  </para>
@@ -136,7 +136,7 @@ SQLコマンドを実行可能な状態にまでシステムを持っていく�
 フィールドには<filename>genbki.h</filename>に記述されたBKIプロパティマクロを使って注釈を付けることができます。
 たとえば、フィールドのデフォルト値を定義したり、NULLが許されるかどうかのフラグを付けることができます。
 <literal>CATALOG</literal>行にも注釈が付けられます。
-<filename>genbki.h</filename>に記述されたBKIプロパティマクロを使って、たとえばOIDを持つかどうか（デフォルトでは持ちます）のようなそのカタログ全体のプロパティを定義することもできます。
+<filename>genbki.h</filename>に記述されたBKIプロパティマクロを使って、共有リレーションであるかどうかといった、そのカタログ全体のプロパティを定義することができます。
   </para>
 
   <para>
@@ -335,10 +335,11 @@ SQLコマンドを実行可能な状態にまでシステムを持っていく�
       suitable default value for it.)
 -->
 各々のカタログ行にカンマ区切りで<replaceable>key</replaceable><literal>=&gt;</literal><replaceable>value</replaceable>ペアを書きます。
-記述可能な<replaceable>key</replaceable>は、カタログのカラムに加えてメタデータキーである<literal>oid</literal>、<literal>oid_symbol</literal>、<literal>descr</literal>です。
-（<literal>oid</literal>と<literal>oid_symbol</literal>の使い方は後述の<xref linkend="system-catalog-oid-assignment"/>に説明されています。
+記述可能な<replaceable>key</replaceable>は、カタログのカラムに加えてメタデータキーである<literal>oid</literal>、<literal>oid_symbol</literal>、<literal>array_type_oid</literal>、<literal>descr</literal>です。
+（<literal>oid</literal>と<literal>oid_symbol</literal>の使い方は後述の<xref linkend="system-catalog-oid-assignment"/>に説明されていて、一方、<literal>array_type_oid</literal>は<xref linkend="system-catalog-auto-array-types"/>で説明されています。
 <literal>descr</literal>はオブジェクトの説明文字列に使用し、<structname>pg_description</structname>か<structname>pg_shdescription</structname>の適切な方に挿入されます。）
 メタデータキーは省略可能であるのに対し、カタログの<literal>.h</literal>ファイルがカラムのデフォルト値を指定する場合を除いてカタログの定義済みカラムはすべて提供されなければなりません。
+（上記の例では<filename>pg_database.h</filename>が適切なデフォルト値を供するので<structfield>datdba</structfield>フィールドは省略されました。）
      </para>
     </listitem>
 
@@ -399,7 +400,8 @@ NULL値は<literal>_null_</literal>で表します。
       This is described in <xref linkend="system-catalog-oid-references"/>
       below.
 -->
-読みやすくするために、他のカタログエントリのOIDであるフィールド値は数字のOIDではなく、名前で表すことができます。
+他のカタログエントリのOIDであるフィールド値は、実際の数値のOIDではなくシンボル名で記述されるべきです。
+（上記の例では<structfield>dattablespace</structfield>がこのような参照を含みます。）
 これは後述の<xref linkend="system-catalog-oid-references"/>で説明します。
      </para>
     </listitem>
@@ -426,8 +428,8 @@ NULL値は<literal>_null_</literal>で表します。
          (if present) come first, in that order, then the catalog's own
          fields appear in their defined order.
 -->
-中括弧のペアの中で、メタデータフィールドの<literal>oid</literal>、<literal>oid_symbol</literal>、（もし存在するなら）<literal>descr</literal>がこの順で最初に来ます。
-そして、定義された順にカタログ自身のフィールドが表れます。
+中括弧のペアの中で、メタデータフィールドの<literal>oid</literal>、<literal>oid_symbol</literal>、<literal>array_type_oid</literal>、および、（もし存在するなら）<literal>descr</literal>がこの順で最初に来ます。
+そして、定義された順にカタログ自身のフィールドが現れます。
         </para>
        </listitem>
 
@@ -531,7 +533,7 @@ NULL値は<literal>_null_</literal>で表します。
 他のプリロードカタログ行の中にそのOIDへの参照がある場合には、プリロードカタログ行は割当済みのOIDを持たなければなりません。
 Cコードから行OIDが参照されるときにも割当済みのOIDは必要です。
 どちらも当てはまらない場合は、<literal>oid</literal>メタデータフィールドは省略可能です。
-その場合、ブートストラップコードが自動的にOIDを割り当てるか、OIDを持たないカタログでは0のままになります。
+その場合、ブートストラップコードが自動的にOIDを割り当てます。
 実用的には、カタログの一部のみが実際に相互参照されている場合でも、与えられたプリロードカタログ行のOIDをすべて割当済みにするか、一つも割当済みにしないかのどちらかに通常します。
    </para>
 
@@ -582,10 +584,11 @@ Cコード中でOIDの実際の数値を書くのは非常に良くないと考�
 今の所OID 1-9999 は手動での割当のために予約されています。
 <filename>unused_oids</filename>スクリプトは、単にカタログヘッダーと<filename>.dat</filename>を見てそこに出現していないOIDを探しているだけです。
 間違い見つけるために<filename>duplicate_oids</filename>を利用することもできます。
-（<filename>genbki.pl</filename>もコンパイル時に重複OIDを検出します。）
+（<filename>genbki.pl</filename>は手動アサインされていない全ての行にOIDを割り当て、また、コンパイル時に重複OIDを検出します。）
    </para>
 
    <para>
+<!--
     When choosing OIDs for a patch that is not expected to be committed
     immediately, best practice is to use a group of more-or-less
     consecutive OIDs starting with some random choice in the range
@@ -600,17 +603,29 @@ Cコード中でOIDの実際の数値を書くのは非常に良くないと考�
     If an uncommitted patch is found to have OID conflicts with some
     recently-committed patch, <filename>renumber_oids.pl</filename> may
     also be useful for recovering from that situation.
+-->
+即座にコミットされるとは期待できないパッチ用にOIDを選ぶときの最良の手法は、8000&mdash;9999の範囲でランダムに選択したところから始まるおおむね連続したOIDのグループを使うことです。
+これは同時に開発されている他のパッチとのOID衝突の危険を最小化します。
+8000&mdash;9999の範囲を開発目的に空けておくため、パッチがマスタgitリポジトリにコミットされた後、そのOIDはこの範囲の下位の使用可能な場所に番号の振り直しすべきです。
+通例これは各開発サイクルの終わり近くに行われ、同時にそのサイクルでコミットされたパッチで消費された全てのOIDを移動するでしょう。
+スクリプト<filename>renumber_oids.pl</filename>はこの目的に使用できます。
+コミットされていないパッチが最近コミットされたパッチとOID衝突していることに気づいた場合に、このような状況から回復するのにも<filename>renumber_oids.pl</filename>がおそらく役立つでしょう。
    </para>
 
    <para>
+<!--
     Because of this convention of possibly renumbering OIDs assigned by
     patches, the OIDs assigned by a patch should not be considered stable
     until the patch has been included in an official release.  We do not
     change manually-assigned object OIDs once released, however, as that
     would create assorted compatibility problems.
+-->
+パッチに割り当てられたOIDをできるだけ番号付け替えするこの慣習のため、パッチに割り当てられたOIDはそのパッチが正式リリースに含まれるまでは永続的と考えるべきではありません。
+さまざまな互換性の問題を生み出すかもしれないため、一度リリースされた手動でアサインされたオブジェクトのOIDは変更してはいけません。
    </para>
 
    <para>
+<!--
     If <filename>genbki.pl</filename> needs to assign an OID to a catalog
     entry that does not have a manually-assigned OID, it will use a value in
     the range 10000&mdash;11999.  The server's OID counter is set to 12000
@@ -618,14 +633,23 @@ Cコード中でOIDの実際の数値を書くのは非常に良くないと考�
     commands during the later phases of bootstrap, such as objects created
     while running the <filename>information_schema.sql</filename> script,
     receive OIDs of 12000 or above.
+-->
+<filename>genbki.pl</filename>は、OIDをカタログエントリに割り当てる必要がある場合、10000&mdash;11999範囲の値を使います。
+ブートストラップ実行開始の際にはサーバのOIDカウンタは12000に設定されます。
+したがって、<filename>information_schema.sql</filename>スクリプトを実行して作られるオブジェクトなど、ブートストラップ後の段階において通常のSQLコマンドで作られたオブジェクトは12000以上のOIDを受け取ります。
    </para>
 
    <para>
+<!--
     OIDs assigned during normal database operation are constrained to be
     16384 or higher.  This ensures that the range 10000&mdash;16383 is free
     for OIDs assigned automatically by <filename>genbki.pl</filename> or
     during bootstrap.  These automatically-assigned OIDs are not considered
     stable, and may change from one installation to another.
+-->
+通常のデータベース操作で割り当てられたOIDは16384以上に限定されます。
+これは<filename>genbki.pl</filename>やブートストラップの中で自動的に割り当てられたOIDに対して10000&mdash;16383の範囲が空いていること保証します。
+これらの自動割り当てされたOIDは永続的とはいえず、あるインストレーションから他のインストレーションで変更されるかもしれません。
    </para>
 
   </sect2>
@@ -647,10 +671,9 @@ Cコード中でOIDの実際の数値を書くのは非常に良くないと考�
     symbolic references instead.
     The rules are as follows:
 -->
-初期カタログ行間の相互参照は、参照する行の割当済みOIDを記述するだけで可能です。
-しかしこれは間違いやすく、また読みにくくなります。
-そのため、頻繁に参照されるカタログでは、<filename>genbki.pl</filename>が代わりにシンボル参照を記述する機構を提供しています。
-今の所、アクセスメソッド、関数、演算子、演算子クラス、演算子ファミリー、型で参照アクセスが可能です。
+原則としては、ある初期カタログ行から他への相互参照は、参照しているフィールドで参照されている行の事前割り当てされたOIDを書くことだけで記述できます。
+しかしながら、間違いやすく、読みにくく、また、新たに割り当てられたOIDが番号付け直しされたときに破損しやすいため、これはプロジェクト方針に反します。
+そのため、<filename>genbki.pl</filename>が代わりにシンボル参照を記述する機構を提供しています。
 そのルールは以下のとおりです。
    </para>
 
@@ -669,7 +692,7 @@ Cコード中でOIDの実際の数値を書くのは非常に良くないと考�
       lookup on each element of the array.
 -->
 <literal>BKI_LOOKUP(<replaceable>lookuprule</replaceable>)</literal>をカラム定義に加えることで、特定のカタログカラムでのシンボル参照が利用可能になります。
-ここで<replaceable>lookuprule</replaceable>は、<literal>pg_am</literal>、<literal>pg_proc</literal>、<literal>pg_operator</literal>、<literal>pg_opclass</literal>、<literal>pg_opfamily</literal>、<literal>pg_type</literal>のどれかです。
+ここで<replaceable>lookuprule</replaceable>は参照されているカタログ名で、例えば<literal>pg_proc</literal>です。
 <literal>BKI_LOOKUP</literal>を、<type>Oid</type>、<type>regproc</type>、<type>oidvector</type>、<type>Oid[]</type>のカラムに加えることができます。
 最後の２つにおいては、配列の個々の要素を検索することを暗に意味します。
      </para>
@@ -677,10 +700,13 @@ Cコード中でOIDの実際の数値を書くのは非常に良くないと考�
 
     <listitem>
      <para>
+<!--
       It's also permissible to attach <literal>BKI_LOOKUP(encoding)</literal>
       to integer columns to reference character set encodings, which are
       not currently represented as catalog OIDs, but have a set of values
       known to <filename>genbki.pl</filename>.
+-->
+文字セット符号化方式を参照する整数の列に<literal>BKI_LOOKUP(encoding)</literal>を加えることも許容されます。これは今のところカタログのOIDとして現れませんが、値の集合を<filename>genbki.pl</filename>に知らせます。
      </para>
     </listitem>
 
@@ -709,9 +735,8 @@ Cコード中でOIDの実際の数値を書くのは非常に良くないと考�
       any aliases such as <literal>integer</literal>
       for <literal>int4</literal>.
 -->
-アクセスメソッドは単にその名前で表現されます。型も同様です。
-型名は<structname>pg_type</structname>エントリの<structfield>typname</structfield>に一致しなければなりません。
-<literal>int4</literal>に対する<literal>integer</literal>のような別名は利用できません。
+たいていのカタログオブジェクト類は単純にその名前で参照されます。
+型名は参照されている<structname>pg_type</structname>のエントリの<structfield>typname</structfield>と正確に一致しなければならないことに注意してください。<literal>int4</literal>に対する<literal>integer</literal>などの別名は使えません。
      </para>
     </listitem>
 
@@ -773,18 +798,22 @@ opclassesとopfamiliesの名前はアクセスメソッド内でのみユニー�
       expected to be in the <literal>pg_catalog</literal> schema.
 -->
 以上のいずれの場合にもスキーマ修飾の規定はありません。
-ブートストラップ中に作成されるすべてのオブジェクトは、pg_catalogスキーマにあると期待されます。
+ブートストラップ中に作成されるすべてのオブジェクトは、<literal>pg_catalog</literal>スキーマにあると期待されます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       In addition to the generic lookup mechanisms, there is a special
       convention that <literal>PGNSP</literal> is replaced by the OID of
       the <literal>pg_catalog</literal> schema,
       and <literal>PGUID</literal> is replaced by the OID of the bootstrap
       superuser role.  These usages are somewhat historical but so far
       there hasn't been a need to generalize them.
+-->
+一般的な検索の仕組みに加えて、<literal>PGNSP</literal>が<literal>pg_catalog</literal>スキーマのOIDで置換され、<literal>PGUID</literal>がブートストラップのスーパーユーザロールのOIDで置換されるという特別な習慣があります。
+これらの使用方法はやや歴史的なものですが今のところ、これらを一般化する必要はありませんでした。
      </para>
     </listitem>
    </itemizedlist>
@@ -802,9 +831,13 @@ opclassesとopfamiliesの名前はアクセスメソッド内でのみユニー�
   </sect2>
 
   <sect2 id="system-catalog-auto-array-types">
+<!--
    <title>Automatic Creation of Array Types</title>
+-->
+   <title>配列型の自動作成</title>
 
    <para>
+<!--
     Most scalar data types should have a corresponding array type (that is,
     a standard varlena array type whose element type is the scalar type, and
     which is referenced by the <structfield>typarray</structfield> field of
@@ -812,18 +845,26 @@ opclassesとopfamiliesの名前はアクセスメソッド内でのみユニー�
     entry).  <filename>genbki.pl</filename> is able to generate
     the <structname>pg_type</structname> entry for the array type
     automatically in most cases.
+-->
+たいていのスカラデータ型は対応する配列型を持つはずです（すなわち、要素がスカラ型の標準varlena配列型で、スカラ型の<structname>pg_type</structname>エントリの<structfield>typarray</structfield>フィールドから参照されているもの）。
+<filename>genbki.pl</filename>はたいていの場合に配列型に対する<structname>pg_type</structname>エントリも自動的に生成できます。
    </para>
 
    <para>
+<!--
     To use this facility, just write an <literal>array_type_oid
     =&gt; <replaceable>nnnn</replaceable></literal> metadata field in the
     scalar type's <structname>pg_type</structname> entry, specifying the OID
     to use for the array type.  You may then omit
     the <structfield>typarray</structfield> field, since it will be filled
     automatically with that OID.
+-->
+この機能を使うには、スカラ型の<structname>pg_type</structname>エントリに<literal>array_type_oid =&gt; <replaceable>nnnn</replaceable></literal>というメタデータフィールドを記述して、配列型に使用するOIDを指定します。
+自動的にそのOIDが書かれるため、このとき<structfield>typarray</structfield>フィールドを省いてもよいです。
    </para>
 
    <para>
+<!--
     The generated array type's name is the scalar type's name with an
     underscore prepended.  The array entry's other fields are filled from
     <literal>BKI_ARRAY_DEFAULT(<replaceable>value</replaceable>)</literal>
@@ -833,6 +874,11 @@ opclassesとopfamiliesの名前はアクセスメソッド内でのみユニー�
     the <structfield>typelem</structfield>
     and <structfield>typarray</structfield> fields of the two entries are
     set to cross-reference each other.
+-->
+生成された配列型の名前は、スカラ型の名前の手前にアンダースコアを付けたものです。
+配列エントリの他のフィールドは、<literal>BKI_ARRAY_DEFAULT(<replaceable>value</replaceable>)</literal>注釈から充当され、もし無ければスカラ型からコピーされます。
+（<structfield>typalign</structfield>に対する特別な場合もあります。）
+さらに両エントリの<structfield>typelem</structfield>および<structfield>typarray</structfield>フィールドは相互参照するように設定されます。
    </para>
   </sect2>
 
@@ -1173,7 +1219,6 @@ $ perl  rewrite_dat_with_prokind.pl  pg_proc.dat
       provided anyway for documentation.)
 -->
 <literal>shared_relation</literal>が指定された場合、テーブルは作成されます。
-<literal>without_oids</literal>が指定されていない限りテーブルはOIDを持ちます。
 テーブルの行型OID（<structname>pg_type</structname> OID）は<literal>rowtype_oid</literal>句で指定できます。
 指定されなければ、OIDは自動的に生成されます。
 （<literal>bootstrap</literal> が指定されていれば、<literal>rowtype_oid</literal>句は役に立ちません。しかし、文書化のためにともかく指定はできます。）
@@ -1229,8 +1274,7 @@ $ perl  rewrite_dat_with_prokind.pl  pg_proc.dat
       class="parameter">value2</replaceable>, etc., for its column
       values.
 -->
-<replaceable class="parameter">value1</replaceable>や<replaceable class="parameter">value2</replaceable>などを列の値として、<replaceable class="parameter">oid_value</replaceable>をOIDとし、開いているテーブルに行を挿入します。
-もし<replaceable class="parameter">oid_value</replaceable>がゼロ（0）、もしくは句が省略され、テーブルがOIDを所有していれば、次の有効なOIDが割り当てられます。
+<replaceable class="parameter">value1</replaceable>や<replaceable class="parameter">value2</replaceable>などを列の値として、開いているテーブルに行を挿入します。
      </para>
 
      <para>
@@ -1461,7 +1505,7 @@ NULL値は特別なキーワード、<literal>_null_</literal>によって指定
    of type <type>oid</type>, <type>int4</type> and <type>text</type>,
    respectively, and insert two rows into the table:
 -->
-次の一連のコマンドは、それぞれ<type>int4</type>型と<type>text</type>型の２つの列、<literal>cola</literal>と<literal>colb</literal>を持ち、OID 420 が付いた<literal>test_table</literal>テーブルを作成し、そして２つの行をテーブルに挿入します。
+次の一連のコマンドは、それぞれ<type>oid</type>型、<type>int4</type>型、<type>text</type>型の3つの列、<literal>oid</literal>、<literal>cola</literal>、<literal>colb</literal>を持ち、OID 420 が付いた<literal>test_table</literal>テーブルを作成し、そして2つの行をテーブルに挿入します。
 <programlisting>
 create test_table 420 (oid = oid, cola = int4, colb = text)
 open test_table
