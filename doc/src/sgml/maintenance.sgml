@@ -1272,6 +1272,7 @@ analyze threshold = analyze base threshold + analyze scale factor * number of tu
    </para>
 
    <para>
+<!--
     Autovacuum workers generally don't block other commands.  If a process
     attempts to acquire a lock that conflicts with the
     <literal>SHARE UPDATE EXCLUSIVE</literal> lock held by autovacuum, lock
@@ -1281,13 +1282,21 @@ analyze threshold = analyze base threshold + analyze scale factor * number of tu
     name in the <structname>pg_stat_activity</structname> view ends with
     <literal>(to prevent wraparound)</literal>), the autovacuum is not
     automatically interrupted.
+-->
+自動バキュームワーカは通常は他のコマンドをブロックしません。
+自動バキュームが保持する<literal>SHARE UPDATE EXCLUSIVE</literal>ロックと衝突するロックを、プロセスが獲得しようとした場合には、ロックの獲得により自動バキュームが中断されます。
+衝突するロックモードに関しては<xref linkend="table-lock-compatibility"/>を参照してください。
+しかしながら、自動バキュームがトランザクションIDの周回を防ぐために動作している(すなわち、<structname>pg_stat_activity</structname>ビューの自動バキューム問い合わせ名が<literal>(to prevent wraparound)</literal>で終わっている)場合には、自動バキュームは自動的には中断されません。
    </para>
 
    <warning>
     <para>
+<!--
      Regularly running commands that acquire locks conflicting with a
      <literal>SHARE UPDATE EXCLUSIVE</literal> lock (e.g., ANALYZE) can
      effectively prevent autovacuums from ever completing.
+-->
+<literal>SHARE UPDATE EXCLUSIVE</literal>ロックと衝突するロックを獲得する、定期的に動作するコマンド(例えばANALYZE)により、自動バキュームが実質的に終わらなくなることがあります。
     </para>
    </warning>
   </sect2>
@@ -1367,11 +1376,7 @@ B-tree以外の任意の種類のインデックスを使用する際には、�
    <literal>SHARE UPDATE EXCLUSIVE</literal> lock.
 -->
 <xref linkend="sql-reindex"/>はすべての状況で安全に簡単に使うことができます。
-しかし、このコマンドはテーブルの排他ロックを要求しますので、生成と置き換えの処理を続けて行なうことでインデックスの再構築を実行する方が好ましい場合がしばしばあります。
-<literal>CONCURRENTLY</literal>オプションの付いた<xref linkend="sql-createindex"/>をサポートする種類のインデックスでは代わりにそのように再構築できます。
-それが成功し、結果のインデックスが有効ならば、<xref linkend="sql-alterindex"/>と<xref linkend="sql-dropindex"/>を組み合わせて使って、元のインデックスを新しく構築されたものに置き換えることができます。
-インデックスが一意性もしくはその他の制約を強制するために使われている場合には、既存の制約を新しいインデックスで強制されるものへ入れ替えるために<xref linkend="sql-altertable"/>が必要になるかもしれません。
-インデックスをこのように再作成するのには制限がありますので、この複数の処理で再構築する代わりの方法を使う前に注意深く検討し、エラーを処理しなければなりません。
+このコマンドはデフォルトで<literal>ACCESS EXCLUSIVE</literal>ロックを要求しますので、<literal>CONCURRENTLY</literal>オプションを付けて実行する方が好ましい場合がしばしばあります。その場合には<literal>SHARE UPDATE EXCLUSIVE</literal>ロックしか要求しません。
   </para>
  </sect1>
 
@@ -1456,7 +1461,7 @@ B-tree以外の任意の種類のインデックスを使用する際には、�
 -->
 また、既に他のサーバソフトウェアで使用している外部のログ回転プログラムがあるのであれば、それを使用したいと考えるでしょう。
 例えば、<productname>Apache</productname>配布物に含まれる<application>rotatelogs</application>を<productname>PostgreSQL</productname>で使用することができます。
-これを行うには、単にサーバの<systemitem>stderr</systemitem>を目的のプログラムにパイプで渡してください。
+これを行う一つの方法は、単にサーバの<systemitem>stderr</systemitem>を目的のプログラムにパイプで渡すことです。
 <command>pg_ctl</command>を使用してサーバを起動している場合は<systemitem>stderr</systemitem>は既に<systemitem>stdout</systemitem>にリダイレクトされていますので、以下の例のようにコマンドをパイプする必要があるだけです。
 
 <programlisting>
@@ -1465,6 +1470,7 @@ pg_ctl start | rotatelogs /var/log/pgsql_log 86400
   </para>
 
   <para>
+<!--
    You can combine these approaches by setting up <application>logrotate</application>
    to collect log files produced by <productname>PostgreSQL</productname> built-in
    logging collector.  In this case, the logging collector defines the names and
@@ -1479,10 +1485,18 @@ pg_ctl start | rotatelogs /var/log/pgsql_log 86400
    this command, the server either switches to a new log file or reopens the
    existing file, depending on the logging configuration
    (see <xref linkend="runtime-config-logging-where"/>).
+-->
+<productname>PostgreSQL</productname>組み込みのログ収集機構により生成されるログファイルを集めるのに<application>logrotate</application>を設定することで、上の方法を組み合わせることができます。
+この場合、ログ収集機構はログファイルの名前と位置を定義する一方、<application>logrotate</application>は周期的にそのファイルをアーカイブします。
+ログ回転を開始する時に、<application>logrotate</application>はアプリケーションが以降の出力を新しいファイルに送ることを確実にしなければなりません。
+通常これは、アプリケーションに<literal>SIGHUP</literal>シグナルを送る<literal>postrotate</literal>スクリプトにより行なわれ、アプリケーションはその後ログファイルを再度開きます。
+<productname>PostgreSQL</productname>では、その代わりに<command>pg_ctl</command>に<literal>logrotate</literal>オプションを付けて実行できます。
+サーバはこのコマンドを受け取ると、ログ収集の設定に応じて新しいログファイルに切り替えるか、既存のファイルを再度開くかします(<xref linkend="runtime-config-logging-where"/>を参照してください)。
   </para>
 
   <note>
    <para>
+<!--
     When using static log file names, the server might fail to reopen the log
     file if the max open file limit is reached or a file table overflow occurs.
     In this case, log messages are sent to the old log file until a
@@ -1491,6 +1505,11 @@ pg_ctl start | rotatelogs /var/log/pgsql_log 86400
     the messages logged in this timeframe. To avoid this issue, you can
     configure the logging collector to dynamically assign log file names
     and use a <literal>prerotate</literal> script to ignore open log files.
+-->
+静的なログファイル名を使う場合には、開けるファイルの最大数に達したりファイルテーブルのオーバーフローが起きた場合に、サーバがログファイルを再度開くのに失敗するかもしれません。
+この場合には、ログ回転が成功するまでログメッセージは古いログファイルに送られます。
+<application>logrotate</application>がログファイルを圧縮して削除するよう設定されていれば、サーバはこの期間にログに残そうとしたメッセージを失うかもしれません。
+この問題を避けるため、ログファイル名を動的に割り当てて、開いているログファイルを無視する<literal>prerotate</literal>スクリプトを使うようにログ収集機構を設定できます。
     </para>
   </note>
 
