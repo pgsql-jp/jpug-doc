@@ -23,7 +23,7 @@ PostgreSQL documentation
 <!--
   <refmiscinfo>SQL - Language Statements</refmiscinfo>
 -->
-<refmiscinfo>SQL - 言語</refmiscinfo>
+  <refmiscinfo>SQL - 言語</refmiscinfo>
  </refmeta>
 
  <refnamediv>
@@ -198,14 +198,14 @@ PREPARE <replaceable class="parameter">name</replaceable> [ ( <replaceable class
    prepared statement has no parameters, then this is moot and a generic
    plan is always used.)
 -->
-プリペアド文では、提供された<command>EXECUTE</command>の値に対してそれぞれ再計画するのでなく、一般的な計画を利用することができます。
-プリペアド文がパラメータを持たない場合、これは即座に起こります。
-パラメータを持つ場合は、5回以上の実行の後で、予測されるコストの平均（計画のオーバーヘッドを含む）が一般的な計画のコスト予測よりも高価である計画が生成されたときに、これが起こります。
-ひと度、一般的な計画が選ばれれば、そのプリペアド文が存続する間は、それが利用されます。
-多くの重複する値がある列で、稀な値を指定した<command>EXECUTE</command>を実行すると、計画のオーバーヘッドを加えた後でも、一般的な計画よりもずっと安価な独自計画が生成できるため、一般的な計画が決して使われなくなるかもしれません。
+プリペアド文は、<firstterm>汎用的な計画</firstterm>または<firstterm>独自の計画</firstterm>のいずれかで実行することができます。
+汎用的な計画は全実行に渡って同じであるのに対して、独自の計画はその呼出しで与えられたパラメータ値を使った特別な実行のために生成されます。
+汎用的な計画の使用は計画のオーバーヘッドを回避しますが、プランナがパラメータ値の知識を使えるので、独自の計画の方がずっと効率よく実行される場合があります。
+(もちろん、プリペアド文にパラメータがなければ、これは無意味で、汎用的な計画が常に使われます。)
   </para>
 
   <para>
+<!--
    By default (that is, when <xref linkend="guc-plan-cache_mode"/> is set
    to <literal>auto</literal>), the server will automatically choose
    whether to use a generic or custom plan for a prepared statement that
@@ -216,9 +216,15 @@ PREPARE <replaceable class="parameter">name</replaceable> [ ( <replaceable class
    executions use the generic plan if its cost is not so much higher than
    the average custom-plan cost as to make repeated replanning seem
    preferable.
+-->
+デフォルト(すなわち、<xref linkend="guc-plan-cache_mode"/>が<literal>auto</literal>に設定されている場合)では、パラメータのあるプリペアド文に対して、汎用的な計画を使うか独自の計画を使うかを、サーバは自動的に選択します。
+これに対する現在の規則は、最初の5回が独自の計画で実行され、その計画の推定コストの平均が計算される、というものです。
+それから汎用的な計画が作成され、その推定コストが独自の計画のコストの平均と比較されます。
+そのコストが独自の計画のコストの平均よりもそれほど高くなければ、再計画を繰り返すことが望ましいと考えて、その後の実行は汎用的な計画を使います。
   </para>
 
   <para>
+<!--
    This heuristic can be overridden, forcing the server to use either
    generic or custom plans, by setting <varname>plan_cache_mode</varname>
    to <literal>force_generic_plan</literal>
@@ -226,6 +232,9 @@ PREPARE <replaceable class="parameter">name</replaceable> [ ( <replaceable class
    This setting is primarily useful if the generic plan's cost estimate
    is badly off for some reason, allowing it to be chosen even though
    its actual cost is much more than that of a custom plan.
+-->
+<varname>plan_cache_mode</varname>を<literal>force_generic_plan</literal>または<literal>force_custom_plan</literal>に設定して、サーバにそれぞれ汎用的な計画または独自の計画を使うように強制することで、この発見的手法を置き換えることができます。
+汎用的な計画の実際のコストが独自の計画のものよりもずっと多い場合でも、汎用的な計画を選べるようになりますので、汎用的な計画のコスト推定が何らかの理由でひどく外れる場合に、この設定は主として有用です。
   </para>
 
   <para>
@@ -239,9 +248,12 @@ EXPLAIN EXECUTE <replaceable>stmt_name</replaceable>(<replaceable>parameter_valu
    <literal>$<replaceable>n</replaceable></literal>, while a custom plan
    will have the supplied parameter values substituted into it.
 -->
-プリペアド文に対して<productname>PostgreSQL</productname>が使用する問い合わせ計画を検証するためには、<xref linkend="sql-explain"/>、例えば<command>EXPLAIN EXECUTE</command>を使用してください。
-一般的な計画が使用される場合には、<literal>$<replaceable>n</replaceable></literal>というパラメータ記号が含まれ、独自計画が使用される場合は提供されたパラメータの値で置換されます。
-一般的な計画での行推定は、そのパラメータに対して計算した選択性を反映したものになります。
+プリペアド文に対して<productname>PostgreSQL</productname>が使用する問い合わせ計画を検証するためには、<xref linkend="sql-explain"/>、例えば
+<programlisting>
+EXPLAIN EXECUTE <replaceable>stmt_name</replaceable>(<replaceable>parameter_values</replaceable>);
+</programlisting>
+を使用してください。
+汎用的な計画が使用される場合には、<literal>$<replaceable>n</replaceable></literal>というパラメータ記号が含まれ、独自の計画が使用される場合は提供されたパラメータの値で置換されます。
   </para>
 
   <para>
@@ -283,7 +295,6 @@ EXPLAIN EXECUTE <replaceable>stmt_name</replaceable>(<replaceable>parameter_valu
 意味的な等価性が完全ではない場合の例は、
 文が未修飾名によってテーブルを参照し、その後同じ名前のテーブルが新たに<varname>search_path</varname>内で前に現れるスキーマ内に作成された場合、文の中で使用されるオブジェクトには変更がありませんので、自動再解析は行われません。
 しかし他の何らかの変更により強制的に再解析された場合、その後の使用では新しいテーブルが参照されるようになります。
-
   </para>
 
   <para>
@@ -331,7 +342,7 @@ EXECUTE usrrptplan(1, current_date);
    In this example, the data type of the second parameter is not specified,
    so it is inferred from the context in which <literal>$2</literal> is used.
 -->
-第2パラメータのデータ型が指定されていないことに注目してください。
+この例では第2パラメータのデータ型が指定されていません。
 このため<literal>$2</literal>が使用される文脈からデータ型が推測されます。
   </para>
  </refsect1>
