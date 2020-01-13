@@ -372,13 +372,17 @@ CREATE TABLE products (
  </sect1>
 
  <sect1 id="ddl-generated-columns">
+<!--
   <title>Generated Columns</title>
+-->
+  <title>生成列</title>
 
   <indexterm zone="ddl-generated-columns">
    <primary>generated column</primary>
   </indexterm>
 
   <para>
+<!--
    A generated column is a special column that is always computed from other
    columns.  Thus, it is for columns what a view is for tables.  There are two
    kinds of generated columns: stored and virtual.  A stored generated column
@@ -388,11 +392,22 @@ CREATE TABLE products (
    is similar to a view and a stored generated column is similar to a
    materialized view (except that it is always updated automatically).
    PostgreSQL currently implements only stored generated columns.
+-->
+生成列は常に他の列から計算される特別な列です。
+ですから、これは列におけるテーブルに対するビューのようなものです。
+生成列には格納と仮想の2種類があります。
+格納生成列はそれが書かれた（挿入または更新）時に計算され、あたかも通常の列のようにストレージが割当てられます。
+仮想列にはストレージは割り当てられず、列が読み出された時に計算されます。
+つまり、仮想生成列はビューに似ており、格納生成列はマテリアライズドビューに似ています。（常に自動的に更新される点は除きます。）
+今の所PostgreSQLは格納生成列のみを実装しています。
   </para>
 
   <para>
+<!--
    To create a generated column, use the <literal>GENERATED ALWAYS
    AS</literal> clause in <command>CREATE TABLE</command>, for example:
+-->
+生成列を作るには、<command>CREATE TABLE</command>で<literal>GENERATED ALWAYS AS</literal>節を使ってください。例を示します。
 <programlisting>
 CREATE TABLE people (
     ...,
@@ -400,19 +415,28 @@ CREATE TABLE people (
     height_in numeric <emphasis>GENERATED ALWAYS AS (height_cm / 2.54) STORED</emphasis>
 );
 </programlisting>
+<!--
    The keyword <literal>STORED</literal> must be specified to choose the
    stored kind of generated column.  See <xref linkend="sql-createtable"/> for
    more details.
+-->
+種類を格納生成列として選択するためにキーワード<literal>STORED</literal>を選択する必要があります。
+より詳しくは<xref linkend="sql-createtable"/>をご覧ください。
   </para>
 
   <para>
+<!--
    A generated column cannot be written to directly.  In
    <command>INSERT</command> or <command>UPDATE</command> commands, a value
    cannot be specified for a generated column, but the keyword
    <literal>DEFAULT</literal> may be specified.
+-->
+生成列には直接書き込みができません。
+<command>INSERT</command>あるいは<command>UPDATE</command>コマンドでは値を生成列には指定できませんが、キーワード<literal>DEFAULT</literal>が指定できます。
   </para>
 
   <para>
+<!--
    Consider the differences between a column with a default and a generated
    column.  The column default is evaluated once when the row is first
    inserted if no other value was provided; a generated column is updated
@@ -421,68 +445,108 @@ CREATE TABLE people (
    normally do so.  A column default can use volatile functions, for example
    <literal>random()</literal> or functions referring to the current time;
    this is not allowed for generated columns.
+-->
+デフォルトを備えた列と生成列の違いを考えてみましょう。
+列のデフォルトは、他に値が指定されないときに、最初に行が挿入された時に一度だけ評価されます。
+生成列は、行が変更された時に常に更新され、上書きはできません。
+デフォルトを備えた列はテーブルの他の列を参照することはできませんが、生成式は通常それを行います。
+デフォルトを備えた列は揮発性の関数、たとえば<literal>random()</literal>や現在時刻を参照する関数を使用できますが、これは生成列では許されていません。
   </para>
 
   <para>
+<!--
    Several restrictions apply to the definition of generated columns and
    tables involving generated columns:
+-->
+生成列の定義と生成列を伴うテーブルには以下の制限が適用されます。
 
    <itemizedlist>
     <listitem>
      <para>
+<!--
       The generation expression can only use immutable functions and cannot
       use subqueries or reference anything other than the current row in any
       way.
+-->
+生成式は不変関数のみが使用でき、副問合せ、あるいは現在の行以外へのいかなる参照も使用できません。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       A generation expression cannot reference another generated column.
+-->
+生成式はほかの生成列を参照できません。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       A generation expression cannot reference a system column, except
       <varname>tableoid</varname>.
+-->
+生成式は<varname>tableoid</varname>以外のシステム列を参照できません。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       A generated column cannot have a column default or an identity definition.
+-->
+生成列は列デフォルトも識別定義も持てません。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       A generated column cannot be part of a partition key.
+-->
+生成列はパーティションキーの一部にはなれません。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       Foreign tables can have generated columns.  See <xref
       linkend="sql-createforeigntable"/> for details.
+-->
+外部テーブルは生成列を持つことができます。
+詳細は<xref linkend="sql-createforeigntable"/>をご覧ください。
      </para>
     </listitem>
    </itemizedlist>
   </para>
 
   <para>
+<!--
    Additional considerations apply to the use of generated columns.
+-->
+生成列の利用の際には以下の追加の考慮が必要です。
    <itemizedlist>
     <listitem>
      <para>
+<!--
       Generated columns maintain access privileges separately from their
       underlying base columns.  So, it is possible to arrange it so that a
       particular role can read from a generated column but not from the
       underlying base columns.
+-->
+生成列は元になる基底列とは別にアクセス権限を維持します。
+ですから、ある特定のロールが生成列を読み出しつつも、元になる基底列からは読み出さないように調整することが可能です。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       Generated columns are, conceptually, updated after
       <literal>BEFORE</literal> triggers have run.  Therefore, changes made to
       base columns in a <literal>BEFORE</literal> trigger will be reflected in
       generated columns.  But conversely, it is not allowed to access
       generated columns in <literal>BEFORE</literal> triggers.
+-->
+概念的には、生成列は<literal>BEFORE</literal>トリガが走った後に更新されます。
+ですから、<literal>BEFORE</literal>トリガの中で基底列に加えられた変更は生成列に反映されます。
+しかし逆に生成列を<literal>BEFORE</literal>トリガの中でアクセスすることは許されません。
      </para>
     </listitem>
    </itemizedlist>
@@ -751,6 +815,7 @@ CREATE TABLE products (
 
    <note>
     <para>
+<!--
      <productname>PostgreSQL</productname> does not support
      <literal>CHECK</literal> constraints that reference table data other than
      the new or updated row being checked.  While a <literal>CHECK</literal>
@@ -764,9 +829,16 @@ CREATE TABLE products (
      possible, use <literal>UNIQUE</literal>, <literal>EXCLUDE</literal>,
      or <literal>FOREIGN KEY</literal> constraints to express
      cross-row and cross-table restrictions.
+-->
+<productname>PostgreSQL</productname>は、検査対象の新しい行もしくは更新対象行以外のテーブルデータを参照する<literal>CHECK</literal>制約はサポートしていません。
+このルールに違反する<literal>CHECK</literal>制約は単純なテストでは動いたように見えますが、（関連する他の行が後で更新されたことにより）データベースがその制約条件が偽になるような状態にならないことを保証できません。
+これによってデータベースのダンプと再ロードの失敗が引き起こされるでしょう。
+最終的なデータベース状態が制約に対して一貫した状態であったとしても、制約を満たす順で行がロードされないことにより再ロードは失敗することがあります。
+可能ならば<literal>UNIQUE</literal>、<literal>EXCLUDE</literal>、<literal>FOREIGN KEY</literal>制約を使って行あるいはテーブルをまたがる制約を表現してください。
     </para>
 
     <para>
+<!--
      If what you desire is a one-time check against other rows at row
      insertion, rather than a continuously-maintained consistency
      guarantee, a custom <link linkend="triggers">trigger</link> can be used
@@ -774,11 +846,15 @@ CREATE TABLE products (
      <application>pg_dump</application> does not reinstall triggers until after
      reloading data, so that the check will not be enforced during a
      dump/reload.)
+-->
+常に一貫性の保障を維持するのではなく、行挿入の際に一回だけの行の検査が必要なら、その実装のためにカスタム<link linkend="triggers">トリガ</link>が利用できます。
+（<application>pg_dump</application>はデータの再ロード後までトリガを再インストールせず、ダンプ/再ロード中は検査が強制されないため、この方法でダンプ/再ロード問題を回避できます。）
     </para>
    </note>
 
    <note>
     <para>
+<!--
      <productname>PostgreSQL</productname> assumes that
      <literal>CHECK</literal> constraints' conditions are immutable, that
      is, they will always give the same result for the same input row.
@@ -786,9 +862,15 @@ CREATE TABLE products (
      constraints only when rows are inserted or updated, and not at other
      times.  (The warning above about not referencing other table data is
      really a special case of this restriction.)
+-->
+<productname>PostgreSQL</productname>は<literal>CHECK</literal>制約の条件は不変であると仮定します。
+つまり同じ入力行に対して常に同じ結果が返るということです。
+この仮定により<literal>CHECK</literal>制約が挿入あるいは更新時にのみ検査され、他のときには検査されないことが正当化されます。
+（他のテーブルデータを参照しないことによる上述の警告はこの制限の本当に特別な場合です。）
     </para>
 
     <para>
+<!--
      An example of a common way to break this assumption is to reference a
      user-defined function in a <literal>CHECK</literal> expression, and
      then change the behavior of that
@@ -799,6 +881,11 @@ CREATE TABLE products (
      The recommended way to handle such a change is to drop the constraint
      (using <command>ALTER TABLE</command>), adjust the function definition,
      and re-add the constraint, thereby rechecking it against all table rows.
+-->
+この仮定に反する一般的な例は、<literal>CHECK</literal>式でユーザ定義関数を参照し、その関数の振る舞いを変更することです。
+<productname>PostgreSQL</productname>はこれを禁止はしませんが、今や<literal>CHECK</literal>制約に違反する行がテーブル中に存在することを通知しません。
+これによって後でデータベースのダンプと再ロードの失敗を引き起こすでしょう。
+そのような変更に対処するおすすめの方法は、（<command>ALTER TABLE</command>を使って）制約を削除し、関数定義を調整し、そして制約を再度追加して、それによってテーブル全体の行に対して再チェックを行うことです。
     </para>
    </note>
   </sect2>
@@ -1733,7 +1820,7 @@ TABLE ... CONSTRAINT ... EXCLUDE</command></link>を参照して下さい。
 テーブル内における、行バージョンの物理的位置を表します。
 <structfield>ctid</structfield>は行バージョンを素早く見つけるために使うことができますが、行の<structfield>ctid</structfield>は<command>VACUUM FULL</command>により更新あるいは移動させられると変わります。
 したがって、<structfield>ctid</structfield>は長期の行識別子としては使えません。
-論理行を識別するためには、OID、あるいはさらに良いのはユーザ定義の通番数を使うべきです。
+論理行を識別するためには、主キーを使うべきです。
      </para>
     </listitem>
    </varlistentry>
@@ -2338,7 +2425,7 @@ ALTER TABLE products RENAME TO items;
 権限にはいくつかの種類があります。
 すなわち<literal>SELECT</literal>、 <literal>INSERT</literal>、<literal>UPDATE</literal>、<literal>DELETE</literal>、<literal>TRUNCATE</literal>、<literal>REFERENCES</literal>、<literal>TRIGGER</literal>、<literal>CREATE</literal>、<literal>CONNECT</literal>、<literal>TEMPORARY</literal>、 <literal>EXECUTE</literal>、<literal>USAGE</literal>です。
 特定のオブジェクトに適用可能な権限は、オブジェクトの型（テーブル、関数など）により変わります。
-<productname>PostgreSQL</productname>がサポートする様々な権限の詳細については<xref linkend="sql-grant"/>リファレンスページを参照してください。
+これらの権限の詳細な意味を以下に示します。
 以降の節および章でもこれらの権限の使用方法についての説明があります。
   </para>
 
@@ -2354,14 +2441,17 @@ ALTER TABLE products RENAME TO items;
 <!--
    An object can be assigned to a new owner with an <command>ALTER</command>
    command of the appropriate kind for the object, for example
+-->
+たとえば次のように、オブジェクトに対する適切な種類の<command>ALTER</command>コマンドにより、あるオブジェクトに新しい所有者を割り当てることができます。
 <programlisting>
 ALTER TABLE <replaceable>table_name</replaceable> OWNER TO <replaceable>new_owner</replaceable>;
 </programlisting>
+<!--
    Superusers can always do this; ordinary roles can only do it if they are
    both the current owner of the object (or a member of the owning role) and
    a member of the new owning role.
 -->
-<xref linkend="sql-altertable"/>のような適切な種類の<command>ALTER</command>コマンドにより、あるオブジェクトに新しい所有者を割り当てることができます。スーパーユーザはいつでも所有者を変更できます。通常のロールは、対象オブジェクトの現在の所有者(または所有者ロールのメンバー)であり、かつ新しい所有者ロールのメンバーである場合に限り、所有者を変更できます。
+スーパーユーザはいつでも所有者を変更できます。通常のロールは、対象オブジェクトの現在の所有者(または所有者ロールのメンバー)であり、かつ新しい所有者ロールのメンバーである場合に限り、所有者を変更できます。
   </para>
 
   <para>
@@ -2371,7 +2461,7 @@ ALTER TABLE <replaceable>table_name</replaceable> OWNER TO <replaceable>new_owne
    <literal>accounts</literal> is an existing table, the privilege to
    update the table can be granted with:
 -->
-権限を割り当てるには、<command>GRANT</command>コマンドを使用します。
+権限を割り当てるには、<xref linkend="sql-grant"/>コマンドを使用します。
 例えば、<literal>joe</literal>という既存のロールと<literal>accounts</literal>という既存のテーブルがある場合、このテーブルを更新する権限を付与するには以下のようにします。
 <programlisting>
 GRANT UPDATE ON accounts TO joe;
@@ -2401,7 +2491,7 @@ GRANT UPDATE ON accounts TO joe;
    To revoke a privilege, use the fittingly named
    <xref linkend="sql-revoke"/> command:
 -->
-権限を取り消す(revoke)には、それに相応しい名前の<command>REVOKE</command>コマンドを使用します。
+権限を取り消す(revoke)には、それに相応しい名前の<xref linkend="sql-revoke"/>コマンドを使用します。
 <programlisting>
 REVOKE ALL ON accounts FROM PUBLIC;
 </programlisting>
@@ -2435,13 +2525,17 @@ REVOKE ALL ON accounts FROM PUBLIC;
   </para>
 
   <para>
+<!--
    The available privileges are:
+-->
+可能な権限は以下です。
 
    <variablelist>
     <varlistentry>
      <term><literal>SELECT</literal></term>
      <listitem>
       <para>
+<!--
        Allows <xref linkend="sql-select"/> from
        any column, or specific column(s), of a table, view, materialized
        view, or other table-like object.
@@ -2451,6 +2545,12 @@ REVOKE ALL ON accounts FROM PUBLIC;
        For sequences, this privilege also allows use of the
        <function>currval</function> function.
        For large objects, this privilege allows the object to be read.
+-->
+テーブル、ビュー、マテリアライズドビュー、あるいはそれ以外のテーブルのように見えるオブジェクトに対して<xref linkend="sql-select"/>をある列、あるいは指定した列（複数可）に許可します。
+また、<xref linkend="sql-copy"/>の利用を許可します。
+この権限は<xref linkend="sql-update"/>あるいは<xref linkend="sql-delete"/>において既存の列を参照する場合にも必要になります。
+シーケンスにおいてはこの権限は<function>currval</function>関数の使用を許可します。
+ラージオブジェクトにおいてはこの権限はオブジェクトの読み出しを許可します。
       </para>
      </listitem>
     </varlistentry>
@@ -2459,11 +2559,17 @@ REVOKE ALL ON accounts FROM PUBLIC;
      <term><literal>INSERT</literal></term>
      <listitem>
       <para>
+<!--
        Allows <xref linkend="sql-insert"/> of a new row into a table, view,
        etc.  Can be granted on specific column(s), in which case
        only those columns may be assigned to in the <command>INSERT</command>
        command (other columns will therefore receive default values).
        Also allows use of <xref linkend="sql-copy"/> FROM.
+-->
+テーブル、ビューなどに新しい行を<xref linkend="sql-insert"/>することを許可します。
+特定の列だけを<command>INSERT</command>コマンドで指定したい場合に、それらの列に許可することができます。
+（したがって他の列にはデフォルトが設定されます）。
+<xref linkend="sql-copy"/> FROMを利用することもできます。
       </para>
      </listitem>
     </varlistentry>
@@ -2472,6 +2578,7 @@ REVOKE ALL ON accounts FROM PUBLIC;
      <term><literal>UPDATE</literal></term>
      <listitem>
       <para>
+<!--
        Allows <xref linkend="sql-update"/> of any
        column, or specific column(s), of a table, view, etc.
        (In practice, any nontrivial <command>UPDATE</command> command will
@@ -2486,6 +2593,13 @@ REVOKE ALL ON accounts FROM PUBLIC;
        <function>setval</function> functions.
        For large objects, this privilege allows writing or truncating the
        object.
+-->
+テーブル、ビューなどの列を<xref linkend="sql-update"/>することを許可します。
+（実用的には、簡単ではない<command>UPDATE</command>コマンドには<literal>SELECT</literal>権限も必要になります。
+どの行を更新するかを決定したり、列に対して新しい値を計算するためにテーブル列を参照しなければならないからです。）
+<literal>SELECT ... FOR UPDATE</literal>と<literal>SELECT ... FOR SHARE</literal>は<literal>SELECT</literal>権限に加えて更にこの権限が必要になります。
+シーケンスではこの権限は<function>nextval</function>と<function>setval</function>関数の利用を許可します。
+ラージオブジェクトではこの権限はオブジェクトへの書き込みあるいは切り詰めを行うことを許可します。
       </para>
      </listitem>
     </varlistentry>
@@ -2494,10 +2608,15 @@ REVOKE ALL ON accounts FROM PUBLIC;
      <term><literal>DELETE</literal></term>
      <listitem>
       <para>
+<!--
        Allows <xref linkend="sql-delete"/> of a row from a table, view, etc.
        (In practice, any nontrivial <command>DELETE</command> command will
        require <literal>SELECT</literal> privilege as well, since it must
        reference table columns to determine which rows to delete.)
+-->
+テーブル、ビューなどの列を<xref linkend="sql-delete"/>することを許可します。
+（実用的には、簡単ではない<command>DELETE</command>コマンドには<literal>SELECT</literal>権限も必要になります。
+どの行を削除するかを決定するためにテーブル列を参照しなければならないからです。）
       </para>
      </listitem>
     </varlistentry>
@@ -2506,7 +2625,10 @@ REVOKE ALL ON accounts FROM PUBLIC;
      <term><literal>TRUNCATE</literal></term>
      <listitem>
       <para>
+<!--
        Allows <xref linkend="sql-truncate"/> on a table, view, etc.
+-->
+テーブルあるいはビューの<xref linkend="sql-truncate"/>を許可します。
       </para>
      </listitem>
     </varlistentry>
@@ -2515,8 +2637,11 @@ REVOKE ALL ON accounts FROM PUBLIC;
      <term><literal>REFERENCES</literal></term>
      <listitem>
       <para>
+<!--
        Allows creation of a foreign key constraint referencing a
        table, or specific column(s) of a table.
+-->
+テーブルあるいはテーブルの特定の列を参照する外部キー制約を作ることを許可します。
       </para>
      </listitem>
     </varlistentry>
@@ -2525,7 +2650,10 @@ REVOKE ALL ON accounts FROM PUBLIC;
      <term><literal>TRIGGER</literal></term>
      <listitem>
       <para>
+<!--
        Allows creation of a trigger on a table, view, etc.
+-->
+テーブルあるいはビューにトリガを作ることを許可します。
       </para>
      </listitem>
     </varlistentry>
@@ -2534,20 +2662,31 @@ REVOKE ALL ON accounts FROM PUBLIC;
      <term><literal>CREATE</literal></term>
      <listitem>
       <para>
+<!--
        For databases, allows new schemas and publications to be created within
        the database.
+-->
+データベースに対して、データベース内に新しいスキーマとパブリケーションを作ることを許可します。
       </para>
       <para>
+<!--
        For schemas, allows new objects to be created within the schema.
        To rename an existing object, you must own the
        object <emphasis>and</emphasis> have this privilege for the containing
        schema.
+-->
+スキーマに対して、スキーマ内に新しいオブジェクトを作ることを許可します。
+既存のオブジェクトの名前を変えるには、オブジェクトを所有する<emphasis>とともに</emphasis>そのオブジェクトを含むスキーマに対してこの権限を持っていなければなりません。
       </para>
       <para>
+<!--
        For tablespaces, allows tables, indexes, and temporary files to be
        created within the tablespace, and allows databases to be created that
        have the tablespace as their default tablespace.  (Note that revoking
        this privilege will not alter the placement of existing objects.)
+-->
+テーブル空間に対しては、そのテーブル空間内にテーブル、インデックス、一時ファイルを作ることを許可し、そのテーブル空間をデフォルトのテーブル空間として持つデータベースを作ることを許可します。
+（この権限を剥奪しても既存のオブジェクトの配置を変更しないことに注意してください。）
       </para>
      </listitem>
     </varlistentry>
@@ -2556,9 +2695,13 @@ REVOKE ALL ON accounts FROM PUBLIC;
      <term><literal>CONNECT</literal></term>
      <listitem>
       <para>
+<!--
        Allows the grantee to connect to the database.  This
        privilege is checked at connection startup (in addition to checking
        any restrictions imposed by <filename>pg_hba.conf</filename>).
+-->
+権限を与えられた者がデータベースに接続することを許可します。
+（<filename>pg_hba.conf</filename>が課す制限の検査に加えて）この権限は接続の開始時に検査されます。
       </para>
      </listitem>
     </varlistentry>
@@ -2567,7 +2710,10 @@ REVOKE ALL ON accounts FROM PUBLIC;
      <term><literal>TEMPORARY</literal></term>
      <listitem>
       <para>
+<!--
        Allows temporary tables to be created while using the database.
+-->
+データベース使用中に一時テーブルを作成することを許可します。
       </para>
      </listitem>
     </varlistentry>
@@ -2576,9 +2722,13 @@ REVOKE ALL ON accounts FROM PUBLIC;
      <term><literal>EXECUTE</literal></term>
      <listitem>
       <para>
+<!--
        Allows calling a function or procedure, including use of
        any operators that are implemented on top of the function.  This is the
        only type of privilege that is applicable to functions and procedures.
+-->
+関数上に実装された演算子を含めて関数あるいはプロシージャの呼び出しを許可します。
+これは関数とプロシージャに適用される唯一のタイプの権限です。
       </para>
      </listitem>
     </varlistentry>
@@ -2587,11 +2737,16 @@ REVOKE ALL ON accounts FROM PUBLIC;
      <term><literal>USAGE</literal></term>
      <listitem>
       <para>
+<!--
        For procedural languages, allows use of the language for
        the creation of functions in that language.  This is the only type
        of privilege that is applicable to procedural languages.
+-->
+手続き言語に対して、言語内で関数を作るために言語を使用することを許可します。
+これは手続き言語に適用される唯一のタイプの権限です。
       </para>
       <para>
+<!--
        For schemas, allows access to objects contained in the
        schema (assuming that the objects' own privilege requirements are
        also met).  Essentially this allows the grantee to <quote>look up</quote>
@@ -2600,12 +2755,22 @@ REVOKE ALL ON accounts FROM PUBLIC;
        Also, after revoking this permission, existing sessions might have
        statements that have previously performed this lookup, so this is not
        a completely secure way to prevent object access.
+-->
+スキーマに対しては、（オブジェクト自身の権限要件が満たされているものと仮定した上で）スキーマ内に含まれるオブジェクトへのアクセスを許可します。
+本質的に、これは権限を授与されたものがスキーマ内のオブジェクトを<quote>検査</quote>することを許可します。
+この許可がなくても依然としてオブジェクト名を見ることを可能です。たとえば、システムカタログを問い合わせることによってです。
+また、この許可を剥奪した後でも、既存のセッションはすでにこの検査を実施していると主張するかも知れません。
+ですからこれはオブジェクトへのアクセスを妨げる完全にセキュアな方法ではありません。
       </para>
       <para>
+<!--
        For sequences, allows use of the
        <function>currval</function> and <function>nextval</function> functions.
+-->
+シーケンスに対しては、<function>currval</function>と<function>nextval</function>関数の利用を許可します。
       </para>
       <para>
+<!--
        For types and domains, allows use of the type or domain in the
        creation of tables, functions, and other schema objects.  (Note that
        this privilege does not control all <quote>usage</quote> of the
@@ -2614,25 +2779,41 @@ REVOKE ALL ON accounts FROM PUBLIC;
        main purpose of this privilege is controlling which users can create
        dependencies on a type, which could prevent the owner from changing
        the type later.)
+-->
+型とドメインに対しては、テーブル、関数、および他のスキーマオブジェクトを生成する際に型とドメインを使用することを許可します。
+（たとえば問い合わせ中に表れる型の値のような、すべての型の<quote>利用</quote>をこの権限はコントロールするわけではないことに注意してください。
+その型に依存するオブジェクトが作られるのを防ぐだけです。
+この権限の主な目的は、どのユーザがある型への依存関係を作ることができるかを制御し、後で所有者がこの型を変更するのを防ぐためです。）
       </para>
       <para>
+<!--
        For foreign-data wrappers, allows creation of new servers using the
        foreign-data wrapper.
+-->
+外部データラッパーに対しては、その外部データラッパーを使って新しいサーバを作ることを許可します。
       </para>
       <para>
+<!--
        For foreign servers, allows creation of foreign tables using the
        server.  Grantees may also create, alter, or drop their own user
        mappings associated with that server.
+-->
+外部サーバに対しては、そのサーバを使って外部テーブルを作ることを許可します。
+権限を授与されたものは、そのサーバに結びついたユーザマッピングを作成、変更、削除することができます。
       </para>
      </listitem>
     </varlistentry>
    </variablelist>
 
+<!--
    The privileges required by other commands are listed on the
    reference page of the respective command.
+-->
+他のコマンドで必要となる権限はそれぞれのコマンドのリファレンスページに列挙されています。
   </para>
 
   <para>
+<!--
    PostgreSQL grants privileges on some types of objects to
    <literal>PUBLIC</literal> by default when the objects are created.
    No privileges are granted to <literal>PUBLIC</literal> by default on
@@ -2658,24 +2839,44 @@ REVOKE ALL ON accounts FROM PUBLIC;
    can use the object.)
    Also, these default privilege settings can be overridden using the
    <xref linkend="sql-alterdefaultprivileges"/> command.
+-->
+PostgreSQLはあるタイプのオブジェクトが作成された時に、そのオブジェクトに対する権限をデフォルトで<literal>PUBLIC</literal>に付与します。
+テーブル、テーブル列、シーケンス、外部データラッパー、外部サーバ、ラージオブジェクト、スキーマ、テーブル空間に対しては、デフォルトでは<literal>PUBLIC</literal>に権限を付与しません。
+他のタイプのオブジェクトに対しては、<literal>PUBLIC</literal>にデフォルトで付与される権限は次のものです。
+<literal>CONNECT</literal>、<literal>TEMPORARY</literal> （データベース内で一時テーブルを作成する権限）、関数とプロシージャに対する<literal>EXECUTE</literal>権限、言語とデータ型（ドメインを含む）に対する<literal>USAGE</literal>権限。
+もちろんオブジェクトの所有者は、デフォルト、あるいは明示的に与えられた権限を<command>REVOKE</command>できます。
+（セキュリティを最大限に高めるためには、<command>REVOKE</command>をオブジェクトを作成したのと同じトランザクション内で発行してください。そうすれば他のユーザがそのオブジェクトを使う隙が存在しません。）
+また、デフォルトの権限設定は<xref linkend="sql-alterdefaultprivileges"/>を使って上書きできます。
   </para>
 
   <para>
+<!--
    <xref linkend="privilege-abbrevs-table"/> shows the one-letter
    abbreviations that are used for these privilege types in
    <firstterm>ACL</firstterm> (Access Control List) values.
    You will see these letters in the output of the <xref linkend="app-psql"/>
    commands listed below, or when looking at ACL columns of system catalogs.
+-->
+<xref linkend="privilege-abbrevs-table"/>に、<firstterm>ACL</firstterm>（Access Control List）値において権限タイプに使われる1文字の短縮形を示します。
+<xref linkend="app-psql"/>の出力、あるいはシステムカタログのACL列を参照することでこれらの文字を見ることができます。
   </para>
 
   <table id="privilege-abbrevs-table">
+<!--
    <title>ACL Privilege Abbreviations</title>
+-->
+   <title>ACL短縮形</title>
    <tgroup cols="3">
     <thead>
      <row>
+<!--
       <entry>Privilege</entry>
       <entry>Abbreviation</entry>
       <entry>Applicable Object Types</entry>
+-->
+      <entry>権限</entry>
+      <entry>短縮形</entry>
+      <entry>適用可能なオブジェクトタイプ</entry>
      </row>
     </thead>
     <tbody>
@@ -2685,14 +2886,19 @@ REVOKE ALL ON accounts FROM PUBLIC;
       <entry>
        <literal>LARGE OBJECT</literal>,
        <literal>SEQUENCE</literal>,
+<!--
        <literal>TABLE</literal> (and table-like objects),
-       table column
+-->
+       <literal>TABLE</literal>（およびテーブルのようなオブジェクト）
       </entry>
      </row>
      <row>
       <entry><literal>INSERT</literal></entry>
       <entry><literal>a</literal> (<quote>append</quote>)</entry>
+<!--
       <entry><literal>TABLE</literal>, table column</entry>
+-->
+      <entry><literal>TABLE</literal>、テーブル列</entry>
      </row>
      <row>
       <entry><literal>UPDATE</literal></entry>
@@ -2701,7 +2907,10 @@ REVOKE ALL ON accounts FROM PUBLIC;
        <literal>LARGE OBJECT</literal>,
        <literal>SEQUENCE</literal>,
        <literal>TABLE</literal>,
+<!--
        table column
+-->
+       テーブル列
       </entry>
      </row>
      <row>
@@ -2717,7 +2926,10 @@ REVOKE ALL ON accounts FROM PUBLIC;
      <row>
       <entry><literal>REFERENCES</literal></entry>
       <entry><literal>x</literal></entry>
+<!--
       <entry><literal>TABLE</literal>, table column</entry>
+-->
+      <entry><literal>TABLE</literal>、テーブル列</entry>
      </row>
      <row>
       <entry><literal>TRIGGER</literal></entry>
@@ -2766,22 +2978,35 @@ REVOKE ALL ON accounts FROM PUBLIC;
   </table>
 
   <para>
+<!--
    <xref linkend="privileges-summary-table"/> summarizes the privileges
    available for each type of SQL object, using the abbreviations shown
    above.
    It also shows the <application>psql</application> command
    that can be used to examine privilege settings for each object type.
+-->
+<xref linkend="privileges-summary-table"/>は、前述の短縮形を用いてそれぞれのタイプのSQLオブジェクトで利用可能な権限をまとめています。
+また、それぞれのオブジェクトタイプの権限設定を調べる際に利用できる<application>psql</application>コマンドを示します。
   </para>
 
   <table id="privileges-summary-table">
+<!--
    <title>Summary of Access Privileges</title>
+-->
+   <title>アクセス権限のまとめ</title>
    <tgroup cols="4">
     <thead>
      <row>
+<!--
       <entry>Object Type</entry>
       <entry>All Privileges</entry>
       <entry>Default <literal>PUBLIC</literal> Privileges</entry>
       <entry><application>psql</application> Command</entry>
+-->
+      <entry>オブジェクトタイプ</entry>
+      <entry>すべての権限</entry>
+      <entry>デフォルト<literal>PUBLIC</literal>権限</entry>
+      <entry><application>psql</application>コマンド</entry>
      </row>
     </thead>
     <tbody>
@@ -2840,7 +3065,10 @@ REVOKE ALL ON accounts FROM PUBLIC;
       <entry><literal>\dp</literal></entry>
      </row>
      <row>
+<!--
       <entry><literal>TABLE</literal> (and table-like objects)</entry>
+-->
+      <entry><literal>TABLE</literal>（およびテーブルのようなオブジェクト）</entry>
       <entry><literal>arwdDxt</literal></entry>
       <entry>none</entry>
       <entry><literal>\dp</literal></entry>
@@ -2871,6 +3099,7 @@ REVOKE ALL ON accounts FROM PUBLIC;
    <indexterm>
     <primary><type>aclitem</type></primary>
    </indexterm>
+<!--
    The privileges that have been granted for a particular object are
    displayed as a list of <type>aclitem</type> entries, where each
    <type>aclitem</type> describes the permissions of one grantee that
@@ -2885,18 +3114,30 @@ REVOKE ALL ON accounts FROM PUBLIC;
    grantor, those would appear as a separate <type>aclitem</type> entry.
    An empty grantee field in an <type>aclitem</type> stands
    for <literal>PUBLIC</literal>.
+-->
+あるオブジェクトに与えられている権限は<type>aclitem</type>エントリのリストとして表示されます。
+そこでは、<type>aclitem</type>はある権限付与者によって与えられている権限授与者の許可を示しています。
+たとえば、<literal>calvin=r*w/hobbes</literal>は、ロール<literal>calvin</literal>が許可オプション（<literal>*</literal>）ありの<literal>SELECT</literal>（<literal>r</literal>）と許可オプションなしの<literal>UPDATE</literal> (<literal>w</literal>)を持ち、それらがロール<literal>hobbes</literal>に与えられていることを示します。
+別の権限付与者によって権限が与えられている同じオブジェクトに対して<literal>calvin</literal>も権限を持っている場合は、別の<type>aclitem</type>エントリとして表示されます。
+<type>aclitem</type>の権限授与者フィールドが空であれば、それは<literal>PUBLIC</literal>を表します。
   </para>
 
   <para>
+<!--
    As an example, suppose that user <literal>miriam</literal> creates
    table <literal>mytable</literal> and does:
+-->
+ユーザ<literal>miriam</literal>がテーブル<literal>mytable</literal>を作成し、以下を行う例を考えます。
 <programlisting>
 GRANT SELECT ON mytable TO PUBLIC;
 GRANT SELECT, UPDATE, INSERT ON mytable TO admin;
 GRANT SELECT (col1), UPDATE (col1) ON mytable TO miriam_rw;
 </programlisting>
+<!--
    Then <application>psql</application>'s <literal>\dp</literal> command
    would show:
+-->
+すると、<application>psql</application>の<literal>\dp</literal>コマンドは次のように表示するはずです。
 <programlisting>
 =&gt; \dp mytable
                                   Access privileges
@@ -2910,6 +3151,7 @@ GRANT SELECT (col1), UPDATE (col1) ON mytable TO miriam_rw;
   </para>
 
   <para>
+<!--
    If the <quote>Access privileges</quote> column is empty for a given
    object, it means the object has default privileges (that is, its
    privileges entry in the relevant system catalog is null).  Default
@@ -2927,12 +3169,24 @@ GRANT SELECT (col1), UPDATE (col1) ON mytable TO miriam_rw;
    PRIVILEGES</command> command will always be shown with an explicit
    privilege entry that includes the effects of
    the <command>ALTER</command>.)
+-->
+あるオブジェクトに対して<quote>Access privileges</quote>列が空なら、そのオブジェクトがデフォルトの権限を持つことを意味します。
+（つまり、関連するシステムカタログの権限エントリがNULLだということです。）
+デフォルト権限は常に所有者の全権限を含み、更に上で説明示したようにオブジェクトタイプ依存の<literal>PUBLIC</literal>に対する権限を持つことができます。
+オブジェクトに対する初回の<command>GRANT</command>あるいは<command>REVOKE</command>により、デフォルト権限（たとえば<literal>miriam=arwdDxt/miriam</literal>）が設定され、次に特定の要求に従って変更されます。
+同様に、<quote>Column privileges</quote>に示されるエントリは非デフォルトの権限を持つ列のためだけのものです。
+（注意：<quote>デフォルト権限</quote>は常にオブジェクトのタイプの組み込みのデフォルト権限を意味します。
+<command>ALTER DEFAULT PRIVILEGES</command>コマンドによって権限が影響を受けるオブジェクトは常に<command>ALTER</command>の影響を含む明示的な権限エントリを伴って示されます。）
   </para>
 
   <para>
+<!--
    Notice that the owner's implicit grant options are not marked in the
    access privileges display.  A <literal>*</literal> will appear only when
    grant options have been explicitly granted to someone.
+-->
+所有者の暗黙的な許可オプションはアクセス権限表示では印を付けられないことに注意してください。
+<literal>*</literal>は許可オプションが明示的に誰かに許可されたときにのみ現れます。
   </para>
  </sect1>
 
@@ -5286,7 +5540,7 @@ VALUES ('Albany', NULL, NULL, 'NY');
 -->
 パーティションは親に存在しない列を持つことができません。
 パーティションを<command>CREATE TABLE</command>で作成する時に列を指定することはできませんし、作成後に<command>ALTER TABLE</command>でパーティションに列を追加することもできません。
-テーブルを<command>ALTER TABLE ... ATTACH PARTITION</command>でパーティションとして追加できるのは、その列がすべての<literal>oid</literal>列も含めて完全に親と一致している場合のみです。
+テーブルを<command>ALTER TABLE ... ATTACH PARTITION</command>でパーティションとして追加できるのは、その列が完全に親と一致している場合のみです。
       </para>
      </listitem>
 
@@ -5669,7 +5923,7 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
 -->
 <command>ATTACH PARTITION</command>コマンドを実行する前に、求められるパーティション制約を記述する<literal>CHECK</literal>制約を、パーティションに追加するテーブルに作成することを推奨します。
 こうすることで、システムは暗示的なパーティション制約を検証するための走査を省略することができます。
-このような制約がなければ、親テーブルに<literal>ACCESS EXCLUSIVE</literal>ロックを保持したままで、パーティション制約を検証するためにテーブルを走査することになります。
+このような制約がなければ、そのパーティションに<literal>ACCESS EXCLUSIVE</literal>ロック、親テーブルに<literal>SHARE UPDATE EXCLUSIVE</literal>を保持したままで、パーティション制約を検証するためにテーブルを走査することになります。
 この制約は<command>ATTACH PARTITION</command>が終わった後は不要ですので削除することができます。
     </para>
 
@@ -6299,9 +6553,12 @@ ALTER TABLE measurement_y2008m02 INHERIT measurement;
 
       <listitem>
        <para>
+<!--
         Indexes and foreign key constraints apply to single tables and not
         to their inheritance children, hence they have some
         <link linkend="ddl-inherit-caveats">caveats</link> to be aware of.
+-->
+インデックスと外部キー制約は継承上の子ではなく、単一テーブルに適用されます。したがってそれらは<link linkend="ddl-inherit-caveats">警告</link>に気を付ける必要があります。
        </para>
       </listitem>
 
@@ -6566,7 +6823,8 @@ EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
      type, but that is likely to be changed in a future release of
      <productname>PostgreSQL</productname>.
 -->
-実行時のパーティション除去は現在<literal>MergeAppend</literal>や<literal>ModifyTable</literal>ではなく<literal>Append</literal>ノードタイプに対してのみ発生します。
+実行時のパーティション除去は現在<literal>Append</literal>と<literal>MergeAppend</literal>ノードタイプに対してのみ発生します。
+<literal>ModifyTable</literal>ノードタイプについてはまだ実装されていません。
 これは<productname>PostgreSQL</productname>の将来のリリースで変更される可能性があります。
     </para>
    </note>
@@ -6805,8 +7063,8 @@ EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
     local memory of each session that touches it.
 -->
 クエリの計画および実行時のパーティショニングのオーバーヘッドを考慮することもまた重要です。
-典型的なクエリではクエリプランナが少数のパーティションを除いて残り全てのパーティションを除外できるという前提に立てば、クエリプランナは通常最大数百パーティションのパーティション階層を適切に操作することができます。
-パーティションが追加されることにより、計画時間は長くなりメモリ消費は高くなります。
+典型的なクエリではクエリプランナが少数のパーティションを除いて残り全てのパーティションを除外できるという前提に立てば、クエリプランナは通常最大数千パーティションのパーティション階層を適切に操作することができます。
+プランナがパーティション除去を行った後に多くのパーティションが残るほど、計画時間は長くなりメモリ消費は高くなります。
 これは<command>UPDATE</command>と<command>DELETE</command>コマンドに特に当てはまります。
 大量のパーティションを持っていることについて考慮するもうひとつの理由は、特に多くのセッションが大量のパーティションを参照する場合、ある期間にサーバのメモリ消費が著しく増加するかもしれないことです。
 その理由は、各パーティションは参照される各セッションのローカルメモリにメタデータを読み込む必要があるためです。
