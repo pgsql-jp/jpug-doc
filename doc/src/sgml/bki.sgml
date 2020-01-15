@@ -336,7 +336,7 @@ SQLコマンドを実行可能な状態にまでシステムを持っていく�
 -->
 各々のカタログ行にカンマ区切りで<replaceable>key</replaceable><literal>=&gt;</literal><replaceable>value</replaceable>ペアを書きます。
 記述可能な<replaceable>key</replaceable>は、カタログのカラムに加えてメタデータキーである<literal>oid</literal>、<literal>oid_symbol</literal>、<literal>array_type_oid</literal>、<literal>descr</literal>です。
-（<literal>oid</literal>と<literal>oid_symbol</literal>の使い方は後述の<xref linkend="system-catalog-oid-assignment"/>に説明されていて、一方、<literal>array_type_oid</literal>は<xref linkend="system-catalog-auto-array-types"/>で説明されています。
+（<literal>oid</literal>と<literal>oid_symbol</literal>の使い方は後述の<xref linkend="system-catalog-oid-assignment"/>で説明されていて、一方、<literal>array_type_oid</literal>は<xref linkend="system-catalog-auto-array-types"/>で説明されています。
 <literal>descr</literal>はオブジェクトの説明文字列に使用し、<structname>pg_description</structname>か<structname>pg_shdescription</structname>の適切な方に挿入されます。）
 メタデータキーは省略可能であるのに対し、カタログの<literal>.h</literal>ファイルがカラムのデフォルト値を指定する場合を除いてカタログの定義済みカラムはすべて提供されなければなりません。
 （上記の例では<filename>pg_database.h</filename>が適切なデフォルト値を供するので<structfield>datdba</structfield>フィールドは省略されました。）
@@ -606,7 +606,7 @@ Cコード中でOIDの実際の数値を書くのは非常に良くないと考�
 -->
 即座にコミットされるとは期待できないパッチ用にOIDを選ぶときの最良の手法は、8000&mdash;9999の範囲でランダムに選択したところから始まるおおむね連続したOIDのグループを使うことです。
 これは同時に開発されている他のパッチとのOID衝突の危険を最小化します。
-8000&mdash;9999の範囲を開発目的に空けておくため、パッチがマスタgitリポジトリにコミットされた後、そのOIDはこの範囲の下位の使用可能な場所に番号の振り直しすべきです。
+8000&mdash;9999の範囲を開発目的に空けておくため、パッチがマスタgitリポジトリにコミットされた後、そのOIDはこの範囲の下位の使用可能な場所に番号の振り直しをすべきです。
 通例これは各開発サイクルの終わり近くに行われ、同時にそのサイクルでコミットされたパッチで消費された全てのOIDを移動するでしょう。
 スクリプト<filename>renumber_oids.pl</filename>はこの目的に使用できます。
 コミットされていないパッチが最近コミットされたパッチとOID衝突していることに気づいた場合に、このような状況から回復するのにも<filename>renumber_oids.pl</filename>がおそらく役立つでしょう。
@@ -620,8 +620,8 @@ Cコード中でOIDの実際の数値を書くのは非常に良くないと考�
     change manually-assigned object OIDs once released, however, as that
     would create assorted compatibility problems.
 -->
-パッチに割り当てられたOIDをできるだけ番号付け替えするこの慣習のため、パッチに割り当てられたOIDはそのパッチが正式リリースに含まれるまでは永続的と考えるべきではありません。
-さまざまな互換性の問題を生み出すかもしれないため、一度リリースされた手動でアサインされたオブジェクトのOIDは変更してはいけません。
+パッチに割り当てられたOIDを番号付け替えすることがあるこの慣習のため、パッチに割り当てられたOIDはそのパッチが正式リリースに含まれるまでは永続的と考えるべきではありません。
+さまざまな互換性の問題を生み出すかもしれないため、一度リリースされた手動でアサインされたオブジェクトのOIDは変更しません。
    </para>
 
    <para>
@@ -634,7 +634,7 @@ Cコード中でOIDの実際の数値を書くのは非常に良くないと考�
     while running the <filename>information_schema.sql</filename> script,
     receive OIDs of 12000 or above.
 -->
-<filename>genbki.pl</filename>は、OIDをカタログエントリに割り当てる必要がある場合、10000&mdash;11999範囲の値を使います。
+<filename>genbki.pl</filename>は、手動アサインされたOIDを持たないカタログエントリにOIDを割り当てる必要がある場合、10000&mdash;11999範囲の値を使います。
 ブートストラップ実行開始の際にはサーバのOIDカウンタは12000に設定されます。
 したがって、<filename>information_schema.sql</filename>スクリプトを実行して作られるオブジェクトなど、ブートストラップ後の段階において通常のSQLコマンドで作られたオブジェクトは12000以上のOIDを受け取ります。
    </para>
@@ -876,7 +876,7 @@ opclassesとopfamiliesの名前はアクセスメソッド内でのみユニー�
     set to cross-reference each other.
 -->
 生成された配列型の名前は、スカラ型の名前の手前にアンダースコアを付けたものです。
-配列エントリの他のフィールドは、<literal>BKI_ARRAY_DEFAULT(<replaceable>value</replaceable>)</literal>注釈から充当され、もし無ければスカラ型からコピーされます。
+配列エントリの他のフィールドは、<filename>pg_type.h</filename>で<literal>BKI_ARRAY_DEFAULT(<replaceable>value</replaceable>)</literal>注釈から充当され、もし無ければスカラ型からコピーされます。
 （<structfield>typalign</structfield>に対する特別な場合もあります。）
 さらに両エントリの<structfield>typelem</structfield>および<structfield>typarray</structfield>フィールドは相互参照するように設定されます。
    </para>
@@ -1218,7 +1218,7 @@ $ perl  rewrite_dat_with_prokind.pl  pg_proc.dat
       clause is useless if <literal>bootstrap</literal> is specified, but it can be
       provided anyway for documentation.)
 -->
-<literal>shared_relation</literal>が指定された場合、テーブルは作成されます。
+<literal>shared_relation</literal>が指定された場合、テーブルは共有として作成されます。
 テーブルの行型OID（<structname>pg_type</structname> OID）は<literal>rowtype_oid</literal>句で指定できます。
 指定されなければ、OIDは自動的に生成されます。
 （<literal>bootstrap</literal> が指定されていれば、<literal>rowtype_oid</literal>句は役に立ちません。しかし、文書化のためにともかく指定はできます。）
