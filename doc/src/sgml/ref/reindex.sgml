@@ -99,10 +99,9 @@ REINDEX [ ( VERBOSE ) ] { INDEX | TABLE | SCHEMA | DATABASE | SYSTEM } [ CONCURR
       them. Note that only <command>REINDEX INDEX</command> is able
       to perform a concurrent build on an invalid index.
 -->
-<literal>CONCURRENTLY</literal>オプションをつけたインデックス作成が失敗し、<quote>無効な</quote>インデックスが残った場合です。
+<literal>CONCURRENTLY</literal>オプションをつけたインデックス作成が失敗すると、このインデックスは<quote>無効</quote>として残されます。
 こうしたインデックスは使用されませんが、<command>REINDEX</command>を使用して再作成するのが便利かもしれません。
-<command>REINDEX</command>では同時構築ができないことに注意してください。
-運用に影響を与えずにインデックスを作成するためには、インデックスを削除してから<command>CREATE INDEX CONCURRENTLY</command>コマンドを再発行しなければなりません。
+<command>REINDEX INDEX</command>だけが無効なインデックスでの同時構築を実行できることに注意してください。
      </para>
     </listitem>
 
@@ -220,6 +219,7 @@ REINDEX [ ( VERBOSE ) ] { INDEX | TABLE | SCHEMA | DATABASE | SYSTEM } [ CONCURR
     <term><literal>CONCURRENTLY</literal></term>
     <listitem>
      <para>
+<!--
       When this option is used, <productname>PostgreSQL</productname> will rebuild the
       index without taking any locks that prevent concurrent inserts,
       updates, or deletes on the table; whereas a standard index rebuild
@@ -227,6 +227,9 @@ REINDEX [ ( VERBOSE ) ] { INDEX | TABLE | SCHEMA | DATABASE | SYSTEM } [ CONCURR
       There are several caveats to be aware of when using this option
       &mdash; see <xref linkend="sql-reindex-concurrently"
       endterm="sql-reindex-concurrently-title"/>.
+-->
+このオプションが使われると、<productname>PostgreSQL</productname>は、そのテーブルで同時実行される挿入、更新、削除を妨げるようなロックを取得せずにインデックスを再構築します。一方、標準のインデックス再構築は終了するまでテーブルの書き込みをロックします(読み込みはロックしません)。
+このオプションを使用する場合に注意すべき点がいくつかあります&mdash;<xref linkend="sql-reindex-concurrently" endterm="sql-reindex-concurrently-title"/>を参照してください。
      </para>
     </listitem>
    </varlistentry>
@@ -371,14 +374,22 @@ REINDEX [ ( VERBOSE ) ] { INDEX | TABLE | SCHEMA | DATABASE | SYSTEM } [ CONCURR
   </para>
 
   <refsect2 id="sql-reindex-concurrently">
+<!--
    <title id="sql-reindex-concurrently-title">Rebuilding Indexes Concurrently</title>
+-->
+   <title id="sql-reindex-concurrently-title">インデックスを同時に再構築</title>
 
    <indexterm zone="sql-reindex-concurrently">
+<!--
     <primary>index</primary>
     <secondary>rebuilding concurrently</secondary>
+-->
+    <primary>インデックス</primary>
+    <secondary>同時に再構築</secondary>
    </indexterm>
 
    <para>
+<!--
     Rebuilding an index can interfere with regular operation of a database.
     Normally <productname>PostgreSQL</productname> locks the table whose index is rebuilt
     against writes and performs the entire index build with a single scan of the
@@ -388,9 +399,16 @@ REINDEX [ ( VERBOSE ) ] { INDEX | TABLE | SCHEMA | DATABASE | SYSTEM } [ CONCURR
     a live production database. Very large tables can take many hours to be
     indexed, and even for smaller tables, an index rebuild can lock out writers
     for periods that are unacceptably long for a production system.
+-->
+インデックスの再構築は、通常のデータベース操作を妨げることがあります。
+通常、<productname>PostgreSQL</productname>はインデックスが再構築されるテーブルへの書き込みをロックし、一度のテーブル走査で全インデックスの構築を実行します。
+他のトランザクションはテーブルを読み込めますが、そのテーブルで行を挿入、更新、削除しようとするとインデックスの再構築が終わるまでブロックされます。
+実行中の運用状態のデータベースシステムの場合、これは重大な影響を与えるかもしれません。
+非常に大規模なテーブルに対するインデックス作成は何時間もかかることがあり得ます。また小規模なテーブルであっても、インデックス再構築により、運用状態のシステムとしては受け入れられないほど長い時間、書き込みロックがかかる可能性があります。
    </para>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> supports rebuilding indexes with minimum locking
     of writes.  This method is invoked by specifying the
     <literal>CONCURRENTLY</literal> option of <command>REINDEX</command>. When this option
@@ -404,73 +422,111 @@ REINDEX [ ( VERBOSE ) ] { INDEX | TABLE | SCHEMA | DATABASE | SYSTEM } [ CONCURR
     method is useful for rebuilding indexes in a production environment. Of
     course, the extra CPU, memory and I/O load imposed by the index rebuild
     may slow down other operations.
+-->
+<productname>PostgreSQL</productname>は最小限の書き込みロックでのインデックス再構築をサポートしています。
+<command>REINDEX</command>に<literal>CONCURRENTLY</literal>オプションをつけることでこの方式が行われます。
+このオプションを使うと、<productname>PostgreSQL</productname>は再構築が必要な各インデックスに関してテーブルを2回走査しなければなりません。さらに、潜在的にそのインデックスを使用する可能性がある、実行中のすべてのトランザクションが終わるまで待機しなければなりません。
+したがって、この方式は通常のインデックス再構築よりも総作業時間がかかり、また、インデックスを修正する可能性のある終了していないトランザクションが待つ必要がありますので、完了するまでの時間が非常に長くなります。
+しかし、インデックス再構築中に通常の操作を続けることができますので、この方式は運用環境でのインデックス再構築に有用です。
+もちろん、インデックス再構築によりCPUや入出力に余分に負荷がかかりますので、他の操作が低速になる可能性があります。
    </para>
 
    <para>
+<!--
     The following steps occur in a concurrent reindex.  Each step is run in a
     separate transaction.  If there are multiple indexes to be rebuilt, then
     each step loops through all the indexes before moving to the next step.
+-->
+同時実行再インデックスは以下のような段階で行なわれます。
+各段階は分離したトランザクション内で実行されます。
+複数のインデックスを再構築する場合、次の段階に移る前にすべてのインデックスに対して各段階が繰り返されます。
 
     <orderedlist>
      <listitem>
       <para>
+<!--
        A new temporary index definition is added to the catalog
        <literal>pg_index</literal>.  This definition will be used to replace
        the old index.  A <literal>SHARE UPDATE EXCLUSIVE</literal> lock at
        session level is taken on the indexes being reindexed as well as their
        associated tables to prevent any schema modification while processing.
+-->
+カタログ<literal>pg_index</literal>に新しく一時的なインデックス定義が追加されます。
+この定義は古いインデックスを置き換えるのに使われます。
+処理中は、再インデックスされるインデックスと関連するテーブルに対して、セッションレベルでの<literal>SHARE UPDATE EXCLUSIVE</literal>ロックを取得します。スキーマが修正されないようにするためです。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        A first pass to build the index is done for each new index.  Once the
        index is built, its flag <literal>pg_index.indisready</literal> is
        switched to <quote>true</quote> to make it ready for inserts, making it
        visible to other sessions once the transaction that performed the build
        is finished.  This step is done in a separate transaction for each
        index.
+-->
+インデックス構築の第1段階は新しいインデックスそれぞれに対して行なわれます。
+インデックスが一度構築されれば、挿入の準備ができたということで、そのフラグ<literal>pg_index.indisready</literal>は<quote>true</quote>に切り替わります。構築を実行したトランザクションが終わった後で、他のセッションから見えるようになります。
+この過程は各インデックスに対して分離したトランザクションで行なわれます。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Then a second pass is performed to add tuples that were added while the
        first pass was running.  This step is also done in a separate
        transaction for each index.
+-->
+次に、第1段階実行中に追加されたタプルを追加する第2段階が行なわれます。
+この過程は各インデックスに対して分離したトランザクションで行なわれます。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        All the constraints that refer to the index are changed to refer to the
        new index definition, and the names of the indexes are changed.  At
        this point, <literal>pg_index.indisvalid</literal> is switched to
        <quote>true</quote> for the new index and to <quote>false</quote> for
        the old, and a cache invalidation is done causing all sessions that
        referenced the old index to be invalidated.
+-->
+インデックスを参照する制約は、すべて新しいインデックス定義を参照するよう変更され、インデックスの名前が変更されます。
+この時点で、<literal>pg_index.indisvalid</literal>は新しいインデックスに対しては<quote>true</quote>に切り替えられ、古いものに対しては<quote>false</quote>に切り替えられます。そして、古いインデックスを参照するセッションをすべて無効にするためキャッシュの無効化が行なわれます。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        The old indexes have <literal>pg_index.indisready</literal> switched to
        <quote>false</quote> to prevent any new tuple insertions, after waiting
        for running queries that might reference the old index to complete.
+-->
+古いインデックスを参照している可能性のある実行中の問い合わせが完了するのをまってから、新しいタプルが挿入されないように古いインデックスは<literal>pg_index.indisready</literal>が<quote>false</quote>に切り替えられます。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        The old indexes are dropped.  The <literal>SHARE UPDATE
        EXCLUSIVE</literal> session locks for the indexes and the table are
        released.
+-->
+古いインデックスが削除されます。
+インデックスやテーブルに対する<literal>SHARE UPDATE EXCLUSIVE</literal>セッションロックは解放されます。
       </para>
      </listitem>
     </orderedlist>
    </para>
 
    <para>
+<!--
     If a problem arises while rebuilding the indexes, such as a
     uniqueness violation in a unique index, the <command>REINDEX</command>
     command will fail but leave behind an <quote>invalid</quote> new index in addition to
@@ -478,6 +534,10 @@ REINDEX [ ( VERBOSE ) ] { INDEX | TABLE | SCHEMA | DATABASE | SYSTEM } [ CONCURR
     because it might be incomplete; however it will still consume update
     overhead. The <application>psql</application> <command>\d</command> command will report
     such an index as <literal>INVALID</literal>:
+-->
+インデックスの再構築中に、一意性インデックスでの一意性違反などの問題が発生したら、<command>REINDEX</command>コマンドは失敗しますが、既に存在しているものに加えて<quote>無効な</quote>新しいインデックスを残します。
+このインデックスは不完全な可能性がありますので、問い合わせの目的では無視されます。しかし、更新のオーバーヘッドは消費し続けるでしょう。
+<application>psql</application> <command>\d</command>コマンドはそのようなインデックスを<literal>INVALID</literal>と報告します。
 
 <programlisting>
 postgres=# \d tab
@@ -490,6 +550,7 @@ Indexes:
     "idx_ccnew" btree (col) INVALID
 </programlisting>
 
+<!--
     The recommended recovery method in such cases is to drop the invalid index
     and try again to perform <command>REINDEX CONCURRENTLY</command>.  The
     concurrent index created during the processing has a name ending in the
@@ -497,9 +558,14 @@ Indexes:
     old index definition which we failed to drop. Invalid indexes can be
     dropped using <literal>DROP INDEX</literal>, including invalid toast
     indexes.
+-->
+そのような場合のお勧めの回復法は無効なインデックスを削除して、再度<command>REINDEX CONCURRENTLY</command>を実行してみることです。
+その処理の間に作成された同時実行インデックスは、接尾辞<literal>ccnew</literal>で終わる名前です。または、削除に失敗した古いインデックス定義なら<literal>ccold</literal>です。
+無効なTOASTインデックスを含む無効なインデックスは<literal>DROP INDEX</literal>で削除できます。
    </para>
 
    <para>
+<!--
     Regular index builds permit other regular index builds on the same table
     to occur simultaneously, but only one concurrent index build can occur on a
     table at a time. In both cases, no other types of schema modification on
@@ -507,20 +573,33 @@ Indexes:
     <command>REINDEX TABLE</command> or <command>REINDEX INDEX</command>
     command can be performed within a transaction block, but <command>REINDEX
     CONCURRENTLY</command> cannot.
+-->
+通常のインデックス構築は、同じテーブルでの他の通常のインデックス構築を許しますが、同時実行インデックス構築は1つだけが一度に1つのテーブルでできます。
+どちらの場合でも、その間のそのテーブルでの他の種類のスキーマ修正は認められていません。
+もう一つの違いは、通常の<command>REINDEX TABLE</command>や<command>REINDEX INDEX</command>コマンドはトランザクションブロックの内側で実行できますが、<command>REINDEX CONCURRENTLY</command>はできないことです。
    </para>
 
    <para>
+<!--
     <command>REINDEX SYSTEM</command> does not support
     <command>CONCURRENTLY</command> since system catalogs cannot be reindexed
     concurrently.
+-->
+システムカタログは同時実行で再インデックスできませんので、<command>REINDEX SYSTEM</command>は<command>CONCURRENTLY</command>をサポートしません。
    </para>
 
    <para>
+<!--
     Furthermore, indexes for exclusion constraints cannot be reindexed
     concurrently.  If such an index is named directly in this command, an
     error is raised.  If a table or database with exclusion constraint indexes
     is reindexed concurrently, those indexes will be skipped.  (It is possible
     to reindex such indexes without the <command>CONCURRENTLY</command> option.)
+-->
+さらに、排他制約に対するインデックスは同時実行で再インデックスできません。
+このコマンドでそのようなインデックスの名前が直接指定されたら、エラーが起きます。
+排他制約インデックスのあるテーブルやテータベースが同時実行で再インデックスされる場合、そのインデックスは飛ばされます。
+(そのようなインデックスを<command>CONCURRENTLY</command>オプションなしで再インデックスすることは可能です。)
    </para>
   </refsect2>
  </refsect1>
@@ -569,8 +648,11 @@ broken_db=&gt; \q
 </programlisting></para>
 
   <para>
+<!--
    Rebuild indexes for a table, without blocking read and write operations
    on involved relations while reindexing is in progress:
+-->
+再インデックスの進行中に、関連するリレーションの読み書きをブロックすることなく、テーブルに対するインデックスを再構築します。
 
 <programlisting>
 REINDEX TABLE CONCURRENTLY my_broken_table;
@@ -592,7 +674,10 @@ REINDEX TABLE CONCURRENTLY my_broken_table;
  </refsect1>
 
  <refsect1>
+<!--
   <title>See Also</title>
+-->
+  <title>関連項目</title>
 
   <simplelist type="inline">
    <member><xref linkend="sql-createindex"/></member>
