@@ -368,12 +368,17 @@ postgres$ <userinput>initdb -D /usr/local/pgsql/data</userinput>
    <title>File Systems</title>
 
    <para>
+<!--
     Generally, any file system with POSIX semantics can be used for
     PostgreSQL.  Users prefer different file systems for a variety of reasons,
     including vendor support, performance, and familiarity.  Experience
     suggests that, all other things being equal, one should not expect major
     performance or behavior changes merely from switching file systems or
     making minor file system configuration changes.
+-->
+一般的にはPOSIXのセマンティクスを備えたすべてのファイルシステムがPostgreSQLで利用できます。
+ユーザはベンダーのサポート、性能、慣れ親しんでいるかどうかなどの様々な理由で異なるファイルシステムを選択します。
+経験が示すところによると、これ以外の要素が同じなら、単にファイルシステムを変更したり、ファイルシステムの設定を少し変えただけで大きな性能の違いや挙動の違いがあるとは思わないほうが良いでしょう。
    </para>
 
    <sect3 id="creating-cluster-nfs">
@@ -384,6 +389,7 @@ postgres$ <userinput>initdb -D /usr/local/pgsql/data</userinput>
     </indexterm>
 
     <para>
+<!--
      It is possible to use an <acronym>NFS</acronym> file system for storing
      the <productname>PostgreSQL</productname> data directory.
      <productname>PostgreSQL</productname> does nothing special for
@@ -392,9 +398,14 @@ postgres$ <userinput>initdb -D /usr/local/pgsql/data</userinput>
      <productname>PostgreSQL</productname> does not use any functionality that
      is known to have nonstandard behavior on <acronym>NFS</acronym>, such as
      file locking.
+-->
+<productname>PostgreSQL</productname>のデータディレクトリを格納するために<acronym>NFS</acronym>ファイルシステムが使えます。
+<productname>PostgreSQL</productname>は<acronym>NFS</acronym>ファイルシステムのために何ら特別なことはしません。つまり<acronym>NFS</acronym>がローカルに接続されたドライブと完全に同じように振る舞うものとみなします。
+<productname>PostgreSQL</productname>は、ファイルロッキングのように非標準の振る舞いをすると知られている<acronym>NFS</acronym>の機能は使いません。
     </para>
 
     <para>
+<!--
      The only firm requirement for using <acronym>NFS</acronym> with
      <productname>PostgreSQL</productname> is that the file system is mounted
      using the <literal>hard</literal> option.  With the
@@ -405,9 +416,14 @@ postgres$ <userinput>initdb -D /usr/local/pgsql/data</userinput>
      <productname>PostgreSQL</productname> will not repeat system calls
      interrupted in this way, so any such interruption will result in an I/O
      error being reported.
+-->
+<acronym>NFS</acronym>を<productname>PostgreSQL</productname>で使う上での必須要件は<literal>hard</literal>オプションを使ってファイルシステムをマウントすることです。
+<literal>hard</literal>オプションでは、ネットワークに問題があればプロセスは永久に<quote>ハング</quote>する可能性があります。ですからこの設定では注意深い監視が必要になります。
+<literal>soft</literal>オプションはネットワークに問題があるとシステムコールに割り込みますが、<productname>PostgreSQL</productname>はこの方法で割り込まれたシステムコールを再発行しません。ですからそのような割り込みに対してはI/Oエラーの発生が報告されることとなります。
     </para>
 
     <para>
+<!--
      It is not necessary to use the <literal>sync</literal> mount option.  The
      behavior of the <literal>async</literal> option is sufficient, since
      <productname>PostgreSQL</productname> issues <literal>fsync</literal>
@@ -422,15 +438,27 @@ postgres$ <userinput>initdb -D /usr/local/pgsql/data</userinput>
      options differ between vendors and versions, so it is recommended to
      check and perhaps specify them explicitly in any case to avoid any
      ambiguity.
+-->
+<literal>sync</literal>マウントオプションを使う必要はありません。
+<literal>async</literal>オプションの動作で十分です。なぜなら<productname>PostgreSQL</productname>は書き込みキャッシュを吐き出すために適切な時に<literal>fsync</literal>呼び出しを発行するからです。
+（これはローカルファイルシステム上での動作と同様です。）
+しかし、<literal>sync</literal>エクスポートオプションがあるシステム（主にLinux）上のNFS<emphasis>サーバ</emphasis>では、そのオプションを使うことを強くお勧めします。
+さもないとNFSクライアント上の<literal>fsync</literal>、あるいは同等ものは実際にはサーバ上の永続ストレージに到達することが保証されず、<xref linkend="guc-fsync"/>パラメータをオフにして実行するのと同じような破壊をもたらす可能性があります。
+これらのマウントオプションとエクスポートオプションのデフォルトはベンダーとバージョンによって違います。ですから曖昧さを避けるためにこれらのオプションをチェックし、また常に明示的にオプションを指定したほうが良いでしょう。
     </para>
 
     <para>
+<!--
      In some cases, an external storage product can be accessed either via NFS
      or a lower-level protocol such as iSCSI.  In the latter case, the storage
      appears as a block device and any available file system can be created on
      it.  That approach might relieve the DBA from having to deal with some of
      the idiosyncrasies of NFS, but of course the complexity of managing
      remote storage then happens at other levels.
+-->
+場合によっては外部ストレージ製品は、NFSあるいはiSCSIのような低レベルのプロトコルのどちらでもアクセスできます。
+後者の場合にはストレージはブロックデバイスとして扱われ、利用可能などのようなファイルシステムもその上に作ることができます。
+このアプローチはNFSの特異性に対処することからDBAを解放するかも知れません。もちろんリモートストレージを管理する複雑さが別のレベルで起こってしまいますが。
     </para>
    </sect3>
   </sect2>
@@ -1016,7 +1044,10 @@ Unix（派生）システムでは、<quote><systemitem class="osname">System V<
     POSIX semaphores are used on Linux and FreeBSD systems while other
     platforms use System V semaphores.
 -->
-サーバの起動時、<productname>PostgreSQL</productname>は通常、非常に少量のSystem V共有メモリと、もっと大量のPOSIX (<function>mmap</function>)共有メモリを持ちます。
+デフォルトでは<productname>PostgreSQL</productname>は通常、非常に少量のSystem V共有メモリと、もっと大量の無名<function>mmap</function>共有メモリを持ちます。
+代替方法として、単一の大きなSystem Vメモリリージョンも利用できます
+（<xref linkend="guc-shared-memory-type"/>参照。）
+
 さらに、System V又はPOSIXスタイルのどちらかのセマフォがサーバの起動時に作成されます。
 現在、LinuxとFreeBSDシステムではPOSIXセマフォが使用され、それ以外のプラットフォームではSystem Vセマフォが使用されます。
    </para>
@@ -1262,7 +1293,7 @@ System V セマフォを使用している場合、<productname>PostgreSQL</prod
     should be.
 -->
 場合によっては<varname>SEMMAP</varname>を少なくとも<varname>SEMMNS</varname>と同程度に増やすことが必要になる場合があるかもしれません。
-このパラメータはセマフォリソースマップのサイズを定義し、その中では有効なセマフォのそれぞれの隣接したブロックの項目が必要です。
+システムにこのパラメータがあるなら（ないかもしれません）、このパラメータはセマフォリソースマップのサイズを定義し、その中では有効なセマフォのそれぞれの隣接したブロックの項目が必要です。
 セマフォ集合が解放されると、解放されたブロックに隣接する既に存在する項目に追加されるか、もしくは新しいマップの項目の下に登録されます。
 もしマップが一杯だった場合、解放されたセマフォは（再起動するまで）失われます。
 セマフォ空間の断片化により時間が経つごとに、有効なセマフォがあるべき量よりも少なくなる可能性があります。
@@ -1345,7 +1376,7 @@ POSIXセマフォを使用している場合、System Vと同じ数のセマフ�
         <command>loader</command> interfaces.  The following
         parameters can be set using <command>sysctl</command>:
 -->
-デフォルトの設定は<command>sysctl</command>または<command>loader</command>インタフェースを使用して変更を行うことができます。
+デフォルトのIPC設定は<command>sysctl</command>または<command>loader</command>インタフェースを使用して変更を行うことができます。
 以下では<command>sysctl</command>を使用してパラメータを変更しています。
 <screen>
 <prompt>#</prompt> <userinput>sysctl kern.ipc.shmall=32768</userinput>
@@ -1373,7 +1404,7 @@ kern.ipc.semmns=512
         After modifying that file, a reboot is required for the new
         settings to take effect.
 -->
-それらのファイルを変更した後、新しい設定を有効にするためには再起動が必要です。
+そのファイルを変更した後、新しい設定を有効にするためには再起動が必要です。
        </para>
 
        <para>
@@ -1383,7 +1414,7 @@ kern.ipc.semmns=512
         This can be accomplished using the <command>sysctl</command>
         setting <literal>kern.ipc.shm_use_phys</literal>.
 -->
-また、共有メモリをRAM上に固定して、スワップによってページアウトされるのを避けるために、カーネルを設定したいと考えるかもしれません。
+また、System V共有メモリをRAM上に固定して、スワップによってページアウトされるのを避けるために、カーネルを設定したいと考えるかもしれません。
 これは<command>sysctl</command>を使用して<literal>kern.ipc.shm_use_phys</literal>を設定することで実現できます。
        </para>
 
@@ -1457,7 +1488,7 @@ kern.ipc.semmns=512
         This can be accomplished using the <command>sysctl</command>
         setting <literal>kern.ipc.shm_use_phys</literal>.
 -->
-また、共有メモリをRAM上に固定して、スワップによってページアウトされるのを避けるために、カーネルを設定したいと考えるかもしれません。
+また、System V共有メモリをRAM上に固定して、スワップによってページアウトされるのを避けるために、カーネルを設定したいと考えるかもしれません。
 これは<command>sysctl</command>を使用して<literal>kern.ipc.shm_use_phys</literal>を設定することで実現できます。
        </para>
 
@@ -2523,7 +2554,7 @@ $ <userinput>kill -INT `head -1 /usr/local/pgsql/data/postmaster.pid`</userinput
     individual subprocesses by hand as well.
 -->
 サーバをシャットダウンするために<systemitem>SIGKILL</systemitem>を使わない方が良いでしょう。
-これによってサーバが共有メモリとセマフォを解放できなくなり、新しくサーバを開始する前に、手動でその作業をしなければならなくなる可能性があります。
+これによってサーバが共有メモリとセマフォを解放できなくなります。
 さらに、<systemitem>SIGKILL</systemitem>は、子プロセスにシグナルを中継することなく<command>postgres</command>を停止させます。
 このため、個々の子プロセスを停止させるために、同じ作業を手作業で行わなければならなくなります。
    </para>
@@ -3105,9 +3136,13 @@ pg_dumpall -p 5432 | psql -d postgres -p 5433
   </para>
 
   <para>
+<!--
    To prevent spoofing on TCP connections, either use
    SSL certificates and make sure that clients check the server's certificate,
    or use GSSAPI encryption (or both, if they're on separate connections).
+-->
+TCP接続のなりすましを防ぐためには、SSL証明書を使用してクライアントにサーバの証明書を確実に検査させるか、GSSAPI暗号化を使用します。
+（あるいはそれらが別々の接続上にあるなら、その両方を使います。）
   </para>
 
   <para>
@@ -3120,17 +3155,20 @@ pg_dumpall -p 5432 | psql -d postgres -p 5433
    <literal>verify-full</literal> and have the appropriate root certificate
    file installed (<xref linkend="libq-ssl-certificates"/>).
 -->
-TCP接続のなりすましを防ぐための最善の方法は、SSL証明書を使用し、クライアントがサーバの証明書を確実に検査することです。
-これを行うためには、サーバは<literal>hostssl</literal>接続（<xref linkend="auth-pg-hba-conf"/>）のみを受け付け、SSLキーと証明書ファイル（<xref linkend="ssl-tcp"/>）を持たせる必要があります。
+SSLでなりすましを防ぐためには、サーバは<literal>hostssl</literal>接続（<xref linkend="auth-pg-hba-conf"/>）のみを受け付け、SSLキーと証明書ファイル（<xref linkend="ssl-tcp"/>）を持つ必要があります。
 TCPクライアントは<literal>sslmode=verify-ca</literal>もしくは<literal>verify-full</literal>を使用して接続し、また、適切なルート証明書ファイルをインストールしなければなりません（<xref linkend="libq-ssl-certificates"/>）。
   </para>
 
   <para>
+<!--
     To prevent spoofing with GSSAPI, the server must be configured to accept
     only <literal>hostgssenc</literal> connections
     (<xref linkend="auth-pg-hba-conf"/>) and use <literal>gss</literal>
     authentication with them.  The TCP client must connect
     using <literal>gssencmode=require</literal>.
+-->
+GSSAPIでなりすましを防ぐためには、サーバは<literal>hostgssenc</literal>接続（<xref linkend="auth-pg-hba-conf"/>）のみを受け付け、<literal>gss</literal>認証をその接続で使います。
+TCPクライアントは<literal>gssencmode=require</literal>を使用して接続しなければなりません。
   </para>
 
  </sect1>
@@ -3285,10 +3323,10 @@ Linuxファイルシステムの暗号化オプションには、eCryptfsとEncF
 SSL接続により、ネットワーク越しに送信されるデータ（パスワード、問い合わせ、結果のデータ）はすべて暗号化されます。
 <filename>pg_hba.conf</filename>ファイルを使用して、管理者はどのホストは暗号化しない接続を使用し（<literal>host</literal>）、どのホストがSSLで暗号化された接続を必要とするか（<literal>hostssl</literal>）を指定することができます。
 また、SSL経由のサーバとの接続のみを使用するようにクライアントで指定することもできます。
-<application>Stunnel</application>や<application>SSH</application>を使用して暗号化転送を行うこともできます。
      </para>
 
      <para>
+<!--
       GSSAPI-encrypted connections encrypt all data sent across the network,
       including queries and data returned.  (No password is sent across the
       network.)  The <filename>pg_hba.conf</filename> file allows
@@ -3297,12 +3335,20 @@ SSL接続により、ネットワーク越しに送信されるデータ（パ�
       (<literal>hostgssenc</literal>).  Also, clients can specify that they
       connect to servers only on GSSAPI-encrypted connections
       (<literal>gssencmode=require</literal>).
+-->
+GSSAPI暗号化接続は、問い合わせ及び返却されるデータを含めてネットワーク上に転送されるすべてのデータを暗号化します。
+（パスワードはネットワーク上に送信されません。）
+管理者は<filename>pg_hba.conf</filename>ファイルを使ってどのホストが非暗号化接続を使うか(<literal>host</literal>)、どのホストがGSSAPI暗号化接続を要求するか(<literal>hostgssenc</literal>)を指定できます。
+クライアントはGSSAPI暗号化接続のみを使ってサーバに接続することも指定できます(<literal>gssencmode=require</literal>)。
      </para>
 
      <para>
+<!--
       <application>Stunnel</application> or
       <application>SSH</application> can also be used to encrypt
       transmissions.
+-->
+<application>Stunnel</application>や<application>SSH</application>を使用して暗号化転送を行うこともできます。
      </para>
     </listitem>
   </varlistentry>
@@ -3568,13 +3614,13 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
    connection startup.  (See <xref linkend="libpq-ssl"/> for a description
    of how to set up certificates on the client.)
 -->
-信頼できる証明書をクライアントに要求するには、信頼するルート認証局（<acronym>CA</acronym>）の証明書をデータディレクトリ内のファイルに置き、<filename>postgresql.conf</filename>の<xref linkend="guc-ssl-ca-file"/>パラメータを<literal>root.crt</literal>に設定し、認証オプション<literal>clientcert=1</literal>を<filename>pg_hba.conf</filename>の適切な<literal>hostssl</literal>行に追加します。
+信頼できる証明書をクライアントに要求するには、信頼するルート認証局（<acronym>CA</acronym>）の証明書をデータディレクトリ内のファイルに置き、<filename>postgresql.conf</filename>の<xref linkend="guc-ssl-ca-file"/>パラメータを<literal>root.crt</literal>に設定し、認証オプション<literal>clientcert=verify-ca</literal>または<literal>clientcert=verify-full</literal>を<filename>pg_hba.conf</filename>の適切な<literal>hostssl</literal>行に追加します。
 そうすると、SSL接続の開始時にクライアントへ証明書が要求されます。
 （クライアント上での証明書の設定方法については<xref linkend="libpq-ssl"/>を参照してください。）
-サーバは、クライアントの証明書が信頼する認証局のいずれかにより署名されていることを検証します。
   </para>
 
   <para>
+<!--
    For a <literal>hostssl</literal> entry with
    <literal>clientcert=verify-ca</literal>, the server will verify
    that the client's certificate is signed by one of the trusted
@@ -3585,6 +3631,11 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
    Note that certificate chain validation is always ensured when the
    <literal>cert</literal> authentication method is used
    (see <xref linkend="auth-cert"/>).
+-->
+<literal>clientcert=verify-ca</literal>指定付きの<literal>hostssl</literal>エントリでは、サーバは、クライアントの証明書が信頼する認証局のいずれかにより署名されていることを検証します。
+<literal>clientcert=verify-full</literal>が指定されていると、サーバは証明書チェーンを検証するだけでなく、ユーザ名あるいはユーザ名のマッピングが提供された証明書の<literal>cn</literal> (Common Name)に一致しているかどうかも検証します。
+<literal>cert</literal>認証メソッドが使われている場合は認証チェーンの検証は常に行われることに注意してください。
+（<xref linkend="auth-cert"/>参照。）
   </para>
 
   <para>
@@ -3614,14 +3665,18 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
    configured &mdash; but it will not insist that a client certificate be presented.
 -->
 認証オプション<literal>clientcert</literal>はすべての認証方式について利用可能ですが、<filename>pg_hba.conf</filename>の<literal>hostssl</literal>として指定された行でのみ有効です。
-<literal>clientcert</literal>が指定されていない、または0と設定されている場合でも、認証局のリストが設定されていれば、サーバはその認証局に対してクライアント証明書の検証を行いますが、クライアント証明書を提示することを要求しません。
+<literal>clientcert</literal>が指定されていない、または<literal>no-verify</literal>と設定されている場合でも、認証局のリストが設定されていれば、サーバはその認証局に対してクライアント証明書の検証を行いますが、クライアント証明書を提示することを要求しません。
   </para>
 
   <para>
+<!--
    There are two approaches to enforce that users provide a certificate during login.
+-->
+ユーザに対してログイン中に証明書を提供するように強制する二つのアプローチがあります。
   </para>
 
   <para>
+<!--
    The first approach makes use of the <literal>cert</literal> authentication
    method for <literal>hostssl</literal> entries in <filename>pg_hba.conf</filename>,
    such that the certificate itself is used for authentication while also
@@ -3630,9 +3685,16 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
    explicitly when using the <literal>cert</literal> authentication method.)
    In this case, the <literal>cn</literal> (Common Name) provided in
    the certificate is checked against the user name or an applicable mapping.
+-->
+最初のアプローチは<filename>pg_hba.conf</filename>の<literal>hostssl</literal>に<literal>cert</literal>認証メソッドを使うことです。
+そうすることによりSSL接続によるセキュリティが提供されるとともに、証明書自身が認証に使われます。
+詳細は<xref linkend="auth-cert"/>をご覧ください。
+（<literal>cert</literal>認証メソッドを使う際には明示的に<literal>clientcert</literal>オプションを指定する必要はありません。）
+この場合証明書が提供する<literal>cn</literal> (Common Name)がユーザ名あるいは適用可能なマッピングに対して検証されます。
   </para>
 
   <para>
+<!--
    The second approach combines any authentication method for <literal>hostssl</literal>
    entries with the verification of client certificates by setting the
    <literal>clientcert</literal> authentication option to <literal>verify-ca</literal>
@@ -3640,6 +3702,9 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
    the certificate is valid, while the latter also ensures that the
    <literal>cn</literal> (Common Name) in the certificate matches
    the user name or an applicable mapping.
+-->
+二番目のアプローチは、<literal>clientcert</literal>認証オプションに<literal>verify-ca</literal>あるいは<literal>verify-full</literal>を設定することによって<literal>hostssl</literal>エントリの認証メソッドにクライアント証明書の検証を組み合わせることです。
+前者のオプションは証明書が有効であることだけを強制し、後者は更に証明書の<literal>cn</literal> (Common Name)がユーザ名あるいは適用可能なマッピングと一致することを強制します。
   </para>
   </sect2>
 
@@ -3897,25 +3962,36 @@ openssl x509 -req -in server.csr -text -days 365 \
  </sect1>
 
  <sect1 id="gssapi-enc">
+<!--
   <title>Secure TCP/IP Connections with GSSAPI Encryption</title>
+-->
+  <title>GSSAPIによる安全なTCP/IP接続</title>
 
   <indexterm zone="gssapi-enc">
    <primary>gssapi</primary>
   </indexterm>
 
   <para>
+<!--
    <productname>PostgreSQL</productname> also has native support for
    using <acronym>GSSAPI</acronym> to encrypt client/server communications for
    increased security.  Support requires that a <acronym>GSSAPI</acronym>
    implementation (such as MIT krb5) is installed on both client and server
    systems, and that support in <productname>PostgreSQL</productname> is
    enabled at build time (see <xref linkend="installation"/>).
+-->
+セキュリティを強化する目的でクライアント／サーバの通信を暗号化するために<productname>PostgreSQL</productname>もまた<acronym>GSSAPI</acronym>の利用を直接サポートしています。
+このサポートには<acronym>GSSAPI</acronym>の実装（MIT krb5など）がクライアントとサーバシステムの両方にインストールされていて、<productname>PostgreSQL</productname>の構築時にそのサポートが有効になっていること（<xref linkend="installation"/>参照）が必要です。
   </para>
 
   <sect2 id="gssapi-setup">
+<!--
    <title>Basic Setup</title>
+-->
+   <title>基本的な設定</title>
 
    <para>
+<!--
     The <productname>PostgreSQL</productname> server will listen for both
     normal and <acronym>GSSAPI</acronym>-encrypted connections on the same TCP
     port, and will negotiate with any connecting client on whether to
@@ -3924,13 +4000,21 @@ openssl x509 -req -in server.csr -text -days 365 \
     downgraded by an attacker); see <xref linkend="auth-pg-hba-conf"/> about
     setting up the server to require the use of <acronym>GSSAPI</acronym> for
     some or all connections.
+-->
+<productname>PostgreSQL</productname>サーバは通常の接続と<acronym>GSSAPI</acronym>による暗号化接続の両方を同じTCPポートで待ち受け、接続しようとするクライアントと<acronym>GSSAPI</acronym>による暗号化（そして認証）を使うかどうかを交渉します。
+デフォルトではこの決定はクライアントに任されます（これは攻撃者によってダウングレードできることを意味します）。
+サーバが一部あるいはすべての接続で<acronym>GSSAPI</acronym>を使うことを要求する設定に関しては<xref linkend="auth-pg-hba-conf"/>をご覧ください。
    </para>
 
    <para>
+<!--
     Other than configuration of the negotiation
     behavior, <acronym>GSSAPI</acronym> encryption requires no setup beyond
     that which is necessary for GSSAPI authentication.  (For more information
     on configuring that, see <xref linkend="gssapi-auth"/>.)
+-->
+この交渉の挙動を設定すること以外には<acronym>GSSAPI</acronym>暗号化では、GSSAPI認証に必要な設定はこれ以上ありません。
+（設定のより詳細に関しては<xref linkend="gssapi-auth"/>をご覧ください。）
    </para>
   </sect2>
  </sect1>
