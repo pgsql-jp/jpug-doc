@@ -3583,7 +3583,10 @@ BEGIN
      ORDER BY 1
     LOOP
 
-        -- Now "mviews" has one record with information about the materialized view
+<!--
+        &#45;- Now "mviews" has one record with information about the materialized view
+-->
+        -- ここで"mviews"はcs_materialized_viewsの1つのレコードを持ちます
 
         RAISE NOTICE 'Refreshing materialized view %.% (owner: %)...',
                      quote_ident(mviews.mv_schema),
@@ -5077,17 +5080,26 @@ CALL transaction_test1();
    </para>
 
    <indexterm zone="plpgsql-transaction-chain">
+<!--
     <primary>chained transactions</primary>
     <secondary>in PL/pgSQL</secondary>
+-->
+    <primary>連鎖トランザクション</primary>
+    <secondary>PL/pgSQLでの</secondary>
    </indexterm>
 
    <para id="plpgsql-transaction-chain">
+<!--
     A new transaction starts out with default transaction characteristics such
     as transaction isolation level.  In cases where transactions are committed
     in a loop, it might be desirable to start new transactions automatically
     with the same characteristics as the previous one.  The commands
     <command>COMMIT AND CHAIN</command> and <command>ROLLBACK AND
     CHAIN</command> accomplish this.
+-->
+新しいトランザクションは、トランザクション隔離レベル等のデフォルトのトランザクションの特性で開始します。
+トランザクションがループ内でコミットされた場合、新しいトランザクションは前のトランザクションと同じ特性で自動的に開始するのが好ましいかもしれません。
+コマンド<command>COMMIT AND CHAIN</command>と<command>ROLLBACK AND CHAIN</command>はそのように動作します。
    </para>
 
    <para>
@@ -5435,7 +5447,7 @@ RAISE unique_violation USING MESSAGE = 'Duplicate user ID: ' || user_id;
     If no message text is specified, the default is to use the condition
     name or SQLSTATE as message text.
 -->
-<command>RAISE EXCEPTION</command>コマンド内で状況名もSQLSTATEも指定されない場合、デフォルトは<literal>RAISE_EXCEPTION</literal> (<literal>P0001</literal>)を使用します。
+<command>RAISE EXCEPTION</command>コマンド内で状況名もSQLSTATEも指定されない場合、デフォルトは<literal>ERRCODE_RAISE_EXCEPTION</literal> (<literal>P0001</literal>)を使用します。
 メッセージテキストが指定されない場合、デフォルトは状況名、またはSQLSTATEをメッセージテキストとして使用します。
    </para>
 
@@ -7308,7 +7320,7 @@ a_output := a_output || $$ if v_$$ || referrer_keys.kind || $$ like '$$
 <!--
    <title>Additional Compile-Time and Run-Time Checks</title>
 -->
-<title>コンパイル時の付加的チェック</title>
+<title>コンパイル時と実行時の付加的チェック</title>
 
    <para>
 <!--
@@ -7327,24 +7339,36 @@ a_output := a_output || $$ if v_$$ || referrer_keys.kind || $$ like '$$
    </para>
 
    <para>
+<!--
     Setting <varname>plpgsql.extra_warnings</varname>, or
     <varname>plpgsql.extra_errors</varname>, as appropriate, to <literal>"all"</literal>
     is encouraged in development and/or testing environments.
+-->
+開発環境やテスト環境では、<varname>plpgsql.extra_warnings</varname>や<varname>plpgsql.extra_errors</varname>を適切に<literal>"all"</literal>に設定することを勧めます。
    </para>
 
    <para>
+<!--
     These additional checks are enabled through the configuration variables
     <varname>plpgsql.extra_warnings</varname> for warnings and
     <varname>plpgsql.extra_errors</varname> for errors. Both can be set either to
     a comma-separated list of checks, <literal>"none"</literal> or
     <literal>"all"</literal>. The default is <literal>"none"</literal>. Currently
     the list of available checks includes:
+-->
+この付加的チェックでは、設定変数<varname>plpgsql.extra_warnings</varname>を警告のために<varname>plpgsql.extra_errors</varname>をエラーのために使用できます。
+どちらも、カンマで区切ったチェックリストまたは<literal>"none"</literal>または<literal>"all"</literal>と設定できます。
+デフォルトは<literal>"none"</literal>です。
+現在指定できるチェックの一覧は以下の通りです。
     <variablelist>
      <varlistentry>
       <term><varname>shadowed_variables</varname></term>
       <listitem>
        <para>
+<!--
         Checks if a declaration shadows a previously defined variable.
+-->
+宣言が以前に定義した変数を隠すかどうかチェックする。
        </para>
       </listitem>
      </varlistentry>
@@ -7353,6 +7377,7 @@ a_output := a_output || $$ if v_$$ || referrer_keys.kind || $$ like '$$
       <term><varname>strict_multi_assignment</varname></term>
       <listitem>
        <para>
+<!--
         Some <application>PL/PgSQL</application> commands allow assigning
         values to more than one variable at a time, such as
         <command>SELECT INTO</command>.  Typically, the number of target
@@ -7363,6 +7388,10 @@ a_output := a_output || $$ if v_$$ || referrer_keys.kind || $$ like '$$
         <literal>WARNING</literal> or <literal>ERROR</literal> whenever the
         number of target variables and the number of source variables are
         different.
+-->
+<application>PL/PgSQL</application>コマンドのいくつかは、<command>SELECT INTO</command>のように、一度に2つ以上の変数に値を割り当てることを許しています。
+<application>PL/PgSQL</application>は、ない値に対しては<literal>NULL</literal>を使い、余分な変数は無視しますが、通常は対象の変数の数と元の変数の数は一致するべきです。
+このチェックを有効にすると、<application>PL/PgSQL</application>は対象の変数の数と元の変数の数が異なる場合には必ず<literal>WARNING</literal>または<literal>ERROR</literal>を発生するようになります。
        </para>
       </listitem>
      </varlistentry>
@@ -7371,12 +7400,16 @@ a_output := a_output || $$ if v_$$ || referrer_keys.kind || $$ like '$$
       <term><varname>too_many_rows</varname></term>
       <listitem>
        <para>
+<!--
         Enabling this check will cause <application>PL/PgSQL</application> to
         check if a given query returns more than one row when an
         <literal>INTO</literal> clause is used.  As an <literal>INTO</literal>
         statement will only ever use one row, having a query return multiple
         rows is generally either inefficient and/or nondeterministic and
         therefore is likely an error.
+-->
+このチェックを有効にすると、<application>PL/PgSQL</application>は<literal>INTO</literal>句が使われている場合、与えられた問い合わせが2行以上の行を返すかどうか確認します。
+<literal>INTO</literal>文は必ず1行に対してのみ使われますので、複数の行を返す問い合わせがあるということは一般に非効率かつ/または非決定論的であり、そのためおそらくエラーです。
        </para>
       </listitem>
      </varlistentry>
@@ -7402,9 +7435,12 @@ LINE 3: f1 int;
         ^
 CREATE FUNCTION
 </programlisting>
+<!--
     The below example shows the effects of setting
     <varname>plpgsql.extra_warnings</varname> to
     <varname>strict_multi_assignment</varname>:
+-->
+以下の例では、<varname>plpgsql.extra_warnings</varname>を<varname>strict_multi_assignment</varname>に設定した結果を示します。
 <programlisting>
 SET plpgsql.extra_warnings TO 'strict_multi_assignment';
 
