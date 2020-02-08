@@ -434,10 +434,14 @@ SP-GiSTインデックスは広域な異なる不均衡でディスクベース�
   </para>
 
   <para>
+<!--
    Like GiST, SP-GiST supports <quote>nearest-neighbor</quote> searches.
    For SP-GiST operator classes that support distance ordering, the
    corresponding operator is specified in the <quote>Ordering Operators</quote>
    column in <xref linkend="spgist-builtin-opclasses-table"/>.
+-->
+GiSTと同様に、SP-GiSTは<quote>最近傍</quote>検索をサポートします。
+距離の順序付けをサポートするSP-GiST演算子クラスの場合、<xref linkend="spgist-builtin-opclasses-table"/>に対応する演算子は<quote>順序づけ演算子</quote>列に指定されます。
   </para>
 
   <para>
@@ -784,6 +788,7 @@ GINと同様に、またB-treeやGiSTとは異なり、インデックス検索�
    <literal>NULLS FIRST</literal> is the default for <literal>ORDER BY DESC</literal>).
 -->
 デフォルトでは、B-treeインデックスは項目を昇順で格納し、NULLを最後に格納します。
+（テーブルTIDは他の等しいエントリが同点時に決勝の列として扱われます）。
 これは、<literal>x</literal>列に対するインデックスの前方方向のスキャンで<literal>ORDER BY x</literal>（より冗長にいえば<literal>ORDER BY x ASC NULLS LAST</literal>）を満たす出力を生成することを意味します。
 また、インデックスを後方方向にスキャンすることもでき、この場合、<literal>ORDER BY x DESC</literal>（より冗長にいえば<literal>ORDER BY x DESC NULLS FIRST</literal>。<literal>NULLS FIRST</literal>が<literal>ORDER BY DESC</literal>のデフォルトだからです。）を満たす出力を生成します。
   </para>
@@ -1265,7 +1270,8 @@ WHERE url = '/index.html' AND client_ip = inet '212.78.10.32';
     following query cannot use the partial index, as it uses an IP address
     that is excluded from the index:
 -->
-また、以下のような問い合わせの場合、このインデックスは使用できません。
+このIPアドレスの問い合わせは部分インデックスをカバーしています。
+以下の問い合わせは、IPアドレスがインデックスから除外されているので、部分インデックスを使用しません。
 <programlisting>
 SELECT *
 FROM access_log
@@ -1787,7 +1793,7 @@ CREATE UNIQUE INDEX tab_x_y ON tab(x) INCLUDE (y);
 いかなる場合でもキー以外の列が重複データだったり、インデックスサイズが膨張すると、検索が遅くなる可能性があります。
 それから、覚えておくべきもう一つの小さなポイントは、インデックスオンリースキャンがヒープへのアクセスが必要がないほどテーブルがゆっくり変化しない限り、インデックスにペイロード列を含めることにほとんど意味が無いことです。
 とにかくヒープタプルを訪れなければならなくなった場合は、そこから列値を取得するためにそれ以上のコストはかかりません。
-他の制限は、式を列に含めることは、現在のところサポートされていません。また、列を含めるサポートは現在のところB-treeインデックスのみサポートされています。
+他の制限は、式を列に含めることは、現在のところサポートされていません。また、列を含めるサポートは現在のところB-treeとGiSTインデックスのみサポートされています。
   </para>
 
   <para>
@@ -1813,11 +1819,10 @@ CREATE INDEX tab_x_y ON tab(x, y);
 余分な列が末尾の列である限り、これはうまく機能します。
 それらを先頭側の列にすることは、<xref linkend="indexes-multicolumn"/>で説明されている理由から賢明ではありません。
 しかし、この方法では、キー列に一意性を強制するインデックスがサポートされません。
-また、検索列でない列を<literal>INCLUDE</literal>列として明示的にマークするとインデックスがわずかに小さくなります。
-これは、そのような列を上位B-treeレベルに格納する必要がないためです。
   </para>
 
   <para>
+<!--
    <firstterm>Suffix truncation</firstterm> always removes non-key
    columns from upper B-Tree levels.  As payload columns, they are
    never used to guide index scans.  The truncation process also
@@ -1829,6 +1834,12 @@ CREATE INDEX tab_x_y ON tab(x, y);
    explicitly defining payload columns as non-key columns
    <emphasis>reliably</emphasis> keeps the tuples in upper levels
    small.
+-->
+<firstterm>末尾消去</firstterm>は、常に上位のB-treeレベルから非キーの列を削除します。
+ペイロードの列は、インデックススキャンの列としては使われません。
+また、この消去プロセスは、キー列の残りのプレフィックスが、最下位のB-Treeレベルのタプルを記述するのに十分である場合、１つ以上の後続キー列を削除します。
+実際には、<literal>INCLUDE</literal>句を使用せずにインデックスをカバーすると、上位レベルで効果的にペイロードとなる列の格納が回避されることがよくあります。
+ただし、ペイロード列を非キー列として明示的に定義すると<emphasis>確実に</emphasis>上位レベルのタプルが小さくなります。
   </para>
 
   <para>
