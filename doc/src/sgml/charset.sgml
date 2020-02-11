@@ -1317,8 +1317,9 @@ SQL環境における照合順序オブジェクトにはどのような名前�
     Otherwise, any strings that compare equal according to the collation but
     are not byte-wise equal will be sorted according to their byte values.
 -->
-このシステムでは、<quote>大文字小文字の違いを無視</quote>、あるいは<quote>アクセントを無視</quote>、あるいはその類似（<literal>ks</literal>を使用）の照合順序を作成できますが、PostgreSQLは今のところ、そのような照合順序が真の大文字小文字あるいはアクセントを無視するように動作しないことに注意してください。
-照合順序としては同一に扱われるものの、バイトごとの比較では異なる文字列は、バイト値によってソートされます。
+このシステムでは、<quote>大文字小文字の違いを無視</quote>、あるいは<quote>アクセントを無視</quote>、あるいはその類似（<literal>ks</literal>キーを使用）の照合順序を作成できますが、照合順序が真の大文字小文字あるいはアクセントを無視するように動作するためには、<command>CREATE COLLATION</command>内で<firstterm>決定論的</firstterm>でないとして宣言されている必要があることに注意してください。
+<xref linkend="collation-nondeterministic"/>を参照してください。
+宣言されていない場合、照合順序としては同一に扱われるものの、バイトごとの比較では異なる文字列は、バイト値によってソートされます。
    </para>
 
    <note>
@@ -1365,9 +1366,13 @@ CREATE COLLATION french FROM "fr-x-icu";
    </sect3>
 
    <sect3 id="collation-nondeterministic">
+<!--
     <title>Nondeterministic Collations</title>
+-->
+    <title>非決定論的な照合順序</title>
 
     <para>
+<!--
      A collation is either <firstterm>deterministic</firstterm> or
      <firstterm>nondeterministic</firstterm>.  A deterministic collation uses
      deterministic comparisons, which means that it considers strings to be
@@ -1380,20 +1385,39 @@ CREATE COLLATION french FROM "fr-x-icu";
      only determines whether ties are to be broken using bytewise comparison.
      See also <ulink url="https://unicode.org/reports/tr10">Unicode Technical
      Standard 10</ulink> for more information on the terminology.
+-->
+照合順序は<firstterm>決定論的</firstterm>もしくは<firstterm>非決定論的</firstterm>のどちらかです。
+決定論的な照合順序は決定論的な比較を使用します。
+つまり、同じバイト列で構成される場合に限り等しい文字列とみなします。
+非決定論的な比較は、異なるバイト値で構成される文字列の場合でさえ文字列が等しいと判定するかもしれません。
+一般的な状況では、大文字小文字を区別しない比較、アクセントを区別しない比較および異なるUnicode正規化形式による文字列の比較が含まれます。
+このような区別しない比較を実際に実装するかは照合順序のプロパイダ次第です。
+deterministicフラグはバイト単位の比較を用いて分解されるかどうかのみを決定します。
+用語の詳細については、<ulink url="https://unicode.org/reports/tr10">Unicode Technical Standard 10</ulink>を参照してください。
     </para>
 
     <para>
+<!--
      To create a nondeterministic collation, specify the property
      <literal>deterministic = false</literal> to <command>CREATE
      COLLATION</command>, for example:
+-->
+非決定論的な照合順序を作るためには<command>CREATE COLLATION</command>に<literal>deterministic = false</literal>プロパティを指定します。
+以下に例を示します。
 <programlisting>
 CREATE COLLATION ndcoll (provider = icu, locale = 'und', deterministic = false);
 </programlisting>
+<!--
      This example would use the standard Unicode collation in a
      nondeterministic way.  In particular, this would allow strings in
      different normal forms to be compared correctly.  More interesting
      examples make use of the ICU customization facilities explained above.
      For example:
+-->
+この例では非決定論的な方法で標準のUnicode照合順序を使えます。
+具体的には、これは異なる正規形の文字列を正しく比較できるでしょう。
+より興味深い例は上述したICUカスタマイズ機能を用いた場合です。
+以下に例を示します。
 <programlisting>
 CREATE COLLATION case_insensitive (provider = icu, locale = 'und-u-ks-level2', deterministic = false);
 CREATE COLLATION ignore_accents (provider = icu, locale = 'und-u-ks-level1-kc-true', deterministic = false);
@@ -1401,6 +1425,7 @@ CREATE COLLATION ignore_accents (provider = icu, locale = 'und-u-ks-level1-kc-tr
     </para>
 
     <para>
+<!--
      All standard and predefined collations are deterministic, all
      user-defined collations are deterministic by default.  While
      nondeterministic collations give a more <quote>correct</quote> behavior,
@@ -1410,6 +1435,12 @@ CREATE COLLATION ignore_accents (provider = icu, locale = 'und-u-ks-level1-kc-tr
      nondeterministic collations, such as pattern matching operations.
      Therefore, they should be used only in cases where they are specifically
      wanted.
+-->
+すべての標準および事前に定義された照合順序は決定論的であり、すべてのユーザ定義の照合順序はデフォルトで決定論的です。
+特にUnicodeの全機能およびその特別な場合を考えた際、非決定論的な照合順序はより多くの<quote>正しい</quote>振る舞いを与えると同時に、いくつかの欠点もあります。
+第一にそれらを使用するとパフォーマンスが低下します。
+また、パターンマッチング操作などで非決定論的な照合順序による操作ができないことも避けられません。
+したがって、これらは明確に必要とされる場合のみに使用されるべきです。
     </para>
    </sect3>
   </sect2>
@@ -2484,13 +2515,6 @@ $ <userinput>psql -l</userinput>
          </entry>
         </row>
         <row>
-         <entry><literal>EUC_JIS_2004</literal></entry>
-         <entry><emphasis>EUC_JIS_2004</emphasis>,
-         <literal>SHIFT_JIS_2004</literal>,
-         <literal>UTF8</literal>
-         </entry>
-        </row>
-        <row>
          <entry><literal>EUC_KR</literal></entry>
 <!--
          <entry><emphasis>EUC_KR</emphasis>,
@@ -2772,11 +2796,6 @@ $ <userinput>psql -l</userinput>
          <entry><emphasis>not supported as a server encoding</emphasis>
 -->
          <entry><emphasis>サーバの符号化方式としてはサポートしていません。</emphasis>
-         </entry>
-        </row>
-        <row>
-         <entry><literal>SHIFT_JIS_2004</literal></entry>
-         <entry><emphasis>not supported as a server encoding</emphasis>
          </entry>
         </row>
         <row>
