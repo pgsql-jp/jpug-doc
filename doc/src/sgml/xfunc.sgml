@@ -4854,22 +4854,35 @@ C++コードからバックエンド関数を呼び出す場合には、C++呼�
   </sect1>
 
   <sect1 id="xfunc-optimization">
+<!--
    <title>Function Optimization Information</title>
+-->
+   <title>関数最適化に関する情報</title>
 
   <indexterm zone="xfunc-optimization">
+<!--
    <primary>optimization information</primary>
    <secondary>for functions</secondary>
+-->
+   <primary>最適化情報</primary>
+   <secondary>関数に対する</secondary>
   </indexterm>
 
    <para>
+<!--
     By default, a function is just a <quote>black box</quote> that the
     database system knows very little about the behavior of.  However,
     that means that queries using the function may be executed much less
     efficiently than they could be.  It is possible to supply additional
     knowledge that helps the planner optimize function calls.
+-->
+デフォルトでは、関数は、データベースシステムがその振舞いについてごく一部しか知らない単なる<quote>ブラックボックス</quote>です。
+しかし、これは、関数を使う問い合わせがその実力よりもずっと効率悪く実行されるかもしれないことを意味します。
+プランナが関数呼び出しを最適化するのを助ける補足の情報を提供することが可能です。
    </para>
 
    <para>
+<!--
     Some basic facts can be supplied by declarative annotations provided in
     the <xref linkend="sql-createfunction"/> command.  Most important of
     these is the function's <link linkend="xfunc-volatility">volatility
@@ -4885,9 +4898,16 @@ C++コードからバックエンド関数を呼び出す場合には、C++呼�
     to return.  However, the declarative way of specifying those two
     facts only allows specifying a constant value, which is often
     inadequate.
+-->
+基本的な事実のいくつかは<xref linkend="sql-createfunction"/>コマンドで宣言的な注釈として提供されます。
+この中でも最も重要なものは、関数の<link linkend="xfunc-volatility">変動性分類</link>(<literal>IMMUTABLE</literal>、<literal>STABLE</literal>または<literal>VOLATILE</literal>)です。関数を定義する時にはこれを正しく指定するよう常に注意すべきです。
+並列問い合わせでその関数を使いたいのなら、並列処理での安全性の性質(<literal>PARALLEL UNSAFE</literal>、<literal>PARALLEL RESTRICTED</literal>または<literal>PARALLEL SAFE</literal>)も指定しなければなりません。
+関数の推定実行コストや集合を返す関数が返すと推定される行数を指定することも有用な場合があります。
+しかし、この2つの事実を指定する宣言的な方法は定数を指定することしか許しておらず、それは多くの場合不適切です。
    </para>
 
    <para>
+<!--
     It is also possible to attach a <firstterm>planner support
     function</firstterm> to a SQL-callable function (called
     its <firstterm>target function</firstterm>), and thereby provide
@@ -4895,27 +4915,42 @@ C++コードからバックエンド関数を呼び出す場合には、C++呼�
     represented declaratively.  Planner support functions have to be
     written in C (although their target functions might not be), so this is
     an advanced feature that relatively few people will use.
+-->
+SQLで呼び出せる関数(対応する<firstterm>対象関数</firstterm>と呼ばれます)に<firstterm>プランナサポート関数</firstterm>を結び付け、それによって複雑すぎて宣言的に表現できない対象関数に関する知識を提供することも可能です。
+(対象関数はそうではありませんが)プランナサポート関数はCで書かなければなりませんので、これは比較的少数の人が使う先進的な機能です。
    </para>
 
    <para>
+<!--
     A planner support function must have the SQL signature
+-->
+プランナサポート関数には以下のSQLシグネチャがなければなりません。
 <programlisting>
 supportfn(internal) returns internal
 </programlisting>
+<!--
     It is attached to its target function by specifying
     the <literal>SUPPORT</literal> clause when creating the target function.
+-->
+対象関数を作成する時に<literal>SUPPORT</literal>句を指定することで対象関数に結び付けられます。
    </para>
 
    <para>
+<!--
     The details of the API for planner support functions can be found in
     file <filename>src/include/nodes/supportnodes.h</filename> in the
     <productname>PostgreSQL</productname> source code.  Here we provide
     just an overview of what planner support functions can do.
     The set of possible requests to a support function is extensible,
     so more things might be possible in future versions.
+-->
+プランナサポート関数のAPIの詳細は、<productname>PostgreSQL</productname>ソースコードのファイル<filename>src/include/nodes/supportnodes.h</filename>で見つけられます。
+ここではプランナサポート関数ができることの概略を説明するにとどめます。
+サポート関数へ可能なリクエストの集合は拡張可能ですので、将来のバージョンではより多くのことが可能になっているでしょう。
    </para>
 
    <para>
+<!--
     Some function calls can be simplified during planning based on
     properties specific to the function.  For example,
     <literal>int4mul(n, 1)</literal> could be simplified to
@@ -4936,30 +4971,53 @@ supportfn(internal) returns internal
     never call the target function in cases that the support function could
     simplify.  Ensure rigorous equivalence between the simplified
     expression and an actual execution of the target function.
+-->
+一部の関数呼び出しでは、関数固有の属性に基づいて計画作成中に単純化できます。
+例えば、<literal>int4mul(n, 1)</literal>は<literal>n</literal>だけに単純化できます。
+この種の変形は、<literal>SupportRequestSimplify</literal>リクエスト型プランナサポート関数に実装することにより実行されます。
+問い合わせ解析木で見つかった対象関数それぞれに対して、サポート関数が呼び出されます。
+特定の呼出しが別の形に単純化できることが分かれば、その式を表現する解析木を作成して返します。
+これは、その関数に基づく演算子に対しても自動的に行なわれます&mdash;上の例では<literal>n * 1</literal>も<literal>n</literal>へと単純化されます。
+(しかし、これは単なる例であることに注意してください。この特定の最適化は、標準の<productname>PostgreSQL</productname>では実際には行なわれません。)
+サポート関数が単純化する状況では、<productname>PostgreSQL</productname>が対象関数を呼び出すことはないとは保証しません。
+単純化された式と対象関数の実際の実行が厳密に等しいことを確実にしてください。
    </para>
 
    <para>
+<!--
     For target functions that return <type>boolean</type>, it is often useful to estimate
     the fraction of rows that will be selected by a <literal>WHERE</literal> clause using that
     function.  This can be done by a support function that implements
     the <literal>SupportRequestSelectivity</literal> request type.
+-->
+<type>boolean</type>を返す対象関数に対しては、その関数を使った<literal>WHERE</literal>句により選択される行の割合を推定するのが有用な場合がよくあります。
+これは<literal>SupportRequestSelectivity</literal>リクエスト型を実装したサポート関数で行なえます。
    </para>
 
    <para>
+<!--
     If the target function's run time is highly dependent on its inputs,
     it may be useful to provide a non-constant cost estimate for it.
     This can be done by a support function that implements
     the <literal>SupportRequestCost</literal> request type.
+-->
+対象関数の実行時間が、その入力に大きく依存する場合には、それに対応する定数でないコスト推定を提供するのが有用でしょう。
+これは<literal>SupportRequestCost</literal>リクエスト型を実装したサポート関数で行なえます。
    </para>
 
    <para>
+<!--
     For target functions that return sets, it is often useful to provide
     a non-constant estimate for the number of rows that will be returned.
     This can be done by a support function that implements
     the <literal>SupportRequestRows</literal> request type.
+-->
+集合を返す対象関数に対しては、その関数が返す行の数の定数でない推定を提供するのが有用な場合がよくあります。
+これは<literal>SupportRequestRows</literal>リクエスト型を実装したサポート関数で行なえます。
    </para>
 
    <para>
+<!--
     For target functions that return <type>boolean</type>, it may be possible to
     convert a function call appearing in <literal>WHERE</literal> into an indexable operator
     clause or clauses.  The converted clauses might be exactly equivalent
@@ -4971,5 +5029,10 @@ supportfn(internal) returns internal
     the index to see if it really passes the <literal>WHERE</literal> condition or not.
     To create such conditions, the support function must implement
     the <literal>SupportRequestIndexCondition</literal> request type.
+-->
+<type>boolean</type>を返す対象関数に対しては、<literal>WHERE</literal>句に現れる関数呼び出しをインデックス可能な演算子句に変換できる場合があります。
+変換された句は、正確にその関数の条件と等しいか幾分弱い(すなわち、関数の条件が受け付けない値も受け付けるかもしれません)でしょう。
+後者の場合、インデックスの条件は<firstterm>損失がある</firstterm>と言われます。それでもインデックスの走査には使えますが、それが本当に<literal>WHERE</literal>条件を満たすのかどうか、インデックスにより返された各行に対して関数呼び出しを実行しないといけません。
+そのような条件を作るには、サポート関数は<literal>SupportRequestIndexCondition</literal>リクエスト型を実装しなければなりません。
    </para>
   </sect1>
