@@ -885,7 +885,9 @@ CREATE INDEX pgweb_idx ON pgweb USING GIN (to_tsvector('english', title || ' ' |
     using <function>coalesce</function> to ensure that one field will still be
     indexed when the other is <literal>NULL</literal>:
 -->
-別の方法として、<function>to_tsvector</function>の出力を保持する別の<type>tsvector</type>列を作る方法があります。この例では、<literal>title</literal>と<literal>body</literal>を連結、<function>coalesce</function>を使って、一つのフィールドが<literal>NULL</literal>であっても他のフィールドがインデックス付けされることを保証しています。
+別の方法として、<function>to_tsvector</function>の出力を保持する別の<type>tsvector</type>列を作る方法があります。
+この列を元のデータに合わせて自動的に更新し続けるには、格納された生成列を使います。
+この例では、<literal>title</literal>と<literal>body</literal>を連結、<function>coalesce</function>を使って、一つのフィールドが<literal>NULL</literal>であっても他のフィールドがインデックス付けされることを保証しています。
 
 <programlisting>
 ALTER TABLE pgweb
@@ -2453,9 +2455,12 @@ SELECT ts_rewrite('a &amp; b'::tsquery,
 
    <note>
     <para>
+<!--
      The method described in this section has been obsoleted by the use of
      stored generated columns, as described in <xref
      linkend="textsearch-tables-index"/>.
+-->
+この節で説明する方法は、<xref linkend="textsearch-tables-index"/>で説明するように、格納された生成列の使用に置き換えられました。
     </para>
    </note>
 
@@ -4355,7 +4360,9 @@ SHOW default_text_search_config;
    in this section are useful for testing text search objects.  You can
    test a complete configuration, or test parsers and dictionaries separately.
 -->
-カスタムテキスト検索設定の挙動は複雑になりがちで、結果として混乱を招くことになります。この章では、テキスト検索オブジェクトのテストの際に役に立つ関数を説明します。設定が完全かどうか、パーサと辞書を別々にテストすることなどが可能です。
+カスタムテキスト検索設定の挙動は複雑になりがちで、結果として混乱を招くことになります。
+この節では、テキスト検索オブジェクトのテストの際に役に立つ関数を説明します。
+完全な設定でテストすることも、パーサと辞書を別々にテストすることも可能です。
   </para>
 
   <sect2 id="textsearch-configuration-testing">
@@ -4902,14 +4909,23 @@ GINインデックスは<type>tsvector</type>値の単語(語彙素)のみを格
    the query have matches (real or false) then the table row must be
    retrieved to see if the match is correct.
 -->
-GiSTインデックスは、<firstterm>非可逆</firstterm>です。つまり、インデックスは間違った結果を返すかも知れないので、間違った結果を排除するために、テーブルの行をチェックすることが必要です。<productname>PostgreSQL</productname>はこの処理が必要とされた時に自動的に行います。
-GiSTインデックスが非可逆なのは、インデックス中の各文書が固定長の署名によって表現されているからです。署名は、各々の単語をハッシュして単一なビットにして、これらのビットをnビットの文書署名にORし、nビットの列中のビットにすることで実現されています。2つの単語が同じビット位置を生成すると、間違った一致が起こります。問い合わせ対象のすべての単語が照合すると(それが正しいか間違っているかは別として)、その照合が正しいものかどうかテーブルの行を取得して調べなければなりません。
+GiSTインデックスは、<firstterm>非可逆</firstterm>です。つまり、インデックスは間違った結果を返すかも知れないので、間違った結果を排除するために、テーブルの行をチェックすることが必要です。
+(<productname>PostgreSQL</productname>はこの処理が必要とされた時に自動的に行います。)
+GiSTインデックスが非可逆なのは、インデックス中の各文書が固定長の署名によって表現されているからです。
+署名は、各々の単語をハッシュして単一なビットにして、これらのビットをnビットの文書署名にORし、nビットの列中のビットにすることで実現されています。
+2つの単語が同じビット位置を生成すると、間違った一致が起こります。
+問い合わせ対象のすべての単語が照合すると(それが正しいか間違っているかは別として)、その照合が正しいものかどうかテーブルの行を取得して調べなければなりません。
   </para>
 
   <para>
+<!--
    A GiST index can be covering, i.e. use the <literal>INCLUDE</literal>
    clause.  Included columns can have data types without any GiST operator
    class.  Included attributes will be stored uncompressed.
+-->
+GiSTインデックスはカバリングにできます、すなわち<literal>INCLUDE</literal>句を使えます。
+列には、GiST演算子クラスを持たないデータ型をINCLUDEで含めることができます。
+含まれる属性は圧縮されずに格納されます。
   </para>
 
   <para>
@@ -4921,7 +4937,9 @@ GiSTインデックスが非可逆なのは、インデックス中の各文書�
    number of unique words, so using dictionaries to reduce this number is
    recommended.
 -->
-非可逆性は、間違った照合によるテーブルからの不必要なデータ取得のため、性能を劣化させます。テーブルへのランダムアクセスは遅いので、GiSTインデックスの有用性は制限されています。誤った照合がどの位あるかという可能性はいくつか要因によりますが、とりわけユニークな単語の数に依存します。ですから、辞書を使ってユニークな単語の数を減らすことをお勧めします。
+非可逆性は、間違った照合によるテーブルからの不必要なデータ取得のため、性能を劣化させます。
+テーブルへのランダムアクセスは遅いので、GiSTインデックスの有用性は制限されています。
+誤った照合がどの位あるかという可能性はいくつか要因によりますが、とりわけユニークな単語の数に依存します。ですから、辞書を使ってユニークな単語の数を減らすことをお勧めします。
   </para>
 
   <para>
