@@ -235,9 +235,12 @@ pg_upgradeは8.4.X以降から現時点の<productname>PostgreSQL</productname>�
      <varlistentry>
       <term><option>-s</option> <replaceable>dir</replaceable></term>
       <term><option>--socketdir=</option><replaceable>dir</replaceable></term>
+<!--
       <listitem><para>directory to use for postmaster sockets during upgrade;
       default is current working directory; environment
       variable <envar>PGSOCKETDIR</envar></para></listitem>
+-->
+      <listitem><para>アップグレード中にpostmasterソケット用に利用するディレクトリ。デフォルトは現在の作業ディレクトリです。環境変数<envar>PGSOCKETDIR</envar></para></listitem>
      </varlistentry>
 
      <varlistentry>
@@ -272,19 +275,28 @@ pg_upgradeは8.4.X以降から現時点の<productname>PostgreSQL</productname>�
       <term><option>--clone</option></term>
       <listitem>
        <para>
+<!--
         Use efficient file cloning (also known as <quote>reflinks</quote> on
         some systems) instead of copying files to the new cluster.  This can
         result in near-instantaneous copying of the data files, giving the
-        speed advantages of <option>-k</option>/<option>--link</option> while
+        speed advantages of <option>-k</option>/<option>&#45;-link</option> while
         leaving the old cluster untouched.
+-->
+新しいクラスタにファイルをコピーする代わりに、効率的なファイルの複製(システムのいくつかでは<quote>reflink</quote>としても知られています)を使います。
+これは、データファイルをほぼ瞬間的にコピーし、古いクラスタに手をつけずに<option>-k</option>/<option>--link</option>の速度の利点を与えることになるでしょう、
        </para>
 
        <para>
+<!--
         File cloning is only supported on some operating systems and file
         systems.  If it is selected but not supported, the
         <application>pg_upgrade</application> run will error.  At present, it
         is supported on Linux (kernel 4.5 or later) with Btrfs and XFS (on
         file systems created with reflink support), and on macOS with APFS.
+-->
+ファイルの複製はいくつかのオペレーティングシステムとファイルシステムでのみサポートされています。
+選択されたもののサポートされていなければ、<application>pg_upgrade</application>の実行はエラーになります。
+現在のところ、BtrfsとXFS(のreflinkサポート付きで作られたファイルシステム)のLinux(カーネル4.5以降)と、APFSのmacOSでサポートされています。
        </para>
       </listitem>
      </varlistentry>
@@ -544,7 +556,7 @@ NET STOP postgresql-&majorversion;
 -->
 古いサーバのものではなく、常に新しいサーバの<application>pg_upgrade</application>バイナリを実行してください。
 <application>pg_upgrade</application>は古いクラスタおよび新しいクラスタのデータと実行形式ファイルの格納ディレクトリ（<filename>bin</filename>）の指定を要求します。
-また、ユーザやポート番号の指定や、デフォルト動作のコピーではなくデータファイルのリンクを使用するかどうかを指定することができます。
+また、ユーザやポート番号の指定や、デフォルト動作のコピーではなくデータファイルのリンクや複製を使用するかどうかを指定することができます。
     </para>
 
     <para>
@@ -565,7 +577,9 @@ NET STOP postgresql-&majorversion;
 リンクモードを使用する場合、アップグレードは非常に高速になり(ファイルのコピーがありません)、ディスク容量が少なくなりますが、アップグレード後に新しいクラスタを一度でも実行してしまうと、古いクラスタにアクセスすることができなくなります。
 リンクモードはまた、古いクラスタと新しいクラスタのデータディレクトリが同じファイルシステムにあることが必要です。
 （テーブル空間および<filename>pg_wal</filename>は異なるファイルシステムに置くことができます。）
-すべてのオプションリストを参照するためには<literal>pg_upgrade --help</literal>を使用してください。
+複製モードは同じ速度とディスク容量の利点を提供しますが、新しいクラスタを一度実行しても、古いクラスタが使えなくなる訳ではありません。
+複製モードはまた、新旧のデータディレクトリが同じファイルシステム内にあることを要求します。
+このモードは特定のオペレーティングシステムのファイルシステム上でのみ利用可能です。
     </para>
 
     <para>
@@ -623,7 +637,7 @@ pg_upgrade.exe
 検査のみを行う<command>pg_upgrade --check</command>を使用することができます。
 この場合は古いサーバは稼動中であっても構いません。
 また<command>pg_upgrade --check</command>は、アップグレード後に手作業で行わなければならない調整作業があればその概要を示します。
-リンクモードを使用する予定であれば、リンクモード固有の検査を有効にするために<option>--check</option>を付けて<option>--link</option>を使用すべきです。
+リンクまたは複製モードを使用する予定であれば、モード固有の検査を有効にするために<option>--check</option>を付けて<option>--link</option>または<option>--clone</option>オプションを使用すべきです。
 <command>pg_upgrade</command>は現在のディレクトリに対する書き込み権限を必要とします。
     </para>
 
@@ -768,13 +782,16 @@ pg_upgrade.exe
        <literal>pg_hba.conf</literal>, because these will be overwritten or
        removed in the next step.
 -->
-スタンバイの設定ディレクトリの設定ファイルで保持する必要のあるもの、例えば<filename>postgresql.conf</filename>や<literal>recovery.conf</literal>を保存してください。
+スタンバイの設定ディレクトリの設定ファイルで保持する必要のあるもの、例えば<filename>postgresql.conf</filename>や<literal>pg_hba.conf</literal>を保存してください。
 これらは次のステップで上書きあるいは削除されるからです。
       </para>
      </step>
 
      <step>
+<!--
       <title>Run <application>rsync</application></title>
+-->
+      <title><application>rsync</application>の実行</title>
 
       <para>
 <!--
@@ -1103,9 +1120,13 @@ psql --username=postgres --file=script.sql postgres
   <title>注釈</title>
 
   <para>
+<!--
    <application>pg_upgrade</application> creates various working files, such
    as schema dumps, in the current working directory.  For security, be sure
    that that directory is not readable or writable by any other users.
+-->
+<application>pg_upgrade</application>は現在の作業ディレクトリにスキーマのダンプ等、様々な作業ファイルを作成します。
+セキュリティのため、他のユーザがそのディレクトリを読んだり書いたりできないことを確実にしてください。
   </para>
 
   <para>
@@ -1120,8 +1141,12 @@ psql --username=postgres --file=script.sql postgres
    directory is not readable or writable by any other users.
    (This is not relevant on Windows.)
 -->
-<application>pg_upgrade</application>は次のOIDを参照する<type>reg*</type>システムデータ型を使うテーブル列を含むデータベースのアップグレードをサポートしません。
-<type>regproc</type>、<type>regprocedure</type>、<type>regoper</type>、<type>regoperator</type>、<type>regconfig</type>、<type>regdictionary</type>。（<type>regtype</type>はアップグレード可能です。）
+<application>pg_upgrade</application>は新旧のデータディレクトリで短命なpostmasterを起動します。
+このpostmasterの通信用の一時的なUnixのソケットファイルが、デフォルトでは現在の作業ディレクトリに作られます。
+状況に依っては、カレントディレクトリのパス名が有効なソケット名には長過ぎる場合もあるでしょう。
+その場合、<option>-s</option>オプションを使ってソケットファイルをより短いパス名のディレクトリに置くことができます。
+セキュリティのため、他のユーザがそのディレクトリを読んだり書いたりできないことを確実にしてください。
+(これはWindowsでは関係ありません。)
   </para>
 
   <para>
@@ -1151,11 +1176,16 @@ psql --username=postgres --file=script.sql postgres
   </para>
 
   <para>
+<!--
    <application>pg_upgrade</application> does not support upgrading of databases
    containing table columns using these <type>reg*</type> OID-referencing system data types:
    <type>regproc</type>, <type>regprocedure</type>, <type>regoper</type>,
    <type>regoperator</type>, <type>regconfig</type>, and
    <type>regdictionary</type>.  (<type>regtype</type> can be upgraded.)
+-->
+<application>pg_upgrade</application>は次のOIDを参照する<type>reg*</type>システムデータ型を使うテーブル列を含むデータベースのアップグレードをサポートしません。
+<type>regproc</type>、<type>regprocedure</type>、<type>regoper</type>、<type>regoperator</type>、<type>regconfig</type>、<type>regdictionary</type>。
+(<type>regtype</type>はアップグレード可能です。)
   </para>
 
   <para>
@@ -1198,7 +1228,8 @@ psql --username=postgres --file=script.sql postgres
    and copies must be created simultaneously or while the database server
    is down.
 -->
-リンクモードを使用したいが、新しいクラスタを起動した時に古いクラスタを変更させたくない場合は、古いクラスタのコピーを取得してからリンクモードでアップグレードを行ってください。
+リンクモードを使用したいが、新しいクラスタを起動した時に古いクラスタを変更させたくない場合は、複製モードの使用を検討してください。
+もしそれが利用可能でないなら、古いクラスタのコピーを取得してからリンクモードでアップグレードを行ってください。
 有効な古いクラスタのコピーを取得するためには、サーバ稼動中に<command>rsync</command>を使用して古いクラスタの変動があるかもしれないコピーを作成し、古いサーバを停止させた後に、<command>rsync --checksum</command>を再度実行して一貫性を保つために何らかの変更をコピーに反映させます。
 （<command>rsync</command>はファイル更新時刻の粒度が1秒しかないので<option>--checksum</option>が必要です。）
 例えば<xref linkend="backup-lowlevel-base-backup"/>で説明した<filename>postmaster.pid</filename>など、一部のファイルを除外したいと考えるかもしれません。
