@@ -458,7 +458,7 @@ GetForeignJoinPaths(PlannerInfo *root,
 -->
 同じ外部サーバにある2つ（またはそれ以上）の外部テーブルの結合のための可能なアクセスパスを作成します。
 このオプション関数は、問い合わせの計画時に呼び出されます。
-<function>GetForeignPaths</function>と同じく、この関数は提供された<literal>joinrel</literal>のための<structname>ForeignPath</structname>パスを生成し、<function>add_path</function>を呼んで、それらのパスを結合のために考慮されるパスの集合に追加します。
+<function>GetForeignPaths</function>と同じく、この関数は提供された<literal>joinrel</literal>のための<structname>ForeignPath</structname>パスを生成し（そのために<function>create_foreign_join_path</function>を使用します）、<function>add_path</function>を呼んで、それらのパスを結合のために考慮されるパスの集合に追加します。
 しかし、<function>GetForeignPaths</function>とは異なり、この関数が少なくとも1つのパスの作成に成功することは必要ではありません。
 なぜなら、ローカルの結合を含んだパスはいつでも可能だからです。
     </para>
@@ -548,7 +548,7 @@ GetForeignUpperPaths(PlannerInfo *root,
 <firstterm>上位リレーション</firstterm>処理のための、ありうるアクセスパスを作成します。上位リレーションはプランナ用語で、ウィンドウ関数、ソート、テーブル更新など、全てのスキャン/結合後の問い合わせのことです。
 この省略可能な関数は問い合わせのプラン作成時に呼ばれます。
 今のところ、これは問い合わせに含まれる全てのベースリレーションが同じFDWに属する場合だけ呼ばれます。
-この関数では、FDWがどのようにリモートで実行するか分かっている全てのスキャン/結合後の処理に<structname>ForeignPath</structname>パスを生成し、それらパスを指定された上位リレーションに加えるために<function>add_path</function>を呼び出してください。
+この関数では、FDWがどのようにリモートで実行するか分かっている全てのスキャン/結合後の処理に<structname>ForeignPath</structname>パスを生成し（そのために<function>create_foreign_upper_path</function>を使用します）、それらパスを指定された上位リレーションに加えるために<function>add_path</function>を呼び出してください。
 <function>GetForeignJoinPaths</function>の時と同様に、この関数が何らかのパス作成に成功する必要はありません。なぜなら、ローカル処理を含んでいるパスはいつでも可能だからです。
     </para>
 
@@ -573,7 +573,8 @@ GetForeignUpperPaths(PlannerInfo *root,
 -->
 <literal>stage</literal>パラメータはどのスキャン/結合後の処理が現在考慮されているかを定めます。
 <literal>output_rel</literal>は本処理の計算方法をあらわすパスを受け取るであろう上位リレーションで、<literal>input_rel</literal>は本処理への入力をあらわすリレーションです。
-<literal>extra</literal>パラメータは追加の詳細を指定し、今のところ<literal>UPPERREL_PARTIAL_GROUP_AGG</literal>か<literal>UPPERREL_GROUP_AGG</literal>が指定でき、<literal>GroupPathExtraData</literal>構造体へのポインタになります。
+<literal>extra</literal>パラメータは追加の詳細を指定し、今のところ<literal>UPPERREL_PARTIAL_GROUP_AGG</literal>と<literal>UPPERREL_GROUP_AGG</literal>に対して指定できて、この場合は<literal>GroupPathExtraData</literal>構造体へのポインタです。
+さらに<literal>UPPERREL_FINAL</literal>に対しても指定できて、この場合は<literal>FinalPathExtraData</literal>構造体へのポインタです。
 （注意：これらの処理は外部で実行されると考えられるため、<literal>output_rel</literal>に加えられる<structname>ForeignPath</structname>パスは、一般的に<literal>input_rel</literal>のパスへの直接の依存を全く持たないでしょう。
 しかしながら、手前の処理段階のために以前に生成されたパスを検査することは、冗長なプラン作成活動を回避するのに役立ちます。）
     </para>
@@ -850,8 +851,8 @@ ExecForeignInsert(EState *estate,
      must be returned to indicate success, or the query's reported row count
      will be wrong.
 -->
-返却されたスロット内のデータは<command>INSERT</command>クエリが<literal>RETURNING</literal>句を持っていた場合もしくは外部テーブルが<literal>AFTER ROW</literal>トリガを持っていた場合にのみ使われます。
-トリガは全列を必要としますが、FDWは<literal>RETURNING</literal>句の内容に応じて返却する列を一部にするかすべてにするかを最適化する余地があります。
+返却されたスロット内のデータは<command>INSERT</command>文が<literal>RETURNING</literal>句を持っているか、<literal>WITH CHECK OPTION</literal>を伴うビューに影響を及ぼす場合、もしくは、外部テーブルが<literal>AFTER ROW</literal>トリガを持っていた場合にのみ使われます。
+トリガは全列を必要としますが、FDWは<literal>RETURNING</literal>句や<literal>WITH CHECK OPTION</literal>の制約の内容に応じて、返却する列を一部にするかすべてにするかを最適化する余地があります。
 それとは関係なく、処理成功を表すためになんらかのスロットは返却しなければなりません。さもないと、報告されるクエリの結果行数が誤った値になってしまいます。
     </para>
 
@@ -930,8 +931,8 @@ ExecForeignUpdate(EState *estate,
      must be returned to indicate success, or the query's reported row count
      will be wrong.
 -->
-返却されたスロット内のデータは<command>UPDATE</command>クエリが<literal>RETURNING</literal>句を持っていた場合もしくは外部テーブルが<literal>AFTER ROW</literal>トリガを持っていた場合にのみ使われます。
-トリガは全列を必要としますが、FDWは<literal>RETURNING</literal>句の内容に応じて返却する列を一部にするか全てにするかを最適化する余地があります。
+返却されたスロット内のデータは<command>UPDATE</command>文が<literal>RETURNING</literal>句を持っているか、<literal>WITH CHECK OPTION</literal>を伴うビューに影響を及ぼす場合、もしくは外部テーブルが<literal>AFTER ROW</literal>トリガを持っていた場合にのみ使われます。
+トリガは全列を必要としますが、FDWは<literal>RETURNING</literal>句や<literal>WITH CHECK OPTION</literal>の制約の内容に応じて返却する列を一部にするか全てにするかを最適化する余地があります。
 それとは関係なく、処理成功を表すためになんらかのスロットは返却しなければなりません。さもないと、報告されるクエリの結果行数が誤った値になってしまいます。
     </para>
 
@@ -1192,7 +1193,7 @@ IsForeignRelUpdatable(Relation rel);
 外部テーブルへの挿入、更新、削除は、代替インタフェース一式を実装することで最適化できます。
 通常の挿入、更新、削除のインタフェースは行をリモートサーバから取得し、その後、それらの行を一つずつ変更します。
 一部の場合にはこの一行ごとのやり方は必要ですが、非効率とも言えます。
-外部サーバについて行が本当はそれらを引き出すことなしに変更されるべきと判断できて、操作に影響を与えるローカルトリガーが無いならば、操作全体がリモートサーバで実行されるように計画することができます。
+外部サーバについて行が本当はそれらを引き出すことなしに変更されるべきと判断できて、操作に影響を与える仕組み（行レベルのローカルトリガ、格納生成列、あるいは、親ビューからの<literal>WITH CHECK OPTION</literal>の制約）が無いならば、操作全体がリモートサーバで実行されるように計画することができます。
 以下に示すインタフェースはこれを可能にします。
     </para>
 
@@ -1479,10 +1480,11 @@ RefetchForeignRow(EState *estate,
      <literal>slot</literal> contains nothing useful upon call, but can be used to
      hold the returned tuple. <literal>updated</literal> is an output parameter.
 -->
-必要ならロックした後で、外部テーブルから1つのタプルを再フェッチします。
+必要ならロックした後で、外部テーブルから1つのタプルスロットを再フェッチします。
 <literal>estate</literal>は問い合わせのグローバルな実行状態です。
 <literal>erm</literal>は対象の外部テーブルおよび獲得する行ロックの種別（あれば）を記述する<structname>ExecRowMark</structname>構造体です。
 <literal>rowid</literal>はフェッチするタプルを特定するものです。
+<literal>slot</literal>は呼び出しで役立つ内容は含みませんが、返されたタプルを保持するために使用できます。
 <literal>updated</literal>は出力パラメータです。
     </para>
 
@@ -1496,8 +1498,8 @@ RefetchForeignRow(EState *estate,
      without acquiring any lock, and <literal>ROW_MARK_COPY</literal> will
      never be seen by this routine.)
 -->
-この関数は、フェッチしたタプルをpallocして複製したものを返すか、あるいは行ロックが取得できなければ<literal>NULL</literal>を返します。
-獲得する行ロックの種別は<literal>erm-&gt;markType</literal>で指定されますが、この値は事前に<function>GetForeignRowMarkType</function>から返されたものです。
+この関数はタプルを与えられたスロットに格納するか、あるいは行ロックが取得できなければタプルをクリアします。
+獲得する行ロックの種別は<literal>erm-&gt;markType</literal>で指定されます。この値は事前に<function>GetForeignRowMarkType</function>から返されたものです。
 （<literal>ROW_MARK_REFERENCE</literal>は行のロックを獲得せずに、単にタプルを再フェッチすることを意味し、また、<literal>ROW_MARK_COPY</literal>はこのルーチンで使われることはありません。）
     </para>
 
@@ -1520,7 +1522,7 @@ RefetchForeignRow(EState *estate,
      by <literal>erm-&gt;waitPolicy</literal>.
 -->
 デフォルトでは、行ロックの獲得に失敗したときはエラーを発生させるべきであることに注意してください。
-<literal>NULL</literal>を返すのが適切なのは、<literal>erm-&gt;waitPolicy</literal>で<literal>SKIP LOCKED</literal>オプションが指定されている場合だけです。
+空スロットを返すのが適切なのは、<literal>erm-&gt;waitPolicy</literal>で<literal>SKIP LOCKED</literal>オプションが指定されている場合だけです。
     </para>
 
     <para>
@@ -2080,6 +2082,7 @@ ForeignDataWrapper *
 GetForeignDataWrapperExtended(Oid fdwid, bits16 flags);
 </programlisting>
 
+<!--
      This function returns a <structname>ForeignDataWrapper</structname>
      object for the foreign-data wrapper with the given OID.  A
      <structname>ForeignDataWrapper</structname> object contains properties
@@ -2089,6 +2092,11 @@ GetForeignDataWrapperExtended(Oid fdwid, bits16 flags);
      <literal>FDW_MISSING_OK</literal>, in which case a <literal>NULL</literal>
      result is returned to the caller instead of an error for an undefined
      object.
+-->
+この関数は、与えられたOIDの外部データラッパーに対して<structname>ForeignDataWrapper</structname>オブジェクトを返します。
+<structname>ForeignDataWrapper</structname>オブジェクトにはFDWの属性（詳しくは<filename>foreign/foreign.h</filename>を参照）が含まれます。
+<structfield>flags</structfield> は追加的なオプション一式を示すビット毎にorを取ったビットマスクです。
+ここには<literal>FDW_MISSING_OK</literal>値を指定できて、この場合、未定義オブジェクトに対するエラーの代わりに呼び出し元に<literal>NULL</literal>結果が返されます。
     </para>
 
     <para>
@@ -2112,6 +2120,7 @@ ForeignServer *
 GetForeignServerExtended(Oid serverid, bits16 flags);
 </programlisting>
 
+<!--
      This function returns a <structname>ForeignServer</structname> object
      for the foreign server with the given OID.  A
      <structname>ForeignServer</structname> object contains properties
@@ -2121,6 +2130,11 @@ GetForeignServerExtended(Oid serverid, bits16 flags);
      <literal>FSV_MISSING_OK</literal>, in which case a <literal>NULL</literal>
      result is returned to the caller instead of an error for an undefined
      object.
+-->
+この関数は、与えられたOIDの外部サーバに対して<structname>ForeignServer</structname>オブジェクトを返します。
+<structname>ForeignServer</structname>オブジェクトにはサーバの属性（詳しくは<filename>foreign/foreign.h</filename>を参照）が含まれます。
+<structfield>flags</structfield>は追加的なオプション一式を示すビット毎にorを取ったビットマスクです。
+ここには<literal>FSV_MISSING_OK</literal>値を指定できて、この場合、未定義オブジェクトに対するエラーの代わりに呼び出し元に<literal>NULL</literal>結果が返されます。
     </para>
 
     <para>
