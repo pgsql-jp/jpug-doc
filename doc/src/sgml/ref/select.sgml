@@ -128,7 +128,7 @@ TABLE [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ]
 -->
 <literal>WITH</literal>リスト内のすべての問い合わせが計算されます。
 これらは実質的には、<literal>FROM</literal>リスト内から参照可能な一時テーブルとして提供されます。
-<literal>FROM</literal>内で2回以上参照される<literal>WITH</literal>問い合わせは一度のみ計算されます。
+<literal>NOT MATERIALIZED</literal>が指定された場合を除き、<literal>FROM</literal>内で2回以上参照される<literal>WITH</literal>問い合わせは一度のみ計算されます。
 （後述の<xref linkend="sql-with" endterm="sql-with-title"/>を参照してください。）
      </para>
     </listitem>
@@ -396,12 +396,17 @@ TABLE [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ]
    </para>
 
    <para>
+<!--
     The primary query and the <literal>WITH</literal> queries are all
     (notionally) executed at the same time.  This implies that the effects of
     a data-modifying statement in <literal>WITH</literal> cannot be seen from
     other parts of the query, other than by reading its <literal>RETURNING</literal>
     output.  If two such data-modifying statements attempt to modify the same
     row, the results are unspecified.
+-->
+主問い合わせと<literal>WITH</literal>問い合わせは（理論的には）同時に実行されます。
+このことは、<literal>WITH</literal>中のデータ更新文の効果は、<literal>RETURNING</literal>出力の読み込みを行ったことによるものを除き、問い合わせ中の他の部分から見えないことを意味します。
+2つのそうしたデータ更新文が同じ行を更新しようとした時の結果は不定です。
    </para>
 
    <para>
@@ -413,11 +418,12 @@ TABLE [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ]
     executed once and only once, regardless of whether the primary query
     reads all or any of their output.
 -->
-<literal>WITH</literal>問い合わせの重要な特性は、これらを主問い合わせが複数回参照していたとしても、主問い合わせの実行当たり一度のみ評価される点です。
+<literal>WITH</literal>問い合わせの重要な特性は、これらを主問い合わせが複数回参照していたとしても、主問い合わせの実行当たり通常一度のみ評価される点です。
 特にデータ変更文は、主問い合わせがその出力のすべてまたは一部を読み取るかに関係なく、本当に一度のみ実行されることが保証されています。
    </para>
 
    <para>
+<!--
     However, a <literal>WITH</literal> query can be marked
     <literal>NOT MATERIALIZED</literal> to remove this guarantee.  In that
     case, the <literal>WITH</literal> query can be folded into the primary
@@ -432,9 +438,16 @@ TABLE [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ]
     a <literal>WITH</literal> query that is recursive or is not
     side-effect-free (i.e., is not a plain <literal>SELECT</literal>
     containing no volatile functions).
+-->
+しかし、<literal>WITH</literal>問い合わせに<literal>NOT MATERIALIZED</literal>と印を付けることにより、この保証を取り除くことができます。
+その場合、<literal>WITH</literal>問い合わせは、主問い合わせの<literal>FROM</literal>句中の単純な副<literal>SELECT</literal>であるかのように可能な限り主問い合わせ中に畳み込むことができます。
+この結果、主問い合わせが<literal>WITH</literal>問い合わせを複数回参照している場合には複数回の計算が行われます。
+しかし、そこで使用される問い合わせが<literal>WITH</literal>問い合わせ全体の出力のうちの数行しか必要としないなら、<literal>NOT MATERIALIZED</literal>は問い合わせを連携して最適化することができるので、全体のコストの節約ができます。
+再帰問い合わせあるいは副作用のある問い合わせ（すなわち揮発性の関数を含まない単純<literal>SELECT</literal>ではないもの）に<literal>NOT MATERIALIZED</literal>を適用しても無視されます。
    </para>
 
    <para>
+<!--
     By default, a side-effect-free <literal>WITH</literal> query is folded
     into the primary query if it is used exactly once in the primary
     query's <literal>FROM</literal> clause.  This allows joint optimization
@@ -447,6 +460,12 @@ TABLE [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ]
     <productname>PostgreSQL</productname> versions before v12 never did
     such folding, so queries written for older versions might rely on
     <literal>WITH</literal> to act as an optimization fence.
+-->
+デフォルトでは、主問い合わせ中の<literal>FROM</literal>句で正確に一度だけ使われているなら、副作用のない<literal>WITH</literal>問い合わせは主問い合わせに畳み込まれれます。
+これにより意味論的に不可視の二つの問い合わせレベルが共同して最適化されることを可能にします。
+しかし、<literal>WITH</literal>問い合わせに<literal>MATERIALIZED</literal>と印を付けることにより、そうした畳込みを防ぐことができます。
+たとえば、プランナが悪いプランを選択するのを防ぐために最適化障壁として<literal>WITH</literal>問い合わせを使っている場合にこれは有用です。
+<productname>PostgreSQL</productname>バージョン12よりも前ではそうした畳込みは決して行われていなかったので、古いバージョン用に書かれた問い合わせは<literal>WITH</literal>が最適化障壁として働くことに依存しているかもしれません。
    </para>
 
    <para>
@@ -3097,9 +3116,12 @@ SQL:1999以降では、SQL-92と完全には上位互換でない、多少異な
    </para>
 
    <para>
+<!--
     The <literal>MATERIALIZED</literal> and <literal>NOT
     MATERIALIZED</literal> options of <literal>WITH</literal> are extensions
     of the SQL standard.
+-->
+<literal>WITH</literal>の<literal>MATERIALIZED</literal>と<literal>NOT MATERIALIZED</literal>オプションはSQL標準の拡張です。
    </para>
   </refsect2>
 
