@@ -642,8 +642,12 @@ rows = (outer_cardinality * inner_cardinality) * selectivity
 <title>多変量統計の例</title>
 
   <indexterm>
+<!--
    <primary>row estimation</primary>
    <secondary>multivariate</secondary>
+-->
+   <primary>行数推定</primary>
+   <secondary>多変量</secondary>
   </indexterm>
 
   <sect2 id="functional-dependencies">
@@ -822,29 +826,42 @@ EXPLAIN (ANALYZE, TIMING OFF) SELECT COUNT(*) FROM t GROUP BY a, b;
   </sect2>
 
   <sect2 id="mcv-lists">
+<!--
    <title>MCV Lists</title>
+-->
+   <title>MCVリスト</title>
 
    <para>
+<!--
     As explained in <xref linkend="functional-dependencies"/>, functional
     dependencies are very cheap and efficient type of statistics, but their
     main limitation is their global nature (only tracking dependencies at
     the column level, not between individual column values).
+-->
+<xref linkend="functional-dependencies"/>で説明したように、関数従属性は非常に安価で効率的な統計情報ですが、主要な制限はその大域的な性質です(列レベルだけでの従属性の追跡であり、個々の列の値の間のものではありません)。
    </para>
 
    <para>
+<!--
     This section introduces multivariate variant of <acronym>MCV</acronym>
     (most-common values) lists, a straightforward extension of the per-column
     statistics described in <xref linkend="row-estimation-examples"/>.  These
     statistics address the limitation by storing individual values, but it is
     naturally more expensive, both in terms of building the statistics in
     <command>ANALYZE</command>, storage and planning time.
+-->
+この節では<acronym>MCV</acronym>(最頻値)リストの多変量のもの、<xref linkend="row-estimation-examples"/>で述べた行毎の統計情報の素直な拡張を導入します。
+この統計情報は格納された個々の値による制限を解決しますが、<command>ANALYZE</command>での統計情報の構築や容量や計画作成時間に関して当然より高価です。
    </para>
 
    <para>
+<!--
     Let's look at the query from <xref linkend="functional-dependencies"/>
     again, but this time with a <acronym>MCV</acronym> list created on the
     same set of columns (be sure to drop the functional dependencies, to
     make sure the planner uses the newly created statistics).
+-->
+再び<xref linkend="functional-dependencies"/>の問い合わせを見てみましょう。ですが、今回は列の同じ集合に対して<acronym>MCV</acronym>リストを作ります(プランナが新しく作られた統計情報を確実に利用するよう、関数従属性を確実に削除してください)。
 
 <programlisting>
 DROP STATISTICS stts;
@@ -858,16 +875,23 @@ EXPLAIN (ANALYZE, TIMING OFF) SELECT * FROM t WHERE a = 1 AND b = 1;
    Rows Removed by Filter: 9900
 </programlisting>
 
+<!--
     The estimate is as accurate as with the functional dependencies, mostly
     thanks to the table being fairly small and having a simple distribution
     with a low number of distinct values. Before looking at the second query,
     which was not handled by functional dependencies particularly well,
     let's inspect the <acronym>MCV</acronym> list a bit.
+-->
+主に、テーブルがかなり小さく、異なる値の少ない単純な分布のおかげで、推定は関数従属性と同じくらい正確です。
+関数従属性では特に上手く扱えない2番目の問い合わせを見る前に、<acronym>MCV</acronym>リストを少し調べてみましょう。
    </para>
 
    <para>
+<!--
     Inspecting the <acronym>MCV</acronym> list is possible using
     <function>pg_mcv_list_items</function> set-returning function.
+-->
+<acronym>MCV</acronym>を調べるのは、集合を返す<function>pg_mcv_list_items</function>関数でできます。
 
 <programlisting>
 SELECT m.* FROM pg_statistic_ext join pg_statistic_ext_data on (oid = stxoid),
@@ -886,25 +910,35 @@ SELECT m.* FROM pg_statistic_ext join pg_statistic_ext_data on (oid = stxoid),
 (100 rows)
 </programlisting>
 
+<!--
     This confirms there are 100 distinct combinations in the two columns, and
     all of them are about equally likely (1% frequency for each one).  The
     base frequency is the frequency computed from per-column statistics, as if
     there were no multi-column statistics. Had there been any null values in
     either of the columns, this would be identified in the
     <structfield>nulls</structfield> column.
+-->
+これで、2つの列の100個の個別の組み合わせがあり、すべてほぼ同様に確からしい(それぞれ1%の頻度)ことが確かめられます。
    </para>
 
    <para>
+<!--
     When estimating the selectivity, the planner applies all the conditions
     on items in the <acronym>MCV</acronym> list, and then sums the frequencies
     of the matching ones. See <function>mcv_clauselist_selectivity</function>
     in <filename>src/backend/statistics/mcv.c</filename> for details.
+-->
+選択性を推定する場合、プランナは<acronym>MCV</acronym>リストの項目にすべての条件を適用してから、一致するものの頻度を合計します。
+詳細は<filename>src/backend/statistics/mcv.c</filename>の<function>mcv_clauselist_selectivity</function>を参照してください。
    </para>
 
    <para>
+<!--
     Compared to functional dependencies, <acronym>MCV</acronym> lists have two
     major advantages. Firstly, the list stores actual values, making it possible
     to decide which combinations are compatible.
+-->
+関数従属性に比べて、<acronym>MCV</acronym>は主要な利点が2つあります。1つ目は、リストが実際の値を格納していることで、これによりどの組み合わせが適合するのか決定できます。
 
 <programlisting>
 EXPLAIN (ANALYZE, TIMING OFF) SELECT * FROM t WHERE a = 1 AND b = 10;
@@ -915,9 +949,13 @@ EXPLAIN (ANALYZE, TIMING OFF) SELECT * FROM t WHERE a = 1 AND b = 10;
    Rows Removed by Filter: 10000
 </programlisting>
 
+<!--
     Secondly, <acronym>MCV</acronym> lists handle a wider range of clause types,
     not just equality clauses like functional dependencies. For example,
     consider the following range query for the same table:
+-->
+2つ目は、<acronym>MCV</acronym>リストが、関数従属性のような等式句だけでなく、より広い範囲の形の句を扱うことです。
+例えば、以下のような同じテーブルに対する範囲の問い合わせを考えてみましょう。
 
 <programlisting>
 EXPLAIN (ANALYZE, TIMING OFF) SELECT * FROM t WHERE a &lt;= 49 AND b &gt; 49;
