@@ -31,11 +31,15 @@ JSONデータ型はJSON(JavaScript Object Notation)データを格納するた�
  </para>
 
  <para>
+<!--
   <productname>PostgreSQL</productname> offers two types for storing JSON
   data: <type>json</type> and <type>jsonb</type>. To implement efficient query
   mechanisms for these data types, <productname>PostgreSQL</productname>
   also provides the <type>jsonpath</type> data type described in
   <xref linkend="datatype-jsonpath"/>.
+-->
+<productname>PostgreSQL</productname>には、JSONデータを格納するための2つの型、<type>json</type>と<type>jsonb</type>があります。
+これらのデータ型に対して効率的な問い合わせメカニズムを実装するために、<productname>PostgreSQL</productname>は<xref linkend="datatype-jsonpath"/>で説明されている<type>jsonpath</type>データ型も提供します。
  </para>
 
  <para>
@@ -51,8 +55,8 @@ JSONデータ型はJSON(JavaScript Object Notation)データを格納するた�
   is needed.  <type>jsonb</type> also supports indexing, which can be a
   significant advantage.
 -->
-JSONデータ型には<type>json</type>型と<type>jsonb</type>型という2種類のデータ型があります。
-それらは <emphasis>ほとんど</emphasis> 同一の入力値セットを受け入れます。現実的に主要な違いは効率です。
+<type>json</type>型と<type>jsonb</type>型というデータ型は、<emphasis>ほとんど</emphasis> 同一の入力値セットを受け入れます。
+現実的に主要な違いは効率です。
 <type>json</type>データ型は入力テキストの正確なコピーで格納し、処理関数を実行するたびに再解析する必要があります。
 <type>jsonb</type>データ型では、分解されたバイナリ形式で格納されます。
 格納するときには変換のオーバーヘッドのため少し遅くなりますが、処理するときには、全く再解析が必要とされないので大幅に高速化されます。
@@ -72,8 +76,8 @@ JSONデータ型には<type>json</type>型と<type>jsonb</type>型という2種�
   only the last value is kept.
 -->
 <type>json</type>型は入力値のコピーを格納しているので、意味的に重要でないトークン間の空白だけでなく、JSONオブジェクト内のキーの順序も維持します。
-また、JSONオブジェクト内に同じキーと値が複数含まれていてもすべてのキー/値のペアが保持されます。(この処理関数は最後の値１つを処理させるようすれば済みます。)
-これとは対照的に、 <type>jsonb</type>は空白を保持しません。オブジェクトキーの順序を保持せず、重複したオブジェクトキーを保持しません。重複キーを入力で指定された場合は、最後の値が保持されます。
+また、JSONオブジェクト内に同じキーと値が複数含まれていてもすべてのキー／値のペアが保持されます。(この処理関数は最後の値１つを処理させるようすれば済みます。)
+これとは対照的に、<type>jsonb</type>は空白を保持しません。オブジェクトキーの順序を保持せず、重複したオブジェクトキーを保持しません。重複キーを入力で指定された場合は、最後の値が保持されます。
  </para>
 
  <para>
@@ -336,8 +340,11 @@ SELECT '{"reading": 1.230e-5}'::json, '{"reading": 1.230e-5}'::jsonb;
   </para>
 
   <para>
+<!--
     For the list of built-in functions and operators available for
     constructing and processing JSON values, see <xref linkend="functions-json"/>.
+-->
+JSONの値の作成と処理に使用可能な組み込み関数と演算子のリストについては、<xref linkend="functions-json"/>を参照してください。
   </para>
  </sect2>
 
@@ -345,7 +352,7 @@ SELECT '{"reading": 1.230e-5}'::json, '{"reading": 1.230e-5}'::jsonb;
 <!--
   <title>Designing JSON Documents</title>
 -->
-  <title>効果的なJSONドキュメントの設計</title>
+  <title>JSONドキュメントの設計</title>
   <para>
 <!--
    Representing data as JSON can be considerably more flexible than
@@ -760,20 +767,28 @@ CREATE INDEX idxgintags ON api USING GIN ((jdoc -&gt; 'tags'));
 （式インデックスに関する詳細情報は<xref linkend="indexes-expressional"/>を参照してください。）
   </para>
   <para>
+<!--
     Also, GIN index supports <literal>@@</literal> and <literal>@?</literal>
     operators, which perform <literal>jsonpath</literal> matching.
+-->
+また、GINインデックスは<literal>jsonpath</literal>のマッチングを実行する<literal>@@</literal>演算子と<literal>@?</literal>演算子をサポートします。
 <programlisting>
 SELECT jdoc->'guid', jdoc->'name' FROM api WHERE jdoc @@ '$.tags[*] == "qui"';
 </programlisting>
 <programlisting>
 SELECT jdoc->'guid', jdoc->'name' FROM api WHERE jdoc @@ '$.tags[*] ? (@ == "qui")';
 </programlisting>
+<!--
     GIN index extracts statements of following form out of
     <literal>jsonpath</literal>: <replaceable>accessors_chain</replaceable> = <replaceable>const</replaceable>.
     Accessors chain may consist of <literal>.key</literal>,
     <literal>[*]</literal>, and <literal>[<replaceable>index</replaceable>]</literal> accessors.
     <literal>jsonb_ops</literal> additionally supports <literal>.*</literal>
     and <literal>.**</literal> accessors.
+-->
+GINインデックスは、<literal>jsonpath</literal>: <replaceable>accessors_chain</replaceable> = <replaceable>const</replaceable>の形式の文を抽出します。
+アクセサチェーン(Accessors chain)は<literal>[*]</literal>と<literal>[<replaceable>index</replaceable>]</literal>アクセサで構成されます。
+<literal>jsonb_ops</literal>は、さらに<literal>.*</literal>と<literal>.**</literal>アクセサもサポートします。
   </para>
   <para>
 <!--
@@ -815,9 +830,9 @@ SELECT jdoc-&gt;'guid', jdoc-&gt;'name' FROM api WHERE jdoc @&gt; '{"tags": ["qu
     data.  Therefore search operations typically perform better
     than with the default operator class.
 -->
- <literal>jsonb_path_ops</literal>演算子クラスは、<literal>@&gt;</literal>演算子をサポートしているだけですが、デフォルト演算子クラスの<literal>jsonb_ops</literal>よりも顕著なパフォーマンス上の利点があります。
- <literal>jsonb_path_ops</literal>インデックスは、通常同じデータの<literal>jsonb_ops</literal>インデックスよりもはるかに小さく、データの中で頻繁に表示されるキーを含む場合のような特別な検索には、より良くなります。
- そのため、デフォルトの演算子クラスよりも検索操作よくなります。
+<literal>jsonb_path_ops</literal>演算子クラスは、<literal>@&gt;</literal>、<literal>@@</literal>、<literal>@?</literal>演算子をサポートしているだけですが、デフォルト演算子クラスの<literal>jsonb_ops</literal>よりも顕著なパフォーマンス上の利点があります。
+<literal>jsonb_path_ops</literal>インデックスは、通常同じデータの<literal>jsonb_ops</literal>インデックスよりもはるかに小さく、データの中で頻繁に現れるキーを含む場合のような特別な検索には、より良くなります。
+そのため、デフォルトの演算子クラスよりも検索性能が良くなります。
   </para>
 
   <para>
@@ -965,46 +980,67 @@ PL/Python向けの拡張は、<literal>jsonb_plpythonu</literal>、<literal>json
  </sect2>
 
  <sect2 id="datatype-jsonpath">
+<!--
   <title>jsonpath Type</title>
+-->
+  <title>jsonpath型</title>
 
   <indexterm zone="datatype-jsonpath">
    <primary>jsonpath</primary>
   </indexterm>
 
   <para>
+<!--
    The <type>jsonpath</type> type implements support for the SQL/JSON path language
    in <productname>PostgreSQL</productname> to efficiently query JSON data.
    It provides a binary representation of the parsed SQL/JSON path
    expression that specifies the items to be retrieved by the path
    engine from the JSON data for further processing with the
    SQL/JSON query functions.
+-->
+<type>jsonpath</type>型は、<productname>PostgreSQL</productname>でJSONデータの効率的な問い合わせをするために、SQL/JSONパス言語のサポートを実装しています。
+構文解析されたSQL/JSONパス式のバイナリ表現を提供し、SQL/JSON問い合わせ関数でさらに処理するために、パスエンジンがJSONデータから取得する項目を指定します。
   </para>
 
   <para>
+<!--
    The semantics of SQL/JSON path predicates and operators generally follow SQL.
    At the same time, to provide a most natural way of working with JSON data,
    SQL/JSON path syntax uses some of the JavaScript conventions:
+-->
+SQL/JSONパス述部および演算子のセマンティクスは、SQLに準拠しています。
+同時に、JSONデータを処理する最も自然な方法を提供するために、SQL/JSONのパス構文ではいくつかのJavaScript規則を使用します。
   </para>
 
   <itemizedlist>
    <listitem>
     <para>
+<!--
      Dot (<literal>.</literal>) is used for member access.
+-->
+ドット(<literal>.</literal>)は、メンバアクセスに使用されます。
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      Square brackets (<literal>[]</literal>) are used for array access.
+-->
+大括弧(<literal>[]</literal>)は配列アクセスに使用されます。
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      SQL/JSON arrays are 0-relative, unlike regular SQL arrays that start from 1.
+-->
+1から始まる通常のSQL配列とは異なり、SQL/JSON配列は0スタートです。
     </para>
    </listitem>
   </itemizedlist>
 
   <para>
+<!--
    An SQL/JSON path expression is typically written in an SQL query as an
    SQL character string literal, so it must be enclosed in single quotes,
    and any single quotes desired within the value must be doubled
@@ -1031,78 +1067,131 @@ PL/Python向けの拡張は、<literal>jsonb_plpythonu</literal>、<literal>json
    written with only two hex digits, and
    <literal>\u{<replaceable>N...</replaceable>}</literal> for a character
    code written with 1 to 6 hex digits.
+-->
+SQL/JSONパス式は通常、SQL問い合わせでSQL文字列リテラルとして記述されるため、一重引用符で囲む必要があり、値内で必要な一重引用符は二重にする必要があります
+(<xref linkend="sql-syntax-strings"/>を参照)。
+一部の形式のパス式では、文字列リテラルを含める必要があります。
+これらの埋め込み文字列リテラルは二重引用符で囲む必要があり、バックスラッシュエスケープを使用してハード・タイプ文字を表すことができます。
+特に、埋め込み文字列リテラル内で二重引用符を記述する方法は<literal>\"</literal>であり、バックスラッシュを記述する必要がある場合は<literal>\\</literal>と書く必要があります。
+その他の特別なバックスラッシュ構文には、以下のJSON文字列で認識されるものが含まれます。
+さまざまなASCII制御用文字の<literal>\b</literal>、<literal>\f</literal>、<literal>\n</literal>、<literal>\r</literal>、<literal>\t</literal>、<literal>\v</literal>、および4つの16進数のコードポイントで識別されるUnicode文字用の<literal>\u<replaceable>NNNN</replaceable></literal>です。
+バックスラッシュ構文には、JSONでは許されない2つのケースも含まれています。
+<literal>\x<replaceable>NN</replaceable></literal>は2桁の16進数だけで記述された文字コードの場合で、<literal>\u{<replaceable>N...</replaceable>}</literal>は、1～6桁の16進数で記述された文字コードの場合です。
   </para>
 
   <para>
+<!--
    A path expression consists of a sequence of path elements,
    which can be the following:
+-->
+パスの式は、次のようなパス要素のシーケンスで構成されます。
    <itemizedlist>
     <listitem>
      <para>
+<!--
       Path literals of JSON primitive types:
       Unicode text, numeric, true, false, or null.
+-->
+JSONプリミティブ型のパスリテラル。
+ユニコードテキスト、数値、true、false、又はnullです。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       Path variables listed in <xref linkend="type-jsonpath-variables"/>.
+-->
+パス変数<xref linkend="type-jsonpath-variables"/>。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       Accessor operators listed in <xref linkend="type-jsonpath-accessors"/>.
+-->
+アクセサ演算子<xref linkend="type-jsonpath-accessors"/>。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       <type>jsonpath</type> operators and methods listed
       in <xref linkend="functions-sqljson-path-operators"/>
+-->
+<type>jsonpath</type>演算子とメソッド<xref linkend="functions-sqljson-path-operators"/>。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       Parentheses, which can be used to provide filter expressions
       or define the order of path evaluation.
+-->
+括弧。フィルタ式を提供したり、パス評価の順序を定義するために使用できます。
      </para>
     </listitem>
    </itemizedlist>
   </para>
 
   <para>
+<!--
    For details on using <type>jsonpath</type> expressions with SQL/JSON
    query functions, see <xref linkend="functions-sqljson-path"/>.
+-->
+<type>jsonpath</type>式を使用したSQL/JSON問い合わせ関数の詳細は、<xref linkend="functions-sqljson-path"/>を参照してください。
   </para>
 
   <table id="type-jsonpath-variables">
+<!--
    <title><type>jsonpath</type> Variables</title>
+-->
+   <title><type>jsonpath</type>変数</title>
    <tgroup cols="2">
     <thead>
      <row>
+<!--
       <entry>Variable</entry>
       <entry>Description</entry>
+-->
+      <entry>変数</entry>
+      <entry>説明</entry>
      </row>
     </thead>
     <tbody>
      <row>
       <entry><literal>$</literal></entry>
+<!--
       <entry>A variable representing the JSON text to be queried
       (the <firstterm>context item</firstterm>).
+      </entry>
+-->
+      <entry>
+問い合わせ対象(<firstterm>context item</firstterm>)のJSONテキストを表す変数。
       </entry>
      </row>
      <row>
       <entry><literal>$varname</literal></entry>
       <entry>
+<!--
         A named variable. Its value can be set by the parameter
         <parameter>vars</parameter> of several JSON processing functions.
         See <xref linkend="functions-json-processing-table"/> and
         its notes for details.
-        <!-- TODO: describe PASSING clause once implemented !-->
+-->
+名前付き変数。
+その値はいくつかのJSON処理関数のパラメーター<parameter>vars</parameter>で設定できます。
+詳細は<xref linkend="functions-json-processing-table"/>とそのノートを参照してください。
+        <!-- 原文コメント TODO: describe PASSING clause once implemented !-->
       </entry>
      </row>
      <row>
       <entry><literal>@</literal></entry>
+<!--
       <entry>A variable representing the result of path evaluation
       in filter expressions.
+      </entry>
+-->
+      <entry>フィルター式のパス評価の結果を表す変数。
       </entry>
      </row>
     </tbody>
@@ -1114,8 +1203,12 @@ PL/Python向けの拡張は、<literal>jsonb_plpythonu</literal>、<literal>json
    <tgroup cols="2">
     <thead>
      <row>
+<!--
       <entry>Accessor Operator</entry>
       <entry>Description</entry>
+-->
+      <entry>アクセサ演算子</entry>
+      <entry>説明</entry>
      </row>
     </thead>
     <tbody>
@@ -1130,11 +1223,15 @@ PL/Python向けの拡張は、<literal>jsonb_plpythonu</literal>、<literal>json
       </entry>
       <entry>
        <para>
+<!--
         Member accessor that returns an object member with
         the specified key. If the key name is a named variable
         starting with <literal>$</literal> or does not meet the
         JavaScript rules of an identifier, it must be enclosed in
         double quotes as a character string literal.
+-->
+指定されたキーを持つオブジェクトメンバを返すメンバアクセサ。
+キー名が<literal>$</literal>で始まる名前付き変数の場合、または識別子のJavaScriptルールを満たさない場合は、文字列リテラルとして二重引用符で囲む必要があります。
        </para>
       </entry>
      </row>
@@ -1146,8 +1243,11 @@ PL/Python向けの拡張は、<literal>jsonb_plpythonu</literal>、<literal>json
       </entry>
       <entry>
        <para>
+<!--
         Wildcard member accessor that returns the values of all
         members located at the top level of the current object.
+-->
+現在のオブジェクトの最上位レベルになるすべてのメンバの値を返すワイルドカードメンバアクセサ。
        </para>
       </entry>
      </row>
@@ -1159,11 +1259,15 @@ PL/Python向けの拡張は、<literal>jsonb_plpythonu</literal>、<literal>json
       </entry>
       <entry>
        <para>
+<!--
         Recursive wildcard member accessor that processes all levels
         of the JSON hierarchy of the current object and returns all
         the member values, regardless of their nesting level. This
         is a <productname>PostgreSQL</productname> extension of
         the SQL/JSON standard.
+-->
+現在のオブジェクトのJSON階層のすべてのレベルを処理し、ネストされたレベルに関わらず全てのメンバ値を返す再帰的なワイルドカードメンバアクセサ。
+これはSQL/JSON標準の<productname>PostgreSQL</productname>の拡張です。
        </para>
       </entry>
      </row>
@@ -1179,12 +1283,19 @@ PL/Python向けの拡張は、<literal>jsonb_plpythonu</literal>、<literal>json
       </entry>
       <entry>
        <para>
+<!--
         Same as <literal>.**</literal>, but with a filter over nesting
         levels of JSON hierarchy. Nesting levels are specified as integers.
         Zero level corresponds to the current object. To access the lowest
         nesting level, you can use the <literal>last</literal> keyword.
         This is a <productname>PostgreSQL</productname> extension of
         the SQL/JSON standard.
+-->
+<literal>.**</literal>と同じですが、JSON階層のネストレベルにフィルタが適用されます。
+ネストレベルは整数で指定します。
+0レベルは現在のオブジェクトに対応します。
+最下位のネストレベルにアクセスするには<literal>last</literal>キーワードを使用します。
+これはSQL/JSON標準の<productname>PostgreSQL</productname>の拡張です。
        </para>
       </entry>
      </row>
@@ -1196,6 +1307,7 @@ PL/Python向けの拡張は、<literal>jsonb_plpythonu</literal>、<literal>json
       </entry>
       <entry>
        <para>
+<!--
         Array element accessor.
         <literal><replaceable>subscript</replaceable></literal> can be
         given in two forms: <literal><replaceable>index</replaceable></literal>
@@ -1204,14 +1316,25 @@ PL/Python向けの拡張は、<literal>jsonb_plpythonu</literal>、<literal>json
         form returns an array slice by the range of indexes, including the
         elements that correspond to the provided
         <replaceable>start_index</replaceable> and <replaceable>end_index</replaceable>.
+-->
+配列要素アクセサ。
+<literal><replaceable>subscript</replaceable></literal>は、<literal><replaceable>index</replaceable></literal>または<literal><replaceable>start_index</replaceable>から<replaceable>end_index</replaceable></literal>までの2つの形式で指定できます。
+最初の形式は、インデックスによって単一の配列要素を返します。
+２番目の形式は、指定された<replaceable>start_index</replaceable>と<replaceable>end_index</replaceable>に対応する要素を含む、インデックスの範囲による配列スライスを返します。
        </para>
        <para>
+<!--
         The specified <replaceable>index</replaceable> can be an integer, as
         well as an expression returning a single numeric value, which is
         automatically cast to integer. Zero index corresponds to the first
         array element. You can also use the <literal>last</literal> keyword
         to denote the last array element, which is useful for handling arrays
         of unknown length.
+-->
+指定された<replaceable>index</replaceable>には、整数だけでなく、自動的に整数にキャストされる単一の数値を返す式を指定できます。
+0インデックスは最初の配列要素に対応します。
+また、<literal>last</literal>キーワードを使用して最後の配列要素を指定することもできます。
+これは、長さが不明な配列の処理に役立ちます。
        </para>
       </entry>
      </row>
@@ -1223,7 +1346,10 @@ PL/Python向けの拡張は、<literal>jsonb_plpythonu</literal>、<literal>json
       </entry>
       <entry>
        <para>
+<!--
         Wildcard array element accessor that returns all array elements.
+-->
+全ての配列の要素を返すワイルドカード配列要素アクセサ。
        </para>
       </entry>
      </row>
