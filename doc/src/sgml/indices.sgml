@@ -1098,6 +1098,15 @@ CREATE INDEX test1_lower_col1_idx ON test1 (lower(col1));
   </para>
 
   <para>
+   Expression indexes also allow control over the scope of unique indexes.
+   For example, this unique index prevents duplicate integer values from
+   being stored in a <type>double precision</type>-typed column:
+<programlisting>
+CREATE UNIQUE INDEX test1_uniq_int ON tests ((floor(double_col)))
+</programlisting>
+  </para>
+
+  <para>
 <!--
    If we were to declare this index <literal>UNIQUE</literal>, it would prevent
    creation of rows whose <literal>col1</literal> values differ only in case,
@@ -1471,6 +1480,16 @@ CREATE UNIQUE INDEX tests_success_constraint ON tests (subject, target)
 -->
 これは、成功するテストが少なく、失敗するテストが多い場合に特に有効な手法です。
    </para>
+
+   <para>
+    This index allows only one null in the indexed column by using a
+    partial index clause to process only null column values, and using
+    an expression index clause to index <literal>true</literal> instead
+    of <literal>null</literal>:
+<programlisting>
+CREATE UNIQUE INDEX tests_target_one_null ON tests ((target IS NULL)) WHERE target IS NULL;
+</programlisting>
+   </para>
   </example>
 
   <para>
@@ -1499,13 +1518,57 @@ CREATE UNIQUE INDEX tests_success_constraint ON tests (subject, target)
    know at least as much as the query planner knows, in particular you
    know when an index might be profitable.  Forming this knowledge
    requires experience and understanding of how indexes in
-   <productname>PostgreSQL</productname> work.  In most cases, the advantage of a
-   partial index over a regular index will be minimal.
+   <productname>PostgreSQL</productname> work.  In most cases, the
+   advantage of a partial index over a regular index will be minimal.
+   There are cases where they are quite counterproductive, as in <xref
+   linkend="indexes-partial-ex4"/>.
 -->
 部分インデックスを作成するには、少なくとも問い合わせプランナと同等の知識を持っていること、特に、インデックスが有益となる状況を理解している必要があることに留意してください。
 このような知識を得るためには、<productname>PostgreSQL</productname>でインデックスがどのように機能するかを理解し、経験を積むことが必要です。
 ほとんどの場合、通常のインデックスと比べて、部分インデックスを使用する利点は微細です。
   </para>
+
+  <example id="indexes-partial-ex4">
+   <title>Do Not Use Partial Indexes as a Substitute for Partitioning</title>
+
+   <para>
+    You might be tempted to create a large set of non-overlapping partial
+    indexes, for example
+
+<programlisting>
+CREATE INDEX mytable_cat_1 ON mytable (data) WHERE category = 1;
+CREATE INDEX mytable_cat_2 ON mytable (data) WHERE category = 2;
+CREATE INDEX mytable_cat_3 ON mytable (data) WHERE category = 3;
+...
+CREATE INDEX mytable_cat_<replaceable>N</replaceable> ON mytable (data) WHERE category = <replaceable>N</replaceable>;
+</programlisting>
+
+    This is a bad idea!  Almost certainly, you'll be better off with a
+    single non-partial index, declared like
+
+<programlisting>
+CREATE INDEX mytable_cat_data ON mytable (category, data);
+</programlisting>
+
+    (Put the category column first, for the reasons described in
+    <xref linkend="indexes-multicolumn"/>.)  While a search in this larger
+    index might have to descend through a couple more tree levels than a
+    search in a smaller index, that's almost certainly going to be cheaper
+    than the planner effort needed to select the appropriate one of the
+    partial indexes.  The core of the problem is that the system does not
+    understand the relationship among the partial indexes, and will
+    laboriously test each one to see if it's applicable to the current
+    query.
+   </para>
+
+   <para>
+    If your table is large enough that a single index really is a bad idea,
+    you should look into using partitioning instead (see
+    <xref linkend="ddl-partitioning"/>).  With that mechanism, the system
+    does understand that the tables and indexes are non-overlapping, so
+    far better performance is possible.
+   </para>
+  </example>
 
   <para>
 <!--

@@ -130,7 +130,6 @@ static void SetReindexProcessing(Oid heapOid, Oid indexOid);
 static void ResetReindexProcessing(void);
 static void SetReindexPending(List *indexes);
 static void RemoveReindexPending(Oid indexOid);
-static void ResetReindexPending(void);
 
 
 /*
@@ -314,6 +313,14 @@ ConstructTupleDescriptor(Relation heapRelation,
 			collationObjectId[i] : InvalidOid;
 
 		/*
+		 * Set the attribute name as specified by caller.
+		 */
+		if (colnames_item == NULL)	/* shouldn't happen */
+			elog(ERROR, "too few entries in colnames list");
+		namestrcpy(&to->attname, (const char *) lfirst(colnames_item));
+		colnames_item = lnext(colnames_item);
+
+		/*
 		 * For simple index columns, we copy some pg_attribute fields from the
 		 * parent relation.  For expressions we have to look at the expression
 		 * result.
@@ -330,7 +337,6 @@ ConstructTupleDescriptor(Relation heapRelation,
 			from = TupleDescAttr(heapTupDesc,
 								 AttrNumberGetAttrOffset(atnum));
 
-			namecpy(&to->attname, &from->attname);
 			to->atttypid = from->atttypid;
 			to->attlen = from->attlen;
 			to->attndims = from->attndims;
@@ -390,14 +396,6 @@ ConstructTupleDescriptor(Relation heapRelation,
 		 * later.
 		 */
 		to->attrelid = InvalidOid;
-
-		/*
-		 * Set the attribute name as specified by caller.
-		 */
-		if (colnames_item == NULL)	/* shouldn't happen */
-			elog(ERROR, "too few entries in colnames list");
-		namestrcpy(&to->attname, (const char *) lfirst(colnames_item));
-		colnames_item = lnext(colnames_item);
 
 		/*
 		 * Check the opclass and index AM to see if either provides a keytype
@@ -1462,6 +1460,7 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 				newIndexTuple;
 	Form_pg_index oldIndexForm,
 				newIndexForm;
+	bool		isPartition;
 	Oid			indexConstraintOid;
 	List	   *constraintOids = NIL;
 	ListCell   *lc;
@@ -1491,8 +1490,10 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 	namestrcpy(&newClassForm->relname, NameStr(oldClassForm->relname));
 	namestrcpy(&oldClassForm->relname, oldName);
 
-	/* Copy partition flag to track inheritance properly */
+	/* Swap the partition flags to track inheritance properly */
+	isPartition = newClassForm->relispartition;
 	newClassForm->relispartition = oldClassForm->relispartition;
+	oldClassForm->relispartition = isPartition;
 
 	CatalogTupleUpdate(pg_class, &oldClassTuple->t_self, oldClassTuple);
 	CatalogTupleUpdate(pg_class, &newClassTuple->t_self, newClassTuple);
@@ -1526,7 +1527,13 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 	newIndexForm->indimmediate = oldIndexForm->indimmediate;
 	oldIndexForm->indimmediate = true;
 
-	/* Mark old index as valid and new as invalid as index_set_state_flags */
+	/* Preserve indisclustered in the new index */
+	newIndexForm->indisclustered = oldIndexForm->indisclustered;
+
+	/*
+	 * Mark the new index as valid, and the old index as invalid similarly to
+	 * what index_set_state_flags() does.
+	 */
 	newIndexForm->indisvalid = true;
 	oldIndexForm->indisvalid = false;
 	oldIndexForm->indisclustered = false;
@@ -1668,8 +1675,13 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 	}
 
 	/*
-	 * Move all dependencies of and on the old index to the new one
+	 * Swap all dependencies of and on the old index to the new one, and
+	 * vice-versa.  Note that a call to CommandCounterIncrement() would cause
+	 * duplicate entries in pg_depend, so this should not be done.
 	 */
+	changeDependenciesOf(RelationRelationId, newIndexId, oldIndexId);
+	changeDependenciesOn(RelationRelationId, newIndexId, oldIndexId);
+
 	changeDependenciesOf(RelationRelationId, oldIndexId, newIndexId);
 	changeDependenciesOn(RelationRelationId, oldIndexId, newIndexId);
 
@@ -2012,6 +2024,15 @@ index_drop(Oid indexId, bool concurrent, bool concurrent_lock_mode)
 	LOCKMODE	lockmode;
 
 	/*
+	 * A temporary relation uses a non-concurrent DROP.  Other backends can't
+	 * access a temporary relation, so there's no harm in grabbing a stronger
+	 * lock (see comments in RemoveRelations), and a non-concurrent DROP is
+	 * more efficient.
+	 */
+	Assert(get_rel_persistence(indexId) != RELPERSISTENCE_TEMP ||
+		   (!concurrent && !concurrent_lock_mode));
+
+	/*
 	 * To drop an index safely, we must grab exclusive lock on its parent
 	 * table.  Exclusive lock on the index alone is insufficient because
 	 * another backend might be about to execute a query on the parent table.
@@ -2142,6 +2163,10 @@ index_drop(Oid indexId, bool concurrent, bool concurrent_lock_mode)
 		 * possible if one of the transactions in question is blocked trying
 		 * to acquire an exclusive lock on our table.  The lock code will
 		 * detect deadlock and error out properly.
+		 *
+		 * Note: we report progress through WaitForLockers() unconditionally
+		 * here, even though it will only be used when we're called by REINDEX
+		 * CONCURRENTLY and not when called by DROP INDEX CONCURRENTLY.
 		 */
 		WaitForLockers(heaplocktag, AccessExclusiveLock, true);
 
@@ -2157,7 +2182,7 @@ index_drop(Oid indexId, bool concurrent, bool concurrent_lock_mode)
 
 		/*
 		 * Wait till every transaction that saw the old index state has
-		 * finished.
+		 * finished.  See above about progress reporting.
 		 */
 		WaitForLockers(heaplocktag, AccessExclusiveLock, true);
 
@@ -2332,6 +2357,56 @@ BuildIndexInfo(Relation index)
 	ii->ii_Am = index->rd_rel->relam;
 	ii->ii_AmCache = NULL;
 	ii->ii_Context = CurrentMemoryContext;
+
+	return ii;
+}
+
+/* ----------------
+ *		BuildDummyIndexInfo
+ *			Construct a dummy IndexInfo record for an open index
+ *
+ * This differs from the real BuildIndexInfo in that it will never run any
+ * user-defined code that might exist in index expressions or predicates.
+ * Instead of the real index expressions, we return null constants that have
+ * the right types/typmods/collations.  Predicates and exclusion clauses are
+ * just ignored.  This is sufficient for the purpose of truncating an index,
+ * since we will not need to actually evaluate the expressions or predicates;
+ * the only thing that's likely to be done with the data is construction of
+ * a tupdesc describing the index's rowtype.
+ * ----------------
+ */
+IndexInfo *
+BuildDummyIndexInfo(Relation index)
+{
+	IndexInfo  *ii;
+	Form_pg_index indexStruct = index->rd_index;
+	int			i;
+	int			numAtts;
+
+	/* check the number of keys, and copy attr numbers into the IndexInfo */
+	numAtts = indexStruct->indnatts;
+	if (numAtts < 1 || numAtts > INDEX_MAX_KEYS)
+		elog(ERROR, "invalid indnatts %d for index %u",
+			 numAtts, RelationGetRelid(index));
+
+	/*
+	 * Create the node, using dummy index expressions, and pretending there is
+	 * no predicate.
+	 */
+	ii = makeIndexInfo(indexStruct->indnatts,
+					   indexStruct->indnkeyatts,
+					   index->rd_rel->relam,
+					   RelationGetDummyIndexExpressions(index),
+					   NIL,
+					   indexStruct->indisunique,
+					   indexStruct->indisready,
+					   false);
+
+	/* fill in attribute numbers */
+	for (i = 0; i < numAtts; i++)
+		ii->ii_IndexAttrNumbers[i] = indexStruct->indkey.values[i];
+
+	/* We ignore the exclusion constraint if any */
 
 	return ii;
 }
@@ -3422,6 +3497,17 @@ reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
 				 errmsg("cannot reindex temporary tables of other sessions")));
 
 	/*
+	 * Don't allow reindex of an invalid index on TOAST table.  This is a
+	 * leftover from a failed REINDEX CONCURRENTLY, and if rebuilt it would
+	 * not be possible to drop it anymore.
+	 */
+	if (IsToastNamespace(RelationGetNamespace(iRel)) &&
+		!get_index_isvalid(indexId))
+		ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				 errmsg("cannot reindex invalid index on TOAST table")));
+
+	/*
 	 * Also check for active uses of the index in the current transaction; we
 	 * don't want to reindex underneath an open indexscan.
 	 */
@@ -3447,26 +3533,17 @@ reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
 		indexInfo->ii_ExclusionStrats = NULL;
 	}
 
-	/* ensure SetReindexProcessing state isn't leaked */
-	PG_TRY();
-	{
-		/* Suppress use of the target index while rebuilding it */
-		SetReindexProcessing(heapId, indexId);
+	/* Suppress use of the target index while rebuilding it */
+	SetReindexProcessing(heapId, indexId);
 
-		/* Create a new physical relation for the index */
-		RelationSetNewRelfilenode(iRel, persistence);
+	/* Create a new physical relation for the index */
+	RelationSetNewRelfilenode(iRel, persistence);
 
-		/* Initialize the index and rebuild */
-		/* Note: we do not need to re-establish pkey setting */
-		index_build(heapRelation, iRel, indexInfo, true, true);
-	}
-	PG_CATCH();
-	{
-		/* Make sure flag gets cleared on error exit */
-		ResetReindexProcessing();
-		PG_RE_THROW();
-	}
-	PG_END_TRY();
+	/* Initialize the index and rebuild */
+	/* Note: we do not need to re-establish pkey setting */
+	index_build(heapRelation, iRel, indexInfo, true, true);
+
+	/* Re-allow use of target index */
 	ResetReindexProcessing();
 
 	/*
@@ -3604,7 +3681,9 @@ reindex_relation(Oid relid, int flags, int options)
 	Relation	rel;
 	Oid			toast_relid;
 	List	   *indexIds;
+	char		persistence;
 	bool		result;
+	ListCell   *indexId;
 	int			i;
 
 	/*
@@ -3639,62 +3718,65 @@ reindex_relation(Oid relid, int flags, int options)
 	 */
 	indexIds = RelationGetIndexList(rel);
 
-	PG_TRY();
+	if (flags & REINDEX_REL_SUPPRESS_INDEX_USE)
 	{
-		ListCell   *indexId;
-		char		persistence;
-
-		if (flags & REINDEX_REL_SUPPRESS_INDEX_USE)
-		{
-			/* Suppress use of all the indexes until they are rebuilt */
-			SetReindexPending(indexIds);
-
-			/*
-			 * Make the new heap contents visible --- now things might be
-			 * inconsistent!
-			 */
-			CommandCounterIncrement();
-		}
+		/* Suppress use of all the indexes until they are rebuilt */
+		SetReindexPending(indexIds);
 
 		/*
-		 * Compute persistence of indexes: same as that of owning rel, unless
-		 * caller specified otherwise.
+		 * Make the new heap contents visible --- now things might be
+		 * inconsistent!
 		 */
-		if (flags & REINDEX_REL_FORCE_INDEXES_UNLOGGED)
-			persistence = RELPERSISTENCE_UNLOGGED;
-		else if (flags & REINDEX_REL_FORCE_INDEXES_PERMANENT)
-			persistence = RELPERSISTENCE_PERMANENT;
-		else
-			persistence = rel->rd_rel->relpersistence;
-
-		/* Reindex all the indexes. */
-		i = 1;
-		foreach(indexId, indexIds)
-		{
-			Oid			indexOid = lfirst_oid(indexId);
-
-			reindex_index(indexOid, !(flags & REINDEX_REL_CHECK_CONSTRAINTS),
-						  persistence, options);
-
-			CommandCounterIncrement();
-
-			/* Index should no longer be in the pending list */
-			Assert(!ReindexIsProcessingIndex(indexOid));
-
-			/* Set index rebuild count */
-			pgstat_progress_update_param(PROGRESS_CLUSTER_INDEX_REBUILD_COUNT,
-										 i);
-			i++;
-		}
+		CommandCounterIncrement();
 	}
-	PG_CATCH();
+
+	/*
+	 * Compute persistence of indexes: same as that of owning rel, unless
+	 * caller specified otherwise.
+	 */
+	if (flags & REINDEX_REL_FORCE_INDEXES_UNLOGGED)
+		persistence = RELPERSISTENCE_UNLOGGED;
+	else if (flags & REINDEX_REL_FORCE_INDEXES_PERMANENT)
+		persistence = RELPERSISTENCE_PERMANENT;
+	else
+		persistence = rel->rd_rel->relpersistence;
+
+	/* Reindex all the indexes. */
+	i = 1;
+	foreach(indexId, indexIds)
 	{
-		/* Make sure list gets cleared on error exit */
-		ResetReindexPending();
-		PG_RE_THROW();
+		Oid			indexOid = lfirst_oid(indexId);
+		Oid			indexNamespaceId = get_rel_namespace(indexOid);
+
+		/*
+		 * Skip any invalid indexes on a TOAST table.  These can only be
+		 * duplicate leftovers from a failed REINDEX CONCURRENTLY, and if
+		 * rebuilt it would not be possible to drop them anymore.
+		 */
+		if (IsToastNamespace(indexNamespaceId) &&
+			!get_index_isvalid(indexOid))
+		{
+			ereport(WARNING,
+					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+					 errmsg("cannot reindex invalid index \"%s.%s\" on TOAST table, skipping",
+							get_namespace_name(indexNamespaceId),
+							get_rel_name(indexOid))));
+			continue;
+		}
+
+		reindex_index(indexOid, !(flags & REINDEX_REL_CHECK_CONSTRAINTS),
+					  persistence, options);
+
+		CommandCounterIncrement();
+
+		/* Index should no longer be in the pending list */
+		Assert(!ReindexIsProcessingIndex(indexOid));
+
+		/* Set index rebuild count */
+		pgstat_progress_update_param(PROGRESS_CLUSTER_INDEX_REBUILD_COUNT,
+									 i);
+		i++;
 	}
-	PG_END_TRY();
-	ResetReindexPending();
 
 	/*
 	 * Close rel, but continue to hold the lock.
@@ -3728,6 +3810,7 @@ reindex_relation(Oid relid, int flags, int options)
 static Oid	currentlyReindexedHeap = InvalidOid;
 static Oid	currentlyReindexedIndex = InvalidOid;
 static List *pendingReindexedIndexes = NIL;
+static int	reindexingNestLevel = 0;
 
 /*
  * ReindexIsProcessingHeap
@@ -3764,8 +3847,6 @@ ReindexIsProcessingIndex(Oid indexOid)
 /*
  * SetReindexProcessing
  *		Set flag that specified heap/index are being reindexed.
- *
- * NB: caller must use a PG_TRY block to ensure ResetReindexProcessing is done.
  */
 static void
 SetReindexProcessing(Oid heapOid, Oid indexOid)
@@ -3778,6 +3859,8 @@ SetReindexProcessing(Oid heapOid, Oid indexOid)
 	currentlyReindexedIndex = indexOid;
 	/* Index is no longer "pending" reindex. */
 	RemoveReindexPending(indexOid);
+	/* This may have been set already, but in case it isn't, do so now. */
+	reindexingNestLevel = GetCurrentTransactionNestLevel();
 }
 
 /*
@@ -3787,17 +3870,16 @@ SetReindexProcessing(Oid heapOid, Oid indexOid)
 static void
 ResetReindexProcessing(void)
 {
-	/* This may be called in leader error path */
 	currentlyReindexedHeap = InvalidOid;
 	currentlyReindexedIndex = InvalidOid;
+	/* reindexingNestLevel remains set till end of (sub)transaction */
 }
 
 /*
  * SetReindexPending
  *		Mark the given indexes as pending reindex.
  *
- * NB: caller must use a PG_TRY block to ensure ResetReindexPending is done.
- * Also, we assume that the current memory context stays valid throughout.
+ * NB: we assume that the current memory context stays valid throughout.
  */
 static void
 SetReindexPending(List *indexes)
@@ -3808,6 +3890,7 @@ SetReindexPending(List *indexes)
 	if (IsInParallelMode())
 		elog(ERROR, "cannot modify reindex state during a parallel operation");
 	pendingReindexedIndexes = list_copy(indexes);
+	reindexingNestLevel = GetCurrentTransactionNestLevel();
 }
 
 /*
@@ -3824,14 +3907,32 @@ RemoveReindexPending(Oid indexOid)
 }
 
 /*
- * ResetReindexPending
- *		Unset reindex-pending status.
+ * ResetReindexState
+ *		Clear all reindexing state during (sub)transaction abort.
  */
-static void
-ResetReindexPending(void)
+void
+ResetReindexState(int nestLevel)
 {
-	/* This may be called in leader error path */
-	pendingReindexedIndexes = NIL;
+	/*
+	 * Because reindexing is not re-entrant, we don't need to cope with nested
+	 * reindexing states.  We just need to avoid messing up the outer-level
+	 * state in case a subtransaction fails within a REINDEX.  So checking the
+	 * current nest level against that of the reindex operation is sufficient.
+	 */
+	if (reindexingNestLevel >= nestLevel)
+	{
+		currentlyReindexedHeap = InvalidOid;
+		currentlyReindexedIndex = InvalidOid;
+
+		/*
+		 * We needn't try to release the contents of pendingReindexedIndexes;
+		 * that list should be in a transaction-lifespan context, so it will
+		 * go away automatically.
+		 */
+		pendingReindexedIndexes = NIL;
+
+		reindexingNestLevel = 0;
+	}
 }
 
 /*
@@ -3884,4 +3985,7 @@ RestoreReindexState(void *reindexstate)
 			lappend_oid(pendingReindexedIndexes,
 						sistate->pendingReindexedIndexes[c]);
 	MemoryContextSwitchTo(oldcontext);
+
+	/* Note the worker has its own transaction nesting level */
+	reindexingNestLevel = GetCurrentTransactionNestLevel();
 }

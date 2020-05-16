@@ -117,8 +117,9 @@ static void ExplainModifyTarget(ModifyTable *plan, ExplainState *es);
 static void ExplainTargetRel(Plan *plan, Index rti, ExplainState *es);
 static void show_modifytable_info(ModifyTableState *mtstate, List *ancestors,
 								  ExplainState *es);
-static void ExplainMemberNodes(PlanState **planstates, int nsubnodes,
-							   int nplans, List *ancestors, ExplainState *es);
+static void ExplainMemberNodes(PlanState **planstates, int nplans,
+							   List *ancestors, ExplainState *es);
+static void ExplainMissingMembers(int nplans, int nchildren, ExplainState *es);
 static void ExplainSubPlans(List *plans, List *ancestors,
 							const char *relationship, ExplainState *es);
 static void ExplainCustomChildren(CustomScanState *css,
@@ -616,17 +617,11 @@ ExplainPrintSettings(ExplainState *es)
 	/* request an array of relevant settings */
 	gucs = get_explain_guc_options(&num);
 
-	/* also bail out of there are no options */
-	if (!num)
-		return;
-
 	if (es->format != EXPLAIN_FORMAT_TEXT)
 	{
-		int			i;
-
 		ExplainOpenGroup("Settings", "Settings", true, es);
 
-		for (i = 0; i < num; i++)
+		for (int i = 0; i < num; i++)
 		{
 			char	   *setting;
 			struct config_generic *conf = gucs[i];
@@ -640,12 +635,15 @@ ExplainPrintSettings(ExplainState *es)
 	}
 	else
 	{
-		int			i;
 		StringInfoData str;
+
+		/* In TEXT mode, print nothing if there are no options */
+		if (num <= 0)
+			return;
 
 		initStringInfo(&str);
 
-		for (i = 0; i < num; i++)
+		for (int i = 0; i < num; i++)
 		{
 			char	   *setting;
 			struct config_generic *conf = gucs[i];
@@ -661,8 +659,7 @@ ExplainPrintSettings(ExplainState *es)
 				appendStringInfo(&str, "%s = NULL", conf->name);
 		}
 
-		if (num > 0)
-			ExplainPropertyText("Settings", str.data, es);
+		ExplainPropertyText("Settings", str.data, es);
 	}
 }
 
@@ -1937,6 +1934,30 @@ ExplainNode(PlanState *planstate, List *ancestors,
 			ExplainCloseGroup("Workers", "Workers", false, es);
 	}
 
+	/*
+	 * If partition pruning was done during executor initialization, the
+	 * number of child plans we'll display below will be less than the number
+	 * of subplans that was specified in the plan.  To make this a bit less
+	 * mysterious, emit an indication that this happened.  Note that this
+	 * field is emitted now because we want it to be a property of the parent
+	 * node; it *cannot* be emitted within the Plans sub-node we'll open next.
+	 */
+	switch (nodeTag(plan))
+	{
+		case T_Append:
+			ExplainMissingMembers(((AppendState *) planstate)->as_nplans,
+								  list_length(((Append *) plan)->appendplans),
+								  es);
+			break;
+		case T_MergeAppend:
+			ExplainMissingMembers(((MergeAppendState *) planstate)->ms_nplans,
+								  list_length(((MergeAppend *) plan)->mergeplans),
+								  es);
+			break;
+		default:
+			break;
+	}
+
 	/* Get ready to display the child plans */
 	haschildren = planstate->initPlan ||
 		outerPlanState(planstate) ||
@@ -1977,31 +1998,26 @@ ExplainNode(PlanState *planstate, List *ancestors,
 		case T_ModifyTable:
 			ExplainMemberNodes(((ModifyTableState *) planstate)->mt_plans,
 							   ((ModifyTableState *) planstate)->mt_nplans,
-							   list_length(((ModifyTable *) plan)->plans),
 							   ancestors, es);
 			break;
 		case T_Append:
 			ExplainMemberNodes(((AppendState *) planstate)->appendplans,
 							   ((AppendState *) planstate)->as_nplans,
-							   list_length(((Append *) plan)->appendplans),
 							   ancestors, es);
 			break;
 		case T_MergeAppend:
 			ExplainMemberNodes(((MergeAppendState *) planstate)->mergeplans,
 							   ((MergeAppendState *) planstate)->ms_nplans,
-							   list_length(((MergeAppend *) plan)->mergeplans),
 							   ancestors, es);
 			break;
 		case T_BitmapAnd:
 			ExplainMemberNodes(((BitmapAndState *) planstate)->bitmapplans,
 							   ((BitmapAndState *) planstate)->nplans,
-							   list_length(((BitmapAnd *) plan)->bitmapplans),
 							   ancestors, es);
 			break;
 		case T_BitmapOr:
 			ExplainMemberNodes(((BitmapOrState *) planstate)->bitmapplans,
 							   ((BitmapOrState *) planstate)->nplans,
-							   list_length(((BitmapOr *) plan)->bitmapplans),
 							   ancestors, es);
 			break;
 		case T_SubqueryScan:
@@ -3314,30 +3330,31 @@ show_modifytable_info(ModifyTableState *mtstate, List *ancestors,
  *
  * The ancestors list should already contain the immediate parent of these
  * plans.
-*
-* nsubnodes indicates the number of items in the planstates array.
-* nplans indicates the original number of subnodes in the Plan, some of these
-* may have been pruned by the run-time pruning code.
  */
 static void
-ExplainMemberNodes(PlanState **planstates, int nsubnodes, int nplans,
+ExplainMemberNodes(PlanState **planstates, int nplans,
 				   List *ancestors, ExplainState *es)
 {
 	int			j;
 
-	/*
-	 * The number of subnodes being lower than the number of subplans that was
-	 * specified in the plan means that some subnodes have been ignored per
-	 * instruction for the partition pruning code during the executor
-	 * initialization.  To make this a bit less mysterious, we'll indicate
-	 * here that this has happened.
-	 */
-	if (nsubnodes < nplans)
-		ExplainPropertyInteger("Subplans Removed", NULL, nplans - nsubnodes, es);
-
-	for (j = 0; j < nsubnodes; j++)
+	for (j = 0; j < nplans; j++)
 		ExplainNode(planstates[j], ancestors,
 					"Member", NULL, es);
+}
+
+/*
+ * Report about any pruned subnodes of an Append or MergeAppend node.
+ *
+ * nplans indicates the number of live subplans.
+ * nchildren indicates the original number of subnodes in the Plan;
+ * some of these may have been pruned by the run-time pruning code.
+ */
+static void
+ExplainMissingMembers(int nplans, int nchildren, ExplainState *es)
+{
+	if (nplans < nchildren || es->format != EXPLAIN_FORMAT_TEXT)
+		ExplainPropertyInteger("Subplans Removed", NULL,
+							   nchildren - nplans, es);
 }
 
 /*

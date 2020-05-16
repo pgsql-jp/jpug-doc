@@ -216,6 +216,13 @@ SELECT s.stxkind, d.stxdndistinct
  {d,f,m} | {"3, 4": 11, "3, 6": 11, "4, 6": 11, "3, 4, 6": 11}
 (1 row)
 
+-- minor improvement, make sure the ctid does not break the matching
+SELECT * FROM check_estimated_rows('SELECT COUNT(*) FROM ndistinct GROUP BY ctid, a, b');
+ estimated | actual 
+-----------+--------
+        11 |   1000
+(1 row)
+
 -- Hash Aggregate, thanks to estimates improved by the statistic
 SELECT * FROM check_estimated_rows('SELECT COUNT(*) FROM ndistinct GROUP BY a, b');
  estimated | actual 
@@ -510,6 +517,18 @@ SELECT * FROM check_estimated_rows('SELECT * FROM mcv_lists WHERE a <= 4 AND b <
          1 |     50
 (1 row)
 
+SELECT * FROM check_estimated_rows('SELECT * FROM mcv_lists WHERE a = 1 OR b = ''1'' OR c = 1');
+ estimated | actual 
+-----------+--------
+       343 |    200
+(1 row)
+
+SELECT * FROM check_estimated_rows('SELECT * FROM mcv_lists WHERE a = 1 OR b = ''1'' OR c = 1 OR d IS NOT NULL');
+ estimated | actual 
+-----------+--------
+       343 |    200
+(1 row)
+
 -- create statistics
 CREATE STATISTICS mcv_lists_stats (mcv) ON a, b, c FROM mcv_lists;
 ANALYZE mcv_lists;
@@ -547,6 +566,19 @@ SELECT * FROM check_estimated_rows('SELECT * FROM mcv_lists WHERE a <= 4 AND b <
  estimated | actual 
 -----------+--------
         50 |     50
+(1 row)
+
+SELECT * FROM check_estimated_rows('SELECT * FROM mcv_lists WHERE a = 1 OR b = ''1'' OR c = 1');
+ estimated | actual 
+-----------+--------
+       200 |    200
+(1 row)
+
+-- we can't use the statistic for OR clauses that are not fully covered (missing 'd' attribute)
+SELECT * FROM check_estimated_rows('SELECT * FROM mcv_lists WHERE a = 1 OR b = ''1'' OR c = 1 OR d IS NOT NULL');
+ estimated | actual 
+-----------+--------
+       343 |    200
 (1 row)
 
 -- check change of unrelated column type does not reset the MCV statistics

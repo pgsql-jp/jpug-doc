@@ -1455,7 +1455,25 @@ alter table fkpart2.fk_part detach partition fkpart2.fk_part_1;
 alter table fkpart2.fk_part_1 drop constraint fkey;	-- ok
 alter table fkpart2.fk_part_1_1 drop constraint my_fkey;	-- doesn't exist
 
-drop schema fkpart0, fkpart1, fkpart2 cascade;
+-- verify constraint deferrability
+create schema fkpart3
+  create table pkey (a int primary key)
+  create table fk_part (a int, constraint fkey foreign key (a) references fkpart3.pkey deferrable initially immediate) partition by list (a)
+  create table fk_part_1 partition of fkpart3.fk_part for values in (1) partition by list (a)
+  create table fk_part_1_1 partition of fkpart3.fk_part_1 for values in (1)
+  create table fk_part_2 partition of fkpart3.fk_part for values in (2);
+begin;
+set constraints fkpart3.fkey deferred;
+insert into fkpart3.fk_part values (1);
+insert into fkpart3.pkey values (1);
+commit;
+begin;
+set constraints fkpart3.fkey deferred;
+delete from fkpart3.pkey;
+delete from fkpart3.fk_part;
+commit;
+
+drop schema fkpart0, fkpart1, fkpart2, fkpart3 cascade;
 
 -- Test a partitioned table as referenced table.
 
@@ -1595,6 +1613,31 @@ CREATE TABLE fk4 (LIKE fk);
 INSERT INTO fk4 VALUES (50);
 ALTER TABLE fk ATTACH PARTITION fk4 FOR VALUES IN (50);
 
+-- Verify constraint deferrability
+CREATE SCHEMA fkpart9;
+SET search_path TO fkpart9;
+CREATE TABLE pk (a int PRIMARY KEY) PARTITION BY LIST (a);
+CREATE TABLE pk1 PARTITION OF pk FOR VALUES IN (1, 2) PARTITION BY LIST (a);
+CREATE TABLE pk11 PARTITION OF pk1 FOR VALUES IN (1);
+CREATE TABLE pk3 PARTITION OF pk FOR VALUES IN (3);
+CREATE TABLE fk (a int REFERENCES pk DEFERRABLE INITIALLY IMMEDIATE);
+INSERT INTO fk VALUES (1);		-- should fail
+BEGIN;
+SET CONSTRAINTS fk_a_fkey DEFERRED;
+INSERT INTO fk VALUES (1);
+COMMIT;							-- should fail
+BEGIN;
+SET CONSTRAINTS fk_a_fkey DEFERRED;
+INSERT INTO fk VALUES (1);
+INSERT INTO pk VALUES (1);
+COMMIT;							-- OK
+BEGIN;
+SET CONSTRAINTS fk_a_fkey DEFERRED;
+DELETE FROM pk WHERE a = 1;
+DELETE FROM fk WHERE a = 1;
+COMMIT;							-- OK
+DROP SCHEMA fkpart9 CASCADE;
+
 -- Verify ON UPDATE/DELETE behavior
 CREATE SCHEMA fkpart6;
 SET search_path TO fkpart6;
@@ -1679,3 +1722,19 @@ INSERT INTO fkpart8.tbl2 VALUES(1);
 ALTER TABLE fkpart8.tbl2 DROP CONSTRAINT tbl2_f1_fkey;
 COMMIT;
 DROP SCHEMA fkpart8 CASCADE;
+
+-- ensure FK referencing a multi-level partitioned table are
+-- enforce reference to sub-children.
+CREATE SCHEMA fkpart9
+  CREATE TABLE pk (a INT PRIMARY KEY) PARTITION BY RANGE (a)
+  CREATE TABLE fk (
+    fk_a INT REFERENCES pk(a) ON DELETE CASCADE
+  )
+  CREATE TABLE pk1 PARTITION OF pk FOR VALUES FROM (30) TO (50) PARTITION BY RANGE (a)
+  CREATE TABLE pk11 PARTITION OF pk1 FOR VALUES FROM (30) TO (40);
+INSERT INTO fkpart9.pk VALUES (35);
+INSERT INTO fkpart9.fk VALUES (35);
+DELETE FROM fkpart9.pk WHERE a=35;
+SELECT * FROM fkpart9.pk;
+SELECT * FROM fkpart9.fk;
+DROP SCHEMA fkpart9 CASCADE;

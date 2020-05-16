@@ -81,7 +81,7 @@ CREATE TABLE no_index_cleanup (i INT PRIMARY KEY, t TEXT);
 CREATE INDEX no_index_cleanup_idx ON no_index_cleanup(t);
 ALTER TABLE no_index_cleanup ALTER COLUMN t SET STORAGE EXTERNAL;
 INSERT INTO no_index_cleanup(i, t) VALUES (generate_series(1,30),
-    repeat('1234567890',300));
+    repeat('1234567890',269));
 -- index cleanup option is ignored if VACUUM FULL
 VACUUM (INDEX_CLEANUP TRUE, FULL TRUE) no_index_cleanup;
 VACUUM (FULL TRUE) no_index_cleanup;
@@ -95,7 +95,7 @@ ALTER TABLE no_index_cleanup SET (vacuum_index_cleanup = true);
 VACUUM no_index_cleanup;
 -- Parameter is set for both the parent table and its toast relation.
 INSERT INTO no_index_cleanup(i, t) VALUES (generate_series(31,60),
-    repeat('1234567890',300));
+    repeat('1234567890',269));
 DELETE FROM no_index_cleanup WHERE i < 45;
 -- Only toast index is cleaned up.
 ALTER TABLE no_index_cleanup SET (vacuum_index_cleanup = false,
@@ -158,7 +158,9 @@ ANALYZE (nonexistent-arg) does_not_exist;
 ANALYZE (nonexistentarg) does_not_exit;
 
 -- ensure argument order independence, and that SKIP_LOCKED on non-existing
--- relation still errors out.
+-- relation still errors out.  Suppress WARNING messages caused by concurrent
+-- autovacuums.
+SET client_min_messages TO 'ERROR';
 ANALYZE (SKIP_LOCKED, VERBOSE) does_not_exist;
 ANALYZE (VERBOSE, SKIP_LOCKED) does_not_exist;
 
@@ -166,6 +168,7 @@ ANALYZE (VERBOSE, SKIP_LOCKED) does_not_exist;
 VACUUM (SKIP_LOCKED) vactst;
 VACUUM (SKIP_LOCKED, FULL) vactst;
 ANALYZE (SKIP_LOCKED) vactst;
+RESET client_min_messages;
 
 -- ensure VACUUM and ANALYZE don't have a problem with serializable
 SET default_transaction_isolation = serializable;

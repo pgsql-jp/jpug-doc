@@ -4567,9 +4567,6 @@ static struct config_generic **guc_variables;
 /* Current number of variables contained in the vector */
 static int	num_guc_variables;
 
-/* Current number of variables marked with GUC_EXPLAIN */
-static int	num_guc_explain_variables;
-
 /* Vector capacity */
 static int	size_guc_variables;
 
@@ -4833,7 +4830,6 @@ build_guc_variables(void)
 {
 	int			size_vars;
 	int			num_vars = 0;
-	int			num_explain_vars = 0;
 	struct config_generic **guc_vars;
 	int			i;
 
@@ -4844,9 +4840,6 @@ build_guc_variables(void)
 		/* Rather than requiring vartype to be filled in by hand, do this: */
 		conf->gen.vartype = PGC_BOOL;
 		num_vars++;
-
-		if (conf->gen.flags & GUC_EXPLAIN)
-			num_explain_vars++;
 	}
 
 	for (i = 0; ConfigureNamesInt[i].gen.name; i++)
@@ -4855,9 +4848,6 @@ build_guc_variables(void)
 
 		conf->gen.vartype = PGC_INT;
 		num_vars++;
-
-		if (conf->gen.flags & GUC_EXPLAIN)
-			num_explain_vars++;
 	}
 
 	for (i = 0; ConfigureNamesReal[i].gen.name; i++)
@@ -4866,9 +4856,6 @@ build_guc_variables(void)
 
 		conf->gen.vartype = PGC_REAL;
 		num_vars++;
-
-		if (conf->gen.flags & GUC_EXPLAIN)
-			num_explain_vars++;
 	}
 
 	for (i = 0; ConfigureNamesString[i].gen.name; i++)
@@ -4877,9 +4864,6 @@ build_guc_variables(void)
 
 		conf->gen.vartype = PGC_STRING;
 		num_vars++;
-
-		if (conf->gen.flags & GUC_EXPLAIN)
-			num_explain_vars++;
 	}
 
 	for (i = 0; ConfigureNamesEnum[i].gen.name; i++)
@@ -4888,9 +4872,6 @@ build_guc_variables(void)
 
 		conf->gen.vartype = PGC_ENUM;
 		num_vars++;
-
-		if (conf->gen.flags & GUC_EXPLAIN)
-			num_explain_vars++;
 	}
 
 	/*
@@ -4922,7 +4903,6 @@ build_guc_variables(void)
 		free(guc_variables);
 	guc_variables = guc_vars;
 	num_guc_variables = num_vars;
-	num_guc_explain_variables = num_explain_vars;
 	size_guc_variables = size_vars;
 	qsort((void *) guc_variables, num_guc_variables,
 		  sizeof(struct config_generic *), guc_var_compare);
@@ -8871,41 +8851,40 @@ ShowAllGUCConfig(DestReceiver *dest)
 }
 
 /*
- * Returns an array of modified GUC options to show in EXPLAIN. Only options
- * related to query planning (marked with GUC_EXPLAIN), with values different
- * from built-in defaults.
+ * Return an array of modified GUC options to show in EXPLAIN.
+ *
+ * We only report options related to query planning (marked with GUC_EXPLAIN),
+ * with values different from their built-in defaults.
  */
 struct config_generic **
 get_explain_guc_options(int *num)
 {
-	int			i;
 	struct config_generic **result;
 
 	*num = 0;
 
 	/*
-	 * Allocate enough space to fit all GUC_EXPLAIN options. We may not need
-	 * all the space, but there are fairly few such options so we don't waste
-	 * a lot of memory.
+	 * While only a fraction of all the GUC variables are marked GUC_EXPLAIN,
+	 * it doesn't seem worth dynamically resizing this array.
 	 */
-	result = palloc(sizeof(struct config_generic *) * num_guc_explain_variables);
+	result = palloc(sizeof(struct config_generic *) * num_guc_variables);
 
-	for (i = 0; i < num_guc_variables; i++)
+	for (int i = 0; i < num_guc_variables; i++)
 	{
 		bool		modified;
 		struct config_generic *conf = guc_variables[i];
 
-		/* return only options visible to the user */
+		/* return only parameters marked for inclusion in explain */
+		if (!(conf->flags & GUC_EXPLAIN))
+			continue;
+
+		/* return only options visible to the current user */
 		if ((conf->flags & GUC_NO_SHOW_ALL) ||
 			((conf->flags & GUC_SUPERUSER_ONLY) &&
 			 !is_member_of_role(GetUserId(), DEFAULT_ROLE_READ_ALL_SETTINGS)))
 			continue;
 
-		/* only parameters explicitly marked for inclusion in explain */
-		if (!(conf->flags & GUC_EXPLAIN))
-			continue;
-
-		/* return only options that were modified (w.r.t. config file) */
+		/* return only options that are different from their boot values */
 		modified = false;
 
 		switch (conf->vartype)
@@ -8954,15 +8933,12 @@ get_explain_guc_options(int *num)
 				elog(ERROR, "unexpected GUC type: %d", conf->vartype);
 		}
 
-		/* skip GUC variables that match the built-in default */
 		if (!modified)
 			continue;
 
-		/* assign to the values array */
+		/* OK, report it */
 		result[*num] = conf;
 		*num = *num + 1;
-
-		Assert(*num <= num_guc_explain_variables);
 	}
 
 	return result;
@@ -10210,6 +10186,21 @@ read_gucstate_binary(char **srcptr, char *srcend, void *dest, Size size)
 }
 
 /*
+ * Callback used to add a context message when reporting errors that occur
+ * while trying to restore GUCs in parallel workers.
+ */
+static void
+guc_restore_error_context_callback(void *arg)
+{
+	char	  **error_context_name_and_value = (char **) arg;
+
+	if (error_context_name_and_value)
+		errcontext("while setting parameter \"%s\" to \"%s\"",
+				   error_context_name_and_value[0],
+				   error_context_name_and_value[1]);
+}
+
+/*
  * RestoreGUCState:
  * Reads the GUC state at the specified address and updates the GUCs with the
  * values read from the GUC state.
@@ -10227,6 +10218,7 @@ RestoreGUCState(void *gucstate)
 	char	   *srcend;
 	Size		len;
 	int			i;
+	ErrorContextCallback error_context_callback;
 
 	/* See comment at can_skip_gucvar(). */
 	for (i = 0; i < num_guc_variables; i++)
@@ -10239,9 +10231,16 @@ RestoreGUCState(void *gucstate)
 	srcptr += sizeof(len);
 	srcend = srcptr + len;
 
+	/* If the GUC value check fails, we want errors to show useful context. */
+	error_context_callback.callback = guc_restore_error_context_callback;
+	error_context_callback.previous = error_context_stack;
+	error_context_callback.arg = NULL;
+	error_context_stack = &error_context_callback;
+
 	while (srcptr < srcend)
 	{
 		int			result;
+		char	   *error_context_name_and_value[2];
 
 		varname = read_gucstate(&srcptr, srcend);
 		varvalue = read_gucstate(&srcptr, srcend);
@@ -10256,6 +10255,9 @@ RestoreGUCState(void *gucstate)
 		read_gucstate_binary(&srcptr, srcend,
 							 &varscontext, sizeof(varscontext));
 
+		error_context_name_and_value[0] = varname;
+		error_context_name_and_value[1] = varvalue;
+		error_context_callback.arg = &error_context_name_and_value[0];
 		result = set_config_option(varname, varvalue, varscontext, varsource,
 								   GUC_ACTION_SET, true, ERROR, true);
 		if (result <= 0)
@@ -10264,7 +10266,10 @@ RestoreGUCState(void *gucstate)
 					 errmsg("parameter \"%s\" could not be set", varname)));
 		if (varsourcefile[0])
 			set_config_sourcefile(varname, varsourcefile, varsourceline);
+		error_context_callback.arg = NULL;
 	}
+
+	error_context_stack = error_context_callback.previous;
 }
 
 /*

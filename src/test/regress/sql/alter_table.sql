@@ -1463,6 +1463,12 @@ select reltoastrelid <> 0 as has_toast_table
 from pg_class
 where oid = 'test_storage'::regclass;
 
+-- test that SET STORAGE propagates to index correctly
+create index test_storage_idx on test_storage (b, a);
+alter table test_storage alter column a set storage external;
+\d+ test_storage
+\d+ test_storage_idx
+
 -- ALTER COLUMN TYPE with a check constraint and a child table (bug #13779)
 CREATE TABLE test_inh_check (a float check (a > 10.2), b float);
 CREATE TABLE test_inh_check_child() INHERITS(test_inh_check);
@@ -1549,6 +1555,69 @@ select * from at_view_2;
 drop view at_view_2;
 drop view at_view_1;
 drop table at_base_table;
+
+-- check adding a column not iself requiring a rewrite, together with
+-- a column requiring a default (bug #16038)
+
+-- ensure that rewrites aren't silently optimized away, removing the
+-- value of the test
+CREATE FUNCTION check_ddl_rewrite(p_tablename regclass, p_ddl text)
+RETURNS boolean
+LANGUAGE plpgsql AS $$
+DECLARE
+    v_relfilenode oid;
+BEGIN
+    v_relfilenode := relfilenode FROM pg_class WHERE oid = p_tablename;
+
+    EXECUTE p_ddl;
+
+    RETURN v_relfilenode <> (SELECT relfilenode FROM pg_class WHERE oid = p_tablename);
+END;
+$$;
+
+CREATE TABLE rewrite_test(col text);
+INSERT INTO rewrite_test VALUES ('something');
+INSERT INTO rewrite_test VALUES (NULL);
+
+-- empty[12] don't need rewrite, but notempty[12]_rewrite will force one
+SELECT check_ddl_rewrite('rewrite_test', $$
+  ALTER TABLE rewrite_test
+      ADD COLUMN empty1 text,
+      ADD COLUMN notempty1_rewrite serial;
+$$);
+SELECT check_ddl_rewrite('rewrite_test', $$
+    ALTER TABLE rewrite_test
+        ADD COLUMN notempty2_rewrite serial,
+        ADD COLUMN empty2 text;
+$$);
+-- also check that fast defaults cause no problem, first without rewrite
+SELECT check_ddl_rewrite('rewrite_test', $$
+    ALTER TABLE rewrite_test
+        ADD COLUMN empty3 text,
+        ADD COLUMN notempty3_norewrite int default 42;
+$$);
+SELECT check_ddl_rewrite('rewrite_test', $$
+    ALTER TABLE rewrite_test
+        ADD COLUMN notempty4_norewrite int default 42,
+        ADD COLUMN empty4 text;
+$$);
+-- then with rewrite
+SELECT check_ddl_rewrite('rewrite_test', $$
+    ALTER TABLE rewrite_test
+        ADD COLUMN empty5 text,
+        ADD COLUMN notempty5_norewrite int default 42,
+        ADD COLUMN notempty5_rewrite serial;
+$$);
+SELECT check_ddl_rewrite('rewrite_test', $$
+    ALTER TABLE rewrite_test
+        ADD COLUMN notempty6_rewrite serial,
+        ADD COLUMN empty6 text,
+        ADD COLUMN notempty6_norewrite int default 42;
+$$);
+
+-- cleanup
+DROP FUNCTION check_ddl_rewrite(regclass, text);
+DROP TABLE rewrite_test;
 
 --
 -- lock levels
@@ -2712,3 +2781,67 @@ alter table at_test_sql_partop attach partition at_test_sql_partop_1 for values 
 drop table at_test_sql_partop;
 drop operator class at_test_sql_partop using btree;
 drop function at_test_sql_partop;
+
+
+/* Test case for bug #16242 */
+
+-- We create a parent and child where the child has missing
+-- non-null attribute values, and arrange to pass them through
+-- tuple conversion from the child to the parent tupdesc
+create table bar1 (a integer, b integer not null default 1)
+  partition by range (a);
+create table bar2 (a integer);
+insert into bar2 values (1);
+alter table bar2 add column b integer not null default 1;
+-- (at this point bar2 contains tuple with natts=1)
+alter table bar1 attach partition bar2 default;
+
+-- this works:
+select * from bar1;
+
+-- this exercises tuple conversion:
+create function xtrig()
+  returns trigger language plpgsql
+as $$
+  declare
+    r record;
+  begin
+    for r in select * from old loop
+      raise info 'a=%, b=%', r.a, r.b;
+    end loop;
+    return NULL;
+  end;
+$$;
+create trigger xtrig
+  after update on bar1
+  referencing old table as old
+  for each statement execute procedure xtrig();
+
+update bar1 set a = a + 1;
+
+/* End test case for bug #16242 */
+
+-- Test that ALTER TABLE rewrite preserves a clustered index
+-- for normal indexes and indexes on constraints.
+create table alttype_cluster (a int);
+alter table alttype_cluster add primary key (a);
+create index alttype_cluster_ind on alttype_cluster (a);
+alter table alttype_cluster cluster on alttype_cluster_ind;
+-- Normal index remains clustered.
+select indexrelid::regclass, indisclustered from pg_index
+  where indrelid = 'alttype_cluster'::regclass
+  order by indexrelid::regclass::text;
+alter table alttype_cluster alter a type bigint;
+select indexrelid::regclass, indisclustered from pg_index
+  where indrelid = 'alttype_cluster'::regclass
+  order by indexrelid::regclass::text;
+-- Constraint index remains clustered.
+alter table alttype_cluster cluster on alttype_cluster_pkey;
+select indexrelid::regclass, indisclustered from pg_index
+  where indrelid = 'alttype_cluster'::regclass
+  order by indexrelid::regclass::text;
+alter table alttype_cluster alter a type int;
+select indexrelid::regclass, indisclustered from pg_index
+  where indrelid = 'alttype_cluster'::regclass
+  order by indexrelid::regclass::text;
+drop table alttype_cluster;

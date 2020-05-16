@@ -1118,7 +1118,12 @@ text_position(text *t1, text *t2, Oid collid)
 	TextPositionState state;
 	int			result;
 
-	if (VARSIZE_ANY_EXHDR(t1) < 1 || VARSIZE_ANY_EXHDR(t2) < 1)
+	/* Empty needle always matches at position 1 */
+	if (VARSIZE_ANY_EXHDR(t2) < 1)
+		return 1;
+
+	/* Otherwise, can't match if haystack is shorter than needle */
+	if (VARSIZE_ANY_EXHDR(t1) < VARSIZE_ANY_EXHDR(t2))
 		return 0;
 
 	text_position_setup(t1, t2, collid, &state);
@@ -1272,6 +1277,9 @@ text_position_setup(text *t1, text *t2, Oid collid, TextPositionState *state)
  * Advance to the next match, starting from the end of the previous match
  * (or the beginning of the string, on first call).  Returns true if a match
  * is found.
+ *
+ * Note that this refuses to match an empty-string needle.  Most callers
+ * will have handled that case specially and we'll never see it here.
  */
 static bool
 text_position_next(TextPositionState *state)
@@ -3435,11 +3443,12 @@ byteaGetBit(PG_FUNCTION_ARGS)
 
 	len = VARSIZE_ANY_EXHDR(v);
 
-	if (n < 0 || n >= len * 8)
+	/* Do comparison arithmetic in int64 in case len exceeds INT_MAX/8 */
+	if (n < 0 || n >= (int64) len * 8)
 		ereport(ERROR,
 				(errcode(ERRCODE_ARRAY_SUBSCRIPT_ERROR),
 				 errmsg("index %d out of valid range, 0..%d",
-						n, len * 8 - 1)));
+						n, (int) Min((int64) len * 8 - 1, INT_MAX))));
 
 	byteNo = n / 8;
 	bitNo = n % 8;
@@ -3506,11 +3515,12 @@ byteaSetBit(PG_FUNCTION_ARGS)
 
 	len = VARSIZE(res) - VARHDRSZ;
 
-	if (n < 0 || n >= len * 8)
+	/* Do comparison arithmetic in int64 in case len exceeds INT_MAX/8 */
+	if (n < 0 || n >= (int64) len * 8)
 		ereport(ERROR,
 				(errcode(ERRCODE_ARRAY_SUBSCRIPT_ERROR),
 				 errmsg("index %d out of valid range, 0..%d",
-						n, len * 8 - 1)));
+						n, (int) Min((int64) len * 8 - 1, INT_MAX))));
 
 	byteNo = n / 8;
 	bitNo = n % 8;

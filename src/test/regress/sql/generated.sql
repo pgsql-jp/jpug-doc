@@ -89,9 +89,29 @@ INSERT INTO gtest1_1 VALUES (4);
 SELECT * FROM gtest1_1;
 SELECT * FROM gtest1;
 
--- test inheritance mismatch
+CREATE TABLE gtest_normal (a int, b int);
+CREATE TABLE gtest_normal_child (a int, b int GENERATED ALWAYS AS (a * 2) STORED) INHERITS (gtest_normal);
+\d gtest_normal_child
+INSERT INTO gtest_normal (a) VALUES (1);
+INSERT INTO gtest_normal_child (a) VALUES (2);
+SELECT * FROM gtest_normal;
+
+-- test inheritance mismatches between parent and child
+CREATE TABLE gtestx (x int, b int GENERATED ALWAYS AS (a * 22) STORED) INHERITS (gtest1);  -- error
+CREATE TABLE gtestx (x int, b int DEFAULT 10) INHERITS (gtest1);  -- error
+CREATE TABLE gtestx (x int, b int GENERATED ALWAYS AS IDENTITY) INHERITS (gtest1);  -- error
+
+-- test multiple inheritance mismatches
 CREATE TABLE gtesty (x int, b int);
 CREATE TABLE gtest1_2 () INHERITS (gtest1, gtesty);  -- error
+DROP TABLE gtesty;
+
+CREATE TABLE gtesty (x int, b int GENERATED ALWAYS AS (x * 22) STORED);
+CREATE TABLE gtest1_2 () INHERITS (gtest1, gtesty);  -- error
+DROP TABLE gtesty;
+
+CREATE TABLE gtesty (x int, b int DEFAULT 55);
+CREATE TABLE gtest1_2 () INHERITS (gtest0, gtesty);  -- error
 DROP TABLE gtesty;
 
 -- test stored update
@@ -144,6 +164,13 @@ SELECT * FROM gtest3 ORDER BY a;
 CREATE TABLE gtest2 (a int PRIMARY KEY, b int GENERATED ALWAYS AS (NULL) STORED);
 INSERT INTO gtest2 VALUES (1);
 SELECT * FROM gtest2;
+
+-- simple column reference for varlena types
+CREATE TABLE gtest_varlena (a varchar, b varchar GENERATED ALWAYS AS (a) STORED);
+INSERT INTO gtest_varlena (a) VALUES('01234567890123456789');
+INSERT INTO gtest_varlena (a) VALUES(NULL);
+SELECT * FROM gtest_varlena ORDER BY a;
+DROP TABLE gtest_varlena;
 
 -- composite types
 CREATE TYPE double_int as (a int, b int);
@@ -316,21 +343,40 @@ ALTER TABLE gtest25 ADD COLUMN b int GENERATED ALWAYS AS (a * 3) STORED;
 SELECT * FROM gtest25 ORDER BY a;
 ALTER TABLE gtest25 ADD COLUMN x int GENERATED ALWAYS AS (b * 4) STORED;  -- error
 ALTER TABLE gtest25 ADD COLUMN x int GENERATED ALWAYS AS (z * 4) STORED;  -- error
+ALTER TABLE gtest25 ADD COLUMN c int DEFAULT 42,
+  ADD COLUMN x int GENERATED ALWAYS AS (c * 4) STORED;
+ALTER TABLE gtest25 ADD COLUMN d int DEFAULT 101;
+ALTER TABLE gtest25 ALTER COLUMN d SET DATA TYPE float8,
+  ADD COLUMN y float8 GENERATED ALWAYS AS (d * 4) STORED;
+SELECT * FROM gtest25 ORDER BY a;
+\d gtest25
 
 -- ALTER TABLE ... ALTER COLUMN
 CREATE TABLE gtest27 (
     a int,
-    b int GENERATED ALWAYS AS (a * 2) STORED
+    b int,
+    x int GENERATED ALWAYS AS ((a + b) * 2) STORED
 );
-INSERT INTO gtest27 (a) VALUES (3), (4);
+INSERT INTO gtest27 (a, b) VALUES (3, 7), (4, 11);
 ALTER TABLE gtest27 ALTER COLUMN a TYPE text;  -- error
-ALTER TABLE gtest27 ALTER COLUMN b TYPE numeric;
+ALTER TABLE gtest27 ALTER COLUMN x TYPE numeric;
 \d gtest27
 SELECT * FROM gtest27;
-ALTER TABLE gtest27 ALTER COLUMN b TYPE boolean USING b <> 0;  -- error
-
-ALTER TABLE gtest27 ALTER COLUMN b DROP DEFAULT;  -- error
+ALTER TABLE gtest27 ALTER COLUMN x TYPE boolean USING x <> 0;  -- error
+ALTER TABLE gtest27 ALTER COLUMN x DROP DEFAULT;  -- error
+-- It's possible to alter the column types this way:
+ALTER TABLE gtest27
+  DROP COLUMN x,
+  ALTER COLUMN a TYPE bigint,
+  ALTER COLUMN b TYPE bigint,
+  ADD COLUMN x bigint GENERATED ALWAYS AS ((a + b) * 2) STORED;
 \d gtest27
+-- Ideally you could just do this, but not today (and should x change type?):
+ALTER TABLE gtest27
+  ALTER COLUMN a TYPE float8,
+  ALTER COLUMN b TYPE float8;  -- error
+\d gtest27
+SELECT * FROM gtest27;
 
 -- triggers
 CREATE TABLE gtest26 (

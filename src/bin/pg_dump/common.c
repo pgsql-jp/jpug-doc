@@ -412,6 +412,9 @@ flagInhIndexes(Archive *fout, TableInfo tblinfo[], int numTables)
 			addObjectDependency(&attachinfo[k].dobj,
 								parentidx->indextable->dobj.dumpId);
 
+			/* keep track of the list of partitions in the parent index */
+			simple_ptr_list_append(&parentidx->partattaches, &attachinfo[k].dobj);
+
 			k++;
 		}
 	}
@@ -548,6 +551,7 @@ AssignDumpId(DumpableObject *dobj)
 	dobj->namespace = NULL;		/* may be set later */
 	dobj->dump = DUMP_COMPONENT_ALL;	/* default assumption */
 	dobj->ext_member = false;	/* default assumption */
+	dobj->depends_on_ext = false;	/* default assumption */
 	dobj->dependencies = NULL;
 	dobj->nDeps = 0;
 	dobj->allocDeps = 0;
