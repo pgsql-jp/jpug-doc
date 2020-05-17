@@ -1366,6 +1366,10 @@ create trigger trg1 after insert on trigpart for each row execute procedure trig
 create table trigpart2 partition of trigpart for values from (1000) to (2000);
 create table trigpart3 (like trigpart);
 alter table trigpart attach partition trigpart3 for values from (2000) to (3000);
+create table trigpart4 partition of trigpart for values from (3000) to (4000) partition by range (a);
+create table trigpart41 partition of trigpart4 for values from (3000) to (3500);
+create table trigpart42 (like trigpart);
+alter table trigpart4 attach partition trigpart42 for values from (3500) to (4000);
 select tgrelid::regclass, tgname, tgfoid::regproc from pg_trigger
   where tgrelid::regclass::text like 'trigpart%' order by tgrelid::regclass::text;
 drop trigger trg1 on trigpart1;	-- fail
@@ -1377,6 +1381,27 @@ select tgrelid::regclass, tgname, tgfoid::regproc from pg_trigger
 drop trigger trg1 on trigpart;		-- ok, all gone
 select tgrelid::regclass, tgname, tgfoid::regproc from pg_trigger
   where tgrelid::regclass::text like 'trigpart%' order by tgrelid::regclass::text;
+
+-- check detach behavior
+create trigger trg1 after insert on trigpart for each row execute procedure trigger_nothing();
+\d trigpart3
+alter table trigpart detach partition trigpart3;
+drop trigger trg1 on trigpart3; -- fail due to "does not exist"
+alter table trigpart detach partition trigpart4;
+drop trigger trg1 on trigpart41; -- fail due to "does not exist"
+drop table trigpart4;
+alter table trigpart attach partition trigpart3 for values from (2000) to (3000);
+alter table trigpart detach partition trigpart3;
+alter table trigpart attach partition trigpart3 for values from (2000) to (3000);
+drop table trigpart3;
+
+select tgrelid::regclass::text, tgname, tgfoid::regproc, tgenabled, tgisinternal from pg_trigger
+  where tgname ~ '^trg1' order by 1;
+create table trigpart3 (like trigpart);
+create trigger trg1 after insert on trigpart3 for each row execute procedure trigger_nothing();
+\d trigpart3
+alter table trigpart attach partition trigpart3 FOR VALUES FROM (2000) to (3000); -- fail
+drop table trigpart3;
 
 drop table trigpart;
 drop function trigger_nothing();

@@ -63,6 +63,16 @@ alter table idxpart attach partition idxpart1 for values from (0) to (10);
 \d idxpart1
 \d+ idxpart1_a_idx
 \d+ idxpart1_b_c_idx
+
+-- ALTER TABLE when attaching or detaching an index to a partition.
+create index idxpart_c on only idxpart (c);
+create index idxpart1_c on idxpart1 (c);
+alter table idxpart_c attach partition idxpart1_c for values from (10) to (20);
+alter index idxpart_c attach partition idxpart1_c;
+select relname, relpartbound from pg_class
+  where relname in ('idxpart_c', 'idxpart1_c')
+  order by relname;
+alter table idxpart_c detach partition idxpart1_c;
 drop table idxpart;
 
 -- If a partition already has an index, don't create a duplicative one
@@ -703,3 +713,24 @@ alter table parted_uniq_detach_test1 drop constraint parted_uniq_detach_test1_a_
 alter table parted_uniq_detach_test detach partition parted_uniq_detach_test1;
 alter table parted_uniq_detach_test1 drop constraint parted_uniq_detach_test1_a_key;
 drop table parted_uniq_detach_test, parted_uniq_detach_test1;
+
+-- check that dropping a column takes with it any partitioned indexes
+-- depending on it.
+create table parted_index_col_drop(a int, b int, c int)
+  partition by list (a);
+create table parted_index_col_drop1 partition of parted_index_col_drop
+  for values in (1) partition by list (a);
+-- leave this partition without children.
+create table parted_index_col_drop2 partition of parted_index_col_drop
+  for values in (2) partition by list (a);
+create table parted_index_col_drop11 partition of parted_index_col_drop1
+  for values in (1);
+create index on parted_index_col_drop (b);
+create index on parted_index_col_drop (c);
+create index on parted_index_col_drop (b, c);
+alter table parted_index_col_drop drop column c;
+\d parted_index_col_drop
+\d parted_index_col_drop1
+\d parted_index_col_drop2
+\d parted_index_col_drop11
+drop table parted_index_col_drop;

@@ -1101,10 +1101,10 @@ CheckValidResultRel(ResultRelInfo *resultRelInfo, CmdType operation)
 
 			/*
 			 * Okay only if there's a suitable INSTEAD OF trigger.  Messages
-			 * here should match rewriteHandler.c's rewriteTargetView, except
-			 * that we omit errdetail because we haven't got the information
-			 * handy (and given that we really shouldn't get here anyway, it's
-			 * not worth great exertion to get).
+			 * here should match rewriteHandler.c's rewriteTargetView and
+			 * RewriteQuery, except that we omit errdetail because we haven't
+			 * got the information handy (and given that we really shouldn't
+			 * get here anyway, it's not worth great exertion to get).
 			 */
 			switch (operation)
 			{
@@ -1650,15 +1650,7 @@ ExecutePlan(EState *estate,
 		 * process so we just end the loop...
 		 */
 		if (TupIsNull(slot))
-		{
-			/*
-			 * If we know we won't need to back up, we can release resources
-			 * at this point.
-			 */
-			if (!(estate->es_top_eflags & EXEC_FLAG_BACKWARD))
-				(void) ExecShutdownNode(planstate);
 			break;
-		}
 
 		/*
 		 * If we have a junk filter, then project a new tuple with the junk
@@ -1701,16 +1693,15 @@ ExecutePlan(EState *estate,
 		 */
 		current_tuple_count++;
 		if (numberTuples && numberTuples == current_tuple_count)
-		{
-			/*
-			 * If we know we won't need to back up, we can release resources
-			 * at this point.
-			 */
-			if (!(estate->es_top_eflags & EXEC_FLAG_BACKWARD))
-				(void) ExecShutdownNode(planstate);
 			break;
-		}
 	}
+
+	/*
+	 * If we know we won't need to back up, we can release resources at this
+	 * point.
+	 */
+	if (!(estate->es_top_eflags & EXEC_FLAG_BACKWARD))
+		(void) ExecShutdownNode(planstate);
 
 	if (use_parallel_mode)
 		ExitParallelMode();
@@ -2901,38 +2892,24 @@ EvalPlanQualStart(EPQState *epqstate, Plan *planTree)
 	}
 
 	/*
-	 * These arrays are reused across different plans set with
-	 * EvalPlanQualSetPlan(), which is safe because they all use the same
-	 * parent EState. Therefore we can reuse if already allocated.
-	 */
-	if (epqstate->relsubs_rowmark == NULL)
-	{
-		Assert(epqstate->relsubs_done == NULL);
-		epqstate->relsubs_rowmark = (ExecAuxRowMark **)
-			palloc0(rtsize * sizeof(ExecAuxRowMark *));
-		epqstate->relsubs_done = (bool *)
-			palloc0(rtsize * sizeof(bool));
-	}
-	else
-	{
-		Assert(epqstate->relsubs_done != NULL);
-		memset(epqstate->relsubs_rowmark, 0,
-			   rtsize * sizeof(ExecAuxRowMark *));
-		memset(epqstate->relsubs_done, 0,
-			   rtsize * sizeof(bool));
-	}
-
-	/*
 	 * Build an RTI indexed array of rowmarks, so that
 	 * EvalPlanQualFetchRowMark() can efficiently access the to be fetched
 	 * rowmark.
 	 */
+	epqstate->relsubs_rowmark = (ExecAuxRowMark **)
+		palloc0(rtsize * sizeof(ExecAuxRowMark *));
 	foreach(l, epqstate->arowMarks)
 	{
 		ExecAuxRowMark *earm = (ExecAuxRowMark *) lfirst(l);
 
 		epqstate->relsubs_rowmark[earm->rowmark->rti - 1] = earm;
 	}
+
+	/*
+	 * Initialize per-relation EPQ tuple states to not-fetched.
+	 */
+	epqstate->relsubs_done = (bool *)
+		palloc0(rtsize * sizeof(bool));
 
 	/*
 	 * Initialize the private state information for all the nodes in the part
@@ -3002,7 +2979,9 @@ EvalPlanQualEnd(EPQState *epqstate)
 	FreeExecutorState(estate);
 
 	/* Mark EPQState idle */
+	epqstate->origslot = NULL;
 	epqstate->recheckestate = NULL;
 	epqstate->recheckplanstate = NULL;
-	epqstate->origslot = NULL;
+	epqstate->relsubs_rowmark = NULL;
+	epqstate->relsubs_done = NULL;
 }

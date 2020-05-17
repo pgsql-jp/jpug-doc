@@ -2278,6 +2278,13 @@ query_tree_walker(Query *query,
 {
 	Assert(query != NULL && IsA(query, Query));
 
+	/*
+	 * We don't walk any utilityStmt here. However, we can't easily assert
+	 * that it is absent, since there are at least two code paths by which
+	 * action statements from CREATE RULE end up here, and NOTIFY is allowed
+	 * in a rule action.
+	 */
+
 	if (walker((Node *) query->targetList, context))
 		return true;
 	if (walker((Node *) query->withCheckOptions, context))
@@ -2296,6 +2303,54 @@ query_tree_walker(Query *query,
 		return true;
 	if (walker(query->limitCount, context))
 		return true;
+
+	/*
+	 * Most callers aren't interested in SortGroupClause nodes since those
+	 * don't contain actual expressions. However they do contain OIDs which
+	 * may be needed by dependency walkers etc.
+	 */
+	if ((flags & QTW_EXAMINE_SORTGROUP))
+	{
+		if (walker((Node *) query->groupClause, context))
+			return true;
+		if (walker((Node *) query->windowClause, context))
+			return true;
+		if (walker((Node *) query->sortClause, context))
+			return true;
+		if (walker((Node *) query->distinctClause, context))
+			return true;
+	}
+	else
+	{
+		/*
+		 * But we need to walk the expressions under WindowClause nodes even
+		 * if we're not interested in SortGroupClause nodes.
+		 */
+		ListCell   *lc;
+
+		foreach(lc, query->windowClause)
+		{
+			WindowClause *wc = lfirst_node(WindowClause, lc);
+
+			if (walker(wc->startOffset, context))
+				return true;
+			if (walker(wc->endOffset, context))
+				return true;
+		}
+	}
+
+	/*
+	 * groupingSets and rowMarks are not walked:
+	 *
+	 * groupingSets contain only ressortgrouprefs (integers) which are
+	 * meaningless without the corresponding groupClause or tlist.
+	 * Accordingly, any walker that needs to care about them needs to handle
+	 * them itself in its Query processing.
+	 *
+	 * rowMarks is not walked because it contains only rangetable indexes (and
+	 * flags etc.) and therefore should be handled at Query level similarly.
+	 */
+
 	if (!(flags & QTW_IGNORE_CTE_SUBQUERIES))
 	{
 		if (walker((Node *) query->cteList, context))
@@ -2324,59 +2379,74 @@ range_table_walker(List *rtable,
 
 	foreach(rt, rtable)
 	{
-		RangeTblEntry *rte = (RangeTblEntry *) lfirst(rt);
+		RangeTblEntry *rte = lfirst_node(RangeTblEntry, rt);
 
-		/*
-		 * Walkers might need to examine the RTE node itself either before or
-		 * after visiting its contents (or, conceivably, both).  Note that if
-		 * you specify neither flag, the walker won't visit the RTE at all.
-		 */
-		if (flags & QTW_EXAMINE_RTES_BEFORE)
-			if (walker(rte, context))
-				return true;
+		if (range_table_entry_walker(rte, walker, context, flags))
+			return true;
+	}
+	return false;
+}
 
-		switch (rte->rtekind)
-		{
-			case RTE_RELATION:
-				if (walker(rte->tablesample, context))
-					return true;
-				break;
-			case RTE_SUBQUERY:
-				if (!(flags & QTW_IGNORE_RT_SUBQUERIES))
-					if (walker(rte->subquery, context))
-						return true;
-				break;
-			case RTE_JOIN:
-				if (!(flags & QTW_IGNORE_JOINALIASES))
-					if (walker(rte->joinaliasvars, context))
-						return true;
-				break;
-			case RTE_FUNCTION:
-				if (walker(rte->functions, context))
-					return true;
-				break;
-			case RTE_TABLEFUNC:
-				if (walker(rte->tablefunc, context))
-					return true;
-				break;
-			case RTE_VALUES:
-				if (walker(rte->values_lists, context))
-					return true;
-				break;
-			case RTE_CTE:
-			case RTE_NAMEDTUPLESTORE:
-			case RTE_RESULT:
-				/* nothing to do */
-				break;
-		}
-
-		if (walker(rte->securityQuals, context))
+/*
+ * Some callers even want to scan the expressions in individual RTEs.
+ */
+bool
+range_table_entry_walker(RangeTblEntry *rte,
+						 bool (*walker) (),
+						 void *context,
+						 int flags)
+{
+	/*
+	 * Walkers might need to examine the RTE node itself either before or
+	 * after visiting its contents (or, conceivably, both).  Note that if you
+	 * specify neither flag, the walker won't be called on the RTE at all.
+	 */
+	if (flags & QTW_EXAMINE_RTES_BEFORE)
+		if (walker(rte, context))
 			return true;
 
-		if (flags & QTW_EXAMINE_RTES_AFTER)
-			if (walker(rte, context))
+	switch (rte->rtekind)
+	{
+		case RTE_RELATION:
+			if (walker(rte->tablesample, context))
 				return true;
+			break;
+		case RTE_SUBQUERY:
+			if (!(flags & QTW_IGNORE_RT_SUBQUERIES))
+				if (walker(rte->subquery, context))
+					return true;
+			break;
+		case RTE_JOIN:
+			if (!(flags & QTW_IGNORE_JOINALIASES))
+				if (walker(rte->joinaliasvars, context))
+					return true;
+			break;
+		case RTE_FUNCTION:
+			if (walker(rte->functions, context))
+				return true;
+			break;
+		case RTE_TABLEFUNC:
+			if (walker(rte->tablefunc, context))
+				return true;
+			break;
+		case RTE_VALUES:
+			if (walker(rte->values_lists, context))
+				return true;
+			break;
+		case RTE_CTE:
+		case RTE_NAMEDTUPLESTORE:
+		case RTE_RESULT:
+			/* nothing to do */
+			break;
 	}
+
+	if (walker(rte->securityQuals, context))
+		return true;
+
+	if (flags & QTW_EXAMINE_RTES_AFTER)
+		if (walker(rte, context))
+			return true;
+
 	return false;
 }
 
@@ -3153,6 +3223,56 @@ query_tree_mutator(Query *query,
 	MUTATE(query->havingQual, query->havingQual, Node *);
 	MUTATE(query->limitOffset, query->limitOffset, Node *);
 	MUTATE(query->limitCount, query->limitCount, Node *);
+
+	/*
+	 * Most callers aren't interested in SortGroupClause nodes since those
+	 * don't contain actual expressions. However they do contain OIDs, which
+	 * may be of interest to some mutators.
+	 */
+
+	if ((flags & QTW_EXAMINE_SORTGROUP))
+	{
+		MUTATE(query->groupClause, query->groupClause, List *);
+		MUTATE(query->windowClause, query->windowClause, List *);
+		MUTATE(query->sortClause, query->sortClause, List *);
+		MUTATE(query->distinctClause, query->distinctClause, List *);
+	}
+	else
+	{
+		/*
+		 * But we need to mutate the expressions under WindowClause nodes even
+		 * if we're not interested in SortGroupClause nodes.
+		 */
+		List	   *resultlist;
+		ListCell   *temp;
+
+		resultlist = NIL;
+		foreach(temp, query->windowClause)
+		{
+			WindowClause *wc = lfirst_node(WindowClause, temp);
+			WindowClause *newnode;
+
+			FLATCOPY(newnode, wc, WindowClause);
+			MUTATE(newnode->startOffset, wc->startOffset, Node *);
+			MUTATE(newnode->endOffset, wc->endOffset, Node *);
+
+			resultlist = lappend(resultlist, (Node *) newnode);
+		}
+		query->windowClause = resultlist;
+	}
+
+	/*
+	 * groupingSets and rowMarks are not mutated:
+	 *
+	 * groupingSets contain only ressortgroup refs (integers) which are
+	 * meaningless without the groupClause or tlist. Accordingly, any mutator
+	 * that needs to care about them needs to handle them itself in its Query
+	 * processing.
+	 *
+	 * rowMarks contains only rangetable indexes (and flags etc.) and
+	 * therefore should be handled at Query level similarly.
+	 */
+
 	if (!(flags & QTW_IGNORE_CTE_SUBQUERIES))
 		MUTATE(query->cteList, query->cteList, List *);
 	else						/* else copy CTE list as-is */

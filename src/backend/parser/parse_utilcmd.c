@@ -914,6 +914,7 @@ static void
 transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_clause)
 {
 	AttrNumber	parent_attno;
+	AttrNumber	new_attno;
 	Relation	relation;
 	TupleDesc	tupleDesc;
 	TupleConstr *constr;
@@ -977,6 +978,26 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 	attmap = (AttrNumber *) palloc0(sizeof(AttrNumber) * tupleDesc->natts);
 
 	/*
+	 * We must fill the attmap now so that it can be used to process generated
+	 * column default expressions in the per-column loop below.
+	*/
+	new_attno = 1;
+	for (parent_attno = 1; parent_attno <= tupleDesc->natts;
+		 parent_attno++)
+	{
+		Form_pg_attribute attribute = TupleDescAttr(tupleDesc,
+													parent_attno - 1);
+
+		/*
+		 * Ignore dropped columns in the parent.  attmap entry is left zero.
+		 */
+		if (attribute->attisdropped)
+			continue;
+
+		attmap[parent_attno - 1] = list_length(cxt->columns) + (new_attno++);
+	}
+
+	/*
 	 * Insert the copied attributes into the cxt for the new table definition.
 	 */
 	for (parent_attno = 1; parent_attno <= tupleDesc->natts;
@@ -988,7 +1009,7 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 		ColumnDef  *def;
 
 		/*
-		 * Ignore dropped columns in the parent.  attmap entry is left zero.
+		 * Ignore dropped columns in the parent.
 		 */
 		if (attribute->attisdropped)
 			continue;
@@ -1019,8 +1040,6 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 		 * Add to column list
 		 */
 		cxt->columns = lappend(cxt->columns, def);
-
-		attmap[parent_attno - 1] = list_length(cxt->columns);
 
 		/*
 		 * Copy default, if present and it should be copied.  We have separate
@@ -3685,7 +3704,6 @@ transformPartitionCmd(CreateStmtContext *cxt, PartitionCmd *cmd)
 			break;
 		case RELKIND_PARTITIONED_INDEX:
 			/* nothing to check */
-			Assert(cmd->bound == NULL);
 			break;
 		case RELKIND_RELATION:
 			/* the table must be partitioned */
@@ -4037,6 +4055,30 @@ transformPartitionBoundValue(ParseState *pstate, Node *val,
 	if (IsA(value, CollateExpr))
 	{
 		Oid			exprCollOid = exprCollation(value);
+
+		/*
+		 * Check we have a collation iff it is a collatable type.  The only
+		 * expected failures here are (1) COLLATE applied to a noncollatable
+		 * type, or (2) partition bound expression had an unresolved
+		 * collation.  But we might as well code this to be a complete
+		 * consistency check.
+		 */
+		if (type_is_collatable(colType))
+		{
+			if (!OidIsValid(exprCollOid))
+				ereport(ERROR,
+						(errcode(ERRCODE_INDETERMINATE_COLLATION),
+						 errmsg("could not determine which collation to use for partition bound expression"),
+						 errhint("Use the COLLATE clause to set the collation explicitly.")));
+		}
+		else
+		{
+			if (OidIsValid(exprCollOid))
+				ereport(ERROR,
+						(errcode(ERRCODE_DATATYPE_MISMATCH),
+						 errmsg("collations are not supported by type %s",
+								format_type_be(colType))));
+		}
 
 		if (OidIsValid(exprCollOid) &&
 			exprCollOid != DEFAULT_COLLATION_OID &&

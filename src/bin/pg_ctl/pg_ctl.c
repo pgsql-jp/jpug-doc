@@ -519,8 +519,43 @@ start_postmaster(void)
 	PROCESS_INFORMATION pi;
 
 	if (log_file != NULL)
+	{
+		/*
+		 * First, open the log file if it exists.  The idea is that if the
+		 * file is still locked by a previous postmaster run, we'll wait until
+		 * it comes free, instead of failing with ERROR_SHARING_VIOLATION.
+		 * (It'd be better to open the file in a sharing-friendly mode, but we
+		 * can't use CMD.EXE to do that, so work around it.  Note that the
+		 * previous postmaster will still have the file open for a short time
+		 * after removing postmaster.pid.)
+		 *
+		 * If the log file doesn't exist, we *must not* create it here.  If we
+		 * were launched with higher privileges than the restricted process
+		 * will have, the log file might end up with permissions settings that
+		 * prevent the postmaster from writing on it.
+		 */
+		int			fd = open(log_file, O_RDWR, 0);
+
+		if (fd == -1)
+		{
+			/*
+			 * ENOENT is expectable since we didn't use O_CREAT.  Otherwise
+			 * complain.  We could just fall through and let CMD.EXE report
+			 * the problem, but its error reporting is pretty miserable.
+			 */
+			if (errno != ENOENT)
+			{
+				write_stderr(_("%s: could not open log file \"%s\": %s\n"),
+							 progname, log_file, strerror(errno));
+				exit(1);
+			}
+		}
+		else
+			close(fd);
+
 		snprintf(cmd, MAXPGPATH, "CMD /C \"\"%s\" %s%s < \"%s\" >> \"%s\" 2>&1\"",
 				 exec_path, pgdata_opt, post_opts, DEVNULL, log_file);
+	}
 	else
 		snprintf(cmd, MAXPGPATH, "CMD /C \"\"%s\" %s%s < \"%s\" 2>&1\"",
 				 exec_path, pgdata_opt, post_opts, DEVNULL);

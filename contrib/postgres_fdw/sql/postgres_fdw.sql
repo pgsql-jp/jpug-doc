@@ -145,8 +145,8 @@ CREATE FOREIGN TABLE ft6 (
 -- ===================================================================
 -- tests for validator
 -- ===================================================================
--- requiressl, krbsrvname and gsslib are omitted because they depend on
--- configure options
+-- requiressl and some other parameters are omitted because
+-- valid values for them depend on configure options
 ALTER SERVER testserver1 OPTIONS (
 	use_remote_estimate 'false',
 	updatable 'true',
@@ -171,10 +171,10 @@ ALTER SERVER testserver1 OPTIONS (
 	sslcert 'value',
 	sslkey 'value',
 	sslrootcert 'value',
-	sslcrl 'value'
+	sslcrl 'value',
 	--requirepeer 'value',
-	-- krbsrvname 'value',
-	-- gsslib 'value',
+	krbsrvname 'value',
+	gsslib 'value'
 	--replication 'value'
 );
 
@@ -1178,6 +1178,26 @@ DELETE FROM ft2
   RETURNING 100;
 DELETE FROM ft2 WHERE ft2.c1 > 1200;
 
+-- Test UPDATE with a MULTIEXPR sub-select
+-- (maybe someday this'll be remotely executable, but not today)
+EXPLAIN (verbose, costs off)
+UPDATE ft2 AS target SET (c2, c7) = (
+    SELECT c2 * 10, c7
+        FROM ft2 AS src
+        WHERE target.c1 = src.c1
+) WHERE c1 > 1100;
+UPDATE ft2 AS target SET (c2, c7) = (
+    SELECT c2 * 10, c7
+        FROM ft2 AS src
+        WHERE target.c1 = src.c1
+) WHERE c1 > 1100;
+
+UPDATE ft2 AS target SET (c2) = (
+    SELECT c2 / 10
+        FROM ft2 AS src
+        WHERE target.c1 = src.c1
+) WHERE c1 > 1100;
+
 -- Test UPDATE/DELETE with WHERE or JOIN/ON conditions containing
 -- user-defined operators/functions
 ALTER SERVER loopback OPTIONS (DROP extensions);
@@ -1485,6 +1505,23 @@ DROP TRIGGER trig_stmt_after ON rem1;
 
 DELETE from rem1;
 
+-- Test multiple AFTER ROW triggers on a foreign table
+CREATE TRIGGER trig_row_after1
+AFTER INSERT OR UPDATE OR DELETE ON rem1
+FOR EACH ROW EXECUTE PROCEDURE trigger_data(23,'skidoo');
+
+CREATE TRIGGER trig_row_after2
+AFTER INSERT OR UPDATE OR DELETE ON rem1
+FOR EACH ROW EXECUTE PROCEDURE trigger_data(23,'skidoo');
+
+insert into rem1 values(1,'insert');
+update rem1 set f2  = 'update' where f1 = 1;
+update rem1 set f2 = f2 || f2;
+delete from rem1;
+
+-- cleanup
+DROP TRIGGER trig_row_after1 ON rem1;
+DROP TRIGGER trig_row_after2 ON rem1;
 
 -- Test WHEN conditions
 

@@ -217,8 +217,9 @@ static TimeLineID receiveTLI = 0;
 static bool lastFullPageWrites;
 
 /*
- * Local copy of SharedRecoveryInProgress variable. True actually means "not
- * known, need to check the shared state".
+ * Local copy of the state tracked by SharedRecoveryState in shared memory,
+ * It is false if SharedRecoveryState is RECOVERY_STATE_DONE.  True actually
+ * means "not known, need to check the shared state".
  */
 static bool LocalRecoveryInProgress = true;
 
@@ -643,10 +644,10 @@ typedef struct XLogCtlData
 	TimeLineID	PrevTimeLineID;
 
 	/*
-	 * SharedRecoveryInProgress indicates if we're still in crash or archive
+	 * SharedRecoveryState indicates if we're still in crash or archive
 	 * recovery.  Protected by info_lck.
 	 */
-	bool		SharedRecoveryInProgress;
+	RecoveryState SharedRecoveryState;
 
 	/*
 	 * SharedHotStandbyActive indicates if we're still in crash or archive
@@ -893,8 +894,8 @@ static int	emode_for_corrupt_record(int emode, XLogRecPtr RecPtr);
 static void XLogFileClose(void);
 static void PreallocXlogFiles(XLogRecPtr endptr);
 static void RemoveTempXlogFiles(void);
-static void RemoveOldXlogFiles(XLogSegNo segno, XLogRecPtr RedoRecPtr, XLogRecPtr endptr);
-static void RemoveXlogFile(const char *segname, XLogRecPtr RedoRecPtr, XLogRecPtr endptr);
+static void RemoveOldXlogFiles(XLogSegNo segno, XLogRecPtr lastredoptr, XLogRecPtr endptr);
+static void RemoveXlogFile(const char *segname, XLogRecPtr lastredoptr, XLogRecPtr endptr);
 static void UpdateLastRemovedPtr(char *filename);
 static void ValidateXLOGDirectoryStructure(void);
 static void CleanupBackupHistory(void);
@@ -2299,7 +2300,7 @@ assign_checkpoint_completion_target(double newval, void *extra)
  * XLOG segments? Returns the highest segment that should be preallocated.
  */
 static XLogSegNo
-XLOGfileslop(XLogRecPtr RedoRecPtr)
+XLOGfileslop(XLogRecPtr lastredoptr)
 {
 	XLogSegNo	minSegNo;
 	XLogSegNo	maxSegNo;
@@ -2311,9 +2312,9 @@ XLOGfileslop(XLogRecPtr RedoRecPtr)
 	 * correspond to. Always recycle enough segments to meet the minimum, and
 	 * remove enough segments to stay below the maximum.
 	 */
-	minSegNo = RedoRecPtr / wal_segment_size +
+	minSegNo = lastredoptr / wal_segment_size +
 		ConvertToXSegs(min_wal_size_mb, wal_segment_size) - 1;
-	maxSegNo = RedoRecPtr / wal_segment_size +
+	maxSegNo = lastredoptr / wal_segment_size +
 		ConvertToXSegs(max_wal_size_mb, wal_segment_size) - 1;
 
 	/*
@@ -2328,7 +2329,7 @@ XLOGfileslop(XLogRecPtr RedoRecPtr)
 	/* add 10% for good measure. */
 	distance *= 1.10;
 
-	recycleSegNo = (XLogSegNo) ceil(((double) RedoRecPtr + distance) /
+	recycleSegNo = (XLogSegNo) ceil(((double) lastredoptr + distance) /
 									wal_segment_size);
 
 	if (recycleSegNo < minSegNo)
@@ -3732,10 +3733,35 @@ XLogFileReadAnyTLI(XLogSegNo segno, int emode, int source)
 
 	foreach(cell, tles)
 	{
-		TimeLineID	tli = ((TimeLineHistoryEntry *) lfirst(cell))->tli;
+		TimeLineHistoryEntry *hent = (TimeLineHistoryEntry *) lfirst(cell);
+		TimeLineID	tli = hent->tli;
 
 		if (tli < curFileTLI)
 			break;				/* don't bother looking at too-old TLIs */
+
+		/*
+		 * Skip scanning the timeline ID that the logfile segment to read
+		 * doesn't belong to
+		 */
+		if (hent->begin != InvalidXLogRecPtr)
+		{
+			XLogSegNo	beginseg = 0;
+
+			XLByteToSeg(hent->begin, beginseg, wal_segment_size);
+
+			/*
+			 * The logfile segment that doesn't belong to the timeline is
+			 * older or newer than the segment that the timeline started or
+			 * ended at, respectively. It's sufficient to check only the
+			 * starting segment of the timeline here. Since the timelines are
+			 * scanned in descending order in this loop, any segments newer
+			 * than the ending segment should belong to newer timeline and
+			 * have already been read before. So it's not necessary to check
+			 * the ending segment of the timeline here.
+			 */
+			if (segno < beginseg)
+				continue;
+		}
 
 		if (source == XLOG_FROM_ANY || source == XLOG_FROM_ARCHIVE)
 		{
@@ -3935,12 +3961,12 @@ RemoveTempXlogFiles(void)
 /*
  * Recycle or remove all log files older or equal to passed segno.
  *
- * endptr is current (or recent) end of xlog, and RedoRecPtr is the
+ * endptr is current (or recent) end of xlog, and lastredoptr is the
  * redo pointer of the last checkpoint. These are used to determine
  * whether we want to recycle rather than delete no-longer-wanted log files.
  */
 static void
-RemoveOldXlogFiles(XLogSegNo segno, XLogRecPtr RedoRecPtr, XLogRecPtr endptr)
+RemoveOldXlogFiles(XLogSegNo segno, XLogRecPtr lastredoptr, XLogRecPtr endptr)
 {
 	DIR		   *xldir;
 	struct dirent *xlde;
@@ -3983,7 +4009,7 @@ RemoveOldXlogFiles(XLogSegNo segno, XLogRecPtr RedoRecPtr, XLogRecPtr endptr)
 				/* Update the last removed location in shared memory first */
 				UpdateLastRemovedPtr(xlde->d_name);
 
-				RemoveXlogFile(xlde->d_name, RedoRecPtr, endptr);
+				RemoveXlogFile(xlde->d_name, lastredoptr, endptr);
 			}
 		}
 	}
@@ -4057,14 +4083,14 @@ RemoveNonParentXlogFiles(XLogRecPtr switchpoint, TimeLineID newTLI)
 /*
  * Recycle or remove a log file that's no longer needed.
  *
- * endptr is current (or recent) end of xlog, and RedoRecPtr is the
+ * endptr is current (or recent) end of xlog, and lastredoptr is the
  * redo pointer of the last checkpoint. These are used to determine
  * whether we want to recycle rather than delete no-longer-wanted log files.
- * If RedoRecPtr is not known, pass invalid, and the function will recycle,
+ * If lastredoptr is not known, pass invalid, and the function will recycle,
  * somewhat arbitrarily, 10 future segments.
  */
 static void
-RemoveXlogFile(const char *segname, XLogRecPtr RedoRecPtr, XLogRecPtr endptr)
+RemoveXlogFile(const char *segname, XLogRecPtr lastredoptr, XLogRecPtr endptr)
 {
 	char		path[MAXPGPATH];
 #ifdef WIN32
@@ -4080,10 +4106,10 @@ RemoveXlogFile(const char *segname, XLogRecPtr RedoRecPtr, XLogRecPtr endptr)
 		 * Initialize info about where to try to recycle to.
 		 */
 		XLByteToSeg(endptr, endlogSegNo, wal_segment_size);
-		if (RedoRecPtr == InvalidXLogRecPtr)
+		if (lastredoptr == InvalidXLogRecPtr)
 			recycleSegNo = endlogSegNo + 10;
 		else
-			recycleSegNo = XLOGfileslop(RedoRecPtr);
+			recycleSegNo = XLOGfileslop(lastredoptr);
 	}
 	else
 		recycleSegNo = 0;		/* keep compiler quiet */
@@ -4357,6 +4383,16 @@ ReadRecord(XLogReaderState *xlogreader, XLogRecPtr RecPtr, int emode,
 				updateMinRecoveryPoint = true;
 
 				UpdateControlFile();
+
+				/*
+				 * We update SharedRecoveryState while holding the lock on
+				 * ControlFileLock so both states are consistent in shared
+				 * memory.
+				 */
+				SpinLockAcquire(&XLogCtl->info_lck);
+				XLogCtl->SharedRecoveryState = RECOVERY_STATE_ARCHIVE;
+				SpinLockRelease(&XLogCtl->info_lck);
+
 				LWLockRelease(ControlFileLock);
 
 				CheckRecoveryConsistency();
@@ -5069,7 +5105,7 @@ XLOGShmemInit(void)
 	 * in additional info.)
 	 */
 	XLogCtl->XLogCacheBlck = XLOGbuffers - 1;
-	XLogCtl->SharedRecoveryInProgress = true;
+	XLogCtl->SharedRecoveryState = RECOVERY_STATE_CRASH;
 	XLogCtl->SharedHotStandbyActive = false;
 	XLogCtl->WalWriterSleeping = false;
 
@@ -5461,7 +5497,6 @@ validateRecoveryParameters(void)
 static void
 exitArchiveRecovery(TimeLineID endTLI, XLogRecPtr endOfLog)
 {
-	char		recoveryPath[MAXPGPATH];
 	char		xlogfname[MAXFNAMELEN];
 	XLogSegNo	endLogSegNo;
 	XLogSegNo	startLogSegNo;
@@ -5540,17 +5575,6 @@ exitArchiveRecovery(TimeLineID endTLI, XLogRecPtr endOfLog)
 	 */
 	XLogFileName(xlogfname, ThisTimeLineID, startLogSegNo, wal_segment_size);
 	XLogArchiveCleanup(xlogfname);
-
-	/*
-	 * Since there might be a partial WAL segment named RECOVERYXLOG, get rid
-	 * of it.
-	 */
-	snprintf(recoveryPath, MAXPGPATH, XLOGDIR "/RECOVERYXLOG");
-	unlink(recoveryPath);		/* ignore any error */
-
-	/* Get rid of any remaining recovered timeline-history file, too */
-	snprintf(recoveryPath, MAXPGPATH, XLOGDIR "/RECOVERYHISTORY");
-	unlink(recoveryPath);		/* ignore any error */
 
 	/*
 	 * Remove the signal files out of the way, so that we don't accidentally
@@ -5989,6 +6013,10 @@ recoveryApplyDelay(XLogReaderState *record)
 	if (!reachedConsistency)
 		return false;
 
+	/* nothing to do if crash recovery is requested */
+	if (!ArchiveRecoveryRequested)
+		return false;
+
 	/*
 	 * Is it a COMMIT record?
 	 *
@@ -6359,7 +6387,7 @@ StartupXLOG(void)
 	 * Take ownership of the wakeup latch if we're going to sleep during
 	 * recovery.
 	 */
-	if (StandbyModeRequested)
+	if (ArchiveRecoveryRequested)
 		OwnLatch(&XLogCtl->recoveryWakeupLatch);
 
 	/* Set up XLOG reader facility */
@@ -6691,7 +6719,7 @@ StartupXLOG(void)
 	if (ControlFile->state == DB_SHUTDOWNED)
 		XLogCtl->unloggedLSN = ControlFile->unloggedLSN;
 	else
-		XLogCtl->unloggedLSN = 1;
+		XLogCtl->unloggedLSN = FirstNormalUnloggedLSN;
 
 	/*
 	 * We must replay WAL entries using the same TimeLineID they were created
@@ -6766,7 +6794,13 @@ StartupXLOG(void)
 		 */
 		dbstate_at_startup = ControlFile->state;
 		if (InArchiveRecovery)
+		{
 			ControlFile->state = DB_IN_ARCHIVE_RECOVERY;
+
+			SpinLockAcquire(&XLogCtl->info_lck);
+			XLogCtl->SharedRecoveryState = RECOVERY_STATE_ARCHIVE;
+			SpinLockRelease(&XLogCtl->info_lck);
+		}
 		else
 		{
 			ereport(LOG,
@@ -6779,6 +6813,10 @@ StartupXLOG(void)
 								ControlFile->checkPointCopy.ThisTimeLineID,
 								recoveryTargetTLI)));
 			ControlFile->state = DB_IN_CRASH_RECOVERY;
+
+			SpinLockAcquire(&XLogCtl->info_lck);
+			XLogCtl->SharedRecoveryState = RECOVERY_STATE_CRASH;
+			SpinLockRelease(&XLogCtl->info_lck);
 		}
 		ControlFile->checkPoint = checkPointLoc;
 		ControlFile->checkPointCopy = checkPoint;
@@ -7342,14 +7380,18 @@ StartupXLOG(void)
 	 * We don't need the latch anymore. It's not strictly necessary to disown
 	 * it, but let's do it for the sake of tidiness.
 	 */
-	if (StandbyModeRequested)
+	if (ArchiveRecoveryRequested)
 		DisownLatch(&XLogCtl->recoveryWakeupLatch);
 
 	/*
 	 * We are now done reading the xlog from stream. Turn off streaming
 	 * recovery to force fetching the files (which would be required at end of
 	 * recovery, e.g., timeline history file) from archive or pg_wal.
+	 *
+	 * Note that standby mode must be turned off after killing WAL receiver,
+	 * i.e., calling ShutdownWalRcv().
 	 */
+	Assert(!WalRcvStreaming());
 	StandbyMode = false;
 
 	/*
@@ -7429,6 +7471,7 @@ StartupXLOG(void)
 	if (ArchiveRecoveryRequested)
 	{
 		char		reason[200];
+		char		recoveryPath[MAXPGPATH];
 
 		Assert(InArchiveRecovery);
 
@@ -7485,6 +7528,17 @@ StartupXLOG(void)
 		 */
 		writeTimeLineHistory(ThisTimeLineID, recoveryTargetTLI,
 							 EndRecPtr, reason);
+
+		/*
+		 * Since there might be a partial WAL segment named RECOVERYXLOG, get
+		 * rid of it.
+		 */
+		snprintf(recoveryPath, MAXPGPATH, XLOGDIR "/RECOVERYXLOG");
+		unlink(recoveryPath);	/* ignore any error */
+
+		/* Get rid of any remaining recovered timeline-history file, too */
+		snprintf(recoveryPath, MAXPGPATH, XLOGDIR "/RECOVERYHISTORY");
+		unlink(recoveryPath);	/* ignore any error */
 	}
 
 	/* Save the selected TimeLineID in shared memory, too */
@@ -7606,7 +7660,10 @@ StartupXLOG(void)
 		}
 		else
 			CreateCheckPoint(CHECKPOINT_END_OF_RECOVERY | CHECKPOINT_IMMEDIATE);
+	}
 
+	if (ArchiveRecoveryRequested)
+	{
 		/*
 		 * And finally, execute the recovery_end_command, if any.
 		 */
@@ -7614,10 +7671,7 @@ StartupXLOG(void)
 			ExecuteRecoveryCommand(recoveryEndCommand,
 								   "recovery_end_command",
 								   true);
-	}
 
-	if (ArchiveRecoveryRequested)
-	{
 		/*
 		 * We switched to a new timeline. Clean up segments on the old
 		 * timeline.
@@ -7777,7 +7831,7 @@ StartupXLOG(void)
 	ControlFile->time = (pg_time_t) time(NULL);
 
 	SpinLockAcquire(&XLogCtl->info_lck);
-	XLogCtl->SharedRecoveryInProgress = false;
+	XLogCtl->SharedRecoveryState = RECOVERY_STATE_DONE;
 	SpinLockRelease(&XLogCtl->info_lck);
 
 	UpdateControlFile();
@@ -7923,7 +7977,7 @@ RecoveryInProgress(void)
 		 */
 		volatile XLogCtlData *xlogctl = XLogCtl;
 
-		LocalRecoveryInProgress = xlogctl->SharedRecoveryInProgress;
+		LocalRecoveryInProgress = (xlogctl->SharedRecoveryState != RECOVERY_STATE_DONE);
 
 		/*
 		 * Initialize TimeLineID and RedoRecPtr when we discover that recovery
@@ -7935,8 +7989,8 @@ RecoveryInProgress(void)
 		{
 			/*
 			 * If we just exited recovery, make sure we read TimeLineID and
-			 * RedoRecPtr after SharedRecoveryInProgress (for machines with
-			 * weak memory ordering).
+			 * RedoRecPtr after SharedRecoveryState (for machines with weak
+			 * memory ordering).
 			 */
 			pg_memory_barrier();
 			InitXLOGAccess();
@@ -7950,6 +8004,24 @@ RecoveryInProgress(void)
 
 		return LocalRecoveryInProgress;
 	}
+}
+
+/*
+ * Returns current recovery state from shared memory.
+ *
+ * This returned state is kept consistent with the contents of the control
+ * file.  See details about the possible values of RecoveryState in xlog.h.
+ */
+RecoveryState
+GetRecoveryState(void)
+{
+	RecoveryState retval;
+
+	SpinLockAcquire(&XLogCtl->info_lck);
+	retval = XLogCtl->SharedRecoveryState;
+	SpinLockRelease(&XLogCtl->info_lck);
+
+	return retval;
 }
 
 /*
@@ -11755,12 +11827,23 @@ WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
 	 * values for "check trigger", "rescan timelines", and "sleep" states,
 	 * those actions are taken when reading from the previous source fails, as
 	 * part of advancing to the next state.
+	 *
+	 * If standby mode is turned off while reading WAL from stream, we move
+	 * to XLOG_FROM_ARCHIVE and reset lastSourceFailed, to force fetching
+	 * the files (which would be required at end of recovery, e.g., timeline
+	 * history file) from archive or pg_wal. We don't need to kill WAL receiver
+	 * here because it's already stopped when standby mode is turned off at
+	 * the end of recovery.
 	 *-------
 	 */
 	if (!InArchiveRecovery)
 		currentSource = XLOG_FROM_PG_WAL;
-	else if (currentSource == 0)
+	else if (currentSource == 0 ||
+			 (!StandbyMode && currentSource == XLOG_FROM_STREAM))
+	{
+		lastSourceFailed = false;
 		currentSource = XLOG_FROM_ARCHIVE;
+	}
 
 	for (;;)
 	{
@@ -11866,6 +11949,12 @@ WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
 					 */
 
 					/*
+					 * We should be able to move to XLOG_FROM_STREAM
+					 * only in standby mode.
+					 */
+					Assert(StandbyMode);
+
+					/*
 					 * Before we leave XLOG_FROM_STREAM state, make sure that
 					 * walreceiver is not active, so that it won't overwrite
 					 * WAL that we restore from archive.
@@ -11948,6 +12037,12 @@ WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
 		{
 			case XLOG_FROM_ARCHIVE:
 			case XLOG_FROM_PG_WAL:
+				/*
+				 * WAL receiver must not be running when reading WAL from
+				 * archive or pg_wal.
+				 */
+				Assert(!WalRcvStreaming());
+
 				/* Close any old file we might have open. */
 				if (readFile >= 0)
 				{
@@ -11977,6 +12072,12 @@ WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
 			case XLOG_FROM_STREAM:
 				{
 					bool		havedata;
+
+					/*
+					 * We should be able to move to XLOG_FROM_STREAM
+					 * only in standby mode.
+					 */
+					Assert(StandbyMode);
 
 					/*
 					 * Check if WAL receiver is still active.

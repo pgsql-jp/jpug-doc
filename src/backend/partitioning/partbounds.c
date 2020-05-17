@@ -360,9 +360,8 @@ create_list_bounds(PartitionBoundSpec **boundspecs, int nparts,
 			else
 			{
 				/*
-				 * Never put a null into the values array, flag instead for
-				 * the code further down below where we construct the actual
-				 * relcache struct.
+				 * Never put a null into the values array; save the index of
+				 * the partition that stores nulls, instead.
 				 */
 				if (null_index != -1)
 					elog(ERROR, "found null more than once");
@@ -821,7 +820,7 @@ partition_bounds_copy(PartitionBoundInfo src,
 		int			j;
 
 		/*
-		 * For a corresponding to hash partition, datums array will have two
+		 * For a corresponding hash partition, datums array will have two
 		 * elements - modulus and remainder.
 		 */
 		bool		hash_part = (key->strategy == PARTITION_STRATEGY_HASH);
@@ -2262,7 +2261,7 @@ get_qual_for_list(Relation parent, PartitionBoundSpec *spec)
  *		AND
  *	(b > bl OR (b = bl AND c >= cl))
  *		AND
- *	(b < bu) OR (b = bu AND c < cu))
+ *	(b < bu OR (b = bu AND c < cu))
  *
  * If a bound datum is either MINVALUE or MAXVALUE, these expressions are
  * simplified using the fact that any value is greater than MINVALUE and less

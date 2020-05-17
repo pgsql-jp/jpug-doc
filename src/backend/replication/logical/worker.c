@@ -42,6 +42,7 @@
 #include "miscadmin.h"
 #include "nodes/makefuncs.h"
 #include "optimizer/optimizer.h"
+#include "parser/analyze.h"
 #include "parser/parse_relation.h"
 #include "pgstat.h"
 #include "postmaster/bgworker.h"
@@ -363,13 +364,19 @@ slot_store_cstrings(TupleTableSlot *slot, LogicalRepRelMapEntry *rel,
 }
 
 /*
- * Modify slot with user data provided as C strings.
+ * Replace selected columns with user data provided as C strings.
  * This is somewhat similar to heap_modify_tuple but also calls the type
- * input function on the user data as the input is the text representation
- * of the types.
+ * input functions on the user data.
+ * "slot" is filled with a copy of the tuple in "srcslot", with
+ * columns selected by the "replaces" array replaced with data values
+ * from "values".
+ * Caution: unreplaced pass-by-ref columns in "slot" will point into the
+ * storage for "srcslot".  This is OK for current usage, but someday we may
+ * need to materialize "slot" at the end to make it independent of "srcslot".
  */
 static void
-slot_modify_cstrings(TupleTableSlot *slot, LogicalRepRelMapEntry *rel,
+slot_modify_cstrings(TupleTableSlot *slot, TupleTableSlot *srcslot,
+					 LogicalRepRelMapEntry *rel,
 					 char **values, bool *replaces)
 {
 	int			natts = slot->tts_tupleDescriptor->natts;
@@ -377,10 +384,19 @@ slot_modify_cstrings(TupleTableSlot *slot, LogicalRepRelMapEntry *rel,
 	SlotErrCallbackArg errarg;
 	ErrorContextCallback errcallback;
 
-	slot_getallattrs(slot);
+	/* We'll fill "slot" with a virtual tuple, so we must start with ... */
 	ExecClearTuple(slot);
 
-	/* Push callback + info on the error context stack */
+	/*
+	 * Copy all the column data from srcslot, so that we'll have valid values
+	 * for unreplaced columns.
+	 */
+	Assert(natts == srcslot->tts_tupleDescriptor->natts);
+	slot_getallattrs(srcslot);
+	memcpy(slot->tts_values, srcslot->tts_values, natts * sizeof(Datum));
+	memcpy(slot->tts_isnull, srcslot->tts_isnull, natts * sizeof(bool));
+
+	/* For error reporting, push callback + info on the error context stack */
 	errarg.rel = rel;
 	errarg.local_attnum = -1;
 	errarg.remote_attnum = -1;
@@ -428,6 +444,7 @@ slot_modify_cstrings(TupleTableSlot *slot, LogicalRepRelMapEntry *rel,
 	/* Pop the error context stack */
 	error_context_stack = errcallback.previous;
 
+	/* And finally, declare that "slot" contains a valid virtual tuple */
 	ExecStoreVirtualTuple(slot);
 }
 
@@ -674,6 +691,7 @@ apply_handle_update(StringInfo s)
 	bool		has_oldtup;
 	TupleTableSlot *localslot;
 	TupleTableSlot *remoteslot;
+	RangeTblEntry *target_rte;
 	bool		found;
 	MemoryContext oldctx;
 
@@ -703,6 +721,23 @@ apply_handle_update(StringInfo s)
 	localslot = table_slot_create(rel->localrel,
 								  &estate->es_tupleTable);
 	EvalPlanQualInit(&epqstate, estate, NULL, NIL, -1);
+
+	/*
+	 * Populate updatedCols so that per-column triggers can fire.  This could
+	 * include more columns than were actually changed on the publisher
+	 * because the logical replication protocol doesn't contain that
+	 * information.  But it would for example exclude columns that only exist
+	 * on the subscriber, since we are not touching those.
+	 */
+	target_rte = list_nth(estate->es_range_table, 0);
+	for (int i = 0; i < remoteslot->tts_tupleDescriptor->natts; i++)
+	{
+		if (newtup.changed[i])
+			target_rte->updatedCols = bms_add_member(target_rte->updatedCols,
+													 i + 1 - FirstLowInvalidHeapAttributeNumber);
+	}
+
+	fill_extraUpdatedCols(target_rte, RelationGetDescr(rel->localrel));
 
 	PushActiveSnapshot(GetTransactionSnapshot());
 	ExecOpenIndices(estate->es_result_relation_info, false);
@@ -740,8 +775,8 @@ apply_handle_update(StringInfo s)
 	{
 		/* Process and store remote tuple in the slot */
 		oldctx = MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
-		ExecCopySlot(remoteslot, localslot);
-		slot_modify_cstrings(remoteslot, rel, newtup.values, newtup.changed);
+		slot_modify_cstrings(remoteslot, localslot, rel,
+							 newtup.values, newtup.changed);
 		MemoryContextSwitchTo(oldctx);
 
 		EvalPlanQualSetSlot(&epqstate, remoteslot);
@@ -1089,6 +1124,8 @@ UpdateWorkerStats(XLogRecPtr last_lsn, TimestampTz send_time, bool reply)
 static void
 LogicalRepApplyLoop(XLogRecPtr last_received)
 {
+	TimestampTz last_recv_timestamp = GetCurrentTimestamp();
+
 	/*
 	 * Init the ApplyMessageContext which we clean up after each replication
 	 * protocol message.
@@ -1107,7 +1144,6 @@ LogicalRepApplyLoop(XLogRecPtr last_received)
 		int			len;
 		char	   *buf = NULL;
 		bool		endofstream = false;
-		TimestampTz last_recv_timestamp = GetCurrentTimestamp();
 		bool		ping_sent = false;
 		long		wait_time;
 

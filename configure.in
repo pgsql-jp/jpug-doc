@@ -17,7 +17,7 @@ dnl Read the Autoconf manual for details.
 dnl
 m4_pattern_forbid(^PGAC_)dnl to catch undefined macros
 
-AC_INIT([PostgreSQL], [12.0], [pgsql-bugs@lists.postgresql.org])
+AC_INIT([PostgreSQL], [12.3], [pgsql-bugs@lists.postgresql.org])
 
 m4_if(m4_defn([m4_PACKAGE_VERSION]), [2.69], [], [m4_fatal([Autoconf version 2.69 is required.
 Untested combinations of 'autoconf' and PostgreSQL versions are not
@@ -547,7 +547,7 @@ elif test "$PORTNAME" = "hpux"; then
   PGAC_PROG_CXX_CFLAGS_OPT([+Olibmerrno])
 fi
 
-AC_SUBST(CFLAGS_VECTOR, $CFLAGS_VECTOR)
+AC_SUBST(CFLAGS_VECTOR)
 
 # Determine flags used to emit bitcode for JIT inlining. Need to test
 # for behaviour changing compiler flags, to keep compatibility with
@@ -607,8 +607,11 @@ CXXFLAGS="$CXXFLAGS $user_CXXFLAGS"
 BITCODE_CFLAGS="$BITCODE_CFLAGS $user_BITCODE_CFLAGS"
 BITCODE_CXXFLAGS="$BITCODE_CXXFLAGS $user_BITCODE_CXXFLAGS"
 
-AC_SUBST(BITCODE_CFLAGS, $BITCODE_CFLAGS)
-AC_SUBST(BITCODE_CXXFLAGS, $BITCODE_CXXFLAGS)
+AC_SUBST(BITCODE_CFLAGS)
+AC_SUBST(BITCODE_CXXFLAGS)
+
+# The template file must set up CFLAGS_SL; we don't support user override
+AC_SUBST(CFLAGS_SL)
 
 # Check if the compiler still works with the final flag settings
 # (note, we're not checking that for CXX, which is optional)
@@ -660,6 +663,10 @@ else
 fi
 AC_SUBST(TAS)
 
+#
+# Set up pkg_config in case we need it below
+#
+PKG_PROG_PKG_CONFIG
 
 #
 # Automatic dependency tracking
@@ -919,27 +926,41 @@ AC_SUBST(UUID_EXTRA_OBJS)
 #
 # XML
 #
+AC_MSG_CHECKING([whether to build with XML support])
 PGAC_ARG_BOOL(with, libxml, no, [build with XML support],
               [AC_DEFINE([USE_LIBXML], 1, [Define to 1 to build with XML support. (--with-libxml)])])
+AC_MSG_RESULT([$with_libxml])
+AC_SUBST(with_libxml)
 
 if test "$with_libxml" = yes ; then
-  PGAC_PATH_PROGS(XML2_CONFIG, xml2-config)
+  # Check pkg-config, then xml2-config.  But for backwards compatibility,
+  # setting XML2_CONFIG overrides pkg-config.
   AC_ARG_VAR(XML2_CONFIG, [path to xml2-config utility])dnl
-  if test -n "$XML2_CONFIG"; then
-    for pgac_option in `$XML2_CONFIG --cflags`; do
-      case $pgac_option in
-        -I*|-D*) CPPFLAGS="$CPPFLAGS $pgac_option";;
-      esac
-    done
-    for pgac_option in `$XML2_CONFIG --libs`; do
-      case $pgac_option in
-        -L*) LDFLAGS="$LDFLAGS $pgac_option";;
-      esac
-    done
+  have_libxml2_pkg_config=no
+  if test -z "$XML2_CONFIG" -a -n "$PKG_CONFIG"; then
+    PKG_CHECK_MODULES(XML2, [libxml-2.0 >= 2.6.23],
+                      [have_libxml2_pkg_config=yes], [# do nothing])
   fi
+  if test "$have_libxml2_pkg_config" = no ; then
+    PGAC_PATH_PROGS(XML2_CONFIG, xml2-config)
+    if test -n "$XML2_CONFIG"; then
+      XML2_CFLAGS=`$XML2_CONFIG --cflags`
+      XML2_LIBS=`$XML2_CONFIG --libs`
+    fi
+  fi
+  # Note the user could also set XML2_CFLAGS/XML2_LIBS directly
+  for pgac_option in $XML2_CFLAGS; do
+    case $pgac_option in
+      -I*|-D*) CPPFLAGS="$CPPFLAGS $pgac_option";;
+    esac
+  done
+  for pgac_option in $XML2_LIBS; do
+    case $pgac_option in
+      -L*) LDFLAGS="$LDFLAGS $pgac_option";;
+    esac
+  done
 fi
 
-AC_SUBST(with_libxml)
 
 #
 # XSLT
@@ -1206,7 +1227,7 @@ if test "$with_openssl" = yes ; then
      AC_SEARCH_LIBS(CRYPTO_new_ex_data, [eay32 crypto], [], [AC_MSG_ERROR([library 'eay32' or 'crypto' is required for OpenSSL])])
      AC_SEARCH_LIBS(SSL_new, [ssleay32 ssl], [], [AC_MSG_ERROR([library 'ssleay32' or 'ssl' is required for OpenSSL])])
   fi
-  AC_CHECK_FUNCS([SSL_clear_options SSL_get_current_compression X509_get_signature_nid])
+  AC_CHECK_FUNCS([SSL_get_current_compression X509_get_signature_nid])
   # Functions introduced in OpenSSL 1.1.0. We used to check for
   # OPENSSL_VERSION_NUMBER, but that didn't work with 1.1.0, because LibreSSL
   # defines OPENSSL_VERSION_NUMBER to claim version 2.0.0, even though it
@@ -1217,6 +1238,20 @@ if test "$with_openssl" = yes ; then
   # thread-safety. In 1.1.0, it's no longer required, and CRYPTO_lock()
   # function was removed.
   AC_CHECK_FUNCS([CRYPTO_lock])
+  # SSL_clear_options is a macro in OpenSSL from 0.9.8 to 1.0.2, and
+  # a function from 1.1.0 onwards so we cannot use AC_CHECK_FUNCS.
+  AC_CACHE_CHECK([for SSL_clear_options], ac_cv_func_ssl_clear_options,
+  [AC_LINK_IFELSE([AC_LANG_PROGRAM([
+  #include <openssl/ssl.h>
+  #include <openssl/bio.h>
+  SSL *ssl;
+  ],
+  [return SSL_clear_options(ssl, 0);])],
+  [ac_cv_func_ssl_clear_options=yes],
+  [ac_cv_func_ssl_clear_options=no])])
+  if test $ac_cv_func_ssl_clear_options = yes ; then
+    AC_DEFINE(HAVE_SSL_CLEAR_OPTIONS, 1, [Define to 1 if you have SSL_clear_options()])
+  fi
 fi
 
 if test "$with_pam" = yes ; then
@@ -2255,6 +2290,10 @@ if test "$with_perl" = yes; then
   # On most platforms, if perl.h is there then libperl.so will be too, but at
   # this writing Debian packages them separately.  There is no known reason to
   # waste cycles on separate probes for the Tcl or Python libraries, though.
+  # On some Red Hat platforms, the link attempt can fail if we don't use
+  # CFLAGS_SL while building the test program.
+  ac_save_CFLAGS=$CFLAGS
+  CFLAGS="$CFLAGS $CFLAGS_SL"
   pgac_save_LIBS=$LIBS
   LIBS="$perl_embed_ldflags"
   AC_MSG_CHECKING([for libperl])
@@ -2266,6 +2305,7 @@ if test "$with_perl" = yes; then
     [AC_MSG_RESULT(no)
      AC_MSG_ERROR([libperl library is required for Perl])])
   LIBS=$pgac_save_LIBS
+  CFLAGS=$ac_save_CFLAGS
   CPPFLAGS=$ac_save_CPPFLAGS
 fi
 

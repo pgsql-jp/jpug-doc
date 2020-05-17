@@ -320,7 +320,7 @@ ScanPgRelation(Oid targetRelId, bool indexOK, bool force_non_historic)
 	Relation	pg_class_desc;
 	SysScanDesc pg_class_scan;
 	ScanKeyData key[1];
-	Snapshot	snapshot;
+	Snapshot	snapshot = NULL;
 
 	/*
 	 * If something goes wrong during backend startup, we might find ourselves
@@ -350,12 +350,12 @@ ScanPgRelation(Oid targetRelId, bool indexOK, bool force_non_historic)
 	/*
 	 * The caller might need a tuple that's newer than the one the historic
 	 * snapshot; currently the only case requiring to do so is looking up the
-	 * relfilenode of non mapped system relations during decoding.
+	 * relfilenode of non mapped system relations during decoding. That
+	 * snapshot cant't change in the midst of a relcache build, so there's no
+	 * need to register the snapshot.
 	 */
 	if (force_non_historic)
 		snapshot = GetNonHistoricCatalogSnapshot(RelationRelationId);
-	else
-		snapshot = GetCatalogSnapshot(RelationRelationId);
 
 	pg_class_scan = systable_beginscan(pg_class_desc, ClassOidIndexId,
 									   indexOK && criticalRelcachesBuilt,
@@ -3031,10 +3031,7 @@ AtEOXact_cleanup(Relation relation, bool isCommit)
 	 *
 	 * During commit, reset the flag to zero, since we are now out of the
 	 * creating transaction.  During abort, simply delete the relcache entry
-	 * --- it isn't interesting any longer.  (NOTE: if we have forgotten the
-	 * new-ness of a new relation due to a forced cache flush, the entry will
-	 * get deleted anyway by shared-cache-inval processing of the aborted
-	 * pg_class insertion.)
+	 * --- it isn't interesting any longer.
 	 */
 	if (relation->rd_createSubid != InvalidSubTransactionId)
 	{
@@ -4654,6 +4651,57 @@ RelationGetIndexExpressions(Relation relation)
 	oldcxt = MemoryContextSwitchTo(relation->rd_indexcxt);
 	relation->rd_indexprs = copyObject(result);
 	MemoryContextSwitchTo(oldcxt);
+
+	return result;
+}
+
+/*
+ * RelationGetDummyIndexExpressions -- get dummy expressions for an index
+ *
+ * Return a list of dummy expressions (just Const nodes) with the same
+ * types/typmods/collations as the index's real expressions.  This is
+ * useful in situations where we don't want to run any user-defined code.
+ */
+List *
+RelationGetDummyIndexExpressions(Relation relation)
+{
+	List	   *result;
+	Datum		exprsDatum;
+	bool		isnull;
+	char	   *exprsString;
+	List	   *rawExprs;
+	ListCell   *lc;
+
+	/* Quick exit if there is nothing to do. */
+	if (relation->rd_indextuple == NULL ||
+		heap_attisnull(relation->rd_indextuple, Anum_pg_index_indexprs, NULL))
+		return NIL;
+
+	/* Extract raw node tree(s) from index tuple. */
+	exprsDatum = heap_getattr(relation->rd_indextuple,
+							  Anum_pg_index_indexprs,
+							  GetPgIndexDescriptor(),
+							  &isnull);
+	Assert(!isnull);
+	exprsString = TextDatumGetCString(exprsDatum);
+	rawExprs = (List *) stringToNode(exprsString);
+	pfree(exprsString);
+
+	/* Construct null Consts; the typlen and typbyval are arbitrary. */
+	result = NIL;
+	foreach(lc, rawExprs)
+	{
+		Node	   *rawExpr = (Node *) lfirst(lc);
+
+		result = lappend(result,
+						 makeConst(exprType(rawExpr),
+								   exprTypmod(rawExpr),
+								   exprCollation(rawExpr),
+								   1,
+								   (Datum) 0,
+								   true,
+								   true));
+	}
 
 	return result;
 }

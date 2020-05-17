@@ -1181,9 +1181,6 @@ WalSndWriteData(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xid,
 {
 	TimestampTz now;
 
-	/* output previously gathered data in a CopyData packet */
-	pq_putmessage_noblock('d', ctx->out->data, ctx->out->len);
-
 	/*
 	 * Fill the send timestamp last, so that it is taken as late as possible.
 	 * This is somewhat ugly, but the protocol is set as it's already used for
@@ -1194,6 +1191,9 @@ WalSndWriteData(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xid,
 	pq_sendint64(&tmpbuf, now);
 	memcpy(&ctx->out->data[1 + sizeof(int64) + sizeof(int64)],
 		   tmpbuf.data, sizeof(int64));
+
+	/* output previously gathered data in a CopyData packet */
+	pq_putmessage_noblock('d', ctx->out->data, ctx->out->len);
 
 	CHECK_FOR_INTERRUPTS();
 
@@ -1295,7 +1295,6 @@ WalSndWaitForWal(XLogRecPtr loc)
 {
 	int			wakeEvents;
 	static XLogRecPtr RecentFlushPtr = InvalidXLogRecPtr;
-
 
 	/*
 	 * Fast path to avoid acquiring the spinlock in case we already know we
@@ -2310,14 +2309,16 @@ InitWalSenderSlot(void)
 			 * Found a free slot. Reserve it for us.
 			 */
 			walsnd->pid = MyProcPid;
+			walsnd->state = WALSNDSTATE_STARTUP;
 			walsnd->sentPtr = InvalidXLogRecPtr;
+			walsnd->needreload = false;
 			walsnd->write = InvalidXLogRecPtr;
 			walsnd->flush = InvalidXLogRecPtr;
 			walsnd->apply = InvalidXLogRecPtr;
 			walsnd->writeLag = -1;
 			walsnd->flushLag = -1;
 			walsnd->applyLag = -1;
-			walsnd->state = WALSNDSTATE_STARTUP;
+			walsnd->sync_standby_priority = 0;
 			walsnd->latch = &MyProc->procLatch;
 			walsnd->replyTime = 0;
 			SpinLockRelease(&walsnd->mutex);
@@ -2816,6 +2817,14 @@ XLogSendLogical(void)
 	char	   *errm;
 
 	/*
+	 * We'll use the current flush point to determine whether we've caught up.
+	 * This variable is static in order to cache it across calls.  Caching is
+	 * helpful because GetFlushRecPtr() needs to acquire a heavily-contended
+	 * spinlock.
+	 */
+	static XLogRecPtr flushPtr = InvalidXLogRecPtr;
+
+	/*
 	 * Don't know whether we've caught up yet. We'll set WalSndCaughtUp to
 	 * true in WalSndWaitForWal, if we're actually waiting. We also set to
 	 * true if XLogReadRecord() had to stop reading but WalSndWaitForWal
@@ -2832,9 +2841,6 @@ XLogSendLogical(void)
 
 	if (record != NULL)
 	{
-		/* XXX: Note that logical decoding cannot be used while in recovery */
-		XLogRecPtr	flushPtr = GetFlushRecPtr();
-
 		/*
 		 * Note the lack of any call to LagTrackerWrite() which is handled by
 		 * WalSndUpdateProgress which is called by output plugin through
@@ -2843,32 +2849,28 @@ XLogSendLogical(void)
 		LogicalDecodingProcessRecord(logical_decoding_ctx, logical_decoding_ctx->reader);
 
 		sentPtr = logical_decoding_ctx->reader->EndRecPtr;
-
-		/*
-		 * If we have sent a record that is at or beyond the flushed point, we
-		 * have caught up.
-		 */
-		if (sentPtr >= flushPtr)
-			WalSndCaughtUp = true;
 	}
-	else
-	{
-		/*
-		 * If the record we just wanted read is at or beyond the flushed
-		 * point, then we're caught up.
-		 */
-		if (logical_decoding_ctx->reader->EndRecPtr >= GetFlushRecPtr())
-		{
-			WalSndCaughtUp = true;
 
-			/*
-			 * Have WalSndLoop() terminate the connection in an orderly
-			 * manner, after writing out all the pending data.
-			 */
-			if (got_STOPPING)
-				got_SIGUSR2 = true;
-		}
-	}
+	/*
+	 * If first time through in this session, initialize flushPtr.  Otherwise,
+	 * we only need to update flushPtr if EndRecPtr is past it.
+	 */
+	if (flushPtr == InvalidXLogRecPtr)
+		flushPtr = GetFlushRecPtr();
+	else if (logical_decoding_ctx->reader->EndRecPtr >= flushPtr)
+		flushPtr = GetFlushRecPtr();
+
+	/* If EndRecPtr is still past our flushPtr, it means we caught up. */
+	if (logical_decoding_ctx->reader->EndRecPtr >= flushPtr)
+		WalSndCaughtUp = true;
+
+	/*
+	 * If we're caught up and have been requested to stop, have WalSndLoop()
+	 * terminate the connection in an orderly manner, after writing out all
+	 * the pending data.
+	 */
+	if (WalSndCaughtUp && got_STOPPING)
+		got_SIGUSR2 = true;
 
 	/* Update shared memory status */
 	{
@@ -3236,7 +3238,8 @@ pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
 	Tuplestorestate *tupstore;
 	MemoryContext per_query_ctx;
 	MemoryContext oldcontext;
-	List	   *sync_standbys;
+	SyncRepStandbyData *sync_standbys;
+	int			num_standbys;
 	int			i;
 
 	/* check to see if caller supports us returning a tuplestore */
@@ -3265,11 +3268,10 @@ pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
 	MemoryContextSwitchTo(oldcontext);
 
 	/*
-	 * Get the currently active synchronous standbys.
+	 * Get the currently active synchronous standbys.  This could be out of
+	 * date before we're done, but we'll use the data anyway.
 	 */
-	LWLockAcquire(SyncRepLock, LW_SHARED);
-	sync_standbys = SyncRepGetSyncStandbys(NULL);
-	LWLockRelease(SyncRepLock);
+	num_standbys = SyncRepGetCandidateStandbys(&sync_standbys);
 
 	for (i = 0; i < max_wal_senders; i++)
 	{
@@ -3285,9 +3287,12 @@ pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
 		int			pid;
 		WalSndState state;
 		TimestampTz replyTime;
+		bool		is_sync_standby;
 		Datum		values[PG_STAT_GET_WAL_SENDERS_COLS];
 		bool		nulls[PG_STAT_GET_WAL_SENDERS_COLS];
+		int			j;
 
+		/* Collect data from shared memory */
 		SpinLockAcquire(&walsnd->mutex);
 		if (walsnd->pid == 0)
 		{
@@ -3306,6 +3311,22 @@ pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
 		priority = walsnd->sync_standby_priority;
 		replyTime = walsnd->replyTime;
 		SpinLockRelease(&walsnd->mutex);
+
+		/*
+		 * Detect whether walsender is/was considered synchronous.  We can
+		 * provide some protection against stale data by checking the PID
+		 * along with walsnd_index.
+		 */
+		is_sync_standby = false;
+		for (j = 0; j < num_standbys; j++)
+		{
+			if (sync_standbys[j].walsnd_index == i &&
+				sync_standbys[j].pid == pid)
+			{
+				is_sync_standby = true;
+				break;
+			}
+		}
 
 		memset(nulls, 0, sizeof(nulls));
 		values[0] = Int32GetDatum(pid);
@@ -3376,7 +3397,7 @@ pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
 			 */
 			if (priority == 0)
 				values[10] = CStringGetTextDatum("async");
-			else if (list_member_int(sync_standbys, i))
+			else if (is_sync_standby)
 				values[10] = SyncRepConfig->syncrep_method == SYNC_REP_PRIORITY ?
 					CStringGetTextDatum("sync") : CStringGetTextDatum("quorum");
 			else

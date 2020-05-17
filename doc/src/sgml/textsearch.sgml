@@ -297,7 +297,7 @@ WHERE mid = 12;
 
 SELECT m.title || ' ' || m.author || ' ' || m.abstract || ' ' || d.body AS document
 FROM messages m, docs d
-WHERE mid = did AND mid = 12;
+WHERE m.mid = d.did AND m.mid = 12;
 </programlisting>
    </para>
 
@@ -1765,30 +1765,18 @@ ts_headline(<optional> <replaceable class="parameter">config</replaceable> <type
     <itemizedlist  spacing="compact" mark="bullet">
      <listitem>
       <para>
-<!--
-       <literal>StartSel</literal>, <literal>StopSel</literal>: the strings with
-       which to delimit query words appearing in the document, to distinguish
-       them from other excerpted words.  You must double-quote these strings
-       if they contain spaces or commas.
--->
-<literal>StartSel</literal>, <literal>StopSel</literal>: 文書中に現れる問い合わせ単語を区切るこの文字列は、他の抜粋される単語と区別されます。これらの文字列が空白やカンマを含んでいる場合は、二重引用符で囲う必要があります。
+       <literal>MaxWords</literal>, <literal>MinWords</literal> (integers):
+       these numbers determine the longest and shortest headlines to output.
+       The default values are 35 and 15.
       </para>
      </listitem>
      <listitem>
       <para>
 <!--
-       <literal>MaxWords</literal>, <literal>MinWords</literal>: these numbers
-       determine the longest and shortest headlines to output.
--->
-<literal>MaxWords</literal>, <literal>MinWords</literal>: この数字を使って見出しの最大の長さと最小の長さを指定します。
-      </para>
-     </listitem>
-     <listitem>
-      <para>
-<!--
-       <literal>ShortWord</literal>: words of this length or less will be
-       dropped at the start and end of a headline. The default
-       value of three eliminates common English articles.
+       <literal>ShortWord</literal> (integer): words of this length or less
+       will be dropped at the start and end of a headline, unless they are
+       query terms.  The default value of three eliminates common English
+       articles.
 -->
 <literal>ShortWord</literal>: この長さか、それ以下の長さの単語は、見出しの最初と最後から削除されます。デフォルト値の3は、常用される英語の冠詞を取り除きます。
       </para>
@@ -1796,9 +1784,10 @@ ts_headline(<optional> <replaceable class="parameter">config</replaceable> <type
      <listitem>
       <para>
 <!--
-       <literal>HighlightAll</literal>: Boolean flag;  if
+       <literal>HighlightAll</literal> (boolean): if
        <literal>true</literal> the whole document will be used as the
-       headline, ignoring the preceding three parameters.
+       headline, ignoring the preceding three parameters.  The default
+       is <literal>false</literal>.
 -->
 <literal>HighlightAll</literal>: 論理値フラグ; <literal>true</literal>なら文書全体が見出しの様にハイライトされ、前の3つのパラメータは無視されます。
       </para>
@@ -1806,27 +1795,30 @@ ts_headline(<optional> <replaceable class="parameter">config</replaceable> <type
      <listitem>
       <para>
 <!--
-       <literal>MaxFragments</literal>: maximum number of text excerpts
-       or fragments to display.  The default value of zero selects a
-       non-fragment-oriented headline generation method.  A value greater than
-       zero selects fragment-based headline generation.  This method
-       finds text fragments with as many query words as possible and
-       stretches those fragments around the query words.  As a result
-       query words are close to the middle of each fragment and have words on
-       each side. Each fragment will be of at most <literal>MaxWords</literal> and
-       words of length <literal>ShortWord</literal> or less are dropped at the start
-       and end of each fragment. If not all query words are found in the
-       document, then a single fragment of the first <literal>MinWords</literal>
-       in the document will be displayed.
+       <literal>MaxFragments</literal> (integer): maximum number of text
+       fragments to display.  The default value of zero selects a
+       non-fragment-based headline generation method.  A value greater
+       than zero selects fragment-based headline generation (see below).
 -->
 <literal>MaxFragments</literal>:表示するテキスト引用句、もしくは断片の最大数です。デフォルト値の0は断片化を起こさない見出しの生成の選択となります。0より大きい場合は断片化を基本とした見出しの生成の選択となります。この方法は、可能な限り多くの検索単語でテキスト断片を探し出し、検索単語周辺のそれらのテキスト断片を広げます。結果として、検索単語が各断片の中央部分近くに位置し、両端に単語を持つことになります。各断片は最大で<literal>MaxWords</literal>と同数の単語を持ち、<literal>ShortWord</literal>より少ないサイズの単語を断片の両端に持ちません。もし全ての検索単語を文書から見つけられなかった場合は、文書中の最初の<literal>MinWords</literal>分の単語数から成る一つの断片が表示されるでしょう。
       </para>
      </listitem>
      <listitem>
       <para>
+       <literal>StartSel</literal>, <literal>StopSel</literal> (strings):
+       the strings with which to delimit query words appearing in the
+       document, to distinguish them from other excerpted words.  The
+       default values are <quote><literal>&lt;b&gt;</literal></quote> and
+       <quote><literal>&lt;/b&gt;</literal></quote>, which can be suitable
+       for HTML output.
+      </para>
+     </listitem>
+     <listitem>
+      <para>
 <!--
-       <literal>FragmentDelimiter</literal>: When more than one fragment is
-       displayed, the fragments will be separated by this string.
+       <literal>FragmentDelimiter</literal> (string): When more than one
+       fragment is displayed, the fragments will be separated by this string.
+       The default is <quote><literal> ... </literal></quote>.
 -->
 <literal>FragmentDelimiter</literal>: 複数の断片が表示される時、その断片はこの文字で区切られます。
       </para>
@@ -1835,15 +1827,28 @@ ts_headline(<optional> <replaceable class="parameter">config</replaceable> <type
 
 <!--
     These option names are recognized case-insensitively.
-    Any unspecified options receive these defaults:
+    You must double-quote string values if they contain spaces or commas.
 -->
 指定されなかったオプションの値は以下のデフォルトになります。
+   </para>
 
-<programlisting>
-StartSel=&lt;b&gt;, StopSel=&lt;/b&gt;,
-MaxWords=35, MinWords=15, ShortWord=3, HighlightAll=FALSE,
-MaxFragments=0, FragmentDelimiter=" ... "
-</programlisting>
+   <para>
+    In non-fragment-based headline
+    generation, <function>ts_headline</function> locates matches for the
+    given <replaceable class="parameter">query</replaceable> and chooses a
+    single one to display, preferring matches that have more query words
+    within the allowed headline length.
+    In fragment-based headline generation, <function>ts_headline</function>
+    locates the query matches and splits each match
+    into <quote>fragments</quote> of no more than <literal>MaxWords</literal>
+    words each, preferring fragments with more query words, and when
+    possible <quote>stretching</quote> fragments to include surrounding
+    words.  The fragment-based mode is thus more useful when the query
+    matches span large sections of the document, or when it's desirable to
+    display multiple matches.
+    In either mode, if no query matches can be identified, then a single
+    fragment of the first <literal>MinWords</literal> words in the document
+    will be displayed.
    </para>
 
    <para>
@@ -1858,25 +1863,24 @@ SELECT ts_headline('english',
 is to find all documents containing given query terms
 and return them in order of their similarity to the
 query.',
-  to_tsquery('query &amp; similarity'));
-                        ts_headline                         
+  to_tsquery('english', 'query &amp; similarity'));
+                        ts_headline
 ------------------------------------------------------------
- containing given &lt;b&gt;query&lt;/b&gt; terms
- and return them in order of their &lt;b&gt;similarity&lt;/b&gt; to the
+ containing given &lt;b&gt;query&lt;/b&gt; terms                       +
+ and return them in order of their &lt;b&gt;similarity&lt;/b&gt; to the+
  &lt;b&gt;query&lt;/b&gt;.
 
 SELECT ts_headline('english',
-  'The most common type of search
-is to find all documents containing given query terms
-and return them in order of their similarity to the
-query.',
-  to_tsquery('query &amp; similarity'),
-  'StartSel = &lt;, StopSel = &gt;');
-                      ts_headline                      
--------------------------------------------------------
- containing given &lt;query&gt; terms
- and return them in order of their &lt;similarity&gt; to the
- &lt;query&gt;.
+  'Search terms may occur
+many times in a document,
+requiring ranking of the search matches to decide which
+occurrences to display in the result.',
+  to_tsquery('english', 'search &amp; term'),
+  'MaxFragments=10, MaxWords=7, MinWords=3, StartSel=&lt;&lt;, StopSel=&gt;&gt;');
+                        ts_headline
+------------------------------------------------------------
+ &lt;&lt;Search&gt;&gt; &lt;&lt;terms&gt;&gt; may occur                            +
+ many times ... ranking of the &lt;&lt;search&gt;&gt; matches to decide
 </screen>
    </para>
 

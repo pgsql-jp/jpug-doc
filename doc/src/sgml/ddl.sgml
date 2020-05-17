@@ -514,6 +514,32 @@ CREATE TABLE people (
 詳細は<xref linkend="sql-createforeigntable"/>をご覧ください。
      </para>
     </listitem>
+    <listitem>
+     <para>For inheritance:</para>
+     <itemizedlist>
+      <listitem>
+       <para>
+        If a parent column is a generated column, a child column must also be
+        a generated column using the same expression.  In the definition of
+        the child column, leave off the <literal>GENERATED</literal> clause,
+        as it will be copied from the parent.
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+        In case of multiple inheritance, if one parent column is a generated
+        column, then all parent columns must be generated columns and with the
+        same expression.
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+        If a parent column is not a generated column, a child column may be
+        defined to be a generated column or not.
+       </para>
+      </listitem>
+     </itemizedlist>
+    </listitem>
    </itemizedlist>
   </para>
 
@@ -3896,12 +3922,11 @@ SELECT * FROM information WHERE group_id = 2 FOR UPDATE;
 
   <para>
 <!--
-   A <productname>PostgreSQL</productname> database cluster
-   contains one or more named databases.  Users and groups of users are
-   shared across the entire cluster, but no other data is shared across
-   databases.  Any given client connection to the server can access
-   only the data in a single database, the one specified in the connection
-   request.
+   A <productname>PostgreSQL</productname> database cluster contains
+   one or more named databases.  Roles and a few other object types are
+   shared across the entire cluster.  A client connection to the server
+   can only access data in a single database, the one specified in the
+   connection request.
 -->
 <productname>PostgreSQL</productname>データベースクラスタには、1つ以上の名前付きデータベースが含まれます。
 ユーザおよびユーザのグループはクラスタ全体で共有されますが、他のデータは複数のデータベース間で共有されません。
@@ -3912,8 +3937,8 @@ SELECT * FROM information WHERE group_id = 2 FOR UPDATE;
    <para>
 <!--
     Users of a cluster do not necessarily have the privilege to access every
-    database in the cluster.  Sharing of user names means that there
-    cannot be different users named, say, <literal>joe</literal> in two databases
+    database in the cluster.  Sharing of role names means that there
+    cannot be different roles named, say, <literal>joe</literal> in two databases
     in the same cluster; but the system can be configured to allow
     <literal>joe</literal> access to only some of the databases.
 -->
@@ -4529,27 +4554,43 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 
    <para>
 <!--
-    Schemas can be used to organize your data in many ways.  There are a few
-    usage patterns easily supported by the default configuration, only one of
-    which suffices when database users mistrust other database users:
+    Schemas can be used to organize your data in many ways.
+    A <firstterm>secure schema usage pattern</firstterm> prevents untrusted
+    users from changing the behavior of other users' queries.  When a database
+    does not use a secure schema usage pattern, users wishing to securely
+    query that database would take protective action at the beginning of each
+    session.  Specifically, they would begin each session by
+    setting <varname>search_path</varname> to the empty string or otherwise
+    removing non-superuser-writable schemas
+    from <varname>search_path</varname>.  There are a few usage patterns
+    easily supported by the default configuration:
 -->
 スキーマは様々な方法でデータの編成に使用できます。
 デフォルト構成で簡単にサポートできるお勧めの使用パターンがいくつかあります。
     <itemizedlist>
      <listitem>
       <!-- "DROP SCHEMA public" is inferior to this REVOKE, because pg_dump
-           doesn't preserve that DROP. -->
+           doesn't preserve that DROP.
+
+           A database owner can attack the database's users via "CREATE SCHEMA
+           trojan; ALTER DATABASE $mydb SET search_path = trojan, public;".  A
+           CREATEROLE user can issue "GRANT $dbowner TO $me" and then use the
+           database owner attack. -->
       <para>
 <!--
        Constrain ordinary users to user-private schemas.  To implement this,
        issue <literal>REVOKE CREATE ON SCHEMA public FROM PUBLIC</literal>,
-       and create a schema for each user with the same name as that user.  If
-       affected users had logged in before this, consider auditing the public
+       and create a schema for each user with the same name as that user.
+       Recall that the default search path starts
+       with <literal>$user</literal>, which resolves to the user name.
+       Therefore, if each user has a separate schema, they access their own
+       schemas by default.  After adopting this pattern in a database where
+       untrusted users had already logged in, consider auditing the public
        schema for objects named like objects in
-       schema <literal>pg_catalog</literal>.  Recall that the default search
-       path starts with <literal>$user</literal>, which resolves to the user
-       name.  Therefore, if each user has a separate schema, they access their
-       own schemas by default.
+       schema <literal>pg_catalog</literal>.  This pattern is a secure schema
+       usage pattern unless an untrusted user is the database owner or holds
+       the <literal>CREATEROLE</literal> privilege, in which case no secure
+       schema usage pattern exists.
 -->
 一般ユーザに、ユーザ個人用のスキーマだけを使わせます。
 これを実現するには、<literal>REVOKE CREATE ON SCHEMA public FROM PUBLIC</literal>を発行し、個々のユーザにユーザと同じ名前でスキーマを作成してください。
@@ -4562,41 +4603,17 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
      <listitem>
       <para>
 <!--
-       Remove the public schema from each user's default search path
-       using <literal>ALTER ROLE <replaceable>user</replaceable> SET
-       search_path = "$user"</literal>.  Everyone retains the ability to
-       create objects in the public schema, but only qualified names will
-       choose those objects.  While qualified table references are fine, calls
-       to functions in the public schema <link linkend="typeconv-func">will be
-       unsafe or unreliable</link>.  Also, a user holding
-       the <literal>CREATEROLE</literal> privilege can undo this setting and
-       issue arbitrary queries under the identity of users relying on the
-       setting.  If you create functions or extensions in the public schema or
-       grant <literal>CREATEROLE</literal> to users not warranting this
-       almost-superuser ability, use the first pattern instead.
--->
-<literal>ALTER ROLE <replaceable>user</replaceable> SET search_path = "$user"</literal>を使って個々のユーザのデフォルトサーチパスからpublicスキーマを削除します。
-すべてのユーザは依然としてpublicスキーマにオブジェクトを作ることはできますが、修飾名を使わなければそのオブジェクトを選択できません。
-修飾してテーブルを参照するのは問題ありませんが、publicスキーマ中の関数の呼び出しは<link linkend="typeconv-func">安全ではないか、あるいは信頼できません</link>。
-また、<literal>CREATEROLE</literal>権限を保持するユーザは、この設定を元に戻して、この設定に依存しているユーザの資格で任意の問合せを発行できます。
-この、ほとんどスーパユーザと言える能力を与えずに関数や拡張をpublicスキーマに作成する、あるいは<literal>CREATEROLE</literal>をユーザに許可したいのであれば、最初に述べたパターンを代わりに使用してください。
-      </para>
-     </listitem>
-
-     <listitem>
-      <para>
-<!--
-       Remove the public schema from <varname>search_path</varname> in
-       <link linkend="config-setting-configuration-file"><filename>postgresql.conf</filename></link>.
-       The ensuing user experience matches the previous pattern.  In addition
-       to that pattern's implications for functions
-       and <literal>CREATEROLE</literal>, this trusts database owners
-       like <literal>CREATEROLE</literal>.  If you create functions or
-       extensions in the public schema or assign
-       the <literal>CREATEROLE</literal>
-       privilege, <literal>CREATEDB</literal> privilege or individual database
-       ownership to users not warranting almost-superuser access, use the
-       first pattern instead.
+       Remove the public schema from the default search path, by modifying
+       <link linkend="config-setting-configuration-file"><filename>postgresql.conf</filename></link>
+       or by issuing <literal>ALTER ROLE ALL SET search_path =
+       "$user"</literal>.  Everyone retains the ability to create objects in
+       the public schema, but only qualified names will choose those objects.
+       While qualified table references are fine, calls to functions in the
+       public schema <link linkend="typeconv-func">will be unsafe or
+       unreliable</link>.  If you create functions or extensions in the public
+       schema, use the first pattern instead.  Otherwise, like the first
+       pattern, this is secure unless an untrusted user is the database owner
+       or holds the <literal>CREATEROLE</literal> privilege.
 -->
 <link linkend="config-setting-configuration-file"><filename>postgresql.conf</filename></link>の<varname>search_path</varname>からpublicスキーマを削除します。
 これによるユーザ体験は一つ前のパターンと合致します。
@@ -4610,10 +4627,9 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 <!--
        Keep the default.  All users access the public schema implicitly.  This
        simulates the situation where schemas are not available at all, giving
-       a smooth transition from the non-schema-aware world.  However, any user
-       can issue arbitrary queries under the identity of any user not electing
-       to protect itself individually.  This pattern is acceptable only when
-       the database has a single user or a few mutually-trusting users.
+       a smooth transition from the non-schema-aware world.  However, this is
+       never a secure pattern.  It is acceptable only when the database has a
+       single user or a few mutually-trusting users.
 -->
 デフォルトを維持します。
 すべてのユーザがpublicスキーマに暗黙的にアクセスします。
@@ -4751,7 +4767,7 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 CREATE TABLE cities (
     name            text,
     population      float,
-    altitude        int     -- in feet
+    elevation       int     -- in feet
 );
 
 CREATE TABLE capitals (
@@ -4776,7 +4792,7 @@ CREATE TABLE capitals (
    rows of a table or all rows of a table plus all of its descendant tables.
    The latter behavior is the default.
    For example, the following query finds the names of all cities,
-   including state capitals, that are located at an altitude over
+   including state capitals, that are located at an elevation over
    500 feet:
 -->
 <productname>PostgreSQL</productname>では、1つのテーブルは、0以上のテーブルから継承することが可能です。
@@ -4785,9 +4801,9 @@ CREATE TABLE capitals (
 例えば次の問い合わせは、500フィートより上に位置しているすべての市の名前を、州都を含めて検索します。
 
 <programlisting>
-SELECT name, altitude
+SELECT name, elevation
     FROM cities
-    WHERE altitude &gt; 500;
+    WHERE elevation &gt; 500;
 </programlisting>
 
 <!--
@@ -4797,30 +4813,30 @@ SELECT name, altitude
 <productname>PostgreSQL</productname>チュートリアルからのサンプルデータ（<xref linkend="tutorial-sql-intro"/>を参照してください）に対して、この問い合わせは、以下の結果を出力します。
 
 <programlisting>
-   name    | altitude
------------+----------
- Las Vegas |     2174
- Mariposa  |     1953
- Madison   |      845
+   name    | elevation
+-----------+-----------
+ Las Vegas |      2174
+ Mariposa  |      1953
+ Madison   |       845
 </programlisting>
   </para>
 
   <para>
 <!--
    On the other hand, the following query finds all the cities that
-   are not state capitals and are situated at an altitude over 500 feet:
+   are not state capitals and are situated at an elevation over 500 feet:
 -->
 一方、次の問い合わせは、州都ではなく500フィートより上に位置しているすべての市を検索します。
 
 <programlisting>
-SELECT name, altitude
+SELECT name, elevation
     FROM ONLY cities
-    WHERE altitude &gt; 500;
+    WHERE elevation &gt; 500;
 
-   name    | altitude
------------+----------
- Las Vegas |     2174
- Mariposa  |     1953
+   name    | elevation
+-----------+-----------
+ Las Vegas |      2174
+ Mariposa  |      1953
 </programlisting>
   </para>
 
@@ -4846,9 +4862,9 @@ SELECT name, altitude
 また、明示的に子孫テーブルが含まれていることを示すために、テーブル名の後ろに<literal>*</literal>を書くこともできます:
 
 <programlisting>
-SELECT name, altitude
+SELECT name, elevation
     FROM cities*
-    WHERE altitude &gt; 500;
+    WHERE elevation &gt; 500;
 </programlisting>
 
 <!--
@@ -4871,9 +4887,9 @@ SELECT name, altitude
 それぞれのテーブルには<structfield>tableoid</structfield>という、元になったテーブルを示すシステム列があります。
 
 <programlisting>
-SELECT c.tableoid, c.name, c.altitude
+SELECT c.tableoid, c.name, c.elevation
 FROM cities c
-WHERE c.altitude &gt; 500;
+WHERE c.elevation &gt; 500;
 </programlisting>
 
 <!--
@@ -4882,11 +4898,11 @@ WHERE c.altitude &gt; 500;
 出力は以下の通りです。
 
 <programlisting>
- tableoid |   name    | altitude
-----------+-----------+----------
-   139793 | Las Vegas |     2174
-   139793 | Mariposa  |     1953
-   139798 | Madison   |      845
+ tableoid |   name    | elevation
+----------+-----------+-----------
+   139793 | Las Vegas |      2174
+   139793 | Mariposa  |      1953
+   139798 | Madison   |       845
 </programlisting>
 
 <!--
@@ -4898,9 +4914,9 @@ WHERE c.altitude &gt; 500;
 <structname>pg_class</structname>と結合することで、テーブルの実際の名前が分かります。
 
 <programlisting>
-SELECT p.relname, c.name, c.altitude
+SELECT p.relname, c.name, c.elevation
 FROM cities c, pg_class p
-WHERE c.altitude &gt; 500 AND c.tableoid = p.oid;
+WHERE c.elevation &gt; 500 AND c.tableoid = p.oid;
 </programlisting>
 
 <!--
@@ -4909,11 +4925,11 @@ WHERE c.altitude &gt; 500 AND c.tableoid = p.oid;
 出力は以下の通りです。
 
 <programlisting>
- relname  |   name    | altitude
-----------+-----------+----------
- cities   | Las Vegas |     2174
- cities   | Mariposa  |     1953
- capitals | Madison   |      845
+ relname  |   name    | elevation
+----------+-----------+-----------
+ cities   | Las Vegas |      2174
+ cities   | Mariposa  |      1953
+ capitals | Madison   |       845
 </programlisting>
   </para>
 
@@ -4925,9 +4941,9 @@ WHERE c.altitude &gt; 500 AND c.tableoid = p.oid;
 同じ効果を得る別の方法は、別名型<type>regclass</type>を使うことで、これによりテーブルのOIDを記号的に表示します。
 
 <programlisting>
-SELECT c.tableoid::regclass, c.name, c.altitude
+SELECT c.tableoid::regclass, c.name, c.elevation
 FROM cities c
-WHERE c.altitude &gt; 500;
+WHERE c.elevation &gt; 500;
 </programlisting>
   </para>
 
@@ -4941,7 +4957,7 @@ WHERE c.altitude &gt; 500;
 継承は<command>INSERT</command>または<command>COPY</command>によるデータを、継承の階層にある他のテーブルに自動的に伝播しません。
 この例では、次の<command>INSERT</command>文は失敗します。
 <programlisting>
-INSERT INTO cities (name, population, altitude, state)
+INSERT INTO cities (name, population, elevation, state)
 VALUES ('Albany', NULL, NULL, 'NY');
 </programlisting>
 <!--
@@ -5079,7 +5095,15 @@ VALUES ('Albany', NULL, NULL, 'NY');
    accessed through <structname>cities</structname>.  This preserves the appearance
    that the data is (also) in the parent table.  But
    the <structname>capitals</structname> table could not be updated directly
-   without an additional grant.  In a similar way, the parent table's row
+   without an additional grant.  Two exceptions to this rule are
+   <command>TRUNCATE</command> and <command>LOCK TABLE</command>,
+   where permissions on the child tables are always checked,
+   whether they are processed directly or recursively via those commands
+   performed on the parent table.
+  </para>
+
+  <para>
+   In a similar way, the parent table's row
    security policies (see <xref linkend="ddl-rowsecurity"/>) are applied to
    rows coming from child tables during an inherited query.  A child table's
    policies, if any, are applied only when it is the table explicitly named
@@ -5916,14 +5940,14 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
 <!--
      Before running the <command>ATTACH PARTITION</command> command, it is
      recommended to create a <literal>CHECK</literal> constraint on the table to
-     be attached describing the desired partition constraint.  That way,
+     be attached matching the desired partition constraint. That way,
      the system will be able to skip the scan to validate the implicit
-     partition constraint. Without such a constraint, the table will be
-     scanned to validate the partition constraint while holding an
-     <literal>ACCESS EXCLUSIVE</literal> lock on that partition
+     partition constraint. Without the <literal>CHECK</literal> constraint,
+     the table will be scanned to validate the partition constraint while
+     holding an <literal>ACCESS EXCLUSIVE</literal> lock on that partition
      and a <literal>SHARE UPDATE EXCLUSIVE</literal> lock on the parent table.
-     One may then drop the constraint after <command>ATTACH PARTITION</command>
-     is finished, because it is no longer necessary.
+     It may be desired to drop the redundant <literal>CHECK</literal> constraint
+     after <command>ATTACH PARTITION</command> is finished.
 -->
 <command>ATTACH PARTITION</command>コマンドを実行する前に、求められるパーティション制約を記述する<literal>CHECK</literal>制約を、パーティションに追加するテーブルに作成することを推奨します。
 こうすることで、システムは暗示的なパーティション制約を検証するための走査を省略することができます。
@@ -6129,8 +6153,8 @@ ALTER INDEX measurement_city_id_logdate_key
 
      <para>
 <!--
-      We use the same <structname>measurement</structname> table we used
-      above.  To implement partitioning using inheritance, use
+      We use the non-partitioned <structname>measurement</structname>
+      table above.  To implement partitioning using inheritance, use
       the following steps:
 -->
 上で使用したのと同じ<structname>measurement</structname>テーブルを使用します。
