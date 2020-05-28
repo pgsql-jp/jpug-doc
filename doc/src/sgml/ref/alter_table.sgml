@@ -498,7 +498,7 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
       VALID</literal>, which is currently only allowed for foreign key
       and CHECK constraints.
 -->
-この構文は、<xref linkend="sql-createtable"/>と同じ構文に加え、現時点では外部キー制約と検査制約でのみ許される<literal>NOT VALID</literal>オプションを使って新しい制約をテーブルに追加します。
+この構文は、<xref linkend="sql-createtable"/>と同じ制約構文に加え、現時点では外部キー制約と検査制約でのみ許される<literal>NOT VALID</literal>オプションを使って新しい制約をテーブルに追加します。
      </para>
 
      <para>
@@ -536,7 +536,8 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
       referenced table, in addition to the lock on the table on which the
       constraint is declared.
 -->
-外部キー制約の追加には、制約を受け取るテーブルでのロックに加えて、被参照テーブルに<literal>SHARE ROW EXCLUSIVE</literal>ロックが必要です。
+<literal>ADD <replaceable class="parameter">table_constraint</replaceable></literal>のほとんどの構文では<literal>ACCESS EXCLUSIVE</literal>ロックが必要ですが、<literal>ADD FOREIGN KEY</literal>では<literal>SHARE ROW EXCLUSIVE</literal>ロックだけが必要です。
+<literal>ADD FOREIGN KEY</literal>は、制約を宣言したテーブルでのロックに加えて、被参照テーブルの<literal>SHARE ROW EXCLUSIVE</literal>ロックも取得することに注意してください。
      </para>
 
      <para>
@@ -986,7 +987,7 @@ clusterオプションの変更は<literal>SHARE UPDATE EXCLUSIVE</literal>ロ�
       fillfactor, toast and autovacuum storage parameters, as well as the
       planner parameter <varname>parallel_workers</varname>.
 -->
-fillfactor、TOAST、およびautovacuumのストレージパラメータおよびプランナに関連するパラメータ<varname>effective_io_concurrency</varname>、<varname>parallel_workers</varname>、<varname>seq_page_cost</varname>、<varname>random_page_cost</varname>、<varname>n_distinct</varname>、<varname>n_distinct_inherited</varname>については<literal>SHARE UPDATE EXCLUSIVE</literal>ロックが獲得されます。
+fillfactor、TOAST、およびautovacuumのストレージパラメータおよびプランナに関連するパラメータ<varname>parallel_workers</varname>については<literal>SHARE UPDATE EXCLUSIVE</literal>ロックが獲得されます。
      </para>
     </listitem>
    </varlistentry>
@@ -1195,6 +1196,7 @@ fillfactor、TOAST、およびautovacuumのストレージパラメータおよ�
 対象テーブルの各インデックスについて、対応するインデックスが付加されるテーブルに作られます。
 また、同等のインデックスが既にある場合には、そのインデックスが、<command>ALTER INDEX ATTACH PARTITION</command>が実行された場合と同様に、対象テーブルのインデックスに付加されます。
 既存のテーブルが外部テーブルの場合、今のところ対象テーブルに<literal>UNIQUE</literal>インデックスがあるときにはテーブルを対象テーブルのパーティションとして追加することはできない点に注意してください（<xref linkend="sql-createforeigntable"/>も参照してください）。
+対象テーブルにある各ユーザ定義の行レベルのトリガに対しては、対応するものが付加されるテーブルに作られます。
      </para>
 
      <para>
@@ -1242,10 +1244,10 @@ fillfactor、TOAST、およびautovacuumのストレージパラメータおよ�
       <literal>NOT NULL</literal> constraint to the partition key column,
       unless it's an expression.
 -->
-新しいパーティションが通常のテーブルの場合、パーティションの制約に違反する行がテーブルに存在しないことを確認するため、テーブルの全件走査が行われます。
+新しいパーティションが通常のテーブルの場合、テーブルに存在する行がパーティションの制約に違反しないことを確認するため、テーブルの全件走査が行われます。
 このコマンドを実行するより前に、望まれるパーティションの制約を満たす行だけしか許さないような有効な<literal>CHECK</literal>制約をテーブルに追加すれば、この全件走査を避けることができます。
-パーティションの制約を確認するためにテーブルをスキャンしなくても良いことは、そのような制約を使って決定されます。
-しかし、パーティションキーに式が一つでもあり、それが<literal>NULL</literal>値を受け付けないときは、この仕組みは機能しません。
+<literal>CHECK</literal>制約は、パーティションの制約を確認するためにテーブルをスキャンする必要がないか決めるために使われます。
+しかし、パーティションキーに式が一つでもあり、パーティションが<literal>NULL</literal>値を受け付けないときは、この仕組みは機能しません。
 <literal>NULL</literal>値を受け付けないリストパーティションに追加するときも、それが式でないなら、パーティションキーの列に<literal>NOT NULL</literal>制約を追加してください。
      </para>
 
@@ -1278,10 +1280,13 @@ fillfactor、TOAST、およびautovacuumのストレージパラメータおよ�
      </para>
 
      <para>
+<!--
       Attaching a partition acquires a
       <literal>SHARE UPDATE EXCLUSIVE</literal> lock on the parent table,
       in addition to <literal>ACCESS EXCLUSIVE</literal> locks on the table
       to be attached and on the default partition (if any).
+-->
+パーティションの追加は、追加されるテーブルと（もしあれば）デフォルトパーティションでの<literal>ACCESS EXCLUSIVE</literal>ロックに加えて、親テーブルで<literal>SHARE UPDATE EXCLUSIVE</literal>ロックを取得します。
      </para>
     </listitem>
    </varlistentry>
@@ -1300,6 +1305,7 @@ fillfactor、TOAST、およびautovacuumのストレージパラメータおよ�
 この構文は、指定したパーティションを対象のテーブルから切り離します。
 切り離されたパーティションは単独のテーブルとして存在し続けますが、切り離される前のテーブルとの紐付けはなくなります。
 対象テーブルのインデックスに付加されていた全てのインデックスも切り離されます。
+対象テーブルのものの複製として作られたトリガは削除されます。
      </para>
     </listitem>
    </varlistentry>
