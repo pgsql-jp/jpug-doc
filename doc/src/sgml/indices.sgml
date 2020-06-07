@@ -1098,9 +1098,13 @@ CREATE INDEX test1_lower_col1_idx ON test1 (lower(col1));
   </para>
 
   <para>
+<!--
    Expression indexes also allow control over the scope of unique indexes.
    For example, this unique index prevents duplicate integer values from
    being stored in a <type>double precision</type>-typed column:
+-->
+式インデックスを使用すると、一意インデックスの範囲を制御することもできます。
+例えば、この一意インデックスは<type>倍精度</type>型の列に重複した整数値が格納されないようにします。
 <programlisting>
 CREATE UNIQUE INDEX test1_uniq_int ON tests ((floor(double_col)))
 </programlisting>
@@ -1482,10 +1486,13 @@ CREATE UNIQUE INDEX tests_success_constraint ON tests (subject, target)
    </para>
 
    <para>
+<!--
     This index allows only one null in the indexed column by using a
     partial index clause to process only null column values, and using
     an expression index clause to index <literal>true</literal> instead
     of <literal>null</literal>:
+-->
+このインデックスは、部分インデックス句を使用してNULLの列値のみを処理し、式インデックス句を使用して<literal>NULL</literal>の代わりに<literal>true</literal>値でインデックスを作成することで、インデックスが作成された列のNULL値をひとつのみ許可します。
 <programlisting>
 CREATE UNIQUE INDEX tests_target_one_null ON tests ((target IS NULL)) WHERE target IS NULL;
 </programlisting>
@@ -1526,14 +1533,21 @@ CREATE UNIQUE INDEX tests_target_one_null ON tests ((target IS NULL)) WHERE targ
 部分インデックスを作成するには、少なくとも問い合わせプランナと同等の知識を持っていること、特に、インデックスが有益となる状況を理解している必要があることに留意してください。
 このような知識を得るためには、<productname>PostgreSQL</productname>でインデックスがどのように機能するかを理解し、経験を積むことが必要です。
 ほとんどの場合、通常のインデックスと比べて、部分インデックスを使用する利点は微細です。
+<xref linkend="indexes-partial-ex4"/>のように、かなり逆効果な場合があります。
   </para>
 
   <example id="indexes-partial-ex4">
+<!--
    <title>Do Not Use Partial Indexes as a Substitute for Partitioning</title>
+-->
+   <title>パーティショニングの代わりに部分インデックスを使用しない</title>
 
    <para>
+<!--
     You might be tempted to create a large set of non-overlapping partial
     indexes, for example
+-->
+例えば、重複しない部分インデックスの大きなセットを作りたいと思うかもしれません。
 
 <programlisting>
 CREATE INDEX mytable_cat_1 ON mytable (data) WHERE category = 1;
@@ -1543,13 +1557,17 @@ CREATE INDEX mytable_cat_3 ON mytable (data) WHERE category = 3;
 CREATE INDEX mytable_cat_<replaceable>N</replaceable> ON mytable (data) WHERE category = <replaceable>N</replaceable>;
 </programlisting>
 
+<!--
     This is a bad idea!  Almost certainly, you'll be better off with a
     single non-partial index, declared like
+-->
+これは良くないアイディアです！ほとんどの場合、以下のように宣言された、部分的でない単一のインデックスを使用する方が良いでしょう。
 
 <programlisting>
 CREATE INDEX mytable_cat_data ON mytable (category, data);
 </programlisting>
 
+<!--
     (Put the category column first, for the reasons described in
     <xref linkend="indexes-multicolumn"/>.)  While a search in this larger
     index might have to descend through a couple more tree levels than a
@@ -1559,14 +1577,22 @@ CREATE INDEX mytable_cat_data ON mytable (category, data);
     understand the relationship among the partial indexes, and will
     laboriously test each one to see if it's applicable to the current
     query.
+-->
+（<xref linkend="indexes-multicolumn"/>で説明されている理由から、最初にcategory列を指定します。)
+この大きなインデックスでの検索は、小さなインデックスでの検索よりも2,3ツリーレベルを下に移動する必要がありますが、部分インデックスの適切な1つを選択するためにプランナがおこなう作業よりも、ほぼ確実にコストが削減できます。
+この問題の核心は、システムが部分インデックス間の関係を理解していないことと、現在の問い合わせに適用出来るかどうかそれぞれ苦労してテストすることです。
    </para>
 
    <para>
+<!--
     If your table is large enough that a single index really is a bad idea,
     you should look into using partitioning instead (see
     <xref linkend="ddl-partitioning"/>).  With that mechanism, the system
     does understand that the tables and indexes are non-overlapping, so
     far better performance is possible.
+-->
+テーブルが非常に大きくて、単一のインデックスが本当に悪いアイデアである場合は、代わりにパーティショニングを使用する必要があります(<xref linkend="ddl-partitioning"/>を参照してください）。
+このメカニズムにより、テーブルとインデックスが重複していないことが、システムで認識されるため、パフォーマンスが大幅に向上します。
    </para>
   </example>
 
