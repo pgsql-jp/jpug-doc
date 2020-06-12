@@ -20,17 +20,10 @@
        <listitem>
         <para>
 <!--
-         Sets the minimum time that a snapshot can be used without risk of a
-         <literal>snapshot too old</literal> error occurring when using the snapshot.
-         This parameter can only be set at server start.
--->
-スナップショットが使用されるときに、<literal>snapshot too old</literal>エラーを引き起こす危険性なしにスナップショットを利用できる最小時間を設定します。
-このパラメータはサーバ起動時にのみ設定できます。
-        </para>
-
-        <para>
-<!--
-         Beyond the threshold, old data may be vacuumed away.  This can help
+         Sets the minimum amount of time that a query snapshot can be used
+         without risk of a <quote>snapshot too old</quote> error occurring
+         when using the snapshot.  Data that has been dead for longer than
+         this threshold is allowed to be vacuumed away.  This can help
          prevent bloat in the face of snapshots which remain in use for a
          long time.  To prevent incorrect results due to cleanup of data which
          would otherwise be visible to the snapshot, an error is generated
@@ -38,26 +31,34 @@
          used to read a page which has been modified since the snapshot was
          built.
 -->
-この制限値を越えると、古いデータはバキュームされます。
+スナップショットを使用する際に、<quote>snapshot too old</quote>エラーが起こるリスク無しに問い合わせスナップショットが利用できる最小の期間を設定します。
+この制限値を越えてデッド状態のままになったデータはバキュームしてしまうことが許可されます。
 これにより、長い間残っていたスナップショットによりデータが溢れてしまうのを防ぐことができます。
 スナップショットから見えるデータが消えることによる不正な結果を防ぐため、スナップショットがこの制限値よりも古く、かつこのスナップショットが作られた以降に変更されたページを読むためにスナップショットが使用されるときはエラーが発生します。
         </para>
 
         <para>
 <!--
-         A value of <literal>-1</literal> disables this feature, and is the default.
+         If this value is specified without units, it is taken as minutes.
+         A value of <literal>-1</literal> (the default) disables this feature,
+         effectively setting the snapshot age limit to infinity.
+         This parameter can only be set at server start.
+-->
+この値が単位なしで指定された場合は、分単位であるとみなします。
+<literal>-1</literal>（デフォルトです）を設定するとこの機能が無効になり、実質的にスナップショットの寿命を無限にします。
+このパラメータはサーバ起動時にのみ設定可能です。
+        </para>
+
+        <para>
+<!--
          Useful values for production work probably range from a small number
-         of hours to a few days.  The setting will be coerced to a granularity
-         of minutes, and small numbers (such as <literal>0</literal> or
+         of hours to a few days.  Small values (such as <literal>0</literal> or
          <literal>1min</literal>) are only allowed because they may sometimes be
          useful for testing.  While a setting as high as <literal>60d</literal> is
          allowed, please note that in many workloads extreme bloat or
          transaction ID wraparound may occur in much shorter time frames.
 -->
-<literal>-1</literal>を設定するとこの機能が無効になります。
-これがデフォルトです。
 実際の環境でのおすすめの値はおそらく数時間から2, 3日の間となるでしょう。
-設定値は、分の粒度に書き換えられます。
 小さな値(たとえば<literal>0</literal>や<literal>1min</literal>)は、テストの際に有用だということで許可されています。
 <literal>60d</literal>のような大きな値の設定もできますが、多くのワークロードにおいて、大きなデータ溢れやトランザクションIDの周回がそれよりはずっと短い期間で起こる可能性があることに注意してください。
         </para>
@@ -66,13 +67,13 @@
 <!--
          When this feature is enabled, freed space at the end of a relation
          cannot be released to the operating system, since that could remove
-         information needed to detect the <literal>snapshot too old</literal>
+         information needed to detect the <quote>snapshot too old</quote>
          condition.  All space allocated to a relation remains associated with
          that relation for reuse only within that relation unless explicitly
          freed (for example, with <command>VACUUM FULL</command>).
 -->
 この機能が有効であると、リレーションの終端部にあるフリースペースはオペレーティングシステムには返却されません。
-そうしないと、<literal>snapshot too old</literal>の条件の検出に必要な情報を削除してしまうことになるからです。
+そうしないと、<quote>snapshot too old</quote>の条件の検出に必要な情報を削除してしまうことになるからです。
 明示的に解放されない限り（たとえば<command>VACUUM FULL</command>によって）、リレーションに割り当てられた領域は、そのリレーションの中での再利用に限定して紐付けられます。
         </para>
 
@@ -86,7 +87,7 @@
          Some tables cannot safely be vacuumed early, and so will not be
          affected by this setting, such as system catalogs.  For such tables
          this setting will neither reduce bloat nor create a possibility
-         of a <literal>snapshot too old</literal> error on scanning.
+         of a <quote>snapshot too old</quote> error on scanning.
 -->
 この設定は、どのような状況でもエラーが検出されることを保証するものではありません。
 （たとえば）マテリアライズされた結果集合を持つカーソルから正しい結果を得ることができるのであれば、たとえ参照している元のテーブルからVACUUMによって行が削除されたとしてもエラーにはなりません。
@@ -656,14 +657,16 @@
         manually if the automatic choice is too large or too small,
         but any positive value less than <literal>32kB</literal> will be
         treated as <literal>32kB</literal>.
+        If this value is specified without units, it is taken as WAL blocks,
+        that is <symbol>XLOG_BLCKSZ</symbol> bytes, typically 8kB.
         This parameter can only be set at server start.
        -->
-       未だディスクに書き込まれていないWALデータに対して使用される共有メモリ容量です。
-       デフォルトの設定である-1は、<xref linkend="guc-shared-buffers"/>の1/32（約3%）の容量に等しい大きさを選択します。
-       しかし、<literal>64kB</literal>未満ではなく、かつ典型的に<literal>16MB</literal>であるWALセグメントの大きさを越えることはありません。
-       もし、自動設定による選択が大きすぎたり、小さすぎる場合この値は手作業で設定可能です。
-       しかし、<literal>32kB</literal>未満のどんな正の値であっても、<literal>32kB</literal>
-として取り扱われます。
+未だディスクに書き込まれていないWALデータに対して使用される共有メモリ容量です。
+デフォルトの設定である-1は、<xref linkend="guc-shared-buffers"/>の1/32（約3%）の容量に等しい大きさを選択します。
+しかし、<literal>64kB</literal>未満ではなく、かつ典型的に<literal>16MB</literal>であるWALセグメントの大きさを越えることはありません。
+もし、自動設定による選択が大きすぎたり、小さすぎる場合この値は手作業で設定可能です。
+しかし、<literal>32kB</literal>未満のどんな正の値であっても、<literal>32kB</literal>として取り扱われます。
+この値が単位なしで指定された場合は、WALブロック単位であるとみなします。すなわち、<symbol>XLOG_BLCKSZ</symbol>バイト、一般的には8kBです。
 このパラメータはサーバ起動時のみ設定可能です。
        </para>
 
@@ -698,13 +701,15 @@
       <listitem>
       <para>
 <!--
-        Specifies how often the WAL writer flushes WAL. After flushing WAL it
-        sleeps for <varname>wal_writer_delay</varname> milliseconds, unless woken up
+        Specifies how often the WAL writer flushes WAL, in time terms.
+        After flushing WAL the writer sleeps for the length of time given
+        by <varname>wal_writer_delay</varname>, unless woken up sooner
         by an asynchronously committing transaction. If the last flush
-        happened less than <varname>wal_writer_delay</varname> milliseconds ago and
-        less than <varname>wal_writer_flush_after</varname> bytes of WAL have been
+        happened less than <varname>wal_writer_delay</varname> ago and less
+        than <varname>wal_writer_flush_after</varname> worth of WAL has been
         produced since, then WAL is only written to the operating system, not
         flushed to disk.
+        If this value is specified without units, it is taken as milliseconds.
         The default value is 200 milliseconds (<literal>200ms</literal>).  Note that
         on many systems, the effective resolution of sleep delays is 10
         milliseconds; setting <varname>wal_writer_delay</varname> to a value that is
@@ -712,9 +717,10 @@
         next higher multiple of 10. This parameter can only be set in the
         <filename>postgresql.conf</filename> file or on the server command line.
 -->
-WALライタがWALを吐き出す頻度を指定します。
+WALライタがWALを吐き出す頻度を時間で指定します。
 WALを吐き出したとあと、非同期コミットしているトランザクションに起こされない限り、<varname>wal_writer_delay</varname>ミリ秒待機します。
-最後の吐き出しが過去<varname>wal_writer_delay</varname>ミリ秒以内に起こなわれ、かつそれ以降<varname>wal_writer_flush_after</varname>バイト以内のWALが生成されている場合は、WALはオペレーティングシステムに書き込まれますが、ディスクには吐出されません。
+最後の吐き出しが過去<varname>wal_writer_delay</varname>以内に起こなわれ、かつそれ以降<varname>wal_writer_flush_after</varname>相当のWALが生成されている場合は、WALはオペレーティングシステムに書き込まれますが、ディスクには吐出されません。
+この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
 デフォルト値は200ミリ秒（<literal>200ms</literal>）です。
 多くのシステムでは、待機間隔の実質的な分解能は10ミリ秒です。
 10の倍数以外の値を<varname>wal_writer_delay</varname>に設定しても、その次に大きい10の倍数を設定した場合と同じ結果となります。
@@ -735,18 +741,23 @@ WALを吐き出したとあと、非同期コミットしているトランザ�
       <listitem>
       <para>
 <!--
-        Specifies how often the WAL writer flushes WAL. If the last flush
-        happened less than <varname>wal_writer_delay</varname> milliseconds ago and
-        less than <varname>wal_writer_flush_after</varname> bytes of WAL have been
+        Specifies how often the WAL writer flushes WAL, in volume terms.
+        If the last flush happened less
+        than <varname>wal_writer_delay</varname> ago and less
+        than <varname>wal_writer_flush_after</varname> worth of WAL has been
         produced since, then WAL is only written to the operating system, not
         flushed to disk.  If <varname>wal_writer_flush_after</varname> is set
-        to <literal>0</literal> then WAL data is flushed immediately.  The default is
-        <literal>1MB</literal>. This parameter can only be set in the
+        to <literal>0</literal> then WAL data is always flushed immediately.
+        If this value is specified without units, it is taken as WAL blocks,
+        that is <symbol>XLOG_BLCKSZ</symbol> bytes, typically 8kB.
+        The default is <literal>1MB</literal>.
+        This parameter can only be set in the
         <filename>postgresql.conf</filename> file or on the server command line.
 -->
-WALライタがWALを吐き出す頻度を指定します。
-最後の吐き出しが過去<varname>wal_writer_delay</varname>ミリ秒以内に起こなわれ、かつそれ以降<varname>wal_writer_flush_after</varname>バイト以内のWALが生成されている場合は、WALはオペレーティングシステムに書き込まれますが、ディスクには吐出されません。
+WALライタがWALを吐き出す頻度を量で指定します。
+最後の吐き出しが過去<varname>wal_writer_delay</varname>以内に起こなわれ、かつそれ以降<varname>wal_writer_flush_after</varname>相当のWALが生成されている場合は、WALはオペレーティングシステムに書き込まれますが、ディスクには吐出されません。
 <varname>wal_writer_flush_after</varname>が<literal>0</literal>に設定されている場合は、WALが書かれるたびにWALが吐出されます。
+この値が単位なしで指定された場合は、WALブロック単位であるとみなします。すなわち、<symbol>XLOG_BLCKSZ</symbol>バイト、一般的には8kBです。
 デフォルト値は<literal>1MB</literal>です。
 このパラメータは<filename>postgresql.conf</filename>ファイル内またはサーバのコマンドラインでのみ設定可能です。
        </para>
@@ -765,26 +776,28 @@ WALライタがWALを吐き出す頻度を指定します。
       <listitem>
        <para>
 <!--
-        <varname>commit_delay</varname> adds a time delay, measured in
-        microseconds, before a WAL flush is initiated.  This can improve
+        Setting <varname>commit_delay</varname> adds a time delay
+        before a WAL flush is initiated.  This can improve
         group commit throughput by allowing a larger number of transactions
         to commit via a single WAL flush, if system load is high enough
         that additional transactions become ready to commit within the
-        given interval.  However, it also increases latency by up to
-        <varname>commit_delay</varname> microseconds for each WAL
+        given interval.  However, it also increases latency by up to the
+        <varname>commit_delay</varname> for each WAL
         flush.  Because the delay is just wasted if no other transactions
         become ready to commit, a delay is only performed if at least
         <varname>commit_siblings</varname> other transactions are active
         when a flush is about to be initiated.  Also, no delays are
         performed if <varname>fsync</varname> is disabled.
+        If this value is specified without units, it is taken as microseconds.
         The default <varname>commit_delay</varname> is zero (no delay).
         Only superusers can change this setting.
 -->
-<varname>commit_delay</varname>は、WALフラッシュを開始する前の時間遅延を追加します。単位はマイクロ秒です。
+<varname>commit_delay</varname>を設定することにより、WALフラッシュを開始する前の時間遅延が追加されます。
 このことにより、もし追加のトランザクションが与えられた時間間隔内でコミットが可能になるほどシステム負荷が充分に高い場合、一回のWALフラッシュでより多くの数のトランザクションをコミットできるようになり、コミット群のスループットを改善できます。
 とは言っても、それぞれのWALフラッシュに対して最大<varname>commit_delay</varname>マイクロ秒の待ち時間の増加をきたします。
 コミットの準備が完了したトランザクションが他に存在しない場合、遅延は無駄になるため、遅延はフラッシュが開始されようとしている時点で少なくとも<varname>commit_siblings</varname>だけのトランザクションが活動している場合にだけ機能します。
 同様に、<varname>fsync</varname>が無効の場合も遅延は機能しません。
+この値が単位なしで指定された場合は、マイクロ秒単位であるとみなします。
 デフォルトの<varname>commit_delay</varname>はゼロ（遅延無し）です。
 この設定はスーパーユーザのみ変更可能です。
        </para>
@@ -852,7 +865,8 @@ WALライタがWALを吐き出す頻度を指定します。
       <listitem>
        <para>
        <!--
-        Maximum time between automatic WAL checkpoints, in seconds.
+        Maximum time between automatic WAL checkpoints.
+        If this value is specified without units, it is taken as seconds.
         The valid range is between 30 seconds and one day.
         The default is five minutes (<literal>5min</literal>).
         Increasing this parameter can increase the amount of time needed
@@ -860,7 +874,8 @@ WALライタがWALを吐き出す頻度を指定します。
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
        -->
-自動的WALチェックポイント間の最大間隔を秒単位で指定します。
+自動的WALチェックポイント間の最大間隔を指定します。
+この値が単位なしで指定された場合は、秒単位であるとみなします。
 有効な範囲は、30秒から1日の間です。
 デフォルトは5分（<literal>5min</literal>）です。
 このパラメータを増やすと、クラッシュリカバリで必要となる時間が増加します。
@@ -905,8 +920,8 @@ WALライタがWALを吐き出す頻度を指定します。
       <listitem>
        <para>
 <!--
-        Whenever more than <varname>checkpoint_flush_after</varname> bytes
-        have been written while performing a checkpoint, attempt to force the
+        Whenever more than this amount of data has been
+        written while performing a checkpoint, attempt to force the
         OS to issue these writes to the underlying storage.  Doing so will
         limit the amount of dirty data in the kernel's page cache, reducing
         the likelihood of stalls when an <function>fsync</function> is issued at the end of the
@@ -915,7 +930,10 @@ WALライタがWALを吐き出す頻度を指定します。
         latency, but there also are some cases, especially with workloads
         that are bigger than <xref linkend="guc-shared-buffers"/>, but smaller
         than the OS's page cache, where performance might degrade.  This
-        setting may have no effect on some platforms.  The valid range is
+        setting may have no effect on some platforms.
+        If this value is specified without units, it is taken as blocks,
+        that is <symbol>BLCKSZ</symbol> bytes, typically 8kB.
+        The valid range is
         between <literal>0</literal>, which disables forced writeback,
         and <literal>2MB</literal>.  The default is <literal>256kB</literal> on
         Linux, <literal>0</literal> elsewhere.  (If <symbol>BLCKSZ</symbol> is not
@@ -923,10 +941,11 @@ WALライタがWALを吐き出す頻度を指定します。
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
 -->
-チェックポイント実行中に<varname>checkpoint_flush_after</varname>バイトより多く書く度に、OSが記憶装置に書き込むことを強制しようとします。
+チェックポイント実行中にこのデータ量よりも多く書く度に、OSが記憶装置に書き込むことを強制しようとします。
 このことにより、カーネルのページキャッシュが持つダーティデータの量を一定量に制限し、チェックポイントの最後に<function>fsync</function>が実行される際、あるいはOSがバックグラウンドでデータを大きな塊で書き出す際に性能の急激な低下を招く可能性を減らします。
 多くの場合これによってトランザクションの遅延が大幅に少なくなりますが、あるケース、特にワークロードが<xref linkend="guc-shared-buffers"/>よりも大きく、OSのページキャッシュよりも小さい時には性能が低下するかもしれません。
 この設定が無効なプラットフォームがあります。
+この値が単位なしで指定された場合は、ブロック単位であるとみなします。すなわち、<symbol>BLCKSZ</symbol>バイト、一般的には8kBです。
 有効な設定値は、この強制書き込み機能が無効になる<literal>0</literal>から、<literal>2MB</literal>までです。
 デフォルト値は、Linuxでは<literal>256kB</literal>で、それ以外は<literal>0</literal>です。
 (<symbol>BLCKSZ</symbol>が8kbでなければ、この設定のデフォルト値と最大値が<symbol>BLCKSZ</symbol>に比例して変更されます。)
@@ -949,16 +968,19 @@ WALライタがWALを吐き出す頻度を指定します。
        <!--
         Write a message to the server log if checkpoints caused by
         the filling of WAL segment files happen closer together
-        than this many seconds (which suggests that
-        <varname>max_wal_size</varname> ought to be raised).  The default is
-        30 seconds (<literal>30s</literal>).  Zero disables the warning.
+        than this amount of time (which suggests that
+        <varname>max_wal_size</varname> ought to be raised).
+        If this value is specified without units, it is taken as seconds.
+        The default is 30 seconds (<literal>30s</literal>).
+        Zero disables the warning.
         No warnings will be generated if <varname>checkpoint_timeout</varname>
         is less than <varname>checkpoint_warning</varname>.
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
        -->
-WALセグメントファイルが溢れることが原因で起きるチェックポイントが、ここで指定した秒数よりも短い間隔で発生したとき、サーバログにメッセージを書き出します
+WALセグメントファイルが溢れることが原因で起きるチェックポイントが、ここで指定した時間よりも短い間隔で発生したとき、サーバログにメッセージを書き出します
 （これは、<varname>max_wal_size</varname>を増やす必要があることを示唆しています）。
+この値が単位なしで指定された場合は、秒単位であるとみなします。
 デフォルトは30秒（<literal>30s</literal>）です。
 零の場合は警告を出しません。
 <varname>checkpoint_timeout</varname>が<varname>checkpoint_warning</varname>より小さい場合は警告を出しません。
@@ -981,9 +1003,11 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
 <!--
         Maximum size to let the WAL grow to between automatic WAL
         checkpoints. This is a soft limit; WAL size can exceed
-        <varname>max_wal_size</varname> under special circumstances, like
-        under heavy load, a failing <varname>archive_command</varname>, or a high
-        <varname>wal_keep_segments</varname> setting. The default is 1 GB.
+        <varname>max_wal_size</varname> under special circumstances, such as
+        heavy load, a failing <varname>archive_command</varname>, or a high
+        <varname>wal_keep_segments</varname> setting.
+        If this value is specified without units, it is taken as megabytes.
+        The default is 1 GB.
         Increasing this parameter can increase the amount of time needed for
         crash recovery.
         This parameter can only be set in the <filename>postgresql.conf</filename>
@@ -991,6 +1015,7 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
 -->
 自動WALチェックポイントの間にWALが増加する最大サイズです。
 これはソフトリミットです。特別な状況下、たとえば高負荷、<varname>archive_command</varname>の失敗、<varname>wal_keep_segments</varname>が大きな値に設定されている、などの時には、WALサイズは<varname>max_wal_size</varname>を超えることがあります。
+この値が単位なしで指定された場合は、メガバイト単位であるとみなします。
 デフォルトは1GBです。
 このパラメータを大きくすると、クラッシュリカバリに必要な時間が長くなります。
 このパラメータは、<filename>postgresql.conf</filename>ファイルで設定するか、サーバのコマンドラインでのみ指定できます。
@@ -1014,12 +1039,15 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
         always recycled for future use at a checkpoint, rather than removed.
         This can be used to ensure that enough WAL space is reserved to
         handle spikes in WAL usage, for example when running large batch
-        jobs. The default is 80 MB.
+        jobs.
+        If this value is specified without units, it is taken as megabytes.
+        The default is 80 MB.
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
 -->
 この設定以下にWALのディスク使用量が保たれる限り、古いWALファイルは、消去されることなく今後のチェックポイントで使用するために常にリサイクルされます。
 この設定は、たとえば大きなバッチジョブを走らせる際のWALの利用スパイクを取り扱うために、十分なWALのスペースが予約されていることを保証するために使用できます。
+この値が単位なしで指定された場合は、メガバイト単位であるとみなします。
 デフォルトは80MBです。
 このパラメータは、<filename>postgresql.conf</filename>ファイルで設定するか、サーバのコマンドラインでのみ指定できます。
        </para>
@@ -1154,7 +1182,7 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
         data can be, you can set <varname>archive_timeout</varname> to force the
         server to switch to a new WAL segment file periodically.  When this
         parameter is greater than zero, the server will switch to a new
-        segment file whenever this many seconds have elapsed since the last
+        segment file whenever this amount of time has elapsed since the last
         segment file switch, and there has been any database activity,
         including a single checkpoint (checkpoints are skipped if there is
         no database activity).  Note that archived files that are closed
@@ -1165,18 +1193,20 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
         usually reasonable.  You should consider using streaming replication,
         instead of archiving, if you want data to be copied off the master
         server more quickly than that.
+        If this value is specified without units, it is taken as seconds.
         This parameter can only be set in the
         <filename>postgresql.conf</filename> file or on the server command line.
        -->
 <xref linkend="guc-archive-command"/>は完了したWALセグメントに対してのみ呼び出されます。
 従って、サーバのWAL転送量が少ししかない（あるいは処理が少ないなぎの期間がある）場合、トランザクションの完了とアーカイブ格納領域への安全な記録との間に長期にわたる遅延があることになります。
 データが未アーカイブのままでいられる期間を制限するために、<varname>archive_timeout</varname>を設定して、強制的にサーバを新しいWALセグメントに定期的に切り替えるようにすることができます。
-このパラメータが0より大きければ、サーバは前回のセグメントファイル切り替えから指定秒数経過し、かつ単一のチェックポイントを含む何らかのデータベース操作が行われた場合、新しいセグメントファイルに切り替えます。
+このパラメータが0より大きければ、サーバは前回のセグメントファイル切り替えから指定時間経過し、かつ単一のチェックポイントを含む何らかのデータベース操作が行われた場合、新しいセグメントファイルに切り替えます。
 （データベースが活動していなければ、チェックポイントはスキップされます。）
 強制切り替えにより早期にクローズされたアーカイブ済みファイルは、完全に完了したファイルと同じ大きさを持つことに注意してください。
 そのため、非常に小さな<varname>archive_timeout</varname>を使用することは賢明ではなく、格納領域を膨張させてしまいます。
 １分程度の<varname>archive_timeout</varname>設定が通常は妥当です。
 もしそれより高速にデータをマスターサーバからコピーをしてしまいたいのであれば、アーカイブするよりストリーミングレプリケーションの選択を検討すべきです。
+この値が単位なしで指定された場合は、秒単位であるとみなします。
 このパラメータは <filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定可能です。
        </para>
       </listitem>
@@ -1249,15 +1279,12 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
      takes precedence.  Targeted recovery mode ends when the archived WAL is
      fully replayed, or when <varname>recovery_target</varname> is reached.
      In this mode, the parameters from both this section and <xref
-     linkend="runtime-config-wal-recovery-target"/> will be used.  Parameters
-     from <xref linkend="runtime-config-replication-standby"/> will not be
-     used.
+     linkend="runtime-config-wal-recovery-target"/> will be used.
 -->
 サーバをターゲットリカバリモードで起動するには、<filename>recovery.signal</filename><indexterm><primary>recovery.signal</primary></indexterm>という名前のファイルをデータディレクトリに作ります。
 <filename>standby.signal</filename>と<filename>recovery.signal</filename>の両方が作られた場合は、スタンバイモードが優先します。
 ターゲットリカバリモードはアーカイブWALが完全に再生されるか、<varname>recovery_target</varname>に到達した時に終了します。
 このモードでは、この節と<xref linkend="runtime-config-wal-recovery-target"/>のパラメータの両方が使用されます。
-<xref linkend="runtime-config-replication-standby"/>のパラメータは使用されません。
     </para>
 
     <variablelist>
@@ -1545,6 +1572,20 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
 -->
 このパラメータは、指定したタイムスタンプまでリカバリを進行させます。
 正確な停止点は<xref linkend="guc-recovery-target-inclusive"/>にも影響されます。
+       </para>
+
+       <para>
+<!--
+        The value of this parameter is a time stamp in the same format
+        accepted by the <type>timestamp with time zone</type> data type,
+        except that you cannot use a time zone abbreviation (unless the
+        <xref linkend="guc-timezone-abbreviations"/> variable has been set
+        earlier in the configuration file).  Preferred style is to use a
+        numeric offset from UTC, or you can write a full time zone name,
+        e.g. <literal>Europe/Helsinki</literal> not <literal>EEST</literal>.
+-->
+（<xref linkend="guc-timezone-abbreviations"/>変数が設定ファイルで先に設定されていない限り）時間帯略語を使えないことを除けば、このパラメータの値は<type>timestamp with time zone</type>データ型が受け付けるのと同じ形式のタイムスタンプです。
+おすすめの形式はUTCからのオフセットか、<literal>EEST</literal>ではなく<literal>Europe/Helsinki</literal>のような完全な時間帯名です。
        </para>
       </listitem>
      </varlistentry>
@@ -2002,11 +2043,22 @@ COWファイルシステムでは、新しいファイルを作るほうが速�
       <listitem>
        <para>
 <!--
-        Terminate replication connections that are inactive longer
-        than the specified number of milliseconds. This is useful for
+        Terminate replication connections that are inactive for longer
+        than this amount of time. This is useful for
         the sending server to detect a standby crash or network outage.
-        A value of zero disables the timeout mechanism. The default value
-        is 60 seconds. With a cluster distributed across multiple geographic
+        If this value is specified without units, it is taken as milliseconds.
+        The default value is 60 seconds.
+        A value of zero disables the timeout mechanism.
+-->
+指定された時間より長く非活動であるレプリケーション接続を停止します。
+スタンバイサーバのクラッシュ、またはネットワークの停止を送出サーバが検出することにこれが役立ちます。
+この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
+デフォルトの値は60秒です。
+値ゼロはこのタイムアウト機能を無効にします。
+       </para>
+       <para>
+<!--
+        With a cluster distributed across multiple geographic
         locations, using different values per location brings more flexibility
         in the cluster management. A smaller value is useful for faster
         failure detection with a standby having a low-latency network
@@ -2014,10 +2066,6 @@ COWファイルシステムでは、新しいファイルを作るほうが速�
         of a standby if located on a remote location, with a high-latency
         network connection.
 -->
-指定されたミリ秒単位の値より長く非活動のレプリケーション接続を停止します。
-スタンバイサーバのクラッシュ、またはネットワークの停止を送出サーバが検出することにこれが役立ちます。
-値ゼロはタイムアウト機能を無効にします。
-デフォルトの値は60秒です。
 地理的に複数の場所に分散したクラスタでは、場所によって異なる値を使うことでクラスタ管理がより柔軟にできるようになります。
 より小さな値は低遅延ネットワーク接続上のスタンバイの障害検知をより高速にするのに役立ちます。
 遅延の大きなネットワーク接続に設置されたスタンバイの健全性の判断にはより大きな値が助けになるでしょう。
@@ -2495,7 +2543,8 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
         <xref linkend="hot-standby-conflict"/>.
         <varname>max_standby_archive_delay</varname> applies when WAL data is
         being read from WAL archive (and is therefore not current).
-        The default is 30 seconds. Units are milliseconds if not specified.
+        If this value is specified without units, it is taken as milliseconds.
+        The default is 30 seconds.
         A value of -1 allows the standby to wait forever for conflicting
         queries to complete.
         This parameter can only be set in the <filename>postgresql.conf</filename>
@@ -2503,8 +2552,8 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
        -->
 ホットスタンバイが稼動している場合、このパラメータは<xref linkend="hot-standby-conflict"/>で記載されているように、まさに適用されようとしているWALエントリと衝突するスタンバイサーバの問い合わせをキャンセルするにはどれだけ待機しなければならないかを設定します。
 <varname>max_standby_archive_delay</varname>はWALデータをWALアーカイブ（すなわち最新ではありません）から読み込んでいる時に適用されます。
+この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
 デフォルトは30秒です。
-特に指定が無ければ単位はミリ秒です。
 値-1は衝突する問い合わせが完了するまでスタンバイサーバが待ち続けられるようにします。
 このパラメータは、<filename>postgresql.conf</filename>ファイル、もしくはサーバコマンドラインでのみ設定可能です。
        </para>
@@ -2542,7 +2591,8 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
         <xref linkend="hot-standby-conflict"/>.
         <varname>max_standby_streaming_delay</varname> applies when WAL data is
         being received via streaming replication.
-        The default is 30 seconds. Units are milliseconds if not specified.
+        If this value is specified without units, it is taken as milliseconds.
+        The default is 30 seconds.
         A value of -1 allows the standby to wait forever for conflicting
         queries to complete.
         This parameter can only be set in the <filename>postgresql.conf</filename>
@@ -2593,23 +2643,27 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
        the last write-ahead log location it has written, the last position it
        has flushed to disk, and the last position it has applied.
        This parameter's
-       value is the maximum interval, in seconds, between reports.  Updates are
+       value is the maximum amount of time between reports.  Updates are
        sent each time the write or flush positions change, or at least as
        often as specified by this parameter.  Thus, the apply position may
-       lag slightly behind the true position.  Setting this parameter to zero
-       disables status updates completely.  This parameter can only be set in
-       the <filename>postgresql.conf</filename> file or on the server command line.
+       lag slightly behind the true position.
+       If this value is specified without units, it is taken as seconds.
        The default value is 10 seconds.
+       Setting this parameter to zero disables status updates completely.
+       This parameter can only be set in
+       the <filename>postgresql.conf</filename> file or on the server
+       command line.
        -->
 スタンバイサーバ上のWAL受信プロセスがプライマリー、または上位サーバに対してレプリケーションの進捗情報を送信する最小頻度を指定します。
 送信された進捗情報は<link linkend="pg-stat-replication-view"><literal>pg_stat_replication</literal></link>ビューにより確認することが可能です。
 スタンバイサーバは書き込みがされた直近の先行書き込みログ位置、ディスクにフラッシュされた直近のログ位置、およびリカバリ適用された直近のログ位置を報告します。
-このパラメータの値がそれぞれの報告間における秒単位の最大の時間間隔です。
+このパラメータの値がそれぞれの報告間における最大の時間間隔です。
 書き込み、またはフラッシュ位置が変更される毎、あるいは最低でもこのパラメータで設定された頻度で更新情報が送信されます。
 従って、適用位置は真の位置よりも少し後ろにずれることがあります。
+この値が単位なしで指定された場合は、秒単位であるとみなします。
+デフォルトの値は10秒です。
 このパラメータをゼロに設定すると、ステータスの更新を完全に無効化します。
 このパラメータは、<filename>postgresql.conf</filename>ファイル、もしくはサーバコマンドラインでのみ設定可能です。
-デフォルトの値は10秒です。
       </para>
       </listitem>
      </varlistentry>
@@ -2682,20 +2736,23 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
       <listitem>
        <para>
        <!--
-        Terminate replication connections that are inactive longer
-        than the specified number of milliseconds. This is useful for
+        Terminate replication connections that are inactive for longer
+        than this amount of time. This is useful for
         the receiving standby server to detect a primary node crash or network
         outage.
-        A value of zero disables the timeout mechanism.  This parameter
-        can only be set in
-        the <filename>postgresql.conf</filename> file or on the server command line.
+        If this value is specified without units, it is taken as milliseconds.
         The default value is 60 seconds.
+        A value of zero disables the timeout mechanism.
+        This parameter can only be set in
+        the <filename>postgresql.conf</filename> file or on the server
+        command line.
        -->
-指定されたミリ秒より長い間、活動していないレプリケーション接続は停止します。
+指定された時間より長い間、活動していないレプリケーション接続は停止します。
 このことは受信するスタンバイサーバがプライマリノードの機能停止、またはネットワーク停止を検出するのに便利です。
+この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
+デフォルト値は60秒です。
 値ゼロは時間切れメカニズムを無効にします。
 このパラメータは<filename>postgresql.conf</filename>ファイルまたはサーバのコマンドラインのみで設定可能です。
-デフォルト値は60秒です。
        </para>
       </listitem>
      </varlistentry>
@@ -2712,17 +2769,21 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
       <listitem>
        <para>
 <!--
-        Specify how long the standby server should wait when WAL data is not
+        Specifies how long the standby server should wait when WAL data is not
         available from any sources (streaming replication,
-        local <filename>pg_wal</filename> or WAL archive) before retrying to
-        retrieve WAL data.  This parameter can only be set in the
-        <filename>postgresql.conf</filename> file or on the server command line.
-        The default value is 5 seconds. Units are milliseconds if not specified.
+        local <filename>pg_wal</filename> or WAL archive) before trying
+        again to retrieve WAL data.
+        If this value is specified without units, it is taken as milliseconds.
+        The default value is 5 seconds.
+        This parameter can only be set in
+        the <filename>postgresql.conf</filename> file or on the server
+        command line.
 -->
 WALデータがソース(ストリーミングレプリケーション、ローカルの<filename>pg_wal</filename>、またはWALアーカイブ)から取得できない時に、スタンバイサーバがWALデータ受信をリトライするまでにどの位の時間待つべきかを指定します。
 このパラメータは、<filename>postgresql.conf</filename>ファイル、もしくはサーバコマンドラインでのみ設定可能です。
+この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
 デフォルト値は5秒です。
-特に指定がなければ単位はミリ秒です。
+このパラメータは、<filename>postgresql.conf</filename>ファイルで設定するか、サーバのコマンドラインでのみ指定できます。
        </para>
        <para>
 <!--
@@ -2759,15 +2820,18 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         By default, a standby server restores WAL records from the
         sending server as soon as possible. It may be useful to have a time-delayed
         copy of the data, offering opportunities to correct data loss errors.
-        This parameter allows you to delay recovery by a fixed period of time,
-        measured in milliseconds if no unit is specified.  For example, if
+        This parameter allows you to delay recovery by a specified amount
+        of time.  For example, if
         you set this parameter to <literal>5min</literal>, the standby will
         replay each transaction commit only when the system time on the standby
         is at least five minutes past the commit time reported by the master.
+        If this value is specified without units, it is taken as milliseconds.
+        The default is zero, adding no delay.
 -->
 デフォルトでは、スタンバイサーバは可能な限り早くプライマリからWALレコードをリストアします。
 時間遅れのデータのコピーを持つことで、データ損失エラーを修正する機会を提供するのは有用かもしれません。
-このパラメータを使う事で、決まった時間だけリカバリを遅らせることができます。単位を指定しない場合、ミリ秒として扱われます。
+このパラメータを使う事で、決まった時間だけリカバリを遅らせることができます。
+単位を指定しない場合、ミリ秒として扱われます。
 例えば、パラメータに<literal>5min</literal>と指定した場合、各トランザクションについて、スタンバイのシステム時刻が、マスターから報告されたコミット時刻より5分以上経過している場合のみ、スタンバイサーバはコミットを再生します。
        </para>
        <para>
@@ -2812,12 +2876,13 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
        <para>
 <!--
         This parameter is intended for use with streaming replication deployments;
-        however, if the parameter is specified it will be honored in all cases.
+        however, if the parameter is specified it will be honored in all cases
+        except crash recovery.
 
         <varname>hot_standby_feedback</varname> will be delayed by use of this feature
         which could lead to bloat on the master; use both together with care.
 -->
-このパラメータはストリーミングレプリケーション配信で使われることを目的としていますが、パラメータが指定されていると、すべてのケースで使用されます。
+このパラメータはストリーミングレプリケーション配信で使われることを目的としていますが、パラメータが指定されていると、クラッシュリカバリを除くすべてのケースで使用されます。
 この機能を使うことによって<varname>hot_standby_feedback</varname>が遅延され、マスタサーバの肥大化に繋がる可能性があります。両方同時に使う場合には注意して使ってください。
 
         <warning>
@@ -3682,12 +3747,15 @@ RAM内に存在するページの取り出しコストは通常よりもかな�
         for a parallel scan to be considered.  For a parallel sequential scan,
         the amount of table data scanned is always equal to the size of the
         table, but when indexes are used the amount of table data
-        scanned will normally be less.  The default is 8
-        megabytes (<literal>8MB</literal>).
+        scanned will normally be less.
+        If this value is specified without units, it is taken as blocks,
+        that is <symbol>BLCKSZ</symbol> bytes, typically 8kB.
+        The default is 8 megabytes (<literal>8MB</literal>).
 -->
 パラレルスキャンを考慮する最小のテーブルデータのサイズを指定します。
 パラレル順スキャンでは、スキャンされるテーブルのデータ量は、常にテーブルのサイズと同じです。
 しかし、インデックスが使われる場合は、スキャンされるテーブルの量は通常少なくなるでしょう。
+この値が単位なしで指定された場合は、ブロック単位であるとみなします。すなわち、<symbol>BLCKSZ</symbol>バイト、一般的には8kBです。
 デフォルトは8メガバイト（ <literal>8MB</literal>）です。
        </para>
       </listitem>
@@ -3709,11 +3777,15 @@ RAM内に存在するページの取り出しコストは通常よりもかな�
         for a parallel scan to be considered.  Note that a parallel index scan
         typically won't touch the entire index; it is the number of pages
         which the planner believes will actually be touched by the scan which
-        is relevant.  The default is 512 kilobytes (<literal>512kB</literal>).
+        is relevant.
+        If this value is specified without units, it is taken as blocks,
+        that is <symbol>BLCKSZ</symbol> bytes, typically 8kB.
+        The default is 512 kilobytes (<literal>512kB</literal>).
 -->
 パラレルスキャンが考慮されるために、スキャンされなければならないインデックスデータの最小量を設定します。
 通常パラレルインデックススキャンは、典型的にはインデックス全体をアクセスしないことに注意してください。
 これは、関連するスキャンにより、プランナが実際にアクセスされると信じるページ数です。
+この値が単位なしで指定された場合は、ブロック単位であるとみなします。すなわち、<symbol>BLCKSZ</symbol>バイト、一般的には8kBです。
 デフォルトは512キロバイト（<literal>512kB</literal>）です。
        </para>
       </listitem>
@@ -3747,8 +3819,12 @@ RAM内に存在するページの取り出しコストは通常よりもかな�
         memory allocated by <productname>PostgreSQL</productname>, nor
         does it reserve kernel disk cache; it is used only for estimation
         purposes.  The system also does not assume data remains in
-        the disk cache between queries.  The default is 4 gigabytes
-        (<literal>4GB</literal>).
+        the disk cache between queries.
+        If this value is specified without units, it is taken as blocks,
+        that is <symbol>BLCKSZ</symbol> bytes, typically 8kB.
+        The default is 4 gigabytes (<literal>4GB</literal>).
+        (If <symbol>BLCKSZ</symbol> is not 8kB, the default value scales
+        proportionally to it.)
 -->
 単一の問い合わせで利用できるディスクキャッシュの実効容量に関するプランナの条件を設定します。
 これは、インデックスを使用するコスト推定値の要素となります。
@@ -3758,7 +3834,9 @@ RAM内に存在するページの取り出しコストは通常よりもかな�
 このパラメータは、<productname>PostgreSQL</productname>で割り当てられる共有メモリの大きさには影響を与えません。また、カーネルのディスクキャッシュを予約したりもしません。
 これは推定目的のみで使用されます。
 同時に、システムは問い合わせの間のディスクキャッシュ内のデータの残滓を想定していません。
+この値が単位なしで指定された場合は、ブロック単位であるとみなします。すなわち、<symbol>BLCKSZ</symbol>バイト、一般的には8kBです。
 デフォルトは4ギガバイト（<literal>4GB</literal>）です。
+(<symbol>BLCKSZ</symbol>が8kbでなければ、この設定のデフォルト値と最大値が<symbol>BLCKSZ</symbol>に比例して変更されます。)
        </para>
       </listitem>
      </varlistentry>

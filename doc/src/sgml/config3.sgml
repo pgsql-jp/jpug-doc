@@ -175,16 +175,30 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
       </term>
       <listitem>
        <para>
-       <!--
-        Abort any statement that takes more than the specified number of
-        milliseconds, starting from the time the command arrives at the server
-        from the client.  If <varname>log_min_error_statement</varname> is set to
-        <literal>ERROR</literal> or lower, the statement that timed out will also be
-        logged.  A value of zero (the default) turns this off.
-       -->
-コマンドがクライアントからサーバに届いた時から数えて、実行時間が指定されたミリ秒を越えた文を停止します。
+<!--
+        Abort any statement that takes more than the specified amount of time.
+        If <varname>log_min_error_statement</varname> is set
+        to <literal>ERROR</literal> or lower, the statement that timed out
+        will also be logged.
+        If this value is specified without units, it is taken as milliseconds.
+        A value of zero (the default) disables the timeout.
+-->
+コマンドがクライアントからサーバに届いた時から数えて、実行時間が指定された時間を越えた文を停止します。
 <varname>log_min_error_statement</varname>が<literal>ERROR</literal>もしくはそれ以下に設定されている場合は、タイムアウトした文はログに書き込まれます。
-値がゼロ（デフォルト）の場合、これを無効にします。
+この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
+値がゼロ（デフォルト）の場合、これを無効にします。 
+       </para>
+
+       <para>
+<!--
+        The timeout is measured from the time a command arrives at the
+        server until it is completed by the server.
+        In extended query protocol, the timeout starts running when any
+        query-related message (Parse, Bind, Execute, Describe) arrives, and
+        it is cancelled by completion of an Execute or Sync message.
+-->
+タイムアウトは、コマンドがサーバに到着したときから、サーバがそのコマンドの実行を完了するまでを基準にします。
+拡張問い合わせでは、タイムアウトは問い合わせに関するメッセージ（Parse、Bind,、Execute、Describe）が到着したときに開始し、ExecuteあるいはSyncメッセージが完了した時にキャンセルされます。
        </para>
 
        <para>
@@ -193,7 +207,7 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
         <filename>postgresql.conf</filename> is not recommended because it would
         affect all sessions.
        -->
-       すべてのセッションに影響することがあるので、<filename>postgresql.conf</filename>内で<varname>statement_timeout</varname>を設定することは推奨されません。
+すべてのセッションに影響することがあるので、<filename>postgresql.conf</filename>内で<varname>statement_timeout</varname>を設定することは推奨されません。
        </para>
       </listitem>
      </varlistentry>
@@ -210,20 +224,21 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
       <listitem>
        <para>
        <!--
-        Abort any statement that waits longer than the specified number of
-        milliseconds while attempting to acquire a lock on a table, index,
+        Abort any statement that waits longer than the specified amount of
+        time while attempting to acquire a lock on a table, index,
         row, or other database object.  The time limit applies separately to
         each lock acquisition attempt.  The limit applies both to explicit
         locking requests (such as <command>LOCK TABLE</command>, or <command>SELECT
         FOR UPDATE</command> without <literal>NOWAIT</literal>) and to implicitly-acquired
-        locks.  If <varname>log_min_error_statement</varname> is set to
-        <literal>ERROR</literal> or lower, the statement that timed out will be
-        logged.  A value of zero (the default) turns this off.
+        locks.
+        If this value is specified without units, it is taken as milliseconds.
+        A value of zero (the default) disables the timeout.
        -->
-       テーブル、インデックス、行、またはその他のデータベースオブジェクトに対してロック獲得を試みている最中、指定されたミリ秒数を超えて待機するいかなる命令も停止されます。
-       時間制限はそれぞれのロック取得の試みに対し個別に適応されます。
-       制限は明示的ロック要求（例えば<command>LOCK TABLE</command>、または<command>SELECT FOR UPDATE</command> without <literal>NOWAIT</literal>など）および暗黙的に取得されるロックに適用されます。
-       <varname>log_min_error_statement</varname>が<literal>ERROR</literal>またはそれより低く設定されると、時間制限を超えた命令はログに記録されます。値ゼロ（デフォルト）はこの機能を無効にします。
+テーブル、インデックス、行、またはその他のデータベースオブジェクトに対してロック獲得を試みている最中、指定された時間を超えて待機するいかなる命令も停止されます。
+時間制限はそれぞれのロック取得の試みに対し個別に適応されます。
+制限は明示的ロック要求（例えば<command>LOCK TABLE</command>、または<command>SELECT FOR UPDATE</command> without <literal>NOWAIT</literal>など）および暗黙的に取得されるロックに適用されます。
+この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
+値ゼロ（デフォルト）はこの機能を無効にします。
        </para>
 
        <para>
@@ -232,10 +247,13 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
         while waiting for locks.  Note that if <varname>statement_timeout</varname>
         is nonzero, it is rather pointless to set <varname>lock_timeout</varname> to
         the same or larger value, since the statement timeout would always
-        trigger first.
+        trigger first.  If <varname>log_min_error_statement</varname> is set to
+        <literal>ERROR</literal> or lower, the statement that timed out will be
+        logged.
        -->
-       <varname>statement_timeout</varname>と異なり、このタイムアウトはロックを待機しているときのみ発生します。
-       命令によるタイムアウトは常に第一に起動されるため、もし<varname>statement_timeout</varname>が非ゼロであれば<varname>lock_timeout</varname>を同一、もしくはより大きい値に設定するのは的を得ていません。
+<varname>statement_timeout</varname>と異なり、このタイムアウトはロックを待機しているときのみ発生します。
+命令によるタイムアウトは常に第一に起動されるため、もし<varname>statement_timeout</varname>が非ゼロであれば<varname>lock_timeout</varname>を同一、もしくはより大きい値に設定するのは的を得ていません。
+<varname>log_min_error_statement</varname>が<literal>ERROR</literal>またはそれより低く設定されると、時間制限を超えた命令はログに記録されます。
        </para>
 
        <para>
@@ -262,20 +280,22 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
        <para>
 <!--
        Terminate any session with an open transaction that has been idle for
-       longer than the specified duration in milliseconds. This allows any
+       longer than the specified amount of time. This allows any
        locks held by that session to be released and the connection slot to be reused;
        it also allows tuples visible only to this transaction to be vacuumed.  See
        <xref linkend="routine-vacuuming"/> for more details about this.
 -->
-開いたトランザクションが、指定された時間（単位はミリ秒）を超えてアイドルだった場合に、セッションを終了します。
+開いているトランザクションが、指定された時間を超えてアイドルだった場合に、セッションを終了します。
 これにより、そのセッションが獲得したロックを解放し、コネクションスロットを再利用できるようになります。
 また、このトランザクションからのみ見えるタプルがVACUUMできるようになります。
 更なる詳細は<xref linkend="routine-vacuuming"/>を見てください。
        </para>
        <para>
 <!--
-       The default value of 0 disables this feature.
+       If this value is specified without units, it is taken as milliseconds.
+       A value of zero (the default) disables the timeout.
 -->
+この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
 値がゼロ（デフォルト）の場合、この機能は無効になります。
        </para>
       </listitem>
@@ -608,18 +628,20 @@ SET XML OPTION { DOCUMENT | CONTENT };
       <listitem>
        <para>
 <!--
-        Sets the maximum size of the GIN pending list which is used
+        Sets the maximum size of a GIN index's pending list, which is used
         when <literal>fastupdate</literal> is enabled. If the list grows
         larger than this maximum size, it is cleaned up by moving
-        the entries in it to the main GIN data structure in bulk.
+        the entries in it to the index's main GIN data structure in bulk.
+        If this value is specified without units, it is taken as kilobytes.
         The default is four megabytes (<literal>4MB</literal>). This setting
         can be overridden for individual GIN indexes by changing
         index storage parameters.
          See <xref linkend="gin-fast-update"/> and <xref linkend="gin-tips"/>
          for more information.
 -->
-<literal>fastupdate</literal>が有効なときに使用されるGINペンディングリストの最大サイズを設定します。
-リストがこの設定値よりも大きくなったら、エントリをGINの主データ構造に一括転送してリストはクリアされます。
+<literal>fastupdate</literal>が有効なときに使用されるGINインデックスのペンディングリストの最大サイズを設定します。
+リストがこの設定値よりも大きくなったら、エントリをインデックスのGINの主データ構造に一括転送してリストはクリアされます。
+この値が単位なしで指定された場合は、キロバイト単位であるとみなします。
 デフォルトは4メガバイト(<literal>4MB</literal>)です。
 この設定は、個々のGINインデックスに対してインデックスストレージパラメータを変更することにより、上書きできます。
 更なる情報については、<xref linkend="gin-fast-update"/>と<xref linkend="gin-tips"/>を参照してください。
@@ -1533,7 +1555,7 @@ dynamic_library_path = 'C:\tools\postgresql;H:\my_project\lib;$libdir'
       <listitem>
        <para>
        <!--
-        This is the amount of time, in milliseconds, to wait on a lock
+        This is the amount of time to wait on a lock
         before checking to see if there is a deadlock condition. The
         check for deadlock is relatively expensive, so the server doesn't run
         it every time it waits for a lock. We optimistically assume
@@ -1541,7 +1563,9 @@ dynamic_library_path = 'C:\tools\postgresql;H:\my_project\lib;$libdir'
         just wait on the lock for a while before checking for a
         deadlock. Increasing this value reduces the amount of time
         wasted in needless deadlock checks, but slows down reporting of
-        real deadlock errors. The default is one second (<literal>1s</literal>),
+        real deadlock errors.
+        If this value is specified without units, it is taken as milliseconds.
+        The default is one second (<literal>1s</literal>),
         which is probably about the smallest value you would want in
         practice. On a heavily loaded server you might want to raise it.
         Ideally the setting should exceed your typical transaction time,
@@ -1549,10 +1573,11 @@ dynamic_library_path = 'C:\tools\postgresql;H:\my_project\lib;$libdir'
         the waiter decides to check for deadlock.  Only superusers can change
         this setting.
 -->
-これは、デッドロック状態があるかどうかを調べる前にロックを待つ時間をミリ秒で計算したものです。
+これは、デッドロック状態があるかどうかを調べる前にロックを待つ時間です。
 デッドロックの検査は比較的高価なので、サーバはロックを待つ度にこれを実行するわけではありません。
 楽天的ですがデッドロックは実用レベルのアプリケーションでは頻繁に発生しないと仮定し、デッドロックの検査の前にしばらくはロック待ちをします。
 この値を増やすことにより必要のないデッドロックの検査で無駄にされる時間は減りますが、本当にデッドロックがあった場合の報告が遅れます。
+この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
 デフォルトは1秒（<literal>1s</literal>）で、おそらく実用の際にはこれ以上は必要でしょう。
 負荷の大きいサーバではもっと必要かもしれません。
 理想としてはこの設定は通常のトランザクションにかかる時間を超えているべきです。
@@ -1563,12 +1588,12 @@ dynamic_library_path = 'C:\tools\postgresql;H:\my_project\lib;$libdir'
        <para>
        <!--
         When <xref linkend="guc-log-lock-waits"/> is set,
-        this parameter also determines the length of time to wait before
+        this parameter also determines the amount of time to wait before
         a log message is issued about the lock wait.  If you are trying
         to investigate locking delays you might want to set a shorter than
         normal <varname>deadlock_timeout</varname>.
        -->
-       <xref linkend="guc-log-lock-waits"/>が設定された場合、このパラメータはロック待機に関するログメッセージを出力する前の待機時間を決定します。
+<xref linkend="guc-log-lock-waits"/>が設定された場合、このパラメータはロック待機に関するログメッセージを出力する前の待機時間を決定します。
 ロック遅延の調査を行う場合は、通常の<varname>deadlock_timeout</varname>よりも短い値を設定することを勧めます。
        </para>
       </listitem>
@@ -2786,14 +2811,18 @@ WALディスクブロックの容量を報告します。
       <listitem>
        <para>
        <!--
-        If nonzero, a delay of this many seconds occurs when a new
+        The amount of time to delay when a new
         server process is started, after it conducts the
         authentication procedure.  This is intended to give developers an
         opportunity to attach to the server process with a debugger.
+        If this value is specified without units, it is taken as seconds.
+        A value of zero (the default) disables the delay.
         This parameter cannot be changed after session start.
        -->
-       非ゼロの場合、サーバプロセスが始まり認証手続きが終わった後に、指定した秒数の遅延が発生します。
+サーバプロセスが始まり認証手続きが終わった後の遅延時間です。
 これは、デバッガを使用してサーバプロセスに接続する機会を開発者に提供することを目的としています。
+この値が単位なしで指定された場合は、秒単位であるとみなします。
+値がゼロ（デフォルト）の場合、この遅延は無効になります。
 セッションが始まった後に、このパラメータを変更することはできません。
        </para>
       </listitem>
@@ -2811,16 +2840,20 @@ WALディスクブロックの容量を報告します。
       <listitem>
        <para>
        <!--
-        If nonzero, a delay of this many seconds occurs just after a
+        The amount of time to delay just after a
         new server process is forked, before it conducts the
         authentication procedure.  This is intended to give developers an
         opportunity to attach to the server process with a debugger to
         trace down misbehavior in authentication.
+        If this value is specified without units, it is taken as seconds.
+        A value of zero (the default) disables the delay.
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
        -->
-       非ゼロの場合、ここで指定した秒数分の遅延が新しくサーバプロセスがforkした後、認証手続きに入る前に発生します。
+新しくサーバプロセスがforkした後、認証手続きに入る前の遅延時間です。
 これは、認証における誤動作を追跡するために、デバッガを使用してサーバプロセスに接続する機会を開発者に提供することを目的としたものです。
+この値が単位なしで指定された場合は、秒単位であるとみなします。
+値がゼロ（デフォルト）の場合、この機能は無効になります。
 このパラメータは<filename>postgresql.conf</filename>ファイル内、または、サーバのコマンドラインでのみ設定可能です。
        </para>
       </listitem>
