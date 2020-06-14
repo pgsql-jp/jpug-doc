@@ -1406,7 +1406,7 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
          On Windows, setting a value of 0 will set this parameter to 1 second,
          since Windows does not provide a way to read the system default value.
 -->
-         Windowsでは値0はこのパラメータを1秒に設定します。なぜなら、Windowsはシステムデフォルト値を読む手段を提供していないからです。
+         Windowsでは0を指定すると、このパラメータを1秒に設定します。なぜなら、Windowsはシステムデフォルト値を読む手段を提供していないからです。
         </para>
        </note>
       </listitem>
@@ -1472,6 +1472,7 @@ Unixドメインソケット経由で接続されたセッションでは、こ�
         ignored and always reads as zero.
 -->
 未確認のデータが残ったままの接続が強制的に閉じられるまでの時間を指定します。
+この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
 0（デフォルトです）の場合はオペレーティングシステムのデフォルト値を使用します。
 このパラメータは、<symbol>TCP_USER_TIMEOUT</symbol>をサポートするシステムでのみ使用できます。他のシステムでは、0にする必要があります。
 UNIXドメインソケットで接続しているセッションではこのパラメータは無視され、常に0として扱われます。
@@ -2780,7 +2781,8 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
 あるプロセスが一時ファイルとして使用できるディスクの最大容量を設定します。
 例えば、ソートやハッシュの一時ファイルであったり、カーソルを保持する格納ファイルです。
 この制限値を超えようとするトランザクションはキャンセルされます。
-値はキロバイト単位で指定され、（デフォルトである） <literal>-1</literal> の場合は制限がありません。
+この値が単位なしで指定された場合は、キロバイト単位であるとみなします。
+<literal>-1</literal>（デフォルトです）の場合は制限がありません。
 この設定はスーパーユーザのみ変更可能です。
        </para>
        <para>
@@ -3225,7 +3227,7 @@ vacuumを掛けるプロセスをスリープさせることになる累計さ�
          This parameter can only be set in the <filename>postgresql.conf</filename>
          file or on the server command line.
 -->
-バックグラウンドライターが<varname>bgwriter_flush_after</varname>バイトより多く書く度に、OSが記憶装置に書き込むことを強制しようとします。
+バックグラウンドライターがこの値より多く書く度に、OSが記憶装置に書き込むことを強制しようとします。
 このことにより、カーネルのページキャッシュが持つダーティデータの量を一定量に制限し、チェックポイントの最後に<function>fsync</function>が実行される際、あるいはOSがバックグラウンドでデータを大きな塊で書き出す際に性能の急激な低下を招く可能性を減らします。
 多くの場合これによってトランザクションの遅延が大幅に少なくなりますが、あるケース、特にワークロードが<xref linkend="guc-shared-buffers"/>よりも大きく、OSのページキャッシュよりも小さい時には性能が低下するかもしれません。
 この設定が無効なプラットフォームがあります。
@@ -3656,7 +3658,7 @@ SSDやそれ以外のメモリーベースの記憶装置は、多くの同時�
 （たとえば）マテリアライズされた結果集合を持つカーソルから正しい結果を得ることができるのであれば、たとえ参照している元のテーブルからVACUUMによって行が削除されたとしてもエラーにはなりません。
 ある種のテーブルでは、早期にVACUUMできないので、この設定の影響を受けません。
 例としては、システムカタログが挙げられます。
-このようなテーブルにおいては、この設定によってデータ溢れを防ぐことも、スキャンの際に<literal>snapshot too old</literal>エラーを起こす可能性を作り出すこともできません。
+このようなテーブルにおいては、この設定によってデータ溢れを防ぐことも、スキャンの際に<quote>snapshot too old</quote>エラーを起こす可能性を作り出すこともできません。
         </para>
        </listitem>
       </varlistentry>
@@ -6163,8 +6165,8 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
        -->
 ホットスタンバイが稼動している場合、このパラメータは<xref linkend="hot-standby-conflict"/>で記載されているように、まさに適用されようとしているWALエントリと衝突するスタンバイサーバの問い合わせをキャンセルするにはどれだけ待機しなければならないかを設定します。
 <varname>max_standby_streaming_delay</varname>はWALデータをストリーミングレプリケーションから受け取っている時に適用されます。
-デフォルトは30秒です。
 特に指定が無ければ単位はミリ秒です。
+デフォルトは30秒です。
 値-1は衝突する問い合わせが完了するまでスタンバイサーバが待ち続けられるようにします。
 このパラメータは、<filename>postgresql.conf</filename>ファイル、もしくはサーバコマンドラインでのみ設定可能です。
        </para>
@@ -6394,8 +6396,9 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
 デフォルトでは、スタンバイサーバは可能な限り早くプライマリからWALレコードをリストアします。
 時間遅れのデータのコピーを持つことで、データ損失エラーを修正する機会を提供するのは有用かもしれません。
 このパラメータを使う事で、決まった時間だけリカバリを遅らせることができます。
-単位を指定しない場合、ミリ秒として扱われます。
 例えば、パラメータに<literal>5min</literal>と指定した場合、各トランザクションについて、スタンバイのシステム時刻が、マスターから報告されたコミット時刻より5分以上経過している場合のみ、スタンバイサーバはコミットを再生します。
+単位を指定しない場合、ミリ秒として扱われます。
+デフォルトは0で、遅延を与えません。
        </para>
        <para>
 <!--
@@ -11566,7 +11569,7 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
         A value of zero (the default) disables the timeout.
        -->
 テーブル、インデックス、行、またはその他のデータベースオブジェクトに対してロック獲得を試みている最中、指定された時間を超えて待機するいかなる命令も停止されます。
-時間制限はそれぞれのロック取得の試みに対し個別に適応されます。
+時間制限はそれぞれのロック取得の試みに対し個別に適用されます。
 制限は明示的ロック要求（例えば<command>LOCK TABLE</command>、または<command>SELECT FOR UPDATE</command> without <literal>NOWAIT</literal>など）および暗黙的に取得されるロックに適用されます。
 この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
 値ゼロ（デフォルト）はこの機能を無効にします。
@@ -11583,7 +11586,7 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
         logged.
        -->
 <varname>statement_timeout</varname>と異なり、このタイムアウトはロックを待機しているときのみ発生します。
-命令によるタイムアウトは常に第一に起動されるため、もし<varname>statement_timeout</varname>が非ゼロであれば<varname>lock_timeout</varname>を同一、もしくはより大きい値に設定するのは的を得ていません。
+命令によるタイムアウトは常に第一に起動されるため、もし<varname>statement_timeout</varname>が非ゼロであれば<varname>lock_timeout</varname>を同一、もしくはより大きい値に設定するのは的を射ていません。
 <varname>log_min_error_statement</varname>が<literal>ERROR</literal>またはそれより低く設定されると、時間制限を超えた命令はログに記録されます。
        </para>
 
