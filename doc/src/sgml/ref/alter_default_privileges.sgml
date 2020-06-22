@@ -133,7 +133,6 @@ PostgreSQLの以前のリリースでは<literal>FUNCTIONS</literal>だけが許
 -->
 ユーザ自身あるいは、ユーザがメンバとして属するロールにより作成されるオブジェクトについてのみ、デフォルト権限を変更することができます。
 権限は大域的に（つまり現在のデータベース内に作成されるすべてのオブジェクトに対して）設定することも、指定したスキーマ内に作成されるオブジェクトのみに対して設定することもできます。
-スキーマ単位で指定されるデフォルト権限は、大域的な個々の種類のオブジェクト用のデフォルト権限に追加されます。
   </para>
 
   <para>
@@ -151,6 +150,7 @@ PostgreSQLの以前のリリースでは<literal>FUNCTIONS</literal>だけが許
   </para>
 
   <para>
+<!--
    Default privileges that are specified per-schema are added to whatever
    the global default privileges are for the particular object type.
    This means you cannot revoke privileges per-schema if they are granted
@@ -158,6 +158,10 @@ PostgreSQLの以前のリリースでは<literal>FUNCTIONS</literal>だけが許
    DEFAULT PRIVILEGES</command> command that did not specify a schema).
    Per-schema <literal>REVOKE</literal> is only useful to reverse the
    effects of a previous per-schema <literal>GRANT</literal>.
+-->
+スキーマ単位で指定されるデフォルト権限は、大域的な個々の種類のオブジェクト用のデフォルト権限に追加されます。
+これは、スキーマ単位の権限が(デフォルトであれ、以前のスキーマを指定しない<command>ALTER DEFAULT PRIVILEGES</command>コマンドよってであれ)大域的に付与されているのなら、それを取り消せないことを意味します。
+スキーマ単位の<literal>REVOKE</literal>は、以前のスキーマ単位の<literal>GRANT</literal>の効果を取り消すのにのみ有用です。
   </para>
 
  <refsect2>
@@ -196,7 +200,7 @@ PostgreSQLの以前のリリースでは<literal>FUNCTIONS</literal>だけが許
 既存のスキーマの名前です。
 指定された場合、そのスキーマ内で後に作成されるオブジェクトに対するデフォルト権限が変更されます。
 <literal>IN SCHEMA</literal>を省略した場合、大域的なデフォルト権限が変更されます。
-スキーマはネストできないため、<literal>ON SCHEMAS</literal>を使用するときは、<literal>IN SCHEMA</literal>を指定することはできません。
+スキーマはネストできないため、スキーマに対する権限を設定する場合には<literal>IN SCHEMA</literal>を指定できません。
      </para>
     </listitem>
    </varlistentry>
@@ -297,14 +301,21 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA myschema REVOKE INSERT ON TABLES FROM webuser
 <programlisting>
 ALTER DEFAULT PRIVILEGES FOR ROLE admin REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 </programlisting>
+<!--
    Note however that you <emphasis>cannot</emphasis> accomplish that effect
    with a command limited to a single schema.  This command has no effect,
    unless it is undoing a matching <literal>GRANT</literal>:
+-->
+しかしながら、スキーマ1つに限定されたコマンドではそのような効果は達成<emphasis>できない</emphasis>ということに注意してください。
+対応する<literal>GRANT</literal>を取り消さない限り、以下のコマンドは効果がありません。
 <programlisting>
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 </programlisting>
+<!--
    That's because per-schema default privileges can only add privileges to
    the global setting, not remove privileges granted by it.
+-->
+スキーマ単位のデフォルト権限は、大域的な設定に権限を追加できるだけで、付与された権限を削除することはできないからです。
   </para>
  </refsect1>
 
