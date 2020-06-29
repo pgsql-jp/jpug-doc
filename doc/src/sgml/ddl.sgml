@@ -515,27 +515,40 @@ CREATE TABLE people (
      </para>
     </listitem>
     <listitem>
+<!--
      <para>For inheritance:</para>
+-->
+     <para>継承の場合：</para>
      <itemizedlist>
       <listitem>
        <para>
+<!--
         If a parent column is a generated column, a child column must also be
         a generated column using the same expression.  In the definition of
         the child column, leave off the <literal>GENERATED</literal> clause,
         as it will be copied from the parent.
+-->
+親列が生成列なら、子列もまた同じ式を用いた生成列でなければなりません。
+子列の定義では<literal>GENERATED</literal>節は親列からコピーされるので、指定しないでください。
        </para>
       </listitem>
       <listitem>
        <para>
+<!--
         In case of multiple inheritance, if one parent column is a generated
         column, then all parent columns must be generated columns and with the
         same expression.
+-->
+多重継承では、一つの親列が生成列なら、すべての親列は同じ式による生成列でなければなりません。
        </para>
       </listitem>
       <listitem>
        <para>
+<!--
         If a parent column is not a generated column, a child column may be
         defined to be a generated column or not.
+-->
+親列が生成列でなければ、子列は生成列として定義されるかもしれませんし、されないかもしれません。
        </para>
       </listitem>
      </itemizedlist>
@@ -3929,8 +3942,8 @@ SELECT * FROM information WHERE group_id = 2 FOR UPDATE;
    connection request.
 -->
 <productname>PostgreSQL</productname>データベースクラスタには、1つ以上の名前付きデータベースが含まれます。
-ユーザおよびユーザのグループはクラスタ全体で共有されますが、他のデータは複数のデータベース間で共有されません。
-サーバに接続しているクライアントは、単一のデータベース、つまり接続要求で指定したデータベース内のデータにしかアクセスできません。
+ロールおよびいくつかの他のタイプのオブジェクトはクラスタ全体で共有されますが、他のデータは複数のデータベース間で共有されません。
+サーバに接続しているクライアント接続は、単一のデータベース、つまり接続要求で指定したデータベース内のデータにしかアクセスできません。
   </para>
 
   <note>
@@ -3943,7 +3956,7 @@ SELECT * FROM information WHERE group_id = 2 FOR UPDATE;
     <literal>joe</literal> access to only some of the databases.
 -->
 クラスタのユーザは、クラスタ内の全てのデータベースへのアクセス権限を持っているとは限りません。
-ユーザ名を共有するということは、例えば<literal>joe</literal>という同じユーザ名を持つ異なるユーザが同じクラスタ内の2つのデータベースに存在することはできないということです。
+ロール名を共有するということは、例えば<literal>joe</literal>という同じロール名を持つ異なるユーザが同じクラスタ内の2つのデータベースに存在することはできないということです。
 しかし、<literal>joe</literal>が一部のデータベースにのみアクセスできるようにシステムを構成することはできます。
    </para>
   </note>
@@ -4566,6 +4579,9 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
     easily supported by the default configuration:
 -->
 スキーマは様々な方法でデータの編成に使用できます。
+<firstterm>セキュアなスキーマの使用パターン</firstterm>は信頼できないユーザが他のユーザの問い合わせの振る舞いを変えるのを防ぎます。
+データベースがセキュアなスキーマの使用パターンを使わない場合、セキュアにデータベースを問い合わせたいユーザはセッションの開始毎に防御的なアクションを取るようにします。
+とりわけユーザは<varname>search_path</varname>に空文字をセットするか、さもなければ非スーパユーザが書き込めるスキーマを<varname>search_path</varname>から削除します。
 デフォルト構成で簡単にサポートできるお勧めの使用パターンがいくつかあります。
     <itemizedlist>
      <listitem>
@@ -4576,6 +4592,12 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
            trojan; ALTER DATABASE $mydb SET search_path = trojan, public;".  A
            CREATEROLE user can issue "GRANT $dbowner TO $me" and then use the
            database owner attack. -->
+      <!-- "DROP SCHEMA public"はこのREVOKEに劣ります。なぜなら、pg_dumpはそのDROPを保存しないからです。
+
+      データベース所有者はデータベースユーザを"CREATE SCHEMA
+      trojan; ALTER DATABASE $mydb SET search_path = trojan, public;"で攻撃することができます。
+      CREATEROLEユーザは"GRANT $dbowner TO $me"を発行し、そのデータベース所有者の攻撃を使用できます。
+       -->
       <para>
 <!--
        Constrain ordinary users to user-private schemas.  To implement this,
@@ -4594,9 +4616,10 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 -->
 一般ユーザに、ユーザ個人用のスキーマだけを使わせます。
 これを実現するには、<literal>REVOKE CREATE ON SCHEMA public FROM PUBLIC</literal>を発行し、個々のユーザにユーザと同じ名前でスキーマを作成してください。
-以前からログインしているユーザに対しては、<literal>pg_catalog</literal>スキーマ内にあるのと同じ名前のpublicスキーマ内のオブジェクトを監視することを考慮してください。
 デフォルトサーチパスは、ユーザ名として解釈される<literal>$user</literal>で始まることを思い出してください。
 ですから、デフォルトではユーザは別々のスキーマを所有し、自身のスキーマにアクセスします。
+以前からログインしているユーザに対しては、<literal>pg_catalog</literal>スキーマ内にあるのと同じ名前のpublicスキーマ内のオブジェクトを監視することを考慮してください。
+セキュアなスキーマ利用パターンが存在しないような、信用できないユーザがデータベース所有者である場合や、<literal>CREATEROLE</literal>権限を持っている場合を除き、このパターンはセキュアなスキーマ利用パターンです。
       </para>
      </listitem>
 
@@ -4634,7 +4657,7 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 デフォルトを維持します。
 すべてのユーザがpublicスキーマに暗黙的にアクセスします。
 これはスキーマを考慮しない世界からのスムースな移行を可能にしながら、スキーマがまったく利用できない状況をシミュレートします。
-しかし、ユーザは自分自身を守る気がなく、任意のユーザ権限で任意の問合せを発行できます。
+しかし、これは決してセキュアなパターンではありません。
 このパターンは、データベースに一人、あるいは少数のお互いに信頼できるユーザだけが存在する場合にのみ受け入れ可能です。
       </para>
      </listitem>
@@ -4798,7 +4821,7 @@ CREATE TABLE capitals (
 <productname>PostgreSQL</productname>では、1つのテーブルは、0以上のテーブルから継承することが可能です。
 また、問い合わせはテーブルのすべての行、またはテーブルのすべての行と継承されたテーブルのすべての行のいずれかを参照できます。
 後者がデフォルトの動作になります。
-例えば次の問い合わせは、500フィートより上に位置しているすべての市の名前を、州都を含めて検索します。
+例えば次の問い合わせは、500フィートより高い標高に位置しているすべての市の名前を、州都を含めて検索します。
 
 <programlisting>
 SELECT name, elevation
@@ -4826,7 +4849,7 @@ SELECT name, elevation
    On the other hand, the following query finds all the cities that
    are not state capitals and are situated at an elevation over 500 feet:
 -->
-一方、次の問い合わせは、州都ではなく500フィートより上に位置しているすべての市を検索します。
+一方、次の問い合わせは、州都ではなく500フィートより高い高度に位置しているすべての市を検索します。
 
 <programlisting>
 SELECT name, elevation
@@ -5100,9 +5123,16 @@ VALUES ('Albany', NULL, NULL, 'NY');
    where permissions on the child tables are always checked,
    whether they are processed directly or recursively via those commands
    performed on the parent table.
+-->
+継承された問い合わせは、親テーブルのみアクセス権限を検査します。
+つまり、例えば、<literal>UPDATE</literal>権限を<structname>cities</structname>テーブルに付与することは、<structname>cities</structname>テーブルを通じてアクセスする場合に、<structname>capitals</structname>テーブルにも行の更新権限を付与することを意味します。
+これによりデータが親テーブルに（も）あるように見えることが保たれます。
+しかし、<structname>capitals</structname>テーブルは、追加権限なしに直接更新することはできません。
+２つの例外は<command>TRUNCATE</command>と<command>LOCK TABLE</command>で、親テーブルに対してこれらのコマンドが直接、もしくは再帰的に適用されるかに関わらず子テーブルの権限は常にチェックされます。
   </para>
 
   <para>
+<!--
    In a similar way, the parent table's row
    security policies (see <xref linkend="ddl-rowsecurity"/>) are applied to
    rows coming from child tables during an inherited query.  A child table's
@@ -5110,10 +5140,6 @@ VALUES ('Albany', NULL, NULL, 'NY');
    in the query; and in that case, any policies attached to its parent(s) are
    ignored.
 -->
-継承された問い合わせは、親テーブルのみアクセス権限を検査します。
-つまり、例えば、<literal>UPDATE</literal>権限を<structname>cities</structname>テーブルに付与することは、<structname>cities</structname>テーブルを通じてアクセスする場合に、<structname>capitals</structname>テーブルにも行の更新権限を付与することを意味します。
-これによりデータが親テーブルに（も）あるように見えることが保たれます。
-しかし、<structname>capitals</structname>テーブルは、追加権限なしに直接更新することはできません。
 同様に、親テーブルの行セキュリティポリシー（<xref linkend="ddl-rowsecurity"/>を参照してください）が、継承された問い合わせの時に子テーブルの行に適用されます。
 子テーブルのポリシー（あれば）は、問い合わせにて明示的に指定されたテーブルである時にのみ適用されます。
 そしてこの場合、親テーブルに紐付けられたあらゆるポリシーは無視されます。
@@ -5949,10 +5975,10 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
      It may be desired to drop the redundant <literal>CHECK</literal> constraint
      after <command>ATTACH PARTITION</command> is finished.
 -->
-<command>ATTACH PARTITION</command>コマンドを実行する前に、求められるパーティション制約を記述する<literal>CHECK</literal>制約を、パーティションに追加するテーブルに作成することを推奨します。
+<command>ATTACH PARTITION</command>コマンドを実行する前に、マッチするパーティション制約を記述する<literal>CHECK</literal>制約を、パーティションに追加するテーブルに作成することを推奨します。
 こうすることで、システムは暗示的なパーティション制約を検証するための走査を省略することができます。
 このような制約がなければ、そのパーティションに<literal>ACCESS EXCLUSIVE</literal>ロック、親テーブルに<literal>SHARE UPDATE EXCLUSIVE</literal>を保持したままで、パーティション制約を検証するためにテーブルを走査することになります。
-この制約は<command>ATTACH PARTITION</command>が終わった後は不要ですので削除することができます。
+この制約は<command>ATTACH PARTITION</command>が終わった後に削除するのが望ましいかも知れません。
     </para>
 
     <para>
@@ -6157,7 +6183,7 @@ ALTER INDEX measurement_city_id_logdate_key
       table above.  To implement partitioning using inheritance, use
       the following steps:
 -->
-上で使用したのと同じ<structname>measurement</structname>テーブルを使用します。
+上の非パーティション<structname>measurement</structname>テーブルを使用します。
 継承を使用したパーティショニングを実装するには、以下の手順に従います。
 
       <orderedlist spacing="compact">
