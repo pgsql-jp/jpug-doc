@@ -3221,7 +3221,7 @@ PG_FUNCTION_INFO_V1(funcname);
      takes as its argument the actual value to return.
 -->
 Version-1関数では、それぞれの実引数は、引数のデータ型に合った<function>PG_GETARG_<replaceable>xxx</replaceable>()</function>マクロを使用して取り出されます。
-厳格でない関数では、<function>PG_ARGNULL_<replaceable>xxx</replaceable>()</function>を使って引数がNULLかどうか事前に確認することが必要です。
+（厳格でない関数では、<function>PG_ARGISNULL()</function>を使って引数がNULLかどうか事前に確認することが必要です。下記参照。）
 結果は戻り値の型に合った<function>PG_RETURN_<replaceable>xxx</replaceable>()</function>マクロを使用して返されます。
 <function>PG_GETARG_<replaceable>xxx</replaceable>()</function>は、その引数として、取り出す関数引数の番号（ゼロから始まります）を取ります。
 <function>PG_RETURN_<replaceable>xxx</replaceable>()</function>は、その引数として、実際に返す値を取ります。
@@ -3456,7 +3456,7 @@ CREATE FUNCTION concat_text(text, text) RETURNS text
      us to deal with <literal>NULL</literal>able arguments/return values,
      and <quote>toasted</quote> (compressed or out-of-line) values.
 -->
-一見、Version-1のコーディング規約は無意味なもの、普通の<literal>C</literal>の呼出し規約の使い過ぎに見えるかもしれません。
+一見、Version-1のコーディング規約は、普通の<literal>C</literal>の呼出し規約と比較すると、無意味なあいまいなものの様に見えるかもしれません。
 しかし、<literal>NULL</literal>になりうる引数や戻り値、<quote>TOASTされた</quote>（圧縮または行外）値を扱うことができます。
     </para>
 
@@ -4056,12 +4056,15 @@ HeapTupleGetDatum(HeapTuple tuple)
      entire result; then only one call occurs for the whole result, and
      no inter-call state is needed.
 -->
-C言語関数から集合（複数行）を返す機能のために特殊なAPIが用意されています。
-集合を返す関数は、Version 1呼び出し規約に従う必要があります。
-また、ソースファイルは上述の通り<filename>funcapi.h</filename>をインクルードする必要があります。
+C言語関数から集合（複数行）を返す2つのオプションがあります。
+一つは、<firstterm>ValuePerCall</firstterm>モードと呼ばれる方法で、集合を返す関数が繰り返し呼び出され(毎回同じ引数を渡します)、返す行がなくなるまで呼び出しごとに1つの新しい行を返し、返す行がなくなったらNULLを返します。
+したがって、集合を返す関数（<acronym>SRF</acronym>）は、呼び出しの間に十分な状態を保存して、呼び出しの度に次の項目を返す必要があります。
+もう一つは、<firstterm>Materialize</firstterm>モードと呼ばれる方法で、集合を返す関数は結果全体を含むタプルストアオブジェクトを埋めて返します。
+結果全体に対して１つの呼び出しだけが発生し、呼び出し間の状態は必要ありません。
     </para>
 
     <para>
+<!--
      When using ValuePerCall mode, it is important to remember that the
      query is not guaranteed to be run to completion; that is, due to
      options such as <literal>LIMIT</literal>, the executor might stop
@@ -4070,9 +4073,15 @@ C言語関数から集合（複数行）を返す機能のために特殊なAPI�
      the last call, because that might not ever happen.  It's recommended
      to use Materialize mode for functions that need access to external
      resources, such as file descriptors.
+-->
+ValuePerCallモードを使用する場合、問い合わせが完全に実行される保証はないことに注意してください。
+つまり、<literal>LIMIT</literal>などのオプションがあるため、全ての行をフェッチする前に、エクゼキュータが集合を返す関数の呼び出しを中止することがあります。
+これは、実行されない可能性があるため、最後の呼び出しでクリーンアップ活動を実行するのは安全ではないことを意味します。
+ファイル記述子などの外部リソースにアクセスする必要がある関数には、Materializeモードを使用することをお勧めします。
     </para>
 
     <para>
+<!--
      The remainder of this section documents a set of helper macros that
      are commonly used (though not required to be used) for SRFs using
      ValuePerCall mode.  Additional details about Materialize mode can be
@@ -4080,6 +4089,10 @@ C言語関数から集合（複数行）を返す機能のために特殊なAPI�
      the <filename>contrib</filename> modules in
      the <productname>PostgreSQL</productname> source distribution contain
      many examples of SRFs using both ValuePerCall and Materialize mode.
+-->
+本節の残りの部分では、ValuePerCallモードを使用する集合を返す関数で一般に使用される補助マクロのセット（ただし、使用する必要はありませんが）について説明します。
+Materializeモードの詳細については、<filename>src/backend/utils/fmgr/README</filename>を参照してください。
+また、<productname>PostgreSQL</productname>ソース配布物内の<filename>contrib</filename>モジュールには、ValuePerCallとMaterializeモードの両方を使用する、集合を返す関数のより多くの例があります。
     </para>
 
     <para>
@@ -4093,10 +4106,9 @@ C言語関数から集合（複数行）を返す機能のために特殊なAPI�
      calls.  The macros automatically fill that field on first use,
      and expect to find the same pointer there on subsequent uses.
 -->
-集合を返す関数（<acronym>SRF</acronym>）は返される項目ごとに呼び出されます。
-そのため、<acronym>SRF</acronym>は、過去の操作を記憶して呼び出しの度に次の項目を返すために十分な状態を保っている必要があります。
-この処理を制御を補助するための<structname>FuncCallContext</structname>構造体が備わっています。
-関数内では、複数の呼び出しにまたがる<structname>FuncCallContext</structname>へのポインタを保持するには、<literal>fcinfo-&gt;flinfo-&gt;fn_extra</literal>を使用します。
+ここで説明するValuePerCallサポートマクロを使用するには、<filename>funcapi.h</filename>をインクルードします。
+これらのマクロは、複数の呼び出しにわたって保存する必要がある状態を含む<structname>FuncCallContext</structname>構造体が備わっています。
+集合を返す関数内では、<literal>fcinfo-&gt;flinfo-&gt;fn_extra</literal>は、呼び出し間で<structname>FuncCallContext</structname>へのポインタを保持するために使用されます。
 <programlisting>
 typedef struct FuncCallContext
 {
@@ -4206,7 +4218,7 @@ typedef struct FuncCallContext
      The macros to be used by an <acronym>SRF</acronym> using this
      infrastructure are:
 -->
-<acronym>SRF</acronym>はいくつかの関数およびマクロを使用して<structname>FuncCallContext</structname>構造体を自動的に操作します（また<literal>fn_extra</literal>で検索することを想定します)。
+この基盤を使用して、<acronym>SRF</acronym>が使用するマクロは以下の通りです。
 <programlisting>
 SRF_IS_FIRSTCALL()
 </programlisting>
@@ -4214,8 +4226,8 @@ SRF_IS_FIRSTCALL()
      Use this to determine if your function is being called for the first or a
      subsequent time. On the first call (only), call:
 -->
-を使用して、その関数呼び出しが初回のものであるか、2回目以降であるかを判断します。
-最初の呼び出し（のみ）で、
+これを使用して、関数が初回に呼び出されるか、2回目以降に呼び出されるかを決定します。
+最初の呼び出し（のみ）で、次のコールをおこない、
 <programlisting>
 SRF_FIRSTCALL_INIT()
 </programlisting>
@@ -4223,7 +4235,7 @@ SRF_FIRSTCALL_INIT()
      to initialize the <structname>FuncCallContext</structname>. On every function call,
      including the first, call:
 -->
-を使用して、<structname>FuncCallContext</structname>を初期化します。
+<structname>FuncCallContext</structname>を初期化します。
 最初の呼び出しを含むすべての呼び出しで、
 <programlisting>
 SRF_PERCALL_SETUP()
@@ -4231,14 +4243,14 @@ SRF_PERCALL_SETUP()
 <!--
      to set up for using the <structname>FuncCallContext</structname>.
 -->
-を使用して、<structname>FuncCallContext</structname>を使用するための適切な設定を行い、以前の受け渡しから残っている結果データを消去します。
+を呼び出し、<structname>FuncCallContext</structname>を使用するように設定します。
     </para>
 
     <para>
 <!--
      If your function has data to return in the current call, use:
 -->
-関数で返すべきデータがある場合は、
+現在の呼び出しで返すべきデータが関数にある場合は、次を使用します。
 <programlisting>
 SRF_RETURN_NEXT(funcctx, result)
 </programlisting>
@@ -4286,6 +4298,8 @@ SRF_RETURN_DONE(funcctx)
 しかし、データ構造体を複数の呼び出しに渡って使用するように割り当てる場合は、どこか別の場所に置いておく必要があります。
 <structfield>multi_call_memory_ctx</structfield>によって参照されるメモリコンテキストは、<acronym>SRF</acronym>の実行が終わるまで使用可能にしなければならないデータの保管場所として適しています。
 つまり、ほとんどの場合、最初の呼び出しのセットアップ中に<structfield>multi_call_memory_ctx</structfield>へ切り替える必要があるということです。
+<literal>funcctx-&gt;user_fctx</literal>を使用して、このような複数の呼び出しのデータ構造体へのポインタを保持します。
+（<structfield>multi_call_memory_ctx</structfield>に配置したデータは、問い合わせが終了すると自動的に削除されるので、そのデータを手動で開放する必要はありません。）
     </para>
 
     <warning>
@@ -4365,7 +4379,8 @@ my_set_returning_function(PG_FUNCTION_ARGS)
         /* Here we are done returning items, so just report that fact. */
         /* (Resist the temptation to put cleanup code here.) */
 -->
-        /* これで項目を返し終わりました。 後はクリーンアップするだけです。 */
+        /* これで項目を返し終わりました。 その事実を報告します。 */
+        /* （ここにクリーンアップコードを置く誘惑に抵抗してください。) */
         SRF_RETURN_DONE(funcctx);
     }
 }
