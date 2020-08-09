@@ -4056,9 +4056,9 @@ HeapTupleGetDatum(HeapTuple tuple)
      entire result; then only one call occurs for the whole result, and
      no inter-call state is needed.
 -->
-C言語関数から集合（複数行）を返す2つのオプションがあります。
+C言語関数から集合（複数行）を返すには2つ選択肢があります。
 一つは、<firstterm>ValuePerCall</firstterm>モードと呼ばれる方法で、集合を返す関数が繰り返し呼び出され(毎回同じ引数を渡します)、返す行がなくなるまで呼び出しごとに1つの新しい行を返し、返す行がなくなったらNULLを返します。
-したがって、集合を返す関数（<acronym>SRF</acronym>）は、呼び出しの間に十分な状態を保存して、呼び出しの度に次の項目を返す必要があります。
+したがって、集合を返す関数（<acronym>SRF</acronym>）は、呼び出し間に十分な状態を保存し何をしていたかを記憶して、呼び出しの度に次の項目を返す必要があります。
 もう一つは、<firstterm>Materialize</firstterm>モードと呼ばれる方法で、集合を返す関数は結果全体を含むタプルストアオブジェクトを埋めて返します。
 結果全体に対して１つの呼び出しだけが発生し、呼び出し間の状態は必要ありません。
     </para>
@@ -4109,6 +4109,7 @@ Materializeモードの詳細については、<filename>src/backend/utils/fmgr/
 ここで説明するValuePerCallサポートマクロを使用するには、<filename>funcapi.h</filename>をインクルードします。
 これらのマクロは、複数の呼び出しにわたって保存する必要がある状態を含む<structname>FuncCallContext</structname>構造体が備わっています。
 集合を返す関数内では、<literal>fcinfo-&gt;flinfo-&gt;fn_extra</literal>は、呼び出し間で<structname>FuncCallContext</structname>へのポインタを保持するために使用されます。
+マクロは、最初の使用時に自動的にそのフィールドを埋め、その後の使用時に同じポインタを見つけることを期待します。
 <programlisting>
 typedef struct FuncCallContext
 {
@@ -4226,8 +4227,8 @@ SRF_IS_FIRSTCALL()
      Use this to determine if your function is being called for the first or a
      subsequent time. On the first call (only), call:
 -->
-これを使用して、関数が初回に呼び出されるか、2回目以降に呼び出されるかを決定します。
-最初の呼び出し（のみ）で、次のコールをおこない、
+これを使用して、関数が初めて呼び出されたのか、2回目以降に呼び出されたのかを判別します。
+最初の呼び出し（のみ）で、
 <programlisting>
 SRF_FIRSTCALL_INIT()
 </programlisting>
@@ -4235,7 +4236,7 @@ SRF_FIRSTCALL_INIT()
      to initialize the <structname>FuncCallContext</structname>. On every function call,
      including the first, call:
 -->
-<structname>FuncCallContext</structname>を初期化します。
+を呼び出し、<structname>FuncCallContext</structname>を初期化します。
 最初の呼び出しを含むすべての呼び出しで、
 <programlisting>
 SRF_PERCALL_SETUP()
@@ -4298,7 +4299,7 @@ SRF_RETURN_DONE(funcctx)
 しかし、データ構造体を複数の呼び出しに渡って使用するように割り当てる場合は、どこか別の場所に置いておく必要があります。
 <structfield>multi_call_memory_ctx</structfield>によって参照されるメモリコンテキストは、<acronym>SRF</acronym>の実行が終わるまで使用可能にしなければならないデータの保管場所として適しています。
 つまり、ほとんどの場合、最初の呼び出しのセットアップ中に<structfield>multi_call_memory_ctx</structfield>へ切り替える必要があるということです。
-<literal>funcctx-&gt;user_fctx</literal>を使用して、このような複数の呼び出しのデータ構造体へのポインタを保持します。
+<literal>funcctx-&gt;user_fctx</literal>を使用して、このような複数の呼び出しに渡るデータ構造体へのポインタを保持します。
 （<structfield>multi_call_memory_ctx</structfield>に配置したデータは、問い合わせが終了すると自動的に削除されるので、そのデータを手動で開放する必要はありません。）
     </para>
 
