@@ -2828,8 +2828,10 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
        Columns used to form <quote>replica identity</quote> for rows:
        <literal>d</literal> = default (primary key, if any),
        <literal>n</literal> = nothing,
-       <literal>f</literal> = all columns
-       <literal>i</literal> = index with <structfield>indisreplident</structfield> set, or default
+       <literal>f</literal> = all columns,
+       <literal>i</literal> = index with
+       <structfield>indisreplident</structfield> set (same as nothing if the
+       index used has been dropped)
 -->
        行に<quote>replica identity</quote>フォームを使った列。
        <literal>d</literal> デフォルト（もしあれば主キー）、
@@ -5723,9 +5725,9 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
   <para>
 <!--
    The catalog <structname>pg_inherits</structname> records information about
-   table inheritance hierarchies.  There is one entry for each direct
-   parent-child table relationship in the database.  (Indirect inheritance can be determined
-   by following chains of entries.)
+   table and index inheritance hierarchies.  There is one entry for each direct
+   parent-child table or index relationship in the database.  (Indirect
+   inheritance can be determined by following chains of entries.)
 -->
 <structname>pg_inherits</structname>カタログは継承階層の情報を記録します。
 データベース内の、それぞれの直接の親子テーブル関係に対して1つの記述があります（直接ではない継承は、記述の連鎖から決定されます）。
@@ -5760,7 +5762,7 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
       <entry><literal><link linkend="catalog-pg-class"><structname>pg_class</structname></link>.oid</literal></entry>
       <entry>
 <!--
-       The OID of the child table
+       The OID of the child table or index
 -->
        子テーブルのOID。
       </entry>
@@ -5772,7 +5774,7 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
       <entry><literal><link linkend="catalog-pg-class"><structname>pg_class</structname></link>.oid</literal></entry>
       <entry>
 <!--
-       The OID of the parent table
+       The OID of the parent table or index
 -->
        親テーブルのOID。
       </entry>
@@ -5787,6 +5789,8 @@ falseの場合、スーパーユーザまたはデータベースの所有者だ
        If there is more than one direct parent for a child table (multiple
        inheritance), this number tells the order in which the
        inherited columns are to be arranged.  The count starts at 1.
+       Indexes can not have multiple inheritance, since they can only inherit
+       when using declarative partitioning.
 -->
 1つの子テーブルに1つ以上の親テーブルが存在する場合（複数継承）、この番号の順序に従って継承された列が配置されます。
 番号は1から始まります。
@@ -9738,8 +9742,9 @@ N番目の<quote>スロット</quote>に保存されている統計情報を引�
       <entry><type>name</type></entry>
       <entry></entry>
 <!--
-      <entry>Name of the replication slot in the upstream database. Also used
-       for local replication origin name.</entry>
+      <entry>Name of the replication slot in the upstream database (also used
+       for the local replication origin name);
+       null represents <literal>NONE</literal></entry>
 -->
       <entry>
 上流のデータベースのレプリケーションスロットの名前。
@@ -9858,7 +9863,9 @@ N番目の<quote>スロット</quote>に保存されている統計情報を引�
       <entry></entry>
       <entry>
 <!--
-       End LSN for <literal>s</literal> and <literal>r</literal> states.
+       Remote LSN of the state change used for synchronization coordination
+       when in <literal>s</literal> or <literal>r</literal> states,
+       otherwise null
 -->
 <literal>s</literal>および<literal>r</literal>の状態についての終了LSNです。
       </entry>
