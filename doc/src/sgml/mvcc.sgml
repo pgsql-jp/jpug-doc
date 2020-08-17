@@ -843,6 +843,20 @@ ERROR:  could not serialize access due to concurrent update
 この分離レベルで実行するトランザクションによりビジネスルールを強制しようとすることは、競合するトランザクションをブロックするために注意深く明示的なロックを持たないと、正確に動作しないことが多くあります。
    </para>
 
+   <para>
+    The Repeatable Read isolation level is implemented using a technique
+    known in academic database literature and in some other database products
+    as <firstterm>Snapshot Isolation</firstterm>.  Differences in behavior
+    and performance may be observed when compared with systems that use a
+    traditional locking technique that reduces concurrency.  Some other
+    systems may even offer Repeatable Read and Snapshot Isolation as distinct
+    isolation levels with different behavior.  The permitted phenomena that
+    distinguish the two techniques were not formalized by database researchers
+    until after the SQL standard was developed, and are outside the scope of
+    this manual.  For a full treatment, please see
+    <xref linkend="berenson95"/>.
+   </para>
+
    <note>
     <para>
 <!--
@@ -1205,6 +1219,15 @@ ERROR:  could not serialize access due to read/write dependencies among transact
       </para>
      </listitem>
     </itemizedlist>
+   </para>
+
+   <para>
+    The Serializable isolation level is implemented using a technique known
+    in academic database literature as Serializable Snapshot Isolation, which
+    builds on Snapshot Isolation by adding checks for serialization anomalies.
+    Some differences in behavior and performance may be observed when compared
+    with other systems that use a traditional locking technique.  Please see
+    <xref linkend="ports12"/> for detailed information.
    </para>
   </sect2>
  </sect1>
@@ -2508,6 +2531,16 @@ DDLコマンドの中には、現在は<xref linkend="sql-truncate"/>とテー�
 シリアライザブルトランザクション分離レベルのサポートは、まだホットスタンバイレプリケーションは対象に加えられていません(<xref linkend="hot-standby"/>で述べます)。
 ホットスタンバイモードで現在サポートされた最も厳しい分離レベルはリピータブルリードです。
 マスタ上でシリアライザブルトランザクション中にデータベースに永続的な書き込みを行なえば、スタンバイはすべて最終的に一貫した状態に達するだろうということは保証されるでしょうが、スタンバイ上で実行されたリピータブルリードトランザクションは、時々マスタのトランザクションの任意の連続する実行と一致しない過渡状態を見ることがあるでしょう。
+   </para>
+
+   <para>
+    Internal access to the system catalogs is not done using the isolation
+    level of the current transaction.  This means that newly created database
+    objects such as tables are visible to concurrent Repeatable Read and
+    Serializable transactions, even though the rows they contain are not.  In
+    contrast, queries that explicitly examine the system catalogs don't see
+    rows representing concurrently created database objects, in the higher
+    isolation levels.
    </para>
   </sect1>
 

@@ -1856,16 +1856,16 @@ SSLサーバの秘密鍵が入っているファイル名を設定します。
       <listitem>
        <para>
 <!--
-        Specifies a list of <acronym>SSL</acronym> cipher suites that are allowed to be
-        used on secure connections.  See
-        the <citerefentry><refentrytitle>ciphers</refentrytitle></citerefentry> manual page
-        in the <application>OpenSSL</application> package for the syntax of this setting
-        and a list of supported values.
-        This parameter can only be set in the <filename>postgresql.conf</filename>
-        file or on the server command line.
-        The default value is <literal>HIGH:MEDIUM:+3DES:!aNULL</literal>.  The
-        default is usually a reasonable choice unless you have specific
-        security requirements.
+        Specifies a list of <acronym>SSL</acronym> cipher suites that are
+        allowed to be used by SSL connections.  See the
+        <citerefentry><refentrytitle>ciphers</refentrytitle></citerefentry>
+        manual page in the <application>OpenSSL</application> package for the
+        syntax of this setting and a list of supported values.  Only
+        connections using TLS version 1.2 and lower are affected.  There is
+        currently no setting that controls the cipher choices used by TLS
+        version 1.3 connections.  The default value is
+        <literal>HIGH:MEDIUM:+3DES:!aNULL</literal>.  The default is usually a
+        reasonable choice unless you have specific security requirements.
 -->
 セキュアな接続で使用できる<acronym>SSL</acronym>暗号スイートのリストを指定します。
 設定構文と使用可能な値のリストについては<application>OpenSSL</application>パッケージの
@@ -1873,6 +1873,12 @@ SSLサーバの秘密鍵が入っているファイル名を設定します。
 このパラメータは、<filename>postgresql.conf</filename>ファイルか、サーバのコマンドラインでのみ設定可能です。
 デフォルト値は<literal>HIGH:MEDIUM:+3DES:!aNULL</literal>です。
 特別なセキュリティ要件でなければ通常これが適当です。
+       </para>
+
+       <para>
+        This parameter can only be set in the
+        <filename>postgresql.conf</filename> file or on the server command
+        line.
        </para>
 
        <para>
@@ -4202,6 +4208,41 @@ SSDやそれ以外のメモリーベースの記憶装置は、多くの同時�
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-wal-init-zero" xreflabel="wal_init_zero">
+      <term><varname>wal_init_zero</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>wal_init_zero</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        If set to <literal>on</literal> (the default), this option causes new
+        WAL files to be filled with zeroes.  On some file systems, this ensures
+        that space is allocated before we need to write WAL records.  However,
+        <firstterm>Copy-On-Write</firstterm> (COW) file systems may not benefit
+        from this technique, so the option is given to skip the unnecessary
+        work.  If set to <literal>off</literal>, only the final byte is written
+        when the file is created so that it has the expected size.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-wal-recycle" xreflabel="wal_recycle">
+      <term><varname>wal_recycle</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>wal_recycle</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        If set to <literal>on</literal> (the default), this option causes WAL
+        files to be recycled by renaming them, avoiding the need to create new
+        ones.  On COW file systems, it may be faster to create new ones, so the
+        option is given to disable this behavior.
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-wal-buffers" xreflabel="wal_buffers">
       <term><varname>wal_buffers</varname> (<type>integer</type>)
       <indexterm>
@@ -5544,57 +5585,6 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
        </para>
        </listitem>
       </varlistentry>
-
-     <varlistentry id="guc-wal-init-zero" xreflabel="wal_init_zero">
-      <term><varname>wal_init_zero</varname> (<type>boolean</type>)
-      <indexterm>
-<!--
-       <primary><varname>wal_init_zero</varname> configuration parameter</primary>
--->
-       <primary><varname>wal_init_zero</varname>設定パラメータ</primary>
-      </indexterm>
-      </term>
-      <listitem>
-       <para>
-<!--
-        If set to <literal>on</literal> (the default), this option causes new
-        WAL files to be filled with zeroes.  On some file systems, this ensures
-        that space is allocated before we need to write WAL records.  However,
-        <firstterm>Copy-On-Write</firstterm> (COW) file systems may not benefit
-        from this technique, so the option is given to skip the unnecessary
-        work.  If set to <literal>off</literal>, only the final byte is written
-        when the file is created so that it has the expected size.
--->
-このオプションが<literal>on</literal>（デフォルト）に設定されると、新しいWALファイルはゼロで初期化されます。
-システムによっては、このことによってWALレコードを書く必要が出てくる前にスペースが割り当てられることを保証します。
-しかし、<firstterm>Copy-On-Write</firstterm> (COW)ファイルシステムではこの技術は利点がないかもしれず、このオプションはスキップできるようになっています。
-<literal>off</literal>に設定すると、ファイルを作る時に期待する大きさになるように最後のバイトだけが書かれます。
-       </para>
-      </listitem>
-     </varlistentry>
-
-     <varlistentry id="guc-wal-recycle" xreflabel="wal_recycle">
-      <term><varname>wal_recycle</varname> (<type>boolean</type>)
-      <indexterm>
-<!--
-       <primary><varname>wal_recycle</varname> configuration parameter</primary>
--->
-       <primary><varname>wal_recycle</varname>設定パラメータ</primary>
-      </indexterm>
-      </term>
-      <listitem>
-       <para>
-<!--
-        If set to <literal>on</literal> (the default), this option causes WAL
-        files to be recycled by renaming them, avoiding the need to create new
-        ones.  On COW file systems, it may be faster to create new ones, so the
-        option is given to disable this behavior.
--->
-このオプションが<literal>on</literal>（デフォルト）に設定されると、新しくファイルを作るのを避けるために、名前を変えてWALファイルが再利用されます。
-COWファイルシステムでは、新しいファイルを作るほうが速いかも知れないので、この挙動を無効にできるようにオプションとなっています。
-       </para>
-      </listitem>
-     </varlistentry>
 
      <varlistentry id="guc-wal-sender-timeout" xreflabel="wal_sender_timeout">
       <term><varname>wal_sender_timeout</varname> (<type>integer</type>)
@@ -7159,7 +7149,8 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         the database is smaller than the total server memory, decreasing
         random_page_cost can be appropriate.  Storage that has a low random
         read cost relative to sequential, e.g. solid-state drives, might
-        also be better modeled with a lower value for random_page_cost.
+        also be better modeled with a lower value for random_page_cost,
+        e.g., <literal>1.1</literal>.
        -->
 自環境の作業負荷において、90％のキャッシュ率は誤った仮定と考えられるのであれば、ランダム記憶装置読み込みのコストをより良く反映するため random_page_cost を大きくすることができます。
 反対に、データが完全にキャッシュされていると思われるのであれば、random_page_cost を小さくすることが適切です。例えば、データベースの容量がサーバのメモリより小さい場合などです。
@@ -8401,7 +8392,7 @@ local0.*    /var/log/postgresql
         by <xref linkend="guc-log-timezone"/>.)
         The supported <literal>%</literal>-escapes are similar to those
         listed in the Open Group's <ulink
-        url="http://pubs.opengroup.org/onlinepubs/009695399/functions/strftime.html">strftime
+        url="https://pubs.opengroup.org/onlinepubs/009695399/functions/strftime.html">strftime
         </ulink> specification.
         Note that the system's <function>strftime</function> is not used
         directly, so platform-specific (nonstandard) extensions do not work.

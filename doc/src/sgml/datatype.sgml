@@ -2504,8 +2504,9 @@ SELECT 'abc \153\154\155 \052\251\124'::bytea;
 <!--
         <entry>12 bytes</entry>
         <entry>time of day (no date), with time zone</entry>
-        <entry>00:00:00+1459</entry>
-        <entry>24:00:00-1459</entry>
+        <!&#045;&#045; 原文コメント: see MAX_TZDISP_HOUR in datatype/timestamp.h &#045;&#045;>
+        <entry>00:00:00+1559</entry>
+        <entry>24:00:00-1559</entry>
         <entry>1 microsecond</entry>
 -->
         <entry>12 バイト</entry>
@@ -3691,7 +3692,7 @@ ISO 8601の仕様では日付と時刻を区切るために大文字の<literal>
         A time zone abbreviation, for example <literal>PST</literal>.  Such a
         specification merely defines a particular offset from UTC, in
         contrast to full time zone names which can imply a set of daylight
-        savings transition-date rules as well.  The recognized abbreviations
+        savings transition rules as well.  The recognized abbreviations
         are listed in the <literal>pg_timezone_abbrevs</literal> view (see <xref
         linkend="view-pg-timezone-abbrevs"/>).  You cannot set the
         configuration parameters <xref linkend="guc-timezone"/> or
@@ -3712,25 +3713,10 @@ ISO 8601の仕様では日付と時刻を区切るために大文字の<literal>
 <!--
         In addition to the timezone names and abbreviations,
         <productname>PostgreSQL</productname> will accept POSIX-style time zone
-        specifications of the form <replaceable>STD</replaceable><replaceable>offset</replaceable> or
-        <replaceable>STD</replaceable><replaceable>offset</replaceable><replaceable>DST</replaceable>, where
-        <replaceable>STD</replaceable> is a zone abbreviation, <replaceable>offset</replaceable> is a
-        numeric offset in hours west from UTC, and <replaceable>DST</replaceable> is an
-        optional daylight-savings zone abbreviation, assumed to stand for one
-        hour ahead of the given offset. For example, if <literal>EST5EDT</literal>
-        were not already a recognized zone name, it would be accepted and would
-        be functionally equivalent to United States East Coast time.  In this
-        syntax, a zone abbreviation can be a string of letters, or an
-        arbitrary string surrounded by angle brackets (<literal>&lt;&gt;</literal>).
-        When a daylight-savings zone abbreviation is present,
-        it is assumed to be used
-        according to the same daylight-savings transition rules used in the
-        IANA time zone database's <filename>posixrules</filename> entry.
-        In a standard <productname>PostgreSQL</productname> installation,
-        <filename>posixrules</filename> is the same as <literal>US/Eastern</literal>, so
-        that POSIX-style time zone specifications follow USA daylight-savings
-        rules.  If needed, you can adjust this behavior by replacing the
-        <filename>posixrules</filename> file.
+        specifications, as described in
+        <xref linkend="datetime-posix-timezone-specs"/>.  This option is not
+        normally preferable to using a named time zone, but it may be
+        necessary if no suitable IANA time zone entry is available.
 -->
 時間帯名やその省略形に加え、<productname>PostgreSQL</productname>は、<replaceable>STD</replaceable><replaceable>offset</replaceable>や<replaceable>STD</replaceable><replaceable>offset</replaceable><replaceable>DST</replaceable>という形式のPOSIX様式の時間帯指定を受付けます。
 ここで、<replaceable>STD</replaceable>は時間帯省略形、<replaceable>offset</replaceable>はUTCから西に数えた時間単位のオフセットです。
@@ -3778,26 +3764,6 @@ ISO 8601の仕様では日付と時刻を区切るために大文字の<literal>
 例えばモスクワでは<literal>MSK</literal>はある年ではUTC+3を意味しますが、別の年ではUTC+4を意味します。
 <application>PostgreSQL</application>ではそのような略号について、指定の日に何を意味していたか（あるいは最も最近にどういう意味だったか）に従って解釈します。
 しかし、<literal>EST</literal>の例にあるように、必ずしもその日付における地方常用時を示しているとは限りません。
-    </para>
-
-    <para>
-<!--
-     One should be wary that the POSIX-style time zone feature can
-     lead to silently accepting bogus input, since there is no check on the
-     reasonableness of the zone abbreviations.  For example, <literal>SET
-     TIMEZONE TO FOOBAR0</literal> will work, leaving the system effectively using
-     a rather peculiar abbreviation for UTC.
-     Another issue to keep in mind is that in POSIX time zone names,
-     positive offsets are used for locations <emphasis>west</emphasis> of Greenwich.
-     Everywhere else, <productname>PostgreSQL</productname> follows the
-     ISO-8601 convention that positive timezone offsets are <emphasis>east</emphasis>
-     of Greenwich.
--->
-時間帯省略形の正当性を検査しないため、POSIX書式時間帯機能ではおかしな入力を警告なく受け付けてしまう可能性があることに注意すべきです。
-例えば、<literal>SET TIMEZONE TO FOOBAR0</literal>でも動作します。
-このとき、システムは事実上、UTCについての奇妙な省略形を使用する状態になります。
-他にも、POSIX時間帯名称では正のオフセットがグリニッジの<emphasis>西</emphasis>側で使用されるという問題には注意しなければなりません。
-<productname>PostgreSQL</productname>は、他ではすべてISO-8601規約にしたがい、正の時間帯オフセットはグリニッジの<emphasis>東</emphasis>としています。
     </para>
 
     <para>
