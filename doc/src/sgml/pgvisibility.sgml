@@ -8,13 +8,18 @@
  </indexterm>
 
  <para>
+<!--
   The <filename>pg_visibility</filename> module provides a means for examining the
   visibility map (VM) and page-level visibility information of a table.
   It also provides functions to check the integrity of a visibility map and to
   force it to be rebuilt.
+-->
+<filename>pg_visibility</filename>モジュールは可視性マップ(Visibility Map, VM)およびテーブルのページレベルでの可視性情報を検査する手段を提供します。
+このモジュールはまた、可視性マップの整合性を検査し、強制的に再構築する機能も提供します。
  </para>
 
  <para>
+<!--
   Three different bits are used to store information about page-level
   visibility.  The all-visible bit in the visibility map indicates that every
   tuple in the corresponding page of the relation is visible to every current
@@ -31,26 +36,46 @@
   occurs after <literal>pg_visibility</literal> examines the visibility map and
   before it examines the data page.  Any event that causes data corruption
   can also cause these bits to disagree.
+-->
+ページレベルの可視性についての情報を格納するために、3つの異なるビットが使用されます。
+可視性マップの全可視ビットは、対応するリレーションのページの全タプルがすべての現在および将来のトランザクションに対して可視であることを示します。
+可視性マップの全凍結ビットは、そのページのすべてのタプルが凍結されていることを示します。
+これはすなわち、そのページに対してタプルの挿入、更新、削除、ロックなどが発生しない限り、将来もバキュームによる修正が必要ないことを意味します。
+ページヘッダの<literal>PD_ALL_VISIBLE</literal>ビットは、可視性マップの全可視ビットと同じ意味ですが、別のデータ構造ではなく、データページ自体の中に格納されています。
+これら2つのビットは通常は同じ値になりますが、クラッシュリカバリの後は、ページの全可視ビットがセットされているのに、可視性マップの全可視ビットはクリアされているということもあります。
+また、<literal>pg_visibility</literal>が可視性マップを検査した後、データページを検査する前に更新が行われたために、これらについて報告される値が一致しないということもあり得ます。
+データ破壊を起こすような何らかのイベントの後も、これらのビットが異なることがあり得ます。
  </para>
 
  <para>
+<!--
   Functions that display information about <literal>PD_ALL_VISIBLE</literal> bits
   are much more costly than those that only consult the visibility map,
   because they must read the relation's data blocks rather than only the
   (much smaller) visibility map.  Functions that check the relation's
   data blocks are similarly expensive.
+-->
+<literal>PD_ALL_VISIBLE</literal>ビットに関する情報を表示する関数は、可視性マップのみを参照する関数に比べるとずっと高価です。
+これは、可視性マップだけではなく、（それよりずっと大きな）リレーションのデータブロックを読む必要があるからです。
+リレーションのデータブロックを検査する関数は、同様に高価です。
  </para>
 
  <sect2>
+<!--
   <title>Functions</title>
+-->
+  <title>関数</title>
 
   <variablelist>
    <varlistentry>
     <term><function>pg_visibility_map(relation regclass, blkno bigint, all_visible OUT boolean, all_frozen OUT boolean) returns record</function></term>
     <listitem>
      <para>
+<!--
       Returns the all-visible and all-frozen bits in the visibility map for
       the given block of the given relation.
+-->
+指定のリレーションの指定のブロックについて、可視性マップ内の全可視ビットと全凍結ビットを返します。
      </para>
     </listitem>
    </varlistentry>
@@ -59,9 +84,12 @@
     <term><function>pg_visibility(relation regclass, blkno bigint, all_visible OUT boolean, all_frozen OUT boolean, pd_all_visible OUT boolean) returns record</function></term>
     <listitem>
      <para>
+<!--
       Returns the all-visible and all-frozen bits in the visibility map for
       the given block of the given relation, plus the
       <literal>PD_ALL_VISIBLE</literal> bit of that block.
+-->
+指定のリレーションの指定のブロックについて、可視性マップ内の全可視ビットと全凍結ビット、およびそのブロックの<literal>PD_ALL_VISIBLE</literal>を返します。
      </para>
     </listitem>
    </varlistentry>
@@ -70,8 +98,11 @@
     <term><function>pg_visibility_map(relation regclass, blkno OUT bigint, all_visible OUT boolean, all_frozen OUT boolean) returns setof record</function></term>
     <listitem>
      <para>
+<!--
       Returns the all-visible and all-frozen bits in the visibility map for
       each block of the given relation.
+-->
+指定のリレーションの各ブロックについて、全可視ビットと全凍結ビットを返します。
      </para>
     </listitem>
    </varlistentry>
@@ -81,9 +112,12 @@
 
     <listitem>
      <para>
+<!--
       Returns the all-visible and all-frozen bits in the visibility map for
       each block of the given relation, plus the <literal>PD_ALL_VISIBLE</literal>
       bit of each block.
+-->
+指定のリレーションの各ブロックについて、全可視ビットと全凍結ビット、および各ブロックの<literal>PD_ALL_VISIBLE</literal>ビットを返します。
      </para>
     </listitem>
    </varlistentry>
@@ -93,8 +127,11 @@
 
     <listitem>
      <para>
+<!--
       Returns the number of all-visible pages and the number of all-frozen
       pages in the relation according to the visibility map.
+-->
+可視性マップに従って、リレーション内の全可視ページの数と全凍結ページの数を返します。
      </para>
     </listitem>
    </varlistentry>
@@ -104,9 +141,13 @@
 
     <listitem>
      <para>
+<!--
       Returns the TIDs of non-frozen tuples stored in pages marked all-frozen
       in the visibility map.  If this function returns a non-empty set of
       TIDs, the visibility map is corrupt.
+-->
+可視性マップ内で全凍結と印を付けられたページ内に格納されている非凍結タプルのTIDを返します。
+この関数が返すTIDの集合が空でないなら、可視性マップは壊れています。
      </para>
     </listitem>
    </varlistentry>
@@ -116,9 +157,13 @@
 
     <listitem>
      <para>
+<!--
       Returns the TIDs of non-all-visible tuples stored in pages marked
       all-visible in the visibility map.  If this function returns a non-empty
       set of TIDs, the visibility map is corrupt.
+-->
+可視性マップ内で全可視と印を付けられたページ内に格納されている全可視でないタプルのTIDを返します。
+この関数が返すTIDの集合が空でないなら、可視性マップは壊れています。
      </para>
     </listitem>
    </varlistentry>
@@ -128,27 +173,39 @@
 
     <listitem>
      <para>
+<!--
       Truncates the visibility map for the given relation.  This function is
       useful if you believe that the visibility map for the relation is
       corrupt and wish to force rebuilding it.  The first <command>VACUUM</command>
       executed on the given relation after this function is executed will scan
       every page in the relation and rebuild the visibility map.  (Until that
       is done, queries will treat the visibility map as containing all zeroes.)
+-->
+指定のリレーションの可視性マップを切り詰めます。
+そのリレーションの可視性マップが壊れていると思われ、強制的に再構築したい場合にこの関数は有効です。
+この関数を実行した後に、指定のリレーション上で実行される最初の<command>VACUUM</command>において、リレーション内の全ページがスキャンされ、可視性マップが再構築されます。
+（それが終わるまでは、可視性マップの中がすべてゼロになっているものとして問い合わせは動作します。）
      </para>
     </listitem>
    </varlistentry>
   </variablelist>
 
   <para>
+<!--
    By default, these functions are executable only by superusers and members of the
    <literal>pg_stat_scan_tables</literal> role, with the exception of
    <function>pg_truncate_visibility_map(relation regclass)</function> which can only
    be executed by superusers.
+-->
+デフォルトでは、これらの関数はスーパーユーザと<literal>pg_stat_scan_tables</literal>のメンバのみが実行可能です。<function>pg_truncate_visibility_map(relation regclass)</function>は例外で、スーパーユーザのみが実行可能です。
   </para>
  </sect2>
 
  <sect2>
+<!--
   <title>Author</title>
+-->
+  <title>作者</title>
 
   <para>
    Robert Haas <email>rhaas@postgresql.org</email>

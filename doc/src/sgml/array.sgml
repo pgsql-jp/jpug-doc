@@ -1,29 +1,49 @@
 <!-- doc/src/sgml/array.sgml -->
 
 <sect1 id="arrays">
+<!--
  <title>Arrays</title>
+-->
+ <title>配列</title>
 
  <indexterm>
+<!--
   <primary>array</primary>
+-->
+  <primary>配列</primary>
  </indexterm>
 
  <para>
+<!--
   <productname>PostgreSQL</productname> allows columns of a table to be
   defined as variable-length multidimensional arrays. Arrays of any
   built-in or user-defined base type, enum type, composite type, range type,
   or domain can be created.
+-->
+<productname>PostgreSQL</productname>ではテーブルの列を可変長多次元配列として定義できます。
+あらゆる組み込み型あるいはユーザ定義の基本型、列挙型、複合型、範囲型そしてドメインの配列も作成可能です。
  </para>
 
  <sect2 id="arrays-declaration">
+<!--
   <title>Declaration of Array Types</title>
+-->
+  <title>配列型の宣言</title>
 
   <indexterm>
+<!--
    <primary>array</primary>
    <secondary>declaration</secondary>
+-->
+   <primary>配列</primary>
+   <secondary>宣言</secondary>
   </indexterm>
 
  <para>
+<!--
   To illustrate the use of array types, we create this table:
+-->
+実際に配列の使い方を説明するために、次のテーブルを作成します。
 <programlisting>
 CREATE TABLE sal_emp (
     name            text,
@@ -31,6 +51,7 @@ CREATE TABLE sal_emp (
     schedule        text[][]
 );
 </programlisting>
+<!--
   As shown, an array data type is named by appending square brackets
   (<literal>[]</literal>) to the data type name of the array elements.  The
   above command will create a table named
@@ -41,11 +62,17 @@ CREATE TABLE sal_emp (
   employee's salary by quarter, and a two-dimensional array of
   <type>text</type> (<structfield>schedule</structfield>), which
   represents the employee's weekly schedule.
+-->
+見ておわかりのように配列データ型は配列要素のデータ型の名前に大括弧（<literal>[]</literal>）を付けて指定します。
+このコマンドは<type>text</type>型文字列（<structfield>name</structfield>）、従業員の四半期の給与を保存する<type>integer</type>型の一次元配列（<structfield>pay_by_quarter</structfield>）、そして従業員の週間スケジュールを保存する<type>text</type>型の二次元配列（<structfield>schedule</structfield>）の列を持つ<structname>sal_emp</structname>という名前のテーブルを作成します。
  </para>
 
  <para>
+<!--
   The syntax for <command>CREATE TABLE</command> allows the exact size of
   arrays to be specified, for example:
+-->
+<command>CREATE TABLE</command>構文で指定する配列の正確な大きさを指定することができます。
 
 <programlisting>
 CREATE TABLE tictactoe (
@@ -53,46 +80,75 @@ CREATE TABLE tictactoe (
 );
 </programlisting>
 
+<!--
   However, the current implementation ignores any supplied array size
   limits, i.e., the behavior is the same as for arrays of unspecified
   length.
+-->
+とは言っても現在の実装では指定された配列の大きさの制限を無視します。
+つまり、長さの指定がない配列と同じ振舞いをします。
  </para>
 
  <para>
+<!--
   The current implementation does not enforce the declared
   number of dimensions either.  Arrays of a particular element type are
   all considered to be of the same type, regardless of size or number
   of dimensions.  So, declaring the array size or number of dimensions in
   <command>CREATE TABLE</command> is simply documentation; it does not
   affect run-time behavior.
+-->
+現在の実装では次元数の宣言も強制していません。
+特定の要素型の配列はすべて大きさあるいは次元数とは無関係に同じ型とみなされます。
+ですから<command>CREATE TABLE</command>で配列の大きさや次元数を宣言することは、単なる説明です。
+実行時の動作に影響を及ぼしません。
  </para>
 
  <para>
+<!--
   An alternative syntax, which conforms to the SQL standard by using
   the keyword <literal>ARRAY</literal>, can be used for one-dimensional arrays.
   <structfield>pay_by_quarter</structfield> could have been defined
   as:
+-->
+SQLに準拠し、<literal>ARRAY</literal>キーワードを使用したもう1つの構文を一次元配列に使うことができます。
+<structfield>pay_by_quarter</structfield>を次のように定義することもできます。
+
 <programlisting>
     pay_by_quarter  integer ARRAY[4],
 </programlisting>
+<!--
   Or, if no array size is to be specified:
+-->
+または、もし配列の大きさが指定されない場合は次のようになります。
 <programlisting>
     pay_by_quarter  integer ARRAY,
 </programlisting>
+<!--
   As before, however, <productname>PostgreSQL</productname> does not enforce the
   size restriction in any case.
+-->
+しかし、前で触れたように<productname>PostgreSQL</productname>はどんな場合でも大きさの制限を強要しません。
  </para>
  </sect2>
 
  <sect2 id="arrays-input">
+<!--
   <title>Array Value Input</title>
+-->
 
+  <title>配列の値の入力</title>
   <indexterm>
+<!--
    <primary>array</primary>
    <secondary>constant</secondary>
+-->
+   <primary>配列</primary>
+   <secondary>定数</secondary>
   </indexterm>
 
   <para>
+<!--
    To write an array value as a literal constant, enclose the element
    values within curly braces and separate them by commas.  (If you
    know C, this is not unlike the C syntax for initializing
@@ -100,9 +156,16 @@ CREATE TABLE tictactoe (
    and must do so if it contains commas or curly braces.  (More
    details appear below.)  Thus, the general format of an array
    constant is the following:
+-->
+リテラル定数として配列の値を書き込むには、その要素の値を中括弧で囲み、それぞれの要素の値をカンマで区切ります
+（C言語を知っているならば、構造体を初期化するための構文のようなものと考えてください）。
+要素の値を二重引用符でくくることもでき、カンマもしくは中括弧がある時は必ずそのように書かなければなりません
+（詳細は以下に出てきます）。
+したがって配列定数の一般的書式は次のようになります。
 <synopsis>
 '{ <replaceable>val1</replaceable> <replaceable>delim</replaceable> <replaceable>val2</replaceable> <replaceable>delim</replaceable> ... }'
 </synopsis>
+<!--
    where <replaceable>delim</replaceable> is the delimiter character
    for the type, as recorded in its <literal>pg_type</literal> entry.
    Among the standard data types provided in the
@@ -111,30 +174,51 @@ CREATE TABLE tictactoe (
    (<literal>;</literal>). Each <replaceable>val</replaceable> is
    either a constant of the array element type, or a subarray. An example
    of an array constant is:
+-->
+ここで<replaceable>delim</replaceable>はその<literal>pg_type</literal>項目に記録されている型の区切り文字です。
+<productname>PostgreSQL</productname>配布物で提供されている標準データ型の内、セミコロン（<literal>;</literal>）を使用する<type>box</type>型を除き、すべてはカンマ（<literal>,</literal>）を使います。
+それぞれの<replaceable>val</replaceable>は配列要素の型の定数か副配列です。
+配列定数の例を以下に示します。
 <programlisting>
 '{{1,2,3},{4,5,6},{7,8,9}}'
 </programlisting>
+<!--
    This constant is a two-dimensional, 3-by-3 array consisting of
    three subarrays of integers.
+-->
+この定数は整数の3つの副配列を持っている二次元3×3の配列です。
   </para>
 
   <para>
+<!--
    To set an element of an array constant to NULL, write <literal>NULL</literal>
    for the element value.  (Any upper- or lower-case variant of
    <literal>NULL</literal> will do.)  If you want an actual string value
    <quote>NULL</quote>, you must put double quotes around it.
+-->
+配列定数の要素をNULLとするためには、その要素値に<literal>NULL</literal>と記載してください。
+（<literal>NULL</literal>を大文字で書いても小文字で書いても構いません。）
+<quote>NULL</quote>という文字列値を指定したければ、二重引用符でくくって記載しなければなりません。
   </para>
 
   <para>
+<!--
    (These kinds of array constants are actually only a special case of
    the generic type constants discussed in <xref
    linkend="sql-syntax-constants-generic"/>.  The constant is initially
    treated as a string and passed to the array input conversion
    routine.  An explicit type specification might be necessary.)
+-->
+（この種の配列定数は実際<xref linkend="sql-syntax-constants-generic"/>で説明されている一般型定数の特別の場合に過ぎません。
+この定数は元々文字列として扱われていて配列入力ルーチンに渡されます。
+明示的な型指定が必要かもしれません。）
   </para>
 
   <para>
+<!--
    Now we can show some <command>INSERT</command> statements:
+-->
+では、<command>INSERT</command>文をいくつか紹介します。
 
 <programlisting>
 INSERT INTO sal_emp
@@ -150,7 +234,10 @@ INSERT INTO sal_emp
   </para>
 
  <para>
+<!--
   The result of the previous two inserts looks like this:
+-->
+上に記載した2つの挿入文の結果は次のようになります。
 
 <programlisting>
 SELECT * FROM sal_emp;
@@ -163,8 +250,12 @@ SELECT * FROM sal_emp;
  </para>
 
  <para>
+<!--
   Multidimensional arrays must have matching extents for each
   dimension. A mismatch causes an error, for example:
+-->
+多次元配列では、各次元の範囲を合わせなければなりません。
+一致しないと以下のようにエラーが発生します。
 
 <programlisting>
 INSERT INTO sal_emp
@@ -176,7 +267,10 @@ ERROR:  multidimensional arrays must have array expressions with matching dimens
  </para>
 
  <para>
+<!--
   The <literal>ARRAY</literal> constructor syntax can also be used:
+-->
+<literal>ARRAY</literal>生成子構文も使えます。
 <programlisting>
 INSERT INTO sal_emp
     VALUES ('Bill',
@@ -188,27 +282,44 @@ INSERT INTO sal_emp
     ARRAY[20000, 25000, 25000, 25000],
     ARRAY[['breakfast', 'consulting'], ['meeting', 'lunch']]);
 </programlisting>
+<!--
   Notice that the array elements are ordinary SQL constants or
   expressions; for instance, string literals are single quoted, instead of
   double quoted as they would be in an array literal.  The <literal>ARRAY</literal>
   constructor syntax is discussed in more detail in
   <xref linkend="sql-syntax-array-constructors"/>.
+-->
+配列要素は通常のSQL定数もしくは演算式であることに注意してください。
+例えば文字列リテラルは配列リテラルと同様、二重引用符ではなく単一引用符でくくられます。
+<literal>ARRAY</literal>生成子構文は<xref linkend="sql-syntax-array-constructors"/>により詳しい説明があります。
  </para>
  </sect2>
 
  <sect2 id="arrays-accessing">
+<!--
   <title>Accessing Arrays</title>
+-->
+  <title>配列へのアクセス</title>
 
   <indexterm>
+<!--
    <primary>array</primary>
    <secondary>accessing</secondary>
+-->
+   <primary>配列</primary>
+   <secondary>アクセス</secondary>
   </indexterm>
 
  <para>
+<!--
   Now, we can run some queries on the table.
   First, we show how to access a single element of an array.
   This query retrieves the names of the employees whose pay changed in
   the second quarter:
+-->
+ではテーブルに対していくつかの問い合わせを行ってみましょう。
+初めに、配列の単一要素にアクセスする方法を示します。
+この問い合わせは第2四半期に給与が更新された従業員の名前を抽出します。
 
 <programlisting>
 SELECT name FROM sal_emp WHERE pay_by_quarter[1] &lt;&gt; pay_by_quarter[2];
@@ -219,15 +330,23 @@ SELECT name FROM sal_emp WHERE pay_by_quarter[1] &lt;&gt; pay_by_quarter[2];
 (1 row)
 </programlisting>
 
+<!--
   The array subscript numbers are written within square brackets.
   By default <productname>PostgreSQL</productname> uses a
   one-based numbering convention for arrays, that is,
   an array of <replaceable>n</replaceable> elements starts with <literal>array[1]</literal> and
   ends with <literal>array[<replaceable>n</replaceable>]</literal>.
+-->
+配列の添字番号は大括弧で囲んで記述されます。
+デフォルトで<productname>PostgreSQL</productname>は配列に対し「1始まり」の振り番規定を採用しています。
+つまり要素が<replaceable>n</replaceable>個ある配列は<literal>array[1]</literal>で始まり、<literal>array[<replaceable>n</replaceable>]</literal>で終わります。
  </para>
 
  <para>
+<!--
   This query retrieves the third quarter pay of all employees:
+-->
+次の問い合わせは全ての従業員の第3四半期の給与を抽出します。
 
 <programlisting>
 SELECT pay_by_quarter[3] FROM sal_emp;
@@ -241,11 +360,16 @@ SELECT pay_by_quarter[3] FROM sal_emp;
  </para>
 
  <para>
+<!--
   We can also access arbitrary rectangular slices of an array, or
   subarrays.  An array slice is denoted by writing
   <literal><replaceable>lower-bound</replaceable>:<replaceable>upper-bound</replaceable></literal>
   for one or more array dimensions.  For example, this query retrieves the first
   item on Bill's schedule for the first two days of the week:
+-->
+また、配列や副配列の任意の縦方向の部分を切り出すこともできます。
+一次元以上の配列についてその一部を表現するには、<literal><replaceable>lower-bound</replaceable>:<replaceable>upper-bound</replaceable></literal>と記述します。
+例えばこの問い合わせはBillのその週の初めの2日に最初何が予定されているかを抽出します。
 
 <programlisting>
 SELECT schedule[1:2][1:1] FROM sal_emp WHERE name = 'Bill';
@@ -256,11 +380,16 @@ SELECT schedule[1:2][1:1] FROM sal_emp WHERE name = 'Bill';
 (1 row)
 </programlisting>
 
+<!--
   If any dimension is written as a slice, i.e., contains a colon, then all
   dimensions are treated as slices.  Any dimension that has only a single
   number (no colon) is treated as being from 1
   to the number specified.  For example, <literal>[2]</literal> is treated as
   <literal>[1:2]</literal>, as in this example:
+-->
+任意の次元を部分として、つまりコロンを含めて記述すると、すべての次元が部分として扱われます。
+単一の番号のみ（コロンを持たない）を持つ次元はすべて、1から指定番号までと扱われます。
+例えば、<literal>[2]</literal>は以下の例のように <literal>[1:2]</literal>と扱われます。
 
 <programlisting>
 SELECT schedule[1:2][2] FROM sal_emp WHERE name = 'Bill';
@@ -271,15 +400,23 @@ SELECT schedule[1:2][2] FROM sal_emp WHERE name = 'Bill';
 (1 row)
 </programlisting>
 
+<!--
   To avoid confusion with the non-slice case, it's best to use slice syntax
   for all dimensions, e.g., <literal>[1:2][1:1]</literal>, not <literal>[2][1:1]</literal>.
+-->
+切り出しのない場合と混乱を避けるため、すべての次元に対し切り出し構文を使用することが最善です。
+例えば、<literal>[2][1:1]</literal>ではなく、<literal>[1:2][1:1]</literal>のようにします。
  </para>
 
  <para>
+<!--
   It is possible to omit the <replaceable>lower-bound</replaceable> and/or
   <replaceable>upper-bound</replaceable> of a slice specifier; the missing
   bound is replaced by the lower or upper limit of the array's subscripts.
   For example:
+-->
+切り出し指定子の<replaceable>lower-bound</replaceable>、<replaceable>upper-bound</replaceable>は省略可能です。省略された上限または下限は、配列の添字の上限または下限で置き換えられます。
+例えば、
 
 <programlisting>
 SELECT schedule[:2][2:] FROM sal_emp WHERE name = 'Bill';
@@ -299,6 +436,7 @@ SELECT schedule[:][1:1] FROM sal_emp WHERE name = 'Bill';
  </para>
 
  <para>
+<!--
   An array subscript expression will return null if either the array itself or
   any of the subscript expressions are null.  Also, null is returned if a
   subscript is outside the array bounds (this case does not raise an error).
@@ -306,9 +444,15 @@ SELECT schedule[:][1:1] FROM sal_emp WHERE name = 'Bill';
   currently has the dimensions <literal>[1:3][1:2]</literal> then referencing
   <literal>schedule[3][3]</literal> yields NULL.  Similarly, an array reference
   with the wrong number of subscripts yields a null rather than an error.
+-->
+配列自体がNULLもしくはその添字式がNULLとなる場合、配列添字式はNULLを返します。
+また、配列の範囲を超える添字の場合もNULLが返されます（この場合はエラーになりません）。
+例えば、<literal>schedule</literal>が現在<literal>[1:3][1:2]</literal>次元であれば、<literal>schedule[3][3]</literal>の参照はNULLとなります。
+同様にして、添字として間違った値を指定して配列を参照した場合もエラーではなく、NULLが返されます。
  </para>
 
  <para>
+<!--
   An array slice expression likewise yields null if the array itself or
   any of the subscript expressions are null.  However, in other
   cases such as selecting an array slice that
@@ -318,11 +462,19 @@ SELECT schedule[:][1:1] FROM sal_emp WHERE name = 'Bill';
   If the requested slice partially overlaps the array bounds, then it
   is silently reduced to just the overlapping region instead of
   returning null.
+-->
+同様に、部分配列式も配列自体がNULLもしくはその添字式がNULLとなる場合にNULLを返します。
+しかし、現在の配列範囲を完全に超えた部分配列を選択する場合では、部分配列式はNULLではなく空の（0次元）の配列を返します。
+（これは切り出しなしの動作に一致せず、歴史的理由で行われるものです。）
+要求された部分配列が配列の範囲に重なる場合、NULLを返さずに、警告なく重複部分だけに減少させます。
  </para>
 
  <para>
+<!--
   The current dimensions of any array value can be retrieved with the
   <function>array_dims</function> function:
+-->
+<function>array_dims</function>関数で任意の配列値の現在の次元を取り出せます。
 
 <programlisting>
 SELECT array_dims(schedule) FROM sal_emp WHERE name = 'Carol';
@@ -333,12 +485,17 @@ SELECT array_dims(schedule) FROM sal_emp WHERE name = 'Carol';
 (1 row)
 </programlisting>
 
+<!--
   <function>array_dims</function> produces a <type>text</type> result,
   which is convenient for people to read but perhaps inconvenient
   for programs.  Dimensions can also be retrieved with
   <function>array_upper</function> and <function>array_lower</function>,
   which return the upper and lower bound of a
   specified array dimension, respectively:
+-->
+<function>array_dims</function>関数は<type>text</type>型で結果を返します。
+人間が結果を見るためには便利ですが、プログラムにとって都合がよくありません。
+次元は<function>array_upper</function>と<function>array_lower</function>でも抽出することができ、それぞれ特定の配列の次元の上限と下限を返します。
 
 <programlisting>
 SELECT array_upper(schedule, 1) FROM sal_emp WHERE name = 'Carol';
@@ -349,8 +506,11 @@ SELECT array_upper(schedule, 1) FROM sal_emp WHERE name = 'Carol';
 (1 row)
 </programlisting>
 
+<!--
  <function>array_length</function> will return the length of a specified
  array dimension:
+-->
+<function>array_length</function>は指定された配列次元の長さを返します。
 
 <programlisting>
 SELECT array_length(schedule, 1) FROM sal_emp WHERE name = 'Carol';
@@ -361,9 +521,13 @@ SELECT array_length(schedule, 1) FROM sal_emp WHERE name = 'Carol';
 (1 row)
 </programlisting>
 
+<!--
  <function>cardinality</function> returns the total number of elements in an
  array across all dimensions.  It is effectively the number of rows a call to
  <function>unnest</function> would yield:
+-->
+<function>cardinality</function>は配列の全次元に渡る要素の総数を返します。
+実質的に<function>unnest</function>の呼び出しで生成される行の数です。
 
 <programlisting>
 SELECT cardinality(schedule) FROM sal_emp WHERE name = 'Carol';
@@ -377,49 +541,72 @@ SELECT cardinality(schedule) FROM sal_emp WHERE name = 'Carol';
  </sect2>
 
  <sect2 id="arrays-modifying">
+<!--
   <title>Modifying Arrays</title>
+-->
+  <title>配列の変更</title>
 
   <indexterm>
+<!--
    <primary>array</primary>
    <secondary>modifying</secondary>
+-->
+   <primary>配列</primary>
+   <secondary>変更</secondary>
   </indexterm>
 
  <para>
+<!--
   An array value can be replaced completely:
+-->
+配列の値を全て置き換えることができます。
 
 <programlisting>
 UPDATE sal_emp SET pay_by_quarter = '{25000,25000,27000,27000}'
     WHERE name = 'Carol';
 </programlisting>
 
+<!--
   or using the <literal>ARRAY</literal> expression syntax:
+-->
+もしくは<literal>ARRAY</literal>演算構文を用いて次のように書きます。
 
 <programlisting>
 UPDATE sal_emp SET pay_by_quarter = ARRAY[25000,25000,27000,27000]
     WHERE name = 'Carol';
 </programlisting>
 
+<!--
   An array can also be updated at a single element:
+-->
+配列の1つの要素を更新することも可能です。
 
 <programlisting>
 UPDATE sal_emp SET pay_by_quarter[4] = 15000
     WHERE name = 'Bill';
 </programlisting>
 
+<!--
   or updated in a slice:
+-->
+あるいは一部分の更新も可能です。
 
 <programlisting>
 UPDATE sal_emp SET pay_by_quarter[1:2] = '{27000,27000}'
     WHERE name = 'Carol';
 </programlisting>
 
+<!--
   The slice syntaxes with omitted <replaceable>lower-bound</replaceable> and/or
   <replaceable>upper-bound</replaceable> can be used too, but only when
   updating an array value that is not NULL or zero-dimensional (otherwise,
   there is no existing subscript limit to substitute).
+-->
+<replaceable>lower-bound</replaceable>や<replaceable>upper-bound</replaceable>が省略された切り出し構文も使用可能ですが、NULLや0次元でない配列の値を更新する場合に限ります(さもなければ、置き換えるべき添字の上限、下限が存在しません)。
  </para>
 
  <para>
+<!--
   A stored array value can be enlarged by assigning to elements not already
   present.  Any positions between those previously present and the newly
   assigned elements will be filled with nulls.  For example, if array
@@ -428,17 +615,30 @@ UPDATE sal_emp SET pay_by_quarter[1:2] = '{27000,27000}'
   <literal>myarray[5]</literal> will contain null.
   Currently, enlargement in this fashion is only allowed for one-dimensional
   arrays, not multidimensional arrays.
+-->
+保存されている配列の値は、存在しない要素に代入することで拡張することができます。
+過去に存在した位置と新しく代入された位置との間はNULLで埋められます。
+例えば、現在配列<literal>myarray</literal>の要素数が4の場合、<literal>myarray[6]</literal>を割り当てる更新の後6要素を持つことなり、<literal>myarray[5]</literal>はNULLを含みます。
+現在、こうした方法での拡張は、1次元配列でのみ許されます。
+多次元配列では行うことができません。
  </para>
 
  <para>
+<!--
   Subscripted assignment allows creation of arrays that do not use one-based
   subscripts.  For example one might assign to <literal>myarray[-2:7]</literal> to
   create an array with subscript values from -2 to 7.
+-->
+添字指定の代入で1始まり以外の添字がある配列を作れます。
+例えば添字が-2から7までの値を持つ配列を<literal>array[-2:7]</literal>で指定できます。
  </para>
 
  <para>
+<!--
   New array values can also be constructed using the concatenation operator,
   <literal>||</literal>:
+-->
+新規の配列の値は連結演算子<literal>||</literal>を用いて作成することもできます。
 <programlisting>
 SELECT ARRAY[1,2] || ARRAY[3,4];
  ?column?
@@ -455,16 +655,24 @@ SELECT ARRAY[5,6] || ARRAY[[1,2],[3,4]];
  </para>
 
  <para>
+<!--
   The concatenation operator allows a single element to be pushed onto the
   beginning or end of a one-dimensional array. It also accepts two
   <replaceable>N</replaceable>-dimensional arrays, or an <replaceable>N</replaceable>-dimensional
   and an <replaceable>N+1</replaceable>-dimensional array.
+-->
+連結演算子を使うと、一次元配列の最初もしくは最後に1つの要素を押し込むことができます。
+さらには2つの<replaceable>N</replaceable>-次元配列もしくは<replaceable>N</replaceable>-次元配列と<replaceable>N+1</replaceable>-次元配列にも対応しています。
  </para>
 
  <para>
+<!--
   When a single element is pushed onto either the beginning or end of a
   one-dimensional array, the result is an array with the same lower bound
   subscript as the array operand. For example:
+-->
+1つの要素が1次元配列の先頭や末尾に押し込まれた時、結果は配列演算項目と同じ下限添字を持つ配列となります。
+以下に例を示します。
 <programlisting>
 SELECT array_dims(1 || '[0:1]={2,3}'::int[]);
  array_dims
@@ -481,10 +689,15 @@ SELECT array_dims(ARRAY[1,2] || 3);
  </para>
 
  <para>
+<!--
   When two arrays with an equal number of dimensions are concatenated, the
   result retains the lower bound subscript of the left-hand operand's outer
   dimension. The result is an array comprising every element of the left-hand
   operand followed by every element of the right-hand operand. For example:
+-->
+等しい次元を持った2つの配列が連結された場合、結果は左側演算項目の外側の次元の下限添字を引き継ぎます。
+結果は右側被演算子のすべての要素に左側被演算子が続いた配列となります。
+例を挙げます。
 <programlisting>
 SELECT array_dims(ARRAY[1,2] || ARRAY[3,4,5]);
  array_dims
@@ -501,11 +714,16 @@ SELECT array_dims(ARRAY[[1,2],[3,4]] || ARRAY[[5,6],[7,8],[9,0]]);
  </para>
 
  <para>
+<!--
   When an <replaceable>N</replaceable>-dimensional array is pushed onto the beginning
   or end of an <replaceable>N+1</replaceable>-dimensional array, the result is
   analogous to the element-array case above. Each <replaceable>N</replaceable>-dimensional
   sub-array is essentially an element of the <replaceable>N+1</replaceable>-dimensional
   array's outer dimension. For example:
+-->
+<replaceable>N</replaceable>-次元配列が<replaceable>N+1</replaceable>-次元配列の最初または最後に押し込まれると、結果は上記と似通った要素配列になります。
+それぞれの<replaceable>N</replaceable>-次元副配列は本質的に<replaceable>N+1</replaceable>-次元配列の外側の次元の要素となります。
+例を挙げます。
 <programlisting>
 SELECT array_dims(ARRAY[1,2] || ARRAY[[3,4],[5,6]]);
  array_dims
@@ -516,11 +734,16 @@ SELECT array_dims(ARRAY[1,2] || ARRAY[[3,4],[5,6]]);
  </para>
 
  <para>
+<!--
   An array can also be constructed by using the functions
   <function>array_prepend</function>, <function>array_append</function>,
   or <function>array_cat</function>. The first two only support one-dimensional
   arrays, but <function>array_cat</function> supports multidimensional arrays.
   Some examples:
+-->
+配列は<function>array_prepend</function>、<function>array_append</function>、もしくは<function>array_cat</function>を使って構築することもできます。
+初めの2つは一次元配列にしか対応していませんが、<function>array_cat</function>は多次元配列でも使えます。
+例を挙げます。
 
 <programlisting>
 SELECT array_prepend(1, ARRAY[2,3]);
@@ -555,33 +778,51 @@ SELECT array_cat(ARRAY[5,6], ARRAY[[1,2],[3,4]]);
  </para>
 
  <para>
+<!--
   In simple cases, the concatenation operator discussed above is preferred
   over direct use of these functions.  However, because the concatenation
   operator is overloaded to serve all three cases, there are situations where
   use of one of the functions is helpful to avoid ambiguity.  For example
   consider:
+-->
+単純な状況では、上で説明した連結演算子はそれぞれの関数を直接実行することよりも望ましいです。
+とは言っても、連結演算子は3つの場合すべてに対応するようオーバーロードされていますので、その関数の1つを使うとあいまいさを避けるのに役立つ場合があります。
+例えば、以下のような状況を考えてください。
 
 <programlisting>
-SELECT ARRAY[1, 2] || '{3, 4}';  -- the untyped literal is taken as an array
+<!--
+SELECT ARRAY[1, 2] || '{3, 4}';  &#045;- the untyped literal is taken as an array
+-->
+SELECT ARRAY[1, 2] || '{3, 4}';  -- 型指定のないリテラルは配列と見なされる
  ?column?
 -----------
  {1,2,3,4}
 
-SELECT ARRAY[1, 2] || '7';                 -- so is this one
+<!--
+SELECT ARRAY[1, 2] || '7';                 &#045;- so is this one
+-->
+SELECT ARRAY[1, 2] || '7';                 -- これも同様
 ERROR:  malformed array literal: "7"
 
-SELECT ARRAY[1, 2] || NULL;                -- so is an undecorated NULL
+<!--
+SELECT ARRAY[1, 2] || NULL;                &#045;- so is an undecorated NULL
+-->
+SELECT ARRAY[1, 2] || NULL;                -- 修飾されていないNULLも同様
  ?column?
 ----------
  {1,2}
 (1 row)
 
-SELECT array_append(ARRAY[1, 2], NULL);    -- this might have been meant
+<!--
+SELECT array_append(ARRAY[1, 2], NULL);    &#045;- this might have been meant
+-->
+SELECT array_append(ARRAY[1, 2], NULL);    -- これがやりたかった事かも
  array_append
 --------------
  {1,2,NULL}
 </programlisting>
 
+<!--
   In the examples above, the parser sees an integer array on one side of the
   concatenation operator, and a constant of undetermined type on the other.
   The heuristic it uses to resolve the constant's type is to assume it's of
@@ -591,21 +832,38 @@ SELECT array_append(ARRAY[1, 2], NULL);    -- this might have been meant
   that's the wrong choice, it could be fixed by casting the constant to the
   array's element type; but explicit use of <function>array_append</function> might
   be a preferable solution.
+-->
+上の例では、パーサは連結演算子の一方の側に整数の配列を見つけ、もう一方の側に型の決まらない定数を見つけます。
+パーサが定数の型を解決するのに使う発見的手法は、演算子のもう一方の入力と同じ型(この場合には整数の配列)だと仮定することです。
+そのため、連結演算子は<function>array_append</function>ではなく、<function>array_cat</function>と推定されます。
+これが誤った選択である場合には、定数を配列の要素の型にキャストすることで直せるかもしれません。ですが、<function>array_append</function>を明示的に使うのが好ましい解決法であるかもしれません。
  </para>
  </sect2>
 
  <sect2 id="arrays-searching">
+<!--
   <title>Searching in Arrays</title>
+-->
+  <title>配列内の検索</title>
 
   <indexterm>
+<!--
    <primary>array</primary>
    <secondary>searching</secondary>
+-->
+   <primary>配列</primary>
+   <secondary>検索</secondary>
   </indexterm>
 
  <para>
+<!--
   To search for a value in an array, each value must be checked.
   This can be done manually, if you know the size of the array.
   For example:
+-->
+配列内のある値を検索するにはそれぞれの値が検証されなければなりません。
+もし配列の大きさがわかっているならば手作業でも検索できます。
+例を挙げます。
 
 <programlisting>
 SELECT * FROM sal_emp WHERE pay_by_quarter[1] = 10000 OR
@@ -614,17 +872,25 @@ SELECT * FROM sal_emp WHERE pay_by_quarter[1] = 10000 OR
                             pay_by_quarter[4] = 10000;
 </programlisting>
 
+<!--
   However, this quickly becomes tedious for large arrays, and is not
   helpful if the size of the array is unknown. An alternative method is
   described in <xref linkend="functions-comparisons"/>. The above
   query could be replaced by:
+-->
+とは言ってもこの方法では大きい配列では大変な作業となりますし、配列の大きさが不明な場合この方法は使えません。
+代わりになる方法が<xref linkend="functions-comparisons"/>で説明されています。
+上の問い合わせは以下のように書くことができます。
 
 <programlisting>
 SELECT * FROM sal_emp WHERE 10000 = ANY (pay_by_quarter);
 </programlisting>
 
+<!--
   In addition, you can find rows where the array has all values
   equal to 10000 with:
+-->
+さらに配列で行の値が全て10000に等しいものを見つけることもできます。
 
 <programlisting>
 SELECT * FROM sal_emp WHERE 10000 = ALL (pay_by_quarter);
@@ -633,8 +899,12 @@ SELECT * FROM sal_emp WHERE 10000 = ALL (pay_by_quarter);
  </para>
 
  <para>
+<!--
   Alternatively, the <function>generate_subscripts</function> function can be used.
   For example:
+-->
+代わりとして、<function>generate_subscripts</function>関数を使うことができます。
+以下はその例です。
 
 <programlisting>
 SELECT * FROM
@@ -644,28 +914,45 @@ SELECT * FROM
  WHERE pay_by_quarter[s] = 10000;
 </programlisting>
 
+<!--
   This function is described in <xref linkend="functions-srf-subscripts"/>.
+-->
+この関数は<xref linkend="functions-srf-subscripts"/>に記載されています。
  </para>
 
  <para>
+<!--
   You can also search an array using the <literal>&amp;&amp;</literal> operator,
   which checks whether the left operand overlaps with the right operand.
   For instance:
+-->
+<literal>&amp;&amp;</literal>演算子を使って配列を検索することもできます。
+この演算子は左辺が右辺と重なるかどうかを調べます。
+例えば、
 
 <programlisting>
 SELECT * FROM sal_emp WHERE pay_by_quarter &amp;&amp; ARRAY[10000];
 </programlisting>
 
+<!--
   This and other array operators are further described in
   <xref linkend="functions-array"/>.  It can be accelerated by an appropriate
   index, as described in <xref linkend="indexes-types"/>.
+-->
+この演算子やその他の配列の演算子は<xref linkend="functions-array"/>により詳しく書かれています。
+<xref linkend="indexes-types"/>に書いてあるように、適切なインデックスにより高速化されます。
  </para>
 
  <para>
+<!--
   You can also search for specific values in an array using the <function>array_position</function>
   and <function>array_positions</function> functions. The former returns the subscript of
   the first occurrence of a value in an array; the latter returns an array with the
   subscripts of all occurrences of the value in the array.  For example:
+-->
+関数<function>array_position</function>や<function>array_positions</function>を使って、配列内の特定の値を検索することもできます。
+前者は配列内で初めてその値が現れる添字を返し、後者は配列内でその値が現れる添字すべての配列を返します。
+例えば、以下の通りです。
 
 <programlisting>
 SELECT array_position(ARRAY['sun','mon','tue','wed','thu','fri','sat'], 'mon');
@@ -684,24 +971,37 @@ SELECT array_positions(ARRAY[1, 4, 3, 1, 3, 4, 2, 1], 1);
 
  <tip>
   <para>
+<!--
    Arrays are not sets; searching for specific array elements
    can be a sign of database misdesign.  Consider
    using a separate table with a row for each item that would be an
    array element.  This will be easier to search, and is likely to
    scale better for a large number of elements.
+-->
+配列は集合ではありません。
+特定の配列要素に検索をかけることはデータベース設計が誤っている可能性があります。
+配列の要素とみなされるそれぞれの項目を行に持つ別のテーブルを使うことを検討してください。
+この方が検索がより簡単になり要素数が大きくなっても規模的拡張性があります。
   </para>
  </tip>
  </sect2>
 
  <sect2 id="arrays-io">
+<!--
   <title>Array Input and Output Syntax</title>
+-->
+  <title>配列の入出力構文</title>
 
   <indexterm>
+<!--
    <primary>array</primary>
+-->
+   <primary>配列</primary>
    <secondary>I/O</secondary>
   </indexterm>
 
   <para>
+<!--
    The external text representation of an array value consists of items that
    are interpreted according to the I/O conversion rules for the array's
    element type, plus decoration that indicates the array structure.
@@ -715,9 +1015,17 @@ SELECT array_positions(ARRAY[1, 4, 3, 1, 3, 4, 2, 1], 1);
    In a multidimensional array, each dimension (row, plane,
    cube, etc.) gets its own level of curly braces, and delimiters
    must be written between adjacent curly-braced entities of the same level.
+-->
+配列の値の外部表現は配列の要素の型に対するI/O変換ルールに基づいて解釈された項目と配列の構造を示す装飾項目で構成されています。
+装飾は配列の値を中括弧（<literal>{</literal>と<literal>}</literal>）で囲んだものと次の項目との間を区切り文字で区切ったものです。
+区切り文字は通常カンマ（<literal>,</literal>）ですが他の文字でも構いません。
+配列の要素の型<literal>typdelim</literal>を設定することで決まります。
+<productname>PostgreSQL</productname>配布物における標準のデータ型の中でセミコロン（<literal>;</literal>）を使う<type>box</type>型を除いて、すべてはカンマを使います。
+多次元配列ではそれぞれの次元（行、面、立体など）はそれ自身の階層において中括弧、同じ階層の中括弧でくくられた次の塊との間に区切り文字が書かれていなければなりません。
   </para>
 
   <para>
+<!--
    The array output routine will put double quotes around element values
    if they are empty strings, contain curly braces, delimiter characters,
    double quotes, backslashes, or white space, or match the word
@@ -726,9 +1034,14 @@ SELECT array_positions(ARRAY[1, 4, 3, 1, 3, 4, 2, 1], 1);
    data types it is safe to assume that double quotes will never appear, but
    for textual data types one should be prepared to cope with either the presence
    or absence of quotes.
+-->
+空の文字列や中括弧や区切り文字、二重引用符、バックスラッシュ、空白、<literal>NULL</literal>という単語が含まれていると、配列出力処理は要素の値を二重引用符でくくります。
+要素の値に組み込まれている二重引用符とバックスラッシュはバックスラッシュでエスケープされます。
+数値データ型に対しては二重引用符が出現しないと想定するのが安全ですが、テキストデータ型の場合引用符がある場合とない場合に対処できるようにしておくべきです。
   </para>
 
   <para>
+<!--
    By default, the lower bound index value of an array's dimensions is
    set to one.  To represent arrays with other lower bounds, the array
    subscript ranges can be specified explicitly before writing the
@@ -738,6 +1051,12 @@ SELECT array_positions(ARRAY[1, 4, 3, 1, 3, 4, 2, 1], 1);
    a colon (<literal>:</literal>) delimiter character in between. The
    array dimension decoration is followed by an equal sign (<literal>=</literal>).
    For example:
+-->
+デフォルトでは配列の次元の下限インデックス値は1に設定されています。
+他の下限値を持つ配列を表現したければ、配列定数を作成する前に明示的に配列添字範囲を指定することで実現できます。
+修飾項目はそれぞれの配列次元の上限と下限をコロン（<literal>:</literal>）で区切って前後を大括弧（<literal>[]</literal>）でくくった形式になっています。
+代入演算子（<literal>=</literal>）の後に配列次元修飾項目が続きます。
+例を示します。
 <programlisting>
 SELECT f1[1][-2][3] AS e1, f1[1][-1][5] AS e2
  FROM (SELECT '[1:1][-2:-1][3:5]={{{1,2,3},{4,5,6}}}'::int[] AS f1) AS ss;
@@ -747,11 +1066,15 @@ SELECT f1[1][-2][3] AS e1, f1[1][-1][5] AS e2
   1 |  6
 (1 row)
 </programlisting>
+<!--
    The array output routine will include explicit dimensions in its result
    only when there are one or more lower bounds different from one.
+-->
+1とは異なる下限を持つ場合にのみ、配列出力関数はその結果に明示的な次元を含めます。
   </para>
 
   <para>
+<!--
    If the value written for an element is <literal>NULL</literal> (in any case
    variant), the element is taken to be NULL.  The presence of any quotes
    or backslashes disables this and allows the literal string value
@@ -759,9 +1082,14 @@ SELECT f1[1][-2][3] AS e1, f1[1][-1][5] AS e2
    pre-8.2 versions of <productname>PostgreSQL</productname>, the <xref
    linkend="guc-array-nulls"/> configuration parameter can be turned
    <literal>off</literal> to suppress recognition of <literal>NULL</literal> as a NULL.
+-->
+要素に指定された値が<literal>NULL</literal>（またはその亜種）の場合、要素はNULLとして扱われます。
+引用符やバックスラッシュがあると、これは無効となり、<quote>NULL</quote>という文字列リテラルを入力することができます。
+また、8.2以前の<productname>PostgreSQL</productname>との後方互換性のため、<xref linkend="guc-array-nulls"/>設定パラメータを<literal>off</literal>にして、<literal>NULL</literal>をNULLとして認識しないようにすることができます。
   </para>
 
   <para>
+<!--
    As shown previously, when writing an array value you can use double
    quotes around any individual array element. You <emphasis>must</emphasis> do so
    if the element value would otherwise confuse the array-value parser.
@@ -773,23 +1101,39 @@ SELECT f1[1][-2][3] AS e1, f1[1][-1][5] AS e2
    with a backslash. Alternatively, you can avoid quotes and use
    backslash-escaping to protect all data characters that would otherwise
    be taken as array syntax.
+-->
+前に示したように配列に値を書き込む場合は独立した配列要素を二重引用符でくくります。
+配列値パーサが配列要素値によって混乱を来さないように<emphasis>必ず</emphasis>この形式を守ってください。
+例えば、中括弧、カンマ（もしくはデータ型の区切り文字）、二重引用符、バックスラッシュもしくは前後に付いた空白を含む要素は必ず二重引用符でくくらなければなりません。
+空文字列や<literal>NULL</literal>という単語自体も同様に引用符でくくらなければなりません。
+二重引用符もしくはバックスラッシュを引用符付きの配列要素に付け加えたい場合、その直前にバックスラッシュを付けます。
+別の方法として、配列構文とみなされかねない全てのデータ文字を保護するために、引用符を使用しないでバックスラッシュでエスケープしても構いません。
   </para>
 
   <para>
+<!--
    You can add whitespace before a left brace or after a right
    brace. You can also add whitespace before or after any individual item
    string. In all of these cases the whitespace will be ignored. However,
    whitespace within double-quoted elements, or surrounded on both sides by
    non-whitespace characters of an element, is not ignored.
+-->
+括弧の右側もしくは左側それぞれの前と後に空白を追加することができます。
+同様に独立した項目の文字列の前後に空白を付け加えることもできます。
+これらすべての場合において空白は無視されます。
+とは言っても二重引用符で囲まれた要素の中の空白、もしくは要素の空白文字以外により両側がくくられているものは無視されません。
   </para>
 
  <tip>
   <para>
+<!--
    The <literal>ARRAY</literal> constructor syntax (see
    <xref linkend="sql-syntax-array-constructors"/>) is often easier to work
    with than the array-literal syntax when writing array values in SQL
    commands. In <literal>ARRAY</literal>, individual element values are written the
    same way they would be written when not members of an array.
+-->
+SQLコマンドの中で配列値を書く時、配列リテラル構文よりも<literal>ARRAY</literal>生成子構文（<xref linkend="sql-syntax-array-constructors"/>を参照）の方が往々にして扱いやすい場合があります。
   </para>
  </tip>
  </sect2>
