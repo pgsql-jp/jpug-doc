@@ -90,7 +90,6 @@
   <xsl:text>?</xsl:text>
 </xsl:template>
 
-<<<<<<< HEAD
 
 <!-- Support for generating xref link text to additional elements -->
 
@@ -101,7 +100,6 @@
 <xsl:template match="function" mode="xref-to">
   <xsl:apply-templates select="." mode="xref"/>
 </xsl:template>
-=======
 <xsl:param name="local.l10n.xml" select="document('')"/>
 <l:i18n xmlns:l="http://docbook.sourceforge.net/xmlns/l10n/1.0">
   <l:l10n language="ja">
@@ -124,6 +122,5 @@
     </l:context>
   </l:l10n>
 </l:i18n>
->>>>>>> doc_ja_12
 
 </xsl:stylesheet>
