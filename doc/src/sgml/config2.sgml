@@ -974,14 +974,14 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
        <!--
          Causes the duration of each completed statement to be logged
          if the statement ran for at least the specified amount of time.
-         If this value is specified without units, it is taken as milliseconds.
-         Setting this to zero prints all statement durations.
-         Minus-one (the default) disables logging statement durations.
          For example, if you set it to <literal>250ms</literal>
          then all SQL statements that run 250ms or longer will be
          logged.  Enabling this parameter can be helpful in tracking down
          unoptimized queries in your applications.
-         Only superusers can change this setting.
+         If this value is specified without units, it is taken as milliseconds.
+         Setting this to zero prints all statement durations.
+         <literal>-1</literal> (the default) disables logging statement
+         durations. Only superusers can change this setting.
         -->
 文の実行に少なくとも指定した時間かかった場合、それぞれの文の実行に要した時間をログに記録します。
 この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
@@ -990,6 +990,12 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
 例えば、<literal>250ms</literal>と設定した場合、250msもしくはそれ以上長くかかった全てのSQL文がログとして残ります。
 このパラメータを有効にすることにより、アプリケーションで最適化されていない問い合わせを追跡するのが便利になります。
 スーパーユーザのみこの設定を変更できます。
+        </para>
+
+        <para>
+         This overrides <xref linkend="guc-log-min-duration-sample"/>,
+         meaning that queries with duration exceeding this setting are not
+         subject to sampling and are always logged.
         </para>
 
         <para>
@@ -1021,8 +1027,71 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
        </listitem>
       </varlistentry>
 
+     <varlistentry id="guc-log-min-duration-sample" xreflabel="log_min_duration_sample">
+      <term><varname>log_min_duration_sample</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>log_min_duration_sample</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+       <listitem>
+        <para>
+         Allows sampling the duration of completed statements that ran for
+         at least the specified amount of time.  This produces the same
+         kind of log entries as
+         <xref linkend="guc-log-min-duration-statement"/>, but only for a
+         subset of the executed statements, with sample rate controlled by
+         <xref linkend="guc-log-statement-sample-rate"/>.
+         For example, if you set it to <literal>100ms</literal> then all
+         SQL statements that run 100ms or longer will be considered for
+         sampling.  Enabling this parameter can be helpful when the
+         traffic is too high to log all queries.
+         If this value is specified without units, it is taken as milliseconds.
+         Setting this to zero samples all statement durations.
+         <literal>-1</literal> (the default) disables sampling statement
+         durations. Only superusers can change this setting.
+        </para>
+
+        <para>
+         This setting has lower priority
+         than <varname>log_min_duration_statement</varname>, meaning that
+         statements with durations
+         exceeding <varname>log_min_duration_statement</varname> are not
+         subject to sampling and are always logged.
+        </para>
+
+        <para>
+         Other notes for <varname>log_min_duration_statement</varname>
+         apply also to this setting.
+        </para>
+       </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-log-statement-sample-rate" xreflabel="log_statement_sample_rate">
+      <term><varname>log_statement_sample_rate</varname> (<type>floating point</type>)
+      <indexterm>
+       <primary><varname>log_statement_sample_rate</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+       <listitem>
+        <para>
+         Determines the fraction of statements with duration exceeding
+         <xref linkend="guc-log-min-duration-sample"/> that will be logged.
+         Sampling is stochastic, for example <literal>0.5</literal> means
+         there is statistically one chance in two that any given statement
+         will be logged.
+         The default is <literal>1.0</literal>, meaning to log all sampled
+         statements.
+         Setting this to zero disables sampled statement-duration logging,
+         the same as setting
+         <varname>log_min_duration_sample</varname> to
+         <literal>-1</literal>.
+         Only superusers can change this setting.
+        </para>
+       </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-log-transaction-sample-rate" xreflabel="log_transaction_sample_rate">
-      <term><varname>log_transaction_sample_rate</varname> (<type>real</type>)
+      <term><varname>log_transaction_sample_rate</varname> (<type>floating point</type>)
       <indexterm>
 <!--
        <primary><varname>log_transaction_sample_rate</varname> configuration parameter</primary>
@@ -1033,14 +1102,17 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
        <listitem>
         <para>
 <!--
-         Set the fraction of transactions whose statements are all logged,
+         Sets the fraction of transactions whose statements are all logged,
          in addition to statements logged for other reasons.  It applies to
          each new transaction regardless of its statements' durations.
-         The default is <literal>0</literal>, meaning not to log statements
-         from any additional transaction.  Setting this to <literal>1</literal>
-         logs all statements for all transactions.
-         <varname>log_transaction_sample_rate</varname> is helpful to track a
-         sample of transaction.
+         Sampling is stochastic, for example <literal>0.1</literal> means
+         there is statistically one chance in ten that any given transaction
+         will be logged.
+         <varname>log_transaction_sample_rate</varname> can be helpful to
+         construct a sample of transactions.
+         The default is <literal>0</literal>, meaning not to log
+         statements from any additional transactions.  Setting this
+         to <literal>1</literal> logs all statements of all transactions.
          Only superusers can change this setting.
 -->
 他の理由に加え、トランザクションの文のうち、ログの対象となる割合を設定します。
@@ -1082,6 +1154,10 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
      -->
      <title>メッセージ深刻度レベル</title>
      <tgroup cols="4">
+      <colspec colname="col1" colwidth="1*"/>
+      <colspec colname="col2" colwidth="2*"/>
+      <colspec colname="col3" colwidth="1*"/>
+      <colspec colname="col4" colwidth="1*"/>
       <thead>
        <row>
        <!--
@@ -1099,7 +1175,7 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
 
       <tbody>
        <row>
-        <entry><literal>DEBUG1..DEBUG5</literal></entry>
+        <entry><literal>DEBUG1 .. DEBUG5</literal></entry>
        <!--
         <entry>Provides successively-more-detailed information for use by
          developers.</entry>
@@ -1531,9 +1607,6 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
          right with spaces to give it a minimum width, whereas a positive
          value will pad on the left. Padding can be useful to aid human
          readability in log files.
-         This parameter can only be set in the <filename>postgresql.conf</filename>
-         file or on the server command line. The default is
-         <literal>'%m [%p] '</literal> which logs a time stamp and the process ID.
          -->
         これは、各ログ行の先頭に出力する<function>printf</function>の書式文字列です。
 <literal>%</literal>から始まる<quote>エスケープシーケンス</quote>は、後述の通りのステータス情報で置き換えられます。
@@ -1545,6 +1618,13 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
 ログファイルではパディングは人間の視認性を向上させるので有用です。
 このパラメータは、<filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定することができます。
 デフォルトは、タイムスタンプとプロセスIDをログ出力する<literal>'%m [%p] '</literal>です。
+       </para>
+
+       <para>
+         This parameter can only be set in the <filename>postgresql.conf</filename>
+         file or on the server command line. The default is
+         <literal>'%m [%p] '</literal> which logs a time stamp and the process ID.
+       </para>
 
          <informaltable>
           <tgroup cols="3">
@@ -1600,6 +1680,11 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
             -->
             <entry>遠隔ホスト名、またはIPアドレス</entry>
              <entry><!--yes-->○</entry>
+            </row>
+            <row>
+             <entry><literal>%b</literal></entry>
+             <entry>Backend type</entry>
+             <entry>no</entry>
             </row>
             <row>
              <entry><literal>%p</literal></entry>
@@ -1713,6 +1798,16 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
           </tgroup>
          </informaltable>
 
+         <para>
+          The backend type corresponds to the column
+          <structfield>backend_type</structfield> in the view
+          <link linkend="monitoring-pg-stat-activity-view">
+          <structname>pg_stat_activity</structname></link>,
+          but additional types can appear
+          in the log that don't show in that view.
+         </para>
+
+         <para>
         <!--
          The <literal>%c</literal> escape prints a quasi-unique session identifier,
          consisting of two 4-byte hexadecimal numbers (without leading zeros)
@@ -1796,6 +1891,61 @@ log_line_prefix = '%m [%p] %q%u@%d/%a '
 これは、ロック待ちによって性能がでていないのかどうか確認する時に有用です。
 デフォルトは<literal>off</literal>です。
 スーパーユーザのみこの設定を変更できます。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-log-parameter-max-length" xreflabel="log_parameter_max_length">
+      <term><varname>log_parameter_max_length</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>log_parameter_max_length</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        If greater than zero, each bind parameter value logged with a
+        non-error statement-logging message is trimmed to this many bytes.
+        Zero disables logging of bind parameters for non-error statement logs.
+        <literal>-1</literal> (the default) allows bind parameters to be
+        logged in full.
+        If this value is specified without units, it is taken as bytes.
+        Only superusers can change this setting.
+       </para>
+
+       <para>
+        This setting only affects log messages printed as a result of
+        <xref linkend="guc-log-statement"/>,
+        <xref linkend="guc-log-duration"/>, and related settings.  Non-zero
+        values of this setting add some overhead, particularly if parameters
+        are sent in binary form, since then conversion to text is required.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-log-parameter-max-length-on-error" xreflabel="log_parameter_max_length_on_error">
+      <term><varname>log_parameter_max_length_on_error</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>log_parameter_max_length_on_error</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        If greater than zero, each bind parameter value reported in error
+        messages is trimmed to this many bytes.
+        Zero (the default) disables including bind parameters in error
+        messages.
+        <literal>-1</literal> allows bind parameters to be printed in full.
+        If this value is specified without units, it is taken as bytes.
+       </para>
+
+       <para>
+        Non-zero values of this setting add overhead, as
+        <productname>PostgreSQL</productname> will need to store textual
+        representations of parameter values in memory at the start of each
+        statement, whether or not an error eventually occurs.  The overhead
+        is greater when bind parameters are sent in binary form than when
+        they are sent as text, since the former case requires data
+        conversion while the latter only requires copying the string.
        </para>
       </listitem>
      </varlistentry>
@@ -1995,7 +2145,7 @@ log_line_prefix = '%m [%p] %q%u@%d/%a '
         character count of the error position therein,
         location of the error in the PostgreSQL source code
         (if <varname>log_error_verbosity</varname> is set to <literal>verbose</literal>),
-        and application name.
+        application name, and backend type.
         Here is a sample table definition for storing CSV-format log output:
        -->
        <varname>log_destination</varname>リストに<literal>csvlog</literal>を含めることは、ログファイルをデータベーステーブルにインポートする簡便な方法を提供します。このオプションはカンマ区切り値書式（<acronym>CSV</acronym>）で以下の列を含むログ行を生成します。
@@ -2048,6 +2198,7 @@ CREATE TABLE postgres_log
   query_pos integer,
   location text,
   application_name text,
+  backend_type text,
   PRIMARY KEY (session_id, session_line_num)
 );
 </programlisting>
@@ -2063,6 +2214,8 @@ CREATE TABLE postgres_log
 <programlisting>
 COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
 </programlisting>
+        It is also possible to access the file as a foreign table, using
+        the supplied <xref linkend="file-fdw"/> module.
        </para>
 
        <para>
@@ -2351,7 +2504,8 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
         platforms.  You can use the <xref linkend="pgtesttiming"/> tool to
         measure the overhead of timing on your system.
         I/O timing information is
-        displayed in <xref linkend="pg-stat-database-view"/>, in the output of
+        displayed in <link linkend="monitoring-pg-stat-database-view">
+        <structname>pg_stat_database</structname></link>, in the output of
         <xref linkend="sql-explain"/> when the <literal>BUFFERS</literal> option is
         used, and by <xref linkend="pgstatstatements"/>.  Only superusers can
         change this setting.
@@ -2518,12 +2672,11 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
       These settings control the behavior of the <firstterm>autovacuum</firstterm>
       feature.  Refer to <xref linkend="autovacuum"/> for more information.
       Note that many of these settings can be overridden on a per-table
-      basis; see <xref linkend="sql-createtable-storage-parameters"
-      endterm="sql-createtable-storage-parameters-title"/>.
+      basis; see <xref linkend="sql-createtable-storage-parameters"/>.
       -->
       以下に示す設定は<firstterm>自動バキューム</firstterm>機能の動作を制御します。詳細は<xref linkend="autovacuum"/>を参照してください。
 これらの設定の多くは、テーブル単位で変更できることに注意してください。
-<xref linkend="sql-createtable-storage-parameters" endterm="sql-createtable-storage-parameters-title"/>を参照してください。
+<xref linkend="sql-createtable-storage-parameters"/>を参照してください。
      </para>
 
     <variablelist>
@@ -2691,6 +2844,28 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-autovacuum-vacuum-insert-threshold" xreflabel="autovacuum_vacuum_insert_threshold">
+      <term><varname>autovacuum_vacuum_insert_threshold</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>autovacuum_vacuum_insert_threshold</varname></primary>
+       <secondary>configuration parameter</secondary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Specifies the number of inserted tuples needed to trigger a
+        <command>VACUUM</command> in any one table.
+        The default is 1000 tuples.  If -1 is specified, autovacuum will not
+        trigger a <command>VACUUM</command> operation on any tables based on
+        the number of inserts.
+        This parameter can only be set in the <filename>postgresql.conf</filename>
+        file or on the server command line;
+        but the setting can be overridden for individual tables by
+        changing table storage parameters.
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-autovacuum-analyze-threshold" xreflabel="autovacuum_analyze_threshold">
       <term><varname>autovacuum_analyze_threshold</varname> (<type>integer</type>)
       <indexterm>
@@ -2743,6 +2918,27 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
 デフォルトは0.2（テーブルサイズの20%）です。
 このパラメータは<filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定されます。
 この設定はテーブルストレージパラメータの変更により、それぞれのテーブルに対して上書きされます。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-autovacuum-vacuum-insert-scale-factor" xreflabel="autovacuum_vacuum_insert_scale_factor">
+      <term><varname>autovacuum_vacuum_insert_scale_factor</varname> (<type>floating point</type>)
+      <indexterm>
+       <primary><varname>autovacuum_vacuum_insert_scale_factor</varname></primary>
+       <secondary>configuration parameter</secondary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Specifies a fraction of the table size to add to
+        <varname>autovacuum_vacuum_insert_threshold</varname>
+        when deciding whether to trigger a <command>VACUUM</command>.
+        The default is 0.2 (20% of table size).
+        This parameter can only be set in the <filename>postgresql.conf</filename>
+        file or on the server command line;
+        but the setting can be overridden for individual tables by
+        changing table storage parameters.
        </para>
       </listitem>
      </varlistentry>

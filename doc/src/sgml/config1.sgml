@@ -152,17 +152,20 @@
 このパラメータはサーバ起動時のみ設定可能です。
        </para>
        <para>
+        In <literal>minimal</literal> level, no information is logged for
+        permanent relations for the remainder of a transaction that creates or
+        rewrites them.  This can make operations much faster (see
+        <xref linkend="populate-pitr"/>).  Operations that initiate this
+        optimization include:
        <!--
-        In <literal>minimal</literal> level, WAL-logging of some bulk
-        operations can be safely skipped, which can make those
-        operations much faster (see <xref linkend="populate-pitr"/>).
-        Operations in which this optimization can be applied include:
         <simplelist>
-         <member><command>CREATE TABLE AS</command></member>
-         <member><command>CREATE INDEX</command></member>
+         <member><command>ALTER ... SET TABLESPACE</command></member>
          <member><command>CLUSTER</command></member>
-         <member><command>COPY</command> into tables that were created or truncated in the same
-         transaction</member>
+         <member><command>CREATE TABLE</command></member>
+         <member><command>REFRESH MATERIALIZED VIEW</command>
+         (without <option>CONCURRENTLY</option>)</member>
+         <member><command>REINDEX</command></member>
+         <member><command>TRUNCATE</command></member>
         </simplelist>
         But minimal WAL does not contain enough information to reconstruct the
         data from a base backup and the WAL logs, so <literal>replica</literal> or
@@ -357,7 +360,7 @@
         ensure data preservation even if a standby instance of
         <productname>PostgreSQL</productname> were to crash, but not if the standby
         suffers an operating-system-level crash, since the data has not
-        necessarily reached stable storage on the standby.
+        necessarily reached durable storage on the standby.
         Finally, the setting <literal>local</literal> causes commits to wait for
         local flush to disk, but not for replication.  This is not usually
         desirable when synchronous replication is in use, but is provided for
@@ -815,6 +818,27 @@ WALライタがWALを吐き出す頻度を量で指定します。
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-wal-skip-threshold" xreflabel="wal_skip_threshold">
+      <term><varname>wal_skip_threshold</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>wal_skip_threshold</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        When <varname>wal_level</varname> is <literal>minimal</literal> and a
+        transaction commits after creating or rewriting a permanent relation,
+        this setting determines how to persist the new data.  If the data is
+        smaller than this setting, write it to the WAL log; otherwise, use an
+        fsync of affected files.  Depending on the properties of your storage,
+        raising or lowering this value might help if such commits are slowing
+        concurrent transactions.  If this value is specified without units, it
+        is taken as kilobytes.  The default is two megabytes
+        (<literal>2MB</literal>).
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-commit-delay" xreflabel="commit_delay">
       <term><varname>commit_delay</varname> (<type>integer</type>)
       <indexterm>
@@ -1052,11 +1076,11 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
       <listitem>
        <para>
 <!--
-        Maximum size to let the WAL grow to between automatic WAL
+        Maximum size to let the WAL grow during automatic
         checkpoints. This is a soft limit; WAL size can exceed
         <varname>max_wal_size</varname> under special circumstances, such as
         heavy load, a failing <varname>archive_command</varname>, or a high
-        <varname>wal_keep_segments</varname> setting.
+        <varname>wal_keep_size</varname> setting.
         If this value is specified without units, it is taken as megabytes.
         The default is 1 GB.
         Increasing this parameter can increase the amount of time needed for
@@ -1200,7 +1224,7 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
         disabled, but the server continues to accumulate WAL segment files in
         the expectation that a command will soon be provided.  Setting
         <varname>archive_command</varname> to a command that does nothing but
-        return true, e.g. <literal>/bin/true</literal> (<literal>REM</literal> on
+        return true, e.g., <literal>/bin/true</literal> (<literal>REM</literal> on
         Windows), effectively disables
         archiving, but also breaks the chain of WAL files needed for
         archive recovery, so it should only be used in unusual circumstances.
@@ -1567,7 +1591,7 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
        <para>
 <!--
         This parameter specifies that recovery should end as soon as a
-        consistent state is reached, i.e. as early as possible. When restoring
+        consistent state is reached, i.e., as early as possible. When restoring
         from an online backup, this means the point where taking the backup
         ended.
 -->
@@ -1633,7 +1657,7 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
         <xref linkend="guc-timezone-abbreviations"/> variable has been set
         earlier in the configuration file).  Preferred style is to use a
         numeric offset from UTC, or you can write a full time zone name,
-        e.g. <literal>Europe/Helsinki</literal> not <literal>EEST</literal>.
+        e.g., <literal>Europe/Helsinki</literal> not <literal>EEST</literal>.
 -->
 （<xref linkend="guc-timezone-abbreviations"/>変数が設定ファイルで先に設定されていない限り）時間帯略語を使えないことを除けば、このパラメータの値は<type>timestamp with time zone</type>データ型が受け付けるのと同じ形式のタイムスタンプです。
 おすすめの形式はUTCからのオフセットか、<literal>EEST</literal>ではなく<literal>Europe/Helsinki</literal>のような完全な時間帯名です。
@@ -1846,9 +1870,17 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
         This setting has no effect if no recovery target is set.
         If <xref linkend="guc-hot-standby"/> is not enabled, a setting of
         <literal>pause</literal> will act the same as <literal>shutdown</literal>.
+        If the recovery target is reached while a promotion is ongoing,
+        a setting of <literal>pause</literal> will act the same as
+        <literal>promote</literal>.
 -->
 この設定はリカバリ対象が設定されていない場合には効果がありません。
 <xref linkend="guc-hot-standby"/>が有効になっていない場合、<literal>pause</literal>の設定は<literal>shutdown</literal>と同じように動作します。
+       </para>
+       <para>
+        In any case, if a recovery target is configured but the archive
+        recovery ends before the target is reached, the server will shut down
+        with a fatal error.
        </para>
       </listitem>
      </varlistentry>
@@ -1918,7 +1950,7 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
         servers or streaming base backup clients (i.e., the maximum number of
         simultaneously running WAL sender processes). The default is
         <literal>10</literal>.  The value <literal>0</literal> means
-        replication is disabled.  Abrupt streaming client disconnection might
+        replication is disabled.  Abrupt disconnection of a streaming client might
         leave an orphaned connection slot behind until a timeout is reached,
         so this parameter should be set slightly higher than the maximum
         number of expected clients so disconnected clients can immediately
@@ -1979,11 +2011,11 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
        </listitem>
       </varlistentry>
 
-      <varlistentry id="guc-wal-keep-segments" xreflabel="wal_keep_segments">
-       <term><varname>wal_keep_segments</varname> (<type>integer</type>)
+      <varlistentry id="guc-wal-keep-size" xreflabel="wal_keep_size">
+       <term><varname>wal_keep_size</varname> (<type>integer</type>)
        <indexterm>
 <!--
-        <primary><varname>wal_keep_segments</varname> configuration parameter</primary>
+        <primary><varname>wal_keep_size</varname> configuration parameter</primary>
 -->
         <primary><varname>wal_keep_segments</varname>設定パラメータ</primary>
        </indexterm>
@@ -1991,13 +2023,13 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
        <listitem>
        <para>
        <!--
-        Specifies the minimum number of past log file segments kept in the
+        Specifies the minimum size of past log file segments kept in the
         <filename>pg_wal</filename>
         directory, in case a standby server needs to fetch them for streaming
-        replication. Each segment is normally 16 megabytes. If a standby
+        replication. If a standby
         server connected to the sending server falls behind by more than
-        <varname>wal_keep_segments</varname> segments, the sending server might remove
-        a WAL segment still needed by the standby, in which case the
+        <varname>wal_keep_size</varname> megabytes, the sending server might
+        remove a WAL segment still needed by the standby, in which case the
         replication connection will be terminated.  Downstream connections
         will also eventually fail as a result.  (However, the standby
         server can recover by fetching the segment from archive, if WAL
@@ -2011,14 +2043,15 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
 
        <para>
        <!--
-        This sets only the minimum number of segments retained in
+        This sets only the minimum size of segments retained in
         <filename>pg_wal</filename>; the system might need to retain more segments
         for WAL archival or to recover from a checkpoint. If
-        <varname>wal_keep_segments</varname> is zero (the default), the system
+        <varname>wal_keep_size</varname> is zero (the default), the system
         doesn't keep any extra segments for standby purposes, so the number
         of old WAL segments available to standby servers is a function of
         the location of the previous checkpoint and status of WAL
         archiving.
+        If this value is specified without units, it is taken as megabytes.
         This parameter can only be set in the
         <filename>postgresql.conf</filename> file or on the server command line.
        -->
@@ -2027,6 +2060,29 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
 もし<varname>wal_keep_segments</varname>が（デフォルトの）ゼロの場合、システムはスタンバイサーバのために追加セグメントを保持することはしません。
 従って、スタンバイサーバが使用できる古いWALセグメントの数は、直前のチェックポイントの場所とWALアーカイブの状況によって算出されます。
 このパラメータは、<filename>postgresql.conf</filename>ファイル、もしくはサーバコマンドラインでのみ設定可能です。
+       </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry id="guc-max-slot-wal-keep-size" xreflabel="max_slot_wal_keep_size">
+       <term><varname>max_slot_wal_keep_size</varname> (<type>integer</type>)
+       <indexterm>
+        <primary><varname>max_slot_wal_keep_size</varname> configuration parameter</primary>
+       </indexterm>
+       </term>
+       <listitem>
+       <para>
+        Specify the maximum size of WAL files
+        that <link linkend="streaming-replication-slots">replication
+        slots</link> are allowed to retain in the <filename>pg_wal</filename>
+        directory at checkpoint time.
+        If <varname>max_slot_wal_keep_size</varname> is -1 (the default),
+        replication slots may retain an unlimited amount of WAL files.  Otherwise, if
+        restart_lsn of a replication slot falls behind the current LSN by more
+        than the given size, the standby using the slot may no longer be able
+        to continue replication due to removal of required WAL files. You
+        can see the WAL availability of replication slots
+        in <link linkend="view-pg-replication-slots">pg_replication_slots</link>.
        </para>
        </listitem>
       </varlistentry>
@@ -2145,9 +2201,9 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
         The synchronous standbys will be those whose names appear
         in this list, and
         that are both currently connected and streaming data in real-time
-        (as shown by a state of <literal>streaming</literal> in the <link
-        linkend="pg-stat-replication-view"><literal>pg_stat_replication</literal></link>
-        view).
+        (as shown by a state of <literal>streaming</literal> in the
+        <link linkend="monitoring-pg-stat-replication-view">
+        <structname>pg_stat_replication</structname></link> view).
         Specifying more than one synchronous standby can allow for very high
         availability and protection against data loss.
        </para>
@@ -2440,7 +2496,12 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
          </para>
          <para>
 <!--
-          This parameter can only be set at server start.
+          This parameter can only be set in the <filename>postgresql.conf</filename>
+          file or on the server command line.
+          If this parameter is changed while the WAL receiver process is
+          running, that process is signaled to shut down and expected to
+          restart with the new setting (except if <varname>primary_conninfo</varname>
+          is an empty string).
           This setting has no effect if the server is not in standby mode.
 -->
 このパラメータはサーバ起動時のみ設定可能です。
@@ -2464,9 +2525,13 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
           connecting to the sending server via streaming replication to control
           resource removal on the upstream node
           (see <xref linkend="streaming-replication-slots"/>).
-          This parameter can only be set at server start.
+          This parameter can only be set in the <filename>postgresql.conf</filename>
+          file or on the server command line.
+          If this parameter is changed while the WAL receiver process is running,
+          that process is signaled to shut down and expected to restart with the
+          new setting.
           This setting has no effect if <varname>primary_conninfo</varname> is not
-          set.
+          set or the server is not in standby mode.
 -->
 上流ノードのリソース削除を制御するためにストリーミングレプリケーション経由でプライマリに接続した場合、既存のレプリケーションスロットを使うように、必要に応じて指定します（<xref linkend="streaming-replication-slots"/>を参照）。
 このパラメータはサーバ起動時のみ設定可能です。
@@ -2490,7 +2555,7 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
           Specifies a trigger file whose presence ends recovery in the
           standby.  Even if this value is not set, you can still promote
           the standby using <command>pg_ctl promote</command> or calling
-          <function>pg_promote</function>.
+          <function>pg_promote()</function>.
           This parameter can only be set in the <filename>postgresql.conf</filename>
           file or on the server command line.
 -->
@@ -2622,6 +2687,26 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-wal-receiver-create-temp-slot" xreflabel="wal_receiver_create_temp_slot">
+      <term><varname>wal_receiver_create_temp_slot</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>wal_receiver_create_temp_slot</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Specifies whether the WAL receiver process should create a temporary replication
+        slot on the remote instance when no permanent replication slot to use
+        has been configured (using <xref linkend="guc-primary-slot-name"/>).
+        The default is off.  This parameter can only be set in the
+        <filename>postgresql.conf</filename> file or on the server command line.
+        If this parameter is changed while the WAL receiver process is running,
+        that process is signaled to shut down and expected to restart with
+        the new setting.
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-wal-receiver-status-interval" xreflabel="wal_receiver_status_interval">
       <term><varname>wal_receiver_status_interval</varname> (<type>integer</type>)
       <indexterm>
@@ -2637,8 +2722,8 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
        Specifies the minimum frequency for the WAL receiver
        process on the standby to send information about replication progress
        to the primary or upstream standby, where it can be seen using the
-       <link
-       linkend="pg-stat-replication-view"><literal>pg_stat_replication</literal></link>
+       <link linkend="monitoring-pg-stat-replication-view">
+       <structname>pg_stat_replication</structname></link>
        view.  The standby will report
        the last write-ahead log location it has written, the last position it
        has flushed to disk, and the last position it has applied.
@@ -3141,6 +3226,20 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-enable-incremental-sort" xreflabel="enable_incremental_sort">
+      <term><varname>enable_incremental_sort</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>enable_incremental_sort</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Enables or disables the query planner's use of incremental sort steps.
+        The default is <literal>on</literal>.
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-enable-indexscan" xreflabel="enable_indexscan">
       <term><varname>enable_indexscan</varname> (<type>boolean</type>)
       <indexterm>
@@ -3345,9 +3444,9 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         which allows a join between partitioned tables to be performed by
         joining the matching partitions.  Partitionwise join currently applies
         only when the join conditions include all the partition keys, which
-        must be of the same data type and have exactly matching sets of child
-        partitions.  Because partitionwise join planning can use significantly
-        more CPU time and memory during planning, the default is
+        must be of the same data type and have one-to-one matching sets of
+        child partitions.  Because partitionwise join planning can use
+        significantly more CPU time and memory during planning, the default is
         <literal>off</literal>.
 -->
 パーティション同士の結合(partitionwise join)を問い合わせプランナが使用するのを有効あるいは無効にします。
@@ -3593,7 +3692,7 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         if your data is likely to be completely in cache, such as when
         the database is smaller than the total server memory, decreasing
         random_page_cost can be appropriate.  Storage that has a low random
-        read cost relative to sequential, e.g. solid-state drives, might
+        read cost relative to sequential, e.g., solid-state drives, might
         also be better modeled with a lower value for random_page_cost,
         e.g., <literal>1.1</literal>.
        -->
@@ -3779,7 +3878,9 @@ RAM内に存在するページの取り出しコストは通常よりもかな�
         for a parallel scan to be considered.  Note that a parallel index scan
         typically won't touch the entire index; it is the number of pages
         which the planner believes will actually be touched by the scan which
-        is relevant.
+        is relevant.  This parameter is also used to decide whether a
+        particular index can participate in a parallel vacuum.  See
+        <xref linkend="sql-vacuum"/>.
         If this value is specified without units, it is taken as blocks,
         that is <symbol>BLCKSZ</symbol> bytes, typically 8kB.
         The default is 512 kilobytes (<literal>512kB</literal>).

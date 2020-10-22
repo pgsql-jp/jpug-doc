@@ -183,7 +183,7 @@
        For example, <literal>30.1 GB</literal> will be converted
        to <literal>30822 MB</literal> not <literal>32319628902 B</literal>.
        If the parameter is of integer type, a final rounding to integer
-       occurs after any units conversion.
+       occurs after any unit conversion.
 -->
 単位に添えて小数点以下が指定された場合、より小さな単位が存在すれば、値はその小さな単位の積に丸められます。
 たとえば、<literal>30.1 GB</literal>は<literal>32319628902 B</literal>ではなく<literal>30822 MB</literal>に変換されます。
@@ -660,7 +660,7 @@ include_dir 'ディレクトリ名'
       start with the <literal>.</literal> character are also ignored, to
       prevent mistakes since such files are hidden on some platforms.  Multiple
       files within an include directory are processed in file name order
-      (according to C locale rules, i.e. numbers before letters, and
+      (according to C locale rules, i.e., numbers before letters, and
       uppercase letters before lowercase ones).
        -->
 絶対パスではないディレクトリ名はその設定ファイルがあるディレクトリへの相対パスと見なされます。
@@ -1146,6 +1146,8 @@ include_dir 'conf.d'
         only TCP/IP sockets can be used to connect to the server.
         The default value is normally
         <filename>/tmp</filename>, but that can be changed at build time.
+        On Windows, the default is empty, which means no Unix-domain socket is
+        created by default.
         This parameter can only be set at server start.
        -->
 サーバがクライアントアプリケーションからの接続要求を監視するUnixドメインソケットのディレクトリを指定します。
@@ -1169,14 +1171,6 @@ include_dir 'conf.d'
        -->
 <literal>.s.PGSQL.<replaceable>nnnn</replaceable></literal>という名前のソケットファイル（<replaceable>nnnn</replaceable>はポート番号）のほかに、<literal>.s.PGSQL.<replaceable>nnnn</replaceable>.lock</literal>という通常ファイルがそれぞれの<varname>unix_socket_directories</varname>ディレクトリの中に作成されます。
 いずれのファイルも手作業で削除してはいけません。
-       </para>
-
-       <para>
-<!--
-        This parameter is irrelevant on Windows, which does not have
-        Unix-domain sockets.
--->
-Windowsでは、Unixドメインソケットがありませんので、このパラメータは無関係です。
        </para>
       </listitem>
      </varlistentry>
@@ -1210,8 +1204,8 @@ Unixドメインソケット（複数も）を所有するグループを設定�
 
        <para>
        <!--
-        This parameter is irrelevant on Windows, which does not have
-        Unix-domain sockets.
+        This parameter is not supported on Windows.  Any setting will be
+        ignored.
        -->
 Windowsでは、Unixドメインソケットがありませんので、このパラメータは無関係です。
        </para>
@@ -1280,8 +1274,6 @@ Unixドメインソケットは通常のUnixファイルシステムパーミッ
         10, that ignore socket permissions entirely.  There, one can achieve a
         similar effect by pointing <varname>unix_socket_directories</varname> to a
         directory having search permission limited to the desired audience.
-        This parameter is also irrelevant on Windows, which does not have
-        Unix-domain sockets.
        -->
 このパラメータはSolaris 10の時点でのSolarisなど、ソケットのパーミッションを完全に無視するシステムでは無関係です。
 こうしたシステムでは、制限したいユーザだけが検索パーミッションを持つディレクトリを<varname>unix_socket_directories</varname>で指すようにすることによって同じような効果を得ることができます。
@@ -1669,7 +1661,7 @@ SQL環境下で<literal>@</literal>を含む名前のユーザを作成する場
 <!--
         With this parameter enabled, you can still create ordinary global
         users.  Simply append <literal>@</literal> when specifying the user
-        name in the client, e.g. <literal>joe@</literal>.  The <literal>@</literal>
+        name in the client, e.g., <literal>joe@</literal>.  The <literal>@</literal>
         will be stripped off before the user name is looked up by the
         server.
 -->
@@ -2087,10 +2079,8 @@ TLS 1.0より前のプロトコルバージョン、すなわちSSLバージョ�
 
        <para>
 <!--
-        The default is <literal>TLSv1</literal>, mainly to support older
-        versions of the <productname>OpenSSL</productname> library.  You might
-        want to set this to a higher value if all software components can
-        support the newer protocol versions.
+        The default is <literal>TLSv1.2</literal>, which satisfies industry
+        best practices as of this writing.
 -->
 デフォルトは<literal>TLSv1</literal>で、主に古いバージョンの<productname>OpenSSL</productname>ライブラリをサポートするためです。
 すべてのソフトウェアコンポーネントが新しいバージョンのプロトコルをサポートしているなら、より高い値にするのが良いでしょう。
@@ -2540,19 +2530,20 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
       <listitem>
        <para>
        <!--
-        Sets the maximum amount of memory to be used by a query operation
+        Sets the base maximum amount of memory to be used by a query operation
         (such as a sort or hash table) before writing to temporary disk files.
         If this value is specified without units, it is taken as kilobytes.
         The default value is four megabytes (<literal>4MB</literal>).
         Note that for a complex query, several sort or hash operations might be
-        running in parallel; each operation will be allowed to use as much memory
-        as this value specifies before it starts to write data into temporary
-        files. Also, several running sessions could be doing such operations
-        concurrently.  Therefore, the total memory used could be many
-        times the value of <varname>work_mem</varname>; it is necessary to
-        keep this fact in mind when choosing the value. Sort operations are
-        used for <literal>ORDER BY</literal>, <literal>DISTINCT</literal>, and
-        merge joins.
+        running in parallel; each operation will generally be allowed
+        to use as much memory as this value specifies before it starts
+        to write data into temporary files.  Also, several running
+        sessions could be doing such operations concurrently.
+        Therefore, the total memory used could be many times the value
+        of <varname>work_mem</varname>; it is necessary to keep this
+        fact in mind when choosing the value.  Sort operations are used
+        for <literal>ORDER BY</literal>, <literal>DISTINCT</literal>,
+        and merge joins.
         Hash tables are used in hash joins, hash-based aggregation, and
         hash-based processing of <literal>IN</literal> subqueries.
        -->
@@ -2565,6 +2556,47 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
 したがって、使用されるメモリの合計は、<varname>work_mem</varname>の数倍になります。値を選択する時には、この事実に留意することが必要です。
 並び替え操作は<literal>ORDER BY</literal>、<literal>DISTINCT</literal>、およびマージ結合に対して使われます。
 ハッシュテーブルはハッシュ結合、ハッシュに基づいた集約、および<literal>IN</literal>副問い合わせのハッシュに基づいた処理で使用されます。
+       </para>
+       <para>
+        Hash-based operations are generally more sensitive to memory
+        availability than equivalent sort-based operations.  The
+        memory available for hash tables is computed by multiplying
+        <varname>work_mem</varname> by
+        <varname>hash_mem_multiplier</varname>.  This makes it
+        possible for hash-based operations to use an amount of memory
+        that exceeds the usual <varname>work_mem</varname> base
+        amount.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-hash-mem-multiplier" xreflabel="hash_mem_multiplier">
+      <term><varname>hash_mem_multiplier</varname> (<type>floating point</type>)
+      <indexterm>
+       <primary><varname>hash_mem_multiplier</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Used to compute the maximum amount of memory that hash-based
+        operations can use.  The final limit is determined by
+        multiplying <varname>work_mem</varname> by
+        <varname>hash_mem_multiplier</varname>.  The default value is
+        1.0, which makes hash-based operations subject to the same
+        simple <varname>work_mem</varname> maximum as sort-based
+        operations.
+       </para>
+       <para>
+        Consider increasing <varname>hash_mem_multiplier</varname> in
+        environments where spilling by query operations is a regular
+        occurrence, especially when simply increasing
+        <varname>work_mem</varname> results in memory pressure (memory
+        pressure typically takes the form of intermittent out of
+        memory errors).  A setting of 1.5 or 2.0 may be effective with
+        mixed workloads.  Higher settings in the range of 2.0 - 8.0 or
+        more may be effective in environments where
+        <varname>work_mem</varname> has already been increased to 40MB
+        or more.
        </para>
       </listitem>
      </varlistentry>
@@ -2637,6 +2669,27 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
 この値が単位なしで指定された場合は、キロバイト単位であるとみなします。
 デフォルトは-1で、<xref linkend="guc-maintenance-work-mem"/>が代わりに使われる設定になります。
 別の文脈で実行される<command>VACUUM</command>にはこの設定は影響しません。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-logical-decoding-work-mem" xreflabel="logical_decoding_work_mem">
+      <term><varname>logical_decoding_work_mem</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>logical_decoding_work_mem</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Specifies the maximum amount of memory to be used by logical decoding,
+        before some of the decoded changes are written to local disk. This
+        limits the amount of memory used by logical streaming replication
+        connections. It defaults to 64 megabytes (<literal>64MB</literal>).
+        Since each replication connection only uses a single buffer of this size,
+        and an installation normally doesn't have many such connections
+        concurrently (as limited by <varname>max_wal_senders</varname>), it's
+        safe to set this value significantly higher than <varname>work_mem</varname>,
+        reducing the amount of decoded changes written to disk.
        </para>
       </listitem>
      </varlistentry>
@@ -3351,6 +3404,26 @@ SSDやそれ以外のメモリーベースの記憶装置は、多くの同時�
        </listitem>
       </varlistentry>
 
+      <varlistentry id="guc-maintenance-io-concurrency" xreflabel="maintenance_io_concurrency">
+       <term><varname>maintenance_io_concurrency</varname> (<type>integer</type>)
+       <indexterm>
+        <primary><varname>maintenance_io_concurrency</varname> configuration parameter</primary>
+       </indexterm>
+       </term>
+       <listitem>
+        <para>
+         Similar to <varname>effective_io_concurrency</varname>, but used
+         for maintenance work that is done on behalf of many client sessions.
+        </para>
+        <para>
+         The default is 10 on supported systems, otherwise 0.  This value can
+         be overridden for tables in a particular tablespace by setting the
+         tablespace parameter of the same name (see
+         <xref linkend="sql-altertablespace"/>).
+        </para>
+       </listitem>
+      </varlistentry>
+
       <varlistentry id="guc-max-worker-processes" xreflabel="max_worker_processes">
        <term><varname>max_worker_processes</varname> (<type>integer</type>)
        <indexterm>
@@ -3471,13 +3544,13 @@ SSDやそれ以外のメモリーベースの記憶装置は、多くの同時�
         <para>
 <!--
          Sets the maximum number of parallel workers that can be
-         started by a single utility command.  Currently, the only
-         parallel utility command that supports the use of parallel
-         workers is <command>CREATE INDEX</command>, and only when
-         building a B-tree index.  Parallel workers are taken from the
-         pool of processes established by <xref
-         linkend="guc-max-worker-processes"/>, limited by <xref
-         linkend="guc-max-parallel-workers"/>.  Note that the requested
+         started by a single utility command.  Currently, the parallel
+         utility commands that support the use of parallel workers are
+         <command>CREATE INDEX</command> only when building a B-tree index,
+         and <command>VACUUM</command> without <literal>FULL</literal>
+         option.  Parallel workers are taken from the pool of processes
+         established by <xref linkend="guc-max-worker-processes"/>, limited
+         by <xref linkend="guc-max-parallel-workers"/>.  Note that the requested
          number of workers may not actually be available at run time.
          If this occurs, the utility operation will run with fewer
          workers than expected.  The default value is 2.  Setting this

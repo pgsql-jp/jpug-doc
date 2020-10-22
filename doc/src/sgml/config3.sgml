@@ -192,10 +192,14 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
        <para>
 <!--
         The timeout is measured from the time a command arrives at the
-        server until it is completed by the server.
+        server until it is completed by the server.  If multiple SQL
+        statements appear in a single simple-Query message, the timeout
+        is applied to each statement separately.
+        (<productname>PostgreSQL</productname> versions before 13 usually
+        treated the timeout as applying to the whole query string.)
         In extended query protocol, the timeout starts running when any
         query-related message (Parse, Bind, Execute, Describe) arrives, and
-        it is cancelled by completion of an Execute or Sync message.
+        it is canceled by completion of an Execute or Sync message.
 -->
 タイムアウトは、コマンドがサーバに到着したときから、サーバがそのコマンドの実行を完了するまでを基準にします。
 拡張問い合わせでは、タイムアウトは問い合わせに関するメッセージ（Parse、Bind、Execute、Describe）が到着したときに開始し、ExecuteあるいはSyncメッセージが完了した時にキャンセルされます。
@@ -319,10 +323,10 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
         a regular <command>VACUUM</command> in that it visits every page that might
         contain unfrozen XIDs or MXIDs, not just those that might contain dead
         tuples.  The default is 150 million transactions.  Although users can
-        set this value anywhere from zero to two billions, <command>VACUUM</command>
+        set this value anywhere from zero to two billion, <command>VACUUM</command>
         will silently limit the effective value to 95% of
         <xref linkend="guc-autovacuum-freeze-max-age"/>, so that a
-        periodical manual <command>VACUUM</command> has a chance to run before an
+        periodic manual <command>VACUUM</command> has a chance to run before an
         anti-wraparound autovacuum is launched for the table. For more
         information see
         <xref linkend="vacuum-for-wraparound"/>.
@@ -386,10 +390,10 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
         a regular <command>VACUUM</command> in that it visits every page that might
         contain unfrozen XIDs or MXIDs, not just those that might contain dead
         tuples.  The default is 150 million multixacts.
-        Although users can set this value anywhere from zero to two billions,
+        Although users can set this value anywhere from zero to two billion,
         <command>VACUUM</command> will silently limit the effective value to 95% of
         <xref linkend="guc-autovacuum-multixact-freeze-max-age"/>, so that a
-        periodical manual <command>VACUUM</command> has a chance to run before an
+        periodic manual <command>VACUUM</command> has a chance to run before an
         anti-wraparound is launched for the table.
         For more information see <xref linkend="vacuum-for-multixact-wraparound"/>.
 -->
@@ -1623,7 +1627,7 @@ dynamic_library_path = 'C:\tools\postgresql;H:\my_project\lib;$libdir'
         rows that can be locked; that value is unlimited.  The default,
         64, has historically proven sufficient, but you might need to
         raise this value if you have queries that touch many different
-        tables in a single transaction, e.g. query of a parent table with
+        tables in a single transaction, e.g., query of a parent table with
         many children.  This parameter can only be set at server start.
        -->
        共有ロックテーブルは、<varname>max_locks_per_transaction</varname> * （<xref linkend="guc-max-connections"/> + <xref linkend="guc-max-prepared-transactions"/>）オブジェクト（例えばテーブル）上のロック追跡します。
@@ -2369,7 +2373,7 @@ onに設定すると、代わりに<productname>PostgreSQL</productname>はエ�
         with assertions enabled. That is the case if the
         macro <symbol>USE_ASSERT_CHECKING</symbol> is defined
         when <productname>PostgreSQL</productname> is built (accomplished
-        e.g. by the <command>configure</command> option
+        e.g., by the <command>configure</command> option
         <option>&#045;-enable-cassert</option>). By
         default <productname>PostgreSQL</productname> is built without
         assertions.
@@ -2763,14 +2767,37 @@ WALディスクブロックの容量を報告します。
       </term>
       <listitem>
        <para>
-       <!--
-        Allows modification of the structure of system tables.
-        This is used by <command>initdb</command>.
-        This parameter can only be set at server start.
-       -->
-       システムテーブルの構造変更を許可します。
-これは<command>initdb</command>で使用されます。
-このパラメータはサーバ起動時にのみ設定可能です。
+        Allows modification of the structure of system tables as well as
+        certain other risky actions on system tables.  This is otherwise not
+        allowed even for superusers.  Ill-advised use of this setting can
+        cause irretrievable data loss or seriously corrupt the database
+        system.  Only superusers can change this setting.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-backtrace-functions" xreflabel="backtrace_functions">
+      <term><varname>backtrace_functions</varname> (<type>string</type>)
+      <indexterm>
+        <primary><varname>backtrace_functions</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        This parameter contains a comma-separated list of C function names.
+        If an error is raised and the name of the internal C function where
+        the error happens matches a value in the list, then a backtrace is
+        written to the server log together with the error message.  This can
+        be used to debug specific areas of the source code.
+       </para>
+
+       <para>
+        Backtrace support is not available on all platforms, and the quality
+        of the backtraces depends on compilation options.
+       </para>
+
+       <para>
+        This parameter can only be set by superusers.
        </para>
       </listitem>
      </varlistentry>
@@ -3327,6 +3354,31 @@ LOG:  CleanUpLock: deleting: lock(0xb7acd844) id(24688,24696,0,0,0,1)
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-ignore-invalid-pages" xreflabel="ignore_invalid_pages">
+      <term><varname>ignore_invalid_pages</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>ignore_invalid_pages</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        If set to <literal>off</literal> (the default), detection of
+        WAL records having references to invalid pages during
+        recovery causes <productname>PostgreSQL</productname> to
+        raise a PANIC-level error, aborting the recovery. Setting
+        <varname>ignore_invalid_pages</varname> to <literal>on</literal>
+        causes the system to ignore invalid page references in WAL records
+        (but still report a warning), and continue the recovery.
+        This behavior may <emphasis>cause crashes, data loss,
+        propagate or hide corruption, or other serious problems</emphasis>.
+        However, it may allow you to get past the PANIC-level error,
+        to finish the recovery, and to cause the server to start up.
+        The parameter can only be set at server start. It only has effect
+        during recovery or in standby mode.
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-jit-debugging-support" xreflabel="jit_debugging_support">
       <term><varname>jit_debugging_support</varname> (<type>boolean</type>)
       <indexterm>
@@ -3480,6 +3532,8 @@ JITコンパイルが有効な時にタプルデフォーミングがJITコン�
      -->
      <title>短いオプションキー</title>
      <tgroup cols="2">
+      <colspec colname="col1" colwidth="1*"/>
+      <colspec colname="col2" colwidth="2*"/>
       <thead>
        <row>
        <!--
