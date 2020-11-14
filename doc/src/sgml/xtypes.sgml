@@ -1,37 +1,60 @@
 <!-- doc/src/sgml/xtypes.sgml -->
 
  <sect1 id="xtypes">
+<!--
   <title>User-Defined Types</title>
+-->
+  <title>ユーザ定義の型</title>
 
   <indexterm zone="xtypes">
+<!--
    <primary>data type</primary>
    <secondary>user-defined</secondary>
+-->
+   <primary>データ型</primary>
+   <secondary>ユーザ定義の</secondary>
   </indexterm>
 
   <para>
+<!--
    As described in <xref linkend="extend-type-system"/>,
    <productname>PostgreSQL</productname> can be extended to support new
    data types.  This section describes how to define new base types,
    which are data types defined below the level of the <acronym>SQL</acronym>
    language.  Creating a new base type requires implementing functions
    to operate on the type in a low-level language, usually C.
+-->
+<xref linkend="extend-type-system"/>に述べられているように、<productname>PostgreSQL</productname>は、新しい型をサポートするように拡張することができます。
+本節では、<acronym>SQL</acronym>言語以下のレベルで定義されるデータ型である基本型を新しく定義する方法について説明します。
+新しい基本型の作成には、低レベル言語、通常Cで作成された型を操作する関数の実装が必要です。
   </para>
 
   <para>
+<!--
    The examples in this section can be found in
    <filename>complex.sql</filename> and <filename>complex.c</filename>
    in the <filename>src/tutorial</filename> directory of the source distribution.
    See the <filename>README</filename> file in that directory for instructions
    about running the examples.
+-->
+本節で使用する例は、ソース配布物内の<filename>src/tutorial</filename>ディレクトリに<filename>complex.sql</filename>と<filename>complex.c</filename>という名前で置いてあります。
+この例の実行方法についてはディレクトリ内の<filename>README</filename>を参照してください。
   </para>
 
  <para>
   <indexterm>
+<!--
    <primary>input function</primary>
+-->
+   <primary>入力関数</primary>
   </indexterm>
   <indexterm>
+<!--
    <primary>output function</primary>
+-->
+   <primary>出力関数</primary>
   </indexterm>
+<!--
   A user-defined type must always have input and output functions.
   These functions determine how the type appears in strings (for input
   by the user and output to the user) and how the type is organized in
@@ -42,12 +65,22 @@
   string.  If we want to do anything more with the type than merely
   store it, we must provide additional functions to implement whatever
   operations we'd like to have for the type.
+-->
+ユーザ定義データ型では必ず入力関数と出力関数が必要です。
+これらの関数は、その型が（ユーザによる入力とユーザへの出力のための）文字列としてどのように表現されるかと、その型がメモリ中でどう構成されるかを決定します。
+入力関数は引数としてヌル終端文字列を取り、その型の（メモリ中の）内部表現を返します。
+出力関数は引数としてその型の内部表現を取り、ヌル終端文字列を返します。
+単に格納するだけではなく、その型に操作を加えたいのであれば、その型に持たせたいすべての操作を実装した関数をさらに提供しなければなりません。
  </para>
 
  <para>
+<!--
   Suppose we want to define a type <type>complex</type> that represents
   complex numbers. A natural way to represent a complex number in
   memory would be the following C structure:
+-->
+例えば、複素数を表現する<type>complex</type>型を定義することを考えます。
+おそらく、次のようなC構造体で複素数をメモリ中で表現することがごく自然な方法です。
 
 <programlisting>
 typedef struct Complex {
@@ -56,21 +89,32 @@ typedef struct Complex {
 } Complex;
 </programlisting>
 
+<!--
   We will need to make this a pass-by-reference type, since it's too
   large to fit into a single <type>Datum</type> value.
+-->
+単一の<type>Datum</type>値で扱うには大き過ぎるので、これは参照渡し型にしなければなりません。
  </para>
 
  <para>
+<!--
   As the external string representation of the type, we choose a
   string of the form <literal>(x,y)</literal>.
+-->
+この型の外部文字列表現として<literal>(x,y)</literal>形式の文字列を使用することを選択します。
  </para>
 
  <para>
+<!--
   The input and output functions are usually not hard to write,
   especially the output function.  But when defining the external
   string representation of the type, remember that you must eventually
   write a complete and robust parser for that representation as your
   input function.  For instance:
+-->
+入出力関数、特に出力関数を作成することは困難ではありません。
+しかし、この型の外部表現文字列を定義する時、その表現のための完全で堅牢なパーサを入力関数として作成しなければなりません。
+以下に例を示します。
 
 <programlisting><![CDATA[
 PG_FUNCTION_INFO_V1(complex_in);
@@ -97,7 +141,10 @@ complex_in(PG_FUNCTION_ARGS)
 ]]>
 </programlisting>
 
+<!--
   The output function can simply be:
+-->
+出力関数は以下のように簡単にできます。
 
 <programlisting><![CDATA[
 PG_FUNCTION_INFO_V1(complex_out);
@@ -116,14 +163,20 @@ complex_out(PG_FUNCTION_ARGS)
  </para>
 
  <para>
+<!--
   You should be careful to make the input and output functions inverses of
   each other.  If you do not, you will have severe problems when you
   need to dump your data into a file and then read it back in.  This
   is a particularly common problem when floating-point numbers are
   involved.
+-->
+入出力関数は各々の逆関数になるように注意しなければなりません。
+そうしないと、データをファイルにダンプし、それを読み戻そうとする際に、深刻な問題が発生するでしょう。
+これは特に浮動小数点数が関係する際によく発生する問題です。
  </para>
 
  <para>
+<!--
   Optionally, a user-defined type can provide binary input and output
   routines.  Binary I/O is normally faster but less portable than textual
   I/O.  As with textual I/O, it is up to you to define exactly what the
@@ -131,6 +184,12 @@ complex_out(PG_FUNCTION_ARGS)
   try to provide a machine-independent binary representation.  For
   <type>complex</type>, we will piggy-back on the binary I/O converters
   for type <type>float8</type>:
+-->
+省略することができますが、ユーザ定義型はバイナリ入出力関数を提供することができます。
+バイナリ入出力は通常テキスト入出力より高速ですが、テキスト入出力より移植性がありません。
+テキスト入出力と同様に、外部バイナリ表現を正確に定義することは作成者の責任です。
+ほとんどの組み込みデータ型は、マシンに依存しないバイナリ表現を提供しようとしています。
+<type>complex</type>型では<type>float8</type>型のバイナリ入出力コンバータを元にします。
 
 <programlisting><![CDATA[
 PG_FUNCTION_INFO_V1(complex_recv);
@@ -165,16 +224,24 @@ complex_send(PG_FUNCTION_ARGS)
  </para>
 
  <para>
+<!--
   Once we have written the I/O functions and compiled them into a shared
   library, we can define the <type>complex</type> type in SQL.
   First we declare it as a shell type:
+-->
+入出力関数を作成し共有ライブラリ内にコンパイルすれば、SQLで<type>complex</type>型を定義することができます。
+まずシェル型として宣言します。
 
 <programlisting>
 CREATE TYPE complex;
 </programlisting>
 
+<!--
   This serves as a placeholder that allows us to reference the type while
   defining its I/O functions.  Now we can define the I/O functions:
+-->
+これは、入出力関数を定義する時にこの型を参照することができるプレースホルダとして動作します。
+この後以下のように、入出力関数を定義することができます。
 
 <programlisting>
 CREATE FUNCTION complex_in(cstring)
@@ -200,7 +267,10 @@ CREATE FUNCTION complex_send(complex)
  </para>
 
  <para>
+<!--
   Finally, we can provide the full definition of the data type:
+-->
+最後にデータ型の完全な定義を提供することができます。
 <programlisting>
 CREATE TYPE complex (
    internallength = 16,
@@ -215,25 +285,40 @@ CREATE TYPE complex (
 
  <para>
   <indexterm>
+<!--
     <primary>array</primary>
     <secondary>of user-defined type</secondary>
+-->
+    <primary>配列</primary>
+    <secondary>ユーザ定義型の</secondary>
   </indexterm>
+<!--
   When you define a new base type,
   <productname>PostgreSQL</productname> automatically provides support
   for arrays of that type.  The array type typically
   has the same name as the base type with the underscore character
   (<literal>_</literal>) prepended.
+-->
+新しい基本型を定義すると、<productname>PostgreSQL</productname>は自動的にその型の配列のサポートを提供します。
+配列型は通常、基本型の名前の前にアンダースコア文字<literal>_</literal>が付いた名前になります。
  </para>
 
  <para>
+<!--
   Once the data type exists, we can declare additional functions to
   provide useful operations on the data type.  Operators can then be
   defined atop the functions, and if needed, operator classes can be
   created to support indexing of the data type.  These additional
   layers are discussed in following sections.
+-->
+データ型が存在するようになると、そのデータ型に対する有用な操作を提供する関数を宣言することができます。
+そしてその関数を使用する演算子も定義できます。
+また、必要に応じて、そのデータ型用のインデックスをサポートするための演算子クラスも作成することができます。
+こうした追加層については後の節で説明します。
  </para>
 
  <para>
+<!--
   If the internal representation of the data type is variable-length, the
   internal representation must follow the standard layout for variable-length
   data: the first four bytes must be a <type>char[4]</type> field which is
@@ -242,30 +327,49 @@ CREATE TYPE complex (
   size of the datum (including the length field itself) in this field
   and <function>VARSIZE()</function> to retrieve it.  (These macros exist
   because the length field may be encoded depending on platform.)
+-->
+データ型の内部表現が可変長であるなら、内部表現は可変長データの標準配置に従わなければなりません。先頭の4バイトは<type>char[4]</type>フィールドで、直接アクセスされることは決してありません（慣習的に<structfield>vl_len_</structfield>と呼ばれます）。
+<function>SET_VARSIZE()</function>マクロを使用してデータの総量をこのフィールドに格納し、また、<function>VARSIZE()</function>を使用して取り出さなければなりません。
+(長さフィールドはプラットフォームに依存してエンコードされるかもしれませんので、このマクロが存在します。)
  </para>
 
  <para>
+<!--
   For further details see the description of the
   <xref linkend="sql-createtype"/> command.
+-->
+詳細については<xref linkend="sql-createtype"/>コマンドの説明を参照してください。
  </para>
 
  <sect2 id="xtypes-toast">
+<!--
   <title>TOAST Considerations</title>
+-->
+  <title>TOASTの考慮</title>
    <indexterm>
+<!--
     <primary>TOAST</primary>
     <secondary>and user-defined types</secondary>
+-->
+    <primary>TOAST</primary>
+    <secondary>とユーザ定義型</secondary>
    </indexterm>
 
  <para>
+<!--
   If the values of your data type vary in size (in internal form), it's
   usually desirable to make the data type <acronym>TOAST</acronym>-able (see <xref
   linkend="storage-toast"/>). You should do this even if the values are always
   too small to be compressed or stored externally, because
   <acronym>TOAST</acronym> can save space on small data too, by reducing header
   overhead.
+-->
+データ型の値により（内部形式で）容量が変動する場合、そのデータ型を<acronym>TOAST</acronym>可能とすることが通常は望ましいです（<xref linkend="storage-toast"/>を参照してください）。
+ヘッダのオーバーヘッドを減らすことで<acronym>TOAST</acronym>は小さなデータに対しても容量を抑えることができますので、データが常に圧縮したり外部に格納したりするには小さ過ぎる場合でも、これを行なうことを推奨します。
  </para>
 
  <para>
+<!--
   To support <acronym>TOAST</acronym> storage, the C functions operating on the data
   type must always be careful to unpack any toasted values they are handed
   by using <function>PG_DETOAST_DATUM</function>.  (This detail is customarily hidden
@@ -273,9 +377,14 @@ CREATE TYPE complex (
   Then, when running the <command>CREATE TYPE</command> command, specify the
   internal length as <literal>variable</literal> and select some appropriate storage
   option other than <literal>plain</literal>.
+-->
+<acronym>TOAST</acronym>格納をサポートするために、そのデータ型を扱うC関数は常に、<function>PG_DETOAST_DATUM</function>を使用して、渡されたTOAST化値を注意深く展開しなければなりません。
+（通常、こうした詳細は型独自の<function>GETARG_DATATYPE_P</function>マクロを定義して隠蔽します。）
+その後、<command>CREATE TYPE</command>コマンドを実行する際に、内部長を<literal>variable</literal>と指定し、また、<literal>plain</literal>以外の適当な格納オプションを選択してください。
  </para>
 
  <para>
+<!--
   If data alignment is unimportant (either just for a specific function or
   because the data type specifies byte alignment anyway) then it's possible
   to avoid some of the overhead of <function>PG_DETOAST_DATUM</function>. You can use
@@ -286,10 +395,17 @@ CREATE TYPE complex (
   Again, the data returned by these macros is not aligned even if the data
   type definition specifies an alignment. If the alignment is important you
   must go through the regular <function>PG_DETOAST_DATUM</function> interface.
+-->
+データの整列が（単なる特定の関数向けやデータ型が常にバイト単位の整列を規定しているため）重要でない場合、<function>PG_DETOAST_DATUM</function>のオーバヘッドの一部を省くことができます。
+代わりに<function>PG_DETOAST_DATUM_PACKED</function>を使用してください（通常は<function>GETARG_DATATYPE_PP</function>マクロを定義することで隠蔽されます）。
+そして、<function>VARSIZE_ANY_EXHDR</function>および<function>VARDATA_ANY</function>マクロを使用して、圧縮されている可能性があるデータにアクセスしてください。
+繰り返しますが、これらのマクロから返されるデータは、たとえデータ型定義で整列を規定していたとしても、整列されません。
+整列が重要であれば、通常の<function>PG_DETOAST_DATUM</function>インタフェースを介して実行してください。
  </para>
 
  <note>
   <para>
+<!--
    Older code frequently declares <structfield>vl_len_</structfield> as an
    <type>int32</type> field instead of <type>char[4]</type>.  This is OK as long as
    the struct definition has other fields that have at least <type>int32</type>
@@ -297,10 +413,16 @@ CREATE TYPE complex (
    working with a potentially unaligned datum; the compiler may take it as
    license to assume the datum actually is aligned, leading to core dumps on
    architectures that are strict about alignment.
+-->
+古めのコードではしばしば<structfield>vl_len_</structfield>を<type>char[4]</type>ではなく<type>int32</type>として宣言しています。
+この構造体定義が少なくとも<type>int32</type>で整列されたフィールドを持っている限り、これは問題ありません。
+しかし、整列されていない可能性があるデータを扱う場合に、こうした構造体定義を使用することは危険です。
+データが実際に整列されていると仮定することをコンパイラの規則としているかもしれず、この場合、整列に厳密なアーキテクチャではコアダンプしてしまいます。
   </para>
  </note>
 
  <para>
+<!--
   Another feature that's enabled by <acronym>TOAST</acronym> support is the
   possibility of having an <firstterm>expanded</firstterm> in-memory data
   representation that is more convenient to work with than the format that
@@ -311,9 +433,14 @@ CREATE TYPE complex (
   with, so <productname>PostgreSQL</productname> provides a way to <quote>expand</quote>
   the flat format into a representation that is more suited to computation,
   and then pass that format in-memory between functions of the data type.
+-->
+<acronym>TOAST</acronym>のサポートにより有効になるもう一つの機能は以下のような可能性です。ディスクに格納されたフォーマットよりも扱うのにより便利な<firstterm>展開された</firstterm>インメモリデータ表現を持てるかもしれません。
+通常のもしくは<quote>単純な</quote>varlena格納フォーマットは結局のところ単なるバイトのblobです。例えば、メモリの別の場所にコピーされるかもしれませんのでポインタを含むことができません。
+複雑なデータ型に対しては、単純なフォーマットは扱うのにかなり高価になるかもしれません。そこで、<productname>PostgreSQL</productname>は計算するのにより適した表現に単純なフォーマットを<quote>展開する</quote>方法を提供し、そのフォーマットをインメモリでそのデータ型の関数から関数へと渡します。
  </para>
 
  <para>
+<!--
   To use expanded storage, a data type must define an expanded format that
   follows the rules given in <filename>src/include/utils/expandeddatum.h</filename>,
   and provide functions to <quote>expand</quote> a flat varlena value into
@@ -327,9 +454,15 @@ CREATE TYPE complex (
   the flat varlena format will continue to work, though slightly
   inefficiently, with expanded inputs; they need not be converted until and
   unless better performance is important.
+-->
+展開された格納を使うためには、データ型は<filename>src/include/utils/expandeddatum.h</filename>にある規則に従う展開されたフォーマットを定義し、単純なvarlenaの値を展開されたフォーマットに<quote>展開する</quote>関数や展開されたフォーマットを通常のvarlena表現に<quote>戻す</quote>関数を提供しなければなりません。
+そのデータ型のC関数はすべてどちらの表現でも確実に受け付けられるようにしてください。おそらく、受け取ったらすぐに一方からもう一方に変換することによって実現することになるでしょう。
+これはそのデータ型の既存の関数をすべて一度に修正することを要求するものでありません。なぜなら、<function>PG_DETOAST_DATUM</function>マクロが展開された入力を通常の単純なフォーマットに変換するために定義されているからです。
+そのため、単純なvarlenaフォーマットを扱う既存の関数は、わずかに非効率ではありますが、展開された入力も続けて扱えるでしょう。より良いパフォーマンスが重要になるまで、変更は必要ありません。
  </para>
 
  <para>
+<!--
   C functions that know how to work with an expanded representation
   typically fall into two categories: those that can only handle expanded
   format, and those that can handle either expanded or flat varlena inputs.
@@ -346,9 +479,17 @@ CREATE TYPE complex (
   pointer to a union of the flat varlena format and the expanded format.
   Callers can use the <function>VARATT_IS_EXPANDED_HEADER()</function> macro to
   determine which format they received.
+-->
+展開された表現の扱い方を知っているC関数は典型的には以下の2つに分類されます。展開されたフォーマットのみを扱えるものと、展開されたものも単純なvarlena入力も扱えるものです。
+前者は書くのが簡単ですが、全般にあまり効率的ではないかもしれません。なぜなら、一つの関数による使用のために単純な入力を展開された形に変換することは、展開されたフォーマットで操作することで節約されることよりコストが掛かるかもしれないからです。
+展開されたフォーマットのみ扱うことが必要であるなら、単純な入力の展開された形への変換は引数を取得するマクロの中に隠すことができます。それゆえ、関数は伝統的なvarlena入力を扱うものよりもより複雑に見えることはありません。
+両方の型の入力を扱うためには、外部やショートヘッダや圧縮されたvarlenaの入力はトースト解除をするけれども展開された入力に対してはトースト解除をしないような、引数を取得する関数を書いてください。
+そのような関数は、単純なvarlenaフォーマットと展開されたフォーマットの共用体へのポインタを返すよう定義できます。
+呼び出し側はどちらのフォーマットを受け取ったのか確定するのに<function>VARATT_IS_EXPANDED_HEADER()</function>マクロを使えます。
  </para>
 
  <para>
+<!--
   The <acronym>TOAST</acronym> infrastructure not only allows regular varlena
   values to be distinguished from expanded values, but also
   distinguishes <quote>read-write</quote> and <quote>read-only</quote> pointers to
@@ -363,12 +504,21 @@ CREATE TYPE complex (
   return a read-write pointer to it.  Also, a C function that is modifying
   a read-write expanded value in-place should take care to leave the value
   in a sane state if it fails partway through.
+-->
+<acronym>TOAST</acronym>基盤により、通常のvarlenaの値を展開された値から区別できるようになるだけでなく、展開された値への<quote>読み書き可能</quote>なポインタと<quote>読み取りのみ</quote>のポインタを区別できるようになります。
+展開された値を検査することが必要なだけのものや安全で意味論的に不可視の方法で変更するC関数は、受け取ったポインタがどちらの種類であるか気にする必要はありません。
+入力値の修正されたバージョンを生成するC関数は、読み書き可能なポインタを受け取ったのであれば展開された入力値をその場で修正できますが、読み取りのみのポインタを受け取ったのであれば入力を変更してはなりません。その場合には、まず値をコピーして、修正するための新しい値を生成しなければなりません。
+展開された値を新しく作成したC関数は、必ずそこへの読み書き可能なポインタを返すことを推奨します。
+また、読み書き可能な展開された値をその場で修正するC関数は、途中で失敗した場合に気をつけて値を健全な状態のままにしておくことを推奨します。
  </para>
 
  <para>
+<!--
   For examples of working with expanded values, see the standard array
   infrastructure, particularly
   <filename>src/backend/utils/adt/array_expanded.c</filename>.
+-->
+展開された値を扱う例は、標準配列基盤、特に<filename>src/backend/utils/adt/array_expanded.c</filename>を見てください。
  </para>
 
  </sect2>

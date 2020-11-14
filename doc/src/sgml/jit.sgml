@@ -1,26 +1,39 @@
 <!-- doc/src/sgml/jit.sgml -->
 
 <chapter id="jit">
+<!--
  <title>Just-in-Time Compilation (<acronym>JIT</acronym>)</title>
+-->
+ <title>実行時コンパイル(<acronym>JIT</acronym>)</title>
 
  <indexterm zone="jit">
   <primary><acronym>JIT</acronym></primary>
  </indexterm>
 
  <indexterm>
+<!--
   <primary>Just-In-Time compilation</primary>
+-->
+  <primary>実行時コンパイル</primary>
   <see><acronym>JIT</acronym></see>
  </indexterm>
 
  <para>
+<!--
   This chapter explains what just-in-time compilation is, and how it can be
   configured in <productname>PostgreSQL</productname>.
+-->
+本章では、実行時コンパイル(just-in-time compilation)とは何か、そして<productname>PostgreSQL</productname>でそれをどのように設定できるかを説明します。
  </para>
 
  <sect1 id="jit-reason">
+<!--
   <title>What Is <acronym>JIT</acronym> compilation?</title>
+-->
+  <title><acronym>JIT</acronym>コンパイルとは何か？</title>
 
   <para>
+<!--
    Just-in-Time (<acronym>JIT</acronym>) compilation is the process of turning
    some form of interpreted program evaluation into a native program, and
    doing so at run time.
@@ -29,44 +42,72 @@
    like <literal>WHERE a.col = 3</literal>, it is possible to generate a
    function that is specific to that expression and can be natively executed
    by the CPU, yielding a speedup.
+-->
+実行時(<acronym>JIT</acronym>)コンパイルとは、ある形式のインタプリタプログラムの評価をネイティブプログラムに変換する過程であり、かつそれを実行時に行うことを指します。
+たとえば、<literal>WHERE a.col = 3</literal>のような特定のSQL述語を評価するために、任意のSQL式を評価できる汎用目的のコードを使う代わりに、その式専用の関数を生成し、CPUによってネイティブに実行して速度向上をもたらすことができます。
   </para>
 
   <para>
+<!--
    <productname>PostgreSQL</productname> has builtin support to perform
    <acronym>JIT</acronym> compilation using <ulink
    url="https://llvm.org/"><productname>LLVM</productname></ulink> when
    <productname>PostgreSQL</productname> is built with
-   <link linkend="configure-with-llvm"><literal>--with-llvm</literal></link>.
+   <link linkend="configure-with-llvm"><literal>&#045;&#045;with-llvm</literal></link>.
+-->
+<productname>PostgreSQL</productname>が<link linkend="configure-with-llvm"><literal>--with-llvm</literal></link>でビルドされている場合、<productname>PostgreSQL</productname>には<ulink url="https://llvm.org/"><productname>LLVM</productname></ulink>を使って<acronym>JIT</acronym>コンパイルを実行するためのサポートが組み込まれます。
   </para>
 
   <para>
+<!--
    See <filename>src/backend/jit/README</filename> for further details.
+-->
+さらなる詳細は<filename>src/backend/jit/README</filename>をご覧ください。
   </para>
 
   <sect2 id="jit-accelerated-operations">
+<!--
    <title><acronym>JIT</acronym> Accelerated Operations</title>
+-->
+   <title><acronym>JIT</acronym>により高速化される処理</title>
    <para>
+<!--
     Currently <productname>PostgreSQL</productname>'s <acronym>JIT</acronym>
     implementation has support for accelerating expression evaluation and
     tuple deforming.  Several other operations could be accelerated in the
     future.
+-->
+今の所、<productname>PostgreSQL</productname>の<acronym>JIT</acronym>実装は、式評価とタプルデフォーミング(tuple deforming)の高速化をサポートしています。
+将来は他の操作も高速化されるかも知れません。
    </para>
    <para>
+<!--
     Expression evaluation is used to evaluate <literal>WHERE</literal>
     clauses, target lists, aggregates and projections. It can be accelerated
     by generating code specific to each case.
+-->
+式評価は、<literal>WHERE</literal>句、ターゲットリスト、集約、射影を評価するために使用されます。
+それぞれのケースに応じたコードを生成することによって高速化することができます。
    </para>
    <para>
+<!--
     Tuple deforming is the process of transforming an on-disk tuple (see <xref
     linkend="storage-tuple-layout"/>) into its in-memory representation.
     It can be accelerated by creating a function specific to the table layout
     and the number of columns to be extracted.
+-->
+タプルデフォーミングは、ディスク上のタプル(<xref linkend="storage-tuple-layout"/>参照)をメモリ上の表現に変換する処理です。
+これはテーブルレイアウトと抽出するカラム数に特化した関数を作ることによって高速化可能です。
    </para>
   </sect2>
 
   <sect2 id="jit-inlining">
+<!--
    <title>Inlining</title>
+-->
+   <title>インライン展開(Inlining)</title>
    <para>
+<!--
     <productname>PostgreSQL</productname> is very extensible and allows new
     data types, functions, operators and other database objects to be defined;
     see <xref linkend="extend"/>. In fact the built-in objects are implemented
@@ -75,34 +116,57 @@
     To reduce that overhead, <acronym>JIT</acronym> compilation can inline the
     bodies of small functions into the expressions using them. That allows a
     significant percentage of the overhead to be optimized away.
+-->
+<productname>PostgreSQL</productname>は拡張性が高く、新しいデータ型、関数、演算子、その他のデータベースオブジェクトを定義することが可能です。
+<xref linkend="extend"/>を参照してください。
+実際、組み込みオブジェクトは似た機構を使って実装されています。
+この拡張性は、たとえば関数呼び出し(<xref linkend="xfunc"/>参照)により、幾分のオーバーヘッドをもたらします。
+このオーバーヘッドを軽減するために、<acronym>JIT</acronym>コンパイルは、小さな関数の本体をそれを使っている式にインライン展開することができます。
+これにより、オーバーヘッドのかなりの部分を最適化によって解消することができます。
    </para>
   </sect2>
 
   <sect2 id="jit-optimization">
+<!--
    <title>Optimization</title>
+-->
+   <title>最適化</title>
    <para>
+<!--
     <productname>LLVM</productname> has support for optimizing generated
     code. Some of the optimizations are cheap enough to be performed whenever
     <acronym>JIT</acronym> is used, while others are only beneficial for
     longer-running queries.
     See <ulink url="https://llvm.org/docs/Passes.html#transform-passes"/> for
     more details about optimizations.
+-->
+<productname>LLVM</productname>は、生成したコードの最適化をサポートしています。
+ある最適化は<acronym>JIT</acronym>が使用される際に常に適用できるほど安価ですが、長時間実行する問い合わせのときだけ有利になるようなものもあります。
+最適化についてのさらなる詳細は、<ulink url="https://llvm.org/docs/Passes.html#transform-passes"/>をご覧ください。
    </para>
   </sect2>
 
  </sect1>
 
  <sect1 id="jit-decision">
+<!--
   <title>When to <acronym>JIT</acronym>?</title>
+-->
+  <title>どんなときに<acronym>JIT</acronym>を使うべきか？</title>
 
   <para>
+<!--
    <acronym>JIT</acronym> compilation is beneficial primarily for long-running
    CPU-bound queries. Frequently these will be analytical queries.  For short
    queries the added overhead of performing <acronym>JIT</acronym> compilation
    will often be higher than the time it can save.
+-->
+<acronym>JIT</acronym>コンパイルは、主に長時間実行するCPUバウンドの問い合わせに有益です。
+短い問い合わせでは、<acronym>JIT</acronym>コンパイルを行うことにより加わるオーバーヘッドはしばしばそれによって短縮できる時間よりも大きくなるでしょう。
   </para>
 
   <para>
+<!--
    To determine whether <acronym>JIT</acronym> compilation should be used,
    the total estimated cost of a query (see
    <xref linkend="planner-stats-details"/> and
@@ -119,31 +183,51 @@
    applied to improve the generated code.
    Each of these options increases the <acronym>JIT</acronym> compilation
    overhead, but can reduce query execution time considerably.
+-->
+<acronym>JIT</acronym>コンパイルを使うべきかどうかを決めるために、問い合わせの合計見積もり実行時間(<xref linkend="planner-stats-details"/>と<xref linkend="runtime-config-query-constants"/>を参照)が使用されます。
+問い合わせの見積もりコストは<xref linkend="guc-jit-above-cost"/>の設定と比較されます。
+もしもそのコストが大きければ、<acronym>JIT</acronym>コンパイルが実行されます。
+さらなる二つの決定が必要になります。
+まず、見積もりコストが<xref linkend="guc-jit-inline-above-cost"/>の設定よりも大きければ、問い合わせ中で使用される短い関数と演算子がインライン展開されます。
+次に、見積もりコストが<xref linkend="guc-jit-optimize-above-cost"/>の設定よりも大きければ、生成コードを改善するために、高価な最適化が適用されます。
+これらのオプションは<acronym>JIT</acronym>コンパイルのオーバーヘッドを大きくしますが、かなりクエリの実行時間を短縮します。
   </para>
 
   <para>
+<!--
    These cost-based decisions will be made at plan time, not execution
    time. This means that when prepared statements are in use, and a generic
    plan is used (see <xref linkend="sql-prepare"/>), the values of the
    configuration parameters in effect at prepare time control the decisions,
    not the settings at execution time.
+-->
+これらのコストに基づく決定は実行時ではなく、プラン時に行われます。
+このことは、準備された文が使われ、汎用プラン(<xref linkend="sql-prepare"/>参照)が用いられるときには、実行時ではなく、準備時に参照される設定パラメータの値が決定を左右することを意味します。
   </para>
 
   <note>
    <para>
+<!--
     If <xref linkend="guc-jit"/> is set to <literal>off</literal>, or if no
     <acronym>JIT</acronym> implementation is available (for example because
-    the server was compiled without <literal>--with-llvm</literal>),
+    the server was compiled without <literal>&#045;&#045;with-llvm</literal>),
     <acronym>JIT</acronym> will not be performed, even if it would be
     beneficial based on the above criteria.  Setting <xref linkend="guc-jit"/>
     to <literal>off</literal> has effects at both plan and execution time.
+-->
+<xref linkend="guc-jit"/>が<literal>off</literal>か、<acronym>JIT</acronym>実装が適用外（たとえばサーバが<literal>--with-llvm</literal>付きでコンパイルされていない）場合は、たとえ上記の基準からは有益であったとしても<acronym>JIT</acronym>は実行されません。
+<xref linkend="guc-jit"/>を<literal>off</literal>にすると、プラン時と実行時の両方に影響を与えます。
    </para>
   </note>
 
   <para>
+<!--
    <xref linkend="sql-explain"/> can be used to see whether
    <acronym>JIT</acronym> is used or not.  As an example, here is a query that
    is not using <acronym>JIT</acronym>:
+-->
+<xref linkend="sql-explain"/>を使って<acronym>JIT</acronym>が使われているかどうかを確認できます。
+<acronym>JIT</acronym>を使っていない例を示します。
 <screen>
 =# EXPLAIN ANALYZE SELECT SUM(relpages) FROM pg_class;
                                                  QUERY PLAN
@@ -154,10 +238,15 @@
  Execution Time: 0.365 ms
 (4 rows)
 </screen>
+<!--
    Given the cost of the plan, it is entirely reasonable that no
    <acronym>JIT</acronym> was used; the cost of <acronym>JIT</acronym> would
    have been bigger than the potential savings. Adjusting the cost limits
    will lead to <acronym>JIT</acronym> use:
+-->
+プランに与えられたコストによれば、<acronym>JIT</acronym>が使われないのは完全に合理的です。
+<acronym>JIT</acronym>のコストは潜在的な節約よりも大きいのです。
+コスト上限を調整すると、<acronym>JIT</acronym>が使われるようになります。
 <screen>
 =# SET jit_above_cost = 10;
 SET
@@ -173,18 +262,26 @@ SET
    Timing: Generation 1.259 ms, Inlining 0.000 ms, Optimization 0.797 ms, Emission 5.048 ms, Total 7.104 ms
  Execution Time: 7.416 ms
 </screen>
+<!--
    As visible here, <acronym>JIT</acronym> was used, but inlining and
    expensive optimization were not. If <xref
    linkend="guc-jit-inline-above-cost"/> or <xref
    linkend="guc-jit-optimize-above-cost"/> were also lowered,
    that would change.
+-->
+これを見るとわかるように、<acronym>JIT</acronym>は使われていますが、インライン展開と高価な最適化は行われていません。
+加えて<xref linkend="guc-jit-inline-above-cost"/>あるいは<xref linkend="guc-jit-optimize-above-cost"/>を小さくすれば、これは変わることでしょう。
   </para>
  </sect1>
 
  <sect1 id="jit-configuration" xreflabel="JIT Configuration">
+<!--
   <title>Configuration</title>
+-->
+  <title>設定</title>
 
   <para>
+<!--
    The configuration variable
    <xref linkend="guc-jit"/> determines whether <acronym>JIT</acronym>
    compilation is enabled or disabled.
@@ -194,27 +291,45 @@ SET
    linkend="guc-jit-optimize-above-cost"/> determine
    whether <acronym>JIT</acronym> compilation is performed for a query,
    and how much effort is spent doing so.
+-->
+設定パラメータの<xref linkend="guc-jit"/>は、<acronym>JIT</acronym>が有効か無効化を決定します。
+有効ならば、設定値<xref linkend="guc-jit-above-cost"/>、<xref linkend="guc-jit-inline-above-cost"/>、<xref linkend="guc-jit-optimize-above-cost"/>は問い合わせで<acronym>JIT</acronym>コンパイルが実行されるかどうか、どの程度の努力が<acronym>JIT</acronym>コンパイルに払われるのかを決定します。
   </para>
 
   <para>
+<!--
    <xref linkend="guc-jit-provider"/> determines which <acronym>JIT</acronym>
    implementation is used. It is rarely required to be changed. See <xref
    linkend="jit-pluggable"/>.
+-->
+<xref linkend="guc-jit-provider"/>はどの<acronym>JIT</acronym>実装が使われるのかを決定します。
+めったに変更する必要はありません。
+<xref linkend="jit-pluggable"/>を参照してください。
   </para>
 
   <para>
+<!--
    For development and debugging purposes a few additional configuration
    parameters exist, as described in
    <xref linkend="runtime-config-developer"/>.
+-->
+<xref linkend="runtime-config-developer"/>にあるように、開発とデバッグ目的のために少数の追加設定パラメータがあります。
   </para>
  </sect1>
 
  <sect1 id="jit-extensibility">
+<!--
   <title>Extensibility</title>
+-->
+  <title>拡張性</title>
 
   <sect2 id="jit-extensibility-bitcode">
+<!--
    <title>Inlining Support for Extensions</title>
+-->
+   <title>拡張のためのインライン展開サポート</title>
    <para>
+<!--
     <productname>PostgreSQL</productname>'s <acronym>JIT</acronym>
     implementation can inline the bodies of functions
     of types <literal>C</literal> and <literal>internal</literal>, as well as
@@ -223,30 +338,45 @@ SET
     When using <link linkend="extend-pgxs">PGXS</link> to build an extension
     against a server that has been compiled with LLVM JIT support, the
     relevant files will be built and installed automatically.
+-->
+<productname>PostgreSQL</productname>の<acronym>JIT</acronym>実装は、<literal>C</literal>と<literal>internal</literal>型の関数の本体をインライン展開できます。そうした関数に基づく演算子も同様です。
+拡張の関数に同じことを行うには、関数の定義が入手可能である必要があります。
+LLVM JITサポートがコンパイルされているサーバに対して<link linkend="extend-pgxs">PGXS</link>を使って拡張をビルドする際に、関連するファイルは自動的にビルドされ、インストールされます。
    </para>
 
    <para>
+<!--
     The relevant files have to be installed into
     <filename>$pkglibdir/bitcode/$extension/</filename> and a summary of them
     into <filename>$pkglibdir/bitcode/$extension.index.bc</filename>, where
     <literal>$pkglibdir</literal> is the directory returned by
-    <literal>pg_config --pkglibdir</literal> and <literal>$extension</literal>
+    <literal>pg_config &#045;&#045;pkglibdir</literal> and <literal>$extension</literal>
     is the base name of the extension's shared library.
+-->
+関連するファイルは<filename>$pkglibdir/bitcode/$extension/</filename>に、そのサマリは<filename>$pkglibdir/bitcode/$extension.index.bc</filename>にインストールされなければなりません。
+ここで、<literal>$pkglibdir</literal>は、<literal>pg_config --pkglibdir</literal>が返すディレクトリで、<literal>$extension</literal>は拡張の共有ライブラリのベース名です。
 
     <note>
      <para>
+<!--
       For functions built into <productname>PostgreSQL</productname> itself,
       the bitcode is installed into
       <literal>$pkglibdir/bitcode/postgres</literal>.
+-->
+<productname>PostgreSQL</productname>自身に組み込まれた関数については、ビットコードが<literal>$pkglibdir/bitcode/postgres</literal>にインストールされます。
      </para>
     </note>
    </para>
   </sect2>
 
   <sect2 id="jit-pluggable">
+<!--
    <title>Pluggable <acronym>JIT</acronym> Providers</title>
+-->
+   <title>プラグ可能<acronym>JIT</acronym>プロバイダ</title>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> provides a <acronym>JIT</acronym>
     implementation based on <productname>LLVM</productname>.  The interface to
     the <acronym>JIT</acronym> provider is pluggable and the provider can be
@@ -254,11 +384,19 @@ SET
     provides inlining support data for <productname>LLVM</productname>).
     The active provider is chosen via the setting
     <xref linkend="guc-jit-provider"/>.
+-->
+<productname>PostgreSQL</productname>は<productname>LLVM</productname>に基づいた<acronym>JIT</acronym>実装を提供します。
+<acronym>JIT</acronym>プロバイダのインタフェースはプラグ可能で、プロバイダは再コンパイルすることなく変更できます。（ただし今のところ、ビルドプロセスは<productname>LLVM</productname>用のインライン展開サポートデータのみを提供しています。)
+有効なプロバイダは<xref linkend="guc-jit-provider"/>の設定で選択できます。
    </para>
 
    <sect3>
+<!--
     <title><acronym>JIT</acronym> Provider Interface</title>
+-->
+    <title><acronym>JIT</acronym>プロバイダインタフェース</title>
     <para>
+<!--
      A <acronym>JIT</acronym> provider is loaded by dynamically loading the
      named shared library. The normal library search path is used to locate
      the library. To provide the required <acronym>JIT</acronym> provider
@@ -267,6 +405,11 @@ SET
      <function>_PG_jit_provider_init</function>. This function is passed a
      struct that needs to be filled with the callback function pointers for
      individual actions:
+-->
+名前付きの共有ライブラリをロードすることにより、<acronym>JIT</acronym>は動的にロードされます。
+ライブラリを特定するために通常のライブラリサーチパスが使用されます。
+必要な<acronym>JIT</acronym>プロバイダコールバックを提供し、かつそのライブラリが実際に<acronym>JIT</acronym>プロバイダであることを示すために、<function>_PG_jit_provider_init</function>という名前のC関数を提供する必要があります。
+この関数には構造体が渡され、その構造体には各々の動作用のコールバック関数へのポインタが設定される必要があります。
 <programlisting>
 struct JitProviderCallbacks
 {
