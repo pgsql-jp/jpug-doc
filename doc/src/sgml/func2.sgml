@@ -495,7 +495,10 @@
     </table>
 
    <para>
+<!--
     Usage notes for date/time formatting:
+-->
+日付/時刻型書式の使用上の注意事項は次のとおりです。
 
     <itemizedlist>
      <listitem>
@@ -540,11 +543,17 @@
        because <function>to_timestamp</function> expects only a single space.
        <literal>FX</literal> must be specified as the first item in
        the template.
+-->
+<literal>FX</literal>オプションが使用されていない限り、<function>to_timestamp</function>と<function>to_date</function>は入力文字列内最初の連続した空白と、日付と時間の値の周辺の複数の空白を無視します。
+例えば、<literal>to_timestamp('2000&nbsp;&nbsp;&nbsp;&nbsp;JUN', 'YYYY MON')</literal>と<literal>to_timestamp('2000 - JUN', 'YYYY-MON')</literal>は動作しますが、<literal>to_timestamp('2000&nbsp;&nbsp;&nbsp;&nbsp;JUN','FXYYYY MON')</literal>はエラーを返します。
+後者の<function>to_timestamp</function>は単一のスペースだけがあることを期待するからです。
+<literal>FX</literal>はテンプレートの第1項目として指定される必要があります。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        A separator (a space or non-letter/non-digit character) in the template string of
        <function>to_timestamp</function> and <function>to_date</function>
        matches any single separator in the input string or is skipped,
@@ -554,8 +563,12 @@
        <literal>to_timestamp('2000//JUN', 'YYYY/MON')</literal>
        returns an error because the number of separators in the input string
        exceeds the number of separators in the template.
+-->
+<literal>FX</literal>オプションが使用されていない限り、<function>to_timestamp</function>と<function>to_date</function>のテンプレート文字列中の区切り文字（空白あるいは記号文字(訳注：原文は"non-letter/non-digit character"））は入力文字中のすべての単一の区切り文字とマッチするか、あるいはマッチしない場合はスキップします。
+たとえば、<literal>to_timestamp('2000JUN', 'YYYY///MON')</literal>と<literal>to_timestamp('2000/JUN', 'YYYY MON')</literal>は動作しますが、<literal>to_timestamp('2000//JUN', 'YYYY/MON')</literal>は入力文字列中の区切り文字の数がテンプレート中の区切り文字の数を上回っているため、エラーを返します。
       </para>
       <para>
+<!--
        If <literal>FX</literal> is specified, a separator in the template string
        matches exactly one character in the input string.  But note that the
        input string character is not required to be the same as the separator from the template string.
@@ -563,11 +576,16 @@
        works, but <literal>to_timestamp('2000/JUN', 'FXYYYY&nbsp;&nbsp;MON')</literal>
        returns an error because the second space in the template string consumes
        the letter <literal>J</literal> from the input string.
+-->
+<literal>FX</literal>が指定されていると、テンプレート文字列中の区切り文字は正確に入力文字列中の一文字とマッチします。
+しかし、入力文字列の文字はテンプレート文字列中の区切り文字と一致する必要はないことに注意してください。
+たとえば、<literal>to_timestamp('2000/JUN', 'FXYYYY MON')</literal>は動作しますが、<literal>to_timestamp('2000/JUN', 'FXYYYY&nbsp;&nbsp;MON')</literal>はテンプレート文字列中の二番目の空白が入力文字列中の文字<literal>J</literal>を消費するため、エラーを返します。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        A <literal>TZH</literal> template pattern can match a signed number.
        Without the <literal>FX</literal> option, minus signs may be ambiguous,
        and could be interpreted as a separator.
@@ -580,11 +598,19 @@
        <literal>-10</literal> to <literal>TZH</literal>, but
        <literal>to_timestamp('2000 -10', 'YYYY&nbsp;&nbsp;TZH')</literal>
        matches <literal>10</literal> to <literal>TZH</literal>.
+-->
+<literal>TZH</literal>テンプレートパターンは符号付きの数字とマッチします。
+<literal>FX</literal>オプションが無い場合、マイナス符号は曖昧で、区切り文字として解釈されるかも知れません。
+この曖昧さは次のようにして解消されます。
+テンプレート文字列中の<literal>TZH</literal>の前の区切り文字の数が入力文字列中のマイナス符号の前の区切り文字の数よりも少なければ、そのマイナス符号は<literal>TZH</literal>の一部として解釈されます。
+そうでない場合、マイナス記号が値の区切り記号と見なされます。
+たとえば、<literal>to_timestamp('2000 -10', 'YYYY TZH')</literal>では<literal>-10</literal>が<literal>TZH</literal>にマッチしますが、<literal>to_timestamp('2000 -10', 'YYYY&nbsp;&nbsp;TZH')</literal>では<literal>10</literal>が<literal>TZH</literal>にマッチします。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Ordinary text is allowed in <function>to_char</function>
        templates and will be output literally.  You can put a substring
        in double quotes to force it to be interpreted as literal text
@@ -597,6 +623,11 @@
        strings result in skipping the number of characters contained in the
        string; for example <literal>"XX"</literal> skips two input characters
        (whether or not they are <literal>XX</literal>).
+-->
+<function>to_char</function>テンプレートには、通常のテキストを入れることができ、それはそのまま出力されます。
+部分文字列を二重引用符で括ることで、部分文字列にテンプレートパターンがあったとしても、強制的にリテラルテキストとして解釈させることができます。
+例えば、<literal>'"Hello Year "YYYY'</literal>では<literal>YYYY</literal>は年データに置換されてしまいますが、<literal>Year</literal>内の<literal>Y</literal>は置換されません。
+<function>to_date</function>、<function>to_number</function>、<function>to_timestamp</function>では、二重引用符で括られた文字の数だけ入力された文字をスキップします。例えば<literal>"XX"</literal>は2文字の入力文字（それが<literal>XX</literal>であるかどうかにかかわらず)をスキップします。
       </para>
       <tip>
         <para>
@@ -639,6 +670,15 @@
      <listitem>
       <para>
        In <function>to_timestamp</function> and <function>to_date</function>,
+       negative years are treated as signifying BC.  If you write both a
+       negative year and an explicit <literal>BC</literal> field, you get AD
+       again.  An input of year zero is treated as 1 BC.
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+       In <function>to_timestamp</function> and <function>to_date</function>,
        the <literal>YYYY</literal> conversion has a restriction when
        processing years with more than 4 digits. You must
        use some non-digit character or template after <literal>YYYY</literal>,
@@ -649,11 +689,16 @@
        separator after the year, like
        <literal>to_date('20000-1131', 'YYYY-MMDD')</literal> or
        <literal>to_date('20000Nov31', 'YYYYMonDD')</literal>.
+-->
+<function>to_timestamp</function>および<function>to_date</function>において<literal>YYYY</literal>変換は、5桁以上の年数値を処理するときに制限事項があります。
+このような場合、<literal>YYYY</literal>の後に数字以外の文字またはテンプレートを使わなければなりません。 そうしないと年は常に4桁と解釈されます。
+例えば（20000年として）、<literal>to_date('200001131', 'YYYYMMDD')</literal>は4桁の年と解釈されるので、代わりに<literal>to_date('20000-1131', 'YYYY-MMDD')</literal>または<literal>to_date('20000Nov31', 'YYYYMonDD')</literal>のように数字でない区切り文字を使用してください。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        In <function>to_timestamp</function> and <function>to_date</function>,
        the <literal>CC</literal> (century) field is accepted but ignored
        if there is a <literal>YYY</literal>, <literal>YYYY</literal> or
@@ -662,51 +707,77 @@
        computed as that year in the specified century.  If the century is
        specified but the year is not, the first year of the century
        is assumed.
+-->
+<function>to_timestamp</function>および<function>to_date</function>において<literal>YYY</literal>、<literal>YYYY</literal>、もしくは<literal>Y,YYY</literal>フィールドが存在すると<literal>CC</literal>（世紀）フィールドは受け入れられますが、無視されます。
+<literal>CC</literal>が<literal>YY</literal>もしくは<literal>Y</literal>と共に使用されると、結果は指定された世紀のその年として計算されます。
+世紀が指定され、年が指定されないときは、その世紀の最初の年と想定されます。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        In <function>to_timestamp</function> and <function>to_date</function>,
        weekday names or numbers (<literal>DAY</literal>, <literal>D</literal>,
        and related field types) are accepted but are ignored for purposes of
        computing the result.  The same is true for quarter
        (<literal>Q</literal>) fields.
+-->
+<function>to_timestamp</function>および<function>to_date</function>において、曜日の名前や数字（<literal>DAY</literal>、<literal>D</literal>および関連したフィールドの型）は受け付けられますが、結果を計算するという目的においては無視されます。
+同じことは四半期（<literal>Q</literal>）フィールドにも当てはまります。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        In <function>to_timestamp</function> and <function>to_date</function>,
        an ISO 8601 week-numbering date (as distinct from a Gregorian date)
        can be specified in one of two ways:
+-->
+<function>to_timestamp</function>および<function>to_date</function>において、
+ISO 8601週番号日は（グレゴリオ暦の日付とは異なって）以下の２つの方法のうちのひとつで指定できます。
        <itemizedlist>
         <listitem>
          <para>
+<!--
           Year, week number, and weekday:  for
           example <literal>to_date('2006-42-4', 'IYYY-IW-ID')</literal>
           returns the date <literal>2006-10-19</literal>.
           If you omit the weekday it is assumed to be 1 (Monday).
+-->
+年、通年の週番号、曜日番号。
+例えば、<literal>to_date('2006-42-4', 'IYYY-IW-ID')</literal>は、日付<literal>2006-10-19</literal>を返します。
+曜日番号を省略した場合、1（月曜日）と想定されます。
          </para>
         </listitem>
         <listitem>
          <para>
+<!--
           Year and day of year:  for example <literal>to_date('2006-291',
           'IYYY-IDDD')</literal> also returns <literal>2006-10-19</literal>.
+-->
+年と通年の日付番号。例えば、<literal>to_date('2006-291', 'IYYY-IDDD')</literal>も<literal>2006-10-19</literal>を返します。
          </para>
         </listitem>
        </itemizedlist>
       </para>
       <para>
+<!--
        Attempting to enter a date using a mixture of ISO 8601 week-numbering
        fields and Gregorian date fields is nonsensical, and will cause an
        error.  In the context of an ISO 8601 week-numbering year, the
        concept of a <quote>month</quote> or <quote>day of month</quote> has no
        meaning.  In the context of a Gregorian year, the ISO week has no
        meaning.
+-->
+ISO 8601週番号とグレゴリオ暦日のフィールドを混在して使用して日付を構築する試みは無意味なことで、エラーの原因になります。
+ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>月内の日付番号</quote>は意味を持ちません。
+グレゴリオ暦の年の文脈では、ISO週番号は意味を持ちません。
       </para>
       <caution>
        <para>
+<!--
         While <function>to_date</function> will reject a mixture of
         Gregorian and ISO week-numbering date
         fields, <function>to_char</function> will not, since output format
@@ -715,12 +786,17 @@
         that would yield surprising results near the start of the year.
         (See <xref linkend="functions-datetime-extract"/> for more
         information.)
+-->
+<function>to_date</function>はグレゴリオとISO週番号日のフィールドの混在を拒否しますが、<function>to_char</function>はそうではありません。<literal>YYYY-MM-DD (IYYY-IDDD)</literal>のような出力書式指定が有用な場合があるからです。
+しかし、<literal>IYYY-MM-DD</literal>のような書き方は避けてください。年の初めの近くで驚くべき結果になるでしょう。
+(より詳細な情報は<xref linkend="functions-datetime-extract"/>を参照してください。)
        </para>
       </caution>
      </listitem>
 
      <listitem>
       <para>
+<!--
        In <function>to_timestamp</function>, millisecond
        (<literal>MS</literal>) or microsecond (<literal>US</literal>)
        fields are used as the
@@ -733,33 +809,50 @@
        same number of milliseconds. To get three milliseconds, one must write
        <literal>12.003</literal>, which the conversion treats as
        12 + 0.003 = 12.003 seconds.
+-->
+<function>to_timestamp</function>において、ミリ秒（<literal>MS</literal>）およびマイクロ秒（<literal>US</literal>）フィールドは小数点の後の秒の桁として使用されます。
+例えば、<literal>to_timestamp('12.3', 'SS.MS')</literal>は3ミリ秒ではなく300ミリ秒です。なぜなら変換においてこれは12 + 0.3秒と計算されるからです。
+従って<literal>SS.MS</literal>書式に対して入力値<literal>12.3</literal>、<literal>12.30</literal>、<literal>12.300</literal>は同じミリ秒数を指定することになります。
+3ミリ秒が必要な場合には<literal>12:003</literal>のようにしなければなりません。この時、変換において12 + 0.003 = 12.003秒と計算します。
       </para>
 
       <para>
+<!--
        Here is a more
        complex example:
        <literal>to_timestamp('15:12:02.020.001230', 'HH24:MI:SS.MS.US')</literal>
        is 15 hours, 12 minutes, and 2 seconds + 20 milliseconds +
        1230 microseconds = 2.021230 seconds.
+-->
+もう少し複雑な例を挙げます。
+<literal>to_timestamp('15:12:02.020.001230','HH:MI:SS.MS.US')</literal>は15時間12分と2秒+20ミリ秒+1230マイクロ秒 = 2.021230秒です。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
         <function>to_char(..., 'ID')</function>'s day of the week numbering
         matches the <function>extract(isodow from ...)</function> function, but
         <function>to_char(..., 'D')</function>'s does not match
         <function>extract(dow from ...)</function>'s day numbering.
+-->
+<function>to_char(..., 'ID')</function>の曜日番号付けは<function>extract(isodow from ...)</function>関数に一致しますが、<function>to_char(..., 'D')</function>の曜日番号付けは<function>extract(dow from ...)</function>の曜日番号付けに一致しません。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
         <function>to_char(interval)</function> formats <literal>HH</literal> and
         <literal>HH12</literal> as shown on a 12-hour clock, for example zero hours
         and 36 hours both output as <literal>12</literal>, while <literal>HH24</literal>
         outputs the full hour value, which can exceed 23 in
         an <type>interval</type> value.
+-->
+<function>to_char(interval)</function>関数は、<literal>HH</literal>と<literal>HH12</literal>を12時間の時計に表示されるように整形します。
+例えば0時間と36時間はいずれも<literal>12</literal>として出力します。
+一方<literal>HH24</literal>は時間の値をそのまま出力し、<type>interval</type>の値であれば23を超えることも可能です。
       </para>
      </listitem>
 
@@ -767,105 +860,175 @@
    </para>
 
   <para>
+<!--
    <xref linkend="functions-formatting-numeric-table"/> shows the
    template patterns available for formatting numeric values.
+-->
+<xref linkend="functions-formatting-numeric-table"/>に、数値の書式設定に使用可能なテンプレートパターンを示します。
   </para>
 
     <table id="functions-formatting-numeric-table">
+<!--
      <title>Template Patterns for Numeric Formatting</title>
+-->
+     <title>数値書式用のテンプレートパターン</title>
      <tgroup cols="2">
       <thead>
        <row>
+<!--
         <entry>Pattern</entry>
         <entry>Description</entry>
+-->
+        <entry>パターン</entry>
+        <entry>説明</entry>
        </row>
       </thead>
       <tbody>
        <row>
         <entry><literal>9</literal></entry>
+<!--
         <entry>digit position (can be dropped if insignificant)</entry>
+-->
+        <entry>数字の位置（必要ないときは表示しない）</entry>
        </row>
        <row>
         <entry><literal>0</literal></entry>
+<!--
         <entry>digit position (will not be dropped, even if insignificant)</entry>
+-->
+        <entry>数字の位置（必要ないときでも表示する）</entry>
        </row>
        <row>
+<!--
         <entry><literal>.</literal> (period)</entry>
         <entry>decimal point</entry>
+-->
+        <entry><literal>.</literal>（ピリオド）</entry>
+        <entry>小数点</entry>
        </row>
        <row>
+<!--
         <entry><literal>,</literal> (comma)</entry>
         <entry>group (thousands) separator</entry>
+-->
+        <entry><literal>,</literal> (コンマ)</entry>
+        <entry>千単位で区切る符号</entry>
        </row>
        <row>
         <entry><literal>PR</literal></entry>
+<!--
         <entry>negative value in angle brackets</entry>
+-->
+        <entry>負の値の角括弧表示</entry>
        </row>
        <row>
         <entry><literal>S</literal></entry>
+<!--
         <entry>sign anchored to number (uses locale)</entry>
+-->
+        <entry>符号付き値（ロケールを使用）</entry>
        </row>
        <row>
         <entry><literal>L</literal></entry>
+<!--
         <entry>currency symbol (uses locale)</entry>
+-->
+        <entry>通貨記号（ロケールを使用）</entry>
        </row>
        <row>
         <entry><literal>D</literal></entry>
+<!--
         <entry>decimal point (uses locale)</entry>
+-->
+        <entry>小数点（ロケールを使用）</entry>
        </row>
        <row>
         <entry><literal>G</literal></entry>
+<!--
         <entry>group separator (uses locale)</entry>
+-->
+        <entry>グループ区切り文字（ロケールを使用）</entry>
        </row>
        <row>
         <entry><literal>MI</literal></entry>
+<!--
         <entry>minus sign in specified position (if number &lt; 0)</entry>
+-->
+        <entry>（数値 &lt; 0であれば）指定位置にマイナス記号</entry>
        </row>
        <row>
         <entry><literal>PL</literal></entry>
+<!--
         <entry>plus sign in specified position (if number &gt; 0)</entry>
+-->
+        <entry>（数値 &gt; 0であれば）指定位置にプラス記号</entry>
        </row>
        <row>
         <entry><literal>SG</literal></entry>
+<!--
         <entry>plus/minus sign in specified position</entry>
+-->
+        <entry>指定された位置にプラス/マイナス記号</entry>
        </row>
        <row>
         <entry><literal>RN</literal></entry>
+<!--
         <entry>Roman numeral (input between 1 and 3999)</entry>
+-->
+        <entry>ローマ数字（入力は1～3999）</entry>
        </row>
        <row>
+<!--
         <entry><literal>TH</literal> or <literal>th</literal></entry>
         <entry>ordinal number suffix</entry>
+-->
+        <entry><literal>TH</literal>または<literal>th</literal></entry>
+        <entry>序数接尾辞</entry>
        </row>
        <row>
         <entry><literal>V</literal></entry>
+<!--
         <entry>shift specified number of digits (see notes)</entry>
+-->
+        <entry><replaceable>n</replaceable> 桁シフト（注意事項を参照）</entry>
        </row>
        <row>
         <entry><literal>EEEE</literal></entry>
+<!--
         <entry>exponent for scientific notation</entry>
+-->
+        <entry>科学技術表記法用の指数</entry>
        </row>
       </tbody>
      </tgroup>
     </table>
 
    <para>
+<!--
     Usage notes for numeric formatting:
+-->
+数値型書式の使用上の注意事項は次のとおりです。
 
     <itemizedlist>
      <listitem>
       <para>
+<!--
        <literal>0</literal> specifies a digit position that will always be printed,
        even if it contains a leading/trailing zero.  <literal>9</literal> also
        specifies a digit position, but if it is a leading zero then it will
        be replaced by a space, while if it is a trailing zero and fill mode
        is specified then it will be deleted.  (For <function>to_number()</function>,
        these two pattern characters are equivalent.)
+-->
+<literal>0</literal>は、それが先頭あるいは末尾のゼロであっても必ず表示する数字の位置を指定します。
+<literal>9</literal>も数字の位置を指定しますが、先頭のゼロであればそれは空白で置換され、また末尾のゼロで字詰めモードが指定されているときは削除されます。
+（<function>to_number()</function>では、これら2つのパターン文字は同じ意味になります。）
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        The pattern characters <literal>S</literal>, <literal>L</literal>, <literal>D</literal>,
        and <literal>G</literal> represent the sign, currency symbol, decimal point,
        and thousands separator characters defined by the current locale
@@ -873,21 +1036,29 @@
        and <xref linkend="guc-lc-numeric"/>).  The pattern characters period
        and comma represent those exact characters, with the meanings of
        decimal point and thousands separator, regardless of locale.
+-->
+パターン文字<literal>S</literal>、<literal>L</literal>、<literal>D</literal>、<literal>G</literal>はそれぞれ現在のロケールで定義された符号、通貨記号、小数点、3桁区切り文字を表します（<xref linkend="guc-lc-monetary"/>および<xref linkend="guc-lc-numeric"/>を参照）。
+パターン文字のピリオドとカンマはいずれもその文字そのものを表し、ロケールとは関係なく小数点と3桁区切り文字の意味を持ちます。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        If no explicit provision is made for a sign
        in <function>to_char()</function>'s pattern, one column will be reserved for
        the sign, and it will be anchored to (appear just left of) the
        number.  If <literal>S</literal> appears just left of some <literal>9</literal>'s,
        it will likewise be anchored to the number.
+-->
+<function>to_char()</function>のパターンで符号について明示的な条件付けがない場合、符号のために一桁が予約され、それは数に繋げられます（すぐ左側に置かれます）。
+<literal>S</literal>がいくつかの<literal>9</literal>のすぐ左に置かれた場合、同様に数に繋げられます。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        A sign formatted using <literal>SG</literal>, <literal>PL</literal>, or
        <literal>MI</literal> is not anchored to
        the number; for example,
@@ -897,37 +1068,51 @@
        <literal>MI</literal> before <literal>9</literal>, but rather
        requires that <literal>9</literal> precede
        <literal>MI</literal>.)
+-->
+<literal>SG</literal>、<literal>PL</literal>、または<literal>MI</literal>で整形された符号は、数値と関連付けられません。
+例えば、<literal>to_char(-12, 'MI9999')</literal>は<literal>'-&nbsp;&nbsp;12'</literal>となる一方、<literal>to_char(-12, 'S9999')</literal>は<literal>'&nbsp;&nbsp;-12'</literal>となります。
+（Oracleの実装では<literal>9</literal>の前に<literal>MI</literal>が置かれてはならず、<literal>9</literal>の後に<literal>MI</literal>が置かれることを要求しています。）
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        <literal>TH</literal> does not convert values less than zero
        and does not convert fractional numbers.
+-->
+<literal>TH</literal>はゼロ未満の値と小数は変換しません
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        <literal>PL</literal>, <literal>SG</literal>, and
        <literal>TH</literal> are <productname>PostgreSQL</productname>
        extensions.
+-->
+<literal>PL</literal>、<literal>SG</literal>、および<literal>TH</literal>は<productname>PostgreSQL</productname>の拡張です。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        In <function>to_number</function>, if non-data template patterns such
        as <literal>L</literal> or <literal>TH</literal> are used, the
        corresponding number of input characters are skipped, whether or not
        they match the template pattern, unless they are data characters
        (that is, digits, sign, decimal point, or comma).  For
        example, <literal>TH</literal> would skip two non-data characters.
+-->
+<function>to_number</function>において、<literal>L</literal>あるいは<literal>TH</literal>のように非データテンプレートが使われた場合には、それがデータ文字（すなわち、数字、符号、10進小数点あるいはカンマ）でない限りテンプレートパターンにマッチするかどうかにかかわらず、該当する数分だけの入力文字がスキップされます。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        <literal>V</literal> with <function>to_char</function>
        multiplies the input values by
        <literal>10^<replaceable>n</replaceable></literal>, where
@@ -938,53 +1123,93 @@
        do not support the use of
        <literal>V</literal> combined with a decimal point
        (e.g., <literal>99.9V99</literal> is not allowed).
+-->
+<literal>V</literal>を<function>to_char</function>につけると、入力値を<literal>10^<replaceable>n</replaceable></literal>倍します。
+ここで<replaceable>n</replaceable>は<literal>V</literal>に続く桁数です。
+<literal>V</literal>を<function>to_number</function>につけると、同じように割り算をします。
+<function>to_char</function>および<function>to_number</function>は、小数点と<literal>V</literal>との混在をサポートしません（例えば、<literal>99.9V99</literal> とはできません）。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        <literal>EEEE</literal> (scientific notation) cannot be used in
        combination with any of the other formatting patterns or
        modifiers other than digit and decimal point patterns, and must be at the end of the format string
        (e.g., <literal>9.99EEEE</literal> is a valid pattern).
+-->
+<literal>EEEE</literal>(科学技術表記)は、桁と小数点のパターンを除き、他の書式パターンや修飾子と組み合わせて使うことはできず、また必ず書式文字列の最後に位置しなければなりません(例えば、<literal>9.99EEEE</literal>は正しい表記となります)。
       </para>
      </listitem>
     </itemizedlist>
    </para>
 
    <para>
+<!--
     Certain modifiers can be applied to any template pattern to alter its
     behavior.  For example, <literal>FM99.99</literal>
     is the <literal>99.99</literal> pattern with the
     <literal>FM</literal> modifier.
     <xref linkend="functions-formatting-numericmod-table"/> shows the
     modifier patterns for numeric formatting.
+-->
+すべてのテンプレートについて、その動作を変えるために、いくつかの修飾子を適用できます。
+例えば、<literal>FM99.99</literal>は<literal>FM</literal>修飾子が付いた<literal>99.99</literal>パターンです。
+<xref linkend="functions-formatting-numericmod-table"/>に、数値の書式用の修飾子パターンを示します。
    </para>
 
     <table id="functions-formatting-numericmod-table">
+<!--
      <title>Template Pattern Modifiers for Numeric Formatting</title>
+-->
+     <title>数値の書式用テンプレートパターン修飾子</title>
      <tgroup cols="3">
       <thead>
        <row>
+<!--
         <entry>Modifier</entry>
         <entry>Description</entry>
         <entry>Example</entry>
+-->
+        <entry>修飾子</entry>
+        <entry>説明</entry>
+        <entry>例</entry>
        </row>
       </thead>
       <tbody>
        <row>
+<!--
         <entry><literal>FM</literal> prefix</entry>
+-->
+        <entry><literal>FM</literal>添え字</entry>
+<!--
         <entry>fill mode (suppress trailing zeroes and padding blanks)</entry>
+        <entry><literal>FM99.99</literal></entry>
+-->
+        <entry>字詰めモード（末尾の0と空白の埋め字を無効にする）</entry>
         <entry><literal>FM99.99</literal></entry>
        </row>
        <row>
+<!--
         <entry><literal>TH</literal> suffix</entry>
+-->
+        <entry><literal>TH</literal>添え字</entry>
+<!--
         <entry>upper case ordinal number suffix</entry>
+-->
+        <entry>大文字による序数添え字</entry>
         <entry><literal>999TH</literal></entry>
        </row>
        <row>
+<!--
         <entry><literal>th</literal> suffix</entry>
+-->
+        <entry><literal>th</literal>添え字</entry>
+<!--
         <entry>lower case ordinal number suffix</entry>
+-->
+        <entry>子文字による序数添え字</entry>
         <entry><literal>999th</literal></entry>
        </row>
       </tbody>
@@ -992,17 +1217,27 @@
     </table>
 
   <para>
+<!--
    <xref linkend="functions-formatting-examples-table"/> shows some
    examples of the use of the <function>to_char</function> function.
+-->
+<xref linkend="functions-formatting-examples-table"/>に、<function>to_char</function>関数を使用した例をいくつか示します。
   </para>
 
     <table id="functions-formatting-examples-table">
+<!--
      <title><function>to_char</function> Examples</title>
+-->
+     <title><function>to_char</function>の例</title>
      <tgroup cols="2">
       <thead>
        <row>
+<!--
         <entry>Expression</entry>
         <entry>Result</entry>
+-->
+        <entry>式</entry>
+        <entry>結果</entry>
        </row>
       </thead>
       <tbody>
@@ -1166,9 +1401,13 @@
 
 
   <sect1 id="functions-datetime">
+<!--
    <title>Date/Time Functions and Operators</title>
+-->
+   <title>日付/時刻関数と演算子</title>
 
   <para>
+<!--
    <xref linkend="functions-datetime-table"/> shows the available
    functions for date/time value processing, with details appearing in
    the following subsections.  <xref
@@ -1178,6 +1417,11 @@
    <xref linkend="functions-formatting"/>.  You should be familiar with
    the background information on date/time data types from <xref
    linkend="datatype-datetime"/>.
+-->
+<xref linkend="functions-datetime-table"/>は、日付/時刻型の値の処理で使用可能な関数を示しています。詳細は、以下の副節で説明します。
+<xref linkend="operators-datetime-table"/>は、（<literal>+</literal>、<literal>*</literal>等の）基本的な算術演算子の振舞いを説明しています。
+書式設定関数については<xref linkend="functions-formatting"/>を参照してください。
+<xref linkend="datatype-datetime"/>を参照して、日付/時刻データ型についての背景となっている情報に精通していなければなりません。
   </para>
 
   <para>
@@ -1908,13 +2152,13 @@
         <entry role="func_table_entry"><para role="func_signature"><indexterm>
           <primary>make_interval</primary>
          </indexterm>
-         <function>make_interval</function> ( <optional> <parameter>year</parameter> <type>int</type>
-         <optional>, <parameter>month</parameter> <type>int</type>
-         <optional>, <parameter>week</parameter> <type>int</type>
-         <optional>, <parameter>day</parameter> <type>int</type>
-         <optional>, <parameter>hour</parameter> <type>int</type>
-         <optional>, <parameter>min</parameter> <type>int</type>
-         <optional>, <parameter>sec</parameter> <type>double precision</type>
+         <function>make_interval</function> ( <optional> <parameter>years</parameter> <type>int</type>
+         <optional>, <parameter>months</parameter> <type>int</type>
+         <optional>, <parameter>weeks</parameter> <type>int</type>
+         <optional>, <parameter>days</parameter> <type>int</type>
+         <optional>, <parameter>hours</parameter> <type>int</type>
+         <optional>, <parameter>mins</parameter> <type>int</type>
+         <optional>, <parameter>secs</parameter> <type>double precision</type>
          </optional></optional></optional></optional></optional></optional></optional> )
          <returnvalue>interval</returnvalue>
         </para>
@@ -2092,12 +2336,16 @@
     <indexterm>
       <primary>OVERLAPS</primary>
     </indexterm>
+<!--
     In addition to these functions, the SQL <literal>OVERLAPS</literal> operator is
     supported:
+-->
+これらの関数に加え、<literal>OVERLAPS</literal> SQL演算子がサポートされています。
 <synopsis>
 (<replaceable>start1</replaceable>, <replaceable>end1</replaceable>) OVERLAPS (<replaceable>start2</replaceable>, <replaceable>end2</replaceable>)
 (<replaceable>start1</replaceable>, <replaceable>length1</replaceable>) OVERLAPS (<replaceable>start2</replaceable>, <replaceable>length2</replaceable>)
 </synopsis>
+<!--
     This expression yields true when two time periods (defined by their
     endpoints) overlap, false when they do not overlap.  The endpoints
     can be specified as pairs of dates, times, or time stamps; or as
@@ -2110,6 +2358,12 @@
     <replaceable>start</replaceable> and <replaceable>end</replaceable> are equal in which case it
     represents that single time instant.  This means for instance that two
     time periods with only an endpoint in common do not overlap.
+-->
+この式は、2つの時間間隔（その両端で定義されます）が重なる時に真を返します。重ならない場合は偽を返します。
+両端は2つの日付、時刻、タイムスタンプとして、もしくは、日付/時刻/タイムスタンプとそれに続く時間間隔として指定できます。
+値の組み合わせで指定する場合、開始と終了のいずれを先に記述しても構いません。<literal>OVERLAPS</literal>は与えられた値のうち、早い方を開始として扱います。
+各時間間隔は、<replaceable>start</replaceable> <literal>&lt;=</literal> <replaceable>time</replaceable> <literal>&lt;</literal> <replaceable>end</replaceable>という半開区間として見なされます。ただし、<replaceable>start</replaceable>と<replaceable>end</replaceable>が同じ値の場合には単一の時間点となります。
+これは、例えば端点のみが共通である2つの時間間隔は、重ならないということを意味します。
    </para>
 
 <screen>
@@ -2128,6 +2382,7 @@ SELECT (DATE '2001-10-30', DATE '2001-10-30') OVERLAPS
 </screen>
 
   <para>
+<!--
    When adding an <type>interval</type> value to (or subtracting an
    <type>interval</type> value from) a <type>timestamp with time zone</type>
    value, the days component advances or decrements the date of the
@@ -2147,9 +2402,21 @@ SELECT timestamp with time zone '2005-04-02 12:00:00-07' + interval '24 hours';
    This happens because an hour was skipped due to a change in daylight saving
    time at <literal>2005-04-03 02:00:00</literal> in time zone
    <literal>America/Denver</literal>.
+-->
+<type>timestamp with time zone</type>の値に<type>interval</type>の値を加える時（または<type>interval</type>の値を引く時）、日にちの部分は、<type>timestamp with time zone</type>の日付を指定された日数だけ先に進める、もしくは後に戻し、時刻は同じに保ちます。
+（セッションの時間帯がDSTを認識する設定の場合）夏時間の移行に跨っての変化に関しては、<literal>interval '1 day'</literal>が<literal>interval '24 hours'</literal>に等しいとは限りません。
+例えば、セッションの時間帯が <literal>America/Denver</literal>に設定されている時には以下のようになります。
+<screen>
+SELECT timestamp with time zone '2005-04-02 12:00:00-07' + interval '1 day';
+<lineannotation>結果: </lineannotation><computeroutput>2005-04-03 12:00:00-06</computeroutput>
+SELECT timestamp with time zone '2005-04-02 12:00:00-07' + interval '24 hours';
+<lineannotation>結果: </lineannotation><computeroutput>2005-04-03 13:00:00-06</computeroutput>
+</screen>
+その理由は<literal>America/Denver</literal>時間帯で<literal>2005-04-03 02:00</literal>に夏時間への変更があるからです。
   </para>
 
   <para>
+<!--
    Note there can be ambiguity in the <literal>months</literal> field returned by
    <function>age</function> because different months have different numbers of
    days.  <productname>PostgreSQL</productname>'s approach uses the month from the
@@ -2157,9 +2424,14 @@ SELECT timestamp with time zone '2005-04-02 12:00:00-07' + interval '24 hours';
    <literal>age('2004-06-01', '2004-04-30')</literal> uses April to yield
    <literal>1 mon 1 day</literal>, while using May would yield <literal>1 mon 2
    days</literal> because May has 31 days, while April has only 30.
+-->
+異なる月では日数が異なりますので<function>age</function>で返される<literal>months</literal>フィールドにはあいまいさがあります。
+<productname>PostgreSQL</productname>のやり方は月をまたがる２つの日付の計算において、日付の早いほうの月を使用します。
+例えば、<literal>age('2004-06-01', '2004-04-30')</literal>は4月を使用して<literal>1 mon 1 day</literal>を得ます。5月は31日あり、4月は30日のため、もし5月を使用するなら結果は<literal>1 mon 2 days</literal>となるでしょう。
   </para>
 
   <para>
+<!--
    Subtraction of dates and timestamps can also be complex.  One conceptually
    simple way to perform subtraction is to convert each value to a number
    of seconds using <literal>EXTRACT(EPOCH FROM ...)</literal>, then subtract the
@@ -2176,20 +2448,40 @@ SELECT timestamp with time zone '2005-04-02 12:00:00-07' + interval '24 hours';
    approaches.  The sample results were produced with <literal>timezone
    = 'US/Eastern'</literal>; there is a daylight saving time change between the
    two dates used:
+-->
+日付とタイムスタンプの引き算は複雑になることがあります。
+引き算をする概念的に単純な方法は、それぞれの値を秒数に<literal>EXTRACT(EPOCH FROM ...)</literal>で変換してから、結果を引き算する方法です。この結果は2つの値の間の<emphasis>秒</emphasis>数になります。
+これは各月の日数、時間帯の変更、夏時間の調整に対して調整されるでしょう。
+<quote><literal>-</literal></quote>演算子での日付やタイムスタンプの引き算は値の間の(24時間の)日数と時間/分/秒を、同様に調整して返します。
+<function>age</function>関数は年、月、日、時間/分/秒をフィールド毎に引き算し、負のフィールドの値を調整します。
+以下の問い合わせは上の各方法の違いを説明する例です。
+例の結果は<literal>timezone = 'US/Eastern'</literal>で生成されました。2つの日付の間には夏時間の変更があります。
   </para>
 
 <screen>
 SELECT EXTRACT(EPOCH FROM timestamptz '2013-07-01 12:00:00') -
        EXTRACT(EPOCH FROM timestamptz '2013-03-01 12:00:00');
+<!--
 <lineannotation>Result: </lineannotation><computeroutput>10537200</computeroutput>
+-->
+<lineannotation>結果: </lineannotation><computeroutput>10537200</computeroutput>
 SELECT (EXTRACT(EPOCH FROM timestamptz '2013-07-01 12:00:00') -
         EXTRACT(EPOCH FROM timestamptz '2013-03-01 12:00:00'))
         / 60 / 60 / 24;
+<!--
 <lineannotation>Result: </lineannotation><computeroutput>121.958333333333</computeroutput>
+-->
+<lineannotation>結果: </lineannotation><computeroutput>121.958333333333</computeroutput>
 SELECT timestamptz '2013-07-01 12:00:00' - timestamptz '2013-03-01 12:00:00';
+<!--
 <lineannotation>Result: </lineannotation><computeroutput>121 days 23:00:00</computeroutput>
+-->
+<lineannotation>結果: </lineannotation><computeroutput>121 days 23:00:00</computeroutput>
 SELECT age(timestamptz '2013-07-01 12:00:00', timestamptz '2013-03-01 12:00:00');
+<!--
 <lineannotation>Result: </lineannotation><computeroutput>4 mons</computeroutput>
+-->
+<lineannotation>結果: </lineannotation><computeroutput>4 mons</computeroutput>
 </screen>
 
   <sect2 id="functions-datetime-extract">
@@ -2207,6 +2499,7 @@ EXTRACT(<replaceable>field</replaceable> FROM <replaceable>source</replaceable>)
 </synopsis>
 
    <para>
+<!--
     The <function>extract</function> function retrieves subfields
     such as year or hour from date/time values.
     <replaceable>source</replaceable> must be a value expression of
@@ -2218,6 +2511,11 @@ EXTRACT(<replaceable>field</replaceable> FROM <replaceable>source</replaceable>)
     The <function>extract</function> function returns values of type
     <type>double precision</type>.
     The following are valid field names:
+-->
+<function>extract</function>関数は、日付/時刻の値から年や時などの部分フィールドを抽出します。
+<replaceable>source</replaceable>は<type>timestamp</type>型、<type>time</type>型、または<type>interval</type>型の評価式でなければなりません（<type>date</type>型の式は<type>timestamp</type>型にキャストされますので、同様に使用可能です）。
+<replaceable>field</replaceable>はsourceの値からどのフィールドを抽出するかを選択する識別子もしくは文字列です。
+<function>extract</function>関数は<type>double precision</type>型の値を返します。以下に有効なフィールド名を示します。
 
     <!-- alphabetical -->
     <variablelist>
@@ -2225,7 +2523,10 @@ EXTRACT(<replaceable>field</replaceable> FROM <replaceable>source</replaceable>)
       <term><literal>century</literal></term>
       <listitem>
        <para>
+<!--
         The century
+-->
+世紀
        </para>
 
 <screen>
@@ -2236,6 +2537,7 @@ SELECT EXTRACT(CENTURY FROM TIMESTAMP '2001-02-16 20:38:40');
 </screen>
 
        <para>
+<!--
         The first century starts at 0001-01-01 00:00:00 AD, although
         they did not know it at the time. This definition applies to all
         Gregorian calendar countries. There is no century number 0,
@@ -2243,6 +2545,12 @@ SELECT EXTRACT(CENTURY FROM TIMESTAMP '2001-02-16 20:38:40');
 
         If you disagree with this, please write your complaint to:
         Pope, Cathedral Saint-Peter of Roma, Vatican.
+-->
+当時の人々にはそのような意識はありませんでしたが、最初の世紀は0001-01-01 00:00:00 ADから始まります。
+この定義は全てのグレゴリオ暦を使用する国で適用されています。
+0という値の世紀はありません。-1世紀の次は1世紀です。
+
+この定義に納得できなければ、苦情をバチカンローマ聖パウロ大聖堂のローマ法王に伝えてください。
        </para>
       </listitem>
      </varlistentry>
@@ -2270,7 +2578,10 @@ SELECT EXTRACT(DAY FROM INTERVAL '40 days 1 minute');
       <term><literal>decade</literal></term>
       <listitem>
        <para>
+<!--
         The year field divided by 10
+-->
+年フィールドを10で割ったもの
        </para>
 
 <screen>
@@ -2284,8 +2595,11 @@ SELECT EXTRACT(DECADE FROM TIMESTAMP '2001-02-16 20:38:40');
       <term><literal>dow</literal></term>
       <listitem>
        <para>
+<!--
         The day of the week as Sunday (<literal>0</literal>) to
         Saturday (<literal>6</literal>)
+-->
+日曜日（<literal>0</literal>）から土曜日（<literal>6</literal>）までの曜日
        </para>
 
 <screen>
@@ -2293,9 +2607,12 @@ SELECT EXTRACT(DOW FROM TIMESTAMP '2001-02-16 20:38:40');
 <lineannotation>Result: </lineannotation><computeroutput>5</computeroutput>
 </screen>
        <para>
+<!--
         Note that <function>extract</function>'s day of the week numbering
         differs from that of the <function>to_char(...,
         'D')</function> function.
+-->
+<function>extract</function>関数の曜日番号は<function>to_char(...,'D')</function>関数のそれとは異なる点に注意してください。
        </para>
 
       </listitem>
@@ -2319,12 +2636,15 @@ SELECT EXTRACT(DOY FROM TIMESTAMP '2001-02-16 20:38:40');
       <term><literal>epoch</literal></term>
       <listitem>
        <para>
+<!--
         For <type>timestamp with time zone</type> values, the
         number of seconds since 1970-01-01 00:00:00 UTC (can be negative);
         for <type>date</type> and <type>timestamp</type> values, the
         number of seconds since 1970-01-01 00:00:00 local time;
         for <type>interval</type> values, the total number
         of seconds in the interval
+-->
+<type>timestamp with time zone</type>型の値において、1970-01-01 00:00:00 UTCからの秒数（負の数の場合もあり）。<type>date</type>と<type>timestamp</type>型の値において、ローカルタイムの1970-01-01 00:00:00からの秒数。<type>interval</type>型の値ではその時間間隔における全体の秒数。
        </para>
 
 <screen>
@@ -2336,8 +2656,11 @@ SELECT EXTRACT(EPOCH FROM INTERVAL '5 days 3 hours');
 </screen>
 
        <para>
+<!--
         You can convert an epoch value back to a time stamp
         with <function>to_timestamp</function>:
+-->
+<function>to_timestamp</function>で経過秒数をタイムスタンプ値に変換することができます。
        </para>
 <screen>
 SELECT to_timestamp(982384720.12);
@@ -2364,8 +2687,11 @@ SELECT EXTRACT(HOUR FROM TIMESTAMP '2001-02-16 20:38:40');
       <term><literal>isodow</literal></term>
       <listitem>
        <para>
+<!--
         The day of the week as Monday (<literal>1</literal>) to
         Sunday (<literal>7</literal>)
+-->
+月曜日（<literal>1</literal>）から日曜日（<literal>7</literal>）までの曜日
        </para>
 
 <screen>
@@ -2373,8 +2699,12 @@ SELECT EXTRACT(ISODOW FROM TIMESTAMP '2001-02-18 20:38:40');
 <lineannotation>Result: </lineannotation><computeroutput>7</computeroutput>
 </screen>
        <para>
+<!--
         This is identical to <literal>dow</literal> except for Sunday.  This
         matches the <acronym>ISO</acronym> 8601 day of the week numbering.
+-->
+日曜日を除き<literal>dow</literal>と同一です。
+これは<acronym>ISO</acronym> 8601曜日番号付けに一致します。
        </para>
 
       </listitem>
@@ -2384,8 +2714,11 @@ SELECT EXTRACT(ISODOW FROM TIMESTAMP '2001-02-18 20:38:40');
       <term><literal>isoyear</literal></term>
       <listitem>
        <para>
+<!--
         The <acronym>ISO</acronym> 8601 week-numbering year that the date
         falls in (not applicable to intervals)
+-->
+日付に当てはまる<acronym>ISO</acronym> 8601週番号年（intervalには適用できない）。
        </para>
 
 <screen>
@@ -2396,14 +2729,21 @@ SELECT EXTRACT(ISOYEAR FROM DATE '2006-01-02');
 </screen>
 
        <para>
+<!--
         Each <acronym>ISO</acronym> 8601 week-numbering year begins with the
         Monday of the week containing the 4th of January, so in early
         January or late December the <acronym>ISO</acronym> year may be
         different from the Gregorian year.  See the <literal>week</literal>
         field for more information.
+-->
+すべての<acronym>ISO</acronym> 8601週番号年は1月4日を含む週の月曜日から開始されます。従って、1月上旬、または12月下旬で<acronym>ISO</acronym>年がグレゴリオ年と異なる可能性があります。
+より詳細は<literal>week</literal>フィールドを参照してください。
        </para>
        <para>
+<!--
         This field is not available in PostgreSQL releases prior to 8.3.
+-->
+このフィールドは8.3より前のPostgreSQLリリースでは有効でありません。
        </para>
       </listitem>
      </varlistentry>
@@ -2412,8 +2752,11 @@ SELECT EXTRACT(ISOYEAR FROM DATE '2006-01-02');
       <term><literal>microseconds</literal></term>
       <listitem>
        <para>
+<!--
         The seconds field, including fractional parts, multiplied by 1
         000 000;  note that this includes full seconds
+-->
+端数部分も含む秒フィールドに、1,000,000を乗じた値。秒の整数部を含むことに注意。
        </para>
 
 <screen>
@@ -2427,7 +2770,10 @@ SELECT EXTRACT(MICROSECONDS FROM TIME '17:12:28.5');
       <term><literal>millennium</literal></term>
       <listitem>
        <para>
+<!--
         The millennium
+-->
+ミレニアム（千年期）
        </para>
 
 <screen>
@@ -2436,8 +2782,11 @@ SELECT EXTRACT(MILLENNIUM FROM TIMESTAMP '2001-02-16 20:38:40');
 </screen>
 
        <para>
+<!--
         Years in the 1900s are in the second millennium.
         The third millennium started January 1, 2001.
+-->
+1900年代の年は第2ミレニアムです。第3ミレニアムは2001年1月1日から始まりました。
        </para>
       </listitem>
      </varlistentry>
@@ -2446,8 +2795,11 @@ SELECT EXTRACT(MILLENNIUM FROM TIMESTAMP '2001-02-16 20:38:40');
       <term><literal>milliseconds</literal></term>
       <listitem>
        <para>
+<!--
         The seconds field, including fractional parts, multiplied by
         1000.  Note that this includes full seconds.
+-->
+端数部分も含む秒フィールドに、1000を乗た値。秒の整数部を含むことに注意してください。
        </para>
 
 <screen>
@@ -2527,11 +2879,15 @@ SELECT EXTRACT(SECOND FROM TIME '17:12:28.5');
       <term><literal>timezone</literal></term>
       <listitem>
        <para>
+<!--
         The time zone offset from UTC, measured in seconds.  Positive values
         correspond to time zones east of UTC, negative values to
         zones west of UTC.  (Technically,
         <productname>PostgreSQL</productname> does not use UTC because
         leap seconds are not handled.)
+-->
+秒単位のUTCからの時間帯オフセット。正の値はUTCより東の時間帯に対応し、負の値はUTCより西の時間帯に対応。
+(技術的に言えば、<productname>PostgreSQL</productname>はうるう秒を制御しないためUTCを使用していない。)
        </para>
       </listitem>
      </varlistentry>
@@ -2540,7 +2896,10 @@ SELECT EXTRACT(SECOND FROM TIME '17:12:28.5');
       <term><literal>timezone_hour</literal></term>
       <listitem>
        <para>
+<!--
         The hour component of the time zone offset
+-->
+時間帯オフセットの時の成分。
        </para>
       </listitem>
      </varlistentry>
@@ -3096,24 +3455,23 @@ now()
 <programlisting>
 SELECT CURRENT_TIMESTAMP;
 SELECT now();
-<!--
-SELECT TIMESTAMP 'now';  &#045;- incorrect for use with DEFAULT
--->
-SELECT TIMESTAMP 'now';  -- DEFAULTで使用するのは正しくない
+SELECT TIMESTAMP 'now';  -- but see tip below
 </programlisting>
    </para>
 
     <tip>
      <para>
 <!--
-      You do not want to use the third form when specifying a <literal>DEFAULT</literal>
-      clause while creating a table.  The system will convert <literal>now</literal>
+      Do not use the third form when specifying a value to be evaluated later,
+      for example in a <literal>DEFAULT</literal> clause for a table column.
+      The system will convert <literal>now</literal>
       to a <type>timestamp</type> as soon as the constant is parsed, so that when
       the default value is needed,
       the time of the table creation would be used!  The first two
       forms will not be evaluated until the default value is used,
       because they are function calls.  Thus they will give the desired
       behavior of defaulting to the time of row insertion.
+      (See also <xref linkend="datatype-datetime-special-values"/>.)
 -->
 テーブルを作成する時、<literal>DEFAULT</literal>句を指定するのに3番目の形式を使おうとは思わないでしょう。
 システムは<literal>now</literal>という定数を解析すると、すぐにそれを<type>timestamp</type>に変換するので、デフォルト値が必要が時には、テーブルが作成された時刻が使われます。最初の2つの形式は関数呼び出しなので、デフォルト値が使用されるまで評価されません。ですから、これらの関数は列の挿入時間をデフォルトとする、望ましい振舞いをします。
@@ -4016,10 +4374,14 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
 
    <note>
     <para>
+<!--
      Before <productname>PostgreSQL</productname> 8.2, the containment
      operators <literal>@&gt;</literal> and <literal>&lt;@</literal> were respectively
      called <literal>~</literal> and <literal>@</literal>.  These names are still
      available, but are deprecated and will eventually be removed.
+-->
+<productname>PostgreSQL</productname>の8.2より前では、包含演算子<literal>@&gt;</literal>および<literal>&lt;@</literal>はそれぞれ<literal>~</literal>および<literal>@</literal>という名前でした。
+これらの名前はまだ利用できますが、削除予定であり最終的にはなくなるでしょう。
     </para>
    </note>
 
@@ -6405,14 +6767,21 @@ SELECT xmlcomment('hello');
 </synopsis>
 
     <para>
+<!--
      The function <function>xmlconcat</function> concatenates a list
      of individual XML values to create a single value containing an
      XML content fragment.  Null values are omitted; the result is
      only null if there are no nonnull arguments.
+-->
+関数<function>xmlconcat</function>は、個々のXML値のリストを結合し、XMLの内容断片を含む単一の値を作成します。
+NULL値は削除され、NULL以外の引数が存在しないときのみ結果はNULLになります。
     </para>
 
     <para>
+<!--
      Example:
+-->
+例：
 <screen><![CDATA[
 SELECT xmlconcat('<abc/>', '<bar>foo</bar>');
 
@@ -6423,6 +6792,7 @@ SELECT xmlconcat('<abc/>', '<bar>foo</bar>');
     </para>
 
     <para>
+<!--
      XML declarations, if present, are combined as follows.  If all
      argument values have the same XML version declaration, that
      version is used in the result, else no version is used.  If all
@@ -6436,10 +6806,22 @@ SELECT xmlconcat('<abc/>', '<bar>foo</bar>');
      be used because XML requires an XML declaration to contain a
      version declaration.  Encoding declarations are ignored and
      removed in all cases.
+-->
+XML宣言が提示されている場合は次のように組み合わされます。
+全ての引数の値が同一のXMLversion宣言を持っていれば、そのversionが結果に使用されます。さもなければversionは使用されません。
+全ての引数の値でstandaloneの宣言値が<quote>yes</quote>であれば、その値が結果に使用されます。
+全ての引数の値にstandalone宣言値があり、その中で１つでも<quote>no</quote>がある場合、それが結果に使用されます。
+それ以外の場合は、結果はstandalone宣言を持ちません。
+standalone宣言を必要とするが、standalone宣言がないという結果になった場合には、version 1.0のversion宣言が使用されます。
+これはXMLがXML宣言においてversion宣言を含むことを要求するためです。
+encoding宣言は無視され、全ての場合で削除されます。
     </para>
 
     <para>
+<!--
      Example:
+-->
+例：
 <screen><![CDATA[
 SELECT xmlconcat('<?xml version="1.1"?><foo/>', '<?xml version="1.1" standalone="no"?><bar/>');
 
@@ -6498,11 +6880,15 @@ SELECT xmlelement(name foo, xmlattributes(current_date as bar), 'cont', 'ent');
     </para>
 
     <para>
+<!--
      Element and attribute names that are not valid XML names are
      escaped by replacing the offending characters by the sequence
      <literal>_x<replaceable>HHHH</replaceable>_</literal>, where
      <replaceable>HHHH</replaceable> is the character's Unicode
      codepoint in hexadecimal notation.  For example:
+-->
+有効なXML名ではない要素名と属性名は、シーケンス<literal>_x<replaceable>HHHH</replaceable>_</literal>により障害となる文字を置換することでエスケープされます。ここで、<replaceable>HHHH</replaceable>は16進数によるその文字のUnicode文字コード番号です。
+例をあげます。
 <screen><![CDATA[
 SELECT xmlelement(name "foo$bar", xmlattributes('xyz' as "a&b"));
 
@@ -6513,16 +6899,24 @@ SELECT xmlelement(name "foo$bar", xmlattributes('xyz' as "a&b"));
     </para>
 
     <para>
+<!--
      An explicit attribute name need not be specified if the attribute
      value is a column reference, in which case the column's name will
      be used as the attribute name by default.  In other cases, the
      attribute must be given an explicit name.  So this example is
      valid:
+-->
+属性値が列参照の場合、明示的な属性名を指定する必要はありません。この場合、デフォルトで列名が属性名として使用されます。
+その他の場合には、属性は明示的な名前で与えられなければなりません。
+従って、以下の例は有効です。
 <screen>
 CREATE TABLE test (a xml, b xml);
 SELECT xmlelement(name test, xmlattributes(a, b)) FROM test;
 </screen>
+<!--
      But these are not:
+-->
+しかし、以下の例は有効ではありません。
 <screen>
 SELECT xmlelement(name test, xmlattributes('constant'), a, b) FROM test;
 SELECT xmlelement(name test, xmlattributes(func(a, b))) FROM test;
@@ -6530,9 +6924,14 @@ SELECT xmlelement(name test, xmlattributes(func(a, b))) FROM test;
     </para>
 
     <para>
+<!--
      Element content, if specified, will be formatted according to
      its data type.  If the content is itself of type <type>xml</type>,
      complex XML documents can be constructed.  For example:
+-->
+もし要素内容が指定されればそのデータ型に従って書式化されます。
+もし内容そのものが<type>xml</type>型であれば、複合XML文書が構築されます。
+例をあげます。
 <screen><![CDATA[
 SELECT xmlelement(name foo, xmlattributes('xyz' as bar),
                             xmlelement(name abc),
@@ -6544,6 +6943,7 @@ SELECT xmlelement(name foo, xmlattributes('xyz' as bar),
  <foo bar="xyz"><abc/><!--test--><xyz/></foo>
 ]]></screen>
 
+<!--
      Content of other types will be formatted into valid XML character
      data.  This means in particular that the characters &lt;, &gt;,
      and &amp; will be converted to entities.  Binary data (data type
@@ -6553,6 +6953,12 @@ SELECT xmlelement(name foo, xmlattributes('xyz' as bar),
      individual data types is expected to evolve in order to align the
      PostgreSQL mappings with those specified in SQL:2006 and later,
      as discussed in <xref linkend="functions-xml-limits-casts"/>.
+-->
+そのほかの型の内容は有効なXML文字データにフォーマットされます。
+これは特に文字&lt;、&gt;、および&amp;がエンティティに変換されることを意味します。
+バイナリデータ（データ型は<type>bytea</type>）は、設定パラメータ<xref linkend="guc-xmlbinary"/>の設定にしたがって、base64もしくは16進符号化方式で表現されます。
+個々のデータ型に対する特定の動作は、XMLスキーマ仕様でのSQLおよびPostgreSQLデータ型に調整するため発展すると期待されます。
+その時点で記述がより詳細になるでしょう。
     </para>
    </sect3>
 
@@ -6597,23 +7003,35 @@ WHERE table_schema = 'pg_catalog';
  ...
 </screen>
 
+<!--
      As seen in the second example, the element name can be omitted if
      the content value is a column reference, in which case the column
      name is used by default.  Otherwise, a name must be specified.
+-->
+第２の例に見られるように、内容の値が列参照の場合、要素名は省略可能です。この時は、列名がデフォルトで使用されます。
+そうでない時は、名前が指定されなければなりません。
     </para>
 
     <para>
+<!--
      Element names that are not valid XML names are escaped as shown
      for <function>xmlelement</function> above.  Similarly, content
      data is escaped to make valid XML content, unless it is already
      of type <type>xml</type>.
+-->
+有効なXML名ではない要素名は上の<function>xmlelement</function>で説明した通りエスケープされます。
+同様にして、既に<type>xml</type>型であるものを除き、内容データは有効なXML内容になるようにエスケープされます。
     </para>
 
     <para>
+<!--
      Note that XML forests are not valid XML documents if they consist
      of more than one element, so it might be useful to wrap
      <function>xmlforest</function> expressions in
      <function>xmlelement</function>.
+-->
+XMLフォレストは２つ以上の要素からなる場合、有効なXML文書ではないことに注意してください。
+したがって、<function>xmlelement</function>内に<function>xmlforest</function>式をラップすることが有用なことがあります。
     </para>
    </sect3>
 
@@ -6662,11 +7080,15 @@ SELECT xmlpi(name php, 'echo "hello world";');
 </synopsis>
 
     <para>
+<!--
      The <function>xmlroot</function> expression alters the properties
      of the root node of an XML value.  If a version is specified,
      it replaces the value in the root node's version declaration; if a
      standalone setting is specified, it replaces the value in the
      root node's standalone declaration.
+-->
+<function>xmlroot</function>式はXML値のルートノードの属性を変更します。
+versionが指定されていると、ルートノードのversion宣言での値を変更し、standalone設定が指定されていると、ルートノードのstandalone宣言での値を変更します。
     </para>
 
     <para>
@@ -6694,6 +7116,7 @@ SELECT xmlroot(xmlparse(document '<?xml version="1.1"?><content>abc</content>'),
 </synopsis>
 
     <para>
+<!--
      The function <function>xmlagg</function> is, unlike the other
      functions described here, an aggregate function.  It concatenates the
      input values to the aggregate function call,
@@ -6701,10 +7124,17 @@ SELECT xmlroot(xmlparse(document '<?xml version="1.1"?><content>abc</content>'),
      occurs across rows rather than across expressions in a single row.
      See <xref linkend="functions-aggregate"/> for additional information
      about aggregate functions.
+-->
+ここで説明している他の関数とは異なり、<function>xmlagg</function>関数は集約関数です。
+これは<function>xmlconcat</function>が行うように、入力値を連結する集約関数ですが、単一行内の複数の式にまたがった連結ではなく、複数行にまたがった連結を行います。
+集約関数についての追加情報は<xref linkend="functions-aggregate"/>を参照してください。
     </para>
 
     <para>
+<!--
      Example:
+-->
+例：
 <screen><![CDATA[
 CREATE TABLE test (y int, x xml);
 INSERT INTO test VALUES (1, '<foo>abc</foo>');
@@ -6717,9 +7147,13 @@ SELECT xmlagg(x) FROM test;
     </para>
 
     <para>
+<!--
      To determine the order of the concatenation, an <literal>ORDER BY</literal>
      clause may be added to the aggregate call as described in
      <xref linkend="syntax-aggregates"/>. For example:
+-->
+連結の順序を決定するため、<xref linkend="syntax-aggregates"/>に記述されているように<literal>ORDER BY</literal>句を集計呼び出しに追加することができます。
+以下は例です。
 
 <screen><![CDATA[
 SELECT xmlagg(x ORDER BY y DESC) FROM test;
@@ -6730,9 +7164,12 @@ SELECT xmlagg(x ORDER BY y DESC) FROM test;
     </para>
 
     <para>
+<!--
      The following non-standard approach used to be recommended
      in previous versions, and may still be useful in specific
      cases:
+-->
+下記は以前のバージョンで推奨されていた、非標準的な方法例です。特定のケースでは有用かもしれません。
 
 <screen><![CDATA[
 SELECT xmlagg(x) FROM (SELECT * FROM test ORDER BY y DESC) AS tab;
@@ -6745,11 +7182,17 @@ SELECT xmlagg(x) FROM (SELECT * FROM test ORDER BY y DESC) AS tab;
    </sect2>
 
    <sect2 id="functions-xml-predicates">
+<!--
     <title>XML Predicates</title>
+-->
+    <title>XML述語</title>
 
     <para>
+<!--
      The expressions described in this section check properties
      of <type>xml</type> values.
+-->
+この節で記述されている式は、<type>xml</type>値の属性をチェックします。
     </para>
 
    <sect3>
@@ -6764,11 +7207,15 @@ SELECT xmlagg(x) FROM (SELECT * FROM test ORDER BY y DESC) AS tab;
 </synopsis>
 
     <para>
+<!--
      The expression <literal>IS DOCUMENT</literal> returns true if the
      argument XML value is a proper XML document, false if it is not
      (that is, it is a content fragment), or null if the argument is
      null.  See <xref linkend="datatype-xml"/> about the difference
      between documents and content fragments.
+-->
+式<literal>IS DOCUMENT</literal>は引数XML値が適切なXML文書であれば真を返し、そうでなければ（つまり、内容の断片）偽を返すか、もしくは引数がNULLであればNULLを返します。
+文書と内容の断片の差異については<xref linkend="datatype-xml"/>を参照してください。
     </para>
    </sect3>
 
@@ -6784,9 +7231,12 @@ SELECT xmlagg(x) FROM (SELECT * FROM test ORDER BY y DESC) AS tab;
 </synopsis>
 
     <para>
+<!--
      The expression <literal>IS NOT DOCUMENT</literal> returns false if the
      argument XML value is a proper XML document, true if it is not (that is,
      it is a content fragment), or null if the argument is null.
+-->
+式<literal>IS NOT DOCUMENT</literal>は引数XML値が適切なXML文書であれば偽を返し、そうでなければ（つまり、内容の断片）真を返すか、もしくは引数がNULLであればNULLを返します。
     </para>
    </sect3>
 
@@ -6802,6 +7252,7 @@ SELECT xmlagg(x) FROM (SELECT * FROM test ORDER BY y DESC) AS tab;
 </synopsis>
 
     <para>
+<!--
      The function <function>xmlexists</function> evaluates an XPath 1.0
      expression (the first argument), with the passed XML value as its context
      item.  The function returns false if the result of that evaluation
@@ -6809,10 +7260,18 @@ SELECT xmlagg(x) FROM (SELECT * FROM test ORDER BY y DESC) AS tab;
      function returns null if any argument is null.  A nonnull value
      passed as the context item must be an XML document, not a content
      fragment or any non-XML value.
+-->
+関数<function>xmlexists</function>は渡されたXML値をコンテキスト項目としてXPath 1.0式（第一引数）を評価します。
+この関数は評価が空のノード集合を生成する場合には偽を返し、それ以外の値を返すならば真を返します。
+もしどれかの引数がNULLであった場合はNULLを返します。
+コンテキスト項目として渡される非NULLの値は、内容の断片や非XML値ではなく、XML文書でなければなりません。
     </para>
 
     <para>
+<!--
      Example:
+-->
+例:
      <screen><![CDATA[
 SELECT xmlexists('//town[text() = ''Toronto'']' PASSING BY VALUE '<towns><town>Toronto</town><town>Ottawa</town></towns>');
 
@@ -6824,6 +7283,7 @@ SELECT xmlexists('//town[text() = ''Toronto'']' PASSING BY VALUE '<towns><town>T
     </para>
 
     <para>
+<!--
      The <literal>BY REF</literal> and <literal>BY VALUE</literal> clauses
      are accepted in <productname>PostgreSQL</productname>, but are ignored,
      as discussed in <xref linkend="functions-xml-limits-postgresql"/>.
@@ -6835,6 +7295,9 @@ SELECT xmlexists('//town[text() = ''Toronto'']' PASSING BY VALUE '<towns><town>T
      but <productname>PostgreSQL</productname> allows only an XPath 1.0
      expression, as discussed in
      <xref linkend="functions-xml-limits-xpath1"/>.
+-->
+<productname>PostgreSQL</productname>は<literal>BY REF</literal>句と<literal>BY VALUE</literal>句を受け付けますが、<xref linkend="functions-xml-limits-postgresql"/>で議論されているように無視します。
+SQL標準では<function>xmlexists</function>関数はXML問い合わせ言語における式を評価しますが、<xref linkend="functions-xml-limits-xpath1"/>で議論されているように、<productname>PostgreSQL</productname>はXPath 1.0の式だけを受け付けます。
     </para>
    </sect3>
 
@@ -6872,10 +7335,18 @@ SELECT xmlexists('//town[text() = ''Toronto'']' PASSING BY VALUE '<towns><town>T
      a simple cast to type <type>xml</type> will succeed, whereas the other two
      functions are useful for seeing whether the corresponding variants of
      <function>XMLPARSE</function> will succeed.
+-->
+これらの関数は<type>text</type>文字列が整形式かどうかをチェックし、論理値で結果を返します。
+<function>xml_is_well_formed_document</function>は文書が整形式かをチェックし、一方<function>xml_is_well_formed_content</function>は内容が整形式かをチェックします。
+<function>xml_is_well_formed</function>は、<xref linkend="guc-xmloption"/>パラメータ値が<literal>DOCUMENT</literal>に設定されていれば前者を、<literal>CONTENT</literal>が設定されていれば後者のチェックを実施します。
+これは、<function>xml_is_well_formed</function>は単純な<type>xml</type>型へのキャストが成功するかの判断に有用であり、その他の２つの関数は<function>XMLPARSE</function>の対応による変換が成功するかの判断に有用であることを意味します。
     </para>
 
     <para>
+<!--
      Examples:
+-->
+例:
 
 <screen><![CDATA[
 SET xmloption TO DOCUMENT;
@@ -6911,21 +7382,30 @@ SELECT xml_is_well_formed_document('<pg:foo xmlns:pg="http://postgresql.org/stuf
 (1 row)
 ]]></screen>
 
+<!--
      The last example shows that the checks include whether
      namespaces are correctly matched.
+-->
+最後の例は、名前空間が正しく一致しているかのチェックも含むことを示しています。
     </para>
    </sect3>
   </sect2>
 
   <sect2 id="functions-xml-processing">
+<!--
    <title>Processing XML</title>
+-->
+   <title>XMLの処理</title>
 
    <para>
+<!--
     To process values of data type <type>xml</type>, PostgreSQL offers
     the functions <function>xpath</function> and
     <function>xpath_exists</function>, which evaluate XPath 1.0
     expressions, and the <function>XMLTABLE</function>
     table function.
+-->
+データ型<type>xml</type>の値を処理するため、PostgreSQLはXPath 1.0式を評価する関数<function>xpath</function>および<function>xpath_exists</function>と、テーブル関数<function>XMLTABLE</function>を提供しています。
    </para>
 
    <sect3 id="functions-xml-processing-xpath">
@@ -6940,6 +7420,7 @@ SELECT xml_is_well_formed_document('<pg:foo xmlns:pg="http://postgresql.org/stuf
 </synopsis>
 
     <para>
+<!--
      The function <function>xpath</function> evaluates the XPath 1.0
      expression <parameter>xpath</parameter> (given as text)
      against the XML value
@@ -6947,14 +7428,22 @@ SELECT xml_is_well_formed_document('<pg:foo xmlns:pg="http://postgresql.org/stuf
      corresponding to the node-set produced by the XPath expression.
      If the XPath expression returns a scalar value rather than a node-set,
      a single-element array is returned.
+-->
+関数<function>xpath</function>は、XML値<replaceable>xml</replaceable>に対し、XPath 1.0式<replaceable>xpath</replaceable>(ひとつの<type>text</type>値)を評価します。
+そして、XPath式で作成されたノード集合に対応するXML値の配列を返します。
+もし、XPath式がノード集合ではなくスカラー値を返す場合、単一要素の配列が返されます。
     </para>
 
     <para>
+<!--
      The second argument must be a well formed XML document. In particular,
      it must have a single root node element.
+-->
+2番目の引数は整形済XML文書でなければなりません。特に、単一のルートノード要素を持たなければなりません。
     </para>
 
     <para>
+<!--
      The optional third argument of the function is an array of namespace
      mappings.  This array should be a two-dimensional <type>text</type> array with
      the length of the second axis being equal to 2 (i.e., it should be an
@@ -6964,10 +7453,18 @@ SELECT xml_is_well_formed_document('<pg:foo xmlns:pg="http://postgresql.org/stuf
      this array be the same as those being used in the XML document itself (in
      other words, both in the XML document and in the <function>xpath</function>
      function context, aliases are <emphasis>local</emphasis>).
+-->
+オプショナルな関数の３番目の引数は名前空間マッピング配列です。
+この配列は、第２軸が２に等しい長さをもつ２次元<type>text</type>配列です（つまり、それは配列の配列で、それぞれは正確に２つの要素からなります）。
+それぞれの配列のエントリの最初の要素は名前空間の名前（別名）で、２番目は名前空間のURIです。
+この配列内で提供される別名がXML文書自身で使用されるものと同じであることは必要ではありません（言い換えると、XML文書内および<function>xpath</function>関数の両方の文脈の中で、別名は<emphasis>ローカル</emphasis>です）。
     </para>
 
     <para>
+<!--
      Example:
+-->
+例：
 <screen><![CDATA[
 SELECT xpath('/my:a/text()', '<my:a xmlns:my="http://example.com">test</my:a>',
              ARRAY[ARRAY['my', 'http://example.com']]);
@@ -6980,7 +7477,10 @@ SELECT xpath('/my:a/text()', '<my:a xmlns:my="http://example.com">test</my:a>',
     </para>
 
     <para>
+<!--
      To deal with default (anonymous) namespaces, do something like this:
+-->
+デフォルト(匿名)名前空間を取り扱うためには、以下のようなことを実施してください。
 <screen><![CDATA[
 SELECT xpath('//mydefns:b/text()', '<a xmlns="http://example.com"><b>test</b></a>',
              ARRAY[ARRAY['mydefns', 'http://example.com']]);
@@ -7005,6 +7505,7 @@ SELECT xpath('//mydefns:b/text()', '<a xmlns="http://example.com"><b>test</b></a
 </synopsis>
 
     <para>
+<!--
      The function <function>xpath_exists</function> is a specialized form
      of the <function>xpath</function> function.  Instead of returning the
      individual XML values that satisfy the XPath 1.0 expression, this function
@@ -7012,10 +7513,17 @@ SELECT xpath('//mydefns:b/text()', '<a xmlns="http://example.com"><b>test</b></a
      (specifically, whether it produced any value other than an empty node-set).
      This function is equivalent to the <literal>XMLEXISTS</literal> predicate,
      except that it also offers support for a namespace mapping argument.
+-->
+関数<function>xpath_exists</function>は、<function>xpath</function>関数の特別な形式です。
+この関数は、XPath 1.0を満足する個別のXML値を返す代わりに、問い合わせがそれを満足するかどうか（具体的には空のノード集合以外の値を返すかどうか）を論理値で返します。
+この関数は、名前空間にマッピングされた引数をもサポートする点を除き、標準の<literal>XMLEXISTS</literal>述語と同じです。
     </para>
 
     <para>
+<!--
      Example:
+-->
+例:
 <screen><![CDATA[
 SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</my:a>',
                      ARRAY[ARRAY['my', 'http://example.com']]);
@@ -7036,7 +7544,10 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
     </indexterm>
 
     <indexterm zone="functions-xml-processing-xmltable">
+<!--
      <primary>table function</primary>
+-->
+     <primary>テーブル関数</primary>
      <secondary>XMLTABLE</secondary>
     </indexterm>
 
@@ -7077,6 +7588,10 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
      will be produced if the <replaceable>document_expression</replaceable>
      is null, nor if the <replaceable>row_expression</replaceable> produces
      an empty node-set or any value other than a node-set.
+-->
+必須の<replaceable>row_expression</replaceable>引数は評価されるXPath 1.0式で、XMLノード集合を得るために<replaceable>document_expression</replaceable>をそのコンテキスト項目として渡します。
+このノードは<function>xmltable</function>が出力行に変換します。
+<replaceable>document_expression</replaceable>がNULLであるか、<replaceable>row_expression</replaceable>が空のノード集合あるいはノード集合以外の値を生成するなら行は出力されません。
     </para>
 
     <para>
@@ -7132,6 +7647,7 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
     </para>
 
     <para>
+<!--
      If a column's XPath expression returns a non-XML value (which is limited
      to string, boolean, or double in XPath 1.0) and the column has a
      PostgreSQL type other than <type>xml</type>, the column will be set
@@ -7140,15 +7656,22 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
      to be <literal>1</literal> or <literal>0</literal> if the output
      column's type category is numeric, otherwise <literal>true</literal> or
      <literal>false</literal>.)
+-->
+列のXPath式が非XML値（XPath 1.0における文字列、真偽値、倍精度浮動小数点数に限られます）を返し、その列が<type>xml</type>以外のPostgreSQL型なら、あたかも値の文字列表現をPostgreSQL型にアサインしたように列に値がセットされます。
+（値が真偽値の場合、出力列型が数値カテゴリに属するならその文字列表現は<literal>1</literal>または<literal>0</literal>になり、それ外なら<literal>true</literal>または<literal>false</literal>になります。）
     </para>
 
     <para>
+<!--
      If a column's XPath expression returns a non-empty set of XML nodes
      and the column's PostgreSQL type is <type>xml</type>, the column will
      be assigned the expression result exactly, if it is of document or
      content form.
+-->
+列のXPath表現が空ではないXMLノードの集合を返し、列のPostgreSQL型が<type>xml</type>である場合には、式が文書あるいはフォームの内容なら、列には正確に式の結果がアサインされます。
      <footnote>
       <para>
+<!--
        A result containing more than one element node at the top level, or
        non-whitespace text outside of an element, is an example of content form.
        An XPath result can be of neither form, for example if it returns an
@@ -7156,11 +7679,17 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
        will be put into content form with each such disallowed node replaced by
        its string value, as defined for the XPath 1.0
        <function>string</function> function.
+-->
+トップレベルにおいて複数の要素ノードを含むか、あるいは要素の外側の非空白テキストであるような結果は、コンテントフォームの例です。
+XPathの結果はそのどちらでもないフォームであることがあり得ます。
+たとえば、それを含む要素から選択された属性ノードを返す場合です。
+XPath 1.0の<function>string</function>関数で定義されているように、そうした結果は、許可されないノードを文字列値で置き換えたコンテントフォームに設定されます。
       </para>
      </footnote>
     </para>
 
     <para>
+<!--
      A non-XML result assigned to an <type>xml</type> output column produces
      content, a single text node with the string value of the result.
      An XML result assigned to a column of any other type may not have more than
@@ -7168,6 +7697,10 @@ SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</m
      will be set as if by assigning the node's string
      value (as defined for the XPath 1.0 <function>string</function> function)
      to the PostgreSQL type.
+-->
+<type>xml</type>出力列にアサインされた非XMLの結果は、結果の値が文字列値となる単一のテキストノードであるコンテントを生成します。
+それ以外の型の列にアサインされたXMLの結果は複数のノードを持たないかも知れませんし、エラーを生じするかも知れません。
+正確に一つのノードだけが存在するなら、列にはあたかもノードの文字列値（XPath 1.0 <function>string</function>関数の定義されているように） がPostgreSQL型にアサインされたように設定されます。
     </para>
 
     <para>
@@ -7260,9 +7793,12 @@ SELECT xmltable.*
   6 |          3 | Singapore    | SG         |        697 |              | not specified
 ]]></screen>
 
+<!--
      The following example shows concatenation of multiple text() nodes,
      usage of the column name as XPath filter, and the treatment of whitespace,
      XML comments and processing instructions:
+-->
+以下の例では、複数のtext()ノードの結合、列名のXPathフィルターとしての使用、空白文字、XMLコメント、処理命令の取扱いを示します。
 
   <screen><![CDATA[
 CREATE TABLE xmlelements AS SELECT
@@ -7281,10 +7817,13 @@ SELECT xmltable.*
     </para>
 
     <para>
+<!--
      The following example illustrates how
      the <literal>XMLNAMESPACES</literal> clause can be used to specify
      a list of namespaces
      used in the XML document as well as in the XPath expressions:
+-->
+以下の例では、<literal>XMLNAMESPACES</literal>句を使ってXMLドキュメントやXPath式で使われる追加の名前空間のリストを指定する方法を示します。
 
   <screen><![CDATA[
 WITH xmldata(data) AS (VALUES ('
@@ -7345,11 +7884,20 @@ SELECT xmltable.*
     <parameter>cursor</parameter>.  This variant is recommended if
     large tables have to be mapped, because the result value is built
     up in memory by each function.
+-->
+<function>table_to_xml</function>は、パラメータ<parameter>tbl</parameter>として渡された名前付きのテーブルの内容をマップします。
+<type>regclass</type>型はオプションのスキーマ修飾と二重引用符を含む、通常の表記法を使用しテーブルを特定する文字列を受け付けます。
+<function>query_to_xml</function>は、パラメータ<parameter>query</parameter>としてテキストが渡された問い合わせを実行し、結果セットをマップします。
+<function>cursor_to_xml</function>は、パラメータ<parameter>cursor</parameter>で指定されたカーソルから提示された行数を取得します。
+それぞれの関数により結果値がメモリーに構築されるため、この異形は巨大なテーブルをマップする必要がある場合推奨されます。
    </para>
 
    <para>
+<!--
     If <parameter>tableforest</parameter> is false, then the resulting
     XML document looks like this:
+-->
+<parameter>tableforest</parameter>が偽であれば、結果のXML文書は以下のようになります。
 <screen><![CDATA[
 <tablename>
   <row>
@@ -7365,8 +7913,11 @@ SELECT xmltable.*
 </tablename>
 ]]></screen>
 
+<!--
     If <parameter>tableforest</parameter> is true, the result is an
     XML content fragment that looks like this:
+-->
+<parameter>tableforest</parameter>が真であれば、結果は以下のようなXML文書の断片です。
 <screen><![CDATA[
 <tablename>
   <columnname1>data</columnname1>
@@ -7380,9 +7931,12 @@ SELECT xmltable.*
 ...
 ]]></screen>
 
+<!--
     If no table name is available, that is, when mapping a query or a
     cursor, the string <literal>table</literal> is used in the first
     format, <literal>row</literal> in the second format.
+-->
+テーブル名が利用できないとき、つまり、問い合わせ、またはカーソルをマップする時は、最初の書式では文字列<literal>table</literal>が使用され、２番目の書式では<literal>row</literal>が使用されます。
    </para>
 
    <para>
@@ -7449,9 +8003,12 @@ SELECT xmltable.*
    </para>
 
    <para>
+<!--
     In addition, the following functions are available to produce
     analogous mappings of entire schemas or the entire current
     database:
+-->
+さらに、以下の関数がスキーマ全体、または現在のデータベース全体の類似マッピングを作成するため利用できます。
 <synopsis>
 <function>schema_to_xml</function> ( <parameter>schema</parameter> <type>name</type>, <parameter>nulls</parameter> <type>boolean</type>,
                 <parameter>tableforest</parameter> <type>boolean</type>, <parameter>targetns</parameter> <type>text</type> ) <returnvalue>xml</returnvalue>
@@ -7494,12 +8051,18 @@ table2-mapping
 
 </schemaname>]]></screen>
 
+<!--
     where the format of a table mapping depends on the
     <parameter>tableforest</parameter> parameter as explained above.
+-->
+ここで、テーブルマッピング書式は上で説明したとおり<parameter>tableforest</parameter>パラメータに依存します。
    </para>
 
    <para>
+<!--
     The result of a database content mapping looks like this:
+-->
+データベース内容マッピング書式は以下のようになります。
 
 <screen><![CDATA[
 <dbname>
@@ -7516,10 +8079,14 @@ table2-mapping
 
 </dbname>]]></screen>
 
+<!--
     where the schema mapping is as above.
+-->
+ここで、スキーママッピングは上記のとおりです。
    </para>
 
    <para>
+<!--
     As an example of using the output produced by these functions,
     <xref linkend="xslt-xml-html"/> shows an XSLT stylesheet that
     converts the output of
@@ -7527,10 +8094,16 @@ table2-mapping
     document containing a tabular rendition of the table data.  In a
     similar manner, the results from these functions can be
     converted into other XML-based formats.
+-->
+これらの関数で作成された出力を使用する１つの例として、<xref linkend="xslt-xml-html"/>は、テーブルデータの表形式への翻訳を含む<function>table_to_xml_and_xmlschema</function>からHTML文書への出力の変換をおこなうXSLTスタイルシートを示します。
+同じようにして、これらの関数の結果は他のXML基準書式に変換されます。
    </para>
 
    <example id="xslt-xml-html">
+<!--
     <title>XSLT Stylesheet for Converting SQL/XML Output to HTML</title>
+-->
+    <title>SQL/XML出力をHTMLに変換するXSLTスタイルシート</title>
 <programlisting><![CDATA[
 <?xml version="1.0"?>
 <xsl:stylesheet version="1.0"

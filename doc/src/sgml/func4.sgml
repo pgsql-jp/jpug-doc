@@ -39,10 +39,14 @@
   </indexterm>
 
   <para>
+<!--
    This section describes the <acronym>SQL</acronym>-compliant subquery
    expressions available in <productname>PostgreSQL</productname>.
    All of the expression forms documented in this section return
    Boolean (true/false) results.
+-->
+本節では<productname>PostgreSQL</productname>で使用できる<acronym>SQL</acronym>準拠の副問い合わせについて説明します。
+本節で記載した全ての式は結果として論理値（真/偽）を返します。
   </para>
 
   <sect2 id="functions-subquery-exists">
@@ -53,40 +57,60 @@ EXISTS (<replaceable>subquery</replaceable>)
 </synopsis>
 
   <para>
+<!--
    The argument of <token>EXISTS</token> is an arbitrary <command>SELECT</command> statement,
    or <firstterm>subquery</firstterm>.  The
    subquery is evaluated to determine whether it returns any rows.
    If it returns at least one row, the result of <token>EXISTS</token> is
    <quote>true</quote>; if the subquery returns no rows, the result of <token>EXISTS</token>
    is <quote>false</quote>.
+-->
+<token>EXISTS</token>の引数は、任意の<command>SELECT</command>文、つまり<firstterm>副問い合わせ</firstterm>です。
+副問い合わせはそれが何らかの行を返すか否かの決定のために評価されます。
+もし1つでも行を返すのであれば、<token>EXISTS</token>の結果は<quote>true（真）</quote>となり、副問い合わせが行を返さない場合、<token>EXISTS</token>の結果は<quote>false（偽）</quote>となります。
   </para>
 
   <para>
+<!--
    The subquery can refer to variables from the surrounding query,
    which will act as constants during any one evaluation of the subquery.
+-->
+副問い合わせは、取り囲んでいる問い合わせから変数を参照することができ、その値は副問い合わせの評価時には定数として扱われます。
   </para>
 
   <para>
+<!--
    The subquery will generally only be executed long enough to determine
    whether at least one row is returned, not all the way to completion.
    It is unwise to write a subquery that has side effects (such as
    calling sequence functions); whether the side effects occur
    might be unpredictable.
+-->
+この副問い合わせは通常、最後まで実行されず、少なくとも１つの行が返されたかどうかを判定し得るに足りる時点まで実行されます。
+（シーケンス関数を呼び出すような）副作用のある副問い合わせを記述することは配慮不足です。副作用が生じるかどうかは予想できません。
   </para>
 
   <para>
+<!--
    Since the result depends only on whether any rows are returned,
    and not on the contents of those rows, the output list of the
    subquery is normally unimportant.  A common coding convention is
    to write all <literal>EXISTS</literal> tests in the form
    <literal>EXISTS(SELECT 1 WHERE ...)</literal>.  There are exceptions to
    this rule however, such as subqueries that use <token>INTERSECT</token>.
+-->
+結果は何らかの行が返されるのかのみに依存し、それらの行の内容には依存しないことから、副問い合わせの出力リストは通常重要ではありません。
+よく使われるコーディング規約は、全ての<literal>EXISTS</literal>テストを<literal>EXISTS(SELECT 1 WHERE ...)</literal>といった形式で記述することです。
+とは言っても、<token>INTERSECT</token>を使う副問い合わせのようにこの規則には例外があります。
   </para>
 
   <para>
+<!--
    This simple example is like an inner join on <literal>col2</literal>, but
    it produces at most one output row for each <literal>tab1</literal> row,
    even if there are several matching <literal>tab2</literal> rows:
+-->
+以下の簡単な例は<literal>col2</literal>上の内部結合に似ていますが、しかしたとえ<literal>tab2</literal>の行といくつか一致したとしても<literal>tab1</literal>のそれぞれの行に対して最大限１つの出力行を生成します。
 <screen>
 SELECT col1
 FROM tab1
@@ -133,6 +157,7 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
 </synopsis>
 
   <para>
+<!--
    The left-hand side of this form of <token>IN</token> is a row constructor,
    as described in <xref linkend="sql-syntax-row-constructors"/>.
    The right-hand side is a parenthesized
@@ -142,9 +167,16 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
    The result of <token>IN</token> is <quote>true</quote> if any equal subquery row is found.
    The result is <quote>false</quote> if no equal row is found (including the
    case where the subquery returns no rows).
+-->
+<token>IN</token>のこの形式の左辺は、<xref linkend="sql-syntax-row-constructors"/>で説明する、行のコンストラクタです。
+右辺は括弧で括られた副問い合わせで、左辺の行にある式の数と正確に同じ数の列を返さなければなりません。
+左辺の式は副問い合わせの結果のそれぞれの行に対し、行に関して評価、比較が行われます。
+副問い合わせの行に等しいものが見つかった場合、<token>IN</token> の結果は<quote>true（真）</quote>となります。
+（副問い合わせが行を返さない場合を含め）等しい行が見つからない場合、結果は<quote>false（偽）</quote>です。
   </para>
 
   <para>
+<!--
    As usual, null values in the rows are combined per
    the normal rules of SQL Boolean expressions.  Two rows are considered
    equal if all their corresponding members are non-null and equal; the rows
@@ -152,6 +184,12 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
    otherwise the result of that row comparison is unknown (null).
    If all the per-row results are either unequal or null, with at least one
    null, then the result of <token>IN</token> is null.
+-->
+通常通り、行にあるNULL値はSQLの論理式の標準規則で結合されます。
+２つの行は対応する全ての構成要素が非NULLかつ等しい場合に等しいとみなされます。
+１つでも対応する構成要素が非NULLかつ等しくないものがあれば、２つの行は等しくないとみなされます。
+それ以外の場合、その行の比較結果は不明（NULL）です。
+行毎の結果すべてが不等もしくはNULLの場合、少なくとも１つのNULLがあると、<token>IN</token>の結果はNULLとなります。
   </para>
   </sect2>
 
@@ -193,6 +231,7 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
 </synopsis>
 
   <para>
+<!--
    The left-hand side of this form of <token>NOT IN</token> is a row constructor,
    as described in <xref linkend="sql-syntax-row-constructors"/>.
    The right-hand side is a parenthesized
@@ -202,9 +241,16 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
    The result of <token>NOT IN</token> is <quote>true</quote> if only unequal subquery rows
    are found (including the case where the subquery returns no rows).
    The result is <quote>false</quote> if any equal row is found.
+-->
+<token>NOT IN</token>のこの形式の左辺は、<xref linkend="sql-syntax-row-constructors"/>で説明する行コンストラクタです。
+右辺は括弧で括られた副問い合わせで、左辺の行にある式の数と正確に同じ数の列を返さなければなりません。
+左辺の式は副問い合わせの結果のそれぞれの行に対し、評価、比較が行われます。
+副問い合わせの行に不等のもののみが見つかった場合（副問い合わせが行を返さない場合を含む）、<token>NOT IN</token>の結果は<quote>true（真）</quote>となります。
+等しい行が１つでも見つかった場合、結果は<quote>false（偽）</quote>です。
   </para>
 
   <para>
+<!--
    As usual, null values in the rows are combined per
    the normal rules of SQL Boolean expressions.  Two rows are considered
    equal if all their corresponding members are non-null and equal; the rows
@@ -212,6 +258,12 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
    otherwise the result of that row comparison is unknown (null).
    If all the per-row results are either unequal or null, with at least one
    null, then the result of <token>NOT IN</token> is null.
+-->
+通常通り、行にあるNULL値はSQLの論理式の標準規則で結合されます。
+2つの行は対応する全ての構成要素が非NULLかつ等しい場合に等しいとみなされます。
+１つでも構成要素が非NULLかつ等しくない場合、２つの行は等しくないとみなされます。
+それ以外の場合、その行の比較結果は不明（NULL）です。
+行毎の結果すべてが不等もしくはNULLの場合、少なくとも1つのNULLがあると、<token>NOT IN</token>の結果はNULLとなります。
   </para>
   </sect2>
 
@@ -224,6 +276,7 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
 </synopsis>
 
   <para>
+<!--
    The right-hand side is a parenthesized
    subquery, which must return exactly one column.  The left-hand expression
    is evaluated and compared to each row of the subquery result using the
@@ -263,6 +316,7 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
 </synopsis>
 
   <para>
+<!--
    The left-hand side of this form of <token>ANY</token> is a row constructor,
    as described in <xref linkend="sql-syntax-row-constructors"/>.
    The right-hand side is a parenthesized
@@ -277,11 +331,21 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
    rows).
    The result is NULL if no comparison with a subquery row returns true,
    and at least one comparison returns NULL.
+-->
+<token>ANY</token>のこの形式の左辺は、<xref linkend="sql-syntax-row-constructors"/>で説明されている行コンストラクタです。
+右辺は括弧で括られた副問い合わせで、左辺の行にある式の数と正確に同じ数の列を返さなければなりません。
+左辺の式は副問い合わせの結果のそれぞれの行に対し、与えられた<replaceable>operator</replaceable>を使用して行に関する評価、比較が行われます。
+比較の結果、副問い合わせの行のどれかに対して真となる場合、<token>ANY</token>の結果は<quote>true（真）</quote>です。
+比較の結果、副問い合わせの全ての行に対して偽となる場合（副問い合わせが行を返さないという場合も含む）、結果は<quote>false（偽）</quote>です。
+いかなる副問合せ行との比較の結果も偽を返さず、かつ、少なくとも１つの比較がNULLを返す場合、結果はNULLになります。
   </para>
 
   <para>
+<!--
    See <xref linkend="row-wise-comparison"/> for details about the meaning
    of a row constructor comparison.
+-->
+行コンストラクタ比較の意味についての詳細は<xref linkend="row-wise-comparison"/>を参照して下さい。
   </para>
   </sect2>
 
@@ -293,6 +357,7 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
 </synopsis>
 
   <para>
+<!--
    The right-hand side is a parenthesized
    subquery, which must return exactly one column.  The left-hand expression
    is evaluated and compared to each row of the subquery result using the
@@ -303,15 +368,27 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
    The result is <quote>false</quote> if any false result is found.
    The result is NULL if no comparison with a subquery row returns false,
    and at least one comparison returns NULL.
+-->
+右辺は括弧で括られた副問い合わせで、正確に１つの列を返さなければなりません。
+左辺の式は副問い合わせの結果行それぞれに対して、指定された<replaceable>operator</replaceable>を使用して評価、比較されます。なお、<replaceable>operator</replaceable>は結果として論理値を生成する必要があります。
+全ての行が真になる場合（副問い合わせが行を返さない場合を含む）、<token>ALL</token>の結果は<quote>true（真）</quote>です。
+1つでも偽の結果があると、結果は<quote>false（偽）</quote>です。
+比較がどの行でも偽を返さず、かつ、少なくとも1つの行でNULLを返した場合、結果はNULLとなります。
   </para>
 
   <para>
+<!--
    <token>NOT IN</token> is equivalent to <literal>&lt;&gt; ALL</literal>.
+-->
+   <token>NOT IN</token>は<literal>&lt;&gt; ALL</literal>と等価です。
   </para>
 
   <para>
+<!--
    As with <token>EXISTS</token>, it's unwise to assume that the subquery will
    be evaluated completely.
+-->
+<token>EXISTS</token>と同様、副問い合わせが完全に評価されることを前提としてはなりません。
   </para>
 
 <synopsis>
@@ -319,6 +396,7 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
 </synopsis>
 
   <para>
+<!--
    The left-hand side of this form of <token>ALL</token> is a row constructor,
    as described in <xref linkend="sql-syntax-row-constructors"/>.
    The right-hand side is a parenthesized
@@ -333,20 +411,39 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
    subquery row.
    The result is NULL if no comparison with a subquery row returns false,
    and at least one comparison returns NULL.
+-->
+<token>ALL</token>のこの形式の左辺は、<xref linkend="sql-syntax-row-constructors"/>で説明する行コンストラクタです。
+右辺は括弧で括られた副問い合わせで、左辺の行にある式の数と正確に同じ数の列を返さなければなりません。
+左辺の式は副問い合わせの結果のそれぞれの行に対し、与えられた<replaceable>operator</replaceable>を使用して行に関する評価、比較が行われます。
+比較した結果、すべての副問い合わせ行に対して真を返す場合（副問い合わせが行を返さないという場合も含む）、<token>ALL</token>の結果は<quote>true（真）</quote>となります。
+比較した結果、いずれかの副問い合わせ行で偽を返す場合、この結果は<quote>false（偽）</quote>となります。
+比較結果がすべての副問い合わせ行に対して偽を返さず、少なくとも１行でNULLを返す場合、結果はNULLとなります。
   </para>
 
   <para>
+<!--
    See <xref linkend="row-wise-comparison"/> for details about the meaning
    of a row constructor comparison.
+-->
+行コンストラクタに関する比較の意味については<xref linkend="row-wise-comparison"/>を参照してください。
   </para>
   </sect2>
 
   <sect2>
+<!--
    <title>Single-Row Comparison</title>
+-->
+   <title>単独行に関する比較</title>
 
    <indexterm zone="functions-subquery">
+<!--
     <primary>comparison</primary>
+-->
+    <primary>比較</primary>
+<!--
     <secondary>subquery result row</secondary>
+-->
+    <secondary>副問い合わせ結果行</secondary>
    </indexterm>
 
 <synopsis>
@@ -354,6 +451,7 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
 </synopsis>
 
   <para>
+<!--
    The left-hand side is a row constructor,
    as described in <xref linkend="sql-syntax-row-constructors"/>.
    The right-hand side is a parenthesized subquery, which must return exactly
@@ -361,18 +459,29 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
    the subquery cannot return more than one row.  (If it returns zero rows,
    the result is taken to be null.)  The left-hand side is evaluated and
    compared row-wise to the single subquery result row.
+-->
+左辺は、<xref linkend="sql-syntax-row-constructors"/>で説明されている行コンストラクタです。
+右辺は括弧で括られた副問い合わせで、左辺の行とまったく同じ数の列を返さなければなりません。さらに、副問い合わせは複数行を返すことはできません。
+（行をまったく返さない場合、結果はNULLとみなされます。）
+左辺は副問い合わせの結果の単一行に対し行全体で評価、比較が行われます。
   </para>
 
   <para>
+<!--
    See <xref linkend="row-wise-comparison"/> for details about the meaning
    of a row constructor comparison.
+-->
+行コンストラクタに関する比較の意味についての詳細は<xref linkend="row-wise-comparison"/>を参照してください。
   </para>
   </sect2>
  </sect1>
 
 
  <sect1 id="functions-comparisons">
+<!--
   <title>Row and Array Comparisons</title>
+-->
+  <title>行と配列の比較</title>
 
   <indexterm>
    <primary>IN</primary>
@@ -395,22 +504,37 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
   </indexterm>
 
   <indexterm>
+<!--
    <primary>composite type</primary>
    <secondary>comparison</secondary>
+-->
+   <primary>複合型</primary>
+   <secondary>比較</secondary>
   </indexterm>
 
   <indexterm>
+<!--
    <primary>row-wise comparison</primary>
+-->
+   <primary>行に関する比較</primary>
   </indexterm>
 
   <indexterm>
+<!--
    <primary>comparison</primary>
    <secondary>composite type</secondary>
+-->
+   <primary>比較</primary>
+   <secondary>複合型</secondary>
   </indexterm>
 
   <indexterm>
+<!--
    <primary>comparison</primary>
    <secondary>row constructor</secondary>
+-->
+   <primary>比較</primary>
+   <secondary>行コンストラクタ</secondary>
   </indexterm>
 
   <indexterm>
@@ -422,6 +546,7 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
   </indexterm>
 
   <para>
+<!--
    This section describes several specialized constructs for making
    multiple comparisons between groups of values.  These forms are
    syntactically related to the subquery forms of the previous section,
@@ -431,6 +556,11 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
    <acronym>SQL</acronym>-compliant.
    All of the expression forms documented in this section return
    Boolean (true/false) results.
+-->
+本節では、値のグループ間で複数の比較を行う、さまざまな特殊化したコンストラクトについて説明します。
+この形式は構文的には、前節の副問い合わせ形式と関係しています。しかし、副問い合わせを含みません。
+配列副式を含む形式は<productname>PostgreSQL</productname>の拡張ですが、それ以外は<acronym>SQL</acronym>準拠です。
+本節で記載した全ての式形式は結果として論理値（真/偽）を返します。
   </para>
 
   <sect2 id="functions-comparisons-in-scalar">
@@ -441,10 +571,15 @@ WHERE EXISTS (SELECT 1 FROM tab2 WHERE col2 = tab1.col2);
 </synopsis>
 
   <para>
+<!--
    The right-hand side is a parenthesized list
    of scalar expressions.  The result is <quote>true</quote> if the left-hand expression's
    result is equal to any of the right-hand expressions.  This is a shorthand
    notation for
+-->
+右辺は括弧で括られたスカラ式のリストです。
+左辺の式の結果が右辺の式のいずれかと等しい場合、結果は<quote>true（真）</quote>になります。
+これは以下の省略形です。
 
 <synopsis>
 <replaceable>expression</replaceable> = <replaceable>value1</replaceable>
@@ -456,11 +591,15 @@ OR
   </para>
 
   <para>
+<!--
    Note that if the left-hand expression yields null, or if there are
    no equal right-hand values and at least one right-hand expression yields
    null, the result of the <token>IN</token> construct will be null, not false.
    This is in accordance with SQL's normal rules for Boolean combinations
    of null values.
+-->
+左辺の式がNULLを生じる場合、または右側の値に等しいものがなくて少なくとも1つの右辺の行がNULLを持つ場合、<token>IN</token>構文の結果は偽ではなくNULLとなることに注意してください。
+これは、NULL値の論理的な組み合わせに対するSQLの標準規則に従うものです。
   </para>
   </sect2>
 
@@ -472,10 +611,15 @@ OR
 </synopsis>
 
   <para>
+<!--
    The right-hand side is a parenthesized list
    of scalar expressions.  The result is <quote>true</quote> if the left-hand expression's
    result is unequal to all of the right-hand expressions.  This is a shorthand
    notation for
+-->
+右辺は括弧で括られたスカラ式のリストです。
+左辺の式の結果が右辺の式の全てと等しくない場合、結果は<quote>真</quote>です。
+これは以下の省略形です。
 
 <synopsis>
 <replaceable>expression</replaceable> &lt;&gt; <replaceable>value1</replaceable>
@@ -487,26 +631,38 @@ AND
   </para>
 
   <para>
+<!--
    Note that if the left-hand expression yields null, or if there are
    no equal right-hand values and at least one right-hand expression yields
    null, the result of the <token>NOT IN</token> construct will be null, not true
    as one might naively expect.
    This is in accordance with SQL's normal rules for Boolean combinations
    of null values.
+-->
+左辺の式でNULLが生じる場合、または右辺の値に左辺の式と等しいものがなく、かつ少なくとも1つの右辺の式がNULLを生じる場合、<token>NOT IN</token>構文の結果は、一部の人が予想する真ではなく、NULLとなることに注意してください。
+これは、NULL値の論理的な組み合わせに対するSQLの標準規則に従うものです。
   </para>
 
   <tip>
   <para>
+<!--
    <literal>x NOT IN y</literal> is equivalent to <literal>NOT (x IN y)</literal> in all
    cases.  However, null values are much more likely to trip up the novice when
    working with <token>NOT IN</token> than when working with <token>IN</token>.
    It is best to express your condition positively if possible.
+-->
+全ての場合において、<literal>x NOT IN y</literal>は<literal>NOT (x IN y)</literal>と等価です。
+しかし、<token>IN</token>を使用するよりも<token>NOT IN</token>を使用する方が初心者がNULL値による間違いをしやすくなります。
+可能な限り条件を肯定的に表現することが最善です。
   </para>
   </tip>
   </sect2>
 
   <sect2>
+<!--
    <title><literal>ANY</literal>/<literal>SOME</literal> (array)</title>
+-->
+   <title><literal>ANY</literal>/<literal>SOME</literal> (配列)</title>
 
 <synopsis>
 <replaceable>expression</replaceable> <replaceable>operator</replaceable> ANY (<replaceable>array expression</replaceable>)
@@ -514,6 +670,7 @@ AND
 </synopsis>
 
   <para>
+<!--
    The right-hand side is a parenthesized expression, which must yield an
    array value.
    The left-hand expression
@@ -523,9 +680,15 @@ AND
    The result of <token>ANY</token> is <quote>true</quote> if any true result is obtained.
    The result is <quote>false</quote> if no true result is found (including the
    case where the array has zero elements).
+-->
+右辺は括弧で括られた式で、配列値を返さなければなりません。
+左辺の式は配列要素それぞれに対して、指定された<replaceable>operator</replaceable>を使用して評価、比較されます。なお、<replaceable>operator</replaceable>は結果として論理値を生成する必要があります。
+真の結果が１つでもあると、<token>ANY</token>の結果は<quote>true（真）</quote>です。
+真の結果がない（配列の要素数がゼロである場合を含む）と、結果は<quote>false（偽）</quote>です。
   </para>
 
   <para>
+<!--
    If the array expression yields a null array, the result of
    <token>ANY</token> will be null.  If the left-hand expression yields null,
    the result of <token>ANY</token> is ordinarily null (though a non-strict
@@ -535,21 +698,33 @@ AND
    will be null, not false (again, assuming a strict comparison operator).
    This is in accordance with SQL's normal rules for Boolean combinations
    of null values.
+-->
+配列式がNULL配列を生成する場合、<token>ANY</token>の結果はNULLになります。
+左辺式がNULLとなる場合、<token>ANY</token>の結果は通常NULLになります（STRICTでない比較演算子では異なる結果になるかもしれません）。
+また、右辺の配列にNULL要素が含まれ、かつ、比較の結果、真が得られなかった場合、<token>ANY</token>の結果は偽ではなくNULLになります（ここでも、STRICTな演算子の場合です）。
+これは、NULLに対する、SQLの論理値組み合わせに関する標準規則に従うものです。
   </para>
 
   <para>
+<!--
    <token>SOME</token> is a synonym for <token>ANY</token>.
+-->
+<token>SOME</token>は<token>ANY</token>の同義語です。
   </para>
   </sect2>
 
   <sect2>
+<!--
    <title><literal>ALL</literal> (array)</title>
+-->
+   <title><literal>ALL</literal> (配列)</title>
 
 <synopsis>
 <replaceable>expression</replaceable> <replaceable>operator</replaceable> ALL (<replaceable>array expression</replaceable>)
 </synopsis>
 
   <para>
+<!--
    The right-hand side is a parenthesized expression, which must yield an
    array value.
    The left-hand expression
@@ -559,9 +734,15 @@ AND
    The result of <token>ALL</token> is <quote>true</quote> if all comparisons yield true
    (including the case where the array has zero elements).
    The result is <quote>false</quote> if any false result is found.
+-->
+右辺は括弧で括られた式で、配列値を返さなければなりません。
+左辺の式は配列の要素それぞれに対して、指定された<replaceable>operator</replaceable>を使用して評価、比較されます。なお、<replaceable>operator</replaceable>は結果として論理値を生成する必要があります。
+全ての比較が真になる場合（配列の要素数がゼロである場合を含む）、<token>ALL</token>の結果は<quote>true（真）</quote>です。
+1つでも偽の結果があると、結果は<quote>false（偽）</quote>です。
   </para>
 
   <para>
+<!--
    If the array expression yields a null array, the result of
    <token>ALL</token> will be null.  If the left-hand expression yields null,
    the result of <token>ALL</token> is ordinarily null (though a non-strict
@@ -571,17 +752,26 @@ AND
    will be null, not true (again, assuming a strict comparison operator).
    This is in accordance with SQL's normal rules for Boolean combinations
    of null values.
+-->
+配列式がNULL配列を生成する場合、<token>ALL</token>の結果はNULLになります。
+左辺式がNULLとなる場合、<token>ALL</token>の結果は通常NULLになります（厳格でない比較演算子では異なる結果になるかもしれません）。
+また、右辺の配列にNULL要素が含まれ、かつ、比較の結果、偽が得られなかった場合、<token>ALL</token>の結果は真ではなくNULLになります（ここでも、厳格な演算子の場合です）。
+これは、NULLに対する、SQLの論理値組み合わせに関する標準規則に従うものです。
   </para>
   </sect2>
 
   <sect2 id="row-wise-comparison">
+<!--
    <title>Row Constructor Comparison</title>
+-->
+   <title>行コンストラクタの比較</title>
 
 <synopsis>
 <replaceable>row_constructor</replaceable> <replaceable>operator</replaceable> <replaceable>row_constructor</replaceable>
 </synopsis>
 
   <para>
+<!--
    Each side is a row constructor,
    as described in <xref linkend="sql-syntax-row-constructors"/>.
    The two row values must have the same number of fields.
@@ -595,24 +785,40 @@ AND
    <literal>&gt;=</literal>.
    Every row element must be of a type which has a default B-tree operator
    class or the attempted comparison may generate an error.
+-->
+両辺とも<xref linkend="sql-syntax-row-constructors"/>で説明する行コンストラクタです。
+この２つの行値は同じフィールド数でなければなりません。
+両辺はそれぞれ評価され、行として比較されます。
+行コンストラクタの比較は、<replaceable>operator</replaceable>が<literal>=</literal>、<literal>&lt;&gt;</literal>、<literal>&lt;</literal>、<literal>&lt;=</literal>、<literal>&gt;</literal>、<literal>&gt;=</literal>の場合に認められます。
+各行の要素はデフォルトのB-tree演算子クラスを持つ型でなければなりません。そうでなければ、比較を試みるとエラーが発生します。
   </para>
 
   <note>
    <para>
+<!--
     Errors related to the number or types of elements might not occur if
     the comparison is resolved using earlier columns.
+-->
+比較が先行する列で解決された場合、要素の数や型に関係するエラーは起きないこともあります。
    </para>
   </note>
 
   <para>
+<!--
    The <literal>=</literal> and <literal>&lt;&gt;</literal> cases work slightly differently
    from the others.  Two rows are considered
    equal if all their corresponding members are non-null and equal; the rows
    are unequal if any corresponding members are non-null and unequal;
    otherwise the result of the row comparison is unknown (null).
+-->
+<literal>=</literal>と<literal>&lt;&gt;</literal>の場合、他と動作が多少異なります。
+2つの行は対応する全ての構成要素が非NULLかつ等しい場合に等しいとみなされます。
+１つでも構成要素が非NULLかつ等しくない場合、2つの行は等しくないとみなされます。
+それ以外の場合、その行の比較結果は不明（NULL）です。
   </para>
 
   <para>
+<!--
    For the <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>&gt;</literal> and
    <literal>&gt;=</literal> cases, the row elements are compared left-to-right,
    stopping as soon as an unequal or null pair of elements is found.
@@ -622,10 +828,15 @@ AND
    <literal>ROW(1,2,NULL) &lt; ROW(1,3,0)</literal>
    yields true, not null, because the third pair of elements are not
    considered.
+-->
+<literal>&lt;</literal>、<literal>&lt;=</literal>、<literal>&gt;</literal>、<literal>&gt;=</literal>の場合、行の要素は左から右に比較されます。そして、不等またはNULLの組み合わせが見つかったところで停止します。
+要素の組み合わせのどちらかがNULLであった場合、行比較の結果は不明（NULL）です。さもなくば、要素の組み合わせの比較により結果が決まります。
+例えば、<literal>ROW(1,2,NULL) &lt; ROW(1,3,0)</literal>は、３番目の要素の組み合わせまで進まないため、NULLではなく真を返します。
   </para>
 
   <note>
    <para>
+<!--
     Prior to <productname>PostgreSQL</productname> 8.2, the
     <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>&gt;</literal> and <literal>&gt;=</literal>
     cases were not handled per SQL specification.  A comparison like
@@ -634,6 +845,9 @@ AND
     <literal>a &lt; c AND b &lt; d</literal>
     whereas the correct behavior is equivalent to
     <literal>a &lt; c OR (a = c AND b &lt; d)</literal>.
+-->
+<productname>PostgreSQL</productname>の8.2より前では、<literal>&lt;</literal>、<literal>&lt;=</literal>、<literal>&gt;</literal> 、<literal>&gt;=</literal>の場合SQL仕様に従っていませんでした。
+<literal>ROW(a,b) &lt; ROW(c,d)</literal>などの比較は正しくは<literal>a &lt; c OR (a = c AND b &lt; d)</literal>ですが、<literal>a &lt; c AND b &lt; d</literal>として実装されていました。
    </para>
   </note>
 
@@ -642,11 +856,16 @@ AND
 </synopsis>
 
   <para>
+<!--
    This construct is similar to a <literal>&lt;&gt;</literal> row comparison,
    but it does not yield null for null inputs.  Instead, any null value is
    considered unequal to (distinct from) any non-null value, and any two
    nulls are considered equal (not distinct).  Thus the result will
    either be true or false, never null.
+-->
+このコンストラクトは<literal>&lt;&gt;</literal>行比較と類似していますが、NULL入力に対してNULLを生成しない点が異なります。
+その代わりに、全てのNULL値は非NULL値と等しくない（DISTINCT FROM）ものとみなされ、また、２つのNULLは等しい（NOT DISTINCT）ものとみなされます。
+したがって、結果は真か偽のいずれかで、NULLにはなりません。
   </para>
 
 <synopsis>
@@ -654,23 +873,32 @@ AND
 </synopsis>
 
   <para>
+<!--
    This construct is similar to a <literal>=</literal> row comparison,
    but it does not yield null for null inputs.  Instead, any null value is
    considered unequal to (distinct from) any non-null value, and any two
    nulls are considered equal (not distinct).  Thus the result will always
    be either true or false, never null.
+-->
+このコンストラクトは<literal>=</literal>行比較と類似していますが、NULL入力に対してNULLを生成しません。
+代わりに、NULL値を、すべての非NULLの値に対して不等（DISTINCT FROM）とみなし、２つのNULLを等しいもの（NOT DISTINCT）とみなします。
+したがって、結果は常に真か偽となり、NULLになることはありません
   </para>
 
   </sect2>
 
   <sect2 id="composite-type-comparison">
+<!--
    <title>Composite Type Comparison</title>
+-->
+   <title>複合型の比較</title>
 
 <synopsis>
 <replaceable>record</replaceable> <replaceable>operator</replaceable> <replaceable>record</replaceable>
 </synopsis>
 
   <para>
+<!--
    The SQL specification requires row-wise comparison to return NULL if the
    result depends on comparing two NULL values or a NULL and a non-NULL.
    <productname>PostgreSQL</productname> does this only when comparing the
@@ -681,9 +909,15 @@ AND
    NULL field values are considered equal, and a NULL is considered larger
    than a non-NULL.  This is necessary in order to have consistent sorting
    and indexing behavior for composite types.
+-->
+SQL仕様では、結果が2つのNULL値、またはNULLと非NULLの比較に依存するのであれば、行の観点からの比較はNULLを返すことを要求されています。
+<productname>PostgreSQL</productname>は、(<xref linkend="row-wise-comparison"/>にあるように)２つの行コンストラクタの出力の比較を行う時、または副問い合わせの出力に対し(<xref linkend="functions-subquery"/>にあるように)行コンストラクタの比較を行う時のみこれを実施します。
+２つの複合型の値が比較されるほかの状況では、２つのNULLフィールドの値は等しいと考えられ、NULLは非NULLより大きいとみなされます。
+複合型に対して、これは一貫した並び替えとインデックス付け動作担保のため必要です。
   </para>
 
   <para>
+<!--
    Each side is evaluated and they are compared row-wise.  Composite type
    comparisons are allowed when the <replaceable>operator</replaceable> is
    <literal>=</literal>,
@@ -698,6 +932,11 @@ AND
    class.)  The default behavior of the above operators is the same as for
    <literal>IS [ NOT ] DISTINCT FROM</literal> for row constructors (see
    <xref linkend="row-wise-comparison"/>).
+-->
+各辺が評価され、行単位で比較が行なわれます。
+複合型の比較は<replaceable>operator</replaceable>が<literal>=</literal>、<literal>&lt;&gt;</literal>、<literal>&lt;</literal>、<literal>&lt;=</literal>、<literal>&gt;</literal>、<literal>&gt;=</literal>またはそのいずれかと類似の意味を持つ場合に許されます。
+(正確には、演算子はB-tree演算子クラスのメンバである場合、またはB-tree演算子クラスの<literal>=</literal>メンバの否定子である場合に行比較演算子となり得ます。)
+上記の演算子のデフォルトの動作は、行コンストラクタに対する<literal>IS [ NOT ] DISTINCT FROM</literal>と同じです（<xref linkend="row-wise-comparison"/>参照）。
   </para>
 
   <para>
@@ -2665,7 +2904,7 @@ SELECT currval(pg_get_serial_sequence('sometable', 'id'));
         <indexterm>
          <primary>pg_options_to_table</primary>
         </indexterm>
-        <function>pg_options_to_table</function> ( <parameter>reloptions</parameter> <type>text[]</type> )
+        <function>pg_options_to_table</function> ( <parameter>options_array</parameter> <type>text[]</type> )
         <returnvalue>setof record</returnvalue>
         ( <parameter>option_name</parameter> <type>text</type>,
         <parameter>option_value</parameter> <type>text</type> )
@@ -7159,7 +7398,7 @@ BEGIN
                      obj.object_name,
                      obj.object_identity;
     END LOOP;
-END
+END;
 $$;
 CREATE EVENT TRIGGER test_event_trigger_for_drops
    ON sql_drop
