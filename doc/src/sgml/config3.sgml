@@ -202,6 +202,8 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
         it is canceled by completion of an Execute or Sync message.
 -->
 タイムアウトは、コマンドがサーバに到着したときから、サーバがそのコマンドの実行を完了するまでを基準にします。
+複数のSQL文が一つの単純問い合わせメッセージに含まれる場合、タイムアウトは個々のSQL文に別々に適用されます。
+（13よりも前の<productname>PostgreSQL</productname>バージョンでは、通常SQL文字列全体に対してタイムアウトが適用されていました。）
 拡張問い合わせでは、タイムアウトは問い合わせに関するメッセージ（Parse、Bind、Execute、Describe）が到着したときに開始し、ExecuteあるいはSyncメッセージが完了した時にキャンセルされます。
        </para>
 
@@ -2767,37 +2769,57 @@ WALディスクブロックの容量を報告します。
       </term>
       <listitem>
        <para>
+<!--
         Allows modification of the structure of system tables as well as
         certain other risky actions on system tables.  This is otherwise not
         allowed even for superusers.  Ill-advised use of this setting can
         cause irretrievable data loss or seriously corrupt the database
         system.  Only superusers can change this setting.
-       </para>
+-->
+システムテーブルの構造変更とその他の危険性の高いシステムテーブルに対するアクションを許可します。
+これは通常スーパユーザにさえ許可されません。
+この設定の無分別な使用は回復不能なデータ喪失やデータベースシステムの重大な破損を招きます。
+スーパユーザだけがこの設定を変更できます。
+     </para>
       </listitem>
      </varlistentry>
 
      <varlistentry id="guc-backtrace-functions" xreflabel="backtrace_functions">
       <term><varname>backtrace_functions</varname> (<type>string</type>)
       <indexterm>
+<!--
         <primary><varname>backtrace_functions</varname> configuration parameter</primary>
+-->
+        <primary><varname>backtrace_functions</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         This parameter contains a comma-separated list of C function names.
         If an error is raised and the name of the internal C function where
         the error happens matches a value in the list, then a backtrace is
         written to the server log together with the error message.  This can
         be used to debug specific areas of the source code.
+-->
+このパラメータはカンマ区切りのC関数名を含みます。
+エラーが発生し、エラー発生箇所の内部C関数がこのリストの値と一致すると、エラーメッセージとともにバックトレースが一緒にサーバログに書かれます。
+これはソースコードの特定箇所をデバッグするのに役立ちます。
        </para>
 
        <para>
+<!--
         Backtrace support is not available on all platforms, and the quality
         of the backtraces depends on compilation options.
+-->
+バックトレースのサポートはすべてのプラットフォームで提供されているわけではありませんし、バックトレースの品質はコンパイルオプションに依存します。
        </para>
 
        <para>
+<!--
         This parameter can only be set by superusers.
+-->
+スーパユーザだけがこのパラメータを設定できます。
        </para>
       </listitem>
      </varlistentry>
@@ -3104,8 +3126,8 @@ LOG:  CleanUpLock: deleting: lock(0xb7acd844) id(24688,24696,0,0,0,1)
       <listitem>
        <para>
        <!--
-        If set, do not trace locks for tables below this OID. (use to avoid
-        output on system tables)
+        If set, do not trace locks for tables below this OID (used to avoid
+        output on system tables).
        -->
        設定すると、このOID未満のテーブルに関するロックの追跡を行いません。
        （システムテーブルに関する出力を抑えるために使用します。）
@@ -3357,11 +3379,15 @@ LOG:  CleanUpLock: deleting: lock(0xb7acd844) id(24688,24696,0,0,0,1)
      <varlistentry id="guc-ignore-invalid-pages" xreflabel="ignore_invalid_pages">
       <term><varname>ignore_invalid_pages</varname> (<type>boolean</type>)
       <indexterm>
+<!--
        <primary><varname>ignore_invalid_pages</varname> configuration parameter</primary>
+-->
+       <primary><varname>ignore_invalid_pages</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         If set to <literal>off</literal> (the default), detection of
         WAL records having references to invalid pages during
         recovery causes <productname>PostgreSQL</productname> to
@@ -3375,6 +3401,12 @@ LOG:  CleanUpLock: deleting: lock(0xb7acd844) id(24688,24696,0,0,0,1)
         to finish the recovery, and to cause the server to start up.
         The parameter can only be set at server start. It only has effect
         during recovery or in standby mode.
+-->
+<literal>off</literal>（デフォルトです）に設定すると、無効なページを参照しているWALレコードは<productname>PostgreSQL</productname>に対してPANICレベルのエラーを引き起こし、リカバリをアボートします。
+<varname>ignore_invalid_pages</varname>を<literal>on</literal>に設定すると、WALレコードの無効なページへの参照を無視し（しかしワーニングは報告されます）、リカバリを継続します。
+この振る舞いにより、<emphasis>クラッシュ、データロス、破壊を増長したり見えなくするなどの深刻な問題</emphasis>を被るかもしれません。
+このパラメータがサーバ起動時にのみ設定できます。
+リカバリ、スタンバイモードでのみ効果があります。
        </para>
       </listitem>
      </varlistentry>
