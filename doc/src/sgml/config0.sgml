@@ -1157,6 +1157,7 @@ include_dir 'conf.d'
 空の値はいかなるUnixドメインソケットも監視しないようにします。
 この場合、TCP/IPソケットのみがサーバとの接続に使用されます。
 デフォルト値は通常<filename>/tmp</filename>ですが、ビルド時に変更できます。
+Windowsではデフォルトは空文字で、これはつまりUnixドメインソケットがデフォルトでは作成されないことを意味します。
 このパラメータはサーバ起動時のみ設定可能です。
        </para>
 
@@ -1207,7 +1208,8 @@ Unixドメインソケット（複数も）を所有するグループを設定�
         This parameter is not supported on Windows.  Any setting will be
         ignored.
        -->
-Windowsでは、Unixドメインソケットがありませんので、このパラメータは無関係です。
+このパラメータはWindowsではサポートされていません。
+すべての設定は無視されます。       
        </para>
       </listitem>
      </varlistentry>
@@ -1276,8 +1278,7 @@ Unixドメインソケットは通常のUnixファイルシステムパーミッ
         directory having search permission limited to the desired audience.
        -->
 このパラメータはSolaris 10の時点でのSolarisなど、ソケットのパーミッションを完全に無視するシステムでは無関係です。
-こうしたシステムでは、制限したいユーザだけが検索パーミッションを持つディレクトリを<varname>unix_socket_directories</varname>で指すようにすることによって同じような効果を得ることができます。
-Windowsでも、Unixドメインソケットがありませんので、このパラメータは無関係です。
+こうしたシステムでは、許可したいユーザだけが検索パーミッションを持つディレクトリを<varname>unix_socket_directories</varname>で指すようにすることによって同じような効果を得ることができます。
        </para>
       </listitem>
      </varlistentry>
@@ -2082,8 +2083,7 @@ TLS 1.0より前のプロトコルバージョン、すなわちSSLバージョ�
         The default is <literal>TLSv1.2</literal>, which satisfies industry
         best practices as of this writing.
 -->
-デフォルトは<literal>TLSv1</literal>で、主に古いバージョンの<productname>OpenSSL</productname>ライブラリをサポートするためです。
-すべてのソフトウェアコンポーネントが新しいバージョンのプロトコルをサポートしているなら、より高い値にするのが良いでしょう。
+デフォルトは<literal>TLSv1.2</literal>で、本稿執筆時点では業界のベストプラクティスを満たしています。
        </para>
       </listitem>
      </varlistentry>
@@ -2547,17 +2547,18 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         Hash tables are used in hash joins, hash-based aggregation, and
         hash-based processing of <literal>IN</literal> subqueries.
        -->
-一時ディスクファイルに書き込むようになる前に、クエリ操作（たとえば並べ替えとハッシュテーブル操作）が使用する最大のメモリ容量を指定します。
+一時ディスクファイルに書き込むようになる前に、問い合わせ操作（たとえば並べ替えとハッシュテーブル操作）が使用する基本的な最大のメモリ容量を指定します。
 この値が単位なしで指定された場合は、キロバイト単位であるとみなします。
 デフォルト値は4メガバイト（<literal>4MB</literal>）です。
 複雑な問い合わせの場合、いくつかの並び替えもしくはハッシュ操作が並行して実行されることに注意してください。
-それぞれの操作による一時メモリへの書き込み開始の前に、この値が指定するのと同じメモリ容量の使用をそれらの操作に許容します。
+一時ファイルへの書き込み開始の前に、それぞれの操作にこの値が指定するのと同じメモリ容量の使用が許容されます。
 さらに、いくつかの実行中のセッションはこれらの動作を同時に行います。
 したがって、使用されるメモリの合計は、<varname>work_mem</varname>の数倍になります。値を選択する時には、この事実に留意することが必要です。
 並び替え操作は<literal>ORDER BY</literal>、<literal>DISTINCT</literal>、およびマージ結合に対して使われます。
 ハッシュテーブルはハッシュ結合、ハッシュに基づいた集約、および<literal>IN</literal>副問い合わせのハッシュに基づいた処理で使用されます。
        </para>
        <para>
+<!--
         Hash-based operations are generally more sensitive to memory
         availability than equivalent sort-based operations.  The
         memory available for hash tables is computed by multiplying
@@ -2566,6 +2567,10 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         possible for hash-based operations to use an amount of memory
         that exceeds the usual <varname>work_mem</varname> base
         amount.
+-->
+一般的に、ハッシュに基づく操作はソートに基づく操作よりも利用可能なメモリに敏感です。
+ハッシュテーブルが利用可能なメモリは<varname>work_mem</varname>に<varname>hash_mem_multiplier</varname>を掛けて計算します。
+これにより、ハッシュに基づく操作では通常の<varname>work_mem</varname>に基づく量を超える量のメモリが使用される可能性があります。
        </para>
       </listitem>
      </varlistentry>
@@ -2573,11 +2578,15 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
      <varlistentry id="guc-hash-mem-multiplier" xreflabel="hash_mem_multiplier">
       <term><varname>hash_mem_multiplier</varname> (<type>floating point</type>)
       <indexterm>
+<!--
        <primary><varname>hash_mem_multiplier</varname> configuration parameter</primary>
+-->
+       <primary><varname>hash_mem_multiplier</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Used to compute the maximum amount of memory that hash-based
         operations can use.  The final limit is determined by
         multiplying <varname>work_mem</varname> by
@@ -2585,8 +2594,13 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         1.0, which makes hash-based operations subject to the same
         simple <varname>work_mem</varname> maximum as sort-based
         operations.
+-->
+ハッシュに基づく操作が利用できる最大のメモリ量を計算するために使用します。
+最終的な制限は<varname>work_mem</varname>に<varname>hash_mem_multiplier</varname>を掛けて決定されます。
+デフォルト値は1.0で、ソートに基づく操作と同じように単に<varname>work_mem</varname>が最大となります。
        </para>
        <para>
+<!--
         Consider increasing <varname>hash_mem_multiplier</varname> in
         environments where spilling by query operations is a regular
         occurrence, especially when simply increasing
@@ -2597,6 +2611,10 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         more may be effective in environments where
         <varname>work_mem</varname> has already been increased to 40MB
         or more.
+-->
+問い合わせ操作によって日常的にメモリ不足になるような環境、とりわけ単に<varname>work_mem</varname>を増やしたことによってメモリ逼迫（メモリ逼迫が典型的には間欠的なメモリ不足エラーの発生の形で起こる）が起きる場合には<varname>hash_mem_multiplier</varname>を増やすことを考慮してください。
+1.5あるいは2.0が色々なワークロードが混在している場合には効果的かも知れません。
+より大きな2.0から8.0、あるいはそれ以上の設定は<varname>work_mem</varname>がすでに40MB以上に増やしてあるような環境で効果的かも知れません。
        </para>
       </listitem>
      </varlistentry>
@@ -2676,11 +2694,15 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
      <varlistentry id="guc-logical-decoding-work-mem" xreflabel="logical_decoding_work_mem">
       <term><varname>logical_decoding_work_mem</varname> (<type>integer</type>)
       <indexterm>
+<!--
        <primary><varname>logical_decoding_work_mem</varname> configuration parameter</primary>
+-->
+       <primary><varname>logical_decoding_work_mem</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Specifies the maximum amount of memory to be used by logical decoding,
         before some of the decoded changes are written to local disk. This
         limits the amount of memory used by logical streaming replication
@@ -2690,6 +2712,11 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         concurrently (as limited by <varname>max_wal_senders</varname>), it's
         safe to set this value significantly higher than <varname>work_mem</varname>,
         reducing the amount of decoded changes written to disk.
+-->
+デコードされた更新がローカルディスクに書かれる前にロジカルデコーディングが使用する最大のメモリ量を指定します。
+これにより、ロジカルストリーミングレプリケーションの接続が使用する最大メモリが制限されます。
+デフォルトは64メガバイト(<literal>64MB</literal>)です。
+個々のレプリケーション接続がここで指定した単一のバッファだけを使用し、インストールは通常たくさんの接続を並行して使わないので（<varname>max_wal_senders</varname>で制限されます）、この値を<varname>work_mem</varname>よりもずっと大きくしても安全で、それによってデコードされた更新がディスクに書かれる量が削減されます。
        </para>
       </listitem>
      </varlistentry>
@@ -3407,19 +3434,29 @@ SSDやそれ以外のメモリーベースの記憶装置は、多くの同時�
       <varlistentry id="guc-maintenance-io-concurrency" xreflabel="maintenance_io_concurrency">
        <term><varname>maintenance_io_concurrency</varname> (<type>integer</type>)
        <indexterm>
+<!--
         <primary><varname>maintenance_io_concurrency</varname> configuration parameter</primary>
+-->
+        <primary><varname>maintenance_io_concurrency</varname>設定パラメータ</primary>
        </indexterm>
        </term>
        <listitem>
         <para>
+<!--
          Similar to <varname>effective_io_concurrency</varname>, but used
          for maintenance work that is done on behalf of many client sessions.
+-->
+<varname>effective_io_concurrency</varname>と似ていますが、多くのクライアントセッションのために行われる保守作業で適用されるところが異なります。
         </para>
         <para>
+<!--
          The default is 10 on supported systems, otherwise 0.  This value can
          be overridden for tables in a particular tablespace by setting the
          tablespace parameter of the same name (see
          <xref linkend="sql-altertablespace"/>).
+-->
+サポートしているシステムではデフォルトは10で、それ以外は0です。
+この値は同じ名前のテーブル空間パラメータを使って、特定のテーブル空間にあるテーブルのために置き換えることができます。（xref linkend="sql-altertablespace"/>を参照してください。）
         </para>
        </listitem>
       </varlistentry>
@@ -3558,7 +3595,7 @@ SSDやそれ以外のメモリーベースの記憶装置は、多くの同時�
          commands.
 -->
 単一のユーティリティコマンドで使用されるパラレルワーカーの最大数を設定します。
-今の所、パラレルワーカーの利用をサポートしているパラレルユーティリティコマンドは<command>CREATE INDEX</command>だけで、しかもB-treeインデックスを構築するときだけです。
+今の所、パラレルワーカーの利用をサポートしているパラレルユーティリティコマンドは、<command>CREATE INDEX</command>がB-treeインデックスを構築するときと、<literal>FULL</literal>オプションなしの<command>VACUUM</command>です。
 パラレルワーカーは、<xref linkend="guc-max-worker-processes"/>で確立したプロセスのプールから取得され、<xref linkend="guc-max-parallel-workers"/>によって制限されます。
 要求したワーカー数は、実行時に実際には利用可能でないかも知れないことに注意してください。
 この場合は、ユーティリティ操作は期待したよりも少ない数のワーカーにより実行されます。

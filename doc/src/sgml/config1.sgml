@@ -152,34 +152,31 @@
 このパラメータはサーバ起動時のみ設定可能です。
        </para>
        <para>
+<!--
         In <literal>minimal</literal> level, no information is logged for
         permanent relations for the remainder of a transaction that creates or
         rewrites them.  This can make operations much faster (see
         <xref linkend="populate-pitr"/>).  Operations that initiate this
         optimization include:
-       <!--
+-->
+<literal>minimal</literal>レベルでは、永続リレーションを作成あるいは書き換えるトランザクションの差分に関する情報はログされません。
+これにより、それらの操作が大幅に高速になります（<xref linkend="populate-pitr"/>を参照してください）。
+この最適化が適用される操作には以下のものがあげられます。
         <simplelist>
          <member><command>ALTER ... SET TABLESPACE</command></member>
          <member><command>CLUSTER</command></member>
          <member><command>CREATE TABLE</command></member>
          <member><command>REFRESH MATERIALIZED VIEW</command>
-         (without <option>CONCURRENTLY</option>)</member>
+         (<option>CONCURRENTLY</option>なし)</member>
          <member><command>REINDEX</command></member>
          <member><command>TRUNCATE</command></member>
         </simplelist>
+<!--
         But minimal WAL does not contain enough information to reconstruct the
         data from a base backup and the WAL logs, so <literal>replica</literal> or
         higher must be used to enable WAL archiving
         (<xref linkend="guc-archive-mode"/>) and streaming replication.
-       -->
-<literal>minimal</literal>レベルでは、一部の巨大な操作でのWAL出力は安全に省略でき、そうすることで、それらの操作が大幅に高速になります（<xref linkend="populate-pitr"/>を参照してください）。
-この最適化が適用される操作には以下のものがあげられます。
-        <simplelist>
-         <member><command>CREATE TABLE AS</command></member>
-         <member><command>CREATE INDEX</command></member>
-         <member><command>CLUSTER</command></member>
-         <member>同一トランザクション内で作成されたか、もしくは切り詰められたテーブルに対する<command>COPY</command></member>
-        </simplelist>
+-->
 しかしminimal WALはベースバックアップとWALログからデータを再構築するための充分な情報を持ち合わせていません。
 したがって、WALアーカイビング（<xref linkend="guc-archive-mode"/>）とストリーミングレプリケーションを有効にするには、<literal>replica</literal>以上を使用しなければなりません。
        </para>
@@ -310,14 +307,30 @@
       <listitem>
        <para>
 <!--
-        Specifies whether transaction commit will wait for WAL records
-        to be written to disk before the command returns a <quote>success</quote>
-        indication to the client.  Valid values are <literal>on</literal>,
-        <literal>remote_apply</literal>, <literal>remote_write</literal>, <literal>local</literal>,
-        and <literal>off</literal>.  The default, and safe, setting
-        is <literal>on</literal>.  When <literal>off</literal>, there can be a delay between
-        when success is reported to the client and when the transaction is
-        really guaranteed to be safe against a server crash.  (The maximum
+        Specifies how much WAL processing must complete before
+        the database server returns a <quote>success</quote>
+        indication to the client.  Valid values are
+        <literal>remote_apply</literal>, <literal>on</literal>
+        (the default), <literal>remote_write</literal>,
+        <literal>local</literal>, and <literal>off</literal>.
+-->
+トランザクションのコミットがクライアントに<quote>成功</quote>の報告を返す前に、どれだけのWAL処理を完了しなければならないかを指定をします。
+有効な値は<literal>remote_apply</literal>、<literal>on</literal>(デフォルト)、<literal>remote_write</literal>、<literal>local</literal>、<literal>off</literal>です。
+       </para>
+
+       <para>
+<!--
+        If <varname>synchronous_standby_names</varname> is empty,
+        the only meaningful settings are <literal>on</literal> and
+        <literal>off</literal>;  <literal>remote_apply</literal>,
+        <literal>remote_write</literal> and <literal>local</literal>
+        all provide the same local synchronization level
+        as <literal>on</literal>.  The local behavior of all
+        non-<literal>off</literal> modes is to wait for local flush of WAL
+        to disk.  In <literal>off</literal> mode, there is no waiting,
+        so there can be a delay between when success is reported to the
+        client and when the transaction is later guaranteed to be safe
+        against a server crash.  (The maximum
         delay is three times <xref linkend="guc-wal-writer-delay"/>.)  Unlike
         <xref linkend="guc-fsync"/>, setting this parameter to <literal>off</literal>
         does not create any risk of database inconsistency: an operating
@@ -329,64 +342,66 @@
         exact certainty about the durability of a transaction.  For more
         discussion see <xref linkend="wal-async-commit"/>.
 -->
-トランザクションのコミットがクライアントに<quote>成功</quote>の報告を返す前に、WALレコードがディスク上に書き込まれるまで待つかどうかの指定をします。
-有効な値は<literal>on</literal>、<literal>remote_apply</literal>、<literal>remote_write</literal>、<literal>local</literal>、および<literal>off</literal>です。
-デフォルトかつ安全な設定は<literal>on</literal>です。
-<literal>off</literal>の場合、クライアントに成功を報告する時点とトランザクションが本当にサーバクラッシュに対して安全になるまでの間に遅延が発生する場合があります。
-（遅延は最大で、<xref linkend="guc-wal-writer-delay"/>の3倍です。）
-<xref linkend="guc-fsync"/>と異なり、このパラメータを<literal>off</literal>に設定することによって、データベースの一貫性が損なわれる可能性はありません。
+<varname>synchronous_standby_names</varname>が空文字なら、意味のある設定は<literal>on</literal>と<literal>off</literal>だけです。
+<literal>remote_apply</literal>、<literal>remote_write</literal>、<literal>local</literal>はすべて<literal>on</literal>と同じ同期レベルを提供します。
+<literal>off</literal>モード以外のローカルの振る舞いは、WALがディスクにローカルに吐き出されるのを待ちます。
+<literal>off</literal>モードでは待ちはありません。
+ですから、クライアントに成功が報告されてから、トランザクションが後でサーバクラッシュに対して安全が保証されるまでの間に遅延が生じる可能性があります。
+（遅延は最大で<xref linkend="guc-wal-writer-delay"/>の3倍です。）
+<xref linkend="guc-fsync"/>と違って、このパラメータを<literal>off</literal>にすることでデータベースの一貫性が損なわれるリスクはありません。
 オペレーティングシステムやデータベースのクラッシュにより最近コミットされたということになっているトランザクションの一部が失われる可能性がありますが、これらのトランザクションが正常にアボートされた時とデータベースの状態は変わりません。
-ですので、<varname>synchronous_commit</varname>を無効にすることは、トランザクションの信頼性が確実であることよりも性能が重要である場合に有効な方法です。
+したがって、<varname>synchronous_commit</varname>のオフによる調整は、トランザクションの耐障害性を確実にするよりも性能が重要な場合の有用な代替案となるかも知れません。
 詳細は<xref linkend="wal-async-commit"/>を参照してください。
        </para>
+
        <para>
 <!--
-        If <xref linkend="guc-synchronous-standby-names"/> is non-empty, this
-        parameter also controls whether or not transaction commits will wait
-        for their WAL records to be replicated to the standby server(s).
-        When set to <literal>on</literal>, commits will wait until replies
+        If <xref linkend="guc-synchronous-standby-names"/> is non-empty,
+        <varname>synchronous_commit</varname> also controls whether
+        transaction commits will wait for their WAL records to be
+        processed on the standby server(s).
+-->
+<xref linkend="guc-synchronous-standby-names"/>が空文字でない場合は、このパラメータは、WALレコードが、スタンバイサーバに複製されるまでトランザクションコミットを待機するか否かも制御します。
+       </para>
+
+       <para>
+<!--
+        When set to <literal>remote_apply</literal>, commits will wait
+        until replies from the current synchronous standby(s) indicate they
+        have received the commit record of the transaction and applied
+        it, so that it has become visible to queries on the standby(s),
+        and also written to durable storage on the standbys.  This will
+        cause much larger commit delays than previous settings since
+        it waits for WAL replay.  When set to <literal>on</literal>,
+        commits wait until replies
         from the current synchronous standby(s) indicate they have received
-        the commit record of the transaction and flushed it to disk.  This
+        the commit record of the transaction and flushed it to durable storage.  This
         ensures the transaction will not be lost unless both the primary and
         all synchronous standbys suffer corruption of their database storage.
-        When set to <literal>remote_apply</literal>, commits will wait until replies
-        from the current synchronous standby(s) indicate they have received the
-        commit record of the transaction and applied it, so that it has become
-        visible to queries on the standby(s).
         When set to <literal>remote_write</literal>, commits will wait until replies
         from the current synchronous standby(s) indicate they have
-        received the commit record of the transaction and written it out to
-        their operating system. This setting is sufficient to
-        ensure data preservation even if a standby instance of
-        <productname>PostgreSQL</productname> were to crash, but not if the standby
-        suffers an operating-system-level crash, since the data has not
+        received the commit record of the transaction and written it to
+        their file systems. This setting ensures data preservation if a standby instance of
+        <productname>PostgreSQL</productname> crashes, but not if the standby
+        suffers an operating-system-level crash because the data has not
         necessarily reached durable storage on the standby.
-        Finally, the setting <literal>local</literal> causes commits to wait for
-        local flush to disk, but not for replication.  This is not usually
+        The setting <literal>local</literal> causes commits to wait for
+        local flush to disk, but not for replication.  This is usually not
         desirable when synchronous replication is in use, but is provided for
         completeness.
 -->
-<xref linkend="guc-synchronous-standby-names"/>が空文字でない場合は、このパラメータは、WALレコードが、スタンバイサーバに複製されるまでトランザクションコミットを待機するか否かも制御します。
-<literal>on</literal>に設定すると、現在の同期スタンバイがトランザクションのコミットレコードを受け取り、記憶装置に吐き出したことを報告するまでコミットは待機します。
+<literal>remote_apply</literal>に設定すると、現在の同期スタンバイがトランザクションのコミットレコードを受け取って適用し、スタンバイ上で発行されたクエリから見えるようになり、スタンバイ上の永続的な記憶装置に書き込まれたことを報告するまでコミットは待機します。
+WALのリプレイを待つので、今までの設定に比べるとこの設定によってずっと大きなコミットの遅延が発生します。
+<literal>on</literal>に設定すると、現在の同期スタンバイがトランザクションのコミットレコードを受け取り、永続的な記憶装置に吐き出したことを報告するまでコミットは待機します。
 このモードでは、プライマリおよびすべての同期スタンバイがデータベース記憶装置の故障を被った場合を除いて、トランザクションが失われないことが保証されます。
-<literal>remote_apply</literal>に設定すると、現在の同期スタンバイがトランザクションのコミットレコードを受け取って適用し、スタンバイ上で発行されたクエリから見えるようになったことを報告するまでコミットは待機します。
-<literal>remote_write</literal>に設定すると、現在の同期スタンバイがトランザクションのコミットレコードを受け取り、スタンバイのオペレーティングシステムに書き出したことを報告するまでコミットは待機します。
+<literal>remote_write</literal>に設定すると、現在の同期スタンバイがトランザクションのコミットレコードを受け取り、スタンバイのファイルシステムに書き出したことを報告するまでコミットは待機します。
 この設定は仮に<productname>PostgreSQL</productname>のスタンバイインスタンスがクラッシュしたとしても、データ保護を保証するのに充分です。
 しかし、スタンバイがオペレーティングシステムのレベルでクラッシュした場合はこの限りではありません。
 データが必ずしもスタンバイの永続的な記憶装置に到達したとは言えないからです。
 最後に、<literal>local</literal>設定は、コミットがローカルにディスクに吐出されるまで待機しますが、レプリケーションされるまでは待機しません。
 これは通常同期レプリケーションが使用されている場合は望ましい設定ではありませんが、完全さのために提供されています。
        </para>
-       <para>
-<!--
-        If <varname>synchronous_standby_names</varname> is empty, the settings
-        <literal>on</literal>, <literal>remote_apply</literal>, <literal>remote_write</literal>
-        and <literal>local</literal> all provide the same synchronization level:
-        transaction commits only wait for local flush to disk.
--->
-もし <varname>synchronous_standby_names</varname> が設定されていなければ、<literal>on</literal>、<literal>remote_apply</literal>、<literal>remote_write</literal> および <literal>local</literal> の設定は全て同一の同期レベルを提供します。
-すなわちトランザクションのコミットはローカルディスクへの吐き出しのみを待機します。
-       </para>
+
        <para>
        <!--
         This parameter can be changed at any time; the behavior for any
@@ -402,6 +417,89 @@
 したがって、一部のトランザクションのコミットを同期的に、その他を非同期的にすることが可能で、かつ、有用です。
 例えば、デフォルトが同期コミットの場合に複数文トランザクションを一つだけ非同期にコミットさせるためには、トランザクション内で<command>SET LOCAL synchronous_commit TO OFF</command>を発行します。
        </para>
+
+       <para>
+<!--
+        <xref linkend="synchronous-commit-matrix"/> summarizes the
+        capabilities of the <varname>synchronous_commit</varname> settings.
+-->
+<varname>synchronous_commit</varname>設定の機能のまとめが<xref linkend="synchronous-commit-matrix"/>にあります。
+       </para>
+
+       <table id="synchronous-commit-matrix">
+<!--
+        <title>synchronous_commit Modes</title>
+-->
+        <title>synchronous_commitモード</title>
+        <tgroup cols="5">
+         <colspec colname="col1" colwidth="1.5*"/>
+         <colspec colname="col2" colwidth="1*"/>
+         <colspec colname="col3" colwidth="1*"/>
+         <colspec colname="col4" colwidth="1*"/>
+         <colspec colname="col5" colwidth="1*"/>
+         <thead>
+          <row>
+<!--
+           <entry>synchronous_commit setting</entry>
+           <entry>local durable commit</entry>
+           <entry>standby durable commit after PG crash</entry>
+           <entry>standby durable commit after OS crash</entry>
+           <entry>standby query consistency</entry>
+-->
+           <entry>synchronous_commit設定</entry>
+           <entry>localの永続的なコミット</entry>
+           <entry>PGがクラッシュした後のスタンバイの永続的なコミット</entry>
+           <entry>OSがクラッシュした後のスタンバイの永続的なコミット</entry>
+           <entry>スタンバイのクエリの一貫性</entry>
+          </row>
+         </thead>
+
+         <tbody>
+
+          <row>
+           <entry>remote_apply</entry>
+           <entry align="center">&bull;</entry>
+           <entry align="center">&bull;</entry>
+           <entry align="center">&bull;</entry>
+           <entry align="center">&bull;</entry>
+          </row>
+
+          <row>
+           <entry>on</entry>
+           <entry align="center">&bull;</entry>
+           <entry align="center">&bull;</entry>
+           <entry align="center">&bull;</entry>
+           <entry align="center"></entry>
+          </row>
+
+          <row>
+           <entry>remote_write</entry>
+           <entry align="center">&bull;</entry>
+           <entry align="center">&bull;</entry>
+           <entry align="center"></entry>
+           <entry align="center"></entry>
+          </row>
+
+          <row>
+           <entry>local</entry>
+           <entry align="center">&bull;</entry>
+           <entry align="center"></entry>
+           <entry align="center"></entry>
+           <entry align="center"></entry>
+          </row>
+
+          <row>
+           <entry>off</entry>
+           <entry align="center"></entry>
+           <entry align="center"></entry>
+           <entry align="center"></entry>
+           <entry align="center"></entry>
+          </row>
+
+         </tbody>
+        </tgroup>
+       </table>
+
       </listitem>
      </varlistentry>
 
@@ -821,11 +919,15 @@ WALライタがWALを吐き出す頻度を量で指定します。
      <varlistentry id="guc-wal-skip-threshold" xreflabel="wal_skip_threshold">
       <term><varname>wal_skip_threshold</varname> (<type>integer</type>)
       <indexterm>
+<!--
        <primary><varname>wal_skip_threshold</varname> configuration parameter</primary>
+-->
+       <primary><varname>wal_skip_threshold</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         When <varname>wal_level</varname> is <literal>minimal</literal> and a
         transaction commits after creating or rewriting a permanent relation,
         this setting determines how to persist the new data.  If the data is
@@ -835,6 +937,12 @@ WALライタがWALを吐き出す頻度を量で指定します。
         concurrent transactions.  If this value is specified without units, it
         is taken as kilobytes.  The default is two megabytes
         (<literal>2MB</literal>).
+-->
+<varname>wal_level</varname>が<literal>minimal</literal>で、トランザクションのコミットが永続リレーションを作るかあるいは書き換えた場合に、この設定は新しいデータをどのように永続させるかを決定します。
+データがこの設定よりも少なければ、WALログに書きます。そうでなければ、影響のあるファイルに対してfsyncを使用します。
+そのようなコミットが現在のトランザクションを低速化しているようであれば、使用する記憶装置の特性によってはこの値を増減することが役に立つかも知れません。
+この値が単位なしに指定されるとキロバイトであると見なします。
+デフォルトは2メガバイト(<literal>2MB</literal>)です。
        </para>
       </listitem>
      </varlistentry>
@@ -1088,8 +1196,8 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
 -->
-自動WALチェックポイントの間にWALが増加する最大サイズです。
-これはソフトリミットです。特別な状況下、たとえば高負荷、<varname>archive_command</varname>の失敗、<varname>wal_keep_segments</varname>が大きな値に設定されている、などの時には、WALサイズは<varname>max_wal_size</varname>を超えることがあります。
+自動WALチェックポイントの際にWALが増加する最大サイズです。
+これはソフトリミットです。特別な状況下、たとえば高負荷、<varname>archive_command</varname>の失敗、<varname>wal_keep_size</varname>が大きな値に設定されている、などの時には、WALサイズは<varname>max_wal_size</varname>を超えることがあります。
 この値が単位なしで指定された場合は、メガバイト単位であるとみなします。
 デフォルトは1GBです。
 このパラメータを大きくすると、クラッシュリカバリに必要な時間が長くなります。
@@ -1876,11 +1984,15 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
 -->
 この設定はリカバリ対象が設定されていない場合には効果がありません。
 <xref linkend="guc-hot-standby"/>が有効になっていない場合、<literal>pause</literal>の設定は<literal>shutdown</literal>と同じように動作します。
+昇格中にリカバリ対象に到達した場合は、<literal>pause</literal>は<literal>promote</literal>と同じように働きます。
        </para>
        <para>
+<!--
         In any case, if a recovery target is configured but the archive
         recovery ends before the target is reached, the server will shut down
         with a fatal error.
+-->
+どのような場合でも、リカバリ対象が設定されていて、アーカイブリカバリがそのリカバリ対象に到達する前に終了すると、サーバはフェイタルエラーで停止します。
        </para>
       </listitem>
      </varlistentry>
@@ -2017,7 +2129,7 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
 <!--
         <primary><varname>wal_keep_size</varname> configuration parameter</primary>
 -->
-        <primary><varname>wal_keep_segments</varname>設定パラメータ</primary>
+        <primary><varname>wal_keep_size</varname>設定パラメータ</primary>
        </indexterm>
        </term>
        <listitem>
@@ -2035,9 +2147,8 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
         server can recover by fetching the segment from archive, if WAL
         archiving is in use.)
        -->
-ストリーミングレプリケーションにおいて、スタンバイサーバが過去のファイルセグメントを取得する必要がある場合に備え、<filename>pg_wal</filename>ディレクトリに保持しておくファイルセグメント数の最小値を指定します。
-それぞれのセグメントは通常16メガバイトです。
-もし送出サーバに接続しているスタンバイサーバが<varname>wal_keep_segments</varname>セグメントを越えて遅延した場合、送出サーバはスタンバイサーバが今後とも必要とするWALセグメントを削除する可能性があります。
+ストリーミングレプリケーションにおいて、スタンバイサーバが過去のファイルセグメントを取得する必要がある場合に備え、<filename>pg_wal</filename>ディレクトリに保持しておくファイルセグメントの最小サイズを指定します。
+もし送出サーバに接続しているスタンバイサーバが<varname>wal_keep_size</varname>メガバイトを越えて遅延した場合、送出サーバはスタンバイサーバが今後とも必要とするWALセグメントを削除する可能性があります。
 この場合、レプリケーション接続は終了させられます。結果として下流に対する接続も結局は終了されることがあります。（しかし、WALアーカイブが使用されていれば、スタンバイサーバはアーカイブからセグメントを取り出し、復旧することができます。）
        </para>
 
@@ -2057,8 +2168,9 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
        -->
 <filename>pg_wal</filename>に保持され続けるセグメントの最小値のみを設定します。
 システムはWALアーカイブのため、またはチェックポイントからの復旧のため、より多くのセグメント保持が必要となることがあります。
-もし<varname>wal_keep_segments</varname>が（デフォルトの）ゼロの場合、システムはスタンバイサーバのために追加セグメントを保持することはしません。
+もし<varname>wal_keep_size</varname>が（デフォルトの）ゼロの場合、システムはスタンバイサーバのために追加セグメントを保持することはしません。
 従って、スタンバイサーバが使用できる古いWALセグメントの数は、直前のチェックポイントの場所とWALアーカイブの状況によって算出されます。
+この値が単位無しで指定されると、メガバイトであると見なします。
 このパラメータは、<filename>postgresql.conf</filename>ファイル、もしくはサーバコマンドラインでのみ設定可能です。
        </para>
        </listitem>
@@ -2067,11 +2179,15 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
       <varlistentry id="guc-max-slot-wal-keep-size" xreflabel="max_slot_wal_keep_size">
        <term><varname>max_slot_wal_keep_size</varname> (<type>integer</type>)
        <indexterm>
+<!--
         <primary><varname>max_slot_wal_keep_size</varname> configuration parameter</primary>
+-->
+        <primary><varname>max_slot_wal_keep_size</varname>設定パラメータ</primary>
        </indexterm>
        </term>
        <listitem>
        <para>
+<!--
         Specify the maximum size of WAL files
         that <link linkend="streaming-replication-slots">replication
         slots</link> are allowed to retain in the <filename>pg_wal</filename>
@@ -2083,6 +2199,12 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
         to continue replication due to removal of required WAL files. You
         can see the WAL availability of replication slots
         in <link linkend="view-pg-replication-slots">pg_replication_slots</link>.
+-->
+チェックポイント時に<link linkend="streaming-replication-slots">レプリケーションスロット</link>が<filename>pg_wal</filename>ディレクトリに残すことのできる
+最大のWALファイルのサイズを指定します。
+<varname>max_slot_wal_keep_size</varname>が-1 (デフォルトです)なら、レプリケーションスロットは無制限のWALファイルを残すかも知れません。
+そうでなければ、レプリケーションスロットのrestart_lsnが現在のLSNよりも与えられたサイズ分遅れると、そのスロットを使っているスタンバイは必要なWALファイルが削除されたためにレプリケーションを継続できなくなります。
+レプリケーションスロットのWALが存在するかどうかは<link linkend="view-pg-replication-slots">pg_replication_slots</link>を見て確認できます。
        </para>
        </listitem>
       </varlistentry>
@@ -2211,7 +2333,7 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
 <xref linkend="synchronous-replication"/>で説明されているように、<firstterm>同期レプリケーション</firstterm>をサポート可能なスタンバイサーバのリストを指定します。
 活動中の同期スタンバイサーバは1つまたはそれ以上です。
 コミットを待機しているトランザクションは、このスタンバイサーバがそのデータの受信を確認してから処理の継続が許可されます。
-同期スタンバイサーバはこのリストに名前が挙げられていており、現時点で接続され、そしてデータをリアルタイムでストリーミングしているものです（<link linkend="pg-stat-replication-view"><literal>pg_stat_replication</literal></link> ビューにおいて<literal>streaming</literal>状態として示されています）。
+同期スタンバイサーバはこのリストに名前が挙げられていており、現時点で接続され、そしてデータをリアルタイムでストリーミングしているものです（<link linkend="monitoring-pg-stat-replication-view"><structname>pg_stat_replication</structname></link> ビューにおいて<literal>streaming</literal>状態として示されています）。
 このリストの後の方に記載されているその他のスタンバイサーバは潜在的に同期スタンバイサーバになることを示しています。
 二つ以上の同期スタンバイサーバ名を指定することで、かなりの高可用性とデータ損失に対する保護が得られます。
        </para>
@@ -2504,7 +2626,8 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
           is an empty string).
           This setting has no effect if the server is not in standby mode.
 -->
-このパラメータはサーバ起動時のみ設定可能です。
+このパラメータは<filename>postgresql.conf</filename>か、サーバのコマンドラインでのみ設定可能です。
+WAL受信プロセスが実行中にこのパラメータが変更されると、そのプロセスにシグナルが送られ、新しい設定で再起動するために停止します（<varname>primary_conninfo</varname>が空文字の場合を除きます。）
 サーバがスタンバイモードでなければこの設定は無効となります。
          </para>
         </listitem>
@@ -2534,7 +2657,8 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
           set or the server is not in standby mode.
 -->
 上流ノードのリソース削除を制御するためにストリーミングレプリケーション経由でプライマリに接続した場合、既存のレプリケーションスロットを使うように、必要に応じて指定します（<xref linkend="streaming-replication-slots"/>を参照）。
-このパラメータはサーバ起動時のみ設定可能です。
+このパラメータは<filename>postgresql.conf</filename>か、サーバのコマンドラインでのみ設定可能です。
+WAL受信プロセスが実行中にこのパラメータが変更されると、そのプロセスにシグナルが送られ、新しい設定で再起動するために停止します。
 <varname>primary_conninfo</varname>が設定されていない場合、この設定は無効です。
          </para>
         </listitem>
@@ -2560,7 +2684,7 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
           file or on the server command line.
 -->
 スタンバイサーバにおいて、リカバリの完了を示すトリガファイルを指定します。
-この値が設定されていなくても、<command>pg_ctl promote</command>あるいは<function>pg_promote</function>を使ってスタンバイサーバを昇格させることができます。
+この値が設定されていなくても、<command>pg_ctl promote</command>あるいは<function>pg_promote()</function>を使ってスタンバイサーバを昇格させることができます。
 このパラメータは、<filename>postgresql.conf</filename>ファイル、もしくはサーバコマンドラインでのみ設定可能です。
          </para>
         </listitem>
@@ -2690,11 +2814,15 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
      <varlistentry id="guc-wal-receiver-create-temp-slot" xreflabel="wal_receiver_create_temp_slot">
       <term><varname>wal_receiver_create_temp_slot</varname> (<type>boolean</type>)
       <indexterm>
+<!--
        <primary><varname>wal_receiver_create_temp_slot</varname> configuration parameter</primary>
+-->
+       <primary><varname>wal_receiver_create_temp_slot</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Specifies whether the WAL receiver process should create a temporary replication
         slot on the remote instance when no permanent replication slot to use
         has been configured (using <xref linkend="guc-primary-slot-name"/>).
@@ -2703,6 +2831,10 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
         If this parameter is changed while the WAL receiver process is running,
         that process is signaled to shut down and expected to restart with
         the new setting.
+-->
+永続レプリケーションスロットが(<xref linkend="guc-primary-slot-name"/>を使って)作成されない設定になっている時に、WAL受信プロセスがリモートインスタンス上に一時レプリケーションスロットを作るかどうかを指定します。
+このパラメータは<filename>postgresql.conf</filename>か、サーバのコマンドラインでのみ設定可能です。
+WAL受信プロセスが実行中にこのパラメータが変更されると、そのプロセスにシグナルが送られ、新しい設定で再起動するために停止します。
        </para>
       </listitem>
      </varlistentry>
@@ -2740,7 +2872,7 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
        command line.
        -->
 スタンバイサーバ上のWAL受信プロセスがプライマリー、または上位サーバに対してレプリケーションの進捗情報を送信する最小頻度を指定します。
-送信された進捗情報は<link linkend="pg-stat-replication-view"><literal>pg_stat_replication</literal></link>ビューにより確認することが可能です。
+送信された進捗情報は<link linkend="monitoring-pg-stat-replication-view"><structname>pg_stat_replication</structname></link>ビューにより確認することが可能です。
 スタンバイサーバは書き込みがされた直近の先行書き込みログ位置、ディスクにフラッシュされた直近のログ位置、およびリカバリ適用された直近のログ位置を報告します。
 このパラメータの値がそれぞれの報告間における最大の時間間隔です。
 書き込み、またはフラッシュ位置が変更される毎、あるいは最低でもこのパラメータで設定された頻度で更新情報が送信されます。
@@ -3229,13 +3361,20 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
      <varlistentry id="guc-enable-incremental-sort" xreflabel="enable_incremental_sort">
       <term><varname>enable_incremental_sort</varname> (<type>boolean</type>)
       <indexterm>
+<!--
        <primary><varname>enable_incremental_sort</varname> configuration parameter</primary>
+-->
+       <primary><varname>enable_incremental_sort</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Enables or disables the query planner's use of incremental sort steps.
         The default is <literal>on</literal>.
+-->
+クエリプランナが増分ソートステップを使うのを有効あるいは無効にします。
+デフォルトは<literal>on</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -3451,7 +3590,7 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
 -->
 パーティション同士の結合(partitionwise join)を問い合わせプランナが使用するのを有効あるいは無効にします。
 パーティション同士の結合は、適合するパーティションを結合することによって実行される、パーティション化テーブルにまたがる結合を可能にします。
-今の所、パーティション同士の結合は、すべてのパーティションキーを含んでいて、かつパーティションキーの型が同じで、正確に一致する子パーティションの集合を持つ結合条件のときだけに適用されます。
+今の所、パーティション同士の結合は、すべてのパーティションキーを含んでいて、かつパーティションキーの型が同じで、一対一で一致する子パーティションの集合を持つ結合条件のときだけに適用されます。
 パーティション同士の結合のプランニングには大量のCPU時間とメモリが使用されることがあるので、デフォルトは<literal>off</literal>です。
        </para>
       </listitem>
@@ -3888,6 +4027,8 @@ RAM内に存在するページの取り出しコストは通常よりもかな�
 パラレルスキャンが考慮されるために、スキャンされなければならないインデックスデータの最小量を設定します。
 通常パラレルインデックススキャンは、典型的にはインデックス全体をアクセスしないことに注意してください。
 これは、関連するスキャンにより、プランナが実際にアクセスされると信じるページ数です。
+またこのパラメータは、あるインデックスがパラレルVACUUMで利用できるかどうかを決定するのにも使われます。
+<xref linkend="sql-vacuum"/>をご覧ください。
 この値が単位なしで指定された場合は、ブロック単位であるとみなします。すなわち、<symbol>BLCKSZ</symbol>バイト、一般的には8kBです。
 デフォルトは512キロバイト（<literal>512kB</literal>）です。
        </para>
