@@ -73,11 +73,10 @@ PostgreSQL documentation
    database is large and only a small fraction of blocks differ between the
    clusters.
 -->
-実行結果は、ターゲットデータディレクトリをソースディレクトリと置き換えたのと等しくなります。
-リレーションファイルのうちの変化のあったブロックだけがコピーされます。
-それ以外のすべてのファイルは、設定ファイルを含め、すべてのファイルがコピーされます。
-新しいベースバックアップを取ったり、<application>rsync</application>のようなツールを使う場合と比較して、<application>pg_rewind</application>はクラスタ内の変更されていないブロックを読出す必要がないという利点があります。
-データベースが大きく、クラスタ間で変更されているブロックの割合が小さい場合には、極めて高速になります。
+巻き戻し(rewind)が成功すれば、ターゲットデータディレクトリの状態はソースデータディレクトリのベースバックアップと類似したものになります。
+新しいベースバックアップを取ったり、<application>rsync</application>のようなツールを使うのとは異なり、<application>pg_rewind</application>はクラスタ内の変更されていないリレーションブロックの比較やコピーを必要としません。
+既存のリレーションファイルのうちの変化のあったブロックだけがコピーされます。それ以外のすべてのファイルは、新しいリレーションファイルや設定ファイル、WALセグメントを含め、すべてのファイルがコピーされます。
+そのため、データベースが大きく、クラスタ間で変更されているブロックの割合が小さい場合には、巻き戻し操作は他の方法に比べて極めて高速になります。
   </para>
 
   <para>
@@ -103,10 +102,10 @@ PostgreSQL documentation
 変化の分岐点は、ターゲット側のタイムライン中、ソース側のタイムライン中、あるいはそれら共通の祖先の中に見つかる可能性が高いです。
 分岐点のあと間をおかずシャットダウンされたような典型的なフェイルオーバーのシナリオにおいては、これは特に問題になりません。
 しかし、分岐点の後にターゲットクラスタが長時間運用されていた場合には、古いWALファイルはもう存在しないかもしれません。
-この場合は、WALアーカイブから手動で<filename>pg_wal</filename>ディレクトリにコピーすることができます。
-あるいは、<xref linkend="guc-primary-conninfo"/>や<xref linkend="guc-restore-command"/>を設定することにより、起動時に取得できます。
+この場合は、WALアーカイブから手動で<filename>pg_wal</filename>ディレクトリにコピーできます。
+あるいは、<literal>-c</literal>オプションを付けて<application>pg_rewind</application>を実行し、WALアーカイブから自動的に取り出すこともできます。
 <application>pg_rewind</application>の利用は、フェイルオーバーに留まりません。
-たとえば、スタンバイサーバは昇格してから書き込みトランザクションを実行し、再びスタンバイになるために巻き戻すこともできます。
+たとえば、スタンバイサーバが昇格してから書き込みトランザクションを実行し、再びスタンバイになるために巻き戻すこともできます。
   </para>
 
   <para>
@@ -124,8 +123,9 @@ PostgreSQL documentation
    <xref linkend="guc-restore-command"/> in
    <filename>postgresql.conf</filename>.
 -->
-<application>pg_rewind</application>を実行した後、最初にターゲットサーバを起動すると、そのサーバはリカバリモードに入り、分岐点以降ソースサーバで生成されたWALをすべてリプレイします。
-<application>pg_rewind</application>が実行された時にWALがソースサーバになくて<application>pg_rewind</application>のセッションではコピーできなかった場合は、ターゲットサーバが起動した時にWALを読む込めるようになっていなければなりません。
+<application>pg_rewind</application>を実行した後、データディレクトリが整合のとれた状態になるためにはWALリプレイの完了が必要です。
+ターゲットサーバは再起動すると、アーカイブリカバリに入り、分岐点の前の最後のチェックポイント以降にソースサーバで生成されたWALをすべてリプレイします。
+<application>pg_rewind</application>が実行された時にWALの中にソースサーバにないものがあり、<application>pg_rewind</application>のセッションではコピーできなかった場合は、ターゲットサーバが起動した時にWALを読む込めるようになっていなければなりません。
 <filename>recovery.signal</filename>ファイルをターゲットデータディレクトリに置き、<filename>postgresql.conf</filename>に適切な<xref linkend="guc-restore-command"/>を設定することで、これを達成できます。
   </para>
 
@@ -155,12 +155,16 @@ PostgreSQL documentation
    </para>
 
    <para>
+<!--
     As <application>pg_rewind</application> copies configuration files
     entirely from the source, it may be required to correct the configuration
     used for recovery before restarting the target server, especially if
     the target is reintroduced as a standby of the source. If you restart
     the server after the rewind operation has finished but without configuring
     recovery, the target may again diverge from the primary.
+-->
+<application>pg_rewind</application>はソースから設定ファイルをそのままコピーするので、特にターゲットをソースのスタンバイとして再導入する場合には、ターゲットサーバを再起動する前にリカバリのために使われる設定を修正することが必要かもしれません。
+巻き戻し操作は終わったもののリカバリの設定をせずにサーバを再起動すると、ターゲットは再びプライマリから分岐するでしょう。
    </para>
 
    <para>
@@ -254,10 +258,14 @@ PostgreSQL documentation
       <term><option>--write-recovery-conf</option></term>
       <listitem>
        <para>
+<!--
         Create <filename>standby.signal</filename> and append connection
         settings to <filename>postgresql.auto.conf</filename> in the output
-        directory.  <literal>--source-server</literal> is mandatory with
+        directory.  <literal>&#45;-source-server</literal> is mandatory with
         this option.
+-->
+出力ディレクトリで<filename>standby.signal</filename>を作成し、<filename>postgresql.auto.conf</filename>に接続設定を追加します。
+このオプションでは<literal>--source-server</literal>は必須です。
        </para>
       </listitem>
      </varlistentry>
@@ -291,7 +299,7 @@ PostgreSQL documentation
 -->
 デフォルトでは、<command>pg_rewind</command>はファイルがすべて安全にディスクに書き込まれるのを待ちます。
 このオプションにより、<command>pg_rewind</command>は待つことなく戻るようになります。これは速いのですが、直後にオペレーティングシステムがクラッシュした場合、同期データディレクトリの破損が残るかもしれません。
-一般に、このオプションはテストするためには有用ですが、稼働用のインストレーションを作成する時には使うべきではありません。
+一般に、このオプションはテストするためには有用ですが、稼働用のインストレーションでは使うべきではありません。
        </para>
       </listitem>
      </varlistentry>
@@ -315,10 +323,13 @@ PostgreSQL documentation
       <term><option>--restore-target-wal</option></term>
       <listitem>
        <para>
+<!--
         Use <varname>restore_command</varname> defined in the target cluster
         configuration to retrieve WAL files from the WAL archive if these
         files are no longer available in the <filename>pg_wal</filename>
         directory.
+-->
+WALファイルが<filename>pg_wal</filename>ディレクトリにもはや存在しない場合、ターゲットクラスタ設定内で定義されている<varname>restore_command</varname>を使ってWALファイルをWALアーカイブから取り出します。
        </para>
       </listitem>
      </varlistentry>
@@ -340,6 +351,7 @@ PostgreSQL documentation
       <term><option>--no-ensure-shutdown</option></term>
       <listitem>
        <para>
+<!--
         <application>pg_rewind</application> requires that the target server
         is cleanly shut down before rewinding. By default, if the target server
         is not shut down cleanly, <application>pg_rewind</application> starts
@@ -349,6 +361,11 @@ PostgreSQL documentation
         this and errors out immediately if the server is not cleanly shut
         down. Users are expected to handle the situation themselves in that
         case.
+-->
+<application>pg_rewind</application>は、巻き戻す前にターゲットサーバが正常にシャットダウンされていることを要求します。
+デフォルトでは、ターゲットサーバが正常にシャットダウンされていなければ、<application>pg_rewind</application>はターゲットサーバをシングルユーザモードで起動し、まずクラッシュリカバリを完了して停止します。
+このオプションを渡すことで、<application>pg_rewind</application>はこれを飛ばして、サーバが正常にシャットダウンされていない場合にはすぐにエラーを発生します。
+その場合、ユーザが自身で状況を扱うことが期待されます。
        </para>
       </listitem>
      </varlistentry>
@@ -472,6 +489,7 @@ GRANT EXECUTE ON function pg_catalog.pg_read_binary_file(text, bigint, bigint, b
 ソースクラスタのタイムライン履歴がターゲットクラスタから分岐した時点より前の最後のチェックポイントから始めて、ターゲットクラスタのWALログをスキャンします。
 各々のWALレコードについて、変更されたデータブロックを記録します。
 これにより、ソースクラスタが分岐した以降に、ターゲットクラスタで変更されたすべてのデータブロックのリストが作成されます。
+WALファイルの中にもう存在しないものがある場合は、失われたファイルをWALアーカイブで探すよう<option>-c</option>オプションを付けて<application>pg_rewind</application>を再実行してみます。
      </para>
     </step>
     <step>
@@ -486,10 +504,12 @@ GRANT EXECUTE ON function pg_catalog.pg_read_binary_file(text, bigint, bigint, b
       blocks changed on the target after that divergence.
 -->
 ファイルシステムへの直接アクセス（<option>--source-pgdata</option>）かSQL （<option>--source-server</option>）を使って、変更のあったすべてのブロックを、ソースクラスタからターゲットクラスタにコピーします。
+これでリレーションファイルは、ソースとターゲットのWALタイムラインが分岐した時点より前で最後に完了したチェックポイントの時点に加えて、分岐後にターゲットで変更されたブロックを含んだソースでの現在の状態に相当する状態になります。
      </para>
     </step>
     <step>
      <para>
+<!--
       Copy all other files, including new relation files, WAL segments,
       <filename>pg_xact</filename>, and configuration files from the source
       cluster to the target cluster. Similarly to base backups, the contents
@@ -504,23 +524,34 @@ GRANT EXECUTE ON function pg_catalog.pg_read_binary_file(text, bigint, bigint, b
       <filename>postmaster.opts</filename>, and
       <filename>postmaster.pid</filename>, as well as any file or directory
       beginning with <filename>pgsql_tmp</filename>, are omitted.
+-->
+新しいリレーションファイルやWALセグメント、<filename>pg_xact</filename>や設定ファイルなどを含めて、それ以外のファイルをすべてソースクラスタからターゲットクラスタにコピーします。
+ベースバックアップと同様に、ディレクトリ<filename>pg_dynshmem/</filename>、<filename>pg_notify/</filename>、<filename>pg_replslot/</filename>、<filename>pg_serial/</filename>、<filename>pg_snapshots/</filename>、<filename>pg_stat_tmp/</filename>、および、<filename>pg_subtrans/</filename>の内容は、ソースクラスタからコピーされるデータから省かれます。
+<filename>pgsql_tmp</filename>で始まるすべてのファイルやディレクトリは省かれます。
+ファイル<filename>backup_label</filename>、<filename>tablespace_map</filename>、<filename>pg_internal.init</filename>、<filename>postmaster.opts</filename>、および、<filename>postmaster.pid</filename>も同様です。
      </para>
     </step>
     <step>
      <para>
+<!--
       Create a <filename>backup_label</filename> file to begin WAL replay at
       the checkpoint created at failover and configure the
       <filename>pg_control</filename> file with a minimum consistency LSN
       defined as the result of <literal>pg_current_wal_insert_lsn()</literal>
       when rewinding from a live source or the last checkpoint LSN when
       rewinding from a stopped source.
+-->
+フェイルオーバーで作成されたチェックポイントでWALリプレイを開始するために<filename>backup_label</filename>ファイルを作成し、動作中のソースから巻き戻す場合には<literal>pg_current_wal_insert_lsn()</literal>の結果として定義される最小の整合のとれたLSNを、停止したソースから巻き戻す場合には最後のチェックポイントLSNを<filename>pg_control</filename>ファイルに設定します。
      </para>
     </step>
     <step>
      <para>
+<!--
       When starting the target, <productname>PostgreSQL</productname> replays
       all the required WAL, resulting in a data directory in a consistent
       state.
+-->
+ターゲットが起動すると、<productname>PostgreSQL</productname>は必要なWALをすべてリプレイします。それにより、データディレクトリが整合のとれた状態になります。
      </para>
     </step>
    </procedure>
