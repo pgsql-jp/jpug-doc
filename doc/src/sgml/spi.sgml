@@ -467,18 +467,33 @@ SPI_execute("INSERT INTO foo SELECT * FROM bar RETURNING *", false, 5);
 <programlisting>
 typedef struct SPITupleTable
 {
+<!--
     /* Public members */
     TupleDesc   tupdesc;        /* tuple descriptor */
     HeapTuple  *vals;           /* array of tuples */
     uint64      numvals;        /* number of valid tuples */
+-->
+    /* 公開メンバ */
+    TupleDesc   tupdesc;        /* タプル記述子 */
+    HeapTuple  *vals;           /* タプルの配列 */
+    uint64      numvals;        /* 有効なタプルの数 */
 
+<!--
     /* Private members, not intended for external callers */
     uint64      alloced;        /* allocated length of vals array */
     MemoryContext tuptabcxt;    /* memory context of result table */
     slist_node  next;           /* link for internal bookkeeping */
     SubTransactionId subid;     /* subxact in which tuptable was created */
+-->
+    /* 非公開メンバ、外部呼び出し側のためのものではない */
+    uint64      alloced;        /* vals配列に割り当てられた長さ */
+    MemoryContext tuptabcxt;    /* 結果テーブルのメモリコンテキスト */
+    slist_node  next;           /* 内部情報のためのリンク */
+    SubTransactionId subid;     /* SPITupleTableが生成されたサブトランザクション */
+
 } SPITupleTable;
 </programlisting>
+<!--
    The fields <structfield>tupdesc</structfield>,
    <structfield>vals</structfield>, and
    <structfield>numvals</structfield>
@@ -489,6 +504,11 @@ typedef struct SPITupleTable
    in <varname>SPI_processed</varname>).
    <structfield>tupdesc</structfield> is a row descriptor which you can pass to
    SPI functions dealing with rows.
+-->
+フィールド<structfield>tupdesc</structfield>、<structfield>vals</structfield>、<structfield>numvals</structfield>はSPIの呼び出し側で使えます。残りのフィールドは内部のものです。
+<structfield>vals</structfield>は行へのポインタの配列です。
+行数は<structfield>numvals</structfield>で与えられます(ちょっとした歴史的理由により、この数は<varname>SPI_processed</varname>でも返されます)。
+<structfield>tupdesc</structfield>は、行を扱うSPI関数に渡すことのできる行記述子です。
   </para>
 
   <para>
