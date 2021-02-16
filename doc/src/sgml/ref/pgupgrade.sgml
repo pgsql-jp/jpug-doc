@@ -55,8 +55,8 @@ PostgreSQL documentation
   It is not required for minor version upgrades, e.g., from 9.6.2 to 9.6.3
   or from 10.1 to 10.2.
 -->
-<application>pg_upgrade</application>(これまでは<application>pg_migrator</application>と呼ばれていました)を使用して、メジャーバージョンへのアップグレード、例えば、9.6.3から現時点のメジャーリリースの<productname>PostgreSQL</productname>、に通常必要とされたデータのダンプ/リストアを行うことなく、<productname>PostgreSQL</productname>データファイル内に格納されたデータをより最新の<productname>PostgreSQL</productname>メジャーバージョンに移行することができます。
-これは、例えば9.6.2から9.6.3、10.1から10.2などマイナーバージョンへのアップグレードでは必要ありません。
+<application>pg_upgrade</application>(これまでは<application>pg_migrator</application>と呼ばれていました)を使用することで、メジャーバージョンのアップグレード、例えば、9.5.8から9.6.4へ、10.7から11.2へのアップグレードで通常必要とされるデータのダンプ/リストアを行うことなく、<productname>PostgreSQL</productname>データファイル内に格納されたデータをより最新の<productname>PostgreSQL</productname>メジャーバージョンに移行できます。
+これは、例えば9.6.2から9.6.3、10.1から10.2などマイナーバージョンのアップグレードでは必要ありません。
  </para>
 
  <para>
@@ -132,7 +132,7 @@ pg_upgradeは8.4.X以降から現時点の<productname>PostgreSQL</productname>�
       default is the directory where <application>pg_upgrade</application> resides;
       environment variable <envar>PGBINNEW</envar></para></listitem>
 -->
-      <listitem><para>新しいPostgreSQLの実行ファイル格納ディレクトリ。<envar>PGBINNEW</envar>環境変数</para></listitem>
+      <listitem><para>新しいPostgreSQLの実行ファイル格納ディレクトリ。デフォルトは<application>pg_upgrade</application>のあるディレクトリ。<envar>PGBINNEW</envar>環境変数</para></listitem>
      </varlistentry>
 
      <varlistentry>
@@ -787,7 +787,7 @@ pg_upgrade.exe
        <literal>pg_hba.conf</literal>, because these will be overwritten
        or removed in the next step.
 -->
-スタンバイの設定ディレクトリの設定ファイルで保持する必要のあるもの、例えば<filename>postgresql.conf</filename>や<literal>pg_hba.conf</literal>を保存してください。
+スタンバイの設定ディレクトリの設定ファイルで保持する必要のあるもの、例えば<filename>postgresql.conf</filename>(とそれがインクルードしているファイル)や<filename>postgresql.auto.conf</filename>、<literal>pg_hba.conf</literal>を保存してください。
 これらは次のステップで上書きあるいは削除されるからです。
       </para>
      </step>
@@ -924,7 +924,7 @@ rsync --archive --delete --hard-links --size-only --no-inc-recursive /vol1/pg_tb
      (and any files included by it), <filename>postgresql.auto.conf</filename>.
 -->
 <filename>pg_hba.conf</filename>を変更している場合は、元の認証設定に戻してください。
-また新しいクラスタにおけるこの他の設定ファイル、例えば<filename>postgresql.conf</filename>、も古いクラスタに合わせるように調整する必要があります。
+また新しいクラスタにおけるこの他の設定ファイル、例えば<filename>postgresql.conf</filename>(とそれがインクルードしているファイル)、<filename>postgresql.auto.conf</filename>も古いクラスタに合わせるように調整する必要があります。
     </para>
    </step>
 
@@ -1150,7 +1150,7 @@ psql --username=postgres --file=script.sql postgres
 状況に依っては、カレントディレクトリのパス名が有効なソケット名には長過ぎる場合もあるでしょう。
 その場合、<option>-s</option>オプションを使ってソケットファイルをより短いパス名のディレクトリに置くことができます。
 セキュリティのため、他のユーザがそのディレクトリを読んだり書いたりできないことを確実にしてください。
-(これはWindowsでは関係ありません。)
+(これはWindowsではサポートされていません。)
   </para>
 
   <para>
@@ -1183,6 +1183,8 @@ psql --username=postgres --file=script.sql postgres
 <!--
    <application>pg_upgrade</application> does not support upgrading of databases
    containing table columns using these <type>reg*</type> OID-referencing system data types:
+-->
+<application>pg_upgrade</application>は次のOIDを参照する<type>reg*</type>システムデータ型を使うテーブル列を含むデータベースのアップグレードをサポートしません。
    <simplelist>
     <member><type>regcollation</type></member>
     <member><type>regconfig</type></member>
@@ -1193,11 +1195,10 @@ psql --username=postgres --file=script.sql postgres
     <member><type>regproc</type></member>
     <member><type>regprocedure</type></member>
    </simplelist>
+<!--
    (<type>regclass</type>, <type>regrole</type>, and <type>regtype</type> can be upgraded.)
 -->
-<application>pg_upgrade</application>は次のOIDを参照する<type>reg*</type>システムデータ型を使うテーブル列を含むデータベースのアップグレードをサポートしません。
-<type>regproc</type>、<type>regprocedure</type>、<type>regoper</type>、<type>regoperator</type>、<type>regconfig</type>、<type>regdictionary</type>。
-(<type>regtype</type>はアップグレード可能です。)
+(<type>regclass</type>、<type>regrole</type>、<type>regtype</type>はアップグレード可能です。)
   </para>
 
   <para>
@@ -1218,7 +1219,8 @@ psql --username=postgres --file=script.sql postgres
    new cluster, set <envar>PGHOST</envar> to point to the old server's socket
    location.  (This is not relevant on Windows.)
 -->
-デフォルト以外のUnixドメインソケットディレクトリを使用する、または新しいクラスタのデフォルトとは異なるデフォルトを使用する9.1より前の古いサーバを使用している場合、古いサーバのソケット位置を指し示すように<envar>PGHOST</envar>を設定してください。（これはWindowsでは関係ありません。）
+デフォルト以外のUnixドメインソケットディレクトリを使用する、または新しいクラスタのデフォルトとは異なるデフォルトを使用する9.1より前の古いサーバを使用している場合、古いサーバのソケット位置を指し示すように<envar>PGHOST</envar>を設定してください。
+（これはWindowsでは関係ありません。）
   </para>
 
   <para>
