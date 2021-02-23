@@ -99,7 +99,8 @@ JSONデータ型はJSON(JavaScript Object Notation)データを格納するた�
   characters that can be represented in the database encoding but not
   in UTF8 will be allowed.
 -->
-<productname>PostgreSQL</productname>はデータベースごとに1つの文字セットエンコーディングのみが許可されています。従ってデータベースエンコーディングがUTF8でない限り、厳密にはJSON型がJSON仕様に準拠することはできません。
+RFC 7159は、JSON文字列はUTF8でエンコードすべきと指定しています。
+従ってデータベースエンコーディングがUTF8でない限り、厳密にはJSON型がJSON仕様に準拠することはできません。
 データベースのエンコーディングで表現できない文字を直接含めようとすると失敗します。逆に、UTF8で許可されずにデータベースのエンコーディングで許可される文字が許されてしまいます。
  </para>
 
@@ -122,11 +123,11 @@ JSONデータ型はJSON(JavaScript Object Notation)データを格納するた�
 -->
  RFC 7159 では、JSON文字列はUnicodeエスケープシーケンス <literal>\u<replaceable>XXXX</replaceable></literal> を許可するように記述されています。
  <type>json</type>型の入力関数は、データベースエンコーディング方式に関係なくUnicodeエスケープが許可されています。それは、構文上の正しさ(つまり<literal>\u</literal>に続けて16進数が4桁)だけをチェックしています。
- しかし、<type>jsonb</type>の入力関数はより厳しくなります。
- データベースのエンコードがUTF8でない限り、Unicodeは非ASCII文字（<literal>U+007F</literal>より上位の文字）に対してエスケープを禁止します。
+しかし、<type>jsonb</type>の入力関数はより厳しくなります。
+データベースエンコーディング方式で表現できない文字のUnicodeエスケープを禁止します。
 <type>jsonb</type>型は<literal>\u0000</literal>も許可しません。(なぜなら<productname>PostgreSQL</productname>の<type>text</type>型で表現できないためです。)
 また、Unicode基本多言語面以外の文字はUnicodeのサロゲートペアに直すことが要求されています。
-有効なUnicodeエスケープは、同等のASCIIまたはUTF8文字に変換されて格納されます。これはサロゲートペアを単一の文字に変換する処理も含まれています。
+有効なUnicodeエスケープは、同等の単一の文字に変換されて格納されます。これはサロゲートペアを単一の文字に変換する処理も含まれています。
  </para>
 
  <note>
@@ -144,8 +145,7 @@ JSONデータ型はJSON(JavaScript Object Notation)データを格納するた�
 -->
 <xref linkend="functions-json"/>で説明されているJSONの処理関数の多くは、Unicodeエスケープを通常の文字に変換します。
 そして、それらの入力は<type>jsonb</type>でない<type>json</type>の場合でも記載された同じ種類のエラーになります。
-<type>json</type>入力関数は歴史的経緯によりこれらのチェックをしないため、非UTF8のデータベースエンコーディングで、JSON Unicodeエスケープされた文字を単に格納(処理を必要としない場合)できてしまいます。
-一般的には、可能であれば非UTF8のデータベースエンコーディングではUnicodeのJSONエスケープを混在させないようにすることをお勧めします。
+<type>json</type>入力関数は歴史的経緯によりこれらのチェックをしないため、表現された文字をサポートしないデータベースエンコーディングで、JSON Unicodeエスケープされた文字を単に格納(処理を必要としない場合)できてしまいます。
   </para>
  </note>
 
@@ -174,8 +174,8 @@ JSONデータ型はJSON(JavaScript Object Notation)データを格納するた�
 原文のJSONが<type>jsonb</type>型に変換されるときには、<acronym>RFC</acronym> 7159に記載されているプリミティブ型を<xref linkend="json-type-mapping-table"/>に記されているように<productname>PostgreSQL</productname>のネイティブな型に変換されます。
 そのため、<type>jsonb</type>データ型には、<type>json</type>型になく、また理論上JSONにはないマイナーな制約があります。それは基礎となるデータ型に付随する制限によって表されます。
 特に<type>jsonb</type>型は、<productname>PostgreSQL</productname>の<type>numeric</type>型の範囲外の数を拒否します。このような処理系で定義される制限は<acronym>RFC</acronym> 7159で許可されています。
- しかし、それは IEEE 754 倍精度浮動小数点がJSONの<type>number</type>プリミティブ型を表すのが一般的であるように、実際には他の実装でこのような問題が発生することの方がはるかに可能性が高いです(<acronym>RFC</acronym> 7159が明示的に予測して、許可しています)。
- このようなシステムと<productname>PostgreSQL</productname>で交換フォーマットとしてJSONを使用する場合は、数値精度を失う危険性があることを把握しておく必要があります。
+しかし、それは IEEE 754 倍精度浮動小数点がJSONの<type>number</type>プリミティブ型を表すのが一般的であるように、実際には他の実装でこのような問題が発生することの方がはるかに可能性が高いです(<acronym>RFC</acronym> 7159が明示的に予測して、許可しています)。
+このようなシステムと<productname>PostgreSQL</productname>で交換フォーマットとしてJSONを使用する場合は、数値精度を失う危険性があることを把握しておく必要があります。
  </para>
 
  <para>
@@ -184,7 +184,7 @@ JSONデータ型はJSON(JavaScript Object Notation)データを格納するた�
   the input format of JSON primitive types that do not apply to
   the corresponding <productname>PostgreSQL</productname> types.
 -->
- 逆に、表に示すようにJSONプリミティブ型の入力フォーマットには、対応する<productname>PostgreSQL</productname>型と適合しない、いくつかのマイナーな制限があります。
+逆に、表に示すようにJSONプリミティブ型の入力フォーマットには、対応する<productname>PostgreSQL</productname>型と適合しない、いくつかのマイナーな制限があります。
  </para>
 
   <table id="json-type-mapping-table">
@@ -217,7 +217,7 @@ JSONデータ型はJSON(JavaScript Object Notation)データを格納するた�
          representing characters not available in the database encoding</entry>
 -->
 <entry><literal>\u0000</literal>は許可されません。
-またデータベースエンコーディングがUTF8でない場合、非アスキーのユニコードエスケープも許可されません。</entry>
+またそのデータベースエンコーディング方式で利用できない文字を表現するのユニコードエスケープも許可されません。</entry>
        </row>
        <row>
         <entry><type>number</type></entry>
@@ -257,7 +257,7 @@ JSONデータ型はJSON(JavaScript Object Notation)データを格納するた�
    The input/output syntax for the JSON data types is as specified in
    <acronym>RFC</acronym> 7159.
 -->
- JSON型の入出力構文の仕様は<acronym>RFC</acronym> 7159 に規定されています。
+JSON型の入出力構文の仕様は<acronym>RFC</acronym> 7159 に規定されています。
   </para>
   <para>
 <!--
@@ -338,7 +338,7 @@ SELECT '{"reading": 1.230e-5}'::json, '{"reading": 1.230e-5}'::jsonb;
    in this example, even though those are semantically insignificant for
    purposes such as equality checks.
 -->
- しかし、この例に見られるように<type>jsonb</type>は小数の末尾のゼロを保持します。それにも関わらず、等しいかチェックする場合等では、意味的に重要ではありません。
+しかし、この例に見られるように<type>jsonb</type>は小数の末尾のゼロを保持します。それにも関わらず、等しいかチェックする場合等では、意味的に重要ではありません。
   </para>
 
   <para>
@@ -369,8 +369,8 @@ JSONの値の作成と処理に使用可能な組み込み関数と演算子の�
    queries that usefully summarize a set of <quote>documents</quote> (datums)
    in a table.
 -->
- JSONデータは従来のリレーショナルデータモデルよりもかなり柔軟に表現することができます。そのため、変わりやすさを求められる環境では説得力があります。
- そして、それは同じアプリケーション内で、両方のアプローチが共存し相互に補完することが可能です。
+JSONデータは従来のリレーショナルデータモデルよりもかなり柔軟に表現することができます。そのため、変わりやすさを求められる環境では説得力があります。
+そして、それは同じアプリケーション内で、両方のアプローチが共存し相互に補完することが可能です。
 しかし、最大の柔軟性が要求されるアプリケーションのためでもJSONドキュメントには、まだいくらかの固定構造を持つことを推奨します。
 構造は（いくつかのビジネスルールを強制することは宣言的に可能であるが）、一般的に強制されないですが、テーブル内の<quote>ドキュメント</quote>（データ）セットをまとめて予測可能な構造にすることで、簡単に問い合わせを記述することができます。
   </para>
@@ -387,9 +387,9 @@ JSONの値の作成と処理に使用可能な組み込み関数と演算子の�
    reasonably be further subdivided into smaller datums that
    could be modified independently.
 -->
- JSONデータはテーブルに格納するとき、他のデータ型と同一の同時実行制御の対象となります。大きな文章を保存することは実行可能ですが、すべての更新が行レベルロックを取得することに留意してください。
- 更新トランザクション間のロックの競合を減少させるために、管理可能なサイズにJSONドキュメントを制限することを検討してください。
- 理想的には、JSONドキュメントはビジネス・ルール上、独立して変更することができない単位までデータを分割すべきです。
+JSONデータはテーブルに格納するとき、他のデータ型と同一の同時実行制御の対象となります。大きな文章を保存することは実行可能ですが、すべての更新が行レベルロックを取得することに留意してください。
+更新トランザクション間のロックの競合を減少させるために、管理可能なサイズにJSONドキュメントを制限することを検討してください。
+理想的には、JSONドキュメントはビジネス・ルール上、独立して変更することができない単位までデータを分割すべきです。
   </para>
  </sect2>
 
@@ -499,8 +499,8 @@ SELECT '{"foo": {"bar": "baz"}}'::jsonb @&gt; '{"foo": {}}'::jsonb;
    doing a containment match, and duplicate array elements are effectively
    considered only once.
 -->
- 一般原則では、オブジェクトにオブジェクトが含まれているかを判断するには、いくつかの条件に一致しない配列要素とキー／値のペアを含むオブジェクトを捨てた後に構造とデータを一致させる必要があります。
- しかし、条件に一致するには配列要素の順序は重要ではなく、重複要素は一回のみ有効に評価されることを覚えておく必要があります。
+一般原則では、オブジェクトにオブジェクトが含まれているかを判断するには、いくつかの条件に一致しない配列要素とキー／値のペアを含むオブジェクトを捨てた後に構造とデータを一致させる必要があります。
+しかし、条件に一致するには配列要素の順序は重要ではなく、重複要素は一回のみ有効に評価されることを覚えておく必要があります。
   </para>
 
   <para>
@@ -535,7 +535,7 @@ SELECT '"bar"'::jsonb @&gt; '["bar"]'::jsonb;  -- falseになる
     element at the top level of the <type>jsonb</type> value.
     These examples return true except as noted:
 -->
- <type>jsonb</type>型は、また<firstterm>存在</firstterm>演算子を持ちます。包含の変種です。それは文字列(与えられた<type>text</type>値)が、<type>jsonb</type>値のオブジェクトキーまたは配列のトップレベルに存在するかどうかをテストします。
+<type>jsonb</type>型は、また<firstterm>存在</firstterm>演算子を持ちます。包含の変種です。それは文字列(与えられた<type>text</type>値)が、<type>jsonb</type>値のオブジェクトキーまたは配列のトップレベルに存在するかどうかをテストします。
 これらの例は、特に記載がないかぎりtrueを返します。
   </para>
 <programlisting>
@@ -583,7 +583,7 @@ SELECT '"foo"'::jsonb ? 'foo';
     unlike arrays they are internally optimized for searching, and do not
     need to be searched linearly.
 -->
- JSONオブジェクトは、関係するキーや要素が多く存在する場合、含むかどうかまたは存在するかどうかのテストに適しています。なぜなら配列とは異なり、リニア検索をする必要がなく、内部的に検索に最適化されています。
+JSONオブジェクトは、関係するキーや要素が多く存在する場合、含むかどうかまたは存在するかどうかのテストに適しています。なぜなら配列とは異なり、リニア検索をする必要がなく、内部的に検索に最適化されています。
   </para>
 
   <tip>
@@ -638,7 +638,7 @@ JSONの値の最上位に指定されたキーまたは配列要素のみを探�
     JSON operators and functions are documented
     in <xref linkend="functions-json"/>.
 -->
- JSONの様々な包含演算子や存在演算子、他のすべてのJSON演算子と関数は <xref linkend="functions-json"/>に記載されています。
+JSONの様々な包含演算子や存在演算子、他のすべてのJSON演算子と関数は <xref linkend="functions-json"/>に記載されています。
   </para>
  </sect2>
 
@@ -663,8 +663,8 @@ JSONの値の最上位に指定されたキーまたは配列要素のみを探�
     Two GIN <quote>operator classes</quote> are provided, offering different
     performance and flexibility trade-offs.
 -->
- GINインデックスは、多数の<type>jsonb</type>ドキュメント(データ)のキーやキー／値ペアを効率的に検索するときに用いることができます。
- 異なるパフォーマンスと柔軟性のトレードオフを持つ、2つのGIN <quote>演算子クラス</quote> が提供されています。
+GINインデックスは、多数の<type>jsonb</type>ドキュメント(データ)のキーやキー／値ペアを効率的に検索するときに用いることができます。
+異なるパフォーマンスと柔軟性のトレードオフを持つ、2つのGIN <quote>演算子クラス</quote> が提供されています。
   </para>
   <para>
 <!--
@@ -700,8 +700,8 @@ CREATE INDEX idxginp ON api USING GIN (jdoc jsonb_path_ops);
     retrieved from a third-party web service, with a documented schema
     definition.  A typical document is:
 -->
- サードパーティのWebサービスから、ドキュメント化されたスキーマ定義を持つJSONドキュメントを取得し、格納するテーブルの例を考えてみましょう。
- 典型的なドキュメントは、次のとおりです。
+サードパーティのWebサービスから、ドキュメント化されたスキーマ定義を持つJSONドキュメントを取得し、格納するテーブルの例を考えてみましょう。
+典型的なドキュメントは、次のとおりです。
 <programlisting>
 {
     "guid": "9c36adc1-7fb5-4d5b-83b4-90356a46061a",
@@ -725,8 +725,8 @@ CREATE INDEX idxginp ON api USING GIN (jdoc jsonb_path_ops);
     If a GIN index is created on this column,
     queries like the following can make use of the index:
 -->
- テーブル名 <structname>api</structname>に<type>jsonb</type>型で<structfield>jdoc</structfield>をカラム名として格納します。
- このカラムにGINインデックスを作成した場合、以下のような問い合わせがインデックスを利用することができます。
+テーブル名 <structname>api</structname>に<type>jsonb</type>型で<structfield>jdoc</structfield>をカラム名として格納します。
+このカラムにGINインデックスを作成した場合、以下のような問い合わせがインデックスを利用することができます。
 <programlisting>
 <!--
 &#045;&#045; Find documents in which the key "company" has value "Magnafone"
@@ -739,7 +739,7 @@ SELECT jdoc-&gt;'guid', jdoc-&gt;'name' FROM api WHERE jdoc @&gt; '{"company": "
     following, because though the operator <literal>?</literal> is indexable,
     it is not applied directly to the indexed column <structfield>jdoc</structfield>:
 -->
- しかし 次のような問い合わせはインデックスを使用しません。なぜなら、<literal>?</literal>演算子はインデックス可能ですが、<structfield>jdoc</structfield>カラムのインデックスが直接適用されていないためです。
+しかし 次のような問い合わせはインデックスを使用しません。なぜなら、<literal>?</literal>演算子はインデックス可能ですが、<structfield>jdoc</structfield>カラムのインデックスが直接適用されていないためです。
 <programlisting>
 <!--
 &#045;&#045; Find documents in which the key "tags" contains key or array element "qui"
@@ -753,7 +753,7 @@ SELECT jdoc-&gt;'guid', jdoc-&gt;'name' FROM api WHERE jdoc -&gt; 'tags' ? 'qui'
     the <literal>"tags"</literal> key is common, defining an index like this
     may be worthwhile:
 -->
- それでも、上記の問い合わせは、式インデックスを適切に使用することでインデックスを使用することができます。一般的な <literal>"tags"</literal>キーから特定の項目を照会する場合、このようなインデックスを定義すると良いかもしれません。
+それでも、上記の問い合わせは、式インデックスを適切に使用することでインデックスを使用することができます。一般的な <literal>"tags"</literal>キーから特定の項目を照会する場合、このようなインデックスを定義すると良いかもしれません。
 <programlisting>
 CREATE INDEX idxgintags ON api USING GIN ((jdoc -&gt; 'tags'));
 </programlisting>
@@ -765,7 +765,7 @@ CREATE INDEX idxgintags ON api USING GIN ((jdoc -&gt; 'tags'));
     (More information on expression indexes can be found in <xref
     linkend="indexes-expressional"/>.)
 -->
- さて、 <literal>WHERE</literal>句の <literal>jdoc -&gt; 'tags' ? 'qui'</literal>は、インデックス式では 、<literal>?</literal>演算子はインデックス可能として認識されます。
+さて、 <literal>WHERE</literal>句の <literal>jdoc -&gt; 'tags' ? 'qui'</literal>は、インデックス式では 、<literal>?</literal>演算子はインデックス可能として認識されます。
 （式インデックスに関する詳細情報は<xref linkend="indexes-expressional"/>を参照してください。）
   </para>
   <para>
@@ -814,7 +814,7 @@ SELECT jdoc-&gt;'guid', jdoc-&gt;'name' FROM api WHERE jdoc @&gt; '{"tags": ["qu
     indexes are likely to be smaller and faster to search than a simple
     index.
 -->
- <structfield>jdoc</structfield>カラムのシンプルなGINインデックスは、この問い合わせをサポートすることができます。
+<structfield>jdoc</structfield>カラムのシンプルなGINインデックスは、この問い合わせをサポートすることができます。
 しかし、前の例では、<literal>tags</literal>キーの下にあるデータのみをインデックスに格納していたのに対して、そのようなインデックスは、<structfield>jdoc</structfield>のすべてのキーと値のコピーを保存しますので、注意が必要です。
 シンプルなインデックスアプローチは（それが全てのキーについての問い合わせをサポートしているため）はるかに柔軟ですが、ターゲット式インデックスは単純なインデックスより小さく、検索のときに高速である可能性が高くなります。
   </para>
@@ -845,7 +845,7 @@ SELECT jdoc-&gt;'guid', jdoc-&gt;'name' FROM api WHERE jdoc @&gt; '{"tags": ["qu
     while the latter creates index items only for each value in the
     data.
 -->
- <literal>jsonb_ops</literal>と<literal>jsonb_path_ops</literal>のGINインデックスの技術的差異は、前者はデータのキーと値のための独立したインデックスを作成しますが、後者は、データの値に対してのみインデックスを作成します。
+<literal>jsonb_ops</literal>と<literal>jsonb_path_ops</literal>のGINインデックスの技術的差異は、前者はデータのキーと値のための独立したインデックスを作成しますが、後者は、データの値に対してのみインデックスを作成します。
     <footnote>
      <para>
 <!--
@@ -853,7 +853,7 @@ SELECT jdoc-&gt;'guid', jdoc-&gt;'name' FROM api WHERE jdoc @&gt; '{"tags": ["qu
       though JSON terminology sometimes considers array elements distinct
       from values within objects.
 -->
- この目的のために、<quote>値</quote> という用語は配列の要素を含みますが、JSONの専門用語では、オブジェクト内の値と配列の要素が時々違うことがあります。
+この目的のために、<quote>値</quote> という用語は配列の要素を含みますが、JSONの専門用語では、オブジェクト内の値と配列の要素が時々違うことがあります。
      </para>
     </footnote>
 <!--
@@ -874,7 +874,8 @@ SELECT jdoc-&gt;'guid', jdoc-&gt;'name' FROM api WHERE jdoc @&gt; '{"tags": ["qu
     there are a very large number of rows containing any single one of the
     three index items.
 -->
- 基本的に、<literal>jsonb_path_ops</literal>インデックス項目は、値とキーのハッシュです。例えば、<literal>{"foo": {"bar": "baz"}}</literal>のインデックスはハッシュ値に<literal>foo</literal>、<literal>bar</literal>、 <literal>baz</literal>すべてを組み込んで作成されます。したがって、包含問い合わせのためのインデックス検索は、非常に特定の構造を返すようになっています。 しかしfooがキーとして表示されるかどうかを調べるには全く方法はありません。
+基本的に、<literal>jsonb_path_ops</literal>インデックス項目は、値とキーのハッシュです。例えば、<literal>{"foo": {"bar": "baz"}}</literal>のインデックスはハッシュ値に<literal>foo</literal>、<literal>bar</literal>、 <literal>baz</literal>すべてを組み込んで作成されます。
+したがって、包含問い合わせのためのインデックス検索は、非常に特定の構造を返すようになっています。 しかしfooがキーとして表示されるかどうかを調べるには全く方法はありません。
 一方、jsonb_opsインデックスは個別にはfoo、bar、bazを表す3つのインデックス項目を作成します。その後、包含問い合わせをおこなうには、これらの項目の3つすべてを含む行を探します。
 GINインデックスは、かなり効率的に検索することができますが、特に3つの索引項目のいずれかで、非常に多数の行が単一の場合に、同等のjsonb_path_ops検索よりも遅くなります。
   </para>
@@ -888,7 +889,9 @@ GINインデックスは、かなり効率的に検索することができま�
     full-index scan, which is quite slow.  <literal>jsonb_path_ops</literal> is
     therefore ill-suited for applications that often perform such searches.
 -->
- <literal>jsonb_path_ops</literal>アプローチの欠点は、<literal>{"a": {}}</literal>のような、任意の値を含まないJSON構造のためのインデックスエントリを生成しません。このような構造を含むドキュメントの検索が要求された場合、それは、フルインデックススキャンを必要とします。それは非常に遅くなります。そのため、<literal>jsonb_path_ops</literal>は、多くの場合、そのような検索を実行するのには不適当です。
+<literal>jsonb_path_ops</literal>アプローチの欠点は、<literal>{"a": {}}</literal>のような、任意の値を含まないJSON構造のためのインデックスエントリを生成しません。
+このような構造を含むドキュメントの検索が要求された場合、それは、フルインデックススキャンを必要とします。それは非常に遅くなります。そのため、
+<literal>jsonb_path_ops</literal>は、多くの場合、そのような検索を実行するのには不適当です。
   </para>
 
   <para>
@@ -899,7 +902,8 @@ GINインデックスは、かなり効率的に検索することができま�
     The <literal>btree</literal> ordering for <type>jsonb</type> datums is seldom
     of great interest, but for completeness it is:
 -->
- <type>jsonb</type>型は、<literal>btree</literal> と <literal>hash</literal> インデックスもサポートします。これらは通常、JSONドキュメントの完全性をチェックすることが重要な場合のみ有用です。
+<type>jsonb</type>型は、<literal>btree</literal> と <literal>hash</literal> インデックスもサポートします。
+これらは通常、JSONドキュメントの完全性をチェックすることが重要な場合のみ有用です。
 <type>jsonb</type>のための<literal>btree</literal>順序には、興味深いことはほとんどありませんが、しかし、完全さのために次に示します。
 <synopsis>
 <replaceable>Object</replaceable> > <replaceable>Array</replaceable> > <replaceable>Boolean</replaceable> > <replaceable>Number</replaceable> > <replaceable>String</replaceable> > <replaceable>Null</replaceable>
@@ -911,7 +915,7 @@ GINインデックスは、かなり効率的に検索することができま�
 <!--
       Objects with equal numbers of pairs are compared in the order:
 -->
- ペアの同じ番号を持つオブジェクトは、順に比較されます。
+ペアの同じ番号を持つオブジェクトは、順に比較されます。
 <synopsis>
 <replaceable>key-1</replaceable>, <replaceable>value-1</replaceable>, <replaceable>key-2</replaceable> ...
 </synopsis>
@@ -929,7 +933,7 @@ GINインデックスは、かなり効率的に検索することができま�
       Similarly, arrays with equal numbers of elements are compared in the
       order:
 -->
- 同様に、配列と同じ番号を持つ要素を比較する順番。
+同様に、配列と同じ番号を持つ要素を比較する順番。
 <synopsis>
 <replaceable>element-1</replaceable>, <replaceable>element-2</replaceable> ...
 </synopsis>
@@ -939,7 +943,7 @@ GINインデックスは、かなり効率的に検索することができま�
       <productname>PostgreSQL</productname> data type.  Strings are
       compared using the default database collation.
 -->
- JSONプリミティブ値は基本的に<productname>PostgreSQL</productname>データ型と同じルールで比較されます。文字列は、デフォルトのデータベース照合を使用して比較されます
+JSONプリミティブ値は基本的に<productname>PostgreSQL</productname>データ型と同じルールで比較されます。文字列は、デフォルトのデータベース照合を使用して比較されます
   </para>
  </sect2>
 
@@ -981,10 +985,14 @@ PL/Python向けの拡張は、<literal>jsonb_plpythonu</literal>、<literal>json
   </para>
 
   <para>
+<!--
    Of these extensions, <literal>jsonb_plperl</literal> is
    considered <quote>trusted</quote>, that is, it can be installed by
    non-superusers who have <literal>CREATE</literal> privilege on the
    current database.  The rest require superuser privilege to install.
+-->
+上記の拡張のうち、<literal>jsonb_plperl</literal>は<quote>trusted</quote>と見なされます。つまり、現在のデータベースに対して<literal>CREATE</literal>権限を持つ非スーパーユーザがインストールできます。
+残りはインストールするのにスーパーユーザ権限が必要です。
   </para>
  </sect2>
 
@@ -1018,7 +1026,7 @@ PL/Python向けの拡張は、<literal>jsonb_plpythonu</literal>、<literal>json
    SQL/JSON path syntax uses some JavaScript conventions:
 -->
 SQL/JSONパス述部および演算子のセマンティクスは、SQLに準拠しています。
-同時に、JSONデータを処理する最も自然な方法を提供するために、SQL/JSONのパス構文ではいくつかのJavaScript規則を使用します。
+同時に、JSONデータを処理する自然な方法を提供するために、SQL/JSONのパス構文ではいくつかのJavaScript規則を使用します。
   </para>
 
   <itemizedlist>
@@ -1177,7 +1185,7 @@ JSONプリミティブ型のパスリテラル。
       </entry>
 -->
       <entry>
-問い合わせ対象(<firstterm>context item</firstterm>)のJSONテキストを表す変数。
+問い合わせ対象(<firstterm>context item</firstterm>)のJSON値を表す変数。
       </entry>
      </row>
      <row>
@@ -1190,7 +1198,7 @@ JSONプリミティブ型のパスリテラル。
 -->
 名前付き変数。
 その値はいくつかのJSON処理関数のパラメーター<parameter>vars</parameter>で設定できます。
-詳細は<xref linkend="functions-json-processing-table"/>とそのノートを参照してください。
+詳細は<xref linkend="functions-json-processing-table"/>を参照してください。
         <!-- 原文コメント TODO: describe PASSING clause once implemented !-->
       </entry>
      </row>
@@ -1243,7 +1251,7 @@ JSONプリミティブ型のパスリテラル。
         double quotes to make it a string literal.
 -->
 指定されたキーを持つオブジェクトメンバを返すメンバアクセサ。
-キー名が<literal>$</literal>で始まる名前付き変数の場合、または識別子のJavaScriptルールを満たさない場合は、文字列リテラルとして二重引用符で囲む必要があります。
+キー名が<literal>$</literal>で始まる名前付き変数に一致する場合、または識別子のJavaScriptルールを満たさない場合は、文字列リテラルとするため二重引用符で囲む必要があります。
        </para>
       </entry>
      </row>
@@ -1303,10 +1311,10 @@ JSONプリミティブ型のパスリテラル。
         This is a <productname>PostgreSQL</productname> extension of
         the SQL/JSON standard.
 -->
-<literal>.**</literal>と同じですが、JSON階層のネストレベルにフィルタが適用されます。
+<literal>.**</literal>と似ていますが、JSON階層の指定したレベルだけを選びます。
 ネストレベルは整数で指定します。
-0レベルは現在のオブジェクトに対応します。
-最下位のネストレベルにアクセスするには<literal>last</literal>キーワードを使用します。
+レベル0は現在のオブジェクトに対応します。
+最下位のネストレベルにアクセスするのに、<literal>last</literal>キーワードが使用できます。
 これはSQL/JSON標準の<productname>PostgreSQL</productname>の拡張です。
        </para>
       </entry>
@@ -1344,7 +1352,7 @@ JSONプリミティブ型のパスリテラル。
         of unknown length.
 -->
 指定された<replaceable>index</replaceable>には、整数だけでなく、自動的に整数にキャストされる単一の数値を返す式を指定できます。
-0インデックスは最初の配列要素に対応します。
+インデックス0は最初の配列要素に対応します。
 また、<literal>last</literal>キーワードを使用して最後の配列要素を指定することもできます。
 これは、長さが不明な配列の処理に役立ちます。
        </para>
