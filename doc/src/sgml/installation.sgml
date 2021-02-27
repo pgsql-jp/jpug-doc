@@ -277,7 +277,7 @@ su - postgres
       when using Python 3.
 -->
 <application>PL/Python</application>サーバプログラム言語を構築するには、ヘッダファイルと<application>distutils</application>モジュールを含む<productname>Python</productname>のインストレーションが必要です。
-<productname>Python</productname>バージョン2.4が最低でも必要です。
+<productname>Python</productname>バージョン2.6が最低でも必要です。
 バージョン3.1以降であれば<productname>Python 3</productname>もサポートされます。しかしPython 3を使用する場合は<xref linkend="plpython-python23"/>を参照してください。
      </para>
 
@@ -355,7 +355,7 @@ su - postgres
 -->
 暗号化されたクライアント接続をサポートする場合には<productname>OpenSSL</productname>が必要です。
 <productname>OpenSSL</productname>は、<filename>/dev/urandom</filename>のないプラットフォーム(Windowsを除く)での乱数生成のためにも必要です。
-要求される最小のバージョンは0.9.8です。
+要求される最小のバージョンは1.0.1です。
      </para>
     </listitem>
 
@@ -466,9 +466,9 @@ Windows上で構築する場合、いずれにしても<application>Perl</applic
    space.
 -->
 また、十分なディスク領域があることも確認してください。
-コンパイル中、ソースツリーのために100メガバイト、インストールディレクトリに20メガバイトほど必要となります。
-空のデータベースクラスタだけでも約35メガバイト必要です。データベースは、同じデータのフラットテキストファイルと比べて5倍ほどの領域が必要になります。
-リグレッションテストを実行する場合は、一時的に最大で150メガバイトの領域がさらに必要になります。
+コンパイル中、ソースツリーのために350メガバイト、インストールディレクトリに60メガバイトほど必要となります。
+空のデータベースクラスタだけでも約40メガバイト必要です。データベースは、同じデータのフラットテキストファイルと比べて5倍ほどの領域が必要になります。
+リグレッションテストを実行する場合は、一時的に最大で300メガバイトの領域がさらに必要になります。
 ディスクの空き容量を確認するためには<command>df</command>コマンドを使います。
   </para>
  </sect1>
@@ -507,7 +507,8 @@ Windows上で構築する場合、いずれにしても<application>Perl</applic
    Change into that directory for the rest
    of the installation procedure.
 -->
-（<filename>.bz2</filename>ファイルをダウンロードした場合は<command>gunzip</command>ではなく<command>bunzip2</command>を使用してください。）
+（<filename>.bz2</filename>ファイルをダウンロードした場合は<command>gunzip</command>ではなく<command>bunzip2</command>を使用してください。
+また、<command>tar</command>の最新のバージョンでは圧縮されたアーカイブを直接展開できますので、<command>gunzip</command>や<command>bunzip2</command>の個別のステップは実際は必要ないことに注意してください。）
 これにより、カレントディレクトリ以下に<filename>postgresql-&version;</filename>というディレクトリが作成され、<productname>PostgreSQL</productname>のソースが展開されます。
 この後のインストール手順を行うために、このディレクトリに移動してください。
   </para>
@@ -533,7 +534,7 @@ Windows上で構築する場合、いずれにしても<application>Perl</applic
 <!--
    <title>Configuration</title>
 -->
-<title>構成</title>
+   <title>構成</title>
 
    <indexterm zone="configure">
     <primary>configure</primary>
@@ -557,9 +558,12 @@ Windows上で構築する場合、いずれにしても<application>Perl</applic
     system dependent variables and detect any quirks of your
     operating system, and finally will create several files in the
     build tree to record what it found.
+-->
+このスクリプトは、各種のシステムに依存した変数の値を決定するために多くの試験を行い、使用中のオペレーティングシステムが持つどんなクセでも検出し、最終的に構築用ツリーに結果を記録するためのファイルをいくつか作成します。
    </para>
 
    <para>
+<!--
     You can also run <filename>configure</filename> in a directory outside
     the source tree, and then build there, if you want to keep the build
     directory separate from the original source files.  This procedure is
@@ -567,7 +571,9 @@ Windows上で構築する場合、いずれにしても<application>Perl</applic
     <indexterm><primary>VPATH</primary></indexterm><firstterm>VPATH</firstterm>
     build.  Here's how:
 -->
-このスクリプトは、各種のシステムに依存した変数の値を決定するために多くの試験を行い、使用中のオペレーティングシステムが持つどんなクセでも検出し、最終的に構築用ツリーに結果を記録するためのファイルをいくつか作成します。構築用のディレクトリを別の場所にしたい場合は、ソースツリーの外のディレクトリで<filename>configure</filename>を実行することもできます。この処理は<indexterm><primary>VPATH</primary></indexterm><firstterm>VPATH</firstterm>の構築も呼び出します。どのように行うかは下記を参照して下さい。
+構築用のディレクトリを別の場所にしたい場合は、ソースツリーの外のディレクトリで<filename>configure</filename>を実行することもできます。
+この処理は<indexterm><primary>VPATH</primary></indexterm><firstterm>VPATH</firstterm>構築と呼ばれます。
+どのように行うかは下記を参照して下さい。
 <screen>
 <userinput>mkdir build_dir</userinput>
 <userinput>cd build_dir</userinput>
@@ -591,128 +597,203 @@ Windows上で構築する場合、いずれにしても<application>Perl</applic
    </para>
 
    <para>
+<!--
     You can customize the build and installation process by supplying one
     or more command line options to <filename>configure</filename>.
     Typically you would customize the install location, or the set of
     optional features that are built.  <filename>configure</filename>
     has a large number of options, which are described in
     <xref linkend="configure-options"/>.
+-->
+<filename>configure</filename>にコマンドラインオプションを1つ以上指定することで、構築処理やインストール処理を変更することができます。
+よくあるのは、インストールの位置や構築するオプションの機能の設定を変更することでしょう。
+<filename>configure</filename>には数多くのオプションがあり、それは<xref linkend="configure-options"/>に書かれています。
+
    </para>
 
    <para>
+<!--
     Also, <filename>configure</filename> responds to certain environment
     variables, as described in <xref linkend="configure-envvars"/>.
     These provide additional ways to customize the configuration.
+-->
+また、<filename>configure</filename>は、<xref linkend="configure-envvars"/>に書かれているように特定の環境変数に対応しています。
+これは設定を変更する追加の方法を提供します。
    </para>
   </step>
 
   <step id="build">
+<!--
    <title>Build</title>
+-->
+   <title>構築</title>
 
    <para>
+<!--
     To start the build, type either of:
+-->
+構築作業を開始するには、以下のいずれかを入力してください。
 <screen>
 <userinput>make</userinput>
 <userinput>make all</userinput>
 </screen>
+<!--
     (Remember to use <acronym>GNU</acronym> <application>make</application>.)
     The build will take a few minutes depending on your
     hardware. The last line displayed should be:
+-->
+（<acronym>GNU</acronym> <application>make</application>を使用することを忘れないでください。）
+ハードウェアに依存しますが、構築作業には数分かかります。
+最後に以下のような行が表示されるはずです。
 <screen>
 All of PostgreSQL successfully made. Ready to install.
 </screen>
    </para>
 
   <para>
+<!--
    If you want to build everything that can be built, including the
    documentation (HTML and man pages), and the additional modules
    (<filename>contrib</filename>), type instead:
+-->
+もし、ドキュメント(HTMLやman)や追加モジュール(<filename>contrib</filename>)を含め、構築可能なものすべてを構築したい場合、次のように実施します。
 <screen>
 <userinput>make world</userinput>
 </screen>
+<!--
    The last line displayed should be:
+-->
+最終行は次のように表示されるはずです。
 <screen>
 PostgreSQL, contrib, and documentation successfully made. Ready to install.
 </screen>
    </para>
 
    <para>
+<!--
     If you want to invoke the build from another makefile rather than
     manually, you must unset <varname>MAKELEVEL</varname> or set it to zero,
     for instance like this:
+-->
+手動で指定するのではなく、別のMakefileから構築をしたい場合には、例えば以下のように<varname>MAKELEVEL</varname>を削除するか、0に設定しなければなりません。
 <programlisting>
 build-postgresql:
         $(MAKE) -C postgresql MAKELEVEL=0 all
 </programlisting>
+<!--
     Failure to do that can lead to strange error messages, typically about
     missing header files.
+-->
+上記に失敗すると、通常はヘッダファイルが見つからないという奇妙なエラーメッセージが出る場合があります。
    </para>
   </step>
 
   <step>
+<!--
    <title>Regression Tests</title>
+-->
+   <title>リグレッションテスト</title>
 
    <indexterm>
+<!--
     <primary>regression test</primary>
+-->
+    <primary>リグレッションテスト</primary>
    </indexterm>
 
    <para>
+<!--
     If you want to test the newly built server before you install it,
     you can run the regression tests at this point. The regression
     tests are a test suite to verify that <productname>PostgreSQL</productname>
     runs on your machine in the way the developers expected it
     to. Type:
+-->
+インストールを行う前に、新しく構築したサーバをテストしたい場合、この時点でリグレッションテストを実行できます。
+リグレッションテストとは、使用するマシンにおいて<productname>PostgreSQL</productname>が、開発者の想定通りに動作することを検証するためのテストのまとまりです。
+次のように入力します。
 <screen>
 <userinput>make check</userinput>
 </screen>
+<!--
     (This won't work as root; do it as an unprivileged user.)
     See <xref linkend="regress"/> for
     detailed information about interpreting the test results. You can
     repeat this test at any later time by issuing the same command.
+-->
+（これは root では動作しません。
+非特権ユーザとして実行してください。）
+<xref linkend="regress"/>にはテスト結果の表示に関する詳しい情報があります。
+同じコマンドを入力することで、後にいつでもテストを繰り返すことができます。
    </para>
   </step>
 
   <step id="install">
+<!--
    <title>Installing the Files</title>
+-->
+   <title>ファイルのインストール</title>
 
    <note>
     <para>
+<!--
      If you are upgrading an existing system be sure to read
      <xref linkend="upgrading"/>,
      which has instructions about upgrading a
      cluster.
+-->
+もし既存のシステムのアップグレードをする場合、DBクラスタのアップグレードの解説が記載されている<xref linkend="upgrading"/>を参照してください。
     </para>
    </note>
 
    <para>
+<!--
     To install <productname>PostgreSQL</productname> enter:
+-->
+<productname>PostgreSQL</productname>をインストールするには、以下を入力してください。
 <screen>
 <userinput>make install</userinput>
 </screen>
+<!--
     This will install files into the directories that were specified
     in <xref linkend="configure"/>. Make sure that you have appropriate
     permissions to write into that area. Normally you need to do this
     step as root. Alternatively, you can create the target
     directories in advance and arrange for appropriate permissions to
     be granted.
+-->
+これは、ファイルを<xref linkend="configure"/>で指定されたディレクトリにインストールします。
+その領域に書き込むための権限を持っていることを確認してください。
+通常はこのステップはrootで行う必要があります。
+代わりに対象とするディレクトリを前もって作成し、適切に権限を調整することも可能です。
    </para>
 
    <para>
+<!--
     To install the documentation (HTML and man pages), enter:
+-->
+ドキュメント(HTMLやman)をインストールするには、以下を入力して下さい。
 <screen>
 <userinput>make install-docs</userinput>
 </screen>
    </para>
 
    <para>
+<!--
     If you built the world above, type instead:
+-->
+先にすべてを(worldを付けて)構築していた場合には、代わりに以下を実行してください。
 <screen>
 <userinput>make install-world</userinput>
 </screen>
+<!--
     This also installs the documentation.
+-->
+これによりドキュメントもインストールされます。
    </para>
 
    <para>
+<!--
     You can use <literal>make install-strip</literal> instead of
     <literal>make install</literal> to strip the executable files and
     libraries as they are installed.  This will save some space.  If
@@ -723,47 +804,78 @@ build-postgresql:
     perfect knowledge of how to strip every unneeded byte from an
     executable file, so if you want to save all the disk space you
     possibly can, you will have to do manual work.
+-->
+<literal>make install</literal>の代わりに<literal>make install-strip</literal>を使用することで、インストール時に実行可能ファイルやライブラリをストリップ（strip）することができます。
+これにより、多少の容量を節約できます。
+デバッグをサポートするように構築している場合でも、ストリップするとデバッグのサポートは実質、除去されてしまいます。
+したがって、これはデバッグが必要なくなった場合にのみ実行すべきです。
+<literal>install-strip</literal>は容量を節約するために適切な作業を行おうとしますが、実行可能ファイルから全ての不必要なバイトを完全にストリップすることはできません。
+可能な限りのディスク容量をすべて節約したい場合は、手動で作業を行う必要があります。
    </para>
 
    <para>
+<!--
     The standard installation provides all the header files needed for client
     application development as well as for server-side program
     development, such as custom functions or data types written in C.
     (Prior to <productname>PostgreSQL</productname> 8.0, a separate <literal>make
     install-all-headers</literal> command was needed for the latter, but this
     step has been folded into the standard install.)
+-->
+この標準的なインストール方法では、クライアントアプリケーションの開発に必要なヘッダファイルと、Cで独自の関数やデータ型を作成するといったサーバ側のプログラムの開発用のヘッダファイルが用意されます
+（<productname>PostgreSQL</productname> 8.0より前まででは、後で別途<literal>make install-all-headers</literal>コマンドが必要でした。しかし、この手順は標準のインストールに含まれるようになりました）。
    </para>
 
    <formalpara>
+<!--
     <title>Client-only installation:</title>
+-->
+    <title>クライアント側のみのインストール:</title>
     <para>
+<!--
      If you want to install only the client applications and
      interface libraries, then you can use these commands:
+-->
+クライアントアプリケーションとインタフェースライブラリのみをインストールしたい場合、下記のコマンドを使います。
 <screen>
 <userinput>make -C src/bin install</userinput>
 <userinput>make -C src/include install</userinput>
 <userinput>make -C src/interfaces install</userinput>
 <userinput>make -C doc install</userinput>
 </screen>
+<!--
     <filename>src/bin</filename> has a few binaries for server-only use,
     but they are small.
+-->
+<filename>src/bin</filename>にはサーバ用の数個のバイナリがあります。これらは小さなものです。
     </para>
    </formalpara>
   </step>
   </procedure>
 
   <formalpara>
+<!--
    <title>Uninstallation:</title>
+-->
+   <title>アンインストール:</title>
    <para>
+<!--
     To undo the installation use the command <command>make
     uninstall</command>. However, this will not remove any created directories.
+-->
+インストールを取り消すには、<command>make uninstall</command> コマンドを使います。
+しかし、作成済みのディレクトリは削除されません。
    </para>
   </formalpara>
 
   <formalpara>
+<!--
    <title>Cleaning:</title>
+-->
+   <title>クリーニング:</title>
 
    <para>
+<!--
     After the installation you can free disk space by removing the built
     files from the source tree with the command <command>make
     clean</command>. This will preserve the files made by the <command>configure</command>
@@ -774,39 +886,64 @@ build-postgresql:
     this and re-configure for each platform.  (Alternatively, use
     a separate build tree for each platform, so that the source tree
     remains unmodified.)
+-->
+インストールが終わったら、<command>make clean</command> コマンドを使ってソースツリーから構築用のファイルを削除し、ディスク領域を解放できます。
+<command>configure</command>プログラムが作るファイルは保持されますので、後で<command>make</command>コマンドですべてを再構築できます。
+ソースツリーを配布された時の状態に戻したい場合は、<command>make distclean</command>コマンドを使います。
+同じソースツリー内で複数のプラットフォーム向けに構築する場合、これを実行して、それぞれのプラットフォームに対し再構成しなければなりません。
+（または、未変更のソースツリーを維持するために、各プラットフォームで別々の構築用ツリーを使用してください。）
    </para>
   </formalpara>
 
   <para>
+<!--
    If you perform a build and then discover that your <command>configure</command>
    options were wrong, or if you change anything that <command>configure</command>
    investigates (for example, software upgrades), then it's a good
    idea to do <command>make distclean</command> before reconfiguring and
    rebuilding.  Without this, your changes in configuration choices
    might not propagate everywhere they need to.
+-->
+構築作業を行った後で<command>configure</command>用オプションが間違っていることに気付いた場合や、<command>configure</command>の調査結果に何らかの変更を加えた場合（例えば、ソフトウェアのアップグレードなど）、再設定と再構築の前に<command>make distclean</command>を行うことをお勧めします。
+さもないと、設定選択肢の変更は、必要なところ全てには反映されない可能性があります。
   </para>
 
   <sect2 id="configure-options">
+<!--
    <title><filename>configure</filename> Options</title>
+-->
+   <title><filename>configure</filename>オプション</title>
 
    <indexterm zone="configure-options">
+<!--
     <primary>configure options</primary>
+-->
+    <primary>configureオプション</primary>
    </indexterm>
 
    <para>
+<!--
     <command>configure</command>'s command line options are explained below.
-    This list is not exhaustive (use <literal>./configure --help</literal>
+    This list is not exhaustive (use <literal>./configure &#45;-help</literal>
     to get one that is).  The options not covered here are meant for
     advanced use-cases such as cross-compilation, and are documented in
     the standard Autoconf documentation.
+-->
+<command>configure</command>のコマンドラインオプションを以下で説明します。
+この一覧は完全なものではありません(完全なものを得るには<literal>./configure --help</literal>を使ってください)。
+ここで取り上げていないオプションは黒須コンパイルのような高度なユースケースのためのもので、標準のAutoconfのドキュメントに書かれています。
    </para>
 
    <sect3 id="configure-options-locations">
+<!--
     <title>Installation Locations</title>
+-->
+    <title>インストレーションの位置</title>
 
      <para>
+<!--
       These options control where <literal>make install</literal> will put
-      the files.  The <option>--prefix</option> option is sufficient for
+      the files.  The <option>&#45;-prefix</option> option is sufficient for
       most cases.  If you have special needs, you can customize the
       installation subdirectories with the other options described in this
       section.  Beware however that changing the relative locations of the
@@ -814,8 +951,15 @@ build-postgresql:
       meaning you won't be able to move it after installation.
       (The <literal>man</literal> and <literal>doc</literal> locations are
       not affected by this restriction.)  For relocatable installs, you
-      might want to use the <literal>--disable-rpath</literal> option
+      might want to use the <literal>&#45;-disable-rpath</literal> option
       described later.
+-->
+このオプションは<literal>make install</literal>がファイルをどこに置くかを制御します。
+たいていの場合<option>--prefix</option>オプションで十分です。
+特別な必要性があるのであれば、この節に書かれた他のオプションを使用して個々のインストレーションサブディレクトリを変更できます。
+しかし、異なるサブディレクトリの相対的な位置を変更した場合、インストレーションは位置再変更不可になります。つまり、インストールの後にディレクトリを移動できないことに注意してください。
+（<literal>man</literal>と<literal>doc</literal>の場所はこの制限の影響を受けません。）
+インストールの位置再変更のために、後述の<literal>--disable-rpath</literal>を使用しようと考えるかもしれません。
      </para>
 
      <variablelist>
@@ -1053,14 +1197,21 @@ CおよびC++のヘッダファイルをインストールするディレクト�
    </sect3>
 
    <sect3 id="configure-options-features">
+<!--
     <title><productname>PostgreSQL</productname> Features</title>
+-->
+    <title><productname>PostgreSQL</productname>の機能</title>
 
     <para>
+<!--
      The options described in this section enable building of
      various <productname>PostgreSQL</productname> features that are not
      built by default.  Most of these are non-default only because they
      require additional software, as described in
      <xref linkend="install-requirements"/>.
+-->
+この節に書かれたオプションは、デフォルトでは構築されない<productname>PostgreSQL</productname>の様々な機能を構築できるようにするものです。
+この多くがデフォルトでないのは、<xref linkend="install-requirements"/>で書かれているように追加のソフトウェアを必要とするからだけです。
     </para>
 
      <variablelist>
@@ -1069,21 +1220,30 @@ CおよびC++のヘッダファイルをインストールするディレクト�
        <term><option>--enable-nls<optional>=<replaceable>LANGUAGES</replaceable></optional></option></term>
        <listitem>
         <para>
+<!--
          Enables Native Language Support (<acronym>NLS</acronym>),
          that is, the ability to display a program's messages in a
          language other than English.
          <replaceable>LANGUAGES</replaceable> is an optional space-separated
          list of codes of the languages that you want supported, for
-         example <literal>--enable-nls='de fr'</literal>.  (The intersection
+         example <literal>&#45;-enable-nls='de fr'</literal>.  (The intersection
          between your list and the set of actually provided
          translations will be computed automatically.)  If you do not
          specify a list, then all available translations are
          installed.
+-->
+各国語サポート（<acronym>NLS</acronym>）、つまり、英語以外の言語によるプログラムメッセージの表示機能を有効にします。
+<replaceable>LANGUAGES</replaceable>はオプションであり、サポートさせたい言語コードを空白で区切ったリストを指定します。例えば、<literal>--enable-nls='de fr'</literal>などとします。
+（指定したリストと実際に用意された翻訳との論理積が自動的に計算されます。）
+リストに何も指定しなかった場合、利用可能な翻訳すべてがインストールされます。
         </para>
 
         <para>
+<!--
          To use this option, you will need an implementation of the
          <application>Gettext</application> API.
+-->
+このオプションを使用するためには、<application>gettext</application> APIの実装が必要です。
         </para>
        </listitem>
       </varlistentry>
@@ -1092,7 +1252,10 @@ CおよびC++のヘッダファイルをインストールするディレクト�
        <term><option>--with-perl</option></term>
        <listitem>
         <para>
+<!--
          Build the <application>PL/Perl</application> server-side language.
+-->
+<application>PL/Perl</application>サーバサイド言語を構築します。
         </para>
        </listitem>
       </varlistentry>
@@ -1101,7 +1264,10 @@ CおよびC++のヘッダファイルをインストールするディレクト�
        <term><option>--with-python</option></term>
        <listitem>
         <para>
+<!--
          Build the <application>PL/Python</application> server-side language.
+-->
+<application>PL/Python</application>サーバサイド言語を構築します。
         </para>
        </listitem>
       </varlistentry>
@@ -1150,13 +1316,14 @@ Tclは、Tclへのインタフェースモジュールを構築するために�
          to be installed.  The minimum required version
          of <productname>ICU4C</productname> is currently 4.2.
 -->
-GSSAPI認証のサポートを構築します。
-多くのシステムでは、GSSAPIシステム（通常Kerberosインストレーションの一部）はデフォルトの検索場所（例えば<filename>/usr/include</filename>や<filename>/usr/lib</filename>）にインストールされていません。
-そのため、<option>--with-includes</option>と<option>--with-libraries</option>オプションをさらに追加して使わなければいけません。
-<filename>configure</filename>は、処理を進める前にGSSAPIが正しくインストールされていることを確認するために、必要とされるヘッダファイルとライブラリを検査します。
+<productname>ICU</productname><indexterm><primary>ICU</primary></indexterm>ライブラリのサポートを有効にして構築します。これによりICU照合機能が使用できるようになります。
+<phrase condition="standalone-ignore"> (<xref linkend="collation"/>を参照してください。)</phrase>
+これには、<productname>ICU4C</productname>パッケージがインストールされていることが必要です。
+<productname>ICU4C</productname>の要求される最小のバージョンは現在4.2です。
         </para>
 
         <para>
+<!--
          By default,
          <productname>pkg-config</productname><indexterm><primary>pkg-config</primary></indexterm>
          will be used to find the required compilation options.  This is
@@ -1165,13 +1332,20 @@ GSSAPI認証のサポートを構築します。
          not available, the variables <envar>ICU_CFLAGS</envar>
          and <envar>ICU_LIBS</envar> can be specified
          to <filename>configure</filename>, like in this example:
+-->
+デフォルトでは、<productname>pkg-config</productname><indexterm><primary>pkg-config</primary></indexterm>が必要なコンパイルオプションを見つけるのに使われます。
+これは<productname>ICU4C</productname>バージョン4.6またはそれ以降でサポートされています。
+より古いバージョンの場合や<productname>pkg-config</productname>が使えない場合には、以下の例のように、変数<envar>ICU_CFLAGS</envar>と<envar>ICU_LIBS</envar>を<filename>configure</filename>に指定できます。
 <programlisting>
 ./configure ... --with-icu ICU_CFLAGS='-I/some/where/include' ICU_LIBS='-L/some/where/lib -licui18n -licuuc -licudata'
 </programlisting>
+<!--
          (If <productname>ICU4C</productname> is in the default search path
          for the compiler, then you still need to specify nonempty strings in
          order to avoid use of <productname>pkg-config</productname>, for
          example, <literal>ICU_CFLAGS=' '</literal>.)
+-->
+(<productname>ICU4C</productname>がコンパイラのデフォルトの検索パスにあるのなら、<productname>pkg-config</productname>の使用を避けるため、例えば<literal>ICU_CFLAGS=' '</literal>のような空でない文字列を指定することも必要です。)
         </para>
        </listitem>
       </varlistentry>
@@ -1254,15 +1428,21 @@ GSSAPI認証のサポートを構築します。
        <term><option>--with-gssapi</option></term>
        <listitem>
         <para>
+<!--
          Build with support for GSSAPI authentication. On many systems, the
          GSSAPI system (usually a part of the Kerberos installation) is not
          installed in a location
          that is searched by default (e.g., <filename>/usr/include</filename>,
          <filename>/usr/lib</filename>), so you must use the options
-         <option>--with-includes</option> and <option>--with-libraries</option> in
+         <option>&#45;-with-includes</option> and <option>&#45;-with-libraries</option> in
          addition to this option.  <filename>configure</filename> will check
          for the required header files and libraries to make sure that
          your GSSAPI installation is sufficient before proceeding.
+-->
+GSSAPI認証のサポートを構築します。
+多くのシステムでは、GSSAPIシステム（通常Kerberosインストレーションの一部）はデフォルトの検索場所（例えば<filename>/usr/include</filename>や<filename>/usr/lib</filename>）にインストールされていません。
+そのため、<option>--with-includes</option>と<option>--with-libraries</option>オプションをさらに追加して使わなければいけません。
+<filename>configure</filename>は、処理を進める前にGSSAPIが正しくインストールされていることを確認するために、必要とされるヘッダファイルとライブラリを検査します。
         </para>
        </listitem>
       </varlistentry>
@@ -1296,8 +1476,11 @@ Windowsではデフォルトの<productname>WinLDAP</productname>ライブラリ
        <term><option>--with-pam</option></term>
        <listitem>
         <para>
+<!--
          Build with <acronym>PAM</acronym><indexterm><primary>PAM</primary></indexterm>
          (Pluggable Authentication Modules) support.
+-->
+<acronym>PAM</acronym><indexterm><primary>PAM</primary></indexterm>（プラガブル認証モジュール）のサポートを有効にして構築します。
         </para>
        </listitem>
       </varlistentry>
@@ -1306,9 +1489,13 @@ Windowsではデフォルトの<productname>WinLDAP</productname>ライブラリ
        <term><option>--with-bsd-auth</option></term>
        <listitem>
         <para>
+<!--
          Build with BSD Authentication support.
          (The BSD Authentication framework is
          currently only available on OpenBSD.)
+-->
+BSD認証のサポートを有効にして構築します。
+(BSD認証フレームワークは今のところOpenBSDだけで利用可能です。)
         </para>
        </listitem>
       </varlistentry>
@@ -1317,6 +1504,7 @@ Windowsではデフォルトの<productname>WinLDAP</productname>ライブラリ
        <term><option>--with-systemd</option></term>
        <listitem>
         <para>
+<!--
          Build with support
          for <application>systemd</application><indexterm><primary>systemd</primary></indexterm>
          service notifications.  This improves integration if the server
@@ -1324,6 +1512,10 @@ Windowsではデフォルトの<productname>WinLDAP</productname>ライブラリ
          otherwise<phrase condition="standalone-ignore">; see <xref linkend="server-start"/> for more
          information</phrase>.  <application>libsystemd</application> and the
          associated header files need to be installed to use this option.
+-->
+<application>systemd</application><indexterm><primary>systemd</primary></indexterm>サービス通知のサポートを有効にして構築します。
+サーババイナリが<application>systemd</application>の元で開始する場合には、これは統合を改善しますが、それ以外は影響はありません。<phrase condition="standalone-ignore">詳細は<xref linkend="server-start"/>を参照してください。</phrase>
+このオプションを使えるようにするには、<application>libsystemd</application>と関連するヘッダファイルをインストールすることが必要です。
         </para>
        </listitem>
       </varlistentry>
@@ -1332,9 +1524,14 @@ Windowsではデフォルトの<productname>WinLDAP</productname>ライブラリ
        <term><option>--with-bonjour</option></term>
        <listitem>
         <para>
+<!--
          Build with support for Bonjour automatic service discovery.
          This requires Bonjour support in your operating system.
          Recommended on macOS.
+-->
+Bonjour自動サービス検出のサポートを有効にして構築します。
+これには、オペレーティングシステムがBonjourをサポートしていることが必要です。
+macOSでは推奨します。
         </para>
        </listitem>
       </varlistentry>
@@ -1426,6 +1623,7 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
         </para>
 
         <para>
+<!--
          To use a libxml2 installation that is in an unusual location, you
          can set <command>pkg-config</command>-related environment
          variables (see its documentation), or set the environment variable
@@ -1437,6 +1635,9 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
          either set <envar>XML2_CONFIG</envar> or set
          both <envar>XML2_CFLAGS</envar> and <envar>XML2_LIBS</envar> to
          nonempty strings.)
+-->
+通常以外の場所にインストールしたlibxml2インストレーションを使用するためには、<command>pkg-config</command>関連の環境変数を設定するか(そのドキュメントを参照してください)、環境変数<envar>XML2_CONFIG</envar>がそのインストレーション用の<command>xml2-config</command>プログラムを指し示すように設定するか、変数<envar>XML2_CFLAGS</envar>と<envar>XML2_LIBS</envar>を設定します。
+(<command>pkg-config</command>がインストールされていて、libxml2がどこにあるかについてのその認識を覆したいのであれば、<envar>XML2_CONFIG</envar>を、もしくは<envar>XML2_CFLAGS</envar>と<envar>XML2_LIBS</envar>の両方を空でない文字列に設定しなければなりません。)
         </para>
        </listitem>
       </varlistentry>
@@ -1445,10 +1646,14 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
        <term><option>--with-libxslt</option></term>
        <listitem>
         <para>
+<!--
          Build with libxslt, enabling the
          <xref linkend="xml2"/>
          module to perform XSL transformations of XML.
-         <option>--with-libxml</option> must be specified as well.
+         <option>&#45;-with-libxml</option> must be specified as well.
+-->
+XMLのXSL変換を行うために<xref linkend="xml2"/>モジュールを有効にしてlibxsltを構築します。
+<option>--with-libxml</option>も指定しなければなりません。
         </para>
        </listitem>
       </varlistentry>
@@ -1458,14 +1663,21 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
    </sect3>
 
    <sect3 id="configure-options-anti-features">
+<!--
     <title>Anti-Features</title>
+-->
+    <title>機能の無効化</title>
 
     <para>
+<!--
      The options described in this section allow disabling
      certain <productname>PostgreSQL</productname> features that are built
      by default, but which might need to be turned off if the required
      software or system features are not available.  Using these options is
      not recommended unless really necessary.
+-->
+この節に書かれたオプションは、デフォルトでは構築されますが、必要なソフトウェアやシステムの機能が利用可能でない場合にオフにする必要がある<productname>PostgreSQL</productname>の特定の機能を無効にします。
+本当に必要でない限りは、ここのプションの使用は勧められません。
     </para>
 
      <variablelist>
@@ -1474,10 +1686,14 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
        <term><option>--without-readline</option></term>
        <listitem>
         <para>
+<!--
          Prevents use of the <application>Readline</application> library
          (and <application>libedit</application> as well).  This option disables
          command-line editing and history in
          <application>psql</application>.
+-->
+<application>Readline</application>ライブラリ（および<application>libedit</application>）の使用を防止します。
+このオプションは<application>psql</application>でのコマンドライン編集および履歴を無効にします。
         </para>
        </listitem>
       </varlistentry>
@@ -1486,10 +1702,14 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
        <term><option>--with-libedit-preferred</option></term>
        <listitem>
         <para>
+<!--
          Favors the use of the BSD-licensed <application>libedit</application> library
          rather than GPL-licensed <application>Readline</application>.  This option
          is significant only if you have both libraries installed; the
          default in that case is to use <application>Readline</application>.
+-->
+GPLライセンスの<application>Readline</application>ではなくBSDライセンスの<application>libedit</application>ライブラリを優先して使用します。
+このオプションは両方のライブラリがインストールされている場合にのみ重要です。その場合デフォルトで<application>Readline</application>が使用されます。
         </para>
        </listitem>
       </varlistentry>
@@ -1501,10 +1721,14 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
          <indexterm>
           <primary>zlib</primary>
          </indexterm>
+<!--
          Prevents use of the <application>Zlib</application> library.
          This disables
          support for compressed archives in <application>pg_dump</application>
          and <application>pg_restore</application>.
+-->
+<application>Zlib</application>ライブラリの使用を抑制します。
+これは、<application>pg_dump</application>と<application>pg_restore</application>における圧縮アーカイブのサポートを無効にします。
         </para>
        </listitem>
       </varlistentry>
@@ -1535,10 +1759,16 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
        <term><option>--disable-atomics</option></term>
        <listitem>
         <para>
+<!--
          Disable use of CPU atomic operations.  This option does nothing on
          platforms that lack such operations.  On platforms that do have
          them, this will result in poor performance.  This option is only
          useful for debugging or making performance comparisons.
+-->
+CPU不可分操作の使用を無効にします。
+このオプションはそのような操作のないプラットフォームでは何もしません。
+そのような操作のあるプラットフォームでは、これにより性能が低下するでしょう。
+このオプションはデバッグや性能比較をする場合にのみ有用です。
         </para>
        </listitem>
       </varlistentry>
@@ -1556,6 +1786,7 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
 -->
 クライアントライブラリのスレッドセーフを無効にします。
 これにより、<application>libpq</application>や<application>ECPG</application>プログラム内の同時実行スレッドは、安全にその固有の接続ハンドルを制御できなくなります。
+スレッドのサポートに血管があるプラットフォームでのみ、これを使ってください。
         </para>
        </listitem>
       </varlistentry>
@@ -1565,7 +1796,10 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
    </sect3>
 
    <sect3 id="configure-options-build-process">
+<!--
     <title>Build Process Details</title>
+-->
+    <title>構築プロセスの詳細</title>
 
      <variablelist>
 
@@ -1573,16 +1807,23 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
        <term><option>--with-includes=<replaceable>DIRECTORIES</replaceable></option></term>
        <listitem>
         <para>
+<!--
          <replaceable>DIRECTORIES</replaceable> is a colon-separated list of
          directories that will be added to the list the compiler
          searches for header files. If you have optional packages
          (such as GNU <application>Readline</application>) installed in a non-standard
          location,
          you have to use this option and probably also the corresponding
-         <option>--with-libraries</option> option.
+         <option>&#45;-with-libraries</option> option.
+-->
+<replaceable>DIRECTORIES</replaceable>には、コンパイラがヘッダファイルを検索するディレクトリのリストをコロンで区切って指定します。
+（GNU <application>Readline</application>などの）オプションのパッケージが非標準的な場所にインストールされている場合、このオプションと、おそらく対応する<option>--with-libraries</option>オプションを使用する必要があります。
         </para>
         <para>
-         Example: <literal>--with-includes=/opt/gnu/include:/usr/sup/include</literal>.
+<!--
+         Example: <literal>&#45;-with-includes=/opt/gnu/include:/usr/sup/include</literal>.
+-->
+         例： <literal>--with-includes=/opt/gnu/include:/usr/sup/include</literal>
         </para>
        </listitem>
       </varlistentry>
@@ -1591,14 +1832,21 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
        <term><option>--with-libraries=<replaceable>DIRECTORIES</replaceable></option></term>
        <listitem>
         <para>
+<!--
          <replaceable>DIRECTORIES</replaceable> is a colon-separated list of
          directories to search for libraries. You will probably have
          to use this option (and the corresponding
-         <option>--with-includes</option> option) if you have packages
+         <option>&#45;-with-includes</option> option) if you have packages
          installed in non-standard locations.
+-->
+<replaceable>DIRECTORIES</replaceable>には、ライブラリを検索するディレクトリのリストをコロンで区切って指定します。
+パッケージが非標準的な場所にインストールされている場合は、おそらくこのオプション（と対応する<option>--with-includes</option>オプション）を使用する必要があります。
         </para>
         <para>
-         Example: <literal>--with-libraries=/opt/gnu/lib:/usr/sup/lib</literal>.
+<!--
+         Example: <literal>&#45;-with-libraries=/opt/gnu/lib:/usr/sup/lib</literal>.
+-->
+         例： <literal>--with-libraries=/opt/gnu/lib:/usr/sup/lib</literal>
         </para>
        </listitem>
       </varlistentry>
@@ -1668,11 +1916,15 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
        <term><option>--with-extra-version=<replaceable>STRING</replaceable></option></term>
        <listitem>
         <para>
+<!--
          Append <replaceable>STRING</replaceable> to the PostgreSQL version number.  You
          can use this, for example, to mark binaries built from unreleased Git
          snapshots or containing custom patches with an extra version string,
          such as a <command>git describe</command> identifier or a
          distribution package release number.
+-->
+PostgreSQLバージョン番号に<replaceable>STRING</replaceable>を追加します。
+これは、例えば、リリースされていないGitスナップショットからビルドしたバイナリや、<command>git describe</command>識別子やディストリビューションパッケージリリース番号のような追加のバージョン文字列のあるカスタムパッチを含むバイナリに印をつけるために使えます。
         </para>
        </listitem>
       </varlistentry>
@@ -1681,9 +1933,10 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
        <term><option>--disable-rpath</option></term>
        <listitem>
         <para>
+<!--
          Do not mark <productname>PostgreSQL</productname>'s executables
          to indicate that they should search for shared libraries in the
-         installation's library directory (see <option>--libdir</option>).
+         installation's library directory (see <option>&#45;-libdir</option>).
          On most platforms, this marking uses an absolute path to the
          library directory, so that it will be unhelpful if you relocate
          the installation later.  However, you will then need to provide
@@ -1691,6 +1944,11 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
          Typically this requires configuring the operating system's
          dynamic linker to search the library directory; see
          <xref linkend="install-post-shlibs"/> for more detail.
+-->
+<productname>PostgreSQL</productname>の実行ファイルがインストレーションのライブラリディレクトリ(<option>--libdir</option>を参照してください)にある共有ライブラリを探すよう指示する印を付けません。
+ほとんどのプラットフォームでは、この印付けはライブラリディレクトリへの絶対パスを利用しますので、後でインストレーションを再配置したときには役に立たないでしょう。
+ですので、実行ファイルが共有ライブラリを見つける他の方法を提供する必要があるでしょう。
+通常は、オペレーティングシステムの動的リンカがライブラリディレクトリを探すよう設定することが必要です。詳細は<xref linkend="install-post-shlibs"/>を参照してください。
         </para>
        </listitem>
       </varlistentry>
@@ -1700,13 +1958,20 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
    </sect3>
 
    <sect3 id="configure-options-misc">
+<!--
     <title>Miscellaneous</title>
+-->
+    <title>その他</title>
 
     <para>
+<!--
      It's fairly common, particularly for test builds, to adjust the
-     default port number with <option>--with-pgport</option>.
+     default port number with <option>&#45;-with-pgport</option>.
      The other options in this section are recommended only for advanced
      users.
+-->
+デフォルトのポート番号を<option>--with-pgport</option>で調整することは、特にテスト構築のためには、かなり良くあることです。
+この節の他のオプションは上級ユーザにのみ勧められます。
     </para>
 
      <variablelist>
@@ -1715,6 +1980,7 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
        <term><option>--with-pgport=<replaceable>NUMBER</replaceable></option></term>
        <listitem>
         <para>
+<!--
          Set <replaceable>NUMBER</replaceable> as the default port number for
          server and clients. The default is 5432. The port can always
          be changed later on, but if you specify it here then both
@@ -1722,6 +1988,12 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
          which can be very convenient.  Usually the only good reason
          to select a non-default value is if you intend to run multiple
          <productname>PostgreSQL</productname> servers on the same machine.
+-->
+サーバとクライアントのデフォルトのポート番号を<replaceable>NUMBER</replaceable>に設定します。
+デフォルトは5432です。
+このポートは後でいつでも変更することができますが、ここで指定した場合、サーバとクライアントはコンパイル時に同じデフォルト値を持つようになります。
+これは非常に便利です。
+通常、デフォルト以外の値を選択すべき唯一の理由は、同じマシンで複数の<productname>PostgreSQL</productname>を稼働させることです。
         </para>
        </listitem>
       </varlistentry>
@@ -1730,12 +2002,18 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
        <term><option>--with-krb-srvnam=<replaceable>NAME</replaceable></option></term>
        <listitem>
         <para>
+<!--
          The default name of the Kerberos service principal used
          by GSSAPI.
          <literal>postgres</literal> is the default. There's usually no
          reason to change this unless you are building for a Windows
          environment, in which case it must be set to upper case
          <literal>POSTGRES</literal>.
+-->
+GSSAPIで使用されるKerberosのサービスプリンシパルのデフォルトの名前です。
+デフォルトでは<literal>postgres</literal>です。
+これを変える理由はWindows環境のために構築しているのでない限り、特にありません。
+Windows環境のために構築している場合は大文字の<literal>POSTGRES</literal>に設定する必要があります。
         </para>
        </listitem>
       </varlistentry>
@@ -1744,6 +2022,7 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
        <term><option>--with-segsize=<replaceable>SEGSIZE</replaceable></option></term>
        <listitem>
         <para>
+<!--
          Set the <firstterm>segment size</firstterm>, in gigabytes.  Large tables are
          divided into multiple operating-system files, each of size equal
          to the segment size.  This avoids problems with file size limits
@@ -1761,6 +2040,17 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
          Note that changing this value breaks on-disk database compatibility,
          meaning you cannot use <command>pg_upgrade</command> to upgrade to
          a build with a different segment size.
+-->
+<firstterm>セグメントサイズ</firstterm>をギガバイト単位で指定します。
+大規模なテーブルはこのセグメントサイズと同じサイズの複数のオペレーティングシステムのファイルに分割されます。
+これにより多くのプラットフォームで存在するファイルサイズ上限に関する問題を防ぎます。
+デフォルトのセグメントサイズは1ギガバイトで、サポートされるすべてのプラットフォームで安全です。
+使用するオペレーティングシステムが<quote>ラージファイル</quote>をサポートしていれば（最近はほとんどサポートしています）、より大きなセグメントサイズを使用することができます。
+非常に大規模なテーブルで作業する時のファイル記述子の消費数を減らすために、これが役に立つでしょう。
+しかし、プラットフォーム、または使用予定のファイルシステムでサポートされる値以上に大きな値を指定しないように注意してください。
+<application>tar</application>などの、使用したいその他のツールにも使用できるファイルサイズに制限があることがあります。
+絶対に必要ではありませんが、この値を2のべき乗にすることを勧めます。
+この値を変更するとディスク上でのデータベースの互換性を壊すことに注意してください。すなわち、<command>pg_upgrade</command>を使ってセグメントサイズの異なるビルドにはアップグレードできません。
         </para>
        </listitem>
       </varlistentry>
@@ -1769,6 +2059,7 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
        <term><option>--with-blocksize=<replaceable>BLOCKSIZE</replaceable></option></term>
        <listitem>
         <para>
+<!--
          Set the <firstterm>block size</firstterm>, in kilobytes.  This is the unit
          of storage and I/O within tables.  The default, 8 kilobytes,
          is suitable for most situations; but other values may be useful
@@ -1777,6 +2068,12 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
          Note that changing this value breaks on-disk database compatibility,
          meaning you cannot use <command>pg_upgrade</command> to upgrade to
          a build with a different block size.
+-->
+キロバイト単位で<firstterm>ブロック容量</firstterm>を設定します。
+これはテーブル内でのストレージとI/Oの単位です。
+8キロバイトのデフォルトはほとんどの場合適切ですが、特別な場合は他の値が役立ちます。
+値は1から32（キロバイト）の範囲の２のべき乗でなければなりません。
+この値を変更するとディスク上でのデータベースの互換性を壊すことに注意してください。すなわち、<command>pg_upgrade</command>を使ってブロック容量の異なるビルドにはアップグレードできません。
         </para>
        </listitem>
       </varlistentry>
@@ -1785,6 +2082,7 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
        <term><option>--with-wal-blocksize=<replaceable>BLOCKSIZE</replaceable></option></term>
        <listitem>
         <para>
+<!--
          Set the <firstterm>WAL block size</firstterm>, in kilobytes.  This is the unit
          of storage and I/O within the WAL log.  The default, 8 kilobytes,
          is suitable for most situations; but other values may be useful
@@ -1793,6 +2091,12 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
          Note that changing this value breaks on-disk database compatibility,
          meaning you cannot use <command>pg_upgrade</command> to upgrade to
          a build with a different WAL block size.
+-->
+キロバイト単位で<firstterm>WALブロック容量</firstterm>を設定します。
+これはWALログ内でのストレージとI/Oの単位です。
+8キロバイトのデフォルトはほとんどの場合適切ですが、特別な場合は大きめの値が役立ちます。
+値は1から64（キロバイト）の範囲の２のべき乗でなければなりません。
+この値を変更するとディスク上でのデータベースの互換性を壊すことに注意してください。すなわち、<command>pg_upgrade</command>を使ってWALブロック容量の異なるビルドにはアップグレードできません。
         </para>
        </listitem>
       </varlistentry>
@@ -1802,23 +2106,34 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
    </sect3>
 
    <sect3 id="configure-options-devel">
+<!--
     <title>Developer Options</title>
+-->
+    <title>開発者向けオプション</title>
 
     <para>
+<!--
      Most of the options in this section are only of interest for
      developing or debugging <productname>PostgreSQL</productname>.
      They are not recommended for production builds, except
-     for <option>--enable-debug</option>, which can be useful to enable
+     for <option>&#45;-enable-debug</option>, which can be useful to enable
      detailed bug reports in the unlucky event that you encounter a bug.
-     On platforms supporting DTrace, <option>--enable-dtrace</option>
+     On platforms supporting DTrace, <option>&#45;-enable-dtrace</option>
      may also be reasonable to use in production.
+-->
+この節のオプションのほとんどは、<productname>PostgreSQL</productname>を開発したりデバッグしたりするために重要なものです。
+<option>--enable-debug</option>を除いて、実運用での構築には勧められません。<option>--enable-debug</option>はバグに出くわすという不幸な出来事の時に詳細なバグレポートが得られるので有用かもしれません。
+DTraceをサポートするプラットフォームでは、<option>--enable-dtrace</option>を実運用で使うことも適当かもしれません。
     </para>
 
     <para>
+<!--
      When building an installation that will be used to develop code inside
      the server, it is recommended to use at least the
-     options <option>--enable-debug</option>
-     and <option>--enable-cassert</option>.
+     options <option>&#45;-enable-debug</option>
+     and <option>&#45;-enable-cassert</option>.
+-->
+サーバ内でコードの開発に使われるインストレーションを構築する場合には、少なくともオプション<option>--enable-debug</option>と<option>--enable-cassert</option>を使うことをお勧めします。
     </para>
 
      <variablelist>
@@ -1827,6 +2142,7 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
        <term><option>--enable-debug</option></term>
        <listitem>
         <para>
+<!--
          Compiles all programs and libraries with debugging symbols.
          This means that you can run the programs in a debugger
          to analyze problems. This enlarges the size of the installed
@@ -1837,6 +2153,13 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
          recommended for production installations only if you use GCC.
          But you should always have it on if you are doing development work
          or running a beta version.
+-->
+すべてのプログラムとライブラリをデバッグシンボル付きでコンパイルします。
+これは、問題を解析するためにデバッガ内でプログラムを実行できることを意味します。
+これはインストールする実行形式ファイルのサイズをかなり大きくし、また、GCC以外のコンパイラでは、通常はコンパイラによる最適化が行われなくなりますので、低速になります。
+しかし、デバッグシンボルが利用できるということは、発生した問題に対応する時に非常に便利です。
+現在のところ、GCC を使用している場合にのみ、稼働用のインストレーションにこのオプションを使用することを推奨します。
+しかし、開発作業時やベータ版を実行する時は、常にこれを有効にすべきです。
         </para>
        </listitem>
       </varlistentry>
@@ -1871,9 +2194,14 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
        <term><option>--enable-tap-tests</option></term>
        <listitem>
         <para>
+<!--
          Enable tests using the Perl TAP tools.  This requires a Perl
          installation and the Perl module <literal>IPC::Run</literal>.
          <phrase condition="standalone-ignore">See <xref linkend="regress-tap"/> for more information.</phrase>
+-->
+Perl TAPツールを使ったテストを有効にします。
+これにはPerlのインストールとPerlモジュール<literal>IPC::Run</literal>が必要です。
+<phrase condition="standalone-ignore">詳細は<xref linkend="regress-tap"/>を参照してください。</phrase>
         </para>
        </listitem>
       </varlistentry>
@@ -1902,6 +2230,7 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
        <term><option>--enable-coverage</option></term>
        <listitem>
         <para>
+<!--
          If using GCC, all programs and libraries are compiled with
          code coverage testing instrumentation.  When run, they
          generate files in the build directory with code coverage
@@ -1909,6 +2238,11 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
          <phrase condition="standalone-ignore">See <xref linkend="regress-coverage"/>
          for more information.</phrase> This option is for use only with GCC
          and when doing development work.
+-->
+GCCを使用している場合、すべてのプログラムとライブラリはコードカバレッジ試験機構付きでコンパイルされます。
+実行すると、これらは構築用ディレクトリ内にコードカバレッジメトリックを持ったファイルを生成します。
+<phrase condition="standalone-ignore">詳細は<xref linkend="regress-coverage"/>を参照してください。</phrase>
+このオプションはGCC専用であり、また、開発作業中に使用するためのものです。
         </para>
        </listitem>
       </varlistentry>
@@ -1917,11 +2251,16 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
        <term><option>--enable-profiling</option></term>
        <listitem>
         <para>
+<!--
          If using GCC, all programs and libraries are compiled so they
          can be profiled.  On backend exit, a subdirectory will be created
          that contains the <filename>gmon.out</filename> file containing
          profile data.
          This option is for use only with GCC and when doing development work.
+-->
+GCCを使用する場合、すべてのプログラムとライブラリがプロファイリング可能状態でコンパイルされます。
+バックエンドの終了時、プロファイリングに使用する<filename>gmon.out</filename>ファイルを含むサブディレクトリが作成されます。
+このオプションはGCCを使用する場合のみ使用でき、開発作業を行う時に使用します。
         </para>
        </listitem>
       </varlistentry>
@@ -1939,7 +2278,8 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
          <phrase condition="standalone-ignore">See <xref linkend="dynamic-trace"/>
          for more information.</phrase>
 -->
-動的追跡ツールDTraceのサポートを有効にして<productname>PostgreSQL</productname>をコンパイルします。<phrase condition="standalone-ignore">より詳細な情報は<xref linkend="dynamic-trace"/>を参照してください。</phrase>
+動的追跡ツールDTraceのサポートを有効にして<productname>PostgreSQL</productname>をコンパイルします。
+<phrase condition="standalone-ignore">より詳細な情報は<xref linkend="dynamic-trace"/>を参照してください。</phrase>
         </para>
 
         <para>
@@ -1963,7 +2303,7 @@ pkg-configがインストールされていて、かつそれがlibxml2につい
          <literal>DTRACEFLAGS="-64"</literal>.  For example,
          using the GCC compiler:
 -->
-         さらに<command>dtrace</command>プログラム用のコマンドラインオプションを<envar>DTRACEFLAGS</envar>環境変数で指定することができます。
+さらに<command>dtrace</command>プログラム用のコマンドラインオプションを<envar>DTRACEFLAGS</envar>環境変数で指定することができます。
 Solarisで64ビットバイナリでDTraceをサポートするには、<literal>DTRACEFLAGS="-64"</literal>をconfigureに指定してください。
 例えばGCCコンパイラを使用する場合は以下のようにします。
 <screen>
@@ -1986,31 +2326,48 @@ Sunのコンパイラを使用する場合は以下のようにします。
   </sect2>
 
   <sect2 id="configure-envvars">
+<!--
    <title><filename>configure</filename> Environment Variables</title>
+-->
+   <title><filename>configure</filename>環境変数</title>
 
    <indexterm zone="configure-envvars">
+<!--
     <primary>configure environment variables</primary>
+-->
+    <primary>configure環境変数</primary>
    </indexterm>
 
     <para>
+<!--
      In addition to the ordinary command-line options described above,
      <filename>configure</filename> responds to a number of environment
      variables.
      You can specify environment variables on the
      <filename>configure</filename> command line, for example:
+-->
+上記の通常のコマンドラインオプションに加えて、<filename>configure</filename>は数多くの環境変数に対応します。
+次のようにして、<filename>configure</filename>コマンドラインに環境変数を指定できます。
 <screen>
 <userinput>./configure CC=/opt/bin/gcc CFLAGS='-O2 -pipe'</userinput>
 </screen>
+<!--
      In this usage an environment variable is little different from a
      command-line option.
      You can also set such variables beforehand:
+-->
+この使い方では、環境変数はコマンドラインオプションとは少し異なります。
+あらかじめそのような変数を設定しておくこともできます。
 <screen>
 <userinput>export CC=/opt/bin/gcc</userinput>
 <userinput>export CFLAGS='-O2 -pipe'</userinput>
 <userinput>./configure</userinput>
 </screen>
+<!--
      This usage can be convenient because many programs' configuration
      scripts respond to these variables in similar ways.
+-->
+多くのプログラムの設定スクリプトは似たようにこの変数に対応しますので、この使い方は便利でしょう。
     </para>
 
     <para>
@@ -2224,7 +2581,10 @@ Flexプログラム。
        <term><envar>MSGFMT</envar></term>
        <listitem>
         <para>
+<!--
          <command>msgfmt</command> program for native language support
+-->
+多言語サポート（NLS）用の<command>msgfmt</command>プログラム。
         </para>
        </listitem>
       </varlistentry>
@@ -2233,9 +2593,14 @@ Flexプログラム。
        <term><envar>PERL</envar></term>
        <listitem>
         <para>
+<!--
          Perl interpreter program.  This will be used to determine the
          dependencies for building PL/Perl.  The default is
          <command>perl</command>.
+-->
+Perlインタプリタプログラム。
+これは、PL/Perl構築に関する依存性を決定するために使用されます。
+デフォルトは<command>perl</command>です。
         </para>
        </listitem>
       </varlistentry>
@@ -2244,6 +2609,7 @@ Flexプログラム。
        <term><envar>PYTHON</envar></term>
        <listitem>
         <para>
+<!--
          Python interpreter program.  This will be used to
          determine the dependencies for building PL/Python.  Also,
          whether Python 2 or 3 is specified here (or otherwise
@@ -2252,6 +2618,12 @@ Flexプログラム。
          <xref linkend="plpython-python23"/>
          for more information.  If this is not set, the following are probed
          in this order: <literal>python python3 python2</literal>.
+-->
+Pythonインタプリタプログラム。
+これは、PL/Python構築に関する依存性を決定するために使用されます。
+またここでPython 2または3を指定するかどうかで(あるいは暗黙的に選択されます)、どちらのPL/Python言語が利用可能になるかも決まります。
+詳細は<xref linkend="plpython-python23"/>を参照してください。
+設定されていなければ、<literal>python python3 python2</literal>の順で調べられます。
         </para>
        </listitem>
       </varlistentry>
@@ -2260,11 +2632,16 @@ Flexプログラム。
        <term><envar>TCLSH</envar></term>
        <listitem>
         <para>
+<!--
          Tcl interpreter program.  This will be used to
          determine the dependencies for building PL/Tcl.
          If this is not set, the following are probed in this
          order: <literal>tclsh tcl tclsh8.6 tclsh86 tclsh8.5 tclsh85
          tclsh8.4 tclsh84</literal>.
+-->
+Tclインタプリタプログラム。
+これは、PL/Tcl構築に関する依存性を決定するために使用され、Tclスクリプト内を置き換えます。
+設定されていなければ、</literal>以下の順で調べられます。<literal>tclsh tcl tclsh8.6 tclsh86 tclsh8.5 tclsh85 tclsh8.4 tclsh84</literal>
         </para>
        </listitem>
       </varlistentry>
@@ -2273,8 +2650,11 @@ Flexプログラム。
        <term><envar>XML2_CONFIG</envar></term>
        <listitem>
         <para>
+<!--
          <command>xml2-config</command> program used to locate the
          libxml2 installation
+-->
+libxml2インストレーションの場所を特定するために使用する<command>xml2-config</command>プログラムです。
         </para>
        </listitem>
       </varlistentry>
@@ -2282,6 +2662,7 @@ Flexプログラム。
     </para>
 
     <para>
+<!--
      Sometimes it is useful to add compiler flags after-the-fact to the set
      that were chosen by <filename>configure</filename>.  An important example is
      that <application>gcc</application>'s <option>-Werror</option> option cannot be included
@@ -2291,10 +2672,19 @@ Flexプログラム。
      while running <filename>make</filename>.  The contents of <envar>COPT</envar>
      are added to both the <envar>CFLAGS</envar> and <envar>LDFLAGS</envar>
      options set up by <filename>configure</filename>.  For example, you could do
+-->
+<filename>configure</filename>が選んだコンパイラフラグに対して、事後にフラグを追加することが有用な場合があります。
+重要な例は、<filename>configure</filename>に渡す<envar>CFLAGS</envar>に<application>gcc</application>の<option>-Werror</option>オプションを含められないことです。なぜなら、そうすると<filename>configure</filename>の組み込みテストの多くが失敗するからです。
+そのようなフラグを追加するには、<filename>make</filename>を実行する時に<envar>COPT</envar>環境変数に含めてください。
+<filename>configure</filename>で設定された<envar>CFLAGS</envar>オプションと<envar>LDFLAGS</envar>オプションの両方に、<envar>COPT</envar>の内容が追加されます。
+例えば、以下のようにします。
 <screen>
 <userinput>make COPT='-Werror'</userinput>
 </screen>
+<!--
      or
+-->
+または
 <screen>
 <userinput>export COPT='-Werror'</userinput>
 <userinput>make</userinput>
@@ -2303,6 +2693,7 @@ Flexプログラム。
 
     <note>
      <para>
+<!--
       If using GCC, it is best to build with an optimization level of
       at least <option>-O1</option>, because using no optimization
       (<option>-O0</option>) disables some important compiler warnings (such
@@ -2313,14 +2704,23 @@ Flexプログラム。
       optimized code, recompile the specific files of interest with
       <option>-O0</option>.  An easy way to do this is by passing an option
       to <application>make</application>: <command>make PROFILE=-O0 file.o</command>.
+-->
+GCCを使う場合、少なくとも<option>-O1</option>レベルの最適化で構築することがベストです。なぜなら、何の最適化もしない(<option>-O0</option>) と、重要なコンパイル警告(初期化されていない変数の使用など)が無効になるからです。
+しかし、最適化を行うことでソースコードとコンパイルされたコードのステップは1対1とはならなくなるため、デバッグは複雑になるかもしれません。
+最適化されたコードのデバッグに悩まされてしまう場合は、関心のある特定のファイルに対して<option>-O0</option>で再コンパイルしてください。
+これを実行するための簡単な方法は、<command>make PROFILE=-O0 file.o</command>のように、<application>make</application>経由でオプションを渡すことです。
      </para>
 
      <para>
+<!--
       The <envar>COPT</envar> and <envar>PROFILE</envar> environment variables are
       actually handled identically by the <productname>PostgreSQL</productname>
       makefiles.  Which to use is a matter of preference, but a common habit
       among developers is to use <envar>PROFILE</envar> for one-time flag
       adjustments, while <envar>COPT</envar> might be kept set all the time.
+-->
+<envar>COPT</envar>と<envar>PROFILE</envar>の環境変数は、<productname>PostgreSQL</productname>のmakefileでは実際には全く同一に扱われます。
+どちらを使うかは好みの問題ですが、開発者の一般的な習慣では、一時的にフラグを調整するには<envar>PROFILE</envar>を使い、永続的に保持するものには<envar>COPT</envar>を使います。
      </para>
     </note>
   </sect2>
@@ -2330,19 +2730,19 @@ Flexプログラム。
 <!--
   <title>Post-Installation Setup</title>
 -->
-<title>インストール後の設定作業</title>
+  <title>インストール後の設定作業</title>
 
   <sect2 id="install-post-shlibs">
 <!--
    <title>Shared Libraries</title>
 -->
-<title>共有ライブラリ</title>
+   <title>共有ライブラリ</title>
 
    <indexterm>
 <!--
     <primary>shared library</primary>
 -->
-<primary>共有ライブラリ</primary>
+    <primary>共有ライブラリ</primary>
    </indexterm>
 
    <para>
@@ -2602,7 +3002,7 @@ M68K、M32R、VAXをサポートするコードは存在しますが、これら
    specific to your operating system, particularly if using an older system.
 -->
 <productname>PostgreSQL</productname>は次のオペレーティングシステムで動作することを期待できます。
-Linux (最近のディストリビューションすべて), Windows (Win2000 SP4以降), FreeBSD, OpenBSD, NetBSD, macOS, AIX, HP/UX, Solaris。
+Linux (最近のディストリビューションすべて), Windows (XP以降), FreeBSD, OpenBSD, NetBSD, macOS, AIX, HP/UX, Solaris。
 他のUnixに似たシステムでも動作するかもしれませんが、最近試験されていません。
 ほとんどの場合、指定されたオペレーティングシステムでサポートされるCPUアーキテクチャはすべて動作するでしょう。
 特に古めのシステムを使用している場合、以下の<xref linkend="installation-platform-notes"/>を参照し、使用するオペレーティングシステム固有の情報がないか確認してください。
