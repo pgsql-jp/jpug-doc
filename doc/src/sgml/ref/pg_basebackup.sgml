@@ -48,7 +48,7 @@ PostgreSQL documentation
 -->
 <application>pg_basebackup</application>は、稼動中の<productname>PostgreSQL</productname>のデータベースクラスタのベースバックアップを取るために使用されます。
 データベースへの他のクライアントに影響することなく、バックアップが取られます。
-またこのバックアップはポイントインタイムリカバリ（<xref linkend="continuous-archiving"/>参照）とログシッピングやストリーミングレプリケーションスタンバイサーバ用の開始点（<xref linkend="warm-standby"/>参照）としても使用することができます。
+また、このバックアップはポイントインタイムリカバリ（<xref linkend="continuous-archiving"/>参照）とログシッピングやストリーミングレプリケーションスタンバイサーバ用の開始点（<xref linkend="warm-standby"/>参照）としても使用できます。
   </para>
 
   <para>
@@ -60,10 +60,10 @@ PostgreSQL documentation
    database objects. For selective backups, another tool such as
    <xref linkend="app-pgdump"/> must be used.
 -->
-<application>pg_basebackup</application>は、システムをバックアップモードに入れ、また戻すことを自動的に行い、データベースクラスタファイルのバイナリコピーを作成します。
+<application>pg_basebackup</application>は、サーバをバックアップモードに入れ、また戻すことを自動的に確実に行ない、データベースクラスタファイルの厳密なコピーを作成します。
 バックアップは常にデータベースクラスタ全体のバックアップを取ります。
 個々のデータベースや個々のデータベースオブジェクトをバックアップすることはできません。
-個々のデータベースバックアップに関しては<xref linkend="app-pgdump"/>などのツールを使用しなければなりません。
+特定のものを対象としたバックアップに関しては<xref linkend="app-pgdump"/>などの他のツールを使用しなければなりません。
   </para>
 
   <para>
@@ -77,10 +77,10 @@ PostgreSQL documentation
    with <xref linkend="guc-max-wal-senders"/> set high enough to provide at
    least one walsender for the backup plus one for WAL streaming (if used).
 -->
-バックアップは通常の<productname>PostgreSQL</productname>接続を経由して、レプリケーションプロトコルを用いて、作成されます。
-この接続はスーパーユーザまたは<literal>REPLICATION</literal>権限（<xref linkend="role-attributes"/>参照）を持つユーザが確立しなければなりません。
-さらにレプリケーション用の接続には<filename>pg_hba.conf</filename>における明示的な権限が許されていなければなりません。
-またサーバで<xref linkend="guc-max-wal-senders"/>を、バックアップ用に少なくとも１つのセッションとWALストリーミング用にもう一つ（使用する場合）を残すように十分大きく設定する必要があります。
+バックアップは、レプリケーションプロトコルを用いる通常の<productname>PostgreSQL</productname>接続を経由して作成されます。
+この接続は<literal>REPLICATION</literal>権限（<xref linkend="role-attributes"/>参照）を持つ、または、スーパーユーザであるユーザIDが確立しなければなりません。
+さらに<link linkend="auth-pg-hba-conf"><filename>pg_hba.conf</filename></link>でレプリケーション用の接続が許可されていなければなりません。
+またサーバで<xref linkend="guc-max-wal-senders"/>を、バックアップ用に少なくとも1つのwalsenderとWALストリーミング用にもう1つ（使用する場合）を残すように十分大きく設定する必要があります。
   </para>
 
   <para>
@@ -89,8 +89,8 @@ PostgreSQL documentation
    better from a performance point of view to take only one backup, and copy
    the result.
 -->
-同時に<command>pg_basebackup</command>を複数実行することができます。
-しかし性能の観点からは、１つのバックアップのみを取り結果をコピーする方が優れています。
+同時に<command>pg_basebackup</command>を複数実行できます。
+しかし性能の観点からは、1つのバックアップのみを取り結果をコピーする方が通常は優れています。
   </para>
 
   <para>
@@ -102,16 +102,16 @@ PostgreSQL documentation
    and configure its <filename>pg_hba.conf</filename> appropriately).
    You will also need to enable <xref linkend="guc-full-page-writes"/> on the primary.
 -->
-<application>pg_basebackup</application>は、マスタからだけではなくスタンバイからもベースバックアップを作成することができます。
-スタンバイからバックアップを取得するためには、レプリケーション接続を受け付けられるようにスタンバイを設定してください（つまり<varname>max_wal_senders</varname>と<xref linkend="guc-hot-standby"/>を設定し、<link linkend="auth-pg-hba-conf">host-based authentication</link>を設定してください）。
-またマスタで<xref linkend="guc-full-page-writes"/>を有効にする必要があります。
+<application>pg_basebackup</application>は、プライマリサーバからだけではなくスタンバイからもベースバックアップを作成できます。
+スタンバイからバックアップを取得するためには、レプリケーション接続を受け付けられるようにスタンバイを設定してください（つまり<varname>max_wal_senders</varname>と<xref linkend="guc-hot-standby"/>を設定し、<filename>pg_hba.conf</filename>を適切に設定してください）。
+またプライマリで<xref linkend="guc-full-page-writes"/>を有効にする必要があります。
   </para>
 
   <para>
 <!--
    Note that there are some limitations in taking a backup from a standby:
 -->
-スタンバイからのオンラインバックアップではいくつかの制限があることに注意してください。
+スタンバイからバックアップを取る場合にはいくつかの制限があることに注意してください。
 
    <itemizedlist>
     <listitem>
@@ -136,7 +136,7 @@ PostgreSQL documentation
 <!--
       If the standby is promoted to be primary during backup, the backup fails.
 -->
-オンラインバックアップ中にスタンバイがマスタに昇格した場合、バックアップは失敗します。
+バックアップ中にスタンバイがプライマリに昇格した場合、バックアップは失敗します。
      </para>
     </listitem>
     <listitem>
@@ -148,17 +148,21 @@ PostgreSQL documentation
       <varname>archive_command</varname> to remove full-page writes from WAL files.
 -->
 バックアップに必要なすべてのWALレコードは、必要なだけの完全ページ書き出しを含んでいなければなりません。
-つまりこれは、マスタで<varname>full_page_writes</varname>を有効にし、<varname>archive_command</varname>としてWALファイルから完全ページ書き出しを取り除く<application>pg_compresslog</application>のようなツールを使用しないことが要求されます。
+つまりこれは、プライマリで<varname>full_page_writes</varname>を有効にし、<varname>archive_command</varname>としてWALファイルから完全ページ書き出しを取り除く<application>pg_compresslog</application>のようなツールを使用しないことが要求されます。
      </para>
     </listitem>
    </itemizedlist>
   </para>
 
   <para>
+<!--
    Whenever <application>pg_basebackup</application> is taking a base
    backup, the server's <structname>pg_stat_progress_basebackup</structname>
    view will report the progress of the backup.
    See <xref linkend="basebackup-progress-reporting"/> for details.
+-->
+<application>pg_basebackup</application>がベースバックアップを取るときには必ず、サーバの<structname>pg_stat_progress_basebackup</structname>はバックアップの進行状況を報告します。
+詳細は<xref linkend="basebackup-progress-reporting"/>を参照してください。
   </para>
  </refsect1>
 
@@ -187,9 +191,9 @@ PostgreSQL documentation
         (and any missing parent directories) if it does not exist.  If it
         already exists, it must be empty.
 -->
-出力を書き出すディレクトリです。
-<application>pg_basebackup</application>は必要ならば、このディレクトリとその親ディレクトリすべてを作成します。
-ディレクトリはすでに存在してもかまいませんが、存在しかつ空でない場合はエラーになります。
+出力を書き出す対象のディレクトリを設定します。
+<application>pg_basebackup</application>は、存在していなければこのディレクトリ(とその親ディレクトリのうち存在していないものすべて)を作成します。
+ディレクトリはすでに存在してもかまいませんが、空でなければなりません。
        </para>
        <para>
 <!--
@@ -197,7 +201,7 @@ PostgreSQL documentation
         specified as <literal>-</literal> (dash), causing the tar file to be
         written to <literal>stdout</literal>.
 -->
-バックアップがtarモードであり、かつ、指定したディレクトリが<literal>-</literal>（ダッシュ）の場合、tarファイルは<literal>stdout</literal>に書き出されます。
+バックアップがtar形式であり、かつ、対象のディレクトリが<literal>-</literal>（ダッシュ）の場合、tarファイルを<literal>stdout</literal>に書き出します。
        </para>
        <para>
 <!--
@@ -235,9 +239,9 @@ PostgreSQL documentation
             target directory, but all other tablespaces will be placed
             in the same absolute path as they have on the source server.
 -->
-普通のファイルとして、現在のデータディレクトリとテーブル空間と同じレイアウトで、出力を書き出します。
+普通のファイルとして、ソースサーバのデータディレクトリとテーブル空間と同じレイアウトで、出力を書き出します。
 クラスタがテーブル空間を追加で持たない場合、データベース全体が指定したディレクトリに格納されます。
-クラスタが追加のテーブル空間を持つ場合は、主データディレクトリは指定したディレクトリ内に格納されますが、他のテーブル空間はすべて、サーバ上の同じ絶対パスに格納されます。
+クラスタが追加のテーブル空間を持つ場合は、主データディレクトリは指定したディレクトリ内に格納されますが、他のテーブル空間はすべて、ソースサーバ上と同じ絶対パスに格納されます。
            </para>
            <para>
 <!--
@@ -260,7 +264,7 @@ PostgreSQL documentation
             written to a separate tar file named after that tablespace's OID.
 -->
 指定したディレクトリ内にtarファイルとして出力を書き出します。
-主データディレクトリは<filename>base.tar</filename>という名前のファイルに書き出され、他のテーブル空間はすべてテーブル空間のOIDに因んだ名前のファイルに書き出されます。
+主データディレクトリの内容は<filename>base.tar</filename>という名前のファイルに書き出され、他のテーブル空間はすべてテーブル空間のOIDに因んだ名前の別のtarファイルに書き出されます。
            </para>
            <para>
 <!--
@@ -272,7 +276,7 @@ PostgreSQL documentation
             streaming is not used.
 -->
 対象ディレクトリとして<literal>-</literal>（ダッシュ）という値が指定された場合、tarの内容は標準出力に書き出されます。
-これは例えば<productname>gzip</productname>へのパイプ処理に適しています。
+これは(例えば)<productname>gzip</productname>へのパイプ処理に適しています。
 これはクラスタが追加テーブル空間を持たず、WALストリーミングを使用していない場合のみ行うことができます。
            </para>
            </listitem>
@@ -294,14 +298,17 @@ PostgreSQL documentation
         using tar format).  This eases setting up a standby server using the
         results of the backup.
 -->
-スタンバイサーバの設定を容易にするために、<filename>standby.signal</filename>を作成し、出力ディレクトリ（tar形式の場合はベースアーカイブファイルの中）にある<filename>postgresql.auto.conf</filename>に接続設定を追加します。
-<filename>postgresql.auto.conf</filename>ファイルは接続設定の情報、また、指定があれば<application>pg_basebackup</application>が使用しているレプリケーションスロットの情報を記録するので、ストリーミングレプリケーションは後で同じ設定を使用します。
+<filename>standby.signal</filename>を作成し、対象のディレクトリ（tar形式の場合はベースアーカイブファイルの中）にある<filename>postgresql.auto.conf</filename>に接続設定を追加します。
+これにより、バックアップの結果を利用するスタンバイサーバの設定が容易になります。
        </para>
        <para>
+<!--
         The <filename>postgresql.auto.conf</filename> file will record the connection
         settings and, if specified, the replication slot
         that <application>pg_basebackup</application> is using, so that
         streaming replication will use the same settings later on.
+-->
+<filename>postgresql.auto.conf</filename>ファイルは接続設定の情報、また、指定があれば<application>pg_basebackup</application>が使用しているレプリケーションスロットの情報を記録するので、ストリーミングレプリケーションは後で同じ設定を使用します。
        </para>
 
       </listitem>
@@ -330,11 +337,13 @@ PostgreSQL documentation
         times for multiple tablespaces.
 -->
 ディレクトリ<replaceable>olddir</replaceable>にあるテーブル空間を、バックアップ中に<replaceable>newdir</replaceable>に再配置します。
-これが有効であるためには、<replaceable>olddir</replaceable>が、現在のテーブル空間のパス定義と完全に一致している必要があります(ただし、バックアップに含まれる<replaceable>olddir</replaceable>内にテーブル空間がなくてもエラーにはなりません)。
+これが有効であるためには、<replaceable>olddir</replaceable>が、ソースサーバでのテーブル空間のパス定義と完全に一致している必要があります。
+(ただし、ソースサーバの<replaceable>olddir</replaceable>内にテーブル空間がなくてもエラーにはなりません。)
+一方、<replaceable>newdir</replaceable>は受け取るホストのファイルシステム内のディレクトリです。
+主対象ディレクトリと同様に、<replaceable>newdir</replaceable>は既に存在している必要はありませんが、存在している場合には空でなければなりません。
 <replaceable>olddir</replaceable>と<replaceable>newdir</replaceable>はいずれも絶対パスでなければなりません。
-パス名に<literal>=</literal>記号が含まれるときは、バックスラッシュでエスケープしてください。
+パス名に等号(<literal>=</literal>)を含む必要がある場合には、バックスラッシュをその前に付けてください。
 このオプションは、複数のテーブル空間に対して複数回指定することができます。
-以下の例を参照してください。
        </para>
 
        <para>
@@ -366,9 +375,11 @@ PostgreSQL documentation
         This option can only be specified when
         the backup is in plain format.
 -->
-先行書き込みログのディレクトリの場所を指定します。
+WAL(先行書き込みログ)ファイルを書き込むディレクトリを設定します。
+デフォルトでは、WALファイルは対象の<replaceable>waldir</replaceable>の<filename>pg_wal</filename>サブディレクトリに置かれますが、どこか他の場所に置くためにこのオプションが使えます。
+主対象ディレクトリと同様に、<replaceable>newdir</replaceable>は既に存在している必要はありませんが、存在している場合には空でなければなりません。
 <replaceable>waldir</replaceable>は絶対パスでなければなりません。
-先行書き込みログのディレクトリは、バックアップがplainモードの場合にのみ指定できます。
+このオプションはは、バックアップがplainモードの場合にのみ指定できます。
        </para>
       </listitem>
      </varlistentry>
@@ -386,17 +397,17 @@ PostgreSQL documentation
         directory without the need to consult the log archive, thus
         making the output a completely standalone backup.
   -->
-必要な先行書き込みログファイル（WALファイル）をバックアップに含めます。
+必要なWAL（先行書き込みログ）ファイルをバックアップに含めます。
 これはバックアップ中に生成された先行書き込みログをすべて含みます。
-方法<literal>none</literal>を指定しない場合、ログアーカイブを考慮することなく展開したディレクトリ内でそのままpostmasterを起動することができます。
-つまりこれは完全なスタンドアローンバックアップを作成します。
+方法<literal>none</literal>を指定しない場合、ログアーカイブを考慮することなく展開した対象ディレクトリ内でpostmasterを起動することができます。
+つまり出力は完全なスタンドアローンバックアップを作成します。
        </para>
        <para>
 <!--
         The following <replaceable>method</replaceable>s for collecting the
         write-ahead logs are supported:
 -->
-以下の先行書き込みログを収集するための方法がサポートされます。
+以下の先行書き込みログを収集するための<replaceable>method</replaceable>がサポートされます。
 
         <variablelist>
          <varlistentry>
@@ -427,15 +438,15 @@ PostgreSQL documentation
             unusable.
 -->
 先行書き込みログファイルはバックアップの最後に収集されます。
-したがって、<xref linkend="guc-wal-keep-size"/>パラメータを、バックアップの最後までログが削除されない程度に十分大きくする必要があります。
-ログの転送時点でそのログがローテートされていた場合、バックアップは失敗し、使用することができません。
+したがって、ソースサーバの<xref linkend="guc-wal-keep-size"/>パラメータを、バックアップの最後までログが削除されない程度に十分大きくする必要があります。
+要求されるログデータが転送時点で再利用されていた場合、バックアップは失敗し、使用することができません。
            </para>
            <para>
 <!--
             When tar format is used, the write-ahead log files will be
             included in the <filename>base.tar</filename> file.
 -->
-tarフォーマットモードが使われたとき、先行書き込みログファイルは<filename>base.tar</filename>ファイルに書きこまれます。
+tar形式が使われれば、先行書き込みログファイルは<filename>base.tar</filename>ファイルに含まれます。
            </para>
           </listitem>
          </varlistentry>
@@ -454,10 +465,10 @@ tarフォーマットモードが使われたとき、先行書き込みログ�
             with the write-ahead log data, using this method requires no
             extra write-ahead logs to be saved on the source server.
 -->
-バックアップを作成する時に先行書き込みログをストリームします。
-これは第二のサーバ接続を開き、バックアップを実行している間、並行して先行書き込みログのストリーミングを始めます。
-したがって、これは<xref linkend="guc-max-wal-senders"/>で設定される接続を２つ使用します。
-クライアントが受け取った先行書き込みログに追従している限り、このモードを使用すれば、マスタ上に余分に保管される先行書き込みログは必要ありません。
+バックアップを取る時に先行書き込みログデータをストリームします。
+この方法は第2のサーバ接続を開き、バックアップを実行している間、並行して先行書き込みログのストリーミングを始めます。
+したがって、レプリケーション接続を、1つではなく2つ使用します。
+クライアントが先行書き込みログデータに追従している限り、このモードを使用すれば、ソースサーバ上に余分に保管される先行書き込みログは必要ありません。
            </para>
            <para>
 <!--
@@ -466,7 +477,7 @@ tarフォーマットモードが使われたとき、先行書き込みログ�
             (if the server is a version earlier than 10, the file will be named
             <filename>pg_xlog.tar</filename>).
 -->
-tarフォーマットモードが使われるとき、先行書き込みログファイルは<filename>pg_wal.tar</filename>という別のファイル名で書き込まれます（サーバが10より前のバージョンの場合、<filename>pg_xlog.tar</filename>というファイル名になります）。
+tar形式が使われれば、先行書き込みログファイルは<filename>pg_wal.tar</filename>という名の別のファイルに書き込まれます（サーバが10より前のバージョンの場合、<filename>pg_xlog.tar</filename>というファイル名になります）。
            </para>
            <para>
 <!--
@@ -522,7 +533,7 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
     The following command-line options control the generation of the
     backup and the invocation of the program:
 -->
-以下のコマンドラインオプションはバックアップの生成とこのプログラムの実行を制御します。
+以下のコマンドラインオプションはバックアップの生成とこのプログラムの起動を制御します。
 
     <variablelist>
      <varlistentry>
@@ -530,8 +541,11 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
       <term><option>--checkpoint=<replaceable class="parameter">fast|spread</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Sets checkpoint mode to fast (immediate) or spread (the default)
         (see <xref linkend="backup-lowlevel-base-backup"/>).
+-->
+チェックポイントモードをfast(即座に発行)またはspread(デフォルト)に設定します(<xref linkend="backup-lowlevel-base-backup"/>を参照してください)。
        </para>
       </listitem>
      </varlistentry>
@@ -546,7 +560,7 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
         <literal>-&#045;slot</literal> option should be created before starting
         the backup.  An error is raised if the slot already exists.
 -->
-このオプションにより、バックアップ開始前に<literal>--slot</literal>オプションで名づけられたレプリケーションスロットが作成されます。
+バックアップ開始前に<literal>--slot</literal>オプションで名づけられたレプリケーションスロットを作成することを指定します。
 スロットが既に存在する場合、エラーが生じます。
        </para>
       </listitem>
@@ -579,7 +593,7 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
         directory and write-ahead log directory). This option inhibits
         tidying-up and is thus useful for debugging.
 -->
-デフォルトでは、<command>pg_basebackup</command>がエラーでアボートするとき、ジョブを完了できないことがわかるより前に作成したすべてのディレクトリ（例えば、データディレクトリと先行書き込みログのディレクトリ）を削除します。
+デフォルトでは、<command>pg_basebackup</command>がエラーでアボートするとき、ジョブを完了できないことがわかるより前に作成したすべてのディレクトリ（例えば、対象のディレクトリと先行書き込みログのディレクトリ）を削除します。
 このオプションはきれいに片付けることを禁止するので、デバッグのために有用です。
        </para>
 
@@ -640,6 +654,7 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
       <term><option>--max-rate=<replaceable class="parameter">rate</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Sets the maximum transfer rate at which data is collected from the
         source server.  This can be useful to limit the impact
         of <application>pg_basebackup</application> on the server.  Values
@@ -647,6 +662,13 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
         to indicate megabytes per second.  A suffix of <literal>k</literal>
         is also accepted, and has no effect.  Valid values are between 32
         kilobytes per second and 1024 megabytes per second.
+-->
+ソースサーバから収集されるデータの最大転送速度です。
+これは、サーバでの<application>pg_basebackup</application>の影響を制限するのに有用です。
+値は秒あたりのキロバイト数です。
+添字<literal>M</literal>を使うと秒あたりのメガバイト数を指定できます。
+添字<literal>k</literal>を使うこともできますが、効果はありません。
+有効な値は秒あたり32キロバイトから秒あたり1024メガバイトまでです。
        </para>
        <para>
 <!--
@@ -654,8 +676,8 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
         WAL files is only affected if the collection method
         is <literal>fetch</literal>.
 -->
-これが有効な場合、バックアップはまずデータベース全体容量を計算し、その後バックアップに戻り、実際の内容を送信します。
-バックアップに要する時間は少し長くなるかもしれません。特に最初のデータが送られるようになるまでの時間がより長くなります。
+このオプションはデータディレクトリの転送に対しては、常に影響があります。
+WALファイルの転送については、収集方法が<literal>fetch</literal>の場合にのみ影響があります。
        </para>
       </listitem>
      </varlistentry>
@@ -678,8 +700,8 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
 -->
 このオプションは<literal>-X stream</literal>と一緒でのみ使用できます。
 これはWALストリーミングに指定したレプリケーションスロットを使用させます。
-ベースバックアップをストリーミングレプリケーションのスタンバイとして使用するつもりであるなら、その後、<xref linkend="guc-primary-slot-name"/>でも同じレプリケーションスロット名を使うべきです。
-その方が、ベースバックアップ終了とストリーミングレプリケーション開始の間の時間にサーバが必要なWALデータを削除しないことを確実にします。
+レプリケーションスロットを使うストリーミングレプリケーションのスタンバイとしてベースバックアップを使用するつもりであるなら、スタンバイは<xref linkend="guc-primary-slot-name"/>と同じレプリケーションスロット名を使うべきです。
+これにより、ベースバックアップ終了と新しいスタンバイでのストリーミングレプリケーション開始の間の時間にプライマリサーバが必要なWALデータを削除しないことが確実になります。
        </para>
        <para>
 <!--
@@ -720,14 +742,20 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
       <term><option>--manifest-checksums=<replaceable class="parameter">algorithm</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Specifies the checksum algorithm that should be applied to each file
         included in the backup manifest. Currently, the available
         algorithms are <literal>NONE</literal>, <literal>CRC32C</literal>,
         <literal>SHA224</literal>, <literal>SHA256</literal>,
         <literal>SHA384</literal>, and <literal>SHA512</literal>.
         The default is <literal>CRC32C</literal>.
+-->
+バックアップマニフェストに含まれる各ファイル適用されるチェックサムアルゴリズムを指定します。
+現在利用できるアルゴリズムは<literal>NONE</literal>、<literal>CRC32C</literal>、<literal>SHA224</literal>、<literal>SHA256</literal>、<literal>SHA384</literal>、<literal>SHA512</literal>です。
+デフォルトは<literal>CRC32C</literal>です。
        </para>
        <para>
+<!--
         If <literal>NONE</literal> is selected, the backup manifest will
         not contain any checksums. Otherwise, it will contain a checksum
         of each file in the backup using the specified algorithm. In addition,
@@ -736,8 +764,14 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
         are significantly more CPU-intensive than <literal>CRC32C</literal>,
         so selecting one of them may increase the time required to complete
         the backup.
+-->
+<literal>NONE</literal>が選択されれば、バックアップマニフェストはチェックサムを含みません。
+それ以外の場合、バックアップ内の各ファイルの指定したアルゴリズムを使ったチェックサムを含みます。
+さらに、マニフェストは自身の内容の<literal>SHA256</literal>チェックサムを常に含みます。
+<literal>SHA</literal>アルゴリズムは<literal>CRC32C</literal>よりもかなりCPU集約的なため、そのどれかを1つを選択するとバックアップの完了に掛かる時間が増えるでしょう。
        </para>
        <para>
+<!--
         Using a SHA hash function provides a cryptographically secure digest
         of each file for users who wish to verify that the backup has not been
         tampered with, while the CRC32C algorithm provides a checksum that is
@@ -746,10 +780,16 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
         be useful against an adversary who has access to the backup, the backup
         manifest would need to be stored securely elsewhere or otherwise
         verified not to have been modified since the backup was taken.
+-->
+SHAハッシュ関数を使うと、バックアップが変更されていないことを検証したい利用者にとっては暗号学的に安全な各ファイルのダイジェストが提供されますが、一方、CRC32Cアルゴリズムでは計算がずっと速いチェックサムが提供されます。偶発的な変更によるエラーを補足するのには良いですが、悪意のある修正に抵抗力はありません。
+バックアップにアクセスした敵に対抗するのに有用なように、バックアップマニフェストは、どこか他のところに安全に保管するか、バックアップが取られて以来変更されたことがないのを検証する必要があることに注意してください。
        </para>
        <para>
+<!--
         <xref linkend="app-pgverifybackup"/> can be used to check the
         integrity of a backup against the backup manifest.
+-->
+<xref linkend="app-pgverifybackup"/>を使ってバックアップマニフェストに対するバックアップの完全性を検査できます。
        </para>
       </listitem>
      </varlistentry>
@@ -758,10 +798,15 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
       <term><option>--manifest-force-encode</option></term>
       <listitem>
        <para>
+<!--
         Forces all filenames in the backup manifest to be hex-encoded.
         If this option is not specified, only non-UTF8 filenames are
         hex-encoded. This option is mostly intended to test that tools which
         read a backup manifest file properly handle this case.
+-->
+バックアップマニフェスト内のファイル名をすべて強制的に16進数でエンコードします。
+このオプションが指定されなければ、UTF8でないファイル名だけが16進数でエンコードされます。
+このオプションは主に、バックアップマニフェストファイルを読むツールが、この場合を正しく扱うか試験することを意図しています。
        </para>
       </listitem>
      </varlistentry>
@@ -770,22 +815,33 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
       <term><option>--no-estimate-size</option></term>
       <listitem>
        <para>
+<!--
         Prevents the server from estimating the total
         amount of backup data that will be streamed, resulting in the
         <structfield>backup_total</structfield> column in the
         <structname>pg_stat_progress_basebackup</structname> view
         always being <literal>NULL</literal>.
+-->
+ストリームされるバックアップデータの総量をサーバが評価しないようにします。その結果、<structname>pg_stat_progress_basebackup</structname>ビューの<structfield>backup_total</structfield>列は常に<literal>NULL</literal>になります。
        </para>
        <para>
+<!--
         Without this option, the backup will start by enumerating
         the size of the entire database, and then go back and send
         the actual contents. This may make the backup take slightly
         longer, and in particular it will take longer before the first
         data is sent. This option is useful to avoid such estimation
         time if it's too long.
+-->
+このオプションがなければ、バックアップはまずデータベース全体容量を計算し、その後バックアップに戻り、実際の内容を送信します。
+これにより、バックアップに要する時間は少し長くなるかもしれません。特に最初のデータが送られるようになるまでの時間がより長くなります。
+このオプションは、評価時間が長過ぎる場合にそれを避けるのに有用です。
        </para>
        <para>
-        This option is not allowed when using <option>--progress</option>.
+<!--
+        This option is not allowed when using <option>&#45;-progress</option>.
+-->
+<option>--progress</option>を使う場合には、このオプションは認められません。
        </para>
       </listitem>
      </varlistentry>
@@ -794,12 +850,18 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
       <term><option>--no-manifest</option></term>
       <listitem>
        <para>
+<!--
         Disables generation of a backup manifest. If this option is not
         specified, the server will generate and send a backup manifest
         which can be verified using <xref linkend="app-pgverifybackup"/>.
         The manifest is a list of every file present in the backup with the
         exception of any WAL files that may be included. It also stores the
         size, last modification time, and an optional checksum for each file.
+-->
+バックアップマニフェストを生成しないようにします。
+このオプションが指定されなければ、サーバは<xref linkend="app-pgverifybackup"/>を使って検証できるバックアップマニフェストを生成し送信します。
+マニフェストは、含まれるかもしれないWALファイルを除いて、バックアップの中にある各ファイルの一覧です。
+各ファイルの大きさや最終修正時刻、省略可能なチェックサムも保存されます。
        </para>
       </listitem>
      </varlistentry>
@@ -808,13 +870,19 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
       <term><option>--no-slot</option></term>
       <listitem>
        <para>
+<!--
         Prevents the creation of a temporary replication slot
         for the backup.
+-->
+バックアップ時に一時レプリケーションスロットを作成しないようにします。
        </para>
        <para>
+<!--
         By default, if log streaming is selected but no slot name is given
         with the <option>-S</option> option, then a temporary replication
         slot is created (if supported by the source server).
+-->
+デフォルトでは、ログストリーミングが選択されたものの<option>-S</option>オプションでスロット名が与えられなかった場合、(ソースサーバがサポートしていれば)一時レプリケーションスロットが作成されます。
        </para>
        <para>
 <!--
@@ -850,7 +918,7 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
 -->
 デフォルトでは、チェックサムは検証され、チェックサムエラーは非ゼロの終了ステータスをもたらします。
 とはいえ、このような場合には、<option>--no-clean</option>オプションが使われていたかのように、ベースバックアップは削除されません。
-チェックサム検証の失敗は<xref linkend="pg-stat-database-view"/>ビューでも報告されます。
+チェックサム検証の失敗は<link linkend="monitoring-pg-stat-database-view"><structname>pg_stat_database</structname></link>ビューでも報告されます。
        </para>
       </listitem>
      </varlistentry>
@@ -862,7 +930,7 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
     The following command-line options control the connection to the source
     server:
 -->
-以下のオプションはデータベース接続パラメータを制御します。
+以下のオプションはソースサーバへの接続パラメータを制御します。
 
     <variablelist>
      <varlistentry>
@@ -875,8 +943,8 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
         linkend="libpq-connstring">connction string</link>;  these
         will override any conflicting command line options.
 -->
-サーバとの接続のために使用するパラメータを、接続文字列として指定します。
-詳細については<xref linkend="libpq-connstring"/>を参照してください。
+サーバとの接続のために使用するパラメータを、<link linkend="libpq-connstring">接続文字列</link>として指定します。
+衝突するコマンドラインオプションよりも優先します。
        </para>
        <para>
 <!--
@@ -941,11 +1009,11 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
         although an update will still be sent when requested by the server, to
         avoid timeout-based disconnects. The default value is 10 seconds.
 -->
-状態パケットがサーバに返送される間隔を秒単位で指定します。
-これにより簡単にサーバから進行状況を監視することができます。
+状態パケットがソースサーバに返送される間隔を秒単位で指定します。
+より小さな値を指定することで、より正確にサーバからバックアップの進行状況を監視できます。
 ゼロという値は定期的な状態更新を完全に無効にします。
-しかし、タイムアウトによる切断を防止するために、サーバにより要求された場合に更新は送信されます。
-デフォルト値は１０秒です。
+しかし、タイムアウトによる切断を防止するために、サーバにより要求された場合には更新が送信されます。
+デフォルト値は10秒です。
        </para>
       </listitem>
      </varlistentry>
@@ -958,7 +1026,7 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
 <!--
         Specifies the user name to connect as.
 -->
-接続ユーザ名です。
+接続ユーザ名を指定します。
        </para>
       </listitem>
      </varlistentry>
@@ -992,7 +1060,7 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
         Forces <application>pg_basebackup</application> to prompt for a
         password before connecting to the source server.
 -->
-データベースに接続する前に、<application>pg_basebackup</application>は強制的にパスワード入力を促します。
+ソースサーバに接続する前に、<application>pg_basebackup</application>は強制的にパスワード入力を促します。
        </para>
 
        <para>
@@ -1093,8 +1161,8 @@ tarファイルを生成する場合のみ圧縮を利用することができ�
    <literal>&#045;&#045;checkpoint=fast</literal> is not used), during
    which <application>pg_basebackup</application> will appear to be idle.
 -->
-バックアップの開始時に、バックアップを取得するサーバ上でチェックポイントを書き込む必要があります。
-特にオプション <literal>--checkpoint=fast</literal> を使用していない場合、これには少し時間を要する場合があり、その間 <application>pg_basebackup</application> はアイドル状態であるように見えます。
+バックアップの開始時に、ソースサーバ上でチェックポイントを実行する必要があります。
+(特にオプション <literal>--checkpoint=fast</literal> を使用していない場合)これには少し時間を要する場合があり、その間 <application>pg_basebackup</application> はアイドル状態であるように見えます。
   </para>
 
   <para>
@@ -1125,7 +1193,7 @@ PostgreSQLが認識している一部のディレクトリを指すシンボリ�
    have to be written to the same directory locations as the original
    tablespaces.
 -->
-オプション<literal>--tablespace-mapping</literal>が使われなければ、テーブル空間はデフォルトでサーバ上のと同じパスでplain形式でバックアップされます。
+plain形式では、オプション<literal>--tablespace-mapping</literal>が使われなければ、テーブル空間はソースサーバ上のと同じパスでバックアップされます。
 このオプションがないと、サーバと同じホスト上でのplain形式のベースバックアップの実行は動作しません、というのは、バックアップを元のテーブル空間と同じディレクトリに書き込まなければならないからです。
   </para>
 
@@ -1139,7 +1207,7 @@ PostgreSQLが認識している一部のディレクトリを指すシンボリ�
    according to the contents of the <filename>tablespace_map</filename> file that is
    included in the <filename>base.tar</filename> file.
 -->
-tar形式モードを使う場合、PostgreSQLサーバを起動する前に各tarファイルを解凍するのはユーザの責任です。
+tar形式を使う場合、そのデータを使うPostgreSQLサーバを起動する前に各tarファイルを解凍するのはユーザの責任です。
 追加のテーブル空間がある場合、それについてのtarファイルは、正しい場所に解凍される必要があります。
 この場合、テーブル空間へのシンボリックリンクは、<filename>base.tar</filename>ファイルに含まれる<filename>tablespace_map</filename>ファイルの内容に基づいて、サーバが作成します。
   </para>
@@ -1154,7 +1222,7 @@ tar形式モードを使う場合、PostgreSQLサーバを起動する前に各t
 -->
 <application>pg_basebackup</application>は同じまたは9.1以降のより古いメジャーバージョンのサーバで動作します。
 しかしWALストリーミングモード（<literal>-X stream</literal>）はバージョン9.3およびそれ以降のサーバでのみ動作します。
-また、現在のバージョンのtar形式モード（<literal>--format=tar</literal>）はバージョン9.5およびそれ以降のサーバでのみ動作します。
+また、現在のバージョンのtar形式（<literal>--format=tar</literal>）はバージョン9.5およびそれ以降のサーバでのみ動作します。
   </para>
 
   <para>
@@ -1162,7 +1230,7 @@ tar形式モードを使う場合、PostgreSQLサーバを起動する前に各t
    <application>pg_basebackup</application> will preserve group permissions
    for data files if group permissions are enabled on the source cluster.
 -->
-<application>pg_basebackup</application>は、取得元のクラスタでグループパーミッションが有効になっている場合、<literal>plain</literal>と<literal>tar</literal>の両形式てグループパーミッションを維持します。
+<application>pg_basebackup</application>は、ソースのクラスタでグループパーミッションが有効になっている場合、データファイルに対するグループパーミッションを維持します。
   </para>
 
  </refsect1>
