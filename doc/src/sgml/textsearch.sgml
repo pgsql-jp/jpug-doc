@@ -1262,7 +1262,7 @@ SELECT plainto_tsquery('english', 'The Fat &amp; Rats:C');
 <!--
     Here, all the input punctuation was discarded.
 -->
-ここでは、入力中のすべての句読点がスペース記号に変換された結果、破棄されています。
+ここでは、入力中のすべての句読点が破棄されています。
    </para>
 
    <indexterm>
@@ -1362,36 +1362,40 @@ websearch_to_tsquery(<optional> <replaceable class="parameter">config</replaceab
      </listitem>
      <listitem>
       <para>
-       <literal>OR</literal>: the word <quote>or</quote> will be converted to
 <!--
+       <literal>OR</literal>: the word <quote>or</quote> will be converted to
        the <literal>|</literal> operator.
 -->
-<literal>OR</literal>:論理和は<literal>|</literal>演算子に変換されます。
+<literal>OR</literal>:単語<quote>or</quote>は<literal>|</literal>演算子に変換されます。
       </para>
      </listitem>
      <listitem>
       <para>
-       <literal>-</literal>: a dash will be converted to
 <!--
+       <literal>-</literal>: a dash will be converted to
        the <literal>!</literal> operator.
 -->
-<literal>-</literal>:論理否定演算子。<literal>!</literal>演算子に変換されます。
+<literal>-</literal>:ダッシュは<literal>!</literal>演算子に変換されます。
       </para>
      </listitem>
     </itemizedlist>
 
+<!--
     Other punctuation is ignored.  So
     like <function>plainto_tsquery</function>
     and <function>phraseto_tsquery</function>,
     the <function>websearch_to_tsquery</function> function will not
     recognize <type>tsquery</type> operators, weight labels, or prefix-match
     labels in its input.
+-->
+その他の句読点は無視されます。
+ですので、<function>plainto_tsquery</function>や<function>phraseto_tsquery</function>と同様、<function>websearch_to_tsquery</function>関数は<type>tsquery</type>演算子、重み付けラベルや前方一致ラベルを入力として認識しません。
    </para>
 
    <para>
 <!--
     Examples:
-  -->
+-->
 例を示します。
 <screen>
 SELECT websearch_to_tsquery('english', 'The fat rats');
@@ -2226,7 +2230,7 @@ SELECT to_tsquery('fat') &lt;-&gt; to_tsquery('cat | rat');
        the <literal>&lt;<replaceable>N</replaceable>&gt;</literal>
        <type>tsquery</type> operator.  For example:
 -->
-1番目の問い合わせにマッチし、その後に<replaceable>distance</replaceable>個の語彙素の距離で2番目の問い合わせにマッチするものを検索する問い合わせを、<type>tsquery</type>演算子<literal>&lt;<replaceable>N</replaceable>&gt;</literal>を使って返します。
+1番目の問い合わせにマッチし、その後にちょうど<replaceable>distance</replaceable>個の語彙素の距離で2番目の問い合わせにマッチするものを検索する問い合わせを、<type>tsquery</type>演算子<literal>&lt;<replaceable>N</replaceable>&gt;</literal>を使って返します。
 例を示します。
 
 <screen>
@@ -3057,7 +3061,7 @@ SELECT alias, description, token FROM ts_debug('http://example.com/stuff/index.h
       Linguistic &mdash; Ispell dictionaries try to reduce input words to a
       normalized form; stemmer dictionaries remove word endings
 -->
-言語学的 - Ispell辞書は入力された単語を正規化された形式に変換しようとします。語幹辞書は単語の終了部を削除します。
+言語学的 &mdash; Ispell辞書は入力された単語を正規化された形式に変換しようとします。語幹辞書は単語の終了部を削除します。
      </para>
     </listitem>
     <listitem>
@@ -4913,6 +4917,7 @@ GIN (Generalized Inverted Index)インデックスを作ります。
        signature length in bytes (see below for details).
 -->
 GiST (Generalized Search Tree)インデックスを作ります。<replaceable>column</replaceable>は <type>tsvector</type> または<type>tsquery</type> 型です。
+オプションのパラメータ<literal>siglen</literal>は署名の長さを決定します(詳細は以下を参照してください)。
       </para>
      </listitem>
     </varlistentry>
@@ -4959,9 +4964,12 @@ GINインデックスは<type>tsvector</type>値の単語(語彙素)のみを格
 GiSTインデックスは、<firstterm>非可逆</firstterm>です。つまり、インデックスは間違った結果を返すかも知れないので、間違った結果を排除するために、テーブルの行をチェックすることが必要です。
 (<productname>PostgreSQL</productname>はこの処理が必要とされた時に自動的に行います。)
 GiSTインデックスが非可逆なのは、インデックス中の各文書が固定長の署名によって表現されているからです。
+署名のバイト単位の長さはオプションの整数のパラメータ<literal>siglen</literal>の値で決まります。
+(<literal>siglen</literal>が指定されない場合)デフォルトの署名の長さは124バイトで、最大の署名の長さは2024バイトです。
 署名は、各々の単語をハッシュして単一なビットにして、これらのビットをnビットの文書署名にORし、nビットの列中のビットにすることで実現されています。
 2つの単語が同じビット位置を生成すると、間違った一致が起こります。
 問い合わせ対象のすべての単語が照合すると(それが正しいか間違っているかは別として)、その照合が正しいものかどうかテーブルの行を取得して調べなければなりません。
+長い署名では、インデックスはより大きくなってしまいますが、(インデックスのより小さな部分とより少ないヒープページを走査することで)検索がより正確になります。
   </para>
 
   <para>
@@ -5261,7 +5269,7 @@ Parser: "pg_catalog.default"
 <!--
      <para>The length of each lexeme must be less than 2 kilobytes</para>
 -->
-     <para>各々の語彙素の長さは2Kバイト未満でなければなりません</para>
+     <para>各々の語彙素の長さは2キロバイト未満でなければなりません</para>
     </listitem>
     <listitem>
 <!--
