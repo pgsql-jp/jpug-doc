@@ -64,10 +64,13 @@ CREATE EXTENSION [ IF NOT EXISTS ] <replaceable class="parameter">extension_name
   </para>
 
   <para>
+<!--
    The user who runs <command>CREATE EXTENSION</command> becomes the
    owner of the extension for purposes of later privilege checks, and
    normally also becomes the owner of any objects created by the
    extension's script.
+-->
+<command>CREATE EXTENSION</command>を実行するユーザは、後で実施される権限検査のためにその拡張の所有者となります。また通常このユーザは拡張のスクリプトにより作成されたすべてのオブジェクトの所有者となります。
   </para>
 
   <para>
@@ -84,10 +87,11 @@ CREATE EXTENSION [ IF NOT EXISTS ] <replaceable class="parameter">extension_name
    user).  This configuration gives the calling user the right to drop the
    extension, but not to modify individual objects within it.
 -->
-拡張の読み込みでは、その要素オブジェクトを作成するために必要となるいくつかの権限が必要です。
-ほとんどの拡張で、これはスーパーユーザもしくはデータベース所有者の権限が必要であることを意味します。
-<command>CREATE EXTENSION</command>を実行するユーザが、後の権限検査の際に拡張の所有者となります。
-同様にこのユーザは拡張のスクリプトにより作成されたすべてのオブジェクトの所有者となります。
+拡張の読み込みでは、通常その要素オブジェクトを作成するために必要となるいくつかの権限が必要です。
+多くの拡張では、これはスーパーユーザの権限が必要であることを意味します。
+しかしながら、制御ファイルで<firstterm>trusted</firstterm>と印付けされた拡張は、現在のデータベースに対して<literal>CREATE</literal>権限を持つユーザであれば誰でもインストールできます。
+この場合拡張オブジェクト自身は呼び出したユーザが所有しますが、そこに含まれるオブジェクトは(拡張スクリプトが明示的に呼び出したユーザに対して割り当てない限り)ブートストラップスーパーユーザが所有します。
+この設定は呼び出したユーザに拡張を削除する権限を与えますが、その中の個々のオブジェクトを修正する権限は与えません。
   </para>
 
  </refsect1>
@@ -253,6 +257,7 @@ CREATE EXTENSION [ IF NOT EXISTS ] <replaceable class="parameter">extension_name
 
   <caution>
    <para>
+<!--
     Installing an extension as superuser requires trusting that the
     extension's author wrote the extension installation script in a secure
     fashion.  It is not terribly difficult for a malicious user to create
@@ -266,15 +271,25 @@ CREATE EXTENSION [ IF NOT EXISTS ] <replaceable class="parameter">extension_name
     been carefully vetted is to install them only into schemas for which
     CREATE privilege has not been and will not be granted to any untrusted
     users.  Likewise for any extensions they depend on.
+-->
+スーパーユーザとして拡張をインストールするには、拡張の作者が安全な方法で拡張のインストールスクリプトを書いたと信用することが必要です。
+悪意のあるユーザが、不注意に書かれた拡張スクリプトの以降の実行を危険に晒すトロイの木馬オブジェクトを作り、そのユーザがスーパーユーザの権限を得るようにするのは、それほど難しいことではありません。
+しかしながら、トロイの木馬オブジェクトはスクリプト実行時に<varname>search_path</varname>にある場合にのみ危険です。これは拡張のインストール対象スキーマや依存する拡張のスキーマにあるということを意味します。
+そのため、スクリプトが注意深く検査されていない拡張を扱う優れた経験則は、信頼できないユーザにCREATE権限を許可していないし、今後も許可することのないスキーマにのみ、その拡張をインストールすることです。
+その拡張が依存する拡張についても同様です。
    </para>
 
    <para>
+<!--
     The extensions supplied with <productname>PostgreSQL</productname> are
     believed to be secure against installation-time attacks of this sort,
     except for a few that depend on other extensions.  As stated in the
     documentation for those extensions, they should be installed into secure
     schemas, or installed into the same schemas as the extensions they
     depend on, or both.
+-->
+<productname>PostgreSQL</productname>が提供する拡張は、他の拡張に依存する少数のものを除いて、この種のインストール時の攻撃に対して安全であると信じられています。
+各拡張の文書で述べているように、拡張は安全なスキーマにインストールするか、依存する拡張と同じスキーマにインストールするか、あるいはその両方であるスキーマにインストールすべきです。
    </para>
   </caution>
 
@@ -298,11 +313,14 @@ CREATE EXTENSION [ IF NOT EXISTS ] <replaceable class="parameter">extension_name
    Install the <link linkend="hstore">hstore</link> extension into the
    current database, placing its objects in schema <literal>addons</literal>:
 -->
-現在のデータベースに<link linkend="hstore">hstore</link>拡張をインストールします。
+そのオブジェクトを<literal>addons</literal>スキーマに配置して、現在のデータベースに<link linkend="hstore">hstore</link>拡張をインストールします。
 <programlisting>
 CREATE EXTENSION hstore SCHEMA addons;
 </programlisting>
+<!--
    Another way to accomplish the same thing:
+-->
+以下は同様のことを行なう別の方法です。
 <programlisting>
 SET search_path = addons;
 CREATE EXTENSION hstore;
