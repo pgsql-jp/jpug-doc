@@ -204,7 +204,7 @@ common type for several subexpressions.
 -->
 UNIONを構成する<command>SELECT</command>文からの選択結果は全て、ある1つの列集合として現れなければいけませんので、各<literal>SELECT</literal>句の結果型は統一された集合に一致し変換できる必要があります。
 同様に、<command>CASE</command>構文が全体として既知の出力型を持つようになるために、<literal>CASE</literal>構文の結果式は共通の型に変換される必要があります。
-これは<literal>ARRAY</literal>構文でも<function>GREATEST</function>関数、<function>LEAST</function>関数でも同じです。
+<literal>ARRAY[]</literal>のような他のいくつかの構文や<function>GREATEST</function>関数、<function>LEAST</function>関数は、同様に副式に対して共通の型の決定を要求します。
 </para>
 </listitem>
 </varlistentry>
@@ -549,7 +549,10 @@ Some examples follow.
 </para>
 
 <example>
+<!--
 <title>Square Root Operator Type Resolution</title>
+-->
+<title>平方根演算子の型解決</title>
 
 <para>
 <!--
@@ -559,7 +562,7 @@ defined in the standard catalog, and it takes an argument of type
 The scanner assigns an initial type of <type>integer</type> to the argument
 in this query expression:
 -->
-階乗演算子として、<type>bigint</type>を引数とするものが標準カタログ内に1つのみ定義されています（<literal>!</literal>を後に付けます）。
+平方根演算子として、<type>double precision</type>を引数とするものが標準カタログ内に1つのみ定義されています（<literal>|/</literal>を前に付けます）。
 スキャナは、以下の問い合わせ式の引数にまず<type>integer</type>型を割り当てます。
 <screen>
 SELECT |/ 40 AS "square root of 40";
@@ -1557,7 +1560,7 @@ data type.
 <literal>UNION</literal> SQL構文は、似ていない可能性がある型を1つの検索結果になるように適合させなければなりません。
 解決アルゴリズムは1つのunion問い合わせの出力列ごとに適用されます。
 <literal>INTERSECT</literal>構文と<literal>EXCEPT</literal>構文は、<literal>UNION</literal>と同じ方法で、似ていない可能性がある型の解決を行います。
-<literal>CASE</literal>構文と<literal>ARRAY</literal>構文、<literal>VALUES</literal>、<function>GREATEST</function>、<function>LEAST</function> もまた、同一のアルゴリズムを使用して、その要素式を適合させ、結果のデータ型を選択します。
+<literal>CASE</literal>、<literal>ARRAY</literal>、<literal>VALUES</literal>を含むいくつかの構文と<function>GREATEST</function>、<function>LEAST</function>関数は同一のアルゴリズムを使用して、その要素式を適合させ、結果のデータ型を選択します。
 </para>
 
 <procedure>
@@ -1594,7 +1597,7 @@ domain's base type for all subsequent steps.
     exact type.  Otherwise the domain's base type will be used.
 -->
 演算子や関数に対するドメイン入力の取り扱いとある程度似ていて、この振舞いにより、利用者が注意して入力をすべて厳密な型であると保証する限り、ドメイン型を<literal>UNION</literal>や類似の構成体に保存できます。
-そうでなければ、ドメインの基本型が優先されます。
+そうでなければ、ドメインの基本型が使われます。
    </para>
   </footnote>
 </para>
@@ -1628,22 +1631,31 @@ If the non-unknown inputs are not all of the same type category, fail.
 Select the first non-unknown input type as the candidate type,
 then consider each other non-unknown input type, left to right.
 -->
-最初のunknownではない入力データ型を選択します。
-もし存在すれば、このデータ型はそのカテゴリの優先される型です。
+最初のunknownではない入力データ型を候補の型として選択します。
+それから、他のunknownではない入力データ型をそれぞれ左から右へ考慮します。
   <footnote>
    <para>
+<!--
     For historical reasons, <literal>CASE</literal> treats
     its <literal>ELSE</literal> clause (if any) as the <quote>first</quote>
     input, with the <literal>THEN</literal> clauses(s) considered after
     that.  In all other cases, <quote>left to right</quote> means the order
     in which the expressions appear in the query text.
+-->
+歴史的な理由により、<literal>CASE</literal>は(もしあれば)その<literal>ELSE</literal>句を<quote>最初の</quote>入力として扱い、<literal>THEN</literal>句はその後で考慮します。
+それ以外の場合では<quote>左から右</quote>は問い合わせテキスト内で式が現れる順を意味します。
    </para>
   </footnote>
+<!--
 If the candidate type can be implicitly converted to the other type,
 but not vice-versa, select the other type as the new candidate type.
 Then continue considering the remaining inputs.  If, at any stage of this
 process, a preferred type is selected, stop considering additional
 inputs.
+-->
+候補の型が暗黙的にある別の型に変換できるが、その逆はできない場合、その別の型を新しい候補の型として選択します。
+それから残りの入力の考慮を続けます。
+この処理のある段階で、優先される型が選択されれば、追加の入力の考慮を止めます。
 </para>
 </step>
 
@@ -1653,8 +1665,8 @@ inputs.
 Convert all inputs to the final candidate type.  Fail if there is not an
 implicit conversion from a given input type to the candidate type.
 -->
-全ての入力値を選択された型に変換します。
-指定された入力から選択された型への変換が存在しない場合は失敗します。
+入力値をすべて最終的な候補の型に変換します。
+指定された入力型から候補の型への暗黙の変換が存在しない場合は失敗します。
 </para>
 </step>
 </procedure>
