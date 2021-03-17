@@ -159,7 +159,7 @@
     connection strings, as described in <xref linkend="libpq-paramkeywords"/>,
     except that these options are not allowed or have special handling:
 -->
-<filename>postgres_fdw</filename>外部データラッパを使用する外部サーバは、以下に記すものを除き、<xref linkend="libpq-paramkeywords"/>に記載されている<application>libpq</application>が接続文字列としてサポートするものと同一のオプションを使用する事ができます。
+<filename>postgres_fdw</filename>外部データラッパを使用する外部サーバは、以下に記す許されていないものや特別な取り扱いのものを除き、<xref linkend="libpq-paramkeywords"/>に記載されている<application>libpq</application>が接続文字列としてサポートするものと同一のオプションを使用する事ができます。
 
     <itemizedlist spacing="compact">
      <listitem>
@@ -168,7 +168,7 @@
        <literal>user</literal>, <literal>password</literal> and <literal>sslpassword</literal> (specify these
        in a user mapping, instead, or use a service file)
 -->
-<literal>user</literal>および<literal>password</literal>（これらは代わりにユーザマッピングのオプションの中で指定します）
+<literal>user</literal>、<literal>password</literal>および<literal>sslpassword</literal>（これらは代わりにユーザマッピングのオプションの中で指定するか、サービスファイルを使用します）
       </para>
      </listitem>
      <listitem>
@@ -191,10 +191,14 @@
      </listitem>
      <listitem>
       <para>
+<!--
        <literal>sslkey</literal> and <literal>sslcert</literal> - these may
        appear in <emphasis>either or both</emphasis> a connection and a user
        mapping. If both are present, the user mapping setting overrides the
        connection setting.
+-->
+<literal>sslkey</literal>と<literal>sslcert</literal> - これは、接続とユーザマッピングの<emphasis>どちらか一方、または両方</emphasis>に現れます。
+両方に存在する場合、ユーザマッピングの設定が接続設定に優先します。
       </para>
      </listitem>
     </itemizedlist>
@@ -205,26 +209,36 @@
     Only superusers may create or modify user mappings with the
     <literal>sslcert</literal> or <literal>sslkey</literal> settings.
 -->
-特権ユーザのみが外部サーバに対してパスワードなしの認証で接続できます。
-したがって、非特権ユーザのユーザマッピングには<literal>password</literal>を必ず指定するようにして下さい。
+スーパーユーザのみが<literal>sslcert</literal>や<literal>sslkey</literal>の設定のあるユーザマッピングを作成したり修正したりできます。
    </para>
    <para>
+<!--
     Only superusers may connect to foreign servers without password
     authentication, so always specify the <literal>password</literal> option
     for user mappings belonging to non-superusers.
+-->
+スーパーユーザのみが外部サーバに対してパスワードなしの認証で接続できます。
+したがって、非特権ユーザのユーザマッピングには<literal>password</literal>を必ず指定するようにして下さい。
    </para>
    <para>
+<!--
     A superuser may override this check on a per-user-mapping basis by setting
     the user mapping option <literal>password_required 'false'</literal>, e.g.,
+-->
+ユーザマッピングオプション<literal>password_required 'false'</literal>を設定することで、スーパーユーザはこのユーザマッピング単位の検査を無効にできます。例えば以下の通りです。
 <programlisting>
 ALTER USER MAPPING FOR some_non_superuser SERVER loopback_nopw
 OPTIONS (ADD password_required 'false');
 </programlisting>
+<!--
     To prevent unprivileged users from exploiting the authentication rights
     of the unix user the postgres server is running as to escalate to superuser
     rights, only the superuser may set this option on a user mapping.
+-->
+非特権ユーザが、postgresサーバが動作しているunixユーザの認証権限を悪用して、スーパーユーザ権限へ昇格するのを防ぐため、スーパーユーザのみがユーザーマッピングでこのオプションを設定できます。
     </para>
     <para>
+<!--
     Care is required to ensure that this does not allow the mapped
     user the ability to connect as superuser to the mapped database per
     CVE-2007-3278 and CVE-2007-6601. Don't set
@@ -236,6 +250,11 @@ OPTIONS (ADD password_required 'false');
     system user the postgres server runs as. They can also use any trust
     relationship granted by authentication modes like <literal>peer</literal>
     or <literal>ident</literal> authentication.
+-->
+これが、CVE-2007-3278やCVE-2007-6601のように、マップされたユーザがマップされたデータベースにスーパーユーザとして接続するのを許可しないことを確実にするよう注意が必要です。
+<literal>public</literal>ロールでは<literal>password_required=false</literal>を設定しないでください。
+postgresサーバが動作しているシステムユーザのunixのホームディレクトリにある、任意のクライアント証明書や<filename>.pgpass</filename>、<filename>.pg_service.conf</filename>などをマップされたユーザは潜在的には利用可能なことを心に留めておいてください。
+<literal>peer</literal>や<literal>ident</literal>認証のような認証モードで付与された信頼関係を使うこともできます。
    </para>
   </sect3>
 
