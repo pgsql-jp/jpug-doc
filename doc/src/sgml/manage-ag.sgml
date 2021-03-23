@@ -72,17 +72,17 @@
    The older dblink module (see <xref linkend="dblink"/>) provides a similar capability.
    By default, all users can connect to all databases using all connection methods.
 -->
-データベースサーバに接続する時、クライアントはその接続要求の際に接続するデータベース名を指定しなければなりません。
+データベースサーバに接続する時、クライアントはその接続要求の中で接続するデータベース名を指定しなければなりません。
 1つの接続で複数のデータベースにアクセスすることはできません。
-しかし、アプリケーションには同じデータベースや他のデータベースへの接続に接続数の制限はありません。
-複数のデータベースは物理的に分離されていて、アクセス制御は接続レベルで管理されています。
-したがって、分離して、ほとんどの場面で互いに見えないようにする必要のある複数のプロジェクトやユーザを単一の<productname>PostgreSQL</productname>サーバインスタンスに収容する場合、これらを別々のデータベースに含めることが推奨されます。
-もし、複数のプロジェクトやユーザが相互に関連していて互いのリソースを使用できる必要がある場合、これらは同じデータベースに含めるべきですが、スキーマを別にすることは可能です。
-スキーマは純粋に論理的な構造で、誰が何にアクセスできるかは権限システムによって管理されます。
-スキーマの管理についての詳細は<xref linkend="ddl-schemas"/>に記載されています。
+しかし、クライアントは同じデータベースに対して複数の接続を開いたり、異なるデータベースに対して複数の接続を開いたりできます。
+データベースレベルでのセキュリティには2つの構成要素があります。接続レベルで管理されるアクセス制御(<xref linkend="auth-pg-hba-conf"/>参照)と、権限付与システムで管理される認証制御(<xref linkend="ddl-priv"/>参照)です。
+外部データラッパ(<xref linkend="postgres-fdw"/>参照)により、1つのデータベース内のオブジェクトが他のデータベースやクラスタ内にあるオブジェクトに対するプロキシとして動作できるようなります。
+古いdblinkモジュール(<xref linkend="dblink"/>参照)は同様の機能を提供します。
+デフォルトでは、すべてユーザはすべてのデータベースにすべての接続方法で接続できます。
   </para>
 
   <para>
+<!--
    If one <productname>PostgreSQL</productname> server cluster is planned to contain
    unrelated projects or users that should be, for the most part, unaware
    of each other, it is recommended to put them into separate databases and
@@ -92,15 +92,26 @@
    into separate schemas;  this provides a modular structure with namespace
    isolation and authorization control.
    More information about managing schemas is in <xref linkend="ddl-schemas"/>.
+-->
+1つの<productname>PostgreSQL</productname>サーバクラスタに、たいていの場合お互いのことを意識しない、関係のないプロジェクトやユーザを含めるつもりなら、これらを別々のデータベースに含め、それに従って認証制御とアクセス制御を調整することが推奨されます。
+複数のデータベースは物理的に分離されていて、アクセス制御は接続レベルで管理されています。
+したがって、分離して、ほとんどの場面で互いに見えないようにする必要のある複数のプロジェクトやユーザを単一の<productname>PostgreSQL</productname>サーバインスタンスに収容する場合、これらを別々のデータベースに含めることが推奨されます。
+もし、複数のプロジェクトやユーザが相互に関連していて互いのリソースを使用できる必要がある場合、これらは同じデータベースに含めるべきですが、スキーマを別にすることは可能です。これは名前空間での分離と認証制御によるモジュラー構造を提供します。
+スキーマの管理についての詳細は<xref linkend="ddl-schemas"/>に記載されています。
   </para>
 
   <para>
+<!--
    While multiple databases can be created within a single cluster, it is advised
    to consider carefully whether the benefits outweigh the risks and limitations.
    In particular, the impact that having a shared WAL (see <xref linkend="wal"/>)
    has on backup and recovery options. While individual databases in the cluster
    are isolated when considered from the user's perspective, they are closely bound
    from the database administrator's point-of-view.
+-->
+1つのクラスタ内に複数のデータベースを作成できますが、その利点がその危険性と制限に勝るかどうか慎重に検討することを勧めます。
+特に、共有のWAL(<xref linkend="wal"/>参照)を持つことの影響がバックアップとリカバリのオプションにあります。
+クラスタ内の個々のデータベースは、ユーザの視点から考えれば分離していても、データベース管理者の観点からは密接に結びついています。
   </para>
 
   <para>
@@ -345,7 +356,7 @@ createdb -O <replaceable>rolename</replaceable> <replaceable>dbname</replaceable
 このデータベースには<literal>template1</literal>の初期内容と同じデータが含まれています。
 つまり、使用しているバージョンの<productname>PostgreSQL</productname>で定義済みの標準オブジェクトのみから構成されています。
 <literal>template0</literal>をデータベースクラスタを初期化した後に変更してはいけません。
-<command>CREATE DATABASE</command>を<literal>template1</literal>ではなく<literal>template0</literal>をコピーするように実行することで、<literal>template1</literal>に追加されたサイト独自のものを含まない、<quote>汚れがない</quote>ユーザデータベースを作成することができます。
+<command>CREATE DATABASE</command>を<literal>template1</literal>ではなく<literal>template0</literal>をコピーするように実行することで、<literal>template1</literal>に追加されたサイト独自のものを含まない、(そこではユーザ定義オブジェクトは存在せず、システムオブジェクトは変更されていない)<quote>汚れがない</quote>ユーザデータベースを作成することができます。
 これは特に、<literal>pg_dump</literal>ダンプからリストアする時に便利です。
 このダンプスクリプトは、後で<literal>template1</literal>に追加される可能性のあるオブジェクトと衝突しないように、ダンプしたデータベースの内容を正しく再作成するために、汚れのないデータベースにリストアされなければなりません。
   </para>
