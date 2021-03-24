@@ -393,12 +393,13 @@
   <function>options</function> accepts an <type>internal</type> pointer to a C struct, where
   opclass-specific parameters should be placed, and returns <type>void</type>.
 -->
-<acronym>SP-GiST</acronym>のインデックス演算子クラスが提供しなければならないユーザ定義メソッドは5つあり、加えて、オプションのメソッドが1つあります。
+<acronym>SP-GiST</acronym>のインデックス演算子クラスが提供しなければならないユーザ定義メソッドは5つあり、加えて、オプションのメソッドが2つあります。
 5つの必須メソッド全ては2つの<type>internal</type>引数を受け付けるというしきたりに従い、1つ目はサポートメソッドへの入力値を含むC構造体へのポインタで、一方2つ目は出力値が配置されるであろうC構造体へのポインタです。
-4つの必須メソッドでは、その結果がすべて出力構造体の中にあるので、単に<type>void</type>を返します。<function>leaf_consistent</function>は、さらに<type>boolean</type>の結果を返します。
+4つの必須メソッドでは、その結果がすべて出力構造体の中にあるので、単に<type>void</type>を返します。ですが、<function>leaf_consistent</function>は<type>boolean</type>の結果を返します。
 メソッドは、その入力構造体のどのフィールドも変更してはいけません。
 どんな場合でも、出力構造体はユーザ定義メソッドを呼び出す前にゼロに初期化されます。
-オプションの6番目のメソッド<function>compress</function>は、唯一の引数としてインデックス付けされるデータを受け付け、リーフタプルの物理格納に適した値を返します。
+オプションの6番目のメソッド<function>compress</function>は、唯一の引数としてインデックス付けされる<type>datum</type>を受け付け、リーフタプルの物理格納に適した値を返します。
+オプションの7番目のメソッド<function>options</function>は、演算子クラスに固有のパラメータを入れるC構造体への<type>internal</type>ポインタを受け付け、<type>void</type>を返します。
  </para>
 
  <para>
@@ -1247,7 +1248,7 @@ typedef struct spgLeafConsistentOut
 <structfield>traversalValue</structfield>は親インデックスのタプルの<function>inner_consistent</function>の前の呼び出しから渡された探索データへのポインタで、ルートレベルならNULLです。
 <structfield>level</structfield>は現在のリーフタプルのレベルを、ルートレベルを0として数えたものです。
 <structfield>returnData</structfield>は、この問い合わせで再構築されたデータが必要な場合に<literal>true</literal>となりますが、これは<function>config</function>関数が<structfield>canReturnData</structfield>を確認した場合にのみ、そうなります。
-<structfield>leafDatum</structfield>は現在のリーフタプルに格納されている鍵の値です。
+<structfield>leafDatum</structfield>は現在のリーフタプルに格納されているキーの値です。
       </para>
 
       <para>
@@ -1310,12 +1311,18 @@ typedef struct spgLeafConsistentOut
      <term><function>options</function></term>
      <listitem>
       <para>
+<!--
        Defines a set of user-visible parameters that control operator class
        behavior.
+-->
+演算子クラスの振舞いを制御するユーザに可視のパラメータの集合を定義します。
       </para>
 
       <para>
+<!--
         The <acronym>SQL</acronym> declaration of the function must look like this:
+-->
+関数の<acronym>SQL</acronym>宣言は以下のようになります。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION my_options(internal)
@@ -1326,16 +1333,23 @@ LANGUAGE C STRICT;
       </para>
 
       <para>
+<!--
        The function is passed a pointer to a <replaceable>local_relopts</replaceable>
        struct, which needs to be filled with a set of operator class
        specific options.  The options can be accessed from other support
        functions using the <literal>PG_HAS_OPCLASS_OPTIONS()</literal> and
        <literal>PG_GET_OPCLASS_OPTIONS()</literal> macros.
+-->
+関数には<replaceable>local_relopts</replaceable>構造体へのポインタが渡されますが、構造体を演算子クラスに固有のオプションの集合で満たすことが必要です。
+オプションはマクロ<literal>PG_HAS_OPCLASS_OPTIONS()</literal>と<literal>PG_GET_OPCLASS_OPTIONS()</literal>を使って他のサポート関数からアクセスできます。
       </para>
 
       <para>
+<!--
        Since the representation of the key in <acronym>SP-GiST</acronym> is
        flexible, it may depend on user-specified parameters.
+-->
+<acronym>SP-GiST</acronym>でのキーの表現には柔軟性がありますので、ユーザに固有のパラメータに依存するかもしれません。
       </para>
      </listitem>
     </varlistentry>
