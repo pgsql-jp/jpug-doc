@@ -364,7 +364,7 @@ CREATE INDEX ON my_table USING GIST (my_inet_column inet_ops);
    <function>options</function> is needed if the operator class provides
    the user-specified parameters.
 -->
-<acronym>GiST</acronym>用の演算子クラスが提供しなければならないメソッドが5つ、オプションで提供可能なメソッドが4つあります。
+<acronym>GiST</acronym>用の演算子クラスが提供しなければならないメソッドが5つ、オプションで提供可能なメソッドが5つあります。
 インデックスの正確性は、<function>same</function>、<function>consistent</function>、<function>union</function>メソッドを適切に実装することで保証されます。
 一方、インデックスの効率（容量と速度）は<function>penalty</function>と<function>picksplit</function>メソッドに依存します。
 オプションのメソッドの２つは、<function>compress</function>と<function>decompress</function>です。これによりインデックスはインデックス付けするデータと異なるデータ型のツリーデータを内部で持つことができるようになります。
@@ -375,6 +375,7 @@ CREATE INDEX ON my_table USING GIST (my_inet_column inet_ops);
 オプションの８番目のメソッドは<function>distance</function>です。
 これは演算子クラスに順序付けスキャン（最近傍検索）をサポートさせたい場合に必要です。
 オプションの9番目のメソッド<function>fetch</function>は、<function>compress</function>メソッドが省略されている場合を除き、演算子クラスがインデックスオンリースキャンをサポートしたい場合に必要になります。
+オプションの10番目のメソッド<function>options</function>は、演算子クラスがユーザに固有のパラメータを提供する場合に必要です。
  </para>
 
  <variablelist>
@@ -1257,12 +1258,18 @@ compressメソッドがリーフエントリに対してデータ損失がある
      <term><function>options</function></term>
      <listitem>
       <para>
+<!--
        Allows definition of user-visible parameters that control operator
        class behavior.
+-->
+演算子クラスの振舞いを制御するユーザに可視のパラメータの集合を定義します。
       </para>
 
       <para>
+<!--
         The <acronym>SQL</acronym> declaration of the function must look like this:
+-->
+関数の<acronym>SQL</acronym>宣言は以下のようになります。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION my_options(internal)
@@ -1273,16 +1280,23 @@ LANGUAGE C STRICT;
       </para>
 
       <para>
+<!--
        The function is passed a pointer to a <replaceable>local_relopts</replaceable>
        struct, which needs to be filled with a set of operator class
        specific options.  The options can be accessed from other support
        functions using the <literal>PG_HAS_OPCLASS_OPTIONS()</literal> and
        <literal>PG_GET_OPCLASS_OPTIONS()</literal> macros.
+-->
+関数には<replaceable>local_relopts</replaceable>構造体へのポインタが渡されますが、構造体を演算子クラスに固有のオプションの集合で満たすことが必要です。
+オプションはマクロ<literal>PG_HAS_OPCLASS_OPTIONS()</literal>と<literal>PG_GET_OPCLASS_OPTIONS()</literal>を使って他のサポート関数からアクセスできます。
       </para>
 
        <para>
+<!--
         An example implementation of my_options() and parameters use
         from other support functions are given below:
+-->
+my_options()の実装と他のサポート関数からのパラメータの使用の例は以下の通りです。
 
 <programlisting>
 typedef enum MyEnumType
@@ -1294,26 +1308,42 @@ typedef enum MyEnumType
 
 typedef struct
 {
+<!--
     int32   vl_len_;    /* varlena header (do not touch directly!) */
     int     int_param;  /* integer parameter */
     double  real_param; /* real parameter */
     MyEnumType enum_param; /* enum parameter */
     int     str_param;  /* string parameter */
+-->
+    int32   vl_len_;    /* varlenaヘッダ(直接触らないこと!) */
+    int     int_param;  /* 整数パラメータ */
+    double  real_param; /* 実数パラメータ */
+    MyEnumType enum_param; /* enumパラメータ */
+    int     str_param;  /* 文字列パラメータ */
 } MyOptionsStruct;
 
+<!--
 /* String representation of enum values */
+-->
+/* enum値の文字列表現 */
 static relopt_enum_elt_def myEnumValues[] =
 {
     {"on", MY_ENUM_ON},
     {"off", MY_ENUM_OFF},
     {"auto", MY_ENUM_AUTO},
+<!--
     {(const char *) NULL}   /* list terminator */
+-->
+    {(const char *) NULL}   /* リストの終端 */
 };
 
 static char *str_param_default = "default";
 
 /*
+<!--
  * Sample validator: checks that string is not longer than 8 bytes.
+-->
+ * 有効性検査の例: 文字列が8バイトより長くないことを検査します。
  */
 static void 
 validate_my_string_relopt(const char *value)
@@ -1325,7 +1355,10 @@ validate_my_string_relopt(const char *value)
 }
 
 /*
+<!--
  * Sample filler: switches characters to lower case.
+-->
+ * 充填の例: 文字を小文字に交換します。
  */
 static Size 
 fill_my_string_relopt(const char *value, void *ptr)
@@ -1378,10 +1411,15 @@ my_compress(PG_FUNCTION_ARGS)
     char   *str_param = str_param_default;
 
     /*
+<!--
      * Normally, when opclass contains 'options' method, then options are always
      * passed to support functions.  However, if you add 'options' method to
      * existing opclass, previously defined indexes have no options, so the
      * check is required.
+-->
+     * 通常は、演算子クラスが'options'メソッドを含む場合、optionsは常にサポート関数に
+     * 渡されます。しかしながら、'options'メソッドを既存の演算子クラスに追加した場合、
+     * 前に定義されたインデックスにoptionsがない場合、検査が必要です。
      */
     if (PG_HAS_OPCLASS_OPTIONS())
     {
@@ -1393,17 +1431,25 @@ my_compress(PG_FUNCTION_ARGS)
         str_param = GET_STRING_RELOPTION(options, str_param);
     }
 
+<!--
     /* the rest implementation of support function */
+-->
+    /* サポート関数の残りの実装 */
 }
 
 </programlisting>
       </para>
 
       <para>
+<!--
        Since the representation of the key in <acronym>GiST</acronym> is
        flexible, it may depend on user-specified parameters.  For instance,
        the length of key signature may be specified.  See
        <literal>gtsvector_options()</literal> for example.
+-->
+<acronym>GiST</acronym>でのキーの表現には柔軟性がありますので、ユーザに固有のパラメータに依存するかもしれません。
+例えば、キーの署名の長さが指定されるかもしれません。
+例については<literal>gtsvector_options()</literal>を参照してください。
       </para>
      </listitem>
     </varlistentry>
