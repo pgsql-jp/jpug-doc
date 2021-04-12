@@ -241,6 +241,8 @@ EOF
 -->
 接続するデータベースの名前を指定します。
 コマンドラインでオプション以外の最初の引数として<replaceable class="parameter">dbname</replaceable>を指定するのと同じ効力を持ちます。
+<replaceable>dbname</replaceable>は<link linkend="libpq-connstring">接続文字列</link>でも構いません。
+その場合、接続文字列パラメータは衝突するコマンドラインオプションに優先します。
       </para>
       </listitem>
     </varlistentry>
@@ -683,7 +685,7 @@ EOF
        scripts where no user is present to enter a password.
 -->
 パスワードの入力を促しません。
-サーバがパスワード認証を必要とし、かつ、<filename>.pgpass</filename>ファイルなどの他の方法が利用できない場合、接続試行は失敗します。
+サーバがパスワード認証を必要とし、かつ、<filename>.pgpass</filename>ファイルなどの他の情報源からパスワードが入手可能でない場合、接続試行は失敗します。
 バッチジョブやスクリプトなどパスワードを入力するユーザが存在しない場合にこのオプションは有用かもしれません。
       </para>
 
@@ -704,9 +706,12 @@ EOF
       <term><option>--password</option></term>
       <listitem>
       <para>
+<!--
        Force <application>psql</application> to prompt for a
        password before connecting to a database, even if the password will
        not be used.
+-->
+パスワードが使われない場合であっても、データベースに接続する前に<application>psql</application>は強制的にパスワード入力を促します。
       </para>
 
       <para>
@@ -719,7 +724,7 @@ EOF
        password.  In some cases it is worth typing <option>-W</option> to avoid
        the extra connection attempt.
 -->
-サーバがパスワード認証を要求する場合<application>psql</application>は自動的にパスワード入力を促しますので、これが重要になることはありません。
+サーバがパスワード認証を必要とし、かつ、<filename>.pgpass</filename>ファイルなどの他の情報源からパスワードが入手可能でない場合、<application>psql</application>は常にパスワード入力を促します。
 しかし、<application>psql</application>は、サーバにパスワードが必要かどうかを判断するための接続試行を無駄に行います。
 こうした余計な接続試行を防ぐために<option>-W</option>の入力が有意となる場合もあります。
       </para>
@@ -1141,7 +1146,7 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
     TRUE or FALSE.
     Escaping the colon with a backslash protects it from substitution.
 -->
-<xref linkend="app-psql-interpolation"/>で説明されているとおり、引数の中に引用符で囲まれていないコロン（ <literal>:</literal>）とそれに続く<application>psql</application>変数がある場合、その部分は変数の値で置換されます。
+<xref linkend="app-psql-interpolation"/>で説明されているとおり、引数の中に引用符で囲まれていないコロン（<literal>:</literal>）とそれに続く<application>psql</application>変数がある場合、その部分は変数の値で置換されます。
 そこで説明されている<literal>:'<replaceable>variable_name</replaceable>'</literal>および<literal>:"<replaceable>variable_name</replaceable>"</literal>という形式も同様に機能します。
 <literal>:{?<replaceable>variable_name</replaceable>}</literal>構文は、変数が定義済みかどうかをテストできます。
 これはTRUEかFALSEに置き換えられます。
@@ -1269,8 +1274,8 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         new connection is made using the same parameters as before.
 -->
 <productname>PostgreSQL</productname>サーバへの新規の接続を確立します。
-接続のパラメータは、位置の構文、あるいは<replaceable>conninfo</replaceable>接続文字列で指定することができます。
-後者の詳細は<xref linkend="libpq-connstring"/>で説明します。
+接続のパラメータは、位置の構文(1つ以上のデータベース名、ユーザ、ホスト、ポート)、あるいは<replaceable>conninfo</replaceable>接続文字列で指定できます。後者の詳細は<xref linkend="libpq-connstring"/>で説明します。
+引数が与えられなければ、新しい接続は以前と同じパラメータを使って作られます。
         </para>
 
         <para>
@@ -1282,15 +1287,11 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         <replaceable class="parameter">port</replaceable>
         as <literal>-</literal> is equivalent to omitting that parameter.
 -->
-コマンドでデータベース名、ユーザ、ホストあるいはポートを省略した場合、新しい接続では以前の接続での値を再利用することができます。
-デフォルトでは、<replaceable>conninfo</replaceable>文字列を処理する場合を除き、以前の接続での値が再利用されます。
-第一引数で<literal>-reuse-previous=on</literal>あるいは<literal>-reuse-previous=off</literal>を渡すことで、このデフォルトと異なる動作をさせることができます。
-コマンドで特定のパラメータを指定せず、かつ再利用もしない場合は、<application>libpq</application>のデフォルトが使用されます。
 <replaceable class="parameter">dbname</replaceable>、<replaceable class="parameter">username</replaceable>、<replaceable class="parameter">host</replaceable>、<replaceable class="parameter">port</replaceable>のいずれについても<literal>-</literal>を指定するのは、パラメータを省略するのと同じになります。
-元の接続の<structname>conninfo</structname>で<literal>hostaddr</literal>が指定されていた場合、新しい接続では(他のホストの指定は無視して)そのアドレスが再利用されます。
         </para>
 
         <para>
+<!--
         The new connection can re-use connection parameters from the previous
         connection; not only database name, user, host, and port, but other
         settings such as <replaceable>sslmode</replaceable>.  By default,
@@ -1307,6 +1308,13 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         existing connection's parameters is dropped.
         When the command neither specifies nor reuses a particular parameter,
         the <application>libpq</application> default is used.
+-->
+新しい接続では以前の接続での接続パラメータを再利用できます。データベース名、ユーザ、ホスト、ポートだけでなく、<replaceable>sslmode</replaceable>のようなその他の設定もです。
+デフォルトでは、パラメータは位置の構文では再利用されますが、<replaceable>conninfo</replaceable>文字列が与えられた場合はそうではありません。
+第一引数で<literal>-reuse-previous=on</literal>あるいは<literal>-reuse-previous=off</literal>を渡すことで、このデフォルトと異なる動作をさせることができます。
+パラメータが再利用される場合、文字列として明示的に指定されなかったパラメータは既存の接続のパラメータから取得されます。
+例外は、<replaceable>host</replaceable>設定が位置の構文を使った以前の値から変更された場合に、既存の接続のパラメータにある<replaceable>hostaddr</replaceable>設定が削除されることです。
+コマンドで特定のパラメータを指定せず、かつ再利用もしない場合は、<application>libpq</application>のデフォルトが使用されます。
         </para>
 
         <para>
@@ -1338,7 +1346,10 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
 =&gt; \c mydb myuser host.dom 6432
 =&gt; \c service=foo
 =&gt; \c "host=localhost port=5432 dbname=mydb connect_timeout=10 sslmode=disable"
-=&gt; \c -reuse-previous=on sslmode=require    -- changes only sslmode
+<!--
+=&gt; \c -reuse-previous=on sslmode=require    &#45;- changes only sslmode
+-->
+=&gt; \c -reuse-previous=on sslmode=require    -- sslmodeのみ変更
 =&gt; \c postgresql://tom@localhost/mydb?application_name=myapp
 </programlisting>
         </listitem>
@@ -1756,6 +1767,7 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         </term>
         <listitem>
         <para>
+<!--
         Lists operator classes
         (see <xref linkend="xindex-opclass"/>).
         If <replaceable class="parameter">access-method-pattern</replaceable>
@@ -1766,6 +1778,11 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         names match that pattern are listed.
         If <literal>+</literal> is appended to the command name, each operator
         class is listed with its associated operator family and owner.
+-->
+演算子クラスの一覧を表示します(<xref linkend="xindex-opclass"/>を参照してください)。
+<replaceable class="parameter">access-method-pattern</replaceable>が指定されていれば、そのパターンにマッチする名前のアクセスメソッドと関係する演算子クラスのみが表示されます。
+<replaceable class="parameter">input-type-pattern</replaceable>が指定されていれば、そのパターンにマッチする名前の入力型と関係する演算子クラスのみが表示されます。
+コマンド名の後に<literal>+</literal>が付加された場合は、各演算子クラスに関連付けられた演算子族および所有者も表示されます。
         </para>
         </listitem>
       </varlistentry>
@@ -1779,6 +1796,7 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         </term>
         <listitem>
         <para>
+<!--
         Lists operator families
         (see <xref linkend="xindex-opfamily"/>).
         If <replaceable class="parameter">access-method-pattern</replaceable>
@@ -1789,6 +1807,11 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         names match that pattern are listed.
         If <literal>+</literal> is appended to the command name, each operator
         family is listed with its owner.
+-->
+演算子族の一覧を表示します(<xref linkend="xindex-opfamily"/>を参照してください)。
+<replaceable class="parameter">access-method-pattern</replaceable>が指定されていれば、そのパターンにマッチする名前のアクセスメソッドと関係する演算子族のみが表示されます。
+<replaceable class="parameter">input-type-pattern</replaceable>が指定されていれば、そのパターンにマッチする名前の入力型と関係する演算子族のみが表示されます。
+コマンド名の後に<literal>+</literal>が付加された場合は、各演算子族に関連付けられた所有者も表示されます。
         </para>
         </listitem>
       </varlistentry>
@@ -1803,6 +1826,7 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
 
         <listitem>
         <para>
+<!--
         Lists operators associated with operator families
         (see <xref linkend="xindex-strategies"/>).
         If <replaceable class="parameter">access-method-pattern</replaceable>
@@ -1813,6 +1837,11 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         pattern are listed.
         If <literal>+</literal> is appended to the command name, each operator
         is listed with its sort operator family (if it is an ordering operator).
+-->
+演算子族に関連する演算子の一覧を表示します(<xref linkend="xindex-strategies"/>を参照してください)。
+<replaceable class="parameter">access-method-pattern</replaceable>が指定されていれば、そのパターンにマッチする名前のアクセスメソッドと関係する演算子族のメンバーのみが表示されます。
+<replaceable class="parameter">operator-family-pattern</replaceable>が指定されていれば、そのパターンにマッチする名前の演算子族のメンバーのみが表示されます。
+コマンド名の後に<literal>+</literal>が付加された場合は、(順序演算子であれば)ソート演算子族も表示されます。
         </para>
         </listitem>
       </varlistentry>
@@ -1826,6 +1855,7 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         </term>
         <listitem>
         <para>
+<!--
         Lists support functions associated with operator families
         (see <xref linkend="xindex-support"/>).
         If <replaceable class="parameter">access-method-pattern</replaceable>
@@ -1836,6 +1866,11 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         that pattern are listed.
         If <literal>+</literal> is appended to the command name, functions are
         displayed verbosely, with their actual parameter lists.
+-->
+演算子族に関連するサポート関数の一覧を表示します(<xref linkend="xindex-support"/>を参照してください)。
+<replaceable class="parameter">access-method-pattern</replaceable>が指定されていれば、そのパターンにマッチする名前のアクセスメソッドと関係する演算子族の関数のみが表示されます。
+<replaceable class="parameter">operator-family-pattern</replaceable>が指定されていれば、そのパターンにマッチする名前の演算子族の関数のみが表示されます。
+コマンド名の後に<literal>+</literal>が付加された場合は、実際のパラメータの一覧を伴って、冗長に表示されます。
         </para>
         </listitem>
       </varlistentry>
@@ -2037,8 +2072,8 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
 -->
 このコマンド群において、<literal>E</literal>、<literal>i</literal>、<literal>m</literal>、<literal>s</literal>、<literal>t</literal>、<literal>v</literal>という文字はそれぞれ、外部テーブル、インデックス、マテリアライズドビュー、シーケンス、テーブル、ビューを表します。
 これらの種類のオブジェクトの一覧を表示するために、これらの文字の中の任意の文字またはすべてを任意の順番で指定することができます。
-例えば、<literal>\dit</literal>はインデックスとテーブルを列挙します。
-<literal>+</literal>がコマンド名に付与された場合、各オブジェクトは、もしあればディスク上の物理容量と関連する説明をつけて表示されます。
+例えば、<literal>\dti</literal>はテーブルとインデックスを列挙します。
+<literal>+</literal>がコマンド名に付与された場合、各オブジェクトは、もしあれば永続性の状態(permanent、temporary、またはunlogged)、ディスク上の物理容量、関連する説明をつけて表示されます。
 <replaceable class="parameter">pattern</replaceable>が指定されている場合は、パターンに名称がマッチする項目のみが表示されます。
 デフォルトでは、ユーザが作成したオブジェクトのみが表示されます。
 システムオブジェクトを含めるためにはパターンまたは<literal>S</literal>修飾子を付与してください。
@@ -2674,20 +2709,22 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         the query buffer.  Whatever remains in the query buffer is
         redisplayed.  Type semicolon or <literal>\g</literal> to send it,
         or <literal>\r</literal> to cancel it by clearing the query buffer.
+-->
+次に、問い合わせバッファの新しい内容が、<application>psql</application>の通常の規則に従い、全体を1行として再解析されます。
+完全な問い合わせはすべて即座に実行されます。
+つまり、問い合わせバッファにセミコロンが含まれるか、セミコロンで終わっている場合、そこまでの部分すべてが実行され、問い合わせバッファから削除されます。
+問い合わせバッファ内に残ったものはすべて再表示されます。
+送信するにはセミコロンまたは<literal>\g</literal>を、問い合わせバッファをクリアしてキャンセルするには<literal>\r</literal>を入力してください。
         </para>
 
         <para>
+<!--
         Treating the buffer as a single line primarily affects meta-commands:
         whatever is in the buffer after a meta-command will be taken as
         argument(s) to the meta-command, even if it spans multiple lines.
         (Thus you cannot make meta-command-using scripts this way.
         Use <command>\i</command> for that.)
 -->
-次に、問い合わせバッファの新しい内容が、<application>psql</application>の通常の規則に従い、全体を1行として再解析されます。
-完全な問い合わせはすべて即座に実行されます。
-つまり、問い合わせバッファにセミコロンが含まれるか、セミコロンで終わっている場合、そこまでの部分すべてが実行されます。
-それより後の部分はすべて問い合わせバッファ内で入力を待ちます。
-送信するにはセミコロンまたは<literal>\g</literal>を、問い合わせバッファをクリアしてキャンセルするには<literal>\r</literal>を入力してください。
 バッファ全体を1行として扱うので、特にメタコマンドに影響があります。
 バッファ内でメタコマンドより後にある部分はすべて、それが複数行にまたがっていたとしても、メタコマンドの引数として解釈されます。
 （従って、この方法ではメタコマンドを使用するスクリプトを作成できません。
@@ -2712,7 +2749,7 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         See <xref linkend="app-psql-environment"/>, below, for how to
         configure and customize your editor.
 -->
-使用するエディタを設定、カスタマイズする方法については<xref linkend="app-psql-environment"/>を参照してください。
+使用するエディタを設定、カスタマイズする方法については、下記の<xref linkend="app-psql-environment"/>を参照してください。
         </para>
         </tip>
         </listitem>
@@ -2727,7 +2764,7 @@ Cの形式のブロックコメントは、サーバに送信され、サーバ�
         spaces and followed by a newline. This can be useful to
         intersperse information in the output of scripts. For example:
 -->
-引数を空白で区切り、標準出力に出力し、改行します。
+評価された引数を空白で区切り、標準出力に出力し、改行します。
 スクリプトが出力するところどころに情報を記載する場合に有用です。
 使用例を次に示します。
 <programlisting>
@@ -2738,7 +2775,7 @@ Tue Oct 26 21:40:57 CEST 1999
         If the first argument is an unquoted <literal>-n</literal> the trailing
         newline is not written (nor is the first argument).
 -->
-最初の引数が引用符で囲まれていない<literal>-n</literal>である場合、最後の改行は出力されません。
+最初の引数が引用符で囲まれていない<literal>-n</literal>である場合、最後の改行は出力されません(し、最初の引数も出力されません)。
         </para>
 
         <tip>
@@ -2749,6 +2786,7 @@ Tue Oct 26 21:40:57 CEST 1999
         instead of this command.  See also <command>\warn</command>.
 -->
 <command>\o</command>コマンドを使用して問い合わせの出力先を変更した場合、このコマンドではなく、<command>\qecho</command>を使用した方が良いかもしれません。
+<command>\warn</command>コマンドも参照してください。
         </para>
         </tip>
         </listitem>
@@ -2771,8 +2809,8 @@ Tue Oct 26 21:40:57 CEST 1999
 -->
 このコマンドは指定された関数やプロシージャの定義を<command>CREATE OR REPLACE FUNCTION</command>や<command>CREATE OR REPLACE PROCEDURE</command>コマンド構文で取り出し、編集します。
 編集は<literal>\edit</literal>と同様の方法で行われます。
-エディタ終了後、更新されたコマンドは問い合わせバッファ内で待機しています。
-セミコロンか<literal>\g</literal>を入力して送信するか、<literal>\r</literal>を入力して取り消すかしてください。
+エディタ終了後、更新されたコマンドはセミコロンを付けていれば即座に実行されます。
+そうでなければ再表示されます。送信するにはセミコロンあるいは<literal>\g</literal>を、キャンセルするには<literal>\r</literal>を入力してください。
         </para>
 
         <para>
@@ -2821,7 +2859,7 @@ Tue Oct 26 21:40:57 CEST 1999
         See <xref linkend="app-psql-environment"/>, below, for how to
         configure and customize your editor.
 -->
-使用するエディタを設定、カスタマイズする方法については<xref linkend="app-psql-environment"/>を参照してください。
+使用するエディタを設定、カスタマイズする方法については下記の<xref linkend="app-psql-environment"/>を参照してください。
         </para>
         </tip>
         </listitem>
@@ -2877,8 +2915,8 @@ Tue Oct 26 21:40:57 CEST 1999
 -->
 このコマンドは、指定したビューの定義を<command>CREATE OR REPLACE VIEW</command>コマンドの形式で取得して、編集します。
 編集は<literal>\edit</literal>の場合と同じ方法で行われます。
-エディタを終了した後、更新されたコマンドが問い合わせバッファで待っている状態になります。
-送信するにはセミコロンあるいは<literal>\g</literal>を、キャンセルするには<literal>\r</literal>を入力してください。
+エディタ終了後、更新されたコマンドはセミコロンを付けていれば即座に実行されます。
+そうでなければ再表示されます。送信するにはセミコロンあるいは<literal>\g</literal>を、キャンセルするには<literal>\r</literal>を入力してください。
         </para>
 
         <para>
@@ -2935,8 +2973,11 @@ Tue Oct 26 21:40:57 CEST 1999
         <para>
 <!--
         Sends the current query buffer to the server for execution.
+-->
+現在の問い合わせ入力バッファをサーバに送って実行します。
         </para>
         <para>
+<!--
         If parentheses appear after <literal>\g</literal>, they surround a
         space-separated list
         of <replaceable class="parameter">option</replaceable><literal>=</literal><replaceable class="parameter">value</replaceable>
@@ -2953,8 +2994,13 @@ Tue Oct 26 21:40:57 CEST 1999
         in the same way as for
         <literal>\pset</literal> <replaceable class="parameter">option</replaceable>
         with no explicit <replaceable class="parameter">value</replaceable>.
+-->
+<literal>\g</literal>の後に括弧が現れる場合は、括弧は<replaceable class="parameter">option</replaceable><literal>=</literal><replaceable class="parameter">value</replaceable>書式オプション句の空白で区切られた一覧を囲んでいます。書式オプション句は<literal>\pset</literal> <replaceable class="parameter">option</replaceable> <replaceable class="parameter">value</replaceable>コマンドと同じように解釈されますが、この問い合わせの間でのみ有効です。
+この一覧の中では、空白は<literal>=</literal>の周りでは許されていませんが、オプション句の間には必要です。
+<literal>=</literal><replaceable class="parameter">value</replaceable>が省略された場合、指名された<replaceable class="parameter">option</replaceable>は、明示された<replaceable class="parameter">value</replaceable>がない<literal>\pset</literal> <replaceable class="parameter">option</replaceable>と同じように変更されます。
         </para>
         <para>
+<!--
         If a <replaceable class="parameter">filename</replaceable>
         or <literal>|</literal><replaceable class="parameter">command</replaceable>
         argument is given, the query's output is written to the named
@@ -2963,8 +3009,7 @@ Tue Oct 26 21:40:57 CEST 1999
         successfully returns zero or more tuples, not if the query fails or
         is a non-data-returning SQL command.
 -->
-現在の問い合わせ入力バッファをサーバに送って実行します。
-引数を指定すると、問い合わせ出力を通常通りに表示する代わりに、指定したファイルに書き込んだり、指定のシェルコマンドにパイプで渡します。
+<replaceable class="parameter">filename</replaceable>や<literal>|</literal><replaceable class="parameter">command</replaceable>引数を指定すると、問い合わせ出力を通常通りに表示する代わりに、指定したファイルに書き込んだり、指定のシェルコマンドにパイプで渡します。
 問い合わせが成功しゼロ以上のタプルが返る場合にのみファイルまたはコマンドに書き出されます。
 問い合わせが失敗する場合やデータを返さないSQLコマンドでは書き出されません。
         </para>
@@ -2977,25 +3022,21 @@ Tue Oct 26 21:40:57 CEST 1999
         a <quote>one-shot</quote> alternative to the <command>\o</command>
         command, and additionally allows one-shot adjustments of the
         output formatting options normally set by <literal>\pset</literal>.
-        </para>
-        <para>
-        When the last argument begins with <literal>|</literal>, the entire
-        remainder of the line is taken to be
 -->
 現在の問い合わせバッファが空の場合、最も最近に送信された問い合わせが再実行されます。
 その点を除けば、<literal>\g</literal>だけを指定した場合は、セミコロンと実質的に同じです。
-<literal>\g</literal>に引数を指定した場合は、<literal>\o</literal>コマンドの<quote>一度限りの</quote>代替手段として使用できます。
+<literal>\g</literal>に引数を指定した場合は、<literal>\o</literal>コマンドの<quote>一度限りの</quote>代替手段として使用でき、さらに通常は<literal>\pset</literal>で設定される出力書式のオプションの一度限りの調整もできます。
         </para>
         <para>
 <!--
-        If the argument begins with <literal>|</literal>, then the entire remainder
-        of the line is taken to be
+        When the last argument begins with <literal>|</literal>, the entire
+        remainder of the line is taken to be
         the <replaceable class="parameter">command</replaceable> to execute,
         and neither variable interpolation nor backquote expansion are
         performed in it.  The rest of the line is simply passed literally to
         the shell.
 -->
-引数が<literal>|</literal>で始まっている場合、行の残りの部分はすべて実行する<replaceable class="parameter">command</replaceable>であると解釈され、その中では変数の置換も逆引用符の展開も行われません。
+最後の引数が<literal>|</literal>で始まっている場合、行の残りの部分はすべて実行する<replaceable class="parameter">command</replaceable>であると解釈され、その中では変数の置換も逆引用符の展開も行なわれません。
 行の残り部分は、単にあるがままにシェルに渡されます。
         </para>
         </listitem>
@@ -3103,7 +3144,7 @@ NULLのフィールドは無視されます。
          the row is stored into a separate variable, named the same as the
          column.  For example:
 -->
-現在の問い合わせバッファをサーバに送信し、問い合わせの出力を<application>psql</application>変数（<xref linkend="app-psql-variables"/>参照）に格納します。
+現在の問い合わせバッファをサーバに送信し、問い合わせの出力を<application>psql</application>変数（下記の<xref linkend="app-psql-variables"/>参照）に格納します。
 実行される問い合わせは正確に１行を返さなければなりません。
 行の各列は、列と同じ名前を持つ別々の変数に格納されます。
 例えば、以下のようになります。
@@ -3164,8 +3205,8 @@ hello 10
         if <literal>expanded=on</literal> were included in the list of
         <literal>\pset</literal> options.  See also <literal>\x</literal>.
 -->
-<literal>\gx</literal>は<literal>\g</literal>と同じですが、この問い合わせに対して拡張出力モードを使用します。
-<literal>\x</literal>を参照してください。
+<literal>\gx</literal>は、<literal>\pset</literal>オプションの一覧に<literal>expanded=on</literal>が含まれているかのように、この問い合わせに対して拡張出力モードを使用することを除いて<literal>\g</literal>と同じです。
+<literal>\x</literal>も参照してください。
         </para>
         </listitem>
       </varlistentry>
@@ -4331,7 +4372,7 @@ null値の代わりに表示する文字列を設定します。
         Illustrations of how these different formats look can be seen in
         <xref linkend="app-psql-examples"/>, below.
 -->
-<xref linkend="app-psql-examples"/>節に、これらの書式がどのように見えるかを示した図があります。
+これらの異なる書式がどのように見えるかを示した実例が、下記の<xref linkend="app-psql-examples"/>にあります。
         </para>
 
         <tip>
@@ -4711,9 +4752,12 @@ testdb=&gt; <userinput>\setenv LESS -imx4F</userinput>
         <term><literal>\warn <replaceable class="parameter">text</replaceable> [ ... ]</literal></term>
         <listitem>
         <para>
+<!--
         This command is identical to <command>\echo</command> except
         that the output will be written to <application>psql</application>'s
         standard error channel, rather than standard output.
+-->
+このコマンドは、出力が標準出力ではなく<application>psql</application>の標準エラーチャネルに書かれることを除いて<command>\echo</command>と同一です。
         </para>
         </listitem>
       </varlistentry>
@@ -5970,7 +6014,7 @@ SQLリテラルまたは識別子として変数の値をエスケープさせ�
 <!--
     <title>Prompting</title>
 -->
-<title>プロンプト</title>
+    <title>プロンプト</title>
 
     <para>
 <!--
@@ -6187,7 +6231,7 @@ SQLリテラルまたは識別子として変数の値をエスケープさせ�
         <xref linkend="app-psql-variables"/>, above, for details.
 -->
 <application>psql</application>の変数<replaceable class="parameter">name</replaceable>の値です。
-詳細は<xref linkend="app-psql-variables"/>を参照してください。
+詳細は上記の<xref linkend="app-psql-variables"/>を参照してください。
         </para>
         </listitem>
       </varlistentry>
@@ -6242,10 +6286,14 @@ testdb=&gt; \set PROMPT1 '%[%033[1;33;40m%]%n@%/%R%[%033[0m%]%# '
         <term><literal>%w</literal></term>
         <listitem>
         <para>
+<!--
         Whitespace of the same width as the most recent output of
         <varname>PROMPT1</varname>.  This can be used as a
         <varname>PROMPT2</varname> setting, so that multi-line statements are
         aligned with the first line, but there is no visible secondary prompt.
+-->
+<varname>PROMPT1</varname>の直近の出力と同じ幅の空白です。
+これは、複数行の文が最初の行とそろっているが第2のプロンプトが見えないようにするために<varname>PROMPT2</varname>の設定として使えます。
         </para>
         </listitem>
       </varlistentry>
@@ -6259,7 +6307,7 @@ testdb=&gt; \set PROMPT1 '%[%033[1;33;40m%]%n@%/%R%[%033[0m%]%# '
     <literal>'&gt;&gt; '</literal> for prompt 3.
 -->
 プロンプトにパーセント記号を入れる場合は、<literal>%%</literal>と記述してください。
-デフォルトのプロンプトは、プロンプト1と2が<literal>'%/%R%# '</literal>、プロンプト3が<literal>'&gt;&gt; '</literal>です。
+デフォルトのプロンプトは、プロンプト1と2が<literal>'%/%R%x%# '</literal>、プロンプト3が<literal>'&gt;&gt; '</literal>です。
     </para>
 
     <note>
@@ -6753,7 +6801,7 @@ Cygwinを使用しているのであれば、このコマンドを<filename>/etc
 <!--
   <title>Examples</title>
 -->
-<title>例</title>
+  <title>例</title>
 
   <para>
 <!--
@@ -6881,8 +6929,11 @@ second | four
   </para>
 
   <para>
+<!--
   Also, these output format options can be set for just one query by using
   <literal>\g</literal>:
+-->
+また、この出力書式オプションは<literal>\g</literal>を使って1つの問い合わせにだけ設定できます。
 <programlisting>
 peter@localhost testdb=&gt; <userinput>SELECT * FROM my_table</userinput>
 peter@localhost testdb-&gt; <userinput>\g (format=aligned tuples_only=off expanded=on)</userinput>
