@@ -140,7 +140,8 @@ C言語関数（<xref linkend="xfunc-c"/>）
 -->
 プロシージャは関数と似たデータベースオブジェクトです。
 違いはプロシージャは値を返さず、そのため戻り型の宣言が無いことです。
-関数が問い合わせやDMLコマンドの一部として呼び出されるのに対して、プロシージャは明示的に<xref linkend="sql-call"/>文を使って呼び出されます。
+関数が問い合わせやDMLコマンドの一部として呼び出されるのに対して、プロシージャは明示的に<xref linkend="sql-call"/>コマンドを使って呼び出されます。
+CALLコマンドが明示的なトランザクション内で無い場合、多くのサーバーサイド言語のプロシージャはコミット、ロールバック、および新しいトランザクションの開始が実行出来ますが、関数には出来ません。
    </para>
 
    <para>
@@ -582,9 +583,10 @@ $$ LANGUAGE SQL;
      previous <function>add_em</function> function to return
      type <type>float8</type> instead.  It's sufficient to write
 -->
-<acronym>SQL</acronym>関数は正確に宣言された結果型を返さなければなりません。
-明示キャストの挿入を要するかもしれません。
-例えば、前出の<function>add_em</function>関数が代わりに<type>float8</type>型を返してほしいとします。
+<literal>SELECT</literal>句や<literal>RETURNING</literal>句が<acronym>SQL</acronym>関数で定義された結果型を正確に返さない場合、<productname>PostgreSQL</productname>は可能な場合に暗黙的キャストまたは代入キャストで必要な型に自動でキャストします。
+そうでない場合は明示的にキャストをする必要があります。
+例えば、前出の<function>add_em</function>関数が代わりに<type>float8</type>型を返して欲しいとします。
+次のように記述すれば十分です。
 
 <programlisting>
 CREATE FUNCTION add_em(integer, integer) RETURNS float8 AS $$
@@ -598,14 +600,8 @@ $$ LANGUAGE SQL;
      (See <xref linkend="typeconv"/> or <xref linkend="sql-createcast"/>
      for more about casts.)
 -->
-他の文脈では<productname>PostgreSQL</productname>は<type>integer</type>から<type>float8</type>への暗黙キャストを挿入するにもかかわらず、これは動作しません。
-以下のように書く必要があります。
-
-<programlisting>
-CREATE FUNCTION add_em(integer, integer) RETURNS float8 AS $$
-    SELECT ($1 + $2)::float8;
-$$ LANGUAGE SQL;
-</programlisting>
+<type>integer</type>から<type>float8</type>に暗黙キャストできるからです。
+（キャストについての詳細は<xref linkend="typeconv"/>または<xref linkend="sql-createcast"/>を参照して下さい）。
     </para>
    </sect2>
 
@@ -736,7 +732,7 @@ $$ LANGUAGE SQL;
         (Naming the columns, as we did above,
         is irrelevant to the system.)
 -->
-問い合わせにおける選択リストの順番は、複合型と関連したテーブル内で現れる列の順番と正確に一致する必要があります。
+問い合わせにおける選択リストの順番は、複合型に列が現れる順番と正確に一致する必要があります。
 （上で行ったように列に名前を付けても、システムは認識しません。）
        </para>
       </listitem>
@@ -747,7 +743,7 @@ $$ LANGUAGE SQL;
         the corresponding column of the composite type.
         Otherwise we'll get errors like this:
 -->
-必要に応じてキャストを挿入して、各式の型を対応する複合型の列と一致させなければなりません。
+各式の型が対応する複合型の列にキャスタができるようにする必要があります。
 さもなくば、以下のようなエラーとなります。
 <screen>
 <computeroutput>
@@ -759,7 +755,7 @@ DETAIL:  Final statement returns text instead of point at column 4.
         As with the base-type case, the system will not insert explicit
         casts automatically, only implicit or assignment casts.
 -->
-基本型の場合、関数はいかなるキャストも自動で挿入しません。
+基本型の場合と同様に、システムは明示的キャストを自動では挿入せず、暗黙または代入キャストのみをします。
        </para>
       </listitem>
      </itemizedlist>
@@ -790,7 +786,8 @@ $$ LANGUAGE SQL;
 -->
 ここで、正しい複合型の単一の列を単に返す<command>SELECT</command>を記述しました。
 今回の例ではこれはより優れたものとはいえませんが、例えば、必要な複合値を返す他の関数を呼び出して結果を計算しなければならない場合など、便利な解法になることがあります。
-他の例としては、単なる複合型ではなく複合型のドメインを返す関数を書こうとしてる場合に、単一列を返すように書くことが常に必要となります。なぜなら、厳密にドメイン型の値を生成する他の手段が無いからです。
+他の例としては、単なる複合型ではなく複合型のドメインを返す関数を書こうとしてる場合に、単一列を返すように書くことが常に必要となります。
+なぜなら、行全体の結果を強制する方法がないからです。
     </para>
 
     <para>
@@ -1768,8 +1765,7 @@ $$ LANGUAGE SQL;
      function <function>make_array</function> that builds up an array
      from two arbitrary data type elements:
 -->
-<acronym>SQL</acronym>関数は、多様型<type>anyelement</type>、<type>anyarray</type>、<type>anynonarray</type>、<type>anyenum</type>および<type>anyrange</type>を受け付け、返すように宣言することができます。
-多様関数の詳細説明については<xref linkend="extend-types-polymorphic"/>を参照してください。
+<acronym>SQL</acronym>関数は、<xref linkend="extend-types-polymorphic"/>の多様型を受け付け、返すように宣言することができます。
 以下の<function>make_array</function>多様関数は、任意の2つのデータ型要素から配列を作成します。
 <screen>
 CREATE FUNCTION make_array(anyelement, anyelement) RETURNS anyarray AS $$
@@ -1804,17 +1800,26 @@ ERROR:  could not determine polymorphic type because input has type unknown
     </para>
 
     <para>
+<!--
      With <function>make_array</function> declared as above, you must
      provide two arguments that are of exactly the same data type; the
      system will not attempt to resolve any type differences.  Thus for
      example this does not work:
+-->
+上記のように<function>make_array</function>を宣言した場合、まったく同じデータ型の2つの引数を指定する必要があります。
+システムは型の違いを解決しようとしません。  
+したがって、例えばこれはうまくいきません。
 <screen>
 SELECT make_array(1, 2.5) AS numericarray;
 ERROR:  function make_array(integer, numeric) does not exist
 </screen>
+<!--
      An alternative approach is to use the <quote>common</quote> family of
      polymorphic types, which allows the system to try to identify a
      suitable common type:
+-->
+別の方法として、<quote>common</quote>ファミリーの多型タイプを使用する方法があります。
+これにより、システムは適切な共通タイプを特定できます。
 <screen>
 CREATE FUNCTION make_array2(anycompatible, anycompatible)
 RETURNS anycompatiblearray AS $$
@@ -1827,9 +1832,12 @@ SELECT make_array2(1, 2.5) AS numericarray;
  {1,2.5}
 (1 row)
 </screen>
+<!--
      Because the rules for common type resolution default to choosing
      type <type>text</type> when all inputs are of unknown types, this
      also works:
+-->
+すべての入力が未知のタイプである場合、共通タイプ解決の規則はデフォルトで<type>text</type>型を選択するので、これも動作します。
 <screen>
 SELECT make_array2('a', 'b') AS textarray;
  textarray 
@@ -4122,6 +4130,7 @@ ValuePerCallモードを使用する場合、問い合わせが完全に実行�
     </para>
 
     <para>
+<!--
      The remainder of this section documents a set of helper macros that
      are commonly used (though not required to be used) for SRFs using
      ValuePerCall mode.  Additional details about Materialize mode can be
@@ -4129,6 +4138,10 @@ ValuePerCallモードを使用する場合、問い合わせが完全に実行�
      the <filename>contrib</filename> modules in
      the <productname>PostgreSQL</productname> source distribution contain
      many examples of SRFs using both ValuePerCall and Materialize mode.
+-->
+本節の残りの部分では、ValuePerCallモードを使用する集合を返す関数で一般に使用される補助マクロのセット（ただし、使用する必要はありませんが）について説明します。
+Materializeモードの詳細については、<filename>src/backend/utils/fmgr/README</filename>を参照してください。
+また、<productname>PostgreSQL</productname>ソース配布物内の<filename>contrib</filename>モジュールには、ValuePerCallとMaterializeモードの両方を使用する、集合を返す関数のより多くの例があります。
     </para>
 
     <para>
@@ -4257,6 +4270,7 @@ typedef struct FuncCallContext
 -->
 この基盤を使用して、<acronym>SRF</acronym>が使用するマクロは以下の通りです。
 <programlisting>
+SRF_IS_FIRSTCALL()
 </programlisting>
 <!--
      Use this to determine if your function is being called for the first or a
@@ -4625,7 +4639,7 @@ CREATE OR REPLACE FUNCTION retcomposite(IN integer, IN integer,
      since such merging will always have occurred for variadic functions
      taking ordinary array types.
 -->
-C言語関数は、<type>anyelement</type>、<type>anyarray</type>、<type>anynonarray</type>、<type>anyenum</type>および<type>anyrange</type>多様型を受け付ける、または返すように宣言することができます。
+C言語関数は、<xref linkend="extend-types-polymorphic"/>で説明されている多様型を受け付ける、または返すように宣言することができます。
 多様関数の詳細な説明は<xref linkend="extend-types-polymorphic"/>を参照してください。
 関数の引数もしくは戻り値が多様型として定義される時、関数の作成者は前もって呼び出しにおけるデータ型や返すべきデータ型が何であるかを知ることはできません。
 Version-1 C関数で引数の実データ型と、返すべきと想定された型を発見できるための2つのルーチンが<filename>fmgr.h</filename>に用意されています。
