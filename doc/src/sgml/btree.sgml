@@ -304,13 +304,15 @@ btree演算子族が満たさなければならない基本的な前提条件が
   one required and four optional support functions.  The five
   user-defined methods are:
 -->
-<xref linkend="xindex-btree-support-table"/>で示すように、btreeでは一つの必須サポート関数と、２つの省略可能なサポート関数を定義します。
+<xref linkend="xindex-btree-support-table"/>で示すように、btreeでは一つの必須サポート関数と、4つの省略可能なサポート関数を定義します。
+5つのユーザ定義メソッドは以下の通りです。
  </para>
  <variablelist>
   <varlistentry>
    <term><function>order</function></term>
    <listitem>
     <para>
+<!--
      For each combination of data types that a btree operator family
      provides comparison operators for, it must provide a comparison
      support function, registered in
@@ -334,13 +336,22 @@ btree演算子族が満たさなければならない基本的な前提条件が
      data type must be comparable.  See
      <filename>src/backend/access/nbtree/nbtcompare.c</filename> for
      examples.
+-->
+btreeの演算子族が比較演算子を提供する各データ型の組み合わせに対して、比較サポート関数を提供しなければなりません。それらはサポート関数1番で<structname>pg_amproc</structname>に、また、比較での左右のデータ型と等しい<structfield>amproclefttype</structfield>/<structfield>amprocrighttype</structfield>に、登録されます（すなわち、演算子と一致する同じデータ型は<structname>pg_amop</structname>に登録されます）。
+比較関数は2つの非NULL値<replaceable>A</replaceable>と<replaceable>B</replaceable>を取り、
+<replaceable>A</replaceable> <literal>&lt;</literal> <replaceable>B</replaceable>、<replaceable>A</replaceable> <literal>=</literal> <replaceable>B</replaceable>、または、<replaceable>A</replaceable> <literal>&gt;</literal> <replaceable>B</replaceable>であるときにそれぞれ、<literal>&lt;</literal> <literal>0</literal>、<literal>0</literal>、または、<literal>&gt;</literal> <literal>0</literal>である<type>int32</type>の値を返さなければなりません。
+NULLの結果は許されず、データ型の全ての値は比較可能でなければなりません。
+例として<filename>src/backend/access/nbtree/nbtcompare.c</filename>を参照してください。
     </para>
 
     <para>
+<!--
      If the compared values are of a collatable data type, the
      appropriate collation OID will be passed to the comparison
      support function, using the standard
      <function>PG_GET_COLLATION()</function> mechanism.
+-->
+比較される値が照合順序が適用可能なデータ型のものである場合、比較サポート関数に適切な照合順序のOIDが渡され、標準の<function>PG_GET_COLLATION()</function>機構が使用されます。
     </para>
    </listitem>
   </varlistentry>
@@ -348,6 +359,7 @@ btree演算子族が満たさなければならない基本的な前提条件が
    <term><function>sortsupport</function></term>
    <listitem>
     <para>
+<!--
      Optionally, a btree operator family may provide <firstterm>sort
       support</firstterm> function(s), registered under support
      function number 2.  These functions allow implementing
@@ -355,6 +367,9 @@ btree演算子族が満たさなければならない基本的な前提条件が
      naively calling the comparison support function.  The APIs
      involved in this are defined in
      <filename>src/include/utils/sortsupport.h</filename>.
+-->
+任意で、btree演算子族は<firstterm>ソートサポート</firstterm>関数を提供してもよいです。これはサポート関数2番で登録されます。
+この関数は、素朴に比較サポート関数を呼び出すよりも、ソート目的により効果的な方法での比較の実装を可能にします。
     </para>
    </listitem>
   </varlistentry>
@@ -362,14 +377,21 @@ btree演算子族が満たさなければならない基本的な前提条件が
    <term><function>in_range</function></term>
    <listitem>
     <indexterm>
+<!--
      <primary>in_range support functions</primary>
+-->
+     <primary>in_rangeサポート関数</primary>
     </indexterm>
 
     <indexterm>
+<!--
      <primary>support functions</primary>
+-->
+     <primary>サポート関数</primary>
      <secondary>in_range</secondary>
     </indexterm>
     <para>
+<!--
      Optionally, a btree operator family may provide
      <firstterm>in_range</firstterm> support function(s), registered
      under support function number 3.  These are not used during btree
@@ -383,9 +405,14 @@ btree演算子族が満たさなければならない基本的な前提条件が
      information provided is how to add or subtract an
      <replaceable>offset</replaceable> value in a way that is
      compatible with the family's data ordering.
+-->
+任意で、btree演算子族は<firstterm>in_range</firstterm>サポート関数を提供してもよいです。これはサポート関数3番に登録されます。
+これはbtreeインデックス操作中には使われません。どちらかといえば、演算子族のセマンティクスを<literal>RANGE</literal> <replaceable>offset</replaceable> <literal>PRECEDING</literal>と<literal>RANGE</literal> <replaceable>offset</replaceable> <literal>FOLLOWING</literal>フレーム境界タイプ（<xref linkend="syntax-window-functions"/>を参照）を含むWINDOW句に対応できるように拡張します。
+基本的には、提供される拡張情報はどのように演算子族のデータ並び順と互換性のある方法で<replaceable>offset</replaceable>値を足すか引くかです。
     </para>
 
     <para>
+<!--
      An <function>in_range</function> function must have the signature
 <synopsis>
 in_range(<replaceable>val</replaceable> type1, <replaceable>base</replaceable> type1, <replaceable>offset</replaceable> type2, <replaceable>sub</replaceable> bool, <replaceable>less</replaceable> bool)
@@ -408,14 +435,29 @@ returns bool
      <structfield>amproclefttype</structfield> equal to
      <type>type1</type> and <structfield>amprocrighttype</structfield>
      equal to <type>type2</type>.
+-->
+<function>in_range</function>関数は以下のシグネチャを持たなければなりません。
+<synopsis>
+in_range(<replaceable>val</replaceable> type1, <replaceable>base</replaceable> type1, <replaceable>offset</replaceable> type2, <replaceable>sub</replaceable> bool, <replaceable>less</replaceable> bool)
+returns bool
+</synopsis>
+<replaceable>val</replaceable>と<replaceable>base</replaceable>は同じ型でなければならず、これは演算子族でサポートされる型の一つ（すなわち、並び順を提供する対象の型）です。
+しかしながら、<replaceable>offset</replaceable>は異なる型のものでも可能です。それは演算子族でサポートされないものでもよいです。
+例としては、組み込みの<literal>time_ops</literal>族が<type>interval</type>型の<replaceable>offset</replaceable>を持つ<function>in_range</function>関数を提供しています。
+演算子族は、任意のサポートされる型と一つまたは複数の<replaceable>offset</replaceable>型に対する<function>in_range</function>関数を提供できます。
+各<function>in_range</function>関数は、<structname>pg_amproc</structname>に<type>type1</type>と等しい<structfield>amproclefttype</structfield>と<type>type2</type>に等しい<structfield>amproclefttype</structfield>で登録されるべきです。
     </para>
 
     <para>
+<!--
      The essential semantics of an <function>in_range</function>
      function depend on the two Boolean flag parameters.  It should
      add or subtract <replaceable>base</replaceable> and
      <replaceable>offset</replaceable>, then compare
      <replaceable>val</replaceable> to the result, as follows:
+-->
+<function>in_range</function>関数の本質的なセマンティクスは2つのBooleanフラグパラメータに依存します。
+これは以下のように、<replaceable>base</replaceable>に<replaceable>offset</replaceable>を加算または減算して、それから<replaceable>val</replaceable>を結果と比較すべきです。
      <itemizedlist>
       <listitem>
        <para>
@@ -454,6 +496,7 @@ returns bool
        </para>
       </listitem>
      </itemizedlist>
+<!--
      Before doing so, the function should check the sign of
      <replaceable>offset</replaceable>: if it is less than zero, raise
      error
@@ -466,9 +509,15 @@ returns bool
      delegated to the <function>in_range</function> function so that
      the core code needn't understand what <quote>less than
       zero</quote> means for a particular data type.
+-->
+このように実行する前に、本関数は、<replaceable>offset</replaceable>の符号を検査すべきです。
+すなわち、負であったなら、エラー<literal>ERRCODE_INVALID_PRECEDING_OR_FOLLOWING_SIZE</literal>(22013)、エラー文面としては<quote>invalid preceding or following size in window function(ウィンドウ関数で先行または後続のサイズが不正です)</quote>などを出すことです。
+（意味上の必要性が乏しいと見られることから非標準の演算子族はこの制限を無視することを選ぶかもしれませんが、これはSQL標準で必要とされています。）
+中核コードが特定のデータ型における<quote>ゼロより小さい</quote>ことの意味を理解しなくても良いように、この要件は<function>in_range</function>関数に委託されます。
     </para>
 
     <para>
+<!--
      An additional expectation is that <function>in_range</function>
      functions should, if practical, avoid throwing an error if
      <replaceable>base</replaceable> <literal>+</literal>
@@ -481,17 +530,26 @@ returns bool
      <quote>NaN</quote>, extra care may be needed to ensure that
      <function>in_range</function>'s results agree with the normal
      sort order of the operator family.
+-->
+さらに期待されることは、<function>in_range</function>関数は、実用的には、<replaceable>base</replaceable> <literal>+</literal> <replaceable>offset</replaceable>や<replaceable>base</replaceable> <literal>-</literal> <replaceable>offset</replaceable>がオーバーフローする場合にエラーを投げるのを避けるべきです。
+たとえ値がデータ型の範囲を超えたとしても正しい比較結果は決定できます。
+データ型が<quote>infinity</quote>や<quote>NaN</quote>などの概念を含む場合には、<function>in_range</function>の結果が演算子族の通常のソート順序と一致するように特別な対応が必要となることに注意してください。
     </para>
 
     <para>
+<!--
      The results of the <function>in_range</function> function must be
      consistent with the sort ordering imposed by the operator family.
      To be precise, given any fixed values of
      <replaceable>offset</replaceable> and
      <replaceable>sub</replaceable>, then:
+-->
+<function>in_range</function>関数の結果は、演算子族で規定されるソート順序と整合していなければなりません。
+正確には、与えらえれた任意の<replaceable>offset</replaceable>と<replaceable>sub</replaceable>の修正値は以下のようになります。
      <itemizedlist>
       <listitem>
        <para>
+<!--
         If <function>in_range</function> with
         <replaceable>less</replaceable> = true is true for some
         <replaceable>val1</replaceable> and
@@ -499,10 +557,13 @@ returns bool
         <replaceable>val2</replaceable> <literal>&lt;=</literal>
         <replaceable>val1</replaceable> with the same
         <replaceable>base</replaceable>.
+-->
+もし、<replaceable>less</replaceable> = trueの<function>in_range</function>がいくつかの<replaceable>val1</replaceable>と<replaceable>base</replaceable>に対して真であるなら、同じ<replaceable>base</replaceable>の全ての<replaceable>val2</replaceable> <literal>&lt;=</literal> <replaceable>val1</replaceable>に対して真でなければなりません。
        </para>
       </listitem>
       <listitem>
        <para>
+<!--
         If <function>in_range</function> with
         <replaceable>less</replaceable> = true is false for some
         <replaceable>val1</replaceable> and
@@ -510,10 +571,13 @@ returns bool
         <replaceable>val2</replaceable> <literal>&gt;=</literal>
         <replaceable>val1</replaceable> with the same
         <replaceable>base</replaceable>.
+-->
+<replaceable>less</replaceable> = trueの<function>in_range</function>が、いくつかの<replaceable>val1</replaceable>と<replaceable>base</replaceable>に対して偽であるなら、同じ<replaceable>base</replaceable>の全ての<replaceable>val2</replaceable> <literal>&gt;=</literal> <replaceable>val1</replaceable>に対して偽でなければなりません。
        </para>
       </listitem>
       <listitem>
        <para>
+<!--
         If <function>in_range</function> with
         <replaceable>less</replaceable> = true is true for some
         <replaceable>val</replaceable> and
@@ -521,10 +585,13 @@ returns bool
         <replaceable>base2</replaceable> <literal>&gt;=</literal>
         <replaceable>base1</replaceable> with the same
         <replaceable>val</replaceable>.
+-->
+<replaceable>less</replaceable> = trueの<function>in_range</function>がいくつかの<replaceable>val</replaceable>と<replaceable>base1</replaceable>に対して真であるなら、同じ<replaceable>val</replaceable>の全ての<replaceable>base2</replaceable> <literal>&gt;=</literal> <replaceable>base1</replaceable>に対して真でなければなりません。
        </para>
       </listitem>
       <listitem>
        <para>
+<!--
         If <function>in_range</function> with
         <replaceable>less</replaceable> = true is false for some
         <replaceable>val</replaceable> and
@@ -532,23 +599,34 @@ returns bool
         <replaceable>base2</replaceable> <literal>&lt;=</literal>
         <replaceable>base1</replaceable> with the same
         <replaceable>val</replaceable>.
+-->
+<replaceable>less</replaceable> = trueの<function>in_range</function>が一部の<replaceable>val</replaceable>と<replaceable>base1</replaceable>に対して偽であるなら、同じ<replaceable>val</replaceable>の全ての<replaceable>base2</replaceable> <literal>&lt;=</literal> <replaceable>base1</replaceable>に対して偽でなければなりません。
        </para>
       </listitem>
      </itemizedlist>
+<!--
      Analogous statements with inverted conditions hold when
      <replaceable>less</replaceable> = false.
+-->
+<replaceable>less</replaceable> = falseのときには、逆条件の類似した命題が適用できます。
     </para>
 
     <para>
+<!--
      If the type being ordered (<type>type1</type>) is collatable, the
      appropriate collation OID will be passed to the
      <function>in_range</function> function, using the standard
      PG_GET_COLLATION() mechanism.
+-->
+整列されている型(<type>type1</type>)が照合可能であるなら、標準のPG_GET_COLLATION()機構を使って、<function>in_range</function>関数に適切な照合順序のOIDが渡されます。
     </para>
 
     <para>
+<!--
      <function>in_range</function> functions need not handle NULL
      inputs, and typically will be marked strict.
+-->
+<function>in_range</function>関数は、通例STRICTと印付けされ、NULL入力を処理する必要がありません。
     </para>
    </listitem>
   </varlistentry>
@@ -556,6 +634,7 @@ returns bool
    <term><function>equalimage</function></term>
    <listitem>
     <para>
+<!--
      Optionally, a btree operator family may provide
      <function>equalimage</function> (<quote>equality implies image
       equality</quote>) support functions, registered under support
@@ -563,8 +642,13 @@ returns bool
      determine when it is safe to apply the btree deduplication
      optimization.  Currently, <function>equalimage</function>
      functions are only called when building or rebuilding an index.
+-->
+省略可能ですが、btree演算子族は<function>equalimage</function> (<quote>イメージ等価を含む等価</quote>)サポート関数を提供してもよいです。これはサポート関数4番で登録されます。
+この関数は、コアコードがbtree重複排除の最適化を適用するのが安全かを決定できるようにします。
+今のところ、<function>equalimage</function>関数はインデックスの構築または再構築時にのみ呼び出されます。
     </para>
     <para>
+<!--
      An <function>equalimage</function> function must have the
      signature
 <synopsis>
@@ -580,8 +664,16 @@ equalimage(<replaceable>opcintype</replaceable> <type>oid</type>) returns bool
      <function>equalimage</function> function or returning
      <literal>false</literal> indicates that this condition cannot be
      assumed to hold.
+-->
+<function>equalimage</function>関数は以下のシグネチャを持たなければなりません。
+<synopsis>
+equalimage(<replaceable>opcintype</replaceable> <type>oid</type>) returns bool
+</synopsis>
+戻り値は演算子クラスと照合順序についての静的な情報です。
+<literal>true</literal>を返すことは、<replaceable>A</replaceable>および<replaceable>B</replaceable>引数が何らセマンティック情報を損失すること無しに交換可能でもあるとき、演算子クラスに対する<function>order</function>関数が<literal>0</literal>（<quote>引数が等しい</quote>）だけを返すことが保証されていることを示します。
     </para>
     <para>
+<!--
      The <replaceable>opcintype</replaceable> argument is the
      <literal><structname>pg_type</structname>.oid</literal> of the
      data type that the operator class indexes.  This is a convenience
@@ -591,8 +683,13 @@ equalimage(<replaceable>opcintype</replaceable> <type>oid</type>) returns bool
      type, the appropriate collation OID will be passed to the
      <function>equalimage</function> function, using the standard
      <function>PG_GET_COLLATION()</function> mechanism.
+-->
+<replaceable>opcintype</replaceable>引数は演算子クラスタがインデックスを作るデータ型の<literal><structname>pg_type</structname>.oid</literal>です。
+これは同じ基となる<function>equalimage</function>関数を演算子クラスを横断して再利用できるようになる利便性があります。
+<replaceable>opcintype</replaceable>が照合可能なデータ型である場合には、適切な照合順序のOIDが、標準の<function>PG_GET_COLLATION()</function>機構を使って、<function>equalimage</function>関数に渡されます。
     </para>
     <para>
+<!--
      As far as the operator class is concerned, returning
      <literal>true</literal> indicates that deduplication is safe (or
      safe for the collation whose OID was passed to its
@@ -602,8 +699,12 @@ equalimage(<replaceable>opcintype</replaceable> <type>oid</type>) returns bool
      that registers an <function>equalimage</function> function, and
      each function actually returns <literal>true</literal> when
      called.
+-->
+演算子クラスに関する限り、<literal>true</literal>を返すことは、重複排除が安全（あるいは<function>equalimage</function>関数に渡されたOIDの照合順序について安全）であることを示します。
+しかしながら、コアコードは、<emphasis>全ての</emphasis>インデックス列が<function>equalimage</function>関数を登録する演算子クラスを使っていて、各関数が呼ばれたとき実際に<literal>true</literal>を返すときに、そのインデックスに対して重複排除を安全と見做すだけです。
     </para>
     <para>
+<!--
      Image equality is <emphasis>almost</emphasis> the same condition
      as simple bitwise equality.  There is one subtle difference: When
      indexing a varlena data type, the on-disk representation of two
@@ -617,8 +718,13 @@ equalimage(<replaceable>opcintype</replaceable> <type>oid</type>) returns bool
      (provided that the same collation OID is passed to both the
      <function>equalimage</function> and <function>order</function>
      functions).
+-->
+イメージ等価は単純にビット毎に等しいことと<emphasis>ほとんど</emphasis>同じ条件です。
+一点微妙な違いがあります。varlenaデータ型にインデックス作成するとき、入力時の一貫性のない<acronym>TOAST</acronym>圧縮の適用のために、同じdatumの二つのイメージのディスク上の表現はビット毎には等しくないかもしれません。
+これまでは、演算子クラスの<function>equalimage</function>関数が<literal>true</literal>を返すときには、<literal>datum_image_eq()</literal> C関数が常に演算子クラスの<function>order</function>関数と一致すると想定して安全でした（同じ照合順序のOIDが<function>equalimage</function>と<function>order</function>の両関数に渡されるとして）。
     </para>
     <para>
+<!--
      The core code is fundamentally unable to deduce anything about
      the <quote>equality implies image equality</quote> status of an
      operator class within a multiple-data-type family based on
@@ -630,8 +736,14 @@ equalimage(<replaceable>opcintype</replaceable> <type>oid</type>) returns bool
      sorting/equality semantics, which are more or less defined at the
      operator family level.  In general, the semantics that one
      particular data type implements must be considered separately.
+-->
+コアコードは基本的に、複数データ型の族の中の演算子クラスの<quote>等価性がイメージ等価性を含む</quote>状態について、同族の他の演算子クラスの詳細に基づいた、いかなる推測もできません。
+また、ある演算子族が型にまたがって<function>equalimage</function>関数を登録していることを認識できず、そのような試みはエラーになります。
+これは<quote>等価性がイメージ等価性を含む</quote>状態は、演算子族の階層でおおむね定義されている、ソートと等価性のセマンティクスに依存しているだけでは無いためです。
+一般に、ある特定データ型の実装によるセマンティクスは別個に考慮されなければなりません。
     </para>
     <para>
+<!--
      The convention followed by the operator classes included with the
      core <productname>PostgreSQL</productname> distribution is to
      register a stock, generic <function>equalimage</function>
@@ -643,6 +755,11 @@ equalimage(<replaceable>opcintype</replaceable> <type>oid</type>) returns bool
      deduplication is safe with deterministic collations.  Best
      practice for third-party extensions is to register their own
      custom function to retain control.
+-->
+コア<productname>PostgreSQL</productname>配布物を含む演算子クラスが従う慣習は、ストック、即ち、一般的な<function>equalimage</function>関数を登録することです。
+大部分の演算子クラスタは<function>btequalimage()</function>を登録しています。これは重複排除が無条件に安全であることを示しています。
+<type>text</type>などの照合可能なデータ型に対する演算子クラスは<function>btvarstrequalimage()</function>を登録します。これは決定的な照合順序では重複排除が安全であることを示します。
+サードパーティ拡張におけるベストプラクティスは制御を保つためにそれら自身のカスタム関数を登録することです。
     </para>
    </listitem>
   </varlistentry>
@@ -650,13 +767,18 @@ equalimage(<replaceable>opcintype</replaceable> <type>oid</type>) returns bool
    <term><function>options</function></term>
    <listitem>
     <para>
+<!--
      Optionally, a B-tree operator family may provide
      <function>options</function> (<quote>operator class specific
      options</quote>) support functions, registered under support
      function number 5.  These functions define a set of user-visible
      parameters that control operator class behavior.
+-->
+省略可能ですが、B-treeの演算子族は<function>options</function>（<quote>演算子クラス固有オプション</quote>）サポート関数を提供してもよいです。これはサポート関数5番に登録されます。
+この関数はユーザに見える演算子クラスの振る舞いを制御するパラメータの集合を定義します。
     </para>
     <para>
+<!--
      An <function>options</function> support function must have the
      signature
 <synopsis>
@@ -667,8 +789,16 @@ options(<replaceable>relopts</replaceable> <type>local_relopts *</type>) returns
      specific options.  The options can be accessed from other support
      functions using the <literal>PG_HAS_OPCLASS_OPTIONS()</literal> and
      <literal>PG_GET_OPCLASS_OPTIONS()</literal> macros.
+-->
+<function>options</function>サポート関数は以下のシグネチャを持たなければなりません。
+<synopsis>
+options(<replaceable>relopts</replaceable> <type>local_relopts *</type>) returns void
+</synopsis>
+関数には<replaceable>local_relopts</replaceable>構造体へのポインタが渡されます。ここには演算子クラス固有のオプションの集合が書かれている必要があります。
+このオプションには<literal>PG_HAS_OPCLASS_OPTIONS()</literal>および<literal>PG_GET_OPCLASS_OPTIONS()</literal>マクロを使って他のサポート関数からアクセスが可能です。
     </para>
     <para>
+<!--
      Currently, no B-Tree operator class has an <function>options</function>
      support function.  B-tree doesn't allow flexible representation of keys
      like GiST, SP-GiST, GIN and BRIN do.  So, <function>options</function>
@@ -676,6 +806,11 @@ options(<replaceable>relopts</replaceable> <type>local_relopts *</type>) returns
      access method.  Nevertheless, this support function was added to B-tree
      for uniformity, and will probably find uses during further
      evolution of B-tree in <productname>PostgreSQL</productname>.
+-->
+今のところ、<function>options</function>サポート関数を持ったB-Treeの演算子クラスはありません。
+B-treeはGiST、SP-GiST、GINおよびBRINで行われてるような柔軟なキーの表現を許していません。
+そのため、おそらくは<function>options</function>が現在のB-treeインデックスアクセスメソッドで多数適用されることはありません。
+それでも、統一性のためにサポート関数がB-treeに追加されました。おそらく<productname>PostgreSQL</productname>でのB-treeの更なる進化の過程で使用法を見つけ出すでしょう。
     </para>
    </listitem>
   </varlistentry>
@@ -690,15 +825,23 @@ options(<replaceable>relopts</replaceable> <type>local_relopts *</type>) returns
  <title>実装</title>
 
  <para>
+<!--
   This section covers B-Tree index implementation details that may be
   of use to advanced users.  See
   <filename>src/backend/access/nbtree/README</filename> in the source
   distribution for a much more detailed, internals-focused description
   of the B-Tree implementation.
+-->
+本節では、上級ユーザに役立つかもしれない、B-Treeインデックスの実装の詳細について説明します。
+更なる詳細、B-Tree実装の内部に焦点をあてた記述については、ソース配布物の<filename>src/backend/access/nbtree/README</filename>を参照してください。
  </para>
  <sect2 id="btree-structure">
+<!--
   <title>B-Tree Structure</title>
+-->
+  <title>B-Treeの構造</title>
   <para>
+<!--
    <productname>PostgreSQL</productname> B-Tree indexes are
    multi-level tree structures, where each level of the tree can be
    used as a doubly-linked list of pages.  A single metapage is stored
@@ -711,8 +854,18 @@ options(<replaceable>relopts</replaceable> <type>local_relopts *</type>) returns
    over 99% of all pages are leaf pages.  Both internal pages and leaf
    pages use the standard page format described in <xref
     linkend="storage-page-layout"/>.
+-->
+<productname>PostgreSQL</productname>のB-Treeインデックスは複数階層のツリー構造で、ツリーの各階層はページの双方向連結リストとして使用できます。
+一つのメタページがインデックスの最初のセグメントファイルの固定位置に格納されます。
+それ以外の全てのページはリーフページか内部ページのいずれかです。
+リーフページはツリーの最下階層にあるページです。
+各リーフページはテーブルの行を指すタプルを含みます。
+各内部ページはツリーの次の下位層を指すタプルを含みます。
+典型的には、全ページの99％以上がリーフページです。
+内部ページとリーフページは共に、<xref linkend="storage-page-layout"/>に記載されている標準のページ書式を使用します。
   </para>
   <para>
+<!--
    New leaf pages are added to a B-Tree index when an existing leaf
    page cannot fit an incoming tuple.  A <firstterm>page
     split</firstterm> operation makes room for items that originally
@@ -725,12 +878,23 @@ options(<replaceable>relopts</replaceable> <type>local_relopts *</type>) returns
     split</firstterm> operation takes place.  This adds a new level to
    the tree structure by creating a new root page that is one level
    above the original root page.
+-->
+既存リーフページがやってくるタプルをはめ込むことができないとき、新たなリーフページがB-Treeインデックスに追加されます。
+<firstterm>ページ分割</firstterm>操作は一部のアイテムを新ページに動かすことで、当初は溢れているページに属していたアイテムのために空間を作ります。
+ページ分割は、また、新ページへの新たな<firstterm>ダウンリンク</firstterm>を親ページに挿入しなければなりません。これは親ページの分割を同様に引き起こすかもしれません。
+ページは分割は再帰的に<quote>上向きに連鎖</quote>します。
+最終的にルートページが新たなダウンリンクをはめ込みできないときには、<firstterm>ルートページ分割</firstterm>が実施されます。
+これは元のルートページの一つ上の階層に新たなルートページを作ることで、ツリー構造に新しい階層を加えます。
   </para>
  </sect2>
 
  <sect2 id="btree-deduplication">
+<!--
   <title>Deduplication</title>
+-->
+  <title>重複排除</title>
   <para>
+<!--
    A duplicate is a leaf page tuple (a tuple that points to a table
    row) where <emphasis>all</emphasis> indexed key columns have values
    that match corresponding column values from at least one other leaf
@@ -738,8 +902,13 @@ options(<replaceable>relopts</replaceable> <type>local_relopts *</type>) returns
    practice.  B-Tree indexes can use a special, space-efficient
    representation for duplicates when an optional technique is
    enabled: <firstterm>deduplication</firstterm>.
+-->
+重複とは、同じインデックスで<emphasis>全ての</emphasis>インデックスキー列が少なくとも一つの他のリーフページタプルの該当する列の値と一致する値をもっている、リーフページタプル（テーブルの行を指すタプル）です。
+重複タプルは実際によくあります。
+オプションの技法「<firstterm>重複排除</firstterm>」が有効にされているとき、B-Treeインデックスは、特別な重複に対する空間効率の良い表現方法を使用できます。
   </para>
   <para>
+<!--
    Deduplication works by periodically merging groups of duplicate
    tuples together, forming a single <firstterm>posting list</firstterm> tuple for each
    group.  The column key value(s) only appear once in this
@@ -751,9 +920,18 @@ options(<replaceable>relopts</replaceable> <type>local_relopts *</type>) returns
    significantly.  Overall query throughput may increase
    significantly.  The overhead of routine index vacuuming may also be
    reduced significantly.
+-->
+重複排除は重複タプルのグループを定期的に合併して、各グループに対する単一の<firstterm>ポスティングリスト</firstterm>タプルを形成することで機能します。
+この表現方法では列のキー値は一度だけ現れます。
+テーブルの行を指す<acronym>TID</acronym>のソートされた配列がこれに続きます。
+概して各値（あるいは列値の異なる組み合わせ）が複数回出現する場合に、これは顕著にインデックスの格納サイズを減らします。
+問い合わせの遅延も顕著に削減できます。
+全体的な問い合わせのスループットも顕著に増加するかもしれません。
+インデックスのバキューム処理のオーバーヘッドも顕著に削減されるかもしれません。
   </para>
   <note>
    <para>
+<!--
     B-Tree deduplication is just as effective with
     <quote>duplicates</quote> that contain a NULL value, even though
     NULL values are never equal to each other according to the
@@ -761,9 +939,13 @@ options(<replaceable>relopts</replaceable> <type>local_relopts *</type>) returns
     as any part of the implementation that understands the on-disk
     B-Tree structure is concerned, NULL is just another value from the
     domain of indexed values.
+-->
+B-Tree重複排除は、B-Tree演算子クラスの<literal>=</literal>項に従ってNULL値が決して互いに等しくならないとしても、NULL値を含む<quote>重複</quote>に効果的です。
+ディスク上のB-Tree構造を解するいかなる実装部分に関しても、NULLはまさにインデックス値の定義域以外の一つの値です。
    </para>
   </note>
   <para>
+<!--
    The deduplication process occurs lazily, when a new item is
    inserted that cannot fit on an existing leaf page.  This prevents
    (or at least delays) leaf page splits.  Unlike GIN posting list
@@ -774,8 +956,15 @@ options(<replaceable>relopts</replaceable> <type>local_relopts *</type>) returns
    mixed read-write workloads.  Most client applications will at least
    see a moderate performance benefit from using deduplication.
    Deduplication is enabled by default.
+-->
+既存のリーフページにはめ込みできない新たな要素が挿入されたとき、重複排除の処理は怠惰に実行されます。
+これはリーフページの分割を防止（あるいは少なくとも遅延）します。
+GINのポスティングリストのタプルと違って、B-Treeのポスティングリストのタプルは新たな重複が挿入される度に拡張する必要がありません。それらはリーフページの元の論理内容に対する単なる代替の物理表現にすぎません。
+この設計は読み書き混合のワークロードでの性能の一貫性を重視しています。
+ほとんどのクライアントアプリケーションは重複排除を使うことで少なくとも控えめな性能の恩恵を確認することができるでしょう。
   </para>
   <para>
+<!--
    <command>CREATE INDEX</command> and <command>REINDEX</command>
    apply deduplication to create posting list tuples, though the
    strategy they use is slightly different.  Each group of duplicate
@@ -788,8 +977,15 @@ options(<replaceable>relopts</replaceable> <type>local_relopts *</type>) returns
    strategy is well-suited to <command>CREATE INDEX</command> and
    <command>REINDEX</command> because they are once-off batch
    operations.
+-->
+<command>CREATE INDEX</command>と<command>REINDEX</command>は、使用する手順が若干異なりますが、ポスティングリストタプルを作って重複排除を適用します。
+テーブルから取得されてソートされた入力で遭遇した重複した通常タプルの各グループは、現在のペンディングリーフページに追加される<emphasis>前に</emphasis>、ポスティングリストタプルにマージされます。
+個別のポスティングリストタプルには、可能な限り多数の<acronym>TID</acronym>が詰め込まれます。
+リーフページは、重複排除用の別パスではなく、通常の方法で書き出されます。
+この戦略は<command>CREATE INDEX</command>と<command>REINDEX</command>に良く適合します。これらは1回で終わるバッチ操作であるからです。
   </para>
   <para>
+<!--
    Write-heavy workloads that don't benefit from deduplication due to
    having few or no duplicate values in indexes will incur a small,
    fixed performance penalty (unless deduplication is explicitly
@@ -799,8 +995,14 @@ options(<replaceable>relopts</replaceable> <type>local_relopts *</type>) returns
    workloads, since reading posting list tuples is at least as
    efficient as reading the standard tuple representation.  Disabling
    deduplication isn't usually helpful.
+-->
+インデックスの値に重複が無いか殆ど無いために重複排除から利益を得られない、書き込みの多いワークロードには、（重複排除が明示的に無効化されて居ない限り）固定のペナルティによる小さい負荷増があります。
+<literal>deduplicate_items</literal>格納パラメータは個別のインデックス内で重複排除を無効化するのに使うことができます。
+ポスティングリストタプルの読み込みは少なくとも通常タプル表現の読み込み程度に効率的であるため、読み込みのみのワークロードで性能ペナルティは一切ありません
+通常は重複排除を無効化することは有益ではありません。
   </para>
   <para>
+<!--
    B-Tree indexes are not directly aware that under MVCC, there might
    be multiple extant versions of the same logical table row; to an
    index, each tuple is an independent object that needs its own index
@@ -820,9 +1022,20 @@ options(<replaceable>relopts</replaceable> <type>local_relopts *</type>) returns
    give <command>VACUUM</command> more time to run before an
    <quote>unnecessary</quote> page split caused by version churn can
    take place.
+-->
+B-Treeインデックスは、MVCC下で同じ論理テーブル行が複数バージョン存在していることを、直接には認識していません。
+インデックスにとっては、各タプルは自身のインデックスエントリを必要とする独立したオブジェクトです。
+<quote>バージョン重複</quote>は時に積み重なって問い合わせのレイテンシとスループットに不利に作用するかもしれません。
+これは典型的には、（しばしば一つ以上のインデックス列が変更されて、新たなインデックスタプルバージョンの一式 &mdash; <emphasis>それぞれの</emphasis>インデックスに対するもの、の設置が必要となるために）大部分の各更新が<acronym>HOT</acronym>を適用できない<command>UPDATE</command>が重たいワークロードで発生します。
+実際のところ、B-Treeの重複排除はバージョンの大量発生によるインデックス膨張を改善します。
+一意インデックスのタプルであっても、バージョン重複のため、ディスクに格納されるときに<emphasis>物理的に</emphasis>一意とは限らないことに注意してください。
+重複排除の最適化は一意性インデックス内に選択的に適用されます。
+バージョン重複を持つと見られるページが対象となります。
+高位の目標は、起こりうるバージョン大量発生によって生じる<quote>不要な</quote>ページ分割の前により多く<command>VACUUM</command>実行を施すことです。
   </para>
   <tip>
    <para>
+<!--
     A special heuristic is applied to determine whether a
     deduplication pass in a unique index should take place.  It can
     often skip straight to splitting a leaf page, avoiding a
@@ -831,80 +1044,120 @@ options(<replaceable>relopts</replaceable> <type>local_relopts *</type>) returns
     consider setting <literal>deduplicate_items = off</literal>
     selectively.  Leaving deduplication enabled in unique indexes has
     little downside.
+-->
+一意性インデックスで重複排除パスを実行すべきかどうかの判断には、特別なヒューリスティックが適用されます。
+これは、しばしばリーフページ分割まで連続してスキップして、無益な重複排除パスでの無駄なサイクルによる性能ペナルティを回避できます。
+重複排除のオーバーヘッドを懸念するなら、選択的に設定<literal>deduplicate_items = off</literal>を検討してください。
+一意性インデックスでは重複排除を無効にすることに不都合はありません。
    </para>
   </tip>
   <para>
+<!--
    Deduplication cannot be used in all cases due to
    implementation-level restrictions.  Deduplication safety is
    determined when <command>CREATE INDEX</command> or
    <command>REINDEX</command> is run.
+-->
+実装レベルの制限により、重複排除は全ての場合に使えるわけではありません。
+重複排除の安全性は<command>CREATE INDEX</command>あるいは<command>REINDEX</command>が実行されたときに決定されます。
   </para>
   <para>
+<!--
    Note that deduplication is deemed unsafe and cannot be used in the
    following cases involving semantically significant differences
    among equal datums:
+-->
+等しいデータの間で意味的に明らかな違いを伴う以下の場合には、重複排除は安全でないと見做されて使用できないことに注意してください。
   </para>
   <para>
    <itemizedlist>
     <listitem>
      <para>
+<!--
       <type>text</type>, <type>varchar</type>, and <type>char</type>
       cannot use deduplication when a
       <emphasis>nondeterministic</emphasis> collation is used.  Case
       and accent differences must be preserved among equal datums.
+-->
+<emphasis>非決定的な</emphasis>照合順序が使われているとき<type>text</type>、<type>varchar</type>、および、<type>char</type>は重複排除を使えません。
+等しいデータの間で大文字小文字やアクセントの違いが維持されなければなりません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       <type>numeric</type> cannot use deduplication.  Numeric display
       scale must be preserved among equal datums.
+-->
+<type>numeric</type>は重複排除を使えません。
+等しいデータの間で数の表示スケールが維持されなければなりません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       <type>jsonb</type> cannot use deduplication, since the
       <type>jsonb</type> B-Tree operator class uses
       <type>numeric</type> internally.
+-->
+<type>jsonb</type>のB-Tree演算子クラスは内部的に<type>numeric</type>を使っているため、<type>jsonb</type>は重複排除を使えません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       <type>float4</type> and <type>float8</type> cannot use
       deduplication.  These types have distinct representations for
       <literal>-0</literal> and <literal>0</literal>, which are
       nevertheless considered equal.  This difference must be
       preserved.
+-->
+<type>float4</type>および<type>float8</type>は重複排除を使えません。
+これらの型は<literal>-0</literal>と<literal>0</literal>に異なる表現を持ち、にもかかわらずこれらは等しいと見做されます。
+この違いは維持されなければなりません。
      </para>
     </listitem>
    </itemizedlist>
   </para>
   <para>
+<!--
    There is one further implementation-level restriction that may be
    lifted in a future version of
    <productname>PostgreSQL</productname>:
+-->
+さらに以下の実装レベルの制限があります。これは<productname>PostgreSQL</productname>の将来バージョンで解消されるかもしれません。
   </para>
   <para>
    <itemizedlist>
     <listitem>
      <para>
+<!--
       Container types (such as composite types, arrays, or range
       types) cannot use deduplication.
+-->
+コンテナ型（複合型、配列型、あるいは、範囲型など）は、重複排除を使えません。
      </para>
     </listitem>
    </itemizedlist>
   </para>
   <para>
+<!--
    There is one further implementation-level restriction that applies
    regardless of the operator class or collation used:
+-->
+さらに以下の実装レベルの制限があります。これは使われている演算子クラスや照合順序にかかわりなく該当します。
   </para>
   <para>
    <itemizedlist>
     <listitem>
      <para>
+<!--
       <literal>INCLUDE</literal> indexes can never use deduplication.
+-->
+      <literal>INCLUDE</literal>インデックスには重複排除は使えません。
      </para>
     </listitem>
    </itemizedlist>
