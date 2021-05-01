@@ -14,7 +14,7 @@ PostgreSQL documentation
 <!--
   <refmiscinfo>SQL - Language Statements</refmiscinfo>
 -->
-<refmiscinfo>SQL - 言語</refmiscinfo>
+  <refmiscinfo>SQL - 言語</refmiscinfo>
  </refmeta>
 
  <refnamediv>
@@ -268,8 +268,8 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
       or <command>UPDATE</command> commands; it does not cause rows already
       in the table to change.
 -->
-これらの構文を使用すると、列のデフォルト値を設定または削除できます。
-デフォルト値は、変更後に行われる<command>INSERT</command>または<command>UPDATE</command>コマンドにのみ適用されます。
+これらの構文を使用すると、列のデフォルト値を設定または削除できます(ここで、削除はデフォルト値をNULLに設定することと等価です)。
+新しいデフォルト値は、変更後に行われる<command>INSERT</command>または<command>UPDATE</command>コマンドにのみ適用されます。
 テーブル内の既存の行は変更されません。
      </para>
     </listitem>
@@ -283,7 +283,7 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
       These forms change whether a column is marked to allow null
       values or to reject null values.
 -->
-これらの構文は、列の値としてNULL値を使用できるかどうか設定します。
+これらの構文は、列の値としてNULL値を認めるか拒絶するかを変更します。
      </para>
 
      <para>
@@ -323,15 +323,23 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
     <term><literal>DROP EXPRESSION [ IF EXISTS ]</literal></term>
     <listitem>
      <para>
+<!--
       This form turns a stored generated column into a normal base column.
       Existing data in the columns is retained, but future changes will no
       longer apply the generation expression.
+-->
+この構文は、格納された生成列を通常の基本列に変換します。
+列の既存のデータは保持されますが、以後の変更はもはや生成式を適用しません。
      </para>
 
      <para>
+<!--
       If <literal>DROP EXPRESSION IF EXISTS</literal> is specified and the
       column is not a stored generated column, no error is thrown.  In this
       case a notice is issued instead.
+-->
+<literal>DROP EXPRESSION IF EXISTS</literal>が指定され、その列が格納された生成列でない場合は、エラーを発生させません。
+この場合、注意メッセージが発行されます。
      </para>
     </listitem>
    </varlistentry>
@@ -353,6 +361,8 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
 -->
 この構文では、列がIDENTITY列であるかどうか、または既存のIDENTITY列の生成属性を変更することができます。
 詳細は<xref linkend="sql-createtable"/>を参照してください。
+<literal>SET DEFAULT</literal>同様に、この構文は、変更後に行われる<command>INSERT</command>または<command>UPDATE</command>コマンドにのみ適用されます。
+テーブル内の既存の行は変更されません。
      </para>
 
      <para>
@@ -829,7 +839,7 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
 これらの構文は、テーブルの行セキュリティポリシーの適用を制御します。
 有効にされ、かつテーブルにポリシーが存在しない場合は、デフォルトの拒絶ポリシーが適用されます。
 行単位セキュリティが無効になっている場合でも、テーブルのセキュリティが存在し得ることに注意してください。
-この場合、ポリシーは適用されず、無視されます。
+この場合、ポリシーは適用<emphasis>されず</emphasis>、無視されます。
 <xref linkend="sql-createpolicy"/>も参照してください。
      </para>
     </listitem>
@@ -931,7 +941,7 @@ clusterオプションの変更は<literal>SHARE UPDATE EXCLUSIVE</literal>ロ�
 この構文を使用すると、テーブルのテーブル空間を指定したテーブル空間に変更し、テーブルに関連するデータファイルを新しいテーブル空間に移動することができます。
 テーブルにインデックスがあっても移動されません。
 インデックスを移動するには、別途<literal>SET TABLESPACE</literal>コマンドを実行します。
-パーティションテーブルに適用された場合には何も移動されませんが、以後<command>CREATE TABLE PARTITION OF</command>で作られるパーティションは、<literal>TABLESPACE</literal>句を使って上書きしない限り、そのテーブル空間を使うようになります。
+パーティションテーブルに適用された場合には何も移動されませんが、以後<command>CREATE TABLE PARTITION OF</command>で作られるパーティションは、<literal>TABLESPACE</literal>句により上書きされない限り、そのテーブル空間を使うようになります。
      </para>
 
      <para>
@@ -995,7 +1005,7 @@ clusterオプションの変更は<literal>SHARE UPDATE EXCLUSIVE</literal>ロ�
       affected.
 -->
 この構文は、1つ以上のテーブルの格納パラメータを変更します。
-設定可能なパラメータの詳細に関しては<xref linkend="sql-createtable-storage-parameters"/>を参照してください。
+設定可能なパラメータの詳細に関しては<xref linkend="sql-createtable"/>文書の<xref linkend="sql-createtable-storage-parameters"/>を参照してください。
 このコマンドによってテーブルの内容が即座に変更されない点に注意してください。
 パラメータによりますが、期待する効果を得るためにテーブルを書き換える必要がある場合があります。
 このためには、<link linkend="sql-vacuum">VACUUM FULL</link>、<xref linkend="sql-cluster"/>またはテーブルを強制的に書き換える<command>ALTER TABLE</command>の構文のいずれかを使用してください。
@@ -1308,13 +1318,6 @@ fillfactor、TOAST、およびautovacuumのストレージパラメータおよ�
       to be attached and on the default partition (if any).
 -->
 パーティションの追加は、追加されるテーブルと（もしあれば）デフォルトパーティションでの<literal>ACCESS EXCLUSIVE</literal>ロックに加えて、親テーブルで<literal>SHARE UPDATE EXCLUSIVE</literal>ロックを取得します。
-     </para>
-
-     <para>
-      Attaching a partition acquires a
-      <literal>SHARE UPDATE EXCLUSIVE</literal> lock on the parent table,
-      in addition to <literal>ACCESS EXCLUSIVE</literal> locks on the table
-      to be attached and on the default partition (if any).
      </para>
     </listitem>
    </varlistentry>
@@ -1957,39 +1960,55 @@ IDENTITY列についての操作（<literal>ADD GENERATED</literal>、<literal>S
 <programlisting>
 ALTER TABLE distributors ADD COLUMN address varchar(30);
 </programlisting>
+<!---
    That will cause all existing rows in the table to be filled with null
    values for the new column.
+-->
+これは表の既存の行すべてで、新しい列をNULL値で埋めることになります。
   </para>
 
   <para>
+<!--
    To add a column with a non-null default:
+-->
+デフォルトが非NULLの列を追加します。
 <programlisting>
 ALTER TABLE measurements
   ADD COLUMN mtime timestamp with time zone DEFAULT now();
 </programlisting>
+<!--
    Existing rows will be filled with the current time as the value of the
    new column, and then new rows will receive the time of their insertion.
+-->
+既存の行では、新しい列の値として現在時刻が入ります。また、新しい行では挿入時刻を受け取ります。
   </para>
 
   <para>
+<!--
    To add a column and fill it with a value different from the default to
    be used later:
+-->
+列を追加して、後で使われるデフォルトとは異なる値で埋めます。
 <programlisting>
 ALTER TABLE transactions
   ADD COLUMN status varchar(30) DEFAULT 'old',
   ALTER COLUMN status SET default 'current';
 </programlisting>
+<!---
    Existing rows will be filled with <literal>old</literal>, but then
    the default for subsequent commands will be <literal>current</literal>.
    The effects are the same as if the two sub-commands had been issued
    in separate <command>ALTER TABLE</command> commands.
+-->
+既存の行は<literal>old</literal>で埋められますが、後続のコマンドに対するデフォルトは<literal>current</literal>になります。
+別々の<command>ALTER TABLE</command>コマンドで2つの副コマンドを発行する場合と、効果は同じです。
   </para>
 
   <para>
 <!--
    To drop a column from a table:
 -->
-   テーブルから列を削除します。
+テーブルから列を削除します。
 <programlisting>
 ALTER TABLE distributors DROP COLUMN address RESTRICT;
 </programlisting>
