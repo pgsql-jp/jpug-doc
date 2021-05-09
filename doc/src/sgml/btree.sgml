@@ -337,7 +337,7 @@ btree演算子族が満たさなければならない基本的な前提条件が
      <filename>src/backend/access/nbtree/nbtcompare.c</filename> for
      examples.
 -->
-btreeの演算子族が比較演算子を提供する各データ型の組み合わせに対して、比較サポート関数を提供しなければなりません。それらはサポート関数1番で<structname>pg_amproc</structname>に、また、比較での左右のデータ型と等しい<structfield>amproclefttype</structfield>/<structfield>amprocrighttype</structfield>に、登録されます（すなわち、演算子と一致する同じデータ型は<structname>pg_amop</structname>に登録されます）。
+btreeの演算子族が比較演算子を提供する各データ型の組み合わせに対して、比較サポート関数を提供しなければなりません。それらはサポート関数1番で<structname>pg_amproc</structname>に、また、比較での左右のデータ型と等しい<structfield>amproclefttype</structfield>/<structfield>amprocrighttype</structfield>に、登録されます（すなわち、<structname>pg_amop</structname>に登録されている演算子が対応するものと同じデータ型です。）。
 比較関数は2つの非NULL値<replaceable>A</replaceable>と<replaceable>B</replaceable>を取り、
 <replaceable>A</replaceable> <literal>&lt;</literal> <replaceable>B</replaceable>、<replaceable>A</replaceable> <literal>=</literal> <replaceable>B</replaceable>、または、<replaceable>A</replaceable> <literal>&gt;</literal> <replaceable>B</replaceable>であるときにそれぞれ、<literal>&lt;</literal> <literal>0</literal>、<literal>0</literal>、または、<literal>&gt;</literal> <literal>0</literal>である<type>int32</type>の値を返さなければなりません。
 NULLの結果は許されず、データ型の全ての値は比較可能でなければなりません。
@@ -370,6 +370,7 @@ NULLの結果は許されず、データ型の全ての値は比較可能でな�
 -->
 任意で、btree演算子族は<firstterm>ソートサポート</firstterm>関数を提供してもよいです。これはサポート関数2番で登録されます。
 この関数は、素朴に比較サポート関数を呼び出すよりも、ソート目的により効果的な方法での比較の実装を可能にします。
+これに関するAPIは<filename>src/include/utils/sortsupport.h</filename>で定義されています。
     </para>
    </listitem>
   </varlistentry>
@@ -407,7 +408,7 @@ NULLの結果は許されず、データ型の全ての値は比較可能でな�
      compatible with the family's data ordering.
 -->
 任意で、btree演算子族は<firstterm>in_range</firstterm>サポート関数を提供してもよいです。これはサポート関数3番に登録されます。
-これはbtreeインデックス操作中には使われません。どちらかといえば、演算子族のセマンティクスを<literal>RANGE</literal> <replaceable>offset</replaceable> <literal>PRECEDING</literal>と<literal>RANGE</literal> <replaceable>offset</replaceable> <literal>FOLLOWING</literal>フレーム境界タイプ（<xref linkend="syntax-window-functions"/>を参照）を含むWINDOW句に対応できるように拡張します。
+これはbtreeインデックス操作中には使われません。そうではなく、演算子族のセマンティクスを<literal>RANGE</literal> <replaceable>offset</replaceable> <literal>PRECEDING</literal>と<literal>RANGE</literal> <replaceable>offset</replaceable> <literal>FOLLOWING</literal>フレーム境界タイプ（<xref linkend="syntax-window-functions"/>を参照）を含むWINDOW句に対応できるように拡張します。
 基本的には、提供される拡張情報はどのように演算子族のデータ並び順と互換性のある方法で<replaceable>offset</replaceable>値を足すか引くかです。
     </para>
 
@@ -618,7 +619,7 @@ returns bool
      <function>in_range</function> function, using the standard
      PG_GET_COLLATION() mechanism.
 -->
-整列されている型(<type>type1</type>)が照合可能であるなら、標準のPG_GET_COLLATION()機構を使って、<function>in_range</function>関数に適切な照合順序のOIDが渡されます。
+整列しようとしている型(<type>type1</type>)が照合可能であるなら、標準のPG_GET_COLLATION()機構を使って、<function>in_range</function>関数に適切な照合順序のOIDが渡されます。
     </para>
 
     <para>
@@ -643,8 +644,8 @@ returns bool
      optimization.  Currently, <function>equalimage</function>
      functions are only called when building or rebuilding an index.
 -->
-省略可能ですが、btree演算子族は<function>equalimage</function> (<quote>イメージ等価を含む等価</quote>)サポート関数を提供してもよいです。これはサポート関数4番で登録されます。
-この関数は、コアコードがbtree重複排除の最適化を適用するのが安全かを決定できるようにします。
+省略可能ですが、btree演算子族は<function>equalimage</function> (<quote>イメージ等価を意味する等価</quote>)サポート関数を提供してもよいです。これはサポート関数4番で登録されます。
+この関数は、中核コードがbtree重複排除の最適化を適用するのが安全かを決定できるようにします。
 今のところ、<function>equalimage</function>関数はインデックスの構築または再構築時にのみ呼び出されます。
     </para>
     <para>
@@ -671,6 +672,7 @@ equalimage(<replaceable>opcintype</replaceable> <type>oid</type>) returns bool
 </synopsis>
 戻り値は演算子クラスと照合順序についての静的な情報です。
 <literal>true</literal>を返すことは、<replaceable>A</replaceable>および<replaceable>B</replaceable>引数が何らセマンティック情報を損失すること無しに交換可能でもあるとき、演算子クラスに対する<function>order</function>関数が<literal>0</literal>（<quote>引数が等しい</quote>）だけを返すことが保証されていることを示します。
+<function>equalimage</function>関数が登録されていなかったり、<literal>false</literal>を返すことは、この条件は守られないであろうことを示します。
     </para>
     <para>
 <!--
