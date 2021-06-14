@@ -41,25 +41,34 @@
    available functions and operators, respectively.
 -->
 <productname>PostgreSQL</productname>は組み込みデータ型に対して数多くの関数と演算子を用意しています。
+この章ではそのほとんどについて説明しますが、特殊用途の関数はマニュアルの関連する節に記載しています。
 また、<xref linkend="server-programming"/>で解説しているように、ユーザは独自の関数と演算子を定義することもできます。
 <application>psql</application>の<command>\df</command>コマンドと<command>\do</command>コマンドはそれぞれ全ての使用可能な関数と演算子をリストするのに使用されます。
   </para>
 
   <para>
+<!--
    The notation used throughout this chapter to describe the argument and
    result data types of a function or operator is like this:
+-->
+この章全体で関数と演算子の引数と返り値のデータ型の記述は以下のようになります。
 <synopsis>
 <function>repeat</function> ( <type>text</type>, <type>integer</type> ) <returnvalue>text</returnvalue>
 </synopsis>
+<!--
    which says that the function <function>repeat</function> takes one text and
    one integer argument and returns a result of type text.  The right arrow
    is also used to indicate the result of an example, thus:
+-->
+つまり関数<function>repeat</function>は、一つのテキスト型と一つの整数型の引数を取り、テキスト型の結果を返します。
+また、右矢印を使ってある例の結果を示します。ですから、以下のようになります。
 <programlisting>
 repeat('Pg', 4) <returnvalue>PgPgPgPg</returnvalue>
 </programlisting>
   </para>
 
   <para>
+<!--
    If you are concerned about portability then note that most of
    the functions and operators described in this chapter, with the
    exception of the most trivial arithmetic and comparison operators
@@ -68,6 +77,9 @@ repeat('Pg', 4) <returnvalue>PgPgPgPg</returnvalue>
    is present in other <acronym>SQL</acronym> database management
    systems, and in many cases this functionality is compatible and
    consistent between the various implementations.
+-->
+もし移植性が気になるのであれば、最も基本的な算術および比較演算子と、いくつかの明示的に印を付けた関数を除き、本章で説明する大多数の関数と演算子は、標準<acronym>SQL</acronym>で規定されていない点に注意してください。
+この拡張機能のいくつかは、他の<acronym>SQL</acronym>データベース管理システムにも備わっており、多くの場合この機能には各種実装間で互換性と整合性があります。
   </para>
 
 &func1;
@@ -75,124 +87,3 @@ repeat('Pg', 4) <returnvalue>PgPgPgPg</returnvalue>
 &func3;
 &func4;
 <!-- split-func0-end -->
-
-  <sect1 id="functions-statistics">
-<!--
-   <title>Statistics Information Functions</title>
--->
-   <title>統計情報関数</title>
-
-   <indexterm zone="functions-statistics">
-<!--
-    <primary>function</primary>
-    <secondary>statistics</secondary>
--->
-    <primary>関数</primary>
-    <secondary>統計</secondary>
-   </indexterm>
-
-   <para>
-<!--
-    <productname>PostgreSQL</productname> provides a function to inspect complex
-    statistics defined using the <command>CREATE STATISTICS</command> command.
--->
-<productname>PostgreSQL</productname>は<command>CREATE STATISTICS</command>コマンドを使って定義した複雑な統計を調べる関数を提供しています。
-   </para>
-
-  <sect2 id="functions-statistics-mcv">
-   <title>Inspecting MCV Lists</title>
-
-   <indexterm>
-    <primary>pg_mcv_list_items</primary>
-   </indexterm>
-
-<synopsis>
-<function>pg_mcv_list_items</function> ( <type>pg_mcv_list</type> ) <returnvalue>setof record</returnvalue>
-</synopsis>
-
-   <para>
-    <function>pg_mcv_list_items</function> returns a set of records describing
-    all items stored in a multi-column <acronym>MCV</acronym> list.  It
-    returns the following columns:
-
-    <informaltable>
-     <tgroup cols="3">
-      <thead>
-       <row>
-<!--
-        <entry>Name</entry>
-        <entry>Type</entry>
-        <entry>Description</entry>
--->
-        <entry>名前</entry>
-        <entry>型</entry>
-        <entry>説明</entry>
-       </row>
-      </thead>
-
-      <tbody>
-       <row>
-        <entry><literal>index</literal></entry>
-        <entry><type>integer</type></entry>
-<!--
-        <entry>index of the item in the <acronym>MCV</acronym> list</entry>
--->
-        <entry><acronym>MCV</acronym>リスト内の項目のインデックス</entry>
-       </row>
-       <row>
-        <entry><literal>values</literal></entry>
-        <entry><type>text[]</type></entry>
-<!--
-        <entry>values stored in the MCV item</entry>
--->
-        <entry>MCV項目に格納された値</entry>
-       </row>
-       <row>
-        <entry><literal>nulls</literal></entry>
-        <entry><type>boolean[]</type></entry>
-<!--
-        <entry>flags identifying <literal>NULL</literal> values</entry>
--->
-        <entry><literal>NULL</literal>値を識別するフラグ</entry>
-       </row>
-       <row>
-        <entry><literal>frequency</literal></entry>
-        <entry><type>double precision</type></entry>
-<!--
-        <entry>frequency of this <acronym>MCV</acronym> item</entry>
--->
-        <entry>この<acronym>MCV</acronym>項目の頻度</entry>
-       </row>
-       <row>
-        <entry><literal>base_frequency</literal></entry>
-        <entry><type>double precision</type></entry>
-<!--
-        <entry>base frequency of this <acronym>MCV</acronym> item</entry>
--->
-        <entry>この<acronym>MCV</acronym>項目のベース頻度</entry>
-       </row>
-      </tbody>
-     </tgroup>
-    </informaltable>
-   </para>
-
-   <para>
-<!--
-    The <function>pg_mcv_list_items</function> function can be used like this:
--->
-<function>pg_mcv_list_items</function>関数は次のように使用することができます。
-
-<programlisting>
-SELECT m.* FROM pg_statistic_ext join pg_statistic_ext_data on (oid = stxoid),
-                pg_mcv_list_items(stxdmcv) m WHERE stxname = 'stts';
-</programlisting>
-
-    Values of the <type>pg_mcv_list</type> type can be obtained only from the
-    <structname>pg_statistic_ext_data</structname>.<structfield>stxdmcv</structfield>
-    column.
-   </para>
-  </sect2>
-
-  </sect1>
-
-</chapter>
