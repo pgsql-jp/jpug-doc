@@ -2474,7 +2474,8 @@ ALTER TABLE products RENAME TO items;
    (However, like all privileges, that right can be inherited by
    members of the owning role; see <xref linkend="role-membership"/>.)
 -->
-オブジェクトの変更や削除の権限は常に所有者のみに与えられるものです。
+オブジェクトの変更や削除の権限は所有者に固有のもので、それ自体を許可したり取り消したりはできません
+（しかし、すべての権限同様、その権限を所有者のロールのメンバーが継承することはできます。<xref linkend="role-membership"/>をご覧ください）。
   </para>
 
   <para>
@@ -2531,7 +2532,7 @@ GRANT UPDATE ON accounts TO joe;
    To revoke a previously-granted privilege, use the fittingly named
    <xref linkend="sql-revoke"/> command:
 -->
-権限を取り消す(revoke)には、それに相応しい名前の<xref linkend="sql-revoke"/>コマンドを使用します。
+以前与えられた権限を取り消す(revoke)には、それに相応しい名前の<xref linkend="sql-revoke"/>コマンドを使用します。
 <programlisting>
 REVOKE ALL ON accounts FROM PUBLIC;
 </programlisting>
@@ -2555,10 +2556,14 @@ REVOKE ALL ON accounts FROM PUBLIC;
   </para>
 
   <para>
+<!--
    An object's owner can choose to revoke their own ordinary privileges,
    for example to make a table read-only for themselves as well as others.
    But owners are always treated as holding all grant options, so they
    can always re-grant their own privileges.
+-->
+オブジェクトの所有者は、所有する通常の権限を削除することを選択できます。たとえば、他のものと同様、自身のためにテーブルを読み取り専用にできます。
+しかし、所有者は常にすべての付与オプションを持つものとして扱われます。ですから、いつでも自身の権限を再び付与することができます。
   </para>
 
   <para>
@@ -2704,7 +2709,7 @@ REVOKE ALL ON accounts FROM PUBLIC;
        the database, and allows trusted extensions to be installed within
        the database.
 -->
-データベースに対して、データベース内に新しいスキーマとパブリケーションを作ることを許可します。
+データベースに対して、データベース内に新しいスキーマとパブリケーションを作ること、信頼できる拡張をデータベース内に作成することを許可します。
       </para>
       <para>
 <!--
@@ -2723,11 +2728,13 @@ REVOKE ALL ON accounts FROM PUBLIC;
        have the tablespace as their default tablespace.
 -->
 テーブル空間に対しては、そのテーブル空間内にテーブル、インデックス、一時ファイルを作ることを許可し、そのテーブル空間をデフォルトのテーブル空間として持つデータベースを作ることを許可します。
-（この権限を剥奪しても既存のオブジェクトの配置を変更しないことに注意してください。）
       </para>
       <para>
+<!--
        Note that revoking this privilege will not alter the existence or
        location of existing objects.
+-->
+この権限を剥奪しても既存のオブジェクトの存在、あるいはその配置を変更しないことに注意してください。
       </para>
      </listitem>
     </varlistentry>
@@ -5137,6 +5144,10 @@ VALUES ('Albany', NULL, NULL, 'NY');
    in the query; and in that case, any policies attached to its parent(s) are
    ignored.
 -->
+継承された問い合わせは、親テーブルのみアクセス権限を検査します。
+つまり、例えば、<literal>UPDATE</literal>権限を<structname>cities</structname>テーブルに付与することは、<structname>cities</structname>テーブルを通じてアクセスする場合に、<structname>capitals</structname>テーブルにも行の更新権限を付与することを意味します。
+これによりデータが親テーブルに（も）あるように見えることが保たれます。
+しかし、<structname>capitals</structname>テーブルは、追加権限なしに直接更新することはできません。
 同様に、親テーブルの行セキュリティポリシー（<xref linkend="ddl-rowsecurity"/>を参照してください）が、継承された問い合わせの時に子テーブルの行に適用されます。
 子テーブルのポリシー（あれば）は、問い合わせにて明示的に指定されたテーブルである時にのみ適用されます。
 そしてこの場合、親テーブルに紐付けられたあらゆるポリシーは無視されます。
@@ -5973,7 +5984,7 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
      after <command>ATTACH PARTITION</command> is finished.
 -->
 <command>ATTACH PARTITION</command>コマンドを実行する前に、マッチするパーティション制約を記述する<literal>CHECK</literal>制約を、パーティションに追加するテーブルに作成することを推奨します。
-こうすることで、システムは暗示的なパーティション制約を検証するための走査を省略することができます。
+こうすることで、システムは、そうしなければ必要になる暗示的なパーティション制約を検証するための走査を、省略することができます。
 このような制約がなければ、そのパーティションに<literal>ACCESS EXCLUSIVE</literal>ロック、親テーブルに<literal>SHARE UPDATE EXCLUSIVE</literal>を保持したままで、パーティション制約を検証するためにテーブルを走査することになります。
 この制約は<command>ATTACH PARTITION</command>が終わった後に削除するのが望ましいかも知れません。
     </para>
@@ -6064,7 +6075,7 @@ ALTER INDEX measurement_city_id_logdate_key
        <productname>PostgreSQL</productname> can only enforce
        uniqueness in each partition individually.
 -->
-パーティションテーブル上の一意制約は、すべてのパーティションキー列を含んでいなければなりません。
+パーティションテーブル上の一意制約（したがって主キーも）は、すべてのパーティションキー列を含んでいなければなりません。
 <productname>PostgreSQL</productname>が各パーティションの一意性を個別に強制するために、この制限は存在します。
       </para>
      </listitem>
@@ -6075,7 +6086,7 @@ ALTER INDEX measurement_city_id_logdate_key
        <literal>BEFORE ROW</literal> triggers cannot change which partition
        is the final destination for a new row.
 -->
-<literal>BEFORE ROW</literal>トリガーが必要であれば、パーティションテーブルではなく、個々のパーティションに定義されなければなりなません。
+<literal>BEFORE ROW</literal>トリガーは、どのパーティションが新しい行の最終目的地であるかを変更することはできません。
       </para>
      </listitem>
 
