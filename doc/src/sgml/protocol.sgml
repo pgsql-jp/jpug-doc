@@ -24,7 +24,7 @@
   the customary TCP port number for servers supporting this protocol, but
   in practice any non-privileged port number can be used.
 -->
-<application>PostgreSQL</application>はフロントエンドとバックエンド（クライアントとサーバ）の通信にメッセージベースのプロトコルを使用します。
+<productname>PostgreSQL</productname>はフロントエンドとバックエンド（クライアントとサーバ）の通信にメッセージベースのプロトコルを使用します。
 このプロトコルは<acronym>TCP/IP</acronym>に加え、Unixドメインソケットをサポートします。
 ポート番号5432は、このプロトコルをサポートするサーバ用のTCPポートとしてIANAに登録されています。
 しかし、実際には任意の非特権ポート番号を使用することができます。
@@ -49,7 +49,7 @@
   to continue with the connection using the specified protocol version or
   to abort the connection.
 -->
-この文書は<application>PostgreSQL</application> 7.4以降で実装されたプロトコル3.0バージョンについて記載します。
+この文書は<productname>PostgreSQL</productname> 7.4以降で実装されたプロトコル3.0バージョンについて記載します。
 以前のプロトコルバージョンについての説明は、<productname>PostgreSQL</productname>の以前のリリースの文書を参照してください。
 単一のサーバが複数のプロトコルバージョンをサポートできます。
 初めの開始要求メッセージは、サーバに対し、クライアントが使用する予定のプロトコルバージョンを通知します。
@@ -2444,7 +2444,7 @@ ErrorMessage.
    binding <literal>SCRAM-SHA-256-PLUS</literal>. They are described in
    detail in RFC 7677 and RFC 5802.
 -->
-今のところ実装されているSASL機構は<firstterm>SCRAM-SHA-256</firstterm>とチャンネルバインディングを伴う変種の<literal>SCRAM-SHA-256-PLUS</literal>です。
+今のところ実装されているSASL機構は<literal>SCRAM-SHA-256</literal>とチャンネルバインディングを伴う変種の<literal>SCRAM-SHA-256-PLUS</literal>です。
 詳細はRFC 7677およびRFC 5802で説明されています。
   </para>
 
@@ -3075,7 +3075,7 @@ The commands accepted in replication mode are:
 クライアントもCOPYモードを出ることにより承認した場合、サーバは2列単一行の結果セットを送付し、サーバにある次のタイムラインを示します。
 最初の列は次のタイムラインID(<type>int8</type>型)であり、次の列は切り替えたWALの位置(<type>text</type>型)です。
 通常切り替えた位置はWALストリームの終点ですが、昇格する前に再実行されなかった旧タイムラインからWALを送付するというまれな場合もあります。
-最後に、サーバはCommandCompleteメッセージを送付し、新規のコマンドを受理できるようになります。
+最後に、サーバは２つのCommandCompleteメッセージ（一方はCopyDataを終了し、もう一方は<literal>START_REPLICATION</literal>自体を終了する）を送付し、新規のコマンドを受理できるようになります。
      </para>
 
      <para>
@@ -3502,7 +3502,7 @@ WALデータストリームの断片。
       documented for <literal>START_REPLICATION ... PHYSICAL</literal>, including
       two CommandComplete messages.
 -->
-CopyBothResponse内部のメッセージは、<literal>START_REPLICATION ... PHYSICAL</literal>の記述と同じ書式です。
+CopyBothResponse内部のメッセージは、2つのCommandCompleteメッセージを含めて<literal>START_REPLICATION ... PHYSICAL</literal>の記述と同じ書式です。
      </para>
 
      <para>
@@ -3774,6 +3774,7 @@ CopyBothResponse内部のメッセージは、<literal>START_REPLICATION ... PHY
         <term><literal>MANIFEST</literal> <replaceable>manifest_option</replaceable></term>
         <listitem>
          <para>
+<!--
           When this option is specified with a value of <literal>yes</literal>
           or <literal>force-encode</literal>, a backup manifest is created
           and sent along with the backup.  The manifest is a list of every
@@ -3787,6 +3788,14 @@ CopyBothResponse内部のメッセージは、<literal>START_REPLICATION ... PHY
           purposes, to be sure that clients which read the backup manifest
           can handle this case. For compatibility with previous releases,
           the default is <literal>MANIFEST 'no'</literal>.
+-->
+このオプションを<literal>yes</literal>または<literal>force-encode</literal>の値で設定すると、バックアップマニフェストが作成され、バックアップとともに送信されます。
+マニフェストは、含まれる可能性のあるWALファイルを除きバックアップ内に存在するすべてのファイルのリストです。
+また、サイズ、最終更新時刻、オプションでファイル毎のチェックサムも格納します。
+<literal>force-encode</literal>の値は、全てのファイル名を強制的に16進数でエンコーディングします。
+それ以外の場合、このタイプのエンコードは、名前が非UTF-8オクテットシーケンスであるファイルに対してのみ実行されます。
+<literal>force-encode</literal>は、主にテスト目的で使用されており、バックアップマニュフェストを読み取るクライアントがこのケースを処理できることを確認するために使用されます。
+以前のリリースとの互換性を保つため、デフォルトは、<literal>MANIFEST 'no'</literal>です。
          </para>
         </listitem>
        </varlistentry>
@@ -3795,12 +3804,17 @@ CopyBothResponse内部のメッセージは、<literal>START_REPLICATION ... PHY
         <term><literal>MANIFEST_CHECKSUMS</literal> <replaceable>checksum_algorithm</replaceable></term>
         <listitem>
          <para>
+<!--
           Specifies the checksum algorithm that should be applied to each file included
           in the backup manifest. Currently, the available
           algorithms are <literal>NONE</literal>, <literal>CRC32C</literal>,
           <literal>SHA224</literal>, <literal>SHA256</literal>,
           <literal>SHA384</literal>, and <literal>SHA512</literal>.
           The default is <literal>CRC32C</literal>.
+-->
+バックアップマニュフェストに含まれている各ファイルに適用するチェックサムアルゴリズムを指定します。
+現在使用可能なアルゴリズムは、<literal>NONE</literal>、<literal>CRC32C</literal>、<literal>SHA224</literal>, <literal>SHA256</literal>、<literal>SHA384</literal>、<literal>SHA512</literal>です。
+デフォルトは<literal>CRC32C</literal>です。
          </para>
         </listitem>
        </varlistentry>
@@ -3866,7 +3880,7 @@ CopyBothResponse内部のメッセージは、<literal>START_REPLICATION ... PHY
           The approximate size of the tablespace, in kilobytes (1024 bytes),
           if progress report has been requested; otherwise it's null.
 -->
-進行状況報告が要求された場合は、テーブル空間の概算容量です。
+進行状況の報告が要求された場合は、テーブル空間の概算容量です(キロバイト(1024バイト)単位)。
 要求されていない場合はNULLです。
          </para>
         </listitem>
@@ -3892,8 +3906,8 @@ CopyBothResponse内部のメッセージは、<literal>START_REPLICATION ... PHY
 主データディレクトリ用に1つ、<literal>pg_default</literal>、<literal>pg_global</literal>以外の追加のテーブル空間ごとに1つ送信されます。
 CopyResponse結果内のデータは、テーブル空間の内容のtar形式（POSIX 1003.1-2008標準で規定された<quote>ustar交換形式</quote>に従う）ダンプです。
 ただし標準で規定された最後の２つのゼロブロックは省略されています。
-このtarデータが終わった後、最終の通常結果セットが送信されます。
-結果セットには、開始位置と同じ書式のバックアップのWAL終了位置が含まれます。
+このtarデータが終わった後、バックアップマニフェストが要求された場合、現在のベースバックアップのマニフェストデータを含む別のCopyResponse結果が送信されます。
+いずれの場合も、バックアップのWAL終了位置を含む最終の通常の結果セットが、開始位置と同じ形式で送信されます。
      </para>
 
      <para>
@@ -4751,7 +4765,7 @@ AuthenticationGSSContinue (B)
 <!--
                 Specifies that this message contains GSSAPI or SSPI data.
 -->
-このメッセージがGSSPAIまたはSSPIデータを含むことを指定します。
+このメッセージがGSSAPIまたはSSPIデータを含むことを指定します。
 </para>
 </listitem>
 </varlistentry>
@@ -9214,7 +9228,7 @@ Relationメッセージ中のIDに対応するリレーションのID。
                 the update happened has REPLICA IDENTITY set to FULL.
 -->
 これに続くTupleData副メッセージが古いタプルであることを識別します。
-このフィールドはオプションで、UPDATEが発生したテーブルでREPLICA IENTITYがFULLに設定されている場合にのみ存在します。
+このフィールドはオプションで、UPDATEが発生したテーブルでREPLICA IDENTITYがFULLに設定されている場合にのみ存在します。
 </para>
 </listitem>
 </varlistentry>
