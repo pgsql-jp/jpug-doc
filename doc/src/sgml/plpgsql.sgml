@@ -4,7 +4,7 @@
 <!--
   <title><application>PL/pgSQL</application> &mdash; <acronym>SQL</acronym> Procedural Language</title>
 -->
-<title><application>PL/pgSQL</application> - <acronym>SQL</acronym>手続き言語</title>
+<title><application>PL/pgSQL</application> &mdash; <acronym>SQL</acronym>手続き言語</title>
 
  <indexterm zone="plpgsql">
   <primary>PL/pgSQL</primary>
@@ -229,8 +229,8 @@
      types handled by the function to vary from call to call.
      Examples appear in <xref linkend="plpgsql-declaration-parameters"/>.
 -->
-また、<application>PL/pgSQL</application>関数を、<type>anyelement</type>、<type>anyarray</type>、<type>anynonarray</type>、<type>anyenum</type>、<type>anyrange</type>多様型を受け付けたり、返したりするように宣言することもできます。
-<xref linkend="extend-types-polymorphic"/>の説明の通り、多様型関数で扱われる実際のデータ型は呼び出しごとに変動することができます。
+また、<application>PL/pgSQL</application>関数を、<xref linkend="extend-types-polymorphic"/>で説明されている多様型を受け付けたり、返したりするように宣言することもできます。
+これにより、関数によって処理される実際のデータ型は呼び出しごとに変動することができます。
 例を<xref linkend="plpgsql-declaration-parameters"/>に示します。
     </para>
 
@@ -244,7 +244,7 @@
      evaluating a query.
 -->
 <application>PL/pgSQL</application>関数は、1つのインスタンスとして返すことができる任意のデータ型の<quote>集合</quote>（テーブル）を返すように宣言できます。
-こうした関数は、結果集合の必要な要素に対して<literal>RETURN NEXT</literal>を実行すること、または問い合わせの評価結果を得るために<command>RETURN QUERY</command>を使用することで、その出力を生成します。
+こうした関数は、結果集合の必要な要素に対して<command>RETURN NEXT</command>を実行すること、または問い合わせの評価結果を得るために<command>RETURN QUERY</command>を使用することで、その出力を生成します。
     </para>
 
     <para>
@@ -796,8 +796,9 @@ $$ LANGUAGE plpgsql;
       given an alias.  For example, this function works on any data type
       that has a <literal>+</literal> operator:
 -->
-<application>PL/pgSQL</application>関数の戻り値が多様型（<type>anyelement</type>、<type>anyarray</type>、<type>anynonarray</type>、<type>anyenum</type>または<type>anyrange</type>）として宣言されると、特別な<literal>$0</literal>パラメータが作成されます。
-このデータ型が、実際の入力型から推定（<xref linkend="extend-types-polymorphic"/>を参照）された関数の実際の戻り値型です。
+<application>PL/pgSQL</application>関数の戻り値が多様型（<xref linkend="extend-types-polymorphic"/>を参照）として宣言されると、特別な<literal>$0</literal>パラメータが作成されます。
+このデータ型が、実際の入力型から推定された関数の実際の戻り値の型です。
+これにより、関数は<xref linkend="plpgsql-declaration-type"/>に示すように、実際の戻り値の型にアクセスできます。
 <literal>$0</literal>はNULLで初期化され、関数内で変更することができます。
 ですので、必須ではありませんが、これを戻り値を保持するために使用しても構いません。
 また<literal>$0</literal>に別名を付与することもできます。
@@ -840,10 +841,14 @@ $$ LANGUAGE plpgsql;
      </para>
 
      <para>
+<!--
       In practice it might be more useful to declare a polymorphic function
       using the <type>anycompatible</type> family of types, so that automatic
       promotion of the input arguments to a common type will occur.
       For example:
+-->
+実際には型に<type>anycompatible</type>族を使用して多様関数を宣言する方が有用である可能性があります。そうすれば、 入力引数が共通の型に自動的に昇格されます。
+以下に例を示します。
 
 <programlisting>
 CREATE FUNCTION add_three_values(v1 anycompatible, v2 anycompatible, v3 anycompatible)
@@ -854,15 +859,22 @@ END;
 $$ LANGUAGE plpgsql;
 </programlisting>
 
+<!--
       With this example, a call such as
+-->
+この例は
 
 <programlisting>
 SELECT add_three_values(1, 2, 4.7);
 </programlisting>
 
+<!--
       will work, automatically promoting the integer inputs to numeric.
       The function using <type>anyelement</type> would require you to
       cast the three inputs to the same type manually.
+-->
+自動的に整数の入力を数値データに昇格して呼び出しが動作します。
+<type>anyelement</type>を使用する関数では、3つの入力を同じ型に手動でキャストする必要があります。
      </para>
     </sect2>
 
@@ -929,9 +941,9 @@ DECLARE
     table. To declare a variable with the same data type as
     <literal>users.user_id</literal> you write:
 -->
-<type>%TYPE</type>は変数やテーブル列のデータ型を提供します。
+<literal>%TYPE</literal>は変数やテーブル列のデータ型を提供します。
 これを使用してデータベース値を保持する変数を宣言することができます。
-例えば、<type>users</type>テーブルに<type>user_id</type>という列があるものとします。
+例えば、<literal>users</literal>テーブルに<literal>user_id</literal>という列があるものとします。
 <literal>users.user_id</literal>と同じデータ型の変数を宣言するには、以下のように記述します。
 <programlisting>
 user_id users.user_id%TYPE;
@@ -1965,7 +1977,7 @@ EXECUTE format('SELECT count(*) FROM %I '
      overview in <xref linkend="plpgsql-quote-tips"/>, which can save you
      some effort when translating said code to a more reasonable scheme.)
 -->
-動的コマンドを使用する時、しばしば<application>PL/pgSQL</application>では単一引用符をエスケープしなければなりません。
+動的コマンドを使用する時、しばしば単一引用符をエスケープしなければなりません。
 関数本体における固定のテキストを引用符付けする推奨方法は、ドル引用符を使用する方法です。
 （ドル引用符を用いない旧式のコードを保有している場合は、<xref linkend="plpgsql-quote-tips"/>の概要を参照することが、理解しやすいコードへの変換作業の手助けになります）。
     </para>
@@ -3831,7 +3843,7 @@ NOTICE:  row = {10,11,12}
      <literal>EXCEPTION</literal> clause.  The syntax is an extension of the
      normal syntax for a <command>BEGIN</command> block:
 -->
-デフォルトでは、<application>PL/pgSQL</application>関数の内部で発生したエラーは関数の実行を中止し、実際に上位のトランザクションをアボートします。
+デフォルトでは、<application>PL/pgSQL</application>関数の内部でエラーが発生すると関数とそれを囲むトランザクションをアボートします。
 <command>BEGIN</command>ブロックおよび<literal>EXCEPTION</literal>句を使用すれば、エラーを捕捉してその状態から回復できます。
 その構文は通常の<command>BEGIN</command>ブロックの構文を拡張したものです。
 
@@ -8010,7 +8022,7 @@ show errors;
 <!--
      Here is a possible translation into <application>PL/pgSQL</application>:
 -->
-これを<productname>PostgreSQL</productname>で記述すると、以下のようになります。
+<application>PL/pgSQL</application>への可能な変換は以下のようになります。
 <programlisting>
 CREATE OR REPLACE FUNCTION cs_parse_url(
     v_url IN VARCHAR,
@@ -8222,7 +8234,7 @@ $$ LANGUAGE plpgsql;
      is equivalent to what you'd get in Oracle with:
 -->
 <application>PL/pgSQL</application>において<literal>EXCEPTION</literal>句が例外を捕捉すると、<literal>BEGIN</literal>以降のそのブロックにおけるデータベースの変更が自動的にロールバックされます。
-すなわち、Oracleの<application>PL/SQL</application>による以下のプログラムと同等の処理が実行されます。
+すなわち、Oracleで以下のプログラムと同等の処理が実行されます。
 
 <programlisting>
 BEGIN
@@ -8333,23 +8345,21 @@ $$ LANGUAGE plpgsql STRICT IMMUTABLE;
    </indexterm>
 
 <programlisting><![CDATA[
---
-<!--
+--]]><!--
 &#045;&#045; instr functions that mimic Oracle's counterpart
 &#045;&#045; Syntax: instr(string1, string2 [, n [, m]])
 &#045;&#045; where [] denotes optional parameters.
--->
+--><![CDATA[
 -- Oracleのものと同じ動作をするinstr関数
 -- 構文: instr(string1, string2 [, n [, m]]) ただし、[]は省略可能なパラメータ
---
-<!--
+--]]><!--
 &#045;&#045; Search string1, beginning at the nth character, for the mth occurrence
 &#045;&#045; of string2.  If n is negative, search backwards, starting at the abs(n)'th
 &#045;&#045; character from the end of string1.
 &#045;&#045; If n is not passed, assume 1 (search starts at first character).
 &#045;&#045; If m is not passed, assume 1 (find first occurrence).
 &#045;&#045; Returns starting index of string2 in string1, or 0 if string2 is not found.
--->
+--><![CDATA[
 -- string1内のn番目の文字から始めて、m番目のstring2を探します。
 -- nが負の場合、string1の終わりからabs(n)番目の文字から始めて、逆方向に検索します。
 -- nが渡されなかった場合は、1とみなします（最初の文字から探し始めます）。
