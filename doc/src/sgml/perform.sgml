@@ -85,7 +85,7 @@
     (XML, JSON, or YAML) instead.
 -->
 例では、簡潔で人が読みやすい<command>EXPLAIN</command>のデフォルトの<quote>text</quote>出力書式を使用します。
-今後の解析で<command>EXPLAIN</command>の出力をプログラムに渡すことを考えているのであれば、代わりに機械読み取りが容易な出力書式（XML、JSON、YAML）のいずれかを使用すべきです。
+今後の解析で<command>EXPLAIN</command>の出力をプログラムに渡すことを考えているのであれば、代わりに機械読み取りが容易な出力書式（XML、JSON、YAML）のいずれかを使用する必要があります。
    </para>
 
   <sect2 id="using-explain-basics">
@@ -270,7 +270,7 @@ EXPLAIN SELECT * FROM tenk1;
 <!--
     These numbers are derived very straightforwardly.  If you do:
 -->
-この数は非常に素直に導かれます。
+これらの数値はとても素直に導かれます。以下を実行すると、
 
 <programlisting>
 SELECT relpages, reltuples FROM pg_class WHERE relname = 'tenk1';
@@ -284,7 +284,7 @@ SELECT relpages, reltuples FROM pg_class WHERE relname = 'tenk1';
     <varname>seq_page_cost</varname> is 1.0 and <varname>cpu_tuple_cost</varname> is 0.01,
     so the estimated cost is (358 * 1.0) + (10000 * 0.01) = 458.
 -->
-を実行すると、<classname>tenk1</classname>には358のディスクページと10000の行があることがわかります。
+<classname>tenk1</classname>には358のディスクページと10000の行があることがわかります。
 推定コストは（ディスクページ読み取り * <xref linkend="guc-seq-page-cost"/>）+（スキャンした行 * <xref linkend="guc-cpu-tuple-cost"/>）と計算されます。
 デフォルトでは、<varname>seq_page_cost</varname>は1.0、<varname>cpu_tuple_cost</varname>は0.01です。
 ですから、推定コストは(358 * 1.0) + (10000 * 0.01) = 458となります。
@@ -372,7 +372,7 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 100;
     does the sorting.)
 -->
 ここでは、プランナは2段階の計画を使用することを決定しました。
-子の計画ノードは、インデックスを使用して、インデックス条件に合う行の場所を検索します。
+子の計画ノードは、インデックスを使用して、インデックス条件(index condition)に合う行の場所を検索します。
 そして、上位計画ノードが実際にテーブル自体からこれらの行を取り出します。
 行を別々に取り出すことは、シーケンシャルな読み取りに比べ非常に高価です。
 しかし、テーブルのすべてのページを読み取る必要はありませんので、シーケンシャルスキャンより低価になります。
@@ -428,6 +428,7 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 = 42;
    Index Cond: (unique1 = 42)
 </screen>
 
+<!--
     In this type of plan the table rows are fetched in index order, which
     makes them even more expensive to read, but there are so few that the
     extra cost of sorting the row locations is not worth it.  You'll most
@@ -437,13 +438,24 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 = 42;
     to satisfy the <literal>ORDER BY</literal>.  In this example, adding
     <literal>ORDER BY unique1</literal> would use the same plan because the
     index already implicitly provides the requested ordering.
+-->
+この種の計画では、テーブル行はインデックス順で取り出されます。
+このため読み取りがより高価になりますが、この場合取り出す行数が少ないため、改めて行位置をソートし直すための追加コストは割に合いません。
+単一の行のみを取り出す問い合わせでは、この計画種類がよく現れます。
+また、<literal>ORDER BY</literal>を満たすために必要となる余分な必要なソート処理がないため、インデックスの順序に一致する<literal>ORDER BY</literal>条件を持つ問い合わせでよく使用されます。
+この例では、<literal>ORDER BY unique1</literal>を追加すると、要求された順序がインデックスによってすでに暗黙的に提供されているため、同じ計画が使用されます。
    </para>
 
    <para>
+<!--
      The planner may implement an <literal>ORDER BY</literal> clause in several
      ways.  The above example shows that such an ordering clause may be
      implemented implicitly.  The planner may also add an explicit
      <literal>sort</literal> step:
+-->
+プランナは<literal>ORDER BY</literal>句をいくつかの方法で実装できます。
+上の例ではこのような<literal>ORDER BY</literal>句を暗黙的に実装できることを示しています。
+プランナは 明示的な<literal>sort</literal>ステップを追加もします。
 
 <screen>
 EXPLAIN SELECT * FROM tenk1 ORDER BY unique1;
@@ -454,9 +466,12 @@ EXPLAIN SELECT * FROM tenk1 ORDER BY unique1;
    ->  Seq Scan on tenk1  (cost=0.00..445.00 rows=10000 width=244)
 </screen>
 
+<!--
     If a part of the plan guarantees an ordering on a prefix of the
     required sort keys, then the planner may instead decide to use an
     <literal>incremental sort</literal> step:
+-->
+ソートキーで必要な接頭辞の順序がプランの一部で保証されている場合、<literal>インクリメンタルソート(incremental sort)</literal>ステップを使用することを決定できます。
 
 <screen>
 EXPLAIN SELECT * FROM tenk1 ORDER BY four, ten LIMIT 100;
@@ -469,12 +484,17 @@ EXPLAIN SELECT * FROM tenk1 ORDER BY four, ten LIMIT 100;
          ->  Index Scan using index_tenk1_on_four on tenk1  (cost=0.29..1510.08 rows=10000 width=244)
 </screen>
 
+<!--
     Compared to regular sorts, sorting incrementally allows returning tuples
     before the entire result set has been sorted, which particularly enables
     optimizations with <literal>LIMIT</literal> queries.  It may also reduce
     memory usage and the likelihood of spilling sorts to disk, but it comes at
     the cost of the increased overhead of splitting the result set into multiple
     sorting batches.
+-->
+通常のソートと比較して、インクリメンタルソートは、結果セット全体がソートされる前にタプルを戻すことができます。
+これにより、特に<literal>LIMIT</literal>がある問い合わせで最適化が可能になります。
+また、メモリ使用量が削減され、ソートがディスクにオーバーフローする可能性が減少しますが、結果セットを複数のソートバッチに分割するオーバーヘッドが増加します。
    </para>
 
    <para>
@@ -1737,7 +1757,7 @@ SELECT stxname, stxkeys, stxddependencies
       comparing two columns or comparing a column to an expression, nor for
       range clauses, <literal>LIKE</literal> or any other type of condition.
 -->
-今のところ、列と定数を比較する単純な等価条件を考慮する際にしか関数従属性は適用されません。
+今のところ、列と定数を比較する単純な等価条件と、定数の<literal>IN</literal>句を考慮する際にしか関数従属性は適用されません。
 二つの列を比較する、あるいは列を式と比較する等価条件、範囲句、<literal>LIKE</literal>その他の条件の見積もりを改善するのには使われません。
      </para>
 
@@ -2361,7 +2381,7 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
 -->
 <command>COPY</command>は、前もって行われる<command>CREATE TABLE</command>または<command>TRUNCATE</command>コマンドと同一トランザクションで行った場合に、最速です。
 この場合、エラーが起きた場合に新しくロードされるデータを含むファイルがとにかく削除されますので、WALを書き出す必要がありません。
-しかし、<xref linkend="guc-wal-level"/>が非パーティションテーブルに対して<literal>minimal</literal>に設定されている場合のみにこの方法は当てはまります。
+しかし、<xref linkend="guc-wal-level"/>が<literal>minimal</literal>に設定されている場合のみにこの方法は当てはまります。
 この他の場合には、すべてのコマンドをWALに書き出さなければならないためです。
    </para>
 
