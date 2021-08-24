@@ -1090,7 +1090,7 @@ PGPing PQping(const char *conninfo);
        handling of encrypted client certificate key files</link> using
        <xref linkend="libpq-connect-sslpassword"/> or interactive prompting.
 -->
-<function>PQsetSSLKeyPassHook_OpenSSL</function>はアプリケーションに<xref linkend="libpq-connect-sslpassword"/>や対話的なプロンプトを使って<application>libpq</application>の<link linkend="libpq-ssl-clientcert">クライアント証明書キーファイルのデフォルト処理</link>を置き換えさせます。
+<function>PQsetSSLKeyPassHook_OpenSSL</function>はアプリケーションに<xref linkend="libpq-connect-sslpassword"/>や対話的なプロンプトを使って<application>libpq</application>の<link linkend="libpq-ssl-clientcert">暗号化されたクライアント証明書キーファイルのデフォルト処理</link>を置き換えさせます。
 
 <synopsis>
 void PQsetSSLKeyPassHook_OpenSSL(PQsslKeyPassHook_OpenSSL_type hook);
@@ -1118,7 +1118,7 @@ int callback_fn(char *buf, int size, PGconn *conn);
        <application>libpq</application>'s source code for an example.
 -->
 <application>libpq</application>はデフォルトの<function>PQdefaultSSLKeyPassHook_OpenSSL</function>ハンドラ<emphasis>の代わりに</emphasis>、これを呼び出します。
-コールバックはキーに対するパスワードを決定して、それを<parameter>size</parameter>サイズの結果バッファ<parameter>buf</parameter>にコピーすべきです。
+コールバックはキーに対するパスワードを決定して、それを<parameter>size</parameter>の大きさを持つ結果バッファ<parameter>buf</parameter>にコピーすべきです。
 <parameter>buf</parameter>内の文字列はNULL終端でなければなりません。
 コールバックは<parameter>buf</parameter>に格納されたパスワードのヌル終端子を除いた長さを返さなければなりません。
 失敗した場合、コールバックは<literal>buf[0] = '\0'</literal>をセットし、0を返すべきです。
@@ -1144,8 +1144,7 @@ int callback_fn(char *buf, int size, PGconn *conn);
        <function>PQdefaultSSLKeyPassHook_OpenSSL</function>,
        or call it first and try something else if it returns 0, or completely override it.
 -->
-
-アプリケーションのコールバックが対応していない場合を<function>PQdefaultSSLKeyPassHook_OpenSSL</function>に委託したり、最初に呼び出して0が返った場合に何らか他のことを試みたり、あるいは完全に上書きしたりすることにしても良いです。
+アプリケーションのコールバックが対応していない場合について<function>PQdefaultSSLKeyPassHook_OpenSSL</function>に委託したり、最初に呼び出して0が返った場合に何らか他のことを試みたり、あるいは完全に上書きしたりすることにしても良いです。
       </para>
 
       <para>
@@ -1358,8 +1357,8 @@ postgresql://[2001:db8::1234]/database
     specification in the URI and specify the host as a parameter, or
     percent-encode the path in the host component of the URI:
 -->
-ホスト要素は<xref linkend="libpq-connect-host"/>で説明したように解釈されます。
-具体的には、ホスト部品が空または絶対パス名のように見える場合、Unixドメインソケット接続が選択され、さもなければTCP/IP接続で初期化されます。
+ホスト要素はパラメータ<xref linkend="libpq-connect-host"/>で説明したように解釈されます。
+具体的には、ホスト部が空または絶対パス名のように見える場合、Unixドメインソケット接続が選択され、さもなければTCP/IP接続で初期化されます。
 しかしURIの階層部ではスラッシュが予約された文字であることに注意してください。
 このため、標準以外のUnixドメインソケットディレクトリを指定するためには、URIからホスト指定を省き、パラメータとしてホストを指定するか、URIのホスト要素内のパスをパーセントエスケープするかどちらかを行ってください。
 <programlisting>
@@ -2368,7 +2367,7 @@ SSL接続が確立していない場合このパラメータは無視されま�
         to be stored in encrypted form on disk even when interactive passphrase
         input is not practical.
 -->
-このパラメータは<literal>sslkey</literal>で指定される秘密鍵に対するパスワードを指定します。
+このパラメータは<literal>sslkey</literal>で指定される秘密鍵に対するパスワードを指定して、対話的なパスフレーズ入力が現実的でないときにも、クライアント証明書のプライベートキーを暗号化された形式でディスクに格納できるようにします。
        </para>
        <para>
 <!--
@@ -2398,7 +2397,7 @@ OpenSSLエンジンがプロンプトにOpenSSLパスワードコールバック
 -->
 このオプションと同等の環境変数、および、パスワードを<filename>.pgpass</filename>から探す機能はありません。
 このオプションはサービスファイルの接続定義で使用できます。
-より高度な使用法のためには、OpenSSLエンジンとPKCS#11やUSB暗号オフロードデバイスといったツールの利用を検討すべきです。
+より高度な使用法を用いるユーザは、OpenSSLエンジンとPKCS#11やUSB暗号オフロードデバイスといったツールの利用を検討すべきです。
        </para>
       </listitem>
      </varlistentry>
@@ -2488,7 +2487,7 @@ Unixドメインソケット接続を確立する時に、このパラメータ�
 このパラメータは接続で許容されるSSL/TLSプロトコルの最小バージョンを指定します。
 有効な値は<literal>TLSv1</literal>、<literal>TLSv1.1</literal>、<literal>TLSv1.2</literal>、および、<literal>TLSv1.3</literal>です。
 対応しているプロトコルは使われている<productname>OpenSSL</productname>バージョンに依存し、より古いバージョンでは最新プトロコルバージョンに対応していません。
-指定しない場合、デフォルトは<literal>TLSv1.2</literal>で、これは執筆時点では業務上の規範を満たします。
+指定しない場合、デフォルトは<literal>TLSv1.2</literal>で、これは執筆時点では業界標準を満たします。
        </para>
       </listitem>
      </varlistentry>
