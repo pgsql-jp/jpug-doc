@@ -4,7 +4,7 @@
 <!--
  <title><application>libpq</application> &mdash; C Library</title>
 -->
- <title><application>libpq</application> - C ライブラリ</title>
+ <title><application>libpq</application> &mdash; C ライブラリ</title>
 
  <indexterm zone="libpq">
   <primary>libpq</primary>
@@ -458,7 +458,7 @@ PostgresPollingStatusType PQconnectPoll(PGconn *conn);
        is <symbol>CONNECTION_BAD</symbol>, the connection attempt has already
        failed, typically because of invalid connection parameters.
 -->
-非ブロック接続要求を始めるにはまず、<literal>PQconnectStart</literal>か<xref linkend="libpq-PQconnectStartParams"/>を呼び出します。
+非ブロック接続要求を始めるにはまず、<function>PQconnectStart</function>か<xref linkend="libpq-PQconnectStartParams"/>を呼び出します。
 その結果がNULLの場合、<application>libpq</application>は新たな<structname>PGconn</structname>構造体を割り当てられませんでした。
 そうでない場合は、適切な<structname>PGconn</structname>へのポインタが返されます
 （ただし、未だデータベースへの有効な接続を示しているわけではありません）。
@@ -1084,19 +1084,26 @@ PGPing PQping(const char *conninfo);
      <term><function>PQsetSSLKeyPassHook_OpenSSL</function><indexterm><primary>PQsetSSLKeyPassHook_OpenSSL</primary></indexterm></term>
      <listitem>
       <para>
+<!--
        <function>PQsetSSLKeyPassHook_OpenSSL</function> lets an application override
        <application>libpq</application>'s <link linkend="libpq-ssl-clientcert">default
        handling of encrypted client certificate key files</link> using
        <xref linkend="libpq-connect-sslpassword"/> or interactive prompting.
+-->
+<function>PQsetSSLKeyPassHook_OpenSSL</function>はアプリケーションに<xref linkend="libpq-connect-sslpassword"/>や対話的なプロンプトを使って<application>libpq</application>の<link linkend="libpq-ssl-clientcert">暗号化されたクライアント証明書キーファイルのデフォルト処理</link>を置き換えさせます。
 
 <synopsis>
 void PQsetSSLKeyPassHook_OpenSSL(PQsslKeyPassHook_OpenSSL_type hook);
 </synopsis>
 
+<!--
        The application passes a pointer to a callback function with signature:
+-->
+アプリケーションは以下のシグネチャを持つコールバック関数のポインタを渡します。
 <programlisting>
 int callback_fn(char *buf, int size, PGconn *conn);
 </programlisting>
+<!--
        which <application>libpq</application> will then call
        <emphasis>instead of</emphasis> its default
        <function>PQdefaultSSLKeyPassHook_OpenSSL</function> handler. The
@@ -1109,25 +1116,44 @@ int callback_fn(char *buf, int size, PGconn *conn);
        <literal>buf[0] = '\0'</literal> and return 0. See
        <function>PQdefaultSSLKeyPassHook_OpenSSL</function> in
        <application>libpq</application>'s source code for an example.
+-->
+<application>libpq</application>はデフォルトの<function>PQdefaultSSLKeyPassHook_OpenSSL</function>ハンドラ<emphasis>の代わりに</emphasis>、これを呼び出します。
+コールバックはキーに対するパスワードを決定して、それを<parameter>size</parameter>の大きさを持つ結果バッファ<parameter>buf</parameter>にコピーすべきです。
+<parameter>buf</parameter>内の文字列はNULL終端でなければなりません。
+コールバックは<parameter>buf</parameter>に格納されたパスワードのヌル終端子を除いた長さを返さなければなりません。
+失敗した場合、コールバックは<literal>buf[0] = '\0'</literal>をセットし、0を返すべきです。
+例として、<application>libpq</application>のソースコードの<function>PQdefaultSSLKeyPassHook_OpenSSL</function>を参照してください。
       </para>
 
       <para>
+<!--
        If the user specified an explicit key location,
        its path will be in <literal>conn->sslkey</literal> when the callback
        is invoked. This will be empty if the default key path is being used.
        For keys that are engine specifiers, it is up to engine implementations
        whether they use the OpenSSL password callback or define their own handling.
+-->
+ユーザが明示的なキー位置を指定した場合、コールバックが実行されたときにそのパスが<literal>conn->sslkey</literal>に含まれます。
+デフォルトのキーパスが使われている場合、これは空になります。
+エンジン指定子であるキーに対して、OpenSSLパスワードコールバックを使うか固有の処理を定義するかは、エンジン実装によります。
       </para>
 
       <para>
+<!--
        The app callback may choose to delegate unhandled cases to
        <function>PQdefaultSSLKeyPassHook_OpenSSL</function>,
        or call it first and try something else if it returns 0, or completely override it.
+-->
+アプリケーションのコールバックが対応していない場合について<function>PQdefaultSSLKeyPassHook_OpenSSL</function>に委託したり、最初に呼び出して0が返った場合に何らか他のことを試みたり、あるいは完全に上書きしたりすることにしても良いです。
       </para>
 
       <para>
+<!--
        The callback <emphasis>must not</emphasis> escape normal flow control with exceptions,
        <function>longjmp(...)</function>, etc. It must return normally.
+-->
+コールバックは例外、<function>longjmp(...)</function>などで通常のフロー制御から脱出してはいけません。
+正常にリターンしなければなりません。
       </para>
 
      </listitem>
@@ -1137,9 +1163,12 @@ int callback_fn(char *buf, int size, PGconn *conn);
      <term><function>PQgetSSLKeyPassHook_OpenSSL</function><indexterm><primary>PQgetSSLKeyPassHook_OpenSSL</primary></indexterm></term>
      <listitem>
       <para>
+<!--
        <function>PQgetSSLKeyPassHook_OpenSSL</function> returns the current
        client certificate key password hook, or <literal>NULL</literal>
        if none has been set.
+-->
+<function>PQgetSSLKeyPassHook_OpenSSL</function>は現在のクライアント証明書のキーパスワードのフックを、あるいは、設定されていない場合に<literal>NULL</literal>を返します。
 
 <synopsis>
 PQsslKeyPassHook_OpenSSL_type PQgetSSLKeyPassHook_OpenSSL(void);
@@ -1271,12 +1300,16 @@ postgresql:///mydb?host=localhost&amp;port=5433
    </para>
 
    <para>
+<!--
     The connection <acronym>URI</acronym> needs to be encoded with <ulink
     url="https://tools.ietf.org/html/rfc3986#section-2.1">percent-encoding</ulink>
     if it includes symbols with special meaning in any of its parts.  Here is
     an example where the equal sign (<literal>=</literal>) is replaced with
     <literal>%3D</literal> and the space character with
     <literal>%20</literal>:
+-->
+接続<acronym>URI</acronym>は、その中のどこかの部分に特別な意味を持つシンボルを含む場合、<ulink url="https://tools.ietf.org/html/rfc3986#section-2.1">パーセントエンコーディング</ulink>でエンコードされている必要があります。
+以下は等号(<literal>=</literal>)が<literal>%3D</literal>、空白が<literal>%20</literal>で置き換えられた例です。
 <programlisting>
 postgresql://user@localhost:5433/mydb?options=-c%20synchronous_commit%3Doff
 </programlisting>
@@ -1324,8 +1357,8 @@ postgresql://[2001:db8::1234]/database
     specification in the URI and specify the host as a parameter, or
     percent-encode the path in the host component of the URI:
 -->
-ホスト要素は<xref linkend="libpq-connect-host"/>で説明したように解釈されます。
-具体的には、ホスト部品が空またはスラッシュで始まる場合Unixドメインソケット接続が選択され、さもなければTCP/IP接続で初期化されます。
+ホスト要素はパラメータ<xref linkend="libpq-connect-host"/>で説明したように解釈されます。
+具体的には、ホスト部が空または絶対パス名のように見える場合、Unixドメインソケット接続が選択され、さもなければTCP/IP接続で初期化されます。
 しかしURIの階層部ではスラッシュが予約された文字であることに注意してください。
 このため、標準以外のUnixドメインソケットディレクトリを指定するためには、URIからホスト指定を省き、パラメータとしてホストを指定するか、URIのホスト要素内のパスをパーセントエスケープするかどちらかを行ってください。
 <programlisting>
@@ -1452,8 +1485,9 @@ postgresql://%2Fvar%2Flib%2Fpostgresql/dbname
         <literal>localhost</literal>.
 -->
 接続するホスト名を指定します。
-<indexterm><primary>ホスト名</primary></indexterm> ホスト名がスラッシュで始まるならば、それはTCP/IPによる通信ではなく、Unixドメインの通信を示します。
+<indexterm><primary>ホスト名</primary></indexterm> ホスト名が絶対パス名のように見えるなら、それはTCP/IPによる通信ではなく、Unixドメインの通信を示します。
 その場合、この値はソケットファイルを格納するディレクトリの名前になります。
+（Unixでは絶対パス名はスラッシュから始まります。Windowsではドライブ文字から始まるパスも認められます。）
 <literal>host</literal>が指定されなかったり、空の場合のデフォルトの振る舞いは、<filename>/tmp</filename>（または、<productname>PostgreSQL</productname>の構築時に指定したソケットディレクトリ）にあるUnixドメインのソケットに接続することです。
 <indexterm><primary>Unixドメインソケット</primary></indexterm>
 Unixドメインソケットを持たないマシンにおけるデフォルトは、<literal>localhost</literal>に接続することです。
@@ -1492,6 +1526,7 @@ Unixドメインソケットを持たないマシンにおけるデフォルト�
 これは、<literal>172.28.40.9</literal>といった標準的なIPv4アドレス書式でなければなりません。
 使用するマシンでIPv6をサポートする場合は、そのアドレスを使用することもできます。
 このパラメータに空以外の文字列が指定されると、TCP/IP通信が常に使用されます。
+パラメータが指定されない場合、対応するIPアドレスを探すために<literal>host</literal>の値が調べられます。あるいは、<literal>host</literal>でIPアドレスを指定している場合、その値が直接使われます。
        </para>
 
        <para>
@@ -1503,7 +1538,7 @@ Unixドメインソケットを持たないマシンにおけるデフォルト�
         methods, as well as for <literal>verify-full</literal> SSL
         certificate verification.  The following rules are used:
 -->
-<literal>host</literal>の代わりに<literal>hostaddr</literal>を使用することで、アプリケーションがホスト名の検索を行なわずに済みます。
+<literal>hostaddr</literal>を使用することで、アプリケーションがホスト名の検索を行なわずに済みます。
 特に時間的制約があるアプリケーションでは重要になるでしょう。
 しかし、GSSAPI、SSPI認証方式では、ホスト名が必要になります。
 <literal>verify-full</literal>SSL証明書検証を行う場合も同様です。
@@ -1583,7 +1618,7 @@ Unixドメインソケットを持たないマシンにおけるデフォルト�
         sockets, it will attempt to connect to <literal>localhost</literal>.
 -->
 ホスト名もホストのアドレスも用いない場合、<application>libpq</application>はローカルのUnixドメインソケットを使用して接続します。
-ただし、Unixドメインソケットを持たないマシンでは、<literal>localhost</literal>への接続を試みます。
+ただし、WindowsとUnixドメインソケットを持たないマシンでは、<literal>localhost</literal>への接続を試みます。
        </para>
        </listitem>
       </varlistentry>
@@ -1680,6 +1715,7 @@ Unixドメインソケットを持たないマシンにおけるデフォルト�
       <term><literal>channel_binding</literal></term>
       <listitem>
       <para>
+<!--
         This option controls the client's use of channel binding. A setting
         of <literal>require</literal> means that the connection must employ
         channel binding, <literal>prefer</literal> means that the client will
@@ -1688,12 +1724,20 @@ Unixドメインソケットを持たないマシンにおけるデフォルト�
         is <literal>prefer</literal> if
         <productname>PostgreSQL</productname> is compiled with SSL support;
         otherwise the default is <literal>disable</literal>.
+-->
+このオプションはクライアントのチャンネルバインディングの使用を制御します。
+<literal>require</literal>設定では接続はチャンネルバイデンディングを使わなければならず、<literal>prefer</literal>ではクラアイントが可能であればチャンネルバインディングを使い、<literal>disable</literal>ではチャンネルバイディングを使用させません。
+<productname>PostgreSQL</productname>がSSLサポートを伴ってコンパイルされている場合のデフォルトは<literal>prefer</literal>で、そうでなければデフォルトは<literal>disable</literal>です。
       </para>
       <para>
+<!--
         Channel binding is a method for the server to authenticate itself to
         the client. It is only supported over SSL connections
         with <productname>PostgreSQL</productname> 11 or later servers using
         the <literal>SCRAM</literal> authentication method.
+-->
+チャンネルバインディングはサーバが自身が信頼できることをクライアントに証明する方法です。
+これは、<literal>SCRAM</literal>認証方式を使った<productname>PostgreSQL</productname> 11以降のサーバとのSSL接続上でのみサポートされます。
       </para>
       </listitem>
      </varlistentry>
@@ -1713,7 +1757,7 @@ Unixドメインソケットを持たないマシンにおけるデフォルト�
        seconds, so the total time spent waiting for a connection might be
        up to 10 seconds.
 -->
-接続用の最大待機を秒単位（10進整数で記述してください、<literal>10</literal>など）で指定します。
+接続中の最大待機時間を秒単位（10進整数で記述してください、<literal>10</literal>など）で指定します。
 ゼロ、負値、もしくは未設定は、無期限の待機を意味します。
 許容される最小のタイムアウトは2秒です。
 したがって、<literal>1</literal>は<literal>2</literal>と解釈されます。
@@ -2317,28 +2361,43 @@ SSL接続が確立していない場合このパラメータは無視されま�
       <term><literal>sslpassword</literal></term>
       <listitem>
        <para>
+<!--
         This parameter specifies the password for the secret key specified in
         <literal>sslkey</literal>, allowing client certificate private keys
         to be stored in encrypted form on disk even when interactive passphrase
         input is not practical.
+-->
+このパラメータは<literal>sslkey</literal>で指定される秘密鍵に対するパスワードを指定して、対話的なパスフレーズ入力が現実的でないときにも、クライアント証明書のプライベートキーを暗号化された形式でディスクに格納できるようにします。
        </para>
        <para>
+<!--
         Specifying this parameter with any non-empty value suppresses the
         <literal>Enter PEM pass phrase:</literal>
         prompt that OpenSSL will emit by default when an encrypted client
         certificate key is provided to <literal>libpq</literal>.
+-->
+空でない値でこのパラメータを指定することで、暗号化されたクライアント証明書キーが<literal>libpq</literal>に供給されるときにOpenSSLがデフォルトで出す<literal>Enter PEM pass phrase:</literal>プロンプトを抑止します。
        </para>
        <para>
+<!--
         If the key is not encrypted this parameter is ignored. The parameter has no
         effect on keys specified by OpenSSL engines unless the engine uses the
         OpenSSL password callback mechanism for prompts.
+-->
+キーが暗号化されていない場合、このパラメータは無視されます。
+OpenSSLエンジンがプロンプトにOpenSSLパスワードコールバックの仕組みを使わない限り、このパラメータはエンジンで指定されたキーに影響しません。
        </para>
        <para>
+<!--
         There is no environment variable equivalent to this option, and no
         facility for looking it up in <filename>.pgpass</filename>. It can be
         used in a service file connection definition. Users with
         more sophisticated uses should consider using openssl engines and
         tools like PKCS#11 or USB crypto offload devices.
+-->
+このオプションと同等の環境変数、および、パスワードを<filename>.pgpass</filename>から探す機能はありません。
+このオプションはサービスファイルの接続定義で使用できます。
+より高度な使用法を用いるユーザは、OpenSSLエンジンとPKCS#11やUSB暗号オフロードデバイスといったツールの利用を検討すべきです。
        </para>
       </listitem>
      </varlistentry>
@@ -2415,6 +2474,7 @@ Unixドメインソケット接続を確立する時に、このパラメータ�
       <term><literal>ssl_min_protocol_version</literal></term>
       <listitem>
        <para>
+<!--
         This parameter specifies the minimum SSL/TLS protocol version to allow
         for the connection. Valid values are <literal>TLSv1</literal>,
         <literal>TLSv1.1</literal>, <literal>TLSv1.2</literal> and
@@ -2423,6 +2483,11 @@ Unixドメインソケット接続を確立する時に、このパラメータ�
         not supporting the most modern protocol versions. If not specified,
         the default is <literal>TLSv1.2</literal>, which satisfies industry
         best practices as of this writing.
+-->
+このパラメータは接続で許容されるSSL/TLSプロトコルの最小バージョンを指定します。
+有効な値は<literal>TLSv1</literal>、<literal>TLSv1.1</literal>、<literal>TLSv1.2</literal>、および、<literal>TLSv1.3</literal>です。
+対応しているプロトコルは使われている<productname>OpenSSL</productname>バージョンに依存し、より古いバージョンでは最新プトロコルバージョンに対応していません。
+指定しない場合、デフォルトは<literal>TLSv1.2</literal>で、これは執筆時点では業界標準を満たします。
        </para>
       </listitem>
      </varlistentry>
@@ -2431,6 +2496,7 @@ Unixドメインソケット接続を確立する時に、このパラメータ�
       <term><literal>ssl_max_protocol_version</literal></term>
       <listitem>
        <para>
+<!--
         This parameter specifies the maximum SSL/TLS protocol version to allow
         for the connection. Valid values are <literal>TLSv1</literal>,
         <literal>TLSv1.1</literal>, <literal>TLSv1.2</literal> and
@@ -2441,6 +2507,12 @@ Unixドメインソケット接続を確立する時に、このパラメータ�
         defined by the backend, if set. Setting the maximum protocol version
         is mainly useful for testing or if some component has issues working
         with a newer protocol.
+-->
+このパラメータは接続で許容されるSSL/TLSプロトコルの最大バージョンを指定します。
+有効な値は<literal>TLSv1</literal>、<literal>TLSv1.1</literal>、<literal>TLSv1.2</literal>、および、<literal>TLSv1.3</literal>です。
+対応しているプロトコルは使われている<productname>OpenSSL</productname>バージョンに依存し、より古いバージョンでは最新のプロトコルバージョンに対応していません。
+設定しない場合、このパラメータは無視されて、接続ではバックエンドで定義されている最大範囲が、もし定義されているなら、使われます。
+テストや、一部コンポーネントがより新しいプロトコルでの動作に問題がある場合に対して、大概はプロトコルの最大バージョンを設定することが有用です。
        </para>
       </listitem>
      </varlistentry>
@@ -10813,10 +10885,14 @@ Microsoft Windowsでは、このファイルの名前はそれぞれ<filename>%A
   </para>
 
   <para>
+<!--
    The certificate and key may be in PEM or ASN.1 DER format.
+-->
+証明書とキーはPEMまたはASN.1 DER形式です。
   </para>
 
   <para>
+<!--
    The key may be
    stored in cleartext or encrypted with a passphrase using any algorithm supported
    by OpenSSL, like AES-128. If the key is stored encrypted, then the passphrase
@@ -10828,6 +10904,12 @@ Microsoft Windowsでは、このファイルの名前はそれぞれ<filename>%A
    prompt and the handling of the <literal>sslpassword</literal> parameter by supplying
    their own key password callback; see
    <xref linkend="libpq-pqsetsslkeypasshook-openssl"/>.
+-->
+キーは平文テキストで、あるいは、OpenSSLで対応しているAES-128など任意のアルゴリズムを使ってパスフレーズで暗号化して、格納できます。
+キーが暗号化されて格納された場合、パスフレーズは<xref linkend="libpq-connect-sslpassword"/>接続オプションで供給してもよいです。
+暗号化されたキーが供給されて、かつ、<literal>sslpassword</literal>が無いか空欄の場合、TTYが利用可能であればパスワードはOpenSSLにより<literal>Enter PEM pass phrase:</literal>プロンプトで対話的に入力が要求されます。
+アプリケーションはクライアント証明書のプロンプトと<literal>sslpassword</literal>パラメータの操作を、自身のキーパスワードコールバックを供給することで置き換えできます。
+<xref linkend="libpq-pqsetsslkeypasshook-openssl"/>を参照してください。
   </para>
 
   <para>
