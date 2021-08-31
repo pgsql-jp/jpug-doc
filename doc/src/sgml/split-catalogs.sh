@@ -7,7 +7,7 @@
 
 comment='
 <!-- 警告：このファイルは直接編集しないでください！
-1. catalogs.sgmlを編集したら、split.shを起動します。
+1. catalogs.sgmlを編集したら、split-catalogs.shを起動します。
 2. するとcatalogs[0-4].sgmlが生成されます。
 3. catalogs.sgmlとともにcatalogs[0-4].sgmlのうち変更されたファイルをcommit/pushしてpull requestを作成してください。
 4. レビューはcatalogs[0-4].sgmlに対して行います。

@@ -7,7 +7,7 @@
 
 comment='
 <!-- 警告：このファイルは直接編集しないでください！
-1. libpq.sgmlを編集したら、split.shを起動します。
+1. libpq.sgmlを編集したら、split-libpq.shを起動します。
 2. するとlibpq[0-3].sgmlが生成されます。
 3. libpq.sgmlとともにlibpq[0-3].sgmlのうち変更されたファイルをcommit/pushしてpull requestを作成してください。
 4. レビューはlibpq[0-3].sgmlに対して行います。
