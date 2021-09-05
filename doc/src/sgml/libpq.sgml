@@ -1152,7 +1152,7 @@ int callback_fn(char *buf, int size, PGconn *conn);
        The callback <emphasis>must not</emphasis> escape normal flow control with exceptions,
        <function>longjmp(...)</function>, etc. It must return normally.
 -->
-コールバックは例外、<function>longjmp(...)</function>などで通常のフロー制御から脱出してはいけません。
+コールバックは例外、<function>longjmp(...)</function>などで通常のフロー制御から脱出しては<emphasis>いけません</emphasis>。
 正常にリターンしなければなりません。
       </para>
 
@@ -4952,7 +4952,7 @@ Describeの結果はすべて、実際に問い合わせを実行した時に提
        sufficient.)
 -->
 問い合わせ結果内の行(タプル)数を返します。
-これは整数を結果として返しますので、32ビットオペレーティングシステムでは、大規模な結果セットの戻り値はオーバーフローする可能性があります。
+（ <structname>PGresult</structname>オブジェクトは<literal>INT_MAX</literal>行に制限されているため、<type>int</type>の結果で十分です。）
 
 <synopsis>
 int PQntuples(const PGresult *res);
@@ -5646,7 +5646,7 @@ char *PQcmdTuples(PGresult *res);
        return <literal>InvalidOid</literal> if the table affected by the
        <command>INSERT</command> statement does not contain OIDs.
 -->
-<acronym>SQL</acronym>コマンドが、OIDを持つテーブル内に1行のみを挿入する<command>INSERT</command>だった場合、あるいは、適切な<command>INSERT</command>を持つプリペアド問い合わせの<command>EXECUTE</command>だった場合に、挿入された行のOIDを返します。
+<acronym>SQL</acronym>コマンドが、OID<indexterm><primary>OID</primary><secondary>libpqにおける</secondary></indexterm>を持つテーブル内に1行のみを挿入する<command>INSERT</command>だった場合、あるいは、適切な<command>INSERT</command>を持つプリペアド問い合わせの<command>EXECUTE</command>だった場合に、挿入された行のOIDを返します。
 さもなくば<literal>InvalidOid</literal>を返します。
 また、<command>INSERT</command>文の影響を受けたテーブルがOIDを持たなかった場合、この関数は<literal>InvalidOid</literal>を返します。
 <synopsis>
@@ -7184,7 +7184,7 @@ int PQrequestCancel(PGconn *conn);
    The function <function id="libpq-PQfn">PQfn</function><indexterm><primary>PQfn</primary></indexterm>
    requests execution of a server function via the fast-path interface:
 -->
-<function>PQfn</function>関数は近道インタフェースを使ってサーバ関数の実行を要求します。
+<function id="libpq-PQfn">PQfn</function><indexterm><primary>PQfn</primary></indexterm>関数は近道インタフェースを使ってサーバ関数の実行を要求します。
 <synopsis>
 PGresult *PQfn(PGconn *conn,
                int fnid,
@@ -7325,8 +7325,7 @@ typedef struct
    <function id="libpq-PQnotifies">PQnotifies</function>.<indexterm><primary>PQnotifies</primary></indexterm>
 -->
 <application>libpq</application>アプリケーションは、通常のSQLによる問い合わせと同じように<command>LISTEN</command>、<command>UNLISTEN</command>および<command>NOTIFY</command>コマンドを発行することができます。
-<command>NOTIFY</command>メッセージの到着は、続いて<function>PQnotifies</function>を呼び出せば検出できます。
-<indexterm><primary>PQnotifies</primary></indexterm>
+<command>NOTIFY</command>メッセージの到着は、続いて   <function id="libpq-PQnotifies">PQnotifies</function>.<indexterm><primary>PQnotifies</primary></indexterm>を呼び出せば検出できます。
   </para>
 
   <para>
@@ -7392,9 +7391,9 @@ typedef struct pgNotify
    <xref linkend="libpq-PQexec"/>.  While this still works, it is deprecated
    as a waste of processing power.
 -->
-<function>PQnotifies()</function>は実際にサーバのデータを読み出すわけではありません。
+<function>PQnotifies</function>は実際にサーバのデータを読み出すわけではありません。
 これは単に、他の<application>libpq</application>関数が吸収してしまっていた通知メッセージを返すだけです。
-<application>libpq</application>の古いリリースでは、通知メッセージを適切な時点で確実に受け取るには、空の問い合わせでも何でも、とにかく一定時間ごとに問い合わせを送り、そして<function>PQexec()</function>を実行するたびに<function>PQnotifies()</function>を検査するしかありませんでした。
+<application>libpq</application>の古いリリースでは、<command>NOTIFY</command>メッセージを適切な時点で確実に受け取るには、空の問い合わせでも何でも、とにかく一定時間ごとに問い合わせを送り、そして<xref linkend="libpq-PQexec"/>を実行するたびに<function>PQnotifies</function>を検査するしかありませんでした。
 今でもこの方法は動作しますが、処理能力の無駄使いをすることになるのでやめておくべきでしょう。
   </para>
 
@@ -7415,7 +7414,7 @@ typedef struct pgNotify
    <xref linkend="libpq-PQgetResult"/> or <xref linkend="libpq-PQexec"/>, to
    see if any notifications came in during the processing of the command.
 -->
-実行すべき問い合わせがない時に通知メッセージを検査するよい方法は、まず<xref linkend="libpq-PQconsumeInput"/>を呼び出し、それから<function>PQnotifies</function>を検査することです。
+実行すべき問い合わせがない時に<command>NOTIFY</command>メッセージを検査するよい方法は、まず<xref linkend="libpq-PQconsumeInput"/>を呼び出し、それから<function>PQnotifies</function>を検査することです。
 サーバからのデータの到着を<function>select()</function>で待つことができ、不必要な動作で<acronym>CPU</acronym>パワーを消費してしまうことがありません。
 （<function>select()</function>で使用するファイル記述子番号の取得については、<xref linkend="libpq-PQsocket"/>を参照してください。）
 なお、これは問い合わせに<xref linkend="libpq-PQsendQuery"/>と<xref linkend="libpq-PQgetResult"/>を使った時でも、またはおなじみの<xref linkend="libpq-PQexec"/>を使った時でも動作します。
@@ -8510,9 +8509,9 @@ char *PQencryptPasswordConn(PGconn *conn, const char *passwd, const char *user, 
 現在サポートされているアルゴリズムは、<literal>md5</literal>と<literal>scram-sha-256</literal>です。
 (古いサーババージョンとの互換性のために、<literal>md5</literal>の別名として、<literal>on</literal>と<literal>off</literal>も受け付けます。)
 <literal>scram-sha-256</literal>のサポートは、<productname>PostgreSQL</productname>バージョン10で導入されたので、古いサーババージョンでは正しく動作しないことに注意してください。
-<parameter>algorithm</parameter>がNULLなら、この関数はサーバに問合せて現在の<xref linkend="guc-password-encryption"/>設定を返します。
+<parameter>algorithm</parameter>が<symbol>NULL</symbol>なら、この関数はサーバに問合せて現在の<xref linkend="guc-password-encryption"/>設定を返します。
 これは、ブロックする可能性があり、また現在のトランザクションがアボートしているか、あるいは他の問合せを実行中でビジーなら失敗します。
-サーバのデフォルトアルゴリズムを使用したいが、ブロックは避けたい、という場合は、<xref linkend="libpq-PQencryptPasswordConn"/>を呼び出す前に<xref linkend="libpq-PQencryptPasswordConn"/>を自分で調べ、その値を<parameter>algorithm</parameter>に渡してください。
+サーバのデフォルトアルゴリズムを使用したいが、ブロックは避けたい、という場合は、<xref linkend="libpq-PQencryptPasswordConn"/>を呼び出す前に<varname>password_encryption</varname>を自分で調べ、その値を<parameter>algorithm</parameter>に渡してください。
      </para>
 
      <para>
@@ -8976,8 +8975,8 @@ int PQlibVersion(void);
    <indexterm><primary>PQsetNoticeProcessor</primary></indexterm> sets or
    examines the current notice processor.
 -->
-関数<function>PQsetNoticeReceiver</function><indexterm><primary>通知レシーバ</primary></indexterm><indexterm><primary>PQsetNoticeReceiver</primary></indexterm>は接続オブジェクトに対し現在の通知レシーバを設定もしくは確認します。
-同様に、<function>PQsetNoticeProcessor</function>は現在の通知プロセッサの設定もしくは確認を行います。
+関数<function id="libpq-PQsetNoticeReceiver">PQsetNoticeReceiver</function><indexterm><primary>通知レシーバ</primary></indexterm><indexterm><primary>PQsetNoticeReceiver</primary></indexterm>は接続オブジェクトに対し現在の通知レシーバを設定もしくは確認します。
+同様に、<function id="libpq-PQsetNoticeProcessor">PQsetNoticeProcessor</function>は現在の通知プロセッサの設定もしくは確認を行います。
 <indexterm><primary>通知プロセッサ</primary></indexterm><indexterm><primary>PQsetNoticeProcessor</primary></indexterm>
 
 <synopsis>
@@ -10784,7 +10783,7 @@ SSL接続はサーバ証明書が検証されない場合失敗します。
    IP address will be matched (without doing any DNS lookups).
 -->
 <literal>verify-full</literal>モードでは、ホスト名を証明書のサブジェクト別名(Subject Alternative Name)属性と、あるいは<literal>dNSName</literal>タイプのサブジェクト別名がないときはコモンネーム属性とマッチさせます。
-証明書の名前属性がアスタリスク（<literal>*</literal>）で始まると、それはワイルドカードとして取り扱われ、ドット（<literal>.</literal>）を除くすべての文字とマッチします。
+証明書の名前属性がアスタリスク（<literal>*</literal>）で始まると、それはワイルドカードとして取り扱われ、ドット（<literal>.</literal>）を<emphasis>除く</emphasis>すべての文字とマッチします。
 これは、証明書がサブドメインとマッチしないことを意味します。
 もし接続がホスト名ではなくIPアドレスを使用するのであれば、（いかなるDNS検索もせず）IPアドレスがマッチさせられます。
   </para>
@@ -11596,7 +11595,7 @@ CPPFLAGS += -I/usr/local/pgsql/include
       files are on the local system:
 -->
 他のユーザがそのプログラムをコンパイルする可能性がある場合は、上のようにディレクトリの場所を直接書き込むべきではありません。
-その代わりに<command>pg_config</command>ユーティリティを実行して、各システムにおけるヘッダファイルの在処を検索させることができます。
+その代わりに<command>pg_config</command><indexterm><primary>pg_config</primary><secondary sortas="libpq">libpqにおける</secondary></indexterm>ユーティリティを実行して、各システムにおけるヘッダファイルの在処を検索させることができます。
 <screen>
 <prompt>$</prompt> pg_config --includedir
 <computeroutput>/usr/local/include</computeroutput>
