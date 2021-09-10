@@ -1,0 +1,3271 @@
+<!-- 警告：このファイルは直接編集しないでください！
+1. libpq.sgmlを編集したら、split-libpq.shを起動します。
+2. するとlibpq[0-3].sgmlが生成されます。
+3. libpq.sgmlとともにlibpq[0-3].sgmlのうち変更されたファイルをcommit/pushしてpull requestを作成してください。
+4. レビューはlibpq[0-3].sgmlに対して行います。
+5. 指摘された点があればlibpq.sgmlに反映し、1に戻ります。
+6. libpq.sgmlの変更がなければ、pull requestをマージして終了です。お疲れ様でした！
+-->
+<!-- split-libpq1-start -->
+
+ <sect1 id="libpq-exec">
+<!--
+  <title>Command Execution Functions</title>
+-->
+<title>コマンド実行関数</title>
+
+  <para>
+<!--
+   Once a connection to a database server has been successfully
+   established, the functions described here are used to perform
+   SQL queries and commands.
+-->
+いったんデータベースサーバへの接続の確立が成功すれば、本節で説明する関数を使ってSQLの問い合わせやコマンドを実行します。
+  </para>
+
+  <sect2 id="libpq-exec-main">
+<!--
+   <title>Main Functions</title>
+-->
+   <title>主要な関数</title>
+
+   <para>
+    <variablelist>
+     <varlistentry id="libpq-PQexec">
+      <term><function>PQexec</function><indexterm><primary>PQexec</primary></indexterm></term>
+
+      <listitem>
+       <para>
+<!--
+        Submits a command to the server and waits for the result.
+-->
+コマンドをサーバに送信し、結果を待機します。
+
+<synopsis>
+PGresult *PQexec(PGconn *conn, const char *command);
+</synopsis>
+       </para>
+
+       <para>
+<!--
+        Returns a <structname>PGresult</structname> pointer or possibly a null
+        pointer.  A non-null pointer will generally be returned except in
+        out-of-memory conditions or serious errors such as inability to send
+        the command to the server.  The <xref linkend="libpq-PQresultStatus"/> function
+        should be called to check the return value for any errors (including
+        the value of a null pointer, in which case it will return
+        <symbol>PGRES_FATAL_ERROR</symbol>).  Use
+        <xref linkend="libpq-PQerrorMessage"/> to get more information about such
+        errors.
+-->
+戻り値は<structname>PGresult</structname>へのポインタ、場合によってはヌルポインタです。
+メモリ不足の状態、あるいはサーバへのコマンド送信が不可能といった深刻なエラーの場合を除けば、通常非ヌルのポインタが返ります。
+<xref linkend="libpq-PQresultStatus"/>関数を呼び出して、何かエラー（ヌルポインタ値を含むエラー。この場合は<symbol>PGRES_FATAL_ERROR</symbol>が返されます）がないか戻り値を検査しなければなりません。
+こうしたエラーの詳しい情報は<xref linkend="libpq-PQerrorMessage"/>で得ることができます。
+       </para>
+      </listitem>
+     </varlistentry>
+    </variablelist>
+
+<!--
+    The command string can include multiple SQL commands
+    (separated by semicolons).  Multiple queries sent in a single
+    <xref linkend="libpq-PQexec"/> call are processed in a single transaction, unless
+    there are explicit <command>BEGIN</command>/<command>COMMIT</command>
+    commands included in the query string to divide it into multiple
+    transactions.  (See <xref linkend="protocol-flow-multi-statement"/>
+    for more details about how the server handles multi-query strings.)
+    Note however that the returned
+    <structname>PGresult</structname> structure describes only the result
+    of the last command executed from the string.  Should one of the
+    commands fail, processing of the string stops with it and the returned
+    <structname>PGresult</structname> describes the error condition.
+-->
+コマンド文字列には（セミコロンで区切られた）複数のSQLコマンドを含めることができます。
+単一の<function>PQexec</function>呼び出しで送信された複数の問い合わせは、単一トランザクションで処理されます。
+ただし、問い合わせ文字列内に明示的な<command>BEGIN</command>/<command>COMMIT</command>コマンドがある場合は、複数のトランザクションに分離されます。
+（サーバがどのように複数問い合わせを処理するかの更なる詳細は<xref linkend="protocol-flow-multi-statement"/>を参照してください。）
+しかし、返される<structname>PGresult</structname>構造体には、その文字列内で最後に実行されたコマンドの結果のみが含まれることに注意してください。
+そのコマンドの1つが失敗したとすると、文字列の処理はそこで中断し、エラー条件が含まれる<structname>PGresult</structname>が返されます。
+   </para>
+
+   <para>
+    <variablelist>
+     <varlistentry id="libpq-PQexecParams">
+      <term><function>PQexecParams</function><indexterm><primary>PQexecParams</primary></indexterm></term>
+
+      <listitem>
+       <para>
+<!--
+        Submits a command to the server and waits for the result,
+        with the ability to pass parameters separately from the SQL
+        command text.
+-->
+サーバにコマンドを送信し、結果を待ちます。
+ただし、SQLコマンドテキストとは別にパラメータを渡すことができます。
+
+<synopsis>
+PGresult *PQexecParams(PGconn *conn,
+                       const char *command,
+                       int nParams,
+                       const Oid *paramTypes,
+                       const char * const *paramValues,
+                       const int *paramLengths,
+                       const int *paramFormats,
+                       int resultFormat);
+</synopsis>
+       </para>
+
+       <para>
+<!--
+        <xref linkend="libpq-PQexecParams"/> is like <xref linkend="libpq-PQexec"/>, but offers additional
+        functionality: parameter values can be specified separately from the command
+        string proper, and query results can be requested in either text or binary
+        format.  <xref linkend="libpq-PQexecParams"/> is supported only in protocol 3.0 and later
+        connections; it will fail when using protocol 2.0.
+-->
+<xref linkend="libpq-PQexecParams"/>と<xref linkend="libpq-PQexec"/>は似ていますが、前者は次の機能が追加されています。
+パラメータ値をコマンド文字列とは別に適切に指定することができ、また、問い合わせの結果をテキスト書式としてでもバイナリ書式としてでも要求できます。
+<xref linkend="libpq-PQexecParams"/>はプロトコル3.0以降でのみサポートされ、プロトコル2.0で使用した場合は失敗します。
+       </para>
+
+       <para>
+<!--
+        The function arguments are:
+-->
+この関数の引数を以下に示します。
+
+        <variablelist>
+         <varlistentry>
+          <term><parameter>conn</parameter></term>
+
+          <listitem>
+           <para>
+<!--
+            The connection object to send the command through.
+-->
+接続オブジェクトです。これを通してコマンドを送信します。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry>
+          <term><parameter>command</parameter></term>
+          <listitem>
+           <para>
+<!--
+            The SQL command string to be executed. If parameters are used,
+            they are referred to in the command string as <literal>$1</literal>,
+            <literal>$2</literal>, etc.
+-->
+実行させるSQLコマンド文字列です。
+パラメータが使用される場合は、コマンド文字列内で<literal>$1</literal>、<literal>$2</literal>などのように参照されます。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry>
+          <term><parameter>nParams</parameter></term>
+          <listitem>
+           <para>
+<!--
+            The number of parameters supplied; it is the length of the arrays
+            <parameter>paramTypes[]</parameter>, <parameter>paramValues[]</parameter>,
+            <parameter>paramLengths[]</parameter>, and <parameter>paramFormats[]</parameter>. (The
+            array pointers can be <symbol>NULL</symbol> when <parameter>nParams</parameter>
+            is zero.)
+-->
+提供されるパラメータ数です。
+これは配列<parameter>paramTypes[]</parameter>、<parameter>paramValues[]</parameter>、<parameter>paramLengths[]</parameter>、<parameter>paramFormats[]</parameter>の要素数です。
+（この配列ポインタは、<parameter>nParams</parameter>が0の場合、<symbol>NULL</symbol>とすることができます。）
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry>
+          <term><parameter>paramTypes[]</parameter></term>
+          <listitem>
+           <para>
+<!--
+            Specifies, by OID, the data types to be assigned to the
+            parameter symbols.  If <parameter>paramTypes</parameter> is
+            <symbol>NULL</symbol>, or any particular element in the array
+            is zero, the server infers a data type for the parameter symbol
+            in the same way it would do for an untyped literal string.
+-->
+パラメータシンボルに代入されるデータ型をOIDで指定したものです。
+<parameter>paramTypes</parameter>が<symbol>NULL</symbol>、または、ある配列要素が0の場合、サーバは、型指定のないリテラル文字列に対して行う推定方法と同じ方法を使用して、パラメータシンボルのデータ型を推定します。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry>
+          <term><parameter>paramValues[]</parameter></term>
+          <listitem>
+           <para>
+<!--
+            Specifies the actual values of the parameters.  A null pointer
+            in this array means the corresponding parameter is null;
+            otherwise the pointer points to a zero-terminated text string
+            (for text format) or binary data in the format expected by the
+            server (for binary format).
+-->
+パラメータの実際の値を指定します。
+配列内のヌルポインタは対応するパラメータがNULLであることを意味します。
+さもなくば、このポインタはゼロ終端のテキスト文字列（テキスト書式）、または、サーバで想定している書式によるバイナリデータ（バイナリ書式）を指し示します。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry>
+          <term><parameter>paramLengths[]</parameter></term>
+          <listitem>
+           <para>
+<!--
+            Specifies the actual data lengths of binary-format parameters.
+            It is ignored for null parameters and text-format parameters.
+            The array pointer can be null when there are no binary parameters.
+-->
+バイナリ書式のパラメータの実データ長を指定します。
+NULLパラメータおよびテキスト書式のパラメータでは無視されます。
+バイナリパラメータが存在しない場合、この配列ポインタはヌルとしてもかまいません。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry>
+          <term><parameter>paramFormats[]</parameter></term>
+          <listitem>
+           <para>
+<!--
+            Specifies whether parameters are text (put a zero in the
+            array entry for the corresponding parameter) or binary (put
+            a one in the array entry for the corresponding parameter).
+            If the array pointer is null then all parameters are presumed
+            to be text strings.
+-->
+パラメータがテキスト（パラメータに対応する配列要素に0を設定）か、バイナリ（パラメータに対応する配列要素に1を設定）かを指定します。
+この配列ポインタがヌルの場合、すべてのパラメータはテキスト文字列であると仮定されます。
+           </para>
+           <para>
+<!--
+            Values passed in binary format require knowledge of
+            the internal representation expected by the backend.
+            For example, integers must be passed in network byte
+            order.  Passing <type>numeric</type> values requires
+            knowledge of the server storage format, as implemented
+            in
+            <filename>src/backend/utils/adt/numeric.c::numeric_send()</filename> and
+            <filename>src/backend/utils/adt/numeric.c::numeric_recv()</filename>.
+-->
+バイナリ書式で渡された値は、バックエンドが想定する内部表現の知識を必要とします。
+例えば、整数はネットワークバイト順に渡されなければなりません。
+<type>numeric</type>による値は、<filename>src/backend/utils/adt/numeric.c::numeric_send()</filename>および<filename>src/backend/utils/adt/numeric.c::numeric_recv()</filename>で実装されたようにサーバストレージ書式の知識を必要とします。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry>
+          <term><parameter>resultFormat</parameter></term>
+          <listitem>
+           <para>
+<!--
+            Specify zero to obtain results in text format, or one to obtain
+            results in binary format.  (There is not currently a provision
+            to obtain different result columns in different formats,
+            although that is possible in the underlying protocol.)
+-->
+結果をテキスト書式で取り出したい場合は0を、バイナリ書式で取り出したい場合は1を指定します。
+（現時点では、プロトコル内部では実現可能ですが、結果の列ごとに異なる書式を指定して取り出す機構は存在しません。）
+           </para>
+          </listitem>
+         </varlistentry>
+        </variablelist>
+       </para>
+      </listitem>
+     </varlistentry>
+    </variablelist>
+   </para>
+
+   <para>
+<!--
+    The primary advantage of <xref linkend="libpq-PQexecParams"/> over
+    <xref linkend="libpq-PQexec"/> is that parameter values can be separated from the
+    command string, thus avoiding the need for tedious and error-prone
+    quoting and escaping.
+-->
+<xref linkend="libpq-PQexec"/>に対する<xref linkend="libpq-PQexecParams"/>の主要な利点は、コマンド文字列とパラメータ値を分離することができることです。
+これにより、面倒でエラーを招きやすい引用符付けやエスケープ処理を行なう必要がなくなります。
+   </para>
+
+   <para>
+<!--
+    Unlike <xref linkend="libpq-PQexec"/>, <xref linkend="libpq-PQexecParams"/> allows at most
+    one SQL command in the given string.  (There can be semicolons in it,
+    but not more than one nonempty command.)  This is a limitation of the
+    underlying protocol, but has some usefulness as an extra defense against
+    SQL-injection attacks.
+-->
+<xref linkend="libpq-PQexec"/>と異なり、<xref linkend="libpq-PQexecParams"/>は、文字列内に最大でも1つのSQLコマンドを入れることができます。
+（セミコロンを入れることはできますが、空でないコマンドを2つ以上入れることはできません。）
+これは、プロトコル自体の制限ですが、SQLインジェクション攻撃に対する追加の防御となりますので、多少役に立ちます。
+   </para>
+
+   <tip>
+    <para>
+<!--
+     Specifying parameter types via OIDs is tedious, particularly if you prefer
+     not to hard-wire particular OID values into your program.  However, you can
+     avoid doing so even in cases where the server by itself cannot determine the
+     type of the parameter, or chooses a different type than you want.  In the
+     SQL command text, attach an explicit cast to the parameter symbol to show what
+     data type you will send.  For example:
+-->
+OID経由のパラメータ型の指定は、特にプログラムの中で特定のOID値がソースに直接書き込まれることを好まない場合には退屈です。
+しかしながら、パラメータの型をサーバ自身で決定できない場合や、望む型と異なる型を選択する場合であっても、これを避けることができます。
+SQLコマンドテキストでどのデータ型を送信するかを示すためにパラメータシンボルに明示的なキャストをつけてください。
+以下が例です。
+
+<programlisting>
+SELECT * FROM mytable WHERE x = $1::bigint;
+</programlisting>
+<!--
+     This forces parameter <literal>$1</literal> to be treated as <type>bigint</type>, whereas
+     by default it would be assigned the same type as <literal>x</literal>.  Forcing the
+     parameter type decision, either this way or by specifying a numeric type OID,
+     is strongly recommended when sending parameter values in binary format, because
+     binary format has less redundancy than text format and so there is less chance
+     that the server will detect a type mismatch mistake for you.
+-->
+デフォルトではパラメータ<literal>$1</literal>の型は<literal>x</literal>と同じデータ型に割り当てられますが、これにより強制的に<type>bigint</type>として扱われます。
+この方法または型のOIDを数字で指定する方法で、パラメータの型を強制的に決定することがバイナリ書式においてパラメータ値を送る時に強く推奨されます。
+これは、バイナリ書式はテキスト書式より情報が少なく、そのために、サーバが型の不一致という問題を検出する機会が少なくなるためです。
+    </para>
+   </tip>
+
+   <para>
+    <variablelist>
+     <varlistentry id="libpq-PQprepare">
+      <term><function>PQprepare</function><indexterm><primary>PQprepare</primary></indexterm></term>
+
+      <listitem>
+       <para>
+<!--
+        Submits a request to create a prepared statement with the
+        given parameters, and waits for completion.
+-->
+指定パラメータを持つプリペアド文の作成要求を送信し、その完了を待ちます。
+<synopsis>
+PGresult *PQprepare(PGconn *conn,
+                    const char *stmtName,
+                    const char *query,
+                    int nParams,
+                    const Oid *paramTypes);
+</synopsis>
+       </para>
+
+       <para>
+<!--
+        <xref linkend="libpq-PQprepare"/> creates a prepared statement for later
+        execution with <xref linkend="libpq-PQexecPrepared"/>.  This feature allows
+        commands to be executed repeatedly without being parsed and
+        planned each time;  see <xref linkend="sql-prepare"/> for details.
+        <xref linkend="libpq-PQprepare"/> is supported only in protocol 3.0 and later
+        connections; it will fail when using protocol 2.0.
+-->
+<xref linkend="libpq-PQprepare"/>は、後で<xref linkend="libpq-PQexecPrepared"/>を使用して実行するプリペアド文を作成します。
+この機能を使用すると、コマンドを実行の度に解析して計画することなく、繰り返し実行することができます。
+詳しくは<xref linkend="sql-prepare"/>を参照してください。
+<xref linkend="libpq-PQprepare"/>はプロトコル3.0以降でのみサポートされ、プロトコル2.0を使用している場合は失敗します。
+       </para>
+
+       <para>
+<!--
+        The function creates a prepared statement named
+        <parameter>stmtName</parameter> from the <parameter>query</parameter> string, which
+        must contain a single SQL command.  <parameter>stmtName</parameter> can be
+        <literal>""</literal> to create an unnamed statement, in which case any
+        pre-existing unnamed statement is automatically replaced; otherwise
+        it is an error if the statement name is already defined in the
+        current session.  If any parameters are used, they are referred
+        to in the query as <literal>$1</literal>, <literal>$2</literal>, etc.
+        <parameter>nParams</parameter> is the number of parameters for which types
+        are pre-specified in the array <parameter>paramTypes[]</parameter>.  (The
+        array pointer can be <symbol>NULL</symbol> when
+        <parameter>nParams</parameter> is zero.) <parameter>paramTypes[]</parameter>
+        specifies, by OID, the data types to be assigned to the parameter
+        symbols.  If <parameter>paramTypes</parameter> is <symbol>NULL</symbol>,
+        or any particular element in the array is zero, the server assigns
+        a data type to the parameter symbol in the same way it would do
+        for an untyped literal string.  Also, the query can use parameter
+        symbols with numbers higher than <parameter>nParams</parameter>; data types
+        will be inferred for these symbols as well.  (See
+        <xref linkend="libpq-PQdescribePrepared"/> for a means to find out
+        what data types were inferred.)
+-->
+この関数は<parameter>query</parameter>文字列から<parameter>stmtName</parameter>という名前のプリペアド文を作成します。
+<parameter>query</parameter>は単一のSQLコマンドでなければなりません。
+<parameter>stmtName</parameter>を<literal>""</literal>にして、無名の文を作成することができます。
+もし、無名の文が既に存在していた場合は自動的に置き換えられます。
+その他の場合、文の名前が現在のセッションで既に存在するとエラーになります。
+何らかのパラメータが使用される場合、問い合わせ内では<literal>$1</literal>、<literal>$2</literal>などで参照します。
+<parameter>nParams</parameter>はパラメータ数です。
+その型については事前に<parameter>paramTypes[]</parameter>配列で指定されています。
+(<parameter>nParams</parameter>がゼロの場合、この配列ポインタは<symbol>NULL</symbol>にすることができます。)
+<parameter>paramTypes[]</parameter>は、OIDによりパラメータシンボルに割り当てるデータ型を指定します。
+<parameter>paramTypes</parameter>が<symbol>NULL</symbol>の場合、もしくは、配列内の特定要素がゼロの場合、サーバはそのパラメータシンボルに対して、型指定の無いリテラル文字列に対する処理と同等の方法でデータ型を割り当てます。
+また、問い合わせでは<parameter>nParams</parameter>より多くのパラメータシンボルを使用することができます。
+これらのシンボルに対するデータ型も同様に推測されます。
+（どのようなデータ型が推測されるかを検出する手法については<xref linkend="libpq-PQdescribePrepared"/>を参照してください。）
+       </para>
+
+       <para>
+<!--
+        As with <xref linkend="libpq-PQexec"/>, the result is normally a
+        <structname>PGresult</structname> object whose contents indicate
+        server-side success or failure.  A null result indicates
+        out-of-memory or inability to send the command at all.  Use
+        <xref linkend="libpq-PQerrorMessage"/> to get more information about
+        such errors.
+-->
+<xref linkend="libpq-PQexec"/>同様、結果は通常<structname>PGresult</structname>オブジェクトで、その内容でサーバ側の成功や失敗を示します。
+ヌルという結果はメモリ不足や全くコマンドを送信することができなかったことを示します。
+こうしたエラーの詳細情報を入手するには<xref linkend="libpq-PQerrorMessage"/>を使用してください。
+       </para>
+      </listitem>
+     </varlistentry>
+    </variablelist>
+
+<!--
+    Prepared statements for use with <xref linkend="libpq-PQexecPrepared"/> can also
+    be created by executing SQL <xref linkend="sql-prepare"/>
+    statements.  Also, although there is no <application>libpq</application>
+    function for deleting a prepared statement, the SQL <xref
+    linkend="sql-deallocate"/> statement
+    can be used for that purpose.
+-->
+<function>PQexecPrepared</function>で使用するためのプリペアド文は、<xref linkend="sql-prepare"/> SQL文を実行することでも作成可能です。
+また、プリペアド文を削除する<application>libpq</application>関数はありませんが、この目的のために<xref linkend="sql-deallocate"/>SQL文を使用することができます。
+   </para>
+
+   <para>
+    <variablelist>
+     <varlistentry id="libpq-PQexecPrepared">
+      <term><function>PQexecPrepared</function><indexterm><primary>PQexecPrepared</primary></indexterm></term>
+
+      <listitem>
+       <para>
+<!--
+        Sends a request to execute a prepared statement with given
+        parameters, and waits for the result.
+-->
+指定パラメータによるプリペアド文の実行要求を送信し、結果を待ちます。
+<synopsis>
+PGresult *PQexecPrepared(PGconn *conn,
+                         const char *stmtName,
+                         int nParams,
+                         const char * const *paramValues,
+                         const int *paramLengths,
+                         const int *paramFormats,
+                         int resultFormat);
+</synopsis>
+       </para>
+
+       <para>
+<!--
+        <xref linkend="libpq-PQexecPrepared"/> is like <xref linkend="libpq-PQexecParams"/>,
+        but the command to be executed is specified by naming a
+        previously-prepared statement, instead of giving a query string.
+        This feature allows commands that will be used repeatedly to be
+        parsed and planned just once, rather than each time they are
+        executed.  The statement must have been prepared previously in
+        the current session.  <xref linkend="libpq-PQexecPrepared"/> is supported
+        only in protocol 3.0 and later connections; it will fail when
+        using protocol 2.0.
+-->
+<xref linkend="libpq-PQexecPrepared"/>と<xref linkend="libpq-PQexecParams"/>は似ていますが、前者では実行されるコマンドは、問い合わせ文字列を与えるのではなく、事前にプリペアド文を指名することで指定されます。
+この機能により、繰り返し使用する予定のコマンドを実行する度にではなく、一度だけ解析、計画作成を行うことができます。
+この文は現在のセッションで事前に準備されていなければなりません。
+<xref linkend="libpq-PQexecPrepared"/>は、プロトコル3.0以降の接続でのみサポートされます。
+プロトコル2.0で使用した場合は失敗します。
+       </para>
+
+       <para>
+<!--
+        The parameters are identical to <xref linkend="libpq-PQexecParams"/>, except that the
+        name of a prepared statement is given instead of a query string, and the
+        <parameter>paramTypes[]</parameter> parameter is not present (it is not needed since
+        the prepared statement's parameter types were determined when it was created).
+-->
+パラメータは、問い合わせ文字列ではなく指定されたプリペアド文の名前を与える点を除き、<xref linkend="libpq-PQexecParams"/>と同じです。
+また、<parameter>paramTypes[]</parameter>パラメータは存在しません。
+(プリペアド文のパラメータ型はその作成時点で決定されているため、これは不要です。)
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="libpq-PQdescribePrepared">
+      <term><function>PQdescribePrepared</function><indexterm><primary>PQdescribePrepared</primary></indexterm></term>
+
+      <listitem>
+       <para>
+<!--
+        Submits a request to obtain information about the specified
+        prepared statement, and waits for completion.
+-->
+指定したプリペアド文に関する情報入手要求を送り、入手完了まで待機します。
+
+<synopsis>
+PGresult *PQdescribePrepared(PGconn *conn, const char *stmtName);
+</synopsis>
+       </para>
+
+       <para>
+<!--
+        <xref linkend="libpq-PQdescribePrepared"/> allows an application to obtain
+        information about a previously prepared statement.
+        <xref linkend="libpq-PQdescribePrepared"/> is supported only in protocol 3.0
+        and later connections; it will fail when using protocol 2.0.
+-->
+<xref linkend="libpq-PQdescribePrepared"/>により、アプリケーションは事前にプリペアド文に関する情報を入手できます。
+<xref linkend="libpq-PQdescribePrepared"/>はプロトコル3.0以降の接続でのみサポートされます。
+プロトコル2.0で使用すると失敗します。
+       </para>
+
+       <para>
+<!--
+        <parameter>stmtName</parameter> can be <literal>""</literal> or <symbol>NULL</symbol> to reference
+        the unnamed statement, otherwise it must be the name of an existing
+        prepared statement.  On success, a <structname>PGresult</structname> with
+        status <literal>PGRES_COMMAND_OK</literal> is returned.  The
+        functions <xref linkend="libpq-PQnparams"/> and
+        <xref linkend="libpq-PQparamtype"/> can be applied to this
+        <structname>PGresult</structname> to obtain information about the parameters
+        of the prepared statement, and the functions
+        <xref linkend="libpq-PQnfields"/>, <xref linkend="libpq-PQfname"/>,
+        <xref linkend="libpq-PQftype"/>, etc provide information about the
+        result columns (if any) of the statement.
+-->
+<parameter>stmtName</parameter>を<literal>""</literal>または<symbol>NULL</symbol>とすることで、無名の文を参照することができます。
+これ以外では、存在するプリペアド文の名前でなければなりません。
+成功すると、<literal>PGRES_COMMAND_OK</literal>というステータスの<structname>PGresult</structname>が返されます。
+<xref linkend="libpq-PQnparams"/>および<xref linkend="libpq-PQparamtype"/>関数をこの<structname>PGresult</structname>に適用して、プリペアド文のパラメータに関する情報を得ることができます。
+また、<xref linkend="libpq-PQnfields"/>、<xref linkend="libpq-PQfname"/>、<xref linkend="libpq-PQftype"/>関数などを使用して、文の結果列（もしあれば）に関する情報を提供できます。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="libpq-PQdescribePortal">
+      <term><function>PQdescribePortal</function><indexterm><primary>PQdescribePortal</primary></indexterm></term>
+
+      <listitem>
+       <para>
+<!--
+        Submits a request to obtain information about the specified
+        portal, and waits for completion.
+-->
+指定したポータルに関する情報入手要求を送信し、完了まで待機します。
+
+<synopsis>
+PGresult *PQdescribePortal(PGconn *conn, const char *portalName);
+</synopsis>
+       </para>
+
+       <para>
+<!--
+        <xref linkend="libpq-PQdescribePortal"/> allows an application to obtain
+        information about a previously created portal.
+        (<application>libpq</application> does not provide any direct access to
+        portals, but you can use this function to inspect the properties
+        of a cursor created with a <command>DECLARE CURSOR</command> SQL command.)
+        <xref linkend="libpq-PQdescribePortal"/> is supported only in protocol 3.0
+        and later connections; it will fail when using protocol 2.0.
+-->
+<xref linkend="libpq-PQdescribePortal"/>により、アプリケーションは事前に作成されたポータルの情報を入手することができます。
+（<application>libpq</application>はポータルへの直接アクセスする方法を提供していませんが、この関数を使用して<command>DECLARE CURSOR</command> SQLコマンドで作成したカーソルの属性を確認することができます。）
+<xref linkend="libpq-PQdescribePortal"/>はプロトコル3.0以降の接続でのみサポートされます。
+プロトコル2.0で使用すると失敗します。
+       </para>
+
+       <para>
+<!--
+        <parameter>portalName</parameter> can be <literal>""</literal> or <symbol>NULL</symbol> to reference
+        the unnamed portal, otherwise it must be the name of an existing
+        portal.  On success, a <structname>PGresult</structname> with status
+        <literal>PGRES_COMMAND_OK</literal> is returned.  The functions
+        <xref linkend="libpq-PQnfields"/>, <xref linkend="libpq-PQfname"/>,
+        <xref linkend="libpq-PQftype"/>, etc can be applied to the
+        <structname>PGresult</structname> to obtain information about the result
+        columns (if any) of the portal.
+-->
+<parameter>portalName</parameter>に<literal>""</literal>または<symbol>NULL</symbol>を指定して、無名のポータルを参照することができます。
+これ以外では、既存のポータルの名前でなければなりません。
+成功すると、<literal>PGRES_COMMAND_OK</literal>というステータスの<structname>PGresult</structname>が返されます。
+<xref linkend="libpq-PQnfields"/>、<xref linkend="libpq-PQfname"/>、<xref linkend="libpq-PQftype"/>関数などをこの<structname>PGresult</structname>に適用して、ポータルの結果列（もしあれば）に関する情報を得ることができます。
+       </para>
+      </listitem>
+     </varlistentry>
+    </variablelist>
+   </para>
+
+   <para>
+<!--
+    The <structname>PGresult</structname><indexterm><primary>PGresult</primary></indexterm>
+    structure encapsulates the result returned by the server.
+    <application>libpq</application> application programmers should be
+    careful to maintain the <structname>PGresult</structname> abstraction.
+    Use the accessor functions below to get at the contents of
+    <structname>PGresult</structname>.  Avoid directly referencing the
+    fields of the <structname>PGresult</structname> structure because they
+    are subject to change in the future.
+-->
+<structname>PGresult</structname>構造体はサーバから返された結果をカプセル化します。
+<indexterm><primary>PGresult</primary></indexterm>
+<application>libpq</application>アプリケーションのプログラマは注意して<structname>PGresult</structname>という抽象化を維持してください。
+以下のアクセス用関数を使用して、<structname>PGresult</structname>の内容を取り出してください。
+将来の変更に影響されますので、<structname>PGresult</structname>構造体のフィールドを直接参照することは避けてください。
+
+    <variablelist>
+     <varlistentry id="libpq-PQresultStatus">
+      <term><function>PQresultStatus</function><indexterm><primary>PQresultStatus</primary></indexterm></term>
+
+      <listitem>
+       <para>
+<!--
+        Returns the result status of the command.
+-->
+コマンドの結果状態を返します。
+<synopsis>
+ExecStatusType PQresultStatus(const PGresult *res);
+</synopsis>
+       </para>
+
+       <para>
+<!--
+        <xref linkend="libpq-PQresultStatus"/> can return one of the following values:
+-->
+<xref linkend="libpq-PQresultStatus"/>は以下のいずれかの値を返します。
+
+        <variablelist>
+         <varlistentry id="libpq-pgres-empty-query">
+          <term><literal>PGRES_EMPTY_QUERY</literal></term>
+          <listitem>
+           <para>
+<!--
+            The string sent to the server was empty.
+-->
+サーバに送信された文字列が空でした。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pgres-command-ok">
+          <term><literal>PGRES_COMMAND_OK</literal></term>
+          <listitem>
+           <para>
+<!--
+            Successful completion of a command returning no data.
+-->
+データを返さないコマンドが正常終了しました。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pgres-tuples-ok">
+          <term><literal>PGRES_TUPLES_OK</literal></term>
+          <listitem>
+           <para>
+<!--
+            Successful completion of a command returning data (such as
+            a <command>SELECT</command> or <command>SHOW</command>).
+-->
+データを返すコマンド(<command>SELECT</command>や<command>SHOW</command>など)が正常終了しました。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pgres-copy-out">
+          <term><literal>PGRES_COPY_OUT</literal></term>
+          <listitem>
+           <para>
+<!--
+            Copy Out (from server) data transfer started.
+-->
+(サーバからの)コピーアウトデータ転送が始まりました。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pgres-copy-in">
+          <term><literal>PGRES_COPY_IN</literal></term>
+          <listitem>
+           <para>
+<!--
+            Copy In (to server) data transfer started.
+-->
+(サーバへの)コピーインデータ転送が始まりました。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pgres-bad-response">
+          <term><literal>PGRES_BAD_RESPONSE</literal></term>
+          <listitem>
+           <para>
+<!--
+            The server's response was not understood.
+-->
+サーバが不明な応答を返しました。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pgres-nonfatal-error">
+          <term><literal>PGRES_NONFATAL_ERROR</literal></term>
+          <listitem>
+           <para>
+<!--
+            A nonfatal error (a notice or warning) occurred.
+-->
+致命的ではない(注意喚起もしくは警告)エラーが発生しました。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pgres-fatal-error">
+          <term><literal>PGRES_FATAL_ERROR</literal></term>
+          <listitem>
+           <para>
+<!--
+            A fatal error occurred.
+-->
+致命的なエラーが発生しました。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pgres-copy-both">
+          <term><literal>PGRES_COPY_BOTH</literal></term>
+          <listitem>
+           <para>
+<!--
+            Copy In/Out (to and from server) data transfer started.  This
+            feature is currently used only for streaming replication,
+            so this status should not occur in ordinary applications.
+-->
+（サーバからおよびサーバへの）コピーイン/アウトデータ転送が始まりました。
+現在こればストリーミングレプリケーションのみで使用されます。
+このためこの状態は通常のアプリケーションでは起こりません。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pgres-single-tuple">
+          <term><literal>PGRES_SINGLE_TUPLE</literal></term>
+          <listitem>
+           <para>
+<!--
+            The <structname>PGresult</structname> contains a single result tuple
+            from the current command.  This status occurs only when
+            single-row mode has been selected for the query
+            (see <xref linkend="libpq-single-row-mode"/>).
+-->
+<structname>PGresult</structname>には現在のコマンドからの結果タプルが１つ含まれます。
+この状態は問い合わせで単一行モードが選択された場合（<xref linkend="libpq-single-row-mode"/>参照）のみ起こります。
+           </para>
+          </listitem>
+         </varlistentry>
+        </variablelist>
+
+<!--
+        If the result status is <literal>PGRES_TUPLES_OK</literal> or
+        <literal>PGRES_SINGLE_TUPLE</literal>, then
+        the functions described below can be used to retrieve the rows
+        returned by the query.  Note that a <command>SELECT</command>
+        command that happens to retrieve zero rows still shows
+        <literal>PGRES_TUPLES_OK</literal>.
+        <literal>PGRES_COMMAND_OK</literal> is for commands that can never
+        return rows (<command>INSERT</command> or <command>UPDATE</command>
+        without a <literal>RETURNING</literal> clause,
+        etc.). A response of <literal>PGRES_EMPTY_QUERY</literal> might
+        indicate a bug in the client software.
+-->
+結果状態が<literal>PGRES_TUPLES_OK</literal>または<literal>PGRES_SINGLE_TUPLE</literal>であれば、以下で説明する関数を使って問い合わせが返した行を取り出すことができます。
+ただし、たまたま<command>SELECT</command>コマンドが返す行が０個だったような場合でも<literal>PGRES_TUPLES_OK</literal>となることに注意してください。
+<literal>PGRES_COMMAND_OK</literal>は、行を決して返さない(<literal>RETURNING</literal>句の無い<command>INSERT</command>または<command>UPDATE</command>など)コマンド用です。
+<literal>PGRES_EMPTY_QUERY</literal>という応答はクライアントソフトウェアの不具合を示しているかもしれません。
+       </para>
+
+       <para>
+<!--
+        A result of status <symbol>PGRES_NONFATAL_ERROR</symbol> will
+        never be returned directly by <xref linkend="libpq-PQexec"/> or other
+        query execution functions; results of this kind are instead passed
+        to the notice processor (see <xref
+        linkend="libpq-notice-processing"/>).
+-->
+<symbol>PGRES_NONFATAL_ERROR</symbol>状態の場合、結果は<xref linkend="libpq-PQexec"/>や他の問い合わせ実行関数によって直接返されません。
+その代わりに、この種の結果は注意喚起プロセッサ(<xref linkend="libpq-notice-processing"/>参照)に渡されます。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="libpq-PQresStatus">
+      <term><function>PQresStatus</function><indexterm><primary>PQresStatus</primary></indexterm></term>
+
+      <listitem>
+       <para>
+<!--
+        Converts the enumerated type returned by
+        <xref linkend="libpq-PQresultStatus"/> into a string constant describing the
+        status code. The caller should not free the result.
+-->
+<xref linkend="libpq-PQresultStatus"/>が返す列挙型から状態コードを説明する文字列定数に変換します。
+呼び出し元はこの結果を解放してはいけません。
+
+<synopsis>
+char *PQresStatus(ExecStatusType status);
+</synopsis>
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="libpq-PQresultErrorMessage">
+      <term><function>PQresultErrorMessage</function><indexterm><primary>PQresultErrorMessage</primary></indexterm></term>
+
+      <listitem>
+       <para>
+<!--
+        Returns the error message associated with the command, or an empty string
+        if there was no error.
+-->
+コマンドに関するエラーメッセージを返します。
+エラーが何もなければ、空の文字列を返します。
+<synopsis>
+char *PQresultErrorMessage(const PGresult *res);
+</synopsis>
+<!--
+        If there was an error, the returned string will include a trailing
+        newline.  The caller should not free the result directly. It will
+        be freed when the associated <structname>PGresult</structname> handle is
+        passed to <xref linkend="libpq-PQclear"/>.
+-->
+エラーがあった場合、返される文字列の最後には改行が含まれます。
+呼び出し元はこの結果を直接解放してはいけません。
+関連する<structname>PGresult</structname>ハンドルが<function>PQclear</function>に渡された時にこれは解放されます。
+       </para>
+
+       <para>
+<!--
+        Immediately following a <xref linkend="libpq-PQexec"/> or
+        <xref linkend="libpq-PQgetResult"/> call,
+        <xref linkend="libpq-PQerrorMessage"/> (on the connection) will return
+        the same string as <xref linkend="libpq-PQresultErrorMessage"/> (on
+        the result).  However, a <structname>PGresult</structname> will
+        retain its error message until destroyed, whereas the connection's
+        error message will change when subsequent operations are done.
+        Use <xref linkend="libpq-PQresultErrorMessage"/> when you want to
+        know the status associated with a particular
+        <structname>PGresult</structname>; use
+        <xref linkend="libpq-PQerrorMessage"/> when you want to know the
+        status from the latest operation on the connection.
+-->
+（接続に対する）<xref linkend="libpq-PQerrorMessage"/>も、<xref linkend="libpq-PQexec"/>または<xref linkend="libpq-PQgetResult"/>呼び出しの直後なら（結果に対する）<xref linkend="libpq-PQresultErrorMessage"/>と同じ文字列を返します。
+しかし、接続に対するエラーメッセージは続いて操作を行うと変化してしまうのに対し、<structname>PGresult</structname>は自身が破棄されるまでそのエラーメッセージを維持し続けます。
+この<xref linkend="libpq-PQresultErrorMessage"/>は個々の<structname>PGresult</structname>に結び付けられた状態を確認する時に、そして<xref linkend="libpq-PQerrorMessage"/>は接続における最後の操作の状態を確認する時に使用してください。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="libpq-PQresultVerboseErrorMessage">
+      <term><function>PQresultVerboseErrorMessage</function><indexterm><primary>PQresultVerboseErrorMessage</primary></indexterm></term>
+
+      <listitem>
+       <para>
+<!--
+        Returns a reformatted version of the error message associated with
+        a <structname>PGresult</structname> object.
+-->
+<structname>PGresult</structname>オブジェクトに関連したエラーメッセージの再フォーマットしたバージョンを返します。
+<synopsis>
+char *PQresultVerboseErrorMessage(const PGresult *res,
+                                  PGVerbosity verbosity,
+                                  PGContextVisibility show_context);
+</synopsis>
+<!--
+        In some situations a client might wish to obtain a more detailed
+        version of a previously-reported error.
+        <xref linkend="libpq-PQresultVerboseErrorMessage"/> addresses this need
+        by computing the message that would have been produced
+        by <xref linkend="libpq-PQresultErrorMessage"/> if the specified
+        verbosity settings had been in effect for the connection when the
+        given <structname>PGresult</structname> was generated.  If
+        the <structname>PGresult</structname> is not an error result,
+        <quote>PGresult is not an error result</quote> is reported instead.
+        The returned string includes a trailing newline.
+-->
+状況によっては、クライアントは以前に報告されたエラーのより詳細なバージョンを取得したいと思うかもしれません。
+<function>PQresultVerboseErrorMessage</function>は、指定の<structname>PGresult</structname>が生成されたときに、指定した冗長設定がその接続で使われていたなら<function>PQresultErrorMessage</function>が生成したであろうメッセージを計算することで、この要請に応えます。
+<structname>PGresult</structname>がエラーの結果ではない場合は、<quote>PGresult is not an error result</quote>が代わりに報告されます。
+返される文字列は行末に改行コードが含まれます。
+       </para>
+
+       <para>
+<!--
+        Unlike most other functions for extracting data from
+        a <structname>PGresult</structname>, the result of this function is a freshly
+        allocated string.  The caller must free it
+        using <function>PQfreemem()</function> when the string is no longer needed.
+-->
+<structname>PGresult</structname>からデータを抽出する他の多くの関数と異なり、この関数の結果は新しく割り当てられた文字列です。
+その文字列が必要なくなったときは、呼び出し側が<function>PQfreemem()</function>を使ってそれを解放しなければなりません。
+       </para>
+
+       <para>
+<!--
+        A NULL return is possible if there is insufficient memory.
+-->
+十分なメモリがないときは、NULLが返されることもありえます。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="libpq-PQresultErrorField">
+      <term><function>PQresultErrorField</function><indexterm><primary>PQresultErrorField</primary></indexterm></term>
+      <listitem>
+       <para>
+<!--
+        Returns an individual field of an error report.
+-->
+エラー報告の個々のフィールドを返します。
+<synopsis>
+char *PQresultErrorField(const PGresult *res, int fieldcode);
+</synopsis>
+<!--
+        <parameter>fieldcode</parameter> is an error field identifier; see the symbols
+        listed below.  <symbol>NULL</symbol> is returned if the
+        <structname>PGresult</structname> is not an error or warning result,
+        or does not include the specified field.  Field values will normally
+        not include a trailing newline. The caller should not free the
+        result directly. It will be freed when the
+        associated <structname>PGresult</structname> handle is passed to
+        <xref linkend="libpq-PQclear"/>.
+-->
+<parameter>fieldcode</parameter>はエラーフィールド識別子です。
+以下に示すシンボルを参照してください。
+<structname>PGresult</structname>がエラーではない、もしくは、警告付きの結果である場合や指定したフィールドを含まない場合、<symbol>NULL</symbol>が返されます。
+通常フィールド値には改行が含まれません。
+フィールド値は関連する<structname>PGresult</structname>ハンドルが<function>PQclear</function>に渡された時に解放されます。
+       </para>
+
+       <para>
+<!--
+        The following field codes are available:
+-->
+以下のフィールドコードが使用できます。
+        <variablelist>
+         <varlistentry id="libpq-pg-diag-severity">
+          <term><symbol>PG_DIAG_SEVERITY</symbol></term>
+          <listitem>
+           <para>
+<!--
+            The severity; the field contents are <literal>ERROR</literal>,
+            <literal>FATAL</literal>, or <literal>PANIC</literal> (in an error message),
+            or <literal>WARNING</literal>, <literal>NOTICE</literal>, <literal>DEBUG</literal>,
+            <literal>INFO</literal>, or <literal>LOG</literal> (in a notice message), or
+            a localized translation of one of these.  Always present.
+-->
+深刻度。
+このフィールドの内容は(エラーメッセージの場合)<literal>ERROR</literal>、<literal>FATAL</literal>、もしくは、<literal>PANIC</literal>、(注意喚起メッセージの場合)<literal>WARNING</literal>、<literal>NOTICE</literal>、<literal>DEBUG</literal>、<literal>INFO</literal>、もしくは、<literal>LOG</literal>です。
+これらは、多言語化により翻訳されている可能性があります。
+常に存在します。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-PG-diag-severity-nonlocalized">
+          <term><symbol>PG_DIAG_SEVERITY_NONLOCALIZED</symbol></term>
+          <listitem>
+           <para>
+<!--
+            The severity; the field contents are <literal>ERROR</literal>,
+            <literal>FATAL</literal>, or <literal>PANIC</literal> (in an error message),
+            or <literal>WARNING</literal>, <literal>NOTICE</literal>, <literal>DEBUG</literal>,
+            <literal>INFO</literal>, or <literal>LOG</literal> (in a notice message).
+            This is identical to the <symbol>PG_DIAG_SEVERITY</symbol> field except
+            that the contents are never localized.  This is present only in
+            reports generated by <productname>PostgreSQL</productname> versions 9.6
+            and later.
+-->
+深刻度。
+このフィールドの内容は(エラーメッセージの場合)<literal>ERROR</literal>、<literal>FATAL</literal>、もしくは、<literal>PANIC</literal>、(注意喚起メッセージの場合)<literal>WARNING</literal>、<literal>NOTICE</literal>、<literal>DEBUG</literal>、<literal>INFO</literal>、もしくは、<literal>LOG</literal>です。
+これは、内容が多言語化されないことを除き、<symbol>PG_DIAG_SEVERITY</symbol>と同一です。
+これは<productname>PostgreSQL</productname>のバージョン9.6以降で生成された報告にのみ存在します。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pg-diag-sqlstate">
+          <term><symbol>PG_DIAG_SQLSTATE</symbol><indexterm
+          ><primary>error codes</primary><secondary>libpq</secondary></indexterm></term>
+          <listitem>
+           <para>
+<!--
+            The SQLSTATE code for the error. The SQLSTATE code identifies
+            the type of error that has occurred; it can be used by
+            front-end applications to perform specific operations (such
+            as error handling) in response to a particular database error.
+            For a list of the possible SQLSTATE codes, see <xref
+            linkend="errcodes-appendix"/>. This field is not localizable,
+            and is always present.
+-->
+エラーのSQLSTATEコードです。
+SQLSTATEコードは発生したエラーの種類を識別します。
+フロントエンドアプリケーションにより、特定のデータベースエラーに対して所定の操作（エラー処理など）を行うために使用できます。
+起こり得るSQLSTATEコードの一覧については<xref linkend="errcodes-appendix"/>を参照してください。
+このフィールドは多言語化されず、また、常に存在します。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pg-diag-message-primary">
+          <term><symbol>PG_DIAG_MESSAGE_PRIMARY</symbol></term>
+          <listitem>
+           <para>
+<!--
+            The primary human-readable error message (typically one line).
+            Always present.
+-->
+可読性を高めた主要エラーメッセージです。
+(通常は1行です。)
+常に存在します。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pg-diag-message-detail">
+          <term><symbol>PG_DIAG_MESSAGE_DETAIL</symbol></term>
+          <listitem>
+           <para>
+<!--
+            Detail: an optional secondary error message carrying more
+            detail about the problem.  Might run to multiple lines.
+-->
+詳細です。
+問題に関するより詳細を表す補助的なエラーメッセージです。
+複数行に跨る可能性があります。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pg-diag-message-hint">
+          <term><symbol>PG_DIAG_MESSAGE_HINT</symbol></term>
+          <listitem>
+           <para>
+<!--
+            Hint: an optional suggestion what to do about the problem.
+            This is intended to differ from detail in that it offers advice
+            (potentially inappropriate) rather than hard facts.  Might
+            run to multiple lines.
+-->
+ヒントです。
+問題の対応方法についての補助的な提言です。
+これは、詳細(detail)とは異なり、問題の事象ではなく、(適切でない可能性がありますが)アドバイスを提供することを目的としています。
+複数行に跨る可能性があります。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pg-diag-statement-position">
+          <term><symbol>PG_DIAG_STATEMENT_POSITION</symbol></term>
+          <listitem>
+           <para>
+<!--
+            A string containing a decimal integer indicating an error cursor
+            position as an index into the original statement string.  The
+            first character has index 1, and positions are measured in
+            characters not bytes.
+-->
+元の問い合わせ文字列のインデックスとなる、エラーが発生したカーソル位置を示す10進整数を持つ文字列です。
+先頭文字がインデックス1となり、また、バイトではなく、文字数で数えた位置です。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pg-diag-internal-position">
+          <term><symbol>PG_DIAG_INTERNAL_POSITION</symbol></term>
+          <listitem>
+           <para>
+<!--
+            This is defined the same as the
+            <symbol>PG_DIAG_STATEMENT_POSITION</symbol> field, but it is used
+            when the cursor position refers to an internally generated
+            command rather than the one submitted by the client.  The
+            <symbol>PG_DIAG_INTERNAL_QUERY</symbol> field will always appear when
+            this field appears.
+-->
+この定義は<symbol>PG_DIAG_STATEMENT_POSITION</symbol>フィールドと同じです。
+しかし、これは、クライアントが発行したコマンドではなく、カーソル位置が内部生成コマンドを参照する場合に使用されます。
+このフィールドが存在する時は常に<symbol>PG_DIAG_INTERNAL_QUERY</symbol>フィールドが存在します。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pg-diag-internal-query">
+          <term><symbol>PG_DIAG_INTERNAL_QUERY</symbol></term>
+          <listitem>
+           <para>
+<!--
+            The text of a failed internally-generated command.  This could
+            be, for example, a SQL query issued by a PL/pgSQL function.
+-->
+失敗した内部生成コマンドのテキストです。
+これは、例えば、PL/pgSQL関数で発行されたSQL問い合わせになります。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pg-diag-context">
+          <term><symbol>PG_DIAG_CONTEXT</symbol></term>
+          <listitem>
+           <para>
+<!--
+            An indication of the context in which the error occurred.
+            Presently this includes a call stack traceback of active
+            procedural language functions and internally-generated queries.
+            The trace is one entry per line, most recent first.
+-->
+エラーが発生した文脈を示すものです。
+今の所、これは活動中の手続き言語関数や内部生成問い合わせの呼び出しスタックの追跡情報が含まれます。
+この追跡は行単位で1項目であり、その順番は呼び出し順の反対になります。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pg-diag-schema-name">
+          <term><symbol>PG_DIAG_SCHEMA_NAME</symbol></term>
+          <listitem>
+           <para>
+<!--
+            If the error was associated with a specific database object,
+            the name of the schema containing that object, if any.
+-->
+そのエラーが特定のデータベースオブジェクトに付随する場合、もしあれば、そのオブジェクトを含むスキーマ名です。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pg-diag-table-name">
+          <term><symbol>PG_DIAG_TABLE_NAME</symbol></term>
+          <listitem>
+           <para>
+<!--
+            If the error was associated with a specific table, the name of the
+            table.  (Refer to the schema name field for the name of the
+            table's schema.)
+-->
+そのエラーが特定のテーブルに付随する場合のテーブル名です。
+（テーブルのスキーマ名についてはスキーマ名フィールドを参照ください。）
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pg-diag-column-name">
+          <term><symbol>PG_DIAG_COLUMN_NAME</symbol></term>
+          <listitem>
+           <para>
+<!--
+            If the error was associated with a specific table column, the name
+            of the column.  (Refer to the schema and table name fields to
+            identify the table.)
+-->
+そのエラーが特定のテーブル列に付随する場合の列名です。
+（テーブルを識別するにはスキーマとテーブル名フィールドを参照ください。）
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pg-diag-datatype-name">
+          <term><symbol>PG_DIAG_DATATYPE_NAME</symbol></term>
+          <listitem>
+           <para>
+<!--
+            If the error was associated with a specific data type, the name of
+            the data type.  (Refer to the schema name field for the name of
+            the data type's schema.)
+-->
+そのエラーが特定のデータ型に付随する場合のデータ型名です。
+（データ型のスキーマ名についてはスキーマ名フィールドを参照ください。）
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pg-diag-constraint-name">
+          <term><symbol>PG_DIAG_CONSTRAINT_NAME</symbol></term>
+          <listitem>
+           <para>
+<!--
+            If the error was associated with a specific constraint, the name
+            of the constraint.  Refer to fields listed above for the
+            associated table or domain.  (For this purpose, indexes are
+            treated as constraints, even if they weren't created with
+            constraint syntax.)
+-->
+そのエラーが特定の制約に付随する場合の制約名です。
+付随するテーブルまたはドメインについては上記にリストされたフィールドを参照ください。
+（この目的のために、制約は制約構文で作成されていなくてもインデックスは制約として扱われます。）
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pg-diag-source-file">
+          <term><symbol>PG_DIAG_SOURCE_FILE</symbol></term>
+          <listitem>
+           <para>
+<!--
+            The file name of the source-code location where the error was
+            reported.
+-->
+エラーが報告された場所のソースコードのファイル名です。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pg-diag-source-line">
+          <term><symbol>PG_DIAG_SOURCE_LINE</symbol></term>
+          <listitem>
+           <para>
+<!--
+            The line number of the source-code location where the error
+            was reported.
+-->
+エラーが報告された場所のソースコードにおける行番号です。
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry id="libpq-pg-diag-source-function">
+          <term><symbol>PG_DIAG_SOURCE_FUNCTION</symbol></term>
+          <listitem>
+           <para>
+<!--
+            The name of the source-code function reporting the error.
+-->
+エラーを報告した、ソースコードにおける関数名です。
+           </para>
+          </listitem>
+         </varlistentry>
+        </variablelist>
+       </para>
+
+       <note>
+        <para>
+<!--
+         The fields for schema name, table name, column name, data type name,
+         and constraint name are supplied only for a limited number of error
+         types; see <xref linkend="errcodes-appendix"/>.  Do not assume that
+         the presence of any of these fields guarantees the presence of
+         another field.  Core error sources observe the interrelationships
+         noted above, but user-defined functions may use these fields in other
+         ways.  In the same vein, do not assume that these fields denote
+         contemporary objects in the current database.
+-->
+スキーマ名、テーブル名、列名、データ型名、および制約名に対するフィールドは限定的なエラー型に対してのみ提供されます。<xref linkend="errcodes-appendix"/>を参照ください。
+これらのフィールドのいかなる存在もその他のフィールドの存在を保証すると推測してはなりません。
+コアエラーの出所は上に記載の相互関係を監視しますが、ユーザ定義関数はこれらフィールドを別目的で使用しているかもしれません。
+同様の脈絡で、使用しているデータベースで
+これらのフィールドが同時に存在するオブジェクトを意味すると推測してはなりません。
+        </para>
+       </note>
+
+       <para>
+<!--
+        The client is responsible for formatting displayed information to meet
+        its needs; in particular it should break long lines as needed.
+        Newline characters appearing in the error message fields should be
+        treated as paragraph breaks, not line breaks.
+-->
+表示情報の必要に応じた整形はクライアントの責任です。
+具体的には、必要に応じて長い行を分割しなければなりません。
+エラーメッセージフィールド内の改行文字は、改行としてではなく段落として分かれたものとして取扱うべきです。
+       </para>
+
+       <para>
+<!--
+        Errors generated internally by <application>libpq</application> will
+        have severity and primary message, but typically no other fields.
+        Errors returned by a pre-3.0-protocol server will include severity and
+        primary message, and sometimes a detail message, but no other fields.
+-->
+<application>libpq</application>で内部的に生成されたエラーは、深刻度と主要メッセージを持ちますが、通常は他のフィールドを持ちません。
+3.0より前のプロトコルのサーバで返されるエラーは、深刻度と主要メッセージ、場合によって詳細メッセージを持ちますが、他のフィールドを持ちません。
+       </para>
+
+       <para>
+<!--
+        Note that error fields are only available from
+        <structname>PGresult</structname> objects, not
+        <structname>PGconn</structname> objects; there is no
+        <function>PQerrorField</function> function.
+-->
+エラーフィールドは<structname>PGresult</structname>からのみ利用でき、<structname>PGconn</structname>からは利用できません。
+<function>PQerrorField</function>という関数はありません。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="libpq-PQclear">
+      <term><function>PQclear</function><indexterm><primary>PQclear</primary></indexterm></term>
+      <listitem>
+       <para>
+<!--
+        Frees  the  storage  associated with a
+        <structname>PGresult</structname>.  Every command result should be
+        freed via <xref linkend="libpq-PQclear"/> when it  is  no  longer
+        needed.
+-->
+<structname>PGresult</structname>に割り当てられた記憶領域を解放します。
+個々の問い合わせ結果は、必要なくなった時に<xref linkend="libpq-PQclear"/>で解放するべきです。
+
+<synopsis>
+void PQclear(PGresult *res);
+</synopsis>
+       </para>
+
+       <para>
+<!--
+        You can keep a <structname>PGresult</structname> object around for
+        as long as you need it; it does not go away when you issue a new
+        command, nor even if you close the connection.  To get rid of it,
+        you must call <xref linkend="libpq-PQclear"/>.  Failure to do this
+        will result in memory leaks in your application.
+-->
+<structname>PGresult</structname>オブジェクトは必要な間保持することができます。
+新しい問い合わせを発行する場合でも、接続を閉じてしまうまでは<structname>PGresult</structname>は消えません。
+<structname>PGresult</structname>を解放するには、<xref linkend="libpq-PQclear"/>を呼び出さなくてはいけません。
+その操作に失敗してしまうと、アプリケーションのメモリリークを引き起こしてしまいます。
+       </para>
+      </listitem>
+     </varlistentry>
+    </variablelist>
+   </para>
+  </sect2>
+
+  <sect2 id="libpq-exec-select-info">
+<!--
+   <title>Retrieving Query Result Information</title>
+-->
+  <title>問い合わせ結果の情報の取り出し</title>
+
+   <para>
+<!--
+    These functions are used to extract information from a
+    <structname>PGresult</structname> object that represents a successful
+    query result (that is, one that has status
+    <literal>PGRES_TUPLES_OK</literal> or <literal>PGRES_SINGLE_TUPLE</literal>).
+    They can also be used to extract
+    information from a successful Describe operation: a Describe's result
+    has all the same column information that actual execution of the query
+    would provide, but it has zero rows.  For objects with other status values,
+    these functions will act as though the result has zero rows and zero columns.
+-->
+これらの関数を使用して、正常終了した問い合わせ結果を示す(つまり、その状態が<literal>PGRES_TUPLES_OK</literal>または<literal>PGRES_SINGLE_TUPLE</literal>となっている)<structname>PGresult</structname>オブジェクトから情報を抽出することができます。
+また、成功したDescribe操作から情報を抽出することもできます。
+Describeの結果はすべて、実際に問い合わせを実行した時に提供されるものと同じ列情報を持ちますが、行はありません。
+他の状態値を持つオブジェクトでは、これらの関数は、結果が0行0列であるものと同様に動作します。
+   </para>
+
+   <variablelist>
+    <varlistentry id="libpq-PQntuples">
+     <term><function>PQntuples</function><indexterm><primary>PQntuples</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns the number of rows (tuples) in the query result.
+       (Note that <structname>PGresult</structname> objects are limited to no more
+       than <literal>INT_MAX</literal> rows, so an <type>int</type> result is
+       sufficient.)
+-->
+問い合わせ結果内の行(タプル)数を返します。
+（ <structname>PGresult</structname>オブジェクトは<literal>INT_MAX</literal>行に制限されているため、<type>int</type>の結果で十分です。）
+
+<synopsis>
+int PQntuples(const PGresult *res);
+</synopsis>
+
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQnfields">
+     <term><function>PQnfields</function><indexterm><primary>PQnfields</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns the number of columns (fields) in each row of the query
+       result.
+-->
+問い合わせ結果の各行の列(フィールド)の数を返します。
+
+<synopsis>
+int PQnfields(const PGresult *res);
+</synopsis>
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQfname">
+     <term><function>PQfname</function><indexterm><primary>PQfname</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns the column name associated with the given column number.
+       Column numbers start at 0. The caller should not free the result
+       directly. It will be freed when the associated
+       <structname>PGresult</structname> handle is passed to
+       <xref linkend="libpq-PQclear"/>.
+-->
+指定した列番号に対応する列の名前を返します。
+列番号は0から始まります。
+呼び出し元はこの結果を直接解放してはいけません。
+関連する<structname>PGresult</structname>ハンドルが<xref linkend="libpq-PQclear"/>に渡された時にこれは解放されます。
+<synopsis>
+char *PQfname(const PGresult *res,
+              int column_number);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       <symbol>NULL</symbol> is returned if the column number is out of range.
+-->
+列番号が範囲外であった場合、<symbol>NULL</symbol>が返ります。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQfnumber">
+     <term><function>PQfnumber</function><indexterm><primary>PQfnumber</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns the column number associated with the given column name.
+-->
+指定した列名に関連する列番号を返します。
+<synopsis>
+int PQfnumber(const PGresult *res,
+              const char *column_name);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       -1 is returned if the given name does not match any column.
+-->
+指定した名前に一致する列がなければ、-1が返ります。
+      </para>
+
+      <para>
+<!--
+       The given name is treated like an identifier in an SQL command,
+       that is, it is downcased unless double-quoted.  For example, given
+       a query result generated from the SQL command:
+-->
+指定した名前はSQLコマンドの識別子同様に扱われます。
+つまり、二重引用符でくくられていない限り、小文字化されます。
+例えば、以下のSQLで生成された問い合わせ結果を考えます。
+<programlisting>
+SELECT 1 AS FOO, 2 AS "BAR";
+</programlisting>
+<!--
+       we would have the results:
+-->
+以下により、結果を取り出すことができます。
+<programlisting>
+PQfname(res, 0)              <lineannotation>foo</lineannotation>
+PQfname(res, 1)              <lineannotation>BAR</lineannotation>
+PQfnumber(res, "FOO")        <lineannotation>0</lineannotation>
+PQfnumber(res, "foo")        <lineannotation>0</lineannotation>
+PQfnumber(res, "BAR")        <lineannotation>-1</lineannotation>
+PQfnumber(res, "\"BAR\"")    <lineannotation>1</lineannotation>
+</programlisting>
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQftable">
+     <term><function>PQftable</function><indexterm><primary>PQftable</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns the OID of the table from which the given column was
+       fetched.  Column numbers start at 0.
+-->
+指定した列の抽出元であるテーブルのOIDを返します。
+列番号は0から始まります。
+<synopsis>
+Oid PQftable(const PGresult *res,
+             int column_number);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       <literal>InvalidOid</literal> is returned if the column number is out of range,
+       or if the specified column is not a simple reference to a table column,
+       or when using pre-3.0 protocol.
+       You can query the system table <literal>pg_class</literal> to determine
+       exactly which table is referenced.
+-->
+列番号が範囲外の場合や指定した列がテーブル列への単純な参照でない場合、3.0より前のプロトコルを使用している場合は、<literal>InvalidOid</literal>が返されます。
+<literal>pg_class</literal>システムテーブルに問い合わせ、どのテーブルが参照されているのかを正確に求めることができます。
+      </para>
+
+      <para>
+<!--
+       The type <type>Oid</type> and the constant
+       <literal>InvalidOid</literal> will be defined when you include
+       the <application>libpq</application> header file. They will both
+       be some integer type.
+-->
+<application>libpq</application>ヘッダファイルをインクルードすると、<type>Oid</type>型と<literal>InvalidOid</literal>定数が定義されます。
+これらは両方とも何らかの整数型です。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQftablecol">
+     <term><function>PQftablecol</function><indexterm><primary>PQftablecol</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns the column number (within its table) of the column making
+       up the specified query result column.  Query-result column numbers
+       start at 0, but table columns have nonzero numbers.
+-->
+指定した問い合わせ結果の列を作成した列の(それが属するテーブル内での)列番号を返します。
+問い合わせ結果の列番号は0から始まりますが、テーブル列には0以外の番号が付けられています。
+<synopsis>
+int PQftablecol(const PGresult *res,
+                int column_number);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       Zero is returned if the column number is out of range, or if the
+       specified column is not a simple reference to a table column, or
+       when using pre-3.0 protocol.
+-->
+列番号が範囲外の場合や指定した列がテーブル列への単純な参照でなかった場合、3.0より前のプロトコルを使用している場合は、ゼロが返されます。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQfformat">
+     <term><function>PQfformat</function><indexterm><primary>PQfformat</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns the format code indicating the format of the given
+       column.  Column numbers start at 0.
+-->
+指定した列の書式を示す書式コードを返します。
+列番号は0から始まります。
+<synopsis>
+int PQfformat(const PGresult *res,
+              int column_number);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       Format code zero indicates textual data representation, while format
+       code one indicates binary representation.  (Other codes are reserved
+       for future definition.)
+-->
+ゼロという書式コードはテキストデータ表現を示し、1という書式コードはバイナリ表現を示します。
+(他のコードは将来の定義のために予約されています。)
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQftype">
+     <term><function>PQftype</function><indexterm><primary>PQftype</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns the data type associated with the given  column number.
+       The  integer  returned is the internal OID number of the type.
+       Column numbers start at 0.
+-->
+指定した列番号に関連したデータ型を返します。
+返された整数はその型の内部的なOID番号です。
+列番号は0から始まります。
+<synopsis>
+Oid PQftype(const PGresult *res,
+            int column_number);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       You can query the system table <literal>pg_type</literal> to
+       obtain the names and properties of the various data types. The
+       <acronym>OID</acronym>s of the built-in data types are defined
+       in the file <filename>src/include/catalog/pg_type_d.h</filename>
+       in the source tree.
+-->
+<literal>pg_type</literal>システムテーブルに問い合わせて、各種データ型の名前や属性を得ることができます。
+組み込みデータ型の<acronym>OID</acronym>は、ソースツリー内の<filename>src/include/catalog/pg_type_d.h</filename>ファイル内で定義されています。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQfmod">
+     <term><function>PQfmod</function><indexterm><primary>PQfmod</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns  the type modifier of the column associated with the
+       given column number.  Column numbers start at 0.
+-->
+指定した列番号に関連した列の型修飾子を返します。
+列番号は0から始まります。
+<synopsis>
+int PQfmod(const PGresult *res,
+           int column_number);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       The interpretation of modifier values is type-specific; they
+       typically indicate precision or size limits.  The value -1 is
+       used to indicate <quote>no information available</quote>.  Most data
+       types do not use modifiers, in which case the value is always
+       -1.
+-->
+修飾子の値の解釈は型に固有なものです。
+通常これらは精度やサイズの制限を示します。
+-1という値は<quote>使用できる情報がない</quote>ことを示します。
+ほとんどのデータ型は修飾子を使用しません。
+この場合は常に-1という値になります。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQfsize">
+     <term><function>PQfsize</function><indexterm><primary>PQfsize</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns  the  size  in bytes of the column associated with the
+       given column number.  Column numbers start at 0.
+-->
+指定した列番号に関連した列のバイト単位のサイズを返します。
+列番号は0から始まります。
+<synopsis>
+int PQfsize(const PGresult *res,
+            int column_number);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       <xref linkend="libpq-PQfsize"/> returns the space allocated for this column
+       in a database row, in other words the size of the server's
+       internal representation of the data type.  (Accordingly, it is
+       not really very useful to clients.) A negative value indicates
+       the data type is variable-length.
+-->
+<xref linkend="libpq-PQfsize"/>はデータベース行内でその列用に割り当てられる領域を返します。
+言い替えると、そのデータ型についてのサーバでの内部表現のサイズです。
+(従って、実際にはクライアントから見るとあまり役には立ちません。)
+負の値は可変長データ型を示します。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQbinaryTuples">
+     <term><function>PQbinaryTuples</function><indexterm><primary>PQbinaryTuples</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns 1 if the <structname>PGresult</structname> contains binary data
+       and 0 if it contains text data.
+-->
+<structname>PGresult</structname>がバイナリデータを持つ場合は1を、テキストデータを持つ場合は0を返します。
+<synopsis>
+int PQbinaryTuples(const PGresult *res);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       This function is deprecated (except for its use in connection with
+       <command>COPY</command>), because it is possible for a single
+       <structname>PGresult</structname> to contain text data in some columns and
+       binary data in others.  <xref linkend="libpq-PQfformat"/> is preferred.
+       <xref linkend="libpq-PQbinaryTuples"/> returns 1 only if all columns of the
+       result are binary (format 1).
+-->
+この関数は廃れたものです。
+(<command>COPY</command>を行う接続での使用を除きます。)
+単一の<structname>PGresult</structname>で、ある列はテキストデータを持ち、他の列ではバイナリデータを持つことが可能であるためです。
+<xref linkend="libpq-PQfformat"/>の利用が推奨されます。
+結果のすべての列がバイナリ(書式1)の場合のみ<xref linkend="libpq-PQbinaryTuples"/>は1を返します。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQgetvalue">
+     <term><function>PQgetvalue</function><indexterm><primary>PQgetvalue</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns a single field value of one row of a
+       <structname>PGresult</structname>.  Row and column numbers start
+       at 0.  The caller should not free the result directly.  It will
+       be freed when the associated <structname>PGresult</structname> handle is
+       passed to <xref linkend="libpq-PQclear"/>.
+-->
+<structname>PGresult</structname>の1行における単一フィールドの値を返します。
+行番号と列番号は0から始まります。
+呼び出し元はこの結果を直接解放してはいけません。
+関連する<structname>PGresult</structname>ハンドルが<xref linkend="libpq-PQclear"/>に渡された時に、これは解放されます。
+<synopsis>
+char *PQgetvalue(const PGresult *res,
+                 int row_number,
+                 int column_number);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       For data in text format, the value returned by
+       <xref linkend="libpq-PQgetvalue"/> is a null-terminated character
+       string  representation of the field value.  For data in binary
+       format, the value is in the binary representation determined by
+       the data type's <function>typsend</function> and <function>typreceive</function>
+       functions.  (The value is actually followed by a zero byte in
+       this case too, but that is not ordinarily useful, since the
+       value is likely to contain embedded nulls.)
+-->
+テキスト書式のデータでは、<xref linkend="libpq-PQgetvalue"/>で返される値はフィールド値のヌル終端の文字列表現となります。
+バイナリ書式のデータでは、この値はデータ型の<function>typsend</function>関数と<function>typreceive</function>関数で決まるバイナリ表現となります。
+(実際にはこの場合でも値の終わりにゼロというバイトが付与されます。
+しかし、この値の内部には大抵の場合ヌルが埋め込まれていますので、通常このバイトは有用ではありません。)
+      </para>
+
+      <para>
+<!--
+       An empty string is returned if the field value is null.  See
+       <xref linkend="libpq-PQgetisnull"/> to distinguish null values from
+       empty-string values.
+-->
+フィールド値がNULLの場合、空文字列が返されます。
+NULL値と空文字列という値とを区別する方法は<xref linkend="libpq-PQgetisnull"/>を参照してください。
+      </para>
+
+      <para>
+<!--
+       The pointer returned  by  <xref linkend="libpq-PQgetvalue"/> points
+       to storage that is part of the <structname>PGresult</structname>
+       structure.  One should not modify the data it points to, and one
+       must explicitly copy the data into other storage if it is to be
+       used past the lifetime of the  <structname>PGresult</structname>
+       structure itself.
+-->
+<xref linkend="libpq-PQgetvalue"/>によって返されるポインタは<structname>PGresult</structname>構造体の一部の格納領域を指し示します。
+このポインタが指し示すデータを変更すべきではありません。
+また、<structname>PGresult</structname>構造体を解放した後も使用し続ける場合は、データを別の格納領域に明示的にコピーしなければなりません。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQgetisnull">
+     <term><function>PQgetisnull</function><indexterm
+     ><primary>PQgetisnull</primary></indexterm><indexterm
+     ><primary>null value</primary><secondary sortas="libpq">in libpq</secondary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Tests a field for a null value.  Row and column numbers start
+       at 0.
+-->
+フィールドがNULL値かどうか検査します。
+行番号と列番号は0から始まります。
+<synopsis>
+int PQgetisnull(const PGresult *res,
+                int row_number,
+                int column_number);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       This function returns  1 if the field is null and 0 if it
+       contains a non-null value.  (Note that
+       <xref linkend="libpq-PQgetvalue"/> will return an empty string,
+       not a null pointer, for a null field.)
+-->
+この関数は、フィールドがNULLの場合に1を、フィールドが非NULL値を持つ場合は0を返します。
+(<xref linkend="libpq-PQgetvalue"/>では、NULLフィールドはヌルポインタではなく空文字列を返すことに注意してください。)
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQgetlength">
+     <term><function>PQgetlength</function><indexterm><primary>PQgetlength</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns the actual length of a field value in bytes.  Row and
+       column numbers start at 0.
+-->
+実際のフィールド値の長さをバイト単位で返します。
+行番号と列番号は0から始まります。
+<synopsis>
+int PQgetlength(const PGresult *res,
+                int row_number,
+                int column_number);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       This is the actual data length for the particular data value,
+       that is, the size of the object pointed to by
+       <xref linkend="libpq-PQgetvalue"/>.  For text data format this is
+       the same as <function>strlen()</function>.  For binary format this is
+       essential information.  Note that one should <emphasis>not</emphasis>
+       rely on <xref linkend="libpq-PQfsize"/> to obtain the actual data
+       length.
+-->
+これは特定のデータ値についての実際のデータ長です。
+つまり、<xref linkend="libpq-PQgetvalue"/>によって指し示されるオブジェクトのサイズです。
+テキストデータ書式では<function>strlen()</function>と同一です。
+バイナリ書式ではこれは重要な情報です。
+実際のデータ長を取り出すために<xref linkend="libpq-PQfsize"/>を信用しては<emphasis>なりません</emphasis>。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQnparams">
+     <term><function>PQnparams</function><indexterm><primary>PQnparams</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns the number of parameters of a prepared statement.
+-->
+プリペアド文のパラメータ数を返します。
+<synopsis>
+int PQnparams(const PGresult *res);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       This function is only useful when inspecting the result of
+       <xref linkend="libpq-PQdescribePrepared"/>.  For other types of queries it
+       will return zero.
+-->
+この関数は<xref linkend="libpq-PQdescribePrepared"/>の結果を確認する時にのみ有用です。
+他の種類の問い合わせではゼロを返します。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQparamtype">
+     <term><function>PQparamtype</function><indexterm><primary>PQparamtype</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns the data type of the indicated statement parameter.
+       Parameter numbers start at 0.
+-->
+指定された文パラメータのデータ型を返します。
+パラメータ番号は0から始まります。
+<synopsis>
+Oid PQparamtype(const PGresult *res, int param_number);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       This function is only useful when inspecting the result of
+       <xref linkend="libpq-PQdescribePrepared"/>.  For other types of queries it
+       will return zero.
+-->
+この関数は、<xref linkend="libpq-PQdescribePrepared"/>の結果を確認する時にのみ有用です。
+他の種類の問い合わせではゼロを返します。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQprint">
+     <term><function>PQprint</function><indexterm><primary>PQprint</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Prints out all the rows and,  optionally,  the column names  to
+       the specified output stream.
+-->
+すべての行と列名(省略可能)を指定した出力ストリームに表示します。
+<synopsis>
+<!--
+void PQprint(FILE *fout,      /* output stream */
+             const PGresult *res,
+             const PQprintOpt *po);
+typedef struct
+{
+    pqbool  header;      /* print output field headings and row count */
+    pqbool  align;       /* fill align the fields */
+    pqbool  standard;    /* old brain dead format */
+    pqbool  html3;       /* output HTML tables */
+    pqbool  expanded;    /* expand tables */
+    pqbool  pager;       /* use pager for output if needed */
+    char    *fieldSep;   /* field separator */
+    char    *tableOpt;   /* attributes for HTML table element */
+    char    *caption;    /* HTML table caption */
+    char    **fieldName; /* null-terminated array of replacement field names */
+} PQprintOpt;
+-->
+void PQprint(FILE *fout,      /* 出力ストリーム */
+             const PGresult *res,
+             const PQprintOpt *po);
+
+typedef struct
+{
+    pqbool  header;      /* フィールドヘッダ情報と行数の表示出力 */
+    pqbool  align;       /* 位置揃えのためのフィールドへの埋め込み */
+    pqbool  standard;    /* 古い、無くなりそうな書式 */
+    pqbool  html3;       /* HTML表出力 */
+    pqbool  expanded;    /* 拡張テーブル */
+    pqbool  pager;       /* 必要に応じたページャの使用 */
+    char    *fieldSep;   /* フィールド区切り文字 */
+    char    *tableOpt;   /* HTML表要素の属性 */
+    char    *caption;    /* HTML 表の表題 */
+    char    **fieldName; /* フィールド名を置き換えるNULL終端の配列 */
+} PQprintOpt;
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       This function was formerly used by <application>psql</application>
+       to print query results, but this is no longer the case.  Note
+       that it assumes all the data is in text format.
+-->
+この関数は以前に問い合わせ結果を表示するために<application>psql</application>で使用されていましたが、今ではもう使用されていません。
+これはすべてのデータがテキスト書式であるという前提で動作することに注意してください。
+      </para>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+  </sect2>
+
+  <sect2 id="libpq-exec-nonselect">
+<!--
+   <title>Retrieving Other Result Information</title>
+-->
+   <title>他の結果情報の取り出し</title>
+
+   <para>
+<!--
+    These functions are used to extract other information from
+    <structname>PGresult</structname> objects.
+-->
+これらの関数は<structname>PGresult</structname>オブジェクトからその他の情報を取り出すために使用されます。
+   </para>
+
+   <variablelist>
+    <varlistentry id="libpq-PQcmdStatus">
+     <term><function>PQcmdStatus</function><indexterm><primary>PQcmdStatus</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns the command status tag from the SQL command that generated
+       the <structname>PGresult</structname>.
+-->
+<structname>PGresult</structname>を生成したSQLコマンドのコマンド状態タグを返します。
+<synopsis>
+char *PQcmdStatus(PGresult *res);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       Commonly this is just the name of the command, but it might include
+       additional data such as the number of rows processed. The caller
+       should not free the result directly. It will be freed when the
+       associated <structname>PGresult</structname> handle is passed to
+       <xref linkend="libpq-PQclear"/>.
+-->
+これは通常単なるコマンド名ですが、処理行数など追加情報が含まれる場合もあります。
+呼び出し元はこの戻り値を直接解放してはいけません。
+関連する<structname>PGresult</structname>ハンドルが<xref linkend="libpq-PQclear"/>に渡された時にこれは解放されます。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQcmdTuples">
+     <term><function>PQcmdTuples</function><indexterm><primary>PQcmdTuples</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns the number of rows affected by the SQL command.
+-->
+SQLコマンドにより影響を受けた行数を返します。
+<synopsis>
+char *PQcmdTuples(PGresult *res);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       This function returns a string containing the number of rows
+       affected by the <acronym>SQL</acronym> statement that generated the
+       <structname>PGresult</structname>. This function can only be used following
+       the execution of a <command>SELECT</command>, <command>CREATE TABLE AS</command>,
+       <command>INSERT</command>, <command>UPDATE</command>, <command>DELETE</command>,
+       <command>MOVE</command>, <command>FETCH</command>, or <command>COPY</command> statement,
+       or an <command>EXECUTE</command> of a prepared query that contains an
+       <command>INSERT</command>, <command>UPDATE</command>, or <command>DELETE</command> statement.
+       If the command that generated the <structname>PGresult</structname> was anything
+       else, <xref linkend="libpq-PQcmdTuples"/> returns an empty string. The caller
+       should not free the return value directly. It will be freed when
+       the associated <structname>PGresult</structname> handle is passed to
+       <xref linkend="libpq-PQclear"/>.
+-->
+この関数は<structname>PGresult</structname>を生成した<acronym>SQL</acronym>コマンドにより影響を受けた行数を含む文字列を返します。
+この関数は<command>SELECT</command>、<command>CREATE TABLE AS</command>、<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>、<command>MOVE</command>、<command>FETCH</command>、<command>COPY</command>文の実行、あるいは、<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>を含むプリペアド問い合わせの<command>EXECUTE</command>文の後でのみ使用することができます。
+<structname>PGresult</structname>を生成したコマンドが他のコマンドであった場合、<xref linkend="libpq-PQcmdTuples"/>は空文字列を返します。
+呼び出し元はこの戻り値を直接解放してはいけません。
+関連する<structname>PGresult</structname>ハンドルが<xref linkend="libpq-PQclear"/>に渡された時にこれは解放されます。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQoidValue">
+     <term><function>PQoidValue</function><indexterm><primary>PQoidValue</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns the OID<indexterm><primary>OID</primary><secondary>in libpq</secondary></indexterm>
+       of the inserted row, if the <acronym>SQL</acronym> command was an
+       <command>INSERT</command> that inserted exactly one row into a table that
+       has OIDs, or a <command>EXECUTE</command> of a prepared query containing
+       a suitable <command>INSERT</command> statement.  Otherwise, this function
+       returns <literal>InvalidOid</literal>. This function will also
+       return <literal>InvalidOid</literal> if the table affected by the
+       <command>INSERT</command> statement does not contain OIDs.
+-->
+<acronym>SQL</acronym>コマンドが、OID<indexterm><primary>OID</primary><secondary>libpqにおける</secondary></indexterm>を持つテーブル内に1行のみを挿入する<command>INSERT</command>だった場合、あるいは、適切な<command>INSERT</command>を持つプリペアド問い合わせの<command>EXECUTE</command>だった場合に、挿入された行のOIDを返します。
+さもなくば<literal>InvalidOid</literal>を返します。
+また、<command>INSERT</command>文の影響を受けたテーブルがOIDを持たなかった場合、この関数は<literal>InvalidOid</literal>を返します。
+<synopsis>
+Oid PQoidValue(const PGresult *res);
+</synopsis>
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQoidStatus">
+     <term><function>PQoidStatus</function><indexterm><primary>PQoidStatus</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       This function is deprecated in favor of
+       <xref linkend="libpq-PQoidValue"/> and is not thread-safe.
+       It returns a string with the OID of the inserted row, while
+       <xref linkend="libpq-PQoidValue"/> returns the OID value.
+-->
+この関数は<xref linkend="libpq-PQoidValue"/>のため廃止予定になりました。
+またこれはスレッドセーフではありません。
+これは挿入された行のOIDを文字列として返します。
+一方<xref linkend="libpq-PQoidValue"/>はOID値を返します。
+<synopsis>
+char *PQoidStatus(const PGresult *res);
+</synopsis>
+      </para>
+
+     </listitem>
+    </varlistentry>
+   </variablelist>
+
+  </sect2>
+
+  <sect2 id="libpq-exec-escape-string">
+<!--
+   <title>Escaping Strings for Inclusion in SQL Commands</title>
+-->
+  <title>SQLコマンドに含めるための文字列のエスケープ処理</title>
+
+   <indexterm zone="libpq-exec-escape-string">
+<!--
+    <primary>escaping strings</primary>
+    <secondary>in libpq</secondary>
+-->
+    <primary>文字列のエスケープ</primary>
+    <secondary>libpqにおける</secondary>
+   </indexterm>
+
+   <variablelist>
+    <varlistentry id="libpq-PQescapeLiteral">
+     <term><function>PQescapeLiteral</function><indexterm><primary>PQescapeLiteral</primary></indexterm></term>
+
+     <listitem>
+     <para>
+<synopsis>
+char *PQescapeLiteral(PGconn *conn, const char *str, size_t length);
+</synopsis>
+     </para>
+
+     <para>
+<!--
+      <xref linkend="libpq-PQescapeLiteral"/> escapes a string for
+      use within an SQL command.  This is useful when inserting data
+      values as literal constants in SQL commands.  Certain characters
+      (such as quotes and backslashes) must be escaped to prevent them
+      from being interpreted specially by the SQL parser.
+      <xref linkend="libpq-PQescapeLiteral"/> performs this operation.
+-->
+<xref linkend="libpq-PQescapeLiteral"/>は、SQLコマンド内で使用するために文字列をエスケープします。
+これは、SQLコマンド内のリテラル定数としてデータ値を挿入する時に有用です。
+特定の文字(引用符やバックスラッシュ)は、SQLパーサによって特殊な解釈がなされないようにエスケープされなければなりません。
+<xref linkend="libpq-PQescapeLiteral"/>はこの操作を行います。
+     </para>
+
+     <para>
+<!--
+      <xref linkend="libpq-PQescapeLiteral"/> returns an escaped version of the
+      <parameter>str</parameter> parameter in memory allocated with
+      <function>malloc()</function>.  This memory should be freed using
+      <function>PQfreemem()</function> when the result is no longer needed.
+      A terminating zero byte is not required, and should not be
+      counted in <parameter>length</parameter>.  (If a terminating zero byte is found
+      before <parameter>length</parameter> bytes are processed,
+      <xref linkend="libpq-PQescapeLiteral"/> stops at the zero; the behavior is
+      thus rather like <function>strncpy</function>.) The
+      return string has all special characters replaced so that they can
+      be properly processed by the <productname>PostgreSQL</productname>
+      string literal parser.  A terminating zero byte is also added.  The
+      single quotes that must surround <productname>PostgreSQL</productname>
+      string literals are included in the result string.
+-->
+<xref linkend="libpq-PQescapeLiteral"/>は<parameter>str</parameter>パラメータをエスケープしたものを<function>malloc()</function>で割り当てたメモリ内に返します。
+その結果が不要になったら、そのメモリを<function>PQfreemem()</function>を使用して解放しなければなりません。
+ゼロバイト終端は必要なく、<parameter>length</parameter>に含めて数えてはいけません。
+(<parameter>length</parameter>バイトを処理する前にゼロバイト終端が見つかると、<xref linkend="libpq-PQescapeLiteral"/>はそのゼロで終了します。
+この動作は<function>strncpy</function>と似ています。)
+返される文字列では、<productname>PostgreSQL</productname>文字列リテラルパーサで適切に処理することができるように、すべての特殊文字は置換されます。
+ゼロバイト終端も追加されます。
+<productname>PostgreSQL</productname>の文字列リテラルでは前後に必要となる単一引用符も、その結果文字列には含まれています。
+     </para>
+
+     <para>
+<!--
+      On error, <xref linkend="libpq-PQescapeLiteral"/> returns <symbol>NULL</symbol> and a suitable
+      message is stored in the <parameter>conn</parameter> object.
+-->
+エラー時、<xref linkend="libpq-PQescapeLiteral"/>は<symbol>NULL</symbol>を返し、<parameter>conn</parameter>オブジェクト内に適切なメッセージを残します。
+     </para>
+
+     <tip>
+      <para>
+<!--
+       It is especially important to do proper escaping when handling
+       strings that were received from an untrustworthy source.
+       Otherwise there is a security risk: you are vulnerable to
+       <quote>SQL injection</quote> attacks wherein unwanted SQL commands are
+       fed to your database.
+-->
+信用できない入力元から受けとった文字列を扱う場合に適切なエスケープ処理を行なうことは非常に重要です。
+さもなくば、セキュリティ上の危険性が発生します。
+<quote>SQLインジェクション</quote>攻撃という弱点となり、好ましくないSQLコマンドがデータベースに流れてしまいます。
+      </para>
+     </tip>
+
+     <para>
+<!--
+      Note that it is neither necessary nor correct to do escaping when a data
+      value is passed as a separate parameter in <xref linkend="libpq-PQexecParams"/> or
+      its sibling routines.
+-->
+<xref linkend="libpq-PQexecParams"/>または同義のルーチン内で別のパラメータとしてデータ値が渡される場合は、エスケープすることは必要でもなければ正しくもないことに注意してください。
+     </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQescapeIdentifier">
+     <term><function>PQescapeIdentifier</function><indexterm><primary>PQescapeIdentifier</primary></indexterm></term>
+
+     <listitem>
+     <para>
+<synopsis>
+char *PQescapeIdentifier(PGconn *conn, const char *str, size_t length);
+</synopsis>
+     </para>
+
+     <para>
+<!--
+      <xref linkend="libpq-PQescapeIdentifier"/> escapes a string for
+      use as an SQL identifier, such as a table, column, or function name.
+      This is useful when a user-supplied identifier might contain
+      special characters that would otherwise not be interpreted as part
+      of the identifier by the SQL parser, or when the identifier might
+      contain upper case characters whose case should be preserved.
+-->
+<xref linkend="libpq-PQescapeIdentifier"/>は、テーブル、列、関数名などのSQL識別子として使用できるように文字列をエスケープします。
+これはユーザが提供した識別子に、そのままではSQLパーサで識別子として解釈されない特殊な文字が含まれる可能性がある場合、または、大文字小文字の違いを維持しなければならない状況で識別子に大文字が含まれる可能性がある場合に有用です。
+     </para>
+
+     <para>
+<!--
+      <xref linkend="libpq-PQescapeIdentifier"/> returns a version of the
+      <parameter>str</parameter> parameter escaped as an SQL identifier
+      in memory allocated with <function>malloc()</function>.  This memory must be
+      freed using <function>PQfreemem()</function> when the result is no longer
+      needed.  A terminating zero byte is not required, and should not be
+      counted in <parameter>length</parameter>.  (If a terminating zero byte is found
+      before <parameter>length</parameter> bytes are processed,
+      <xref linkend="libpq-PQescapeIdentifier"/> stops at the zero; the behavior is
+      thus rather like <function>strncpy</function>.) The
+      return string has all special characters replaced so that it
+      will be properly processed as an SQL identifier.  A terminating zero byte
+      is also added.  The return string will also be surrounded by double
+      quotes.
+-->
+<xref linkend="libpq-PQescapeIdentifier"/>は<parameter>str</parameter>パラメータをSQL識別子としてエスケープしたものを<function>malloc()</function>で割り当てたメモリ内に返します。
+その結果が不要になったら、そのメモリを<function>PQfreemem()</function>を使用して解放しなければなりません。
+ゼロバイト終端は必要なく、<parameter>length</parameter>に含めて数えてはいけません。
+(<parameter>length</parameter>バイトを処理する前にゼロバイト終端が見つかると、<xref linkend="libpq-PQescapeIdentifier"/>はそのゼロで終了します。
+この動作は<function>strncpy</function>と似ています。)
+返される文字列では、SQL識別子として適切に処理することができるように、すべての特殊文字は置換されます。
+ゼロバイト終端も追加されます。
+その結果文字列の前後には二重引用符が付与されます。
+     </para>
+
+     <para>
+<!--
+      On error, <xref linkend="libpq-PQescapeIdentifier"/> returns <symbol>NULL</symbol> and a suitable
+      message is stored in the <parameter>conn</parameter> object.
+-->
+エラー時、<xref linkend="libpq-PQescapeIdentifier"/>は<symbol>NULL</symbol>を返し、<parameter>conn</parameter>オブジェクト内に適切なメッセージを残します。
+     </para>
+
+     <tip>
+      <para>
+<!--
+       As with string literals, to prevent SQL injection attacks,
+       SQL identifiers must be escaped when they are received from an
+       untrustworthy source.
+-->
+文字列リテラルと同様、SQLインジェクション攻撃を防ぐために、信頼できない入力元から受けとる場合にはSQL識別子をエスケープしなければなりません。
+      </para>
+     </tip>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQescapeStringConn">
+     <term><function>PQescapeStringConn</function><indexterm><primary>PQescapeStringConn</primary></indexterm></term>
+
+     <listitem>
+     <para>
+<synopsis>
+size_t PQescapeStringConn(PGconn *conn,
+                          char *to, const char *from, size_t length,
+                          int *error);
+</synopsis>
+     </para>
+
+     <para>
+<!--
+      <xref linkend="libpq-PQescapeStringConn"/> escapes string literals, much like
+      <xref linkend="libpq-PQescapeLiteral"/>.  Unlike <xref linkend="libpq-PQescapeLiteral"/>,
+      the caller is responsible for providing an appropriately sized buffer.
+      Furthermore, <xref linkend="libpq-PQescapeStringConn"/> does not generate the
+      single quotes that must surround <productname>PostgreSQL</productname> string
+      literals; they should be provided in the SQL command that the
+      result is inserted into.  The parameter <parameter>from</parameter> points to
+      the first character of the string that is to be escaped, and the
+      <parameter>length</parameter> parameter gives the number of bytes in this
+      string.  A terminating zero byte is not required, and should not be
+      counted in <parameter>length</parameter>.  (If a terminating zero byte is found
+      before <parameter>length</parameter> bytes are processed,
+      <xref linkend="libpq-PQescapeStringConn"/> stops at the zero; the behavior is
+      thus rather like <function>strncpy</function>.) <parameter>to</parameter> shall point
+      to a buffer that is able to hold at least one more byte than twice
+      the value of <parameter>length</parameter>, otherwise the behavior is undefined.
+      Behavior is likewise undefined if the <parameter>to</parameter> and
+      <parameter>from</parameter> strings overlap.
+-->
+<xref linkend="libpq-PQescapeStringConn"/>は、<xref linkend="libpq-PQescapeLiteral"/>とほぼ同様に文字列リテラルをエスケープします。
+<xref linkend="libpq-PQescapeLiteral"/>とは異なり、呼び出し元が適切な大きさのバッファを提供することに責任を持ちます。
+さらに<xref linkend="libpq-PQescapeStringConn"/>は<productname>PostgreSQL</productname>の文字リテラルとして囲まれなければならない単一引用符を生成しません。
+これは、結果をSQLコマンドに挿入するときに付与しなければなりません。
+<parameter>from</parameter>パラメータはエスケープ対象の文字列の先頭を指すポインタです。
+<parameter>length</parameter>パラメータはこの文字列のバイト数を示します。
+ゼロバイト終端は必要なく、また、<parameter>length</parameter>ではこれを数えてはなりません。
+(もし<parameter>length</parameter>バイト処理する前にゼロバイト終端が存在すると、<xref linkend="libpq-PQescapeStringConn"/>はそのゼロで終了します。
+この動作は<function>strncpy</function>と同様です。)
+<parameter>to</parameter>は、最低でも<parameter>length</parameter>の2倍よりも1バイト多い文字を保持可能なバッファへのポインタにしなければなりません。
+さもないと、動作は不定になります。
+<parameter>to</parameter>と<parameter>from</parameter>文字領域が重なる場合の動作も不定です。
+     </para>
+
+     <para>
+<!--
+      If the <parameter>error</parameter> parameter is not <symbol>NULL</symbol>, then
+      <literal>*error</literal> is set to zero on success, nonzero on error.
+      Presently the only possible error conditions involve invalid multibyte
+      encoding in the source string.  The output string is still generated
+      on error, but it can be expected that the server will reject it as
+      malformed.  On error, a suitable message is stored in the
+      <parameter>conn</parameter> object, whether or not <parameter>error</parameter> is <symbol>NULL</symbol>.
+-->
+<parameter>error</parameter>パラメータが<symbol>NULL</symbol>でなければ、<literal>*error</literal>には成功の0か、エラーの0以外が設定されます。
+現時点であり得る唯一のエラー条件は、元文字列に無効なマルチバイト符号が含まれている場合です。
+出力文字列はエラーであっても生成されますが、サーバが不整合として却下することが想定できます。
+エラーの際、適切なメッセージは<parameter>error</parameter>が<symbol>NULL</symbol>かどうかにかかわらず<parameter>conn</parameter>オブジェクト内に格納されます。
+     </para>
+
+     <para>
+<!--
+      <xref linkend="libpq-PQescapeStringConn"/> returns the number of bytes written
+      to <parameter>to</parameter>, not including the terminating zero byte.
+-->
+<xref linkend="libpq-PQescapeStringConn"/>は<parameter>to</parameter>に書き出したバイト数を返します。
+ただし、文字数にはゼロバイト終端は含まれません。
+     </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQescapeString">
+     <term><function>PQescapeString</function><indexterm><primary>PQescapeString</primary></indexterm></term>
+
+     <listitem>
+     <para>
+<!--
+       <xref linkend="libpq-PQescapeString"/> is an older, deprecated version of
+       <xref linkend="libpq-PQescapeStringConn"/>.
+-->
+<xref linkend="libpq-PQescapeString"/>は<xref linkend="libpq-PQescapeStringConn"/>の推奨されない古いものです。
+<synopsis>
+size_t PQescapeString (char *to, const char *from, size_t length);
+</synopsis>
+     </para>
+
+     <para>
+<!--
+      The only difference from <xref linkend="libpq-PQescapeStringConn"/> is that
+      <xref linkend="libpq-PQescapeString"/> does not take <structname>PGconn</structname>
+      or <parameter>error</parameter> parameters.
+      Because of this, it cannot adjust its behavior depending on the
+      connection properties (such as character encoding) and therefore
+      <emphasis>it might give the wrong results</emphasis>.  Also, it has no way
+      to report error conditions.
+-->
+<xref linkend="libpq-PQescapeStringConn"/>との唯一の違いは、<xref linkend="libpq-PQescapeString"/>は<structname>PGconn</structname>や<parameter>error</parameter>パラメータを取らないことです。
+このため(文字符号化方式のような)接続属性に依存する振舞いを調整できません。
+その結果<emphasis>間違った結果を返す可能性があります</emphasis>。
+また、エラー状態を通知する機能がありません。
+     </para>
+
+     <para>
+<!--
+      <xref linkend="libpq-PQescapeString"/> can be used safely in
+      client programs that work with only one <productname>PostgreSQL</productname>
+      connection at a time (in this case it can find out what it needs to
+      know <quote>behind the scenes</quote>).  In other contexts it is a security
+      hazard and should be avoided in favor of
+      <xref linkend="libpq-PQescapeStringConn"/>.
+-->
+<xref linkend="libpq-PQescapeString"/>は、一度に1つの<productname>PostgreSQL</productname>接続のみで動作するクライアントプログラムでは安全に利用できます。
+(この場合知らなければならない<quote>裏側に隠された情報</quote>を知ることができるからです。)
+他の場合には、セキュリティ要因であり<xref linkend="libpq-PQescapeStringConn"/>を利用することで避けなければなりません。
+     </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQescapeByteaConn">
+     <term><function>PQescapeByteaConn</function><indexterm><primary>PQescapeByteaConn</primary></indexterm></term>
+
+     <listitem>
+     <para>
+<!--
+       Escapes binary data for use within an SQL command with the type
+       <type>bytea</type>.  As with <xref linkend="libpq-PQescapeStringConn"/>,
+       this is only used when inserting data directly into an SQL command string.
+-->
+<type>bytea</type>型としてSQLコマンド内で使用するバイナリデータをエスケープします。
+<xref linkend="libpq-PQescapeStringConn"/>と同様、これは、SQLコマンド文字列にデータを直接含める場合にのみに使用されます。
+<synopsis>
+unsigned char *PQescapeByteaConn(PGconn *conn,
+                                 const unsigned char *from,
+                                 size_t from_length,
+                                 size_t *to_length);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       Certain byte values must be escaped when used as part of a
+       <type>bytea</type> literal in an <acronym>SQL</acronym> statement.
+       <xref linkend="libpq-PQescapeByteaConn"/> escapes bytes using
+       either hex encoding or backslash escaping.  See <xref
+       linkend="datatype-binary"/> for more information.
+-->
+<acronym>SQL</acronym>文内の<type>bytea</type>リテラルの一部として使用する場合、特定のバイト値はエスケープされなければなりません。
+<xref linkend="libpq-PQescapeByteaConn"/>は16進数符号化またはバックスラッシュエスケープ処理を使用してバイトをエスケープします。
+詳しくは<xref linkend="datatype-binary"/>を参照してください。
+      </para>
+
+      <para>
+<!--
+       The <parameter>from</parameter> parameter points to the first
+       byte of the string that is to be escaped, and the
+       <parameter>from_length</parameter> parameter gives the number of
+       bytes in this binary string.  (A terminating zero byte is
+       neither necessary nor counted.)  The <parameter>to_length</parameter>
+       parameter points to a variable that will hold the resultant
+       escaped string length. This result string length includes the terminating
+       zero byte of the result.
+-->
+<parameter>from</parameter>パラメータはエスケープ対象の文字列の先頭バイトを指し示すポインタです。
+<parameter>from_length</parameter>パラメータは、このバイナリ列内のバイト数を指定します。
+(ゼロバイト終端は不要、かつ、数えられません。)
+<parameter>to_length</parameter>パラメータは結果となるエスケープされた文字列の長さを保持する変数へのポインタです。
+この結果文字列長は、結果内のゼロバイト終端を含みます。
+      </para>
+
+      <para>
+<!--
+       <xref linkend="libpq-PQescapeByteaConn"/> returns an escaped version of the
+       <parameter>from</parameter> parameter binary string in memory
+       allocated with <function>malloc()</function>.  This memory should be freed using
+       <function>PQfreemem()</function> when the result is no longer needed.  The
+       return string has all special characters replaced so that they can
+       be properly processed by the <productname>PostgreSQL</productname>
+       string literal parser, and the <type>bytea</type> input function. A
+       terminating zero byte is also added.  The single quotes that must
+       surround <productname>PostgreSQL</productname> string literals are
+       not part of the result string.
+-->
+<xref linkend="libpq-PQescapeByteaConn"/>は、<parameter>from</parameter>パラメータが示すバイナリ文字列をエスケープしたものを<function>malloc()</function>で確保したメモリ内に返します。
+その結果が不要になったら、このメモリを<function>PQfreemem()</function>を使用して解放しなければなりません。
+返される文字列では、<productname>PostgreSQL</productname>リテラル文字列パーサと<type>bytea</type>入力関数によって適切に処理できるように、すべての特殊な文字が置換されています。
+ゼロバイト終端も追加されます。
+<productname>PostgreSQL</productname>のリテラル文字列をくくる単一引用符は結果文字列には含まれません。
+      </para>
+
+      <para>
+<!--
+       On error, a null pointer is returned, and a suitable error message
+       is stored in the <parameter>conn</parameter> object.  Currently, the only
+       possible error is insufficient memory for the result string.
+-->
+エラー時、ヌルポインタを返し適切なエラーメッセージを<parameter>conn</parameter>オブジェクトに格納します。
+現在、唯一あり得るエラーは結果文字列のメモリ不足です。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQescapeBytea">
+     <term><function>PQescapeBytea</function><indexterm><primary>PQescapeBytea</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       <xref linkend="libpq-PQescapeBytea"/> is an older, deprecated version of
+       <xref linkend="libpq-PQescapeByteaConn"/>.
+-->
+<xref linkend="libpq-PQescapeBytea"/>は、<xref linkend="libpq-PQescapeByteaConn"/>の推奨されない古いものです。
+<synopsis>
+unsigned char *PQescapeBytea(const unsigned char *from,
+                             size_t from_length,
+                             size_t *to_length);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       The only difference from <xref linkend="libpq-PQescapeByteaConn"/> is that
+       <xref linkend="libpq-PQescapeBytea"/> does not take a <structname>PGconn</structname>
+       parameter.  Because of this, <xref linkend="libpq-PQescapeBytea"/> can
+       only be used safely in client programs that use a single
+       <productname>PostgreSQL</productname> connection at a time (in this case
+       it can find out what it needs to know <quote>behind the
+       scenes</quote>).  It <emphasis>might give the wrong results</emphasis> if
+       used in programs that use multiple database connections (use
+       <xref linkend="libpq-PQescapeByteaConn"/> in such cases).
+-->
+<xref linkend="libpq-PQescapeBytea"/>の<xref linkend="libpq-PQescapeByteaConn"/>との唯一の違いは、<structname>PGconn</structname>パラメータです。
+このため<xref linkend="libpq-PQescapeBytea"/>は、一度に１つの<productname>PostgreSQL</productname>接続を使用するクライアントプログラムのみで安全に利用することができます。
+(この場合知らなければならない<quote>裏側に隠された情報</quote>を知ることができるからです。)
+複数のデータベース接続を使用するプログラムでは<emphasis>間違った結果を返す可能性があります</emphasis>。
+（このような場合は<xref linkend="libpq-PQescapeByteaConn"/>を使用してください。）
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQunescapeBytea">
+     <term><function>PQunescapeBytea</function><indexterm><primary>PQunescapeBytea</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Converts a string representation of binary data into binary data
+       &mdash; the reverse of <xref linkend="libpq-PQescapeBytea"/>.  This
+       is needed when retrieving <type>bytea</type> data in text format,
+       but not when retrieving it in binary format.
+-->
+バイナリデータの文字列表現をバイナリデータに変換します。
+つまり、<xref linkend="libpq-PQescapeBytea"/>の逆です。
+これは、<type>bytea</type>データをテキスト書式で受けとった場合に必要とされます。
+しかし、バイナリ書式で受けとった場合は不要です。
+
+<synopsis>
+unsigned char *PQunescapeBytea(const unsigned char *from, size_t *to_length);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       The <parameter>from</parameter> parameter points to a string
+       such as might be returned by <xref linkend="libpq-PQgetvalue"/> when applied
+       to a <type>bytea</type> column. <xref linkend="libpq-PQunescapeBytea"/>
+       converts this string representation into its binary representation.
+       It returns a pointer to a buffer allocated with
+       <function>malloc()</function>, or <symbol>NULL</symbol> on error, and puts the size of
+       the buffer in <parameter>to_length</parameter>. The result must be
+       freed using <xref linkend="libpq-PQfreemem"/> when it is no longer needed.
+-->
+<parameter>from</parameter>パラメータは、例えば、<type>bytea</type>列に<xref linkend="libpq-PQgetvalue"/>を行なった場合に返される可能性がある、文字列を指し示すポインタです。
+<xref linkend="libpq-PQunescapeBytea"/>は、この文字列表現をバイナリ表現に変換します。
+<function>malloc()</function>で確保したバッファへのポインタを返します。
+エラー時は<symbol>NULL</symbol>です。
+また、このバッファのサイズを<parameter>to_length</parameter>に格納します。
+不要になったら、この結果を<xref linkend="libpq-PQfreemem"/>を使用して解放しなければなりません。
+      </para>
+
+      <para>
+<!--
+       This conversion is not exactly the inverse of
+       <xref linkend="libpq-PQescapeBytea"/>, because the string is not expected
+       to be <quote>escaped</quote> when received from <xref linkend="libpq-PQgetvalue"/>.
+       In particular this means there is no need for string quoting considerations,
+       and so no need for a <structname>PGconn</structname> parameter.
+-->
+この変換は、<xref linkend="libpq-PQescapeBytea"/>の逆ではありません。
+文字列は<xref linkend="libpq-PQgetvalue"/>から受け取る場合<quote>エスケープされた</quote>ことを予想しないためです。
+特にこれは、文字列の引用符付けを意識する必要がなく、そのため<structname>PGconn</structname>パラメータを持つ必要がないことを意味します。
+      </para>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+
+  </sect2>
+
+ </sect1>
+
+ <sect1 id="libpq-async">
+<!--
+  <title>Asynchronous Command Processing</title>
+-->
+<title>非同期コマンドの処理</title>
+
+  <indexterm zone="libpq-async">
+<!--
+   <primary>nonblocking connection</primary>
+-->
+  <primary>非ブロッキング接続</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The <xref linkend="libpq-PQexec"/> function is adequate for submitting
+   commands in normal, synchronous applications.  It has a few
+   deficiencies, however, that can be of importance to some users:
+-->
+<xref linkend="libpq-PQexec"/>関数は普通の同期処理のアプリケーションにおけるコマンドの送信に適したものです。
+しかし、一部のユーザにとって重要な問題となり得る、数個の問題があります。
+
+   <itemizedlist>
+    <listitem>
+     <para>
+<!--
+      <xref linkend="libpq-PQexec"/> waits for the command to be completed.
+      The application might have other work to do (such as maintaining a
+      user interface), in which case it won't want to block waiting for
+      the response.
+-->
+<xref linkend="libpq-PQexec"/> はコマンドが完了するまで待機します。
+アプリケーションによっては(例えばユーザインタフェースの調整処理など)他に行うべき作業があります。
+この場合は応答待ちでブロックさせたくはありません。
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+<!--
+      Since the execution of the client application is suspended while it
+      waits for the result, it is hard for the application to decide that
+      it would like to try to cancel the ongoing command.  (It can be done
+      from a signal handler, but not otherwise.)
+-->
+クライアントアプリケーションの実行が結果を待っている間停止されるため、アプリケーションで送信したコマンドをキャンセルさせる指示を行うことは困難です。
+(シグナルハンドラを使って達成することができますが、他の方法はありません。)
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+<!--
+      <xref linkend="libpq-PQexec"/> can return only one
+      <structname>PGresult</structname> structure.  If the submitted command
+      string contains multiple <acronym>SQL</acronym> commands, all but
+      the last <structname>PGresult</structname> are discarded by
+      <xref linkend="libpq-PQexec"/>.
+-->
+<xref linkend="libpq-PQexec"/>が返すことができる<structname>PGresult</structname>構造体は1つだけです。
+もし送信した問い合わせ文字列が複数の<acronym>SQL</acronym>コマンドを含んでいる場合、<xref linkend="libpq-PQexec"/>は最後のものだけを除いて、残りすべての<structname>PGresult</structname>を破棄してしまいます。
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+<!--
+      <xref linkend="libpq-PQexec"/> always collects the command's entire result,
+      buffering it in a single <structname>PGresult</structname>.  While
+      this simplifies error-handling logic for the application, it can be
+      impractical for results containing many rows.
+-->
+<xref linkend="libpq-PQexec"/>は常にコマンドの結果全体を収集し、１つの<structname>PGresult</structname>内に保管します。
+アプリケーションにおけるエラー処理を簡単にしますが、多くの行になる結果では非現実的になるかもしれません。
+     </para>
+    </listitem>
+   </itemizedlist>
+  </para>
+
+  <para>
+<!--
+   Applications that do not like these limitations can instead use the
+   underlying functions that <xref linkend="libpq-PQexec"/> is built from:
+   <xref linkend="libpq-PQsendQuery"/> and <xref linkend="libpq-PQgetResult"/>.
+   There are also
+   <xref linkend="libpq-PQsendQueryParams"/>,
+   <xref linkend="libpq-PQsendPrepare"/>,
+   <xref linkend="libpq-PQsendQueryPrepared"/>,
+   <xref linkend="libpq-PQsendDescribePrepared"/>, and
+   <xref linkend="libpq-PQsendDescribePortal"/>,
+   which can be used with <xref linkend="libpq-PQgetResult"/> to duplicate
+   the functionality of
+   <xref linkend="libpq-PQexecParams"/>,
+   <xref linkend="libpq-PQprepare"/>,
+   <xref linkend="libpq-PQexecPrepared"/>,
+   <xref linkend="libpq-PQdescribePrepared"/>, and
+   <xref linkend="libpq-PQdescribePortal"/>
+   respectively.
+-->
+アプリケーションにとってこのような制限が望ましくない場合は、代わりに<xref linkend="libpq-PQexec"/>を構成する関数<xref linkend="libpq-PQsendQuery"/>と<xref linkend="libpq-PQgetResult"/>を使用してください。
+また、<xref linkend="libpq-PQsendQueryParams"/>と<xref linkend="libpq-PQsendPrepare"/>、<xref linkend="libpq-PQsendQueryPrepared"/>、<xref linkend="libpq-PQsendDescribePrepared"/>、<xref linkend="libpq-PQsendDescribePortal"/>もあり、<xref linkend="libpq-PQgetResult"/>を使用して、それぞれ<xref linkend="libpq-PQexecParams"/>と<xref linkend="libpq-PQprepare"/>、<xref linkend="libpq-PQexecPrepared"/>、<xref linkend="libpq-PQdescribePrepared"/>、<xref linkend="libpq-PQdescribePortal"/>と同等の機能を行うことができます。
+
+   <variablelist>
+    <varlistentry id="libpq-PQsendQuery">
+     <term><function>PQsendQuery</function><indexterm><primary>PQsendQuery</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Submits a command to the server without waiting for the result(s).
+       1 is returned if the command was successfully dispatched and 0 if
+       not (in which case, use <xref linkend="libpq-PQerrorMessage"/> to get more
+       information about the failure).
+-->
+結果を待つことなく、サーバにコマンドを発行します。
+コマンドの登録に成功した場合1が、失敗した場合0が返されます。
+(後者の場合、<xref linkend="libpq-PQerrorMessage"/>を使用して失敗についてのより多くの情報を取り出してください。)
+<synopsis>
+int PQsendQuery(PGconn *conn, const char *command);
+</synopsis>
+
+<!--
+       After successfully calling <xref linkend="libpq-PQsendQuery"/>, call
+       <xref linkend="libpq-PQgetResult"/> one or more times to obtain the
+       results.  <xref linkend="libpq-PQsendQuery"/> cannot be called again
+       (on the same connection) until <xref linkend="libpq-PQgetResult"/>
+       has returned a null pointer, indicating that the command is done.
+-->
+<xref linkend="libpq-PQsendQuery"/>呼び出しが成功したら、<xref linkend="libpq-PQgetResult"/>を繰り返し呼び出して、実行結果を取得します。
+<xref linkend="libpq-PQgetResult"/>がヌルポインタを返し、コマンドが完了したことを示すまでは、(同じ接続で)<xref linkend="libpq-PQsendQuery"/>を再度呼び出すことはできません。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQsendQueryParams">
+     <term><function>PQsendQueryParams</function><indexterm><primary>PQsendQueryParams</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Submits a command and separate parameters to the server without
+       waiting for the result(s).
+-->
+結果を待つことなく、サーバにコマンドとパラメータとを分けて発行します。
+<synopsis>
+int PQsendQueryParams(PGconn *conn,
+                      const char *command,
+                      int nParams,
+                      const Oid *paramTypes,
+                      const char * const *paramValues,
+                      const int *paramLengths,
+                      const int *paramFormats,
+                      int resultFormat);
+</synopsis>
+
+<!--
+       This is equivalent to <xref linkend="libpq-PQsendQuery"/> except that
+       query parameters can be specified separately from the query string.
+       The function's parameters are handled identically to
+       <xref linkend="libpq-PQexecParams"/>.  Like
+       <xref linkend="libpq-PQexecParams"/>, it will not work on 2.0-protocol
+       connections, and it allows only one command in the query string.
+-->
+これは、問い合わせのパラメータが問い合わせ文字列と分けて指定できる点を除き、<function>PQsendQuery</function>と同じです。
+この関数のパラメータは<function>PQexecParams</function>と同様に扱われます。
+<function>PQexecParams</function>同様、これは2.0プロトコルでは動作しませんし、問い合わせ文字列には1つのコマンドしか指定できません。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQsendPrepare">
+     <term><function>PQsendPrepare</function><indexterm><primary>PQsendPrepare</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Sends a request to create a prepared statement with the given
+       parameters, without waiting for completion.
+-->
+指定パラメータを持つプリペアド文の作成要求を送信します。
+その完了を待ちません。
+<synopsis>
+int PQsendPrepare(PGconn *conn,
+                  const char *stmtName,
+                  const char *query,
+                  int nParams,
+                  const Oid *paramTypes);
+</synopsis>
+
+<!--
+       This is an asynchronous version of <xref linkend="libpq-PQprepare"/>: it
+       returns 1 if it was able to dispatch the request, and 0 if not.
+       After a successful call, call <xref linkend="libpq-PQgetResult"/> to
+       determine whether the server successfully created the prepared
+       statement.  The function's parameters are handled identically to
+       <xref linkend="libpq-PQprepare"/>.  Like
+       <xref linkend="libpq-PQprepare"/>, it will not work on 2.0-protocol
+       connections.
+-->
+これは<function>PQprepare</function>の非同期版です。
+要求の登録に成功した場合1が、失敗した場合0が返されます。
+呼び出しの成功の後、サーバがプリペアド文の生成に成功したかを確認するためには<function>PQgetResult</function>を呼び出してください。
+この関数のパラメータは<function>PQprepare</function>と同様に扱われます。
+<function>PQprepare</function>同様、これは2.0プロトコルの接続では動作しません。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQsendQueryPrepared">
+     <term><function>PQsendQueryPrepared</function><indexterm><primary>PQsendQueryPrepared</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Sends a request to execute a prepared statement with given
+       parameters, without waiting for the result(s).
+-->
+結果を待つことなく、指定したパラメータでプリペアド文の実行要求を送信します。
+<synopsis>
+int PQsendQueryPrepared(PGconn *conn,
+                        const char *stmtName,
+                        int nParams,
+                        const char * const *paramValues,
+                        const int *paramLengths,
+                        const int *paramFormats,
+                        int resultFormat);
+</synopsis>
+
+<!--
+       This is similar to <xref linkend="libpq-PQsendQueryParams"/>, but
+       the command to be executed is specified by naming a
+       previously-prepared statement, instead of giving a query string.
+       The function's parameters are handled identically to
+       <xref linkend="libpq-PQexecPrepared"/>.  Like
+       <xref linkend="libpq-PQexecPrepared"/>, it will not work on
+       2.0-protocol connections.
+-->
+これは<function>PQsendQueryParams</function>と似ていますが、実行されるコマンドは問い合わせ文字列ではなく、事前に準備された文の名前で指定されます。
+この関数のパラメータは<function>PQexecPrepared</function>と同様に扱われます。
+<function>PQexecPrepared</function>同様、これは2.0プロトコルでは動作しません。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQsendDescribePrepared">
+     <term><function>PQsendDescribePrepared</function><indexterm><primary>PQsendDescribePrepared</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Submits a request to obtain information about the specified
+       prepared statement, without waiting for completion.
+-->
+指定したプリペアド文に関する情報入手要求を送ります。
+入手完了まで待機しません。
+<synopsis>
+int PQsendDescribePrepared(PGconn *conn, const char *stmtName);
+</synopsis>
+
+<!--
+       This is an asynchronous version of <xref linkend="libpq-PQdescribePrepared"/>:
+       it returns 1 if it was able to dispatch the request, and 0 if not.
+       After a successful call, call <xref linkend="libpq-PQgetResult"/> to
+       obtain the results.  The function's parameters are handled
+       identically to <xref linkend="libpq-PQdescribePrepared"/>.  Like
+       <xref linkend="libpq-PQdescribePrepared"/>, it will not work on
+       2.0-protocol connections.
+-->
+これは<function>PQdescribePrepared</function>の非同期版です。
+要求の受付けが可能であれば1が返されます。不可能であれば0が返されます。
+呼び出しに成功した後、<function>PQgetResult</function>を呼び出して結果を入手してください。
+この関数のパラメータは<function>PQdescribePrepared</function>と同じように扱われます。
+<function>PQdescribePrepared</function>同様、2.0プロトコル接続では動作しません。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQsendDescribePortal">
+     <term><function>PQsendDescribePortal</function><indexterm><primary>PQsendDescribePortal</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Submits a request to obtain information about the specified
+       portal, without waiting for completion.
+-->
+指定したポータルに関する情報入手要求を送信します。
+完了まで待機しません。
+<synopsis>
+int PQsendDescribePortal(PGconn *conn, const char *portalName);
+</synopsis>
+
+<!--
+       This is an asynchronous version of <xref linkend="libpq-PQdescribePortal"/>:
+       it returns 1 if it was able to dispatch the request, and 0 if not.
+       After a successful call, call <xref linkend="libpq-PQgetResult"/> to
+       obtain the results.  The function's parameters are handled
+       identically to <xref linkend="libpq-PQdescribePortal"/>.  Like
+       <xref linkend="libpq-PQdescribePortal"/>, it will not work on
+       2.0-protocol connections.
+-->
+これは<function>PQdescribePortal</function>の非同期版です。
+要求の受付けが可能であれば1が返されます。不可能であれば0が返されます。
+呼び出しに成功した後、<function>PQgetResult</function>を呼び出して結果を入手してください。
+この関数のパラメータは<function>PQdescribePortal</function>と同じように扱われます。
+<function>PQdescribePortal</function>同様、2.0プロトコル接続では動作しません。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQgetResult">
+     <term><function>PQgetResult</function><indexterm><primary>PQgetResult</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Waits for the next result from a prior
+       <xref linkend="libpq-PQsendQuery"/>,
+       <xref linkend="libpq-PQsendQueryParams"/>,
+       <xref linkend="libpq-PQsendPrepare"/>,
+       <xref linkend="libpq-PQsendQueryPrepared"/>,
+       <xref linkend="libpq-PQsendDescribePrepared"/>, or
+       <xref linkend="libpq-PQsendDescribePortal"/>
+       call, and returns it.
+       A null pointer is returned when the command is complete and there
+       will be no more results.
+-->
+以前に呼び出した<xref linkend="libpq-PQsendQuery"/>、<xref linkend="libpq-PQsendQueryParams"/>、<xref linkend="libpq-PQsendPrepare"/>、<xref linkend="libpq-PQsendQueryPrepared"/>、<xref linkend="libpq-PQsendDescribePrepared"/>、<xref linkend="libpq-PQsendDescribePortal"/>から次の結果を待ち、その結果を返します。
+コマンドが完了し、これ以上結果がない場合は、ヌルポインタが返されます。
+<synopsis>
+PGresult *PQgetResult(PGconn *conn);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       <xref linkend="libpq-PQgetResult"/> must be called repeatedly until
+       it returns a null pointer, indicating that the command is done.
+       (If called when no command is active,
+       <xref linkend="libpq-PQgetResult"/> will just return a null pointer
+       at once.) Each non-null result from
+       <xref linkend="libpq-PQgetResult"/> should be processed using the
+       same <structname>PGresult</structname> accessor functions previously
+       described.  Don't forget to free each result object with
+       <xref linkend="libpq-PQclear"/> when done with it.  Note that
+       <xref linkend="libpq-PQgetResult"/> will block only if a command is
+       active and the necessary response data has not yet been read by
+       <xref linkend="libpq-PQconsumeInput"/>.
+-->
+<xref linkend="libpq-PQgetResult"/>は、コマンドの完了を示すヌルポインタが返るまで、繰り返し呼び出さなければなりません。
+(コマンド実行中以外での呼び出しでは、<xref linkend="libpq-PQgetResult"/>は単にヌルポインタを返します。)
+<xref linkend="libpq-PQgetResult"/>の非ヌルの結果はそれぞれ前述と同じ<structname>PGresult</structname>アクセス用関数を使用して処理されなければなりません。
+各結果オブジェクトに対する処理が終わったら、そのオブジェクトを<xref linkend="libpq-PQclear"/>を使用して解放することを忘れないでください。
+コマンドが活動中、かつ、必要な応答データがまだ<xref linkend="libpq-PQconsumeInput"/>で読み込まれていない場合にのみ、<xref linkend="libpq-PQgetResult"/>がブロックすることに注意してください。
+      </para>
+
+      <note>
+       <para>
+<!--
+        Even when <xref linkend="libpq-PQresultStatus"/> indicates a fatal
+        error, <xref linkend="libpq-PQgetResult"/> should be called until it
+        returns a null pointer, to allow <application>libpq</application> to
+        process the error information completely.
+-->
+<xref linkend="libpq-PQresultStatus"/>が致命的なエラーを示した場合であっても、<application>libpq</application>がエラー情報を完全に処理できるようにヌルポインタが返されるまで<xref linkend="libpq-PQgetResult"/>を呼び出さなければなりません。
+       </para>
+      </note>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+  </para>
+
+  <para>
+<!--
+   Using <xref linkend="libpq-PQsendQuery"/> and
+   <xref linkend="libpq-PQgetResult"/> solves one of
+   <xref linkend="libpq-PQexec"/>'s problems:  If a command string contains
+   multiple <acronym>SQL</acronym> commands, the results of those commands
+   can be obtained individually.  (This allows a simple form of overlapped
+   processing, by the way: the client can be handling the results of one
+   command while the server is still working on later queries in the same
+   command string.)
+-->
+<xref linkend="libpq-PQsendQuery"/>と<xref linkend="libpq-PQgetResult"/>を使うことで<xref linkend="libpq-PQexec"/>の問題は1つ解決します。
+つまり、コマンドが複数の<acronym>SQL</acronym>コマンドを含んでいる場合でも、これらのコマンドの結果を個々に得ることができるわけです
+（これは多重処理を単純な形で実現します。
+単一のコマンド文字列に含まれる複数の問い合わせの内、後ろのものが処理中でもフロントエンドは先に完了した結果から扱うことができるからです）。
+  </para>
+
+  <para>
+<!--
+   Another frequently-desired feature that can be obtained with
+   <xref linkend="libpq-PQsendQuery"/> and <xref linkend="libpq-PQgetResult"/>
+   is retrieving large query results a row at a time.  This is discussed
+   in <xref linkend="libpq-single-row-mode"/>.
+-->
+<xref linkend="libpq-PQsendQuery"/>および<xref linkend="libpq-PQgetResult"/>で得られる、その他のよく望まれる機能は多くの問い合わせ結果を一度に1行受け取ることです。
+これについては<xref linkend="libpq-single-row-mode"/>で説明します。
+  </para>
+
+  <para>
+<!--
+   By itself, calling <xref linkend="libpq-PQgetResult"/>
+   will still cause the client to block until the server completes the
+   next <acronym>SQL</acronym> command.  This can be avoided by proper
+   use of two more functions:
+-->
+サーバが次の<acronym>SQL</acronym>コマンドの処理に入ると、それが完了するまでやはり<xref linkend="libpq-PQgetResult"/>の呼び出しがフロントエンドをブロックしてしまいます。
+さらに以下の2つの関数をうまく使用してこれを防ぐことができます。
+
+   <variablelist>
+    <varlistentry id="libpq-PQconsumeInput">
+     <term><function>PQconsumeInput</function><indexterm><primary>PQconsumeInput</primary></indexterm>
+     </term>
+
+     <listitem>
+      <para>
+<!--
+       If input is available from the server, consume it.
+-->
+サーバからの入力が可能になった場合、それを吸い取ります。
+<synopsis>
+int PQconsumeInput(PGconn *conn);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       <xref linkend="libpq-PQconsumeInput"/> normally returns 1 indicating
+       <quote>no error</quote>, but returns 0 if there was some kind of
+       trouble (in which case <xref linkend="libpq-PQerrorMessage"/> can be
+       consulted).  Note that the result does not say whether any input
+       data was actually collected. After calling
+       <xref linkend="libpq-PQconsumeInput"/>, the application can check
+       <xref linkend="libpq-PQisBusy"/> and/or
+       <function>PQnotifies</function> to see if their state has changed.
+-->
+<xref linkend="libpq-PQconsumeInput"/>は通常、<quote>エラーなし</quote>を示す1を返しますが、何らかの障害があると0を返します（この場合は、<xref linkend="libpq-PQerrorMessage"/>を参考にしてください）。
+この結果は、何らかの入力データが実際に収集されたかどうかを示しているのではないことに注意してください。
+<xref linkend="libpq-PQconsumeInput"/>の呼び出し後、アプリケーションは<xref linkend="libpq-PQisBusy"/>、または必要があれば<function>PQnotifies</function>を呼び出して状態に変化がないか調べることができます。
+      </para>
+
+      <para>
+<!--
+       <xref linkend="libpq-PQconsumeInput"/> can be called even if the
+       application is not prepared to deal with a result or notification
+       just yet.  The function will read available data and save it in
+       a buffer, thereby causing a <function>select()</function>
+       read-ready indication to go away.  The application can thus use
+       <xref linkend="libpq-PQconsumeInput"/> to clear the
+       <function>select()</function> condition immediately, and then
+       examine the results at leisure.
+-->
+<xref linkend="libpq-PQconsumeInput"/>は、結果や通知を扱うようにまだ準備していないアプリケーションからでも呼び出すことができます。
+この関数は有効なデータを読み込んでバッファに保存し、結果として<function>select</function>による読み込み準備完了の通知をリセットします。
+従ってアプリケーションは<xref linkend="libpq-PQconsumeInput"/>を使うと<function>select()</function>の検査条件をただちに満たすことができますから、あとはゆっくりと結果を調べてやればいいわけです。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQisBusy">
+     <term><function>PQisBusy</function><indexterm><primary>PQisBusy</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns 1 if a command is busy, that is,
+       <xref linkend="libpq-PQgetResult"/> would block waiting for input.
+       A 0 return indicates that <xref linkend="libpq-PQgetResult"/> can be
+       called with assurance of not blocking.
+-->
+この関数が1を返したのであれば、問い合わせは処理の最中で、<xref linkend="libpq-PQgetResult"/>も入力を待ったままブロック状態になってしまうでしょう。
+0が返ったのであれば、<xref linkend="libpq-PQgetResult"/>を呼び出してもブロックされないことが保証されます。
+<synopsis>
+int PQisBusy(PGconn *conn);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       <xref linkend="libpq-PQisBusy"/> will not itself attempt to read data
+       from the server; therefore <xref linkend="libpq-PQconsumeInput"/>
+       must be invoked first, or the busy state will never end.
+-->
+<xref linkend="libpq-PQisBusy"/>自身はサーバからデータを読み込む操作をしません。
+ですから、まず最初に<xref linkend="libpq-PQconsumeInput"/>を呼び出す必要があります。
+そうしないとビジー状態がいつまでも続きます。
+      </para>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+  </para>
+
+  <para>
+<!--
+   A typical application using these functions will have a main loop that
+   uses <function>select()</function> or <function>poll()</function> to wait for
+   all the conditions that it must respond to.  One of the conditions
+   will be input available from the server, which in terms of
+   <function>select()</function> means readable data on the file
+   descriptor identified by <xref linkend="libpq-PQsocket"/>.  When the main
+   loop detects input ready, it should call
+   <xref linkend="libpq-PQconsumeInput"/> to read the input.  It can then
+   call <xref linkend="libpq-PQisBusy"/>, followed by
+   <xref linkend="libpq-PQgetResult"/> if <xref linkend="libpq-PQisBusy"/>
+   returns false (0).  It can also call <function>PQnotifies</function>
+   to detect <command>NOTIFY</command> messages (see <xref
+   linkend="libpq-notify"/>).
+-->
+これら3関数を使用するアプリケーションは通常、<function>select()</function>もしくは<function>poll()</function>を使用するメインループを持ち、対応しなければならないすべての状態を待機しています。
+その内の1つの条件は、サーバからの利用可能な入力となるでしょう。
+これは、<function>select()</function>の見地からは、<xref linkend="libpq-PQsocket"/>で識別されるファイル記述子上で読み込み可能なデータがあることを意味します。
+メインループが入力準備完了を検出すると、その入力を読み込むために<xref linkend="libpq-PQconsumeInput"/>を呼び出さなければなりません。
+そして、<xref linkend="libpq-PQisBusy"/>を、更に<xref linkend="libpq-PQisBusy"/>が偽(0)を返す場合に<xref linkend="libpq-PQgetResult"/>も呼び出すことができます。
+また、<function>PQnotifies</function>を呼び出して、<command>NOTIFY</command>メッセージ( <xref linkend="libpq-notify"/>を参照)を検出することもできます。
+  </para>
+
+  <para>
+<!--
+   A client that uses
+   <xref linkend="libpq-PQsendQuery"/>/<xref linkend="libpq-PQgetResult"/>
+   can also attempt to cancel a command that is still being processed
+   by the server; see <xref linkend="libpq-cancel"/>.  But regardless of
+   the return value of <xref linkend="libpq-PQcancel"/>, the application
+   must continue with the normal result-reading sequence using
+   <xref linkend="libpq-PQgetResult"/>.  A successful cancellation will
+   simply cause the command to terminate sooner than it would have
+   otherwise.
+-->
+また、<xref linkend="libpq-PQsendQuery"/>/<xref linkend="libpq-PQgetResult"/>を使用するクライアントは、サーバで処理中のコマンドに対してキャンセルを試行することができます。
+<xref linkend="libpq-cancel"/>を参照してください。
+しかし、<xref linkend="libpq-PQcancel"/>の戻り値と関係なく、アプリケーションは<xref linkend="libpq-PQgetResult"/>を使用した通常の結果読み取り手順を続けなければなりません。
+キャンセル手続きの成功は単に、そのコマンドを通常よりも早めに終わらせるだけです。
+  </para>
+
+  <para>
+<!--
+   By using the functions described above, it is possible to avoid
+   blocking while waiting for input from the database server.  However,
+   it is still possible that the application will block waiting to send
+   output to the server.  This is relatively uncommon but can happen if
+   very long SQL commands or data values are sent.  (It is much more
+   probable if the application sends data via <command>COPY IN</command>,
+   however.)  To prevent this possibility and achieve completely
+   nonblocking database operation, the following additional functions
+   can be used.
+-->
+上述の関数を使用して、データベースサーバからの入力待ちのためのブロックを行わずに済みます。
+しかしまだ、サーバへの出力送信を待つためにアプリケーションはブロックする可能性があります。
+これは比較的あまり発生しませんが、非常に長いSQLコマンドやデータ値が送信される場合に発生することがあります。
+(しかし、アプリケーションが<command>COPY IN</command>経由でデータを送信する場合よく発生します。)
+この発生を防ぎ、完全な非ブロックのデータベース操作を行うためには、さらに以下の関数を使用してください。
+
+   <variablelist>
+    <varlistentry id="libpq-PQsetnonblocking">
+     <term><function>PQsetnonblocking</function><indexterm><primary>PQsetnonblocking</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Sets the nonblocking status of the connection.
+-->
+接続の非ブロック状態を設定します。
+<synopsis>
+int PQsetnonblocking(PGconn *conn, int arg);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       Sets the state of the connection to nonblocking if
+       <parameter>arg</parameter> is 1, or blocking if
+       <parameter>arg</parameter> is 0.  Returns 0 if OK, -1 if error.
+-->
+<parameter>arg</parameter>が1の場合、接続状態を非ブロックに設定します。
+<parameter>arg</parameter>が0の場合はブロックに設定します。
+問題がなければ0が、エラー時は-1が返ります。
+      </para>
+
+      <para>
+<!--
+       In the nonblocking state, calls to
+       <xref linkend="libpq-PQsendQuery"/>, <xref linkend="libpq-PQputline"/>,
+       <xref linkend="libpq-PQputnbytes"/>, <xref linkend="libpq-PQputCopyData"/>,
+       and <xref linkend="libpq-PQendcopy"/> will not block but instead return
+       an error if they need to be called again.
+-->
+非ブロック状態では<xref linkend="libpq-PQsendQuery"/>、<xref linkend="libpq-PQputline"/>、<xref linkend="libpq-PQputnbytes"/>、<xref linkend="libpq-PQputCopyData"/>および<xref linkend="libpq-PQendcopy"/>の呼び出しはブロックされませんが、再度呼び出さなければならない場合、エラーが返ります。
+      </para>
+
+      <para>
+<!--
+       Note that <xref linkend="libpq-PQexec"/> does not honor nonblocking
+       mode; if it is called, it will act in blocking fashion anyway.
+-->
+<xref linkend="libpq-PQexec"/>は非ブロックモードにはしたがわないことに注意してください。
+この関数の呼び出しは、必ずブロック方式で動作します。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQisnonblocking">
+     <term><function>PQisnonblocking</function><indexterm><primary>PQisnonblocking</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns the blocking status of the database connection.
+-->
+データベース接続のブロック状態を返します。
+<synopsis>
+int PQisnonblocking(const PGconn *conn);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       Returns 1 if the connection is set to nonblocking mode and 0 if
+       blocking.
+-->
+接続が非ブロック状態の場合は1が、ブロック状態の場合は0が返ります。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQflush">
+     <term><function>PQflush</function><indexterm><primary>PQflush</primary></indexterm></term>
+
+      <listitem>
+       <para>
+<!--
+       Attempts to flush any queued output data to the server.  Returns
+       0 if successful (or if the send queue is empty), -1 if it failed
+       for some reason, or 1 if it was unable to send all the data in
+       the send queue yet (this case can only occur if the connection
+       is nonblocking).
+-->
+キューに蓄えられたサーバへの出力データの吐き出しを行います。
+成功時(および送信キューが空の場合)は0が返ります。
+何らかの原因で失敗した場合は-1が、送信キュー内のデータをすべて送信できなかった場合は1が返ります。
+(これは接続が非ブロックの場合にのみ発生します。)
+<synopsis>
+int PQflush(PGconn *conn);
+</synopsis>
+      </para>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+  </para>
+
+  <para>
+<!--
+   After sending any command or data on a nonblocking connection, call
+   <xref linkend="libpq-PQflush"/>.  If it returns 1, wait for the socket
+   to become read- or write-ready.  If it becomes write-ready, call
+   <xref linkend="libpq-PQflush"/> again.  If it becomes read-ready, call
+   <xref linkend="libpq-PQconsumeInput"/>, then call
+   <xref linkend="libpq-PQflush"/> again.  Repeat until
+   <xref linkend="libpq-PQflush"/> returns 0.  (It is necessary to check for
+   read-ready and drain the input with <xref linkend="libpq-PQconsumeInput"/>,
+   because the server can block trying to send us data, e.g., NOTICE
+   messages, and won't read our data until we read its.)  Once
+   <xref linkend="libpq-PQflush"/> returns 0, wait for the socket to be
+   read-ready and then read the response as described above.
+-->
+非ブロック接続時にはコマンドやデータを送信した後に、<xref linkend="libpq-PQflush"/>を呼び出してください。
+1が返った場合、ソケットの読み込みまたは書き込み準備ができるまで待ってください。
+書き込み準備ができたら、<xref linkend="libpq-PQflush"/>を再度呼び出してください。
+読み込み準備ができたら、<xref linkend="libpq-PQconsumeInput"/>を呼び出してから、<xref linkend="libpq-PQflush"/>を再度呼び出してください。
+これを<xref linkend="libpq-PQflush"/>が0を返すまで繰り返してください。
+(例えばNOTICEメッセージのように、こちらがそのデータを読むまで、サーバがデータを送ろうとするのを妨げ、こちらのデータを読もうとしないことがありますので、読み込み準備ができたことを確認して<xref linkend="libpq-PQconsumeInput"/>で入力をすべて抜き取ることが必要です。)
+<xref linkend="libpq-PQflush"/>が0を返した後は、ソケットの読み込み準備が整うまで待ち、上述のように応答を読み取ってください。
+  </para>
+
+ </sect1>
+
+<!-- split-libpq1-end -->
